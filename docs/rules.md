@@ -3131,7 +3131,11 @@ Frontend and CLI:
   filter, a sheet or a page keeps it, and `#select-count` says "N selected ·
   M not shown" for the ids no live card shows. `forgetImages` takes deleted
   ids out of it (`forgetSelected`) and `tombstone` drops `.selected`; nothing
-  else removes an id unasked. Select (`#btn-select`, `aria-pressed`, the
+  else removes an id unasked. The recycle bin sets it aside while it is shown
+  (`stashSelection` in `enterBin`, `unstashSelection` in `leaveBin`), the
+  bin's own picks in its place; `forgetSelected` drops ids from the set-aside
+  picks too, except the bin's cards leaving its view on a Restore
+  (`dropFromBinView`, `stashed: false`). Select (`#btn-select`, `aria-pressed`, the
   footer row beside Bundles…, styled as it is so the line keeps its height)
   turns a card image's press into a pick through `cardPress`, which `card()`
   hands `thumb` as `open`: click or Space toggles, Shift+click or
@@ -3216,12 +3220,18 @@ Frontend and CLI:
   answer's `total` (`swapSayScope`); Queue is aria-disabled
   with "Add a tag to find", "Checking the swaps…" (the answer is not to the
   payload typed now), the server's refusal, "The checkpoint changed…" or
-  "No image would change", a press saying it in `#swap-error`, and sends
+  "No image would change"; a press (Queue, Enter in a box, Ctrl+Enter)
+  first waits for the check of what the rows say, as More seeds' and Mass
+  refine's do (`queueSwap`), then says a hold in `#swap-error`, and sends
   the answer's `ids` as `expected`; accepted, the dialog closes, refused,
   the old answer is dropped and it checks again, the server's reason kept in
   `#swap-error` (`swapRefused`) until the next edit (`swapEdited`) or
   press - a check that frees Queue does not clear it. Its marks are the
-  server's `spans`; the rows box and the results list have fixed heights
+  server's `spans`, and under a changed text "Took out: …" lists the
+  server's `removed` (`tag_swap.Outcome.removed`: every item dropped or
+  written over and every phrase replaced, as the original wrote it, in its
+  order) struck through (`swapTookOut`), since a removal leaves nothing to
+  mark; the rows box and the results list have fixed heights
   and scroll inside the dialog, the count line keeps two lines and
   `#swap-error` one, so neither a row added nor a check moves anything
   below them. A removed row keeps its slot hidden (`.gone`, left out by
@@ -3363,7 +3373,12 @@ Frontend and CLI:
   `galleryActionTarget`'s reason; synced from `syncRerender` and
   `onSelectionChange` (`syncMoreSeedsButton`), a held press said in
   `#gallery-error`. The dialog opens on the first answer, the count at the
-  last one queued (`MORE_SEEDS_KEY`) else 4, focused and selected; it is a
+  last one queued (`MORE_SEEDS_KEY`) else 4, focused and selected; a first
+  check that fails is said in `#gallery-error` and opens nothing, except the
+  422 by count ("N batches × C is…", which only the count box can lower):
+  that opens the dialog with nothing listed, the refusal in the count line
+  and `#more-seeds-error`, the box `aria-invalid` and Queue held with it
+  (`msProblem`), until an edit is checked; it is a
   text box, refused on the page unless a whole number 1 to `sheetPage`
   (`msCountProblem`), ↑/↓ stepping it by one. Checks run 250 ms after an
   edit (at once from `forgetImages` when a listed id went:
@@ -3712,7 +3727,9 @@ Frontend and CLI:
   delete from disk". Its text stays short so the row does not wrap from
   600 px up; at 520 px and under (a phone) the footer wraps
   (`flex-wrap`, bundles.css) rather than run the page past the screen.
-  `enterBin()` sets `binMode`, clears the selection and `resetGallery()`s;
+  `enterBin()` sets `binMode`, sets the gallery's selection aside
+  (`stashSelection`; `leaveBin()` puts it back, less what was binned or
+  deleted meanwhile, and drops the bin's picks) and `resetGallery()`s;
   `loadGallery` then asks `/api/gallery/bin` (`galleryEndpoint()`), every
   checkpoint's binned images newest id first under the search box (Starred
   does not apply), the head reads "Recycle bin" (`#gallery-title`) with its
@@ -3728,7 +3745,10 @@ Frontend and CLI:
   picked. A bin card's tools are ↶ Restore (`.restore`) and ⌦ Delete
   permanently (`.del`, confirmed, last); its picture opens the lightbox; no
   ⤢ (Refine everywhere else), star, ❐, Reuse or ⊞. Restore
-  tombstones the card "Restored · #N" (out of the bin's records, not into
+  says "Restored #N." (its other clauses "… were not in the recycle bin."
+  and "… already deleted.", each naming up to six ids and counting past
+  that, as `noteBinned` does) and tombstones the card "Restored · #N" (out
+  of the bin's records, not into
   `deletedIds`); Delete permanently (`DELETE /api/images/{id}`) tombstones
   it "Deleted · #N" through `forgetImages`. In the lightbox `#lb-delete`
   reads "⌦ Delete permanently" (title "Delete permanently (Del)"),
@@ -4955,7 +4975,8 @@ and saying it, titled by a search and then by picked cards, not moving as
 cards are picked; the dialog's scope line, focus, both fields, Queue held
 ("Add a tag to find", "Checking the swaps…" while typing) and saying it;
 the server's statuses, counts and marks (a weight and underscores kept, the
-missing cells' text unmarked), Queue and Cancel unmoved; a second row's
+missing cells' text unmarked, what each queued image's swap took out
+struck through as written), Queue and Cancel unmoved; a second row's
 duplicate find refused in the count line; rows added moving neither + Add
 row nor Queue, four scrolling in the rows box; two clicks on one row's ×
 removing that row only, its slot kept until the pointer leaves; an image
@@ -4968,7 +4989,9 @@ variables; the same swap again all already rendered, held with "No image
 would change"; the negative prompt field; + Add row held at sixteen rows;
 Escape; the page never scrolled; then a search for one image, and a second
 matching image landing while the dialog is open, checked again on its own
-with Queue and the scope line saying two:
+with Queue and the scope line saying two; and Enter pressed straight after
+typing a row, before its check, queueing it without ever saying "Checking
+the swaps…":
 
 ```powershell
 uv run python tools/fake_server.py --port 7900 --model cagliostrolab/animagine-xl-4.0 --data <new-scratch-directory>
@@ -5026,7 +5049,10 @@ extend, each recording its call's Batch (2, 2, then 1); the four's hover
 one set of seven, seeds 100–106; asked again from an image of the
 extension, the seven carried on at Batch 2 (seeds 107–109); the single
 image deleted while listed shown as deleted, the count line and Queue
-saying what is left; Escape closing it with focus on More seeds…:
+saying what is left; Escape closing it with focus on More seeds…; a
+remembered count of 600 over two picked batches opening the dialog on the
+server's refusal by count, said in the count line and `#more-seeds-error`
+with the box marked and Queue held, and a count of 2 freeing it:
 
 ```powershell
 uv run python tools/fake_server.py --port 7902 --model black-forest-labs/FLUX.1-Krea-dev --data <new-scratch-directory>
@@ -5046,11 +5072,16 @@ confirm, and Empty recycle bin with the count, its "Empty bin" label, the
 danger colour, Cancel, a 409 when the bin changed and the empty state
 "The recycle bin is empty."; leaving the bin by a second press of Bin, by
 a search from an image (`showGallerySearch`) and by a run opened as a sheet
-(`showRun`); the bundles dialog's preview line counting the bin; a Delete
+(`showRun`); three gallery picks set aside while the bin is shown (its own
+pick in their place) and back on leaving it, less one of them binned
+meanwhile, the bin's pick not brought along; the bundles dialog's preview
+line counting the bin; a Delete
 and its Restore in a lightbox walking the viewer's strip keeping the image
 in view; and a viewer tile's "In the recycle bin" tombstone becoming
 "Deleted · #N" once the bin is emptied, from another tab (a Restore then
-answering "already deleted") and from the page. Re-run
+answering "already deleted") and from the page; Restore picked over more
+than six images saying "Restored N images." and a Restore of seven no longer
+in the bin "7 images were not in the recycle bin.". Re-run
 `smoke-select.json` at 600 and 1400 px wide after a footer change, so the
 row with Bin does not wrap:
 

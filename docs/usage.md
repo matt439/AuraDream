@@ -332,7 +332,8 @@ negative prompt. Case, spacing, underscores and a weight wrapping the
 whole tag do not matter, and the replacement keeps the tag's underscores
 and weight. Inside a prose prompt a single tag also matches as a phrase.
 An image has to have every tag of every row; the dialog lists, per image,
-what it would run (the swap marked) or why it is left out - a missing tag,
+what it would run (the swap marked, and what it takes out struck through
+under it) or why it is left out - a missing tag,
 already rendered, a deleted source or LoRA, the same as another image.
 Each image keeps its own seed, size and settings; one job is queued per
 size.
@@ -354,7 +355,9 @@ selection holds - or, with nothing selected, of each batch the filter
 matches. A batch is what hovering a card shows: the images of one run that
 differ only in their seed, so picking one image of a Batch 4 takes all
 four, and picking two of them still asks for one set more. Type how many
-more each batch gets (4 to start, then the number last queued). Each new
+more each batch gets (4 to start, then the number last queued); where that
+number times the batches is more than one press may queue (1024), the
+dialog opens saying so, for a smaller number. Each new
 image keeps the batch's prompt, size and settings, takes the next seed
 after the batch's highest - stepping over any seed already made or still
 queued at those settings - and runs at the Batch the batch was made with;
@@ -502,7 +505,8 @@ binned it does not protect the images it was made from.
 how many images the bin holds and opens it: every checkpoint's binned
 images, newest first, narrowed by the search box. Each card offers
 **Restore** and **Delete permanently**, which asks first; **Restore picked**
-restores the cards picked with **Select**. **Empty recycle bin** deletes
+restores the cards picked with **Select** in the bin; cards picked in the
+gallery are kept aside and picked again when you leave it. **Empty recycle bin** deletes
 every image in the bin from disk, whatever the search shows, after a
 confirmation that gives the count and size and says which of them a live
 image was made from (those can no longer be made again). Actions that work

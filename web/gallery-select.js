@@ -14,7 +14,8 @@
 // selection outlives the cards. A new search, a filter, a sheet or a page
 // paged in keeps it, and the count says how many of it this view does not
 // show; only forgetImages, the one place the page drops deleted ids, takes
-// ids out of it unasked (forgetSelected).
+// ids out of it unasked (forgetSelected). The recycle bin sets it aside while
+// it is shown and puts it back after (stashSelection, unstashSelection).
 //
 // What other features read:
 //   selectedIds()          the ids in the order they were picked (a copy)
@@ -46,6 +47,30 @@ function clearSelection() {
   selectAnchor = null;
   if (!selection.size) return;
   selection.clear();
+  syncSelection();
+}
+
+// The gallery's picks while the recycle bin is shown (bin.js), which picks
+// its own for Restore picked: set aside on the way in and back on the way
+// out - a look into the bin for one keeper is no request to throw away
+// forty picks. forgetSelected keeps it as it keeps the selection, so an id
+// binned or deleted meanwhile does not come back.
+let stashedSelection = null;
+
+function stashSelection() {
+  stashedSelection = { picks: new Map(selection), anchor: selectAnchor };
+  clearSelection();
+}
+
+function unstashSelection() {
+  const stash = stashedSelection;
+  stashedSelection = null;
+  selection.clear();
+  selectAnchor = null;
+  if (stash) {
+    for (const [id, rec] of stash.picks) selection.set(id, rec);
+    selectAnchor = stash.anchor;
+  }
   syncSelection();
 }
 
@@ -193,11 +218,18 @@ function selectKey(e) {
   if (selectEscape()) e.preventDefault();
 }
 
-// From forgetImages, the one place the page drops deleted ids.
-function forgetSelected(gone) {
+// From forgetImages, the one place the page drops deleted ids: out of the
+// selection and out of the gallery's picks set aside while the bin is shown.
+// `stashed: false` is the bin's own cards leaving its view (a Restore),
+// which were never among the gallery's picks.
+function forgetSelected(gone, { stashed = true } = {}) {
   let changed = false;
   for (const id of gone) changed = selection.delete(id) || changed;
   if (gone.has(selectAnchor)) selectAnchor = null;
+  if (stashed && stashedSelection) {
+    for (const id of gone) stashedSelection.picks.delete(id);
+    if (gone.has(stashedSelection.anchor)) stashedSelection.anchor = null;
+  }
   if (changed) syncSelection();
 }
 

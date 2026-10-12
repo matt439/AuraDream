@@ -464,7 +464,7 @@ document.addEventListener('keydown', (e) => {
     e.preventDefault();
     if (els.refineDialog.open) void runRefine();
     else if (els.refineBatchDialog.open) void runRefineBatch();
-    else if (els.swapDialog.open) queueSwap();
+    else if (els.swapDialog.open) void queueSwap();
     else if (els.moreSeedsDialog.open) void runMoreSeeds();
     else if (els.gridSection.open && e.target.closest?.('#grid-section')) els.gridRun.click();
     else generate();

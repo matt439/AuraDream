@@ -54,6 +54,11 @@
   {"expect": "__rows().filter((li) => li.dataset.status === 'missing').every((li) => li.textContent.includes('missing: long hair') && li.querySelector('.swap-text').textContent.includes('short hair') && !li.querySelector('mark'))"},
   {"expect": "__rows().some((li) => li.dataset.status === 'queued' && li.querySelector('.swap-text').textContent === '1girl, silver hair, smile, looking at viewer' && li.querySelector('mark').textContent === 'silver hair')"},
   {"expect": "__rows().some((li) => li.dataset.status === 'queued' && li.querySelector('mark')?.textContent === '(silver_hair:1.2)')"},
+  {"log": "'what each swap took out is named under its text, struck through as it was written, since the new text cannot show it; a missing image names none'"},
+  {"expect": "__rows().filter((li) => li.dataset.status === 'queued').every((li) => li.querySelector('.swap-removed')?.textContent.startsWith('Took out: '))"},
+  {"expect": "__rows().some((li) => li.querySelector('.swap-text').textContent === '1girl, silver hair, smile, looking at viewer' && [...li.querySelectorAll('.swap-removed del')].map((d) => d.textContent).join('|') === 'red hair|long hair')"},
+  {"expect": "__rows().some((li) => li.querySelector('mark')?.textContent === '(silver_hair:1.2)' && li.querySelector('.swap-removed').textContent === 'Took out: (red_hair:1.2), long_hair')"},
+  {"expect": "__rows().filter((li) => li.dataset.status === 'missing').every((li) => !li.querySelector('.swap-removed'))"},
   {"expect": "__rows().some((li) => li.textContent.includes('1024×1024') && li.querySelector('.swap-text').textContent === '1girl, silver hair, outdoors')"},
   {"expect": "JSON.stringify(els.swapQueue.getBoundingClientRect()).includes('\"bottom\":' + JSON.parse(__queueAt).bottom) && JSON.stringify(els.swapCancel.getBoundingClientRect()) === __cancelAt"},
 
@@ -160,5 +165,18 @@
   {"expect": "__until(() => els.swapQueue.getAttribute('aria-disabled') === 'false' && els.swapQueue.textContent === 'Queue 2 images' && els.swapScope.textContent === 'In the 2 images matching \"lakeside\", this checkpoint only.' && swapAnswer.ids.length === 2)"},
   {"key": "Escape"},
   {"expect": "__until(() => !els.swapDialog.open)"},
-  {"eval": "els.search.value = ''; els.search.dispatchEvent(new Event('input', {bubbles: true}))"}
+
+  {"log": "'Enter pressed straight after typing, before the check has run: the press waits for it and queues, never saying \"Checking the swaps…\" only to lose it'"},
+  {"eval": "els.swapRows.replaceChildren(); window.__said = []; window.__swapWatch = new MutationObserver(() => __said.push(els.swapError.textContent)); __swapWatch.observe(els.swapError, {childList: true, characterData: true, subtree: true});"},
+  {"click": "#btn-swap"},
+  {"expect": "__until(() => els.swapDialog.open && document.activeElement === els.swapRows.querySelector('.swap-find'))"},
+  {"type": "night"},
+  {"key": "Tab"},
+  {"type": "day"},
+  {"key": "Enter"},
+  {"expect": "__until(() => !els.swapDialog.open)"},
+  {"expect": "!__said.includes('Checking the swaps…')"},
+  {"expect": "__until(() => !busy && queuedIds.length === 0, 30000)"},
+  {"expect": "__seen('/api/gallery?limit=10&search=lakeside').then((p) => p.items.some((r) => r.prompt === '1girl, lakeside, day' && r.seed === 22))"},
+  {"eval": "__swapWatch.disconnect(); els.search.value = ''; els.search.dispatchEvent(new Event('input', {bubbles: true}))"}
 ]

@@ -46,7 +46,10 @@ def test_the_preview_says_what_happens_to_each_image(client, fake, store):
     assert images[a.id]["text"] == "1girl, silver hair, smile"
     start, end = images[a.id]["spans"][0]
     assert images[a.id]["text"][start:end] == "silver hair"
+    assert images[a.id]["removed"] == ["red hair", "long hair"]
     assert images[b.id]["text"] == "1girl, (silver_hair:1.2)"
+    assert images[b.id]["removed"] == ["(red_hair:1.2)", "long_hair"]
+    assert images[c.id]["removed"] == []
     assert (images[c.id]["status"], images[c.id]["detail"]) == ("missing", "missing: long hair")
     assert images[c.id]["text"] == "1girl, red hair, smile"
     assert images[d.id]["status"] == "missing"

@@ -122,14 +122,15 @@ function refuseInBin(e) {
   showError(`${BIN_HELD}.`, true, { slot: els.galleryError });
 }
 
-// The gallery's grid on the bin: the selection is the gallery's, and goes;
-// an open sheet closes, putting back the search it replaced; the search box
-// stays, and narrows the bin as it does the gallery.
+// The gallery's grid on the bin: the selection is the gallery's, and is set
+// aside until the bin is left (the bin's picks are its own, for Restore
+// picked); an open sheet closes, putting back the search it replaced; the
+// search box stays, and narrows the bin as it does the gallery.
 function enterBin() {
   if (binMode) return;
   binMode = true;
   outsideView = null;
-  clearSelection();
+  stashSelection();
   syncBinControls();
   if (sheetMode) void setSheet(false);
   else void resetGallery();
@@ -138,11 +139,13 @@ function enterBin() {
 
 // Back to the gallery's own state, for the caller to query: Bin pressed
 // again, Show all, a sheet opened, a search from the lightbox, the Models
-// picker's See all. Answers whether it was in the bin.
+// picker's See all. The bin's picks go and the gallery's come back, less any
+// binned or deleted meanwhile; one restored from the bin is not added.
+// Answers whether it was in the bin.
 function leaveBin() {
   if (!binMode) return false;
   binMode = false;
-  clearSelection();
+  unstashSelection();
   syncBinControls();
   return true;
 }
@@ -227,10 +230,13 @@ async function restoreImages(ids, { fromLightbox = els.lightbox.open } = {}) {
   unforgetImages([...restored, ...notBinned]);
   const also = missing.length ? forgetImages(missing) : '';
   const are = (list) => (list.length === 1 ? 'was' : 'were');
+  // Named up to six, as noteBinned does, else counted: a Restore picked over
+  // hundreds was one alert reading out every id.
+  const names = (list) => (list.length > 6 ? plural(list.length, 'image') : imageNames(list));
   const said = [
-    restored.length ? `Restored ${imageNames(restored)}.` : '',
-    notBinned.length ? `${imageNames(notBinned)} ${are(notBinned)} not in the recycle bin.` : '',
-    missing.length ? `${imageNames(missing)} ${are(missing)} already deleted.` : '',
+    restored.length ? `Restored ${names(restored)}.` : '',
+    notBinned.length ? `${names(notBinned)} ${are(notBinned)} not in the recycle bin.` : '',
+    missing.length ? `${names(missing)} ${are(missing)} already deleted.` : '',
   ].filter(Boolean).join(' ') + also;
   if (fromLightbox && els.lightbox.open) noteLightboxDelete(said);
   else showError(said, true, slot);
@@ -262,7 +268,7 @@ function dropFromBinView(ids, word) {
     els.count.textContent = total ? `(${total})` : '';
     syncGalleryEmpty();
   }
-  forgetSelected(out);
+  forgetSelected(out, { stashed: false });
   if (current?.classList.contains('gone')) makeCurrent(liveNeighbour(current));
   if (lost) {
     const next = liveNeighbour(lost);

@@ -120,9 +120,12 @@ async function askMoreSeeds(payload, signal) {
 }
 
 // Opens on the first check's answer, not before, as Mass refine does: a
-// selection the server refuses whole (past a job's worth) is said in the
-// gallery's line rather than in a dialog with nothing to queue. The count
-// opens at the one last queued, else four, focused and selected.
+// failed check is said in the gallery's line rather than in a dialog with
+// nothing to queue. All but the refusal by count (batches × count past a
+// job's worth, "2 batches × 600 is…"): the count is the dialog's to lower,
+// so it opens on that refusal, said and held as an edit's would be, the box
+// marked. The count opens at the one last queued, else four, focused and
+// selected.
 async function openMoreSeeds() {
   if (msOpening || els.moreSeedsDialog.open) return;
   const target = moreSeedsTarget();
@@ -137,12 +140,14 @@ async function openMoreSeeds() {
   msOpening = opening;
   els.moreSeeds.setAttribute('aria-busy', 'true');
   showError('', false, { slot: els.galleryError });
-  let answer;
+  let answer = null;
+  let overCap = '';
   try {
     answer = await askMoreSeeds(msPayload());
   } catch (err) {
-    if (msOpening === opening) showError(err.message, true, { slot: els.galleryError });
-    return;
+    if (msOpening !== opening) return;
+    if (err.status === 422 && /^\d+ batch/.test(err.message)) overCap = err.message;
+    else { showError(err.message, true, { slot: els.galleryError }); return; }
   } finally {
     if (msOpening === opening) {
       msOpening = null;
@@ -155,12 +160,25 @@ async function openMoreSeeds() {
   }
   msAnswer = answer;
   msAnswerKey = JSON.stringify(msPayload());
-  msProblem = '';
+  msProblem = overCap;
   msRefused = false;
+  els.moreSeedsCount.removeAttribute('aria-invalid');
   showError('', false, { slot: els.moreSeedsError });
-  renderMoreSeeds(answer);
+  if (answer) renderMoreSeeds(answer);
+  else {
+    // Nothing listed: the refusal is the count's, said in the count line and
+    // under it, and the title and list wait for a count that fits.
+    msSayScope(null);
+    els.moreSeedsTitle.textContent = 'More seeds';
+    els.moreSeedsResults.replaceChildren();
+    msSay(overCap, true);
+  }
   els.moreSeedsDialog.showModal();
   syncMoreSeedsRun();
+  if (overCap) {
+    showError(overCap, false, { slot: els.moreSeedsError });
+    els.moreSeedsCount.setAttribute('aria-invalid', 'true');
+  }
   els.moreSeedsCount.focus();
   els.moreSeedsCount.select();
 }

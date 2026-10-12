@@ -96,5 +96,22 @@
   {"log": "'Escape closes it, and focus goes back to the footer button'"},
   {"key": "Escape"},
   {"expect": "__until(() => !els.moreSeedsDialog.open && document.activeElement === els.moreSeeds)"},
-  {"expect": "els.moreSeeds.parentElement.getBoundingClientRect().height === __footH"}
+  {"expect": "els.moreSeeds.parentElement.getBoundingClientRect().height === __footH"},
+
+  {"log": "'a remembered count too large for the batches picked (2 x 600 past the 1024 a press may queue): the dialog opens anyway on the refusal, the count marked to be lowered, and a count that fits frees Queue'"},
+  {"eval": "remember(MORE_SEEDS_KEY, '600'); document.querySelector(`#gallery .card[data-id=\"${__harbour.id}\"] > img`).click();"},
+  {"expect": "__until(() => selectedIds().length === 2 && selectedIds().includes(__harbour.id))"},
+  {"eval": "showError('', false, {slot: els.galleryError});"},
+  {"click": "#btn-more-seeds"},
+  {"expect": "__until(() => els.moreSeedsDialog.open && document.activeElement === els.moreSeedsCount)"},
+  {"expect": "els.moreSeedsCount.value === '600' && els.moreSeedsCount.selectionEnd === 3 && els.moreSeedsCount.getAttribute('aria-invalid') === 'true' && els.galleryError.textContent === ''"},
+  {"expect": "els.moreSeedsError.textContent === '2 batches × 600 is 1200 images; a press may queue 1024. Ask for fewer, or pick fewer batches.' && els.moreSeedsLine.textContent === els.moreSeedsError.textContent && els.moreSeedsLine.classList.contains('failed') && __rows().length === 0 && els.moreSeedsTitle.textContent === 'More seeds'"},
+  {"expect": "els.moreSeedsRun.getAttribute('aria-disabled') === 'true' && els.moreSeedsRun.title === els.moreSeedsError.textContent"},
+  {"eval": "window.__runAt2 = __edge(els.moreSeedsRun);"},
+  {"type": "2"},
+  {"expect": "!els.moreSeedsCount.hasAttribute('aria-invalid') && els.moreSeedsError.textContent === ''"},
+  {"expect": "__until(() => els.moreSeedsRun.getAttribute('aria-disabled') === 'false' && els.moreSeedsTitle.textContent === '4 more images' && __rows().length === 2 && !els.moreSeedsLine.classList.contains('failed'))"},
+  {"expect": "__edge(els.moreSeedsRun) === __runAt2"},
+  {"key": "Escape"},
+  {"expect": "__until(() => !els.moreSeedsDialog.open)"}
 ]

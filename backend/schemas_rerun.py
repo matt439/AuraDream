@@ -96,7 +96,8 @@ class SwapResult(BaseModel):
 
     `text` is the swapped field as it would run (the original where nothing
     changed) and `spans` the offsets of what was written in, which the page
-    marks; `detail` says why an image is not queued ("missing: long hair",
+    marks; `removed` is what the swap took out of the original, as written
+    there, which the new text cannot show (`tag_swap.Outcome`); `detail` says why an image is not queued ("missing: long hair",
     "same as #12", a validation message).
     """
 
@@ -109,6 +110,7 @@ class SwapResult(BaseModel):
     detail: str | None = None
     text: str = ""
     spans: list[tuple[int, int]] = Field(default_factory=list)
+    removed: list[str] = Field(default_factory=list)
     notes: list[str] = Field(default_factory=list)
 
 
