@@ -17,6 +17,7 @@ from types import SimpleNamespace
 
 import diffusers
 import pytest
+import torch
 from diffusers import FlowMatchEulerDiscreteScheduler
 from PIL import Image
 
@@ -519,6 +520,7 @@ class Img2ImgStub:
         self.calls.append(dict(
             prompt=prompt, image=image, strength=strength, generator=generator,
             num_images_per_prompt=num_images_per_prompt, negative_prompt=negative_prompt,
+            modes=(torch.is_grad_enabled(), torch.is_inference_mode_enabled()),
         ))
         # Run the installed sibling's own CPU timestep selection rather than
         # duplicating its arithmetic in the fake.
@@ -579,6 +581,8 @@ def test_a_refine_runs_the_sibling_over_the_same_components(refinable, strength,
     # The source at the size asked for, and the rest of the request with it.
     assert all(c["image"].size == (256, 384) for c in runner.calls)
     assert all(c["strength"] == strength and c["negative_prompt"] == "blurry" for c in runner.calls)
+    # Under no_grad, as the text-to-image call is, never inference_mode.
+    assert [c["modes"] for c in runner.calls] == [(False, False), (False, False)]
     assert [image.size for image in images] == [(256, 384), (256, 384)]
     # At 0.45 the installed flow sibling runs five steps, where the floor is
     # four. Count through both images using the pipeline's own count.

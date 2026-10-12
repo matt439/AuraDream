@@ -218,7 +218,8 @@ a refine source until it is restored.
 Place `.safetensors` LoRAs in `loras/`, then select an adapter and weight.
 Weights can be swept without reloading the checkpoint. Incompatible adapters
 are hidden/refused; unreadable compatibility information is reported as
-unchecked. LoRAs are unavailable with Nunchaku, Anima Turbo and NewBie.
+unchecked. LoRAs are unavailable with Nunchaku, both Anima variants (Turbo
+and Aesthetic) and NewBie.
 The app records references, adapter and weight for Reuse and Resume.
 
 ## Refine an existing image
@@ -327,7 +328,7 @@ labels and settings, and **Export all** includes every pinned slice, splitting
 large exports. For a prompt comparison, use its `job:` scope so version labels
 retain their meaning. Star images directly on the sheet or in the lightbox.
 
-**Select** (under the search box, beside **Bundles…**) picks cards for an
+**Select** (first in the row under the search box) picks cards for an
 action on several images: in select mode a click or Space picks a card,
 Shift picks a range from the last card picked, and Enter still opens the
 lightbox. The selection survives searches, filters and paging; its count
@@ -383,9 +384,9 @@ queued per run, and the new images join it: the batch's hover, the
 
 | Where | Keys |
 | --- | --- |
-| Anywhere | Ctrl/Cmd+Enter generates; inside an open Grid field runs the grid; in Refine runs the pass; in Refine… (Mass refine) runs the batch; in Swap tags queues |
+| Anywhere | Ctrl/Cmd+Enter generates; inside an open Grid field runs the grid; in Refine runs the pass; in Refine… (Mass refine) runs the batch; in Swap tags queues; in More seeds… queues the batches |
 | Gallery | Tab enters the cards; arrows/Home/End navigate, Enter opens, F stars; in select mode Space picks, Shift+Space picks a range, Esc clears |
-| Lightbox | Left/Right browse, F stars, S compares a pass with its source, Delete moves the image to the recycle bin (in the bin: asks to delete it permanently), Esc closes |
+| Lightbox | Left/Right browse, F stars, S compares a pass with its source or another image with its CFG neighbour, Delete moves the image to the recycle bin (in the bin: asks to delete it permanently), Esc closes |
 | Lightbox zoom | Wheel or +/− zoom, drag pans, 0 fits, 1 or double-click shows actual pixels |
 | Contact sheet | F stars the focused cell |
 | Prompt/tag chips | Tab/Enter accepts a suggestion after three matching characters; Alt+Left/Right reorders chips, Delete removes, Enter edits |
@@ -400,6 +401,16 @@ adds it to the gallery search; a value of the same kind replaces the old
 one. **⌕ Search for this prompt** replaces the search's text with the
 prompt's words and keeps its filters; it finds prompts containing all of
 those words in any order.
+
+**Compare CFG** in the lightbox sets the image beside another that differs
+from it only in CFG: the same prompt, negative, seed, steps, size, mu, LoRA,
+references and checkpoint, such as the cells of a CFG grid or two Generates
+at one seed. The lower CFG is on the left (or on top), with **Swipe** or
+**Side by side** as for a pass. **← Lower CFG** and **Higher CFG →** step
+along the values found, and **Against** picks the other image. S turns it on
+and off on any image that is not a refine pass. Where no other CFG value is
+found the button is held and its tooltip says why; the gallery is searched
+in its newest images, so the tooltip says when more may be further back.
 
 ## Generate from the terminal
 
@@ -453,7 +464,8 @@ if labels have different meanings across jobs, narrow the scope or group by
 
 ## Gallery bundles
 
-Open **Gallery bundles** beside the gallery controls. Its counts cover the
+Press **Bundles…** at the end of the row under the search box to open the
+Gallery bundles dialog. Its counts cover the
 entire gallery: every checkpoint, every favourite and the recycle bin,
 regardless of the current search or filters; the preview says how many of
 the records are in the recycle bin. Type the displayed record count and press **Bundle & clear

@@ -151,6 +151,9 @@ before changing it.
   draws with, one per VAE, fitted on the card
 - `backend/jobs.py` — single-worker queue, SSE progress
 - `backend/storage.py` — SQLite index + PNGs with embedded metadata
+- `backend/metadata.py` — the PNG chunk's key (`local-diffusion`) and
+  `embedded_metadata`, which still reads the pre-rename `krea` key; shared
+  by storage, `generate.py` and `reindex.py`
 - `backend/gallery_reports.py` — read-only aggregate queries: the preview's
   cost and size estimates, keep rates, runs (reads `storage` at call time)
 - `backend/gallery_delete.py` — taking images out: the keep-favourites
@@ -232,8 +235,8 @@ before changing it.
   recycle bin's view, undo note and Empty. The stylesheet is
   `style.css` (tokens and base layout), followed by `styles/*.css` in the
   explicit link order (`model-picker.css` first, at its old place in
-  `style.css`); preserve that cascade. See `docs/source-audit.md`
-  for the responsibility map and retained long files.
+  `style.css`); preserve that cascade. `docs/source-audit.md` records the
+  split audits and why each long file it kept stays whole.
 - `tools/` — `fake_server.py` (the app on the tests' fake backend, port 7861)
   and `browser.mjs` + `smoke.json` and a `smoke-*.json` per checkpoint or
   feature (headless browser over DevTools; among the features
@@ -244,6 +247,9 @@ before changing it.
   `test_api*.py` (the HTTP routes, one file per area), and a file per module
   or invariant beside them - `test_refine_schedules.py`, for one, holds a
   pass's start index and start sigma to the installed diffusers; see Tests
+- `bin/` — `local-diffusion.cmd` and `local-diffusion-wsl.cmd`, for the user
+  PATH: the two server starts (`backend.main`, `wsl/serve.sh`) from any
+  folder, arguments passed through
 - `wsl/` — `env.sh` (Linux-side paths and the Nunchaku defaults, to source),
   `setup.sh`, `serve.sh`: running the same checkout from WSL 2
 - `docs/design-notes.md` — why each part is the way it is, one section per
@@ -375,7 +381,9 @@ Model and loader:
   raises on a transformers text encoder.
 - `torch.no_grad()`, never `torch.inference_mode()`, around the pipeline call:
   model offload moves components inside `forward()` and torchao's tensor
-  subclasses trip torch 2.13's storage-aliasing guard under inference_mode.
+  subclasses trip torch 2.13's storage-aliasing guard under inference_mode
+  (`test_the_pipeline_runs_under_no_grad_not_inference_mode`; the refine
+  sibling's calls are held to it too).
 - Loading happens only in `main.ensure_loaded()` under its asyncio lock; jobs
   await it, `generate()` raises on a missing pipeline, and
   `POST /api/model/unload` answers 409 while a job or a load is live; once
@@ -3718,6 +3726,11 @@ Frontend and CLI:
   `--model/--quant/--offload` to `os.environ` before importing
   `backend.config`, as `launch.configure()` does for the server; both take the
   flags from `launch.add_model_arguments`.
+- `generate.py`'s header shows what `applied()` will run: a negative
+  prompt, `--true-cfg` or Mu the checkpoint drops is printed with
+  `[ignored: ...]` (a `--grid-mu` axis too), and the duplicate warning names
+  a Mu where it takes none
+  (`test_a_mu_the_checkpoint_cannot_take_is_reported_as_ignored`).
 - The gallery is the running checkpoint's: `GET /api/gallery`, `/api/runs`,
   `GET`/`DELETE /api/gallery/unstarred`, `POST /api/rerender` and
   `POST /api/swap-tags[/preview]`, `POST /api/refine/batch[/preview]` and
@@ -3957,7 +3970,9 @@ and adapter paths before anything imports `backend`, so a sourced
 `wsl/env.sh` changes nothing. They cover the invariants
 that are expensive to get wrong: the schedule the scheduler ends up with, seeds
 surviving a JSON round trip, the search fallback keeping its filters, and the
-HTTP guards.
+HTTP guards. `tests/test_docs_maps.py` holds `CLAUDE.md` and `AGENTS.md`
+byte-identical and every backend module and `web/*.js` named in the Layout
+above, so a new file is added to the map with it.
 
 The recycle bin is covered where each read lives: `tests/test_storage.py`
 (the migration, `list_images` live and `binned=True` with total, page and
@@ -5090,7 +5105,7 @@ labels (what each run varied: "steps ×8 · 5 seeds", "2 seeds") and sync with
 the search box (a pick, a card's ⊞, typing, Sheet off), the picker browsed
 from the keyboard (no fetch while arrowing, Escape, Enter, leaving it),
 at its own width with the search box whole and the picked run in its title;
-`id:` and the search tip; the Starred tick and Re-render's label; each card
+`id:` and the search tip (with `mu:none` as the pipeline's own shift); the Starred tick and Re-render's label; each card
 a group named #N; the five tools and their names on hover and focus inside
 the card, with Delete's over Delete, and the image's facts-only
 description; the card's #N · W×H · seed caption on hover and focus, hidden

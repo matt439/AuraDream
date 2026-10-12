@@ -309,6 +309,25 @@ def test_a_dry_run_warns_about_cells_that_render_the_same_image(cli, store, caps
     assert "WARNING  : 2 of 3 image(s) would be identical" in capsys.readouterr().out
 
 
+def test_a_mu_the_checkpoint_cannot_take_is_reported_as_ignored(cli, store, capsys):
+    # applied() drops it and the row records none, so the header must not
+    # print it as though it ran - as a dropped negative prompt is marked.
+    assert generate.main(["a fox", "--mu", "1.3", "--dry-run", *SIZE]) == 0
+    out = capsys.readouterr().out
+    assert "mu 1.3\n" in out and "takes no Mu" not in out
+    cli.mu_supported = False
+    assert generate.main(["a fox", "--mu", "1.3", "--dry-run", *SIZE]) == 0
+    assert "mu 1.3  [ignored: this checkpoint takes no Mu]" in capsys.readouterr().out
+    assert generate.main(["a fox", "--dry-run", *SIZE]) == 0
+    assert "takes no Mu" not in capsys.readouterr().out
+    # A Mu sweep there: every cell is the same image, and the axis and the
+    # warning both name Mu as the reason.
+    assert generate.main(["a fox", "--grid-mu", "1,1.5,2", "--seed", "1", "--dry-run", *SIZE]) == 0
+    out = capsys.readouterr().out
+    assert "1, 1.5, 2  [ignored: this checkpoint takes no Mu]" in out
+    assert "2 of 3 image(s) would be identical" in out and "a Mu where it takes none" in out
+
+
 def test_from_image_refuses_a_file_without_the_record(cli, tmp_path):
     from PIL import Image
 
