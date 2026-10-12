@@ -489,6 +489,8 @@
   {"expect": "__until(() => !!__rec(__square) && !!__rec(__portrait))"},
   {"eval": "openLightbox(__rec(__square), galleryRecords)"},
   {"expect": "__until(() => els.lightbox.open && !!els.lbSettings.querySelector('.facts') && parseFloat(els.lbMeta.style.getPropertyValue('--lb-room')) > 100)"},
+  {"log": "'the head shrinks to its content here: the counter keeps a gap before Close, clear of the 3 px ring Close has on open'"},
+  {"expect": "__box(els.lbCount).right + 8 <= __box(els.lbClose).left + 0.5 && __box(els.lbCount).right <= __box(els.lbClose).left - parseFloat(getComputedStyle(els.lbClose).outlineWidth) - parseFloat(getComputedStyle(els.lbClose).outlineOffset || '0')"},
   {"expect": "(() => { const meta = __box(els.lbMeta); const rows = [...els.lbSettings.querySelectorAll('.facts dt')]; const row = (name) => rows.find((d) => d.textContent === name); return els.lbMeta.scrollHeight <= els.lbMeta.clientHeight + 1 && ['Seed', 'Created', 'Run'].every((name) => row(name) && __box(row(name)).bottom <= meta.bottom + 0.5) && Math.abs(__box(els.lbImg).width - els.lbStage.clientWidth) < 1 && __box(els.lbImg).height <= els.lbStage.clientHeight + 0.5 && els.lbMeta.clientHeight > 1.5 * parseFloat(getComputedStyle(els.lbMeta).fontSize) * 6; })()"},
   {"eval": "openLightbox(__rec(__portrait), galleryRecords)"},
   {"expect": "__until(() => lbList[lbIndex]?.id === __portrait && els.lbMeta.style.getPropertyValue('--lb-room') === '0px')"},

@@ -2791,6 +2791,15 @@ out: the narrowed search does not bring them, so the group would have
 depended on what the page happened to hold, and a pair that differs in two
 settings is not a CFG comparison.
 
+Against was the one control in the column left to the browser (2026-10-12):
+19 px of 13.3 px type beside 30 px buttons at the label's size, so it is
+drawn as they are. And ← → on it were the lightbox's: on Windows a closed
+select changes on them as on ↑ ↓, and the press walked to another image
+under the focus and rewrote the select instead. The keydown leaves them to
+a select. Under 901 px the head shrinks to its content, and the counter met
+Close with no gap - Close has the focus on open, so its ring covered the
+counter's last digit; the head has a gap of its own now.
+
 **The zoom is said once, the readouts only when they change** (2026-10-05).
 `#lb-zoom` and `#lb-count` were polite live regions rewritten on every layout
 and render: ten wheel notches 60-120 ms apart queued ten announcements

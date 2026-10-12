@@ -514,8 +514,11 @@ document.addEventListener('keydown', (e) => {
   // strip has one (`stepPass`), comparing across CFG they step along CFG
   // where the strip has another value (`stepCfg`), the comparison kept, and
   // Shift+arrows move a swipe's divider (`nudgeSplit`); otherwise they walk,
-  // as ever.
+  // as ever. On Against they are the select's own: a closed select changes on
+  // ← → as on ↑ ↓ on Windows, and taking them had walked to another image
+  // under the focus.
   if (e.key === 'ArrowLeft' || e.key === 'ArrowRight') {
+    if (e.target.tagName === 'SELECT') return;
     e.preventDefault();
     const delta = e.key === 'ArrowLeft' ? -1 : 1;
     if (e.shiftKey ? nudgeSplit(delta) : stepPass(delta) || stepCfg(delta)) return;

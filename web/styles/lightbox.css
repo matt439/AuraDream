@@ -87,7 +87,11 @@
   flex: 0 0 var(--lb-side-w); width: var(--lb-side-w); min-height: 0;
   display: flex; flex-direction: column; gap: var(--sp-3);
 }
-.lb-head { display: flex; align-items: center; justify-content: space-between; }
+/* The gap is for the one-column layout, where the head shrinks to its
+   content: the counter ran into Close, whose focus ring (Close has the focus
+   on open) covered its last digit. Beside the stage, space-between keeps
+   them apart anyway. */
+.lb-head { display: flex; align-items: center; justify-content: space-between; gap: var(--sp-2); }
 .lb-count { color: var(--muted); font-size: var(--fs-label); font-variant-numeric: tabular-nums; }
 .lb-meta {
   flex: 1 1 auto; min-height: 0; overflow-y: auto;
@@ -159,7 +163,14 @@
 .lb-modes .ghost { flex: 1 1 0; white-space: nowrap; }
 .lb-modes .ghost[aria-pressed="true"] { color: var(--text); border-color: var(--accent-2); }
 .lb-against { display: flex; align-items: center; gap: var(--sp-2); color: var(--muted); font-size: var(--fs-label); }
-.lb-against select { flex: 1 1 auto; min-width: 0; }
+/* Drawn as the buttons above it are (.ghost.small: --h-sm tall, the label's
+   size, a token border): left to the UA it was 19 px of 13.3 px type beside
+   30 px buttons. Held, it dims as they do. */
+.lb-against select {
+  flex: 1 1 auto; min-width: 0; height: var(--h-sm); padding: 0 6px; font: inherit;
+  background: var(--panel-2); border: 1px solid var(--line-strong); border-radius: var(--r-md); color: var(--text);
+}
+.lb-against select[aria-disabled="true"] { opacity: 0.45; cursor: not-allowed; }
 .lb-keys { margin: 0; min-height: 0; }
 .lb-zoom-group { display: flex; align-items: center; gap: var(--sp-2); }
 .lb-zoom { color: var(--muted); font-size: var(--fs-label); font-variant-numeric: tabular-nums; min-width: 4em; }
