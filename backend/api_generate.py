@@ -194,6 +194,11 @@ def create_router(services: AppServices) -> APIRouter:
             raise HTTPException(status_code=422, detail=foreign_refusal(
                 services, len(others), foreign, others if request.ids is not None else None,
             ))
+        # An inpaint whose mask this gallery lacks is named by its id, which
+        # the per-combination check below could only say by the mask's hash.
+        lost = await asyncio.to_thread(submission.missing_masks, records)
+        if lost:
+            raise HTTPException(status_code=422, detail=submission.missing_mask_detail(lost))
         # Oldest first (the resolver's order), so the re-render lands in the
         # order the originals did; every record's reproduction set but its size.
         cells = grid.cells_from_records(records, width=request.width, height=request.height)

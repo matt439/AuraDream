@@ -351,6 +351,23 @@ class JobManager:
                 planned.setdefault((cell.request.width, cell.request.height), set()).update(cell_keys(ran))
         return planned
 
+    def masks_in_flight(self) -> set[str]:
+        """The inpaint masks the live jobs' cells will read: what a mask sweep
+        (`gallery_delete.sweep_masks`) spares beside the rows, since a queued
+        cell's mask is in no row yet. Called from the sweep's thread, so the
+        jobs and cells are copied before they are walked; a job's cells are
+        fixed when it is made."""
+        masks: set[str] = set()
+        for job in list(self._jobs.values()):
+            if job.status in _TERMINAL:
+                continue
+            masks.update(
+                cell.request.mask
+                for cell in list(job.cells)
+                if cell.request.refine is not None and cell.request.mask is not None
+            )
+        return masks
+
     def busy(self) -> bool:
         """True while anything is queued or running.
 

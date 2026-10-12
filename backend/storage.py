@@ -1311,11 +1311,22 @@ def _store_mask(mask: Image.Image, digest: str, path: Path, partial: Path) -> tu
             mask.save(partial, format="PNG", compress_level=6)
             encoded = True
         with gallery_lock.hold(settings.db_path, wait=gallery_lock.SESSION_WAIT):
+            if not encoded and not path.is_file():
+                # Swept while this waited for the reservation: the file the
+                # look above found is gone, and a row alone would name none.
+                mask.save(partial, format="PNG", compress_level=6)
+                encoded = True
             with _write_lock, _session() as conn:
+                now = datetime.now(timezone.utc).isoformat()
                 created = conn.execute(
                     "INSERT OR IGNORE INTO masks (hash, width, height, created_at) VALUES (?, ?, ?, ?)",
-                    (digest, mask.width, mask.height, datetime.now(timezone.utc).isoformat()),
+                    (digest, mask.width, mask.height, now),
                 ).rowcount == 1
+                if not created:
+                    # The upload is the mask being used again - a dialog
+                    # reopened on an old one - so the sweep's settle window
+                    # (`gallery_delete.sweep_masks`) starts over from now.
+                    conn.execute("UPDATE masks SET created_at = ? WHERE hash = ?", (now, digest))
             committed = True
             if encoded and not path.is_file():
                 _rename_with_retry(partial, path)

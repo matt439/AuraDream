@@ -240,7 +240,9 @@ before changing it.
   and facts list (`settingsLine`, `factsList`), shared by the lightbox and
   the viewer; `lightbox.js` the lightbox's view, layout, walk and gestures,
   `lightbox-compare.js` its comparison's controls, divider and pass
-  stepping, `lightbox-cfg.js` its comparison across CFG; `refine.js` and `refine-prompt.js` the Refine dialog;
+  stepping, `lightbox-cfg.js` its comparison across CFG; `refine.js` and `refine-prompt.js` the Refine dialog; `inpaint.js` the Inpaint dialog (its mask's
+  upload, preview, submit and Reuse) and `inpaint-mask.js` its canvas, tools, strokes and export
+  (`styles/inpaint.css`);
   `tags.js`, `tag-tokens.js` and `tag-chips.js` the prompt helper; `prompt-examples.js` the
   Examples menu, `prompt-expand.js` ERNIE's Expand; `analysis.js`,
   `analysis-critic.js` and `comparison.js` the check and critic. `sizes.js`
@@ -1028,6 +1030,32 @@ Reproduction:
   from inpaints alone (`inpaint_costs`). `cell_from_record` carries the
   mask with its source; Mass refine drops it, since the record is the new
   source. Load settings from PNG carries no mask, as it carries no source.
+- Masks travel with their images. A bundle carries `masks/<hash>.png` as
+  its own top-level prefix (manifest still `version: 1`; an older build
+  skips it) and the `masks` table in its database; a selection carries only
+  its rows' masks. The import holds each mask member to its name
+  (`bundle_images._inspect_mask`: `L`, `storage.mask_hash` equal to the
+  name, the size its row records), merges rows by hash (`bundles._merge_masks`;
+  one hash at another size is refused), installs absent files, and counts a
+  row whose mask it lacks as `masks_missing`, keeping the hash; an
+  unresolved source takes the row's mask with it. Re-render refuses such a
+  row "the mask of #N is missing" (`submission.missing_masks`). Reindex
+  rebuilds masks from `masks/*.png` (a file not named by its pixels is
+  counted `bad_masks`), from the `--from` gallery's `masks/` with
+  `--database`, and from each result's embedded copy, counting
+  `unresolved_masks`. `gallery_delete.sweep_masks` is the one remover:
+  where PNGs are removed for good (Empty recycle bin, `DELETE
+  /api/images/{id}`, permanent `delete_matching`, `clear`), it spares a
+  mask any row names, live or binned, any live job's cell names
+  (`JobManager.masks_in_flight`, passed by the routes), or that is younger
+  than `PARTIAL_SETTLE_SECONDS` (a re-upload restarts the clock); the
+  whole `clear` takes every mask no kept row names and the directory, and
+  its orphan sweep a mask file with no row once settled. The bin never
+  touches a mask. `generate.py --mask FILE` (beside `--refine`, at the
+  source's size) stores through `storage.store_mask`; `--from-image`
+  carries the record's mask, from the PNG's own copy where the gallery
+  lacks it. Search: `mask:<hex>`, `mask:none`, `inpaint:yes|no`; stats
+  `--by mask`.
 - Under Nunchaku (WSL) a seed does not reproduce bit-for-bit - Z-Image
   within noise, ERNIE visibly - so a duplicate count or a re-render's hash is
   the fp8 path's guarantee only; `docs/verified.md` has the numbers.
@@ -5598,6 +5626,36 @@ written under the button, which stays where it was:
 ```powershell
 uv run python tools/fake_server.py --port 7904 --data <new-scratch-directory>
 node tools/browser.mjs tools/smoke-png-settings.json
+```
+
+`smoke-inpaint.json` checks the Inpaint dialog (`inpaint.js`,
+`inpaint-mask.js`, `styles/inpaint.css`) on an Animagine fake on 7905 with a
+fresh `--data`: the card's ✎ live and last before Delete; opened from the
+lightbox's Inpaint…, the lightbox closed, focus on the canvas named "Mask
+over #N" with a bitmap of the source's size; Strength at the inpaint class's
+own default, said as the library's number; Inpaint held with "Paint the part
+of #N to repaint first" and a press saying it; a brush drag, the eraser (E),
+[ and ], a plain wheel scrolling and Alt+wheel sizing, the feather giving
+another hash and 0 the same one again (`created: false`), Invert (I), Ctrl+Z,
+Ctrl+Y and Ctrl+Shift+Z, I in the Seed box painting nothing, the keyboard
+brush (arrows and Space); the tools row's boxes and the dialog's scrollTop
+unchanged through painting and a preview refusal, Inpaint not moving under
+the pointer; the result an inpaint of #N @ 0.6 on the card, its title and
+the settings line, every pixel the mask keeps the source's exactly; Reuse
+reopening on the source with the stored mask and no upload; a strength list
+opening a sheet over one mask; a close that ran nothing giving the lightbox
+back and its strokes on the next open, and Start over. `smoke-inpaint-
+unavailable.json`, on the default Krea 2 Turbo fake on 7906: the card's, the
+result's and the lightbox's entry points `aria-disabled` with "Krea 2 Turbo
+has no inpaint pipeline in the installed diffusers", a press saying it and
+opening nothing; a stubbed `inpaint_deferred` status saying "not enabled yet"
+in the titles; Reuse of an inpaint opening the dialog held, saying why:
+
+```powershell
+uv run python tools/fake_server.py --port 7905 --model cagliostrolab/animagine-xl-4.0 --data <new-scratch-directory>
+node tools/browser.mjs tools/smoke-inpaint.json
+uv run python tools/fake_server.py --port 7906
+node tools/browser.mjs tools/smoke-inpaint-unavailable.json
 ```
 
 `smoke-analysis.json` checks the prompt check on a FLUX.1 Krea [dev] fake on

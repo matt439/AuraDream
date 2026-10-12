@@ -313,3 +313,66 @@ def test_the_mask_check_reads_the_table_and_the_source(client, store, missing):
         words = f"no gallery image with id {record['id']}"
     response = client.post("/api/generate", json=_inpaint(record, digest))
     assert response.status_code == 422 and words in response.json()["detail"]
+
+
+# ------------------------------------------------- the gallery's own actions
+
+
+def _inpainted(client, fake, prompt="1girl, red hair, long hair") -> tuple[dict, dict, str]:
+    record = _source(client)
+    digest = _stored(client, record)
+    _, events = run_one(client, **_inpaint(record, digest, prompt=prompt, seed=9))
+    assert events[-1]["status"] == "done"
+    return record, events[-1]["images"][0], digest
+
+
+def test_more_seeds_and_swap_tags_run_over_the_same_mask(client, fake, store):
+    record, made, digest = _inpainted(client, fake)
+    response = client.post("/api/more-seeds", json={"ids": [made["id"]], "count": 2})
+    assert response.status_code == 200, response.text
+    assert stream_job(client, response.json()["job_id"])[-1]["status"] == "done"
+    assert [(r.refine, r.mask) for r in fake.requests[-2:]] == [(record["id"], digest)] * 2
+    swap = [{"find": "red hair, long hair", "replace": "silver hair"}]
+    response = client.post("/api/swap-tags", json={"swaps": swap, "ids": [made["id"]]})
+    assert response.status_code == 200, response.text
+    stream_job(client, response.json()["job_id"])
+    ran = fake.requests[-1]
+    # The prompt rewritten over the same region: a regional edit.
+    assert (ran.prompt, ran.refine, ran.mask) == ("1girl, silver hair", record["id"], digest)
+
+
+def test_mass_refine_makes_the_inpaint_its_source_and_drops_the_mask(client, fake, store):
+    record, made, digest = _inpainted(client, fake)
+    response = client.post("/api/refine/batch", json={"ids": [made["id"]], "strength": 0.5, "scale": 1.5,
+                                                       "skip_passes": False})
+    assert response.status_code == 200, response.text
+    stream_job(client, response.json()["job_id"])
+    ran = fake.requests[-1]
+    assert (ran.refine, ran.mask, ran.width) == (made["id"], None, 384)
+
+
+def test_a_re_render_of_an_inpaint_whose_mask_is_missing_names_it(client, fake, store):
+    record, made, digest = _inpainted(client, fake)
+    (store.masks_dir() / f"{digest}.png").unlink()
+    made_before = len(fake.requests)
+    response = client.post("/api/rerender", json={"ids": [made["id"]], "width": 256, "height": 256})
+    assert response.status_code == 422
+    assert f"the mask of #{made['id']} is missing" in response.json()["detail"]
+    assert len(fake.requests) == made_before
+
+
+def test_search_and_stats_find_an_inpaint_by_its_mask(client, fake, store):
+    from backend import gallery_reports
+
+    record, made, digest = _inpainted(client, fake)
+
+    def ids(search):
+        response = client.get("/api/gallery", params={"search": search})
+        assert response.status_code == 200, response.text
+        return {item["id"] for item in response.json()["items"]}
+
+    assert ids("inpaint:yes") == ids(f"mask:{digest[:16]}") == {made["id"]}
+    assert ids("inpaint:no") == ids("mask:none") == {record["id"]}
+    assert client.get("/api/gallery", params={"search": "inpaint:maybe"}).status_code == 422
+    rows = gallery_reports.keep_rates(by=["mask"])
+    assert {row["mask"] for row in rows} == {None, digest[:16]}

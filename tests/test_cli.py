@@ -773,3 +773,125 @@ def test_cli_rechecks_refine_after_loading_before_any_cell(cli, store, monkeypat
     assert "has no refine pass" in capsys.readouterr().err
     assert cli.loads == 1 and not cli.loaded and cli.requests == []
     assert store.list_images()[1] == 1
+
+
+# ------------------------------------------------------------- the inpaint
+
+ANIMAGINE = "cagliostrolab/animagine-xl-4.0"
+
+
+def _mask_file(tmp_path, size=(256, 384), box=(0, 0, 128, 64), name="mask.png"):
+    from PIL import Image
+
+    image = Image.new("L", size, 0)
+    image.paste(255, box)
+    path = tmp_path / name
+    image.convert("RGB").save(path)  # any mode: kept as one channel
+    return path, image
+
+
+def test_an_inpaint_from_the_terminal_stores_its_mask_and_records_it(cli, store, monkeypatch, tmp_path, capsys):
+    source = _to_refine(store)
+    path, image = _mask_file(tmp_path)
+    digest = store.mask_hash(image)
+    monkeypatch.setattr(generate, "_project", _project_claiming(generate, ANIMAGINE))
+    argv = ["a red scarf", "--refine", str(source.id), "--mask", str(path), "--strength", "0.6", "--seed", "4"]
+    # A dry run says what would run and keeps nothing.
+    assert generate.main([*argv, "--dry-run"]) == 0
+    assert f"inpaint  : under mask {digest[:16]}" in capsys.readouterr().out
+    assert store.mask_size(digest) is None and cli.loads == 0
+    assert generate.main([*argv, "-q"]) == 0
+    ran = cli.requests[-1]
+    # At the source's own size, never scaled, under the mask's hash.
+    assert (ran.refine, ran.mask, ran.strength, ran.width, ran.height) == (source.id, digest, 0.6, 256, 384)
+    assert store.mask_path(digest).is_file()
+    newest = store.list_images()[0][0]
+    assert (newest.refine, newest.mask) == (source.id, digest)
+
+
+def test_mask_flags_are_refused_where_they_cannot_run(cli, store, monkeypatch, tmp_path, capsys):
+    source = _to_refine(store)
+    path, _ = _mask_file(tmp_path)
+    black, _ = _mask_file(tmp_path, box=(0, 0, 0, 0), name="black.png")
+    wrong, _ = _mask_file(tmp_path, size=(256, 256), name="square.png")
+    monkeypatch.setattr(generate, "_project", _project_claiming(generate, ANIMAGINE))
+    for argv in (
+        ["a fox", "--mask", str(path), *SIZE],
+        ["a fox", "--refine", str(source.id), "--mask", str(path), "--scale", "2"],
+        ["a fox", "--refine", str(source.id), "--mask", str(black)],
+        ["a fox", "--refine", str(source.id), "--mask", str(tmp_path / "nowhere.png")],
+    ):
+        with pytest.raises(SystemExit) as raised:
+            generate.main(argv)
+        assert raised.value.code == 2, argv
+    capsys.readouterr()
+    # A mask painted on another size, said in words, before the load.
+    assert generate.main(["a fox", "--refine", str(source.id), "--mask", str(wrong)]) == 2
+    assert "is 256x256, but source image" in capsys.readouterr().err
+    # And a checkpoint whose inpaint is not enabled, from its profile.
+    monkeypatch.setattr(generate, "_project", _project_claiming(generate, "black-forest-labs/FLUX.1-Krea-dev"))
+    assert generate.main(["a fox", "--refine", str(source.id), "--mask", str(path)]) == 2
+    assert "has no inpaint in this app" in capsys.readouterr().err
+    assert cli.loads == 0 and cli.requests == []
+
+
+def test_from_image_reproduces_an_inpaint_over_its_mask(cli, store, monkeypatch, tmp_path, capsys):
+    source = _to_refine(store)
+    path, image = _mask_file(tmp_path)
+    digest = store.mask_hash(image)
+    monkeypatch.setattr(generate, "_project", _project_claiming(generate, ANIMAGINE))
+    assert generate.main(["a red scarf", "--refine", str(source.id), "--mask", str(path), "--seed", "4", "-q"]) == 0
+    made = capsys.readouterr().out.split("  seed ")[0]
+    # The mask file lost since: the PNG's own copy is the same picture.
+    store.mask_path(digest).unlink()
+    assert generate.main(["--from-image", made, "-q"]) == 0
+    first, again = cli.requests[-2:]
+    assert (again.refine, again.mask, again.strength, again.width, again.height) == (
+        first.refine, first.mask, first.strength, first.width, first.height
+    )
+    assert store.mask_path(digest).is_file()
+    # A --refine of another image takes no mask from this one.
+    assert generate.main(["--from-image", made, "--refine", str(source.id), "-q"]) == 0
+    assert cli.requests[-1].mask is None
+
+
+def test_an_inpaint_sweep_runs_the_cells_the_server_would(cli, store, monkeypatch, tmp_path):
+    from backend import grid
+    from backend.schemas import GenerateRequest
+
+    source = _to_refine(store)
+    path, image = _mask_file(tmp_path)
+    digest = store.mask_hash(image)
+    monkeypatch.setattr(generate, "_project", _project_claiming(generate, ANIMAGINE))
+    assert generate.main(["a red scarf", "--refine", str(source.id), "--mask", str(path), "--steps", "20",
+                          "--seed", "3", "--grid-strength", "0.4,0.6", "-q"]) == 0
+    # The server's expansion of the same request: one cell per strength,
+    # every one over the mask, at the same seeds.
+    request = GenerateRequest(prompt="a red scarf", width=256, height=384, steps=20,
+                              refine=source.id, strength=0.4, mask=digest, seed=3)
+    cells = grid.expand(request, strength="0.4,0.6", seeds=1)
+    assert [(r.strength, r.mask) for r in cli.requests] == [(c.request.strength, c.request.mask) for c in cells]
+    assert cli.seeds == [c.seed for c in cells]
+
+
+
+def test_a_cli_cell_whose_mask_went_fails_in_words(cli, store, monkeypatch, tmp_path, capsys):
+    source = _to_refine(store)
+    path, image = _mask_file(tmp_path)
+    digest = store.mask_hash(image)
+    monkeypatch.setattr(generate, "_project", _project_claiming(generate, ANIMAGINE))
+    saved = store.save_image
+
+    def save_then_lose_the_mask(*args, **kwargs):
+        # Gone once the first cell's image is saved, before the second began,
+        # as the server's worker test has it.
+        try:
+            return saved(*args, **kwargs)
+        finally:
+            (store.masks_dir() / f"{digest}.png").unlink(missing_ok=True)
+
+    monkeypatch.setattr(store, "save_image", save_then_lose_the_mask)
+    assert generate.main(["a red scarf", "--refine", str(source.id), "--mask", str(path), "--steps", "20",
+                          "--seed", "3", "--grid-strength", "0.4,0.6", "-q"]) == 1
+    assert "missing from the masks directory" in capsys.readouterr().err
+    assert [r.strength for r in cli.requests] == [0.4]

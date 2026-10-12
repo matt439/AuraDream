@@ -5,6 +5,7 @@
     uv run python -m backend.generate "..." --width 1024 --height 1024 --batch 4 --seed 42
     uv run python -m backend.generate "..." --model krea/Krea-2-Turbo --quant int8
     uv run python -m backend.generate --from-image outputs/x.png --refine 412 --scale 1.5
+    uv run python -m backend.generate "a red scarf" --refine 412 --mask scarf-mask.png
 
 This is the web app minus the web: the same backend, the same per-image seed
 maths, the same PNG metadata and the same gallery database, so an image made
@@ -146,6 +147,14 @@ def _build_parser() -> argparse.ArgumentParser:
         "the picture, 1 keeps nothing. Defaults to the checkpoint's own starting "
         "strength (0.4 on SDXL, 0.1 on FLUX.1 dev, 0.5 on FLUX.1 schnell). About "
         "steps x S of the steps run",
+    )
+    conditioning.add_argument(
+        "--mask",
+        metavar="FILE",
+        help="with --refine: inpaint - repaint only where this picture is white and keep the "
+        "source where it is black (grey blends), on a checkpoint whose inpaint is enabled here "
+        "(the SDXL and Z-Image ones). A PNG at the source's own size, which is the size the "
+        "inpaint runs at; kept in the gallery's masks by its hash, which the image records",
     )
     conditioning.add_argument(
         "--scale",
@@ -314,6 +323,12 @@ def _apply_image_settings(args: argparse.Namespace, meta: dict) -> None:
         args.refine = meta["refine"]
         if args.strength is None and meta.get("strength") is not None:
             args.strength = meta["strength"]
+        # An inpaint reproduces over the same mask: by the hash its record
+        # names, which `_mask_from_record` finds in the gallery or in the
+        # PNG's own copy. Only with the source it covers - a --refine of
+        # another image takes no mask from this one.
+        if args.mask is None and isinstance(meta.get("mask"), str):
+            args.mask_hash = meta["mask"]
     if args.model is None and meta.get("model"):
         args.model = meta["model"]
     # The file's size only when none of the four size arguments was given.
@@ -322,6 +337,49 @@ def _apply_image_settings(args: argparse.Namespace, meta: dict) -> None:
         width, _, height = size.partition("x")
         if width.isdigit() and height.isdigit():
             args.width, args.height = int(width), int(height)
+
+
+def _mask_file(path: str, parser: argparse.ArgumentParser):
+    """The picture --mask names, in the canonical form a mask is kept in:
+    one `L` channel, 0 to 255, white repainted. A path is fine here - the
+    CLI is the user's own process - and the hash is what is recorded."""
+    from PIL import Image, UnidentifiedImageError
+
+    try:
+        with Image.open(path) as image:
+            image.load()
+            mask = image.convert("L")
+    except (OSError, UnidentifiedImageError, Image.DecompressionBombError) as exc:
+        parser.error(f"--mask: cannot read {path}: {exc}")
+    if mask.getextrema()[1] == 0:
+        parser.error("--mask: nothing is masked - the picture is black everywhere, so nothing would change")
+    return mask
+
+
+def _mask_from_record(path: str, digest: str):
+    """The mask a --from-image PNG carries in its own `local-diffusion-mask`
+    chunk, where it is the one its record names, else None."""
+    import base64
+    import binascii
+    import io
+
+    from PIL import Image
+
+    from backend.metadata import PNG_MASK_KEY
+    from backend.storage import mask_hash
+
+    try:
+        with Image.open(path) as image:
+            raw = image.info.get(PNG_MASK_KEY)
+        if not isinstance(raw, str):
+            return None
+        with Image.open(io.BytesIO(base64.b64decode(raw, validate=True))) as embedded:
+            embedded.load()
+            if embedded.mode != "L" or mask_hash(embedded) != digest:
+                return None
+            return embedded.copy()
+    except (OSError, ValueError, binascii.Error):
+        return None
 
 
 def _image_variables(args: argparse.Namespace, meta: dict) -> dict[str, str] | None:
@@ -421,6 +479,39 @@ def _project() -> SimpleNamespace:
     )
 
 
+def _mask_unusable(p: SimpleNamespace, request, mask_image, *, store: bool) -> str | None:
+    """Why the inpaint's mask cannot run over its source, or None - the
+    server's submit check (`submission.mask_unusable`), after keeping the
+    mask where this run has its picture (--mask, or the PNG's own copy) and
+    is no dry run. A dry run holds the picture's size to the source and the
+    request instead, and writes nothing."""
+    if mask_image is not None and not store:
+        source = p.storage.get_image(request.refine)
+        if source is not None and mask_image.size != (source.width, source.height):
+            return (
+                f"mask {request.mask[:16]} is {mask_image.width}x{mask_image.height}, but source image "
+                f"{request.refine} is {source.width}x{source.height}; paint the mask on that image again"
+            )
+        if mask_image.size != (request.width, request.height):
+            return (
+                f"an inpaint runs at its source's size: the mask is {mask_image.width}x"
+                f"{mask_image.height}, not {request.width}x{request.height}"
+            )
+        return None
+    if mask_image is not None:
+        p.storage.store_mask(mask_image)
+    elif not store:
+        # A dry run of a recorded mask found nowhere: the real run says so.
+        try:
+            p.storage.mask_path(request.mask)
+        except ValueError as exc:
+            return str(exc)
+        return None
+    from backend.submission import mask_unusable
+
+    return mask_unusable(request)
+
+
 def _duration(seconds: float) -> str:
     minutes, secs = divmod(int(seconds), 60)
     hours, minutes = divmod(minutes, 60)
@@ -440,6 +531,8 @@ def main(argv: list[str] | None = None) -> int:
         sys.stdout.reconfigure(encoding="utf-8", errors="backslashreplace")
     parser = _build_parser()
     args = parser.parse_args(argv)
+    # A mask hash carried from --from-image's record, where --mask names none.
+    args.mask_hash = None
     # Whether the command line itself names a size, before a PNG fills one in:
     # --scale is an alternative to these, but not to the size of --from-image.
     size_flags = any(v is not None for v in (args.width, args.height, args.aspect, args.mp))
@@ -457,6 +550,11 @@ def main(argv: list[str] | None = None) -> int:
             parser.error("--strength needs --refine: there is no source to re-denoise")
         if args.scale is not None:
             parser.error("--scale needs --refine: it multiplies the source's size")
+        if args.mask is not None:
+            parser.error("--mask needs --refine: a mask covers the image it was painted on")
+    inpainting = args.mask is not None or args.mask_hash is not None
+    if inpainting and args.scale is not None:
+        parser.error("--scale and --mask are alternatives: an inpaint runs at its source's own size")
     if args.scale is not None:
         if size_flags:
             parser.error("--scale and --width/--height/--aspect/--mp are alternatives; pick one")
@@ -466,6 +564,7 @@ def main(argv: list[str] | None = None) -> int:
     # the source's own, scaled, once the gallery can be read.
     sized = any(v is not None for v in (args.width, args.height, args.aspect, args.mp))
     carried = _image_variables(args, source) if source is not None else None
+    mask_image = _mask_file(args.mask, parser) if args.mask is not None else None
     width, height = _resolve_size(args, parser)
     apply_env(args)
     p = _project()
@@ -474,7 +573,16 @@ def main(argv: list[str] | None = None) -> int:
     # before anything is built from the flags: a strength that also happens
     # to leave no step of that checkpoint's few would otherwise be the error
     # reported, about a pass that could never have run.
-    if args.refine is not None and not p.defaults_for(p.settings.model_id)["refine_supported"]:
+    if inpainting and not p.defaults_for(p.settings.model_id)["inpaint_supported"]:
+        # The inpaint class's question, as `applied()` asks it with a mask.
+        print(
+            f"{p.settings.model_id} has no inpaint in this app - its pipeline has no inpaint class "
+            "in the installed diffusers, or its family's is not enabled yet. The SDXL and "
+            "Z-Image checkpoints have one.",
+            file=sys.stderr,
+        )
+        return 2
+    if not inpainting and args.refine is not None and not p.defaults_for(p.settings.model_id)["refine_supported"]:
         print(
             f"{p.settings.model_id} has no refine pass in this app - its integration has no "
             "compatible image-to-image counterpart. The FLUX.1, SDXL, Z-Image and Qwen-Image checkpoints "
@@ -484,7 +592,7 @@ def main(argv: list[str] | None = None) -> int:
         return 2
 
     refined_from = None
-    if args.refine is not None and (args.scale is not None or not sized):
+    if args.refine is not None and (args.scale is not None or not sized or inpainting):
         # Only against a gallery that exists, like the reference check below:
         # a --dry-run promises to create nothing, the database included.
         # Binned too: the source check below then says it is in the recycle
@@ -499,12 +607,29 @@ def main(argv: list[str] | None = None) -> int:
                 file=sys.stderr,
             )
             return 2
-        try:
-            width, height = p.refine.scaled(
-                refined_from.width, refined_from.height, args.scale or p.refine.DEFAULT_SCALE
-            )
-        except (ValueError, OverflowError):
-            parser.error("--scale produces a size outside the supported range")
+        if inpainting:
+            # The mask was painted on the source's pixels: its own size, never
+            # scaled. A size given that differs is refused with the mask below.
+            if not sized:
+                width, height = refined_from.width, refined_from.height
+        else:
+            try:
+                width, height = p.refine.scaled(
+                    refined_from.width, refined_from.height, args.scale or p.refine.DEFAULT_SCALE
+                )
+            except (ValueError, OverflowError):
+                parser.error("--scale produces a size outside the supported range")
+
+    # The mask's name. Kept (`storage.store_mask`, the upload route's own
+    # writer) only once the run is past its checks and is no dry run.
+    mask = None
+    if mask_image is not None:
+        mask = p.storage.mask_hash(mask_image)
+    elif args.mask_hash is not None:
+        mask = args.mask_hash
+        # Not held here (a PNG from another gallery, or a mask since swept):
+        # the PNG's own copy is the same picture, by the hash.
+        mask_image = _mask_from_record(args.from_image, mask)
 
     profile = p.defaults_for(p.settings.model_id)
     mu = None if args.no_mu else (args.mu if args.mu is not None else profile["mu"])
@@ -555,6 +680,7 @@ def main(argv: list[str] | None = None) -> int:
             refine=args.refine,
             # None is "not given": the checkpoint's own starting strength.
             strength=args.strength,
+            mask=mask,
             seed=seed,
             num_images=args.batch,
             runs=args.runs,
@@ -649,6 +775,11 @@ def main(argv: list[str] | None = None) -> int:
             p.storage.reference_paths([args.refine], "source image")
         except ValueError as exc:
             print(str(exc), file=sys.stderr)
+            return 2
+    if mask is not None:
+        reason = _mask_unusable(p, request, mask_image, store=not args.dry_run)
+        if reason is not None:
+            print(reason, file=sys.stderr)
             return 2
     if references and not profile["reference_supported"]:
         print(
@@ -801,6 +932,8 @@ def main(argv: list[str] | None = None) -> int:
             # The steps that run, since `sampling` above states the schedule's
             # length; the source's own size when the size was derived from it.
             ran = p.grid.denoised_steps(request)
+            if request.mask is not None:
+                print(f"inpaint  : under mask {request.mask[:16]}, composited over the source")
             print(
                 f"refine   : image {request.refine} at strength {request.strength:g}  "
                 f"(about {ran} of {request.steps} steps"
@@ -879,6 +1012,9 @@ def main(argv: list[str] | None = None) -> int:
                 p.gallery_reports.step_cost_ms(request.width, request.height, p.settings.model_id),
                 refine_costs=p.gallery_reports.refine_cost_ms(
                     request.width, request.height, p.settings.model_id
+                ),
+                inpaint_costs=p.gallery_reports.refine_cost_ms(
+                    request.width, request.height, p.settings.model_id, inpaint=True
                 ),
             )
             if seconds is not None:
@@ -1019,6 +1155,10 @@ def main(argv: list[str] | None = None) -> int:
 
             started = time.perf_counter()
             try:
+                # As the server's worker does: a mask lost since the checks
+                # fails this cell in words, before the backend reads it.
+                if cell.request.refine is not None and cell.request.mask is not None:
+                    p.storage.mask_path(cell.request.mask)
                 images = backend.generate(
                     cell.request,
                     seed=run_seed,

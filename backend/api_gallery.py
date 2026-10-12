@@ -264,7 +264,9 @@ def create_router(
         Restore there kept the count the same.
         """
         try:
-            result = await asyncio.to_thread(gallery_delete.empty_bin, expected, pin)
+            result = await asyncio.to_thread(
+                gallery_delete.empty_bin, expected, pin, get_jobs().masks_in_flight
+            )
         except gallery_delete.SelectionChanged as exc:
             now = (f"{exc.found} images are in it now, not the {exc.expected} confirmed"
                    if exc.found != exc.expected
@@ -281,7 +283,7 @@ def create_router(
     async def delete(image_id: int) -> dict:
         """Delete one image and its PNG for good, live or binned: the bin
         view's Delete permanently. The page's ordinary delete bins."""
-        if not await asyncio.to_thread(gallery_delete.delete_image, image_id):
+        if not await asyncio.to_thread(gallery_delete.delete_image, image_id, get_jobs().masks_in_flight):
             raise HTTPException(status_code=404, detail="unknown image")
         # A page that reattaches to the job that made it is replayed the job's
         # records; a deleted one came back as a broken tile.

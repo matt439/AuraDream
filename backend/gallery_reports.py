@@ -149,6 +149,9 @@ _GROUPS: dict[str, str] = {
     # sweep is starred by how much of the source it kept.
     "strength": "round(strength, 6)",
     "refine": "refine",
+    # An inpaint's mask, by the 16 digits the A1111 line prints: which region
+    # of a source the kept passes repainted. NULL on everything else.
+    "mask": "substr(mask, 1, 16)",
     # A comparison's version by its label (`prompt_variants`): the starred
     # rate per version. `prompt` cannot say it - reorders share their opening
     # words, which is all a table cell has room for.

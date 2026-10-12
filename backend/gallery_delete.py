@@ -11,7 +11,8 @@ and a save still serialise on the same lock.
 from __future__ import annotations
 
 import hashlib
-from collections.abc import Sequence
+import time
+from collections.abc import Callable, Sequence
 from datetime import datetime, timezone
 from typing import Any
 
@@ -43,6 +44,11 @@ _STARRED_SOURCE = (
 _LIVE_STAR = "favorite = 1 AND binned_at IS NULL"
 _NOT_LIVE_STAR = "(favorite = 0 OR binned_at IS NOT NULL)"
 _UNKEPT = f"{_NOT_LIVE_STAR} AND NOT ({_STARRED_SOURCE})"
+
+# The masks the server's queued and running cells will read, asked as a sweep
+# runs (`JobManager.masks_in_flight`): a queued cell's mask is in no row yet.
+# The CLI has no jobs of its own and passes none.
+InFlight = Callable[[], set[str]]
 
 
 def matching_preview(
@@ -156,6 +162,7 @@ def delete_matching(
     expected: int | None = None,
     model_id: str | None = None,
     to_bin: bool = False,
+    in_flight: InFlight | None = None,
 ) -> dict[str, Any]:
     """Delete the rows a strict scope selects, and their files - nothing else.
 
@@ -176,7 +183,9 @@ def delete_matching(
     `to_bin` moves the live rows in scope to the recycle bin instead - the
     browser's Delete unstarred, counted by `matching_preview(live_only=True)`
     - and touches no file, so `files` is 0. Without it the delete is
-    permanent and reaches binned rows too, as `clear --where` does.
+    permanent and reaches binned rows too, as `clear --where` does, and then
+    sweeps the inpaint masks nothing names any more (`sweep_masks`, with
+    `in_flight`), which the bin never does.
     """
     filters, params = strict_scope(search)
     if keep_favorites:
@@ -208,11 +217,12 @@ def delete_matching(
         if path.exists() and storage._unlink(path):
             removed += 1
         storage._delete_thumbnails(path)
-    return {"records": len(doomed), "files": removed, "ids": [row["id"] for row in doomed]}
+    masks = sweep_masks(in_flight)
+    return {"records": len(doomed), "files": removed, "ids": [row["id"] for row in doomed], "masks": masks}
 
 
 @gallery_lock.protected(lambda: storage.settings.db_path, waits=True)
-def delete_image(image_id: int) -> bool:
+def delete_image(image_id: int, in_flight: InFlight | None = None) -> bool:
     """Delete one image and its files for good, live or in the recycle bin."""
     # Looked up and deleted under the one lock: two deletes of the same image
     # (a double-click, a second tab) both found the row before either removed
@@ -227,12 +237,68 @@ def delete_image(image_id: int) -> bool:
     # whatever gets left behind.
     storage._unlink(storage.settings.outputs_dir / row["filename"])
     storage._delete_thumbnails(storage.settings.outputs_dir / row["filename"])
+    sweep_masks(in_flight)
     return True
 
 
 def _now() -> str:
     """The time a row is binned at, written as `created_at` is."""
     return datetime.now(timezone.utc).isoformat()
+
+
+def _settled(created_at: Any, cutoff: float) -> bool:
+    """Whether a `masks` row was written (or last uploaded) before `cutoff`,
+    Unix seconds. A stamp that does not parse is an old one: the row is
+    still spared while anything names it."""
+    try:
+        return datetime.fromisoformat(created_at).timestamp() < cutoff
+    except (TypeError, ValueError):
+        return True
+
+
+def sweep_masks(in_flight: InFlight | None = None, *, settle: bool = True, orphans: bool = False) -> int:
+    """Remove the inpaint masks nothing needs any more: their `masks` rows
+    and their files. Answers how many went.
+
+    A mask is needed while any row names it, live or binned - a binned
+    inpaint is still what was made, and a Restore must find its mask - and
+    while a queued or running cell will read it (`in_flight`, asked here,
+    under the gallery reservation every caller already holds). It is spared
+    too while younger than `PARTIAL_SETTLE_SECONDS`: the Inpaint dialog
+    uploads a mask before anything names it, and its re-upload restarts the
+    clock (`storage.store_mask`). `settle=False` is the whole `clear`, which
+    takes every mask no kept row names, whatever its age.
+
+    Rows first, under `BEGIN IMMEDIATE` so no save names a mask between the
+    look and the delete; files after the commit, as images are removed. A
+    file that will not go is left for the next sweep, its row already gone -
+    `orphans` collects such files, and any in `masks/` with no row, once
+    they too are older than the window (the whole `clear`'s orphan sweep).
+    """
+    cutoff = time.time() - storage.PARTIAL_SETTLE_SECONDS
+    held = set(in_flight()) if in_flight is not None else set()
+    with storage._write_lock, storage._session() as conn:
+        conn.execute("BEGIN IMMEDIATE")
+        held |= {row[0] for row in conn.execute("SELECT DISTINCT mask FROM images WHERE mask IS NOT NULL")}
+        doomed = [
+            row["hash"]
+            for row in conn.execute("SELECT hash, created_at FROM masks")
+            if row["hash"] not in held and (not settle or _settled(row["created_at"], cutoff))
+        ]
+        conn.executemany("DELETE FROM masks WHERE hash = ?", [(digest,) for digest in doomed])
+        kept = {row[0] for row in conn.execute("SELECT hash FROM masks")}
+    directory = storage.masks_dir()
+    for digest in doomed:
+        storage._unlink(directory / f"{digest}.png")
+    if orphans and directory.is_dir():
+        for path in directory.glob("*.png"):
+            try:
+                old = path.stat().st_mtime < cutoff
+            except OSError:
+                continue
+            if path.stem not in kept and path.stem not in held and old:
+                storage._unlink(path)
+    return len(doomed)
 
 
 def _toggle_bin(ids: Sequence[int], *, to_bin: bool) -> tuple[list[int], list[int], list[int]]:
@@ -339,7 +405,9 @@ def bin_pin(ids) -> str:
 
 
 @gallery_lock.protected(lambda: storage.settings.db_path)
-def empty_bin(expected: int | None = None, pin: str | None = None) -> dict[str, Any]:
+def empty_bin(
+    expected: int | None = None, pin: str | None = None, in_flight: InFlight | None = None
+) -> dict[str, Any]:
     """Delete every image in the recycle bin, rows and files, for good.
 
     Fails fast on a busy gallery like `delete_matching`, and like it pins
@@ -348,7 +416,8 @@ def empty_bin(expected: int | None = None, pin: str | None = None) -> dict[str, 
     was open raises `SelectionChanged` and deletes nothing - with the count
     unchanged too, as a Restore and a bin of another image leave it. The
     rows go in one `DELETE ... RETURNING`, the files after the commit,
-    counted as `delete_matching` counts them. No orphan sweep and no vacuum.
+    counted as `delete_matching` counts them, and then the masks no row
+    names any more (`sweep_masks`). No orphan sweep and no vacuum.
     """
     with storage._write_lock, storage._session() as conn:
         if expected is not None or pin is not None:
@@ -366,7 +435,9 @@ def empty_bin(expected: int | None = None, pin: str | None = None) -> dict[str, 
         if path.exists() and storage._unlink(path):
             removed += 1
         storage._delete_thumbnails(path)
-    return {"records": len(doomed), "files": removed, "ids": sorted(row["id"] for row in doomed)}
+    masks = sweep_masks(in_flight)
+    return {"records": len(doomed), "files": removed, "ids": sorted(row["id"] for row in doomed),
+            "masks": masks}
 
 
 def summarise() -> dict[str, int]:
@@ -384,6 +455,8 @@ def summarise() -> dict[str, int]:
     # orphan.
     files = list(storage.settings.outputs_dir.glob("*.png"))
     thumbs = storage._thumb_files()
+    # Inpaint masks, which a whole clear takes with the images they cover.
+    masks = list(storage.masks_dir().glob("*.png"))
     if storage.settings.db_path.exists():
         with storage._session() as conn:
             total = conn.execute("SELECT COUNT(*) FROM images").fetchone()[0]
@@ -406,7 +479,7 @@ def summarise() -> dict[str, int]:
     partials = len(plan) - recoverable
 
     total_bytes = 0
-    for path in files + thumbs:
+    for path in files + thumbs + masks:
         try:
             total_bytes += path.stat().st_size
         except OSError:
@@ -425,11 +498,12 @@ def summarise() -> dict[str, int]:
         "partial_files": partials,
         "recoverable_partials": recoverable,
         "bytes_on_disk": total_bytes,
+        "masks_on_disk": len(masks),
     }
 
 
 @gallery_lock.protected(lambda: storage.settings.db_path)
-def clear_history(keep_favorites: bool = False) -> dict[str, int]:
+def clear_history(keep_favorites: bool = False, in_flight: InFlight | None = None) -> dict[str, int]:
     """Delete image records and the PNGs they point at.
 
     Rows are deleted rather than the database file, so this is safe while the
@@ -473,9 +547,19 @@ def clear_history(keep_favorites: bool = False) -> dict[str, int]:
     for path in storage._thumb_files():
         if not (storage.settings.outputs_dir / path.with_suffix(".png").name).exists():
             storage._unlink(path)
+    # The inpaint masks go with the rows that named them: the whole clear
+    # takes every one no kept row names, whatever its age - a mask uploaded a
+    # minute ago covers an image that is gone - and `--keep-favorites` sweeps
+    # as a delete does. Then the files with no row, after the settle window.
+    masks = sweep_masks(in_flight, settle=keep_favorites, orphans=True)
+    if not keep_favorites:
+        try:
+            storage.masks_dir().rmdir()  # only where nothing is left in it
+        except OSError:
+            pass
 
     return {"records": len(doomed), "files": removed, "orphans": orphans, "partials": partials,
-            "recovered": recovered}
+            "recovered": recovered, "masks": masks}
 
 
 @gallery_lock.protected(lambda: storage.settings.db_path)

@@ -14,7 +14,7 @@ import time
 import uuid
 import zipfile
 from concurrent.futures import ThreadPoolExecutor
-from datetime import datetime
+from datetime import datetime, timezone
 from pathlib import Path, PurePosixPath
 
 from . import bundle_crypto, bundle_images, gallery_lock, storage
@@ -27,6 +27,7 @@ from .bundle_common import (
     Progress,
     _basename,
     _connect_read,
+    _mask_rows,
     _quiet,
     _rows,
 )
@@ -126,6 +127,9 @@ def _inventory() -> list[tuple[str, Path]]:
     for directory, prefix, suffixes in (
         (outputs, "images/", {".png", ".webp"}),
         (outputs / "thumbnails", "images/thumbnails/", {".webp"}),
+        # The inpaint masks, under their own prefix: not gallery images, and
+        # named by their hash, which a merge never renumbers.
+        (outputs / storage.MASKS_DIR, "masks/", {".png"}),
     ):
         if not directory.exists():
             continue
@@ -167,8 +171,9 @@ def preview() -> dict:
             # The live starred images, every checkpoint's: what a bundle of
             # the starred takes (`submission.resolve_selection`'s filter).
             "starred": sum(bool(r["favorite"]) and not r.get("binned_at") for r in rows),
-            "images": sum(p.suffix.lower() == ".png" for _, p in files),
+            "images": sum(name.startswith("images/") and p.suffix.lower() == ".png" for name, p in files),
             "thumbnails": sum(p.suffix.lower() == ".webp" for _, p in files),
+            "masks": sum(name.startswith("masks/") for name, _ in files),
             "bytes": sum(p.stat().st_size for _, p in files)
                 + (settings.db_path.stat().st_size if settings.db_path.exists() else 0),
         }
@@ -190,6 +195,38 @@ def _backup(source: Path, target: Path) -> None:
     finally:
         dest.close()
     _rows(target)
+
+
+def _merge_masks(conn: sqlite3.Connection, bundle: dict[str, dict], members: dict[str, tuple[int, int]]) -> set[str]:
+    """Merge a bundle's inpaint masks into the staged database, by hash, and
+    answer every mask hash this gallery holds once the import lands.
+
+    `bundle` is its `masks` table, `members` the size each `masks/` member
+    decoded at (`_inspect_mask` held it to its name and its row). A mask is
+    content-addressed, so a row this gallery has already is the same mask -
+    unless it records another size, which a hash that covers the size never
+    can, and is refused. Only a mask whose file the bundle carries gains a
+    row; a bundle row without one would name a file nobody has. A member
+    with no row of its own is given one from its pixels, as
+    `storage.store_mask` gives a lost row back.
+    """
+    conn.execute(storage._MASKS_SCHEMA)
+    here = {row["hash"]: (row["width"], row["height"])
+            for row in conn.execute("SELECT hash, width, height FROM masks")}
+    for digest, row in bundle.items():
+        if digest in here and here[digest] != (row["width"], row["height"]):
+            raise BundleError(f"inpaint mask {digest[:16]} has another size in this gallery")
+    now = datetime.now(timezone.utc).isoformat()
+    for digest, size in members.items():
+        if digest in here:
+            if here[digest] != tuple(size):
+                raise BundleError(f"inpaint mask {digest[:16]} has another size in this gallery")
+            continue
+        created = bundle.get(digest, {}).get("created_at")
+        conn.execute("INSERT INTO masks (hash, width, height, created_at) VALUES (?, ?, ?, ?)",
+                     (digest, size[0], size[1], created if isinstance(created, str) else now))
+    directory = _settings().outputs_dir / storage.MASKS_DIR
+    return {digest for digest in here if (directory / f"{digest}.png").is_file()} | set(members)
 
 
 def _hash(path: Path) -> str:
@@ -312,9 +349,11 @@ def _chosen(ids: list[int]) -> tuple[list[dict], list[tuple[str, Path]]]:
     """The rows of `ids` a bundle of a selection carries, and their files.
 
     Each row's PNG and its thumbnail where it has one (in thumbnails/, or an
-    old one beside the PNG); never an unindexed image or another row's. A
-    chosen row whose PNG is missing refuses as the whole gallery's preview
-    does; a row the selection leaves out does not stop it.
+    old one beside the PNG), and an inpaint's mask where its file is here;
+    never an unindexed image or another row's. A chosen row whose PNG is
+    missing refuses as the whole gallery's preview does; a row the selection
+    leaves out does not stop it. A mask whose file is gone is not carried,
+    and the import counts the row (`masks_missing`).
     """
     settings = _settings()
     if settings.db_path.exists():
@@ -331,6 +370,8 @@ def _chosen(ids: list[int]) -> tuple[list[dict], list[tuple[str, Path]]]:
         stem = Path(row["filename"]).stem
         files += [(name, found[name]) for name in (f"images/thumbnails/{stem}.webp", f"images/{stem}.webp")
                   if name in found]
+    masks = sorted({f"masks/{row['mask']}.png" for row in rows if row.get("mask")} & set(found))
+    files += [(name, found[name]) for name in masks]
     return rows, files
 
 
@@ -346,6 +387,10 @@ def _restrict(snapshot: Path, keep: set[int]) -> None:
         conn.execute("CREATE TEMP TABLE chosen (id INTEGER PRIMARY KEY)")
         conn.executemany("INSERT INTO chosen VALUES (?)", [(i,) for i in keep])
         conn.execute("DELETE FROM images WHERE id NOT IN (SELECT id FROM chosen)")
+        # And the masks no chosen row names: a mask is a picture painted over
+        # an image the bundle need not hold.
+        if conn.execute("SELECT 1 FROM sqlite_master WHERE type = 'table' AND name = 'masks'").fetchone():
+            conn.execute("DELETE FROM masks WHERE hash NOT IN (SELECT mask FROM images WHERE mask IS NOT NULL)")
         conn.execute("INSERT INTO images_fts(images_fts) VALUES('rebuild')")
         conn.commit()
         conn.execute("VACUUM")
@@ -456,7 +501,7 @@ def export_bundle(expected: int | None = None, password: str | None = None, prog
                 # the bytes it read, so a damaged tracked PNG can never be
                 # cleared into an unusable import.
                 _verify_archive(partial, password=password, rows=rows, progress=progress,
-                                derived=sink.derived if password else None)
+                                derived=sink.derived if password else None, masks=_mask_rows(snapshot))
                 partial.rename(final)
             except BaseException:
                 partial.unlink(missing_ok=True)
@@ -469,6 +514,7 @@ def export_bundle(expected: int | None = None, password: str | None = None, prog
                 # Chosen ids that had gone by the time the gallery was reserved.
                 "left_out": sorted(set(ids) - {row["id"] for row in rows}) if ids is not None else [],
                 "links_outside": _links_outside(rows),
+                "masks": sum(member.startswith("masks/") for member, _ in files),
             }
             if keep_gallery:
                 # A backup ends at the verified read-back: nothing is cleared,
@@ -498,9 +544,15 @@ def export_bundle(expected: int | None = None, password: str | None = None, prog
                             _remove_file(source)
                         except OSError:
                             result["retained"].append(str(source.resolve()))
-                    remaining = {p.name for _, p in files if p.suffix.lower() == ".png" and p.exists()}
+                    remaining = {p.name for member, p in files
+                                 if member.startswith("images/") and p.suffix.lower() == ".png" and p.exists()}
                     deleted = [r["id"] for r in rows if r["filename"] not in remaining]
                     conn.executemany("DELETE FROM images WHERE id = ?", [(i,) for i in deleted])
+                    # A mask's row goes with its file, as an image's does.
+                    conn.executemany("DELETE FROM masks WHERE hash = ?", [
+                        (PurePosixPath(member).stem,) for member, p in files
+                        if member.startswith("masks/") and not p.exists()
+                    ])
                 # The surviving rows remain accurate even if Windows refuses
                 # the subsequent replacement of the original database file.
                 result["deleted_ids"] = deleted
@@ -547,6 +599,9 @@ def import_bundle(path: Path, password: str | None = None, progress: Progress = 
                 target = settings.outputs_dir / known["filename"] if known else None
                 return target if known and known["filename"] == relative and target.is_file() else None
 
+            def mask_file(name: str) -> Path:
+                return settings.outputs_dir / storage.MASKS_DIR / name
+
             def inspect(row: dict, data: bytes):
                 target = present_file(row["filename"])
                 if target is None:
@@ -573,6 +628,10 @@ def import_bundle(path: Path, password: str | None = None, progress: Progress = 
                 # verified manifest entry, so it is not unpacked either; only
                 # PNGs, which new rows rewrite, are compared as staged.
                 bits = member.split("/")
+                if bits[0] == "masks":
+                    # Content-addressed: a mask already here under its name
+                    # is this one, so its bundle copy is verified but kept.
+                    return not mask_file(bits[1]).is_file()
                 if bits[-1].lower().endswith(".png"):
                     return not (len(bits) == 2 and present_file(bits[1]))
                 return not settings.outputs_dir.joinpath(*bits[1:]).is_file()
@@ -583,10 +642,15 @@ def import_bundle(path: Path, password: str | None = None, progress: Progress = 
                 merge=(Path(merging), live), progress=progress)
             stage_db = Path(merging) / "merged.sqlite3"
             _backup(settings.db_path, stage_db)
+            bundle_masks = _mask_rows(work / _DATABASE)
             conn = sqlite3.connect(stage_db)
             conn.row_factory = sqlite3.Row
             installed: list[Path] = []
             try:
+                carried = _merge_masks(conn, bundle_masks, {
+                    PurePosixPath(member).stem: size for member, size in inspected.items()
+                    if member.startswith("masks/")
+                })
                 # Build all new rows against a private database; no live change
                 # precedes complete PNG, reference, conflict and metadata checks.
                 columns = {r["name"] for r in conn.execute("PRAGMA table_info(images)")}
@@ -637,6 +701,7 @@ def import_bundle(path: Path, password: str | None = None, progress: Progress = 
                         values.update(id=next_id, content_hash=digest)
                         pending.append((row, values))
                 unresolved = 0
+                masks_missing = 0
                 by_id = {r["id"]: r for r in current}
                 for original, values in pending:
                     refs = _references(original)
@@ -650,6 +715,13 @@ def import_bundle(path: Path, password: str | None = None, progress: Progress = 
                     if source_refine is not None and values["refine"] is None:
                         unresolved += 1
                         values["strength"] = None
+                        # Its mask covered that source's pixels, and a mask is
+                        # never kept without the source it covers.
+                        values["mask"] = None
+                    if values.get("mask") is not None and values["mask"] not in carried:
+                        # The hash stays - it still says what ran - but this
+                        # gallery cannot run it again until the mask is back.
+                        masks_missing += 1
                     by_id[values["id"]] = values
                 rewrites = []
                 for original, values in pending:
@@ -677,6 +749,15 @@ def import_bundle(path: Path, password: str | None = None, progress: Progress = 
                 known_names = set(existing)
                 disk_names = {p.relative_to(settings.outputs_dir).as_posix().casefold(): p for _, p in _inventory()}
                 for member in manifest["files"]:
+                    if member.startswith("masks/"):
+                        source = work.joinpath(*PurePosixPath(member).parts)
+                        target = mask_file(PurePosixPath(member).name)
+                        if target.is_file():
+                            continue  # the same mask, by its name; verified above
+                        if not source.exists():
+                            raise BundleError(f"the gallery changed during import; try again ({member})")
+                        targets.append((source, target))
+                        continue
                     if not member.startswith("images/"):
                         continue
                     relative = member.removeprefix("images/")
@@ -728,7 +809,9 @@ def import_bundle(path: Path, password: str | None = None, progress: Progress = 
                 return {"imported": len(pending), "present": present, "restored": len(restoring),
                         "binned": sum(bool(values.get("binned_at")) for _, values in pending),
                         "images": sum(name.startswith("images/") and name.lower().endswith(".png") for name in manifest["files"]),
-                        "unresolved_references": unresolved}
+                        "unresolved_references": unresolved,
+                        "masks": sum(target.parent.name == storage.MASKS_DIR for _, target in targets),
+                        "masks_missing": masks_missing}
             finally:
                 if conn is not None:
                     conn.close()

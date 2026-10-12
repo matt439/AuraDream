@@ -108,6 +108,33 @@ async def inpaint_unavailable(services: AppServices) -> str | None:
     )
 
 
+def missing_masks(records) -> list[int]:
+    """The ids of the inpaints among `records` whose mask this gallery cannot
+    find - imported without it (a bundle's `masks_missing`), or its file lost.
+    The row keeps the hash, which says what ran; running it again needs the
+    picture. Blocking: reads the database."""
+    lost = []
+    for record in records:
+        if record.refine is None or record.mask is None:
+            continue
+        try:
+            storage.mask_path(record.mask)
+        except ValueError:
+            lost.append(record.id)
+    return lost
+
+
+def missing_mask_detail(ids: list[int]) -> str:
+    """Why a selection with those inpaints is refused, naming each one: the
+    run would otherwise be a refine of the whole picture, or fail per cell."""
+    said = "; ".join(f"the mask of #{image_id} is missing" for image_id in ids[:6])
+    more = f"; and {len(ids) - 6} more" if len(ids) > 6 else ""
+    return (
+        f"{said}{more} - its inpaint cannot run again until the mask is back: import the "
+        "bundle that carries it, or paint it again on the source"
+    )
+
+
 def mask_unusable(request: GenerateRequest) -> str | None:
     """Why an inpaint's mask cannot run over its source, or None: the mask is
     held and its file there (`storage.mask_path`), and the mask, the source
