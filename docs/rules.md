@@ -928,7 +928,10 @@ Reproduction:
   `variables={"variant": label}`, whose starred rate per label is
   `stats --by variant`. `CellKey`, `run_id`, resume and the duplicate count
   read the resolved prompt, not the label. A placeholder in the negative
-  prompt is still refused.
+  prompt is still refused. The page refuses, in the comparison's preview
+  and at Run comparison, a version or negative holding a `{name}` the open
+  grid's variables declare (`compareUnfilled`, `declaredGridVariables`), as
+  `generate()` refuses one; undeclared braces pass.
 
 Jobs:
 
@@ -5162,7 +5165,9 @@ opens its own job, while opening their shared run exposes Prompt as an
 axis. Run comparison clicked at 800x900, and at 2560x1305 under the docked
 check, hands focus to the sheet's first cell (named by seed and version)
 without moving the page, and focus moved to the prompt while the
-comparison renders stays there. `smoke-comparison-batch.json` uses the same
+comparison renders stays there; and with the grid open declaring `{size}`, a
+version holding it refused in the preview and at the press with nothing
+sent, an undeclared name or the fold shut previewing as usual. `smoke-comparison-batch.json` uses the same
 fake for all six Seeds/Batch
 pairings, their preview and request counts, select values changed without
 events, paired output seeds, sheets and stale-run disabling. API tests cover

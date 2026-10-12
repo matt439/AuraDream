@@ -131,6 +131,25 @@ function comparePayload(variants) {
   };
 }
 
+// A comparison runs each version verbatim (grid.resolve_prompts substitutes
+// nothing), so with the grid open, a `{name}` its variables declare was
+// rendered as braces into every image - a prompt Generate refuses in the
+// same state. The refusal names the first such name, in a version or the
+// negative; braces the grid does not declare (a JSON prompt's) pass.
+function compareUnfilled(variants) {
+  const declared = declaredGridVariables();
+  if (!declared.size) return null;
+  const negative = els.negative.disabled ? '' : els.negative.value;
+  for (const text of [...variants.map((v) => v.prompt), negative]) {
+    for (const [hole] of text.matchAll(new RegExp(GRID_PLACEHOLDER.source, 'g'))) {
+      if (declared.has(hole.slice(1, -1))) {
+        return `The comparison runs each version as written; fill or remove ${hole} first.`;
+      }
+    }
+  }
+  return null;
+}
+
 function scheduleComparePreview(delay = 250) {
   clearTimeout(comparePreviewTimer);
   if (!analysisResult || els.promptAnalysis.hidden) return;
@@ -147,6 +166,12 @@ async function previewComparison() {
     els.comparePreview.textContent = promptCritiqueSupported
       ? 'Only the original so far: write a version of your own above, or ask the critic for a rewrite.'
       : 'Only the original so far: write a version of your own above to compare it against.';
+    return;
+  }
+  const unfilled = compareUnfilled(variants);
+  if (unfilled) {
+    els.comparePreview.classList.add('warn');
+    els.comparePreview.textContent = unfilled;
     return;
   }
   try {
@@ -180,5 +205,7 @@ async function previewComparison() {
 function runComparison() {
   const variants = comparedVariants();
   if (!analysisResult || variants.length < 2 || analysisStale) return undefined;
+  const unfilled = compareUnfilled(variants);
+  if (unfilled) { showError(unfilled); return undefined; }
   return startJob('/api/grid', comparePayload(variants), { sheet: true, panel: false });
 }

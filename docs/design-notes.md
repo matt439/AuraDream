@@ -3365,7 +3365,14 @@ and its siblings become empty. A variant is therefore taken verbatim: nothing
 is substituted into it, and a `{` in pasted JSON is text, not a placeholder
 with no values. The request's own prompt is not rendered; its negative prompt
 runs beside every variant, and a placeholder left in *that* is still refused,
-since nothing would fill it. Labels are stored trimmed and a label of only
+since nothing would fill it. Verbatim is also why the page refuses a version
+holding a `{name}` the open grid's variables declare (`compareUnfilled`,
+comparison.js: "The comparison runs each version as written; fill or remove
+{size} first."), in the preview and at Run comparison, as Generate refuses
+the same prompt: the checked prompt with the grid open is a template, and
+the comparison rendered its braces into every image (2026-10-12 review,
+R23). Undeclared braces - JSON - still pass, and the guard is the page's,
+as Generate's is. Labels are stored trimmed and a label of only
 spaces is refused. Identical variant texts are not refused - counted as
 duplicates in the preview, as `_expand` treats duplicates elsewhere - and the
 page drops them before submitting. `CellKey`, `run_id`, resume and the

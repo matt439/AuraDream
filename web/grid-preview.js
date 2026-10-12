@@ -112,6 +112,23 @@ function singleValueLines(text) {
   return lines;
 }
 
+// The names the open fold's variables box declares, read as
+// grid.parse_variables reads a line (a name, then `=`): what makes a `{name}`
+// in a prompt the grid's rather than text. Empty with the fold shut, as
+// Generate's guard reads it. Only to refuse a press the grid's own parse
+// would not fill (the comparison's) and to name a chip (the tag tray).
+function declaredGridVariables() {
+  if (!els.gridSection.open) return new Map();
+  const declared = new Map();
+  for (const line of els.gridPrompt.value.split('\n')) {
+    const match = /^\s*([A-Za-z_]\w*)\s*=(.*)$/.exec(line);
+    if (match && !declared.has(match[1])) {
+      declared.set(match[1], match[2].split('|').map((v) => v.trim().split(/\s+/).join(' ')).filter(Boolean));
+    }
+  }
+  return declared;
+}
+
 // The preview is the server's own expansion rather than a count worked out in
 // here: the syntax has one parser, and the message a bad axis produces is the
 // one the run itself would have refused with.

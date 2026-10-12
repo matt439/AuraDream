@@ -73,5 +73,19 @@
   {"expect": "__until(() => !!document.activeElement.closest('#sheet-grid .sheet-cell') && document.activeElement !== document.querySelector('#sheet-grid .sheet-cell img'))"},
   {"expect": "Math.abs(scrollY - __y) < 2"},
   {"eval": "setSheet(false); els.search.value = ''; resetGallery();"},
-  {"viewport": [1400, 900]}
+  {"viewport": [1400, 900]},
+  {"log": "'2026-10-12 R23: with the grid open and its variables declaring {size}, a comparison would render the braces into every image, as Generate refuses to: the preview and the press say so and nothing is sent; a name the grid does not declare, or the fold shut, runs'"},
+  {"eval": "window.__posts = 0; window.__fetch0 = fetch; window.fetch = (u, o) => { if (String(u) === '/api/grid') window.__posts += 1; return __fetch0(u, o); }; els.prompt.value = 'a {size} fox sitting in the snow at dusk'; els.negative.value = ''; els.gridPrompt.value = 'size = big | small'; els.gridSection.open = true; els.compareSeeds.value = '4'; promptReplaced(); checkPrompt()"},
+  {"expect": "__until(() => !!analysisResult && !analysisStale)"},
+  {"eval": "els.compareOwn.value = 'a {size} fox in the snow at dusk, sitting'; compareOwnChanged();"},
+  {"expect": "__until(() => els.comparePreview.classList.contains('warn') && els.comparePreview.textContent === 'The comparison runs each version as written; fill or remove {size} first.')"},
+  {"eval": "runComparison()"},
+  {"expect": "els.error.textContent === 'The comparison runs each version as written; fill or remove {size} first.' && __posts === 0 && !busy"},
+  {"eval": "els.gridPrompt.value = 'hair = red | blue'; els.gridPrompt.dispatchEvent(new Event('input', {bubbles: true}));"},
+  {"expect": "__until(() => !els.comparePreview.classList.contains('warn') && els.comparePreview.textContent.startsWith('8 images · 2 versions'))"},
+  {"eval": "els.gridPrompt.value = 'size = big | small'; els.gridPrompt.dispatchEvent(new Event('input', {bubbles: true}));"},
+  {"expect": "__until(() => els.comparePreview.textContent.includes('fill or remove {size}'))"},
+  {"eval": "els.gridSection.open = false;"},
+  {"expect": "__until(() => els.comparePreview.textContent.startsWith('8 images · 2 versions'))"},
+  {"eval": "window.fetch = __fetch0; els.gridPrompt.value = ''; showError(''); persistPanel();"}
 ]
