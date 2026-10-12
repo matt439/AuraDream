@@ -22,6 +22,15 @@ class BundleChanged(BundleError):
     pass
 
 
+def sentence(text: str) -> str:
+    # `BundleError` and `CryptoError` say a lowercase clause ("the bundle
+    # password is incorrect"); the page shows a sentence, on every route.
+    text = text.strip()
+    if not text:
+        return ""
+    return text[:1].upper() + text[1:] + ("" if text.endswith((".", "!", "?")) else ".")
+
+
 _CHUNK = 1024 * 1024
 # Decoding every tracked PNG dominates both directions; it runs on a small
 # pool while the archive is read. Admission is bounded by the decoded size

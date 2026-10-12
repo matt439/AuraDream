@@ -51,6 +51,12 @@ FILTERS: dict[str, tuple[str, Any]] = {
 }
 COMPARISONS = ("<=", ">=", "<", ">")
 NULL_TOKENS = {"none", "null", "off"}
+# Text keys whose `none` is NULL rather than a substring: `quant:none` is a
+# stored mode (an unquantised load), so only `lora` reads it as "without".
+NULLABLE_TEXT = {"lora"}
+# SQLite's INTEGER: a number past it raises OverflowError at the query, not
+# ValueError, and the routes answered 500.
+SQLITE_INT = (-(2**63), 2**63 - 1)
 
 
 def date_clause(raw: str) -> tuple[str, list]:
@@ -87,7 +93,7 @@ def size_clause(raw: str) -> tuple[str, list]:
     width, sep, height = raw.lower().replace("×", "x").partition("x")
     if not sep or not width.isdigit() or not height.isdigit():
         raise ValueError(f"size: {raw!r} is not WIDTHxHEIGHT")
-    return "(width = ? AND height = ?)", [int(width), int(height)]
+    return "(width = ? AND height = ?)", [_in_range("size", raw, int(width)), _in_range("size", raw, int(height))]
 
 
 def filter_clause(key: str, raw: str) -> tuple[str, list]:
@@ -96,7 +102,9 @@ def filter_clause(key: str, raw: str) -> tuple[str, list]:
     Exact (`cfg:0.5`), comparison (`steps:>=8`), range (`cfg:0-1`) or `none`,
     which is the only way to ask for the images that ran without a mu at all -
     `mu:0` is a different image and SQL will not match NULL with either. A
-    text key matches a substring, or with a leading `=` the whole value.
+    text key matches a substring, or with a leading `=` the whole value;
+    `lora:none` is the images rendered without an adapter (`lora:=none` is
+    one named "none").
     """
     if key == "date":
         return date_clause(raw)
@@ -112,6 +120,8 @@ def filter_clause(key: str, raw: str) -> tuple[str, list]:
             if raw == "=":
                 raise ValueError(f"{key}: '=' names no value")
             return f"{column} = ?", [raw[1:]]
+        if key in NULLABLE_TEXT and raw.lower() in NULL_TOKENS:
+            return f"{column} IS NULL", []
         return rf"{column} LIKE ? ESCAPE '\'", [f"%{like_escape(raw)}%"]
     if raw.lower() in NULL_TOKENS:
         return f"{column} IS NULL", []
@@ -128,9 +138,16 @@ def filter_clause(key: str, raw: str) -> tuple[str, list]:
 
 def _cast(cast, key: str, raw: str):
     try:
-        return cast(raw)
+        value = cast(raw)
     except ValueError:
         raise ValueError(f"{key}: {raw!r} is not a number") from None
+    return _in_range(key, raw, value) if cast is int else value
+
+
+def _in_range(key: str, raw: str, value: int) -> int:
+    if not SQLITE_INT[0] <= value <= SQLITE_INT[1]:
+        raise ValueError(f"{key}: {raw!r} is out of range")
+    return value
 
 
 def split_search(search: str) -> tuple[list[str], list, str]:

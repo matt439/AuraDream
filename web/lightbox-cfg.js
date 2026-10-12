@@ -105,8 +105,9 @@ function ladderQuery(rec) {
   // a range.
   if (rec.mu == null) terms.push('mu:none');
   else if (!/e/i.test(String(rec.mu))) terms.push(`mu:${rec.mu}`);
-  // `lora:=` is the whole name; there is no term for "no adapter".
-  if (rec.lora && !/\s/.test(rec.lora)) terms.push(`lora:=${rec.lora}`);
+  // `lora:=` is the whole name, `lora:none` no adapter at all.
+  if (!rec.lora) terms.push('lora:none');
+  else if (!/\s/.test(rec.lora)) terms.push(`lora:=${rec.lora}`);
   const search = terms.join(' ');
   return {
     key: `${rec.model_id}\n${search}`, model: rec.model_id, search,

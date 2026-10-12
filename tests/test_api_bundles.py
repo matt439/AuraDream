@@ -10,7 +10,7 @@ import time
 import pytest
 from fastapi import HTTPException
 
-from backend import api_bundles, bundles, main
+from backend import api_bundles, bundle_crypto, bundles, main
 from tests.api_helpers import ORIGIN, run_one
 from tests.bundle_helpers import _holding_child
 
@@ -141,7 +141,7 @@ def test_another_process_holding_the_gallery_fails_the_operation_readably(client
         child.stdin.close()
         child.wait(timeout=15)
     assert result["state"] == "failed"
-    assert "another Local Diffusion process" in result["error"]
+    assert result["error"] == "Another Local Diffusion process is using the gallery; try again when it finishes."
 
 
 def test_a_password_without_a_utf8_form_is_refused_before_any_work(client, store):
@@ -194,6 +194,34 @@ def test_an_error_without_a_message_is_reported_readably():
     manager.reserve("import")
     manager.fail(asyncio.CancelledError())
     assert manager.state["error"].startswith("The gallery bundle operation stopped unexpectedly")
+
+
+def test_a_worker_error_is_shown_as_a_sentence():
+    # BundleError and CryptoError say lowercase clauses; the page shows the
+    # status's text as it is.
+    manager = api_bundles.BundleManager(lambda: main.jobs, lambda: False)
+    for raised, shown in [
+        (bundles.BundleError("the bundle is damaged: File is not a zip file"),
+         "The bundle is damaged: File is not a zip file."),
+        (bundle_crypto.CryptoError("the encrypted bundle is damaged or was changed"),
+         "The encrypted bundle is damaged or was changed."),
+        (api_bundles.UPLOAD_STOPPED, api_bundles.UPLOAD_STOPPED),
+    ]:
+        manager.reserve("import")
+        manager.fail(raised)
+        assert manager.state["error"] == shown
+
+
+def test_a_refusal_answered_over_http_is_a_sentence_too(client, store):
+    # The preview and Import refuse through main's BundleError handler; the
+    # dialog shows its detail as it is, so it reads as the worker's would.
+    (store.settings.outputs_dir / "x.png.part").write_bytes(b"")
+    preview = client.get("/api/gallery/bundles/preview")
+    assert preview.status_code == 422
+    assert preview.json()["detail"] == "Finish or recover the incomplete image write first: x.png.part."
+    named = client.post("/api/gallery/bundles/import", json={"name": "x.txt"})
+    assert named.status_code == 422
+    assert named.json()["detail"] == f"Choose a bundle filename ending in .zip or {bundle_crypto.SUFFIX}."
 
 
 def test_bad_upload_and_changed_preview_leave_gallery_unchanged(client, store):
@@ -292,7 +320,9 @@ def test_password_bundle_export_check_and_upload(client, store):
         return _finish(client, started.json()["id"])
 
     refused = upload("nope")
-    assert refused["state"] == "failed" and "incorrect" in refused["error"] and "nope" not in refused["error"]
+    # The worker's refusal reads as the password check's does: a sentence.
+    assert wrong.json()["detail"] == "The bundle password is incorrect."
+    assert refused["state"] == "failed" and refused["error"] == "The bundle password is incorrect."
     assert upload(None)["state"] == "failed"
     assert store.list_images()[1] == 0
     assert upload("sésame")["result"]["imported"] == 1

@@ -16,6 +16,7 @@ from pydantic import BaseModel, Field, SecretStr
 from starlette.requests import ClientDisconnect
 
 from . import bundle_crypto, bundles, storage
+from .bundle_common import sentence
 from .jobs import JobManager
 
 log = logging.getLogger(__name__)
@@ -102,8 +103,9 @@ class BundleManager:
 
     def fail(self, exc: BaseException | str) -> None:
         # Some exceptions (ClientDisconnect, CancelledError) have no message;
-        # the page shows this text as it is, so never a bare class name.
-        error = str(exc) or f"The gallery bundle operation stopped unexpectedly ({type(exc).__name__})."
+        # the page shows this text as it is, so never a bare class name, and
+        # a worker's lowercase fragment as a sentence.
+        error = sentence(str(exc)) or f"The gallery bundle operation stopped unexpectedly ({type(exc).__name__})."
         self.state = {**self.state, "state": "failed", "error": error}
 
     def start(self, fn: Callable[[], dict], cleanup: Path | None = None) -> dict:
@@ -197,7 +199,7 @@ def create_router(get_manager: Callable[[], BundleManager]) -> APIRouter:
         try:
             await asyncio.to_thread(bundle_crypto.check_password, header, password or "")
         except bundle_crypto.CryptoError as exc:
-            raise HTTPException(400, str(exc)[:1].upper() + str(exc)[1:] + ".") from exc
+            raise HTTPException(400, sentence(str(exc))) from exc
         return {"ok": True}
 
     @router.post(PREFIX + "/export", status_code=202)

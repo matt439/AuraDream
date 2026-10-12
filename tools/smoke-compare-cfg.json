@@ -123,7 +123,7 @@
   {"eval": "closeLightbox(); window.__lonely = { ...__at(3.5) }; window.__asked = []; const f = window.fetch; window.fetch = (url, ...rest) => { if (String(url).includes('/api/gallery?') && String(url).includes('seed')) __asked.push(String(url)); return f(url, ...rest); }; window.__realGallery = galleryRecords; galleryRecords = []; openLightbox(__lonely, [__lonely]);"},
   {"expect": "els.lbCompareCfg.getAttribute('aria-disabled') === 'true' && els.lbCompareCfg.title === 'Looking for other CFG values of #' + __lonely.id + '…'"},
   {"expect": "__until(() => els.lbCompareCfg.getAttribute('aria-disabled') === 'false' && __asked.length === 1)"},
-  {"expect": "decodeURIComponent(__asked[0].replace(/\\+/g, ' ')).includes('model=black-forest-labs/FLUX.1-Krea-dev') && decodeURIComponent(__asked[0].replace(/\\+/g, ' ')).includes('search=seed:78 size:512x512 steps:28 refine:none mu:none') && __options().split('|').length === 3"},
+  {"expect": "decodeURIComponent(__asked[0].replace(/\\+/g, ' ')).includes('model=black-forest-labs/FLUX.1-Krea-dev') && decodeURIComponent(__asked[0].replace(/\\+/g, ' ')).includes('search=seed:78 size:512x512 steps:28 refine:none mu:none lora:none') && __options().split('|').length === 3"},
   {"key": "s"},
   {"expect": "__until(() => lbCompare.id === __lonely.id && lbCompare.source.guidance_scale === 2 && __keys().startsWith('← → walk') && els.lbCfgLower.getAttribute('aria-disabled') === 'true' && els.lbCfgLower.title === 'CFG 2 (#' + lbCompare.source.id + ') is not in what ← → walk here: pick it under Against')"},
   {"eval": "closeLightbox(); galleryRecords = __realGallery;"},

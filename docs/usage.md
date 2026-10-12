@@ -310,6 +310,7 @@ Search combines these terms with free text matching the prompt:
 | `mu:none`, `quant:fp8`, `model:flux` | Default shift, quantization, model substring |
 | `model:=circlestone-labs/Anima` | One checkpoint's whole id exactly (a leading `=` on any text key) |
 | `refine:412`, `refine:none`, `strength:0.3-0.5` | Passes from a source, direct renders, strength |
+| `lora:ink`, `lora:none` | LoRA name substring, or images made without one (`lora:=none` is an adapter named `none`) |
 | `hash:3f9a` | Identical pixels by hash prefix |
 | `size:1024x768` | Width and height exactly |
 | `date:today`, `date:yesterday`, `date:2026-10-07` | A day in the server's local timezone |
