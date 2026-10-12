@@ -463,17 +463,21 @@ def _sampling_values(
     """The numeric axes, each falling back to the request's own value.
 
     Each is labelled with the box it is typed into - the grid fold's, and the
-    Refine dialog's Strength - so a refusal names the box to fix.
+    Refine dialog's Strength - so a refusal names the box to fix, and a value
+    past the request's own bounds is refused here under that name too
+    (`_within`), not by pydantic under the field's.
     """
     return {
-        "steps": parse_axis(steps, int, label="Steps") or [request.steps],
-        "guidance_scale": parse_axis(cfg, float, label="CFG") or [request.guidance_scale],
-        "mu": parse_axis(mu, float, allow_none=True, label="Mu") or [request.mu],
+        "steps": _within(parse_axis(steps, int, label="Steps"), "steps", "Steps") or [request.steps],
+        "guidance_scale": _within(parse_axis(cfg, float, label="CFG"), "guidance_scale", "CFG")
+        or [request.guidance_scale],
+        "mu": _within(parse_axis(mu, float, allow_none=True, label="Mu"), "mu", "Mu") or [request.mu],
         # Only an axis when an adapter is selected: without one the scale is
         # not a setting at all (see `GenerateRequest.applied`), and a sweep of
         # it would be the same image several times over.
         "lora_scale": (
-            parse_axis(lora_scale, float, label="LoRA weight") or [request.lora_scale]
+            _within(parse_axis(lora_scale, float, label="LoRA weight"), "lora_scale", "LoRA weight")
+            or [request.lora_scale]
             if request.lora
             else [request.lora_scale]
         ),
@@ -494,11 +498,38 @@ def parse_seeds(text: str | None) -> list[int]:
     that could only be "N consecutive from the base", so the second night of
     every two-night investigation - the two seeds that gave the composition,
     crossed with a finer sweep - could not be asked for. The values are not
-    wrapped: the schema's own bounds are what turn a typo'd `-5` into an error
-    rather than a valid 9.2-quintillion seed, and a cell outside them fails
-    with the schema's message when the cells are built.
+    wrapped: the schema's own bounds are what turn a typo'd seed past
+    `MAX_SEED` into an error rather than a valid wrapped one, said under the
+    box's name (`_within`).
     """
-    return parse_axis(text, int, label="Seed list")
+    return _within(parse_axis(text, int, label="Seed list"), "seed", "Seed list")
+
+
+def _within(values: list[Any], field: str, label: str) -> list[Any]:
+    """`values` unchanged, or a refusal of the first outside the request
+    field's own bounds, under the box's name and quoting the value.
+
+    The bounds are read off `GenerateRequest` itself, so the two cannot
+    drift. Left to pydantic, a cell built past them was refused as
+    "guidance_scale: Input should be less than or equal to 20" - the field's
+    name, not the box's ("CFG (distilled)" on FLUX), and no value.
+    """
+    low = high = None
+    for bound in GenerateRequest.model_fields[field].metadata:
+        low = getattr(bound, "ge", low)
+        high = getattr(bound, "le", high)
+    def said(number: float) -> str:
+        # A seed in full, never 9.22337e+18.
+        return str(number) if isinstance(number, int) else f"{number:g}"
+
+    for value in values:
+        if value is None:
+            continue
+        if low is not None and value < low:
+            raise ValueError(f"{label}: {said(value)} is below {said(low)}, the least it takes")
+        if high is not None and value > high:
+            raise ValueError(f"{label}: {said(value)} is above {said(high)}, the most it takes")
+    return values
 
 
 def describe(values: dict[str, list[Any]], seeds: int, listed: bool = False) -> str:

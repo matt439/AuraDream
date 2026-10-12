@@ -84,6 +84,11 @@ def _place(
     holding `lettering` is no name, whatever its words: only its shape
     places it.
     """
+    # A grid placeholder stands for values the grid fills in, so it may take
+    # any slot at all: never out of order beside another item, and never
+    # "not placed" either (`unplaced_items`) - it is no tag to look up.
+    if not lettering and prompt_text.is_grid_variable(item.text):
+        return frozenset(range(len(spec.steps)))
     key = prompt_text._norm(item.text)
     if not lettering:
         if key in spec.local:
@@ -194,8 +199,18 @@ def _reordered(text: str, items: list[prompt_text.Item], places: list[frozenset[
     """`text` with `items` moved into the order `places` allow, or None where
     nothing moves - or where the move would change what is quoted: a stray
     mark (12" figure) moved ahead of a quotation would pair with its opening
-    one, and the page would offer that as the same words reordered."""
-    order = _ordered(places)
+    one, and the page would offer that as the same words reordered.
+
+    A grid placeholder (`{hair}`) keeps its position and the other items are
+    ordered around it: it takes every slot (`_place`), so `_ordered` would
+    take it first, ahead of the Person count, and every value the grid fills
+    in would then sit where Check of the filled-in prompt flags it. Its
+    values' slots are the grid's to say, so the user's placement stands.
+    """
+    fixed = [prompt_text.is_grid_variable(item.text) for item in items]
+    free = [index for index, held in enumerate(fixed) if not held]
+    moved = iter(free[position] for position in _ordered([places[index] for index in free]))
+    order = [index if held else next(moved) for index, held in enumerate(fixed)]
     if order == list(range(len(items))):
         return None
     moved = prompt_text._rebuild(text, items, [items[index].text for index in order])
@@ -336,10 +351,17 @@ def unplaced_items(model_id: str, prompt: str, categories: dict[str, str] | None
     if spec is None or len(items) < 2:
         return []
     places = _places(spec, items, lettered, prompt_text._category_lookup(categories))
+    # A grid placeholder is left out: it takes every slot (`_place`), so it
+    # would pair with each item as undecided and name itself and them.
+    kept = [
+        index for index, (item, held) in enumerate(zip(items, lettered, strict=True))
+        if held or not prompt_text.is_grid_variable(item.text)
+    ]
     # What `_place` reads: an item's text as typed, and whether it holds
     # lettering. Two items alike in both are placed alike by any categories.
-    keys = [(item.text, held) for item, held in zip(items, lettered, strict=True)]
-    return [items[index].text for index in _undecided(places, keys)]
+    keys = [(items[index].text, lettered[index]) for index in kept]
+    undecided = _undecided([places[index] for index in kept], keys)
+    return [items[kept[index]].text for index in undecided]
 
 
 def places_every_item(model_id: str, prompt: str, categories: dict[str, str] | None) -> bool:
@@ -348,11 +370,26 @@ def places_every_item(model_id: str, prompt: str, categories: dict[str, str] | N
     (`unplaced_items` empty): every item has one slot, or none left open
     where it decides the order. Where they read the order (`order_checked`),
     `reorder_tags`' order - or its "nothing to move" - is then the documented
-    order itself, not one order it allows; where they read it and this is
+    order itself, not one order it allows (but beside a grid placeholder,
+    which it leaves where it was: `holds_grid_variable`); where they read it and this is
     false, the order was only partly checked, which the analysis says and
     the page shows (`PromptAnalysis.order_detail`).
     """
     return not unplaced_items(model_id, prompt, categories)
+
+
+def holds_grid_variable(model_id: str, prompt: str) -> bool:
+    """Whether an item the order rules read in `prompt` is a grid placeholder
+    (`{hair}`): it is never "not placed" (`unplaced_items`), but where it
+    sits is the user's, which `reorder_tags` keeps - one order the
+    documented order allows, not the only one, for the critic's reorder."""
+    if _order_spec(_guide(model_id)) is None:
+        return False
+    items, lettered, _ = _tag_items(prompt)
+    return any(
+        not held and prompt_text.is_grid_variable(item.text)
+        for item, held in zip(items, lettered, strict=True)
+    )
 
 
 def _order_reading(
@@ -454,7 +491,8 @@ def category_items(model_id: str, prompt: str) -> list[str]:
     ("dr. stone") and one with an article ("the king of fighters") included,
     since the category outranks the item's shape; only sentences no name
     could be are left out, items the guide's own groups already place, which
-    need no lookup, and lettering, which no rule reads as a name.
+    need no lookup, lettering, which no rule reads as a name, and a grid
+    placeholder (`{hair}`), which stands for the grid's values.
     """
     guide = _guide(model_id)
     spec = _order_spec(guide)
@@ -469,7 +507,7 @@ def category_items(model_id: str, prompt: str) -> list[str]:
     for item, held in zip(items, lettered, strict=True):
         key = prompt_text._norm(item.text)
         if (
-            held or prompt_text._is_sentence(item.text)
+            held or prompt_text._is_sentence(item.text) or prompt_text.is_grid_variable(item.text)
             or item.text.lower().startswith(artist_prefix.lower()) or item.text in wanted
         ):
             continue

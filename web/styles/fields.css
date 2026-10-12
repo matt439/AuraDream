@@ -461,6 +461,8 @@ textarea:focus, input:where(:not([type="checkbox"], [type="radio"])):focus { out
 .tag-check.unknown { border-color: var(--danger); color: #ffe1e6; background: #211619; }
 .tag-check.unknown .tag-check-mark { color: #ff7185; font-weight: 700; }
 .tag-check.unchecked { border-style: dashed; }
+/* A grid's `{name}`: no tag, so neither verdict's colour - the grid's own. */
+.tag-check.grid-variable { border-style: dotted; border-color: var(--line-strong); color: var(--muted); }
 /* The item still being typed: no verdict until it is finished. */
 .tag-check.typing { border-color: var(--line-strong); }
 /* The category the lookup gave, on the edge - Danbooru's colours, teal for

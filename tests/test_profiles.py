@@ -820,6 +820,30 @@ def test_the_size_guard_rails_are_the_largest_preset():
         ).check_budget()
 
 
+def test_the_batch_budget_names_what_to_use_instead():
+    # The panel's sequential count is Repeat (the CLI's --runs); "use Runs"
+    # named the gallery's run picker. A grid takes no repeat - its seeds are
+    # its runs - so there the advice is a lower Batch.
+    from backend.schemas import GenerateRequest, GridRequest
+
+    big = {"prompt": "x", "width": 1440, "height": 1440, "num_images": 12}
+    with pytest.raises(ValueError) as plain:
+        GenerateRequest(**big).check_budget()
+    assert str(plain.value).endswith(
+        "pixel budget; use Repeat instead of Batch, which costs one image's VRAM at a time"
+    )
+    with pytest.raises(ValueError) as grid:
+        GridRequest(**big).check_budget()
+    assert str(grid.value).endswith("pixel budget; lower Batch: a grid runs its seeds one batch at a time")
+    with pytest.raises(ValueError) as cli:
+        GenerateRequest(**big).check_budget(cli=True)
+    assert "use --runs instead of --batch" in str(cli.value)
+    with pytest.raises(ValueError) as cli_grid:
+        GenerateRequest(**big).check_budget(grid=True, cli=True)
+    assert "lower --batch: a grid" in str(cli_grid.value)
+    assert "Runs" not in str(plain.value) + str(grid.value)
+
+
 def test_a_refine_pass_reaches_every_2_mp_preset_at_2x():
     # A pass's own guard: past the 4 MP presets, since it takes its
     # composition from the source. The page's Refine dialog derives the same

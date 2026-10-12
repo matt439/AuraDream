@@ -623,7 +623,9 @@ def test_a_grid_out_of_the_schemas_range_names_the_field(client):
         json={"prompt": "x", "width": 256, "height": 256, "steps_axis": "90-120x10"},
     )
     assert response.status_code == 422
-    assert "steps" in response.json()["detail"]
+    # Under the box's name, quoting the value - not pydantic's "steps: Input
+    # should be less than or equal to 100".
+    assert response.json()["detail"] == "Steps: 110 is above 100, the most it takes"
 
 
 def test_runs_are_not_a_grid_axis(client):
@@ -989,11 +991,32 @@ def test_a_bad_gallery_filter_is_a_422(client):
     assert "not a number" in response.json()["detail"]
 
 
+def test_a_side_off_the_16_grid_is_refused_with_its_neighbours(client):
+    # The size line's words: the value and the two sizes either side, which
+    # the page reads as "width: 1000 is not…" (readableDetail).
+    response = client.post("/api/generate", json={"prompt": "x", "width": 1000, "height": 1024})
+    assert response.status_code == 422
+    [error] = response.json()["detail"]
+    assert (error["loc"][-1], error["msg"]) == ("width", "1000 is not a multiple of 16: 992 or 1008")
+
+
 def test_the_pixel_budget_is_enforced(client):
     response = client.post(
         "/api/generate", json={"prompt": "x", "width": 2816, "height": 2816}
     )
     assert response.status_code == 422
+
+
+def test_the_batch_budget_says_what_each_press_can_do_instead(client):
+    # Generate's answer points at the panel's Repeat; a grid refuses a
+    # repeat, so its preview and Run grid say lower Batch.
+    big = {"prompt": "x", "width": 1440, "height": 1440, "num_images": 12}
+    detail = client.post("/api/generate", json=big).json()["detail"]
+    assert "use Repeat instead of Batch" in detail
+    for path in ("/api/grid/preview", "/api/grid"):
+        response = client.post(path, json=big)
+        assert response.status_code == 422
+        assert response.json()["detail"].endswith("lower Batch: a grid runs its seeds one batch at a time")
 
 
 def test_a_resume_counts_a_binned_cell_as_made_until_the_bin_is_emptied(client, fake):

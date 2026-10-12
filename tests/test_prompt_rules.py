@@ -181,6 +181,23 @@ def test_the_authors_examples_raise_no_warning(repo, example):
         assert warnings == [], (repo, example, warnings)
 
 
+# Findings about something other than the example's own words: the negative
+# box, the references, and a template's slots - each said beside the example
+# by the menu itself ("needs a reference image", "fill in [character]").
+_NOT_THE_EXAMPLES_WORDS = {"guide.negative_prompt", "heuristic.no_reference", "author.placeholder"}
+
+
+@pytest.mark.parametrize("repo, example", list(_examples()))
+def test_the_authors_examples_draw_no_finding_unnoted(repo, example):
+    # Every rule, notes included, over every example: BFL's hello-world sign
+    # drew "not in quotation marks" on eight checkpoints while the tip above
+    # the menu said to quote text, and Illustrious's own prompts an order
+    # note. The examples stay as written; where one parts from its guide the
+    # menu says so beside it (`example_notes`), so Check is not the first news.
+    rules = sorted({f.rule for f in run(repo, example)} - _NOT_THE_EXAMPLES_WORDS)
+    assert rules == [] or example in guide_for(repo)["example_notes"], (repo, example, rules)
+
+
 def _sentence_examples():
     # Only the guides with a sentence rule: a guide without one has nothing
     # to hold its examples to, and a skip per example hid the suite's real

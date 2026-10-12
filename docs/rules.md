@@ -708,7 +708,9 @@ Reproduction:
 
 - Seeds are drawn from `2**53 - 1` and wrapped at `2**63 - 1`; both live in
   `seeds.py`. One generator per image, seeded `seed + i`; runs take base
-  `seed + i * num_images`.
+  `seed + i * num_images`. The page refuses a typed seed past
+  `Number.MAX_SAFE_INTEGER` (`startJob`; the Seed box's `max`), which a
+  double cannot send exactly; the CLI takes the schema's whole range.
 - `grid.expand()` is the one cell loop for the CLI and `/api/grid`;
   `jobs.submit()` keeps its inline copy of the seed loop deliberately, asserted
   equal to the CLI's in `tests/test_cli.py`.
@@ -963,7 +965,10 @@ Reproduction:
   `variables={"variant": label}`, whose starred rate per label is
   `stats --by variant`. `CellKey`, `run_id`, resume and the duplicate count
   read the resolved prompt, not the label. A placeholder in the negative
-  prompt is still refused.
+  prompt is still refused. The page refuses, in the comparison's preview
+  and at Run comparison, a version or negative holding a `{name}` the open
+  grid's variables declare (`compareUnfilled`, `declaredGridVariables`), as
+  `generate()` refuses one; undeclared braces pass.
 
 Jobs:
 
@@ -1479,7 +1484,13 @@ Prompt analyser:
   looked up for any of those reasons, a tag the index answered for with no
   usable category (unknown, deprecated, past the cutoff), a prose prompt's
   clause that is not a whole sentence (prose is never looked up), lettering
-  or an @ name. `PromptAnalysis.order_detail` is set exactly there, naming
+  or an @ name. A grid placeholder whole (`{hair}`,
+  `prompt_text.is_grid_variable`) is none of these: it takes every slot, is
+  never looked up or listed unplaced, keeps its position in Check's reorder
+  (the rest ordered round it; the critic's `placed_partly` is true beside
+  it, `holds_grid_variable`), and its chip is the grid's (code
+  `grid_variable`, no verdict; its tip names the open fold's values and
+  their verdicts). `PromptAnalysis.order_detail` is set exactly there, naming
   those items and why; the page then shows "Partly checked: <order_detail>" under the
   chain and "order partly checked" in the summary, never from
   `categories_detail`, and the critic's reorder other than Check's can stand
@@ -1872,8 +1883,10 @@ Frontend and CLI:
   holds the order; smoke-narrow holds a real batch's whole progress in the
   window at 1400x900, 1920x947 and 2048x1040@1.25, and Generate unmoved as
   Batch and Repeat change.
-- The size line compares the request against `guide.pixels` a tenth either
-  way and quotes `pixels_word`. An `example` span reads "above/below the N
+- The size line leads with a side off the 16 grid, in the warning colour,
+  naming its two neighbours ("1000 is not a multiple of 16: 992 or 1008",
+  the schema's own words at Generate). It compares the request against
+  `guide.pixels` a tenth either way and quotes `pixels_word`. An `example` span reads "above/below the N
   MP of <pixels_source>", never what the checkpoint is "for", and its
   in-range presets' titles read "within the span of <pixels_source>", or
   "about the size of <pixels_source>" where the span is one size. `fmtMp`
@@ -1921,7 +1934,12 @@ Frontend and CLI:
   writes nothing. `guide.example_notes` maps prompt text to an editing note,
   displayed alongside an author scene excerpt and never inserted into the
   prompt. Every catalogue guide has a substantive scene example; quality
-  recipes remain in Tags. Preserve author wording and label excerpts.
+  recipes remain in Tags. Preserve author wording and label excerpts. An
+  example drawing any finding about its own words (every rule, notes
+  included; not the negative box, references or slots, which the menu says
+  itself) has a note naming the gap ("Author sample: under 30-80 words"),
+  held by `test_the_authors_examples_draw_no_finding_unnoted`; never edit
+  the example to pass.
 - Prompt expansion is ERNIE-only and explicit. `syncExpandButton` is
   Expand's one writer: it is held while it runs (reading "Expand…", never
   the wider "Expanding…"), during this page's job or another tab's
@@ -2314,7 +2332,9 @@ Frontend and CLI:
   preview after the fold is opened by hand reveals Run grid again
   (`gridRevealPending`, set by the summary's click), since its reply lands
   under the pointer where the panel holds still. Axis messages lead with the
-  box's name (`Steps`, `CFG`, `Mu`, `LoRA weight`, `Strength`, `Seed list`);
+  box's name (`Steps`, `CFG`, `Mu`, `LoRA weight`, `Strength`, `Seed list`),
+  a value past the request's own bounds included (`grid._within`, read off
+  `GenerateRequest`: "CFG: 25 is above 20, the most it takes");
   `parse_axis` closes up a spaced range between two numbers, leaving a lone
   `-` as Mu's none, and refuses a stepless range that would stop at its
   first value (`0.8-1.2` needs a step). The grid's Steps and CFG
@@ -4159,8 +4179,10 @@ for the True CFG box, the "CFG (distilled)" labels, with the sampling row's
 names whole, Mu's auto unclipped and each of the row's ? tips wrapping
 inside its box and the window, the lightbox's Sampling ("True CFG 1.5 · no
 Mu") and Negative rows, an Example's Undo note in the panel's flow while
-the negative is greyed and over its caption while it is live, and the size
-line's exact 1.64 MP bound, and
+the negative is greyed and over its caption while it is live, the size
+line's exact 1.64 MP bound, a typed side off the 16 grid named there with
+its neighbours and refused at Generate in the same words, the hello-world
+Example's note, and a Seed past 2^53 - 1 refused with no request sent, and
 `smoke-preview.json` against one slowed to `--step 0.3` on 7863 for the live
 preview, the tab's title and the topbar line during the job, and the
 finished title and the finish line's seed after it. `smoke-ernie.json` runs
@@ -4185,7 +4207,8 @@ ends; the English in the panel at 1400x900, at the head of the results with
 its note and Generate in the window at 2048x1040@1.25, and beside the
 docked check at 2560x1305; Baidu's seven sizes (the seven framings marked,
 12:5 named, a typed 768x1376 recognised, 1008x1008 not one of the sizes,
-and 1400x800 and 784x1360 read by the nearest framing, 7:4 and 4:7); and
+and 1400x800 and 784x1360 read by the nearest framing, 7:4 and 4:7, the
+1400 also named off the 16 grid); and
 the check's character counts and tag-list note on a fullwidth-comma and a
 one-per-line list; Expand pressed during this page's job under a Reuse's
 Undo, said under the prompt with the Undo kept, and the critic's press then
@@ -4246,7 +4269,11 @@ kept until the next Escape), and each chip's order step from the server:
 caption, title, label and the tray's legend; none for an unknown tag, an @
 name or lettering; kept on its tag across a move while the answer is held;
 none where a line break stands the order down; every chip one line at
-1400x900.
+1400x900; and a grid `{hair}` drawn as the grid's chip (no verdict, no
+step, "1 grid variable" in the summary, not among its prompt tags), its
+declared values asked beside the chips and named in its tip with their
+verdicts, and the tip saying
+nothing fills it once the fold is shut.
 `smoke-illustrious.json` uses an Illustrious-claiming fake on 7867 for hybrid
 prompting, the native 1-2.25 MP size range, 4 MP warning against the 2.25
 MP bound and disabled Mu.
@@ -4666,7 +4693,8 @@ node tools/browser.mjs tools/smoke-narrow.json
 two direct renders back to back, each awaited to its end with one stream and
 one tile; the resolved prompt and the one-value warning (commas named); Run grid as
 wide as Generate; the totals at body size with factors of one trimmed; a
-spaced range, `6..12` and an axis message naming its box; Resume's refusal
+spaced range, `6..12` and an axis message naming its box, a value past the
+schema's bounds included (CFG 25, Steps 150); Resume's refusal
 without pydantic's prefix; Repeat above one; the budget line, including 0
 seeds, the jobs ahead, and the load note following a real unload and load
 with no box touched; the cells already in the gallery once a grid ends,
@@ -5321,7 +5349,9 @@ opens its own job, while opening their shared run exposes Prompt as an
 axis. Run comparison clicked at 800x900, and at 2560x1305 under the docked
 check, hands focus to the sheet's first cell (named by seed and version)
 without moving the page, and focus moved to the prompt while the
-comparison renders stays there. `smoke-comparison-batch.json` uses the same
+comparison renders stays there; and with the grid open declaring `{size}`, a
+version holding it refused in the preview and at the press with nothing
+sent, an undeclared name or the fold shut previewing as usual. `smoke-comparison-batch.json` uses the same
 fake for all six Seeds/Batch
 pairings, their preview and request counts, select values changed without
 events, paired output seeds, sheets and stale-run disabling. API tests cover

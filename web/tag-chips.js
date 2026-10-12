@@ -158,6 +158,14 @@ function renderTagValidation(results, state = 'checked', detail = '') {
         ? 'Checkpoint guide tag'
         : `Danbooru ${result.category} tag · ${humanCount(result.post_count)} posts`
           + (result.canonical !== result.tag ? ` · canonical: ${result.canonical}` : ''));
+    } else if (result.code === 'grid_variable') {
+      // The grid's `{name}`, which no tag is spelled as: no verdict, and the
+      // tip says what fills it - the open fold's values, each with the
+      // verdict the cache holds - or that nothing will (gridVariableTip).
+      chip.classList.add('grid-variable');
+      mark.textContent = '▦';
+      status = 'grid variable';
+      tip.push(...gridVariableTip(result.tag));
     } else if (result.valid === false && index === typing) {
       chip.classList.add('typing');
       status = 'being typed';
@@ -330,11 +338,14 @@ function renderTagValidation(results, state = 'checked', detail = '') {
     // Not the item still being typed, as the label does not count it: a
     // lookup landing mid-word would read out an unfinished word as unknown.
     const unknown = results.filter((result, index) => result.valid === false && index !== typing).length;
+    const variables = results.filter((result) => result.code === 'grid_variable').length;
     // A spoken line, so "1 prompt tag", never "1 prompt tags" (analysis.js's
-    // `plural`, read at call time).
+    // `plural`, read at call time). A grid variable is no tag: counted apart.
+    const tags = results.length - variables;
     const summary = (state === 'offline'
-      ? `${plural(results.length, 'prompt tag')}, not checked: Danbooru unreachable`
-      : `${plural(results.length, 'prompt tag')}: ${known} known${unknown ? `, ${unknown} unknown` : ''}`)
+      ? `${plural(tags, 'prompt tag')}, not checked: Danbooru unreachable`
+      : `${plural(tags, 'prompt tag')}: ${known} known${unknown ? `, ${unknown} unknown` : ''}`)
+      + (variables ? `, ${plural(variables, 'grid variable')}` : '')
       + (past ? `, ${past} past the encoders' token limit` : '');
     if (els.tagSummary.textContent !== summary) els.tagSummary.textContent = summary;
   }
@@ -357,6 +368,58 @@ function uncheckedTag(tag, index) {
   return index < TAG_LOOKUP_CAP
     ? { tag, valid: null }
     : { tag, valid: null, reason: `past the ${TAG_LOOKUP_CAP}-item lookup cap` };
+}
+
+// A comma item that is a grid placeholder whole, `{hair}`: the grid's
+// pattern (GRID_PLACEHOLDER, grid.PLACEHOLDER), which the server reads alike
+// (prompt_text.GRID_VARIABLE) and answers with no verdict. Drawn as the
+// grid's at once, so it never waits on, or is sent as, a tag.
+const isGridVariable = (tag) => new RegExp(`^${GRID_PLACEHOLDER.source}$`).test(tag.trim());
+const gridVariableResult = (tag) => ({ tag, valid: null, code: 'grid_variable' });
+
+// What a grid variable's chip says: the values the open fold declares for
+// it, each with the verdict the lookup gave it (asked beside the chips,
+// gridValueTags), or that nothing fills it - which Generate refuses only
+// while the fold declares it.
+function gridVariableTip(tag) {
+  const name = tag.trim().slice(1, -1);
+  const values = declaredGridVariables().get(name);
+  if (!values) {
+    return [`A grid placeholder: Run grid fills it once Grid search's Prompt variables declare ${name}; Generate renders it as typed.`];
+  }
+  const cache = tagVerdictCache();
+  const verdict = (value) => {
+    if (NONE_VALUES.has(value.toLowerCase())) return `${value}: dropped from the prompt`;
+    const known = cache.get(tagKey(value));
+    if (!known) return `${value}: not checked yet`;
+    if (known.valid !== true) return `${value}: ${known.reason || 'not found in Danbooru'}`;
+    return `${value}: ${known.source === 'model' ? 'checkpoint guide tag' : `Danbooru ${known.category} tag`}`;
+  };
+  return [`Grid variable: Run grid fills it with ${values.join(' | ')}.`, ...values.map(verdict)];
+}
+
+// grid.NONE_TOKENS (held equal by a test): the deliberately empty value,
+// which is no tag.
+const NONE_VALUES = new Set(['none', 'null', 'off', '-', '_']);
+
+// Whether the tray holds a grid variable's chip, whose tip reads the grid's
+// variables box (app.js asks the tray again as the box or the fold changes).
+const gridVariableChips = () => lastTagValidationResults.some((result) => result.code === 'grid_variable');
+
+// The declared values of the grid variables in `tags` the cache has no
+// verdict on, to ask beside the chips (validatePromptTags).
+function gridValueTags(tags) {
+  const declared = declaredGridVariables();
+  if (!declared.size) return [];
+  const cache = tagVerdictCache();
+  const wanted = new Set();
+  for (const tag of tags) {
+    if (!isGridVariable(tag)) continue;
+    for (const value of declared.get(tag.trim().slice(1, -1)) || []) {
+      if (!NONE_VALUES.has(value.toLowerCase()) && !cache.has(tagKey(value))) wanted.add(value);
+    }
+  }
+  return [...wanted];
 }
 
 function tagVerdictCache() {
@@ -382,22 +445,27 @@ async function validatePromptTags(tags, epoch, prompt) {
   if (modelChangeHold()) return;
   const rest = tags.slice(TAG_LOOKUP_CAP).map((tag) => uncheckedTag(tag, TAG_LOOKUP_CAP));
   const model = loadedModel;
+  const chipped = tags.slice(0, TAG_LOOKUP_CAP);
+  // A grid variable's values ride the same request, where the cap leaves
+  // room: their verdicts go to the cache its chip's tip reads, not to chips.
+  const values = gridValueTags(chipped).slice(0, TAG_LOOKUP_CAP - chipped.length);
   try {
     const body = await api('/api/tags/validate', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ tags: tags.slice(0, TAG_LOOKUP_CAP), prompt }),
+      body: JSON.stringify({ tags: [...chipped, ...values], prompt }),
     });
     if (epoch !== tagValidationEpoch) return;
     rememberTagVerdicts(body.results);
     tagSlots = { model, prompt, steps: body.order_steps || [], slots: body.slots || null };
-    renderTagValidation([...body.results, ...rest], body.available ? 'checked' : 'offline', body.detail || '');
+    renderTagValidation([...body.results.slice(0, chipped.length), ...rest], body.available ? 'checked' : 'offline', body.detail || '');
     // The Tags helper's caret line reads these slots.
     syncTagSelection();
   } catch (error) {
     if (epoch !== tagValidationEpoch) return;
     tagSlots = { model, prompt, steps: [], slots: null, failed: true };
-    renderTagValidation(tags.map(uncheckedTag), 'offline', error.message);
+    renderTagValidation(tags.map((tag, index) => (isGridVariable(tag) ? gridVariableResult(tag) : uncheckedTag(tag, index))),
+      'offline', error.message);
     syncTagSelection();
   }
 }
@@ -431,10 +499,11 @@ function scheduleTagValidation(delay = 320) {
   // waits for the answer.
   const cache = tagVerdictCache();
   const results = tags.map((tag, index) => {
+    if (isGridVariable(tag)) return gridVariableResult(tag);
     const known = index < TAG_LOOKUP_CAP && cache.get(tagKey(tag));
     return known ? { ...known, tag } : uncheckedTag(tag, index);
   });
-  const waiting = results.some((result, index) => result.valid === null && index < TAG_LOOKUP_CAP);
+  const waiting = results.some((result, index) => result.valid === null && !result.code && index < TAG_LOOKUP_CAP);
   renderTagValidation(results, waiting ? 'pending' : 'checked');
   const prompt = els.prompt.value.trim();
   tagValidationTimer = setTimeout(() => validatePromptTags(tags, epoch, prompt), delay);

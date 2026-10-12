@@ -1812,6 +1812,19 @@ bound, so a hand-entered `2**60` is still itself. Both live in
 `backend/seeds.py` because the draw, the per-image offset and the generator
 must not drift apart.
 
+That holds from the CLI. The page holds a seed as a JavaScript number, so a
+Seed typed past `2**53 - 1` - 9007199254740993, or a 64-bit seed pasted from
+another tool - was sent as its rounded neighbour, which ran and was
+recorded while the box still showed the one typed (2026-10-12 review, R24).
+`startJob` now refuses an integer seed that is not `Number.isSafeInteger`
+("use a smaller seed, or the CLI"), and the Seed box's `max` is that bound.
+The refusal is the smaller change: the rest of the page holds seeds as
+numbers, so sending the box as a string would fix one path of many. It
+refuses the few seeds past that bound a double does hold exactly (`2**60`)
+too: once a seed is a number, the page cannot tell one that was itself from
+one already rounded - a CLI record's 19-digit seed comes back from
+`res.json()` rounded, and Use seed would put that neighbour in the box.
+
 ## One generator per image
 
 A batch gets **one generator per image**, seeded `seed + i`. diffusers draws
@@ -2253,7 +2266,12 @@ read 9.6 GB of the 16 as read off the card; it is 12 now, which the same
 reading puts at roughly 13 GB on that checkpoint. A heavier checkpoint at
 Batch 12 is the user's call, as it was at 8: the ceiling was never a VRAM
 model. Large batches are still refused, and a machine with different headroom
-can set `LOCAL_DIFFUSION_MAX_BATCH_PIXELS` explicitly. A refine pass is
+can set `LOCAL_DIFFUSION_MAX_BATCH_PIXELS` explicitly. The refusal says what
+to do instead where the request came from (`check_budget`): "use Repeat
+instead of Batch" from the panel, "lower Batch" on a grid, which refuses a
+repeat (its seeds are its runs), and `--runs`/`--batch` from the CLI. It said
+"use Runs" until 2026-10-12, a control the panel calls Repeat and the
+gallery's run picker is named after (2026-10-12 review, R25). A refine pass is
 outside it: it makes one pipeline call per image, so its batch never holds
 more than one image at once ("A pass has a size guard of its own").
 
@@ -2510,6 +2528,16 @@ so a range its ones never sweep is asked for its step (`needs a step, e.g.
 0.8-1.2x0.1`), typed with the spaces or without. A `-` with no number on
 both sides is still Mu's none, and `6..12` or `6 to 12` is answered with the
 syntax this one uses.
+
+A value past the request's own bounds is refused the same way, by the box
+and with the value: "CFG: 25 is above 20, the most it takes" (`grid._within`,
+reading the bounds off `GenerateRequest`'s fields, so they cannot drift).
+It used to reach pydantic when the cells were built and read
+"guidance_scale: Input should be less than or equal to 20" - the field's
+name under a box labelled "CFG (distilled)", and no value (2026-10-12
+review, R26). The panel's size line says a side off the 16 grid the same
+way before Generate does ("1000 is not a multiple of 16: 992 or 1008"), and
+the schema's refusal is now those words too.
 
 ## Resume keys on settings
 
@@ -3448,7 +3476,14 @@ and its siblings become empty. A variant is therefore taken verbatim: nothing
 is substituted into it, and a `{` in pasted JSON is text, not a placeholder
 with no values. The request's own prompt is not rendered; its negative prompt
 runs beside every variant, and a placeholder left in *that* is still refused,
-since nothing would fill it. Labels are stored trimmed and a label of only
+since nothing would fill it. Verbatim is also why the page refuses a version
+holding a `{name}` the open grid's variables declare (`compareUnfilled`,
+comparison.js: "The comparison runs each version as written; fill or remove
+{size} first."), in the preview and at Run comparison, as Generate refuses
+the same prompt: the checked prompt with the grid open is a template, and
+the comparison rendered its braces into every image (2026-10-12 review,
+R23). Undeclared braces - JSON - still pass, and the guard is the page's,
+as Generate's is. Labels are stored trimmed and a label of only
 spaces is refused. Identical variant texts are not refused - counted as
 duplicates in the preview, as `_expand` treats duplicates elsewhere - and the
 page drops them before submitting. `CellKey`, `run_id`, resume and the
@@ -6863,7 +6898,29 @@ without asking it, reachable or not (`tag_lookup.lookup_tags`,
 `tags.unchecked_results`), and only a blank item or one past 4000 characters
 is refused (`TagValidationRequest`). Every item had been bounded at 200, so
 one 213-character sentence on Kohaku refused the whole request (a 422), and
-the tray read "Danbooru unreachable" (2026-10-05). The tray
+the tray read "Danbooru unreachable" (2026-10-05). A grid placeholder
+whole, `{hair}` (`prompt_text.GRID_VARIABLE`, grid.PLACEHOLDER's shape), is
+neither: answered with no verdict and `code` grid_variable
+(`tags.grid_variable_result`), never asked about, reachable or not, and drawn
+as the grid's - a dotted ▦ chip counted apart in the summary ("1 grid
+variable") whose tip names the values the open fold declares, each with the
+verdict the lookup gave it (asked beside the chips, where the 64 leave room),
+or says nothing fills it. The order rules place it in every slot, so it is
+never out of order and never "not placed", and Check does not look it up
+(`category_items`). It had been a red ? chip counted among the unknown, and
+Check's order "Partly checked: … no usable Danbooru category for … "{hair}""
+(2026-10-12 review, R28). Its values are not placed in the order: each
+resolved prompt is the grid's, which a Check of that prompt reads. So
+Check's reorder leaves it where it was typed and orders the rest round it
+(`_reordered`): taking every slot, it had been moved first, and "smile,
+{hair}, 1girl" became "{hair}, 1girl, smile", every value then ahead of
+1girl. Where it sits is the user's, so a critic's reorder that puts it
+elsewhere is another order the documented one allows, held to the order
+rule as one beside an unplaced tag is (`placed_partly`,
+`prompt_order.holds_grid_variable`), not set aside as "not that one"; the
+page still shows no "Partly checked", since every tag was placed. The
+summary counts it apart from the prompt tags ("2 prompt tags: 2 known, 1
+grid variable"). The tray
 says which of three states it is in (`data-state`): checking (… on the
 chips waiting, title "Checking Danbooru…"), checked, or unreachable - the
 label amber, "Danbooru unreachable, not checked", never red, guide tags
@@ -7924,6 +7981,20 @@ status. The Examples menu displays it beside the text and never inserts the
 note into the editor. Keying by text keeps a note attached when examples are
 reordered. The catalogue regression rejects quality-only examples and a menu
 containing only fill-in templates. Existing author-rule checks still apply.
+
+**An example that parts from its own guide says so** (2026-10-12 review,
+R27). Every rule over every example found the authors' own samples drawing
+the check's notes: all four FLUX.1 Krea [dev] examples under the 30-80 words
+the tip above the menu asks for, BFL's hello-world sign unquoted on eight
+checkpoints, Illustrious's and Kohaku's prompts out of their documented
+order, Qwen-Image's bookstore without its positive magic. A user who picked
+one and pressed Check was told the authors' sample was wrong. The examples
+stay verbatim; an `example_notes` entry says the gap beside each ("Author
+sample: under 30-80 words, its sign's text unquoted"), and
+`test_the_authors_examples_draw_no_finding_unnoted` runs every rule over
+every example and fails on a finding about the example's words that no note
+covers. Findings about something else - the negative box, the references, a
+template's slots - are left out: the menu says the last two itself.
 
 Sources checked 2026-10-07; token counts include special tokens in **both**
 of each SDXL checkpoint's actual CLIP tokenizers, loaded on CPU:

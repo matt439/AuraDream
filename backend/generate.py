@@ -526,31 +526,6 @@ def main(argv: list[str] | None = None) -> int:
         print(p.error_detail(exc), file=sys.stderr)
         return 2
 
-    try:
-        request = p.GenerateRequest(
-            prompt=args.prompt,
-            negative_prompt=args.negative,
-            width=width,
-            height=height,
-            steps=args.steps if args.steps is not None else profile["steps"],
-            guidance_scale=args.cfg if args.cfg is not None else profile["guidance_scale"],
-            true_cfg=args.true_cfg,
-            mu=mu,
-            reference=references,
-            lora=args.lora,
-            lora_scale=args.lora_scale,
-            refine=args.refine,
-            # None is "not given": the checkpoint's own starting strength.
-            strength=args.strength,
-            seed=seed,
-            num_images=args.batch,
-            runs=args.runs,
-        )
-        request.check_budget()
-    except ValueError as exc:
-        print(p.error_detail(exc), file=sys.stderr)
-        return 2
-
     # A grid and a plain sweep are the same list of pipeline calls; only the axes
     # differ, and with none set `expand` yields exactly the runs loop this used to
     # write by hand - `seed + index * batch`, wrapped by the same helper. Sharing
@@ -571,6 +546,34 @@ def main(argv: list[str] | None = None) -> int:
         )
         or args.grid_seeds > 1
     )
+
+    try:
+        request = p.GenerateRequest(
+            prompt=args.prompt,
+            negative_prompt=args.negative,
+            width=width,
+            height=height,
+            steps=args.steps if args.steps is not None else profile["steps"],
+            guidance_scale=args.cfg if args.cfg is not None else profile["guidance_scale"],
+            true_cfg=args.true_cfg,
+            mu=mu,
+            reference=references,
+            lora=args.lora,
+            lora_scale=args.lora_scale,
+            refine=args.refine,
+            # None is "not given": the checkpoint's own starting strength.
+            strength=args.strength,
+            seed=seed,
+            num_images=args.batch,
+            runs=args.runs,
+        )
+        # A batch past the budget is told the flag to use instead, which on a
+        # grid - whose seeds are its runs - is a smaller --batch.
+        request.check_budget(grid=gridding, cli=True)
+    except ValueError as exc:
+        print(p.error_detail(exc), file=sys.stderr)
+        return 2
+
     if args.grid_lora_scale and not args.lora:
         # Without an adapter the scale is not a setting at all, so the sweep
         # would be one image rendered N times under N different labels.

@@ -400,7 +400,17 @@ def test_mu_and_no_mu_are_exclusive(cli):
 def test_a_bad_axis_prints_one_line(cli, capsys):
     assert generate.main(["a fox", "--grid-steps", "90-120x10", *SIZE]) == 2
     err = capsys.readouterr().err.strip()
-    assert err.startswith("steps:") and "\n" not in err
+    assert err.startswith("Steps: 110 is above 100") and "\n" not in err
+
+
+def test_a_batch_past_the_budget_names_the_flag_to_use(cli, capsys):
+    # The command line's words: --runs for a plain sweep, a smaller --batch
+    # on a grid, which refuses --runs.
+    big = ["--width", "1440", "--height", "1440", "--batch", "12"]
+    assert generate.main(["a fox", *big]) == 2
+    assert "use --runs instead of --batch" in capsys.readouterr().err
+    assert generate.main(["a fox", *big, "--grid-steps", "6,8"]) == 2
+    assert "lower --batch: a grid runs its seeds one batch at a time" in capsys.readouterr().err
 
 
 def test_durations_have_an_hours_branch():

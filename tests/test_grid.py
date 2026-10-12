@@ -1,6 +1,7 @@
 """Axis parsing and the cartesian expansion behind a grid search."""
 from __future__ import annotations
 
+import re
 from pathlib import Path
 
 import pytest
@@ -198,6 +199,25 @@ def test_a_cell_outside_the_schema_is_refused_up_front():
     # Not at 3am, sixty images into the sweep.
     with pytest.raises(ValueError):
         grid.expand(request(seed=1), steps="90-120x10")
+
+
+def test_a_value_past_the_schema_is_refused_under_its_box():
+    # The request's own bounds, read off the schema, said as the axis parser
+    # says the rest: the box's name and the value, never pydantic's field name.
+    for kwargs, message in (
+        ({"steps": "20-40x10, 150"}, "Steps: 150 is above 100, the most it takes"),
+        ({"cfg": "25"}, "CFG: 25 is above 20, the most it takes"),
+        ({"mu": "none, 12.5"}, "Mu: 12.5 is above 10, the most it takes"),
+    ):
+        with pytest.raises(ValueError) as exc:
+            grid.expand(request(seed=1), **kwargs)
+        assert str(exc.value) == message
+    with pytest.raises(ValueError, match="^LoRA weight: 3 is above 2, the most it takes$"):
+        grid.expand(request(seed=1, lora="style"), lora_scale="1, 3")
+    with pytest.raises(ValueError, match="^Seed list: 9223372036854775808 is above 9223372036854775807"):
+        grid.parse_seeds("4471, 9223372036854775808")
+    # In bounds, nothing changes.
+    assert grid.parse_seeds("0, 9223372036854775807") == [0, 9223372036854775807]
 
 
 def test_the_whole_grid_has_a_ceiling():
@@ -639,3 +659,17 @@ def test_resume_tells_two_prompts_apart():
     kept = grid.prune_done(cells, done)
     assert len(kept) == len(cells) - 1
     assert cells[0] not in kept
+
+
+def test_the_page_reads_a_placeholder_and_a_none_as_the_grid_does():
+    # Generate's and the comparison's guards and the tag tray's grid-variable
+    # chip read a `{name}` by the page's copy of the pattern, and the chip's
+    # tip leaves the deliberately empty values unasked by its copy of these.
+    web = Path(__file__).resolve().parents[1] / "web"
+    generation = (web / "generation.js").read_text(encoding="utf-8")
+    match = re.search(r"^const GRID_PLACEHOLDER = /(.+)/;$", generation, re.M)
+    unnamed = grid.PLACEHOLDER.pattern.replace("(", "").replace(")", "")
+    assert match and match.group(1).replace(r"\w", "[A-Za-z0-9_]") == unnamed
+    chips = (web / "tag-chips.js").read_text(encoding="utf-8")
+    match = re.search(r"^const NONE_VALUES = new Set\(\[(.+)\]\);$", chips, re.M)
+    assert match and set(re.findall(r"'([^']*)'", match.group(1))) == grid.NONE_TOKENS
