@@ -107,7 +107,8 @@ For everyday use:
 - **Batch** makes several images together; **Repeat** runs batches sequentially.
   **Grid search** varies settings, prompts and seeds, with resume support.
 - Star favourites, reuse settings and compare images in the gallery or a contact
-  sheet. PNGs retain their generation settings.
+  sheet; in the full view, compare a pass with its source or an image with its
+  CFG neighbours. PNGs retain their generation settings.
 - **Ctrl/Cmd + Enter** generates; inside Grid search or Refine, it runs that action.
 
 See the [usage guide](docs/usage.md) for these workflows, keyboard shortcuts,
@@ -229,7 +230,8 @@ Existing indexed thumbnails move into that subfolder on the next app startup;
 refresh any open browser tabs afterwards. To filter originals in File Explorer,
 search the output folder for `*.png`.
 
-**Gallery bundles** in the browser saves all images and the gallery database
+**Bundles…**, at the end of the row under the gallery's search box, opens
+the Gallery bundles dialog: it saves all images and the gallery database
 in one verified ZIP, optionally encrypted with a password, then clears the
 gallery. Download a saved bundle or import
 one to merge its images, favourites and timings into the current gallery.
@@ -269,7 +271,8 @@ Static frontend edits need no server restart; backend edits do.
 - [Anime model guide](docs/anime-model-guide.md): choosing a checkpoint and its settings.
 - [GPU verification](docs/verified.md): measured behaviour and remaining gaps.
 - [Design notes](docs/design-notes.md): implementation decisions and model sources.
-- [Source map](docs/source-audit.md): module responsibilities.
+- [Module map](docs/rules.md#layout): what every source file is responsible for.
+- [Refactor audit](docs/source-audit.md): the file splits and why the long files stay whole.
 
 ## Licence
 
