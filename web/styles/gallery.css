@@ -392,11 +392,34 @@
 .gallery-footer .foot-btn:hover, .gallery-footer .foot-btn:focus-visible {
   color: var(--text); border-color: var(--line-strong);
 }
-/* The count gives way before the buttons do, ellipsized as the message
-   beside it is, so a narrow footer never runs past its column. */
+/* The count gives way before the buttons do, so a narrow footer never runs
+   past its column, but after the message beside it (whose shrink is a
+   thousand times its own, bundles.css). It is the one
+   statement of what Swap tags…, Refine… and More seeds… take, so what goes
+   is in order (countParts): its number never; " selected" for a ✓ before
+   it where the footer is short (a size container, so the column beside the
+   viewer counts as a phone does), out of sight but still in the words a
+   screen reader hears; then the "N not shown" tail's end. As one
+   ellipsized text it read "12 selected · 9 …" beside the viewer, "12…"
+   with a message, and "1 se…" at 600 px. No gap of the row's before Clear,
+   whose own padding is the gap, so "✓ 12 · 9 not shown" fits beside the
+   viewer at QHD. */
+.gallery-footer { container: gallery-footer / inline-size; }
 .gallery-footer .select-count {
-  flex: 0 1 auto; min-width: 0; overflow: hidden; text-overflow: ellipsis;
+  flex: 0 1 auto; min-width: 0; display: flex; overflow: hidden;
+  margin-right: calc(-1 * var(--sp-3));
   color: var(--text-readout); font-size: var(--fs-label); white-space: nowrap;
+}
+.select-count .num { flex: none; }
+/* `pre`: the tail's leading space is the gap after the number. */
+.select-count .tail { min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: pre; }
+@container gallery-footer (max-width: 799px) {
+  .select-count .word {
+    position: absolute; width: 1px; height: 1px; overflow: hidden; clip: rect(0 0 0 0);
+  }
+  /* A narrow gap after it, not a space: a whole one left "1 not shown" a
+     pixel short. */
+  .select-count .num::before { content: "✓" / ""; margin-right: 2px; }
 }
 
 /* Back in a strip whose last image was deleted, held at the strip's height
@@ -440,6 +463,10 @@
   overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
 }
 .gallery-head .runs:disabled { opacity: 0.45; }
+/* Re-render or Delete unstarred gone while the pointer rests on the head:
+   its place kept, empty, until the pointer leaves (showInHead), so Starred
+   and the search never slide under it. */
+.gallery-head .kept[hidden] { display: inline-block !important; visibility: hidden; }
 /* The gallery's line (#gallery-error): a row of the head's own, 4 px under
    its controls, whose line is kept while it is empty. Shown between the head
    and the grid, a card tool's refusal pushed the grid down 38 px, and a

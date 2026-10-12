@@ -3088,7 +3088,7 @@ lays itself out from the whole run. The head's numbers - its count,
 `other_models`, Re-render, Delete unstarred and a gallery lightbox's counter -
 are drawn as the page lands, and `prependFinished` answers the page's ids, so
 `noteOutsideView` says its line at once; the cards go in through
-`joinFinished`, which with Gallery beside may wait for the pointer (The gallery
+`joinFinished`, which may wait for the pointer to leave the cards (The gallery
 beside the viewer). The viewer may now be a screen above: a
 job's first image or frame landing out of sight shows New image (↑ or ↓; a
 pill under the topbar in one column) under the progress, whose press scrolls
@@ -3275,7 +3275,18 @@ a row's × does, and keeps the ids it listed after the poll was asked,
 `queuedAt`): a row cancelled elsewhere goes, and a job queued elsewhere is
 listed as "Another tab's job: …" ("Next, another tab's job: …" alone), its ×
 "Cancel another tab's queued job: …", Cancel queued's title saying it takes
-another tab's too - since both now reach another tab's work. A cancel this
+another tab's too - since both now reach another tab's work. A row the poll
+adds or takes out changes the list's height, which moved everything under it:
+at 2560x1305 the Grid search summary went 138 px down from under a pointer
+resting on it, and the new row's × - another tab's job cancelled - was under
+it instead. So the poll's change waits while the pointer is on the list or
+anything it would move (`queuePointer`, from the page's pointerover: the
+panel's foot, and in one column the whole page under it), and is asked again
+with the latest status as the pointer leaves (`queueWaiting`,
+`releaseQueue`). The panel's own rule - nothing moves while the pointer is
+over it - held the panel's place only, not what reflows inside it. This
+page's own rows, a submission or an ×, are its own presses and go in at once.
+A cancel this
 page did not ask for (`cancelledHere`: Cancel, a row's ×, Cancel queued; a POST
 that got no answer is not one) reads "Cancelled from another tab or window —
 …" and holds the title "Cancelled elsewhere", and a shutdown says it is the
@@ -4025,6 +4036,27 @@ models", which is the exact scope (`_model_scope`). The whole id is not safe
 everywhere - `Qwen/Qwen-Image` is contained in `Qwen/Qwen-Image-Edit` - which is
 why the check runs against the ids actually selected rather than a rule about
 ids. The count agrees with its verb ("1 of the selected images was made").
+
+**The head holds still under the pointer** (2026-10-12). Re-render and
+Delete unstarred stand after the search, Starred and All models, and the free
+space before the search keeps that run to the row's right, so one of them
+going moved every control before it. Ticking Starred hides Delete unstarred
+(every match is a keeper) and, with nothing starred, leaves Re-render hidden:
+at 1400x900 Starred went 137 px right, 211 px with a search on, and a second
+click at the same point focused the search box. Moving the toggles after the
+buttons would have put Delete unstarred mid-row, and keeping both always in
+place, held, costs a row the head does not have at 1400 px (both shown wrap
+Delete unstarred onto a second row already). So, as the Swap tags rows keep a
+removed row's slot and a browser's tab strip its tab widths, while the
+pointer rests on the head's controls one that goes keeps its box, hidden
+(`.kept`), and one that comes waits; the pointer leaving puts both right
+(`showInHead`, `releaseHead`). All models' count of the filter's matches
+elsewhere is that tick's width, and a search that left none moved the search
+box and Starred 24 px, so it waits with them (`showOtherModels`). Where the pointer is comes from the head's
+pointerover and leave, never `:hover`. The footer row under the controls is
+not counted: Bin there swaps Delete unstarred for the bin's two buttons as a
+whole, at once (`syncBinControls`), and a hold there kept Delete unstarred out
+after the bin closed, since the gallery's page lands after the switch.
 
 ## Swap tags
 
@@ -5129,7 +5161,15 @@ Bundles…, styled as Bundles… is so the row keeps its 18 px line (a small
 button there grew it and moved the grid, as Bundles…'s note says). They are
 right-aligned with the count to Select's left, so the count coming and going
 never moves Select under the pointer, and Clear hands its focus to Select as
-it hides. On a sheet the cells are not picked: Select is held there
+it hides. The count is the one statement of what Swap tags…, Refine… and
+More seeds… take, and it was the first thing in the row to shrink: as one
+ellipsized text it read "12 selected · 9 …" beside the viewer at QHD (the "not
+shown" warning the part lost), "12…" once a message shared the row, and "1 se…"
+at 600 px. It now gives way only after the message, and in order
+(`countParts`): its number never; " selected", out of sight but still read,
+for a ✓ before the number where the footer (a size container) is under 800
+px; then the tail's end. It sits closer to Clear than the row's gap, so "✓ 12 ·
+9 not shown" fits beside the viewer at QHD. On a sheet the cells are not picked: Select is held there
 (aria-disabled with the reason) rather than hidden, and a selection made
 before is kept and counted.
 
@@ -5809,8 +5849,15 @@ along the rows, and a card about to be pressed was another by the press. So
 `joinFinished`, and only where some cards are new, first waits until the pointer
 is off the gallery's scrolling column - its cards, gaps, scrollbar and Load
 more (`galleryPointerGone`) - released by `galleryPointerLeft` or by
-`syncBeside` turning the column off, then checks again that the page joins up.
-It does not wait while the column is hidden under the check. Where the pointer
+`syncBeside` changing columns, then checks again that the page joins up.
+It does not wait while the column is hidden under the check. Under the viewer,
+in one column, it waits the same way (2026-10-12): the page's scroll anchoring
+keeps the rows where they were, not which card is in each place along them,
+and with 1,600 images loaded at 1400x900 one image from another tab put #1477's
+⌦ - which bins without asking - where #1476's had been, under a still pointer.
+`#library-scroll` is `display: contents` there, but its pointerenter and
+pointerleave still fire as the pointer enters and leaves its children's boxes,
+and `#gallery` is what is checked for being shown. Where the pointer
 is comes from `#library-scroll`'s `pointerenter`/`pointerleave`
 (`galleryPointer`), as the panel's does (`panelPos.pointer`), never from
 `:hover`: after a tap Chrome keeps `:hover` while the touch pointer's

@@ -478,11 +478,13 @@ function rerenderSelection() {
   }, { slot: els.galleryError });
 }
 
-function syncRerender() {
+// Coming and going with the pointer on the head's controls waits for it to
+// leave them (showInHead); `now` for the bin's way in and out.
+function syncRerender(now = false) {
   const filtered = els.favOnly.checked || els.search.value.trim() !== '';
   // Not in the recycle bin, whose count is not a render's (bin.js).
   const show = filtered && !binMode && total > 0 && total <= sheetPage;
-  els.rerender.hidden = !show;
+  showInHead(els.rerender, show, now);
   if (show) {
     els.rerender.textContent =
       `Re-render ${total} at ${els.width.value}×${els.height.value}`;

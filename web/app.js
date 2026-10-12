@@ -291,6 +291,12 @@ els.sheetGrid.addEventListener('focusin', (e) => {
 window.addEventListener('resize', refitSheet);
 els.rerender.onclick = rerenderSelection;
 els.deleteUnstarred.onclick = deleteUnstarred;
+// Re-render and Delete unstarred come and go once the pointer is off the
+// head's controls - the footer row under them is not (showInHead,
+// gallery-actions.js).
+const galleryHead = els.library.querySelector('.gallery-head');
+galleryHead.addEventListener('pointerover', (e) => pointHead(!e.target.closest('.gallery-footer')));
+galleryHead.addEventListener('pointerleave', () => pointHead(false));
 initBundles();
 // Swap tags in the gallery's footer row and its dialog (tag-swap.js).
 setupSwap();
@@ -596,6 +602,10 @@ document.addEventListener('pointerover', (e) => {
   if (help && !help.contains(e.relatedTarget)) placeTip(help);
 });
 document.addEventListener('focusin', (e) => { if (e.target.matches?.('.help')) placeTip(e.target); });
+// A queue row a status poll adds or takes out waits while the pointer rests
+// on what it would move (job-queue.js, pointQueue); off the window, nothing.
+document.addEventListener('pointerover', (e) => pointQueue(e.target));
+document.addEventListener('pointerout', (e) => { if (!e.relatedTarget) pointQueue(null); });
 // A tip hung from the window by a badge in a scrolling box keeps up with it
 // (panel.js, floatTip): any scroll, the box's own included.
 document.addEventListener('scroll', followFloatingTip, { capture: true, passive: true });
