@@ -1,6 +1,7 @@
 """Axis parsing and the cartesian expansion behind a grid search."""
 from __future__ import annotations
 
+import re
 from pathlib import Path
 
 import pytest
@@ -658,3 +659,17 @@ def test_resume_tells_two_prompts_apart():
     kept = grid.prune_done(cells, done)
     assert len(kept) == len(cells) - 1
     assert cells[0] not in kept
+
+
+def test_the_page_reads_a_placeholder_and_a_none_as_the_grid_does():
+    # Generate's and the comparison's guards and the tag tray's grid-variable
+    # chip read a `{name}` by the page's copy of the pattern, and the chip's
+    # tip leaves the deliberately empty values unasked by its copy of these.
+    web = Path(__file__).resolve().parents[1] / "web"
+    generation = (web / "generation.js").read_text(encoding="utf-8")
+    match = re.search(r"^const GRID_PLACEHOLDER = /(.+)/;$", generation, re.M)
+    unnamed = grid.PLACEHOLDER.pattern.replace("(", "").replace(")", "")
+    assert match and match.group(1).replace(r"\w", "[A-Za-z0-9_]") == unnamed
+    chips = (web / "tag-chips.js").read_text(encoding="utf-8")
+    match = re.search(r"^const NONE_VALUES = new Set\(\[(.+)\]\);$", chips, re.M)
+    assert match and set(re.findall(r"'([^']*)'", match.group(1))) == grid.NONE_TOKENS

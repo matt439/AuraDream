@@ -200,6 +200,10 @@ for (const el of [els.gridPrompt, els.gridSteps, els.gridCfg, els.gridMu, els.gr
 // (compareUnfilled): its preview says so as the box or the fold changes.
 els.gridPrompt.addEventListener('input', () => scheduleComparePreview());
 els.gridSection.addEventListener('toggle', () => scheduleComparePreview(0));
+// A grid variable's chip names the values the fold declares, and asks about
+// them (gridVariableTip): the tray reads the box again as it changes.
+els.gridPrompt.addEventListener('input', () => { if (gridVariableChips()) scheduleTagValidation(); });
+els.gridSection.addEventListener('toggle', () => { if (gridVariableChips()) scheduleTagValidation(0); });
 // A listed seed axis makes the count and the base seed moot; say so in place.
 els.gridSeedList.addEventListener('input', () => {
   els.gridSeeds.disabled = els.gridSeedList.value.trim() !== '';

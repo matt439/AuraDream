@@ -248,5 +248,15 @@
   {"log": "'Where the rules read no order - a line break splitting an item - no chip has a caption, and the tray\\'s title no legend'"},
   {"eval": "document.activeElement.blur(); els.prompt.value = 'masterpiece, safe\\n1girl, smile'; els.prompt.dispatchEvent(new Event('input', {bubbles: true}));"},
   {"expect": "__until(() => tagSlots.prompt === els.prompt.value.trim() && tagSlots.slots === null && __slots() === '-,-,-' && !els.tagValidation.title.includes('caption:'))"},
-  {"eval": "api = window.__slotApi;"}
+  {"eval": "api = window.__slotApi;"},
+  {"log": "'2026-10-12 R28: a grid {variable} is the grid\\'s chip, never an unknown tag (the server asks the index nothing of it), the fold\\'s values named in its tip with their verdicts, asked beside the chips, and the tip following the box and the fold'"},
+  {"eval": "window.__asked = []; window.__fetch0 = fetch; window.fetch = (u, o) => { if (String(u) === '/api/tags/validate') window.__asked.push(...JSON.parse(o.body).tags); return __fetch0(u, o); }; els.gridPrompt.value = 'hair = green hair | zzkx hair | none'; els.gridSection.open = true; els.prompt.value = '1girl, {hair}, green eyes'; els.prompt.dispatchEvent(new Event('input', {bubbles: true}));"},
+  {"expect": "__until(() => els.tagSummary.textContent === '3 prompt tags: 2 known, 1 grid variable')"},
+  {"expect": "(() => { const chip = els.tagValidation.querySelector('.tag-check[data-index=\"1\"]'); return chip.classList.contains('grid-variable') && !chip.classList.contains('unknown') && chip.querySelector('.tag-check-mark').textContent === '▦' && chip.getAttribute('aria-label').startsWith('{hair}, grid variable.') && !chip.dataset.slot; })()"},
+  {"expect": "__asked.includes('zzkx hair') && !__asked.includes('none')"},
+  {"eval": "els.tagValidation.querySelector('.tag-check[data-index=\"1\"]').focus();"},
+  {"expect": "__until(() => !els.tagTip.hidden && els.tagTip.textContent.startsWith('Grid variable: Run grid fills it with green hair | zzkx hair | none.') && els.tagTip.textContent.includes('green hair: Danbooru general tag') && els.tagTip.textContent.includes('zzkx hair: not found in Danbooru') && els.tagTip.textContent.includes('none: dropped from the prompt'))"},
+  {"eval": "document.activeElement.blur(); els.gridSection.open = false;"},
+  {"expect": "__until(() => { const chip = els.tagValidation.querySelector('.tag-check[data-index=\"1\"]'); if (!chip) return false; chip.focus(); return els.tagTip.textContent.startsWith('A grid placeholder: Run grid fills it once Grid search\\'s Prompt variables declare hair'); })"},
+  {"eval": "document.activeElement.blur(); window.fetch = __fetch0; els.gridPrompt.value = ''; els.prompt.value = ''; els.prompt.dispatchEvent(new Event('input', {bubbles: true})); persistPanel();"}
 ]

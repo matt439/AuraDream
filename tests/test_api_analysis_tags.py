@@ -280,6 +280,41 @@ def test_an_item_longer_than_any_tag_is_unknown_without_asking(client, fake, mon
         assert client.post("/api/tags/validate", json={"tags": [tag]}).status_code == 422
 
 
+def test_a_grid_variable_is_no_tag_to_look_up_or_place(client, fake, monkeypatch):
+    # `{hair}` stands for the grid's values: the chips drew it as an unknown
+    # Danbooru tag and Check's order said it had "no usable Danbooru
+    # category", so it was "not placed".
+    claim(monkeypatch, fake, ANIMAGINE)
+    vocabulary = Vocabulary({"1girl": "general", "green hair": "general", "smile": "general"})
+    monkeypatch.setattr(tag_lookup, "tag_vocabulary", vocabulary)
+    prompt = "1girl, {hair}, smile, masterpiece"
+    body = chips(client, prompt)
+    verdicts = {r["tag"]: r for r in body["results"]}
+    assert verdicts["{hair}"]["valid"] is None and verdicts["{hair}"]["code"] == "grid_variable"
+    assert verdicts["smile"]["valid"] is True
+    assert all("{hair}" not in call[0] for call in vocabulary.calls)
+    assert [slot["slot"] for slot in body["slots"]][1] is None
+    # Check: never asked about, placed nowhere and not counted unplaced, and
+    # never out of order whatever the grid fills it with.
+    vocabulary.calls.clear()
+    body = analyse(client, prompt=prompt)
+    assert all("{hair}" not in call[0] for call in vocabulary.calls)
+    assert body["order_checked"] is True and body["order_detail"] is None
+    assert rules(body["findings"], "guide.order") == []
+    body = analyse(client, prompt="1girl, masterpiece, {hair}")
+    assert rules(body["findings"], "guide.order") == [] and body["order_detail"] is None
+    # Not a placeholder's shape: still a tag, asked and unknown.
+    assert chips(client, "1girl, {red hair}")["results"][1]["valid"] is False
+    # Offline, it is still the grid's: no index is needed to say so.
+    monkeypatch.setattr(tag_lookup, "tag_vocabulary", Vocabulary(offline=True))
+    offline = chips(client, prompt)
+    assert offline["available"] is False and offline["results"][1]["code"] == "grid_variable"
+    # The page and the grid read one shape.
+    from backend import grid, prompt_text
+
+    assert prompt_text.GRID_VARIABLE.pattern == grid.PLACEHOLDER.pattern.replace("(", "").replace(")", "")
+
+
 def test_the_pages_measured_length_is_every_requests(client):
     # tag-tokens.js measures the first PROMPT_MAX_CHARS code points: a prompt past
     # it was refused whole, and the line said "cut unknown".

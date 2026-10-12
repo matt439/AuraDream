@@ -347,8 +347,12 @@ class TagValidationItem(BaseModel):
     reason: str | None = None
     # Why an unknown tag is unknown, as data beside `reason`'s sentence: the
     # page marks a tag created after the checkpoint's cutoff apart from one
-    # the index never had. None for a known or unchecked tag.
-    code: Literal["not_found", "deprecated", "empty", "no_date", "after_cutoff"] | None = None
+    # the index never had. None for a known or unchecked tag, but for
+    # `grid_variable`: a grid placeholder (`{hair}`), given no verdict and
+    # never asked about, which the page draws as the grid's, not as a tag.
+    code: Literal[
+        "not_found", "deprecated", "empty", "no_date", "after_cutoff", "grid_variable"
+    ] | None = None
 
 
 class TagSlot(BaseModel):

@@ -55,6 +55,21 @@ def too_long(tag: str) -> bool:
     return len(tag.strip()) > TAG_NAME_MAX
 
 
+def grid_variable_result(tag: str) -> dict:
+    """A chip's answer for a grid placeholder (`{hair}`): no verdict, and the
+    index never asked - it stands for the grid's values, not for a tag."""
+    return {
+        "tag": tag,
+        "valid": None,
+        "canonical": None,
+        "source": None,
+        "category": None,
+        "post_count": None,
+        "reason": "a grid variable: Run grid fills it with its values",
+        "code": "grid_variable",
+    }
+
+
 def too_long_result(tag: str) -> dict:
     return {
         "tag": tag,

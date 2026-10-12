@@ -13,7 +13,7 @@ from typing import TYPE_CHECKING
 
 from fastapi import APIRouter, HTTPException, Query
 
-from . import prompt_check, prompt_encoding, tag_lookup
+from . import prompt_check, prompt_encoding, prompt_text, tag_lookup
 from .app_context import AppServices
 from .critic import CriticError, CriticUnavailable
 from .detached import detached
@@ -31,7 +31,7 @@ from .schemas import (
     TagValidationRequest,
     TagValidationResponse,
 )
-from .tags import TagLookupUnavailable, rank_suggestions, unchecked_results
+from .tags import TagLookupUnavailable, grid_variable_result, rank_suggestions, unchecked_results
 
 if TYPE_CHECKING:
     from .config import Settings
@@ -56,6 +56,10 @@ def chip_verdicts(model_id: str, helper: dict, request: TagValidationRequest) ->
         year = bool(helper.get("year_tag"))
         results = []
         for tag in request.tags:
+            # The grid's `{name}` needs no index to be told apart.
+            if prompt_text.is_grid_variable(tag):
+                results.append(grid_variable_result(tag))
+                continue
             name = tag_lookup.artist_tag_name(helper, tag)
             result = unchecked_results([name or tag], set() if name is not None else special,
                                        False if name is not None else year)[0]

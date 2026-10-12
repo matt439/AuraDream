@@ -1407,7 +1407,11 @@ Prompt analyser:
   looked up for any of those reasons, a tag the index answered for with no
   usable category (unknown, deprecated, past the cutoff), a prose prompt's
   clause that is not a whole sentence (prose is never looked up), lettering
-  or an @ name. `PromptAnalysis.order_detail` is set exactly there, naming
+  or an @ name. A grid placeholder whole (`{hair}`,
+  `prompt_text.is_grid_variable`) is none of these: it takes every slot, is
+  never looked up or listed unplaced, and its chip is the grid's (code
+  `grid_variable`, no verdict; its tip names the open fold's values and
+  their verdicts). `PromptAnalysis.order_detail` is set exactly there, naming
   those items and why; the page then shows "Partly checked: <order_detail>" under the
   chain and "order partly checked" in the summary, never from
   `categories_detail`, and the critic's reorder other than Check's can stand
@@ -4131,7 +4135,10 @@ kept until the next Escape), and each chip's order step from the server:
 caption, title, label and the tray's legend; none for an unknown tag, an @
 name or lettering; kept on its tag across a move while the answer is held;
 none where a line break stands the order down; every chip one line at
-1400x900.
+1400x900; and a grid `{hair}` drawn as the grid's chip (no verdict, no
+step, "1 grid variable" in the summary), its declared values asked beside
+the chips and named in its tip with their verdicts, and the tip saying
+nothing fills it once the fold is shut.
 `smoke-illustrious.json` uses an Illustrious-claiming fake on 7867 for hybrid
 prompting, the native 1-2.25 MP size range, 4 MP warning against the 2.25
 MP bound and disabled Mu.

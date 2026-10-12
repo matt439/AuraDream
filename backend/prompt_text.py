@@ -33,6 +33,18 @@ def comma_items(prompt: str) -> list[Item]:
     return _split(prompt, r"[^,]+")
 
 
+# A comma item that is a grid placeholder whole - `{hair}`, `grid.PLACEHOLDER`'s
+# shape, held equal to it by a test - is the grid's: Run grid fills it with
+# its values, and Generate refuses it while the fold declares it. No tag is
+# spelled so, so the index is never asked about one, and the order rules
+# place it nowhere (`prompt_order._place`).
+GRID_VARIABLE = re.compile(r"\{[A-Za-z_][A-Za-z0-9_]*\}")
+
+
+def is_grid_variable(text: str) -> bool:
+    return GRID_VARIABLE.fullmatch(text.strip()) is not None
+
+
 def _split(prompt: str, piece: str) -> list[Item]:
     """`prompt`'s stretches matching `piece`, stripped, where each one sits."""
     items = []

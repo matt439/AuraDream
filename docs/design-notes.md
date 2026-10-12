@@ -6694,7 +6694,19 @@ without asking it, reachable or not (`tag_lookup.lookup_tags`,
 `tags.unchecked_results`), and only a blank item or one past 4000 characters
 is refused (`TagValidationRequest`). Every item had been bounded at 200, so
 one 213-character sentence on Kohaku refused the whole request (a 422), and
-the tray read "Danbooru unreachable" (2026-10-05). The tray
+the tray read "Danbooru unreachable" (2026-10-05). A grid placeholder
+whole, `{hair}` (`prompt_text.GRID_VARIABLE`, grid.PLACEHOLDER's shape), is
+neither: answered with no verdict and `code` grid_variable
+(`tags.grid_variable_result`), never asked about, reachable or not, and drawn
+as the grid's - a dotted ▦ chip counted apart in the summary ("1 grid
+variable") whose tip names the values the open fold declares, each with the
+verdict the lookup gave it (asked beside the chips, where the 64 leave room),
+or says nothing fills it. The order rules place it in every slot, so it is
+never out of order and never "not placed", and Check does not look it up
+(`category_items`). It had been a red ? chip counted among the unknown, and
+Check's order "Partly checked: … no usable Danbooru category for … "{hair}""
+(2026-10-12 review, R28). Its values are not placed in the order: each
+resolved prompt is the grid's, which a Check of that prompt reads. The tray
 says which of three states it is in (`data-state`): checking (… on the
 chips waiting, title "Checking Danbooru…"), checked, or unreachable - the
 label amber, "Danbooru unreachable, not checked", never red, guide tags

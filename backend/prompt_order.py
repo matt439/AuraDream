@@ -84,6 +84,11 @@ def _place(
     holding `lettering` is no name, whatever its words: only its shape
     places it.
     """
+    # A grid placeholder stands for values the grid fills in, so it may take
+    # any slot at all: never out of order beside another item, and never
+    # "not placed" either (`unplaced_items`) - it is no tag to look up.
+    if not lettering and prompt_text.is_grid_variable(item.text):
+        return frozenset(range(len(spec.steps)))
     key = prompt_text._norm(item.text)
     if not lettering:
         if key in spec.local:
@@ -336,10 +341,17 @@ def unplaced_items(model_id: str, prompt: str, categories: dict[str, str] | None
     if spec is None or len(items) < 2:
         return []
     places = _places(spec, items, lettered, prompt_text._category_lookup(categories))
+    # A grid placeholder is left out: it takes every slot (`_place`), so it
+    # would pair with each item as undecided and name itself and them.
+    kept = [
+        index for index, (item, held) in enumerate(zip(items, lettered, strict=True))
+        if held or not prompt_text.is_grid_variable(item.text)
+    ]
     # What `_place` reads: an item's text as typed, and whether it holds
     # lettering. Two items alike in both are placed alike by any categories.
-    keys = [(item.text, held) for item, held in zip(items, lettered, strict=True)]
-    return [items[index].text for index in _undecided(places, keys)]
+    keys = [(items[index].text, lettered[index]) for index in kept]
+    undecided = _undecided([places[index] for index in kept], keys)
+    return [items[kept[index]].text for index in undecided]
 
 
 def places_every_item(model_id: str, prompt: str, categories: dict[str, str] | None) -> bool:
@@ -454,7 +466,8 @@ def category_items(model_id: str, prompt: str) -> list[str]:
     ("dr. stone") and one with an article ("the king of fighters") included,
     since the category outranks the item's shape; only sentences no name
     could be are left out, items the guide's own groups already place, which
-    need no lookup, and lettering, which no rule reads as a name.
+    need no lookup, lettering, which no rule reads as a name, and a grid
+    placeholder (`{hair}`), which stands for the grid's values.
     """
     guide = _guide(model_id)
     spec = _order_spec(guide)
@@ -469,7 +482,7 @@ def category_items(model_id: str, prompt: str) -> list[str]:
     for item, held in zip(items, lettered, strict=True):
         key = prompt_text._norm(item.text)
         if (
-            held or prompt_text._is_sentence(item.text)
+            held or prompt_text._is_sentence(item.text) or prompt_text.is_grid_variable(item.text)
             or item.text.lower().startswith(artist_prefix.lower()) or item.text in wanted
         ):
             continue

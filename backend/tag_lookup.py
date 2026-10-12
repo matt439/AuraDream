@@ -15,12 +15,13 @@ from __future__ import annotations
 
 import logging
 
-from . import prompt_rules
+from . import prompt_rules, prompt_text
 from .jobs import short_error
 from .model_defaults import guide_for
 from .schemas import TagValidationRequest
 from .tags import (
     TagLookupUnavailable,
+    grid_variable_result,
     is_model_tag,
     normalize_tag,
     tag_vocabulary,
@@ -80,7 +81,8 @@ def lookup_tags(helper: dict, tags: list[str]) -> list[dict]:
 
     One call for the chips and the analyser, so the two cannot disagree about
     what a tag is. An item longer than any tag (`tags.TAG_NAME_MAX`: a hybrid
-    prompt's sentence) is answered unknown here, never asked about.
+    prompt's sentence) is answered unknown here, never asked about, and a grid
+    placeholder (`{hair}`) is answered with no verdict (`grid_variable`).
     """
     special = special_tags(helper)
     year = bool(helper.get("year_tag"))
@@ -88,6 +90,8 @@ def lookup_tags(helper: dict, tags: list[str]) -> list[dict]:
     prefix = helper.get("artist_prefix")
 
     def asks(tag: str) -> bool:
+        if prompt_text.is_grid_variable(tag):
+            return False
         return not too_long(artist_tag_name(helper, tag) or tag) or is_model_tag(tag, special, year)
 
     asked = [artist_tag_name(helper, tag) or tag for tag in tags if asks(tag)]
@@ -96,6 +100,9 @@ def lookup_tags(helper: dict, tags: list[str]) -> list[dict]:
     )
     results = []
     for tag in tags:
+        if prompt_text.is_grid_variable(tag):
+            results.append(grid_variable_result(tag))
+            continue
         if not asks(tag):
             results.append(too_long_result(tag))
             continue
