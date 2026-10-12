@@ -827,7 +827,7 @@
                checkpoint's. Short, so the row never wraps. -->
           <button type="button" class="ghost small foot-btn" id="btn-bin" aria-pressed="false">Bin<span class="count"></span></button>
           <button type="button" class="ghost small" id="btn-bundles" aria-haspopup="dialog"
-            title="Bundle the entire gallery and clear it, or merge images from a saved bundle">Bundles…</button>
+            title="Back up the gallery, the picked or the starred images, bundle the entire gallery and clear it, or merge images from a saved bundle">Bundles…</button>
         </div>
         <!-- What F did to a card's or a sheet cell's star, for a screen reader:
              focus stays on the image, and nothing else says it (sayStar). -->
@@ -1245,22 +1245,31 @@
     <h2 id="bundles-title">Gallery bundles</h2>
     <button type="button" class="ghost small" id="bundles-close">Close</button>
   </header>
-  <p id="bundles-intro">Save all images, thumbnails and the gallery database in one ZIP file, optionally protected by a password, then clear the gallery. Import a bundle to merge its images with the current gallery.</p>
+  <p id="bundles-intro">Save images, thumbnails and their gallery records in one ZIP file, optionally protected by a password: as a backup that keeps the gallery, or as a bundle of the entire gallery that then clears it. Import a bundle to merge its images with the current gallery.</p>
   <section class="bundle-section" aria-labelledby="bundle-export-title">
     <div class="bundles-head">
-      <h3 id="bundle-export-title">Bundle &amp; clear</h3>
+      <h3 id="bundle-export-title">Back up or bundle &amp; clear</h3>
       <button type="button" class="ghost small" id="bundle-refresh">Refresh counts</button>
     </div>
-    <p class="hint">Includes every model, every starred image and the recycle bin. The gallery's search and filters do not limit this action.</p>
+    <fieldset class="bundle-scope">
+      <legend>Bundle</legend>
+      <label><input type="radio" name="bundle-scope" value="all" checked> Entire gallery</label>
+      <label><input type="radio" name="bundle-scope" value="picked"> <span id="bundle-scope-picked">Picked</span></label>
+      <label><input type="radio" name="bundle-scope" value="starred"> <span id="bundle-scope-starred">Starred</span></label>
+    </fieldset>
+    <p class="hint" id="bundle-scope-hint">Includes every model, every starred image and the recycle bin. The gallery's search and filters do not limit this action.</p>
     <p id="bundle-preview">Reading the gallery…</p>
-    <p class="hint">The bundle is saved on the server and verified before the originals and old database are removed. A new empty database is created so you can keep generating. You can download the bundle afterwards.</p>
+    <p class="hint">Every bundle is saved on the server and verified by reading it back. Back up keeps the gallery as it is. Bundle &amp; clear then removes the originals and old database, and creates a new empty database so you can keep generating. You can download the bundle afterwards.</p>
     <div class="bundle-password">
       <label for="bundle-password">Password <span class="optional">(optional)</span></label>
       <input id="bundle-password" type="password" autocomplete="new-password" maxlength="1024" aria-describedby="bundle-password-hint">
       <label for="bundle-password-again">Repeat password</label>
       <input id="bundle-password-again" type="password" autocomplete="new-password" maxlength="1024" aria-describedby="bundle-password-hint">
     </div>
-    <p class="hint" id="bundle-password-hint">With a password the bundle is encrypted as a .ldbundle file that only Local Diffusion can open. The password is not saved anywhere and cannot be recovered; without it the cleared gallery is lost.</p>
+    <p class="hint" id="bundle-password-hint">With a password the bundle is encrypted as a .ldbundle file that only Local Diffusion can open. The password is not saved anywhere and cannot be recovered; without it the bundle cannot be opened, and a cleared gallery is lost.</p>
+    <div class="bundle-backup-row">
+      <button type="button" class="ghost" id="bundle-backup" aria-disabled="true">Back up (keep gallery)</button>
+    </div>
     <div class="bundle-confirm">
       <label for="bundle-count" id="bundle-count-label">Type the gallery record count to confirm</label>
       <input id="bundle-count" type="text" inputmode="numeric" autocomplete="off" aria-describedby="bundle-preview">

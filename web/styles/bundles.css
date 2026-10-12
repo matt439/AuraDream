@@ -26,6 +26,16 @@
 .bundles-dialog p { margin: 0; }
 .bundles-head { display: flex; align-items: center; justify-content: space-between; gap: var(--sp-3); }
 .bundle-section { display: flex; flex-direction: column; gap: var(--sp-2); border-top: 1px solid var(--line); padding-top: var(--sp-3); }
+/* The scope sits above everything it changes, so a press on it moves no
+   control under the pointer; its hint keeps two lines whatever it says. */
+.bundle-scope {
+  display: flex; flex-wrap: wrap; align-items: center; gap: var(--sp-1) var(--sp-3);
+  margin: 0; padding: 0; border: 0; font-size: var(--fs-body-sm);
+}
+.bundle-scope legend { float: left; padding: 0; margin-right: var(--sp-1); color: var(--text-3); font-size: var(--fs-label); }
+.bundle-scope label { display: inline-flex; align-items: center; gap: var(--sp-1); }
+#bundle-scope-hint { min-height: 2lh; }
+.bundle-backup-row { display: flex; flex-wrap: wrap; align-items: center; gap: var(--sp-2); }
 .bundle-confirm { display: flex; flex-wrap: wrap; align-items: center; gap: var(--sp-2); }
 .bundle-confirm label { flex: 1 1 100%; font-size: var(--fs-label); color: var(--text-3); }
 #bundle-count { width: 110px; }

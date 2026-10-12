@@ -27,6 +27,16 @@ let bundleFileEpoch = 0;
 // being sent; null otherwise. Once the server answers 202 the import is its own.
 let bundleUploadAbort = null;
 
+// What a bundle holds: the entire gallery, which Bundle & clear alone can
+// clear, or the picked or the starred images, which are only ever backed up.
+// The server resolves both (`submission.resolve_selection`); the page sends
+// the picked ids and shows the counts.
+const BUNDLE_SCOPE_HINTS = {
+  all: "Includes every model, every starred image and the recycle bin. The gallery's search and filters do not limit this action.",
+  picked: 'Only the picked images, whatever the filter, with their thumbnails. The gallery is kept. A refine source or a reference travels only if it is picked too.',
+  starred: 'The starred images of every model, outside the recycle bin, with their thumbnails. The gallery is kept. A refine source or a reference travels only if it is starred too.',
+};
+
 const BUNDLE_MAGIC = 'LDBUNDLE';
 const BUNDLE_HEADER_BYTES = 64;
 const BUNDLE_PHASES = {
@@ -52,6 +62,21 @@ function bundleProgressText(progress) {
     return progress.total ? `${label}: ${humanBytes(progress.done)} of ${humanBytes(progress.total)}` : `${label}: ${humanBytes(progress.done)}`;
   }
   return progress.total && progress.done ? `${label}: ${progress.done} of ${progress.total}` : `${label}…`;
+}
+
+// "1 picked image", "3 starred images".
+function bundleImages(n, kind) {
+  return `${n} ${kind} image${n === 1 ? '' : 's'}`;
+}
+
+function bundleScope() {
+  return document.querySelector('input[name="bundle-scope"]:checked')?.value || 'all';
+}
+
+// The gallery's picks: set aside while the recycle bin is shown, whose own
+// picks are for Restore picked, so those are the ones a bundle takes.
+function bundlePickedIds() {
+  return binMode ? [...(stashedSelection?.picks.keys() ?? [])] : selectedIds();
 }
 
 function bundleHold() {
@@ -87,11 +112,25 @@ function syncBundleControls() {
   const confirmed = Number.isInteger(count) && els.bundleCount.value.trim() === String(count);
   const password = els.bundlePassword.value;
   const locked = !els.bundleUnlock.value ? 'Enter the password for this protected bundle' : '';
+  const scope = bundleScope();
+  const picked = bundlePickedIds().length;
+  const starred = bundlePreview?.starred;
+  const label = (el, text) => { if (el.textContent !== text) el.textContent = text; };
+  label(els.bundleScopePicked, `Picked (${picked})`);
+  label(els.bundleScopeStarred, Number.isInteger(starred) ? `Starred (${starred})` : 'Starred');
+  label(els.bundleScopeHint, BUNDLE_SCOPE_HINTS[scope]);
+  const differ = password !== els.bundlePasswordAgain.value ? 'The two passwords differ' : '';
   hold(els.bundleExport, why || (bundleReading ? 'Wait for the gallery counts' : '')
+    || (scope !== 'all' ? 'Only the entire gallery is cleared; Back up saves the picked or the starred images and keeps them' : '')
     || (!bundlePreview ? 'Refresh the gallery counts first' : '')
-    || (password !== els.bundlePasswordAgain.value ? 'The two passwords differ' : '')
-    || (!confirmed ? `Type ${count} to confirm the entire gallery` : ''),
+    || differ || (!confirmed ? `Type ${count} to confirm the entire gallery` : ''),
     password ? 'Save, encrypt and verify a bundle, then clear the entire gallery' : 'Save and verify a bundle, then clear the entire gallery');
+  const what = scope === 'all' ? 'the entire gallery' : `the ${bundleImages(scope === 'picked' ? picked : starred, scope)}`;
+  hold(els.bundleBackup, why || (bundleReading ? 'Wait for the gallery counts' : '')
+    || (!bundlePreview ? 'Refresh the gallery counts first' : '')
+    || (scope === 'picked' && !picked ? 'No cards are picked; pick them with Select first' : '')
+    || (scope === 'starred' && !starred ? 'No image is starred' : '') || differ,
+    `${password ? 'Save, encrypt and verify' : 'Save and verify'} a bundle of ${what}; the gallery is kept`);
   hold(els.bundleRefresh, bundleHold() || (bundleReading ? 'Reading the gallery counts' : ''), 'Read the current gallery counts');
   hold(els.bundleUpload, why || (!els.bundleFile.files.length ? 'Choose a bundle file first' : '')
     || (bundleProtected(bundleFileHeader) ? locked : ''), 'Merge this file into the gallery');
@@ -234,6 +273,19 @@ function renderBundleResult(status, past = false) {
   }));
   if (status.state === 'failed') {
     say(`${status.error || 'The bundle operation failed.'}${result?.name ? ' The saved bundle is available below.' : ''}`, true);
+  } else if (status.operation === 'backup') {
+    // Nothing was cleared, which is the point: no part of this reads as a
+    // failure. What a picked bundle left out, and the sources outside it,
+    // are said as facts.
+    const what = result.scope === 'all' ? `${result.images} images and ${result.records} gallery records`
+      : bundleImages(result.records, result.scope);
+    const left = result.left_out?.length || 0;
+    const leftOut = left === 1 ? ' 1 picked image was left out: it is in the recycle bin or no longer in the gallery.'
+      : left ? ` ${left} picked images were left out: they are in the recycle bin or no longer in the gallery.` : '';
+    const links = result.links_outside || 0;
+    const outside = links === 1 ? ' 1 link to a source image (a reference or a refine source) points outside the bundle; an import leaves it out.'
+      : links ? ` ${links} links to source images (references or refine sources) point outside the bundle; an import leaves them out.` : '';
+    say(`Backed up and verified ${what}. The gallery is unchanged.${leftOut}${outside}`, false);
   } else if (status.operation === 'export') {
     const end = result.cleared ? (past ? 'The gallery was cleared.' : 'The gallery is empty and ready for new images.')
       : 'The gallery was not completely cleared; review the files still on disk.';
@@ -246,7 +298,7 @@ function renderBundleResult(status, past = false) {
     const binned = result.binned || 0;
     const inBin = binned === 1 ? ' 1 of them is in the recycle bin, as it was when bundled.'
       : binned ? ` ${binned} of them are in the recycle bin, as they were when bundled.` : '';
-    say(`Imported ${result.imported} gallery records; ${result.present} already present. Existing images were kept.${inBin}${restored ? ` ${restored} missing image files were restored from the bundle.` : ''}${missing ? ` ${missing} links to missing source images could not be restored.` : ''}`, !!missing);
+    say(`Imported ${result.imported} gallery records; ${result.present} already present. Existing images were kept.${inBin}${restored ? ` ${restored} missing image files were restored from the bundle.` : ''}${missing === 1 ? ' 1 link to a source image the bundle does not hold was left out.' : missing ? ` ${missing} links to source images the bundle does not hold were left out.` : ''}`, false);
   }
 }
 
@@ -257,9 +309,10 @@ async function receiveBundleStatus(status) {
   bundleStatus = status;
   if (status.state === 'running') {
     bundleSeenRunning = true;
-    bundleSay(status.operation === 'export'
-      ? 'Creating and verifying the bundle, then clearing the gallery. You can close this dialog; the server will finish the operation.'
-      : 'Checking and importing the bundle. You can close this dialog; the server will finish the operation.');
+    bundleSay({
+      export: 'Creating and verifying the bundle, then clearing the gallery. You can close this dialog; the server will finish the operation.',
+      backup: 'Creating and verifying the bundle; the gallery is kept. You can close this dialog; the server will finish the operation.',
+    }[status.operation] || 'Checking and importing the bundle. You can close this dialog; the server will finish the operation.');
     bundleProgressSay(bundleProgressText(status.progress));
   } else bundleProgressSay('');
   if (status.id && ['done', 'failed'].includes(status.state) && bundleHandled !== status.id) {
@@ -279,8 +332,12 @@ async function receiveBundleStatus(status) {
         // be corrected, and goes once an import has used it.
         if (status.operation === 'import' && status.state === 'done') els.bundleUnlock.value = '';
         if (status.result?.deleted_ids?.length) forgetImages(status.result.deleted_ids);
-        els.bundleCount.value = '';
-        await Promise.all([resetGallery(), loadRuns(), syncBin()]);
+        // A backup changes nothing in the gallery: only the counts and the
+        // saved list are read again, and the typed count stays.
+        if (status.operation !== 'backup') {
+          els.bundleCount.value = '';
+          await Promise.all([resetGallery(), loadRuns(), syncBin()]);
+        }
         if (els.bundlesDialog.open) await Promise.all([refreshBundlePreview(), refreshBundleList()]);
       } finally { bundleSettling = false; }
     }
@@ -316,7 +373,7 @@ async function startBundleOperation(path, options, operation, before = null) {
   ++bundleRequestEpoch;
   bundleSending = true;
   bundleSeenRunning = true;
-  bundleSay(operation === 'export' ? 'Starting the gallery bundle…' : before ? 'Checking the bundle password…' : 'Sending the bundle for import…');
+  bundleSay(operation !== 'import' ? 'Starting the gallery bundle…' : before ? 'Checking the bundle password…' : 'Sending the bundle for import…');
   syncBundleControls(); syncSubmitButtons();
   try {
     if (before) {
@@ -357,6 +414,23 @@ function exportGalleryBundle() {
     method: 'POST', headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify({ expected: bundlePreview.records, ...(password ? { password } : {}) }),
   }, 'export');
+}
+
+// Back up: the same verified bundle, of the scope chosen, with nothing
+// cleared, so no typed count. The picked ids are sent as they stand; one
+// binned or deleted since is left out by the server and said in the result.
+function backupGallery() {
+  if (bundleRefused(els.bundleBackup)) return;
+  const password = els.bundlePassword.value;
+  const scope = bundleScope();
+  els.bundlePassword.value = els.bundlePasswordAgain.value = '';
+  void startBundleOperation('/api/gallery/bundles/export', {
+    method: 'POST', headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({
+      keep_gallery: true, scope, ...(scope === 'picked' ? { ids: bundlePickedIds() } : {}),
+      ...(password ? { password } : {}),
+    }),
+  }, 'backup');
 }
 
 async function readBundleFile() {
@@ -433,6 +507,8 @@ function initBundles() {
   for (const input of [els.bundlePassword, els.bundlePasswordAgain, els.bundleUnlock]) input.oninput = syncBundleControls;
   els.bundleFile.onchange = () => { void readBundleFile(); };
   els.bundleExport.onclick = exportGalleryBundle;
+  els.bundleBackup.onclick = backupGallery;
+  for (const radio of document.querySelectorAll('input[name="bundle-scope"]')) radio.onchange = syncBundleControls;
   els.bundleUpload.onclick = () => { void uploadGalleryBundle(); };
   els.bundleUploadCancel.onclick = cancelBundleUpload;
   els.bundleRefresh.onclick = () => { if (!bundleRefused(els.bundleRefresh)) void refreshBundlePreview(); };

@@ -827,7 +827,7 @@ app.include_router(api_swap.create_router(services))
 app.include_router(api_refine_batch.create_router(services))
 app.include_router(api_more_seeds.create_router(services))
 app.include_router(api_jobs.create_router(lambda: jobs))
-app.include_router(api_bundles.create_router(lambda: bundle_manager))
+app.include_router(api_bundles.create_router(lambda: bundle_manager, services))
 app.include_router(api_gallery.create_router(
     lambda: jobs, services.model_scope, max_grid_images=settings.max_grid_images,
 ))

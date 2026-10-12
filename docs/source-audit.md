@@ -45,7 +45,8 @@ says why each stays whole.
 
 Added between the two passes, with no split: `model-switch.js` owns the
 Models picker, styled by `styles/model-picker.css`; `bundles.js` and
-`styles/bundles.css` own gallery bundles. `gallery-select.js` owns the
+`styles/bundles.css` own gallery bundles (the backup and its scope, picked or
+starred, included; the picked ids are read from `gallery-select.js`). `gallery-select.js` owns the
 gallery's selection (Select, the picked ids, and `galleryActionTarget` /
 `galleryActionScopeLine`, which the three footer actions word alike);
 `gallery-batch.js` a card's batch on hover; `lightbox-cfg.js` (416) the

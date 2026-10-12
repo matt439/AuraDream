@@ -9,14 +9,17 @@ import tempfile
 import uuid
 from collections.abc import Callable
 from pathlib import Path
+from typing import Literal
 
 from fastapi import APIRouter, HTTPException, Request
 from fastapi.responses import FileResponse, JSONResponse
 from pydantic import BaseModel, Field, SecretStr
 from starlette.requests import ClientDisconnect
 
-from . import bundle_crypto, bundles, storage
+from . import bundle_crypto, bundles, storage, submission
+from .app_context import AppServices
 from .bundle_common import sentence
+from .config import settings
 from .jobs import JobManager
 
 log = logging.getLogger(__name__)
@@ -24,11 +27,23 @@ PREFIX = "/api/gallery/bundles"
 PASSWORD_HEADER = "X-Bundle-Password"
 _UPLOAD_BUFFER = 8 * 1024 * 1024
 UPLOAD_STOPPED = "The upload stopped before the whole file arrived; nothing was imported."
+BUSY = "A gallery bundle operation is already in progress."
 
 
 class ExportRequest(BaseModel):
-    expected: int = Field(ge=0)
+    """A bundle to write: of the whole gallery, cleared once it is verified
+    (`expected` the typed record count), or a backup that keeps it.
+
+    `keep_gallery` skips only the clear. `scope` is what the bundle holds:
+    every row, the picked `ids`, or the live starred images of every
+    checkpoint; a picked or starred bundle is always a backup.
+    """
+
+    expected: int | None = Field(default=None, ge=0)
     password: SecretStr | None = None
+    keep_gallery: bool = False
+    scope: Literal["all", "picked", "starred"] = "all"
+    ids: list[int] | None = Field(default=None, min_length=1, max_length=settings.max_grid_images)
 
 
 class ImportRequest(BaseModel):
@@ -91,7 +106,7 @@ class BundleManager:
         # No await between checking admission and reserving it. In-flight HTTP
         # readers include complete image streams, not just response headers.
         if self.running:
-            raise HTTPException(409, "A gallery bundle operation is already in progress.")
+            raise HTTPException(409, BUSY)
         jobs = self.get_jobs()
         if jobs.busy() or jobs.card()[0] is not None or self.unavailable():
             raise HTTPException(409, "Finish or cancel queued work and wait for model loading before using gallery bundles.")
@@ -172,7 +187,32 @@ class GalleryAdmission:
             manager.readers -= 1
 
 
-def create_router(get_manager: Callable[[], BundleManager]) -> APIRouter:
+async def _selection(services: AppServices, request: ExportRequest) -> tuple[list[int], list[int]]:
+    """The ids a picked or starred bundle holds, and the picked ids it leaves out.
+
+    Through `submission.resolve_selection`, as every action on several
+    images: the picked ids whatever the filter (one binned or deleted since
+    it was picked is left out and reported), or Starred over every
+    checkpoint with no search, the recycle bin never part of it.
+    """
+    try:
+        records, gone, _ = await submission.resolve_selection(
+            services, ids=request.ids if request.scope == "picked" else None, search=None,
+            favorites=request.scope == "starred", all_models=True,
+        )
+    except HTTPException as exc:
+        if exc.status_code == 404:
+            raise HTTPException(404, "No image is starred; star some, or bundle the whole gallery.") from None
+        if exc.status_code == 422:
+            raise HTTPException(422, f"More images are starred than the {settings.max_grid_images} a bundle "
+                                     "of a selection takes; bundle the whole gallery instead.") from None
+        raise
+    if not records:
+        raise HTTPException(404, "None of the picked images is in the gallery any more; nothing was archived.")
+    return [record.id for record in records], gone
+
+
+def create_router(get_manager: Callable[[], BundleManager], services: AppServices) -> APIRouter:
     router = APIRouter()
 
     @router.get(PREFIX)
@@ -205,9 +245,27 @@ def create_router(get_manager: Callable[[], BundleManager]) -> APIRouter:
     @router.post(PREFIX + "/export", status_code=202)
     async def export(request: ExportRequest):
         password = _password(request.password)
+        if request.scope != "all" and not request.keep_gallery:
+            raise HTTPException(422, "Only a bundle of the whole gallery can clear it; back up a selection instead.")
+        if (request.scope == "picked") != (request.ids is not None):
+            raise HTTPException(422, "Send the picked ids with a bundle of picked images, and only then.")
+        if not request.keep_gallery and request.expected is None:
+            raise HTTPException(422, "Type the gallery record count to confirm the clear.")
         manager = get_manager()
-        manager.reserve("export")
-        return manager.start(lambda: bundles.export_bundle(request.expected, password, manager.report))
+        if manager.running:
+            # Refused before the selection is read, which would wait on the
+            # gallery the worker holds.
+            raise HTTPException(409, BUSY)
+        ids, gone = await _selection(services, request) if request.scope != "all" else (None, [])
+        # A backup is its own operation to the page: it deletes nothing, and
+        # its running and finished words are not a clear's.
+        manager.reserve("backup" if request.keep_gallery else "export")
+
+        def run() -> dict:
+            result = bundles.export_bundle(request.expected, password, manager.report,
+                                           keep_gallery=request.keep_gallery, ids=ids)
+            return {**result, "scope": request.scope, "left_out": sorted({*gone, *result.get("left_out", [])})}
+        return manager.start(run)
 
     @router.post(PREFIX + "/import", status_code=202)
     async def import_saved(request: ImportRequest):
