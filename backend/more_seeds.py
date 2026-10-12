@@ -35,7 +35,7 @@ from .schemas import GenerateRequest, ImageRecord, error_detail
 from .seeds import wrap_seed
 
 # The statuses this module decides; the routes add `foreign`,
-# `source_deleted`, `lora_missing` and `deleted`.
+# `source_deleted`, `lora_missing`, `mask_missing` and `deleted`.
 QUEUED = "queued"
 
 

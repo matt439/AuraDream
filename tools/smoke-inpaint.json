@@ -130,11 +130,13 @@
   {"log": "'every pixel the mask keeps is the source own, exactly; the masked ones changed'"},
   {"expect": "__compare(__src, galleryRecords[0]).then((r) => r.kept > 0 && r.keptSame === r.kept && r.painted > 0 && r.paintedDiff > r.painted * 0.9)"},
 
-  {"log": "'Reuse on the inpaint opens the dialog on its source with its mask loaded, its strength and seed'"},
-  {"eval": "window.__made = galleryRecords[0]; reuse(__made)"},
+  {"log": "'Reuse on the inpaint opens the dialog on its source with its mask loaded, its strength and seed - with no upload of the picture, only a keep of the stored mask'"},
+  {"eval": "window.__maskPosts = []; window.__fetch0 = window.fetch; window.fetch = (url, opts) => { if (/\\/api\\/masks/.test(String(url)) && (opts?.method ?? 'GET') === 'POST') __maskPosts.push(String(url)); return __fetch0(url, opts); }; window.__made = galleryRecords[0]; reuse(__made)"},
   {"expect": "__until(() => els.inpaintDialog.open && inpaintMaskState === 'stored')"},
   {"expect": "inpaintSource.id === __src.id && inpaintMask.hash === __made.mask && els.inpaintTitle.textContent === 'Inpaint #' + __src.id + ' as #' + __made.id + ' was made' && els.inpaintStrength.value === '0.6' && els.inpaintSeed.value === String(__made.seed) && maskBaseSet && maskStrokes.length === 0"},
   {"expect": "__until(() => els.inpaintRun.getAttribute('aria-disabled') === 'false' && /% of the picture masked$/.test(els.inpaintStatus.textContent))"},
+  {"expect": "__until(() => inpaintMaskKeptAt > 0 && __maskPosts.length === 1 && __maskPosts[0].endsWith('/api/masks/' + __made.mask + '/keep'))"},
+  {"eval": "window.fetch = __fetch0"},
 
   {"log": "'a strength list is a sweep over the one mask, and opens as a sheet'"},
   {"eval": "els.inpaintStrength.value = '0.4,0.6'; inpaintChanged();"},

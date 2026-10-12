@@ -323,8 +323,12 @@ function openRefine(rec, pass = null) {
   els.refineTags.hidden = true;
   hideRefineSuggestions();
   syncRefine();
-  if (!els.refineDialog.open) els.refineDialog.showModal();
-  els.refineDialog.scrollTop = 0;
+  // Scrolled to the top only as it opens: Start over fills it in place, and
+  // jumping the dialog would move its controls from under the pointer.
+  if (!els.refineDialog.open) {
+    els.refineDialog.showModal();
+    els.refineDialog.scrollTop = 0;
+  }
   els.refineStrength.focus();
   els.refineStrength.select();
   sizeRefinePrompt();

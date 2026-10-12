@@ -214,8 +214,10 @@ before changing it.
   body capped at `MAX_BODY`
 - `backend/api_masks.py` — an inpaint's mask: `POST /api/masks` (a PNG
   body over gallery image `source`, decoded under `refine_max_pixels`,
-  kept as `L` by `storage.store_mask` and answered by its hash) and
-  `GET /api/masks/{hash}` (through `storage.mask_path`); model-free
+  read by `refine.canonical_mask` and kept as `L` by `storage.store_mask`,
+  answered by its hash), `POST /api/masks/{hash}/keep` (`storage.touch_mask`:
+  the settle window restarted, as a re-upload would; 404 where it has gone)
+  and `GET /api/masks/{hash}` (through `storage.mask_path`); model-free
 - `backend/generate.py` — headless CLI; drives the backend directly, no server
 - `backend/clear.py` — deletes rows, their PNGs and any orphans, the recycle
   bin's with the rest; `--bin` empties the bin alone
@@ -1009,15 +1011,23 @@ Reproduction:
   `_migrate`), naming an unknown hash and a missing file. Masks live in
   `outputs_dir/masks/`, written by `storage.store_mask` (`.png.part`,
   renamed after the row commits; the stale-partial sweep finishes one whose
-  row exists), uploaded through `POST /api/masks` (a PNG over a live
-  gallery `source`, at its size, under `refine_max_pixels`, refused when it
-  paints nothing) and served by `GET /api/masks/{hash}`; both model-free.
+  row exists and that decodes to the mask its name says, and discards any
+  other), uploaded through `POST /api/masks` (a PNG over a live gallery
+  `source`, at its size, under `refine_max_pixels`, refused when it paints
+  nothing; an `OSError` writing it is a worded 503) and served by `GET
+  /api/masks/{hash}`; both model-free. `refine.canonical_mask` is the one
+  reading of a picture as a mask, for the upload and `--mask`: 16-bit
+  levels scaled to 8, a picture with alpha laid on black, `L`/`1`/`RGB`/
+  opaque `P` converted, any other mode refused by name.
   A mask is no gallery image, never a reference or a source. The validator
   refuses a mask without `refine` ("a mask needs the image it covers");
   `applied()` asks `inpaint_supported` with a mask and `refine_supported`
   without, and drops the mask with its source. At submit
-  (`submission.unusable_input`, kind `mask`) the source is live, the mask
-  held, and mask, source and request are one size; a cell checks its mask
+  (`submission.unusable_input`: kind `mask_missing` where `mask_path`
+  refuses, which Swap tags and More seeds report per image as status
+  `mask_missing`, "the mask of #N is missing" (`unusable_detail`); kind
+  `mask` for a size mismatch) the source is live, the mask held, and mask,
+  source and request are one size; a cell checks its mask
   file as it begins (`jobs`) and fails in words. `images.mask` is a
   `_migrate` column beside `refine`; the chunk carries `mask`,
   `mask_source` (`storage.mask_provenance`) and `mask_blend: "overlay"`,
@@ -1039,24 +1049,40 @@ Reproduction:
   (`bundle_images._inspect_mask`: `L`, `storage.mask_hash` equal to the
   name, the size its row records), merges rows by hash (`bundles._merge_masks`;
   one hash at another size is refused), installs absent files, and counts a
-  row whose mask it lacks as `masks_missing`, keeping the hash; an
-  unresolved source takes the row's mask with it. Re-render refuses such a
-  row "the mask of #N is missing" (`submission.missing_masks`). Reindex
+  row whose mask neither the bundle nor its result's own embedded copy
+  (`bundles._embedded_member`, held to the hash and the row's size) holds
+  as `masks_missing`, keeping the hash; an unresolved source takes the
+  row's mask with it. A whole-gallery inventory carries only files in
+  `masks/` named by 64 lowercase hex digits plus `.png` that decode to that
+  mask (`bundles._carried_mask`), leaving the rest where they are and
+  naming them in the preview's `masks_left_out`. Re-render refuses such a
+  row "the mask of #N is missing" (`submission.missing_masks`), and an
+  inpaint at another size than its own naming it and its source
+  (`submission.resized_inpaint_detail`). Reindex
   rebuilds masks from `masks/*.png` (a file not named by its pixels is
   counted `bad_masks`), from the `--from` gallery's `masks/` with
   `--database`, and from each result's embedded copy, counting
   `unresolved_masks`. `gallery_delete.sweep_masks` is the one remover:
   where PNGs are removed for good (Empty recycle bin, `DELETE
   /api/images/{id}`, permanent `delete_matching`, `clear`), it spares a
-  mask any row names, live or binned, any live job's cell names
-  (`JobManager.masks_in_flight`, passed by the routes), or that is younger
-  than `PARTIAL_SETTLE_SECONDS` (a re-upload restarts the clock); the
+  mask any row names, live or binned, any live job's cell names (the
+  `mask_holds` table, which `JobManager.submit_cells` writes through
+  `storage.hold_masks` before a job is queued - a mask gone by then is a
+  422, `jobs.MaskGone` - `_finish` releases and a server's start empties,
+  so a CLI sweep sees a server's queue; and `JobManager.masks_in_flight`,
+  passed by the routes, both read inside the sweep's `BEGIN IMMEDIATE`),
+  or that is younger than `PARTIAL_SETTLE_SECONDS` (a re-upload or a
+  `/keep` restarts the clock); the
   whole `clear` takes every mask no kept row names and the directory, and
   its orphan sweep a mask file with no row once settled. The bin never
   touches a mask. `generate.py --mask FILE` (beside `--refine`, at the
   source's size) stores through `storage.store_mask`; `--from-image`
   carries the record's mask, from the PNG's own copy where the gallery
-  lacks it. Search: `mask:<hex>`, `mask:none`, `inpaint:yes|no`; stats
+  lacks it, and its source and mask only where the row under the id has the
+  pixel hash and size the record's `refine_source` names
+  (`_check_carried_source`: else a note and a plain generation, or a
+  refusal where `--strength`, `--scale` or `--mask` asked for the pass).
+  Search: `mask:<hex>`, `mask:none`, `inpaint:yes|no`; stats
   `--by mask`.
 - Inpainting is a decision as well as a capability. `refine.sibling(pipe,
   "Inpaint")` finds the class under the exact-export rule, its call taking
@@ -1077,10 +1103,17 @@ Reproduction:
   signature default (`refine.library_strength`, read with `inspect`, None
   unless supported) and said as the library's number, since no catalogue
   author gives one; there is no `inpaint_strength` profile key until one is
-  measured. An inpaint runs at its source's size (`refine.inpaint_source`
-  refuses another; the mask through `refine.mask_image`), one call per
-  image through `_refine`'s loop, and drops references. After each decode
-  the result is always composited over the source with the mask as alpha
+  measured. A request with a mask and no strength (`--mask`, the API)
+  starts at the same default before any load
+  (`schemas_generate.default_inpaint_strength`, through each enabled
+  profile's `inpaint_family`, the text-to-image class it runs). An inpaint
+  runs at its source's size (`refine.inpaint_source` refuses another; the
+  mask through `refine.mask_image`), one call per image through `_refine`'s
+  loop, and drops references. The class is handed `refine.pipeline_mask`
+  of the painted mask - thresholded at > 0 and widened to whole latent
+  cells (`vae_scale_factor`, 8) - since it binarises at 0.5 and samples
+  each cell's corner pixel. After each decode the result is always
+  composited over the source with the painted mask's levels as alpha
   (`refine.composite`, the library's `VaeImageProcessor.apply_overlay`), so
   every unmasked pixel is the source's; it is no setting, and the chunk's
   `mask_blend: "overlay"` records the rule. The `content_hash` is the
@@ -2658,10 +2691,22 @@ Frontend and CLI:
   while the canvas has focus, so a box's Ctrl+Z stays the box's; the
   canvas is named "Mask over #N", and arrow keys move a keyboard brush that
   Space paints. Each tool's key is in `aria-keyshortcuts`. The mask exports
-  as a grey PNG (`exportMask`) and uploads 300 ms after a stroke ends
-  (`POST /api/masks?source=ID`); Inpaint is `aria-disabled` with its reason
+  as a grey PNG (`exportMask`: the feather blurred from a copy padded with
+  the layer's own edge pixels, `featheredDraw`, so a mask reaching the
+  border does not fade there; levels under `MASK_FLOOR` sent as black; a
+  mask with no level from 128 up is nothing masked) and uploads 300 ms
+  after a stroke ends (`POST /api/masks?source=ID`); a stroke waits while a
+  Reuse's mask loads. A stored mask is kept with `POST
+  /api/masks/{hash}/keep` on a Reuse, every 20 minutes while the dialog is
+  open and before a press past that, and is uploaded again from the page's
+  strokes where it has gone (a keep's 404, or a preview or submit refusal
+  naming it). An adapter gone meanwhile is taken out as Refine's is
+  (`dropInpaintLora`). Inpaint is `aria-disabled` with its reason
   while nothing is painted, while the mask uploads or loads, and while an
-  upload or the preview refuses, and a press says why. The tools row and
+  upload or the preview refuses, and a press says why; "wait for the mask"
+  clears once it lands. Every fill of the dialog (Start over included)
+  ends what the last one had in flight (`inpaintOpenEpoch`), and only a
+  first open scrolls it to the top. The tools row and
   the status line have fixed heights, the dialog is anchored at a fixed top
   and grows downward, and nothing scrolls it or moves a control under the
   pointer. A close that ran nothing keeps the strokes and the boxes in page
@@ -4399,30 +4444,45 @@ catalogue pipeline against the installed diffusers; every profile's
 every class left off in it, every catalogue repo one of the cases; `build`
 over stand-in components for all five classes; the strength default read,
 not copied; the composite keeping the source where the mask is 0 and taking
-the result where it is 255; the `applied()` rules and the hash pattern
+the result where it is 255; `pipeline_mask` repainting a thin stroke off
+the cell corners and covering every pixel a feather weighs, the class handed
+it and the composite the painted mask; `inpaint_family` and the strength an
+inpaint without one starts at; the `applied()` rules and the hash pattern
 refusing paths; one call per image, cancel, the size refusal, a deferred
 family refused with its class installed, the loaded answer, unload; the
 status fields and the fake), `tests/test_refine_schedules.py` (`start_index`
 and `steps_run` with `inpaint=True` against each enabled class's
 `get_timesteps`, None for the deferred), `tests/test_inpaint_storage.py`
 (the hash over size and levels, `mask_path`'s two refusals, `_migrate` and
-the `masks` table on a replaced file, the mask partial finished, the chunk
+the `masks` table on a replaced file, the mask partial finished, one cut
+short or of other pixels discarded, an upload into a directory a clear
+removed meanwhile, the chunk
 keys and the embed, an image saved though its mask cannot be embedded,
 `index_file`, `completed_cells`, the cost split), `tests/test_api_inpaint.py`
 (the upload's refusals and its hash, `GET`, the submit refusals, a strength
 grid over one mask, a mask gone between cells, cancel mid-inpaint, the
-duplicate count with two masks, More seeds and Swap tags over the same mask,
-Mass refine dropping it, Re-render naming a missing mask, search and
-stats), `tests/test_inpaint_bundles.py` (export, selection, password and
-merge by hash; a renamed, altered, resized or path-named mask refused;
-`masks_missing`; text chunks outside the identity; PNG-only reindex from
+duplicate count with two masks, More seeds and Swap tags over the same mask
+and naming a missing one by its image, Mass refine dropping it, Re-render
+naming a missing mask and an inpaint at another size, the snapshot naming
+a source only where every cell shares it, `/keep`, an RGBA or 16-bit
+upload, Load settings from an inpaint's PNG, search and stats),
+`tests/test_inpaint_bundles.py` (export, selection, password and merge by
+hash; a renamed, altered, resized or path-named mask refused; a lost mask
+restored from its result's PNG, `masks_missing` where that has none too;
+stray files in `masks/` left out of a whole-gallery export; text chunks
+outside the identity; PNG-only reindex from
 files and from the embedded copy; `--database`), `tests/test_inpaint_sweep.py`
 (the sweep's three sparing conditions, a re-upload restarting the window, the
 whole `clear`, Keep starred, the orphan sweep, `clear --where`, a delete
-sparing a queued cell's mask), `tests/test_inpaint_ui.py` (`inpaint_deferred`
+and a CLI `clear --bin` sparing the mask of a cell held before it saves,
+holds dropped at a server's start, a mask swept between the check and the
+hold refused), `tests/test_inpaint_ui.py` (`inpaint_deferred`
 held to the list; the dialog's scripts and stylesheet in page order), the run
-id pins in `tests/test_conditioning.py` and the `--mask` and `--from-image`
-cases in `tests/test_cli.py`.
+id pins in `tests/test_conditioning.py`, the inpaint classes' prompt
+building held to their text-to-image classes' in
+`tests/test_prompt_encoding.py`, and the `--mask` (an RGBA, 16-bit or CMYK
+file; no strength) and `--from-image` (a source that is another picture
+here) cases in `tests/test_cli.py`.
 `tests/test_reindex_provenance.py` covers foreign PNG conditioning ids, lost
 databases, missing or mismatched source identities and safe in-place metadata
 remapping. API tests hold a fake before its first callback to check initial
@@ -5747,7 +5807,8 @@ brush (arrows and Space); the tools row's boxes and the dialog's scrollTop
 unchanged through painting and a preview refusal, Inpaint not moving under
 the pointer; the result an inpaint of #N @ 0.6 on the card, its title and
 the settings line, every pixel the mask keeps the source's exactly; Reuse
-reopening on the source with the stored mask and no upload; a strength list
+reopening on the source with the stored mask, no upload of the picture
+and one `/keep` of the stored mask (the page's POSTs counted); a strength list
 opening a sheet over one mask; a close that ran nothing giving the lightbox
 back and its strokes on the next open, and Start over. `smoke-inpaint-
 unavailable.json`, on the default Krea 2 Turbo fake on 7906: the card's, the

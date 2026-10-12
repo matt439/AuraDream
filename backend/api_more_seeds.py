@@ -107,7 +107,8 @@ async def more_seeds_plan(
                 checked[spec] = await submission.unusable_input(services, first)
             if checked[spec] is not None:
                 kind, why = checked[spec]
-                batch.status, batch.detail = submission.UNUSABLE_STATUS.get(kind, "invalid"), why
+                batch.status = submission.UNUSABLE_STATUS.get(kind, "invalid")
+                batch.detail = submission.unusable_detail(kind, why, batch.template.id)
     results = [
         MoreSeedsResult(id=image_id, status="deleted", detail=submission.gone_detail(image_id, binned))
         for image_id in gone

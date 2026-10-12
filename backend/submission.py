@@ -12,7 +12,7 @@ from .schemas import GenerateRequest, ImageRecord
 
 
 # The per-image status a reason from `unusable_input` becomes.
-UNUSABLE_STATUS = {"source": "source_deleted", "lora": "lora_missing"}
+UNUSABLE_STATUS = {"source": "source_deleted", "lora": "lora_missing", "mask_missing": "mask_missing"}
 
 
 async def refuse_unusable_inputs(services: AppServices, request: GenerateRequest) -> None:
@@ -33,9 +33,11 @@ async def refuse_unusable_inputs(services: AppServices, request: GenerateRequest
 
 async def unusable_input(services: AppServices, request: GenerateRequest) -> tuple[str, str] | None:
     """`refuse_unusable_inputs`' finding without the refusal: (kind, why) or
-    None. The kind - `refine`, `inpaint`, `source`, `mask`, `reference`,
-    `references`, `lora` - is what Swap tags reports per image (a deleted
-    source, a missing adapter) where a whole submission is refused for one.
+    None. The kind - `refine`, `inpaint`, `source`, `mask_missing`, `mask`,
+    `reference`, `references`, `lora` - is what Swap tags reports per image (a
+    deleted source, a missing adapter or mask) where a whole submission is
+    refused for one; a `mask_missing` is said per image with
+    `missing_mask_detail`, which names it.
 
     Whether a pass can run from a source splits on the mask: with one it is
     the inpaint class's question, without one the image-to-image class's, as
@@ -50,6 +52,13 @@ async def unusable_input(services: AppServices, request: GenerateRequest) -> tup
         except ValueError as exc:
             return "source", str(exc)
         if inpainting:
+            # A mask this gallery cannot find is its own kind: the gallery
+            # actions name it by the image (`missing_mask_detail`), never by
+            # its hash, and the way back is the bundle as often as the brush.
+            try:
+                await asyncio.to_thread(storage.mask_path, request.mask)
+            except ValueError as exc:
+                return "mask_missing", str(exc)
             reason = await asyncio.to_thread(mask_unusable, request)
             if reason is not None:
                 return "mask", reason
@@ -122,6 +131,42 @@ def missing_masks(records) -> list[int]:
         except ValueError:
             lost.append(record.id)
     return lost
+
+
+def unusable_detail(kind: str, why: str, image_id: int) -> str:
+    """What a gallery action says of image `image_id` for an `unusable_input`
+    finding: its own words, but a missing mask by the image it belongs to."""
+    return missing_mask_detail([image_id]) if kind == "mask_missing" else why
+
+
+def resized_inpaints(records, width: int, height: int) -> list[ImageRecord]:
+    """The inpaints among `records` that are not `width`x`height`: an inpaint
+    runs at its source's size, so none of them can be re-rendered at it."""
+    return [
+        record for record in records
+        if record.refine is not None and record.mask is not None
+        and (record.width, record.height) != (width, height)
+    ]
+
+
+def resized_inpaint_detail(
+    records: list[ImageRecord], width: int, height: int, picked: bool, others: bool = True
+) -> str:
+    """Re-render's refusal of those inpaints, each named with its source, and
+    the way out where the selection holds `others`: unpicking them, or
+    leaving inpaints out of the filter."""
+    said = "; ".join(
+        f"#{record.id} is an inpaint of #{record.refine} at {record.width}x{record.height}"
+        for record in records[:6]
+    )
+    more = f"; and {len(records) - 6} more" if len(records) > 6 else ""
+    names = ", ".join(f"#{record.id}" for record in records[:6]) + (" and the rest" if len(records) > 6 else "")
+    way = f"Unpick {names}" if picked else "Add inpaint:no to the search"
+    tail = f" {way} to re-render the others." if others else ""
+    return (
+        f"{said}{more} - an inpaint runs at its source's size, so it cannot be re-rendered at "
+        f"{width}x{height}.{tail}"
+    )
 
 
 def missing_mask_detail(ids: list[int]) -> str:

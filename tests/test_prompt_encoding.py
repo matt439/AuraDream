@@ -14,6 +14,7 @@ from __future__ import annotations
 
 import ast
 import importlib.util
+import inspect
 import re
 from pathlib import Path
 
@@ -211,6 +212,32 @@ def test_lumina_flux_ernie_and_sdxl_lengths_match_the_installed_pipelines():
     sdxl = _diffusers("pipelines/stable_diffusion_xl/pipeline_stable_diffusion_xl.py")
     lengths = [kw.get("max_length") for kw in _keywords(sdxl, "tokenizer")]
     assert "tokenizer.model_max_length" in lengths
+
+
+@pytest.mark.parametrize("pipeline, module", [
+    ("ZImagePipeline", "pipelines/z_image/pipeline_z_image_inpaint.py"),
+    ("StableDiffusionXLPipeline", "pipelines/stable_diffusion_xl/pipeline_stable_diffusion_xl_inpaint.py"),
+])
+def test_the_inpaint_classes_build_the_prompt_their_pipelines_do(pipeline, module):
+    # An inpaint runs the inpaint class, while Check measures with the
+    # text-to-image class's strings (`encoder_table`): the two have to
+    # build the same prompt, or Check's counts are wrong for an inpaint.
+    import diffusers
+
+    from backend import refine
+
+    text = getattr(diffusers, pipeline)
+    inpaint = refine.sibling(text, "Inpaint")
+    assert inpaint is not None and inspect.getsourcefile(inpaint).replace("\\", "/").endswith(module)
+    for name in ("encode_prompt", "_encode_prompt", "_get_clip_prompt_embeds"):
+        if hasattr(text, name):
+            assert inspect.getsource(getattr(inpaint, name)) == inspect.getsource(getattr(text, name)), name
+    tree = _diffusers(module)
+    if pipeline == "ZImagePipeline":
+        assert [kw["enable_thinking"] for kw in _keywords(tree, "apply_chat_template")] == ["True"]
+        assert _call_default(tree, inpaint.__name__) == pe.Z_IMAGE_SEQUENCE
+    else:
+        assert "tokenizer.model_max_length" in [kw.get("max_length") for kw in _keywords(tree, "tokenizer")]
 
 
 def test_the_repos_own_pipelines_lengths_match():

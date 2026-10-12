@@ -71,7 +71,11 @@ phases) and answer False even loaded, so a False here is final;
 `tests/test_inpaint.py` holds every True to an installed class and every
 class left off to that list. Their profiles also carry `inpaint_deferred`,
 so the Inpaint dialog says "not enabled yet" rather than "no such pipeline"
-(`tests/test_inpaint_ui.py` holds it to the same list).
+(`tests/test_inpaint_ui.py` holds it to the same list). Every enabled profile
+names its `inpaint_family`, the text-to-image class whose inpaint sibling it
+runs, so an inpaint asked for without a strength starts where that class's
+own default does before anything is loaded (`inpaint_family`, the function;
+`tests/test_inpaint.py` holds it to the installed class).
 
 `mu_supported` says whether the checkpoint uses a flow-matching scheduler whose
 sigmas can be shifted. Modern SDXL exposes a custom `sigmas` argument too, but
@@ -411,6 +415,7 @@ _PROFILES.append(
             "reference_supported": False,
             "refine_supported": True,
             "inpaint_supported": True,
+            "inpaint_family": "StableDiffusionXLPipeline",
             "refine_strength": 0.4,
             # Measured: 2896x2896, the pass's own guard, at 10.3 GB of the card.
             "refine_measured": Measured("Animagine XL 4.0", "fp8", 2896, 2896),
@@ -448,6 +453,7 @@ _PROFILES.append(
             "reference_supported": False,
             "refine_supported": True,
             "inpaint_supported": True,
+            "inpaint_family": "StableDiffusionXLPipeline",
             "refine_strength": 0.4,
             # Measured: 2896x2896, the pass's own guard, at 10.3 GB of the card.
             "refine_measured": Measured("Kohaku XL Zeta", "fp8", 2896, 2896),
@@ -485,6 +491,7 @@ _PROFILES.append(
             "reference_supported": False,
             "refine_supported": True,
             "inpaint_supported": True,
+            "inpaint_family": "StableDiffusionXLPipeline",
             "refine_strength": 0.4,
             # Measured: 2896x2896, the pass's own guard, at 10.4 GB of the card.
             "refine_measured": Measured("Illustrious XL v2.0", "fp8", 2896, 2896),
@@ -586,6 +593,7 @@ _PROFILES += [
             "reference_supported": False,
             "refine_supported": True,
             "inpaint_supported": True,
+            "inpaint_family": "ZImagePipeline",
             # Shift 6: 0.15 starts the pass at sigma 0.51.
             "refine_strength": 0.15,
             # Measured: 1536x1536 at 13.7 GB of the card, 2048x2048 filling it.
@@ -625,6 +633,7 @@ _PROFILES += [
             "reference_supported": False,
             "refine_supported": True,
             "inpaint_supported": True,
+            "inpaint_family": "ZImagePipeline",
             "refine_strength": 0.25,
             # Measured: 2048x2048 at 12.5 GB of the card; 8.4 MP not run, its
             # growth putting it past the card.
@@ -659,6 +668,7 @@ _PROFILES += [
             "reference_supported": False,
             "refine_supported": True,
             "inpaint_supported": True,
+            "inpaint_family": "ZImagePipeline",
             "refine_strength": 0.25,
             # Measured: 1536x1536 at 13.1 GB of the card, as Z-Anime; its
             # 2048x2048 filled the card, so nothing larger was run.
@@ -775,6 +785,7 @@ _EXACT_PROFILES: dict[str, dict[str, Any]] = {
         "reference_supported": False,
         "refine_supported": True,
         "inpaint_supported": True,
+        "inpaint_family": "StableDiffusionXLPipeline",
         "refine_strength": 0.4,
         "true_cfg_supported": False,
         "guide": guides.NOOBAI_GUIDE,
@@ -805,6 +816,7 @@ _EXACT_PROFILES: dict[str, dict[str, Any]] = {
         "reference_supported": False,
         "refine_supported": True,
         "inpaint_supported": True,
+        "inpaint_family": "StableDiffusionXLPipeline",
         "refine_strength": 0.4,
         "true_cfg_supported": False,
         "guide": guides.ROUWEI_GUIDE,
@@ -834,6 +846,7 @@ _EXACT_PROFILES: dict[str, dict[str, Any]] = {
         "reference_supported": False,
         "refine_supported": True,
         "inpaint_supported": True,
+        "inpaint_family": "StableDiffusionXLPipeline",
         "refine_strength": 0.4,
         # Measured: 2560x3360 at 11.4 GB of the card - past the pass's own
         # 8.4 MP guard, so nothing the dialog offers runs tight.
@@ -1028,7 +1041,7 @@ def _profile_for(model_id: str) -> dict[str, Any]:
 
 # The prose, and the measured refine pass, whose pixels reach the defaults as
 # `refine_tight_pixels` and whose words the hints as `refine_tight`.
-_NOT_DEFAULTS = ("hints", "guide", "refine_measured")
+_NOT_DEFAULTS = ("hints", "guide", "refine_measured", "inpaint_family")
 
 # The checkpoints whose pipeline is this repo's own class - both Anima variants'
 # modular blocks and NewBie's - beside which diffusers exports no
@@ -1050,6 +1063,13 @@ _OWN_PIPELINES = frozenset({
 # docs/plan-inpainting.md. Their profiles say `inpaint_supported: False`, and
 # the backend refuses an inpaint on them whatever the class says.
 INPAINT_DEFERRED = frozenset({"FluxPipeline", "Flux2KleinPipeline", "QwenImagePipeline"})
+
+
+def inpaint_family(model_id: str) -> str | None:
+    """The diffusers text-to-image class whose inpaint sibling this
+    checkpoint runs, by name, or None where its inpaint is not enabled."""
+    profile = _profile_for(model_id)
+    return profile.get("inpaint_family") if profile["inpaint_supported"] else None
 
 
 def defaults_for(model_id: str) -> dict[str, Any]:

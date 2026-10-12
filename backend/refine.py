@@ -288,6 +288,37 @@ def inpaint_source(image_id: int, width: int, height: int) -> "Image":
     return image
 
 
+def canonical_mask(image: "Image") -> "Image":
+    """Any picture given as a mask, as the one `L` channel a mask is kept in.
+
+    Pillow's own `convert("L")` is right for `L`, `1`, `RGB` and an opaque
+    palette, and wrong for two kinds an editor commonly exports: it clips a
+    16-bit level instead of scaling it (32768 of 65535 becomes 255, and a
+    near-black "keep" of 100 a grey the composite blends by), and it drops
+    alpha, so white strokes on a transparent white layer read as all white.
+    16-bit levels are scaled to 8 bits; a picture with transparency is laid
+    on opaque black first, so what is transparent is kept. Any other mode
+    (`F`, `CMYK`, ...) is refused by name, as a `ValueError`.
+    """
+    from PIL import Image as PILImage
+
+    mode = image.mode
+    if mode == "L":
+        return image.copy()
+    if mode in ("I;16", "I;16L", "I;16B", "I;16N", "I"):
+        import numpy as np
+
+        levels = np.asarray(image, dtype=np.int64)
+        return PILImage.fromarray((np.clip(levels, 0, 65535) >> 8).astype(np.uint8), "L")
+    transparent = "A" in image.getbands() or (mode == "P" and "transparency" in image.info)
+    if transparent:
+        rgba = image.convert("RGBA")
+        return PILImage.alpha_composite(PILImage.new("RGBA", rgba.size, (0, 0, 0, 255)), rgba).convert("L")
+    if mode in ("1", "RGB", "P"):
+        return image.convert("L")
+    raise ValueError(f"a mask is a greyscale, RGB or palette picture, not one in mode {mode}")
+
+
 def mask_image(mask: str, width: int, height: int) -> "Image":
     """The stored mask a request names by hash, as one luminance channel.
 
@@ -308,6 +339,43 @@ def mask_image(mask: str, width: int, height: int) -> "Image":
             f"mask {mask[:16]} is {image.width}x{image.height}, not the {width}x{height} it covers"
         )
     return image
+
+
+# The side of the square of pixels one latent cell covers in both enabled
+# inpaint families (SDXL's VAE and Z-Image's both downsample by 8), where the
+# runner names none of its own (`vae_scale_factor`).
+LATENT_BLOCK = 8
+
+
+def pipeline_mask(mask: "Image", block: int = LATENT_BLOCK) -> "Image":
+    """The mask the inpaint class is handed for a painted `mask`: every
+    latent cell that holds any painted pixel, all white; the rest black.
+
+    Both enabled classes binarise their mask at 0.5 and then shrink it to the
+    latent grid by nearest sampling - the top-left pixel of each `block`
+    square - so the painted mask as it is repaints only the cells whose
+    corner pixel is past 128. A stroke narrower than a cell could repaint
+    nothing, the top and left edge of a mask were never repainted, and a
+    feather was repainted only on its brighter half. `composite` blends with
+    the painted grey levels, so what the class repaints has to cover every
+    pixel the composite gives any weight to: thresholded at > 0 and widened
+    to whole cells (a max-pool onto the latent grid and back), it does, and
+    each cell's corner pixel then says what the whole cell is.
+    """
+    from PIL import Image as PILImage
+
+    block = max(1, int(block))
+    width, height = mask.size
+    painted = mask.convert("L").point(lambda level: 255 if level > 0 else 0)
+    if block == 1:
+        return painted
+    # Padded out to whole cells, the pad unpainted.
+    cells_w, cells_h = -(-width // block), -(-height // block)
+    padded = PILImage.new("L", (cells_w * block, cells_h * block), 0)
+    padded.paste(painted, (0, 0))
+    # `reduce` averages each cell: any painted pixel leaves it above zero.
+    cells = padded.reduce(block).point(lambda level: 255 if level > 0 else 0)
+    return cells.resize(padded.size, PILImage.NEAREST).crop((0, 0, width, height))
 
 
 def composite(mask: "Image", source: "Image", image: "Image", processor: Any = None) -> "Image":

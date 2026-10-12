@@ -228,15 +228,16 @@ def main() -> int:
     fake.refine_supported = profile["refine_supported"]
     # And an inpaint only where the profile enables one (SDXL and Z-Image),
     # starting at the strength the installed inpaint class defaults to - the
-    # one diffusers read here is the family's: SDXL's or Z-Image's.
+    # one diffusers read here is the profile's family's: SDXL's or Z-Image's.
     fake.inpaint_supported = profile["inpaint_supported"]
     inpaint_strength = None
     if fake.inpaint_supported:
         import diffusers
 
         from backend import refine
+        from backend.model_defaults import inpaint_family
 
-        family = "ZImagePipeline" if "z-" in args.model.lower() else "StableDiffusionXLPipeline"
+        family = inpaint_family(args.model)
         inpaint_strength = refine.library_strength(refine.sibling(getattr(diffusers, family), "Inpaint"))
     # A Mu only where the claimed checkpoint's schedule can take one: on an
     # Anima or SDXL fake the row drops it, as the real applied() does.

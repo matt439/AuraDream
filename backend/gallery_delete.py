@@ -47,7 +47,8 @@ _UNKEPT = f"{_NOT_LIVE_STAR} AND NOT ({_STARRED_SOURCE})"
 
 # The masks the server's queued and running cells will read, asked as a sweep
 # runs (`JobManager.masks_in_flight`): a queued cell's mask is in no row yet.
-# The CLI has no jobs of its own and passes none.
+# The CLI has no jobs of its own and passes none; the server's jobs' masks
+# reach its sweeps through the `mask_holds` table instead.
 InFlight = Callable[[], set[str]]
 
 
@@ -262,8 +263,9 @@ def sweep_masks(in_flight: InFlight | None = None, *, settle: bool = True, orpha
 
     A mask is needed while any row names it, live or binned - a binned
     inpaint is still what was made, and a Restore must find its mask - and
-    while a queued or running cell will read it (`in_flight`, asked here,
-    under the gallery reservation every caller already holds). It is spared
+    while a queued or running cell will read it: held in `mask_holds` by the
+    server that queued it (`storage.hold_masks`), which a CLI sweep sees too,
+    and `in_flight`, the server's own jobs asked in memory. It is spared
     too while younger than `PARTIAL_SETTLE_SECONDS`: the Inpaint dialog
     uploads a mask before anything names it, and its re-upload restarts the
     clock (`storage.store_mask`). `settle=False` is the whole `clear`, which
@@ -276,9 +278,12 @@ def sweep_masks(in_flight: InFlight | None = None, *, settle: bool = True, orpha
     they too are older than the window (the whole `clear`'s orphan sweep).
     """
     cutoff = time.time() - storage.PARTIAL_SETTLE_SECONDS
-    held = set(in_flight()) if in_flight is not None else set()
     with storage._write_lock, storage._session() as conn:
         conn.execute("BEGIN IMMEDIATE")
+        # Inside the transaction: a job's hold (`storage.hold_masks`) is in
+        # before this looks or after this commits, whatever process queued it.
+        held = set(in_flight()) if in_flight is not None else set()
+        held |= {row[0] for row in conn.execute("SELECT hash FROM mask_holds")}
         held |= {row[0] for row in conn.execute("SELECT DISTINCT mask FROM images WHERE mask IS NOT NULL")}
         doomed = [
             row["hash"]

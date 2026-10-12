@@ -12,7 +12,7 @@
   {"expect": "!refineSupported"},
   {"eval": "openRefine(viewerRecords[0])"},
   {"expect": "!els.refineDialog.open && els.error.textContent.includes('no refine pass')"},
-  {"log": "'Mass refine's Refine… in the gallery footer is held with the same hedge, even where a search would give it images, and a press says it and opens nothing'"},
+  {"log": "'Mass refine\\'s Refine… in the gallery footer is held with the same hedge, even where a search would give it images, and a press says it and opens nothing'"},
   {"eval": "els.search.value = 'fox'; els.search.dispatchEvent(new Event('input', {bubbles: true}))"},
   {"wait": 1000},
   {"expect": "__until(() => !galleryPending && total > 0 && els.refineBatch.getAttribute('aria-disabled') === 'true' && els.refineBatch.title.startsWith('Refine is unavailable: as far as the server can tell') && els.refineBatch.title.endsWith('A load answers for certain.'))"},

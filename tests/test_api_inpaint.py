@@ -245,6 +245,23 @@ def test_the_job_names_its_mask(client, fake, store):
     assert (snapshot["refine"], snapshot["mask"]) == (record["id"], digest)
 
 
+def test_a_job_over_many_sources_is_named_by_none_of_them():
+    from backend.grid import Cell
+    from backend.jobs import Job
+
+    mask = "ab" * 32
+    inpaint = GenerateRequest(prompt="a", width=256, height=256, refine=3, strength=0.6, mask=mask)
+    plain = GenerateRequest(prompt="b", width=256, height=256)
+    mixed = Job(id="x", request=inpaint, cells=[Cell(request=inpaint, seed=1), Cell(request=plain, seed=2)],
+                grid=True, swap="red hair → silver hair")
+    assert (mixed.snapshot()["refine"], mixed.snapshot()["mask"]) == (None, None)
+    # A sweep over one source - Refine's strength grid - still names it.
+    swept = inpaint.model_copy(update={"strength": 0.8})
+    one = Job(id="y", request=inpaint, cells=[Cell(request=inpaint, seed=1), Cell(request=swept, seed=1)],
+              grid=True)
+    assert (one.snapshot()["refine"], one.snapshot()["mask"]) == (3, mask)
+
+
 def test_a_cell_whose_mask_went_fails_in_words(client, fake, store, monkeypatch):
     record = _source(client)
     digest = _stored(client, record)
@@ -376,3 +393,90 @@ def test_search_and_stats_find_an_inpaint_by_its_mask(client, fake, store):
     assert client.get("/api/gallery", params={"search": "inpaint:maybe"}).status_code == 422
     rows = gallery_reports.keep_rates(by=["mask"])
     assert {row["mask"] for row in rows} == {None, digest[:16]}
+
+
+def test_swap_tags_and_more_seeds_name_a_missing_mask_by_its_image(client, fake, store):
+    record, made, digest = _inpainted(client, fake)
+    (store.masks_dir() / f"{digest}.png").unlink()
+    said = f"the mask of #{made['id']} is missing"
+    swap = [{"find": "red hair", "replace": "silver hair"}]
+    preview = client.post("/api/swap-tags/preview", json={"swaps": swap, "ids": [made["id"]]})
+    assert preview.status_code == 200, preview.text
+    (image,) = [i for i in preview.json()["images"] if i["id"] == made["id"]]
+    assert image["status"] == "mask_missing" and said in image["detail"], image
+    assert digest[:16] not in image["detail"] and "import the bundle" in image["detail"]
+    preview = client.post("/api/more-seeds/preview", json={"ids": [made["id"]], "count": 2})
+    assert preview.status_code == 200, preview.text
+    (batch,) = preview.json()["results"]
+    assert batch["status"] == "mask_missing" and said in batch["detail"], batch
+    # And nothing can be queued from either.
+    assert client.post("/api/swap-tags", json={"swaps": swap, "ids": [made["id"]]}).status_code == 422
+    assert client.post("/api/more-seeds", json={"ids": [made["id"]], "count": 2}).status_code == 422
+
+
+def test_a_re_render_of_an_inpaint_at_another_size_names_the_inpaint(client, fake, store):
+    record, made, digest = _inpainted(client, fake)
+    plain = _source(client)
+    before = len(fake.requests)
+    for ids in ([made["id"]], [plain["id"], made["id"]]):
+        response = client.post("/api/rerender", json={"ids": ids, "width": 384, "height": 384})
+        assert response.status_code == 422, response.text
+        detail = response.json()["detail"]
+        assert f"#{made['id']} is an inpaint of #{record['id']} at 256x256" in detail, detail
+        assert ("Unpick" in detail) is (len(ids) > 1)
+    # From a filter, the way out is the search.
+    response = client.post("/api/rerender", json={"favorites": False, "width": 384, "height": 384})
+    assert response.status_code == 422 and "inpaint:no" in response.json()["detail"]
+    assert len(fake.requests) == before and main.jobs.active() == []
+
+
+def test_a_reused_mask_is_kept_from_the_sweep_without_an_upload(client, store):
+    from backend import gallery_delete
+
+    record = _source(client)
+    digest = _stored(client, record)
+    with store._session() as conn:
+        conn.execute("UPDATE masks SET created_at = ? WHERE hash = ?", ("2000-01-01T00:00:00+00:00", digest))
+    kept = client.post(f"/api/masks/{digest}/keep")
+    assert kept.status_code == 200 and kept.json() == {
+        "hash": digest, "width": 256, "height": 256, "created": False,
+    }
+    assert gallery_delete.sweep_masks(None) == 0
+    assert (store.masks_dir() / f"{digest}.png").is_file()
+    # Gone, it says so, and the dialog uploads the picture it holds instead.
+    (store.masks_dir() / f"{digest}.png").unlink()
+    assert client.post(f"/api/masks/{digest}/keep").status_code == 404
+    assert client.post(f"/api/masks/{'0' * 64}/keep").status_code == 404
+
+
+def test_an_upload_with_alpha_or_16_bit_levels_is_kept_as_painted(client, store):
+    import numpy as np
+
+    record = _source(client)
+    plain = _stored(client, record)
+    # White strokes on a transparent white layer: only the strokes.
+    layer = Image.new("RGBA", (256, 256), (255, 255, 255, 0))
+    layer.paste((255, 255, 255, 255), (0, 0, 128, 64))
+    out = io.BytesIO()
+    layer.save(out, format="PNG")
+    assert _upload(client, record["id"], out.getvalue()).json()["hash"] == plain
+    levels = np.zeros((256, 256), dtype=np.uint16)
+    levels[:64, :128] = 65535
+    out = io.BytesIO()
+    Image.fromarray(levels).save(out, format="PNG")
+    assert _upload(client, record["id"], out.getvalue()).json()["hash"] == plain
+
+
+def test_load_settings_from_an_inpaint_png_carries_no_mask_source_or_size(client, fake, store):
+    record, made, digest = _inpainted(client, fake)
+    with Image.open(store.settings.outputs_dir / made["filename"]) as handle:
+        chunks = {key: value for key, value in handle.info.items() if isinstance(value, str)}
+    assert PNG_MASK_KEY in chunks
+    # The page blanks the mask's chunk, as it is no setting (web/png-settings.js).
+    chunks[PNG_MASK_KEY] = ""
+    response = client.post("/api/png/settings", json={"name": "made.png", "chunks": chunks})
+    assert response.status_code == 200, response.text
+    body = response.json()
+    assert any("It is an inpaint" in note for note in body["notes"]), body["notes"]
+    settings = body["settings"]
+    assert settings["mask"] is None and settings["refine"] is None and body["size"] is False

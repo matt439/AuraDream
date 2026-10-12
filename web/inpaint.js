@@ -51,6 +51,19 @@ let inpaintMaskState = 'none';
 let inpaintMaskRefusal = '';
 let inpaintUploadTimer;
 let inpaintUploadEpoch = 0;
+// When the server last stored or kept the mask (Date.now()), and the timer
+// that keeps it while the dialog stays open on it: an unused mask is swept
+// an hour after its last upload (`gallery_delete.sweep_masks`), and a dialog
+// left open over lunch must not lose it. Well inside that hour.
+let inpaintMaskKeptAt = 0;
+let inpaintKeepTimer;
+const INPAINT_KEEP_MS = 20 * 60 * 1000;
+// Counts openInpaint's fills: a Reuse's mask that lands after the dialog was
+// filled again (Start over, a close and another open) is not applied.
+let inpaintOpenEpoch = 0;
+// Counts adapters taken out (dropInpaintLora), so a press that waited on a
+// preview that took one out stops there, as Refine's does.
+let inpaintLoraDrops = 0;
 
 let inpaintTimer;
 let inpaintEpoch = 0;
@@ -202,6 +215,17 @@ function openInpaint(rec, from = null) {
   inpaintReturn = lightboxPlace();
   if (els.lightbox.open) closeLightbox();
   showError('');
+  // Whatever the last fill had in flight - an upload, a preview, a check -
+  // answers for a mask and boxes that are not these: Start over reopens on
+  // the same image, where the source alone does not tell them apart.
+  const opened = ++inpaintOpenEpoch;
+  clearTimeout(inpaintUploadTimer);
+  clearTimeout(inpaintTimer);
+  clearTimeout(inpaintCheckTimer);
+  clearInterval(inpaintKeepTimer);
+  inpaintUploadEpoch++;
+  inpaintEpoch++;
+  inpaintCheckEpoch++;
   const kept = !from ? inpaintKept.get(rec.id) : null;
   const draft = kept && kept.model === loadedModel ? kept : null;
   inpaintKept.delete(rec.id);
@@ -263,26 +287,37 @@ function openInpaint(rec, from = null) {
   inpaintChecked = null;
   renderInpaintCheck();
   syncInpaint();
-  if (!els.inpaintDialog.open) els.inpaintDialog.showModal();
-  els.inpaintDialog.scrollTop = 0;
+  // Scrolled to the top only as it opens: Start over fills it in place, and
+  // jumping the dialog would move its controls from under the pointer.
+  if (!els.inpaintDialog.open) {
+    els.inpaintDialog.showModal();
+    els.inpaintDialog.scrollTop = 0;
+  }
   els.inpaintCanvas.focus({ preventScroll: true });
+  inpaintKeepTimer = setInterval(() => { void keepInpaintMask(); }, INPAINT_KEEP_MS);
   // A Reuse's mask is the stored one: loaded as the base, and its hash is the
-  // mask until a stroke changes it - the same picture, so no upload.
+  // mask until a stroke changes it - the same picture, so no upload. Kept
+  // from the sweep once (`/keep`): it may be days old, and nothing else of
+  // a Reuse restarts its settle window.
   if (from?.mask) {
     inpaintMaskState = 'loading';
     syncInpaint();
     const hash = from.mask;
     void loadMaskBase(`/api/masks/${hash}`).then((loaded) => {
-      if (inpaintSource !== rec || inpaintFrom !== from) return;
+      if (opened !== inpaintOpenEpoch || inpaintSource !== rec || inpaintFrom !== from) return;
       if (!loaded) {
         inpaintMaskState = 'refused';
         inpaintMaskRefusal = `#${from.id}'s mask could not be read; paint the part to repaint again.`;
-      } else if (!maskStrokes.length) {
+      } else if (!maskStrokes.length && !maskStroke && !maskFeatherPx) {
         inpaintMask = { hash, width: rec.width, height: rec.height };
         inpaintMaskState = 'stored';
+        inpaintMaskKeptAt = 0;
+        clearMaskWait();
         maskMeasured = { empty: false, coverage: maskMeasured.coverage };
         void measureStoredMask(rec);
+        void keepInpaintMask();
       } else {
+        // Painted on, or feathered, while it loaded: a new mask, sent.
         inpaintMaskChanged();
         return;
       }
@@ -362,6 +397,12 @@ function forgetInpaint() {
   inpaintKept.clear();
 }
 
+// Images gone for good (forgetImages): what a close kept on them goes too,
+// a canvas the source's size with it.
+function forgetInpaintImages(ids) {
+  for (const id of ids) inpaintKept.delete(id);
+}
+
 // A checkpoint switch: what was painted for one checkpoint's sampling is not
 // submitted on another's unchanged, as Refine's pass is not.
 function inpaintCheckpointChanged() {
@@ -375,14 +416,58 @@ function inpaintCheckpointChanged() {
 
 // ------------------------------------------------------------- the mask's upload
 
-// A stroke has begun: the mask stored before it is no longer the one shown.
+// A stroke has begun: the mask stored before it is no longer the one shown,
+// and nor is the preview's estimate of it.
 function inpaintMaskEditing() {
   clearTimeout(inpaintUploadTimer);
   inpaintUploadEpoch++;
   inpaintMask = null;
   inpaintMaskState = 'pending';
   inpaintMaskRefusal = '';
+  els.inpaintPreview.textContent = '';
+  els.inpaintPreview.classList.remove('warn');
   syncInpaintRun();
+}
+
+// A "wait for the mask" refusal said by a press, once the mask has landed.
+function clearMaskWait() {
+  if (/^Wait for the mask to (upload|load)\.$/.test(els.inpaintError.textContent)) inpaintFailed('');
+}
+
+// Keep the stored mask from the sweep for another window, as an upload of
+// it would: on a Reuse, every INPAINT_KEEP_MS while the dialog is open, and
+// before a press where it has been longer. Gone already (another tab's Empty
+// bin, a CLI clear), the picture the dialog still holds goes up again - the
+// same picture, the same hash. Answers whether the mask is stored now.
+async function keepInpaintMask() {
+  const source = inpaintSource;
+  const mask = inpaintMask;
+  if (!source || !mask || inpaintMaskState !== 'stored') return false;
+  try {
+    await api(`/api/masks/${mask.hash}/keep`, { method: 'POST' });
+    if (inpaintMask === mask) inpaintMaskKeptAt = Date.now();
+    return true;
+  } catch {
+    if (inpaintSource !== source || inpaintMask !== mask) return false;
+    return resendInpaintMask();
+  }
+}
+
+// The stored mask has gone from the server while the dialog still shows it:
+// sent again, and answers whether it is stored now.
+async function resendInpaintMask() {
+  const source = inpaintSource;
+  if (!source || !maskTouched()) return false;
+  inpaintMaskEditing();
+  await uploadInpaintMask();
+  return inpaintSource === source && inpaintMaskState === 'stored';
+}
+
+// Whether a refusal says the mask has gone (swept, or its file lost), in
+// any of the server's words for it.
+function maskGoneRefusal(message) {
+  return /\bmask [0-9a-f]{16}\b.*(has just gone|is missing)|no stored mask [0-9a-f]{16}|the file for mask [0-9a-f]{16}/i
+    .test(message ?? '');
 }
 
 // Every change of the mask (inpaint-mask.js's maskEdited, and the feather):
@@ -406,6 +491,7 @@ async function uploadInpaintMask() {
     maskMeasured = { empty: true, coverage: 0 };
     syncMaskTools();
     syncInpaint();
+    scheduleInpaintPreview(0);
     return;
   }
   const out = await exportMask();
@@ -413,6 +499,7 @@ async function uploadInpaintMask() {
   if (out.empty) {
     inpaintMaskState = 'empty';
     syncInpaint();
+    scheduleInpaintPreview(0);
     return;
   }
   try {
@@ -424,6 +511,8 @@ async function uploadInpaintMask() {
     if (epoch !== inpaintUploadEpoch || inpaintSource !== source) return;
     inpaintMask = answer;
     inpaintMaskState = 'stored';
+    inpaintMaskKeptAt = Date.now();
+    clearMaskWait();
   } catch (err) {
     if (epoch !== inpaintUploadEpoch || inpaintSource !== source) return;
     inpaintMaskState = 'refused';
@@ -622,6 +711,12 @@ async function previewInpaint() {
       + (sweep ? '\nOpens as a sheet when it is done.' : '');
   } catch (err) {
     if (epoch !== inpaintEpoch) return;
+    // The adapter gone: asked again without it, the refusal said instead.
+    if (await dropInpaintLora(err.message)) return previewInpaint();
+    // The mask swept while the dialog sat open: the picture it holds goes
+    // up again, and that upload asks the preview again.
+    if (maskGoneRefusal(err.message) && await resendInpaintMask()) return undefined;
+    if (epoch !== inpaintEpoch) return;
     inpaintProblem = inpaintSourceGone(err.message);
     els.inpaintPreview.classList.add('warn');
     els.inpaintPreview.textContent = inpaintProblem;
@@ -630,17 +725,44 @@ async function previewInpaint() {
   syncInpaintRun();
 }
 
+// An adapter removed or renamed since the dialog opened, named by a refusal:
+// taken out of this inpaint, said, as Refine's dropRefineLora does. Answers
+// whether it went.
+async function dropInpaintLora(message, source = inpaintSource) {
+  const name = inpaintLora?.name;
+  if (!name || !message?.includes(name)) return false;
+  const body = await refreshLoras();
+  if (!body || inpaintSource !== source || inpaintLora?.name !== name) return false;
+  const entry = (body.loras ?? []).find((e) => e.name === name);
+  if (entry && !entry.detail) return false;
+  inpaintLora = null;
+  inpaintLoraDrops++;
+  els.inpaintCarried.textContent = `LoRA ${name} is not applied: it is not in the adapter list now.`;
+  inpaintFailed(`${name} ${entry ? 'no longer fits this checkpoint' : 'is no longer in the LoRA folder'}, `
+    + 'so it was taken out of this inpaint; Inpaint runs it without the adapter.');
+  return true;
+}
+
 // Inpaint: the job queues like Refine's, and the dialog closes once the
 // server has taken it. A sweep opens as its sheet when done.
 async function runInpaint() {
   if (!inpaintSource || !els.inpaintDialog.open || submitting || inpaintWaiting) return;
+  // A mask stored long ago is kept first (or sent again, where it has gone):
+  // a sweep would otherwise refuse it at submit.
+  if (inpaintMaskState === 'stored' && Date.now() - inpaintMaskKeptAt > INPAINT_KEEP_MS) {
+    inpaintWaiting = true;
+    try { await keepInpaintMask(); } finally { inpaintWaiting = false; }
+    if (!inpaintSource || !els.inpaintDialog.open || submitting) return;
+  }
   // The preview of what the boxes hold answers first, as Refine's: it is
-  // what refuses a strength past 1 or one that leaves no step.
+  // what refuses a strength past 1 or one that leaves no step. One that took
+  // the adapter out (dropInpaintLora) has said so, and this press stops there.
+  const drops = inpaintLoraDrops;
   while (inpaintPreviewed !== JSON.stringify(inpaintRequest().preview)) {
     clearTimeout(inpaintTimer);
     inpaintWaiting = true;
     try { await previewInpaint(); } finally { inpaintWaiting = false; }
-    if (!inpaintSource || !els.inpaintDialog.open || submitting) return;
+    if (!inpaintSource || !els.inpaintDialog.open || submitting || inpaintLoraDrops !== drops) return;
   }
   if (els.inpaintRun.getAttribute('aria-disabled') === 'true') {
     const held = submitHold();
@@ -687,6 +809,13 @@ async function runInpaint() {
   const refused = els.inpaintError.textContent;
   const said = inpaintSourceGone(refused, source);
   if (said !== refused) inpaintFailed(said);
+  // An adapter gone since the last preview: taken out, said, and the
+  // preview asked again without it.
+  else if (await dropInpaintLora(refused, source)) scheduleInpaintPreview(0);
+  // The mask swept since: sent again, and the press is the user's to repeat.
+  else if (inpaintSource === source && maskGoneRefusal(refused) && await resendInpaintMask()) {
+    inpaintFailed('The mask had gone from the server and was sent again; press Inpaint to run it.');
+  }
   if (!els.inpaintDialog.open && els.inpaintError.textContent) showError(els.inpaintError.textContent);
 }
 
@@ -739,9 +868,11 @@ function inpaintClosed() {
   inpaintEpoch++;
   inpaintCheckEpoch++;
   inpaintUploadEpoch++;
+  inpaintOpenEpoch++;
   clearTimeout(inpaintTimer);
   clearTimeout(inpaintCheckTimer);
   clearTimeout(inpaintUploadTimer);
+  clearInterval(inpaintKeepTimer);
   els.inpaintBrush.hidden = true;
   const back = inpaintReturn;
   inpaintReturn = null;

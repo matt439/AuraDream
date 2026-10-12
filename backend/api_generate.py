@@ -199,6 +199,15 @@ def create_router(services: AppServices) -> APIRouter:
         lost = await asyncio.to_thread(submission.missing_masks, records)
         if lost:
             raise HTTPException(status_code=422, detail=submission.missing_mask_detail(lost))
+        # So is an inpaint at another size than its own - its source's, which
+        # its mask covers - where the per-combination check would name the
+        # source the user never picked.
+        resized = submission.resized_inpaints(records, request.width, request.height)
+        if resized:
+            raise HTTPException(status_code=422, detail=submission.resized_inpaint_detail(
+                resized, request.width, request.height, picked=request.ids is not None,
+                others=len(resized) < len(records),
+            ))
         # Oldest first (the resolver's order), so the re-render lands in the
         # order the originals did; every record's reproduction set but its size.
         cells = grid.cells_from_records(records, width=request.width, height=request.height)

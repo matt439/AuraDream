@@ -895,3 +895,81 @@ def test_a_cli_cell_whose_mask_went_fails_in_words(cli, store, monkeypatch, tmp_
                           "--seed", "3", "--grid-strength", "0.4,0.6", "-q"]) == 1
     assert "missing from the masks directory" in capsys.readouterr().err
     assert [r.strength for r in cli.requests] == [0.4]
+
+
+def test_a_mask_file_with_alpha_or_16_bit_levels_is_read_as_painted(cli, store, monkeypatch, tmp_path):
+    import numpy as np
+    from PIL import Image
+
+    source = _to_refine(store)
+    monkeypatch.setattr(generate, "_project", _project_claiming(generate, ANIMAGINE))
+    # White strokes on a transparent layer whose hidden colour is white too,
+    # as an editor exports them: only the stroke is masked.
+    layer = Image.new("RGBA", (256, 384), (255, 255, 255, 0))
+    layer.paste((255, 255, 255, 255), (0, 0, 128, 64))
+    layer.save(tmp_path / "layer.png")
+    # And a 16-bit greyscale export: scaled to 8 bits, not clipped.
+    levels = np.zeros((384, 256), dtype=np.uint16)
+    levels[:64, :128] = 65535
+    levels[64:, :] = 100  # a near-black "keep", which clipping would make 100/255
+    Image.fromarray(levels).save(tmp_path / "deep.png")
+    with Image.open(tmp_path / "deep.png") as deep:
+        assert deep.mode.startswith("I")
+    wanted = Image.new("L", (256, 384), 0)
+    wanted.paste(255, (0, 0, 128, 64))
+    for name in ("layer.png", "deep.png"):
+        assert generate.main(["a fox", "--refine", str(source.id), "--mask", str(tmp_path / name),
+                              "--strength", "0.6", "-q"]) == 0, name
+        assert cli.requests[-1].mask == store.mask_hash(wanted), name
+
+
+def test_a_mask_in_a_mode_no_mask_is_in_is_refused_by_name(cli, store, monkeypatch, tmp_path, capsys):
+    from PIL import Image
+
+    source = _to_refine(store)
+    monkeypatch.setattr(generate, "_project", _project_claiming(generate, ANIMAGINE))
+    Image.new("CMYK", (256, 384), (0, 0, 0, 255)).save(tmp_path / "print.tif")
+    with pytest.raises(SystemExit) as raised:
+        generate.main(["a fox", "--refine", str(source.id), "--mask", str(tmp_path / "print.tif")])
+    assert raised.value.code == 2
+    assert "not one in mode CMYK" in capsys.readouterr().err
+
+
+def test_a_mask_without_a_strength_starts_at_the_inpaint_classs_default(cli, store, monkeypatch, tmp_path):
+    import diffusers
+
+    from backend import model_selection, refine
+
+    source = _to_refine(store)
+    path, _ = _mask_file(tmp_path)
+    monkeypatch.setattr(generate, "_project", _project_claiming(generate, ANIMAGINE))
+    monkeypatch.setattr(model_selection, "_selection", (None, 0))
+    model_selection.select(ANIMAGINE)
+    assert generate.main(["a red scarf", "--refine", str(source.id), "--mask", str(path), "-q"]) == 0
+    wanted = refine.library_strength(diffusers.StableDiffusionXLInpaintPipeline)
+    assert cli.requests[-1].strength == wanted == 0.9999
+
+
+def test_from_image_drops_a_source_this_gallery_holds_another_picture_under(
+    cli, store, monkeypatch, tmp_path, capsys
+):
+    source = _to_refine(store)
+    path, _ = _mask_file(tmp_path)
+    monkeypatch.setattr(generate, "_project", _project_claiming(generate, ANIMAGINE))
+    assert generate.main(["a red scarf", "--refine", str(source.id), "--mask", str(path), "--strength", "0.6",
+                          "--seed", "4", "-q"]) == 0
+    made = capsys.readouterr().out.split("  seed ")[0]
+    # The id now names another picture of the same size - a PNG from another
+    # gallery, or ids renumbered since.
+    with store._write_lock, store._session() as conn:
+        conn.execute("UPDATE images SET content_hash = ? WHERE id = ?", ("0" * 16, source.id))
+    assert generate.main(["--from-image", made, "-q"]) == 0
+    ran = cli.requests[-1]
+    assert (ran.refine, ran.mask) == (None, None)
+    assert f"source image {source.id} is not the image the PNG was made from" in capsys.readouterr().err
+    # Asked for as an inpaint all the same, it is refused rather than run over the wrong picture.
+    with pytest.raises(SystemExit):
+        generate.main(["--from-image", made, "--strength", "0.5", "-q"])
+    # Named on the command line, the source is the user's own choice.
+    assert generate.main(["--from-image", made, "--refine", str(source.id), "-q"]) == 0
+    assert cli.requests[-1].refine == source.id

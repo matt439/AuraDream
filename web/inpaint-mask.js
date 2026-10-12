@@ -18,6 +18,10 @@ const MASK_UNDO = 200;
 // [ and ] and Alt+wheel step the brush by this factor.
 const MASK_SIZE_STEP = 1.2;
 const MASK_SIZE_MIN = 2;
+// Levels under this are sent as black: the faint fringe an antialiased
+// eraser leaves along a brush stroke it traced, which the server would
+// otherwise repaint (it repaints every cell a level above 0 touches).
+const MASK_FLOOR = 8;
 
 let maskWidth = 0;
 let maskHeight = 0;
@@ -43,6 +47,8 @@ let maskFeatherPx = 0;
 let maskCursor = { x: 0, y: 0 };
 let maskCursorShown = false;
 let maskFrame = 0;
+// The feather's padded copy of the layer (featheredDraw), kept between frames.
+let maskPadded = null;
 // What the last export measured: whether anything is masked, and how much.
 let maskMeasured = { empty: true, coverage: 0 };
 
@@ -85,8 +91,10 @@ function resetMask(width, height, kept = null) {
 // strokes, the base they start from and the tool's settings, all in page
 // memory. Never in localStorage: a mask is the image's, and large.
 function maskSnapshot() {
+  // An unset base is an empty canvas the source's size - up to 34 MB of
+  // backing store for nothing - which resetMask makes again.
   return {
-    base: maskBase, baseSet: maskBaseSet, strokes: [...maskStrokes], redo: [...maskRedo],
+    base: maskBaseSet ? maskBase : null, baseSet: maskBaseSet, strokes: [...maskStrokes], redo: [...maskRedo],
     tool: maskTool, size: maskSizePx, feather: maskFeatherPx, measured: maskMeasured,
   };
 }
@@ -99,15 +107,21 @@ function maskTouched() {
 }
 
 // A stored mask (an `L` PNG, white repainted) as the base, its levels as the
-// layer's alpha: Reuse on an inpainted record. Answers whether it loaded.
+// layer's alpha: Reuse on an inpainted record. Answers whether it loaded -
+// false too where the dialog's mask is another one by the time it has
+// (closed and opened again, Start over), whose base it never touches.
 async function loadMaskBase(url) {
+  const target = maskBase;
   let bitmap;
   try {
     const res = await fetch(url);
     if (!res.ok) return false;
     bitmap = await createImageBitmap(await res.blob());
   } catch { return false; }
-  if (bitmap.width !== maskWidth || bitmap.height !== maskHeight) { bitmap.close?.(); return false; }
+  if (maskBase !== target || bitmap.width !== maskWidth || bitmap.height !== maskHeight) {
+    bitmap.close?.();
+    return false;
+  }
   const scratch = canvas2d(maskWidth, maskHeight);
   const ctx = scratch.getContext('2d', { willReadFrequently: true });
   ctx.drawImage(bitmap, 0, 0);
@@ -190,9 +204,7 @@ function drawMask() {
   const tint = style.getPropertyValue('--accent').trim() || '#7c5cff';
   const line = style.getPropertyValue('--accent-2').trim() || '#4ad6c8';
   ctx.save();
-  ctx.filter = maskFeatherPx ? `blur(${maskFeatherPx / 2}px)` : 'none';
-  ctx.drawImage(maskLayer, 0, 0);
-  ctx.filter = 'none';
+  featheredDraw(ctx);
   ctx.globalCompositeOperation = 'source-in';
   ctx.globalAlpha = 0.45;
   ctx.fillStyle = tint;
@@ -214,10 +226,49 @@ function drawMask() {
   ctx.drawImage(maskEdge, 0, 0);
 }
 
+// The layer drawn onto `ctx` as it is sent: blurred by the feather where
+// there is one. Blurred from a copy padded with its own border pixels
+// repeated: a canvas blur counts everything past the bitmap as transparent,
+// so a mask reaching the picture's edge - the background after an Invert -
+// faded towards it, and the composite blended the old picture back in a
+// frame round the new one. The same here for the tint and the export.
+function featheredDraw(ctx) {
+  if (!maskFeatherPx) { ctx.drawImage(maskLayer, 0, 0); return; }
+  const sigma = maskFeatherPx / 2;
+  const pad = Math.ceil(3 * sigma);
+  const w = maskWidth;
+  const h = maskHeight;
+  if (!maskPadded || maskPadded.width !== w + 2 * pad || maskPadded.height !== h + 2 * pad) {
+    maskPadded = canvas2d(w + 2 * pad, h + 2 * pad);
+  }
+  const p = maskPadded.getContext('2d');
+  p.imageSmoothingEnabled = false;
+  p.clearRect(0, 0, w + 2 * pad, h + 2 * pad);
+  p.drawImage(maskLayer, pad, pad);
+  // The edges, each row or column stretched across the pad, and the corners.
+  p.drawImage(maskLayer, 0, 0, w, 1, pad, 0, w, pad);
+  p.drawImage(maskLayer, 0, h - 1, w, 1, pad, h + pad, w, pad);
+  p.drawImage(maskLayer, 0, 0, 1, h, 0, pad, pad, h);
+  p.drawImage(maskLayer, w - 1, 0, 1, h, w + pad, pad, pad, h);
+  p.drawImage(maskLayer, 0, 0, 1, 1, 0, 0, pad, pad);
+  p.drawImage(maskLayer, w - 1, 0, 1, 1, w + pad, 0, pad, pad);
+  p.drawImage(maskLayer, 0, h - 1, 1, 1, 0, h + pad, pad, pad);
+  p.drawImage(maskLayer, w - 1, h - 1, 1, 1, w + pad, h + pad, pad, pad);
+  ctx.filter = `blur(${sigma}px)`;
+  ctx.drawImage(maskPadded, -pad, -pad);
+  ctx.filter = 'none';
+}
+
 // ------------------------------------------------------------- strokes
 
 function beginStroke(point, by) {
   if (maskStroke || !maskLayer) return;
+  // A Reuse's stored mask is still on its way: it becomes the base the
+  // strokes are drawn over, which would wipe one begun before it.
+  if (inpaintMaskState === 'loading') {
+    els.inpaintStatus.textContent = 'Wait for the mask to load.';
+    return;
+  }
   maskStroke = { tool: maskTool, size: maskSizePx, points: [point], by };
   const ctx = maskLayer.getContext('2d');
   ctx.save();
@@ -372,28 +423,33 @@ function syncMaskStatus() {
 
 // The mask as it will be sent: one grey level per pixel (white repainted),
 // the feather baked in as a blur of the levels, over black - the canvas as a
-// PNG, which the server reads as one `L` channel (POST /api/masks). With
-// whether anything is masked and how much (levels from 128 up, which is what
-// the pipelines' binarised mask repaints).
+// PNG, which the server reads as one `L` channel (POST /api/masks). Levels
+// under MASK_FLOOR go as black. With whether anything is masked and how much:
+// levels from 128 up, at least half painted; a mask with none - only an
+// eraser's fringe, or a feather's faint tail - is nothing masked, and is not
+// sent.
 async function exportMask() {
   const out = canvas2d(maskWidth, maskHeight);
   const ctx = out.getContext('2d', { willReadFrequently: true });
   ctx.fillStyle = '#000';
   ctx.fillRect(0, 0, maskWidth, maskHeight);
-  ctx.filter = maskFeatherPx ? `blur(${maskFeatherPx / 2}px)` : 'none';
-  ctx.drawImage(maskLayer, 0, 0);
-  ctx.filter = 'none';
-  const data = ctx.getImageData(0, 0, maskWidth, maskHeight).data;
-  let any = false;
+  featheredDraw(ctx);
+  const pixels = ctx.getImageData(0, 0, maskWidth, maskHeight);
+  const data = pixels.data;
   let covered = 0;
+  let floored = false;
   for (let i = 0; i < data.length; i += 4) {
     const level = data[i];
-    if (level) any = true;
     if (level >= 128) covered += 1;
+    else if (level && level < MASK_FLOOR) {
+      data[i] = data[i + 1] = data[i + 2] = 0;
+      floored = true;
+    }
   }
-  maskMeasured = { empty: !any, coverage: (100 * covered) / (maskWidth * maskHeight) };
+  maskMeasured = { empty: covered === 0, coverage: (100 * covered) / (maskWidth * maskHeight) };
   syncMaskTools();
-  if (!any) return { blob: null, ...maskMeasured };
+  if (!covered) return { blob: null, ...maskMeasured };
+  if (floored) ctx.putImageData(pixels, 0, 0);
   const blob = await new Promise((resolve) => out.toBlob(resolve, 'image/png'));
   return { blob, ...maskMeasured };
 }

@@ -17,7 +17,7 @@ from pydantic_core import PydanticCustomError
 
 from .model_selection import current_model_id
 from .config import settings
-from .model_defaults import defaults_for
+from .model_defaults import defaults_for, inpaint_family
 from .refine import DEFAULT_STRENGTH, leaves_a_step
 from .seeds import MAX_BATCH, MAX_GRID_SEEDS, MAX_RUNS, MAX_SEED
 
@@ -39,6 +39,27 @@ def default_strength() -> float:
     source for it to act on, so that it is one value per checkpoint.
     """
     return defaults_for(current_model_id(settings)).get("refine_strength") or DEFAULT_STRENGTH
+
+
+def default_inpaint_strength() -> float | None:
+    """Where an inpaint's strength starts on the running checkpoint: the
+    library's own default for its inpaint class (`refine.library_strength`),
+    as the Inpaint dialog starts, or None where it has no inpaint enabled.
+
+    Read off the profile's family (`model_defaults.inpaint_family`) rather
+    than the loaded pipeline, so the CLI's `--mask` and an API request with
+    no strength record the number the dialog would before any load.
+    """
+    family = inpaint_family(current_model_id(settings))
+    if family is None:
+        return None
+    import diffusers
+
+    from . import refine
+
+    pipeline = getattr(diffusers, family, None)
+    cls = refine.sibling(pipeline, "Inpaint") if pipeline is not None else None
+    return refine.library_strength(cls) if cls is not None else None
 
 
 class GenerateRequest(BaseModel):
@@ -134,7 +155,10 @@ class GenerateRequest(BaseModel):
         if "mu" not in self.model_fields_set:
             self.mu = profile["mu"]
         if self.strength is None:
-            self.strength = default_strength()
+            # An inpaint starts where the inpaint class's own default does -
+            # where the Inpaint dialog starts - not at the refine strength.
+            inpainting = self.mask is not None and self.refine is not None
+            self.strength = (inpainting and default_inpaint_strength()) or default_strength()
         return self
 
     @model_validator(mode="after")

@@ -107,7 +107,8 @@ async def swap_plan(
                 checked[spec] = await submission.unusable_input(services, cell.request)
             if checked[spec] is not None:
                 kind, why = checked[spec]
-                result.status, result.detail = submission.UNUSABLE_STATUS.get(kind, "invalid"), why
+                result.status = submission.UNUSABLE_STATUS.get(kind, "invalid")
+                result.detail = submission.unusable_detail(kind, why, record.id)
                 continue
         ran = grid.Cell(request=services.backend().applied(cell.request), seed=cell.seed)
         key = (tuple(grid.cell_keys(ran)), cell.request.width, cell.request.height)

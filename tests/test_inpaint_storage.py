@@ -121,6 +121,52 @@ def test_a_mask_partial_is_finished_when_its_row_committed(store):
     assert path.is_file() and not partial.exists() and not debris.exists()
 
 
+def test_a_mask_partial_cut_short_beside_its_row_is_never_installed(store):
+    # A row whose file was lost is given its file again with the row already
+    # there; a crash mid-encode leaves a truncated partial under that row.
+    digest, _ = store.store_mask(_mask())
+    path = store.mask_path(digest)
+    whole = path.read_bytes()
+    path.unlink()
+    partial = path.with_name(path.name + ".part")
+    partial.write_bytes(whole[: len(whole) // 2])
+    # And one that decodes, but to another picture than its name.
+    other, _ = store.store_mask(_mask(box=(0, 0, 64, 64)))
+    other_path = store.mask_path(other)
+    other_path.unlink()
+    other_partial = other_path.with_name(other_path.name + ".part")
+    _mask(box=(0, 0, 32, 32)).save(other_partial, format="PNG")
+    old = time.time() - 2 * store.PARTIAL_SETTLE_SECONDS
+    for stale in (partial, other_partial):
+        os.utime(stale, (old, old))
+    assert store.settle_partials() == {"recovered": 0, "discarded": 2}
+    assert not path.exists() and not other_path.exists()
+    with pytest.raises(ValueError, match="missing from the masks directory"):
+        store.mask_path(digest)
+
+
+def test_an_upload_waiting_on_a_clear_writes_its_mask_into_a_new_directory(store, monkeypatch):
+    import contextlib
+    import shutil
+
+    digest, _ = store.store_mask(_mask())
+    held = store.gallery_lock.hold
+    cleared = []
+
+    @contextlib.contextmanager
+    def cleared_meanwhile(*args, **kwargs):
+        # The whole `clear` ran while the upload waited: file and directory gone.
+        if not cleared:
+            cleared.append(True)
+            shutil.rmtree(store.masks_dir())
+        with held(*args, **kwargs):
+            yield
+
+    monkeypatch.setattr(store.gallery_lock, "hold", cleared_meanwhile)
+    assert store.store_mask(_mask()) == (digest, True)
+    assert store.mask_path(digest).is_file()
+
+
 # ------------------------------------------------------------- the row, the PNG
 
 

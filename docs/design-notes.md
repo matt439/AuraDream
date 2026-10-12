@@ -1766,8 +1766,39 @@ pixels; a pass at another size would have to resize or crop the mask with
 it, and the scale buttons are Refine's. `refine.inpaint_source` loads the
 source unresized and refuses another size, and the submit check holds mask,
 source and request to one size. Re-render of an inpaint at another size is
-therefore refused for the whole selection. Upscaling only the masked region
-is a later phase (`padding_mask_crop`, which Z-Image's class lacks).
+therefore refused for the whole selection, naming each inpaint and its
+source and the way out (unpick them, or `inpaint:no` in the search) -
+`submission.resized_inpaint_detail`, ahead of the per-combination check that
+could only name a source the user never picked. Upscaling only the masked
+region is a later phase (`padding_mask_crop`, which Z-Image's class lacks).
+
+**The class is handed the mask widened to its latent cells.** Both enabled
+classes binarise their mask at 0.5 and then shrink it to the latent grid by
+nearest sampling - the top-left pixel of each 8x8 cell - so the painted mask
+handed over as it was repainted only the cells whose corner was past 128: a
+stroke narrower than a cell could repaint nothing, up to seven pixels along
+a mask's top and left edges were never repainted, and a feather was
+repainted on its brighter half only, leaving a half-strength step where the
+composite promised a smooth edge. The composite blends by the painted grey
+levels, so what the class repaints has to cover every pixel the composite
+gives any weight to: `refine.pipeline_mask` thresholds at > 0 and widens to
+whole cells (a max-pool onto the latent grid and back), and the backend
+hands that to the class and the painted mask to `refine.composite`. The
+repainted cells reach past the painted pixels by up to a cell; the composite
+puts the source back there. With > 0 the threshold, a mask with any level
+repaints, so the existing "all black" refusal is the right one; the page
+sends levels under 8 as black (an eraser's antialiased fringe) and calls a
+mask with no level from 128 up "nothing masked". The page's feather blurs a
+copy padded with the layer's own border pixels, since a canvas blur counts
+the outside as transparent and faded a mask reaching the picture's edge.
+
+**A mask file from outside is read as painted.** `refine.canonical_mask` is
+the one reading of a picture as a mask, for `--mask` and the upload route:
+Pillow's `convert("L")` clips a 16-bit level instead of scaling it and drops
+alpha, so a 16-bit export's near-black "keep" became a blended grey and white
+strokes on a transparent white layer an all-white mask. 16-bit levels are
+scaled, a picture with transparency is laid on black first, and any mode
+that is no picture of levels (`F`, `CMYK`) is refused by name.
 
 **A mask is a stored picture named by its hash, never a path, and never a
 gallery image.** It is the first input that is a file outside the `images`
@@ -1847,6 +1878,13 @@ Strength box starts at the inpaint class's own signature default, read with
 the installed diffusers' default, not the checkpoint's. Before a load, when
 that number is unknown, the box starts at the checkpoint's refine strength
 and says so, and a load that answers replaces it where the box is untouched.
+A request with a mask and no strength - the CLI's `--mask`, the API - starts
+at the same library default, read off the profile's `inpaint_family` (the
+text-to-image class it runs, held to the catalogue's by
+`tests/test_inpaint.py`) so no load is needed
+(`schemas_generate.default_inpaint_strength`): it had run at the refine
+strength, so the CLI and the dialog recorded different strengths for one
+operation.
 
 **Its own dialog.** The user's answer to the plan's first question, against
 the review's plan of a canvas in the Refine dialog. Refine's scale buttons,
@@ -1880,19 +1918,45 @@ it finds nowhere; Re-render, More seeds and Swap tags, which run over the
 same mask; the CLI's `--mask` and `--from-image`. Mass refine drops it: it
 makes the record itself the new source, and the mask belongs to the old
 source's pixels. A mask found nowhere keeps its hash on the row - it still
-says what ran - and Re-render of it is refused naming the image.
+says what ran - and Re-render of it is refused naming the image, as Swap
+tags and More seeds report it per image (`mask_missing`, "the mask of #N is
+missing"). A bundle import looks for it in the result's own PNG before it
+counts the row in `masks_missing`, as a reindex does: a mask lost in the
+gallery it came from travels only that way. A whole-gallery export leaves
+out a file in `masks/` that is no stored mask (another name, another mode,
+other pixels than its name) and names it in the preview's
+`masks_left_out`, where the verifying read-back would have refused the
+whole archive after writing it. `--from-image` carries the source and mask
+only where this gallery's row under the id has the pixel hash and size the
+PNG's `refine_source` names: an inpaint composites the source back, so the
+wrong source would be someone else's picture.
 
 **The sweep has three conditions because a mask is in no row while it is
 needed.** An uploaded mask waits unused while a dialog is open, and a queued
 cell's mask is in no row until the cell lands. So `gallery_delete.sweep_masks`
 removes a mask only when no row names it, live or binned (a Restore must
-find it), no live job's cell names it (`JobManager.masks_in_flight`), and it
-is older than the settle window (a re-upload restarts it) - and only where
-PNGs are already removed for good: Empty recycle bin, the per-image delete,
-a permanent scoped delete and `clear` (the user's answer to question six).
-The bin itself never touches a mask. Every cell also checks its mask file as
-it begins and fails in words, the backstop for anything the sweep's rules
-miss.
+find it), no live job's cell names it, and it is older than the settle window
+(a re-upload restarts it) - and only where PNGs are already removed for
+good: Empty recycle bin, the per-image delete, a permanent scoped delete and
+`clear` (the user's answer to question six). The bin itself never touches a
+mask. Every cell also checks its mask file as it begins and fails in words,
+the backstop for anything the sweep's rules miss.
+
+A live job's masks are held in the database, not only in the server's
+memory: the CLI's `clear --bin` or `--where` cannot ask the server's queue,
+and swept the mask of an inpaint queued behind an overnight grid.
+`JobManager.submit_cells` writes a `mask_holds` row per mask before the job
+is queued (`storage.hold_masks`, under `BEGIN IMMEDIATE` as the sweep's look
+is, so either the hold is in first or the mask is named as just gone and the
+submit is a 422), `_finish` removes them, and a server's start drops every
+one, since no job survives a restart. The sweep reads the holds and the
+server's own `masks_in_flight` inside its transaction. An open dialog keeps
+its mask the other way: a Reuse and every twenty minutes while open it posts
+`/api/masks/{hash}/keep`, which restarts the settle window as a re-upload
+would, and a mask that has gone anyway (another tab's Empty bin) is sent
+again from the strokes the page still holds. A settle sweep finishes a
+mask's `.png.part` only where it decodes to the mask its name says: the
+partial of a lost file being written again sits beside a committed row.
 
 **What this pass leaves.** No `START_RECIPES` entry for an inpaint class, so
 the dialog has no "starts at N% noise" line; no mask outline over the

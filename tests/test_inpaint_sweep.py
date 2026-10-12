@@ -126,22 +126,107 @@ def test_clear_where_sweeps_the_masks_its_rows_named(store, monkeypatch, capsys)
     assert _held() == set()
 
 
-def test_a_delete_spares_the_mask_a_queued_cell_will_read(client, fake, store):
+def _queued_inpaint(client, fake, digest, released):
+    """An inpaint job over `digest` whose first cell is held before its
+    image saves, so nothing in the gallery names the mask yet."""
     run = client.post("/api/generate", json={"prompt": "x", "width": 256, "height": 256}).json()
     stream_job(client, run["job_id"])
-    source, other = client.get("/api/gallery").json()["items"][0], _source(7)
-    digest = _stored((0, 0, 10, 10))
-    fake.step_seconds = 0.05
+    source = client.get("/api/gallery").json()["items"][0]
+    fake.after_generate = lambda: released.wait(10)
     job_id = client.post("/api/generate", json={
         "prompt": "a red scarf", "width": 256, "height": 256, "steps": 10, "refine": source["id"],
         "strength": 0.6, "mask": digest, "runs": 4,
     }).json()["job_id"]
-    wait_for(client, job_id, lambda s: s["status"] in {"queued", "running"})
+    wait_for(client, job_id, lambda s: s["status"] == "running")
+    wait_for(client, job_id, lambda s: len(fake.requests) >= 2)
+    with storage._session() as conn:
+        named = conn.execute("SELECT COUNT(*) FROM images WHERE mask = ?", (digest,)).fetchone()[0]
+    assert named == 0, "the held cell must not have saved"
+    return job_id
+
+
+def _end(client, fake, job_id, released):
+    client.post(f"/api/jobs/{job_id}/cancel")
+    released.set()
+    fake.after_generate = None
+    stream_job(client, job_id)
+
+
+def test_a_delete_spares_the_mask_a_queued_cell_will_read(client, fake, store):
+    import threading
+
+    other = _source(7)
+    digest = _stored((0, 0, 10, 10))
+    released = threading.Event()
+    job_id = _queued_inpaint(client, fake, digest, released)
     assert main.jobs.masks_in_flight() == {digest}
     # Nothing is saved yet that names it, and it is past the window: only
-    # the job holds it.
+    # the job holds it - through the route's own sweep.
     assert client.delete(f"/api/images/{other.id}").status_code == 200
     assert digest in _held()
-    client.post(f"/api/jobs/{job_id}/cancel")
-    stream_job(client, job_id)
+    _end(client, fake, job_id, released)
     assert main.jobs.masks_in_flight() == set()
+
+
+def test_a_cli_sweep_spares_the_mask_a_server_job_holds(client, fake, store, monkeypatch, capsys):
+    import threading
+
+    # The CLI cannot ask the server's queue: it reads the holds the server
+    # wrote beside the rows when it queued the job.
+    monkeypatch.setattr(clear, "settings", store.settings)
+    other = _source(7)
+    gallery_delete.bin_images([other.id])
+    digest = _stored((0, 0, 10, 10))
+    released = threading.Event()
+    job_id = _queued_inpaint(client, fake, digest, released)
+    with storage._session() as conn:
+        assert [tuple(r) for r in conn.execute("SELECT hash, job_id FROM mask_holds")] == [(digest, job_id)]
+    assert clear.main(["--bin", "--yes"]) == 0
+    assert gallery_delete.sweep_masks(None) == 0
+    assert digest in _held()
+    _end(client, fake, job_id, released)
+    # Released once the job ends (off the loop); then only the row the held
+    # cell saved keeps it, and with that row gone the sweep takes it.
+    deadline = time.time() + 5
+    while time.time() < deadline:
+        with storage._session() as conn:
+            if conn.execute("SELECT COUNT(*) FROM mask_holds").fetchone()[0] == 0:
+                break
+        time.sleep(0.02)
+    with storage._session() as conn:
+        assert conn.execute("SELECT COUNT(*) FROM mask_holds").fetchone()[0] == 0
+        made = [row[0] for row in conn.execute("SELECT id FROM images WHERE mask = ?", (digest,))]
+    for image_id in made:
+        assert gallery_delete.delete_image(image_id)
+    assert digest not in _held()
+
+
+def test_a_server_start_drops_the_holds_a_crashed_one_left(store):
+    digest = _stored((0, 0, 10, 10))
+    assert storage.hold_masks("gone-job", [digest]) == []
+    assert gallery_delete.sweep_masks(None) == 0
+    storage.release_masks()
+    assert gallery_delete.sweep_masks(None) == 1
+
+
+def test_a_mask_swept_between_the_check_and_the_hold_is_not_queued(client, fake, store, monkeypatch):
+    run = client.post("/api/generate", json={"prompt": "x", "width": 256, "height": 256}).json()
+    stream_job(client, run["job_id"])
+    source = client.get("/api/gallery").json()["items"][0]
+    digest = _stored((0, 0, 10, 10))
+    held = storage.hold_masks
+
+    def swept_first(job_id, masks):
+        # The sweep's transaction won: the mask is gone when the hold looks.
+        gallery_delete.sweep_masks(None)
+        return held(job_id, masks)
+
+    monkeypatch.setattr(storage, "hold_masks", swept_first)
+    answer = client.post("/api/generate", json={
+        "prompt": "a red scarf", "width": 256, "height": 256, "steps": 10, "refine": source["id"],
+        "strength": 0.6, "mask": digest,
+    })
+    assert answer.status_code == 422 and "has just gone" in answer.json()["detail"]
+    assert main.jobs.active() == []
+    with storage._session() as conn:
+        assert conn.execute("SELECT COUNT(*) FROM mask_holds").fetchone()[0] == 0

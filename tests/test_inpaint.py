@@ -19,11 +19,11 @@ import pytest
 import torch
 from PIL import Image
 
-from backend import launch, refine
+from backend import launch, model_selection, refine
 from backend.backends import Cancelled
 from backend.backends import diffusers_backend as module
 from backend.backends.diffusers_backend import DiffusersBackend
-from backend.model_defaults import INPAINT_DEFERRED, _profile_for, defaults_for
+from backend.model_defaults import INPAINT_DEFERRED, _profile_for, defaults_for, inpaint_family
 from backend.schemas import GenerateRequest, default_strength
 
 # `tests/` has no __init__.py; pytest puts this directory on sys.path.
@@ -74,6 +74,23 @@ def test_the_profile_enables_exactly_the_undeferred_classes(model_id, class_name
     assert enabled is (class_name in ENABLED), model_id
     # A False is final before a load (a load can only take one away).
     assert defaults_for(model_id)["inpaint_settled"] is (not enabled)
+    # And an enabled profile names the family it runs, which is where an
+    # inpaint without a strength starts before a load.
+    assert inpaint_family(model_id) == (class_name if enabled else None), model_id
+
+
+@pytest.mark.parametrize("model_id, class_name", [case for case in CASES if case[1] in ENABLED])
+def test_an_inpaint_without_a_strength_starts_at_its_classs_default(model_id, class_name, monkeypatch):
+    # Where the Inpaint dialog starts - the CLI's --mask and an API request
+    # without one record the same number, not the refine strength.
+    monkeypatch.setattr(model_selection, "_selection", (None, 0))
+    model_selection.select(model_id)
+    wanted = refine.library_strength(refine.sibling(getattr(diffusers, class_name), "Inpaint"))
+    assert wanted is not None and wanted != default_strength()
+    assert GenerateRequest(prompt="a fox", refine=3, mask=MASK).strength == wanted
+    # Given, it is the request's; a refine pass without a mask is unchanged.
+    assert GenerateRequest(prompt="a fox", refine=3, mask=MASK, strength=0.5).strength == 0.5
+    assert GenerateRequest(prompt="a fox", refine=3).strength == default_strength()
 
 
 def test_every_catalogue_checkpoint_is_one_of_the_cases():
@@ -174,6 +191,57 @@ def test_the_composite_keeps_the_source_where_the_mask_is_black():
     # And it refuses pictures that do not line up rather than misplacing one.
     with pytest.raises(ValueError, match="cannot composite"):
         refine.composite(mask, source, Image.new("RGB", (32, 32)))
+
+
+def _latent_cells(mask: Image.Image, block: int = 8) -> set[tuple[int, int]]:
+    """The cells the inpaint classes repaint for `mask`: binarised at 0.5,
+    then shrunk to the latent grid by nearest sampling - each cell's
+    top-left pixel - as both enabled classes do."""
+    return {
+        (x // block, y // block)
+        for y in range(0, mask.height, block)
+        for x in range(0, mask.width, block)
+        if mask.getpixel((x, y)) >= 128
+    }
+
+
+def test_a_thin_stroke_off_the_cell_corners_is_still_repainted():
+    # A 4 px stroke at pixels 3..6: no cell's corner pixel is on it, so the
+    # painted mask as it is would repaint nothing at all.
+    mask = Image.new("L", (64, 64), 0)
+    mask.paste(255, (3, 3, 7, 60))
+    assert _latent_cells(mask) == set()
+    handed = refine.pipeline_mask(mask)
+    assert handed.mode == "L" and handed.size == mask.size
+    assert _latent_cells(handed) == {(0, y) for y in range(8)}
+    # Every cell is one level throughout, so the corner says what it is.
+    assert set(handed.tobytes()) == {0, 255}
+
+
+def test_the_pipeline_mask_covers_every_pixel_the_composite_weighs():
+    # A feathered disc: levels from 1 to 255, its edge in no cell's corner.
+    from PIL import ImageDraw, ImageFilter
+
+    mask = Image.new("L", (100, 72), 0)
+    ImageDraw.Draw(mask).ellipse((21, 13, 70, 58), fill=255)
+    mask = mask.filter(ImageFilter.GaussianBlur(5))
+    handed = refine.pipeline_mask(mask)
+    cells = _latent_cells(handed)
+    for y in range(mask.height):
+        for x in range(mask.width):
+            if mask.getpixel((x, y)):
+                # The composite gives this pixel weight: its cell is repainted.
+                assert (x // 8, y // 8) in cells, (x, y)
+                assert handed.getpixel((x, y)) == 255, (x, y)
+    # And no more than the cells it touches.
+    assert cells == {(x // 8, y // 8) for y in range(72) for x in range(100) if mask.getpixel((x, y))}
+    # An unpainted mask hands nothing; an all-white one everything.
+    assert refine.pipeline_mask(Image.new("L", (16, 16), 0)).getextrema() == (0, 0)
+    assert refine.pipeline_mask(Image.new("L", (17, 9), 255)).getextrema() == (255, 255)
+    # A faint level is still painted: nothing the composite blends is kept by the class.
+    faint = Image.new("L", (16, 16), 0)
+    faint.putpixel((5, 5), 3)
+    assert _latent_cells(refine.pipeline_mask(faint)) == {(0, 0)}
 
 
 # ---------------------------------------------------------------- the request
@@ -308,6 +376,29 @@ def test_an_inpaint_runs_the_inpaint_class_one_call_per_image(inpaintable):
     # It holds the pipeline's modules, so it goes when the pipeline goes.
     backend.unload()
     assert backend._inpaint_pipe is None and backend._inpaint_params == set()
+
+
+def test_the_class_gets_the_widened_mask_and_the_composite_the_painted_one(inpaintable, tmp_path):
+    backend, record, _ = inpaintable
+    # A feathered 6 px stroke inside one column of cells, off their corners.
+    painted = Image.new("L", (256, 256), 0)
+    painted.paste(255, (90, 40, 94, 200))
+    painted.paste(100, (89, 40, 90, 200))
+    painted.save(tmp_path / f"{MASK}.png")
+    request = GenerateRequest(
+        prompt="a fox", width=256, height=256, steps=10, refine=record.id, strength=0.6, mask=MASK,
+    )
+    (image,) = backend.generate(request, seed=7)
+    (call,) = backend._inpaint_pipe.calls
+    handed = call["mask_image"]
+    assert handed.tobytes() == refine.pipeline_mask(painted).tobytes()
+    assert _latent_cells(handed) == {(11, y) for y in range(5, 25)}
+    # The composite blends by the painted levels, not the widened mask: a
+    # pixel the class repainted but the user did not paint is the source's.
+    with Image.open(backend_source_path(record)) as handle:
+        source = handle.convert("RGB")
+    assert image.getpixel((95, 100)) == source.getpixel((95, 100))
+    assert image.getpixel((91, 100)) == fake_fill(7)
 
 
 def backend_source_path(record):

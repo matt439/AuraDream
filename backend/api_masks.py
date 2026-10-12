@@ -17,7 +17,7 @@ import io
 from fastapi import APIRouter, HTTPException, Path, Query, Request
 from fastapi.responses import FileResponse
 
-from . import storage
+from . import refine, storage
 from .app_context import AppServices
 from .schemas import MaskStored
 
@@ -80,7 +80,10 @@ def _store(services: AppServices, data: bytes, source: int) -> MaskStored:
                     f"the mask is {handle.width}x{handle.height}, but image {source} is "
                     f"{record.width}x{record.height}; a mask covers its image exactly"
                 )
-            mask = handle.convert("L")
+            # Scaled from 16 bits and laid on black where it has alpha, as
+            # the CLI's --mask is: what was painted, not what Pillow's
+            # `convert` makes of it.
+            mask = refine.canonical_mask(handle)
     except (UnidentifiedImageError, OSError, Image.DecompressionBombError, SyntaxError) as exc:
         raise ValueError(f"the mask PNG cannot be read ({exc})") from None
     # An all-white mask is allowed - it repaints the whole picture, a refine
@@ -116,6 +119,27 @@ def create_router(services: AppServices) -> APIRouter:
             # "no gallery image with id N" from the source check is a 404.
             status = 404 if message.startswith("no gallery image") else 422
             raise HTTPException(status_code=status, detail=message[:1].upper() + message[1:] + ".") from exc
+        except OSError as exc:
+            # The disk, or the gallery cleared while this waited on it.
+            raise HTTPException(
+                status_code=503,
+                detail=f"The mask could not be written ({exc.strerror or exc}); paint again to send it once more.",
+            ) from exc
+
+    @router.post("/api/masks/{mask}/keep", response_model=MaskStored)
+    async def keep_mask(mask: str = Path(pattern=_HASH)) -> MaskStored:
+        """Keep a stored mask from the sweep for another settle window, as
+        uploading it again would: what the Inpaint dialog sends for a reused
+        mask, and while it stays open on one. 404 where it has gone, which
+        the dialog answers by uploading the picture it still holds."""
+        try:
+            await asyncio.to_thread(storage.touch_mask, mask)
+        except ValueError as exc:
+            raise HTTPException(status_code=404, detail=str(exc)) from exc
+        size = await asyncio.to_thread(storage.mask_size, mask)
+        if size is None:
+            raise HTTPException(status_code=404, detail=f"no stored mask {mask[:16]}; paint it again")
+        return MaskStored(hash=mask, width=size[0], height=size[1], created=False)
 
     @router.get("/api/masks/{mask}")
     async def read_mask(mask: str = Path(pattern=_HASH)):

@@ -113,7 +113,7 @@ class SwapTagsRequest(BaseModel):
 
 SwapStatus = Literal[
     "queued", "missing", "unchanged", "rendered", "invalid", "source_deleted",
-    "lora_missing", "duplicate", "by_hand", "structured", "deleted", "foreign",
+    "lora_missing", "mask_missing", "duplicate", "by_hand", "structured", "deleted", "foreign",
 ]
 
 
@@ -280,7 +280,9 @@ class MoreSeedsRequest(BaseModel):
         return SwapTagsRequest._positive_ids.__func__(cls, value)
 
 
-MoreSeedsStatus = Literal["queued", "foreign", "invalid", "source_deleted", "lora_missing", "deleted"]
+MoreSeedsStatus = Literal[
+    "queued", "foreign", "invalid", "source_deleted", "lora_missing", "mask_missing", "deleted",
+]
 
 
 class MoreSeedsResult(BaseModel):

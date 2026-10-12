@@ -5,6 +5,7 @@ import collections
 import hashlib
 import io
 import json
+import logging
 import os
 import shutil
 import sqlite3
@@ -17,11 +18,14 @@ from concurrent.futures import ThreadPoolExecutor
 from datetime import datetime, timezone
 from pathlib import Path, PurePosixPath
 
+from PIL import Image
+
 from . import bundle_crypto, bundle_images, gallery_lock, storage
 from .bundle_archive import _DATABASE, _FORMAT, _MANIFEST, _READ_AHEAD_MAX, _check_space, _verify_archive
 from .bundle_common import (
     _CHUNK,
     _WORKERS,
+    MASK_HASH,
     BundleChanged,
     BundleError,
     Progress,
@@ -121,7 +125,27 @@ def _partial_refusal(path: Path) -> str:
             "the render finishes (one a crash left behind is settled an hour after it began)")
 
 
-def _inventory() -> list[tuple[str, Path]]:
+log = logging.getLogger(__name__)
+
+
+def _carried_mask(path: Path) -> bool:
+    """Whether a file in the masks directory is a mask a bundle can carry:
+    named by all 64 lowercase digits of its hash, `.png`, and a whole `L`
+    PNG whose levels hash to that name - what the verifying read-back
+    (`bundle_archive._verify_archive`) accepts. Anything else there - a
+    user's own `scarf-mask.png`, a sync tool's `<hash> (1).png`, a file cut
+    short or edited - no row can be using as the mask it names, and is left
+    where it is, as `reindex` leaves it, rather than failing the export
+    after the whole archive is written."""
+    if path.suffix != ".png" or MASK_HASH.fullmatch(path.stem) is None:
+        return False
+    return storage._whole_mask(path, path.stem)
+
+
+def _inventory(skipped: list[str] | None = None) -> list[tuple[str, Path]]:
+    """Every file a whole-gallery bundle carries, as (member, path). A file
+    in the masks directory that is no carried mask (`_carried_mask`) is left
+    out and its name added to `skipped`, where a list is given."""
     outputs = _settings().outputs_dir
     found = []
     for directory, prefix, suffixes in (
@@ -142,6 +166,11 @@ def _inventory() -> list[tuple[str, Path]]:
                 continue
             if _is_link(path) or not path.is_file() or not _basename(path.name):
                 raise BundleError(f"unsafe image file: {path.name}")
+            if prefix == "masks/" and not _carried_mask(path):
+                log.warning("bundle: leaving out %s, which is no stored mask", path)
+                if skipped is not None:
+                    skipped.append(path.name)
+                continue
             found.append((prefix + path.name, path))
     names = [name.casefold() for name, _ in found]
     if len(set(names)) != len(names):
@@ -158,7 +187,8 @@ def preview() -> dict:
         if settings.db_path.exists():
             storage.settle_partials()
         rows = _rows(settings.db_path)
-        files = _inventory()
+        skipped: list[str] = []
+        files = _inventory(skipped)
         names = {name for name, _ in files}
         for row in rows:
             if "images/" + row["filename"] not in names:
@@ -174,6 +204,9 @@ def preview() -> dict:
             "images": sum(name.startswith("images/") and p.suffix.lower() == ".png" for name, p in files),
             "thumbnails": sum(p.suffix.lower() == ".webp" for _, p in files),
             "masks": sum(name.startswith("masks/") for name, _ in files),
+            # Files in the masks directory that are no stored mask, which the
+            # bundle leaves where they are (`_carried_mask`).
+            "masks_left_out": sorted(skipped),
             "bytes": sum(p.stat().st_size for _, p in files)
                 + (settings.db_path.stat().st_size if settings.db_path.exists() else 0),
         }
@@ -227,6 +260,31 @@ def _merge_masks(conn: sqlite3.Connection, bundle: dict[str, dict], members: dic
                      (digest, size[0], size[1], created if isinstance(created, str) else now))
     directory = _settings().outputs_dir / storage.MASKS_DIR
     return {digest for digest in here if (directory / f"{digest}.png").is_file()} | set(members)
+
+
+def _embedded_member(work: Path, values: dict) -> Path | None:
+    """A new row's mask, from the copy its own staged PNG carries, written
+    beside the unpacked members as one; None where the PNG holds no copy of
+    the mask its row names, at the row's size. A whole-gallery or selection
+    bundle carries only the masks whose files were there, so a mask lost in
+    the gallery it came from travels only this way - as `reindex` finds it."""
+    from .reindex import _embedded_mask
+
+    digest = values["mask"]
+    target = work / storage.MASKS_DIR / f"{digest}.png"
+    if target.is_file():
+        return target
+    staged = work / "images" / values["filename"]
+    try:
+        with Image.open(staged) as image:
+            mask = _embedded_mask(image, digest)
+    except (OSError, ValueError, Image.DecompressionBombError):
+        return None
+    if mask is None or mask.size != (values["width"], values["height"]):
+        return None
+    target.parent.mkdir(parents=True, exist_ok=True)
+    mask.save(target, format="PNG", compress_level=6)
+    return target
 
 
 def _hash(path: Path) -> str:
@@ -702,6 +760,8 @@ def import_bundle(path: Path, password: str | None = None, progress: Progress = 
                         pending.append((row, values))
                 unresolved = 0
                 masks_missing = 0
+                # Masks recovered from their results' PNGs, staged as members.
+                embedded: dict[str, Path] = {}
                 by_id = {r["id"]: r for r in current}
                 for original, values in pending:
                     refs = _references(original)
@@ -719,9 +779,22 @@ def import_bundle(path: Path, password: str | None = None, progress: Progress = 
                         # never kept without the source it covers.
                         values["mask"] = None
                     if values.get("mask") is not None and values["mask"] not in carried:
-                        # The hash stays - it still says what ran - but this
-                        # gallery cannot run it again until the mask is back.
-                        masks_missing += 1
+                        # Lost in the gallery it came from, so no member - but
+                        # the result's own PNG carries it (`PNG_MASK_KEY`),
+                        # which is the picture where it hashes to the name.
+                        recovered = _embedded_member(work, values)
+                        if recovered is not None:
+                            conn.execute(
+                                "INSERT OR IGNORE INTO masks (hash, width, height, created_at) VALUES (?, ?, ?, ?)",
+                                (values["mask"], values["width"], values["height"],
+                                 datetime.now(timezone.utc).isoformat()),
+                            )
+                            embedded[values["mask"]] = recovered
+                            carried.add(values["mask"])
+                        else:
+                            # The hash stays - it still says what ran - but this
+                            # gallery cannot run it again until the mask is back.
+                            masks_missing += 1
                     by_id[values["id"]] = values
                 rewrites = []
                 for original, values in pending:
@@ -791,6 +864,10 @@ def import_bundle(path: Path, password: str | None = None, progress: Progress = 
                         # has gone since.
                         raise BundleError(f"the gallery changed during import; try again ({relative})")
                     targets.append((source, target))
+                for digest, source in embedded.items():
+                    target = mask_file(f"{digest}.png")
+                    if not target.is_file():
+                        targets.append((source, target))
                 _checkpoint()
                 try:
                     for done, (source, target) in enumerate(targets, 1):

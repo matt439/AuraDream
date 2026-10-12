@@ -148,9 +148,43 @@ def test_a_selection_carries_its_own_masks_and_no_other(store, monkeypatch, tmp_
     assert plain["masks"] == 0 and _bundle_masks(Path(plain["path"]), tmp_path) == {}
 
 
+def _without_embedded_mask(store, record) -> None:
+    """Rewrite `record`'s PNG without the copy of its mask, its pixels and
+    every other chunk as they were."""
+    from PIL import PngImagePlugin
+
+    path = store.settings.outputs_dir / record.filename
+    with Image.open(path) as image:
+        image.load()
+        info = PngImagePlugin.PngInfo()
+        for key, value in image.info.items():
+            if isinstance(value, str) and key != PNG_MASK_KEY:
+                info.add_itxt(key, value)
+        image.save(path, format="PNG", pnginfo=info)
+
+
+def test_an_import_restores_a_lost_mask_from_its_results_own_png(store, monkeypatch, tmp_path):
+    source, made, digest, _ = _inpaint_gallery()
+    # Lost in the gallery it came from: no member carries it.
+    store.mask_path(digest).unlink()
+    archive = bundles.export_bundle(keep_gallery=True, ids=[source.id, made.id])
+    assert archive["masks"] == 0
+
+    _destination(store, monkeypatch, tmp_path)
+    imported = bundles.import_bundle(Path(archive["path"]))
+    assert (imported["imported"], imported["masks"], imported["masks_missing"]) == (2, 1, 0)
+    inpaint = next(r for r in store.list_images()[0] if r.mask)
+    assert inpaint.mask == digest and store.mask_size(digest) == (256, 256)
+    with Image.open(store.mask_path(digest)) as handle:
+        assert store.mask_hash(handle) == digest
+    assert submission.missing_masks([inpaint]) == []
+
+
 def test_a_row_whose_mask_the_bundle_lacks_keeps_its_hash_and_is_counted(store, monkeypatch, tmp_path):
     source, made, digest, _ = _inpaint_gallery()
     store.mask_path(digest).unlink()
+    # Nor does its PNG hold a copy any more.
+    _without_embedded_mask(store, made)
     archive = bundles.export_bundle(keep_gallery=True, ids=[source.id, made.id])
     assert archive["masks"] == 0
 
@@ -171,6 +205,26 @@ def test_a_password_bundle_carries_the_masks(store, monkeypatch, tmp_path):
     imported = bundles.import_bundle(Path(archive["path"]), "tea kettle")
     assert (imported["masks"], imported["masks_missing"]) == (2, 0)
     assert store.mask_path(digest).is_file()
+
+
+def test_a_whole_gallery_export_leaves_out_what_is_no_stored_mask(store, monkeypatch, tmp_path):
+    source, made, digest, unused = _inpaint_gallery()
+    masks = store.masks_dir()
+    # A user's own mask copied in, a sync tool's duplicate, an upper-case
+    # name, and a hash-named file that is RGB: none is a stored mask.
+    strays = ["scarf-mask.png", f"{digest} (1).png", f"{'A' * 64}.png", f"{'b' * 64}.png"]
+    for name in strays[:3]:
+        (masks / name).write_bytes(_png(_mask()))
+    (masks / strays[3]).write_bytes(_png(_mask().convert("RGB")))
+    assert sorted(bundles.preview()["masks_left_out"]) == sorted(strays)
+    assert bundles.preview()["masks"] == 2
+    archive = bundles.export_bundle(keep_gallery=True)
+    assert archive["masks"] == 2
+    with zipfile.ZipFile(archive["path"]) as bundle:
+        members = sorted(name for name in bundle.namelist() if name.startswith("masks/"))
+    assert members == sorted([f"masks/{digest}.png", f"masks/{unused}.png"])
+    # Left where they were, as a reindex leaves them.
+    assert all((masks / name).is_file() for name in strays)
 
 
 @pytest.mark.parametrize("change", ["repainted", "renamed", "rgb"])

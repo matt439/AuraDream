@@ -145,8 +145,9 @@ def _build_parser() -> argparse.ArgumentParser:
         metavar="S",
         help="how much of the source a refine pass redraws, above 0 up to 1: low keeps "
         "the picture, 1 keeps nothing. Defaults to the checkpoint's own starting "
-        "strength (0.4 on SDXL, 0.1 on FLUX.1 dev, 0.5 on FLUX.1 schnell). About "
-        "steps x S of the steps run",
+        "strength (0.4 on SDXL, 0.1 on FLUX.1 dev, 0.5 on FLUX.1 schnell); an inpaint "
+        "(--mask) starts at its inpaint class's own default instead, as the Inpaint dialog "
+        "does (0.9999 on SDXL, 1 on Z-Image). About steps x S of the steps run",
     )
     conditioning.add_argument(
         "--mask",
@@ -321,8 +322,12 @@ def _apply_image_settings(args: argparse.Namespace, meta: dict) -> None:
     # image's unless the command line names another.
     if args.refine is None and meta.get("refine") is not None:
         args.refine = meta["refine"]
+        # What the PNG says that source was, held to this gallery's row
+        # under the id once the gallery can be read (`_check_carried_source`).
+        args.carried_source = meta.get("refine_source") if isinstance(meta.get("refine_source"), dict) else None
         if args.strength is None and meta.get("strength") is not None:
             args.strength = meta["strength"]
+            args.carried_strength = True
         # An inpaint reproduces over the same mask: by the hash its record
         # names, which `_mask_from_record` finds in the gallery or in the
         # PNG's own copy. Only with the source it covers - a --refine of
@@ -339,18 +344,72 @@ def _apply_image_settings(args: argparse.Namespace, meta: dict) -> None:
             args.width, args.height = int(width), int(height)
 
 
+def _check_carried_source(args: argparse.Namespace, p: SimpleNamespace, parser: argparse.ArgumentParser) -> bool:
+    """Drop a refine source --from-image carried that is not, in this
+    gallery, the picture the PNG was made from; answers whether it did.
+
+    The id is the gallery's that wrote the PNG - another one's, for a file
+    from WSL's gallery or a backup - so it can name any picture here, and a
+    same-size one passes every later check. An inpaint composites that
+    source's own pixels back, so the result would visibly be someone else's
+    picture. Held as Load settings from PNG holds references
+    (`api_png._verified_references`): the record's `refine_source` hash and
+    size against the row's. A record without one (older files) carries as
+    before, and so does a row with no hash of its pixels to compare; a
+    source the command line names is the user's own choice.
+    """
+    known = args.carried_source
+    if known is None or args.refine is None:
+        return False
+    record = (
+        p.storage.get_image(args.refine, include_binned=True) if p.settings.db_path.exists() else None
+    )
+    if record is None or not record.content_hash or (
+        (record.content_hash, record.width, record.height)
+        == (known.get("hash"), known.get("width"), known.get("height"))
+    ):
+        # No row under the id is refused in words below, as it always was.
+        return False
+    said = "is not the image"
+    what = "an inpaint" if args.mask_hash is not None else "a refine pass"
+    if (args.strength is not None and not args.carried_strength) or args.scale is not None or args.mask is not None:
+        parser.error(
+            f"--from-image: source image {args.refine} {said} the PNG was made from, so it cannot "
+            f"be run again as {what}; name the source with --refine"
+        )
+    print(
+        f"note: source image {args.refine} {said} the PNG was made from; "
+        f"running as a plain generation instead of {what}",
+        file=sys.stderr,
+    )
+    args.refine = None
+    args.mask_hash = None
+    if args.carried_strength:
+        args.strength = None
+    return True
+
+
 def _mask_file(path: str, parser: argparse.ArgumentParser):
     """The picture --mask names, in the canonical form a mask is kept in:
     one `L` channel, 0 to 255, white repainted. A path is fine here - the
     CLI is the user's own process - and the hash is what is recorded."""
     from PIL import Image, UnidentifiedImageError
 
+    # `refine` is a leaf: importing it does not freeze the settings, which
+    # `apply_env` has not written yet.
+    from backend import refine
+
     try:
         with Image.open(path) as image:
             image.load()
-            mask = image.convert("L")
+            # 16-bit levels scaled, transparency laid on black: what was
+            # painted, where Pillow's `convert("L")` clips the one and drops
+            # the other.
+            mask = refine.canonical_mask(image)
     except (OSError, UnidentifiedImageError, Image.DecompressionBombError) as exc:
         parser.error(f"--mask: cannot read {path}: {exc}")
+    except ValueError as exc:
+        parser.error(f"--mask: {path}: {exc}")
     if mask.getextrema()[1] == 0:
         parser.error("--mask: nothing is masked - the picture is black everywhere, so nothing would change")
     return mask
@@ -531,8 +590,11 @@ def main(argv: list[str] | None = None) -> int:
         sys.stdout.reconfigure(encoding="utf-8", errors="backslashreplace")
     parser = _build_parser()
     args = parser.parse_args(argv)
-    # A mask hash carried from --from-image's record, where --mask names none.
+    # A mask hash carried from --from-image's record, where --mask names none;
+    # the record's refine source's identity, and whether its strength carried.
     args.mask_hash = None
+    args.carried_source = None
+    args.carried_strength = False
     # Whether the command line itself names a size, before a PNG fills one in:
     # --scale is an alternative to these, but not to the size of --from-image.
     size_flags = any(v is not None for v in (args.width, args.height, args.aspect, args.mp))
@@ -568,6 +630,8 @@ def main(argv: list[str] | None = None) -> int:
     width, height = _resolve_size(args, parser)
     apply_env(args)
     p = _project()
+    if _check_carried_source(args, p, parser):
+        inpainting = False
 
     # A checkpoint with no refine pass is refused first, by the profile and
     # before anything is built from the flags: a strength that also happens

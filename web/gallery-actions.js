@@ -439,6 +439,7 @@ function forgetImages(ids, { binned = false } = {}) {
   // recycle bin" say "Deleted" now, and a Restore has nothing to put back.
   if (!binned) {
     for (const id of gone) binnedRecs.delete(id);
+    forgetInpaintImages(gone);
     document.querySelectorAll('[data-tomb-id]').forEach((el) => {
       const tomb = el.matches('.tomb') ? el : el.querySelector('.tomb');
       if (tomb && gone.has(+el.dataset.tombId) && tomb.textContent.startsWith('In the recycle bin')) {

@@ -27,7 +27,7 @@ from typing import TYPE_CHECKING, Any
 from PIL import Image, PngImagePlugin
 
 from .config import settings
-from . import gallery_lock
+from . import gallery_lock, refine
 # The four key elements that are built from columns here and from a request
 # in `grid`: one spelling of each, or a resume compares strings that only look
 # alike. `grid` imports neither this module nor anything that does.
@@ -198,6 +198,21 @@ CREATE TABLE IF NOT EXISTS masks (
 """
 
 
+# The masks a server's queued and running jobs will read, by job: the hold a
+# mask sweep in any process honours (`gallery_delete.sweep_masks`), since a
+# queued cell's mask is in no row until it saves and the CLI cannot ask the
+# server's queue. Written before a job is queued (`JobManager.submit_cells`),
+# removed when it ends, and all dropped when a server starts - no job
+# survives a restart. Created on every connection, like `masks`.
+_MASK_HOLDS_SCHEMA = """
+CREATE TABLE IF NOT EXISTS mask_holds (
+    hash    TEXT NOT NULL,
+    job_id  TEXT NOT NULL,
+    PRIMARY KEY (hash, job_id)
+)
+"""
+
+
 def _migrate(conn: sqlite3.Connection) -> None:
     """Add columns that a database written by an older build has not got.
 
@@ -285,6 +300,7 @@ def _connect() -> sqlite3.Connection:
         conn.executescript(_SCHEMA)
     _migrate(conn)
     conn.execute(_MASKS_SCHEMA)
+    conn.execute(_MASK_HOLDS_SCHEMA)
     return conn
 
 
@@ -724,7 +740,10 @@ def _settle_plan(stale: Sequence, tracked: set[str] | None = None) -> list:
     short, and a placed thumbnail is never encoded again. The card falls back
     to the PNG until a reindex writes a whole one. A mask's `.png.part` whose
     `masks` row exists is finished likewise: `store_mask` commits the row
-    before the rename too.
+    before the rename too - but only once it decodes to the mask its name
+    says (`_whole_mask`). A row can already be there while a lost file is
+    encoded again, so a partial cut short by a crash is debris, never
+    installed as the mask.
     """
     if tracked is None:
         tracked = {row["filename"] for row in _tracked_files()}
@@ -737,10 +756,23 @@ def _settle_plan(stale: Sequence, tracked: set[str] | None = None) -> list:
         target = None
         if name and path.parent == outputs and name.endswith(".png") and name in tracked:
             target = path.with_name(name)
-        elif name and path.parent == masks and name.endswith(".png") and name[: -len(".png")] in held:
+        elif (
+            name and path.parent == masks and name.endswith(".png") and name[: -len(".png")] in held
+            and _whole_mask(path, name[: -len(".png")])
+        ):
             target = path.with_name(name)
         plan.append((path, None if target is None or target.exists() else target))
     return plan
+
+
+def _whole_mask(path: Path, digest: str) -> bool:
+    """Whether the file at `path` is a whole PNG of the mask `digest` names."""
+    try:
+        with Image.open(path) as image:
+            image.load()
+            return image.format == "PNG" and image.mode == "L" and mask_hash(image) == digest
+    except (OSError, ValueError, SyntaxError, Image.DecompressionBombError):
+        return False
 
 
 def _settle(stale: Sequence) -> tuple[int, int]:
@@ -1290,7 +1322,7 @@ def store_mask(mask: Image.Image) -> tuple[str, bool]:
     row whose file was lost is given its file again; a file whose row was lost
     (a database replaced under the server) its row.
     """
-    mask = mask if mask.mode == "L" else mask.convert("L")
+    mask = mask if mask.mode == "L" else refine.canonical_mask(mask)
     digest = mask_hash(mask)
     ensure_outputs_dir()
     directory = masks_dir()
@@ -1308,12 +1340,16 @@ def _store_mask(mask: Image.Image, digest: str, path: Path, partial: Path) -> tu
     committed = False
     try:
         if not path.is_file():
+            # Again here, as before the encode below: a whole `clear` removes
+            # the directory under the reservation this has not taken yet.
+            path.parent.mkdir(parents=True, exist_ok=True)
             mask.save(partial, format="PNG", compress_level=6)
             encoded = True
         with gallery_lock.hold(settings.db_path, wait=gallery_lock.SESSION_WAIT):
             if not encoded and not path.is_file():
                 # Swept while this waited for the reservation: the file the
                 # look above found is gone, and a row alone would name none.
+                path.parent.mkdir(parents=True, exist_ok=True)
                 mask.save(partial, format="PNG", compress_level=6)
                 encoded = True
             with _write_lock, _session() as conn:
@@ -1341,6 +1377,51 @@ def _store_mask(mask: Image.Image, digest: str, path: Path, partial: Path) -> tu
         if encoded and committed and partial.exists() and path.is_file():
             _unlink(partial)
     return digest, created
+
+
+def touch_mask(mask: str) -> Path:
+    """Restart a stored mask's settle window, as a re-upload of it does, and
+    answer its file: an Inpaint dialog that reused it or sat open on it
+    keeps it from a sweep (`gallery_delete.sweep_masks`) without sending
+    the picture again. `ValueError` in `mask_path`'s words where it went."""
+    path = mask_path(mask)
+    with _write_lock, _session() as conn:
+        now = datetime.now(timezone.utc).isoformat()
+        if conn.execute("UPDATE masks SET created_at = ? WHERE hash = ?", (now, mask)).rowcount != 1:
+            raise ValueError(f"no stored mask {mask[:16]}; paint it again")
+    return path
+
+
+def hold_masks(job_id: str, masks: Sequence[str]) -> list[str]:
+    """Hold `masks` for job `job_id` until `release_masks`: no sweep in any
+    process removes a held mask. Answers the ones this server no longer has,
+    which are not held - gone between the submit's check and here.
+
+    Under `BEGIN IMMEDIATE`, as the sweep's own look is: either the hold is
+    in before a sweep looks, or the sweep's delete is in before this one
+    looks, and then the mask is named as gone rather than queued unheld.
+    """
+    wanted = sorted(set(masks))
+    if not wanted:
+        return []
+    with _write_lock, _session() as conn:
+        conn.execute("BEGIN IMMEDIATE")
+        gone = [digest for digest in wanted if _mask_row(conn, digest) is None]
+        conn.executemany(
+            "INSERT OR IGNORE INTO mask_holds (hash, job_id) VALUES (?, ?)",
+            [(digest, job_id) for digest in wanted if digest not in gone],
+        )
+    return gone
+
+
+def release_masks(job_id: str | None = None) -> None:
+    """End job `job_id`'s holds (`hold_masks`), or every hold where it is
+    None: at a server's start, since no job survives a restart."""
+    with _write_lock, _session() as conn:
+        if job_id is None:
+            conn.execute("DELETE FROM mask_holds")
+        else:
+            conn.execute("DELETE FROM mask_holds WHERE job_id = ?", (job_id,))
 
 
 def mask_png(mask: str) -> bytes | None:

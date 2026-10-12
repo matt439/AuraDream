@@ -278,6 +278,7 @@ function syncNow(job) {
   els.progressNow.title = what ? `${lead} ${describeJob(job, 120, { markup: true })}` : '';
   const name = job.refine_batch != null ? 'this batch refine'
     : job.more_seeds != null ? 'these more seeds'
+    : job.swap != null ? 'this swap'
     : job.refine != null ? `the ${job.mask ? 'inpaint' : 'refine'} of #${job.refine}`
     : job.grid ? (job.prompt_template != null ? 'this grid' : job.swap != null ? 'this swap' : 'this re-render')
     : `"${snippet(job.prompt ?? '', 40)}"`;

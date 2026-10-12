@@ -757,10 +757,18 @@ class DiffusersBackend(GenerationBackend):
         # from the image and no width or height at all - and `strength` is how
         # far down the schedule the pipeline noises it before denoising back.
         # An inpaint's source is not resized - it runs at its source's size,
-        # which the mask was painted at - and `mask_image` is the stored mask.
+        # which the mask was painted at. The class is handed the stored mask
+        # widened to the latent cells it touches (`refine.pipeline_mask`), so
+        # it repaints everywhere the composite below blends with the painted
+        # grey levels - which it is given instead.
+        painted = None
         if inpainting:
             kwargs["image"] = refine.inpaint_source(request.refine, request.width, request.height)
-            kwargs["mask_image"] = refine.mask_image(request.mask, request.width, request.height)
+            painted = refine.mask_image(request.mask, request.width, request.height)
+            block = getattr(runner, "vae_scale_factor", None)
+            kwargs["mask_image"] = refine.pipeline_mask(
+                painted, block if isinstance(block, int) and block > 0 else refine.LATENT_BLOCK
+            )
             kwargs["strength"] = request.strength
         elif refining:
             kwargs["image"] = refine.source_image(request.refine, request.width, request.height)
@@ -811,7 +819,7 @@ class DiffusersBackend(GenerationBackend):
         # wherever the mask does not reach (`refine.composite`).
         processor = getattr(runner, "image_processor", None)
         return [
-            refine.composite(kwargs["mask_image"], kwargs["image"], image, processor)
+            refine.composite(painted, kwargs["image"], image, processor)
             for image in images
         ]
 
