@@ -229,12 +229,14 @@ def test_a_weight_axis_needs_an_adapter_to_be_an_axis():
 class SwapPipeline(KleinLikePipeline):
     """Records what `load_lora_weights`/`set_adapters`/`unload` were asked for."""
 
-    def __init__(self, fail: bool = False):
+    def __init__(self, fail: bool = False, fail_set_on: int | None = None):
         super().__init__()
         self.loaded: list[str] = []
         self.weights: list[list[float]] = []
         self.unloads = 0
         self.fail = fail
+        # The n-th `set_adapters` (from 1) raises: a re-weighting that fails.
+        self.fail_set_on = fail_set_on
 
     def load_lora_weights(self, path, adapter_name=None):
         if self.fail:
@@ -242,6 +244,9 @@ class SwapPipeline(KleinLikePipeline):
         self.loaded.append(path)
 
     def set_adapters(self, names, weights):
+        if len(self.weights) + 1 == self.fail_set_on:
+            self.weights.append([])
+            raise RuntimeError("bad weight")
         self.weights.append(list(weights))
 
     def unload_lora_weights(self):
@@ -271,6 +276,29 @@ def test_a_failed_injection_leaves_no_half_applied_adapter(lora_dir):
     # The cell fails either way; what must not happen is every cell after it
     # running under an adapter nothing recorded.
     assert backend._lora is None and backend._pipe.unloads == 1
+
+
+def test_a_failed_reweighting_forgets_the_adapter_it_had(lora_dir):
+    # An adapter already attached at 0.5; the move to 0.8 fails, which takes
+    # it off. The next cell asking for 0.5 again must load it afresh - were
+    # the record left at 0.5 it would match, skip, and render with no adapter
+    # under a row that names one.
+    backend = _loaded(SwapPipeline(fail_set_on=2))
+    pipe = backend._pipe
+
+    def ask(weight):
+        backend._apply_lora(
+            pipe, GenerateRequest(prompt="x", lora="style.safetensors", lora_scale=weight)
+        )
+
+    ask(0.5)
+    with pytest.raises(RuntimeError, match="bad weight"):
+        ask(0.8)
+    assert backend._lora is None and pipe.unloads == 1
+    ask(0.5)
+    assert len(pipe.loaded) == 2
+    assert backend._lora == ("style.safetensors", 0.5)
+    assert pipe.weights[-1] == [0.5]
 
 
 def test_an_adapter_name_never_leaves_its_directory(lora_dir):

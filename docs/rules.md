@@ -373,7 +373,9 @@ Model and loader:
   raises on a transformers text encoder.
 - `torch.no_grad()`, never `torch.inference_mode()`, around the pipeline call:
   model offload moves components inside `forward()` and torchao's tensor
-  subclasses trip torch 2.13's storage-aliasing guard under inference_mode.
+  subclasses trip torch 2.13's storage-aliasing guard under inference_mode
+  (`test_the_pipeline_runs_under_no_grad_not_inference_mode`; the refine
+  sibling's calls are held to it too).
 - Loading happens only in `main.ensure_loaded()` under its asyncio lock; jobs
   await it, `generate()` raises on a missing pipeline, and
   `POST /api/model/unload` answers 409 while a job or a load is live; once

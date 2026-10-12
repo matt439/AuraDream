@@ -8,6 +8,7 @@ import math
 
 import numpy as np
 import pytest
+import torch
 from diffusers import EulerDiscreteScheduler, FlowMatchEulerDiscreteScheduler
 from PIL import Image
 
@@ -32,6 +33,7 @@ class StubPipeline:
         self.sigmas_arg = None
         self.generators = None
         self.steps_run = 0
+        self.grad_modes: list[tuple[bool, bool]] = []
 
     def __call__(
         self,
@@ -50,6 +52,7 @@ class StubPipeline:
 
         self.sigmas_arg = sigmas
         self.generators = generator
+        self.grad_modes.append((torch.is_grad_enabled(), torch.is_inference_mode_enabled()))
         ramp = (
             np.linspace(1.0, 1 / num_inference_steps, num_inference_steps)
             if sigmas is None
@@ -113,6 +116,16 @@ def test_sdxl_drops_mu_before_the_weights_are_loaded(monkeypatch, model_id):
         ),
     )
     assert DiffusersBackend().applied(_request(mu=1.15)).mu is None
+
+
+def test_the_pipeline_runs_under_no_grad_not_inference_mode():
+    # inference_mode breaks offload's device moves of torchao's quantized
+    # tensors (the storage-aliasing guard); no_grad is the one that works.
+    # Both turn gradients off, so only the second flag tells them apart.
+    backend, pipe = _backend(FlowMatchEulerDiscreteScheduler(use_dynamic_shifting=True))
+    assert torch.is_grad_enabled()
+    backend.generate(_request(), seed=1)
+    assert pipe.grad_modes == [(False, False)]
 
 
 def test_requested_mu_is_the_shift_that_lands():

@@ -964,8 +964,11 @@ does not hold, and a second load path driven from the job worker is the one
 thing `main.ensure_loaded` exists to prevent. `_apply_lora` tracks
 `(name, weight)` itself and a weight change is a `set_adapters`, which is
 what makes `0-1x0.25` one load and four re-weightings; a failed injection
-unloads and clears that state, because the alternative is every later cell
-running under an adapter nothing recorded. The request carries a *name*
+or re-weighting unloads and clears that state, because the alternative is
+every later cell running under an adapter nothing recorded - or, after a
+failed re-weighting, a cell asking for the old weight matching the stale
+record and rendering with no adapter
+(`test_a_failed_reweighting_forgets_the_adapter_it_had`). The request carries a *name*
 (`_bare_name` refuses separators) and `backend/loras.py` is the only place
 one becomes a path, resolved under `loras_dir` and checked to still be
 inside it. `.safetensors` only: a `.bin` LoRA is a pickle.
