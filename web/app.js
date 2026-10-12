@@ -306,6 +306,10 @@ els.deleteUnstarred.onclick = deleteUnstarred;
 const galleryHead = els.library.querySelector('.gallery-head');
 galleryHead.addEventListener('pointerover', (e) => pointHead(!e.target.closest('.gallery-footer')));
 galleryHead.addEventListener('pointerleave', () => pointHead(false));
+// Delete unstarred, held given way after the picks were emptied, waits for
+// the pointer to leave the gallery as a whole (syncHeadForPicks).
+els.library.addEventListener('pointerover', () => { libraryPointer = true; });
+els.library.addEventListener('pointerleave', libraryPointerLeft);
 initBundles();
 // The Picked menu between Clear and Select (gallery-select.js): its keyboard
 // is a menu's, and leaving it closes it.

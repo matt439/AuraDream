@@ -4291,9 +4291,17 @@ way. What fits is the widths', as `.held`'s one-row test is, so it is
 measured (`syncHeadForPicks`): Delete unstarred stays, and where the head's
 height changed with it, it gives way - within the one task, so nothing is
 painted between. Only a change of the picks does this; typing a filter
-while cards are picked lays the head out as typing always has, and Clear
-puts back the head the first pick found unless the filter changed
-meanwhile.
+while cards are picked lays the head out as typing always has. Clear puts
+back the head the first pick found - but a filter typed meanwhile keeps
+Delete unstarred given way, and the filter's own Re-render beside it took
+two rows at 1400: Clear brought it back and moved Select and the grid
+38 px under the pointer still on Clear (review of the branch). So emptying
+the picks is measured as well, and where Delete unstarred's return would
+change the head's height it stays given way until the pointer leaves the
+gallery (#library, head and grid both, as `libraryPointer`; the grid's own
+`galleryPointer` is #library-scroll's, which the footer is not in) or the
+filter changes - when the head is laid out anew in any case. With the
+pointer elsewhere, an Escape from the keyboard, it comes back at once.
 
 ## Swap tags
 

@@ -968,7 +968,7 @@ function releaseHead() {
 // While cards are picked it may give its place to Re-render of them
 // (`unstarredGivesWay`, syncHeadForPicks).
 function syncDeleteUnstarred(now = false) {
-  const givesWay = unstarredGivesWay && selectedIds().length > 0;
+  const givesWay = unstarredGivesWay && (selectedIds().length > 0 || unstarredHeld === viewFilter());
   showInHead(els.deleteUnstarred, !(binMode || els.favOnly.checked || total <= 0 || givesWay), now);
 }
 
@@ -986,22 +986,56 @@ function syncDeleteUnstarred(now = false) {
 // one row is (pointHead). Where neither keeps it, Delete unstarred stays as
 // it was. Only for a change of the picks: a filter typed, a tick or a job
 // landing lays the head out as it always has, and the sweep is back the
-// moment nothing is picked.
+// moment nothing is picked - where that keeps the rows. A filter typed while
+// cards were picked keeps Delete unstarred given way, and its own Re-render
+// beside it took two rows at 1400 where the picks' one took one: Clear then
+// moved Select and the grid 38 px under the pointer on it. So emptying the
+// picks is measured too, and where bringing Delete unstarred back would
+// change the head's height it stays given way (`unstarredHeld`, the filter it
+// was held on) until the pointer leaves the gallery - head, footer and grid,
+// `libraryPointer` from #library's enter and leave in app.js, not `:hover` -
+// or the filter changes. With the pointer elsewhere it comes back at once.
 let unstarredGivesWay = false;
+let unstarredHeld = null;
+let libraryPointer = false;
 let headPicked = false;
 function syncHeadForPicks() {
   const picked = selectedIds().length > 0;
   const first = picked && !headPicked;
+  const wasGiven = unstarredGivesWay;
   headPicked = picked;
   if (!picked || first) unstarredGivesWay = false;
+  unstarredHeld = null;
   const head = els.search.closest('.gallery-head');
   const before = head.getBoundingClientRect().height;
   syncRerender();
   syncDeleteUnstarred();
-  if (!picked || head.getBoundingClientRect().height === before) return;
+  if (head.getBoundingClientRect().height === before) return;
+  if (!picked) {
+    if (!wasGiven || !libraryPointer) return;
+    unstarredGivesWay = true;
+    unstarredHeld = viewFilter();
+    syncDeleteUnstarred();
+    if (head.getBoundingClientRect().height === before) return;
+    unstarredGivesWay = false;
+    unstarredHeld = null;
+    syncDeleteUnstarred();
+    return;
+  }
   unstarredGivesWay = !unstarredGivesWay;
   syncDeleteUnstarred();
   if (head.getBoundingClientRect().height === before) return;
   unstarredGivesWay = !unstarredGivesWay;
+  syncDeleteUnstarred();
+}
+
+// The pointer has left the gallery: Delete unstarred, held given way after
+// the picks were emptied, comes back - unless cards were picked again
+// meanwhile, which measured the head afresh.
+function libraryPointerLeft() {
+  libraryPointer = false;
+  if (unstarredHeld === null) return;
+  unstarredHeld = null;
+  unstarredGivesWay = false;
   syncDeleteUnstarred();
 }

@@ -3811,8 +3811,15 @@ Frontend and CLI:
   where it changed, Delete unstarred gives Re-render its place, or comes
   back where that keeps it (`unstarredGivesWay`, false at a first pick, read
   by `syncDeleteUnstarred` only while something is picked, reset when
-  nothing is; where neither way keeps the height it stays as it was). A
-  filter typed, a tick or a job landing lays the head out as before. The Runs picker asks
+  nothing is; where neither way keeps the height it stays as it was).
+  Emptying the picks is measured too: where Delete unstarred had given way
+  and bringing it back would change the head's height (a filter typed
+  meanwhile, whose own Re-render takes the row beside it) and the pointer
+  is on the gallery (`libraryPointer`, #library's pointerover and leave,
+  never `:hover`), it stays given way (`unstarredHeld`, the `viewFilter()`
+  it was held on) until the pointer leaves #library
+  (`libraryPointerLeft`) or the filter changes. A filter typed, a tick or
+  a job landing lays the head out as before. The Runs picker asks
   `/api/runs?limit=200` and groups the result: "Grids and batches" (images > 1
   or jobs > 1, labelled with count, distinct, "N prompts" and what varied -
   `runAxes` over `RunSummary.axes` (each setting's count of distinct values
@@ -5255,7 +5262,10 @@ Select, held with its reason and said when pressed; a first pick with no
 filter showing "Re-render 1 selected at WxH" while Delete unstarred gives
 way, the head's height, the grid and Select unmoved, and Clear putting it
 back; on a filter whose own Re-render shows, a pick keeping the head's
-height and taking the label; the menu opening over the grid without moving
+height and taking the label; picks made with no filter, then a filter
+typed, then Clear pressed under the pointer keeping the head, the grid
+and Select where they were with Delete unstarred still given way, and
+back once the pointer is on the top bar; the menu opening over the grid without moving
 it, inside the window, its Escape, ArrowDown, ArrowUp and Enter; Star picked
 (both cards marked, the server's favourites, the picks kept), again
 ("already starred"), Unstar picked, and F starring only the focused card;

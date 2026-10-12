@@ -325,7 +325,8 @@ by number, to unpick). Star favorites at a smaller size, filter by Starred
 or pick the keepers, and choose a larger size; expect new compositions for
 direct renders. Where the row has no room for both, **Delete unstarred**
 gives Re-render its place while cards are picked, so a pick never moves the
-gallery; Clear brings it back.
+gallery; Clear brings it back (once the pointer has left the gallery, where
+bringing it back would move the row under it).
 
 **Sheet** lays out varying settings as rows, columns and selectors. Prompt
 comparison versions take the rows; refine sweeps include their source.
