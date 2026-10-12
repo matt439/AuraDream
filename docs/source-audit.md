@@ -74,6 +74,23 @@ the sampling values carry. The route is `api_png.py`; the reading
 turns refusals into argument errors) moved to `png_settings.py`, pure like
 `metadata.py`, so the parser/service seam below has one function less.
 
+Added since this pass, with no split (inpainting, `feat-inpainting`):
+`inpaint.js` (882) owns the Inpaint dialog - opening, Reuse, the mask's
+upload, the preview, submission and close - and `inpaint-mask.js` (527,
+loaded before it) its canvas: the tools, the stroke list and its replay,
+and the export; `styles/inpaint.css` (139) styles both. The dialog reuses
+`refine-prompt.js`'s check lines rather than copying them (`refineCutLine`
+takes the box to select). The server side is `backend/api_masks.py` (131),
+the upload and read routes, model-free, over storage's mask functions; the
+inpaint runner stays in `refine.py` (333) and `DiffusersBackend` beside the
+refine pass it extends, and the sweep in `gallery_delete.py`. The growth
+lands in retained files: `storage.py` 1,498 (the `masks` table, its
+writer, resolver and partials, the chunk), `generate.py` 1,255 (`--mask`
+and the record's mask), `model_defaults.py` 1,319 (`inpaint_supported` per
+profile, `INPAINT_DEFERRED`) and `index.html` 1,518 (the dialog's DOM).
+None has gained a new role; their table rows below are as audited. The page
+loads 46 classic scripts.
+
 How the boundaries hold:
 
 - The new route modules take one `AppServices` built by `main` over its own

@@ -1742,18 +1742,183 @@ with a pass has a row, and the generic line is an unprofiled pipeline's
 alone. The time estimate, from passes already made at that size, is still
 the honest per-checkpoint answer.
 
+## Inpainting
+
+**An inpaint is a refine pass with a mask.** F6 of the 2026-10-12 review;
+the design is `docs/plan-inpainting.md`, which also holds what the installed
+classes do with a mask and what the authors say about it (nothing, for any
+catalogue checkpoint's base weights). diffusers ships an inpaint class beside
+the text-to-image one under the same naming `refine.sibling` already relied
+on (`StableDiffusionXLInpaintPipeline`, `ZImageInpaintPipeline`), over the
+same components, with `image`, `mask_image` and `strength`. So the source
+stays `refine`, the strength `strength`, and every piece of the pass is
+reused: the source as a gallery id, `refine.build` instead of `from_pipe`,
+one call per image (the classes sample the source's encoding per generator,
+as the image-to-image ones do), the schedule index a strength names, the
+source deleted or binned mid-pass, `refine_missing`, the merge's id remap,
+Against source in the lightbox. `sibling(pipe, kind)` takes `"Inpaint"`
+beside `"Img2Img"` under the same exact-export rule, with `mask_image` added
+to `REQUIRED`. What is new is the mask, the composite and a capability that
+is decided, not only found.
+
+**It runs at the source's size.** The mask is painted on the source's
+pixels; a pass at another size would have to resize or crop the mask with
+it, and the scale buttons are Refine's. `refine.inpaint_source` loads the
+source unresized and refuses another size, and the submit check holds mask,
+source and request to one size. Re-render of an inpaint at another size is
+therefore refused for the whole selection. Upscaling only the masked region
+is a later phase (`padding_mask_crop`, which Z-Image's class lacks).
+
+**A mask is a stored picture named by its hash, never a path, and never a
+gallery image.** It is the first input that is a file outside the `images`
+table, so it gets the reference rule's treatment: the request carries
+`^[0-9a-f]{64}$`, and `storage.mask_path` resolves it through the `masks`
+table, so no request text is ever joined onto a directory. The hash is the
+SHA-256 of the size and the `L` levels together (`storage.mask_hash`), not of
+the levels alone: an all-white portrait mask and an all-white landscape one
+are the same bytes, and would have shared a name with two sizes. Content
+addressing means a bundle merge or a reindex never renumbers a mask, the
+same picture uploaded after every stroke is one file (`created: false`), and
+two identical masks are one. The brush, eraser, feather and invert are baked
+into the levels in the browser, so the hash is the whole of what was painted
+and there is no blur or invert setting to record. A mask has no row in
+`images`, no card, no star and no bin state, and is never a reference or a
+source, which keeps U61 B's problem - an imported picture becoming a row
+that is no render - out of this feature: `POST /api/masks` accepts any PNG,
+but what it stores is only ever usable as a mask over the gallery image it
+was sized to.
+
+**The mask rides inside every result's PNG.** The user's answer to the
+plan's second question. The `local-diffusion` chunk names it (`mask`,
+`mask_source`, `mask_blend`), and its own PNG is base64 in a second text
+chunk, `local-diffusion-mask`, so the result alone reproduces the image: a
+PNG-only reindex recreates a lost mask file from it, and `--from-image`
+reads it where the gallery has no copy. The embed is best effort - an image
+whose mask cannot be read still saves, since the hash still says what ran -
+and the bundle identity check ignores text chunks, as it already ignored
+the settings chunk (tested). Load settings from PNG blanks every chunk but
+the settings ones, so the embedded mask never meets its 1 MiB cap and never
+carries: it carries no source either.
+
+**The result is always composited over the source.** The classes re-impose
+the kept region in latent space every step, but the decoded picture's kept
+region is still the VAE's round trip of the source, not its pixels. After
+each decode the backend pastes the result over the source with the mask as
+alpha through the library's own `VaeImageProcessor.apply_overlay`
+(`refine.composite`), so every unmasked pixel is the source's exactly and a
+feathered edge blends - the one place a feather does anything, since every
+class binarises the mask before the latents. That is what the user is
+promised by "kept", so it is no option (the user's answer to question four);
+the chunk records `"mask_blend": "overlay"` so a later change of rule can be
+told apart, and the `content_hash` is the composite's. Whether the seam it
+can leave is worse than the round trip's colour shift is the card's to say.
+
+**SDXL and Z-Image first; FLUX.1, klein and Qwen-Image deferred.** The
+library exports a class for all five families, so a class is not the
+decision. `model_defaults.INPAINT_DEFERRED` names the three left off, and
+the backend refuses an inpaint on them even with the class installed:
+FLUX.1, because Krea dev already sits near the card's top at 1 MP and its
+class encodes the source a second time, so whether it spills is unmeasured
+and may need the crop from the start; klein, because its class conditions
+on the source as a reference on the sequence every step and takes one
+`image_reference`, which needs its own refusal and its own schedule reading
+(`compute_empirical_mu`); Qwen-Image, because here it runs only as
+Nunchaku's transformer under WSL, under which the class has never run. SDXL
+has the most headroom and the plainest path (a 4-channel UNet, the per-step
+blend, no sequence growth) and covers six checkpoints; Z-Image's class is
+the same shape over a flow schedule. The user widened the plan's "SDXL
+first" to both. The profile's `inpaint_supported` is True on those nine
+alone, and `tests/test_inpaint.py` fails if a profile enables a class that
+is missing or deferred, or if a catalogue class is left off without being
+in the list, so a deferral is always written down. Deferred profiles also
+carry `inpaint_deferred`, which only changes the sentence: "not enabled
+yet" rather than "no inpaint pipeline in the installed diffusers". Because a
+load can only take an inpaint away (it needs the profile's True and the
+class), every False is final before a load (`inpaint_settled`). The Nunchaku
+Z-Image repos share the Z-Image profile and so answer True; an inpaint over
+a Nunchaku transformer has not been run on the card.
+
+**The starting strength is the library's, said as the library's.** No
+catalogue author gives one for inpainting, and none has been measured, so
+there is no `inpaint_strength` profile key. Until one is measured the
+Strength box starts at the inpaint class's own signature default, read with
+`inspect` from the installed class at the load (`refine.library_strength`,
+`defaults.inpaint_strength`), never copied into the code; the tip says it is
+the installed diffusers' default, not the checkpoint's. Before a load, when
+that number is unknown, the box starts at the checkpoint's refine strength
+and says so, and a load that answers replaces it where the box is untouched.
+
+**Its own dialog.** The user's answer to the plan's first question, against
+the review's plan of a canvas in the Refine dialog. Refine's scale buttons,
+W and H, Keep shape and the kept-region frame are all about resizing, which
+an inpaint never does, and a mode would have greyed half the dialog. The
+Inpaint dialog shares what is the same - the prompt check's lines
+(`refine-prompt.js`), the strength box's rules (one value, or a list or
+range that is a sheet), Versions, Seed, the server's preview and how a
+refusal is said - and is a modal dialog, never a panel mode, as the pass is
+("A dialog, not a mode of the panel"). The canvas's bitmap is the source's
+pixel size, which at the guard's top is tens of megabytes of RGBA, so undo
+replays strokes rather than keeping snapshots, with a cap past which the
+oldest are drawn into a base for good. The tools' keys act only while the
+canvas has focus, so typing in the prompt never paints and Ctrl+Z in a box
+stays the box's; a plain wheel scrolls the dialog as anywhere else, and
+Alt+wheel sizes the brush. The mask uploads a moment after each stroke, and
+content addressing makes the repeats free. A close that ran nothing keeps
+the strokes in page memory for the next open of that image, never in
+storage: a mask is the image's, and large.
+
+**The mask is part of the reproduction set wherever a source is.** The
+plan's main risk was an image that becomes unreproducible without saying
+so, so every place that carries a source carries the mask: `images.mask`
+through `_migrate`; `grid.mask_key` as `CellKey`'s fifth optional element
+(below); `completed_cells`; the job snapshot; bundles, whose manifest stays
+`version: 1` (the user's answer: an older build skips the `masks/` prefix
+and imports the images and their hashes, unable only to re-run them, where
+a bump would have made every newer bundle unreadable to it); reindex, from
+files, from the `--from` gallery and from the embedded copy, counting what
+it finds nowhere; Re-render, More seeds and Swap tags, which run over the
+same mask; the CLI's `--mask` and `--from-image`. Mass refine drops it: it
+makes the record itself the new source, and the mask belongs to the old
+source's pixels. A mask found nowhere keeps its hash on the row - it still
+says what ran - and Re-render of it is refused naming the image.
+
+**The sweep has three conditions because a mask is in no row while it is
+needed.** An uploaded mask waits unused while a dialog is open, and a queued
+cell's mask is in no row until the cell lands. So `gallery_delete.sweep_masks`
+removes a mask only when no row names it, live or binned (a Restore must
+find it), no live job's cell names it (`JobManager.masks_in_flight`), and it
+is older than the settle window (a re-upload restarts it) - and only where
+PNGs are already removed for good: Empty recycle bin, the per-image delete,
+a permanent scoped delete and `clear` (the user's answer to question six).
+The bin itself never touches a mask. Every cell also checks its mask file as
+it begins and fails in words, the backstop for anything the sweep's rules
+miss.
+
+**What this pass leaves.** No `START_RECIPES` entry for an inpaint class, so
+the dialog has no "starts at N% noise" line; no mask outline over the
+source's thumbnail (the facts give the hash's first 16 digits); no
+`inpaint_measured` row or measured strength. FLUX.1, klein, Qwen-Image,
+outpainting, FLUX.1 Fill [dev] and the masked-area crop are later phases of
+the plan. Nothing about an inpaint's memory, time or pictures is known
+until the card measures it (`verified.md`).
+
 ## CellKey and run_id
 
-**Three things widen `CellKey`, and `run_id` survives each.** The key is
+**Four things widen `CellKey`, and `run_id` survives each.** The key is
 (prompt, negative, steps, CFG, mu, true CFG, references, LoRA, refine,
-seed), with `grid.reference_key` (ids in order), `grid.lora_key`
-(`name@weight`) and `grid.refine_key` (`id@strength`)
+mask, seed), with `grid.reference_key` (ids in order), `grid.lora_key`
+(`name@weight`), `grid.refine_key` (`id@strength`) and `grid.mask_key` (the
+hash, the inpaint's)
 spelled once and built from a request in `grid` and from columns in
 `storage.completed_cells`. `run_id` names a cell by the **shortest** key
 carrying all its non-None optional elements - it drops true CFG, references,
-LoRA and refine from the right while they are None - so a grid using none of
+LoRA, refine and mask from the right while they are None - so a grid using none of
 them is still named by the six-element key its images have carried since
-before any of them existed (pinned in `tests/test_conditioning.py`). A weight axis
+before any of them existed, and a refine run keeps the id it had before the
+mask existed (pinned in `tests/test_conditioning.py`). `duplicate_count`
+rewrites the refine element to its start index and keeps every element
+after it; it once assumed the seed followed refine directly, which would
+have counted two masks over one source as duplicates. A weight axis
 with no adapter selected is not an axis: `applied()` puts `lora_scale` back
 to 1.0 where `lora` is None, or two cells that differ on a number no pixel
 depends on would split the resume key, and `_sampling_values` returns the
