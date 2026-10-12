@@ -538,7 +538,7 @@ def test_a_batch_that_multiplies_past_the_budget_is_refused(client):
         "/api/generate", json={"prompt": "x", "width": 2048, "height": 2048, "num_images": 8}
     )
     assert response.status_code == 422
-    assert "Runs" in response.json()["detail"]
+    assert "use Repeat instead of Batch" in response.json()["detail"]
     # 3:4 is the largest nominal-1-MP preset. The old two-at-4-MP default
     # rejected eight of these by 75,776 pixels even though Batch permits eight.
     assert client.post(
