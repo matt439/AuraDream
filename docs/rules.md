@@ -2572,11 +2572,12 @@ Frontend and CLI:
   `#gallery-error` is the first item of the gallery head's last row
   (`.gallery-footer`, a full-width flex item inside `.gallery-head`, styled
   in gallery.css with the footer's buttons; bundles.css holds only
-  Bundles…), taking what the buttons leave, and its line is kept while it is empty
-  (`#gallery-error[hidden]` is `visibility: hidden`, not `display: none`), so
-  a message never moves the grid under the pointer. It is one line whatever
-  the message (`white-space: nowrap` with an ellipsis): a long one is cut,
-  and `showError` makes the whole text the title of a `.one-line` slot.
+  Bundles…), taking what the buttons leave, and its line is kept while it
+  is empty (`#gallery-error[hidden]` is `visibility: hidden`, not
+  `display: none`), so a message never moves the grid under the pointer.
+  It is one line whatever the message (`white-space: nowrap` with an
+  ellipsis): a long one is cut, and `showError` makes the whole text the
+  title of a `.one-line` slot.
   Nothing in the footer row it shares may let it wrap.
 - Profile defaults apply per control (`owned`); an empty Steps or CFG box is
   sent absent and 0 is a valid CFG. The panel persists to `localStorage`
@@ -2924,9 +2925,10 @@ Frontend and CLI:
   the CFG value directly below, or above for the lowest; Against picks
   another (the comparison on, or turned on). Against is drawn as the small
   buttons above it (lightbox.css), and ← → on it are the select's own:
-  app.js's keydown returns before walking when the target is a SELECT. The lower CFG is always on the
-  left (or the upper half): where the image in view has the lower CFG
-  (`lbSwapped`) `layoutLightbox` puts it in the first port and
+  app.js's keydown returns before walking when the target is a SELECT.
+  The lower CFG is always on the left (or the upper half): where the image
+  in view has the lower CFG (`lbSwapped`) `layoutLightbox` puts it in the
+  first port and
   `layoutCompare` cuts the partner's layer to the right of the divider and
   places it in the second port, the tags following; the divider's
   `aria-label` is "Divider: CFG a left of it, CFG b right" and its
@@ -4803,7 +4805,8 @@ side's halves inside them, circles below fit with the double-click beside
 the picture giving fit back, and a double-click beside a below-fit image
 giving fit back; at 800x900 no keys line; a wheel burst said once from the
 hidden `#lb-zoom-said`, a keyed zoom at once, and F rewriting neither the
-zoom nor the counter; at 600x900 the facts taking a square picture's
+zoom nor the counter; at 600x900 the counter ending a gap before Close,
+clear of its focus ring, and the facts taking a square picture's
 letterbox (every row in view) while a portrait picture keeps the six-line
 scroller, and is fitted again, whole, once Use seed's line takes a row
 from the stage; Side by side titled stacked before the press; side by
@@ -4828,8 +4831,10 @@ values at these steps only; S on against the value below (tags, the
 divider's `aria-label` and `aria-valuetext`, the note, the partner's alt,
 Compare CFG and Star where they were); → stepping with divider, mode and
 1:1 kept; at the top the arrow and the held Higher CFG saying why; Against
-swapping the partner; Lower CFG; side by side with the lower CFG left;
-Shift+→ on the divider; S on the divider handing focus to Compare CFG; the
+swapping the partner, drawn at the small buttons' height, type and border,
+and ← → on it changing the partner with the image and focus kept; Lower
+CFG; side by side with the lower CFG left; Shift+→ on the divider; S on
+the divider handing focus to Compare CFG; the
 lowest value in view on the left, its partner cut to the right of the
 divider and in the right half; two separate Generates pairing and a 20-step
 one left out; an image with no other value held with the reason (S and a
@@ -4941,8 +4946,11 @@ clearing, then leaving select mode, then left to the page; Select off
 keeping a selection that a click no longer changes; Clear handing focus to
 Select; on a sheet Select held with its reason, not pressed and with no
 hint, and the selection kept and counted; a refused pick leaving the anchor;
-`selectedRecords()` giving the loaded page's records after a search; a
-rejected search counting the whole selection as not shown; and a long
+`selectedRecords()` giving the loaded page's records after a search; the
+gallery line as the footer's `1 1 auto` item with no margin of its own,
+the footer full width at -8 px (a layout pin: it passes on the CSS from
+before the footer moved to gallery.css too); a rejected search counting
+the whole selection as not shown; and a long
 message in the gallery's line beside a long count staying one line - the
 footer, Select and the grid unmoved, the text the title - at 1400, at 600
 and beside the viewer at 2560:
