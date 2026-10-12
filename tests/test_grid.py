@@ -200,6 +200,25 @@ def test_a_cell_outside_the_schema_is_refused_up_front():
         grid.expand(request(seed=1), steps="90-120x10")
 
 
+def test_a_value_past_the_schema_is_refused_under_its_box():
+    # The request's own bounds, read off the schema, said as the axis parser
+    # says the rest: the box's name and the value, never pydantic's field name.
+    for kwargs, message in (
+        ({"steps": "20-40x10, 150"}, "Steps: 150 is above 100, the most it takes"),
+        ({"cfg": "25"}, "CFG: 25 is above 20, the most it takes"),
+        ({"mu": "none, 12.5"}, "Mu: 12.5 is above 10, the most it takes"),
+    ):
+        with pytest.raises(ValueError) as exc:
+            grid.expand(request(seed=1), **kwargs)
+        assert str(exc.value) == message
+    with pytest.raises(ValueError, match="^LoRA weight: 3 is above 2, the most it takes$"):
+        grid.expand(request(seed=1, lora="style"), lora_scale="1, 3")
+    with pytest.raises(ValueError, match="^Seed list: 9223372036854775808 is above 9223372036854775807"):
+        grid.parse_seeds("4471, 9223372036854775808")
+    # In bounds, nothing changes.
+    assert grid.parse_seeds("0, 9223372036854775807") == [0, 9223372036854775807]
+
+
 def test_the_whole_grid_has_a_ceiling():
     with pytest.raises(ValueError, match="past the"):
         grid.expand(request(seed=1), steps="1-64", cfg="0-16", seeds=8)

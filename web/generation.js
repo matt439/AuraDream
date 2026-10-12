@@ -312,6 +312,15 @@ async function startJob(path, payload, {
   if (critiquing) { showError('Wait for the critic to finish.', false, { slot }); return; }
   // A re-render carries no prompt of its own - every cell brings its record's.
   if ('prompt' in payload && !payload.prompt) { showError('Enter a prompt first.'); return; }
+  // A double holds every integer only up to 2^53 - 1: a Seed typed past it -
+  // 9007199254740993, a 64-bit seed pasted from another tool - was sent as
+  // its rounded neighbour, which then ran and was recorded while the box
+  // still showed the seed typed. The server takes up to 2^63 - 1; the CLI
+  // sends those exactly.
+  if (Number.isInteger(payload.seed) && !Number.isSafeInteger(payload.seed)) {
+    showError(`Seeds above ${Number.MAX_SAFE_INTEGER} cannot be sent exactly from the browser; use a smaller seed, or the CLI.`, false, { slot });
+    return;
+  }
   // The control pressed, for a sheet the job opens at its end (finishJob).
   const asker = document.activeElement;
   showError('');

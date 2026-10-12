@@ -350,7 +350,7 @@ def test_mu_and_no_mu_are_exclusive(cli):
 def test_a_bad_axis_prints_one_line(cli, capsys):
     assert generate.main(["a fox", "--grid-steps", "90-120x10", *SIZE]) == 2
     err = capsys.readouterr().err.strip()
-    assert err.startswith("steps:") and "\n" not in err
+    assert err.startswith("Steps: 110 is above 100") and "\n" not in err
 
 
 def test_a_batch_past_the_budget_names_the_flag_to_use(cli, capsys):

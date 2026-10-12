@@ -123,6 +123,15 @@ function syncSize() {
 
   const mp = (w * h) / 1e6;
   const notes = [];
+  // The one note that refuses, so it comes first: a side off the 16 grid
+  // passed this line silently and was refused only at Generate. The schema
+  // says it in the same words ("width: 1000 is not a multiple of 16: …").
+  for (const side of new Set([w, h])) {
+    if (side > 0 && side % 16) {
+      const below = side - (side % 16);
+      notes.push(`${side} is not a multiple of 16: ${below} or ${below + 16}`);
+    }
+  }
   const namedAspect = match?.[0] || null;
   if (sizeAspects && !sizeMatchesGuideAspect(w, h, namedAspect)) {
     // A size typed in is held to the card's exact sizes; one in a framing

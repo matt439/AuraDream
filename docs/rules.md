@@ -684,7 +684,9 @@ Reproduction:
 
 - Seeds are drawn from `2**53 - 1` and wrapped at `2**63 - 1`; both live in
   `seeds.py`. One generator per image, seeded `seed + i`; runs take base
-  `seed + i * num_images`.
+  `seed + i * num_images`. The page refuses a typed seed past
+  `Number.MAX_SAFE_INTEGER` (`startJob`; the Seed box's `max`), which a
+  double cannot send exactly; the CLI takes the schema's whole range.
 - `grid.expand()` is the one cell loop for the CLI and `/api/grid`;
   `jobs.submit()` keeps its inline copy of the seed loop deliberately, asserted
   equal to the CLI's in `tests/test_cli.py`.
@@ -1795,8 +1797,10 @@ Frontend and CLI:
   holds the order; smoke-narrow holds a real batch's whole progress in the
   window at 1400x900, 1920x947 and 2048x1040@1.25, and Generate unmoved as
   Batch and Repeat change.
-- The size line compares the request against `guide.pixels` a tenth either
-  way and quotes `pixels_word`. An `example` span reads "above/below the N
+- The size line leads with a side off the 16 grid, in the warning colour,
+  naming its two neighbours ("1000 is not a multiple of 16: 992 or 1008",
+  the schema's own words at Generate). It compares the request against
+  `guide.pixels` a tenth either way and quotes `pixels_word`. An `example` span reads "above/below the N
   MP of <pixels_source>", never what the checkpoint is "for", and its
   in-range presets' titles read "within the span of <pixels_source>", or
   "about the size of <pixels_source>" where the span is one size. `fmtMp`
@@ -1844,7 +1848,12 @@ Frontend and CLI:
   writes nothing. `guide.example_notes` maps prompt text to an editing note,
   displayed alongside an author scene excerpt and never inserted into the
   prompt. Every catalogue guide has a substantive scene example; quality
-  recipes remain in Tags. Preserve author wording and label excerpts.
+  recipes remain in Tags. Preserve author wording and label excerpts. An
+  example drawing any finding about its own words (every rule, notes
+  included; not the negative box, references or slots, which the menu says
+  itself) has a note naming the gap ("Author sample: under 30-80 words"),
+  held by `test_the_authors_examples_draw_no_finding_unnoted`; never edit
+  the example to pass.
 - Prompt expansion is ERNIE-only and explicit. `syncExpandButton` is
   Expand's one writer: it is held while it runs (reading "Expand…", never
   the wider "Expanding…"), during this page's job or another tab's
@@ -2237,7 +2246,9 @@ Frontend and CLI:
   preview after the fold is opened by hand reveals Run grid again
   (`gridRevealPending`, set by the summary's click), since its reply lands
   under the pointer where the panel holds still. Axis messages lead with the
-  box's name (`Steps`, `CFG`, `Mu`, `LoRA weight`, `Strength`, `Seed list`);
+  box's name (`Steps`, `CFG`, `Mu`, `LoRA weight`, `Strength`, `Seed list`),
+  a value past the request's own bounds included (`grid._within`, read off
+  `GenerateRequest`: "CFG: 25 is above 20, the most it takes");
   `parse_axis` closes up a spaced range between two numbers, leaving a lone
   `-` as Mu's none, and refuses a stepless range that would stop at its
   first value (`0.8-1.2` needs a step). The grid's Steps and CFG
@@ -4028,8 +4039,10 @@ for the True CFG box, the "CFG (distilled)" labels, with the sampling row's
 names whole, Mu's auto unclipped and each of the row's ? tips wrapping
 inside its box and the window, the lightbox's Sampling ("True CFG 1.5 · no
 Mu") and Negative rows, an Example's Undo note in the panel's flow while
-the negative is greyed and over its caption while it is live, and the size
-line's exact 1.64 MP bound, and
+the negative is greyed and over its caption while it is live, the size
+line's exact 1.64 MP bound, a typed side off the 16 grid named there with
+its neighbours and refused at Generate in the same words, the hello-world
+Example's note, and a Seed past 2^53 - 1 refused with no request sent, and
 `smoke-preview.json` against one slowed to `--step 0.3` on 7863 for the live
 preview, the tab's title and the topbar line during the job, and the
 finished title and the finish line's seed after it. `smoke-ernie.json` runs
@@ -4529,7 +4542,8 @@ node tools/browser.mjs tools/smoke-narrow.json
 two direct renders back to back, each awaited to its end with one stream and
 one tile; the resolved prompt and the one-value warning (commas named); Run grid as
 wide as Generate; the totals at body size with factors of one trimmed; a
-spaced range, `6..12` and an axis message naming its box; Resume's refusal
+spaced range, `6..12` and an axis message naming its box, a value past the
+schema's bounds included (CFG 25, Steps 150); Resume's refusal
 without pydantic's prefix; Repeat above one; the budget line, including 0
 seeds, the jobs ahead, and the load note following a real unload and load
 with no box touched; the cells already in the gallery once a grid ends,

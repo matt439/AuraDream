@@ -18,7 +18,9 @@ sizes" on WAI, one author and a floor that is no example). `aspects` and
 presets that are its framings and recognise its exact sizes typed in. And
 `examples` are the
 authors' own prompts, verbatim, for the Examples menu; an `example_notes`
-entry labels a contiguous excerpt where the full prompt cannot run here.
+entry labels a contiguous excerpt where the full prompt cannot run here, or
+says where an example parts from its own guide's advice (one too short, a
+sign's text unquoted), so the menu says so before Check does.
 Every sentence is
 sourced from the model card, README, prompting guide or report, never
 invented; docs/design-notes.md ("The prompting guide") keeps the URLs.
@@ -67,12 +69,23 @@ _FLUX1_EXAMPLES = [
     "At high noon on a blustery day, capture the surreal presence of a sentient "
     "tree, seemingly rooted underwater just off a tumultuous ocean shore",
 ]
+# BFL's samples are shorter than the 30-80 words its building page suggests,
+# and its hello-world sign leaves the text unquoted. The examples stay as
+# written; the menu says beside each where it parts from the guide's advice,
+# so a Check of one is not the first news (`example_notes`, held by
+# `test_the_authors_examples_draw_no_finding_unnoted`).
+_SHORT = "Author sample: under 30-80 words"
+_SHORT_SIGN = "Author sample: under 30-80 words, its sign's text unquoted"
 FLUX1_GUIDE = {
     "prompt": _FLUX1_PROMPT,
     "size": _FLUX1_SIZE,
     "pixels": (0.1, 2.0),
     "pixels_word": "documented",
     "examples": _FLUX1_EXAMPLES,
+    "example_notes": {
+        _FLUX1_EXAMPLES[0]: _SHORT_SIGN,
+        **{prompt: _SHORT for prompt in _FLUX1_EXAMPLES[1:]},
+    },
     # The prose once ended "English is the most precise language"; BFL's
     # current basics page says FLUX answers other languages "with the same
     # level of quality", so it is gone from the prose, not only unchecked.
@@ -129,6 +142,16 @@ KREA_DEV_GUIDE = {
         "Photo of two people having a tea party in a lush garden",
         "A frog holding a sign that says hello world",
     ],
+    "example_notes": {
+        "Moody night photography, a small store with an orange glowing sign that "
+        "says 'Black Forest Labs'": _SHORT,
+        "White owl, close up portrait, mysterious ghost like owl, low contrast, "
+        "cinematic dark moody photo, slight blue color grading": (
+            "Author sample: a tag list, under 30-80 words"
+        ),
+        "Photo of two people having a tea party in a lush garden": _SHORT,
+        "A frog holding a sign that says hello world": _SHORT_SIGN,
+    },
     # Krea publishes no prompting rules of its own - its README is settings,
     # its posts say "opinionated" - so every entry is the FLUX.1 family's,
     # sourced to BFL. The camera sentence is BFL's building page ("Use these
@@ -163,6 +186,8 @@ SCHNELL_GUIDE = {
     "pixels": (0.1, 2.0),
     "pixels_word": "documented",
     "examples": _FLUX1_EXAMPLES,
+    # No word count here (below), so only the sign's text parts from it.
+    "example_notes": {_FLUX1_EXAMPLES[0]: "Author sample: its sign's text unquoted"},
     # No word limit: the "about 180 words" rests on a 256-token T5 limit this
     # app does not apply (FluxPipeline encodes 512 unless told otherwise), and
     # the encoder report measures the real one. The prose says so, and the
@@ -207,6 +232,15 @@ KLEIN_GUIDE = {
         "jungle, close up photo",
         "Turn this cat into a dog",
     ],
+    # The menu says "needs a reference image" beside the last itself.
+    "example_notes": {
+        "A cat holding a sign that says hello world": _SHORT_SIGN,
+        "An Entry of a Sushi Restaurant, The text 'OPEN' appears in red neon "
+        "letters above the door": _SHORT,
+        "Soaking wet tiger cub taking shelter under a banana leaf in the rainy "
+        "jungle, close up photo": _SHORT,
+        "Turn this cat into a dog": _SHORT,
+    },
     "analysis": {
         "url": _BFL_FLUX2,
         # JSON is the guide's own alternative to sentences, not a tag list.
@@ -339,6 +373,16 @@ QWEN_IMAGE_GUIDE = {
         "a red fox sitting in fresh snow, golden hour, photorealistic, Ultra HD, "
         "4K, cinematic composition.",
     ],
+    "example_notes": {
+        "Bookstore window display. A sign displays \"New Arrivals This Week\". "
+        "Below, a shelf tag with the text \"Best-Selling Novels Here\". To the "
+        "side, a colorful poster advertises \"Author Meet And Greet on Saturday\" "
+        "with a central portrait of the author. There are four books on the "
+        "bookshelf, namely \"The light between worlds\" \"When stars are "
+        "scattered\" \"The slient patient\" \"The night circus\"": (
+            "Author sample: without the positive magic"
+        ),
+    },
     "analysis": {
         "url": "https://github.com/QwenLM/Qwen-Image",
         "style": {"expects": "prose", "cite": "A dense, caption-like description."},
@@ -707,6 +751,14 @@ KOHAKU_GUIDE = {
         "solo, leaning forward, sky,\n"
         "masterpiece, absurdres, sensitive, newest",
     ],
+    "example_notes": {
+        "1girl, king halo (umamusume), umamusume,\n"
+        "ningen mame, ciloranko, ogipote, misu kasumi,\n"
+        "solo, leaning forward, sky,\n"
+        "masterpiece, absurdres, sensitive, newest": (
+            "Author sample: its rating before its date, against the card's order"
+        ),
+    },
     "tag_helper": {
         "order": [
             "Person count",
@@ -846,6 +898,16 @@ ILLUSTRIOUS_GUIDE = {
         "analogous colors, scenery, forest, masterpiece, black theme, dark, "
         "no lighting, night, black background",
     ],
+    # The report's and the post's own prompts put masterpiece mid-list.
+    "example_notes": {
+        "1boy, doctor, masterpiece, looking at viewer": (
+            "Author sample: masterpiece ahead of general tags, against the training order"
+        ),
+        "analogous colors, scenery, forest, masterpiece, black theme, dark, "
+        "no lighting, night, black background": (
+            "Author sample: masterpiece ahead of general tags, against the training order"
+        ),
+    },
     "tag_helper": {
         "order": [
             "Person count",

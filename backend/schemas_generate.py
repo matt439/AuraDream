@@ -197,8 +197,15 @@ class GenerateRequest(BaseModel):
     @classmethod
     def _multiple_of_16(cls, v: int) -> int:
         # The VAE downsamples by 16; off-grid sizes get silently rounded anyway.
+        # Said with the value and its two neighbours, as the panel's size line
+        # says it (sizes.js) - a custom error, so pydantic adds no "Value error, ".
         if v % 16:
-            raise ValueError("width/height must be a multiple of 16")
+            below = v - v % 16
+            raise PydanticCustomError(
+                "multiple_of_16",
+                "{value} is not a multiple of 16: {below} or {above}",
+                {"value": v, "below": below, "above": below + 16},
+            )
         return v
 
     def check_budget(self, *, grid: bool | None = None, cli: bool = False) -> None:

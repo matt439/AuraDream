@@ -601,7 +601,9 @@ def test_a_grid_out_of_the_schemas_range_names_the_field(client):
         json={"prompt": "x", "width": 256, "height": 256, "steps_axis": "90-120x10"},
     )
     assert response.status_code == 422
-    assert "steps" in response.json()["detail"]
+    # Under the box's name, quoting the value - not pydantic's "steps: Input
+    # should be less than or equal to 100".
+    assert response.json()["detail"] == "Steps: 110 is above 100, the most it takes"
 
 
 def test_runs_are_not_a_grid_axis(client):
@@ -965,6 +967,15 @@ def test_a_bad_gallery_filter_is_a_422(client):
     response = client.get("/api/gallery?search=seed:tuesday")
     assert response.status_code == 422
     assert "not a number" in response.json()["detail"]
+
+
+def test_a_side_off_the_16_grid_is_refused_with_its_neighbours(client):
+    # The size line's words: the value and the two sizes either side, which
+    # the page reads as "width: 1000 is not…" (readableDetail).
+    response = client.post("/api/generate", json={"prompt": "x", "width": 1000, "height": 1024})
+    assert response.status_code == 422
+    [error] = response.json()["detail"]
+    assert (error["loc"][-1], error["msg"]) == ("width", "1000 is not a multiple of 16: 992 or 1008")
 
 
 def test_the_pixel_budget_is_enforced(client):

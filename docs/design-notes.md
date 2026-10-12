@@ -1765,6 +1765,15 @@ bound, so a hand-entered `2**60` is still itself. Both live in
 `backend/seeds.py` because the draw, the per-image offset and the generator
 must not drift apart.
 
+That holds from the CLI. The page holds a seed as a JavaScript number, so a
+Seed typed past `2**53 - 1` - 9007199254740993, or a 64-bit seed pasted from
+another tool - was sent as its rounded neighbour, which ran and was
+recorded while the box still showed the one typed (2026-10-12 review, R24).
+`startJob` now refuses an integer seed that is not `Number.isSafeInteger`
+("use a smaller seed, or the CLI"), and the Seed box's `max` is that bound.
+The refusal is the smaller change: the rest of the page holds seeds as
+numbers, so sending the box as a string would fix one path of many.
+
 ## One generator per image
 
 A batch gets **one generator per image**, seeded `seed + i`. diffusers draws
@@ -2429,6 +2438,16 @@ so a range its ones never sweep is asked for its step (`needs a step, e.g.
 0.8-1.2x0.1`), typed with the spaces or without. A `-` with no number on
 both sides is still Mu's none, and `6..12` or `6 to 12` is answered with the
 syntax this one uses.
+
+A value past the request's own bounds is refused the same way, by the box
+and with the value: "CFG: 25 is above 20, the most it takes" (`grid._within`,
+reading the bounds off `GenerateRequest`'s fields, so they cannot drift).
+It used to reach pydantic when the cells were built and read
+"guidance_scale: Input should be less than or equal to 20" - the field's
+name under a box labelled "CFG (distilled)", and no value (2026-10-12
+review, R26). The panel's size line says a side off the 16 grid the same
+way before Generate does ("1000 is not a multiple of 16: 992 or 1008"), and
+the schema's refusal is now those words too.
 
 ## Resume keys on settings
 
@@ -7729,6 +7748,20 @@ status. The Examples menu displays it beside the text and never inserts the
 note into the editor. Keying by text keeps a note attached when examples are
 reordered. The catalogue regression rejects quality-only examples and a menu
 containing only fill-in templates. Existing author-rule checks still apply.
+
+**An example that parts from its own guide says so** (2026-10-12 review,
+R27). Every rule over every example found the authors' own samples drawing
+the check's notes: all four FLUX.1 Krea [dev] examples under the 30-80 words
+the tip above the menu asks for, BFL's hello-world sign unquoted on eight
+checkpoints, Illustrious's and Kohaku's prompts out of their documented
+order, Qwen-Image's bookstore without its positive magic. A user who picked
+one and pressed Check was told the authors' sample was wrong. The examples
+stay verbatim; an `example_notes` entry says the gap beside each ("Author
+sample: under 30-80 words, its sign's text unquoted"), and
+`test_the_authors_examples_draw_no_finding_unnoted` runs every rule over
+every example and fails on a finding about the example's words that no note
+covers. Findings about something else - the negative box, the references, a
+template's slots - are left out: the menu says the last two itself.
 
 Sources checked 2026-10-07; token counts include special tokens in **both**
 of each SDXL checkpoint's actual CLIP tokenizers, loaded on CPU:
