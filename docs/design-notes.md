@@ -2167,7 +2167,12 @@ read 9.6 GB of the 16 as read off the card; it is 12 now, which the same
 reading puts at roughly 13 GB on that checkpoint. A heavier checkpoint at
 Batch 12 is the user's call, as it was at 8: the ceiling was never a VRAM
 model. Large batches are still refused, and a machine with different headroom
-can set `LOCAL_DIFFUSION_MAX_BATCH_PIXELS` explicitly. A refine pass is
+can set `LOCAL_DIFFUSION_MAX_BATCH_PIXELS` explicitly. The refusal says what
+to do instead where the request came from (`check_budget`): "use Repeat
+instead of Batch" from the panel, "lower Batch" on a grid, which refuses a
+repeat (its seeds are its runs), and `--runs`/`--batch` from the CLI. It said
+"use Runs" until 2026-10-12, a control the panel calls Repeat and the
+gallery's run picker is named after (2026-10-12 review, R25). A refine pass is
 outside it: it makes one pipeline call per image, so its batch never holds
 more than one image at once ("A pass has a size guard of its own").
 

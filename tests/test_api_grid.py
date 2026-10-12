@@ -974,6 +974,18 @@ def test_the_pixel_budget_is_enforced(client):
     assert response.status_code == 422
 
 
+def test_the_batch_budget_says_what_each_press_can_do_instead(client):
+    # Generate's answer points at the panel's Repeat; a grid refuses a
+    # repeat, so its preview and Run grid say lower Batch.
+    big = {"prompt": "x", "width": 1440, "height": 1440, "num_images": 12}
+    detail = client.post("/api/generate", json=big).json()["detail"]
+    assert "use Repeat instead of Batch" in detail
+    for path in ("/api/grid/preview", "/api/grid"):
+        response = client.post(path, json=big)
+        assert response.status_code == 422
+        assert response.json()["detail"].endswith("lower Batch: a grid runs its seeds one batch at a time")
+
+
 def test_a_resume_counts_a_binned_cell_as_made_until_the_bin_is_emptied(client, fake):
     # A binned cell is a render rejected, not one the night never reached:
     # Resume leaves it, and only an emptied bin makes it a hole again.

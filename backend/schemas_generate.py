@@ -201,7 +201,15 @@ class GenerateRequest(BaseModel):
             raise ValueError("width/height must be a multiple of 16")
         return v
 
-    def check_budget(self) -> None:
+    def check_budget(self, *, grid: bool | None = None, cli: bool = False) -> None:
+        """Refuse a size or a batch past the pixel budgets.
+
+        The batch refusal names what to do instead in the words of where the
+        request came from: the panel's Repeat (`runs`, the CLI's `--runs`), or
+        on a grid, which takes no repeat - its seeds are its runs - a lower
+        Batch. `grid` defaults to whether this is a `GridRequest`; the CLI,
+        whose grid is a plain request with axes, says so itself.
+        """
         if self.refine is not None:
             if self.width * self.height > settings.refine_max_pixels:
                 raise ValueError(
@@ -219,10 +227,16 @@ class GenerateRequest(BaseModel):
         # The batch is held in VRAM as one forward pass, so it multiplies the
         # pixels the way the per-image budget was meant to bound.
         if self.width * self.height * self.num_images > settings.max_batch_pixels:
+            if grid is None:
+                grid = isinstance(self, GridRequest)
+            batch, repeat = ("--batch", "--runs") if cli else ("Batch", "Repeat")
+            advice = (
+                f"lower {batch}: a grid runs its seeds one batch at a time" if grid
+                else f"use {repeat} instead of {batch}, which costs one image's VRAM at a time"
+            )
             raise ValueError(
                 f"{self.num_images} x {self.width}x{self.height} in one batch exceeds the "
-                f"{settings.max_batch_pixels:,} pixel budget; use Runs instead of Batch, "
-                "which costs one image's VRAM at a time"
+                f"{settings.max_batch_pixels:,} pixel budget; {advice}"
             )
 
     def applied(
