@@ -307,7 +307,7 @@ Gotchas:
 - Each run gets its own browser profile directory; a shared one stays locked
   by a crashed Edge.
 - Fake-server knobs: `POST /api/fake/load`, `/api/fake/step`,
-  `/api/fake/expand`; a prompt containing `[fail]` fails its cell;
+  `/api/fake/expand`, `/api/fake/lora`; a prompt containing `[fail]` fails its cell;
   `--critic-delay`, `--no-critic`.
 
 GPU behaviour, pixels, timing and memory are the card's to say, recorded in

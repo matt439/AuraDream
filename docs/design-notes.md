@@ -970,7 +970,28 @@ reference, marked as a failed picture marks it. The refusal then says what
 happened in the page's words - "Nothing was queued: reference #5 has been
 deleted, so it was taken out of the references. Generate again to run without
 it." ("Run the grid again", "Run the comparison again" after those) - so one
-more press is enough.
+more press is enough. A reference binned in another tab (2026-10-12) was
+refused with "reference image 4 is in the recycle bin; restore it to use
+it", which the page did not read: the chip stayed, every press was refused,
+and with references [6, 4, 5] "reference image 4" named the gallery id where
+the chips' "image 4" would be a fourth chip. The page reads that form too and
+says "has been moved to the recycle bin" in its #N.
+
+**A gone adapter leaves LoRA** (2026-10-12). The adapter list is read on the
+first status and at a load, so a file renamed or removed while the page was
+open stayed selectable, and every Generate was refused with `loras.path_for`'s
+sentence - the directory's full path and the variable that moves it, which
+is for whoever runs the server, not for the page. A refusal naming the chosen
+adapter now reads the list again (`dropRefusedLora`, `dropRefineLora` for the
+Refine dialog, whose carried adapter has no control: it could not run the
+pass at all until a reload), drops a name no longer offered and says so. It
+keys on the list, not on the server's wording: the list is what decides
+whether the next press can run, and an adapter refused for something else
+keeps its sentence. A pass whose adapter goes while a press waits on its
+preview runs nothing at that press - it would have been a different pass
+from the one asked for, and the record would be honest about it but the
+press not. Re-reading the list on focus would also pick up files dropped in,
+but would rebuild the options under an opening select; not done.
 
 **Bringing in a picture of one's own is not built.** The review's U61 is
 titled for it: klein's main use is editing an outside photo, and references
@@ -1303,7 +1324,11 @@ any image that has gone - "#28 has been deleted, so it cannot be refined."
 (`refineSourceGone`: the preview's refusal, Refine's title and the submit's),
 with the source line ending "#28 (deleted)" - since the server's "no gallery
 image with id 28", under a dialog still titled Refine #28 over its picture,
-read as a setting gone wrong.
+read as a setting gone wrong. A source binned elsewhere (2026-10-12) was
+refused as "source image 28 is in the recycle bin; restore it to use it",
+which the dialog showed as it came; it reads "#28 is in the recycle bin;
+restore it to refine it." now, bin.js's sentence, the line ending "#28 (in
+the recycle bin)".
 
 **A source deleted while its pass runs** (2026-10-05). A cell reads its
 source as it begins, so a delete during the cell does not stop it: the pass

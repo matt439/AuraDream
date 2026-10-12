@@ -428,17 +428,29 @@ async function startJob(path, payload, {
     showError(err.message, false, { slot });
     if (!queueing) setBusy(false);
     await dropRefusedReferences(err, path, payload, slot);
+    // The Refine dialog's adapter is its own (dropRefineLora).
+    if (slot !== els.refineError) await dropRefusedLora(err, path, payload, slot);
     onRefused?.(err);
   }
 }
 
+// What a refusal that took something out of the panel asks for next, named
+// as what was pressed: the comparison's Run sends a grid of its versions.
+function pressAgain(path, payload) {
+  return payload.prompt_variants?.length ? 'Run the comparison again'
+    : path === '/api/grid' ? 'Run the grid again' : 'Generate again';
+}
+
 // A submission refused for a reference the gallery no longer has - deleted
-// in another tab, where nothing here had marked it, or before a reload - is
-// refused at every press until the chip goes: so it goes, by forgetImages,
-// once the server says the image is unknown (dropGoneReferences), and the
-// refusal says so in the page's words. One more press is then enough.
+// or binned in another tab, where nothing here had marked it, or before a
+// reload - is refused at every press until the chip goes: so it goes, by
+// forgetImages, once the server says the image is unknown
+// (dropGoneReferences), and the refusal says so in the page's words. One
+// more press is then enough. The server names a binned one "reference image
+// N", N the gallery id, not the chip's number: said as "#N" here.
 async function dropRefusedReferences(err, path, payload, slot) {
-  const named = /^no gallery image with id ([\d, ]+)$/.exec(err.message);
+  const named = /^no gallery image with id ([\d, ]+)$/.exec(err.message)
+    ?? /^reference image ([\d, ]+) (?:is|are) in the recycle bin; /.exec(err.message);
   if (!named) return;
   const ids = named[1].split(',').map((id) => +id.trim()).filter((id) => payload.reference?.includes(id));
   const found = await dropGoneReferences(ids);
@@ -448,14 +460,33 @@ async function dropRefusedReferences(err, path, payload, slot) {
   // Unless something else has been said there meanwhile.
   if (slot.textContent !== err.message) return;
   const one = dead.length === 1;
-  // The comparison's Run sends a grid of its versions: named as what was pressed.
-  const again = payload.prompt_variants?.length ? 'Run the comparison again'
-    : path === '/api/grid' ? 'Run the grid again' : 'Generate again';
   // Binned meanwhile, every one of them: in the recycle bin, not deleted.
   const went = found.binned.length === dead.length ? 'been moved to the recycle bin' : 'been deleted';
   showError(`Nothing was queued: reference ${imageNames(dead)} ${one ? 'has' : 'have'} ${went}, `
-    + `so ${one ? 'it was' : 'they were'} taken out of the references. ${again} to run without ${one ? 'it' : 'them'}.`,
+    + `so ${one ? 'it was' : 'they were'} taken out of the references. ${pressAgain(path, payload)} to run without ${one ? 'it' : 'them'}.`,
   false, { slot });
+}
+
+// The same for the panel's adapter: a file renamed or removed while the page
+// was open stayed in LoRA, and every press was refused with the server's
+// sentence for a developer (the directory's full path, the variable that
+// moves it). A refusal that names the chosen adapter reads the list again
+// (refreshLoras), which drops a name no longer offered; then the refusal
+// says so. One the list still offers was refused for something else, and
+// its sentence stands.
+async function dropRefusedLora(err, path, payload, slot) {
+  const name = payload.lora;
+  if (!name || name !== els.lora.value || !err.message.includes(name)) return;
+  const body = await refreshLoras();
+  if (!body || els.lora.value === name) return;
+  persistPanel();
+  // Unless something else has been said there meanwhile.
+  if (slot.textContent !== err.message) return;
+  // Still in the directory, for another checkpoint: the tip says why.
+  const why = (body.loras ?? []).some((e) => e.name === name)
+    ? 'no longer fits this checkpoint (the LoRA tip says why)' : 'is no longer in the LoRA folder';
+  showError(`Nothing was queued: ${name} ${why}, so it was taken out of LoRA. `
+    + `${pressAgain(path, payload)} to run without it.`, false, { slot });
 }
 
 // Generate takes the prompt as typed, braces and all - a `{tag}` can be text or
