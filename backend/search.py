@@ -39,6 +39,12 @@ FILTERS: dict[str, tuple[str, Any]] = {
     # direct renders - and by how far it was re-denoised.
     "refine": ("refine", int),
     "strength": ("strength", float),
+    # An inpaint by its mask's hash - a substring, so the 16 digits the A1111
+    # line prints find it - and `mask:none` everything that is no inpaint.
+    "mask": ("mask", str),
+    # Handled by inpaint_clause: `inpaint:yes` / `inpaint:no`, the passes
+    # that had a mask and the ones that did not, without a hash to type.
+    "inpaint": ("mask", None),
     "job": ("job_id", str),
     "run": ("run_id", str),
     # Every image with these pixels - a substring, so a prefix of one is enough.
@@ -53,7 +59,7 @@ COMPARISONS = ("<=", ">=", "<", ">")
 NULL_TOKENS = {"none", "null", "off"}
 # Text keys whose `none` is NULL rather than a substring: `quant:none` is a
 # stored mode (an unquantised load), so only `lora` reads it as "without".
-NULLABLE_TEXT = {"lora"}
+NULLABLE_TEXT = {"lora", "mask"}
 # SQLite's INTEGER: a number past it raises OverflowError at the query, not
 # ValueError, and the routes answered 500.
 SQLITE_INT = (-(2**63), 2**63 - 1)
@@ -96,6 +102,18 @@ def size_clause(raw: str) -> tuple[str, list]:
     return "(width = ? AND height = ?)", [_in_range("size", raw, int(width)), _in_range("size", raw, int(height))]
 
 
+def inpaint_clause(raw: str) -> tuple[str, list]:
+    """`inpaint:yes` (or `true`, `1`) and `inpaint:no` (`false`, `0`, `none`):
+    a mask on the row or none. The mask is only ever set beside a source, so
+    `inpaint:no refine:>0` is the plain refine passes."""
+    lowered = raw.lower()
+    if lowered in {"yes", "true", "1"}:
+        return "mask IS NOT NULL", []
+    if lowered in {"no", "false", "0"} or lowered in NULL_TOKENS:
+        return "mask IS NULL", []
+    raise ValueError(f"inpaint: {raw!r} is not yes or no")
+
+
 def filter_clause(key: str, raw: str) -> tuple[str, list]:
     """One `key:value` term as SQL. Raises ValueError on a value that is not one.
 
@@ -110,6 +128,8 @@ def filter_clause(key: str, raw: str) -> tuple[str, list]:
         return date_clause(raw)
     if key == "size":
         return size_clause(raw)
+    if key == "inpaint":
+        return inpaint_clause(raw)
     column, cast = FILTERS[key]
     if cast is str:
         # `model:=<id>` is the whole id, exactly - the gallery's own checkpoint

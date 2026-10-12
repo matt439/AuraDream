@@ -82,9 +82,10 @@ class GenerationBackend(abc.ABC):
         Required keys, which `main.status()` indexes directly: `model_id`,
         `quantization`, `offload`. Optional, merged when present:
         `cfg_threshold`, `negative_prompt_supported`, `true_cfg_supported`,
-        `reference_supported` and `refine_supported` (None until a pipeline is
-        loaded - its parameter list, or for a refine pass its class, is the
-        answer), `lora_supported` (never None: what decides it is
+        `reference_supported`, `refine_supported` and `inpaint_supported` (None
+        until a pipeline is loaded - its parameter list, or for a refine pass
+        or an inpaint its class, is the answer), `inpaint_strength` (the
+        inpaint class's own strength default, the library's), `lora_supported` (never None: what decides it is
         the installation, not the checkpoint), `device_name`, `vram_total_mb`,
         `vram_used_mb`. Load errors are *not*
         reported here:
@@ -116,6 +117,11 @@ class GenerationBackend(abc.ABC):
         Normalization must not turn an accepted refine job into direct renders.
         """
         if request.refine is not None and self.applied(request).refine != request.refine:
+            if request.mask is not None:
+                raise ValueError(
+                    f"{self.describe()['model_id']} has no inpaint in this app; the loaded "
+                    "pipeline has no inpaint class, or its family is not enabled yet"
+                )
             raise ValueError(
                 f"{self.describe()['model_id']} has no refine pass in this app; "
                 "the loaded pipeline has no compatible image-to-image counterpart"

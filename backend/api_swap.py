@@ -101,13 +101,14 @@ async def swap_plan(
         except ValueError as exc:
             result.status, result.detail = "invalid", error_detail(exc)
             continue
-        spec = (cell.request.lora, tuple(cell.request.reference), cell.request.refine)
-        if spec != (None, (), None):
+        spec = (cell.request.lora, tuple(cell.request.reference), cell.request.refine, cell.request.mask)
+        if spec != (None, (), None, None):
             if spec not in checked:
                 checked[spec] = await submission.unusable_input(services, cell.request)
             if checked[spec] is not None:
                 kind, why = checked[spec]
-                result.status, result.detail = submission.UNUSABLE_STATUS.get(kind, "invalid"), why
+                result.status = submission.UNUSABLE_STATUS.get(kind, "invalid")
+                result.detail = submission.unusable_detail(kind, why, record.id)
                 continue
         ran = grid.Cell(request=services.backend().applied(cell.request), seed=cell.seed)
         key = (tuple(grid.cell_keys(ran)), cell.request.width, cell.request.height)

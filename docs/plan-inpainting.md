@@ -1,7 +1,46 @@
 # Plan: inpainting and regional edit
 
+**Status, 2026-10-13: phases 1 and 2 are built** on `feat-inpainting`, for
+the six SDXL checkpoints and Z-Image Turbo, Z-Image and Z-Anime; phase 0
+was not run, and nothing has been measured on the card (`docs/verified.md`,
+Inpaint). The user's answers to the open questions at the end:
+
+1. A dialog of its own: `web/inpaint.js`, `web/inpaint-mask.js`,
+   `web/styles/inpaint.css`.
+2. Embed: each result carries the mask's PNG in `local-diffusion-mask`.
+3. SDXL and Z-Image together. FLUX.1, FLUX.2 [klein] and Qwen-Image are
+   deferred: their profiles say `inpaint_supported: False` and
+   `inpaint_deferred`, `model_defaults.INPAINT_DEFERRED` names their
+   pipelines, and the backend refuses an inpaint there though the class
+   exists.
+4. Always composite; `"mask_blend": "overlay"` in the chunk, no option.
+5. The manifest stays `version: 1`.
+6. Swept with Empty bin, a permanent delete and `clear`, once no row (live
+   or binned) and no live job names the mask and it is past the settle
+   window.
+7. Not answered; outpainting and FLUX.1 Fill [dev] stay under "Later".
+
+Built differently from the text below: the mask's hash covers its size as
+well as its levels (`storage.mask_hash`: `"L WxH\n"` then the bytes), since an all-white
+mask at two sizes is the same levels; the starting strength is the class's
+signature default with no `inpaint_strength` profile key (the published
+`inpaint_strength` is the class's default; a request without a strength
+starts there too, through the profile's `inpaint_family`); references are
+dropped on an inpaint (SDXL's and Z-Image's classes take none); the class
+is handed the painted mask widened to whole latent cells
+(`refine.pipeline_mask`) while the composite blends by the painted levels;
+a live job's masks are held in a `mask_holds` table every process's sweep
+reads, not only in the server's memory; the smokes run on ports 7905 and
+7906, not 7904 and 7905 (7904 is `smoke-png-settings`'). Remaining: phase 0's
+measurements, then phase 3 (`START_RECIPES` for the inpaint classes, so the
+dialog's "starts at N% noise" line; the preview through the blend;
+`inpaint_measured` rows and measured strengths; FLUX.1 enabled), phases
+4-6 and the facts list's mask outline over the source's thumbnail.
+`docs/design-notes.md` ("Inpainting") and `docs/rules.md`
+describe what was built.
+
 A design plan for F6 in `docs/review-2026-10-12.md`, written 2026-10-12 against
-main at 586b941. Nothing here is built. Every statement about the installed
+main at 586b941. Nothing was built then. Every statement about the installed
 libraries was read from diffusers 0.40 in `.venv` (the files are named where
 it matters); every statement about the app was read from the code and from
 `docs/design-notes.md`, `docs/rules.md` and `docs/verified.md`. What only the
@@ -586,14 +625,14 @@ Python (`uv run --group dev pytest`, no GPU):
 
 Smokes (a fake server, then `node tools/browser.mjs`), at 1400x900:
 
-- `smoke-inpaint` (animagine fake, port 7904, fresh scratch `--data`): open
+- `smoke-inpaint` (animagine fake, port 7905, fresh scratch `--data`): open
   from the lightbox; brush, eraser, size keys, feather, invert, undo and
   redo, the keyboard brush; Inpaint held until something is masked, with
   its reason; no self-scroll (`scrollTop` unchanged through painting and a
   refusal) and the tools row's boxes unchanged under the pointer; submit;
   the result says "inpaint of #N"; Reuse reopens with the mask; a strength
   list opens a sheet; the canvas's unmasked pixels equal the source's.
-- `smoke-inpaint-unavailable` (default Krea 2 Turbo fake, port 7905): every
+- `smoke-inpaint-unavailable` (default Krea 2 Turbo fake, port 7906): every
   entry point `aria-disabled` with the reason, and a press says it.
 - Later: `smoke-inpaint-klein` (klein fake) for the one-reference limit,
   and a wide-tier case in `smoke-wide`.

@@ -54,6 +54,8 @@ function rewriteBox(el, text) {
 // panel; a refine pass is the Refine dialog's, so a refined record opens the
 // dialog on its source with the pass as it ran (`reusePass`).
 function reuse(rec) {
+  // An inpaint's is the Inpaint dialog's, on its source with its mask.
+  if (rec.refine != null && rec.mask) { void reuseInpaint(rec); return; }
   if (rec.refine != null) { void reusePass(rec); return; }
   reuseIntoPanel(rec, true);
 }

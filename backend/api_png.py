@@ -170,10 +170,13 @@ def _from_record(meta: dict, name: str) -> tuple[dict, dict, bool, list[str]]:
     # A refine pass is the Refine dialog's, made from a source in a gallery;
     # from a file only its prompt and sampling carry, at the panel's own size
     # - as Reuse fills the panel when a pass's source has gone.
+    # An inpaint likewise: its mask carries nowhere, since the panel has no
+    # source for it to cover, and only the Inpaint dialog sends one.
     if meta.get("refine") is not None:
         size = {}
+        what = "an inpaint" if meta.get("mask") is not None else "a refine pass"
         notes.append(
-            "It is a refine pass, which is made again from its source in the gallery, not from a file: "
+            f"It is {what}, which is made again from its source in the gallery, not from a file: "
             "its prompt and settings fill the panel as a direct render, at the panel's own size."
         )
     return fields, size, True, notes

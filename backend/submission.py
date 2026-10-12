@@ -12,12 +12,12 @@ from .schemas import GenerateRequest, ImageRecord
 
 
 # The per-image status a reason from `unusable_input` becomes.
-UNUSABLE_STATUS = {"source": "source_deleted", "lora": "lora_missing"}
+UNUSABLE_STATUS = {"source": "source_deleted", "lora": "lora_missing", "mask_missing": "mask_missing"}
 
 
 async def refuse_unusable_inputs(services: AppServices, request: GenerateRequest) -> None:
-    """Refuse a reference, an adapter or a refine source this server cannot
-    run - at submit.
+    """Refuse a reference, an adapter, a refine source or an inpaint's mask
+    this server cannot run - at submit.
 
     All three are all-or-nothing inputs, unlike a negative prompt: a night
     queued with references against a pipeline that takes none, with an adapter
@@ -33,17 +33,35 @@ async def refuse_unusable_inputs(services: AppServices, request: GenerateRequest
 
 async def unusable_input(services: AppServices, request: GenerateRequest) -> tuple[str, str] | None:
     """`refuse_unusable_inputs`' finding without the refusal: (kind, why) or
-    None. The kind - `refine`, `source`, `reference`, `references`, `lora` -
-    is what Swap tags reports per image (a deleted source, a missing adapter)
-    where a whole submission is refused for one."""
+    None. The kind - `refine`, `inpaint`, `source`, `mask_missing`, `mask`,
+    `reference`, `references`, `lora` - is what Swap tags reports per image (a
+    deleted source, a missing adapter or mask) where a whole submission is
+    refused for one; a `mask_missing` is said per image with
+    `missing_mask_detail`, which names it.
+
+    Whether a pass can run from a source splits on the mask: with one it is
+    the inpaint class's question, without one the image-to-image class's, as
+    `applied()` asks it."""
     if request.refine is not None:
-        reason = await refine_unavailable(services)
+        inpainting = request.mask is not None
+        reason = await (inpaint_unavailable(services) if inpainting else refine_unavailable(services))
         if reason is not None:
-            return "refine", reason
+            return ("inpaint" if inpainting else "refine"), reason
         try:
             await asyncio.to_thread(storage.reference_paths, [request.refine], "source image")
         except ValueError as exc:
             return "source", str(exc)
+        if inpainting:
+            # A mask this gallery cannot find is its own kind: the gallery
+            # actions name it by the image (`missing_mask_detail`), never by
+            # its hash, and the way back is the bundle as often as the brush.
+            try:
+                await asyncio.to_thread(storage.mask_path, request.mask)
+            except ValueError as exc:
+                return "mask_missing", str(exc)
+            reason = await asyncio.to_thread(mask_unusable, request)
+            if reason is not None:
+                return "mask", reason
     if request.reference:
         info = await asyncio.to_thread(services.backend().describe)
         if not services.merged_defaults(info)["reference_supported"]:
@@ -83,6 +101,111 @@ async def refine_unavailable(services: AppServices) -> str | None:
         "has no compatible image-to-image counterpart. The FLUX.1, SDXL, Z-Image and "
         "Qwen-Image checkpoints have one."
     )
+
+
+async def inpaint_unavailable(services: AppServices) -> str | None:
+    """Why this server has no inpaint, or None where it has one: what an
+    inpaint's submission is refused with. The profile's answer before a load,
+    the loaded class's after, as `refine_unavailable` asks."""
+    info = await asyncio.to_thread(services.backend().describe)
+    if services.merged_defaults(info)["inpaint_supported"]:
+        return None
+    return (
+        f"{info['model_id']} has no inpaint in this app - its pipeline has no inpaint class "
+        "in the installed diffusers, or its family's is not enabled yet. The SDXL and "
+        "Z-Image checkpoints have one."
+    )
+
+
+def missing_masks(records) -> list[int]:
+    """The ids of the inpaints among `records` whose mask this gallery cannot
+    find - imported without it (a bundle's `masks_missing`), or its file lost.
+    The row keeps the hash, which says what ran; running it again needs the
+    picture. Blocking: reads the database."""
+    lost = []
+    for record in records:
+        if record.refine is None or record.mask is None:
+            continue
+        try:
+            storage.mask_path(record.mask)
+        except ValueError:
+            lost.append(record.id)
+    return lost
+
+
+def unusable_detail(kind: str, why: str, image_id: int) -> str:
+    """What a gallery action says of image `image_id` for an `unusable_input`
+    finding: its own words, but a missing mask by the image it belongs to."""
+    return missing_mask_detail([image_id]) if kind == "mask_missing" else why
+
+
+def resized_inpaints(records, width: int, height: int) -> list[ImageRecord]:
+    """The inpaints among `records` that are not `width`x`height`: an inpaint
+    runs at its source's size, so none of them can be re-rendered at it."""
+    return [
+        record for record in records
+        if record.refine is not None and record.mask is not None
+        and (record.width, record.height) != (width, height)
+    ]
+
+
+def resized_inpaint_detail(
+    records: list[ImageRecord], width: int, height: int, picked: bool, others: bool = True
+) -> str:
+    """Re-render's refusal of those inpaints, each named with its source, and
+    the way out where the selection holds `others`: unpicking them, or
+    leaving inpaints out of the filter."""
+    said = "; ".join(
+        f"#{record.id} is an inpaint of #{record.refine} at {record.width}x{record.height}"
+        for record in records[:6]
+    )
+    more = f"; and {len(records) - 6} more" if len(records) > 6 else ""
+    names = ", ".join(f"#{record.id}" for record in records[:6]) + (" and the rest" if len(records) > 6 else "")
+    way = f"Unpick {names}" if picked else "Add inpaint:no to the search"
+    tail = f" {way} to re-render the others." if others else ""
+    return (
+        f"{said}{more} - an inpaint runs at its source's size, so it cannot be re-rendered at "
+        f"{width}x{height}.{tail}"
+    )
+
+
+def missing_mask_detail(ids: list[int]) -> str:
+    """Why a selection with those inpaints is refused, naming each one: the
+    run would otherwise be a refine of the whole picture, or fail per cell."""
+    said = "; ".join(f"the mask of #{image_id} is missing" for image_id in ids[:6])
+    more = f"; and {len(ids) - 6} more" if len(ids) > 6 else ""
+    return (
+        f"{said}{more} - its inpaint cannot run again until the mask is back: import the "
+        "bundle that carries it, or paint it again on the source"
+    )
+
+
+def mask_unusable(request: GenerateRequest) -> str | None:
+    """Why an inpaint's mask cannot run over its source, or None: the mask is
+    held and its file there (`storage.mask_path`), and the mask, the source
+    and the request are one size - an inpaint runs at its source's size,
+    which the mask was painted at. The source has been checked live first.
+    Blocking: reads the database."""
+    try:
+        storage.mask_path(request.mask)
+    except ValueError as exc:
+        return str(exc)
+    size = storage.mask_size(request.mask)
+    source = storage.get_image(request.refine)
+    if size is None or source is None:
+        # Gone between the two reads; the cell's own check says which.
+        return f"mask {request.mask[:16]} or source image {request.refine} has just gone"
+    if size != (source.width, source.height):
+        return (
+            f"mask {request.mask[:16]} is {size[0]}x{size[1]}, but source image {request.refine} "
+            f"is {source.width}x{source.height}; paint the mask on that image again"
+        )
+    if (request.width, request.height) != size:
+        return (
+            f"an inpaint runs at its source's size: source image {request.refine} is "
+            f"{source.width}x{source.height}, not {request.width}x{request.height}"
+        )
+    return None
 
 
 async def not_yet_rendered(

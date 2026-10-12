@@ -405,6 +405,8 @@ function card(rec) {
   // by side as the same card.
   if (rec.refine != null) {
     div.classList.add('refined');
+    // An inpaint is a refine pass with a mask, and its badge says which.
+    div.classList.toggle('inpainted', !!rec.mask);
     div.dataset.strength = rec.strength;
   }
   // One of the images the viewer shows now (viewer.js).
@@ -435,6 +437,10 @@ function card(rec) {
   });
   refine.classList.add('refine-tool');
   syncRefineTool(refine);
+  // Inpaint (inpaint.js): held with the reason where the checkpoint has none.
+  const inpaint = tool('✎', '', () => inpaintFromCard(rec, div));
+  inpaint.classList.add('inpaint-tool');
+  syncInpaintTool(inpaint);
   const reference = tool('❐', '', () => toggleReference(div, rec));
   reference.classList.add('ref-tool');
   syncReferenceTool(reference, rec.id);
@@ -461,6 +467,8 @@ function card(rec) {
       // and was resumed is one run - where the job id names only one of them.
       showSheetScope(rec.run_id ? `run:${rec.run_id}` : `job:${rec.job_id}`);
     }, 'Sheet'),
+    // Last before Delete, so the tools before it keep their places.
+    inpaint,
     del,
   );
 
@@ -553,6 +561,8 @@ function syncCardTools() {
     syncRefineTool(div.querySelector('.refine-tool'));
     syncReferenceTool(div.querySelector('.ref-tool'), +div.dataset.id);
   });
+  // Inpaint's, on the cards and the viewer's results alike.
+  syncInpaintTools();
   // The viewer's results have a Refine and a ❐ of their own - the ❐ only
   // where the checkpoint takes references.
   els.viewer.querySelectorAll('.refine-tool').forEach(syncRefineTool);
@@ -771,6 +781,7 @@ function syncReuseButton(button, rec, compact = false) {
   const pass = rec.refine ?? null;
   button.dataset.reuseModel = modelId || '';
   button.dataset.reusePass = pass ?? '';
+  button.dataset.reuseMask = rec.mask ?? '';
   button.dataset.reuseReference = (rec.reference ?? []).join(',');
   button.dataset.reuseLora = rec.lora || '';
   button.dataset.reuseCompact = String(compact);
@@ -791,6 +802,16 @@ function syncReuseButton(button, rec, compact = false) {
   const gone = pass != null && !!rec.refine_missing;
   button.dataset.reusePassGone = String(gone);
   button.dataset.reusePassBinned = String(gone && !!rec.refine_binned);
+  // An inpaint's opens the Inpaint dialog on its source with its mask
+  // (`reuseInpaint`).
+  if (pass != null && !gone && rec.mask) {
+    button.textContent = compact ? (mismatch ? '⚠' : '↻') : `${mismatch ? '⚠ ' : ''}Reuse inpaint…`;
+    button.title = mismatch ? `Warning: ${warning}`
+      : `Open the Inpaint dialog on #${pass} with this inpaint's mask, strength and seed`;
+    button.setAttribute('aria-label', `Reuse inpaint in the Inpaint dialog${mismatch ? ` (warning: ${warning})` : ''}`);
+    button.dataset.tip = 'Reuse inpaint…';
+    return;
+  }
   if (pass != null && !gone) {
     button.textContent = compact ? (mismatch ? '⚠' : '↻') : `${mismatch ? '⚠ ' : ''}Reuse pass…`;
     button.title = mismatch ? `Warning: ${warning}`
@@ -817,7 +838,7 @@ function syncReuseButton(button, rec, compact = false) {
 // lightbox's facts say it.
 function cardTitle(rec) {
   const pass = rec.refine != null
-    ? ` · refine of #${rec.refine}${rec.refine_missing ? ` (${goneWord(rec)})` : ''} @ ${rec.strength}` : '';
+    ? ` · ${rec.mask ? 'inpaint' : 'refine'} of #${rec.refine}${rec.refine_missing ? ` (${goneWord(rec)})` : ''} @ ${rec.strength}` : '';
   return `#${rec.id} · ${rec.width}×${rec.height} · seed ${rec.seed}${pass}\n${rec.prompt}`;
 }
 
@@ -852,6 +873,7 @@ function syncReuseButtons() {
     syncReuseButton(button, {
       model_id: kept.reuseModel,
       refine: kept.reusePass ? +kept.reusePass : null,
+      mask: kept.reuseMask || null,
       refine_missing: kept.reusePassGone === 'true',
       refine_binned: kept.reusePassBinned === 'true',
       reference: kept.reuseReference ? kept.reuseReference.split(',').map(Number) : [],

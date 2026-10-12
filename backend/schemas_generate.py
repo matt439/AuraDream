@@ -17,7 +17,7 @@ from pydantic_core import PydanticCustomError
 
 from .model_selection import current_model_id
 from .config import settings
-from .model_defaults import defaults_for
+from .model_defaults import defaults_for, inpaint_family
 from .refine import DEFAULT_STRENGTH, leaves_a_step
 from .seeds import MAX_BATCH, MAX_GRID_SEEDS, MAX_RUNS, MAX_SEED
 
@@ -39,6 +39,27 @@ def default_strength() -> float:
     source for it to act on, so that it is one value per checkpoint.
     """
     return defaults_for(current_model_id(settings)).get("refine_strength") or DEFAULT_STRENGTH
+
+
+def default_inpaint_strength() -> float | None:
+    """Where an inpaint's strength starts on the running checkpoint: the
+    library's own default for its inpaint class (`refine.library_strength`),
+    as the Inpaint dialog starts, or None where it has no inpaint enabled.
+
+    Read off the profile's family (`model_defaults.inpaint_family`) rather
+    than the loaded pipeline, so the CLI's `--mask` and an API request with
+    no strength record the number the dialog would before any load.
+    """
+    family = inpaint_family(current_model_id(settings))
+    if family is None:
+        return None
+    import diffusers
+
+    from . import refine
+
+    pipeline = getattr(diffusers, family, None)
+    cls = refine.sibling(pipeline, "Inpaint") if pipeline is not None else None
+    return refine.library_strength(cls) if cls is not None else None
 
 
 class GenerateRequest(BaseModel):
@@ -107,6 +128,12 @@ class GenerateRequest(BaseModel):
     # In (0, 1], checked by `_a_fraction` below rather than by gt/le, whose
     # "Input should be less than or equal to 1" the Refine dialog would show.
     strength: float | None = None
+    # An inpaint: a refine pass at the source's own size through the inpaint
+    # class beside the pipeline, repainting where this mask is white. The
+    # mask is a stored picture named by the SHA-256 of its pixels, never a
+    # path (`storage.mask_path` resolves it), and means nothing without the
+    # source it was painted on: `applied()` drops it with the source.
+    mask: str | None = Field(default=None, pattern=r"^[0-9a-f]{64}$")
     seed: int | None = Field(default=None, ge=0, le=MAX_SEED)
     num_images: int = Field(default=1, ge=1, le=MAX_BATCH)
     # Sequential passes. Each one is a separate pipeline call whose base seed is
@@ -128,7 +155,10 @@ class GenerateRequest(BaseModel):
         if "mu" not in self.model_fields_set:
             self.mu = profile["mu"]
         if self.strength is None:
-            self.strength = default_strength()
+            # An inpaint starts where the inpaint class's own default does -
+            # where the Inpaint dialog starts - not at the refine strength.
+            inpainting = self.mask is not None and self.refine is not None
+            self.strength = (inpainting and default_inpaint_strength()) or default_strength()
         return self
 
     @model_validator(mode="after")
@@ -141,6 +171,16 @@ class GenerateRequest(BaseModel):
                 f"a {side}-pixel side is past the {settings.max_side} a direct render takes; "
                 f"only a refine pass goes to {settings.refine_max_side}"
             )
+        return self
+
+    @model_validator(mode="after")
+    def _a_mask_covers_its_source(self) -> "GenerateRequest":
+        # A mask is painted on a picture's pixels, as a strength indexes a
+        # source's schedule; asked for alone it would be no setting at all.
+        # `applied()` drops one whose source a pipeline cannot take, which
+        # `model_copy` reaches without this check.
+        if self.mask is not None and self.refine is None:
+            raise ValueError("a mask needs the image it covers")
         return self
 
     def check_refine_steps(self) -> None:
@@ -256,6 +296,7 @@ class GenerateRequest(BaseModel):
         reference_supported: bool = False,
         lora_supported: bool = True,
         refine_supported: bool = False,
+        inpaint_supported: bool = False,
     ) -> "GenerateRequest":
         """This request as the pipeline will actually run it.
 
@@ -310,14 +351,21 @@ class GenerateRequest(BaseModel):
         # got past that is not recorded as a refinement of an image the
         # pipeline never saw. The strength goes with it, as the LoRA scale
         # goes with the adapter.
-        refine = self.refine
-        if refine is not None and not refine_supported:
+        # With a mask the question is the inpaint class's, without one the
+        # image-to-image class's; where the source goes its mask goes too, and
+        # a mask with no source is not a setting at all.
+        refine, mask = self.refine, self.mask
+        if refine is not None and not (inpaint_supported if mask is not None else refine_supported):
             refine = None
             changes["refine"] = None
+        if mask is not None and refine is None:
+            mask = None
+            changes["mask"] = None
         if refine is None and self.strength != default_strength():
             changes["strength"] = default_strength()
         # The sibling's `image` is the source, so references have nowhere to
-        # go on a refine pass even where the text-to-image call takes them.
+        # go on a refine pass (or an inpaint: SDXL's and Z-Image's classes take
+        # none) even where the text-to-image call takes them.
         if refine is not None and self.reference and reference_supported:
             changes["reference"] = []
         return self.model_copy(update=changes) if changes else self
@@ -495,6 +543,18 @@ class JobAccepted(BaseModel):
     # needs the base.
     seed: int
     run_id: str
+
+
+class MaskStored(BaseModel):
+    """`POST /api/masks`' answer: the hash an inpaint's `mask` names, and the
+    size it was stored at - its source's. The same picture answers the same
+    hash, so an upload repeated after every stroke costs nothing new."""
+
+    hash: str
+    width: int
+    height: int
+    # Whether this upload wrote it, or the server already held it.
+    created: bool
 
 
 # Load settings from PNG's body (`api_png.py`): what the page read out of a

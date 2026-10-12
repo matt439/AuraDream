@@ -101,13 +101,14 @@ async def more_seeds_plan(
         if template.quantization and quantization and template.quantization != quantization:
             batch.notes.append(f"made under {template.quantization}; these run under {quantization}")
         first = batch.cells[0].request
-        spec = (first.lora, tuple(first.reference), first.refine)
-        if spec != (None, (), None):
+        spec = (first.lora, tuple(first.reference), first.refine, first.mask)
+        if spec != (None, (), None, None):
             if spec not in checked:
                 checked[spec] = await submission.unusable_input(services, first)
             if checked[spec] is not None:
                 kind, why = checked[spec]
-                batch.status, batch.detail = submission.UNUSABLE_STATUS.get(kind, "invalid"), why
+                batch.status = submission.UNUSABLE_STATUS.get(kind, "invalid")
+                batch.detail = submission.unusable_detail(kind, why, batch.template.id)
     results = [
         MoreSeedsResult(id=image_id, status="deleted", detail=submission.gone_detail(image_id, binned))
         for image_id in gone
@@ -182,7 +183,13 @@ def create_router(services: AppServices) -> APIRouter:
             cells = [cell for batch in group for cell in batch.cells]
             per_step_ms = await asyncio.to_thread(gallery_reports.step_cost_ms, width, height, model)
             refine_costs = await asyncio.to_thread(gallery_reports.refine_cost_ms, width, height, model)
-            priced = grid.estimate_seconds(cells, per_step_ms, refine_costs=refine_costs)
+            inpaint_costs = (
+                await asyncio.to_thread(gallery_reports.refine_cost_ms, width, height, model, inpaint=True)
+                if any(cell.request.mask is not None for cell in cells) else None
+            )
+            priced = grid.estimate_seconds(
+                cells, per_step_ms, refine_costs=refine_costs, inpaint_costs=inpaint_costs
+            )
             if priced is None:
                 unpriced += 1
             else:

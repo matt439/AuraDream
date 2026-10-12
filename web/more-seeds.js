@@ -23,11 +23,12 @@ const MORE_SEEDS_COUNT = 4;
 // In the count line, in this order whatever the server's.
 const MS_STATUS_WORDS = {
   foreign: 'from other checkpoints', source_deleted: 'with their refine source deleted',
-  lora_missing: 'with their LoRA missing', invalid: 'invalid', deleted: 'deleted',
+  lora_missing: 'with their LoRA missing', mask_missing: 'with their mask missing',
+  invalid: 'invalid', deleted: 'deleted',
 };
 const MS_CHIP = {
   queued: 'queued', foreign: 'other checkpoint', source_deleted: 'source deleted',
-  lora_missing: 'LoRA missing', invalid: 'invalid', deleted: 'deleted',
+  lora_missing: 'LoRA missing', mask_missing: 'mask missing', invalid: 'invalid', deleted: 'deleted',
 };
 
 // What the dialog acts on, fixed when it opens: `{ids}` or the filter, and

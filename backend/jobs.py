@@ -7,7 +7,9 @@ funnelled through one worker thread. Progress hops back to the event loop via
 from __future__ import annotations
 
 import asyncio
+import functools
 import logging
+import threading
 import time
 import uuid
 from collections.abc import Awaitable, Callable
@@ -31,6 +33,11 @@ _TERMINAL = {"done", "error", "cancelled"}
 
 class BackendBusy(RuntimeError):
     """An interactive backend operation would cut ahead of an image job."""
+
+
+class MaskGone(ValueError):
+    """An inpaint's mask went between the submit's check and its hold: the
+    job is not queued, and the route answers 422 with these words."""
 
 
 class LoadFailed(RuntimeError):
@@ -165,6 +172,21 @@ class Job:
     # session - and the field tells the UI which kind of stop it was.
     deadline: float | None = None
     stopped_by: str | None = None
+    # Whether `storage.hold_masks` holds masks for this job, which `_finish`
+    # then releases.
+    holds_masks: bool = False
+
+    @functools.cached_property
+    def one_source(self) -> tuple[int | None, str | None]:
+        """The refine source and mask every cell shares, else (None, None):
+        what names the job "refine of #N" or "inpaint of #N". A job's cells
+        are fixed when it is made; a batch refine is named by its scale."""
+        if self.refine_batch is not None:
+            return None, None
+        shared = {(cell.request.refine, cell.request.mask) for cell in self.cells} or {
+            (self.request.refine, self.request.mask)
+        }
+        return shared.pop() if len(shared) == 1 else (None, None)
 
     @property
     def unit(self) -> str:
@@ -212,7 +234,11 @@ class Job:
             # the first cell's prompt and a grid's own, a pass's source, the
             # size, and how many images the whole job makes.
             "prompt": self.request.prompt[:120],
-            "refine": None if self.refine_batch is not None else self.request.refine,
+            # Only where every cell shares them: a swap or re-render over many
+            # sources is no "inpaint of #N" because its oldest record is one.
+            "refine": self.one_source[0],
+            # Beside it, an inpaint's mask: the page names the job "inpaint of #N".
+            "mask": self.one_source[1],
             "refine_batch": self.refine_batch,
             "strength": self.request.strength if self.refine_batch is not None else None,
             "width": self.request.width,
@@ -257,6 +283,22 @@ class Job:
             frame["images"] = [image for image in self.images if image["id"] not in self.deleted]
             frame["failed_cells"] = list(self.failed_cells)
         return frame
+
+
+def _cell_masks(cells: list[Cell]) -> set[str]:
+    """The inpaint masks `cells` will read."""
+    return {
+        cell.request.mask
+        for cell in cells
+        if cell.request.refine is not None and cell.request.mask is not None
+    }
+
+
+def _release_masks(job_id: str) -> None:
+    try:
+        storage.release_masks(job_id)
+    except Exception:  # noqa: BLE001 - a stale hold only spares a mask until the next start
+        log.warning("could not release the masks of job %s", job_id, exc_info=True)
 
 
 class JobManager:
@@ -348,6 +390,19 @@ class JobManager:
                 ran = Cell(request=self.backend.applied(cell.request), seed=cell.seed)
                 planned.setdefault((cell.request.width, cell.request.height), set()).update(cell_keys(ran))
         return planned
+
+    def masks_in_flight(self) -> set[str]:
+        """The inpaint masks the live jobs' cells will read: what a mask sweep
+        (`gallery_delete.sweep_masks`) spares beside the rows, since a queued
+        cell's mask is in no row yet. Called from the sweep's thread, so the
+        jobs and cells are copied before they are walked; a job's cells are
+        fixed when it is made."""
+        masks: set[str] = set()
+        for job in list(self._jobs.values()):
+            if job.status in _TERMINAL:
+                continue
+            masks.update(_cell_masks(list(job.cells)))
+        return masks
 
     def busy(self) -> bool:
         """True while anything is queued or running.
@@ -543,6 +598,18 @@ class JobManager:
             refine_batch=refine_batch,
             more_seeds=more_seeds,
         )
+        # Held where every process's mask sweep looks, before the job is
+        # queued: a CLI `clear --bin` an hour on must not take the mask of a
+        # cell still waiting its turn (`storage.hold_masks`).
+        masks = _cell_masks(cells)
+        if masks:
+            gone = await asyncio.to_thread(storage.hold_masks, job.id, masks)
+            if gone:
+                await asyncio.to_thread(storage.release_masks, job.id)
+                raise MaskGone(
+                    f"mask {gone[0][:16]} has just gone from this gallery; paint it again"
+                )
+            job.holds_masks = True
         self._jobs[job.id] = job
         # A line at the start, one per cell and one at the end: an overnight
         # grid started from the browser used to leave nothing in the log unless
@@ -612,6 +679,12 @@ class JobManager:
         """
         if job.done_sent:
             return
+        if job.holds_masks:
+            # Off the loop and never awaited: a hold left by a release that
+            # fails is dropped at the next start, and only spares a mask.
+            threading.Thread(
+                target=_release_masks, args=(job.id,), daemon=True, name="mask-release"
+            ).start()
         job.status = status
         if error is not None:
             job.error = error
@@ -814,6 +887,11 @@ class JobManager:
 
             started = time.perf_counter()
             try:
+                # An inpaint's mask is a file beside the rows, not one: one
+                # lost since the submit fails this cell in words as it
+                # begins, before any backend reads it.
+                if req.refine is not None and req.mask is not None:
+                    storage.mask_path(req.mask)
                 images = self.backend.generate(
                     req,
                     seed=seed,

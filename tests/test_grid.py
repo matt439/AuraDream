@@ -599,7 +599,7 @@ def test_a_grid_without_true_cfg_keeps_the_id_its_images_carry():
     )
     assert grid.run_id(cells, "krea/Krea-2-Turbo", "fp8") == "0ebe5101c492"
     assert grid.cell_key(cells[0]) == (
-        "a big fox", "blurry", 6, 2.0, 1.15, None, None, None, None, 42
+        "a big fox", "blurry", 6, 2.0, 1.15, None, None, None, None, None, 42
     )
     # Setting it is a different run - and the element is part of the key.
     with_it = grid.expand(

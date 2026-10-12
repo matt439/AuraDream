@@ -25,14 +25,14 @@ if __name__ == "__main__":
 
     configure()
 
-from . import api_bundles, api_gallery, api_generate, api_jobs, api_more_seeds, api_png, api_prompt, api_refine_batch, api_swap, app_context, bundle_common, bundles, gallery_lock, loras, model_selection, prompt_encoding, startup_preferences, storage  # noqa: E402
+from . import api_bundles, api_gallery, api_generate, api_jobs, api_masks, api_more_seeds, api_png, api_prompt, api_refine_batch, api_swap, app_context, bundle_common, bundles, gallery_lock, loras, model_selection, prompt_encoding, startup_preferences, storage  # noqa: E402
 from .backends import get_backend  # noqa: E402
 from .detached import detached as _detached  # noqa: E402
 from .model_selection import current_model_id, current_settings  # noqa: E402
 from .model_info import details_for  # noqa: E402
 from .config import settings  # noqa: E402
 from .critic import CriticError, prompt_critic  # noqa: E402
-from .jobs import JobManager, LoadFailed, short_error  # noqa: E402
+from .jobs import JobManager, LoadFailed, MaskGone, short_error  # noqa: E402
 from .launch import CHECKPOINTS  # noqa: E402
 from .model_defaults import defaults_for, guide_for, hints_for  # noqa: E402
 from .schemas import (  # noqa: E402
@@ -229,6 +229,12 @@ def _stop_critic() -> None:
 @asynccontextmanager
 async def lifespan(app: FastAPI):
     storage.init_db()
+    # No job survives a restart, so neither does a hold on its mask; one a
+    # crashed server left would spare that mask from every sweep for good.
+    try:
+        storage.release_masks()
+    except gallery_lock.GalleryBusy:
+        pass  # held by another process's operation; the next start drops them
     try:
         storage.settle_partials()
     except gallery_lock.GalleryBusy:
@@ -263,6 +269,12 @@ app.add_middleware(api_bundles.GalleryAdmission, get_manager=lambda: bundle_mana
 @app.exception_handler(gallery_lock.GalleryBusy)
 async def gallery_busy(request: Request, exc: gallery_lock.GalleryBusy):
     return JSONResponse({"detail": str(exc)}, status_code=409)
+
+
+@app.exception_handler(MaskGone)
+async def mask_gone(request: Request, exc: MaskGone):
+    message = str(exc)
+    return JSONResponse({"detail": message[:1].upper() + message[1:] + "."}, status_code=422)
 
 
 @app.exception_handler(bundles.BundleError)
@@ -521,6 +533,7 @@ def _merged_defaults(info: dict) -> dict:
         "true_cfg_supported",
         "reference_supported",
         "refine_supported",
+        "inpaint_supported",
     ):
         if info.get(key) is not None:
             defaults[key] = info[key]
@@ -530,6 +543,16 @@ def _merged_defaults(info: dict) -> dict:
     # The Refine dialog's "a load answers for certain" is for the rest.
     defaults["refine_settled"] = (
         bool(defaults.get("refine_settled")) or info.get("refine_supported") is not None
+    )
+    # The same for an inpaint, whose False is final before a load anyway
+    # (`model_defaults.inpaint_settled`).
+    defaults["inpaint_settled"] = (
+        bool(defaults.get("inpaint_settled")) or info.get("inpaint_supported") is not None
+    )
+    # The loaded inpaint class's own strength default - the library's number,
+    # which is all there is until a profile measures one - or None.
+    defaults["inpaint_strength"] = (
+        info.get("inpaint_strength") if defaults["inpaint_supported"] else None
     )
     # Whose the strength is: the profile's own, or the general default filled
     # in below for an unprofiled pipeline that has a pass. The Refine dialog
@@ -827,6 +850,7 @@ app.include_router(api_swap.create_router(services))
 app.include_router(api_refine_batch.create_router(services))
 app.include_router(api_more_seeds.create_router(services))
 app.include_router(api_png.create_router(services))
+app.include_router(api_masks.create_router(services))
 app.include_router(api_jobs.create_router(lambda: jobs))
 app.include_router(api_bundles.create_router(lambda: bundle_manager, services))
 app.include_router(api_gallery.create_router(

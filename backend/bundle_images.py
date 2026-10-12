@@ -12,13 +12,13 @@ import json
 import os
 import zlib
 from concurrent.futures import ThreadPoolExecutor
-from pathlib import Path
+from pathlib import Path, PurePosixPath
 from typing import NamedTuple
 
 from PIL import Image, ImageFile
 
 from . import reindex, storage
-from .bundle_common import _CHUNK, _WORKERS, BundleError
+from .bundle_common import _CHUNK, _WORKERS, MASK_HASH, BundleError
 
 
 class _Pixels(NamedTuple):
@@ -132,6 +132,11 @@ def _validate_row(row: dict, width: int, height: int, content_hash: str) -> None
     refine = row.get("refine")
     if refine is not None and (type(refine) is not int or refine <= 0):
         raise BundleError(f"invalid refine source on image {row['id']}")
+    # A mask hash, never a path, and only beside the source it covers - the
+    # shape `applied()` and `storage.index_file` leave on every row.
+    mask = row.get("mask")
+    if mask is not None and (not isinstance(mask, str) or not MASK_HASH.fullmatch(mask) or refine is None):
+        raise BundleError(f"invalid inpaint mask on image {row['id']}")
     values = {key: row.get(key) for key in storage._COLUMNS}
     values.update(id=row["id"], content_hash=content_hash)
     try:
@@ -142,6 +147,39 @@ def _validate_row(row: dict, width: int, height: int, content_hash: str) -> None
 
 def _inspect_source(row: dict, data: bytes):
     return _validate_source_row(row, io.BytesIO(data), name=row["filename"])
+
+
+def _inspect_mask(member: str, data: bytes, known: dict | None) -> tuple[int, int]:
+    """Verify a bundle's `masks/<hash>.png` as the mask its name says: a PNG
+    of one `L` channel whose `storage.mask_hash` - its size and decoded
+    levels - is the name, at the size its `masks` row records (`known`, None
+    where the bundle's table has no row for it). Answers the size.
+
+    The pixels decide, never the file's bytes, as an image's identity does:
+    a mask re-encoded by another program is the same mask; one painted
+    differently, or renamed, is refused before anything is merged.
+    """
+    digest = PurePosixPath(member).stem
+    try:
+        with Image.open(io.BytesIO(data)) as image:
+            fmt, mode = image.format, image.mode
+            if fmt == "PNG" and mode == "L":
+                image.load()
+                actual, size = storage.mask_hash(image), image.size
+    except (OSError, ValueError, Image.DecompressionBombError) as exc:
+        raise BundleError(f"cannot read inpaint mask {member}: {exc}") from exc
+    if fmt != "PNG":
+        raise BundleError(f"not a PNG image: {member}")
+    if mode != "L":
+        raise BundleError(f"inpaint mask {digest[:16]} is {mode}, not one luminance channel")
+    if actual != digest:
+        raise BundleError(f"inpaint mask {digest[:16]} holds other pixels than its name says")
+    if known is not None and (known["width"], known["height"]) != size:
+        raise BundleError(
+            f"inpaint mask {digest[:16]} is {size[0]}x{size[1]}, but the bundle's record of it says "
+            f"{known['width']}x{known['height']}"
+        )
+    return size
 
 
 def _metadata(row: dict, by_id: dict[int, dict]) -> dict:
@@ -163,6 +201,11 @@ def _metadata(row: dict, by_id: dict[int, dict]) -> dict:
         "reference_sources": [provenance(i) for i in refs] or None,
         "refine": row["refine"], "refine_source": provenance(row["refine"]),
         "strength": row["strength"], "lora": row["lora"], "lora_scale": row["lora_scale"],
+        # A mask is content-addressed, so a merge never renumbers it; a row
+        # from a build before masks has none.
+        "mask": row.get("mask"),
+        "mask_source": storage.mask_provenance(row.get("mask"), row["width"], row["height"]),
+        "mask_blend": "overlay" if row.get("mask") else None,
         "batch": row.get("batch"),
     }
 

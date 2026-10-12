@@ -240,6 +240,8 @@
      opens the lightbox, where S and the toggle compare; with the check
      closed the column has the button again. */
   .stage:not(.beside):has(> #tag-validation-wide > #prompt-analysis:not([hidden])) > .viewer:not(.multi) > .result .result-actions .compare-source { display: none; }
+  /* Inpaint… likewise: the picture opens the lightbox, which has it. */
+  .stage:not(.beside):has(> #tag-validation-wide > #prompt-analysis:not([hidden])) > .viewer:not(.multi) > .result .result-actions .inpaint-tool { display: none; }
   .stage:not(.beside):has(> #tag-validation-wide > #prompt-analysis:not([hidden])) > .viewer:not(.multi) > .result .result-actions .result-brief {
     display: block; flex: 1 1 0; min-width: 0; contain: inline-size; line-height: var(--h-tool); text-align: right;
     color: var(--text-readout); font-size: var(--fs-label); font-variant-numeric: tabular-nums;
@@ -587,6 +589,14 @@
   .view-pick button:focus-visible { z-index: 2; }
   #gallery[data-density="s"] { --thumb-min: clamp(150px, 6.5vw, 180px); }
   #gallery[data-density="s"] .card .tools button { min-width: 24px; padding-inline: var(--sp-1); }
+  /* Six tools of 32 px (24 at S) do not fit every card with Delete apart -
+     a 7-column gallery at 2048 px and 125% is about 200 px - so where the
+     row is narrower than six squares and their gaps, Inpaint is the
+     lightbox's and the result's alone (inpaint.js), and the five tools keep
+     their sizes. The row is absolutely placed, so its width is the card's. */
+  .card .tools { container: card-tools / inline-size; }
+  @container card-tools (max-width: 224px) { .inpaint-tool { display: none; } }
+  #gallery[data-density="s"] .card .tools .inpaint-tool { display: none; }
   #gallery[data-fit="cover"] .card img { object-fit: cover; }
 }
 

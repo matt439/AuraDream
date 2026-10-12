@@ -68,7 +68,8 @@ Backend (`backend/`):
   selection; `api_generate.py` generate/grid/Re-render, `api_swap.py`,
   `api_refine_batch.py`, `api_more_seeds.py` the gallery actions' routes;
   `api_png.py` Load settings from PNG (a PNG's text chunks as the panel's
-  settings, after `applied()`);
+  settings, after `applied()`); `api_masks.py` an inpaint's mask stored
+  and served by its hash;
   `api_gallery.py`, `api_jobs.py` the gallery and job routes; `api_bundles.py` browser bundle
   routes and maintenance admission; `bundles.py` verified export/merge,
   `bundle_archive.py` the archive format and its verifying read,
@@ -87,7 +88,8 @@ Backend (`backend/`):
   `refine_batch.py` Mass refine's per-image plan; `more_seeds.py` More
   seeds' batches and their next seeds;
   `seeds.py`; `sizes.py` presets and size guards; `loras.py` adapter names to
-  paths; `refine.py` the image-to-image pass; `latent_preview.py`
+  paths; `refine.py` the image-to-image pass and the inpaint (`sibling(kind)`,
+  `composite`); `latent_preview.py`
 - Prompt analyser: `prompt_encoding.py` (tokenizers), `encoder_table.py`
   (each checkpoint's encoders and copied pipeline templates),
   `prompt_weighting.py` (literal weighting syntax), `prompt_text.py`,
@@ -180,6 +182,17 @@ Reproduction and storage:
   which is never stored or made a reference. A file's reference ids carry
   only where this gallery's row matches the record's provenance hash; an
   A1111 block gives the prompt, negative and size, never a mapped sampler.
+- An inpaint is a refine pass with `mask`: a stored mask's 64-hex hash (size
+  and `L` levels, `storage.mask_hash`), never a path - `storage.mask_path`
+  resolves it - and never a gallery image, reference or source. It runs at
+  the source's size and is always composited over the source
+  (`refine.composite`; chunk `mask_blend: "overlay"`); the mask's PNG rides
+  in `local-diffusion-mask`. `grid.mask_key` is `CellKey`'s fifth extension
+  (existing run ids unchanged); Mass refine drops the mask.
+  `gallery_delete.sweep_masks` spares a mask any row (live or binned) or
+  live job names, or younger than the settle window. Only profiles with
+  `inpaint_supported` run one; `model_defaults.INPAINT_DEFERRED` families
+  are refused though diffusers has the class.
 
 Jobs:
 
@@ -303,6 +316,8 @@ node tools/browser.mjs tools/<smoke>.json
 | 7902 | FLUX.1-Krea-dev, fresh scratch `--data` | `smoke-more-seeds` |
 | 7903 | default, fresh scratch `--data` | `smoke-bin` |
 | 7904 | default, fresh scratch `--data` | `smoke-png-settings` |
+| 7905 | animagine-xl-4.0, fresh scratch `--data` | `smoke-inpaint` |
+| 7906 | default | `smoke-inpaint-unavailable` |
 
 FLUX.1-Krea-dev is `black-forest-labs/FLUX.1-Krea-dev`; animagine is
 `cagliostrolab/animagine-xl-4.0`.

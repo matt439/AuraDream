@@ -7,6 +7,7 @@ unpacked from a bundle) read-only with its integrity and safety checks.
 from __future__ import annotations
 
 import os
+import re
 import sqlite3
 from collections.abc import Callable
 from pathlib import Path
@@ -81,5 +82,33 @@ def _rows(path: Path) -> list[dict]:
         return rows
     except sqlite3.Error as exc:
         raise BundleError(f"cannot read the gallery database: {exc}") from exc
+    finally:
+        conn.close()
+
+
+# A mask's name in a bundle and in `masks/`: its whole hash (`storage.mask_hash`).
+MASK_HASH = re.compile(r"[0-9a-f]{64}")
+
+
+def _mask_rows(path: Path) -> dict[str, dict]:
+    """A gallery database's `masks` table by hash, read-only: empty for a
+    database from before inpainting, which has none. A row that is not one
+    this app writes - a hash of another shape, a size that is no size -
+    refuses the whole database, as an unsafe filename does."""
+    if not path.exists():
+        return {}
+    conn = _connect_read(path)
+    try:
+        if conn.execute("SELECT 1 FROM sqlite_master WHERE type = 'table' AND name = 'masks'").fetchone() is None:
+            return {}
+        found = {}
+        for row in conn.execute("SELECT hash, width, height, created_at FROM masks"):
+            if (not isinstance(row["hash"], str) or not MASK_HASH.fullmatch(row["hash"])
+                    or any(type(row[key]) is not int or row[key] <= 0 for key in ("width", "height"))):
+                raise BundleError("the database contains an invalid inpaint mask record")
+            found[row["hash"]] = dict(row)
+        return found
+    except sqlite3.Error as exc:
+        raise BundleError(f"cannot read the gallery database's masks: {exc}") from exc
     finally:
         conn.close()

@@ -98,20 +98,21 @@ VARIANT = "variant"
 
 # What identifies an image for resume: the prompt pair, the settings, the seed.
 # (prompt, negative prompt, steps, CFG, mu, true CFG, references, LoRA, refine,
-# seed) - the seed last, because `cell_keys` swaps it for each image of a
-# batch, and the four optional elements in the order they were added, because
+# mask, seed) - the seed last, because `cell_keys` swaps it for each image of a
+# batch, and the five optional elements in the order they were added, because
 # `run_id` names a cell by the shortest form that carries all of its non-None
 # ones.
 CellKey = tuple[
     str, str | None, int, float, float | None, float | None, str | None, str | None,
-    str | None, int,
+    str | None, str | None, int,
 ]
 
 # How many of the trailing elements before the seed are optional extensions -
-# true CFG, references, LoRA, refine. `run_id` drops them from the right while
-# they are None, so a grid that uses none of them is named by the six-element
-# key its images have carried since before any of them existed.
-_KEY_EXTENSIONS = 4
+# true CFG, references, LoRA, refine, mask. `run_id` drops them from the right
+# while they are None, so a grid that uses none of them is named by the
+# six-element key its images have carried since before any of them existed,
+# and a refine run by the nine-element key it carried before the mask.
+_KEY_EXTENSIONS = 5
 
 
 def reference_key(ids: Sequence[int] | None) -> str | None:
@@ -144,6 +145,18 @@ def refine_key(source: int | None, strength: float | None) -> str | None:
     out of an INTEGER and a REAL in `storage.completed_cells`, to the digit.
     """
     return None if source is None else f"{source}@{round(float(strength), 6):g}"
+
+
+def mask_key(mask: str | None) -> str | None:
+    """An inpaint's mask as one key element: its whole 64-digit hash, or None.
+
+    Content-addressed, so the hash is the same in every gallery and needs no
+    rounding or remapping; spelled here once all the same, since the element
+    is built from a request here and from the column in
+    `storage.completed_cells`. A mask is never without its source
+    (`applied()`), so it rides beside `refine_key` rather than inside it.
+    """
+    return mask or None
 
 
 @dataclass(frozen=True)
@@ -608,6 +621,7 @@ def cell_key(cell: "Cell") -> CellKey:
         reference_key(request.reference),
         lora_key(request.lora, request.lora_scale),
         refine_key(request.refine, request.strength),
+        mask_key(request.mask),
         cell.seed,
     )
 
@@ -635,10 +649,13 @@ def duplicate_count(
         for key in cell_keys(ran):
             if ran.request.refine is not None:
                 start = start_index(
-                    ran.request.steps, ran.request.strength, model_id or current_model_id(settings)
+                    ran.request.steps, ran.request.strength, model_id or current_model_id(settings),
+                    inpaint=ran.request.mask is not None,
                 )
+                # Everything after the refine element kept, the mask with the
+                # seed: two masks over one source are two pictures.
                 if start is not None:
-                    key = (*key[:8], f"{ran.request.refine}@step:{start}", key[9])
+                    key = (*key[:8], f"{ran.request.refine}@step:{start}", *key[9:])
             if key in seen:
                 duplicates += 1
             else:
@@ -701,7 +718,8 @@ def cell_from_record(
     effective true CFG (a FLUX record from before the knob was separate
     carries the real CFG it ran), mu, the references, the adapter and its
     weight, the refine source and its strength (a refined record runs again
-    as a pass of the same source), the seed and the variables - what the
+    as a pass of the same source, and an inpaint over its mask), the seed
+    and the variables - what the
     placeholders were set to, or which version of a comparison this is, the
     only place a variant's label lives. Raises pydantic's ValidationError
     where the result is no valid request (an emptied prompt, a size past the
@@ -728,6 +746,8 @@ def cell_from_record(
         "lora_scale": record.lora_scale if record.lora_scale is not None else 1.0,
         "refine": record.refine,
         "strength": record.strength if record.refine is not None else None,
+        # An inpaint runs again over the same region of the same source.
+        "mask": record.mask if record.refine is not None else None,
         "seed": record.seed,
     }
     unknown = set(changes) - set(GenerateRequest.model_fields)
@@ -757,7 +777,9 @@ def denoised_steps(request: GenerateRequest) -> int:
     of the schedule a refine pass's strength leaves (`refine.steps_run`)."""
     if request.refine is None:
         return request.steps
-    return steps_run(request.steps, request.strength, current_model_id(settings))
+    return steps_run(
+        request.steps, request.strength, current_model_id(settings), inpaint=request.mask is not None
+    )
 
 
 def progress_steps(request: GenerateRequest) -> int:
@@ -775,6 +797,7 @@ def progress_steps(request: GenerateRequest) -> int:
 def estimate_seconds(
     cells: list[Cell], per_step_ms: float | None, *,
     refine_costs: dict[int, float] | None = None,
+    inpaint_costs: dict[int, float] | None = None,
 ) -> float | None:
     """Generation time from direct step costs or matching refine durations.
 
@@ -783,15 +806,18 @@ def estimate_seconds(
     disagree about step count, so an average image duration would misstate
     most of them. Refine cells use full per-image durations at the same number
     of denoised steps: their fixed encode/decode work must not be multiplied
-    away or priced from direct renders. No estimate if any cell has no matching
-    history. The CLI pays a load per invocation on top.
+    away or priced from direct renders. An inpaint cell is priced from
+    inpaints' durations (`inpaint_costs`) the same way, never from passes'.
+    No estimate if any cell has no matching history. The CLI pays a load per
+    invocation on top.
     """
-    priced = _cell_ms(cells, per_step_ms, refine_costs)
+    priced = _cell_ms(cells, per_step_ms, refine_costs, inpaint_costs)
     return None if priced is None else round(sum(priced) / 1000, 1)
 
 
 def _cell_ms(
     cells: list[Cell], per_step_ms: float | None, refine_costs: dict[int, float] | None,
+    inpaint_costs: dict[int, float] | None = None,
 ) -> list[float] | None:
     """Each cell's price in milliseconds, as `estimate_seconds` sums them;
     None if any cell has no matching history."""
@@ -803,7 +829,8 @@ def _cell_ms(
                 return None
             image_ms = per_step_ms * request.steps
         else:
-            image_ms = (refine_costs or {}).get(denoised_steps(request))
+            costs = inpaint_costs if request.mask is not None else refine_costs
+            image_ms = (costs or {}).get(denoised_steps(request))
             if image_ms is None:
                 return None
         priced.append(image_ms * request.num_images)
@@ -813,6 +840,7 @@ def _cell_ms(
 def seeds_within_budget(
     cells: list[Cell], seeds: int, per_step_ms: float | None, budget_seconds: float, *,
     refine_costs: dict[int, float] | None = None,
+    inpaint_costs: dict[int, float] | None = None,
 ) -> int | None:
     """How many of a grid's seeds a time budget completes, by the job's own
     rule: a cell starts while the deadline has not passed and runs to its end
@@ -822,7 +850,7 @@ def seeds_within_budget(
     the outer loop, each running the same cells; priced as `estimate_seconds`
     prices, from the job's start - the load and any job ahead spend a budget
     too, which no estimate counts. None where it has no price."""
-    priced = _cell_ms(cells, per_step_ms, refine_costs)
+    priced = _cell_ms(cells, per_step_ms, refine_costs, inpaint_costs)
     if priced is None or seeds < 1 or len(cells) % seeds:
         return None
     per_seed = len(cells) // seeds
@@ -849,7 +877,7 @@ def run_id(cells: list[Cell], model_id: str, quantization: str) -> str:
     same run however their axes were spelled.
 
     A cell is named by the shortest key that carries all of its optional
-    elements: none of true CFG, references, a LoRA or a refine source and it
+    elements: none of true CFG, references, a LoRA, a refine source or a mask and it
     is the six-element key images have carried since before any of them
     existed, so every run id from an earlier build - and every grid that uses
     none of them - is unchanged. Each one that is set extends the name by one element, in the

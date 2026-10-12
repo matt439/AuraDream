@@ -131,8 +131,9 @@ function renderRefineCheck() {
 
 // "CLIP-L/CLIP-G read 75 of 132 tokens (22 of 42 tags); the rest, from
 // "outstretched arm", is never read." Offsets count code points, as the
-// server's do; a tag counts as read when the cut is past its end.
-function refineCutLine(field, text, cut, reports) {
+// server's do; a tag counts as read when the cut is past its end. `select`
+// is what Show does: this dialog's box, or the Inpaint dialog's (inpaint.js).
+function refineCutLine(field, text, cut, reports, select = selectRefineFrom) {
   const { tokens, budget } = reports[0];
   let tags = '';
   if (tagVocabularyEnabled && text.includes(',')) {
@@ -153,7 +154,7 @@ function refineCutLine(field, text, cut, reports) {
     true,
   );
   line.append(refineCheckButton('Show', 'Select what the encoders never read', field,
-    () => selectRefineFrom(field, text, cut)));
+    () => select(field, text, cut)));
   return line;
 }
 

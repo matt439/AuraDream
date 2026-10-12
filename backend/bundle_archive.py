@@ -20,8 +20,8 @@ from contextlib import contextmanager
 from pathlib import Path, PurePosixPath
 
 from . import bundle_crypto, reindex
-from .bundle_common import _CHUNK, _WORKERS, BundleError, Progress, _basename, _quiet, _rows
-from .bundle_images import _inspect_source
+from .bundle_common import _CHUNK, _WORKERS, MASK_HASH, BundleError, Progress, _basename, _mask_rows, _quiet, _rows
+from .bundle_images import _inspect_mask, _inspect_source
 
 
 _FORMAT = "local-diffusion-gallery"
@@ -51,7 +51,16 @@ def _valid_member(name: str) -> bool:
         len(bits) == 2 and bits[0] == "images" and Path(bits[1]).suffix.lower() in {".png", ".webp"}
     ) or (
         len(bits) == 3 and bits[:2] == ["images", "thumbnails"] and Path(bits[2]).suffix.lower() == ".webp"
-    )
+    ) or _mask_member(name)
+
+
+def _mask_member(name: str) -> bool:
+    """`masks/<hash>.png`: an inpaint mask, by the whole hash it is named by.
+    Its own top-level prefix, which a build from before masks skips (it
+    installs only `images/`), so the manifest stays version 1."""
+    bits = name.split("/")
+    return (len(bits) == 2 and bits[0] == "masks" and bits[1].endswith(".png")
+            and MASK_HASH.fullmatch(bits[1][: -len(".png")]) is not None)
 
 
 def _png_weight(data: bytes) -> int:
@@ -128,6 +137,7 @@ def _verify_archive(path: Path, destination: Path | None = None, *, password: st
                     extract: Callable[[str], bool] | None = None,
                     merge: tuple[Path, int] | None = None,
                     derived: tuple[bytes, bytes] | None = None,
+                    masks: dict[str, dict] | None = None,
                     progress: Progress = _quiet) -> tuple[dict, list[dict] | None, dict]:
     """Read every member once, verifying ZIP CRC, the manifest SHA-256 and, for
     a password-protected bundle, every chunk's tag.
@@ -138,8 +148,11 @@ def _verify_archive(path: Path, destination: Path | None = None, *, password: st
     member that will never be installed. `merge` names the directory where
     the live database's copy (of the given size) will take the bundle's rows,
     for the free-space check. `derived` is export's own (header, key), which
-    spares a second scrypt run. Returns the manifest, the rows and each tracked
-    member's inspection result.
+    spares a second scrypt run. Each `masks/` member is decoded on the same
+    pool and held to its name and to its row in `masks` (that table, by
+    hash; read from the unpacked database where it is not given), its
+    result its size. Returns the manifest, the rows and each tracked
+    member's inspection result, the masks' included.
     """
     try:
         with _open_archive(path, password, derived) as archive, _Pool() as pool, _Stager() as stager:
@@ -184,6 +197,8 @@ def _verify_archive(path: Path, destination: Path | None = None, *, password: st
                 return {"images/" + row["filename"]: row for row in found}
 
             tracked = track(rows) if rows is not None else {}
+            masks = {} if masks is None and rows is not None else masks
+            inspected_masks = []
             order = sorted(files, key=lambda n: n != _DATABASE)
             for done, name in enumerate(order, 1):
                 expected = files[name]
@@ -197,12 +212,14 @@ def _verify_archive(path: Path, destination: Path | None = None, *, password: st
                 if target:
                     stager.directory(target.parent)
                 row = tracked.get(name)
-                if row and info.file_size > _MAX_IMAGE_BYTES:
+                mask = _mask_member(name)
+                if (row or mask) and info.file_size > _MAX_IMAGE_BYTES:
                     raise BundleError(f"{name} is too large to be a gallery image")
                 # Tracked PNGs are rewritten (and synced) before installation;
                 # everything else may be installed as is, so it is synced.
                 # Both are written off the reading thread when held whole.
-                whole = row or (name != _DATABASE and info.file_size <= _READ_AHEAD_MAX)
+                # A mask is decoded as a tracked PNG is, so it is held whole too.
+                whole = row or mask or (name != _DATABASE and info.file_size <= _READ_AHEAD_MAX)
                 data = None
                 output = target.open("xb") if target and not whole else None
                 try:
@@ -211,7 +228,7 @@ def _verify_archive(path: Path, destination: Path | None = None, *, password: st
                             # A tracked PNG's size is bounded above; it is
                             # hashed on the pool, before its inspection.
                             data = source.read()
-                            if not row:
+                            if not row and not mask:
                                 digest.update(data)
                             if target:
                                 stager.write(target, data, sync=not row)
@@ -229,19 +246,31 @@ def _verify_archive(path: Path, destination: Path | None = None, *, password: st
                 if row:
                     pool.submit(name, _png_weight(data), _checked, name, expected["sha256"], inspect, row, data)
                     data = None  # the bytes go with their inspection, not with the next member
+                elif mask:
+                    known = (masks or {}).get(PurePosixPath(name).stem)
+                    pool.submit(name, _png_weight(data), _checked, name, expected["sha256"], _mask_check,
+                                (name, known), data)
+                    inspected_masks.append(name)
+                    data = None
                 elif digest.hexdigest() != expected["sha256"]:
                     raise BundleError(f"the bundle checksum failed for {name}")
                 if name == _DATABASE and rows is None and destination is not None:
                     rows = _rows(destination / _DATABASE)
                     tracked = track(rows)
+                    if masks is None:
+                        masks = _mask_rows(destination / _DATABASE)
                 progress("verifying", done, len(order))
-            results = pool.results(["images/" + row["filename"] for row in rows or []])
+            results = pool.results(["images/" + row["filename"] for row in rows or []] + inspected_masks)
             stager.wait()
             return manifest, rows, results
     except (zipfile.BadZipFile, json.JSONDecodeError, UnicodeError, EOFError) as exc:
         raise BundleError(f"the bundle is damaged: {exc}") from exc
     except bundle_crypto.CryptoError as exc:
         raise BundleError(str(exc)) from exc
+
+
+def _mask_check(member: tuple[str, dict | None], data: bytes) -> tuple[int, int]:
+    return _inspect_mask(member[0], data, member[1])
 
 
 def _checked(name: str, sha256: str, inspect, row: dict, data: bytes):

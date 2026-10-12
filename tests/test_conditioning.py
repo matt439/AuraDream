@@ -213,6 +213,31 @@ def test_conditioning_changes_the_run_id():
     assert grid.run_id(cells(reference=[3]), "m", "fp8") != plain
 
 
+def test_the_mask_widens_the_key_without_renaming_a_run():
+    # The mask is the fifth optional element, after refine: every run id
+    # from before it - refine runs included - is the one its images carry.
+    def cells(**extra):
+        return grid.expand(
+            GenerateRequest(prompt="a fox", width=256, height=256, seed=1, **extra), steps="4,8"
+        )
+
+    assert grid.run_id(cells(), "m", "fp8") == "490ea78ed76e"
+    assert grid.run_id(cells(lora="style.safetensors"), "m", "fp8") == "c1a08e97e3e8"
+    assert grid.run_id(cells(reference=[3]), "m", "fp8") == "a4f8d656dfb9"
+    assert grid.run_id(cells(refine=7, strength=0.35), "m", "fp8") == "a088a16678a1"
+    swept = grid.expand(
+        GenerateRequest(prompt="a fox", width=256, height=256, seed=1, refine=7), strength="0.2,0.4"
+    )
+    assert grid.run_id(swept, "m", "fp8") == "46a20e850131"
+    # Set, it is an element of the key and another run per mask.
+    one, two = "ab" * 32, "cd" * 32
+    masked = cells(refine=7, strength=0.35, mask=one)
+    assert grid.cell_key(masked[0])[9] == one and grid.cell_key(cells(refine=7, strength=0.35)[0])[9] is None
+    assert grid.cell_key(masked[0])[-1] == 1
+    ids = {grid.run_id(cells(refine=7, strength=0.35, mask=m), "m", "fp8") for m in (one, two)}
+    assert len(ids) == 2 and "a088a16678a1" not in ids
+
+
 def test_a_weight_axis_needs_an_adapter_to_be_an_axis():
     # Without one the weight does nothing, so the axis must collapse rather
     # than multiply the night by a number no pixel depends on.

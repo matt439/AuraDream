@@ -61,6 +61,22 @@ repos quote Krea dev's fp8 run, and say so (Qwen-Image's is NVFP4, the
 only way it fits the card). A figure, never a VRAM model:
 each one is a row of that file, and `tests/test_profiles.py` holds it there.
 
+`inpaint_supported` says whether the checkpoint can run an inpaint - a refine
+pass at the source's own size with a painted mask - through the inpaint class
+diffusers ships beside its pipeline (`refine.sibling(..., "Inpaint")`). It is
+a decision as well as a guess: diffusers 0.40 ships one for FLUX.1, SDXL,
+Z-Image, Qwen-Image and FLUX.2 [klein], and only SDXL and Z-Image are enabled
+so far. The rest are deferred (`INPAINT_DEFERRED`, docs/plan-inpainting.md's
+phases) and answer False even loaded, so a False here is final;
+`tests/test_inpaint.py` holds every True to an installed class and every
+class left off to that list. Their profiles also carry `inpaint_deferred`,
+so the Inpaint dialog says "not enabled yet" rather than "no such pipeline"
+(`tests/test_inpaint_ui.py` holds it to the same list). Every enabled profile
+names its `inpaint_family`, the text-to-image class whose inpaint sibling it
+runs, so an inpaint asked for without a strength starts where that class's
+own default does before anything is loaded (`inpaint_family`, the function;
+`tests/test_inpaint.py` holds it to the installed class).
+
 `mu_supported` says whether the checkpoint uses a flow-matching scheduler whose
 sigmas can be shifted. Modern SDXL exposes a custom `sigmas` argument too, but
 its Euler scheduler is not flow matching; treating the argument alone as proof
@@ -140,6 +156,7 @@ _PROFILES: list[tuple[str, dict[str, Any]]] = [
             "negative_prompt_supported": True,
             "reference_supported": False,
             "refine_supported": False,
+            "inpaint_supported": False,
             "refine_strength": None,
             "true_cfg_supported": False,
             "guide": guides.KREA2_TURBO_GUIDE,
@@ -174,6 +191,7 @@ _PROFILES: list[tuple[str, dict[str, Any]]] = [
             "negative_prompt_supported": True,
             "reference_supported": False,
             "refine_supported": False,
+            "inpaint_supported": False,
             "refine_strength": None,
             "true_cfg_supported": False,
             "guide": guides.KREA2_RAW_GUIDE,
@@ -206,6 +224,9 @@ _PROFILES: list[tuple[str, dict[str, Any]]] = [
             "negative_prompt_supported": False,
             "reference_supported": True,
             "refine_supported": False,
+            "inpaint_supported": False,
+            # Deferred, not absent (`INPAINT_DEFERRED`): the page says so.
+            "inpaint_deferred": True,
             "refine_strength": None,
             "true_cfg_supported": False,
             "guide": guides.KLEIN_GUIDE,
@@ -240,6 +261,9 @@ _PROFILES: list[tuple[str, dict[str, Any]]] = [
             "negative_prompt_supported": False,
             "reference_supported": True,
             "refine_supported": False,
+            "inpaint_supported": False,
+            # Deferred, not absent (`INPAINT_DEFERRED`): the page says so.
+            "inpaint_deferred": True,
             "refine_strength": None,
             "true_cfg_supported": False,
             "guide": guides.KLEIN_GUIDE,
@@ -276,6 +300,9 @@ _PROFILES: list[tuple[str, dict[str, Any]]] = [
             "negative_prompt_supported": True,
             "reference_supported": False,
             "refine_supported": True,
+            "inpaint_supported": False,
+            # Deferred, not absent (`INPAINT_DEFERRED`): the page says so.
+            "inpaint_deferred": True,
             "refine_strength": 0.5,
             # Measured: 1536x1536 within a gigabyte of the card's top, as Krea
             # dev's same transformer is; nothing larger was run.
@@ -316,6 +343,9 @@ _PROFILES: list[tuple[str, dict[str, Any]]] = [
             "negative_prompt_supported": True,
             "reference_supported": False,
             "refine_supported": True,
+            "inpaint_supported": False,
+            # Deferred, not absent (`INPAINT_DEFERRED`): the page says so.
+            "inpaint_deferred": True,
             # Measured on Krea dev: at 1.5x of a 1 MP image the shift is
             # already mu 2.0, so 0.1 starts the pass at sigma 0.47 and keeps
             # the face; 0.15 (0.62) and up repaint it.
@@ -384,6 +414,8 @@ _PROFILES.append(
             "negative_prompt_supported": True,
             "reference_supported": False,
             "refine_supported": True,
+            "inpaint_supported": True,
+            "inpaint_family": "StableDiffusionXLPipeline",
             "refine_strength": 0.4,
             # Measured: 2896x2896, the pass's own guard, at 10.3 GB of the card.
             "refine_measured": Measured("Animagine XL 4.0", "fp8", 2896, 2896),
@@ -420,6 +452,8 @@ _PROFILES.append(
             "negative_prompt_supported": True,
             "reference_supported": False,
             "refine_supported": True,
+            "inpaint_supported": True,
+            "inpaint_family": "StableDiffusionXLPipeline",
             "refine_strength": 0.4,
             # Measured: 2896x2896, the pass's own guard, at 10.3 GB of the card.
             "refine_measured": Measured("Kohaku XL Zeta", "fp8", 2896, 2896),
@@ -456,6 +490,8 @@ _PROFILES.append(
             "negative_prompt_supported": True,
             "reference_supported": False,
             "refine_supported": True,
+            "inpaint_supported": True,
+            "inpaint_family": "StableDiffusionXLPipeline",
             "refine_strength": 0.4,
             # Measured: 2896x2896, the pass's own guard, at 10.4 GB of the card.
             "refine_measured": Measured("Illustrious XL v2.0", "fp8", 2896, 2896),
@@ -497,6 +533,9 @@ _PROFILES.append(
             "negative_prompt_supported": True,
             "reference_supported": False,
             "refine_supported": True,
+            "inpaint_supported": False,
+            # Deferred, not absent (`INPAINT_DEFERRED`): the page says so.
+            "inpaint_deferred": True,
             "refine_strength": 0.3,
             # Measured under Nunchaku, the only way it fits this card:
             # 1280x1280 with true CFG at 15.0 GB of the card; nothing larger.
@@ -553,6 +592,8 @@ _PROFILES += [
             "negative_prompt_supported": True,
             "reference_supported": False,
             "refine_supported": True,
+            "inpaint_supported": True,
+            "inpaint_family": "ZImagePipeline",
             # Shift 6: 0.15 starts the pass at sigma 0.51.
             "refine_strength": 0.15,
             # Measured: 1536x1536 at 13.7 GB of the card, 2048x2048 filling it.
@@ -591,6 +632,8 @@ _PROFILES += [
             "negative_prompt_supported": True,
             "reference_supported": False,
             "refine_supported": True,
+            "inpaint_supported": True,
+            "inpaint_family": "ZImagePipeline",
             "refine_strength": 0.25,
             # Measured: 2048x2048 at 12.5 GB of the card; 8.4 MP not run, its
             # growth putting it past the card.
@@ -624,6 +667,8 @@ _PROFILES += [
             "negative_prompt_supported": True,
             "reference_supported": False,
             "refine_supported": True,
+            "inpaint_supported": True,
+            "inpaint_family": "ZImagePipeline",
             "refine_strength": 0.25,
             # Measured: 1536x1536 at 13.1 GB of the card, as Z-Anime; its
             # 2048x2048 filled the card, so nothing larger was run.
@@ -668,6 +713,7 @@ _PROFILES += [
             "negative_prompt_supported": True,
             "reference_supported": False,
             "refine_supported": False,
+            "inpaint_supported": False,
             "refine_strength": None,
             "true_cfg_supported": False,
             "guide": guides.ERNIE_TURBO_GUIDE,
@@ -696,6 +742,7 @@ _PROFILES += [
             "negative_prompt_supported": True,
             "reference_supported": False,
             "refine_supported": False,
+            "inpaint_supported": False,
             "refine_strength": None,
             "true_cfg_supported": False,
             "guide": guides.ERNIE_GUIDE,
@@ -737,6 +784,8 @@ _EXACT_PROFILES: dict[str, dict[str, Any]] = {
         "negative_prompt_supported": True,
         "reference_supported": False,
         "refine_supported": True,
+        "inpaint_supported": True,
+        "inpaint_family": "StableDiffusionXLPipeline",
         "refine_strength": 0.4,
         "true_cfg_supported": False,
         "guide": guides.NOOBAI_GUIDE,
@@ -766,6 +815,8 @@ _EXACT_PROFILES: dict[str, dict[str, Any]] = {
         "negative_prompt_supported": True,
         "reference_supported": False,
         "refine_supported": True,
+        "inpaint_supported": True,
+        "inpaint_family": "StableDiffusionXLPipeline",
         "refine_strength": 0.4,
         "true_cfg_supported": False,
         "guide": guides.ROUWEI_GUIDE,
@@ -794,6 +845,8 @@ _EXACT_PROFILES: dict[str, dict[str, Any]] = {
         "negative_prompt_supported": True,
         "reference_supported": False,
         "refine_supported": True,
+        "inpaint_supported": True,
+        "inpaint_family": "StableDiffusionXLPipeline",
         "refine_strength": 0.4,
         # Measured: 2560x3360 at 11.4 GB of the card - past the pass's own
         # 8.4 MP guard, so nothing the dialog offers runs tight.
@@ -826,6 +879,7 @@ _EXACT_PROFILES: dict[str, dict[str, Any]] = {
         "negative_prompt_supported": True,
         "reference_supported": False,
         "refine_supported": False,
+        "inpaint_supported": False,
         "refine_strength": None,
         "true_cfg_supported": False,
         "guide": guides.NEWBIE_GUIDE,
@@ -857,6 +911,7 @@ _EXACT_PROFILES: dict[str, dict[str, Any]] = {
         "negative_prompt_supported": True,
         "reference_supported": False,
         "refine_supported": False,
+        "inpaint_supported": False,
         "refine_strength": None,
         "true_cfg_supported": False,
         "guide": guides.NETAYUME_GUIDE,
@@ -890,6 +945,7 @@ _EXACT_PROFILES: dict[str, dict[str, Any]] = {
         "negative_prompt_supported": True,
         "reference_supported": False,
         "refine_supported": False,
+        "inpaint_supported": False,
         "refine_strength": None,
         "true_cfg_supported": False,
         "guide": guides.ANIMA_TURBO_GUIDE,
@@ -919,6 +975,7 @@ _EXACT_PROFILES: dict[str, dict[str, Any]] = {
         "negative_prompt_supported": True,
         "reference_supported": False,
         "refine_supported": False,
+        "inpaint_supported": False,
         "refine_strength": None,
         "true_cfg_supported": False,
         "guide": guides.ANIMA_AESTHETIC_GUIDE,
@@ -950,6 +1007,7 @@ _FALLBACK: dict[str, Any] = {
     "negative_prompt_supported": True,
     "reference_supported": False,
     "refine_supported": False,
+    "inpaint_supported": False,
     "refine_strength": None,
     "true_cfg_supported": False,
     "guide": guides.FALLBACK_GUIDE,
@@ -983,7 +1041,7 @@ def _profile_for(model_id: str) -> dict[str, Any]:
 
 # The prose, and the measured refine pass, whose pixels reach the defaults as
 # `refine_tight_pixels` and whose words the hints as `refine_tight`.
-_NOT_DEFAULTS = ("hints", "guide", "refine_measured")
+_NOT_DEFAULTS = ("hints", "guide", "refine_measured", "inpaint_family")
 
 # The checkpoints whose pipeline is this repo's own class - both Anima variants'
 # modular blocks and NewBie's - beside which diffusers exports no
@@ -997,6 +1055,23 @@ _OWN_PIPELINES = frozenset({
 })
 
 
+# The pipeline classes diffusers ships an inpaint class beside whose families
+# are deliberately left without inpainting for now: FLUX.1 until its inpaint
+# memory is measured on the card (the class encodes the source twice),
+# FLUX.2 [klein] for the one reference its class takes beside the source,
+# Qwen-Image for the Nunchaku transformer it needs here. Each is a later phase of
+# docs/plan-inpainting.md. Their profiles say `inpaint_supported: False`, and
+# the backend refuses an inpaint on them whatever the class says.
+INPAINT_DEFERRED = frozenset({"FluxPipeline", "Flux2KleinPipeline", "QwenImagePipeline"})
+
+
+def inpaint_family(model_id: str) -> str | None:
+    """The diffusers text-to-image class whose inpaint sibling this
+    checkpoint runs, by name, or None where its inpaint is not enabled."""
+    profile = _profile_for(model_id)
+    return profile.get("inpaint_family") if profile["inpaint_supported"] else None
+
+
 def defaults_for(model_id: str) -> dict[str, Any]:
     """The numbers only - callers put these straight into a request or a field.
 
@@ -1004,7 +1079,8 @@ def defaults_for(model_id: str) -> dict[str, Any]:
     measured; every other profile answers None for it, which the page reads
     as "not measured". `refine_settled` is whether `refine_supported` is
     final before a load (`_OWN_PIPELINES`); the status sets it once a loaded
-    pipeline has answered too (`main._merged_defaults`).
+    pipeline has answered too (`main._merged_defaults`). `inpaint_settled`
+    is the same for `inpaint_supported`.
     """
     profile = _profile_for(model_id)
     measured = profile.get("refine_measured")
@@ -1016,6 +1092,13 @@ def defaults_for(model_id: str) -> dict[str, Any]:
         "cfg_ignored": bool(profile.get("cfg_ignored", False)),
         "refine_tight_pixels": measured.width * measured.height if measured else None,
         "refine_settled": model_id.lower().replace("_", "-") in _OWN_PIPELINES,
+        # A load can only take an inpaint away (the backend needs the profile's
+        # True and the class), never add one, so a False is final already.
+        "inpaint_settled": not profile["inpaint_supported"],
+        # Whether a False is a deferral (`INPAINT_DEFERRED`: diffusers has the
+        # class, this app has not enabled the family yet) rather than no
+        # class at all, so the Inpaint dialog's refusal says which.
+        "inpaint_deferred": bool(profile.get("inpaint_deferred", False)),
     }
 
 

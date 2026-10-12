@@ -367,6 +367,9 @@ els.lbReuse.onclick = () => { const rec = lbList[lbIndex]; if (rec) { closeLight
 // such pass the lightbox stays open, since the note saying so is mirrored
 // into it.
 els.lbRefine.onclick = () => { const rec = lbList[lbIndex]; if (rec && !refuseBinned(rec, 'refine')) openRefine(rec); };
+// Inpaint likewise (inpaint.js): a close that runs nothing gives the lightbox
+// back, and a held one says why in the lightbox's line.
+els.lbInpaint.onclick = pressLightboxInpaint;
 els.lbFav.onclick = () => { const rec = lbList[lbIndex]; if (rec) setFavorite(rec, !rec.favorite); };
 els.lbDelete.onclick = () => { const rec = lbList[lbIndex]; if (rec) deleteImage(rec); };
 // Nor a held Enter's repeats on the focused button, which press it again for
@@ -456,6 +459,44 @@ for (const el of [els.refineWidth, els.refineHeight, els.refineStrength, els.ref
 }
 els.refineVersions.addEventListener('change', refineChanged);
 
+// The Inpaint dialog (inpaint.js) and its mask (inpaint-mask.js). The canvas
+// paints with pointer events, captured for the stroke; its keys are its own
+// while it has focus; a plain wheel scrolls, Alt+wheel sizes the brush.
+els.inpaintRun.onclick = () => { void runInpaint(); };
+els.inpaintCancel.onclick = els.inpaintClose.onclick = closeInpaint;
+els.inpaintDialog.addEventListener('cancel', inpaintCancelEvent);
+els.inpaintDialog.addEventListener('close', inpaintClosed);
+els.inpaintDialog.addEventListener('keydown', inpaintKeydown);
+els.inpaintDice.onclick = () => { els.inpaintSeed.value = ''; inpaintChanged(); };
+els.inpaintStartOver.onclick = startInpaintOver;
+for (const el of [els.inpaintStrength, els.inpaintVersions, els.inpaintSeed, els.inpaintPrompt,
+                  els.inpaintNegative, els.inpaintSteps, els.inpaintCfg, els.inpaintMu, els.inpaintTrueCfg]) {
+  el.addEventListener('input', inpaintChanged);
+}
+els.inpaintVersions.addEventListener('change', inpaintChanged);
+for (const el of [els.inpaintPrompt, els.inpaintNegative, els.inpaintCfg, els.inpaintTrueCfg]) {
+  el.addEventListener('input', () => { syncInpaintCheck(); scheduleInpaintCheck(); });
+}
+els.inpaintCanvas.addEventListener('pointerdown', maskPointerDown);
+els.inpaintCanvas.addEventListener('pointermove', maskPointerMove);
+els.inpaintCanvas.addEventListener('pointerup', maskPointerUp);
+els.inpaintCanvas.addEventListener('pointercancel', maskPointerUp);
+els.inpaintCanvas.addEventListener('lostpointercapture', maskPointerUp);
+els.inpaintCanvas.addEventListener('pointerleave', maskPointerLeave);
+els.inpaintCanvas.addEventListener('wheel', maskWheel, { passive: false });
+els.inpaintCanvas.addEventListener('keydown', maskKeydown);
+els.inpaintCanvas.addEventListener('keyup', maskKeyup);
+els.inpaintCanvas.addEventListener('blur', maskBlur);
+els.inpaintBrushTool.onclick = () => setMaskTool('brush');
+els.inpaintEraserTool.onclick = () => setMaskTool('eraser');
+els.inpaintInvert.onclick = invertMask;
+els.inpaintClear.onclick = clearMask;
+els.inpaintUndo.onclick = undoMask;
+els.inpaintRedo.onclick = redoMask;
+els.inpaintShow.addEventListener('change', drawMaskSoon);
+els.inpaintSize.addEventListener('input', () => setMaskSize(+els.inpaintSize.value));
+els.inpaintFeather.addEventListener('input', () => setMaskFeather(+els.inpaintFeather.value));
+
 // A delete's question (gallery-actions.js): Delete, Cancel, Enter in the count's box,
 // a press outside it. Escape is the dialog's own cancel, answered as Cancel.
 els.confirmOk.onclick = () => els.confirmDialog.close('ok');
@@ -477,7 +518,7 @@ document.addEventListener('keydown', (e) => {
   // Not under a dialog: Escape there is the dialog's (Refine, Mass refine,
   // Swap tags, More seeds), the picker staying open under it.
   if (e.key === 'Escape' && !e.defaultPrevented && !els.modelPicker.hidden
-      && !els.lightbox.open && !els.refineDialog.open
+      && !els.lightbox.open && !els.refineDialog.open && !els.inpaintDialog.open
       && !els.refineBatchDialog.open && !els.swapDialog.open && !els.moreSeedsDialog.open) {
     e.preventDefault();
     showModelPicker(false);
@@ -493,6 +534,7 @@ document.addEventListener('keydown', (e) => {
     // hands focus back to - the card's ⤢ - read it as a press of its own.
     e.preventDefault();
     if (els.refineDialog.open) void runRefine();
+    else if (els.inpaintDialog.open) void runInpaint();
     else if (els.refineBatchDialog.open) void runRefineBatch();
     else if (els.swapDialog.open) void queueSwap();
     else if (els.moreSeedsDialog.open) void runMoreSeeds();
@@ -515,7 +557,7 @@ document.addEventListener('keydown', (e) => {
   // Escape is its own (the lightbox's below), nor in the middle of a
   // composition, nor in a search box with text, which Escape empties.
   if (e.key === 'Escape' && !e.defaultPrevented && !e.isComposing && !els.promptAnalysis.hidden
-      && !els.lightbox.open && !els.refineDialog.open
+      && !els.lightbox.open && !els.refineDialog.open && !els.inpaintDialog.open
       && !els.refineBatchDialog.open && !els.swapDialog.open && !els.moreSeedsDialog.open
       && !(e.target.matches?.('input[type="search"]') && e.target.value)) {
     escapeAnalysis();

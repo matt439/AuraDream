@@ -25,6 +25,14 @@ time estimate ignores it; nor can the recycle bin, so an image that was in
 it comes back live. The timestamp is parsed from the filename prefix as
 UTC, which is how it was written; failing that, the file's own mtime.
 
+An inpaint's mask is a picture of its own, named by its hash and so never
+remapped. Masks come back from `masks/*.png` beside the images (a file
+whose pixels are not the hash it is named by is skipped and counted), from
+the source database's `masks` table with them, and - where the file is gone -
+from the copy every result carries in its `local-diffusion-mask` chunk. A
+result whose mask is found nowhere keeps its hash, which still says what
+ran, and is counted.
+
 Not `import.py`: `from backend import import` is a SyntaxError, so no test
 could follow the house style. Running the file directly works too - see the
 sys.path bootstrap below.
@@ -32,6 +40,9 @@ sys.path bootstrap below.
 from __future__ import annotations
 
 import argparse
+import base64
+import binascii
+import io
 import json
 import re
 import sqlite3
@@ -49,7 +60,7 @@ try:
 
     from backend import gallery_lock, storage
     from backend.config import settings
-    from backend.metadata import PNG_METADATA_KEY, PNG_METADATA_KEYS, embedded_metadata
+    from backend.metadata import PNG_MASK_KEY, PNG_METADATA_KEY, PNG_METADATA_KEYS, embedded_metadata
 except ModuleNotFoundError as exc:  # pragma: no cover - startup guard
     sys.exit(
         f"Missing dependency: {exc.name}\n\n"
@@ -166,6 +177,96 @@ def _copy_in(source: Path, target: Path, meta: dict | None = None) -> None:
     partial.replace(target)
 
 
+def _open_mask(source, digest: str) -> Image.Image | None:
+    """The mask `source` (a path, or a PNG's bytes) holds, where it is the
+    mask `digest` names: one `L` channel whose `storage.mask_hash` - its size
+    and its levels - is that hash. None for anything else, a file that is
+    not a PNG included."""
+    try:
+        with Image.open(io.BytesIO(source) if isinstance(source, bytes) else source) as image:
+            if image.format != "PNG" or image.mode != "L":
+                return None
+            image.load()
+            return image.copy() if storage.mask_hash(image) == digest else None
+    except (OSError, ValueError, Image.DecompressionBombError):
+        return None
+
+
+def _embedded_mask(image: Image.Image | None, digest: str) -> Image.Image | None:
+    """The mask a result carries in its own `local-diffusion-mask` chunk,
+    where it is the one its record names."""
+    raw = image.info.get(PNG_MASK_KEY) if image is not None else None
+    if not isinstance(raw, str):
+        return None
+    try:
+        data = base64.b64decode(raw, validate=True)
+    except (binascii.Error, ValueError):
+        return None
+    return _open_mask(data, digest)
+
+
+class _Masks:
+    """The masks a reindex can find, and the ones it put back.
+
+    `held` answers whether this gallery has a mask (its row and its file),
+    from what this run restored and, against a gallery that exists, from
+    storage - never creating one, which a dry run promises not to do.
+    `restore` keeps a verified mask through `storage.store_mask`, the one
+    writer of the `masks` table and directory.
+    """
+
+    def __init__(self, counts: dict[str, int], dry_run: bool, out):
+        self.counts = counts
+        self.dry_run = dry_run
+        self.out = out
+        self.restored: set[str] = set()
+
+    def held(self, digest: str) -> bool:
+        if digest in self.restored:
+            return True
+        if not settings.db_path.exists():
+            return False
+        try:
+            storage.mask_path(digest)
+        except ValueError:
+            return False
+        return True
+
+    def restore(self, digest: str, mask: Image.Image) -> None:
+        if not self.dry_run:
+            storage.store_mask(mask)
+        self.restored.add(digest)
+        self.counts["masks"] += 1
+
+    def from_directory(self, directory: Path) -> None:
+        """Every `masks/*.png` named by the hash of its own pixels."""
+        if not directory.is_dir():
+            return
+        for path in sorted(directory.glob("*.png")):
+            digest = path.stem
+            if storage._MASK_HASH.fullmatch(digest) is None or (mask := _open_mask(path, digest)) is None:
+                self.counts["bad_masks"] += 1
+                print(f"  skip  masks/{path.name}: not the mask its name says", file=self.out)
+                continue
+            if not self.held(digest):
+                self.restore(digest, mask)
+
+    def resolve(self, digest: str | None, directory: Path, image: Image.Image | None) -> None:
+        """Make sure a result's mask is held: from its file in `directory`,
+        else from the result's own embedded copy; counted where neither."""
+        if digest is None or self.held(digest):
+            return
+        path = directory / f"{digest}.png"
+        mask = _open_mask(path, digest) if path.is_file() else None
+        if mask is None:
+            mask = _embedded_mask(image, digest)
+        if mask is None:
+            self.counts["unresolved_masks"] += 1
+            print(f"  note  mask {digest[:16]} was found neither in masks/ nor in its result", file=self.out)
+            return
+        self.restore(digest, mask)
+
+
 def _source_rows(database: Path) -> list[dict]:
     """Read another app database without migrating or otherwise changing it."""
     uri = database.resolve().as_uri() + "?mode=ro"
@@ -197,7 +298,8 @@ def _json_list(value) -> list:
 
 
 def _database_meta(
-    row: dict, width: int, height: int, digest: str, references: list[int], refine: int | None
+    row: dict, width: int, height: int, digest: str, references: list[int], refine: int | None,
+    mask: str | None = None,
 ) -> dict:
     variables = _json_list(row.get("variables"))
     if not variables and row.get("variables"):
@@ -228,6 +330,9 @@ def _database_meta(
         "refine": refine,
         "refine_source": storage.image_provenance(refine),
         "strength": row.get("strength") if refine is not None else None,
+        "mask": mask,
+        "mask_source": storage.mask_provenance(mask, width, height),
+        "mask_blend": "overlay" if mask is not None else None,
         "batch": storage._batch(row.get("batch")),
     }
 
@@ -244,6 +349,9 @@ def merge_database(
         "invalid": 0,
         "conflicts": 0,
         "unresolved_references": 0,
+        "masks": 0,
+        "bad_masks": 0,
+        "unresolved_masks": 0,
     }
     rows = _source_rows(database)
     outputs = settings.outputs_dir.resolve()
@@ -252,6 +360,11 @@ def merge_database(
     id_map: dict[int, int] = {}
     if not dry_run:
         storage.init_db()
+    # The masks first, every one the other gallery's directory holds, as
+    # its `masks` table would list them: a mask is named by its pixels, so
+    # its file is the record, and a result below then finds it held.
+    masks = _Masks(counts, dry_run, out)
+    masks.from_directory(source / storage.MASKS_DIR)
 
     for row in rows:
         filename = row["filename"]
@@ -309,6 +422,10 @@ def merge_database(
                 counts["unresolved_references"] += 1
         else:
             refine = None
+        # A mask only beside the source it covers, as a hash and never
+        # anything else; one this gallery cannot find keeps its hash.
+        mask = storage._mask(row.get("mask")) if refine is not None else None
+        masks.resolve(mask, source / storage.MASKS_DIR, image)
         digest = storage.content_hash(image)
         counts["indexed"] += 1
         if dry_run:
@@ -319,7 +436,7 @@ def merge_database(
             id_map[source_id] = source_id
             continue
 
-        meta = _database_meta(row, width, height, digest, references, refine)
+        meta = _database_meta(row, width, height, digest, references, refine, mask)
         values = {
             "filename": filename,
             "prompt": row["prompt"],
@@ -349,6 +466,7 @@ def merge_database(
             # The recycle bin is SQLite's alone, as the star is: carried with
             # the database, and None (live) from one that predates it.
             "binned_at": row.get("binned_at"),
+            "mask": mask,
         }
         copied = source != outputs
         try:
@@ -373,7 +491,7 @@ def reindex(
         return merge_database(source, database, dry_run=dry_run, out=out)
     counts = {
         "indexed": 0, "present": 0, "no_metadata": 0, "conflicts": 0,
-        "unresolved_references": 0,
+        "unresolved_references": 0, "masks": 0, "bad_masks": 0, "unresolved_masks": 0,
     }
     source = source.resolve()
     outputs = settings.outputs_dir.resolve()
@@ -385,6 +503,10 @@ def reindex(
     identities: dict[str, dict] = {}
     if not dry_run:
         storage.init_db()
+    # The `masks` rows a lost database took with it, from the files first;
+    # each result's own embedded copy then covers a file that went too.
+    masks = _Masks(counts, dry_run, out)
+    masks.from_directory(source / storage.MASKS_DIR)
 
     def resolve_source(provenance) -> int | None:
         if not isinstance(provenance, dict):
@@ -457,10 +579,14 @@ def reindex(
             if refine is None:
                 counts["unresolved_references"] += 1
         visiting.remove(path.name)
+        # A mask goes where its source went: it covers that image's pixels.
+        mask = storage._mask(meta.get("mask")) if refine is not None else None
+        masks.resolve(mask, source / storage.MASKS_DIR, image)
         links_changed = (
             meta.get("reference") != (references or None)
             or meta.get("refine") != refine
             or (refine is None and meta.get("strength") is not None)
+            or meta.get("mask") != mask
         )
         meta = {
             **meta,
@@ -469,6 +595,9 @@ def reindex(
             "refine": refine,
             "refine_source": meta.get("refine_source") if refine is not None else None,
             "strength": meta.get("strength") if refine is not None else None,
+            "mask": mask,
+            "mask_source": storage.mask_provenance(mask, width, height),
+            "mask_blend": "overlay" if mask is not None else None,
         }
         digest = storage.content_hash(image) if image is not None else None
         identities[path.name] = {
@@ -573,6 +702,12 @@ def main(argv: list[str] | None = None) -> int:
         summary += f", {counts['no_metadata']} without metadata" if counts["no_metadata"] else ""
     if counts["unresolved_references"]:
         summary += f", {counts['unresolved_references']} unresolved reference/refine source(s)"
+    if counts["masks"]:
+        summary += f", {counts['masks']} inpaint mask(s) {'to restore' if args.dry_run else 'restored'}"
+    if counts["bad_masks"]:
+        summary += f", {counts['bad_masks']} mask file(s) not named by their pixels"
+    if counts["unresolved_masks"]:
+        summary += f", {counts['unresolved_masks']} inpaint mask(s) found nowhere"
     summary += f", {counts['conflicts']} name conflict(s)" if counts["conflicts"] else ""
     print(summary + f". {time.perf_counter() - started:.1f}s.")
     if args.dry_run:

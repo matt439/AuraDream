@@ -631,6 +631,33 @@ and the `outputs/` PNGs. The browser checks are `tools/smoke-refine.json`
 (the Refine dialog), `smoke-refine-unavailable.json` and the additions to
 `smoke-conditioning.json`.
 
+## Inpaint
+
+Nothing measured yet. Inpainting is built for the SDXL and Z-Image families
+(`docs/plan-inpainting.md`, phases 1 and 2) and checked on the CPU and in
+the browser only: `tests/test_inpaint*.py`, `tests/test_api_inpaint.py`,
+`smoke-inpaint.json` and `smoke-inpaint-unavailable.json`, on fakes that
+repaint the masked pixels with a flat colour. Not yet measured on the card,
+from the plan's open measurements:
+
+- peak memory and time per step per enabled family at 1 MP, and the largest
+  size each holds (SDXL: WAI, then Animagine or NoobAI; Z-Image Turbo and
+  Z-Anime);
+- determinism, batch image *i* against a solo run of its seed,
+  cancel-then-rerun, and the text-to-image hash and the device after
+  inpaints;
+- `refine.build` over the fp8-quantized, offload-hooked components for
+  `StableDiffusionXLInpaintPipeline` and `ZImageInpaintPipeline`;
+- a starting strength per profile, against the library's default the dialog
+  starts at now;
+- the seam the composite leaves against the VAE round trip's colour shift,
+  with and without feather;
+- a LoRA through an inpaint, weight 0 byte-identical to none;
+- an inpaint over a Nunchaku Z-Image transformer under WSL;
+- the embedded mask's size in a result PNG at 1 MP and 8 MP;
+- for the deferred families (FLUX.1, FLUX.2 [klein], Qwen-Image), the
+  measurements their phases name before they are enabled.
+
 ## Prompt analyser
 
 Measured 2026-09-27 on the real server (`--quant fp8 --offload model`, port

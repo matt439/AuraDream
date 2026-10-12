@@ -150,8 +150,13 @@ def _clear_where(args: argparse.Namespace) -> int:
     except Exception as exc:  # noqa: BLE001 - report, with the post-deletion code
         print(f"{type(exc).__name__}: {exc}", file=sys.stderr)
         return 3
-    print(f"\nDeleted {result['records']} record(s), {result['files']} file(s).")
+    print(f"\nDeleted {result['records']} record(s), {result['files']} file(s)" + _masks(result) + ".")
     return 0
+
+
+def _masks(result: dict) -> str:
+    """The end of a "Deleted" line: the inpaint masks no image names any more."""
+    return f", {result['masks']} unused inpaint mask(s)" if result.get("masks") else ""
 
 
 def _clear_bin(args: argparse.Namespace) -> int:
@@ -199,7 +204,7 @@ def _clear_bin(args: argparse.Namespace) -> int:
     except Exception as exc:  # noqa: BLE001 - report, with the post-deletion code
         print(f"{type(exc).__name__}: {exc}", file=sys.stderr)
         return 3
-    print(f"\nDeleted {result['records']} record(s), {result['files']} file(s).")
+    print(f"\nDeleted {result['records']} record(s), {result['files']} file(s)" + _masks(result) + ".")
     return 0
 
 
@@ -262,6 +267,10 @@ def main(argv: list[str] | None = None) -> int:
     print(f"  {before['files_on_disk']:>6} PNG files, {_human(before['bytes_on_disk'])}")
     if before["orphan_files"]:
         print(f"  {before['orphan_files']:>6} of those have no database row")
+    if before["masks_on_disk"]:
+        # Not gallery images, so in neither count above (their bytes are):
+        # taken with the images whose inpaint they were.
+        print(f"  {before['masks_on_disk']:>6} inpaint mask file(s)")
     if before["partial_files"]:
         print(
             f"  {before['partial_files']:>6} stale .part file(s) from interrupted writes"
@@ -275,7 +284,8 @@ def main(argv: list[str] | None = None) -> int:
         )
     print()
 
-    if before["records"] == 0 and before["files_on_disk"] == 0 and not before["partial_files"]:
+    if (before["records"] == 0 and before["files_on_disk"] == 0 and not before["partial_files"]
+            and not before["masks_on_disk"]):
         print("Nothing to clear.")
         return 0
 
@@ -311,6 +321,7 @@ def main(argv: list[str] | None = None) -> int:
         f"\nDeleted {result['records']} record(s), {result['files']} file(s)"
         + (f", {result['orphans']} orphan(s)" if result["orphans"] else "")
         + (f", {result['partials']} stale .part file(s)" if result["partials"] else "")
+        + _masks(result)
         + "."
         # A kept image whose save was cut off between its row and its rename.
         + (f" Finished {result['recovered']} interrupted save(s)." if result["recovered"] else "")

@@ -65,7 +65,7 @@ def step_cost_ms(
 
 
 def refine_cost_ms(
-    width: int, height: int, model_id: str, sample: int = 100,
+    width: int, height: int, model_id: str, sample: int = 100, inpaint: bool = False,
 ) -> dict[int, float]:
     """Median full refine duration per image, grouped by denoised step count.
 
@@ -73,18 +73,24 @@ def refine_cost_ms(
     count keeps the fixed resize, text and VAE work in every image's price;
     one strength's timing is never extrapolated as a per-step rate. Unknown
     families provide no estimate until their schedule rounding is known.
+
+    An inpaint is priced from inpaints alone (`inpaint`) and a refine pass
+    from passes with no mask: the inpaint classes encode the source twice and
+    composite, so neither history says what the other costs.
     """
+    masked = "mask IS NOT NULL" if inpaint else "mask IS NULL"
     with storage._session() as conn:
         rows = conn.execute(
-            """SELECT duration_ms, steps, strength FROM images
+            f"""SELECT duration_ms, steps, strength FROM images
                WHERE width = ? AND height = ? AND model_id = ? AND steps > 0
                  AND duration_ms > 0 AND refine IS NOT NULL AND strength IS NOT NULL
+                 AND {masked}
                ORDER BY id DESC LIMIT ?""",
             (width, height, model_id, sample),
         ).fetchall()
     durations: dict[int, list[float]] = {}
     for row in rows:
-        start = start_index(row["steps"], row["strength"], model_id)
+        start = start_index(row["steps"], row["strength"], model_id, inpaint=inpaint)
         if start is not None:
             durations.setdefault(row["steps"] - start, []).append(row["duration_ms"])
     return {steps: sorted(values)[len(values) // 2] for steps, values in durations.items()}
@@ -143,6 +149,9 @@ _GROUPS: dict[str, str] = {
     # sweep is starred by how much of the source it kept.
     "strength": "round(strength, 6)",
     "refine": "refine",
+    # An inpaint's mask, by the 16 digits the A1111 line prints: which region
+    # of a source the kept passes repainted. NULL on everything else.
+    "mask": "substr(mask, 1, 16)",
     # A comparison's version by its label (`prompt_variants`): the starred
     # rate per version. `prompt` cannot say it - reorders share their opening
     # words, which is all a table cell has room for.
