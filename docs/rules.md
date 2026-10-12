@@ -2920,7 +2920,9 @@ Frontend and CLI:
   its own on and off, or switches the one on to it; a mode turns on the
   default kind, or switches mode keeping the kind. The partner starts as
   the CFG value directly below, or above for the lowest; Against picks
-  another (the comparison on, or turned on). The lower CFG is always on the
+  another (the comparison on, or turned on). Against is drawn as the small
+  buttons above it (lightbox.css), and ← → on it are the select's own:
+  app.js's keydown returns before walking when the target is a SELECT. The lower CFG is always on the
   left (or the upper half): where the image in view has the lower CFG
   (`lbSwapped`) `layoutLightbox` puts it in the first port and
   `layoutCompare` cuts the partner's layer to the right of the divider and
