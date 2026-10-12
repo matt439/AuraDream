@@ -478,15 +478,25 @@ function rerenderSelection() {
   }, { slot: els.galleryError });
 }
 
-function syncRerender() {
+// Coming and going with the pointer on the head's controls waits for it to
+// leave them (showInHead); `now` for the bin's way in and out.
+function syncRerender(now = false) {
   const filtered = els.favOnly.checked || els.search.value.trim() !== '';
   // Not in the recycle bin, whose count is not a render's (bin.js).
   const show = filtered && !binMode && total > 0 && total <= sheetPage;
-  els.rerender.hidden = !show;
-  if (show) {
-    els.rerender.textContent =
-      `Re-render ${total} at ${els.width.value}×${els.height.value}`;
+  const label = show ? `Re-render ${total} at ${els.width.value}×${els.height.value}` : els.rerender.textContent;
+  // Its label is the confirmation, so it is never held back: under a
+  // resting pointer the box keeps its width instead and the label ends in
+  // an ellipsis there (gallery.css). "Re-render 3" to "Re-render 24" wrapped
+  // Delete unstarred onto a row of its own at 1400 and slid Starred 130 px.
+  const held = headPointer && !now;
+  if (!held) els.rerender.style.width = '';
+  else if (label !== els.rerender.textContent && !els.rerender.style.width
+      && (!els.rerender.hidden || els.rerender.classList.contains('kept'))) {
+    els.rerender.style.width = `${els.rerender.getBoundingClientRect().width}px`;
   }
+  showInHead(els.rerender, show, now);
+  if (show) els.rerender.textContent = label;
   // Swap tags, Mass refine and More seeds take the same filter where nothing
   // is picked (tag-swap.js, refine-batch.js, more-seeds.js).
   syncSwapButton();

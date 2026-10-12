@@ -344,5 +344,21 @@
   {"expect": "els.error.textContent.startsWith('Settings from #') && !els.error.querySelector('button.undo')"},
   {"eval": "els.reset.click();"},
   {"expect": "els.error.textContent === ''"},
-  {"eval": "resetPanel(); showError('');"}
+  {"eval": "resetPanel(); showError('');"},
+
+  {"log": "'in one column, under the viewer, another tab\\'s image waits while the pointer rests on a card - the page\\'s scroll anchoring keeps the rows, not which card is in each place, and a card\\'s ⌦ bins without asking - with the count new at once, and comes in once the pointer leaves the cards'"},
+  {"viewport": [1400, 900, 1]},
+  {"eval": "els.search.value = ''; els.favOnly.checked = false; resetGallery()"},
+  {"expect": "__until(() => !busy && !galleryPending && galleryRecords.length >= 8)"},
+  {"eval": "scrollTo(0, 0); window.__aim = document.querySelectorAll('#gallery .card[data-id]')[6]; __aim.id = 'smoke-aim'; __aim.scrollIntoView({block: 'center'}); window.__box = (el) => el.getBoundingClientRect(); window.__aimAt = __box(__aim); window.__aimX = __aimAt.left + __aimAt.width / 2; window.__aimY = __aimAt.top + __aimAt.height / 2; window.__under = () => document.elementFromPoint(__aimX, __aimY)?.closest('.card')?.dataset.id; window.__held = {n: galleryRecords.length, total, y: scrollY};"},
+  {"hover": "#smoke-aim"},
+  {"expect": "galleryPointer && __under() === __aim.dataset.id"},
+  {"eval": "fetch('/api/generate', {method: 'POST', headers: {'Content-Type': 'application/json'}, body: JSON.stringify({prompt: 'another tab, one image', num_images: 1, steps: 1, width: 256, height: 256, seed: 52})})"},
+  {"expect": "__until(() => total === __held.total + 1, 15000)"},
+  {"wait": 600},
+  {"expect": "galleryRecords.length === __held.n && __under() === __aim.dataset.id && JSON.stringify(__box(__aim)) === JSON.stringify(__aimAt) && scrollY === __held.y && els.count.textContent === `(${__held.total + 1})`"},
+  {"hover": [200, 120]},
+  {"expect": "__until(() => !galleryPointer && galleryRecords.length === __held.n + 1 && galleryRecords[0].prompt === 'another tab, one image')"},
+  {"expect": "__under() !== __aim.dataset.id"},
+  {"eval": "__aim.removeAttribute('id'); scrollTo(0, 0);"}
 ]

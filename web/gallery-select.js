@@ -92,7 +92,7 @@ function syncSelection() {
     : picking ? 'Click cards to pick them' : '';
   // Written only when it changes: a page landing re-syncs, and a status
   // repeated is read out again.
-  if (els.selectCount.textContent !== text) els.selectCount.textContent = text;
+  if (els.selectCount.textContent !== text) els.selectCount.replaceChildren(...countParts(n, away, text));
   els.selectCount.title = away ? `${away} of the selected images are not among the cards this search and its pages show; they stay selected` : text;
   // Clear goes with an empty selection. Focus on it moves to Select first,
   // so it does not fall to <body>.
@@ -102,6 +102,18 @@ function syncSelection() {
   for (const fn of selectionListeners) {
     try { fn(ids); } catch (err) { console.error(err); }
   }
+}
+
+// The count's text in parts the footer can narrow (gallery.css): the number
+// is never cut, " selected" gives way to a ✓ before it where the row is
+// short (Gallery beside, a phone), and only then does the "N not shown"
+// tail - the warning - end in an ellipsis. Its words are the text as ever.
+function countParts(n, away, text) {
+  const part = (cls, words) => Object.assign(document.createElement('span'), { className: cls, textContent: words });
+  if (!n) return text ? [part('tail', text)] : [];
+  const num = part('num', String(n));
+  num.append(part('word', ' selected'));
+  return away ? [num, part('tail', ` · ${away} not shown`)] : [num];
 }
 
 // One card's mark. Picking is the image's press in select mode, so the image

@@ -105,9 +105,10 @@ function syncBinControls() {
   // Their own titles follow the bin (runs.js, gallery.js).
   syncRunList();
   syncBesideTitle();
-  syncDeleteUnstarred();
+  // At once: the bin's buttons take Delete unstarred's place as it goes.
+  syncDeleteUnstarred(true);
   // Re-render, and Swap tags, Refine… and More seeds… through it.
-  syncRerender();
+  syncRerender(true);
   syncEmptyBin();
   syncRestorePicked();
 }

@@ -1057,7 +1057,13 @@ Jobs:
   did not submit reads "Another tab's job: …" ("Next, another tab's job: …"
   alone), its × "Cancel another tab's queued job: …", and Cancel queued's
   title says it takes another tab's too; a paused job's cell line counts the
-  jobs waiting behind it. A job `watchNext` picks up that this page did not
+  jobs waiting behind it. A row the poll adds or takes out waits while the
+  pointer rests on the list or anything under it that it would move
+  (`queuePointer`, from the page's pointerover: in the panel, and in one
+  column the whole page below; never `:hover`), the latest change kept in
+  `queueWaiting` and asked again as the pointer leaves (`releaseQueue`),
+  and dropped by a poll that finds the queue back as it is shown;
+  this page's own rows - a submission, an × - go in at once. A job `watchNext` picks up that this page did not
   submit, while its viewer holds this session's own results (`isForeign`),
   is shown in the progress row only - no `clearResults`, frame or stand-in -
   named "Another tab's job:" in the Now row, the mirrors and the title, and
@@ -1108,8 +1114,8 @@ Jobs:
   whatever the view takes in: a sheet, the bin, Starred and a search leave
   the images out of `fresh`), `prependFinished` with the rise as `made` so
   its page reaches back over an import to the head held (never under a
-  sheet nor in the bin, cards held while the pointer rests on the column
-  beside the viewer, no duplicates: `joinFinished`), and `loadRuns`. A
+  sheet nor in the bin, cards held while the pointer rests on the
+  gallery's cards, no duplicates: `joinFinished`), and `loadRuns`. A
   catch-up whose `newest` (`upTo`) the grid has read already
   (`galleryReadHead`, the newest id of this epoch's first page or a joined
   head page) fetches and resets nothing - a late status after a reset over
@@ -1117,7 +1123,7 @@ Jobs:
   first, never resetting again over the line that reset's caller wrote
   (Delete unstarred's outcome or its 409). Where even that page does not
   join up, `prependFinished` resets the gallery only once the pointer has
-  left the column. A job queued, run and ended between two polls never
+  left the cards. A job queued, run and ended between two polls never
   showed in `active_jobs`, and its images otherwise stayed out of the
   gallery and the CFG ladders.
 - `main.Server.handle_exit` stops the active jobs (`jobs.stop_all("shutdown")`)
@@ -2491,14 +2497,15 @@ Frontend and CLI:
   `other_models`, Re-render, Delete unstarred and a gallery lightbox's
   counter are drawn as the page lands, and `prependFinished` answers the
   page's ids, so `noteOutsideView(images, coming)` says its line at once.
-  The cards go in through `joinFinished`: with Gallery beside, and only
-  where some cards are new, it first waits until the pointer is off the
-  gallery's scrolling column (`galleryPointerGone`: the `galleryPointer`
-  flag from `#library-scroll`'s pointerenter/pointerleave, as
-  `panelPos.pointer`, never `:hover`, which a tap leaves behind; the column
-  means its cards, gaps, scrollbar and Load more), not while the column is
-  hidden under the check, released by `galleryPointerLeft` or by
-  `syncBeside` turning the column off, then checks again that the page
+  The cards go in through `joinFinished`: only where some cards are new,
+  it first waits until the pointer is off the gallery's cards, in one
+  column as beside the viewer (`galleryPointerGone`: the `galleryPointer`
+  flag from `#library-scroll`'s pointerenter/pointerleave, which fire under
+  the viewer too, where it is `display: contents`; as `panelPos.pointer`,
+  never `:hover`, which a tap leaves behind; beside the viewer that means
+  the column's cards, gaps, scrollbar and Load more), not while `#gallery`
+  is not shown (the column hidden under the check), released by
+  `galleryPointerLeft` or by `syncBeside` changing columns, then checks again that the page
   joins up; a column scrolled down keeps its view (`holdGalleryView`: the
   first child in its view, measured across the insert); `now` skips the
   wait), never `resetGallery`,
@@ -3193,8 +3200,13 @@ Frontend and CLI:
   said in `#gallery-error`. On a sheet Select is aria-disabled with
   `SELECT_ON_SHEET` as its title, reads `aria-pressed="false"` and says it
   when pressed, and the count offers no "Click cards" hint; the sheet's
-  cells are not picked. `#select-count` shrinks with an ellipsis before the
-  buttons do. A picked card is `.selected` (its group named "#N
+  cells are not picked. `#select-count` (`countParts`: `.num`, `.word`,
+  `.tail`, its text the words above) gives way before the buttons do and
+  after the gallery's message; its number is never cut, " selected" goes
+  out of sight for a ✓ (alt text empty) where the footer, a size container,
+  is under 800 px, and only then does the "M not shown" tail end in an
+  ellipsis. Before a shown Clear it keeps 4 px, Clear's own padding on that
+  side halved; with Clear hidden, the row's gap before Select. A picked card is `.selected` (its group named "#N
   (selected)"); in select mode `#gallery.selecting` draws a ring at each
   card's top centre and the image is a toggle (`aria-pressed`, named
   "Select #N: …"). `syncSelection` derives all of it from the state; call it
@@ -3616,7 +3628,21 @@ Frontend and CLI:
   search (a leading `=` on any text key) its exact form; the page's All models tick is the
   one switch, unpersisted like Starred, and `GalleryPage.other_models` is
   what the same filter matches elsewhere. Delete unstarred takes the scope
-  because its count must be the grid's. Re-render's refusal of another
+  because its count must be the grid's. Re-render and Delete unstarred,
+  after the search, Starred and All models in a row the free space keeps
+  to the right, come and go through `showInHead`: while the pointer rests
+  on the head's controls (`headPointer`, from the head's pointerover and
+  leave, its footer row not counted; never `:hover`) one that goes keeps
+  its box, hidden (`.kept`), and one that comes waits, both put right as
+  the pointer leaves (`releaseHead`), so nothing before them slides under
+  it, and All models' " (+N)" (`showOtherModels`, `headOthers`) waits with
+  them; the bin's way in and out (`syncBinControls`, `now`) is at once.
+  What is written there meanwhile does not break the row: on a head whose
+  controls are one row, the search gives way (`.held`, its basis and floor
+  gone) to the gallery's count growing, and Re-render's label, its
+  confirmation, is written at once in the width its box had (inline, an
+  ellipsis inside), both put right by `releaseHead`.
+  Re-render's refusal of another
   checkpoint's images (`api_generate.foreign_refusal`) advises unticking All
   models; it offers `model:<the whole running id>` only where that id is
   contained in none of the foreign ids selected (`model:Anima` is
@@ -4682,7 +4708,14 @@ image is left, focus on the search box), and a real sweep that takes every
 image handing focus to the search box, then a catch-up landing after that
 sweep's own reset read past its images (`newestImageSeen` lowered, the
 status received): no reset and the "Moved 2 images" line kept
-(`prependFinished`'s `galleryReadHead` skip). Every wait in it is a condition
+(`prependFinished`'s `galleryReadHead` skip); and the head holding still
+under real clicks: Starred ticked with Delete unstarred's box kept, a
+point it was clicked at still Starred's, a second click unticking it
+rather than focusing the search, a search typed with the pointer on the box
+keeping Re-render (and All models' count) back, the pointer leaving putting
+them right, and with both buttons shown another job's twelve images landing
+under the pointer: the count and Re-render's label written, Starred, All
+models and Delete unstarred unmoved, the search narrower (`.held`). Every wait in it is a condition
 (`__until`, `__settled`), none a sleep:
 
 ```powershell
@@ -4751,7 +4784,13 @@ its row marked as another tab's here, Cancel queued's title, the count), Cancel 
 cancel from elsewhere, a job that ended at the load reworded once that
 tab's Load lands, with the panel line's reason taken back, and, on a page
 opened afresh, one that ended at the load over the card said on
-`#job-said`, reworded by the card's Retry load and again by an unload:
+`#job-said`, reworded by the card's Retry load and again by an unload; the
+scrolled gallery's step moves the pointer off the cards first, which would
+otherwise hold the new card; and at 2560x1305, with the pointer resting on
+the Grid search summary under this page's running job, another tab's
+queued job waiting (`queueWaiting`, the summary unmoved, no row) until the
+pointer leaves, then listed, and one queued and cancelled there while the
+pointer rests dropped from `queueWaiting`, no row as it leaves:
 
 ```powershell
 uv run python tools/fake_server.py --port 7882 --step 0.3
@@ -4801,8 +4840,10 @@ put them - and the strip fitted alike with the page's scrollbar forced on
 and off; Reset with its Undo in the prompt box it
 emptied - inside the window at 1400x900 and at 800x900 - Ctrl+Z after it
 giving the prompt back, and the store kept forgotten past the prompt's
-blur; and Reset taking a Reuse's note from the panel line, with its Undo
-on offer or already retired:
+blur; Reset taking a Reuse's note from the panel line, with its Undo
+on offer or already retired; and, in one column at 1400x900, another tab's
+image held while the pointer rests on a card (the count new at once, the
+card under the pointer and its box unmoved) and joined once it leaves:
 
 ```powershell
 uv run python tools/fake_server.py --port 7883 --model black-forest-labs/FLUX.1-Krea-dev --step 0.3
@@ -4979,7 +5020,8 @@ node tools/browser.mjs tools/smoke-batch-peek.json
 with a fresh `--data` (it builds a 60-image grid): Select in the footer row
 before Swap tags…, Refine…, More seeds… and Bundles…, at Bundles…'s height; a click opening the lightbox out of
 select mode; Select pressed with neither it nor the grid moving as the count
-appears; a click, Space, Shift+click and Shift+Space (a range from the anchor
+appears, its hint the row's gap from Select and the count 4 px from a
+shown Clear; a click, Space, Shift+click and Shift+Space (a range from the anchor
 out, backwards too) picking, a second click unpicking, the image's
 `aria-pressed` and name and the group's "(selected)"; Enter still opening
 the lightbox and F still starring; a search showing one of eight counted as
@@ -4994,7 +5036,9 @@ hint, and the selection kept and counted; a refused pick leaving the anchor;
 rejected search counting the whole selection as not shown; and a long
 message in the gallery's line beside a long count staying one line - the
 footer, Select and the grid unmoved, the text the title - at 1400, at 600
-and beside the viewer at 2560:
+and beside the viewer at 2560, the count's number whole each time, its
+words whole at 1400, " selected" a ✓ at 600 and beside the viewer, where
+"✓ 2 · 1 not shown" fits whole:
 
 ```powershell
 uv run python tools/fake_server.py --port 7898 --data <new-scratch-directory>

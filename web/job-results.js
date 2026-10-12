@@ -429,8 +429,8 @@ function prependFinished(made, { now = false, upTo = null } = {}) {
     if (epoch !== galleryEpoch || sheetMode) return;
     if (!joinsUp(page)) {
       // More came in than one page reaches back over: the gallery starts
-      // again, but not under a pointer resting on the column beside the
-      // viewer, as joinFinished's cards wait (an import in another tab).
+      // again, but not under a pointer resting on its cards, as
+      // joinFinished's wait (an import in another tab).
       if (!now) await galleryPointerGone();
       return epoch === galleryEpoch && !sheetMode && !binMode ? resetGallery() : undefined;
     }
@@ -443,7 +443,7 @@ function prependFinished(made, { now = false, upTo = null } = {}) {
     if (Number.isInteger(page.newest_image_id)) galleryReadHead = Math.max(galleryReadHead ?? 0, page.newest_image_id);
     total = page.total;
     els.count.textContent = total ? `(${total})` : '';
-    els.otherModels.textContent = page.other_models ? ` (+${page.other_models})` : '';
+    showOtherModels(page.other_models);
     galleryOthers = page.other_models || 0;
     syncRerender();
     syncDeleteUnstarred();
@@ -462,10 +462,11 @@ function joinsUp(page) {
 }
 
 // A finished job's cards, from the page prependFinished fetched, put in ahead
-// of the gallery's. Beside the viewer, a pointer resting on the gallery's
-// column keeps the cards where they are until it leaves (galleryPointerGone):
-// one image ahead of them moves every card a place along the rows, which no
-// scroll can take back. Only where there is something to put in.
+// of the gallery's. A pointer resting on the gallery's cards - beside the
+// viewer or under it - keeps them where they are until it leaves
+// (galleryPointerGone): one image ahead of them moves every card a place
+// along the rows, which no scroll can take back. Only where there is
+// something to put in.
 async function joinFinished(page, epoch, now = false) {
   const newer = () => page.items.some((r) => r.id > galleryRecords[0].id && !galleryRecords.some((g) => g.id === r.id));
   if (!now && galleryRecords.length && newer()) await galleryPointerGone();

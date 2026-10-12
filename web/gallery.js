@@ -65,7 +65,7 @@ function loadGallery() {
       // What the tick would add: the same filter's matches on other
       // checkpoints, so a run made on the other model reads as "+12" on the
       // tick rather than as an empty grid. 0 once it is on.
-      els.otherModels.textContent = page.other_models ? ` (+${page.other_models})` : '';
+      showOtherModels(page.other_models);
       galleryOthers = page.other_models || 0;
       syncEmptyInstall(page);
       syncRerender();
@@ -103,7 +103,10 @@ function loadGallery() {
       // for a page that lands rather than fetching from this server again.
       moreArmed = false;
       showError(err.message, false, { slot: els.galleryError });
-      if (!galleryRecords.length) els.count.textContent = els.otherModels.textContent = '';
+      if (!galleryRecords.length) {
+        els.count.textContent = '';
+        showOtherModels(0);
+      }
       // The grid resetGallery emptied shows none of the selection now.
       syncSelection();
     })
@@ -261,8 +264,9 @@ function syncBeside() {
   // An open check docks in the stage or takes the gallery's column, and
   // #recent's room beside it (fitRecent) goes with that.
   fitRecent();
-  // Back under the viewer, the page's own scroll anchoring has the gallery.
-  if (!on) releaseGallery();
+  // The cards have moved from under a still pointer either way, and it is
+  // on the head's tick or at the window's edge: what waited for it comes in.
+  releaseGallery();
 }
 
 // While a sheet is open the tick changes nothing on screen - the page is one
@@ -275,22 +279,25 @@ function syncBesideTitle() {
     : label.dataset.title;
 }
 
-// A finished job's images join the gallery beside the viewer
-// (prependFinished) once the pointer is off its scrolling column - its
-// cards, the gaps between them, its scrollbar and Load more: one image ahead
+// A finished job's images join the gallery (prependFinished) once the
+// pointer is off its cards - with Gallery beside, its scrolling column: the
+// cards, the gaps between them, its scrollbar and Load more. One image ahead
 // of them moves every card a place along the rows, and a card about to be
-// pressed was another by the press. Resolved at once where the gallery is
-// not beside the viewer, the pointer is elsewhere or the column is hidden
-// under the prompt check; else when the pointer leaves or the gallery goes
-// back under the viewer (syncBeside). Where the pointer is comes from its
-// enter and leave (app.js), as the panel's does (`panelPos.pointer`), not
-// from `:hover`: a tap leaves `:hover` on what it touched with no pointer
-// there, and a job that ended after one waited for the next tap in the
-// column.
+// pressed was another by the press - its ⌦ bins without asking. Under the
+// viewer too: the page's scroll anchoring keeps the rows where they were,
+// not which card is in each place along them. Resolved at once where the
+// pointer is elsewhere or the cards are not shown (the column hidden under
+// the prompt check); else when the pointer leaves or the gallery changes
+// columns (syncBeside). Where the pointer is comes from #library-scroll's
+// enter and leave (app.js) - a box of its own beside the viewer, none under
+// it, where its children's boxes are what the pointer enters - as the
+// panel's does (`panelPos.pointer`), not from `:hover`: a tap leaves
+// `:hover` on what it touched with no pointer there, and a job that ended
+// after one waited for the next tap in the column.
 let galleryWaiting = [];
 let galleryPointer = false;
 function galleryPointerGone() {
-  if (!besideOn || !galleryPointer || !isShown(els.libraryScroll)) return Promise.resolve();
+  if (!galleryPointer || !isShown(els.gallery)) return Promise.resolve();
   return new Promise((resolve) => galleryWaiting.push(resolve));
 }
 

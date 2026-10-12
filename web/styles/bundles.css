@@ -3,7 +3,9 @@
   display: flex; align-items: center; gap: var(--sp-3); flex: 1 0 100%; min-width: 0;
   margin-top: calc(var(--sp-1) - var(--sp-3));
 }
-.gallery-footer #gallery-error { flex: 1 1 auto; min-width: 0; margin-top: 0; }
+/* Shrinking first by far: the selection count beside it gives way only once
+   the message is down to nothing (gallery.css). */
+.gallery-footer #gallery-error { flex: 1 1000 auto; min-width: 0; margin-top: 0; }
 /* On a phone the row's buttons - Select, More seeds…, Bin, Bundles… - are
    wider than the column: what does not fit takes a second line, rather than
    running the page past the screen's edge. One line from 600 px up. */

@@ -295,7 +295,7 @@ async function resyncQueue(ids, asked) {
   const watched = currentJob;
   const at = ids.indexOf(watched);
   // Ended: its stream says so, and the next listing picks the queue up.
-  if (at < 0) return;
+  if (at < 0) { queueWaiting = null; return; }
   const behind = ids.slice(at + 1);
   if (behind.some((id) => !jobLabels.has(id))) {
     queueResyncing = true;
@@ -310,9 +310,50 @@ async function resyncQueue(ids, asked) {
   }
   const mine = queuedIds.filter((id) => !behind.includes(id) && (queuedAt.get(id) ?? 0) > asked);
   const next = [...behind, ...mine];
-  if (next.length === queuedIds.length && next.every((id, i) => id === queuedIds[i])) return;
+  // Back where it is shown, a change held for the pointer is gone with it:
+  // replayed, a job queued and cancelled elsewhere came in as the pointer
+  // left, its × a cancelled job's, and went at the next poll.
+  if (next.length === queuedIds.length && next.every((id, i) => id === queuedIds[i])) { queueWaiting = null; return; }
+  // Under a resting pointer it waits, asked again as it leaves (queuePointer).
+  if (queuePointer) { queueWaiting = { ids, asked }; return; }
   for (const id of queuedIds) if (!next.includes(id)) forgetJob(id);
   setQueue(next);
+}
+
+// A row the status poll puts in or takes out - another tab's job queued or
+// cancelled - changes the list's height, and with it moves everything under
+// it: in the panel the grid fold and the rest, and in one column, under 901
+// px, the whole page below. At 2560x1305 the Grid search summary went 138 px
+// down from under a pointer resting on it, and what was under the pointer
+// then was the new row's ×, which cancels the other tab's job. So while the
+// pointer is on the list or anything it would move (`queuePointer`, from
+// the page's pointerover, as `panelPos.pointer` and `galleryPointer` are,
+// never `:hover`) the poll's change waits (`queueWaiting`, the latest one),
+// and is asked again once the pointer leaves (releaseQueue). This page's
+// own rows - a submission, an × - are its own presses and go in at once.
+let queuePointer = false;
+let queueWaiting = null;
+function pointQueue(target) {
+  const on = movedByQueue(target);
+  if (on) { queuePointer = true; return; }
+  if (queuePointer) releaseQueue();
+}
+
+function movedByQueue(target) {
+  if (!(target instanceof Element)) return false;
+  const after = Node.DOCUMENT_POSITION_FOLLOWING | Node.DOCUMENT_POSITION_CONTAINED_BY;
+  if (!(els.queueNote.compareDocumentPosition(target) & after)) return false;
+  // Beside the stage only the panel's foot moves: the panel holds its
+  // place while the pointer is on it (panelPos.pointer).
+  const panel = els.queueNote.closest('.panel');
+  return getComputedStyle(panel).position !== 'sticky' || panel.contains(target);
+}
+
+function releaseQueue() {
+  queuePointer = false;
+  const waiting = queueWaiting;
+  queueWaiting = null;
+  if (waiting) void resyncQueue(waiting.ids, waiting.asked);
 }
 
 async function cancelQueued() {
