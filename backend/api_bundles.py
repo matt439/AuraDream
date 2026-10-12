@@ -54,6 +54,15 @@ def _password(value: SecretStr | str | None) -> str | None:
     return text or None
 
 
+def _sentence(text: str) -> str:
+    # `BundleError` and `CryptoError` say a lowercase clause ("the bundle
+    # password is incorrect"); the page shows a sentence, on either route.
+    text = text.strip()
+    if not text:
+        return ""
+    return text[:1].upper() + text[1:] + ("" if text.endswith((".", "!", "?")) else ".")
+
+
 def _header_password(request: Request) -> str | None:
     # A raw upload body is the file, so its password travels base64-encoded
     # (UTF-8) in a header rather than in the URL.
@@ -102,8 +111,9 @@ class BundleManager:
 
     def fail(self, exc: BaseException | str) -> None:
         # Some exceptions (ClientDisconnect, CancelledError) have no message;
-        # the page shows this text as it is, so never a bare class name.
-        error = str(exc) or f"The gallery bundle operation stopped unexpectedly ({type(exc).__name__})."
+        # the page shows this text as it is, so never a bare class name, and
+        # a worker's lowercase fragment as a sentence.
+        error = _sentence(str(exc)) or f"The gallery bundle operation stopped unexpectedly ({type(exc).__name__})."
         self.state = {**self.state, "state": "failed", "error": error}
 
     def start(self, fn: Callable[[], dict], cleanup: Path | None = None) -> dict:
@@ -197,7 +207,7 @@ def create_router(get_manager: Callable[[], BundleManager]) -> APIRouter:
         try:
             await asyncio.to_thread(bundle_crypto.check_password, header, password or "")
         except bundle_crypto.CryptoError as exc:
-            raise HTTPException(400, str(exc)[:1].upper() + str(exc)[1:] + ".") from exc
+            raise HTTPException(400, _sentence(str(exc))) from exc
         return {"ok": True}
 
     @router.post(PREFIX + "/export", status_code=202)

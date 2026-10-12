@@ -168,7 +168,9 @@ before changing it.
   (streamed chunked AES-256-GCM, scrypt); `api_bundles.py` owns browser routes
   and exclusive maintenance admission through background completion
 - `backend/search.py` — the search box's grammar: `key:value` terms as SQL
-  predicates (`size:WxH` both sides exact), the LIKE escape, `strict_scope`
+  predicates (`size:WxH` both sides exact; `lora:none` is IS NULL, every
+  other text key a substring; an integer past SQLite's 64 bits a
+  ValueError, so the routes' 422), the LIKE escape, `strict_scope`
 - `backend/main.py` — app lifecycle and model ownership: load state and
   lock, `ensure_loaded`, the load-failure wording, model switching, status,
   the model and adapter routes, the middlewares, and the `services`
@@ -1191,7 +1193,9 @@ Jobs:
 - An upload whose body stops early (the page's Cancel, a reload, a closed tab:
   `ClientDisconnect`) or whose request is cancelled fails the reservation with
   `api_bundles.UPLOAD_STOPPED` and removes its `.bundle-upload-*.part` before
-  anything is imported. `BundleManager.fail` never stores a bare class name.
+  anything is imported. `BundleManager.fail` never stores a bare class name,
+  and stores a worker's lowercase `BundleError`/`CryptoError` clause as a
+  sentence (`_sentence`, as the password check's 400 says it).
   The page's Cancel aborts only a request still being sent; once the server
   answers 202 the import is the server's. The route checks for a disconnect
   after the body ends, but a Cancel pressed after that check and before the
@@ -2880,7 +2884,7 @@ Frontend and CLI:
   `seed:` (or `run:` where the seed is not a safe JavaScript integer, and
   nothing asked with neither), `size:`, `steps:`, `refine:` (`none`),
   `mu:` (`none`; left out for an exponent) and `lora:=` (where there is an
-  adapter whose name has no space - the grammar has no "no adapter"),
+  adapter whose name has no space) or `lora:none` (where there is none),
   cached by query in `lbLadders` until `closeLightbox`, pruned by
   `forgetImages` (`forgetLadderImages`) and dropped for every query of a
   landed image's checkpoint, seed and size (`noteLadderImages`, from the

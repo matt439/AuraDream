@@ -484,6 +484,10 @@ def test_the_bin_lists_every_checkpoints_binned_images_and_its_summary(client, s
     page = client.get(f"/api/gallery/bin?search=fox&limit=1&before={theirs.id}").json()
     assert [r["id"] for r in page["items"]] == [mine.id]
     assert client.get("/api/gallery/bin?search=seed:many").status_code == 422
+    # Past SQLite's integers is a refusal on every route, never a 500.
+    for route in ("/api/gallery", "/api/gallery/bin", "/api/gallery/unstarred"):
+        response = client.get(route, params={"search": "seed:99999999999999999999"})
+        assert response.status_code == 422 and "out of range" in response.json()["detail"], route
     assert live.id not in {r["id"] for r in client.get("/api/gallery/bin").json()["items"]}
 
     summary = client.get("/api/gallery/bin/summary").json()

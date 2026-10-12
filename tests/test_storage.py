@@ -267,6 +267,32 @@ def test_a_filter_that_is_not_a_number_says_so(store):
         store.list_images(search="seed:tuesday")
 
 
+@pytest.mark.parametrize("search", [
+    "seed:99999999999999999999", "id:>=99999999999999999999", "steps:1-99999999999999999999",
+    "seed:-9223372036854775809", "size:99999999999999999999x1024",
+])
+def test_a_number_past_sqlite_integers_is_refused_not_overflowed(store, search):
+    # sqlite3 raises OverflowError, not ValueError, on an int past 64 bits:
+    # the routes' 422 path never saw it and the gallery answered 500.
+    keep(store, seed=1)
+    with pytest.raises(ValueError, match="out of range"):
+        store.list_images(search=search)
+    assert store.list_images(search="seed:9223372036854775807")[1] == 0
+
+
+def test_lora_none_is_the_images_made_without_an_adapter(store):
+    keep(store, seed=1)
+    keep(store, seed=2, lora="none.safetensors")
+    keep(store, seed=3, lora="ink.safetensors")
+    assert [r.seed for r in store.list_images(search="lora:none")[0]] == [1]
+    assert [r.seed for r in store.list_images(search="lora:OFF")[0]] == [1]
+    assert [r.seed for r in store.list_images(search="lora:=none.safetensors")[0]] == [2]
+    assert [r.seed for r in store.list_images(search="lora:ink")[0]] == [3]
+    # `none` is a stored quantization mode (an unquantised load), not NULL.
+    keep(store, seed=4, quantization="none")
+    assert [r.seed for r in store.list_images(search="quant:none")[0]] == [4]
+
+
 def test_the_job_filter_selects_one_run(store):
     keep(store, seed=1, job_id="night01")
     keep(store, seed=2, job_id="night01")

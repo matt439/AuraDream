@@ -3563,7 +3563,10 @@ holds keeps its own state, as it keeps its star, and `binned_at` is no part
 of the identity comparison, so binning or restoring an image never turns a
 repeat import into a conflict. An old bundle has no column and imports
 live; a newer bundle into an older build does the same, which is accepted
-(see "Recycle bin: why the per-image confirm went"). A bin or restore in
+(see "Recycle bin: why the per-image confirm went"). The import's result
+counts them (`binned`), and the dialog says "N of them are in the recycle
+bin, as they were when bundled": "Imported 9" over a gallery that grew by 7
+read as two images lost, with only the footer's Bin 2 to explain it. A bin or restore in
 another process mid-export changes a row, and the row-equality check
 before cleanup refuses it, which is the right answer.
 
@@ -3599,7 +3602,11 @@ says nothing was imported, and the staged `.part` is removed as before. The
 dialog's Cancel upload aborts the request's `AbortController` while its body
 (or the password check) is still being sent; it is always present and
 `aria-disabled` otherwise, so nothing moves under the pointer when an upload
-starts or ends.
+starts or ends. The worker's own refusals are `BundleError`/`CryptoError`
+clauses ("the bundle password is incorrect"), which the password check
+already capitalised and stopped; Import on a saved bundle skips that check,
+so the same refusal reached the dialog in lowercase. `BundleManager.fail`
+now makes every stored error a sentence the same way (`_sentence`).
 
 The server keeps its last result until the next operation, and every new
 page's first poll took it for news: a reload hours after an export said
@@ -5163,6 +5170,13 @@ not a term the page writes into the box. `id:` is the image the page names
 "#12" - in "refine of #4", the Refine dialog's title, a card's label - which
 no search could find before; a range is a span of them, and like any other
 term it is a strict scope for Delete unstarred and `clear --where`.
+`lora:none` is the images made without an adapter (IS NULL, as `mu:none`);
+it was a substring match on "none" that found nothing, though the comment
+over `FILTERS` said otherwise. `quant:none` stays a substring: an
+unquantised load stores the mode `none`. An integer past SQLite's 64 bits
+(`seed:99999999999999999999`) is refused as "out of range" with the other
+bad values: sqlite3 raised OverflowError at the query, which no route
+caught, and the gallery said "Internal Server Error".
 
 ## The contact sheet
 

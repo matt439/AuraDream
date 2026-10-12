@@ -206,7 +206,12 @@ function renderBundleResult(status, past = false) {
   } else if (status.operation === 'import') {
     const missing = result.unresolved_references || 0;
     const restored = result.restored || 0;
-    say(`Imported ${result.imported} gallery records; ${result.present} already present. Existing images were kept.${restored ? ` ${restored} missing image files were restored from the bundle.` : ''}${missing ? ` ${missing} links to missing source images could not be restored.` : ''}`, !!missing);
+    // A new record keeps the bin state it was bundled with, so the gallery
+    // grows by fewer than were imported: say where the rest went.
+    const binned = result.binned || 0;
+    const inBin = binned === 1 ? ' 1 of them is in the recycle bin, as it was when bundled.'
+      : binned ? ` ${binned} of them are in the recycle bin, as they were when bundled.` : '';
+    say(`Imported ${result.imported} gallery records; ${result.present} already present. Existing images were kept.${inBin}${restored ? ` ${restored} missing image files were restored from the bundle.` : ''}${missing ? ` ${missing} links to missing source images could not be restored.` : ''}`, !!missing);
   }
 }
 

@@ -734,10 +734,12 @@
         </select>
         <input type="search" id="search" placeholder="Search prompts, or seed:42 cfg:0.5…" aria-describedby="search-tip">
         <span class="help" tabindex="0" role="note" aria-label="Search help" aria-describedby="search-tip">?<span class="tip" id="search-tip">
-          Bare words match the prompt. <b>key:value</b> filters the numbers:<br>
+          Bare words match the prompt. <b>key:value</b> filters the settings:<br>
           <b>seed:42</b> · <b>steps:8</b> · <b>cfg:0.5</b> · <b>tcfg:1.5</b> · <b>mu:none</b> ·
-          <b>model:flux</b> · <b>run:ab12cd</b> · <b>job:ab12cd</b> ·
+          <b>model:flux</b> · <b>quant:fp8</b> · <b>lora:ink</b> · <b>run:ab12cd</b> · <b>job:ab12cd</b> ·
           <b>date:today</b> · <b>size:1024x768</b> · <b>hash:3f9a</b> · <b>refine:12</b> · <b>strength:0.4</b><br>
+          <b>model:</b>, <b>quant:</b>, <b>lora:</b>, <b>run:</b>, <b>job:</b> and <b>hash:</b> match
+          part of the text; <b>lora:none</b> is the images made without a LoRA.<br>
           <b>tcfg:</b> is the scale the negative prompt ran at; <b>hash:</b> finds every
           image with the same pixels.<br>
           <b>refine:</b> is the refine passes of that gallery image - <b>refine:none</b>
