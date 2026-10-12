@@ -3606,7 +3606,11 @@ starts or ends. The worker's own refusals are `BundleError`/`CryptoError`
 clauses ("the bundle password is incorrect"), which the password check
 already capitalised and stopped; Import on a saved bundle skips that check,
 so the same refusal reached the dialog in lowercase. `BundleManager.fail`
-now makes every stored error a sentence the same way (`_sentence`).
+now makes every stored error a sentence the same way
+(`bundle_common.sentence`). The preview and Import's name check refuse over
+HTTP through `main.invalid_bundle`, which says its detail the same way, so
+opening Bundles with a `.png.part` present and pressing Export show one
+sentence, not a lowercase clause and then a sentence.
 
 The server keeps its last result until the next operation, and every new
 page's first poll took it for news: a reload hours after an export said

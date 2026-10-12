@@ -25,7 +25,7 @@ if __name__ == "__main__":
 
     configure()
 
-from . import api_bundles, api_gallery, api_generate, api_jobs, api_more_seeds, api_prompt, api_refine_batch, api_swap, app_context, bundles, gallery_lock, loras, model_selection, prompt_encoding, startup_preferences, storage  # noqa: E402
+from . import api_bundles, api_gallery, api_generate, api_jobs, api_more_seeds, api_prompt, api_refine_batch, api_swap, app_context, bundle_common, bundles, gallery_lock, loras, model_selection, prompt_encoding, startup_preferences, storage  # noqa: E402
 from .backends import get_backend  # noqa: E402
 from .detached import detached as _detached  # noqa: E402
 from .model_selection import current_model_id, current_settings  # noqa: E402
@@ -267,7 +267,7 @@ async def gallery_busy(request: Request, exc: gallery_lock.GalleryBusy):
 
 @app.exception_handler(bundles.BundleError)
 async def invalid_bundle(request: Request, exc: bundles.BundleError):
-    return JSONResponse({"detail": str(exc)}, status_code=409 if isinstance(exc, bundles.BundleChanged) else 422)
+    return JSONResponse({"detail": bundle_common.sentence(str(exc))}, status_code=409 if isinstance(exc, bundles.BundleChanged) else 422)
 
 # DNS rebinding: a hostile page served from evil.example, whose record is
 # re-answered as 127.0.0.1, talks to this API as same-origin - CORS never gets a

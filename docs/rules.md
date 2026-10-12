@@ -1195,7 +1195,8 @@ Jobs:
   `api_bundles.UPLOAD_STOPPED` and removes its `.bundle-upload-*.part` before
   anything is imported. `BundleManager.fail` never stores a bare class name,
   and stores a worker's lowercase `BundleError`/`CryptoError` clause as a
-  sentence (`_sentence`, as the password check's 400 says it).
+  sentence (`bundle_common.sentence`, as the password check's 400 and
+  `main.invalid_bundle`'s 422/409 detail say it).
   The page's Cancel aborts only a request still being sent; once the server
   answers 202 the import is the server's. The route checks for a disconnect
   after the body ends, but a Cancel pressed after that check and before the

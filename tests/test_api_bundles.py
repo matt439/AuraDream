@@ -200,6 +200,18 @@ def test_a_worker_error_is_shown_as_a_sentence():
         assert manager.state["error"] == shown
 
 
+def test_a_refusal_answered_over_http_is_a_sentence_too(client, store):
+    # The preview and Import refuse through main's BundleError handler; the
+    # dialog shows its detail as it is, so it reads as the worker's would.
+    (store.settings.outputs_dir / "x.png.part").write_bytes(b"")
+    preview = client.get("/api/gallery/bundles/preview")
+    assert preview.status_code == 422
+    assert preview.json()["detail"] == "Finish or recover the incomplete image write first: x.png.part."
+    named = client.post("/api/gallery/bundles/import", json={"name": "x.txt"})
+    assert named.status_code == 422
+    assert named.json()["detail"] == f"Choose a bundle filename ending in .zip or {bundle_crypto.SUFFIX}."
+
+
 def test_bad_upload_and_changed_preview_leave_gallery_unchanged(client, store):
     run_one(client)
     before = store.list_images()[0]
