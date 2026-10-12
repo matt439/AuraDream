@@ -194,6 +194,7 @@ function resetPanel() {
   // anything left unsent in it.
   forgetRefine();
   forgetInpaint();
+  forgetOutpaint();
   samplingByModel = {};
   for (const key of Object.keys(owned)) owned[key] = false;
   // Emptied as typing would empty them (`rewriteBox`), so Ctrl+Z in the

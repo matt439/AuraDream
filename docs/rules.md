@@ -249,7 +249,8 @@ before changing it.
   `lightbox-compare.js` its comparison's controls, divider and pass
   stepping, `lightbox-cfg.js` its comparison across CFG; `refine.js` and `refine-prompt.js` the Refine dialog; `inpaint.js` the Inpaint dialog (its mask's
   upload, preview, submit and Reuse) and `inpaint-mask.js` its canvas, tools, strokes and export
-  (`styles/inpaint.css`);
+  (`styles/inpaint.css`); `outpaint.js` the Outpaint dialog (the side, band and preset
+  controls, the frame, the preview, submit, close and Reuse; `styles/outpaint.css`);
   `tags.js`, `tag-tokens.js` and `tag-chips.js` the prompt helper; `prompt-examples.js` the
   Examples menu, `prompt-expand.js` ERNIE's Expand; `analysis.js`,
   `analysis-critic.js` and `comparison.js` the check and critic. `sizes.js`
@@ -1122,7 +1123,8 @@ Reproduction:
   to the row's, and recover a spec an older build stripped from the A1111
   line only where the rebuilt mask hashes to the row's. Presets are the
   server's (`GET /api/images/{id}/outpaint-presets`, `outpaint.presets`).
-  Search `outpaint:yes|no`; stats `--by outpaint`.
+  Search `outpaint:yes|no`; stats `--by outpaint`. The page is the Outpaint
+  dialog (phase 2, below under the frontend rules).
 - Inpainting is a decision as well as a capability. `refine.sibling(pipe,
   "Inpaint")` finds the class under the exact-export rule, its call taking
   `refine.INPAINT_REQUIRED` (`REQUIRED` and `mask_image`) and `CARRIED`;
@@ -2759,6 +2761,42 @@ Frontend and CLI:
   point remains in each case. Cards, facts, the settings line and job
   labels read "inpaint of #N @ 0.6", the facts list has a Mask row (the
   hash's first 16 digits) and an inpainted card a ✎ badge.
+- An outpaint is the Outpaint dialog's (`web/outpaint.js`,
+  `styles/outpaint.css`, wearing `.inpaint-dialog`'s box and panes), never
+  the panel's and never a mode of the Inpaint dialog: `collect()` sends no
+  outpaint. `openOutpaint(rec, from)` (async: it asks `GET
+  /api/images/{id}/outpaint-presets` first) - the lightbox's Outpaint… in the
+  Refine/Inpaint row (one row, never wrapping; hidden under 901 px with
+  Inpaint…), a viewer result column's ⬚ Outpaint… and Reuse on an
+  outpainted record ("Reuse outpaint…", asked before the inpaint's since the
+  row has a mask too; `dataset.reuseOutpaint` holds `OutpaintSpec.key()`, so
+  `syncReuseButtons` rebuilds it). No card glyph. Where the checkpoint has
+  no inpaint class each entry point is `aria-disabled` with
+  `inpaintNone(true)` (", which an outpaint runs through") as its title and
+  a press says it. Requests carry `refine`, `outpaint` {fill, four sides,
+  band} and the canvas as width x height, never a mask; the page draws no
+  fill and does no preset arithmetic - the server answers every preset's
+  sides, canvas and `held` words, `off_grid` and the guard's limits. A
+  side box is committed (change, Enter, blur) rounded to 16 half up, and
+  the band to 8 within `max_band`, the status line saying the rounding; a
+  number already on the grid is taken as typed. A preset replaces the
+  four sides and keeps the band. Outpaint is `aria-disabled` with its
+  reason while no side is extended, the source is off the grid, the canvas
+  passes `max_side` or `max_pixels`, the band leaves nothing kept, the
+  preview refuses (an unknown fill by name) or the checkpoint has none.
+  The frame is a box of a fixed size with the side boxes round it at fixed
+  places; the status, frame, presets and band rows have fixed heights, the
+  empty preview line holds its height and a refusal takes its place, and
+  the dialog has `scrollbar-gutter: stable`, so nothing moves under the
+  pointer. A close that ran nothing keeps the sides, band and boxes in page
+  memory (`outpaintKept`) for that image on the same checkpoint. Its
+  shared helpers are inpaint.js's (`inpaintStartStrength`,
+  `libraryStrengthInto`, `syncPassSampling`, `renderPassCheck`,
+  `syncPassCheck`, `selectPassFrom`, `sourceGoneWords`). Cards, the
+  settings line and job labels read "outpaint of #N +L/+T/+R/+B @ S", the
+  facts "Outpainted from" and an Outpaint row, an outpainted card a ⬚
+  badge; Against source draws the source at (left, top) at the result's
+  scale.
 - `startJob(path, body, { sheet, panel, slot, placeholder, onAccepted,
   onRefused })`: `slot` (default `els.error`) is where its refusals go.
   `onAccepted(jobId)` runs once the server has taken the job, before
@@ -5861,6 +5899,33 @@ uv run python tools/fake_server.py --port 7905 --model cagliostrolab/animagine-x
 node tools/browser.mjs tools/smoke-inpaint.json
 uv run python tools/fake_server.py --port 7906
 node tools/browser.mjs tools/smoke-inpaint-unavailable.json
+```
+
+`smoke-inpaint-unavailable.json` also holds the lightbox's Outpaint… and
+the result column's ⬚ Outpaint… with "..., which an outpaint runs through",
+the deferred wording, Reuse of an outpaint opening the dialog held, and
+`openOutpaint` refusing. `smoke-outpaint.json` checks the Outpaint dialog on
+an Animagine fake on 7907 with a fresh `--data`: the lightbox's row of three
+not wrapping or cutting a word; opened from it with Strength at the class's
+default; Outpaint held with "Extend at least one side" and a press saying
+it; a typed 50 committed as 48 on Enter with "left 50 → 48, a multiple of
+16"; the server's presets over 1024 x 1024 (+128 all round, +400/+0/+400/+0,
++0/+256/+0/+256), the To shape… list, held presets on the 16:9 preset image
+and on 1376 x 768 (within 16 px), a stubbed off-grid answer; the frame's
+source and band placement; holds past the side budget, a preview refusal, a
+band leaving nothing kept and a band past 256; every box's rect and the
+scrollTop unchanged; Escape closing only the dialog over the model picker;
+Ctrl+Enter in a side box running the outpaint, not the panel; the result
+an outpaint of #N +400/+0/+400/+0 whose kept pixels are the source's at
+its offset and whose border is wholly masked; the card's badge, title and
+Reuse outpaint… after `syncReuseButtons`; the facts rows; Against source
+at the offset; Reuse reopening with the sides, band, strength and seed; a
+strength list opening a sheet; an unknown fill refused by name; Start
+over; `outpaint:yes`:
+
+```powershell
+uv run python tools/fake_server.py --port 7907 --model cagliostrolab/animagine-xl-4.0 --data <new-scratch-directory>
+node tools/browser.mjs tools/smoke-outpaint.json
 ```
 
 `smoke-analysis.json` checks the prompt check on a FLUX.1 Krea [dev] fake on

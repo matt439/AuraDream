@@ -1,6 +1,8 @@
 # Plan: outpainting
 
-**Status, 2026-10-13: a plan; nothing is built.** Written on
+**Status, 2026-10-13: phases 1 (backend) and 2 (the dialog) are built on
+`feat-outpainting`; phase 3 waits on the card's measurements. Below is the
+plan as it was written.** Written on
 `feat-outpainting`, branched from main at b3bc975 right after inpainting was
 merged, and revised the same day against an eighteen-point review of the
 first draft (each point and what became of it is listed at the end, under

@@ -407,6 +407,8 @@ function card(rec) {
     div.classList.add('refined');
     // An inpaint is a refine pass with a mask, and its badge says which.
     div.classList.toggle('inpainted', !!rec.mask);
+    // And an outpaint an inpaint whose mask the server built (outpaint.js).
+    div.classList.toggle('outpainted', !!rec.outpaint);
     div.dataset.strength = rec.strength;
   }
   // One of the images the viewer shows now (viewer.js).
@@ -782,6 +784,9 @@ function syncReuseButton(button, rec, compact = false) {
   button.dataset.reuseModel = modelId || '';
   button.dataset.reusePass = pass ?? '';
   button.dataset.reuseMask = rec.mask ?? '';
+  // An outpaint's spec by its key (`fill:L,T,R,B@band`), so a status
+  // refresh rebuilds an outpaint's button rather than an inpaint's.
+  button.dataset.reuseOutpaint = rec.outpaint ? outpaintKey(rec.outpaint) : '';
   button.dataset.reuseReference = (rec.reference ?? []).join(',');
   button.dataset.reuseLora = rec.lora || '';
   button.dataset.reuseCompact = String(compact);
@@ -802,6 +807,16 @@ function syncReuseButton(button, rec, compact = false) {
   const gone = pass != null && !!rec.refine_missing;
   button.dataset.reusePassGone = String(gone);
   button.dataset.reusePassBinned = String(gone && !!rec.refine_binned);
+  // An outpaint's opens the Outpaint dialog on its source with its sides,
+  // band and fill (`reuseOutpaint`) - first, since it has a mask as well.
+  if (pass != null && !gone && rec.outpaint) {
+    button.textContent = compact ? (mismatch ? '⚠' : '↻') : `${mismatch ? '⚠ ' : ''}Reuse outpaint…`;
+    button.title = mismatch ? `Warning: ${warning}`
+      : `Open the Outpaint dialog on #${pass} with this outpaint's sides, band, strength and seed`;
+    button.setAttribute('aria-label', `Reuse outpaint in the Outpaint dialog${mismatch ? ` (warning: ${warning})` : ''}`);
+    button.dataset.tip = 'Reuse outpaint…';
+    return;
+  }
   // An inpaint's opens the Inpaint dialog on its source with its mask
   // (`reuseInpaint`).
   if (pass != null && !gone && rec.mask) {
@@ -838,8 +853,19 @@ function syncReuseButton(button, rec, compact = false) {
 // lightbox's facts say it.
 function cardTitle(rec) {
   const pass = rec.refine != null
-    ? ` · ${rec.mask ? 'inpaint' : 'refine'} of #${rec.refine}${rec.refine_missing ? ` (${goneWord(rec)})` : ''} @ ${rec.strength}` : '';
+    ? ` · ${passWord(rec)} of #${rec.refine}${outpaintOf(rec)}${rec.refine_missing ? ` (${goneWord(rec)})` : ''} @ ${rec.strength}` : '';
   return `#${rec.id} · ${rec.width}×${rec.height} · seed ${rec.seed}${pass}\n${rec.prompt}`;
+}
+
+// What a pass is called - "outpaint", "inpaint" or "refine" - by what its
+// row carries: an outpaint has a mask as well, built by the server.
+function passWord(rec) {
+  return rec.outpaint ? 'outpaint' : rec.mask ? 'inpaint' : 'refine';
+}
+
+// An outpaint's padding after its source, " +400/+0/+400/+0", else ''.
+function outpaintOf(rec) {
+  return rec.outpaint ? ` ${outpaintSidesText(rec.outpaint)}` : '';
 }
 
 // Where a pass's gone source went (`refine_missing`): "deleted", or "in the
@@ -874,6 +900,7 @@ function syncReuseButtons() {
       model_id: kept.reuseModel,
       refine: kept.reusePass ? +kept.reusePass : null,
       mask: kept.reuseMask || null,
+      outpaint: parseOutpaintKey(kept.reuseOutpaint),
       refine_missing: kept.reusePassGone === 'true',
       refine_binned: kept.reusePassBinned === 'true',
       reference: kept.reuseReference ? kept.reuseReference.split(',').map(Number) : [],

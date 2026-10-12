@@ -87,21 +87,25 @@ const INPAINT_FAMILIES = 'The SDXL and Z-Image checkpoints have it.';
 // Why an inpaint cannot run here, one sentence wherever the page says it: no
 // inpaint pipeline in the installed diffusers, or one the app has not enabled
 // for this family yet (`inpaint_deferred`, the backend's "not enabled yet").
-function inpaintNone() {
+// An outpaint runs through the same inpaint pipeline (outpaint.js), and
+// `outpainting` says so, as the server's refusal does.
+function inpaintNone(outpainting = false) {
   const name = checkpointName(loadedModel) || 'This checkpoint';
   return lastDefaults?.inpaint_deferred
-    ? `Inpainting is not enabled yet for ${name} in this app: the installed diffusers has its inpaint pipeline, `
-      + `but its family waits on measurements. ${INPAINT_FAMILIES}`
-    : `${name} has no inpaint pipeline in the installed diffusers. ${INPAINT_FAMILIES}`;
+    ? `Inpainting${outpainting ? ', which an outpaint runs through,' : ''} is not enabled yet for ${name} in this app: `
+      + `the installed diffusers has its inpaint pipeline, but its family waits on measurements. ${INPAINT_FAMILIES}`
+    : `${name} has no inpaint pipeline in the installed diffusers${outpainting ? ', which an outpaint runs through' : ''}. `
+      + INPAINT_FAMILIES;
 }
 
 // The same, as Refine says it: a guess before a load said as one, a final
 // answer as final.
-function inpaintUnavailableText() {
+function inpaintUnavailableText(outpainting = false) {
+  const what = outpainting ? 'Outpaint' : 'Inpaint';
   return lastDefaults?.inpaint_settled === false
-    ? 'Inpaint is unavailable: as far as the server can tell, this checkpoint has no inpaint pipeline. '
-      + 'A load answers for certain - the inpaint stays here until then.'
-    : `Inpaint is unavailable. ${inpaintNone()}`;
+    ? `${what} is unavailable: as far as the server can tell, this checkpoint has no inpaint pipeline. `
+      + `A load answers for certain - the ${what.toLowerCase()} stays here until then.`
+    : `${what} is unavailable. ${inpaintNone(outpainting)}`;
 }
 
 // The status's answer, as it lands: the tools that open the dialog follow it,
@@ -117,12 +121,15 @@ function syncInpaintCapability(defaults) {
   if (changed) {
     syncInpaintTools();
     if (inpaintSource) scheduleInpaintPreview();
+    if (outpaintSource) scheduleOutpaintPreview();
     if (els.lightbox.open) renderLightbox();
   }
   if (inpaintSource) {
     takeLibraryStrength();
     syncInpaint();
   }
+  // The Outpaint dialog's, which runs through the same class (outpaint.js).
+  syncOutpaintCapability();
 }
 
 // A card's, a result's and the lightbox's Inpaint: held, with the reason as
@@ -139,6 +146,7 @@ function syncInpaintTool(button) {
 
 function syncInpaintTools() {
   document.querySelectorAll('.inpaint-tool').forEach(syncInpaintTool);
+  document.querySelectorAll('.outpaint-tool').forEach(syncOutpaintTool);
 }
 
 function syncLightboxInpaint(rec) {
@@ -190,14 +198,20 @@ function inpaintStrengthNote() {
 // A load that answers with the library's default, while the box still holds
 // the stand-in it opened with: the library's takes its place.
 function takeLibraryStrength() {
-  const library = inpaintLibraryStrength();
-  if (inpaintStrengthStandIn === null || library === null) return;
-  if (els.inpaintStrength.value === String(inpaintStrengthStandIn)) {
-    els.inpaintStrength.value = String(library);
-    if (inpaintFilled) inpaintFilled.strength = String(library);
-    scheduleInpaintPreview(0);
-  }
+  if (inpaintStrengthStandIn === null || inpaintLibraryStrength() === null) return;
+  if (libraryStrengthInto(els.inpaintStrength, inpaintStrengthStandIn, inpaintFilled)) scheduleInpaintPreview(0);
   inpaintStrengthStandIn = null;
+}
+
+// The same for any box of the inpaint class's (the Outpaint dialog's too):
+// the library's number in place of the stand-in the box still holds, and in
+// the values a close compares with. Answers whether it wrote.
+function libraryStrengthInto(box, standIn, filled) {
+  const library = inpaintLibraryStrength();
+  if (standIn === null || library === null || box.value !== String(standIn)) return false;
+  box.value = String(library);
+  if (filled) filled.strength = String(library);
+  return true;
 }
 
 // Opens the dialog on `rec`, the image to inpaint. `from` is an inpainted
@@ -350,13 +364,25 @@ function writeInpaintSourceLine(rec, gone = null) {
 // A refusal of the source itself - deleted or binned from another tab while
 // the dialog was open - in the page's words, as Refine says it.
 function inpaintSourceGone(message, source = inpaintSource) {
+  const gone = sourceGoneKind(message, source);
+  if (!gone) return message;
+  if (inpaintSource === source) writeInpaintSourceLine(source, gone);
+  return sourceGoneWords(source, gone, 'inpaint');
+}
+
+// Whether a refusal says `source` has gone: 'deleted', 'binned' or null.
+function sourceGoneKind(message, source) {
   const deleted = /^no gallery image with id (\d+)\.?$/.exec(message ?? '');
   const binned = /^source image (\d+) is in the recycle bin; /i.exec(message ?? '');
   const match = deleted ?? binned;
-  if (!source || !match || +match[1] !== source.id) return message;
-  if (inpaintSource === source) writeInpaintSourceLine(source, binned ? 'binned' : 'deleted');
-  return binned ? `#${source.id} is in the recycle bin; restore it to inpaint it.`
-    : `#${source.id} has been deleted, so it cannot be inpainted.`;
+  if (!source || !match || +match[1] !== source.id) return null;
+  return binned ? 'binned' : 'deleted';
+}
+
+// The page's words for it, by the dialog's verb ("inpaint", "outpaint").
+function sourceGoneWords(source, gone, verb) {
+  return gone === 'binned' ? `#${source.id} is in the recycle bin; restore it to ${verb} it.`
+    : `#${source.id} has been deleted, so it cannot be ${verb}ed.`;
 }
 
 function inpaintBoxes() {
@@ -555,28 +581,42 @@ function syncInpaint() {
     + (sweep ? ', at every strength' : '');
   els.inpaintStrength.placeholder = String(inpaintStartStrength());
   els.inpaintStrengthNote.textContent = inpaintStrengthNote();
-  // The negative prompt, Mu and True CFG by the panel's rules, as Refine's.
-  const trueCfg = els.inpaintTrueCfg.value.trim() === '' ? 0 : +els.inpaintTrueCfg.value;
-  const reach = trueCfgSupported ? trueCfg : +els.inpaintCfg.value;
-  const off = !negativeSupported || reach <= cfgThreshold;
-  els.inpaintNegative.disabled = off;
-  els.inpaintNegField.classList.toggle('disabled', off);
-  const knob = trueCfgSupported ? 'True CFG' : 'CFG';
-  els.inpaintNegNote.textContent = !negativeSupported ? '(this checkpoint takes no negative prompt)'
-    : !trueCfgSupported && !off ? `(runs at CFG > ${cfgThreshold}, no extra cost)`
-      : `(needs ${knob} > ${cfgThreshold} — ~2× slower)`;
-  els.inpaintMu.placeholder = muPlaceholder();
-  els.inpaintMu.disabled = !muSupported;
-  els.inpaintMuField.classList.toggle('disabled', !muSupported);
-  if (!muSupported) els.inpaintMu.value = '';
-  els.inpaintTrueCfg.disabled = !trueCfgSupported;
-  els.inpaintTrueCfgField.classList.toggle('disabled', !trueCfgSupported);
-  if (!trueCfgSupported) els.inpaintTrueCfg.value = '';
+  syncPassSampling(inpaintSampling());
   els.inpaintUnavailable.hidden = inpaintSupported;
   els.inpaintUnavailable.textContent = inpaintSupported ? '' : inpaintUnavailableText();
   syncMaskStatus();
   syncInpaintRun();
   syncInpaintCheck();
+}
+
+// The dialog's sampling boxes, for syncPassSampling.
+function inpaintSampling() {
+  return {
+    negative: els.inpaintNegative, negField: els.inpaintNegField, negNote: els.inpaintNegNote,
+    cfg: els.inpaintCfg, mu: els.inpaintMu, muField: els.inpaintMuField,
+    trueCfg: els.inpaintTrueCfg, trueCfgField: els.inpaintTrueCfgField,
+  };
+}
+
+// The negative prompt, Mu and True CFG by the panel's rules, as Refine's,
+// in an inpaint class's dialog (this one, and the Outpaint dialog's).
+function syncPassSampling(f) {
+  const trueCfg = f.trueCfg.value.trim() === '' ? 0 : +f.trueCfg.value;
+  const reach = trueCfgSupported ? trueCfg : +f.cfg.value;
+  const off = !negativeSupported || reach <= cfgThreshold;
+  f.negative.disabled = off;
+  f.negField.classList.toggle('disabled', off);
+  const knob = trueCfgSupported ? 'True CFG' : 'CFG';
+  f.negNote.textContent = !negativeSupported ? '(this checkpoint takes no negative prompt)'
+    : !trueCfgSupported && !off ? `(runs at CFG > ${cfgThreshold}, no extra cost)`
+      : `(needs ${knob} > ${cfgThreshold} — ~2× slower)`;
+  f.mu.placeholder = muPlaceholder();
+  f.mu.disabled = !muSupported;
+  f.muField.classList.toggle('disabled', !muSupported);
+  if (!muSupported) f.mu.value = '';
+  f.trueCfg.disabled = !trueCfgSupported;
+  f.trueCfgField.classList.toggle('disabled', !trueCfgSupported);
+  if (!trueCfgSupported) f.trueCfg.value = '';
 }
 
 // Held, with the reason as its title: first what holds Generate, then no
@@ -940,10 +980,18 @@ function inpaintCheckAsked(body) {
 // Show selecting the rest of this dialog's box, and a rule's whole-field
 // rewrite with Apply.
 function renderInpaintCheck() {
-  const box = els.inpaintCheck;
+  renderPassCheck({
+    box: els.inpaintCheck, said: els.inpaintCheckSaid, checked: inpaintChecked,
+    select: selectInpaintFrom, apply: applyInpaintFinding,
+  });
+  syncInpaintCheck();
+}
+
+// The lines themselves, in an inpaint class's dialog (this one's, and the
+// Outpaint dialog's): `checked` is {prompt, negative, body} or null.
+function renderPassCheck({ box, said: saidEl, checked, select, apply }) {
   box.replaceChildren();
   const said = [];
-  const checked = inpaintChecked;
   if (checked) {
     for (const [field, text] of [['prompt', checked.prompt], ['negative_prompt', checked.negative]]) {
       const cuts = new Map();
@@ -952,7 +1000,7 @@ function renderInpaintCheck() {
         cuts.set(report.cut, [...(cuts.get(report.cut) ?? []), report]);
       }
       for (const [cut, reports] of cuts) {
-        const line = refineCutLine(field, text, cut, reports, selectInpaintFrom);
+        const line = refineCutLine(field, text, cut, reports, select);
         said.push(line.firstChild.textContent.trim());
         box.append(line);
       }
@@ -962,15 +1010,14 @@ function renderInpaintCheck() {
       const negative = finding.field === 'negative_prompt';
       const line = refineCheckLine(`${finding.message} `, finding.severity === 'warn');
       line.append(refineCheckButton('Apply', `Rewrite the ${negative ? 'negative prompt' : 'prompt'} `
-        + 'as the check suggests (Ctrl+Z undoes it)', finding.field, () => applyInpaintFinding(finding)));
+        + 'as the check suggests (Ctrl+Z undoes it)', finding.field, () => apply(finding)));
       said.push(finding.message);
       box.append(line);
     }
   }
   box.hidden = !box.children.length;
   const text = said.join(' ');
-  if (els.inpaintCheckSaid.textContent !== text) els.inpaintCheckSaid.textContent = text;
-  syncInpaintCheck();
+  if (saidEl.textContent !== text) saidEl.textContent = text;
 }
 
 // Show and Apply are dead while a box holds other text than was checked, and
@@ -978,11 +1025,13 @@ function renderInpaintCheck() {
 function syncInpaintCheck() {
   if (!inpaintSource) return;
   const { body } = inpaintRequest();
-  const asked = inpaintCheckAsked(body);
-  const stale = !inpaintChecked || ['prompt', 'negative', 'negativeOff'].some((key) => asked[key] !== inpaintChecked[key]);
-  els.inpaintCheck.classList.toggle('stale', stale);
-  const greyed = els.inpaintNegative.disabled;
-  for (const button of els.inpaintCheck.querySelectorAll('button')) {
+  syncPassCheck(els.inpaintCheck, inpaintChecked, inpaintCheckAsked(body), els.inpaintNegative.disabled);
+}
+
+function syncPassCheck(box, checked, asked, greyed) {
+  const stale = !checked || ['prompt', 'negative', 'negativeOff'].some((key) => asked[key] !== checked[key]);
+  box.classList.toggle('stale', stale);
+  for (const button of box.querySelectorAll('button')) {
     const dead = greyed && button.dataset.field === 'negative_prompt';
     button.disabled = stale || dead;
     button.title = dead ? 'The negative prompt is greyed at these settings, so nothing written there would run'
@@ -991,11 +1040,16 @@ function syncInpaintCheck() {
 }
 
 function selectInpaintFrom(field, text, cut) {
-  const el = field === 'negative_prompt' ? els.inpaintNegative : els.inpaintPrompt;
+  selectPassFrom(els.inpaintPrompt, els.inpaintNegative, els.inpaintMore, field, text, cut);
+}
+
+// Show: the rest of the box past where an encoder stops, the fold opened.
+function selectPassFrom(promptEl, negativeEl, more, field, text, cut) {
+  const el = field === 'negative_prompt' ? negativeEl : promptEl;
   const raw = el.value;
   const lead = raw.length - raw.trimStart().length;
   if (el.disabled || raw.slice(lead, lead + text.length) !== text) return;
-  els.inpaintMore.open = true;
+  more.open = true;
   el.focus({ preventScroll: true });
   el.setSelectionRange(lead + units(text, cut), lead + text.length);
 }

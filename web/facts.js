@@ -27,7 +27,8 @@ function settingsLine(rec) {
     // A refine pass: the image it started from and how far it was re-denoised,
     // and whether that image is still in the gallery to make it again from.
     // An inpaint is a pass with a mask, and says so: "inpaint of #N @ 0.6".
-    (rec.refine != null ? `${rec.mask ? 'inpaint' : 'refine'} of #${rec.refine}${rec.refine_missing ? ` (${goneWord(rec)})` : ''} @ ${rec.strength}, ` : '') +
+    // An outpaint says its padding too: "outpaint of #N +400/+0/+400/+0 @ 0.9999".
+    (rec.refine != null ? `${passWord(rec)} of #${rec.refine}${outpaintOf(rec)}${rec.refine_missing ? ` (${goneWord(rec)})` : ''} @ ${rec.strength}, ` : '') +
     `seed ${rec.seed}, ${(rec.duration_ms / 1000).toFixed(1)}s`
   );
 }
@@ -80,10 +81,18 @@ function factsList(rec, { useSeed: seedButton = false, search = false, megapixel
     const restore = rec.refine_missing && rec.refine_binned
       ? [' · ', factButton('Restore', `Move #${rec.refine} back out of the recycle bin`, () => { void restoreImages([rec.refine]); })]
       : [];
-    row(rec.mask ? 'Inpainted from' : 'Refined from', from, ` @ ${rec.strength}`, ...restore);
+    row(rec.outpaint ? 'Outpainted from' : rec.mask ? 'Inpainted from' : 'Refined from', from, ` @ ${rec.strength}`, ...restore);
+    // An outpaint's padding, band and fill, as the server stored them.
+    if (rec.outpaint) {
+      row('Outpaint', `${outpaintSidesText(rec.outpaint)}, band ${rec.outpaint.band} px, fill ${rec.outpaint.fill}`);
+    }
     // The mask by the start of its hash, as the A1111 line names it; its
-    // picture is a click away in Reuse inpaint….
-    if (rec.mask) row('Mask', rec.mask.slice(0, 16)).title = rec.mask;
+    // picture is a click away in Reuse inpaint…. An outpaint's the server
+    // built from the padding and the band.
+    if (rec.mask) {
+      row('Mask', rec.mask.slice(0, 16)).title = rec.outpaint
+        ? `${rec.mask} - built by the server from the padding and the band` : rec.mask;
+    }
   }
   const vars = Object.entries(rec.variables ?? {});
   if (vars.length) {

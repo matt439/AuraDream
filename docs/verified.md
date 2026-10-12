@@ -660,10 +660,11 @@ from the plan's open measurements:
 
 ## Outpaint
 
-Nothing measured yet. Outpainting's backend is built (`docs/plan-outpainting.md`,
-phase 1) and checked on the CPU only: `tests/test_outpaint*.py`,
-`tests/test_api_outpaint.py` and the outpaint tests in `tests/test_cli.py`,
-on fakes that repaint the masked pixels with a flat colour. Not yet measured
+Nothing measured yet. Outpainting's backend and its dialog are built
+(`docs/plan-outpainting.md`, phases 1 and 2) and checked on the CPU and in
+a browser only: `tests/test_outpaint*.py`, `tests/test_api_outpaint.py`,
+the outpaint tests in `tests/test_cli.py`, and `tools/smoke-outpaint.json`
+on a fake that repaints the masked pixels with a flat colour. Not yet measured
 on the card, from the plan's open measurements:
 
 - peak memory and time per step at outpainted sizes for WAI and one other

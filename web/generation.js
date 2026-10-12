@@ -124,7 +124,8 @@ function describeJob(job, length = 60, { markup = false } = {}) {
   const what = job.refine_batch != null ? `refine ×${job.refine_batch} at strength ${job.strength}`
     : job.more_seeds != null ? `more seeds · ${snippet(job.prompt ?? '', length, { markup })}`
     : job.swap != null ? `swap · ${snippet(job.swap, length, { markup: true })}`
-    : job.refine != null ? `${job.mask ? 'inpaint' : 'refine'} of #${job.refine}`
+    : job.refine != null ? `${job.outpaint ? 'outpaint' : job.mask ? 'inpaint' : 'refine'} of #${job.refine}`
+      + (job.outpaint ? ` ${outpaintSidesText(job.outpaint)}` : '')
     : !job.grid ? snippet(job.prompt ?? '', length, { markup })
     : job.prompt_template != null ? `grid · ${snippet(job.prompt_template, length, { markup })}`
     : 're-render';
@@ -251,6 +252,7 @@ function syncSubmitButtons() {
   // the comparison's Run as Generate does.
   syncRefineRun();
   syncInpaintRun();
+  syncOutpaintRun();
   syncRefineBatchRun();
   syncMoreSeedsRun();
   syncCompareRun();

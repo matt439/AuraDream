@@ -440,6 +440,7 @@ function forgetImages(ids, { binned = false } = {}) {
   if (!binned) {
     for (const id of gone) binnedRecs.delete(id);
     forgetInpaintImages(gone);
+    forgetOutpaintImages(gone);
     document.querySelectorAll('[data-tomb-id]').forEach((el) => {
       const tomb = el.matches('.tomb') ? el : el.querySelector('.tomb');
       if (tomb && gone.has(+el.dataset.tombId) && tomb.textContent.startsWith('In the recycle bin')) {
@@ -694,7 +695,7 @@ function tombstone(el, word = 'Deleted') {
     // Nor any mark of what the image was: a star, a reference, a pass, a
     // pick - nor the group (card()), which has no tools left to name; its
     // text says it.
-    el.classList.remove('fav', 'ref', 'refined', 'inpainted', 'selected');
+    el.classList.remove('fav', 'ref', 'refined', 'inpainted', 'outpainted', 'selected');
     el.classList.add('gone');
     el.removeAttribute('role');
     el.removeAttribute('aria-label');

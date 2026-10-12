@@ -1962,9 +1962,53 @@ partial of a lost file being written again sits beside a committed row.
 the dialog has no "starts at N% noise" line; no mask outline over the
 source's thumbnail (the facts give the hash's first 16 digits); no
 `inpaint_measured` row or measured strength. FLUX.1, klein, Qwen-Image,
-outpainting, FLUX.1 Fill [dev] and the masked-area crop are later phases of
-the plan. Nothing about an inpaint's memory, time or pictures is known
+FLUX.1 Fill [dev] and the masked-area crop are later phases of the plan;
+outpainting is built (below). Nothing about an inpaint's memory, time or pictures is known
 until the card measures it (`verified.md`).
+
+## Outpainting
+
+**An outpaint is an inpaint over a padded copy of its source.** The design
+is `docs/plan-outpainting.md` (binding, with its review of 2026-10-13). The
+user decided the controls (a pixel box per side on the 16-px grid, presets,
+a frame showing where the original lands), the fill (the source's edge
+pixels stretched and blurred, by the server), the mask (the new border plus
+a feathered band into the original, built by the server; the user sets the
+band, never paints), the checkpoints (the inpainting ones, gated on
+`inpaint_supported`) and the composite (over the padded source, so every
+kept original pixel is the source's).
+
+**Why a dialog of its own, not an Extend mode of Inpaint's.** The Inpaint
+dialog's stage is the source under a mask canvas and its tools are all
+about painting; in a mode every one would be held, and the stage would
+swap for a frame of another shape, moving every control under the pointer
+as the tab changed. What is the same is shared by generalising inpaint.js
+in place (the sampling boxes' rules, the check's lines, the library
+strength, the gone-source words) and wearing its box and panes in CSS.
+
+**Why the page does no arithmetic.** The presets' numbers, their held
+words ("already 16:9 - the 16:9 preset at 1 MP", "within 16 px"), an
+off-grid source and the guard's limits all come from `GET
+/api/images/{id}/outpaint-presets`, which the CLI's `--outpaint 16:9`
+reads through the same `outpaint.presets`; a copy in the page would drift.
+The page rounds what is typed to the grids (16 for a side, 8 for the band)
+only so the frame and the preview show what will be sent, and the submit
+check says the rest.
+
+**Why nothing moves.** The frame is a fixed box whatever the canvas's
+shape, and the side boxes sit round it at fixed places; the status line,
+presets and band rows have fixed heights; the empty preview line keeps its
+height and a refusal takes its place; and the dialog keeps its scrollbar
+gutter, since a refusal line pushing it past its height brought a
+scrollbar that moved every control 7 px sideways (seen in the first smoke).
+The lightbox's Refine/Inpaint/Outpaint row's buttons have 4 px side padding
+so "⬚ Outpaint…" fits a third of the 280 px column without cutting.
+
+**What this pass leaves.** No card glyph (an open question of the plan);
+under 901 px the lightbox's Outpaint… hides with Inpaint…, so an outpaint
+is reached from Reuse there; the frame shows no preview of the server's
+fill. Nothing about an outpaint's memory, time or pictures is known until
+the card measures it (`verified.md`, Outpaint).
 
 ## CellKey and run_id
 

@@ -49,3 +49,28 @@ def test_the_dialog_scripts_and_styles_load_in_the_page_order():
     assert styles.index("styles/sheet.css") < styles.index("styles/refine.css") < styles.index("styles/inpaint.css")
     for name in ("inpaint.js", "inpaint-mask.js", "styles/inpaint.css"):
         assert (WEB / name).is_file(), name
+    # The Outpaint dialog calls inpaint.js's helpers and wears its styles.
+    assert scripts.index("inpaint.js") < scripts.index("outpaint.js") < scripts.index("app.js")
+    assert styles.index("styles/inpaint.css") < styles.index("styles/outpaint.css")
+    for name in ("outpaint.js", "styles/outpaint.css"):
+        assert (WEB / name).is_file(), name
+
+
+def test_the_outpaint_dialog_names_every_status_the_actions_answer():
+    # Swap tags' and More seeds' count lines and chips have a word for each
+    # status their routes answer, `outpaint` among them.
+    from typing import get_args
+
+    from backend.schemas_rerun import MoreSeedsStatus, SwapStatus
+
+    def keys(source: str, table: str) -> set[str]:
+        block = source[source.index(f"const {table} = {{"):]
+        return set(re.findall(r"(?<![\w'])([a-z_]+):", block[:block.index("};")]))
+
+    swap = (WEB / "tag-swap.js").read_text(encoding="utf-8")
+    seeds = (WEB / "more-seeds.js").read_text(encoding="utf-8")
+    for table in ("SWAP_STATUS_WORDS", "SWAP_CHIP"):
+        assert set(get_args(SwapStatus)) <= keys(swap, table), table
+    # The count line leaves out the queued, whom it counts apart.
+    assert set(get_args(MoreSeedsStatus)) - {"queued"} <= keys(seeds, "MS_STATUS_WORDS")
+    assert set(get_args(MoreSeedsStatus)) <= keys(seeds, "MS_CHIP")

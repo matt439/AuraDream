@@ -182,9 +182,10 @@
 }
 .lb-actions { display: flex; flex-direction: column; gap: var(--sp-2); }
 .lb-actions .ghost { width: 100%; }
-/* Refine and Inpaint… share a row (index.html), half the column each. */
+/* Refine, Inpaint… and Outpaint… share a row (index.html), a third of the
+   column each, never wrapping. */
 .lb-pair { display: flex; gap: var(--sp-2); }
-.lb-pair .ghost { flex: 1 1 0; min-width: 0; width: auto; white-space: nowrap; }
+.lb-pair .ghost { flex: 1 1 0; min-width: 0; width: auto; white-space: nowrap; padding-left: 4px; padding-right: 4px; }
 #lb-fav.active { color: var(--star); border-color: var(--star); }
 #lb-reuse.model-mismatch { color: var(--warn); border-color: var(--warn); }
 #lb-delete:hover { color: var(--danger); border-color: var(--danger); }
@@ -281,8 +282,9 @@
   .lb-actions { flex-direction: row; }
   .lb-actions .ghost { width: auto; }
   /* One row with the zoom here has no room for a sixth button: Inpaint…
-     is the card's ✎ and the result's at this width (inpaint.js). */
-  #lb-inpaint { display: none; }
+     is the card's ✎ and the result's at this width (inpaint.js), and
+     Outpaint… goes with it (Reuse of an outpaint still opens its dialog). */
+  #lb-inpaint, #lb-outpaint { display: none; }
 }
 /* The wide tier: a column of 340-400 px rather than 280 (--lb-side-w), where
    the facts get a line each - square and portrait pictures are bound by the
