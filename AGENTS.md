@@ -20,7 +20,7 @@ wrong before). `docs/verified.md` lists what has been measured on the card.
 uv run python -m backend.main      # http://127.0.0.1:7860; restores saved browser choices
 uv run python -m backend.main --defaults   # ignore saved choices; environment/defaults
 uv run python -m backend.main --menu       # optional terminal picker
-uv run --group dev pytest          # no GPU, no weights, about a minute
+uv run --group dev pytest          # no GPU, no weights, about three minutes
 ```
 
 ```bash
@@ -75,6 +75,7 @@ Backend (`backend/`):
   `bundle_crypto.py` its optional password layer;
   `gallery_lock.py` reservations across storage threads and processes
 - `jobs.py` single-worker queue and SSE; `storage.py` SQLite + PNGs;
+  `metadata.py` the PNG chunk's key and its legacy `krea` reader;
   `gallery_reports.py` estimates, keep rates, runs; `gallery_delete.py`
   scoped delete, recycle bin, clear;
   `search.py` search grammar; `grid.py` axes, variables, variants, cells,
@@ -100,7 +101,8 @@ Backend (`backend/`):
 Frontend (`web/`, served from `/static`): `index.html` loads classic scripts
 in order, sharing one global scope; only `app.js`, the last, runs anything.
 `style.css` (tokens, base) then `styles/*.css` in link order - keep that
-cascade. `docs/source-audit.md` maps responsibilities per file.
+cascade. `docs/rules.md`'s Layout maps every file; `docs/source-audit.md`
+records the split audits.
 
 Also: `tools/` (fake server, headless-browser smokes), `tests/`, `wsl/`,
 `docs/`.
@@ -221,13 +223,15 @@ the top of `main()`; `generate.py` applies `--model/--quant/--offload` to
 ## Adding a backend
 
 Implement `GenerationBackend` (`load`/`unload`/`is_ready`/`generate`/`describe`)
-and register it in `backend/backends/__init__.py:get_backend`. `generate()` is
+and register it in `backend/backends/__init__.py:get_backend`; no setting
+picks one, so select it where the server and the CLI construct theirs
+(`get_backend("diffusers")` in `main.py` and `generate.py`). `generate()` is
 handed a `should_cancel` predicate and must poll it at every step boundary,
 raising `Cancelled` when it answers True. Optionally, `start_sigma(request)`
 answers the Refine preview's start sigma for a pass as `applied()` runs it,
 and `prompt_expander_status()` what an expansion would wait on and download
-(file checks only, for the status poll); both default to None. Nothing in
-the HTTP layer or the UI needs to change.
+(file checks only, for the status poll); both default to None. Nothing else
+in the HTTP layer or the UI needs to change.
 
 ## Tests
 

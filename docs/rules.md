@@ -151,6 +151,9 @@ before changing it.
   draws with, one per VAE, fitted on the card
 - `backend/jobs.py` — single-worker queue, SSE progress
 - `backend/storage.py` — SQLite index + PNGs with embedded metadata
+- `backend/metadata.py` — the PNG chunk's key (`local-diffusion`) and
+  `embedded_metadata`, which still reads the pre-rename `krea` key; shared
+  by storage, `generate.py` and `reindex.py`
 - `backend/gallery_reports.py` — read-only aggregate queries: the preview's
   cost and size estimates, keep rates, runs (reads `storage` at call time)
 - `backend/gallery_delete.py` — taking images out: the keep-favourites
@@ -230,8 +233,8 @@ before changing it.
   recycle bin's view, undo note and Empty. The stylesheet is
   `style.css` (tokens and base layout), followed by `styles/*.css` in the
   explicit link order (`model-picker.css` first, at its old place in
-  `style.css`); preserve that cascade. See `docs/source-audit.md`
-  for the responsibility map and retained long files.
+  `style.css`); preserve that cascade. `docs/source-audit.md` records the
+  split audits and why each long file it kept stays whole.
 - `tools/` — `fake_server.py` (the app on the tests' fake backend, port 7861)
   and `browser.mjs` + `smoke.json` and a `smoke-*.json` per checkpoint or
   feature (headless browser over DevTools; among the features
@@ -242,6 +245,9 @@ before changing it.
   `test_api*.py` (the HTTP routes, one file per area), and a file per module
   or invariant beside them - `test_refine_schedules.py`, for one, holds a
   pass's start index and start sigma to the installed diffusers; see Tests
+- `bin/` — `local-diffusion.cmd` and `local-diffusion-wsl.cmd`, for the user
+  PATH: the two server starts (`backend.main`, `wsl/serve.sh`) from any
+  folder, arguments passed through
 - `wsl/` — `env.sh` (Linux-side paths and the Nunchaku defaults, to source),
   `setup.sh`, `serve.sh`: running the same checkout from WSL 2
 - `docs/design-notes.md` — why each part is the way it is, one section per
@@ -3785,7 +3791,9 @@ and adapter paths before anything imports `backend`, so a sourced
 `wsl/env.sh` changes nothing. They cover the invariants
 that are expensive to get wrong: the schedule the scheduler ends up with, seeds
 surviving a JSON round trip, the search fallback keeping its filters, and the
-HTTP guards.
+HTTP guards. `tests/test_docs_maps.py` holds `CLAUDE.md` and `AGENTS.md`
+byte-identical and every backend module and `web/*.js` named in the Layout
+above, so a new file is added to the map with it.
 
 The recycle bin is covered where each read lives: `tests/test_storage.py`
 (the migration, `list_images` live and `binned=True` with total, page and
