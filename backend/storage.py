@@ -678,10 +678,12 @@ def _settle_plan(stale: Sequence, tracked: set[str] | None = None) -> list:
 
     `save_image` commits the row and then renames, so a `<name>.png.part`
     whose row exists and whose `<name>.png` does not is the only copy of a
-    committed image - the rename failed, or the process died between the two -
-    and so is its thumbnail's `.webp.part`. Those are finished, never
-    discarded; every other stale partial is debris. PNGs come first, so a
-    thumbnail is placed beside the image it belongs to.
+    committed image - the rename failed, or the process died between the two.
+    That one is finished, never discarded; every other stale partial is
+    debris. A thumbnail's `.webp.part` is debris too, even beside a committed
+    row: `thumbnail_for` encodes for rows already tracked, so one may be cut
+    short, and a placed thumbnail is never encoded again. The card falls back
+    to the PNG until a reindex writes a whole one.
     """
     if tracked is None:
         tracked = {row["filename"] for row in _tracked_files()}
@@ -692,11 +694,8 @@ def _settle_plan(stale: Sequence, tracked: set[str] | None = None) -> list:
         target = None
         if name and path.parent == outputs and name.endswith(".png") and name in tracked:
             target = path.with_name(name)
-        elif (name and path.parent == outputs / "thumbnails" and name.endswith(".webp")
-              and Path(name).with_suffix(".png").name in tracked):
-            target = path.with_name(name)
         plan.append((path, None if target is None or target.exists() else target))
-    return sorted(plan, key=lambda item: not item[0].name.endswith(".png.part"))
+    return plan
 
 
 def _settle(stale: Sequence) -> tuple[int, int]:

@@ -1976,8 +1976,11 @@ A stale partial is not always debris (2026-10-12). Past the commit the
 `.png.part` is the image, and a crash or a failed rename between the row and
 the rename leaves exactly that: `storage._settle` renames a stale
 `<name>.png.part` whose row exists and whose `<name>.png` does not into
-place, and its `thumbnails/<name>.webp.part` beside it, and discards the
-rest. Bundle operations swept only their own leftovers, and the bundle
+place and discards the rest. Its `thumbnails/<name>.webp.part` is not the
+only copy of anything: the PNG is, and reindex's `thumbnail_for` encodes for
+rows already tracked, so a kill mid-encode leaves a cut-short WebP that,
+renamed into place, would stay the card's broken thumbnail for good (nothing
+re-encodes one that exists). It is discarded, and the card shows the PNG. Bundle operations swept only their own leftovers, and the bundle
 inventory refuses any `.part`, so one killed save refused the counts,
 export and import for good, restarts included, with a message naming
 neither the folder nor anything the page could do. `settle_partials` now

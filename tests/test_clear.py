@@ -299,16 +299,22 @@ def test_the_whole_clear_finishes_a_kept_images_interrupted_save(fresh, capsys):
     png = fresh.outputs_dir / made["a"].filename
     partial = png.with_name(png.name + ".part")
     png.replace(partial)
+    # Its thumbnail's partial too: debris, and no second image to finish.
+    thumb = storage._thumb_path(png)
+    thumb_partial = thumb.with_name(thumb.name + ".part")
+    thumb.replace(thumb_partial)
     old = time.time() - 2 * storage.PARTIAL_SETTLE_SECONDS
     os.utime(partial, (old, old))
+    os.utime(thumb_partial, (old, old))
     assert storage.summarise()["recoverable_partials"] == 1
-    assert storage.summarise()["partial_files"] == 0
+    assert storage.summarise()["partial_files"] == 1
+    thumb_partial.replace(thumb)
 
     assert clear.main(["--keep-favorites", "--yes"]) == 0
     assert "Finished 1 interrupted save(s)." in capsys.readouterr().out
     assert png.is_file() and not partial.exists()
     # Before the thumbnail sweep, which takes a thumbnail whose PNG is gone.
-    assert storage._thumb_path(png).is_file()
+    assert thumb.is_file()
     assert [r.id for r in storage.list_images()[0]] == [made["a"].id]
 
 

@@ -166,20 +166,24 @@ def test_a_stale_image_partial_no_longer_blocks_every_bundle_operation(store, sw
 
 def test_a_committed_images_interrupted_save_is_finished_not_discarded(store):
     # `save_image` commits the row, then renames: a crash between the two
-    # leaves the only copy of a gallery image as .part. The sweep puts it,
-    # and its thumbnail, in place.
+    # leaves the only copy of a gallery image as .part. The sweep puts it in
+    # place. A thumbnail's partial may be cut short (`thumbnail_for` encodes
+    # for tracked rows) and a placed one is never encoded again: it is
+    # discarded, and the card falls back to the PNG.
     record = _save("source", 1)
     png = store.settings.outputs_dir / record.filename
     thumb = store._thumb_path(png)
     pixels, small = png.read_bytes(), thumb.read_bytes()
     partials = [png.with_name(png.name + ".part"), thumb.with_name(thumb.name + ".part")]
     png.replace(partials[0])
-    thumb.replace(partials[1])
+    thumb.unlink()
+    partials[1].write_bytes(small[: len(small) // 3])
     _age(*partials)
     preview = bundles.preview()
-    assert (preview["records"], preview["images"], preview["thumbnails"]) == (1, 1, 1)
-    assert png.read_bytes() == pixels and thumb.read_bytes() == small
+    assert (preview["records"], preview["images"], preview["thumbnails"]) == (1, 1, 0)
+    assert png.read_bytes() == pixels and not thumb.exists()
     assert not any(path.exists() for path in partials)
+    assert store.get_image(record.id).thumb_url is None
     # One whose file is already in place is debris like any other.
     partials[0].write_bytes(b"a second copy")
     _age(partials[0])

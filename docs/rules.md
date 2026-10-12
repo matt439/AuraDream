@@ -1118,10 +1118,12 @@ Jobs:
   the rename; the orphan sweep leaves `.part` files younger than an hour.
   A stale `<name>.png.part` whose row exists and whose `<name>.png` does not
   is the only copy of a committed image (the rename failed, or the process
-  died between the two), as is its `thumbnails/<name>.webp.part`:
-  `storage._settle` renames those into place and discards every other stale
-  partial (`settle_partials`, and `clear_history` before its thumbnail
-  sweep). Never discard one; a failed rename leaves it for the next sweep.
+  died between the two): `storage._settle` renames it into place and
+  discards every other stale partial (`settle_partials`, and `clear_history`
+  before its thumbnail sweep). Never discard one; a failed rename leaves it
+  for the next sweep. A stale `thumbnails/<name>.webp.part` is discarded even
+  beside a committed row: `thumbnail_for` may have been cut short mid-encode,
+  a placed thumbnail is never encoded again, and the card falls back to the PNG.
 - Full-size PNGs stay in the output root; WebP previews live in its
   `thumbnails/` subfolder. `init_db` moves indexed legacy previews there,
   and `thumbnail_for` does the same during PNG-only recovery. A locked legacy
@@ -1194,7 +1196,7 @@ Jobs:
   swept once older than `PARTIAL_SETTLE_SECONDS` at startup, at every bundle
   preview, before every bundle operation and by `clear_history`, always under
   the reservation - with the image and thumbnail partials, a committed
-  image's finished rather than discarded (`storage.settle_partials`). A
+  image's PNG finished rather than discarded (`storage.settle_partials`). A
   `.part` the inventory still finds is a write in flight (or one another
   program holds open) and is refused with its name, its folder and what to
   do (`bundles._partial_refusal`). A row whose PNG is missing refuses the
