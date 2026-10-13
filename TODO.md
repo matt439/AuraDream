@@ -1,0 +1,164 @@
+# TODO: open work
+
+An index of open work, one row per item; each row points to the doc that owns the detail. The rules for editing it are at the end, in [How to read this file](#how-to-read-this-file). A fresh thread starts here: read **NOW**, then the owner of the row it picks up.
+
+## NOW
+
+**The only ordering in this file.** Keep every `DECISION` row here. Keep this block to the current aim and the next few actions; results go in their owners (`docs/verified.md` for what the card measured, the plan or design notes for what was built).
+
+**Aim (2026-10-13):** inpainting and outpainting, merged today for the SDXL checkpoints and the Z-Image family, are measured on the card and documented for users, so their phase 3 and the deferred families can follow on numbers rather than guesses.
+
+1. **`CARD#1` and `CARD#2`: inpaint and outpaint on the card.** Matt's runs, one size at a time in the foreground, stopping at the first that fills the card. They unblock `INP#1` and `INP#2`.
+2. **`DEV#1`: Inpaint and Outpaint in `docs/usage.md` and `README.md`.** Neither mentions them. No card needed.
+
+**Decisions waiting on Matt** (none blocks the two above):
+- `INP#7`: the outpainting plan's four open questions were never answered; the build took the recommended answers.
+- `INP#8`: FLUX.1 Fill [dev] as an inpaint-only checkpoint: wanted, and when?
+- `PA#5`: should tag autocomplete write bare parentheses instead of A1111 escapes?
+- `PA#6`: should a single-space negative survive the page so Qwen-Image's True CFG runs as its guide says?
+- `PA#7`: should Anima's card tag order and prefix go into its guide prose, so the order can be checked?
+
+**GPU runs are Matt's to run or OK, never past the 16 GB card** (every `CARD` row). Check the checkpoint's measured peaks in `docs/verified.md` first; a run that spills into shared memory proves only that it doesn't fit.
+
+## Measurements on the card
+
+**Owner:** [docs/verified.md](docs/verified.md): each row's "Not measured" or "Not verified" list. A result is recorded there, with its date, in the same commit that removes the row here.
+
+| id | status | sev | size | item |
+|---|---|---|---|---|
+| `CARD#1` | CARD | HIGH | M+card | Inpaint (10-12 F6), SDXL (WAI, then one more) and Z-Image Turbo/Z-Anime: peak and time at 1 MP and the largest size each holds, determinism, `refine.build` over fp8 and offload, a starting strength, seam against the VAE round trip, a LoRA at weight 0, the embedded mask's size. The plan's phase 0 spike was never run. [Inpaint](docs/verified.md#inpaint); [list](docs/plan-inpainting.md#open-measurements-the-cards-to-say). |
+| `CARD#2` | CARD | HIGH | M+card | Outpaint: peak and time at outpainted sizes (WAI plus one SDXL, Z-Image Turbo, Z-Anime), determinism, what the fill contributes by strength, the seam at bands 0/32/64/128, mask PNG size, CPU fill/mask build time. [Outpaint](docs/verified.md#outpaint); [list](docs/plan-outpainting.md#open-measurements-the-cards-to-say). |
+| `CARD#3` | CARD | MED | S+card | An inpaint over a Nunchaku Z-Image transformer under WSL: the profile allows it, but the class has never run over it. [Inpainting](docs/design-notes.md#inpainting). |
+| `CARD#4` | CARD | LOW | L+card | INT8, full BF16 and sequential offload per checkpoint; the picker says INT8 is "not yet compared on this card". [Checkpoints](docs/verified.md#checkpoints). |
+| `CARD#5` | CARD | LOW | M+card | Size and batch gaps: Anima Turbo/Aesthetic at 1.5-2 MP and non-square, Kohaku, NetaYume and NewBie above about 1 MP, Illustrious at 1536/2048, Animagine Batch 12 (the cap was raised from a Batch 8 reading). [Checkpoints](docs/verified.md#checkpoints); [MP table](docs/anime-model-guide.md#compare-by-total-megapixels). |
+| `CARD#6` | CARD | LOW | M+card | Catalogue entries never loaded on the card: Krea 2 Raw (manual approval), FLUX.2 [klein] 9B, klein base 4B and 9B; Krea 2 Turbo's Windows fp8 row has a peak but no time. [Checkpoints](docs/verified.md#checkpoints). |
+| `CARD#7` | CARD | LOW | M+card | Refine gaps: FLUX.1 dev at fp8; what the starting strengths keep on schnell, Z-Image Turbo, Z-Image and Qwen-Image; offload none/sequential; true CFG through FluxImg2Img; review the 2026-10-05 ladder pictures. [Refine pass](docs/verified.md#refine-pass). |
+| `CARD#8` | CARD | LOW | S+card | User LoRAs on an SDXL checkpoint: the adapter changes the image, weight 0 is byte-identical to none, unload restores the base hash. So far FLUX.1 Krea dev only. [Behaviour](docs/verified.md#behaviour). |
+| `CARD#9` | CARD | LOW | S+card | ERNIE-Image Turbo on the Windows fp8 path, and its Expand (rewriter, Marian translation, the 7 GB first-use download). Measured only under Nunchaku NVFP4. [Behaviour](docs/verified.md#behaviour). |
+| `CARD#10` | CARD | LOW | M | On the real server, fixes checked only on the fake: 9377de1, 7733f81, 6a7570d, ad01fdc, 2a4d2cc, 2b89ed5, 81781bf; and R50's fix (1744dc3) with a real console Ctrl-C, plus the not_found/offline load failures. [Behaviour](docs/verified.md#behaviour); [10-12 not reached](docs/review-2026-10-12.md#review--2026-10-12). |
+| `CARD#11` | CARD | LOW | M+card | The critic for real: a reorder where Check placed only some tags, kill-on-close stopping a real `llama-server`, int8 or sequential offload beside it, and whether rewrites beat originals over more than two seeds. [Prompt analyser](docs/verified.md#prompt-analyser). |
+| `CARD#12` | CARD | LOW | S+card | Whether official Qwen-Image (over 16 GB) runs on Windows under sequential offload. [Switching](docs/design-notes.md#switching-checkpoints-while-the-server-stays-open). |
+
+## Inpainting and outpainting
+
+**Owner:** [docs/plan-inpainting.md](docs/plan-inpainting.md#phases) and [docs/plan-outpainting.md](docs/plan-outpainting.md#phases), their Phases; what was built differently is in the design notes' [Inpainting](docs/design-notes.md#inpainting) and [Outpainting](docs/design-notes.md#outpainting).
+
+| id | status | sev | size | item |
+|---|---|---|---|---|
+| `INP#1` | BLOCKED | MED | M | Inpaint phase 3, after `CARD#1`: `START_RECIPES` for the inpaint classes (the dialog's "starts at N% noise" line), the preview through the blend, `inpaint_measured` rows and measured starting strengths. |
+| `INP#2` | BLOCKED | MED | S | Outpaint phase 3, after `CARD#2`: a measured band default in place of the app's 32 px, plus what `INP#1` changes for every inpaint. |
+| `INP#3` | CARD | MED | M+card | FLUX.1 inpaint (Krea dev, dev, schnell): measure 1 MP against the spill line, add its recipe, then drop `FluxPipeline` from `INPAINT_DEFERRED`; outpaint follows. |
+| `INP#4` | OPEN | LOW | S | The mask as a small outline over the source's thumbnail in the facts list, which shows only the hash's first 16 digits. [Elsewhere on the page](docs/plan-inpainting.md#elsewhere-on-the-page). |
+| `INP#5` | DEFERRED | LOW | M+card | Phase 4, klein: one reference beside the source, its mu recipe, memory with the sequence doubled, `smoke-inpaint-klein`. Matt doesn't run klein. |
+| `INP#6` | DEFERRED | LOW | M+card | Phase 5, Qwen-Image under Nunchaku (WSL), only if the inpaint class runs over the Nunchaku transformer at all. |
+| `INP#7` | DECISION | LOW | S | Outpainting's open questions: a card tool or not, the 32 px band start, what "+25% all round" means, the fill in the frame preview now or later. Built on the recommended answers. [Questions](docs/plan-outpainting.md#open-questions-for-the-user). |
+| `INP#8` | DECISION | LOW | L | FLUX.1 Fill [dev] as an inpaint-only checkpoint (separate weights, non-commercial licence, cannot render from a prompt alone): the inpainting plan's question 7, unanswered. [Questions](docs/plan-inpainting.md#open-questions-for-the-user). |
+| `INP#9` | DEFERRED | LOW | M | Phase 6, the masked area only (`padding_mask_crop` at a working size, a recorded `mask_crop`); not on Z-Image, whose class lacks it. Also for large SDXL outpaint canvases. |
+| `INP#10` | DEFERRED | LOW | M | Outpaint, later if wanted: the server's fill shown in the frame (with `INP#7`), an outpaint over a painted mask, a second fill. |
+
+## Generation, jobs and models
+
+**Owner:** [docs/design-notes.md](docs/design-notes.md) for the deferred items; the 2026-10-12 review's [feature ideas](docs/review-2026-10-12.md#feature-ideas) for the `F` numbers named in each row.
+
+| id | status | sev | size | item |
+|---|---|---|---|---|
+| `GEN#1` | OPEN | LOW | M | Models picker: each checkpoint's download size and whether it is already in the Hugging Face cache (10-12 F7). |
+| `GEN#2` | OPEN | LOW | M | Cancel a running Expand, above all a first use downloading ERNIE's rewriter: Stop on its line, the server dropping the result and freeing the gate at the next step (10-12 F8). |
+| `GEN#3` | OPEN | LOW | S | A "paused for N min" clock: `paused_at` in the job snapshot, shown in the paused tab and the waiting tab's note (10-12 F17). |
+| `GEN#4` | OPEN | LOW | M | `generate --via-server` scripting the running browser server over HTTP, an exit-4 message pointing at it, a usage.md section (10-12 F13). |
+| `GEN#5` | OPEN | LOW | L+card | An opt-in pinned GAN upscaler (R-ESRGAN Anime6B) before the Refine pass, where the WAI and RouWei guides cite one, recorded in the reproduction set (10-12 F14). |
+| `GEN#6` | DEFERRED | LOW | M+card | Live-preview maps for the four-channel SDXL VAE and FLUX.2's VAE (ERNIE; klein also lacks an unpack hook); previews switch themselves off there. [Behaviour](docs/verified.md#behaviour). |
+| `GEN#7` | DEFERRED | LOW | M | A Hugging Face access check before a switch releases the working model; the catalogue's gate word is static. [Switching](docs/design-notes.md#switching-checkpoints-while-the-server-stays-open). |
+| `GEN#8` | DEFERRED | LOW | L | U61 part B: one's own photo or sketch as a reference (import route, a source marker through storage, reindex and reruns; add, drop and paste). Matt deferred it 2026-10-05; only when he raises it. [References](docs/design-notes.md#reference-images-by-gallery-id). |
+
+## Gallery and storage
+
+**Owner:** the 2026-10-12 review's [feature ideas](docs/review-2026-10-12.md#feature-ideas) and its [not reached](docs/review-2026-10-12.md#review--2026-10-12) list.
+
+| id | status | sev | size | item |
+|---|---|---|---|---|
+| `GAL#1` | OPEN | LOW | M | Bin: "Delete picked permanently" (a purge by ids that refuses live rows) and an optional empty by age from `binned_at` (10-12 F5). |
+| `GAL#2` | OPEN | LOW | S | After a bundle import, return the first and last id and offer "Show imported" (`id:<first>-<last>`) (10-12 F12). |
+| `GAL#3` | OPEN | LOW | M | Exercise bundles above a few hundred KB, Empty bin over hundreds of rows, and killing the server mid-import and mid-export. |
+
+## Prompt analyser
+
+**Owner:** the 2026-09-28 checklist's [What remains](docs/review-2026-09-28-checklist.md#what-remains) for the residues; the design notes' [prompt analyser](docs/design-notes.md#the-prompt-analyser) ("Open questions the build turned up") for the decisions.
+
+| id | status | sev | size | item |
+|---|---|---|---|---|
+| `PA#1` | OPEN | MED | S | `critic._RESTATES` patterns for `guide.negative_prompt` and `guide.quality`, so critic issues that only repeat those Check findings are dropped. |
+| `PA#2` | OPEN | LOW | S | F11's residue: "too long a full description" and "the recommended length of the full description" still read as a part; brief, lengthen/extend, "at N words" and "N-word minimum" need test rows that kill their mutants. |
+| `PA#3` | OPEN | LOW | M | F2's residue: irregular participles after a noun trigger ("set", "lit up", "woven into it") stay text to render; the negation stop warns on "we are not open" and cuts "no shoes no shirt no service". |
+| `PA#4` | OPEN | LOW | S | F28's residue: an absence span ends inside St. Ives, Rio de Janeiro or Dr. Smith, and "Elm Dr. No cars." is silent. At least name the cost in the design notes. |
+| `PA#5` | DECISION | LOW | S | Tag autocomplete writes A1111 escapes (`\(`), which diffusers never unescapes, so CLIP reads extra tokens: keep them, or write bare parentheses? |
+| `PA#6` | DECISION | MED | S | Qwen-Image's guide says a single-space negative turns on True CFG, but `collect()` trims it to null, so no True CFG pass runs. |
+| `PA#7` | DECISION | LOW | S | Anima's card gives a tag order and a recommended prefix the guide prose leaves out; added, the order becomes checkable. |
+| `PA#8` | CARD | LOW | S+card | Whether NewBie reads `<name>` as it reads the authors' `<n>`; the XML rule accepts both. |
+| `PA#9` | DEFERRED | LOW | L | Scoring comparison images automatically with a VLM (does each element appear); accuracy unmeasured. |
+
+## The page
+
+**Owner:** the 2026-10-12 review's [feature ideas](docs/review-2026-10-12.md#feature-ideas) for the `F` numbers; the design notes for the rest.
+
+| id | status | sev | size | item |
+|---|---|---|---|---|
+| `UI#1` | OPEN | LOW | M | "Compare picked": two picked images in the lightbox's swipe and side by side, labelled by the fields that differ (10-12 F9). |
+| `UI#2` | OPEN | LOW | S | An opt-in desktop notification when a job finishes in a hidden tab; Copy image and a named Download in the lightbox (10-12 F10). |
+| `UI#3` | OPEN | LOW | S | "Seeds to grid": fill the grid's Seed list from the picked images' seeds (10-12 F11). |
+| `UI#4` | OPEN | LOW | M | The contact sheet as a roving grid: one tab stop, arrows and Home/End between cells (10-12 F15). |
+| `UI#5` | OPEN | LOW | S | R in the lightbox opens Refine, with `aria-keyshortcuts` and a usage.md row (10-12 F18). |
+| `UI#6` | OPEN | LOW | S | Select mode: Ctrl+A picks every loaded card up to the cap, and an optional "Pick this run" (10-12 F19). |
+| `UI#7` | OPEN | LOW | M | Check the page with a real screen reader (NVDA, Narrator), forced colours, reduced motion and touch; the reviews read only the accessibility tree. [10-12 not reached](docs/review-2026-10-12.md#review--2026-10-12). |
+| `UI#8` | DEFERRED | LOW | M | At 1536x864 (1080p at 125%) a running batch's progress falls below the left pane; fitting it means tightening every field under 1800 px. [Panel rows](docs/design-notes.md#the-panels-sampling-and-output-rows). |
+
+## Docs and tooling
+
+**Owner:** the file named in each row.
+
+| id | status | sev | size | item |
+|---|---|---|---|---|
+| `DEV#1` | OPEN | MED | S | Document the Inpaint and Outpaint dialogs in [docs/usage.md](docs/usage.md) and name them in `README.md`; neither mentions them. |
+| `DEV#2` | OPEN | LOW | S | Extend `tests/test_docs_maps.py` to hold CLAUDE.md's smoke/port table to `tools/smoke*.json` and `web/styles/*.css` to rules.md's Layout (10-12 F16, the rest of it). |
+
+## Reviews with nothing left open
+
+Each review's leftovers are rows above; a review returns here only with a new finding.
+
+| review | where it closed |
+|---|---|
+| 2026-08-29, 2026-09-07 | Every lead re-checked in 2026-09-07's findings; its checklist is all ticked. |
+| 2026-09-28 | Its checklist; the residues are `PA#1`-`PA#4`. F47, the CLI's literal `{word}` and the other entries under "Accepted, and worded as trade-offs" are decided, not open. |
+| 2026-10-03 | All confirmed findings and P1 fixed 2026-10-04. |
+| 2026-10-04 UI | All done but U61 B (`GEN#8`); U5, U12, U79, U100 and U108 were left by decision. |
+| 2026-10-05 areas | 84 fixed, A68 partly by decision; the integration review's K1-K5 fixed. |
+| 2026-10-12 | R1-R53 fixed; F1-F4 and F6 built; F5 and F7-F19 are rows above. |
+
+---
+
+## How to read this file
+
+Rules for writing it: read them before editing a row, not before picking one.
+
+**This file is an index, not a work order.** One row per open item: an id, a status, two grades, one clause and a pointer. Why an item matters, how to build it and what counts as done belong in its owner (a plan, the design notes, a review, `docs/verified.md`); a second copy here goes stale unnoticed.
+
+1. **A row leaves this file in the same commit that finishes it.** Record the result in the owner (a measurement in `docs/verified.md` with its date, a build in the plan's status or the design notes) and delete the row; no closed rows stay here. An emptied section becomes one line under "Reviews with nothing left open" or is dropped.
+2. **The owner is the source of truth.** When this file and its owner disagree, this file is stale.
+3. **When part of an item lands, replace the clause with what's left;** don't append to it. Keep a row under about 500 bytes.
+4. **New work starts in an owner:** a plan in `docs/plan-*.md` for a feature, a review's findings for a defect, the design notes for a deliberate gap. Then it gets a row here.
+5. **NOW changes only when its items finish or Matt reorders them.**
+
+**`id`:** a stable handle, not an order; a retired id is never reused. The prefix is the section: `CARD` measurements on the card, `INP` inpainting and outpainting, `GEN` generation, jobs and models, `GAL` gallery and storage, `PA` prompt analyser, `UI` the page, `DEV` docs and tooling. A review's own id (10-12 F7, U61) is named in the clause.
+
+**`status`**, a closed list:
+- `OPEN`: ready to work.
+- `CARD`: the next step is a run on the RTX 5080. Matt runs it or OKs it; one size at a time, never past the card.
+- `DECISION`: the next step is Matt's call. Always listed in NOW.
+- `BLOCKED`: waits on another row (named in the clause).
+- `DEFERRED`: paused by priority; picked up only when NOW admits it or its condition is met.
+
+**`sev`:** the cost of leaving it open, not difficulty. `HIGH` a built feature with no measurement behind it, or a decision that holds up other work; `MED` a real defect or gap, but bounded; `LOW` convenience, polish, doc debt.
+
+**`size`:** engineer-hours: `S` up to 2 h, `M` 2-6 h, `L` 6-20 h, `XL` over 20 h. `+card` means the real cost is time on the card, which Matt runs or OKs.
+
+**Decided against:** what the docs record as a trade-off or a decision not to build (a review's "Accepted" or "Kept by decision") never gets a row.

@@ -12,6 +12,8 @@ This file is the short version. Before changing an area, read its part of
 **`docs/rules.md`** (every rule in full, the module map, what each smoke
 covers) and its section of **`docs/design-notes.md`** (why, and what went
 wrong before). `docs/verified.md` lists what has been measured on the card.
+**`TODO.md`** indexes open work, one row per item pointing to its owner; a
+fresh thread starts at its NOW.
 `CLAUDE.md` and `AGENTS.md` are kept byte-identical.
 
 ## Run
