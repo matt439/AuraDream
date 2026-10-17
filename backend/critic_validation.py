@@ -297,7 +297,9 @@ _SOME_PART = (
 # count, up to four words name it), as any object but the image, the
 # picture or the prompt (`_WHOLE_NOUNS`) does in "the description of the
 # lighting". The same test decides a count (`_PART_COUNT`) and a manner
-# (`_MANNER`).
+# (`_MANNER`), and a word for the whole keeps a length the prompt's: "too
+# long a full description", "the recommended length of the full
+# description".
 _DETERMINERS = (
     "the", "this", "that", "your", "my", "our", "its", "his", "her", "their", "each", "a", "an",
 )
@@ -346,11 +348,12 @@ _RESTATES: dict[str, tuple[str, re.Pattern[str]]] = {
             # "Reads as long", not "as long as": a comparison or a condition.
             rf"|\bprompt\s+reads\s+as\s+{_SO}(?:short|long|brief)\b(?!\s+as\b)"
             r"|^(?:(?:it|this)(?:'s|’s|\s+is)\s+(?:too|very)|too)\s+(?:short|long|brief)\b"
-            r"(?!\s+an?\s+(?!(?:prompt|description|list)\b))"
+            rf"(?!\s+an?\s+(?!(?:{_WHOLE}(?:['’]s)?\s+)?(?:prompt|description|list)\b))"
             r"|\bprompt(?:'s|’s)? length\b|\blength of (?:the|this|your) prompt\b"
             r"|\b(?:recommended|suggested|ideal|optimal|required|minimum|maximum)"
             r" (?:prompt )?length\b(?!\s+of\b"
-            r"(?!\s+(?:(?:the|this|your|a|an)\s+)?(?:prompts?|description)\b"
+            r"(?!\s+(?:(?:the|this|your|a|an)\s+)?"
+            rf"(?:{_WHOLE}(?:['’]s)?\s+)?(?:prompts?|description)\b"
             r"|\s+(?:(?:about|around)\s+)?\d))"
         ),
     ),

@@ -322,14 +322,20 @@ Open after the last fix round, and not in the docs as stated here:
   Rio" for Rio de Janeiro, "Avoid Dr" for Dr. Smith), and "Dr." for a street
   still reads as a title, so "a house on Elm Dr. No cars." is silent - the
   price of keeping "Dr. No" silent, which the notes do not name.
-- **F11's residue.** A word for the whole still reads as a part in "too long
-  a full description" and "the recommended length of the full description",
-  branches the last round left alone, though the notes make "the full
-  description" the prompt's; and the four older alternatives of the length
-  pattern - "brief", the shaping verbs ("lengthen", "extend" and the rest),
-  "at N words" opening an issue and "an N-word minimum" or maximum - have no
-  test row: on `8931fae` each one's mutant still passes `test_critic.py` and
-  `test_api_analysis.py`.
+- **F11's residue** - built 2026-10-17 (`PA#2`). A word for the whole read
+  as a part in "too long a full description" and "the recommended length of
+  the full description", branches the last round left alone, though the
+  notes make "the full description" the prompt's; and the four older
+  alternatives of the length pattern - "brief", the shaping verbs
+  ("lengthen", "extend" and the rest), "at N words" opening an issue and "an
+  N-word minimum" or maximum - had no test row: on `8931fae` each one's
+  mutant still passed `test_critic.py` and `test_api_analysis.py`. Both
+  branches now take a word for the whole (`_WHOLE_WORDS`, a possessive too)
+  ahead of the description or the prompt, and `test_critic_issues.py`'s
+  `test_each_word_tying_a_count_to_a_part_or_to_the_prompt_is_read` has a row
+  for each alternative, each shaping verb and each of minimum and maximum:
+  all 23 mutants dropping one of those alternatives or one word in them,
+  unanchoring "at" or undoing either fix fail it.
 - **Restatements the critic's validation did not catch** - built
   2026-10-17 (`PA#1`). The real run on the final tree kept issues repeating
   Check's `guide.negative_prompt` and `guide.quality` findings ("Missing

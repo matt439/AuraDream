@@ -9936,7 +9936,10 @@ decide both readings, singular or plural, a noun for the whole as a
 possessive too ("the image's description"); a count takes a part named in
 up to four words; "a" or "an" names a part only with its description, so
 "keep a single paragraph under 80 words" is still the prompt's; and only
-"reads as" is a length claim, never "as long as".
+"reads as" is a length claim, never "as long as". The same words for the
+whole make "too long a full description" and "the recommended length of
+the full description" the prompt's length (2026-10-17), where "a full
+lighting description" is still a part's.
 `CriticContext.reported` counted negative-prompt findings, so weighting in Animagine's negative prompt left
 out "give the expression more emphasis".
 A quote within 8 characters of any finding's span counted, so "a shop" and

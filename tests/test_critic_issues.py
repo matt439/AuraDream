@@ -518,6 +518,40 @@ def test_a_length_claim_is_one_about_the_prompts_own_length(problem, fix, claim)
         ("The prompt runs a little long", "Shorten it", True),
         ("The prompt is a bit short", "Add detail", True),
         ("The prompt is slightly long", "Shorten it", True),
+        # "Brief" wherever "short" or "long" is (PA#2).
+        ("The prompt is brief", "Add detail", True),
+        ("The prompt reads as brief", "Add detail", True),
+        ("Too brief", "Add detail", True),
+        ("It is too brief", "Add detail", True),
+        # Each shaping verb to a number of words, "it" or "this" its
+        # object or none.
+        ("Long", "Cut it to 60 words", True),
+        ("Long", "Trim it to 60 words", True),
+        ("Long", "Shorten it to 60 words", True),
+        ("Thin", "Expand it to 40 words", True),
+        ("Thin", "Lengthen it to 40 words", True),
+        ("Long", "Reduce this to 60 words", True),
+        ("Thin", "Extend this to 40 words", True),
+        ("Long", "Bring it down to 60 words", True),
+        ("Thin", "Grow it out to 40 words", True),
+        ("Thin", "Lengthen to around 40 words", True),
+        ("Thin", "Bring it up to about 40 words", True),
+        ("Long", "Cut it back to roughly 60 words", True),
+        # A count opening a sentence, and a minimum or maximum of so many.
+        ("At 12 words, it needs more detail", "Add detail", True),
+        ("Thin. At 12 words it needs more", "Add detail", True),
+        ("The lighting is thin", "Keep the lighting at 5 words", False),
+        ("Thin", "Meet the 30-word minimum", True),
+        ("Long", "Stay inside the 80 word maximum", True),
+        ("The sign is long", "Keep the sign text under a 3-word maximum", False),
+        # A word for the whole ahead of the description keeps a length the
+        # prompt's; a part's word there still names that part.
+        ("Too long a full description", "Cut it", True),
+        ("Too short an overall description", "Add detail", True),
+        ("Too long a full lighting description", "Cut it", False),
+        ("It is below the recommended length of the full description", "Add detail", True),
+        ("It is below the ideal length of the image's description", "Add detail", True),
+        ("It is below the ideal length of the full lighting description", "Add detail", False),
     ],
 )
 def test_each_word_tying_a_count_to_a_part_or_to_the_prompt_is_read(problem, fix, claim):
