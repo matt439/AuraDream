@@ -3,6 +3,7 @@ from __future__ import annotations
 
 import asyncio
 import threading
+import time
 
 from backend.jobs import JobManager, short_error
 from backend.schemas import GenerateRequest
@@ -150,23 +151,67 @@ def test_a_job_behind_a_paused_one_says_so_and_hears_the_resume(store):
         behind = await manager.submit(GenerateRequest(prompt="y", width=256, height=256, steps=2))
         await asyncio.sleep(0.05)
         paused = behind.snapshot()["waiting_on"]
+        # When the pause began, on both sides: the paused tab's clock and
+        # the waiting tab's "paused for N min".
+        clocks = ahead.snapshot()["paused_at"], behind.snapshot()["ahead_paused_at"]
         following = asyncio.create_task(
             _statuses_until(manager, behind, lambda e: e["waiting_on"] == "queue")
         )
         await asyncio.sleep(0.05)
         manager.pause(ahead.id, False)
         heard = await following
+        resumed = ahead.snapshot()["paused_at"], behind.snapshot()["ahead_paused_at"]
         for job in (ahead, behind):
             async for event in manager.events(job):
                 if event["type"] == "done":
                     break
-        return paused, heard, behind.snapshot()
+        return paused, heard, behind.snapshot(), clocks, resumed
 
-    paused, heard, end = asyncio.run(scenario())
+    before = time.time()
+    paused, heard, end, clocks, resumed = asyncio.run(scenario())
     assert paused == "paused"
+    assert clocks[0] is not None and before <= clocks[0] <= time.time()
+    assert clocks[1] == clocks[0]
+    # Resumed, neither says a pause any more.
+    assert resumed == (None, None)
     # The opening snapshot says "paused"; the resume's frame says "queue".
     assert heard[0] == "paused" and heard[-1] == "queue"
     assert end["status"] == "done" and end["waiting_on"] is None
+
+
+def test_a_job_queued_before_the_pause_hears_when_it_began(store):
+    # Queued behind a running job, then that job paused: the relabel tells
+    # the waiting job's stream the pause's start, which its tab counts from.
+    async def scenario():
+        manager = JobManager(FakeBackend(step_seconds=0.005))
+        ahead = await manager.submit(
+            GenerateRequest(prompt="x", width=256, height=256, steps=4, runs=4)
+        )
+        behind = await manager.submit(GenerateRequest(prompt="y", width=256, height=256, steps=2))
+        await asyncio.sleep(0.02)
+        frames = []
+
+        async def follow():
+            async for event in manager.events(behind):
+                if event["type"] == "status":
+                    frames.append(event)
+                    if event["waiting_on"] == "paused":
+                        return
+
+        following = asyncio.create_task(asyncio.wait_for(follow(), 5.0))
+        manager.pause(ahead.id, True)
+        await following
+        paused_at = ahead.paused_at
+        manager.pause(ahead.id, False)
+        for job in (ahead, behind):
+            async for event in manager.events(job):
+                if event["type"] == "done":
+                    break
+        return frames[-1], paused_at, ahead.snapshot()
+
+    frame, paused_at, end = asyncio.run(scenario())
+    assert paused_at is not None and frame["ahead_paused_at"] == paused_at
+    assert end["paused_at"] is None
 
 
 def test_a_job_behind_an_editor_action_names_it(store):

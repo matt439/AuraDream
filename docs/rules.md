@@ -1251,7 +1251,15 @@ Jobs:
   its first image" and Pause's title "Hold this job before it starts; Resume
   lets it run", never "pausing after this image". A pause stops a time
   budget's clock: `_hold` moves `Job.deadline` on by the time it held, before
-  the resume's frame. A plain
+  the resume's frame. `_hold` stamps `Job.paused_at` (Unix seconds) with
+  `paused` and clears it with it; a job waiting behind a paused one carries
+  that time as `ahead_paused_at` (`_wait_on`, wherever `waiting_on` is set).
+  Past a minute the paused tab's cell line says "Paused after image 2/3 for 4
+  min", its title "⏸ Paused 4 min", and the waiting tab's note "The job
+  ahead has been paused for 4 min" (`pausedFor`), moved on by the status
+  poll (`tickPauseClock`) and counted on the server's clock (the status's
+  `server_time`, `serverClockOffset`), never the page's alone; a `note` that
+  is a function is asked again at each redraw. A plain
   job's units are images, or batches where a repeat makes several
   (`unitWord`, from the snapshot's `grid` and `planned_images`; `Job.unit`
   on the server), in the
@@ -5575,6 +5583,8 @@ per-row cancel and the single "Next:" row; Unload held with its reason,
 and a press held by a load with no job said as a note that goes once the
 load lands;
 Pause answered at once with no aria-pressed and held on a one-image job,
+its clock ("for 2 min" in the cell line, "⏸ Paused 2 min" in the title, its
+`paused_at` set back past a minute, at the next poll),
 its note gone with its job; the finish line's seed with Use seed and the
 fixed-seed hint; a grid named by its own prompt, skipping a `[fail]` cell
 live, with Show sheet and a Retry that sends its own payload with Resume and
@@ -5625,7 +5635,8 @@ tab's own finished title given back until a key), the estimate leaving the
 first step out once a second has landed (none at step 1, a one-step job
 none, a sweep of one-step cells from its second),
 a cancel and a queued row's cancel from that tab, a pause here with its job
-behind ("waiting: job ahead paused" there, where Pause on that queued job
+behind ("waiting: job ahead paused" there, "has been paused for 3 min" once
+its `ahead_paused_at` is set back past a minute, where Pause on that queued job
 says it will hold before its first image and a second press withdraws it;
 its row marked as another tab's here, Cancel queued's title, the count), Cancel queued here said there as a
 cancel from elsewhere, a job that ended at the load reworded once that

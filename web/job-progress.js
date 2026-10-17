@@ -86,7 +86,8 @@ function mirrorJob() {
   els.jobMirror.textContent = [whose, text, steps, jobEta].filter(Boolean).join(' · ');
   const measured = jobFraction > 0 && !els.fill.parentElement.classList.contains('indeterminate');
   const shown = [whose, text].filter(Boolean).join(' · ');
-  setTitle(els.pause.textContent === 'Resume' ? `⏸ Paused${whose ? ` · ${whose}` : ''}`
+  const held = els.pause.textContent === 'Resume' ? pausedFor(cellArgs?.[1].job?.paused_at) : '';
+  setTitle(els.pause.textContent === 'Resume' ? `⏸ Paused${held ? ` ${held}` : ''}${whose ? ` · ${whose}` : ''}`
     : measured ? `${Math.round(jobFraction * 100)}% · ${shown}` : shown);
 }
 
@@ -140,18 +141,43 @@ let cellArgs = null;
 // end; a one-step cell's next event is the next cell's, whose own encode
 // every later cell will carry too. A one-step job has nothing to estimate.
 let etaFrom = null;
+// How long a pause has held the gate, from the worker's `paused_at` (the
+// server's Unix seconds, read against the server's clock as the last status
+// gave it - a WSL server's drifts from the host's): "3 min", or
+// nothing in its first minute. A paused job keeps the gate, and "⏸ Paused"
+// said nothing of whether that was a minute or the night. Its clock is the
+// status poll's (tickPauseClock), so whole minutes, not seconds.
+function pausedFor(at) {
+  if (typeof at !== 'number') return '';
+  const s = Date.now() / 1000 + serverClockOffset - at;
+  if (s < 60) return '';
+  return s < 90 * 60 ? `${Math.floor(s / 60)} min` : humanTime(s);
+}
+
+// The status poll moves a pause's clock - this page's job paused, or one
+// it waits behind - in the cell line and the tab's title.
+function tickPauseClock() {
+  const job = cellArgs?.[1].job;
+  if (!busy || !(job?.paused || job?.ahead_paused_at != null)) return;
+  showCell(...cellArgs);
+  mirrorJob();
+}
+
 // `note` is what a queued job waits on, in words (the stream's status
 // branch: the job ahead paused, the first load): kept in `cellArgs` with
 // the rest, so a redraw - the queue resynced, a Pause pressed - says it
 // again rather than wiping it under a progress line still saying "waiting".
+// A function is asked again at each redraw, for a note with a clock in it.
 function showCell(data, { job = null, budget = null, note = '', jobId = null } = {}) {
   cellArgs = [data, { job, budget, note, jobId }];
   const unit = unitWord(job);
   const parts = [];
   if (job?.paused) {
+    const held = pausedFor(job.paused_at);
+    const lasted = held ? ` for ${held}` : '';
     parts.push(job.run
-      ? `Paused after ${unit} ${job.run}/${job.total_runs} · GPU handed back`
-      : `Paused before the first ${unit} · GPU handed back`);
+      ? `Paused after ${unit} ${job.run}/${job.total_runs}${lasted} · GPU handed back`
+      : `Paused before the first ${unit}${lasted} · GPU handed back`);
     // The card's memory is handed back, but the queue does not move on: a
     // job behind a pause - one another tab queued included - waits for
     // Resume or Cancel here.
@@ -163,7 +189,8 @@ function showCell(data, { job = null, budget = null, note = '', jobId = null } =
     // first one, once its turn comes (and it keeps the queue there).
     parts.push(job?.status === 'queued' ? `will hold before its first ${unit}` : `pausing after this ${unit}…`);
   }
-  if (note) parts.push(note);
+  const said = typeof note === 'function' ? note(job) : note;
+  if (said) parts.push(said);
   if (data.label) parts.push(`cell ${data.run}/${data.total_runs} · ${data.label}`);
   jobEta = '';
   const runs = data.total_runs || 1;

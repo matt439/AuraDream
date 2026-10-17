@@ -33,7 +33,12 @@ const WAITING = {
   queue: { text: 'waiting for the job ahead…' },
   paused: {
     text: 'waiting: job ahead paused',
-    note: 'The job ahead is paused: this one runs once it is resumed or cancelled, in the tab or window that started it.',
+    // Asked at each redraw: how long the job ahead has held the gate
+    // (`ahead_paused_at`), once a minute has gone.
+    note: (job) => {
+      const held = pausedFor(job?.ahead_paused_at);
+      return `The job ahead ${held ? `has been paused for ${held}` : 'is paused'}: this one runs once it is resumed or cancelled, in the tab or window that started it.`;
+    },
   },
   critic: { text: 'waiting for the critic…', note: "Another tab's prompt critic has the card; this job starts once it answers." },
   expand: { text: 'waiting for Expand…', note: "Another tab's prompt expansion has the card; this job starts once it is done." },

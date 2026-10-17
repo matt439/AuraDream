@@ -98,6 +98,14 @@ def test_status_carries_when_the_server_started(client):
     assert client.get("/api/status").json()["started_at"] == first
 
 
+def test_status_carries_the_servers_clock(client):
+    # A pause's `paused_at` is on the server's clock, and a WSL server's
+    # drifts from the host's: the page counts the pause against this.
+    before = time.time()
+    now = client.get("/api/status").json()["server_time"]
+    assert before <= now <= time.time()
+
+
 def test_status_names_the_checkpoint_by_its_catalogue_label(client, fake, monkeypatch):
     # The start-up menu's name, which carries the pinned version the
     # repository's own name hides; off the catalogue, none, and the page

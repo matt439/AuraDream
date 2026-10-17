@@ -284,6 +284,10 @@ let statusPending = false;
 let modelState = null;
 let serverOffline = false;
 let serverStartedAt = null;
+// The server's clock less this page's (seconds), from the last status: a
+// pause's `paused_at` is the server's time, and a WSL server's clock drifts
+// from the host's over a sleep (pausedFor).
+let serverClockOffset = 0;
 // The job whose stream the page is watching, and the ids queued behind it.
 // The server was written for a queue - jobs wait on its gate, a queued one
 // can be cancelled on the spot - and the browser used to refuse a second

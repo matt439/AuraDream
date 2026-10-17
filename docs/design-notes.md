@@ -3589,7 +3589,18 @@ is `aria-disabled` and a press says why. A queued job's pause is kept and holds
 it before its first unit once its turn comes, keeping the gate as any pause
 does; its cell line says "will hold before its first image" and Pause's title
 "Hold this job before it starts" - "pausing after this image…" named an image
-that had not started. A plain job's units are images, or
+that had not started. A pause past a minute says how long it has held the
+gate - "Paused after image 1/3 for 4 min", "⏸ Paused 4 min" in the title,
+and "The job ahead has been paused for 4 min" in the tab waiting behind it -
+from `Job.paused_at`, which `_hold` stamps, and a waiting job's
+`ahead_paused_at`, the holder's stamp (10-12 F17, 2026-10-17). A paused job
+keeps the gate, and "⏸ Paused" said nothing of whether that was a minute or
+the night. Whole minutes, moved on by the 3 s status poll rather than a
+ticker of its own; nothing in the first minute, where the words are as
+before. Counted on the server's clock - the status's `server_time` less the
+page's, from the last poll - since the progress frames' `elapsed` is the
+server's for the same reason: a WSL server's clock is a VM's, and drifts from
+the host's over the very sleep an overnight pause spans. A plain job's units are images, or
 batches where a repeat makes several (`unitWord`, from the snapshot's `grid`
 and `planned_images`): "cell" is a grid's word, and "run 2/3" was a fourth
 meaning of run.

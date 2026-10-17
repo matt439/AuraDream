@@ -471,6 +471,7 @@ async def status() -> ModelStatus:
         detail_kind=_load_state.get("detail_kind") if _load_state["detail"] else None,
         detail_url=_load_state.get("detail_url") if _load_state["detail"] else None,
         started_at=STARTED_AT,
+        server_time=time.time(),
         model_label=_catalogue_label(info["model_id"]),
         # The live jobs' ids, oldest first: a page watching none of them
         # learns another tab's job holds the card, and one watching its own

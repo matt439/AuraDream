@@ -178,6 +178,10 @@ class ModelStatus(BaseModel):
     # sees it change knows the server restarted, and that every job it was
     # following ended with it.
     started_at: float | None = None
+    # The server's clock now (Unix seconds): a pause's `paused_at` is on it,
+    # and a WSL server's clock is a VM's, which drifts from the host's over a
+    # sleep - the page counts a pause's minutes against this, not its own.
+    server_time: float | None = None
     # The start-up catalogue's name for the running checkpoint (launch.py's
     # CHECKPOINTS, by exact id), which the page shows: the repository's own
     # name hid the pinned version - NetaYume v4 read "NetaYume-Lumina-Image-

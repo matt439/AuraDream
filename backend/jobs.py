@@ -105,6 +105,9 @@ class Job:
     # "critic" or "expand" for an editor action on the card, where no job is
     # ahead at all.
     waiting_on: str | None = None
+    # Behind a paused job, when it paused (Unix seconds; None otherwise): the
+    # waiting tab says how long the job ahead has held the gate.
+    ahead_paused_at: float | None = None
     step: int = 0
     total_steps: int = 0
     run: int = 0
@@ -160,6 +163,10 @@ class Job:
     # denoise is still running on it.
     pause_requested: bool = False
     paused: bool = False
+    # When the worker took the pause (Unix seconds), None while it is not
+    # paused: a pause keeps the gate for as long as it lasts, and "⏸ Paused"
+    # said nothing of whether that was a minute or the night.
+    paused_at: float | None = None
     done_sent: bool = False
     # Unix seconds as floats - JSON-native, since snapshot() goes straight
     # through json.dumps on the SSE path. `last_progress_at` is what tells a
@@ -260,8 +267,10 @@ class Job:
             "more_seeds": self.more_seeds,
             "status": self.status,
             "waiting_on": self.waiting_on,
+            "ahead_paused_at": self.ahead_paused_at,
             "pause_requested": self.pause_requested,
             "paused": self.paused,
+            "paused_at": self.paused_at,
             "step": self.step,
             "total_steps": self.total_steps,
             "run": self.run,
@@ -479,6 +488,13 @@ class JobManager:
             return holder
         return "paused" if ahead.paused else "queue"
 
+    def _wait_on(self, job: Job, label: str | None) -> None:
+        """Set what `job` waits behind, and since when the job ahead has
+        been paused where that is what it waits on."""
+        job.waiting_on = label
+        ahead = self._jobs.get(self._holder) if label == "paused" and self._holder else None
+        job.ahead_paused_at = None if ahead is None else ahead.paused_at
+
     def _relabel_queued(self, loop: asyncio.AbstractEventLoop) -> None:
         """Say again what each job waiting for the gate is behind, to its
         streams: when the gate changes hands, and after the job holding it
@@ -489,7 +505,7 @@ class JobManager:
         label = self._waiting_label()
         for job in self.active():
             if job.id in self._at_gate and job.status == "queued" and job.waiting_on != label:
-                job.waiting_on = label
+                self._wait_on(job, label)
                 self._emit(loop, job, {"type": "status", **job.snapshot(images=False)})
 
     def stop_all(self, reason: str = "shutdown") -> None:
@@ -736,10 +752,10 @@ class JobManager:
             # Only a load that is actually needed gets the label: a job that
             # is genuinely queued behind another must not read "loading" -
             # nor one with nothing ahead of it "the job ahead".
-            job.waiting_on = (
+            self._wait_on(job, (
                 "load" if not self.backend.is_ready()
                 else self._waiting_label() if self._gate.locked() else None
-            )
+            ))
             self._emit(loop, job, {"type": "status", **job.snapshot(images=False)})
             try:
                 await self._ensure_loaded()
@@ -754,9 +770,9 @@ class JobManager:
         # the page hears it rather than "loading weights" for the wait.
         waiting = self._waiting_label() if self._gate.locked() else None
         if waiting is not None and waiting != job.waiting_on:
-            job.waiting_on = waiting
+            self._wait_on(job, waiting)
             self._emit(loop, job, {"type": "status", **job.snapshot(images=False)})
-        job.waiting_on = waiting
+        self._wait_on(job, waiting)
         self._at_gate.add(job.id)
         try:
             async with self._gate:
@@ -779,7 +795,7 @@ class JobManager:
             self._finish(loop, job, "cancelled")
             return
         job.status = "running"
-        job.waiting_on = None
+        self._wait_on(job, None)
         job.started_at = time.time()
         self._emit(loop, job, {"type": "status", **job.snapshot(images=False)})
         try:
@@ -971,6 +987,7 @@ class JobManager:
         "paused", then "queue" again - on the event loop, which owns the job
         table this thread must not walk while a submission adds to it.
         """
+        job.paused_at = time.time()
         job.paused = True
         try:
             self.backend.free_cache()
@@ -990,6 +1007,7 @@ class JobManager:
         if job.deadline is not None:
             job.deadline += time.monotonic() - held_from
         job.paused = False
+        job.paused_at = None
         if not job.cancel_requested:
             log.info("job %s resumed at cell %d/%d", job.id, index + 1, len(job.cells))
             self._emit(loop, job, {"type": "status", **job.snapshot(images=False)})

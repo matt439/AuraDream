@@ -54,7 +54,6 @@ An index of open work, one row per item; each row points to the doc that owns th
 |---|---|---|---|---|
 | `GEN#1` | OPEN | LOW | M | Models picker: each checkpoint's download size and whether it is already in the Hugging Face cache (10-12 F7). |
 | `GEN#2` | OPEN | LOW | M | Cancel a running Expand, above all a first use downloading ERNIE's rewriter: Stop on its line, the server dropping the result and freeing the gate at the next step (10-12 F8). |
-| `GEN#3` | OPEN | LOW | S | A "paused for N min" clock: `paused_at` in the job snapshot, shown in the paused tab and the waiting tab's note (10-12 F17). |
 | `GEN#4` | OPEN | LOW | M | `generate --via-server` scripting the running browser server over HTTP, an exit-4 message pointing at it, a usage.md section (10-12 F13). |
 | `GEN#5` | OPEN | LOW | L+card | An opt-in pinned GAN upscaler (R-ESRGAN Anime6B) before the Refine pass, where the WAI and RouWei guides cite one, recorded in the reproduction set (10-12 F14). |
 | `GEN#6` | DEFERRED | LOW | M+card | Live-preview maps for the four-channel SDXL VAE and FLUX.2's VAE (ERNIE; klein also lacks an unpack hook); previews switch themselves off there. [Behaviour](docs/verified.md#behaviour). |

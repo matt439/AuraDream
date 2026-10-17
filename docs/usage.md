@@ -144,7 +144,9 @@ quantizer, size and other inputs. Nunchaku is not bitwise reproducible.
   cell to run; a single batch has no such boundary. Resume continues it.
   Pressed on a queued job, it holds that job before its first image once its
   turn comes, keeping its place in the queue.
-  The model remains loaded, so Unload is unavailable while paused.
+  The model remains loaded, so Unload is unavailable while paused. A pause
+  past a minute says how long it has lasted, in the tab's title and, in a
+  tab whose job waits behind it, the note under the bars.
 
 The browser remembers prompts and controls; sampling settings are remembered
 per checkpoint. **Reset** restores defaults. Resume is never remembered as

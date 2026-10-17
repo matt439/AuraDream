@@ -549,6 +549,7 @@ function receiveStatus(s, asked = Date.now()) {
     const restarted = serverStartedAt !== null && typeof s.started_at === 'number'
       && s.started_at !== serverStartedAt;
     if (typeof s.started_at === 'number') serverStartedAt = s.started_at;
+    if (typeof s.server_time === 'number') serverClockOffset = s.server_time - Date.now() / 1000;
     const previousModel = loadedModel;
     const revision = Number.isInteger(s.model_revision) ? s.model_revision : 0;
     if (!restarted && modelRevision !== null && revision < modelRevision) return;
@@ -590,6 +591,8 @@ function receiveStatus(s, asked = Date.now()) {
       cardTicket = ticket;
       syncExpandRunning();
     }
+    // A pause's clock, here or the job ahead's, moves with the poll.
+    tickPauseClock();
     if (pendingTranslation) {
       const { source, text } = pendingTranslation;
       pendingTranslation = null;
