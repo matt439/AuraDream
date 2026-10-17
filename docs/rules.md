@@ -281,9 +281,11 @@ before changing it.
   `test_api*.py` (the HTTP routes, one file per area), and a file per module
   or invariant beside them - `test_refine_schedules.py`, for one, holds a
   pass's start index and start sigma to the installed diffusers; see Tests
-- `bin/` — `local-diffusion.cmd` and `local-diffusion-wsl.cmd`, for the user
-  PATH: the two server starts (`backend.main`, `wsl/serve.sh`) from any
-  folder, arguments passed through
+- `bin/` — `local-diffusion` and `local-diffusion-wsl`, for the user PATH:
+  the two server starts (`backend.main`, `wsl/serve.sh`) from any folder,
+  arguments passed through. Each is a `.ps1` (PowerShell picks it, so
+  Ctrl-C stops the server without cmd.exe's "Terminate batch job (Y/N)?")
+  beside a `.cmd` for cmd.exe, which always asks; keep each pair in step
 - `wsl/` — `env.sh` (Linux-side paths and the Nunchaku defaults, to source),
   `setup.sh`, `serve.sh`: running the same checkout from WSL 2
 - `docs/design-notes.md` — why each part is the way it is, one section per

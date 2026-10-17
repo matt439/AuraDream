@@ -82,6 +82,9 @@ catalogue is in [backend/launch.py](backend/launch.py).
 To start from any folder, add `bin\` to your user PATH. `local-diffusion` runs
 the command above; `local-diffusion-wsl` runs `wsl/serve.sh` in WSL 2 (see
 below). Both pass their arguments through, e.g. `local-diffusion --menu`.
+From PowerShell they run as `.ps1` scripts (allowed under the `RemoteSigned`
+policy), so Ctrl-C stops the server without asking; from cmd.exe the `.cmd`
+versions run and Ctrl-C asks "Terminate batch job (Y/N)?".
 
 RouWei 0.8 selects the author's epsilon checkpoint and starts at 28 steps/CFG 6.
 Its first load converts the 6.94 GB single file on CPU. Start around 1 MP;
