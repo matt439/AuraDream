@@ -6,16 +6,12 @@ An index of open work, one row per item; each row points to the doc that owns th
 
 **The only ordering in this file.** Keep every `DECISION` row here. Keep this block to the current aim and the next few actions; results go in their owners (`docs/verified.md` for what the card measured, the plan or design notes for what was built).
 
-**Aim (2026-10-17):** inpainting and outpainting were measured on the card on 2026-10-17 (WAI, Animagine, Z-Anime; `docs/verified.md`), and their phase 3 is built on those numbers; what is left is the card's remainder.
+**Aim (2026-10-17):** inpainting and outpainting were measured on the card on 2026-10-17 (WAI, Animagine, Z-Anime; `docs/verified.md`), and their phase 3 is built on those numbers; what is left is the card's remainder. Matt decided the open questions on 2026-10-17, and the prompt analyser's three are to build first.
 
-1. **`CARD#1`/`CARD#2` remainder:** Z-Image Turbo (a download first) and an SDXL LoRA through an inpaint, when Matt wants them.
+1. **`PA#5`, `PA#6`, `PA#7`:** build the 2026-10-17 decisions (the design notes' prompt analyser, "Open questions the build turned up").
+2. **`CARD#1`/`CARD#2` remainder:** Z-Image Turbo (a download first) and an SDXL LoRA through an inpaint, when Matt wants them.
 
-**Decisions waiting on Matt** (none blocks the one above):
-- `INP#7`: three of the outpainting plan's open questions were never answered (the band start is now measured); the build took the recommended answers.
-- `INP#8`: FLUX.1 Fill [dev] as an inpaint-only checkpoint: wanted, and when?
-- `PA#5`: should tag autocomplete write bare parentheses instead of A1111 escapes?
-- `PA#6`: should a single-space negative survive the page so Qwen-Image's True CFG runs as its guide says?
-- `PA#7`: should Anima's card tag order and prefix go into its guide prose, so the order can be checked?
+**Decisions waiting on Matt:** none (the last five were decided 2026-10-17).
 
 **GPU runs are Matt's to run or OK, never past the 16 GB card** (every `CARD` row). Check the checkpoint's measured peaks in `docs/verified.md` first; a run that spills into shared memory proves only that it doesn't fit.
 
@@ -48,10 +44,9 @@ An index of open work, one row per item; each row points to the doc that owns th
 | `INP#4` | OPEN | LOW | S | The mask as a small outline over the source's thumbnail in the facts list, which shows only the hash's first 16 digits. [Elsewhere on the page](docs/plan-inpainting.md#elsewhere-on-the-page). |
 | `INP#5` | DEFERRED | LOW | M+card | Phase 4, klein: one reference beside the source, its mu recipe, memory with the sequence doubled, `smoke-inpaint-klein`. Matt doesn't run klein. |
 | `INP#6` | DEFERRED | LOW | M+card | Phase 5, Qwen-Image under Nunchaku (WSL), only if the inpaint class runs over the Nunchaku transformer at all. |
-| `INP#7` | DECISION | LOW | S | Outpainting's open questions: a card tool or not, what "+25% all round" means, the fill in the frame preview now or later. Built on the recommended answers. [Questions](docs/plan-outpainting.md#open-questions-for-the-user). |
-| `INP#8` | DECISION | LOW | L | FLUX.1 Fill [dev] as an inpaint-only checkpoint (separate weights, non-commercial licence, cannot render from a prompt alone): the inpainting plan's question 7, unanswered. [Questions](docs/plan-inpainting.md#open-questions-for-the-user). |
+| `INP#8` | BLOCKED | LOW | L | FLUX.1 Fill [dev] as its own inpaint-only catalogue checkpoint: blocked on `INP#3`, decided once FLUX.1 inpaints on Krea dev have been seen on the card, built if they disappoint. [Question 7](docs/plan-inpainting.md#open-questions-for-the-user). |
 | `INP#9` | DEFERRED | LOW | M | Phase 6, the masked area only (`padding_mask_crop` at a working size, a recorded `mask_crop`); not on Z-Image, whose class lacks it. Also for large SDXL outpaint canvases. |
-| `INP#10` | DEFERRED | LOW | M | Outpaint, later if wanted: the server's fill shown in the frame (with `INP#7`), an outpaint over a painted mask, a second fill. |
+| `INP#10` | DEFERRED | LOW | M | Outpaint, later if wanted: the server's fill shown in the frame (kept for later, 2026-10-17), an outpaint over a painted mask, a second fill. |
 
 ## Generation, jobs and models
 
@@ -88,9 +83,9 @@ An index of open work, one row per item; each row points to the doc that owns th
 | `PA#2` | OPEN | LOW | S | F11's residue: "too long a full description" and "the recommended length of the full description" still read as a part; brief, lengthen/extend, "at N words" and "N-word minimum" need test rows that kill their mutants. |
 | `PA#3` | OPEN | LOW | M | F2's residue: irregular participles after a noun trigger ("set", "lit up", "woven into it") stay text to render; the negation stop warns on "we are not open" and cuts "no shoes no shirt no service". |
 | `PA#4` | OPEN | LOW | S | F28's residue: an absence span ends inside St. Ives, Rio de Janeiro or Dr. Smith, and "Elm Dr. No cars." is silent. At least name the cost in the design notes. |
-| `PA#5` | DECISION | LOW | S | Tag autocomplete writes A1111 escapes (`\(`), which diffusers never unescapes, so CLIP reads extra tokens: keep them, or write bare parentheses? |
-| `PA#6` | DECISION | MED | S | Qwen-Image's guide says a single-space negative turns on True CFG, but `collect()` trims it to null, so no True CFG pass runs. |
-| `PA#7` | DECISION | LOW | S | Anima's card gives a tag order and a recommended prefix the guide prose leaves out; added, the order becomes checkable. |
+| `PA#5` | OPEN | LOW | S | Tag autocomplete writes bare parentheses (`hatsune miku (vocaloid)`), not A1111 escapes; examples and typed prompts untouched. |
+| `PA#6` | OPEN | MED | S | `collect()` sends a whitespace-only negative as `" "` where a True CFG box is live (Qwen-Image, FLUX.1), so the single space runs True CFG; empty stays null. |
+| `PA#7` | OPEN | LOW | M | Anima: the card's tag order checked (sentences exempt by a per-guide switch), a Tags menu, and Turbo's "Start with masterpiece, best quality, score_7, safe" button. |
 | `PA#8` | CARD | LOW | S+card | Whether NewBie reads `<name>` as it reads the authors' `<n>`; the XML rule accepts both. |
 | `PA#9` | DEFERRED | LOW | L | Scoring comparison images automatically with a VLM (does each element appear); accuracy unmeasured. |
 

@@ -21,8 +21,11 @@ at the end:
 6. Swept with Empty bin, a permanent delete and `clear`, once no row (live
    or binned) and no live job names the mask and it is past the settle
    window.
-7. Not answered; outpainting and FLUX.1 Fill [dev] stay under "Later".
-   Outpainting has since been planned in `docs/plan-outpainting.md`.
+7. Outpainting first: planned in `docs/plan-outpainting.md` and built.
+   FLUX.1 Fill [dev], answered 2026-10-17: deferred behind FLUX.1
+   inpainting on Krea dev (`INP#3`). Fill is decided once those inpaints
+   have been seen on the card; if they disappoint, Fill comes as its own
+   inpaint-only catalogue checkpoint, never a hidden engine behind another.
 
 Built differently from the text below: the mask's hash covers its size as
 well as its levels (`storage.mask_hash`: `"L WxH\n"` then the bytes), since an all-white
@@ -791,3 +794,7 @@ of 3-6, plus card time that only the user can run.
    [dev] as an inpaint-only checkpoint (separate weights, the
    non-commercial dev licence, and a catalogue model where not every
    checkpoint renders from a prompt alone). Wanted, and in which order?
+   Answered (outpainting 2026-10-13, Fill 2026-10-17): outpainting first,
+   now built; Fill waits on FLUX.1 inpainting on Krea dev being seen on the
+   card (`INP#3`), and comes, if those inpaints disappoint, as its own
+   inpaint-only catalogue checkpoint rather than a hidden engine.

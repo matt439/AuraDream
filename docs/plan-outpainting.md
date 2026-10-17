@@ -767,8 +767,11 @@ sends a source, a mask or an outpaint.
   row must not wrap at 1400 px (checked in the smoke).
 - A viewer result's tool, beside its inpaint tool.
 - Reuse on an outpainted record.
-- Cards get no new glyph in this plan (a card's tool row already carries
-  the pass and the inpaint); that is an open question.
+- The image right-click menu (the Menu key or Shift+F10 from the
+  keyboard), gallery cards included, added after this plan.
+- Cards get no glyph of their own (a card's tool row already carries the
+  pass and the inpaint, and the right-click menu reaches Outpaint… from a
+  card): decided 2026-10-17, Open questions 1.
 
 Where the checkpoint has no inpaint class (or its family is deferred), each
 entry point is `aria-disabled` with the reason as its title and a press
@@ -1136,15 +1139,24 @@ SDXL; an outpaint over a painted mask together; a second fill.
 
 ## Open questions for the user
 
+All four answered; the build had taken the recommended answers, and they
+stand.
+
 1. A card tool for Outpaint beside the pass and the inpaint, or only the
-   lightbox, the viewer and Reuse (recommended for now)?
+   lightbox, the viewer and Reuse (recommended for now)? Answered
+   2026-10-17: no card tool. The image right-click menu (opened from the
+   keyboard by the Menu key or Shift+F10) already reaches Outpaint… from a
+   card, beside the lightbox, a fresh result's tool and Reuse.
 2. The band's starting value: 32 px (this app's, unmeasured) until the card
    says otherwise? Answered by the card, 2026-10-17: 32 px joined best of
-   0/32/64/128 by eye (Phases, phase 3). Questions 1, 3 and 4 stay open.
+   0/32/64/128 by eye (Phases, phase 3).
 3. "+25% all round" as written here (each axis about a quarter larger,
    split evenly), or a quarter of each side added on every side (each axis
-   half larger)?
+   half larger)? Answered 2026-10-17: as written - each axis about a
+   quarter larger, split evenly (1024x1024 to 1280x1280, the size the card
+   measured).
 4. The server's fill shown in the frame preview in phase 2, or later?
+   Answered 2026-10-17: later (`INP#10` in `TODO.md`).
 
 ## Review of 2026-10-13
 

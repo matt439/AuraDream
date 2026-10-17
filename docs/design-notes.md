@@ -1993,7 +1993,9 @@ nothing.
 
 **What this pass leaves.** No mask outline over the source's thumbnail (the
 facts give the hash's first 16 digits). FLUX.1, klein, Qwen-Image, FLUX.1
-Fill [dev] and the masked-area crop are later phases of the plan;
+Fill [dev] (decided 2026-10-17 to wait on FLUX.1 inpainting on Krea dev
+being seen on the card; then, if wanted, its own inpaint-only catalogue
+checkpoint) and the masked-area crop are later phases of the plan;
 outpainting is built (below). Memory, time, determinism and what a strength
 keeps were measured 2026-10-17 on WAI, Animagine and Z-Anime (`verified.md`,
 Inpaint): an inpaint costs a refine pass of its size, and the library
@@ -2064,12 +2066,17 @@ scrollbar that moved every control 7 px sideways (seen in the first smoke).
 The lightbox's Refine/Inpaint/Outpaint row's buttons have 4 px side padding
 so "⬚ Outpaint…" fits a third of the 280 px column without cutting.
 
-**What this pass leaves.** No card glyph (an open question of the plan).
-The first build hid the lightbox's Outpaint… with Inpaint… under 901 px,
-leaving an older gallery image no way to be outpainted there (Inpaint has
-the card's ✎; Outpaint has only the lightbox, a fresh result's ⬚ Outpaint…
-and Reuse of an outpaint); now Inpaint… alone hides and the pair sit at
-their own widths. The frame shows no preview of the server's fill.
+**What this pass leaves.** No card glyph: decided 2026-10-17 (the plan's
+open question 1), since the image right-click menu - the Menu key or
+Shift+F10 from the keyboard - reaches Outpaint… from a card. The first
+build hid the lightbox's Outpaint… with Inpaint… under 901 px, leaving an
+older gallery image no way to be outpainted there (Inpaint has the card's
+✎; Outpaint had only the lightbox, a fresh result's ⬚ Outpaint… and Reuse
+of an outpaint, before the right-click menu); now Inpaint… alone hides and
+the pair sit at their own widths. "+25% all round" stays each axis about a
+quarter larger, split evenly (1024x1024 to 1280x1280, the size the card
+measured), decided the same day. The frame shows no preview of the
+server's fill; that stays later (`INP#10`), also decided then.
 
 **The band's 32 px and the strength, measured.** No author documents
 outpainting, so the first build's 32 px band was this app's own and the
@@ -10634,8 +10641,16 @@ finding's have a Show. The comparison's always-run Original box carries the
   `tags.display_tag` turns `(` into `\(` - to match the authors' own examples
   (Animagine's has them). Diffusers never unescapes, so CLIP reads
   `firefly \ ( honkai : star rail \ )`, ten tokens where the name is eight.
-  The analyser does not flag what the app itself writes; whether the chips
-  should write bare parentheses is undecided.
+  The analyser does not flag what the app itself writes. Decided
+  2026-10-17, to build: the autocomplete writes bare parentheses
+  (`hatsune miku (vocaloid)`). The reason is the 77-token window: a
+  qualified tag costs two CLIP tokens fewer bare (NoobAI's example goes
+  from 76 tokens to 70), diffusers never unescapes, and everything in the
+  app already treats `\(` and `(` as the same tag. Not measured on the card
+  is whether the image changes, and the Animagine and NoobAI cards
+  themselves put escapes in their Diffusers code, so neither form is known
+  to be closer to what the models were trained on. The guides' examples
+  stay verbatim, and prompts already typed are untouched.
 - Resolved 2026-09-28: schnell's guide said its T5 stops at 256 tokens,
   "about 180 words" - BFL's reference
   (`load_t5(..., max_length=256 if name == "flux-schnell" else 512)` in
@@ -10649,7 +10664,15 @@ finding's have a Show. The comparison's always-run Original box carries the
   a single space if there is nothing to remove", but `generation.js`'s
   `collect()` sends `els.negative.value.trim() || null`, so a single space is
   sent as no negative prompt and no True CFG pass runs. The True CFG hint
-  already says "a word will do".
+  already says "a word will do". Decided 2026-10-17, to build: keep a lone
+  space. In the page's `collect()` sites (`generation.js`, `refine.js`,
+  `inpaint.js`, `outpaint.js`) a negative that is not empty but only
+  whitespace is sent as `" "` - only on a checkpoint with a True CFG box
+  (Qwen-Image and the FLUX.1 family) and only while that box is live (True
+  CFG above 1). A truly empty box is still null, a text negative is trimmed
+  as today, and everywhere else blank means none. The guide's sentence then
+  holds, and the live negative note says a single space counts. No backend
+  or schema change; old rows and resume keys are unchanged.
 - Resolved 2026-09-27: Krea [dev]'s "It answers best to photo language: a
   mood, a lens, a light, a film stock, a colour grade" and "Krea calls it
   opinionated - give it room rather than over-specifying" had no literal
@@ -10664,7 +10687,22 @@ finding's have a Show. The comparison's always-run Original box carries the
   sees both as excerpts (A1, A3) and the page shows the order as the
   authors', unchecked. Added to the prose, they would be checkable.
   (`guide.artist_prefix`, which never fired as first shipped, now does: the
-  route asks the tag index for Anima's artist categories.)
+  route asks the tag index for Anima's artist categories.) Decided
+  2026-10-17, to build: Anima gets the card's tag order checked, a Tags
+  menu from the card, and on Anima Turbo only a "Start with masterpiece,
+  best quality, score_7, safe" button - offered, never a warning; it skips
+  `safe` when the prompt already has `sensitive`, `nsfw` or `explicit`,
+  skips tags already present, and writes through `writeBox` so Ctrl+Z
+  works. Aesthetic gets no prefix, since its section advises against
+  `score_*`. The conditions: sentences are exempt from the order on Anima
+  only, by a per-guide switch (Kohaku relies on prose getting a slot); the
+  card's own full tag example passes Check clean in a test; the assumption
+  that no ordered guide reads artists (`tests/test_prompt_rules_checkpoints.py`,
+  `prompt_order.lookup_items`'s docstring) is redesigned, not just deleted,
+  with `@`-prefixed artists in the Artist slot; and every guide sentence
+  and cite is the authors' verbatim words, quoted from
+  <https://huggingface.co/circlestone-labs/Anima>
+  (`test_every_cite_is_the_guides_own_words`).
 - NewBie's guide prose names a block's fields "name, gender, appearance, ...",
   but the authors' XML example and captioning instruction spell the first one
   `<n>`. The XML rule accepts both; whether the model reads `<name>` as it
