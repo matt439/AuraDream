@@ -457,8 +457,8 @@ def build_context(
             "from one phrase to another."
         )
     else:
-        # Not "no order is documented": Anima's card, Neta Lumina's prompt
-        # book and ERNIE's enhancer all give one in the excerpts, which an
+        # Not "no order is documented": Neta Lumina's prompt book, NoobAI's
+        # and RouWei's cards and ERNIE's enhancer all give one in the excerpts, which an
         # order issue may cite. What is missing is the app's own check.
         order_rule = (
             "- reordered: null; this app checks no order for this checkpoint. An order "

@@ -500,7 +500,7 @@ def test_author_orders_are_marked_only_where_the_guide_states_none():
             assert "order" not in prompt_sources.guide_constants()[name].get("analysis", {}), name
         marked.update(ordered)
     assert marked == {
-        "anima.order", "neta.sequence", "neta.prose_order", "ernie.sections", "qwen.portrait_flow",
+        "neta.sequence", "neta.prose_order", "ernie.sections", "qwen.portrait_flow",
         "rouwei.artist_order", "noobai.order",
     }
 

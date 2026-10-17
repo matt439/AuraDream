@@ -42,15 +42,15 @@ def test_the_order_says_whether_it_was_checked_and_what_the_authors_give(
     monkeypatch.setattr(tag_lookup, "tag_vocabulary", Vocabulary(offline=True))
     body = analyse(client, prompt=TAG_PROMPT)
     assert body["order_checked"] is True and body["categories_detail"] is not None
-    # Anima's guide states no order for the app to check, but its card gives
-    # one: shown as the authors', with its source.
+    # Anima's guide states its card's order, so it is checked and no
+    # longer shown as the authors' only.
     claim(monkeypatch, fake, ANIMA)
+    monkeypatch.setattr(tag_lookup, "tag_vocabulary", Vocabulary({"smile": "general"}))
     body = analyse(client, prompt="1girl, smile")
-    assert body["order"] is None and body["order_checked"] is False
-    (card,) = body["author_orders"]
-    assert card["text"].startswith("[quality/meta/year/safety tags] [1girl/1boy/1other etc]")
-    assert card["url"] == "https://huggingface.co/circlestone-labs/Anima"
-    assert card["note"] == "the card's tag order"
+    assert body["order"]["cite"].startswith("[quality/meta/year/safety tags] [1girl/1boy/1other etc]")
+    assert body["order"]["url"] == "https://huggingface.co/circlestone-labs/Anima"
+    assert body["order_checked"] is True and body["author_orders"] == []
+    # A neta guide still shows the authors' own, with notes.
     claim(monkeypatch, fake, "duongve/NetaYume-Lumina-Image-2.0")
     body = analyse(client, prompt="1girl, smile")
     assert [o["note"].split("; ")[-1] for o in body["author_orders"]] == [
@@ -70,37 +70,55 @@ def test_the_style_reported_is_the_one_the_rules_applied(client, fake, monkeypat
 
 
 def test_anima_asks_the_tag_index_which_items_are_artists(client, fake, monkeypatch):
-    # Anima's guide has no tag helper, but "put @ before an artist name" needs
-    # an artist's category: the index is asked with no cutoff of its own.
+    # "put @ before an artist name" needs an artist's category: the index is
+    # asked with the card's own tags as the helper's, and no cutoff, which
+    # the card names none of. The Person count group places 1girl, so it is
+    # not asked about; an @ name is an artist by its spelling.
     claim(monkeypatch, fake, ANIMA)
     vocabulary = Vocabulary({"wlop": "artist", "smile": "general"})
     monkeypatch.setattr(tag_lookup, "tag_vocabulary", vocabulary)
     prompt = "1girl, wlop, smile, @big chungus"
     body = analyse(client, prompt=prompt)
     ((asked, special, cutoff, year),) = vocabulary.calls
-    assert asked == ["1girl", "wlop", "smile"] and (special, cutoff, year) == (set(), None, False)
+    assert asked == ["wlop", "smile"] and cutoff is None and year is True
+    assert {"score_7", "safe", "masterpiece"} <= special
     (artist,) = rules(body["findings"], "guide.artist_prefix")
     assert artist["suggestion"] == "1girl, @wlop, smile, @big chungus"
     assert prompt[artist["start"]:artist["end"]] == "wlop"
     assert body["categories_detail"] is None
     assert body["categories_unread"] is False
-    # Offline, the rule stands down, and the answer says why - there is no
-    # order here to say it beside - and that no item was checked at all.
+    # The @ name after the general tag is out of the card's order: the
+    # Artist slot comes before General.
+    (order,) = rules(body["findings"], "guide.order")
+    assert order["message"].startswith('"smile" (General) comes before "@big chungus" (Artist)')
+    assert order["suggestion"] == "1girl, wlop, @big chungus, smile"
+    # Offline, the artist rule stands down, and the answer says why - beside
+    # an order only partly checked - and that no item was checked at all.
     monkeypatch.setattr(tag_lookup, "tag_vocabulary", Vocabulary(offline=True))
     offline = analyse(client, prompt="1girl, wlop, smile")
     assert rules(offline["findings"], "guide.artist_prefix") == []
-    assert offline["order"] is None and offline["categories_detail"].startswith(
+    assert offline["order_checked"] is True and offline["categories_detail"].startswith(
         "the tag index was unreachable"
     )
     assert offline["categories_unread"] is True
-    # Prose: only its tag-shaped items are asked about - an artist's name is
-    # a whole comma item, and a clause is none - never its clauses.
+    # Prose: every item a name could be is asked about, its clauses too,
+    # since the card's order places them by category - never a sentence,
+    # which stands anywhere.
     quiet = Vocabulary()
     monkeypatch.setattr(tag_lookup, "tag_vocabulary", quiet)
     prose = "A girl painted by wlop stands in the rain, smiling at the viewer, soft light"
     assert prompt_rules.detect_style(prose) == "prose"
-    analyse(client, prompt=prose)
-    assert [asked for asked, *_ in quiet.calls] == [["soft light"]]
+    body = analyse(client, prompt=prose)
+    assert [asked for asked, *_ in quiet.calls] == [
+        ["A girl painted by wlop stands in the rain", "smiling at the viewer", "soft light"]
+    ]
+    # Asked and not known, the clauses are prose in the General slot; only
+    # the tag-shaped item the index did not know is left unplaced.
+    assert body["order_checked"] is True
+    assert body["order_detail"] == (
+        'the tag index has no usable Danbooru category for 1 tag, so it is not placed: '
+        '"soft light"'
+    )
 
 
 def test_anima_checks_the_artists_of_tags_ahead_of_sentences(client, fake, monkeypatch):
@@ -118,7 +136,11 @@ def test_anima_checks_the_artists_of_tags_ahead_of_sentences(client, fake, monke
     assert prompt_rules.detect_style(prompt) == "prose"
     body = analyse(client, prompt=prompt)
     ((asked, *_),) = vocabulary.calls
-    assert asked == ["masterpiece", "best quality", "score_7", "safe", "1girl", "wlop"]
+    # The prefix and 1girl are the Tags menu's own, placed without a lookup.
+    assert asked == ["wlop"]
+    # And the order is the card's: the prefix, the person count, the artist,
+    # the sentences anywhere.
+    assert rules(body["findings"], "guide.order") == [] and body["order_detail"] is None
     (artist,) = rules(body["findings"], "guide.artist_prefix")
     assert prompt[artist["start"]:artist["end"]] == "wlop"
     assert artist["suggestion"] == prompt.replace(", wlop,", ", @wlop,")

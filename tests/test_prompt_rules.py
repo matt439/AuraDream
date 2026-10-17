@@ -119,13 +119,14 @@ def test_tag_order_slots_are_the_helpers_own():
         assert set(order["groups"]) <= labels, name
         slots = set(order["groups"].values()) | set(order["categories"].values())
         slots |= {order["general"]} | {order[k] for k in ("suffix", "year") if order.get(k)}
+        slots |= set(order.get("tags", {}))
         assert slots <= steps, name
         assert set(order["categories"]) == {"general", "artist", "copyright", "character", "meta"}
 
 
 @pytest.mark.parametrize(
     "model_id",
-    [KREA2, "krea/Krea-2-Raw", QWEN, "Tongyi-MAI/Z-Image-Turbo", ERNIE, Z_ANIME, ANIMA, NETAYUME,
+    [KREA2, "krea/Krea-2-Raw", QWEN, "Tongyi-MAI/Z-Image-Turbo", ERNIE, Z_ANIME, NETAYUME,
      "nobody/whatever"],
 )
 def test_no_order_is_invented_where_the_guide_states_none(model_id):
@@ -143,7 +144,7 @@ def test_documented_orders_are_the_guides():
     for repo in kleins:
         steps = prompt_rules.documented_order(repo).steps
         assert steps == ["subject", "action", "style", "context"]
-    for repo in (ANIMAGINE, KOHAKU, ILLUSTRIOUS, WAI):
+    for repo in (ANIMAGINE, KOHAKU, ILLUSTRIOUS, WAI, ANIMA, "circlestone-labs/Anima@aesthetic-v1.1"):
         assert prompt_rules.documented_order(repo).steps == guide_for(repo)["tag_helper"]["order"]
     assert "<general_tags>" in prompt_rules.documented_order(NEWBIE).steps
     # The lite-infer re-uploads read the same guide.
@@ -289,8 +290,9 @@ def test_a_tag_inside_lettering_is_no_tag():
     sign = '1girl, sign says "masterpiece, high score, great score, absurdres"'
     [finish] = only(run(ANIMAGINE, sign), "guide.quality")
     assert finish.suggestion == sign + ", masterpiece, high score, great score, absurdres"
-    # And the tag index is not asked about it.
-    assert prompt_rules.category_items(ANIMA, artist) == ["1girl", "smile"]
+    # And the tag index is not asked about it (nor about 1girl, which
+    # Anima's own Person count group places).
+    assert prompt_rules.category_items(ANIMA, artist) == ["smile"]
 
 
 def test_a_rule_that_adds_or_drops_an_item_keeps_the_lettering_as_typed():

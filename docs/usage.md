@@ -182,6 +182,11 @@ gallery image onto the panel does nothing: use its **Reuse** instead.
 **Examples** supplies the authors' prompts; templates select the first slot
 to fill. **Tags**, where available, supplies the checkpoint's own vocabulary
 and recommended negative prompt. Its comma chips can be reordered or removed.
+On Anima Turbo, **Start with masterpiece, best quality, score_7, safe**
+writes the card's recommended prefix ahead of the prompt: only the tags it
+has not got, never `safe` beside `sensitive`, `nsfw` or `explicit`, and
+Ctrl+Z takes it back. Anima Aesthetic offers no prefix or score tags, since
+its card advises against `score_*` tags.
 The negative prompt is inactive when the current guidance settings do not
 use it; the caption explains how to enable it. On a checkpoint with a
 **True CFG** box (Qwen-Image and the FLUX.1 family), while True CFG is
@@ -196,9 +201,14 @@ including while images generate. The first use may download tokenizer files
 (megabytes); after a 30-second wait, any unfinished download continues for
 the next check. Encoder rows show token counts and where reading stops.
 Order checks apply to supported comma-tag prompts; prose ordering advice
-does not imply every sentence has been checked. Recheck after editing.
+does not imply every sentence has been checked. On Anima a sentence may
+stand anywhere among the tags, as its card allows, and is never moved by
+**Use reordered**; an `@` artist goes in the Artist step. Recheck after
+editing.
 
-Tag suggestions and relevant checks query Danbooru's index with tag text.
+Tag suggestions and relevant checks query Danbooru's index with tag text;
+on Anima, a prose prompt's comma clauses (never a whole sentence) are sent
+too, since its order and artist checks read them.
 Images and generation settings are not sent. Network failures leave tags
 unchecked, and tag advice never blocks generation. Ordinary prompt checking
 and the critic run locally. Prompt weighting syntax such as `(word:1.2)`

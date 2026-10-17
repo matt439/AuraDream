@@ -5,7 +5,7 @@ from pathlib import Path
 from urllib.error import HTTPError, URLError
 import re
 
-from backend import api_prompt, main, prompt_check, prompt_rules, tag_lookup, tags
+from backend import main, prompt_check, prompt_rules, tag_lookup, tags
 from backend.critic import build_context
 from backend.model_defaults import guide_for
 from backend.schemas import (
@@ -16,7 +16,6 @@ from backend.schemas import (
 )
 
 from tests.api_analysis_helpers import (
-    ANIMA,
     ANIMAGINE,
     FIREFLY,
     FLUX,
@@ -369,12 +368,11 @@ def test_a_failure_in_the_slots_never_costs_the_verdicts(client, fake, monkeypat
 
 
 def test_no_slots_where_the_guide_states_no_order(client, fake, monkeypatch):
-    # Every Danbooru-vocabulary guide today documents an order; one that did
-    # not would get verdicts and no slots. Anima reads Danbooru-style tags
-    # and states none.
-    claim(monkeypatch, fake, ANIMA)
-    assert prompt_rules.documented_order(ANIMA) is None
-    monkeypatch.setattr(api_prompt, "tag_helper_config", lambda model_id: tag_lookup.BARE_DANBOORU)
+    # A Danbooru-vocabulary guide that documents no order gets verdicts and
+    # no slots: RouWei's (Anima's states its card's since 2026-10-17).
+    rouwei = "Minthy/RouWei-0.8"
+    claim(monkeypatch, fake, rouwei)
+    assert prompt_rules.documented_order(rouwei) is None
     monkeypatch.setattr(tag_lookup, "tag_vocabulary", Vocabulary({"green hair": "general"}))
     body = chips(client, "1girl, green hair, masterpiece")
     assert body["results"] and body["slots"] is None and body["order_steps"] is None
@@ -498,8 +496,8 @@ def test_the_order_is_partly_checked_exactly_where_an_item_went_unplaced(
     assert body["categories_detail"].startswith("the tag index was asked about the first 64 of 65")
     assert body["order_checked"] is True and body["order_detail"] is None
     # Where the guide states no order, there is none to have checked partly:
-    # the artist check's note is `categories_detail` alone.
-    claim(monkeypatch, fake, ANIMA)
+    # the artist check's note is `categories_detail` alone (RouWei's 'by ').
+    claim(monkeypatch, fake, "Minthy/RouWei-0.8")
     monkeypatch.setattr(tag_lookup, "tag_vocabulary", Vocabulary(offline=True))
     body = analyse(client, prompt="1girl, wlop, smile")
     assert body["order"] is None and body["order_detail"] is None

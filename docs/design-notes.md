@@ -9283,7 +9283,10 @@ The rule reads each item that is no sentence and no lettering, whatever the
 whole prompt reads as, and names several artists with one verb, each once
 ("wlop and kantoku are artists"). The order rules keep their gate, since their
 "partly checked" names a prose prompt's clauses as never asked; no guide that
-states an order reads artists, which a test holds. An outage - no category at
+states an order read artists then, which a test held. (2026-10-17: Anima's
+does now, and that assumption was redesigned rather than dropped - see the
+open questions below: where a guide reads artists and its order places by
+category, a prose prompt's clauses are asked too.) An outage - no category at
 all, `PromptAnalysis.categories_unread` - now says no tag was checked ("artists
 not checked"), where "not every tag" understated it, "artists not all checked"
 being kept for the cap, and the empty line above the note no longer says its
@@ -10700,29 +10703,58 @@ finding's have a Show. The comparison's always-run Original box carries the
   to BFL's pages, told users the opposite on the same page. They are out of
   the prose; what BFL's building page says about camera settings replaced
   them.
-- Anima's guide prose leaves out the card's tag order - `[quality/meta/year/
-  safety tags] [1girl/1boy/1other etc] [character] [series] [artist]
-  [general tags]` - and its recommended prefix `masterpiece, best quality,
-  score_7, safe, `, so Anima has no documented order in the app: the critic
-  sees both as excerpts (A1, A3) and the page shows the order as the
-  authors', unchecked. Added to the prose, they would be checkable.
-  (`guide.artist_prefix`, which never fired as first shipped, now does: the
-  route asks the tag index for Anima's artist categories.) Decided
-  2026-10-17, to build: Anima gets the card's tag order checked, a Tags
-  menu from the card, and on Anima Turbo only a "Start with masterpiece,
-  best quality, score_7, safe" button - offered, never a warning; it skips
-  `safe` when the prompt already has `sensitive`, `nsfw` or `explicit`,
-  skips tags already present, and writes through `writeBox` so Ctrl+Z
-  works. Aesthetic gets no prefix, since its section advises against
-  `score_*`. The conditions: sentences are exempt from the order on Anima
-  only, by a per-guide switch (Kohaku relies on prose getting a slot); the
-  card's own full tag example passes Check clean in a test; the assumption
-  that no ordered guide reads artists (`tests/test_prompt_rules_checkpoints.py`,
-  `prompt_order.lookup_items`'s docstring) is redesigned, not just deleted,
-  with `@`-prefixed artists in the Artist slot; and every guide sentence
-  and cite is the authors' verbatim words, quoted from
-  <https://huggingface.co/circlestone-labs/Anima>
-  (`test_every_cite_is_the_guides_own_words`).
+- Resolved 2026-10-17: Anima's guide prose left out the card's tag order -
+  `[quality/meta/year/safety tags] [1girl/1boy/1other etc] [character]
+  [series] [artist] [general tags]` - and its recommended prefix
+  `masterpiece, best quality, score_7, safe, `, so Anima had no documented
+  order in the app: the critic saw both as excerpts and the page showed the
+  order as the authors', unchecked. Matt decided 2026-10-17, and it was
+  built the same day. Both guides' prose now quotes the card
+  (<https://huggingface.co/circlestone-labs/Anima>, read that day)
+  verbatim: the order line, "Within each tag section, the tags can be in
+  arbitrary order.", "You can mix tags and natural language in arbitrary
+  order." and "When using a tag that is different between Danbooru and
+  Gelbooru, prefer the Gelbooru version."; Turbo's adds 'Recommended
+  positive prefix: "masterpiece, best quality, score_7, safe, "'. The
+  app's own sentences beside them (the step names, the vocabulary, the
+  Start with button) are `unsourced` for the critic. The order cites the
+  order line (`guides._anima_order`), with the steps
+  Quality/meta/year/safety, Person count, Character, Series, Artist and
+  General; the Tags menu (`_anima_helper`) is the card's named tags -
+  Person count, the human quality tags, the score tags on Turbo, Period
+  with the year form, the five Meta tags it lists, Safety (exclusive) -
+  over Danbooru's index with no cutoff (the card names none) and the `@`
+  artist prefix, so autocomplete writes it. Danbooru's meta category goes
+  in General, not the first section: the card's full tag example writes
+  `twitter username`, a meta tag, among its general tags, and the meta
+  tags the card names place by the menu's group. An `@` name takes the
+  Artist step by its spelling (`_OrderSpec.prefix`), never looked up.
+  Sentences stand anywhere on Anima only (`free_sentences` in the guide's
+  order, read by `prompt_order._anywhere`): they take every slot, are
+  never "not placed", and keep their place in Use reordered while the
+  tags around them move, as a grid placeholder does; Kohaku's prose keeps
+  its "general tags or prose" slot, which a test holds. The card's full
+  tag example passes Check clean on both variants
+  (`test_anima_cards_full_tag_example_passes_check_clean`). The old
+  assumption that no ordered guide reads artists guarded one thing: once
+  any categories come back, `_place` takes a clause the lookup answered
+  nothing for as prose, asked and not known. Where a guide reads artists
+  and its order places by category (`prompt_order.places_by_category`), a
+  prose prompt's every `category_items` item is now asked, clauses
+  included, not only its tag-shaped ones; where an order stands without
+  the artist rule, prose is never looked up, so the categories an order
+  places with are always None or a lookup of every item a category could
+  place (`test_prose_is_looked_up_only_where_the_rules_read_artists`
+  holds it across the catalogue). On Anima Turbo only, the Tags menu's
+  "Start with masterpiece, best quality, score_7, safe" writes the prefix
+  tags the prompt has not got ahead of it - offered, never a finding -
+  skipping `safe` where an exclusive group already holds another tag
+  (`sensitive`, `nsfw` or `explicit`; `prefixMissing`), through
+  `writePromptTags` and so `writeBox`, which Ctrl+Z undoes; it is held,
+  its reason the title and said on a press, where it would add nothing.
+  Aesthetic gets no prefix and no score tags in its menu, since its
+  section advises against `score_*`, but its order still places them
+  (`order.tags`), so the card's example is in order there too.
 - NewBie's guide prose names a block's fields "name, gender, appearance, ...",
   but the authors' XML example and captioning instruction spell the first one
   `<n>`. The XML rule accepts both; whether the model reads `<name>` as it

@@ -658,7 +658,8 @@ def _order(ctx: _Context) -> Iterable[PromptFinding]:
         return
     if not prompt_order._placeable(spec, ctx.style, ctx.text, ctx.items, ctx.quoted + ctx.rendered):
         return
-    places = prompt_order._places(spec, ctx.items, [norm is None for norm in ctx.norms], ctx.lookup)
+    lettered = [norm is None for norm in ctx.norms]
+    places = prompt_order._places(spec, ctx.items, lettered, ctx.lookup)
     pair = prompt_order._violation(places)
     if pair is None:
         return
@@ -669,7 +670,7 @@ def _order(ctx: _Context) -> Iterable[PromptFinding]:
 
     # None where the move would change what is quoted: the order is still
     # out, but there is no one-click fix.
-    reordered = prompt_order._reordered(ctx.text, ctx.items, places)
+    reordered = prompt_order._reordered(ctx.text, ctx.items, places, spec, lettered)
     yield ctx.finding(
         order, "guide.order", "info",
         f'"{first.text}"{label(places[pair[0]])} comes before "{second.text}"'

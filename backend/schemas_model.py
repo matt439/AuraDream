@@ -34,6 +34,9 @@ class PromptTagHelper(BaseModel):
     # A checkpoint-specific spelling, applied only to Danbooru artist names.
     artist_prefix: str | None = None
     recommended_suffix: list[str] = Field(default_factory=list)
+    # A positive prefix the card recommends, offered as a button (Anima
+    # Turbo's "Start with"), never checked.
+    recommended_prefix: list[str] = Field(default_factory=list)
     negative_prompt: str | None = None
     # Served beside the guide's own keys (`model_defaults._served_tag_helper`)
     # from what Check's Order section reads, so the two say one thing:

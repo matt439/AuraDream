@@ -386,7 +386,16 @@ Model and loader:
   defaults and fixed FlowMatch Euler shift 3. Mu, references, user LoRAs,
   Refine and Nunchaku are unavailable. Its own guide and critic grounding
   omit Turbo's CFG-1/distillation claims and the generic `score_7` prefix:
-  the authors discourage `score_*` in both Aesthetic prompts.
+  the authors discourage `score_*` in both Aesthetic prompts. Both guides
+  state the card's tag order verbatim, which Check reads
+  (`guides._anima_order`: Danbooru's meta category in General, since the
+  card's full tag example writes `twitter username` there; an @ name in
+  Artist; sentences anywhere), and serve a Tags menu of the card's named
+  tags (`_anima_helper`, Danbooru vocabulary with no cutoff, `@` artist
+  prefix); Turbo's adds the score tags and the recommended prefix,
+  Aesthetic's places the score tags (`order.tags`) without offering them.
+  The card's full tag example passes Check clean
+  (`test_anima_cards_full_tag_example_passes_check_clean`).
 
 - `duongve/NetaYume-Lumina-Image-2.0` selects the pinned v4 split denoiser.
   `netayume_loading` strictly converts it on CPU and uses the pinned official
@@ -1736,11 +1745,17 @@ Prompt analyser:
   them, though the autocomplete writes parentheses bare.
 - Tag categories for the order and artist checks come from the chips' own
   lookup (`tag_lookup.lookup_tags`), only on a Danbooru-vocabulary guide or one whose
-  rules read artists (Anima, `wants_artist_categories`, no cutoff), and only
-  for the items `prompt_rules.lookup_items` names: a tag or hybrid prompt's
-  `category_items`, or - where the rules read artists - a prose prompt's
-  tag-shaped items, never a clause (no guide that states an order reads
-  artists, which a test holds), capped at the chips' 64 items; any failure there is
+  rules read artists (`wants_artist_categories`: Anima, no cutoff, and
+  RouWei), and only for the items `prompt_rules.lookup_items` names: a tag
+  or hybrid prompt's `category_items`, or - where the rules read artists -
+  a prose prompt's: its tag-shaped items alone where no order places by
+  category (RouWei), and every `category_items` item, clauses included,
+  where one does (Anima, `prompt_order.places_by_category`), since `_place`
+  takes a clause the lookup answered nothing for as prose once any
+  categories came back. The categories an order places with are therefore
+  None or a lookup of every item a category could place
+  (`test_prose_is_looked_up_only_where_the_rules_read_artists`); where an
+  order stands without the artist rule, prose is never looked up. Capped at the chips' 64 items; any failure there is
   `None` - order placed from the guide's own groups, never guessed - not an
   error. What that cost is said in `PromptAnalysis.categories_detail`: the
   index unreachable (a connection error), no usable reply from it (an HTTP
@@ -1754,12 +1769,17 @@ Prompt analyser:
   slot gives the same answer, is not partly checked): never
   looked up for any of those reasons, a tag the index answered for with no
   usable category (unknown, deprecated, past the cutoff), a prose prompt's
-  clause that is not a whole sentence (prose is never looked up), lettering
-  or an @ name. A grid placeholder whole (`{hair}`,
-  `prompt_text.is_grid_variable`) is none of these: it takes every slot, is
-  never looked up or listed unplaced, keeps its position in Check's reorder
-  (the rest ordered round it; the critic's `placed_partly` is true beside
-  it, `holds_grid_variable`), and its chip is the grid's (code
+  clause that is not a whole sentence (prose is never looked up where no
+  rule reads artists), or lettering. An @ name on Anima is placed in the
+  Artist step by its prefix (`_OrderSpec.prefix`, from `analysis.artist_prefix`
+  where the order has an artist category), never looked up. A grid placeholder whole (`{hair}`,
+  `prompt_text.is_grid_variable`) is none of these, and nor is a sentence
+  where the guide's order sets `free_sentences` (Anima's alone: "You can
+  mix tags and natural language in arbitrary order"; Kohaku's prose keeps
+  its "general tags or prose" slot): either takes every slot
+  (`prompt_order._anywhere`), is never looked up or listed unplaced, keeps
+  its position in Check's reorder (the rest ordered round it; the critic's
+  `placed_partly` is true beside it, `holds_grid_variable`), and a grid placeholder's chip is the grid's (code
   `grid_variable`, no verdict; its tip names the open fold's values and
   their verdicts). `PromptAnalysis.order_detail` is set exactly there, naming
   those items and why; the page then shows "Partly checked: <order_detail>" under the
@@ -1767,7 +1787,7 @@ Prompt analyser:
   `categories_detail`, and the critic's reorder other than Check's can stand
   exactly there (the critic's answer bullet below), since Check's own order
   is then one the documented order allows, not the only one. Where the
-  guide states no order (Anima), `categories_detail` alone makes the page
+  guide states no order (RouWei), `categories_detail` alone makes the page
   say not every tag was checked for an artist name ("artists not all
   checked"); where the lookup gave nothing
   (`PromptAnalysis.categories_unread`: unreachable, no usable reply) it says
@@ -2573,7 +2593,14 @@ Frontend and CLI:
   tags in one step - never a "yet" that will not resolve. Those steps
   are marked (`.fits`) in the order line and on the groups whose tags go
   there; a group heading names its step where that is not its own name
-  (`group_steps`, `year_step`: Animagine's "Score · Quality step"). Check's
+  (`group_steps`, `year_step`: Animagine's "Score · Quality step"). A
+  guide's `recommended_prefix` (Anima Turbo's card prefix alone; Aesthetic
+  has none, its card advising against `score_*`) is a "Start with ..."
+  button, offered and never a finding: it writes the prefix tags the
+  prompt has not got ahead of it through `writePromptTags` (so `writeBox`,
+  and Ctrl+Z), skipping a tag whose exclusive group already holds another
+  (`safe` beside `sensitive`, `nsfw` or `explicit`; `prefixMissing`), and
+  is held with the reason as its title where it would add nothing. Check's
   no-order note says "its guide states none" only where no author order
   follows it. `tests/test_tag_order_agreement.py` holds the ? text, the
   menu and Check to one order: the served order and author orders equal
@@ -4986,7 +5013,12 @@ node tools/browser.mjs tools/smoke-paging.json
 `smoke-anima.json` checks Anima Turbo defaults, its documented size range,
 disabled Mu, applied saved settings, the artist check on the card's
 tags-then-sentences shape (Apply, and two artists named together; the fake
-index knows kantoku and wlop as artists) and the rewrite's artist check, a
+index knows kantoku and wlop as artists) and the rewrite's artist check, the
+card's tag order (the finding in the card's steps, Use reordered moving
+tags round a sentence that keeps its place, the @ name's Artist chip slot),
+the Tags menu (its order line and sections, Start with written ahead of a
+prose prompt, held once complete with its reason said on a press, undone
+by Ctrl+Z, no `safe` beside `nsfw`, the empty prompt's caret line), a
 FLUX.1 pass reused there (the final no-pass line, its strength said as
 FLUX.1's and 0.4 as the general starting strength), the refused adapter
 (greyed select with the reason, a 422 at submit, no LoRA on the row), the
@@ -5002,7 +5034,9 @@ node tools/browser.mjs tools/smoke-anima.json
 ```
 
 `smoke-anima-aesthetic.json` checks Aesthetic's label, 30-step/CFG-4 defaults,
-its own prompt advice and Example, active negative prompt, unsupported
+its own prompt advice and Example, its Tags menu (the family's order, no
+score tags, no Start with) and the card's order checked with a score tag
+placed though not offered, active negative prompt, unsupported
 controls, saved variant identity and final no-Refine answer on port 7895:
 
 ```powershell

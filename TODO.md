@@ -6,10 +6,9 @@ An index of open work, one row per item; each row points to the doc that owns th
 
 **The only ordering in this file.** Keep every `DECISION` row here. Keep this block to the current aim and the next few actions; results go in their owners (`docs/verified.md` for what the card measured, the plan or design notes for what was built).
 
-**Aim (2026-10-17):** inpainting and outpainting were measured on the card on 2026-10-17 (WAI, Animagine, Z-Anime; `docs/verified.md`), and their phase 3 is built on those numbers; what is left is the card's remainder. Matt decided the open questions on 2026-10-17, and the prompt analyser's three are to build first.
+**Aim (2026-10-17):** inpainting and outpainting were measured on the card on 2026-10-17 (WAI, Animagine, Z-Anime; `docs/verified.md`), and their phase 3 is built on those numbers; what is left is the card's remainder. Matt decided the open questions on 2026-10-17, and the prompt analyser's three (PA#5-PA#7) were built the same day (the design notes' prompt analyser, "Open questions the build turned up").
 
-1. **`PA#7`:** build the 2026-10-17 decision (the design notes' prompt analyser, "Open questions the build turned up").
-2. **`CARD#1`/`CARD#2` remainder:** Z-Image Turbo (a download first) and an SDXL LoRA through an inpaint, when Matt wants them.
+1. **`CARD#1`/`CARD#2` remainder:** Z-Image Turbo (a download first) and an SDXL LoRA through an inpaint, when Matt wants them.
 
 **Decisions waiting on Matt:** none (the last five were decided 2026-10-17).
 
@@ -83,7 +82,6 @@ An index of open work, one row per item; each row points to the doc that owns th
 | `PA#2` | OPEN | LOW | S | F11's residue: "too long a full description" and "the recommended length of the full description" still read as a part; brief, lengthen/extend, "at N words" and "N-word minimum" need test rows that kill their mutants. |
 | `PA#3` | OPEN | LOW | M | F2's residue: irregular participles after a noun trigger ("set", "lit up", "woven into it") stay text to render; the negation stop warns on "we are not open" and cuts "no shoes no shirt no service". |
 | `PA#4` | OPEN | LOW | S | F28's residue: an absence span ends inside St. Ives, Rio de Janeiro or Dr. Smith, and "Elm Dr. No cars." is silent. At least name the cost in the design notes. |
-| `PA#7` | OPEN | LOW | M | Anima: the card's tag order checked (sentences exempt by a per-guide switch), a Tags menu, and Turbo's "Start with masterpiece, best quality, score_7, safe" button. |
 | `PA#8` | CARD | LOW | S+card | Whether NewBie reads `<name>` as it reads the authors' `<n>`; the XML rule accepts both. |
 | `PA#9` | DEFERRED | LOW | L | Scoring comparison images automatically with a VLM (does each element appear); accuracy unmeasured. |
 

@@ -642,6 +642,39 @@ function finishWithTags(suffix) {
   writePromptTags([...parts, ...suffix]);
 }
 
+// The card's recommended positive prefix (Anima Turbo's), offered and never
+// checked: the tags of it the prompt has not got, less any an exclusive group
+// already holds another of - no safe beside sensitive, nsfw or explicit.
+function prefixMissing(prefix) {
+  const present = new Set(promptTagParts().map((part) => part.toLowerCase()));
+  const held = (tag) => (tagHelper?.groups ?? []).some((group) => group.exclusive
+    && group.tags.some((choice) => choice.toLowerCase() === tag.toLowerCase())
+    && group.tags.some((choice) => present.has(choice.toLowerCase())));
+  return prefix.filter((tag) => !present.has(tag.toLowerCase()) && !held(tag));
+}
+
+// The missing tags go ahead of the prompt, which is otherwise left as typed:
+// sentences included, since the card puts its prefix ahead of prose too.
+// Through writePromptTags, so Ctrl+Z in the box takes it back.
+function startWithTags(prefix) {
+  const missing = prefixMissing(prefix);
+  if (!missing.length) return;
+  const rest = els.prompt.value.trim();
+  writePromptTags(rest ? [...missing, rest] : missing);
+}
+
+// Held, with the reason as its title, where it would add nothing; live, it
+// says which tags it adds.
+function syncStartWith() {
+  const button = els.tagsMenu?.querySelector('[data-action="recommended-prefix"]');
+  if (!button) return;
+  const missing = prefixMissing(tagHelper.recommended_prefix);
+  button.setAttribute('aria-disabled', String(!missing.length));
+  button.title = missing.length
+    ? `Adds ${missing.join(', ')} at the start of the prompt`
+    : 'The prompt already has the recommended prefix, or a safety tag in place of safe';
+}
+
 // Where the next tag goes, in the documented order's own steps: the helper
 // inserts at the prompt's caret, and the usual caret - the end, after the
 // quality tags - is not where most of its groups belong. The steps a tag
@@ -726,6 +759,7 @@ function syncTagSelection() {
     button.classList.toggle('active', on);
     button.setAttribute('aria-pressed', String(on));
   }
+  syncStartWith();
   const note = els.tagsMenu.querySelector('.tag-insert');
   if (note) note.textContent = tagInsertionNote();
   // The steps the note names, marked in the order line and on the groups
@@ -842,6 +876,18 @@ function buildTagHelper() {
 
   const actions = document.createElement('div');
   actions.className = 'tag-actions';
+  if (tagHelper.recommended_prefix?.length) {
+    const start = document.createElement('button');
+    start.type = 'button';
+    start.className = 'ghost tiny';
+    start.dataset.action = 'recommended-prefix';
+    start.textContent = `Start with ${tagHelper.recommended_prefix.join(', ')}`;
+    start.onclick = () => {
+      if (start.getAttribute('aria-disabled') === 'true') { showError(start.title, true); return; }
+      startWithTags(tagHelper.recommended_prefix);
+    };
+    actions.appendChild(start);
+  }
   if (tagHelper.recommended_suffix?.length) {
     const finish = document.createElement('button');
     finish.type = 'button';

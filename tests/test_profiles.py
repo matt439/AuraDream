@@ -282,7 +282,19 @@ def test_anima_turbo_has_its_own_defaults_and_documented_guide():
     assert checkpoint.summary() == "8 steps, CFG 1"
     guide = PromptGuide(**guide_for(model))
     assert guide.pixels == (512**2 / 1e6, 1536**2 / 1e6)
-    assert guide.pixels_word == "documented" and guide.tag_helper is None
+    assert guide.pixels_word == "documented"
+    # The card's sections as the Tags menu, its order checked, and Turbo's
+    # recommended prefix offered.
+    helper = guide.tag_helper
+    assert helper.order == [
+        "Quality/meta/year/safety", "Person count", "Character", "Series", "Artist", "General"
+    ]
+    assert helper.order_cite in hints_for(model)["prompt"]
+    assert helper.recommended_prefix == ["masterpiece", "best quality", "score_7", "safe"]
+    assert helper.vocabulary == "danbooru" and helper.artist_prefix == "@" and helper.year_tag
+    assert "score_7" in {tag for group in helper.groups for tag in group.tags}
+    assert helper.group_steps["Safety"] == "Quality/meta/year/safety"
+    assert helper.group_steps["Person count"] == "Person count"
     assert guide.examples[0].startswith("Digital painting of a fiery dragon")
     # The caption whole: the card asks for two sentences, and gives two.
     assert guide.examples[0].endswith(
@@ -340,7 +352,13 @@ def test_anima_aesthetic_has_distinct_defaults_and_quality_advice():
         assert _profile_for(unrelated) is _FALLBACK
     guide = PromptGuide(**guide_for(model))
     assert guide.pixels == (512**2 / 1e6, 1536**2 / 1e6)
-    assert guide.pixels_word == "documented" and guide.tag_helper is None
+    assert guide.pixels_word == "documented"
+    # The family's order and Tags menu, less the score tags its section
+    # advises against, and no prefix: the card's carries score_7.
+    helper = guide.tag_helper
+    assert helper.order == guide_for("circlestone-labs/Anima")["tag_helper"]["order"]
+    assert helper.recommended_prefix == []
+    assert not any(tag.startswith("score_") for group in helper.groups for tag in group.tags)
     assert guide.examples == guide_for("circlestone-labs/Anima")["examples"]
     hints = hints_for(model)
     assert "30-50" in hints["steps"] and "4-5" in hints["guidance_scale"]

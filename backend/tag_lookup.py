@@ -121,8 +121,9 @@ MAX_TAG_ITEMS = TagValidationRequest.model_json_schema()["properties"]["tags"]["
 
 
 # What a guide with no tag helper asks the index with when one of its rules
-# reads a category anyway - Anima's "put @ before an artist name", on a card
-# trained on Danbooru-style tags: no cutoff, no special tags of its own.
+# reads a category anyway: no cutoff, no special tags of its own. Anima's "put
+# @ before an artist name" took it until its guide gained the card's Tags menu
+# (2026-10-17); no catalogue guide takes it today.
 BARE_DANBOORU = {"vocabulary": "danbooru", "vocabulary_cutoff": None}
 
 

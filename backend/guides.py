@@ -1283,17 +1283,132 @@ ROUWEI_GUIDE = {
     },
 }
 
+# The card's tag order, verbatim, and its sections as the Tags menu and
+# Check name them.
+_ANIMA_ORDER = (
+    "[quality/meta/year/safety tags] [1girl/1boy/1other etc] [character] "
+    "[series] [artist] [general tags]"
+)
+_ANIMA_STEPS = ["Quality/meta/year/safety", "Person count", "Character", "Series", "Artist", "General"]
+# The family's spelling and order, then (after the variant's own sentences)
+# the order, the Tags menu and the vocabulary. Every sentence about the
+# model is the card's own words or one already in the family's prose.
+_ANIMA_SPELLING = (
+    "Use tags, natural language, or both. Write tags in lowercase with "
+    "spaces instead of underscores, except score tags, and put @ before "
+    "an artist name.\n"
+    "For natural language, describe the image in at least two sentences. "
+    "Use normal capitalization for character and series names, and describe "
+    "each character's appearance when naming more than one. "
+)
+_ANIMA_TAGS = (
+    f"The card's tag order: {_ANIMA_ORDER}. Within each tag section, the tags "
+    "can be in arbitrary order. You can mix tags and natural language in "
+    "arbitrary order.\n"
+    "The Tags menu and Check name those sections Quality/meta/year/safety, "
+    "Person count, Character, Series, Artist and General; Check leaves a "
+    "sentence where it is written. Autocomplete and the chips check "
+    "Danbooru's tag index; the card names no cutoff. When using a tag that "
+    "is different between Danbooru and Gelbooru, prefer the Gelbooru version."
+)
+
+
+def _anima_helper(*, score: bool) -> dict:
+    """The card's named tags, by its own sections: the quality tags (and,
+    where the variant's advice allows them, the score tags), the time
+    period and meta tags, the safety tags and the person count its order
+    names. Character, series, artist and general tags stay free text."""
+    groups = [
+        {"label": "Person count", "tags": ["1girl", "1boy", "1other"], "exclusive": True},
+        {
+            "label": "Quality",
+            "tags": [
+                "masterpiece", "best quality", "good quality", "normal quality",
+                "low quality", "worst quality",
+            ],
+        },
+    ]
+    if score:
+        # "score_9, score_8, ..., score_1" on the card.
+        groups.append({"label": "Score", "tags": [f"score_{n}" for n in range(9, 0, -1)]})
+    groups += [
+        {"label": "Period", "tags": ["newest", "recent", "mid", "early", "old"]},
+        {
+            "label": "Meta",
+            "tags": ["highres", "absurdres", "anime screenshot", "jpeg artifacts", "official art"],
+        },
+        {"label": "Safety", "tags": ["safe", "sensitive", "nsfw", "explicit"], "exclusive": True},
+    ]
+    return {
+        "order": list(_ANIMA_STEPS),
+        "groups": groups,
+        "year_tag": True,
+        "vocabulary": "danbooru",
+        # The card names none; the lookup asks the live index.
+        "vocabulary_cutoff": None,
+        "artist_prefix": "@",
+        "hybrid_prompt": True,
+    }
+
+
+def _anima_order(groups: dict) -> dict:
+    """`analysis.order` over a variant's helper groups. Danbooru's meta
+    category goes with the general tags: the card's full tag example writes
+    twitter username, a Danbooru meta tag, among them, and the meta tags it
+    names first are the Meta group's, which place by the group. An @ name
+    takes the Artist slot by its prefix (`prompt_order._place`), and a
+    sentence stands anywhere (`free_sentences`). The score tags take the
+    first slot whether or not the menu offers them: Aesthetic's leaves them
+    out, but the card's order and its full tag example still place them."""
+    first = _ANIMA_STEPS[0]
+    scores = [] if "Score" in groups else [f"score_{n}" for n in range(9, 0, -1)]
+    return {
+        "cite": _ANIMA_ORDER,
+        "groups": {label: ("Person count" if label == "Person count" else first) for label in groups},
+        "year": first,
+        "categories": {
+            "character": "Character",
+            "copyright": "Series",
+            "artist": "Artist",
+            "general": "General",
+            "meta": "General",
+        },
+        "general": "General",
+        "free_sentences": True,
+        **({"tags": {first: scores}} if scores else {}),
+    }
+
+
+_ANIMA_TURBO_HELPER = {
+    **_anima_helper(score=True),
+    # Offered, never checked: the card's "Recommended positive prefix".
+    "recommended_prefix": ["masterpiece", "best quality", "score_7", "safe"],
+}
+_ANIMA_AESTHETIC_HELPER = _anima_helper(score=False)
+
+_ANIMA_ANALYSIS = {
+    "url": "https://huggingface.co/circlestone-labs/Anima",
+    "underscores": {
+        "keep": r"score_\d+(?:_up)?",
+        "cite": "with spaces instead of underscores, except score tags",
+    },
+    "lowercase": {"cite": "Write tags in lowercase"},
+    "artist_prefix": {"cite": "put @ before an artist name"},
+    "sentences": {
+        "min": 2,
+        "cite": "For natural language, describe the image in at least two sentences.",
+    },
+}
+
 ANIMA_TURBO_GUIDE = {
     "prompt": (
         "Anima Turbo makes anime and other illustrations. Its distillation "
         "adds a consistent default style, with less variety than the base. "
-        "Use tags, natural language, or both. Write tags in lowercase with "
-        "spaces instead of underscores, except score tags, and put @ before "
-        "an artist name.\n"
-        "For natural language, describe the image in at least two sentences. "
-        "Use normal capitalization for character and series names, and describe "
-        "each character's appearance when naming more than one. "
-        "At Turbo's recommended CFG 1, negative prompts have no effect."
+        + _ANIMA_SPELLING
+        + "At Turbo's recommended CFG 1, negative prompts have no effect.\n"
+        'Recommended positive prefix: "masterpiece, best quality, score_7, safe, ". '
+        "The Tags menu offers it as Start with.\n"
+        + _ANIMA_TAGS
     ),
     "size": (
         "The authors document 512x512 to 1536x1536 pixels for Anima, roughly "
@@ -1312,41 +1427,37 @@ ANIMA_TURBO_GUIDE = {
         "horns, and a long, sinuous tail, perched on a glowing, molten rock formation. "
         "The background is a gradient of dark purple to orange."
     ],
-    # The card's tag order and positive prefix are not in the prose above, so
-    # nothing here checks them.
+    "tag_helper": _ANIMA_TURBO_HELPER,
+    # The card's tag order is checked; its positive prefix is offered (the
+    # Tags menu's Start with), never a finding.
     "analysis": {
-        "url": "https://huggingface.co/circlestone-labs/Anima",
-        "underscores": {
-            "keep": r"score_\d+(?:_up)?",
-            "cite": "with spaces instead of underscores, except score tags",
-        },
-        "lowercase": {"cite": "Write tags in lowercase"},
-        "artist_prefix": {"cite": "put @ before an artist name"},
-        "sentences": {
-            "min": 2,
-            "cite": "For natural language, describe the image in at least two sentences.",
-        },
+        **_ANIMA_ANALYSIS,
+        "order": _anima_order({group["label"] for group in _ANIMA_TURBO_HELPER["groups"]}),
     },
 }
 
-# The variants share the family's size range, example and spelling rules.
-# Aesthetic has its own quality advice and is not distilled like Turbo.
+# The variants share the family's size range, example, spelling rules and
+# order. Aesthetic has its own quality advice and is not distilled like
+# Turbo: its Tags menu leaves out the score tags its section advises
+# against, and it has no prefix to start with, since the card's carries
+# score_7.
 ANIMA_AESTHETIC_GUIDE = {
     **ANIMA_TURBO_GUIDE,
     "prompt": (
         "Anima Aesthetic makes anime and other illustrations. It is fine-tuned "
         "for consistency and a higher-quality default art style. "
-        "Use tags, natural language, or both. Write tags in lowercase with "
-        "spaces instead of underscores, except score tags, and put @ before "
-        "an artist name.\n"
-        "For natural language, describe the image in at least two sentences. "
-        "Use normal capitalization for character and series names, and describe "
-        "each character's appearance when naming more than one. "
-        "Aesthetic does not need positive quality tags; masterpiece and best "
+        + _ANIMA_SPELLING
+        + "Aesthetic does not need positive quality tags; masterpiece and best "
         "quality may stay. The author recommends avoiding score_* tags in both "
         "the positive and negative prompts. "
-        "A negative prompt applies at CFG > 1."
+        "A negative prompt applies at CFG > 1.\n"
+        + _ANIMA_TAGS
     ),
+    "tag_helper": _ANIMA_AESTHETIC_HELPER,
+    "analysis": {
+        **_ANIMA_ANALYSIS,
+        "order": _anima_order({group["label"] for group in _ANIMA_AESTHETIC_HELPER["groups"]}),
+    },
 }
 
 NETAYUME_GUIDE = {

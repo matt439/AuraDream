@@ -434,7 +434,8 @@ def test_category_items_asks_only_for_what_a_rule_reads():
     assert prompt_rules.category_items(WAI, "1girl, firefly, masterpiece") == []
     assert prompt_rules.category_items(FLUX_DEV, "1girl, firefly") == []
     assert prompt_rules.category_items(ANIMAGINE, "A girl stands in the rain at night.") == []
-    # Anima reads artists; an item already prefixed needs no lookup.
+    # Anima reads artists; an item already prefixed needs no lookup, and
+    # neither does one its Tags menu places.
     assert prompt_rules.category_items(ANIMA, "1girl, @nnn yryr, oomuro sakurako") == [
-        "1girl", "oomuro sakurako",
+        "oomuro sakurako",
     ]

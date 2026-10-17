@@ -713,8 +713,7 @@ _ANIMA = (
         "[quality/meta/year/safety tags] [1girl/1boy/1other etc] [character] [series] "
         "[artist] [general tags]",
         _ANIMA_CARD,
-        "the card's tag order",
-        order=True,
+        "the card's tag order, which the guide states and Check reads",
     ),
     Excerpt(
         "anima.order_within",
@@ -756,6 +755,14 @@ _ANIMA = (
         "character names with no description of appearance, the model can get confused.",
         _ANIMA_CARD,
     ),
+)
+
+# The app naming its own steps for the card's sections, and its vocabulary.
+_ANIMA_APP = (
+    "The Tags menu and Check name those sections Quality/meta/year/safety, Person "
+    "count, Character, Series, Artist and General; Check leaves a sentence where it "
+    "is written.",
+    "Autocomplete and the chips check Danbooru's tag index; the card names no cutoff.",
 )
 
 # The family prefix recommends score_7, which Aesthetic's own advice rejects.
@@ -1232,6 +1239,7 @@ GROUNDING: dict[str, Grounding] = {
             "The Anima card covers the whole family; this app runs Anima Turbo v1.1, "
             "where the recommended CFG 1 runs no negative prompt."
         ),
+        unsourced=("The Tags menu offers it as Start with.", *_ANIMA_APP),
     ),
     "ANIMA_AESTHETIC_GUIDE": Grounding(
         _ANIMA_AESTHETIC,
@@ -1242,6 +1250,7 @@ GROUNDING: dict[str, Grounding] = {
             "masterpiece and best quality may stay, and score_* tags are discouraged "
             "in both prompts. Turbo's distillation and CFG 1 advice do not apply."
         ),
+        unsourced=_ANIMA_APP,
     ),
     "NETAYUME_GUIDE": Grounding(
         _NETAYUME,

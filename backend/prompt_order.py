@@ -33,7 +33,11 @@ class _OrderSpec(NamedTuple):
     `local` is what the guide's own tag groups, suffix and year form already
     place; `categories` is what a Danbooru category places; `unknown` is
     every slot an item with no category could still belong to - the range
-    within which the rules may not move it.
+    within which the rules may not move it. `prefix` is the guide's artist
+    prefix where its order has an artist slot (Anima's @: an @ name is an
+    artist, which the tag index is never asked about), and `free_sentences`
+    whether a sentence may stand anywhere among the tags (Anima's "You can
+    mix tags and natural language in arbitrary order").
     """
 
     steps: list[str]
@@ -42,6 +46,8 @@ class _OrderSpec(NamedTuple):
     categories: dict[str, int]
     general: int
     unknown: frozenset[int]
+    prefix: str | None = None
+    free_sentences: bool = False
 
 
 def _order_spec(guide: dict[str, Any]) -> _OrderSpec | None:
@@ -60,8 +66,14 @@ def _order_spec(guide: dict[str, Any]) -> _OrderSpec | None:
     if order.get("suffix"):
         for tag in helper.get("recommended_suffix", []):
             local.setdefault(prompt_text._norm(tag), index[order["suffix"]])
+    # Tags the card places that the Tags menu does not offer (Aesthetic's
+    # score tags, which its section advises against).
+    for slot, tags in order.get("tags", {}).items():
+        for tag in tags:
+            local.setdefault(prompt_text._norm(tag), index[slot])
     categories = {name: index[slot] for name, slot in order.get("categories", {}).items()}
     general = index[order["general"]]
+    artist_prefix = _analysis(guide).get("artist_prefix")
     return _OrderSpec(
         steps=steps,
         local=local,
@@ -69,7 +81,21 @@ def _order_spec(guide: dict[str, Any]) -> _OrderSpec | None:
         categories=categories,
         general=general,
         unknown=frozenset(categories.values()) | {general},
+        prefix=artist_prefix.get("prefix", "@") if artist_prefix and "artist" in categories else None,
+        free_sentences=bool(order.get("free_sentences")),
     )
+
+
+def _anywhere(item: prompt_text.Item, spec: _OrderSpec, lettering: bool = False) -> bool:
+    """Whether `item` takes every slot and keeps where it was written: a grid
+    placeholder, which stands for the grid's values, or a sentence on a
+    guide whose order lets prose stand anywhere among the tags
+    (`free_sentences`) - a sentence holding lettering too, which is still a
+    sentence. Never out of order beside another item, never "not placed"
+    (`unplaced_items`), and never moved (`_reordered`)."""
+    if spec.free_sentences and prompt_text._is_sentence(item.text):
+        return True
+    return not lettering and prompt_text.is_grid_variable(item.text)
 
 
 def _place(
@@ -86,8 +112,9 @@ def _place(
     """
     # A grid placeholder stands for values the grid fills in, so it may take
     # any slot at all: never out of order beside another item, and never
-    # "not placed" either (`unplaced_items`) - it is no tag to look up.
-    if not lettering and prompt_text.is_grid_variable(item.text):
+    # "not placed" either (`unplaced_items`) - it is no tag to look up. So
+    # may a sentence where the guide lets prose stand anywhere (`_anywhere`).
+    if _anywhere(item, spec, lettering):
         return frozenset(range(len(spec.steps)))
     key = prompt_text._norm(item.text)
     if not lettering:
@@ -95,6 +122,13 @@ def _place(
             return frozenset({spec.local[key]})
         if spec.year is not None and prompt_text._YEAR_TAG.fullmatch(key):
             return frozenset({spec.year})
+        # An @ name is an artist by its spelling: the guide's prefix says so,
+        # and the tag index is never asked about one (`category_items`).
+        if (
+            spec.prefix is not None and item.text.lower().startswith(spec.prefix.lower())
+            and item.text[len(spec.prefix):].strip()
+        ):
+            return frozenset({spec.categories["artist"]})
         if lookup is not None:
             category = lookup.get(item.text) or lookup.get(key)
             if category in spec.categories:
@@ -195,7 +229,13 @@ def _undecided(places: list[frozenset[int]], keys: list[Any]) -> list[int]:
     return sorted(undecided)
 
 
-def _reordered(text: str, items: list[prompt_text.Item], places: list[frozenset[int]]) -> str | None:
+def _reordered(
+    text: str,
+    items: list[prompt_text.Item],
+    places: list[frozenset[int]],
+    spec: _OrderSpec,
+    lettered: list[bool],
+) -> str | None:
     """`text` with `items` moved into the order `places` allow, or None where
     nothing moves - or where the move would change what is quoted: a stray
     mark (12" figure) moved ahead of a quotation would pair with its opening
@@ -206,8 +246,15 @@ def _reordered(text: str, items: list[prompt_text.Item], places: list[frozenset[
     take it first, ahead of the Person count, and every value the grid fills
     in would then sit where Check of the filled-in prompt flags it. Its
     values' slots are the grid's to say, so the user's placement stands.
+    So does a sentence's where the guide lets prose stand anywhere
+    (`_anywhere`): the card's own "masterpiece, best quality, @big chungus.
+    An anime girl ..." puts its tags ahead of the prose, and another prompt
+    may put them after it.
     """
-    fixed = [prompt_text.is_grid_variable(item.text) for item in items]
+    fixed = [
+        prompt_text.is_grid_variable(item.text) or _anywhere(item, spec, held)
+        for item, held in zip(items, lettered, strict=True)
+    ]
     free = [index for index, held in enumerate(fixed) if not held]
     moved = iter(free[position] for position in _ordered([places[index] for index in free]))
     order = [index if held else next(moved) for index, held in enumerate(fixed)]
@@ -266,10 +313,11 @@ def documented_order(model_id: str) -> DocumentedOrder | None:
     """The order the checkpoint's guide states, or None.
 
     None is an answer, not a gap: the guide prose of Krea 2, Qwen-Image,
-    Z-Image, ERNIE, Z-Anime, Anima and NetaYume states no order, so this app
+    Z-Image, ERNIE, Z-Anime and NetaYume states no order, so this app
     checks none, and the page says that rather than inventing one - showing,
-    as information, any order the authors' own texts give (Anima's card, the
-    rewriter instructions; `prompt_sources`' `order` excerpts).
+    as information, any order the authors' own texts give (the rewriter
+    instructions, Neta Lumina's prompt book; `prompt_sources`' `order`
+    excerpts).
     """
     guide = _guide(model_id)
     analysis = _analysis(guide)
@@ -317,7 +365,8 @@ def reorder_tags(model_id: str, prompt: str, categories: dict[str, str] | None) 
         return None
     spec, items, lettered = reading
     return _reordered(
-        prompt, items, _places(spec, items, lettered, prompt_text._category_lookup(categories))
+        prompt, items, _places(spec, items, lettered, prompt_text._category_lookup(categories)),
+        spec, lettered,
     )
 
 
@@ -351,11 +400,12 @@ def unplaced_items(model_id: str, prompt: str, categories: dict[str, str] | None
     if spec is None or len(items) < 2:
         return []
     places = _places(spec, items, lettered, prompt_text._category_lookup(categories))
-    # A grid placeholder is left out: it takes every slot (`_place`), so it
-    # would pair with each item as undecided and name itself and them.
+    # A grid placeholder is left out, and so is a sentence the guide lets
+    # stand anywhere: each takes every slot (`_anywhere`), so it would pair
+    # with each item as undecided and name itself and them.
     kept = [
         index for index, (item, held) in enumerate(zip(items, lettered, strict=True))
-        if held or not prompt_text.is_grid_variable(item.text)
+        if not _anywhere(item, spec, held)
     ]
     # What `_place` reads: an item's text as typed, and whether it holds
     # lettering. Two items alike in both are placed alike by any categories.
@@ -380,15 +430,16 @@ def places_every_item(model_id: str, prompt: str, categories: dict[str, str] | N
 
 def holds_grid_variable(model_id: str, prompt: str) -> bool:
     """Whether an item the order rules read in `prompt` is a grid placeholder
-    (`{hair}`): it is never "not placed" (`unplaced_items`), but where it
-    sits is the user's, which `reorder_tags` keeps - one order the
-    documented order allows, not the only one, for the critic's reorder."""
-    if _order_spec(_guide(model_id)) is None:
+    (`{hair}`), or a sentence the guide lets stand anywhere (Anima's): it is
+    never "not placed" (`unplaced_items`), but where it sits is the user's,
+    which `reorder_tags` keeps - one order the documented order allows, not
+    the only one, for the critic's reorder."""
+    spec = _order_spec(_guide(model_id))
+    if spec is None:
         return False
     items, lettered, _ = _tag_items(prompt)
     return any(
-        not held and prompt_text.is_grid_variable(item.text)
-        for item, held in zip(items, lettered, strict=True)
+        _anywhere(item, spec, held) for item, held in zip(items, lettered, strict=True)
     )
 
 
@@ -477,8 +528,8 @@ def order_items(text: str) -> list[str]:
 
 def wants_artist_categories(model_id: str) -> bool:
     """Whether a rule reads which comma items are artists - Anima's "put @
-    before an artist name" - so the caller asks the tag index even on a guide
-    with no tag helper of its own."""
+    before an artist name", RouWei's "by " - so the caller asks the tag index
+    even on a guide with no Danbooru tag helper of its own."""
     return "artist_prefix" in _analysis(_guide(model_id))
 
 
@@ -496,8 +547,7 @@ def category_items(model_id: str, prompt: str) -> list[str]:
     """
     guide = _guide(model_id)
     spec = _order_spec(guide)
-    placing = spec is not None and any(slot != spec.general for slot in spec.categories.values())
-    if not (placing or "artist_prefix" in _analysis(guide)):
+    if not (places_by_category(model_id) or "artist_prefix" in _analysis(guide)):
         return []
     if prompt_text.detect_style(prompt) in ("xml", "json"):
         return []
@@ -525,19 +575,43 @@ def lookup_items(model_id: str, prompt: str) -> list[str]:
     prose, only on a guide whose rules read artists (Anima, whose card says
     "Use tags, natural language, or both": its prefix and tags ahead of two
     sentences read as prose, and an artist among them went unchecked while
-    the panel said nothing to flag) - and there only the tag-shaped items,
-    since the artist rule reads a whole comma item and a clause is no
-    artist's name; asking about every clause would cost the index a request
-    for each one Check. Prose is never looked up for the order rules: their
-    "partly checked" names a prose prompt's clauses as never asked
-    (`prompt_check.order_detail`), and no guide that states an order reads artists
-    (`tests/test_prompt_rules.py` holds that). Nothing for XML or JSON."""
+    the panel said nothing to flag).
+
+    The artist rule alone needs only the tag-shaped items there, since it
+    reads a whole comma item and a clause is no artist's name, and asking
+    about every clause would cost the index a request for each one Check
+    (RouWei's "by ", which has no order). But an order placed by category
+    reads every clause a name could be, and `_place` takes a clause the
+    lookup answered nothing for as prose - asked, and not known - once any
+    categories came back: asked about only the tag-shaped items, an unasked
+    clause ("the legend of zelda") would be placed as prose by its shape
+    alone. So on a guide that reads artists and whose order places by
+    category (`places_by_category`: Anima's), a prose prompt's every
+    `category_items` item is asked, as a tag prompt's is. Where an order
+    stands without the artist rule, prose is never looked up, and the
+    order's "partly checked" names its clauses as never asked
+    (`prompt_check.order_detail`). Either way the categories an order places
+    with are None or a lookup of every item a category could place
+    (`tests/test_prompt_rules_checkpoints.py` holds that). Sentences are in
+    neither: `category_items` leaves them out, and the order places them by
+    their shape. Nothing for XML or JSON."""
     style = prompt_text.detect_style(prompt)
     if style in ("tags", "hybrid"):
         return category_items(model_id, prompt)
     if style != "prose" or not wants_artist_categories(model_id):
         return []
-    return [item for item in category_items(model_id, prompt) if not prompt_text._is_prose(item)]
+    wanted = category_items(model_id, prompt)
+    if places_by_category(model_id):
+        return wanted
+    return [item for item in wanted if not prompt_text._is_prose(item)]
+
+
+def places_by_category(model_id: str) -> bool:
+    """Whether the guide's order puts some Danbooru category anywhere but
+    its general slot: where a category moves an item, so the order alone is
+    worth a lookup (`category_items`)."""
+    spec = _order_spec(_guide(model_id))
+    return spec is not None and any(slot != spec.general for slot in spec.categories.values())
 
 
 def _named(name: str, prefix: str = "@") -> re.Pattern[str]:

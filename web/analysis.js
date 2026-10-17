@@ -165,7 +165,7 @@ function renderAnalysis() {
   // reads too, never a guess of the page's.
   const partly = body.order_checked && !!body.order_detail;
   // Where the guide states no order, a category is read by one rule only -
-  // Anima's @ before an artist name (`lookup_items`) - and it read none (the
+  // the artist check (RouWei's "by "; `lookup_items`) - and it read none (the
   // index unreachable, or no usable reply: `categories_unread`) or not all
   // (past the lookup's 64). "Not every tag" understated an outage in which
   // no tag was checked.
@@ -588,8 +588,8 @@ function renderOrder(body) {
   const box = els.analysisOrder;
   box.replaceChildren();
   if (!body.order) {
-    // Not "the authors document none": Anima's card, Neta Lumina's prompt
-    // book and the rewriter instructions give orders the guide leaves out.
+    // Not "the authors document none": Neta Lumina's prompt book, NoobAI's
+    // and RouWei's cards and the rewriter instructions give orders the guide leaves out.
     // What is missing is this app's check - and the authors' orders, where
     // they wrote some, are shown as theirs.
     // "Its guide states none" only where no author order follows: NoobAI's and

@@ -69,13 +69,14 @@ def test_order_is_checked_only_where_the_rules_can_place_it():
     # first", klein's steps and NewBie's blocks are documented, not read.
     assert prompt_rules.order_checked(ANIMAGINE, "1girl, smile, masterpiece")
     assert prompt_rules.order_checked(ILLUSTRIOUS, "A girl stands in the rain at night.")
+    assert prompt_rules.order_checked(ANIMA, "1girl, smile")
     for model_id, prompt in (
         (KREA_DEV, "Golden hour light over misty mountains, a lone hiker on a ridge"),
         (FLUX_DEV, "1girl, smile"),
         (KLEIN, "A red fox in fresh snow"),
         (NEWBIE, guides.NEWBIE_GUIDE["examples"][0]),
         (ANIMAGINE, '{"scene": "a cafe"}'),
-        (ANIMA, "1girl, smile"),
+        ("Minthy/RouWei-0.8", "1girl, smile"),
     ):
         assert not prompt_rules.order_checked(model_id, prompt), model_id
     assert not prompt_rules.order_checked(ANIMAGINE, ", ".join(f"t{i}" for i in range(300)))

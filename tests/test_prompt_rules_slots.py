@@ -143,8 +143,14 @@ def test_a_lone_item_is_placed_though_no_order_reads_it():
     assert _slots(ANIMAGINE, "firefly, masterpiece", CATEGORIES)[0] == "Character"
     # An item no group knows and no category places keeps no one step.
     assert _slots(ANIMAGINE, "zzkx oc") == [None]
+    # Anima's @ name takes the Artist step by its spelling, never asked
+    # about; a sentence stands anywhere, so it keeps no one step.
+    assert _slots(ANIMA, "@nnn yryr") == ["Artist"]
+    assert _slots(ANIMA, "1girl, A girl stands in the rain. She smiles.", {}) == [
+        "Person count", None,
+    ]
     # Where the guide gives no slots, a lone item has none either.
-    assert prompt_rules.order_slots(ANIMA, "1girl", None) is None
+    assert prompt_rules.order_slots("Minthy/RouWei-0.8", "1girl", None) is None
 
 
 @pytest.mark.parametrize(
@@ -153,7 +159,7 @@ def test_a_lone_item_is_placed_though_no_order_reads_it():
         # No slots in the guide.
         (FLUX_DEV, "masterpiece, 1girl"),
         (KREA2, "masterpiece, 1girl"),
-        (ANIMA, "1girl, smile, masterpiece"),
+        ("Minthy/RouWei-0.8", "1girl, smile, masterpiece"),
         (NEWBIE, guides.NEWBIE_GUIDE["examples"][0]),
         # No items at all.
         (ANIMAGINE, ""),

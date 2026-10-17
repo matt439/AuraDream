@@ -45,6 +45,9 @@ Z_ANIME = "SeeSee21/Z-Anime"
 ANIMA = "circlestone-labs/Anima"
 
 
+ANIMA_AESTHETIC = "circlestone-labs/Anima@aesthetic-v1.1"
+
+
 NETAYUME = "duongve/NetaYume-Lumina-Image-2.0"
 
 
