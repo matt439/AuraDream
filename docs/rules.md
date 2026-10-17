@@ -237,7 +237,7 @@ before changing it.
   per version
 - `backend/reindex.py` — rows rebuilt from the PNGs' `local-diffusion` chunk, in place or
   copied in from another gallery; idempotent on the UNIQUE filename
-- `web/` — served as-is from `/static`; `index.html` loads 44 classic
+- `web/` — served as-is from `/static`; `index.html` loads 47 classic
   scripts in order, sharing one global scope; only `app.js`, the last, runs
   the wiring and boot. `state.js` owns shared state; `generation.js`,
   `grid-preview.js`, `job-stream.js` and `job-results.js` handle submission,
@@ -270,8 +270,17 @@ before changing it.
   recycle bin's view, undo note and Empty; `context-menu.js` the right-click
   menu on an image (`styles/context-menu.css`). The stylesheet is
   `style.css` (tokens and base layout), followed by `styles/*.css` in the
-  explicit link order (`model-picker.css` first, at its old place in
-  `style.css`); preserve that cascade. `docs/source-audit.md` records the
+  explicit link order: `model-picker.css` the Models picker (first, at its
+  old place in `style.css`), `fields.css` the panel's fields,
+  `analysis.css` the prompt check, critic and comparison, `generation.css`
+  the grid search, the buttons and progress, `gallery.css` the stage and
+  Gallery beside, `sheet.css` the contact sheet, `lightbox.css` the
+  lightbox, `refine.css` the Refine dialog and motion, `inpaint.css` and
+  `outpaint.css` their dialogs, `bundles.css` the bundle dialog,
+  `swap.css`, `refine-batch.css` and `more-seeds.css` those dialogs,
+  `bin.css` the recycle bin and `context-menu.css` the right-click menu;
+  preserve that cascade (`tests/test_docs_maps.py` holds this list to
+  `index.html`'s links, in order). `docs/source-audit.md` records the
   split audits and why each long file it kept stays whole.
 - `tools/` — `fake_server.py` (the app on the tests' fake backend, port 7861)
   and `browser.mjs` + `smoke.json` and a `smoke-*.json` per checkpoint or
@@ -4510,8 +4519,11 @@ and adapter paths before anything imports `backend`, so a sourced
 that are expensive to get wrong: the schedule the scheduler ends up with, seeds
 surviving a JSON round trip, the search fallback keeping its filters, and the
 HTTP guards. `tests/test_docs_maps.py` holds `CLAUDE.md` and `AGENTS.md`
-byte-identical and every backend module and `web/*.js` named in the Layout
-above, so a new file is added to the map with it.
+byte-identical; every backend module, `web/*.js` and `web/styles/*.css`
+named in the Layout above (the stylesheets in `index.html`'s link order, and
+its count of classic scripts); and every `tools/smoke*.json` in `CLAUDE.md`'s
+port table, on the row whose port its first `navigate` uses, and named
+below - so a new file is added to the maps with it.
 
 The recycle bin is covered where each read lives: `tests/test_storage.py`
 (the migration, `list_images` live and `binned=True` with total, page and

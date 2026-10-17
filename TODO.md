@@ -96,14 +96,6 @@ An index of open work, one row per item; each row points to the doc that owns th
 | `UI#7` | OPEN | LOW | M | Check the page with a real screen reader (NVDA, Narrator), forced colours, reduced motion and touch; the reviews read only the accessibility tree. [10-12 not reached](docs/review-2026-10-12.md#review--2026-10-12). |
 | `UI#8` | DEFERRED | LOW | M | At 1536x864 (1080p at 125%) a running batch's progress falls below the left pane; fitting it means tightening every field under 1800 px. [Panel rows](docs/design-notes.md#the-panels-sampling-and-output-rows). |
 
-## Docs and tooling
-
-**Owner:** the file named in each row.
-
-| id | status | sev | size | item |
-|---|---|---|---|---|
-| `DEV#2` | OPEN | LOW | S | Extend `tests/test_docs_maps.py` to hold CLAUDE.md's smoke/port table to `tools/smoke*.json` and `web/styles/*.css` to rules.md's Layout (10-12 F16, the rest of it). |
-
 ## Reviews with nothing left open
 
 Each review's leftovers are rows above; a review returns here only with a new finding.
