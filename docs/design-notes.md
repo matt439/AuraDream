@@ -9849,11 +9849,20 @@ a negation the rules stop at ("reading comics without pictures"), the
 negation's words alone are the absence the rules read, not lettering.
 
 An issue that repeats a rule finding reported on the prompt (a negation,
-quotation marks, tag order, weighting, quality boilerplate) is left out,
+quotation marks, tag order, weighting, quality boilerplate, a tag guide's
+quality finish, tier or year modifier) is left out,
 whether it repeats it in its wording or by a quote that takes in the words
 the finding points at, since the model did so in nearly every answer
 however it was told not to; a finding on the negative prompt counts only
-for an issue that says it is about the negative prompt. Left out too is one
+for an issue that says it is about the negative prompt, and the missing or
+idle negative prompt only for one saying it is missing, not running or
+recommended ("Missing negative prompt", "Add the recommended negative
+prompt"), not one moving a word there ("put 'blurry' in the negative
+prompt"). Those two were added after the 2026-09-29 run on the card kept
+"Missing negative prompt" (G5), "No negative prompt" (A3) and the missing
+quality finish (A2) beside Check's own findings; an issue naming
+`masterpiece` or another recipe tag goes whenever the quality finding is
+reported, even one only about where the tag sits. Left out too is one
 that speaks to the prompt's own length wherever the guide has a range and the
 rules counted it (not XML or JSON), reported or not, since the model
 miscounted words beside the rules' correct count; in range, `set_aside`

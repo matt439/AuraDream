@@ -320,6 +320,7 @@ _OWNER = rf"\b(?:it|this|prompt|{_PROMPTS_DESCRIPTION})\s+(?:in|with)\s"
 _MANNER = rf"(?:(?<!\bin\s)(?<!\bwith\s)|{_OWNER})"
 # How long or short the prompt is said to be: "a little long", "too short".
 _SO = r"(?:too\s+|very\s+|rather\s+|quite\s+|a\s+(?:little|bit)\s+|slightly\s+)?"
+_NEGATIVE = r"negative[- ]prompts?\b"
 _RESTATES: dict[str, tuple[str, re.Pattern[str]]] = {
     "guide.words": (
         "word count",
@@ -363,6 +364,44 @@ _RESTATES: dict[str, tuple[str, re.Pattern[str]]] = {
     ),
     "heuristic.quality_boilerplate": (
         "quality boilerplate", re.compile(r"(?i)\bquality (?:tag|term|word|boilerplate)|\bmasterpiece\b"),
+    ),
+    # A tag guide's missing finish, its tier or its year modifier - the
+    # card's critic kept "the quality finish is missing" (A2) beside it -
+    # named, or by the recipes' own tags.
+    "guide.quality": (
+        "quality tags",
+        re.compile(
+            r"(?i)\bquality[- ](?:tags?|terms?|words?|tiers?|tokens?|keywords?|modifiers?"
+            r"|finish|suffix|recipe|boilerplate|scores?)\b"
+            r"|\b(?:recommended|quality)\s+(?:finish|suffix|ending|recipe)\b"
+            r"|\byear[- ](?:modifiers?|tags?)\b"
+            r"|\bmasterpiece\b|\babsurdres\b|\b(?:high|great)[- ]score\b"
+            r"|\b(?:good|best|amazing)[- ]quality\b"
+        ),
+    ),
+    # A negative prompt missing, not running or recommended - "Missing
+    # negative prompt" (G5) and "No negative prompt" (A3) were kept beside
+    # the finding on the card. Only `reported_negative` holds the rule, so an
+    # issue must name the negative prompt too; one moving a word there ("Put
+    # 'blurry' in the negative prompt") is about the prompt, and stays.
+    "guide.negative_prompt": (
+        "negative prompt",
+        re.compile(
+            rf"(?i)\b(?:no|missing|without|lacks?|lacking|empty|absent|blank)\s+"
+            rf"(?:(?:a|an|the|any)\s+)?{_NEGATIVE}"
+            rf"|\b(?:add(?:s|ed|ing)?|includ(?:e|es|ed|ing)|suppl(?:y|ies|ied|ying)"
+            rf"|provid(?:e|es|ed|ing)|set(?:s|ting)?|specif(?:y|ies|ied|ying))\s+"
+            rf"(?:(?:a|an|the|one|its|their"
+            rf"|recommended|suggested|official|card(?:'s|’s)|model(?:'s|’s)"
+            rf"|authors?(?:'s|’s|'|’)?)\s+){{0,3}}{_NEGATIVE}"
+            rf"|\bus(?:e|es|ed|ing)\s+(?:a|an|one)\s+(?:(?:recommended|suggested)\s+)?{_NEGATIVE}"
+            rf"|\b(?:recommended|suggested)\s+{_NEGATIVE}"
+            rf"|{_NEGATIVE}\s+(?:(?:is|was|are)\s+)?(?:(?:missing|empty|absent|blank|unused|ignored"
+            rf"|disabled)\b|not\s+(?:being\s+)?(?:set|used|provided|given|run|running|applied"
+            rf"|active|specified|included|present)\b)"
+            rf"|{_NEGATIVE}\s+(?:does\s+not|doesn['’]t|never|will\s+not|won['’]t)\s+"
+            rf"(?:run|apply|take\s+effect)"
+        ),
     ),
 }
 # Marks around a quote that say nothing: "no people," is "no people".

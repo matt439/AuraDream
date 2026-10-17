@@ -634,6 +634,62 @@ def test_a_negative_prompts_findings_leave_the_prompts_issues_alone():
     assert result.set_aside == ["1 issue left out: it repeated the rule findings above (weighting)."]
 
 
+def test_issues_restating_the_negative_prompt_or_quality_findings_are_left_out():
+    # The card's critic kept these beside Check's findings on 2026-09-29
+    # (verified.md): "Missing negative prompt" (G5), "No negative prompt"
+    # (A3) and the missing quality finish (A2).
+    prompt = "1girl, green hair, zzkx oc, smile, outdoors, masterpiece"
+    negative = PromptFinding(rule="guide.negative_prompt", severity="info", source="guide",
+                             message="No negative prompt runs, and the authors recommend one.",
+                             field="negative_prompt")
+    quality = PromptFinding(rule="guide.quality", severity="info", source="guide",
+                            message="The recommended finish is missing high score, great score, "
+                                    "absurdres.")
+    restating = [
+        _quoting("Missing negative prompt", None, cite="G5",
+                 fix="Add the recommended negative prompt"),
+        _quoting("No negative prompt", None, cite="A3",
+                 fix="Use a negative prompt such as lowres, bad anatomy"),
+        _quoting("The quality finish is missing", None, cite="A2",
+                 fix="End the prompt with high score, great score, absurdres"),
+    ]
+    # Moving a word to the negative prompt, or any issue at all, is the
+    # prompt's own.
+    kept = [
+        _quoting("'zzkx oc' is not a known tag", "zzkx oc", fix="Check the spelling"),
+        _quoting("The setting is vague", "outdoors",
+                 fix="Name the place, and put 'blurry' in the negative prompt"),
+    ]
+    result = _checked(ANIMAGINE, prompt, [*restating, *kept], findings=[negative, quality],
+                      style="tags")
+    assert [i.problem for i in result.issues] == [i["problem"] for i in kept]
+    assert result.set_aside == [
+        "3 issues left out: they repeated the rule findings above (negative prompt, quality tags)."
+    ]
+    assert result.dropped == 0
+    # Unreported, they are the critic's to raise.
+    result = _checked(ANIMAGINE, prompt, [*restating, *kept], style="tags")
+    assert len(result.issues) == 5 and result.set_aside == []
+    # A negative prompt typed but not running, missing or recommended, and a
+    # tier or year modifier, in other words; a word moved to the negative
+    # prompt, or its own content, is not the finding.
+    for problem in ("The negative prompt is not used at CFG 1", "The negative prompt is ignored",
+                    "Without a negative prompt, artefacts creep in",
+                    "The negative prompt does not run here",
+                    "Include the card's recommended negative prompt",
+                    "Two year modifiers", "Only one quality tier is allowed",
+                    "Add best quality at the end"):
+        result = _checked(ANIMAGINE, prompt, [_quoting(problem, None, cite="A2")],
+                          findings=[negative, quality], style="tags")
+        assert result.issues == [] and len(result.set_aside) == 1, problem
+    for problem in ("Move 'blurry' to the negative prompt", "The lighting is flat",
+                    "The negative prompt has a typo in 'lowres'",
+                    "Address the negative prompt's typo", "Use the negative prompt for blurry"):
+        result = _checked(ANIMAGINE, prompt, [_quoting(problem, None, cite="A2")],
+                          findings=[negative, quality], style="tags")
+        assert len(result.issues) == 1 and result.set_aside == [], problem
+
+
 def test_order_issues_that_ask_for_different_things_first_are_left_out():
     def order(problem, fix):
         return {"kind": "order", "problem": problem, "quote": None, "cite_id": "A1", "fix": fix}

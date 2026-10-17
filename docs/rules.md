@@ -1898,7 +1898,10 @@ Prompt analyser:
   characters past them (none past a single word), on guide, author,
   heuristic and weighting spans only, never a cut, template tail, unknown
   characters or control token - and one restating a negative-prompt finding
-  only when it names the negative prompt (`reported_negative`); so are issues
+  only when it names the negative prompt (`reported_negative`;
+  `guide.negative_prompt` only when it says one is missing, not running or
+  recommended, not when it moves a word there; `guide.quality` by its
+  finish, tier, year modifier or the recipes' tags); so are issues
   speaking to a length the rules measured in range (`measured_length`, not
   XML or JSON; `_says` reads a sentence at a time and skips lettering and a
   count worded as some part's - "at least 5 words for the lighting", "only

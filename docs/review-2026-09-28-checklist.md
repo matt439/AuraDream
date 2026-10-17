@@ -330,13 +330,15 @@ Open after the last fix round, and not in the docs as stated here:
   "at N words" opening an issue and "an N-word minimum" or maximum - have no
   test row: on `8931fae` each one's mutant still passes `test_critic.py` and
   `test_api_analysis.py`.
-- **Restatements the critic's validation does not catch**, seen in the real
-  run on the final tree and recorded in `verified.md`'s rows only: an issue
-  repeating Check's `guide.negative_prompt` or `guide.quality` finding is
-  kept, since `critic._RESTATES` has no pattern for either. The design notes
-  list the rules it covers, and neither is among them: their "quality
-  boilerplate" is the prose checkpoints' heuristic, not a tag guide's
-  missing finish.
+- **Restatements the critic's validation did not catch** - built
+  2026-10-17 (`PA#1`). The real run on the final tree kept issues repeating
+  Check's `guide.negative_prompt` and `guide.quality` findings ("Missing
+  negative prompt", G5; the missing quality finish, A2), recorded in
+  `verified.md`'s rows. `critic._RESTATES` now has a pattern for each,
+  those three answers' issues among its test rows
+  (`test_issues_restating_the_negative_prompt_or_quality_findings_are_left_out`);
+  the design notes name the two and what each still keeps. Not re-run on
+  the card.
 
 Accepted, and worded as trade-offs in the docs:
 
