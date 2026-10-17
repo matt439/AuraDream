@@ -1997,8 +1997,22 @@ card at 1536x1536, its `refine_measured` size. The Inpaint dialog has no
 tight line of its own either, so a copy of the same number would say
 nothing.
 
-**What this pass leaves.** No mask outline over the source's thumbnail (the
-facts give the hash's first 16 digits). FLUX.1, klein, Qwen-Image, FLUX.1
+**The mask in the facts list (2026-10-17).** The Mask row shows the mask
+over the source's thumbnail, as the plan asked, not only the hash's first
+16 digits, which said which mask without saying where it was. It is the
+dialog's drawing at 80 px: a light tint where it repaints and a line just
+inside its edge, so which side is repainted reads at a glance - an outline
+alone left an outpaint's band ambiguous. The picture's border is no edge,
+so an outpaint's line is only on the band's kept side. The PNG is
+resized by the decoder (`createImageBitmap`'s `resizeQuality: 'high'`):
+a plain `drawImage` samples a few mask pixels per thumbnail pixel and lost
+a thin stroke. Any level above 0 counts, as the server repaints any cell
+such a level touches. An outpaint's mask is its canvas, so the box has
+the canvas's shape and the source's thumbnail sits in it by the padding.
+With the source deleted, the record's own picture (same size as the mask)
+goes under it instead of an empty box.
+
+**What this pass leaves.** FLUX.1, klein, Qwen-Image, FLUX.1
 Fill [dev] (decided 2026-10-17 to wait on FLUX.1 inpainting on Krea dev
 being seen on the card; then, if wanted, its own inpaint-only catalogue
 checkpoint) and the masked-area crop are later phases of the plan;

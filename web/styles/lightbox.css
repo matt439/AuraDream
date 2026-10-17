@@ -136,6 +136,17 @@
 .lb-ref .gone { display: grid; place-items: center; border-style: dashed; }
 .lb-ref:not([aria-disabled="true"]):hover img { border-color: var(--accent-2); }
 .lb-ref[aria-disabled="true"] { cursor: default; }
+/* The Mask row's picture (maskOutline): the source's thumbnail with the mask
+   drawn over it, in a box of the mask's shape sized from the script, the
+   hash's digits after it. An outpaint's source is placed in the box by its
+   padding; the rest of the box is the new border, on the page's ground. */
+.lb-mask {
+  position: relative; display: block; margin-bottom: 2px; overflow: hidden;
+  background: var(--bg); border: 1px solid var(--line-strong); border-radius: var(--r-sm);
+  box-sizing: content-box;
+}
+.lb-mask img, .lb-mask canvas { position: absolute; inset: 0; width: 100%; height: 100%; }
+.lb-mask img { object-fit: fill; }
 .lb-passes { margin: var(--sp-3) 0 0; font-size: var(--fs-body-sm); }
 /* The gallery search from a fact (gallery-search.js): a glyph after the
    value, muted until pointed at, so the rows still read as facts. */

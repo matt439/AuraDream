@@ -136,6 +136,19 @@
   {"expect": "__until(() => !galleryPending && galleryRecords[0]?.mask === __mask)"},
   {"expect": "(() => { const card = els.gallery.querySelector(`.card[data-id=\"${galleryRecords[0].id}\"]`); return card.classList.contains('inpainted') && getComputedStyle(card, '::before').content.includes('✎') && card.querySelector('img').title.includes('inpaint of #' + __src.id + ' @ 0.6'); })()"},
 
+  {"log": "'the lightbox facts: the Mask row draws the mask as a tint and an outline over the source thumbnail, beside the hash first 16 digits; a deleted source leaves the record own picture under it'"},
+  {"eval": "openLightbox(galleryRecords[0], galleryRecords)"},
+  {"wait": 400},
+  {"eval": "window.__maskDd = () => [...els.lbSettings.querySelectorAll('.facts > div')].find((d) => d.firstChild.textContent === 'Mask')?.lastChild"},
+  {"expect": "__until(() => __maskDd()?.querySelector('.lb-mask canvas')?.dataset.drawn === 'true')"},
+  {"expect": "(() => { const dd = __maskDd(); const box = dd.querySelector('.lb-mask'); const img = box.querySelector('img'); const r = box.getBoundingClientRect(); return dd.title === __mask && dd.textContent === __mask.slice(0, 16) && box.getAttribute('role') === 'img' && box.getAttribute('aria-label') === 'Mask over #' + __src.id && img.getAttribute('src') === '/api/images/' + __src.id + '/thumb' && Math.abs(r.width - 82) < 0.5 && Math.abs(r.height - 82) < 0.5 && box.querySelector('canvas').width === Math.round(80 * devicePixelRatio); })()"},
+  {"expect": "(async () => { const m = await __pixels('/api/masks/' + __mask); let masked = 0; for (let i = 0; i < m.length; i += 4) if (m[i] > 0) masked++; const c = __maskDd().querySelector('.lb-mask canvas'); const d = c.getContext('2d').getImageData(0, 0, c.width, c.height).data; const line = cssRgb(getComputedStyle(document.documentElement).getPropertyValue('--accent-2').trim()); let drawn = 0, edge = 0, tint = 0; for (let i = 0; i < d.length; i += 4) { if (!d[i + 3]) continue; drawn++; if (d[i + 3] === 255 && d[i] === line[0] && d[i + 1] === line[1] && d[i + 2] === line[2]) edge++; else tint++; } const share = masked / (m.length / 4); window.__outlineShare = [share, drawn / (d.length / 4)]; return share > 0 && share < 1 && edge > 0 && tint > 0 && drawn < d.length / 4 && Math.abs(drawn / (d.length / 4) - share) < 0.12; })()"},
+  {"expect": "(() => { closeLightbox(); const r = { ...galleryRecords[0], refine_missing: true, refine_binned: true }; openLightbox(r, [r]); return __maskDd()?.querySelector('.lb-mask img')?.getAttribute('src') === '/api/images/' + __src.id + '/thumb?binned=true'; })()"},
+  {"eval": "closeLightbox(); openLightbox({ ...galleryRecords[0], refine_missing: true }, [{ ...galleryRecords[0], refine_missing: true }])"},
+  {"wait": 400},
+  {"expect": "__until(() => __maskDd()?.querySelector('.lb-mask canvas')?.dataset.drawn === 'true' && __maskDd().querySelector('.lb-mask img').getAttribute('src') === (galleryRecords[0].thumb_url || galleryRecords[0].url))"},
+  {"eval": "closeLightbox()"},
+
   {"log": "'every pixel the mask keeps is the source own, exactly; the masked ones changed'"},
   {"expect": "__compare(__src, galleryRecords[0]).then((r) => r.kept > 0 && r.keptSame === r.kept && r.painted > 0 && r.paintedDiff > r.painted * 0.9)"},
 

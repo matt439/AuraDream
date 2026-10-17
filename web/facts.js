@@ -93,11 +93,12 @@ function factsList(rec, { useSeed: seedButton = false, search = false, megapixel
     if (rec.outpaint) {
       row('Outpaint', `${outpaintSidesText(rec.outpaint)}, band ${rec.outpaint.band} px, fill ${rec.outpaint.fill}`);
     }
-    // The mask by the start of its hash, as the A1111 line names it; its
-    // picture is a click away in Reuse inpaint…. An outpaint's the server
-    // built from the padding and the band.
+    // The mask as a small outline over the picture it was painted on
+    // (maskOutline), and by the start of its hash, as the A1111 line names
+    // it; the whole mask is a click away in Reuse inpaint…. An outpaint's the
+    // server built from the padding and the band.
     if (rec.mask) {
-      row('Mask', rec.mask.slice(0, 16)).title = rec.outpaint
+      row('Mask', maskOutline(rec), rec.mask.slice(0, 16)).title = rec.outpaint
         ? `${rec.mask} - built by the server from the padding and the band` : rec.mask;
     }
   }
@@ -241,6 +242,111 @@ function syncUseReferences(use) {
       : '';
   use.setAttribute('aria-disabled', String(!!why));
   use.title = why || 'Put these images in the panel as its references, in this order';
+}
+
+// The Mask row's picture fits a square of this many CSS pixels.
+const MASK_THUMB = 80;
+
+// A record's mask as a tint and an outline over the source's thumbnail - the
+// picture it was painted on, as the Inpaint dialog shows it - in a box of the
+// mask's own shape. An outpaint's mask is its canvas, so the source sits in
+// it at its place by the padding, the new border round it. A source deleted
+// from the gallery (or one that will not load) leaves the record's own
+// picture under the mask: the same size, and still where it was painted. The
+// mask is the stored PNG (`GET /api/masks/{hash}`, cached for good), read to
+// the canvas's pixels: whatever level above 0 is repainted, as the server
+// counts it. Colours are the page's tokens, the dialog's tint and line.
+function maskOutline(rec) {
+  const scale = MASK_THUMB / Math.max(rec.width, rec.height);
+  const w = Math.max(1, Math.round(rec.width * scale));
+  const h = Math.max(1, Math.round(rec.height * scale));
+  const box = document.createElement('span');
+  box.className = 'lb-mask';
+  box.setAttribute('role', 'img');
+  box.setAttribute('aria-label', `Mask over #${rec.refine}`);
+  box.style.width = `${w}px`;
+  box.style.height = `${h}px`;
+  const img = document.createElement('img');
+  img.alt = '';
+  const own = () => {
+    img.onerror = null;
+    img.removeAttribute('style');
+    img.src = rec.thumb_url || rec.url;
+  };
+  if (rec.refine_missing && !rec.refine_binned) {
+    own();
+  } else {
+    img.src = `/api/images/${rec.refine}/thumb${rec.refine_binned ? '?binned=true' : ''}`;
+    img.onerror = own;
+    const o = rec.outpaint;
+    if (o) {
+      const pct = (n, of) => `${(100 * n) / of}%`;
+      Object.assign(img.style, {
+        left: pct(o.left, rec.width), top: pct(o.top, rec.height),
+        width: pct(rec.width - o.left - o.right, rec.width), height: pct(rec.height - o.top - o.bottom, rec.height),
+      });
+    }
+  }
+  const dpr = window.devicePixelRatio || 1;
+  const canvas = canvas2d(Math.round(w * dpr), Math.round(h * dpr));
+  canvas.setAttribute('aria-hidden', 'true');
+  box.append(img, canvas);
+  void drawMaskOutline(canvas, rec.mask, Math.max(1, Math.round(1.5 * dpr)));
+  return box;
+}
+
+// The mask onto `canvas`: a light tint where it repaints and a line `k`
+// device pixels thick just inside its edge. A picture's border is not an
+// edge: an outpaint's band has its line only on the kept side. Marks the
+// canvas `data-drawn` once drawn ("failed" where the mask would not load).
+async function drawMaskOutline(canvas, hash, k) {
+  const { width: w, height: h } = canvas;
+  let levels;
+  try {
+    const res = await fetch(`/api/masks/${hash}`);
+    if (!res.ok) throw new Error(String(res.status));
+    // Resized by the decoder at its best: a plain draw samples a few source
+    // pixels per thumbnail pixel, and a thin stroke fell between them.
+    const bitmap = await createImageBitmap(await res.blob(), { resizeWidth: w, resizeHeight: h, resizeQuality: 'high' });
+    const scratch = canvas2d(w, h).getContext('2d', { willReadFrequently: true });
+    scratch.drawImage(bitmap, 0, 0);
+    bitmap.close?.();
+    levels = scratch.getImageData(0, 0, w, h).data;
+  } catch {
+    canvas.dataset.drawn = 'failed';
+    return;
+  }
+  const inside = new Uint8Array(w * h);
+  for (let i = 0; i < inside.length; i++) inside[i] = levels[4 * i] > 0 ? 1 : 0;
+  const style = getComputedStyle(document.documentElement);
+  const tint = cssRgb(style.getPropertyValue('--accent').trim() || '#7c5cff');
+  const line = cssRgb(style.getPropertyValue('--accent-2').trim() || '#4ad6c8');
+  const out = new ImageData(w, h);
+  const px = out.data;
+  const outside = (x, y) => x >= 0 && y >= 0 && x < w && y < h && !inside[y * w + x];
+  for (let y = 0; y < h; y++) {
+    for (let x = 0; x < w; x++) {
+      if (!inside[y * w + x]) continue;
+      let edge = false;
+      for (let d = 1; d <= k && !edge; d++) {
+        edge = outside(x - d, y) || outside(x + d, y) || outside(x, y - d) || outside(x, y + d);
+      }
+      const at = 4 * (y * w + x);
+      const [r, g, b] = edge ? line : tint;
+      px[at] = r; px[at + 1] = g; px[at + 2] = b;
+      px[at + 3] = edge ? 255 : 90;
+    }
+  }
+  canvas.getContext('2d').putImageData(out, 0, 0);
+  canvas.dataset.drawn = 'true';
+}
+
+// A CSS colour as [r, g, b], by a one-pixel canvas.
+function cssRgb(color) {
+  const ctx = canvas2d(1, 1).getContext('2d', { willReadFrequently: true });
+  ctx.fillStyle = color;
+  ctx.fillRect(0, 0, 1, 1);
+  return [...ctx.getImageData(0, 0, 1, 1).data.slice(0, 3)];
 }
 
 // The image a pass was refined from, by id: from a strip the page holds, else

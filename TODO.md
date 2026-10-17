@@ -40,7 +40,6 @@ An index of open work, one row per item; each row points to the doc that owns th
 | id | status | sev | size | item |
 |---|---|---|---|---|
 | `INP#3` | CARD | MED | M+card | FLUX.1 inpaint (Krea dev, dev, schnell): measure 1 MP against the spill line, add its recipe, then drop `FluxPipeline` from `INPAINT_DEFERRED`; outpaint follows. |
-| `INP#4` | OPEN | LOW | S | The mask as a small outline over the source's thumbnail in the facts list, which shows only the hash's first 16 digits. [Elsewhere on the page](docs/plan-inpainting.md#elsewhere-on-the-page). |
 | `INP#5` | DEFERRED | LOW | M+card | Phase 4, klein: one reference beside the source, its mu recipe, memory with the sequence doubled, `smoke-inpaint-klein`. Matt doesn't run klein. |
 | `INP#6` | DEFERRED | LOW | M+card | Phase 5, Qwen-Image under Nunchaku (WSL), only if the inpaint class runs over the Nunchaku transformer at all. |
 | `INP#8` | BLOCKED | LOW | L | FLUX.1 Fill [dev] as its own inpaint-only catalogue checkpoint: blocked on `INP#3`, decided once FLUX.1 inpaints on Krea dev have been seen on the card, built if they disappoint. [Question 7](docs/plan-inpainting.md#open-questions-for-the-user). |

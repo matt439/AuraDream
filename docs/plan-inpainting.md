@@ -559,7 +559,8 @@ uses.
 ### Elsewhere on the page
 
 - Cards and the facts list say "inpaint of #N @ 0.6"; the facts list shows
-  the mask as a small outline over the source's thumbnail.
+  the mask as a small outline over the source's thumbnail (built
+  2026-10-17, with a light tint inside it; design notes, Inpainting).
 - The lightbox's compare against the source works unchanged (the source is
   `refine`); an optional mask outline toggle on an inpainted record is a
   later nicety.

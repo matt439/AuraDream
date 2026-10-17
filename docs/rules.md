@@ -2867,7 +2867,14 @@ Frontend and CLI:
   ✎ Inpaint…, and the lightbox's Inpaint… hides under 901 px; another entry
   point remains in each case. Cards, facts, the settings line and job
   labels read "inpaint of #N @ 0.6", the facts list has a Mask row (the
-  hash's first 16 digits) and an inpainted card a ✎ badge.
+  mask as a tint and an outline over the source's thumbnail, in an 80 px
+  box of the mask's shape, then the hash's first 16 digits; `maskOutline`
+  in `facts.js`) and an inpainted card a ✎ badge. The outline reads the
+  stored PNG (`GET /api/masks/{hash}`) to the canvas's device pixels, a
+  level above 0 counting as repainted, and draws no line along the
+  picture's border; a deleted source (or one whose thumbnail will not
+  load) leaves the record's own picture under it, a binned one is asked
+  for with `?binned=true`.
 - An outpaint is the Outpaint dialog's (`web/outpaint.js`,
   `styles/outpaint.css`, wearing `.inpaint-dialog`'s box and panes), never
   the panel's and never a mode of the Inpaint dialog: `collect()` sends no
@@ -2916,7 +2923,8 @@ Frontend and CLI:
   settings line and job labels read "outpaint of #N +L/+T/+R/+B @ S", the
   facts "Outpainted from" and an Outpaint row, an outpainted card a ⬚
   badge; Against source draws the source at (left, top) at the result's
-  scale.
+  scale, and the Mask row's box (the canvas's shape) the source's
+  thumbnail at its place by the padding.
 - `startJob(path, body, { sheet, panel, slot, placeholder, onAccepted,
   onRefused })`: `slot` (default `els.error`) is where its refusals go.
   `onAccepted(jobId)` runs once the server has taken the job, before
@@ -6063,9 +6071,12 @@ Ctrl+Y and Ctrl+Shift+Z, I in the Seed box painting nothing, the keyboard
 brush (arrows and Space); the tools row's boxes and the dialog's scrollTop
 unchanged through painting and a preview refusal, Inpaint not moving under
 the pointer; the result an inpaint of #N @ 0.6 on the card, its title and
-the settings line, every pixel the mask keeps the source's exactly; Reuse
-reopening on the source with the stored mask, no upload of the picture
-and one `/keep` of the stored mask (the page's POSTs counted); a strength list
+the settings line; the lightbox's Mask row, the outline drawn over the
+source's thumbnail in an 82 px box (80 and its border), its tint's share
+within 0.12 of the mask's, the hash's first 16 digits, a binned source's
+thumbnail asked for with `?binned=true`, and a deleted source leaving the record's own picture under it; every pixel the mask
+keeps the source's exactly; Reuse reopening on the source with the stored
+mask, no upload of the picture and one `/keep` of the stored mask (the page's POSTs counted); a strength list
 opening a sheet over one mask; a close that ran nothing giving the lightbox
 back and its strokes on the next open, and Start over. `smoke-inpaint-
 unavailable.json`, on the default Krea 2 Turbo fake on 7906: the card's, the
@@ -6105,7 +6116,9 @@ scrollTop unchanged; Escape closing only the dialog over the model picker;
 Ctrl+Enter in a side box running the outpaint, not the panel; the result
 an outpaint of #N +400/+0/+400/+0 whose kept pixels are the source's at
 its offset and whose border is wholly masked; the card's badge, title and
-Reuse outpaint… after `syncReuseButtons`; the facts rows; Against source
+Reuse outpaint… after `syncReuseButtons`; the facts rows, and the Mask
+row's thumbnail at the source's offset in a box of the canvas's shape, its
+line only on the band's kept side; Against source
 at the offset; Reuse reopening with the sides, band, strength and seed; a
 strength list opening a sheet; an unknown fill refused by name; Start
 over; `outpaint:yes`; the source binned with the dialog open (Outpaint
