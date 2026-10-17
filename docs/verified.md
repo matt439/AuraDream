@@ -690,7 +690,8 @@ Z-Image, and the other SDXL profiles (Illustrious, Kohaku, RouWei, NoobAI),
 whose refine passes match Animagine's; a LoRA through an inpaint (no SDXL
 adapter was at hand; `frosting-lane` is FLUX.1's); an inpaint over a
 Nunchaku Z-Image transformer under WSL; the seam measured against the VAE
-round trip by number; and, for the deferred families (FLUX.1, FLUX.2
+round trip by number; the live preview through Z-Anime's blend and the
+dialogs' "starts at N% noise" on Z-Image (not checked on the card); and, for the deferred families (FLUX.1, FLUX.2
 [klein], Qwen-Image), the measurements their phases name before they are
 enabled. Evidence is under `%TEMP%/local-diffusion-inpaint-card/`:
 `measure.py`, and per checkpoint its gallery, `results.jsonl` and the

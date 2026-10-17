@@ -36,8 +36,14 @@ GRID = 16
 # The band is on the 8-pixel latent grid, so its inner edge is a cell edge.
 BAND_GRID = 8
 
-# The band's starting width: this app's value, not a sourced or measured one.
+# The band's starting width: no author's, but the best join of 0, 32, 64 and
+# 128 px by eye on WAI v17, Animagine XL 4.0 and Z-Anime (docs/verified.md,
+# Outpaint, 2026-10-17). The dialog's band note says so (`band_note`).
 BAND = 32
+
+# The width the card judged best of those four: `band_note` names the card
+# only while BAND is still this width.
+BAND_MEASURED = 32
 
 # The widest band a request may ask for: a constant, never a setting.
 MAX_BAND = 256
@@ -225,6 +231,17 @@ def _preset_tier(aspect: str, width: int, height: int) -> float | None:
         if size == (width, height):
             return tier
     return None
+
+
+def band_note(band: int = BAND) -> str:
+    """What the dialog says of the starting band: the card's judgement
+    while it is the width the card judged, else that nothing measured it."""
+    if band == BAND_MEASURED:
+        return (
+            f"{band} joined best of 0, 32, 64 and 128 on WAI v17, Animagine XL 4.0 "
+            "and Z-Anime (by eye, 2026-10-17)"
+        )
+    return f"{band} is this app's starting value - nothing measured says what width joins best"
 
 
 def presets(

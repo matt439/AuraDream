@@ -269,6 +269,9 @@ def test_the_presets_route_answers_the_servers_numbers(client, fake, store):
     answer = answer.json()
     assert (answer["width"], answer["height"], answer["off_grid"]) == (1024, 1024, None)
     assert (answer["fill"], answer["band"], answer["max_band"], answer["min_kept"]) == ("edge-box3-r16", 32, 256, 16)
+    assert answer["band_note"] == (
+        "32 joined best of 0, 32, 64 and 128 on WAI v17, Animagine XL 4.0 and Z-Anime (by eye, 2026-10-17)"
+    )
     presets = {p["name"]: p for p in answer["presets"]}
     assert [presets["16:9"][k] for k in ("left", "top", "right", "bottom", "width")] == [400, 0, 400, 0, 1824]
     assert presets["16:9"]["held"] is None
@@ -287,6 +290,19 @@ def test_the_presets_route_answers_the_servers_numbers(client, fake, store):
 
 
 # ------------------------------------------------------------ grid and resume
+
+
+def test_the_preview_says_where_an_outpaint_starts_at_its_canvas(client, fake, store, monkeypatch):
+    # Asked with the outpaint at the padded canvas's size, which is the
+    # size its schedule's shift is computed from.
+    source = plant(store)
+    asked = []
+    monkeypatch.setattr(fake, "start_sigma", lambda request: asked.append(request) or 0.6)
+    payload = {**body(source), "seed": 1}
+    assert client.post("/api/grid/preview", json=payload).json()["start_sigma"] == 0.6
+    (request,) = asked
+    assert request.inpainting and request.outpaint is not None
+    assert (request.width, request.height) == (payload["width"], payload["height"])
 
 
 def test_a_strength_sweep_runs_over_one_outpaint_and_resumes_by_its_spec(client, fake, store):

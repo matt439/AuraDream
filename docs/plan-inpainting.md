@@ -3,7 +3,10 @@
 **Status, 2026-10-13: phases 1 and 2 are built** on `feat-inpainting`, for
 the six SDXL checkpoints and Z-Image Turbo, Z-Image and Z-Anime; phase 0
 was not run, and nothing has been measured on the card (`docs/verified.md`,
-Inpaint). The user's answers to the open questions at the end:
+Inpaint). **2026-10-17:** the card measured WAI v17, Animagine XL 4.0 and
+Z-Anime (`verified.md`, Inpaint and Outpaint), and phase 3's parts that need
+no card are built (Phases, below). The user's answers to the open questions
+at the end:
 
 1. A dialog of its own: `web/inpaint.js`, `web/inpaint-mask.js`,
    `web/styles/inpaint.css`.
@@ -32,11 +35,9 @@ is handed the painted mask widened to whole latent cells
 (`refine.pipeline_mask`) while the composite blends by the painted levels;
 a live job's masks are held in a `mask_holds` table every process's sweep
 reads, not only in the server's memory; the smokes run on ports 7905 and
-7906, not 7904 and 7905 (7904 is `smoke-png-settings`'). Remaining: phase 0's
-measurements, then phase 3 (`START_RECIPES` for the inpaint classes, so the
-dialog's "starts at N% noise" line; the preview through the blend;
-`inpaint_measured` rows and measured strengths; FLUX.1 enabled), phases
-4-6 and the facts list's mask outline over the source's thumbnail.
+7906, not 7904 and 7905 (7904 is `smoke-png-settings`'). Remaining: FLUX.1
+enabled (phase 3's last part, with its measurements), phases 4-6 and the
+facts list's mask outline over the source's thumbnail.
 `docs/design-notes.md` ("Inpainting") and `docs/rules.md`
 describe what was built.
 
@@ -248,7 +249,9 @@ rule for this card):
 
 The profile then gets an `inpaint_measured` row where it differs from
 `refine_measured`, and the dialog's tight line uses it as the Refine dialog
-uses `refine_tight_pixels`.
+uses `refine_tight_pixels`. (2026-10-17: none differs - the SDXL inpaint
+rows match their refine rows and Z-Anime's inpaint fills the card at its
+`refine_measured` 1536x1536 - so no profile has one; Phases, phase 3.)
 
 ## The reproduction set
 
@@ -396,8 +399,10 @@ different masks as duplicates. It becomes `(*key[:8], ..., *key[9:])`.
   then the starting value is the inpaint class's own signature default,
   read with `inspect` at load (0.6 FLUX.1 and Qwen-Image, 0.9999 SDXL, 1.0
   Z-Image, 0.8 klein) and labelled in the tip as the library's default, not
-  the checkpoint's. `check_refine_steps` applies unchanged (SDXL raises
-  below one step).
+  the checkpoint's. (2026-10-17: measured as the right start on WAI v17,
+  Animagine XL 4.0 and Z-Anime, so no key; those profiles carry
+  `inpaint_strength_measured` instead - Phases, phase 3.)
+  `check_refine_steps` applies unchanged (SDXL raises below one step).
 - **Budget.** `check_budget` holds an inpaint to the refine pass's own
   pixels, as a pass is held now.
 - **A mask that paints nothing is refused** at upload ("nothing is masked");
@@ -680,6 +685,32 @@ rules and design notes.
 `inpaint_measured` rows, the starting strength per profile once measured.
 FLUX.1 Krea dev is the default checkpoint, so this is where most users
 meet it; its margin on the card is the reason it is not first.
+
+Built 2026-10-17, the parts that need no card, on the card's results of
+that day (`verified.md`, Inpaint and Outpaint):
+
+- `START_RECIPES` has `ZImageInpaintPipeline`, whose call makes its
+  image-to-image sibling's statements, so the Inpaint and Outpaint dialogs
+  say "starts at N% noise" on Z-Image (an outpaint at its canvas's size).
+  `FluxInpaintPipeline` and `QwenImageInpaintPipeline` match too and are in
+  the table, unasked while their families are deferred; klein's class uses
+  `compute_empirical_mu` and has none. `tests/test_refine_schedules.py`
+  holds them to the source and every flow inpaint profile to a recipe.
+- The preview through the blend: it was never switched off for an inpaint.
+  The step callback hands the inpaint class's latents to `_preview`, and
+  Z-Image's class blends before the callback, which carries the latents
+  unpacked as the text-to-image class does. Not looked at on the card.
+- No `inpaint_measured` rows: none of the measured profiles differs from
+  its `refine_measured`, and the dialog has no tight line.
+- The starting strength stays the library default, measured as the right
+  start on WAI v17, Animagine XL 4.0 and Z-Anime; those profiles carry
+  `inpaint_strength_measured` and the Strength note says so, or says the
+  default was measured on the checkpoints running the same class and not
+  on this one (Z-Image Turbo, the undistilled Z-Image and the other SDXL
+  profiles, none of which the card ran).
+
+Left: FLUX.1 enabled (TODO INP#3), with its memory, its strength and its
+preview measured first.
 
 **Phase 4 - klein (M).** One reference beside the source, the refusal of
 more, the `compute_empirical_mu` recipe or no reading, memory with the

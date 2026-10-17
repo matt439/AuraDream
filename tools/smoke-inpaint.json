@@ -29,6 +29,8 @@
   {"expect": "getComputedStyle(els.inpaintCanvas).touchAction === 'none' && getComputedStyle(els.inpaintDialog).overflowY !== 'visible' && els.inpaintBrushTool.getAttribute('aria-keyshortcuts') === 'B' && els.inpaintEraserTool.getAttribute('aria-keyshortcuts') === 'E' && els.inpaintInvert.getAttribute('aria-keyshortcuts') === 'I' && els.inpaintUndo.getAttribute('aria-keyshortcuts') === 'Control+Z' && els.inpaintRedo.getAttribute('aria-keyshortcuts').includes('Control+Y')"},
   {"log": "'Strength starts at the inpaint pipeline own default, said as the library number'"},
   {"expect": "els.inpaintStrength.value === '0.9999' && els.inpaintStrengthNote.textContent.startsWith(\"0.9999 is the installed diffusers' default\") && els.inpaintStrengthNote.textContent.includes(\"the library's number\")"},
+  {"log": "'and where the card measured it as the right start, in the server words (hints.inpaint_strength): on Animagine itself'"},
+  {"expect": "els.inpaintStrengthNote.textContent === \"0.9999 is the installed diffusers' default for this inpaint pipeline - the library's number, measured on the card (2026-10-17) as the right strength to start at on Animagine XL 4.0: lower ones left some of what was under the mask.\""},
 
   {"log": "'held until something is masked, saying why; a press says it, and nothing scrolls'"},
   {"eval": "window.__top = els.inpaintDialog.scrollTop; window.__tools = __rects();"},
@@ -45,6 +47,13 @@
   {"eval": "window.__brushed = inpaintMask.hash; window.__covered = maskMeasured.coverage;"},
   {"expect": "__until(() => els.inpaintRun.getAttribute('aria-disabled') === 'false' && els.inpaintPreview.textContent.startsWith('1 image · strength 0.9999'))"},
   {"expect": "els.inpaintDialog.scrollTop === __top && __rects() === __tools && /% of the picture masked$/.test(els.inpaintStatus.textContent) && __covered > 1"},
+
+  {"log": "'the preview says how much noise the inpaint starts at where the server reads it (start_sigma): SDXL reads none and nothing is said; a reading follows the strength, as in Refine'"},
+  {"expect": "!els.inpaintPreview.textContent.includes('noise')"},
+  {"eval": "window.__api = api; api = async (path, options) => { const reply = await window.__api(path, options); return path === '/api/grid/preview' ? {...reply, start_sigma: 0.51} : reply; }; scheduleInpaintPreview(0);"},
+  {"expect": "__until(() => els.inpaintPreview.textContent.startsWith('1 image · strength 0.9999 · starts at 51% noise · about '))"},
+  {"eval": "api = window.__api; scheduleInpaintPreview(0);"},
+  {"expect": "__until(() => els.inpaintPreview.textContent.startsWith('1 image · strength 0.9999 · about '))"},
 
   {"log": "'E picks the eraser, with the canvas focused; a stroke takes part of the mask back'"},
   {"key": "e"},

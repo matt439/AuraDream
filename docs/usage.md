@@ -295,8 +295,11 @@ The dialog starts from the source's prompt, seed and sampling settings, with
 **Strength**, **Versions** and **Seed** working as in Refine; the prompt and
 sampling boxes are under **Prompt and sampling**. Strength says how much of
 the masked area is redrawn. It starts at the installed diffusers inpaint
-class's own default (about 1 on both families), since no checkpoint author gives
-one and none has been measured here. Several comma-separated values run side
+class's own default (about 1 on both families), since no checkpoint author
+gives one; the note under it says where the card measured that default as the
+right start (WAI v17, Animagine XL 4.0 and Z-Anime) or that this checkpoint was
+not measured. On Z-Image checkpoints the preview line also says how much noise
+the pass starts at, as Refine's does. Several comma-separated values run side
 by side and open as a sheet. Ctrl+Enter runs.
 
 An inpaint always runs at the source's size. Afterwards the result is laid
@@ -329,8 +332,10 @@ place and the new area hatched. **+25% all round**, **to 16:9** and
 and **Apply** applies it. A preset already met says so and stays held. The server
 fills the new area from the source's stretched and blurred edge pixels, then
 builds the mask: the new border plus a feathered **Band** reaching that far
-into the original (0-256 px in steps of 8; 32, the starting value, joined best of
-0/32/64/128 on the card, while wider bands leave a faint double image). You never paint it. A wider band blends the seam over
+into the original (0-256 px in steps of 8). The starting 32 joined best of
+0, 32, 64 and 128, judged by eye on WAI v17, Animagine XL 4.0 and Z-Anime:
+0 leaves a hard cut at the original's edge, 64 a faint double image across
+the band, and 128 a plain one. You never paint it. A wider band blends the seam over
 more of the original. Inward of the band, the original is kept pixel for pixel.
 
 Strength, Versions, Seed and the prompt work as in Inpaint. The new area

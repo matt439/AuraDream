@@ -592,8 +592,8 @@ function syncOutpaint() {
     + (sweep ? ', at every strength' : '');
   els.outpaintStrength.placeholder = String(inpaintStartStrength());
   els.outpaintStrengthNote.textContent = inpaintStrengthNote();
-  els.outpaintBandNote.textContent = `px into #${src.id} from each extended side; `
-    + `${outpaintPresets?.band ?? outpaintBandPx} is this app's starting value - nothing measured says what width joins best`;
+  // The server's words for its starting band (outpaint.band_note).
+  els.outpaintBandNote.textContent = `px into #${src.id} from each extended side; ${outpaintPresets?.band_note ?? ''}`;
   els.outpaintBandNote.title = els.outpaintBandNote.textContent;
   syncPassSampling(outpaintSampling());
   els.outpaintUnavailable.hidden = inpaintSupported;
@@ -746,10 +746,13 @@ async function previewOutpaint() {
     const steps = p.values.steps?.[0];
     const run = !sweep && typeof steps === 'number' && strengths.length === 1
       ? ` · about ${Math.max(1, Math.round(steps * strengths[0]))} of ${steps} steps run` : '';
+    // Where the pass starts at the canvas's size, as the Inpaint dialog's.
+    const noise = !sweep && strengths.length === 1 && typeof p.start_sigma === 'number'
+      ? ` · starts at ${Math.round(p.start_sigma * 100)}% noise` : '';
     els.outpaintPreview.classList.toggle('warn', !!p.duplicates);
     els.outpaintPreview.textContent = plural(p.images, 'image')
       + ` · ${preview.width} × ${preview.height}`
-      + ` · strength ${axisText(strengths)}${run}`
+      + ` · strength ${axisText(strengths)}${noise}${run}`
       + (p.seconds ? ` · about ${humanTime(p.seconds)}` : ` · no estimate: nothing has run at ${preview.width} × ${preview.height} here`)
       + (p.duplicates ? ` · ${p.duplicates} would be identical to another` : '')
       + (sweep ? '\nOpens as a sheet when it is done.' : '');

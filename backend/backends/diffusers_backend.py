@@ -452,8 +452,10 @@ class DiffusersBackend(GenerationBackend):
         is None for a checkpoint the table does not know). None before a
         load, without a sibling, on a scheduler that is not flow matching,
         and where reading it fails: it is the preview's advice, and a
-        preview it broke would refuse the pass. An inpaint asks its own class,
-        which has no recipe in `schedule.START_RECIPES` yet, so no answer.
+        preview it broke would refuse the pass. An inpaint (or an outpaint, at
+        its padded size) asks its own class's recipe in
+        `schedule.START_RECIPES`: Z-Image's has one; SDXL's scheduler is not
+        flow matching, so no answer there.
         """
         pipe = self._pipe
         if pipe is None or request.refine is None or request.strength is None:

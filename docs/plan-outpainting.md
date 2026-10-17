@@ -7,8 +7,9 @@ the page's kept-size limit, now the server's 16 px; reruns refusing a spec
 that does not build its row's mask; one well-formedness rule for stored
 specs and their one spelling; To shape… applying only on Apply; Outpaint…
 kept in the lightbox under 901 px; late presets answers and binned sources;
-the real backend's outpaint branch under test). Phase 3 waits on the
-card's measurements (`docs/verified.md`, Outpaint). Below is the plan as it
+the real backend's outpaint branch under test). **2026-10-17:** the card
+measured WAI v17, Animagine XL 4.0 and Z-Anime (`docs/verified.md`,
+Outpaint), and phase 3 is built (Phases, below). Below is the plan as it
 was written.** Written on
 `feat-outpainting`, branched from main at b3bc975 right after inpainting was
 merged, and revised the same day against an eighteen-point review of the
@@ -171,8 +172,9 @@ class Outpaint(OutpaintSpec):             # the request's
 - **The band is a multiple of 8**, 0 to `MAX_BAND`. A multiple of 8 makes
   the band end on a latent-cell edge, so the class's repainted cells and
   the composite's blend cover the same pixels exactly. The default,
-  `BAND = 32` (four cells), is this app's starting value, not a sourced or
-  measured number, and the dialog says so; 0 is allowed and is a hard edge
+  `BAND = 32` (four cells), is this app's starting value, not a sourced
+  number (2026-10-17: it joined best of 0/32/64/128 by eye on the card;
+  Phases, phase 3); 0 is allowed and is a hard edge
   at the original's border.
 - **The fill is part of the spec.** `fill` names the algorithm that made
   the new area; the request type accepts any well-formed name, and the
@@ -466,8 +468,10 @@ nowhere in the result: every pixel of the new area is under 255. The
 
 - `describe()` and `/api/status` gain nothing: `inpaint_supported` /
   `inpaint_settled` answer for an outpaint too, and the page reads them.
-- `start_sigma` is None for an outpaint, as for an inpaint (no
-  `START_RECIPES` entry for an inpaint class yet).
+- `start_sigma` for an outpaint is the inpaint class's reading at the
+  canvas's size, as for an inpaint: Z-Image's class has a `START_RECIPES`
+  entry since 2026-10-17 (inpaint phase 3), so the dialog says "starts at N%
+  noise" there; SDXL's says none.
 - The live preview reads the callback's latents as it does for an inpaint:
   Z-Image keeps its preview, SDXL shows none.
 - The fakes: `tests/fakes.py` and `tools/fake_server.py` repaint the masked
@@ -857,7 +861,7 @@ at a fixed top and grows downward as the Inpaint dialog does, never
   - Over an off-grid source every preset is held with `off_grid`'s words.
 - **Band:** a number box, `step="8"`, 0-256, rounded to 8 as the sides are,
   with its note "this app's starting value; nothing measured says what
-  width joins best".
+  width joins best" (since phase 3, what the card measured of 32).
 - Then the shared rows: the prompt (starting from the source's, said as
   the Inpaint dialog says it), its Check lines, Strength (starting at the
   library's default, said as the library's), Versions, Seed, the preview
@@ -1053,6 +1057,19 @@ preview through the blend). The deferred families get outpainting the day
 their inpaint is enabled, since the gate is `inpaint_supported`; their
 memory at outpainted sizes is part of their phase.
 
+Built 2026-10-17, on the card's results of that day (`verified.md`,
+Outpaint): 32 px joined best of 0, 32, 64 and 128 by eye on WAI v17,
+Animagine XL 4.0 and Z-Anime (one source and prompt each), so `BAND` stays
+32 and is no longer called unmeasured: the band note says "32 joined best
+of 0, 32, 64 and 128 on WAI v17, Animagine XL 4.0 and Z-Anime (by eye,
+2026-10-17)", and the CLI's `--band` help and `docs/usage.md` say the same.
+Not by number, not on Z-Image Turbo or the other SDXL profiles. The same
+runs measured the library default as the strength to start at, and the
+Strength note is the Inpaint dialog's, measured wording included
+(`hints.inpaint_strength`). Inpaint phase 3 reaches every outpaint as it
+is: the "starts at N% noise" line on Z-Image at the canvas's size, and the
+live preview through the blend.
+
 **Later, if wanted:** the server's fill shown in the frame (a model-free
 `GET` answering the padded canvas as a JPEG, so the page still draws
 nothing of its own); a card tool; `padding_mask_crop` for large canvases on
@@ -1102,8 +1119,10 @@ SDXL; an outpaint over a painted mask together; a second fill.
   a test per site are the guard, and any new dict that carries `mask` must
   carry `outpaint`.
 - **Quality.** No catalogue author documents outpainting, and the fill is
-  this app's own choice; how outpainted pictures look is unmeasured, and
-  the app says only what is measured.
+  this app's own choice; how outpainted pictures look is measured only by
+  eye, on three checkpoints with one source and prompt each (2026-10-17,
+  the band and what the fill contributes), and the app says only what is
+  measured.
 - **Memory.** A canvas larger than any direct render of the checkpoint's
   presets is reachable within the refine budget; only the card can say
   where each family stops.
@@ -1120,7 +1139,8 @@ SDXL; an outpaint over a painted mask together; a second fill.
 1. A card tool for Outpaint beside the pass and the inpaint, or only the
    lightbox, the viewer and Reuse (recommended for now)?
 2. The band's starting value: 32 px (this app's, unmeasured) until the card
-   says otherwise?
+   says otherwise? Answered by the card, 2026-10-17: 32 px joined best of
+   0/32/64/128 by eye (Phases, phase 3). Questions 1, 3 and 4 stay open.
 3. "+25% all round" as written here (each axis about a quarter larger,
    split evenly), or a quarter of each side added on every side (each axis
    half larger)?

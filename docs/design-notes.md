@@ -1870,12 +1870,21 @@ Z-Image repos share the Z-Image profile and so answer True; an inpaint over
 a Nunchaku transformer has not been run on the card.
 
 **The starting strength is the library's, said as the library's.** No
-catalogue author gives one for inpainting, and none has been measured, so
-there is no `inpaint_strength` profile key. Until one is measured the
-Strength box starts at the inpaint class's own signature default, read with
-`inspect` from the installed class at the load (`refine.library_strength`,
-`defaults.inpaint_strength`), never copied into the code; the tip says it is
-the installed diffusers' default, not the checkpoint's. Before a load, when
+catalogue author gives one for inpainting, so there is no `inpaint_strength`
+profile key. The Strength box starts at the inpaint class's own signature
+default, read with `inspect` from the installed class at the load
+(`refine.library_strength`, `defaults.inpaint_strength`), never copied into
+the code; the tip says it is the installed diffusers' default, not the
+checkpoint's. The card measured that default as the right start on WAI v17,
+Animagine XL 4.0 and Z-Anime on 2026-10-17 (lower strengths kept the masked
+part's colour; `verified.md`, Inpaint), so it stays the number, and what the
+note adds is where it was measured: those three profiles carry
+`inpaint_strength_measured`, their own label, and `hints_for` words the note
+(`hints.inpaint_strength`) as measured there, or as measured on the
+checkpoints running the same inpaint class and not on this one - the SDXL
+results say nothing of Z-Image's class, so Z-Image Turbo's note names only
+Z-Anime. The server words it, since which checkpoints the card ran is a
+fact the page has no copy of; the Outpaint dialog shows the same note. Before a load, when
 that number is unknown, the box starts at the checkpoint's refine strength
 and says so, and a load that answers replaces it where the box is untouched.
 A request with a mask and no strength - the CLI's `--mask`, the API - starts
@@ -1958,15 +1967,38 @@ again from the strokes the page still holds. A settle sweep finishes a
 mask's `.png.part` only where it decodes to the mask its name says: the
 partial of a lost file being written again sits beside a committed row.
 
-**What this pass leaves.** No `START_RECIPES` entry for an inpaint class, so
-the dialog has no "starts at N% noise" line; no mask outline over the
-source's thumbnail (the facts give the hash's first 16 digits); no
-`inpaint_measured` row or measured strength. FLUX.1, klein, Qwen-Image,
-FLUX.1 Fill [dev] and the masked-area crop are later phases of the plan;
-outpainting is built (below). Memory, time, determinism and what a strength keeps were measured
-2026-10-17 on WAI, Animagine and Z-Anime (`verified.md`, Inpaint): an
-inpaint costs a refine pass of its size, and the library default is the
-right starting strength there.
+**Where an inpaint starts, and its live preview.** `START_RECIPES` holds
+`ZImageInpaintPipeline`'s statements, the same as its image-to-image
+sibling's, so the Inpaint and Outpaint dialogs say "starts at N% noise" on
+Z-Image as Refine does (an outpaint at its padded canvas's size); SDXL's
+schedule is no noise fraction and says none, as for Refine. FLUX.1's and
+Qwen-Image's inpaint classes make the same statements as their
+image-to-image ones and are in the table too, though their families are
+deferred and nothing asks yet; klein's computes its shift with
+`compute_empirical_mu` and has no entry. The live preview was never
+switched off for an inpaint: the step callback hands the inpaint class and
+its latents to `_preview` as a refine's does, and Z-Image's class blends the
+kept region back into the latents before the callback, which carries them
+in the text-to-image layout - so Z-Image keeps its preview through the
+blend (`tests/test_inpaint.py` holds the order to the source). Whether that
+preview looks right is the card's to say, and it has not been looked at.
+
+**Why no `inpaint_measured`.** The plan gave a profile one only where it
+differs from `refine_measured`. It does not on any measured profile: the
+SDXL inpaint rows match their refine rows to a hundredth of a gigabyte (WAI
+and Animagine ran the guard's 8.4 MP top), and Z-Anime's inpaint fills the
+card at 1536x1536, its `refine_measured` size. The Inpaint dialog has no
+tight line of its own either, so a copy of the same number would say
+nothing.
+
+**What this pass leaves.** No mask outline over the source's thumbnail (the
+facts give the hash's first 16 digits). FLUX.1, klein, Qwen-Image, FLUX.1
+Fill [dev] and the masked-area crop are later phases of the plan;
+outpainting is built (below). Memory, time, determinism and what a strength
+keeps were measured 2026-10-17 on WAI, Animagine and Z-Anime (`verified.md`,
+Inpaint): an inpaint costs a refine pass of its size, and the library
+default is the right starting strength there. Z-Image Turbo, the
+undistilled Z-Image and the other SDXL profiles were not measured.
 
 ## Outpainting
 
@@ -2037,8 +2069,23 @@ The first build hid the lightbox's Outpaint… with Inpaint… under 901 px,
 leaving an older gallery image no way to be outpainted there (Inpaint has
 the card's ✎; Outpaint has only the lightbox, a fresh result's ⬚ Outpaint…
 and Reuse of an outpaint); now Inpaint… alone hides and the pair sit at
-their own widths. The frame shows no preview of the server's fill. Measured 2026-10-17 on WAI, Animagine and Z-Anime (`verified.md`,
-Outpaint): the 32 px band joined best of 0/32/64/128.
+their own widths. The frame shows no preview of the server's fill.
+
+**The band's 32 px and the strength, measured.** No author documents
+outpainting, so the first build's 32 px band was this app's own and the
+dialog said nothing measured it. On 2026-10-17 the card ran 0, 32, 64 and
+128 px on WAI v17, Animagine XL 4.0 and Z-Anime, one source and prompt
+each, judged by eye at the original's edge (`verified.md`, Outpaint): 0
+leaves a hard cut, 64 starts a faint double image and 128 a plain one, and
+32 joined best of the four. `outpaint.BAND` stays 32, and the band note,
+the CLI's `--band` help and `docs/usage.md` say what was measured and on
+which checkpoints; not by number, not on Z-Image Turbo or the other SDXL
+profiles, and no width between 0 and 64 but 32. The same runs measured the
+library default as the strength to start an outpaint at, so the Outpaint
+dialog's Strength note is the Inpaint dialog's (`hints.inpaint_strength`,
+above), and what inpaint phase 3 built reaches every outpaint unchanged:
+the "starts at N% noise" line on Z-Image at the canvas's size, and the live
+preview through the blend.
 
 ## CellKey and run_id
 

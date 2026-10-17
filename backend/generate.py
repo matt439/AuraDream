@@ -172,7 +172,8 @@ def _build_parser() -> argparse.ArgumentParser:
         type=int,
         metavar="PX",
         help="with --outpaint: how far into the original the mask's feathered band reaches, a "
-        "multiple of 8 from 0 to 256 (default 32 - this app's starting value, not a measured one)",
+        "multiple of 8 from 0 to 256 (default 32, which joined best of 0/32/64/128 by eye on the card on WAI v17, "
+        "Animagine XL 4.0 and Z-Anime)",
     )
     conditioning.add_argument(
         "--scale",

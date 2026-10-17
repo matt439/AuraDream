@@ -489,6 +489,46 @@ def test_a_cancelled_inpaint_still_hands_the_card_back(inpaintable):
     assert backend._pipe.freed == 1
 
 
+def test_an_inpaint_draws_the_live_preview_off_its_own_class(inpaintable, monkeypatch):
+    # Nothing switches the preview off for an inpaint: the step callback
+    # hands the inpaint class and its latents to `_preview`, as a refine's.
+    from backend import latent_preview
+
+    backend, record, _ = inpaintable
+    monkeypatch.setattr(latent_preview, "INTERVAL_SECONDS", 0)
+    drawn = []
+    monkeypatch.setattr(backend, "_preview", lambda pipe, *args: drawn.append(pipe) or b"jpeg")
+    previews = []
+    backend.generate(
+        GenerateRequest(prompt="x", width=256, height=256, steps=10,
+                        refine=record.id, strength=0.6, mask=MASK),
+        seed=1, on_preview=lambda jpeg, step, total: previews.append((step, total)),
+    )
+    # Six steps run; the last is the finished image, which gets none.
+    assert previews == [(step, 6) for step in range(1, 6)]
+    assert drawn and all(pipe is backend._inpaint_pipe for pipe in drawn)
+
+
+def test_z_images_inpaint_callback_gets_the_blended_latents_unpacked():
+    # What the preview reads: the class blends the kept region back into the
+    # latents before the callback, which carries them as the text-to-image
+    # class's do - (batch, channels, h, w), no packing to undo.
+    import ast
+    import textwrap
+
+    cls = diffusers.ZImageInpaintPipeline
+    call = ast.parse(textwrap.dedent(inspect.getsource(cls.__call__))).body[0]
+    lines = {ast.unparse(node): node.lineno for node in ast.walk(call) if isinstance(node, ast.Assign)}
+    blend = lines["latents = (1 - mask) * init_latents_proper + mask * latents"]
+    (callback,) = [
+        node.lineno for node in ast.walk(call)
+        if isinstance(node, ast.Call) and ast.unparse(node.func) == "callback_on_step_end"
+    ]
+    assert blend < callback
+    assert inspect.signature(cls.__call__).parameters["callback_on_step_end_tensor_inputs"].default == ["latents"]
+    assert not hasattr(cls, "_unpack_latents") and not hasattr(diffusers.ZImagePipeline, "_unpack_latents")
+
+
 def test_a_deferred_family_is_refused_although_its_class_exists(inpaintable, monkeypatch):
     backend, record, _ = inpaintable
     monkeypatch.setattr(

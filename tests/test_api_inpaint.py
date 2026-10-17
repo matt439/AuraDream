@@ -237,6 +237,23 @@ def test_a_strength_sweep_runs_over_one_mask(client, fake, store):
     assert preview["in_gallery"] == 0
 
 
+def test_the_preview_says_where_an_inpaint_starts(client, fake, store, monkeypatch):
+    # The Inpaint dialog's "starts at N% noise", as Refine's: asked with the
+    # inpaint as the pipeline runs it, mask and all, and not for a sweep.
+    record = _source(client)
+    digest = _stored(client, record)
+    asked = []
+    monkeypatch.setattr(fake, "start_sigma", lambda request: asked.append(request) or 0.51)
+    payload = {**_inpaint(record, digest), "seed": 1}
+    assert client.post("/api/grid/preview", json=payload).json()["start_sigma"] == 0.51
+    (request,) = asked
+    assert request.inpainting and request.mask == digest
+    asked.clear()
+    sweep = {**payload, "strength_axis": "0.4,0.6"}
+    assert client.post("/api/grid/preview", json=sweep).json()["start_sigma"] is None
+    assert asked == []
+
+
 def test_the_job_names_its_mask(client, fake, store):
     record = _source(client)
     digest = _stored(client, record)

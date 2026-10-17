@@ -958,3 +958,45 @@ def test_the_strength_sweep_is_the_dialogs_compare_3():
     assert "sigma 0.75" in hints_for("black-forest-labs/FLUX.1-Krea-dev")["refine_large"]
     assert "refine_large" not in hints_for("black-forest-labs/FLUX.1-Krea-dev", refine_supported=False)
     assert "refine_large" not in hints_for("cagliostrolab/animagine-xl-4.0")
+
+
+def test_the_inpaint_strength_note_names_only_what_verified_md_measured():
+    # The Inpaint and Outpaint dialogs' Strength note follows the library's
+    # number with where it was measured as the right start: verified.md's
+    # Inpaint section ran WAI v17, Animagine XL 4.0 and Z-Anime at it, and
+    # nothing else. A checkpoint of a measured family says it was not run.
+    from backend.model_defaults import INPAINT_STRENGTH_MEASURED_ON
+
+    measured = {
+        "LyliaEngine/waiIllustriousSDXL_v170": "WAI v17",
+        "cagliostrolab/animagine-xl-4.0": "Animagine XL 4.0",
+        "SeeSee21/Z-Anime": "Z-Anime",
+    }
+    text = (ROOT / "docs" / "verified.md").read_text(encoding="utf-8")
+    section = text.split("\n## Inpaint\n", 1)[1].split("\n## ", 1)[0]
+    assert f"Measured {INPAINT_STRENGTH_MEASURED_ON}" in section
+    assert "the right starting strength on the three" in " ".join(section.split())
+    rows = [line for line in section.splitlines() if line.startswith("| ")]
+    for label in measured.values():
+        assert any(line.startswith(f"| {label}") for line in rows), label
+    for repo, class_name in CASES:
+        profile = _profile_for(repo)
+        hint = hints_for(repo).get("inpaint_strength")
+        assert "inpaint_strength_measured" not in defaults_for(repo)  # a label, not a default
+        if not profile["inpaint_supported"]:
+            assert hint is None and "inpaint_strength_measured" not in profile, repo
+            continue
+        assert hint.startswith("the library's number"), repo
+        assert profile.get("inpaint_strength_measured") == measured.get(repo), repo
+        if repo in measured:
+            assert f"start at on {measured[repo]}:" in hint and "not on this checkpoint" not in hint
+            continue
+        # Named by the measured checkpoints running the same inpaint class only.
+        family = [label for other, label in measured.items()
+                  if _profile_for(other)["inpaint_family"] == profile["inpaint_family"]]
+        assert family and hint.endswith("not on this checkpoint"), repo
+        assert all(label in hint for label in family), repo
+        assert not any(label in hint for label in set(measured.values()) - set(family)), repo
+    assert "WAI v17 and Animagine XL 4.0, which run the same inpaint class" in hints_for("Minthy/RouWei-0.8")["inpaint_strength"]
+    for repo in ("Tongyi-MAI/Z-Image-Turbo", "Tongyi-MAI/Z-Image"):
+        assert "on Z-Anime, which runs the same inpaint class" in hints_for(repo)["inpaint_strength"]

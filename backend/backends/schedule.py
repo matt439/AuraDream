@@ -10,8 +10,9 @@ Refine preview alike. Assert on `scheduler.sigmas`, never on the list
 computed here.
 
 `start_sigma` is how much noise a refine pass starts at, for the Refine
-dialog's preview: the schedule the image-to-image class would set, on a copy
-of the loaded scheduler, read at the pass's start index.
+dialog's preview (and the Inpaint and Outpaint dialogs'): the schedule the
+image-to-image or inpaint class would set, on a copy of the loaded
+scheduler, read at the pass's start index.
 """
 from __future__ import annotations
 
@@ -177,13 +178,14 @@ def requested_shift(pipe: Any, steps: int, mu: float | None) -> tuple[list[float
 
 
 class StartRecipe(NamedTuple):
-    """What an image-to-image class's `__call__` does to its scheduler before
-    the pass starts, which `start_sigma` repeats on a copy: how it measures
-    the latent sequence its shift is computed from, and the schedule it hands
-    the scheduler when given none. `source` is the call's own statements, as
-    written there - `tests/test_refine_schedules.py` holds each to the installed
-    diffusers - and the callables do the same over (the pipeline's
-    `vae_scale_factor`, height, width) and (the class's own module, steps).
+    """What an image-to-image or inpaint class's `__call__` does to its
+    scheduler before the pass starts, which `start_sigma` repeats on a copy:
+    how it measures the latent sequence its shift is computed from, and the
+    schedule it hands the scheduler when given none. `source` is the call's
+    own statements, as written there - `tests/test_refine_schedules.py` holds
+    each to the installed diffusers - and the callables do the same over (the
+    pipeline's `vae_scale_factor`, height, width) and (the class's own module,
+    steps).
     """
 
     source: tuple[str, ...]
@@ -197,36 +199,45 @@ _PACKED = (
 )
 _LINSPACE = "sigmas = np.linspace(1.0, 1 / num_inference_steps, num_inference_steps) if sigmas is None else sigmas"
 
-# The flow-matching image-to-image classes diffusers ships beside this app's
-# checkpoints. Each one's call takes mu from its module's `calculate_shift`
-# over the sequence length, with the scheduler config's base and max shift
-# (`SHIFT_CALL`), and hands both to its module's `retrieve_timesteps`. A
-# class not listed here has no start sigma: its arithmetic would be a guess.
+# FLUX.1's and Qwen-Image's calls: a packed 2x2 sequence and a linear ramp.
+_PACKED_LINSPACE = StartRecipe(
+    _PACKED,
+    lambda scale, height, width: (int(height) // scale // 2) * (int(width) // scale // 2),
+    _LINSPACE,
+    lambda module, steps: module.np.linspace(1.0, 1 / steps, steps),
+)
+# Z-Image's: the latent size rounded to whole patches, and its own schedule.
+_Z_IMAGE = StartRecipe(
+    (
+        "latent_height = 2 * (int(height) // (self.vae_scale_factor * 2))",
+        "latent_width = 2 * (int(width) // (self.vae_scale_factor * 2))",
+        "image_seq_len = (latent_height // 2) * (latent_width // 2)",
+    ),
+    lambda scale, height, width: (
+        (2 * (int(height) // (scale * 2)) // 2) * (2 * (int(width) // (scale * 2)) // 2)
+    ),
+    "sigmas = get_default_z_image_sigmas(num_inference_steps)",
+    lambda module, steps: module.get_default_z_image_sigmas(steps),
+)
+
+# The flow-matching image-to-image and inpaint classes diffusers ships beside
+# this app's checkpoints. Each one's call takes mu from its module's
+# `calculate_shift` over the sequence length, with the scheduler config's
+# base and max shift (`SHIFT_CALL`), and hands both to its module's
+# `retrieve_timesteps`. A class not listed here has no start sigma: its
+# arithmetic would be a guess. FLUX.2 [klein]'s inpaint class computes its
+# shift with `compute_empirical_mu` instead, so it has none.
 START_RECIPES: dict[str, StartRecipe] = {
-    "FluxImg2ImgPipeline": StartRecipe(
-        _PACKED,
-        lambda scale, height, width: (int(height) // scale // 2) * (int(width) // scale // 2),
-        _LINSPACE,
-        lambda module, steps: module.np.linspace(1.0, 1 / steps, steps),
-    ),
-    "QwenImageImg2ImgPipeline": StartRecipe(
-        _PACKED,
-        lambda scale, height, width: (int(height) // scale // 2) * (int(width) // scale // 2),
-        _LINSPACE,
-        lambda module, steps: module.np.linspace(1.0, 1 / steps, steps),
-    ),
-    "ZImageImg2ImgPipeline": StartRecipe(
-        (
-            "latent_height = 2 * (int(height) // (self.vae_scale_factor * 2))",
-            "latent_width = 2 * (int(width) // (self.vae_scale_factor * 2))",
-            "image_seq_len = (latent_height // 2) * (latent_width // 2)",
-        ),
-        lambda scale, height, width: (
-            (2 * (int(height) // (scale * 2)) // 2) * (2 * (int(width) // (scale * 2)) // 2)
-        ),
-        "sigmas = get_default_z_image_sigmas(num_inference_steps)",
-        lambda module, steps: module.get_default_z_image_sigmas(steps),
-    ),
+    "FluxImg2ImgPipeline": _PACKED_LINSPACE,
+    "QwenImageImg2ImgPipeline": _PACKED_LINSPACE,
+    "ZImageImg2ImgPipeline": _Z_IMAGE,
+    # An inpaint's call makes the same statements as its family's
+    # image-to-image one. Z-Image's is the enabled one; FLUX.1's and
+    # Qwen-Image's families are deferred (`model_defaults.INPAINT_DEFERRED`),
+    # so `start_sigma` is never asked for them until they are enabled.
+    "ZImageInpaintPipeline": _Z_IMAGE,
+    "FluxInpaintPipeline": _PACKED_LINSPACE,
+    "QwenImageInpaintPipeline": _PACKED_LINSPACE,
 }
 
 # The shift each of them computes, as written in its call.
@@ -240,8 +251,9 @@ SHIFT_CALL = (
 
 
 def start_sigma(pipe: Any, sibling: type, request: Any, start: int) -> float | None:
-    """The sigma a refine pass starts at: the share of noise the source is
-    mixed with before the pass denoises it, on a flow-matching schedule.
+    """The sigma a refine pass (or an inpaint) starts at: the share of noise
+    the source is mixed with before the pass denoises it, on a flow-matching
+    schedule.
 
     Read, not modelled: a copy of the loaded scheduler, built from its config
     and given the loaded one's static shift, is handed what `sibling`'s call

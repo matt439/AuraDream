@@ -703,7 +703,7 @@ class OutpaintPresets(BaseModel):
     """`GET /api/images/{id}/outpaint-presets`' answer: the source's size,
     why no outpaint of it can run where it is off the 16-pixel grid, the
     refine guard's limits the canvas is held to, this build's fill, the
-    band's default and bound, the kept rectangle's least side, and every
+    band's default, its note and bound, the kept rectangle's least side, and every
     preset. Model-free: the server
     decides the numbers, the page holds no copy of the arithmetic."""
 
@@ -715,6 +715,9 @@ class OutpaintPresets(BaseModel):
     max_pixels: int
     fill: str
     band: int
+    # What the dialog says of `band` (`outpaint.band_note`): the server's
+    # words, since which checkpoints the card ran is no copy the page holds.
+    band_note: str
     max_band: int
     # The fewest pixels each way the band must leave kept (`outpaint.MIN_KEPT`).
     min_kept: int

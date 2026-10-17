@@ -184,7 +184,7 @@ def create_router(services: AppServices) -> APIRouter:
             id=record.id, width=record.width, height=record.height,
             off_grid=outpaint.source_off_grid(record.width, record.height, name),
             max_side=limits.refine_max_side, max_pixels=limits.refine_max_pixels,
-            fill=outpaint.FILL, band=outpaint.BAND, max_band=outpaint.MAX_BAND, min_kept=outpaint.MIN_KEPT,
+            fill=outpaint.FILL, band=outpaint.BAND, band_note=outpaint.band_note(), max_band=outpaint.MAX_BAND, min_kept=outpaint.MIN_KEPT,
             presets=[OutpaintPreset(**answer) for answer in answers],
         )
 

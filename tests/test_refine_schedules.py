@@ -184,8 +184,10 @@ def test_the_recipes_arithmetic_is_its_source(name):
 def test_the_sibling_scales_the_vae_as_the_loaded_pipeline_does(name):
     # The preview reads `vae_scale_factor` off the loaded text-to-image
     # pipeline rather than building the sibling outside a job: the two
-    # classes' constructors compute it alike.
-    own = getattr(diffusers, next(key for key, value in SIBLINGS.items() if value == name))
+    # classes' constructors compute it alike. An inpaint class's family is
+    # its image-to-image sibling's.
+    family = name.replace("InpaintPipeline", "Img2ImgPipeline")
+    own = getattr(diffusers, next(key for key, value in SIBLINGS.items() if value == family))
 
     def scale(cls):
         return [line for line in _assignments(_function(cls, "__init__"))
@@ -199,6 +201,32 @@ def test_every_flow_refine_checkpoint_has_a_start_recipe(model_id, class_name):
     profile = defaults_for(model_id)
     if profile["refine_supported"] and profile["mu_supported"]:
         assert SIBLINGS[class_name] in schedule.START_RECIPES, model_id
+
+
+@pytest.mark.parametrize("model_id, class_name", CASES)
+def test_every_flow_inpaint_checkpoint_has_a_start_recipe(model_id, class_name):
+    # The Inpaint and Outpaint dialogs' "starts at N% noise" is asked of the
+    # inpaint class's own call; SDXL's is not flow matching, and has none.
+    profile = defaults_for(model_id)
+    if profile["inpaint_supported"] and profile["mu_supported"]:
+        inpaint = refine.sibling(getattr(diffusers, class_name), "Inpaint")
+        assert inpaint.__name__ in schedule.START_RECIPES, model_id
+
+
+def test_an_inpaint_class_starts_where_its_image_to_image_sibling_does():
+    # Z-Image's two calls make the same statements, so one pass at one size
+    # starts at one sigma through either, with and without a requested mu.
+    for steps, strength, mu in ((8, 0.25, None), (40, 0.6, None), (8, 1.0, None), (8, 0.5, 0.5)):
+        sigmas = [
+            _start(FlowMatchEulerDiscreteScheduler.from_config(Z_IMAGE_TURBO), sibling, 1024, steps,
+                   strength, mu, model_id="Tongyi-MAI/Z-Image-Turbo")
+            for sibling in (diffusers.ZImageImg2ImgPipeline, diffusers.ZImageInpaintPipeline)
+        ]
+        assert sigmas[0] == sigmas[1]
+    # The library default 1.0 starts an inpaint at pure noise.
+    full = _start(FlowMatchEulerDiscreteScheduler.from_config(Z_IMAGE_TURBO),
+                  diffusers.ZImageInpaintPipeline, 1024, 8, 1.0, model_id="Tongyi-MAI/Z-Image-Turbo")
+    assert full == pytest.approx(1.0)
 
 
 def _start(scheduler, sibling, size, steps, strength, mu=None, model_id="black-forest-labs/FLUX.1-Krea-dev"):
@@ -295,3 +323,31 @@ def test_the_backend_reads_it_once_loaded_and_never_before(monkeypatch):
     # A scheduler that breaks is no answer, never a refused preview.
     vars(pipe)["scheduler"] = type("FlowMatchBroken", (), {"config": None})()
     assert backend.start_sigma(request) is None
+
+
+def test_the_backend_reads_an_inpaints_start_off_its_own_class(monkeypatch):
+    import dataclasses
+
+    from backend.backends import diffusers_backend as module
+
+    # Z-Anime: an enabled flow family, its inpaint class in the table. The
+    # loaded scheduler's shift 6 starts 0.15 of 40 steps at 0.51, as a refine.
+    monkeypatch.setattr(module, "settings", dataclasses.replace(module.settings, model_id="SeeSee21/Z-Anime"))
+    backend = DiffusersBackend()
+    pipe = diffusers.ZImagePipeline.__new__(diffusers.ZImagePipeline)
+    scheduler = FlowMatchEulerDiscreteScheduler.from_config(Z_IMAGE_TURBO)
+    scheduler.set_shift(6.0)
+    vars(pipe).update(scheduler=scheduler, vae_scale_factor=8)
+    backend._pipe = pipe
+    request = GenerateRequest(prompt="x", width=1024, height=1024, steps=40, refine=1,
+                              strength=0.15, mask="a" * 64)
+    assert request.inpainting
+    assert backend.start_sigma(request) == pytest.approx(6 * 0.15 / (1 + 5 * 0.15), abs=1e-6)
+    assert backend._inpaint_class[1] is diffusers.ZImageInpaintPipeline
+    # SDXL's inpaint class runs an epsilon schedule: no noise fraction.
+    monkeypatch.setattr(module, "settings", dataclasses.replace(module.settings, model_id="cagliostrolab/animagine-xl-4.0"))
+    sdxl = DiffusersBackend()
+    other = diffusers.StableDiffusionXLPipeline.__new__(diffusers.StableDiffusionXLPipeline)
+    vars(other).update(scheduler=EulerDiscreteScheduler(), vae_scale_factor=8)
+    sdxl._pipe = other
+    assert sdxl.start_sigma(request.model_copy(update={"steps": 28, "strength": 0.9999})) is None

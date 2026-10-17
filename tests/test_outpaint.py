@@ -104,6 +104,11 @@ def test_applied_drops_an_outpaint_with_its_source():
 # ---------------------------------------------------------------- the presets
 
 
+def test_the_band_note_names_the_card_only_for_the_width_it_judged():
+    assert outpaint.band_note().startswith(f"{outpaint.BAND} joined best of 0, 32, 64 and 128 on WAI v17")
+    assert outpaint.band_note(48) == "48 is this app's starting value - nothing measured says what width joins best"
+
+
 def _by_name(width, height, **limits):
     return {p["name"]: p for p in outpaint.presets(width, height, **{**LIMITS, **limits}, name="#12")}
 

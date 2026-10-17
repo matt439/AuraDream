@@ -6,13 +6,12 @@ An index of open work, one row per item; each row points to the doc that owns th
 
 **The only ordering in this file.** Keep every `DECISION` row here. Keep this block to the current aim and the next few actions; results go in their owners (`docs/verified.md` for what the card measured, the plan or design notes for what was built).
 
-**Aim (2026-10-17):** inpainting and outpainting were measured on the card on 2026-10-17 (WAI, Animagine, Z-Anime; `docs/verified.md`), so their phase 3 can follow on numbers.
+**Aim (2026-10-17):** inpainting and outpainting were measured on the card on 2026-10-17 (WAI, Animagine, Z-Anime; `docs/verified.md`), and their phase 3 is built on those numbers; what is left is the card's remainder.
 
-1. **`INP#2` then `INP#1`: inpaint and outpaint phase 3.** The measured band and strengths say the app's starting values hold; what is left is wording and the recipes. No card needed.
-2. **`CARD#1`/`CARD#2` remainder:** Z-Image Turbo (a download first) and an SDXL LoRA through an inpaint, when Matt wants them.
+1. **`CARD#1`/`CARD#2` remainder:** Z-Image Turbo (a download first) and an SDXL LoRA through an inpaint, when Matt wants them.
 
-**Decisions waiting on Matt** (none blocks the two above):
-- `INP#7`: the outpainting plan's four open questions were never answered; the build took the recommended answers.
+**Decisions waiting on Matt** (none blocks the one above):
+- `INP#7`: three of the outpainting plan's open questions were never answered (the band start is now measured); the build took the recommended answers.
 - `INP#8`: FLUX.1 Fill [dev] as an inpaint-only checkpoint: wanted, and when?
 - `PA#5`: should tag autocomplete write bare parentheses instead of A1111 escapes?
 - `PA#6`: should a single-space negative survive the page so Qwen-Image's True CFG runs as its guide says?
@@ -26,7 +25,7 @@ An index of open work, one row per item; each row points to the doc that owns th
 
 | id | status | sev | size | item |
 |---|---|---|---|---|
-| `CARD#1` | CARD | LOW | S+card | Inpaint's remainder: Z-Image Turbo (not cached here), a LoRA through an SDXL inpaint at weight 0 (no SDXL adapter at hand), the seam by number against the VAE round trip. Measured 2026-10-17 on WAI, Animagine and Z-Anime. [Inpaint](docs/verified.md#inpaint). |
+| `CARD#1` | CARD | LOW | S+card | Inpaint's remainder: Z-Image Turbo (not cached here), a LoRA through an SDXL inpaint at weight 0 (no SDXL adapter at hand), the seam by number against the VAE round trip, the live preview through Z-Anime's blend. Measured 2026-10-17 on WAI, Animagine and Z-Anime. [Inpaint](docs/verified.md#inpaint). |
 | `CARD#2` | CARD | LOW | S+card | Outpaint's remainder: Z-Image Turbo, the seam by number. Measured 2026-10-17 on WAI, Animagine and Z-Anime. [Outpaint](docs/verified.md#outpaint). |
 | `CARD#3` | CARD | MED | S+card | An inpaint over a Nunchaku Z-Image transformer under WSL: the profile allows it, but the class has never run over it. [Inpainting](docs/design-notes.md#inpainting). |
 | `CARD#4` | CARD | LOW | L+card | INT8, full BF16 and sequential offload per checkpoint; the picker says INT8 is "not yet compared on this card". [Checkpoints](docs/verified.md#checkpoints). |
@@ -45,13 +44,11 @@ An index of open work, one row per item; each row points to the doc that owns th
 
 | id | status | sev | size | item |
 |---|---|---|---|---|
-| `INP#1` | OPEN | MED | M | Inpaint phase 3: `START_RECIPES` for the inpaint classes (the dialog's "starts at N% noise" line), the preview through the blend, `inpaint_measured` rows; the library default measured as the right starting strength (2026-10-17), so its tip and the docs can say so. |
-| `INP#2` | OPEN | MED | S | Outpaint phase 3: 32 px measured best of 0/32/64/128 (2026-10-17); say so where the dialog, CLI help and docs call it unmeasured, plus what `INP#1` changes for every inpaint. |
 | `INP#3` | CARD | MED | M+card | FLUX.1 inpaint (Krea dev, dev, schnell): measure 1 MP against the spill line, add its recipe, then drop `FluxPipeline` from `INPAINT_DEFERRED`; outpaint follows. |
 | `INP#4` | OPEN | LOW | S | The mask as a small outline over the source's thumbnail in the facts list, which shows only the hash's first 16 digits. [Elsewhere on the page](docs/plan-inpainting.md#elsewhere-on-the-page). |
 | `INP#5` | DEFERRED | LOW | M+card | Phase 4, klein: one reference beside the source, its mu recipe, memory with the sequence doubled, `smoke-inpaint-klein`. Matt doesn't run klein. |
 | `INP#6` | DEFERRED | LOW | M+card | Phase 5, Qwen-Image under Nunchaku (WSL), only if the inpaint class runs over the Nunchaku transformer at all. |
-| `INP#7` | DECISION | LOW | S | Outpainting's open questions: a card tool or not, the 32 px band start, what "+25% all round" means, the fill in the frame preview now or later. Built on the recommended answers. [Questions](docs/plan-outpainting.md#open-questions-for-the-user). |
+| `INP#7` | DECISION | LOW | S | Outpainting's open questions: a card tool or not, what "+25% all round" means, the fill in the frame preview now or later. Built on the recommended answers. [Questions](docs/plan-outpainting.md#open-questions-for-the-user). |
 | `INP#8` | DECISION | LOW | L | FLUX.1 Fill [dev] as an inpaint-only checkpoint (separate weights, non-commercial licence, cannot render from a prompt alone): the inpainting plan's question 7, unanswered. [Questions](docs/plan-inpainting.md#open-questions-for-the-user). |
 | `INP#9` | DEFERRED | LOW | M | Phase 6, the masked area only (`padding_mask_crop` at a working size, a recorded `mask_crop`); not on Z-Image, whose class lacks it. Also for large SDXL outpaint canvases. |
 | `INP#10` | DEFERRED | LOW | M | Outpaint, later if wanted: the server's fill shown in the frame (with `INP#7`), an outpaint over a painted mask, a second fill. |

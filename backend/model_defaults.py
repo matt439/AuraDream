@@ -75,7 +75,12 @@ so the Inpaint dialog says "not enabled yet" rather than "no such pipeline"
 names its `inpaint_family`, the text-to-image class whose inpaint sibling it
 runs, so an inpaint asked for without a strength starts where that class's
 own default does before anything is loaded (`inpaint_family`, the function;
-`tests/test_inpaint.py` holds it to the installed class).
+`tests/test_inpaint.py` holds it to the installed class). That default is
+the Strength box's start everywhere; `inpaint_strength_measured` names the
+checkpoint where `docs/verified.md` measured it as the right start (WAI v17,
+Animagine XL 4.0 and Z-Anime), and `hints_for` words the Strength note from
+it (`inpaint_strength`): measured here, or measured on the checkpoints that
+run the same inpaint class and not on this one. A label, not a default.
 
 `mu_supported` says whether the checkpoint uses a flow-matching scheduler whose
 sigmas can be shifted. Modern SDXL exposes a custom `sigmas` argument too, but
@@ -419,6 +424,9 @@ _PROFILES.append(
             "refine_strength": 0.4,
             # Measured: 2896x2896, the pass's own guard, at 10.3 GB of the card.
             "refine_measured": Measured("Animagine XL 4.0", "fp8", 2896, 2896),
+            # Measured: the inpaint class's own default is the right start;
+            # lower strengths kept the masked part's colour.
+            "inpaint_strength_measured": "Animagine XL 4.0",
             "true_cfg_supported": False,
             "guide": guides.ANIMAGINE_GUIDE,
             "hints": {
@@ -598,6 +606,8 @@ _PROFILES += [
             "refine_strength": 0.15,
             # Measured: 1536x1536 at 13.7 GB of the card, 2048x2048 filling it.
             "refine_measured": Measured("Z-Anime", "fp8", 1536, 1536),
+            # Measured: the inpaint class's own default is the right start.
+            "inpaint_strength_measured": "Z-Anime",
             "true_cfg_supported": False,
             "guide": guides.Z_ANIME_GUIDE,
             "hints": {
@@ -851,6 +861,8 @@ _EXACT_PROFILES: dict[str, dict[str, Any]] = {
         # Measured: 2560x3360 at 11.4 GB of the card - past the pass's own
         # 8.4 MP guard, so nothing the dialog offers runs tight.
         "refine_measured": Measured("WAI v17", "fp8", 2560, 3360),
+        # Measured: the inpaint class's own default is the right start.
+        "inpaint_strength_measured": "WAI v17",
         "true_cfg_supported": False,
         "guide": guides.WAI_GUIDE,
         "hints": {
@@ -1040,8 +1052,26 @@ def _profile_for(model_id: str) -> dict[str, Any]:
 
 
 # The prose, and the measured refine pass, whose pixels reach the defaults as
-# `refine_tight_pixels` and whose words the hints as `refine_tight`.
-_NOT_DEFAULTS = ("hints", "guide", "refine_measured", "inpaint_family")
+# `refine_tight_pixels` and whose words the hints as `refine_tight`; the
+# measured inpaint strength's label reaches them as `inpaint_strength`.
+_NOT_DEFAULTS = (
+    "hints", "guide", "refine_measured", "inpaint_family", "inpaint_strength_measured",
+)
+
+# When docs/verified.md's Inpaint section measured the inpaint class's own
+# default as the right starting strength, on the profiles that name it.
+INPAINT_STRENGTH_MEASURED_ON = "2026-10-17"
+
+
+def _inpaint_strength_runs(family: str | None) -> list[str]:
+    """The checkpoints whose inpaint strength was measured, of those running
+    `family`'s inpaint class, in table order (the exact ids first)."""
+    names: list[str] = []
+    for profile in [*_EXACT_PROFILES.values(), *(p for _, p in _PROFILES)]:
+        name = profile.get("inpaint_strength_measured")
+        if name and profile.get("inpaint_family") == family and name not in names:
+            names.append(name)
+    return names
 
 # The checkpoints whose pipeline is this repo's own class - both Anima variants'
 # modular blocks and NewBie's - beside which diffusers exports no
@@ -1267,6 +1297,22 @@ _LORA_HINTS = {
 }
 
 
+def _inpaint_strength_hint(profile: dict[str, Any]) -> str:
+    own = profile.get("inpaint_strength_measured")
+    when = f"measured on the card ({INPAINT_STRENGTH_MEASURED_ON}) as the right strength to start at"
+    if own:
+        return f"the library's number, {when} on {own}: lower ones left some of what was under the mask"
+    runs = _inpaint_strength_runs(profile.get("inpaint_family"))
+    if not runs:
+        return "the library's number, not one measured on the card for this checkpoint"
+    names = runs[0] if len(runs) == 1 else f"{', '.join(runs[:-1])} and {runs[-1]}"
+    verb = "runs" if len(runs) == 1 else "run"
+    return (
+        f"the library's number, {when} on {names}, which {verb} the same inpaint class, "
+        "not on this checkpoint"
+    )
+
+
 def hints_for(
     model_id: str,
     cfg_threshold: float | None = None,
@@ -1332,6 +1378,11 @@ def hints_for(
         )
     if not refines:
         hints.pop("refine_large", None)
+    # The Inpaint and Outpaint dialogs' Strength note, after the library's
+    # number: where that number was measured as the right start - here, or
+    # only on the checkpoints running the same inpaint class.
+    if profile["inpaint_supported"]:
+        hints["inpaint_strength"] = _inpaint_strength_hint(profile)
     # No profile guess to fall back on: whether an adapter can be loaded is a
     # fact about this installation, which only the backend knows.
     if lora_supported is not None:

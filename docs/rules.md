@@ -141,8 +141,8 @@ before changing it.
   `requested_shift`, which says which of the two a pipeline takes, for
   `generate()` and the Refine preview alike; and `start_sigma`, where a
   refine pass starts, read off a copy of the loaded scheduler, with
-  `START_RECIPES` (each flow image-to-image class's sequence-length and
-  default-schedule statements) and `SHIFT_CALL`, held to the installed
+  `START_RECIPES` (each flow image-to-image and inpaint class's
+  sequence-length and default-schedule statements) and `SHIFT_CALL`, held to the installed
   diffusers source by `tests/test_refine_schedules.py`
 - `backend/grid.py` — axis specs (`6-12x2`), prompt variables and prompt
   variants, and the cell expansion, shared; `cell_from_record` /
@@ -225,8 +225,10 @@ before changing it.
   and `GET /api/masks/{hash}` (through `storage.mask_path`); and an
   outpaint's presets, `GET /api/images/{id}/outpaint-presets`
   (`outpaint.presets` under the refine guard's limits, with `off_grid`,
-  the fill, the band's default and bound and `min_kept`; a binned source a
-  404 that says it is in the recycle bin); model-free
+  the fill, the band's default, its note (`outpaint.band_note`, naming the
+  card only while the default is the width it judged) and bound and
+  `min_kept`; a binned source a 404 that says it is in the recycle bin);
+  model-free
 - `backend/generate.py` — headless CLI; drives the backend directly, no server
 - `backend/clear.py` — deletes rows, their PNGs and any orphans, the recycle
   bin's with the rest; `--bin` empties the bin alone
@@ -987,7 +989,8 @@ Reproduction:
   checkpoint". FLUX.1's `hints.refine_large` is shown
   under Strength past it (`applyHints` clears it where a status has none).
   The preview reports where a pass of one strength starts
-  (`GridPreview.start_sigma`, the dialog's "starts at N% noise"), read by
+  (`GridPreview.start_sigma`, the dialog's "starts at N% noise", and the
+  Inpaint and Outpaint dialogs' alike), read by
   `backend.start_sigma` and never computed by the page.
   `schedule.start_sigma` builds a copy of the loaded scheduler from its
   config, with the loaded one's static shift, and hands it what the
@@ -998,10 +1001,13 @@ Reproduction:
   `retrieve_timesteps`, and reads `sigmas[refine.start_index * order]`. The
   loaded scheduler is never touched. `START_RECIPES` copies
   `FluxImg2ImgPipeline`'s, `QwenImageImg2ImgPipeline`'s and
-  `ZImageImg2ImgPipeline`'s statements; `tests/test_refine_schedules.py`
-  holds them, `SHIFT_CALL`, the default schedule and the sibling's VAE scale
-  to the installed source, and every flow refine profile must have a
-  recipe. The reading is None before a load, for a scheduler that is not
+  `ZImageImg2ImgPipeline`'s statements, and the inpaint classes' beside
+  them (`ZImageInpaintPipeline`, and `FluxInpaintPipeline` and
+  `QwenImageInpaintPipeline` for families still deferred, which nothing
+  asks; klein's inpaint class uses `compute_empirical_mu` and has none);
+  `tests/test_refine_schedules.py` holds them, `SHIFT_CALL`, the default
+  schedule and the sibling's VAE scale to the installed source, and every
+  flow refine profile and every flow inpaint profile must have a recipe. The reading is None before a load, for a scheduler that is not
   `FlowMatch*`, a class not in the table, an unprofiled start index, a
   sweep, or a reading that raises (it is advice, and a preview it broke
   would refuse the pass). An open dialog's preview is asked again when the
@@ -1165,9 +1171,16 @@ Reproduction:
   box starts at `defaults.inpaint_strength`, the loaded class's own
   signature default (`refine.library_strength`, read with `inspect`, None
   unless supported) and said as the library's number, since no catalogue
-  author gives one; there is no `inpaint_strength` profile key until one is
-  measured. A request with a mask and no strength (`--mask`, the API)
-  starts at the same default before any load
+  author gives one; there is no `inpaint_strength` profile key. Where the
+  card measured that default as the right start (WAI v17, Animagine XL 4.0,
+  Z-Anime: `verified.md`, Inpaint) the profile names itself in
+  `inpaint_strength_measured` (in `_NOT_DEFAULTS`: a label), and
+  `hints.inpaint_strength` - every enabled profile's, words from
+  `hints_for`, never the page's - says it was measured there, or on the
+  checkpoints running the same inpaint class and not on this one;
+  `tests/test_profiles.py` holds the labels to that section. A request
+  with a mask and no strength (`--mask`, the API) starts at the same
+  default before any load
   (`schemas_generate.default_inpaint_strength`, through each enabled
   profile's `inpaint_family`, the text-to-image class it runs). An inpaint
   runs at its source's size (`refine.inpaint_source` refuses another; the
@@ -1180,9 +1193,14 @@ Reproduction:
   (`refine.composite`, the library's `VaeImageProcessor.apply_overlay`), so
   every unmasked pixel is the source's; it is no setting, and the chunk's
   `mask_blend: "overlay"` records the rule. The `content_hash` is the
-  composite's. `start_sigma` is None for an inpaint (no `START_RECIPES`
-  entry for an inpaint class yet), and `start_index`/`steps_run` take
-  `inpaint=True`, keyed on `inpaint_supported`.
+  composite's. `start_sigma` for an inpaint (or an outpaint, at its
+  canvas's size) asks the inpaint class's own `START_RECIPES` entry, so
+  Z-Image answers and SDXL's epsilon schedule does not; `start_index`/
+  `steps_run` take `inpaint=True`, keyed on `inpaint_supported`. The live
+  preview runs for an inpaint as for a refine, drawn from the inpaint
+  class's callback latents (Z-Image's are the blended latents, unpacked).
+  No profile has an `inpaint_measured` row: none measured differs from its
+  `refine_measured`, and the dialog has no tight line.
 - Under Nunchaku (WSL) a seed does not reproduce bit-for-bit - Z-Image
   within noise, ERNIE visibly - so a duplicate count or a re-render's hash is
   the fp8 path's guarantee only; `docs/verified.md` has the numbers.
@@ -2743,7 +2761,8 @@ Frontend and CLI:
   `strength` at the source's size; a strength list or range is `/api/grid`
   with `strength_axis` over the one mask, opened as a sheet. Strength
   starts at `defaults.inpaint_strength`, said as the installed diffusers'
-  default; before a load, the checkpoint's refine strength, said as a
+  default followed by `hints.inpaint_strength` (where it was measured as
+  the right start); before a load, the checkpoint's refine strength, said as a
   stand-in, and replaced by the library's when a load answers and the box
   is untouched (`takeLibraryStrength`). The canvas's bitmap is the source's
   pixel size over the source's `<img>`; the mask shows as a tint and an
@@ -4574,9 +4593,13 @@ it and the composite the painted mask; `inpaint_family` and the strength an
 inpaint without one starts at; the `applied()` rules and the hash pattern
 refusing paths; one call per image, cancel, the size refusal, a deferred
 family refused with its class installed, the loaded answer, unload; the
-status fields and the fake), `tests/test_refine_schedules.py` (`start_index`
-and `steps_run` with `inpaint=True` against each enabled class's
-`get_timesteps`, None for the deferred), `tests/test_inpaint_storage.py`
+status fields and the fake; the live preview drawn off the inpaint class,
+and Z-Image's class blending before its callback), `tests/test_refine_schedules.py`
+(`start_index` and `steps_run` with `inpaint=True` against each enabled
+class's `get_timesteps`, None for the deferred; every flow inpaint profile's
+class in `START_RECIPES`, Z-Image's inpaint class starting where its
+image-to-image one does, the backend asking the inpaint class and SDXL's
+answering none), `tests/test_inpaint_storage.py`
 (the hash over size and levels, `mask_path`'s two refusals, `_migrate` and
 the `masks` table on a replaced file, the mask partial finished, one cut
 short or of other pixels discarded, an upload into a directory a clear
@@ -4584,7 +4607,8 @@ removed meanwhile, the chunk
 keys and the embed, an image saved though its mask cannot be embedded,
 `index_file`, `completed_cells`, the cost split), `tests/test_api_inpaint.py`
 (the upload's refusals and its hash, `GET`, the submit refusals, a strength
-grid over one mask, a mask gone between cells, cancel mid-inpaint, the
+grid over one mask, the preview's `start_sigma` asked with the inpaint and
+not for a sweep, a mask gone between cells, cancel mid-inpaint, the
 duplicate count with two masks, More seeds and Swap tags over the same mask
 and naming a missing one by its image, Mass refine dropping it, Re-render
 naming a missing mask and an inpaint at another size, the snapshot naming
@@ -4621,7 +4645,8 @@ record; the stamp before the job, a worded 503, a lost mask file healed and
 one gone mid-run; every submit refusal, the one-sided band among them; the
 refine budget, a binned source, a checkpoint without the class, an off-grid
 source; the presets route, `min_kept` and a binned source's 404; a strength
-sweep resumed by its spec; Re-render carrying the outpaint, refusing another
+sweep resumed by its spec; the preview's `start_sigma` asked at the
+canvas's size; Re-render carrying the outpaint, refusing another
 size, checking each fill apart under one mask, refusing a row whose spec
 does not build its mask (with Swap tags' and More seeds' `outpaint` status)
 and answering a row no request could make with a worded 422; Swap tags and
@@ -5944,7 +5969,10 @@ node tools/browser.mjs tools/smoke-png-settings.json
 fresh `--data`: the card's ✎ live and last before Delete; opened from the
 lightbox's Inpaint…, the lightbox closed, focus on the canvas named "Mask
 over #N" with a bitmap of the source's size; Strength at the inpaint class's
-own default, said as the library's number; Inpaint held with "Paint the part
+own default, said as the library's number and as measured on Animagine XL
+4.0 (`hints.inpaint_strength`); a stubbed `start_sigma` adding "starts at
+51% noise" to the preview, the SDXL fake's none adding nothing; Inpaint
+held with "Paint the part
 of #N to repaint first" and a press saying it; a brush drag, the eraser (E),
 [ and ], a plain wheel scrolling and Alt+wheel sizing, the feather giving
 another hash and 0 the same one again (`created: false`), Invert (I), Ctrl+Z,
@@ -5976,7 +6004,10 @@ the deferred wording, Reuse of an outpaint opening the dialog held, and
 `openOutpaint` refusing. `smoke-outpaint.json` checks the Outpaint dialog on
 an Animagine fake on 7907 with a fresh `--data`: the lightbox's row of three
 not wrapping or cutting a word; opened from it with Strength at the class's
-default; Outpaint held with "Extend at least one side" and a press saying
+default and the note naming Animagine XL 4.0 as measured, the band at 32
+and its note saying 32 joined best of 0, 32, 64 and 128; a stubbed
+`start_sigma` adding "starts at 60% noise" to the preview, and the SDXL
+fake's none adding nothing; Outpaint held with "Extend at least one side" and a press saying
 it; a typed 50 committed as 48 on Enter with "left 50 → 48, a multiple of
 16"; the server's presets over 1024 x 1024 (+128 all round, +400/+0/+400/+0,
 +0/+256/+0/+256), the To shape… list, held presets on the 16:9 preset image

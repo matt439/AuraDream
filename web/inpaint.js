@@ -177,7 +177,8 @@ function inpaintFromCard(rec, div) {
 // the installed diffusers at the load (`defaults.inpaint_strength`) - the
 // library's number, since no checkpoint's authors give one for inpainting -
 // and before a load, while that is unknown, the checkpoint's refine strength,
-// which the note says.
+// which the note says. Where that number was measured as the right start is
+// the server's to say (`hints.inpaint_strength`), Outpaint's note too.
 function inpaintLibraryStrength() {
   return typeof lastDefaults?.inpaint_strength === 'number' ? lastDefaults.inpaint_strength : null;
 }
@@ -188,9 +189,10 @@ function inpaintStartStrength() {
 
 function inpaintStrengthNote() {
   const library = inpaintLibraryStrength();
+  const measured = typeof lastHints?.inpaint_strength === 'string' ? lastHints.inpaint_strength
+    : `the library's number, not one measured for ${checkpointName(loadedModel)}`;
   return library !== null
-    ? `${library} is the installed diffusers' default for this inpaint pipeline - the library's number, `
-      + `not one measured for ${checkpointName(loadedModel)}.`
+    ? `${library} is the installed diffusers' default for this inpaint pipeline - ${measured}.`
     : `The inpaint pipeline's own default is read when the model loads; until then Strength starts at `
       + `${refineDefaultStrength()}, this checkpoint's refine strength.`;
 }
@@ -743,9 +745,14 @@ async function previewInpaint() {
     const single = !sweep && strengths.length === 1 ? strengths[0] : null;
     const keeps = single === null ? '' : single >= 1 ? ' · keeps nothing of the masked part'
       : single >= 0.9 ? ' · keeps almost nothing of the masked part' : '';
+    // Where the pass starts, read off the loaded schedule as Refine's is
+    // (`start_sigma`): Z-Image's inpaint class answers; SDXL's schedule has
+    // no noise fraction, and nothing answers before a load.
+    const noise = single !== null && typeof p.start_sigma === 'number'
+      ? ` · starts at ${Math.round(p.start_sigma * 100)}% noise` : '';
     els.inpaintPreview.classList.toggle('warn', !!p.duplicates);
     els.inpaintPreview.textContent = plural(p.images, 'image')
-      + ` · strength ${axisText(strengths)}${run}${keeps}`
+      + ` · strength ${axisText(strengths)}${noise}${run}${keeps}`
       + (p.seconds ? ` · about ${humanTime(p.seconds)}` : '')
       + (p.duplicates ? ` · ${p.duplicates} would be identical to another` : '')
       + (sweep ? '\nOpens as a sheet when it is done.' : '');
