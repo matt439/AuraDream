@@ -9378,7 +9378,8 @@ Illustrious's `sfw`, `nsfw` and `r-18`, which its release post accepts (only
 with none attached, an edit of "this" picture - `EDIT_PROMPT` - gets the
 app's own note, `heuristic.no_reference`, since it renders from the words
 alone, a plain text-to-image that looks like a success);
-and `\(`/`\)` escapes, which the app's own autocomplete writes (below).
+and `\(`/`\)` escapes, which the authors' own examples and pasted A1111
+prompts carry, though the autocomplete writes parentheses bare (below).
 FLUX.1's "English is the most precise language" was on this list until the
 2026-09-28 review took it out of the prose: BFL's current basics page says
 other languages work "with the same level of quality", and while unchecked it
@@ -10637,20 +10638,25 @@ finding's have a Show. The comparison's always-run Original box carries the
 
 **Open questions the build turned up**, for decisions rather than code:
 
-- The tag autocomplete writes Danbooru names with A1111 escapes -
-  `tags.display_tag` turns `(` into `\(` - to match the authors' own examples
-  (Animagine's has them). Diffusers never unescapes, so CLIP reads
-  `firefly \ ( honkai : star rail \ )`, ten tokens where the name is eight.
-  The analyser does not flag what the app itself writes. Decided
-  2026-10-17, to build: the autocomplete writes bare parentheses
-  (`hatsune miku (vocaloid)`). The reason is the 77-token window: a
-  qualified tag costs two CLIP tokens fewer bare (NoobAI's example goes
-  from 76 tokens to 70), diffusers never unescapes, and everything in the
-  app already treats `\(` and `(` as the same tag. Not measured on the card
-  is whether the image changes, and the Animagine and NoobAI cards
-  themselves put escapes in their Diffusers code, so neither form is known
-  to be closer to what the models were trained on. The guides' examples
-  stay verbatim, and prompts already typed are untouched.
+- Resolved 2026-10-17: the tag autocomplete wrote Danbooru names with A1111
+  escapes - `tags.display_tag` turned `(` into `\(` - to match the authors'
+  own examples (Animagine's has them). Diffusers never unescapes, so CLIP
+  reads `firefly \ ( honkai : star rail \ )`, ten tokens where the name is
+  eight. Matt decided 2026-10-17, and it was built the same day: the
+  autocomplete writes bare parentheses (`hatsune miku (vocaloid)`), and so
+  does validation's `canonical` (`display_tag` only swaps `_` for a space);
+  a chip whose typed tag differs from it only by escapes gets no
+  "canonical:" note. Escapes stay unflagged (`prompt_weighting`), since the
+  examples and pasted A1111 prompts carry them, and the critic still keeps a
+  tag's spelling as typed (`critic_validation._keep_tag_escapes`). The
+  reason is the 77-token window: a qualified tag costs two CLIP tokens fewer
+  bare (NoobAI's example goes from 76 tokens to 70), diffusers never
+  unescapes, and everything in the app already treats `\(` and `(` as the
+  same tag. Not measured on the card is whether the image changes, and the
+  Animagine and NoobAI cards themselves put escapes in their Diffusers code,
+  so neither form is known to be closer to what the models were trained on.
+  The guides' examples stay verbatim, and prompts already typed are
+  untouched.
 - Resolved 2026-09-28: schnell's guide said its T5 stops at 256 tokens,
   "about 180 words" - BFL's reference
   (`load_t5(..., max_length=256 if name == "flux-schnell" else 512)` in

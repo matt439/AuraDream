@@ -28,15 +28,20 @@ class TagLookupUnavailable(RuntimeError):
 
 
 def normalize_tag(tag: str) -> str:
-    """Turn the model-card's spaced, escaped form into a Danbooru name."""
+    """Turn a prompt's spaced form, its parentheses escaped or not (the
+    model cards' examples escape them), into a Danbooru name."""
     text = tag.strip().lower().replace(r"\(", "(").replace(r"\)", ")")
     text = re.sub(r"\s+", "_", text)
     return re.sub(r"_+", "_", text).strip("_")
 
 
 def display_tag(name: str) -> str:
-    """Danbooru name to the spaced form checkpoint prompts use."""
-    return name.replace("_", " ").replace("(", r"\(").replace(")", r"\)")
+    """Danbooru name to the spaced form autocomplete writes, its parentheses
+    bare: `hatsune miku (vocaloid)`, never A1111's `\\(`. Diffusers never
+    unescapes, so each backslash is a CLIP token of its own - two for every
+    qualified tag, in a 77-token window - and every reader here takes the
+    two spellings as one tag. Whether the image differs is not measured."""
+    return name.replace("_", " ")
 
 
 def is_model_tag(tag: str, special_tags: set[str], allow_year_tag: bool = True) -> bool:

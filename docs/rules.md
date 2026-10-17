@@ -1732,7 +1732,8 @@ Prompt analyser:
   `encoders_detail` says what went unchecked, each encoder under its own
   reason. Never from `/api/status`; `prompt_encoding.unload()` runs on
   Unload and shutdown. `\(`/`\)` escapes are not flagged
-  (`prompt_weighting`).
+  (`prompt_weighting`): the authors' examples and pasted A1111 prompts carry
+  them, though the autocomplete writes parentheses bare.
 - Tag categories for the order and artist checks come from the chips' own
   lookup (`tag_lookup.lookup_tags`), only on a Danbooru-vocabulary guide or one whose
   rules read artists (Anima, `wants_artist_categories`, no cutoff), and only
@@ -2407,8 +2408,13 @@ Frontend and CLI:
   knowledge cutoff. WAI v17 publishes none: keep its cutoff `None` and the
   live lookup advisory rather than inventing a date. Model-card
   special tags validate locally; lookup failure stays advisory and never
-  blocks. The page selects the first suggestion only from three typed
-  characters it starts with (Tab otherwise moves on). Every suggestion list
+  blocks. Suggestions and validation's `canonical` write parentheses bare
+  (`tags.display_tag`: `hatsune miku (vocaloid)`), never A1111's `\(`, which
+  diffusers never unescapes: two CLIP tokens for every qualified tag. A typed
+  escape is the same tag to the chips (no "canonical:" note for escapes
+  alone), the order rule and Swap tags, and is never rewritten. The page
+  selects the first suggestion only from three typed characters it starts
+  with (Tab otherwise moves on). Every suggestion list
   (the prompt box's, a chip editor's, the Refine dialog's) is a listbox
   named "Tag suggestions"; its options have ids, and the box's
   `aria-activedescendant` names the selected one and is dropped when none
@@ -4909,6 +4915,9 @@ axis quoting the Mu tip beside the live LoRA weight axis, and the grid
 examples 21,28,35 / 4,5,6.
 `smoke-tags.json` uses an Animagine-claiming fake on 7878 for the chips'
 verdict cache, typing state and live summary, an accepted suggestion's undo,
+a qualified suggestion written with bare parentheses (an escaped copy typed
+by hand valid with no "canonical:" note, an underscored one noted and
+marked repeated),
 category edges, repeats and the focus ring on one, the shared tip and the
 after-cutoff mark, + tag, gap hover (waited for, as a late tray render
 redraws it) and click (none on the label or hint),

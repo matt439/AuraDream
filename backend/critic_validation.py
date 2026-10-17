@@ -658,8 +658,9 @@ _TAG_ESCAPES_KEPT = (
 def _keep_tag_escapes(rewrite: str, prompt: str) -> str:
     """Keep the original spelling of retained tags, ignoring only parenthesis escapes.
 
-    Autocomplete supplies these escapes and the authors' examples use them.
-    Removing them alone is not a useful rewrite. They do change the encoded
+    The authors' examples and pasted A1111 prompts carry these escapes, and
+    autocomplete writes the bare form; either is kept as typed. Removing
+    them alone is not a useful rewrite. They do change the encoded
     text, so retain the original rather than calling the two spellings equal.
     Match whole comma items exactly otherwise; never alter lettering, or
     choose a spelling when the prompt has differently escaped copies.

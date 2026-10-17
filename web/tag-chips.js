@@ -157,7 +157,9 @@ function renderTagValidation(results, state = 'checked', detail = '') {
       notes.push(result.source === 'model'
         ? 'Checkpoint guide tag'
         : `Danbooru ${result.category} tag · ${humanCount(result.post_count)} posts`
-          + (result.canonical !== result.tag ? ` · canonical: ${result.canonical}` : ''));
+          // The index answers parentheses bare, as autocomplete writes them;
+          // an escaped copy is the same tag, so no note for that alone.
+          + (result.canonical !== result.tag.replace(/\\([()])/g, '$1') ? ` · canonical: ${result.canonical}` : ''));
     } else if (result.code === 'grid_variable') {
       // The grid's `{name}`, which no tag is spelled as: no verdict, and the
       // tip says what fills it - the open fold's values, each with the

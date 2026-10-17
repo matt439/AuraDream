@@ -3,9 +3,10 @@
 Weighting syntax (`(x:1.2)`, `((x))`, `BREAK`, `<lora:...>`) is reported by
 the prompt analyser too: no pipeline in diffusers parses it, so it is a fact
 about what reaches the encoder, not a style question. `\\(` and `\\)` escapes
-are not flagged: the tag autocomplete writes them to match the authors' own
-examples. Regex only - no tokenizer; `prompt_encoding.measure` calls
-`findings` under a guard of its own.
+are not flagged, though the tag autocomplete writes parentheses bare: the
+authors' own examples carry escapes, and so do pasted A1111 prompts. Regex
+only - no tokenizer; `prompt_encoding.measure` calls `findings` under a
+guard of its own.
 """
 from __future__ import annotations
 

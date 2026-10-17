@@ -112,7 +112,8 @@ def test_validation_handles_model_tags_characters_unknowns_and_cutoff():
     assert by_tag[r"firefly \(honkai: star rail\)"] == {
         "tag": r"firefly \(honkai: star rail\)",
         "valid": True,
-        "canonical": r"firefly \(honkai: star rail\)",
+        # Bare, as autocomplete writes it: the typed escapes are the same tag.
+        "canonical": "firefly (honkai: star rail)",
         "source": "danbooru",
         "category": "character",
         "post_count": 16_000,
@@ -226,6 +227,20 @@ def test_unavailable_lookup_is_not_reported_as_invalid():
 def test_tag_names_round_trip_between_danbooru_and_animagine_forms():
     canonical = "firefly_(honkai:_star_rail)"
     assert normalize_tag(display_tag(canonical)) == canonical
+    # The authors' escaped spelling reads as the same name.
+    assert normalize_tag(r"firefly \(honkai: star rail\)") == canonical
+
+
+def test_autocomplete_writes_parentheses_bare():
+    # Two CLIP tokens fewer than A1111's escapes, which diffusers never
+    # unescapes (the 2026-10-17 decision, design notes' prompt analyser).
+    assert display_tag("hatsune_miku_(vocaloid)") == "hatsune miku (vocaloid)"
+    vocabulary = DanbooruTagVocabulary(
+        lambda path, params: [
+            {"name": "hatsune_miku_(vocaloid)", "category": 4, "post_count": 10, "created_at": "2020-01-01"}
+        ]
+    )
+    assert vocabulary.suggest("hatsune", None)[0]["text"] == "hatsune miku (vocaloid)"
 
 
 def test_the_real_fetcher_wraps_network_failures(monkeypatch):

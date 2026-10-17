@@ -8,7 +8,7 @@ An index of open work, one row per item; each row points to the doc that owns th
 
 **Aim (2026-10-17):** inpainting and outpainting were measured on the card on 2026-10-17 (WAI, Animagine, Z-Anime; `docs/verified.md`), and their phase 3 is built on those numbers; what is left is the card's remainder. Matt decided the open questions on 2026-10-17, and the prompt analyser's three are to build first.
 
-1. **`PA#5`, `PA#6`, `PA#7`:** build the 2026-10-17 decisions (the design notes' prompt analyser, "Open questions the build turned up").
+1. **`PA#6`, `PA#7`:** build the 2026-10-17 decisions (the design notes' prompt analyser, "Open questions the build turned up").
 2. **`CARD#1`/`CARD#2` remainder:** Z-Image Turbo (a download first) and an SDXL LoRA through an inpaint, when Matt wants them.
 
 **Decisions waiting on Matt:** none (the last five were decided 2026-10-17).
@@ -83,7 +83,6 @@ An index of open work, one row per item; each row points to the doc that owns th
 | `PA#2` | OPEN | LOW | S | F11's residue: "too long a full description" and "the recommended length of the full description" still read as a part; brief, lengthen/extend, "at N words" and "N-word minimum" need test rows that kill their mutants. |
 | `PA#3` | OPEN | LOW | M | F2's residue: irregular participles after a noun trigger ("set", "lit up", "woven into it") stay text to render; the negation stop warns on "we are not open" and cuts "no shoes no shirt no service". |
 | `PA#4` | OPEN | LOW | S | F28's residue: an absence span ends inside St. Ives, Rio de Janeiro or Dr. Smith, and "Elm Dr. No cars." is silent. At least name the cost in the design notes. |
-| `PA#5` | OPEN | LOW | S | Tag autocomplete writes bare parentheses (`hatsune miku (vocaloid)`), not A1111 escapes; examples and typed prompts untouched. |
 | `PA#6` | OPEN | MED | S | `collect()` sends a whitespace-only negative as `" "` where a True CFG box is live (Qwen-Image, FLUX.1), so the single space runs True CFG; empty stays null. |
 | `PA#7` | OPEN | LOW | M | Anima: the card's tag order checked (sentences exempt by a per-guide switch), a Tags menu, and Turbo's "Start with masterpiece, best quality, score_7, safe" button. |
 | `PA#8` | CARD | LOW | S+card | Whether NewBie reads `<name>` as it reads the authors' `<n>`; the XML rule accepts both. |
