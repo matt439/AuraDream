@@ -21,6 +21,7 @@
 <link rel="stylesheet" href="/static/styles/refine-batch.css">
 <link rel="stylesheet" href="/static/styles/more-seeds.css">
 <link rel="stylesheet" href="/static/styles/bin.css">
+<link rel="stylesheet" href="/static/styles/context-menu.css">
 </head>
 <body>
 <header class="topbar">
@@ -1597,6 +1598,11 @@
   </section>
 </dialog>
 
+<!-- The right-click menu on an image (context-menu.js): filled as it opens,
+     moved into the lightbox while that is up, since a modal dialog leaves
+     the page under it inert. -->
+<ul class="menu context-menu" id="context-menu" role="menu" tabindex="-1" hidden></ul>
+
 <script src="/static/state.js"></script>
 <script src="/static/sizes.js"></script>
 <script src="/static/status.js"></script>
@@ -1642,6 +1648,7 @@
 <script src="/static/refine-batch.js"></script>
 <script src="/static/more-seeds.js"></script>
 <script src="/static/bin.js"></script>
+<script src="/static/context-menu.js"></script>
 <script src="/static/app.js"></script>
 </body>
 </html>

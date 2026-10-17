@@ -303,6 +303,21 @@ galleryHead.addEventListener('pointerleave', () => pointHead(false));
 els.library.addEventListener('pointerover', () => { libraryPointer = true; });
 els.library.addEventListener('pointerleave', libraryPointerLeft);
 initBundles();
+// The right-click menu on an image (context-menu.js): the right button or
+// the Menu key opens it, and a press elsewhere, a scroll or the window
+// going closes it. Capture, so the lightbox's stage never sees the press
+// that only closed the menu over it.
+document.addEventListener('contextmenu', contextMenuEvent);
+document.addEventListener('keydown', contextMenuKey, true);
+document.addEventListener('pointerdown', contextMenuPointerDown, true);
+document.addEventListener('scroll', contextMenuAway, true);
+window.addEventListener('resize', () => closeContextMenu(false));
+window.addEventListener('blur', () => closeContextMenu(false));
+els.contextMenu.addEventListener('keydown', contextMenuKeydown);
+els.contextMenu.addEventListener('click', (e) => chooseContextItem(e.target.closest('[role="menuitem"]')));
+els.contextMenu.addEventListener('focusout', (e) => {
+  if (!els.contextMenu.contains(e.relatedTarget) && e.relatedTarget) closeContextMenu(false);
+});
 // The Picked menu between Clear and Select (gallery-select.js): its keyboard
 // is a menu's, and leaving it closes it.
 els.pickedBtn.onclick = pickedPress;

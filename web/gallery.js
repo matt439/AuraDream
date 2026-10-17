@@ -460,15 +460,7 @@ function card(rec) {
     reuseButton(rec, true),
     refine,
     reference,
-    tool('⊞', 'Show this run as a sheet', () => {
-      if (!rec.run_id && !rec.job_id) {
-        showError('That image predates runs being grouped, so it belongs to no run.', true, { slot: els.galleryError });
-        return;
-      }
-      // The run id spans every job that worked on the grid - a night that died
-      // and was resumed is one run - where the job id names only one of them.
-      showSheetScope(rec.run_id ? `run:${rec.run_id}` : `job:${rec.job_id}`);
-    }, 'Sheet'),
+    tool('⊞', 'Show this run as a sheet', () => showRecordRun(rec), 'Sheet'),
     // Last before Delete, so the tools before it keep their places.
     inpaint,
     del,
@@ -480,6 +472,20 @@ function card(rec) {
   // Picked, or in select mode, as the selection says (gallery-select.js).
   syncCardSelected(div);
   return div;
+}
+
+// The card's ⊞, and the right-click menu's Show run as sheet wherever the
+// image is (context-menu.js): the lightbox closes for the sheet, as the
+// facts' ⊞ Show this run closes it.
+function showRecordRun(rec) {
+  if (!rec.run_id && !rec.job_id) {
+    showError('That image predates runs being grouped, so it belongs to no run.', true, { slot: els.galleryError });
+    return;
+  }
+  if (els.lightbox.open) closeLightbox();
+  // The run id spans every job that worked on the grid - a night that died
+  // and was resumed is one run - where the job id names only one of them.
+  showSheetScope(rec.run_id ? `run:${rec.run_id}` : `job:${rec.job_id}`);
 }
 
 // `tip` is the short name the row shows on hover and keyboard focus
@@ -645,6 +651,13 @@ function refuseInCard(div, message, short) {
 // from the card. A status for what is said nowhere else; `quiet` (hidden from
 // screen readers) where the gallery's line says it already.
 function cardNote(div, text, { quiet = false } = {}) {
+  // The right-click menu over the lightbox (context-menu.js) passes its
+  // stage: the note goes in the lightbox's line, and a refusal's gist not at
+  // all - showError mirrored the sentence there already.
+  if (div === els.lbStage) {
+    if (!quiet) showError(text, true, { slot: els.lbError, mirror: false });
+    return;
+  }
   div.querySelector(':scope > .card-note')?.remove();
   const note = document.createElement('div');
   note.className = `card-note${quiet ? ' refused' : ''}`;

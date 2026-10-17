@@ -431,6 +431,7 @@ queued per run, and the new images join it: the batch's hover, the
 | Gallery | Tab enters the cards; arrows/Home/End navigate, Enter opens, F stars; in select mode Space picks, Shift+Space picks a range, Esc clears |
 | Lightbox | Left/Right browse, F stars, S compares a pass with its source or another image with its CFG neighbour, Delete moves the image to the recycle bin (in the bin: asks to delete it permanently), Esc closes |
 | Lightbox zoom | Wheel or +/− zoom, drag pans, 0 fits, 1 or double-click shows actual pixels |
+| Right-click an image | A menu of its actions: Star, Reuse settings, Use seed, Refine…, Inpaint…, Outpaint…, reference, Show run as sheet, Copy prompt / seed / image, Open PNG in new tab, Move to recycle bin. On a picked card in select mode: the picks' actions. The Menu key or Shift+F10 opens it from the keyboard; Shift+right-click gives the browser's own menu |
 | Contact sheet | F stars the focused cell |
 | Prompt/tag chips | Tab/Enter accepts a suggestion after three matching characters; Alt+Left/Right reorders chips, Delete removes, Enter edits |
 | Prompt replacements | Ctrl+Z restores text after Apply, Reuse (or a loaded PNG), Expand, Examples or a chip edit |

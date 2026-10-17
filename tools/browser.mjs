@@ -21,6 +21,8 @@
 //   {"hover": [x, y]}            move the mouse there (tooltips, hover states)
 //   {"click": [x, y]}            click a point; {"dblclick": [x, y]} double-clicks;
 //                                {"drag": [x1, y1, x2, y2]} drags
+//   {"rightclick": [x, y]}       a right-button press there (the page's contextmenu);
+//                                a selector as for click; "shift": true holds Shift
 //   {"hover": "selector"}, {"click": "selector"}   the same at the middle of that
 //                                element's box as it is at that moment, wherever the
 //                                layout has put it
@@ -280,6 +282,13 @@ for (const [n, step] of steps.entries()) {
   } else if (step.click) {
     const [x, y] = await point(step.click);
     await mouse('mouseMoved', x, y); await mouse('mousePressed', x, y); await mouse('mouseReleased', x, y);
+    await sleep(150);
+  } else if (step.rightclick) {
+    const [x, y] = await point(step.rightclick);
+    const modifiers = step.shift ? 8 : 0;
+    await mouse('mouseMoved', x, y);
+    await mouse('mousePressed', x, y, { button: 'right', buttons: 2, modifiers });
+    await mouse('mouseReleased', x, y, { button: 'right', modifiers });
     await sleep(150);
   } else if (step.dblclick) {
     const [x, y] = step.dblclick;

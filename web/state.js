@@ -97,6 +97,7 @@ const els = {
   sheetBtn: $('btn-sheet'), rerender: $('btn-rerender'), deleteUnstarred: $('btn-delete-unstarred'),
   select: $('btn-select'), selectClear: $('btn-select-clear'), selectCount: $('select-count'),
   picked: $('picked'), pickedBtn: $('btn-picked'), pickedMenu: $('picked-menu'),
+  contextMenu: $('context-menu'),
   swap: $('btn-swap'), swapDialog: $('swap-dialog'), swapScope: $('swap-scope'), swapRows: $('swap-rows'),
   swapAdd: $('swap-add'), swapNegative: $('swap-negative-label'), swapCount: $('swap-count'),
   swapResults: $('swap-results'), swapError: $('swap-error'), swapCancel: $('swap-cancel'), swapQueue: $('swap-queue'),

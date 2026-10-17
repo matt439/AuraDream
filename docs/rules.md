@@ -265,7 +265,8 @@ before changing it.
   included) and background-operation polling;
   `gallery-select.js` the picked cards and the Picked menu, `tag-swap.js` Swap tags,
   `refine-batch.js` Mass refine, `more-seeds.js` More seeds and `bin.js` the
-  recycle bin's view, undo note and Empty. The stylesheet is
+  recycle bin's view, undo note and Empty; `context-menu.js` the right-click
+  menu on an image (`styles/context-menu.css`). The stylesheet is
   `style.css` (tokens and base layout), followed by `styles/*.css` in the
   explicit link order (`model-picker.css` first, at its old place in
   `style.css`); preserve that cascade. `docs/source-audit.md` records the
@@ -4322,6 +4323,32 @@ Frontend and CLI:
   writes under `storage._write_lock`, so a second bin answers `already`, and
   `gallery_delete.delete_image` does the same, so a second permanent delete is
   "unknown image".
+- The right-click menu on an image (`context-menu.js`,
+  `styles/context-menu.css`; `smoke-context-menu.json`): a live gallery
+  card, a viewer result's tile and the lightbox's stage open it; the
+  recycle bin's cards, tombstones and everything else keep the browser's
+  menu, as do Shift with the right button and every text field. The Menu
+  key or Shift+F10 opens it on the image focus is in (in the lightbox, from
+  any control but a field), on its first item. Its items press the image's
+  own buttons (`buttonItem`): the hold and the title are the button's as
+  they are now, and a held item, chosen, says why as the button does - never
+  a copy of a button's logic. Where the place has no such button (Outpaint…
+  and ❐ on a card or a result, ❐ in the lightbox) the item is held by that
+  button's sync function on a scratch button (`syncedItem`) and runs the
+  same function. Beyond the buttons: Use seed, Show run as sheet
+  (`showRecordRun`, the card's ⊞), Copy prompt, Copy seed, Copy image (the
+  full PNG through `ClipboardItem`, the fetch handed over as a promise) and
+  Open PNG in new tab; the copy items are held where the page is no secure
+  context. A picked card in select mode gets the picks' items instead (the
+  Picked menu's three, Swap tags…, Refine…, More seeds…). One `ul.menu`,
+  moved into the lightbox while that is up (a modal dialog leaves the page
+  inert), fixed at the pointer and turned up or left at the window's edge.
+  A press outside, a scroll, a resize or the window going closes it; a
+  left press on the lightbox's stage that only closed it is the menu's
+  (stopped in capture), so the lightbox stays open. Escape and Tab close it
+  with focus back where it was, and its keys go no further. `cardNote` and
+  `refuseInCard` take the lightbox's stage: the note goes in the lightbox's
+  line.
 - The recycle bin's view (`bin.js`, `styles/bin.css`; `smoke-bin.json`).
   `#btn-bin` ("Bin" and a `.count`, `aria-pressed`) sits in the footer row
   between More seeds… and Bundles…; its title, from
@@ -5977,6 +6004,27 @@ key code, so a focused select moves as on a real press:
 ```powershell
 uv run python tools/fake_server.py --port 7907 --model cagliostrolab/animagine-xl-4.0 --data <new-scratch-directory>
 node tools/browser.mjs tools/smoke-outpaint.json
+```
+
+`smoke-context-menu.json` checks the right-click menu on a FLUX.1 Krea
+[dev] fake on 7908 with a fresh `--data`: a card's menu at the pointer, its
+items and groups, Refine live and Inpaint/Outpaint held with the card
+button's title, F beside Star; ArrowDown and Escape with focus back on the
+image; Star starring the card; Use seed; the copy items and Open PNG (the
+clipboard and `window.open` stubbed); a held Inpaint saying why; Shift and
+the prompt box keeping the browser's menu; the Menu key on a focused card
+opening on its first item; a picked card's picks menu starring both picks
+and an unpicked card's own menu; a press outside closing it; a result
+tile's menu; and in the lightbox the menu inside the dialog, no Open, Del
+beside the bin, a press on the stage closing the menu and not the lightbox,
+Escape closing the menu only, Use seed saying so in the lightbox's line,
+and Show run as sheet closing the lightbox for the sheet. `browser.mjs`'s
+`{"rightclick": ...}` presses the right button (`"shift": true` holds
+Shift):
+
+```powershell
+uv run python tools/fake_server.py --port 7908 --model black-forest-labs/FLUX.1-Krea-dev --data <new-scratch-directory>
+node tools/browser.mjs tools/smoke-context-menu.json
 ```
 
 `smoke-analysis.json` checks the prompt check on a FLUX.1 Krea [dev] fake on

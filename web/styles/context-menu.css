@@ -1,0 +1,28 @@
+/* The right-click menu on an image (context-menu.js): the Examples and
+   Picked menus' look (.menu, fields.css), fixed at the pointer rather than
+   under a button, as wide as its words, and as tall as the window allows -
+   a single image's menu is some fifteen rows. Over the lightbox too, which
+   it is moved into while that is up. */
+.context-menu {
+  position: fixed; z-index: 70;
+  width: max-content; min-width: 200px; max-width: min(360px, calc(100vw - 8px));
+  max-height: calc(100vh - 8px);
+}
+.context-menu:focus { outline: none; }
+.context-menu li[role="menuitem"] {
+  display: flex; align-items: baseline; justify-content: space-between; gap: var(--sp-4);
+  padding-block: 5px;
+}
+/* Held as the button it presses is: there, muted, its reason the title, and
+   chosen it says why as the button would. */
+.context-menu li[aria-disabled="true"] { color: var(--muted); }
+.context-menu kbd {
+  font: inherit; font-size: var(--fs-label); color: var(--muted);
+}
+.context-menu li[role="separator"] {
+  height: 1px; margin: var(--sp-1) 4px; padding: 0; background: var(--line); cursor: default;
+}
+.context-menu li.heading {
+  padding: 4px 8px 2px; cursor: default; color: var(--muted); font-size: var(--fs-label);
+}
+.context-menu li.heading:hover { background: none; }
