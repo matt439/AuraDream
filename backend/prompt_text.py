@@ -352,9 +352,22 @@ _NEGATION = re.compile(
     r"(?:[ \t]+[^\s,.;:!?()\[\]\"“”]+){1,3}",
     re.IGNORECASE,
 )
-# Capitalised words running on from where a negated phrase's window ends:
-# "without ropes on El Capitan" is not cut at "El".
-_CAPITAL_RUN = re.compile(r"(?:[ \t]+[A-ZÀ-ÖØ-Þ][^\s,.;:!?()\[\]\"“”]*)+")
+# A name running on from where a negated phrase's window ends, a step at a
+# time: a capitalised word ("without ropes on El Capitan" is not cut at
+# "El"), one after a lowercase particle ("Rio de Janeiro", "Ludwig van
+# Beethoven"), or one after the full stop of an abbreviation that opens a
+# name (`_NAME_ABBREVIATION`: "St. Ives", "Dr. Smith").
+_NAME_WORD = r"[A-ZÀ-ÖØ-Þ][^\s,.;:!?()\[\]\"“”]*"
+_NAME_STEP = re.compile(
+    r"[ \t]+(?:(?:de|da|do|dos|das|del|della|di|du|la|le|van|von|der|den)[ \t]+)?" + _NAME_WORD
+)
+_ABBREVIATION_STEP = re.compile(r"\.[ \t]*(" + _NAME_WORD + ")")
+# St. as well as the titles `_MID_CLAUSE` keeps, since in a name it is
+# Saint. Only where it opens the name - after the head or a lowercase word
+# ("Avoid Dr. Smith", "no boats in St. Ives") - since after a capitalised
+# word it is a street, which ends a sentence as often ("no cars on Elm Dr.
+# Lovely day").
+_NAME_ABBREVIATION = re.compile(r"(?<![\w'’-])(?:Dr|Mr|Mrs|Ms|Mt|Prof|St)$")
 # Where a head sits inside a clause rather than opening one: right after a
 # word ("trying to avoid the rain", "the film No") or an abbreviation that
 # goes before a name, spaced or not ("Dr. No", "Dr.No"). Not one that comes
@@ -420,9 +433,28 @@ def _absence(text: str, match: re.Match[str]) -> tuple[int, int, str] | None:
         return None
     start, end = match.start(), match.start() + words[-1].end()
     if _capitalised(words[-1].group()):
-        run = _CAPITAL_RUN.match(text, end)
-        end = run.end() if run else end
+        end = _name_end(text, start, end)
     return start, end, lowered
+
+
+def _name_end(text: str, head: int, end: int) -> int:
+    """Where a name that ends the window of a negated phrase starting at
+    `head` runs on to, from `end` (`_NAME_STEP`, `_NAME_ABBREVIATION`)."""
+    while True:
+        step = _NAME_STEP.match(text, end)
+        if step is None:
+            abbreviation = _NAME_ABBREVIATION.search(text, max(head, end - 4), end)
+            if abbreviation is None:
+                return end
+            before = _WORD_BEFORE.search(text, head, abbreviation.start())
+            if before and before.start(1) != head and _capitalised(before.group(1)):
+                return end
+            step = _ABBREVIATION_STEP.match(text, end)
+            # Nor into a word opening an absence of its own: "no boats in
+            # St. No cars." is two, where "Avoid Dr. No" is the film.
+            if step is None or _absence_at(text, step.start(1)):
+                return end
+        end = step.end()
 
 
 def _absence_at(text: str, position: int) -> bool:

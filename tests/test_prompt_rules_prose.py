@@ -78,6 +78,9 @@ def test_negation_warns_where_no_negative_prompt_runs():
         (KREA_DEV, "The film Dr.No playing on a TV"),
         (KREA_DEV, "A poster for No Country for Old Men on a wall"),
         (KREA_DEV, "A No Smoking sign on a wall"),
+        # The price of "Dr. No": "Dr." for a street reads as the title too,
+        # so the absence after it is silent.
+        (KREA_DEV, "A house on Elm Dr. No cars."),
     ],
 )
 def test_negation_leaves_quotes_idioms_and_other_guides_alone(model_id, prompt):
@@ -125,6 +128,23 @@ def test_negation_leaves_quotes_idioms_and_other_guides_alone(model_id, prompt):
         ("No Country for Old Men poster on a wall", ["No Country for Old Men"]),
         # A name is not cut at the window's end.
         ("A climber without ropes on El Capitan at dawn", ["without ropes on El Capitan"]),
+        # Nor at a lowercase particle between two of its capitalised words,
+        # nor at the full stop of an abbreviation that opens it, spaced or not.
+        ("A beach without tourists in Rio de Janeiro at dusk", ["without tourists in Rio de Janeiro"]),
+        ("A portrait, no posters of Ludwig van Beethoven", ["no posters of Ludwig van Beethoven"]),
+        ("A harbour at noon, no boats in St. Ives today", ["no boats in St. Ives"]),
+        ("A waiting room. Avoid Dr. Smith in the frame.", ["Avoid Dr. Smith"]),
+        ("A waiting room. Avoid Dr.Smith in the frame.", ["Avoid Dr.Smith"]),
+        ("A lake, no crowds near Mt. Fuji", ["no crowds near Mt. Fuji"]),
+        # After a capitalised word the abbreviation is a street, whose full
+        # stop ends a sentence as often: the span stops there.
+        ("A road with no cars on Elm Dr. Lovely day.", ["no cars on Elm Dr"]),
+        ("A road with no cars on Main St. Lovely day.", ["no cars on Main St"]),
+        ("A harbour, no people in St. Ives. Sunny.", ["no people in St. Ives"]),
+        # Nor into a word that opens an absence of its own; the film's "No"
+        # after a title is none.
+        ("A harbour, no boats in St. No cars.", ["no boats in St", "No cars"]),
+        ("A waiting room. Avoid Dr. No in the frame.", ["Avoid Dr. No"]),
     ],
 )
 def test_negation_near_misses_are_still_negations(prompt, phrases):

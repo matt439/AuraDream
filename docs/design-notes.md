@@ -9061,7 +9061,22 @@ name only mid-clause ("a poster for No Country for Old Men", "a No Smoking
 sign"). The accepted cost is a title that opens a clause: "No Country for Old
 Men poster on a wall" warns as an absence, its span taking in the whole name.
 And a negated phrase is no longer cut inside a run of capitalised words
-("without ropes on El Capitan", not "... on El").
+("without ropes on El Capitan", not "... on El"). Since 2026-10-17 (`PA#4`)
+the run also crosses a lowercase particle between two capitals ("Rio de
+Janeiro", "Ludwig van Beethoven") and the full stop of an abbreviation that
+opens a name: the titles above, and St. for Saint ("no boats in St. Ives",
+"Avoid Dr. Smith", not "... in St" or "Avoid Dr"). Only where it opens the
+name, after the head or a lowercase word: after a capitalised word it is a
+street, whose full stop ends a sentence as often, so "no cars on Elm Dr.
+Lovely day" stops at "Elm Dr". Nor does it cross into a word that opens an
+absence of its own: "no boats in St. No cars." is two, "no boats in St" and
+"No cars", where "Avoid Dr. No" is the film whole. The clause test does not draw that line. It
+keeps "Dr." a title after a capitalised word too, since a sentence's first
+word is one ("A Dr. No poster on the wall", "Watching Dr. No"), and a
+street and a title read alike there ("Elm Dr. No cars." against "a James
+Bond Dr. No poster"). The price of keeping "Dr. No" silent is the absence
+after a street's "Dr.": "a house on Elm Dr. No cars." is silent, where
+"Main St. No cars." warns (St. opens a clause, as above).
 
 English lettering can also continue through a word normally read as a
 location or through punctuation. A capitalized stop word in `MADE IN JAPAN`

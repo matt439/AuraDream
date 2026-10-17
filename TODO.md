@@ -79,7 +79,6 @@ An index of open work, one row per item; each row points to the doc that owns th
 | id | status | sev | size | item |
 |---|---|---|---|---|
 | `PA#3` | OPEN | LOW | M | F2's residue: irregular participles after a noun trigger ("set", "lit up", "woven into it") stay text to render; the negation stop warns on "we are not open" and cuts "no shoes no shirt no service". |
-| `PA#4` | OPEN | LOW | S | F28's residue: an absence span ends inside St. Ives, Rio de Janeiro or Dr. Smith, and "Elm Dr. No cars." is silent. At least name the cost in the design notes. |
 | `PA#8` | CARD | LOW | S+card | Whether NewBie reads `<name>` as it reads the authors' `<n>`; the XML rule accepts both. |
 | `PA#9` | DEFERRED | LOW | L | Scoring comparison images automatically with a VLM (does each element appear); accuracy unmeasured. |
 
@@ -113,7 +112,7 @@ Each review's leftovers are rows above; a review returns here only with a new fi
 | review | where it closed |
 |---|---|
 | 2026-08-29, 2026-09-07 | Every lead re-checked in 2026-09-07's findings; its checklist is all ticked. |
-| 2026-09-28 | Its checklist; the residues are `PA#3` and `PA#4`. F47, the CLI's literal `{word}` and the other entries under "Accepted, and worded as trade-offs" are decided, not open. |
+| 2026-09-28 | Its checklist; the residue is `PA#3`. F47, the CLI's literal `{word}` and the other entries under "Accepted, and worded as trade-offs" are decided, not open. |
 | 2026-10-03 | All confirmed findings and P1 fixed 2026-10-04. |
 | 2026-10-04 UI | All done but U61 B (`GEN#8`); U5, U12, U79, U100 and U108 were left by decision. |
 | 2026-10-05 areas | 84 fixed, A68 partly by decision; the integration review's K1-K5 fixed. |

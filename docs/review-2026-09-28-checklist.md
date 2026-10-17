@@ -317,11 +317,17 @@ Open after the last fix round, and not in the docs as stated here:
   are not open", "gone but not forgotten" and "say no to war" warn as
   absences, and "no shoes no shirt no service" is cut to "no shoes no shirt"
   with a warning on "no service".
-- **F28's residue.** A span still ends inside a name broken by a dot or a
-  lowercase particle ("no boats in St" for St. Ives, "without tourists in
-  Rio" for Rio de Janeiro, "Avoid Dr" for Dr. Smith), and "Dr." for a street
-  still reads as a title, so "a house on Elm Dr. No cars." is silent - the
-  price of keeping "Dr. No" silent, which the notes do not name.
+- **F28's residue** - built 2026-10-17 (`PA#4`). A span ended inside a name
+  broken by a dot or a lowercase particle ("no boats in St" for St. Ives,
+  "without tourists in Rio" for Rio de Janeiro, "Avoid Dr" for Dr. Smith),
+  and "Dr." for a street read as a title, so "a house on Elm Dr. No cars."
+  was silent - the price of keeping "Dr. No" silent, which the notes did not
+  name. The name run now crosses a particle between capitals and the full
+  stop of an abbreviation that opens a name (`_name_end`), not a street's
+  after a capitalised word ("no cars on Elm Dr. Lovely day" stops at "Elm
+  Dr") nor into a word opening an absence of its own ("no boats in St. No
+  cars." is two); "Elm Dr. No cars." stays silent, as the price the design
+  notes now name, pinned in `test_prompt_rules_prose.py`.
 - **F11's residue** - built 2026-10-17 (`PA#2`). A word for the whole read
   as a part in "too long a full description" and "the recommended length of
   the full description", branches the last round left alone, though the
