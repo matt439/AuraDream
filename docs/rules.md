@@ -263,8 +263,7 @@ before changing it.
   `model-shots.js` the picker's strip of the chosen checkpoint's images;
   `bundles.js` owns the gallery bundle dialog (Back up and its scope
   included) and background-operation polling;
-  `gallery-select.js` the picked cards and the Picked menu, `gallery-batch.js` a card's batch
-  on hover, `tag-swap.js` Swap tags,
+  `gallery-select.js` the picked cards and the Picked menu, `tag-swap.js` Swap tags,
   `refine-batch.js` Mass refine, `more-seeds.js` More seeds and `bin.js` the
   recycle bin's view, undo note and Empty. The stylesheet is
   `style.css` (tokens and base layout), followed by `styles/*.css` in the
@@ -3634,22 +3633,6 @@ Frontend and CLI:
   card pages in. Anything that appends or prepends cards makes them with
   `card()` and calls `keepCurrentCard()` (or `prependFinished`'s tab-stop
   rule) afterwards.
-- A card's batch (`gallery-batch.js`) is presentation over records the
-  server already made: the images of the same `run_id` (`job_id` for a
-  record with none, `peekRun`) that agree with the card on everything but
-  the seed (`sameExcept(r, rec, ['seed'])`), so a Batch x Repeat, a resumed
-  grid's cell and the More seeds that extended it (which join its run) are
-  one set and a grid's other cells are not - the set More seeds takes as one
-  batch. The mouse only
-  (`pointerType`), after `PEEK_DELAY`; one `run:=<id>` (else `job:=<id>`)
-  gallery page per run,
-  in the record's checkpoint scope, kept `PEEK_FRESH_MS`, and a failure falls
-  back to what the page holds. The panel (`#batch-peek`) is `position: fixed`,
-  `pointer-events: none` and `aria-hidden` (the cards it repeats are the
-  page's own), placed under or over the card, never across it, and taken
-  down by any scroll, a press, or cards added or removed moving the hovered
-  one (a `childList` observer on `#gallery`); the gallery's own cards of the set get `.batch-mate`,
-  an outline, so nothing moves. A card alone in its run shows nothing.
 - The gallery's selection (`gallery-select.js`) is the one set of picked
   images that actions on several images read (Swap tags, Mass refine, More
   seeds):
@@ -5722,20 +5705,6 @@ card the same node and the paged-in tail kept, no reset:
 ```powershell
 uv run python tools/fake_server.py --port 7885
 node tools/browser.mjs tools/smoke-gallery.json
-```
-
-`smoke-batch-peek.json` checks a card's batch on hover on a default fake on
-7892 with a fresh `--data`: a Batch 3 x Repeat 2 drawn as one set of six
-with the hovered one marked and the other five cards outlined; the panel
-off its card, taking no press, `aria-hidden`, and no card moving; a steps
-grid's cell at Batch 2 a set of two; a single image showing nothing; a press,
-a card prepended ahead of the hovered one, and the pointer leaving each
-taking it down (a batch More seeds extended, one set across its jobs, is
-`smoke-more-seeds.json`'s):
-
-```powershell
-uv run python tools/fake_server.py --port 7892 --data <new-scratch-directory>
-node tools/browser.mjs tools/smoke-batch-peek.json
 ```
 
 `smoke-select.json` checks the gallery selection on a default fake on 7898

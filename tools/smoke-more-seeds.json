@@ -72,16 +72,11 @@
   {"expect": "__until(() => !busy && total === 12, 30000)"},
   {"expect": "els.finishNote.textContent.startsWith('Finished 3 images in ') && els.finishNote.textContent.includes(', seeds 8–10. Job 2 of 2 of these more seeds, at 256×384.')"},
 
-  {"log": "'the new images joined the runs they extend: the four\\'s hover is one set of seven, seeds 100–106'"},
+  {"log": "'the new images joined the runs they extend: the four\\'s run is seven, seeds 100–106'"},
   {"eval": "clearSelection(); els.select.click(); window.__t = document.querySelector(`#gallery .card[data-id=\"${__four[0].id}\"]`); __t.classList.add('__t-four'); __t.scrollIntoView({block: 'center'});"},
   {"expect": "__until(() => galleryRecords.filter((r) => r.run_id === __four[0].run_id).length === 7)"},
   {"log": "'each image records the call that made it: 3 more at Batch 2 is a call of two and a call of one'"},
   {"expect": "galleryRecords.filter((r) => r.run_id === __four[0].run_id).sort((a, b) => a.seed - b.seed).map((r) => `${r.seed}:${r.batch}`).join() === '100:2,101:2,102:2,103:2,104:2,105:2,106:1'"},
-  {"wait": 300},
-  {"hover": ".__t-four > img"},
-  {"expect": "__until(() => document.getElementById('batch-peek') && !document.getElementById('batch-peek').hidden)"},
-  {"expect": "document.getElementById('batch-peek').textContent === `#${__four[0].id} · 1 of 7 in its batch · seeds 100–106`"},
-  {"hover": [5, 5]},
 
   {"log": "'asked again for the same batch from an image it did not have before, it carries on past the seven, still at Batch 2; the fox, deleted while listed, is said as deleted'"},
   {"eval": "scrollTo(0, 0); els.select.click(); const extra = galleryRecords.find((r) => r.run_id === __four[0].run_id && r.seed === 105); document.querySelector(`#gallery .card[data-id=\"${extra.id}\"] > img`).click(); document.querySelector(`#gallery .card[data-id=\"${__fox.id}\"] > img`).click();"},

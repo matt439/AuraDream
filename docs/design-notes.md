@@ -5036,7 +5036,7 @@ had, or skipped four. `POST /api/more-seeds` is the sixth producer of
 cells: N more images of each selected batch, its seeds following on, every
 other setting the batch's own.
 
-**A batch, not an image.** The unit is what a card's hover shows: one run's
+**A batch, not an image.** The unit is one run's
 images that agree on everything but the seed. Picking one image of a
 Batch 4 takes all four, and picking two of them asks for one set more, not
 two - the user picks "a grouping", and the grouping is the batch whichever

@@ -344,28 +344,6 @@
    gallery's first rows read as the run above them rather than a second copy. */
 .card.this-run:not(.gone) { border-color: var(--accent-2); box-shadow: 0 0 0 1px var(--accent-2); }
 
-/* A card's batch while the mouse rests on it (gallery-batch.js): a panel of
-   its pictures beside the card, fixed over the page and never taking a press
-   (the pointer's next card is under it), and the gallery's own cards of the
-   set outlined. An outline, not a border: nothing moves. */
-.batch-peek {
-  position: fixed; z-index: 40; pointer-events: none;
-  width: max-content; max-width: min(560px, calc(100vw - 16px));
-  display: flex; flex-direction: column; gap: var(--sp-2);
-  padding: var(--sp-2); background: var(--panel-2);
-  border: 1px solid var(--line-strong); border-radius: var(--r-md); box-shadow: var(--shadow-pop);
-}
-.batch-peek[hidden] { display: none; }
-.batch-peek-head { font-size: var(--fs-sm); color: var(--text-readout); }
-.batch-peek-list { display: flex; flex-wrap: wrap; align-items: center; gap: var(--sp-1); }
-.batch-peek-list img {
-  display: block; height: 72px; max-width: 128px; object-fit: contain;
-  background: var(--panel); border: 1px solid var(--line); border-radius: var(--r-xs);
-}
-.batch-peek-list img.current { border-color: var(--accent); box-shadow: 0 0 0 1px var(--accent); }
-.batch-peek-more { font-size: var(--fs-sm); color: var(--muted); padding-inline: var(--sp-1); }
-.card.batch-mate:not(.gone) { outline: 2px dashed var(--accent); outline-offset: 2px; }
-
 /* The selection (gallery-select.js). In select mode every card shows an empty
    ring at its top centre - clear of the pass or reference badge at the left
    and the star at the right - and a picked card a filled check and a ring of

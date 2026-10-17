@@ -319,7 +319,6 @@ node tools/browser.mjs tools/<smoke>.json
 | 7889 | FLUX.1-Krea-dev, `--step 0.3` | `smoke-narrow` |
 | 7890 | Minthy/RouWei-0.8 | `smoke-rouwei` |
 | 7891 | Laxhar/noobai-XL-Vpred-1.0 | `smoke-noobai` |
-| 7892 | default, fresh scratch `--data` | `smoke-batch-peek` |
 | 7895 | circlestone-labs/Anima@aesthetic-v1.1 | `smoke-anima-aesthetic` |
 | 7896 | FLUX.1-Krea-dev, fresh scratch `--data` | `smoke-model-switch`, `smoke-model-startup`, `smoke-model-hover` |
 | 7896 | FLUX.1-Krea-dev, its own fresh scratch `--data` (run separately) | `smoke-model-gallery` |
