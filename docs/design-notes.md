@@ -5974,7 +5974,9 @@ which also gets an accent ring round the card over a star's or this run's.
 The image is a toggle in the mode (`aria-pressed`, "Select #N: …"); out of
 it, a picked card's group is named "#N (selected)", since `aria-pressed` on
 a press that opens the lightbox would lie. The grid has `user-select: none`
-in the mode, so Shift+click picks a range rather than the page's text.
+in the mode, so Shift+click picks a range rather than the page's text; out
+of it, where Ctrl+click and Shift+click pick too, the card image's
+Shift mousedown is cancelled for the same reason.
 
 ## LOCAL_DIFFUSION_DEVICE reaches the offload hooks
 

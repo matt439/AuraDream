@@ -3661,6 +3661,8 @@ Frontend and CLI:
   Shift+Space adds every loaded card from the anchor (the last card toggled;
   a pick refused at the cap and a range leave it) to this one in DOM order, Enter still opens the lightbox, F and the tools
   are unchanged. Out of select mode a press opens the lightbox as before,
+  except a Ctrl click (toggles) and a Shift or Ctrl+Shift click (the range),
+  whose image's mousedown is kept from dragging a text selection;
   and a selection already made stays marked and counted. Escape on a card,
   Select or Clear (`selectKey`, on `#library`) empties the selection, then
   leaves select mode, and is otherwise left to the page. Clear hands its
@@ -4339,7 +4341,7 @@ Frontend and CLI:
   (`showRecordRun`, the card's ⊞), Copy prompt, Copy seed, Copy image (the
   full PNG through `ClipboardItem`, the fetch handed over as a promise) and
   Open PNG in new tab; the copy items are held where the page is no secure
-  context. A picked card in select mode gets the picks' items instead (the
+  context. A picked card, in select mode or out of it, gets the picks' items instead (the
   Picked menu's three, Swap tags…, Refine…, More seeds…). One `ul.menu`,
   moved into the lightbox while that is up (a modal dialog leaves the page
   inert), fixed at the pointer and turned up or left at the window's edge.

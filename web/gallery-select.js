@@ -165,9 +165,12 @@ function syncCardSelected(div) {
 // A card image's press (thumb's `open`, from card()): the lightbox, as
 // always, out of select mode - and in it on Enter, so the keyboard can still
 // look before picking. In select mode a click or Space picks or unpicks it,
-// and with Shift picks every loaded card from the last one picked to it.
+// and with Shift picks every loaded card from the last one picked to it. Out
+// of it, a Ctrl click picks as a click in it does, and a Shift or Ctrl+Shift
+// click picks the range, as a file list's do - no trip to Select first.
 function cardPress(div, rec, e) {
-  if (!selectMode || e?.key === 'Enter') { openLightbox(rec, galleryRecords); return; }
+  const modified = e?.type === 'click' && (e.ctrlKey || e.metaKey || e.shiftKey);
+  if (!modified && (!selectMode || e?.key === 'Enter')) { openLightbox(rec, galleryRecords); return; }
   if (e?.shiftKey && selectRange(div)) return;
   toggleSelected(rec);
 }

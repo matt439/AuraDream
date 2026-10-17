@@ -418,6 +418,9 @@ function card(rec) {
   // Its press picks it instead in select mode (cardPress, gallery-select.js).
   const img = thumb(rec, galleryRecords, undefined, (e) => cardPress(div, rec, e));
   img.setAttribute('aria-keyshortcuts', 'F');
+  // A Shift+click picks a range out of select mode too, where the grid's
+  // text is selectable: the press must not drag a text selection across it.
+  img.addEventListener('mousedown', (e) => { if (e.shiftKey && e.button === 0) e.preventDefault(); });
   // A card of the recycle bin's has its own tools (bin.js).
   if (rec.binned_at) return binCard(div, img, rec);
 

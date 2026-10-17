@@ -4,8 +4,8 @@
 // viewer, the lightbox's picture. Its items are the image's own buttons -
 // pressed for you, held and titled as they are, so a held item still says
 // why when chosen - plus what no button does: copy the prompt, the seed or
-// the picture, and open the PNG in a tab. A picked card in select mode gets
-// the picks' actions instead. Shift with the right button, and every text
+// the picture, and open the PNG in a tab. A picked card - in select mode or
+// picked with Ctrl or Shift outside it - gets the picks' actions instead. Shift with the right button, and every text
 // box, keep the browser's own menu; the Menu key or Shift+F10 opens this one
 // on the image focus is in. One menu, moved into the lightbox while that is
 // up: a modal dialog leaves the page under it inert.
@@ -189,10 +189,9 @@ function renderContextMenu(items) {
 function openContextMenu(found, x, y, byKey) {
   const menu = els.contextMenu;
   closeContextMenu(false);
-  const items = found.kind === 'card' && selectMode && selection.has(found.rec.id) ? pickedItems() : imageItems(found);
-  renderContextMenu(items);
-  menu.setAttribute('aria-label', found.kind === 'card' && selectMode && selection.has(found.rec.id)
-    ? 'Picked images' : `#${found.rec.id}`);
+  const picked = found.kind === 'card' && selection.has(found.rec.id);
+  renderContextMenu(picked ? pickedItems() : imageItems(found));
+  menu.setAttribute('aria-label', picked ? 'Picked images' : `#${found.rec.id}`);
   const home = els.lightbox.open ? els.lightbox : document.body;
   if (menu.parentElement !== home) home.append(menu);
   ctxMenu.host = found.host;
