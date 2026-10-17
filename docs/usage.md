@@ -310,8 +310,10 @@ another size refuses it (unpick it, or search `inpaint:no`), and Mass
 refine drops the mask. Search `inpaint:yes`
 for inpaints, `mask:<hash prefix>` for one mask's.
 
-Memory, time and the best starting strength have not been measured on the
-card yet; see [verified.md](verified.md#inpaint).
+On the card, an inpaint costs about what a refine pass of the same size
+costs: SDXL runs the guard's 8.4 MP top with room to spare, while Z-Anime
+fills the card at 2.4 MP. Lower strengths keep the masked area's old colours,
+so the default is the place to start; see [verified.md](verified.md#inpaint).
 
 ## Outpaint an image
 
@@ -327,16 +329,16 @@ place and the new area hatched. **+25% all round**, **to 16:9** and
 and **Apply** applies it. A preset already met says so and stays held. The server
 fills the new area from the source's stretched and blurred edge pixels, then
 builds the mask: the new border plus a feathered **Band** reaching that far
-into the original (0-256 px in steps of 8; 32 is this app's starting value,
-not a measured one). You never paint it. A wider band blends the seam over
+into the original (0-256 px in steps of 8; 32, the starting value, joined best of
+0/32/64/128 on the card, while wider bands leave a faint double image). You never paint it. A wider band blends the seam over
 more of the original. Inward of the band, the original is kept pixel for pixel.
 
 Strength, Versions, Seed and the prompt work as in Inpaint. The new area
 starts as the server's rough fill, so expect a high strength there. The
 pass runs at the source's size plus the padding, within the size guard.
 Search `outpaint:yes` for outpaints; `inpaint:yes outpaint:no` gives the
-painted inpaints alone. Measurements are pending; see
-[verified.md](verified.md#outpaint).
+painted inpaints alone. Lower strengths let the blurred fill show through;
+see [verified.md](verified.md#outpaint).
 
 ## Sweep settings with Grid search
 

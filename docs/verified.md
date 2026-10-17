@@ -633,55 +633,111 @@ and the `outputs/` PNGs. The browser checks are `tools/smoke-refine.json`
 
 ## Inpaint
 
-Nothing measured yet. Inpainting is built for the SDXL and Z-Image families
-(`docs/plan-inpainting.md`, phases 1 and 2) and checked on the CPU and in
-the browser only: `tests/test_inpaint*.py`, `tests/test_api_inpaint.py`,
-`smoke-inpaint.json` and `smoke-inpaint-unavailable.json`, on fakes that
-repaint the masked pixels with a flat colour. Not yet measured on the card,
-from the plan's open measurements:
+Measured 2026-10-17 on the RTX 5080, Windows, fp8, model offload, one
+throwaway gallery per checkpoint (the production gallery was not used). The
+desktop held 3,139-4,609 MiB of the card, more than on the refine runs above,
+so "Card" here carries about a gigabyte more of other processes. "Card" is
+`nvidia-smi`'s whole-card `memory.used`, streamed every 500 ms by a watchdog
+that would have cancelled a pass past 15,500 MiB (none tripped);
+allocated / reserved are the process's own allocator. Each source is a
+seed-12345 render at 1024x1024, the larger sizes refine passes of it at the
+profile's strength; the mask is an ellipse over the middle (40 % x 30 % of
+the frame) and the inpaint's prompt asks for another scarf. Every pass ran at
+the inpaint class's library default (0.9999 on SDXL, 1.0 on Z-Image), one
+size per invocation in the foreground. Times exclude the load and the save;
+the per-step time leaves out the first step, which carries the source's and
+the mask's encode.
 
-- peak memory and time per step per enabled family at 1 MP, and the largest
-  size each holds (SDXL: WAI, then Animagine or NoobAI; Z-Image Turbo and
-  Z-Anime);
-- determinism, batch image *i* against a solo run of its seed,
-  cancel-then-rerun, and the text-to-image hash and the device after
-  inpaints;
-- `refine.build` over the fp8-quantized, offload-hooked components for
-  `StableDiffusionXLInpaintPipeline` and `ZImageInpaintPipeline`;
-- a starting strength per profile, against the library's default the dialog
-  starts at now;
-- the seam the composite leaves against the VAE round trip's colour shift,
-  with and without feather;
-- a LoRA through an inpaint, weight 0 byte-identical to none;
-- an inpaint over a Nunchaku Z-Image transformer under WSL;
-- the embedded mask's size in a result PNG at 1 MP and 8 MP;
-- for the deferred families (FLUX.1, FLUX.2 [klein], Qwen-Image), the
-  measurements their phases name before they are enabled.
+| Checkpoint | Size | Steps run | Time (per step) | Allocated / reserved | Card |
+| --- | --- | --- | --- | --- | --- |
+| WAI v17, CFG 6 | 1024x1024, 1 MP | 27 of 28 | 9.0-9.9 s (0.24 s) | 3.57 / 4.55 GiB | 7,753-8,148 MiB |
+| WAI v17 | 1536x1536, 2.4 MP | 27 of 28 | 19.1 s (0.56 s) | 3.67 / 4.56 GiB | 8,377 MiB |
+| WAI v17 | 2048x2048, 4.2 MP | 27 of 28 | 37.0 s (1.14 s) | 4.22 / 5.27 GiB | 9,130 MiB |
+| WAI v17 | 2896x2896, 8.4 MP | 27 of 28 | 98.0 s (3.21 s) | 5.47 / 7.48 GiB | 11,384 MiB |
+| Animagine XL 4.0 | 1024x1024, 1 MP | 27 of 28 | 8.1-9.1 s (0.22 s) | 3.28 / 3.62 GiB | 7,467-7,472 MiB |
+| Animagine XL 4.0 | 2048x2048, 4.2 MP | 27 of 28 | 37.0 s (1.08 s) | 4.22 / 5.26 GiB | 9,194 MiB |
+| Animagine XL 4.0 | 2896x2896, 8.4 MP | 27 of 28 | 92.0 s (2.98 s) | 5.48 / 7.49 GiB | 11,479 MiB |
+| Z-Anime, CFG 4 | 1024x1024, 1 MP | 40 of 40 | 83.0-87.3 s (1.86 s) | 6.93 / 8.61 GiB | 12,708-13,014 MiB |
+| Z-Anime | 1536x1536, 2.4 MP | 40 of 40 | 211.8 s (4.92 s) | 8.11 / 10.58 GiB | 15,376 MiB, with the desktop at 4,386 |
+
+An inpaint costs what a refine pass of the same size costs: the SDXL rows
+match their refine rows above to a hundredth of a gigabyte, and the guard's
+top size, 8.4 MP, runs on both SDXL checkpoints with a third of the card to
+spare. Z-Anime fills the card at 2.4 MP (its per-step time did not climb, so
+it did not spill there), as its refine pass did at 4.2 MP under a smaller
+desktop share; 4.2 MP was not run.
+
+| What | Result |
+| --- | --- |
+| The inpaint class over the loaded components | `StableDiffusionXLInpaintPipeline` and `ZImageInpaintPipeline` each ran from `refine.build` over the fp8-quantized, offload-hooked components, with no second load; the allocator was back to 0.03 GiB after every pass |
+| Determinism | The same inpaint twice is the same hash, on all three |
+| Per-image seeds in a batch | A batch of two: image 1 is the solo pass at its seed, image 2 the solo pass at seed + 1, on all three |
+| Cancel | Cancelled at step 2 (2.3-2.8 s on SDXL, 12.4 s on Z-Anime); the next inpaint is the uncancelled hash |
+| The text-to-image pipeline afterwards | The source's own request, run again after every inpaint and outpaint of the session, is the source's hash on all three |
+| The composite keeps what is not masked | Every pixel where the mask is 0 is the source's exactly (largest difference 0, on all three) |
+| The embedded mask | The `local-diffusion-mask` chunk is 3,836 bytes at 1 MP, 6,664 at 2.4 MP, 10,368 at 4.2 MP and 17,752 at 8.4 MP for a hard-edged mask; a 24 px feather makes the 1 MP one 35,592 bytes. A result PNG is 1.1-10 MB |
+| What a strength keeps | On all three, 0.5 keeps the masked part's colour and shape and redraws its detail; 0.7 and 0.85 still keep the old colour (the scarf stays red), with more detail redrawn; only the library default draws what the new prompt asks (a blue scarf) |
+| The seam | Judged by eye on 2x crops, not by number. A hard mask leaves a visible cut where the new content meets the old (a coat flap and a strand of hair end at the ellipse on WAI; a stepped edge on Z-Anime) - a content seam, not a colour shift. Feather 24 hides the cut and leaves a faint double image across the feather, old and new blended (red and blue mixed on Z-Anime) |
+
+The library default is therefore the right starting strength on the three
+checkpoints measured: lower strengths keep the masked part's colour, which
+is what a user asking for a change does not want. These are one prompt and
+one mask per checkpoint, looked at by eye: they establish that the pass
+runs, reproduces and keeps every unmasked pixel, not a quality benchmark.
+
+Not measured: Z-Image Turbo (not in this machine's cache), the undistilled
+Z-Image, and the other SDXL profiles (Illustrious, Kohaku, RouWei, NoobAI),
+whose refine passes match Animagine's; a LoRA through an inpaint (no SDXL
+adapter was at hand; `frosting-lane` is FLUX.1's); an inpaint over a
+Nunchaku Z-Image transformer under WSL; the seam measured against the VAE
+round trip by number; and, for the deferred families (FLUX.1, FLUX.2
+[klein], Qwen-Image), the measurements their phases name before they are
+enabled. Evidence is under `%TEMP%/local-diffusion-inpaint-card/`:
+`measure.py`, and per checkpoint its gallery, `results.jsonl` and the
+`inpaint-*.jpg` and `outpaint-*.jpg` strips.
 
 ## Outpaint
 
-Nothing measured yet. Outpainting's backend and its dialog are built
-(`docs/plan-outpainting.md`, phases 1 and 2) and checked on the CPU and in
-a browser only: `tests/test_outpaint*.py`, `tests/test_api_outpaint.py`,
-the outpaint tests in `tests/test_cli.py`, the real backend's outpaint
-branch against a stand-in inpaint class in `tests/test_inpaint.py` (what it
-is handed and what the composite keeps, never what a model paints), and
-`tools/smoke-outpaint.json` on a fake that repaints the masked pixels with a
-flat colour. Not yet measured on the card, from the plan's open
-measurements:
+Measured 2026-10-17 in the same runs, the same way, from the same
+1024x1024 sources (the 4.2 and 7.5 MP canvases from the 1536 and 2048
+refine sources), at the library default strength and the app's band of
+32 px unless a row says otherwise.
 
-- peak memory and time per step at outpainted sizes for WAI and one other
-  SDXL checkpoint, Z-Image Turbo and Z-Anime, one size per run, stopping at
-  the first that fills the card;
-- determinism: the same outpaint twice, batch image *i* against a solo run
-  of its seed, cancel-then-rerun, the text-to-image hash afterwards;
-- what the fill contributes at the library default (0.9999 on SDXL, 1.0 on
-  Z-Image) and at lower strengths;
-- the seam at band widths 0, 32, 64 and 128 px per family;
-- a starting band width, if one is measured to join better than 32;
-- the embedded mask's size in an outpaint's PNG;
-- the fill's and the mask's build time on the CPU at the refine guard's
-  largest canvas.
+| Checkpoint | Canvas | Steps run | Time (per step) | Allocated / reserved | Card |
+| --- | --- | --- | --- | --- | --- |
+| WAI v17 | 1024x1024 to 16:9, 1824x1024, 1.9 MP | 27 of 28 | 15.4-18.6 s (0.42 s) | 3.59 / 4.59 GiB | 8,159-8,255 MiB |
+| WAI v17 | 1024x1024 +25%, 1280x1280, 1.6 MP | 27 of 28 | 13.3 s (0.36 s) | 3.58 / 4.64 GiB | 8,250 MiB |
+| WAI v17 | 1536x1536 to 16:9, 2736x1536, 4.2 MP | 27 of 28 | 40.4 s (1.15 s) | 4.22 / 5.32 GiB | 9,248 MiB |
+| WAI v17 | 2048x2048 to 16:9, 3648x2048, 7.5 MP | 27 of 28 | 82.6 s (2.54 s) | 5.20 / 7.02 GiB | 11,018 MiB |
+| Animagine XL 4.0 | 1024x1024 to 16:9, 1.9 MP | 27 of 28 | 14.1-14.4 s (0.40 s) | 3.53 / 4.11 GiB | 7,961-8,033 MiB |
+| Animagine XL 4.0 | 1024x1024 +25%, 1.6 MP | 27 of 28 | 12.8 s (0.34 s) | 3.46 / 4.00 GiB | 7,879 MiB |
+| Animagine XL 4.0 | 2048x2048 to 16:9, 7.5 MP | 27 of 28 | 89.0 s (2.49 s) | 5.20 / 7.02 GiB | 11,023 MiB |
+| Z-Anime | 1024x1024 to 16:9, 1.9 MP | 40 of 40 | 165.9-178.3 s (3.77-3.82 s) | 7.66 / 9.68 GiB | 13,852-15,108 MiB |
+| Z-Anime | 1024x1024 to 16:9, Batch 2 | 80 | 343.2 s | 7.66 / 9.68 GiB | 15,156 MiB |
+| Z-Anime | 1024x1024 +25%, 1.6 MP | 40 of 40 | 143.3 s (3.21 s) | 7.46 / 9.26 GiB | 14,102 MiB |
+
+An outpaint costs an inpaint of its canvas: the SDXL pair run the largest
+16:9 canvas a 2 MP source allows within the guard with a third of the card
+to spare. Z-Anime at 1.9 MP sits within half a gigabyte of the card's top
+with the desktop's 3.6-4.6 GB beside it; larger canvases were not run, its
+2.4 MP inpaint having filled the card.
+
+| What | Result |
+| --- | --- |
+| Determinism | The same outpaint twice is the same hash; a batch of two is the solo passes at its two seeds; cancelled at step 2, the next outpaint is the uncancelled hash; on all three |
+| What the fill contributes | At the library default the new area is drawn afresh and the fill does not show. At 0.8 it shows as soft, out-of-focus scenery; at 0.6 as flat grey-blue blocks continuing the edge (both SDXL checkpoints and Z-Anime) |
+| The band, 0 / 32 / 64 / 128 px | Judged by eye on 2x crops at the original's edge, on all three. 0 leaves a hard vertical cut where the new area meets the original (trees and snowbanks stop at it); 32 joins (a trunk runs across the edge); 64 begins a faint double image across the band; 128 a plain one (half-transparent lamps and trunks), the original and the new picture blended over the band's width. 32 joins best of the four |
+| The embedded mask | 5,104 bytes for 16:9 from 1 MP, 5,968 for +25%, 10,132 at 4.2 MP and 15,508 at 7.5 MP; band width changes it by under 20 bytes |
+| The fill and the mask on the CPU | `outpaint.padded` 1.8-2.4 s and `outpaint.mask` 0.01-0.03 s at 6.3-8.4 MP canvases (+25%, 2:3 and 16:9 from 2048-px sources, and 2912x2896); the mask's PNG 10-15 KB |
+
+So the band's starting 32 px is measured as the best of the four widths
+tried, and the library default as the strength to start an outpaint at.
+One source and one prompt per checkpoint, looked at by eye.
+
+Not measured: Z-Image Turbo (not in this machine's cache) and the other
+SDXL profiles; the seam by number against the VAE round trip at the
+original's edge; band widths between 0 and 64 other than 32. Evidence is in
+`%TEMP%/local-diffusion-inpaint-card/` with the inpaint's.
 
 ## Prompt analyser
 

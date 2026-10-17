@@ -1963,8 +1963,10 @@ the dialog has no "starts at N% noise" line; no mask outline over the
 source's thumbnail (the facts give the hash's first 16 digits); no
 `inpaint_measured` row or measured strength. FLUX.1, klein, Qwen-Image,
 FLUX.1 Fill [dev] and the masked-area crop are later phases of the plan;
-outpainting is built (below). Nothing about an inpaint's memory, time or pictures is known
-until the card measures it (`verified.md`).
+outpainting is built (below). Memory, time, determinism and what a strength keeps were measured
+2026-10-17 on WAI, Animagine and Z-Anime (`verified.md`, Inpaint): an
+inpaint costs a refine pass of its size, and the library default is the
+right starting strength there.
 
 ## Outpainting
 
@@ -2035,8 +2037,8 @@ The first build hid the lightbox's Outpaint… with Inpaint… under 901 px,
 leaving an older gallery image no way to be outpainted there (Inpaint has
 the card's ✎; Outpaint has only the lightbox, a fresh result's ⬚ Outpaint…
 and Reuse of an outpaint); now Inpaint… alone hides and the pair sit at
-their own widths. The frame shows no preview of the server's fill. Nothing about an outpaint's memory, time or pictures is known until
-the card measures it (`verified.md`, Outpaint).
+their own widths. The frame shows no preview of the server's fill. Measured 2026-10-17 on WAI, Animagine and Z-Anime (`verified.md`,
+Outpaint): the 32 px band joined best of 0/32/64/128.
 
 ## CellKey and run_id
 

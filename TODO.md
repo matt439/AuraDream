@@ -6,11 +6,12 @@ An index of open work, one row per item; each row points to the doc that owns th
 
 **The only ordering in this file.** Keep every `DECISION` row here. Keep this block to the current aim and the next few actions; results go in their owners (`docs/verified.md` for what the card measured, the plan or design notes for what was built).
 
-**Aim (2026-10-13):** inpainting and outpainting, merged today for the SDXL checkpoints and the Z-Image family, are measured on the card and documented for users, so their phase 3 and the deferred families can follow on numbers rather than guesses.
+**Aim (2026-10-17):** inpainting and outpainting were measured on the card on 2026-10-17 (WAI, Animagine, Z-Anime; `docs/verified.md`), so their phase 3 can follow on numbers.
 
-1. **`CARD#1` and `CARD#2`: inpaint and outpaint on the card.** Matt's runs, one size at a time in the foreground, stopping at the first that fills the card. They unblock `INP#1` and `INP#2`.
+1. **`INP#2` then `INP#1`: inpaint and outpaint phase 3.** The measured band and strengths say the app's starting values hold; what is left is wording and the recipes. No card needed.
+2. **`CARD#1`/`CARD#2` remainder:** Z-Image Turbo (a download first) and an SDXL LoRA through an inpaint, when Matt wants them.
 
-**Decisions waiting on Matt** (none blocks the one above):
+**Decisions waiting on Matt** (none blocks the two above):
 - `INP#7`: the outpainting plan's four open questions were never answered; the build took the recommended answers.
 - `INP#8`: FLUX.1 Fill [dev] as an inpaint-only checkpoint: wanted, and when?
 - `PA#5`: should tag autocomplete write bare parentheses instead of A1111 escapes?
@@ -25,8 +26,8 @@ An index of open work, one row per item; each row points to the doc that owns th
 
 | id | status | sev | size | item |
 |---|---|---|---|---|
-| `CARD#1` | CARD | HIGH | M+card | Inpaint (10-12 F6), SDXL (WAI, then one more) and Z-Image Turbo/Z-Anime: peak and time at 1 MP and the largest size each holds, determinism, `refine.build` over fp8 and offload, a starting strength, seam against the VAE round trip, a LoRA at weight 0, the embedded mask's size. The plan's phase 0 spike was never run. [Inpaint](docs/verified.md#inpaint); [list](docs/plan-inpainting.md#open-measurements-the-cards-to-say). |
-| `CARD#2` | CARD | HIGH | M+card | Outpaint: peak and time at outpainted sizes (WAI plus one SDXL, Z-Image Turbo, Z-Anime), determinism, what the fill contributes by strength, the seam at bands 0/32/64/128, mask PNG size, CPU fill/mask build time. [Outpaint](docs/verified.md#outpaint); [list](docs/plan-outpainting.md#open-measurements-the-cards-to-say). |
+| `CARD#1` | CARD | LOW | S+card | Inpaint's remainder: Z-Image Turbo (not cached here), a LoRA through an SDXL inpaint at weight 0 (no SDXL adapter at hand), the seam by number against the VAE round trip. Measured 2026-10-17 on WAI, Animagine and Z-Anime. [Inpaint](docs/verified.md#inpaint). |
+| `CARD#2` | CARD | LOW | S+card | Outpaint's remainder: Z-Image Turbo, the seam by number. Measured 2026-10-17 on WAI, Animagine and Z-Anime. [Outpaint](docs/verified.md#outpaint). |
 | `CARD#3` | CARD | MED | S+card | An inpaint over a Nunchaku Z-Image transformer under WSL: the profile allows it, but the class has never run over it. [Inpainting](docs/design-notes.md#inpainting). |
 | `CARD#4` | CARD | LOW | L+card | INT8, full BF16 and sequential offload per checkpoint; the picker says INT8 is "not yet compared on this card". [Checkpoints](docs/verified.md#checkpoints). |
 | `CARD#5` | CARD | LOW | M+card | Size and batch gaps: Anima Turbo/Aesthetic at 1.5-2 MP and non-square, Kohaku, NetaYume and NewBie above about 1 MP, Illustrious at 1536/2048, Animagine Batch 12 (the cap was raised from a Batch 8 reading). [Checkpoints](docs/verified.md#checkpoints); [MP table](docs/anime-model-guide.md#compare-by-total-megapixels). |
@@ -44,8 +45,8 @@ An index of open work, one row per item; each row points to the doc that owns th
 
 | id | status | sev | size | item |
 |---|---|---|---|---|
-| `INP#1` | BLOCKED | MED | M | Inpaint phase 3, after `CARD#1`: `START_RECIPES` for the inpaint classes (the dialog's "starts at N% noise" line), the preview through the blend, `inpaint_measured` rows and measured starting strengths. |
-| `INP#2` | BLOCKED | MED | S | Outpaint phase 3, after `CARD#2`: a measured band default in place of the app's 32 px, plus what `INP#1` changes for every inpaint. |
+| `INP#1` | OPEN | MED | M | Inpaint phase 3: `START_RECIPES` for the inpaint classes (the dialog's "starts at N% noise" line), the preview through the blend, `inpaint_measured` rows; the library default measured as the right starting strength (2026-10-17), so its tip and the docs can say so. |
+| `INP#2` | OPEN | MED | S | Outpaint phase 3: 32 px measured best of 0/32/64/128 (2026-10-17); say so where the dialog, CLI help and docs call it unmeasured, plus what `INP#1` changes for every inpaint. |
 | `INP#3` | CARD | MED | M+card | FLUX.1 inpaint (Krea dev, dev, schnell): measure 1 MP against the spill line, add its recipe, then drop `FluxPipeline` from `INPAINT_DEFERRED`; outpaint follows. |
 | `INP#4` | OPEN | LOW | S | The mask as a small outline over the source's thumbnail in the facts list, which shows only the hash's first 16 digits. [Elsewhere on the page](docs/plan-inpainting.md#elsewhere-on-the-page). |
 | `INP#5` | DEFERRED | LOW | M+card | Phase 4, klein: one reference beside the source, its mu recipe, memory with the sequence doubled, `smoke-inpaint-klein`. Matt doesn't run klein. |

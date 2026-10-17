@@ -192,7 +192,8 @@ and [measured results](docs/verified.md) before attempting large passes.
 keep the rest of the source pixel for pixel. Both run on the SDXL checkpoints and the
 Z-Image family (Z-Image Turbo, Z-Anime); FLUX.1, FLUX.2 [klein] and Qwen-Image
 are not enabled yet. The mask is embedded in the result's PNG, so the image
-alone reproduces it. Neither has been measured on the card yet. See
+alone reproduces it. [Measured](docs/verified.md#inpaint) on WAI, Animagine
+and Z-Anime. See
 [Inpaint](docs/usage.md#inpaint-part-of-an-image) and
 [Outpaint](docs/usage.md#outpaint-an-image).
 
