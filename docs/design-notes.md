@@ -840,7 +840,13 @@ too. The Refine dialog's negative caption uses the same words for the same
 state (`syncRefine`): "(runs at CFG > N, no extra cost)" where CFG is the knob
 and the box is live, and "(needs CFG > N — ~2× slower)", or True CFG, where it
 is greyed or True CFG is the knob; it had read "(needs CFG > N)" under a live
-box too (2026-10-05).
+box too (2026-10-05). Live under True CFG every one of them (the panel's and
+the three dialogs') now reads "(~2× slower; one space counts)": the
+cost stays, and "needs True CFG > 1" said nothing once True CFG was above 1,
+while a lone space became a negative there (2026-10-17, PA#6; the prompt
+analyser's open questions). "(~2× slower; a single space counts)", the
+first wording, wrapped beside the label at 1400x900 (its last word on a
+second line); "one space" fits, with about 13 px to spare there.
 
 **FLUX.1's CFG box is named "CFG (distilled)".** The box is the distilled
 guidance value, and the label said CFG, the one word every other checkpoint
@@ -10666,19 +10672,27 @@ finding's have a Show. The comparison's always-run Original box carries the
   rather than the pipeline changed: "schnell's T5 encoder reads up to 512
   tokens in this app", and BFL's 256 is named as the reference in an
   `unsourced` sentence the critic is not given; the word rule stays out.
-- Qwen-Image's guide says to sample "with True CFG 4 and a negative prompt -
-  a single space if there is nothing to remove", but `generation.js`'s
-  `collect()` sends `els.negative.value.trim() || null`, so a single space is
-  sent as no negative prompt and no True CFG pass runs. The True CFG hint
-  already says "a word will do". Decided 2026-10-17, to build: keep a lone
-  space. In the page's `collect()` sites (`generation.js`, `refine.js`,
-  `inpaint.js`, `outpaint.js`) a negative that is not empty but only
-  whitespace is sent as `" "` - only on a checkpoint with a True CFG box
-  (Qwen-Image and the FLUX.1 family) and only while that box is live (True
+- Resolved 2026-10-17: Qwen-Image's guide says to sample "with True CFG 4
+  and a negative prompt - a single space if there is nothing to remove", but
+  `generation.js`'s `collect()` sent `els.negative.value.trim() || null`, so
+  a single space went as no negative prompt and no True CFG pass ran. Matt
+  decided 2026-10-17 to keep a lone space, and it was built the same day:
+  every `collect()` (the panel's, `refineRequest`, `inpaintRequest`,
+  `outpaintRequest`) sends the negative through one helper,
+  `negativeSent(box)` in `sizes.js`, which sends a negative that is not
+  empty but only whitespace as `" "` - only where `trueCfgSupported`
+  (Qwen-Image and the FLUX.1 family) and only while the box is live (True
   CFG above 1). A truly empty box is still null, a text negative is trimmed
-  as today, and everywhere else blank means none. The guide's sentence then
-  holds, and the live negative note says a single space counts. No backend
-  or schema change; old rows and resume keys are unchanged.
+  as before, and everywhere else blank means none: where CFG is the knob the
+  uncond pass runs against an empty prompt anyway, so a space would only put
+  an invisible difference into the row. The guide's sentence now holds. The
+  live caption under True CFG reads "(~2× slower; one space counts)"
+  (`TRUE_CFG_LIVE_NOTE`, the app's words, in the panel and the three
+  dialogs), Qwen-Image's True CFG tip says "a word, or a single space, will
+  do", and the facts list and the sheet's negative axis name a
+  whitespace-only negative "a single space" (`negativeShown`) rather than a
+  blank that reads as none. No backend or schema change - `applied()` keeps
+  `" "`, which is truthy - and old rows and resume keys are unchanged.
 - Resolved 2026-09-27: Krea [dev]'s "It answers best to photo language: a
   mood, a lens, a light, a film stock, a colour grade" and "Krea calls it
   opinionated - give it room rather than over-specifying" had no literal

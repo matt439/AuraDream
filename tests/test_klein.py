@@ -165,6 +165,23 @@ def test_real_cfg_is_its_own_knob_where_the_pipeline_keeps_it_apart():
     assert backend.applied(GenerateRequest(prompt="x", width=256, height=256, true_cfg=3.0)).true_cfg is None
 
 
+def test_a_lone_space_is_a_negative_where_true_cfg_is_the_knob():
+    # The page sends a whitespace-only negative under a live True CFG box as
+    # " " (sizes.js, negativeSent; PA#6), as Qwen-Image's guide asks: the
+    # server must keep it, record it and hand it to the pipeline, which runs
+    # its uncond pass for any negative that is not None.
+    backend = _loaded(FluxLikePipeline())
+    pipe = backend._pipe
+    base = dict(prompt="a lighthouse", negative_prompt=" ", width=256, height=256, steps=4)
+    ran = backend.applied(GenerateRequest(**base, guidance_scale=3.5, true_cfg=1.5))
+    assert (ran.negative_prompt, ran.true_cfg) == (" ", 1.5)
+    backend.generate(GenerateRequest(**base, guidance_scale=3.5, true_cfg=1.5), seed=1)
+    assert pipe.calls[-1]["negative_prompt"] == " " and pipe.calls[-1]["true_cfg_scale"] == 1.5
+    # At the threshold it is dropped like any other negative.
+    ran = backend.applied(GenerateRequest(**base, true_cfg=1.0))
+    assert (ran.negative_prompt, ran.true_cfg) == (None, None)
+
+
 def test_where_cfg_is_real_already_the_record_says_which_scale_ran():
     # Krea 2 has no separate knob: `guidance_scale` is the uncond pass. The
     # column then carries that scale whenever the negative prompt applied, so

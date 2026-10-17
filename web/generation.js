@@ -15,7 +15,7 @@ function collect() {
     prompt: els.prompt.value.trim(),
     // A greyed-out field has been told it cannot apply; sending its contents
     // anyway put a negative prompt the pipeline never saw into every record.
-    negative_prompt: els.negative.disabled ? null : els.negative.value.trim() || null,
+    negative_prompt: negativeSent(els.negative),
     width: +els.width.value,
     height: +els.height.value,
     steps: num(els.steps),

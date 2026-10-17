@@ -563,9 +563,10 @@ _PROFILES.append(
                 "true_cfg": (
                     "Real classifier-free guidance, which this checkpoint is meant to be "
                     "sampled with - about 4 - and which the pipeline runs only when a "
-                    "negative prompt is given, so type one (a word will do). Above "
-                    "{cfg_threshold:g} it costs a second pass per step (~2x slower); "
-                    "blank is off, and unguided Qwen-Image is noticeably worse."
+                    "negative prompt is given, so type one (a word, or a single space, "
+                    "will do). Above {cfg_threshold:g} it costs a second pass per step "
+                    "(~2x slower); blank is off, and unguided Qwen-Image is noticeably "
+                    "worse."
                 ),
                 "mu": (
                     "Flow-matching timestep shift. Qwen-Image derives its own from the "

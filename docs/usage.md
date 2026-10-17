@@ -183,7 +183,12 @@ gallery image onto the panel does nothing: use its **Reuse** instead.
 to fill. **Tags**, where available, supplies the checkpoint's own vocabulary
 and recommended negative prompt. Its comma chips can be reordered or removed.
 The negative prompt is inactive when the current guidance settings do not
-use it; the caption explains how to enable it.
+use it; the caption explains how to enable it. On a checkpoint with a
+**True CFG** box (Qwen-Image and the FLUX.1 family), while True CFG is
+above 1, a negative box holding only spaces sends a single space, which
+still runs True CFG - Qwen-Image's guide asks for one when there is nothing
+to remove - and the image's facts list it as "a single space". An empty box
+sends none, and elsewhere blank always means no negative prompt.
 
 **Check** measures the prompt with the checkpoint's own tokenizers and checks
 its documented guidance. It runs on the CPU without loading image weights,

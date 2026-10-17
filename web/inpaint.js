@@ -611,7 +611,7 @@ function syncPassSampling(f) {
   const knob = trueCfgSupported ? 'True CFG' : 'CFG';
   f.negNote.textContent = !negativeSupported ? '(this checkpoint takes no negative prompt)'
     : !trueCfgSupported && !off ? `(runs at CFG > ${cfgThreshold}, no extra cost)`
-      : `(needs ${knob} > ${cfgThreshold} — ~2× slower)`;
+      : !off ? TRUE_CFG_LIVE_NOTE : `(needs ${knob} > ${cfgThreshold} — ~2× slower)`;
   f.mu.placeholder = muPlaceholder();
   f.mu.disabled = !muSupported;
   f.muField.classList.toggle('disabled', !muSupported);
@@ -678,7 +678,7 @@ function inpaintRequest() {
   const seed = els.inpaintSeed.value.trim();
   const base = {
     prompt: els.inpaintPrompt.value.trim(),
-    negative_prompt: els.inpaintNegative.disabled ? null : els.inpaintNegative.value.trim() || null,
+    negative_prompt: negativeSent(els.inpaintNegative),
     width: inpaintSource.width,
     height: inpaintSource.height,
     steps: num(els.inpaintSteps),

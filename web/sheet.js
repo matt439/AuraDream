@@ -140,6 +140,7 @@ let sheetMuStatic = null;
 // "Version rewrite"), a weight with its adapter.
 function sheetText(axis, v, words = sheetWords()) {
   if (axis.key === VARIANT_AXIS && v !== null) return VERSION_NAMES.get(v) ?? v;
+  if (axis.key === 'negative' && v !== null) return negativeShown(v);
   if (axis.key === 'mu' && v === null && words.muStatic != null) return `none (${muStaticText(words.muStatic)})`;
   return valueText(v, words);
 }

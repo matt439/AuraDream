@@ -680,7 +680,7 @@ function outpaintRequest() {
   const [width, height] = outpaintCanvasSize();
   const base = {
     prompt: els.outpaintPrompt.value.trim(),
-    negative_prompt: els.outpaintNegative.disabled ? null : els.outpaintNegative.value.trim() || null,
+    negative_prompt: negativeSent(els.outpaintNegative),
     width,
     height,
     steps: num(els.outpaintSteps),

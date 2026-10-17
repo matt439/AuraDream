@@ -242,6 +242,10 @@ function fmtMp(mp) {
 // it, not only when the panel's single value would.
 let gridMaxCfg = null;
 
+// The negative caption under a live True CFG box (the panel's and the
+// dialogs'): the app's words, not a guide's.
+const TRUE_CFG_LIVE_NOTE = '(~2× slower; one space counts)';
+
 function syncCfg() {
   // The True CFG box is live only where it is a knob of its own; elsewhere
   // it is greyed with its badge saying so, and the CFG box decides.
@@ -267,6 +271,8 @@ function syncCfg() {
   // as the greyed one, which fits beside the label: a two-line caption moved
   // the box and everything under it down a line at 1400x900 and 2048x1040
   // at 125%, and at CFG's threshold it changed height as CFG crossed it.
+  // Live under True CFG it says the cost and that a lone space is a negative
+  // here (negativeSent), which is what Qwen-Image's guide asks for.
   const cfgPaysAlready = !trueCfgSupported && !off;
   els.negNote.textContent = !negativeSupported
     ? (els.negative.value.trim() ? '(this checkpoint takes none; the text is kept for one that does)'
@@ -275,7 +281,8 @@ function syncCfg() {
       ? `(for grid cells above CFG ${cfgThreshold})`
       : cfgPaysAlready
         ? `(runs at CFG > ${cfgThreshold}, no extra cost)`
-        : `(needs ${knob} > ${cfgThreshold} — ~2× slower)`;
+        : !off ? TRUE_CFG_LIVE_NOTE
+          : `(needs ${knob} > ${cfgThreshold} — ~2× slower)`;
   // The way to the box that wakes it, which on FLUX sits a field's height
   // below and is named only in the note.
   els.negEnable.hidden = !(off && negativeSupported);
@@ -284,6 +291,19 @@ function syncCfg() {
   // A negative prompt greyed or woken here stops or starts running, and the
   // prompt check read it as it ran then.
   syncAnalysisStale();
+}
+
+// What a negative box sends, for every collect() (the panel's, Refine's,
+// Inpaint's, Outpaint's): nothing from a greyed box, and its text trimmed
+// from a live one. A live box that holds only whitespace sends a single
+// space where True CFG is the knob - Qwen-Image's guide asks for "a single
+// space if there is nothing to remove", and there the text alone runs the
+// uncond pass (FLUX.1 runs none without one) - and nothing elsewhere, where
+// blank already means none. A truly empty box sends nothing everywhere.
+function negativeSent(box) {
+  if (box.disabled) return null;
+  const text = box.value.trim();
+  return text || (trueCfgSupported && box.value !== '' ? ' ' : null);
 }
 
 // The greyed negative box's button: focus the box that decides, its value

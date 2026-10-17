@@ -2094,7 +2094,8 @@ Frontend and CLI:
   text is what a greyed negative shows, and the greyed box keeps the pointer,
   so a carried-over negative can still be scrolled. The negative's caption
   names a cost only where it is the field's own: greyed ("(needs CFG > N —
-  ~2× slower)") and under True CFG. Live where CFG is the knob, the uncond
+  ~2× slower)") and under True CFG, where live it reads "(~2× slower; one
+  space counts)". Live where CFG is the knob, the uncond
   pass runs above the threshold whatever the box holds, so the caption reads
   "(runs at CFG > N, no extra cost)", or "(for grid cells above CFG N)"
   where only an open grid's axis reaches past the threshold; each fits on
@@ -2102,8 +2103,21 @@ Frontend and CLI:
   greyed one does. The Refine dialog's negative caption uses the same words
   for the same state: "(runs at CFG > t, no extra cost)" where CFG is the
   knob and the box is live, "(needs CFG|True CFG > t — ~2× slower)" where
-  it is greyed or True CFG is the knob, and "(this checkpoint takes no
-  negative prompt)" where it takes none. Where the checkpoint
+  it is greyed, "(~2× slower; one space counts)" (`TRUE_CFG_LIVE_NOTE`,
+  the app's words) where True CFG is the knob and the box is live, and
+  "(this checkpoint takes no negative prompt)" where it takes none; the
+  Inpaint and Outpaint dialogs' (`syncPassSampling`) say the same. Every
+  `collect()` (the panel's, `refineRequest`, `inpaintRequest`,
+  `outpaintRequest`) sends the negative through `negativeSent(box)`
+  (`sizes.js`): null from a greyed box, the text trimmed from a live one,
+  and a whitespace-only live box as `" "` only where `trueCfgSupported`
+  (Qwen-Image, FLUX.1) - a lone space is a negative there, so True CFG runs,
+  as Qwen-Image's guide asks ("a single space if there is nothing to
+  remove"). A truly empty box is null everywhere, and blank means none
+  wherever CFG is the knob. No backend change: `applied()` keeps `" "`
+  (truthy), and old rows and resume keys are unchanged. The facts list and
+  the sheet's negative axis name a whitespace-only negative "a single space"
+  (`negativeShown`), never a blank that reads as none. Where the checkpoint
   takes no negative prompt at all (klein) the field is its caption alone
   (`.unsupported` hides the box; its text is kept, and the note says so).
   `#negative-field` is a div with `<label for="negative">`: a button inside a
@@ -4848,7 +4862,11 @@ Mu") and Negative rows, an Example's Undo note in the panel's flow while
 the negative is greyed and over its caption while it is live, the size
 line's exact 1.64 MP bound, a typed side off the 16 grid named there with
 its neighbours and refused at Generate in the same words, the hello-world
-Example's note, and a Seed past 2^53 - 1 refused with no request sent, and
+Example's note, a Seed past 2^53 - 1 refused with no request sent, and a
+whitespace-only negative under a live True CFG box sent as `" "` (the
+request spied, the row's True CFG 1.5, the lightbox's Negative "a single
+space", the caption "(~2× slower; one space counts)" on one line),
+while an empty or greyed box sends none, and
 `smoke-preview.json` against one slowed to `--step 0.3` on 7863 for the live
 preview, the tab's title and the topbar line during the job, and the
 finished title and the finish line's seed after it. `smoke-ernie.json` runs

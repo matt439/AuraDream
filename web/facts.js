@@ -33,6 +33,13 @@ function settingsLine(rec) {
   );
 }
 
+// A recorded negative prompt as the page shows it. A whitespace-only one is
+// the single space a live True CFG box sends (negativeSent) and runs the
+// uncond pass, so it is named rather than shown as a blank that reads as none.
+function negativeShown(text) {
+  return text.trim() ? text : 'a single space';
+}
+
 // What made a record, as a list (`dl.facts`): the lightbox's side column, and
 // whatever else shows one image with its settings. The one line it replaced
 // was 12 px of commas that buried the seed mid-sentence and left out the
@@ -69,7 +76,7 @@ function factsList(rec, { useSeed: seedButton = false, search = false, megapixel
     ...(rec.true_cfg != null && rec.true_cfg !== rec.guidance_scale ? [`True CFG ${rec.true_cfg}`] : []),
     rec.mu == null ? 'no Mu' : `Mu ${rec.mu}`,
   ].join(' · '));
-  if (rec.negative_prompt) row('Negative', rec.negative_prompt).className = 'text';
+  if (rec.negative_prompt) row('Negative', negativeShown(rec.negative_prompt)).className = 'text';
   if (rec.lora) row('LoRA', `${rec.lora} @ ${rec.lora_scale}`);
   if (rec.reference?.length) row('References', referenceThumbs(rec));
   if (rec.refine != null) {

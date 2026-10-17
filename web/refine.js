@@ -575,7 +575,7 @@ function syncRefine() {
     ? '(this checkpoint takes no negative prompt)'
     : !trueCfgSupported && !off
       ? `(runs at CFG > ${cfgThreshold}, no extra cost)`
-      : `(needs ${knob} > ${cfgThreshold} — ~2× slower)`;
+      : !off ? TRUE_CFG_LIVE_NOTE : `(needs ${knob} > ${cfgThreshold} — ~2× slower)`;
   // Blank is the pipeline's own shift, as the panel's box says (syncMu) -
   // with its value where the scheduler's shift is fixed; a dead box promises
   // nothing.
@@ -706,7 +706,7 @@ function refineRequest() {
   const seed = els.refineSeed.value.trim();
   const base = {
     prompt: els.refinePrompt.value.trim(),
-    negative_prompt: els.refineNegative.disabled ? null : els.refineNegative.value.trim() || null,
+    negative_prompt: negativeSent(els.refineNegative),
     width: +els.refineWidth.value,
     height: +els.refineHeight.value,
     steps: num(els.refineSteps),
