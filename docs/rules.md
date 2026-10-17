@@ -1690,10 +1690,13 @@ Prompt analyser:
   there may the critic read on past `end` in any words of its clause; past
   an end the rules are sure of, it reads on only in words that start with a
   capital or a digit. The rules stop a participle's lowercase words at a negation
-  the negation rule reads an absence from there, other than one right after
-  "or" or "than" (`_absence_at`, so "reading do not enter" and "reading now
-  or never in bold type" are whole, and "reading love without limits"
-  quotes "love" and warns on the rest); `rendered_targets` reads them on
+  the negation rule reads an absence from there, other than one the words
+  before make their own - right after "or", "than", "but", a verb it negates
+  or a verb of saying, or after a negation among them (`_absence_at`,
+  `_owns_negation`, so "reading do not enter", "reading now or never in
+  bold type", "reading we are not open" and "reading no shoes no shirt no
+  service" are whole, and "reading love without limits" quotes "love" and
+  warns on the rest); `rendered_targets` reads them on
   through it to where they stop without it, `ends` True ("love without
   limits", and "above the stage" after it is description), with `head` at
   the rules' stop (`end` elsewhere): the critic takes as lettering only
@@ -1703,7 +1706,11 @@ Prompt analyser:
   at a verb placing the sign (挂在, 位于) that no request or prohibition asks
   for gets no Apply, and neither do lowercase words after a participle, yet
   what follows them is description; nor do words not in capitals after a
-  noun trigger ("with the words set in bold type"), whose `ends` stands.
+  noun trigger ("with the words coming soon"), whose `ends` stands. After
+  a noun trigger, a lowercase participle - irregular too ("set", "lit") -
+  with a place word after it, or an -ing one the clause ends on or an
+  adverb follows ("flickering softly", not one of when: "opening
+  shortly"), is no lettering at all.
   `rendered_spans` is the same list without the flag or `head`; the rules'
   own reading of lettering (`_read`, and `_tag_items` outside `check`) keeps
   the negation's stop. The

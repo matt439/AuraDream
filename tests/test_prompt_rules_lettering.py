@@ -342,6 +342,14 @@ def test_rendered_targets_say_which_ends_are_sure():
         "A door with the words scratched into the paint",
         "A cake with the text piped in blue icing",
         "A cake with the words spelled out in candles",
+        # An irregular one too, and an -ing form the clause ends on or an
+        # adverb follows.
+        "A poster with the headline set in bold type",
+        "A sign with the words lit up at night",
+        "A rug with the text woven into it",
+        "A banner with the slogan strung up between two poles",
+        "A neon sign with the words flickering",
+        "A neon sign with the words flickering softly above the bar",
         # A trigger that can be a noun is one after "of", an article or a
         # possessive.
         "An ancient book of spells glowing on the altar",
@@ -360,10 +368,14 @@ def test_quoted_or_non_text_words_are_left_alone(prompt):
 @pytest.mark.parametrize(
     "prompt, target",
     [
-        # Participles off the describing list, or with no preposition after.
-        ("A poster with the headline set in bold type", "set"),
-        ("A sign with the words lit up at night", "lit up"),
+        # A participle not first, an -ed one with no preposition after (a
+        # sign says "closed" as often), or an -ing one before a word other
+        # than an adverb, or before an adverb of when.
         ("A t-shirt with the words OPEN shimmering across the chest", "OPEN shimmering"),
+        ("A shop door with the words closed", "closed"),
+        ("A shop door with the words closed temporarily", "closed temporarily"),
+        ("A shop door with the words opening shortly", "opening shortly"),
+        ("A shop door with the words closing early today", "closing early today"),
         ("A cake with the words happy birthday piped in icing", "happy birthday piped"),
         # Lettering too, but not in capitals: it keeps its finding.
         ("A billboard with the words coming soon above the highway", "coming soon"),
@@ -459,6 +471,18 @@ def test_a_negation_after_a_trigger_is_still_one():
         ("A sign reading ready or not on the door", "ready or not"),
         ("A sign reading yes or no in red letters", "yes or no"),
         ("A t-shirt reading now or never again", "now or never again"),
+        # Nor where the words before make it their own: a verb it negates,
+        # "but", a verb of saying, or a negation among them. A joining word
+        # right after it goes on with it.
+        ("A shop sign reading we are not open", "we are not open"),
+        ("A shop sign reading we're not open on the door", "we're not open"),
+        ("A sign reading we will never forget above the memorial", "we will never forget"),
+        ("A sign reading we are not for sale", "we are not for sale"),
+        ("A tombstone reading gone but not forgotten", "gone but not forgotten"),
+        ("A poster reading say no to war above the crowd", "say no to war"),
+        ("A diner sign reading no shoes no shirt no service", "no shoes no shirt no service"),
+        ("A sign reading no shoes no shirt no service on the door",
+         "no shoes no shirt no service"),
     ):
         findings = run(KREA_DEV, prompt)
         assert [spanned(prompt, f) for f in only(findings, "guide.quote_text")] == [target]

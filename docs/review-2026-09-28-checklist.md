@@ -308,15 +308,23 @@ re-checked there with mutants (What remains).
 
 Open after the last fix round, and not in the docs as stated here:
 
-- **F2's residue.** After a noun trigger, a participle with no preposition of
-  place, or an irregular one ("set", "lit up", "woven into it",
-  "flickering"), is still a target with `ends` True: no Apply, as the design
-  notes say of "set in bold type", but the critic keeps it as text to render
-  and does not flag a rewrite quoting it. The negation stop's cost is wider
-  than the notes' examples ("love without limits", "dogs not allowed"): "we
-  are not open", "gone but not forgotten" and "say no to war" warn as
-  absences, and "no shoes no shirt no service" is cut to "no shoes no shirt"
-  with a warning on "no service".
+- **F2's residue** - built 2026-10-17 (`PA#3`). After a noun trigger, a
+  participle with no preposition of place, or an irregular one ("set", "lit
+  up", "woven into it", "flickering"), was still a target with `ends` True:
+  no Apply, but the critic kept it as text to render and did not flag a
+  rewrite quoting it. The negation stop's cost was wider than the notes'
+  examples ("love without limits", "dogs not allowed"): "we are not open",
+  "gone but not forgotten" and "say no to war" warned as absences, and "no
+  shoes no shirt no service" was cut to "no shoes no shirt" with a warning
+  on "no service". An irregular participle with a place word after it
+  (`_IRREGULAR_PARTICIPLE`, "up" now a place word) and an -ing form the
+  clause ends on or an adverb other than one of when follows are now
+  description; a negation the words before make their own
+  (`_owns_negation`: a verb it negates, "but", a verb of saying, a negation
+  among them) stops nothing, and a joining word right after one goes on
+  ("say no to war"). Each piece's mutant fails
+  `test_prompt_rules_lettering.py` or `test_critic_lettering.py`; the
+  design notes name the new prices.
 - **F28's residue** - built 2026-10-17 (`PA#4`). A span ended inside a name
   broken by a dot or a lowercase particle ("no boats in St" for St. Ives,
   "without tourists in Rio" for Rio de Janeiro, "Avoid Dr" for Dr. Smith),
@@ -360,10 +368,14 @@ Accepted, and worded as trade-offs in the docs:
 - **F2's heuristics:** lowercase lettering that opens with a describing word
   ("a sign that says by appointment only") gets no finding; after a noun
   trigger, lowercase lettering shaped like a participle of place ("with the
-  words dancing in the rain") gets none, and Title Case ("Happy Birthday")
-  loses its one click; lettering holding a negation further in ("a banner
-  reading love without limits") warns as an absence until it is quoted or in
-  capitals, though the critic takes it whole as text to render.
+  words dancing in the rain", "made in Japan"), an -ing word alone ("with
+  the text loading") or one and an adverb ("serving proudly") gets none,
+  and Title Case ("Happy Birthday") loses its one click; lettering holding
+  a negation further in ("a banner reading love without limits") warns as
+  an absence until it is quoted or in capitals, though the critic takes it
+  whole as text to render; and a negation after a verb in words that are no
+  lettering ("a boy on a box reading comics that are not illustrated") is
+  taken for lettering and does not warn.
 - **F28:** a title that opens a clause ("No Country for Old Men poster on a
   wall") warns as an absence, its span taking in the whole name.
 - **F1:** a description that starts with a bare 在 (写着营业中在门口) keeps a

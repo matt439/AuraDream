@@ -8999,8 +8999,24 @@ down", "spelled out") places the words rather than being them, so it is no
 lettering at all, and the critic flags a rewrite that quotes it. The price,
 like "says by appointment only", is that lowercase lettering of that shape
 after a noun trigger ("with the words dancing in the rain") gets no finding
-unless it is quoted or in capitals. The same re-verification found a negation
-hidden further into a participle's lowercase words: "a boy on a box reading
+unless it is quoted or in capitals. That left an irregular participle and
+an -ing form with no place word after it as targets with a sure end: no
+Apply, but the critic kept "set" in "the headline set in bold type" as text
+to render and let a rewrite quote it. Since 2026-10-17 (`PA#3`) an
+irregular participle with a place word after it (`_IRREGULAR_PARTICIPLE`:
+"set in", "lit up", "woven into it"; "up" is a place word now) describes
+too, and so does an -ing form the clause ends on or an -ly adverb follows
+("with the words flickering", "flickering softly"), though not an adverb
+of when (`_WHEN_ADVERB`), which a sign says ("opening shortly", "closing
+early today"). Not an -ed one there, which a sign says as often ("with the
+words closed", "closed temporarily"), and the list is closed, so "sold
+out" is still lettering. The price is the same shape again: lowercase
+lettering that is an -ing word alone ("with the word spring.", "with the
+text loading"), an -ing word and an adverb off that list ("with the words
+serving proudly"), or an irregular participle and a place word ("with the
+words made in Japan") gets no finding unless quoted or in capitals. The
+same re-verification found a negation hidden further into a participle's
+lowercase words: "a boy on a box reading
 comics without pictures" read "comics without pictures" as lettering. Those
 words now stop at without, never, no or not, and the negation rule has the
 rest. A review of that stop found it cutting lettering that opens with a
@@ -9012,7 +9028,20 @@ that word (`_absence_at`) - not inside a negation that starts earlier, nor at
 one with nothing after it ("now or never") - and those are lettering whole
 again. The cost is lettering that holds a negation further in ("a banner
 reading love without limits", "a sign reading dogs not allowed"), which warns
-as an absence until it is quoted or in capitals. That stop is the rules' own:
+as an absence until it is quoted or in capitals. That cost reached further
+than those two: "a shop sign reading we are not open", "gone but not
+forgotten" and "say no to war" warned as absences, and "no shoes no shirt
+no service" was cut to "no shoes no shirt" with a warning on "no service".
+Since 2026-10-17 (`PA#3`) the words before a negation can make it their
+own (`_owns_negation`), and then it stops nothing: a verb it negates (am,
+is, are, will, can, do, have and the rest, or a contraction such as
+"we're"), "but", a verb of saying, whose object it is, or a negation
+already among the words. A joining word right after a negation among a
+participle's words goes on with it ("say no to war", "we are not for
+sale"), where it would have ended them. The price is a negation after a
+verb in words that are no lettering: "a boy on a box reading comics that
+are not illustrated" takes the whole run for lettering and does not warn.
+That stop is the rules' own:
 the lettering may hold the negation, so the critic should still take "love
 without limits" whole as text to render and not flag a rewrite quoting it,
 which is the fix the quote rule's finding asks for. A first fix left the stop

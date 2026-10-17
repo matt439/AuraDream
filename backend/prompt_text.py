@@ -541,12 +541,23 @@ _ADVERB = re.compile(r"[a-z]{3,}ly")
 # After a noun trigger, a participle with a preposition of place after it
 # describes the words rather than being them: "with the words shimmering
 # across the chest", "the text piped in blue icing", "the letters dripping
-# down the bricks". Not after "says", whose words are what it says.
+# down the bricks" - an irregular one too ("the headline set in bold type",
+# "the words lit up at night", "the text woven into it"). So does an -ing
+# form the clause ends on or an adverb follows ("with the words flickering",
+# "flickering softly"), though not an adverb of when, which a sign says
+# ("opening shortly", "closing early today"); not an -ed one, which a sign
+# says as often ("with the words closed", "closed temporarily"). Not after
+# "says", whose words are what it says.
 _PARTICIPLE = re.compile(r"[a-z]{3,}(?:ing|ed)")
+_IRREGULAR_PARTICIPLE = frozenset(
+    "set lit woven spun cut hung strung wound bent knit torn worn held made laid spelt "
+    "blown frozen hidden stuck struck cast split spread".split()
+)
 _PLACE = frozenset(
     "in on at above below under over beside next across along near behind inside into "
-    "onto upon through around down out against beneath underneath from".split()
+    "onto upon through around down out up against beneath underneath from".split()
 )
+_WHEN_ADVERB = frozenset("early shortly daily weekly nightly hourly monthly yearly".split())
 # Heads of a negated phrase, which lowercase words after a participle
 # trigger do not run on through where the negation rule reads an absence
 # from one (`_absence_at`): "a boy on a box reading comics without pictures"
@@ -558,6 +569,30 @@ _NEGATING = frozenset("without never no not".split())
 # from it is where the lettering sits ("never in bold type", "never on the
 # door"): the negation is the lettering's own.
 _CLOSED_BY_NEGATION = frozenset(("or", "than"))
+# Words that make a negation right after them part of a sentence the
+# lettering says, rather than an absence the prompt asks for: a verb it
+# negates ("we are not open", "we will never forget", "it's not a drill"),
+# "but" ("gone but not forgotten") and a verb of saying, whose object it is
+# ("say no to war"). A negation among the words already read makes a later
+# one the same lettering's too ("no shoes no shirt no service").
+_NEGATED_VERB = frozenset(
+    "am is are was were be been being will would can could shall should must may might "
+    "do does did have has had but say says said saying".split()
+)
+_CONTRACTED_VERB = re.compile(r"['’](?:m|re|s|ve|ll|d)$")
+
+
+def _owns_negation(words: list[re.Match[str]]) -> bool:
+    """Whether the lowercase words a participle's lettering has so far make
+    a negation right after them their own (`_CLOSED_BY_NEGATION`,
+    `_NEGATED_VERB`, or a negation among them)."""
+    last = words[-1].group(1).lower()
+    return (
+        last in _CLOSED_BY_NEGATION
+        or last in _NEGATED_VERB
+        or bool(_CONTRACTED_VERB.search(last))
+        or any(word.group(1).lower() in _NEGATING for word in words)
+    )
 # Chinese lettering has no spaces to end it. What ends it for certain is
 # whitespace, punctuation, a quotation mark or a bracket - though not an
 # ASCII mark inside Latin lettering or digits (营业时间9:00-21:00, 3.14,
@@ -608,9 +643,9 @@ class _Target(NamedTuple):
     # a Chinese target stops at 的, at 等
     # before 字样, at a verb placing the sign (挂在), at its length cap or
     # inside Latin lettering, lowercase words follow a participle, or words
-    # not in capitals follow a noun trigger ("with the words set in bold
-    # type"): the finding then offers no one-click quote, which would letter
-    # half a name or a description.
+    # not in capitals follow a noun trigger ("with the words happy birthday
+    # piped in icing"): the finding then offers no one-click quote, which
+    # would letter half a name or a description.
     exact: bool
     # False where the lettering may run on past `end` - a joining word, a
     # capitalised stop word, the word or length cap, lettering going on past
@@ -648,8 +683,14 @@ def _describes(text: str, word: re.Match[str], noun: bool) -> bool:
     after = _TARGET_WORD.match(text, word.end())
     spaced = text[word.end():word.end() + 1] in (" ", "\t")
     following = after.group(1).lower() if spaced and after else None
-    if noun and _PARTICIPLE.fullmatch(first) and following in _PLACE:
-        return True
+    if noun and (_PARTICIPLE.fullmatch(first) or first in _IRREGULAR_PARTICIPLE):
+        if following in _PLACE:
+            return True
+        if first.endswith("ing") and (
+            following is None
+            or (_ADVERB.fullmatch(following) and following not in _WHEN_ADVERB)
+        ):
+            return True
     if not _ADVERB.fullmatch(first.lower()):
         return False
     return following is None or following in _DESCRIBES
@@ -750,16 +791,19 @@ def _unquoted_targets(
             # Lowercase words after a participle may be what someone reads,
             # and a negation among them is the negation rule's - where that
             # rule reads one from there, so that the words it stops are not
-            # half of "do not enter" or "no pain no gain", and not right
-            # after "or" or "than", which it closes ("now or never in bold
-            # type", "better late than never on the door").
+            # half of "do not enter" or "no pain no gain", and not where the
+            # words before make it their own (`_owns_negation`): right after
+            # "or" or "than", which it closes ("now or never in bold type",
+            # "better late than never on the door"), a verb it negates ("we
+            # are not open"), or after a negation of their own ("no shoes no
+            # shirt no service").
             if (
                 head is None
                 and words
                 and participle
                 and token in _NEGATING
                 and not _capitalised(words[0].group(1))
-                and words[-1].group(1).lower() not in _CLOSED_BY_NEGATION
+                and not _owns_negation(words)
                 and _absence_at(text, word.start(1))
             ):
                 if stop_at_negations:
@@ -769,7 +813,13 @@ def _unquoted_targets(
             if len(words) == _TARGET_WORDS:
                 exact = False
                 break
-            if words and token in _TARGET_JOIN:
+            # A joining word right after a negation among a participle's
+            # words goes on with it: "say no to war", "we are not for sale".
+            if (
+                words
+                and token in _TARGET_JOIN
+                and not (participle and words[-1].group(1) in _NEGATING)
+            ):
                 after = _TARGET_WORD.match(text, word.end())
                 spaced = text[word.end():word.end() + 1] in (" ", "\t")
                 if not (spaced and after and _capitalised(after.group(1))):
@@ -798,8 +848,9 @@ def _unquoted_targets(
         if participle and not _capitalised(words[0].group(1)):
             exact, ends = False, not (negated or continued)
         # After a noun trigger, words not in capitals may describe the text
-        # rather than be it - "with the words set in bold type", "the text
-        # lit up at night" - so only capitals are sure to be the lettering.
+        # rather than be it - "with the words happy birthday piped in icing",
+        # "the text closed temporarily" - so only capitals are sure to be the
+        # lettering.
         # Where they end is no less sure: `ends` stands.
         elif match.group("noun") and not _in_capitals(words):
             exact = False

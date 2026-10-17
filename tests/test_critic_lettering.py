@@ -115,6 +115,10 @@ def test_words_placing_the_lettering_are_no_lettering_to_the_critic():
     for prompt, words in (
         ("A t-shirt with the words shimmering across the chest", "shimmering"),
         ("A door with the words scratched into the paint", "scratched into the paint"),
+        ("A poster with the headline set in bold type", "set"),
+        ("A sign with the words lit up at night", "lit up"),
+        ("A rug with the text woven into it", "woven into it"),
+        ("A neon sign with the words flickering softly", "flickering softly"),
     ):
         rewrite = prompt.replace(words, f'"{words}"')
         result = _validate(
@@ -147,6 +151,10 @@ def test_lettering_holding_a_negation_is_lettering_to_the_critic_whole():
         ("A sign reading dogs not allowed", "dogs not allowed"),
         ("A poster reading now or never in bold type", "now or never"),
         ("A sign reading better late than never on the door", "better late than never"),
+        ("A shop sign reading we are not open", "we are not open"),
+        ("A tombstone reading gone but not forgotten", "gone but not forgotten"),
+        ("A poster reading say no to war above the crowd", "say no to war"),
+        ("A diner sign reading no shoes no shirt no service", "no shoes no shirt no service"),
     ):
         rewrite = prompt.replace(words, f'"{words}"')
         result = _validate(
