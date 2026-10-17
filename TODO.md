@@ -9,9 +9,8 @@ An index of open work, one row per item; each row points to the doc that owns th
 **Aim (2026-10-13):** inpainting and outpainting, merged today for the SDXL checkpoints and the Z-Image family, are measured on the card and documented for users, so their phase 3 and the deferred families can follow on numbers rather than guesses.
 
 1. **`CARD#1` and `CARD#2`: inpaint and outpaint on the card.** Matt's runs, one size at a time in the foreground, stopping at the first that fills the card. They unblock `INP#1` and `INP#2`.
-2. **`DEV#1`: Inpaint and Outpaint in `docs/usage.md` and `README.md`.** Neither mentions them. No card needed.
 
-**Decisions waiting on Matt** (none blocks the two above):
+**Decisions waiting on Matt** (none blocks the one above):
 - `INP#7`: the outpainting plan's four open questions were never answered; the build took the recommended answers.
 - `INP#8`: FLUX.1 Fill [dev] as an inpaint-only checkpoint: wanted, and when?
 - `PA#5`: should tag autocomplete write bare parentheses instead of A1111 escapes?
@@ -118,7 +117,6 @@ An index of open work, one row per item; each row points to the doc that owns th
 
 | id | status | sev | size | item |
 |---|---|---|---|---|
-| `DEV#1` | OPEN | MED | S | Document the Inpaint and Outpaint dialogs in [docs/usage.md](docs/usage.md) and name them in `README.md`; neither mentions them. |
 | `DEV#2` | OPEN | LOW | S | Extend `tests/test_docs_maps.py` to hold CLAUDE.md's smoke/port table to `tools/smoke*.json` and `web/styles/*.css` to rules.md's Layout (10-12 F16, the rest of it). |
 
 ## Reviews with nothing left open

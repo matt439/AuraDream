@@ -275,6 +275,69 @@ in the gallery, but they can no longer be reproduced from that source; a
 source in the recycle bin is named as such, and restoring it makes its
 passes reproducible again.
 
+## Inpaint part of an image
+
+**Inpaint…** repaints only the part of a gallery image you paint over and
+keeps the rest exactly. Open it from the lightbox, a card's or a result's
+**✎**, or the right-click menu. It runs on the SDXL checkpoints (Animagine,
+Illustrious, Kohaku, WAI, RouWei, NoobAI) and the Z-Image family (Z-Image
+Turbo, Z-Anime); elsewhere the button is held and its tooltip says why.
+FLUX.1, FLUX.2 [klein] and Qwen-Image are not enabled yet.
+
+Paint the area to redraw over the picture. With the picture focused:
+B brush, E eraser, `[` and `]` (or Alt+wheel) size the brush, I inverts,
+Ctrl+Z and Ctrl+Shift+Z/Ctrl+Y undo and redo, and the arrow keys move the
+brush with Space painting. These keys act only while the picture has focus,
+so typing in the prompt never paints. **Feather** softens the mask's edge;
+**Show mask** hides the overlay. **Clear** empties the mask, and Undo brings it back.
+
+The dialog starts from the source's prompt, seed and sampling settings, with
+**Strength**, **Versions** and **Seed** working as in Refine; the prompt and
+sampling boxes are under **Prompt and sampling**. Strength says how much of
+the masked area is redrawn. It starts at the installed diffusers inpaint
+class's own default (about 1 on both families), since no checkpoint author gives
+one and none has been measured here. Several comma-separated values run side
+by side and open as a sheet. Ctrl+Enter runs.
+
+An inpaint always runs at the source's size. Afterwards the result is laid
+over the source through the mask, so every unmasked pixel is the source's
+own and a feathered edge blends. The mask is stored by its hash and also
+embedded in the result's PNG, so the image alone can be reproduced (Reuse,
+`--from-image`, a bundle or reindex). Closing without running keeps your strokes
+for the next time you open that image, until the page reloads. Re-render,
+More seeds and Swap tags rerun an inpaint with its mask. A Re-render at
+another size refuses it (unpick it, or search `inpaint:no`), and Mass
+refine drops the mask. Search `inpaint:yes`
+for inpaints, `mask:<hash prefix>` for one mask's.
+
+Memory, time and the best starting strength have not been measured on the
+card yet; see [verified.md](verified.md#inpaint).
+
+## Outpaint an image
+
+**Outpaint…** extends a gallery image's canvas past its edges and paints the
+new area, on the same checkpoints as Inpaint. Open it from the lightbox, a
+fresh result's **⬚ Outpaint…**, the right-click menu, or Reuse of an
+outpainted image.
+
+Type how far to extend each side (**Top**, **Left**, **Right**, **Bottom**),
+in steps of 16 px; the frame shows the new canvas with the original in
+place and the new area hatched. **+25% all round**, **to 16:9** and
+**to 2:3** replace all four sides. **To shape…** picks another aspect,
+and **Apply** applies it. A preset already met says so and stays held. The server
+fills the new area from the source's stretched and blurred edge pixels, then
+builds the mask: the new border plus a feathered **Band** reaching that far
+into the original (0-256 px in steps of 8; 32 is this app's starting value,
+not a measured one). You never paint it. A wider band blends the seam over
+more of the original. Inward of the band, the original is kept pixel for pixel.
+
+Strength, Versions, Seed and the prompt work as in Inpaint. The new area
+starts as the server's rough fill, so expect a high strength there. The
+pass runs at the source's size plus the padding, within the size guard.
+Search `outpaint:yes` for outpaints; `inpaint:yes outpaint:no` gives the
+painted inpaints alone. Measurements are pending; see
+[verified.md](verified.md#outpaint).
+
 ## Sweep settings with Grid search
 
 Blank axes use the main panel's value; populated axes cross with one another.
@@ -337,6 +400,7 @@ Search combines these terms with free text matching the prompt:
 | `mu:none`, `quant:fp8`, `model:flux` | Default shift, quantization, model substring |
 | `model:=circlestone-labs/Anima` | One checkpoint's whole id exactly (a leading `=` on any text key) |
 | `refine:412`, `refine:none`, `strength:0.3-0.5` | Passes from a source, direct renders, strength |
+| `inpaint:yes`, `outpaint:no`, `mask:3f9a` | Inpaints, outpaints, one mask's by hash prefix (`mask:none` is no inpaint) |
 | `lora:ink`, `lora:none` | LoRA name substring, or images made without one (`lora:=none` is an adapter named `none`) |
 | `hash:3f9a` | Identical pixels by hash prefix |
 | `size:1024x768` | Width and height exactly |
@@ -436,6 +500,7 @@ queued per run, and the new images join it: the batch's hover, the
 | Contact sheet | F stars the focused cell |
 | Prompt/tag chips | Tab/Enter accepts a suggestion after three matching characters; Alt+Left/Right reorders chips, Delete removes, Enter edits |
 | Prompt replacements | Ctrl+Z restores text after Apply, Reuse (or a loaded PNG), Expand, Examples or a chip edit |
+| Inpaint | With the picture focused: B brush, E eraser, `[` `]` or Alt+wheel size, I invert, Ctrl+Z / Ctrl+Shift+Z undo and redo, arrows move the brush, Space paints; Ctrl+Enter runs (Outpaint too) |
 | Refine | Enter in a one-line field runs; Strength arrows step by 0.05, or 0.01 with Shift |
 
 Lightbox zoom and position carry between images of the same shape, useful
@@ -473,6 +538,10 @@ uv run python -m backend.generate --help
 prints one path and seed per saved image. `--true-cfg`, `--reference 12,15`,
 `--lora style.safetensors --lora-scale 0.8` and `--grid-lora-scale 0-1x0.25`
 match the browser controls. Refine supports `--strength` and `--grid-strength`.
+`--refine 412 --mask mask.png` inpaints: white repaints, black keeps, grey
+blends, at the source's own size. `--refine 412 --outpaint 0,0,256,0` (left,
+top, right, bottom) or `--outpaint 16:9` / `--outpaint +25%` outpaints, with
+`--band` setting the band (default 32).
 `--from-image` restores PNG settings; explicit flags override them. Add
 `--scale` explicitly to enlarge its recorded size. Quantization is not carried
 over, allowing a WSL PNG to be used on Windows, and differences are reported.
