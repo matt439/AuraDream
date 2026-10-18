@@ -623,8 +623,9 @@ top, right, bottom) or `--outpaint 16:9` / `--outpaint +25%` outpaints, with
 `--scale` explicitly to enlarge its recorded size. Quantization is not carried
 over, allowing a WSL PNG to be used on Windows, and differences are reported.
 
-The CLI loads its own weights. It first probes the configured server and
-stops if it is ready, loading or times out; unload the server model first.
+Without `--via-server`, the CLI loads its own weights. It first probes the
+configured server and stops if it is ready, loading or times out; use
+`--via-server` or unload the server model first.
 `--ignore-server` overrides this advisory check, which cannot see a server
 across the Windows/WSL boundary. Ctrl+C cancels cooperatively and preserves
 saved images. Exit codes: 0 complete, 130 cancelled, 2 bad arguments, 1 failed
@@ -637,6 +638,34 @@ gallery is free; a second Ctrl+C ends it.
 Redirected CLI output is UTF-8. In Windows PowerShell, set
 `[Console]::OutputEncoding = [Text.Encoding]::UTF8` before using `>` or `|`
 to preserve non-ASCII prompts.
+
+### Scripting the running server
+
+Keep the browser server open and queue scripts through it:
+
+```powershell
+uv run python -m backend.generate "a fox" --via-server --seed 42 -q
+uv run python -m backend.generate "a fox" --via-server --seed 42 --grid-steps 20,30 --grid-seeds 4 --resume
+```
+
+The address comes from `LOCAL_DIFFUSION_HOST` and `LOCAL_DIFFUSION_PORT`
+(default `http://127.0.0.1:7860`). Defaults and request normalization belong
+to that server. Explicit model, quantization and offload flags or environment
+must match its current choices; select them in Models first. Each submission
+pins the model revision. Nothing loads weights locally or switches the server.
+`--quiet` prints the full server PNG URL and seed for each saved image.
+Ctrl+C cancels only this invocation's job and waits for its step boundary;
+a second Ctrl+C stops waiting. An unconfirmed submission is never retried
+automatically: inspect the reported jobs URL before submitting again.
+
+Grid, Resume, budget, gallery references, Refine, mask upload and Outpaint
+use the public routes and the server's source provenance checks. PNG-carried
+grid/comparison labels cannot pass through these generation routes and are
+refused; define a new grid or use the direct CLI for those records.
+`--dry-run` and `--ignore-server` are alternatives to `--via-server`.
+The API explorer is at `/docs`, with its schema at `/openapi.json` on the
+same server. A budget stop preserves its completed images and exits 0;
+cancellation exits 130, bad arguments/refusals 2, and runtime failures 1.
 
 ## Review starred rates
 

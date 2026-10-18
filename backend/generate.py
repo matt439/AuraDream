@@ -1,4 +1,4 @@
-"""Generate images from the terminal - no server, no browser.
+"""Generate images from the terminal, directly or through the running server.
 
     uv run python -m backend.generate "a lighthouse in fog"
     uv run python -m backend.generate "..." --aspect 16:9 --mp 4 --runs 12
@@ -48,6 +48,8 @@ from backend.launch import add_model_arguments, apply_env  # noqa: E402
 from backend.png_settings import PngSettingsError, image_settings  # noqa: E402
 from backend.seeds import random_seed, wrap_seed  # noqa: E402
 from backend.sizes import SIZES, TIERS  # noqa: E402
+
+_SERVER_POLL_SECONDS = 1.0
 
 
 def _build_parser() -> argparse.ArgumentParser:
@@ -281,6 +283,10 @@ def _build_parser() -> argparse.ArgumentParser:
         "--ignore-server",
         action="store_true",
         help="load the weights even if a server on LOCAL_DIFFUSION_HOST:LOCAL_DIFFUSION_PORT already holds them on the GPU",
+    )
+    parser.add_argument(
+        "--via-server", action="store_true",
+        help="queue on the configured running server and wait; print its PNG URLs and seeds, without loading local weights",
     )
     return parser
 
@@ -667,6 +673,244 @@ def _duration(seconds: float) -> str:
     return f"{minutes}m{secs:02d}s" if minutes else f"{secs}s"
 
 
+class _ServerError(Exception):
+    def __init__(self, detail: str, status: int = 0) -> None:
+        super().__init__(detail)
+        self.status = status
+
+
+def _server_json(base: str, path: str, *, body=None, data=None, headers=None, timeout=30.0) -> dict:
+    """One HTTP call, never retried: a lost submission may already be queued."""
+    import json
+    import urllib.error
+    import urllib.request
+
+    outgoing = dict(headers or {})
+    if body is not None:
+        data = json.dumps(body, ensure_ascii=True, allow_nan=False).encode("utf-8")
+        outgoing["Content-Type"] = "application/json"
+    request = urllib.request.Request(base + path, data=data, headers=outgoing)
+    try:
+        with urllib.request.urlopen(request, timeout=timeout) as response:
+            answer = json.load(response)
+    except urllib.error.HTTPError as exc:
+        try:
+            with exc:
+                detail = json.load(exc).get("detail", str(exc))
+        except (OSError, ValueError, AttributeError):
+            detail = str(exc)
+        if isinstance(detail, list):
+            detail = "; ".join(
+                f"{'.'.join(str(part) for part in item.get('loc', [])[1:])}: {item.get('msg', 'invalid request')}"
+                for item in detail if isinstance(item, dict)
+            )
+        raise _ServerError(str(detail), exc.code) from None
+    except (OSError, ValueError) as exc:
+        raise _ServerError(f"no usable answer from {base}: {exc}") from None
+    if not isinstance(answer, dict):
+        raise _ServerError(f"{base}{path} did not answer with a JSON object")
+    return answer
+
+
+def _via_server(args, parser, source, carried, mask_image, width, height, sized, outpaint_sides) -> int:
+    """Script the public API; all model defaults and admission stay server-owned."""
+    import io
+    import os
+
+    if args.ignore_server:
+        parser.error("--via-server and --ignore-server are alternatives")
+    if args.dry_run:
+        parser.error("--via-server and --dry-run are alternatives: a dry run makes no network requests")
+    if carried is not None:
+        parser.error(
+            "--via-server cannot carry a PNG's grid/comparison labels through the public generation API; "
+            "run without --via-server, change the prompt, or define new variables with --grid-prompt"
+        )
+    prompt_axis = "\n".join(args.grid_prompt)
+    gridding = bool(prompt_axis or args.grid_steps or args.grid_cfg or args.grid_mu or args.grid_lora_scale
+                    or args.grid_strength or args.seed_list or args.grid_seeds != 1)
+    if gridding and args.runs != 1:
+        parser.error("--runs and --grid-* are alternatives; a grid steps its own seeds")
+    if args.grid_seeds < 1:
+        parser.error("--grid-seeds must be at least 1")
+    if args.resume and args.seed is None and not args.seed_list:
+        parser.error("--resume needs --seed: the seed the run it continues was started from")
+    if args.grid_lora_scale and not args.lora:
+        parser.error("--grid-lora-scale needs --lora: with no adapter the weight does nothing")
+    if args.grid_strength and args.refine is None:
+        parser.error("--grid-strength needs --refine: with no source the strength does nothing")
+    host = os.getenv("LOCAL_DIFFUSION_HOST", "127.0.0.1")
+    host = "127.0.0.1" if host in {"0.0.0.0", "::"} else host
+    if ":" in host and not host.startswith("["):
+        host = f"[{host}]"
+    try:
+        port = int(os.getenv("LOCAL_DIFFUSION_PORT", "7860"))
+        if not 1 <= port <= 65535:
+            raise ValueError
+    except ValueError:
+        parser.error("LOCAL_DIFFUSION_PORT must be a port from 1 to 65535")
+    base = f"http://{host}:{port}"
+    headers = {}
+    job_id = None
+    try:
+        status = _server_json(base, "/api/status", timeout=5.0)
+        if not all(isinstance(status.get(key), str) for key in ("model_id", "quantization", "offload")):
+            raise _ServerError("the server's status has no checkpoint/loading settings")
+        if status.get("switching"):
+            raise _ServerError("the checkpoint is switching; wait for the switch to finish", 409)
+        for value, key, flag, env in (
+            (args.model, "model_id", "--model", "LOCAL_DIFFUSION_MODEL_ID"),
+            (args.quant, "quantization", "--quant", "LOCAL_DIFFUSION_QUANT"),
+            (args.offload, "offload", "--offload", "LOCAL_DIFFUSION_OFFLOAD"),
+        ):
+            wanted = value if value is not None else os.getenv(env)
+            if wanted is not None and wanted != status[key]:
+                raise _ServerError(
+                    f"{flag} asks for {wanted}, but the server uses {status[key]}; "
+                    "select those settings in Models first, or use matching flags/environment", 422,
+                )
+        revision = status.get("model_revision")
+        if not isinstance(revision, int):
+            raise _ServerError("the server's status has no model revision; update the server before using --via-server")
+        headers["X-Local-Diffusion-Model-Revision"] = str(revision)
+        made_with = source.get("quantization") if source is not None else None
+        if made_with and made_with != status["quantization"]:
+            print(f"note: the PNG was made with quant={made_with}; the server uses {status['quantization']}, so the pixels will differ", file=sys.stderr)
+        records = {}
+
+        def record(image_id, include_binned=False):
+            if image_id not in records:
+                records[image_id] = _server_json(base, f"/api/images/{image_id}")
+            return SimpleNamespace(**records[image_id])
+
+        # Reuse the CLI's provenance guard, against server records rather
+        # than a similarly numbered image in this process's local gallery.
+        remote = SimpleNamespace(storage=SimpleNamespace(get_image=record),
+                                 settings=SimpleNamespace(db_path=SimpleNamespace(exists=lambda: True)))
+        dropped = _check_carried_source(args, remote, parser)
+        if dropped:
+            outpaint_sides = None
+        from backend import grid, refine
+
+        references = grid.parse_axis(args.reference, int, label="reference")
+        if source is not None and not args.reference_given:
+            known = source.get("reference_sources") or []
+            for at, image_id in enumerate(references):
+                saved = known[at] if at < len(known) and isinstance(known[at], dict) else {}
+                held = record(image_id)
+                if not saved or (getattr(held, "content_hash", None), held.width, held.height) != (
+                    saved.get("hash"), saved.get("width"), saved.get("height")
+                ):
+                    raise _ServerError(
+                        f"--from-image: reference image {image_id} is not verified as the PNG's reference "
+                        "in the server gallery; name server images explicitly with --reference", 422,
+                    )
+        inpainting = args.mask is not None or args.mask_hash is not None
+        body = {"prompt": args.prompt, "negative_prompt": args.negative,
+                "width": width, "height": height, "num_images": args.batch, "runs": args.runs,
+                "reference": references, "lora": args.lora, "lora_scale": args.lora_scale}
+        for name, value in (("steps", args.steps), ("guidance_scale", args.cfg), ("true_cfg", args.true_cfg),
+                            ("seed", args.seed), ("strength", args.strength)):
+            if value is not None:
+                body[name] = value
+        if args.no_mu or args.mu is not None:
+            body["mu"] = None if args.no_mu else args.mu
+        if args.refine is not None:
+            held = record(args.refine)
+            body["refine"] = args.refine
+            if outpaint_sides is not None:
+                presets = _server_json(base, f"/api/images/{args.refine}/outpaint-presets")
+                if presets.get("off_grid"):
+                    raise _ServerError(presets["off_grid"], 422)
+                if isinstance(outpaint_sides, str):
+                    chosen = next((item for item in presets["presets"] if item["name"] == outpaint_sides), None)
+                    if chosen is None:
+                        raise _ServerError(f"no server outpaint preset {outpaint_sides!r}", 422)
+                    if chosen.get("held"):
+                        raise _ServerError(chosen["held"], 422)
+                    outpaint_sides = tuple(chosen[key] for key in ("left", "top", "right", "bottom"))
+                left, top, right, bottom = outpaint_sides
+                body.update(width=held.width + left + right, height=held.height + top + bottom)
+                body["outpaint"] = {"left": left, "top": top, "right": right, "bottom": bottom,
+                                    "fill": args.outpaint_fill or presets["fill"],
+                                    "band": args.band if args.band is not None else presets["band"]}
+                if args.carried_outpaint_mask is not None:
+                    from backend.schemas import Outpaint
+                    from backend.storage import outpaint_mask_hash
+
+                    if outpaint_mask_hash(body["width"], body["height"], Outpaint(**body["outpaint"])) != args.carried_outpaint_mask:
+                        raise _ServerError("--from-image: this build builds an outpaint's mask differently from the one that made this image", 422)
+            elif inpainting:
+                if not sized:
+                    body.update(width=held.width, height=held.height)
+            elif args.scale is not None or not sized:
+                body["width"], body["height"] = refine.scaled(held.width, held.height, args.scale or refine.DEFAULT_SCALE)
+        if inpainting:
+            if mask_image is None and args.mask_hash is not None:
+                mask_image = _mask_from_record(args.from_image, args.mask_hash)
+            if mask_image is not None:
+                data = io.BytesIO()
+                mask_image.save(data, format="PNG")
+                uploaded = _server_json(base, f"/api/masks?source={args.refine}", data=data.getvalue(),
+                                        headers={**headers, "Content-Type": "image/png"})
+                if args.mask_hash is not None and uploaded["hash"] != args.mask_hash:
+                    raise _ServerError("the server stored a different mask from the PNG's record", 422)
+                body["mask"] = uploaded["hash"]
+            else:
+                body["mask"] = args.mask_hash
+        path = "/api/generate"
+        if gridding or args.resume or args.budget is not None:
+            path = "/api/grid"
+            body.update(runs=1, prompt_axis=prompt_axis, steps_axis=args.grid_steps, cfg_axis=args.grid_cfg,
+                        mu_axis=args.grid_mu, lora_scale_axis=args.grid_lora_scale, strength_axis=args.grid_strength,
+                        seeds=args.grid_seeds if gridding else args.runs, seed_axis=args.seed_list,
+                        resume=args.resume, budget_minutes=args.budget)
+        if not args.quiet:
+            print(f"server   : {base}\nmodel    : {status['model_id']} (quant={status['quantization']}, offload={status['offload']})")
+        try:
+            accepted = _server_json(base, path, body=body, headers=headers)
+        except _ServerError as exc:
+            if args.resume and exc.status == 409 and str(exc) == "every cell is already rendered":
+                print("Nothing to do: every cell is already in the gallery.", file=sys.stderr)
+                return 0
+            if not exc.status:
+                print(f"Submission was not confirmed; check {base}/api/jobs before retrying.", file=sys.stderr)
+            raise
+        job_id = accepted["job_id"]
+        print(f"Queued job {job_id}; run {accepted.get('run_id')}; seed {accepted.get('seed')}.", file=sys.stderr)
+        seen = set()
+        cancelling = False
+        while True:
+            try:
+                job = _server_json(base, f"/api/jobs/{job_id}", timeout=10.0)
+                for image in job.get("images", []):
+                    if image["id"] not in seen:
+                        seen.add(image["id"])
+                        print(f"{base}{image['url']}  seed {image['seed']}", flush=True)
+                if job["status"] in {"done", "error", "cancelled"}:
+                    if job.get("error"):
+                        print(job["error"], file=sys.stderr)
+                    if job.get("stopped_by"):
+                        print(f"Job {job_id} stopped by {job['stopped_by']}.", file=sys.stderr)
+                    return 1 if job["status"] == "error" or job.get("failures") else 130 if job["status"] == "cancelled" else 0
+                time.sleep(_SERVER_POLL_SECONDS)
+            except KeyboardInterrupt:
+                if cancelling:
+                    raise
+                cancelling = True
+                _server_json(base, f"/api/jobs/{job_id}/cancel", body={})
+                print(f"Cancelling job {job_id}; waiting for its current step (Ctrl-C again stops waiting).", file=sys.stderr)
+    except KeyboardInterrupt:
+        print(f"Stopped waiting; check {base}/api/jobs" + (f"/{job_id}" if job_id else " before submitting again") + ".", file=sys.stderr)
+        return 130
+    except _ServerError as exc:
+        print(str(exc) + (f" (job {job_id}; it may still be running)" if job_id else ""), file=sys.stderr)
+        return 2 if job_id is None and 400 <= exc.status < 500 else 1
+    except (ValueError, KeyError, TypeError, AttributeError, OverflowError) as exc:
+        print(f"--via-server: {exc}", file=sys.stderr)
+        return 2 if job_id is None else 1
+
+
 def main(argv: list[str] | None = None) -> int:
     # Redirected to an overnight log, stdout on Windows encodes with the
     # locale's code page, where a CJK or emoji prompt was a UnicodeEncodeError
@@ -678,6 +922,7 @@ def main(argv: list[str] | None = None) -> int:
         sys.stdout.reconfigure(encoding="utf-8", errors="backslashreplace")
     parser = _build_parser()
     args = parser.parse_args(argv)
+    args.reference_given = bool(args.reference)
     # A mask hash carried from --from-image's record, where --mask names none;
     # the record's refine source's identity, and whether its strength carried.
     args.mask_hash = None
@@ -743,6 +988,8 @@ def main(argv: list[str] | None = None) -> int:
     mask_image = _mask_file(args.mask, parser) if args.mask is not None else None
     width, height = _resolve_size(args, parser)
     apply_env(args)
+    if args.via_server:
+        return _via_server(args, parser, source, carried, mask_image, width, height, sized, outpaint_sides)
     p = _project()
     if _check_carried_source(args, p, parser):
         inpainting = False
@@ -1303,7 +1550,7 @@ def main(argv: list[str] | None = None) -> int:
             print(
                 f"A server at {p.settings.host}:{p.settings.port} holds {holder} on the GPU; "
                 "loading a second copy here would run out of memory. Unload it (the Unload "
-                "button, or POST /api/model/unload), stop it, or pass --ignore-server.",
+                "button, or POST /api/model/unload), stop it, use --via-server to queue on it, or pass --ignore-server.",
                 file=sys.stderr,
             )
             return 4
