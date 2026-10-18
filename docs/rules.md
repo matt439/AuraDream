@@ -3993,8 +3993,15 @@ Frontend and CLI:
   holds. A batch is `more_seeds.batch_key`: the lineage (`run_id`, else
   `job_id`, else the image alone), checkpoint, quantization, size and the
   resume key's elements but the seed (`settings_key`, as
-  `completed_cells` reads a row) - the card hover's set - so picked images
-  of one batch are one batch, in the order of their oldest. Per batch, in
+  `completed_cells` reads a row) - one cell of a grid - so picked images
+  of one batch are one batch, in the order of their oldest. The selection
+  is `submission.resolve_selection`'s: picked `ids`, else the filter, or
+  with `run` (refused beside `ids` or `search`, 422; `favorites` and
+  `all_models` ignored) every live image of that run from
+  `lineage_images([run], [])`, every checkpoint's, uncapped - 404 "run X
+  is not in the gallery", or "every image of run X is in the recycle bin";
+  its binned images are no batches but still hold their seeds, and a run
+  scope's `expected` is not capped either. Per batch, in
   the resolver's order: `foreign` (another checkpoint's), else
   `more_seeds.plan` over every image the gallery holds of its lineage
   (`storage.lineage_images`, picked or not, binned ones included, so the
@@ -4018,9 +4025,14 @@ Frontend and CLI:
   its picked `ids`, the prompt (300 characters), the images and seed range
   it holds, `first`/`last` new seed, `skipped`, `batch` and `recorded` -
   counts all, and answers the resolved `ids`, `queued` (images),
-  `batches`, `jobs`, `unrecorded` and `seconds` (per size from
+  `batches`, `jobs`, `unrecorded`, `seconds` (per size from
   `step_cost_ms`/`refine_cost_ms`, None with `unpriced_sizes` where any
-  size has none); it has no side effects, is not model-dependent and is
+  size has none), `count_default` (`more_seeds.count_default`: the Batch
+  every batch that recorded one agrees on, else None - what a run surface
+  opens the count at) and, for a `run` scope with something queued,
+  `headline` (`more_seeds.run_headline`: "N more of each of C cells = T
+  images · seeds a–b · Starred ignored", "of its one cell" for one, the
+  Starred part only where the request ticked it); it has no side effects, is not model-dependent and is
   advisory in `api`. The queueing route is model-dependent, refuses 409
   when `expected` is not the ids resolved now, 422 naming every count when
   no batch is queued, and submits one job per lineage and size
@@ -4792,7 +4804,12 @@ of one batch as one, the batch's own Batch and run, a second press past
 the first, seeds the gallery or a live job holds stepped over, the panel's
 Batch for an unrecorded batch and the budget's cap, a grid's cells as
 batches of one job, one job per run, every per-batch status, `expected`,
-the whole refusals, the filter scope, and `batch` through a reindex).
+the whole refusals, the filter scope, `batch` through a reindex, and the
+`run` scope: the run's live images whatever Starred, a binned cell no
+batch and a binned top seed still held, its refusals beside `ids` or
+`search`, 404 unknown or wholly binned, 409 `expected`, per-batch
+`foreign`, `count_default` agreeing or not, the headline, and a run past
+`max_grid_images` images queued in few batches).
 Load settings from PNG is `tests/test_api_png.py` (a gallery PNG's whole
 record back, an explicit null Mu, the legacy key, a reference carried only
 where this gallery holds the same picture, one on a checkpoint that takes

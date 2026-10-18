@@ -232,3 +232,89 @@ def test_seeds_follow_on_past_a_binned_seed_and_a_binned_pick_says_so(client, fa
     assert (gone["status"], gone["detail"]) == ("deleted", "in the recycle bin")
     row = rows[images[0]["id"]]
     assert row["status"] == "queued" and (row["first"], row["last"]) == (203, 204)
+
+
+def test_a_run_scope_is_every_live_image_of_the_run_starred_or_not(client, fake):
+    _, events = run_grid(client, seed=50, seeds=2, cfg_axis="1.5,2.5,3.5", steps=2)
+    images = events[-1]["images"]
+    run = images[0]["run_id"]
+    by = {(image["guidance_scale"], image["seed"]): image for image in images}
+    # Another run, which the scope leaves out.
+    batch_of(client, seed=50, num_images=1, runs=1, prompt="a harbour at dawn")
+    # Starred holds one image; the run scope ignores it.
+    client.post(f"/api/images/{by[(1.5, 50)]['id']}/favorite")
+    # A cell wholly in the bin is no batch; a binned top seed still holds its seed.
+    client.post("/api/images/bin", json={"ids": [by[(3.5, 50)]["id"], by[(3.5, 51)]["id"], by[(2.5, 51)]["id"]]})
+    live = sorted(by[key]["id"] for key in ((1.5, 50), (1.5, 51), (2.5, 50)))
+    answer = preview(client, run=run, count=2)
+    assert answer["ids"] == live
+    assert (answer["batches"], answer["jobs"], answer["queued"]) == (2, 1, 4)
+    assert {(r["seed_low"], r["seed_high"], r["first"], r["last"]) for r in answer["results"]} == {
+        (50, 51, 52, 53),
+    }
+    assert answer["count_default"] == 1
+    assert answer["headline"] == "2 more of each of 2 cells = 4 images · seeds 52–53 · Starred ignored"
+    unticked = preview(client, run=run, count=2, favorites=False)
+    assert unticked["headline"] == "2 more of each of 2 cells = 4 images · seeds 52–53"
+    # The filter and its Starred give the one starred image instead.
+    assert preview(client, count=2)["ids"] == [by[(1.5, 50)]["id"]]
+    fake.requests.clear()
+    accepted = queue(client, run=run, count=2, expected=answer["ids"])
+    assert accepted["run_id"] == run and accepted["queued"] == 4
+    final = stream_job(client, accepted["job_id"])[-1]
+    assert final["status"] == "done"
+    assert {image["run_id"] for image in final["images"]} == {run}
+    assert sorted((r.guidance_scale, r.seed) for r in fake.requests) == [
+        (1.5, 52), (1.5, 53), (2.5, 52), (2.5, 53),
+    ]
+
+
+def test_a_run_scope_alone_and_its_refusals(client, fake, store):
+    images = batch_of(client, seed=10, num_images=2, runs=1)
+    run = images[0]["run_id"]
+    answer = preview(client, run=run, count=2)
+    # One batch: its own Batch, and a headline for its one cell.
+    assert answer["count_default"] == 2
+    assert answer["headline"] == "2 more of its one cell = 2 images · seeds 12–13 · Starred ignored"
+    # The page's other scopes get the count, never the headline.
+    assert preview(client, ids=[images[0]["id"]], count=2)["headline"] is None
+    for clash in ({"ids": [images[0]["id"]]}, {"search": "lighthouse"}):
+        refused = client.post("/api/more-seeds/preview", json={"run": run, **clash})
+        assert refused.status_code == 422, clash
+    unknown = client.post("/api/more-seeds/preview", json={"run": "nope"})
+    assert (unknown.status_code, unknown.json()["detail"]) == (404, "run nope is not in the gallery")
+    stale = client.post("/api/more-seeds", json={"run": run, "expected": [images[0]["id"]]})
+    assert stale.status_code == 409
+    client.post("/api/images/bin", json={"ids": [image["id"] for image in images]})
+    binned = client.post("/api/more-seeds/preview", json={"run": run})
+    assert (binned.status_code, binned.json()["detail"]) == (404, f"every image of run {run} is in the recycle bin")
+
+
+def test_a_run_scope_reports_another_checkpoints_batch_and_its_batches_disagreeing(client, fake, store):
+    quantization = current_settings(settings).quantization
+    mine = plant(store, "a lighthouse", seed=1, run_id="mixed", batch=2, quantization=quantization)
+    other = plant(store, "a harbour", seed=1, run_id="mixed", batch=3, quantization=quantization)
+    foreign = plant(store, "a lighthouse", seed=2, run_id="mixed", model_id="somebody/else")
+    answer = preview(client, run="mixed", count=1)
+    statuses = {row["id"]: row["status"] for row in answer["results"]}
+    assert statuses == {mine.id: "queued", other.id: "queued", foreign.id: "foreign"}
+    # Batch 2 and Batch 3: no one count is the run's.
+    assert answer["count_default"] is None
+    assert answer["headline"] == "1 more of each of 2 cells = 2 images · seed 2 · Starred ignored"
+
+
+def test_a_run_past_max_grid_images_is_queued_in_few_batches(client, fake, monkeypatch):
+    from backend import main
+
+    _, events = run_grid(client, seed=50, seeds=2, cfg_axis="1.5,2.5", steps=2)
+    run = events[-1]["images"][0]["run_id"]
+    monkeypatch.setattr(main, "settings", dataclasses.replace(main.settings, max_grid_images=3))
+    # Four images: the filter refuses them by count; the run takes them.
+    assert client.post("/api/more-seeds/preview", json={"favorites": False}).status_code == 422
+    answer = preview(client, run=run, count=1)
+    assert len(answer["ids"]) == 4 and answer["queued"] == 2
+    assert stream_job(client, queue(client, run=run, count=1)["job_id"])[-1]["status"] == "done"
+    # The batches x count bound still holds one press.
+    too_many = client.post("/api/more-seeds/preview", json={"run": run, "count": 2})
+    assert too_many.status_code == 422
+    assert too_many.json()["detail"] == "2 batches × 2 is 4 images; a press may queue 3. Ask for fewer."

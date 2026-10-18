@@ -341,6 +341,7 @@ def not_yet_planned(services: AppServices, cells: list[grid.Cell]) -> list[grid.
 
 async def resolve_selection(
     services: AppServices, *, ids: list[int] | None, search: str | None, favorites: bool, all_models: bool,
+    run: str | None = None,
 ) -> tuple[list[ImageRecord], list[int], set[int]]:
     """The images an action on several of them acts on, oldest first, the
     picked ids the gallery no longer holds, and those of them that are in
@@ -355,7 +356,21 @@ async def resolve_selection(
     matches and 422 past `max_grid_images` - by count, never truncated to
     the newest N. The recycle bin is never part of a filter's selection. Re-render, Swap tags and Mass refine share it;
     what to do with another checkpoint's records is each caller's.
+
+    With `run` (More seeds of a run), every live image of that run, every
+    checkpoint's, whatever the filter and Starred: 404 where the gallery
+    holds none of it, or holds it only in the recycle bin. Not capped: what
+    a press may queue is the caller's to bound.
     """
+    if run is not None:
+        rows = await asyncio.to_thread(storage.lineage_images, [run], [])
+        records = [record for record in rows if record.binned_at is None]
+        if not records:
+            raise HTTPException(status_code=404, detail=(
+                f"every image of run {run} is in the recycle bin" if rows
+                else f"run {run} is not in the gallery"
+            ))
+        return records, [], set()
     if ids is not None:
         wanted = list(dict.fromkeys(ids))
         records = await asyncio.to_thread(storage.get_images, wanted)

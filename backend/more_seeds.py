@@ -6,12 +6,13 @@ and the live jobs already hold, check what needs the backend, and queue.
 Here the selection is grouped into batches, and each batch's next seeds, the
 Batch size they run at and its cells are worked out.
 
-A batch is what a card's batch hover shows (`gallery-batch.js`): the images
-of one run that agree on everything but the seed - the resume key's
-elements (`settings_key`), the size, the checkpoint and the quantization.
-Two picked images of one batch are one batch: "4 more" is four more of it,
-not four of each picked image. A record with no run id falls back to its
-job, and one with neither is a batch of its own.
+A batch is the images of one run that agree on everything but the seed -
+the resume key's elements (`settings_key`), the size, the checkpoint and
+the quantization: one cell of a grid. Two picked images of one batch are
+one batch: "4 more" is four more of it, not four of each picked image. A
+record with no run id falls back to its job, and one with neither is a
+batch of its own. A run scope (`MoreSeedsRequest.run`) is every batch of
+the run, each its own "4 more".
 
 The new seeds start one past the highest seed the gallery holds of the
 batch - picked or not, earlier extensions included, since they join its run
@@ -213,3 +214,31 @@ def plan(
         return
     held.update((*base, seed) for seed in seeds)
     batch.seeds, batch.cells = seeds, cells
+
+
+def count_default(batches: Sequence[Batch]) -> int | None:
+    """The count a run surface opens More seeds at: the Batch the batches
+    recorded (`batch_size`), where every one that recorded a Batch recorded
+    the same; None where none did, or where they differ and no one count is
+    the run's."""
+    recorded = {size for size, own in (batch_size(batch.held, 1) for batch in batches) if own}
+    return recorded.pop() if len(recorded) == 1 else None
+
+
+def run_headline(queued: Sequence[Batch], count: int, favorites: bool) -> str | None:
+    """A run scope's account of a press, written here so the page shows the
+    server's words: `count` more per cell, the cells, the total and the new
+    seeds' range, lowest first to highest last - a grid's cells continue
+    from their own highest seeds, often the same ones. Starred is said to
+    be ignored where the request had it ticked. None with nothing queued:
+    the counts say why."""
+    if not queued:
+        return None
+    images = sum(len(batch.seeds) for batch in queued)
+    cells = len(queued)
+    each = f"{count} more of each of {cells} cells" if cells > 1 else f"{count} more of its one cell"
+    low = min(batch.seeds[0] for batch in queued)
+    high = max(batch.seeds[-1] for batch in queued)
+    seeds = f"seed {low}" if low == high else f"seeds {low}–{high}"
+    starred = " · Starred ignored" if favorites else ""
+    return f"{each} = {images} image{'' if images == 1 else 's'} · {seeds}{starred}"

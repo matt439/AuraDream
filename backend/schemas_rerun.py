@@ -255,29 +255,41 @@ class MoreSeedsRequest(BaseModel):
     """More seeds: `count` more images of each selected batch, every setting
     the batch's own, the seeds continuing past its highest.
 
-    A batch is the images of one run that agree on everything but the seed,
-    as a card's batch hover shows it; two picked images of one batch ask for
-    `count` more of it, not of each (`more_seeds`). The images are the
-    gallery selection's `ids` where cards are picked, else the gallery's
-    filter as Re-render takes it. The new images run at the batch's own
-    Batch where its images recorded one, else at `batch` - the page's -
-    either held to the pixel budget. `expected`, on the queueing request, is
-    the `ids` the preview answered.
+    A batch is the images of one run that agree on everything but the seed
+    (`more_seeds.batch_key`); two picked images of one batch ask for `count`
+    more of it, not of each (`more_seeds`). The images are the gallery
+    selection's `ids` where cards are picked, else the gallery's filter as
+    Re-render takes it - or, with `run`, every live image of that run,
+    whatever the filter: `favorites` and `all_models` are then ignored, and
+    `ids` or `search` beside it is refused. The new images run at the
+    batch's own Batch where its images recorded one, else at `batch` - the
+    page's - either held to the pixel budget. `expected`, on the queueing
+    request, is the `ids` the preview answered; a run's images are not
+    capped, so neither is its `expected`.
     """
 
     ids: list[int] | None = Field(default=None, min_length=1, max_length=settings.max_grid_images)
     search: str | None = Field(default=None, max_length=2000)
+    run: str | None = Field(default=None, min_length=1, max_length=64)
     favorites: bool = True
     all_models: bool = False
     count: int = Field(default=4, ge=1, le=settings.max_grid_images)
     batch: int = Field(default=1, ge=1, le=MAX_BATCH)
-    expected: list[int] | None = Field(default=None, max_length=settings.max_grid_images)
+    expected: list[int] | None = None
 
     # Written out: a validator assigned from another model is not run.
     @field_validator("ids")
     @classmethod
     def _positive_ids(cls, value: list[int] | None) -> list[int] | None:
         return SwapTagsRequest._positive_ids.__func__(cls, value)
+
+    @model_validator(mode="after")
+    def _one_scope(self) -> "MoreSeedsRequest":
+        if self.run is not None and (self.ids is not None or (self.search or "").strip()):
+            raise ValueError("a run is the whole selection: send run without ids or search")
+        if self.run is None and self.expected is not None and len(self.expected) > settings.max_grid_images:
+            raise ValueError(f"expected lists at most {settings.max_grid_images} ids")
+        return self
 
 
 MoreSeedsStatus = Literal[
@@ -337,6 +349,13 @@ class MoreSeedsPreview(BaseModel):
     # has none, and then how many sizes have none.
     seconds: float | None = None
     unpriced_sizes: int = 0
+    # The count a run surface opens the dialog at: the Batch the batches
+    # recorded (`more_seeds.batch_size`), where every batch that recorded
+    # one agrees; None where none did or they differ.
+    count_default: int | None = None
+    # For a `run` scope with something to queue, the server's one-line
+    # account of it: per cell, the cells, the total and the seeds.
+    headline: str | None = None
 
 
 class SwapTagsAccepted(BaseModel):

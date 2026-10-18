@@ -35,12 +35,16 @@ async def more_seeds_plan(
     by count, as a filter past it is refused. Each batch's seeds continue
     past every image of it the gallery holds and step over what the gallery
     and the live jobs hold at its settings, so nothing is ever `rendered`.
+    With `run`, the selection is every live image of the run, Starred or
+    not (`submission.resolve_selection`); its binned images are no batches
+    but still hold their seeds, as `lineage_images` reads every row. No cap
+    on its images: the batches × `count` refusal bounds a press.
     Returns the ids the selection resolved (what `expected` pins), every
     result in id order, and the batches, queued or not.
     """
     records, gone, binned = await submission.resolve_selection(
         services, ids=request.ids, search=request.search, favorites=request.favorites,
-        all_models=request.all_models,
+        all_models=request.all_models, run=request.run,
     )
     running = services.model_id()
     batches = more_seeds.group(records)
@@ -60,7 +64,8 @@ async def more_seeds_plan(
             status_code=422,
             detail=(
                 f"{len(mine)} batch{'' if len(mine) == 1 else 'es'} × {request.count} is {images} images; "
-                f"a press may queue {services.settings().max_grid_images}. Ask for fewer, or pick fewer batches."
+                f"a press may queue {services.settings().max_grid_images}. "
+                + ("Ask for fewer." if request.run is not None else "Ask for fewer, or pick fewer batches.")
             ),
         )
     # Every image of each batch's run or job, picked or not: where its
@@ -214,6 +219,11 @@ def create_router(services: AppServices) -> APIRouter:
             unrecorded=sum(not batch.recorded for batch in queued),
             seconds=None if unpriced or not queued else round(seconds, 1),
             unpriced_sizes=unpriced,
+            count_default=more_seeds.count_default(batches),
+            headline=(
+                more_seeds.run_headline(queued, request.count, request.favorites)
+                if request.run is not None else None
+            ),
         )
 
 
@@ -225,7 +235,7 @@ def create_router(services: AppServices) -> APIRouter:
         in a call of its Batch size, every other setting the batch's own
         (`more_seeds.plan` through `grid.cell_from_record`). One job per run the
         batches extend, stamped with that run's id, so the new images join it -
-        the batch hover, the Runs picker and `run:` show one set - and each job
+        the Runs picker, the sheet and `run:` show one set - and each job
         keeps one size. `expected` pins the ids the preview resolved. With
         nothing queueable, 422 naming every count.
         """
