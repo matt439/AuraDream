@@ -657,6 +657,11 @@ Finish to distinguish deleted successful cells from failures and unfinished
 ones. Outcome writes capture their database path and update existing rows
 only, so delayed daemon work cannot recreate cleared recovery definitions.
 
+Persistence follow-up, 2026-10-18: mask touch/hold/release writers now take
+the gallery reservation before the write lock, matching terminal outcome
+writes. Three deterministic contention regressions and the combined
+persistence/outpaint/CLI set passed (140 tests).
+
 This night's execution forbids trusted instruction-file edits. Page/restart
 checks therefore extend existing smoke files and may use a standalone
 owned-fake-server check instead of adding a new mapped 7909 smoke; the

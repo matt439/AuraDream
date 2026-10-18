@@ -9,6 +9,7 @@ import sqlite3
 import threading
 import time
 from contextlib import closing
+from contextlib import contextmanager
 from pathlib import Path
 from zipfile import ZipFile
 
@@ -338,3 +339,46 @@ def test_failed_bundle_cleanup_keeps_definitions_for_its_retained_images(store, 
     result = bundles.export_bundle(expected=1)
     assert result["retained"] and not result["cleared"]
     assert len(store.retained_run_jobs()) == 1
+
+
+@pytest.mark.parametrize("operation", ["hold", "release", "touch"])
+def test_mask_writers_reserve_the_gallery_before_taking_the_write_lock(store, monkeypatch, operation):
+    digest, _ = store.store_mask(Image.new("L", (256, 256), 255))
+    path = store.mask_path(digest)
+    store.hold_masks("waiting-job", [digest])
+    # Skip touch_mask's preliminary read to isolate the lock order of its
+    # UPDATE; otherwise that read would stop the old writer before its lock.
+    monkeypatch.setattr(storage, "mask_path", lambda _digest: path)
+    entered = threading.Event()
+    original_hold = gallery_lock.hold
+    errors = []
+
+    @contextmanager
+    def observed_hold(*args, **kwargs):
+        if threading.current_thread() is writer:
+            entered.set()
+        with original_hold(*args, **kwargs):
+            yield
+
+    def write():
+        try:
+            if operation == "hold":
+                store.hold_masks("another-job", [digest])
+            elif operation == "release":
+                store.release_masks("waiting-job")
+            else:
+                store.touch_mask(digest)
+        except BaseException as exc:
+            errors.append(exc)
+
+    writer = threading.Thread(target=write, daemon=True, name="mask-writer")
+    monkeypatch.setattr(gallery_lock, "hold", observed_hold)
+    with original_hold(store.settings.db_path):
+        writer.start()
+        assert entered.wait(5)
+        acquired = store._write_lock.acquire(blocking=False)
+        if acquired:
+            store._write_lock.release()
+    writer.join(5)
+    assert not writer.is_alive() and not errors
+    assert acquired, "the writer took the write lock while waiting for the gallery reservation"

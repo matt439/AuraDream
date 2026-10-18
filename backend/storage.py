@@ -1560,6 +1560,7 @@ def stamp_outpaints(cells: Sequence[Any]) -> list[Any]:
     return stamped
 
 
+@gallery_lock.protected(lambda: settings.db_path, waits=True)
 def touch_mask(mask: str) -> Path:
     """Restart a stored mask's settle window, as a re-upload of it does, and
     answer its file: an Inpaint dialog that reused it or sat open on it
@@ -1573,6 +1574,7 @@ def touch_mask(mask: str) -> Path:
     return path
 
 
+@gallery_lock.protected(lambda: settings.db_path, waits=True)
 def hold_masks(job_id: str, masks: Sequence[str]) -> list[str]:
     """Hold `masks` for job `job_id` until `release_masks`: no sweep in any
     process removes a held mask. Answers the ones this server no longer has,
@@ -1595,6 +1597,7 @@ def hold_masks(job_id: str, masks: Sequence[str]) -> list[str]:
     return gone
 
 
+@gallery_lock.protected(lambda: settings.db_path, waits=True)
 def release_masks(job_id: str | None = None) -> None:
     """End job `job_id`'s holds (`hold_masks`), or every hold where it is
     None: at a server's start, since no job survives a restart."""
