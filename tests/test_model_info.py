@@ -35,7 +35,7 @@ def test_lite_variants_share_canonical_facts_and_favourites(fmt):
             def shared(detail):
                 return {
                     key: value for key, value in detail.items()
-                    if not key.startswith(("speed_", "access", "fit"))
+                    if not key.startswith(("speed_", "access", "fit", "download", "cache"))
                 }
             assert shared(lite) == shared(native)
             assert lite["access"] == "Open"

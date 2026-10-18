@@ -13,6 +13,9 @@ let modelCatalogueEpoch = 0;
 let modelCatalogueKind = '';
 let modelCatalogueDetails = {};
 let modelCatalogueEntries = [];
+let modelCatalogueCacheRevision = null;
+let modelCacheRevision = null;
+let modelCacheFactsPending = false;
 let modelStatusEpoch = 0;
 let modelSwitchError = null;
 // The error line's copy of the last refused switch, which a later accepted one clears.
@@ -229,8 +232,42 @@ function modelNameCell(entry, info, favourite) {
   state.append(dot, word);
   line.append(state);
   title.append(line);
+  // Reserve one line for disk facts: a completed or failed load can change
+  // the wording without moving any row or control under the pointer.
+  const download = document.createElement('small');
+  download.className = 'model-download';
+  title.append(download);
   name.append(radio, title);
   return name;
+}
+
+function modelNotes(info) {
+  return [['Access', info.access_note], ['Memory', info.fit_note], ['Download', info.download_note],
+    ['Cache', info.cache_note], ['Refine', info.refine_note], ['Size', info.megapixels_note], ['Speed', info.speed_note]]
+    .filter(([, note]) => note).map(([label, note]) => `${label}: ${note}`).join(' ');
+}
+
+function modelDownloadWord(info) {
+  return ['complete', 'partial'].includes(info.cache_state) ? info.cache
+    : info.cache_state !== 'unknown' && info.download && info.download !== 'Unknown' ? info.download : 'Unknown';
+}
+
+// Disk facts change after a load, including one that fetched only some files.
+// Write in place so a refresh never replaces a row under a resting pointer.
+function syncModelDownloadFacts() {
+  for (const row of els.modelTable.querySelectorAll('.model-row[data-model]')) {
+    const info = modelCatalogueDetails[row.dataset.model] ?? {};
+    const badge = row.querySelector('.model-download');
+    if (!badge) continue;
+    const word = modelDownloadWord(info);
+    if (badge.textContent !== word) badge.textContent = word;
+    setModelAttribute(badge, 'title', [info.download_note, info.cache_note].filter(Boolean).join(' '));
+    setModelAttribute(badge, 'data-cache', info.cache_state || 'unknown');
+    const noteId = row.querySelector('input')?.getAttribute('aria-describedby');
+    const notes = noteId ? document.getElementById(noteId) : null;
+    const text = modelNotes(info);
+    if (notes && notes.textContent !== text) notes.textContent = text;
+  }
 }
 
 function modelTableRow(entry, { favourite = false, index = 0 } = {}) {
@@ -273,9 +310,7 @@ function modelTableRow(entry, { favourite = false, index = 0 } = {}) {
   }
   // The cells' title notes, for a keyboard or a screen reader too: the radio
   // is described by them (a title on a span inside its label is not).
-  const notes = [['Access', info.access_note], ['Memory', info.fit_note], ['Refine', info.refine_note],
-    ['Size', info.megapixels_note], ['Speed', info.speed_note]]
-    .filter(([, note]) => note).map(([label, note]) => `${label}: ${note}`).join(' ');
+  const notes = modelNotes(info);
   if (notes) {
     const described = document.createElement('span');
     described.className = 'sr-only';
@@ -335,7 +370,8 @@ function renderModelOptions(wanted) {
   const others = modelCatalogueEntries.filter((entry) => !grouped(entry.model_id));
   const key = JSON.stringify([
     favourites.map((entry) => entry.model_id), modelCatalogueEntries,
-    modelCatalogueEntries.map((entry) => modelCatalogueDetails[entry.model_id] ?? null),
+    modelCatalogueEntries.map((entry) => Object.fromEntries(Object.entries(modelCatalogueDetails[entry.model_id] ?? {})
+      .filter(([name]) => !name.startsWith('cache') && !name.startsWith('download')))),
   ]);
   if (modelOptionKeys.get(els.modelTable) !== key) {
     // A rebuild (new loading options, a regrouped opening) keeps the keyboard
@@ -379,6 +415,7 @@ function renderModelOptions(wanted) {
   chooseModel(wanted);
   syncModelStars();
   syncModelRowStates();
+  syncModelDownloadFacts();
 }
 
 function toggleModelFavourite(modelId) {
@@ -543,12 +580,18 @@ function modelSavedMessage(selected, before, { load, wasReady, startup }) {
 // the unsaved edits (with Revert). Holds stay in the actions' titles until
 // one is pressed.
 function modelPickerNote() {
-  const current = modelLabel(modelRuntimeSettings?.model_id ?? loadedModel);
+  const runtime = modelRuntimeSettings?.model_id ?? loadedModel;
+  const current = modelLabel(runtime);
   const lead = modelSwitchError || (modelPressReason ? `${modelPressReason.why}.` : '')
     || modelServerSwitchError
     || (modelState === 'error' && modelLoadDetail ? `Couldn't load ${current}: ${modelLoadDetail}` : '')
     || modelFavouriteMessage || modelPickerMessage || '';
-  const firstLoad = 'A first load may download weights and take several minutes.';
+  const chosen = modelChoice();
+  const info = modelCatalogueDetails[modelState === 'loading' ? runtime : chosen] ?? {};
+  const firstLoad = info.cache_state === 'complete' ? info.cache_note
+    : info.download && info.download !== 'Unknown'
+      ? `Full download reference: ${info.download}. ${info.cache_note || ''} A first load may take several minutes.`
+      : 'Download size and cache completeness are unknown. A first load may download weights and take several minutes.';
   const unsaved = modelState !== 'loading' && modelPickerUnsaved();
   const state = modelState === 'loading' ? `Loading ${current}… ${firstLoad}`
     : unsaved ? `Unsaved changes. ${modelState === 'ready' ? 'Loaded' : "Server's choice"}: ${modelRuntimeLabel()}.`
@@ -558,7 +601,6 @@ function modelPickerNote() {
     : `${current} is not loaded. ${firstLoad}`;
   // A chosen build larger than the card says so before Switch & load is
   // pressed, not only in its row's title.
-  const chosen = modelChoice();
   const fitNote = modelCatalogueDetails[chosen]?.fit_note;
   const fit = fitNote ? `${modelLabel(chosen)}: ${fitNote}` : '';
   return { text: [lead, fit, state].filter(Boolean).join(' '), unsaved };
@@ -658,6 +700,7 @@ function receiveModelSettings(status, { reset = false } = {}) {
     load_on_startup: status.load_on_startup ?? modelRuntimeSettings?.load_on_startup ?? false,
   };
   if (status.startup_overrides) modelStartupOverrides = status.startup_overrides;
+  if (typeof status.cache_revision === 'number') modelCacheRevision = status.cache_revision;
   // A new failure takes the place of an outcome that said all went well.
   const failed = status.state === 'error' ? status.detail ?? null : null;
   const switchError = status.switch_error ?? null;
@@ -688,6 +731,10 @@ function receiveModelSettings(status, { reset = false } = {}) {
   if (!modelCatalogueLoaded && !modelCataloguePending && !els.modelPicker.hidden
       && Date.now() - modelCatalogueFailedAt > 10000) {
     void refreshModelCatalogue(); // A failed list retries while the picker is open.
+  }
+  if (modelCatalogueLoaded && !modelCataloguePending && !els.modelPicker.hidden
+      && modelCacheRevision !== null && modelCatalogueCacheRevision !== modelCacheRevision) {
+    void refreshModelCacheFacts();
   }
   retryModelShots();
   applyModelSettings(reset);
@@ -774,6 +821,34 @@ function showModelPicker(on, { focus = true } = {}) {
   }
 }
 
+// A completed load changes disk facts, not the available checkpoints. Refresh
+// only these fields, without holding Switch or rewriting draft loader options.
+async function refreshModelCacheFacts() {
+  if (modelCacheFactsPending) return;
+  modelCacheFactsPending = true;
+  const epoch = modelCatalogueEpoch;
+  const [quantization, format, offload] = modelCatalogueKind.split('|');
+  const query = new URLSearchParams();
+  for (const [key, value] of Object.entries({ quantization, format, offload })) {
+    if (value) query.set(key, value);
+  }
+  try {
+    const body = await api(`/api/models${query.size ? `?${query}` : ''}`);
+    if (epoch !== modelCatalogueEpoch) return;
+    for (const entry of modelCatalogueEntries) {
+      const info = body.details?.[entry.model_id];
+      if (!info) continue;
+      const facts = Object.fromEntries(Object.entries(info)
+        .filter(([key]) => key.startsWith('cache') || key.startsWith('download')));
+      modelCatalogueDetails[entry.model_id] = { ...modelCatalogueDetails[entry.model_id], ...facts };
+    }
+    modelCatalogueCacheRevision = body.cache_revision ?? modelCacheRevision;
+    syncModelDownloadFacts();
+    syncModelSwitch();
+  } catch { /* Keep the checked facts; a later status poll retries. */ }
+  finally { modelCacheFactsPending = false; }
+}
+
 async function refreshModelCatalogue({ current = false } = {}) {
   const epoch = ++modelCatalogueEpoch;
   modelCataloguePending = true;
@@ -802,6 +877,7 @@ async function refreshModelCatalogue({ current = false } = {}) {
     }
     modelCatalogueEntries = body.models ?? [];
     modelCatalogueDetails = body.details ?? {};
+    modelCatalogueCacheRevision = body.cache_revision ?? modelCacheRevision;
     const wantedModel = wanted.model_id ?? loadedModel;
     // Only the server decides which checkpoint/loader combinations are valid.
     // A list for other loading options that lacks the choice takes the last

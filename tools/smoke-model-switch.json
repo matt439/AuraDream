@@ -33,6 +33,24 @@
     "expect": "__allRows() && modelChoice() === __flux && !(modelPickerEditedKeys.size > 0) && !els.modelTable.querySelector('details, p, select, optgroup') && !__groups().length"
   },
   {
+    "log": "'Every checkpoint shows its offline cache state or full download reference; the notes distinguish full cost from bytes still missing'"
+  },
+  {
+    "expect": "modelCatalogueEntries.every((e) => { const d = modelCatalogueDetails[e.model_id], badge = __row(e.model_id).querySelector('.model-download'), notes = document.getElementById(__radio(e.model_id).getAttribute('aria-describedby')).textContent; return ['complete', 'partial', 'absent', 'unknown'].includes(d.cache_state) && badge.textContent === modelDownloadWord(d) && badge.dataset.cache === d.cache_state && badge.title.includes(d.download_note) && badge.title.includes(d.cache_note) && notes.includes(d.download_note) && notes.includes(d.cache_note) && (d.download === 'Unknown' || d.download_note.includes('not the amount still missing')); }) && modelCatalogueCacheRevision === modelCacheRevision"
+  },
+  {
+    "log": "'Changing cache facts refreshes text in place, preserving the row, radio, focus and all control positions'"
+  },
+  {
+    "expect": "(() => { const row = __row(__flux), radio = __radio(__flux), badge = row.querySelector('.model-download'), original = modelCatalogueDetails[__flux], chosen = modelChoice(), boxes = __rows().map((r) => { const b = r.getBoundingClientRect(); return [b.top, b.height]; }), focus = document.activeElement, actions = els.modelSwitch.getBoundingClientRect().top; const check = (state, word) => { modelCatalogueDetails[__flux] = {...original, cache_state: state, cache: word, cache_note: 'Offline fixture cache state'}; renderModelOptions(chosen); return __row(__flux) === row && __radio(__flux) === radio && row.querySelector('.model-download') === badge && badge.textContent === word && document.activeElement === focus && els.modelSwitch.getBoundingClientRect().top === actions && __rows().every((r, i) => { const b = r.getBoundingClientRect(); return b.top === boxes[i][0] && b.height === boxes[i][1]; }); }; try { return check('partial', 'Part cached') && check('complete', 'On disk') && check('unknown', 'Unknown'); } finally { modelCatalogueDetails[__flux] = original; renderModelOptions(chosen); } })()"
+  },
+  {
+    "expect": "(() => { const state = modelState, chosen = modelChoice(), flux = modelCatalogueDetails[__flux], anime = modelCatalogueDetails[__anime]; try { modelCatalogueDetails[__flux] = {...flux, download: '~11 GB', cache_state: 'absent'}; modelCatalogueDetails[__anime] = {...anime, download: '~22 GB', cache_state: 'absent'}; chooseModel(__anime); modelState = 'loading'; const note = modelPickerNote().text; return note.includes('Loading FLUX.1 Krea') && note.includes('~11 GB') && !note.includes('~22 GB'); } finally { modelState = state; chooseModel(chosen); modelCatalogueDetails[__flux] = flux; modelCatalogueDetails[__anime] = anime; syncModelSwitch(); } })()"
+  },
+  {
+    "expect": "(async () => { const original = api, chosen = modelChoice(), row = __row(__anime), radio = __radio(__anime); let release, refresh; const gate = new Promise((resolve) => { release = resolve; }); try { api = async (path, ...rest) => { const body = await original(path, ...rest); if (path.startsWith('/api/models')) await gate; return body; }; chooseModel(__anime); syncModelSwitch(); refresh = refreshModelCacheFacts(); const available = modelCacheFactsPending && !modelCataloguePending && !modelSwitchHold() && els.modelSwitch.getAttribute('aria-disabled') === 'false' && modelChoice() === __anime; release(); await refresh; return available && __row(__anime) === row && __radio(__anime) === radio && modelChoice() === __anime && !modelCacheFactsPending && !modelSwitchHold(); } finally { release(); if (refresh) await refresh; api = original; chooseModel(chosen); syncModelSwitch(); } })()"
+  },
+  {
     "expect": "(() => { const [style, refine, size, speed] = __cells(__flux); return __value(style) === 'Photorealism' && __value(refine) === 'Yes' && __small(size) === 'Max recommended' && __value(size) === '1.64 MP' && size.title.includes('recommends') && __row(__flux).querySelector('a.model-link').href.startsWith('https://huggingface.co/') && __value(__cells(__anime)[0]) === 'Anime' && parseFloat(getComputedStyle(style).fontSize) >= 13; })()"
   },
   {
@@ -236,6 +254,9 @@
     "expect": "__model(__anime)"
   },
   {
+    "expect": "__until(() => !modelCacheFactsPending && modelCatalogueCacheRevision === modelCacheRevision)"
+  },
+  {
     "expect": "modelChoice() === __anime && __radio(__anime).checked && __value(__cells(__anime)[0]) === 'Anime' && __value(__cells(__anime)[1]) === 'Yes' && __factsMatch(__anime) && __star(__anime).getAttribute('aria-pressed') === 'true' && __row(__anime).dataset.state === 'ready' && __row(__anime).querySelector('.model-state-word').textContent === 'Loaded' && els.modelTable.querySelectorAll('.model-row[data-state]').length === 1"
   },
   {
@@ -299,10 +320,16 @@
     "log": "'A failed target load keeps its identity and restored settings, then Retry load recovers without a restart'"
   },
   {
+    "expect": "__until(async () => { await refreshStatus(); return !modelSwitchHold(); })"
+  },
+  {
     "click": "#btn-model-switch"
   },
   {
     "expect": "__model(__flux, 'error')"
+  },
+  {
+    "expect": "__until(() => !modelCacheFactsPending && modelCatalogueCacheRevision === modelCacheRevision)"
   },
   {
     "expect": "__row(__flux)?.dataset.state === 'error' && __row(__flux).querySelector('.model-state-word').textContent === 'Load failed'"
@@ -709,6 +736,7 @@
   {"eval": "(async () => { await __fake('/api/fake/model', {overrides: {}}); await __fake('/api/fake/load', {seconds: 0, fail: 'gated'}); await refreshStatus(); })()"},
   {"log": "'A failed Switch & load says so in the open picker, in place of its outcome, and the line goes with the failure'"},
   {"eval": "__radio(__flux).click()"},
+  {"expect": "__until(async () => { await refreshStatus(); return !modelSwitchHold(); })"},
   {"click": "#btn-model-switch"},
   {"expect": "__until(async () => { await refreshStatus(); return loadedModel === __flux && modelState === 'error'; })"},
   {"expect": "__note().startsWith(`Couldn't load ${__fluxName()}: `) && __note().includes('gated') && !__note().includes('Switched to') && !els.modelPicker.hidden"},

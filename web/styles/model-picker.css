@@ -91,6 +91,8 @@
 .model-access[data-access="Accept licence"], .model-access[data-access="Needs approval"] { color: var(--warn); }
 /* A build larger than the card, after the access label on the same line. */
 .model-fit { margin-left: var(--sp-2); color: var(--warn); white-space: nowrap; }
+.model-title > .model-download { height: 1lh; color: var(--muted); white-space: nowrap; }
+.model-download[data-cache="complete"] { color: var(--ok); }
 /* Only the server's checkpoint shows its badge, after the access label on
    the line every row keeps, so it never moves the name or the row. */
 .model-state {
@@ -106,8 +108,8 @@
 /* A cell or label with a note says so in the row under the pointer or the
    focus (on every row, 23 underlines were noise); the note is also the
    radio's description. A press still chooses the row. */
-.model-fact[title], .model-access[title], .model-fit[title], .model-state[title] { cursor: help; }
-.model-row:is(:hover, :focus-within) :is(.model-fact[title] > small, .model-access[title], .model-fit[title]) {
+.model-fact[title], .model-access[title], .model-fit[title], .model-state[title], .model-download[title] { cursor: help; }
+.model-row:is(:hover, :focus-within) :is(.model-fact[title] > small, .model-access[title], .model-fit[title], .model-download[title]) {
   text-decoration: underline dotted var(--text-3); text-underline-offset: 2px;
 }
 /* A timing from another setup (Reference, Unmeasured) reads as background. */

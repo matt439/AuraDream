@@ -6,7 +6,14 @@ retain their own labels. Notes distinguish author guidance from local advice.
 Sources are backend/guides.py,
 docs/anime-model-guide.md and (for Z-Anime's iteration advice) docs/verified.md;
 Hugging Face access comes from the catalogue's gate word.
+Download references and offline cache inventories are retained, with their
+selected files/revisions and source URLs, in model-downloads.json.
 """
+from functools import lru_cache
+import json
+from pathlib import Path, PurePosixPath
+import time
+
 from .launch import CHECKPOINTS, FORMATS
 from .model_benchmarks import speed_for
 from .model_defaults import defaults_for
@@ -178,6 +185,163 @@ _LITE_OPEN = ("Open", (
 ))
 
 
+@lru_cache(maxsize=1)
+def download_references() -> dict:
+    """Retained metadata only; no Hub calls or model imports."""
+    return json.loads(Path(__file__).with_name("model-downloads.json").read_text(encoding="utf-8"))
+
+
+_cache_revision = 0
+
+
+def cache_revision() -> int:
+    return _cache_revision
+
+
+def invalidate_cache_facts() -> None:
+    """A failed load can have downloaded some files too."""
+    global _cache_revision
+    _cached_state.cache_clear()
+    _cache_revision += 1
+
+
+def _relative_file(name: str) -> bool:
+    path = PurePosixPath(name)
+    return bool(path.parts) and not path.is_absolute() and all(part not in {".", ".."} for part in path.parts) and "\\" not in name and ":" not in name
+
+
+def _file_set_state(files: dict[str, int], indexes: dict, find) -> str:
+    """Check names, sizes and small JSON descriptors, never weight contents.
+
+    The retained list includes every shard and tokenizer asset the selected
+    loader downloads. An index or descriptor cannot stand in for its files.
+    """
+    present = False
+    complete = True
+    for name, expected_size in files.items():
+        if not _relative_file(name) or type(expected_size) is not int or expected_size <= 0:
+            return "unknown"
+        path = find(name)
+        if path is None:
+            complete = False
+            continue
+        present = True
+        if path.stat().st_size != expected_size:
+            complete = False
+            continue
+        if name in indexes:
+            # A cached descriptor from another recipe, or a damaged shard map,
+            # cannot validate the expected files merely by having the same size.
+            if expected_size > 2_000_000:
+                return "unknown"
+            try:
+                if json.loads(path.read_text(encoding="utf-8")) != indexes[name]:
+                    complete = False
+            except (ValueError, UnicodeError):
+                complete = False
+    return "complete" if complete and files else "partial" if present else "absent"
+
+
+def _hub_source_state(source: dict, names: list[str] | None, cache_dir: str) -> str:
+    if names is None:
+        return "unknown"
+    from huggingface_hub import try_to_load_from_cache
+
+    unexpected_revision = False
+
+    def find(name):
+        nonlocal unexpected_revision
+        cached = try_to_load_from_cache(source["repo_id"], name, revision=source["revision"], cache_dir=cache_dir)
+        if not isinstance(cached, str):
+            return None
+        path = Path(cached)
+        if not path.is_file():
+            return None
+        # main is mutable. An inventory observed at one commit proves nothing
+        # about a different cached revision, even when some files share sizes.
+        if path.parents[len(PurePosixPath(name).parts) - 1].name != source["commit"]:
+            unexpected_revision = True
+            return None
+        return path
+
+    state = _file_set_state({name: source["files"][name] for name in names}, source["indexes"], find)
+    return "unknown" if unexpected_revision else state
+
+
+def _conversion_target(model_id: str):
+    from .backends import anima_loading, netayume_loading, newbie_loading, single_file
+
+    if model_id.lower() in single_file._CHECKPOINTS:
+        return single_file._target(model_id)
+    if anima_loading.matches(model_id):
+        return anima_loading._target(model_id)
+    if model_id.lower() == netayume_loading.MODEL_ID.lower():
+        return netayume_loading._target()
+    if model_id.lower() == newbie_loading.MODEL_ID.lower():
+        return newbie_loading._target()
+    return None
+
+
+@lru_cache(maxsize=256)
+def _cached_state(model_id: str, cache_dir: str, converted_home: str, minute: int, revision: int) -> tuple[str, str]:
+    # converted_home and minute are cache keys: a changed HF_HOME and files
+    # downloaded outside this process are rechecked without scanning the cache.
+    references = download_references()
+    recipe = references["models"].get(model_id)
+    if recipe is None:
+        return "unknown", "Could not establish that every required model file is cached."
+    try:
+        if recipe["kind"] == "converted":
+            target, marker, recipe_text = _conversion_target(model_id)
+            converted = recipe["converted"]
+            if json.loads(recipe_text) != converted["recipe"]:
+                return "unknown", "The cached-file reference does not cover this conversion recipe."
+            if target.exists():
+                marker_ok = marker.is_file() and marker.read_text(encoding="utf-8") == recipe_text
+                state = _file_set_state(converted["files"], converted["indexes"],
+                                        lambda name: target / name if (target / name).is_file() else None)
+                if marker_ok and state == "complete":
+                    return "complete", "The required converted model files are on disk. A first load still takes time."
+                return "partial", "Some converted model files are missing or incomplete; loading may need repair."
+        states = [_hub_source_state(references["sources"][item["source"]], item["files"], cache_dir)
+                  for item in recipe["sources"]]
+        if all(state == "complete" for state in states):
+            if recipe["kind"] == "converted":
+                return "complete", "The source files are cached; the first load still converts them locally."
+            return "complete", "The required model files for the checked cached revision are on disk. A first load still takes time."
+        if "unknown" in states:
+            return "unknown", "Could not establish that every required model file is cached."
+        if any(state != "absent" for state in states):
+            return "partial", "Some required model files are missing or incomplete. The remaining download size is unknown."
+        return "absent", "The required model files are not cached. A first load downloads them."
+    except (OSError, ValueError, UnicodeError, KeyError, TypeError):
+        return "unknown", "Could not establish that every required model file is cached."
+
+
+def download_facts(model_id: str) -> dict[str, str]:
+    references = download_references()
+    recipe = references["models"].get(model_id)
+    known = recipe is not None and all(item["files"] is not None for item in recipe["sources"])
+    if known:
+        size = sum(references["sources"][item["source"]]["files"][name]
+                   for item in recipe["sources"] for name in item["files"])
+        amount = f"{size / 1_000_000_000:.1f}".rstrip("0").rstrip(".")
+        download = f"~{amount} GB" if size >= 100_000_000 else "<0.1 GB"
+        note = (f"About {amount} GB for the full image-model download, from selected-file metadata checked "
+                f"{references['observed_at']}. This is not the amount still missing; cached files may reduce it. "
+                "Future unpinned repository updates may change it.")
+    else:
+        download = "Unknown"
+        note = "The full image-model download size is unknown; no complete selected-file size reference is available."
+    from huggingface_hub.constants import HF_HOME, HF_HUB_CACHE
+
+    state, cache_note = _cached_state(model_id, str(HF_HUB_CACHE), str(HF_HOME),
+                                     int(time.monotonic() // 60), _cache_revision)
+    return {"download": download, "download_note": note,
+            "cache": {"complete": "On disk", "partial": "Part cached", "absent": "Not cached", "unknown": "Unknown"}[state],
+            "cache_state": state, "cache_note": cache_note}
+
+
 def details_for(
     model_id: str, quantization: str | None = None, offload: str = "model",
 ) -> dict[str, str]:
@@ -196,6 +360,7 @@ def details_for(
             "access": "Unknown",
             "access_note": "Not in the catalogue; its model page says whether it is gated.",
             "fit": "", "fit_note": "",
+            **download_facts(model_id),
             **speed_for(model_id, quantization, offload),
         }
     style, (megapixels, note) = _FACTS[checkpoint.repo]
@@ -223,5 +388,6 @@ def details_for(
         "access_note": access_note,
         "fit": fit,
         "fit_note": fit_note,
+        **download_facts(model_id),
         **speed_for(model_id, quantization, offload),
     }

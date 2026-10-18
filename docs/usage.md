@@ -253,6 +253,15 @@ own ticket. Unload explains when an abandoned expansion is still finishing.
 
 ## Use references and adapters
 
+The Models table also shows the full image-model download reference and
+whether all required files are **On disk**, **Part cached**, **Not cached**
+or **Unknown**. This is an offline file check, not a download or integrity
+test. The size is the full sourced cost, not the amount still missing;
+cached files can reduce it. Unknown means the app cannot establish a
+complete reference, including some gated models and custom checkpoints.
+An On disk model still takes time to load or convert. Facts refresh after
+successful or failed loads without moving the chosen row or its controls.
+
 FLUX.2 [klein] accepts up to four gallery images as references. Add them with
 the card's **Reference** button or `--reference 12,15` in the CLI. Their order
 defines “image 1”, “image 2” in the prompt; drag chips or use Alt+Left/Right

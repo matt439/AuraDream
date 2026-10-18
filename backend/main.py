@@ -29,7 +29,7 @@ from . import api_bundles, api_gallery, api_generate, api_jobs, api_masks, api_m
 from .backends import get_backend  # noqa: E402
 from .detached import detached as _detached  # noqa: E402
 from .model_selection import current_model_id, current_settings  # noqa: E402
-from .model_info import details_for  # noqa: E402
+from .model_info import cache_revision as model_cache_revision, details_for, invalidate_cache_facts  # noqa: E402
 from .config import settings  # noqa: E402
 from .critic import CriticError, prompt_critic  # noqa: E402
 from .jobs import JobManager, LoadFailed, MaskGone, OutpaintStampFailed, RunPersistenceFailed, short_error  # noqa: E402
@@ -185,8 +185,17 @@ async def ensure_loaded() -> None:
         # refusal during a load covers the wait too.
         await jobs.wait_for_gate()
         _load_state.update(state="loading", detail=None)
+
+        def load_and_refresh_cache() -> None:
+            try:
+                backend.load()
+            finally:
+                # Downloads can finish even if the supervising request goes
+                # away; refresh after the actual worker, including a failure.
+                invalidate_cache_facts()
+
         try:
-            await _detached(backend.load)
+            await _detached(load_and_refresh_cache)
         except Exception as exc:
             # A gated-repo 403 is user-actionable, not a crash; keep the log to
             # one line and put the traceback behind DEBUG. The log keeps the
@@ -453,6 +462,7 @@ async def status() -> ModelStatus:
         state=state,
         switching=_switching,
         model_revision=revision,
+        cache_revision=model_cache_revision(),
         defaults=defaults,
         hints=hints_for(
             info["model_id"],
@@ -642,20 +652,26 @@ async def list_models(
         raise HTTPException(status_code=422, detail="choose a supported offload mode")
     current = current_settings(settings)
     models = model_selection.available(settings, quantization=quantization, format=format)
-    return {
-        "models": models,
-        "details": {
-            model["model_id"]: details_for(
-                model["model_id"], quantization=quantization or current.quantization,
-                offload=offload or current.offload,
-            ) for model in models
-        },
+    selected = {
         "model_id": current.model_id,
         "quantization": current.quantization,
         "offload": current.offload,
         "format": model_selection.format_for(settings),
         "load_on_startup": _load_on_startup(),
-        "startup_overrides": _startup_overrides,
+        "startup_overrides": dict(_startup_overrides),
+    }
+    cache_revision = model_cache_revision()
+    details = await _detached(lambda: {
+        model["model_id"]: details_for(
+            model["model_id"], quantization=quantization or current.quantization,
+            offload=offload or current.offload,
+        ) for model in models
+    })
+    return {
+        "models": models,
+        "details": details,
+        "cache_revision": cache_revision,
+        **selected,
         **options,
     }
 

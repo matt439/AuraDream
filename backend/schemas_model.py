@@ -149,6 +149,9 @@ class ModelStatus(BaseModel):
     state: Literal["unloaded", "loading", "ready", "error"]
     switching: bool = False
     model_revision: int = 0
+    # Advances after every image-model load attempt, including failures that
+    # downloaded only some files; lets an open picker refresh its cache facts.
+    cache_revision: int = 0
     defaults: dict[str, float | int | bool | None] = {}
     # Prose for the same profile, keyed by control name - what steps/CFG/mu mean
     # on *this* checkpoint. Unlike `defaults`, which the UI applies once, these
