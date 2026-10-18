@@ -4,6 +4,8 @@ the recycle bin's bodies and answers.
 """
 from __future__ import annotations
 
+from typing import Annotated
+
 from pydantic import BaseModel, Field
 
 from .config import settings
@@ -235,6 +237,24 @@ class RestoreResult(BaseModel):
     restored: list[int]
     not_binned: list[int]
     missing: list[int]
+
+
+class PurgeBody(BaseModel):
+    """Exactly the binned picks confirmed, repeated as their identity pin."""
+
+    ids: list[Annotated[int, Field(strict=True, ge=1, le=2**63 - 1)]] = Field(
+        min_length=1, max_length=settings.max_grid_images
+    )
+    expected_ids: list[Annotated[int, Field(strict=True, ge=1, le=2**63 - 1)]] = Field(
+        min_length=1, max_length=settings.max_grid_images
+    )
+
+
+class PurgeResult(BaseModel):
+    """The picked rows permanently deleted; a changed set refuses as a whole."""
+
+    deleted: list[int]
+    files: int
 
 
 class BinSummary(BaseModel):

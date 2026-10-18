@@ -757,7 +757,11 @@ how many images the bin holds and opens it: every checkpoint's binned
 images, newest first, narrowed by the search box. Each card offers
 **Restore** and **Delete permanently**, which asks first; **Restore picked**
 restores the cards picked with **Select** in the bin; cards picked in the
-gallery are kept aside and picked again when you leave it. **Empty recycle bin** deletes
+gallery are kept aside and picked again when you leave it.
+**Delete picked permanently** confirms and deletes only those bin picks.
+If a pick was restored, deleted elsewhere or changed while confirming,
+nothing in the requested set is deleted; review the picks and try again.
+**Empty recycle bin** deletes
 every image in the bin from disk, whatever the search shows, after a
 confirmation that gives the count and size and says which of them a live
 image was made from (those can no longer be made again). Actions that work

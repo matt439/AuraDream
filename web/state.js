@@ -114,7 +114,7 @@ const els = {
   moreSeedsCount: $('more-seeds-count'), moreSeedsLine: $('more-seeds-line'),
   moreSeedsResults: $('more-seeds-results'), moreSeedsError: $('more-seeds-error'),
   moreSeedsCancel: $('more-seeds-cancel'), moreSeedsRun: $('more-seeds-run'),
-  bin: $('btn-bin'), emptyBin: $('btn-empty-bin'), restorePicked: $('btn-restore-picked'),
+  bin: $('btn-bin'), emptyBin: $('btn-empty-bin'), restorePicked: $('btn-restore-picked'), purgePicked: $('btn-purge-picked'),
   galleryTitle: $('gallery-title'), lbRestore: $('lb-restore'),
   bundles: $('btn-bundles'), bundlesDialog: $('bundles-dialog'), bundlesClose: $('bundles-close'),
   bundleRefresh: $('bundle-refresh'), bundlePreview: $('bundle-preview'), bundleCount: $('bundle-count'),

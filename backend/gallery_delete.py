@@ -409,6 +409,58 @@ def bin_pin(ids) -> str:
     return hashlib.sha256(joined.encode("ascii")).hexdigest()[:16]
 
 
+class PurgeChanged(Exception):
+    """The confirmed picked set changed, or some picks left the bin."""
+
+    def __init__(self, *, missing: list[int] | None = None, not_binned: list[int] | None = None):
+        super().__init__("The picked images changed. Nothing was deleted; look again.")
+        self.missing = missing or []
+        self.not_binned = not_binned or []
+
+
+@gallery_lock.protected(lambda: storage.settings.db_path)
+def purge_images(
+    ids: Sequence[int], expected_ids: Sequence[int], in_flight: InFlight | None = None
+) -> dict[str, Any]:
+    """Permanently delete exactly the confirmed binned picks, or none.
+
+    Validate the complete set before deleting any chunk. A restored live row
+    or an already deleted pick refuses the whole operation, as does a set of
+    picks differing from the confirmed identities. Take SQLite's write lock
+    before the lookup so a restore cannot race that check. Files and masks
+    follow the committed rows, with the same retention rules as Empty bin.
+    """
+    wanted = sorted(set(ids))
+    if not wanted or wanted != sorted(set(expected_ids)):
+        raise PurgeChanged()
+    with storage._write_lock, storage._session() as conn:
+        conn.execute("BEGIN IMMEDIATE")
+        rows = []
+        for at in range(0, len(wanted), 500):
+            chunk = wanted[at:at + 500]
+            marks = ",".join("?" * len(chunk))
+            rows.extend(conn.execute(
+                f"SELECT id, filename, binned_at FROM images WHERE id IN ({marks})", chunk
+            ).fetchall())
+        found = {row["id"] for row in rows}
+        missing = [image_id for image_id in wanted if image_id not in found]
+        live = sorted(row["id"] for row in rows if row["binned_at"] is None)
+        if missing or live:
+            raise PurgeChanged(missing=missing, not_binned=live)
+        for at in range(0, len(wanted), 500):
+            chunk = wanted[at:at + 500]
+            marks = ",".join("?" * len(chunk))
+            conn.execute(f"DELETE FROM images WHERE id IN ({marks})", chunk)
+    removed = 0
+    for row in rows:
+        path = storage.settings.outputs_dir / row["filename"]
+        if path.exists() and storage._unlink(path):
+            removed += 1
+        storage._delete_thumbnails(path)
+    masks = sweep_masks(in_flight)
+    return {"records": len(rows), "files": removed, "ids": wanted, "masks": masks}
+
+
 @gallery_lock.protected(lambda: storage.settings.db_path)
 def empty_bin(
     expected: int | None = None, pin: str | None = None, in_flight: InFlight | None = None

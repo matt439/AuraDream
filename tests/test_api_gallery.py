@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import threading
 
+import pytest
 from PIL import Image
 
 from backend.config import settings
@@ -579,6 +580,57 @@ def test_the_permanent_delete_takes_a_binned_image_too(client, store):
     client.post("/api/images/bin", json={"ids": [image.id]})
     assert client.delete(f"/api/images/{image.id}").json() == {"deleted": image.id}
     assert not (store.settings.outputs_dir / image.filename).exists()
+
+
+def test_picked_purge_deletes_only_the_confirmed_bin_rows_and_retires_job_images(client, store):
+    job_id, events = run_one(client, seed=81)
+    picked = events[-1]["images"][0]
+    other = _plant(store, settings.model_id, seed=82)
+    live = _plant(store, settings.model_id, seed=83)
+    client.post("/api/images/bin", json={"ids": [picked["id"], other.id]})
+    response = client.post("/api/images/purge", json={
+        "ids": [picked["id"], picked["id"]], "expected_ids": [picked["id"]],
+    })
+    assert response.status_code == 200, response.text
+    assert response.json() == {"deleted": [picked["id"]], "files": 1}
+    assert client.get(f"/api/jobs/{job_id}").json()["images"] == []
+    assert client.get(f"/api/images/{picked['id']}?binned=true").status_code == 404
+    assert client.get(f"/api/images/{other.id}?binned=true").status_code == 200
+    assert client.get(f"/api/images/{live.id}").status_code == 200
+
+
+@pytest.mark.parametrize("change", ["selection", "restore", "delete"])
+def test_picked_purge_refuses_a_changed_pick_without_purging_the_rest(client, store, change):
+    first, second = (_plant(store, settings.model_id, seed=seed) for seed in (1, 2))
+    ids = [first.id, second.id]
+    client.post("/api/images/bin", json={"ids": ids})
+    wanted = ids
+    if change == "selection":
+        wanted = [first.id, 9999]
+    elif change == "restore":
+        client.post("/api/images/restore", json={"ids": [second.id]})
+    else:
+        client.delete(f"/api/images/{second.id}")
+    response = client.post("/api/images/purge", json={"ids": wanted, "expected_ids": ids})
+    assert response.status_code == 409, response.text
+    assert response.json() == {
+        "detail": "The picked images changed. Nothing was deleted; look again.",
+        "missing": [second.id] if change == "delete" else [],
+        "not_binned": [second.id] if change == "restore" else [],
+    }
+    assert (store.settings.outputs_dir / first.filename).exists()
+    assert client.get(f"/api/images/{first.id}?binned=true").status_code == 200
+
+
+@pytest.mark.parametrize("body", [
+    {"ids": [], "expected_ids": []}, {"ids": [1]}, {"expected_ids": [1]},
+    {"ids": [0], "expected_ids": [0]}, {"ids": [True], "expected_ids": [1]},
+    {"ids": [2**63], "expected_ids": [2**63]},
+])
+def test_picked_purge_requires_nonempty_bounded_identity_lists(client, body):
+    assert client.post("/api/images/purge", json=body).status_code == 422
+    too_many = list(range(1, settings.max_grid_images + 2))
+    assert client.post("/api/images/purge", json={"ids": too_many, "expected_ids": too_many}).status_code == 422
 
 
 def test_delete_unstarred_leaves_what_is_already_in_the_bin_out(client, fake):

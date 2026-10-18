@@ -71,6 +71,8 @@ from .schemas_gallery import (
     FavoritesResult,
     BinResult,
     RestoreResult,
+    PurgeBody,
+    PurgeResult,
     BinSummary,
 )
 from .schemas_rerun import (
@@ -153,6 +155,8 @@ __all__ = [
     "FavoritesResult",
     "BinResult",
     "RestoreResult",
+    "PurgeBody",
+    "PurgeResult",
     "BinSummary",
     "RerenderRequest",
     "RerenderGone",

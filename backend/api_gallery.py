@@ -5,7 +5,7 @@ import asyncio
 from collections.abc import Callable
 
 from fastapi import APIRouter, HTTPException, Query
-from fastapi.responses import RedirectResponse
+from fastapi.responses import JSONResponse, RedirectResponse
 
 from . import gallery_delete, gallery_reports, storage
 from .jobs import JobManager
@@ -18,6 +18,8 @@ from .schemas import (
     IdsBody,
     ImageRecord,
     RestoreResult,
+    PurgeBody,
+    PurgeResult,
     RunSummary,
     UnstarredPreview,
 )
@@ -277,6 +279,25 @@ def create_router(
             ) from exc
         get_jobs().forget_images(result["ids"])
         return {"deleted": result["ids"], "files": result["files"]}
+
+
+    @router.post("/api/images/purge", response_model=PurgeResult)
+    async def purge_picked_images(body: PurgeBody) -> PurgeResult | JSONResponse:
+        """Permanently delete only the exact binned ids the user confirmed.
+
+        A restored or missing pick refuses the complete set before any row
+        goes; the per-id outcomes let a stale page retire only those picks.
+        """
+        try:
+            result = await asyncio.to_thread(
+                gallery_delete.purge_images, body.ids, body.expected_ids, get_jobs().masks_in_flight
+            )
+        except gallery_delete.PurgeChanged as exc:
+            return JSONResponse({
+                "detail": str(exc), "missing": exc.missing, "not_binned": exc.not_binned,
+            }, status_code=409)
+        get_jobs().forget_images(result["ids"])
+        return PurgeResult(deleted=result["ids"], files=result["files"])
 
 
     @router.delete("/api/images/{image_id}")

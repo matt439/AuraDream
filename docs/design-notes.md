@@ -5559,6 +5559,17 @@ recycle bin, keeping its typed count.
 
 ## Recycle bin: why the per-image confirm went
 
+**Picked permanent deletion (2026-10-18, `GAL#1`).** The bin's own picks
+can be deleted through **Delete picked permanently**, behind the existing
+in-page confirmation. The exact confirmed identities are sent twice as
+`ids`/`expected_ids` to `/api/images/purge`; the server reserves the gallery
+and begins its write transaction before checking every requested row.
+Missing, restored-live or changed picks refuse the whole operation, with
+per-id details; no first chunk is deleted before a later chunk is checked.
+Files and masks use the permanent-delete bookkeeping, and `forgetImages`
+drops only the bin's picks while preserving gallery picks set aside outside
+it. This is separate from age-based Empty bin.
+
 **The confirm guarded a step that could not be taken back, and so was
 asked every time.** Triage is a long run of ⌦ presses - most of a night's
 images go - and a question per press is answered without being read: the

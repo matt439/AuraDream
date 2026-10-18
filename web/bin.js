@@ -23,6 +23,7 @@ const BIN_HELD = 'Not in the recycle bin — leave it with Bin';
 // The bin's size as the server last said it (`/api/gallery/bin/summary`):
 // the footer's count, Empty recycle bin's hold.
 let binCount = 0;
+let purgingPicked = false;
 // The records this page binned, by id, as they were on the page - the grid's,
 // the viewer's and #recent's copies, and the grid's query (`galleryEpoch`) at
 // the time: a Restore puts each back where it was, while that is still the
@@ -78,6 +79,15 @@ function syncRestorePicked() {
   els.restorePicked.setAttribute('aria-disabled', String(!n));
   els.restorePicked.title = n ? `Move the ${n === 1 ? 'picked image' : `${n} picked images`} back to the gallery`
     : 'Pick images with Select to restore them';
+  syncPurgePicked();
+}
+
+function syncPurgePicked() {
+  const n = selectedIds().length;
+  const why = purgingPicked ? 'Wait for the picked images to be deleted'
+    : !binMode ? BIN_HELD : !n ? 'Pick images with Select to delete them permanently' : '';
+  els.purgePicked.setAttribute('aria-disabled', String(!!why));
+  els.purgePicked.title = why || `Delete only the ${plural(n, 'picked image')} from disk, after a confirmation`;
 }
 
 // Everything that reads differently in the bin: Bin pressed, the head's
@@ -87,7 +97,7 @@ function syncBinControls() {
   els.bin.setAttribute('aria-pressed', String(binMode));
   els.bin.classList.toggle('active', binMode);
   els.galleryTitle.textContent = binMode ? 'Recycle bin' : 'Gallery';
-  els.emptyBin.hidden = els.restorePicked.hidden = !binMode;
+  els.emptyBin.hidden = els.restorePicked.hidden = els.purgePicked.hidden = !binMode;
   for (const el of [els.sheetBtn, els.favOnly]) {
     const titled = el.type === 'checkbox' ? el.closest('label') : el;
     if (binMode) {
@@ -363,6 +373,72 @@ function restorePicked() {
   void restoreImages(ids);
 }
 
+// Only the bin's picks, pinned before the question. A changed local pick set
+// or a restored/deleted row in another tab refuses the entire operation;
+// missing rows still retire through forgetImages, as every permanent delete
+// does, so the gallery's stashed picks and all held copies stay consistent.
+async function purgePicked() {
+  const slot = { slot: els.galleryError };
+  syncPurgePicked();
+  if (els.purgePicked.getAttribute('aria-disabled') === 'true') {
+    showError(els.purgePicked.title + '.', true, slot);
+    return;
+  }
+  const expected = selectedIds().sort((a, b) => a - b);
+  purgingPicked = true;
+  syncPurgePicked();
+  try {
+    let found;
+    try { found = await api('/api/gallery/bin/summary'); }
+    catch (err) { showError(err.message, false, slot); return; }
+    const inUse = found.sources_in_use.filter((id) => expected.includes(id)).length;
+    const message = [
+      `Permanently delete the ${plural(expected.length, 'picked image')} from the recycle bin?`,
+      'Only these picked images are deleted; other images in the recycle bin are kept.',
+      ...(inUse ? [`${inUse} of them ${inUse === 1 ? 'is' : 'are'} the source or a reference of an image outside the bin; `
+        + `${inUse === 1 ? 'that' : 'those'} can't be made again.`] : []),
+      ...(found.job_active ? ['A job is running; a cell that uses one of them will fail.'] : []),
+      'This cannot be undone.',
+    ].join('\n');
+    if (!await askConfirm(message, { okLabel: 'Delete permanently' })) return;
+    const ids = selectedIds().sort((a, b) => a - b);
+    if (!binMode || ids.length !== expected.length || ids.some((id, at) => id !== expected[at])) {
+      showError('The picked images changed. Nothing was deleted; look again.', false, slot);
+      return;
+    }
+    let result;
+    try {
+      result = await api('/api/images/purge', {
+        method: 'POST', headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ ids, expected_ids: expected }),
+      });
+    } catch (err) {
+      const missing = err.body?.missing || [];
+      const live = err.body?.not_binned || [];
+      if (missing.length) forgetImages(missing);
+      if (live.length) {
+        dropFromBinView(live, 'Restored');
+        unforgetImages(live);
+      }
+      const names = (list) => list.length > 6 ? plural(list.length, 'image') : imageNames(list);
+      const also = [
+        missing.length ? `${names(missing)} ${missing.length === 1 ? 'was' : 'were'} already deleted.` : '',
+        live.length ? `${names(live)} ${live.length === 1 ? 'is' : 'are'} no longer in the recycle bin.` : '',
+      ].filter(Boolean).join(' ');
+      showError(`${err.message}${also ? ` ${also}` : ''}`, false, slot);
+      void syncBin();
+      return;
+    }
+    const also = forgetImages(result.deleted);
+    showError(`Deleted ${plural(result.deleted.length, 'picked image')} permanently from the recycle bin.${also}`, true, slot);
+    loadRuns();
+    void syncBin();
+  } finally {
+    purgingPicked = false;
+    syncPurgePicked();
+  }
+}
+
 function setupBin() {
   els.bin.onclick = toggleBin;
   els.emptyBin.onclick = () => {
@@ -370,6 +446,7 @@ function setupBin() {
     void emptyBin();
   };
   els.restorePicked.onclick = restorePicked;
+  els.purgePicked.onclick = () => { void purgePicked(); };
   onSelectionChange(syncRestorePicked);
   for (const el of [els.sheetBtn, els.favOnly, els.besideTick]) el.addEventListener('click', refuseInBin, true);
   els.runList.addEventListener('mousedown', refuseInBin, true);

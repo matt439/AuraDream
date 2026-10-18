@@ -97,6 +97,7 @@ def test_running_bundle_blocks_mutations_but_status_stays_available(client, monk
         assert client.get("/api/gallery").status_code == 409
         assert client.post("/api/generate", json={"prompt": "a fox"}).status_code == 409
         assert client.post("/api/images/1/favorite").status_code == 409
+        assert client.post("/api/images/purge", json={"ids": [1], "expected_ids": [1]}).status_code == 409
         assert client.post("/api/gallery/bundles/export", json={"expected": 0}).status_code == 409
         # A chosen bundle is refused before its selection is read: nothing is
         # starred here, which that read would answer with a 404.
