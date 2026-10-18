@@ -87,13 +87,14 @@ against the shared view on the same short tasks. Do not build three products.
   a separate contextual action.
 
 The [continuation plan](../plan-continue-run.md) remains the owner of
-`GEN#11`. Its phase 1 exists; phase 2's retained cells and Finish run do not.
-The design may depict that future state, visibly labelled as a prototype.
-It must not promise restart recovery from current production behavior.
+`GEN#11`. Check retained cells and Finish run against the exact current-app
+build in the [trial kit](trials/README.md); phase2 was built and verified
+independently of this design. The concept's visibly labelled simulated Finish
+does not establish current production restart recovery.
 
 ## Trial preparation
 
-**Ready preparation, 2026-10-18 (`DEV#3`).** This can be done without Matt,
+**Preparation built and verified, 2026-10-18 (`DEV#3`).** This can be done without Matt,
 weights, a live gallery or a layout decision. `DEV#1` is the subsequent
 hands-on trial, not a prerequisite for unrelated feature work.
 
@@ -120,6 +121,13 @@ Done means the kit includes:
   by the unresolved layout choices. Do not select a redesign on his behalf.
 
 The kit belongs beside this protocol; TODO remains the ordering/index.
+
+The prepared [trial kit](trials/README.md) contains the disposable fixture
+command, current-app/concept launch and reset instructions,
+[alternate task cards](trials/task-cards.md), a
+[blank human observation record](trials/observation-template.md) and a
+separate [agent expert baseline](trials/expert-baseline-2026-10-18.md).
+Preparation and agent checks do not complete `DEV#1` or supply human outcomes.
 
 ## One-user formative protocol
 
@@ -197,7 +205,9 @@ being available when the accepted rules require it to refuse.
 
 ## Baseline and provisional targets
 
-**No baseline has been collected for this design.** Record task completion,
+**No human baseline has been collected for this design.** The separately
+labelled [agent walkthrough](trials/expert-baseline-2026-10-18.md) is technical
+preparation. In Matt's session, record task completion,
 wrong-scope attempts, accidental submissions, lost context, surface changes,
 navigation reversals, presses and assistance. Time supports these observations;
 fake generation time is not part of interaction time. Keep raw observations.

@@ -8,11 +8,11 @@ An index of open work, one row per item; each row points to the doc that owns th
 
 **Aim (2026-10-18):** keep useful work ready for Matt's common workstation tasks. The queue below can proceed on CPU and disposable fake-server galleries, independently of whole-app layout trials. [Reported use](docs/design/preferences.md) guides priority; it does not approve the candidate redesign.
 
-**Ready backlog:** 2 `OPEN` tasks can be completed with CPU/browser evidence. The upscaler (`GEN#5`) also remains `OPEN`: it first needs a verified author-weight checksum, then implementation and a separate card pass. The official metadata checked tonight has no digest, and this run excludes weight downloads.
+**Ready backlog:** 1 `OPEN` task can be completed with CPU/browser evidence. The upscaler (`GEN#5`) also remains `OPEN`: it first needs a verified author-weight checksum, then implementation and a separate card pass. The official metadata checked tonight has no digest, and this run excludes weight downloads.
 
-1. **Trials and browser checks:** finish the synthetic trial kit (`DEV#3`) and current-app browser accessibility (`UI#9`), with their owner-defined evidence.
+1. **Browser checks:** finish current-app browser accessibility (`UI#9`), with its owner-defined evidence.
 
-The two ready rows above are the remaining CPU/browser work; there is no need to promote deferred features to fill this queue.
+This is the remaining CPU/browser work; there is no need to promote deferred features to fill this queue.
 
 **Needs Matt:** workbench task trials (`DEV#1`) and hands-on screen-reader/touch checks (`UI#7`) are `USER`, not implementation prerequisites for the queue above. No feature decision is waiting. Whole-app layout implementation waits for its trials; it remains a design hypothesis.
 
@@ -25,7 +25,6 @@ The two ready rows above are the remaining CPU/browser work; there is no need to
 | id | status | sev | size | item |
 |---|---|---|---|---|
 | `DEV#1` | USER | LOW | M | Run common-task trials with Matt, comparing the current app and candidate layouts before choosing redesign slices. [Protocol](docs/design/validation.md#one-user-formative-protocol). |
-| `DEV#3` | OPEN | LOW | M | Prepare repeatable synthetic fixtures, current-app expert baseline and a blank observation record for the task trials. [Preparation](docs/design/validation.md#trial-preparation). |
 
 ## Measurements on the card
 
