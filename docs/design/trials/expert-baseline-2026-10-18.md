@@ -129,10 +129,10 @@ The prior 53/54 and focused 8/8 results remain diagnostic history.
 
 Evidence: %TEMP%/local-diffusion-dev3-final-w8vduqpl/walkthrough.log and
 result.json. The complete retained source ZIP/snapshot, fixture and logs
-occupied 20,289,460 bytes. App sources came from git archive17c7ef0; only the
+occupied 20,289,460 bytes. App sources came from git archive 17c7ef0; only the
 external trial tools were copied into that owned snapshot. No production
-source was modified for the check. An initial port8312 attempt refused
+source was modified for the check. An initial port 8312 attempt refused
 before fixture mutation because an abandoned owned trial worker remained;
 its exact runtime/parent/source/data identity was checked before cleanup.
-The final8812 worker and listener were also verified stopped. No unrelated
+The final 8812 worker and listener were also verified stopped. No unrelated
 service was modified. This is technical preparation, not a human trial.

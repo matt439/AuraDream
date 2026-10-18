@@ -88,7 +88,7 @@ against the shared view on the same short tasks. Do not build three products.
 
 The [continuation plan](../plan-continue-run.md) remains the owner of
 `GEN#11`. Check retained cells and Finish run against the exact current-app
-build in the [trial kit](trials/README.md); phase2 was built and verified
+build in the [trial kit](trials/README.md); phase 2 was built and verified
 independently of this design. The concept's visibly labelled simulated Finish
 does not establish current production restart recovery.
 

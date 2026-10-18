@@ -261,12 +261,13 @@ permission and delivery depend on your browser and operating system.
 
 ## Use references and adapters
 
-The Models table also shows the full image-model download reference and
-whether all required files are **On disk**, **Part cached**, **Not cached**
-or **Unknown**. This is an offline file check, not a download or integrity
-test. The size is the full sourced cost, not the amount still missing;
-cached files can reduce it. Unknown means the app cannot establish a
-complete reference, including some gated models and custom checkpoints.
+The Models table's badge shows the full download size, **On disk**,
+**Part cached** or **Unknown**. Its tooltip and cache note explain absent
+files when the badge shows a size. This is an offline file check, not a
+download or integrity test. The size is the full sourced cost, not the
+amount still missing. Cached files may reduce the actual download.
+Unknown means the app cannot establish a complete reference, including
+some gated models and custom checkpoints.
 An On disk model still takes time to load or convert. Facts refresh after
 successful or failed loads without moving the chosen row or its controls.
 

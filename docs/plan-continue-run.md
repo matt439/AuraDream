@@ -12,6 +12,11 @@ every cite against the code (2026-10-18); what it changed is marked
 memory) is out of scope: nothing here changes a pixel, a seed or a
 memory cap.
 
+The evidence, journeys and phase 1 proposal below preserve the earlier
+implementation snapshot and its rationale. Current behavior is summarized
+above and in the dated phase 2 execution evidence; `docs/usage.md` describes
+the controls now available.
+
 The recommended design, in one paragraph: **phase 1** puts the two
 continuations the server already runs - *More seeds* (new seeds, same
 settings, joining the run) and *Resume the remaining N cells* (the missing
@@ -21,7 +26,8 @@ gallery filter, gives a budget stop its button, and fixes a latent
 double-render in Resume. **Phase 2** stores each job's resolved cells in the
 database so a run can be finished after a reload or a server restart
 without the panel holding its grid or Matt knowing its base seed. Widening
-an axis and "load the run into the panel" wait on Matt's answers.
+an axis and "load the run into the panel" are deferred under Matt's accepted
+answers (Q13).
 
 ## Problem statement
 
@@ -389,7 +395,7 @@ full-grid cap.
 | Meaning | Label | Where |
 |---|---|---|
 | Hold and carry on a live job | **Pause / Resume** | progress row only, unchanged |
-| Render the missing cells of a run | **Resume the remaining N cells** (phase 1); **Finish run** in phase 2 only if Matt approves the rename (Q7) | finish line, banner, run bar |
+| Render the missing cells of a run | **Resume the remaining N cells** in historical phase 1; **Finish run** in built phase 2, with Matt's accepted rename (Q7) | finish line, banner, run bar |
 | New seeds, same settings | **More seeds of this batch…** / **More seeds of this run…** | everywhere a run or image shows |
 
 The scope is always in the label; nothing is called a bare "Continue".
@@ -602,7 +608,8 @@ to what is queued.
   deleted or the run began as a Resume (US-8); a stopped Repeat-N; the
   quantizer, queued and drift holds; a legacy run held; stale revision
   refused (the route joins the model-dependent set, `backend/main.py:360`).
-- A new `tools/smoke-run-continue.json` on **7909** (FLUX.1-Krea-dev, fresh
+- Original smoke proposal, superseded by the execution constraint below:
+  a new `tools/smoke-run-continue.json` on **7909** (FLUX.1-Krea-dev, fresh
   scratch `--data`, `--step 0.3`); a job ends by its budget with no new
   fake-server knob, as `smoke-jobs` already does with a 0.06-minute budget
   over 20 seeds at `--step 0.3` (`tools/smoke-jobs.json:112-114`); its row
@@ -624,26 +631,26 @@ same pass: `docs/design-notes.md:5173-5174`, `docs/usage.md:499` and `:512`,
 | 1a | `not_yet_rendered` planned-keys fix and its test | S |
 | 1b | `run` scope, `count_default`, headline; finish line (More seeds ×2, budget Resume); menu; lightbox pair; side column; run bar and pointer; banner More seeds; smokes; docs | M |
 | 2 | `run_jobs`, outcome writes, `GET /api/runs/{id}` actions, Finish run replacing page-memory Resume; new smoke | M-L |
-| later | Widen, Load into panel, Seeds to grid, CLI `--continue` - only on Matt's answers | - |
+| later | Widen and Load into panel are deferred (Q13); CLI `--continue` remains future scope. Picked Seeds to grid is built separately (`UI#3`). | - |
 
 Phase 1 needs no migration and nothing for `docs/verified.md`; each phase
 ships alone.
 
 ### Phase 2 execution slices
 
-**All three stages built and verified, 2026-10-18 (`GEN#11`).** Keep
-one TODO row for the feature. These are dependent stages, not three ready
-features. All fourteen product questions are answered; neither task trials
+**All three stages built and verified, 2026-10-18 (`GEN#11`).** They were
+dependent stages of one TODO feature; its row was removed on completion.
+All fourteen product questions are answered; neither task trials
 for the whole-app layout nor a card measurement blocks this work.
 
 | Stage | Scope | Evidence before moving on |
 |---|---|---|
-| Persistence | Create `run_jobs`; store the resolved pre-stamp cells before admission; write outcomes through `_finish`; clear the table with the gallery; leave bundles unchanged | Old-DB creation, raw outpaint round trip, disk-failure refusal without admitting a job, NULL outcome after interruption, and all terminal outcomes covered by storage/job tests |
+| Persistence | Create `run_jobs`; store the resolved pre-stamp cells before admission; write outcomes through `_finish`; clear the table with the gallery; exclude recovery definitions from bundles without changing their format | Old-DB creation, raw outpaint round trip, disk-failure refusal without admitting a job, NULL outcome after interruption, and all terminal outcomes covered by storage/job tests |
 | Finish service and API | Resolve stored cells in order, subtract completed/binned and planned keys, expose availability plus preview/submit with the original run id | HTTP tests for restart, stopped Repeat, partial completion, queued/model/quantizer/drift/legacy holds, stale model revision, missing inputs and preview/submit changes; use the queue-before-gallery-read ordering from grid Resume |
-| Page integration | Replace page-memory recovery actions with Finish run availability; retain the panel's hand-built Resume and More seeds; add the 7909 smoke and update usage/rules/maps | Fresh-tab and restarted-server fake-backend scenarios work with an unrelated composer; focus/holds/counts are correct; no duplicate queued cells and no claim that legacy/imported runs have retained cells |
+| Page integration | Replace page-memory recovery actions with Finish run availability; retain the panel's hand-built Resume and More seeds; extend existing smokes and use the owned restart checker, as the execution constraint below records | Fresh-tab and restarted-server fake-backend scenarios work with an unrelated composer; focus/holds/counts are correct; no duplicate queued cells and no claim that legacy/imported runs have retained cells |
 
-The storage/API stages may be reviewed separately. The feature stays open
-until the page path and restart evidence above pass. The complete storage
+The storage/API stages were reviewed separately. The feature was completed
+after the page path and restart checks below passed. The complete storage
 contract, refusals and tests remain in [Phase 2](#phase-2-runs-keep-their-cells)
 and [Tests and smokes](#tests-and-smokes); this breakdown does not change them.
 
@@ -683,15 +690,16 @@ remain separate. A press reads fresh availability and submits only its
 expected pin, with panel:false. One bounded reread handles completion-cache
 invalidation while preserving refusal on server/model identity changes.
 
-Final focused browser expectations: jobs204, sheet195, More seeds100,
-results126, refine151 and the owned restart checker29 (805 total).
-The checker kills/restarts only its own fresh fake server and verifies old
-job404, retained Repeat/zero-image comparison cells, original budget,
+At Finish integration's completion, the focused browser expectations were:
+jobs 204, sheet 195, More seeds 100, results 126, refine 151 and the owned
+restart checker 29 (805 total). Later UI features add their own checks.
+The checker kills/restarts only its own fresh fake server and verifies a
+404 for the old job, retained Repeat/zero-image comparison cells, original budget,
 unchanged composer, one pinned submission and no duplicate admission.
 All final checks passed. Earlier stale wording/fixed waits and nondefault
 fake pacing were corrected; the real first-press cache race was fixed and
-covered deterministically. The complete CPU suite passed3328 tests, with
-6 platform/cache/link-availability skips and73 dependency warnings.
+covered deterministically. The complete CPU suite passed 3328 tests, with
+6 platform/cache/link-availability skips and 73 dependency warnings.
 No real GPU or production gallery was used.
 
 This night's execution forbids trusted instruction-file edits. Page/restart
@@ -719,14 +727,14 @@ scan; a queue snapshot alone does not cover simultaneous new submissions.
 5. **Legacy runs** hold Finish, so the run bar behaves differently across
    one gallery until older runs are cleared - which, at Matt's
    bundle-and-clear rhythm, is days.
-6. **Phase 1 leaves J4 fragile:** the budget Resume is still page memory
-   until phase 2.
+6. **Historical phase 1 risk, resolved by phase 2:** the budget Resume
+   depended on page memory before retained cells and Finish run replaced it.
 
 ## Open questions for the user
 
 All fourteen answered 2026-10-18: Matt took every recommended answer, so
-each stands as written. Q7's rename waits for phase 2; Q13 defers Widen and
-Load into panel.
+each stands as written. Q7's rename is built in phase 2; Q13 defers Widen
+and Load into panel.
 
 1. **Does "continue a run that completes" mean mainly M1 (more of a batch)
    and M2 (more seeds on a finished grid)?** Recommended: yes; phase 1 is

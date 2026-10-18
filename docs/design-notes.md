@@ -2679,8 +2679,14 @@ was skipped. `Job.snapshot(images=False)` is what the per-cell status event
 and `/api/jobs` send: the per-cell event used to carry every record so far,
 258 MiB over a 1000-cell grid.
 
-**The page names the cells it skipped and offers them again.** A skipped cell
-used to show only as the cell line jumping a number and, at the end, "1
+**Skipped-cell recovery before phase 2 (historical).** The Retry/Resume
+route below depended on page memory. The 2026-10-18
+[phase 2 build](#more-seeds-where-the-run-ends) replaced those actions with
+server-backed Finish run, retaining the skipped-cell explanation and focus
+behavior.
+
+A skipped cell used to show only as the cell line jumping a number and, at
+the end, "1
 cell(s) failed" - which cell, no one said - and the obvious retry, Run grid,
 rendered the whole grid again. `Job.failed_cells` keeps each one's label, seed
 and error, sent with the records (the full snapshot: attach and `done`), never
@@ -5252,6 +5258,12 @@ never the single verb: one label hid "finish 27 cells" and "make 120 new
 images", and its holds were known only after a press. Matt took every
 recommended answer to the plan's questions the same day.
 
+**Phase 1 implementation record (historical).** The label, budget Resume
+and run-bar details below describe that first stage. Phase 2 is built now,
+as the dated update below records: missing-cell actions use Finish run and
+stored cells rather than the old payload or panel. The queued-rerun gap
+described at the end of this record was also closed by `GEN#12` below.
+
 **The scope is in the label.** More seeds of this batch… (the menu; the
 lightbox's and the result column's More seeds… beside Reuse and Use
 seed), More seeds… on a job's finish line for the batches it made, and
@@ -5700,6 +5712,12 @@ same call from the terminal, previewed with the same summary.
 
 ## The morning after: runs and finished jobs
 
+**Phase 2 update, 2026-10-18.** The picker also exposes retained runs that
+made no image. Banner and sheet recovery use server-backed Finish run,
+including comparisons and Repeat, without changing the composer; see
+[More seeds where the run ends](#more-seeds-where-the-run-ends). The
+panel-driven Resume passage below preserves the earlier recovery rationale.
+
 **The morning after has two sources.** `GET /api/runs` groups the gallery
 by `run_id` (`gallery_reports.runs`: images, favourites, distinct prompts, jobs,
 first/last timestamp, and the *oldest* image's prompt and seed - the base
@@ -5725,8 +5743,11 @@ ended at the load is skipped while the status still gives the same detail.
 It says what is left of the job, from the snapshot's `deleted_count`: "6
 images (6/6 cells), 4 since deleted", or "all since deleted" with Show run
 hidden - it had counted and offered deleted images, and Show run opened a
-sheet of one. A grid the night did not finish (cancelled, out of time,
-stopped by its failures) offers Resume: the sheet's Resume this run
+sheet of one.
+
+**Historical panel-driven recovery, before phase 2.** A grid the night
+did not finish (cancelled, out of time, stopped by its failures) offers
+Resume: the sheet's Resume this run
 (`resumeRun`) with the job's size, the panel's grid made ready, Resume ticked
 for this session, and the preview saying what is left - or, where it would
 skip nothing, that the panel holds another grid. The base seed is the run's,
@@ -6526,7 +6547,13 @@ typed search is laid out as typed. A new pin takes the value most images
 carry under the pins already held (`reconcileAxes`): the first value is
 `none` for every variable of a mixed gallery and no image was `none` on all
 of them, so not one cell filled. Over a full run the counts tie and the first
-value still wins. A sheet of one run opened on `run:<id>` offers Resume this
+value still wins.
+
+**Historical sheet recovery, before phase 2.** The panel-filling route
+below was replaced by server-backed Finish run; the current behavior is in
+[More seeds where the run ends](#more-seeds-where-the-run-ends).
+
+A sheet of one run opened on `run:<id>` offers Resume this
 run: the run's base seed from `/api/runs` into the Seed box and its size into
 Width and Height, Resume ticked for this session only, the grid fold opened
 and Run grid brought into view. Resume is scoped by the size, the checkpoint
@@ -7698,8 +7725,9 @@ selector, so a change to the dock changes them too). Made a div so the note coul
 sit in it, its label names only "English translation"; the hint
 (`#prompt-translation-hint`) is the box's description (`aria-describedby`) and no
 longer says the Chinese prompt is "above", which it is not at the head of the
-results. There is no Cancel: the server holds the generation gate until the
-expansion ends, so releasing the page would only queue a Generate behind it.
+results. Before the Stop control below was built on 2026-10-18, there was
+no Cancel action: the server held the generation gate until expansion ended,
+so releasing the page would only queue a Generate behind it.
 
 ### Stop Expand, 2026-10-18
 
