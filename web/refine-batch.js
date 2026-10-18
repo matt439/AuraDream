@@ -26,13 +26,13 @@ const RB_STEPS_PROBLEM = "Steps is a whole number from 1 to 100, or blank for ea
 const RB_STATUS_WORDS = {
   pass: 'refine passes skipped', foreign: 'from other checkpoints', too_big: 'too large at this scale',
   no_step: 'left no step at this strength', file_missing: 'with their file missing',
-  lora_missing: 'with their LoRA missing', rendered: 'already have this pass', deleted: 'deleted',
+  lora_missing: 'with their LoRA missing', rendered: 'already have this pass', planned: 'already queued', deleted: 'deleted',
   invalid: 'invalid',
 };
 const RB_CHIP = {
   queued: 'queued', pass: 'refine pass', foreign: 'other checkpoint', too_big: 'too large',
   no_step: 'no step', file_missing: 'file missing', lora_missing: 'LoRA missing',
-  rendered: 'already refined', deleted: 'deleted', invalid: 'invalid',
+  rendered: 'already refined', planned: 'already queued', deleted: 'deleted', invalid: 'invalid',
 };
 
 // What the dialog acts on, fixed when it opens: `{ids}` or the filter, and
@@ -399,6 +399,9 @@ function refineBatchHold() {
   if (rbRevision !== modelRevision) return 'The checkpoint changed; close Refine and open it again';
   if (!rbAnswer?.queued) {
     const counts = rbAnswer?.counts ?? {};
+    if (counts.planned && Object.keys(counts).every((key) => key === 'planned' || key === 'rendered')) {
+      return counts.rendered ? 'Every image already has this pass rendered or queued' : 'Every image already has this pass queued';
+    }
     return counts.rendered && Object.keys(counts).length === 1
       ? 'Every image already has this pass at this strength and scale'
       : 'No image can be refined at these settings; each one says why';

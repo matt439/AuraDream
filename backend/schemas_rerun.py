@@ -66,6 +66,9 @@ class RerenderAccepted(JobAccepted):
     """Re-render's job, and the picked images it could not take."""
 
     deleted: list[RerenderGone] = Field(default_factory=list)
+    # Held by the gallery and by live jobs respectively, never combined.
+    pruned: int = 0
+    planned: int = 0
 
 
 class TagSwap(BaseModel):
@@ -112,7 +115,7 @@ class SwapTagsRequest(BaseModel):
 
 
 SwapStatus = Literal[
-    "queued", "missing", "unchanged", "rendered", "invalid", "source_deleted",
+    "queued", "planned", "missing", "unchanged", "rendered", "invalid", "source_deleted",
     "lora_missing", "mask_missing", "outpaint", "duplicate", "by_hand", "structured", "deleted", "foreign",
 ]
 
@@ -194,7 +197,7 @@ class RefineBatchRequest(BaseModel):
 
 RefineBatchStatus = Literal[
     "queued", "pass", "foreign", "too_big", "no_step", "file_missing", "lora_missing",
-    "rendered", "deleted", "invalid",
+    "rendered", "planned", "deleted", "invalid",
 ]
 
 
@@ -370,6 +373,8 @@ class SwapTagsAccepted(BaseModel):
     # Images whose cell the gallery holds at queue time, left out without a
     # refusal: the preview's "already rendered" ones plus any rendered since.
     pruned: int = 0
+    # Images whose cell a queued or running job already plans.
+    planned: int = 0
 
 
 class RefineBatchAccepted(SwapTagsAccepted):

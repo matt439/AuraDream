@@ -158,5 +158,22 @@
   {"expect": "__until(() => !els.refineBatchDialog.open && !els.modelPicker.hidden)"},
   {"eval": "showModelPicker(false)"},
   {"eval": "clearSelection(); setSelectMode(false); api = window.__api;"},
-  {"expect": "scrollY === __scrollY"}
+  {"expect": "scrollY === __scrollY"},
+
+  {"log": "'a refine pass already queued is listed and held as queued, without claiming the gallery holds it'"},
+  {"eval": "window.__holdQueue = async () => { await __post('/api/fake/step', {seconds: 0.05}); const job = await __post('/api/generate', {prompt: 'queued rerun smoke blocker', width: 256, height: 256, seed: 9876, steps: 20, runs: 2}); await __post('/api/jobs/' + job.job_id + '/pause', {}); for (let n = 0; n < 200; n++) { const state = await (await fetch('/api/jobs/' + job.job_id)).json(); if (state.paused) { await __post('/api/fake/step', {seconds: 0}); return job.job_id; } await new Promise((r) => setTimeout(r, 50)); } throw Error('blocker did not pause'); }; window.__releaseQueue = async (id) => { await __post('/api/jobs/' + id + '/cancel', {}); await __post('/api/jobs/' + __guardBlocker + '/cancel', {}); await __wait(id); await __wait(__guardBlocker); };"},
+  {"eval": "(async () => { clearSelection(); window.__guardSource = (await __wait((await __post('/api/generate', {prompt: 'refine guard source', width: 256, height: 256, seed: 9877, steps: 20})).job_id)).images[0]; resetGallery(); })()"},
+  {"expect": "__until(() => !galleryPending && galleryRecords.some((r) => r.id === __guardSource.id))"},
+  {"eval": "(async () => { toggleSelected(__guardSource); window.__guardBlocker = await __holdQueue(); window.__guardJob = await __post('/api/refine/batch', {ids: [__guardSource.id], scale: 1.5, strength: 0.2}); })()"},
+  {"expect": "!!__guardJob.job_id"},
+  {"click": "#btn-refine-batch"},
+  {"expect": "__until(() => els.refineBatchDialog.open)"},
+  {"eval": "els.refineBatchStrength.value = '0.2'; els.refineBatchStrength.dispatchEvent(new Event('input', {bubbles: true})); els.refineBatchScales.children[2].click()"},
+  {"expect": "__until(() => rbAnswer?.counts.planned === 1 && els.refineBatchRun.title === 'Every image already has this pass queued')"},
+  {"expect": "els.refineBatchRun.getAttribute('aria-disabled') === 'true' && __rows().find((li) => li.dataset.status === 'planned').querySelector('.rb-chip').textContent === 'already queued' && els.refineBatchCount.textContent.includes('1 already queued') && !els.refineBatchCount.textContent.includes('already have this pass')"},
+  {"click": "#refine-batch-run"},
+  {"expect": "els.refineBatchError.textContent === 'Every image already has this pass queued'"},
+  {"key": "Escape"},
+  {"eval": "(async () => { await __releaseQueue(__guardJob.job_id); clearSelection(); })()"},
+  {"expect": "__until(() => !busy && queuedIds.length === 0)"}
 ]

@@ -20,14 +20,14 @@ const SWAP_CHECK_DELAY = 400;
 const SWAP_MAX_ROWS = 16;
 const SWAP_MAX_TEXT = 1000;
 const SWAP_STATUS_WORDS = {
-  queued: 'queued', missing: 'missing a tag', unchanged: 'unchanged', rendered: 'already rendered',
+  queued: 'queued', missing: 'missing a tag', unchanged: 'unchanged', rendered: 'already rendered', planned: 'already queued',
   invalid: 'invalid', source_deleted: 'source deleted', lora_missing: 'LoRA missing',
   mask_missing: 'mask missing', outpaint: 'outpaints that cannot run', duplicate: 'duplicates',
   by_hand: 'need editing by hand', structured: 'structured prompts',
   deleted: 'deleted', foreign: 'from another checkpoint',
 };
 const SWAP_CHIP = {
-  queued: 'queued', missing: 'missing', unchanged: 'unchanged', rendered: 'already rendered',
+  queued: 'queued', missing: 'missing', unchanged: 'unchanged', rendered: 'already rendered', planned: 'already queued',
   invalid: 'invalid', source_deleted: 'source deleted', lora_missing: 'LoRA missing',
   mask_missing: 'mask missing', outpaint: 'outpaint refused', duplicate: 'duplicate', by_hand: 'by hand',
   structured: 'structured', deleted: 'deleted',
@@ -389,7 +389,13 @@ function swapHold() {
   if (swapAsking || JSON.stringify(payload) !== swapAnswerKey) return 'Checking the swaps…';
   if (swapProblem) return swapProblem;
   if (swapRevision !== modelRevision) return 'The checkpoint changed; close Swap tags and open it again';
-  if (!swapAnswer || !swapAnswer.queued) return 'No image would change';
+  if (!swapAnswer || !swapAnswer.queued) {
+    const counts = swapAnswer?.counts ?? {};
+    if (counts.planned && Object.keys(counts).every((key) => key === 'planned' || key === 'rendered')) {
+      return counts.rendered ? 'Every changed image is already rendered or queued' : 'Every changed image is already queued';
+    }
+    return 'No image would change';
+  }
   return '';
 }
 

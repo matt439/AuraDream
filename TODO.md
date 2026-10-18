@@ -8,12 +8,11 @@ An index of open work, one row per item; each row points to the doc that owns th
 
 **Aim (2026-10-18):** keep useful work ready for Matt's common workstation tasks. The queue below can proceed on CPU and disposable fake-server galleries, independently of whole-app layout trials. [Reported use](docs/design/preferences.md) guides priority; it does not approve the candidate redesign.
 
-**Ready backlog:** 18 `OPEN` tasks can be completed with CPU/browser evidence. One further `OPEN` item, the upscaler (`GEN#5`), can be built but needs a separate card pass before closure.
+**Ready backlog:** 17 `OPEN` tasks can be completed with CPU/browser evidence. One further `OPEN` item, the upscaler (`GEN#5`), can be built but needs a separate card pass before closure.
 
-1. **Avoid duplicate reruns (`GEN#12`):** extend the queued-cell guard to Re-render, Swap tags and Mass refine, with separate queued/rendered answers. [Scope](docs/design-notes.md#reruns-already-in-the-queue).
-2. **Continue a run (`GEN#11`):** build phase 2 in dependency order: persistence, Finish service/API, then page actions and restart smoke. These are stages of one feature. [Execution slices](docs/plan-continue-run.md#phase-2-execution-slices).
-3. **Review and curate by keyboard (`UI#4`, `UI#5`, `UI#6`):** contact-sheet navigation, Refine's R shortcut, then Ctrl+A for loaded cards in Select mode. Each ships independently. [Feature plans](docs/review-2026-10-12.md#feature-ideas).
-4. **Finish the archive/bin workflow (`GAL#1`, `GAL#2`):** permanently delete picked binned images, then Show imported. Age-based emptying is separate. [Feature plans](docs/review-2026-10-12.md#feature-ideas).
+1. **Continue a run (`GEN#11`):** build phase 2 in dependency order: persistence, Finish service/API, then page actions and restart smoke. These are stages of one feature. [Execution slices](docs/plan-continue-run.md#phase-2-execution-slices).
+2. **Review and curate by keyboard (`UI#4`, `UI#5`, `UI#6`):** contact-sheet navigation, Refine's R shortcut, then Ctrl+A for loaded cards in Select mode. Each ships independently. [Feature plans](docs/review-2026-10-12.md#feature-ideas).
+3. **Finish the archive/bin workflow (`GAL#1`, `GAL#2`):** permanently delete picked binned images, then Show imported. Age-based emptying is separate. [Feature plans](docs/review-2026-10-12.md#feature-ideas).
 
 **Other ready work:** model cache/download facts (`GEN#1`), Stop Expand (`GEN#2`), storage scale/recovery checks (`GAL#3`, `GAL#4`), design-trial preparation (`DEV#3`) and browser accessibility checks (`UI#9`). Their owners define scope and completion. Optional conveniences remain below; there is no need to promote deferred features to fill this queue.
 
@@ -76,7 +75,6 @@ An index of open work, one row per item; each row points to the doc that owns th
 | `GEN#7` | DEFERRED | LOW | M | A Hugging Face access check before a switch releases the working model; the catalogue's gate word is static. [Switching](docs/design-notes.md#switching-checkpoints-while-the-server-stays-open). |
 | `GEN#8` | DEFERRED | LOW | L | U61 part B: one's own photo or sketch as a reference (import route, a source marker through storage, reindex and reruns; add, drop and paste). Matt deferred it 2026-10-05; only when he raises it. [References](docs/design-notes.md#reference-images-by-gallery-id). |
 | `GEN#11` | OPEN | LOW | L | Continue a run, phase 2: `run_jobs` keeps each job's cells; Finish run after a reload or restart. [Plan](docs/plan-continue-run.md#phases). |
-| `GEN#12` | OPEN | MED | M | Re-render, Swap tags and Mass refine must skip matching queued cells as well as completed ones, without calling queued work rendered. [Scope and checks](docs/design-notes.md#reruns-already-in-the-queue). |
 
 ## Gallery and storage
 

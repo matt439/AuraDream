@@ -319,13 +319,13 @@ def not_yet_planned(
     cells: list[grid.Cell],
     planned: dict[tuple[int, int], set[grid.CellKey]],
 ) -> list[grid.Cell]:
-    """The cells no live job will write: what Resume runs after
-    `not_yet_rendered`, so a Resume pressed while the same run is still
-    queued plans none of its cells twice.
+    """The cells no live job will write: what Resume and gallery reruns
+    run after `not_yet_rendered`, so another press while the same cells
+    are still queued plans none of them twice.
 
-    Opt-in, never inside `not_yet_rendered`: its other callers' words - the
-    preview's "already in the gallery", Re-render's "every selected image is
-    already rendered" - are claims about the gallery, not the queue. Keyed
+    Opt-in, never inside `not_yet_rendered`: its result and the callers'
+    rendered counts are claims about the gallery, with queued cells counted
+    separately. Keyed
     as `planned_keys` keys them, through `applied()` and by each cell's own
     size; a live job runs under the server's checkpoint and quantizer, the
     scope `completed_cells` reads.

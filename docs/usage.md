@@ -434,7 +434,7 @@ Search combines these terms with free text matching the prompt:
 | `date:today`, `date:yesterday`, `date:2026-10-07` | A day in the server's local timezone |
 
 **Re-render** renders the filtered images at the panel's size with their
-recorded settings and skips completed cells - or, with cards picked with
+recorded settings and skips completed or already queued cells - or, with cards picked with
 **Select**, exactly those, whatever the filter ("Re-render 2 selected at
 1024×1024"). A picked image moved to the recycle bin or deleted since is
 left out and named. It refuses images from another checkpoint (picked ones
@@ -481,7 +481,7 @@ and weight. Inside a prose prompt a single tag also matches as a phrase.
 An image has to have every tag of every row; the dialog lists, per image,
 what it would run (the swap marked, and what it takes out struck through
 under it) or why it is left out - a missing tag,
-already rendered, a deleted source or LoRA, the same as another image.
+already rendered, already queued, a deleted source or LoRA, the same as another image.
 Each image keeps its own seed, size and settings; one job is queued per
 size.
 
@@ -495,7 +495,7 @@ makes or why it is left out: a refine pass itself (untick **Skip refine
 passes** to refine those again), another checkpoint's (tick **Include
 other checkpoints**: they take this checkpoint's steps, CFG and mu), too
 large at this scale, no step left at this strength, a missing file or
-LoRA, already refined. One job is queued per size.
+LoRA, already refined, or this pass already queued. One job is queued per size.
 
 **More seeds…** (beside **Refine…**) makes more images of each batch the
 selection holds - or, with nothing selected, of each batch the filter

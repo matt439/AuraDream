@@ -5304,12 +5304,12 @@ footer More seeds are left as they are (Q14).
 
 ### Reruns already in the queue
 
-**Open, 2026-10-18 (`GEN#12`).** Re-render, Swap tags and Mass refine
-subtract completed gallery cells but do not subtract matching live-job
-cells. A repeated submission can therefore queue the same rerun again.
+**Built, 2026-10-18 (`GEN#12`).** Re-render, Swap tags and Mass refine
+subtract completed gallery cells and matching live-job cells. A repeated
+submission queues only cells neither the gallery nor a live job holds.
 This is independent of persisted runs and the proposed workstation layout.
 
-Use `submission.not_yet_planned` after the gallery subtraction in
+They use `submission.not_yet_planned` after the gallery subtraction in
 `api_generate.py`, `api_swap.py` and `api_refine_batch.py`. Snapshot
 `jobs.planned_keys()` on the event loop **before** the awaited gallery
 reads, as grid Resume does: taking it afterwards misses a cell that moved
@@ -5317,7 +5317,16 @@ from the queue into the gallery during the scan. Keep each cell's applied
 settings, size, checkpoint and quantizer scope. Do not put this behaviour
 inside `not_yet_rendered`, whose other callers describe the gallery alone.
 
-Completion requires:
+The shared `JobManager.rerun_admission` lock covers each affected submit's
+planning through admission, including awaited mask holds and outpaint
+stamping. It is opt-in; ordinary Generate and deliberate repeats keep their
+semantics. Previews remain advisory and submissions recompute the plan.
+`planned` is a separate per-image status and accepted count; `pruned`
+continues to count completed gallery cells alone. The dialogs say "already
+queued", including their held-action reasons, and Re-render reports skipped
+counts separately.
+
+Verified on CPU and disposable fake galleries:
 
 - Repeated requests while matching work is queued or running submit none
   of those cells twice; a partial overlap queues only the remainder.
@@ -5335,6 +5344,10 @@ Completion requires:
   the existing grid Resume race test as precedent. Extend `smoke-select`,
   `smoke-swap` and `smoke-refine-batch` for the relevant queued wording and
   held-action reasons. No weights or GPU are needed.
+
+The focused rerun/grid/swap/refine HTTP suite passed 119 tests. The extended
+`smoke-select`, `smoke-swap` and `smoke-refine-batch` exercise live queued
+work behind a paused job and distinguish its wording from rendered work.
 
 ## Delete unstarred
 

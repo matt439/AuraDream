@@ -168,6 +168,12 @@ def create_router(services: AppServices) -> APIRouter:
 
     @router.post("/api/rerender", response_model=RerenderAccepted)
     async def rerender(request: RerenderRequest) -> RerenderAccepted:
+        """Re-render the selection, leaving out gallery and live-job cells."""
+        async with services.jobs().rerun_admission:
+            return await rerender_selection(request)
+
+
+    async def rerender_selection(request: RerenderRequest) -> RerenderAccepted:
         """Queue the gallery's current selection again at another size, as one job.
 
         The documented workflow ends at "star the winners"; getting them at full
@@ -254,14 +260,24 @@ def create_router(services: AppServices) -> APIRouter:
         except ValueError as exc:
             raise HTTPException(status_code=422, detail=str(exc)) from exc
         run_id = grid.run_id(cells, services.model_id(), services.quantization())
-        kept = await submission.not_yet_rendered(services, cells, request.width, request.height)
+        # The queue first, then the gallery: a live cell can finish while
+        # the scan runs. Admission stays held until submit_cells has added
+        # this job, including its awaited mask writes.
+        planned = services.jobs().planned_keys()
+        unheld = await submission.not_yet_rendered(services, cells, request.width, request.height)
+        kept = submission.not_yet_planned(services, unheld, planned)
+        pruned, already_planned = len(cells) - len(unheld), len(unheld) - len(kept)
         if not kept:
+            state = "rendered or queued" if already_planned and pruned else "queued" if already_planned else "rendered"
             raise HTTPException(
                 status_code=409,
-                detail=f"every selected image is already rendered at {request.width}x{request.height}",
+                detail=f"every selected image is already {state} at {request.width}x{request.height}",
             )
         job = await services.jobs().submit_cells(kept, run_id=run_id)
-        return RerenderAccepted(job_id=job.id, seed=job.seed, run_id=job.run_id, deleted=deleted)
+        return RerenderAccepted(
+            job_id=job.id, seed=job.seed, run_id=job.run_id, deleted=deleted,
+            pruned=pruned, planned=already_planned,
+        )
 
 
     @router.post("/api/grid/preview", response_model=GridPreview)

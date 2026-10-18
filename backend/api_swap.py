@@ -25,6 +25,7 @@ _SWAP_SAYS = {
     "structured": "an XML or JSON prompt is not rewritten",
     "unchanged": "the swaps change nothing here",
     "rendered": "already in the gallery",
+    "planned": "already queued or running",
 }
 
 
@@ -131,13 +132,21 @@ async def swap_plan(
     sizes: dict[tuple[int, int], list[grid.Cell]] = {}
     for _, cell in queued:
         sizes.setdefault((cell.request.width, cell.request.height), []).append(cell)
+    # Snapshot before any size's awaited scan: a live cell can finish
+    # during it. Submission holds rerun admission until every job is added.
+    planned = services.jobs().planned_keys()
+    unheld: set[int] = set()
     kept: set[int] = set()
     for (width, height), group in sizes.items():
-        kept.update(id(cell) for cell in await submission.not_yet_rendered(services, group, width, height))
+        missing = await submission.not_yet_rendered(services, group, width, height)
+        unheld.update(id(cell) for cell in missing)
+        kept.update(id(cell) for cell in submission.not_yet_planned(services, missing, planned))
     cells = []
     for result, cell in queued:
         if id(cell) in kept:
             cells.append(cell)
+        elif id(cell) in unheld:
+            result.status, result.detail = "planned", _SWAP_SAYS["planned"]
         else:
             result.status, result.detail = "rendered", _SWAP_SAYS["rendered"]
     results.sort(key=lambda result: result.id)
@@ -175,6 +184,12 @@ def create_router(services: AppServices) -> APIRouter:
 
     @router.post("/api/swap-tags", response_model=SwapTagsAccepted)
     async def swap_tags(request: SwapTagsRequest) -> SwapTagsAccepted:
+        """Queue swapped images, leaving out gallery and live-job cells."""
+        async with services.jobs().rerun_admission:
+            return await submit_swap_tags(request)
+
+
+    async def submit_swap_tags(request: SwapTagsRequest) -> SwapTagsAccepted:
         """Queue the selected images again with some of their tags swapped.
 
         The fourth producer of cells, beside Generate, Run grid and Re-render:
@@ -197,6 +212,19 @@ def create_router(services: AppServices) -> APIRouter:
             )
         counts = _swap_counts(results)
         if not cells:
+            if counts.get("planned"):
+                if set(counts) <= {"rendered", "planned"}:
+                    detail = (
+                        "every image the swap would change is already in the gallery or queued"
+                        if counts.get("rendered") else
+                        "every image the swap would change is already queued or running"
+                    )
+                    raise HTTPException(status_code=409, detail=detail)
+                said = ", ".join(
+                    f"{n} {'already queued' if status == 'planned' else status.replace('_', ' ')}"
+                    for status, n in counts.items()
+                )
+                raise HTTPException(status_code=422, detail=f"no selected image would change ({said})")
             if counts.get("rendered"):
                 raise HTTPException(
                     status_code=409, detail="every image the swap would change is already in the gallery"
@@ -218,7 +246,7 @@ def create_router(services: AppServices) -> APIRouter:
         first = accepted[0]
         return SwapTagsAccepted(
             job_id=first.job_id, seed=first.seed, run_id=first.run_id, more=accepted[1:],
-            queued=len(cells), pruned=counts.get("rendered", 0),
+            queued=len(cells), pruned=counts.get("rendered", 0), planned=counts.get("planned", 0),
         )
 
     return router

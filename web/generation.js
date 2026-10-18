@@ -534,7 +534,17 @@ function rerenderSelection() {
   if (!target.scope) { showError(target.why, true, slot); return; }
   return startJob('/api/rerender', {
     ...target.scope, width: +els.width.value, height: +els.height.value,
-  }, { slot: els.galleryError, onAccepted: (_, answer) => sayRerenderGone(answer.deleted ?? []) });
+  }, { slot: els.galleryError, onAccepted: (_, answer) => {
+    sayRerenderGone(answer.deleted ?? []);
+    const skipped = [
+      answer.pruned ? `${answer.pruned} already rendered` : '',
+      answer.planned ? `${answer.planned} already queued` : '',
+    ].filter(Boolean).join(', ');
+    if (skipped) {
+      const gone = els.galleryError.textContent;
+      showError([gone, `Re-render skipped ${skipped}.`].filter(Boolean).join(' '), true, { slot: els.galleryError });
+    }
+  } });
 }
 
 // The picks Re-render left out: "#7 is in the recycle bin", "#9 is no longer

@@ -192,5 +192,26 @@
   {"expect": "__until(() => !busy && queuedIds.length === 0, 30000)"},
   {"expect": "__swapPosts === 1"},
   {"expect": "__seen('/api/gallery?limit=10&search=lakeside').then((p) => p.items.filter((r) => r.prompt === '1girl, lakeside, dusk').length === 1)"},
-  {"eval": "api = __swapApi; els.search.value = ''; els.search.dispatchEvent(new Event('input', {bubbles: true}))"}
+  {"eval": "api = __swapApi; els.search.value = ''; els.search.dispatchEvent(new Event('input', {bubbles: true}))"},
+
+  {"log": "'a swap already queued is listed and held as already queued, separate from already rendered'"},
+  {"eval": "window.__holdQueue = async () => { await __post('/api/fake/step', {seconds: 0.05}); const job = await __post('/api/generate', {prompt: 'queued rerun smoke blocker', width: 256, height: 256, seed: 9876, steps: 20, runs: 2}); await __post('/api/jobs/' + job.job_id + '/pause', {}); for (let n = 0; n < 200; n++) { const state = await (await fetch('/api/jobs/' + job.job_id)).json(); if (state.paused) { await __post('/api/fake/step', {seconds: 0}); return job.job_id; } await new Promise((r) => setTimeout(r, 50)); } throw Error('blocker did not pause'); }; window.__releaseQueue = async (id) => { await __post('/api/jobs/' + id + '/cancel', {}); await __post('/api/jobs/' + __guardBlocker + '/cancel', {}); await __wait(id); await __wait(__guardBlocker); };"},
+  {"eval": "(async () => { clearSelection(); window.__guardSource = (await __wait((await __post('/api/generate', {prompt: '1girl, red hair, queue guard', width: 256, height: 256, seed: 9877, steps: 2})).job_id)).images[0]; resetGallery(); })()"},
+  {"expect": "__until(() => !galleryPending && galleryRecords.some((r) => r.id === __guardSource.id))"},
+  {"eval": "(async () => { toggleSelected(__guardSource); window.__guardBlocker = await __holdQueue(); window.__guardJob = await __post('/api/swap-tags', {ids: [__guardSource.id], swaps: [{find: 'red hair', replace: 'blue hair'}]}); els.swapRows.replaceChildren(); })()"},
+  {"expect": "!!__guardJob.job_id"},
+  {"click": "#btn-swap"},
+  {"expect": "__until(() => els.swapDialog.open)"},
+  {"click": "#swap-dialog input[value=\"prompt\"]"},
+  {"eval": "els.swapRows.querySelector('.swap-find').focus()"},
+  {"type": "red hair"},
+  {"key": "Tab"},
+  {"type": "blue hair"},
+  {"expect": "__until(() => swapAnswer?.counts.planned === 1 && els.swapQueue.title === 'Every changed image is already queued')"},
+  {"expect": "els.swapQueue.getAttribute('aria-disabled') === 'true' && __row('planned').querySelector('.swap-chip').textContent === 'already queued' && els.swapCount.textContent === '0 will be queued · 1 already queued'"},
+  {"click": "#swap-queue"},
+  {"expect": "els.swapError.textContent === 'Every changed image is already queued'"},
+  {"key": "Escape"},
+  {"eval": "(async () => { await __releaseQueue(__guardJob.job_id); clearSelection(); })()"},
+  {"expect": "__until(() => !busy && queuedIds.length === 0)"}
 ]

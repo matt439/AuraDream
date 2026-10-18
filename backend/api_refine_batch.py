@@ -90,15 +90,24 @@ async def refine_batch_plan(
     for p in plans:
         if p.cell is not None:
             sizes.setdefault((p.width, p.height), []).append(p.cell)
+    # Snapshot before any size's awaited scan: a live cell can finish
+    # during it. Submission holds rerun admission until every job is added.
+    planned = services.jobs().planned_keys()
+    unheld: set[int] = set()
     kept: set[int] = set()
     for (width, height), group in sizes.items():
-        kept.update(id(cell) for cell in await submission.not_yet_rendered(services, group, width, height))
+        missing = await submission.not_yet_rendered(services, group, width, height)
+        unheld.update(id(cell) for cell in missing)
+        kept.update(id(cell) for cell in submission.not_yet_planned(services, missing, planned))
     cells: list[grid.Cell] = []
     for p in plans:
         if p.cell is None:
             continue
         if id(p.cell) in kept:
             cells.append(p.cell)
+        elif id(p.cell) in unheld:
+            p.status, p.detail = "planned", "this pass is already queued or running"
+            p.cell = None
         else:
             p.status, p.detail = "rendered", "already has this pass in the gallery"
             p.cell = None
@@ -188,6 +197,12 @@ def create_router(services: AppServices) -> APIRouter:
 
     @router.post("/api/refine/batch", response_model=RefineBatchAccepted)
     async def refine_batch_submit(request: RefineBatchRequest) -> RefineBatchAccepted:
+        """Queue passes, leaving out gallery and live-job cells."""
+        async with services.jobs().rerun_admission:
+            return await submit_refine_batch(request)
+
+
+    async def submit_refine_batch(request: RefineBatchRequest) -> RefineBatchAccepted:
         """Queue a refine pass of every selected image at one strength and scale.
 
         The fifth producer of cells: each image a cell of its own
@@ -215,7 +230,17 @@ def create_router(services: AppServices) -> APIRouter:
                     status_code=409,
                     detail="every image that could be refined already has this pass in the gallery",
                 )
-            said = ", ".join(f"{n} {status.replace('_', ' ')}" for status, n in counts.items())
+            if set(counts) <= {"rendered", "planned"}:
+                detail = (
+                    "every image that could be refined already has this pass in the gallery or queued"
+                    if counts.get("rendered") else
+                    "every image that could be refined already has this pass queued or running"
+                )
+                raise HTTPException(status_code=409, detail=detail)
+            said = ", ".join(
+                f"{n} {'already queued' if status == 'planned' else status.replace('_', ' ')}"
+                for status, n in counts.items()
+            )
             raise HTTPException(status_code=422, detail=f"no selected image can be refined ({said})")
         model, quantization = services.model_id(), services.quantization()
         accepted = []
@@ -227,7 +252,7 @@ def create_router(services: AppServices) -> APIRouter:
         first = accepted[0]
         return RefineBatchAccepted(
             job_id=first.job_id, seed=first.seed, run_id=first.run_id, more=accepted[1:],
-            queued=len(cells), pruned=counts.get("rendered", 0),
+            queued=len(cells), pruned=counts.get("rendered", 0), planned=counts.get("planned", 0),
         )
 
     return router
