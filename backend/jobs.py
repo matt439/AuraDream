@@ -9,6 +9,7 @@ from __future__ import annotations
 import asyncio
 import functools
 import logging
+import sqlite3
 import threading
 import time
 import uuid
@@ -44,6 +45,10 @@ class OutpaintStampFailed(RuntimeError):
     """An outpaint's mask could not be stored as its job was submitted -
     the disk, or the gallery reserved by another operation: the job is not
     queued, and the route answers 503 with these words."""
+
+
+class RunPersistenceFailed(RuntimeError):
+    """Resolved cells could not be recorded, so the job was not queued."""
 
 
 class LoadFailed(RuntimeError):
@@ -128,6 +133,10 @@ class Job:
     # Which cells those were - each one's label, seed and error - so the page
     # can name the hole in the sheet rather than count it.
     failed_cells: list[dict] = field(default_factory=list)
+    # Zero-based positions, independent of a label or seed that can repeat.
+    # Retained outcomes use these to identify failed calls after a restart.
+    failed_indices: list[int] = field(default_factory=list)
+    completed_indices: list[int] = field(default_factory=list)
     # Submitted as cells (a grid, a sweep, a re-render) rather than as one
     # request's repeats: what the page calls each one, a cell or an image.
     grid: bool = False
@@ -317,6 +326,13 @@ def _release_masks(job_id: str) -> None:
         storage.release_masks(job_id)
     except Exception:  # noqa: BLE001 - a stale hold only spares a mask until the next start
         log.warning("could not release the masks of job %s", job_id, exc_info=True)
+
+
+def _retain_outcome(job_id: str, outcome: dict[str, Any], database) -> None:
+    try:
+        storage.finish_run_job(job_id, outcome, database=database)
+    except Exception:  # noqa: BLE001 - NULL falls back to held-versus-missing cells
+        log.warning("could not record the outcome of job %s", job_id, exc_info=True)
 
 
 class JobManager:
@@ -612,6 +628,7 @@ class JobManager:
         """
         self._loop = asyncio.get_running_loop()
         selected = current_settings(settings)
+        raw_cells = list(cells)
         # An outpaint's mask, built and stored before anything reads the
         # cells - the job's own list, its request, the holds below - so the
         # worker runs the stamped cell (`storage.stamp_outpaints`). The run
@@ -661,6 +678,41 @@ class JobManager:
                     + ("submit it again" if built else "paint it again")
                 )
             job.holds_masks = True
+        origin = (
+            "more_seeds" if more_seeds is not None else
+            "refine_batch" if refine_batch is not None else
+            "swap" if swap is not None else
+            "comparison" if comparison else
+            "grid" if prompt_template is not None else
+            "generate" if not grid else "cells"
+        )
+        definition = {
+            "job_id": job.id, "run_id": job.run_id, "created_at": job.created_at,
+            "origin": origin, "model_id": selected.model_id, "quantization": selected.quantization,
+            "width": job.request.width, "height": job.request.height,
+            "batch": job.request.num_images, "comparison": comparison,
+            "metadata": {
+                "grid": grid, "prompt_template": prompt_template, "swap": swap,
+                "refine_batch": refine_batch, "more_seeds": more_seeds,
+                "budget_minutes": budget_minutes,
+            },
+        }
+        try:
+            while True:
+                try:
+                    await asyncio.to_thread(storage.retain_run_job, definition, raw_cells)
+                    break
+                except gallery_lock.GalleryBusy:
+                    log.warning("job %s: gallery busy; still waiting to record its cells", job.id)
+        except BaseException as exc:
+            if job.holds_masks:
+                await asyncio.to_thread(_release_masks, job.id)
+            if isinstance(exc, (OSError, sqlite3.Error)):
+                detail = getattr(exc, "strerror", None) or str(exc)
+                raise RunPersistenceFailed(
+                    f"the job's cells could not be recorded; nothing was queued: {detail}"
+                ) from exc
+            raise
         self._jobs[job.id] = job
         # A line at the start, one per cell and one at the end: an overnight
         # grid started from the browser used to leave nothing in the log unless
@@ -741,6 +793,18 @@ class JobManager:
             job.error = error
         job.done_sent = True
         job.finished_at = time.time()
+        # This transition is synchronous on the loop. The daemon's
+        # best-effort UPDATE cannot delay SSE or interpreter exit; a failed
+        # or interrupted write deliberately leaves outcome NULL.
+        outcome = {
+            "status": status, "reached": job.run, "failed_indices": list(job.failed_indices),
+            "completed_indices": list(job.completed_indices),
+            "stopped_by": job.stopped_by, "finished_at": job.finished_at,
+        }
+        threading.Thread(
+            target=_retain_outcome, args=(job.id, outcome, storage.settings.db_path),
+            daemon=True, name="run-outcome",
+        ).start()
         since = job.started_at or job.created_at
         log.info(
             "job %s %s: %d image(s) in %.0fs%s",
@@ -959,6 +1023,8 @@ class JobManager:
                 )
                 elapsed_ms = int((time.perf_counter() - started) * 1000)
                 self._save(job, loop, cell, images, elapsed_ms)
+                if len(images) == req.num_images:
+                    job.completed_indices.append(index)
             except Cancelled:
                 log.info(
                     "job %s cancelled during run %d/%d", job.id, index + 1, len(job.cells)
@@ -967,6 +1033,7 @@ class JobManager:
             except Exception as exc:  # noqa: BLE001 - a cell's failure, not the night's
                 consecutive += 1
                 job.failures += 1
+                job.failed_indices.append(index)
                 job.error = short_error(exc)
                 job.failed_cells.append({"label": cell.label, "seed": seed, "error": job.error})
                 log.error(

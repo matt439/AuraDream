@@ -1,6 +1,6 @@
 # Plan: continuing a run
 
-**Status, 2026-10-18: Matt took every recommended answer to the open questions the same day (below). Phase 1 is built, 2026-10-18: 1a (the Resume double-render fix, `8097f1d`) and 1b (the `run` scope, `9c01d64`; the page, `c230b6e`); phase 2 is not.** Why it is built as it is is in `docs/design-notes.md`'s "More seeds where the run ends"; the rules in `docs/rules.md`. Where the build differs from the text below: the planned-keys drop is a function of its own, `submission.not_yet_planned`, chained after `not_yet_rendered` on Resume, rather than an argument to it; `count_default` is the Batch every batch that recorded one agrees on, answered for every scope (the finish line's open is an `{ids}` one), and the page asks again at it, one more preview; the headline reads "N more of each of C cells = T images" ("of its one cell" for one); the run bar's line is "Run X · N images · checkpoint quant", the images the gallery holds under the filter, since phase 1 stores no cell total for "70/96 cells"; the lightbox's More seeds… is hidden, not held, at 900 px wide or narrower, where the right-click menu has it, as `#lb-inpaint` is; and the lightbox's keys are ignored while the dialog is open over it, so Escape closes the dialog alone. Apart from phase 1, nothing in the code has changed for it; the text below is the design as written. It was written from four read-only reports on
+**Status, 2026-10-18: Matt took every recommended answer to the open questions the same day (below). Phase 1 is built, 2026-10-18: 1a (the Resume double-render fix, `8097f1d`) and 1b (the `run` scope, `9c01d64`; the page, `c230b6e`); phase 2 persistence is built; Finish service/page integration remains.** Why it is built as it is is in `docs/design-notes.md`'s "More seeds where the run ends"; the rules in `docs/rules.md`. Where the build differs from the text below: the planned-keys drop is a function of its own, `submission.not_yet_planned`, chained after `not_yet_rendered` on Resume, rather than an argument to it; `count_default` is the Batch every batch that recorded one agrees on, answered for every scope (the finish line's open is an `{ids}` one), and the page asks again at it, one more preview; the headline reads "N more of each of C cells = T images" ("of its one cell" for one); the run bar's line is "Run X · N images · checkpoint quant", the images the gallery holds under the filter, since phase 1 stores no cell total for "70/96 cells"; the lightbox's More seeds… is hidden, not held, at 900 px wide or narrower, where the right-click menu has it, as `#lb-inpaint` is; and the lightbox's keys are ignored while the dialog is open over it, so Escape closes the dialog alone. Phase 2 persistence now keeps pre-stamp cells and budgets before admission, writes terminal outcomes, and excludes recovery definitions from bundles. The service/page stages below remain the design as written. It was written from four read-only reports on
 the current code (More seeds, grid Resume, the places a finished run shows,
 and the usage evidence), a user-research pass, three design proposals and
 two judges' reviews of them (one on usability, one on engineering). Every
@@ -631,7 +631,7 @@ ships alone.
 
 ### Phase 2 execution slices
 
-**Ready, 2026-10-18 (`GEN#11`); nothing below is implemented yet.** Keep
+**Persistence built and verified, 2026-10-18 (`GEN#11`); service/page work remains.** Keep
 one TODO row for the feature. These are dependent stages, not three ready
 features. All fourteen product questions are answered; neither task trials
 for the whole-app layout nor a card measurement blocks this work.
@@ -646,6 +646,21 @@ The storage/API stages may be reviewed separately. The feature stays open
 until the page path and restart evidence above pass. The complete storage
 contract, refusals and tests remain in [Phase 2](#phase-2-runs-keep-their-cells)
 and [Tests and smokes](#tests-and-smokes); this breakdown does not change them.
+
+**Persistence evidence, 2026-10-18.** `tests/test_run_persistence.py`
+adds 24 cases for old databases, raw outpaint requests and metadata,
+disk-failure refusal/mask release, every terminal path, interrupted NULL
+outcomes, gallery clearing, export exclusion and import preservation.
+The focused persistence/jobs/storage/outpaint/bundle/clear/rerun regression
+command passed 245 tests. Outcomes also keep `completed_indices`, allowing
+Finish to distinguish deleted successful cells from failures and unfinished
+ones. Outcome writes capture their database path and update existing rows
+only, so delayed daemon work cannot recreate cleared recovery definitions.
+
+This night's execution forbids trusted instruction-file edits. Page/restart
+checks therefore extend existing smoke files and may use a standalone
+owned-fake-server check instead of adding a new mapped 7909 smoke; the
+required scenarios and evidence remain the same.
 
 Concurrent overlapping Finish submissions must not admit the same missing
 cells twice, including cells awaiting mask/outpaint writes before admission.

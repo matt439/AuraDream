@@ -468,6 +468,28 @@ def _chosen(ids: list[int]) -> tuple[list[dict], list[tuple[str, Path]]]:
     return rows, files
 
 
+def _remove_run_recovery(snapshot: Path, *, compact: bool) -> None:
+    """Remove local job definitions from an export's private database only.
+
+    `_backup` is also used by import staging and replacement: stripping it
+    there would discard this gallery's recovery state during an import.
+    VACUUM removes freed cells, including prompts no exported image has.
+    A chosen export already vacuums its restricted copy below.
+    """
+    conn = sqlite3.connect(snapshot)
+    try:
+        held = conn.execute(
+            "SELECT 1 FROM sqlite_master WHERE type = 'table' AND name = 'run_jobs'"
+        ).fetchone()
+        had_cells = held and conn.execute("SELECT 1 FROM run_jobs LIMIT 1").fetchone()
+        conn.execute("DROP TABLE IF EXISTS run_jobs")
+        conn.commit()
+        if compact and had_cells:
+            conn.execute("VACUUM")
+    finally:
+        conn.close()
+
+
 def _restrict(snapshot: Path, keep: set[int]) -> None:
     """Leave only the chosen rows in export's private copy of the database.
 
@@ -532,13 +554,15 @@ def export_bundle(expected: int | None = None, password: str | None = None, prog
         directory = _directory()
         directory.mkdir(parents=True, exist_ok=True)
         # The archive holds every file whole, and the snapshot is a full copy
-        # of the database - its write-ahead log folded in - before a
-        # selection is cut from it, which VACUUM copies once more: refuse here
-        # rather than fill the disk partway through.
+        # of the database - its write-ahead log folded in. Removing retained
+        # cells or an unchosen selection needs VACUUM's second copy: refuse
+        # here rather than fill the disk partway through.
         wal = settings.db_path.with_name(settings.db_path.name + "-wal")
         database = sum(p.stat().st_size for p in (settings.db_path, wal) if p.exists())
+        with storage._session() as conn:
+            retained_cells = conn.execute("SELECT 1 FROM run_jobs LIMIT 1").fetchone() is not None
         _check_space([(directory, database + sum(p.stat().st_size for _, p in files), "write the bundle"),
-                      (settings.db_path.parent, database * (1 if ids is None else 2),
+                      (settings.db_path.parent, database * (2 if ids is not None or retained_cells else 1),
                        "copy the gallery database for the bundle")])
         # The name is for the person saving it, on their own machine: local
         # wall-clock time. Nothing reads a time back out of the name.
@@ -550,6 +574,7 @@ def export_bundle(expected: int | None = None, password: str | None = None, prog
             work = Path(work)
             snapshot = work / _DATABASE
             _backup(settings.db_path, snapshot)
+            _remove_run_recovery(snapshot, compact=ids is None)
             if ids is not None:
                 _restrict(snapshot, {row["id"] for row in chosen})
             rows = _rows(snapshot)
@@ -646,6 +671,10 @@ def export_bundle(expected: int | None = None, password: str | None = None, prog
                         (PurePosixPath(member).stem,) for member, p in files
                         if member.startswith("masks/") and not p.exists()
                     ])
+                    if not result["retained"]:
+                        # A successful bundle-and-clear ends every retained
+                        # run, including jobs that never wrote an image.
+                        conn.execute("DELETE FROM run_jobs")
                 # The surviving rows remain accurate even if Windows refuses
                 # the subsequent replacement of the original database file.
                 result["deleted_ids"] = deleted

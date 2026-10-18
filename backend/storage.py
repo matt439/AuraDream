@@ -8,6 +8,7 @@ and their names still resolve here through `__getattr__` at the end.
 from __future__ import annotations
 
 import base64
+import gzip
 import hashlib
 import importlib
 import json
@@ -37,7 +38,7 @@ from .search import like_escape, split_search
 from .schemas import ImageRecord, OutpaintSpec, effective_true_cfg
 
 if TYPE_CHECKING:
-    from .grid import CellKey
+    from .grid import Cell, CellKey
     from .schemas import GenerateRequest
 
 log = logging.getLogger(__name__)
@@ -215,6 +216,27 @@ CREATE TABLE IF NOT EXISTS mask_holds (
 """
 
 
+# Resolved browser jobs, including cells the worker never reached. Unlike
+# mask_holds these survive a restart; bundles deliberately leave them out.
+_RUN_JOBS_SCHEMA = """
+CREATE TABLE IF NOT EXISTS run_jobs (
+    job_id       TEXT    PRIMARY KEY,
+    run_id       TEXT    NOT NULL,
+    created_at   REAL    NOT NULL,
+    origin       TEXT    NOT NULL,
+    model_id     TEXT    NOT NULL,
+    quantization TEXT    NOT NULL,
+    width        INTEGER NOT NULL,
+    height       INTEGER NOT NULL,
+    batch        INTEGER NOT NULL,
+    comparison   INTEGER NOT NULL,
+    metadata     TEXT    NOT NULL,
+    cells        BLOB    NOT NULL,
+    outcome      TEXT
+)
+"""
+
+
 def _migrate(conn: sqlite3.Connection) -> None:
     """Add columns that a database written by an older build has not got.
 
@@ -306,6 +328,8 @@ def _connect() -> sqlite3.Connection:
     _migrate(conn)
     conn.execute(_MASKS_SCHEMA)
     conn.execute(_MASK_HOLDS_SCHEMA)
+    conn.execute(_RUN_JOBS_SCHEMA)
+    conn.execute("CREATE INDEX IF NOT EXISTS idx_run_jobs_run ON run_jobs (run_id)")
     return conn
 
 
@@ -1644,6 +1668,96 @@ def lineage_images(run_ids: Sequence[str], job_ids: Sequence[str]) -> list[Image
                     chunk,
                 ).fetchall())
     return [_row_to_record(row) for row in sorted(rows, key=lambda row: row["id"])]
+
+
+@gallery_lock.protected(lambda: settings.db_path, waits=True)
+def retain_run_job(definition: dict[str, Any], cells: Sequence[Cell]) -> None:
+    """Keep a job's resolved, pre-outpaint-stamp cells before admission.
+
+    The raw requests are intentional: applied settings are compared when a
+    run is finished, and an outpaint's mask must be built again at submit.
+    Compression happens before the write lock; every input is JSON-native.
+    A failed write raises to the submitter, which releases any mask holds
+    and never admits the job. This table is local recovery state, not PNG
+    metadata or part of an exported bundle.
+    """
+    encoded = gzip.compress(json.dumps([
+        {"request": cell.request.model_dump(mode="json"), "seed": cell.seed,
+         "label": cell.label, "variables": cell.variables}
+        for cell in cells
+    ], ensure_ascii=True, separators=(",", ":")).encode("utf-8"), mtime=0)
+    with _write_lock, _session() as conn:
+        conn.execute(
+            """INSERT INTO run_jobs
+               (job_id, run_id, created_at, origin, model_id, quantization,
+                width, height, batch, comparison, metadata, cells)
+               VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)""",
+            (definition["job_id"], definition["run_id"], definition["created_at"],
+             definition["origin"], definition["model_id"], definition["quantization"],
+             definition["width"], definition["height"], definition["batch"],
+             int(definition["comparison"]), json.dumps(definition["metadata"], ensure_ascii=True), encoded),
+        )
+
+
+def retained_run_jobs(run_id: str | None = None) -> list[dict[str, Any]]:
+    """Retained jobs in creation order, with raw cells and metadata decoded.
+
+    A NULL outcome means the process ended before its terminal write, or
+    that write failed. It never means the job is still running: the live
+    JobManager alone answers that. A malformed/obsolete request is a worded
+    ValueError for the recovery API rather than an unvalidated pipeline call.
+    """
+    from .grid import Cell
+    from .schemas import GenerateRequest
+
+    where = " WHERE run_id = ?" if run_id is not None else ""
+    with _session() as conn:
+        rows = conn.execute(
+            f"SELECT * FROM run_jobs{where} ORDER BY created_at, job_id",
+            (run_id,) if run_id is not None else (),
+        ).fetchall()
+    jobs = []
+    for row in rows:
+        item = dict(row)
+        try:
+            raw = json.loads(gzip.decompress(item["cells"]))
+            item["cells"] = [Cell(
+                request=GenerateRequest.model_validate(cell["request"]), seed=cell["seed"],
+                label=cell["label"], variables=cell["variables"],
+            ) for cell in raw]
+            item["metadata"] = json.loads(item["metadata"])
+            item["outcome"] = json.loads(item["outcome"]) if item["outcome"] is not None else None
+        except (ValueError, TypeError, KeyError, OSError, EOFError) as exc:
+            raise ValueError(f"the saved cells of job {row['job_id']} cannot be read by this build") from exc
+        item["comparison"] = bool(item["comparison"])
+        jobs.append(item)
+    return jobs
+
+
+def finish_run_job(job_id: str, outcome: dict[str, Any], *, database: Path | None = None) -> None:
+    """Record one terminal outcome, without recreating a cleared job.
+
+    Called on a daemon thread after `_finish` has made its terminal
+    transition. Interruption or a disk error may leave outcome NULL; Finish
+    still compares the cells with what the gallery holds.
+    """
+    # The caller captures the path before starting its daemon. A late thread
+    # must not follow changed settings to another gallery (or recreate a
+    # database that has gone). This writer needs no image schema migration.
+    path = (database or settings.db_path).resolve()
+    with gallery_lock.hold(path, create=False, wait=gallery_lock.SESSION_WAIT), _write_lock:
+        conn = sqlite3.connect(path.as_uri() + "?mode=rw", uri=True, timeout=15)
+        try:
+            with conn:
+                if conn.execute(
+                    "SELECT 1 FROM sqlite_master WHERE type = 'table' AND name = 'run_jobs'"
+                ).fetchone():
+                    conn.execute(
+                        "UPDATE run_jobs SET outcome = ? WHERE job_id = ? AND outcome IS NULL",
+                        (json.dumps(outcome, ensure_ascii=True), job_id),
+                    )
+        finally:
+            conn.close()
 
 
 @gallery_lock.protected(lambda: settings.db_path, waits=True)

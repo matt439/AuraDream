@@ -520,6 +520,9 @@ def clear_history(keep_favorites: bool = False, in_flight: InFlight | None = Non
     with storage._write_lock, storage._session() as conn:
         doomed = [r["filename"] for r in conn.execute(f"SELECT filename FROM images{where}")]
         conn.execute(f"DELETE FROM images{where}")
+        # Clear is a deliberate end to local run recovery, including the
+        # missing cells no remaining PNG could describe.
+        conn.execute("DELETE FROM run_jobs")
 
     removed = 0
     for filename in doomed:

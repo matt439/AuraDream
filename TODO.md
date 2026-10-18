@@ -74,7 +74,7 @@ An index of open work, one row per item; each row points to the doc that owns th
 | `GEN#6` | DEFERRED | LOW | M+card | Live-preview maps for the four-channel SDXL VAE and FLUX.2's VAE (ERNIE; klein also lacks an unpack hook); previews switch themselves off there. [Behaviour](docs/verified.md#behaviour). |
 | `GEN#7` | DEFERRED | LOW | M | A Hugging Face access check before a switch releases the working model; the catalogue's gate word is static. [Switching](docs/design-notes.md#switching-checkpoints-while-the-server-stays-open). |
 | `GEN#8` | DEFERRED | LOW | L | U61 part B: one's own photo or sketch as a reference (import route, a source marker through storage, reindex and reruns; add, drop and paste). Matt deferred it 2026-10-05; only when he raises it. [References](docs/design-notes.md#reference-images-by-gallery-id). |
-| `GEN#11` | OPEN | LOW | L | Continue a run, phase 2: `run_jobs` keeps each job's cells; Finish run after a reload or restart. [Plan](docs/plan-continue-run.md#phases). |
+| `GEN#11` | OPEN | LOW | L | Continue a run, phase 2: Finish service/API, page actions and reload/restart evidence; persistence is built. [Plan](docs/plan-continue-run.md#phase-2-execution-slices). |
 
 ## Gallery and storage
 
