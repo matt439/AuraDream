@@ -3094,6 +3094,16 @@ guard would let the SELECT succeed and every INSERT after it fail.
 
 ## The lightbox zooms
 
+**Review actions, 2026-10-18 (`UI#5`, `UI#10`).** R dispatches the
+current image's Refine button, with the same typing, modifier and overlay
+guards as the other image keys. It takes the key's default action before
+opening Refine, otherwise Chromium types R into the newly focused Strength
+box. Download sits beside the zoom controls so the narrow action row keeps
+its height. It fetches the existing full-size PNG unchanged, captures the
+record at the press, and names it `<id>-<short-model>-<seed>.png`. A failed
+fetch stays in the lightbox, a retry clears its own error, and walking while
+it is pending never downloads another image under the captured name.
+
 **The lightbox zooms, and the view carries across cells.** `lbView` in
 `web/lightbox.js` is a scale relative to fit plus a pan, never below fit or
 1:1, whichever is smaller, kept across records whose shape agrees, so the
@@ -6250,6 +6260,16 @@ caught, and the gallery said "Internal Server Error".
 
 ## The contact sheet
 
+**Keyboard navigation, 2026-10-18 (`UI#4`).** One current image and its
+star replace a Tab stop for every cell. Matrix arrows skip empty cells
+within their row or column and stop at edges; Home/End use the populated
+row ends, Ctrl+Home/End the corners. Wrapped sheets follow reading order
+horizontally and use `rowNeighbour` vertically, with visual-row ends.
+A spanning source remembers the row it was entered from. Redraw, pin, axis
+and deletion changes keep the current cell or its nearest fallback without
+moving the page; explicit navigation reveals only inside the sheet's own
+scroll box. Enter, Space and F retain their image actions.
+
 The contact sheet (`web/sheet.js`, `renderSheet`) lays one run out as the grid
 that made it: the two widest-varying axes become columns and rows, any third
 becomes a pinned selector rather than a third dimension nobody can read. The
@@ -6418,9 +6438,9 @@ glyph in a 690 px cell was not seen) - the card's own rules, which name
 `.sheet-cell.fav` and `.sheet-cell .fav-badge` beside the card's so the two
 cannot drift - and F on a focused cell stars it, one listener on the grid.
 Every cell also has the card's star button (2026-10-05; U48's optional hover
-star), shown where the pointer or the focus is, and always when starred, out
-of the tab order (tabindex -1), so the pointer stars a keeper without a trip to
-the lightbox and the tab stops stay one per image; the button and F both star
+star), shown where the pointer or the focus is, and always when starred.
+Only the current cell's image and star are in Tab's path; other images and
+stars have tabindex -1. The button and F both star
 through `starCell` → `setFavorite`. Cells are isolated stacking contexts
 (`isolation: isolate`): a badge sharing the heads' z-index drew over the stuck
 heads once the box scrolled. The lightbox still walks the sheet in reading

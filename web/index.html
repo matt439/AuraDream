@@ -966,7 +966,7 @@
       </div>
       <label class="lb-against" id="lb-against">Against <select id="lb-compare-against"></select></label>
     </div>
-    <p class="hint lb-keys" id="lb-keys">←&nbsp;→&nbsp;walk&nbsp;· F&nbsp;star&nbsp;· S&nbsp;compare&nbsp;· Del&nbsp;bin&nbsp;· 0&nbsp;fit&nbsp;· 1&nbsp;1:1&nbsp;· +/&#8288;−&nbsp;zoom&nbsp;· Esc&nbsp;close</p>
+    <p class="hint lb-keys" id="lb-keys">←&nbsp;→&nbsp;walk&nbsp;· F&nbsp;star&nbsp;· R&nbsp;refine&nbsp;· S&nbsp;compare&nbsp;· Del&nbsp;bin&nbsp;· 0&nbsp;fit&nbsp;· 1&nbsp;1:1&nbsp;· +/&#8288;−&nbsp;zoom&nbsp;· Esc&nbsp;close</p>
     <div class="lb-zoom-group">
       <button class="ghost" id="lb-fit" title="Fit to the window (0)">Fit</button>
       <button class="ghost" id="lb-one" title="One image pixel per screen pixel (1)">1:1</button>
@@ -975,6 +975,7 @@
            readout's title is the stage's mouse help, kept off the picture. -->
       <span class="lb-zoom" id="lb-zoom" aria-hidden="true" title="Scroll to zoom, drag to pan, double-click for 1:1"></span>
       <span class="lb-said" id="lb-zoom-said" aria-live="polite"></span>
+      <button class="ghost small" id="lb-download" title="Download the full-size PNG with its saved settings">Download</button>
     </div>
     <div class="lb-actions">
       <!-- A toggle named Star in either state, as the card's star is: the
@@ -998,7 +999,7 @@
            them extends the canvas past the image's edges (outpaint.js),
            held the same way. -->
       <div class="lb-pair">
-        <button class="ghost" id="lb-refine" title="Refine this image: scale it up and re-denoise it part of the way">⤢ Refine</button>
+        <button class="ghost" id="lb-refine" title="Refine this image: scale it up and re-denoise it part of the way (R)" aria-keyshortcuts="R">⤢ Refine</button>
         <button class="ghost" id="lb-inpaint" aria-haspopup="dialog">✎ Inpaint…</button>
         <button class="ghost" id="lb-outpaint" aria-haspopup="dialog">⬚ Outpaint…</button>
       </div>

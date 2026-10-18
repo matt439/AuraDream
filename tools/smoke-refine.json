@@ -120,7 +120,8 @@
   {"expect": "lbCompare.id === null && els.lbSrcImg.hidden && els.lbCompareOn.getAttribute('aria-pressed') === 'false'"},
 
   {"log": "'the lightboxs Refine refines the refined image: the lightbox gives way, and 1.5x of it is past what the card holds, so it opens at 1x - the skipped 1.5x a click away, saying it was the last run - and one click goes past 4 MP, which a pass may'"},
-  {"eval": "window.__refined = lbList[lbIndex].id; els.lbRefine.click()"},
+  {"eval": "window.__refined = lbList[lbIndex].id"},
+  {"key": "r"},
   {"wait": 900},
   {"expect": "!els.lightbox.open && els.refineDialog.open && refineSource.id === window.__refined && els.refineSourceLine.textContent.includes('itself a refine of #' + window.__source) && !els.refineSourceLine.textContent.includes('deleted')"},
   {"expect": "+els.refineWidth.value === 1344 && +els.refineHeight.value === 1728 && els.refineSizeHint.textContent === '2.3 MP — 1× the source — 1.25× and larger go past the 1536×1536 (2.36 MP) measured on FLUX.1 Krea dev at fp8' && !els.refineSizeHint.classList.contains('warn') && els.refineVersions.value === '2'"},

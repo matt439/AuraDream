@@ -452,6 +452,9 @@ labels and settings, and **Export all** includes every pinned slice, splitting
 large exports. For a prompt comparison, use its `job:` scope so version labels
 retain their meaning. Star images directly on the sheet or in the lightbox.
 
+In the lightbox, **Download** beside the zoom controls saves the full-size
+PNG with its settings intact, named by image id, short model name and seed.
+
 **Select** (first in the row under the search box) picks cards for an
 action on several images: in select mode a click or Space picks a card,
 Shift picks a range from the last card picked, and Enter still opens the
@@ -561,10 +564,10 @@ naming the run, its image count and the checkpoint it was made on.
 | --- | --- |
 | Anywhere | Ctrl/Cmd+Enter generates; inside an open Grid field runs the grid; in Refine runs the pass; in Refine… (Mass refine) runs the batch; in Swap tags queues; in More seeds… queues the batches |
 | Gallery | Tab enters the cards; arrows/Home/End navigate, Enter opens, F stars; in select mode Space picks, Shift+Space picks a range, Esc clears |
-| Lightbox | Left/Right browse, F stars, S compares a pass with its source or another image with its CFG neighbour, Delete moves the image to the recycle bin (in the bin: asks to delete it permanently), Esc closes |
+| Lightbox | Left/Right browse, F stars, R opens Refine, S compares a pass with its source or another image with its CFG neighbour, Delete moves the image to the recycle bin (in the bin: asks to delete it permanently), Esc closes |
 | Lightbox zoom | Wheel or +/− zoom, drag pans, 0 fits, 1 or double-click shows actual pixels |
 | Right-click an image | A menu of its actions: Star, Reuse settings, Use seed, More seeds of this batch…, Refine…, Inpaint…, Outpaint…, reference, Show run as sheet, Copy prompt / seed / image, Open PNG in new tab, Move to recycle bin. On a picked card: the picks' actions. The Menu key or Shift+F10 opens it from the keyboard; Shift+right-click gives the browser's own menu |
-| Contact sheet | F stars the focused cell |
+| Contact sheet | Arrows move between populated cells; Home/End use row ends, Ctrl+Home/End the corners. Tab reaches the current cell's star; Enter/Space opens its lightbox, F stars |
 | Prompt/tag chips | Tab/Enter accepts a suggestion after three matching characters; Alt+Left/Right reorders chips, Delete removes, Enter edits |
 | Prompt replacements | Ctrl+Z restores text after Apply, Reuse (or a loaded PNG), Expand, Examples or a chip edit |
 | Inpaint | With the picture focused: B brush, E eraser, `[` `]` or Alt+wheel size, I invert, Ctrl+Z / Ctrl+Shift+Z undo and redo, arrows move the brush, Space paints; Ctrl+Enter runs (Outpaint too) |

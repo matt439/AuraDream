@@ -8,10 +8,10 @@ An index of open work, one row per item; each row points to the doc that owns th
 
 **Aim (2026-10-18):** keep useful work ready for Matt's common workstation tasks. The queue below can proceed on CPU and disposable fake-server galleries, independently of whole-app layout trials. [Reported use](docs/design/preferences.md) guides priority; it does not approve the candidate redesign.
 
-**Ready backlog:** 15 `OPEN` tasks can be completed with CPU/browser evidence. One further `OPEN` item, the upscaler (`GEN#5`), can be built but needs a separate card pass before closure.
+**Ready backlog:** 12 `OPEN` tasks can be completed with CPU/browser evidence. One further `OPEN` item, the upscaler (`GEN#5`), can be built but needs a separate card pass before closure.
 
 1. **Continue a run (`GEN#11`):** build phase 2 in dependency order: persistence, Finish service/API, then page actions and restart smoke. These are stages of one feature. [Execution slices](docs/plan-continue-run.md#phase-2-execution-slices).
-2. **Review and curate by keyboard (`UI#4`, `UI#5`, `UI#6`):** contact-sheet navigation, Refine's R shortcut, then Ctrl+A for loaded cards in Select mode. Each ships independently. [Feature plans](docs/review-2026-10-12.md#feature-ideas).
+2. **Pick loaded cards by keyboard (`UI#6`):** Ctrl+A for loaded cards in Select mode, preserving picks across filters. [Feature plan](docs/review-2026-10-12.md#feature-ideas).
 3. **Finish the bin workflow (`GAL#1`):** permanently delete picked binned images. Age-based emptying is separate. [Feature plan](docs/review-2026-10-12.md#feature-ideas).
 
 **Other ready work:** model cache/download facts (`GEN#1`), Stop Expand (`GEN#2`), storage recovery checks (`GAL#4`), design-trial preparation (`DEV#3`) and browser accessibility checks (`UI#9`). Their owners define scope and completion. Optional conveniences remain below; there is no need to promote deferred features to fill this queue.
@@ -104,13 +104,10 @@ An index of open work, one row per item; each row points to the doc that owns th
 | `UI#1` | OPEN | LOW | M | "Compare picked": two picked images in the lightbox's swipe and side by side, labelled by the fields that differ (10-12 F9). |
 | `UI#2` | OPEN | LOW | S | An opt-in desktop notification when a job finishes in a hidden tab (10-12 F10); image download is `UI#10`, Copy image already exists in the context menu. |
 | `UI#3` | OPEN | LOW | S | "Seeds to grid": fill the grid's Seed list from the picked images' seeds (10-12 F11). |
-| `UI#4` | OPEN | LOW | M | The contact sheet as a roving grid: one tab stop, arrows and Home/End between cells (10-12 F15). |
-| `UI#5` | OPEN | LOW | S | R in the lightbox opens Refine, with `aria-keyshortcuts` and a usage.md row (10-12 F18). |
 | `UI#6` | OPEN | LOW | S | Select mode: Ctrl+A adds loaded cards up to the cap while preserving picks across filters; optional Pick this run is outside this slice (10-12 F19). |
 | `UI#7` | USER | LOW | M | Hands-on screen-reader (NVDA/Narrator) and touch validation; browser emulation and accessibility-tree inspection do not complete it. [Manual checks](docs/design/validation.md#accessibility-and-desktop-checks). |
 | `UI#8` | DEFERRED | LOW | M | At 1536x864 (1080p at 125%) a running batch's progress falls below the left pane; fitting it means tightening every field under 1800 px. [Panel rows](docs/design-notes.md#the-panels-sampling-and-output-rows). |
 | `UI#9` | OPEN | LOW | M | Exercise current-app keyboard/focus, forced colours and reduced motion with synthetic fixtures and real browser events; retain gaps separately from manual checks. [Browser checks](docs/design/validation.md#accessibility-and-desktop-checks). |
-| `UI#10` | OPEN | LOW | S | A named Download in the lightbox; reuse the existing full-size PNG, with no new clipboard implementation (10-12 F10). |
 
 ## Review coverage
 

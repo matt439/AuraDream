@@ -71,6 +71,8 @@ let lbCloseTimer;
 let refineReturn = null;
 // The Seed row's Use seed note ({id, text}) while the lightbox's line holds it.
 let lbSeedNote = null;
+// A failed download belongs to the image it was requested for.
+let lbDownloadError = null;
 const LB_SIDE_GAP = 8;
 // How far the arrows' circles reach in from the stage's edges: style.css's
 // --lb-nav (40 px, 52 from 1800 px) and its 10 px inset, measured off the ›
@@ -453,6 +455,10 @@ function renderLightbox() {
     if (els.lbError.textContent === lbSeedNote.text) { els.lbError.hidden = true; els.lbError.textContent = ''; }
     lbSeedNote = null;
   }
+  if (lbDownloadError && lbDownloadError.id !== rec.id) {
+    if (els.lbError.textContent === lbDownloadError.text) showError('', false, { slot: els.lbError, mirror: false });
+    lbDownloadError = null;
+  }
   if (lbDrawn !== rec || !els.lbSettings.firstChild) {
     lbDrawn = rec;
     els.lbSettings.replaceChildren(promptSearchLine(rec), factsList(rec, { useSeed: true, search: true, megapixels: true }), passesLine(rec));
@@ -490,7 +496,7 @@ function renderLightbox() {
   // click can still say why: the reason is the checkpoint's, not the image's.
   els.lbRefine.setAttribute('aria-disabled', String(!refineSupported || binned));
   els.lbRefine.title = binned ? 'In the recycle bin: restore it to refine it'
-    : refineSupported ? 'Refine this image: scale it up and re-denoise it part of the way'
+    : refineSupported ? 'Refine this image: scale it up and re-denoise it part of the way (R)'
       : 'This checkpoint has no refine pass';
   syncLightboxInpaint(rec);
   syncLightboxOutpaint(rec);
@@ -510,6 +516,42 @@ function lightboxCount(rec) {
   const of = gallery ? Math.max(total, lbList.length) : lbList.length;
   const more = gallery && canPage() && of === lbList.length ? '+' : '';
   return `${lbIndex + 1}/${of}${more} · #${rec.id}`;
+}
+
+// Keep the original PNG, including its settings chunks: never round-trip the
+// image through a canvas. Capture the record at the press, so walking while
+// its fetch is pending cannot give another image its filename.
+function lightboxFileName(rec) {
+  const model = String(rec.model_id).split('/').pop().replace(/[^\w.-]+/g, '-')
+    .replace(/^[.-]+|[.-]+$/g, '').slice(0, 100) || 'model';
+  return `${rec.id}-${model}-${rec.seed}.png`;
+}
+
+async function downloadLightboxImage() {
+  const rec = lbList[lbIndex];
+  if (!els.lightbox.open || !rec) return;
+  try {
+    const response = await fetch(rec.url);
+    if (!response.ok) throw new Error(`the image answered ${response.status}`);
+    const blob = await response.blob();
+    if (lbDownloadError?.id === rec.id) {
+      if (els.lbError.textContent === lbDownloadError.text) showError('', false, { slot: els.lbError, mirror: false });
+      lbDownloadError = null;
+    }
+    const link = document.createElement('a');
+    link.href = URL.createObjectURL(blob);
+    link.download = lightboxFileName(rec);
+    link.click();
+    setTimeout(() => URL.revokeObjectURL(link.href), 10000);
+  } catch (err) {
+    // A failed download stays in the lightbox: never navigate to a 404 page
+    // or overwrite another image's note after the walk has moved on.
+    if (els.lightbox.open && lbList[lbIndex] === rec) {
+      const text = `Could not download #${rec.id}: ${err?.message || err}.`;
+      lbDownloadError = { id: rec.id, text };
+      showError(text, false, { slot: els.lbError, mirror: false });
+    }
+  }
 }
 
 // The passes made from this image, as a search: shown once the gallery says

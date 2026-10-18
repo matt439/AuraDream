@@ -37,9 +37,9 @@ const ownSeeds = (values, records) => records.length > 1
   && (values.prompt?.length ?? 0) > 1 && values.seed.length === records.length;
 
 // A star on every cell, the card's own (`.fav-badge`): always there on a
-// starred cell, on another where the pointer or the focus is. Out of the tab
-// order - the cell's image is its stop, and F there does the same - so the
-// grid's tab stops do not grow by a thousand. The value comes from the cell,
+// starred cell, on another where the pointer or the focus is. Tab reaches
+// the current cell's star after its image; the others stay out of Tab order,
+// so its stops do not grow by a thousand. The value comes from the cell,
 // whose class setFavorite keeps, and goes back to the record after: a refine
 // sweep's source is no gallery record for setFavorite to find. `options` is
 // setFavorite's: F says what it did (sheetKey).
@@ -59,8 +59,55 @@ async function starCell(cell, rec, options = {}) {
 // the image now at its place in reading order, else the last; the control
 // of the same name; the search box where the sheet has no cells left.
 function renderSheet(place = sheetFocusPlace()) {
+  const cells = [...els.sheetGrid.querySelectorAll('.sheet-cell[data-id]')];
+  const previous = cells.findIndex((cell) => +cell.dataset.id === sheetCurrent);
+  const index = previous < 0 ? sheetCurrentIndex : previous;
   drawSheet();
+  keepCurrentSheet(index);
   restoreSheetFocus(place);
+}
+
+// One image is the sheet's way in from Tab. Its tools remain reachable from
+// it; other cells are reached with arrows or the pointer. Keep the id across
+// redraws, and the old reading-order place when a pin or delete removes it.
+let sheetCurrent = null;
+let sheetCurrentIndex = 0;
+let sheetCurrentRow = 0;
+const sheetCells = () => [...els.sheetGrid.querySelectorAll('.sheet-cell[data-id]')];
+function sheetStops(cell, on) {
+  cell.querySelectorAll('img, button').forEach((el) => { el.tabIndex = on ? 0 : -1; });
+}
+
+function makeSheetCurrent(cell, row = null) {
+  if (!cell) return;
+  const previous = els.sheetGrid.querySelector(`.sheet-cell[data-id="${sheetCurrent}"]`);
+  if (previous && previous !== cell) sheetStops(previous, false);
+  if (row !== null) sheetCurrentRow = row;
+  else if (previous !== cell || !cell.classList.contains('source')) sheetCurrentRow = +cell.dataset.sheetRow;
+  sheetCurrent = +cell.dataset.id;
+  sheetCurrentIndex = sheetCells().indexOf(cell);
+  sheetStops(cell, true);
+}
+
+function keepCurrentSheet(index = 0) {
+  const cells = sheetCells();
+  const current = cells.find((cell) => +cell.dataset.id === sheetCurrent);
+  const cell = current ?? cells[index] ?? cells.at(-1);
+  if (cell) {
+    sheetCurrentRow = Math.min(sheetCurrentRow, (sheetLayout?.rowValues.length ?? 1) - 1);
+    makeSheetCurrent(cell);
+  } else {
+    sheetCurrent = null;
+    sheetCurrentIndex = 0;
+    sheetCurrentRow = 0;
+  }
+}
+
+function sheetFocus(e) {
+  const cell = e.target.closest?.('.sheet-cell[data-id]');
+  if (!cell) return;
+  makeSheetCurrent(cell);
+  if (!cell.classList.contains('source')) sheetCfgFrom = +cell.dataset.id;
 }
 
 function sheetFocusPlace() {
@@ -364,6 +411,7 @@ function drawSheet() {
     cell.classList.toggle('fav', !!rec.favorite);
     cell.dataset.id = rec.id;
     const img = thumb(rec, walk);
+    img.tabIndex = -1;
     if (heads.length) {
       img.setAttribute('aria-label', [`Open #${rec.id}`, ...heads].join(' · '));
       titleImage(img, rec);
@@ -376,7 +424,7 @@ function drawSheet() {
     if (rec.thumb_url && rec.width > thumbWidth) {
       img.srcset = `${rec.thumb_url} ${thumbWidth}w, ${rec.url} ${rec.width}w`;
     }
-    img.setAttribute('aria-keyshortcuts', 'F');
+    img.setAttribute('aria-keyshortcuts', 'ArrowLeft ArrowRight ArrowUp ArrowDown Home End Control+Home Control+End F');
     const star = document.createElement('button');
     star.type = 'button';
     star.className = 'star fav-badge';
@@ -469,6 +517,8 @@ function drawSheet() {
         .filter(Boolean).join(' · ');
       const cell = add(cellFor(source, caption, true, ['Source']));
       cell.classList.add('source');
+      cell.dataset.sheetRow = '0';
+      cell.dataset.sheetCol = '0';
       if (!wrap) {
         cell.style.gridRow = `span ${rowValues.length}`;
         cell.setAttribute('aria-rowspan', String(rowValues.length));
@@ -481,7 +531,9 @@ function drawSheet() {
         walk.push(rec);
       }
       const heads = [colAxis && headText(colAxis, v), rowAxis && headText(rowAxis, rowValue)].filter(Boolean);
-      add(cellFor(rec, wrap ? headText(colAxis, v) : '', !strengthShown, heads));
+      const cell = add(cellFor(rec, wrap ? headText(colAxis, v) : '', !strengthShown, heads));
+      cell.dataset.sheetRow = String(r);
+      cell.dataset.sheetCol = String(c + (source ? 1 : 0));
     });
   });
   // What saySheet counts, and the cells Swipe CFG opens from.
@@ -570,20 +622,84 @@ function refitSheet() {
   }, 150);
 }
 
-// F stars the image in focus, as it does in the lightbox, so keepers are
-// marked with the sheet in view rather than one lightbox trip each - the side
-// by side view is what the choice is made on. One listener on the grid
-// (app.js); the cell's ☆ (cellFor) is the pointer's way and stays out of the
-// tab order, where a stop per cell would be up to 1,024 more.
+// F stars the focused cell from its image or tools; navigation is image-only.
 async function sheetKey(e) {
-  if ((e.key !== 'f' && e.key !== 'F') || e.ctrlKey || e.metaKey || e.altKey || els.lightbox.open) return;
+  if (e.metaKey || e.altKey || els.lightbox.open) return;
   const cell = e.target.closest('.sheet-cell[data-id]');
   if (!cell) return;
-  const id = Number(cell.dataset.id);
-  const rec = sheetRecords.find((r) => r.id === id) ?? (sheetLayout?.source?.id === id ? sheetLayout.source : null);
-  if (!rec) return;
+  if (!e.ctrlKey && (e.key === 'f' || e.key === 'F')) {
+    const id = Number(cell.dataset.id);
+    const rec = sheetRecords.find((r) => r.id === id) ?? (sheetLayout?.source?.id === id ? sheetLayout.source : null);
+    if (!rec) return;
+    e.preventDefault();
+    await starCell(cell, rec, { say: true });
+    return;
+  }
+  if (e.target.tagName !== 'IMG' || (e.ctrlKey && e.key !== 'Home' && e.key !== 'End')) return;
+  if (!['ArrowLeft', 'ArrowRight', 'ArrowUp', 'ArrowDown', 'Home', 'End'].includes(e.key)) return;
   e.preventDefault();
-  await starCell(cell, rec, { say: true });
+  moveSheetCell(cell, e.key, e.ctrlKey);
+}
+
+// A matrix skips holes along its row or column without wrapping at the edge;
+// a wrapped list follows rendered rows, like the gallery. Home/End stay in
+// the row; Control reaches the first/last populated cell. Buttons retain
+// their own navigation, and Enter/Space remain thumb's own actions.
+function moveSheetCell(from, key, corner = false) {
+  if (!sheetLayout) return;
+  const cells = sheetCells();
+  const at = cells.indexOf(from);
+  let row = from.classList.contains('source') ? sheetCurrentRow : +from.dataset.sheetRow;
+  const col = +from.dataset.sheetCol;
+  let to = null;
+  if (corner) to = key === 'Home' ? cells[0] : cells.at(-1);
+  else if (sheetLayout.wrap) {
+    if (key === 'ArrowUp' || key === 'ArrowDown') to = rowNeighbour(cells, at, key === 'ArrowDown');
+    else if (key === 'ArrowLeft' || key === 'ArrowRight') to = cells[at + (key === 'ArrowLeft' ? -1 : 1)];
+    else {
+      const top = from.getBoundingClientRect().top;
+      const sameRow = cells.filter((cell) => Math.abs(cell.getBoundingClientRect().top - top) < 1);
+      to = key === 'Home' ? sameRow[0] : sameRow.at(-1);
+    }
+  } else if (key === 'ArrowUp' || key === 'ArrowDown') {
+    const column = cells.filter((cell) => +cell.dataset.sheetCol === col && cell !== from);
+    const forward = key === 'ArrowDown';
+    const next = column.filter((cell) => forward ? +cell.dataset.sheetRow > row : +cell.dataset.sheetRow < row);
+    to = forward ? next[0] : next.at(-1);
+  } else {
+    const sameRow = cells.filter((cell) => cell.classList.contains('source') || +cell.dataset.sheetRow === row);
+    if (key === 'Home' || key === 'End') to = key === 'Home' ? sameRow[0] : sameRow.at(-1);
+    else {
+      const next = sameRow.filter((cell) => key === 'ArrowRight' ? +cell.dataset.sheetCol > col : +cell.dataset.sheetCol < col);
+      to = key === 'ArrowRight' ? next[0] : next.at(-1);
+    }
+  }
+  if (!to) return;
+  // A source spans every matrix row: Left/Home can enter it from any row,
+  // and Right returns to that row rather than jumping to the first pass.
+  if (!to.classList.contains('source')) row = +to.dataset.sheetRow;
+  else if (corner) row = 0;
+  makeSheetCurrent(to, row);
+  to.querySelector('img').focus({ preventScroll: true });
+  revealSheetCell(to);
+}
+
+// Reveal keyboard movement inside the sheet's own box, under sticky heads.
+// scrollIntoView would scroll the page too. Redraw/restored focus does not
+// call this, so it moves no scroll position.
+function revealSheetCell(cell) {
+  const scroller = els.sheetGrid.parentElement;
+  const box = scroller.getBoundingClientRect();
+  const style = getComputedStyle(scroller);
+  const rect = cell.getBoundingClientRect();
+  const top = box.top + scroller.clientTop + (parseFloat(style.scrollPaddingTop) || 0);
+  const left = box.left + scroller.clientLeft + (parseFloat(style.scrollPaddingLeft) || 0);
+  const bottom = box.top + scroller.clientTop + scroller.clientHeight;
+  const right = box.left + scroller.clientLeft + scroller.clientWidth;
+  if (rect.top < top) scroller.scrollTop += rect.top - top;
+  else if (rect.bottom > bottom) scroller.scrollTop += Math.min(rect.top - top, rect.bottom - bottom);
+  if (rect.left < left) scroller.scrollLeft += rect.left - left;
+  else if (rect.right > right) scroller.scrollLeft += Math.min(rect.left - left, rect.right - right);
 }
 
 // Resume this run: the panel's grid made ready to finish the run on the
@@ -761,7 +877,7 @@ function focusSheet(asker) {
   const now = document.activeElement;
   const lost = !now || now === document.body || !isShown(now);
   if (!lost && (now !== asker || wholeInSight(now))) return;
-  (els.sheetGrid.querySelector('.sheet-cell img[data-id]') ?? els.search).focus({ preventScroll: true });
+  (els.sheetGrid.querySelector('.sheet-cell img[tabindex="0"]') ?? els.search).focus({ preventScroll: true });
 }
 
 // Whether all of `el` can be seen: inside the window under the topbar and

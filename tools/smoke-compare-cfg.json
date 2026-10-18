@@ -11,7 +11,7 @@
   {"log": "'an image of a CFG sweep: the comparison box is there before anything is asked (its controls from the page\\'s own records), Compare with source is not (no pass), S is on the keys line, and Against lists the other CFG values at these steps only'"},
   {"eval": "openLightbox(__at(3.5), galleryRecords)"},
   {"expect": "__until(() => els.lightbox.open && !els.lbCompare.hidden && els.lbCompareOn.hidden && els.lbCompareCfg.getAttribute('aria-disabled') === 'false' && els.lbCompareCfg.getAttribute('aria-keyshortcuts') === 'S')"},
-  {"expect": "__keys() === '← → walk · F star · S compare · Del bin · 0 fit · 1 1:1 · +/− zoom · Esc close' && __options() === ['CFG 2 · #' + __at(2).id, 'CFG 5 · #' + __at(5).id, 'CFG 7 · #' + __at(7).id].join('|') && els.lbCompareAgainst.value === String(__at(2).id)"},
+  {"expect": "__keys() === '← → walk · F star · R refine · S compare · Del bin · 0 fit · 1 1:1 · +/− zoom · Esc close' && __options() === ['CFG 2 · #' + __at(2).id, 'CFG 5 · #' + __at(5).id, 'CFG 7 · #' + __at(7).id].join('|') && els.lbCompareAgainst.value === String(__at(2).id)"},
   {"expect": "els.lbCompareCfg.title === 'Compare CFG 3.5 with CFG 2, #' + __at(2).id + ', at the same crop, the lower CFG on the left (S)' && els.lbCfgLower.getAttribute('aria-disabled') === 'false' && els.lbCfgHigher.title === 'Show CFG 5, #' + __at(5).id + ', compared with CFG 3.5'"},
   {"eval": "window.__cfgTop = __box(els.lbCompareCfg).top; window.__starTop = __box(els.lbFav).top;"},
 
@@ -20,7 +20,7 @@
   {"expect": "__until(() => lbCompare.id === __at(3.5).id && lbCompare.kind === 'cfg' && lbCompare.source.id === __at(2).id && lbCompare.mode === 'swipe' && !els.lbSrcImg.hidden && !els.lbSplit.hidden)"},
   {"expect": "els.lbTagSrc.textContent === 'CFG 2 · #' + __at(2).id && els.lbTagPass.textContent === 'CFG 3.5 · #' + __at(3.5).id && __box(els.lbTagSrc).left < __box(els.lbTagPass).left && els.lbSplit.getAttribute('aria-label') === 'Divider: CFG 2 left of it, CFG 3.5 right' && els.lbSplit.getAttribute('aria-valuetext') === 'CFG 2 (#' + __at(2).id + ') on the left 50%, CFG 3.5 (#' + __at(3.5).id + ') on the rest'"},
   {"expect": "els.lbCompareNote.textContent === 'CFG 2, #' + __at(2).id + ' · 2 of 4 CFG values' && els.lbCompareCfg.getAttribute('aria-pressed') === 'true' && els.lbSrcImg.alt === '#' + __at(2).id + ', CFG 2' && els.lbSrcImg.style.clipPath.startsWith('inset(0px') && __box(els.lbCompareCfg).top === __cfgTop && __box(els.lbFav).top === __starTop && document.scrollingElement.scrollTop === 0"},
-  {"expect": "__keys() === '← → CFG · Shift+← → divider · F star · S compare · Del bin · 0 fit · 1 1:1 · +/− zoom · Esc close' && els.lbSplit.title.includes('← → step along CFG')"},
+  {"expect": "__keys() === '← → CFG · Shift+← → divider · F star · R refine · S compare · Del bin · 0 fit · 1 1:1 · +/− zoom · Esc close' && els.lbSplit.title.includes('← → step along CFG')"},
 
   {"log": "'→ steps along CFG at the same divider, mode and 1:1 zoom, the partner the value below; at the top the press stays and says why, as does the held Higher CFG'"},
   {"key": "1"},
@@ -56,7 +56,7 @@
   {"expect": "lbCompare.id === __at(5).id && Math.abs(lbCompare.split - 0.52) < 1e-9"},
   {"eval": "els.lbSplit.focus()"},
   {"key": "s"},
-  {"expect": "__until(() => lbCompare.id === null && els.lbSrcImg.hidden && document.activeElement === els.lbCompareCfg && __keys().startsWith('← → walk · F star · S compare'))"},
+  {"expect": "__until(() => lbCompare.id === null && els.lbSrcImg.hidden && document.activeElement === els.lbCompareCfg && __keys().startsWith('← → walk · F star · R refine · S compare'))"},
 
   {"log": "'the lowest value in view: its partner is the one above, and it still goes on the left - the two layers trade places'"},
   {"eval": "openLightbox(__at(2), galleryRecords)"},
@@ -80,7 +80,7 @@
   {"log": "'an image with no other CFG value: Compare CFG, the steps and Against are held while the gallery is asked and then say there is none; S says so in the note'"},
   {"eval": "openLightbox(galleryRecords.find((r) => r.id === __pot), galleryRecords)"},
   {"expect": "__until(() => lbList[lbIndex].id === __pot && els.lbCompareCfg.getAttribute('aria-disabled') === 'true' && els.lbCompareCfg.title === 'No other CFG value of #' + __pot + ' at this seed, size and settings' && els.lbCfgHigher.getAttribute('aria-disabled') === 'true' && els.lbSwipe.getAttribute('aria-disabled') === 'true' && __options() === 'none' && els.lbCompareAgainst.getAttribute('aria-disabled') === 'true')"},
-  {"expect": "__keys() === '← → walk · F star · S compare · Del bin · 0 fit · 1 1:1 · +/− zoom · Esc close'"},
+  {"expect": "__keys() === '← → walk · F star · R refine · S compare · Del bin · 0 fit · 1 1:1 · +/− zoom · Esc close'"},
   {"expect": "els.lbSwipe.title === els.lbCompareCfg.title && els.lbSideBySide.title === els.lbCompareCfg.title && els.lbSideBySide.getAttribute('aria-disabled') === 'true'"},
   {"key": "s"},
   {"expect": "lbCompare.id === null && els.lbCompareNote.textContent === 'No other CFG value of #' + __pot + ' at this seed, size and settings'"},

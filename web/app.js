@@ -283,11 +283,8 @@ els.sheetBtn.onclick = toggleSheet;
 els.cardView.addEventListener('click', cardViewClick);
 for (const pair of els.cardView.querySelectorAll('[role="group"]')) pair.addEventListener('keydown', (e) => stepPreset(pair, e));
 els.sheetGrid.addEventListener('keydown', (e) => { void sheetKey(e); });
-// The cell Swipe CFG starts from: the one the keyboard was last on.
-els.sheetGrid.addEventListener('focusin', (e) => {
-  const cell = e.target.closest?.('.sheet-cell[data-id]:not(.source)');
-  if (cell) sheetCfgFrom = +cell.dataset.id;
-});
+// Keep one image and its tools in Tab's path, and remember Swipe CFG's cell.
+els.sheetGrid.addEventListener('focusin', sheetFocus);
 // The sheet's fit is measured against the window, so it follows a resize.
 window.addEventListener('resize', refitSheet);
 els.rerender.onclick = rerenderSelection;
@@ -370,6 +367,7 @@ els.lbNext.onclick = () => stepLightbox(1);
 // Reuse writes the prompt as typing would, which needs the focus a modal
 // lightbox keeps to itself.
 els.lbReuse.onclick = () => { const rec = lbList[lbIndex]; if (rec) { closeLightbox(); reuse(rec); } };
+els.lbDownload.onclick = downloadLightboxImage;
 // Refine likewise: openRefine closes the lightbox for its dialog, and a close
 // that runs nothing gives it back (refineClosed). Where the checkpoint has no
 // such pass the lightbox stays open, since the note saying so is mirrored
@@ -633,13 +631,19 @@ document.addEventListener('keydown', (e) => {
     void stepLightbox(delta);
     return;
   }
-  // F, S, Delete and the zoom keys act on the image in view - unless a text
+  // F, R, S, Delete and the zoom keys act on the image in view - unless a text
   // field still holds the caret, where they are typing, or a modifier makes
   // them the browser's: Ctrl+F is find, Ctrl+plus the page's zoom.
   if (e.target.matches('input, textarea') || e.ctrlKey || e.metaKey || e.altKey) return;
   // F does what the Star button's press does, and says so where focus is not
   // on that button (setFavorite's `say`): its state alone changed.
   if (e.key === 'f' || e.key === 'F') { const rec = lbList[lbIndex]; if (rec) void setFavorite(rec, !rec.favorite, { say: true }); }
+  else if (e.key === 'r' || e.key === 'R') {
+    // Refine focuses Strength during this keydown: without taking the key,
+    // the browser would type its R into that newly focused box.
+    e.preventDefault();
+    els.lbRefine.click();
+  }
   else if (e.key === 's' || e.key === 'S') void toggleCompare();
   // Not a held key's repeats: the delete asks nothing now (it moves the
   // image to the recycle bin), and Del held down would bin a run of images.

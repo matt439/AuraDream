@@ -261,6 +261,15 @@ announcements, operation and focus. Browser attributes, emulated media or
 an accessibility-tree dump cannot supply that evidence. Neither row
 authorizes broad layout changes; `UI#8` keeps its deferred scope.
 
+**Baseline browser gaps observed, 2026-10-18.** At 600×900, the stacked
+7:4 lightbox comparison gives its facts 196 px for 202 px of content.
+`smoke-lightbox` retained that failing assertion; baseline `27b3625` web
+assets served against the same disposable fake gallery reproduce identical
+geometry. The new review actions passed their scoped tests. A bin workflow
+also exposed an existing viewer tombstone extending to x=613.5 at 600 px;
+the bin's picked-delete controls themselves fit. These narrow-view gaps
+remain separate evidence for `UI#9`, not completed screen-reader/touch work.
+
 ## Decision gates and implementation order
 
 1. **Evidence gate:** use Matt's recorded feature priorities and Reset

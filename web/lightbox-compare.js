@@ -130,7 +130,7 @@ function sourceNote(rec, source) {
 // already there for good (`binned`).
 function lbKeysLine({ passes = false, cfg = false, divider = false, binned = false } = {}) {
   const keys = [['← →', passes ? 'passes' : cfg ? 'CFG' : 'walk'], ...(divider ? [['Shift+← →', 'divider']] : []),
-    ['F', 'star'], ['S', 'compare'], ['Del', binned ? 'delete permanently' : 'bin'],
+    ['F', 'star'], ['R', 'refine'], ['S', 'compare'], ['Del', binned ? 'delete permanently' : 'bin'],
     ['0', 'fit'], ['1', '1:1'], ['+/−', 'zoom'], ['Esc', 'close']];
   return keys.map(([key, does]) => `${key.replaceAll(' ', '\u00a0').replace('/', '/\u2060')}\u00a0${does}`)
     .join('\u00a0· ');

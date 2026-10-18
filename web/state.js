@@ -138,7 +138,7 @@ const els = {
   lbError: $('lb-error'), lbStage: $('lb-stage'), lbZoom: $('lb-zoom'), lbZoomSaid: $('lb-zoom-said'),
   lbFit: $('lb-fit'), lbOne: $('lb-one'),
   lbReuse: $('lb-reuse'), lbMoreSeeds: $('lb-more-seeds'), lbRefine: $('lb-refine'), lbPrev: $('lb-prev'), lbNext: $('lb-next'),
-  lbFav: $('lb-fav'), lbDelete: $('lb-delete'), lbStarSaid: $('lb-star-said'),
+  lbFav: $('lb-fav'), lbDownload: $('lb-download'), lbDelete: $('lb-delete'), lbStarSaid: $('lb-star-said'),
   lbMain: $('lb-main'), lbDesc: $('lb-desc'), lbSrcImg: $('lb-src-img'), lbSplit: $('lb-split'),
   lbTagSrc: $('lb-tag-src'), lbTagPass: $('lb-tag-pass'), lbCompare: $('lb-compare'),
   lbCompareOn: $('lb-compare-on'), lbSwipe: $('lb-swipe'), lbSideBySide: $('lb-side-by-side'),

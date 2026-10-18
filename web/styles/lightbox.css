@@ -184,7 +184,10 @@
 .lb-against select[aria-disabled="true"] { opacity: 0.45; cursor: not-allowed; }
 .lb-keys { margin: 0; min-height: 0; }
 .lb-zoom-group { display: flex; align-items: center; gap: var(--sp-2); }
-.lb-zoom { color: var(--muted); font-size: var(--fs-label); font-variant-numeric: tabular-nums; min-width: 4em; }
+.lb-zoom { color: var(--muted); font-size: var(--fs-label); font-variant-numeric: tabular-nums; width: 6em; min-width: 4em; }
+/* Beside the zoom readout, so the narrow action row keeps its room; the
+   readout's fixed width and this margin keep Download still as zoom changes. */
+#lb-download { margin-left: auto; flex: none; }
 /* The zoom for a screen reader, said once a wheel's burst is over (the
    readout on screen is aria-hidden). Out of the row's flow, so no gap. */
 .lb-said {
@@ -197,6 +200,7 @@
    column each, never wrapping; Reuse and More seeds… another, a half each. */
 .lb-pair { display: flex; gap: var(--sp-2); }
 .lb-pair .ghost { flex: 1 1 0; min-width: 0; width: auto; white-space: nowrap; padding-left: 4px; padding-right: 4px; }
+#lb-refine::after { content: 'R' / ''; margin-left: var(--sp-1); font-size: var(--fs-sm); font-weight: 400; }
 #lb-fav.active { color: var(--star); border-color: var(--star); }
 #lb-reuse.model-mismatch { color: var(--warn); border-color: var(--warn); }
 #lb-delete:hover { color: var(--danger); border-color: var(--danger); }
