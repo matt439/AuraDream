@@ -233,7 +233,12 @@ async function point(at) {
 // key name (the smokes' chip and autocomplete steps are written against
 // that); in a keycombo, Enter is sent as the real key, text and all.
 const ESCAPE = { code: 'Escape', windowsVirtualKeyCode: 27 };
-const COMBO_KEYS = { Enter: { code: 'Enter', windowsVirtualKeyCode: 13, text: '\r' }, Escape: ESCAPE };
+const COMBO_KEYS = {
+  Enter: { code: 'Enter', windowsVirtualKeyCode: 13, text: '\r' }, Escape: ESCAPE,
+  // Ctrl+A must also exercise the browser's native text selection, so a
+  // smoke can prove an application shortcut leaves text fields alone.
+  a: { code: 'KeyA', windowsVirtualKeyCode: 65 }, A: { code: 'KeyA', windowsVirtualKeyCode: 65 },
+};
 // The codes a {"key", "native": true} step adds, so the focused control's
 // own default action runs as on a real press (a closed <select>'s arrows).
 const NATIVE_KEYS = {

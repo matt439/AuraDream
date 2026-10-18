@@ -113,7 +113,9 @@ function syncSelection() {
   els.select.classList.toggle('active', picking);
   els.select.setAttribute('aria-disabled', String(sheetMode));
   els.select.dataset.title ??= els.select.title;
-  els.select.title = sheetMode ? SELECT_ON_SHEET : els.select.dataset.title;
+  els.select.title = sheetMode ? SELECT_ON_SHEET : els.select.dataset.title
+    + (picking ? ' In Select mode, Ctrl+A (Cmd+A) adds every loaded card to the picks.' : '');
+  els.select.setAttribute('aria-keyshortcuts', picking ? 'Escape Control+A Meta+A' : 'Escape');
   const n = selection.size;
   const away = n - selectedIds().filter((id) => shown.has(id)).length;
   const text = n ? `${n} selected${away ? ` · ${away} not shown` : ''}`
@@ -159,7 +161,7 @@ function syncCardSelected(div) {
   else img.removeAttribute('aria-pressed');
   const label = img.getAttribute('aria-label') ?? '';
   img.setAttribute('aria-label', label.replace(/^(Open|Select) /, selectMode ? 'Select ' : 'Open '));
-  img.setAttribute('aria-keyshortcuts', selectMode ? 'F Space Shift+Space Escape' : 'F');
+  img.setAttribute('aria-keyshortcuts', selectMode ? 'F Space Shift+Space Escape Control+A Meta+A' : 'F');
 }
 
 // A card image's press (thumb's `open`, from card()): the lightbox, as
@@ -229,12 +231,39 @@ function selectEscape() {
 }
 
 function selectKey(e) {
+  if (e.defaultPrevented || e.isComposing) return;
+  if (selectMode && !sheetMode && (e.ctrlKey || e.metaKey) && !e.altKey && !e.shiftKey
+      && e.key.toLowerCase() === 'a'
+      && e.target.closest?.('#gallery .card, #btn-select')
+      && !e.target.closest?.('input, textarea, select, [contenteditable]')) {
+    e.preventDefault();
+    pickLoadedCards();
+    return;
+  }
   if (e.key !== 'Escape' || e.defaultPrevented || e.altKey || e.ctrlKey || e.metaKey) return;
   // On a card or on the selection's own controls only: the search box's
   // Escape empties it, the Runs picker's is its own, and the sheet's cells
   // are not picked. The Picked menu's, open, closes it first (pickedKey).
   if (!e.target.closest?.('#gallery .card, #btn-select, #btn-select-clear, #btn-picked')) return;
   if (selectEscape()) e.preventDefault();
+}
+
+// Add the cards this view has loaded, retaining picks from other filters.
+// No fetch: Ctrl+A never claims that unloaded search results were picked.
+function pickLoadedCards() {
+  const records = new Map(galleryRecords.map((rec) => [rec.id, rec]));
+  const fresh = [...els.gallery.querySelectorAll('.card[data-id]')]
+    .map((card) => records.get(+card.dataset.id))
+    .filter((rec) => rec && !selection.has(rec.id));
+  const room = Math.max(0, selectionCap() - selection.size);
+  const capped = refuseOverCap(fresh.length);
+  const added = fresh.slice(0, room);
+  for (const rec of added) selection.set(rec.id, rec);
+  syncSelection();
+  if (!capped) {
+    showError(`Added ${plural(added.length, 'loaded image')}; ${plural(selection.size, 'image')} selected.${galleryMore ? ' Unloaded images were not picked.' : ''}`,
+      true, { slot: els.galleryError });
+  }
 }
 
 // From forgetImages, the one place the page drops deleted ids: out of the

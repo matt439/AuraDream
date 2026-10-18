@@ -464,6 +464,10 @@ says how many picked images the current view does not show. **Clear** or
 Esc empties it, and a second Esc leaves select mode. Deleted images, and
 images moved to the recycle bin, leave the selection on their own.
 
+In Select mode, **Ctrl/Cmd+A** from a card or the Select button adds every
+loaded card up to the selection cap. Picks hidden by another filter stay
+picked; unloaded results are not fetched. In the bin it adds only bin cards.
+
 **Picked ▾** (between **Clear** and **Select**; just ▾, with Clear a ✕,
 where the row is narrow) is a menu for the picked cards: **Star picked**
 and **Unstar picked** star or unstar all of them at once, and **Bin

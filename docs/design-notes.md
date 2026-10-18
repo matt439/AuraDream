@@ -6124,6 +6124,14 @@ unstarred's slot.
 
 ## The gallery selection
 
+**Pick loaded cards (2026-10-18, `UI#6`).** In Select mode, Ctrl/Cmd+A
+from a card or Select adds the current view's loaded cards up to the cap,
+retaining picks from other filters. It never fetches another page and says
+when unloaded images were not picked. The shortcut leaves text selection
+and other focus contexts native, keeps the range anchor, and applies only
+to the bin's own picks while the gallery selection is stashed. Its active
+tooltip and `aria-keyshortcuts` advertise the same scope.
+
 **Picked cards, for actions on several images** (2026-10-10). Swap tags and
 Mass refine act on many images at once, and their only scope was the filter,
 as Re-render's and Delete unstarred's is: a search that matched exactly the
