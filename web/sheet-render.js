@@ -247,11 +247,27 @@ function drawSheet() {
     resume.onclick = () => { void resumeRun(run); };
     els.sheetControls.append(resume);
   }
+  // The run bar's other way on: more seeds of every cell of the run, starred
+  // or not (more-seeds.js). Looser than Resume this run's sheetRun: a refine
+  // sweep's or a comparison's run too, and held - not hidden - on another
+  // checkpoint's, so the buttons before it keep their places.
+  const barRun = sheetShownRun();
+  if (barRun) els.sheetControls.append(moreSeedsRunButton(barRun, { model: sheetRecords[0].model_id }));
   if (sheetRecords.length) {
     const hint = document.createElement('span');
     hint.className = 'sheet-hint';
     hint.textContent = 'F stars the image in focus';
     els.sheetControls.append(hint);
+  }
+  // What the run is, after every button: its count changes while a job
+  // writes to the run, and text before them would move them under the
+  // pointer.
+  if (barRun) {
+    const status = document.createElement('span');
+    status.className = 'sheet-run-status';
+    status.textContent = sheetRunStatus(barRun);
+    status.title = status.textContent;
+    els.sheetControls.append(status);
   }
   els.sheetFixed.textContent = fixedSettings(values);
   els.sheetFixed.hidden = !els.sheetFixed.textContent;
@@ -634,6 +650,11 @@ async function resumeRun(runId, known = null) {
     });
   } catch { /* the preview says why */ }
   await preview;
+  // A run with nothing missing - every cell in the gallery or queued - is a
+  // dead end for Resume: said, with the way on.
+  if (p && (p.skipped || p.queued) && !p.cells && epoch === previewEpoch) {
+    els.gridPreview.append(`\nNothing in run ${runId} is missing. More seeds of this run… adds seeds.`);
+  }
   if (p && !p.skipped && epoch === previewEpoch) {
     els.gridPreview.classList.add('warn');
     // Appended as a text node: the preview's first line is a .totals span,

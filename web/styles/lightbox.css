@@ -194,7 +194,7 @@
 .lb-actions { display: flex; flex-direction: column; gap: var(--sp-2); }
 .lb-actions .ghost { width: 100%; }
 /* Refine, Inpaint… and Outpaint… share a row (index.html), a third of the
-   column each, never wrapping. */
+   column each, never wrapping; Reuse and More seeds… another, a half each. */
 .lb-pair { display: flex; gap: var(--sp-2); }
 .lb-pair .ghost { flex: 1 1 0; min-width: 0; width: auto; white-space: nowrap; padding-left: 4px; padding-right: 4px; }
 #lb-fav.active { color: var(--star); border-color: var(--star); }
@@ -297,6 +297,9 @@
      stays - a gallery image has no card tool for it, so the lightbox is
      its way in here, beside the result's ⬚ and Reuse of an outpaint. */
   #lb-inpaint { display: none; }
+  /* So is More seeds…: the right-click menu on the picture has it, as
+     More seeds of this batch…. */
+  #lb-more-seeds { display: none; }
   /* The pair's two left at their own widths, so Outpaint… is never cut. */
   .lb-pair .ghost { flex: 0 0 auto; }
 }

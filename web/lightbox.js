@@ -483,6 +483,9 @@ function renderLightbox() {
   for (const use of els.lbSettings.querySelectorAll('.lb-use-refs')) syncUseReferences(use);
   // The record, not its model id: a pass's Reuse names the Refine dialog.
   syncReuseButton(els.lbReuse, rec);
+  // Beside it, More seeds… of this image's batch: held, never hidden, so
+  // Reuse keeps its width as the lightbox steps.
+  syncMoreSeedsFor(els.lbMoreSeeds, rec);
   // aria-disabled, so the button keeps its place in the tab order and its
   // click can still say why: the reason is the checkpoint's, not the image's.
   els.lbRefine.setAttribute('aria-disabled', String(!refineSupported || binned));

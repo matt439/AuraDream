@@ -19,7 +19,7 @@
   {"log": "'the lightbox has Outpaint… live beside Refine and Inpaint…, one row that does not wrap or cut a word'"},
   {"eval": "openLightbox(__src, galleryRecords)"},
   {"wait": 400},
-  {"expect": "(() => { const row = [...document.querySelectorAll('.lb-pair button')]; const tops = new Set(row.map((b) => Math.round(b.getBoundingClientRect().top))); return row.length === 3 && row[2] === els.lbOutpaint && tops.size === 1 && row.every((b) => b.scrollWidth <= b.clientWidth); })()"},
+  {"expect": "(() => { const row = [...els.lbRefine.parentElement.querySelectorAll('button')]; const tops = new Set(row.map((b) => Math.round(b.getBoundingClientRect().top))); return row.length === 3 && row[2] === els.lbOutpaint && tops.size === 1 && row.every((b) => b.scrollWidth <= b.clientWidth); })()"},
   {"expect": "els.lbOutpaint.getAttribute('aria-disabled') === 'false' && els.lbOutpaint.title.startsWith('Outpaint this image')"},
 
   {"log": "'opened from it: the lightbox closes, the dialog is named for the image, Strength at the inpaint class own default'"},

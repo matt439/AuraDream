@@ -255,6 +255,8 @@ function syncSubmitButtons() {
   syncOutpaintRun();
   syncRefineBatchRun();
   syncMoreSeedsRun();
+  // And the More seeds… buttons where a run ends, held while it is gone.
+  syncMoreSeedsTools();
   syncCompareRun();
   syncModelSwitch();
   clearModelChangeHolds();

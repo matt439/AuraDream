@@ -121,6 +121,15 @@ function finishJob(jobId, data, { submitted, sheet, foreign = false, staleBefore
       if (plain) {
         line.push(noteButton('Use seed', () => useSeed(images[0].seed), `Put ${images[0].seed} in the Seed box`));
       }
+      // More of what it made, the seeds following on: a plain job's, a More
+      // seeds job's, and a single refine, inpaint or outpaint pass's - whose
+      // strength, mask or spec its batch keeps - wider than `seeded`, which
+      // is where the seeds are the news. Not a grid's (its run's below), a
+      // swap's or a batch refine's, whose images are many batches of
+      // another's. Held where every image has gone since, or the checkpoint
+      // is another; the batches are the server's.
+      const pass = !data.grid && data.refine != null && data.refine_batch == null && data.swap == null;
+      if ((seeded || pass) && images.length) line.push(finishMoreSeeds(images));
     }
   }
   // A grid's sheet is its payoff, and the way to it was the Runs picker or a
@@ -130,6 +139,10 @@ function finishJob(jobId, data, { submitted, sheet, foreign = false, staleBefore
     line.push(noteButton('Show sheet', () => (data.run_id ? showRun(data.run_id) : showJob(jobId)),
       'Lay this run out as a contact sheet'));
   }
+  // A finished grid's next step: more seeds of every cell of its run.
+  if (data.grid && data.status === 'done' && images.length && data.run_id && !foreign) {
+    line.push(moreSeedsRunButton(data.run_id, { model: images[0].model_id, className: 'ghost tiny' }));
+  }
   // The cells a grid skipped, or did not reach: its own payload again with
   // Resume and the base seed it ran from - never the panel, which may have
   // changed since - so only the missing cells run. Resume needs a fixed seed:
@@ -138,8 +151,14 @@ function finishJob(jobId, data, { submitted, sheet, foreign = false, staleBefore
   // base when the job was itself a Resume and its first seeds were done. A
   // listed seed axis is its own.
   const skipped = data.status === 'done' ? data.failures : 0;
-  // Stopped by the rule: every cell but the ones that rendered.
-  const remaining = data.stopped_by === 'failures' ? data.total_runs - (data.run - data.failures) : 0;
+  // Stopped by the rule or by the time budget: every cell but the ones that
+  // rendered. The budget is checked before a cell starts, so `run` is the
+  // cells reached there too. Its Resume is the night's own request again,
+  // its budget with it, named in the title.
+  const stopped = data.stopped_by === 'failures' || data.stopped_by === 'budget';
+  const remaining = stopped ? data.total_runs - (data.run - data.failures) : 0;
+  const budget = data.stopped_by === 'budget' && submitted?.payload?.budget_minutes
+    ? `, under the same ${submitted.payload.budget_minutes}-minute budget` : '';
   if (submitted?.path === '/api/grid' && (skipped || remaining)) {
     const count = skipped || remaining;
     // A sweep's source deleted - mid-run, the usual cause of the failures
@@ -189,7 +208,7 @@ function finishJob(jobId, data, { submitted, sheet, foreign = false, staleBefore
           },
         });
       },
-      `Run the grid again with Resume: only the ${plural(count, 'missing cell')}`,
+      `Run the grid again with Resume: only the ${plural(count, 'missing cell')}${budget}`,
     );
     line.push(button);
   }
@@ -353,6 +372,28 @@ function skippedCells(data) {
   const units = data.total_runs === 1 ? unit : unit === 'batch' ? 'batches' : `${unit}s`;
   return `${cells.length} of ${data.total_runs} ${units} ${cells.length === 1 ? 'was' : 'were'} skipped: `
     + `${named.join('; ')}${more} (${cells.length === 1 ? '' : 'last: '}${last})`;
+}
+
+// The finish line's More seeds…: the batches of the images the job made, as
+// they are at the press - those deleted since left out, and held with the
+// reason once none is left (moreSeedsToolHold).
+function finishMoreSeeds(images) {
+  const ids = images.map((r) => r.id);
+  const button = noteButton('More seeds…', null, '');
+  button.setAttribute('aria-haspopup', 'dialog');
+  syncMoreSeedsTool(button, {
+    model: images[0].model_id,
+    ids,
+    title: `More images of ${ids.length === 1 ? 'this image\'s batch' : `the batches of these ${ids.length} images`}, the seeds following on - each at its own settings and Batch`,
+  });
+  button.onclick = () => {
+    const live = ids.filter((id) => !isGone(id));
+    pressMoreSeedsTool(button, {
+      scope: { ids: live }, n: live.length,
+      line: `From the ${live.length === 1 ? 'image' : `${live.length} images`} this job made.`,
+    });
+  };
+  return button;
 }
 
 function noteButton(text, onClick, title) {

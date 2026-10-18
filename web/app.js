@@ -348,6 +348,7 @@ els.lastRunShow.onclick = () => {
   else if (job) showJob(job);
   dismissLastRun();
 };
+els.lastRunMore.onclick = moreSeedsLastRun;
 els.lastRunResume.onclick = resumeLastRun;
 els.lastRunDismiss.onclick = dismissLastRun;
 // A first run's empty viewer offers the checkpoint's examples.
@@ -594,6 +595,9 @@ document.addEventListener('keydown', (e) => {
   // cancel closed the lightbox without dismissLightbox, focus going back to
   // the image it was opened on rather than the one the walk ended on. The
   // menu stays open under the page, as it was before the lightbox came up.
+  // More seeds opens over the lightbox, which stays (more-seeds.js): its
+  // keys are the dialog's own, Escape its Cancel, until it closes.
+  if (els.lightbox.open && els.moreSeedsDialog.open) return;
   if (e.key === 'Escape' && !e.defaultPrevented && els.lightbox.open) { dismissLightbox(); return; }
   // An Escape the prompt's suggestion list or a chip's editor took closes that
   // alone: the helper stays open under the box while its list comes and goes.

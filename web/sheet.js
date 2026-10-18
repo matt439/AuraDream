@@ -674,6 +674,27 @@ function sheetRun() {
   return sheetRecords.some((r) => r.refine != null || r.variables?.variant !== undefined) ? null : run;
 }
 
+// The run the sheet shows, for the run bar: one run, opened on `run:<id>`,
+// whatever made it - a refine sweep's and a comparison's too - and on any
+// checkpoint, where its More seeds… is held with the reason.
+function sheetShownRun() {
+  const runs = new Set(sheetRecords.map((r) => r.run_id));
+  const [run] = runs;
+  if (runs.size !== 1 || !run || !els.search.value.trim().split(/\s+/).includes(`run:${run}`)) return null;
+  return run;
+}
+
+// The run bar's line: "Run abc · 70 images · WAI fp8" - what the gallery
+// holds of it under the filter (the starred ones under Starred), and the
+// checkpoint and quantization it was made at.
+function sheetRunStatus(run) {
+  const n = typeof total === 'number' ? total : sheetRecords.length;
+  const quants = new Set(sheetRecords.map((r) => r.quantization).filter(Boolean));
+  const [quant] = quants;
+  const made = [checkpointName(sheetRecords[0].model_id), quants.size === 1 ? quant : ''].filter(Boolean).join(' ');
+  return [`Run ${run}`, `${plural(n, els.favOnly.checked ? 'starred image' : 'image')}`, made].filter(Boolean).join(' · ');
+}
+
 // A sheet with nothing down it and more across than fits - a seeds-only run,
 // mostly, which is every Batch or Repeat over 1 - wraps into rows of
 // gallery-sized cells, each captioned, rather than one ribbon of 96 px cells

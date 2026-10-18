@@ -20,6 +20,13 @@
 }
 /* "F stars the image in focus", at the end of the row. */
 .sheet-hint { margin-left: auto; }
+/* The run bar's line (sheetRunStatus), a row of its own under the buttons,
+   one line at most: its count changes while a job writes to the run, and
+   nothing else moves for it. */
+.sheet-run-status {
+  flex: 1 1 100%; min-width: 0; color: var(--text-readout); font-variant-numeric: tabular-nums;
+  white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+}
 /* The settings every image shares, a readout rather than a hint: under the
    Favorites tick it is what the keepers have in common. */
 .sheet-fixed { margin: 0; font-size: var(--fs-label); color: var(--text-readout); }

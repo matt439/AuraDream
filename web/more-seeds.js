@@ -16,6 +16,16 @@
 // is the answer to what the dialog says; the queueing request pins the ids
 // that answer resolved (`expected`). One job per run the batches extend,
 // stamped with that run's id, so the new images join it.
+//
+// Where a run ends, the same dialog opens on a ready target rather than the
+// footer's (openMoreSeeds' `target`): an image's batch (`{ids}` of one, from
+// the menu, the lightbox and the result's column), a finished job's images
+// (`{ids}`, the finish line), or a whole run (`{run}`: a grid's finish line,
+// the banner, the sheet's run bar), whose images the server reads starred or
+// not, and whose headline it writes. Those open at the count the press
+// passes, else the server's `count_default` - the batch's own Batch - and
+// never at the footer's remembered count, which only the footer reads and
+// writes.
 
 const MS_CHECK_DELAY = 250;
 const MORE_SEEDS_KEY = 'local-diffusion.more-seeds.v1';
@@ -32,10 +42,14 @@ const MS_CHIP = {
   deleted: 'deleted',
 };
 
-// What the dialog acts on, fixed when it opens: `{ids}` or the filter, and
-// the galleryActionTarget it came from, whose count the scope line says.
+// What the dialog acts on, fixed when it opens: `{ids}`, `{run}` or the
+// filter, and the galleryActionTarget (or ready target) it came from, whose
+// count the scope line says.
 let msScope = null;
 let msTarget = null;
+// Opened from the footer: the one open that reads and writes the remembered
+// count.
+let msFooter = false;
 // The gallery's count (`total`) the last check was asked under, as Mass
 // refine keeps it (refineBatchGalleryChanged).
 let msSeenTotal = null;
@@ -77,8 +91,9 @@ function syncMoreSeedsButton() {
 
 // The gallery's count changed under an open dialog acting on the filter:
 // asked again, so the answer and the ids a press pins are the filter's now.
+// A run's scope is the run's, whatever the gallery shows.
 function moreSeedsGalleryChanged() {
-  if (!els.moreSeedsDialog.open || !msScope || msScope.ids || msSending) return;
+  if (!els.moreSeedsDialog.open || !msScope || msScope.ids || msScope.run || msSending) return;
   if (total === msSeenTotal) return;
   msSeenTotal = total;
   msAnswerKey = '';
@@ -87,11 +102,12 @@ function moreSeedsGalleryChanged() {
 
 function msSayScope(answer) {
   if (!msTarget) return;
-  if (!msScope.ids && answer && typeof answer.total === 'number') {
+  if (!msScope.ids && !msScope.run && answer && typeof answer.total === 'number') {
     // The filter's images, not the answer's rows, which are batches.
     msTarget = { ...msTarget, n: answer.ids.length };
   }
-  const line = galleryActionScopeLine(msTarget, 'From');
+  // A ready target names itself: an image's batch, a job's images, a run.
+  const line = msTarget.line ?? galleryActionScopeLine(msTarget, 'From');
   if (els.moreSeedsScope.textContent !== line) els.moreSeedsScope.textContent = line;
 }
 
@@ -124,43 +140,71 @@ async function askMoreSeeds(payload, signal) {
   });
 }
 
+const msCountFits = (n) => Number.isInteger(n) && n >= 1 && n <= sheetPage;
+
+// Where a refusal while opening is said: the lightbox's own line while it is
+// up - the modal lightbox covers the gallery's - the panel's for a press in
+// the panel (the finish line, the banner), else the gallery's.
+function msOpenSlot(opener) {
+  if (els.lightbox.open) return { slot: els.lbError, mirror: false };
+  if (opener?.closest?.('.panel')) return { slot: els.error };
+  return { slot: els.galleryError };
+}
+
 // Opens on the first check's answer, not before, as Mass refine does: a
-// failed check is said in the gallery's line rather than in a dialog with
-// nothing to queue. All but the refusal by count (batches × count past a
-// job's worth, "2 batches × 600 is…"): the count is the dialog's to lower,
-// so it opens on that refusal, said and held as an edit's would be, the box
-// marked. The count opens at the one last queued, else four, focused and
-// selected.
-async function openMoreSeeds() {
+// failed check is said in the gallery's line (msOpenSlot) rather than in a
+// dialog with nothing to queue. All but the refusal by count (batches ×
+// count past a job's worth, "2 batches × 600 is…"): the count is the
+// dialog's to lower, so it opens on that refusal, said and held as an edit's
+// would be, the box marked. From the footer the count opens at the one last
+// queued, else four; from a ready target at `count`, else at the server's
+// count_default - asked again at it where the first check was not - else
+// four. Focused and selected either way. `opener` is the button pressed,
+// busy while the check is out; over the lightbox the dialog opens on top,
+// and the lightbox stays.
+async function openMoreSeeds(target = null, { count = null, opener = null } = {}) {
   if (msOpening || els.moreSeedsDialog.open) return;
-  const target = moreSeedsTarget();
-  if (!target.scope) { showError(target.why, true, { slot: els.galleryError }); return; }
+  const footer = !target;
+  const said = msOpenSlot(opener ?? els.moreSeeds);
+  if (footer) target = moreSeedsTarget();
+  if (!target.scope) { showError(target.why, true, said); return; }
   msScope = target.scope;
   msTarget = target;
+  msFooter = footer;
   msSeenTotal = total;
   msRevision = modelRevision;
-  const kept = +remembered(MORE_SEEDS_KEY);
-  els.moreSeedsCount.value = String(Number.isInteger(kept) && kept >= 1 && kept <= sheetPage ? kept : MORE_SEEDS_COUNT);
+  const kept = footer ? +remembered(MORE_SEEDS_KEY) : count;
+  els.moreSeedsCount.value = String(msCountFits(kept) ? kept : MORE_SEEDS_COUNT);
+  const busyOn = opener ?? els.moreSeeds;
   const opening = {};
   msOpening = opening;
-  els.moreSeeds.setAttribute('aria-busy', 'true');
-  showError('', false, { slot: els.galleryError });
+  busyOn.setAttribute('aria-busy', 'true');
+  syncMoreSeedsTools();
+  showError('', false, said);
   let answer = null;
   let overCap = '';
   try {
-    answer = await askMoreSeeds(msPayload());
+    let first = await askMoreSeeds(msPayload());
+    const suggested = first.count_default;
+    if (!footer && count == null && msCountFits(suggested) && suggested !== +msCountText()) {
+      els.moreSeedsCount.value = String(suggested);
+      first = null;
+      first = await askMoreSeeds(msPayload());
+    }
+    answer = first;
   } catch (err) {
     if (msOpening !== opening) return;
     if (err.status === 422 && /^\d+ batch/.test(err.message)) overCap = err.message;
-    else { showError(err.message, true, { slot: els.galleryError }); return; }
+    else { showError(err.message, true, said); return; }
   } finally {
     if (msOpening === opening) {
       msOpening = null;
-      els.moreSeeds.removeAttribute('aria-busy');
+      busyOn.removeAttribute('aria-busy');
+      syncMoreSeedsTools();
     }
   }
   if (msRevision !== modelRevision) {
-    showError('The checkpoint changed while More seeds was checking the batches; press More seeds… again.', true, { slot: els.galleryError });
+    showError('The checkpoint changed while More seeds was checking the batches; press More seeds… again.', true, said);
     return;
   }
   msAnswer = answer;
@@ -180,6 +224,7 @@ async function openMoreSeeds() {
   }
   els.moreSeedsDialog.showModal();
   syncMoreSeedsRun();
+  syncMoreSeedsTools();
   if (overCap) {
     showError(overCap, false, { slot: els.moreSeedsError });
     els.moreSeedsCount.setAttribute('aria-invalid', 'true');
@@ -255,7 +300,9 @@ function renderMoreSeeds(answer) {
   const time = answer.seconds ? `about ${humanTime(answer.seconds)}`
     : answer.unpriced_sizes ? `no estimate: ${plural(answer.unpriced_sizes, 'size')} ${answer.unpriced_sizes === 1 ? 'has' : 'have'} no history`
       : '';
-  const parts = [`${plural(answer.queued, 'image')} in ${msBatches(answer.batches)}`, time];
+  // A run's first words are the server's headline: "2 more of each of 6
+  // cells = 12 images · seeds 8–9 · Starred ignored".
+  const parts = [answer.headline || `${plural(answer.queued, 'image')} in ${msBatches(answer.batches)}`, time];
   if (answer.unrecorded) parts.push(`${msBatches(answer.unrecorded)} at the panel's Batch ${msFallbackBatch()}`);
   for (const [status, words] of Object.entries(MS_STATUS_WORDS)) {
     if (answer.counts[status]) parts.push(`${answer.counts[status]} ${words}`);
@@ -376,9 +423,9 @@ async function runMoreSeeds() {
     onAccepted: () => {
       accepted = true;
       msSending = false;
-      remember(MORE_SEEDS_KEY, String(payload.count));
+      if (msFooter) remember(MORE_SEEDS_KEY, String(payload.count));
       els.moreSeedsDialog.close();
-      // Focus goes back to More seeds… in the footer, which opened the dialog.
+      // Focus goes back to the button that opened the dialog.
     },
     // Refused - the selection changed under it: the dialog stays open with
     // the reason, and checks again.
@@ -402,8 +449,10 @@ function closeMoreSeeds() {
 }
 
 // From forgetImages, the one place the page drops deleted ids: an open
-// dialog that listed one checks again, and shows it as deleted.
+// dialog that listed one checks again, and shows it as deleted; a finish
+// line's More seeds… whose every image has gone is held.
 function forgetMoreSeedsImages(gone) {
+  syncMoreSeedsTools();
   if (!els.moreSeedsDialog.open || !msAnswer) return;
   if (msAnswer.ids.some((id) => gone.has(id))) scheduleMoreSeedsCheck(0);
 }
@@ -450,7 +499,105 @@ function setupMoreSeeds() {
     msAsking = null;
     msScope = null;
     msTarget = null;
+    syncMoreSeedsTools();
   });
+  els.lbMoreSeeds.onclick = pressLightboxMoreSeeds;
   onSelectionChange(syncMoreSeedsButton);
   syncMoreSeedsButton();
+}
+
+// ------------------------------------------------------- where a run ends
+
+// Why a More seeds… for an image, a job or a run is held now, or ''. `of` is
+// what the button was synced for: the checkpoint its images were made on, an
+// image in the recycle bin, a job's images (`ids`), held once every one has
+// gone since. Everything else - one batch among several from another
+// checkpoint, a source or an adapter gone - is the server's, per batch.
+function moreSeedsToolHold({ model = null, binned = false, ids = null } = {}) {
+  if (ids?.length && ids.every(isGone)) {
+    return ids.length === 1 ? 'Its image has been deleted since' : `All ${ids.length} of its images have been deleted since`;
+  }
+  if (binned) return 'In the recycle bin: restore it to make more of its batch';
+  if (modelsDiffer(model)) return `Made on ${checkpointName(model)}; the server is running ${checkpointName(loadedModel)}`;
+  if (serverOffline) return 'The server is not answering';
+  if (els.moreSeedsDialog.open || msOpening) return 'More seeds is open already';
+  return '';
+}
+
+// A More seeds… button as it is now: held with the reason as its title, else
+// titled with what it makes. `of` stays on the button (`msOf`), so a change
+// of the checkpoint, the server or the dialog syncs it again
+// (syncMoreSeedsTools).
+function syncMoreSeedsTool(button, of = button.msOf) {
+  button.msOf = of ?? {};
+  button.classList.add('more-seeds-tool');
+  const held = moreSeedsToolHold(button.msOf);
+  button.setAttribute('aria-disabled', String(Boolean(held)));
+  button.title = held || button.msOf.title || '';
+}
+
+function syncMoreSeedsTools() {
+  document.querySelectorAll('.more-seeds-tool').forEach((button) => syncMoreSeedsTool(button));
+}
+
+// For one image: its batch. The menu mirrors it (syncedItem).
+function syncMoreSeedsFor(button, rec) {
+  syncMoreSeedsTool(button, {
+    model: rec.model_id,
+    binned: !!rec.binned_at,
+    title: `More images of #${rec.id}'s batch, the seeds following on - each at its own prompt, size, settings and Batch`,
+  });
+}
+
+// A press: held, it says why where it was pressed (msOpenSlot) and opens
+// nothing; else the dialog opens on `target`, a ready one ({scope, line}).
+function pressMoreSeedsTool(button, target, options = {}) {
+  syncMoreSeedsTool(button);
+  if (button.getAttribute('aria-disabled') === 'true') {
+    showError(button.title, true, msOpenSlot(button));
+    return;
+  }
+  void openMoreSeeds(target, { ...options, opener: button });
+}
+
+function moreSeedsImageTarget(rec) {
+  return { scope: { ids: [rec.id] }, n: 1, line: `From #${rec.id}'s batch.` };
+}
+
+function moreSeedsRunTarget(runId) {
+  return { scope: { run: runId }, line: `From every image of run ${runId}, starred or not.` };
+}
+
+// A More seeds… button for a run (the finish line, the banner, the run bar).
+function moreSeedsRunButton(runId, { model = null, label = 'More seeds of this run…', className = 'ghost small' } = {}) {
+  const button = document.createElement('button');
+  button.type = 'button';
+  button.className = className;
+  button.textContent = label;
+  button.setAttribute('aria-haspopup', 'dialog');
+  syncMoreSeedsTool(button, {
+    model,
+    title: `More seeds of every cell of run ${runId}, starred or not, the seeds following on - each at its own settings and Batch`,
+  });
+  button.onclick = () => pressMoreSeedsTool(button, moreSeedsRunTarget(runId));
+  return button;
+}
+
+// The menu's on a card or a result: as the result column's button, held the
+// same way, the refusal said where the image is (refuseInCard).
+function moreSeedsOfImage(rec, host) {
+  const scratch = document.createElement('button');
+  syncMoreSeedsFor(scratch, rec);
+  if (scratch.getAttribute('aria-disabled') === 'true') {
+    refuseInCard(host, `${scratch.title}.`, 'Held');
+    return;
+  }
+  void openMoreSeeds(moreSeedsImageTarget(rec));
+}
+
+function pressLightboxMoreSeeds() {
+  const rec = lbList[lbIndex];
+  if (!rec) return;
+  syncMoreSeedsFor(els.lbMoreSeeds, rec);
+  pressMoreSeedsTool(els.lbMoreSeeds, moreSeedsImageTarget(rec));
 }

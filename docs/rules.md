@@ -5513,9 +5513,14 @@ search on Sheet off, the Sheet button's newest run, pins taking the
 commonest value, F starring a focused cell (said in `#star-said`), the lightbox opened from the
 sheet starring the cell (its star "★ Star", `aria-label` Star, its title
 and `aria-pressed`) and F on the cell it hands focus back to, the Fixed line
-under Starred, Resume this run filling the seed and size (its warning
-keeping the preview's `.totals`), its mismatch warning and its absence on
-another checkpoint's run, the version rows with their edits and titles (a
+under Starred, the run bar (More seeds of this run… right after Resume
+this run, the run's line "Run … · N images · checkpoint quantization" last,
+on a row of its own under the buttons), Resume this run filling the seed and
+size (its warning keeping the preview's `.totals`), the dead-end pointer
+"Nothing in run … is missing. More seeds of this run… adds seeds." on a run
+with every cell done and not on another grid's mismatch, its mismatch
+warning and its absence on another checkpoint's run, whose More seeds of
+this run… stays, held with "Made on …", and says it under the gallery's head, the version rows with their edits and titles (a
 reorder as "same words, moved"), a strength sweep's source column and
 lightbox walk, the refined badge, pins in the export's file name, an
 empty sheet drawing only its note; the cell star (hidden until hover or
@@ -5616,7 +5621,11 @@ whose every image failed, said in images ("1 of 1 image was skipped",
 "Stopped at image 3 of 3") and titled "Nothing made"; a cancelled
 job's outcome led by "Previous job:" while the next runs and gone at its
 end; focus after Cancel (Generate) and after Pause held to the end (Use
-seed); a time budget's held ETA and count; the gallery kept where it was
+seed); a time budget's held ETA and count, and its finish line's Resume
+the remaining N cells (N from the cells the budget reached, "under the same
+0.06-minute budget" in its title) sending the grid once with Resume and its
+budget, then "Resume sent"; the finish line's Use seed then More seeds…, and
+a done grid's Show sheet then More seeds of this run…; the gallery kept where it was
 scrolled with New image; the offline state through a stubbed fetch and a
 restart through a changed start time; the load's ticker with its
 aria-hidden clock and indeterminate bar, also shown in the empty viewer's
@@ -5687,7 +5696,9 @@ figure (a group named #N), label, title, facts-only description and card
 tools at 1400x900 (❐ hidden on FLUX), with `this-run`, the star and ⤢; the
 note under it, "#N · W×H · seed N · Use seed", with the gallery head
 unmoved as a single image lands at 1400, and hidden at QHD; at 2560x1305 the
-column with Delete in words and
+column with Delete in words (Star, Refine…, Inpaint…, Outpaint…, Reuse,
+Use seed, More seeds…, Delete; the row under the picture with a docked check
+leaving More seeds… out) and
 the row under the picture empty at `--h-tool`; the live preview
 keeping the result's box; `#recent` level with the viewer, the wheel over
 it with nothing to scroll scrolling the page, and staying
@@ -5782,7 +5793,10 @@ side stacked at 600x900 for a square pass (a wheel
 zooming about a point in the lower half) and a 7:4 pass (halves over 400
 px with the facts' room, opened again stacked again), and left and right
 for a portrait pass; and at 800x900 a square pass left and right with its
-facts in view:
+facts in view; Reuse and More seeds… sharing one `.lb-pair` row, a half each
+and uncut, More seeds… titled with the image's batch on every image, and
+neither button, Refine nor Delete moving from a pass (Reuse pass…) to its
+source (Reuse settings) and an orphaned pass:
 
 ```powershell
 uv run python tools/fake_server.py --port 7884 --model black-forest-labs/FLUX.1-Krea-dev
@@ -6017,7 +6031,22 @@ image deleted while listed shown as deleted, the count line and Queue
 saying what is left; Escape closing it with focus on More seeds…; a
 remembered count of 600 over two picked batches opening the dialog on the
 server's refusal by count, said in the count line and `#more-seeds-error`
-with the box marked and Queue held, and a count of 2 freeing it:
+with the box marked and Queue held, and a count of 2 freeing it; then where
+a run ends: a plain Batch 2 job's finish line with More seeds… after Use
+seed, opening on "From the 2 images this job made." at their Batch 2 rather
+than the remembered count, Escape giving focus back to it; More seeds of
+this batch… after Use seed in an unpicked card's menu and a result tile's,
+each opening on that batch alone at its own Batch; the lightbox's More
+seeds… beside Reuse (one row, a half each, uncut, nothing moving as it
+steps), the dialog over the lightbox and Escape closing the dialog alone
+with focus back on the button; another checkpoint's image held with "Made
+on …; the server is running …", a press saying it in `#lb-error` and
+nothing in the gallery's line; the sheet's run bar under Starred (More seeds
+of this run… after the buttons, the run's line "Run … · 1 starred image ·
+…" last on a row of its own), its dialog on every image of the run with
+the server's headline "N more of its one cell = … · Starred ignored", and
+its Queue adding that many images to the run; and the banner's More seeds…
+beside Show run, opening on the run:
 
 ```powershell
 uv run python tools/fake_server.py --port 7902 --model black-forest-labs/FLUX.1-Krea-dev --data <new-scratch-directory>
@@ -6180,7 +6209,10 @@ and an unpicked card's own menu; a press outside closing it; a result
 tile's menu; and in the lightbox the menu inside the dialog, no Open, Del
 beside the bin, a press on the stage closing the menu and not the lightbox,
 Escape closing the menu only, Use seed saying so in the lightbox's line,
-and Show run as sheet closing the lightbox for the sheet. `browser.mjs`'s
+and Show run as sheet closing the lightbox for the sheet; More seeds of this
+batch… after Use seed on a card (unheld, titled with its batch) and a
+result tile, and in the lightbox mirroring its More seeds… button, chosen
+there opening the dialog over the lightbox, which Escape leaves open. `browser.mjs`'s
 `{"rightclick": ...}` presses the right button (`"shift": true` holds
 Shift):
 

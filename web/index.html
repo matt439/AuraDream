@@ -525,6 +525,8 @@
     <div class="last-run" id="last-run" role="status" hidden>
       <span id="last-run-text"></span>
       <button class="ghost small" id="last-run-show" title="Search for this run and lay it out as a sheet">Show run</button>
+      <!-- A run that finished: more seeds of every cell of it (more-seeds.js). -->
+      <button class="ghost small" id="last-run-more" aria-haspopup="dialog" hidden>More seeds…</button>
       <!-- A grid that stopped short: the panel made ready to finish it. -->
       <button class="ghost small" id="last-run-resume" hidden
               title="Put the seed this grid started from and its size in the panel, tick Resume and preview what is left of it">Resume</button>
@@ -978,7 +980,15 @@
       <!-- A toggle named Star in either state, as the card's star is: the
            state is aria-pressed, the glyph and the amber (renderLightbox). -->
       <button class="ghost" id="lb-fav" title="Star (F)" aria-label="Star" aria-pressed="false" aria-keyshortcuts="F">☆ Star</button>
-      <button class="ghost" id="lb-reuse" title="Load these settings into the panel">Reuse settings</button>
+      <!-- Reuse beside More seeds…, so the column is no taller for it: N
+           more images of this image's batch (more-seeds.js), the dialog
+           opening over the lightbox. On every image, held with the reason
+           as its title, never hidden, so Reuse keeps one width from image to
+           image. -->
+      <div class="lb-pair lb-reuse-pair">
+        <button class="ghost" id="lb-reuse" title="Load these settings into the panel">Reuse settings</button>
+        <button class="ghost" id="lb-more-seeds" aria-haspopup="dialog">More seeds…</button>
+      </div>
       <!-- Opens the Refine dialog on this image: scale it up and re-denoise
            it part of the way. -->
       <!-- Refine beside Inpaint… in one row, so the column is no taller for

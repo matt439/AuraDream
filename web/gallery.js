@@ -923,4 +923,6 @@ function syncReuseButtons() {
       lora: kept.reuseLora || null,
     }, kept.reuseCompact === 'true');
   });
+  // More seeds… is held on another checkpoint's images the same way.
+  syncMoreSeedsTools();
 }

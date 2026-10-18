@@ -102,6 +102,9 @@ function imageItems({ kind, rec, host }) {
       label: 'Use seed', title: `Put ${rec.seed} in the Seed box`,
       run: () => { useSeed(rec.seed); cardNote(host, lightbox ? `Seed ${rec.seed} is in the Seed box.` : 'Seed set'); },
     },
+    // The lightbox's button where it has one; held as it would be elsewhere.
+    lightbox ? buttonItem('More seeds of this batch…', els.lbMoreSeeds)
+      : syncedItem('More seeds of this batch…', (b) => syncMoreSeedsFor(b, rec), () => moreSeedsOfImage(rec, host)),
     null,
     buttonItem('⤢ Refine…', lightbox ? els.lbRefine : find('.refine-tool')),
     buttonItem('✎ Inpaint…', lightbox ? els.lbInpaint : find('.inpaint-tool')),

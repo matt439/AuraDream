@@ -88,6 +88,12 @@ async function announceLastRun() {
   els.lastRun.dataset.job = last.job_id;
   els.lastRun.dataset.run = last.run_id || '';
   els.lastRunShow.hidden = !last.image_count || deleted === last.image_count;
+  // A run that finished: more seeds of every cell of it, beside Show run.
+  // The checkpoint and its batches are the server's to judge (`foreign`).
+  els.lastRunMore.hidden = !(last.status === 'done' && last.run_id && last.image_count > deleted);
+  syncMoreSeedsTool(els.lastRunMore, {
+    title: `More seeds of every cell of run ${last.run_id}, starred or not, the seeds following on - each at its own settings and Batch`,
+  });
   // A grid the night did not finish - cancelled, out of time, stopped by its
   // failures - is finished by Resume. Not a re-render's, a refine sweep's or
   // a comparison's, which the panel's grid does not make (the sheet's Resume
@@ -120,6 +126,13 @@ function resumeLastRun() {
   if (!job) return;
   dismissLastRun();
   void resumeRun(job.run_id, { width: job.width, height: job.height });
+}
+
+// The banner's More seeds…: the dialog on the run. The banner stays until
+// the job it queues hides it (setBusy), as a Cancel there leaves it.
+function moreSeedsLastRun() {
+  const run = els.lastRun.dataset.run;
+  if (run) pressMoreSeedsTool(els.lastRunMore, moreSeedsRunTarget(run));
 }
 
 // One line per run in the gallery, newest first. Picking one is the card's ⊞

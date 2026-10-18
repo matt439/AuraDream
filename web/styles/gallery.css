@@ -242,6 +242,8 @@
   .stage:not(.beside):has(> #tag-validation-wide > #prompt-analysis:not([hidden])) > .viewer:not(.multi) > .result .result-actions .compare-source { display: none; }
   /* Inpaint… likewise: the picture opens the lightbox, which has it. */
   .stage:not(.beside):has(> #tag-validation-wide > #prompt-analysis:not([hidden])) > .viewer:not(.multi) > .result .result-actions .inpaint-tool { display: none; }
+  /* And More seeds…, which the lightbox and the right-click menu have. */
+  .stage:not(.beside):has(> #tag-validation-wide > #prompt-analysis:not([hidden])) > .viewer:not(.multi) > .result .result-actions .more-seeds-tool { display: none; }
   .stage:not(.beside):has(> #tag-validation-wide > #prompt-analysis:not([hidden])) > .viewer:not(.multi) > .result .result-actions .result-brief {
     display: block; flex: 1 1 0; min-width: 0; contain: inline-size; line-height: var(--h-tool); text-align: right;
     color: var(--text-readout); font-size: var(--fs-label); font-variant-numeric: tabular-nums;

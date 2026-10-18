@@ -328,7 +328,7 @@ function refineResult(rec, tile) {
 // what to do next in the width the picture leaves - shown from 1800 px
 // (style.css), where a square result left 1,270 px of the strip empty: which
 // image it refines, Star, Refine…, Reuse, a pass's Compare with source and
-// Use seed in words, the prompt, and the lightbox's own facts (factsList, facts.js,
+// Use seed and More seeds… in words, the prompt, and the lightbox's own facts (factsList, facts.js,
 // without its Use seed: the row has one). In the figure, so a star and a
 // delete reach it as they reach the tile; Delete stays the tile's.
 function resultSide(rec, figure) {
@@ -362,6 +362,14 @@ function resultSide(rec, figure) {
   seed.textContent = 'Use seed';
   seed.title = `Put ${rec.seed} in the Seed box`;
   seed.onclick = () => useSeed(rec.seed);
+  // More of its batch after it, the seeds following on (more-seeds.js).
+  const more = document.createElement('button');
+  more.type = 'button';
+  more.className = 'ghost small';
+  more.textContent = 'More seeds…';
+  more.setAttribute('aria-haspopup', 'dialog');
+  syncMoreSeedsFor(more, rec);
+  more.onclick = () => pressMoreSeedsTool(more, moreSeedsImageTarget(rec));
   // What the facts say, in a line, where the row stands in for the column
   // under a docked check (style.css); the settings line whole in its title.
   const brief = document.createElement('span');
@@ -377,7 +385,7 @@ function resultSide(rec, figure) {
   actions.className = 'result-actions';
   actions.append(star, refine, inpaint, outpaint, action(reuseButton(rec)), reference);
   if (rec.refine != null) actions.append(compareButton(rec, figure));
-  actions.append(seed, brief, del);
+  actions.append(seed, more, brief, del);
   const prompt = document.createElement('p');
   prompt.className = 'result-prompt';
   prompt.textContent = rec.prompt;
