@@ -152,6 +152,12 @@ def _build_parser() -> argparse.ArgumentParser:
         "does (0.9999 on SDXL, 1 on Z-Image). About steps x S of the steps run",
     )
     conditioning.add_argument(
+        "--upscaler", choices=("lanczos", "realesrgan-x4plus-anime6b"),
+        help="with ordinary --refine on WAI v17 or RouWei: opt into R-ESRGAN 4x+ Anime6B "
+        "(one verified ~18 MB download), then resize to the target; default lanczos. "
+        "GAN sources are limited to 4.19 MP / 4096px per side; card behavior is unmeasured",
+    )
+    conditioning.add_argument(
         "--mask",
         metavar="FILE",
         help="with --refine: inpaint - repaint only where this picture is white and keep the "
@@ -352,6 +358,9 @@ def _apply_image_settings(args: argparse.Namespace, meta: dict) -> None:
         if args.strength is None and meta.get("strength") is not None:
             args.strength = meta["strength"]
             args.carried_strength = True
+        if args.upscaler is None and meta.get("upscaler") is not None:
+            args.upscaler = meta["upscaler"]
+            args.carried_upscaler = True
         # An inpaint reproduces over the same mask: by the hash its record
         # names, which `_mask_from_record` finds in the gallery or in the
         # PNG's own copy. Only with the source it covers - a --refine of
@@ -456,6 +465,7 @@ def _check_carried_source(args: argparse.Namespace, p: SimpleNamespace, parser: 
     if (
         (args.strength is not None and not args.carried_strength) or args.scale is not None
         or args.mask is not None or named_outpaint
+        or (args.upscaler is not None and not args.carried_upscaler)
     ):
         parser.error(
             f"--from-image: source image {args.refine} {said} the PNG was made from, so it cannot "
@@ -478,6 +488,8 @@ def _check_carried_source(args: argparse.Namespace, p: SimpleNamespace, parser: 
         args.band = None
     if args.carried_strength:
         args.strength = None
+    if args.carried_upscaler:
+        args.upscaler = None
     return True
 
 
@@ -806,9 +818,23 @@ def _via_server(args, parser, source, carried, mask_image, width, height, sized,
                         "in the server gallery; name server images explicitly with --reference", 422,
                     )
         inpainting = args.mask is not None or args.mask_hash is not None
+        if args.upscaler not in (None, "lanczos"):
+            reason = refine.upscaler_reason(SimpleNamespace(
+                upscaler=args.upscaler, refine=args.refine, mask=args.mask or args.mask_hash,
+                outpaint=outpaint_sides,
+            ), status["model_id"])
+            if reason:
+                raise _ServerError(reason, 422)
+            held = record(args.refine)
+            try:
+                refine.check_upscaler_size(held.width, held.height)
+            except ValueError as exc:
+                raise _ServerError(str(exc), 422) from exc
         body = {"prompt": args.prompt, "negative_prompt": args.negative,
                 "width": width, "height": height, "num_images": args.batch, "runs": args.runs,
                 "reference": references, "lora": args.lora, "lora_scale": args.lora_scale}
+        if args.upscaler not in (None, "lanczos"):
+            body["upscaler"] = args.upscaler
         for name, value in (("steps", args.steps), ("guidance_scale", args.cfg), ("true_cfg", args.true_cfg),
                             ("seed", args.seed), ("strength", args.strength)):
             if value is not None:
@@ -928,6 +954,7 @@ def main(argv: list[str] | None = None) -> int:
     args.mask_hash = None
     args.carried_source = None
     args.carried_strength = False
+    args.carried_upscaler = False
     # An outpaint the command line names, or one --from-image carried: its
     # fill (this build's for one named here), and the record's mask hash,
     # kept aside to hold the rebuilt mask to.
@@ -955,6 +982,8 @@ def main(argv: list[str] | None = None) -> int:
             parser.error("--scale needs --refine: it multiplies the source's size")
         if args.mask is not None:
             parser.error("--mask needs --refine: a mask covers the image it was painted on")
+        if args.upscaler is not None:
+            parser.error("--upscaler needs --refine: there is no source to upscale")
     if args.outpaint is None and args.band is not None:
         parser.error("--band needs --outpaint: the band is how far an outpaint's mask reaches into the original")
     outpaint_sides = None
@@ -1025,6 +1054,14 @@ def main(argv: list[str] | None = None) -> int:
 
     refined_from = None
     outpaint_spec = None
+    if args.upscaler not in (None, "lanczos"):
+        reason = p.refine.upscaler_reason(SimpleNamespace(
+            upscaler=args.upscaler, refine=args.refine, mask=args.mask or args.mask_hash,
+            outpaint=outpaint_sides,
+        ), p.settings.model_id)
+        if reason:
+            print(reason, file=sys.stderr)
+            return 2
     if args.refine is not None and (args.scale is not None or not sized or inpainting or outpainting):
         # Only against a gallery that exists, like the reference check below:
         # a --dry-run promises to create nothing, the database included.
@@ -1147,6 +1184,7 @@ def main(argv: list[str] | None = None) -> int:
             lora=args.lora,
             lora_scale=args.lora_scale,
             refine=args.refine,
+            upscaler=None if args.upscaler == "lanczos" else args.upscaler,
             # None is "not given": the checkpoint's own starting strength.
             strength=args.strength,
             mask=mask,
@@ -1246,6 +1284,12 @@ def main(argv: list[str] | None = None) -> int:
         except ValueError as exc:
             print(str(exc), file=sys.stderr)
             return 2
+        if request.upscaler is not None:
+            try:
+                p.refine.check_upscaler_source(args.refine)
+            except ValueError as exc:
+                print(str(exc), file=sys.stderr)
+                return 2
     if mask is not None:
         reason = _mask_unusable(p, request, mask_image, store=not args.dry_run)
         if reason is not None:
@@ -1437,6 +1481,8 @@ def main(argv: list[str] | None = None) -> int:
                     else ")"
                 )
             )
+            if request.upscaler is not None:
+                print(f"upscaler : {p.refine.ANIME6B_LABEL} (verified ~18 MB first use; 4x then target fit)")
         if seed_list:
             print(f"seeds    : {', '.join(str(s) for s in seed_list)}  (listed)")
         else:

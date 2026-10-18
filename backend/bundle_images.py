@@ -148,6 +148,11 @@ def _validate_row(row: dict, width: int, height: int, content_hash: str) -> None
             spec = None
         if spec is None or refine is None or mask is None or not spec.wellformed():
             raise BundleError(f"invalid outpaint on image {row['id']}")
+    upscaler = row.get("upscaler")
+    if upscaler is not None and storage._upscaler(
+        upscaler, source=refine, model_id=row.get("model_id"), mask=mask, outpaint=outpaint,
+    ) is None:
+        raise BundleError(f"invalid upscaler on image {row['id']}")
     values = {key: row.get(key) for key in storage._COLUMNS}
     values.update(id=row["id"], content_hash=content_hash)
     try:
@@ -225,6 +230,7 @@ def _metadata(row: dict, by_id: dict[int, dict]) -> dict:
         "outpaint": storage.outpaint_chunk(outpaint),
         "outpaint_fill": outpaint.fill if outpaint is not None else None,
         "batch": row.get("batch"),
+        **({"upscaler": row["upscaler"]} if row.get("upscaler") is not None else {}),
     }
 
 

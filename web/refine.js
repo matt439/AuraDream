@@ -24,6 +24,8 @@ const REFINE_MAX_PIXELS = 4 * Math.max(...ASPECTS.map((a) => SIZES[a][2][0] * SI
 // on a shifted flow schedule. A sweep is not remembered, or the next open
 // would start one unasked. Reset forgets all of it with the panel.
 const REFINE_KEY = 'local-diffusion.refine.v1';
+const REFINE_ANIME6B = 'realesrgan-x4plus-anime6b';
+const refineUpscalerAvailable = () => refineSupported && !!lastDefaults?.upscaler_supported;
 
 // One number, or a sweep in the grid's syntax (`0.3,0.4,0.5`, `0.2-0.5x0.1`)
 // that the server parses: one strength is an ordinary request, several a grid
@@ -261,6 +263,11 @@ function openRefine(rec, pass = null) {
   const keptOne = typeof kept === 'string' && SINGLE_STRENGTH.test(kept);
   const carried = pass && !foreign && pass.strength != null;
   els.refineStrength.value = carried ? pass.strength : keptOne ? kept : refineDefaultStrength();
+  // A fresh pass always starts with Lanczos: choosing a GAN once must not
+  // opt another source into its first-use download. Reuse preserves a pass's
+  // explicit choice where this checkpoint offers it, never a masked pass.
+  els.refineUpscaler.value = pass && !pass.mask && !pass.outpaint && refineUpscalerAvailable()
+    && pass.upscaler === REFINE_ANIME6B ? REFINE_ANIME6B : '';
   // A pass from another checkpoint ran at a strength of that checkpoint's
   // schedule, which reads otherwise on this one's: Strength starts at this
   // checkpoint's own, and the line says so - it named the old number beside a
@@ -274,6 +281,11 @@ function openRefine(rec, pass = null) {
         + (keptOne ? `${kept}, as last run on ${checkpointName(loadedModel)}`
           : lastDefaults?.refine_strength_profiled ? `${checkpointName(loadedModel)}'s ${els.refineStrength.value}`
             : `${els.refineStrength.value}, the general starting strength`);
+  if (pass?.upscaler) {
+    els.refineReused.textContent += els.refineUpscaler.value
+      ? `, ${upscalerName(pass.upscaler)}`
+      : `; ${upscalerName(pass.upscaler)} is not applied to this pass`;
+  }
   els.refineVersions.value = !pass && ['1', '2', '4'].includes(String(prefs.versions))
     ? String(prefs.versions) : '1';
   els.refineSeed.value = from.seed;
@@ -401,6 +413,7 @@ function refineBoxes() {
     versions: els.refineVersions, seed: els.refineSeed, prompt: els.refinePrompt,
     negative: els.refineNegative, steps: els.refineSteps, cfg: els.refineCfg,
     mu: els.refineMu, trueCfg: els.refineTrueCfg,
+    upscaler: els.refineUpscaler,
   };
 }
 
@@ -453,6 +466,8 @@ function showRefineSource() {
 function syncRefine() {
   const src = refineSource;
   if (!src) return;
+  els.refineUpscalerField.hidden = !refineUpscalerAvailable();
+  if (!refineUpscalerAvailable()) els.refineUpscaler.value = '';
   const w = +els.refineWidth.value;
   const h = +els.refineHeight.value;
   if (!els.refineScales.children.length) {
@@ -717,6 +732,8 @@ function refineRequest() {
     lora: refineLora?.name ?? null,
     lora_scale: refineLora?.scale ?? 1,
     refine: refineSource.id,
+    upscaler: refineUpscalerAvailable() && els.refineUpscaler.value === REFINE_ANIME6B
+      ? REFINE_ANIME6B : null,
     // Blank is "not given": the server fills in the checkpoint's own.
     strength: single && strength !== '' ? +strength : undefined,
     seed: seed === '' ? null : +seed,
@@ -1040,10 +1057,11 @@ async function loadRefinePasses(rec) {
   els.refinePassesHead.textContent = `Passes of #${rec.id} (${page.total})`;
   for (const pass of page.items) {
     const what = `#${pass.id}: ${pass.width}×${pass.height} at strength ${pass.strength}, seed ${pass.seed}`;
+    const described = what + (pass.upscaler ? `, ${upscalerName(pass.upscaler)}` : '');
     const button = document.createElement('button');
     button.type = 'button';
-    button.title = what;
-    button.setAttribute('aria-label', `Open the pass ${what} in the lightbox, compared with #${rec.id}`);
+    button.title = described;
+    button.setAttribute('aria-label', `Open the pass ${described} in the lightbox, compared with #${rec.id}`);
     const img = document.createElement('img');
     img.src = pass.thumb_url ?? pass.url;
     img.alt = '';

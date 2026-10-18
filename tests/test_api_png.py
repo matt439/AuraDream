@@ -119,6 +119,19 @@ def test_a_refine_pass_fills_the_panel_as_a_direct_render_at_its_own_size(client
     assert answer["notes"][0].startswith("It is a refine pass, which is made again from its source")
 
 
+def test_a_pngs_gan_is_left_out_with_its_gallery_refine_source(client, store):
+    from backend import refine
+
+    source = plant(store)
+    record = plant(
+        store, refine=source.id, upscaler=refine.ANIME6B,
+        model_id="LyliaEngine/waiIllustriousSDXL_v170",
+    )
+    answer = ask(client, chunks_of(store, record))
+    assert answer["settings"]["refine"] is None and answer["settings"]["upscaler"] is None
+    assert any("upscaler is left out" in note for note in answer["notes"])
+
+
 def test_an_adapter_this_installation_cannot_load_is_said(client, fake, store):
     record = plant(store, lora="ink.safetensors", lora_scale=0.8)
     fake.lora_reason = "peft is not installed"

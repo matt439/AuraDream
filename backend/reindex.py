@@ -341,6 +341,9 @@ def _database_meta(
             variables = candidate if isinstance(candidate, dict) else None
         except (TypeError, ValueError):
             variables = None
+    upscaler = storage._upscaler(
+        row.get("upscaler"), source=refine, model_id=row.get("model_id"), mask=mask, outpaint=outpaint,
+    )
     return {
         "prompt": row["prompt"],
         "negative_prompt": row.get("negative_prompt"),
@@ -369,6 +372,7 @@ def _database_meta(
         "outpaint": storage.outpaint_chunk(outpaint),
         "outpaint_fill": outpaint.fill if outpaint is not None else None,
         "batch": storage._batch(row.get("batch")),
+        **({"upscaler": upscaler} if upscaler is not None else {}),
     }
 
 
@@ -408,6 +412,13 @@ def merge_database(
     for row in rows:
         filename = row["filename"]
         source_id = int(row["id"])
+        if row.get("upscaler") is not None and storage._upscaler(
+            row["upscaler"], source=row.get("refine"), model_id=row.get("model_id"),
+            mask=row.get("mask"), outpaint=row.get("outpaint"),
+        ) is None:
+            counts["invalid"] += 1
+            print(f"  skip  source row {source_id}: invalid upscaler for its Refine pass", file=out)
+            continue
         if (
             not isinstance(filename, str)
             or Path(filename).name != filename
@@ -514,6 +525,7 @@ def merge_database(
             "lora_scale": row.get("lora_scale") if row.get("lora") else None,
             "refine": refine,
             "strength": row.get("strength") if refine is not None else None,
+            "upscaler": meta.get("upscaler"),
             "batch": storage._batch(row.get("batch")),
             # The recycle bin is SQLite's alone, as the star is: carried with
             # the database, and None (live) from one that predates it.
@@ -546,6 +558,7 @@ def reindex(
         "indexed": 0, "present": 0, "no_metadata": 0, "conflicts": 0,
         "unresolved_references": 0, "masks": 0, "bad_masks": 0, "unresolved_masks": 0,
         "outpaint_malformed": 0, "outpaints_recovered": 0, "outpaint_masks_rebuilt": 0,
+        "invalid_upscalers": 0,
     }
     source = source.resolve()
     outputs = settings.outputs_dir.resolve()
@@ -608,6 +621,13 @@ def reindex(
             counts["no_metadata"] += 1
             print(f"  skip  {path.name}: no Local Diffusion metadata", file=out)
             return
+        if meta.get("upscaler") is not None and storage._upscaler(
+            meta["upscaler"], source=meta.get("refine"), model_id=meta.get("model"),
+            mask=meta.get("mask"), outpaint=meta.get("outpaint"),
+        ) is None:
+            counts["invalid_upscalers"] += 1
+            print(f"  skip  {path.name}: invalid upscaler for its Refine pass", file=out)
+            return
         target = outputs / path.name
         if not in_place and target.exists():
             # A different file under a name the gallery already uses on disk
@@ -643,6 +663,9 @@ def reindex(
         masks.resolve(mask, source / storage.MASKS_DIR, image, spec, (width, height))
         outpaint_meta = storage.outpaint_chunk(spec)
         outpaint_fill = spec.fill if spec is not None else None
+        upscaler = storage._upscaler(
+            meta.get("upscaler"), source=refine, model_id=meta.get("model"), mask=mask, outpaint=spec,
+        )
         links_changed = (
             meta.get("reference") != (references or None)
             or meta.get("refine") != refine
@@ -650,6 +673,7 @@ def reindex(
             or meta.get("mask") != mask
             or meta.get("outpaint") != outpaint_meta
             or meta.get("outpaint_fill") != outpaint_fill
+            or meta.get("upscaler") != upscaler
         )
         meta = {
             **meta,
@@ -664,6 +688,10 @@ def reindex(
             "outpaint": outpaint_meta,
             "outpaint_fill": outpaint_fill,
         }
+        if upscaler is not None:
+            meta["upscaler"] = upscaler
+        else:
+            meta.pop("upscaler", None)
         digest = storage.content_hash(image) if image is not None else None
         identities[path.name] = {
             "filename": path.name, "hash": digest, "width": width, "height": height,
@@ -765,6 +793,8 @@ def main(argv: list[str] | None = None) -> int:
         )
     else:
         summary += f", {counts['no_metadata']} without metadata" if counts["no_metadata"] else ""
+        if counts["invalid_upscalers"]:
+            summary += f", {counts['invalid_upscalers']} with an invalid upscaler"
     if counts["unresolved_references"]:
         summary += f", {counts['unresolved_references']} unresolved reference/refine source(s)"
     if counts["masks"]:

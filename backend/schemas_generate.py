@@ -10,7 +10,7 @@ the running checkpoint through `settings` patches it here.
 """
 from __future__ import annotations
 
-from typing import Any
+from typing import Any, Literal
 
 import re
 
@@ -21,7 +21,7 @@ from . import outpaint as outpaint_rules
 from .model_selection import current_model_id
 from .config import settings
 from .model_defaults import defaults_for, inpaint_family
-from .refine import DEFAULT_STRENGTH, leaves_a_step
+from .refine import ANIME6B, DEFAULT_STRENGTH, leaves_a_step, upscaler_supported
 from .seeds import MAX_BATCH, MAX_GRID_SEEDS, MAX_RUNS, MAX_SEED
 
 # How many reference images one request may carry. klein concatenates each one
@@ -225,6 +225,9 @@ class GenerateRequest(BaseModel):
     # In (0, 1], checked by `_a_fraction` below rather than by gt/le, whose
     # "Input should be less than or equal to 1" the Refine dialog would show.
     strength: float | None = None
+    # An optional GAN before an ordinary Refine pass; absent keeps the
+    # existing Lanczos source fit. Never applied to a mask or an outpaint.
+    upscaler: Literal[ANIME6B] | None = None
     # An inpaint: a refine pass at the source's own size through the inpaint
     # class beside the pipeline, repainting where this mask is white. The
     # mask is a stored picture named by the SHA-256 of its pixels, never a
@@ -291,6 +294,15 @@ class GenerateRequest(BaseModel):
         # `model_copy` reaches without this check.
         if self.mask is not None and self.refine is None:
             raise ValueError("a mask needs the image it covers")
+        return self
+
+    @model_validator(mode="after")
+    def _an_upscaler_needs_an_ordinary_pass(self) -> "GenerateRequest":
+        if self.upscaler is not None:
+            if self.refine is None:
+                raise ValueError("an upscaler needs the image to refine")
+            if self.mask is not None or self.outpaint is not None:
+                raise ValueError("an upscaler is for an ordinary refine pass, without a mask or outpaint")
         return self
 
     @model_validator(mode="after")
@@ -487,6 +499,11 @@ class GenerateRequest(BaseModel):
         if outpaint is not None and refine is None:
             outpaint = None
             changes["outpaint"] = None
+        if self.upscaler is not None and (
+            refine is None or mask is not None or outpaint is not None
+            or not upscaler_supported(current_model_id(settings))
+        ):
+            changes["upscaler"] = None
         if refine is None and self.strength != default_strength():
             changes["strength"] = default_strength()
         # The sibling's `image` is the source, so references have nowhere to

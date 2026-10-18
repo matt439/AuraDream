@@ -114,6 +114,9 @@ def plan(
         # an outpaint's padding goes with it.
         "mask": None,
         "outpaint": None,
+        # A new pass has no opt-in GAN choice; the source record may have
+        # used one to prepare its own, different source.
+        "upscaler": None,
     }
     if foreign:
         changes.update(

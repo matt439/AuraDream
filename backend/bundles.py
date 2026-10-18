@@ -841,6 +841,7 @@ def import_bundle(path: Path, password: str | None = None, progress: Progress = 
                     if source_refine is not None and values["refine"] is None:
                         unresolved += 1
                         values["strength"] = None
+                        values["upscaler"] = None
                         # Its mask covered that source's pixels, and a mask is
                         # never kept without the source it covers.
                         values["mask"] = None

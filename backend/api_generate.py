@@ -226,7 +226,7 @@ async def finish_plan(services: AppServices, run_id: str) -> FinishPlan:
                 reason, refusal_code = error_detail(exc), 422
                 break
             spec = (request.refine, request.mask, request.outpaint, tuple(request.reference),
-                    request.lora, request.width, request.height)
+                    request.lora, request.width, request.height, request.upscaler)
             if spec not in checked:
                 checked[spec] = await submission.unusable_input(services, request)
             if checked[spec] is not None:
@@ -443,13 +443,13 @@ def create_router(services: AppServices) -> APIRouter:
         # outpaint (frozen, so it keys) is checked at that size per padding,
         # never sharing a plain refine's verdict over the same source.
         for spec in {
-            (c.request.lora, tuple(c.request.reference), c.request.refine, c.request.mask, c.request.outpaint)
+            (c.request.lora, tuple(c.request.reference), c.request.refine, c.request.mask, c.request.outpaint, c.request.upscaler)
             for c in cells
         }:
-            if spec != (None, (), None, None, None):
+            if spec != (None, (), None, None, None, None):
                 await submission.refuse_unusable_inputs(services, cells[0].request.model_copy(
                     update={"lora": spec[0], "reference": list(spec[1]), "refine": spec[2], "mask": spec[3],
-                            "outpaint": spec[4]}
+                            "outpaint": spec[4], "upscaler": spec[5]}
                 ))
         try:
             for cell in cells:

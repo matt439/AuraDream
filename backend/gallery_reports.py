@@ -80,7 +80,8 @@ def refine_cost_ms(
 
     An inpaint is priced from inpaints alone (`inpaint`) and a refine pass
     from passes with no mask: the inpaint classes encode the source twice and
-    composite, so neither history says what the other costs.
+    composite, so neither history says what the other costs. GAN preparation
+    is excluded: it adds work that ordinary Refine history cannot price.
     """
     masked = "mask IS NOT NULL" if inpaint else "mask IS NULL"
     with storage._session() as conn:
@@ -88,7 +89,7 @@ def refine_cost_ms(
             f"""SELECT duration_ms, steps, strength FROM images
                WHERE width = ? AND height = ? AND model_id = ? AND steps > 0
                  AND duration_ms > 0 AND refine IS NOT NULL AND strength IS NOT NULL
-                 AND {masked}
+                 AND {masked} AND upscaler IS NULL
                ORDER BY id DESC LIMIT ?""",
             (width, height, model_id, sample),
         ).fetchall()

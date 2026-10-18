@@ -1040,10 +1040,11 @@ WAI_GUIDE = {
         "resolution. The author's examples then use a separate 1.5x high-resolution "
         "refinement pass at 20 steps and denoising strength 0.35-0.5 with "
         "R-ESRGAN 4x+ Anime6B. Generate renders directly at the requested size. "
-        "This app's Refine pass is the nearest it has to the author's: a gallery "
-        "image resized - 1.5x by default - and re-denoised at a strength, with a "
-        "plain Lanczos resize in place of that upscaling model, and the part of "
-        "Steps the strength leaves in place of a separate hires step count."
+        "This app's Refine pass defaults to Lanczos and offers opt-in R-ESRGAN "
+        "4x+ Anime6B, followed by a Lanczos resize to the target size. It runs "
+        "the part of Steps the strength leaves, rather than a separate hires "
+        "step count. The GAN option still needs local card quality, memory and "
+        "timing verification; it is not a claim of matching the author's images."
     ),
     "pixels": (1024**2 / 1e6, 1024 * 1344 / 1e6),
     # Reference sizes, not a range: the size line says so (sizes.js). One
@@ -1236,8 +1237,11 @@ ROUWEI_GUIDE = {
         "ratio with dimensions divisible by 64. The app's presets are shared "
         "between checkpoints; check custom dimensions against that multiple. "
         "The author's separate hires pass uses a 1.5x latent upscale at strength "
-        "0.6, or a GAN upscaler at strength 0.3-0.55. This app's Refine pass uses "
-        "a Lanczos resize and starts at 0.4; it is not the same upscaling setup."
+        "0.6, or a GAN upscaler at strength 0.3-0.55. This app's Refine pass "
+        "starts at 0.4 and defaults to Lanczos, with opt-in R-ESRGAN 4x+ "
+        "Anime6B followed by a Lanczos resize to the target size. The author "
+        "does not name a particular GAN; this option is not the latent recipe "
+        "and still needs local card quality, memory and timing verification."
     ),
     "pixels": (1.0, 1.5),
     "pixels_word": "recommended",

@@ -5,6 +5,10 @@
 
 // ------------------------------------------------------------------- facts
 
+function upscalerName(name) {
+  return name === 'realesrgan-x4plus-anime6b' ? 'R-ESRGAN 4x+ Anime6B' : name;
+}
+
 // What made a record, in one line: the lightbox's description for a screen
 // reader, and what the delete confirm names an image by - the cells of a
 // sweep share a prompt and a seed, and differ only here.
@@ -29,6 +33,7 @@ function settingsLine(rec) {
     // An inpaint is a pass with a mask, and says so: "inpaint of #N @ 0.6".
     // An outpaint says its padding too: "outpaint of #N +400/+0/+400/+0 @ 0.9999".
     (rec.refine != null ? `${passWord(rec)} of #${rec.refine}${outpaintOf(rec)}${rec.refine_missing ? ` (${goneWord(rec)})` : ''} @ ${rec.strength}, ` : '') +
+    (rec.upscaler ? `upscaler ${upscalerName(rec.upscaler)}, ` : '') +
     `seed ${rec.seed}, ${(rec.duration_ms / 1000).toFixed(1)}s`
   );
 }
@@ -79,6 +84,7 @@ function factsList(rec, { useSeed: seedButton = false, search = false, megapixel
   if (rec.negative_prompt) row('Negative', negativeShown(rec.negative_prompt)).className = 'text';
   if (rec.lora) row('LoRA', `${rec.lora} @ ${rec.lora_scale}`);
   if (rec.reference?.length) row('References', referenceThumbs(rec));
+  if (rec.upscaler) row('Upscaler', upscalerName(rec.upscaler));
   if (rec.refine != null) {
     // A source that has gone cannot be opened: said, not linked - with a
     // Restore where it waits in the recycle bin (bin.js).

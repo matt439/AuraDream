@@ -158,6 +158,8 @@ const els = {
   refineScales: $('refine-scales'), refineWidth: $('refine-width'), refineHeight: $('refine-height'),
   refineLock: $('refine-lock'),
   refineSizeHint: $('refine-size-hint'), refineStrength: $('refine-strength'),
+  refineUpscalerField: $('refine-upscaler-field'), refineUpscaler: $('refine-upscaler'),
+  refineUpscalerNote: $('refine-upscaler-note'),
   refineStrengthTip: $('refine-strength-tip'), refineCompare: $('refine-compare'),
   refineSweepHint: $('refine-sweep-hint'), refineLarge: $('refine-large'),
   refineVersions: $('refine-versions'),

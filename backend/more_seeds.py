@@ -54,7 +54,7 @@ def settings_key(record: ImageRecord) -> tuple:
     `storage.completed_cells` reads them off a row: the prompt pair, steps,
     CFG, mu, true CFG, references, the adapter and its weight, the refine
     source and its strength, the mask (an outpaint by its spec, as
-    `completed_cells` keys it), rounded alike."""
+    `completed_cells` keys it), the upscaler, rounded alike."""
     return (
         record.prompt,
         record.negative_prompt or None,
@@ -66,6 +66,7 @@ def settings_key(record: ImageRecord) -> tuple:
         grid.lora_key(record.lora, record.lora_scale),
         grid.refine_key(record.refine, record.strength),
         grid.mask_key(record.mask, record.outpaint.key() if record.outpaint is not None else None),
+        record.upscaler,
     )
 
 

@@ -168,7 +168,8 @@ CREATE TABLE IF NOT EXISTS images (
     batch           INTEGER,
     binned_at       TEXT,
     mask            TEXT,
-    outpaint        TEXT
+    outpaint        TEXT,
+    upscaler        TEXT
 );
 CREATE INDEX IF NOT EXISTS idx_images_created ON images (created_at DESC);
 CREATE INDEX IF NOT EXISTS idx_images_job ON images (job_id);
@@ -289,6 +290,8 @@ def _migrate(conn: sqlite3.Connection) -> None:
         # An outpaint's spec, `OutpaintSpec.key()`: NULL on every row that
         # is not one, and only ever set beside `refine` and `mask`.
         ("outpaint", "TEXT", "idx_images_outpaint"),
+        # The optional GAN preparing an ordinary Refine source.
+        ("upscaler", "TEXT", None),
     )
     for column, kind, index in added:
         if column in columns:
@@ -401,6 +404,7 @@ def _row_to_record(
         refine_missing=refine_missing,
         refine_binned=refine_binned,
         strength=row["strength"],
+        upscaler=row["upscaler"],
         batch=row["batch"],
         job_id=row["job_id"],
         run_id=row["run_id"],
@@ -422,7 +426,7 @@ _COLUMNS = (
     "filename", "prompt", "negative_prompt", "width", "height", "steps", "guidance_scale",
     "mu", "seed", "model_id", "duration_ms", "favorite", "created_at", "job_id", "run_id",
     "quantization", "variables", "true_cfg", "content_hash", "reference", "lora", "lora_scale",
-    "refine", "strength", "batch", "binned_at", "mask", "outpaint",
+    "refine", "strength", "batch", "binned_at", "mask", "outpaint", "upscaler",
 )
 
 # What every live-facing read adds: an image in the recycle bin is gone from
@@ -503,6 +507,9 @@ def save_image(
     mask = request.mask if request.refine is not None else None
     # An outpaint never without its source and its stamped mask.
     outpaint = request.outpaint if mask is not None else None
+    upscaler = _upscaler(
+        request.upscaler, source=request.refine, model_id=model_id, mask=mask, outpaint=request.outpaint,
+    )
     digest = content_hash(image)
     filename = f"{created:%Y%m%d-%H%M%S}-{seed}-{uuid.uuid4().hex[:6]}.png"
     # The directory can disappear under a running server - renamed, deleted by
@@ -557,6 +564,7 @@ def save_image(
         "outpaint": outpaint_chunk(outpaint),
         "outpaint_fill": outpaint.fill if outpaint is not None else None,
         "batch": batch,
+        **({"upscaler": upscaler} if upscaler is not None else {}),
     }
     info = PngImagePlugin.PngInfo()
     # A1111-style single-line block, so other tools can read the params back.
@@ -590,6 +598,7 @@ def save_image(
             else ""
         )
         + (f", Inpaint mask: {mask[:16]}" if mask is not None else "")
+        + (f", Hires upscaler: {refine.ANIME6B_LABEL}" if upscaler is not None else "")
         + (outpaint_parameters(outpaint) if outpaint is not None else ""),
     )
     info.add_text(PNG_METADATA_KEY, json.dumps(meta))
@@ -645,6 +654,7 @@ def save_image(
                         "binned_at": None,
                         "mask": mask,
                         "outpaint": outpaint.key() if outpaint is not None else None,
+                        "upscaler": upscaler,
                     },
                 )
                 # A pass whose source was deleted while it ran - read as the
@@ -998,7 +1008,7 @@ def completed_cells(
     quantization: str | None = None,
 ) -> set[CellKey]:
     """The key of everything already rendered: the prompt pair, the settings,
-    the references, adapter, refine source and mask, the seed.
+    the references, adapter, refine source, mask and upscaler, the seed.
 
     What a resumed grid subtracts from its cells. Keyed on the settings that
     make the image rather than on the job that made it, so a night that died
@@ -1032,7 +1042,7 @@ def completed_cells(
             marks = ",".join("?" * len(chunk))
             rows = conn.execute(
                 f"""SELECT prompt, negative_prompt, steps, guidance_scale, mu, true_cfg,
-                           reference, lora, lora_scale, refine, strength, mask, outpaint, seed
+                           reference, lora, lora_scale, refine, strength, mask, outpaint, upscaler, seed
                     FROM images
                     WHERE width = ? AND height = ? AND model_id = ? {scope}
                       AND prompt IN ({marks})""",
@@ -1056,6 +1066,7 @@ def completed_cells(
                         lora_key(row["lora"], row["lora_scale"]),
                         refine_key(row["refine"], row["strength"]),
                         mask_key(row["mask"], _canonical_outpaint(row["outpaint"])),
+                        row["upscaler"],
                         row["seed"],
                     )
                 )
@@ -1198,6 +1209,10 @@ def index_file(
                 "binned_at": None,
                 "mask": mask,
                 "outpaint": outpaint.key() if outpaint is not None else None,
+                "upscaler": _upscaler(
+                    meta.get("upscaler"), source=meta.get("refine"), model_id=meta.get("model"),
+                    mask=mask, outpaint=meta.get("outpaint"),
+                ),
             },
         )
     return _row_to_record(row)
@@ -1211,6 +1226,23 @@ def _mask(value: Any) -> str | None:
     request's field takes, so a hand-written block cannot put a path, or
     anything else `mask_path` was never meant to look up, on a row."""
     return value if isinstance(value, str) and _MASK_HASH.fullmatch(value) else None
+
+
+def _upscaler(
+    value: Any, *, source: int | None, model_id: str | None,
+    mask: str | None = None, outpaint: Any = None,
+) -> str | None:
+    """A known GAN only beside an ordinary pass of a documented checkpoint.
+
+    PNG recovery accepts older records and handwritten metadata: an unknown
+    choice or one without its source cannot become an executable setting.
+    """
+    return (
+        refine.ANIME6B
+        if value == refine.ANIME6B and type(source) is int and source > 0 and mask is None and outpaint is None
+        and isinstance(model_id, str) and refine.upscaler_supported(model_id)
+        else None
+    )
 
 
 def _batch(value: Any) -> int | None:

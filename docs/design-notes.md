@@ -1520,10 +1520,70 @@ second formula, and a test fails the day diffusers moves one. The measured
 tight line and FLUX.1's `refine_large` note stay: they say what was measured,
 the reading what this pass will do.
 
-**Not the author's recipe.** WAI's hires pass upscales with R-ESRGAN 4x+
-Anime6B and has its own step count; this pass resizes with Lanczos and runs
-the part of Steps the strength leaves. An upscaling model would be another
-pinned download and another thing to verify; it is not here.
+**A pinned opt-in upscaler, 2026-10-18.** Ordinary Refine on WAI v17 and
+RouWei offers R-ESRGAN 4x+ Anime6B beside the default Lanczos resize. The
+GAN produces 4x pixels before the existing Lanczos fit/crop to the requested
+target. It is unavailable for masks and outpaints. WAI names this model;
+RouWei names only a GAN upscaler, so this is one implementation of that
+kind of preparation, not a claim that its author used Anime6B. Refine still
+runs the part of Steps that Strength leaves, rather than the author's
+separate hires step count. The GAN option has no local card qualification
+for quality, timing or memory yet (`GEN#5`).
+
+The official v0.2.2.4 asset is 17,938,799 bytes, SHA256
+`f872d837d3c90ed2e05227bed711af5671a6fd1c9f7d7e91c911a61f155e99da`,
+verified from one bounded author download. The torch-only RRDBNet
+architecture follows BasicSR's pinned source; its attribution and licence
+are retained with the implementation. A fresh dialog starts at Lanczos,
+so a previous selection never opts another source into a first-use
+download. Reuse carries a recorded choice where the checkpoint offers it.
+
+GAN sources are capped at 4,194,304 pixels and 4,096 px per side, checked
+from the source header before decode, download or allocation. Tiled
+inference uses 256-pixel tiles with a 10-pixel context; stitching the full
+4x RGB picture therefore has at most 64 Mi pixels (192 MiB of raw RGB,
+beside PIL and inference overhead). A small target does not make an
+unbounded imported source safe. This limit applies only to the GAN path.
+
+First use stores the verified weights under
+`HF_HOME/local-diffusion/upscalers/<SHA256>/`. A download has a strict size
+cap and an owned partial file; it is published atomically after verification.
+An existing cache file with the wrong size or hash refuses with a repair
+reason. Loading uses `weights_only=True` and strict state restoration; no
+new Python dependency is required. The net runs in FP32 under `no_grad`,
+polls cancellation between tiles, and leaves the device before VAE encoding.
+Construction preserves the process RNG state. These pixel-deciding choices
+are frozen under the upscaler identifier. GAN timing estimates stay unknown
+instead of borrowing ordinary Refine durations.
+
+The choice is part of the request, applied settings, migrated row, PNG
+chunk, A1111 Hires upscaler and resume/run identity. Absent choices keep
+old identifiers. Re-render, Swap tags, More seeds and Finish retain it;
+Mass refine creates a new ordinary pass with Lanczos. PNG settings loaded
+into the direct-render composer omit it and explain why. Bundles and
+reindex preserve valid provenance and refuse malformed choices; unsupported
+checkpoints and masks/outpaints refuse an explicit GAN request.
+
+**CPU tensor evidence, 2026-10-18.** The verified author asset strictly
+loaded all 192 `params_ema` tensors into 4,467,779 parameters. A 20x16
+synthetic RGB source became 80x64 on CPU with two threads: direct FP32
+forward was bit-exact against the retained pinned BasicSR source, and
+one padded tile matched the official preprocessing math exactly at
+8-bit RGB. RNG state was unchanged; this tiny check took 0.872 seconds.
+The output RGB SHA256 was
+`7e24983a9c32c50af694a131388937734d5b3517e0781fd537b72d22f9e69048`.
+Evidence: temporary `local-diffusion-anime6b-73f0156fd4ad4d0399c6116e73b5456d/`
+contains the author metadata, pin, verification script, JSON and tiny PNG.
+This is a small CPU equivalence check, not card quality, timing or memory
+qualification, nor a full-size tiled seam assessment.
+
+Final combined verification: 3,370 CPU tests passed, 6 environment/platform
+checks skipped (73 existing deprecation warnings); WAI 42/42, RouWei 31/31,
+SDXL Refine 69/69 and Sheet 205/205 browser expectations passed. The fake
+runs used fresh galleries and waited for the exact ready model; an initial
+WAI startup-race run is retained as invalid fixture evidence. All owned
+fakes and verified leftover browser trees stopped. Card qualification
+remains `GEN#5`, not a completed measurement in `verified.md`.
 
 **A dialog, not a mode of the panel.** The pass first shipped as a field
 under Size: the card's Refine button rewrote the panel - prompt, seed,
@@ -8380,8 +8440,10 @@ resume keys retain the public model id.
 The exact-id profile starts at 28 steps and CFG 6, within the author's
 20-28 and 4-8 ranges for epsilon. Mu is disabled because this is SDXL's
 noise schedule. Its ordinary SDXL Refine sibling starts at strength 0.4.
-That pass resizes and denoises an image; it does not reproduce the author's
-latent or GAN upscaler. Direct-generation guidance is about 1-1.5 MP, with
+That pass defaults to Lanczos and can opt into Anime6B GAN preparation
+(the Refine section above); it does not implement the author's latent
+recipe. The author names no particular GAN. Direct-generation guidance
+is about 1-1.5 MP, with
 dimensions divisible by 64. The app's preset grid is divisible by 16, so
 the size hint retains the author's narrower recommendation without
 claiming every preset follows it.
@@ -8480,8 +8542,10 @@ documented for: The prompting guide); the tooltip explains that this is
 neither a maximum nor an equivalent to the refined examples. Generate renders directly at the requested size. Since 2026-10-03
 the Refine pass (its own section above) is the nearest thing here to that
 hires pass - 1.5x and a strength in the author's range, measured on this
-checkpoint - with a Lanczos resize where the author uses the upscaling
-model, which the size tooltip says. The fake-server smoke is `tools/smoke-wai.json`
+checkpoint. Since 2026-10-18 ordinary Refine also offers the author's
+Anime6B upscaler as an opt-in alongside Lanczos; that new GAN path still
+needs card qualification. The size tooltip keeps the separate-steps
+difference explicit. The fake-server smoke is `tools/smoke-wai.json`
 on port 7873; actual card measurements belong in `verified.md`.
 
 Sources checked 2026-09-26:

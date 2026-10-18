@@ -9,14 +9,16 @@ the picture: the source is resized to the requested size, encoded by the VAE,
 noised to the point on the schedule its `strength` names and denoised from
 there under the request's own prompt and settings.
 
-Nothing new is loaded for it. diffusers ships an image-to-image class beside
+The default Lanczos pass loads no new weights. diffusers ships an image-to-image class beside
 most text-to-image ones (`FluxImg2ImgPipeline` beside `FluxPipeline`), taking
 the same components, so the backend builds that sibling over the pipeline it
 already holds (`build`) and the two share every module, hook and adapter.
 Which checkpoints have one is therefore the installed diffusers' answer
 (`sibling`), not a table here: FLUX.1, SDXL, Z-Image and Qwen-Image do; Krea
 2, FLUX.2 [klein], ERNIE-Image and Lumina 2 do not, and neither do the local
-Anima and NewBie pipelines.
+Anima and NewBie pipelines. WAI and RouWei can explicitly opt into the pinned
+Anime6B GAN before the VAE encode; its temporary net is released before the
+diffusion pass. The default path and its existing pixels stay unchanged.
 
 An inpaint is a refine pass with a mask: the same source and strength, at the
 source's own size, through the inpaint class diffusers ships beside the
@@ -53,6 +55,252 @@ DEFAULT_STRENGTH = 0.4
 # What the Refine button multiplies the source's sides by, and the CLI's
 # `--scale` default: WAI's documented hires factor.
 DEFAULT_SCALE = 1.5
+
+# The sole optional GAN preprocess. The WAI and RouWei guides cite this
+# kind of hires pass; other checkpoints and masked passes stay Lanczos-only.
+ANIME6B = "realesrgan-x4plus-anime6b"
+ANIME6B_LABEL = "R-ESRGAN 4x+ Anime6B"
+ANIME6B_URL = "https://github.com/xinntao/Real-ESRGAN/releases/download/v0.2.2.4/RealESRGAN_x4plus_anime_6B.pth"
+ANIME6B_BYTES = 17_938_799
+# Computed from the bounded official release asset 43714889 on 2026-10-18.
+ANIME6B_SHA256 = "f872d837d3c90ed2e05227bed711af5671a6fd1c9f7d7e91c911a61f155e99da"
+# Bound the stitched 4x RGB canvas to 64 Mi pixels (about 192 MB of RGB
+# bytes). A tiny requested target must not bypass this preprocessing bound.
+ANIME6B_MAX_SOURCE_PIXELS = 4_194_304
+ANIME6B_MAX_SOURCE_SIDE = 4096
+
+
+def upscaler_supported(model_id: str) -> bool:
+    return model_id.lower() in {"lyliaengine/waiillustrioussdxl_v170", "minthy/rouwei-0.8"}
+
+
+def upscaler_reason(request: Any, model_id: str) -> str | None:
+    """Refuse an explicit choice before any applied() normalisation."""
+    choice = getattr(request, "upscaler", None)
+    if choice is None:
+        return None
+    if choice != ANIME6B:
+        return "the requested Refine upscaler is not supported by this build"
+    if request.refine is None or request.mask is not None or request.outpaint is not None:
+        return f"{ANIME6B_LABEL} needs an ordinary Refine pass; it cannot be paired with a mask or outpaint"
+    if not upscaler_supported(model_id):
+        return f"{ANIME6B_LABEL} is offered only for WAI v17 and RouWei ordinary Refine passes"
+    return None
+
+
+def check_upscaler_size(width: int, height: int) -> None:
+    if min(width, height) < 1 or max(width, height) > ANIME6B_MAX_SOURCE_SIDE or width * height > ANIME6B_MAX_SOURCE_PIXELS:
+        raise ValueError(f"{ANIME6B_LABEL} supports source images up to 4.19 MP and 4096 pixels per side; use a smaller source")
+
+
+def check_upscaler_source(image_id: int) -> None:
+    from PIL import Image as PILImage
+
+    from . import storage
+
+    (path,) = storage.reference_paths([image_id], noun="source image")
+    try:
+        with PILImage.open(path) as handle:
+            check_upscaler_size(*handle.size)
+    except (OSError, PILImage.DecompressionBombError) as exc:
+        raise ValueError(f"source image {image_id} could not be read for {ANIME6B_LABEL}: {exc}") from exc
+
+
+def _upscale_cancel(should_cancel) -> None:
+    if should_cancel is not None and should_cancel():
+        from .backends.base import Cancelled
+
+        raise Cancelled
+
+
+def _anime6b_path():
+    from pathlib import Path
+
+    from huggingface_hub.constants import HF_HOME
+
+    return Path(HF_HOME) / "local-diffusion" / "upscalers" / ANIME6B_SHA256 / "RealESRGAN_x4plus_anime_6B.pth"
+
+
+def _verify_anime6b(path) -> None:
+    import hashlib
+
+    if path.stat().st_size != ANIME6B_BYTES:
+        raise ValueError(f"{ANIME6B_LABEL} has the wrong file size; the cached weights need repair")
+    digest = hashlib.sha256()
+    with path.open("rb") as handle:
+        while chunk := handle.read(262_144):
+            digest.update(chunk)
+    if digest.hexdigest() != ANIME6B_SHA256:
+        raise ValueError(f"{ANIME6B_LABEL} failed its SHA256 check; the cached weights need repair")
+
+
+def anime6b_weights(should_cancel=None):
+    """Fetch the one pinned author asset only after an explicit job opt-in.
+
+    Existing wrong-sized/hash files refuse rather than being overwritten.
+    A new download is capped, verified and atomically published; cleanup only
+    touches the unique partial file this call created.
+    """
+    import os
+    import shutil
+    import tempfile
+    import urllib.request
+    from pathlib import Path
+
+    _upscale_cancel(should_cancel)
+    target = _anime6b_path()
+    if target.exists():
+        _verify_anime6b(target)
+        return target
+    target.parent.mkdir(parents=True, exist_ok=True)
+    if shutil.disk_usage(target.parent).free < ANIME6B_BYTES * 2:
+        raise OSError(f"not enough free disk space to download {ANIME6B_LABEL}")
+    temporary = None
+    try:
+        with tempfile.NamedTemporaryFile(dir=target.parent, prefix="anime6b-", suffix=".part", delete=False) as output:
+            temporary = Path(output.name)
+            request = urllib.request.Request(ANIME6B_URL, headers={"User-Agent": "Local-Diffusion"})
+            with urllib.request.urlopen(request, timeout=60) as response:
+                length = response.headers.get("Content-Length")
+                if length is not None and int(length) != ANIME6B_BYTES:
+                    raise ValueError(f"{ANIME6B_LABEL} download has the wrong file size")
+                size = 0
+                while chunk := response.read(min(262_144, ANIME6B_BYTES - size + 1)):
+                    _upscale_cancel(should_cancel)
+                    size += len(chunk)
+                    if size > ANIME6B_BYTES:
+                        raise ValueError(f"{ANIME6B_LABEL} download exceeded its expected file size")
+                    output.write(chunk)
+        _upscale_cancel(should_cancel)
+        _verify_anime6b(temporary)
+        if target.exists():  # Another process may have completed this same pin.
+            _verify_anime6b(target)
+        else:
+            os.replace(temporary, target)
+        return target
+    finally:
+        if temporary is not None:
+            temporary.unlink(missing_ok=True)
+
+
+def _anime6b_net():
+    """The pinned BasicSR RRDBNet's 4x, six-block configuration.
+
+    Adapted from BasicSR 651835a1b9d38dbbdaf45750f56906be2364f01a,
+    basicsr/archs/rrdbnet_arch.py (Apache-2.0). Parameter names and forward
+    arithmetic are unchanged. Registry, unused scale-1/2 branches and custom
+    initialization are omitted: every tensor is strictly restored below.
+    Full licences and attribution: LICENSES/RealESRGAN-Anime6B.txt.
+    Imports stay local so status, schemas and previews remain cold.
+    """
+    import torch
+    from torch import nn
+    from torch.nn import functional as F
+
+    class ResidualDenseBlock(nn.Module):
+        def __init__(self):
+            super().__init__()
+            self.conv1 = nn.Conv2d(64, 32, 3, 1, 1)
+            self.conv2 = nn.Conv2d(96, 32, 3, 1, 1)
+            self.conv3 = nn.Conv2d(128, 32, 3, 1, 1)
+            self.conv4 = nn.Conv2d(160, 32, 3, 1, 1)
+            self.conv5 = nn.Conv2d(192, 64, 3, 1, 1)
+            self.lrelu = nn.LeakyReLU(negative_slope=0.2, inplace=True)
+
+        def forward(self, x):
+            x1 = self.lrelu(self.conv1(x))
+            x2 = self.lrelu(self.conv2(torch.cat((x, x1), 1)))
+            x3 = self.lrelu(self.conv3(torch.cat((x, x1, x2), 1)))
+            x4 = self.lrelu(self.conv4(torch.cat((x, x1, x2, x3), 1)))
+            x5 = self.conv5(torch.cat((x, x1, x2, x3, x4), 1))
+            return x5 * 0.2 + x
+
+    class RRDB(nn.Module):
+        def __init__(self):
+            super().__init__()
+            self.rdb1 = ResidualDenseBlock()
+            self.rdb2 = ResidualDenseBlock()
+            self.rdb3 = ResidualDenseBlock()
+
+        def forward(self, x):
+            return self.rdb3(self.rdb2(self.rdb1(x))) * 0.2 + x
+
+    class RRDBNet(nn.Module):
+        def __init__(self):
+            super().__init__()
+            self.conv_first = nn.Conv2d(3, 64, 3, 1, 1)
+            self.body = nn.Sequential(*(RRDB() for _ in range(6)))
+            self.conv_body = nn.Conv2d(64, 64, 3, 1, 1)
+            self.conv_up1 = nn.Conv2d(64, 64, 3, 1, 1)
+            self.conv_up2 = nn.Conv2d(64, 64, 3, 1, 1)
+            self.conv_hr = nn.Conv2d(64, 64, 3, 1, 1)
+            self.conv_last = nn.Conv2d(64, 3, 3, 1, 1)
+            self.lrelu = nn.LeakyReLU(negative_slope=0.2, inplace=True)
+
+        def forward(self, x):
+            feat = self.conv_first(x)
+            feat = feat + self.conv_body(self.body(feat))
+            feat = self.lrelu(self.conv_up1(F.interpolate(feat, scale_factor=2, mode="nearest")))
+            feat = self.lrelu(self.conv_up2(F.interpolate(feat, scale_factor=2, mode="nearest")))
+            return self.conv_last(self.lrelu(self.conv_hr(feat)))
+
+    # Constructing Conv2d runs random initialization even though strict state
+    # loading replaces it. Do not consume the diffusion process's RNG state.
+    with torch.random.fork_rng(devices=[]):
+        return RRDBNet()
+
+
+def anime6b_upscale(image: "Image", should_cancel=None, *, device: str = "cpu") -> "Image":
+    """The frozen GAN preprocess: 4x, FP32, 256px tiles, 10px context.
+
+    Follows Real-ESRGAN's RGB conversion, right/bottom reflection pre-pad,
+    tile context/cropping and round-to-8-bit output. Tiles and the net leave
+    the device before the VAE runs. These pixel-deciding choices belong to
+    ANIME6B: changing them needs a new reproduction identifier.
+    """
+    import numpy as np
+    import torch
+    from PIL import Image as PILImage
+    from torch.nn import functional as F
+
+    check_upscaler_size(*image.size)
+    path = anime6b_weights(should_cancel)
+    _upscale_cancel(should_cancel)
+    state = torch.load(path, map_location="cpu", weights_only=True)
+    if not isinstance(state, dict) or not isinstance(state.get("params_ema"), dict):
+        raise ValueError(f"{ANIME6B_LABEL} weights have no params_ema state")
+    model = _anime6b_net()
+    model.load_state_dict(state["params_ema"], strict=True)
+    del state
+    _upscale_cancel(should_cancel)
+    model.eval().to(device=device, dtype=torch.float32)
+    source = image.convert("RGB")
+    width, height = source.size
+    # App gallery images are >=256px. Still handle a tiny test/input safely.
+    pad = min(10, width - 1, height - 1)
+    inputs = torch.from_numpy(np.asarray(source).copy()).permute(2, 0, 1).unsqueeze(0).float().div_(255)
+    if pad:
+        inputs = F.pad(inputs, (0, pad, 0, pad), "reflect")
+    result = PILImage.new("RGB", (width * 4, height * 4))
+    try:
+        with torch.no_grad():
+            for top in range(0, height, 256):
+                for left in range(0, width, 256):
+                    _upscale_cancel(should_cancel)
+                    right, bottom = min(width, left + 256), min(height, top + 256)
+                    x0, y0 = max(0, left - 10), max(0, top - 10)
+                    x1, y1 = min(width + pad, right + 10), min(height + pad, bottom + 10)
+                    tile = inputs[:, :, y0:y1, x0:x1].to(device)
+                    output = model(tile)
+                    _upscale_cancel(should_cancel)
+                    pixels = output[0, :, (top - y0) * 4:(bottom - y0) * 4,
+                                    (left - x0) * 4:(right - x0) * 4]
+                    array = pixels.clamp(0, 1).mul(255).round().to(device="cpu", dtype=torch.uint8).permute(1, 2, 0).numpy()
+                    result.paste(PILImage.fromarray(array), (left * 4, top * 4))
+                    del tile, output, pixels, array
+    finally:
+        del model
+    return result
 
 # What the sibling's `__call__` has to take to be a refine pass at all: the
 # source and how far to re-denoise it, and the two things `load()` insists on
@@ -250,7 +498,8 @@ def fitted(image: "Image", width: int, height: int) -> "Image":
     return resized.crop((left, top, left + width, top + height))
 
 
-def source_image(image_id: int, width: int, height: int) -> "Image":
+def source_image(image_id: int, width: int, height: int, *, upscaler: str | None = None,
+                 should_cancel=None, device: str = "cpu") -> "Image":
     """The gallery image a refine pass starts from, at the requested size.
 
     Decoded here and the file handle closed, as the reference images are: the
@@ -263,7 +512,14 @@ def source_image(image_id: int, width: int, height: int) -> "Image":
 
     (path,) = storage.reference_paths([image_id], noun="source image")
     with PILImage.open(path) as handle:
-        return fitted(handle.convert("RGB"), width, height)
+        if upscaler is not None:
+            check_upscaler_size(*handle.size)
+        source = handle.convert("RGB")
+    if upscaler is not None:
+        if upscaler != ANIME6B:
+            raise ValueError("the requested Refine upscaler is not supported by this build")
+        source = anime6b_upscale(source, should_cancel, device=device)
+    return fitted(source, width, height)
 
 
 def inpaint_source(image_id: int, width: int, height: int) -> "Image":

@@ -6,7 +6,7 @@ import asyncio
 
 from fastapi import HTTPException
 
-from . import grid, loras, outpaint, storage
+from . import grid, loras, outpaint, refine, storage
 from .app_context import AppServices
 from .schemas import GenerateRequest, ImageRecord
 
@@ -47,6 +47,14 @@ async def unusable_input(services: AppServices, request: GenerateRequest) -> tup
     run where there is a mask - an outpaint has none until its stamp - and
     an outpaint's own (`outpaint_unusable`, kind `outpaint`) where there is
     one."""
+    reason = refine.upscaler_reason(request, services.model_id())
+    if reason is not None:
+        return "upscaler", reason
+    if request.upscaler is not None:
+        try:
+            await asyncio.to_thread(refine.check_upscaler_source, request.refine)
+        except ValueError as exc:
+            return "upscaler", str(exc)
     if request.refine is not None:
         inpainting = request.inpainting
         if inpainting:

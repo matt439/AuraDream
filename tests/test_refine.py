@@ -753,3 +753,226 @@ def test_a_refine_preview_reads_the_sigma_where_the_pass_is(monkeypatch):
         scheduler.begin_index = begin
         backend._preview(pipe, object(), request, step=0)
     assert seen == [0.2, 0.8, 0.8]
+
+
+# --------------------------------------------------------- opt-in GAN record
+
+_WAI = "LyliaEngine/waiIllustriousSDXL_v170"
+
+
+@pytest.mark.parametrize("fields, reason", [
+    ({}, "needs the image"),
+    ({"refine": 1, "mask": "ab" * 32}, "ordinary refine"),
+    ({"refine": 1, "outpaint": {"left": 32}}, "ordinary refine"),
+])
+def test_an_upscaler_is_only_an_ordinary_refine_setting(fields, reason):
+    with pytest.raises(ValueError, match=reason):
+        GenerateRequest(prompt="a fox", upscaler=refine.ANIME6B, **fields)
+    with pytest.raises(ValueError, match="upscaler"):
+        GenerateRequest(prompt="a fox", refine=1, upscaler="untrusted-net")
+
+
+def test_applied_keeps_the_gan_only_with_a_documented_ordinary_pass(monkeypatch):
+    import dataclasses
+
+    from backend import schemas_generate
+
+    request = GenerateRequest(prompt="a fox", refine=7, upscaler=refine.ANIME6B)
+    for model_id, expected in (
+        (_WAI, refine.ANIME6B), ("MINTHY/ROUWEI-0.8", refine.ANIME6B),
+        ("cagliostrolab/animagine-xl-4.0", None), ("somebody/waiIllustriousSDXL_v170", None),
+    ):
+        monkeypatch.setattr(schemas_generate, "settings", dataclasses.replace(
+            schemas_generate.settings, model_id=model_id,
+        ))
+        assert _applied(request, refine_supported=True).upscaler == expected
+        dropped = _applied(request, refine_supported=False)
+        assert (dropped.refine, dropped.upscaler) == (None, None)
+    # Defensive normalisation also handles an internal copy that bypassed
+    # validation, rather than recording a GAN beside an inpaint.
+    stamped = request.model_copy(update={"mask": "ab" * 32})
+    assert _applied(stamped, inpaint_supported=True).upscaler is None
+
+
+def _save_gan(store, source=None, *, prompt="a fox", upscaler=None, seed=1):
+    request = GenerateRequest(
+        prompt=prompt, width=256, height=256, steps=20, seed=seed,
+        refine=source, strength=0.4, upscaler=upscaler,
+    )
+    record = store.save_image(
+        Image.new("RGB", (256, 256), (seed, 20, 30)), request,
+        seed=seed, duration_ms=1000, model_id=_WAI,
+    )
+    return record, request
+
+
+def test_gan_reproduction_reaches_the_row_png_resume_key_and_rerun(store):
+    from backend import more_seeds, png_settings, refine_batch
+
+    source, _ = _save_gan(store)
+    plain, request = _save_gan(store, source.id)
+    record, gan = _save_gan(store, source.id, upscaler=refine.ANIME6B)
+    assert record.upscaler == refine.ANIME6B and plain.upscaler is None
+    assert store.get_image(record.id).upscaler == refine.ANIME6B
+    with Image.open(store.settings.outputs_dir / record.filename) as png:
+        assert json.loads(png.info["local-diffusion"])["upscaler"] == refine.ANIME6B
+        assert f"Hires upscaler: {refine.ANIME6B_LABEL}" in png.info["parameters"]
+        _, _, parameters = png_settings.parse_parameters(png.info["parameters"])
+        assert parameters["Hires upscaler"] == refine.ANIME6B_LABEL
+    with Image.open(store.settings.outputs_dir / plain.filename) as png:
+        assert "upscaler" not in json.loads(png.info["local-diffusion"])
+        assert "Hires upscaler" not in png.info["parameters"]
+    base = grid.Cell(request, seed=1)
+    enhanced = grid.Cell(gan, seed=1)
+    assert grid.cell_key(enhanced)[-2:] == (refine.ANIME6B, 1)
+    assert len({grid.cell_key(base), grid.cell_key(enhanced)}) == 2
+    assert grid.run_id([base], _WAI, "fp8") != grid.run_id([enhanced], _WAI, "fp8")
+    done = store.completed_cells(["a fox"], 256, 256, _WAI)
+    assert {grid.cell_key(base), grid.cell_key(enhanced)} <= done
+    assert grid.prune_done([base, enhanced], {grid.cell_key(base)}) == [enhanced]
+    assert grid.cell_from_record(record).request.upscaler == refine.ANIME6B
+    assert more_seeds.settings_key(record) == grid.cell_key(enhanced)[:-1]
+    assert more_seeds.batch_key(record) != more_seeds.batch_key(plain)
+    # A newly requested pass on the record itself starts without a GAN;
+    # Mass refine has no upscaler option to opt into.
+    planned = refine_batch.plan(
+        record, running=_WAI, profile=defaults_for(_WAI), scale=1.5,
+        strength=0.4, steps=None, include_foreign=False, skip_passes=False,
+    )
+    assert planned.cell.request.upscaler is None
+
+
+def test_gan_adds_a_column_to_an_older_gallery(tmp_path, monkeypatch):
+    import dataclasses
+    import sqlite3
+
+    from backend import storage
+    from test_storage import OLD_SCHEMA
+
+    database = tmp_path / "old.db"
+    with sqlite3.connect(database) as conn:
+        conn.executescript(OLD_SCHEMA)
+    monkeypatch.setattr(storage, "settings", dataclasses.replace(
+        storage.settings, db_path=database, outputs_dir=tmp_path / "outputs",
+    ))
+    saved, _ = _save_gan(storage, 1, upscaler=refine.ANIME6B)
+    assert saved.upscaler == refine.ANIME6B
+    with storage._session() as conn:
+        assert "upscaler" in {row["name"] for row in conn.execute("PRAGMA table_info(images)")}
+
+
+@pytest.mark.parametrize("database", [False, True])
+def test_gan_reindex_carries_the_choice_and_clears_it_with_a_lost_source(store, monkeypatch, tmp_path, database):
+    import dataclasses
+
+    from backend import reindex, storage
+
+    source, _ = _save_gan(store)
+    record, _ = _save_gan(store, source.id, upscaler=refine.ANIME6B)
+    orphan, _ = _save_gan(store, 4242, prompt="orphan", upscaler=refine.ANIME6B)
+    original = store.settings
+    target = dataclasses.replace(
+        original, db_path=tmp_path / "target.db", outputs_dir=tmp_path / "target",
+    )
+    monkeypatch.setattr(storage, "settings", target)
+    monkeypatch.setattr(reindex, "settings", target)
+    storage.init_db()
+    _save_gan(store, prompt="occupy destination id")
+    counts = reindex.reindex(
+        original.outputs_dir, database=original.db_path if database else None,
+    )
+    assert counts["indexed"] == 3 and counts["unresolved_references"] == 1
+    records = {r.filename: r for r in store.list_images(limit=20)[0]}
+    assert records[record.filename].refine == records[source.filename].id != source.id
+    assert records[record.filename].upscaler == refine.ANIME6B
+    assert records[orphan.filename].upscaler is None and records[orphan.filename].refine is None
+    for saved in (record, orphan):
+        with Image.open(target.outputs_dir / saved.filename) as png:
+            metadata = json.loads(png.info["local-diffusion"])
+            assert metadata.get("upscaler") == records[saved.filename].upscaler
+
+
+@pytest.mark.parametrize("include_source", [False, True])
+def test_gan_bundle_carries_the_choice_only_with_its_source(store, monkeypatch, tmp_path, include_source):
+    from pathlib import Path
+
+    from backend import bundles
+    from tests.bundle_helpers import _destination
+
+    source, _ = _save_gan(store)
+    record, _ = _save_gan(store, source.id, upscaler=refine.ANIME6B)
+    exported = bundles.export_bundle(
+        keep_gallery=True, ids=[source.id, record.id] if include_source else [record.id],
+    )
+    archive = Path(exported["path"])
+    target = _destination(store, monkeypatch, tmp_path)
+    _save_gan(store, prompt="occupy destination id")
+    answer = bundles.import_bundle(archive)
+    assert answer["unresolved_references"] == (0 if include_source else 1)
+    records = {r.filename: r for r in store.list_images(limit=20)[0]}
+    restored = records[record.filename]
+    assert restored.upscaler == (refine.ANIME6B if include_source else None)
+    assert restored.refine == (records[source.filename].id if include_source else None)
+    with Image.open(target.outputs_dir / restored.filename) as png:
+        assert json.loads(png.info["local-diffusion"]).get("upscaler") == restored.upscaler
+
+
+def test_gan_time_is_never_estimated_from_lanczos_history(store):
+    source, _ = _save_gan(store)
+    _, ordinary = _save_gan(store, source.id)
+    _, gan = _save_gan(store, source.id, upscaler=refine.ANIME6B)
+    with store._session() as conn:
+        conn.execute("UPDATE images SET duration_ms = 100000 WHERE upscaler IS NOT NULL")
+    costs = store.refine_cost_ms(256, 256, _WAI)
+    assert costs == {8: 1000}
+    assert grid.estimate_seconds([grid.Cell(ordinary, 1)], None, refine_costs=costs) == 1
+    assert grid.estimate_seconds([grid.Cell(gan, 1)], None, refine_costs=costs) is None
+
+
+@pytest.mark.parametrize("changes", [
+    {"upscaler": "unknown-net"}, {"refine": None}, {"mask": "ab" * 32},
+    {"model_id": "cagliostrolab/animagine-xl-4.0"},
+])
+def test_a_bundle_refuses_an_invalid_persisted_upscaler(store, changes):
+    from backend import bundle_images
+    from backend.bundle_common import BundleError
+
+    source, _ = _save_gan(store)
+    record, _ = _save_gan(store, source.id, upscaler=refine.ANIME6B)
+    with store._session() as conn:
+        row = dict(conn.execute("SELECT * FROM images WHERE id = ?", (record.id,)).fetchone())
+    row.update(changes)
+    with pytest.raises(BundleError, match="invalid upscaler"):
+        bundle_images._validate_row(row, record.width, record.height, record.content_hash)
+
+
+@pytest.mark.parametrize("database", [False, True])
+def test_a_reindex_refuses_an_unknown_persisted_upscaler(store, monkeypatch, tmp_path, database):
+    import dataclasses
+    import io
+
+    from backend import reindex, storage
+
+    source, _ = _save_gan(store)
+    record, _ = _save_gan(store, source.id, upscaler=refine.ANIME6B)
+    original = store.settings
+    with store._session() as conn:
+        conn.execute("UPDATE images SET upscaler = 'unknown-net' WHERE id = ?", (record.id,))
+    path = original.outputs_dir / record.filename
+    with Image.open(path) as image:
+        meta = json.loads(image.info["local-diffusion"])
+    meta["upscaler"] = "unknown-net"
+    path.write_bytes(reindex._with_local_diffusion_metadata(path.read_bytes(), meta))
+    target = dataclasses.replace(
+        original, db_path=tmp_path / "target.db", outputs_dir=tmp_path / "target",
+    )
+    monkeypatch.setattr(storage, "settings", target)
+    monkeypatch.setattr(reindex, "settings", target)
+    out = io.StringIO()
+    counts = reindex.reindex(
+        original.outputs_dir, database=original.db_path if database else None, out=out,
+    )
+    assert counts["indexed"] == 1
+    assert counts["invalid" if database else "invalid_upscalers"] == 1
+    assert "invalid upscaler" in out.getvalue()
+    assert [r.filename for r in store.list_images()[0]] == [source.filename]

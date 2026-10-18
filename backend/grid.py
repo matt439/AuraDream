@@ -98,21 +98,21 @@ VARIANT = "variant"
 
 # What identifies an image for resume: the prompt pair, the settings, the seed.
 # (prompt, negative prompt, steps, CFG, mu, true CFG, references, LoRA, refine,
-# mask, seed) - the seed last, because `cell_keys` swaps it for each image of a
-# batch, and the five optional elements in the order they were added, because
+# mask, upscaler, seed) - the seed last, because `cell_keys` swaps it for each
+# image of a batch, and the optional elements in the order they were added, because
 # `run_id` names a cell by the shortest form that carries all of its non-None
 # ones.
 CellKey = tuple[
     str, str | None, int, float, float | None, float | None, str | None, str | None,
-    str | None, str | None, int,
+    str | None, str | None, str | None, int,
 ]
 
 # How many of the trailing elements before the seed are optional extensions -
-# true CFG, references, LoRA, refine, mask. `run_id` drops them from the right
-# while they are None, so a grid that uses none of them is named by the
+# true CFG, references, LoRA, refine, mask, upscaler. `run_id` drops them from
+# the right while they are None, so a grid that uses none of them is named by the
 # six-element key its images have carried since before any of them existed,
 # and a refine run by the nine-element key it carried before the mask.
-_KEY_EXTENSIONS = 5
+_KEY_EXTENSIONS = 6
 
 
 def reference_key(ids: Sequence[int] | None) -> str | None:
@@ -635,6 +635,7 @@ def cell_key(cell: "Cell") -> CellKey:
         lora_key(request.lora, request.lora_scale),
         refine_key(request.refine, request.strength),
         mask_key(request.mask, _outpaint_text(request.outpaint)),
+        request.upscaler,
         cell.seed,
     )
 
@@ -731,7 +732,7 @@ def cell_from_record(
     effective true CFG (a FLUX record from before the knob was separate
     carries the real CFG it ran), mu, the references, the adapter and its
     weight, the refine source and its strength (a refined record runs again
-    as a pass of the same source, and an inpaint over its mask), the seed
+    as a pass of the same source, with its upscaler, and an inpaint over its mask), the seed
     and the variables - what the
     placeholders were set to, or which version of a comparison this is, the
     only place a variant's label lives. Raises pydantic's ValidationError
@@ -759,6 +760,7 @@ def cell_from_record(
         "lora_scale": record.lora_scale if record.lora_scale is not None else 1.0,
         "refine": record.refine,
         "strength": record.strength if record.refine is not None else None,
+        "upscaler": record.upscaler if record.refine is not None else None,
         # An inpaint runs again over the same region of the same source; an
         # outpaint over the same padding, its mask built again at the stamp
         # (and refused beside one by the validator).
@@ -842,6 +844,10 @@ def _cell_ms(
     priced = []
     for cell in cells:
         request = cell.request
+        # The GAN adds work before VAE encoding. Ordinary Refine history
+        # cannot price it; keep the estimate unknown until measured apart.
+        if request.upscaler is not None:
+            return None
         if request.refine is None:
             if per_step_ms is None:
                 return None
@@ -895,8 +901,8 @@ def run_id(cells: list[Cell], model_id: str, quantization: str) -> str:
     same run however their axes were spelled.
 
     A cell is named by the shortest key that carries all of its optional
-    elements: none of true CFG, references, a LoRA, a refine source or a mask and it
-    is the six-element key images have carried since before any of them
+    elements: none of true CFG, references, a LoRA, a refine source, a mask or
+    an upscaler and it is the six-element key images have carried since before any of them
     existed, so every run id from an earlier build - and every grid that uses
     none of them - is unchanged. Each one that is set extends the name by one element, in the
     order they were added.

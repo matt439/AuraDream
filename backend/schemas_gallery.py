@@ -4,11 +4,12 @@ the recycle bin's bodies and answers.
 """
 from __future__ import annotations
 
-from typing import Annotated
+from typing import Annotated, Literal
 
 from pydantic import BaseModel, Field
 
 from .config import settings
+from .refine import ANIME6B
 from .schemas_generate import OutpaintSpec
 
 class ImageRecord(BaseModel):
@@ -51,6 +52,8 @@ class ImageRecord(BaseModel):
     # the schedule's length, of which the pass ran about `steps * strength`.
     refine: int | None = None
     strength: float | None = None
+    # The optional GAN that prepared the source for an ordinary Refine pass.
+    upscaler: Literal[ANIME6B] | None = None
     # True when `refine` names an image no longer in the gallery: the pass is
     # kept, and so is the id, but it cannot be made again. Read, not stored -
     # the gallery's pages and `GET /api/images/{id}` look the source up.

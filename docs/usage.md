@@ -305,7 +305,14 @@ guard permits up to any 2 MP preset at 2× (about 8.4 MP), but the dialog's
 measured-size warning is the better guide to VRAM use.
 
 Availability depends on the pipeline and is confirmed after loading.
-Refine uses the loaded weights and a plain resize, not an external upscaler.
+Refine defaults to a Lanczos resize. On WAI v17 and RouWei, **Upscaler**
+also offers opt-in **R-ESRGAN 4x+ Anime6B**: an approximately 18 MB verified
+author download on first use, a tiled 4x upscale, then a Lanczos fit to the
+target. Each fresh pass starts at Lanczos; Reuse carries an available
+recorded choice. Closing keeps an unsent draft for that source; **Start
+over** resets its choice. GAN sources are limited to 4,194,304 pixels and 4,096 px
+per side. The option is unavailable for Inpaint and Outpaint. Its quality,
+timing and memory on this card remain unmeasured.
 Direct rendering at a larger size changes the noise shape and composition
 even with the same seed. In the lightbox, **Compare with source** shows a
 divider or side-by-side comparison. Deleting the source leaves its passes
@@ -652,6 +659,9 @@ uv run python -m backend.generate --help
 prints one path and seed per saved image. `--true-cfg`, `--reference 12,15`,
 `--lora style.safetensors --lora-scale 0.8` and `--grid-lora-scale 0-1x0.25`
 match the browser controls. Refine supports `--strength` and `--grid-strength`.
+For ordinary WAI/RouWei passes, `--upscaler realesrgan-x4plus-anime6b` opts
+into the pinned GAN; `--upscaler lanczos` explicitly uses the default resize,
+including when overriding a PNG's recorded choice. Both work via the server.
 `--refine 412 --mask mask.png` inpaints: white repaints, black keeps, grey
 blends, at the source's own size. `--refine 412 --outpaint 0,0,256,0` (left,
 top, right, bottom) or `--outpaint 16:9` / `--outpaint +25%` outpaints, with

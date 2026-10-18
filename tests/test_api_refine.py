@@ -301,6 +301,27 @@ def test_a_rerender_carries_the_source_and_the_strength(client, fake, store):
     assert f"no gallery image with id {first['id']}" in response.json()["detail"]
 
 
+def test_a_rerender_carries_the_opted_in_gan_with_the_pass(client, fake, monkeypatch):
+    from backend import main, refine
+
+    monkeypatch.setattr(main.model_selection, "_selection", ("LyliaEngine/waiIllustriousSDXL_v170", 0))
+    source = _first(client)
+    run_one(client, refine=source["id"], strength=0.4, steps=20, upscaler=refine.ANIME6B)
+    record = client.get("/api/gallery").json()["items"][0]
+    assert record["upscaler"] == refine.ANIME6B
+    response = client.post("/api/rerender", json={
+        "ids": [record["id"]], "width": 512, "height": 512,
+    })
+    assert response.status_code == 200, response.text
+    stream_job(client, response.json()["job_id"])
+    ran = fake.requests[-1]
+    assert (ran.refine, ran.upscaler, ran.strength, ran.width) == (
+        source["id"], refine.ANIME6B, 0.4, 512,
+    )
+    newest = client.get("/api/gallery").json()["items"][0]
+    assert newest["upscaler"] == refine.ANIME6B
+
+
 def test_a_refine_with_no_strength_runs_at_the_checkpoints_own(client, fake, store):
     # Where a strength lands depends on the checkpoint's schedule, so the
     # starting value is the profile's, published like the steps and filled in

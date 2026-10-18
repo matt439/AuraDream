@@ -36,6 +36,9 @@ const SHEET_AXES = [
   // A refine pass's strength, null on a direct render for the same reason:
   // a strength sweep over one source is a row of how much of it was redrawn.
   { key: 'strength', label: 'Strength', of: (r) => r.strength },
+  // GAN-prepared and Lanczos passes are different pictures even when their
+  // source, seed and denoising settings agree.
+  { key: 'upscaler', label: 'Upscaler', of: (r) => r.upscaler ?? null },
   { key: 'seed', label: 'Seed', of: (r) => r.seed },
 ];
 const trueCfgEchoesCfg = (records) =>
@@ -140,6 +143,7 @@ let sheetMuStatic = null;
 // "Version rewrite"), a weight with its adapter.
 function sheetText(axis, v, words = sheetWords()) {
   if (axis.key === VARIANT_AXIS && v !== null) return VERSION_NAMES.get(v) ?? v;
+  if (axis.key === 'upscaler' && v !== null) return upscalerName(v);
   if (axis.key === 'negative' && v !== null) return negativeShown(v);
   if (axis.key === 'mu' && v === null && words.muStatic != null) return `none (${muStaticText(words.muStatic)})`;
   return valueText(v, words);
@@ -627,7 +631,7 @@ const thumbWidthOf = (rec) => Math.round(rec.width * Math.min(1, THUMB_SIDE / Ma
 
 // Settings nothing on the sheet has - no adapter, no references, no pass -
 // are left out of the Fixed line rather than listed as `none`.
-const ABSENT_WHEN_NONE = new Set(['tcfg', 'lora', 'adapter', 'ref', 'strength']);
+const ABSENT_WHEN_NONE = new Set(['tcfg', 'lora', 'adapter', 'ref', 'strength', 'upscaler']);
 
 // The settings every image on the sheet shares. Under the Starred tick they
 // are what made the keepers, and the tick takes them off every axis: two

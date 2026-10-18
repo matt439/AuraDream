@@ -117,7 +117,7 @@ from copy import deepcopy
 from typing import Any, NamedTuple
 
 from . import guides
-from .refine import DEFAULT_STRENGTH, leaves_a_step
+from .refine import DEFAULT_STRENGTH, leaves_a_step, upscaler_supported
 
 # What the server runs when nothing says otherwise. Here rather than in
 # config.py because launch.py needs the same three values for its menu and
@@ -1123,6 +1123,8 @@ def defaults_for(model_id: str) -> dict[str, Any]:
         "cfg_ignored": bool(profile.get("cfg_ignored", False)),
         "refine_tight_pixels": measured.width * measured.height if measured else None,
         "refine_settled": model_id.lower().replace("_", "-") in _OWN_PIPELINES,
+        # Opt-in GAN preparation is limited to the two guides that cite it.
+        "upscaler_supported": upscaler_supported(model_id),
         # A load can only take an inpaint away (the backend needs the profile's
         # True and the class), never add one, so a False is final already.
         "inpaint_settled": not profile["inpaint_supported"],

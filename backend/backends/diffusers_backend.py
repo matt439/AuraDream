@@ -653,6 +653,8 @@ class DiffusersBackend(GenerationBackend):
         import torch
 
         pipe = self._pipe
+        if getattr(request, "upscaler", None) is not None:
+            self.check_refine_supported(request)
         # Run what will be recorded: the negative prompt where the pipeline can
         # apply it, mu where it can take one. Anything dropped here is dropped
         # from the row too, since the callers save `applied()` as well.
@@ -794,7 +796,13 @@ class DiffusersBackend(GenerationBackend):
             )
             kwargs["strength"] = request.strength
         elif refining:
-            kwargs["image"] = refine.source_image(request.refine, request.width, request.height)
+            if request.upscaler is not None:
+                kwargs["image"] = refine.source_image(
+                    request.refine, request.width, request.height, upscaler=request.upscaler,
+                    should_cancel=should_cancel, device=current_settings(settings).device,
+                )
+            else:
+                kwargs["image"] = refine.source_image(request.refine, request.width, request.height)
             kwargs["strength"] = request.strength
         elif request.reference and self._reference_supported():
             kwargs["image"] = self._reference_images(request.reference)

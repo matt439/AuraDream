@@ -469,6 +469,7 @@ for (const el of [els.refineWidth, els.refineHeight, els.refineStrength, els.ref
   el.addEventListener('input', refineChanged);
 }
 els.refineVersions.addEventListener('change', refineChanged);
+els.refineUpscaler.addEventListener('change', refineChanged);
 
 // The Inpaint dialog (inpaint.js) and its mask (inpaint-mask.js). The canvas
 // paints with pointer events, captured for the stroke; its keys are its own

@@ -12,6 +12,7 @@
   {"wait": 800},
   {"eval": "window.__src = galleryRecords[0]; openRefine(window.__src)"},
   {"wait": 900},
+  {"expect": "lastDefaults.upscaler_supported === false && els.refineUpscalerField.hidden && refineRequest().body.upscaler === null"},
 
   {"log": "'measured here: Animagine\\'s own run, 2896x2896 at fp8 (verified.md), so 1.5x opens and 2x stays inside it with no warning, and no FLUX.1 note'"},
   {"expect": "els.refineDialog.open && lastDefaults.refine_tight_pixels === 2896 * 2896 && els.refineScales.children[2].classList.contains('active') && !els.refineSizeHint.classList.contains('warn') && els.refineLarge.hidden && !els.refineLarge.textContent"},

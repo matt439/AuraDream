@@ -116,6 +116,14 @@ class GenerationBackend(abc.ABC):
         A profile is only a pre-load guess for an unfamiliar checkpoint id.
         Normalization must not turn an accepted refine job into direct renders.
         """
+        if getattr(request, "upscaler", None) is not None:
+            from .. import refine
+
+            reason = refine.upscaler_reason(request, self.describe()["model_id"])
+            if reason is not None:
+                raise ValueError(reason)
+            if self.applied(request).upscaler != request.upscaler:
+                raise ValueError("the loaded pipeline cannot preserve the requested Refine upscaler")
         if request.refine is not None and self.applied(request).refine != request.refine:
             if request.inpainting:
                 through = ", which an outpaint runs through" if request.outpaint is not None else ""

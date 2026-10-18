@@ -1500,3 +1500,60 @@ def test_server_json_reports_http_validation_and_network_errors_without_tracebac
     with pytest.raises(generate._ServerError, match="no usable answer") as error:
         generate._server_json("http://127.0.0.1:9999", "/api/status")
     assert error.value.status == 0
+
+
+@pytest.mark.parametrize("model", ["LyliaEngine/waiIllustriousSDXL_v170", "Minthy/RouWei-0.8"])
+def test_gan_cli_is_opt_in_and_from_image_can_carry_override_or_drop_it(cli, store, monkeypatch, capsys, model):
+    from backend import model_selection, refine
+
+    monkeypatch.setattr(model_selection, "_selection", (None, 0))
+    model_selection.select(model)
+    monkeypatch.setattr(generate, "_project", _project_claiming(generate, model))
+    source = _to_refine(store)
+    argv = ["a fox", "--refine", str(source.id), "--upscaler", refine.ANIME6B, "--seed", "7"]
+    assert generate.main([*argv, "--dry-run"]) == 0
+    assert cli.loads == 0 and "upscaler : R-ESRGAN 4x+ Anime6B" in capsys.readouterr().out
+    assert generate.main([*argv, "-q"]) == 0
+    made = capsys.readouterr().out.split("  seed ")[0].strip()
+    assert cli.requests[-1].upscaler == refine.ANIME6B
+    assert generate.main(["--from-image", made, "-q"]) == 0
+    assert cli.requests[-1].upscaler == refine.ANIME6B
+    capsys.readouterr()
+    assert generate.main(["--from-image", made, "--upscaler", "lanczos", "-q"]) == 0
+    assert cli.requests[-1].upscaler is None
+    capsys.readouterr()
+    with gallery_lock.hold(store.settings.db_path), store._write_lock, store._session() as conn:
+        conn.execute("UPDATE images SET content_hash = ? WHERE id = ?", ("0" * 16, source.id))
+    assert generate.main(["--from-image", made, "-q"]) == 0
+    assert cli.requests[-1].refine is None and cli.requests[-1].upscaler is None
+
+
+def test_gan_cli_refuses_wrong_model_and_oversized_source_before_load(cli, store, monkeypatch, capsys):
+    from backend import model_selection, refine
+
+    source = _to_refine(store)
+    assert generate.main(["a fox", "--refine", str(source.id), "--upscaler", refine.ANIME6B, "--dry-run"]) == 2
+    assert "only for WAI" in capsys.readouterr().err and cli.loads == 0
+    monkeypatch.setattr(model_selection, "_selection", (None, 0))
+    model_selection.select("LyliaEngine/waiIllustriousSDXL_v170")
+    monkeypatch.setattr(generate, "_project", _project_claiming(generate, "LyliaEngine/waiIllustriousSDXL_v170"))
+    monkeypatch.setattr(refine, "check_upscaler_source", lambda image_id: refine.check_upscaler_size(4097, 256))
+    assert generate.main(["a fox", "--refine", str(source.id), "--upscaler", refine.ANIME6B, "--dry-run"]) == 2
+    assert "4.19 MP" in capsys.readouterr().err and cli.loads == 0 and not cli.requests
+
+
+def test_gan_via_server_carries_the_choice_and_refuses_before_mask_upload(via_server, store, monkeypatch, tmp_path, capsys):
+    from backend import model_selection, refine
+
+    model_selection.select("LyliaEngine/waiIllustriousSDXL_v170")
+    source = _to_refine(store)
+    argv = ["a fox", "--via-server", "--refine", str(source.id), "--upscaler", refine.ANIME6B, "--seed", "7", "-q"]
+    assert generate.main(argv) == 0
+    assert via_server.backend.requests[-1].upscaler == refine.ANIME6B
+    body = next(call[2] for call in via_server.calls if call[1] == "/api/generate")
+    assert body["upscaler"] == refine.ANIME6B
+    mask, _ = _mask_file(tmp_path)
+    calls = len(via_server.calls)
+    assert generate.main([*argv, "--mask", str(mask)]) == 2
+    assert "ordinary Refine" in capsys.readouterr().err
+    assert not any(call[1].startswith("/api/masks") or call[1] == "/api/generate" for call in via_server.calls[calls:])

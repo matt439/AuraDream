@@ -36,7 +36,19 @@
   {"eval": "window.__source = viewerRecords[0].id; openRefine(viewerRecords[0]);"},
   {"expect": "__until(() => els.refineDialog.open && refinePreviewed !== null)"},
   {"expect": "els.refineStrength.value === '0.4' && els.refineSteps.value === '28' && els.refineCfg.value === '6' && els.refineMu.disabled && +els.refineWidth.value === 1536 && +els.refineHeight.value === 1536"},
+  {"expect": "lastDefaults.upscaler_supported && !els.refineUpscalerField.hidden && els.refineUpscaler.value === '' && refineRequest().body.upscaler === null && [...els.refineUpscaler.options].some(o => o.value === REFINE_ANIME6B)"},
   {"eval": "void runRefine();"},
   {"expect": "__until(() => !els.refineDialog.open && viewerRecords.some(r => r.refine === window.__source))"},
-  {"expect": "viewerRecords.some(r => r.refine === window.__source && r.model_id === 'Minthy/RouWei-0.8' && r.strength === 0.4 && r.width === 1536 && r.height === 1536)"}
+  {"expect": "viewerRecords.some(r => r.refine === window.__source && r.model_id === 'Minthy/RouWei-0.8' && r.strength === 0.4 && r.width === 1536 && r.height === 1536)"},
+  {"eval": "(async () => { window.__ganRouweiSource = await api(`/api/images/${window.__source}`); openRefine(window.__ganRouweiSource); })()"},
+  {"expect": "__until(() => els.refineDialog.open && refinePreviewed !== null)"},
+  {"eval": "els.refineUpscaler.value = REFINE_ANIME6B; refineChanged();"},
+  {"expect": "__until(() => refinePreviewed === JSON.stringify(refineRequest().preview) && !refineProblem)"},
+  {"expect": "refineRequest().body.upscaler === REFINE_ANIME6B && refineRequest().preview.upscaler === REFINE_ANIME6B"},
+  {"eval": "void runRefine();"},
+  {"expect": "__until(() => !els.refineDialog.open && viewerRecords.some(r => r.refine === window.__source && r.upscaler === REFINE_ANIME6B))"},
+  {"eval": "window.__ganRouweiPass = viewerRecords.find(r => r.upscaler === REFINE_ANIME6B); reuse(window.__ganRouweiPass);"},
+  {"expect": "__until(() => els.refineDialog.open && els.refineUpscaler.value === REFINE_ANIME6B && refinePreviewed !== null)"},
+  {"expect": "els.refineReused.textContent.includes('R-ESRGAN 4x+ Anime6B') && refineRequest().body.upscaler === REFINE_ANIME6B"},
+  {"eval": "closeRefine();"}
 ]

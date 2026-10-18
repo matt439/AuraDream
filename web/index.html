@@ -1084,6 +1084,15 @@
       <p class="hint" id="refine-size-hint"></p>
     </div>
 
+    <div class="field" id="refine-upscaler-field" hidden>
+      <span><label for="refine-upscaler">Upscaler</label></span>
+      <select id="refine-upscaler" autocomplete="off" aria-describedby="refine-upscaler-note">
+        <option value="" selected>Lanczos</option>
+        <option value="realesrgan-x4plus-anime6b">R-ESRGAN 4x+ Anime6B</option>
+      </select>
+      <p class="hint" id="refine-upscaler-note">Anime6B: ~18 MB author download on first use; tiled 4x upscale, then resized to the target. Sources: up to 4.19 MP and 4096 pixels per side. Quality, time and memory on this card are unmeasured.</p>
+    </div>
+
     <!-- Strength, Versions and Seed, with their lines close under them: the
          seeds the versions take, how a sweep is written, and the
          checkpoint's own word on a larger pass (`hints.refine_large`),

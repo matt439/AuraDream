@@ -110,9 +110,9 @@ async def swap_plan(
             continue
         spec = (
             cell.request.lora, tuple(cell.request.reference), cell.request.refine, cell.request.mask,
-            cell.request.outpaint,
+            cell.request.outpaint, cell.request.upscaler,
         )
-        if spec != (None, (), None, None, None):
+        if spec != (None, (), None, None, None, None):
             if spec not in checked:
                 checked[spec] = await submission.unusable_input(services, cell.request)
             if checked[spec] is not None:

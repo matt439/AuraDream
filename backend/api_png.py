@@ -182,6 +182,8 @@ def _from_record(meta: dict, name: str) -> tuple[dict, dict, bool, list[str]]:
             f"It is {what}, which is made again from its source in the gallery, not from a file: "
             "its prompt and settings fill the panel as a direct render, at the panel's own size."
         )
+    if meta.get("upscaler") is not None:
+        notes.append("Its upscaler is left out: it prepares a gallery source for an ordinary Refine pass.")
     return fields, size, True, notes
 
 
