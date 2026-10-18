@@ -49,6 +49,7 @@ els.examplesBtn.onclick = (e) => {
 // A click from the keyboard takes focus into the helper too.
 els.tagsBtn.onclick = (e) => showTagHelper(els.tagsMenu.hidden, { focus: e.detail === 0 });
 els.expandPrompt.onclick = expandPrompt;
+els.promptExpandStop.onclick = stopExpandPrompt;
 // The prompt check: Check and Check again run it on the prompt as it is now;
 // the rest of its buttons are built with the results they act on.
 els.analyze.onclick = () => { void checkFromButton(); };

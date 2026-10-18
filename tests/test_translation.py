@@ -4,8 +4,10 @@ import os
 from types import SimpleNamespace
 
 import torch
+import pytest
 
 from backend.translation import MarianTranslator
+from backend.backends import Cancelled
 
 
 class StubTokenizer:
@@ -59,6 +61,22 @@ class StubModel:
             "renormalize_logits": True,
         }
         return input_ids + 10
+
+
+def test_stop_after_the_translators_download_skips_translation(monkeypatch):
+    translator = MarianTranslator("local/marian")
+    model = StubModel()
+    stopped = False
+
+    def load():
+        nonlocal stopped
+        stopped = True
+        return StubTokenizer(), model
+
+    monkeypatch.setattr(translator, "_load", load)
+    with pytest.raises(Cancelled):
+        translator.translate("source", lambda: stopped)
+    assert model.generations == 0
 
 
 def test_marian_loads_once_on_cpu_and_keeps_long_prompt_chunks(monkeypatch):

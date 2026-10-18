@@ -216,6 +216,36 @@ def test_expand_loads_once_then_returns_visible_size_specific_text(monkeypatch):
     assert pipe.hooks_freed == 2
 
 
+@pytest.mark.parametrize("stage", ["download", "rewrite"])
+def test_expansion_stops_at_the_boundary_after_an_opaque_stage(monkeypatch, stage):
+    from backend.backends import Cancelled
+
+    pipe = ErnieLikePipeline()
+    backend = _backend(pipe)
+    stopped = False
+
+    def components(model_id):
+        nonlocal stopped
+        stopped = stage == "download"
+        return {"pe": object(), "pe_tokenizer": object()}
+
+    original = pipe._enhance_prompt_with_pe
+
+    def enhance(*args, **kwargs):
+        nonlocal stopped
+        result = original(*args, **kwargs)
+        stopped = True
+        return result
+
+    monkeypatch.setattr(loading, "prompt_expander_components", components)
+    monkeypatch.setattr(loading, "place_pipeline", lambda *args: None)
+    monkeypatch.setattr(pipe, "_enhance_prompt_with_pe", enhance)
+    with pytest.raises(Cancelled):
+        backend.expand_prompt("a fox", 1024, 1024, lambda: stopped)
+    assert len(pipe.expansions) == (stage == "rewrite")
+    assert pipe.hooks_freed == (stage == "rewrite")
+
+
 def test_the_status_names_the_rewriters_download_until_it_is_loaded(monkeypatch):
     # The page names a first Expand's 7.7 GB before the press that starts it:
     # off disk, the rewriter is what a first use fetches; registered on the

@@ -478,7 +478,23 @@ class JobManager:
             self._ticket = ticket
             try:
                 loop = asyncio.get_running_loop()
-                return await loop.run_in_executor(self._pool, fn)
+                worker = loop.run_in_executor(self._pool, fn)
+                try:
+                    return await asyncio.shield(worker)
+                except asyncio.CancelledError:
+                    # A disconnected editor request cannot stop synchronous
+                    # GPU work. Keep its gate and ownership until the worker
+                    # has actually unwound, even after repeated cancellation.
+                    while not worker.done():
+                        try:
+                            await asyncio.shield(worker)
+                        except asyncio.CancelledError:
+                            continue
+                        except Exception:
+                            break
+                    if worker.done() and not worker.cancelled():
+                        worker.exception()  # observe a failure after disconnect
+                    raise
             finally:
                 self._holder = None
                 self._ticket = None

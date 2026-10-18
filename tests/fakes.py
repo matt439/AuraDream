@@ -109,7 +109,9 @@ class FakeBackend(GenerationBackend):
         self._sync_model_profile()
         return self.prompt_expander_supported
 
-    def expand_prompt(self, prompt: str, width: int, height: int) -> str:
+    def expand_prompt(self, prompt: str, width: int, height: int, should_cancel=None) -> str:
+        if should_cancel is not None and should_cancel():
+            raise Cancelled("prompt expansion stopped")
         self.expansions.append((prompt, width, height))
         if self.expand_error is not None:
             raise self.expand_error
@@ -253,7 +255,9 @@ class FakeTranslator:
         # Not on disk until a first translation has fetched it.
         self.downloaded = False
 
-    def translate(self, text: str) -> str:
+    def translate(self, text: str, should_cancel=None) -> str:
+        if should_cancel is not None and should_cancel():
+            raise Cancelled("prompt expansion stopped")
         self.translations.append(text)
         if self.fail:
             raise RuntimeError("translation broke")

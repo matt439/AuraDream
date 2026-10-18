@@ -246,7 +246,11 @@ The English translation is a reading aid; the Chinese text is the prompt
 used for generation and saved with the image. Generation does not rewrite
 silently. Edits made during Expand
 are preserved, with its result offered separately. Expand also holds
-generation submissions while it runs.
+generation submissions while it runs. **Stop** beside its running note
+abandons the answer and preserves your prompt and Undo. A download or model
+call already underway may finish; the server keeps its GPU gate until that
+stage ends. Generate can then queue behind it, and another Expand has its
+own ticket. Unload explains when an abandoned expansion is still finishing.
 
 ## Use references and adapters
 
@@ -668,8 +672,9 @@ grid/comparison labels cannot pass through these generation routes and are
 refused; define a new grid or use the direct CLI for those records.
 `--dry-run` and `--ignore-server` are alternatives to `--via-server`.
 The API explorer is at `/docs`, with its schema at `/openapi.json` on the
-same server. A budget stop preserves its completed images and exits 0;
-cancellation exits 130, bad arguments/refusals 2, and runtime failures 1.
+same server. Successful completion exits 0; cancellation (including an incomplete budget
+stop) exits 130, bad arguments/refusals 2, and runtime failures 1. Saved
+images remain available.
 
 ## Review starred rates
 

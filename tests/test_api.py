@@ -489,9 +489,9 @@ def test_status_names_what_holds_the_card_and_whose_expansion(client, fake, monk
     seen = []
     expand = fake.expand_prompt
 
-    def watched(prompt, width, height):
+    def watched(prompt, width, height, should_cancel=None):
         seen.append(main.jobs.card())
-        return expand(prompt, width, height)
+        return expand(prompt, width, height, should_cancel)
 
     monkeypatch.setattr(fake, "expand_prompt", watched)
     response = client.post("/api/prompt/expand", json={"prompt": "a lighthouse", "ticket": "tab-a-1"})

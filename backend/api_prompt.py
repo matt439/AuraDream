@@ -9,12 +9,17 @@ from __future__ import annotations
 
 import asyncio
 import logging
+import threading
+import time
+import uuid
+from dataclasses import dataclass, field
 from typing import TYPE_CHECKING
 
-from fastapi import APIRouter, HTTPException, Query
+from fastapi import APIRouter, HTTPException, Path, Query
 
 from . import prompt_check, prompt_encoding, prompt_text, tag_lookup
 from .app_context import AppServices
+from .backends.base import Cancelled
 from .critic import CriticError, CriticUnavailable
 from .detached import detached
 from .jobs import BackendBusy, LoadFailed, short_error
@@ -37,6 +42,20 @@ if TYPE_CHECKING:
     from .config import Settings
 
 log = logging.getLogger("local_diffusion")
+
+
+@dataclass
+class _Expansion:
+    stopped: threading.Event = field(default_factory=threading.Event)
+    abandoned: asyncio.Event = field(default_factory=asyncio.Event)
+
+    def stop(self) -> None:
+        self.stopped.set()
+        self.abandoned.set()
+
+    def check(self) -> None:
+        if self.stopped.is_set():
+            raise Cancelled("prompt expansion stopped")
 
 
 def tag_helper_config(model_id: str) -> dict:
@@ -150,6 +169,28 @@ def refuse_critique_now(services: AppServices) -> None:
 def create_router(services: AppServices) -> APIRouter:
     """The routes, reading the app's state through `services` per request."""
     router = APIRouter()
+    expansions: dict[str, tuple[_Expansion, asyncio.Task]] = {}
+    # A Stop can overtake its POST on the network. Remember a bounded set of
+    # abandoned tickets so that late arrival cannot start another expansion.
+    stopped_tickets: dict[str, float] = {}
+
+    def prune_stops() -> None:
+        cutoff = time.monotonic() - 300
+        for ticket, when in list(stopped_tickets.items()):
+            if when < cutoff:
+                del stopped_tickets[ticket]
+        while len(stopped_tickets) > 256:
+            del stopped_tickets[next(iter(stopped_tickets))]
+
+    @router.post("/api/prompt/expand/{ticket}/stop")
+    async def stop_expansion(ticket: str = Path(min_length=1, max_length=64)) -> dict:
+        prune_stops()
+        stopped_tickets[ticket] = time.monotonic()
+        prune_stops()
+        current = expansions.get(ticket)
+        if current is not None:
+            current[0].stop()
+        return {"stopped": True, "running": current is not None}
 
     @router.get("/api/tags/suggest", response_model=TagSuggestionResponse)
     async def suggest_tags(q: str = Query(min_length=1, max_length=100)) -> TagSuggestionResponse:
@@ -189,9 +230,8 @@ def create_router(services: AppServices) -> APIRouter:
         return await asyncio.to_thread(chip_verdicts, model_id, helper, request)
 
 
-    @router.post("/api/prompt/expand", response_model=PromptExpansion)
-    async def expand_prompt(request: PromptExpansionRequest) -> PromptExpansion:
-        """Expand once, visibly, then let ordinary generation use that exact text."""
+    async def run_expansion(request: PromptExpansionRequest, run: _Expansion) -> PromptExpansion:
+        run.check()
         if not services.backend().prompt_expansion_supported():
             raise HTTPException(
                 status_code=422,
@@ -205,31 +245,45 @@ def create_router(services: AppServices) -> APIRouter:
         try:
             await services.ensure_loaded()
         except LoadFailed as exc:
+            run.check()
             # Logged where it failed; the status's sentence, steps and all. 503,
             # the one answer of this route that means "the model could not load":
             # the page says so in a line of its own and leaves the sentence to
             # the viewer's card, which says it already.
             raise HTTPException(status_code=503, detail=exc.detail) from exc
         except Exception as exc:
+            run.check()
             log.error("model load for prompt expansion failed: %s", short_error(exc))
             log.debug("prompt expansion load traceback", exc_info=True)
             raise HTTPException(status_code=500, detail=expand_detail(exc)) from exc
+        run.check()
         # The id is only a useful cold guess. A loaded pipeline's method and
         # signature are the capability, exactly as for the generation controls.
         if not services.backend().prompt_expansion_supported():
             raise HTTPException(status_code=422, detail="the loaded pipeline has no prompt expander")
+        def expand() -> str:
+            run.check()
+            return services.backend().expand_prompt(
+                request.prompt, request.width, request.height, run.stopped.is_set,
+            )
+
         try:
             expanded = await services.jobs().run_when_idle(
-                lambda: services.backend().expand_prompt(request.prompt, request.width, request.height),
+                expand,
                 holder="expand",
                 ticket=request.ticket,
             )
         except BackendBusy as exc:
+            run.check()
             raise HTTPException(status_code=409, detail=str(exc)) from exc
+        except Cancelled:
+            raise
         except Exception as exc:
+            run.check()
             log.error("prompt expansion failed: %s", short_error(exc))
             log.debug("prompt expansion traceback", exc_info=True)
             raise HTTPException(status_code=500, detail=expand_detail(exc)) from exc
+        run.check()
         expanded = expanded.strip()
         if not expanded:
             raise HTTPException(status_code=500, detail="the prompt expander returned no text")
@@ -241,17 +295,57 @@ def create_router(services: AppServices) -> APIRouter:
         translated: str | None = None
         translation_detail: str | None = None
         try:
-            translated = await asyncio.to_thread(services.translator().translate, expanded)
+            run.check()
+            translated = await asyncio.to_thread(services.translator().translate, expanded, run.stopped.is_set)
+        except Cancelled:
+            raise
         except Exception as exc:  # noqa: BLE001 - expansion remains useful on its own
+            run.check()
             log.error("expanded-prompt translation failed: %s", short_error(exc))
             log.debug("translation traceback", exc_info=True)
             translation_detail = expand_detail(exc)
+        run.check()
         return PromptExpansion(
             original_prompt=request.prompt,
             expanded_prompt=expanded,
             translated_prompt=translated,
             translation_detail=translation_detail,
         )
+
+    @router.post("/api/prompt/expand", response_model=PromptExpansion)
+    async def expand_prompt(request: PromptExpansionRequest) -> PromptExpansion:
+        """A ticket owns the worker; disconnect/Stop abandon only its answer."""
+        prune_stops()
+        ticket = request.ticket or uuid.uuid4().hex
+        if ticket in stopped_tickets:
+            raise HTTPException(status_code=409, detail="prompt expansion stopped")
+        if ticket in expansions:
+            raise HTTPException(status_code=409, detail="this expansion ticket is already running")
+        run = _Expansion()
+        worker = asyncio.create_task(run_expansion(request, run))
+        expansions[ticket] = (run, worker)
+
+        def finished(task: asyncio.Task) -> None:
+            if expansions.get(ticket) == (run, task):
+                del expansions[ticket]
+            if not task.cancelled():
+                task.exception()  # an abandoned request still owns its worker
+
+        worker.add_done_callback(finished)
+        abandoned = asyncio.create_task(run.abandoned.wait())
+        try:
+            await asyncio.wait((worker, abandoned), return_when=asyncio.FIRST_COMPLETED)
+            run.check()
+            return await asyncio.shield(worker)
+        except Cancelled as exc:
+            raise HTTPException(status_code=409, detail="prompt expansion stopped") from exc
+        except asyncio.CancelledError:
+            # The worker keeps ensure_loaded's lock / run_when_idle's gate.
+            # In particular, never cancel a synchronous download or GPU call.
+            run.stop()
+            raise
+        finally:
+            abandoned.cancel()
 
 
     @router.post("/api/prompt/analyze", response_model=PromptAnalysis)

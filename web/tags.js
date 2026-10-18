@@ -148,6 +148,7 @@ function showPromptNote(message, options = {}) {
   els.promptNoteUndo.textContent = label;
   els.promptNoteUndo.title = title;
   els.promptNoteDiscard.hidden = !discard;
+  els.promptExpandStop.hidden = !expandingPrompt;
   if (ms) {
     promptUndoTimer = setTimeout(() => {
       if (promptUndo === note && !els.promptNote.contains(document.activeElement)) dropPromptUndo();
@@ -168,6 +169,10 @@ function dropPromptUndo() {
   if (els.promptNote.contains(document.activeElement)) els.prompt.focus({ preventScroll: true });
   els.promptNote.hidden = true;
   note?.onDrop?.();
+  // Expand's Stop remains reachable after a Reset/Reuse or an expired note.
+  // Wait until the current write has installed its own note before deciding
+  // whether a plain running line is needed; never replace that write's Undo.
+  queueMicrotask(syncExpandStop);
 }
 
 function syncPromptUndo() {

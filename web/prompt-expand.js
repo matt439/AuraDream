@@ -25,6 +25,8 @@
 // Focus stays on the button through the request and after a failure, and
 // goes to the prompt only with the text it brings.
 let expandRun = null;
+let expandEpoch = 0;
+const stoppedExpansionTickets = new Set();
 // What Expand last said - in the panel's line ({text}) or under the prompt
 // ({note}) - a failure, a press while it ran: the next Expand, and the end of
 // this one, take it back while it is still what is said there.
@@ -101,6 +103,8 @@ async function expandPrompt() {
     source, replaced: false, text: '', note: null, clock: 0, from: Date.now(),
     displaced: ['write', 'held'].includes(promptUndo?.kind) ? promptUndo : null,
     ticket: expandTicket(),
+    controller: new AbortController(), stopped: false,
+    epoch: ++expandEpoch,
   };
   const watch = () => { if (replacingBox) run.replaced = true; };
   els.prompt.addEventListener('input', watch);
@@ -118,13 +122,16 @@ async function expandPrompt() {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ prompt, width: +els.width.value, height: +els.height.value, ticket: run.ticket }),
+        signal: run.controller.signal,
       });
     } catch (err) {
+      if (run.stopped || expandRun !== run) return;
       endExpandRunning(run);
       expandFailed(err);
       offerDisplaced(run);
       return;
     }
+    if (run.stopped || expandRun !== run) return;
     endExpandRunning(run);
     // "Expanding…", said to a press while it ran, is over.
     clearExpandLine();
@@ -134,13 +141,50 @@ async function expandPrompt() {
   } finally {
     els.prompt.removeEventListener('input', watch);
     clearInterval(run.clock);
-    expandRun = null;
-    expandingPrompt = false;
-    syncPromptExpansion();
+    if (expandRun === run) {
+      expandRun = null;
+      expandingPrompt = false;
+      els.promptExpandStop.hidden = true;
+      syncPromptExpansion();
+    }
     // The topbar's "loading…" over, and the title's first-use cost with it,
     // now rather than at the next poll.
     void refreshStatus();
   }
+}
+
+// Stop dismisses this answer immediately. The server's ticket owns the
+// actual worker, which polls only between stages and keeps the GPU gate
+// through an opaque download or rewrite. A new Expand has another ticket.
+function stopExpandPrompt() {
+  const run = expandRun;
+  if (!run || run.stopped) return;
+  run.stopped = true;
+  stoppedExpansionTickets.add(run.ticket);
+  if (stoppedExpansionTickets.size > 32) stoppedExpansionTickets.delete(stoppedExpansionTickets.values().next().value);
+  run.controller.abort();
+  expandRun = null;
+  expandingPrompt = false;
+  endExpandRunning(run);
+  els.promptExpandStop.hidden = true;
+  clearExpandLine();
+  offerDisplaced(run);
+  if (!promptUndo) {
+    showPromptNote('Expansion abandoned. The prompt is unchanged; a download or model call already running can finish.',
+      { kind: 'info', ms: EXPAND_NOTE_MS });
+  }
+  syncPromptExpansion();
+  els.expandPrompt.focus({ preventScroll: true });
+  void api(`/api/prompt/expand/${encodeURIComponent(run.ticket)}/stop`, { method: 'POST' }).catch((err) => {
+    if (expandRun || run.epoch !== expandEpoch) return;
+    expandSay(`Expansion abandoned here; the server could not confirm Stop: ${trimStop(err.message)}.`, true);
+  });
+  void refreshStatus();
+}
+
+function syncExpandStop() {
+  els.promptExpandStop.hidden = !expandingPrompt;
+  if (expandingPrompt && expandRun && !promptUndo) showExpandRunning();
 }
 
 // What a result does with the box as it is now: written in where the box
@@ -210,7 +254,11 @@ function expandRunningText() {
   // Expand, which the server lets finish first (run_when_idle) - the load
   // waits for it too. "Expanding…" was said for the whole of their run.
   const holder = cardHolder && !(cardHolder === 'expand' && cardTicket === expandRun?.ticket) ? cardHolder : null;
-  if (holder) ahead.push(`waiting for the card, which ${CARD_HOLDERS[holder] ?? 'something else'} has`);
+  if (holder) {
+    const whose = holder === 'expand' && stoppedExpansionTickets.has(cardTicket)
+      ? 'the abandoned Expand' : CARD_HOLDERS[holder] ?? 'something else';
+    ahead.push(`waiting for the card, which ${whose} has`);
+  }
   if (modelState !== 'ready') ahead.push(`loading ${name}`);
   const rewriter = fetch.filter((f) => f.step === 'expand');
   if (rewriter.length) ahead.push(...rewriter.map(download));

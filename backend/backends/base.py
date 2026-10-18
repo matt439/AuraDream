@@ -148,8 +148,10 @@ class GenerationBackend(abc.ABC):
         """
         return False
 
-    def expand_prompt(self, prompt: str, width: int, height: int) -> str:
-        """Synchronously expand one prompt for the requested canvas size."""
+    def expand_prompt(
+        self, prompt: str, width: int, height: int, should_cancel: CancelFn | None = None,
+    ) -> str:
+        """Expand synchronously, polling cancellation between opaque stages."""
         raise RuntimeError("this checkpoint has no prompt expander")
 
     def prompt_expander_status(self) -> dict | None:

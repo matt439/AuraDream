@@ -5,9 +5,11 @@ import gc
 import os
 import re
 import threading
-from collections.abc import Iterator
+from collections.abc import Callable, Iterator
 from contextlib import contextmanager
 from typing import Any
+
+from .backends.base import Cancelled
 
 MODEL_ID = "Helsinki-NLP/opus-mt-zh-en"
 # What a first translation downloads: the repository's `pytorch_model.bin`,
@@ -142,14 +144,21 @@ class MarianTranslator:
         flush()
         return chunks
 
-    def translate(self, text: str) -> str:
+    def translate(self, text: str, should_cancel: Callable[[], bool] | None = None) -> str:
+        def check() -> None:
+            if should_cancel is not None and should_cancel():
+                raise Cancelled("prompt expansion stopped")
+
+        check()
         source = text.strip()
         if not source:
             raise ValueError("there is no expanded prompt to translate")
         with self._lock:
+            check()
             import torch
 
             tokenizer, model = self._load()
+            check()
             chunks = self._chunks(source, tokenizer)
             inputs = tokenizer(
                 chunks,
@@ -165,6 +174,7 @@ class MarianTranslator:
                     max_new_tokens=_MODEL_TOKEN_LIMIT - 1,
                     renormalize_logits=True,
                 )
+            check()
             translated = " ".join(
                 part.strip()
                 for part in tokenizer.batch_decode(output_ids, skip_special_tokens=True)

@@ -221,9 +221,16 @@ class DiffusersBackend(GenerationBackend):
             fetch.append(("ERNIE's prompt rewriter", loading.PROMPT_EXPANDER_BYTES))
         return {"loaded": loaded, "fetch": fetch}
 
-    def expand_prompt(self, prompt: str, width: int, height: int) -> str:
+    def expand_prompt(
+        self, prompt: str, width: int, height: int, should_cancel: CancelFn | None = None,
+    ) -> str:
         """Run ERNIE's rewriter once and return the text the image will record."""
+        def check() -> None:
+            if should_cancel is not None and should_cancel():
+                raise Cancelled("prompt expansion stopped")
+
         with self._lock:
+            check()
             pipe = self._pipe
             if pipe is None:
                 raise RuntimeError("the image model is not loaded")
@@ -232,17 +239,22 @@ class DiffusersBackend(GenerationBackend):
                 raise RuntimeError(f"{type(pipe).__name__} has no prompt expander")
             if getattr(pipe, "pe", None) is None or getattr(pipe, "pe_tokenizer", None) is None:
                 components = loading.prompt_expander_components(current_model_id(settings))
+                # The synchronous download/load may finish into the cache;
+                # an abandoned request must not start the GPU rewrite after it.
+                check()
                 pipe.register_modules(**components)
                 # The offload chain was built while PE was absent. Rebuild it
                 # so invoking pe.generate moves that model to the chosen card
                 # and back just like the image pipeline's other components.
                 loading.place_pipeline(pipe, current_settings(settings))
             try:
+                check()
                 expanded = enhance(prompt, pipe._execution_device, width=width, height=height)
             finally:
                 free_hooks = getattr(pipe, "maybe_free_model_hooks", None)
                 if callable(free_hooks):
                     free_hooks()
+            check()
             return str(expanded).strip()
 
     def _apply_console_progress(self, pipe: Any) -> None:

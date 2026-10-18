@@ -8,11 +8,11 @@ An index of open work, one row per item; each row points to the doc that owns th
 
 **Aim (2026-10-18):** keep useful work ready for Matt's common workstation tasks. The queue below can proceed on CPU and disposable fake-server galleries, independently of whole-app layout trials. [Reported use](docs/design/preferences.md) guides priority; it does not approve the candidate redesign.
 
-**Ready backlog:** 7 `OPEN` tasks can be completed with CPU/browser evidence. One further `OPEN` item, the upscaler (`GEN#5`), can be built but needs a separate card pass before closure.
+**Ready backlog:** 6 `OPEN` tasks can be completed with CPU/browser evidence. One further `OPEN` item, the upscaler (`GEN#5`), can be built but needs a separate card pass before closure.
 
 1. **Continue a run (`GEN#11`):** build phase 2 in dependency order: persistence, Finish service/API, then page actions and restart smoke. These are stages of one feature. [Execution slices](docs/plan-continue-run.md#phase-2-execution-slices).
 
-**Other ready work:** model cache/download facts (`GEN#1`), Stop Expand (`GEN#2`), design-trial preparation (`DEV#3`) and browser accessibility checks (`UI#9`). Their owners define scope and completion. Optional conveniences remain below; there is no need to promote deferred features to fill this queue.
+**Other ready work:** model cache/download facts (`GEN#1`), design-trial preparation (`DEV#3`) and browser accessibility checks (`UI#9`). Their owners define scope and completion. Optional conveniences remain below; there is no need to promote deferred features to fill this queue.
 
 **Needs Matt:** workbench task trials (`DEV#1`) and hands-on screen-reader/touch checks (`UI#7`) are `USER`, not implementation prerequisites for the queue above. No feature decision is waiting. Whole-app layout implementation waits for its trials; it remains a design hypothesis.
 
@@ -66,7 +66,6 @@ An index of open work, one row per item; each row points to the doc that owns th
 | id | status | sev | size | item |
 |---|---|---|---|---|
 | `GEN#1` | OPEN | LOW | M | Models picker: each checkpoint's download size and whether it is already in the Hugging Face cache (10-12 F7). |
-| `GEN#2` | OPEN | LOW | M | Stop Expand: abandon its result and stop between download/rewrite/translation stages, retaining the GPU gate while actual GPU work continues (10-12 F8). |
 | `GEN#5` | OPEN | LOW | L+card | An opt-in pinned GAN upscaler (R-ESRGAN Anime6B) before the Refine pass, where the WAI and RouWei guides cite one, recorded in the reproduction set (10-12 F14). |
 | `GEN#6` | DEFERRED | LOW | M+card | Live-preview maps for the four-channel SDXL VAE and FLUX.2's VAE (ERNIE; klein also lacks an unpack hook); previews switch themselves off there. [Behaviour](docs/verified.md#behaviour). |
 | `GEN#7` | DEFERRED | LOW | M | A Hugging Face access check before a switch releases the working model; the catalogue's gate word is static. [Switching](docs/design-notes.md#switching-checkpoints-while-the-server-stays-open). |

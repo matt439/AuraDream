@@ -130,13 +130,13 @@ def main() -> int:
         expand_seconds = 0.0
         expand_gate = None
 
-        def expand_prompt(self, prompt, width, height):
+        def expand_prompt(self, prompt, width, height, should_cancel=None):
             import time
 
             time.sleep(self.expand_seconds)
             if self.expand_gate is not None:
                 self.expand_gate.wait(timeout=30)
-            return super().expand_prompt(prompt, width, height)
+            return super().expand_prompt(prompt, width, height, should_cancel)
 
         def generate(self, request, seed, on_progress=None, should_cancel=None, on_preview=None):
             if "[fail]" in request.prompt:
@@ -265,7 +265,11 @@ def main() -> int:
     class FakeTranslator:
         downloaded = False
 
-        def translate(self, text: str) -> str:
+        def translate(self, text: str, should_cancel=None) -> str:
+            if should_cancel is not None and should_cancel():
+                from backend.backends.base import Cancelled
+
+                raise Cancelled("prompt expansion stopped")
             self.downloaded = True
             return f"English translation of: {text}"
 

@@ -20,7 +20,7 @@ class PromptExpansionRequest(BaseModel):
     # The page's own name for this press, which the status answers as
     # `card_ticket` while the expansion holds the card: an expansion waiting
     # behind another tab's tells the two apart and says it waits.
-    ticket: str | None = Field(default=None, max_length=64)
+    ticket: str | None = Field(default=None, min_length=1, max_length=64)
 
 
 class PromptExpansion(BaseModel):

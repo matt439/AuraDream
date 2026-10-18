@@ -253,6 +253,7 @@ function syncUnload() {
     : busy ? 'A job is queued or running: it holds the weights until it ends'
     : elsewhereBusy ? 'A job started in another tab or window is running; Unload once it ends'
     : expandingPrompt ? 'Wait for prompt expansion to finish'
+    : cardHolder === 'expand' && stoppedExpansionTickets.has(cardTicket) ? 'The abandoned expansion is finishing its current stage'
     : critiquing ? 'Wait for the critic to finish'
     : modelState === 'loading' ? 'The weights are still loading'
     : '';
@@ -590,6 +591,7 @@ function receiveStatus(s, asked = Date.now()) {
       cardHolder = holder;
       cardTicket = ticket;
       syncExpandRunning();
+      syncUnload();
     }
     // A pause's clock, here or the job ahead's, moves with the poll.
     tickPauseClock();

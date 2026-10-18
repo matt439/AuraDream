@@ -3,6 +3,7 @@ from __future__ import annotations
 
 import asyncio
 import threading
+import pytest
 import time
 
 from backend.jobs import JobManager, short_error
@@ -235,6 +236,44 @@ def test_a_job_behind_an_editor_action_names_it(store):
         return waiting, job.status, held
 
     assert asyncio.run(scenario()) == ("critic", "done", None)
+
+
+@pytest.mark.parametrize("fail", [False, True])
+def test_cancelled_editor_await_keeps_the_gate_until_its_worker_ends(store, fail):
+    async def scenario():
+        backend = FakeBackend()
+        manager = JobManager(backend)
+        entered, release = threading.Event(), threading.Event()
+
+        def opaque():
+            entered.set()
+            assert release.wait(5)
+            if fail:
+                raise RuntimeError("late worker failure")
+
+        pending = asyncio.create_task(manager.run_when_idle(opaque, holder="expand", ticket="stopped"))
+        try:
+            while not entered.is_set():
+                await asyncio.sleep(0.01)
+            pending.cancel()
+            await asyncio.sleep(0)
+            pending.cancel()  # repeated cancellation still cannot free the GPU
+            await asyncio.sleep(0)
+            assert not pending.done() and manager.card() == ("expand", "stopped")
+            job = await manager.submit(GenerateRequest(prompt="queued", width=256, height=256, steps=2))
+            await asyncio.sleep(0.02)
+            assert backend.requests == []
+        finally:
+            release.set()
+        with pytest.raises(asyncio.CancelledError):
+            await pending
+        async for event in manager.events(job):
+            if event["type"] == "done":
+                break
+        assert job.status == "done" and len(backend.requests) == 1
+        await manager.shutdown()
+
+    asyncio.run(scenario())
 
 
 def test_the_card_names_its_holder_and_an_editor_actions_ticket(store):

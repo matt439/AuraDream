@@ -7672,6 +7672,20 @@ longer says the Chinese prompt is "above", which it is not at the head of the
 results. There is no Cancel: the server holds the generation gate until the
 expansion ends, so releasing the page would only queue a Generate behind it.
 
+### Stop Expand, 2026-10-18
+
+Stop abandons one ticket and restores the editor immediately. It aborts
+the browser request and asks the server to stop that ticket; the server's
+managed worker keeps ownership until the actual synchronous stage ends.
+Checks surround load, prompt-expander download/rewrite and translation.
+Later stages and the answer are discarded. A cancelled run_when_idle await
+continues awaiting its executor worker under the same gate, so cancellation
+cannot overlap image generation with an unfinished rewrite. Translation is
+CPU-only and does not own that gate. A new expansion has a new ticket;
+old success, failure and Stop replies cannot modify it. Opaque calls are
+allowed to finish into their caches. CPU/fake-browser evidence is recorded
+under F8 in the 2026-10-12 review; real card behavior is unmeasured.
+
 ## Animagine XL 4.0: an SDXL schedule is not a Mu
 
 **Animagine XL 4.0 Opt is in the catalogue**

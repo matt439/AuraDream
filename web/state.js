@@ -29,6 +29,7 @@ const els = {
   examplesBox: $('examples'),
   promptNote: $('prompt-note'), promptNoteText: $('prompt-note-text'), promptNoteUndo: $('prompt-note-undo'),
   promptNoteDiscard: $('prompt-note-discard'),
+  promptExpandStop: $('prompt-expand-stop'),
   tagHelper: $('tag-helper'), tagsBtn: $('btn-tags'), tagsMenu: $('tags-menu'),
   tagSuggestions: $('tag-suggestions'), tagValidation: $('tag-validation'),
   tagValidationHome: $('tag-validation-home'), tagValidationWide: $('tag-validation-wide'),
