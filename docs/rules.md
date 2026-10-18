@@ -1288,7 +1288,11 @@ Jobs:
   `_finish`) and its error reads "Stopped at cell X of Y after N cells
   failed; K images kept. Last: <short_error>" (a plain job's in images or
   batches, `Job.units`). The page's Retry ("Retry the
-  N skipped cells") and Resume ("Resume the remaining N cells") send the
+  N skipped cells") and Resume ("Resume the remaining N cells", for a grid
+  `stopped_by` "failures" or "budget": N is `total_runs - (run - failures)`,
+  since the budget is checked before a cell starts; a budget stop's title
+  ends "under the same N-minute budget", the payload's `budget_minutes`
+  sent again with it) send the
   job's own submitted payload (`submissions`) again with `resume: true` and
   `payload.seed ?? JobAccepted.seed` (none beside a seed list) - never the
   POST's seed over the payload's own, never the panel - each once ("Retry
@@ -2985,8 +2989,8 @@ Frontend and CLI:
   past the foot of a 900 px window at scroll 0. Never a counter back beside
   its bar, nor anything between the bars and Generate but the Now line;
   queue rows read the same, and a single queued job is one "Next:" row. A
-  finished job's outcome and actions (Use seed, Show sheet, Retry/Resume) are
-  the finish line, `#finish-note`, outside `#progress` (`setFinish`): only
+  finished job's outcome and actions (Use seed, More seeds…, Show sheet,
+  More seeds of this run…, Retry/Resume) are the finish line, `#finish-note`, outside `#progress` (`setFinish`): only
   the next job's end replaces it, never a queued job's start; it is led by
   "Previous job:" while another runs or after a lost stream (`finishStale`).
   Its sentence, without buttons, is said once on the visually hidden polite
@@ -3327,8 +3331,8 @@ Frontend and CLI:
   with source (`compareButton`: the lightbox through `openViewerImage`, then
   `toggleCompare`; aria-disabled with the reason once the source has gone,
   kept by `syncCompareResult` from `viewerSourcesGone`, a press refused
-  through `refuseInCard`) / Use seed and Delete (`.ghost.danger`, at the
-  row's end) in words, the prompt (its line breaks kept, `white-space:
+  through `refuseInCard`) / Use seed / More seeds… (`syncMoreSeedsFor`) and
+  Delete (`.ghost.danger`, at the row's end) in words, the prompt (its line breaks kept, `white-space:
   pre-line`, at most `--prompt-cap` - twelve lines - scrolling inside
   itself, as the lightbox's `#lb-prompt` does) and `factsList(rec)`
   (without the lightbox's Use seed: the row has one); its tile's tools row
@@ -4047,8 +4051,9 @@ Frontend and CLI:
   after Refine… and before Bin and Bundles…, always shown, held with
   `galleryActionTarget`'s reason; synced from `syncRerender` and
   `onSelectionChange` (`syncMoreSeedsButton`), a held press said in
-  `#gallery-error`. The dialog opens on the first answer, the count at the
-  last one queued (`MORE_SEEDS_KEY`) else 4, focused and selected; a first
+  `#gallery-error`. The dialog opens on the first answer, the count (from
+  the footer) at the last one queued (`MORE_SEEDS_KEY`) else 4, focused and
+  selected; a first
   check that fails is said in `#gallery-error` and opens nothing, except the
   422 by count ("N batches × C is…", which only the count box can lower):
   that opens the dialog with nothing listed, the refusal in the count line
@@ -4072,6 +4077,47 @@ Frontend and CLI:
   results list has a fixed height and scrolls, the count line keeps two
   lines and `#more-seeds-error` one, so nothing below moves; Queue is
   right-aligned, its right edge fixed.
+- More seeds where a run ends (`docs/plan-continue-run.md`, phase 1) is the
+  same dialog on a ready target, `openMoreSeeds(target, {count, opener})`
+  with `target` `{scope, line}`: an image's batch (`{ids: [id]}`,
+  `moreSeedsImageTarget`, "From #N's batch.") from the lightbox's
+  `#lb-more-seeds` (paired with Reuse in an `.lb-pair`, hidden under 900 px
+  where the menu has it), the menu's More seeds of this batch… and the
+  result column's More seeds…; a finished job's images (`{ids}` of those
+  still live, `finishMoreSeeds`) after Use seed on the finish line of a
+  plain job, a More seeds job and a single refine, inpaint or outpaint
+  pass (not a grid's, a swap's or a batch refine's); and a whole run
+  (`{run}`, `moreSeedsRunTarget`, `moreSeedsRunButton`) for a `done` grid
+  after Show sheet, the banner and the sheet's run bar. The label names the
+  scope (of this batch, of this run); nothing is a bare "Continue". The
+  footer alone reads and writes `MORE_SEEDS_KEY` (`msFooter`); a ready
+  target opens at the press's `count`, else the server's `count_default`
+  (asked again at it where the first check was not), else 4, and its scope
+  line is the target's own `line`. Every such button mirrors one hold
+  (`moreSeedsToolHold`, the button's `msOf` kept on it, `aria-disabled`
+  with the reason as its title, never hidden): every image of a job gone
+  since, the recycle bin, another checkpoint ("Made on X; the server is
+  running Y"), the server offline, the dialog open or opening; everything
+  else - one batch among several from another checkpoint, a source or an
+  adapter gone - is the server's, per batch. They carry `.more-seeds-tool`
+  and are synced again together (`syncMoreSeedsTools`) from
+  `syncReuseButtons`, `syncSubmitButtons`, `forgetMoreSeedsImages` and the
+  dialog's open and close; the menu's item is held by the same function, so
+  a new place for the button adds no hold of its own. A refusal while
+  opening is said where the press was (`msOpenSlot`): `#lb-error` while the
+  lightbox is up (the dialog opens over it, the lightbox stays, and its
+  keys are ignored while the dialog is open, so Escape closes the dialog
+  alone), `#error` for a press in the panel (the finish line, the banner),
+  else `#gallery-error`; a menu item's refusal through `refuseInCard`.
+  `moreSeedsGalleryChanged` skips a run scope as it skips `ids`; the count
+  line leads with the server's `headline` where there is one. The sheet's
+  run bar is More seeds of this run… after Resume this run, on
+  `sheetShownRun` (one run opened on `run:<id>`, a refine sweep's and a
+  comparison's too, held - not hidden - on another checkpoint), then its
+  status line (`sheetRunStatus`, "Run X · N images · checkpoint quant",
+  "starred images" under Starred) last, on a row of its own
+  (`.sheet-run-status`), since its count changes while a job writes to the
+  run and text before the buttons would move them under the pointer.
 - The sheet's layout contract - axes, prompt labels, pins, variables - lives in
   the client, and the export is client-side, not a route. Export PNG draws
   the slice on screen. Export all, shown only where something is pinned,
@@ -4235,7 +4281,12 @@ Frontend and CLI:
   (`resumeLastRun` → `resumeRun(run_id, { width, height })`) for a grid that
   stopped short - cancelled, its budget, or `stopped_by` failures - with an
   image of its own left; never for a re-render, a refine sweep or a prompt
-  comparison (the snapshot's `comparison`). The snapshot's `seed` is a job's
+  comparison (the snapshot's `comparison`). For a `done` job with a run id
+  and an image left it shows More seeds… (`#last-run-more`,
+  `moreSeedsLastRun`) beside Show run, on the run scope. When Resume this
+  run's preview renders no cell but skips or queues some, `resumeRun`
+  appends "Nothing in run X is missing. More seeds of this run… adds
+  seeds." to it. The snapshot's `seed` is a job's
   first remaining cell, past the base after a Resume, and is never used as
   the base.
 - `generate`, `clear`, `stats` and `reindex` reconfigure stdout to UTF-8 at
@@ -4455,7 +4506,9 @@ Frontend and CLI:
   a copy of a button's logic. Where the place has no such button (Outpaint…
   and ❐ on a card or a result, ❐ in the lightbox) the item is held by that
   button's sync function on a scratch button (`syncedItem`) and runs the
-  same function. Beyond the buttons: Use seed, Show run as sheet
+  same function. Beyond the buttons: Use seed, More seeds of this batch…
+  (the lightbox's `#lb-more-seeds` there, elsewhere `syncedItem` over
+  `syncMoreSeedsFor` running `moreSeedsOfImage`), Show run as sheet
   (`showRecordRun`, the card's ⊞), Copy prompt, Copy seed, Copy image (the
   full PNG through `ClipboardItem`, the fetch handed over as a promise) and
   Open PNG in new tab; the copy items are held where the page is no secure
@@ -6024,8 +6077,8 @@ list unmoved; "Checking the batches…" while typing, ↑ and ↓ stepping it;
 Ctrl+Enter queueing one job per run, the Now line "more seeds · …",
 Cancel's "Stop these more seeds", the last finish line "seeds 8–10. Job 2
 of 2 of these more seeds, at 256×384."; the new images in the run they
-extend, each recording its call's Batch (2, 2, then 1); the four's hover
-one set of seven, seeds 100–106; asked again from an image of the
+extend, each recording its call's Batch (2, 2, then 1); the four's run
+seven images, seeds 100–106; asked again from an image of the
 extension, the seven carried on at Batch 2 (seeds 107–109); the single
 image deleted while listed shown as deleted, the count line and Queue
 saying what is left; Escape closing it with focus on More seeds…; a

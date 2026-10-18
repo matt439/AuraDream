@@ -407,7 +407,10 @@ seed and size, but the panel must still contain the matching grid.
 
 Budget includes loading and queued waiting, but not time spent paused; a
 cell started before expiry finishes. Saved images remain after cancellation, a failure or a restart.
-The finished-job line offers retrying skipped cells where possible.
+The finished-job line offers retrying skipped cells where possible, and
+**Resume the remaining N cells** for a grid its failures or its budget
+stopped; after a budget stop it runs under the same budget again, which its
+tooltip names.
 
 ## Browse, compare and keep results
 
@@ -496,8 +499,8 @@ LoRA, already refined. One job is queued per size.
 
 **More seeds…** (beside **Refine…**) makes more images of each batch the
 selection holds - or, with nothing selected, of each batch the filter
-matches. A batch is what hovering a card shows: the images of one run that
-differ only in their seed, so picking one image of a Batch 4 takes all
+matches. A batch is the images of one run that differ only in their
+seed - one cell of a grid - so picking one image of a Batch 4 takes all
 four, and picking two of them still asks for one set more. Type how many
 more each batch gets (4 to start, then the number last queued); where that
 number times the batches is more than one press may queue (1024), the
@@ -509,8 +512,45 @@ images from before the Batch was recorded run at the panel's **Batch**,
 and a Batch too large for the size runs fewer at a time. The dialog lists
 each batch's seeds now and the seeds it will get, or why it gets none
 (another checkpoint's, a deleted refine source or LoRA). One job is
-queued per run, and the new images join it: the batch's hover, the
-**Runs** list and `run:` show them as one set.
+queued per run, and the new images join it: the **Runs** list, `run:` and
+the run's sheet show them as one set. The same dialog opens where a run
+ends, on that run's images rather than the selection; see
+[Continue a run](#continue-a-run).
+
+### Continue a run
+
+"Continue a run" is one of two things, and each button names which:
+
+- **Resume the remaining N cells** renders the cells of a grid that are
+  missing - the ones its failures or its time budget did not reach, or that
+  were deleted. It is on the finished-job line after such a stop. After a
+  reload, **Resume** on the last-run line and **Resume this run** on the
+  run's sheet fill the panel's seed and size and tick Resume instead; the
+  panel must still hold the grid. Cells already queued in a job are not queued twice;
+  the grid preview counts them as "N queued". A run with nothing missing
+  says so, and points at More seeds.
+- **More seeds…** makes new images with the same settings and the next
+  seeds, joining the run. **More seeds…** on the finished-job line (after
+  **Use seed**) takes the batches that job made: a plain Generate, a More
+  seeds job, or a single refine, inpaint or outpaint pass. **More seeds of
+  this batch…** - in an image's right-click menu, beside **Reuse** in the
+  lightbox, and as **More seeds…** beside a fresh result at 1800 px and
+  wider - takes the image's batch. **More seeds of this run…** - on a
+  finished grid's line after **Show sheet**, as **More seeds…** on the
+  last-run line beside **Show run**, and in the run's sheet after **Resume
+  this run** - takes every image of the run, starred or not, whatever the
+  gallery's filter; its dialog leads with what it will queue ("2 more of
+  each of 6 cells = 12 images · seeds 8–9 · Starred ignored"). "N more" is
+  N more images of every cell, not N more seed values crossed with the
+  grid.
+
+These open at the batch's own Batch where its batches agree on one (the
+footer's More seeds… keeps the number last queued from it), and Enter
+queues. They are held, with the reason as their tooltip, for images in the
+recycle bin, another checkpoint's images, and while the server is not
+answering. Pause and **Resume** on a running job are a different thing:
+they hold and carry on the job itself. A run's sheet ends with a line
+naming the run, its image count and the checkpoint it was made on.
 
 ### Keyboard and lightbox
 
@@ -520,7 +560,7 @@ queued per run, and the new images join it: the batch's hover, the
 | Gallery | Tab enters the cards; arrows/Home/End navigate, Enter opens, F stars; in select mode Space picks, Shift+Space picks a range, Esc clears |
 | Lightbox | Left/Right browse, F stars, S compares a pass with its source or another image with its CFG neighbour, Delete moves the image to the recycle bin (in the bin: asks to delete it permanently), Esc closes |
 | Lightbox zoom | Wheel or +/− zoom, drag pans, 0 fits, 1 or double-click shows actual pixels |
-| Right-click an image | A menu of its actions: Star, Reuse settings, Use seed, Refine…, Inpaint…, Outpaint…, reference, Show run as sheet, Copy prompt / seed / image, Open PNG in new tab, Move to recycle bin. On a picked card: the picks' actions. The Menu key or Shift+F10 opens it from the keyboard; Shift+right-click gives the browser's own menu |
+| Right-click an image | A menu of its actions: Star, Reuse settings, Use seed, Refine…, Inpaint…, Outpaint…, reference, More seeds of this batch…, Show run as sheet, Copy prompt / seed / image, Open PNG in new tab, Move to recycle bin. On a picked card: the picks' actions. The Menu key or Shift+F10 opens it from the keyboard; Shift+right-click gives the browser's own menu |
 | Contact sheet | F stars the focused cell |
 | Prompt/tag chips | Tab/Enter accepts a suggestion after three matching characters; Alt+Left/Right reorders chips, Delete removes, Enter edits |
 | Prompt replacements | Ctrl+Z restores text after Apply, Reuse (or a loaded PNG), Expand, Examples or a chip edit |
@@ -530,6 +570,9 @@ queued per run, and the new images join it: the batch's hover, the
 Lightbox zoom and position carry between images of the same shape, useful
 for comparing a detail across seeds or settings. Its facts include source,
 references and run links, plus **Use seed** and **Use these references**.
+**More seeds…** beside **Reuse** makes more of the image's batch, the dialog
+opening over the lightbox (Esc closes the dialog first); at 900 px wide or
+narrower it is in the right-click menu instead.
 **⌕** beside a setting (model, size, sampling, LoRA, source, seed, day, run)
 adds it to the gallery search; a value of the same kind replaces the old
 one. **⌕ Search for this prompt** replaces the search's text with the

@@ -5170,9 +5170,9 @@ release). A run has one Batch - `run_id` hashes it - so the largest is it.
 
 **Joining the run** (the user's choice, over a run of its own). Each job is
 stamped with the run its batches extend, as a resumed grid's is, so the
-new images and the old are one set to the hover, the Runs picker, `run:`
-and Show sheet. The hover groups by run for it (by job before): a resumed
-grid's cell reads as one set now too. A run_id is a definition's hash, and
+new images and the old are one set to the Runs picker, `run:` and Show
+sheet. (The card's batch hover, which grouped by run for it, has since been
+removed; the dialog's rows are where a batch shows now.) A run_id is a definition's hash, and
 an extension is not in the definition; nothing reads it as one - resume
 keys on settings and the Runs line counts what carries the id. One job per
 run and size, not per press: a job has one run id (and one size), and
@@ -5203,6 +5203,102 @@ dialog with nothing to queue is no help - but the refusal by count (batches
 the default 4 over 257 batches, able only to pick fewer batches or clear
 site storage. It opens on that refusal as an edit's check would have said
 it, the box marked, and the next count that fits lists the batches.
+
+## More seeds where the run ends
+
+**"Continue a run that completes"** (2026-10-18) meant two things the
+server already ran: more of a batch, or more seeds of a finished grid
+(M1, M2 in `docs/plan-continue-run.md`), and finishing a grid a budget
+stopped. Both were reachable only from the footer, through a search or
+picks, and the footer's Starred and its filter's 1,024-image cap stood
+between a night's grid and its next seeds. Of three designs - put the two
+continuations where a run ends, one server-classified **Continue** verb,
+or the run as a home with Finish, Widen and Load into panel - both judges
+took the first now and stored cells later (the plan's phase 2, `GEN#11`),
+never the single verb: one label hid "finish 27 cells" and "make 120 new
+images", and its holds were known only after a press. Matt took every
+recommended answer to the plan's questions the same day.
+
+**The scope is in the label.** More seeds of this batch… (the menu; the
+lightbox's and the result column's More seeds… beside Reuse and Use
+seed), More seeds… on a job's finish line for the batches it made, and
+More seeds of this run… (a done grid's finish line, the last-run banner,
+the sheet's run bar). Nothing is called a bare Continue; Resume keeps its
+name until phase 2 makes Finish run independent of the panel (Q7).
+
+**A run scope, not more ids.** `MoreSeedsRequest.run` is a third mode of
+`resolve_selection` beside picks and the filter - every rerun's images
+still come through that one function - reading the run's rows from
+`lineage_images`: every live image of it, Starred ignored (Q9), every
+checkpoint's (another's batches come back `foreign`, per batch), and no
+image cap, since only batches × count bounds what one press queues. The
+picked-ids path is capped at 1,024 ids too, so picking could never reach
+a run past that; only `run` is uncapped. Binned images are no batches but
+still hold their seeds.
+
+**"4 more" is per cell** (Q2): a grid's More seeds is N more images of
+every cell, as the footer's always was, not N more seed values crossed
+with the grid - a listed seed axis continues from its highest + 1, not
+from a list. Because that may not read as "more seed rows", the server
+writes the dialog's first words for a run: "2 more of each of 6 cells = 12
+images · seeds 8–9 · Starred ignored" (`run_headline`). The seed span is
+the queued cells' lowest first seed to their highest last; cells with
+different top seeds show the wider span.
+
+**The count opens at the batch's own Batch** from a run surface (Q3): the
+server answers `count_default`, the Batch every batch that recorded one
+agrees on, and the page asks again at it where its first check was at
+another number - one more preview, so that Queue always matches an answer
+to what the box says. The dialog is kept even for the trivial case (Q4):
+opened with Enter ready, two presses. The footer alone keeps the
+remembered count. `count_default` is answered for every scope, not only a
+run, since the finish line's open is an `{ids}` one.
+
+**Holds are one function, mirrored.** Every new More seeds… is held with
+the reason as its title, never hidden, by `moreSeedsToolHold` - the bin,
+another checkpoint, offline, the dialog already open, every image of a job
+gone - and the menu's item by the same function on a scratch button, so
+the lightbox's button keeps Reuse at one width as it steps and a new place
+adds no hold of its own. What only the server knows (a source or LoRA
+gone, one batch of several from another checkpoint) stays per batch in the
+dialog. A refusal while opening is said where the press was: over the
+modal lightbox, the gallery's line is covered, so the lightbox's own line
+says it; the dialog opens over the lightbox, which stays, and Escape
+closes the dialog first. No lightbox key (Q10).
+
+**The budget stop's Resume** reuses the failure stop's button: the budget
+is checked before a cell starts, so the job's `run` is the cells reached,
+and the button re-sends the night's own payload, its `budget_minutes` with
+it (Q6), the budget named in its title.
+
+**The run bar** on the sheet puts More seeds of this run… after Resume
+this run and the run's line ("Run abc · 70 images · WAI fp8") last on a
+row of its own: its count changes while a job writes to the run, and text
+before the buttons would move them under the pointer. The plan's "70/96
+cells" needs a cell total no row stores; phase 1 shows the images the
+gallery holds under the filter. The bar's gate is looser than Resume's - a
+refine sweep's and a comparison's run too, held on another checkpoint -
+and where Resume this run's preview renders nothing, it points the way on:
+"Nothing in run X is missing. More seeds of this run… adds seeds."
+
+**The double render** (phase 1a, `GEN#9`). Grid Resume subtracted what the
+gallery held (`not_yet_rendered`) but never what a live job planned, so a
+Resume pressed while the run's cells were still queued - the grid tick,
+the banner's Resume, and now the budget Resume - rendered them twice. More
+seeds already stepped past `jobs.planned_keys()`. The fix is a separate
+`not_yet_planned`, chained after `not_yet_rendered` on Resume only, not
+folded into it: its other callers - the grid preview's "already in the
+gallery" note, Re-render's "every selected image is already rendered" -
+speak of the gallery, and would have turned into claims about queued
+cells. The preview counts those cells apart, "N queued", since `skipped`
+is shown as "already done". Re-render, Swap tags and Mass refine share the
+latent double render and can chain the same function when it matters.
+
+**Left for phase 2:** the finish line's Resume is still page memory and
+the banner's still needs the grid in the panel; a reload with the panel changed, or a restart, loses
+the way to finish a run until `run_jobs` keeps each job's cells. Widen and
+Load into panel wait until a night shows the need (Q13); picks after a
+footer More seeds are left as they are (Q14).
 
 ## Delete unstarred
 
