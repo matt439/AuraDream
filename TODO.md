@@ -8,13 +8,13 @@ An index of open work, one row per item; each row points to the doc that owns th
 
 **Aim (2026-10-18):** keep useful work ready for Matt's common workstation tasks. The queue below can proceed on CPU and disposable fake-server galleries, independently of whole-app layout trials. [Reported use](docs/design/preferences.md) guides priority; it does not approve the candidate redesign.
 
-**Ready backlog:** 12 `OPEN` tasks can be completed with CPU/browser evidence. One further `OPEN` item, the upscaler (`GEN#5`), can be built but needs a separate card pass before closure.
+**Ready backlog:** 11 `OPEN` tasks can be completed with CPU/browser evidence. One further `OPEN` item, the upscaler (`GEN#5`), can be built but needs a separate card pass before closure.
 
 1. **Continue a run (`GEN#11`):** build phase 2 in dependency order: persistence, Finish service/API, then page actions and restart smoke. These are stages of one feature. [Execution slices](docs/plan-continue-run.md#phase-2-execution-slices).
 2. **Pick loaded cards by keyboard (`UI#6`):** Ctrl+A for loaded cards in Select mode, preserving picks across filters. [Feature plan](docs/review-2026-10-12.md#feature-ideas).
 3. **Finish the bin workflow (`GAL#1`):** permanently delete picked binned images. Age-based emptying is separate. [Feature plan](docs/review-2026-10-12.md#feature-ideas).
 
-**Other ready work:** model cache/download facts (`GEN#1`), Stop Expand (`GEN#2`), storage recovery checks (`GAL#4`), design-trial preparation (`DEV#3`) and browser accessibility checks (`UI#9`). Their owners define scope and completion. Optional conveniences remain below; there is no need to promote deferred features to fill this queue.
+**Other ready work:** model cache/download facts (`GEN#1`), Stop Expand (`GEN#2`), design-trial preparation (`DEV#3`) and browser accessibility checks (`UI#9`). Their owners define scope and completion. Optional conveniences remain below; there is no need to promote deferred features to fill this queue.
 
 **Needs Matt:** workbench task trials (`DEV#1`) and hands-on screen-reader/touch checks (`UI#7`) are `USER`, not implementation prerequisites for the queue above. No feature decision is waiting. Whole-app layout implementation waits for its trials; it remains a design hypothesis.
 
@@ -83,7 +83,6 @@ An index of open work, one row per item; each row points to the doc that owns th
 | id | status | sev | size | item |
 |---|---|---|---|---|
 | `GAL#1` | OPEN | LOW | M | Bin: confirmed "Delete picked permanently", scoped by ids and refusing live rows; age-based emptying is `GAL#5` (10-12 F5). |
-| `GAL#4` | OPEN | MED | M | Kill disposable storage subprocesses during import/export, then verify restart/retry recovery and the verify-before-clear boundary. [Interruption checks](docs/review-2026-10-12.md#storage-scale-and-interruption-checks). |
 | `GAL#5` | DEFERRED | LOW | M | Optional age-scoped Empty bin using `binned_at`; independent of Delete picked permanently, not needed for its completion (10-12 F5). |
 
 ## Prompt analyser
