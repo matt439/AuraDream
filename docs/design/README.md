@@ -20,8 +20,9 @@ that functionality fits together and how clearly it communicates its scope.
 **Primary objective, confirmed this session:** "i want to be able to do
 common tasks quickly." Optimize interaction time, detours and recovery of
 context in the normal loop. Hardware speed is a separate measurement.
-Which tasks are most frequent remains to be observed; the initial fast paths
-come from documented workflows, not invented usage statistics.
+Matt has now supplied [all 129 feature ratings](preferences.md): 66 Often,
+34 Sometimes and 29 Never, plus Grid experiments overall as Sometimes.
+These are self-reports; task timings remain unobserved.
 
 **Audience decision:** Matt answered **personal workstation only** on
 2026-10-18. Personas remain modes of his work. General onboarding, accounts,
@@ -34,6 +35,7 @@ reliability of this workstation.
 | Artifact | What it answers |
 |---|---|
 | [Research and journeys](research.md) | What is known, what is inferred, whose needs drive the work, and where each journey begins and ends |
+| [Reported feature use](preferences.md) | Matt's exact frequency answers and the resulting generation-control priorities |
 | [Workbench design](workbench.md) | Information architecture, vocabulary, layout, interaction contracts, visual direction and complete states |
 | [Requirements](requirements.md) | Outcome-based stories, acceptance criteria, existing feature owners and candidate delivery sequence |
 | [Options and validation](validation.md) | Alternatives, trade-offs, task protocol, provisional targets and evidence needed before implementation |
@@ -77,15 +79,25 @@ justified by the evidence currently available.
 | State | Decision |
 |---|---|
 | Confirmed this session | Personal workstation only |
+| Confirmed use | Generation, queue control, searching/picking, full-size/sheet review, continuation, reruns/Refine and whole-gallery archiving are central; see the exact feature ratings |
 | Existing accepted direction | More seeds keeps its preview/confirmation, retained batch semantics and original run; phase 2 adds persisted cells and Finish run |
 | Existing safeguards | Undoable prompt writes; stable controls; no automatic page scrolling; explicit held-action reasons; authoritative server previews |
 | Proposed here | Results/Runs/Gallery views with shared context; consistent scope presentation; inspector hierarchy; consolidated recovery and review journeys |
-| Open research | Which real tasks feel slow or unclear; image space versus adjacent detail; whether view changes improve the normal loop |
+| Open research | Actual task sequences/timings; image space versus adjacent detail; whether view changes improve the normal loop |
 | Still deferred | External photo/sketch references, Widen, Load into panel, and other explicitly deferred features in TODO |
 
-Matt identified speed on common tasks as the priority during this pass.
-Specific task frequencies and costly detours still need a short normal-session
-observation. The research file labels that uncertainty.
+The fuller answers make the next layout concrete: keep the primary composer,
+make queue/watch/cancel/retry status direct, give Gallery and contact sheets
+the main visual space, and expose scope-specific reuse/More seeds/rerun/Refine
+actions. Whole-gallery password backup, clear, download and import belong
+where curation ends. The existing Gallery-beside-newest mode, Pause, advanced
+loader settings, manual conditioning and terminal tools need secondary
+access. No feature is removed. Reset retains today's clear-seed behavior.
+
+Prompt variables deserve a direct route despite grids overall being
+occasional. The latest B answers also keep Examples, guidance, Tags,
+autocomplete, chips and Check beside authoring. Critic/rewrite/comparison
+and ERNIE Expand stay contextual, with PNG settings secondary.
 
 ## Prototype scope
 
@@ -96,10 +108,20 @@ API, opens no gallery, stores no settings and runs no model.
 
 Working paths include changing views without losing the draft, selecting
 across filters, image/run scope previews, comparing two picks, and simulating
-Finish run. The recovery control is explicitly labelled as an accepted
-future capability. Queueing records a simulated outcome only. Refinement,
-painting, real model loading and archive operations remain specified in the
-design rather than implemented in the concept.
+Finish run. The preference revision adds independent Aspect/Resolution,
+Batch × Repeat counts, Reset/Undo, watched-job cancellation, a query-based
+sample sheet/Fill width, and source comparison. Prompt helpers, frequent
+scope actions and whole-gallery archive/model controls have visible routes.
+Some routes show their scope and placement only; they do not emulate the
+production planner or helper.
+
+Finish run is explicitly labelled as an accepted future capability, and
+arbitrary Compare picked remains proposed. Queueing records a simulated
+outcome only. Refinement execution, painting, real model loading and archive
+operations remain specified rather than implemented in the concept. Its
+two independent job fixtures and sample run outcomes are not a durable
+production queue. All sample values are illustrative, including checked
+archive/model choices; no saved preference is inferred or changed.
 
 ## Delivery and validation status
 

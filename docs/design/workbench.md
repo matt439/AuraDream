@@ -45,6 +45,10 @@ shortcuts supplement visible actions; no new More seeds key is proposed.
 
 ## Objects and vocabulary
 
+The placement below is informed by all 129 explicit feature ratings.
+The hierarchy is more specific; architecture and speed gains still need
+task evaluation.
+
 | Object | Meaning to preserve | Visible language |
 |---|---|---|
 | Draft | Current editable request, independent of inspected results | Draft / Settings |
@@ -85,7 +89,9 @@ flowchart TD
 
 **Persistent frame:** current checkpoint, quantization, readiness, Models,
 and concise active-job/queue status. Full queue details open on request;
-the current work's Pause/Resume and Cancel stay reachable. A pause retains
+the current work's watch selector, progress and Cancel stay direct; queue
+rows expose cancellation. Pause/Resume moves to secondary job controls,
+while a genuinely paused job remains explicit and easy to resume. A pause retains
 weights and blocks switching as today. Status is not a second competing
 dashboard of statistics.
 
@@ -93,6 +99,35 @@ dashboard of statistics.
 Batch/Repeat, Generate and Grid search. Check/Tags/Examples remain by the
 prompt. Existing less-used references and LoRA remain below the main loop.
 Do not hide a control used every time merely because it is called advanced.
+
+### Reported generation-control priorities
+
+The [A1–A14 answers](preferences.md) now determine the next composer study:
+
+| Placement | Controls | Intended effect |
+|---|---|---|
+| Primary | Prompt and applicable Negative | Direct authorship without opening a panel |
+| Primary | Separate Aspect ratio and Resolution presets | Fast independent choices; no custom pixel entry required |
+| Primary | Readable fixed Seed, Batch and Repeat | Deliberate starting seed and concurrent/sequential image count together |
+| Primary | Generate and a separately placed Reset with Undo | Fast start and frequent return to defaults without an accidental reset |
+| Secondary, one disclosure | Steps, CFG and applicable Mu; effective values in the summary | Occasional adjustment stays one press away |
+| Secondary | Custom dimensions/orientation, True CFG, explicit random-seed choice | Keep access without occupying the frequent path |
+
+No numeric seed, aspect ratio, megapixel tier, Batch, Repeat or sampling value
+has been selected by this response. Keep illustrative values labelled in the
+concept and preserve real user-owned values. A blank seed must not visually
+pretend to be fixed. Matt confirmed that Reset keeps today's behavior,
+including clearing Seed; he enters a seed afterwards. Preserve Reset's
+existing scope and Undo without auto-filling Seed or adding a submission
+guard. The fuller ratings below now guide prompt assistance, Grid search
+and review/continuation placement as well.
+
+The revised concept now separates Aspect/Resolution and Seed/Batch/Repeat,
+shows a fixed illustrative seed, puts sampling in a disclosure, and models
+Reset clearing Seed with Undo. Its WAI sample truthfully marks Mu unavailable.
+It also exposes the frequent prompt helpers directly. The concept models
+placement; it does not implement real tokenizers, tag lookup, critic work or
+all of the application's Reset/persistence scope.
 
 **Results:** newest submission and recent results for immediate judgment.
 Show its outcome and continuation actions where it ends. Use the sheet
@@ -110,6 +145,41 @@ search, selection and paging. Cards and contact sheet are representations
 of a scope, not separate libraries. Keep Bin and Bundles accessible at the
 point where curation finishes. Do not silently introduce picks on a sheet;
 that would reopen a documented decision.
+
+### Reported whole-workflow priorities
+
+The [fuller response](preferences.md) changes the original generic hierarchy:
+
+| Surface | Direct/common controls | Secondary access |
+|---|---|---|
+| Draft | Existing confirmed A priorities; Prompt variables entry | Occasional numeric grids; unused axes/seed list/time budget |
+| Prompt assistance | Examples, guide/help, Tags/autocomplete/chips and Check adjacent to Prompt | Token detail, corrections/Undo, critic/rewrite, shared-seed comparison and ERNIE Expand in context; PNG settings secondary |
+| Active work | Progress/elapsed/estimate, job watching, queue, cancel, retry/reconnect and recent results | Optional live preview and Pause; expose any actual paused state |
+| Gallery | Starred, All models, prompt search, Runs, picking, card size and Fit/Crop | Advanced search syntax; no default Gallery-beside-newest split |
+| Image/sheet | Large inspection, facts, zoom, star, source comparison, Sheet and Fill width | CFG/swipe/side comparisons and sheet axis pinning; unused export |
+| Actions | Reuse, Use seed, More seeds by batch/picks-filter/run; Re-render, Swap tags and Mass refine with scope counts | Recorded-reference reuse remains contextual; unused cross-model mass inclusion |
+| Archive | Whole-gallery backup, password, verified Bundle and clear, Download and Import | Picked/starred archive scopes |
+| Models | Favourites, guide/example/timing facts, auto-load preference and model selection | Quantization/offload, save-without-load and manual weight operations |
+| Input | Keyboard, right-click and Ctrl/Shift selection | Terminal workflows outside the primary browser layout |
+
+Prompt variables have their own entry near authoring; an occasional Grid
+workflow must not bury that frequent action among unused axes. Grid's
+review/count and Resume remain easy to find. Budget controls remain supported
+without driving the default run story or leading validation task.
+The direct entry opens variable authoring and its Grid preview; Run grid
+still performs substitution. Plain Generate does not acquire a new expander.
+
+The Gallery view uses the workspace instead of sharing it with the newest
+result: E11 names that existing split view, not the separate question of a
+composer beside Gallery. Show large facts/inspection and sheets as
+representations of the selected scope; do not add another mandatory stage.
+
+Never-use answers reduce prominence rather than remove capabilities. In
+particular, unneeded manual LoRA/reference authoring must not discard
+recorded inputs when G3 reuses references. Never-random Generate does not
+restrict the frequently used More seeds paths. The latest B response directly
+supports the prompt-assistance placement above; it does not justify adding
+a forced check or critic step before Generate.
 
 **Inspector:** one hierarchy for the inspected image's identity, prompt,
 important settings, source/pass lineage, and actions. Full view keeps zoom,

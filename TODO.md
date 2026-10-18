@@ -8,7 +8,7 @@ An index of open work, one row per item; each row points to the doc that owns th
 
 **Aim (2026-10-18):** Matt requested whole-app design for his personal workstation, prioritizing common tasks done quickly. The candidate design and interactive concept are in [docs/design](docs/design/README.md); validate the fast paths before selecting layout implementation slices.
 
-1. **Personal workstation design (`DEV#1`):** compare current common-task paths with the workbench concept; record Matt's task priorities and revise from the trials. [Validation](docs/design/validation.md).
+1. **Personal workstation design (`DEV#1`):** validate the revised workbench against Matt's 129 feature ratings and current common-task paths, then revise from the trials. [Validation](docs/design/validation.md).
 2. **Continue a run (`GEN#11`):** phase 1 (1a and 1b) is built, 2026-10-18; build phase 2, `run_jobs` and Finish run. [Plan](docs/plan-continue-run.md).
 3. **`CARD#1`/`CARD#2` remainder:** Z-Image Turbo (a download first) and an SDXL LoRA through an inpaint, when Matt wants them.
 

@@ -78,7 +78,7 @@
     "click": "#confirm-action"
   },
   {
-    "expect": "sampleQueue.length === 1 && byId('queue-count').textContent === '1' && byId('prompt').value === 'My unfinished draft for the next experiment'"
+    "expect": "sampleQueue.length === 1 && Number(byId('queue-count').textContent) === sampleQueue.length + studyJobs.filter(j => j.state !== 'Cancelled').length && byId('prompt').value === 'My unfinished draft for the next experiment'"
   },
   {
     "eval": "document.querySelector(\"[data-view='results']\").scrollIntoView({block:\"nearest\"})"
@@ -379,5 +379,228 @@
   },
   {
     "expect": "!byId('info-dialog').open && document.activeElement === byId('queue-open')"
+  },
+  {
+    "expect": "byId('aspect').value==='1:1' && byId('mp').value==='1' && byId('repeat').value==='1' && !byId('sampling').open && ['examples','tags-help','check-prompt','prompt-guide','variables'].every(id=>byId(id).getBoundingClientRect().width>0)"
+  },
+  {
+    "eval": "window.__beforeReset=readDraft()"
+  },
+  {
+    "eval": "document.querySelector(\"#reset\").scrollIntoView({block:\"nearest\"})"
+  },
+  {
+    "click": "#reset"
+  },
+  {
+    "expect": "byId('seed').value==='' && byId('prompt').value==='' && byId('negative').value==='' && byId('batch').value==='1' && byId('repeat').value==='1' && byId('cfg').value==='6' && byId('undo').textContent==='Undo Reset' && !byId('undo').hidden"
+  },
+  {
+    "eval": "document.querySelector(\"#undo\").scrollIntoView({block:\"nearest\"})"
+  },
+  {
+    "click": "#undo"
+  },
+  {
+    "expect": "JSON.stringify(readDraft())===JSON.stringify(window.__beforeReset)"
+  },
+  {
+    "eval": "byId('aspect').value='7:9';byId('mp').value='2';byId('repeat').value='3';byId('repeat').dispatchEvent(new Event('input'))"
+  },
+  {
+    "expect": "byId('dimensions').textContent.includes('1264') && byId('dimensions').textContent.includes('1632') && byId('output-plan').textContent.includes('12 images') && byId('output-plan').textContent.includes('3 batches of 4')"
+  },
+  {
+    "eval": "document.querySelector(\"#generate\").scrollIntoView({block:\"nearest\"})"
+  },
+  {
+    "click": "#generate"
+  },
+  {
+    "expect": "sampleQueue.at(-1).includes('Generate 12 images in 3 batches of 4')"
+  },
+  {
+    "eval": "window.__jobDraft=readDraft();byId('watch-job').value='J13';byId('watch-job').dispatchEvent(new Event('change'))"
+  },
+  {
+    "expect": "byId('job-readout').textContent.includes('Queued')"
+  },
+  {
+    "eval": "document.querySelector(\"#cancel-job\").scrollIntoView({block:\"nearest\"})"
+  },
+  {
+    "click": "#cancel-job"
+  },
+  {
+    "expect": "studyJobs[1].state==='Cancelled' && byId('cancel-job').getAttribute('aria-disabled')==='true' && JSON.stringify(readDraft())===JSON.stringify(window.__jobDraft)"
+  },
+  {
+    "eval": "document.querySelector(\"#check-prompt\").scrollIntoView({block:\"nearest\"})"
+  },
+  {
+    "click": "#check-prompt"
+  },
+  {
+    "expect": "byId('info-dialog').open && byId('info-title').textContent.includes('Check') && byId('info-body').textContent.includes('does not invent token')"
+  },
+  {
+    "key": "Escape"
+  },
+  {
+    "eval": "document.querySelector(\"[data-view='gallery']\").scrollIntoView({block:\"nearest\"})"
+  },
+  {
+    "click": "[data-view='gallery']"
+  },
+  {
+    "eval": "document.querySelector(\"[data-pick='101']\").scrollIntoView({block:\"nearest\"})"
+  },
+  {
+    "click": "[data-pick='101']"
+  },
+  {
+    "eval": "document.querySelector(\"[data-pick='102']\").scrollIntoView({block:\"nearest\"})"
+  },
+  {
+    "click": "[data-pick='102']"
+  },
+  {
+    "eval": "document.querySelector(\"#rerender-scope\").scrollIntoView({block:\"nearest\"})"
+  },
+  {
+    "click": "#rerender-scope"
+  },
+  {
+    "expect": "byId('info-title').textContent.includes('2 picked images') && picks.size===2"
+  },
+  {
+    "key": "Escape"
+  },
+  {
+    "eval": "document.querySelector(\"#sheet-toggle\").scrollIntoView({block:\"nearest\"})"
+  },
+  {
+    "click": "#sheet-toggle"
+  },
+  {
+    "expect": "!byId('gallery-matrix').hidden && byId('gallery-tiles').hidden && document.querySelectorAll('#gallery-matrix td button').length===visibleImages().length && visibleImages().length>picks.size"
+  },
+  {
+    "eval": "document.querySelector(\"#sheet-fill\").scrollIntoView({block:\"nearest\"})"
+  },
+  {
+    "eval": "window.__sheetCellWidth=document.querySelector('#gallery-matrix td').getBoundingClientRect().width"
+  },
+  {
+    "click": "#sheet-fill"
+  },
+  {
+    "expect": "byId('gallery-matrix').classList.contains('fill') && document.querySelector('#gallery-matrix td').getBoundingClientRect().width>window.__sheetCellWidth"
+  },
+  {
+    "viewport": [
+      2048,
+      1040,
+      1.25
+    ]
+  },
+  {
+    "eval": "byId('sheet-fill').click();window.__wideSheetCellWidth=document.querySelector('#gallery-matrix td').getBoundingClientRect().width;byId('sheet-fill').click()"
+  },
+  {
+    "expect": "document.querySelector('#gallery-matrix td').getBoundingClientRect().width>window.__wideSheetCellWidth"
+  },
+  {
+    "viewport": [
+      1400,
+      900
+    ]
+  },
+  {
+    "eval": "document.querySelector(\"#sheet-toggle\").scrollIntoView({block:\"nearest\"})"
+  },
+  {
+    "click": "#sheet-toggle"
+  },
+  {
+    "eval": "inspect(sampleImages[6])"
+  },
+  {
+    "eval": "document.querySelector(\"#source-compare\").scrollIntoView({block:\"nearest\"})"
+  },
+  {
+    "click": "#source-compare"
+  },
+  {
+    "expect": "byId('inspector').open && byId('compare-dialog').open && byId('comparison-diff').textContent.includes('Source #101')"
+  },
+  {
+    "key": "Escape"
+  },
+  {
+    "expect": "byId('inspector').open && document.activeElement===byId('source-compare')"
+  },
+  {
+    "key": "Escape"
+  },
+  {
+    "eval": "document.querySelector(\"#archive\").scrollIntoView({block:\"nearest\"})"
+  },
+  {
+    "click": "#archive"
+  },
+  {
+    "expect": "byId('info-title').textContent.includes('entire gallery') && [...byId('info-body').querySelectorAll('button')].some(b=>b.textContent==='Bundle and clear gallery') && byId('info-body').querySelector('input[type=checkbox]').checked"
+  },
+  {
+    "eval": "[...byId('info-body').querySelectorAll('button')].find(b=>b.textContent==='Bundle and clear gallery').click()"
+  },
+  {
+    "expect": "byId('archive-result').textContent.includes('design preview only') && sampleImages.length===11 && picks.size===2"
+  },
+  {
+    "key": "Escape"
+  },
+  {
+    "eval": "document.querySelector(\"#models\").scrollIntoView({block:\"nearest\"})"
+  },
+  {
+    "click": "#models"
+  },
+  {
+    "expect": "byId('info-body').querySelectorAll('input[type=checkbox]').length===2 && !byId('info-body').querySelector('details').open"
+  },
+  {
+    "key": "Escape"
+  },
+  {
+    "expect": "window.__errors.length===0"
+  },
+  {
+    "viewport": [
+      320,
+      720
+    ]
+  },
+  {
+    "eval": "view('gallery');byId('sheet-toggle').click()"
+  },
+  {
+    "expect": "!byId('gallery-matrix').hidden && document.documentElement.scrollWidth<=innerWidth && byId('gallery-matrix').scrollWidth>byId('gallery-matrix').clientWidth"
+  },
+  {
+    "viewport": [
+      390,
+      844
+    ]
+  },
+  {
+    "expect": "document.documentElement.scrollWidth<=innerWidth"
+  },
+  {
+    "viewport": [
+      1400,
+      900
+    ]
   }
 ]

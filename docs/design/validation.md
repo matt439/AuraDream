@@ -11,6 +11,13 @@ detours and retained context lead the evaluation; model runtime is separate.
 Start with the [design index](README.md), [research and journeys](research.md),
 [workbench proposal](workbench.md) and [requirements](requirements.md).
 
+The fuller [feature-use response](preferences.md) now chooses the trial
+priorities. It is evidence of reported use, not task performance or a blanket
+rating for an area. All 129 listed features now have an explicit answer:
+66 Often, 34 Sometimes and 29 Never. Grid as an area is Sometimes while
+prompt variables specifically are Often; the other area ratings remain
+unanswered. No further broad questionnaire is required to revise the next layout.
+
 ## Three directions
 
 The comparison concerns the whole application's organization. Colour, type
@@ -33,6 +40,9 @@ Results, Runs and Gallery are views over the same workstation,
 not obligatory stages. Keep the model, queue and draft available across them.
 Prototype their transitions before committing to their labels or placement.
 The main risk is replacing today's many surfaces with one crowded surface.
+E11 rates Gallery beside Never: a simultaneous gallery/newest-result column
+is not a required common-task layout. Keep session review and gallery review
+direct, with full-size inspection and a contact sheet that can Fill width.
 
 Keep a credible alternative in the first prototype: a review-focused layout
 with the composer immediately recoverable and its draft intact. Compare that
@@ -42,6 +52,9 @@ against the shared view on the same short tasks. Do not build three products.
 
 - Preserve Generate, Batch, Repeat, explicit grid work and the existing seed
   semantics. Do not rename distinct operations to an ambiguous Continue.
+- Keep the frequent explicit Seed path and the confirmed Reset behavior:
+  Reset clears Seed within its current scope and retains Undo; Matt enters
+  another seed afterwards. Do not invent an empty-seed guard or auto-fill.
 - Keep **More seeds** separate from **Finish run**. More seeds joins the run;
   Finish addresses missing work rather than silently enlarging a completed run.
 - Preserve accepted counts, previews, holds, undo and user-owned sampling
@@ -58,6 +71,20 @@ against the shared view on the same short tasks. Do not build three products.
   prerequisite for testing the existing gallery-reference workflow.
 - Leave Widen and Load into panel deferred under the accepted continuation
   plan. A comprehensive design exercise does not approve those features.
+- Put progress, watched-job selection, queue/cancel, retry/remainder and
+  reconnect ahead of unused Pause. Model guidance/favourites/preload take
+  priority within Models; manual loader controls remain secondary.
+- Test whole-gallery encrypted backup, archive-and-clear, download and
+  import as common paths. Do not centre subset bundles, sharing or terminal
+  workflows, all of which lack a supporting frequent-use answer here.
+- Keep frequent Examples, guide/help, autocomplete, recommended Tags,
+  chips and rules/order Check beside prompt editing. Occasional token
+  review, corrections, critic/rewrite, shared-seed comparison, ERNIE Expand
+  and Undo remain contextual; PNG settings is secondary. No helper applies
+  advice automatically because it is frequent.
+- Manual LoRAs/reference setup, time budgets and sheet export need no
+  primary layout space. Recorded reference reuse (G3 Sometimes) remains
+  a separate contextual action.
 
 The [continuation plan](../plan-continue-run.md) remains the owner of
 `GEN#11`. Its phase 1 exists; phase 2's retained cells and Finish run do not.
@@ -72,10 +99,14 @@ Separate prior decisions, reported habits, observed behavior and hypotheses
 in the record. An agent's walkthrough is an expert review, not a user trial.
 
 Use a fresh fake-server gallery with synthetic prompts, images and runs.
-Prepare complete and interrupted grids, two checkpoints, a refine source and
-child, stars, binned images and selected subsets. Include a run larger than
-the immediately visible view. No live gallery, encrypted bundle, private
+Prepare complete and interrupted grids with prompt variables and Steps/CFG
+sweeps, two checkpoints, a refine source and child, stars, binned images and
+selected subsets. Include a run larger than the immediately visible view.
+Archive screens use synthetic whole-gallery counts and a fake password,
+progress and import result. No live gallery, real encrypted archive, private
 prompt, weight download or real generation is needed for this comparison.
+Fixed-fixture success checks the depicted interaction, not actual encryption,
+server eligibility, archive verification or restart durability.
 
 1. Record the current build, browser, CSS viewport, Windows scaling and input
    method. Note which relevant behaviors already exist in that build.
@@ -99,17 +130,34 @@ claiming a time improvement caused by layout when familiarity could explain it.
 
 | Task and synthetic setup | Evidence to collect |
 |---|---|
+| Enter prompt and negative, select aspect/resolution, fixed Seed, Batch and Repeat; Reset and enter a new seed | Direct control reachability, distinct Batch/Repeat and total, values retained during review, visible cleared Seed and usable Reset Undo; no inferred preferred values |
+| Insert an author example, consult guide/help, use tag autocomplete and recommended Tags, edit chips and Check rules/order | Helpers reachable beside the prompt; source/heuristic distinctions, undo, preserved newer text and meaningful applicability; no mandatory critic or Expand detour |
+| Review a token/correction result or critic rewrite, optionally compare prompt versions on shared seeds or Expand with ERNIE | Context preserved, suggestion reviewed before replacement, usable Undo and controlled comparison labels; no assumption of automatic quality improvement |
+| While a job runs, inspect earlier session results, queue another job and choose the job being watched | Progress/elapsed/estimate clarity, watched-job identity, draft retained and stable action positions |
+| Cancel running and selected queued work, then retry skipped/remaining cells and reopen the tab | Correct target and outcome, reconnect to surviving work, saved results retained; no requirement to use Pause |
 | A Batch 4 finishes; ask for four more like it | Correct batch scope, default count, total and run identity; presses and detours |
 | A keeper suggests a prompt edit while an unrelated draft exists | Clear Reuse effect, preservation or explicit replacement of draft, usable undo |
-| Plan a multi-axis overnight run with a time budget | Ability to explain combinations, image count, estimate limits and stopping behavior |
-| Reopen after a budget stop, with the composer changed | Recognition of missing work and original budget; no manual seed reconstruction |
+| Plan prompt variables crossed with Steps/CFG and consecutive seeds | Access to variables, explanation of combinations/image count and optional estimates; no time-budget or explicit-seed-list detour |
+| Reopen an interrupted run, with the composer changed | Recognition of missing work and the stored definition; no manual seed reconstruction |
 | Finish after reload or restart in the future-state prototype | Correct original cells and run; existing work and queued work not duplicated |
 | Starred is on; some images are picked; a whole run is open | Correct prediction of the scope of each action before Queue |
-| Change checkpoint, then inspect an older image or run | Model state understood; held actions explain the mismatch; draft remains coherent |
-| Compare two keepers and inspect a refine child against its source | Understand differences, source relationship and path back to the prior view |
+| Find older images by prompt, Stars, All models and Runs, then search from an image setting | Search scope and route back understood; picked set persists across filters; card-size/Fit/Crop controls reachable |
+| Inspect full-size, zoom/pan, read prompt/settings, star and compare a refine child with its source | Direct inspection and source comparison; crop, inspected image and route back preserved |
+| View the same run as a sheet and Fill width, then return to inspection | Useful image space and cell/settings orientation without exporting a sheet or using Gallery beside |
+| Reuse settings or take/copy a seed, then use picked/filter More seeds, Re-render, Swap tags and Mass refine | Correct scope/counts and effective model eligibility; no lost picks/draft; frequent actions directly reachable |
+| Refine/enlarge a keeper and try strengths/versions; open inpaint/outpaint when needed | Source, intended edit and output clear; common refine controls direct, occasional editors reachable without crowding review |
+| Find model guidance/timing/examples, favourite a model, change startup preload and occasionally switch | Guidance discoverable, preload choice clear, model state understood; no manual loader-settings detour |
 | Open an action preview; change its underlying scope elsewhere | Stale preview recognized; recheck required; no silent change in queued work |
-| Curate keepers, bundle, then perform normal cleanup | Clear retained scope, completed export verification and recoverable bin behavior |
-| Repeat the short loop by keyboard in a short desktop viewport | Reachable actions, logical focus, intelligible state and no focus loss |
+| Back up the whole gallery with a password, archive-and-clear, download, then import a synthetic bundle | Whole-gallery scope apparent despite Stars/picks/model filter; clear follows verification, progress/result and import counts understood |
+| Bin rejects individually or in bulk, clean unstarred in scope, restore a mistake and empty the bin | Fast ordinary binning, preserved picks, clear recoverability and confirmed permanent scope |
+| Repeat the short loop using keyboard, right-click and Ctrl/Shift picks in a short desktop viewport | Reachable actions, logical focus, retained selection, intelligible state and no focus loss |
+
+These are a prioritized task bank, not one long compulsory sitting. Start
+with generation/reset, busy-queue control, inspection/sheet, reuse/rerun and
+archive completion; split the rest into short sessions. Preserve occasional
+inpaint/outpaint and grid paths without treating Never-rated features as
+daily tasks. Arbitrary Compare picked remains an optional concept probe,
+not evidence that F6's source comparison rated that future feature Often.
 
 Recovery tasks need fault and legacy cases as well as the happy path: no
 image made, source missing, older run without retained cells, another quantizer,
@@ -133,6 +181,15 @@ These are provisional acceptance targets to review after the baseline:
 - Future-state Finish after reopening requires no reconstruction of the
   original grid or seed, and does not read the unrelated current draft.
 - Reviewing a run preserves the draft; deliberate replacement has useful undo.
+- Frequent generation controls, watched-job controls and inspection/sheet
+  actions do not require visiting unused loader, LoRA, pause or export controls.
+- Frequent prompt helpers are reachable beside prompt editing; occasional
+  critic/rewrite/comparison/Expand tools do not displace the composer or
+  automatically overwrite its newer text. Replacement Undo remains usable.
+- Prompt variables remain directly reachable inside experiments, without
+  requiring a time budget, explicit seed list or unused sweep axis.
+- A whole-gallery archive remains the whole gallery when Stars, picks or a
+  model filter is present; verification precedes clear and import reports its result.
 - A changing model or preview never silently submits different work.
 - No result arrival moves an actionable target under a stationary pointer.
 - Critical tasks work by keyboard with visible focus and sensible return.
@@ -159,8 +216,10 @@ large screenshot does not demonstrate the behavior of a shorter viewport.
 
 ## Decision gates and implementation order
 
-1. **Evidence gate:** Matt confirms the task priorities and unresolved
-   assumptions; the current baseline and accepted behaviors are recorded.
+1. **Evidence gate:** use Matt's recorded feature priorities and Reset
+   decision; record the current baseline and accepted behaviors. Ask only
+   about an unresolved detail that changes the next layout decision, not
+   for another exhaustive feature rating.
 2. **Concept gate:** compare the workbench and review-focused alternative;
    scope, draft continuity and make-judge adjacency must work before styling.
 3. **Prototype gate:** critical tasks meet the provisional targets, or the
@@ -179,9 +238,101 @@ None of these forms of evidence substitutes for the others.
 
 ## Technical checks completed for this design, 2026-10-18
 
-The isolated [concept](prototype/index.html) was checked in headless Edge
-using the repository's `tools/browser.mjs`. The repeatable
-[check script](prototype/check.json) passed all 34 expectations, covering:
+### Reported control use follow-up
+
+The fuller [self-report](preferences.md) supplies placement priorities,
+not a completed task trial. The next revision should check:
+
+1. Use separate Aspect ratio and Resolution presets and a clearly fixed
+   sample Seed. Keep Batch and Repeat direct and distinct; show the total.
+2. Place Steps/CFG/Mu in one secondary disclosure with their effective
+   values readable. Keep never-used settings available secondarily.
+3. Preserve the confirmed Reset behavior: clear Seed with the existing
+   reset scope and retain Undo. Check that the empty seed is visible and
+   another seed can be entered afterwards; do not auto-fill it or add a
+   generation guard. Preserve direct access and draft-value ownership.
+4. Keep job progress, watched-job selection, running/queued cancel and
+   retry/remainder prominent; leave Pause secondary. Distinguish reconnect
+   to a live server from future restart recovery.
+5. Make full-size inspection, sheet/Fill width, search/Stars/All models,
+   retained picks, Reuse/More seeds and selected-scope rerun/refine paths
+   reachable without Gallery beside or unused sheet-export controls.
+6. Put whole-gallery backup/password/archive-and-clear/download/import
+   together, with explicit scope and truthful simulated states. Keep model
+   guidance/favourites/startup loading ahead of advanced loader options.
+7. Keep prompt variables prominent in experiments; test occasional
+   Steps/CFG and consecutive-seed work without promoting unused budget,
+   list, LoRA or Mu sweep controls. Keep inpaint/outpaint contextual.
+8. Keep Examples, guide/help, autocomplete, Tags, chips and Check beside
+   prompt editing. Test contextual token details, corrections, critic/rewrite,
+   shared-seed comparison, Expand and Undo without promoting unused PNG
+   settings or applying advice automatically.
+9. Compare adjustment paths against today's app and the initial concept;
+   record presses, wrong targets, unnecessary scrolling and whether the
+   selected seed is apparent before Generate.
+10. Retain unanswered area ratings as unanswered; all listed individual
+    features are now rated. Frequency answers alone do not validate the
+    whole-app navigation, image-space trade-offs or speed.
+
+The initial concept and its 34 checks predate these preference revisions.
+They do not qualify Repeat/Reset, the selector/sampling layout or the new
+prompt/job/review/archive/model emphasis. Any revised prototype checks must be
+reported separately with their actual result and fixture limitations;
+passing them will still not establish personal speed or real application behavior.
+
+### Preference-led prototype verification
+
+**2026-10-18:** the revised [concept](prototype/index.html), including its
+`composer.js` and `workflow.js` declarations, passed all **54 expectations**
+in the current [check script](prototype/check.json) using headless Edge.
+The first baseline checks are retained and extended, not presented as a
+human usability trial. The checks cover:
+
+- Independent aspect/resolution, effective sampling disclosure, readable
+  sample Seed and Batch × Repeat totals.
+- Reset clearing prompt/negative/Seed and restoring the represented WAI
+  defaults; whole-draft Undo survives the programmatic focus/change events
+  and later edits retire the earlier snapshot.
+- The direct prompt-help routes without fabricated tokenizer findings or
+  author examples; no helper runs or modifies text automatically.
+- Watched-job switching and cancellation of a queued fixture, retaining
+  the unrelated draft and saved sample images.
+- Picked/filter action scope, cross-filter picks and More seeds preview
+  counts; the existing future-Finish holds and dialog/focus checks remain.
+- Query-based contact-sheet scope independent of picks, source comparison,
+  and **actual cell enlargement** from Fill width at 1400 and 2048 CSS px.
+- Whole-gallery archive scope despite picks; visible password/backup/clear/
+  download/import routes, with explicit simulation feedback and no file
+  mutation; model favourites/startup controls ahead of collapsed loader details.
+- No document-width overflow for the default Results views at the earlier
+  desktop/narrow sizes and for an overflowing sheet at 320 and 390 CSS px:
+  its own table scroll contains the wide matrix. This is not phone validation.
+
+The default composer, narrow layout, sheet and archive dialog were visually
+inspected. Two important limitations remain: several direct routes demonstrate
+placement/scope rather than execute production helpers or planners, and the
+two job fixtures are independent of the illustrative run-outcome fixtures.
+There is no real reconnect/restart engine in this concept.
+
+The concept models only the represented fields of Reset: it does not clear
+the application's conditioning/grid/editing persistence or implement its
+Undo expiry. Native text writes attempt to retain browser Undo, but full
+Ctrl+Z history, keyboard/right-click task parity, real server previews,
+tokenizers, chips/autocomplete, model loading, painting and archive execution
+have not been qualified here. Those remain application/feature-owner work.
+
+All 129 captured labels and ratings were also compared with the latest
+attachment and matched exactly; local Markdown links/anchors were checked.
+Application code did not change. No application regression suite, live
+gallery, model download, GPU run or actual personal task trial was required
+or performed. Task times and speed improvements remain unmeasured.
+
+### Initial concept verification
+
+At the initial baseline (commit `d6957dc`), the isolated concept was checked
+in headless Edge using the repository's `tools/browser.mjs`. The original
+version of the [check script](prototype/check.json) passed 34 expectations;
+the current script extends it as recorded above. That baseline covered:
 
 - A draft retained through Results/Runs/Gallery and review focus.
 - More seeds counts for a batch, whole run, picked batches and filter;
@@ -220,7 +371,7 @@ The concept has no persistence or application API. Its queue, eligibility
 and counts are fixed synthetic fixtures, not implementations of production
 logic. Native prompt Ctrl+Z, real model changes, stale server previews,
 image painting, archive execution and restart durability are not implemented
-in it. Those contracts remain specified in workbench.md and the existing
+in that initial baseline. Those contracts remain specified in workbench.md and the existing
 feature owners. No application Python or browser regression suite was run
 because application code did not change.
 

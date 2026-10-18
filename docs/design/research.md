@@ -11,7 +11,10 @@ The three personas below are modes of Matt's work, not separate audiences.
 
 **Owner priority, this session:** "i want to be able to do common tasks
 quickly." Treat speed through familiar tasks as the leading design objective.
-This does not yet identify which tasks occur most often or supply a baseline.
+The subsequent [questionnaire responses](preferences.md) supply all 129
+reported feature frequencies and one area rating. Measured task baselines
+remain absent. The first A1–A14 answers and the separate Reset decision are
+preserved in the fuller responses.
 
 Use the [design index](README.md) for the programme,
 [workbench](workbench.md) for the proposed experience,
@@ -26,6 +29,9 @@ current feature plans, or measurements in `docs/verified.md`.
   team, public service, account system or commercial audience is included.
 - The existing mode model comes from recorded decisions and repository review,
   not interviews. It supports useful questions, not claims about task frequency.
+- The 129 answers are Matt's self-reported feature use, recorded exactly in
+  preferences.md. They do not supply measured timings or create unreported
+  area ratings, and are not an observed usability trial.
 - Previous code reviews identify affordances and failure paths; they do not
   establish whether Matt finds a task easy or how he actually performs it.
 - The Continue a run plan's empty-gallery and bundle observations are dated
@@ -62,6 +68,9 @@ evidence, and `H` a hypothesis that still needs a personal task check.
 | E13 | B | [Rules](../rules.md#rules), lines 1632-1686, 2024-2037, 2124-2134, 3061-3066 | Cold sourced checking, browser verification, discoverable holds, stable layout |
 | E14 | B | [NOW and open work](../../TODO.md#now), lines 11-16, 56-63, 90-97 | Durable recovery next; known model/Expand/accessibility gaps |
 | E15 | M | [Measured evidence](../verified.md); [measurement policy](../../TODO.md#measurements-on-the-card), lines 16-20 | Card evidence is distinct from design or fake-server checks |
+| E16 | D | [First partial generation-control answers, 2026-10-18](preferences.md) | Historical first response: A1–A14 only; primary prompt/negative, aspect/resolution, fixed Seed, Batch/Repeat and Reset; secondary sampling |
+| E17 | D | [Earlier partial pasted response and Reset decision, 2026-10-18](preferences.md) | Historical intermediate response: 115 feature answers before B arrived; Grid area Sometimes; Reset still clears Seed |
+| E18 | D | [Latest complete pasted response, 2026-10-18](preferences.md) | 129 feature answers: 66 Often, 34 Sometimes, 29 Never; B adds frequent Examples/guide/autocomplete/Tags/chips/Check; prior ratings and Reset retained |
 
 ## Mode personas
 
@@ -69,20 +78,25 @@ These preserve the existing modes in E02. Goals are grounded in that work;
 needs below translate them into design concerns. No biography, demographic,
 skill rating or unobserved preference is assigned to Matt.
 
-### P1. Night Runner
+### P1. Queued Experimenter (earlier Night Runner)
 
-- **Trigger:** prepare a grid or sweep that can use a bounded unattended period.
-- **Goal:** obtain comparable parameter combinations for the seeds reached,
-  see what completed, and finish missing work without rebuilding its meaning.
-- **Current means:** grid preview, seed-first cell order, queue, time budget,
-  runs/sheets and Resume (E05, E07, E08).
-- **Needs:** understandable total work and budget; a clear waiting/loading/
-  running/paused outcome; saved results retained; a trustworthy recovery path.
-- **Decision point:** whether the planned comparisons are worth the available
-  time and whether another submission should finish or extend the run.
+- **Trigger:** queue work while another job runs, return to ongoing work,
+  or occasionally configure a multi-setting experiment.
+- **Goal:** see progress and the intended job, cancel or retry the correct
+  work, retain results and continue without reconstructing the plan.
+- **Current means:** queue/watch/cancel/reconnect/retry, recent results,
+  prompt variables, occasional Steps/CFG/seed grids, runs and sheets
+  (E05, E07, E08, E17).
+- **Needs:** persistent progress and explicit waiting/outcome; quick watch,
+  cancel and retry; saved results retained; a trustworthy recovery path.
+- **Decision point:** which job to inspect, cancel, finish or extend, and
+  whether the occasional comparison needs another setting or seed.
 - **Non-goals:** automatic continuation, unlimited overnight work, speculative
   hardware promises, or reopening the deferred Widen decision (E03, E15).
-- **Unknown:** how often this mode occurs and which morning summary Matt uses.
+- **Reported refinement:** time budgets and Pause are Never, while the
+  queue/cancel/retry/reconnect paths are Often. The earlier Night Runner's
+  overnight/budget story remains historical context, not the priority for
+  this layout. Exact session sequences and timings remain unknown.
 
 ### P2. Batch Iterator
 
@@ -97,7 +111,10 @@ skill rating or unobserved preference is assigned to Matt.
   prompt/settings, or move into an edit that starts from the image's pixels.
 - **Non-goals:** every generation requiring analysis, advice silently replacing
   the prompt, or reducing reproducibility to the seed alone.
-- **Unknown:** the most common change between two Generate presses.
+- **Reported control priorities:** prompt/negative, aspect/resolution, fixed
+  Seed, Batch/Repeat and Reset are frequent; Steps/CFG/Mu are occasional
+  (E16). Reuse, Use seed, all More seeds scopes, Re-render and Swap tags are
+  frequent (E17). The order of changes between Generate presses is unknown.
 
 ### P3. Curator
 
@@ -111,7 +128,11 @@ skill rating or unobserved preference is assigned to Matt.
 - **Decision point:** keep, request more variations, edit, bin, or archive.
 - **Non-goals:** a separate asset-management product, automatic quality scoring,
   an automatic purge, or new sharing/account workflows.
-- **Unknown:** the qualities Matt judges first and how he knows curation is done.
+- **Reported refinement:** gallery search/star/all-model scope and picking,
+  full-size facts/zoom, source comparison, sheets/Fill width, Refine and
+  Mass refine, and whole-gallery password archives are frequent. Gallery
+  beside newest, sheet export and picked/starred archives are Never (E17).
+  The qualities judged first and session-completion cue remain unknown.
 
 ## Jobs to be done
 
@@ -166,10 +187,12 @@ does not rename the panel's Resume tick or live-job Pause/Resume (E03).
 
 These are discovery questions, not permission gates. They do not reopen accepted
 continuation decisions or promote deferred features into the current scope.
+The fuller questionnaire is sufficient for the next layout revision; no
+additional answer is required now. Use these only when a specific upcoming
+design decision or task trial needs them. Do not send the entire list again.
 
-1. **Priority detail:** speed on common tasks is confirmed. Which mode occupies
-   most sessions, and which repeated task costs the most effort? Rank examples
-   instead of estimating percentages.
+1. **Priority detail:** use the confirmed frequent tasks to choose a short
+   sequence to time first; task order and detours are still unobserved.
 2. **Success:** when judging a batch, what makes one image worth keeping, and
    which details do you inspect before deciding?
 3. **Iteration:** after an almost-right result, what do you usually try next:
