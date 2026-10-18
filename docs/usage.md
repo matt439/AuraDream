@@ -461,7 +461,11 @@ Shift picks a range from the last card picked, and Enter still opens the
 lightbox. Without Select, Ctrl+click picks a card and Shift+click (or
 Ctrl+Shift+click) picks the range from it. The selection survives searches, filters and paging; its count
 says how many picked images the current view does not show. **Clear** or
-Esc empties it, and a second Esc leaves select mode. Deleted images, and
+Esc empties it, and a second Esc leaves select mode. **Picked → Seeds to grid**
+opens the grid and fills its Seed list with distinct picked seeds, in picked
+order. Other axes and composer fields stay as they are. Unsafe browser
+numbers are held with a reason; the normal server preview reports grid
+limits and Batch duplicates. It never trims your picked list. Deleted images, and
 images moved to the recycle bin, leave the selection on their own.
 
 In Select mode, **Ctrl/Cmd+A** from a card or the Select button adds every

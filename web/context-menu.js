@@ -134,12 +134,13 @@ function pickedItems() {
   const n = selection.size;
   const pick = (act) => {
     const li = els.pickedMenu.querySelector(`[data-picked="${act}"]`);
-    const held = els.pickedBtn.getAttribute('aria-disabled') === 'true';
-    return { label: li.textContent, held, title: held ? els.pickedBtn.title : li.title, run: () => pickedChoose(li) };
+    const parentHeld = els.pickedBtn.getAttribute('aria-disabled') === 'true';
+    const held = parentHeld || li.getAttribute('aria-disabled') === 'true';
+    return { label: li.textContent, held, title: parentHeld ? els.pickedBtn.title : li.title, run: () => pickedChoose(li) };
   };
   return [
     { heading: n === 1 ? '1 picked' : `${n} picked` },
-    pick('star'), pick('unstar'), pick('bin'),
+    pick('star'), pick('unstar'), pick('seeds'), pick('bin'),
     null,
     buttonItem('Swap tags…', els.swap),
     buttonItem('Refine…', els.refineBatch),

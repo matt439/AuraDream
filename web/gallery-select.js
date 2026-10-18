@@ -294,20 +294,54 @@ function forgetSelected(gone, { stashed = true } = {}) {
 // It is a role=menu and keeps that promise as Examples does: ArrowDown on the
 // button opens it on its first item, the arrows walk it, Escape or a choice
 // closes it with focus back on the button, and leaving it closes it.
-const PICKED_NONE = 'Pick cards with Select to star, unstar or bin them together';
+const PICKED_NONE = 'Pick cards with Select to star, unstar, bin or use their seeds in a grid';
+
+// Seeds only: the picked order is the investigation's order, while another
+// image of the same seed contributes no second entry. Leave grid limits to
+// its existing server preview; never silently trim the selected seeds.
+function pickedGridSeeds() {
+  if (binMode) return { why: BIN_HELD };
+  const records = selectedRecords();
+  if (!records.length) return { why: PICKED_NONE };
+  const unsafe = records.find((rec) => !Number.isSafeInteger(rec.seed) || rec.seed < 0);
+  if (unsafe) return { why: `#${unsafe.id} has a seed the browser cannot copy exactly; use whole seeds from 0 to ${Number.MAX_SAFE_INTEGER}` };
+  return { seeds: [...new Set(records.map((rec) => rec.seed))] };
+}
+
+function seedsToGrid() {
+  const target = pickedGridSeeds();
+  if (target.why) {
+    showError(target.why + '.', true, { slot: els.galleryError });
+    return;
+  }
+  els.gridSeedList.value = target.seeds.join(', ');
+  els.gridSection.open = true;
+  // The normal input path disables the count, persists the field and asks
+  // the server to preview the complete grid, with every other value kept.
+  els.gridSeedList.dispatchEvent(new Event('input', { bubbles: true }));
+  els.gridSeedList.focus();
+  els.gridSeedList.select();
+  showError(`Seed list now has ${plural(target.seeds.length, 'distinct picked seed')} in picked order.`, true, { slot: els.galleryError });
+}
 
 function syncPickedButton() {
   const n = selection.size;
   const why = binMode ? BIN_HELD : n ? '' : PICKED_NONE;
   els.pickedBtn.setAttribute('aria-disabled', String(!!why));
   const them = n === 1 ? 'the picked image' : `the ${n} picked images`;
-  els.pickedBtn.title = why || `Star, unstar or bin ${them}`;
+  els.pickedBtn.title = why || `Actions on ${them}: star, unstar, bin or copy seeds to the grid`;
+  const grid = pickedGridSeeds();
   const titles = {
     star: `Star ${them}`,
     unstar: `Unstar ${them}`,
     bin: `Move ${them} to the recycle bin; the note it leaves has Restore`,
+    seeds: grid.why || `Fill Seed list with ${plural(grid.seeds.length, 'distinct picked seed')} in picked order; other grid settings are kept`,
   };
-  for (const item of els.pickedMenu.querySelectorAll('[data-picked]')) item.title = titles[item.dataset.picked];
+  for (const item of els.pickedMenu.querySelectorAll('[data-picked]')) {
+    const held = why || (item.dataset.picked === 'seeds' ? grid.why : '');
+    item.setAttribute('aria-disabled', String(!!held));
+    item.title = held || titles[item.dataset.picked];
+  }
   if (why && !els.pickedMenu.hidden) showPickedMenu(false);
 }
 
@@ -361,10 +395,17 @@ function pickedKey(e) {
 }
 
 function pickedChoose(item) {
-  const act = item?.closest?.('[data-picked]')?.dataset.picked;
+  const target = item?.closest?.('[data-picked]');
+  const act = target?.dataset.picked;
   if (!act) return;
+  syncPickedButton();
   showPickedMenu(false);
+  if (target.getAttribute('aria-disabled') === 'true') {
+    showError(target.title + '.', true, { slot: els.galleryError });
+    return;
+  }
   if (act === 'bin') void binPicked();
+  else if (act === 'seeds') seedsToGrid();
   else void starPicked(act === 'star');
 }
 

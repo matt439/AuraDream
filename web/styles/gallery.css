@@ -433,6 +433,7 @@
    at 600 and its "not shown" beside the viewer, which the ✕ gives back. */
 .gallery-footer .picked { position: relative; flex: none; display: flex; }
 #picked-menu { width: max-content; }
+#picked-menu [aria-disabled="true"] { color: var(--muted); }
 #picked-menu.up { top: auto; bottom: calc(100% + 6px); }
 #btn-select-clear .glyph { display: none; }
 @container gallery-footer (max-width: 799px) {
