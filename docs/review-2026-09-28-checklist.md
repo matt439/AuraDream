@@ -306,7 +306,8 @@ re-checked there with mutants (What remains).
 
 ## What remains
 
-Open after the last fix round, and not in the docs as stated here:
+Residues from the last fix round, all built 2026-10-17 as recorded below.
+Their remaining real-card checks are indexed in TODO's `CARD` rows:
 
 - **F2's residue** - built 2026-10-17 (`PA#3`). After a noun trigger, a
   participle with no preposition of place, or an irregular one ("set", "lit

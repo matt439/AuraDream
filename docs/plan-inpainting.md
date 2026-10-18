@@ -39,8 +39,8 @@ is handed the painted mask widened to whole latent cells
 a live job's masks are held in a `mask_holds` table every process's sweep
 reads, not only in the server's memory; the smokes run on ports 7905 and
 7906, not 7904 and 7905 (7904 is `smoke-png-settings`'). Remaining: FLUX.1
-enabled (phase 3's last part, with its measurements), phases 4-6 and the
-facts list's mask outline over the source's thumbnail.
+enabled (phase 3's last part, with its measurements) and phases 4-6. The
+facts list's mask outline over the source's thumbnail is built (2026-10-17).
 `docs/design-notes.md` ("Inpainting") and `docs/rules.md`
 describe what was built.
 

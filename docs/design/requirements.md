@@ -161,7 +161,7 @@ answers and exceptions.
 - **Story:** the morning after a restart, I can finish a stored run without reconstructing its axes or base seed.
 - **Acceptance:** Finish is held while that run has queued work, naming the job that holds the rest. Otherwise it previews and queues only missing, unplanned cells from stored jobs under the original run identity; binned cells are not redrawn.
 - **Acceptance:** legacy/imported runs, changed model/quantizer, missing sources/adapters/masks, deleted results and storage failures follow the accepted phase-2 refusals and disclosures.
-- **Trace:** [phase-2 owner](../plan-continue-run.md#phase-2-runs-keep-their-cells), [accepted answers](../plan-continue-run.md#open-questions-for-the-user), `GEN#11`; retain it as the next accepted implementation item after design validation.
+- **Trace:** [phase-2 owner](../plan-continue-run.md#phase-2-runs-keep-their-cells), [accepted answers](../plan-continue-run.md#open-questions-for-the-user), `GEN#11`; its accepted implementation proceeds independently of whole-app layout validation, in TODO's order.
 - **Dependency:** persisted job definitions/outcomes and ordinary submission checks; this document does not authorize implementing phase 2.
 
 ### UX#11 — Predict the scope of every image action · P0 · Current
@@ -254,11 +254,11 @@ answers and exceptions.
 
 ### UX#20 — Complete the same cycle with keyboard and assistive technology · P0 · Proposed
 
-- **Basis:** L6–L8 Often confirms keyboard, image right-click and Ctrl/Shift selection as primary interaction paths; L1–L5 terminal tasks are Never and need no common-task layout space. Semantic/focus support exists; real screen-reader, forced-colour, reduced-motion and touch use remains unverified `UI#7`, not self-reported use.
+- **Basis:** L6–L8 Often confirms keyboard, image right-click and Ctrl/Shift selection as primary interaction paths; L1–L5 terminal tasks are Never and need no common-task layout space. Semantic/focus support exists; browser keyboard/forced-colour/reduced-motion coverage is `UI#9`, while hands-on screen-reader/touch validation remains `UI#7`. These checks are not self-reported feature use.
 - **Story:** I can navigate, judge, select, edit and recover work without relying on a mouse, colour alone or visual status alone.
 - **Acceptance:** validate complete tasks with an actual screen reader and keyboard; held-action reasons, status updates, modal focus/return and mask controls are understandable in use.
 - **Acceptance:** forced colours, reduced motion and touch are exercised; sheet navigation is evaluated against `UI#4`, and arbitrary feature shortcuts are not presumed necessary.
-- **Trace:** [usage: keyboard](../usage.md#keyboard-and-lightbox), [landmarks owner](../design-notes.md#headings-and-landmarks), [review limits](../review-2026-10-12.md#review--2026-10-12), `UI#4`, `UI#5`, `UI#7`.
+- **Trace:** [usage: keyboard](../usage.md#keyboard-and-lightbox), [landmarks owner](../design-notes.md#headings-and-landmarks), [review limits](../review-2026-10-12.md#review--2026-10-12), `UI#4`, `UI#5`, `UI#7`, `UI#9`.
 - **Dependency:** [validation](./validation.md) records observed outcomes; accessibility-tree inspection and fake-server success alone do not establish this outcome.
 
 ## Candidate delivery stages and dependencies

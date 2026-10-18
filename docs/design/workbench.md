@@ -319,8 +319,9 @@ merely because work arrived or a status poll changed.
 
 Keep semantic landmarks, labels, visible focus and keyboard paths through
 the critical loop. Provide essential actions without hover or right-click.
-Sheet roving-grid work remains UI#4; actual screen-reader/forced-color/touch
-qualification remains UI#7. Do not call accessibility-tree checks complete
+Sheet roving-grid work remains UI#4; browser keyboard, forced colours and
+reduced motion checks are UI#9, and hands-on screen-reader/touch qualification
+remains UI#7. Do not call accessibility-tree checks complete
 assistive-technology validation.
 
 Use WCAG 2.2 as a review reference: keyboard focus must not be entirely

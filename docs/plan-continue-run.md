@@ -629,6 +629,29 @@ same pass: `docs/design-notes.md:5173-5174`, `docs/usage.md:499` and `:512`,
 Phase 1 needs no migration and nothing for `docs/verified.md`; each phase
 ships alone.
 
+### Phase 2 execution slices
+
+**Ready, 2026-10-18 (`GEN#11`); nothing below is implemented yet.** Keep
+one TODO row for the feature. These are dependent stages, not three ready
+features. All fourteen product questions are answered; neither task trials
+for the whole-app layout nor a card measurement blocks this work.
+
+| Stage | Scope | Evidence before moving on |
+|---|---|---|
+| Persistence | Create `run_jobs`; store the resolved pre-stamp cells before admission; write outcomes through `_finish`; clear the table with the gallery; leave bundles unchanged | Old-DB creation, raw outpaint round trip, disk-failure refusal without admitting a job, NULL outcome after interruption, and all terminal outcomes covered by storage/job tests |
+| Finish service and API | Resolve stored cells in order, subtract completed/binned and planned keys, expose availability plus preview/submit with the original run id | HTTP tests for restart, stopped Repeat, partial completion, queued/model/quantizer/drift/legacy holds, stale model revision, missing inputs and preview/submit changes; use the queue-before-gallery-read ordering from grid Resume |
+| Page integration | Replace page-memory recovery actions with Finish run availability; retain the panel's hand-built Resume and More seeds; add the 7909 smoke and update usage/rules/maps | Fresh-tab and restarted-server fake-backend scenarios work with an unrelated composer; focus/holds/counts are correct; no duplicate queued cells and no claim that legacy/imported runs have retained cells |
+
+The storage/API stages may be reviewed separately. The feature stays open
+until the page path and restart evidence above pass. The complete storage
+contract, refusals and tests remain in [Phase 2](#phase-2-runs-keep-their-cells)
+and [Tests and smokes](#tests-and-smokes); this breakdown does not change them.
+
+Concurrent overlapping Finish submissions must not admit the same missing
+cells twice, including cells awaiting mask/outpaint writes before admission.
+Test admission coordination separately from completion during a gallery
+scan; a queue snapshot alone does not cover simultaneous new submissions.
+
 ## Risks
 
 1. **Per-cell "N more" may not read as "more seed rows"** for a grid; for a

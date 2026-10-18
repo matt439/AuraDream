@@ -91,6 +91,36 @@ The [continuation plan](../plan-continue-run.md) remains the owner of
 The design may depict that future state, visibly labelled as a prototype.
 It must not promise restart recovery from current production behavior.
 
+## Trial preparation
+
+**Ready preparation, 2026-10-18 (`DEV#3`).** This can be done without Matt,
+weights, a live gallery or a layout decision. `DEV#1` is the subsequent
+hands-on trial, not a prerequisite for unrelated feature work.
+
+Prepare a reproducible fixture and recording kit for the first short task
+set: generation/Reset, busy queue/cancel/reconnect, inspection/sheet,
+reuse/rerun and whole-gallery archive/import. Use disposable fake-server
+data and the existing concept's synthetic data. Record their differences;
+the concept's simulated Finish run is not production restart evidence.
+
+Done means the kit includes:
+
+- A repeatable seed/setup command with its own scratch `--data`, stable
+  synthetic prompts/seeds, a complete and interrupted run, a source/child,
+  stars, picks and bin contents. A second checkpoint can be planted without
+  loading weights. State which cases the current app must refuse.
+- Runnable current-app and concept launch/reset instructions, an equivalent
+  task set with alternate values/order, and recorded build/browser/viewport
+  and scaling. Do not simulate future APIs in the current-app baseline.
+- An expert walkthrough of those tasks with real browser input, labelled
+  as agent observations. Capture detours, scope and draft/focus behavior;
+  leave Matt's timings, words and outcomes blank.
+- A blank observation record for task order, prior exposure, predicted
+  scope/count, presses, detours, assistance, outcome and feedback, followed
+  by the unresolved layout choices. Do not select a redesign on his behalf.
+
+The kit belongs beside this protocol; TODO remains the ordering/index.
+
 ## One-user formative protocol
 
 Use Matt's own task language and his actual desktop setup. The purpose is to
@@ -213,6 +243,23 @@ Check reduced motion and forced colours, actual Windows scaling, and short
 desktop windows including 1536x864 where current progress limitations are
 documented. Include 1400x900 and Matt's normal display configuration. A cropped
 large screenshot does not demonstrate the behavior of a shorter viewport.
+
+**Separate completion boundaries, 2026-10-18.** `UI#9` is the ready browser
+pass on today's app: use the synthetic fixtures, real key events and media
+emulation for forced colours/reduced motion. Cover authoring and Check,
+queue/cancellation, gallery picks, sheet, lightbox, one edit dialog and
+archive/bin dialogs. Check visible focus, held reasons, focus return and
+readable status without relying on colour or animation alone. Reuse the
+existing focused smokes; add only missing cases. Record the build, surfaces,
+viewports, media settings and failures here or in a linked review, and index
+any confirmed defects separately. A successful pass records its bounded
+coverage; it does not close the manual work.
+
+`UI#7` needs a hands-on NVDA/Narrator and touch session with the actual
+interface. Record the assistive technology/device and observed names,
+announcements, operation and focus. Browser attributes, emulated media or
+an accessibility-tree dump cannot supply that evidence. Neither row
+authorizes broad layout changes; `UI#8` keeps its deferred scope.
 
 ## Decision gates and implementation order
 

@@ -1075,8 +1075,11 @@ live preview through the blend.
 
 **Later, if wanted:** the server's fill shown in the frame (a model-free
 `GET` answering the padded canvas as a JPEG, so the page still draws
-nothing of its own); a card tool; `padding_mask_crop` for large canvases on
+nothing of its own); `padding_mask_crop` for large canvases on
 SDXL; an outpaint over a painted mask together; a second fill.
+
+A separate card glyph was declined 2026-10-17: the image context menu
+already reaches Outpaint (design notes, Outpainting).
 
 ## Open measurements (the card's to say)
 

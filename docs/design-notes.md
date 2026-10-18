@@ -5294,13 +5294,47 @@ gallery" note, Re-render's "every selected image is already rendered" -
 speak of the gallery, and would have turned into claims about queued
 cells. The preview counts those cells apart, "N queued", since `skipped`
 is shown as "already done". Re-render, Swap tags and Mass refine share the
-latent double render and can chain the same function when it matters.
+latent double render; the follow-up below owns that remaining work.
 
 **Left for phase 2:** the finish line's Resume is still page memory and
 the banner's still needs the grid in the panel; a reload with the panel changed, or a restart, loses
 the way to finish a run until `run_jobs` keeps each job's cells. Widen and
 Load into panel wait until a night shows the need (Q13); picks after a
 footer More seeds are left as they are (Q14).
+
+### Reruns already in the queue
+
+**Open, 2026-10-18 (`GEN#12`).** Re-render, Swap tags and Mass refine
+subtract completed gallery cells but do not subtract matching live-job
+cells. A repeated submission can therefore queue the same rerun again.
+This is independent of persisted runs and the proposed workstation layout.
+
+Use `submission.not_yet_planned` after the gallery subtraction in
+`api_generate.py`, `api_swap.py` and `api_refine_batch.py`. Snapshot
+`jobs.planned_keys()` on the event loop **before** the awaited gallery
+reads, as grid Resume does: taking it afterwards misses a cell that moved
+from the queue into the gallery during the scan. Keep each cell's applied
+settings, size, checkpoint and quantizer scope. Do not put this behaviour
+inside `not_yet_rendered`, whose other callers describe the gallery alone.
+
+Completion requires:
+
+- Repeated requests while matching work is queued or running submit none
+  of those cells twice; a partial overlap queues only the remainder.
+- Concurrent overlapping submissions must not admit the same missing cells
+  twice, including cells awaiting mask/outpaint writes before admission.
+  Cover admission coordination across those awaits, independently of the
+  completion-during-scan race. Keep this opt-in to the affected rerun paths;
+  ordinary Generate and deliberate repeats retain their semantics.
+- Previews, per-image results and all-skipped refusals distinguish queued
+  work from images already rendered. No queued cell is reported as held
+  in the gallery. Preview and submit agree on the same selection.
+- Matching still uses `backend.applied()` and the existing cell keys,
+  including size, masks and outpaint specs. Unrelated reruns remain eligible.
+- HTTP tests cover each route and completion during the gallery scan, using
+  the existing grid Resume race test as precedent. Extend `smoke-select`,
+  `smoke-swap` and `smoke-refine-batch` for the relevant queued wording and
+  held-action reasons. No weights or GPU are needed.
 
 ## Delete unstarred
 

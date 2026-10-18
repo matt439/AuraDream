@@ -4,15 +4,20 @@ An index of open work, one row per item; each row points to the doc that owns th
 
 ## NOW
 
-**The only ordering in this file.** Keep every `DECISION` row here. Keep this block to the current aim and the next few actions; results go in their owners (`docs/verified.md` for what the card measured, the plan or design notes for what was built).
+**The only ordering in this file.** Keep every `DECISION` and `USER` row here. Keep this block to the current aim and the next few actions; results go in their owners (`docs/verified.md` for what the card measured, the plan or design notes for what was built).
 
-**Aim (2026-10-18):** Matt requested whole-app design for his personal workstation, prioritizing common tasks done quickly. The candidate design and interactive concept are in [docs/design](docs/design/README.md); validate the fast paths before selecting layout implementation slices.
+**Aim (2026-10-18):** keep useful work ready for Matt's common workstation tasks. The queue below can proceed on CPU and disposable fake-server galleries, independently of whole-app layout trials. [Reported use](docs/design/preferences.md) guides priority; it does not approve the candidate redesign.
 
-1. **Personal workstation design (`DEV#1`):** validate the revised workbench against Matt's 129 feature ratings and current common-task paths, then revise from the trials. [Validation](docs/design/validation.md).
-2. **Continue a run (`GEN#11`):** phase 1 (1a and 1b) is built, 2026-10-18; build phase 2, `run_jobs` and Finish run. [Plan](docs/plan-continue-run.md).
-3. **`CARD#1`/`CARD#2` remainder:** Z-Image Turbo (a download first) and an SDXL LoRA through an inpaint, when Matt wants them.
+**Ready backlog:** 18 `OPEN` tasks can be completed with CPU/browser evidence. One further `OPEN` item, the upscaler (`GEN#5`), can be built but needs a separate card pass before closure.
 
-**Decisions waiting on Matt:** none in the existing feature queue. The whole-app layout remains a design hypothesis to evaluate, not an accepted implementation change.
+1. **Avoid duplicate reruns (`GEN#12`):** extend the queued-cell guard to Re-render, Swap tags and Mass refine, with separate queued/rendered answers. [Scope](docs/design-notes.md#reruns-already-in-the-queue).
+2. **Continue a run (`GEN#11`):** build phase 2 in dependency order: persistence, Finish service/API, then page actions and restart smoke. These are stages of one feature. [Execution slices](docs/plan-continue-run.md#phase-2-execution-slices).
+3. **Review and curate by keyboard (`UI#4`, `UI#5`, `UI#6`):** contact-sheet navigation, Refine's R shortcut, then Ctrl+A for loaded cards in Select mode. Each ships independently. [Feature plans](docs/review-2026-10-12.md#feature-ideas).
+4. **Finish the archive/bin workflow (`GAL#1`, `GAL#2`):** permanently delete picked binned images, then Show imported. Age-based emptying is separate. [Feature plans](docs/review-2026-10-12.md#feature-ideas).
+
+**Other ready work:** model cache/download facts (`GEN#1`), Stop Expand (`GEN#2`), storage scale/recovery checks (`GAL#3`, `GAL#4`), design-trial preparation (`DEV#3`) and browser accessibility checks (`UI#9`). Their owners define scope and completion. Optional conveniences remain below; there is no need to promote deferred features to fill this queue.
+
+**Needs Matt:** workbench task trials (`DEV#1`) and hands-on screen-reader/touch checks (`UI#7`) are `USER`, not implementation prerequisites for the queue above. No feature decision is waiting. Whole-app layout implementation waits for its trials; it remains a design hypothesis.
 
 **GPU runs are Matt's to run or OK, never past the 16 GB card** (every `CARD` row). Check the checkpoint's measured peaks in `docs/verified.md` first; a run that spills into shared memory proves only that it doesn't fit.
 
@@ -22,7 +27,8 @@ An index of open work, one row per item; each row points to the doc that owns th
 
 | id | status | sev | size | item |
 |---|---|---|---|---|
-| `DEV#1` | OPEN | LOW | M | Validate the personal workbench's common-task fast paths against the current app; compare shared and review-focused layouts before implementation. [Validation](docs/design/validation.md). |
+| `DEV#1` | USER | LOW | M | Run common-task trials with Matt, comparing the current app and candidate layouts before choosing redesign slices. [Protocol](docs/design/validation.md#one-user-formative-protocol). |
+| `DEV#3` | OPEN | LOW | M | Prepare repeatable synthetic fixtures, current-app expert baseline and a blank observation record for the task trials. [Preparation](docs/design/validation.md#trial-preparation). |
 
 ## Measurements on the card
 
@@ -30,8 +36,8 @@ An index of open work, one row per item; each row points to the doc that owns th
 
 | id | status | sev | size | item |
 |---|---|---|---|---|
-| `CARD#1` | CARD | LOW | S+card | Inpaint's remainder: Z-Image Turbo (not cached here), a LoRA through an SDXL inpaint at weight 0 (no SDXL adapter at hand), the seam by number against the VAE round trip, the live preview through Z-Anime's blend. Measured 2026-10-17 on WAI, Animagine and Z-Anime. [Inpaint](docs/verified.md#inpaint). |
-| `CARD#2` | CARD | LOW | S+card | Outpaint's remainder: Z-Image Turbo, the seam by number. Measured 2026-10-17 on WAI, Animagine and Z-Anime. [Outpaint](docs/verified.md#outpaint). |
+| `CARD#1` | CARD | LOW | M+card | Inpaint's remaining native SDXL/Z-Image profiles, SDXL LoRA, seam metrics, blended preview and start-noise display; use the owner's full Not measured list. Nunchaku is `CARD#3`, later families are `INP`. [Inpaint](docs/verified.md#inpaint). |
+| `CARD#2` | CARD | LOW | M+card | Outpaint's remaining SDXL/Z-Image profiles, seam metrics and intermediate band widths from the owner's Not measured list. [Outpaint](docs/verified.md#outpaint). |
 | `CARD#3` | CARD | MED | S+card | An inpaint over a Nunchaku Z-Image transformer under WSL: the profile allows it, but the class has never run over it. [Inpainting](docs/design-notes.md#inpainting). |
 | `CARD#4` | CARD | LOW | L+card | INT8, full BF16 and sequential offload per checkpoint; the picker says INT8 is "not yet compared on this card". [Checkpoints](docs/verified.md#checkpoints). |
 | `CARD#5` | CARD | LOW | M+card | Size and batch gaps: Anima Turbo/Aesthetic at 1.5-2 MP and non-square, Kohaku, NetaYume and NewBie above about 1 MP, Illustrious at 1536/2048, Animagine Batch 12 (the cap was raised from a Batch 8 reading). [Checkpoints](docs/verified.md#checkpoints); [MP table](docs/anime-model-guide.md#compare-by-total-megapixels). |
@@ -39,7 +45,7 @@ An index of open work, one row per item; each row points to the doc that owns th
 | `CARD#7` | CARD | LOW | M+card | Refine gaps: FLUX.1 dev at fp8; what the starting strengths keep on schnell, Z-Image Turbo, Z-Image and Qwen-Image; offload none/sequential; true CFG through FluxImg2Img; review the 2026-10-05 ladder pictures. [Refine pass](docs/verified.md#refine-pass). |
 | `CARD#8` | CARD | LOW | S+card | User LoRAs on an SDXL checkpoint: the adapter changes the image, weight 0 is byte-identical to none, unload restores the base hash. So far FLUX.1 Krea dev only. [Behaviour](docs/verified.md#behaviour). |
 | `CARD#9` | CARD | LOW | S+card | ERNIE-Image Turbo on the Windows fp8 path, and its Expand (rewriter, Marian translation, the 7 GB first-use download). Measured only under Nunchaku NVFP4. [Behaviour](docs/verified.md#behaviour). |
-| `CARD#10` | CARD | LOW | M | On the real server, fixes checked only on the fake: 9377de1, 7733f81, 6a7570d, ad01fdc, 2a4d2cc, 2b89ed5, 81781bf; and R50's fix (1744dc3) with a real console Ctrl-C, plus the not_found/offline load failures. [Behaviour](docs/verified.md#behaviour); [10-12 not reached](docs/review-2026-10-12.md#review--2026-10-12). |
+| `CARD#10` | CARD | LOW | M+card | On the real server, fixes checked only on the fake: 9377de1, 7733f81, 6a7570d, ad01fdc, 2a4d2cc, 2b89ed5, 81781bf; and R50's fix (1744dc3) with a real console Ctrl-C, plus the not_found/offline load failures. [Behaviour](docs/verified.md#behaviour); [10-12 not reached](docs/review-2026-10-12.md#review--2026-10-12). |
 | `CARD#11` | CARD | LOW | M+card | The critic for real: a reorder where Check placed only some tags, kill-on-close stopping a real `llama-server`, int8 or sequential offload beside it, and whether rewrites beat originals over more than two seeds. [Prompt analyser](docs/verified.md#prompt-analyser). |
 | `CARD#12` | CARD | LOW | S+card | Whether official Qwen-Image (over 16 GB) runs on Windows under sequential offload. [Switching](docs/design-notes.md#switching-checkpoints-while-the-server-stays-open). |
 
@@ -49,7 +55,7 @@ An index of open work, one row per item; each row points to the doc that owns th
 
 | id | status | sev | size | item |
 |---|---|---|---|---|
-| `INP#3` | CARD | MED | M+card | FLUX.1 inpaint (Krea dev, dev, schnell): measure 1 MP against the spill line, add its recipe, then drop `FluxPipeline` from `INPAINT_DEFERRED`; outpaint follows. |
+| `INP#3` | CARD | MED | M+card | FLUX.1 inpaint (Krea dev, dev, schnell): measure memory, strength and preview at 1 MP before enabling the family; its recipe is built. [Phase 3](docs/plan-inpainting.md#phases). |
 | `INP#5` | DEFERRED | LOW | M+card | Phase 4, klein: one reference beside the source, its mu recipe, memory with the sequence doubled, `smoke-inpaint-klein`. Matt doesn't run klein. |
 | `INP#6` | DEFERRED | LOW | M+card | Phase 5, Qwen-Image under Nunchaku (WSL), only if the inpaint class runs over the Nunchaku transformer at all. |
 | `INP#8` | BLOCKED | LOW | L | FLUX.1 Fill [dev] as its own inpaint-only catalogue checkpoint: blocked on `INP#3`, decided once FLUX.1 inpaints on Krea dev have been seen on the card, built if they disappoint. [Question 7](docs/plan-inpainting.md#open-questions-for-the-user). |
@@ -63,13 +69,14 @@ An index of open work, one row per item; each row points to the doc that owns th
 | id | status | sev | size | item |
 |---|---|---|---|---|
 | `GEN#1` | OPEN | LOW | M | Models picker: each checkpoint's download size and whether it is already in the Hugging Face cache (10-12 F7). |
-| `GEN#2` | OPEN | LOW | M | Cancel a running Expand, above all a first use downloading ERNIE's rewriter: Stop on its line, the server dropping the result and freeing the gate at the next step (10-12 F8). |
+| `GEN#2` | OPEN | LOW | M | Stop Expand: abandon its result and stop between download/rewrite/translation stages, retaining the GPU gate while actual GPU work continues (10-12 F8). |
 | `GEN#4` | OPEN | LOW | M | `generate --via-server` scripting the running browser server over HTTP, an exit-4 message pointing at it, a usage.md section (10-12 F13). |
 | `GEN#5` | OPEN | LOW | L+card | An opt-in pinned GAN upscaler (R-ESRGAN Anime6B) before the Refine pass, where the WAI and RouWei guides cite one, recorded in the reproduction set (10-12 F14). |
 | `GEN#6` | DEFERRED | LOW | M+card | Live-preview maps for the four-channel SDXL VAE and FLUX.2's VAE (ERNIE; klein also lacks an unpack hook); previews switch themselves off there. [Behaviour](docs/verified.md#behaviour). |
 | `GEN#7` | DEFERRED | LOW | M | A Hugging Face access check before a switch releases the working model; the catalogue's gate word is static. [Switching](docs/design-notes.md#switching-checkpoints-while-the-server-stays-open). |
 | `GEN#8` | DEFERRED | LOW | L | U61 part B: one's own photo or sketch as a reference (import route, a source marker through storage, reindex and reruns; add, drop and paste). Matt deferred it 2026-10-05; only when he raises it. [References](docs/design-notes.md#reference-images-by-gallery-id). |
 | `GEN#11` | OPEN | LOW | L | Continue a run, phase 2: `run_jobs` keeps each job's cells; Finish run after a reload or restart. [Plan](docs/plan-continue-run.md#phases). |
+| `GEN#12` | OPEN | MED | M | Re-render, Swap tags and Mass refine must skip matching queued cells as well as completed ones, without calling queued work rendered. [Scope and checks](docs/design-notes.md#reruns-already-in-the-queue). |
 
 ## Gallery and storage
 
@@ -77,9 +84,11 @@ An index of open work, one row per item; each row points to the doc that owns th
 
 | id | status | sev | size | item |
 |---|---|---|---|---|
-| `GAL#1` | OPEN | LOW | M | Bin: "Delete picked permanently" (a purge by ids that refuses live rows) and an optional empty by age from `binned_at` (10-12 F5). |
-| `GAL#2` | OPEN | LOW | S | After a bundle import, return the first and last id and offer "Show imported" (`id:<first>-<last>`) (10-12 F12). |
-| `GAL#3` | OPEN | LOW | M | Exercise bundles above a few hundred KB, Empty bin over hundreds of rows, and killing the server mid-import and mid-export. |
+| `GAL#1` | OPEN | LOW | M | Bin: confirmed "Delete picked permanently", scoped by ids and refusing live rows; age-based emptying is `GAL#5` (10-12 F5). |
+| `GAL#2` | OPEN | LOW | S | After a bundle import, offer navigation to newly added rows, handling zero-new and binned-only results explicitly (10-12 F12). |
+| `GAL#3` | OPEN | LOW | M | Verify multi-MB bundle round trips and Empty bin over hundreds of synthetic rows, including hashes, links/masks, bin state and repeat import. [Scale checks](docs/review-2026-10-12.md#storage-scale-and-interruption-checks). |
+| `GAL#4` | OPEN | MED | M | Kill disposable storage subprocesses during import/export, then verify restart/retry recovery and the verify-before-clear boundary. [Interruption checks](docs/review-2026-10-12.md#storage-scale-and-interruption-checks). |
+| `GAL#5` | DEFERRED | LOW | M | Optional age-scoped Empty bin using `binned_at`; independent of Delete picked permanently, not needed for its completion (10-12 F5). |
 
 ## Prompt analyser
 
@@ -97,26 +106,28 @@ An index of open work, one row per item; each row points to the doc that owns th
 | id | status | sev | size | item |
 |---|---|---|---|---|
 | `UI#1` | OPEN | LOW | M | "Compare picked": two picked images in the lightbox's swipe and side by side, labelled by the fields that differ (10-12 F9). |
-| `UI#2` | OPEN | LOW | S | An opt-in desktop notification when a job finishes in a hidden tab; Copy image and a named Download in the lightbox (10-12 F10). |
+| `UI#2` | OPEN | LOW | S | An opt-in desktop notification when a job finishes in a hidden tab (10-12 F10); image download is `UI#10`, Copy image already exists in the context menu. |
 | `UI#3` | OPEN | LOW | S | "Seeds to grid": fill the grid's Seed list from the picked images' seeds (10-12 F11). |
 | `UI#4` | OPEN | LOW | M | The contact sheet as a roving grid: one tab stop, arrows and Home/End between cells (10-12 F15). |
 | `UI#5` | OPEN | LOW | S | R in the lightbox opens Refine, with `aria-keyshortcuts` and a usage.md row (10-12 F18). |
-| `UI#6` | OPEN | LOW | S | Select mode: Ctrl+A picks every loaded card up to the cap, and an optional "Pick this run" (10-12 F19). |
-| `UI#7` | OPEN | LOW | M | Check the page with a real screen reader (NVDA, Narrator), forced colours, reduced motion and touch; the reviews read only the accessibility tree. [10-12 not reached](docs/review-2026-10-12.md#review--2026-10-12). |
+| `UI#6` | OPEN | LOW | S | Select mode: Ctrl+A adds loaded cards up to the cap while preserving picks across filters; optional Pick this run is outside this slice (10-12 F19). |
+| `UI#7` | USER | LOW | M | Hands-on screen-reader (NVDA/Narrator) and touch validation; browser emulation and accessibility-tree inspection do not complete it. [Manual checks](docs/design/validation.md#accessibility-and-desktop-checks). |
 | `UI#8` | DEFERRED | LOW | M | At 1536x864 (1080p at 125%) a running batch's progress falls below the left pane; fitting it means tightening every field under 1800 px. [Panel rows](docs/design-notes.md#the-panels-sampling-and-output-rows). |
+| `UI#9` | OPEN | LOW | M | Exercise current-app keyboard/focus, forced colours and reduced motion with synthetic fixtures and real browser events; retain gaps separately from manual checks. [Browser checks](docs/design/validation.md#accessibility-and-desktop-checks). |
+| `UI#10` | OPEN | LOW | S | A named Download in the lightbox; reuse the existing full-size PNG, with no new clipboard implementation (10-12 F10). |
 
-## Reviews with nothing left open
+## Review coverage
 
-Each review's leftovers are rows above; a review returns here only with a new finding.
+Each review's remaining work is indexed above; closed findings stay in their owners.
 
-| review | where it closed |
+| review | disposition |
 |---|---|
 | 2026-08-29, 2026-09-07 | Every lead re-checked in 2026-09-07's findings; its checklist is all ticked. |
 | 2026-09-28 | Its checklist; its residues were built 2026-10-17 (`PA#1`-`PA#4`). F47, the CLI's literal `{word}` and the other entries under "Accepted, and worded as trade-offs" are decided, not open. |
 | 2026-10-03 | All confirmed findings and P1 fixed 2026-10-04. |
 | 2026-10-04 UI | All done but U61 B (`GEN#8`); U5, U12, U79, U100 and U108 were left by decision. |
 | 2026-10-05 areas | 84 fixed, A68 partly by decision; the integration review's K1-K5 fixed. |
-| 2026-10-12 | R1-R53 fixed; F1-F4 and F6 built; F5 and F7-F19 are rows above. |
+| 2026-10-12 | R1-R53 fixed; F1-F4, F16 and F17 built. F6's supported inpaint/outpaint paths are built; remaining families/measurements are `INP`/`CARD`. F5, F7-F15 and F18-F19 are indexed above. |
 
 ---
 
@@ -126,17 +137,19 @@ Rules for writing it: read them before editing a row, not before picking one.
 
 **This file is an index, not a work order.** One row per open item: an id, a status, two grades, one clause and a pointer. Why an item matters, how to build it and what counts as done belong in its owner (a plan, the design notes, a review, `docs/verified.md`); a second copy here goes stale unnoticed.
 
-1. **A row leaves this file in the same commit that finishes it.** Record the result in the owner (a measurement in `docs/verified.md` with its date, a build in the plan's status or the design notes) and delete the row; no closed rows stay here. An emptied section becomes one line under "Reviews with nothing left open" or is dropped.
+1. **A row leaves this file in the same commit that finishes it.** Record the result in the owner (a measurement in `docs/verified.md` with its date, a build in the plan's status or the design notes) and delete the row; no closed rows stay here. An emptied section becomes one line under "Review coverage" or is dropped.
 2. **The owner is the source of truth.** When this file and its owner disagree, this file is stale.
 3. **When part of an item lands, replace the clause with what's left;** don't append to it. Keep a row under about 500 bytes.
 4. **New work starts in an owner:** a plan in `docs/plan-*.md` for a feature, a review's findings for a defect, the design notes for a deliberate gap. Then it gets a row here.
-5. **NOW changes only when its items finish or Matt reorders them.**
+5. **NOW changes only when its items finish or Matt reorders them.** Refresh its ready count when rows or statuses change.
 
 **`id`:** a stable handle, not an order; a retired id is never reused. The prefix is the section: `CARD` measurements on the card, `INP` inpainting and outpainting, `GEN` generation, jobs and models, `GAL` gallery and storage, `PA` prompt analyser, `UI` the page, `DEV` docs and tooling. A review's own id (10-12 F7, U61) is named in the clause.
 
 **`status`**, a closed list:
-- `OPEN`: ready to work.
+
+- `OPEN`: implementation or CPU/browser checks can start; the owner defines completion. `+card` still requires a separately authorized card pass before closure.
 - `CARD`: the next step is a run on the RTX 5080. Matt runs it or OKs it; one size at a time, never past the card.
+- `USER`: the next step needs Matt's hands-on trial or manual validation; listed in NOW, separately from ready work.
 - `DECISION`: the next step is Matt's call. Always listed in NOW.
 - `BLOCKED`: waits on another row (named in the clause).
 - `DEFERRED`: paused by priority; picked up only when NOW admits it or its condition is met.
