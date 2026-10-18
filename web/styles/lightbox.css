@@ -74,6 +74,10 @@
 }
 .lb-split:focus-visible { outline: none; }
 .lb-split:focus-visible::after { border-color: var(--accent-2); color: var(--accent-2); }
+@media (forced-colors: active) {
+  .lb-split::before { border-left: 2px solid CanvasText; outline: 1px solid Canvas; }
+  .lb-split:focus-visible::after { outline: 2px solid Highlight; outline-offset: 2px; }
+}
 .lb-tag {
   position: absolute; z-index: 1; pointer-events: none; white-space: nowrap;
   padding: 2px 8px; border-radius: var(--r-lg); background: rgba(0, 0, 0, 0.62);
@@ -174,6 +178,11 @@
 .lb-modes { display: flex; gap: var(--sp-2); }
 .lb-modes .ghost { flex: 1 1 0; white-space: nowrap; }
 .lb-modes .ghost[aria-pressed="true"] { color: var(--text); border-color: var(--accent-2); }
+@media (forced-colors: active) {
+  .lb-compare button[aria-pressed="true"] {
+    text-decoration: underline; text-decoration-thickness: 2px; text-underline-offset: 3px;
+  }
+}
 .lb-against { display: flex; align-items: center; gap: var(--sp-2); color: var(--muted); font-size: var(--fs-label); }
 /* Drawn as the buttons above it are (.ghost.small: --h-sm tall, the label's
    size, a token border): left to the UA it was 19 px of 13.3 px type beside

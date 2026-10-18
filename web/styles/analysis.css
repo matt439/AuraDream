@@ -241,6 +241,11 @@
 }
 a.analysis-source { cursor: pointer; }
 a.analysis-source:hover, a.analysis-source:focus-visible { border-color: var(--accent-2); color: var(--text); outline: none; }
+@media (forced-colors: active) {
+  .analysis-link:focus-visible, a.analysis-source:focus-visible {
+    outline: 2px solid Highlight; outline-offset: 2px;
+  }
+}
 .analysis-quoted { color: var(--text-2); }
 
 .critic-ask { display: flex; flex-wrap: wrap; align-items: center; gap: 6px 10px; }

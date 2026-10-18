@@ -263,5 +263,23 @@
   {"viewport": [1400, 900]},
   {"click": "input[name='bundle-scope'][value='all']"},
   {"key": "Escape"},
-  {"expect": "__until(() => !els.bundlesDialog.open && !binMode && total === 3)"}
+  {"expect": "__until(() => !els.bundlesDialog.open && !binMode && total === 3)"},
+
+  {"log":"'UI#9: archive controls and held reasons remain readable and focusable with forced colours; real Tab/Shift+Tab/Escape keep the dialog and its opener in order'"},
+  {"media":{"forced-colors":"active","prefers-reduced-motion":"reduce"}},
+  {"eval":"window.__ui9Ring=(el,pseudo=null)=>{const s=getComputedStyle(el,pseudo),r=el.getBoundingClientRect(),hit=document.elementFromPoint(r.left+r.width/2,r.top+r.height/2);return el.matches(':focus-visible')&&r.width>0&&r.height>0&&r.left>=-1&&r.top>=-1&&r.right<=innerWidth+1&&r.bottom<=innerHeight+1&&!!hit&&(hit===el||el.contains(hit))&&s.outlineStyle!=='none'&&parseFloat(s.outlineWidth)>=2;};els.bundles.focus({preventScroll:true});"},
+  {"key":" "},
+  {"expect":"__until(()=>els.bundlesDialog.open&&document.activeElement===els.bundlesClose&&__ui9Ring(els.bundlesClose))"},
+  {"key":"Tab"},
+  {"eval":"window.__ui9Next=document.activeElement;"},
+  {"expect":"els.bundlesDialog.contains(__ui9Next)&&__ui9Next!==els.bundlesClose&&__ui9Ring(__ui9Next)"},
+  {"keycombo":["Shift","Tab"]},
+  {"expect":"document.activeElement===els.bundlesClose"},
+  {"eval":"document.querySelector('input[name=bundle-scope][value=all]').click();els.bundleCount.value='';els.bundleCount.dispatchEvent(new Event('input',{bubbles:true}));els.bundleExport.focus({preventScroll:true});window.__ui9BundleStatus=JSON.stringify(bundleStatus);"},
+  {"expect":"els.bundleExport.getAttribute('aria-disabled')==='true'&&!els.bundleExport.disabled&&els.bundleExport.title.length>0&&__ui9Ring(els.bundleExport)"},
+  {"key":" "},
+  {"expect":"els.bundlesDialog.open&&JSON.stringify(bundleStatus)===__ui9BundleStatus&&els.bundleStatus.textContent.includes('Type')&&document.activeElement===els.bundleExport&&__ui9Ring(els.bundleExport)"},
+  {"key":"Escape"},
+  {"expect":"__until(()=>!els.bundlesDialog.open&&document.activeElement===els.bundles)"},
+  {"media":{"forced-colors":"","prefers-reduced-motion":""}}
 ]

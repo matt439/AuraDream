@@ -457,6 +457,9 @@
   color: var(--muted); font-size: var(--fs-label);
   border: 1px dashed var(--line-strong); border-radius: var(--r-md);
 }
+/* A tile keeps its measured place after binning. It must also retain the
+   figure's responsive width constraint when the window becomes narrower. */
+.viewer > .tomb { min-width: 0; max-width: 100%; overflow-wrap: anywhere; }
 
 /* Every image that opens the lightbox is in the tab order; the ring says which
    one Enter would open. Inset, since the card and the cell clip their overflow. */

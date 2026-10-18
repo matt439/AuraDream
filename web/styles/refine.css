@@ -100,6 +100,9 @@
   border: 1px solid var(--line-strong); border-radius: var(--r-sm); background: var(--panel-2); overflow: hidden;
 }
 .rf-pass-list button:hover, .rf-pass-list button:focus-visible { border-color: var(--accent); outline: none; }
+@media (forced-colors: active) {
+  .rf-pass-list button:focus-visible { outline: 2px solid Highlight; outline-offset: 2px; }
+}
 .rf-pass-list img { display: block; width: 100%; height: 100%; object-fit: contain; }
 .refine-dialog select {
   width: 100%; padding: calc((var(--h-field) - var(--lh) * var(--fs-md) - 2px) / 2) 6px; font: inherit;

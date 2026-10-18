@@ -280,6 +280,44 @@ also exposed an existing viewer tombstone extending to x=613.5 at 600 px;
 the bin's picked-delete controls themselves fit. These narrow-view gaps
 remain separate evidence for `UI#9`, not completed screen-reader/touch work.
 
+**Browser pass completed, 2026-10-18 UTC (`UI#9`).** The immutable
+`0604f5a` application with the final accessibility CSS and smoke changes
+overlaid passed seven full smokes: Lightbox 229, Sheet 205, Select 156,
+Bin 112, Bundles 117, Analysis 231 and Preview 20: **1,070/1,070**
+expectations, including 78 new checks. Each used a fresh scratch gallery
+and an owned fake server, sequentially. Coverage includes normal and
+forced-colour/reduced-motion modes, 1400x900, 600x900, 1536x864, QHD and
+emulated DPR 1.25. Real Tab/Shift+Tab, Enter, Space, Escape and arrow
+events exercise authoring/Check, queue/cancel, picks, sheet, lightbox,
+Refine and archive/bin dialogs. Focus checks require the element to be
+focused, focus-visible, on screen and unobscured; status and held reasons
+remain readable without animation or colour alone.
+
+Scoped fixes add forced-colour rings to fields, Check links, menus,
+Refine thumbnails and the comparison divider, plus underlines for pressed
+comparison modes. The viewer tombstone now stays within the narrowed
+viewport while retaining its measured height. The 196px/202px lightbox
+facts measurement above reflects the intentionally capped scroller, not
+a requirement that metadata never scroll: 15 trusted Tab presses reach
+the final Run fact while image geometry stays unchanged. Visual inspection
+confirmed readable forced-colour focus and selected-mode feedback.
+
+Evidence: temporary `ld-ui9-final-e_e619fg/` contains the five other final
+full smokes, screenshots and tested-file SHA256 manifests;
+`ld-ui9-preview-final-prgaivbt/preview/` has corrected Preview 20/20;
+`ld-ui9-bundles-final-d5pw5yv0/` has final Bundles 117/117. Earlier logs
+retain the invalid Sheet setup fetch, transient Bundles fixture failures,
+and corrected test navigation/literals (Shift+Arrow for the divider and
+U+2026 in the spoken denoising status). No Bundles product defect or 409
+cause was proved; fresh diagnostic and full reruns passed the unchanged
+archive assertions. JSON/embedded-JavaScript parsing and scoped diff
+checks passed. All owned fakes stopped; only verified owned leftover
+headless browser trees were closed, with profile/time/target manifests.
+
+This establishes the stated browser behaviour. NVDA/Narrator, touch, native
+notification delivery and actual Windows display scaling remain manual
+checks; `UI#7` is still open. It does not approve the candidate redesign.
+
 ## Decision gates and implementation order
 
 1. **Evidence gate:** use Matt's recorded feature priorities and Reset

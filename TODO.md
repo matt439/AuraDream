@@ -8,11 +8,9 @@ An index of open work, one row per item; each row points to the doc that owns th
 
 **Aim (2026-10-18):** keep useful work ready for Matt's common workstation tasks. The queue below can proceed on CPU and disposable fake-server galleries, independently of whole-app layout trials. [Reported use](docs/design/preferences.md) guides priority; it does not approve the candidate redesign.
 
-**Ready backlog:** 1 `OPEN` task can be completed with CPU/browser evidence. The upscaler (`GEN#5`) also remains `OPEN`: it first needs a verified author-weight checksum, then implementation and a separate card pass. The official metadata checked tonight has no digest, and this run excludes weight downloads.
+**Ready backlog:** 1 `OPEN` implementation batch remains: finish the CPU and browser verification of the pinned upscaler (`GEN#5`). Its bounded author download established the checksum; quality, timing and memory still need a separate card pass.
 
-1. **Browser checks:** finish current-app browser accessibility (`UI#9`), with its owner-defined evidence.
-
-This is the remaining CPU/browser work; there is no need to promote deferred features to fill this queue.
+Current-app browser accessibility (`UI#9`) is verified. There is no need to promote deferred features to fill this queue.
 
 **Needs Matt:** workbench task trials (`DEV#1`) and hands-on screen-reader/touch checks (`UI#7`) are `USER`, not implementation prerequisites for the queue above. No feature decision is waiting. Whole-app layout implementation waits for its trials; it remains a design hypothesis.
 
@@ -94,7 +92,6 @@ This is the remaining CPU/browser work; there is no need to promote deferred fea
 |---|---|---|---|---|
 | `UI#7` | USER | LOW | M | Hands-on screen-reader (NVDA/Narrator) and touch validation; browser emulation and accessibility-tree inspection do not complete it. [Manual checks](docs/design/validation.md#accessibility-and-desktop-checks). |
 | `UI#8` | DEFERRED | LOW | M | At 1536x864 (1080p at 125%) a running batch's progress falls below the left pane; fitting it means tightening every field under 1800 px. [Panel rows](docs/design-notes.md#the-panels-sampling-and-output-rows). |
-| `UI#9` | OPEN | LOW | M | Exercise current-app keyboard/focus, forced colours and reduced motion with synthetic fixtures and real browser events; retain gaps separately from manual checks. [Browser checks](docs/design/validation.md#accessibility-and-desktop-checks). |
 
 ## Review coverage
 
@@ -107,7 +104,7 @@ Each review's remaining work is indexed above; closed findings stay in their own
 | 2026-10-03 | All confirmed findings and P1 fixed 2026-10-04. |
 | 2026-10-04 UI | All done but U61 B (`GEN#8`); U5, U12, U79, U100 and U108 were left by decision. |
 | 2026-10-05 areas | 84 fixed, A68 partly by decision; the integration review's K1-K5 fixed. |
-| 2026-10-12 | R1-R53 fixed; F1-F4, F16 and F17 built. F6's supported inpaint/outpaint paths are built; remaining families/measurements are `INP`/`CARD`. F5, F7-F15 and F18-F19 are indexed above. |
+| 2026-10-12 | R1-R53 fixed; F1-F5, F7-F13 and F15-F19 built. F6's supported inpaint/outpaint paths are built; remaining families/measurements are `INP`/`CARD`. F14 remains `GEN#5`; F5's optional age-scoped emptying is deferred as `GAL#5`. |
 
 ---
 

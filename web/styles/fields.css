@@ -72,6 +72,14 @@ textarea:focus, input:where(:not([type="checkbox"], [type="radio"])):focus { out
 }
 #lora:focus { outline: none; border-color: var(--accent); box-shadow: 0 0 0 1px var(--accent); }
 
+/* Forced colours suppress the shadow half of a field's focus border. Keep
+   a full ring in the user's palette, without changing any box dimensions. */
+@media (forced-colors: active) {
+  textarea:focus-visible,
+  input:where(:not([type="checkbox"], [type="radio"])):focus-visible,
+  #lora:focus-visible { outline: 2px solid Highlight; outline-offset: 2px; }
+}
+
 /* A seed is up to 16 digits, all of them significant: same-width figures and
    no spinner, whose arrows took the room of two digits and stepped a seed by
    one. */
@@ -274,6 +282,9 @@ textarea:focus, input:where(:not([type="checkbox"], [type="radio"])):focus { out
    under the ellipsis, and the list read as prompts running into each other. */
 .menu li .text { display: -webkit-box; -webkit-line-clamp: 3; -webkit-box-orient: vertical; overflow: hidden; }
 .menu li:hover, .menu li:focus { background: var(--accent-soft); outline: none; }
+@media (forced-colors: active) {
+  .menu li:focus-visible { outline: 2px solid Highlight; outline-offset: -2px; }
+}
 .menu li.empty { color: var(--muted); cursor: default; }
 /* What an example needs that the panel lacks - a reference image for an edit
    of "this" picture - beside the authors' words, which stay as written. */
