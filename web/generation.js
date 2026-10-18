@@ -164,6 +164,8 @@ function snippet(text, length = 60, { markup = false } = {}) {
 // server's snapshot names it (nameJob): a re-render carries no prompt of its
 // own, and a grid's image count is the server's to work out.
 function submissionLabel(path, payload) {
+  const finish = /^\/api\/runs\/([^/]+)\/finish$/.exec(path);
+  if (finish) return `Finish run ${finish[1]}`;
   if (path === '/api/rerender') {
     const what = payload.ids ? plural(payload.ids.length, 'selected image') : "the gallery's selection";
     return `re-render of ${what} at ${payload.width}×${payload.height}`;
@@ -257,6 +259,7 @@ function syncSubmitButtons() {
   syncMoreSeedsRun();
   // And the More seeds… buttons where a run ends, held while it is gone.
   syncMoreSeedsTools();
+  syncFinishRunButtons();
   syncCompareRun();
   syncModelSwitch();
   clearModelChangeHolds();
@@ -365,11 +368,11 @@ async function startJob(path, payload, {
     // `split` is all of them in order, for each one's finish line to say
     // which part of the press it was (finishJob).
     const split = more.length ? [job_id, ...more.map((extra) => extra.job_id)] : null;
-    submissions.set(job_id, { path, payload, seed, sheet, asker, model, revision, split, at: Date.now() });
+    submissions.set(job_id, { path, payload, seed, run_id: answer.run_id, sheet, asker, model, revision, split, at: Date.now() });
     jobLabels.set(job_id, submissionLabel(path, payload));
     for (const extra of more) {
       ownJobs.add(extra.job_id);
-      submissions.set(extra.job_id, { path, payload, seed: extra.seed, sheet: false, asker, model, revision, split, at: Date.now() });
+      submissions.set(extra.job_id, { path, payload, seed: extra.seed, run_id: extra.run_id, sheet: false, asker, model, revision, split, at: Date.now() });
       jobLabels.set(extra.job_id, submissionLabel(path, payload));
       void nameJob(extra.job_id);
     }

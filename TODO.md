@@ -8,9 +8,9 @@ An index of open work, one row per item; each row points to the doc that owns th
 
 **Aim (2026-10-18):** keep useful work ready for Matt's common workstation tasks. The queue below can proceed on CPU and disposable fake-server galleries, independently of whole-app layout trials. [Reported use](docs/design/preferences.md) guides priority; it does not approve the candidate redesign.
 
-**Ready backlog:** 6 `OPEN` tasks can be completed with CPU/browser evidence. The upscaler (`GEN#5`) also remains `OPEN`: it first needs a verified author-weight checksum, then implementation and a separate card pass. The official metadata checked tonight has no digest, and this run excludes weight downloads.
+**Ready backlog:** 5 `OPEN` tasks can be completed with CPU/browser evidence. The upscaler (`GEN#5`) also remains `OPEN`: it first needs a verified author-weight checksum, then implementation and a separate card pass. The official metadata checked tonight has no digest, and this run excludes weight downloads.
 
-1. **Continue a run (`GEN#11`):** build phase 2 in dependency order: persistence, Finish service/API, then page actions and restart smoke. These are stages of one feature. [Execution slices](docs/plan-continue-run.md#phase-2-execution-slices).
+1. **Models, trials and browser checks:** finish model cache/download facts (`GEN#1`), the synthetic trial kit (`DEV#3`) and current-app browser accessibility (`UI#9`), with their owner-defined evidence.
 
 **Other ready work:** model cache/download facts (`GEN#1`), design-trial preparation (`DEV#3`) and browser accessibility checks (`UI#9`). Their owners define scope and completion. Optional conveniences remain below; there is no need to promote deferred features to fill this queue.
 
@@ -70,7 +70,6 @@ An index of open work, one row per item; each row points to the doc that owns th
 | `GEN#6` | DEFERRED | LOW | M+card | Live-preview maps for the four-channel SDXL VAE and FLUX.2's VAE (ERNIE; klein also lacks an unpack hook); previews switch themselves off there. [Behaviour](docs/verified.md#behaviour). |
 | `GEN#7` | DEFERRED | LOW | M | A Hugging Face access check before a switch releases the working model; the catalogue's gate word is static. [Switching](docs/design-notes.md#switching-checkpoints-while-the-server-stays-open). |
 | `GEN#8` | DEFERRED | LOW | L | U61 part B: one's own photo or sketch as a reference (import route, a source marker through storage, reindex and reruns; add, drop and paste). Matt deferred it 2026-10-05; only when he raises it. [References](docs/design-notes.md#reference-images-by-gallery-id). |
-| `GEN#11` | OPEN | LOW | L | Continue a run, phase 2: page actions and reload/restart evidence; persistence and Finish service/API are built. [Plan](docs/plan-continue-run.md#phase-2-execution-slices). |
 
 ## Gallery and storage
 

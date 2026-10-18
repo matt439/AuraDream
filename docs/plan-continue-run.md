@@ -1,6 +1,6 @@
 # Plan: continuing a run
 
-**Status, 2026-10-18: Matt took every recommended answer to the open questions the same day (below). Phase 1 is built, 2026-10-18: 1a (the Resume double-render fix, `8097f1d`) and 1b (the `run` scope, `9c01d64`; the page, `c230b6e`); phase 2 persistence and Finish service/API are built; page integration remains.** Why it is built as it is is in `docs/design-notes.md`'s "More seeds where the run ends"; the rules in `docs/rules.md`. Where the build differs from the text below: the planned-keys drop is a function of its own, `submission.not_yet_planned`, chained after `not_yet_rendered` on Resume, rather than an argument to it; `count_default` is the Batch every batch that recorded one agrees on, answered for every scope (the finish line's open is an `{ids}` one), and the page asks again at it, one more preview; the headline reads "N more of each of C cells = T images" ("of its one cell" for one); the run bar's line is "Run X · N images · checkpoint quant", the images the gallery holds under the filter, since phase 1 stores no cell total for "70/96 cells"; the lightbox's More seeds… is hidden, not held, at 900 px wide or narrower, where the right-click menu has it, as `#lb-inpaint` is; and the lightbox's keys are ignored while the dialog is open over it, so Escape closes the dialog alone. Phase 2 persistence now keeps pre-stamp cells and budgets before admission, writes terminal outcomes, and excludes recovery definitions from bundles. The service/page stages below remain the design as written. It was written from four read-only reports on
+**Status, 2026-10-18: Matt took every recommended answer to the open questions the same day (below). Phase 1 is built, 2026-10-18: 1a (the Resume double-render fix, `8097f1d`) and 1b (the `run` scope, `9c01d64`; the page, `c230b6e`); phase 2 persistence, Finish service/API and page integration are built and verified.** Why it is built as it is is in `docs/design-notes.md`'s "More seeds where the run ends"; the rules in `docs/rules.md`. Where the build differs from the text below: the planned-keys drop is a function of its own, `submission.not_yet_planned`, chained after `not_yet_rendered` on Resume, rather than an argument to it; `count_default` is the Batch every batch that recorded one agrees on, answered for every scope (the finish line's open is an `{ids}` one), and the page asks again at it, one more preview; the headline reads "N more of each of C cells = T images" ("of its one cell" for one); the run bar's line is "Run X · N images · checkpoint quant", the images the gallery holds under the filter, since phase 1 stores no cell total for "70/96 cells"; the lightbox's More seeds… is hidden, not held, at 900 px wide or narrower, where the right-click menu has it, as `#lb-inpaint` is; and the lightbox's keys are ignored while the dialog is open over it, so Escape closes the dialog alone. Phase 2 persistence now keeps pre-stamp cells and budgets before admission, writes terminal outcomes, and excludes recovery definitions from bundles. The phase 2 service/page stages below are built. It was written from four read-only reports on
 the current code (More seeds, grid Resume, the places a finished run shows,
 and the usage evidence), a user-research pass, three design proposals and
 two judges' reviews of them (one on usability, one on engineering). Every
@@ -631,7 +631,7 @@ ships alone.
 
 ### Phase 2 execution slices
 
-**Persistence and Finish service/API built and verified, 2026-10-18 (`GEN#11`); page work remains.** Keep
+**All three stages built and verified, 2026-10-18 (`GEN#11`).** Keep
 one TODO row for the feature. These are dependent stages, not three ready
 features. All fourteen product questions are answered; neither task trials
 for the whole-app layout nor a card measurement blocks this work.
@@ -675,6 +675,24 @@ grid, More seeds and persistence set passed 137 tests, including restart,
 Repeat/budget stops, comparisons, missing inputs, drift/legacy/model/quantizer
 holds, partial batches, changed pins, stale revisions, completion races and
 cross-route contention before persistence. No GPU work was performed.
+
+**Page/restart evidence, 2026-10-18.** The central runs.js controller
+replaces page-memory Retry/Resume on finish lines, banners and sheets with
+server-classified Finish run. The manual panel Resume tick and More seeds
+remain separate. A press reads fresh availability and submits only its
+expected pin, with panel:false. One bounded reread handles completion-cache
+invalidation while preserving refusal on server/model identity changes.
+
+Final focused browser expectations: jobs204, sheet195, More seeds100,
+results126, refine151 and the owned restart checker29 (805 total).
+The checker kills/restarts only its own fresh fake server and verifies old
+job404, retained Repeat/zero-image comparison cells, original budget,
+unchanged composer, one pinned submission and no duplicate admission.
+All final checks passed. Earlier stale wording/fixed waits and nondefault
+fake pacing were corrected; the real first-press cache race was fixed and
+covered deterministically. The complete CPU suite passed3328 tests, with
+6 platform/cache/link-availability skips and73 dependency warnings.
+No real GPU or production gallery was used.
 
 This night's execution forbids trusted instruction-file edits. Page/restart
 checks therefore extend existing smoke files and may use a standalone

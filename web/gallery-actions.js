@@ -546,6 +546,7 @@ function forgetImages(ids, { binned = false } = {}) {
   }
   for (const id of gone) if (lbSources.has(id)) lbSources.set(id, null);
   if (sheetMode) renderSheet(sheetPlace);
+  invalidateFinishRuns();
   // A Reuse's Undo may not put a gone reference back; and one dropped from
   // what the Reuse left is no change that retires the Undo (`syncReuseUndo`,
   // which the drop below reaches), so both of its copies lose it first.

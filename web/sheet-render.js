@@ -1,4 +1,4 @@
-// Local Diffusion's page script: contact-sheet rendering, navigation and resume.
+// Local Diffusion's page script: contact-sheet rendering and navigation.
 // Declarations only; state.js has the shared-global load-order contract.
 'use strict';
 
@@ -284,22 +284,12 @@ function drawSheet() {
       )),
     );
   }
-  const run = sheetRun();
-  if (run) {
-    const resume = document.createElement('button');
-    resume.className = 'ghost small';
-    resume.textContent = 'Resume this run';
-    resume.title = 'Put the seed this run started from and its size in the panel, tick Resume and preview '
-      + 'what is left of it. The grid in the panel has to be the one that made the run';
-    resume.onclick = () => { void resumeRun(run); };
-    els.sheetControls.append(resume);
-  }
-  // The run bar's other way on: more seeds of every cell of the run, starred
-  // or not (more-seeds.js). Looser than Resume this run's sheetRun: a refine
-  // sweep's or a comparison's run too, and held - not hidden - on another
-  // checkpoint's, so the buttons before it keep their places.
+  // Finish uses the stored run, without touching an unrelated composer.
+  // Both run actions stay visible with their reasons, even over no images.
   const barRun = sheetShownRun();
-  if (barRun) els.sheetControls.append(moreSeedsRunButton(barRun, { model: sheetRecords[0].model_id }));
+  if (barRun) els.sheetControls.append(
+    finishRunButton(barRun), moreSeedsRunButton(barRun, { model: sheetRecords[0]?.model_id }),
+  );
   if (sheetRecords.length) {
     const hint = document.createElement('span');
     hint.className = 'sheet-hint';
@@ -312,9 +302,12 @@ function drawSheet() {
   if (barRun) {
     const status = document.createElement('span');
     status.className = 'sheet-run-status';
+    status.dataset.run = barRun;
+    status.dataset.base = sheetRunStatus(barRun);
     status.textContent = sheetRunStatus(barRun);
     status.title = status.textContent;
     els.sheetControls.append(status);
+    syncFinishRunButtons();
   }
   els.sheetFixed.textContent = fixedSettings(values);
   els.sheetFixed.hidden = !els.sheetFixed.textContent;
@@ -700,88 +693,6 @@ function revealSheetCell(cell) {
   else if (rect.bottom > bottom) scroller.scrollTop += Math.min(rect.top - top, rect.bottom - bottom);
   if (rect.left < left) scroller.scrollLeft += rect.left - left;
   else if (rect.right > right) scroller.scrollLeft += Math.min(rect.left - left, rect.right - right);
-}
-
-// Resume this run: the panel's grid made ready to finish the run on the
-// sheet. Resume needs the seed the grid started from, which every image
-// carries only derived from it; /api/runs reads it off the run's oldest image
-// - the sheet's own oldest where the run is past the 200 newest and nothing
-// filters it. The size comes from the images, all one size in a run: resume
-// is scoped by it, and the panel's after any other render was the likelier
-// one, so the preview skipped nothing and blamed the grid. Resume is ticked
-// for this session only, never remembered. The grid's axes are not stored per
-// run, so whether the panel still holds the grid that made it is the
-// preview's to say: one that would skip nothing is a different grid, and the
-// preview says so rather than Run grid rendering it. `known` is the last-run
-// banner's (runs.js): the job's size, with no sheet to read one off. Its
-// seed is looked up all the same - a job's own is the first cell it had left,
-// past the base when it was itself a Resume.
-async function resumeRun(runId, known = null) {
-  // A refusal is said under the gallery's head, by the sheet whose button
-  // this is - and beside the Starred tick one of them asks to untick.
-  const slot = { slot: els.galleryError };
-  const params = new URLSearchParams({ limit: 200 });
-  if (els.allModels.checked) params.set('all_models', 'true');
-  let seed;
-  try {
-    seed = (await api(`/api/runs?${params}`)).find((r) => r.run_id === runId)?.seed;
-  } catch (err) {
-    showError(err.message, false, slot);
-    return;
-  }
-  const onSheet = !known && sheetRecords.length && sheetRecords.every((r) => r.run_id === runId);
-  if (seed == null && !els.favOnly.checked && onSheet) {
-    seed = sheetRecords.reduce((a, r) => (r.id < a.id ? r : a)).seed;
-  }
-  if (seed == null) {
-    showError(known
-      ? `Run ${runId} is not among the 200 newest; open it as a sheet (a card's ⊞) and resume it from there.`
-      : `Run ${runId} is not among the 200 newest; untick Starred so the sheet holds its oldest image.`, false, slot);
-    return;
-  }
-  els.seed.value = seed;
-  const size = known ?? sheetRecords[0];
-  els.width.value = size.width;
-  els.height.value = size.height;
-  syncSize();
-  syncRuns();
-  persistPanel();
-  scheduleComparePreview();
-  els.gridResume.checked = true;
-  // The fold's toggle event previews on its own; the check below waits for it
-  // and then asks again, so the last preview is the one it judges.
-  if (!els.gridSection.open) {
-    const toggled = new Promise((resolve) => els.gridSection.addEventListener('toggle', resolve, { once: true }));
-    els.gridSection.open = true;
-    await toggled;
-  }
-  const preview = previewGrid();
-  const epoch = previewEpoch;
-  let p = null;
-  try {
-    p = await api('/api/grid/preview', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify(gridPayload()),
-    });
-  } catch { /* the preview says why */ }
-  await preview;
-  // A run with nothing missing - every cell in the gallery or queued - is a
-  // dead end for Resume: said, with the way on.
-  if (p && (p.skipped || p.queued) && !p.cells && epoch === previewEpoch) {
-    els.gridPreview.append(`\nNothing in run ${runId} is missing. More seeds of this run… adds seeds.`);
-  }
-  if (p && !p.skipped && epoch === previewEpoch) {
-    els.gridPreview.classList.add('warn');
-    // Appended as a text node: the preview's first line is a .totals span,
-    // which rewriting textContent flattened into the rest.
-    els.gridPreview.append(`\nNone of these cells is in run ${runId}: the grid above is not the one that `
-      + 'made it (its prompt, axes or other settings changed, or the server runs another quantization), '
-      + 'so Run grid would render a different grid.');
-  }
-  // Last, once the preview has grown the fold to its height: brought into
-  // view before it, Run grid ended a few lines under the window's edge.
-  revealGridRun();
 }
 
 // The Sheet button. Over an empty search a gallery of several runs makes a

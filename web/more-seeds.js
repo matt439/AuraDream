@@ -543,7 +543,8 @@ function moreSeedsToolHold({ model = null, binned = false, ids = null } = {}) {
 function syncMoreSeedsTool(button, of = button.msOf) {
   button.msOf = of ?? {};
   button.classList.add('more-seeds-tool');
-  const held = moreSeedsToolHold(button.msOf);
+  const action = button.dataset.run ? finishRuns.get(button.dataset.run)?.details?.actions?.seeds : null;
+  const held = moreSeedsToolHold(button.msOf) || (action && !action.available ? action.reason : '');
   button.setAttribute('aria-disabled', String(Boolean(held)));
   button.title = held || button.msOf.title || '';
 }
@@ -585,6 +586,7 @@ function moreSeedsRunButton(runId, { model = null, label = 'More seeds of this r
   const button = document.createElement('button');
   button.type = 'button';
   button.className = className;
+  button.dataset.run = runId;
   button.textContent = label;
   button.setAttribute('aria-haspopup', 'dialog');
   syncMoreSeedsTool(button, {

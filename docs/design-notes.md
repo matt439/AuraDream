@@ -5315,11 +5315,26 @@ cells. The preview counts those cells apart, "N queued", since `skipped`
 is shown as "already done". Re-render, Swap tags and Mass refine share the
 latent double render; the follow-up below owns that remaining work.
 
-**Left for phase 2:** the finish line's Resume is still page memory and
-the banner's still needs the grid in the panel; a reload with the panel changed, or a restart, loses
-the way to finish a run until `run_jobs` keeps each job's cells. Widen and
-Load into panel wait until a night shows the need (Q13); picks after a
-footer More seeds are left as they are (Q14).
+**Phase 2 built, 2026-10-18 (GEN#11).** Every admitted job first retains
+its resolved pre-outpaint-stamp cells and original budget in run_jobs.
+Terminal outcomes record completed/failed indices, but gallery keys decide
+what still exists. Finish unions definitions in their stored order, subtracts
+completed/binned and planned keys, and queues only missing cells under the
+original run id and budget. Deleted successful cells are counted as redraws.
+A partially saved Batch reruns in full, preserving its call semantics.
+Unreadable recovery candidates cannot break the healthy Runs picker.
+
+One page controller uses server availability and a preview pin on finish
+lines, the banner and the sheet. Reload and a real owned-fake restart work
+with an unrelated composer, including Repeat, comparisons and zero-image
+runs. Late responses belong to their run/model/server context; changed
+previews refuse before admission. Finish, panel Resume, gallery reruns and
+More seeds share admission across persistence/mask/outpaint awaits. The
+panel's hand-built Resume remains; legacy/imported runs without retained
+cells say why Finish is unavailable. Bundles exclude the private recovery
+definitions, and clear removes them. More seeds continues to extend runs;
+Widen and Load into panel remain deferred. Tests and bounded browser evidence
+are recorded in docs/plan-continue-run.md.
 
 ### Reruns already in the queue
 

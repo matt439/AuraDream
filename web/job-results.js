@@ -3,9 +3,9 @@
 'use strict';
 
 // The finished job's line, #finish-note: its outcome and what to do next -
-// the seed and Use seed, Show sheet, a Retry or a Resume. A line of its own,
+// the seed and Use seed, Show sheet, Finish run. A line of its own,
 // which only the next job's end replaces: in the cell line, a job queued
-// behind cleared it the moment the watched one ended, and a grid's Retry
+// behind cleared it the moment the watched one ended, and its recovery action
 // with it - in the overnight queue the button exists for. While another job
 // runs, or after one whose stream gave up, it says whose it is. Focus on it
 // when it is replaced moves to the new line's first button, else Generate,
@@ -56,7 +56,7 @@ function showOutcome(text, note = false) {
 
 // The finished job's outcome: the finish line, the panel's line for what
 // went wrong, the tab's title, and the gallery. `submitted` is the
-// submission this page made, which a Retry sends again; `sheet` a job that
+// submission this page made; `sheet` a job that
 // opens as its sheet; `foreign` another tab's job this page picked up
 // (isForeign), whose end is said as that - no Use seed, no title held.
 function finishJob(jobId, data, { submitted, sheet, foreign = false, staleBefore = false }) {
@@ -143,75 +143,10 @@ function finishJob(jobId, data, { submitted, sheet, foreign = false, staleBefore
   if (data.grid && data.status === 'done' && images.length && data.run_id && !foreign) {
     line.push(moreSeedsRunButton(data.run_id, { model: images[0].model_id, className: 'ghost tiny' }));
   }
-  // The cells a grid skipped, or did not reach: its own payload again with
-  // Resume and the base seed it ran from - never the panel, which may have
-  // changed since - so only the missing cells run. Resume needs a fixed seed:
-  // the payload's own where it gave one, else the base the POST drew. Not the
-  // POST's answer then, which is the first cell the job had to run: past the
-  // base when the job was itself a Resume and its first seeds were done. A
-  // listed seed axis is its own.
-  const skipped = data.status === 'done' ? data.failures : 0;
-  // Stopped by the rule or by the time budget: every cell but the ones that
-  // rendered. The budget is checked before a cell starts, so `run` is the
-  // cells reached there too. Its Resume is the night's own request again,
-  // its budget with it, named in the title.
-  const stopped = data.stopped_by === 'failures' || data.stopped_by === 'budget';
-  const remaining = stopped ? data.total_runs - (data.run - data.failures) : 0;
-  const budget = data.stopped_by === 'budget' && submitted?.payload?.budget_minutes
-    ? `, under the same ${submitted.payload.budget_minutes}-minute budget` : '';
-  if (submitted?.path === '/api/grid' && (skipped || remaining)) {
-    const count = skipped || remaining;
-    // A sweep's source deleted - mid-run, the usual cause of the failures
-    // that stopped it - cannot be refined again, so neither Resume nor
-    // Retry can run: refused by the server as "no gallery image with id N",
-    // said under Generate as that and nothing more, and every press refused
-    // the same. Said in words and held instead, with the reason as the
-    // title, from the press that finds it - before sending where this page
-    // deleted it (deletedIds), else on the server's refusal.
-    const source = submitted.payload.refine ?? null;
-    const goneWhy = () => `${imageNames([source])}, this sweep's source, was deleted: `
-      + (skipped ? 'its skipped cells cannot run again.' : 'the run cannot resume.');
-    let sourceGone = false;
-    const holdGone = () => {
-      sourceGone = true;
-      button.setAttribute('aria-disabled', 'true');
-      button.title = goneWhy();
-      showError(goneWhy());
-    };
-    const button = noteButton(
-      skipped ? `Retry the ${plural(skipped, 'skipped cell')}` : `Resume the remaining ${plural(remaining, 'cell')}`,
-      () => {
-        const whyModel = submissionModelHold(submitted);
-        if (whyModel) { showError(whyModel); return; }
-        if (sourceGone) { showError(goneWhy()); return; }
-        if (button.getAttribute('aria-disabled') === 'true') return;
-        if (source != null && deletedIds.has(source)) { holdGone(); return; }
-        void startJob('/api/grid', {
-          ...submitted.payload,
-          resume: true,
-          ...(submitted.payload.seed_axis ? {} : { seed: submitted.payload.seed ?? submitted.seed }),
-        }, {
-          panel: false,
-          sheet: submitted.sheet,
-          model: submitted.model,
-          revision: submitted.revision,
-          // Sent once: a second press would queue the same cells again. The
-          // button stays where the press left focus, saying so, until the
-          // job it sent ends and its own line replaces this one.
-          onAccepted: () => {
-            button.setAttribute('aria-disabled', 'true');
-            button.textContent = skipped ? 'Retry sent' : 'Resume sent';
-            button.title = 'Sent: it runs as a job of its own';
-          },
-          onRefused: (err) => {
-            if (source != null && err.message === `no gallery image with id ${source}`) holdGone();
-          },
-        });
-      },
-      `Run the grid again with Resume: only the ${plural(count, 'missing cell')}${budget}`,
-    );
-    line.push(button);
-  }
+  // The server kept the complete run, including Repeat, comparisons and
+  // cells this tab never saw. Missing counts and holds never come from the
+  // current composer or from this tab's old request payload.
+  if (data.run_id && !foreign) line.push(finishRunButton(data.run_id, { className: 'ghost tiny', slot: els.error }));
   // Another tab's job keeps out of this page's finish line: that line is
   // this page's own last job, Use seed and all, and the foreign job's end
   // is said once, on the hidden line, as the title is given back below.
@@ -234,13 +169,13 @@ function finishJob(jobId, data, { submitted, sheet, foreign = false, staleBefore
     if (!atLoad) showOutcome(`${whose}${data.error}`);
   } else if (data.status === 'cancelled') {
     // A stop at the time budget is the plan working, not a cancel: say
-    // which, and that a Resume finishes the rest. `run` is the cells
+    // which, and that Finish run checks the rest. `run` is the cells
     // finished there - the budget is checked before a cell starts. A stop
     // at the server's shutdown is no one's cancel either.
     const kept = `kept ${plural(images.length, 'image')}`;
     const by = cancelledElsewhere ? ' from another tab or window' : '';
     showOutcome(whose + (data.stopped_by === 'budget'
-      ? `Time budget reached after ${data.run}/${data.total_runs} cells — ${kept}. Resume finishes the rest.`
+      ? `Time budget reached after ${data.run}/${data.total_runs} cells — ${kept}. Finish run checks the rest.`
       : data.stopped_by === 'shutdown'
         ? `Stopped: the server is shutting down — ${images.length ? kept : 'nothing had finished'}.`
       : data.waiting_on === 'load' ? `Cancelled${by} — the weights keep loading, so the next Generate starts sooner.`
@@ -281,6 +216,8 @@ function finishJob(jobId, data, { submitted, sheet, foreign = false, staleBefore
   // otherwise never posted again (syncLoadFailure).
   if (atLoad) shownLoadDetail = null;
   void refreshStatus();
+  invalidateFinishRuns();
+  loadRuns();
   // A comparison opens this submission alone. Run ids name rendered
   // cells, so reversing original/yours on the same seeds shares a run
   // but must not mix the two meanings of either version label.
@@ -290,10 +227,9 @@ function finishJob(jobId, data, { submitted, sheet, foreign = false, staleBefore
   elsewhereCatchUp = false;
   // Under a sheet or a filter they may join no strip: the ladders ask anyway.
   if (owed) noteUnseenImages();
-  if (sheet && images.length) { showJob(jobId, { fresh: true, asker: submitted?.asker ?? null }); loadRuns(); }
+  if (sheet && images.length) { showJob(jobId, { fresh: true, asker: submitted?.asker ?? null }); }
   else if (images.length || owed) {
     void Promise.resolve(prependFinished(made)).then((coming) => noteOutsideView(images, coming));
-    loadRuns();
   }
 }
 
@@ -633,7 +569,7 @@ function withdrawNewImage(to = null) {
 // page sent it; its refusal - the server still gone - is said in the card.
 // The next job's first frame clears it; an answering server rewords it
 // (`lostRunBack`).
-function showLostRun({ heading, text }, submitted) {
+function showLostRun({ heading, text, run }, submitted) {
   const card = document.createElement('div');
   card.className = 'lost-run';
   card.setAttribute('role', 'group');
@@ -644,22 +580,14 @@ function showLostRun({ heading, text }, submitted) {
   const line = document.createElement('p');
   line.textContent = text;
   card.append(head, line);
-  if (submitted) {
+  const runId = run ?? submitted?.run_id;
+  if (runId) {
+    card.dataset.run = runId;
     const refused = document.createElement('p');
     refused.className = 'error';
     refused.setAttribute('role', 'alert');
     refused.hidden = true;
-    const again = document.createElement('button');
-    again.type = 'button';
-    again.className = 'primary';
-    again.textContent = 'Run it again';
-    again.title = 'Send the same request again';
-    again.onclick = () => {
-      void startJob(submitted.path, submitted.payload, {
-        sheet: submitted.sheet, panel: false, slot: refused,
-        model: submitted.model, revision: submitted.revision,
-      });
-    };
+    const again = finishRunButton(runId, { className: 'primary', slot: refused });
     card.append(again, refused);
   }
   els.viewer.replaceChildren(card);
@@ -675,10 +603,12 @@ function lostRunBack(restarted, s) {
   const at = typeof s.started_at === 'number'
     ? new Date(s.started_at * 1000).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }) : '';
   card.querySelector('h2').textContent = restarted ? `The server restarted${at ? ` at ${at}` : ''}` : 'The server is back';
-  card.querySelector('p').textContent = 'Nothing of the last run finished'
-    + (card.querySelector('button') ? ': Run it again sends the same request.' : '.');
+  card.querySelector('p').textContent = card.dataset.run
+    ? 'Finish run checks the saved cells of this run. Your composer stays as it is.'
+    : "This job has no retained run id here. Find it in Runs; older runs use the panel's Resume tick.";
   const refused = card.querySelector('.error');
   if (refused) { refused.hidden = true; refused.textContent = ''; }
+  invalidateFinishRuns();
 }
 
 // What New image goes to: the newest image; before any has landed - the

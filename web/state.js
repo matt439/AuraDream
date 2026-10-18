@@ -594,7 +594,7 @@ async function api(path, options) {
     throw Object.assign(new Error(readableDetail(detail)), { status: res.status, body });
   }
   const body = res.status === 204 ? null : await res.json();
-  const advisory = /^\/api\/(?:prompt\/|tags\/|loras$|grid\/preview$|swap-tags\/preview$|refine\/batch\/preview$|more-seeds\/preview$|png\/settings$)/.test(path.split('?')[0]);
+  const advisory = /^\/api\/(?:prompt\/|tags\/|loras$|grid\/preview$|swap-tags\/preview$|refine\/batch\/preview$|more-seeds\/preview$|png\/settings$|runs\/[^/]+(?:\/finish\/preview)?$)/.test(path.split('?')[0]);
   if (advisory && revision !== null && revision !== modelRevision) {
     throw Object.assign(new Error('The checkpoint changed while this request was running. Try again with the current checkpoint.'), { status: 409 });
   }

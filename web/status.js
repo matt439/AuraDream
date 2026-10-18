@@ -767,6 +767,7 @@ function receiveStatus(s, asked = Date.now()) {
       disk,
     ].filter(Boolean).join(' · ');
     offerModelPicker(s);
+    receiveFinishStatus(s);
 }
 
 // The adapters on disk, into the select. The chosen one survives a refresh

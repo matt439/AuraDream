@@ -308,6 +308,7 @@ function streamJob(jobId, { reattached = 0 } = {}) {
       if (alive && reattached < 3) return streamJob(jobId, { reattached: reattached + 1 });
       const grid = job?.grid;
       const submitted = submissions.get(jobId);
+      const runId = job?.run_id ?? submitted?.run_id;
       forgetJob(jobId);
       setBusy(false);
       // The strip's note was the reconnect's line; it is the strip's again.
@@ -334,7 +335,8 @@ function streamJob(jobId, { reattached = 0 } = {}) {
         const text = made
           ? `The server restarted, and this job ended with it after ${made}${planned ? ` of ${planned}` : ''} `
             + `image${(planned ?? made) === 1 ? '' : 's'}. They are in the gallery; `
-            + `${grid ? 'run the grid again with Resume ticked' : 'Generate again'} for the rest.`
+            + (runId ? 'Open this run from Runs and use Finish run for the rest.'
+              : `Use ${grid ? "the panel's Resume tick" : 'Generate'} for this older job.`)
           : 'The server restarted, and this job ended with it before any of it had finished.';
         showError(text);
         lost = { heading: 'The server restarted', text };
@@ -348,7 +350,10 @@ function streamJob(jobId, { reattached = 0 } = {}) {
       holdTitle(failure?.offline ? 'Server not answering' : 'Lost the job');
       // Its first frame had cleared the strip and nothing of it landed: the
       // viewer was an empty box, the only words red in the panel.
-      if (lost && cleared && !made) showLostRun(lost, submitted);
+      if (lost && cleared && !made) showLostRun({ ...lost, run: runId }, submitted);
+      else if (lost && runId) setFinish([
+        finishRunButton(runId, { className: 'ghost tiny', slot: els.error }),
+      ]);
       // With another tab's images owed since this job took over (finishJob);
       // offline, the poll's first answer takes everything in (refreshStatus).
       if (!failure?.offline && (made || elsewhereCatchUp)) {

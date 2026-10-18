@@ -661,26 +661,18 @@ function versionPrompts(records) {
   return new Map(single.map(([label, texts]) => [label, [...texts][0]]));
 }
 
-// The run the sheet shows, where it shows one and was opened on `run:<id>` -
-// the Runs picker, a card's ⊞, Show run: what Resume this run continues. Not
-// a comparison's or a refine sweep's, which the panel's grid did not make,
-// and not another checkpoint's (All models): resume is scoped to the
-// checkpoint the server runs, so its preview could only skip nothing.
-function sheetRun() {
-  const runs = new Set(sheetRecords.map((r) => r.run_id));
-  const [run] = runs;
-  if (runs.size !== 1 || !run || !els.search.value.trim().split(/\s+/).includes(`run:${run}`)) return null;
-  if (loadedModel && sheetRecords[0].model_id !== loadedModel) return null;
-  return sheetRecords.some((r) => r.refine != null || r.variables?.variant !== undefined) ? null : run;
-}
-
 // The run the sheet shows, for the run bar: one run, opened on `run:<id>`,
 // whatever made it - a refine sweep's and a comparison's too - and on any
 // checkpoint, where its More seeds… is held with the reason.
 function sheetShownRun() {
+  // Retained-only runs have no gallery rows to infer their id from.
+  const searched = shownRun();
+  if (!sheetRecords.length) return searched;
   const runs = new Set(sheetRecords.map((r) => r.run_id));
   const [run] = runs;
-  if (runs.size !== 1 || !run || !els.search.value.trim().split(/\s+/).includes(`run:${run}`)) return null;
+  const scope = els.search.value.trim().split(/\s+/);
+  if (runs.size !== 1 || !run || !(scope.includes(`run:${run}`)
+    || sheetRecords.some((record) => scope.includes(`job:${record.job_id}`)))) return null;
   return run;
 }
 
@@ -691,7 +683,10 @@ function sheetRunStatus(run) {
   const n = typeof total === 'number' ? total : sheetRecords.length;
   const quants = new Set(sheetRecords.map((r) => r.quantization).filter(Boolean));
   const [quant] = quants;
-  const made = [checkpointName(sheetRecords[0].model_id), quants.size === 1 ? quant : ''].filter(Boolean).join(' ');
+  const details = finishRuns.get(run)?.details;
+  const model = sheetRecords[0]?.model_id ?? details?.model_id;
+  const made = [model ? checkpointName(model) : '', quants.size === 1 ? quant : details?.quantization]
+    .filter(Boolean).join(' ');
   return [`Run ${run}`, `${plural(n, els.favOnly.checked ? 'starred image' : 'image')}`, made].filter(Boolean).join(' · ');
 }
 

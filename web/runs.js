@@ -11,6 +11,189 @@ function remembered(key) { try { return localStorage.getItem(key); } catch { ret
 function remember(key, value) { try { localStorage.setItem(key, value); } catch { /* unavailable */ } }
 function forget(key) { try { localStorage.removeItem(key); } catch { /* unavailable */ } }
 
+// Retained runs are the server's definition, independent of the composer or
+// this tab's submission history. Every surface shares these availability
+// answers and one submission path. A response belongs to its server/model
+// context and request entry; a late answer never revives an old control.
+const finishRuns = new Map();
+const finishPresses = new Set();
+let finishServerStamp = '';
+const finishIdentity = () => JSON.stringify([serverStartedAt, modelRevision, loadedModel]);
+const finishContext = () => JSON.stringify([finishIdentity(), finishServerStamp]);
+const finishTools = () => [...document.querySelectorAll('button.finish-run-tool[data-run]')];
+
+function finishRunWords(run, preview) {
+  if (!preview?.available) return preview?.reason || 'Checking Finish run.';
+  const count = `${plural(preview.images, 'image')} in ${plural(preview.cells, 'missing cell')}`;
+  const redraw = preview.redrawn ? `; ${plural(preview.redrawn, 'permanently deleted cell')} will be redrawn` : '';
+  const budget = preview.budget_minutes ? `; original ${preview.budget_minutes}-minute budget` : '';
+  return `Finish ${count} of run ${run}${redraw}${budget}`;
+}
+
+function finishRunHold(button, state = finishRuns.get(button.dataset.run)) {
+  return button.dataset.finishSent ? 'Sent: it runs as a job of its own'
+    : binMode ? BIN_HELD
+    : submitHold() || (submitting ? 'A job is being submitted' : '')
+    || (finishPresses.has(button.dataset.run) ? 'Checking Finish run.' : '')
+    || (state?.pending || !state ? 'Checking Finish run.' : '')
+    || state.error || (!state.preview?.available ? state.preview?.reason || 'Finish run is unavailable' : '');
+}
+
+function syncFinishRunButton(button) {
+  const state = finishRuns.get(button.dataset.run);
+  if (button.dataset.finishSent && !els.finishNote.contains(button) && state?.details && !state.pending
+    && !state.preview?.reason?.startsWith('the rest is queued in job ')) {
+    // A sheet control survives its job's finish line. Once that job ends,
+    // allow the server's next answer (including another stop) to decide it.
+    delete button.dataset.finishSent;
+  }
+  const why = finishRunHold(button, state);
+  button.setAttribute('aria-disabled', String(!!why));
+  button.title = why || finishRunWords(button.dataset.run, state.preview);
+  button.setAttribute('aria-description', button.title);
+  if (!button.dataset.finishSent) button.textContent = 'Finish run';
+}
+
+function syncFinishRunButtons() {
+  finishTools().forEach(syncFinishRunButton);
+  syncMoreSeedsTools();
+  // Counts follow the buttons, on the sheet's existing last row, so a
+  // changing answer never moves a control under the pointer.
+  for (const line of els.sheetControls.querySelectorAll('.sheet-run-status[data-run]')) {
+    const state = finishRuns.get(line.dataset.run);
+    const preview = state?.preview;
+    const extra = preview?.available
+      ? `${plural(preview.cells, 'missing cell')}${preview.redrawn ? `; ${preview.redrawn} deleted to redraw` : ''}`
+      : state?.pending ? 'checking Finish run' : preview?.reason || state?.error || '';
+    line.dataset.base = sheetRunStatus(line.dataset.run);
+    line.textContent = `${line.dataset.base}${extra ? ` · ${extra}` : ''}`;
+    line.title = line.textContent;
+  }
+}
+
+function configureFinishRun(button, run, { slot = els.galleryError } = {}) {
+  button.type = 'button';
+  button.classList.add('finish-run-tool');
+  button.dataset.run = run;
+  delete button.dataset.finishSent;
+  button.onclick = () => { void pressFinishRun(button, { slot }); };
+  syncFinishRunButton(button);
+  void readFinishRun(run);
+  return button;
+}
+
+function finishRunButton(run, { className = 'ghost small', slot = els.galleryError } = {}) {
+  const button = document.createElement('button');
+  button.className = className;
+  return configureFinishRun(button, run, { slot });
+}
+
+async function readFinishRun(run, { force = false } = {}) {
+  const context = finishContext();
+  const previous = finishRuns.get(run);
+  if (previous?.context === context && previous.pending) return previous.pending;
+  if (!force && previous?.context === context) return previous.pending ?? previous;
+  const state = { context, pending: null, details: null, preview: null, error: '' };
+  finishRuns.set(run, state);
+  state.pending = (async () => {
+    try {
+      const details = await api(`/api/runs/${encodeURIComponent(run)}`);
+      const action = details.actions.finish;
+      const preview = action.available
+        ? await api(`/api/runs/${encodeURIComponent(run)}/finish/preview`, { method: 'POST' })
+        : { available: false, reason: action.reason, cells: action.count, images: 0 };
+      if (finishRuns.get(run) !== state || finishContext() !== context) return null;
+      state.details = details;
+      state.preview = preview;
+      return state;
+    } catch (err) {
+      if (finishRuns.get(run) !== state || finishContext() !== context) return null;
+      state.error = err.message;
+      return state;
+    } finally {
+      state.pending = null;
+      if (finishRuns.get(run) === state && finishContext() === context) syncFinishRunButtons();
+    }
+  })();
+  syncFinishRunButtons();
+  return state.pending;
+}
+
+function refreshFinishRuns(force = false) {
+  const runs = new Set(finishTools().filter((button) => !button.closest('[hidden]')).map((button) => button.dataset.run));
+  for (const run of runs) void readFinishRun(run, { force });
+  syncFinishRunButtons();
+}
+
+function invalidateFinishRuns() {
+  finishRuns.clear();
+  refreshFinishRuns(true);
+}
+
+function receiveFinishStatus(status) {
+  const stamp = JSON.stringify([status.started_at, status.model_revision, status.quantization,
+    status.active_jobs, status.newest_image_id]);
+  if (stamp !== finishServerStamp) {
+    finishServerStamp = stamp;
+    invalidateFinishRuns();
+  } else syncFinishRunButtons();
+}
+
+async function pressFinishRun(button, { slot = els.galleryError } = {}) {
+  const run = button.dataset.run;
+  if (!run || button.dataset.finishSent || finishPresses.has(run)) return;
+  const local = binMode ? BIN_HELD : submitHold() || (submitting ? 'A job is being submitted' : '');
+  if (local) { showError(local, false, { slot }); return; }
+  const identity = finishIdentity();
+  let context = finishContext();
+  const banner = !els.lastRun.hidden && els.lastRun.contains(button);
+  finishPresses.add(run);
+  button.setAttribute('aria-busy', 'true');
+  syncFinishRunButtons();
+  try {
+    let state = await readFinishRun(run, { force: true });
+    // A finishing job's next status poll can invalidate its newly drawn
+    // control while this check is out. Read the current answer once more;
+    // a changed server or checkpoint still needs a new deliberate press.
+    if (!state && finishIdentity() === identity && button.isConnected && button.dataset.run === run) {
+      context = finishContext();
+      state = await readFinishRun(run, { force: true });
+    }
+    if (!button.isConnected || button.dataset.run !== run) return;
+    if (!state || finishContext() !== context) {
+      showError('The run or checkpoint changed while checking. Press Finish run again.', false, { slot });
+      return;
+    }
+    if (state.error || !state.preview?.available) {
+      showError(state.error || state.preview?.reason || 'Finish run is unavailable', false, { slot });
+      return;
+    }
+    const preview = state.preview;
+    const why = binMode ? BIN_HELD : submitHold() || (submitting ? 'A job is being submitted' : '');
+    if (why) { showError(why, false, { slot }); return; }
+    await startJob(`/api/runs/${encodeURIComponent(run)}/finish`, { expected: preview.pin }, {
+      panel: false, slot,
+      onAccepted: () => {
+        finishPresses.delete(run);
+        button.dataset.finishSent = 'true';
+        button.textContent = 'Finish sent';
+        button.removeAttribute('aria-busy');
+        invalidateFinishRuns();
+      },
+      onRefused: () => {
+        // setBusy hides the banner before sending; a refusal keeps its
+        // recovery control and the server's reason available for another press.
+        if (banner && els.lastRun.dataset.run === run) els.lastRun.hidden = false;
+        invalidateFinishRuns();
+      },
+    });
+  } finally {
+    finishPresses.delete(run);
+    button.removeAttribute('aria-busy');
+    syncFinishRunButtons();
+  }
+}
+
 const ANNOUNCED_KEY = 'local-diffusion.announced-job';
 const LEGACY_ANNOUNCED_KEYS = ['krea.announced-job'];
 const ANNOUNCE_WINDOW_MS = 24 * 3600 * 1000;
@@ -94,21 +277,12 @@ async function announceLastRun() {
   syncMoreSeedsTool(els.lastRunMore, {
     title: `More seeds of every cell of run ${last.run_id}, starred or not, the seeds following on - each at its own settings and Batch`,
   });
-  // A grid the night did not finish - cancelled, out of time, stopped by its
-  // failures - is finished by Resume. Not a re-render's, a refine sweep's or
-  // a comparison's, which the panel's grid does not make (the sheet's Resume
-  // this run refuses a comparison too), and not one with no image of its own
-  // left: nothing of it for the preview to skip, and the preview then said
-  // the panel's grid was another.
-  lastRunJob = last;
-  els.lastRunResume.hidden = !(last.grid && last.prompt_template != null && last.refine == null
-    && !last.comparison && last.image_count > deleted
-    && (last.status === 'cancelled' || last.stopped_by === 'failures'));
+  // Availability is the server's, including Repeat, comparisons and jobs
+  // with no surviving images. The composer is never a run definition.
+  els.lastRunResume.hidden = !last.run_id;
+  if (last.run_id) configureFinishRun(els.lastRunResume, last.run_id, { slot: els.error });
   els.lastRun.hidden = false;
 }
-
-// The job the banner names, for its Resume.
-let lastRunJob = null;
 
 function dismissLastRun() {
   remember(ANNOUNCED_KEY, els.lastRun.dataset.job || '');
@@ -116,16 +290,8 @@ function dismissLastRun() {
   els.lastRun.hidden = true;
 }
 
-// The banner's Resume: the sheet's Resume this run (sheet-render.js) - the panel's
-// grid made ready, and its preview saying what is left - with the job's size.
-// Not its seed, which is the first cell it still had to run: a job that was
-// itself a Resume, the run's first seeds done, carries one past the base, and
-// that grid is another, with another run id.
 function resumeLastRun() {
-  const job = lastRunJob;
-  if (!job) return;
-  dismissLastRun();
-  void resumeRun(job.run_id, { width: job.width, height: job.height });
+  void pressFinishRun(els.lastRunResume, { slot: els.error });
 }
 
 // The banner's More seeds…: the dialog on the run. The banner stays until
@@ -186,7 +352,7 @@ async function loadRuns() {
   if (els.allModels.checked) params.set('all_models', 'true');
   try { runs = await api(`/api/runs?${params}`); } catch { return; }
   if (epoch !== runsEpoch || revision !== modelRevision || model !== loadedModel || allModels !== els.allModels.checked) return;
-  const several = (run) => run.images > 1 || run.jobs > 1;
+  const several = (run) => run.images !== 1 || run.jobs > 1;
   const singles = runs.filter((run) => !several(run));
   els.runList.innerHTML = '';
   // What the picker shows while the gallery shows no run; not a run to pick.
@@ -219,6 +385,7 @@ async function loadRuns() {
     (run) => `${whenExactly(Date.parse(run.started_at))} · seed ${run.seed}${stars(run)} · ${words(run)}`);
   els.runList.disabled = !runs.length;
   syncRunList();
+  refreshFinishRuns(true);
 }
 
 // The run the search box shows, if it shows one.
