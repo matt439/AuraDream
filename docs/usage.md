@@ -31,8 +31,7 @@ work, and Generate queues behind the load. A failed load shows its reason and
 Prompts and saved images stay available. Sampling starts from that checkpoint's
 defaults or its remembered settings, and the guide, supported controls, adapters
 and gallery scope update. **All models** shows images from the other checkpoints.
-Reopen an existing Refine dialog after a switch to use the new schedule. Retry
-and Resume for an earlier submission require switching back to its checkpoint.
+Reopen an existing Refine dialog after a switch to use the new schedule. Finish run for an earlier submission requires switching back to its checkpoint.
 Other open tabs follow the server's selection too.
 
 Press the star beside a model to add or remove it from **Favourites** at the
@@ -550,4 +549,315 @@ ends, on that run's images rather than the selection; see
   cells to redraw, original budget and holds. Binned or queued cells are
   not duplicated. Older/imported runs without retained cells use the
   panel's explicit Resume tick.
+- **More seeds…** makes new images with the same settings and the next
+  seeds, joining the run. **More seeds…** on the finished-job line (after
+  **Use seed** on a plain Generate's) takes the batches that job made: a
+  plain Generate, a More seeds job, or a single refine, inpaint or outpaint
+  pass. **More seeds of
+  this batch…** - in an image's right-click menu, beside **Reuse** in the
+  lightbox, and as **More seeds…** beside a fresh result at 1800 px and
+  wider - takes the image's batch. **More seeds of this run…** - on a
+  finished grid's line after **Show sheet**, as **More seeds…** on the
+  last-run line beside **Show run**, and in the run's sheet beside **Finish run** - takes every image of the run, starred or not, whatever the
+  gallery's filter; its dialog leads with what it will queue ("2 more of
+  each of 6 cells = 12 images · seeds 8–9 · Starred ignored"). "N more" is
+  N more images of every cell, not N more seed values crossed with the
+  grid.
 
+These open at the batch's own Batch where its batches agree on one (the
+footer's More seeds… keeps the number last queued from it), and Enter
+queues. They are held, with the reason as their tooltip, for images in the
+recycle bin, another checkpoint's images, and while the server is not
+answering - all but the last-run line's, which is held only while the
+server is not answering: its dialog marks the cells another checkpoint
+made and queues none of them. Pause and **Resume** on a running job are a different thing:
+they hold and carry on the job itself. A run's sheet ends with a line
+naming the run, its image count and the checkpoint it was made on.
+
+### Keyboard and lightbox
+
+| Where | Keys |
+| --- | --- |
+| Anywhere | Ctrl/Cmd+Enter generates; inside an open Grid field runs the grid; in Refine runs the pass; in Refine… (Mass refine) runs the batch; in Swap tags queues; in More seeds… queues the batches |
+| Gallery | Tab enters the cards; arrows/Home/End navigate, Enter opens, F stars; in select mode Space picks, Shift+Space picks a range, Esc clears |
+| Lightbox | Left/Right browse, F stars, R opens Refine, S compares a pass with its source or another image with its CFG neighbour, Delete moves the image to the recycle bin (in the bin: asks to delete it permanently), Esc closes |
+| Lightbox zoom | Wheel or +/− zoom, drag pans, 0 fits, 1 or double-click shows actual pixels |
+| Right-click an image | A menu of its actions: Star, Reuse settings, Use seed, More seeds of this batch…, Refine…, Inpaint…, Outpaint…, reference, Show run as sheet, Copy prompt / seed / image, Open PNG in new tab, Move to recycle bin. On a picked card: the picks' actions. The Menu key or Shift+F10 opens it from the keyboard; Shift+right-click gives the browser's own menu |
+| Contact sheet | Arrows move between populated cells; Home/End use row ends, Ctrl+Home/End the corners. Tab reaches the current cell's star; Enter/Space opens its lightbox, F stars |
+| Prompt/tag chips | Tab/Enter accepts a suggestion after three matching characters; Alt+Left/Right reorders chips, Delete removes, Enter edits |
+| Prompt replacements | Ctrl+Z restores text after Apply, Reuse (or a loaded PNG), Expand, Examples or a chip edit |
+| Inpaint | With the picture focused: B brush, E eraser, `[` `]` or Alt+wheel size, I invert, Ctrl+Z / Ctrl+Shift+Z undo and redo, arrows move the brush, Space paints; Ctrl+Enter runs (Outpaint too) |
+| Refine | Enter in a one-line field runs; Strength arrows step by 0.05, or 0.01 with Shift |
+
+Lightbox zoom and position carry between images of the same shape, useful
+for comparing a detail across seeds or settings. Its facts include source,
+references and run links, plus **Use seed** and **Use these references**.
+**More seeds…** beside **Reuse** makes more of the image's batch, the dialog
+opening over the lightbox (Esc closes the dialog first); at 900 px wide or
+narrower it is in the right-click menu instead.
+**⌕** beside a setting (model, size, sampling, LoRA, source, seed, day, run)
+adds it to the gallery search; a value of the same kind replaces the old
+one. **⌕ Search for this prompt** replaces the search's text with the
+prompt's words and keeps its filters; it finds prompts containing all of
+those words in any order.
+
+**Compare CFG** in the lightbox sets the image beside another that differs
+from it only in CFG: the same prompt, negative, seed, steps, size, mu, LoRA,
+references and checkpoint, such as the cells of a CFG grid or two Generates
+at one seed. The lower CFG is on the left (or on top), with **Swipe** or
+**Side by side** as for a pass. **← Lower CFG** and **Higher CFG →** step
+along the values found, and **Against** picks the other image. S turns it on
+and off on any image that is not a refine pass. Where no other CFG value is
+found the button is held and its tooltip says why; the gallery is searched
+in its newest images, so the tooltip says when more may be further back.
+
+## Generate from the terminal
+
+The CLI uses the same backend and gallery without a browser:
+
+```powershell
+uv run python -m backend.generate "a lighthouse in fog"
+uv run python -m backend.generate "a lighthouse in fog" --aspect 16:9 --mp 2 --runs 12 --seed 42
+uv run python -m backend.generate "{size} dog" --grid-prompt "size = big | small | none" --grid-steps 6-12x2 --grid-seeds 4 --seed 42 --resume
+uv run python -m backend.generate --from-image outputs/example.png --refine 412 --scale 1.5
+uv run python -m backend.generate --help
+```
+
+`--dry-run` prints resolved settings without loading weights; `--quiet`
+prints one path and seed per saved image. `--true-cfg`, `--reference 12,15`,
+`--lora style.safetensors --lora-scale 0.8` and `--grid-lora-scale 0-1x0.25`
+match the browser controls. Refine supports `--strength` and `--grid-strength`.
+`--refine 412 --mask mask.png` inpaints: white repaints, black keeps, grey
+blends, at the source's own size. `--refine 412 --outpaint 0,0,256,0` (left,
+top, right, bottom) or `--outpaint 16:9` / `--outpaint +25%` outpaints, with
+`--band` setting the band (default 32).
+`--from-image` restores PNG settings; explicit flags override them. Add
+`--scale` explicitly to enlarge its recorded size. Quantization is not carried
+over, allowing a WSL PNG to be used on Windows, and differences are reported.
+
+Without `--via-server`, the CLI loads its own weights. It first probes the
+configured server and stops if it is ready, loading or times out; use
+`--via-server` or unload the server model first.
+`--ignore-server` overrides this advisory check, which cannot see a server
+across the Windows/WSL boundary. Ctrl+C cancels cooperatively and preserves
+saved images. Exit codes: 0 complete, 130 cancelled, 2 bad arguments, 1 failed
+load or skipped cells, 4 server holding the GPU. Failed cells are reported
+and skipped; repeated failures stop the run. If another Local Diffusion
+process holds the gallery (a bundle export, say) when an image is ready, the
+CLI says once that it is still waiting to save and keeps the image until the
+gallery is free; a second Ctrl+C ends it.
+
+Redirected CLI output is UTF-8. In Windows PowerShell, set
+`[Console]::OutputEncoding = [Text.Encoding]::UTF8` before using `>` or `|`
+to preserve non-ASCII prompts.
+
+### Scripting the running server
+
+Keep the browser server open and queue scripts through it:
+
+```powershell
+uv run python -m backend.generate "a fox" --via-server --seed 42 -q
+uv run python -m backend.generate "a fox" --via-server --seed 42 --grid-steps 20,30 --grid-seeds 4 --resume
+```
+
+The address comes from `LOCAL_DIFFUSION_HOST` and `LOCAL_DIFFUSION_PORT`
+(default `http://127.0.0.1:7860`). Defaults and request normalization belong
+to that server. Explicit model, quantization and offload flags or environment
+must match its current choices; select them in Models first. Each submission
+pins the model revision. Nothing loads weights locally or switches the server.
+`--quiet` prints the full server PNG URL and seed for each saved image.
+Ctrl+C cancels only this invocation's job and waits for its step boundary;
+a second Ctrl+C stops waiting. An unconfirmed submission is never retried
+automatically: inspect the reported jobs URL before submitting again.
+
+Grid, Resume, budget, gallery references, Refine, mask upload and Outpaint
+use the public routes and the server's source provenance checks. PNG-carried
+grid/comparison labels cannot pass through these generation routes and are
+refused; define a new grid or use the direct CLI for those records.
+`--dry-run` and `--ignore-server` are alternatives to `--via-server`.
+The API explorer is at `/docs`, with its schema at `/openapi.json` on the
+same server. Successful completion exits 0; cancellation (including an incomplete budget
+stop) exits 130, bad arguments/refusals 2, and runtime failures 1. Saved
+images remain available.
+
+## Review starred rates
+
+```powershell
+uv run python -m backend.stats
+uv run python -m backend.stats --run ab12cd --by steps,cfg,prompt --min 3
+uv run python -m backend.stats --job ab12cd --by variant --min 4
+```
+
+The default scope is the newest run. Rates compare made versus starred,
+excluding groups below `--min` (default 5). An untouched run is 0% starred,
+not evidence of rejection. `--all` covers the gallery but mixes prompts and
+conditions, so its results are only indicative. Use `--job` for comparisons;
+if labels have different meanings across jobs, narrow the scope or group by
+`variant,prompt`.
+
+## Gallery bundles
+
+Press **Bundles…** at the end of the row under the search box to open the
+Gallery bundles dialog. Its counts cover the
+entire gallery: every checkpoint, every favourite and the recycle bin,
+regardless of the current search or filters; the preview says how many of
+the records are in the recycle bin.
+
+**Back up (keep gallery)** saves and verifies a bundle and leaves the
+gallery exactly as it was: no count to type, nothing removed. Choose what it
+holds under **Bundle**:
+
+- **Entire gallery**: everything Bundle & clear would take (below).
+- **Picked (N)**: the cards picked with **Select**, whatever the search or
+  filter. Picks made before opening the recycle bin still count while it is
+  shown. A picked image binned or deleted since is left out, and the result
+  says how many were.
+- **Starred (N)**: the starred images of every checkpoint, outside the
+  recycle bin (up to the grid limit, 1024 by default).
+
+A picked or starred bundle holds those images, their thumbnails and their
+gallery records only: no other prompt travels in it, which makes it the way
+to give someone ten images with their settings. A refine source or a
+reference image travels only when it is chosen too; the result counts the
+links that point outside the bundle, and an import of it says the same and
+leaves those links empty.
+
+To move the whole gallery out, keep **Entire gallery**, type the displayed
+record count and press **Bundle & clear gallery** (a picked or starred
+bundle never clears anything). To protect the bundle, enter a password twice first: the bundle is
+then saved as an encrypted `.ldbundle` file that only Local Diffusion can
+open (file names included). The password is not saved anywhere and cannot be
+recovered, and the gallery is cleared after export, so keep it safe. Finish or cancel generation first; loading and other gallery work
+must also finish before this operation can start.
+
+The server saves the bundle (a ZIP, or with a password an encrypted
+`.ldbundle`) in `bundles/` beside its gallery database, reads it back and
+checks every file against its checksum (decrypting and authenticating every
+part of a protected bundle), and only then removes the original PNGs and
+thumbnails. The old database is replaced with a compact empty gallery, ready
+for new images. The bundle includes the database, full-size PNGs, thumbnails
+and unindexed PNGs; generation settings, favourites, timings and image
+relationships are retained, and images in the recycle bin come back in it.
+Model weights, LoRAs and browser preferences are not part of a gallery
+bundle.
+
+The dialog lists saved bundles with **Download** and **Import** controls.
+You can also choose a bundle file from your computer and import it. Saved
+bundles marked **Protected**, and selected `.ldbundle` files, need the
+password under **Password for protected bundles**; a wrong password is
+refused before a selected file is uploaded. Import
+merges into the current gallery, keeps existing images, remaps source-image
+links, and skips images already present (an image already present keeps
+this gallery's star and recycle-bin state). An image the gallery still lists
+but whose file is gone is restored from the bundle when the bundle holds that
+same picture. Different files using the same name
+are refused before changing the gallery. Source images the bundle does not
+hold cannot be linked; the result counts those links, which are left empty.
+
+After import, **Show new gallery images** opens the newly added live rows;
+**Show new images in bin** opens additions that were binned when bundled.
+These actions clear old search, Starred and model filters. No new rows means
+no navigation action, even when missing files of known rows were restored.
+
+Keep the server running until the operation finishes; closing the dialog or
+browser does not cancel it. **Cancel upload** stops a selected file only
+while it is still being sent (so does closing the tab then); nothing is
+imported and the partial upload is removed. Once the upload has arrived the
+import is the server's to finish. If another Local Diffusion process (such as
+a running `reindex`) is using the gallery, the operation fails at once and
+can be retried when it ends. Creating and importing a bundle need free space
+for the archive and staged files: the bundle and the merged database on the
+database's drive, uploads and unpacked images in `.local-diffusion-staging`
+on the images' drive. An export without room for every file it would copy
+(the images, the database and its working copies) is refused before it
+writes anything. If an image is locked or files change during
+export, the verified bundle remains available and the dialog lists what was
+not cleared. The status line shows the current step and how far it has got. Review that result before removing anything by hand.
+A gallery image whose PNG is missing from disk stops the counts: the line
+names it as `#N` with its file name, and **Show #N** closes the dialog and
+searches the gallery (or the recycle bin) for it. Put the file back, or
+move the image to the recycle bin and delete it permanently there. A
+`.part` file in the images folder is an image still being written: try
+again when the render finishes. One left by a crash or a power cut is
+settled an hour after it was written, at the next server start or dialog
+refresh: put in place when it is an image the gallery already lists,
+removed otherwise. In Windows
+and WSL, the saved-bundle directory belongs to the server environment whose
+gallery is open.
+
+## Clear or recover a gallery
+
+Deleting an image in the browser - a card's **⌦**, a result's **Delete**,
+the lightbox's **Delete** or its Delete key - moves it to the **recycle
+bin** without asking. The note it leaves ("Moved #12 to the recycle bin.")
+has a **Restore** button; deletes in a row gather into one note. Nothing
+leaves the disk until the bin is emptied. While an image is in the bin it
+is left out of the gallery, the runs list, search results, `stats` and
+every action on several images; it cannot be starred, used as a reference
+or refined from, and a queued job that uses it fails that image. A starred
+image keeps its star in the bin and gets it back when restored, but while
+binned it does not protect the images it was made from.
+
+**Bin** (in the footer row, between **More seeds…** and **Bundles…**) shows
+how many images the bin holds and opens it: every checkpoint's binned
+images, newest first, narrowed by the search box. Each card offers
+**Restore** and **Delete permanently**, which asks first; **Restore picked**
+restores the cards picked with **Select** in the bin; cards picked in the
+gallery are kept aside and picked again when you leave it.
+**Delete picked permanently** confirms and deletes only those bin picks.
+If a pick was restored, deleted elsewhere or changed while confirming,
+nothing in the requested set is deleted; review the picks and try again.
+**Empty recycle bin** deletes
+every image in the bin from disk, whatever the search shows, after a
+confirmation that gives the count and size and says which of them a live
+image was made from (those can no longer be made again). Actions that work
+on live images are held while the bin is open, the **Runs** picker among
+them; typing in the search box narrows the bin rather than leaving it.
+Press **Bin** again or **Show all** to leave it, or follow a search or run
+link from an image. There is no automatic purge.
+
+**Delete unstarred** moves unstarred images matching the current gallery
+scope to the recycle bin after showing a preview and asking for the count.
+It preserves starred images and their sources/references, and leaves images
+already in the bin alone. Use an empty search or `key:value` terms; free
+text is refused for deletion. With All models off, deletion stays within
+the current checkpoint. From the terminal:
+
+```powershell
+uv run python -m backend.clear --dry-run
+uv run python -m backend.clear --where "run:ab12cd" --keep-favorites
+uv run python -m backend.clear --keep-favorites
+uv run python -m backend.clear --bin
+```
+
+`clear` previews and asks before deleting; `--yes` skips confirmation. It
+deletes for good, and reaches the recycle bin as well: the whole clear and
+`--where` delete binned images like any other (the preview says how many),
+and `--keep-favorites` does not keep a starred image that is in the bin.
+`--bin` empties the recycle bin alone, as **Empty recycle bin** does; it
+takes neither `--where` nor `--keep-favorites`. `--where` and `--bin`
+delete only what their preview showed: if an image matching it arrives (or,
+for the bin, a different image is binned) while the prompt waits, nothing
+is deleted and the command exits 1 so it can be run again; **Empty recycle
+bin** refuses the same way.
+Without `--where`, it also removes orphan PNGs, which have no favorite flag
+to preserve. Scoped deletion removes matching rows and files without that
+orphan sweep. The Windows and WSL galleries are separate; run the command
+in the environment whose gallery you intend to clear.
+
+```powershell
+uv run python -m backend.reindex --dry-run
+uv run python -m backend.reindex
+uv run python -m backend.reindex --from D:\backup\outputs --database D:\backup\local-diffusion.db
+```
+
+Reindex rebuilds the index from Local Diffusion PNG metadata, or copies in
+another gallery with `--from`. Existing filenames are skipped and conflicts
+reported without overwriting. PNG-only recovery loses favorites and durations,
+and brings images that were in the recycle bin back into the gallery.
+It restores reference/refine links only when recorded source identities can
+be verified; older or missing sources lose those links and refine strength.
+Use `--from` with the matching `--database` to preserve favorites, the recycle
+bin and durations and remap source ids. Remapped ids are also written into PNG metadata.
+Keep both the database and PNGs for a complete backup. See
+[design notes](design-notes.md) for implementation details and limitations.
