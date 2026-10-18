@@ -10,7 +10,7 @@ import time
 import pytest
 from PIL import Image
 
-from backend import grid, main
+from backend import grid, main, storage
 from backend.config import settings
 from backend.model_defaults import defaults_for
 from backend.schemas import GenerateRequest
@@ -706,6 +706,35 @@ def test_a_resume_pressed_while_the_run_is_queued_plans_nothing_twice(client, fa
     # And once it has finished, the cells it wrote are the gallery's.
     preview = client.post("/api/grid/preview", json=wider).json()
     assert (preview["cells"], preview["skipped"], preview["queued"]) == (0, 4, 0)
+
+
+def test_a_cell_its_job_finishes_during_the_gallery_scan_is_not_planned_again(client, fake, monkeypatch):
+    # The queue is read before the gallery: a cell whose job saves it and
+    # finishes while `completed_cells` scans is in the queue's snapshot even
+    # though the scan, begun before its row committed, missed it.
+    body = {"prompt": "a lighthouse in fog", "width": 256, "height": 256, "steps_axis": "6", "seed": 11}
+    release = threading.Event()
+    fake.after_generate = lambda: release.wait(5)
+    first = client.post("/api/grid", json=body).json()["job_id"]
+    wait_for(client, first, lambda job: job["status"] == "running")
+    scan = storage.completed_cells
+
+    def racing(*args, **kwargs):
+        done = scan(*args, **kwargs)
+        release.set()
+        deadline = time.monotonic() + 5
+        while main.jobs.get(first).status != "done" and time.monotonic() < deadline:
+            time.sleep(0.01)
+        assert main.jobs.get(first).status == "done"
+        return done
+
+    monkeypatch.setattr(storage, "completed_cells", racing)
+    try:
+        preview = client.post("/api/grid/preview", json={**body, "resume": True}).json()
+    finally:
+        release.set()
+    assert (preview["cells"], preview["skipped"], preview["queued"]) == (0, 0, 1)
+    assert [r.steps for r in fake.requests] == [6]
 
 
 def test_without_resume_the_preview_counts_what_the_gallery_holds(client, fake):

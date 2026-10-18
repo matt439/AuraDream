@@ -531,8 +531,9 @@ ends, on that run's images rather than the selection; see
   says so, and points at More seeds.
 - **More seeds…** makes new images with the same settings and the next
   seeds, joining the run. **More seeds…** on the finished-job line (after
-  **Use seed**) takes the batches that job made: a plain Generate, a More
-  seeds job, or a single refine, inpaint or outpaint pass. **More seeds of
+  **Use seed** on a plain Generate's) takes the batches that job made: a
+  plain Generate, a More seeds job, or a single refine, inpaint or outpaint
+  pass. **More seeds of
   this batch…** - in an image's right-click menu, beside **Reuse** in the
   lightbox, and as **More seeds…** beside a fresh result at 1800 px and
   wider - takes the image's batch. **More seeds of this run…** - on a
@@ -548,7 +549,9 @@ These open at the batch's own Batch where its batches agree on one (the
 footer's More seeds… keeps the number last queued from it), and Enter
 queues. They are held, with the reason as their tooltip, for images in the
 recycle bin, another checkpoint's images, and while the server is not
-answering. Pause and **Resume** on a running job are a different thing:
+answering - all but the last-run line's, which is held only while the
+server is not answering: its dialog marks the cells another checkpoint
+made and queues none of them. Pause and **Resume** on a running job are a different thing:
 they hold and carry on the job itself. A run's sheet ends with a line
 naming the run, its image count and the checkpoint it was made on.
 
@@ -560,7 +563,7 @@ naming the run, its image count and the checkpoint it was made on.
 | Gallery | Tab enters the cards; arrows/Home/End navigate, Enter opens, F stars; in select mode Space picks, Shift+Space picks a range, Esc clears |
 | Lightbox | Left/Right browse, F stars, S compares a pass with its source or another image with its CFG neighbour, Delete moves the image to the recycle bin (in the bin: asks to delete it permanently), Esc closes |
 | Lightbox zoom | Wheel or +/− zoom, drag pans, 0 fits, 1 or double-click shows actual pixels |
-| Right-click an image | A menu of its actions: Star, Reuse settings, Use seed, Refine…, Inpaint…, Outpaint…, reference, More seeds of this batch…, Show run as sheet, Copy prompt / seed / image, Open PNG in new tab, Move to recycle bin. On a picked card: the picks' actions. The Menu key or Shift+F10 opens it from the keyboard; Shift+right-click gives the browser's own menu |
+| Right-click an image | A menu of its actions: Star, Reuse settings, Use seed, More seeds of this batch…, Refine…, Inpaint…, Outpaint…, reference, Show run as sheet, Copy prompt / seed / image, Open PNG in new tab, Move to recycle bin. On a picked card: the picks' actions. The Menu key or Shift+F10 opens it from the keyboard; Shift+right-click gives the browser's own menu |
 | Contact sheet | F stars the focused cell |
 | Prompt/tag chips | Tab/Enter accepts a suggestion after three matching characters; Alt+Left/Right reorders chips, Delete removes, Enter edits |
 | Prompt replacements | Ctrl+Z restores text after Apply, Reuse (or a loaded PNG), Expand, Examples or a chip edit |

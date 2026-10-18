@@ -314,7 +314,11 @@ async def not_yet_rendered(
     ]
 
 
-def not_yet_planned(services: AppServices, cells: list[grid.Cell]) -> list[grid.Cell]:
+def not_yet_planned(
+    services: AppServices,
+    cells: list[grid.Cell],
+    planned: dict[tuple[int, int], set[grid.CellKey]],
+) -> list[grid.Cell]:
     """The cells no live job will write: what Resume runs after
     `not_yet_rendered`, so a Resume pressed while the same run is still
     queued plans none of its cells twice.
@@ -324,9 +328,13 @@ def not_yet_planned(services: AppServices, cells: list[grid.Cell]) -> list[grid.
     already rendered" - are claims about the gallery, not the queue. Keyed
     as `planned_keys` keys them, through `applied()` and by each cell's own
     size; a live job runs under the server's checkpoint and quantizer, the
-    scope `completed_cells` reads. Event-loop thread, as `planned_keys` is.
+    scope `completed_cells` reads.
+
+    `planned` is a `planned_keys` snapshot taken on the event loop *before*
+    the gallery read awaits: a cell's keys only move from the queue to the
+    gallery, so a snapshot taken first covers every cell the scan misses -
+    one taken after it would miss a cell whose job finished mid-scan.
     """
-    planned = services.jobs().planned_keys()
     if not planned:
         return cells
     return [

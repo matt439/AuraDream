@@ -200,7 +200,7 @@
   {"expect": "!els.lastRunMore.hidden && els.lastRunShow.nextElementSibling === els.lastRunMore && els.lastRunMore.getAttribute('aria-disabled') === 'false' && els.lastRunMore.title.startsWith(`More seeds of every cell of run ${els.lastRun.dataset.run}`)"},
   {"eval": "els.lastRunMore.focus({preventScroll: true}); els.lastRunMore.click();"},
   {"expect": "__until(() => els.moreSeedsDialog.open)"},
-  {"expect": "els.moreSeedsScope.textContent === `From every image of run ${els.lastRun.dataset.run}, starred or not.` && els.moreSeedsLine.textContent.includes('Starred ignored')"},
+  {"expect": "els.moreSeedsScope.textContent === `From every image of run ${els.lastRun.dataset.run}, starred or not.` && els.moreSeedsLine.textContent.startsWith(`${els.moreSeedsCount.value} more of`) && !els.moreSeedsLine.textContent.includes('Starred ignored')"},
   {"key": "Escape"},
   {"expect": "__until(() => !els.moreSeedsDialog.open && document.activeElement === els.lastRunMore && !els.lastRun.hidden)"},
   {"eval": "dismissLastRun()"}

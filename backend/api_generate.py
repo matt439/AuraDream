@@ -78,8 +78,10 @@ async def expand_grid(
     run_id = grid.run_id(cells, services.model_id(), services.quantization())
     if not request.resume:
         return cells, values, 0, 0, run_id
+    # The queue first, then the gallery: see `not_yet_planned`.
+    planned = services.jobs().planned_keys()
     unheld = await submission.not_yet_rendered(services, cells, request.width, request.height)
-    kept = submission.not_yet_planned(services, unheld)
+    kept = submission.not_yet_planned(services, unheld, planned)
     return kept, values, len(cells) - len(unheld), len(unheld) - len(kept), run_id
 
 

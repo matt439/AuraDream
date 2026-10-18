@@ -127,8 +127,12 @@ function msFallbackBatch() {
   return Number.isInteger(n) && n >= 1 && n <= +els.batch.max ? n : 1;
 }
 
+// A run scope ignores Starred, but says so in its headline only where
+// Starred is ticked, so it carries the box's state; the filter's scope
+// carries its own.
 function msPayload() {
-  return { ...msScope, count: +msCountText(), batch: msFallbackBatch() };
+  const starred = msScope.run ? { favorites: els.favOnly.checked } : {};
+  return { ...msScope, ...starred, count: +msCountText(), batch: msFallbackBatch() };
 }
 
 async function askMoreSeeds(payload, signal) {
@@ -144,11 +148,19 @@ const msCountFits = (n) => Number.isInteger(n) && n >= 1 && n <= sheetPage;
 
 // Where a refusal while opening is said: the lightbox's own line while it is
 // up - the modal lightbox covers the gallery's - the panel's for a press in
-// the panel (the finish line, the banner), else the gallery's.
-function msOpenSlot(opener) {
+// the panel (the finish line, the banner), else the gallery's, and over the
+// card or result tile pressed on (`host`: the menu's, the result column's),
+// as its other refusals are (`refuseInCard`) - under the viewer the
+// gallery's line can be a screen away.
+function msOpenSlot(opener, host = null) {
   if (els.lightbox.open) return { slot: els.lbError, mirror: false };
   if (opener?.closest?.('.panel')) return { slot: els.error };
-  return { slot: els.galleryError };
+  return { slot: els.galleryError, card: host };
+}
+
+function msRefuse(message, said) {
+  if (said.card) refuseInCard(said.card, message, 'Not opened');
+  else showError(message, true, said);
 }
 
 // Opens on the first check's answer, not before, as Mass refine does: a
@@ -160,14 +172,15 @@ function msOpenSlot(opener) {
 // queued, else four; from a ready target at `count`, else at the server's
 // count_default - asked again at it where the first check was not - else
 // four. Focused and selected either way. `opener` is the button pressed,
-// busy while the check is out; over the lightbox the dialog opens on top,
-// and the lightbox stays.
-async function openMoreSeeds(target = null, { count = null, opener = null } = {}) {
+// busy while the check is out - none for a menu item, whose menu has gone;
+// `host` the card or tile a refusal is said over (msOpenSlot). Over the
+// lightbox the dialog opens on top, and the lightbox stays.
+async function openMoreSeeds(target = null, { count = null, opener = null, host = null } = {}) {
   if (msOpening || els.moreSeedsDialog.open) return;
   const footer = !target;
-  const said = msOpenSlot(opener ?? els.moreSeeds);
+  const said = msOpenSlot(opener, host);
   if (footer) target = moreSeedsTarget();
-  if (!target.scope) { showError(target.why, true, said); return; }
+  if (!target.scope) { msRefuse(target.why, said); return; }
   msScope = target.scope;
   msTarget = target;
   msFooter = footer;
@@ -175,10 +188,9 @@ async function openMoreSeeds(target = null, { count = null, opener = null } = {}
   msRevision = modelRevision;
   const kept = footer ? +remembered(MORE_SEEDS_KEY) : count;
   els.moreSeedsCount.value = String(msCountFits(kept) ? kept : MORE_SEEDS_COUNT);
-  const busyOn = opener ?? els.moreSeeds;
   const opening = {};
   msOpening = opening;
-  busyOn.setAttribute('aria-busy', 'true');
+  opener?.setAttribute('aria-busy', 'true');
   syncMoreSeedsTools();
   showError('', false, said);
   let answer = null;
@@ -195,16 +207,16 @@ async function openMoreSeeds(target = null, { count = null, opener = null } = {}
   } catch (err) {
     if (msOpening !== opening) return;
     if (err.status === 422 && /^\d+ batch/.test(err.message)) overCap = err.message;
-    else { showError(err.message, true, said); return; }
+    else { msRefuse(err.message, said); return; }
   } finally {
     if (msOpening === opening) {
       msOpening = null;
-      busyOn.removeAttribute('aria-busy');
+      opener?.removeAttribute('aria-busy');
       syncMoreSeedsTools();
     }
   }
   if (msRevision !== modelRevision) {
-    showError('The checkpoint changed while More seeds was checking the batches; press More seeds… again.', true, said);
+    msRefuse('The checkpoint changed while More seeds was checking the batches; press More seeds… again.', said);
     return;
   }
   msAnswer = answer;
@@ -486,7 +498,7 @@ function moreSeedsBackdrop(event) {
 }
 
 function setupMoreSeeds() {
-  els.moreSeeds.onclick = () => { void openMoreSeeds(); };
+  els.moreSeeds.onclick = () => { void openMoreSeeds(null, { opener: els.moreSeeds }); };
   els.moreSeedsCancel.onclick = closeMoreSeeds;
   els.moreSeedsRun.onclick = () => { void runMoreSeeds(); };
   els.moreSeedsDialog.addEventListener('click', moreSeedsBackdrop);
@@ -554,7 +566,7 @@ function syncMoreSeedsFor(button, rec) {
 function pressMoreSeedsTool(button, target, options = {}) {
   syncMoreSeedsTool(button);
   if (button.getAttribute('aria-disabled') === 'true') {
-    showError(button.title, true, msOpenSlot(button));
+    msRefuse(button.title, msOpenSlot(button, options.host));
     return;
   }
   void openMoreSeeds(target, { ...options, opener: button });
@@ -592,7 +604,7 @@ function moreSeedsOfImage(rec, host) {
     refuseInCard(host, `${scratch.title}.`, 'Held');
     return;
   }
-  void openMoreSeeds(moreSeedsImageTarget(rec));
+  void openMoreSeeds(moreSeedsImageTarget(rec), { host });
 }
 
 function pressLightboxMoreSeeds() {

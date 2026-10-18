@@ -4078,14 +4078,14 @@ Frontend and CLI:
   lines and `#more-seeds-error` one, so nothing below moves; Queue is
   right-aligned, its right edge fixed.
 - More seeds where a run ends (`docs/plan-continue-run.md`, phase 1) is the
-  same dialog on a ready target, `openMoreSeeds(target, {count, opener})`
+  same dialog on a ready target, `openMoreSeeds(target, {count, opener, host})`
   with `target` `{scope, line}`: an image's batch (`{ids: [id]}`,
   `moreSeedsImageTarget`, "From #N's batch.") from the lightbox's
   `#lb-more-seeds` (paired with Reuse in an `.lb-pair`, hidden under 900 px
   where the menu has it), the menu's More seeds of this batch… and the
   result column's More seeds…; a finished job's images (`{ids}` of those
-  still live, `finishMoreSeeds`) after Use seed on the finish line of a
-  plain job, a More seeds job and a single refine, inpaint or outpaint
+  still live, `finishMoreSeeds`) on the finish line of a plain job
+  (after its Use seed), a More seeds job and a single refine, inpaint or outpaint
   pass (not a grid's, a swap's or a batch refine's); and a whole run
   (`{run}`, `moreSeedsRunTarget`, `moreSeedsRunButton`) for a `done` grid
   after Show sheet, the banner and the sheet's run bar. The label names the
@@ -4099,7 +4099,10 @@ Frontend and CLI:
   since, the recycle bin, another checkpoint ("Made on X; the server is
   running Y"), the server offline, the dialog open or opening; everything
   else - one batch among several from another checkpoint, a source or an
-  adapter gone - is the server's, per batch. They carry `.more-seeds-tool`
+  adapter gone - is the server's, per batch. The banner's `#last-run-more`
+  is held for no checkpoint: the job snapshot it reads names none, so a run
+  made on another is the server's `foreign`, batch by batch, with Queue
+  held where nothing is left. They carry `.more-seeds-tool`
   and are synced again together (`syncMoreSeedsTools`) from
   `syncReuseButtons`, `syncSubmitButtons`, `forgetMoreSeedsImages` and the
   dialog's open and close; the menu's item is held by the same function, so
@@ -4108,7 +4111,10 @@ Frontend and CLI:
   lightbox is up (the dialog opens over it, the lightbox stays, and its
   keys are ignored while the dialog is open, so Escape closes the dialog
   alone), `#error` for a press in the panel (the finish line, the banner),
-  else `#gallery-error`; a menu item's refusal through `refuseInCard`.
+  else `#gallery-error` - and, for a card or result tile (`host`: the
+  menu's item, the result column's More seeds…), over it too, through
+  `refuseInCard`. `aria-busy` is the pressed button's only (`opener`; the
+  footer passes its own); a menu item, its menu gone, has none.
   `moreSeedsGalleryChanged` skips a run scope as it skips `ids`; the count
   line leads with the server's `headline` where there is one. The sheet's
   run bar is More seeds of this run… after Resume this run, on

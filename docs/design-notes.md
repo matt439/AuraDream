@@ -5259,7 +5259,9 @@ the reason as its title, never hidden, by `moreSeedsToolHold` - the bin,
 another checkpoint, offline, the dialog already open, every image of a job
 gone - and the menu's item by the same function on a scratch button, so
 the lightbox's button keeps Reuse at one width as it steps and a new place
-adds no hold of its own. What only the server knows (a source or LoRA
+adds no hold of its own. The banner's is the exception for another
+checkpoint: the job snapshot it reads (`/api/jobs`) carries no model id,
+so its dialog's `foreign` batches say it instead. What only the server knows (a source or LoRA
 gone, one batch of several from another checkpoint) stays per batch in the
 dialog. A refusal while opening is said where the press was: over the
 modal lightbox, the gallery's line is covered, so the lightbox's own line

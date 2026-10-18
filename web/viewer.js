@@ -369,7 +369,7 @@ function resultSide(rec, figure) {
   more.textContent = 'More seeds…';
   more.setAttribute('aria-haspopup', 'dialog');
   syncMoreSeedsFor(more, rec);
-  more.onclick = () => pressMoreSeedsTool(more, moreSeedsImageTarget(rec));
+  more.onclick = () => pressMoreSeedsTool(more, moreSeedsImageTarget(rec), { host: figure.querySelector('.tile') });
   // What the facts say, in a line, where the row stands in for the column
   // under a docked check (style.css); the settings line whole in its title.
   const brief = document.createElement('span');
