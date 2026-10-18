@@ -231,6 +231,9 @@ async function previewGrid() {
     totals.textContent =
       `${p.images} image${p.images === 1 ? '' : 's'} · ${gridFactors(p.summary)}` +
         (p.skipped ? ` · ${p.skipped} already done` : '') +
+        // Resume's other drop: cells a live job already plans, the same run
+        // still queued - not "done", which is the gallery's.
+        (p.queued ? ` · ${p.queued} queued` : '') +
         (p.duplicates ? ` · ${p.duplicates} would be identical to another cell` : '') +
         (p.seconds ? ` · about ${humanTime(p.seconds)}` : '') +
         (p.bytes ? ` · ~${humanBytes(p.bytes)}${short ? ` — more than the ${humanBytes(diskFreeMb * 1024 * 1024)} free` : ''}` : '');

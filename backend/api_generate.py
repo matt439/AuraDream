@@ -21,8 +21,9 @@ from .schemas import (
 
 async def expand_grid(
     services: AppServices, request: GridRequest
-) -> tuple[list[grid.Cell], dict[str, list], int, str]:
-    """The grid as cells, its resolved axes, the number resume dropped, its run id.
+) -> tuple[list[grid.Cell], dict[str, list], int, int, str]:
+    """The grid as cells, its resolved axes, the numbers resume dropped as
+    held by the gallery and as queued in a live job, its run id.
 
     The cells come back as spelled, duplicates included: `preview_grid`
     counts the cells that would render an identical image and says so, and
@@ -37,6 +38,11 @@ async def expand_grid(
     the job that continues a night is stamped with the same id as the job that
     started it. Prompt variants, when given, are the prompt axis; the preview
     then shows their text under `prompt` and their labels under `variant`.
+
+    Resume drops the cells a live job already plans too, so the grid tick,
+    the banner's Resume and a finish line's, pressed while the same run is
+    still queued, render nothing twice; counted apart, since the preview's
+    "already done" is the gallery's.
     """
     await submission.refuse_unusable_inputs(services, request)
     try:
@@ -71,9 +77,10 @@ async def expand_grid(
         raise HTTPException(status_code=422, detail=error_detail(exc)) from exc
     run_id = grid.run_id(cells, services.model_id(), services.quantization())
     if not request.resume:
-        return cells, values, 0, run_id
-    kept = await submission.not_yet_rendered(services, cells, request.width, request.height)
-    return kept, values, len(cells) - len(kept), run_id
+        return cells, values, 0, 0, run_id
+    unheld = await submission.not_yet_rendered(services, cells, request.width, request.height)
+    kept = submission.not_yet_planned(services, unheld)
+    return kept, values, len(cells) - len(unheld), len(unheld) - len(kept), run_id
 
 
 def foreign_refusal(
@@ -139,11 +146,14 @@ def create_router(services: AppServices) -> APIRouter:
         One job rather than one per cell: a grid is a night's work, and it has to be
         cancellable, reattachable and ahead of nothing in the queue as a unit.
         """
-        cells, _, _, run_id = await expand_grid(services, request)
+        cells, _, _, queued, run_id = await expand_grid(services, request)
         if not cells:
-            # Every cell is already in the gallery. Queueing an empty job would
-            # report "done" having rendered nothing, which reads like a failure.
-            raise HTTPException(status_code=409, detail="every cell is already rendered")
+            # Every cell is already in the gallery, or queued. Queueing an empty
+            # job would report "done" having rendered nothing, which reads like
+            # a failure.
+            raise HTTPException(status_code=409, detail=(
+                "every cell is already rendered or queued" if queued else "every cell is already rendered"
+            ))
         job = await services.jobs().submit_cells(
             cells,
             run_id=run_id,
@@ -264,7 +274,7 @@ def create_router(services: AppServices) -> APIRouter:
         and the count is what says Resume would not. Only where the seeds are
         fixed - an explicit base or a list - since a random base matches nothing.
         """
-        cells, values, skipped, _ = await expand_grid(services, request)
+        cells, values, skipped, queued, _ = await expand_grid(services, request)
         in_gallery = 0
         if not request.resume and (request.seed is not None or request.seed_axis.strip()):
             in_gallery = len(cells) - len(
@@ -315,6 +325,7 @@ def create_router(services: AppServices) -> APIRouter:
             cells=len(cells),
             images=images,
             skipped=skipped,
+            queued=queued,
             in_gallery=in_gallery,
             # As the pipeline would run them: the capability flags the status
             # endpoint publishes, applied cell by cell, say which cells collapse

@@ -1,6 +1,6 @@
 # Plan: continuing a run
 
-**Status, 2026-10-18: design, not built; Matt took every recommended answer to the open questions the same day (below).** Nothing in
+**Status, 2026-10-18: Matt took every recommended answer to the open questions the same day (below). Phase 1a (the Resume double-render fix) is built, 2026-10-18; 1b and 2 are not.** Apart from 1a, nothing in
 the code has changed for it. It was written from four read-only reports on
 the current code (More seeds, grid Resume, the places a finished run shows,
 and the usage evidence), a user-research pass, three design proposals and

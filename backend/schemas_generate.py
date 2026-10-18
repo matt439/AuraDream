@@ -633,6 +633,10 @@ class GridPreview(BaseModel):
     # Cells dropped because the gallery already holds them; always 0 unless the
     # request asked to resume.
     skipped: int = 0
+    # Cells dropped under resume because a live job already plans them: the
+    # same run still queued or running. Never counted in `skipped`, which the
+    # panel shows as "already done".
+    queued: int = 0
     # The same cells counted without being dropped, when the request did not
     # ask to resume and its seeds are fixed: what ticking Resume would skip.
     in_gallery: int = 0

@@ -834,7 +834,12 @@ Reproduction:
   admits.
 - Resume keys on settings (`storage.completed_cells`, six-decimal rounding,
   scoped by size, checkpoint and quantizer), requires an explicit seed unless
-  the seed axis is a list, and answers 409 when nothing is left. Without
+  the seed axis is a list, and answers 409 when nothing is left. Resume also
+  drops the cells a live job already plans (`submission.not_yet_planned` over
+  `jobs.planned_keys()`, after `not_yet_rendered`), counted apart as
+  `GridPreview.queued`, never in `skipped` ("already done"); it is opt-in,
+  never inside `not_yet_rendered`, whose other callers speak of the gallery
+  only. Without
   Resume, `/api/grid/preview` asks the same lookup (`submission.not_yet_rendered`)
   only for an explicit seed or a seed list, reports it as
   `GridPreview.in_gallery` and drops nothing. A cell in the recycle bin

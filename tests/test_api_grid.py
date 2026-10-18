@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import dataclasses
 import json
+import threading
 import time
 
 import pytest
@@ -665,6 +666,46 @@ def test_a_resumed_grid_skips_what_the_gallery_already_holds(client, fake):
     # The 6-step cell was not rendered twice, and the order of what remains is
     # the order the grid would have reached it in.
     assert [r.steps for r in fake.requests] == [6, 8, 10]
+
+
+def test_a_resume_pressed_while_the_run_is_queued_plans_nothing_twice(client, fake):
+    body = {
+        "prompt": "a lighthouse in fog",
+        "width": 256,
+        "height": 256,
+        "steps_axis": "6,8,10",
+        "seed": 11,
+        "resume": True,
+    }
+    stream_job(client, client.post("/api/grid", json={**body, "steps_axis": "6"}).json()["job_id"])
+    release = threading.Event()
+    fake.after_generate = lambda: release.wait(5)
+    try:
+        # The rest of the night, still running when Resume is pressed again.
+        first = client.post("/api/grid", json=body).json()["job_id"]
+        # Queued or running, the live job's cells are not done: the gallery
+        # holds one.
+        preview = client.post("/api/grid/preview", json=body).json()
+        assert (preview["cells"], preview["skipped"], preview["queued"]) == (0, 1, 2)
+        refused = client.post("/api/grid", json=body)
+        assert refused.status_code == 409
+        assert refused.json()["detail"] == "every cell is already rendered or queued"
+        # Widened by a cell, only that cell is new.
+        wider = {**body, "steps_axis": "6,8,10,12"}
+        preview = client.post("/api/grid/preview", json=wider).json()
+        assert (preview["cells"], preview["skipped"], preview["queued"]) == (1, 1, 2)
+        second = client.post("/api/grid", json=wider).json()["job_id"]
+        # Without Resume the gallery's count stays the gallery's.
+        plain = client.post("/api/grid/preview", json={**wider, "resume": False}).json()
+        assert (plain["in_gallery"], plain["queued"]) == (1, 0)
+    finally:
+        release.set()
+    assert stream_job(client, first)[-1]["status"] == "done"
+    assert stream_job(client, second)[-1]["status"] == "done"
+    assert [r.steps for r in fake.requests] == [6, 8, 10, 12]
+    # And once it has finished, the cells it wrote are the gallery's.
+    preview = client.post("/api/grid/preview", json=wider).json()
+    assert (preview["cells"], preview["skipped"], preview["queued"]) == (0, 4, 0)
 
 
 def test_without_resume_the_preview_counts_what_the_gallery_holds(client, fake):

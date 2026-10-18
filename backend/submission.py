@@ -314,6 +314,31 @@ async def not_yet_rendered(
     ]
 
 
+def not_yet_planned(services: AppServices, cells: list[grid.Cell]) -> list[grid.Cell]:
+    """The cells no live job will write: what Resume runs after
+    `not_yet_rendered`, so a Resume pressed while the same run is still
+    queued plans none of its cells twice.
+
+    Opt-in, never inside `not_yet_rendered`: its other callers' words - the
+    preview's "already in the gallery", Re-render's "every selected image is
+    already rendered" - are claims about the gallery, not the queue. Keyed
+    as `planned_keys` keys them, through `applied()` and by each cell's own
+    size; a live job runs under the server's checkpoint and quantizer, the
+    scope `completed_cells` reads. Event-loop thread, as `planned_keys` is.
+    """
+    planned = services.jobs().planned_keys()
+    if not planned:
+        return cells
+    return [
+        cell
+        for cell in cells
+        if grid.prune_done(
+            [grid.Cell(request=services.backend().applied(cell.request), seed=cell.seed)],
+            planned.get((cell.request.width, cell.request.height), set()),
+        )
+    ]
+
+
 async def resolve_selection(
     services: AppServices, *, ids: list[int] | None, search: str | None, favorites: bool, all_models: bool,
 ) -> tuple[list[ImageRecord], list[int], set[int]]:
