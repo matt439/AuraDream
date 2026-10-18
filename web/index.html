@@ -535,6 +535,14 @@
       <button class="ghost small" id="last-run-dismiss" aria-label="Dismiss">✕</button>
     </div>
 
+    <!-- Below Generate and its progress, so the opt-in adds no row above
+         the controls people leave running. Permission is asked only on a tick. -->
+    <div class="notification-choice">
+      <label class="check" id="notify-done-label"><input type="checkbox" id="notify-done"
+        aria-describedby="notify-done-note"> Notify when done</label>
+      <span class="hint" id="notify-done-note" role="status">Hidden tabs only</span>
+    </div>
+
     <!-- Folded away by default: a grid is an overnight tool, not the workflow. -->
     <details class="section" id="grid-section">
       <summary>Grid search <em>overnight sweeps</em></summary>

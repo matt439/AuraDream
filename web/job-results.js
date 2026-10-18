@@ -209,6 +209,7 @@ function finishJob(jobId, data, { submitted, sheet, foreign = false, staleBefore
       : data.stopped_by === 'shutdown' ? 'Server stopped'
       : data.status === 'cancelled' ? (cancelledElsewhere ? 'Cancelled elsewhere' : 'Cancelled')
       : atLoad ? 'Load failed' : 'Stopped');
+    notifyJobDone(jobId, data, { atLoad, cancelledElsewhere });
   }
   // The status says how the load went, at once rather than at the next poll.
   // Said again, where it goes to the panel's line: the press that queued

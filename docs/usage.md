@@ -251,6 +251,14 @@ call already underway may finish; the server keeps its GPU gate until that
 stage ends. Generate can then queue behind it, and another Expand has its
 own ticket. Unload explains when an abandoned expansion is still finishing.
 
+**Notify when done** below progress is off until you opt in. Tick it to
+request browser notification permission. It notifies when this tab is hidden
+and its own watched job ends, with distinct messages for failure, cancellation
+and budget stops. Visible or replayed finishes do not alert again. The
+browser preference is separate from generation settings; blocked or
+unsupported notifications show a reason beside the checkbox. Desktop
+permission and delivery depend on your browser and operating system.
+
 ## Use references and adapters
 
 The Models table also shows the full image-model download reference and

@@ -311,3 +311,118 @@ function syncNow(job) {
     : `"${snippet(job.prompt ?? '', 40)}"`;
   els.cancel.title = `Stop ${name}${foreign ? " - another tab's job -" : ''} after the current step`;
 }
+
+// Desktop notifications are a separate browser preference, never a panel
+// setting or a reason to ask permission at load. A terminal frame is consumed
+// even when visible or opted out: replaying it after hiding the tab must not
+// turn an already seen result into a new notification.
+const NOTIFY_DONE_KEY = 'local-diffusion.notify-done';
+const NOTIFIED_JOBS_KEY = 'local-diffusion.notified-jobs';
+const notifiedJobs = new Set();
+let notifyDoneEnabled = false;
+let notifyPermissionPending = false;
+
+function jobNotificationHold() {
+  if (typeof window.Notification !== 'function' || typeof window.Notification.requestPermission !== 'function') {
+    return 'Desktop notifications are unavailable in this browser';
+  }
+  if (!window.isSecureContext) return 'Desktop notifications need a secure page, such as http://127.0.0.1';
+  if (window.Notification.permission === 'denied') return 'Notifications are blocked; allow them in the browser\'s site settings first';
+  return notifyPermissionPending ? 'Waiting for notification permission' : '';
+}
+
+function syncJobNotifications(note = '') {
+  const why = jobNotificationHold();
+  if (notifyDoneEnabled && (why || window.Notification.permission !== 'granted')) {
+    notifyDoneEnabled = false;
+    remember(NOTIFY_DONE_KEY, 'false');
+  }
+  els.notifyDone.checked = notifyDoneEnabled || notifyPermissionPending;
+  els.notifyDone.setAttribute('aria-disabled', String(!!why));
+  els.notifyDone.setAttribute('aria-busy', String(notifyPermissionPending));
+  const words = why || note || 'Hidden tabs only';
+  if (els.notifyDoneNote.textContent !== words) els.notifyDoneNote.textContent = words;
+  els.notifyDoneNote.title = words;
+  els.notifyDoneLabel.title = why || 'Notify when this tab is hidden and its watched job ends';
+  els.notifyDone.title = els.notifyDoneLabel.title;
+}
+
+function restoreJobNotifications() {
+  notifyDoneEnabled = remembered(NOTIFY_DONE_KEY) === 'true';
+  // Permission may have been revoked since the preference was saved. Never
+  // ask again without the opt-in gesture, or leave a checked but silent tick.
+  syncJobNotifications();
+}
+
+async function toggleJobNotifications() {
+  if (notifyPermissionPending) { syncJobNotifications(); return; }
+  if (!els.notifyDone.checked) {
+    notifyDoneEnabled = false;
+    remember(NOTIFY_DONE_KEY, 'false');
+    syncJobNotifications();
+    return;
+  }
+  const why = jobNotificationHold();
+  if (why) {
+    notifyDoneEnabled = false;
+    remember(NOTIFY_DONE_KEY, 'false');
+    syncJobNotifications();
+    return;
+  }
+  let permission = window.Notification.permission;
+  let note = '';
+  if (permission !== 'granted') {
+    notifyPermissionPending = true;
+    syncJobNotifications();
+    try {
+      // Called before the first await, from the checkbox's own gesture.
+      permission = await window.Notification.requestPermission();
+      if (permission !== 'granted') note = 'Permission was not granted; tick again to ask';
+    } catch {
+      note = 'Notification permission could not be requested; try again in the browser';
+    } finally {
+      notifyPermissionPending = false;
+    }
+  }
+  notifyDoneEnabled = permission === 'granted';
+  remember(NOTIFY_DONE_KEY, String(notifyDoneEnabled));
+  syncJobNotifications(note);
+}
+
+function jobNotificationWords(data, { atLoad = false, cancelledElsewhere = false } = {}) {
+  const made = data.image_count ?? data.images?.length ?? 0;
+  const kept = `${plural(made, 'image')} made${data.deleted_count ? `; ${plural(data.deleted_count, 'image')} since deleted` : ''}.`;
+  if (data.stopped_by === 'budget') return ['Time budget reached', `${kept} Finish run checks what remains.`];
+  if (data.stopped_by === 'shutdown') return ['Server stopped', kept];
+  if (data.status === 'cancelled') return [cancelledElsewhere ? 'Cancelled elsewhere' : 'Cancelled', kept];
+  if (data.status === 'error') return [atLoad ? 'Load failed' : 'Job stopped', `${kept} Open Local Diffusion for the error.`];
+  if (!made) return ['Nothing made', data.failures ? `${plural(data.failures, unitWord(data))} failed.` : 'No images were made.'];
+  if (data.failures || data.error) return ['Finished with failures', `${kept} ${data.failures ? `${plural(data.failures, unitWord(data))} failed.` : 'Some work failed.'}`];
+  return [`Finished ${plural(made, 'image')}`, kept];
+}
+
+function notifyJobDone(jobId, data, options = {}) {
+  if (typeof jobId !== 'string' || !['done', 'error', 'cancelled'].includes(data.status)) return;
+  // Read again for another tab that watched the same job. The browser's tag
+  // also replaces the same job's notification where two tabs finish together.
+  try {
+    const saved = JSON.parse(remembered(NOTIFIED_JOBS_KEY) ?? '[]');
+    if (Array.isArray(saved)) for (const id of saved) if (typeof id === 'string') notifiedJobs.add(id);
+  } catch { /* malformed or unavailable store */ }
+  if (notifiedJobs.has(jobId)) return;
+  notifiedJobs.add(jobId);
+  remember(NOTIFIED_JOBS_KEY, JSON.stringify([...notifiedJobs].slice(-50)));
+  syncJobNotifications();
+  if (!document.hidden || !notifyDoneEnabled || jobNotificationHold()) return;
+  const [outcome, body] = jobNotificationWords(data, options);
+  try {
+    const notification = new window.Notification(`${PAGE_TITLE}: ${outcome}`, {
+      body, tag: `local-diffusion-job-${jobId}`,
+    });
+    notification.onclick = () => { window.focus(); notification.close(); };
+  } catch {
+    notifyDoneEnabled = false;
+    remember(NOTIFY_DONE_KEY, 'false');
+    syncJobNotifications('Notifications could not be shown in this browser');
+  }
+}

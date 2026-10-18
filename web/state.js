@@ -77,6 +77,7 @@ const els = {
   progressNow: $('progress-now'), newImage: $('btn-new-image'),
   stepRow: $('step-row'), stepFill: $('step-fill'), stepText: $('step-text'),
   cellNote: $('cell-note'), finishNote: $('finish-note'), jobSaid: $('job-said'),
+  notifyDone: $('notify-done'), notifyDoneLabel: $('notify-done-label'), notifyDoneNote: $('notify-done-note'),
   gridSection: $('grid-section'), gridPrompt: $('grid-prompt'),
   gridSteps: $('grid-steps'), gridCfg: $('grid-cfg'),
   gridMu: $('grid-mu'), gridMuField: $('grid-mu-field'), gridMuTip: $('grid-mu-tip'),

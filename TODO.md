@@ -8,11 +8,11 @@ An index of open work, one row per item; each row points to the doc that owns th
 
 **Aim (2026-10-18):** keep useful work ready for Matt's common workstation tasks. The queue below can proceed on CPU and disposable fake-server galleries, independently of whole-app layout trials. [Reported use](docs/design/preferences.md) guides priority; it does not approve the candidate redesign.
 
-**Ready backlog:** 4 `OPEN` tasks can be completed with CPU/browser evidence. The upscaler (`GEN#5`) also remains `OPEN`: it first needs a verified author-weight checksum, then implementation and a separate card pass. The official metadata checked tonight has no digest, and this run excludes weight downloads.
+**Ready backlog:** 3 `OPEN` tasks can be completed with CPU/browser evidence. The upscaler (`GEN#5`) also remains `OPEN`: it first needs a verified author-weight checksum, then implementation and a separate card pass. The official metadata checked tonight has no digest, and this run excludes weight downloads.
 
 1. **Trials and browser checks:** finish the synthetic trial kit (`DEV#3`) and current-app browser accessibility (`UI#9`), with their owner-defined evidence.
 
-**Other ready work:** design-trial preparation (`DEV#3`) and browser accessibility checks (`UI#9`). Their owners define scope and completion. Optional conveniences remain below; there is no need to promote deferred features to fill this queue.
+**Other ready work:** Compare picked (`UI#1`). Its owner defines scope and completion. There is no need to promote deferred features to fill this queue.
 
 **Needs Matt:** workbench task trials (`DEV#1`) and hands-on screen-reader/touch checks (`UI#7`) are `USER`, not implementation prerequisites for the queue above. No feature decision is waiting. Whole-app layout implementation waits for its trials; it remains a design hypothesis.
 
@@ -94,7 +94,6 @@ An index of open work, one row per item; each row points to the doc that owns th
 | id | status | sev | size | item |
 |---|---|---|---|---|
 | `UI#1` | OPEN | LOW | M | "Compare picked": two picked images in the lightbox's swipe and side by side, labelled by the fields that differ (10-12 F9). |
-| `UI#2` | OPEN | LOW | S | An opt-in desktop notification when a job finishes in a hidden tab (10-12 F10); image download is `UI#10`, Copy image already exists in the context menu. |
 | `UI#7` | USER | LOW | M | Hands-on screen-reader (NVDA/Narrator) and touch validation; browser emulation and accessibility-tree inspection do not complete it. [Manual checks](docs/design/validation.md#accessibility-and-desktop-checks). |
 | `UI#8` | DEFERRED | LOW | M | At 1536x864 (1080p at 125%) a running batch's progress falls below the left pane; fitting it means tightening every field under 1800 px. [Panel rows](docs/design-notes.md#the-panels-sampling-and-output-rows). |
 | `UI#9` | OPEN | LOW | M | Exercise current-app keyboard/focus, forced colours and reduced motion with synthetic fixtures and real browser events; retain gaps separately from manual checks. [Browser checks](docs/design/validation.md#accessibility-and-desktop-checks). |

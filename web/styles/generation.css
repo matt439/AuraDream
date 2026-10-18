@@ -1,4 +1,12 @@
 
+/* A permanent, single-line opt-in below the job controls: a permission
+   answer changes its words, never the control below it under the pointer. */
+.notification-choice { display: flex; align-items: center; gap: var(--sp-2); }
+.notification-choice > .check { flex: 0 0 auto; font-size: var(--fs-label); }
+.notification-choice > .hint {
+  min-width: 0; margin: 0; white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+}
+
 /* ---------------------------------------------------------- grid search */
 
 /* Folded away: a grid is for leaving running overnight, not for the next image.
