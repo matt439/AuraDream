@@ -195,10 +195,17 @@ async function refreshBundlePreview() {
 // or delete permanently. Its thumbnail can outlive the PNG; a filename is no
 // search key.
 function showBundleMissing(id, binned) {
+  showBundleImages(`id:${id}`, binned);
+}
+
+// A deliberate navigation from the dialog: discard the old search, sheet
+// return and filters so every model's matching rows can be reached. The
+// bin has its own view; a binned-only import never opens an empty live one.
+function showBundleImages(search, binned) {
   els.bundlesDialog.close();
   outsideView = null;
   if (!binned) leaveBin();
-  els.search.value = `id:${id}`;
+  els.search.value = search;
   els.favOnly.checked = false;
   els.allModels.checked = true;
   sheetReturn = null;
@@ -209,6 +216,27 @@ function showBundleMissing(id, binned) {
   const reduce = window.matchMedia('(prefers-reduced-motion: reduce)').matches;
   document.querySelector('.gallery-head').scrollIntoView({ block: 'start', behavior: reduce ? 'auto' : 'smooth' });
   els.search.focus({ preventScroll: true });
+}
+
+function bundleImportActions(result) {
+  const first = result.first_id;
+  const last = result.last_id;
+  // Old server answers, duplicate-only imports and restored known files
+  // have no new range. Never turn an absent or malformed range into a query.
+  if (!result.imported || !Number.isSafeInteger(first) || !Number.isSafeInteger(last)
+      || first < 1 || last < first || last - first + 1 !== result.imported) return;
+  const add = (binned) => {
+    const button = document.createElement('button');
+    button.type = 'button';
+    button.className = 'ghost small';
+    button.id = binned ? 'bundle-show-imported-bin' : 'bundle-show-imported';
+    button.textContent = binned ? 'Show new images in bin' : 'Show new gallery images';
+    button.title = `Close this and show only the newly added images in the ${binned ? 'recycle bin' : 'gallery'}, across all models`;
+    button.onclick = () => showBundleImages(`id:${first}-${last}`, binned);
+    els.bundleStatus.append(' ', button);
+  };
+  if (result.imported > (result.binned || 0)) add(false);
+  if (result.binned) add(true);
 }
 
 async function refreshBundleList() {
@@ -298,7 +326,8 @@ function renderBundleResult(status, past = false) {
     const binned = result.binned || 0;
     const inBin = binned === 1 ? ' 1 of them is in the recycle bin, as it was when bundled.'
       : binned ? ` ${binned} of them are in the recycle bin, as they were when bundled.` : '';
-    say(`Imported ${result.imported} gallery records; ${result.present} already present. Existing images were kept.${inBin}${restored ? ` ${restored} missing image files were restored from the bundle.` : ''}${missing === 1 ? ' 1 link to a source image the bundle does not hold was left out.' : missing ? ` ${missing} links to source images the bundle does not hold were left out.` : ''}`, false);
+    say(`Imported ${result.imported} gallery records; ${result.present} already present. Existing images were kept.${!result.imported ? ' No new gallery records were added.' : ''}${inBin}${restored ? ` ${restored} missing image files were restored from the bundle.` : ''}${missing === 1 ? ' 1 link to a source image the bundle does not hold was left out.' : missing ? ` ${missing} links to source images the bundle does not hold were left out.` : ''}`, false);
+    bundleImportActions(result);
   }
 }
 

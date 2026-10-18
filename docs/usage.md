@@ -705,6 +705,11 @@ same picture. Different files using the same name
 are refused before changing the gallery. Source images the bundle does not
 hold cannot be linked; the result counts those links, which are left empty.
 
+After import, **Show new gallery images** opens the newly added live rows;
+**Show new images in bin** opens additions that were binned when bundled.
+These actions clear old search, Starred and model filters. No new rows means
+no navigation action, even when missing files of known rows were restored.
+
 Keep the server running until the operation finishes; closing the dialog or
 browser does not cancel it. **Cancel upload** stops a selected file only
 while it is still being sent (so does closing the tab then); nothing is

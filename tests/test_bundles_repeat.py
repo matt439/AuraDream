@@ -45,6 +45,7 @@ def test_re_import_restores_an_image_whose_row_outlived_its_file(store, monkeypa
     snapshot_rows = _snapshot(store)[0]
     result = bundles.import_bundle(bundle)
     assert (result["imported"], result["present"], result["restored"]) == (0, 1, 1)
+    assert result["first_id"] is result["last_id"] is None
     assert _snapshot(store)[0] == snapshot_rows  # the row is unchanged
     assert path.read_bytes() == original
     assert _metadata(path)["reference"] == [rows[source.filename].id]
@@ -197,6 +198,7 @@ def test_the_recycle_bin_comes_across_and_a_repeat_import_keeps_the_local_state(
     _destination(store, monkeypatch, tmp_path)
     imported = bundles.import_bundle(Path(archive["path"]))
     assert (imported["imported"], imported["binned"]) == (2, 1)
+    assert (imported["first_id"], imported["last_id"]) == (1, 2)
     assert [r.filename for r in store.list_images()[0]] == [live.filename]
     (back,) = store.list_images(binned=True)[0]
     assert back.filename == binned.filename and back.binned_at is not None
@@ -206,5 +208,41 @@ def test_the_recycle_bin_comes_across_and_a_repeat_import_keeps_the_local_state(
     store.bin_images([store.list_images(search="live")[0][0].id])
     again = bundles.import_bundle(Path(archive["path"]))
     assert (again["imported"], again["present"], again["binned"]) == (0, 2, 0)
+    assert again["first_id"] is again["last_id"] is None
     assert [r.filename for r in store.list_images()[0]] == [binned.filename]
     assert [r.filename for r in store.list_images(binned=True)[0]] == [live.filename]
+
+
+@pytest.mark.parametrize("binned", [False, True])
+def test_import_range_covers_only_new_rows_among_known_and_restored_images(store, monkeypatch, tmp_path, binned):
+    present = _save("present", 1)
+    restoring = _save("restoring", 2)
+    new = _save("new", 3)
+    if binned:
+        store.bin_images([new.id])
+    bundle = Path(_export()["path"])
+    dest = _destination(store, monkeypatch, tmp_path)
+    bundles.import_bundle(bundle)
+    rows = {r.filename: r for in_bin in (False, True) for r in store.list_images(binned=in_bin)[0]}
+    old_id = rows[new.filename].id
+    store.delete_image(old_id)
+    (dest.outputs_dir / restoring.filename).unlink()
+
+    result = bundles.import_bundle(bundle)
+    assert (result["imported"], result["present"], result["restored"], result["binned"]) == (1, 1, 1, int(binned))
+    first, last = result["first_id"], result["last_id"]
+    assert first == last and first > old_id
+    assert first not in {rows[present.filename].id, rows[restoring.filename].id}
+    found, total, _ = store.list_images(search=f"id:{first}-{last}", binned=binned)
+    assert total == 1 and found[0].filename == new.filename
+    assert store.list_images(search=f"id:{first}-{last}", binned=not binned)[1] == 0
+
+    again = bundles.import_bundle(bundle)
+    assert (again["imported"], again["present"], again["restored"]) == (0, 3, 0)
+    assert again["first_id"] is again["last_id"] is None
+
+
+def test_an_empty_bundle_has_no_new_row_range(store):
+    result = bundles.import_bundle(Path(_export()["path"]))
+    assert result["imported"] == result["present"] == result["restored"] == 0
+    assert result["first_id"] is result["last_id"] is None

@@ -68,10 +68,12 @@ def test_browser_export_download_and_uploaded_merge(client, store):
     assert merged["result"]["imported"] == 1
     restored = {row.seed: row for row in store.list_images()[0]}
     assert restored[19].favorite and restored[19].id > existing.id
+    assert (merged["result"]["first_id"], merged["result"]["last_id"]) == (restored[19].id, restored[19].id)
     assert restored[20] == existing
     duplicate = client.post("/api/gallery/bundles/import", json={"name": name})
     again = _finish(client, duplicate.json()["id"])
     assert again["result"]["imported"] == 0
+    assert again["result"]["first_id"] is again["result"]["last_id"] is None
     assert store.list_images()[1] == 2
 
 

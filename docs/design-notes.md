@@ -4242,6 +4242,15 @@ read as two images lost, with only the footer's Bin 2 to explain it. A bin or re
 another process mid-export changes a row, and the row-equality check
 before cleanup refuses it, which is the right answer.
 
+**Finding newly imported images (2026-10-18, `GAL#2`).** The import's
+`first_id` and `last_id` bracket only newly inserted rows; a known row whose
+file was restored never widens that range, and no new rows gives two nulls.
+The result offers **Show new gallery images** for live additions and
+**Show new images in bin** for binned additions, both for a mixed import.
+Navigation clears search, Starred, the sheet and the checkpoint filter so
+an older query cannot hide the additions. A duplicate-only or restored-only
+import says no new records were added and offers neither action.
+
 ### A backup that keeps the gallery, and bundles of the picked or starred (2026-10-12)
 
 The only export cleared the gallery, so a routine backup, or ten starred

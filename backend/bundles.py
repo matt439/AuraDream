@@ -940,6 +940,10 @@ def import_bundle(path: Path, password: str | None = None, progress: Progress = 
                 # A new row keeps the bin state it was exported with; a
                 # known one keeps this gallery's, as it keeps its star.
                 return {"imported": len(pending), "present": present, "restored": len(restoring),
+                        # Only newly inserted rows: known rows and repaired
+                        # files must never widen Show newly added's range.
+                        "first_id": pending[0][1]["id"] if pending else None,
+                        "last_id": pending[-1][1]["id"] if pending else None,
                         "binned": sum(bool(values.get("binned_at")) for _, values in pending),
                         "images": sum(name.startswith("images/") and name.lower().endswith(".png") for name in manifest["files"]),
                         "unresolved_references": unresolved,
