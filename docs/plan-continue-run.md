@@ -1,6 +1,6 @@
 # Plan: continuing a run
 
-**Status, 2026-10-18: design, not built; open questions below.** Nothing in
+**Status, 2026-10-18: design, not built; Matt took every recommended answer to the open questions the same day (below).** Nothing in
 the code has changed for it. It was written from four read-only reports on
 the current code (More seeds, grid Resume, the places a finished run shows,
 and the usage evidence), a user-research pass, three design proposals and
@@ -649,6 +649,10 @@ ships alone.
    until phase 2.
 
 ## Open questions for the user
+
+All fourteen answered 2026-10-18: Matt took every recommended answer, so
+each stands as written. Q7's rename waits for phase 2; Q13 defers Widen and
+Load into panel.
 
 1. **Does "continue a run that completes" mean mainly M1 (more of a batch)
    and M2 (more seeds on a finished grid)?** Recommended: yes; phase 1 is
