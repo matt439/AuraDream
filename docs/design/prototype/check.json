@@ -1,0 +1,383 @@
+[
+  {
+    "navigate": "http://127.0.0.1:7911/prototype/index.html"
+  },
+  {
+    "wait": 350
+  },
+  {
+    "expect": "document.title.includes('workbench concept') && document.querySelectorAll('#result-tiles .tile').length === 4"
+  },
+  {
+    "eval": "window.__errors = []; window.addEventListener('error', e => window.__errors.push(e.message)); byId('prompt').focus()"
+  },
+  {
+    "eval": "byId('prompt').select()"
+  },
+  {
+    "type": "My unfinished draft for the next experiment"
+  },
+  {
+    "eval": "document.querySelector(\"[data-view='runs']\").scrollIntoView({block:\"nearest\"})"
+  },
+  {
+    "click": "[data-view='runs']"
+  },
+  {
+    "expect": "byId('prompt').value === 'My unfinished draft for the next experiment' && !byId('runs').hidden"
+  },
+  {
+    "eval": "document.querySelector(\"#finish-held\").scrollIntoView({block:\"nearest\"})"
+  },
+  {
+    "click": "#finish-held"
+  },
+  {
+    "expect": "byId('held-note').textContent.includes('queued in job J42') && sampleQueue.length === 0"
+  },
+  {
+    "eval": "document.querySelector(\"#more-run\").scrollIntoView({block:\"nearest\"})"
+  },
+  {
+    "click": "#more-run"
+  },
+  {
+    "expect": "byId('action-dialog').open && byId('action-total').textContent.includes('24 new images') && byId('action-scope').textContent.includes('Starred and gallery filter ignored')"
+  },
+  {
+    "eval": "byId('more-count').value = '2000'; byId('more-count').dispatchEvent(new Event('input'))"
+  },
+  {
+    "eval": "document.querySelector(\"#confirm-action\").scrollIntoView({block:\"nearest\"})"
+  },
+  {
+    "click": "#confirm-action"
+  },
+  {
+    "expect": "byId('action-error').textContent.includes('1024') && sampleQueue.length === 0"
+  },
+  {
+    "key": "Escape"
+  },
+  {
+    "expect": "!byId('action-dialog').open && document.activeElement === byId('more-run')"
+  },
+  {
+    "eval": "document.querySelector(\"#finish\").scrollIntoView({block:\"nearest\"})"
+  },
+  {
+    "click": "#finish"
+  },
+  {
+    "expect": "byId('action-total').textContent.includes('9 remaining cells') && byId('action-consequence').textContent.includes('90-minute') && byId('prompt').value === 'My unfinished draft for the next experiment'"
+  },
+  {
+    "eval": "document.querySelector(\"#confirm-action\").scrollIntoView({block:\"nearest\"})"
+  },
+  {
+    "click": "#confirm-action"
+  },
+  {
+    "expect": "sampleQueue.length === 1 && byId('queue-count').textContent === '1' && byId('prompt').value === 'My unfinished draft for the next experiment'"
+  },
+  {
+    "eval": "document.querySelector(\"[data-view='results']\").scrollIntoView({block:\"nearest\"})"
+  },
+  {
+    "click": "[data-view='results']"
+  },
+  {
+    "eval": "document.querySelector(\"#more-batch\").scrollIntoView({block:\"nearest\"})"
+  },
+  {
+    "click": "#more-batch"
+  },
+  {
+    "expect": "byId('more-count').value === '4' && byId('action-total').textContent.includes('4 new images')"
+  },
+  {
+    "key": "Enter"
+  },
+  {
+    "expect": "sampleQueue.length === 2 && !byId('action-dialog').open"
+  },
+  {
+    "eval": "document.querySelector(\"#inspect-result\").scrollIntoView({block:\"nearest\"})"
+  },
+  {
+    "click": "#inspect-result"
+  },
+  {
+    "eval": "document.querySelector(\"#inspector-more\").scrollIntoView({block:\"nearest\"})"
+  },
+  {
+    "click": "#inspector-more"
+  },
+  {
+    "expect": "byId('inspector').open && byId('action-dialog').open"
+  },
+  {
+    "key": "Escape"
+  },
+  {
+    "expect": "byId('inspector').open && !byId('action-dialog').open && document.activeElement === byId('inspector-more')"
+  },
+  {
+    "eval": "document.querySelector(\"#reuse\").scrollIntoView({block:\"nearest\"})"
+  },
+  {
+    "click": "#reuse"
+  },
+  {
+    "expect": "!byId('inspector').open && !byId('undo').hidden && byId('seed').value === '120'"
+  },
+  {
+    "eval": "document.querySelector(\"#undo\").scrollIntoView({block:\"nearest\"})"
+  },
+  {
+    "click": "#undo"
+  },
+  {
+    "expect": "byId('prompt').value === 'My unfinished draft for the next experiment' && byId('undo').hidden"
+  },
+  {
+    "eval": "document.querySelector(\"#inspect-result\").scrollIntoView({block:\"nearest\"})"
+  },
+  {
+    "click": "#inspect-result"
+  },
+  {
+    "eval": "document.querySelector(\"#reuse\").scrollIntoView({block:\"nearest\"})"
+  },
+  {
+    "click": "#reuse"
+  },
+  {
+    "eval": "byId('prompt').focus()"
+  },
+  {
+    "type": " changed"
+  },
+  {
+    "expect": "byId('undo').hidden && byId('prompt').value.includes('changed')"
+  },
+  {
+    "eval": "document.querySelector(\"#focus\").scrollIntoView({block:\"nearest\"})"
+  },
+  {
+    "click": "#focus"
+  },
+  {
+    "expect": "byId('workbench').classList.contains('review-focus') && byId('focus').getAttribute('aria-pressed') === 'true'"
+  },
+  {
+    "eval": "document.querySelector(\"#focus\").scrollIntoView({block:\"nearest\"})"
+  },
+  {
+    "click": "#focus"
+  },
+  {
+    "expect": "!byId('workbench').classList.contains('review-focus') && byId('prompt').value.includes('changed')"
+  },
+  {
+    "eval": "document.querySelector(\"[data-view='gallery']\").scrollIntoView({block:\"nearest\"})"
+  },
+  {
+    "click": "[data-view='gallery']"
+  },
+  {
+    "eval": "document.querySelector(\"#compare\").scrollIntoView({block:\"nearest\"})"
+  },
+  {
+    "click": "#compare"
+  },
+  {
+    "expect": "byId('gallery-note').textContent.includes('exactly two') && !byId('compare-dialog').open"
+  },
+  {
+    "eval": "document.querySelector(\"[data-pick='101']\").scrollIntoView({block:\"nearest\"})"
+  },
+  {
+    "click": "[data-pick='101']"
+  },
+  {
+    "eval": "document.querySelector(\"[data-pick='102']\").scrollIntoView({block:\"nearest\"})"
+  },
+  {
+    "click": "[data-pick='102']"
+  },
+  {
+    "eval": "document.querySelector(\"#compare\").scrollIntoView({block:\"nearest\"})"
+  },
+  {
+    "click": "#compare"
+  },
+  {
+    "expect": "byId('compare-dialog').open && byId('comparison-diff').textContent.includes('120 / 121')"
+  },
+  {
+    "key": "Escape"
+  },
+  {
+    "expect": "document.activeElement === byId('compare') && picks.size === 2"
+  },
+  {
+    "eval": "byId('filter').value='starred'; byId('filter').dispatchEvent(new Event('change'))"
+  },
+  {
+    "expect": "byId('pick-summary').textContent === '2 picked · 1 hidden by this view'"
+  },
+  {
+    "eval": "document.querySelector(\"#more-scope\").scrollIntoView({block:\"nearest\"})"
+  },
+  {
+    "click": "#more-scope"
+  },
+  {
+    "expect": "byId('action-scope').textContent.includes('2 picked') && byId('action-total').textContent.includes('1 cell = 4 new images')"
+  },
+  {
+    "key": "Escape"
+  },
+  {
+    "eval": "document.querySelector(\"#clear-picks\").scrollIntoView({block:\"nearest\"})"
+  },
+  {
+    "click": "#clear-picks"
+  },
+  {
+    "eval": "document.querySelector(\"#more-scope\").scrollIntoView({block:\"nearest\"})"
+  },
+  {
+    "click": "#more-scope"
+  },
+  {
+    "expect": "byId('action-scope').textContent.includes('Current filter · 2 images') && byId('action-total').textContent.includes('2 cells = 8 new images')"
+  },
+  {
+    "key": "Escape"
+  },
+  {
+    "eval": "byId('filter').value='all'; byId('filter').dispatchEvent(new Event('change')); byId('model-filter').value='all'; byId('model-filter').dispatchEvent(new Event('change'))"
+  },
+  {
+    "eval": "document.querySelector(\"#more-scope\").scrollIntoView({block:\"nearest\"})"
+  },
+  {
+    "click": "#more-scope"
+  },
+  {
+    "expect": "byId('action-total').textContent.includes('7 cells = 28 new images') && byId('action-consequence').textContent.includes('1 foreign-checkpoint')"
+  },
+  {
+    "key": "Escape"
+  },
+  {
+    "eval": "inspect(sampleImages[10])"
+  },
+  {
+    "eval": "document.querySelector(\"#inspector-more\").scrollIntoView({block:\"nearest\"})"
+  },
+  {
+    "click": "#inspector-more"
+  },
+  {
+    "expect": "byId('inspector-note').textContent.includes('Switch back') && !byId('action-dialog').open"
+  },
+  {
+    "eval": "document.querySelector(\"#reuse\").scrollIntoView({block:\"nearest\"})"
+  },
+  {
+    "click": "#reuse"
+  },
+  {
+    "expect": "byId('draft-note').textContent.includes('Animagine') && byId('draft-note').textContent.includes('current model remains WAI') && !byId('undo').hidden"
+  },
+  {
+    "eval": "document.querySelector(\"#undo\").scrollIntoView({block:\"nearest\"})"
+  },
+  {
+    "click": "#undo"
+  },
+  {
+    "viewport": [
+      1536,
+      864
+    ]
+  },
+  {
+    "expect": "document.documentElement.scrollWidth <= innerWidth && byId('generate').getBoundingClientRect().bottom < innerHeight"
+  },
+  {
+    "viewport": [
+      1400,
+      900
+    ]
+  },
+  {
+    "expect": "document.documentElement.scrollWidth <= innerWidth"
+  },
+  {
+    "viewport": [
+      2048,
+      1040,
+      1.25
+    ]
+  },
+  {
+    "expect": "document.documentElement.scrollWidth <= innerWidth"
+  },
+  {
+    "viewport": [
+      390,
+      844
+    ]
+  },
+  {
+    "eval": "view('results')"
+  },
+  {
+    "expect": "document.documentElement.scrollWidth <= innerWidth && getComputedStyle(byId('workbench')).gridTemplateColumns.split(' ').length === 1"
+  },
+  {
+    "viewport": [
+      320,
+      720
+    ]
+  },
+  {
+    "expect": "document.documentElement.scrollWidth <= innerWidth"
+  },
+  {
+    "media": {
+      "prefers-reduced-motion": "reduce"
+    }
+  },
+  {
+    "expect": "matchMedia('(prefers-reduced-motion: reduce)').matches && window.__errors.length === 0"
+  },
+  {
+    "viewport": [
+      1400,
+      900
+    ]
+  },
+  {
+    "eval": "byId('queue-open').focus()"
+  },
+  {
+    "keycombo": [
+      "Shift",
+      "Enter"
+    ]
+  },
+  {
+    "expect": "byId('info-dialog').open && byId('info-title').textContent === 'Simulated queue'"
+  },
+  {
+    "key": "Escape"
+  },
+  {
+    "expect": "!byId('info-dialog').open && document.activeElement === byId('queue-open')"
+  }
+]

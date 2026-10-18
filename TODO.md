@@ -6,14 +6,23 @@ An index of open work, one row per item; each row points to the doc that owns th
 
 **The only ordering in this file.** Keep every `DECISION` row here. Keep this block to the current aim and the next few actions; results go in their owners (`docs/verified.md` for what the card measured, the plan or design notes for what was built).
 
-**Aim (2026-10-17):** inpainting and outpainting were measured on the card on 2026-10-17 (WAI, Animagine, Z-Anime; `docs/verified.md`), and their phase 3 is built on those numbers; what is left is the card's remainder. Matt decided the open questions on 2026-10-17, and the prompt analyser's three (PA#5-PA#7) were built the same day (the design notes' prompt analyser, "Open questions the build turned up").
+**Aim (2026-10-18):** Matt requested whole-app design for his personal workstation, prioritizing common tasks done quickly. The candidate design and interactive concept are in [docs/design](docs/design/README.md); validate the fast paths before selecting layout implementation slices.
 
-1. **Continue a run (`GEN#11`):** phase 1 (1a and 1b) is built, 2026-10-18; build phase 2, `run_jobs` and Finish run. [Plan](docs/plan-continue-run.md).
-2. **`CARD#1`/`CARD#2` remainder:** Z-Image Turbo (a download first) and an SDXL LoRA through an inpaint, when Matt wants them.
+1. **Personal workstation design (`DEV#1`):** compare current common-task paths with the workbench concept; record Matt's task priorities and revise from the trials. [Validation](docs/design/validation.md).
+2. **Continue a run (`GEN#11`):** phase 1 (1a and 1b) is built, 2026-10-18; build phase 2, `run_jobs` and Finish run. [Plan](docs/plan-continue-run.md).
+3. **`CARD#1`/`CARD#2` remainder:** Z-Image Turbo (a download first) and an SDXL LoRA through an inpaint, when Matt wants them.
 
-**Decisions waiting on Matt:** none (the last five were decided 2026-10-17).
+**Decisions waiting on Matt:** none in the existing feature queue. The whole-app layout remains a design hypothesis to evaluate, not an accepted implementation change.
 
 **GPU runs are Matt's to run or OK, never past the 16 GB card** (every `CARD` row). Check the checkpoint's measured peaks in `docs/verified.md` first; a run that spills into shared memory proves only that it doesn't fit.
+
+## Product design
+
+**Owner:** [docs/design/README.md](docs/design/README.md); [validation](docs/design/validation.md) owns the remaining task trials and evidence.
+
+| id | status | sev | size | item |
+|---|---|---|---|---|
+| `DEV#1` | OPEN | LOW | M | Validate the personal workbench's common-task fast paths against the current app; compare shared and review-focused layouts before implementation. [Validation](docs/design/validation.md). |
 
 ## Measurements on the card
 

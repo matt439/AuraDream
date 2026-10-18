@@ -6,7 +6,8 @@ anime checkpoints. Built with FastAPI, diffusers, vanilla JavaScript and SQLite;
 the frontend has no build step.
 
 [Quick start](#quick-start) · [Usage guide](docs/usage.md) ·
-[Anime model guide](docs/anime-model-guide.md) · [GPU measurements](docs/verified.md)
+[Anime model guide](docs/anime-model-guide.md) · [GPU measurements](docs/verified.md) ·
+[Product design](docs/design/README.md)
 
 ## Requirements
 
