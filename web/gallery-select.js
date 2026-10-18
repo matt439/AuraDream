@@ -324,21 +324,43 @@ function seedsToGrid() {
   showError(`Seed list now has ${plural(target.seeds.length, 'distinct picked seed')} in picked order.`, true, { slot: els.galleryError });
 }
 
+function pickedComparison() {
+  if (binMode) return { why: BIN_HELD };
+  const records = selectedRecords();
+  if (records.length !== 2) return { why: `Pick exactly 2 images to compare; ${records.length} selected` };
+  const [a, b] = records;
+  if (a.width * b.height !== b.width * a.height) {
+    return { why: `Compare picked needs the same aspect ratio; #${a.id} is ${a.width}x${a.height} and #${b.id} is ${b.width}x${b.height}` };
+  }
+  return { records };
+}
+
+function comparePicked() {
+  const target = pickedComparison();
+  if (target.why) { showError(`${target.why}.`, true, { slot: els.galleryError }); return; }
+  const pair = target.records;
+  openLightbox(pair[0], pair);
+  lbPickedPair = pair;
+  comparePickedPair(pair[0]);
+}
+
 function syncPickedButton() {
   const n = selection.size;
   const why = binMode ? BIN_HELD : n ? '' : PICKED_NONE;
   els.pickedBtn.setAttribute('aria-disabled', String(!!why));
   const them = n === 1 ? 'the picked image' : `the ${n} picked images`;
-  els.pickedBtn.title = why || `Actions on ${them}: star, unstar, bin or copy seeds to the grid`;
+  els.pickedBtn.title = why || `Actions on ${them}: star, unstar, compare, bin or copy seeds to the grid`;
   const grid = pickedGridSeeds();
+  const compare = pickedComparison();
   const titles = {
     star: `Star ${them}`,
     unstar: `Unstar ${them}`,
     bin: `Move ${them} to the recycle bin; the note it leaves has Restore`,
     seeds: grid.why || `Fill Seed list with ${plural(grid.seeds.length, 'distinct picked seed')} in picked order; other grid settings are kept`,
+    compare: compare.why || `Compare #${compare.records[0].id} with #${compare.records[1].id}; the first picked image stays on the left`,
   };
   for (const item of els.pickedMenu.querySelectorAll('[data-picked]')) {
-    const held = why || (item.dataset.picked === 'seeds' ? grid.why : '');
+    const held = why || (item.dataset.picked === 'seeds' ? grid.why : item.dataset.picked === 'compare' ? compare.why : '');
     item.setAttribute('aria-disabled', String(!!held));
     item.title = held || titles[item.dataset.picked];
   }
@@ -406,6 +428,7 @@ function pickedChoose(item) {
   }
   if (act === 'bin') void binPicked();
   else if (act === 'seeds') seedsToGrid();
+  else if (act === 'compare') comparePicked();
   else void starPicked(act === 'star');
 }
 

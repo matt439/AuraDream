@@ -272,7 +272,8 @@ function noteUnseenImages(newest = null) {
 // ladder, and a comparison whose partner went ends, saying so.
 function forgetLadderImages(gone) {
   for (const entry of lbLadders.values()) entry.records = entry.records.filter((r) => !gone.has(r.id));
-  if (lbCompare.id === null || lbCompare.kind !== 'cfg') return;
+  if (lbPickedPair.some((r) => gone.has(r.id))) lbPickedPair = [];
+  if (lbCompare.id === null || !['cfg', 'picked'].includes(lbCompare.kind)) return;
   lbCompare.ladder = lbCompare.ladder.filter((r) => !gone.has(r.id));
   const partner = lbCompare.source;
   if (!partner || !gone.has(partner.id)) return;
@@ -389,6 +390,7 @@ function compareCfg(rec, partner = null, mode = null) {
 function pickAgainst() {
   const rec = lbList[lbIndex];
   if (!rec) return;
+  if (pickedPair(rec)) { comparePickedPair(rec); return; }
   const on = lbCompare.id === rec.id && lbCompare.kind === 'cfg';
   const ladder = on ? lbCompare.ladder : cfgLadder(rec);
   const partner = ladder.find((r) => String(r.id) === els.lbCompareAgainst.value);
@@ -415,6 +417,7 @@ function syncCfgCompare(rec, on, sKey, shown) {
   const partner = on ? lbCompare.source : cfgNeighbour(ladder, rec);
   const held = ladder.length > 1 && partner ? '' : cfgHeldReason(rec, state);
   const button = els.lbCompareCfg;
+  button.textContent = 'Compare CFG';
   button.setAttribute('aria-pressed', String(on));
   button.setAttribute('aria-disabled', String(!!held));
   if (sKey) button.setAttribute('aria-keyshortcuts', 'S');
@@ -447,10 +450,10 @@ function syncCfgCompare(rec, on, sKey, shown) {
 // Against's options, rewritten only when they change, so an open list is not
 // pulled from under the pointer by a sync. The other values of the ladder,
 // "CFG 2 · #41", the partner selected; one "none" where it is held.
-function syncAgainst(rec, ladder, partner, held) {
+function syncAgainst(rec, ladder, partner, held, option = (r) => `${cfgName(r)} · #${r.id}`, title = null) {
   const select = els.lbCompareAgainst;
   const options = held ? [['', 'none']] : ladder.filter((r) => r.id !== rec.id)
-    .map((r) => [String(r.id), `${cfgName(r)} · #${r.id}`]);
+    .map((r) => [String(r.id), option(r)]);
   const signature = options.map(([v, t]) => `${v}\t${t}`).join('\n');
   if (select.dataset.options !== signature) {
     select.replaceChildren(...options.map(([value, text]) => Object.assign(document.createElement('option'), { value, text })));
@@ -458,5 +461,5 @@ function syncAgainst(rec, ladder, partner, held) {
   }
   select.value = held ? '' : String(partner?.id ?? '');
   select.setAttribute('aria-disabled', String(!!held));
-  select.title = held || `The image ${cfgName(rec)} is compared with; the lower CFG is on the left`;
+  select.title = held || title || `The image ${cfgName(rec)} is compared with; the lower CFG is on the left`;
 }

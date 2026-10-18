@@ -394,7 +394,7 @@ els.lightbox.onclick = (e) => { if (e.target === els.lightbox) dismissLightbox()
 // turns on the kind S would in that mode, or switches to it. Lower and
 // Higher CFG step along CFG, and Against picks the partner.
 els.lbCompareOn.onclick = () => { void toggleCompare(null, 'source'); };
-els.lbCompareCfg.onclick = () => { void toggleCompare(null, 'cfg'); };
+els.lbCompareCfg.onclick = () => { void toggleCompare(null, pickedPair(lbList[lbIndex]) ? 'picked' : 'cfg'); };
 els.lbSwipe.onclick = () => { void toggleCompare('swipe'); };
 els.lbSideBySide.onclick = () => { void toggleCompare('side'); };
 els.lbCfgLower.onclick = () => pressCfgStep(-1);
@@ -630,7 +630,7 @@ document.addEventListener('keydown', (e) => {
     if (e.target.tagName === 'SELECT') return;
     e.preventDefault();
     const delta = e.key === 'ArrowLeft' ? -1 : 1;
-    if (e.shiftKey ? nudgeSplit(delta) : stepPass(delta) || stepCfg(delta)) return;
+    if (e.shiftKey ? nudgeSplit(delta) : stepPicked(delta) || stepPass(delta) || stepCfg(delta)) return;
     void stepLightbox(delta);
     return;
   }

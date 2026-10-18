@@ -3508,6 +3508,20 @@ drops under the stage as a wrapping row, without the keys line. The
 at the driver's 1400x900 a 1024x768 image fits at 104%, and its 1:1 is
 below fit; `tools/smoke-lightbox.json` has the rest.
 
+### Comparing two picked images, 2026-10-18
+
+The picked menu opens an explicit frozen pair, rather than widening a CFG
+ladder or changing a pass's source. Exactly two matching-aspect images are
+required; the hold names their differing dimensions. The first picked image
+stays left while arrows choose which member is current. Existing swipe,
+side-by-side, zoom and divider geometry are shared, with labels derived from
+recorded differences and prompt/negative text diffs. The existing CFG toggle
+becomes Compare picked only in this session, avoiding another control row.
+Source comparison remains available for a picked pass. Closing or ordinary
+opening ends the pair. Refine cancellation keeps the view but never revives
+a deleted/binned member; a missing partner is forgotten centrally. F9 in the
+2026-10-12 review records the complete browser evidence and review fixes.
+
 ## The sheet exports client-side
 
 **The sheet exports client-side.** `renderSheet` leaves its matrix in

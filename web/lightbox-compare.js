@@ -5,6 +5,93 @@
 // load-order contract these files share.
 'use strict';
 
+// An explicit pair belongs to this lightbox session, independent of later
+// selection changes. Ordinary gallery opens still choose source or CFG.
+let lbPickedPair = [];
+const pickedDiffCache = new WeakMap();
+function pickedPair(rec) {
+  return rec && lbPickedPair.length === 2 && lbPickedPair.some((r) => r.id === rec.id)
+    && lbPickedPair.every((r) => !isGone(r.id)) ? lbPickedPair : null;
+}
+
+// Read the same axes and prompt edit as the sheet. Extra reproduction facts
+// which no sheet axis lays out still distinguish a pair from two models.
+function pickedDifferences(pair) {
+  if (pickedDiffCache.has(pair)) return pickedDiffCache.get(pair);
+  const [a, b] = pair;
+  const axes = [...new Map([...SHEET_AXES, ...axesFor(pair)].map((axis) => [axis.key, axis])).values()];
+  const fields = axes.filter((axis) => axisValue(axis, a) !== axisValue(axis, b));
+  const extras = [
+    ['Model', (r) => r.model_id], ['Size', (r) => `${r.width}x${r.height}`],
+    ['Quantization', (r) => r.quantization], ['Refined from', (r) => r.refine],
+    ['Mask', (r) => r.mask], ['Outpaint', (r) => r.outpaint ? JSON.stringify(r.outpaint) : null],
+  ].filter(([, of]) => of(a) !== of(b));
+  const words = { short: new Map(), adapter: null, muStatic: null };
+  const label = (r) => [
+    ...fields.map((axis) => ['prompt', 'negative'].includes(axis.key) ? axis.label : headText(axis, axisValue(axis, r), words)),
+    ...extras.map(([key, of]) => `${key} ${key === 'Model' ? checkpointName(of(r)) : of(r) ?? 'none'}`),
+  ].join(' · ');
+  const names = [...fields.map((axis) => axis.label), ...extras.map(([key]) => key)];
+  const edits = ['prompt', 'negative_prompt'].filter((key) => a[key] !== b[key])
+    .map((key) => `${key === 'prompt' ? 'Prompt' : 'Negative'}: ${versionEdit(a[key] ?? '', b[key] ?? '')}`);
+  const detail = { label, summary: `Picked order: #${a.id} left, #${b.id} right · ${names.length ? `differs: ${names.join(', ')}` : 'same recorded settings'}`
+    + (edits.length ? ` · ${edits.join(' · ')}` : '') };
+  pickedDiffCache.set(pair, detail);
+  return detail;
+}
+
+function pickedTag(rec, pair = pickedPair(rec)) {
+  const detail = pair ? pickedDifferences(pair).label(rec) : '';
+  return `#${rec.id}${detail ? ` · ${detail}` : ''}`;
+}
+
+function comparePickedPair(rec, mode = null) {
+  const pair = pickedPair(rec);
+  if (!pair) return;
+  lbCompare.kind = 'picked';
+  lbCompare.ladder = pair;
+  lbCompare.source = pair.find((r) => r.id !== rec.id);
+  setCompare(rec.id, mode ?? lbCompare.mode);
+}
+
+function syncPickedCompare(rec, on) {
+  const pair = pickedPair(rec);
+  const partner = pair.find((r) => r.id !== rec.id);
+  const button = els.lbCompareCfg;
+  button.hidden = false;
+  button.textContent = 'Compare picked';
+  button.setAttribute('aria-pressed', String(on));
+  button.setAttribute('aria-disabled', 'false');
+  button.setAttribute('aria-keyshortcuts', 'S');
+  button.title = `Compare the two picked images at the same crop; #${pair[0].id} stays on the left (S)`;
+  els.lbCfgSteps.hidden = true;
+  els.lbAgainst.hidden = false;
+  syncAgainst(rec, pair, partner, '', (r) => pickedTag(r, pair), 'The other picked image; the first picked stays on the left');
+  const full = pickedDifferences(pair).summary;
+  return { held: '', steps: true, shown: true, note: on ? (full.length > 200 ? `${full.slice(0, 197)}...` : full) : '', full };
+}
+
+// Both records remain at fixed sides; arrows change which one's facts are
+// being read, carrying the same crop, divider and mode, without wrapping.
+function stepPicked(delta) {
+  const rec = lbList[lbIndex];
+  const pair = rec && pickedPair(rec);
+  if (!pair || lbCompare.id !== rec.id || lbCompare.kind !== 'picked') return false;
+  const next = pair[pair.findIndex((r) => r.id === rec.id) + delta];
+  if (!next) {
+    lbCompareSaid = { id: rec.id, text: `#${rec.id} is the ${delta < 0 ? 'first' : 'last'} of the two picked images` };
+    syncCompare(rec);
+    return true;
+  }
+  const i = lbList.findIndex((r) => r.id === next.id);
+  if (i < 0) return false;
+  lbCompare.id = next.id;
+  lbCompare.source = rec;
+  lbIndex = i;
+  renderLightbox();
+  return true;
+}
+
 // ------------------------------------------------------- lightbox compare
 
 // The comparison's controls, on every image: the shared part here - the two
@@ -14,15 +101,17 @@
 function syncCompare(rec) {
   const pass = rec.refine != null;
   const on = lbCompare.id === rec.id;
-  const kind = on ? lbCompare.kind : pass ? 'source' : 'cfg';
-  const sourceHeld = syncSourceCompare(rec, on && kind === 'source');
-  const cfg = syncCfgCompare(rec, on && kind === 'cfg', !pass, cfgShown(rec, on && kind === 'cfg'));
+  const pair = pickedPair(rec);
+  const kind = on ? lbCompare.kind : pair ? 'picked' : pass ? 'source' : 'cfg';
+  const sourceHeld = syncSourceCompare(rec, on && kind === 'source', !pair);
+  const cfg = pair ? syncPickedCompare(rec, on && kind === 'picked')
+    : syncCfgCompare(rec, on && kind === 'cfg', !pass, cfgShown(rec, on && kind === 'cfg'));
   // The box: on every image from 901 px, where it is the column's; under it
   // only where there is something in it (cfgShown), as the CFG part is.
   els.lbCompare.hidden = !pass && !cfg.shown;
   // A mode turns on the kind a press of S would, or switches the one on: held
   // where that has nothing to compare with, its press saying why.
-  const held = on ? '' : pass ? sourceHeld : cfg.held;
+  const held = on || pair ? '' : pass ? sourceHeld : cfg.held;
   for (const [button, mode] of [[els.lbSwipe, 'swipe'], [els.lbSideBySide, 'side']]) {
     button.setAttribute('aria-pressed', String(on && lbCompare.mode === mode));
     // A deleted source holds them on a pass whether or not CFG is on, as ever.
@@ -32,7 +121,9 @@ function syncCompare(rec) {
     // plain Generates; otherwise what the mode shows, in the words of the
     // kind it would compare (Side by side's, which way the halves go, is
     // layoutLightbox's).
-    const title = why || (mode === 'side' ? lbSidesTitle : kind === 'cfg'
+    const title = why || (mode === 'side' ? lbSidesTitle : kind === 'picked'
+      ? 'The two picked images over each other, a divider between them to drag'
+      : kind === 'cfg'
       ? 'The lower CFG and the higher over each other, a divider between them to drag'
       : 'The source and the pass over each other, a divider between them to drag');
     if (title && button.title !== title) button.title = title;
@@ -42,16 +133,18 @@ function syncCompare(rec) {
   // step along CFG (`stepCfg`); the divider takes Shift+arrows instead.
   const passes = on && lbSiblingPass(1) >= 0;
   const cfgSteps = on && kind === 'cfg' && cfg.steps;
+  const pairSteps = on && kind === 'picked';
   const divider = on && lbCompare.mode === 'swipe';
   // The keys line names S, which does something on every image: it compares
   // a pass with its source, any other image across CFG, or says why it
   // cannot. In the title and the button's hint alone, it was found only by
   // hovering. Likewise what the arrows do while comparing.
-  const keys = lbKeysLine({ passes, cfg: cfgSteps, divider, binned: !!rec.binned_at });
+  const keys = lbKeysLine({ passes, cfg: cfgSteps, picked: pairSteps, divider, binned: !!rec.binned_at });
   if (els.lbKeys.textContent !== keys) els.lbKeys.textContent = keys;
-  if (passes || cfgSteps) {
+  if (passes || cfgSteps || pairSteps) {
     els.lbSplit.setAttribute('aria-keyshortcuts', 'Shift+ArrowLeft Shift+ArrowRight PageUp PageDown Home End');
     els.lbSplit.title = passes ? 'Drag, or Shift+← →, to move the divider; ← → switch to another pass of this source'
+      : pairSteps ? 'Drag, or Shift+← →, to move the divider; ← → switch between the two picked images'
       : 'Drag, or Shift+← →, to move the divider; ← → step along CFG';
   } else {
     els.lbSplit.removeAttribute('aria-keyshortcuts');
@@ -64,6 +157,12 @@ function syncCompare(rec) {
     els.lbTagSrc.textContent = `Source #${source.id}`;
     els.lbTagPass.textContent = `Pass #${rec.id}`;
     els.lbSplit.setAttribute('aria-label', 'Divider: the source left of it, the pass right');
+  } else if (source && kind === 'picked') {
+    els.lbSrcImg.alt = pickedTag(source, pair);
+    els.lbTagSrc.textContent = clip(pickedTag(source, pair));
+    els.lbTagPass.textContent = clip(pickedTag(rec, pair));
+    const [left, right] = pair;
+    els.lbSplit.setAttribute('aria-label', `Divider: #${left.id} left of it, #${right.id} right`);
   } else if (source) {
     // Named by CFG, the lower on the left (layoutCompare) and said so.
     els.lbSrcImg.alt = `#${source.id}, ${cfgName(source)}`;
@@ -75,6 +174,8 @@ function syncCompare(rec) {
   const said = lbCompareSaid?.id === rec.id ? lbCompareSaid.text : '';
   const note = said || (kind === 'source' ? sourceNote(rec, source) : on ? cfg.note : '');
   if (els.lbCompareNote.textContent !== note) els.lbCompareNote.textContent = note;
+  els.lbCompareNote.title = kind === 'picked' && on ? cfg.full : '';
+  for (const tag of [els.lbTagSrc, els.lbTagPass]) tag.classList.toggle('picked', kind === 'picked');
 }
 
 // Whether the CFG part of the comparison is drawn. From 901 px always, held
@@ -97,7 +198,7 @@ function cfgShown(rec, on) {
 
 // Compare with source, on a pass only: dead, saying why, where the source has
 // gone. Answers that reason, or '' where it can be pressed.
-function syncSourceCompare(rec, on) {
+function syncSourceCompare(rec, on, shortcut = true) {
   const pass = rec.refine != null;
   els.lbCompareOn.hidden = !pass;
   if (!pass) return '';
@@ -105,7 +206,9 @@ function syncSourceCompare(rec, on) {
   els.lbCompareOn.setAttribute('aria-pressed', String(on));
   els.lbCompareOn.setAttribute('aria-disabled', String(gone));
   const why = gone ? `#${rec.refine}, the image this was refined from, ${rec.refine_binned ? 'is in the recycle bin' : 'has been deleted'}` : '';
-  els.lbCompareOn.title = why || `Compare this pass with #${rec.refine}, the image it was refined from, at the same crop (S)`;
+  if (shortcut) els.lbCompareOn.setAttribute('aria-keyshortcuts', 'S');
+  else els.lbCompareOn.removeAttribute('aria-keyshortcuts');
+  els.lbCompareOn.title = why || `Compare this pass with #${rec.refine}, the image it was refined from, at the same crop${shortcut ? ' (S)' : ''}`;
   return why;
 }
 
@@ -128,8 +231,8 @@ function sourceNote(rec, source) {
 // they step along CFG (`cfg`), and Shift+arrows move a swipe's divider
 // (`divider`). Del moves the image to the recycle bin, and deletes one
 // already there for good (`binned`).
-function lbKeysLine({ passes = false, cfg = false, divider = false, binned = false } = {}) {
-  const keys = [['← →', passes ? 'passes' : cfg ? 'CFG' : 'walk'], ...(divider ? [['Shift+← →', 'divider']] : []),
+function lbKeysLine({ passes = false, cfg = false, picked = false, divider = false, binned = false } = {}) {
+  const keys = [['← →', passes ? 'passes' : cfg ? 'CFG' : picked ? 'picked' : 'walk'], ...(divider ? [['Shift+← →', 'divider']] : []),
     ['F', 'star'], ['R', 'refine'], ['S', 'compare'], ['Del', binned ? 'delete permanently' : 'bin'],
     ['0', 'fit'], ['1', '1:1'], ['+/−', 'zoom'], ['Esc', 'close']];
   return keys.map(([key, does]) => `${key.replaceAll(' ', '\u00a0').replace('/', '/\u2060')}\u00a0${does}`)
@@ -151,7 +254,8 @@ async function toggleCompare(mode = null, kind = null) {
     else if (mode !== lbCompare.mode) setCompare(rec.id, mode);
     return;
   }
-  kind ??= rec.refine != null ? 'source' : 'cfg';
+  kind ??= pickedPair(rec) ? 'picked' : rec.refine != null ? 'source' : 'cfg';
+  if (kind === 'picked') { comparePickedPair(rec, mode); return; }
   if (kind === 'cfg') { compareCfg(rec, null, mode); return; }
   if (rec.refine == null) return;
   const source = await compareSource(rec);
@@ -207,7 +311,7 @@ function setCompare(id, mode = lbCompare.mode) {
   // top of the dialog or out of it: it goes to the toggle that brings the
   // divider back instead: the toggle of the kind that was on.
   if (held && els.lbSplit.hidden) {
-    (lbCompare.kind === 'cfg' || els.lbCompareOn.hidden ? els.lbCompareCfg : els.lbCompareOn).focus({ preventScroll: true });
+    (['cfg', 'picked'].includes(lbCompare.kind) || els.lbCompareOn.hidden ? els.lbCompareCfg : els.lbCompareOn).focus({ preventScroll: true });
   }
 }
 
@@ -229,12 +333,13 @@ async function lbSourceFailed() {
   setCompare(null);
   lbCompareSaid = { id: rec.id, text: `#${source.id} could not be loaded` };
   syncCompare(rec);
-  if (kind !== 'cfg') return;
+  if (!['cfg', 'picked'].includes(kind)) return;
   try {
     await api(`/api/images/${source.id}`);
   } catch (err) {
     if (!/unknown image/.test(err.message)) return;
-    forgetLadderImages(new Set([source.id]));
+    if (kind === 'picked') forgetImages([source.id]);
+    else forgetLadderImages(new Set([source.id]));
     if (lbList[lbIndex] !== rec || lbCompareSaid?.id !== rec.id) return;
     lbCompareSaid = { id: rec.id, text: `#${source.id} is no longer in the gallery` };
     syncCompare(rec);
@@ -253,7 +358,7 @@ async function lbSourceFailed() {
 // (10%), Home and End move it either way, as a slider's do.
 function lbSplitKey(e) {
   const arrow = e.key === 'ArrowLeft' || e.key === 'ArrowRight';
-  if (arrow && !e.shiftKey && (lbSiblingPass(1) >= 0 || cfgArrows())) return;
+  if (arrow && !e.shiftKey && (lbSiblingPass(1) >= 0 || cfgArrows() || lbCompare.kind === 'picked')) return;
   const to = {
     ArrowLeft: lbCompare.split - 0.02, ArrowRight: lbCompare.split + 0.02,
     PageDown: lbCompare.split - 0.1, PageUp: lbCompare.split + 0.1, Home: 0, End: 1,

@@ -488,7 +488,14 @@ Shift picks a range from the last card picked, and Enter still opens the
 lightbox. Without Select, Ctrl+click picks a card and Shift+click (or
 Ctrl+Shift+click) picks the range from it. The selection survives searches, filters and paging; its count
 says how many picked images the current view does not show. **Clear** or
-Esc empties it, and a second Esc leaves select mode. **Picked → Seeds to grid**
+Esc empties it, and a second Esc leaves select mode. Pick exactly two images, then choose **Picked > Compare picked** (also in
+the picked-card context menu). Matching aspect ratios are required; their
+checkpoints or pixel sizes may differ. The first picked image stays left;
+Swipe/Side by side, zoom, divider keys and arrows work on the pair. Labels
+show recorded settings that differ and prompt changes. Refine and Cancel
+restore the pair unless a member was binned/deleted in the meantime.
+
+**Picked → Seeds to grid**
 opens the grid and fills its Seed list with distinct picked seeds, in picked
 order. Other axes and composer fields stay as they are. Unsafe browser
 numbers are held with a reason; the normal server preview reports grid
@@ -597,7 +604,7 @@ naming the run, its image count and the checkpoint it was made on.
 | --- | --- |
 | Anywhere | Ctrl/Cmd+Enter generates; inside an open Grid field runs the grid; in Refine runs the pass; in Refine… (Mass refine) runs the batch; in Swap tags queues; in More seeds… queues the batches |
 | Gallery | Tab enters the cards; arrows/Home/End navigate, Enter opens, F stars; in select mode Space picks, Shift+Space picks a range, Esc clears |
-| Lightbox | Left/Right browse, F stars, R opens Refine, S compares a pass with its source or another image with its CFG neighbour, Delete moves the image to the recycle bin (in the bin: asks to delete it permanently), Esc closes |
+| Lightbox | Left/Right browse, F stars, R opens Refine, S toggles the picked pair, or otherwise compares a pass with its source or an image with its CFG neighbour, Delete moves the image to the recycle bin (in the bin: asks to delete it permanently), Esc closes |
 | Lightbox zoom | Wheel or +/− zoom, drag pans, 0 fits, 1 or double-click shows actual pixels |
 | Right-click an image | A menu of its actions: Star, Reuse settings, Use seed, More seeds of this batch…, Refine…, Inpaint…, Outpaint…, reference, Show run as sheet, Copy prompt / seed / image, Open PNG in new tab, Move to recycle bin. On a picked card: the picks' actions. The Menu key or Shift+F10 opens it from the keyboard; Shift+right-click gives the browser's own menu |
 | Contact sheet | Arrows move between populated cells; Home/End use row ends, Ctrl+Home/End the corners. Tab reaches the current cell's star; Enter/Space opens its lightbox, F stars |

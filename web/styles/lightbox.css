@@ -80,6 +80,7 @@
   color: #fff; font-size: var(--fs-label);
 }
 .lb-tag.end { transform: translateX(-100%); }
+.lb-tag.picked { max-width: calc(50% - 16px); overflow: hidden; text-overflow: ellipsis; }
 /* The column: the cross and the counter, the prompt and the facts, then the
    controls pinned to the bottom, where they stay put from one image to the
    next however long its prompt is. */
@@ -169,7 +170,7 @@
 .lb-compare .hint { margin: 0; }
 .lb-compare .hint:empty { display: none; }
 :is(#lb-compare-on, #lb-compare-cfg)[aria-pressed="true"] { color: var(--text); border-color: var(--accent-2); }
-:is(#lb-compare-on, #lb-compare-cfg[aria-keyshortcuts="S"])::after { content: 'S' / ''; }
+:is(#lb-compare-on[aria-keyshortcuts="S"], #lb-compare-cfg[aria-keyshortcuts="S"])::after { content: 'S' / ''; }
 .lb-modes { display: flex; gap: var(--sp-2); }
 .lb-modes .ghost { flex: 1 1 0; white-space: nowrap; }
 .lb-modes .ghost[aria-pressed="true"] { color: var(--text); border-color: var(--accent-2); }

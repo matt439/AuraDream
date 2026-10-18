@@ -12,6 +12,10 @@
 // there (dismissLightbox), not to a card a screen down.
 let lbOrigin = null;
 function openLightbox(rec, list, origin = null) {
+  if (list !== lbList && lbPickedPair.length) {
+    lbPickedPair = [];
+    if (lbCompare.kind === 'picked') setCompare(null);
+  }
   if (!els.lightbox.open) lbOrigin = origin;
   lbList = list && list.includes(rec) ? list : [rec];
   lbIndex = lbList.indexOf(rec);
@@ -40,7 +44,8 @@ const ZOOM_STEP = 1.25;
 // pass is compared with the part of the source it kept. On for the record it
 // was turned on for (`id`); a step to another image ends it, and the mode is
 // kept for the next. `kind` says which comparison it is: 'source', a pass
-// against the image it was refined from, or 'cfg', any image against another
+// against the image it was refined from, 'picked', an explicit two-image
+// pair in picked order, or 'cfg', any image against another
 // that differs from it in CFG alone (lightbox-cfg.js), whose `ladder` is the
 // set of them sorted by CFG, built once when it is turned on. `source` is the
 // other image either way - the partner - drawn on the layer over this one.
@@ -228,8 +233,10 @@ function layoutLightbox() {
   // which way they go, or would on a press (lbStacked): before the press it
   // said "left of the pass" where the press stacked them. In the words of
   // the comparison on, or of the one a press would turn on.
-  const cfg = comparing ? lbCompare.kind === 'cfg' : rec.refine == null;
-  const [first, second] = cfg ? ['The lower CFG', 'the higher'] : ['The source', 'the pass'];
+  const picked = comparing ? lbCompare.kind === 'picked' : !!pickedPair(rec);
+  const cfg = comparing ? lbCompare.kind === 'cfg' : rec.refine == null && !picked;
+  const [first, second] = picked
+    ? ['The first picked image', 'the second'] : cfg ? ['The lower CFG', 'the higher'] : ['The source', 'the pass'];
   const sides = split ? `${first} above ${second}, each fitted to half the stage: larger here than left and right`
     : `${first} left of ${second}, each fitted to half the stage`;
   // Held, its title is the reason instead (syncCompare), put back from here.
@@ -370,6 +377,7 @@ function layoutCompare(rec, ports, pass, boxIn, rectOf) {
 // first: "#12" and "#14" for a pass and its source, as ever; "CFG 2 (#41)"
 // for a CFG comparison.
 function compareNames(rec, partner, swapped) {
+  if (lbCompare.kind === 'picked') return swapped ? [`#${rec.id}`, `#${partner.id}`] : [`#${partner.id}`, `#${rec.id}`];
   if (lbCompare.kind !== 'cfg') return [`#${partner.id}`, `#${rec.id}`];
   const name = (r) => `${cfgName(r)} (#${r.id})`;
   return swapped ? [name(rec), name(partner)] : [name(partner), name(rec)];
@@ -378,8 +386,9 @@ function compareNames(rec, partner, swapped) {
 // Whether the image in view has the lower CFG of a CFG comparison, and so
 // takes the left side (layoutCompare).
 function lbSwapped(rec) {
-  return lbCompare.id === rec.id && lbCompare.kind === 'cfg' && !!lbCompare.source
-    && rec.guidance_scale < lbCompare.source.guidance_scale;
+  if (lbCompare.id !== rec.id || !lbCompare.source) return false;
+  return lbCompare.kind === 'picked' ? lbCompare.ladder[0]?.id === rec.id
+    : lbCompare.kind === 'cfg' && rec.guidance_scale < lbCompare.source.guidance_scale;
 }
 
 // Zoom by a factor about a point (cx, cy) given relative to the viewport's
@@ -639,6 +648,7 @@ function closeLightbox({ keepPicker = false } = {}) {
   lbCompare.id = null;
   lbCompare.source = null;
   lbCompare.ladder = [];
+  lbPickedPair = [];
   lbCompareSaid = null;
   lbCfgShown = { id: null, shown: false };  // lightbox-compare.js's cfgShown
   lbSources.clear();
@@ -709,20 +719,33 @@ function lightboxPlace() {
   } : null;
   return {
     rec, list: lbList, gallery: lbList === galleryRecords, viewer: lbList === viewerRecords,
-    view: { ...lbView }, compare,
+    view: { ...lbView }, compare, picked: [...lbPickedPair],
   };
 }
 
 function returnToLightbox(place) {
   const live = place.gallery ? galleryRecords : place.viewer ? viewerRecords : place.list;
-  const list = live.some((r) => r.id === place.rec.id) ? live : place.list;
-  openLightbox(list.find((r) => r.id === place.rec.id) ?? place.rec, list);
+  const fromPair = !!place.picked?.length;
+  const held = live.some((r) => r.id === place.rec.id) ? live : place.list;
+  // A saved pair is outside the live strips while Refine is open. A delete
+  // or bin meanwhile must not reopen that saved image or its comparison.
+  const list = fromPair ? held.filter((r) => !isGone(r.id)) : held;
+  const wanted = list.find((r) => r.id === place.rec.id) ?? (fromPair ? list[0] : place.rec);
+  if (!wanted) {
+    [currentCard()?.querySelector('img'), els.search, els.generate].find((el) => el && isShown(el))?.focus({ preventScroll: true });
+    return;
+  }
+  openLightbox(wanted, list);
   const rec = lbList[lbIndex];
+  const pair = (place.picked ?? []).filter((r) => !isGone(r.id));
+  lbPickedPair = pair.length === 2 ? pair : [];
   // The comparison before the view: a scale is relative to the fit of the
   // boxes it was taken in, and side by side that is half the stage - put on
   // the whole of it, a 1:1 came back at 166%.
   // A CFG partner deleted meanwhile is not put back.
-  if (place.compare && !(place.compare.kind === 'cfg' && deletedIds.has(place.compare.source.id))) {
+  if (place.compare && (!fromPair || rec.id === place.rec.id)
+      && !(isGone(place.compare.source.id) && (fromPair || ['cfg', 'picked'].includes(place.compare.kind)))
+      && (place.compare.kind !== 'picked' || pickedPair(rec))) {
     // A pass's source back in the cache; a CFG comparison's ladder as it was
     // frozen, less anything deleted meanwhile.
     if (place.compare.kind === 'source') lbSources.set(rec.refine, place.compare.source);
@@ -732,6 +755,7 @@ function returnToLightbox(place) {
     lbCompare.split = place.compare.split;
     setCompare(rec.id, place.compare.mode);
   }
+  syncCompare(rec);
   if (lbView.aspect === place.view.aspect) {
     Object.assign(lbView, place.view);
     // Within this window's limits, which a resize meanwhile can have moved.
