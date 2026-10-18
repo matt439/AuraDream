@@ -8,7 +8,7 @@ An index of open work, one row per item; each row points to the doc that owns th
 
 **Aim (2026-10-18):** keep useful work ready for Matt's common workstation tasks. The queue below can proceed on CPU and disposable fake-server galleries, independently of whole-app layout trials. [Reported use](docs/design/preferences.md) guides priority; it does not approve the candidate redesign.
 
-**Ready backlog:** 6 `OPEN` tasks can be completed with CPU/browser evidence. One further `OPEN` item, the upscaler (`GEN#5`), can be built but needs a separate card pass before closure.
+**Ready backlog:** 6 `OPEN` tasks can be completed with CPU/browser evidence. The upscaler (`GEN#5`) also remains `OPEN`: it first needs a verified author-weight checksum, then implementation and a separate card pass. The official metadata checked tonight has no digest, and this run excludes weight downloads.
 
 1. **Continue a run (`GEN#11`):** build phase 2 in dependency order: persistence, Finish service/API, then page actions and restart smoke. These are stages of one feature. [Execution slices](docs/plan-continue-run.md#phase-2-execution-slices).
 
