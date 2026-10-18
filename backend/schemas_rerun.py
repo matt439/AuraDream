@@ -71,6 +71,58 @@ class RerenderAccepted(JobAccepted):
     planned: int = 0
 
 
+class RunAction(BaseModel):
+    """A run action's availability, including the reason a press is held."""
+
+    available: bool
+    reason: str = ""
+    count: int = 0
+
+
+class FinishRunRequest(BaseModel):
+    """Pin the missing cells the user previewed, without a composer payload."""
+
+    expected: str | None = Field(default=None, pattern=r"^[0-9a-f]{16}$")
+
+
+class FinishRunPreview(BaseModel):
+    run_id: str
+    available: bool
+    reason: str = ""
+    total: int = 0
+    cells: int = 0
+    images: int = 0
+    rendered: int = 0
+    queued: int = 0
+    # Previously completed cells now missing, redrawn by this submission.
+    redrawn: int = 0
+    budget_minutes: float | None = None
+    pin: str
+
+
+class RunDetails(BaseModel):
+    run_id: str
+    model_id: str
+    quantization: str | None = None
+    width: int
+    height: int
+    batch: int
+    comparison: bool = False
+    images: int = 0
+    binned: int = 0
+    cells: int = 0
+    actions: dict[str, RunAction]
+
+
+class FinishRunAccepted(JobAccepted):
+    cells: int
+    images: int
+    pruned: int = 0
+    planned: int = 0
+    redrawn: int = 0
+    budget_minutes: float | None = None
+
+
 class TagSwap(BaseModel):
     """One row of Swap tags: the comma items to find, what goes in their place."""
 

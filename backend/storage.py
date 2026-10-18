@@ -1712,6 +1712,7 @@ def retained_run_jobs(run_id: str | None = None) -> list[dict[str, Any]]:
     """
     from .grid import Cell
     from .schemas import GenerateRequest
+    from .seeds import MAX_SEED
 
     where = " WHERE run_id = ?" if run_id is not None else ""
     with _session() as conn:
@@ -1724,13 +1725,40 @@ def retained_run_jobs(run_id: str | None = None) -> list[dict[str, Any]]:
         item = dict(row)
         try:
             raw = json.loads(gzip.decompress(item["cells"]))
+            if not isinstance(raw, list):
+                raise ValueError("cells must be a list")
+            for cell in raw:
+                if (not isinstance(cell, dict) or type(cell.get("seed")) is not int
+                        or not 0 <= cell["seed"] <= MAX_SEED
+                        or cell.get("label") is not None and not isinstance(cell["label"], str)
+                        or cell.get("variables") is not None and (
+                            not isinstance(cell["variables"], dict)
+                            or not all(isinstance(key, str) and isinstance(value, str)
+                                       for key, value in cell["variables"].items()))):
+                    raise ValueError("invalid retained cell")
             item["cells"] = [Cell(
                 request=GenerateRequest.model_validate(cell["request"]), seed=cell["seed"],
                 label=cell["label"], variables=cell["variables"],
             ) for cell in raw]
             item["metadata"] = json.loads(item["metadata"])
             item["outcome"] = json.loads(item["outcome"]) if item["outcome"] is not None else None
-        except (ValueError, TypeError, KeyError, OSError, EOFError) as exc:
+            metadata, outcome = item["metadata"], item["outcome"]
+            if not isinstance(metadata, dict) or outcome is not None and not isinstance(outcome, dict):
+                raise ValueError("invalid retained metadata or outcome")
+            budget = metadata.get("budget_minutes")
+            if budget is not None and (type(budget) not in (int, float) or not 0 < budget <= 7 * 24 * 60):
+                raise ValueError("invalid retained budget")
+            if metadata.get("prompt_template") is not None and not isinstance(metadata["prompt_template"], str):
+                raise ValueError("invalid retained prompt template")
+            if outcome is not None:
+                indices = outcome.get("completed_indices", [])
+                if not isinstance(indices, list) or any(type(index) is not int for index in indices):
+                    raise ValueError("invalid retained completion indices")
+                if outcome.get("finished_at") is not None:
+                    if type(outcome["finished_at"]) not in (int, float):
+                        raise ValueError("invalid retained finish time")
+                    datetime.fromtimestamp(outcome["finished_at"], timezone.utc)
+        except (ValueError, TypeError, KeyError, OSError, EOFError, OverflowError) as exc:
             raise ValueError(f"the saved cells of job {row['job_id']} cannot be read by this build") from exc
         item["comparison"] = bool(item["comparison"])
         jobs.append(item)

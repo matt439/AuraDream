@@ -346,7 +346,7 @@ class JobManager:
         self._jobs: dict[str, Job] = {}
         self._pool = ThreadPoolExecutor(max_workers=1, thread_name_prefix="gen")
         self._gate = asyncio.Lock()
-        # Opt-in admission for reruns that subtract live cells: hold from
+        # Opt-in admission for reruns and continuations that subtract live cells: hold from
         # the queue snapshot through gallery reads and every submit_cells
         # await (outpaint stamping and mask holds included). Ordinary
         # Generate and deliberate repeats do not take it.

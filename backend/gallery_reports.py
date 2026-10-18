@@ -9,7 +9,9 @@ the tests' replacement of `storage.settings` reaches these queries too.
 from __future__ import annotations
 
 import json
+import logging
 import sqlite3
+from datetime import datetime, timezone
 from collections.abc import Sequence
 from typing import Any
 
@@ -20,6 +22,8 @@ from .grid import VARIANT
 from .refine import start_index
 from .schemas import RunSummary
 from .search import TRUE_CFG_SQL, strict_scope
+
+log = logging.getLogger(__name__)
 
 
 def human_bytes(n: int | float) -> str:
@@ -315,4 +319,45 @@ def runs(limit: int = 20, model_id: str | None = None) -> list[RunSummary]:
                 ),
             )
         )
-    return summaries
+    # Retained jobs can exist before their first image, or after every image
+    # was permanently deleted. Keep those runs discoverable after restart.
+    # Entirely binned runs stay in the bin, as before; this adds only runs
+    # with no row at all. Read/decompress only these recovery candidates.
+    with storage._session() as conn:
+        recoverable = conn.execute(
+            f"""SELECT run_id FROM run_jobs r
+                WHERE NOT EXISTS (SELECT 1 FROM images i WHERE i.run_id = r.run_id)
+                {'AND model_id = ?' if model_id else ''}
+                GROUP BY run_id ORDER BY MAX(created_at) DESC LIMIT ?""",
+            (*scope_params, limit),
+        ).fetchall()
+    for candidate in reversed(recoverable):
+        try:
+            saved = storage.retained_run_jobs(candidate["run_id"])
+        except ValueError as exc:
+            # One obsolete/corrupt recovery row must not take the whole
+            # Runs picker down. Its direct action endpoint still says why
+            # those cells cannot be read; never invent summary metadata.
+            log.warning("omitting unreadable retained run %s: %s", candidate["run_id"], exc)
+            continue
+        if not saved or not saved[0]["cells"]:
+            continue
+        first, last = saved[0], saved[-1]
+        cells = [cell for job in saved for cell in job["cells"]]
+        request = first["cells"][0].request
+        stamp = lambda value: datetime.fromtimestamp(value, timezone.utc).isoformat()
+        recovered = RunSummary(
+            run_id=first["run_id"], images=0, distinct=0, favorites=0,
+            prompts=len({cell.request.prompt for cell in cells}), jobs=len(saved),
+            prompt=first["metadata"].get("prompt_template") or request.prompt,
+            seed=first["cells"][0].seed, model_id=first["model_id"],
+            quantization=first["quantization"], width=first["width"], height=first["height"],
+            started_at=stamp(first["created_at"]),
+            finished_at=stamp((last.get("outcome") or {}).get("finished_at") or last["created_at"]),
+        )
+        # Preserve the existing live runs' id order, while inserting an empty
+        # run near the time it began. A just-submitted zero-image run leads.
+        position = next((index for index, summary in enumerate(summaries)
+                         if summary.started_at <= recovered.started_at), len(summaries))
+        summaries.insert(position, recovered)
+    return summaries[:limit]

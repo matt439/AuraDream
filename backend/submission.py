@@ -289,6 +289,16 @@ def mask_unusable(request: GenerateRequest) -> str | None:
     return None
 
 
+async def rendered_keys(
+    services: AppServices, cells: list[grid.Cell], width: int, height: int
+) -> set[grid.CellKey]:
+    """Gallery keys at one size, including binned rows, off the event loop."""
+    return await asyncio.to_thread(
+        storage.completed_cells, grid.prompts_of(cells), width, height,
+        services.model_id(), services.quantization(),
+    )
+
+
 async def not_yet_rendered(
     services: AppServices, cells: list[grid.Cell], width: int, height: int
 ) -> list[grid.Cell]:
@@ -299,14 +309,7 @@ async def not_yet_rendered(
     at CFG 0 never saw is None on both sides rather than on one. Off the
     loop: up to three chunked scans, fired by the preview on every keystroke.
     """
-    done = await asyncio.to_thread(
-        storage.completed_cells,
-        grid.prompts_of(cells),
-        width,
-        height,
-        services.model_id(),
-        services.quantization(),
-    )
+    done = await rendered_keys(services, cells, width, height)
     return [
         cell
         for cell in cells

@@ -229,6 +229,11 @@ def create_router(services: AppServices) -> APIRouter:
 
     @router.post("/api/more-seeds", response_model=MoreSeedsAccepted)
     async def more_seeds_submit(request: MoreSeedsRequest) -> MoreSeedsAccepted:
+        async with services.jobs().rerun_admission:
+            return await submit_more_seeds(request)
+
+
+    async def submit_more_seeds(request: MoreSeedsRequest) -> MoreSeedsAccepted:
         """Queue `count` more images of every selected batch.
 
         The sixth producer of cells: each batch's next seeds, consecutive ones

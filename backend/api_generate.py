@@ -2,10 +2,14 @@
 from __future__ import annotations
 
 import asyncio
+import hashlib
+import json
+from dataclasses import dataclass
 
 from fastapi import APIRouter, HTTPException
 
-from . import gallery_reports, grid, submission
+from . import gallery_reports, grid, storage, submission
+from .api_more_seeds import more_seeds_plan
 from .app_context import AppServices
 from .schemas import (
     GenerateRequest,
@@ -15,7 +19,11 @@ from .schemas import (
     RerenderAccepted,
     RerenderGone,
     RerenderRequest,
+    MoreSeedsRequest,
     error_detail,
+)
+from .schemas_rerun import (
+    FinishRunAccepted, FinishRunPreview, FinishRunRequest, RunAction, RunDetails,
 )
 
 
@@ -119,9 +127,191 @@ def foreign_refusal(
     return f"{lead} Untick All models{search}."
 
 
+@dataclass
+class FinishPlan:
+    preview: FinishRunPreview
+    definition: dict | None
+    cells: list[grid.Cell]
+    records: list
+    refusal_code: int = 409
+
+
+def _finish_key(services: AppServices, cell: grid.Cell) -> tuple:
+    ran = grid.Cell(request=services.backend().applied(cell.request), seed=cell.seed)
+    return cell.request.width, cell.request.height, tuple(grid.cell_keys(ran))
+
+
+async def finish_plan(services: AppServices, run_id: str) -> FinishPlan:
+    """Resolve retained cells without the composer, preserving stored order.
+
+    Snapshot the queue before any gallery read. Submit holds rerun_admission
+    across this complete plan and submit_cells, including its disk awaits.
+    """
+    planned = services.jobs().planned_keys()
+    try:
+        definitions, records = await asyncio.gather(
+            asyncio.to_thread(storage.retained_run_jobs, run_id),
+            asyncio.to_thread(storage.lineage_images, [run_id], []),
+        )
+    except ValueError as exc:
+        raise HTTPException(status_code=422, detail=str(exc)) from exc
+    if not definitions and not records:
+        raise HTTPException(status_code=404, detail="unknown run")
+
+    definition = definitions[0] if definitions else None
+    saved_job_ids = {saved["job_id"] for saved in definitions}
+    cells: list[grid.Cell] = []
+    keys: set[tuple] = set()
+    succeeded: set[tuple] = set()
+    for saved in definitions:
+        for cell in saved["cells"]:
+            key = _finish_key(services, cell)
+            if key not in keys:
+                keys.add(key)
+                cells.append(cell)
+        for index in (saved.get("outcome") or {}).get("completed_indices", []):
+            if isinstance(index, int) and 0 <= index < len(saved["cells"]):
+                succeeded.add(_finish_key(services, saved["cells"][index]))
+
+    budget = definition["metadata"].get("budget_minutes") if definition else None
+    reason = ""
+    if definition is None:
+        reason = "made before runs kept their cells: use the panel's Resume tick"
+    elif any(saved["model_id"] != services.model_id() for saved in definitions):
+        reason = f"made on {definition['model_id']}; the server is running {services.model_id()}"
+    elif any(saved["quantization"] != services.quantization() for saved in definitions):
+        reason = f"made under {definition['quantization']}; every cell would render again under {services.quantization()}"
+    elif not cells:
+        reason = "this run has no retained cells"
+
+    missing: list[grid.Cell] = []
+    kept: list[grid.Cell] = []
+    rendered = queued = 0
+    if not reason:
+        by_size: dict[tuple[int, int], list[grid.Cell]] = {}
+        for cell in cells:
+            by_size.setdefault((cell.request.width, cell.request.height), []).append(cell)
+        missing_ids: set[int] = set()
+        matched_any = False
+        for (width, height), group in by_size.items():
+            done = await submission.rendered_keys(services, group, width, height)
+            for cell in group:
+                image_keys = _finish_key(services, cell)[2]
+                matched_any |= any(key in done for key in image_keys)
+                if not all(key in done for key in image_keys):
+                    missing_ids.add(id(cell))
+        missing = [cell for cell in cells if id(cell) in missing_ids]
+        kept = submission.not_yet_planned(services, missing, planned)
+        rendered, queued = len(cells) - len(missing), len(missing) - len(kept)
+        live = next((job for job in services.jobs().active() if job.run_id == run_id), None)
+        if live is not None:
+            reason = f"the rest is queued in job {live.id}"
+        elif any(record.job_id in saved_job_ids for record in records) and not matched_any:
+            # A first retained job may itself be Resume: older completed
+            # prefix rows have no retained cells. They alone are not proof
+            # that this job's still-missing suffix drifted across builds.
+            reason = "this build no longer reproduces this run's cells"
+        elif not kept:
+            reason = "the missing cells are already queued" if queued else "nothing in this run is missing"
+
+    refusal_code = 409
+    if not reason:
+        checked: dict[tuple, tuple[str, str] | None] = {}
+        for cell in kept:
+            request = cell.request
+            try:
+                request.check_budget()
+                request.check_refine_steps()
+            except ValueError as exc:
+                reason, refusal_code = error_detail(exc), 422
+                break
+            spec = (request.refine, request.mask, request.outpaint, tuple(request.reference),
+                    request.lora, request.width, request.height)
+            if spec not in checked:
+                checked[spec] = await submission.unusable_input(services, request)
+            if checked[spec] is not None:
+                reason, refusal_code = checked[spec][1], 422
+                break
+
+    pin = hashlib.sha256(json.dumps(
+        [run_id, [_finish_key(services, cell) for cell in kept], budget],
+        separators=(",", ":"), ensure_ascii=True,
+    ).encode("utf-8")).hexdigest()[:16]
+    preview = FinishRunPreview(
+        run_id=run_id, available=not reason, reason=reason,
+        total=len(cells), cells=len(kept), images=sum(cell.request.num_images for cell in kept),
+        rendered=rendered, queued=queued,
+        redrawn=sum(_finish_key(services, cell) in succeeded for cell in kept),
+        budget_minutes=budget, pin=pin,
+    )
+    return FinishPlan(preview, definition, kept, records, refusal_code)
+
+
 def create_router(services: AppServices) -> APIRouter:
     """The routes, reading the app's state through `services` per request."""
     router = APIRouter()
+
+    @router.get("/api/runs/{run_id}", response_model=RunDetails)
+    async def run_details(run_id: str) -> RunDetails:
+        plan = await finish_plan(services, run_id)
+        definition, records = plan.definition, plan.records
+        first = records[0] if records else None
+        live = [record for record in records if record.binned_at is None]
+        made_on = definition["model_id"] if definition else first.model_id
+        seed_reason = (
+            f"made on {made_on}; the server is running {services.model_id()}"
+            if made_on != services.model_id() else
+            ("this run has no live images; restore binned images to add more seeds" if records
+             else "this run has no live images to extend") if not live else ""
+        )
+        seed_count = 0
+        if not seed_reason:
+            try:
+                _, results, batches = await more_seeds_plan(services, MoreSeedsRequest(run=run_id, count=1))
+                seed_count = sum(batch.status == "queued" for batch in batches)
+                if not seed_count:
+                    seed_reason = next((result.detail for result in results if result.detail), "no batch can add more seeds")
+            except HTTPException as exc:
+                seed_reason = str(exc.detail)
+        return RunDetails(
+            run_id=run_id, model_id=made_on,
+            quantization=definition["quantization"] if definition else first.quantization,
+            width=definition["width"] if definition else first.width,
+            height=definition["height"] if definition else first.height,
+            batch=definition["batch"] if definition else first.batch or 1,
+            comparison=definition["comparison"] if definition else False,
+            images=len(live), binned=len(records) - len(live), cells=plan.preview.total,
+            actions={
+                "finish": RunAction(available=plan.preview.available, reason=plan.preview.reason, count=plan.preview.cells),
+                "seeds": RunAction(available=not seed_reason, reason=seed_reason, count=seed_count),
+            },
+        )
+
+    @router.post("/api/runs/{run_id}/finish/preview", response_model=FinishRunPreview)
+    async def preview_finish(run_id: str) -> FinishRunPreview:
+        return (await finish_plan(services, run_id)).preview
+
+    @router.post("/api/runs/{run_id}/finish", response_model=FinishRunAccepted)
+    async def finish_run(run_id: str, request: FinishRunRequest | None = None) -> FinishRunAccepted:
+        async with services.jobs().rerun_admission:
+            plan = await finish_plan(services, run_id)
+            preview = plan.preview
+            if request is not None and request.expected is not None and request.expected != preview.pin:
+                raise HTTPException(status_code=409, detail="the run changed since the preview; check Finish run again")
+            if not preview.available:
+                raise HTTPException(status_code=plan.refusal_code, detail=preview.reason)
+            metadata = plan.definition["metadata"]
+            job = await services.jobs().submit_cells(
+                plan.cells, run_id=run_id, budget_minutes=preview.budget_minutes,
+                grid=metadata.get("grid", True), prompt_template=metadata.get("prompt_template"),
+                comparison=plan.definition["comparison"], swap=metadata.get("swap"),
+                refine_batch=metadata.get("refine_batch"), more_seeds=metadata.get("more_seeds"),
+            )
+            return FinishRunAccepted(
+                job_id=job.id, seed=job.seed, run_id=run_id, cells=preview.cells, images=preview.images,
+                pruned=preview.rendered, planned=preview.queued, redrawn=preview.redrawn,
+                budget_minutes=preview.budget_minutes,
+            )
 
     @router.post("/api/generate", response_model=JobAccepted)
     async def generate(request: GenerateRequest) -> JobAccepted:
@@ -143,6 +333,13 @@ def create_router(services: AppServices) -> APIRouter:
 
     @router.post("/api/grid", response_model=JobAccepted)
     async def run_grid(request: GridRequest) -> JobAccepted:
+        if request.resume:
+            async with services.jobs().rerun_admission:
+                return await submit_grid(request)
+        return await submit_grid(request)
+
+
+    async def submit_grid(request: GridRequest) -> JobAccepted:
         """Queue a sweep over the sampling axes as one job.
 
         One job rather than one per cell: a grid is a night's work, and it has to be

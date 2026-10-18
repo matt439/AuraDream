@@ -368,7 +368,7 @@ async def hold_model_for_request(request: Request, call_next):
         "/api/loras", "/api/png/settings",
         "/api/model/load", "/api/model/unload",
         "/api/gallery/unstarred",
-    } or path.startswith(("/api/grid/", "/api/prompt/", "/api/tags/"))
+    } or path.startswith(("/api/grid/", "/api/prompt/", "/api/tags/", "/api/runs/"))
     selects_model = path == "/api/model/switch"
     if not depends_on_model and not selects_model:
         return await call_next(request)
