@@ -13,7 +13,7 @@ from __future__ import annotations
 import hashlib
 import time
 from collections.abc import Callable, Sequence
-from datetime import datetime, timezone
+from datetime import datetime, timedelta, timezone
 from typing import Any
 
 from . import gallery_lock, storage
@@ -364,7 +364,46 @@ def restore_images(ids: Sequence[int]) -> dict[str, list[int]]:
     return {"restored": restored, "not_binned": not_binned, "missing": missing}
 
 
-def bin_summary() -> dict[str, Any]:
+def bin_cutoff(older_than_days: int, now: datetime | None = None) -> str:
+    """The `binned_at` an age-scoped Empty recycle bin keeps from: `now`
+    less `older_than_days`, as ISO UTC text like the column. The summary
+    answers it and the delete is sent it back, so the set is pinned to one
+    instant - an image crossing the age while the dialog is open neither
+    joins it nor changes its pin."""
+    return ((now or datetime.now(timezone.utc)) - timedelta(days=older_than_days)).isoformat()
+
+
+def parse_cutoff(before: str) -> datetime:
+    """A cutoff as `bin_cutoff` wrote it, aware; one without a zone is UTC,
+    as every stamp the gallery writes is. Raises ValueError otherwise."""
+    when = datetime.fromisoformat(before)
+    return when if when.tzinfo is not None else when.replace(tzinfo=timezone.utc)
+
+
+def _binned_before(stamp: Any, cutoff: datetime) -> bool:
+    """Whether a row's `binned_at` is earlier than `cutoff`. A stamp that
+    does not parse is never old enough: an age-scoped empty deletes only
+    what it can date, and the whole Empty recycle bin still takes it."""
+    try:
+        when = parse_cutoff(stamp)
+    except (TypeError, ValueError):
+        return False
+    return when < cutoff
+
+
+def _binned_rows(conn, before: str | None) -> list:
+    """The binned rows (`id`, `filename`), all of them or, with `before`,
+    those binned earlier than it."""
+    rows = conn.execute(
+        "SELECT id, filename, binned_at FROM images WHERE binned_at IS NOT NULL"
+    ).fetchall()
+    if before is None:
+        return rows
+    cutoff = parse_cutoff(before)
+    return [row for row in rows if _binned_before(row["binned_at"], cutoff)]
+
+
+def bin_summary(before: str | None = None) -> dict[str, Any]:
     """How much is in the recycle bin, and which of it a live image needs.
 
     `bytes` is the binned PNGs and their thumbnails as they are on disk now,
@@ -372,9 +411,16 @@ def bin_summary() -> dict[str, Any]:
     ids a live image names as its refine source or a reference - the shape
     of `_STARRED_SOURCE`'s arms - which Empty recycle bin's confirmation
     names: those images can never be made again once it is emptied.
+
+    With `before` (`bin_cutoff`), `records`, `bytes`, `sources_in_use` and
+    `pin` describe only the images binned earlier than it - what an
+    age-scoped Empty would delete - and `bin_records` is still the whole
+    bin, so the confirmation can say how many stay.
     """
     with storage._session() as conn:
-        rows = conn.execute("SELECT id, filename FROM images WHERE binned_at IS NOT NULL").fetchall()
+        every = conn.execute("SELECT COUNT(*) FROM images WHERE binned_at IS NOT NULL").fetchone()[0]
+        rows = _binned_rows(conn, before)
+        scoped = {row["id"] for row in rows}
         names = [row["filename"] for row in rows]
         in_use = [
             row[0]
@@ -385,6 +431,7 @@ def bin_summary() -> dict[str, Any]:
                 " WHERE live.binned_at IS NULL AND live.reference IS NOT NULL"
                 " AND ref.type = 'integer') ORDER BY id"
             )
+            if row[0] in scoped
         ]
     size = 0
     for name in names:
@@ -395,7 +442,7 @@ def bin_summary() -> dict[str, Any]:
             except OSError:
                 continue
     return {"records": len(names), "bytes": size, "sources_in_use": in_use,
-            "pin": bin_pin(row["id"] for row in rows)}
+            "pin": bin_pin(scoped), "bin_records": every, "before": before}
 
 
 def bin_pin(ids) -> str:
@@ -463,29 +510,51 @@ def purge_images(
 
 @gallery_lock.protected(lambda: storage.settings.db_path)
 def empty_bin(
-    expected: int | None = None, pin: str | None = None, in_flight: InFlight | None = None
+    expected: int | None = None,
+    pin: str | None = None,
+    in_flight: InFlight | None = None,
+    before: str | None = None,
 ) -> dict[str, Any]:
-    """Delete every image in the recycle bin, rows and files, for good.
+    """Delete every image in the recycle bin, rows and files, for good - or,
+    with `before`, only those binned earlier than it (`bin_cutoff`).
 
     Fails fast on a busy gallery like `delete_matching`, and like it pins
     what the confirmation showed: `expected`, its count, and `pin`, its ids
-    (`bin_summary`'s `bin_pin`). A bin another tab changed while the dialog
-    was open raises `SelectionChanged` and deletes nothing - with the count
-    unchanged too, as a Restore and a bin of another image leave it. The
-    rows go in one `DELETE ... RETURNING`, the files after the commit,
-    counted as `delete_matching` counts them, and then the masks no row
-    names any more (`sweep_masks`). No orphan sweep and no vacuum.
+    (`bin_summary`'s `bin_pin`, over the same `before`). A bin another tab
+    changed while the dialog was open raises `SelectionChanged` and deletes
+    nothing - with the count unchanged too, as a Restore and a bin of
+    another image leave it. The cutoff is the one the summary answered, not
+    recomputed here, so an image that ages past it meanwhile is not taken.
+    The whole bin goes in one `DELETE ... RETURNING`; an age-scoped one
+    takes SQLite's write lock (`BEGIN IMMEDIATE`) before it looks, so a
+    Restore cannot slip between the look and the delete. The files go after
+    the commit, counted as `delete_matching` counts them, and then the masks
+    no row names any more (`sweep_masks`). No orphan sweep and no vacuum.
     """
+    if before is not None:
+        parse_cutoff(before)  # A malformed cutoff is refused before any lock.
     with storage._write_lock, storage._session() as conn:
-        if expected is not None or pin is not None:
-            ids = [row[0] for row in conn.execute("SELECT id FROM images WHERE binned_at IS NOT NULL")]
+        if before is not None:
+            conn.execute("BEGIN IMMEDIATE")
+        if expected is not None or pin is not None or before is not None:
+            rows = _binned_rows(conn, before)
+            ids = [row["id"] for row in rows]
             if expected is not None and len(ids) != expected:
                 raise SelectionChanged(len(ids), expected)
             if pin is not None and bin_pin(ids) != pin:
                 raise SelectionChanged(len(ids), len(ids) if expected is None else expected)
-        doomed = conn.execute(
-            "DELETE FROM images WHERE binned_at IS NOT NULL RETURNING id, filename"
-        ).fetchall()
+        if before is None:
+            doomed = conn.execute(
+                "DELETE FROM images WHERE binned_at IS NOT NULL RETURNING id, filename"
+            ).fetchall()
+        else:
+            doomed = rows
+            for at in range(0, len(ids), 500):
+                chunk = ids[at:at + 500]
+                marks = ",".join("?" * len(chunk))
+                conn.execute(
+                    f"DELETE FROM images WHERE id IN ({marks}) AND binned_at IS NOT NULL", chunk
+                )
     removed = 0
     for row in doomed:
         path = storage.settings.outputs_dir / row["filename"]

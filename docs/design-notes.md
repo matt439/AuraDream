@@ -5671,6 +5671,30 @@ Files and masks use the permanent-delete bookkeeping, and `forgetImages`
 drops only the bin's picks while preserving gallery picks set aside outside
 it. This is separate from age-based Empty bin.
 
+**Age-scoped Empty bin (2026-10-19, `GAL#5`).** A select before Empty
+recycle bin - All, Older than 7 days, Older than 30 days - limits it to
+what has sat in the bin that long; this is the use `binned_at` was kept as
+a time for. The cutoff is a moment, not a day count: the summary
+(`?older_than_days=N`) fixes it once, server side, and answers it as
+`before`, with the count, size, sources in use and pin of exactly the rows
+binned earlier and `bin_records` for the whole bin, so the question can say
+how many binned since stay. The delete sends that `before` back and the
+server never recomputes it. A day count recomputed at delete time would
+let an image cross the boundary while the dialog was open and be deleted
+on a question that never counted it; the pin would catch it, but only as a
+puzzling 409. The comparison is done in Python on parsed stamps, not by
+SQLite text order, since a bundle can carry a stamp written without
+microseconds or a zone. One that does not parse is never "old enough":
+an age-scoped empty deletes only what it can date, and the whole Empty
+still takes it. The scoped path takes `BEGIN IMMEDIATE` before it looks,
+because it deletes by the ids it selected rather than in one statement,
+and a Restore must not land between. Everything after the rows - files,
+thumbnails, the job snapshots' `forget_images`, `sweep_masks` - is the
+whole Empty's. The page keeps the bin's newer cards in place and leaves
+tombstones for the deleted ones, as Delete picked permanently does,
+rather than reloading the view as an emptied bin does. The choice is not
+remembered: a reload, like the bin itself, starts at All.
+
 **The confirm guarded a step that could not be taken back, and so was
 asked every time.** Triage is a long run of ⌦ presses - most of a night's
 images go - and a question per press is answered without being read: the

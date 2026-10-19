@@ -814,6 +814,15 @@
              its reason where there is nothing to act on. -->
         <button type="button" class="ghost small" id="btn-restore-picked" hidden aria-disabled="true">↶ Restore picked</button>
         <button type="button" class="ghost small danger" id="btn-purge-picked" hidden aria-disabled="true">Delete picked permanently</button>
+        <!-- Which images Empty recycle bin takes: all of them, or only those
+             binned more than 7 or 30 days ago - the server fixes the cutoff
+             and counts them before the question. Not remembered. -->
+        <select id="bin-age" class="bin-age" hidden aria-label="Which images Empty recycle bin deletes"
+          title="Empty every image in the recycle bin, or only those binned more than 7 or 30 days ago">
+          <option value="">All</option>
+          <option value="7">Older than 7 days</option>
+          <option value="30">Older than 30 days</option>
+        </select>
         <button type="button" class="ghost small danger" id="btn-empty-bin" hidden aria-disabled="true">⌦ Empty recycle bin</button>
         <!-- What the gallery's own controls have to say - a sweep's outcome, a
              search term that is not a number, a card's refusal - said here, by

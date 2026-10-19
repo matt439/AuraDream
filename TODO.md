@@ -65,14 +65,6 @@ An index of open work, one row per item; each row points to the doc that owns th
 | `GEN#7` | DEFERRED | LOW | M | A Hugging Face access check before a switch releases the working model; the catalogue's gate word is static. [Switching](docs/design-notes.md#switching-checkpoints-while-the-server-stays-open). |
 | `GEN#8` | DEFERRED | LOW | L | U61 part B: one's own photo or sketch as a reference (import route, a source marker through storage, reindex and reruns; add, drop and paste). Matt deferred it 2026-10-05; only when he raises it. [References](docs/design-notes.md#reference-images-by-gallery-id). |
 
-## Gallery and storage
-
-**Owner:** the 2026-10-12 review's [feature ideas](docs/review-2026-10-12.md#feature-ideas) and its [not reached](docs/review-2026-10-12.md#review--2026-10-12) list.
-
-| id | status | sev | size | item |
-|---|---|---|---|---|
-| `GAL#5` | DEFERRED | LOW | M | Optional age-scoped Empty bin using `binned_at`; independent of Delete picked permanently, not needed for its completion (10-12 F5). |
-
 ## Prompt analyser
 
 **Owner:** the 2026-09-28 checklist's [What remains](docs/review-2026-09-28-checklist.md#what-remains) for the residues; the design notes' [prompt analyser](docs/design-notes.md#the-prompt-analyser) ("Open questions the build turned up") for the decisions.
@@ -102,7 +94,7 @@ Each review's remaining work is indexed above; closed findings stay in their own
 | 2026-10-03 | All confirmed findings and P1 fixed 2026-10-04. |
 | 2026-10-04 UI | All done but U61 B (`GEN#8`); U5, U12, U79, U100 and U108 were left by decision. |
 | 2026-10-05 areas | 84 fixed, A68 partly by decision; the integration review's K1-K5 fixed. |
-| 2026-10-12 | R1-R53 fixed; F1-F5, F7-F13 and F15-F19 built. F6's supported inpaint/outpaint paths are built; remaining families/measurements are `INP`/`CARD`. F14 remains `GEN#5`; F5's optional age-scoped emptying is deferred as `GAL#5`. |
+| 2026-10-12 | R1-R53 fixed; F1-F5, F7-F13 and F15-F19 built. F6's supported inpaint/outpaint paths are built; remaining families/measurements are `INP`/`CARD`. F14 remains `GEN#5`; F5's age-scoped emptying was built 2026-10-19 (`GAL#5`). |
 
 ---
 

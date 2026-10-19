@@ -231,7 +231,8 @@ before changing it.
   model-free
 - `backend/generate.py` — headless CLI; drives the backend directly, no server
 - `backend/clear.py` — deletes rows, their PNGs and any orphans, the recycle
-  bin's with the rest; `--bin` empties the bin alone
+  bin's with the rest; `--bin` empties the bin alone, `--bin --older-than
+  DAYS` only what was binned more than DAYS days ago
 - `backend/stats.py` — the starred *rate* per setting (`gallery_reports.keep_rates`),
   scoped to a run by default; `--by variant` gives a comparison's rate
   per version
@@ -893,6 +894,20 @@ Reproduction:
   --where` pins the count its prompt showed (`expected`, net of what
   `--keep-favorites` keeps) and answers a `SelectionChanged` with exit 1 and
   nothing deleted, as `--bin` does.
+- An age-scoped Empty (`GAL#5`: the bin's `#bin-age` select, `clear --bin
+  --older-than DAYS`) is pinned to a cutoff the server fixed:
+  `GET /api/gallery/bin/summary?older_than_days=N` computes it once
+  (`gallery_delete.bin_cutoff`) and answers it as `before`, its `records`,
+  `bytes`, `sources_in_use` and `pin` being those of the rows binned earlier
+  (`bin_records` the whole bin). `DELETE /api/gallery/bin` takes that
+  `before` back unchanged - never a day count recomputed at delete time -
+  and `empty_bin(before=...)` re-selects by it under `BEGIN IMMEDIATE`,
+  compares `expected` and `pin`, and deletes only those ids; files,
+  `forget_images` and `sweep_masks` follow as for the whole bin. Stamps are
+  compared parsed (no zone is UTC), never as text; an unparseable
+  `binned_at` is not old enough for a scoped empty. A malformed `before` is
+  422. The footer's count is the whole bin's: the page never shows a scoped
+  summary's `records` there.
 - Reference images are gallery ids, never paths. The page's chips are
   numbered in `referenceIds` order, since that order is what a prompt's
   "image 2" means; every reorder or removal (a drag, Alt+Left/Right or Delete
@@ -4942,7 +4957,9 @@ on the server: slows it, holds it until the next call (30 s at most), makes
 it fail with a RuntimeError of that message, or puts the rewriter and
 translator back off disk so a first use shows again on a server already
 used; `POST /api/fake/lora` (`{name, present}`) moves an adapter out of the
-fake's directory and back, as a rename by hand would; the fake's rewriter and translator count as downloaded from their
+fake's directory and back, as a rename by hand would; `POST
+/api/fake/bin-age` (`{ids, days}`) backdates binned rows' `binned_at` by
+`days` for Empty's age scope, leaving live rows live; the fake's rewriter and translator count as downloaded from their
 first use), and `node tools/browser.mjs tools/smoke.json` drives headless
 Edge or Chrome over the DevTools protocol with Node's own WebSocket - no npm
 install - through the lightbox zoom and the focus its close leaves on the
@@ -6136,7 +6153,13 @@ in view; and a viewer tile's "In the recycle bin" tombstone becoming
 "Deleted · #N" once the bin is emptied, from another tab (a Restore then
 answering "already deleted") and from the page; Restore picked over more
 than six images saying "Restored N images." and a Restore of seven no longer
-in the bin "7 images were not in the recycle bin.". Re-run
+in the bin "7 images were not in the recycle bin."; Delete picked
+permanently; and Empty's age scope (`#bin-age`, rows backdated through
+`POST /api/fake/bin-age`): All by default, Older than 30 days counting one
+image with "N images binned since stay" and its OK "Delete older", an image
+backdated past the fixed cutoff while asked refusing it (409), Older than 7
+days deleting only the two old ones as "Deleted" tombstones, and nothing
+old enough said without a question. Re-run
 `smoke-select.json` at 600 and 1400 px wide after a footer change, so the
 row with Bin does not wrap:
 

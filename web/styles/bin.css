@@ -17,3 +17,12 @@
 .gallery-head .check:has(> input[aria-disabled="true"]), .gallery-head .runs[aria-disabled="true"] {
   opacity: 0.45; cursor: not-allowed;
 }
+
+/* Empty recycle bin's age scope, just before it: All, or only what was
+   binned more than 7 or 30 days ago. Drawn as the Runs picker is, at its
+   own content's width. */
+.gallery-head .bin-age {
+  background: var(--panel-2); border: 1px solid var(--line-strong); color: var(--muted);
+  border-radius: var(--r-sm); padding: 5px 6px; font: inherit; font-size: var(--fs-label);
+  flex: 0 1 auto; min-width: 0;
+}

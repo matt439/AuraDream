@@ -244,18 +244,27 @@ def create_router(
 
 
     @router.get("/api/gallery/bin/summary", response_model=BinSummary)
-    async def recycle_bin_summary() -> BinSummary:
+    async def recycle_bin_summary(
+        older_than_days: int | None = Query(default=None, ge=1, le=36500),
+    ) -> BinSummary:
         """The bin's count and size, which binned images a live one needs, and
         whether a job is queued or running: what the footer and Empty recycle
-        bin's confirmation say."""
-        found = await asyncio.to_thread(gallery_delete.bin_summary)
-        return BinSummary(**found, job_active=get_jobs().busy())
+        bin's confirmation say.
+
+        With `older_than_days`, the server fixes the cutoff now (`before`) and
+        the count, size, sources and pin are those of the images binned
+        earlier than it - what an age-scoped Empty would delete - with
+        `bin_records` the whole bin's count beside them."""
+        before = None if older_than_days is None else gallery_delete.bin_cutoff(older_than_days)
+        found = await asyncio.to_thread(gallery_delete.bin_summary, before)
+        return BinSummary(**found, older_than_days=older_than_days, job_active=get_jobs().busy())
 
 
     @router.delete("/api/gallery/bin")
     async def empty_recycle_bin(
         expected: int = Query(ge=0),
         pin: str | None = Query(default=None, max_length=64),
+        before: str | None = Query(default=None, max_length=64),
     ) -> dict:
         """Empty recycle bin: every binned image deleted from disk, for good.
 
@@ -264,12 +273,25 @@ def create_router(
         binned in another tab while the dialog was open is answered 409 rather
         than deleted on a confirmation that never covered it - even where a
         Restore there kept the count the same.
+
+        `before` is an age-scoped summary's cutoff, sent back unchanged: only
+        the images binned earlier than it are deleted, and the count and pin
+        are theirs. The server never recomputes it from a day count here, so
+        what ages past it while the dialog is open is not taken.
         """
+        if before is not None:
+            try:
+                gallery_delete.parse_cutoff(before)
+            except ValueError:
+                raise HTTPException(
+                    status_code=422, detail=f"before must be an ISO date and time, not {before!r}"
+                ) from None
         try:
             result = await asyncio.to_thread(
-                gallery_delete.empty_bin, expected, pin, get_jobs().masks_in_flight
+                gallery_delete.empty_bin, expected, pin, get_jobs().masks_in_flight, before
             )
         except gallery_delete.SelectionChanged as exc:
+            # Scoped, "in it" is the images binned before the cutoff.
             now = (f"{exc.found} images are in it now, not the {exc.expected} confirmed"
                    if exc.found != exc.expected
                    else f"other images are in it now than the {exc.expected} confirmed")

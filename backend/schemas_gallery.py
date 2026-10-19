@@ -271,10 +271,17 @@ class BinSummary(BaseModel):
     `pin` names the binned ids (`gallery_delete.bin_pin`): Empty recycle
     bin sends it back, so a bin whose count is the same but whose images
     are not is refused.
+
+    Asked with `older_than_days`, `records`, `bytes`, `sources_in_use` and
+    `pin` are those of the images binned before `before` (the cutoff the
+    server fixed, which Empty sends back), and `bin_records` the whole bin.
     """
 
     records: int
     bytes: int
     sources_in_use: list[int] = Field(default_factory=list)
     pin: str = ""
+    bin_records: int = 0
+    older_than_days: int | None = None
+    before: str | None = None
     job_active: bool = False

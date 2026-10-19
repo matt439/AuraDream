@@ -21,7 +21,8 @@ rewriter and translator back off disk (`fresh`); `POST /api/fake/model`
 sets the startup overrides the status reports (`overrides`) and a critic
 that will not stop, failing a switch's teardown (`stuck_critic`); `POST
 /api/fake/lora` moves an adapter out of the directory and back
-(`present`). The
+(`present`); `POST /api/fake/bin-age` backdates binned images' `binned_at`
+by `days`, for Empty recycle bin's age scope. The
 prompt check reads the tests' word tokenizers - a token per word or mark, at
 each encoder's real budget - and the critic is the tests' FakeCritic, whose
 answer is built from the prompt. The gallery lives under the system temp directory (or --data),
@@ -464,6 +465,24 @@ def main() -> int:
         elif not present and path.exists():
             path.replace(aside)
         return {"name": path.name, "present": path.exists()}
+
+    # Time in the recycle bin, which no page can make: these binned images
+    # backdated to `days` ago, for Empty recycle bin's age scope. Live rows
+    # are left live. Answers the ids it moved.
+    @app_main.app.post("/api/fake/bin-age", include_in_schema=False)
+    async def fake_bin_age(ids: list[int] = Body(...), days: float = Body(...)) -> dict:
+        from datetime import datetime, timedelta, timezone
+
+        stamp = (datetime.now(timezone.utc) - timedelta(days=days)).isoformat()
+        with storage._write_lock, storage._session() as conn:
+            moved = [
+                row[0] for row in conn.execute(
+                    f"UPDATE images SET binned_at = ? WHERE binned_at IS NOT NULL"
+                    f" AND id IN ({','.join('?' * len(ids))}) RETURNING id",
+                    (stamp, *ids),
+                )
+            ] if ids else []
+        return {"ids": sorted(moved), "binned_at": stamp}
 
     import uvicorn
 

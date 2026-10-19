@@ -6,6 +6,7 @@
     uv run python -m backend.clear --dry-run        # report only
     uv run python -m backend.clear --where "job:ab12cd"   # one run, not the gallery
     uv run python -m backend.clear --bin            # empty the recycle bin only
+    uv run python -m backend.clear --bin --older-than 30  # only what was binned 30+ days ago
 
 Running the file directly (`python backend/clear.py`, or an editor's Run button)
 works too - see the sys.path bootstrap below.
@@ -166,16 +167,27 @@ def _clear_bin(args: argparse.Namespace) -> int:
     storage call: the images previewed - their count and their ids' pin - are
     what the delete is pinned to, so an image binned in the browser meanwhile
     is refused rather than taken.
+    With `--older-than DAYS`, only the images binned more than that many
+    days ago: the cutoff is fixed when the preview is read and sent back
+    unchanged, as the browser's age-scoped Empty does.
     No orphan sweep and no vacuum, as on the `--where` path.
     """
     if not settings.db_path.exists():
         print("No gallery yet.", file=sys.stderr)
         return 1
-    found = gallery_delete.bin_summary()
+    days = args.older_than
+    before = None if days is None else gallery_delete.bin_cutoff(days)
+    found = gallery_delete.bin_summary(before)
     print(f"database : {settings.db_path}")
     print(f"images   : {settings.outputs_dir}")
     print()
-    print(f"  {found['records']:>6} images in the recycle bin, {_human(found['bytes'])}")
+    if before is None:
+        print(f"  {found['records']:>6} images in the recycle bin, {_human(found['bytes'])}")
+    else:
+        print(
+            f"  {found['records']:>6} of the {found['bin_records']} images in the recycle bin binned "
+            f"more than {days} day(s) ago, {_human(found['bytes'])}"
+        )
     if found["sources_in_use"]:
         print(
             f"  {len(found['sources_in_use']):>6} of them a live image was made from "
@@ -183,7 +195,8 @@ def _clear_bin(args: argparse.Namespace) -> int:
         )
     print()
     if found["records"] == 0:
-        print("The recycle bin is empty.")
+        print("The recycle bin is empty." if before is None or not found["bin_records"]
+              else f"Nothing in the recycle bin was binned more than {days} day(s) ago.")
         return 0
     print(f"Would delete {found['records']} record(s) and their files.")
     if args.dry_run:
@@ -192,7 +205,7 @@ def _clear_bin(args: argparse.Namespace) -> int:
     if not _confirm(args.yes):
         return 1
     try:
-        result = gallery_delete.empty_bin(expected=found["records"], pin=found["pin"])
+        result = gallery_delete.empty_bin(expected=found["records"], pin=found["pin"], before=before)
     except gallery_delete.SelectionChanged as exc:
         now = (f"{exc.found} images are in it now, not the {exc.expected} shown"
                if exc.found != exc.expected else f"other images are in it now than the {exc.expected} shown")
@@ -241,8 +254,16 @@ def main(argv: list[str] | None = None) -> int:
         "--bin", action="store_true",
         help="empty the recycle bin only: the images the browser moved there, and their files",
     )
+    parser.add_argument(
+        "--older-than", type=int, metavar="DAYS",
+        help="with --bin, only the images binned more than DAYS days ago",
+    )
     args = parser.parse_args(argv)
 
+    if args.older_than is not None and not args.bin:
+        parser.error("--older-than scopes --bin; give --bin with it")
+    if args.older_than is not None and args.older_than < 1:
+        parser.error("--older-than takes a whole number of days, 1 or more")
     if args.bin:
         if args.where is not None or args.keep_favorites:
             parser.error("--bin empties the recycle bin alone; it takes neither --where nor --keep-favorites")

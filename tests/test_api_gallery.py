@@ -575,6 +575,80 @@ def test_emptying_the_bin_is_pinned_to_its_ids_not_only_their_count(client, stor
     assert (outputs / first.filename).exists()
 
 
+def _binned_days_ago(store, ids, days):
+    from datetime import datetime, timedelta, timezone
+
+    stamp = (datetime.now(timezone.utc) - timedelta(days=days)).isoformat()
+    with store._session() as conn:
+        conn.executemany("UPDATE images SET binned_at = ? WHERE id = ?", [(stamp, i) for i in ids])
+
+
+def test_an_age_scoped_summary_fixes_a_cutoff_and_describes_only_the_old(client, store):
+    old = _plant(store, settings.model_id, seed=1)
+    fresh = _plant(store, settings.model_id, seed=2)
+    _made_from(store, seed=3, refine=old.id, strength=0.5)
+    client.post("/api/images/bin", json={"ids": [old.id, fresh.id]})
+    _binned_days_ago(store, [old.id], 10)
+
+    whole = client.get("/api/gallery/bin/summary").json()
+    assert (whole["records"], whole["bin_records"], whole["before"], whole["older_than_days"]) == (2, 2, None, None)
+    week = client.get("/api/gallery/bin/summary?older_than_days=7").json()
+    assert (week["records"], week["bin_records"], week["older_than_days"]) == (1, 2, 7)
+    assert week["sources_in_use"] == [old.id] and week["before"].endswith("+00:00")
+    assert week["pin"] != whole["pin"] and 0 < week["bytes"] < whole["bytes"]
+    month = client.get("/api/gallery/bin/summary?older_than_days=30").json()
+    assert (month["records"], month["sources_in_use"], month["bin_records"]) == (0, [], 2)
+    for bad in ("0", "-1", "a"):
+        assert client.get(f"/api/gallery/bin/summary?older_than_days={bad}").status_code == 422
+
+
+def test_an_age_scoped_empty_deletes_only_what_its_summary_covered(client, store):
+    outputs = store.settings.outputs_dir
+    job_id, events = run_one(client, seed=91)
+    made = events[-1]["images"][0]
+    fresh = _plant(store, settings.model_id, seed=2)
+    live = _plant(store, settings.model_id, seed=3)
+    client.post("/api/images/bin", json={"ids": [made["id"], fresh.id]})
+    _binned_days_ago(store, [made["id"]], 10)
+    found = client.get("/api/gallery/bin/summary?older_than_days=7").json()
+
+    params = {"expected": found["records"], "pin": found["pin"], "before": found["before"]}
+    response = client.delete("/api/gallery/bin", params=params)
+    assert response.status_code == 200, response.text
+    assert response.json() == {"deleted": [made["id"]], "files": 1}
+    # The job forgets it, as every permanent delete makes it.
+    assert client.get(f"/api/jobs/{job_id}").json()["images"] == []
+    assert not (outputs / made["filename"]).exists()
+    assert client.get(f"/api/images/{fresh.id}?binned=true").status_code == 200
+    assert client.get(f"/api/images/{live.id}").status_code == 200
+    after = client.get("/api/gallery/bin/summary").json()
+    assert (after["records"], after["bin_records"]) == (1, 1)
+
+
+def test_an_age_scoped_empty_refuses_a_changed_set_and_a_malformed_cutoff(client, store):
+    outputs = store.settings.outputs_dir
+    first, second, third = (_plant(store, settings.model_id, seed=s) for s in (1, 2, 3))
+    client.post("/api/images/bin", json={"ids": [first.id, second.id, third.id]})
+    _binned_days_ago(store, [first.id, second.id], 10)
+    found = client.get("/api/gallery/bin/summary?older_than_days=7").json()
+    params = {"expected": 2, "pin": found["pin"], "before": found["before"]}
+
+    assert client.delete("/api/gallery/bin", params={**params, "before": "last week"}).status_code == 422
+    # Another tab restores one: the count changed.
+    client.post("/api/images/restore", json={"ids": [first.id]})
+    response = client.delete("/api/gallery/bin", params=params)
+    assert response.status_code == 409
+    assert response.json()["detail"] == (
+        "The recycle bin changed: 1 images are in it now, not the 2 confirmed. "
+        "Nothing was deleted; look again."
+    )
+    # And an older one stands in for it: the same count, other ids.
+    _binned_days_ago(store, [third.id], 10)
+    response = client.delete("/api/gallery/bin", params=params)
+    assert response.status_code == 409 and "other images are in it now" in response.json()["detail"]
+    assert all((outputs / r.filename).exists() for r in (first, second, third))
+
+
 def test_the_permanent_delete_takes_a_binned_image_too(client, store):
     image = _plant(store, settings.model_id, seed=1)
     client.post("/api/images/bin", json={"ids": [image.id]})
