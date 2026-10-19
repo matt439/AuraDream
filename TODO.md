@@ -10,7 +10,7 @@ An index of open work, one row per item; each row points to the doc that owns th
 
 **Ready backlog:** 0 `OPEN` tasks remain. The CPU/browser batches are complete; the built upscaler (`GEN#5`) now needs only card qualification. Deferred features remain deferred; there is no further actionable batch for this run.
 
-**Needs Matt:** workbench task trials (`DEV#1`) and hands-on screen-reader/touch checks (`UI#7`) are the next `USER` work. No feature decision is waiting. Whole-app layout implementation waits for its trials; it remains a design hypothesis.
+**Needs Matt:** workbench task trials (`DEV#1`) and hands-on screen-reader/touch checks (`UI#7`) are the next `USER` work. One feature decision is waiting: whether to enable FLUX.1 inpaint with a start above the library's default strength (`INP#3`); Fill [dev] (`INP#8`) follows from it. Whole-app layout implementation waits for its trials; it remains a design hypothesis.
 
 **GPU runs are Matt's to run or OK, never past the 16 GB card** (every `CARD` row). Check the checkpoint's measured peaks in `docs/verified.md` first; a run that spills into shared memory proves only that it doesn't fit.
 
@@ -47,7 +47,7 @@ An index of open work, one row per item; each row points to the doc that owns th
 
 | id | status | sev | size | item |
 |---|---|---|---|---|
-| `INP#3` | CARD | MED | M+card | FLUX.1 inpaint (Krea dev, dev, schnell): measure memory, strength and preview at 1 MP before enabling the family; its recipe is built. [Phase 3](docs/plan-inpainting.md#phases). |
+| `INP#3` | DECISION | MED | M | Enable FLUX.1 inpaint? Krea dev measured 2026-10-19: fits at 1 MP, reproduces, previews; but the library's 0.6 keeps the old colour, 0.95-1.0 does what is asked, so it needs the first non-default per-profile start. dev/schnell unmeasured. [Phase 3](docs/plan-inpainting.md#phases); [results](docs/verified.md#flux1-krea-dev-before-enabling-inp3). |
 | `INP#5` | DEFERRED | LOW | M+card | Phase 4, klein: one reference beside the source, its mu recipe, memory with the sequence doubled, `smoke-inpaint-klein`. Matt doesn't run klein. |
 | `INP#6` | DEFERRED | LOW | M+card | Phase 5, Qwen-Image under Nunchaku (WSL), only if the inpaint class runs over the Nunchaku transformer at all. |
 | `INP#8` | BLOCKED | LOW | L | FLUX.1 Fill [dev] as its own inpaint-only catalogue checkpoint: blocked on `INP#3`, decided once FLUX.1 inpaints on Krea dev have been seen on the card, built if they disappoint. [Question 7](docs/plan-inpainting.md#open-questions-for-the-user). |

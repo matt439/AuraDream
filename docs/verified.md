@@ -697,6 +697,48 @@ enabled. Evidence is under `%TEMP%/local-diffusion-inpaint-card/`:
 `measure.py`, and per checkpoint its gallery, `results.jsonl` and the
 `inpaint-*.jpg` and `outpaint-*.jpg` strips.
 
+### FLUX.1 Krea dev, before enabling (INP#3)
+
+Measured 2026-10-19 the same way, with the family still deferred: the
+harness (`measure_flux.py` beside `measure.py`) lifted `INPAINT_DEFERRED`
+and the profile's `inpaint_supported` in its own process only, nothing on
+disk. fp8, model offload, Windows, CFG 3.5, 28 steps; the desktop held
+2,056-2,430 MiB. The watchdog stood at 16,000 MiB here, since the plain
+1 MP render alone read 15,634 MiB with this desktop, and a second guard
+cancelled on two consecutive steps over 3 s (the spill's sign); neither
+tripped. Source: a photograph of a woman in a red scarf, seed 12345,
+1024x1024; the same ellipse mask; the inpaint asks for a blue knitted scarf.
+
+| Run | Steps run | Time (per step) | Allocated / reserved | Card |
+| --- | --- | --- | --- | --- |
+| Text-to-image source, 1 MP | 28 | 70.6 s, the first of a process (1.42 s); 43.8 s run again | 12.00 / 12.62 GiB | 15,540-15,634 MiB |
+| Inpaint, library default 0.6 | 17 of 28 | 29.7-38.4 s warm (1.31-1.37 s) | 12.16 / 12.83 GiB | 15,419-15,667 MiB |
+| Inpaint at 0.8 / 0.95 / 1.0 | 23 / 27 / 28 | 49.2 / 45.8 / 44.7 s (1.35-1.45 s) | 12.16 / 12.83 GiB | 15,448-15,601 MiB |
+| Inpaint, Batch 2 | 34 | 82.5 s | 12.16 / 12.83 GiB | 15,564 MiB |
+
+An inpaint costs 0.16 GiB allocated over the text-to-image render, as the
+refine pass did; at 1 MP it does not spill, so FLUX.1 does not need
+`padding_mask_crop` to fit there. The card has no room for more: a larger
+source was not run.
+
+| What | Result |
+| --- | --- |
+| The class over the loaded components | `FluxInpaintPipeline` ran from `refine.build` over the fp8, offload-hooked components with no second load; the allocator back to 0.03 GiB after every pass |
+| Determinism | The same inpaint twice is the same hash |
+| Per-image seeds in a batch | Image 1 is the solo pass at its seed, image 2 the solo pass at seed + 1 (the batch runs its images one after another) |
+| Cancel | Cancelled at step 2 (19.4 s, the first step carrying the encodes); the next inpaint is the uncancelled hash |
+| The text-to-image pipeline afterwards | The source's own request after every inpaint is the source's hash |
+| The composite keeps what is not masked | Largest difference outside the mask 0 |
+| The embedded mask | 3,836 bytes hard-edged, 35,592 with a 24 px feather, as on SDXL; a result PNG 1.47-1.50 MB |
+| The live preview | Fires through the blend (16-20 frames a pass); mid-pass it shows the new scarf forming inside a still-noisy frame, at the end the finished picture |
+| What a strength keeps | The library default, 0.6, keeps the red scarf and adds a little blue at the collar; 0.8 the same with more of it; 0.95 and 1.0 draw the blue knitted scarf asked for, with the red scarf's ends below the mask kept. Unlike SDXL and Z-Image, FLUX.1's default is not a start that does what a user asking for a change wants |
+| The seam | By eye on 2x crops: a hard mask leaves a visible cut where redrawn knit meets the old; feather 24 hides it |
+
+Not measured on FLUX.1: dev and schnell (their profiles share the class);
+an outpaint (its canvas, 1.9 MP at 16:9, is past what this card held for
+the family's refine pass under this desktop); a LoRA through the inpaint;
+the seam by number.
+
 ## Outpaint
 
 Measured 2026-10-17 in the same runs, the same way, from the same

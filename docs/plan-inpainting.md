@@ -713,8 +713,12 @@ that day (`verified.md`, Inpaint and Outpaint):
   on this one (Z-Image Turbo, the undistilled Z-Image and the other SDXL
   profiles, none of which the card ran).
 
-Left: FLUX.1 enabled (TODO INP#3), with its memory, its strength and its
-preview measured first.
+Left: FLUX.1 enabled (TODO INP#3). Its memory, strength and preview were
+measured on Krea dev 2026-10-19 (`verified.md`, Inpaint, "FLUX.1 Krea dev,
+before enabling"): it fits at 1 MP, reproduces, and previews, but the
+library's default strength, 0.6, keeps the old colour; 0.95-1.0 draws what
+is asked. Enabling it therefore needs the first per-profile inpaint start
+that is not the class's own default, which is Matt's call.
 
 **Phase 4 - klein (M).** One reference beside the source, the refusal of
 more, the `compute_empirical_mu` recipe or no reading, memory with the
