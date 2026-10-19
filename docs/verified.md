@@ -788,7 +788,8 @@ One source and one prompt per checkpoint, looked at by eye.
 
 Not measured: Z-Image Turbo (not in this machine's cache) and the other
 SDXL profiles; any FLUX.1 outpaint, enabled with its inpaint 2026-10-19
-(Inpaint, "FLUX.1 Krea dev"); the seam by number against the VAE round trip at the
+(Inpaint, "FLUX.1 Krea dev"), whose seams decide FLUX.1 Fill [dev]
+(TODO `INP#8`); the seam by number against the VAE round trip at the
 original's edge; band widths between 0 and 64 other than 32. Evidence is in
 `%TEMP%/local-diffusion-inpaint-card/` with the inpaint's.
 

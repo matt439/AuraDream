@@ -2151,9 +2151,9 @@ goes under it instead of an empty box.
 
 **What this pass leaves.** klein, Qwen-Image, FLUX.1 Fill [dev]
 (decided 2026-10-17 to wait on FLUX.1 inpainting on Krea dev being seen on
-the card; it was, 2026-10-19, and at 0.95 did what was asked, so whether
-Fill is still wanted is Matt's call, TODO `INP#8`; if it is, its own
-inpaint-only catalogue checkpoint) and the masked-area crop are later
+the card; it was, 2026-10-19, and at 0.95 did what was asked, so Fill
+was deferred 2026-10-20 behind FLUX.1 outpaint on the card, TODO `INP#8`
+and `CARD#2`; if it comes, its own inpaint-only catalogue checkpoint) and the masked-area crop are later
 phases of the plan; FLUX.1 was enabled 2026-10-19 (above);
 outpainting is built (below). Memory, time, determinism and what a strength
 keeps were measured 2026-10-17 on WAI, Animagine and Z-Anime (`verified.md`,

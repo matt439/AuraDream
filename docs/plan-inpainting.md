@@ -26,8 +26,10 @@ at the end:
    inpainting on Krea dev (`INP#3`). Fill is decided once those inpaints
    have been seen on the card; if they disappoint, Fill comes as its own
    inpaint-only catalogue checkpoint, never a hidden engine behind another.
-   Seen 2026-10-19: at 0.95 they drew what was asked, so whether Fill is
-   still wanted is Matt's decision (TODO `INP#8`).
+   Seen 2026-10-19: at 0.95 they drew what was asked. Deferred 2026-10-20
+   behind FLUX.1 outpaint on the card (TODO `CARD#2`), where Fill's
+   advantage would show: seams or a mismatched fill there bring Fill back,
+   outpaints that join cleanly close it (TODO `INP#8`).
 
 Built differently from the text below: the mask's hash covers its size as
 well as its levels (`storage.mask_hash`: `"L WxH\n"` then the bytes), since an all-white
