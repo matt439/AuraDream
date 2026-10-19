@@ -7364,10 +7364,17 @@ to add a line. `tools/smoke-wide.json` checks all of it at 2560 x 1305,
 tier's, below). The wide tier makes the panel taller and lets the prompt box
 grow with its text, by as much as seven lines: that is a change of the
 panel's height like any other, placed as above. On the FLUX fake with a
-one-image last-run banner, at 2560 x 1305 the idle panel is 1,132 px of the
-1,216 it can rest in, and still rests; at 2048 x 1040 it was already held by
+one-image last-run banner, at 2560 x 1305 the idle panel was 1,132 px of the
+1,216 it can rest in, and still rested; at 2048 x 1040 it was already held by
 its bottom (1,071 px), and the short-window tier keeps it a little shorter
-than it was (1,034 px) while 70 px wider.
+than it was (1,034 px) while 70 px wider. By 2026-10-20 Load settings from
+PNG, Notify when done and the banner's second line (More seeds, Finish run)
+had made it 1,221.5 px with the banner, so at 2560 x 1305 it holds by its
+bottom 5.5 px above its resting top (65.5 against 71) until the banner is
+dismissed (1,131 px, resting). Held is the rule working, not a fault: at
+scroll 0 the panel is in the page's flow either way, and scrolled, its top
+stays under the topbar. smoke-wide holds both; it had expected the panel to
+rest with the banner up and failed there since those additions.
 
 ## Design tokens
 
