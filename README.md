@@ -190,11 +190,12 @@ and [measured results](docs/verified.md) before attempting large passes.
 
 **Inpaint…** repaints only the part of a gallery image you paint a mask over;
 **Outpaint…** extends its canvas past the edges and paints the new area. Both
-keep the rest of the source pixel for pixel. Both run on the SDXL checkpoints and the
-Z-Image family (Z-Image Turbo, Z-Anime); FLUX.1, FLUX.2 [klein] and Qwen-Image
-are not enabled yet. The mask is embedded in the result's PNG, so the image
-alone reproduces it. [Measured](docs/verified.md#inpaint) on WAI, Animagine
-and Z-Anime. See
+keep the rest of the source pixel for pixel. Both run on the SDXL checkpoints, the
+Z-Image family (Z-Image Turbo, Z-Anime) and FLUX.1 (Krea dev, dev, schnell);
+FLUX.2 [klein] and Qwen-Image are not enabled yet. The mask is embedded in the
+result's PNG, so the image alone reproduces it. [Measured](docs/verified.md#inpaint)
+on WAI, Animagine, Z-Anime and FLUX.1 Krea dev (its inpaint only; the FLUX.1
+outpaint has not been measured). See
 [Inpaint](docs/usage.md#inpaint-part-of-an-image) and
 [Outpaint](docs/usage.md#outpaint-an-image).
 

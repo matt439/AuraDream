@@ -29,7 +29,7 @@ from typing import TYPE_CHECKING, Any
 from .. import latent_preview, loras, refine
 from ..model_selection import current_model_id, current_settings
 from ..config import settings
-from ..model_defaults import INPAINT_DEFERRED, defaults_for, inpaint_start
+from ..model_defaults import INPAINT_DEFERRED, defaults_for, inpaint_family, inpaint_start
 from ..seeds import wrap_seed
 from . import anima_loading, loading, netayume_loading, newbie_loading, schedule, single_file
 from .base import CancelFn, Cancelled, GenerationBackend, PreviewFn, ProgressFn
@@ -421,7 +421,11 @@ class DiffusersBackend(GenerationBackend):
         (`refine.sibling(..., "Inpaint")`) *and* the checkpoint's profile
         enables it. The library exports one for families this app has not
         enabled yet (`INPAINT_DEFERRED`), and a class alone is not the
-        decision: an inpaint there is refused, never run unmeasured.
+        decision: an inpaint there is refused, never run unmeasured. The
+        loaded class must also be the profile's own `inpaint_family`: a
+        hand-entered id the catch-all profile takes (FLUX.1 Kontext, which
+        loads as `FluxKontextPipeline` beside its own inpaint class) runs a
+        class no one measured, so it is refused too.
         """
         pipe = self._pipe
         if pipe is None:
@@ -432,6 +436,7 @@ class DiffusersBackend(GenerationBackend):
             self._inpaint_class[1] is not None
             and type(pipe).__name__ not in INPAINT_DEFERRED
             and bool(defaults_for(current_model_id(settings))["inpaint_supported"])
+            and type(pipe).__name__ == inpaint_family(current_model_id(settings))
         )
 
     def _inpainter(self, pipe: Any) -> Any:

@@ -1982,7 +1982,12 @@ and the lite and Nunchaku repos resolving to them) carry
 same class: its 16:9 canvas from a 1 MP source is 1.9 MP, near the top the
 card held for this family's refine pass, and not measured. The Nunchaku
 FLUX.1 repos answer True as the Nunchaku Z-Image ones do; the class has not
-run over that transformer either (TODO `CARD#3`).
+run over that transformer either (TODO `CARD#3`). The catch-all `flux`
+profile also takes hand-entered ids that load as another FLUX.1 class
+(Kontext loads as `FluxKontextPipeline`, beside which diffusers ships
+`FluxKontextInpaintPipeline`); while `FluxPipeline` was deferred the class
+name refused those, so the backend now also needs the loaded class to be
+the profile's `inpaint_family`, and an unmeasured class is never run.
 
 **The starting strength is the library's, said as the library's.** No
 catalogue author gives one for inpainting, so there is no `inpaint_strength`

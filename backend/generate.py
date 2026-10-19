@@ -148,8 +148,9 @@ def _build_parser() -> argparse.ArgumentParser:
         help="how much of the source a refine pass redraws, above 0 up to 1: low keeps "
         "the picture, 1 keeps nothing. Defaults to the checkpoint's own starting "
         "strength (0.4 on SDXL, 0.1 on FLUX.1 dev, 0.5 on FLUX.1 schnell); an inpaint "
-        "(--mask) starts at its inpaint class's own default instead, as the Inpaint dialog "
-        "does (0.9999 on SDXL, 1 on Z-Image). About steps x S of the steps run",
+        "(--mask) starts where the Inpaint dialog does instead: the checkpoint's own measured "
+        "start where it has one (0.95 on FLUX.1), else its inpaint class's default (0.9999 on "
+        "SDXL, 1 on Z-Image). About steps x S of the steps run",
     )
     conditioning.add_argument(
         "--upscaler", choices=("lanczos", "realesrgan-x4plus-anime6b"),

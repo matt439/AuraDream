@@ -326,16 +326,21 @@ class InpaintStub:
         return SimpleNamespace(images=[Image.new("RGB", image.size, fill)])
 
 
+# The stand-in under the name of the family Animagine's profile enables: the
+# backend runs an inpaint only on the loaded class the profile names.
+SdxlLikeMain = type("StableDiffusionXLPipeline", (RefinableMain,), {})
+
+
 @pytest.fixture
 def inpaintable(store, monkeypatch, tmp_path):
     """A loaded backend on an enabled checkpoint whose pipeline has an
     inpaint class, a 256x256 source and a stored mask over its right half."""
     monkeypatch.setattr(
         refine, "sibling",
-        lambda cls, kind="Img2Img": InpaintStub if cls is RefinableMain and kind == "Inpaint" else None,
+        lambda cls, kind="Img2Img": InpaintStub if cls is SdxlLikeMain and kind == "Inpaint" else None,
     )
     monkeypatch.setattr(module, "settings", dataclasses.replace(module.settings, model_id=ANIMAGINE))
-    backend = _loaded(RefinableMain())
+    backend = _loaded(SdxlLikeMain())
     source = store.save_image(
         Image.effect_noise((256, 256), 64).convert("RGB"),
         GenerateRequest(prompt="a fox", width=256, height=256),
@@ -591,6 +596,23 @@ def test_the_loaded_answer_needs_the_class_and_the_profile(model_id, class_name,
     backend._pipe = None
     assert backend.describe()["inpaint_supported"] is None
     assert backend.describe()["inpaint_strength"] is None
+
+
+def test_another_class_under_an_enabled_profile_is_refused(monkeypatch):
+    # A hand-entered FLUX.1 Kontext id falls to the catch-all FLUX.1 profile,
+    # which enables FluxPipeline's inpaint; Kontext loads as its own class,
+    # beside which diffusers ships an inpaint class no one measured here.
+    kontext = "black-forest-labs/FLUX.1-Kontext-dev"
+    assert inpaint_family(kontext) == "FluxPipeline"
+    assert refine.sibling(diffusers.FluxKontextPipeline, "Inpaint") is diffusers.FluxKontextInpaintPipeline
+    backend = _bare("FluxKontextPipeline", kontext, monkeypatch)
+    info = backend.describe()
+    assert info["inpaint_supported"] is False and info["inpaint_strength"] is None
+    with pytest.raises(RuntimeError, match="has no inpaint pass in this app"):
+        backend._inpainter(backend._pipe)
+    # The same holds on a catalogue id loaded as another FLUX.1 class.
+    backend = _bare("FluxControlPipeline", "black-forest-labs/FLUX.1-dev", monkeypatch)
+    assert backend.describe()["inpaint_supported"] is False
 
 
 # ---------------------------------------------------------------- the status

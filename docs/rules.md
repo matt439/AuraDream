@@ -1213,8 +1213,11 @@ Reproduction:
   `DiffusersBackend._inpaint_supported` also needs the pipeline outside
   `model_defaults.INPAINT_DEFERRED` (`Flux2KleinPipeline`,
   `QwenImagePipeline`: diffusers ships a class, this app has not enabled the
-  family) and the profile's `inpaint_supported` True, so a deferred family
-  or an unprofiled SDXL id is refused with the class installed. True only on
+  family), the profile's `inpaint_supported` True, and the loaded class's
+  name equal to the profile's `inpaint_family`, so a deferred family, an
+  unprofiled SDXL id, or a hand-entered id the catch-all FLUX.1 profile
+  takes but which loads as another class (FLUX.1 Kontext, Control) is
+  refused with the class installed. True only on
   the six SDXL checkpoints, Z-Image Turbo, Z-Image and Z-Anime, and FLUX.1
   Krea dev, dev and schnell (from 2026-10-19; the Nunchaku Z-Image and FLUX.1
   repos share those profiles, never run over Nunchaku); the fallback is False. A
