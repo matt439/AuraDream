@@ -25,7 +25,7 @@ if __name__ == "__main__":
 
     configure()
 
-from . import api_bundles, api_gallery, api_generate, api_jobs, api_masks, api_more_seeds, api_png, api_prompt, api_refine_batch, api_swap, app_context, bundle_common, bundles, gallery_lock, loras, model_selection, prompt_encoding, startup_preferences, storage  # noqa: E402
+from . import api_bundles, api_gallery, api_generate, api_jobs, api_masks, api_more_seeds, api_png, api_prompt, api_refine_batch, api_swap, app_context, bundle_common, bundles, gallery_lock, hub_access, loras, model_selection, prompt_encoding, startup_preferences, storage  # noqa: E402
 from .backends import get_backend  # noqa: E402
 from .detached import detached as _detached  # noqa: E402
 from .model_selection import current_model_id, current_settings  # noqa: E402
@@ -756,6 +756,31 @@ def _refuse_busy_switch() -> None:
         raise HTTPException(status_code=409, detail=f"{holder} is using the card; wait before switching")
 
 
+async def _refuse_hub_access(model_id: str) -> None:
+    """Refuse a switch the Hub has said no to (`hub_access.check`), with the
+    running checkpoint still selected and loaded. An answer that does not come
+    within `hub_access.CHECK_SECONDS`, or settles nothing, lets the switch go
+    on as before; its load then says what failed."""
+    try:
+        refusal = await asyncio.wait_for(
+            _detached(lambda: hub_access.check(model_id), name="hub-access"),
+            timeout=hub_access.CHECK_SECONDS,
+        )
+    except TimeoutError:
+        log.info("access check for %s timed out; switching anyway", model_id)
+        return
+    except Exception as exc:  # noqa: BLE001 - an unanswered check never blocks
+        log.info("access check for %s failed (%s); switching anyway", model_id, short_error(exc))
+        return
+    if refusal is None:
+        return
+    current = _model_name(current_model_id(settings))
+    raise HTTPException(
+        status_code=403 if refusal.kind == "gated" else 404,
+        detail=f"{refusal.detail} {current} is still selected.",
+    )
+
+
 @app.post("/api/model/switch", response_model=ModelStatus)
 async def switch_model(request: ModelSwitchRequest, http_request: Request) -> ModelStatus:
     global _switching, _switch_task, _startup_preload, _switch_error, _switch_draining
@@ -774,6 +799,16 @@ async def switch_model(request: ModelSwitchRequest, http_request: Request) -> Mo
     if _switching or _switch_draining:
         raise HTTPException(status_code=409, detail="the checkpoint is switching; wait for the switch to finish")
     _refuse_busy_switch()
+    if target.model_id != current_model_id(settings):
+        # Before anything is saved, reserved or unloaded: a checkpoint the Hub
+        # will not let this sign-in download must not cost the working one.
+        await _refuse_hub_access(target.model_id)
+        # The check awaited; what it found idle may not be any more.
+        if expected is not None and int(expected) != model_selection.revision():
+            raise HTTPException(status_code=409, detail="the checkpoint changed; refresh its settings before trying again")
+        if _switching or _switch_draining:
+            raise HTTPException(status_code=409, detail="the checkpoint is switching; wait for the switch to finish")
+        _refuse_busy_switch()
     if _model_requests:
         # Counted requests already in flight - typically the page's own cold
         # reads after a load lands - are waited out briefly rather than

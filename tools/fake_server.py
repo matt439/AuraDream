@@ -18,8 +18,11 @@ the jobs after it and answers the pace it replaced; `POST /api/fake/expand`
 slows ERNIE's Expand on the server (`seconds`), holds it until the next call
 (`hold`), makes it fail (`fail`, the message of a RuntimeError) or puts its
 rewriter and translator back off disk (`fresh`); `POST /api/fake/model`
-sets the startup overrides the status reports (`overrides`) and a critic
-that will not stop, failing a switch's teardown (`stuck_critic`); `POST
+sets the startup overrides the status reports (`overrides`), a critic
+that will not stop, failing a switch's teardown (`stuck_critic`), and the
+Hub's answer to a switch's access check (`access`: "gated" or "not_found"
+refuses every switch to another checkpoint, as the real check refuses one
+this sign-in cannot download; the fake never asks the Hub); `POST
 /api/fake/lora` moves an adapter out of the directory and back
 (`present`); `POST /api/fake/bin-age` backdates binned images' `binned_at`
 by `days`, for Empty recycle bin's age scope. The
@@ -435,9 +438,13 @@ def main() -> int:
 
     # The Models picker's server facts no page can cause: which saved choices
     # this start's flags or environment override (`overrides`, as
-    # launch.configure records them, e.g. {"model_id": "--model"}), and a
+    # launch.configure records them, e.g. {"model_id": "--model"}), a
     # critic that will not stop (`stuck_critic`), so a switch stops before
-    # selecting its checkpoint. Each call sets both; answers what it set.
+    # selecting its checkpoint, and the Hub's answer to a switch's access
+    # check (`access`: None lets every switch through; "gated" or
+    # "not_found" refuses it in hub_access's own words). Each call sets all
+    # three; answers what it set.
+    from backend import hub_access
     from backend.critic import CriticError
 
     critic_unload = critic.unload
@@ -445,13 +452,28 @@ def main() -> int:
     def stuck_unload():
         raise CriticError("the fake critic will not stop")
 
+    # The fake never asks the Hub: the real check would reach it for any
+    # catalogue id not cached on this machine.
+    fake_access: dict[str, str | None] = {"kind": None}
+
+    def fake_check(model_id: str):
+        kind = fake_access["kind"]
+        if kind is None:
+            return None
+        found = hub_access.sources(model_id) or [hub_access.Source(model_id, None, None)]
+        return hub_access._refusal(model_id, found[0], kind)
+
+    hub_access.check = fake_check
+
     @app_main.app.post("/api/fake/model", include_in_schema=False)
     async def fake_model(
         overrides: dict[str, str] = Body({}), stuck_critic: bool = Body(False),
+        access: str | None = Body(None),
     ) -> dict:
         app_main._startup_overrides = overrides
         critic.unload = stuck_unload if stuck_critic else critic_unload
-        return {"overrides": overrides, "stuck_critic": stuck_critic}
+        fake_access["kind"] = access if access in ("gated", "not_found") else None
+        return {"overrides": overrides, "stuck_critic": stuck_critic, "access": fake_access["kind"]}
 
     # An adapter taken out of the directory while a page holds it, and put
     # back (`present`): moved aside under a name the listing skips, as a

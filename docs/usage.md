@@ -91,6 +91,13 @@ row says **Open**, **Accept licence** or **Needs approval** under the name.
 Qwen-Image's row also says **Over 16 GB**: only its 4-bit Nunchaku build (WSL)
 fits this card, and choosing it under FP8, INT8 or BF16 says so under the
 buttons before you press one.
+Before a switch to another checkpoint lets the running one go, the server
+asks Hugging Face whether your sign-in can download it (nothing is asked
+when its files are already cached). If the answer is no - gated and not yet
+accepted or approved, or no such repository - the switch is refused with
+what to do, and the running model stays selected and loaded. If Hugging
+Face cannot be reached, or does not answer within a few seconds, the switch
+goes ahead as before.
 Until access is granted, loading a gated model fails and says why; a page
 opened after that failure shows the picker with the reason. Choose an open
 model in **Models**, or press **Retry load** once access is granted.

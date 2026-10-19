@@ -22,6 +22,10 @@ before changing it.
   the server launcher restores it before config imports
 - `backend/model_info.py` — cold catalogue details from existing sourced guides,
   plus each entry's Hugging Face access from its catalogue gate word
+- `backend/hub_access.py` — the Hugging Face access check a switch asks before
+  it releases the working checkpoint: cache first, then one HEAD per recipe
+  source at its revision (or the repo's auth check); a `Refusal` only when the
+  Hub says no
 - `backend/model_benchmarks.py` — retained RTX 5080 timing references, exact
   checkpoint/loading-option matching and coarse speed categories; no live benchmark
 - `backend/schemas.py` — re-exports the pydantic request/response models;
@@ -468,6 +472,18 @@ Model and loader:
   Both actions atomically save the four loader/startup preferences beside the
   database before releasing existing weights; a save failure is an HTTP error
   and leaves the selection and existing preference file intact.
+  A switch to another checkpoint first asks `hub_access.check` (through
+  `main._refuse_hub_access`, on a daemon thread, at most
+  `hub_access.CHECK_SECONDS`), after the busy refusals and before saving,
+  reserving or unloading: a cached checkpoint asks nothing; a gated, 401/403,
+  missing repo or missing pinned revision refuses with 403/404 and "<running>
+  is still selected"; anything inconclusive (offline, `HF_HUB_OFFLINE`,
+  timeout, 5xx, a missing file) goes on as before, never blocks. The check
+  awaits, so the revision header, `_switching`/draining and
+  `_refuse_busy_switch` are checked again after it. Loading options alone on
+  the same checkpoint ask nothing. Tests never reach the Hub (`no_hub` stubs
+  `hub_access._ask`), and neither does the fake server
+  (`test_hub_access.py`).
   The server reserves `_switching` before any await and holds it through
   prompt-helper cleanup (critic, translator, tokenizers - before the weights, so
   one that will not stop leaves them loaded), unload and selection; it clears
@@ -641,7 +657,7 @@ Model and loader:
 - Picker access (`details_for`'s `access`/`access_note`) comes from
   `Checkpoint.gate`: click-through is Accept licence, manual is Needs approval,
   anything else and every lite-infer build Open, a custom id Unknown. Nothing
-  checks the Hub or the cache for it.
+  checks the Hub or the cache for it; only a press does (`hub_access`).
 - A checkpoint whose torchao builds are larger than the card has a
   `details_for` `fit`/`fit_note` from `model_info._FIT` (Qwen-Image only,
   from the catalogue's own record); its lite-infer build and every other
@@ -5199,7 +5215,9 @@ the checkbox in the footer above the actions, a refusal that goes when its
 reason does, Apply & save's unload title, the unsaved line with Revert
 (through a reopening), an Apply & save outcome kept through its revision,
 load progress, the `startup_overrides` sentence, a failed load and a failed
-switch in place of the outcome, a failed list kept dimmed, and a refused
+switch in place of the outcome, a switch the Hub refuses (gated, then not
+found) saying what to do in the note and the error line with the running
+model still loaded and its revision unchanged, a failed list kept dimmed, and a refused
 switch whose words leave the error line once a later press switches.
 Through a switch's load Generate is not held and Check answers, and a
 Generate pressed while the switch is being sent says so as a note that goes
@@ -5270,8 +5288,10 @@ and `test_api_model_switch.py` cover persistence, explicit overrides and the
 saved choice set aside for another model, per-process revisions, loader
 snapshots, metadata, refusal before releasing working weights, a failed
 teardown keeping the running model and saved file, and Switch & load retrying
-the selected model; `POST /api/fake/model` sets the fake's `overrides` and a
-`stuck_critic` for page checks;
+the selected model; `test_hub_access.py` covers the access check's sources,
+revisions, refusals and inconclusive answers and the route keeping the
+running model; `POST /api/fake/model` sets the fake's `overrides`, a
+`stuck_critic` and an `access` refusal ("gated"/"not_found") for page checks;
 `test_model_benchmarks.py` covers speed categories, exact sample matching and
 no category for an unmatched setup or a first run on a busy PC; `test_model_info.py` covers compact facts
 for every catalogue entry, favourite ids shared by Lite/Nunchaku variants,

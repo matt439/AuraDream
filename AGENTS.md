@@ -55,6 +55,7 @@ Backend (`backend/`):
   `current_model_id(settings)` / `current_settings(settings)`;
   `startup_preferences.py` atomically saves loader/startup choices;
   `model_info.py` supplies cold catalogue details from existing sourced guides;
+  `hub_access.py` asks the Hub whether a switch's checkpoint can download;
   `model_benchmarks.py` supplies retained timing references and speed categories
 - `schemas.py` re-exports the request/response models, each defined in
   `schemas_generate.py` (the generation request and `applied()`, grids, job
@@ -136,6 +137,9 @@ Model and loader:
   queues, a second switch is refused).
   Model-dependent requests are counted before validation; stale browser
   revisions are refused before submission. Never mutate frozen startup settings.
+- A switch to another checkpoint asks `hub_access.check` before it saves,
+  reserves or unloads: only the Hub's no refuses; offline or a timeout goes
+  on. Tests and the fake server never reach the Hub.
 - `load()` refuses a pipeline whose `__call__` lacks `generator` or
   `callback_on_step_end`.
 - Per-checkpoint loader rules (pinned revisions, single-file conversions,

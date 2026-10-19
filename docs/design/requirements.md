@@ -90,7 +90,7 @@ answers and exceptions.
 - **Story:** I can distinguish a ready local choice from one that may need downloads, approval or unmeasured resource use.
 - **Acceptance:** a candidate model row separates cached/download information where known, access requirements, recorded speed references and unmeasured combinations; unknown values remain explicit.
 - **Acceptance:** a reference timing is never presented as an ETA for my prompt or as proof that a size fits the card.
-- **Trace:** [usage: models](../usage.md#load-and-switch-models), [verified measurements](../verified.md), `GEN#1`, `CARD#4`–`CARD#6`; live access preflight `GEN#7` stays deferred.
+- **Trace:** [usage: models](../usage.md#load-and-switch-models), [verified measurements](../verified.md), `GEN#1`, `CARD#4`–`CARD#6`; a switch's live access preflight is built ([Switching](../design-notes.md#switching-checkpoints-while-the-server-stays-open), 2026-10-19), while the rows' access labels stay the static catalogue word.
 - **Dependency:** use existing sourced facts and local cache inspection; no model download or benchmark is required to explore the design.
 
 ## Prompting and immediate iteration

@@ -78,6 +78,15 @@ def no_hub(monkeypatch):
 
     monkeypatch.setattr(huggingface_hub, "hf_hub_download", refuse_download)
     monkeypatch.setattr(huggingface_hub, "snapshot_download", refuse_download)
+    # A switch asks the Hub whether this sign-in may download its checkpoint
+    # (`hub_access.check`). Unanswered, as here, the switch goes ahead;
+    # tests of the check replace this with the answer they need.
+    from backend import hub_access
+
+    def unanswered(source):
+        raise RuntimeError(f"the tests do not reach the Hub ({source.repo_id})")
+
+    monkeypatch.setattr(hub_access, "_ask", unanswered)
 
 
 @pytest.fixture

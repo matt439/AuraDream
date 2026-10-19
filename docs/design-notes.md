@@ -441,7 +441,43 @@ word: click-through is Accept licence, manual approval is Needs approval
 (which can take days), other entries and lite-infer re-uploads Open, a custom
 id Unknown; the note says what to do on the model page. It is a catalogue
 fact, not a Hub or cache check: a network check would hold up the cold
-catalogue, and a pre-unload access check is left for later.
+catalogue.
+
+The gate word says a repo is gated, not whether this sign-in has been let
+in, so a switch now asks before it lets go (2026-10-19, `hub_access.py`).
+Switch & load and Apply & save to another checkpoint call
+`main._refuse_hub_access` after the cheap busy refusals and before anything
+is saved, reserved or unloaded. Files already complete in the cache
+(`model_info.download_facts`' "complete", the same inventory the picker's
+cache fact reads) ask nothing. Otherwise each Hub source the checkpoint's
+download recipe (`model-downloads.json`) names is asked once: a HEAD on one
+required file at the recipe's revision, a descriptor where one is listed, so
+a pinned commit, a single-file repo (NetaYume, WAI, Anima) and a second
+source the load borrows from (Z-Anime's Z-Image) are checked as the loader
+fetches them; a recipe without a file list, or a custom id off the
+recipe, gets the repository's auth check; a local path gets nothing. A
+`GatedRepoError`, a 401/403, a missing repository or a missing pinned
+revision refuses the switch (403, or 404 for not found) with a sentence
+naming the checkpoint, the refusing repo (when it is not the checkpoint's
+own), the catalogue's gate step on the model page, `uv run hf auth login`,
+and "<running model> is still selected"; the page shows it as any refused
+switch, in the picker note and the error line, so no page code changed.
+
+An answer that settles nothing never blocks: offline, `HF_HUB_OFFLINE`, a
+connection error, a 5xx, a file the repo lacks, or no answer within
+`hub_access.CHECK_SECONDS` (9 s; each request 4 s) lets the switch go on as
+before, and its load then says what failed (the load-failure card). One
+inconclusive source does not hide a refusal from the next. The check runs
+on a daemon thread (`detached`) and awaits; since admission is not yet
+reserved, the route rechecks the revision header, `_switching`/draining and
+`_refuse_busy_switch` after it. A change of loading options alone on the
+same checkpoint asks nothing. The picker's access label stays the static
+catalogue word: checking every row would put the network in the cold
+catalogue. Tests never reach the Hub (`conftest.no_hub` stubs
+`hub_access._ask`; unanswered, a switch goes on); the fake server never
+asks it either, and `POST /api/fake/model {access: "gated"|"not_found"}`
+refuses its switches for the page checks. Not checked on the real Hub from
+here: the wording against a real refusal on a machine without access.
 
 That Qwen-Image fits this card only as its 4-bit Nunchaku build was said
 only in a code comment; on Windows its row offered FP8, INT8 and BF16 with
