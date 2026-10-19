@@ -40,8 +40,13 @@ INPAINTS = {
     "QwenImagePipeline": "QwenImageInpaintPipeline",
     "Flux2KleinPipeline": "Flux2KleinInpaintPipeline",
 }
-# And the two this pass enables.
-ENABLED = {"StableDiffusionXLPipeline", "ZImagePipeline"}
+# And the three enabled: SDXL and Z-Image, and FLUX.1 from 2026-10-19 (INP#3).
+ENABLED = {"StableDiffusionXLPipeline", "ZImagePipeline", "FluxPipeline"}
+# The FLUX.1 profiles' own measured start, over the library's 0.6.
+FLUX_START = 0.95
+# What a loaded FLUX.1 answers `applied()` with.
+FLUX_RUN = dict(negative_prompt_supported=True, cfg_threshold=1.0, true_cfg_supported=True,
+                refine_supported=True, inpaint_supported=True)
 
 ANIMAGINE = "cagliostrolab/animagine-xl-4.0"
 
@@ -85,7 +90,10 @@ def test_an_inpaint_without_a_strength_starts_at_its_classs_default(model_id, cl
     # without one record the same number, not the refine strength.
     monkeypatch.setattr(model_selection, "_selection", (None, 0))
     model_selection.select(model_id)
-    wanted = refine.library_strength(refine.sibling(getattr(diffusers, class_name), "Inpaint"))
+    library = refine.library_strength(refine.sibling(getattr(diffusers, class_name), "Inpaint"))
+    # FLUX.1's start is its profile's own (the library's 0.6 was measured
+    # keeping the old colour); everywhere else the class's default.
+    wanted = FLUX_START if class_name == "FluxPipeline" else library
     assert wanted is not None and wanted != default_strength()
     assert GenerateRequest(prompt="a fox", refine=3, mask=MASK).strength == wanted
     # Given, it is the request's; a refine pass without a mask is unchanged.
@@ -460,7 +468,7 @@ def test_an_unstamped_outpaint_is_refused_in_the_inpaints_words(inpaintable, mon
     backend, record, _ = inpaintable
     monkeypatch.setattr(
         module, "settings",
-        dataclasses.replace(module.settings, model_id="black-forest-labs/FLUX.1-Krea-dev"),
+        dataclasses.replace(module.settings, model_id="black-forest-labs/FLUX.2-klein-4B"),
     )
     # No mask yet - an outpaint before its stamp is still an inpaint's question.
     request = GenerateRequest(prompt="x", width=304, height=256, steps=10, refine=record.id, strength=0.9,
@@ -533,7 +541,7 @@ def test_a_deferred_family_is_refused_although_its_class_exists(inpaintable, mon
     backend, record, _ = inpaintable
     monkeypatch.setattr(
         module, "settings",
-        dataclasses.replace(module.settings, model_id="black-forest-labs/FLUX.1-Krea-dev"),
+        dataclasses.replace(module.settings, model_id="black-forest-labs/FLUX.2-klein-4B"),
     )
     assert backend.describe()["inpaint_supported"] is False
     request = GenerateRequest(prompt="x", width=256, height=256, steps=10,
@@ -561,7 +569,9 @@ def _bare(class_name: str, model_id: str, monkeypatch) -> DiffusersBackend:
     (ANIMAGINE, "StableDiffusionXLPipeline", True),
     ("Tongyi-MAI/Z-Image-Turbo", "ZImagePipeline", True),
     ("SeeSee21/Z-Anime", "ZImagePipeline", True),
-    ("black-forest-labs/FLUX.1-Krea-dev", "FluxPipeline", False),
+    ("black-forest-labs/FLUX.1-Krea-dev", "FluxPipeline", True),
+    ("black-forest-labs/FLUX.1-dev", "FluxPipeline", True),
+    ("black-forest-labs/FLUX.1-schnell", "FluxPipeline", True),
     ("black-forest-labs/FLUX.2-klein-4B", "Flux2KleinPipeline", False),
     ("Qwen/Qwen-Image", "QwenImagePipeline", False),
     # An unprofiled id on an enabled class: the profile says no, so no.
@@ -572,6 +582,10 @@ def test_the_loaded_answer_needs_the_class_and_the_profile(model_id, class_name,
     info = backend.describe()
     assert info["inpaint_supported"] is enabled
     expected = refine.library_strength(getattr(diffusers, INPAINTS[class_name])) if enabled else None
+    if enabled and class_name == "FluxPipeline":
+        # The profile's measured start overrides the class's 0.6.
+        assert expected == 0.6
+        expected = FLUX_START
     assert info["inpaint_strength"] == expected
     # Before a load: the profile's guess, and no strength yet.
     backend._pipe = None
@@ -582,6 +596,66 @@ def test_the_loaded_answer_needs_the_class_and_the_profile(model_id, class_name,
 # ---------------------------------------------------------------- the status
 
 
+FLUX1 = ("black-forest-labs/FLUX.1-Krea-dev", "black-forest-labs/FLUX.1-dev",
+         "black-forest-labs/FLUX.1-schnell")
+
+
+def test_the_flux1_profiles_start_at_their_own_measured_strength():
+    from backend.model_defaults import inpaint_start
+
+    for model_id in FLUX1:
+        assert defaults_for(model_id)["inpaint_supported"] is True, model_id
+        assert "inpaint_deferred" not in _profile_for(model_id), model_id
+        assert inpaint_family(model_id) == "FluxPipeline", model_id
+        assert inpaint_start(model_id) == FLUX_START == defaults_for(model_id)["inpaint_start"]
+    # Only FLUX.1 has one: everywhere else the class's default is the start,
+    # and a profile with no inpaint has no start at all.
+    for model_id, _ in CASES:
+        if _profile_for(model_id).get("inpaint_family") != "FluxPipeline":
+            assert inpaint_start(model_id) is None and defaults_for(model_id)["inpaint_start"] is None
+    assert "FluxPipeline" not in INPAINT_DEFERRED
+    assert {"Flux2KleinPipeline", "QwenImagePipeline"} <= INPAINT_DEFERRED
+    # And the library default it replaces is the 0.6 the card measured.
+    assert refine.library_strength(diffusers.FluxInpaintPipeline) == 0.6
+
+
+def test_the_status_gives_flux1s_start_before_and_after_a_load(client, fake, monkeypatch):
+    # Before a load the profile's own start is known from the id alone, so
+    # the Strength box opens at it; an SDXL profile's library default waits
+    # for the load (the page's stand-in, then the class's number).
+    for model_id, before in (*((m, FLUX_START) for m in FLUX1), (ANIMAGINE, None)):
+        described = dict(fake.describe(), inpaint_supported=None, inpaint_strength=None, model_id=model_id)
+        monkeypatch.setattr(fake, "describe", lambda described=described: described)
+        defaults = client.get("/api/status").json()["defaults"]
+        assert defaults["inpaint_strength"] == before, model_id
+    # After a load the backend's answer is given as is (describe() is where
+    # the real one puts the profile's start first: the test above).
+    described = dict(fake.describe(), inpaint_supported=True, inpaint_strength=FLUX_START,
+                     model_id=FLUX1[0])
+    monkeypatch.setattr(fake, "describe", lambda: described)
+    defaults = client.get("/api/status").json()["defaults"]
+    assert defaults["inpaint_strength"] == FLUX_START and defaults["inpaint_start"] == FLUX_START
+    # A loaded pipeline that turns the inpaint down takes the start away too.
+    described = dict(described, inpaint_supported=False, inpaint_strength=None)
+    defaults = client.get("/api/status").json()["defaults"]
+    assert defaults["inpaint_strength"] is None and defaults["inpaint_start"] is None
+
+
+def test_an_explicit_strength_on_flux1_is_kept_and_keys_unchanged(monkeypatch):
+    # Only the default start moves: a request that names its strength runs
+    # and keys as before, and the default is the same 0.95 the dialog sends.
+    monkeypatch.setattr(model_selection, "_selection", (None, 0))
+    model_selection.select("black-forest-labs/FLUX.1-Krea-dev")
+    given = GenerateRequest(prompt="a fox", refine=3, mask=MASK, strength=0.6)
+    assert given.strength == 0.6 and given.applied(**FLUX_RUN).strength == 0.6
+    blank = GenerateRequest(prompt="a fox", refine=3, mask=MASK)
+    sent = GenerateRequest(prompt="a fox", refine=3, mask=MASK, strength=FLUX_START)
+    assert blank.strength == FLUX_START
+    assert blank.applied(**FLUX_RUN) == sent.applied(**FLUX_RUN)
+    # A refine pass without a mask keeps FLUX.1's refine strength.
+    assert GenerateRequest(prompt="a fox", refine=3).strength == default_strength() == 0.1
+
+
 def test_the_status_publishes_the_capability(client, fake, monkeypatch):
     defaults = client.get("/api/status").json()["defaults"]
     assert defaults["inpaint_supported"] is True and defaults["inpaint_settled"] is True
@@ -589,7 +663,7 @@ def test_the_status_publishes_the_capability(client, fake, monkeypatch):
     defaults = client.get("/api/status").json()["defaults"]
     assert defaults["inpaint_supported"] is False and defaults["inpaint_strength"] is None
     # Before a load the profile guesses; only its False is already final.
-    for model_id, guess in ((ANIMAGINE, True), ("black-forest-labs/FLUX.1-Krea-dev", False)):
+    for model_id, guess in ((ANIMAGINE, True), ("black-forest-labs/FLUX.2-klein-4B", False)):
         described = dict(fake.describe(), inpaint_supported=None, model_id=model_id)
         monkeypatch.setattr(fake, "describe", lambda described=described: described)
         defaults = client.get("/api/status").json()["defaults"]

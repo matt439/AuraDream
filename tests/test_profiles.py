@@ -649,8 +649,11 @@ def test_krea_dev_is_flux_to_the_controls_and_its_own_to_the_guide():
     # the flux profile, so nothing about a request changes.
     krea, flux = "black-forest-labs/FLUX.1-Krea-dev", "black-forest-labs/FLUX.1-dev"
     assert defaults_for(krea) == defaults_for(flux)
-    assert {k: v for k, v in hints_for(krea).items() if k not in ("prompt", "size")} == {
-        k: v for k, v in hints_for(flux).items() if k not in ("prompt", "size")
+    # Bar the inpaint Strength note: the same 0.95, but measured on Krea dev
+    # and said to be measured there, not on dev.
+    own = ("prompt", "size", "inpaint_strength")
+    assert {k: v for k, v in hints_for(krea).items() if k not in own} == {
+        k: v for k, v in hints_for(flux).items() if k not in own
     }
     assert hints_for(krea)["prompt"] != hints_for(flux)["prompt"]
     assert guide_for(krea)["pixels_word"] == "recommended"
@@ -997,12 +1000,36 @@ def test_the_inpaint_strength_note_names_only_what_verified_md_measured():
     rows = [line for line in section.splitlines() if line.startswith("| ")]
     for label in measured.values():
         assert any(line.startswith(f"| {label}") for line in rows), label
+    # FLUX.1's start is its profile's own, 0.95, over the library's 0.6: its
+    # subsection measured Krea dev alone, on 2026-10-19.
+    from backend.model_defaults import FLUX_LIBRARY_STRENGTH, INPAINT_START_MEASURED_ON
+
+    flux = section.split("\n### FLUX.1 Krea dev", 1)[1]
+    flux_words = " ".join(flux.split())
+    assert f"Measured {INPAINT_START_MEASURED_ON}" in flux_words
+    assert f"The library default, {FLUX_LIBRARY_STRENGTH:g}, keeps the red scarf" in flux_words
+    assert "0.95 and 1.0 draw the blue knitted scarf asked for" in flux_words
+    assert "Not measured on FLUX.1: dev and schnell" in flux_words
+    krea = "black-forest-labs/FLUX.1-Krea-dev"
     for repo, class_name in CASES:
         profile = _profile_for(repo)
         hint = hints_for(repo).get("inpaint_strength")
         assert "inpaint_strength_measured" not in defaults_for(repo)  # a label, not a default
         if not profile["inpaint_supported"]:
             assert hint is None and "inpaint_strength_measured" not in profile, repo
+            continue
+        if profile.get("inpaint_start") is not None:
+            assert class_name == "FluxPipeline" and profile["inpaint_start"] == 0.95, repo
+            assert hint.startswith(f"measured on the card ({INPAINT_START_MEASURED_ON})"), repo
+            assert f"the library's own {FLUX_LIBRARY_STRENGTH:g} kept the old colour" in hint, repo
+            assert "the library's number" not in hint, repo
+            if repo == krea:
+                assert profile["inpaint_strength_measured"] == "FLUX.1 Krea dev"
+                assert "start at on FLUX.1 Krea dev," in hint and "not on this checkpoint" not in hint
+            else:
+                assert "inpaint_strength_measured" not in profile, repo
+                assert "on FLUX.1 Krea dev, which runs the same inpaint class, not on this checkpoint" in hint, repo
+            assert not any(label in hint for label in measured.values()), repo
             continue
         assert hint.startswith("the library's number"), repo
         assert profile.get("inpaint_strength_measured") == measured.get(repo), repo

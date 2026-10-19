@@ -85,7 +85,8 @@ class GenerationBackend(abc.ABC):
         `reference_supported`, `refine_supported` and `inpaint_supported` (None
         until a pipeline is loaded - its parameter list, or for a refine pass
         or an inpaint its class, is the answer), `inpaint_strength` (the
-        inpaint class's own strength default, the library's), `lora_supported` (never None: what decides it is
+        start: a profile's own measured `inpaint_start`, else the inpaint
+        class's own strength default, the library's), `lora_supported` (never None: what decides it is
         the installation, not the checkpoint), `device_name`, `vram_total_mb`,
         `vram_used_mb`. Load errors are *not*
         reported here:

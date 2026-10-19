@@ -1971,6 +1971,19 @@ class), every False is final before a load (`inpaint_settled`). The Nunchaku
 Z-Image repos share the Z-Image profile and so answer True; an inpaint over
 a Nunchaku transformer has not been run on the card.
 
+**FLUX.1 enabled (2026-10-19, INP#3).** The card ran Krea dev's inpaint at
+1 MP (`verified.md`, Inpaint, "FLUX.1 Krea dev"): 0.16 GiB allocated over
+the text-to-image render, no spill, so no crop is needed there; it
+reproduces, cancels and previews through the blend. `FluxPipeline` left
+`INPAINT_DEFERRED`, and the three FLUX.1 profiles (Krea dev, dev, schnell,
+and the lite and Nunchaku repos resolving to them) carry
+`inpaint_supported`, `inpaint_family: "FluxPipeline"` and their own start
+(below). Enabling FLUX.1 enables its outpaint too, which runs through the
+same class: its 16:9 canvas from a 1 MP source is 1.9 MP, near the top the
+card held for this family's refine pass, and not measured. The Nunchaku
+FLUX.1 repos answer True as the Nunchaku Z-Image ones do; the class has not
+run over that transformer either (TODO `CARD#3`).
+
 **The starting strength is the library's, said as the library's.** No
 catalogue author gives one for inpainting, so there is no `inpaint_strength`
 profile key. The Strength box starts at the inpaint class's own signature
@@ -1996,6 +2009,28 @@ text-to-image class it runs, held to the catalogue's by
 (`schemas_generate.default_inpaint_strength`): it had run at the refine
 strength, so the CLI and the dialog recorded different strengths for one
 operation.
+
+**Unless the profile measured its own start: FLUX.1's 0.95.** On Krea dev
+the library's default, 0.6, kept the red scarf under the mask and added a
+little blue at the collar; 0.8 did the same with more; 0.95 and 1.0 drew
+the scarf asked for. FLUX.1 is the first family where the class's default
+is not a start that does what someone asking for a change wants, so its
+profiles carry `inpaint_start: 0.95` (Matt's choice, 2026-10-19, of the
+measured 0.95-1.0) and
+`model_defaults.inpaint_start` is asked first everywhere a start is decided:
+`default_inpaint_strength` (the CLI's `--mask`, the API before a load),
+`DiffusersBackend.inpaint_strength` (and so `describe()`), the status merge
+(`defaults.inpaint_strength`, which on FLUX.1 is known before a load, so the
+box opens at 0.95 with no stand-in) and the fake server. Only the default
+moves: a request that names its strength runs, records and keys as it did,
+and `applied()` is still the one normalisation. The status carries
+`defaults.inpaint_start` too, so the page's note says it is the checkpoint's
+start in place of the installed diffusers' default rather than the
+library's number; `hints_for` words the rest - measured on the card on Krea
+dev, where the library's 0.6 kept the old colour, or, on dev and schnell,
+measured on Krea dev, which runs the same class, not on this checkpoint.
+`tests/test_profiles.py` holds the words to `verified.md`'s subsection and
+`tests/test_inpaint.py` the 0.6 to the installed class.
 
 **Its own dialog.** The user's answer to the plan's first question, against
 the review's plan of a canvas in the Refine dialog. Refine's scale buttons,
@@ -2075,8 +2110,9 @@ sibling's, so the Inpaint and Outpaint dialogs say "starts at N% noise" on
 Z-Image as Refine does (an outpaint at its padded canvas's size); SDXL's
 schedule is no noise fraction and says none, as for Refine. FLUX.1's and
 Qwen-Image's inpaint classes make the same statements as their
-image-to-image ones and are in the table too, though their families are
-deferred and nothing asks yet; klein's computes its shift with
+image-to-image ones and are in the table too: FLUX.1's is asked since its
+family was enabled (2026-10-19), Qwen-Image's family is still deferred and
+nothing asks; klein's computes its shift with
 `compute_empirical_mu` and has no entry. The live preview was never
 switched off for an inpaint: the step callback hands the inpaint class and
 its latents to `_preview` as a refine's does, and Z-Image's class blends the
@@ -2108,10 +2144,12 @@ the canvas's shape and the source's thumbnail sits in it by the padding.
 With the source deleted, the record's own picture (same size as the mask)
 goes under it instead of an empty box.
 
-**What this pass leaves.** FLUX.1, klein, Qwen-Image, FLUX.1
-Fill [dev] (decided 2026-10-17 to wait on FLUX.1 inpainting on Krea dev
-being seen on the card; then, if wanted, its own inpaint-only catalogue
-checkpoint) and the masked-area crop are later phases of the plan;
+**What this pass leaves.** klein, Qwen-Image, FLUX.1 Fill [dev]
+(decided 2026-10-17 to wait on FLUX.1 inpainting on Krea dev being seen on
+the card; it was, 2026-10-19, and at 0.95 did what was asked, so whether
+Fill is still wanted is Matt's call, TODO `INP#8`; if it is, its own
+inpaint-only catalogue checkpoint) and the masked-area crop are later
+phases of the plan; FLUX.1 was enabled 2026-10-19 (above);
 outpainting is built (below). Memory, time, determinism and what a strength
 keeps were measured 2026-10-17 on WAI, Animagine and Z-Anime (`verified.md`,
 Inpaint): an inpaint costs a refine pass of its size, and the library
@@ -2208,7 +2246,10 @@ library default as the strength to start an outpaint at, so the Outpaint
 dialog's Strength note is the Inpaint dialog's (`hints.inpaint_strength`,
 above), and what inpaint phase 3 built reaches every outpaint unchanged:
 the "starts at N% noise" line on Z-Image at the canvas's size, and the live
-preview through the blend.
+preview through the blend. FLUX.1's outpaint (enabled with its inpaint,
+2026-10-19) starts at the profile's 0.95 like its inpaint, carries the same
+note, and says "starts at N% noise" too; no FLUX.1 outpaint, band or
+strength has been run on the card.
 
 ## CellKey and run_id
 

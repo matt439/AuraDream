@@ -20,7 +20,7 @@ from pydantic_core import PydanticCustomError
 from . import outpaint as outpaint_rules
 from .model_selection import current_model_id
 from .config import settings
-from .model_defaults import defaults_for, inpaint_family
+from .model_defaults import defaults_for, inpaint_family, inpaint_start
 from .refine import ANIME6B, DEFAULT_STRENGTH, leaves_a_step, upscaler_supported
 from .seeds import MAX_BATCH, MAX_GRID_SEEDS, MAX_RUNS, MAX_SEED
 
@@ -46,16 +46,23 @@ def default_strength() -> float:
 
 def default_inpaint_strength() -> float | None:
     """Where an inpaint's strength starts on the running checkpoint: the
-    library's own default for its inpaint class (`refine.library_strength`),
-    as the Inpaint dialog starts, or None where it has no inpaint enabled.
+    profile's own measured start where it has one (`model_defaults.
+    inpaint_start`, FLUX.1's 0.95), else the library's own default for its
+    inpaint class (`refine.library_strength`), as the Inpaint dialog starts,
+    or None where it has no inpaint enabled.
 
     Read off the profile's family (`model_defaults.inpaint_family`) rather
     than the loaded pipeline, so the CLI's `--mask` and an API request with
     no strength record the number the dialog would before any load.
     """
-    family = inpaint_family(current_model_id(settings))
+    model_id = current_model_id(settings)
+    family = inpaint_family(model_id)
     if family is None:
         return None
+    # A profile's own measured start (FLUX.1's 0.95) comes before the class's.
+    start = inpaint_start(model_id)
+    if start is not None:
+        return start
     import diffusers
 
     from . import refine

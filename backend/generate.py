@@ -162,7 +162,7 @@ def _build_parser() -> argparse.ArgumentParser:
         metavar="FILE",
         help="with --refine: inpaint - repaint only where this picture is white and keep the "
         "source where it is black (grey blends), on a checkpoint whose inpaint is enabled here "
-        "(the SDXL and Z-Image ones). A PNG at the source's own size, which is the size the "
+        "(the FLUX.1, SDXL and Z-Image ones). A PNG at the source's own size, which is the size the "
         "inpaint runs at; kept in the gallery's masks by its hash, which the image records",
     )
     conditioning.add_argument(
@@ -173,7 +173,7 @@ def _build_parser() -> argparse.ArgumentParser:
         "over the source on the larger canvas, its new area filled from the source's edge, under a "
         "mask the run builds itself (the new border and a band into the original). Or a preset: "
         "+25%%, or an aspect of --aspect's (16:9, 2:3, ...) to extend to. The size is the source's "
-        "plus the padding; on a checkpoint whose inpaint is enabled here (the SDXL and Z-Image ones)",
+        "plus the padding; on a checkpoint whose inpaint is enabled here (the FLUX.1, SDXL and Z-Image ones)",
     )
     conditioning.add_argument(
         "--band",
@@ -1035,8 +1035,8 @@ def main(argv: list[str] | None = None) -> int:
         through = ", which an outpaint runs through" if outpainting else ""
         print(
             f"{p.settings.model_id} has no inpaint in this app - its pipeline has no inpaint class "
-            f"in the installed diffusers{through}, or its family's is not enabled yet. The SDXL and "
-            "Z-Image checkpoints have one.",
+            f"in the installed diffusers{through}, or its family's is not enabled yet. The FLUX.1, SDXL "
+            "and Z-Image checkpoints have one.",
             file=sys.stderr,
         )
         return 2

@@ -10,7 +10,7 @@ An index of open work, one row per item; each row points to the doc that owns th
 
 **Ready backlog:** 0 `OPEN` tasks remain. The CPU/browser batches are complete; the built upscaler (`GEN#5`) now needs only card qualification. Deferred features remain deferred; there is no further actionable batch for this run.
 
-**Needs Matt:** workbench task trials (`DEV#1`) and hands-on screen-reader/touch checks (`UI#7`) are the next `USER` work. One feature decision is waiting: whether to enable FLUX.1 inpaint with a start above the library's default strength (`INP#3`); Fill [dev] (`INP#8`) follows from it. Whole-app layout implementation waits for its trials; it remains a design hypothesis.
+**Needs Matt:** workbench task trials (`DEV#1`) and hands-on screen-reader/touch checks (`UI#7`) are the next `USER` work. One feature decision is waiting: whether FLUX.1 Fill [dev] is still wanted (`INP#8`), now that FLUX.1 inpaint is enabled at 0.95 (2026-10-19) and did what was asked on Krea dev. Whole-app layout implementation waits for its trials; it remains a design hypothesis.
 
 **GPU runs are Matt's to run or OK, never past the 16 GB card** (every `CARD` row). Check the checkpoint's measured peaks in `docs/verified.md` first; a run that spills into shared memory proves only that it doesn't fit.
 
@@ -28,9 +28,9 @@ An index of open work, one row per item; each row points to the doc that owns th
 
 | id | status | sev | size | item |
 |---|---|---|---|---|
-| `CARD#1` | CARD | LOW | M+card | Inpaint's remaining native SDXL/Z-Image profiles, SDXL LoRA, seam metrics, blended preview and start-noise display; use the owner's full Not measured list. Nunchaku is `CARD#3`, later families are `INP`. [Inpaint](docs/verified.md#inpaint). |
-| `CARD#2` | CARD | LOW | M+card | Outpaint's remaining SDXL/Z-Image profiles, seam metrics and intermediate band widths from the owner's Not measured list. [Outpaint](docs/verified.md#outpaint). |
-| `CARD#3` | CARD | MED | S+card | An inpaint over a Nunchaku Z-Image transformer under WSL: the profile allows it, but the class has never run over it. [Inpainting](docs/design-notes.md#inpainting). |
+| `CARD#1` | CARD | LOW | M+card | Inpaint's remaining native SDXL/Z-Image profiles, FLUX.1 dev and schnell at 0.95, SDXL LoRA, seam metrics, blended preview and start-noise display; use the owner's full Not measured list. Nunchaku is `CARD#3`, later families are `INP`. [Inpaint](docs/verified.md#inpaint). |
+| `CARD#2` | CARD | LOW | M+card | Outpaint's remaining SDXL/Z-Image profiles, FLUX.1 (enabled, never run; 1.9 MP at 16:9 from 1 MP, near the card's top), seam metrics and intermediate band widths from the owner's Not measured list. [Outpaint](docs/verified.md#outpaint). |
+| `CARD#3` | CARD | MED | S+card | An inpaint over a Nunchaku Z-Image or FLUX.1 transformer under WSL: the profiles allow it, but the class has never run over either. [Inpainting](docs/design-notes.md#inpainting). |
 | `CARD#4` | CARD | LOW | L+card | INT8, full BF16 and sequential offload per checkpoint; the picker says INT8 is "not yet compared on this card". [Checkpoints](docs/verified.md#checkpoints). |
 | `CARD#5` | CARD | LOW | M+card | Size and batch gaps: Anima Turbo/Aesthetic at 1.5-2 MP and non-square, Kohaku, NetaYume and NewBie above about 1 MP, Illustrious at 1536/2048, Animagine Batch 12 (the cap was raised from a Batch 8 reading). [Checkpoints](docs/verified.md#checkpoints); [MP table](docs/anime-model-guide.md#compare-by-total-megapixels). |
 | `CARD#6` | CARD | LOW | M+card | Catalogue entries never loaded on the card: Krea 2 Raw (manual approval), FLUX.2 [klein] 9B, klein base 4B and 9B; Krea 2 Turbo's Windows fp8 row has a peak but no time. [Checkpoints](docs/verified.md#checkpoints). |
@@ -47,10 +47,9 @@ An index of open work, one row per item; each row points to the doc that owns th
 
 | id | status | sev | size | item |
 |---|---|---|---|---|
-| `INP#3` | DECISION | MED | M | Enable FLUX.1 inpaint? Krea dev measured 2026-10-19: fits at 1 MP, reproduces, previews; but the library's 0.6 keeps the old colour, 0.95-1.0 does what is asked, so it needs the first non-default per-profile start. dev/schnell unmeasured. [Phase 3](docs/plan-inpainting.md#phases); [results](docs/verified.md#flux1-krea-dev-before-enabling-inp3). |
 | `INP#5` | DEFERRED | LOW | M+card | Phase 4, klein: one reference beside the source, its mu recipe, memory with the sequence doubled, `smoke-inpaint-klein`. Matt doesn't run klein. |
 | `INP#6` | DEFERRED | LOW | M+card | Phase 5, Qwen-Image under Nunchaku (WSL), only if the inpaint class runs over the Nunchaku transformer at all. |
-| `INP#8` | BLOCKED | LOW | L | FLUX.1 Fill [dev] as its own inpaint-only catalogue checkpoint: blocked on `INP#3`, decided once FLUX.1 inpaints on Krea dev have been seen on the card, built if they disappoint. [Question 7](docs/plan-inpainting.md#open-questions-for-the-user). |
+| `INP#8` | DECISION | LOW | L | FLUX.1 Fill [dev] as its own inpaint-only catalogue checkpoint? The plan builds it if FLUX.1 inpaints disappoint; on Krea dev at 0.95 (enabled 2026-10-19) they drew what was asked, so Matt decides whether it is still wanted. [Question 7](docs/plan-inpainting.md#open-questions-for-the-user). |
 | `INP#9` | DEFERRED | LOW | M | Phase 6, the masked area only (`padding_mask_crop` at a working size, a recorded `mask_crop`); not on Z-Image, whose class lacks it. Also for large SDXL outpaint canvases. |
 | `INP#10` | DEFERRED | LOW | M | Outpaint, later if wanted: the server's fill shown in the frame (kept for later, 2026-10-17), an outpaint over a painted mask, a second fill. |
 

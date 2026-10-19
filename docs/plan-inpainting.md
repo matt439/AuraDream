@@ -15,7 +15,7 @@ at the end:
    deferred: their profiles say `inpaint_supported: False` and
    `inpaint_deferred`, `model_defaults.INPAINT_DEFERRED` names their
    pipelines, and the backend refuses an inpaint there though the class
-   exists.
+   exists. FLUX.1 was enabled 2026-10-19, starting at 0.95 (phase 3).
 4. Always composite; `"mask_blend": "overlay"` in the chunk, no option.
 5. The manifest stays `version: 1`.
 6. Swept with Empty bin, a permanent delete and `clear`, once no row (live
@@ -26,20 +26,23 @@ at the end:
    inpainting on Krea dev (`INP#3`). Fill is decided once those inpaints
    have been seen on the card; if they disappoint, Fill comes as its own
    inpaint-only catalogue checkpoint, never a hidden engine behind another.
+   Seen 2026-10-19: at 0.95 they drew what was asked, so whether Fill is
+   still wanted is Matt's decision (TODO `INP#8`).
 
 Built differently from the text below: the mask's hash covers its size as
 well as its levels (`storage.mask_hash`: `"L WxH\n"` then the bytes), since an all-white
 mask at two sizes is the same levels; the starting strength is the class's
 signature default with no `inpaint_strength` profile key (the published
 `inpaint_strength` is the class's default; a request without a strength
-starts there too, through the profile's `inpaint_family`); references are
+starts there too, through the profile's `inpaint_family`), except where a
+profile measured its own `inpaint_start` (FLUX.1's 0.95, 2026-10-19); references are
 dropped on an inpaint (SDXL's and Z-Image's classes take none); the class
 is handed the painted mask widened to whole latent cells
 (`refine.pipeline_mask`) while the composite blends by the painted levels;
 a live job's masks are held in a `mask_holds` table every process's sweep
 reads, not only in the server's memory; the smokes run on ports 7905 and
-7906, not 7904 and 7905 (7904 is `smoke-png-settings`'). Remaining: FLUX.1
-enabled (phase 3's last part, with its measurements) and phases 4-6. The
+7906, not 7904 and 7905 (7904 is `smoke-png-settings`'). FLUX.1 was
+enabled 2026-10-19 (phase 3's last part); remaining: phases 4-6. The
 facts list's mask outline over the source's thumbnail is built (2026-10-17).
 `docs/design-notes.md` ("Inpainting") and `docs/rules.md`
 describe what was built.
@@ -713,12 +716,17 @@ that day (`verified.md`, Inpaint and Outpaint):
   on this one (Z-Image Turbo, the undistilled Z-Image and the other SDXL
   profiles, none of which the card ran).
 
-Left: FLUX.1 enabled (TODO INP#3). Its memory, strength and preview were
-measured on Krea dev 2026-10-19 (`verified.md`, Inpaint, "FLUX.1 Krea dev,
-before enabling"): it fits at 1 MP, reproduces, and previews, but the
-library's default strength, 0.6, keeps the old colour; 0.95-1.0 draws what
-is asked. Enabling it therefore needs the first per-profile inpaint start
-that is not the class's own default, which is Matt's call.
+Built 2026-10-19: FLUX.1 enabled (was TODO INP#3). Its memory, strength
+and preview were measured on Krea dev that day (`verified.md`, Inpaint,
+"FLUX.1 Krea dev, before enabling"): it fits at 1 MP, reproduces, and
+previews, but the library's default strength, 0.6, keeps the old colour;
+0.95-1.0 draws what is asked. Matt chose 0.95, the first per-profile
+inpaint start that is not the class's own default: the FLUX.1 profiles
+(Krea dev, dev, schnell) carry `inpaint_start: 0.95`, which every place
+deciding an inpaint's start asks first (`model_defaults.inpaint_start`),
+and the Strength note says where it was measured. Its outpaint comes with
+it. Still unmeasured: dev and schnell, a FLUX.1 outpaint and the class
+over the Nunchaku FLUX.1 transformer.
 
 **Phase 4 - klein (M).** One reference beside the source, the refusal of
 more, the `compute_empirical_mu` recipe or no reading, memory with the

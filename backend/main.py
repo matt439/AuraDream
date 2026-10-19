@@ -573,11 +573,17 @@ def _merged_defaults(info: dict) -> dict:
     defaults["inpaint_settled"] = (
         bool(defaults.get("inpaint_settled")) or info.get("inpaint_supported") is not None
     )
-    # The loaded inpaint class's own strength default - the library's number,
-    # which is all there is until a profile measures one - or None.
+    # Where the Strength box starts: the loaded backend's answer (a profile's
+    # own measured start, else the inpaint class's library default), and
+    # before a load the profile's own start where it has one
+    # (`model_defaults.inpaint_start`, known from the id alone) - or None.
+    loaded = info.get("inpaint_strength")
     defaults["inpaint_strength"] = (
-        info.get("inpaint_strength") if defaults["inpaint_supported"] else None
+        (loaded if loaded is not None else defaults.get("inpaint_start"))
+        if defaults["inpaint_supported"] else None
     )
+    if not defaults["inpaint_supported"]:
+        defaults["inpaint_start"] = None
     # Whose the strength is: the profile's own, or the general default filled
     # in below for an unprofiled pipeline that has a pass. The Refine dialog
     # names it as the checkpoint's own only where it is.

@@ -1056,8 +1056,8 @@ Reproduction:
   loaded scheduler is never touched. `START_RECIPES` copies
   `FluxImg2ImgPipeline`'s, `QwenImageImg2ImgPipeline`'s and
   `ZImageImg2ImgPipeline`'s statements, and the inpaint classes' beside
-  them (`ZImageInpaintPipeline`, and `FluxInpaintPipeline` and
-  `QwenImageInpaintPipeline` for families still deferred, which nothing
+  them (`ZImageInpaintPipeline` and `FluxInpaintPipeline`, and
+  `QwenImageInpaintPipeline` for a family still deferred, which nothing
   asks; klein's inpaint class uses `compute_empirical_mu` and has none);
   `tests/test_refine_schedules.py` holds them, `SHIFT_CALL`, the default
   schedule and the sibling's VAE scale to the installed source, and every
@@ -1211,12 +1211,13 @@ Reproduction:
   "Inpaint")` finds the class under the exact-export rule, its call taking
   `refine.INPAINT_REQUIRED` (`REQUIRED` and `mask_image`) and `CARRIED`;
   `DiffusersBackend._inpaint_supported` also needs the pipeline outside
-  `model_defaults.INPAINT_DEFERRED` (`FluxPipeline`, `Flux2KleinPipeline`,
+  `model_defaults.INPAINT_DEFERRED` (`Flux2KleinPipeline`,
   `QwenImagePipeline`: diffusers ships a class, this app has not enabled the
   family) and the profile's `inpaint_supported` True, so a deferred family
   or an unprofiled SDXL id is refused with the class installed. True only on
-  the six SDXL checkpoints and Z-Image Turbo, Z-Image and Z-Anime (the
-  Nunchaku Z-Image repos share that profile); the fallback is False. A
+  the six SDXL checkpoints, Z-Image Turbo, Z-Image and Z-Anime, and FLUX.1
+  Krea dev, dev and schnell (from 2026-10-19; the Nunchaku Z-Image and FLUX.1
+  repos share those profiles, never run over Nunchaku); the fallback is False. A
   deferred profile carries `inpaint_deferred`, so the page says "not
   enabled yet" rather than "no inpaint pipeline in the installed
   diffusers". `tests/test_inpaint.py` holds every True to an installed,
@@ -1225,16 +1226,26 @@ Reproduction:
   box starts at `defaults.inpaint_strength`, the loaded class's own
   signature default (`refine.library_strength`, read with `inspect`, None
   unless supported) and said as the library's number, since no catalogue
-  author gives one; there is no `inpaint_strength` profile key. Where the
-  card measured that default as the right start (WAI v17, Animagine XL 4.0,
-  Z-Anime: `verified.md`, Inpaint) the profile names itself in
+  author gives one; there is no `inpaint_strength` profile key. The one
+  exception is a profile's `inpaint_start`, its own start where the card
+  measured the class's default as the wrong one: FLUX.1's three profiles
+  carry 0.95 (Krea dev, 2026-10-19: the library's 0.6 kept the old colour).
+  `model_defaults.inpaint_start` is asked first by every place deciding a
+  start - `default_inpaint_strength`, `DiffusersBackend.inpaint_strength`
+  (and so `describe()`), the status merge (which gives it before a load
+  too) and `tools/fake_server.py` - and `defaults.inpaint_start` tells the
+  page to word the note as the checkpoint's start, not the library's. Only
+  the default moves: an explicit strength runs, records and keys as before.
+  Where the card measured the start as the right one (WAI v17, Animagine XL
+  4.0, Z-Anime at the library's default, FLUX.1 Krea dev at its own:
+  `verified.md`, Inpaint) the profile names itself in
   `inpaint_strength_measured` (in `_NOT_DEFAULTS`: a label), and
   `hints.inpaint_strength` - every enabled profile's, words from
   `hints_for`, never the page's - says it was measured there, or on the
   checkpoints running the same inpaint class and not on this one;
   `tests/test_profiles.py` holds the labels to that section. A request
   with a mask and no strength (`--mask`, the API) starts at the same
-  default before any load
+  start before any load
   (`schemas_generate.default_inpaint_strength`, through each enabled
   profile's `inpaint_family`, the text-to-image class it runs). An inpaint
   runs at its source's size (`refine.inpaint_source` refuses another; the
@@ -2876,7 +2887,9 @@ Frontend and CLI:
   with `strength_axis` over the one mask, opened as a sheet. Strength
   starts at `defaults.inpaint_strength`, said as the installed diffusers'
   default followed by `hints.inpaint_strength` (where it was measured as
-  the right start); before a load, the checkpoint's refine strength, said as a
+  the right start) - or, where it is `defaults.inpaint_start` (FLUX.1's
+  0.95, known before a load), as this checkpoint's own start in place of
+  that default; otherwise before a load, the checkpoint's refine strength, said as a
   stand-in, and replaced by the library's when a load answers and the box
   is untouched (`takeLibraryStrength`). The canvas's bitmap is the source's
   pixel size over the source's `<img>`; the mask shows as a tint and an
@@ -6301,10 +6314,14 @@ node tools/browser.mjs tools/smoke-outpaint.json
 
 `smoke-context-menu.json` checks the right-click menu on a FLUX.1 Krea
 [dev] fake on 7908 with a fresh `--data`: a card's menu at the pointer, its
-items and groups, Refine live and Inpaint/Outpaint held with the card
-button's title, F beside Star; ArrowDown and Escape with focus back on the
-image; Star starring the card; Use seed; the copy items and Open PNG (the
-clipboard and `window.open` stubbed); a held Inpaint saying why; Shift and
+items and groups, Refine, Inpaint and Outpaint live and Use as reference
+held with the card button's title, F beside Star; ArrowDown and Escape with
+focus back on the image; Star starring the card; Use seed; the copy items
+and Open PNG (the clipboard and `window.open` stubbed); a held Use as
+reference saying why; FLUX.1's inpaint (enabled 2026-10-19): Inpaint…
+opening the dialog at the profile's 0.95 with its note in the server's
+words, a stroke and a run giving an inpaint at 0.95, and Outpaint opening
+at the same 0.95 and note; Shift and
 the prompt box keeping the browser's menu; the Menu key on a focused card
 opening on its first item; a picked card's picks menu starring both picks
 and an unpicked card's own menu; a press outside closing it; a result

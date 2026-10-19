@@ -82,7 +82,7 @@ const INPAINT_KEPT = 4;
 
 // The families this app inpaints, for the sentence that says where it is
 // not available.
-const INPAINT_FAMILIES = 'The SDXL and Z-Image checkpoints have it.';
+const INPAINT_FAMILIES = 'The FLUX.1, SDXL and Z-Image checkpoints have it.';
 
 // Why an inpaint cannot run here, one sentence wherever the page says it: no
 // inpaint pipeline in the installed diffusers, or one the app has not enabled
@@ -177,7 +177,9 @@ function inpaintFromCard(rec, div) {
 // the installed diffusers at the load (`defaults.inpaint_strength`) - the
 // library's number, since no checkpoint's authors give one for inpainting -
 // and before a load, while that is unknown, the checkpoint's refine strength,
-// which the note says. Where that number was measured as the right start is
+// which the note says. Where the profile measured its own start (FLUX.1's
+// 0.95, `defaults.inpaint_start`) the server reports that instead, before a
+// load as well, and the note says it is the checkpoint's, not the library's. Where that number was measured as the right start is
 // the server's to say (`hints.inpaint_strength`), Outpaint's note too.
 function inpaintLibraryStrength() {
   return typeof lastDefaults?.inpaint_strength === 'number' ? lastDefaults.inpaint_strength : null;
@@ -191,6 +193,10 @@ function inpaintStrengthNote() {
   const library = inpaintLibraryStrength();
   const measured = typeof lastHints?.inpaint_strength === 'string' ? lastHints.inpaint_strength
     : `the library's number, not one measured for ${checkpointName(loadedModel)}`;
+  // A profile's own measured start (`defaults.inpaint_start`, FLUX.1's) is
+  // not the library's number, and the note must not call it that.
+  const own = typeof lastDefaults?.inpaint_start === 'number' && lastDefaults.inpaint_start === library;
+  if (own) return `${library} is this checkpoint's own start, in place of the installed diffusers' default for this inpaint pipeline - ${measured}.`;
   return library !== null
     ? `${library} is the installed diffusers' default for this inpaint pipeline - ${measured}.`
     : `The inpaint pipeline's own default is read when the model loads; until then Strength starts at `

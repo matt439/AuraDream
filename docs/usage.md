@@ -332,9 +332,10 @@ passes reproducible again.
 **Inpaint…** repaints only the part of a gallery image you paint over and
 keeps the rest exactly. Open it from the lightbox, a card's or a result's
 **✎**, or the right-click menu. It runs on the SDXL checkpoints (Animagine,
-Illustrious, Kohaku, WAI, RouWei, NoobAI) and the Z-Image family (Z-Image
-Turbo, Z-Anime); elsewhere the button is held and its tooltip says why.
-FLUX.1, FLUX.2 [klein] and Qwen-Image are not enabled yet.
+Illustrious, Kohaku, WAI, RouWei, NoobAI), the Z-Image family (Z-Image
+Turbo, Z-Anime) and FLUX.1 (Krea dev, dev, schnell); elsewhere the button
+is held and its tooltip says why. FLUX.2 [klein] and Qwen-Image are not
+enabled yet.
 
 Paint the area to redraw over the picture. With the picture focused:
 B brush, E eraser, `[` and `]` (or Alt+wheel) size the brush, I inverts,
@@ -350,7 +351,10 @@ the masked area is redrawn. It starts at the installed diffusers inpaint
 class's own default (about 1 on both families), since no checkpoint author
 gives one; the note under it says where the card measured that default as the
 right start (WAI v17, Animagine XL 4.0 and Z-Anime) or that this checkpoint was
-not measured. On Z-Image checkpoints the preview line also says how much noise
+not measured. FLUX.1 is the exception: there the library's default, 0.6,
+kept the old colour under the mask on the card, so Strength starts at 0.95,
+measured on Krea dev (dev and schnell share it unmeasured, and the note says
+so). On Z-Image and FLUX.1 checkpoints the preview line also says how much noise
 the pass starts at, as Refine's does. Several comma-separated values run side
 by side and open as a sheet. Ctrl+Enter runs.
 
@@ -367,8 +371,10 @@ for inpaints, `mask:<hash prefix>` for one mask's.
 
 On the card, an inpaint costs about what a refine pass of the same size
 costs: SDXL runs the guard's 8.4 MP top with room to spare, while Z-Anime
-fills the card at 2.4 MP. Lower strengths keep the masked area's old colours,
-so the default is the place to start; see [verified.md](verified.md#inpaint).
+fills the card at 2.4 MP, and FLUX.1 Krea dev runs at 1 MP near the card's
+top. Lower strengths keep the masked area's old colours, so the starting
+strength is the place to start; see [verified.md](verified.md#inpaint). A
+FLUX.1 outpaint has not been measured on the card.
 
 ## Outpaint an image
 

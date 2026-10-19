@@ -7,7 +7,7 @@
   {"eval": "resetPanel(); showError(''); els.prompt.value = 'a lighthouse to inpaint'; els.width.value = 256; els.height.value = 256; els.seed.value = 11; startJob('/api/generate', collect())"},
   {"eval": "resetGallery()"},
   {"expect": "__until(() => !galleryPending && galleryRecords.length >= 1 && viewerRecords.length === 1)"},
-  {"eval": "window.__src = viewerRecords[0]; window.__none = checkpointName(loadedModel) + ' has no inpaint pipeline in the installed diffusers. The SDXL and Z-Image checkpoints have it.';"},
+  {"eval": "window.__src = viewerRecords[0]; window.__none = checkpointName(loadedModel) + ' has no inpaint pipeline in the installed diffusers. The FLUX.1, SDXL and Z-Image checkpoints have it.';"},
   {"expect": "!inpaintSupported && !lastDefaults.inpaint_deferred && lastDefaults.inpaint_settled && lastDefaults.inpaint_strength === null && inpaintNone() === __none && __none.startsWith('Krea 2 Turbo')"},
 
   {"log": "'a card ✎: held, its reason its title and name; a press says it in the gallery line, and opens nothing'"},
@@ -32,7 +32,7 @@
   {"wait": 300},
   {"expect": "els.lightbox.open && !els.inpaintDialog.open && !els.lbError.hidden && els.lbError.textContent === __none"},
   {"log": "'the lightbox Outpaint… beside it: held, the reason saying an outpaint runs through the inpaint pipeline; a press says it and opens nothing'"},
-  {"eval": "window.__noneOut = checkpointName(loadedModel) + ' has no inpaint pipeline in the installed diffusers, which an outpaint runs through. The SDXL and Z-Image checkpoints have it.'; showError('');"},
+  {"eval": "window.__noneOut = checkpointName(loadedModel) + ' has no inpaint pipeline in the installed diffusers, which an outpaint runs through. The FLUX.1, SDXL and Z-Image checkpoints have it.'; showError('');"},
   {"expect": "inpaintNone(true) === __noneOut && els.lbOutpaint.getAttribute('aria-disabled') === 'true' && !els.lbOutpaint.disabled && els.lbOutpaint.title === __noneOut"},
   {"click": "#lb-outpaint"},
   {"wait": 300},

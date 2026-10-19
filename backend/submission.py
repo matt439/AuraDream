@@ -134,8 +134,8 @@ async def inpaint_unavailable(services: AppServices, outpainting: bool = False) 
     through = ", which an outpaint runs through" if outpainting else ""
     return (
         f"{info['model_id']} has no inpaint in this app - its pipeline has no inpaint class "
-        f"in the installed diffusers{through}, or its family's is not enabled yet. The SDXL and "
-        "Z-Image checkpoints have one."
+        f"in the installed diffusers{through}, or its family's is not enabled yet. The FLUX.1, SDXL "
+        "and Z-Image checkpoints have one."
     )
 
 

@@ -691,9 +691,9 @@ whose refine passes match Animagine's; a LoRA through an inpaint (no SDXL
 adapter was at hand; `frosting-lane` is FLUX.1's); an inpaint over a
 Nunchaku Z-Image transformer under WSL; the seam measured against the VAE
 round trip by number; the live preview through Z-Anime's blend and the
-dialogs' "starts at N% noise" on Z-Image (not checked on the card); and, for the deferred families (FLUX.1, FLUX.2
+dialogs' "starts at N% noise" on Z-Image (not checked on the card); and, for the deferred families (FLUX.2
 [klein], Qwen-Image), the measurements their phases name before they are
-enabled. Evidence is under `%TEMP%/local-diffusion-inpaint-card/`:
+enabled (FLUX.1's are below). Evidence is under `%TEMP%/local-diffusion-inpaint-card/`:
 `measure.py`, and per checkpoint its gallery, `results.jsonl` and the
 `inpaint-*.jpg` and `outpaint-*.jpg` strips.
 
@@ -734,10 +734,19 @@ source was not run.
 | What a strength keeps | The library default, 0.6, keeps the red scarf and adds a little blue at the collar; 0.8 the same with more of it; 0.95 and 1.0 draw the blue knitted scarf asked for, with the red scarf's ends below the mask kept. Unlike SDXL and Z-Image, FLUX.1's default is not a start that does what a user asking for a change wants |
 | The seam | By eye on 2x crops: a hard mask leaves a visible cut where redrawn knit meets the old; feather 24 hides it |
 
-Not measured on FLUX.1: dev and schnell (their profiles share the class);
-an outpaint (its canvas, 1.9 MP at 16:9, is past what this card held for
-the family's refine pass under this desktop); a LoRA through the inpaint;
-the seam by number.
+Enabled on these results 2026-10-19 (TODO INP#3): the three FLUX.1
+profiles start an inpaint at 0.95, their own start over the library's
+0.6, and the Strength note says it was measured here, on Krea dev.
+
+Not measured on FLUX.1: dev and schnell, at 0.95 or at all (their profiles
+share the class and the start; the note says so); an outpaint, now enabled
+with the inpaint and unmeasured (its 16:9 canvas from a 1 MP source is
+1.9 MP, near the card's top for this family, whose refine pass filled the
+card at 2.4 MP and whose 1 MP inpaint read 15.6 GB with this desktop); the
+inpaint class over the
+Nunchaku FLUX.1 transformer under WSL, which the profile allows as it does
+Nunchaku Z-Image's and which has never run (TODO `CARD#3`); a LoRA through
+the inpaint; the seam by number.
 
 ## Outpaint
 
@@ -778,7 +787,8 @@ tried, and the library default as the strength to start an outpaint at.
 One source and one prompt per checkpoint, looked at by eye.
 
 Not measured: Z-Image Turbo (not in this machine's cache) and the other
-SDXL profiles; the seam by number against the VAE round trip at the
+SDXL profiles; any FLUX.1 outpaint, enabled with its inpaint 2026-10-19
+(Inpaint, "FLUX.1 Krea dev"); the seam by number against the VAE round trip at the
 original's edge; band widths between 0 and 64 other than 32. Evidence is in
 `%TEMP%/local-diffusion-inpaint-card/` with the inpaint's.
 

@@ -45,11 +45,14 @@ def test_every_profile_explains_its_controls(model_id):
     # The Refine dialog's words past the size a pass was measured at - the run
     # it quotes, `refine_tight`, and FLUX.1's `refine_large` - are only where
     # a pass was measured; FLUX.1's name for its CFG box, `cfg_label`, only
-    # where the box is a distilled guidance value (test_profiles).
-    assert set(hints) - {"refine_large", "refine_tight", "cfg_label"} == {
+    # where the box is a distilled guidance value (test_profiles); the
+    # Strength note of an inpaint, `inpaint_strength`, only where the profile
+    # enables one (FLUX.1 here, from 2026-10-19).
+    assert set(hints) - {"refine_large", "refine_tight", "cfg_label", "inpaint_strength"} == {
         "steps", "guidance_scale", "mu", "true_cfg", "reference", "refine", "prompt", "size"
     }
     assert all(text and "{" not in text for text in hints.values())
+    assert ("inpaint_strength" in hints) is defaults_for(model_id)["inpaint_supported"]
     # The LoRA box is the one control no profile can speak for: whether an
     # adapter can be applied is the installation's answer, so the hint appears
     # only once something has given one.

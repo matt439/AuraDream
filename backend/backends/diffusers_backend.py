@@ -29,7 +29,7 @@ from typing import TYPE_CHECKING, Any
 from .. import latent_preview, loras, refine
 from ..model_selection import current_model_id, current_settings
 from ..config import settings
-from ..model_defaults import INPAINT_DEFERRED, defaults_for
+from ..model_defaults import INPAINT_DEFERRED, defaults_for, inpaint_start
 from ..seeds import wrap_seed
 from . import anima_loading, loading, netayume_loading, newbie_loading, schedule, single_file
 from .base import CancelFn, Cancelled, GenerationBackend, PreviewFn, ProgressFn
@@ -447,13 +447,18 @@ class DiffusersBackend(GenerationBackend):
         return self._inpaint_pipe
 
     def inpaint_strength(self) -> float | None:
-        """The loaded inpaint class's own `strength` default, or None.
+        """Where an inpaint's Strength starts on the loaded pipeline, or None.
 
-        The library's number, not the checkpoint's (`refine.library_strength`):
-        where an inpaint's Strength box can start until a profile measures one.
+        The profile's own measured start where the class's default was
+        measured as the wrong one (`model_defaults.inpaint_start`, FLUX.1's
+        0.95), else the loaded inpaint class's own `strength` default - the
+        library's number, not the checkpoint's (`refine.library_strength`).
         """
         if not self._inpaint_supported():
             return None
+        start = inpaint_start(current_model_id(settings))
+        if start is not None:
+            return start
         return refine.library_strength(self._inpaint_class[1])
 
     def start_sigma(self, request: "GenerateRequest") -> float | None:

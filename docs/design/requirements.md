@@ -201,7 +201,7 @@ answers and exceptions.
 - **Acceptance:** representative edit dialogs identify their source, output size, strength, versions, supported checkpoint and relevant measured/unmeasured guidance before running.
 - **Acceptance:** Inpaint previews its painted mask and Outpaint its padding/band; held capabilities explain why and preserve keyboard access to that explanation.
 - **Acceptance:** frequent Refine/enlarge and strength/version controls are direct in the image action flow; Mass refine, Re-render and Swap tags are directly available at the picked/filter scope point. Inpaint/outpaint remain easy to open as contextual tools; cross-model/existing-pass inclusion remains secondary without changing defaults or eligibility.
-- **Trace:** [Refine](../usage.md#refine-an-existing-image), [Inpaint](../usage.md#inpaint-part-of-an-image), [Outpaint](../usage.md#outpaint-an-image), [edit plans](../plan-inpainting.md), [outpaint plan](../plan-outpainting.md); `INP#3`–`INP#10` retain their own status.
+- **Trace:** [Refine](../usage.md#refine-an-existing-image), [Inpaint](../usage.md#inpaint-part-of-an-image), [Outpaint](../usage.md#outpaint-an-image), [edit plans](../plan-inpainting.md), [outpaint plan](../plan-outpainting.md); `INP#5`–`INP#10` retain their own status (FLUX.1 inpaint, `INP#3`, was enabled 2026-10-19).
 - **Dependency:** current size guards and measured families; personal-file references `GEN#8` remain deferred until Matt raises them.
 
 ### UX#15 — Retain an edit's lineage and reproduce its intent · P0 · Current

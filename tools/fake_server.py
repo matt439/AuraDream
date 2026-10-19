@@ -168,9 +168,9 @@ def main() -> int:
             return out
 
         def describe(self) -> dict:
-            # The inpaint class's own strength default, as the real backend
-            # reads it (`refine.library_strength`), so the Inpaint dialog
-            # opens at the library's number on this fake too.
+            # Where an inpaint starts, as the real backend says it (the profile's
+            # own `inpaint_start`, else `refine.library_strength`), so the Inpaint dialog
+            # opens where the real one would on this fake too.
             return {**super().describe(), "inpaint_strength": inpaint_strength if self.inpaint_supported else None}
 
         def _draw(self, request, seed):
@@ -230,19 +230,22 @@ def main() -> int:
     # the claimed checkpoint: greyed on a Krea 2 or klein fake, live on a
     # FLUX.1, SDXL, Z-Image or Qwen-Image one.
     fake.refine_supported = profile["refine_supported"]
-    # And an inpaint only where the profile enables one (SDXL and Z-Image),
-    # starting at the strength the installed inpaint class defaults to - the
-    # one diffusers read here is the profile's family's: SDXL's or Z-Image's.
+    # And an inpaint only where the profile enables one (SDXL, Z-Image and
+    # FLUX.1), starting where the real backend does: the profile's own
+    # measured start (FLUX.1's 0.95), else the strength the installed
+    # inpaint class of the profile's family defaults to.
     fake.inpaint_supported = profile["inpaint_supported"]
     inpaint_strength = None
     if fake.inpaint_supported:
         import diffusers
 
         from backend import refine
-        from backend.model_defaults import inpaint_family
+        from backend.model_defaults import inpaint_family, inpaint_start
 
-        family = inpaint_family(args.model)
-        inpaint_strength = refine.library_strength(refine.sibling(getattr(diffusers, family), "Inpaint"))
+        inpaint_strength = inpaint_start(args.model)
+        if inpaint_strength is None:
+            family = inpaint_family(args.model)
+            inpaint_strength = refine.library_strength(refine.sibling(getattr(diffusers, family), "Inpaint"))
     # A Mu only where the claimed checkpoint's schedule can take one: on an
     # Anima or SDXL fake the row drops it, as the real applied() does.
     fake.mu_supported = profile["mu_supported"]

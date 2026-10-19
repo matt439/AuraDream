@@ -65,8 +65,8 @@ each one is a row of that file, and `tests/test_profiles.py` holds it there.
 pass at the source's own size with a painted mask - through the inpaint class
 diffusers ships beside its pipeline (`refine.sibling(..., "Inpaint")`). It is
 a decision as well as a guess: diffusers 0.40 ships one for FLUX.1, SDXL,
-Z-Image, Qwen-Image and FLUX.2 [klein], and only SDXL and Z-Image are enabled
-so far. The rest are deferred (`INPAINT_DEFERRED`, docs/plan-inpainting.md's
+Z-Image, Qwen-Image and FLUX.2 [klein], and SDXL, Z-Image and FLUX.1 (from
+2026-10-19) are enabled. The rest are deferred (`INPAINT_DEFERRED`, docs/plan-inpainting.md's
 phases) and answer False even loaded, so a False here is final;
 `tests/test_inpaint.py` holds every True to an installed class and every
 class left off to that list. Their profiles also carry `inpaint_deferred`,
@@ -76,11 +76,17 @@ names its `inpaint_family`, the text-to-image class whose inpaint sibling it
 runs, so an inpaint asked for without a strength starts where that class's
 own default does before anything is loaded (`inpaint_family`, the function;
 `tests/test_inpaint.py` holds it to the installed class). That default is
-the Strength box's start everywhere; `inpaint_strength_measured` names the
-checkpoint where `docs/verified.md` measured it as the right start (WAI v17,
-Animagine XL 4.0 and Z-Anime), and `hints_for` words the Strength note from
-it (`inpaint_strength`): measured here, or measured on the checkpoints that
-run the same inpaint class and not on this one. A label, not a default.
+the Strength box's start everywhere, unless the profile carries
+`inpaint_start`: its own measured start, where the card found the class's
+default the wrong one. FLUX.1 is the first (0.95, measured on Krea dev
+2026-10-19, where the library's 0.6 kept the old colour under the mask);
+`inpaint_start` (the function) is what every place deciding an inpaint's
+start asks first. `inpaint_strength_measured` names the checkpoint where
+`docs/verified.md` measured the start as the right one (WAI v17, Animagine
+XL 4.0 and Z-Anime at the library's default, FLUX.1 Krea dev at its own),
+and `hints_for` words the Strength note from it (`inpaint_strength`):
+measured here, or measured on the checkpoints that run the same inpaint
+class and not on this one. A label, not a default.
 
 `mu_supported` says whether the checkpoint uses a flow-matching scheduler whose
 sigmas can be shifted. Modern SDXL exposes a custom `sigmas` argument too, but
@@ -305,9 +311,11 @@ _PROFILES: list[tuple[str, dict[str, Any]]] = [
             "negative_prompt_supported": True,
             "reference_supported": False,
             "refine_supported": True,
-            "inpaint_supported": False,
-            # Deferred, not absent (`INPAINT_DEFERRED`): the page says so.
-            "inpaint_deferred": True,
+            "inpaint_supported": True,
+            "inpaint_family": "FluxPipeline",
+            # Krea dev's measured start (`inpaint_start`): the same inpaint
+            # class, not measured on schnell itself.
+            "inpaint_start": 0.95,
             "refine_strength": 0.5,
             # Measured: 1536x1536 within a gigabyte of the card's top, as Krea
             # dev's same transformer is; nothing larger was run.
@@ -348,9 +356,13 @@ _PROFILES: list[tuple[str, dict[str, Any]]] = [
             "negative_prompt_supported": True,
             "reference_supported": False,
             "refine_supported": True,
-            "inpaint_supported": False,
-            # Deferred, not absent (`INPAINT_DEFERRED`): the page says so.
-            "inpaint_deferred": True,
+            "inpaint_supported": True,
+            "inpaint_family": "FluxPipeline",
+            # Measured on Krea dev (verified.md, Inpaint, "FLUX.1 Krea dev"):
+            # the library's 0.6 keeps the old colour under the mask; 0.95
+            # draws what is asked. The first start that is not the class's
+            # own default (`inpaint_start`).
+            "inpaint_start": 0.95,
             # Measured on Krea dev: at 1.5x of a 1 MP image the shift is
             # already mu 2.0, so 0.1 starts the pass at sigma 0.47 and keeps
             # the face; 0.15 (0.62) and up repaint it.
@@ -779,7 +791,11 @@ _PROFILES += [
 _FLUX_PROFILE = dict(_PROFILES[[token for token, _ in _PROFILES].index("flux")][1])
 _PROFILES.insert(
     [token for token, _ in _PROFILES].index("flux"),
-    ("krea-dev", {**_FLUX_PROFILE, "guide": guides.KREA_DEV_GUIDE}),
+    ("krea-dev", {
+        **_FLUX_PROFILE, "guide": guides.KREA_DEV_GUIDE,
+        # Where FLUX.1's inpaint start was measured (verified.md, Inpaint).
+        "inpaint_strength_measured": "FLUX.1 Krea dev",
+    }),
 )
 
 # These profiles resolve a specific release rather than every checkpoint
@@ -1062,6 +1078,12 @@ _NOT_DEFAULTS = (
 # When docs/verified.md's Inpaint section measured the inpaint class's own
 # default as the right starting strength, on the profiles that name it.
 INPAINT_STRENGTH_MEASURED_ON = "2026-10-17"
+# And when it measured a profile's own start (`inpaint_start`) over a class
+# default that was the wrong one: the "FLUX.1 Krea dev" subsection, where the
+# library's 0.6 (`FLUX_LIBRARY_STRENGTH`, the default it ran) kept the old
+# colour under the mask and 0.95 drew what was asked.
+INPAINT_START_MEASURED_ON = "2026-10-19"
+FLUX_LIBRARY_STRENGTH = 0.6
 
 
 def _inpaint_strength_runs(family: str | None) -> list[str]:
@@ -1087,13 +1109,14 @@ _OWN_PIPELINES = frozenset({
 
 
 # The pipeline classes diffusers ships an inpaint class beside whose families
-# are deliberately left without inpainting for now: FLUX.1 until its inpaint
-# memory is measured on the card (the class encodes the source twice),
-# FLUX.2 [klein] for the one reference its class takes beside the source,
-# Qwen-Image for the Nunchaku transformer it needs here. Each is a later phase of
+# are deliberately left without inpainting for now: FLUX.2 [klein] for the
+# one reference its class takes beside the source, Qwen-Image for the
+# Nunchaku transformer it needs here. Each is a later phase of
 # docs/plan-inpainting.md. Their profiles say `inpaint_supported: False`, and
-# the backend refuses an inpaint on them whatever the class says.
-INPAINT_DEFERRED = frozenset({"FluxPipeline", "Flux2KleinPipeline", "QwenImagePipeline"})
+# the backend refuses an inpaint on them whatever the class says. FLUX.1 left
+# the list 2026-10-19, once measured on Krea dev (INP#3), with a start of its
+# own (`inpaint_start`).
+INPAINT_DEFERRED = frozenset({"Flux2KleinPipeline", "QwenImagePipeline"})
 
 
 def inpaint_family(model_id: str) -> str | None:
@@ -1101,6 +1124,21 @@ def inpaint_family(model_id: str) -> str | None:
     checkpoint runs, by name, or None where its inpaint is not enabled."""
     profile = _profile_for(model_id)
     return profile.get("inpaint_family") if profile["inpaint_supported"] else None
+
+
+def inpaint_start(model_id: str) -> float | None:
+    """The profile's own measured inpaint start, where the inpaint class's
+    library default was measured as the wrong one (FLUX.1: 0.95 over the
+    library's 0.6), or None, where the class's default is the start.
+
+    Every place that decides an inpaint's starting strength asks this first
+    (`schemas_generate.default_inpaint_strength` before a load,
+    `DiffusersBackend.inpaint_strength` after, the status and the fake
+    server through them), so the Strength box, the CLI's `--mask` and an API
+    request without a strength all start at the same number.
+    """
+    profile = _profile_for(model_id)
+    return profile.get("inpaint_start") if profile["inpaint_supported"] else None
 
 
 def defaults_for(model_id: str) -> dict[str, Any]:
@@ -1132,6 +1170,10 @@ def defaults_for(model_id: str) -> dict[str, Any]:
         # class, this app has not enabled the family yet) rather than no
         # class at all, so the Inpaint dialog's refusal says which.
         "inpaint_deferred": bool(profile.get("inpaint_deferred", False)),
+        # The profile's own measured start where the class's default is not
+        # the right one (`inpaint_start`), None elsewhere, so the page words
+        # the Strength note as the checkpoint's start, not the library's.
+        "inpaint_start": inpaint_start(model_id),
     }
 
 
@@ -1302,6 +1344,20 @@ _LORA_HINTS = {
 
 def _inpaint_strength_hint(profile: dict[str, Any]) -> str:
     own = profile.get("inpaint_strength_measured")
+    if profile.get("inpaint_start") is not None:
+        # A start of the profile's own over a library default measured as the
+        # wrong one: said as such, never as the library's number.
+        kept = f"the library's own {FLUX_LIBRARY_STRENGTH:g} kept the old colour under the mask"
+        when = f"measured on the card ({INPAINT_START_MEASURED_ON})"
+        if own:
+            return f"{when} as the right strength to start at on {own}, where {kept}"
+        runs = _inpaint_strength_runs(profile.get("inpaint_family"))
+        names = runs[0] if len(runs) == 1 else f"{', '.join(runs[:-1])} and {runs[-1]}"
+        verb = "runs" if len(runs) == 1 else "run"
+        return (
+            f"{when} on {names}, which {verb} the same inpaint class, not on this "
+            f"checkpoint; there {kept}"
+        )
     when = f"measured on the card ({INPAINT_STRENGTH_MEASURED_ON}) as the right strength to start at"
     if own:
         return f"the library's number, {when} on {own}: lower ones left some of what was under the mask"

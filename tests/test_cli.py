@@ -829,7 +829,7 @@ def test_mask_flags_are_refused_where_they_cannot_run(cli, store, monkeypatch, t
     assert generate.main(["a fox", "--refine", str(source.id), "--mask", str(wrong)]) == 2
     assert "is 256x256, but source image" in capsys.readouterr().err
     # And a checkpoint whose inpaint is not enabled, from its profile.
-    monkeypatch.setattr(generate, "_project", _project_claiming(generate, "black-forest-labs/FLUX.1-Krea-dev"))
+    monkeypatch.setattr(generate, "_project", _project_claiming(generate, "black-forest-labs/FLUX.2-klein-4B"))
     assert generate.main(["a fox", "--refine", str(source.id), "--mask", str(path)]) == 2
     assert "has no inpaint in this app" in capsys.readouterr().err
     assert cli.loads == 0 and cli.requests == []
@@ -1043,7 +1043,7 @@ def test_outpaint_flags_are_refused_where_they_cannot_run(cli, store, monkeypatc
     assert generate.main(["a fox", *refine, "--outpaint", "32,0,32,0", "--band", "128"]) == 2
     assert "on the left and right sides leaves 0 px of" in capsys.readouterr().err
     # And a checkpoint whose inpaint is not enabled, in the outpaint's words.
-    monkeypatch.setattr(generate, "_project", _project_claiming(generate, "black-forest-labs/FLUX.1-Krea-dev"))
+    monkeypatch.setattr(generate, "_project", _project_claiming(generate, "black-forest-labs/FLUX.2-klein-4B"))
     assert generate.main(["a fox", *refine, "--outpaint", "32,0,0,0"]) == 2
     assert "which an outpaint runs through" in capsys.readouterr().err
     assert cli.loads == 0 and cli.requests == []

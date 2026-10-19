@@ -232,9 +232,9 @@ START_RECIPES: dict[str, StartRecipe] = {
     "QwenImageImg2ImgPipeline": _PACKED_LINSPACE,
     "ZImageImg2ImgPipeline": _Z_IMAGE,
     # An inpaint's call makes the same statements as its family's
-    # image-to-image one. Z-Image's is the enabled one; FLUX.1's and
-    # Qwen-Image's families are deferred (`model_defaults.INPAINT_DEFERRED`),
-    # so `start_sigma` is never asked for them until they are enabled.
+    # image-to-image one. Z-Image's and FLUX.1's are enabled; Qwen-Image's
+    # family is deferred (`model_defaults.INPAINT_DEFERRED`), so
+    # `start_sigma` is never asked for it until it is enabled.
     "ZImageInpaintPipeline": _Z_IMAGE,
     "FluxInpaintPipeline": _PACKED_LINSPACE,
     "QwenImageInpaintPipeline": _PACKED_LINSPACE,
