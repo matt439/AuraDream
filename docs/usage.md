@@ -845,7 +845,15 @@ nothing in the requested set is deleted; review the picks and try again.
 **Empty recycle bin** deletes
 every image in the bin from disk, whatever the search shows, after a
 confirmation that gives the count and size and says which of them a live
-image was made from (those can no longer be made again). Actions that work
+image was made from (those can no longer be made again). The select before
+it chooses what it takes: **All** (the default), **Older than 7 days** or
+**Older than 30 days** - only the images binned more than that long ago.
+The cutoff is fixed by the server when you press Empty, so an image that
+ages past it while the question is open is not taken; the question says
+how many images binned since stay in the bin, and its OK reads **Delete
+older**. The newer cards stay where they are. An image whose bin time
+cannot be read is left for a whole Empty. The choice is not remembered:
+opening the page again starts at **All**. Actions that work
 on live images are held while the bin is open, the **Runs** picker among
 them; typing in the search box narrows the bin rather than leaving it.
 Press **Bin** again or **Show all** to leave it, or follow a search or run
@@ -863,6 +871,7 @@ uv run python -m backend.clear --dry-run
 uv run python -m backend.clear --where "run:ab12cd" --keep-favorites
 uv run python -m backend.clear --keep-favorites
 uv run python -m backend.clear --bin
+uv run python -m backend.clear --bin --older-than 30
 ```
 
 `clear` previews and asks before deleting; `--yes` skips confirmation. It
@@ -870,7 +879,10 @@ deletes for good, and reaches the recycle bin as well: the whole clear and
 `--where` delete binned images like any other (the preview says how many),
 and `--keep-favorites` does not keep a starred image that is in the bin.
 `--bin` empties the recycle bin alone, as **Empty recycle bin** does; it
-takes neither `--where` nor `--keep-favorites`. `--where` and `--bin`
+takes neither `--where` nor `--keep-favorites`. `--older-than DAYS`
+narrows `--bin` to the images binned more than DAYS days ago, as the age
+select does; it needs `--bin` and takes a whole number of days, 1 or more.
+`--where` and `--bin`
 delete only what their preview showed: if an image matching it arrives (or,
 for the bin, a different image is binned) while the prompt waits, nothing
 is deleted and the command exits 1 so it can be run again; **Empty recycle

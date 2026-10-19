@@ -238,7 +238,7 @@ answers and exceptions.
 - **Story:** I can discard rejects quickly, recover mistakes and recognize which permanent deletion would prevent later reproduction.
 - **Acceptance:** single/bulk binning offers Restore, bin search stays within the bin, and visiting it preserves gallery picks; source dependencies remain visible.
 - **Acceptance:** permanent actions confirm their actual scope and lineage consequence; changed contents cannot be removed under a stale confirmation.
-- **Trace:** [usage: recovery](../usage.md#clear-or-recover-a-gallery), [bin owner](../design-notes.md#recycle-bin-why-the-per-image-confirm-went); `GAL#1` picked permanent deletion/age purge remains proposed, not included here.
+- **Trace:** [usage: recovery](../usage.md#clear-or-recover-a-gallery), [bin owner](../design-notes.md#recycle-bin-why-the-per-image-confirm-went); picked permanent deletion (`GAL#1`, 2026-10-18) and age-scoped Empty recycle bin (`GAL#5`, 2026-10-19) are built, recorded in the same bin owner section. There is no automatic purge.
 - **Dependency:** UX#11 and UX#15; validate large bin operations under `GAL#3` before making scale claims.
 
 ## Cross-cutting use
