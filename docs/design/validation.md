@@ -250,8 +250,9 @@ progress announcements and focus return. Accessibility-tree inspection alone
 does not complete the existing `UI#7` screen-reader work.
 
 Check reduced motion and forced colours, actual Windows scaling, and short
-desktop windows including 1536x864 where current progress limitations are
-documented. Include 1400x900 and Matt's normal display configuration. A cropped
+desktop windows: 1536x864 (fits a running batch since `UI#8`) and shorter,
+such as a maximized browser at 1080p and 125% (about 1536x758), where the
+progress still needs a scroll. Include 1400x900 and Matt's normal display configuration. A cropped
 large screenshot does not demonstrate the behavior of a shorter viewport.
 
 **Separate completion boundaries, 2026-10-18.** `UI#9` is the ready browser
@@ -269,7 +270,7 @@ coverage; it does not close the manual work.
 interface. Record the assistive technology/device and observed names,
 announcements, operation and focus. Browser attributes, emulated media or
 an accessibility-tree dump cannot supply that evidence. Neither row
-authorizes broad layout changes; `UI#8` keeps its deferred scope.
+authorizes broad layout changes; `UI#8` (done 2026-10-20) changed only the panel's gap and field height under 900 px tall.
 
 **Baseline browser gaps observed, 2026-10-18.** At 600×900, the stacked
 7:4 lightbox comparison gives its facts 196 px for 202 px of content.

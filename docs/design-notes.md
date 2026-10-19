@@ -7600,7 +7600,22 @@ real browser at that scaling is shorter still. The alternatives looked at:
 a sticky-bottom `#progress` would sit over Generate on any window shorter
 than the panel down to it, putting Cancel under the pointer that pressed
 Generate; hiding the run hint during a job would lift Generate under it.
-smoke-narrow runs that batch at all three sizes.
+smoke-narrow ran that batch at all three sizes; 1536x864 was fitted later,
+with the panel's tokens alone (next).
+
+**A short two-column window** (2026-10-20, TODO UI#8). Matt chose to fit
+1536x864 itself - 1080p at 125% full-screen - rather than a maximized
+browser there (about 1536x758, which would need some 140 px: a shorter
+prompt box, a one-line negative and tighter presets) or leaving it to the
+topbar's mirror. 31 px were wanted. Under 900 px tall, between the one-column
+query and the wide tier, the panel sets `--panel-gap` 10 px (14) and
+`--h-field` 37 px (41) on itself: its gaps and the prompt's, the sampler
+boxes' and Output's heights give 44 px, so the batch's progress ends
+at 851 of 864 (Generate 737-780; before, 777-820 and 895). The tokens are set
+on `.panel`, not `:root`, so the dialogs, the gallery and the stage keep
+today's heights on short windows; 1400x900, where the smokes are written, is
+not short, and nothing changes there or at 1920x947. smoke-narrow holds the
+batch at 1536x864@1.25 and the 14 px gap back at 1400x900.
 
 ## The live preview
 

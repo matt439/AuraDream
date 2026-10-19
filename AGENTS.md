@@ -243,7 +243,8 @@ Frontend:
   fake server and `tools/browser.mjs`. Top-level bindings stay top-level.
 - CSS uses the `:root` tokens; wide-tier rules go in an
   `@media (min-width: 1800px)` block in the component's section; nothing
-  changes under 1800 px, where the smokes run.
+  changes under 1800 px, where the smokes run, but the panel's own gap and
+  field height under 900 px tall (`docs/rules.md`).
 - A button held for a reason is `aria-disabled` with the reason as its title,
   never `disabled` (documented exceptions in `docs/rules.md`); a press says
   why.

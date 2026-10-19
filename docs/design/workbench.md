@@ -206,7 +206,7 @@ list. Long prompts and rare options expand explicitly.
 |---|---|
 | 2560×1305 and 2048×1040 at 125% | Preserve large images; test adjacent detail against below-image detail; use existing wide-tier scale rules |
 | 1920×947 and 1400×900 | Two columns if they fit; secondary detail stacks; the primary action and active-job controls remain reachable |
-| 1536×864 or shorter desktop | Avoid solving progress visibility with a new overlay over Generate; use persistent status and explicit details; compare against known UI#8 limitation |
+| 1536×864 or shorter desktop | Avoid solving progress visibility with a new overlay over Generate; use persistent status and explicit details; since UI#8 (2026-10-20) 1536×864 fits a running batch; shorter does not |
 | ≤900 CSS px | One document column, wrapping tools; no compulsory side panel or independent settings scroller |
 | 200% zoom, long labels/prompts | Reflow controls; preserve semantic reading order and visible focus; allow genuine image/sheet panning rather than clipping controls |
 

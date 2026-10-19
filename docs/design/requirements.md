@@ -245,11 +245,11 @@ answers and exceptions.
 
 ### UX#19 — Complete workstation tasks at realistic window sizes · P1 · Proposed
 
-- **Basis:** evidence: responsive layouts exist; short 1536×864 running-progress visibility is explicitly deferred `UI#8`. New full-cycle layouts remain hypotheses.
+- **Basis:** evidence: responsive layouts exist; a running batch's progress fits 1536×864 at scroll 0 since 2026-10-20 (`UI#8`, a short-window panel tier); a maximized browser at that scaling (about 1536×758) still needs a scroll or the topbar's mirror. New full-cycle layouts remain hypotheses.
 - **Story:** I can generate, judge, edit and recover work when my desktop window is wide, narrow or scaled.
 - **Acceptance:** workbench trials cover existing smoke dimensions plus realistic short/scaled windows; critical status, action targets, dialogs and focus remain reachable without clipped content.
 - **Acceptance:** layout changes do not move controls under the pointer, introduce panel scrolling or bypass existing under-1800px rules; any conflict is recorded for a deliberate decision.
-- **Trace:** [layout owner](../design-notes.md#the-panels-sampling-and-output-rows), [tokens](../design-notes.md#design-tokens), `UI#8`; evaluation does not promote that deferred implementation.
+- **Trace:** [layout owner](../design-notes.md#the-panels-sampling-and-output-rows), [tokens](../design-notes.md#design-tokens), `UI#8` (done 2026-10-20, the panel alone, under 900 px tall).
 - **Dependency:** select design options first; retain current tokens and component ownership during any later implementation.
 
 ### UX#20 — Complete the same cycle with keyboard and assistive technology · P0 · Proposed
@@ -290,6 +290,6 @@ ranked. Research, prototype review, CPU/browser checks and card measurements
 answer different questions; validation must retain that distinction.
 
 Deferred work stays deferred: external reference import (`GEN#8`), Widen/Load into panel,
-advanced mask cropping (`INP#9`), later outpaint fills (`INP#10`),
-automatic image scoring (`PA#9`) and short-window tightening (`UI#8`) require
+advanced mask cropping (`INP#9`), later outpaint fills (`INP#10`)
+and automatic image scoring (`PA#9`) require
 their recorded conditions or a new explicit decision. No new TODO rows are created by this catalogue.

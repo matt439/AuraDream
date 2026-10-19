@@ -25,8 +25,8 @@ the note).
 - [x] **Left pane is short of height.** The left pane feels restricted
   vertically: the batch progress bar is almost cut off, and the elapsed text
   is cut off. (f339e61, fae66bf; fits at 1400x900, 1920x947 and
-  2048x1040@1.25, not yet at 1536x864, where every field would need
-  tightening)
+  2048x1040@1.25; at 1536x864 since 2026-10-20, UI#8, by the panel's own
+  gap and field height under 900 px tall)
 - [x] **References and LoRA below Grid search.** Reference images and LoRA
   are rarely used, so they could move below Grid search. (f339e61)
 - [x] **Megapixels in the lightbox.** Viewing an image full size, give the

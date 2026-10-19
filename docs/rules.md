@@ -2124,7 +2124,8 @@ Frontend and CLI:
   long run's tile tools and a result's row `--h-tool` (32 px), and the
   lightbox's arrow circles `--lb-nav` (52 px; 40 under 1800 px). Nothing
   changes under 1800 px, where the
-  smokes run. That is scale; a component's own layout breakpoint is not,
+  smokes run, but the panel's gap and field height on a two-column window
+  under 900 px tall (the panel's order, below); 1400x900 is not short. That is scale; a component's own layout breakpoint is not,
   and is named in its rule (the Models picker's column of pictures from
   1280 px, under "Model and loader"; the panel's two columns). A component's wide-tier rule goes in its own section, inside an
   `@media (min-width: 1800px)` block, and new CSS uses the tokens. Contrast
@@ -2264,12 +2265,15 @@ Frontend and CLI:
   axis says the adapter is picked in LoRA below. With the run hint under
   the progress and the counters on the time's line, a running 4 x 3 batch's
   progress ends at 895 at 1400x900 (FLUX.1 fake, scroll 0), 901 at
-  1920x947 and 907 at 2048x1040@1.25; at 1536x864 the Now line with Pause
-  and Cancel is in view and the bars (864.5-875.5) and time (895) are not -
-  a window that short needs a scroll, or the topbar's mirror. smoke-wide
-  holds the order; smoke-narrow holds a real batch's whole progress in the
-  window at 1400x900, 1920x947 and 2048x1040@1.25, and Generate unmoved as
-  Batch and Repeat change.
+  1920x947 and 907 at 2048x1040@1.25. A two-column window under 900 px tall
+  (`(900px < width < 1800px) and (height < 900px)`) sets `--panel-gap`
+  10 px and `--h-field` 37 px on `.panel` alone, so at 1536x864 the same
+  progress ends at 851; the dialogs, gallery and stage keep their heights.
+  A shorter window - a maximized browser at that scaling, about 758 px -
+  still needs a scroll, or the topbar's mirror. smoke-wide holds the order;
+  smoke-narrow holds a real batch's whole progress in the window at
+  1400x900, 1920x947, 2048x1040@1.25 and 1536x864@1.25, and Generate
+  unmoved as Batch and Repeat change.
 - The size line leads with a side off the 16 grid, in the warning colour,
   naming its two neighbours ("1000 is not a multiple of 16: 992 or 1008",
   the schema's own words at Generate). It compares the request against
@@ -5580,7 +5584,8 @@ after the finish line and kept past the job's end; and, at scroll 0, Batch
 4 and Repeat 3 leaving Generate where it was with the run hint under it,
 then that batch running with its Now line, Pause, Cancel, both bars, the
 counters and the elapsed line (one line) in the window and the run hint
-under them, at 1400x900, 1920x947 and 2048x1040@1.25:
+under them, at 1400x900, 1920x947, 2048x1040@1.25 and 1536x864@1.25 (the
+panel's gap 10 px there, 14 px back at 1400x900):
 
 ```powershell
 uv run python tools/fake_server.py --port 7889 --model black-forest-labs/FLUX.1-Krea-dev --step 0.3

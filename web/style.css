@@ -44,13 +44,14 @@
      --gutter       18px  round the page and between its blocks; the lightbox, the dialog
      --panel-pad    16px  inside the settings panel
      --panel-gap    14px  between the panel's fields (and the Refine dialog's),
-                          and from a fold's rule to its summary
+                          and from a fold's rule to its summary (10 px in the
+                          panel on a two-column window under 900 px tall)
      --h-xs/-sm/-md 19, 26, 37px  the tiny, small and ordinary ghost buttons (the tiny
                           30 px from 1800 px, 26 on a short window: Examples, Check,
                           Apply, Use rewrite were 2 mm tall at QHD)
      --h-tool       26px  a result tile's row of tools, or the line in its place, under
                           the picture (32 px from 1800 px), and a card's tools there
-     --h-field      41px  text inputs
+     --h-field      41px  text inputs (37 px in the panel under 900 px tall)
      --h-lg         43px  the primary buttons
                           A control's vertical padding is what its height leaves
                           after the line and the border, so the height is the token.
@@ -241,6 +242,16 @@
     --h-lg: 44px;
     --topbar-h: 58px;
   }
+}
+/* A short two-column window - 1080p at 125% full-screen, 1536x864 - put a
+   running batch's bars and time 31 px past its foot at scroll 0, where the
+   panel is in the page's flow and nothing lifts it (TODO UI#8). Under 900 px
+   tall the panel alone takes 4 px off its gaps and its fields' height, so
+   the whole progress block is in the window. On the panel, not `:root`: the
+   dialogs, the gallery and the stage keep today's heights. 1400x900, where
+   the smokes are written, is not short. */
+@media (900px < width < 1800px) and (height < 900px) {
+  .panel { --panel-gap: 10px; --h-field: 37px; }
 }
 
 * { box-sizing: border-box; }
