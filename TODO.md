@@ -8,7 +8,7 @@ An index of open work, one row per item; each row points to the doc that owns th
 
 **Aim (2026-10-18):** keep useful work ready for Matt's common workstation tasks. [Reported use](docs/design/preferences.md) guides priority; it does not approve the candidate redesign.
 
-**Ready backlog:** 0 `OPEN` tasks remain. The CPU/browser batches are complete; the built upscaler (`GEN#5`) now needs only card qualification. Deferred features remain deferred; there is no further actionable batch for this run.
+**Ready backlog:** 1 `OPEN` task: NewBie's default CFG with an empty negative renders noise (`GEN#13`, found on the card 2026-10-20). The built upscaler (`GEN#5`) needs only card qualification. Deferred features remain deferred.
 
 **Needs Matt:** workbench task trials (`DEV#1`) and hands-on screen-reader/touch checks (`UI#7`) are the next `USER` work. No feature decision is waiting: FLUX.1 Fill [dev] (`INP#8`) was deferred 2026-10-20 until FLUX.1 outpaint has run on the card (`CARD#2`). Whole-app layout implementation waits for its trials; it remains a design hypothesis.
 
@@ -28,8 +28,8 @@ An index of open work, one row per item; each row points to the doc that owns th
 
 | id | status | sev | size | item |
 |---|---|---|---|---|
-| `CARD#1` | CARD | LOW | M+card | Inpaint's remaining native SDXL/Z-Image profiles, FLUX.1 dev and schnell at 0.95, SDXL LoRA, seam metrics, blended preview and start-noise display; use the owner's full Not measured list. Nunchaku is `CARD#3`, later families are `INP`. [Inpaint](docs/verified.md#inpaint). |
-| `CARD#2` | CARD | LOW | M+card | Outpaint's remaining SDXL/Z-Image profiles, FLUX.1 (enabled, never run; 1.9 MP at 16:9 from 1 MP, near the card's top; its result decides `INP#8`), seam metrics and intermediate band widths from the owner's Not measured list. [Outpaint](docs/verified.md#outpaint). |
+| `CARD#1` | CARD | LOW | M+card | Inpaint: Z-Image Turbo (not cached), FLUX.1 dev and schnell at 0.95, SDXL LoRA, seam metrics, blended preview and start-noise display; the other SDXL profiles and Z-Image were run 2026-10-20. Nunchaku is `CARD#3`, later families are `INP`. [Inpaint](docs/verified.md#inpaint). |
+| `CARD#2` | CARD | LOW | M+card | Outpaint: FLUX.1 (enabled, never run; 1.9 MP at 16:9 from 1 MP, near the card's top; a load spikes ~40-50 GB RAM; its result decides `INP#8`), Z-Image Turbo, seam metrics and intermediate band widths. [Outpaint](docs/verified.md#outpaint). |
 | `CARD#3` | CARD | MED | S+card | An inpaint over a Nunchaku Z-Image or FLUX.1 transformer under WSL: the profiles allow it, but the class has never run over either. [Inpainting](docs/design-notes.md#inpainting). |
 | `CARD#4` | CARD | LOW | L+card | INT8, full BF16 and sequential offload per checkpoint; the picker says INT8 is "not yet compared on this card". [Checkpoints](docs/verified.md#checkpoints). |
 | `CARD#5` | CARD | LOW | M+card | Size and batch gaps: Anima Turbo/Aesthetic at 1.5-2 MP and non-square, Kohaku, NetaYume and NewBie above about 1 MP, Illustrious at 1536/2048, Animagine Batch 12 (the cap was raised from a Batch 8 reading). [Checkpoints](docs/verified.md#checkpoints); [MP table](docs/anime-model-guide.md#compare-by-total-megapixels). |
@@ -59,6 +59,7 @@ An index of open work, one row per item; each row points to the doc that owns th
 
 | id | status | sev | size | item |
 |---|---|---|---|---|
+| `GEN#13` | OPEN | HIGH | M+card | NewBie at its default CFG 4 with an empty (or one-token) negative renders as noisy glitch art; CFG 1 or a real negative is clean. Not a repo regression; fix the unconditional caption from the authors' sources, then recheck on the card (found 2026-10-20). [NewBie open question](docs/design-notes.md#the-prompt-analyser). |
 | `GEN#5` | CARD | LOW | M+card | Qualify the built opt-in Anime6B GAN before ordinary WAI/RouWei Refine: quality, timing, peak memory and tiled seams against Lanczos (10-12 F14). [CPU evidence](docs/design-notes.md#the-refine-pass). |
 | `GEN#6` | DEFERRED | LOW | M+card | Live-preview maps for the four-channel SDXL VAE and FLUX.2's VAE (ERNIE; klein also lacks an unpack hook); previews switch themselves off there. [Behaviour](docs/verified.md#behaviour). |
 | `GEN#8` | DEFERRED | LOW | L | U61 part B: one's own photo or sketch as a reference (import route, a source marker through storage, reindex and reruns; add, drop and paste). Matt deferred it 2026-10-05; only when he raises it. [References](docs/design-notes.md#reference-images-by-gallery-id). |
@@ -69,7 +70,6 @@ An index of open work, one row per item; each row points to the doc that owns th
 
 | id | status | sev | size | item |
 |---|---|---|---|---|
-| `PA#8` | CARD | LOW | S+card | Whether NewBie reads `<name>` as it reads the authors' `<n>`; the XML rule accepts both. |
 | `PA#9` | DEFERRED | LOW | L | Scoring comparison images automatically with a VLM (does each element appear); accuracy unmeasured. |
 
 ## The page

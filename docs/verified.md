@@ -233,6 +233,13 @@ hash `9dfb5b3a47c1c6ea`. Generation times include previews and exclude loading
 and PNG saving. Allocator peaks exclude desktop and driver overhead. These
 two images establish a runtime smoke result, not a quality benchmark.
 
+Rechecked 2026-10-20 through the CLI with no negative prompt: the same
+example, seed and CFG renders as noise-covered, over-saturated glitch art
+(hash `757cb1d1c1359813`, the same at 019f3dc and on main, and as noisy in
+bf16), while CFG 1, or CFG 4 with a real negative, is clean. NewBie at
+its default CFG needs a negative until this is fixed; see the design
+notes' prompt-analyser open questions and TODO `GEN#13`.
+
 Cancellation stopped after step 1, and the next two calls completed all 28
 steps with preview frames. SQLite rows and embedded PNG metadata retained
 the exact XML, official model id, FP8, seed, dimensions, steps, CFG, negative
@@ -685,9 +692,7 @@ is what a user asking for a change does not want. These are one prompt and
 one mask per checkpoint, looked at by eye: they establish that the pass
 runs, reproduces and keeps every unmasked pixel, not a quality benchmark.
 
-Not measured: Z-Image Turbo (not in this machine's cache), the undistilled
-Z-Image, and the other SDXL profiles (Illustrious, Kohaku, RouWei, NoobAI),
-whose refine passes match Animagine's; a LoRA through an inpaint (no SDXL
+Not measured: Z-Image Turbo (not in this machine's cache); a LoRA through an inpaint (no SDXL
 adapter was at hand; `frosting-lane` is FLUX.1's); an inpaint over a
 Nunchaku Z-Image transformer under WSL; the seam measured against the VAE
 round trip by number; the live preview through Z-Anime's blend and the
@@ -696,6 +701,57 @@ dialogs' "starts at N% noise" on Z-Image (not checked on the card); and, for the
 enabled (FLUX.1's are below). Evidence is under `%TEMP%/local-diffusion-inpaint-card/`:
 `measure.py`, and per checkpoint its gallery, `results.jsonl` and the
 `inpaint-*.jpg` and `outpaint-*.jpg` strips.
+
+### The other SDXL profiles and the undistilled Z-Image (2026-10-20)
+
+Measured 2026-10-20 with the same harness, the same way: fp8, model offload,
+Windows, a throwaway gallery per checkpoint, each profile's own steps and
+CFG, the same seed-12345 1024x1024 source, ellipse mask and scarf prompts,
+the watchdog at 15,500 MiB (it never tripped). The desktop held
+2,296-2,819 MiB. The SDXL four ran the whole base set in one process each;
+Z-Image ran it in short foreground steps, one load per step. Only 1 MP
+sources were run; the outpaint rows are the 1024x1024 source's canvases.
+
+| Checkpoint | Run | Steps run | Time (per step) | Allocated / reserved | Card |
+| --- | --- | --- | --- | --- | --- |
+| Illustrious XL v2.0 | Inpaint, 1 MP | 27 of 28 | 8.4-8.6 s (0.23 s) | 3.57 / 4.55 GiB | 6,867-7,321 MiB |
+| Illustrious XL v2.0 | Outpaint to 16:9, 1.9 MP | 27 of 28 | 15.2-15.4 s (0.42 s) | 3.59 / 4.59 GiB | 7,329-7,558 MiB |
+| Illustrious XL v2.0 | Outpaint +25%, 1.6 MP | 27 of 28 | 13.0 s (0.35 s) | 3.58 / 4.64 GiB | 7,543 MiB |
+| Kohaku XL Zeta | Inpaint, 1 MP | 27 of 28 | 8.8-9.8 s (0.23 s) | 3.28 / 3.63 GiB | 6,533-6,604 MiB |
+| Kohaku XL Zeta | Outpaint to 16:9, 1.9 MP | 27 of 28 | 15.2-15.6 s (0.41 s) | 3.53 / 4.11 GiB | 7,010-7,179 MiB |
+| Kohaku XL Zeta | Outpaint +25%, 1.6 MP | 27 of 28 | 13.3 s (0.35 s) | 3.46 / 3.99 GiB | 6,892 MiB |
+| RouWei 0.8 | Inpaint, 1 MP | 27 of 28 | 8.3-8.6 s (0.23 s) | 3.57 / 4.55 GiB | 7,484-7,617 MiB |
+| RouWei 0.8 | Outpaint to 16:9, 1.9 MP | 27 of 28 | 15.0-15.2 s (0.41 s) | 3.59 / 4.59 GiB | 7,570-7,660 MiB |
+| RouWei 0.8 | Outpaint +25%, 1.6 MP | 27 of 28 | 13.0 s (0.35 s) | 3.58 / 4.64 GiB | 7,622 MiB |
+| NoobAI-XL V-pred 1.0 | Inpaint, 1 MP | 27 of 28 | 8.3-8.7 s (0.23 s) | 3.57 / 4.55 GiB | 7,145-7,533 MiB |
+| NoobAI-XL V-pred 1.0 | Outpaint to 16:9, 1.9 MP | 27 of 28 | 15.0-15.2 s (0.41 s) | 3.59 / 4.59 GiB | 7,563-7,752 MiB |
+| NoobAI-XL V-pred 1.0 | Outpaint +25%, 1.6 MP | 27 of 28 | 12.9 s (0.34 s) | 3.58 / 4.64 GiB | 7,623 MiB |
+| Z-Image (undistilled) | Inpaint, 1 MP | 50 of 50 | 94.3-97.1 s (1.79-1.82 s) | 6.93 / 8.61 GiB | 11,568-12,188 MiB |
+| Z-Image (undistilled) | Outpaint to 16:9, 1.9 MP | 50 of 50 | 193.8-201.6 s (3.62-3.78 s) | 7.66 / 9.68 GiB | 12,624-13,024 MiB |
+| Z-Image (undistilled) | Outpaint to 16:9, Batch 2 | 100 | 392.9 s | 7.66 / 9.68 GiB | 12,708 MiB |
+| Z-Image (undistilled) | Outpaint +25%, 1.6 MP | 50 of 50 | 167.6 s (3.16 s) | 7.46 / 9.26 GiB | 12,369 MiB |
+
+A Batch 2 inpaint on the SDXL four took 16.5-17.7 s and an outpaint Batch 2
+29.4-29.8 s, at the solo passes' allocation. The four SDXL profiles cost what
+Animagine and WAI cost, to a few hundredths of a gigabyte; Z-Image costs what
+Z-Anime does, with 2.5-3 GB of the card to spare at 1.9 MP under this
+smaller desktop.
+
+| What | Result |
+| --- | --- |
+| Determinism, batches, cancel | On all five: the same inpaint and the same outpaint twice is the same hash; a Batch 2 is the solo passes at its two seeds; cancelled at step 2, the next pass is the uncancelled hash |
+| The composite keeps what is not masked | Largest difference outside the mask 0, on all five |
+| The text-to-image pipeline afterwards | The source's own request is the source's hash, on all five |
+| The embedded mask | The same sizes as on 2026-10-17: 3,836 bytes hard-edged at 1 MP, 35,592 feathered, 5,104 for 16:9 and 5,968 for +25% |
+| What a strength keeps | By eye. As on 2026-10-17, 0.5 and 0.7 keep the red scarf on all five. At 0.85 Illustrious turns a glove blue and keeps the scarf red, RouWei adds blue at the collar, and Z-Image already draws the blue knitted scarf. The library default draws a blue scarf on all five; Illustrious's is striped through with the old red |
+| NoobAI's v-prediction through the inpaint class | Its inpaints render like the epsilon profiles', so the class carries the v-prediction scheduler settings. Its default-strength outpaint of a dark night scene drew bright, cyan, washed-out scenery at the sides, a visible mismatch in tone with the source; seen on this one source |
+| The band, 0 / 32 / 64 / 128 px | By eye on Illustrious and Z-Image only: 0 leaves a hard cut, 32 joins, 128 leaves a double image (ghosted trunks on Z-Image), as on 2026-10-17 |
+
+Not measured here: sources above 1 MP on these five, and the outpaint strips
+of Kohaku, RouWei and NoobAI looked at for the band. Evidence is in
+`%TEMP%/local-diffusion-inpaint-card/` beside the 2026-10-17 runs
+(`illustrious-xl-v2-0`, `kohaku-xl-zeta`, `rouwei-0-8`,
+`noobai-xl-vpred-1-0`, `z-image`; `rouwei.log`, `noobai.log`, `zimage.log`).
 
 ### FLUX.1 Krea dev, before enabling (INP#3)
 
@@ -786,8 +842,10 @@ So the band's starting 32 px is measured as the best of the four widths
 tried, and the library default as the strength to start an outpaint at.
 One source and one prompt per checkpoint, looked at by eye.
 
-Not measured: Z-Image Turbo (not in this machine's cache) and the other
-SDXL profiles; any FLUX.1 outpaint, enabled with its inpaint 2026-10-19
+The other SDXL profiles and the undistilled Z-Image were measured
+2026-10-20 (Inpaint, "The other SDXL profiles and the undistilled Z-Image").
+
+Not measured: Z-Image Turbo (not in this machine's cache); any FLUX.1 outpaint, enabled with its inpaint 2026-10-19
 (Inpaint, "FLUX.1 Krea dev"), whose seams decide FLUX.1 Fill [dev]
 (TODO `INP#8`); the seam by number against the VAE round trip at the
 original's edge; band widths between 0 and 64 other than 32. Evidence is in

@@ -11294,8 +11294,27 @@ finding's have a Show. The comparison's always-run Original box carries the
   (`order.tags`), so the card's example is in order there too.
 - NewBie's guide prose names a block's fields "name, gender, appearance, ...",
   but the authors' XML example and captioning instruction spell the first one
-  `<n>`. The XML rule accepts both; whether the model reads `<name>` as it
-  reads `<n>` has not been tried.
+  `<n>`. The XML rule accepts both. Tried on the card 2026-10-20 (fp8, CFG 4,
+  28 steps, a one-character XML prompt with no hair colour, seeds 2024-2026,
+  negative "low quality, worst quality, blurry"): `<n>hatsune_miku</n>` and
+  `<name>hatsune_miku</name>` both drew Hatsune Miku (long twintails, hair
+  ornaments) on all three seeds, and the authors' unnamed `$character_1$`
+  did not, so the model reads `<name>` as it reads `<n>`. Three seeds and
+  one name, by eye.
+- NewBie breaks under its own defaults (found 2026-10-20 on the card, not
+  yet fixed). At CFG above 1 with an empty negative, the app's default, the
+  picture is the right composition under saturated high-frequency noise and
+  glitch patterns; a one-token negative (`,`) is no better. CFG 1 renders
+  cleanly, and so does CFG 4 with a negative that says something ("low
+  quality, worst quality, blurry"). The 2026-09-26 commit (019f3dc) renders
+  the authors' example to the same hash as main (`757cb1d1c1359813`, not the
+  recorded `9dfb5b3a47c1c6ea`), bf16 is as noisy as fp8, and the venv,
+  converted tree, driver and toolkits all predate 2026-09-26, so it is not a
+  regression in this repo's code; the 2026-09-26 check most likely ran with
+  a negative. The guided branch over an empty or near-empty unconditional
+  caption (encoded with no system prefix) is the suspect; the fix should
+  follow what the authors' sources do for the unconditional caption. Tracked
+  as TODO `GEN#13`. Evidence: `%TEMP%/local-diffusion-pa8/`.
 
 ## The page scripts share one classic scope
 
