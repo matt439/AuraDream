@@ -8,7 +8,7 @@ An index of open work, one row per item; each row points to the doc that owns th
 
 **Aim (2026-10-18):** keep useful work ready for Matt's common workstation tasks. [Reported use](docs/design/preferences.md) guides priority; it does not approve the candidate redesign.
 
-**Ready backlog:** no `OPEN` tasks. The built upscaler (`GEN#5`) needs only card qualification. Deferred features remain deferred.
+**Ready backlog:** no `OPEN` tasks. Deferred features remain deferred.
 
 **Needs Matt:** workbench task trials (`DEV#1`) and hands-on screen-reader/touch checks (`UI#7`) are the next `USER` work. No feature decision is waiting: FLUX.1 Fill [dev] closed 2026-10-21, FLUX.1 outpaint having joined cleanly on the card. Whole-app layout implementation waits for its trials; it remains a design hypothesis.
 
@@ -58,7 +58,6 @@ An index of open work, one row per item; each row points to the doc that owns th
 
 | id | status | sev | size | item |
 |---|---|---|---|---|
-| `GEN#5` | CARD | LOW | M+card | Qualify the built opt-in Anime6B GAN before ordinary WAI/RouWei Refine: quality, timing, peak memory and tiled seams against Lanczos (10-12 F14). [CPU evidence](docs/design-notes.md#the-refine-pass). |
 | `GEN#6` | DEFERRED | LOW | M+card | Live-preview maps for the four-channel SDXL VAE and FLUX.2's VAE (ERNIE; klein also lacks an unpack hook); previews switch themselves off there. [Behaviour](docs/verified.md#behaviour). |
 | `GEN#8` | DEFERRED | LOW | L | U61 part B: one's own photo or sketch as a reference (import route, a source marker through storage, reindex and reruns; add, drop and paste). Matt deferred it 2026-10-05; only when he raises it. [References](docs/design-notes.md#reference-images-by-gallery-id). |
 
@@ -89,7 +88,7 @@ Each review's remaining work is indexed above; closed findings stay in their own
 | 2026-10-03 | All confirmed findings and P1 fixed 2026-10-04. |
 | 2026-10-04 UI | All done but U61 B (`GEN#8`); U5, U12, U79, U100 and U108 were left by decision. |
 | 2026-10-05 areas | 84 fixed, A68 partly by decision; the integration review's K1-K5 fixed. |
-| 2026-10-12 | R1-R53 fixed; F1-F5, F7-F13 and F15-F19 built. F6's supported inpaint/outpaint paths are built; remaining families/measurements are `INP`/`CARD`. F14 remains `GEN#5`; F5's age-scoped emptying was built 2026-10-19 (`GAL#5`). |
+| 2026-10-12 | R1-R53 fixed; F1-F5, F7-F13 and F15-F19 built. F6's supported inpaint/outpaint paths are built; remaining families/measurements are `INP`/`CARD`. F14 was qualified on the card 2026-10-21; F5's age-scoped emptying was built 2026-10-19 (`GAL#5`). |
 
 ---
 

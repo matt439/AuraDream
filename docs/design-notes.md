@@ -1,7 +1,7 @@
 # Design notes
 
 Why the code is the way it is, one section per area. `docs/rules.md` states the
-rules in full (`CLAUDE.md` the ones that break things silently); this file keeps the reasoning behind each, the history of what went
+rules in full (`AGENTS.md` the ones that break things silently); this file keeps the reasoning behind each, the history of what went
 wrong before the rule existed, and the evidence, in the notes kept while the
 code was written. Read the section for an area before changing it. The
 measurements quoted here are indexed by date and checkpoint in `verified.md`.
@@ -1563,8 +1563,10 @@ target. It is unavailable for masks and outpaints. WAI names this model;
 RouWei names only a GAN upscaler, so this is one implementation of that
 kind of preparation, not a claim that its author used Anime6B. Refine still
 runs the part of Steps that Strength leaves, rather than the author's
-separate hires step count. The GAN option has no local card qualification
-for quality, timing or memory yet (`GEN#5`).
+separate hires step count. Qualified on the card 2026-10-21
+(`verified.md`, Refine pass, "R-ESRGAN 4x+ Anime6B"): about a second
+of GAN, no added peak, deterministic, slightly crisper line work at 0.35,
+and its faint tile borders do not survive the refine.
 
 The official v0.2.2.4 asset is 17,938,799 bytes, SHA256
 `f872d837d3c90ed2e05227bed711af5671a6fd1c9f7d7e91c911a61f155e99da`,
@@ -1619,7 +1621,7 @@ SDXL Refine 69/69 and Sheet 205/205 browser expectations passed. The fake
 runs used fresh galleries and waited for the exact ready model; an initial
 WAI startup-race run is retained as invalid fixture evidence. All owned
 fakes and verified leftover browser trees stopped. Card qualification
-remains `GEN#5`, not a completed measurement in `verified.md`.
+followed 2026-10-21 (`GEN#5`, `verified.md`, Refine pass).
 
 **A dialog, not a mode of the panel.** The pass first shipped as a field
 under Size: the card's Refine button rewrote the panel - prompt, seed,

@@ -653,8 +653,8 @@ Not measured: FLUX.1 dev at fp8, whose starting strength carries over the
 Krea dev measurement on the same schedule; what schnell, Z-Image Turbo,
 Z-Image and Qwen-Image's starting strengths keep of a picture, which is
 schedule arithmetic alone; int8 and full bfloat16; a Nunchaku pass past
-the two above; and the author's own WAI recipe, which upscales with
-R-ESRGAN 4x+ Anime6B where this pass resizes with Lanczos. The October 5
+the two above; and the author's own WAI recipe whole (its separate 20
+hires steps; the Anime6B preparation itself is measured below). The October 5
 runs' evidence is under `%TEMP%/local-diffusion-leftovers-gpu/` (one
 throwaway gallery per checkpoint with its `ladder.log` and `ladder.jsonl`)
 and, for the Nunchaku runs, `~/ld-gpu/` in WSL.
@@ -666,6 +666,41 @@ The October 3 runs' evidence is under
 and the `outputs/` PNGs. The browser checks are `tools/smoke-refine.json`
 (the Refine dialog), `smoke-refine-unavailable.json` and the additions to
 `smoke-conditioning.json`.
+
+### R-ESRGAN 4x+ Anime6B (2026-10-21)
+
+The opt-in GAN preparation against Lanczos on WAI v17 and RouWei 0.8, fp8,
+model offload, Windows: each checkpoint's 1024x1024 source from the inpaint
+runs (seed 12345) refined to 1536x1536 at the authors' range, 0.35 and
+0.5, seed 12345, 28 steps. The desktop held about 1.0 GB.
+
+| What | WAI v17 | RouWei 0.8 |
+| --- | --- | --- |
+| Raw 4x, 1024 to 4096 px, 16 tiles, FP32 | 0.89 s warm (2.45 s first, net built and moved), 1.25 GiB allocated, 4,406 MiB card | 0.94 s (1.12 s first), the same |
+| Refine at 0.35, 9 steps: Lanczos / Anime6B | 9.5 / 8.6 s | 10.2 / 9.0 s |
+| Refine at 0.5, 14 steps: Lanczos / Anime6B | 10.1 / 11.1 s | 10.5 / 11.9 s |
+| Refine peak, both choices | 3.67 GiB allocated, 5,956 MiB card | 3.67 GiB, 5,954-5,969 MiB |
+
+- Determinism: the raw 4x twice is the same hash on both (`b8fce6a51bb0ab49`,
+  `a529369709871895`); the Anime6B refine at 0.35 twice is the same hash;
+  text-to-image afterwards is the source's hash.
+- The GAN costs about a second; the run-to-run spread of a refine is as
+  large, so Anime6B is not measurably slower. It leaves the card before the
+  VAE runs (0.0 GiB allocated after), so the refine's peak is Lanczos's.
+- The tiles: in the raw 4x the step across a tile border (every 1,024 px)
+  ranks above most nearby columns (WAI 5 of 6 borders at the 87th-99th
+  percentile of their ±64 px, RouWei 2 of 6 at the 93rd-99th), a faint
+  seam from the 10 px context Real-ESRGAN itself uses; at 2x zoom none
+  shows. After the refine (borders at 384, 768, 1152) the Anime6B images
+  rank like the Lanczos ones, which have no tiles (both spread from the 2nd
+  to the 98th percentile): nothing survives into the result.
+- By eye, at 0.35 Anime6B gives slightly crisper hair strands, eye
+  highlights and line work than Lanczos on both; at 0.5 the two are close.
+  Neither changes the picture or its colours. One source each, by eye.
+
+Evidence: `wai-gan.log`, `rouwei-gan.log`, and per checkpoint
+`gan-4x.png`, `gan-4x-seams.jpg` (WAI), `gan-refine.jpg` and
+`gan-refine-face.jpg`, in `%TEMP%/local-diffusion-inpaint-card/`.
 
 ## Inpaint
 
