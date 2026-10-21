@@ -50,23 +50,24 @@ differently is identified.
 
 | Model | Total MP guidance | What that means for shape and larger images |
 | --- | --- | --- |
-| **Anima Turbo** | **About 0.26-2.36 MP documented** | The **1, 1.5 and 2 MP** presets fit the documented area span. The guide does not establish that every shape at that area performs equally well; only a **1.05 MP** square has been measured locally. |
-| **Anima Aesthetic** | **About 0.26-2.36 MP documented** | The same family guidance covers the **1, 1.5 and 2 MP** tiers. Only a **1.05 MP** square has been measured locally; other shapes and larger areas remain unmeasured. |
+| **Anima Turbo** | **About 0.26-2.36 MP documented** | The **1, 1.5 and 2 MP** presets fit the documented area span. Measured locally up to **2.07 MP**, square, portrait and landscape: coherent at each, under 4.4 GB of card, 15.7 s at 2 MP (one prompt and seed). |
+| **Anima Aesthetic** | **About 0.26-2.36 MP documented** | The same family guidance covers the **1, 1.5 and 2 MP** tiers. Measured locally up to **2.07 MP**, square, portrait and landscape: coherent at each, 55 s at 2 MP (one prompt and seed). |
 | **WAI** | **1.05-1.38 MP reference area**; **no published maximum** | Reference sizes include a portrait. This is an example span, not an established operating range for every aspect ratio. Showcase images also use a separate 1.5x hires refinement pass; the app's **Refine** pass (below) is the nearest it has, with a plain resize in place of the author's upscaling model. |
 | **RouWei** | **About 1-1.5 MP recommended** | The author allows any aspect ratio with dimensions divisible by 64. Start at 1024 x 1024; app presets are multiples of 16, so not every preset follows that recommendation exactly. Refine is a separate pass with a plain resize; it does not reproduce the author's latent or GAN upscaling recipe. |
 | **NoobAI V-pred** | **About 1 MP recommended**; author-listed shapes are **1.01-1.05 MP** | The card lists seven square, portrait and landscape sizes, with 832 x 1216 emphasized. The app highlights those framings. Larger presets are available, but the author does not establish a larger native operating range. |
 | **Illustrious** | **About 1-2.25 MP native**, in the authors' wording; roughly **4 MP** possible with quality loss | The authors describe varied aspect ratios. Their higher training size is **2.36 MP** when converted exactly; treat the native range as approximate. A long side alone is not a ceiling. Start with the **1, 1.5 or 2 MP** presets. |
 | **Animagine** | **About 1 MP recommended**; author-listed shapes are **0.98-1.05 MP** | The author lists square, portrait and landscape shapes. Use those aspect presets where possible. Larger area can degrade; the warning includes a **2.36 MP** square. |
-| **Kohaku** | **About 1 MP recommended**; reference area **1.05 MP** | The recommendation explicitly allows a similar total pixel count, so the reference square is not a square-only requirement. Larger areas have not been measured locally. |
+| **Kohaku** | **About 1 MP recommended**; reference area **1.05 MP** | The recommendation explicitly allows a similar total pixel count, so the reference square is not a square-only requirement. Locally, **2.36 and 4.19 MP** squares fit easily (under 6.8 GB of card, 19 and 36 s); their composition was not judged against 1 MP. |
 | **Z-Anime** | **About 0.26-4.2 MP documented** | The author explicitly allows **any aspect ratio**. **1.5-2 MP** is the practical local iteration range; the coherent **4.19 MP** sample took **8 minutes 39 seconds** and nearly filled the card. |
-| **NetaYume** | **1.05-1.57 MP example area**; **no published v4 range or maximum** | Inherited/v2 examples include square and portrait images. They do not define v4's aspect-ratio coverage or a size ceiling. Start around **1 MP**; larger areas have not been measured locally. |
-| **NewBie** | **1.05 MP example area**; **no published minimum or maximum** | The quickstart and local check use a square. That example establishes neither a square-only requirement nor a guarantee for other shapes. Start around **1 MP**; higher areas remain locally unmeasured. |
+| **NetaYume** | **1.05-1.57 MP example area**; **no published v4 range or maximum** | Inherited/v2 examples include square and portrait images. They do not define v4's aspect-ratio coverage or a size ceiling. Start around **1 MP**. Locally a **4.19 MP** square stayed coherent but took **4 minutes**; **2.36 MP** took under 2. |
+| **NewBie** | **1.05 MP example area**; **no published minimum or maximum** | The quickstart and local check use a square. That example establishes neither a square-only requirement nor a guarantee for other shapes. Start around **1 MP**. Locally the authors' example held at **2.36 MP** but at **4.19 MP** its two characters repeated into a sheet of about eight. |
 
 For a quick choice by area: **around 1 MP**, start with the model whose style
 and prompting you prefer. At **1.5-2 MP**, Illustrious and Z-Anime have local
-larger-image evidence; Anima's documented area also covers these tiers, with
-local evidence still limited to 1 MP. At **4 MP**, allow for experiments:
-Z-Anime's sample retained its scene but was slow; Illustrious's **4.19 MP**
+larger-image evidence; Anima's documented area also covers these tiers, and
+both Anima variants held together there locally. At **4 MP**, allow for experiments:
+Z-Anime's sample retained its scene but was slow, NetaYume's held
+and NewBie's broke into repeated figures; Illustrious's **4.19 MP**
 sample omitted the requested doctor, which its **2.36 MP** sample retained.
 Those used different prompts between models and are not a controlled
 comparison. See [local verification](verified.md).

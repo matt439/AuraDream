@@ -434,6 +434,48 @@ FP8, seed 12345, 28 steps, CFG 5 and null Mu. Validation images are in
 `9c9742b5e08abae3` (1024), `da5ca7663a64e641` (1536) and
 `9fe6ba696569a397` (2048). The production gallery was not used.
 
+### Size and batch gaps (2026-10-21)
+
+Text-to-image at the profile's own steps and CFG, fp8, model offload,
+Windows, seed 12345, one process per checkpoint with sizes run smallest
+first and the 15.5 GB watchdog armed (it never tripped). The desktop held
+1.0-1.3 GB; "card" is the whole card's peak, desktop included.
+
+| Checkpoint | Size | Steps | Time (per step) | Allocated / reserved | Card |
+| --- | --- | --- | --- | --- | --- |
+| Animagine XL 4.0, Batch 12 | 1024x1024 | 28 | 70.7 s for 12 (2.19 s) | 6.58 / 9.53 GiB | 11,267 MiB |
+| Illustrious XL v2.0 | 1536x1536, 2.4 MP | 28 | 21.3 s (0.54 s) | 3.51 / 4.37 GiB | 5,902 MiB |
+| Illustrious XL v2.0 | 2048x2048, 4.2 MP | 28 | 34.4 s (1.11 s) | 4.06 / 5.10 GiB | 6,799 MiB |
+| Kohaku XL Zeta | 1536x1536 | 28 | 19.2 s (0.53 s) | 3.51 / 4.16 GiB | 5,809 MiB |
+| Kohaku XL Zeta | 2048x2048 | 28 | 35.5 s (1.11 s) | 4.06 / 5.10 GiB | 6,724 MiB |
+| Anima Turbo v1.1 | 832x1216 / 1216x832, 1.0 MP | 8 | 9.0 (first) / 4.5 s (0.31 s) | 2.17 / 2.34 GiB | 3,817-3,829 MiB |
+| Anima Turbo v1.1 | 1248x1248, 1.6 MP | 8 | 7.2 s (0.56 s) | 2.24 / 2.59 GiB | 4,150 MiB |
+| Anima Turbo v1.1 | 1152x1728 / 1440x1440, 2.0-2.1 MP | 8 | 14.5 / 15.7 s (1.01 / 1.48 s) | 2.29-2.30 / 2.66-2.77 GiB | 4,210-4,325 MiB |
+| Anima Aesthetic v1.1 | 832x1216 / 1216x832 | 30 | 24.4 / 21.2 s (0.62 s) | 2.17 / 2.34 GiB | 3,946-3,995 MiB |
+| Anima Aesthetic v1.1 | 1248x1248 | 30 | 36.4 s (1.10 s) | 2.24 / 2.60 GiB | 4,115 MiB |
+| Anima Aesthetic v1.1 | 1152x1728 / 1440x1440 | 30 | 48.8 / 55.2 s (1.52 / 1.73 s) | 2.29-2.30 / 2.66-2.77 GiB | 4,254-4,325 MiB |
+| NetaYume Lumina v4 | 1536x1536 | 40 | 109.1 s (2.51 s) | 3.55 / 4.54 GiB | 6,307 MiB |
+| NetaYume Lumina v4 | 2048x2048 | 40 | 241.9 s (5.93 s) | 4.36 / 5.74 GiB | 7,481 MiB |
+| NewBie Exp0.1, the authors' XML | 1536x1536 | 28 | 107.3 s (3.47 s) | 4.81 / 5.40 GiB | 7,109 MiB |
+| NewBie Exp0.1, the authors' XML | 2048x2048 | 28 | 235.0 s (8.18 s) | 5.24 / 6.63 GiB | 8,326 MiB |
+
+Memory is nowhere near the card's top: Batch 12 on Animagine leaves about
+5 GB, and every larger single image here stays under 8.4 GB. Time is what
+grows: the DiTs' steps go up faster than their pixels (Anima Turbo 0.31 s
+a step at 1 MP, 1.48 s at 2.1 MP; NetaYume and NewBie about 2.4x from 2.4
+to 4.2 MP), so NetaYume and NewBie take about 4 minutes an image at 4 MP.
+
+By eye, one prompt and seed each: both Anima variants stay coherent from
+1 to 2.1 MP, portrait, landscape and square, with no doubled figures.
+NetaYume holds one figure at 4.2 MP (more closely framed than at 2.4).
+NewBie is right at 2.4 MP but at 4.2 MP the authors' two characters
+repeat into a sheet of about eight figures, so above about 2.4 MP it
+breaks composition. Evidence: `animagine-xl-4-0/`, `illustrious-xl-v2-0/`,
+`kohaku-xl-zeta/`, `anima/`, `anima@aesthetic-v1-1/`,
+`netayume-lumina-image-2-0/`, `newbie-image-exp0-1/` (each with
+`results.jsonl` and `outputs/`), `anima-sizes.jpg` and `dit-sizes.jpg` in
+`%TEMP%/local-diffusion-inpaint-card/`.
+
 Under model offload the per-image weight transfer costs about 5 s and
 dominates a 4-step image; on FLUX.1 the text encoders under bitsandbytes NF4
 add to that, which is why schnell is not the speed win Z-Image Turbo is.
@@ -446,7 +488,7 @@ add to that, which is why schnell is not the speed win Z-Image Turbo is.
 | True CFG on FLUX.1 | A negative prompt with no true CFG is byte-identical to none; true CFG 1.5 is a different, reproducible image | 2026-09-08 |
 | LoRA under torchao fp8 + PEFT | The adapter changes the image and reproduces; `unload_lora_weights` restores the base hash; weight 0 is byte-identical to no adapter | 2026-09-08 |
 | Animagine XL 4.0 basic generation | User-verified on the card after integration: the weights loaded and output looked good; exact quantization and offload settings were not recorded | 2026-09-10 |
-| Animagine XL 4.0, Batch 8 at 1 MP | 9.6 GB of the 16 as read off the card, which is what raised the Batch cap to 12; Batch 12 itself not yet measured | 2026-09-12 |
+| Animagine XL 4.0, Batch 8 at 1 MP | 9.6 GB of the 16 as read off the card, which is what raised the Batch cap to 12; Batch 12 read 11.3 GB on 2026-10-21 (Checkpoints, "Size and batch gaps") | 2026-09-12 |
 | Reference images on klein | The referenced scene reappears in the asked-for pose, same hash twice; no 2-3x cost (see the table) | 2026-09-08 |
 | Live preview | Matrices fitted on the card, R-squared 0.964 (FLUX VAE) and 0.950 (Qwen-Image VAE); frames looked at; Z-Image frames at steps 2/4/6 of 8 in the right colours | 2026-09-08 |
 | Ctrl-C during a load | SIGINT 12 s into a load exits in 3 s with the lifespan run | 2026-09-08 |
