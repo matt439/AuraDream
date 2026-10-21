@@ -410,7 +410,7 @@ The panel's grid Resume tick keeps its name. `docs/usage.md` gains one
    `run: str | None`, refused together with `ids` or `search` (422);
    `favorites` and `all_models` are ignored when it is set.
 2. A third mode of `submission.resolve_selection`, a `run=` keyword
-   beside `ids` and the filter - not a separate resolver: CLAUDE.md has
+   beside `ids` and the filter - not a separate resolver: AGENTS.md has
    every rerun's images come only through `resolve_selection`. It reads
    the run's rows from `storage.lineage_images([run_id], [])`, live ones
    (`binned_at` None) as the batches; 404 when none is live. Binned rows
@@ -613,7 +613,7 @@ to what is queued.
   scratch `--data`, `--step 0.3`); a job ends by its budget with no new
   fake-server knob, as `smoke-jobs` already does with a 0.06-minute budget
   over 20 seeds at `--step 0.3` (`tools/smoke-jobs.json:112-114`); its row
-  added to the CLAUDE.md/AGENTS.md port table, which DEV#2's
+  added to the AGENTS.md port table, which DEV#2's
   test holds to `tools/smoke*.json`.
 
 **Docs, either phase:** `docs/usage.md` (entry points, "Continuing a run"),

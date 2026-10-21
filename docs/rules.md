@@ -1,7 +1,7 @@
 # Rules in full
 
-The complete rule set, moved here from `CLAUDE.md`/`AGENTS.md` on 2026-10-08
-so those files stay short. `CLAUDE.md` keeps the rules that break things
+The complete rule set, moved here from `AGENTS.md` on 2026-10-08 so it stays
+short (`CLAUDE.md` only imports it). `AGENTS.md` keeps the rules that break things
 silently; this file keeps every rule with its identifiers and exact wording,
 the full module map, and what each smoke covers. `docs/design-notes.md` keeps
 the reasoning, under headings of the same subject. Read the part for an area
@@ -4661,10 +4661,10 @@ and adapter paths before anything imports `backend`, so a sourced
 `wsl/env.sh` changes nothing. They cover the invariants
 that are expensive to get wrong: the schedule the scheduler ends up with, seeds
 surviving a JSON round trip, the search fallback keeping its filters, and the
-HTTP guards. `tests/test_docs_maps.py` holds `CLAUDE.md` and `AGENTS.md`
-byte-identical; every backend module, `web/*.js` and `web/styles/*.css`
+HTTP guards. `tests/test_docs_maps.py` holds `CLAUDE.md` to the one
+`@AGENTS.md` import; every backend module, `web/*.js` and `web/styles/*.css`
 named in the Layout above (the stylesheets in `index.html`'s link order, and
-its count of classic scripts); and every `tools/smoke*.json` in `CLAUDE.md`'s
+its count of classic scripts); and every `tools/smoke*.json` in `AGENTS.md`'s
 port table, on the row whose port its first `navigate` uses, and named
 below - so a new file is added to the maps with it.
 

@@ -1,9 +1,9 @@
 """The module maps against the files they map.
 
-`docs/rules.md`'s Layout is the full map, and `CLAUDE.md`/`AGENTS.md` are
-kept byte-identical; both drifted by hand before (`backend/metadata.py` was
-in neither map), so they are held here rather than by review. So is
-`CLAUDE.md`'s smoke/port table: a smoke run against the port its row names
+`docs/rules.md`'s Layout is the full map, and `CLAUDE.md` only imports
+`AGENTS.md` (its first line is `@AGENTS.md`); the maps drifted by hand before
+(`backend/metadata.py` was in neither), so they are held here rather than by
+review. So is `AGENTS.md`'s smoke/port table: a smoke run against the port its row names
 finds the fake that row says to start.
 """
 from __future__ import annotations
@@ -23,7 +23,7 @@ def _layout() -> str:
 def _smoke_table() -> dict[str, list[int]]:
     """Each smoke the port table names (`-rewrite` is `smoke-rewrite`) and
     the ports of the rows naming it."""
-    text = (ROOT / "CLAUDE.md").read_text(encoding="utf-8")
+    text = (ROOT / "AGENTS.md").read_text(encoding="utf-8")
     table: dict[str, list[int]] = {}
     for port, smokes in re.findall(r"^\| (\d{4}) \|[^|\n]*\|([^|\n]*)\|$", text, re.M):
         for name in re.findall(r"`([^`]+)`", smokes):
@@ -41,8 +41,9 @@ def _first_navigate_port(path: Path) -> int | None:
     return None
 
 
-def test_claude_and_agents_are_the_same_file():
-    assert (ROOT / "CLAUDE.md").read_bytes() == (ROOT / "AGENTS.md").read_bytes()
+def test_claude_imports_agents():
+    first = (ROOT / "CLAUDE.md").read_text(encoding="utf-8").splitlines()[:1]
+    assert first == ["@AGENTS.md"]
 
 
 def test_every_backend_module_and_page_script_is_in_the_layout():

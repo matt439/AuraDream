@@ -1027,7 +1027,7 @@ When phase 1 lands, `docs/rules.md` gains the rules (the two types and
 where the limits live, the size rule's exception, stamping first in
 `submit_cells`, the frozen fills and mask, the folded key element with the
 fill, the invariant that an outpaint needs `refine` and `mask`), its Tests
-section the smoke and port, `CLAUDE.md` / `AGENTS.md` the port row,
+section the smoke and port, `AGENTS.md` the port row,
 `docs/design-notes.md` an "Outpainting" section, and `docs/verified.md` an
 "Outpaint" section listing the measurements below as not yet measured.
 
