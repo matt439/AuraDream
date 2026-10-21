@@ -157,6 +157,17 @@ def test_cfg_threshold_whole_sample_capped_norm_and_velocity_sign(pipe, guidance
     torch.testing.assert_close(result, pipe.transformer.calls[0]["initial"] + prediction)
 
 
+def test_each_image_gets_its_own_transformer_and_vae_calls(pipe):
+    # cuBLAS picks a GEMM kernel by row count, so a batched call drifted from
+    # the solo run of the same seed on the card (GEN#14); one row per call
+    # gives every image the solo run's shapes.
+    _render(pipe, guidance_scale=2.0, num_images_per_prompt=3, output_type="pt",
+            generator=[_generator(seed) for seed in (17, 18, 19)])
+    assert len(pipe.transformer.calls) == 3 * 3 * 2
+    assert {call["initial"].shape[0] for call in pipe.transformer.calls} == {1}
+    assert [latent.shape[0] for latent in pipe.vae.decoded] == [1, 1, 1]
+
+
 @pytest.mark.parametrize("negative", [None, "", "  "])
 def test_blank_negative_is_the_trained_unconditional(pipe, negative):
     # Training blanks a dropped caption for Gemma only and keeps Jina's

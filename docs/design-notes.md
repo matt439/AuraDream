@@ -8947,6 +8947,19 @@ was fixed; the empty prefix stays, as recorded above, until a comparison
 says otherwise. The conversion recipe is unchanged, since this is a
 sampling change and a new recipe would rewrite the 15 GB tree.
 
+**One image per transformer call** (2026-10-21). Image *i* of a batch
+must be what a solo run of its seed makes (the refine pass's "One call per
+image"). NewBie's batched transformer call broke that on the card: cuBLAS
+picks its GEMM kernel by row count, and NewBie's shapes (a 1-row time
+embedding, a 486-token caption refiner) fall where 1 and 2 images get
+different kernels, so a batch drifted by a few pixel levels from its
+solos (TODO `GEN#14`). FLUX.1 and the SDXL pipelines matched at their
+shapes. `NewbiePipeline` now encodes the prompts once but runs the
+transformer (conditional, then unconditional) and the VAE decode one image
+at a time, so every image sees a solo run's shapes. On the card the batch
+then hashed as its solos, at the same speed, since a 1 MP NextDiT already
+fills the card.
+
 **Anonymous character labels are usable as written** (2026-10-07). The
 author's XML example uses `$character_1$` and `$character_2$` literally in
 the generation metadata of its [published example image](https://huggingface.co/NewBie-AI/NewBie-image-Exp0.1/resolve/4f7825a1a7e1ed5c1882a52e3c51d1119a43e298/image/XML_prompt_image.png).

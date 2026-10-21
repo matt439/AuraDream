@@ -82,6 +82,29 @@ class NewbiePipeline(DiffusionPipeline):
             pooled.to(device=device, dtype=dtype).repeat_interleave(num_images, dim=0),
         )
 
+    def _predict(self, latents, model_t, embeddings, mask, pooled, i, negatives_at, guidance_scale):
+        """Image i's guided velocity; negatives_at is where the negatives start, None unguided."""
+        def velocity(row):
+            return self.transformer(
+                hidden_states=latents, timestep=model_t,
+                encoder_hidden_states=embeddings[row:row + 1],
+                encoder_attention_mask=mask[row:row + 1], pooled_projections=pooled[row:row + 1],
+                return_dict=False,
+            )[0]
+
+        conditional = velocity(i)
+        if negatives_at is None:
+            return conditional
+        unconditional = velocity(negatives_at + i)
+        prediction = unconditional + guidance_scale * (conditional - unconditional)
+        # The author's renorm_cfg=1 caps the whole sample's
+        # norm. It never boosts a smaller guided prediction.
+        axes = tuple(range(1, prediction.ndim))
+        norm = torch.linalg.vector_norm(prediction, dim=axes, keepdim=True).clamp_min(1e-12)
+        cond_norm = torch.linalg.vector_norm(conditional, dim=axes, keepdim=True)
+        scale = (cond_norm / norm).clamp(max=1)
+        return prediction * scale
+
     @torch.no_grad()
     def __call__(
         self,
@@ -138,29 +161,15 @@ class NewbiePipeline(DiffusionPipeline):
                 for index, timestep in enumerate(timesteps):
                     # NextDiT uses 0 for noise and 1 for image; FlowMatch Euler
                     # uses the reverse and expects the negative model velocity.
-                    model_t = (1 - timestep / self.scheduler.config.num_train_timesteps).expand(batch)
-                    conditional = self.transformer(
-                        hidden_states=latents, timestep=model_t,
-                        encoder_hidden_states=embeddings[:batch],
-                        encoder_attention_mask=mask[:batch], pooled_projections=pooled[:batch],
-                        return_dict=False,
-                    )[0]
-                    prediction = conditional
-                    if guided:
-                        unconditional = self.transformer(
-                            hidden_states=latents, timestep=model_t,
-                            encoder_hidden_states=embeddings[batch:],
-                            encoder_attention_mask=mask[batch:], pooled_projections=pooled[batch:],
-                            return_dict=False,
-                        )[0]
-                        prediction = unconditional + guidance_scale * (conditional - unconditional)
-                        # The author's renorm_cfg=1 caps the whole sample's
-                        # norm. It never boosts a smaller guided prediction.
-                        axes = tuple(range(1, prediction.ndim))
-                        norm = torch.linalg.vector_norm(prediction, dim=axes, keepdim=True).clamp_min(1e-12)
-                        cond_norm = torch.linalg.vector_norm(conditional, dim=axes, keepdim=True)
-                        scale = (cond_norm / norm).clamp(max=1)
-                        prediction = prediction * scale
+                    model_t = (1 - timestep / self.scheduler.config.num_train_timesteps).expand(1)
+                    # One image per transformer call: cuBLAS picks its GEMM
+                    # kernel by row count, so a batched call drifted from the
+                    # solo run of the same seed on the card (GEN#14).
+                    prediction = torch.cat([
+                        self._predict(latents[i:i + 1], model_t, embeddings, mask, pooled,
+                                      i, batch if guided else None, guidance_scale)
+                        for i in range(batch)
+                    ])
                     latents = self.scheduler.step(
                         -prediction, timestep, latents, return_dict=False,
                     )[0]
@@ -172,10 +181,13 @@ class NewbiePipeline(DiffusionPipeline):
             if output_type == "latent":
                 images = latents
             else:
-                decoded = self.vae.decode(
-                    latents / self.vae.config.scaling_factor + self.vae.config.shift_factor,
-                    return_dict=False,
-                )[0]
+                decoded = torch.cat([
+                    self.vae.decode(
+                        latents[i:i + 1] / self.vae.config.scaling_factor + self.vae.config.shift_factor,
+                        return_dict=False,
+                    )[0]
+                    for i in range(batch)
+                ])
                 images = self.image_processor.postprocess(decoded, output_type=output_type)
             return ImagePipelineOutput(images=images)
         finally:

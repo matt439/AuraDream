@@ -252,13 +252,22 @@ demo CFG truncation (0.25, with and without the norm cap) did not fix it.
 Evidence: `%TEMP%/local-diffusion-gen13/` (the CLI renders, `gen13.py`,
 its logs, and the `sheet-cfg-trunc` and `sheet-train-uncond` sheets).
 
-A NewBie batch is not bit-equal to its solo renders on the card. Seed
+A NewBie batch was not bit-equal to its solo renders on the card. Seed
 12346 as the second image of a batch of two hashed `32d7d537d1a3bc8b`,
 alone `8739013b5f8256bf`: the same picture with small pixel drift. The
-code before the fix does the same (`0d280e2b231106e8` against
-`315f20eb3ecbe8f2`, `%TEMP%/local-diffusion-gen13-old/`), so it predates
-the fix; the CPU test's batch equality does not reach the card. TODO
-`GEN#14`.
+code before the fix did the same (`0d280e2b231106e8` against
+`315f20eb3ecbe8f2`, `%TEMP%/local-diffusion-gen13-old/`). One forward
+pass hooked at batch 1 and 2 found the first differing outputs in
+`time_caption_embed`'s linear (1 row against 2) and the context refiner's
+`to_k` (486 rows against 972) on identical inputs, while the two images
+inside the batched call were identical: cuBLAS picks its kernel by the row
+count. Fixed 2026-10-21 by one transformer and VAE call per image
+(design notes, "One image per transformer call"): a batch of two at seeds
+12345 and 12346 hashed `8761bdc10ea5bc22` and `8739013b5f8256bf`, as did
+the two solo renders, the second unchanged from before. The batch took
+1m15s and the two solos 1m16s, loads of 15 s included, as before.
+Evidence: `%TEMP%/local-diffusion-gen14/` and `gen14_bisect.py` in
+`%TEMP%/local-diffusion-gen13/`.
 
 Cancellation stopped after step 1, and the next two calls completed all 28
 steps with preview frames. SQLite rows and embedded PNG metadata retained
