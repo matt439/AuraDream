@@ -53,7 +53,7 @@ class NewbiePipeline(DiffusionPipeline):
         self.image_processor = VaeImageProcessor(vae_scale_factor=self.vae_scale_factor)
         self.tokenizer.padding_side = "right"
 
-    def _encode(self, prompts: list[str], device, num_images: int):
+    def _encode(self, prompts: list[str], device, num_images: int, jina_prompts: list[str] | None = None):
         inputs = self.tokenizer(
             prompts, padding=True, truncation=True, max_length=512, return_tensors="pt",
         )
@@ -63,7 +63,8 @@ class NewbiePipeline(DiffusionPipeline):
             output_hidden_states=True, use_cache=False,
         ).hidden_states[-2]
         inputs_2 = self.tokenizer_2(
-            prompts, padding=True, truncation=True, max_length=2048, return_tensors="pt",
+            prompts if jina_prompts is None else jina_prompts,
+            padding=True, truncation=True, max_length=2048, return_tensors="pt",
         )
         for name, tokens, limit in (("Gemma", inputs, 512), ("Jina", inputs_2, 2048)):
             if tokens.input_ids.shape[-1] >= limit:
@@ -111,11 +112,18 @@ class NewbiePipeline(DiffusionPipeline):
         negatives = [negative] * len(prompts) if isinstance(negative, str) else list(negative)
         if guided and len(negatives) != len(prompts):
             raise ValueError("negative_prompt must have the same batch size as prompt")
+        # The author's training drops a caption by blanking Gemma's text only;
+        # Jina keeps the original caption. So a blank negative is that learned
+        # unconditional, Gemma "" with the prompt's Jina vector. Jina("") was
+        # never trained and rendered the right composition under glitch noise.
+        negatives = [n if n.strip() else "" for n in negatives]
+        jina_negatives = [n or p for n, p in zip(negatives, prompts)]
         device = self._execution_device
         try:
             # Encode together so each encoder is brought onto the card once.
             embeddings, mask, pooled = self._encode(
                 prompts + negatives if guided else prompts, device, num_images_per_prompt,
+                prompts + jina_negatives if guided else None,
             )
             latents = randn_tensor(
                 (batch, self.transformer.config.in_channels,

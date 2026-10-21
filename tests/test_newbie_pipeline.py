@@ -157,6 +157,19 @@ def test_cfg_threshold_whole_sample_capped_norm_and_velocity_sign(pipe, guidance
     torch.testing.assert_close(result, pipe.transformer.calls[0]["initial"] + prediction)
 
 
+@pytest.mark.parametrize("negative", [None, "", "  "])
+def test_blank_negative_is_the_trained_unconditional(pipe, negative):
+    # Training blanks a dropped caption for Gemma only and keeps Jina's
+    # original caption; Jina("") was never trained and rendered as glitch
+    # noise on the card (GEN#13). A real negative still reaches both encoders.
+    _render(pipe, num_inference_steps=1, guidance_scale=2.0, negative_prompt=negative)
+    assert pipe.tokenizer.prompts == ["sunny garden", ""]
+    assert pipe.tokenizer_2.prompts == ["sunny garden", "sunny garden"]
+    cond, uncond = pipe.transformer.calls
+    torch.testing.assert_close(uncond["pooled"], cond["pooled"])
+    assert not torch.equal(uncond["embeddings"], cond["embeddings"])
+
+
 def test_mu_lands_on_real_scheduler_and_nextdit_time_is_reversed(pipe):
     steps, mu = 4, 0.8
     sigmas = schedule.shifted_sigmas(steps, mu - math.log(schedule.static_shift(pipe)))

@@ -236,9 +236,29 @@ two images establish a runtime smoke result, not a quality benchmark.
 Rechecked 2026-10-20 through the CLI with no negative prompt: the same
 example, seed and CFG renders as noise-covered, over-saturated glitch art
 (hash `757cb1d1c1359813`, the same at 019f3dc and on main, and as noisy in
-bf16), while CFG 1, or CFG 4 with a real negative, is clean. NewBie at
-its default CFG needs a negative until this is fixed; see the design
-notes' prompt-analyser open questions and TODO `GEN#13`.
+bf16), while CFG 1, or CFG 4 with a real negative, is clean.
+
+Fixed 2026-10-21 (fp8, model offload, 1024x1024, 28 steps): a blank
+negative now encodes as the authors' training dropout, Gemma `""` beside
+the prompt's own Jina caption (design notes, "The unconditional is the
+trained caption dropout"). Through the CLI at the profile's defaults, CFG 4
+and no negative, the authors' example renders clean at seeds 12345 and
+12346 (`407a2d9cb535d553`, `32d7d537d1a3bc8b`, a batch of two), and in a
+direct pipeline sheet clean at seeds 12345 and 2024 with CFG 4 and 5. The
+same sheet's old encoding reproduced the noisy `48ab3d50e2e8b75c`, and a
+real negative's image kept its hash (`b7d9ceac6fcc2b1b`); a `,` negative is
+still noisy. 37-40 s an image, 4.81 GiB allocated, as before. The authors'
+demo CFG truncation (0.25, with and without the norm cap) did not fix it.
+Evidence: `%TEMP%/local-diffusion-gen13/` (the CLI renders, `gen13.py`,
+its logs, and the `sheet-cfg-trunc` and `sheet-train-uncond` sheets).
+
+A NewBie batch is not bit-equal to its solo renders on the card. Seed
+12346 as the second image of a batch of two hashed `32d7d537d1a3bc8b`,
+alone `8739013b5f8256bf`: the same picture with small pixel drift. The
+code before the fix does the same (`0d280e2b231106e8` against
+`315f20eb3ecbe8f2`, `%TEMP%/local-diffusion-gen13-old/`), so it predates
+the fix; the CPU test's batch equality does not reach the card. TODO
+`GEN#14`.
 
 Cancellation stopped after step 1, and the next two calls completed all 28
 steps with preview frames. SQLite rows and embedded PNG metadata retained

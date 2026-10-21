@@ -8,7 +8,7 @@ An index of open work, one row per item; each row points to the doc that owns th
 
 **Aim (2026-10-18):** keep useful work ready for Matt's common workstation tasks. [Reported use](docs/design/preferences.md) guides priority; it does not approve the candidate redesign.
 
-**Ready backlog:** 1 `OPEN` task: NewBie's default CFG with an empty negative renders noise (`GEN#13`, found on the card 2026-10-20). The built upscaler (`GEN#5`) needs only card qualification. Deferred features remain deferred.
+**Ready backlog:** 1 `OPEN` task: a NewBie batch is not bit-equal to its solo renders on the card (`GEN#14`, found 2026-10-21). The built upscaler (`GEN#5`) needs only card qualification. Deferred features remain deferred.
 
 **Needs Matt:** workbench task trials (`DEV#1`) and hands-on screen-reader/touch checks (`UI#7`) are the next `USER` work. No feature decision is waiting: FLUX.1 Fill [dev] (`INP#8`) was deferred 2026-10-20 until FLUX.1 outpaint has run on the card (`CARD#2`). Whole-app layout implementation waits for its trials; it remains a design hypothesis.
 
@@ -59,7 +59,7 @@ An index of open work, one row per item; each row points to the doc that owns th
 
 | id | status | sev | size | item |
 |---|---|---|---|---|
-| `GEN#13` | OPEN | HIGH | M+card | NewBie at its default CFG 4 with an empty (or one-token) negative renders as noisy glitch art; CFG 1 or a real negative is clean. Not a repo regression; fix the unconditional caption from the authors' sources, then recheck on the card (found 2026-10-20). [NewBie open question](docs/design-notes.md#the-prompt-analyser). |
+| `GEN#14` | OPEN | MED | M+card | A NewBie batch on the card is the same picture as its solo renders but not bit-equal (seed 12346: batch `32d7…`, solo `8739…`); predates the `GEN#13` fix. Find the batch-dependent op, or record batches as near-equal for NewBie (found 2026-10-21). [NewBie](docs/verified.md#checkpoints). |
 | `GEN#5` | CARD | LOW | M+card | Qualify the built opt-in Anime6B GAN before ordinary WAI/RouWei Refine: quality, timing, peak memory and tiled seams against Lanczos (10-12 F14). [CPU evidence](docs/design-notes.md#the-refine-pass). |
 | `GEN#6` | DEFERRED | LOW | M+card | Live-preview maps for the four-channel SDXL VAE and FLUX.2's VAE (ERNIE; klein also lacks an unpack hook); previews switch themselves off there. [Behaviour](docs/verified.md#behaviour). |
 | `GEN#8` | DEFERRED | LOW | L | U61 part B: one's own photo or sketch as a reference (import route, a source marker through storage, reindex and reruns; add, drop and paste). Matt deferred it 2026-10-05; only when he raises it. [References](docs/design-notes.md#reference-images-by-gallery-id). |

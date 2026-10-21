@@ -8921,6 +8921,32 @@ example remains editable text, without comma-tag chip parsing. The size
 guide highlights the card's 1024-square example area and explicitly says
 it is not a minimum, maximum or quality limit.
 
+**The unconditional is the trained caption dropout** (2026-10-21). The
+authors' `finetune.py` drops a caption (`--caption_dropout_prob`, 0.1) by
+blanking Gemma's text only: Jina is handed `clip_captions=original_caps`,
+the undropped caption. The unconditional the model learned is therefore
+Gemma `""` with the image's own Jina vector. The pipeline sent Jina `""`
+too, a pairing the model never saw, and at CFG 4 with no negative (the
+app's default) every image was the right composition under saturated
+glitch noise (TODO `GEN#13`). A blank or whitespace-only negative now
+encodes as Gemma `""` beside the prompt's Jina caption; a negative that
+says something still reaches both encoders, as in the authors' demo and
+Diffusers proposal, so those images are unchanged. A one-token negative
+such as `,` is a real negative to Jina and still renders noisy (one seed
+pair, by eye).
+
+Ruled out on the card first: the authors' demo stops CFG once NextDiT time
+passes `cfg_trunc` 0.25 (`demo.py` defaults: CFG 5, `cfg_trunc` 0.25,
+`renorm_cfg` 0, a system prefix on Gemma). Truncation alone left the
+empty-negative images flat and covered in glitch symbols, and with the
+norm cap off they fell apart into pixel blocks; a system prefix on the
+positive changed nothing. Neither is adopted. The training prefix for XML
+captions ("...anime images based on xml format prompts. <Prompt Start> ")
+on Gemma's positive gave a clean, different picture once the unconditional
+was fixed; the empty prefix stays, as recorded above, until a comparison
+says otherwise. The conversion recipe is unchanged, since this is a
+sampling change and a new recipe would rewrite the 15 GB tree.
+
 **Anonymous character labels are usable as written** (2026-10-07). The
 author's XML example uses `$character_1$` and `$character_2$` literally in
 the generation metadata of its [published example image](https://huggingface.co/NewBie-AI/NewBie-image-Exp0.1/resolve/4f7825a1a7e1ed5c1882a52e3c51d1119a43e298/image/XML_prompt_image.png).
@@ -8936,7 +8962,10 @@ Sources, checked 2026-09-26:
 - [Pinned card and official files](https://huggingface.co/NewBie-AI/NewBie-image-Exp0.1/tree/4f7825a1a7e1ed5c1882a52e3c51d1119a43e298).
 - [Author sampling settings](https://github.com/NewBieAI-Lab/NewBie-image-Exp0.1/blob/709e9a482fb2b861ad6aa50dcafb0198cad66c1d/scripts/sample.sh),
   [original CFG implementation](https://github.com/NewBieAI-Lab/NewBie-image-Exp0.1/blob/709e9a482fb2b861ad6aa50dcafb0198cad66c1d/models/model.py),
-  and [training caption paths](https://github.com/NewBieAI-Lab/NewBie-image-Exp0.1/blob/709e9a482fb2b861ad6aa50dcafb0198cad66c1d/finetune.py).
+  [training caption paths](https://github.com/NewBieAI-Lab/NewBie-image-Exp0.1/blob/709e9a482fb2b861ad6aa50dcafb0198cad66c1d/finetune.py)
+  (caption dropout, checked 2026-10-21),
+  and [demo defaults](https://github.com/NewBieAI-Lab/NewBie-image-Exp0.1/blob/709e9a482fb2b861ad6aa50dcafb0198cad66c1d/demo.py)
+  (checked 2026-10-21).
 - [Author Diffusers proposal, PR 12789](https://github.com/E-Anlia/diffusers/blob/694e38842aed2b53cb6a0b248e0799aceaf89101/src/diffusers/pipelines/newbie/pipeline_newbie.py).
 - [Author Comfy timestep adapter](https://github.com/E-Anlia/ComfyUI-NewBie/blob/29655ed6fa86551abbf1835511764ff151dbbbc5/comfy/model_base.py)
   and [shift configuration](https://github.com/E-Anlia/ComfyUI-NewBie/blob/29655ed6fa86551abbf1835511764ff151dbbbc5/comfy/supported_models.py).
@@ -11301,20 +11330,16 @@ finding's have a Show. The comparison's always-run Original box carries the
   ornaments) on all three seeds, and the authors' unnamed `$character_1$`
   did not, so the model reads `<name>` as it reads `<n>`. Three seeds and
   one name, by eye.
-- NewBie breaks under its own defaults (found 2026-10-20 on the card, not
-  yet fixed). At CFG above 1 with an empty negative, the app's default, the
-  picture is the right composition under saturated high-frequency noise and
-  glitch patterns; a one-token negative (`,`) is no better. CFG 1 renders
-  cleanly, and so does CFG 4 with a negative that says something ("low
-  quality, worst quality, blurry"). The 2026-09-26 commit (019f3dc) renders
-  the authors' example to the same hash as main (`757cb1d1c1359813`, not the
-  recorded `9dfb5b3a47c1c6ea`), bf16 is as noisy as fp8, and the venv,
-  converted tree, driver and toolkits all predate 2026-09-26, so it is not a
-  regression in this repo's code; the 2026-09-26 check most likely ran with
-  a negative. The guided branch over an empty or near-empty unconditional
-  caption (encoded with no system prefix) is the suspect; the fix should
-  follow what the authors' sources do for the unconditional caption. Tracked
-  as TODO `GEN#13`. Evidence: `%TEMP%/local-diffusion-pa8/`.
+- NewBie broke under its own defaults (found 2026-10-20 on the card, fixed
+  2026-10-21). At CFG above 1 with an empty negative, the app's default, the
+  picture was the right composition under saturated high-frequency noise and
+  glitch patterns. The 2026-09-26 commit (019f3dc) rendered the same hash
+  as main, so it was never a regression; the 2026-09-26 check most likely
+  ran with a negative. The cause was Jina reading `""` for the
+  unconditional, which training never showed the model; see "The
+  unconditional is the trained caption dropout" under NewBie Exp0.1.
+  Evidence: `%TEMP%/local-diffusion-pa8/` and
+  `%TEMP%/local-diffusion-gen13*/`.
 
 ## The page scripts share one classic scope
 
