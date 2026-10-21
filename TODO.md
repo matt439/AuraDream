@@ -10,7 +10,7 @@ An index of open work, one row per item; each row points to the doc that owns th
 
 **Ready backlog:** 1 `OPEN` task: a NewBie batch is not bit-equal to its solo renders on the card (`GEN#14`, found 2026-10-21). The built upscaler (`GEN#5`) needs only card qualification. Deferred features remain deferred.
 
-**Needs Matt:** workbench task trials (`DEV#1`) and hands-on screen-reader/touch checks (`UI#7`) are the next `USER` work. No feature decision is waiting: FLUX.1 Fill [dev] (`INP#8`) was deferred 2026-10-20 until FLUX.1 outpaint has run on the card (`CARD#2`). Whole-app layout implementation waits for its trials; it remains a design hypothesis.
+**Needs Matt:** workbench task trials (`DEV#1`) and hands-on screen-reader/touch checks (`UI#7`) are the next `USER` work. No feature decision is waiting: FLUX.1 Fill [dev] closed 2026-10-21, FLUX.1 outpaint having joined cleanly on the card. Whole-app layout implementation waits for its trials; it remains a design hypothesis.
 
 **GPU runs are Matt's to run or OK, never past the 16 GB card** (every `CARD` row). Check the checkpoint's measured peaks in `docs/verified.md` first; a run that spills into shared memory proves only that it doesn't fit.
 
@@ -29,7 +29,7 @@ An index of open work, one row per item; each row points to the doc that owns th
 | id | status | sev | size | item |
 |---|---|---|---|---|
 | `CARD#1` | CARD | LOW | M+card | Inpaint: Z-Image Turbo (not cached), FLUX.1 dev and schnell at 0.95, SDXL LoRA, seam metrics, blended preview and start-noise display; the other SDXL profiles and Z-Image were run 2026-10-20. Nunchaku is `CARD#3`, later families are `INP`. [Inpaint](docs/verified.md#inpaint). |
-| `CARD#2` | CARD | LOW | M+card | Outpaint: FLUX.1 (enabled, never run; 1.9 MP at 16:9 from 1 MP, near the card's top; a load spikes ~40-50 GB RAM; its result decides `INP#8`), Z-Image Turbo, seam metrics and intermediate band widths. [Outpaint](docs/verified.md#outpaint). |
+| `CARD#2` | CARD | LOW | M+card | Outpaint: Z-Image Turbo, FLUX.1 dev and schnell, seam metrics and intermediate band widths. [Outpaint](docs/verified.md#outpaint). |
 | `CARD#3` | CARD | MED | S+card | An inpaint over a Nunchaku Z-Image or FLUX.1 transformer under WSL: the profiles allow it, but the class has never run over either. [Inpainting](docs/design-notes.md#inpainting). |
 | `CARD#4` | CARD | LOW | L+card | INT8, full BF16 and sequential offload per checkpoint; the picker says INT8 is "not yet compared on this card". [Checkpoints](docs/verified.md#checkpoints). |
 | `CARD#5` | CARD | LOW | M+card | Size and batch gaps: Anima Turbo/Aesthetic at 1.5-2 MP and non-square, Kohaku, NetaYume and NewBie above about 1 MP, Illustrious at 1536/2048, Animagine Batch 12 (the cap was raised from a Batch 8 reading). [Checkpoints](docs/verified.md#checkpoints); [MP table](docs/anime-model-guide.md#compare-by-total-megapixels). |
@@ -49,7 +49,6 @@ An index of open work, one row per item; each row points to the doc that owns th
 |---|---|---|---|---|
 | `INP#5` | DEFERRED | LOW | M+card | Phase 4, klein: one reference beside the source, its mu recipe, memory with the sequence doubled, `smoke-inpaint-klein`. Matt doesn't run klein. |
 | `INP#6` | DEFERRED | LOW | M+card | Phase 5, Qwen-Image under Nunchaku (WSL), only if the inpaint class runs over the Nunchaku transformer at all. |
-| `INP#8` | DEFERRED | LOW | L | FLUX.1 Fill [dev] as its own inpaint-only catalogue checkpoint. FLUX.1 inpaints on Krea dev at 0.95 drew what was asked (2026-10-19), so Matt deferred it (2026-10-20) behind FLUX.1 outpaint on the card (`CARD#2`): seams or a mismatched fill there reopen it; outpaints that join cleanly close it. [Question 7](docs/plan-inpainting.md#open-questions-for-the-user). |
 | `INP#9` | DEFERRED | LOW | M | Phase 6, the masked area only (`padding_mask_crop` at a working size, a recorded `mask_crop`); not on Z-Image, whose class lacks it. Also for large SDXL outpaint canvases. |
 | `INP#10` | DEFERRED | LOW | M | Outpaint, later if wanted: the server's fill shown in the frame (kept for later, 2026-10-17), an outpaint over a painted mask, a second fill. |
 

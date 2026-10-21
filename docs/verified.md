@@ -865,9 +865,41 @@ One source and one prompt per checkpoint, looked at by eye.
 The other SDXL profiles and the undistilled Z-Image were measured
 2026-10-20 (Inpaint, "The other SDXL profiles and the undistilled Z-Image").
 
-Not measured: Z-Image Turbo (not in this machine's cache); any FLUX.1 outpaint, enabled with its inpaint 2026-10-19
-(Inpaint, "FLUX.1 Krea dev"), whose seams decide FLUX.1 Fill [dev]
-(TODO `INP#8`); the seam by number against the VAE round trip at the
+### FLUX.1 Krea dev (2026-10-21)
+
+fp8, model offload, Windows, one load for every step (RAM 52 GB free
+after a reboot; a load peaks at 40-50 GB). The 1024x1024 source is the
+inpaint's, seed 12345, 28 steps, the library default strength 0.95 and
+the 32 px band unless a row says otherwise. The desktop held 1.0 GB.
+
+| Canvas | Steps run | Time (per step) | Allocated / reserved | Card |
+| --- | --- | --- | --- | --- |
+| 1024x1024 to 16:9, 1824x1024, 1.9 MP | 27 of 28 | 71.9-77.5 s (2.41 s) | 12.40 / 13.18 GiB | 14,783-14,792 MiB |
+| 1024x1024 to 16:9, Batch 2 | 54 | 143.4 s (2.53 s) | 12.40 / 13.18 GiB | 14,783 MiB |
+| 1024x1024 +25%, 1280x1280, 1.6 MP | 27 of 28 | 63.1 s (2.09 s) | 12.33 / 13.06 GiB | 14,676 MiB |
+| 16:9 at 0.8 / 0.6 | 23 / 17 of 28 | 62.2 / 47.8 s | 12.40 / 13.18 GiB | 14,792 MiB |
+
+- Determinism: the same outpaint twice is the same hash
+  (`57de20cc7ebbbce…`); a batch of two is the solo passes at seeds 12345
+  and 12346; cancelled at step 2, the next outpaint is the uncancelled
+  hash; text-to-image afterwards is the source's hash (`cb436fdef96e3bf4`).
+- The seams: at the default, neither 16:9 seam shows at full resolution;
+  trunks, snowfall and light run straight across both edges. So FLUX.1
+  Krea dev's ordinary inpaint outpaints cleanly, which closes FLUX.1 Fill
+  [dev] by the condition set for it (plan-inpainting question 7).
+- The fill: 0.6 leaves blurred brown-grey smudges for the new sides; 0.8
+  joins, with the scene redrawn more softly; the default draws new trees.
+- The band: as on the others. 0 and 32 look alike at this source's edge,
+  64 starts a faint ghost trunk inside the original, 128 a plain one; 32
+  stays the default.
+
+One source, one seed, by eye. Evidence: `flux-outpaint.log`, and
+`flux-1-krea-dev/` (`outpaint-bands.jpg`, `outpaint-band-seams.jpg`,
+`outpaint-strengths.jpg`, `seams-full.jpg`), in
+`%TEMP%/local-diffusion-inpaint-card/`.
+
+Not measured: Z-Image Turbo (not in this machine's cache); FLUX.1 dev and
+schnell outpaint; the seam by number against the VAE round trip at the
 original's edge; band widths between 0 and 64 other than 32. Evidence is in
 `%TEMP%/local-diffusion-inpaint-card/` with the inpaint's.
 
