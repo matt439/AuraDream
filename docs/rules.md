@@ -244,7 +244,7 @@ before changing it.
   per version
 - `backend/reindex.py` — rows rebuilt from the PNGs' `local-diffusion` chunk, in place or
   copied in from another gallery; idempotent on the UNIQUE filename
-- `web/` — served as-is from `/static`; `index.html` loads 48 classic
+- `web/` — served as-is from `/static`; `index.html` loads 49 classic
   scripts in order, sharing one global scope; only `app.js`, the last, runs
   the wiring and boot. `state.js` owns shared state; `generation.js`,
   `grid-preview.js`, `job-stream.js` and `job-results.js` handle submission,
@@ -273,7 +273,8 @@ before changing it.
   `model-shots.js` the picker's strip of the chosen checkpoint's images;
   `bundles.js` owns the gallery bundle dialog (Back up and its scope
   included) and background-operation polling;
-  `gallery-select.js` the picked cards and the Picked menu, `tag-swap.js` Swap tags,
+  `gallery-select.js` the picked cards and the Picked menu, `gallery-batch.js` a
+  card's batch outlined on hover, `tag-swap.js` Swap tags,
   `refine-batch.js` Mass refine, `more-seeds.js` More seeds and `bin.js` the
   recycle bin's view, undo note and Empty; `context-menu.js` the right-click
   menu on an image (`styles/context-menu.css`). The stylesheet is
@@ -3823,6 +3824,15 @@ Frontend and CLI:
   card pages in. Anything that appends or prepends cards makes them with
   `card()` and calls `keepCurrentCard()` (or `prependFinished`'s tab-stop
   rule) afterwards.
+- A card's batch (`gallery-batch.js`) is presentation over records the
+  page already holds: while the mouse (`pointerType`) rests on a card for
+  `MATE_DELAY`, the gallery's other cards of the same `run_id` (`job_id`
+  for a record with none) that agree with it on everything but the seed
+  (`sameExcept(r, rec, ['seed'])`) get `.batch-mate`, a faint 1 px outline,
+  so nothing moves - a Batch x Repeat and the More seeds that extended it
+  are one set, a grid's other cells are not. No request, no panel; not in
+  the bin or the sheet; leaving the card takes the marks down. A card
+  alone in its run marks nothing.
 - The gallery's selection (`gallery-select.js`) is the one set of picked
   images that actions on several images read (Swap tags, Mass refine, More
   seeds):
@@ -6042,6 +6052,17 @@ card the same node and the paged-in tail kept, no reset:
 ```powershell
 uv run python tools/fake_server.py --port 7885
 node tools/browser.mjs tools/smoke-gallery.json
+```
+
+`smoke-batch-mates.json` checks a card's batch outlined on hover on a
+default fake on 7892 with a fresh `--data`: a Batch 3 x Repeat 2's other
+five cards outlined (1 px, solid) and not the hovered one, no card moving;
+a steps grid's cell at Batch 2 a set of two; a single image marking
+nothing; a press keeping the marks and the pointer leaving taking them down:
+
+```powershell
+uv run python tools/fake_server.py --port 7892 --data <new-scratch-directory>
+node tools/browser.mjs tools/smoke-batch-mates.json
 ```
 
 `smoke-select.json` checks the gallery selection on a default fake on 7898

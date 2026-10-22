@@ -51,7 +51,7 @@ gallery's selection (Select, the picked ids, and `galleryActionTarget` /
 `galleryActionScopeLine`, which the three footer actions and Re-render word
 alike) and, since 2026-10-12, the Picked menu, whose star and bin
 (`starPicked`, `binPicked`) are `gallery-actions.js`'s beside a card's;
-`lightbox-cfg.js` (416) the
+`gallery-batch.js` a card's batch outlined on hover; `lightbox-cfg.js` (416) the
 lightbox's comparison across CFG. `tag-swap.js` + `styles/swap.css`,
 `refine-batch.js` + `styles/refine-batch.css`, `more-seeds.js` +
 `styles/more-seeds.css` and `bin.js` + `styles/bin.css` own Swap tags, Mass

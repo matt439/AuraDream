@@ -162,6 +162,9 @@ els.more.onclick = () => loadGallery();
 // One card at a time in the tab order, walked with the arrow keys (gallery.js).
 els.gallery.addEventListener('keydown', galleryKey);
 els.gallery.addEventListener('focusin', galleryFocus);
+// A card's batch outlined while the mouse rests on it (gallery-batch.js).
+els.gallery.addEventListener('pointerover', batchMatesOver);
+els.gallery.addEventListener('pointerout', batchMatesOut);
 // The selection's Select, Clear and Escape (gallery-select.js); a card's
 // press picks through cardPress, which card() hands thumb.
 els.select.onclick = () => {

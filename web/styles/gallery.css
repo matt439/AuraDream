@@ -346,6 +346,10 @@
    gallery's first rows read as the run above them rather than a second copy. */
 .card.this-run:not(.gone) { border-color: var(--accent-2); box-shadow: 0 0 0 1px var(--accent-2); }
 
+/* The gallery's other cards of the batch the mouse rests on (gallery-batch.js):
+   faint, and an outline rather than a border, so nothing moves. */
+.card.batch-mate:not(.gone) { outline: 1px solid color-mix(in srgb, var(--accent) 55%, transparent); outline-offset: 2px; }
+
 /* The selection (gallery-select.js). In select mode every card shows an empty
    ring at its top centre - clear of the pass or reference badge at the left
    and the star at the right - and a picked card a filled check and a ring of
