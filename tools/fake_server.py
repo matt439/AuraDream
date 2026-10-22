@@ -317,8 +317,8 @@ def main() -> int:
             "wlop": ("artist", 31_000),
         }
 
-        def suggest(self, query, cutoff, limit=12):
-            prefix = normalize_tag(query)
+        def suggest(self, query, cutoff, limit=20):
+            wanted = normalize_tag(query)
             return [
                 {
                     "text": display_tag(name),
@@ -327,7 +327,7 @@ def main() -> int:
                     "post_count": count,
                 }
                 for name, (category, count) in self.records.items()
-                if name.startswith(prefix)
+                if wanted in name
             ][:limit]
 
         def validate(self, tags, special_tags, cutoff, allow_year_tag=True):

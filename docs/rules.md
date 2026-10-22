@@ -91,8 +91,9 @@ before changing it.
   since Transformers would otherwise fetch the conversion bot's safetensors
   copy of the `.bin` it loaded, a second 312 MB
 - `backend/tags.py` — cached Danbooru tag suggestions, their order
-  (`rank_suggestions`: exact match, from the name's start, a later word,
-  alias; post count within each; a guide tag ahead once half of it is typed;
+  (`rank_suggestions`: exact match, the query at the start of any word -
+  "hair" finds `short hair` - then inside a word or by alias; post count
+  within each, 20 at most, the index asked for `*query*`; a guide tag ahead once half of it is typed;
   a tag of the recommended negative never first unless typed whole) and exact
   validation with a reason `code` for tag-caption checkpoints; remote failure
   means unchecked, never invalid - except an item longer than any tag

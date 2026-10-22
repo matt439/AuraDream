@@ -23,6 +23,11 @@ _CATEGORIES = {0: "general", 1: "artist", 3: "copyright", 4: "character", 5: "me
 _YEAR_TAG = re.compile(r"year \d{4}", re.IGNORECASE)
 
 
+# How many suggestions one query lists: a word as broad as "hair" names more
+# tags than a dozen, and the list scrolls.
+SUGGESTION_LIMIT = 20
+
+
 class TagLookupUnavailable(RuntimeError):
     """The external vocabulary could not be reached or returned bad data."""
 
@@ -115,13 +120,15 @@ def unchecked_results(
 
 
 def rank_suggestions(
-    query: str, local: list[dict], remote: list[dict], avoid: set[str], limit: int = 12
+    query: str, local: list[dict], remote: list[dict], avoid: set[str], limit: int = SUGGESTION_LIMIT
 ) -> list[dict]:
     """The guide's own tags and the index's, as one list for the box.
 
-    An exact match first; then by how the name matches - from its start
-    before at a later word's (the index also answers for an alias, which
-    matches neither). Within that the index's order stands, by post count,
+    An exact match first; then a name with the query at the start of any of
+    its words - "hair" is `short hair` as much as `hair ornament`, which is
+    how one asks what hair there is; then the query inside a word (`chair`),
+    or only through an alias, which the index also answers for. Within that
+    the index's order stands, by post count,
     and a guide tag, which has no count, goes ahead of it only once the query
     covers half of the tag: "high s" is heading for `high score`, "gre" is no
     more `great score` than `green hair`. Guide tags were merged ahead of
@@ -142,9 +149,8 @@ def rank_suggestions(
         name = normalize_tag(item["canonical"])
         match = (
             0 if name == wanted
-            else 1 if name.startswith(wanted)
-            else 2 if f"_{wanted}" in name
-            else 3
+            else 1 if name.startswith(wanted) or f"_{wanted}" in name
+            else 2
         )
         ahead = guide and 2 * len(wanted) >= len(name)
         return (match, not ahead, guide, index)
@@ -172,7 +178,7 @@ class DanbooruTagVocabulary:
         self._suggestions: dict[tuple[str, str | None], list[dict]] = {}
         self._records: dict[str, dict | None] = {}
 
-    def suggest(self, query: str, cutoff: str | None, limit: int = 12) -> list[dict]:
+    def suggest(self, query: str, cutoff: str | None, limit: int = SUGGESTION_LIMIT) -> list[dict]:
         normalized = normalize_tag(query).replace("*", "").replace("?", "")
         if not normalized:
             return []
@@ -185,7 +191,8 @@ class DanbooruTagVocabulary:
         rows = self._fetch_json(
             "/tags.json",
             {
-                "search[name_or_alias_matches]": f"{normalized}*",
+                # Anywhere in the name: "hair" asks for `short hair` too.
+                "search[name_or_alias_matches]": f"*{normalized}*",
                 "search[hide_empty]": "true",
                 "search[order]": "count",
                 "limit": str(limit),

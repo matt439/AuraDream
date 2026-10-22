@@ -7,6 +7,7 @@ from urllib.error import URLError
 
 import pytest
 
+from backend import tag_lookup
 from backend.tags import (
     DanbooruTagVocabulary,
     TagLookupUnavailable,
@@ -52,7 +53,8 @@ def test_suggestions_are_normalized_ranked_data_before_the_model_cutoff():
         "category": "general",
         "post_count": 591_000,
     }
-    assert calls[0][1]["search[name_or_alias_matches]"] == "green_h*"
+    assert calls[0][1]["search[name_or_alias_matches]"] == "*green_h*"
+    assert calls[0][1]["limit"] == "20"
     assert vocabulary.suggest("green h", CUTOFF) == suggestions
     assert len(calls) == 1, "the same prefix is served from the process cache"
 
@@ -184,6 +186,21 @@ def test_an_exact_match_leads_and_a_name_match_beats_an_alias():
     alias = [suggestion("long_hair", 4_000_000), suggestion("very_long_hair", 600_000),
              suggestion("hair_twirling", 10_000)]
     assert ranked("long", [], alias) == ["long_hair", "very_long_hair", "hair_twirling"]
+
+
+def test_a_word_anywhere_in_the_name_ranks_with_one_at_its_start():
+    # "hair" asks what hair there is: `short hair` by its count beside
+    # `hair ornament`, not after every tag that starts with the word; inside
+    # a word (`chair`) comes after.
+    remote = [suggestion("long_hair", 4_000_000), suggestion("short_hair", 2_000_000),
+              suggestion("hair_ornament", 1_300_000), suggestion("chair", 200_000),
+              suggestion("medium_hair", 600_000), suggestion("hairband", 500_000)]
+    assert ranked("hair", [], remote) == [
+        "long_hair", "short_hair", "hair_ornament", "medium_hair", "hairband", "chair"
+    ]
+    # The guide's tags are found by a later word too.
+    helper = {"groups": [{"tags": ["great score", "masterpiece"]}]}
+    assert [item["text"] for item in tag_lookup.model_tag_suggestions(helper, "score")] == ["great score"]
 
 
 def test_the_recommended_negative_is_never_first_unless_typed_whole():

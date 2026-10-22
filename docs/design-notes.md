@@ -8029,14 +8029,19 @@ merged into autocomplete and remain available offline, where they are the
 whole list. They used to be merged ahead of every remote result, which made
 "gre" offer `great score` before `green hair` and "lo" offer `low quality`
 first - the item Enter and Tab take. `tags.rank_suggestions` orders the
-list: an exact match, then names matching from their start, then at a later
-word, then alias matches; within that the index's post-count order, a guide
+list: an exact match, then names with the query at the start of any word,
+then inside a word or through an alias only; within that the index's post-count order, a guide
 tag going ahead of it only once the query covers half of it ("high s" is
 heading for `high score`); and a tag of the guide's recommended negative
 prompt is never first unless typed whole. The page selects the first item
 only from three typed characters and when it starts with them, in the box,
 in the chip editor and in the Refine dialog's prompt alike, so Tab after "lo"
-moves on and Enter is a line break; ArrowDown still selects. The list calls the guide's own tags
+moves on and Enter is a line break; ArrowDown still selects. The index was
+asked for names starting with the query and the list ranked those ahead of a
+later word's, so "hair" listed `hair ornament`, `hair ribbon`, `hairband`
+and never `short hair` or `medium hair` - no way to ask what hair there is.
+It is now asked for the query anywhere (`*hair*`, 20 by post count), and a
+later word ranks with the first. The list calls the guide's own tags
 `guide`, as the chips do.
 A green chip means a model tag
 or a nonempty Danbooru tag at the cutoff; red means unknown, deprecated,

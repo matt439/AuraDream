@@ -43,8 +43,8 @@ def special_tags(helper: dict) -> set[str]:
 
 
 def model_tag_suggestions(helper: dict, query: str) -> list[dict]:
-    prefix = normalize_tag(query)
-    if not prefix:
+    wanted = normalize_tag(query)
+    if not wanted:
         return []
     return [
         {
@@ -54,7 +54,7 @@ def model_tag_suggestions(helper: dict, query: str) -> list[dict]:
             "post_count": None,
         }
         for tag in sorted(special_tags(helper))
-        if normalize_tag(tag).startswith(prefix)
+        if wanted in normalize_tag(tag)
     ]
 
 
