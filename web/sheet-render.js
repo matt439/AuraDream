@@ -107,7 +107,7 @@ function sheetFocus(e) {
   const cell = e.target.closest?.('.sheet-cell[data-id]');
   if (!cell) return;
   makeSheetCurrent(cell);
-  if (!cell.classList.contains('source')) sheetCfgFrom = +cell.dataset.id;
+  if (!cell.classList.contains('source')) sheetSwipeFrom = +cell.dataset.id;
 }
 
 function sheetFocusPlace() {
@@ -152,77 +152,91 @@ function restoreSheetFocus(place) {
   (to ?? els.search).focus({ preventScroll: true });
 }
 
-// Swipe CFG: the lightbox on a cell, compared with its neighbour in CFG by
-// swipe, walking only that cell's ladder - the cells of its row, or column,
-// that differ from it in CFG alone (cfgLadder, lightbox-cfg.js) - so ← →
-// step along CFG and nothing else. Drawn only where CFG is laid out (a
-// column or row axis), as the axis pickers list only what varies; held,
-// saying why, where no two cells differ in CFG alone. The cell is the one
-// the keyboard was last on in the sheet (`sheetCfgFrom`, app.js), or else the
-// first in reading order with a lower CFG beside it.
-let sheetCfgFrom = null;
+// Swipe CFG and Swipe steps: the lightbox on a cell, compared with its
+// neighbour along that axis by swipe, walking only that cell's ladder - the
+// cells of its row, or column, that differ from it in that alone (ladderOf,
+// lightbox-cfg.js) - so ← → step along it and nothing else. Each is drawn
+// only where its axis is laid out (a column or row axis), as the axis
+// pickers list only what varies; held, saying why, where no two cells differ
+// in it alone. The cell is the one the keyboard was last on in the sheet
+// (`sheetSwipeFrom`, app.js), or else the first in reading order with a lower
+// value beside it.
+let sheetSwipeFrom = null;
 const CFG_SWIPE_NONE = 'No two cells here differ in CFG alone';
-function cfgSwipeButton() {
+const SHEET_SWIPES = {
+  cfg: {
+    className: 'sheet-cfg-swipe', label: 'Swipe CFG', none: CFG_SWIPE_NONE,
+    title: 'Open these cells as a swipe between neighbouring CFG values; ← → step along CFG, S turns it off',
+  },
+  steps: {
+    className: 'sheet-steps-swipe', label: 'Swipe steps', none: 'No two cells here differ in steps alone',
+    title: 'Open these cells as a swipe between neighbouring step counts; ← → step along steps, S turns it off',
+  },
+};
+function sheetSwipeButton(kind) {
+  const swipe = SHEET_SWIPES[kind];
   const button = document.createElement('button');
   button.type = 'button';
-  button.className = 'ghost small sheet-cfg-swipe';
-  button.textContent = 'Swipe CFG';
+  button.className = `ghost small ${swipe.className}`;
+  button.textContent = swipe.label;
   button.setAttribute('aria-disabled', 'true');
-  button.title = CFG_SWIPE_NONE;
-  button.onclick = () => openCfgSwipe(button);
+  button.title = swipe.none;
+  button.onclick = () => openSheetSwipe(kind, button);
   return button;
 }
 
-// One key for "agrees on everything but CFG", for the hold's one pass over
-// the cells: what sameExcept compares, as JSON.
-const cfgGroupKey = (rec) => JSON.stringify([
-  ...SHEET_AXES.filter((axis) => !CFG_SKIP.includes(axis.key)).map((axis) => axisValue(axis, rec)),
+// One key for "agrees on everything but the axes in `skip`", for the hold's
+// one pass over the cells: what sameExcept compares, as JSON.
+const ladderGroupKey = (rec, skip = CFG_SKIP) => JSON.stringify([
+  ...SHEET_AXES.filter((axis) => !skip.includes(axis.key)).map((axis) => axisValue(axis, rec)),
   rec.width, rec.height, rec.model_id, rec.quantization, rec.refine,
 ]);
 
-function syncCfgSwipe() {
-  const button = els.sheetControls.querySelector('.sheet-cfg-swipe');
-  if (!button) return;
-  const groups = new Map();
-  for (const rec of sheetLayout?.cells ?? []) {
-    const key = cfgGroupKey(rec);
-    if (!groups.has(key)) groups.set(key, []);
-    groups.get(key).push(rec);
+function syncSheetSwipes() {
+  for (const [kind, swipe] of Object.entries(SHEET_SWIPES)) {
+    const button = els.sheetControls.querySelector(`.${swipe.className}`);
+    if (!button) continue;
+    const axis = LADDER_AXES[kind];
+    const groups = new Map();
+    for (const rec of sheetLayout?.cells ?? []) {
+      const key = ladderGroupKey(rec, axis.skip);
+      if (!groups.has(key)) groups.set(key, []);
+      groups.get(key).push(rec);
+    }
+    // CFG's key leaves True CFG out, as sameExcept does; the press's ladder
+    // (ladderOf) keeps only the cell's True CFG where that is not an echo of
+    // CFG, so a CFG x True CFG grid with cells missing can group two CFG
+    // values no ladder holds. The hold asks the press's own question, within
+    // each group rather than of the whole sheet a cell at a time.
+    const some = [...groups.values()].some((group) => new Set(group.map(axis.of)).size > 1
+      && group.some((r) => ladderOf(axis, r, group).length > 1));
+    button.setAttribute('aria-disabled', String(!some));
+    button.title = some ? swipe.title : swipe.none;
   }
-  // The key leaves True CFG out, as sameExcept does; the press's ladder
-  // (cfgLadder) keeps only the cell's True CFG where that is not an echo of
-  // CFG, so a CFG x True CFG grid with cells missing can group two CFG
-  // values no ladder holds. The hold asks the press's own question, within
-  // each group rather than of the whole sheet a cell at a time.
-  const some = [...groups.values()].some((group) => new Set(group.map((r) => r.guidance_scale)).size > 1
-    && group.some((r) => cfgLadder(r, group).length > 1));
-  button.setAttribute('aria-disabled', String(!some));
-  button.title = some
-    ? 'Open these cells as a swipe between neighbouring CFG values; ← → step along CFG, S turns it off'
-    : CFG_SWIPE_NONE;
 }
 
-function cfgSwipeStart(cells) {
-  const ladderOf = (rec) => cfgLadder(rec, cells);
-  const from = cells.find((r) => r.id === sheetCfgFrom);
-  if (from && ladderOf(from).length > 1) return from;
+function sheetSwipeStart(axis, cells) {
+  const ladder = (rec) => ladderOf(axis, rec, cells);
+  const from = cells.find((r) => r.id === sheetSwipeFrom);
+  if (from && ladder(from).length > 1) return from;
   return cells.find((r) => {
-    const ladder = ladderOf(r);
-    return ladder.length > 1 && ladder[0].id !== r.id;
+    const own = ladder(r);
+    return own.length > 1 && own[0].id !== r.id;
   }) ?? null;
 }
 
-function openCfgSwipe(button) {
+function openSheetSwipe(kind, button) {
   const cells = sheetLayout?.cells ?? [];
-  const rec = button.getAttribute('aria-disabled') === 'true' ? null : cfgSwipeStart(cells);
+  const axis = LADDER_AXES[kind];
+  const rec = button.getAttribute('aria-disabled') === 'true' ? null : sheetSwipeStart(axis, cells);
   // Held, the title is the reason; otherwise the cells changed since the
   // hold was worked out, and the reason is the hold's own.
   if (!rec) {
-    showError(button.getAttribute('aria-disabled') === 'true' ? button.title : CFG_SWIPE_NONE, true);
+    showError(button.getAttribute('aria-disabled') === 'true' ? button.title : SHEET_SWIPES[kind].none, true);
     return;
   }
-  openLightbox(rec, cfgLadder(rec, cells), 'sheet');
-  void toggleCompare('swipe', 'cfg');
+  openLightbox(rec, ladderOf(axis, rec, cells), 'sheet');
+  void toggleCompare('swipe', kind);
 }
 
 function drawSheet() {
@@ -269,8 +283,11 @@ function drawSheet() {
         exportAllSheet,
       ));
     }
-    // A swipe between neighbouring CFG values, where CFG is laid out.
-    if (sheetAxes.cols === 'cfg' || sheetAxes.rows === 'cfg') els.sheetControls.append(cfgSwipeButton());
+    // A swipe between neighbouring CFG values, or step counts, where that
+    // axis is laid out.
+    for (const kind of Object.keys(SHEET_SWIPES)) {
+      if (sheetAxes.cols === kind || sheetAxes.rows === kind) els.sheetControls.append(sheetSwipeButton(kind));
+    }
   }
   for (const [key, pinned] of Object.entries(sheetAxes.pins)) {
     const axis = axisByKey(key);
@@ -537,10 +554,10 @@ function drawSheet() {
       cell.dataset.sheetCol = String(c + (source ? 1 : 0));
     });
   });
-  // What saySheet counts, and the cells Swipe CFG opens from.
+  // What saySheet counts, and the cells Swipe CFG and Swipe steps open from.
   sheetLayout.shown = shown.length;
   sheetLayout.cells = shown;
-  syncCfgSwipe();
+  syncSheetSwipes();
 
   const pinned = pins
     .map(([axis, v]) => `${axis.label.toLowerCase()} ${clip(sheetText(axis, v))}`)

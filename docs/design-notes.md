@@ -3440,6 +3440,26 @@ a select. Under 901 px the head shrinks to its content, and the counter met
 Close with no gap - Close has the focus on open, so its ring covered the
 counter's last digit; the head has a gap of its own now.
 
+**Steps are compared the same way** (2026-10-22). A steps grid is the other
+sweep the comparison was wanted for, so the ladder became an axis
+(`LADDER_AXES`): CFG's skips CFG and True CFG and keeps its echo filter,
+steps' skips Steps alone, and each is its own `lbCompare.kind`, with its
+own Compare button, step buttons and words; the frozen ladder, partner,
+divider, Against, deletion and catch-up handling are the one code path.
+The two Compare buttons share a row, so the column grew by the step row
+alone (34 px at 1400x900, where 180 px were free above the box). The
+first version asked the gallery once for both ladders, dropping `steps:`
+from the query, to save a request per image; a review found that a seed
+kept across a steps sweep then filled the five pages and pushed an older
+CFG neighbour out of them, where the steps-narrowed query had found it.
+Each axis asks its own query again - CFG's with `steps:`, steps' with
+`cfg:` - both after the one 200 ms wait. Against lists one axis at a time,
+so a held step's "pick it under Against" says to turn the other
+comparison on first where Against lists the other axis, and under 901 px
+Against is drawn only with its own axis's part. S stays the pass's or CFG's:
+one key cannot toggle two kinds, and CFG's was there first. Swipe steps on
+the sheet mirrors Swipe CFG, drawn where Steps is laid out.
+
 **The zoom is said once, the readouts only when they change** (2026-10-05).
 `#lb-zoom` and `#lb-count` were polite live regions rewritten on every layout
 and render: ten wheel notches 60-120 ms apart queued ten announcements

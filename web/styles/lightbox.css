@@ -164,20 +164,24 @@
 /* Failures raised from inside the lightbox - a delete that 404s, a star
    that fails - used to land in the panel's slot under a 0.92-opaque overlay. */
 .lightbox .error { min-height: 1.2em; }
-/* The comparison: a pass against its source, and any image across CFG -
-   each toggle with S beside it where S presses it, by Generate's rule for
-   Ctrl+Enter (#btn-generate::after: a pseudo-element with empty alt text,
-   the name stays the label's, and aria-keyshortcuts says S), then the two
-   ways to look, the steps along CFG and the partner. The note is first in
-   the box (index.html), so a line written there moves no button. */
+/* The comparison: a pass against its source, and any image across CFG or
+   across steps (the two toggles share a row) - each toggle with S beside it
+   where S presses it, by Generate's rule for Ctrl+Enter (#btn-generate::after:
+   a pseudo-element with empty alt text, the name stays the label's, and
+   aria-keyshortcuts says S), then the two ways to look, the steps along CFG
+   and along steps, and the partner. The note is first in the box
+   (index.html), so a line written there moves no button. */
 .lb-compare { display: flex; flex-direction: column; gap: var(--sp-2); }
 .lb-compare .hint { margin: 0; }
 .lb-compare .hint:empty { display: none; }
-:is(#lb-compare-on, #lb-compare-cfg)[aria-pressed="true"] { color: var(--text); border-color: var(--accent-2); }
+:is(#lb-compare-on, #lb-compare-cfg, #lb-compare-steps)[aria-pressed="true"] { color: var(--text); border-color: var(--accent-2); }
 :is(#lb-compare-on[aria-keyshortcuts="S"], #lb-compare-cfg[aria-keyshortcuts="S"])::after { content: 'S' / ''; }
 .lb-modes { display: flex; gap: var(--sp-2); }
 .lb-modes .ghost { flex: 1 1 0; white-space: nowrap; }
 .lb-modes .ghost[aria-pressed="true"] { color: var(--text); border-color: var(--accent-2); }
+/* Compare CFG and Compare steps: a row of their own, gone with both - a
+   picked pair hides steps', and under 901 px either may be. */
+.lb-kinds:not(:has(> :not([hidden]))) { display: none; }
 @media (forced-colors: active) {
   .lb-compare button[aria-pressed="true"] {
     text-decoration: underline; text-decoration-thickness: 2px; text-underline-offset: 3px;

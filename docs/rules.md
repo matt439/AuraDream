@@ -260,7 +260,7 @@ before changing it.
   and facts list (`settingsLine`, `factsList`), shared by the lightbox and
   the viewer; `lightbox.js` the lightbox's view, layout, walk and gestures,
   `lightbox-compare.js` its comparison's controls, divider and pass
-  stepping, `lightbox-cfg.js` its comparison across CFG; `refine.js` and `refine-prompt.js` the Refine dialog; `inpaint.js` the Inpaint dialog (its mask's
+  stepping, `lightbox-cfg.js` its comparison across CFG and across steps; `refine.js` and `refine-prompt.js` the Refine dialog; `inpaint.js` the Inpaint dialog (its mask's
   upload, preview, submit and Reuse) and `inpaint-mask.js` its canvas, tools, strokes and export
   (`styles/inpaint.css`); `outpaint.js` the Outpaint dialog (the side, band and preset
   controls, the frame, the preview, submit, close and Reuse; `styles/outpaint.css`);
@@ -1484,7 +1484,7 @@ Jobs:
   join up, `prependFinished` resets the gallery only once the pointer has
   left the cards. A job queued, run and ended between two polls never
   showed in `active_jobs`, and its images otherwise stayed out of the
-  gallery and the CFG ladders.
+  gallery and the CFG and steps ladders.
 - `main.Server.handle_exit` stops the active jobs (`jobs.stop_all("shutdown")`)
   and starts the critic's stop on the signal itself. The load, the critic's `prepare()`, Check's
   analysis and the critique's analysis and lint run on daemon threads
@@ -3578,9 +3578,11 @@ Frontend and CLI:
   leaves the controls aria-disabled with the reason ("source #N deleted"). S
   pressed on the focused divider hands the focus to the toggle of the kind
   that was on.
-- The comparison across CFG (`web/lightbox-cfg.js`). `lbCompare.kind` is
-  `'source'` (a pass and its source, above) or `'cfg'`; `lbCompare.source`
-  is the partner either way. An image's ladder (`cfgLadder`) is the images
+- The comparison across CFG (`web/lightbox-cfg.js`; across steps, the same
+  machinery, after this item). `lbCompare.kind` is `'source'` (a pass and
+  its source, above), `'cfg'` or `'steps'`; `lbCompare.source` is the
+  partner either way. An image's CFG ladder (`ladderOf(LADDER_AXES.cfg, …)`,
+  `cfgLadder`) is the images
   that agree with it on every sheet axis but CFG and True CFG and on size,
   checkpoint, quantization and refine source (`sameExcept(a, b, ['cfg',
   'tcfg'])`, beside `sameSettings` in sheet.js, which is
@@ -3592,7 +3594,7 @@ Frontend and CLI:
   `galleryRecords` (the sheet's records are the same array, never added
   twice), `viewerRecords`, `sessionRecords`, the gallery's answer and the
   comparison's own ladder, deleted ids left out; recomputed on every sync
-  while off, built once when a comparison is turned on (`compareCfg`) and
+  while off, built once when a comparison is turned on (`compareLadder`) and
   frozen while it steps, taking in the gallery's answer for the image in
   view when it comes. The answer: `GET /api/gallery?model=<id>&limit=200`
   200 ms after the image lands (`askLadder`, as `passesLine`), read on by
@@ -3615,15 +3617,17 @@ Frontend and CLI:
   it looked (below). The box
   (`#lb-compare`) is on every image from 901 px: its note first (the column
   is pinned to the bottom, so a line written there grows the box upward and
-  moves no button), Compare with source on a pass only, Compare CFG, Swipe
-  and Side by side, ← Lower CFG / Higher CFG → and Against. Each CFG
+  moves no button), Compare with source on a pass only, Compare CFG and
+  Compare steps on one row (`.lb-kinds`, gone where both are hidden), Swipe
+  and Side by side, ← Lower CFG / Higher CFG →, ← Fewer steps / More steps
+  → and Against. Each CFG
   control is `aria-disabled` with the reason as its title - "Looking for
   other CFG values of #N…" while the gallery is asked and the page holds no
   other value, "No other CFG value of #N at this seed, size and settings"
   once it has answered, "No other CFG value of #N in the newest K at this
   seed and size: more may be in the gallery" where the answer was cut
   short, and "… in what the page holds: the gallery could not be asked"
-  where it failed (`cfgHeldReason`). Swipe and Side by side, held with
+  where it failed (`ladderHeldReason`). Swipe and Side by side, held with
   them where a press would turn this comparison on (or on a pass whose
   source is gone), take the same reason as their title, and their own
   title back when they can be pressed (Side by side's from
@@ -3634,7 +3638,7 @@ Frontend and CLI:
   is drawn or a comparison is turned on or off). Under 901 px the box is a
   row under the stage that the picture and the facts' letterbox pay for: it
   is drawn on a pass, or where the page's own records give the image a CFG
-  neighbour when the image is drawn (`cfgShown`, `lbCfgShown`), kept until
+  neighbour when the image is drawn (`ladderShown`, `lbCfgShown`), kept until
   another image is, and from a comparison turned on - never on the
   gallery's later answer; S works without it. S with no kind
   (`toggleCompare()`) turns a comparison on as the image's kind (source on
@@ -3656,7 +3660,7 @@ Frontend and CLI:
   the partner's alt "#41, CFG 2", the note "CFG 2, #41 · 2 of 4 CFG values"
   with "· identical pixels: CFG changed nothing here" on an equal
   `content_hash`. ← → while a CFG comparison is on step to the next value
-  that way that `lbList` holds (`stepCfg`, `cfgReach`), against the value
+  that way that `lbList` holds (`stepLadder`, `ladderReach`), against the value
   below it, mode, divider, zoom and focus kept; values only the gallery's
   answer brought are partners, never steps, and `lbList` is never replaced
   or added to. At an end the press stays and says "CFG 7 is the highest of
@@ -3665,7 +3669,7 @@ Frontend and CLI:
   Lower/Higher CFG take the same step, turning the comparison on where it
   was off, and are held with the reason at an end or where the next value
   is not in the strip. `lbSiblingPass` answers only for kind `'source'`,
-  `stepCfg` only for `'cfg'`. The keys line names S on every image and
+  `stepLadder` only for `'cfg'` and `'steps'`. The keys line names S on every image and
   reads "← → CFG" while the arrows step along CFG; the divider's
   `aria-keyshortcuts` and title say so. A partner deleted by this page ends
   the comparison with "#N is no longer in the gallery"; a partner whose
@@ -3673,6 +3677,45 @@ Frontend and CLI:
   id and then said as deleted (and dropped from every ladder) where the
   server no longer has it; `returnToLightbox` puts back a CFG comparison's
   frozen ladder less deleted ids, and not one whose partner went.
+- The comparison across steps is the same code along another axis
+  (`LADDER_AXES.steps`; `ladderAxis(kind)` answers the axis of `'cfg'` or
+  `'steps'`, null for a pass or a picked pair): the ladder skips Steps
+  alone (`sameExcept(a, b, ['steps'])`, True CFG compared as any axis, no
+  echo filter), one image a step count, sorted ascending, from the same
+  pool. Its gallery query is CFG's with `cfg:<the image's CFG>` (left out
+  for an exponent) in place of `steps:` (`ladderQuery(rec, axis)`): both
+  are asked together after the same 200 ms (`askLadder` over
+  `ladderQueries`), each cached, in flight and dropped as above, and each
+  axis's held reason and "may be incomplete" read its own answer
+  (`ladderState(rec, axis)`). One query without either term served both
+  for a while, and a steps sweep at one seed crowded an older CFG
+  neighbour out of its five pages. Compare steps never holds S (S stays
+  the pass's or CFG's) and is held with "Looking for other step counts of
+  #N…", "No other step count of #N at this seed, size and settings" and
+  the cut-short and failed forms; its title is "Compare 28 steps with 20
+  steps, #41, at the same crop, the fewer steps on the left". ← Fewer steps
+  / More steps → (`pressLadderStep('steps', ±1)`) step as Lower/Higher CFG
+  do, held with "20 steps is the fewest of these" / "28 steps is the most
+  of these". A step button of the other axis switches the comparison to
+  its axis (`setCompare(null)`, then the step, then `compareLadder`), and
+  Compare steps or Compare CFG switches the kind, keeping the mode. Against
+  lists the ladder of the comparison on - "20 steps · #41" - and CFG's
+  while neither is; so a step held because the next value is not in the
+  strip says "… pick it under Against" for the axis Against lists and "…
+  turn on Compare steps (or Compare CFG) to pick it under Against" for the
+  other (`ladderEndReason`'s `against`). The tags read "20 steps · #41" ("1 step" for one), the
+  divider "Divider: 20 steps left of it, 28 steps right", the note "20
+  steps, #41 · 2 of 2 step counts" (with "· identical pixels: the step
+  count changed nothing here"), Swipe's title "Fewer steps and more steps
+  over each other, …", Side by side's "Fewer steps left of more steps, …",
+  the keys line "← → steps" and the divider's title "… ← → step along
+  steps". The fewer steps are on the left (`lbSwapped` by the axis's
+  value). S with the divider focused hands focus to Compare steps. Under
+  901 px each axis's part (its Compare button and its step row) is drawn
+  where the page's own records give the image a neighbour along it, or
+  once a comparison along it is on (`ladderShown` answers per axis), and
+  Against with the part of the axis it lists - never for CFG's "none"
+  beside steps' row alone.
   `factsList(rec, { useSeed })` (`dl.facts`, facts.js) is the one facts renderer, the
   viewer's column's too; the lightbox's adds Use seed to its Seed row
   (`useSeed`, said in `#lb-error` alone, never the panel's `#error`, and
@@ -3746,8 +3789,9 @@ Frontend and CLI:
   dialog is still closed (the event is queued; a close followed at once by
   an open must not shut the new lightbox), are wired in app.js; so are
   lightbox-compare.js's (`lbSourceFailed`, `lbSplitKey`, `nudgeSplit`,
-  `stepPass`, `toggleCompare`) and lightbox-cfg.js's (`pressCfgStep`, `pickAgainst`, Compare CFG's
-  `toggleCompare(null, 'cfg')`), which declares only too.
+  `stepPass`, `toggleCompare`) and lightbox-cfg.js's (`pressLadderStep`, `pickAgainst`, Compare CFG's
+  `toggleCompare(null, 'cfg')` and Compare steps' `toggleCompare(null,
+  'steps')`), which declares only too.
 - The gallery's cards. Each card is `role=group` named "#N" (`card()`; a
   viewer `.result` too, `resultFigure`), so its star and tools are heard as
   that image's; `tombstone` drops both attributes. Never a list or grid
@@ -4235,21 +4279,26 @@ Frontend and CLI:
   stand in for `saveCanvas`. `sheetFileName` drops a hyphen that a value's
   closing mark ("none (1.79)", a clipped label's "…") left before the next
   pin or `.png` (`sheet-<run>-mu-none-1.79.png`). Swipe CFG
-  (`cfgSwipeButton`, sheet-render.js) is drawn after the exports only where
+  (`sheetSwipeButton('cfg')`, sheet-render.js) is drawn after the exports only where
   CFG is a laid-out axis (Columns or Rows), never where it is pinned or
   does not vary; it is `aria-disabled` with "No two cells here differ in CFG
-  alone" where no shown cell has a ladder of two (`syncCfgSwipe`: the
-  cells grouped by `cfgGroupKey`, then the press's own `cfgLadder` within
+  alone" where no shown cell has a ladder of two (`syncSheetSwipes`: the
+  cells grouped by `ladderGroupKey`, then the press's own `ladderOf` within
   each group with more than one CFG value - the key leaves True CFG out, and
   a CFG x True CFG grid with cells missing grouped two values no ladder
   held), its press saying so in the page's line, and saying the hold's
   reason, never the pressable title, where the cells changed under it. A press opens the lightbox on the
-  cell the keyboard was last on in the sheet (`sheetCfgFrom`, a focusin in
+  cell the keyboard was last on in the sheet (`sheetSwipeFrom`, a focusin in
   app.js) where it has a CFG neighbour, else the first shown cell in
   reading order with a lower CFG beside it, walking that cell's own ladder
   from the shown cells (`cfgLadder(rec, sheetLayout.cells)`, ascending -
   its row or column, never the pinned-out cells), with the CFG comparison
-  on in swipe (`toggleCompare('swipe', 'cfg')` after the open). The sheet asks for
+  on in swipe (`toggleCompare('swipe', 'cfg')` after the open). Swipe
+  steps (`sheetSwipeButton('steps')`, `SHEET_SWIPES`) is the same along
+  Steps, drawn after Swipe CFG where Steps is laid out: held with "No two
+  cells here differ in steps alone", the group key skipping Steps alone,
+  opening the cell's own steps ladder from the shown cells with the steps
+  comparison on (`toggleCompare('swipe', 'steps')`). The sheet asks for
   the whole run in one page. A variable axis, and the Prompt axis, list their
   values by first appearance, not alphabetically: the oldest image carrying
   each value. Under Starred or a search narrower than the run, that is the
@@ -6026,8 +6075,10 @@ the status's `newest_image_id` moving takes it in), and again with Starred
 on, the new image in no strip the view holds and the ladder asked again
 all the same (`noteUnseenImages`); "may be incomplete" on a
 full page; an image opened alone held while asked ("Looking for…"), the
-request's terms, then a partner the arrows do not step to; the ladder read
-past a full page by `before=` (one-row pages); an answer held in flight
+request's terms (CFG's with `steps:`, steps' with `cfg:`, two requests),
+then a partner the arrows do not step to, Fewer steps' held title saying to
+turn on Compare steps; the CFG ladder read past a full page by `before=`
+(one-row pages); an answer held in flight
 while the walk moves on and a job lands a value it would have held, not
 kept, and asked again on the way back; a pass's S still the source's with
 Compare CFG held; a partner deleted by the page ending the comparison with
@@ -6035,7 +6086,20 @@ its note; at 600x900 no box for an image with no neighbour and one for a
 sweep's image; and the sheet's Swipe CFG (laid-out CFG only, the first cell
 with a lower value, the keyboard's cell and its row, held for two cells at
 different True CFG and saying why on a press, gone when CFG is pinned or on
-a run with none):
+a run with none). Then across steps: Compare steps beside Compare CFG on
+one row, its title and Fewer / More steps' titles and holds; turned on, the
+tags, the divider's name and value, the note ("2 of 2 step counts"),
+Against's step counts, the keys line "← → steps" and Swipe's words; ← to
+the fewer steps, kept on the left at 1:1, the end saying "20 steps is the
+fewest of these" on the arrow and on Fewer steps; Higher CFG from a steps
+comparison turning it to CFG, and Compare steps turning it back in side by
+side; More steps; S on the divider handing focus to Compare steps; More
+steps turning it on from off; the fox (CFG and steps both differ) holding
+Compare steps with its reason; at 600x900 only CFG's part for the fox,
+only steps' for the teapot's other cell (Against hidden until Compare steps
+is on, then listing step counts), and both for a grid image; and the sheet's Swipe steps (the keyboard's cell and
+its column at one CFG, held and saying why for cells that differ in CFG
+too, and on the teapot's steps-only run, where Swipe CFG is absent):
 
 ```powershell
 uv run python tools/fake_server.py --port 7899 --model black-forest-labs/FLUX.1-Krea-dev --data <new-scratch-directory>

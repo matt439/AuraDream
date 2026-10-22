@@ -149,6 +149,8 @@ const els = {
   lbCompareNote: $('lb-compare-note'), lbKeys: $('lb-keys'),
   lbCompareCfg: $('lb-compare-cfg'), lbCompareAgainst: $('lb-compare-against'),
   lbCfgSteps: $('lb-cfg-steps'), lbCfgLower: $('lb-cfg-lower'), lbCfgHigher: $('lb-cfg-higher'),
+  lbCompareSteps: $('lb-compare-steps'), lbStepsSteps: $('lb-steps-steps'),
+  lbStepsLower: $('lb-steps-lower'), lbStepsHigher: $('lb-steps-higher'),
   lbAgainst: $('lb-against'),
   refineDialog: $('refine-dialog'), refineTitle: $('refine-title'), refineClose: $('refine-close'),
   refineThumb: $('refine-thumb'), refineSourceLine: $('refine-source-line'),

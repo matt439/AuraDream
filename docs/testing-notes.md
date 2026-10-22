@@ -37,6 +37,8 @@ the note).
 
 - [x] **Swipe comparison across CFG.** The swipe comparison between images
   that differ in CFG. (ccd999d, f1079c3, 2db4787)
+- [x] **Swipe comparison across steps.** Compare steps, Fewer / More steps
+  and the sheet's Swipe steps, on the CFG comparison's ladder code.
 - [x] **Redo with tags swapped.** Select several images and run them again
   with some tags swapped for others - including replacing two tags with one.
   (Select on the gallery: 6d259b6, 56216c6; Swap tags: a4b6a19, 9611a8d,

@@ -656,6 +656,15 @@ and off on any image that is not a refine pass. Where no other CFG value is
 found the button is held and its tooltip says why; the gallery is searched
 in its newest images, so the tooltip says when more may be further back.
 
+**Compare steps** beside it does the same across steps: the image beside
+another that differs from it only in its step count, such as the cells of a
+steps grid. The fewer steps are on the left; **← Fewer steps** and **More
+steps →** step along the counts found, and **Against** lists them while it
+is on. A contact sheet with CFG laid out as columns or rows has **Swipe
+CFG**, and one with Steps laid out has **Swipe steps**: either opens the
+cell the keyboard was last on (or the first that can be compared) in the
+lightbox with that swipe on, ← → stepping along that column or row.
+
 ## Generate from the terminal
 
 The CLI uses the same backend and gallery without a browser:

@@ -409,16 +409,20 @@ els.lbDelete.addEventListener('keydown', (e) => {
   if (e.repeat && (e.key === 'Enter' || e.key === ' ')) e.preventDefault();
 });
 els.lightbox.onclick = (e) => { if (e.target === els.lightbox) dismissLightbox(); };
-// A pass against its source, or any image across CFG (lightbox-cfg.js):
-// each kind's button turns it on and off, or switches to its kind; a mode
-// turns on the kind S would in that mode, or switches to it. Lower and
-// Higher CFG step along CFG, and Against picks the partner.
+// A pass against its source, or any image across CFG or steps
+// (lightbox-cfg.js): each kind's button turns it on and off, or switches to
+// its kind; a mode turns on the kind S would in that mode, or switches to it.
+// Lower and Higher CFG step along CFG, Fewer and More steps along steps, and
+// Against picks the partner.
 els.lbCompareOn.onclick = () => { void toggleCompare(null, 'source'); };
 els.lbCompareCfg.onclick = () => { void toggleCompare(null, pickedPair(lbList[lbIndex]) ? 'picked' : 'cfg'); };
 els.lbSwipe.onclick = () => { void toggleCompare('swipe'); };
 els.lbSideBySide.onclick = () => { void toggleCompare('side'); };
-els.lbCfgLower.onclick = () => pressCfgStep(-1);
-els.lbCfgHigher.onclick = () => pressCfgStep(1);
+els.lbCompareSteps.onclick = () => { void toggleCompare(null, 'steps'); };
+els.lbCfgLower.onclick = () => pressLadderStep('cfg', -1);
+els.lbCfgHigher.onclick = () => pressLadderStep('cfg', 1);
+els.lbStepsLower.onclick = () => pressLadderStep('steps', -1);
+els.lbStepsHigher.onclick = () => pressLadderStep('steps', 1);
 els.lbCompareAgainst.onchange = pickAgainst;
 // Every close, the native Escape's included, resets the strip - unless the
 // lightbox is open again by the time the event comes: the dialog's `close`
@@ -642,8 +646,9 @@ document.addEventListener('keydown', (e) => {
   // Arrows walk whichever strip the lightbox was opened from. Nothing else on
   // the page reads them while it is up, so the caret keys are free to take.
   // Comparing a pass, they swap to another pass of the same source where the
-  // strip has one (`stepPass`), comparing across CFG they step along CFG
-  // where the strip has another value (`stepCfg`), the comparison kept, and
+  // strip has one (`stepPass`), comparing across CFG or steps they step
+  // along it where the strip has another value (`stepLadder`), the comparison
+  // kept, and
   // Shift+arrows move a swipe's divider (`nudgeSplit`); otherwise they walk,
   // as ever. On Against they are the select's own: a closed select changes on
   // ← → as on ↑ ↓ on Windows, and taking them had walked to another image
@@ -652,7 +657,7 @@ document.addEventListener('keydown', (e) => {
     if (e.target.tagName === 'SELECT') return;
     e.preventDefault();
     const delta = e.key === 'ArrowLeft' ? -1 : 1;
-    if (e.shiftKey ? nudgeSplit(delta) : stepPicked(delta) || stepPass(delta) || stepCfg(delta)) return;
+    if (e.shiftKey ? nudgeSplit(delta) : stepPicked(delta) || stepPass(delta) || stepLadder(delta)) return;
     void stepLightbox(delta);
     return;
   }

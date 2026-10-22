@@ -45,9 +45,9 @@ const ZOOM_STEP = 1.25;
 // was turned on for (`id`); a step to another image ends it, and the mode is
 // kept for the next. `kind` says which comparison it is: 'source', a pass
 // against the image it was refined from, 'picked', an explicit two-image
-// pair in picked order, or 'cfg', any image against another
-// that differs from it in CFG alone (lightbox-cfg.js), whose `ladder` is the
-// set of them sorted by CFG, built once when it is turned on. `source` is the
+// pair in picked order, or 'cfg' or 'steps', any image against another
+// that differs from it in CFG alone, or in steps alone (lightbox-cfg.js), whose
+// `ladder` is the set of them sorted by that, built once when it is turned on. `source` is the
 // other image either way - the partner - drawn on the layer over this one.
 const lbCompare = { id: null, kind: 'source', mode: 'swipe', split: 0.5, source: null, ladder: [], range: [0, 0] };
 // A line for the comparison's note that the state does not say - a held
@@ -218,8 +218,8 @@ function layoutLightbox() {
   lbView.x = Math.min(maxX, Math.max(-maxX, lbView.x));
   lbView.y = Math.min(maxY, Math.max(-maxY, lbView.y));
   // The picture's box in a viewport; the pass is the last one's - or, in a
-  // CFG comparison where this image has the lower CFG, the first one's
-  // (`lbSwapped`): the lower CFG is always on the left.
+  // comparison across CFG or steps where this image has the lower value, the
+  // first one's (`lbSwapped`): the lower value is always on the left.
   const boxIn = (port) => ({
     left: port.x + (port.w - w) / 2 + lbView.x, top: port.y + (port.h - h) / 2 + lbView.y, w, h,
   });
@@ -234,9 +234,9 @@ function layoutLightbox() {
   // said "left of the pass" where the press stacked them. In the words of
   // the comparison on, or of the one a press would turn on.
   const picked = comparing ? lbCompare.kind === 'picked' : !!pickedPair(rec);
-  const cfg = comparing ? lbCompare.kind === 'cfg' : rec.refine == null && !picked;
+  const axis = comparing ? ladderAxis(lbCompare.kind) : rec.refine == null && !picked ? LADDER_AXES.cfg : null;
   const [first, second] = picked
-    ? ['The first picked image', 'the second'] : cfg ? ['The lower CFG', 'the higher'] : ['The source', 'the pass'];
+    ? ['The first picked image', 'the second'] : axis ? [axis.first, axis.second] : ['The source', 'the pass'];
   const sides = split ? `${first} above ${second}, each fitted to half the stage: larger here than left and right`
     : `${first} left of ${second}, each fitted to half the stage`;
   // Held, its title is the reason instead (syncCompare), put back from here.
@@ -314,11 +314,11 @@ function lbFactsRoom(rec, stacked) {
 // The partner's layer: over the pass and cut at the divider, or in its half
 // - a source's full picture positioned so the part `refine.fitted` kept lands
 // exactly on the pass's box, and clipped to that box - with the two named.
-// The left side (or the upper half) is the source's, or the lower CFG's: in
-// a CFG comparison where the image in view has the lower CFG (`lbSwapped`)
-// the two trade places, the partner's layer cut to the right of the divider
-// and its half the second, so the lower CFG is on the left whichever of the
-// two is in view.
+// The left side (or the upper half) is the source's, or the lower CFG's or
+// steps': in a comparison across them where the image in view has the lower
+// value (`lbSwapped`) the two trade places, the partner's layer cut to the
+// right of the divider and its half the second, so the lower value is on the
+// left whichever of the two is in view.
 function layoutCompare(rec, ports, pass, boxIn, rectOf) {
   const source = lbCompare.id === rec.id ? lbCompare.source : null;
   const swipe = !!source && lbCompare.mode === 'swipe';
@@ -329,7 +329,7 @@ function layoutCompare(rec, ports, pass, boxIn, rectOf) {
   const halves = ports.length > 1;
   const partnerPort = halves && swapped ? ports.at(-1) : ports[0];
   const at = halves ? boxIn(partnerPort) : pass;
-  // Two images of one size in a CFG comparison: the whole frame. An
+  // Two images of one size across CFG or steps, or picked: the whole frame. An
   // outpaint's source is drawn at its place on the canvas, at the result's
   // scale - (left, top) and its own size - so the divider shows the original
   // against the kept rectangle pixel for pixel.
@@ -375,20 +375,23 @@ function layoutCompare(rec, ports, pass, boxIn, rectOf) {
 
 // The two pictures by the names the divider's value says them in, left
 // first: "#12" and "#14" for a pass and its source, as ever; "CFG 2 (#41)"
-// for a CFG comparison.
+// across CFG, "20 steps (#41)" across steps.
 function compareNames(rec, partner, swapped) {
   if (lbCompare.kind === 'picked') return swapped ? [`#${rec.id}`, `#${partner.id}`] : [`#${partner.id}`, `#${rec.id}`];
-  if (lbCompare.kind !== 'cfg') return [`#${partner.id}`, `#${rec.id}`];
-  const name = (r) => `${cfgName(r)} (#${r.id})`;
+  const axis = ladderAxis(lbCompare.kind);
+  if (!axis) return [`#${partner.id}`, `#${rec.id}`];
+  const name = (r) => `${axis.name(r)} (#${r.id})`;
   return swapped ? [name(rec), name(partner)] : [name(partner), name(rec)];
 }
 
-// Whether the image in view has the lower CFG of a CFG comparison, and so
-// takes the left side (layoutCompare).
+// Whether the image in view has the lower value of a comparison across CFG
+// or steps (or is the first picked), and so takes the left side
+// (layoutCompare).
 function lbSwapped(rec) {
   if (lbCompare.id !== rec.id || !lbCompare.source) return false;
-  return lbCompare.kind === 'picked' ? lbCompare.ladder[0]?.id === rec.id
-    : lbCompare.kind === 'cfg' && rec.guidance_scale < lbCompare.source.guidance_scale;
+  if (lbCompare.kind === 'picked') return lbCompare.ladder[0]?.id === rec.id;
+  const axis = ladderAxis(lbCompare.kind);
+  return !!axis && axis.of(rec) < axis.of(lbCompare.source);
 }
 
 // Zoom by a factor about a point (cx, cy) given relative to the viewport's
@@ -440,12 +443,12 @@ function renderLightbox() {
   const rec = lbList[lbIndex];
   if (!rec) { closeLightbox(); return; }
   // Another image ends a comparison: it was that pass's with its source.
-  // stepPass and stepCfg (lightbox-compare.js, lightbox-cfg.js) carry it by
+  // stepPass and stepLadder (lightbox-compare.js, lightbox-cfg.js) carry it by
   // setting `id` to the next image first.
   if (lbCompare.id !== null && lbCompare.id !== rec.id) setCompare(null);
   if (lbCompareSaid && lbCompareSaid.id !== rec.id) lbCompareSaid = null;
-  // The gallery is asked for this image's other CFG values a moment after
-  // it lands (lightbox-cfg.js), as for its passes.
+  // The gallery is asked for this image's other CFG values and step counts
+  // a moment after it lands (lightbox-cfg.js), as for its passes.
   askLadder(rec);
   const aspect = rec.width / rec.height;
   if (lbView.aspect === null || Math.abs(aspect - lbView.aspect) / lbView.aspect >= 0.01) {
@@ -650,7 +653,7 @@ function closeLightbox({ keepPicker = false } = {}) {
   lbCompare.ladder = [];
   lbPickedPair = [];
   lbCompareSaid = null;
-  lbCfgShown = { id: null, shown: false };  // lightbox-compare.js's cfgShown
+  lbCfgShown = { id: null, cfg: false, steps: false };  // lightbox-compare.js's ladderShown
   lbSources.clear();
   lbPasses.clear();
   forgetLadders();
@@ -744,7 +747,7 @@ function returnToLightbox(place) {
   // the whole of it, a 1:1 came back at 166%.
   // A CFG partner deleted meanwhile is not put back.
   if (place.compare && (!fromPair || rec.id === place.rec.id)
-      && !(isGone(place.compare.source.id) && (fromPair || ['cfg', 'picked'].includes(place.compare.kind)))
+      && !(isGone(place.compare.source.id) && (fromPair || ['cfg', 'steps', 'picked'].includes(place.compare.kind)))
       && (place.compare.kind !== 'picked' || pickedPair(rec))) {
     // A pass's source back in the cache; a CFG comparison's ladder as it was
     // frozen, less anything deleted meanwhile.

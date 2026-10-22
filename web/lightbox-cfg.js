@@ -1,8 +1,9 @@
-// Local Diffusion's page script: the lightbox's comparison across CFG.
-// Declarations only; state.js has the load-order contract these files share.
+// Local Diffusion's page script: the lightbox's comparison across CFG, and
+// across steps. Declarations only; state.js has the load-order contract these
+// files share.
 'use strict';
 
-// ------------------------------------------------------------ CFG ladder
+// ------------------------------------------------------------ ladders
 
 // Any image is compared with another that differs from it in CFG alone: the
 // same prompt, negative, seed, steps, mu, LoRA, references, strength, size,
@@ -11,7 +12,24 @@
 // sorted by CFG, is its ladder. Worked out in the page from records the
 // server has already made - the cells of a CFG grid, or separate Generates
 // at one seed - with no route of its own: the pairing is presentation.
+// Steps make a ladder the same way, Steps alone skipped: each axis is a
+// `lbCompare.kind` of its own, with the words its controls say it in.
 const CFG_SKIP = ['cfg', 'tcfg'];
+const stepsWord = (n) => `${n} step${n === 1 ? '' : 's'}`;
+const LADDER_AXES = {
+  cfg: {
+    kind: 'cfg', skip: CFG_SKIP, of: (r) => r.guidance_scale, name: (r) => `CFG ${r.guidance_scale}`,
+    keys: 'CFG', value: 'CFG value', values: 'CFG values', lowest: 'lowest', highest: 'highest',
+    lower: 'the lower CFG', first: 'The lower CFG', second: 'the higher', changed: 'CFG',
+  },
+  steps: {
+    kind: 'steps', skip: ['steps'], of: (r) => r.steps, name: (r) => stepsWord(r.steps),
+    keys: 'steps', value: 'step count', values: 'step counts', lowest: 'fewest', highest: 'most',
+    lower: 'the fewer steps', first: 'Fewer steps', second: 'more steps', changed: 'the step count',
+  },
+};
+// The axis of a comparison kind, or null for a pass's or a picked pair's.
+const ladderAxis = (kind) => (Object.hasOwn(LADDER_AXES, kind) ? LADDER_AXES[kind] : null);
 // The gallery's answer is up to LADDER_PAGES pages this long, read newest
 // first; past them the held reason and the note say more may be in the
 // gallery. One page was too few: a seed kept fixed across a few hundred
@@ -20,14 +38,15 @@ const CFG_SKIP = ['cfg', 'tcfg'];
 const LADDER_LIMIT = 200;
 const LADDER_PAGES = 5;
 
-// What the gallery holds of each ladder, by its query (ladderQuery's key):
-// { records, more, failed, model, seed, width, height }, asked once a
+// What the gallery holds of each image's ladders, by query (ladderQuery's
+// key, one an axis): { records, more, failed, model, seed, width, height }, asked once a
 // session, emptied by closeLightbox, pruned by forgetImages and dropped when
 // a job lands an image of the same checkpoint, seed and size.
 const lbLadders = new Map();
 let lbLadderTimer;
-// The query waiting out its 200 ms (ladderQuery's), so a re-render of the
-// same image (a star, a status) does not put it back by 200 ms each time.
+// The queries waiting out their 200 ms (ladderQueries'), so a re-render of
+// the same image (a star, a status) does not put them back by 200 ms each
+// time.
 let lbLadderAsking = null;
 // Every query on its way, by key: { match, stale }. A job landing an image
 // it would have held, or the lightbox closing, marks it stale and takes it
@@ -36,75 +55,85 @@ let lbLadderAsking = null;
 // for the rest of the session.
 const lbLadderFlights = new Map();
 
-const cfgName = (rec) => `CFG ${rec.guidance_scale}`;
-// A picture's name on the stage: its CFG and id, and its True CFG where that
-// is a number of its own, as the facts list says it.
-const cfgTag = (rec) => `${cfgName(rec)} · #${rec.id}`
-  + (rec.true_cfg != null && rec.true_cfg !== rec.guidance_scale ? ` · True CFG ${rec.true_cfg}` : '');
+const cfgName = (rec) => LADDER_AXES.cfg.name(rec);
+// A picture's name on the stage: its value on the axis and its id, and its
+// True CFG where that is a number of its own, as the facts list says it.
+const ladderTag = (axis, rec) => `${axis.name(rec)} · #${rec.id}`
+  + (axis.kind === 'cfg' && rec.true_cfg != null && rec.true_cfg !== rec.guidance_scale ? ` · True CFG ${rec.true_cfg}` : '');
 
 // The images the page holds that a ladder can be drawn from, no request
 // made: the strip being walked, the gallery's pages (the sheet's records are
 // the same array), the viewer, this page's earlier results, the gallery's
-// answer for this ladder, and the comparison's own ladder.
-function cfgPool(rec) {
-  const q = ladderQuery(rec);
-  const fetched = q ? lbLadders.get(q.key)?.records ?? [] : [];
+// answers for this image's ladders, and the comparison's own ladder.
+function ladderPool(rec) {
+  const fetched = ladderQueries(rec).flatMap((q) => lbLadders.get(q.key)?.records ?? []);
   return [...lbList, ...galleryRecords, ...viewerRecords, ...sessionRecords, ...fetched, ...lbCompare.ladder];
 }
 
-// `rec`'s ladder, ascending by CFG. Built once per comparison (compareCfg)
-// and frozen while it is on, so stepping along it does not reorder it; off,
-// worked out again on every sync from what the page holds. The images that
-// agree with `rec` on everything but CFG and True CFG, then: where True CFG
-// is not an echo of CFG on every one of them, only those at `rec`'s True
-// CFG, so the ladder is CFG alone. One image a value: `rec` for its own,
-// then any in `keep` (the partner a comparison has), then one ← → can reach
-// (in lbList), then the newest.
-function cfgLadder(rec, pool = cfgPool(rec), keep = []) {
+// `rec`'s ladder along `axis`, ascending. Built once per comparison
+// (compareLadder) and frozen while it is on, so stepping along it does not
+// reorder it; off, worked out again on every sync from what the page holds.
+// The images that agree with `rec` on everything but the axis (CFG's being
+// CFG and True CFG), then: along CFG, where True CFG is not an echo of CFG
+// on every one of them, only those at `rec`'s True CFG, so the ladder is CFG
+// alone. One image a value: `rec` for its own, then any in `keep` (the
+// partner a comparison has), then one ← → can reach (in lbList), then the
+// newest.
+function ladderOf(axis, rec, pool = ladderPool(rec), keep = []) {
   const seen = new Set();
   let set = [rec];
   seen.add(rec.id);
   for (const r of pool) {
     if (seen.has(r.id) || deletedIds.has(r.id)) continue;
     seen.add(r.id);
-    if (sameExcept(r, rec, CFG_SKIP)) set.push(r);
+    if (sameExcept(r, rec, axis.skip)) set.push(r);
   }
-  if (!trueCfgEchoesCfg(set)) set = set.filter((r) => (r.true_cfg ?? null) === (rec.true_cfg ?? null));
+  if (axis.kind === 'cfg' && !trueCfgEchoesCfg(set)) {
+    set = set.filter((r) => (r.true_cfg ?? null) === (rec.true_cfg ?? null));
+  }
   const walked = new Set(lbList.map((r) => r.id));
   const rank = (r) => (r.id === rec.id ? 4 : keep.includes(r.id) ? 3 : walked.has(r.id) ? 2 : 1);
   const byValue = new Map();
   for (const r of set) {
-    const held = byValue.get(r.guidance_scale);
-    if (!held || rank(r) > rank(held) || (rank(r) === rank(held) && r.id > held.id)) byValue.set(r.guidance_scale, r);
+    const held = byValue.get(axis.of(r));
+    if (!held || rank(r) > rank(held) || (rank(r) === rank(held) && r.id > held.id)) byValue.set(axis.of(r), r);
   }
-  return [...byValue.values()].sort((a, b) => a.guidance_scale - b.guidance_scale);
+  return [...byValue.values()].sort((a, b) => axis.of(a) - axis.of(b));
 }
+const cfgLadder = (rec, pool, keep) => ladderOf(LADDER_AXES.cfg, rec, pool, keep);
 
-// The partner a comparison starts with: the CFG value directly below, or
-// the one above where this is the lowest.
-function cfgNeighbour(ladder, rec) {
+// The partner a comparison starts with: the value directly below, or the one
+// above where this is the lowest.
+function ladderNeighbour(ladder, rec) {
   const at = ladder.findIndex((r) => r.id === rec.id);
   if (at < 0) return ladder[0] ?? null;
   return ladder[at - 1] ?? ladder[at + 1] ?? null;
 }
 
-// The gallery search that finds the rest of `rec`'s ladder: its seed, size,
-// steps, mu, refine source and LoRA, in its checkpoint's exact scope (the
-// `model=` parameter) - narrowed so a seed used for hundreds of prompts
-// does not fill the page with images of other prompts, which are filtered
-// out here anyway. A seed past 2**53 (a grid's `seed + i` near the top)
+// The gallery search that finds the rest of `rec`'s ladder along `axis`:
+// its seed, size, refine source, mu and LoRA, and the other axis's value -
+// its steps for CFG's, its CFG for steps' - in its checkpoint's exact scope
+// (the `model=` parameter), narrowed so a seed used for hundreds of prompts,
+// or swept along the other axis, does not fill the pages with images the
+// ladder filters out here anyway. One answer for both ladders, with neither
+// term, let a steps sweep at one seed crowd an older CFG neighbour out of
+// the five pages. A seed past 2**53 (a grid's `seed + i` near the top)
 // cannot be said exactly from a JavaScript number: the run is asked for
 // instead, and with neither the ladder is what the page holds. Null then.
-function ladderQuery(rec) {
+function ladderQuery(rec, axis = LADDER_AXES.cfg) {
   const terms = [];
   if (Number.isSafeInteger(rec.seed)) terms.push(`seed:${rec.seed}`);
   else if (rec.run_id) terms.push(`run:${rec.run_id}`);
   else return null;
-  terms.push(`size:${rec.width}x${rec.height}`, `steps:${rec.steps}`, `refine:${rec.refine ?? 'none'}`);
   // A number the grammar reads back exactly: an exponent's "-" would read as
   // a range.
+  const exact = (n) => !/e/i.test(String(n));
+  terms.push(`size:${rec.width}x${rec.height}`);
+  if (axis.kind === 'cfg') terms.push(`steps:${rec.steps}`);
+  else if (exact(rec.guidance_scale)) terms.push(`cfg:${rec.guidance_scale}`);
+  terms.push(`refine:${rec.refine ?? 'none'}`);
   if (rec.mu == null) terms.push('mu:none');
-  else if (!/e/i.test(String(rec.mu))) terms.push(`mu:${rec.mu}`);
+  else if (exact(rec.mu)) terms.push(`mu:${rec.mu}`);
   // `lora:=` is the whole name, `lora:none` no adapter at all.
   if (!rec.lora) terms.push('lora:none');
   else if (!/\s/.test(rec.lora)) terms.push(`lora:=${rec.lora}`);
@@ -114,19 +143,21 @@ function ladderQuery(rec) {
     match: { model: rec.model_id, seed: rec.seed, width: rec.width, height: rec.height },
   };
 }
+const ladderQueries = (rec) => Object.values(LADDER_AXES).map((axis) => ladderQuery(rec, axis)).filter(Boolean);
+const asksFor = (rec, q) => ladderQueries(rec).some((own) => own.key === q.key);
 
 // Asked a moment after the image lands, as its passes are (passesLine), so
-// a walk does not ask for every image it passes; once a session per query.
-// A failure leaves the ladder to what the page holds, said "may be
-// incomplete"; it is a convenience, as the passes' count is.
+// a walk does not ask for every image it passes; once a session per query,
+// both axes' together. A failure leaves the ladder to what the page holds,
+// said "may be incomplete"; it is a convenience, as the passes' count is.
 function askLadder(rec) {
-  const q = ladderQuery(rec);
-  if (!q || lbLadders.has(q.key) || lbLadderFlights.has(q.key) || lbLadderAsking?.key === q.key) return;
+  const qs = ladderQueries(rec).filter((q) => !lbLadders.has(q.key) && !lbLadderFlights.has(q.key));
+  if (!qs.length || qs.every((q) => lbLadderAsking?.some((a) => a.key === q.key))) return;
   clearTimeout(lbLadderTimer);
-  lbLadderAsking = q;
+  lbLadderAsking = qs;
   lbLadderTimer = setTimeout(() => {
-    if (lbLadderAsking === q) lbLadderAsking = null;
-    void fetchLadder(q);
+    if (lbLadderAsking === qs) lbLadderAsking = null;
+    for (const q of qs) void fetchLadder(q);
   }, 200);
 }
 
@@ -162,45 +193,47 @@ async function fetchLadder(q) {
   // Read before images a catch-up said are in (noteUnseenImages): asked
   // again, for the image in view where it is this ladder's.
   if (!entry.failed && flight.needs !== null && head !== null && head < flight.needs) {
-    if (now && ladderQuery(now)?.key === q.key) askLadder(now);
+    if (now && asksFor(now, q)) askLadder(now);
     return;
   }
   entry.records = entry.records.filter((r) => !deletedIds.has(r.id));
   lbLadders.set(q.key, { ...entry, ...q.match, head });
-  if (now && ladderQuery(now)?.key === q.key) ladderAnswered(now);
+  if (now && asksFor(now, q)) ladderAnswered(now);
 }
 
 // The gallery's answer for the image in view: a comparison on takes in what
 // it found - its partner and the image in view kept - and the controls say
 // what there is.
 function ladderAnswered(rec) {
-  if (lbCompare.id === rec.id && lbCompare.kind === 'cfg' && lbCompare.source) {
-    lbCompare.ladder = cfgLadder(rec, cfgPool(rec), [lbCompare.source.id]);
+  const axis = ladderAxis(lbCompare.kind);
+  if (lbCompare.id === rec.id && axis && lbCompare.source) {
+    lbCompare.ladder = ladderOf(axis, rec, ladderPool(rec), [lbCompare.source.id]);
   }
   syncCompare(rec);
 }
 
-// Whether the page knows all it is going to about `rec`'s ladder: the
-// gallery has answered, or there is nothing to ask it. `more`: the answer
-// was a full page, or no answer came.
-function ladderState(rec) {
-  const q = ladderQuery(rec);
+// Whether the page knows all it is going to about `rec`'s ladder along
+// `axis`: the gallery has answered, or there is nothing to ask it. `more`:
+// the answer was a full page, or no answer came.
+function ladderState(rec, axis = LADDER_AXES.cfg) {
+  const q = ladderQuery(rec, axis);
   if (!q) return { known: true, more: false };
   const entry = lbLadders.get(q.key);
   return entry ? { known: true, more: entry.more || entry.failed, failed: entry.failed, count: entry.records.length }
     : { known: false, more: false };
 }
 
-// Why there is nothing to compare: still asking, or none - said as far as
-// the page knows it, where the gallery's answer was cut short or never came.
-function cfgHeldReason(rec, state = ladderState(rec)) {
-  if (!state.known) return `Looking for other CFG values of #${rec.id}…`;
-  if (state.failed) return `No other CFG value of #${rec.id} in what the page holds: the gallery could not be asked`;
+// Why there is nothing to compare along `axis`: still asking, or none -
+// said as far as the page knows it, where the gallery's answer was cut short
+// or never came.
+function ladderHeldReason(axis, rec, state = ladderState(rec, axis)) {
+  if (!state.known) return `Looking for other ${axis.values} of #${rec.id}…`;
+  if (state.failed) return `No other ${axis.value} of #${rec.id} in what the page holds: the gallery could not be asked`;
   if (state.more) {
-    return `No other CFG value of #${rec.id} in the newest ${state.count} at this seed and size: `
+    return `No other ${axis.value} of #${rec.id} in the newest ${state.count} at this seed and size: `
       + 'more may be in the gallery';
   }
-  return `No other CFG value of #${rec.id} at this seed, size and settings`;
+  return `No other ${axis.value} of #${rec.id} at this seed, size and settings`;
 }
 
 function forgetLadders() {
@@ -273,7 +306,7 @@ function noteUnseenImages(newest = null) {
 function forgetLadderImages(gone) {
   for (const entry of lbLadders.values()) entry.records = entry.records.filter((r) => !gone.has(r.id));
   if (lbPickedPair.some((r) => gone.has(r.id))) lbPickedPair = [];
-  if (lbCompare.id === null || !['cfg', 'picked'].includes(lbCompare.kind)) return;
+  if (lbCompare.id === null || !(ladderAxis(lbCompare.kind) || lbCompare.kind === 'picked')) return;
   lbCompare.ladder = lbCompare.ladder.filter((r) => !gone.has(r.id));
   const partner = lbCompare.source;
   if (!partner || !gone.has(partner.id)) return;
@@ -284,11 +317,11 @@ function forgetLadderImages(gone) {
 
 // ------------------------------------------------------------ stepping
 
-// The index in lbList of the next CFG value of `ladder` from `rec` in the
+// The index in lbList of the next value of `ladder` from `rec` in the
 // direction of `delta` that the strip holds, or -1. Only the strip: an image
 // the gallery's answer brought is a partner, never a step, so ← → never
 // leave the strip they walk.
-function cfgReach(rec, ladder, delta) {
+function ladderReach(rec, ladder, delta) {
   const at = ladder.findIndex((r) => r.id === rec.id);
   if (at < 0) return -1;
   for (let k = at + delta; k >= 0 && k < ladder.length; k += delta) {
@@ -299,157 +332,190 @@ function cfgReach(rec, ladder, delta) {
 }
 
 // Why there is no step that way: the end of the ladder, or values past it
-// the strip does not hold.
-function cfgEndReason(rec, ladder, delta) {
+// the strip does not hold - to be picked under Against where Against lists
+// this axis (`against`), or once this axis's comparison is on.
+function ladderEndReason(axis, rec, ladder, delta, against = true) {
   const at = ladder.findIndex((r) => r.id === rec.id);
   const beyond = ladder[at + delta];
-  if (!beyond) return `${cfgName(rec)} is the ${delta < 0 ? 'lowest' : 'highest'} of these`;
-  return `${cfgName(beyond)} (#${beyond.id}) is not in what ← → walk here: pick it under Against`;
+  if (!beyond) return `${axis.name(rec)} is the ${delta < 0 ? axis.lowest : axis.highest} of these`;
+  return `${axis.name(beyond)} (#${beyond.id}) is not in what ← → walk here: `
+    + `${against ? '' : `turn on ${ladderControls(axis).label} to `}pick it under Against`;
 }
 
-// Whether ← → step along CFG: a CFG comparison on, with another value the
-// strip holds either way. Otherwise they walk, ending it.
-function cfgArrows() {
+// Whether ← → step along the axis of the comparison on, with another value
+// the strip holds either way. Otherwise they walk, ending it.
+function ladderArrows() {
   const rec = lbList[lbIndex];
-  if (!rec || lbCompare.id !== rec.id || lbCompare.kind !== 'cfg') return false;
-  return cfgReach(rec, lbCompare.ladder, -1) >= 0 || cfgReach(rec, lbCompare.ladder, 1) >= 0;
+  if (!rec || lbCompare.id !== rec.id || !ladderAxis(lbCompare.kind)) return false;
+  return ladderReach(rec, lbCompare.ladder, -1) >= 0 || ladderReach(rec, lbCompare.ladder, 1) >= 0;
 }
 
-// ← → while a CFG comparison is on: the next value that way the strip holds,
-// compared with the value below it, in the same mode, at the same divider
-// and zoom. At an end of the ladder the press stays and says why - the ladder
-// is ordered, so it does not wrap round as passes do. False where the strip
-// holds no other value either way, and the arrows walk.
-function stepCfg(delta) {
+// ← → while a comparison across CFG or steps is on: the next value that way
+// the strip holds, compared with the value below it, in the same mode, at
+// the same divider and zoom. At an end of the ladder the press stays and
+// says why - the ladder is ordered, so it does not wrap round as passes do.
+// False where the strip holds no other value either way, and the arrows
+// walk.
+function stepLadder(delta) {
   const rec = lbList[lbIndex];
-  if (!rec || lbCompare.id !== rec.id || lbCompare.kind !== 'cfg') return false;
+  const axis = ladderAxis(lbCompare.kind);
+  if (!rec || lbCompare.id !== rec.id || !axis) return false;
   const ladder = lbCompare.ladder;
-  const i = cfgReach(rec, ladder, delta);
-  if (i >= 0) { goCfg(i, ladder); return true; }
-  if (cfgReach(rec, ladder, -delta) < 0) return false;
-  lbCompareSaid = { id: rec.id, text: cfgEndReason(rec, ladder, delta) };
+  const i = ladderReach(rec, ladder, delta);
+  if (i >= 0) { goLadder(i, ladder); return true; }
+  if (ladderReach(rec, ladder, -delta) < 0) return false;
+  lbCompareSaid = { id: rec.id, text: ladderEndReason(axis, rec, ladder, delta) };
   syncCompare(rec);
   return true;
 }
 
-// To lbList[i], the comparison carried (renderLightbox ends one whose id is
-// not the image's), against the value below it.
-function goCfg(i, ladder) {
+// To lbList[i], the comparison carried with its kind (renderLightbox ends
+// one whose id is not the image's), against the value below it.
+function goLadder(i, ladder) {
   const next = lbList[i];
   lbCompare.id = next.id;
-  lbCompare.kind = 'cfg';
   lbCompare.ladder = ladder;
-  lbCompare.source = cfgNeighbour(ladder, next);
+  lbCompare.source = ladderNeighbour(ladder, next);
   lbIndex = i;
   renderLightbox();
 }
 
-// Lower CFG / Higher CFG: a step as ← → take while comparing, which turns
-// the CFG comparison on where it was off. Held, the press says why.
-function pressCfgStep(delta) {
+// Each axis's own controls: its Compare button and its two steps.
+const ladderControls = (axis) => (axis.kind === 'cfg'
+  ? { button: els.lbCompareCfg, label: 'Compare CFG', row: els.lbCfgSteps, lower: els.lbCfgLower, higher: els.lbCfgHigher }
+  : { button: els.lbCompareSteps, label: 'Compare steps', row: els.lbStepsSteps, lower: els.lbStepsLower, higher: els.lbStepsHigher });
+
+// Lower / Higher CFG and Fewer / More steps: a step as ← → take while
+// comparing along that axis, which turns that comparison on where it was
+// off, or another one was on. Held, the press says why.
+function pressLadderStep(kind, delta) {
   const rec = lbList[lbIndex];
-  if (!rec) return;
-  const button = delta < 0 ? els.lbCfgLower : els.lbCfgHigher;
+  const axis = ladderAxis(kind);
+  if (!rec || !axis) return;
+  const { lower, higher } = ladderControls(axis);
+  const button = delta < 0 ? lower : higher;
   if (button.getAttribute('aria-disabled') === 'true') {
     lbCompareSaid = { id: rec.id, text: button.title };
     syncCompare(rec);
     return;
   }
-  const on = lbCompare.id === rec.id && lbCompare.kind === 'cfg';
-  const ladder = on ? lbCompare.ladder : cfgLadder(rec);
-  const i = cfgReach(rec, ladder, delta);
+  const on = lbCompare.id === rec.id && lbCompare.kind === kind;
+  const ladder = on ? lbCompare.ladder : ladderOf(axis, rec);
+  const i = ladderReach(rec, ladder, delta);
   if (i < 0) return;
-  if (on) { goCfg(i, ladder); return; }
+  if (on) { goLadder(i, ladder); return; }
   if (lbCompare.id !== null) setCompare(null);
   lbIndex = i;
   renderLightbox();
   const next = lbList[lbIndex];
-  compareCfg(next, cfgNeighbour(ladder, next));
+  compareLadder(kind, next, ladderNeighbour(ladder, next));
 }
 
 // ------------------------------------------------------------ comparing
 
-// The CFG comparison on, against `partner` or the default neighbour, in
-// `mode` or the last one; with nothing to compare, the press says why.
-function compareCfg(rec, partner = null, mode = null) {
-  const ladder = cfgLadder(rec, cfgPool(rec), partner ? [partner.id] : []);
+// The comparison along `kind`'s axis on, against `partner` or the default
+// neighbour, in `mode` or the last one; with nothing to compare, the press
+// says why.
+function compareLadder(kind, rec, partner = null, mode = null) {
+  const axis = ladderAxis(kind);
+  const ladder = ladderOf(axis, rec, ladderPool(rec), partner ? [partner.id] : []);
   if (ladder.length < 2) {
-    lbCompareSaid = { id: rec.id, text: cfgHeldReason(rec) };
+    lbCompareSaid = { id: rec.id, text: ladderHeldReason(axis, rec) };
     syncCompare(rec);
     return;
   }
-  const other = (partner && ladder.find((r) => r.id === partner.id)) ?? cfgNeighbour(ladder, rec);
-  lbCompare.kind = 'cfg';
+  const other = (partner && ladder.find((r) => r.id === partner.id)) ?? ladderNeighbour(ladder, rec);
+  lbCompare.kind = kind;
   lbCompare.ladder = ladder;
   lbCompare.source = other;
   setCompare(rec.id, mode ?? lbCompare.mode);
 }
 
-// Against: the partner, from the ladder. Off, a pick turns the comparison on
-// against it; on, it swaps the partner and keeps the rest.
+// Against: the partner, from the ladder of the comparison on - CFG's while
+// none is. Off, a pick turns the comparison on against it; on, it swaps the
+// partner and keeps the rest.
 function pickAgainst() {
   const rec = lbList[lbIndex];
   if (!rec) return;
   if (pickedPair(rec)) { comparePickedPair(rec); return; }
-  const on = lbCompare.id === rec.id && lbCompare.kind === 'cfg';
-  const ladder = on ? lbCompare.ladder : cfgLadder(rec);
+  const on = lbCompare.id === rec.id && !!ladderAxis(lbCompare.kind);
+  const kind = on ? lbCompare.kind : 'cfg';
+  const ladder = on ? lbCompare.ladder : ladderOf(LADDER_AXES[kind], rec);
   const partner = ladder.find((r) => String(r.id) === els.lbCompareAgainst.value);
   if (!partner || partner.id === rec.id) { syncCompare(rec); return; }
-  if (!on) { compareCfg(rec, partner); return; }
+  if (!on) { compareLadder(kind, rec, partner); return; }
   lbCompare.source = partner;
   lbCompareSaid = null;
   syncCompare(rec);
   layoutLightbox();
 }
 
-// The CFG part of the comparison's controls: Compare CFG (S where the image
-// is no pass, `sKey`), Lower and Higher CFG, and Against. Each is held, its
-// title saying why, while the gallery is still being asked and the page
+// One axis's part of the comparison's controls: its Compare button (S on
+// CFG's where the image is no pass, `sKey`) and its two steps. Each is held,
+// its title saying why, while the gallery is still being asked and the page
 // holds no other value, and where there is none; a press says so. Under
-// 901 px drawn only where `shown` (cfgShown, lightbox-compare.js). Answers what the
-// shared part needs: `held`, the reason a mode press cannot turn it on;
-// `steps`, whether ← → step along CFG; `note`, the line while on; `shown`.
-function syncCfgCompare(rec, on, sKey, shown) {
-  els.lbCompareCfg.hidden = !shown;
-  els.lbCfgSteps.hidden = els.lbAgainst.hidden = !shown;
-  const state = ladderState(rec);
-  const ladder = on ? lbCompare.ladder : cfgLadder(rec);
-  const partner = on ? lbCompare.source : cfgNeighbour(ladder, rec);
-  const held = ladder.length > 1 && partner ? '' : cfgHeldReason(rec, state);
-  const button = els.lbCompareCfg;
-  button.textContent = 'Compare CFG';
+// 901 px drawn only where `shown` (ladderShown, lightbox-compare.js).
+// `against`: whether Against lists this axis. Answers `held`, the reason a
+// press cannot turn it on; `steps`, whether ← → step along it; `note`, the
+// line while on; and the ladder and partner Against offers.
+function syncAxisCompare(axis, rec, on, sKey, shown, against) {
+  const { button, label, row, lower, higher } = ladderControls(axis);
+  const state = ladderState(rec, axis);
+  button.hidden = row.hidden = !shown;
+  const ladder = on ? lbCompare.ladder : ladderOf(axis, rec);
+  const partner = on ? lbCompare.source : ladderNeighbour(ladder, rec);
+  const held = ladder.length > 1 && partner ? '' : ladderHeldReason(axis, rec, state);
+  if (button.textContent !== label) button.textContent = label;
   button.setAttribute('aria-pressed', String(on));
   button.setAttribute('aria-disabled', String(!!held));
   if (sKey) button.setAttribute('aria-keyshortcuts', 'S');
   else button.removeAttribute('aria-keyshortcuts');
-  button.title = held || `Compare ${cfgName(rec)} with ${cfgName(partner)}, #${partner.id}, at the same crop, `
-    + `the lower CFG on the left${sKey ? ' (S)' : ''}`;
-  for (const [step, delta] of [[els.lbCfgLower, -1], [els.lbCfgHigher, 1]]) {
-    const i = held ? -1 : cfgReach(rec, ladder, delta);
-    const why = held || (i < 0 ? cfgEndReason(rec, ladder, delta) : '');
+  button.title = held || `Compare ${axis.name(rec)} with ${axis.name(partner)}, #${partner.id}, at the same crop, `
+    + `${axis.lower} on the left${sKey ? ' (S)' : ''}`;
+  for (const [step, delta] of [[lower, -1], [higher, 1]]) {
+    const i = held ? -1 : ladderReach(rec, ladder, delta);
+    const why = held || (i < 0 ? ladderEndReason(axis, rec, ladder, delta, against) : '');
     step.setAttribute('aria-disabled', String(!!why));
     if (why) step.title = why;
     else {
       const next = lbList[i];
-      const against = cfgNeighbour(ladder, ladder.find((r) => r.id === next.id) ?? next);
-      step.title = `Show ${cfgName(next)}, #${next.id}, compared with ${cfgName(against)}${on ? ` (${delta < 0 ? '←' : '→'})` : ''}`;
+      const against = ladderNeighbour(ladder, ladder.find((r) => r.id === next.id) ?? next);
+      step.title = `Show ${axis.name(next)}, #${next.id}, compared with ${axis.name(against)}${on ? ` (${delta < 0 ? '←' : '→'})` : ''}`;
     }
   }
-  syncAgainst(rec, ladder, partner, held);
-  const steps = !held && (cfgReach(rec, ladder, -1) >= 0 || cfgReach(rec, ladder, 1) >= 0);
+  const steps = !held && (ladderReach(rec, ladder, -1) >= 0 || ladderReach(rec, ladder, 1) >= 0);
   let note = '';
   if (on && partner) {
     const at = ladder.findIndex((r) => r.id === rec.id);
-    note = `${cfgName(partner)}, #${partner.id} · ${at + 1} of ${ladder.length} CFG values`
-      + (partner.content_hash && partner.content_hash === rec.content_hash ? ' · identical pixels: CFG changed nothing here' : '')
+    note = `${axis.name(partner)}, #${partner.id} · ${at + 1} of ${ladder.length} ${axis.values}`
+      + (partner.content_hash && partner.content_hash === rec.content_hash ? ` · identical pixels: ${axis.changed} changed nothing here` : '')
       + (state.more ? ' · may be incomplete: more may be in the gallery' : '');
   }
-  return { held, steps, note, shown };
+  return { held, steps, note, ladder, partner };
+}
+
+// The ladders' part of the comparison's controls - CFG's, then steps' - and
+// Against, for the axis on (CFG's while neither is), drawn with that axis's
+// part. `onKind` is the kind of the comparison on for this image, or null;
+// `shown` says per axis whether it is drawn (ladderShown). Answers what the
+// shared part needs: `held`, the reason a mode press cannot turn CFG's on
+// (the kind a mode turns on where the image is no pass); `steps`, whether
+// ← → step along the axis on; `note`; `shown`, whether either is drawn.
+function syncLadderCompare(rec, onKind, sKey, shown) {
+  const axis = onKind === 'steps' ? LADDER_AXES.steps : LADDER_AXES.cfg;
+  const cfg = syncAxisCompare(LADDER_AXES.cfg, rec, onKind === 'cfg', sKey, shown.cfg, axis.kind === 'cfg');
+  const steps = syncAxisCompare(LADDER_AXES.steps, rec, onKind === 'steps', false, shown.steps, axis.kind === 'steps');
+  els.lbAgainst.hidden = !shown[axis.kind];
+  const along = onKind === 'steps' ? steps : cfg;
+  syncAgainst(rec, along.ladder, along.partner, along.held, (r) => `${axis.name(r)} · #${r.id}`,
+    `The image ${axis.name(rec)} is compared with; ${axis.lower} is on the left`);
+  return { held: cfg.held, steps: along.steps, note: onKind ? along.note : '', shown: shown.cfg || shown.steps };
 }
 
 // Against's options, rewritten only when they change, so an open list is not
 // pulled from under the pointer by a sync. The other values of the ladder,
-// "CFG 2 · #41", the partner selected; one "none" where it is held.
+// "CFG 2 · #41" or "20 steps · #41", the partner selected; one "none" where
+// it is held.
 function syncAgainst(rec, ladder, partner, held, option = (r) => `${cfgName(r)} · #${r.id}`, title = null) {
   const select = els.lbCompareAgainst;
   const options = held ? [['', 'none']] : ladder.filter((r) => r.id !== rec.id)

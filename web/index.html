@@ -977,7 +977,7 @@
     <p class="star-said" id="lb-star-said" aria-live="polite"></p>
     <!-- The comparison: a refine pass against the image it was made from
          (Compare with source, on a pass only), and any image against its
-         neighbours in CFG (lightbox-cfg.js). On every image, its controls
+         neighbours in CFG or in steps (lightbox-cfg.js). On every image, its controls
          held with the reason where there is nothing to compare, so nothing
          in the column moves when the gallery's answer comes in. The note is
          first: the column is pinned to the bottom, and a line written there
@@ -985,7 +985,10 @@
     <div class="lb-compare" id="lb-compare">
       <p class="hint" id="lb-compare-note"></p>
       <button type="button" class="ghost" id="lb-compare-on" aria-pressed="false" aria-keyshortcuts="S" hidden>Compare with source</button>
-      <button type="button" class="ghost" id="lb-compare-cfg" aria-pressed="false" aria-disabled="true">Compare CFG</button>
+      <div class="lb-modes lb-kinds" role="group" aria-label="Compare across">
+        <button type="button" class="ghost" id="lb-compare-cfg" aria-pressed="false" aria-disabled="true">Compare CFG</button>
+        <button type="button" class="ghost" id="lb-compare-steps" aria-pressed="false" aria-disabled="true">Compare steps</button>
+      </div>
       <div class="lb-modes" role="group" aria-label="Compare by">
         <button type="button" class="ghost small" id="lb-swipe" aria-pressed="false">Swipe</button>
         <button type="button" class="ghost small" id="lb-side-by-side" aria-pressed="false">Side by side</button>
@@ -993,6 +996,10 @@
       <div class="lb-modes lb-cfg-steps" id="lb-cfg-steps" role="group" aria-label="Step along CFG">
         <button type="button" class="ghost small" id="lb-cfg-lower" aria-disabled="true">← Lower CFG</button>
         <button type="button" class="ghost small" id="lb-cfg-higher" aria-disabled="true">Higher CFG →</button>
+      </div>
+      <div class="lb-modes lb-cfg-steps" id="lb-steps-steps" role="group" aria-label="Step along steps">
+        <button type="button" class="ghost small" id="lb-steps-lower" aria-disabled="true">← Fewer steps</button>
+        <button type="button" class="ghost small" id="lb-steps-higher" aria-disabled="true">More steps →</button>
       </div>
       <label class="lb-against" id="lb-against">Against <select id="lb-compare-against"></select></label>
     </div>
