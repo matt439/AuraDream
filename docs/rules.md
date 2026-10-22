@@ -1641,7 +1641,8 @@ Jobs:
   region and says only the operation's sentence; phase and counts go in the
   non-live `#bundle-progress`.
 - A bundle operation reserves HTTP admission before awaiting work, only when
-  jobs, model loading and existing gallery requests are idle. Count complete
+  jobs, a model switch and existing gallery requests are idle (a load alone
+  does not hold it: it never touches the gallery). Count complete
   image response streams. The reservation outlives request cancellation and
   lasts until its background worker finishes; graceful shutdown waits for it.
   `gallery_lock` also covers whole storage/reindex writes and SQLite sessions

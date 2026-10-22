@@ -219,7 +219,11 @@ async def _load_in_background() -> None:
 jobs = JobManager(backend, ensure_loaded)
 bundle_manager = api_bundles.BundleManager(
     lambda: jobs,
-    lambda: _switching or _load_lock.locked() or _load_state["state"] == "loading",
+    # A load never touches the gallery, so a bundle runs beside one (the usual
+    # start is a preload, then an import). A switch's unload and select do not
+    # either, but stay refused: they are brief. A Generate's load has a queued
+    # job, which `reserve` refuses on its own.
+    lambda: _switching,
 )
 
 

@@ -109,7 +109,7 @@ class BundleManager:
             raise HTTPException(409, BUSY)
         jobs = self.get_jobs()
         if jobs.busy() or jobs.card()[0] is not None or self.unavailable():
-            raise HTTPException(409, "Finish or cancel queued work and wait for model loading before using gallery bundles.")
+            raise HTTPException(409, "Finish or cancel queued work and wait for any model switch before using gallery bundles.")
         if self.readers:
             raise HTTPException(409, "Another gallery request is still finishing. Try again in a moment.")
         self.state = {"id": uuid.uuid4().hex, "state": "running", "operation": operation,

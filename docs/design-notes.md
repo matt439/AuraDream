@@ -4504,8 +4504,8 @@ typed then emptied the grid under the "in progress" refusal, which nothing
 else would have repaired. Only the typed count and the forgotten ids are a
 clear's.
 
-No CLI export was added: the browser's bundle admission (jobs idle, model
-not loading, no reader in flight) and the scope's `resolve_selection` live
+No CLI export was added: the browser's bundle admission (jobs idle, no model
+switch, no reader in flight) and the scope's `resolve_selection` live
 in the server, and a CLI would have needed its own copies of both.
 
 ### Password bundles and the one-pass read-back
@@ -4654,6 +4654,25 @@ of a full decode; size and mtime instead of the pre-cleanup hash (external
 tools do not take `gallery_lock`); and trusting the live `content_hash`
 instead of the existing file. A whole-file hash fast path for present images
 never fires anyway, since import rewrites their metadata chunk.
+
+### A bundle beside a model load (2026-10-22)
+
+Admission also refused while the weights loaded (the load lock or the
+`loading` state), so the usual start - a preload, then an import - waited
+minutes for a load that never touches the gallery: `backend.load()` reads the
+Hugging Face cache, never gallery storage, and its failure only sets
+`_load_state`. A load alone now admits a bundle. A load a Generate started
+still has its queued job, which `jobs.busy()` refuses; a switch's unload and
+`select()` (`_switching`) stay refused, though brief. The other way round is
+unchanged: ASGI admission refuses `/api/model/load` and every other model
+route while a bundle runs, and only a load already under way goes on. The
+two share disk bandwidth, and a FLUX load's RAM spike sits beside the
+import's staging threads; neither is measured on the card yet.
+
+A load landing during a bundle had one page-side cost: its ready status
+re-reads the adapter list (`lorasLive`) and the previews once, and
+`GalleryAdmission` refused those. The bundle's settle re-reads both, as it
+already re-read the gallery.
 
 ## The CLI reads PNGs and probes the server
 

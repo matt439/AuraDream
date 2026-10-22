@@ -88,7 +88,7 @@ function bundleActionHold() {
     || (bundleReading ? 'Wait for the gallery counts' : '') || (serverOffline ? 'The server is not answering' : '')
     || (busy || queuedIds.length || elsewhereBusy || submitting ? 'Wait for all generation jobs to finish' : '')
     || (expandingPrompt || critiquing ? 'Wait for prompt expansion or the critic to finish' : '')
-    || (modelState === 'loading' ? 'Wait for the weights to finish loading' : '') || modelChangeHold();
+    || modelChangeHold();
 }
 
 function bundleSay(message, failed = false) {
@@ -366,6 +366,13 @@ async function receiveBundleStatus(status) {
         // it ran was refused and left the grid empty under that refusal.
         if (status.operation !== 'backup') els.bundleCount.value = '';
         await Promise.all([resetGallery(), loadRuns(), syncBin()]);
+        // A load may have landed while it ran, and the adapter list and the
+        // previews its ready status asked for again were refused too.
+        void refreshLoras();
+        schedulePreview();
+        if (refineSource) scheduleRefinePreview();
+        if (inpaintSource) scheduleInpaintPreview();
+        if (outpaintSource) scheduleOutpaintPreview();
         if (els.bundlesDialog.open) await Promise.all([refreshBundlePreview(), refreshBundleList()]);
       } finally { bundleSettling = false; }
     }

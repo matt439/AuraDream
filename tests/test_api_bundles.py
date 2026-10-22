@@ -109,27 +109,37 @@ def test_running_bundle_blocks_mutations_but_status_stays_available(client, monk
     assert client.get("/api/gallery").status_code == 200
 
 
-def test_bundles_refuse_jobs_loading_and_foreign_origins(client, monkeypatch):
+def test_bundles_refuse_jobs_and_foreign_origins(client, monkeypatch):
     response = client.post("/api/gallery/bundles/export", json={"expected": 0},
                            headers={"origin": "https://example.invalid"})
     assert response.status_code == 403
     monkeypatch.setattr(main.jobs, "busy", lambda: True)
     assert client.post("/api/gallery/bundles/export", json={"expected": 0}).status_code == 409
-    monkeypatch.setattr(main.jobs, "busy", lambda: False)
-    monkeypatch.setitem(main._load_state, "state", "loading")
-    assert client.post("/api/gallery/bundles/export", json={"expected": 0}).status_code == 409
     assert main.bundle_manager.state["state"] == "idle"
 
 
-@pytest.mark.parametrize("busy", ["card", "switching", "load-lock"])
-def test_bundles_refuse_while_the_card_or_a_model_change_is_busy(client, monkeypatch, busy):
+def test_a_bundle_runs_beside_a_model_load(client, store, monkeypatch):
+    # The usual start: weights preloading, then an import. A load never
+    # touches the gallery, so the bundle is not held behind it.
+    run_one(client, seed=21)
+    exported = client.post("/api/gallery/bundles/export", json={"expected": 1})
+    assert exported.status_code == 202, exported.text
+    name = _finish(client, exported.json()["id"])["result"]["name"]
+    assert store.list_images()[1] == 0
+    monkeypatch.setitem(main._load_state, "state", "loading")
+    monkeypatch.setattr(main._load_lock, "locked", lambda: True)
+    imported = client.post("/api/gallery/bundles/import", json={"name": name})
+    assert imported.status_code == 202, imported.text
+    assert _finish(client, imported.json()["id"])["result"]["imported"] == 1
+
+
+@pytest.mark.parametrize("busy", ["card", "switching"])
+def test_bundles_refuse_while_the_card_or_a_model_switch_is_busy(client, monkeypatch, busy):
     if busy == "card":
         # Expand or the critic holding the gate through run_when_idle.
         monkeypatch.setattr(main.jobs, "card", lambda: ("critic", "ticket"))
-    elif busy == "switching":
-        monkeypatch.setattr(main, "_switching", True)
     else:
-        monkeypatch.setattr(main._load_lock, "locked", lambda: True)
+        monkeypatch.setattr(main, "_switching", True)
     assert client.post("/api/gallery/bundles/export", json={"expected": 0}).status_code == 409
     upload = client.post("/api/gallery/bundles/upload", content=b"PK",
                          headers={"content-type": "application/zip"})
