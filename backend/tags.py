@@ -28,6 +28,55 @@ _YEAR_TAG = re.compile(r"year \d{4}", re.IGNORECASE)
 SUGGESTION_LIMIT = 20
 
 
+# A wiki page's DText as the finder shows its first sentence: a link as its
+# words (`[[hair flip]]`, `[[Kururu (little princess)|]]`, `[[a|shown]]`),
+# a markup tag or an external link's quotes dropped, a line break a space.
+_WIKI_LINK = re.compile(r"\[\[([^\]|]+)(?:\|([^\]]*))?\]\]")
+_WIKI_URL = re.compile(r'"([^"]+)":\S+')
+_WIKI_BREAK = re.compile(r"\[br\]", re.IGNORECASE)
+_WIKI_MARKUP = re.compile(r"\[/?[a-z]+\]", re.IGNORECASE)
+_WIKI_QUALIFIER = re.compile(r"\s*\([^)]*\)$")
+# A line no prose starts: a heading, a list, a post embed, a block.
+_WIKI_SKIPPED = re.compile(r"(h\d\.|\*|!post|\[expand|\[table|\[quote)", re.IGNORECASE)
+# A sentence ends where the next begins with a capital or a quotation, so
+# "e.g. a cap" reads on.
+_SENTENCE_END = re.compile(r"(?<=[.!?])\s+(?=[A-Z\"'(\[])")
+DEFINITION_MAX = 240
+
+
+def wiki_definition(body: str) -> str | None:
+    """A Danbooru wiki body's first paragraph of prose, links as their words,
+    cut after its first sentence or at `DEFINITION_MAX`; None where the page
+    opens with nothing but headings, lists and post embeds."""
+
+    def link(match: re.Match) -> str:
+        target, shown = match.group(1), match.group(2)
+        if shown is None:
+            return target
+        # `[[x (y)|]]`, the pipe trick: the name without its qualifier.
+        return shown or _WIKI_QUALIFIER.sub("", target)
+
+    for paragraph in re.split(r"\r?\n\s*\r?\n", body or ""):
+        # The paragraph's prose: its lines up to one no prose starts.
+        lines = []
+        for line in paragraph.strip().splitlines():
+            if _WIKI_SKIPPED.match(line.strip()):
+                break
+            lines.append(line)
+        text = _WIKI_BREAK.sub(" ", " ".join(lines))
+        text = _WIKI_MARKUP.sub("", _WIKI_URL.sub(r"\1", _WIKI_LINK.sub(link, text)))
+        text = " ".join(text.split())
+        if not text:
+            continue
+        end = _SENTENCE_END.search(text)
+        if end:
+            text = text[: end.start()]
+        if len(text) > DEFINITION_MAX:
+            text = text[: DEFINITION_MAX - 1].rsplit(" ", 1)[0] + "…"
+        return text
+    return None
+
+
 class TagLookupUnavailable(RuntimeError):
     """The external vocabulary could not be reached or returned bad data."""
 
@@ -176,6 +225,7 @@ class DanbooruTagVocabulary:
         self._fetch_json = fetch_json or self._request_json
         self._lock = threading.Lock()
         self._suggestions: dict[tuple[str, str | None], list[dict]] = {}
+        self._descriptions: dict[tuple[str, str | None], list[dict]] = {}
         self._records: dict[str, dict | None] = {}
 
     def suggest(self, query: str, cutoff: str | None, limit: int = SUGGESTION_LIMIT) -> list[dict]:
@@ -209,6 +259,77 @@ class DanbooruTagVocabulary:
         with self._lock:
             self._put(self._suggestions, key, suggestions, 256)
         return [dict(item) for item in suggestions]
+
+    def describe(self, query: str, cutoff: str | None, limit: int = 12) -> list[dict]:
+        """General tags whose Danbooru wiki page mentions `query`, by post
+        count, each with its page's first sentence: "cowlick" or "stupid
+        hair" finds `ahoge`, whose name says neither. A page that only
+        mentions the words is found too, which the sentence lets the reader
+        see; characters and series are left out, their pages listing every
+        character with the trait. Blocking; raises `TagLookupUnavailable`."""
+        wanted = " ".join(query.split()).lower()
+        if not wanted:
+            return []
+        key = (wanted, cutoff)
+        with self._lock:
+            cached = self._descriptions.get(key)
+        if cached is not None:
+            return [dict(item) for item in cached]
+
+        # By the page's tag's post count: unordered, the index answers the
+        # 100 pages edited last, mostly characters, and "smile" missed
+        # `smile`. The tag named what was typed is asked for whether or not
+        # its page uses the words; a name with a comma would split the list.
+        exact = normalize_tag(wanted)
+        pages = self._fetch_json(
+            "/wiki_pages.json",
+            {
+                "search[body_matches]": wanted,
+                "search[is_deleted]": "false",
+                "search[order]": "post_count",
+                "limit": "100",
+                "only": "title",
+            },
+        )
+        titles = [
+            title for title in dict.fromkeys(
+                [exact] + [str(page.get("title", "")) for page in pages if page.get("title")]
+            )
+            if "," not in title
+        ]
+        rows = self._fetch_json(
+            "/tags.json",
+            {
+                "search[name_comma]": ",".join(titles),
+                "search[category]": "0",
+                "search[hide_empty]": "true",
+                "search[order]": "count",
+                "limit": "100",
+            },
+        ) if titles else []
+        found = [
+            self._suggestion(row) for row in rows
+            if row.get("name") and int(row.get("category", 0)) == 0 and self._eligible(row, cutoff)
+        ]
+        # A tag named what was typed leads: "cowlick" is a tag of its own.
+        found.sort(key=lambda item: item["canonical"] != exact)
+        found = found[:limit]
+        bodies = self._fetch_json(
+            "/wiki_pages.json",
+            {
+                "search[title_comma]": ",".join(item["canonical"] for item in found),
+                "limit": str(len(found)),
+                "only": "title,body",
+            },
+        ) if found else []
+        definitions = {
+            str(page.get("title", "")): wiki_definition(str(page.get("body") or ""))
+            for page in bodies
+        }
+        results = [{**item, "definition": definitions.get(item["canonical"])} for item in found]
+        with self._lock:
+            self._put(self._descriptions, key, results, 256)
+        return [dict(item) for item in results]
 
     def validate(
         self,

@@ -380,6 +380,20 @@ textarea:focus, input:where(:not([type="checkbox"], [type="radio"])):focus { out
 .tag-actions button { width: 100%; text-align: left; }
 .tag-menu .ghost.tiny { font-size: var(--fs-sm); }
 .tag-note { margin: 9px 0 0; color: var(--muted); }
+/* Find tag (tag-finder.js), in the helper's dropdown style: a search row,
+   what it found, and each tag's wiki sentence under its button, so a page
+   that only mentions the words reads as such. */
+.tag-finder-heading { display: block; margin-bottom: var(--sp-1); color: var(--muted); font-size: var(--fs-sm); text-transform: uppercase; letter-spacing: 0.04em; }
+.tag-finder-row { display: flex; gap: 6px; }
+.tag-finder-input { flex: 1; min-width: 0; padding: 4px 7px; font-size: var(--fs-label); }
+.tag-finder-status { margin: 6px 0 0; color: var(--muted); }
+.tag-finder-status:empty { display: none; }
+.tag-finder-results { display: flex; flex-direction: column; gap: 6px; margin: 6px 0 0; padding: 0; list-style: none; }
+.tag-finder-results li { display: flex; flex-direction: column; align-items: flex-start; gap: 2px; }
+.tag-finder-option { display: inline-flex; gap: 8px; align-items: baseline; }
+.tag-finder-option .tag-count { color: var(--muted); font-size: var(--fs-sm); }
+.tag-finder-option.active .tag-count { color: inherit; }
+.tag-finder-definition { color: var(--text-2); padding-left: 8px; }
 
 /* Live Danbooru assistance for tag-caption checkpoints. The suggestions float
    over the next field; validation stays in flow as one compact chip per comma
@@ -409,6 +423,9 @@ textarea:focus, input:where(:not([type="checkbox"], [type="radio"])):focus { out
 .tag-suggestions .tag-kind, .tag-editor-suggestions .tag-kind { color: var(--accent-2); min-width: 58px; font-size: var(--fs-xs); text-transform: uppercase; }
 .tag-suggestions .tag-name, .tag-editor-suggestions .tag-name { flex: 1; overflow-wrap: anywhere; }
 .tag-suggestions .tag-count, .tag-editor-suggestions .tag-count { color: var(--text-readout); font-variant-numeric: tabular-nums; }
+/* Find tag's row, last in the prompt box's list (tags.js). */
+.tag-suggestions li.tag-find { border-top: 1px solid var(--line); }
+.tag-suggestions li.tag-find .tag-name { color: var(--text-2); }
 .tag-validation-host { display: contents; }
 .tag-validation {
   display: flex; flex-wrap: wrap; align-content: flex-start;

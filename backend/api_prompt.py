@@ -32,6 +32,7 @@ from .schemas import (
     PromptExpansionRequest,
     PromptMeasure,
     PromptMeasureRequest,
+    TagDescriptionResponse,
     TagSuggestionResponse,
     TagValidationRequest,
     TagValidationResponse,
@@ -222,6 +223,21 @@ def create_router(services: AppServices) -> APIRouter:
             ]
         return TagSuggestionResponse(available=True, suggestions=suggestions)
 
+
+    @router.get("/api/tags/describe", response_model=TagDescriptionResponse)
+    async def describe_tags(q: str = Query(min_length=1, max_length=100)) -> TagDescriptionResponse:
+        """The Tags helper's finder: general tags whose Danbooru wiki mentions
+        `q`, for a checkpoint whose guide names the Danbooru vocabulary."""
+        helper = tag_helper_config(services.model_id())
+        if not q.strip():
+            return TagDescriptionResponse(available=True)
+        try:
+            results = await asyncio.to_thread(
+                tag_lookup.tag_vocabulary.describe, q, helper["vocabulary_cutoff"]
+            )
+        except TagLookupUnavailable as exc:
+            return TagDescriptionResponse(available=False, detail=short_error(exc))
+        return TagDescriptionResponse(available=True, results=results)
 
     @router.post("/api/tags/validate", response_model=TagValidationResponse)
     async def validate_tags(request: TagValidationRequest) -> TagValidationResponse:

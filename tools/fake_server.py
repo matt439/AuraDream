@@ -330,6 +330,40 @@ def main() -> int:
                 if wanted in name
             ][:limit]
 
+        # The finder's wiki: each tag's page text, searched for the words
+        # typed as the real one is (a tag named them is asked for too), and
+        # its first sentence. "fake offline" is the index unreachable.
+        wiki = {
+            "ahoge": ("general", 994_000, 'Literally "stupid hair", an ahoge is a single long lock '
+                      "of hair that sticks out of a character's head.", ""),
+            "cowlick": ("general", 11_000, "An unruly tuft of hair that sticks out from the head; "
+                        "use ahoge for a single long lock.", ""),
+            "flipped_hair": ("general", 43_000, None, "See also: ahoge, cowlick, hair flaps."),
+        }
+
+        def describe(self, query, cutoff, limit=12):
+            from backend.tags import TagLookupUnavailable
+
+            wanted = " ".join(query.split()).lower()
+            if wanted == "fake offline":
+                raise TagLookupUnavailable("fake Danbooru offline")
+            found = [
+                (name, category, count, definition)
+                for name, (category, count, definition, rest) in self.wiki.items()
+                if wanted in f"{definition or ''} {rest}".lower() or name == normalize_tag(wanted)
+            ]
+            found.sort(key=lambda row: (row[0] != normalize_tag(wanted), -row[2]))
+            return [
+                {
+                    "text": display_tag(name),
+                    "canonical": name,
+                    "category": category,
+                    "post_count": count,
+                    "definition": definition,
+                }
+                for name, category, count, definition in found
+            ][:limit]
+
         def validate(self, tags, special_tags, cutoff, allow_year_tag=True):
             results = []
             for tag in tags:

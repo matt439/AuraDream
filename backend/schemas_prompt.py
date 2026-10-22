@@ -303,6 +303,18 @@ class TagSuggestionResponse(BaseModel):
     detail: str | None = None
 
 
+class TagDescription(TagSuggestion):
+    # The tag's Danbooru wiki, its first sentence: how the finder's reader
+    # tells `ahoge` from a tag whose page only mentions the words.
+    definition: str | None = None
+
+
+class TagDescriptionResponse(BaseModel):
+    available: bool
+    results: list[TagDescription] = Field(default_factory=list)
+    detail: str | None = None
+
+
 # The longest prompt a Check reads (`PromptAnalysisRequest.prompt`), held
 # equal to it by a test: the chips' order slots are Check's order reading.
 TAG_SLOT_PROMPT_MAX = 4000

@@ -167,6 +167,11 @@
              caret it inserts at stays in sight. -->
         <div class="tag-menu" id="tags-menu" role="dialog"
              aria-label="Checkpoint tag helper" hidden></div>
+        <!-- Find tag's dropdown, where the helper hangs and in its style,
+             opened from the suggestion list's last row (tag-finder.js):
+             neither the helper nor the caption has room left for it. -->
+        <div class="tag-menu tag-finder" id="tag-finder" role="dialog"
+             aria-label="Find a tag by what it shows" hidden></div>
         <!-- What a press in the Prompt caption did to the box, said under
              it (tags.js, showPromptNote): an Example or an expansion written
              over a prompt in progress, Reset, each with an Undo; Expand while
@@ -1680,6 +1685,7 @@
 <script src="/static/tags.js"></script>
 <script src="/static/tag-tokens.js"></script>
 <script src="/static/tag-chips.js"></script>
+<script src="/static/tag-finder.js"></script>
 <script src="/static/prompt-examples.js"></script>
 <script src="/static/prompt-expand.js"></script>
 <script src="/static/analysis.js"></script>

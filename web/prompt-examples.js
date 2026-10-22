@@ -16,6 +16,7 @@ const EDIT_PROMPT = /^\s*(turn|change|make|replace|remove|put|give)\b.*\b(this|t
 // inside - Escape, a pick - hands focus back to the button, not to <body>.
 function showExamples(open) {
   if (open && !els.tagsMenu.hidden) showTagHelper(false);
+  if (open && !els.tagFinderMenu.hidden) showTagFinder(false);
   const inside = els.examplesMenu.contains(document.activeElement);
   els.examplesBtn.setAttribute('aria-expanded', String(open));
   els.examplesMenu.hidden = !open;

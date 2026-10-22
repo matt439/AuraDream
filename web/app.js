@@ -149,6 +149,11 @@ document.addEventListener('click', (e) => {
   if (!els.pickedMenu.hidden && !e.target.closest('#picked')) showPickedMenu(false);
   // The helper hangs under the prompt, which takes clicks to move its caret.
   if (!els.tagsMenu.hidden && !e.target.closest('#tag-helper, #tags-menu, #prompt')) showTagHelper(false);
+  // Find tag's inserts go to the prompt's caret too, so a click there keeps
+  // it, and its row in the suggestions opened it - a row the list has
+  // dropped by the time the click reaches here, so no longer in the page.
+  if (!els.tagFinderMenu.hidden && e.target.isConnected
+      && !e.target.closest('#tag-finder, #prompt, #tag-suggestions')) showTagFinder(false);
   // The token line is in the editor (under the box) but no part of typing.
   if (!e.target.closest('.prompt-editor') || e.target === els.promptTokens) hideTagSuggestions();
 });
@@ -605,6 +610,7 @@ document.addEventListener('keydown', (e) => {
   // alone: the helper stays open under the box while its list comes and goes.
   if (e.key === 'Escape' && !e.defaultPrevented && !els.examplesMenu.hidden) { showExamples(false); return; }
   if (e.key === 'Escape' && !e.defaultPrevented && !els.tagsMenu.hidden) { showTagHelper(false); return; }
+  if (e.key === 'Escape' && !e.defaultPrevented && !els.tagFinderMenu.hidden) { showTagFinder(false); return; }
   // Then the prompt check, as its Close does - not under a dialog, whose
   // Escape is its own (the lightbox's below), nor in the middle of a
   // composition, nor in a search box with text, which Escape empties.

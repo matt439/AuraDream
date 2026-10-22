@@ -287,8 +287,14 @@ function selectTagSuggestion(index) {
 
 // The word at the caret replaced by an insert, as typing replaces a
 // selection: one Ctrl+Z takes the suggestion back and leaves what was typed.
-function applyTagSuggestion(suggestion) {
-  const { start, end } = currentTagRange();
+// Find tag's row opens the finder instead, and its first pick comes back
+// here with the range the description was typed in (tag-finder.js).
+function applyTagSuggestion(suggestion, range = currentTagRange()) {
+  if (suggestion.find) {
+    openTagFinderFor(range);
+    return;
+  }
+  const { start, end } = range;
   els.prompt.focus();
   els.prompt.setSelectionRange(start, end);
   const inserted = document.execCommand('insertText', false, suggestion.text);
@@ -306,32 +312,44 @@ function applyTagSuggestion(suggestion) {
   scheduleTagValidation(0);
 }
 
+// The prompt box's list ends, from three typed characters, with Find tag's
+// row: the words as a description rather than a name - "cowlick sticking
+// up" completes to nothing, and `ahoge` is what it describes. It is there
+// when no name matches too, which is when it is wanted; never preselected.
+const TAG_FIND_MIN = 3;
+
 function renderTagSuggestions(items, query = '') {
-  tagSuggestions = items;
+  const typed = query.trim();
+  const rows = typed.length >= TAG_FIND_MIN ? [...items, { find: true, text: typed }] : items;
+  tagSuggestions = rows;
   tagSuggestionIndex = -1;
   els.tagSuggestions.replaceChildren();
   els.prompt.removeAttribute('aria-activedescendant');
-  for (const [index, suggestion] of items.entries()) {
+  for (const [index, suggestion] of rows.entries()) {
     const item = document.createElement('li');
     item.id = `tag-suggestion-${index}`;
     item.setAttribute('role', 'option');
     item.setAttribute('aria-selected', 'false');
     const kind = document.createElement('span');
     kind.className = 'tag-kind';
-    kind.textContent = tagKind(suggestion.category);
+    kind.textContent = suggestion.find ? 'find' : tagKind(suggestion.category);
     const name = document.createElement('span');
     name.className = 'tag-name';
-    name.textContent = suggestion.text;
+    name.textContent = suggestion.find ? `Tags described as “${suggestion.text}”…` : suggestion.text;
     const count = document.createElement('span');
     count.className = 'tag-count';
     count.textContent = suggestion.post_count == null ? '' : humanCount(suggestion.post_count);
     item.append(kind, name, count);
+    if (suggestion.find) {
+      item.classList.add('tag-find');
+      item.title = "Search Danbooru's tag wiki for these words";
+    }
     item.onmousedown = (event) => event.preventDefault();
     item.onclick = () => applyTagSuggestion(suggestion);
     els.tagSuggestions.appendChild(item);
   }
-  els.tagSuggestions.hidden = items.length === 0;
-  els.prompt.setAttribute('aria-expanded', String(items.length > 0));
+  els.tagSuggestions.hidden = rows.length === 0;
+  els.prompt.setAttribute('aria-expanded', String(rows.length > 0));
   if (items.length && preselects(query, items[0])) selectTagSuggestion(0);
 }
 

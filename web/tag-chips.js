@@ -516,6 +516,7 @@ function syncTagVocabulary() {
   tagVocabularyEnabled = tagHelper?.vocabulary === 'danbooru';
   els.prompt.spellcheck = !tagVocabularyEnabled || Boolean(tagHelper?.hybrid_prompt);
   if (!tagVocabularyEnabled) hideTagSuggestions();
+  syncTagFinder();
   scheduleTagValidation(0);
 }
 
@@ -598,7 +599,11 @@ function writePromptTags(parts, caret = null, focusIndex = null) {
   schedulePreview();
   scheduleTagValidation(0);
   persistPanel();
-  if (focusIndex === null && from?.isConnected && els.tagsMenu.contains(from)) from.focus({ preventScroll: true });
+  // A press in the helper or Find tag stays there, so a second press takes
+  // the tag back out rather than typing into the box.
+  if (focusIndex === null && from?.isConnected && (els.tagsMenu.contains(from) || els.tagFinderMenu.contains(from))) {
+    from.focus({ preventScroll: true });
+  }
 }
 
 // Buttons are toggles. Exclusive groups replace an existing person-count or
@@ -751,6 +756,7 @@ function tagHelperNote() {
 }
 
 function syncTagSelection() {
+  syncTagFinderSelection();
   if (!els.tagsMenu || els.tagsMenu.hidden) return;
   const parts = promptTagParts();
   const active = new Set(parts.map((tag) => tag.toLowerCase()));
@@ -930,6 +936,7 @@ function buildTagHelper() {
 // focus back to the button rather than to <body>.
 function showTagHelper(open, { focus = false } = {}) {
   if (open && !els.examplesMenu.hidden) showExamples(false);
+  if (open && !els.tagFinderMenu.hidden) showTagFinder(false);
   const inside = els.tagsMenu.contains(document.activeElement);
   els.tagsBtn.setAttribute('aria-expanded', String(open));
   els.tagsMenu.hidden = !open;

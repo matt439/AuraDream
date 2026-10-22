@@ -31,6 +31,7 @@ const els = {
   promptNoteDiscard: $('prompt-note-discard'),
   promptExpandStop: $('prompt-expand-stop'),
   tagHelper: $('tag-helper'), tagsBtn: $('btn-tags'), tagsMenu: $('tags-menu'),
+  tagFinderMenu: $('tag-finder'),
   tagSuggestions: $('tag-suggestions'), tagValidation: $('tag-validation'),
   tagValidationHome: $('tag-validation-home'), tagValidationWide: $('tag-validation-wide'),
   tagChipsWide: $('tag-chips-wide'),

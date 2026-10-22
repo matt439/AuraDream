@@ -13,7 +13,9 @@
 //   {"key": "1"}                 press a key (single characters and names like "Escape";
 //                                Escape also closes a modal <dialog>, as a real press does;
 //                                with "native": true an ArrowDown/ArrowUp carries its key
-//                                code, so a focused <select> moves as on a real press)
+//                                code, so a focused <select> moves as on a real press, and
+//                                an Enter its code and text, so a form submits and a button
+//                                is pressed)
 //   {"keycombo": ["Control", "Enter"]}   press a key with a modifier held
 //   {"type": "text"}             type text into the focused element
 //   {"wheel": [x, y, deltaY]}    scroll the wheel at a point
@@ -244,6 +246,9 @@ const COMBO_KEYS = {
 const NATIVE_KEYS = {
   ArrowDown: { code: 'ArrowDown', windowsVirtualKeyCode: 40 },
   ArrowUp: { code: 'ArrowUp', windowsVirtualKeyCode: 38 },
+  // A form's own submit on Enter (the Tags helper's finder) needs the key's
+  // text as well as its code.
+  Enter: { code: 'Enter', windowsVirtualKeyCode: 13, text: '\r' },
 };
 
 for (const [n, step] of steps.entries()) {

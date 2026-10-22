@@ -94,7 +94,8 @@ before changing it.
   (`rank_suggestions`: exact match, the query at the start of any word -
   "hair" finds `short hair` - then inside a word or by alias; post count
   within each, 20 at most, the index asked for `*query*`; a guide tag ahead once half of it is typed;
-  a tag of the recommended negative never first unless typed whole) and exact
+  a tag of the recommended negative never first unless typed whole), Find
+  tag's wiki search (`describe`, `wiki_definition`) and exact
   validation with a reason `code` for tag-caption checkpoints; remote failure
   means unchecked, never invalid - except an item longer than any tag
   (`TAG_NAME_MAX`, 200), answered unknown without the index, reachable or
@@ -243,7 +244,7 @@ before changing it.
   per version
 - `backend/reindex.py` — rows rebuilt from the PNGs' `local-diffusion` chunk, in place or
   copied in from another gallery; idempotent on the UNIQUE filename
-- `web/` — served as-is from `/static`; `index.html` loads 47 classic
+- `web/` — served as-is from `/static`; `index.html` loads 48 classic
   scripts in order, sharing one global scope; only `app.js`, the last, runs
   the wiring and boot. `state.js` owns shared state; `generation.js`,
   `grid-preview.js`, `job-stream.js` and `job-results.js` handle submission,
@@ -263,7 +264,8 @@ before changing it.
   upload, preview, submit and Reuse) and `inpaint-mask.js` its canvas, tools, strokes and export
   (`styles/inpaint.css`); `outpaint.js` the Outpaint dialog (the side, band and preset
   controls, the frame, the preview, submit, close and Reuse; `styles/outpaint.css`);
-  `tags.js`, `tag-tokens.js` and `tag-chips.js` the prompt helper; `prompt-examples.js` the
+  `tags.js`, `tag-tokens.js` and `tag-chips.js` the prompt helper, `tag-finder.js` its Find
+  tag dropdown; `prompt-examples.js` the
   Examples menu, `prompt-expand.js` ERNIE's Expand; `analysis.js`,
   `analysis-critic.js` and `comparison.js` the check and critic. `sizes.js`
   and `status.js` retain their control/profile roles; `model-switch.js` owns
@@ -2577,7 +2579,32 @@ Frontend and CLI:
   `els.prompt`, `#tag-suggestions`, the chips or `tagTyping`. The chip
   editor and the dialog share `tagEditorSuggestionTimer` and
   `tagEditorSuggestionEpoch`, which is safe only because the dialog is
-  modal. On a two-column page validation lives above the
+  modal. Find tag: from three typed characters the prompt box's list (not
+  a chip editor's or the dialog's) ends with a `find` row, "Tags described
+  as “…”…", there too when no name matches and never preselected
+  (`renderTagSuggestions`, `TAG_FIND_MIN`). Choosing it
+  (`applyTagSuggestion` sees `find`) opens `#tag-finder` under the prompt,
+  searched, with the typed range kept (`openTagFinderFor`). It is never a
+  section of the Tags helper, which must stay whole at 1400x900, nor a
+  button in the Prompt caption, which has no width left at 1400 px and
+  must stay one line; it, the helper and Examples are one at a time. It
+  asks `GET /api/tags/describe` (`tags.describe`): the Danbooru wiki pages
+  whose text matches the words, ordered by their tag's post count (the
+  index's default is the pages edited last), 100 at most, plus the tag
+  named the words whether or not its page uses them, kept to general tags
+  with posts at the checkpoint's cutoff, that tag first, then by post
+  count, 12 at most, each with its page's first sentence
+  (`wiki_definition`), or null. Offline is `available: false`, said in its
+  status line, never an error. The first result pressed replaces the typed
+  item through `applyTagSuggestion` while that range is still the whole
+  comma item it was (`pickFoundTag`); otherwise, and after, a result is
+  `togglePromptTag`'s, as the helper's tags are. A press keeps focus on the
+  result (`writePromptTags` hands focus back inside the finder too), which
+  shows pressed while in the prompt (`syncTagFinderSelection`, from
+  `syncTagSelection`). Its last search survives closing and is dropped for
+  another `tagHelper`. Its box is `type="text"`: Escape closes the finder,
+  focus back in the prompt. The page's click-outside close ignores a target
+  no longer in the page: the row is gone from the list by then. On a two-column page validation lives above the
   results, not in the panel; under 901 px the same node returns below Prompt.
   The prompt check's panel follows it, in that order. On a two-column page
   each has a `display: contents` host of its own in `.stage`, the chips'
@@ -6347,6 +6374,27 @@ Shift):
 ```powershell
 uv run python tools/fake_server.py --port 7908 --model black-forest-labs/FLUX.1-Krea-dev --data <new-scratch-directory>
 node tools/browser.mjs tools/smoke-context-menu.json
+```
+
+`smoke-tag-finder.json` checks Find tag on an Animagine-claiming fake on
+7909 (the fake's `describe` searches a three-page wiki's text and the name
+typed, as the real one does; "fake offline" is the index unreachable): no
+button and a one-line caption, no finder in the helper, the list's find
+row only from three characters, last, unselected, and alone where no name
+matches, ArrowDown and Enter on it opening the finder under the prompt
+searched with the words in its box, `ahoge` for "stupid hair" with its
+sentence and count, Enter on it (`"native": true`, which also runs a
+form's own submit) replacing the description with focus kept and Enter
+again taking it out, a later press inserting at the caret, a description
+changed meanwhile left whole, an empty search's line, results by count and
+a page with no sentence, the exact name first, nothing found and offline
+each clearing old results, a click in the prompt keeping it open, Escape
+with focus back in the prompt, the row's mouse click opening it, and the
+helper, Examples and a click elsewhere closing it:
+
+```powershell
+uv run python tools/fake_server.py --port 7909 --model cagliostrolab/animagine-xl-4.0
+node tools/browser.mjs tools/smoke-tag-finder.json
 ```
 
 `smoke-analysis.json` checks the prompt check on a FLUX.1 Krea [dev] fake on

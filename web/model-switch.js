@@ -1029,6 +1029,7 @@ function checkpointChanged(previousModel) {
   if (previousModel) {
     showExamples(false);
     showTagHelper(false);
+    showTagFinder(false);
   }
 }
 

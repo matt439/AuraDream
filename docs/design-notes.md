@@ -8041,7 +8041,31 @@ asked for names starting with the query and the list ranked those ahead of a
 later word's, so "hair" listed `hair ornament`, `hair ribbon`, `hairband`
 and never `short hair` or `medium hair` - no way to ask what hair there is.
 It is now asked for the query anywhere (`*hair*`, 20 by post count), and a
-later word ranks with the first. The list calls the guide's own tags
+later word ranks with the first.
+**Find tag** (2026-10-22, user request): a cowlick on top of the head is
+`ahoge`, which no completion of "cowlick" reaches. Danbooru's wiki says
+what each tag shows, so the server searches page text (`body_matches`),
+keeps the general tags with posts at the cutoff - a character's page lists
+the trait among many, which made "cowlick" answer characters - and shows
+each with its page's first sentence, since a page that only mentions the
+words is found too ("looking over shoulder" brings general tags whose
+pages merely use the phrase). Unordered, the index answers the 100
+matching pages edited last, mostly characters: "smile" missed `smile` and
+"long hair" `long_hair`, so the search is ordered by post count, and the
+tag named the words is asked for too (`long_sleeves`'s page never says
+"long sleeves"). Measured live after that: "cowlick" gives `cowlick` then
+`ahoge` (whose page says when to use which), "stupid hair" `ahoge`,
+"smile" `smile`, `closed mouth`, `:d`, "long sleeves" its own tag first.
+Where it opens took three tries. A section at the foot of the Tags helper:
+Animagine's helper already filled a 900 px window with 9 px to spare, so
+the helper scrolled and the finder sat below the fold. A "Find tag" button
+beside Tags: the Prompt caption has no width left at 1400 px, and the
+button wrapped Reset to a second line, moving the panel. It is the last
+row of the suggestion list instead, which costs no room and is there
+exactly when the typed words complete to no tag; the first pick replaces
+those words, as a suggestion would. A local LLM proposing tags was
+considered and set aside: it needs the GPU idle and can invent; the wiki
+is the authors' own words. The list calls the guide's own tags
 `guide`, as the chips do.
 A green chip means a model tag
 or a nonempty Danbooru tag at the cutoff; red means unknown, deprecated,

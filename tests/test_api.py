@@ -384,6 +384,39 @@ def test_suggestions_never_lead_with_the_recommended_negative(client, monkeypatc
     assert gre == ["green eyes", "green hair", "great score"]
 
 
+def test_the_tag_finder_answers_from_the_wiki_and_offline_says_so(client, monkeypatch):
+    helper = {"vocabulary": "danbooru", "vocabulary_cutoff": "2025-01-07", "groups": []}
+    online = True
+
+    class Vocabulary:
+        def describe(self, query, cutoff):
+            assert (query, cutoff) == ("stupid hair", "2025-01-07")
+            if not online:
+                raise TagLookupUnavailable("offline")
+            return [{"text": "ahoge", "canonical": "ahoge", "category": "general",
+                     "post_count": 994_000, "definition": "A single long lock of hair."}]
+
+    monkeypatch.setattr(api_prompt, "tag_helper_config", lambda model_id: helper)
+    monkeypatch.setattr(tag_lookup, "tag_vocabulary", Vocabulary())
+    body = client.get("/api/tags/describe?q=stupid%20hair").json()
+    assert body == {
+        "available": True,
+        "results": [{"text": "ahoge", "canonical": "ahoge", "category": "general",
+                     "post_count": 994_000, "definition": "A single long lock of hair."}],
+        "detail": None,
+    }
+    online = False
+    body = client.get("/api/tags/describe?q=stupid%20hair").json()
+    assert body["available"] is False and body["results"] == [] and "offline" in body["detail"]
+    assert client.get("/api/tags/describe?q=%20").json() == {"available": True, "results": [], "detail": None}
+    assert client.get("/api/tags/describe?q=").status_code == 422
+
+
+def test_the_tag_finder_is_absent_without_a_tag_vocabulary(client):
+    # The default fake is no tag checkpoint: no helper, so no finder.
+    assert client.get("/api/tags/describe?q=hair").status_code == 404
+
+
 def test_tag_specials_allow_a_profile_without_quick_actions():
     helper = {"groups": [{"tags": ["masterpiece"]}]}
     assert tag_lookup.special_tags(helper) == {"masterpiece"}

@@ -15,6 +15,7 @@ from backend.tags import (
     normalize_tag,
     rank_suggestions,
     unchecked_results,
+    wiki_definition,
 )
 from tests.fakes import CutReply
 
@@ -300,3 +301,97 @@ def test_the_chips_prompt_is_what_a_check_reads_and_never_a_refusal():
     # A code point is one character, as pydantic counts the Check's limit.
     emoji = "😀" * TAG_SLOT_PROMPT_MAX
     assert TagValidationRequest(tags=["1girl"], prompt=emoji).prompt == emoji
+
+
+def test_a_description_finds_general_tags_by_their_wiki_with_its_first_sentence():
+    calls = []
+    bodies = {
+        "ahoge": 'Literally "stupid hair", an ahoge is a single long lock of hair. Use [[cowlick]] instead.',
+        "cowlick": "h4. Examples\r\n\r\nAn unruly [[hair|tuft of hair]] that sticks out.",
+    }
+
+    def fetch(path, params):
+        calls.append((path, params))
+        if path == "/wiki_pages.json" and "search[body_matches]" in params:
+            return [{"title": "ahoge"}, {"title": "cowlick"}, {"title": "ahoge"},
+                    {"title": "ahoge_girl_(character)"}, {"title": "new_hair"}]
+        if path == "/tags.json":
+            return [record("ahoge", 994_000), record("cowlick", 11_000),
+                    record("ahoge_girl_(character)", 5_000, category=4),
+                    record("new_hair", 50, created="2026-01-01")]
+        return [{"title": name, "body": body} for name, body in bodies.items()]
+
+    vocabulary = DanbooruTagVocabulary(fetch)
+    results = vocabulary.describe("  Cowlick ", CUTOFF)
+    # The tag named what was typed first, then by count; a character and a
+    # tag past the cutoff are left out.
+    assert [item["canonical"] for item in results] == ["cowlick", "ahoge"]
+    assert results[0]["definition"] == "An unruly tuft of hair that sticks out."
+    assert results[1] == {
+        "text": "ahoge", "canonical": "ahoge", "category": "general", "post_count": 994_000,
+        "definition": 'Literally "stupid hair", an ahoge is a single long lock of hair.',
+    }
+    assert calls[0][1]["search[body_matches]"] == "cowlick"
+    # By post count: unordered, the index answers the pages edited last.
+    assert calls[0][1]["search[order]"] == "post_count"
+    assert calls[1][1]["search[name_comma]"] == "cowlick,ahoge,ahoge_girl_(character),new_hair"
+    assert calls[1][1]["search[category]"] == "0"
+    assert calls[2][1]["search[title_comma]"] == "cowlick,ahoge"
+    assert vocabulary.describe("cowlick", CUTOFF) == results
+    assert len(calls) == 3, "the same description is served from the process cache"
+
+
+def test_a_description_no_wiki_mentions_asks_only_for_the_name_typed():
+    calls = []
+
+    def fetch(path, params):
+        calls.append((path, params))
+        return []
+
+    assert DanbooruTagVocabulary(fetch).describe("zzkx", CUTOFF) == []
+    assert DanbooruTagVocabulary(fetch).describe("   ", CUTOFF) == []
+    assert [path for path, _ in calls] == ["/wiki_pages.json", "/tags.json"]
+    assert calls[1][1]["search[name_comma]"] == "zzkx"
+
+
+def test_the_tag_named_what_was_typed_leads_though_its_page_never_says_it():
+    # `long_sleeves`'s page never uses the phrase, and a common word fills the
+    # 100 pages: the tag is still asked for, and still first.
+    calls = []
+
+    def fetch(path, params):
+        calls.append((path, params))
+        if path == "/wiki_pages.json" and "search[body_matches]" in params:
+            return [{"title": "shirt"}, {"title": "a,b"}]
+        if path == "/tags.json":
+            return [record("shirt", 3_000_000), record("long_sleeves", 2_400_000)]
+        return []
+
+    results = DanbooruTagVocabulary(fetch).describe("long sleeves", CUTOFF)
+    assert [item["canonical"] for item in results] == ["long_sleeves", "shirt"]
+    # A title with a comma would split the list it is sent in.
+    assert calls[1][1]["search[name_comma]"] == "long_sleeves,shirt"
+
+
+def test_a_description_offline_is_unavailable():
+    def fetch(path, params):
+        raise TagLookupUnavailable("offline")
+
+    with pytest.raises(TagLookupUnavailable):
+        DanbooruTagVocabulary(fetch).describe("cowlick", CUTOFF)
+
+
+@pytest.mark.parametrize("body, definition", [
+    ("Sleeves that reach past the wrists.\r\n\r\nSee also [[x]].", "Sleeves that reach past the wrists."),
+    ("[[Kururu (little princess)|]] wears it. More.", "Kururu wears it."),
+    ('A [b]bold[/b] "link":https://example.com word', "A bold link word"),
+    ("h4. Related\r\n\r\n* [[a]]\r\n\r\n!post #1", None),
+    ("", None),
+    # A line break is a space; a block on the next line ends the prose.
+    ("[b]Summer Cup[br]Dead Heat Race![/b]\r\n[quote]A race.[/quote]", "Summer Cup Dead Heat Race!"),
+    # An abbreviation is no sentence's end.
+    ("A cap, e.g. a beret. More.", "A cap, e.g. a beret."),
+    ("word " * 100, ("word " * 100)[:239].rsplit(" ", 1)[0] + "…"),
+])
+def test_a_wiki_body_reads_as_its_first_sentence(body, definition):
+    assert wiki_definition(body) == definition
