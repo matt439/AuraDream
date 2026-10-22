@@ -6660,6 +6660,40 @@ already. It is a per-browser preference (`local-diffusion.sheet.v1`, through
 Starred, not panel state, so Reset leaves it. Its export is the filled sheet's
 (The sheet exports client-side).
 
+**Zoom and pan, past Fill width** (2026-10-22). Fill width gives a matrix
+the width and no more; reading a CFG or steps sweep's detail wanted the
+cells larger still, and the only way to see an image larger was its
+lightbox, one image at a time. The sheet zooms: Ctrl+wheel (a touchpad's
+pinch arrives as one) about the pointer, `+`/`−`/`0`/`1` on a focused cell
+as in the lightbox, and the `−` `+` `1:1` buttons with a readout after Fill
+width, the readout pressed going back to the sheet's own size. A plain
+wheel still scrolls, because the sheet is part of a page that scrolls. The
+zoom is a factor on the cells' width at zoom 1 (`sheetZoomBase`). `fitSheet`
+measures it with the zoom taken off, Fit's `--cell-max` and Fill's `1fr`
+alike, and the zoomed width goes on the grid as both the column's minimum
+and its maximum (`--cell-min`/`--cell-w`), with the box's scroll put back.
+The grid does not scale about one point, because the heads keep their size
+as the cells grow, so the anchor is the cell under the pointer (the nearest
+cell over a gap or a head) and the point's place in it. The range runs from
+1 to four screen pixels per image pixel (400%), and the readout says the image's
+pixels to the screen's as the lightbox does (`fit · 33%`, `1:1`, `250%`).
+**A zoomed cell shows its PNG outright** (`sizeSheetImages` drops the
+`srcset` for `data-full`), not whatever `srcset` picks: the thumbnail is a
+lossy 384 px WEBP, and detail is the reason to zoom. Lazy loading still
+fetches only the cells in view. A drag pans the box wherever it overflows,
+zoomed or filled past the window. A press that moves less than 4 px is
+still a click and opens the cell's lightbox; a drag's release is not a
+click (a capturing listener on the box). Buttons, selects and touch, which
+scrolls by itself, are left alone, and the image's native drag is
+cancelled while the box can pan. Every sheet opens at zoom 1 (`setSheet`),
+and a redraw of the same sheet keeps the zoom and the pan:
+`drawSheet` reads the box's scroll before emptying the grid, because the
+layout of an empty grid clamped it to the first cell at every job's image.
+A new base, Fill width's or a resized window's, keeps the cells' drawn
+width rather than the factor, so the picture does not jump in scale. A wrapped row is not zoomed:
+the buttons are held with the reason, as Fill width is. The export draws
+the unzoomed cells.
+
 **A long single row wraps.** With no row axis and more columns than fit at
 96 px - a seeds-only run, which every Batch or Repeat over 1 is - the cells lay
 out like the gallery (`minmax(var(--thumb-min), 1fr)`), each captioned with

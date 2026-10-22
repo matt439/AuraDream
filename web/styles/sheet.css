@@ -58,6 +58,16 @@
   --cell-w: var(--cell-max);
 }
 .sheet.fill-width .sheet-grid { --cell-w: 1fr; }
+/* Zoom (sheet.js): its buttons one group, the readout last at a fixed width
+   so nothing after it moves as its words change. Zoomed, the box is a pan
+   surface - a press that never moves is still a cell's click - and while a
+   drag pans nothing in it is selected. */
+.sheet-zoom { display: inline-flex; align-items: center; gap: var(--sp-1); }
+.sheet-zoom .sheet-zoom-level {
+  min-width: calc(11ch + 16px); font-variant-numeric: tabular-nums; text-align: center;
+}
+.sheet.zoomed .sheet-scroll, .sheet.zoomed .sheet-cell img { cursor: grab; }
+.sheet-scroll.panning, .sheet-scroll.panning * { cursor: grabbing; user-select: none; }
 /* A matrix's rows, for a screen reader's table (role=row, renderSheet): no
    box of their own, so the heads and cells are still the grid's items and
    the heads stick as they did. */

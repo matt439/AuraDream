@@ -46,7 +46,7 @@ function exportLayout() {
   const fill = sheetFill() && !sheetLayout.wrap;
   return {
     ...sheetLayout, axes: sheetAxesList, words: sheetWords(), search: els.search.value.trim(),
-    shown: fill ? sheetCellWidth() : 0, dpr: window.devicePixelRatio || 1,
+    shown: fill ? sheetCellWidth() / sheetZoom : 0, dpr: window.devicePixelRatio || 1,
   };
 }
 

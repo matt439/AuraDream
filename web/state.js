@@ -130,6 +130,7 @@ const els = {
   bundleScopeStarred: $('bundle-scope-starred'), bundleScopeHint: $('bundle-scope-hint'),
   sheet: $('sheet'), sheetControls: $('sheet-controls'),
   sheetFixed: $('sheet-fixed'), sheetGrid: $('sheet-grid'), sheetNote: $('sheet-note'), sheetSaid: $('sheet-said'),
+  sheetZoomSaid: $('sheet-zoom-said'),
   runHint: $('run-hint'),
   lastRun: $('last-run'), lastRunText: $('last-run-text'),
   lastRunShow: $('last-run-show'), lastRunMore: $('last-run-more'), lastRunResume: $('last-run-resume'), lastRunDismiss: $('last-run-dismiss'),

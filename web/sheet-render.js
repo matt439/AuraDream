@@ -226,6 +226,10 @@ function openCfgSwipe(button) {
 }
 
 function drawSheet() {
+  // Where the box and the page were scrolled, for fitSheet to put back:
+  // emptying the grid, below, lets a layout clamp both - a zoomed sheet
+  // panned to its far corner went back to the first cell at every redraw.
+  const scrolled = sheetScrolled();
   sheetRecords = galleryRecords;
   sheetAxesList = axesFor(sheetRecords);
   const current = (held) => (held && held.epoch === galleryEpoch ? held : null);
@@ -254,7 +258,7 @@ function drawSheet() {
     labelled('Rows', picker(axisOptions, sheetAxes.rows ?? '', (key) => setAxis('rows', key))),
   );
   if (sheetRecords.length) {
-    els.sheetControls.append(fillButton(), exportButtonFor(
+    els.sheetControls.append(fillButton(), zoomControls(), exportButtonFor(
       'Export PNG', 'Download this sheet as one image, labels and caption included', exportSheet,
     ));
     // Every slice the pins hold, where something is pinned.
@@ -293,7 +297,7 @@ function drawSheet() {
   if (sheetRecords.length) {
     const hint = document.createElement('span');
     hint.className = 'sheet-hint';
-    hint.textContent = 'F stars the image in focus';
+    hint.textContent = 'F stars the image in focus · Ctrl+wheel zooms, drag pans';
     els.sheetControls.append(hint);
   }
   // What the run is, after every button: its count changes while a job
@@ -373,10 +377,11 @@ function drawSheet() {
   const fill = els.sheetControls.querySelector('.sheet-fill');
   if (fill) syncFillButton(fill);
   // A matrix's columns are at most --cell-w wide: --cell-max, fitted, or 1fr
-  // where the sheet fills (style.css).
+  // where the sheet fills (style.css); zoomed, exactly the zoomed width
+  // (applySheetZoom sets both on the grid).
   els.sheetGrid.style.gridTemplateColumns = wrap
     ? 'repeat(auto-fill, minmax(var(--thumb-min), 1fr))'
-    : `auto repeat(${columns}, minmax(${SHEET_CELL_MIN}px, var(--cell-w)))`;
+    : `auto repeat(${columns}, minmax(var(--cell-min, ${SHEET_CELL_MIN}px), var(--cell-w)))`;
 
   const shown = [];
   // What the lightbox walks from a cell: the sheet in reading order, after the
@@ -417,7 +422,10 @@ function drawSheet() {
     if (rec.thumb_url && rec.width > thumbWidth) {
       img.srcset = `${rec.thumb_url} ${thumbWidth}w, ${rec.url} ${rec.width}w`;
     }
-    img.setAttribute('aria-keyshortcuts', 'ArrowLeft ArrowRight ArrowUp ArrowDown Home End Control+Home Control+End F');
+    // What a zoomed sheet shows instead (sizeSheetImages).
+    img.dataset.full = rec.url;
+    img.setAttribute('aria-keyshortcuts',
+      'ArrowLeft ArrowRight ArrowUp ArrowDown Home End Control+Home Control+End F Plus - 0 1');
     const star = document.createElement('button');
     star.type = 'button';
     star.className = 'star fav-badge';
@@ -553,7 +561,7 @@ function drawSheet() {
     (sourceId !== null && sheetSources.get(sourceId) === null ? ` · source #${sourceId} (deleted)` : '') +
     (ownSeeds(values, sheetRecords) ? ` · ${OWN_SEEDS}` : '') +
     (notice ? ` · ${notice.text}` : '');
-  fitSheet();
+  fitSheet(scrolled);
 }
 
 // The tallest a matrix's cells may be: the window, less what sits above the
@@ -568,11 +576,20 @@ function drawSheet() {
 // The heads' row and the row heads' column (the corner is as wide) are also
 // the box's scroll padding: a cell focused from the keyboard is scrolled
 // clear of the heads stuck over it, where it lined up with the box's edge and
-// the heads hid its top and its focus ring. Then each image's `sizes`, the
-// width its cell is drawn at, fitted or filled - the cells of a sheet are one
-// width - which picks the thumbnail or the PNG.
-function fitSheet() {
+// the heads hid its top and its focus ring. All of it is measured with the
+// zoom taken off, the cells' width then being the zoom's base
+// (sheetZoomBase); the zoom goes back on at the cells' drawn width - a new
+// base, Fill width's or a resized window's, changes the factor rather than
+// the picture's scale - clamped to what the new base allows. The box's
+// scroll, and the page's where the zoom's absence shortened the page under
+// it, go back where they were (`scrolled`, drawSheet's, from before it
+// emptied the grid). Then each image's `sizes` (sizeSheetImages).
+function fitSheet(scrolled = sheetScrolled()) {
   const scroller = els.sheetGrid.parentElement;
+  const zoom = sheetZoom;
+  const drawn = sheetZoomBase * sheetZoom;
+  sheetZoom = 1;
+  applySheetZoom();
   if (!els.sheet.classList.contains('wrapped')) {
     const head = document.querySelector('.gallery-head');
     const box = scroller.getBoundingClientRect();
@@ -586,10 +603,20 @@ function fitSheet() {
   const row = Math.max(0, ...heads.map((h) => h.getBoundingClientRect().height));
   els.sheet.style.setProperty('--sheet-head', `${Math.ceil(row)}px`);
   els.sheet.style.setProperty('--sheet-rowhead', `${Math.ceil(heads[0]?.getBoundingClientRect().width ?? 0)}px`);
-  const width = sheetCellWidth();
-  if (!width) return;
-  const sizes = `${Math.ceil(width)}px`;
-  for (const img of els.sheetGrid.querySelectorAll('img[srcset]')) img.sizes = sizes;
+  sheetZoomBase = sheetLayout && !sheetLayout.wrap ? sheetCellWidth() : 0;
+  const factor = zoom > 1 && drawn > 0 && sheetZoomBase > 0 ? drawn / sheetZoomBase : 1;
+  sheetZoom = sheetZoomable() ? Math.min(Math.max(1, factor), sheetZoomMax()) : 1;
+  applySheetZoom();
+  scroller.scrollLeft = scrolled.left;
+  scroller.scrollTop = scrolled.top;
+  if (scrollY < scrolled.page) scrollTo({ top: scrolled.page, behavior: 'instant' });
+  sizeSheetImages();
+  syncZoomControls();
+}
+
+function sheetScrolled() {
+  const box = els.sheetGrid.parentElement;
+  return { left: box.scrollLeft, top: box.scrollTop, page: scrollY };
 }
 
 // The width a cell is drawn at, fitted or filled - the cells of a sheet are
@@ -626,6 +653,12 @@ async function sheetKey(e) {
     if (!rec) return;
     e.preventDefault();
     await starCell(cell, rec, { say: true });
+    return;
+  }
+  // The zoom keys, the lightbox's; Ctrl with them is the browser's page zoom.
+  if (!e.ctrlKey && ['+', '=', '-', '_', '0', '1'].includes(e.key)) {
+    e.preventDefault();
+    sheetZoomKey(e.key, cell);
     return;
   }
   if (e.target.tagName !== 'IMG' || (e.ctrlKey && e.key !== 'Home' && e.key !== 'End')) return;
@@ -722,6 +755,11 @@ function toggleSheet() {
 // (focusSheet). Every sheet opened is said (saySheet).
 function setSheet(on, { land = false, asker = null } = {}) {
   sheetMode = on;
+  // Every sheet opens at its own size (sheet.js's zoom), said afresh.
+  sheetZoom = 1;
+  sheetZoomBase = 0;
+  applySheetZoom();
+  els.sheetZoomSaid.textContent = '';
   if (on && besideOn) land = true;
   syncBeside();
   els.sheetBtn.classList.toggle('active', on);

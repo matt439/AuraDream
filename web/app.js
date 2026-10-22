@@ -298,6 +298,18 @@ els.sheetGrid.addEventListener('keydown', (e) => { void sheetKey(e); });
 els.sheetGrid.addEventListener('focusin', sheetFocus);
 // The sheet's fit is measured against the window, so it follows a resize.
 window.addEventListener('resize', refitSheet);
+// The sheet's zoom and pan (sheet.js): Ctrl+wheel non-passive, so the page
+// does not zoom with it; a drag's release no click, caught on the way down.
+{
+  const box = els.sheetGrid.parentElement;
+  box.addEventListener('wheel', sheetWheel, { passive: false });
+  box.addEventListener('pointerdown', sheetPointerDown);
+  box.addEventListener('pointermove', sheetPointerMove);
+  box.addEventListener('pointerup', sheetPointerUp);
+  box.addEventListener('pointercancel', sheetPointerCancel);
+  box.addEventListener('click', sheetClickAfterPan, true);
+  box.addEventListener('dragstart', sheetDragStart);
+}
 els.rerender.onclick = rerenderSelection;
 els.deleteUnstarred.onclick = deleteUnstarred;
 // Re-render and Delete unstarred come and go once the pointer is off the

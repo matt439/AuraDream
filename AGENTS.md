@@ -341,6 +341,7 @@ node tools/browser.mjs tools/<smoke>.json
 | 7907 | animagine-xl-4.0, fresh scratch `--data` | `smoke-outpaint` |
 | 7908 | FLUX.1-Krea-dev, fresh scratch `--data` | `smoke-context-menu` |
 | 7909 | animagine-xl-4.0 | `smoke-tag-finder` |
+| 7910 | FLUX.1-Krea-dev, fresh scratch `--data` | `smoke-sheet-zoom` |
 
 FLUX.1-Krea-dev is `black-forest-labs/FLUX.1-Krea-dev`; animagine is
 `cagliostrolab/animagine-xl-4.0`.

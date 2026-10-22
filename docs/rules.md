@@ -4319,7 +4319,23 @@ Frontend and CLI:
   toggle keeps one name, with its state in `aria-pressed` and its title; it
   is remembered under `local-diffusion.sheet.v1` through
   `remembered`/`remember`, is not forgotten by Reset, and is aria-disabled
-  with its reason on a wrapped row. Its heads stick inside `.sheet-scroll`, whose scroll
+  with its reason on a wrapped row. A matrix zooms (sheet.js:
+  `sheetZoom` times `sheetZoomBase`, the cells' width at zoom 1 that
+  `fitSheet` measures with the zoom off, set on the grid as `--cell-min`
+  and `--cell-w`, the box's scroll restored), from 1 to `SHEET_ZOOM_MAX`
+  screen pixels per image pixel (400%), by Ctrl+wheel about the pointer (anchored
+  to the nearest cell), `+`/`−`/`0`/`1` on a focused cell, and the `−` `+`
+  `1:1` buttons with a readout that goes back to zoom 1 when pressed; the
+  buttons are held with a reason where they would do nothing, a wrapped row
+  included. Zoomed, every cell's image is its PNG (`data-full`, the srcset
+  dropped), never the thumbnail. A left-button drag (not a touch, a button
+  or a select) pans `.sheet-scroll` wherever it overflows; under 4 px it
+  is a click, and a pan's release never opens the lightbox. Every sheet
+  opens at zoom 1; a redraw keeps the zoom and the box's pan
+  (`sheetScrolled`, taken by drawSheet before it empties the grid), and a
+  new base (Fill width, a resize) keeps the cells' drawn width; the zoom is said in
+  `#sheet-zoom-said`, a wheel's once its burst ends; the export ignores
+  it. Its heads stick inside `.sheet-scroll`, whose scroll
   padding is the measured head row and row-head column (`--sheet-head`,
   `--sheet-rowhead` on `.sheet`) so a keyboard-focused cell is never under
   them. `refitSheet` (debounced, on the window's resize) measures again and
@@ -5710,6 +5726,29 @@ uv run python tools/fake_server.py --port 7880 --model black-forest-labs/FLUX.1-
 node tools/browser.mjs tools/smoke-sheet.json
 uv run python tools/fake_server.py --port 7886 --model black-forest-labs/FLUX.2-klein-4B
 node tools/browser.mjs tools/smoke-sheet-klein.json
+```
+
+`smoke-sheet-zoom.json` checks the sheet's zoom and pan at 1400x900 on a
+FLUX.1 Krea [dev] fake on 7910 with a fresh scratch `--data` of its own: a
+1024 px steps x CFG 4 x 3, the zoom group after Fill width (− + 1:1 and the
+readout, − and the readout held at zoom 1 with the reason, a press saying it
+under the gallery head), + growing the cells by `ZOOM_STEP` with the box
+scrolling and the button not moving, every zoomed cell in the box's view
+showing its full PNG (`src` the record's `url`, no `srcset`, the decoded
+bitmap 1024 px - `naturalWidth` is no measure, Chrome keeping the density
+of the srcset pick the swap replaced) and keeping it zoomed back out, the
+heads stuck, Ctrl+wheel zooming about the pointer (the point under it kept
+within 3 px) and a plain wheel not, a real mouse drag panning the box by
+the drag with no lightbox while a click and a press moving under 4 px open
+it, the keys 1 + - 0 on a focused cell and a held key saying why, the zoom
+kept across `renderSheet()` and back to 1 on Sheet off and on, Fill width
+as the zoom's base with the export at the unzoomed width, a wrapped
+seeds-only row holding every zoom button with its reason; and at 2560x1305
+1:1 drawing each image at its own pixels and the zoom stopping at 400%:
+
+```powershell
+uv run python tools/fake_server.py --port 7910 --model black-forest-labs/FLUX.1-Krea-dev --data <fresh scratch dir>
+node tools/browser.mjs tools/smoke-sheet-zoom.json
 ```
 
 `smoke-delete.json` checks deletes taken to completion on a FLUX.1 Krea
