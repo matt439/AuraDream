@@ -43,11 +43,18 @@ def test_custom_checkpoint_has_no_invented_speed_or_default_step_advice():
 def test_anima_releases_keep_their_own_measurements():
     turbo = model_info.details_for("circlestone-labs/Anima")
     aesthetic = model_info.details_for("circlestone-labs/Anima@aesthetic-v1.1")
+    preview = model_info.details_for("Gazingstars123/Anima-2.9B")
     assert turbo["speed_label"] == "Fast"
     assert "5.68 / 4.40 s" in turbo["speed_note"]
     assert aesthetic["speed_label"] == "Medium"
     assert "23.229 / 22.582 s" in aesthetic["speed_note"]
     assert "CPU test suite" in aesthetic["speed_note"]
+    assert preview["speed_label"] == "Medium"
+    assert preview["speed_basis"] == "Measured"
+    assert "32.037 / 31.203 s" in preview["speed_note"]
+    assert "30 steps, CFG 4" in preview["speed_note"]
+    assert "Includes previews" in preview["speed_note"]
+    assert "other project CPU work" in preview["speed_note"]
 
 
 def test_first_run_busy_samples_get_no_speed_category():

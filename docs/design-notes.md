@@ -803,13 +803,17 @@ side must be adjusted. The separately mentioned 1536-square (2.36 MP) stays
 labelled "iffy", outside the highlighted recommended span.
 
 The picker retains a verified 7,302,999,907-byte source inventory (about
-7.3 GB including shared components). No converted output sizes have been
-measured: cached source checks remain usable, while an unverified converted
-tree alone cannot prove that all required files are on disk. HTTP checks
+7.3 GB including shared components). On 2026-10-24 the serialized component
+tree was measured at 7,302,999,428 bytes across 16 files, including its
+conversion marker, and its file/index inventory was retained for cache checks.
+HTTP checks
 keep the public id in gallery scope, Resume and PNG metadata; the preview's
-browser smoke checks its controls, guide and saved settings. Real loading,
-VRAM, timing, repeatability and visual quality remain unmeasured and are
-tracked in `verified.md` and `TODO.md`'s `CARD#6`.
+browser smoke checks its controls, guide and saved settings. Real FP8/model
+offload renders, previews and saved metadata passed on the RTX 5080 at
+1024x1024 and 1152x1536. Cancellation and same-seed repeatability also passed
+at 1024x1024. The inspected samples, timings and explicitly approved RAM limits are recorded in
+`verified.md`; they do not establish a quality advantage or other loading
+modes, batch sizes or resolutions.
 
 Automated validation on 2026-10-24: the full suite passed 3,474 tests and
 skipped four, exposing one Tags-menu source-agreement failure. After adding

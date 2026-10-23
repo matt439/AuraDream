@@ -97,6 +97,11 @@ _SAMPLES: dict[str, tuple[Sample, ...]] = {
         Sample(23.229, "~23 s · 1 MP", 30, "2026-10-07", "23.229 / 22.582 s", guidance="CFG 4",
                caveat=_AFTER_CANCEL + " Includes previews; the CPU test suite ran during these samples."),
     ),
+    "Gazingstars123/Anima-2.9B": (
+        Sample(32.037072, "~32 s · 1 MP", 30, "2026-10-24", "32.037 / 31.203 s", guidance="CFG 4",
+               caveat=_AFTER_CANCEL + " Includes previews; other project CPU work remained active. "
+               "Runtime smoke samples, not a controlled benchmark."),
+    ),
     "duongve/NetaYume-Lumina-Image-2.0": (
         Sample(38.74, "~39 s · 1 MP", 40, "2026-09-26", "38.46 / 38.74 s", guidance="CFG 5",
                caveat=_AFTER_CANCEL),

@@ -11,12 +11,11 @@ slows two to three times (schnell's 2 MP read 35-45 s that way and 25 s at a
 
 ## Checkpoints
 
-Anima 2.9B Preview v1 was added on 2026-10-24 from the author's pinned
+Anima 2.9B Preview v1 was verified on 2026-10-24 from the author's pinned
 [`Gazingstars123/Anima-2.9B`](https://huggingface.co/Gazingstars123/Anima-2.9B)
-release. Loader, HTTP and fake-browser checks do not establish GPU fit,
-generation quality, cancellation latency, repeatability or timing. This
-selection has not been loaded or measured on the card; Turbo and Aesthetic
-measurements below do not apply to its expanded 40-layer transformer.
+release, using Windows FP8, model offload, batch 1, 30 steps and CFG 4.
+Its expanded 40-layer transformer was measured separately from Turbo and
+Aesthetic; the qualification and its memory limits are recorded below.
 
 | Checkpoint | Quantization | Size | Steps | Time | Peak | Date |
 | --- | --- | --- | --- | --- | --- | --- |
@@ -64,11 +63,67 @@ measurements below do not apply to its expanded 40-layer transformer.
 | Z-Image (undistilled), CFG 5 | fp8, Windows | 1024x1024 | 50 | 102.5 s, the first of a process; 1.8 s a step | 6.77 / 8.44 GiB; 10,885 MiB whole-card | 2026-10-05 |
 | RouWei 0.8 epsilon, CFG 6 | fp8, Windows | 1024x1024 | 28 | 7.638 s after cancellation; 7.882 s repeat | 3.686 GiB allocated, 4.371 GiB reserved (maximum of the pair) | 2026-10-07 |
 | Anima Aesthetic v1.1, CFG 4 | fp8, Windows | 1024x1024 | 30 | 23.229 s after cancellation; 22.582 s repeat | 2.173 GiB allocated, 2.338 GiB reserved | 2026-10-07 |
+| Anima 2.9B Preview v1, CFG 4 | fp8, Windows | 1024x1024 | 30 | 32.037 s after cancellation; 31.203 s repeat | 2.958 GiB allocated, 3.123 GiB reserved | 2026-10-24 |
+| Anima 2.9B Preview v1, CFG 4 | fp8, Windows | 1152x1536 | 30 | 58.779 s, one sample | 3.051 GiB allocated, 3.482 GiB reserved | 2026-10-24 |
 | NoobAI-XL V-pred 1.0, CFG 5 | fp8, Windows | 1024x1024 | 28 | 8.078 s after cancellation; 8.490 s repeat | 3.686 GiB allocated, 4.371 GiB reserved (maximum of the pair) | 2026-10-07 |
 
 The October 5 rows were each the source of a refine ladder ("Past 4 MP",
 below), with another project's processes keeping the CPU near 75% busy:
 their times are upper bounds.
+
+Anima 2.9B Preview v1's source file matched its pinned SHA-256,
+`0b3020d1b906155f7eb30667622723e87160632c8c7a5f1c93bdce685f2a346d`.
+Download and hashing took 80.387 seconds. With the official shared components
+already cached, CPU conversion and the first load took 18.494 seconds;
+the successful qualification's subsequent cached load took 9.013 seconds.
+The actual `AnimaPreviewPipeline` had 40 transformer layers and
+`FlowMatchEulerDiscreteScheduler` shift 3. Loading went through
+`main.ensure_loaded`; synchronous renders then used the normal backend and
+storage paths, without an HTTP server or the production gallery.
+
+Seed 12345 rendered an adult auburn-haired botanist in a navy coat with a
+brown satchel, holding blue flowers inside a glass greenhouse with warm
+lanterns. The prompt mixed tags with two descriptive sentences; the negative
+was `blurry, jpeg artifacts`. Visual inspection of both measured sizes and
+their last preview found coherent illustrations with the requested scene
+elements. These are functional smoke samples, not a quality comparison with
+other checkpoints or a reproduction of the author's ComfyUI sampling recipe.
+
+Cancellation stopped the first call at completed step 2 (11.380 seconds for
+the whole call, including its initial encoding). The next two 1024-square
+calls completed all 30 steps and had identical pixels, SHA-256
+`f3cc7421b157ed817a5898999ce1c18b8530e205710296a7b34987016eb0cbb2`.
+The 1152x1536 call completed all 30 steps, SHA-256
+`67d309cfe570a28f60e52f7f757400c4f9a07f26e1cb67e4e0f6c9521a11584c`.
+Every complete render produced 22 live previews, at steps 8 through 29.
+SQLite rows and PNG chunks retained the public id, FP8, seed, size, prompt
+pair, 30 steps, CFG/True CFG 4 and null Mu. Times include previews and exclude
+load and PNG saving; allocator peaks exclude desktop/driver memory. Other
+project CPU work remained active, so the times are individual smoke samples.
+
+The first two attempts were deliberately stopped before denoising when the
+test process tree exceeded the initial 14 GiB private-memory ceiling. After
+Matt approved an 18 GiB private / 16 GiB working-set ceiling, the successful
+run peaked at 14.431 GiB private memory and 11.400 GiB working set. Free
+system RAM stayed above 19.632 GiB; total system commit rose by at most
+15.420 GiB over the run's baseline. The independent watchdog also required
+at least 12 GiB free RAM and commit headroom, at most a 28 GiB total commit
+increase, and at least 1 GiB free VRAM. Whole-card VRAM peaked at 5,604 MiB
+against a 1,602 MiB desktop baseline. All approved limits held, the harness
+reported `passed: true` and `unloaded: true`, and the watchdog exited 0.
+
+Evidence is in `%TEMP%/local-diffusion-anima-preview-20261024/`:
+`qualify.py`, `supervise.ps1`, `gpu-results-large.json`, `gpu.log`, `gpu.err`,
+`baseline.json`, `memory.jsonl`, `watchdog.json`, `converted-inventory.json`,
+the separate `gpu.db`, previews and `outputs/` PNGs. The two stopped attempts
+are retained in `first-load-ram-stop/` and `cached-load-ram-stop/`.
+Other sizes, batch scaling, INT8/BF16 and sequential offload remain
+unmeasured. Mu, references, user LoRAs, Refine, inpaint and Nunchaku remain
+unavailable in this integration.
+The measurement/cache-fact updates passed 69 focused Python tests
+(`test_model_info`, `test_model_benchmarks`, `test_model_downloads` and
+`test_docs_maps`) and all 18 expectations in `smoke-anima-preview.json`
+against a fresh fake gallery. The full Python suite was not rerun.
 
 NoobAI-XL V-pred 1.0 was verified on 2026-10-07 with Windows FP8, model
 offload, batch 1 and seed 12345. The pinned official Diffusers tree loaded

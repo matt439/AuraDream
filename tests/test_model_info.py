@@ -82,15 +82,16 @@ def test_anima_releases_keep_separate_favourites_but_link_to_the_real_repo():
     assert "Only a 1.05 MP square" in aesthetic["megapixels_note"]
 
 
-def test_anima_preview_keeps_its_own_recommendations_and_unmeasured_speed():
+def test_anima_preview_keeps_its_own_recommendations_and_measured_sizes():
     preview = model_info.details_for("Gazingstars123/Anima-2.9B")
     assert preview["favourite_id"] == "Gazingstars123/Anima-2.9B"
     assert preview["url"] == "https://huggingface.co/Gazingstars123/Anima-2.9B"
     assert preview["megapixels_label"] == "Max recommended"
     assert preview["megapixels"] == "1.77 MP"
     assert "1536-square" in preview["megapixels_note"] and "iffy" in preview["megapixels_note"]
-    assert "not been measured locally" in preview["megapixels_note"]
-    assert preview["refine"] == "No" and preview["speed_label"] == "Unmeasured"
+    assert "1024×1024 and 1152×1536" in preview["megapixels_note"]
+    assert "other sizes and loading settings remain unmeasured" in preview["megapixels_note"]
+    assert preview["refine"] == "No"
 
 
 @pytest.mark.parametrize("model_id", [

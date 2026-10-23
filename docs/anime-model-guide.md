@@ -1,8 +1,7 @@
 # Choosing an anime model
 
 Checked against this app's catalogue, profiles and recorded GPU checks on
-2026-10-24. Covers the twelve dedicated anime checkpoints in the startup menu;
-Anima 2.9B Preview v1 has not been measured on the card.
+2026-10-24. Covers the twelve dedicated anime checkpoints in the startup menu.
 
 For a quick decision: **Anima Turbo for speed, WAI for a tuned anime look,
 RouWei for hybrid prompts and broad character/style knowledge, Illustrious
@@ -15,7 +14,7 @@ multiple characters.**
 | --- | --- | --- | --- |
 | Quickly explore ideas and try several variations | **[Anima Turbo v1.1](https://huggingface.co/circlestone-labs/Anima)** | The fastest in the local recorded samples. Distillation gives it a stronger, more consistent default style, with less diversity than Anima Base. It also handles illustrations beyond anime. | Tags, prose, or both. For pure prose, describe the image in at least two sentences. |
 | Try Anima's aesthetic fine-tune with full guidance | **[Anima Aesthetic v1.1](https://huggingface.co/circlestone-labs/Anima)** | The authors describe a fine-tune for consistency and a stronger default art style. It uses more steps and CFG than Turbo; local samples are not a quality comparison. | Tags, prose, or both. Quality tags are optional; omit `score_*` from both positive and negative prompts. |
-| Try the community-expanded Anima preview | **[Anima 2.9B Preview v1](https://huggingface.co/Gazingstars123/Anima-2.9B)** | Expands the transformer from 28 to 40 layers; locally unmeasured, with no established speed or quality advantage. | Detailed tags, prose, or both. Use `@` artist names and pair named characters with their series; score captions were absent in training, but the author permits their use. |
+| Try the community-expanded Anima preview | **[Anima 2.9B Preview v1](https://huggingface.co/Gazingstars123/Anima-2.9B)** | Expands the transformer from 28 to 40 layers; local runtime checks passed, with no established quality advantage. | Detailed tags, prose, or both. Use `@` artist names and pair named characters with their series; score captions were absent in training, but the author permits their use. |
 | An everyday anime illustration with a tuned default look | **[WAI Illustrious v17](https://tensor.art/models/990778216270553015/WAI-illustrious-v17)** | A separately tuned anime aesthetic. Its author emphasizes smoother colouring and cleaner subject/background rendering. A useful starting point when you like its default look. | Primarily tags, with prose support. Finish with `masterpiece, best quality, amazing quality`. |
 | Combine familiar anime tags with a concise scene description | **[RouWei 0.8 epsilon](https://huggingface.co/Minthy/RouWei-0.8)** | An Illustrious retrain aimed at prompt adherence and broad character/style knowledge, with an April 2025 dataset cutoff. The author's claims have not been compared locally. | Tags, prose, or both; spaces instead of underscores. Prefix artists with `by ` and put them last in this app. |
 | Explore NoobAI's V-prediction release with familiar anime tags | **[NoobAI-XL V-pred 1.0](https://huggingface.co/Laxhar/noobai-XL-Vpred-1.0)** | An SDXL model trained with Danbooru and e621 captions. The app applies its required V-prediction Euler recipe. | Tags, prose, or both. Examples includes the author's complete graphite-style character prompt. Keep the full prompt within the short CLIP limit. |
@@ -54,7 +53,7 @@ differently is identified.
 | --- | --- | --- |
 | **Anima Turbo** | **About 0.26-2.36 MP documented** | The **1, 1.5 and 2 MP** presets fit the documented area span. Measured locally up to **2.07 MP**, square, portrait and landscape: coherent at each, under 4.4 GB of card, 15.7 s at 2 MP (one prompt and seed). |
 | **Anima Aesthetic** | **About 0.26-2.36 MP documented** | The same family guidance covers the **1, 1.5 and 2 MP** tiers. Measured locally up to **2.07 MP**, square, portrait and landscape: coherent at each, 55 s at 2 MP (one prompt and seed). |
-| **Anima 2.9B Preview** | **About 0.99-1.77 MP recommended** | The author lists 812x1216 and 1152x1536; adjust the 812 side to this app's 16-pixel grid. The **1 and 1.5 MP** tiers fit that area span. The separately listed 1536-square (**2.36 MP**) is labelled "iffy". No size has been measured locally for this preview. |
+| **Anima 2.9B Preview** | **About 0.99-1.77 MP recommended** | The author lists 812x1216 and 1152x1536; adjust the 812 side to this app's 16-pixel grid. The **1 and 1.5 MP** tiers fit that area span. The separately listed 1536-square (**2.36 MP**) is labelled "iffy". Windows FP8/model-offload checks rendered 1024x1024 and 1152x1536; other sizes and loading settings remain unmeasured. |
 | **WAI** | **1.05-1.38 MP reference area**; **no published maximum** | Reference sizes include a portrait. This is an example span, not an established operating range for every aspect ratio. Showcase images also use a separate 1.5x hires refinement pass; the app's **Refine** pass (below) is the nearest it has, with a plain resize in place of the author's upscaling model. |
 | **RouWei** | **About 1-1.5 MP recommended** | The author allows any aspect ratio with dimensions divisible by 64. Start at 1024 x 1024; app presets are multiples of 16, so not every preset follows that recommendation exactly. Refine is a separate pass with a plain resize; it does not reproduce the author's latent or GAN upscaling recipe. |
 | **NoobAI V-pred** | **About 1 MP recommended**; author-listed shapes are **1.01-1.05 MP** | The card lists seven square, portrait and landscape sizes, with 832 x 1216 emphasized. The app highlights those framings. Larger presets are available, but the author does not establish a larger native operating range. |
@@ -109,7 +108,7 @@ models and this Anima integration disable Mu.
 | --- | ---: | ---: | --- | --- |
 | Anima Turbo v1.1 | 8 | 1 | About 4-6 seconds | 1.05 MP, square |
 | Anima Aesthetic v1.1 | 30 | 4 | About 23 seconds | 1.05 MP, square |
-| Anima 2.9B Preview v1 | 30 | 4 | Unmeasured | No local sample |
+| Anima 2.9B Preview v1 | 30 | 4 | About 31-32 seconds | 1.05 MP, square |
 | WAI Illustrious v17 | 28 | 6 | About 9-10 seconds | 1.38 MP, portrait |
 | RouWei 0.8 epsilon | 28 | 6 | About 8 seconds | 1.05 MP, square |
 | NoobAI-XL V-pred 1.0 | 28 | 5 | About 8 seconds | 1.05 MP, square |
@@ -124,7 +123,9 @@ The measured rows are individual RTX 5080 checks recorded in September and
 October 2026, using Windows FP8 and model offload. The Animagine and Illustrious
 rows above are October 5 first-image samples with other processes keeping the
 CPU about 75% busy; they are upper bounds, not warm-loop measurements. RouWei,
-NoobAI and Anima Aesthetic were checked on October 7.
+NoobAI and Anima Aesthetic were checked on October 7. Anima 2.9B Preview was
+checked on October 24, including live previews and with other project CPU work
+still active; its 1152x1536 portrait took about 59 seconds.
 They indicate likely waiting time;
 different prompts, sizes and run conditions prevent a controlled speed
 ranking. Loading is excluded; sample methods and whether PNG saving is included

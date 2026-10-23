@@ -112,8 +112,11 @@ cache. It starts at 30 steps/CFG 4; use detailed tags, prose, or both. The
 author recommends 28-50 steps and CFG 3.5-5. Start around 1 MP; 1536-square
 is explicitly described as "iffy". The same Anima feature limits apply.
 A full download is about 7.3 GB including shared components; existing cached
-files reduce it. The first load converts on CPU. This preview's GPU fit,
-timing and output quality have not been measured locally.
+files reduce it. The first load converts on CPU. Windows FP8 with model offload
+passed 1024-square and 1152x1536 runtime checks on the RTX 5080; the square
+took about 31-32 seconds at the defaults, including live previews. These
+samples establish no quality advantage; see [card measurements](docs/verified.md#checkpoints)
+for memory costs and test conditions.
 
 For everyday use:
 

@@ -102,7 +102,8 @@ _FACTS: dict[str, tuple[str, tuple[str, str]]] = {
         "The preview author's recommended 812×1216 and 1152×1536 shapes span "
         "about 0.99–1.77 MP. The listed 1536-square size (2.36 MP) is marked "
         "'iffy'; it is not the recommended upper figure here. This variant "
-        "has not been measured locally.",
+        "was checked locally at 1024×1024 and 1152×1536 with Windows FP8 and model "
+        "offload; other sizes and loading settings remain unmeasured.",
     )),
     "duongve/NetaYume-Lumina-Image-2.0": ("Stylised anime", (
         "1.57 MP",

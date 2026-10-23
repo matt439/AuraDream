@@ -2,7 +2,59 @@
   "models": {
     "Gazingstars123/Anima-2.9B": {
       "converted": {
-        "basis": "Pinned source metadata inspected 2026-10-24; converted output has not been serialized or measured. Source-file checks apply until a complete converted-file reference is available.",
+        "basis": "Converter recipe and complete serialized component/tokenizer inventory, inspected locally on 2026-10-24; weights were not read by the inventory check.",
+        "files": {
+          "local-diffusion-conversion.json": 524,
+          "model_index.json": 582,
+          "scheduler/scheduler_config.json": 500,
+          "t5_tokenizer/tokenizer.json": 2424069,
+          "t5_tokenizer/tokenizer_config.json": 2554,
+          "text_conditioner/config.json": 342,
+          "text_conditioner/diffusion_pytorch_model.safetensors": 269339400,
+          "text_encoder/config.json": 1473,
+          "text_encoder/model.safetensors": 1192133232,
+          "tokenizer/chat_template.jinja": 2481,
+          "tokenizer/tokenizer.json": 11422924,
+          "tokenizer/tokenizer_config.json": 436,
+          "transformer/config.json": 759,
+          "transformer/diffusion_pytorch_model.safetensors": 5573862232,
+          "vae/config.json": 954,
+          "vae/diffusion_pytorch_model.safetensors": 253806966
+        },
+        "indexes": {
+          "model_index.json": {
+            "_class_name": "AnimaPreviewPipeline",
+            "_diffusers_version": "0.40.0",
+            "scheduler": [
+              "diffusers",
+              "FlowMatchEulerDiscreteScheduler"
+            ],
+            "t5_tokenizer": [
+              "transformers",
+              "T5Tokenizer"
+            ],
+            "text_conditioner": [
+              "diffusers",
+              "AnimaTextConditioner"
+            ],
+            "text_encoder": [
+              "transformers",
+              "Qwen3Model"
+            ],
+            "tokenizer": [
+              "transformers",
+              "Qwen2Tokenizer"
+            ],
+            "transformer": [
+              "diffusers",
+              "CosmosTransformer3DModel"
+            ],
+            "vae": [
+              "diffusers",
+              "AutoencoderKLQwenImage"
+            ]
+          }
+        },
         "recipe": {
           "checkpoint_prefix": "net.",
           "dtype": "bfloat16",
