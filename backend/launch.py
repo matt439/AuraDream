@@ -141,11 +141,11 @@ CHECKPOINTS: tuple[Checkpoint, ...] = (
     Checkpoint(
         "FLUX.2 [klein] 9B",
         "black-forest-labs/FLUX.2-klein-9B",
-        "open",
+        "click-through gate",
         _LITE.format(stem="flux.2-klein-9b"),
     ),
     Checkpoint("FLUX.2 [klein] base 4B", "black-forest-labs/FLUX.2-klein-base-4B", "open"),
-    Checkpoint("FLUX.2 [klein] base 9B", "black-forest-labs/FLUX.2-klein-base-9B", "open"),
+    Checkpoint("FLUX.2 [klein] base 9B", "black-forest-labs/FLUX.2-klein-base-9B", "click-through gate"),
     # 6B, 8 steps, guides from zero like Krea 2; the FLUX VAE, so the live
     # preview's matrix applies.
     Checkpoint(
