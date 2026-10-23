@@ -1,7 +1,8 @@
 # Choosing an anime model
 
 Checked against this app's catalogue, profiles and recorded GPU checks on
-2026-10-07. Covers the eleven dedicated anime checkpoints in the startup menu.
+2026-10-24. Covers the twelve dedicated anime checkpoints in the startup menu;
+Anima 2.9B Preview v1 has not been measured on the card.
 
 For a quick decision: **Anima Turbo for speed, WAI for a tuned anime look,
 RouWei for hybrid prompts and broad character/style knowledge, Illustrious
@@ -14,6 +15,7 @@ multiple characters.**
 | --- | --- | --- | --- |
 | Quickly explore ideas and try several variations | **[Anima Turbo v1.1](https://huggingface.co/circlestone-labs/Anima)** | The fastest in the local recorded samples. Distillation gives it a stronger, more consistent default style, with less diversity than Anima Base. It also handles illustrations beyond anime. | Tags, prose, or both. For pure prose, describe the image in at least two sentences. |
 | Try Anima's aesthetic fine-tune with full guidance | **[Anima Aesthetic v1.1](https://huggingface.co/circlestone-labs/Anima)** | The authors describe a fine-tune for consistency and a stronger default art style. It uses more steps and CFG than Turbo; local samples are not a quality comparison. | Tags, prose, or both. Quality tags are optional; omit `score_*` from both positive and negative prompts. |
+| Try the community-expanded Anima preview | **[Anima 2.9B Preview v1](https://huggingface.co/Gazingstars123/Anima-2.9B)** | Expands the transformer from 28 to 40 layers; locally unmeasured, with no established speed or quality advantage. | Detailed tags, prose, or both. Use `@` artist names and pair named characters with their series; score captions were absent in training, but the author permits their use. |
 | An everyday anime illustration with a tuned default look | **[WAI Illustrious v17](https://tensor.art/models/990778216270553015/WAI-illustrious-v17)** | A separately tuned anime aesthetic. Its author emphasizes smoother colouring and cleaner subject/background rendering. A useful starting point when you like its default look. | Primarily tags, with prose support. Finish with `masterpiece, best quality, amazing quality`. |
 | Combine familiar anime tags with a concise scene description | **[RouWei 0.8 epsilon](https://huggingface.co/Minthy/RouWei-0.8)** | An Illustrious retrain aimed at prompt adherence and broad character/style knowledge, with an April 2025 dataset cutoff. The author's claims have not been compared locally. | Tags, prose, or both; spaces instead of underscores. Prefix artists with `by ` and put them last in this app. |
 | Explore NoobAI's V-prediction release with familiar anime tags | **[NoobAI-XL V-pred 1.0](https://huggingface.co/Laxhar/noobai-XL-Vpred-1.0)** | An SDXL model trained with Danbooru and e621 captions. The app applies its required V-prediction Euler recipe. | Tags, prose, or both. Examples includes the author's complete graphite-style character prompt. Keep the full prompt within the short CLIP limit. |
@@ -26,7 +28,7 @@ multiple characters.**
 
 These are practical starting choices based on author guidance and the local
 checks. The project has not run a controlled image-quality comparison of all
-eleven models. Your preferred subjects and aesthetic will still decide which
+twelve models. Your preferred subjects and aesthetic will still decide which
 look you favour.
 
 WAI and Illustrious v2.0-STABLE are separate choices: WAI has its own tuned
@@ -52,6 +54,7 @@ differently is identified.
 | --- | --- | --- |
 | **Anima Turbo** | **About 0.26-2.36 MP documented** | The **1, 1.5 and 2 MP** presets fit the documented area span. Measured locally up to **2.07 MP**, square, portrait and landscape: coherent at each, under 4.4 GB of card, 15.7 s at 2 MP (one prompt and seed). |
 | **Anima Aesthetic** | **About 0.26-2.36 MP documented** | The same family guidance covers the **1, 1.5 and 2 MP** tiers. Measured locally up to **2.07 MP**, square, portrait and landscape: coherent at each, 55 s at 2 MP (one prompt and seed). |
+| **Anima 2.9B Preview** | **About 0.99-1.77 MP recommended** | The author lists 812x1216 and 1152x1536; adjust the 812 side to this app's 16-pixel grid. The **1 and 1.5 MP** tiers fit that area span. The separately listed 1536-square (**2.36 MP**) is labelled "iffy". No size has been measured locally for this preview. |
 | **WAI** | **1.05-1.38 MP reference area**; **no published maximum** | Reference sizes include a portrait. This is an example span, not an established operating range for every aspect ratio. Showcase images also use a separate 1.5x hires refinement pass; the app's **Refine** pass (below) is the nearest it has, with a plain resize in place of the author's upscaling model. |
 | **RouWei** | **About 1-1.5 MP recommended** | The author allows any aspect ratio with dimensions divisible by 64. Start at 1024 x 1024; app presets are multiples of 16, so not every preset follows that recommendation exactly. Refine is a separate pass with a plain resize; it does not reproduce the author's latent or GAN upscaling recipe. |
 | **NoobAI V-pred** | **About 1 MP recommended**; author-listed shapes are **1.01-1.05 MP** | The card lists seven square, portrait and landscape sizes, with 832 x 1216 emphasized. The app highlights those framings. Larger presets are available, but the author does not establish a larger native operating range. |
@@ -65,7 +68,7 @@ differently is identified.
 For a quick choice by area: **around 1 MP**, start with the model whose style
 and prompting you prefer. At **1.5-2 MP**, Illustrious and Z-Anime have local
 larger-image evidence; Anima's documented area also covers these tiers, and
-both Anima variants held together there locally. At **4 MP**, allow for experiments:
+Turbo and Aesthetic held together there locally. At **4 MP**, allow for experiments:
 Z-Anime's sample retained its scene but was slow, NetaYume's held
 and NewBie's broke into repeated figures; Illustrious's **4.19 MP**
 sample omitted the requested doctor, which its **2.36 MP** sample retained.
@@ -82,8 +85,8 @@ anatomy and layout as well as whether generation completes.
 Press ⤢ on a finished image and Refine in the dialog it opens: by default it
 is resized by 1.5x and re-denoised part of the way, which keeps the
 composition where the same seed at the larger size would draw a new one. **WAI, RouWei, NoobAI V-pred, Illustrious, Animagine, Kohaku and Z-Anime**
-have the pass; **Anima Turbo, Anima Aesthetic, NetaYume and NewBie** do not have a compatible
-image-to-image sibling in this app. Both Anima selections use the app's custom
+have the pass; **Anima Turbo, Anima Aesthetic, Anima 2.9B Preview, NetaYume and NewBie** do not have a compatible
+image-to-image sibling in this app. All three Anima selections use the app's custom
 pipeline; Diffusers does ship an Anima modular image-to-image workflow, but
 it is not integrated here. The dialog's Strength starts
 at each checkpoint's own value - **0.4** on the six SDXL models, **0.15**
@@ -106,6 +109,7 @@ models and this Anima integration disable Mu.
 | --- | ---: | ---: | --- | --- |
 | Anima Turbo v1.1 | 8 | 1 | About 4-6 seconds | 1.05 MP, square |
 | Anima Aesthetic v1.1 | 30 | 4 | About 23 seconds | 1.05 MP, square |
+| Anima 2.9B Preview v1 | 30 | 4 | Unmeasured | No local sample |
 | WAI Illustrious v17 | 28 | 6 | About 9-10 seconds | 1.38 MP, portrait |
 | RouWei 0.8 epsilon | 28 | 6 | About 8 seconds | 1.05 MP, square |
 | NoobAI-XL V-pred 1.0 | 28 | 5 | About 8 seconds | 1.05 MP, square |

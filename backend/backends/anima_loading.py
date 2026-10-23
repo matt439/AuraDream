@@ -1,4 +1,4 @@
-"""Pinned, CPU-only conversion of official Anima checkpoints.
+"""Pinned, CPU-only conversion of Anima checkpoints.
 
 Anima publishes each denoiser and text conditioner together. Its official
 Base Diffusers tree supplies their configs and the shared encoder, VAE and
@@ -23,6 +23,7 @@ MODEL_ID = "circlestone-labs/Anima"
 # An app selector, not another Hub repository. Keep the bare id's historical
 # Turbo meaning so saved images and resume keys never change checkpoints.
 AESTHETIC_MODEL_ID = MODEL_ID + "@aesthetic-v1.1"
+PREVIEW_MODEL_ID = "Gazingstars123/Anima-2.9B"
 SOURCE = {
     "repo_id": MODEL_ID,
     "filename": "split_files/diffusion_models/anima-turbo-v1.1.safetensors",
@@ -32,6 +33,11 @@ AESTHETIC_SOURCE = {
     "repo_id": MODEL_ID,
     "filename": "split_files/diffusion_models/anima-aesthetic-v1.1.safetensors",
     "revision": "594c27fea35648b87c86a9b4d5436a6024c820b5",
+}
+PREVIEW_SOURCE = {
+    "repo_id": PREVIEW_MODEL_ID,
+    "filename": "Anima-2.9B-preview-v1.safetensors",
+    "revision": "9f9cb502dbae7a616c3cc5a530633427fe735665",
 }
 SHARED = {
     "repo_id": "circlestone-labs/Anima-Base-v1.0-Diffusers",
@@ -50,9 +56,16 @@ RECIPE = {
     "shift": 3.0,
 }
 AESTHETIC_RECIPE = {**RECIPE, "source": AESTHETIC_SOURCE}
+PREVIEW_RECIPE = {
+    **RECIPE,
+    "source": PREVIEW_SOURCE,
+    "checkpoint_prefix": "net.",
+    "transformer_config": {"num_layers": 40},
+}
 _RECIPES = {
     MODEL_ID.lower(): RECIPE,
     AESTHETIC_MODEL_ID.lower(): AESTHETIC_RECIPE,
+    PREVIEW_MODEL_ID.lower(): PREVIEW_RECIPE,
 }
 
 
@@ -61,8 +74,10 @@ def matches(model_id: str) -> bool:
 
 
 def pipeline_class(model_id: str) -> Any:
-    from .anima_pipeline import AnimaAestheticPipeline, AnimaTurboPipeline
+    from .anima_pipeline import AnimaAestheticPipeline, AnimaPreviewPipeline, AnimaTurboPipeline
 
+    if model_id.lower() == PREVIEW_MODEL_ID.lower():
+        return AnimaPreviewPipeline
     if model_id.lower() == AESTHETIC_MODEL_ID.lower():
         return AnimaAestheticPipeline
     if model_id.lower() == MODEL_ID.lower():
@@ -70,16 +85,18 @@ def pipeline_class(model_id: str) -> Any:
     raise ValueError(f"Unknown Anima selection: {model_id}")
 
 
-def _split_checkpoint(checkpoint: dict[str, Any]) -> tuple[dict[str, Any], dict[str, Any]]:
+def _split_checkpoint(
+    checkpoint: dict[str, Any], prefix: str = "model.diffusion_model.",
+) -> tuple[dict[str, Any], dict[str, Any]]:
     """Convert the Cosmos names and retain the checkpoint's learned conditioner.
 
     The official conversion script uses an older ``net.`` prefix. Both v1.1
     safetensors files instead use ``model.diffusion_model.``. Normalize only
-    that pinned format, then use Diffusers' Cosmos conversion for the denoiser.
+    that pinned format; 2.9B preview uses the original ``net.`` prefix. The
+    pinned recipe chooses the format, then Diffusers maps the denoiser names.
     """
     from diffusers.loaders.single_file_utils import convert_cosmos_transformer_checkpoint_to_diffusers
 
-    prefix = "model.diffusion_model."
     adapter_prefix = prefix + "llm_adapter."
     transformer, conditioner = {}, {}
     for key, value in checkpoint.items():
@@ -94,12 +111,14 @@ def _split_checkpoint(checkpoint: dict[str, Any]) -> tuple[dict[str, Any], dict[
     return convert_cosmos_transformer_checkpoint_to_diffusers(transformer), conditioner
 
 
-def _load_component(model_cls: Any, config: str | Path, state_dict: dict[str, Any]) -> Any:
+def _load_component(
+    model_cls: Any, config: str | Path, state_dict: dict[str, Any], **config_overrides: Any,
+) -> Any:
     """Allocate on meta, then require every converted CPU tensor to fit."""
     from accelerate import init_empty_weights
 
     with init_empty_weights():
-        model = model_cls.from_config(model_cls.load_config(config))
+        model = model_cls.from_config(model_cls.load_config(config), **config_overrides)
     # A missing or mismatched key must fail conversion, never become random
     # weights or silently substitute the Base checkpoint's conditioner.
     model.load_state_dict(state_dict, strict=True, assign=True)
@@ -115,11 +134,19 @@ def _convert(destination: Path, model_id: str = MODEL_ID) -> None:
     from transformers import AutoTokenizer, Qwen3Model, T5TokenizerFast
 
     shared = Path(snapshot_download(**SHARED, allow_patterns=SHARED_PATTERNS))
-    source = _RECIPES[model_id.lower()]["source"]
-    checkpoint = load_file(hf_hub_download(**source), device="cpu")
-    transformer_state, conditioner_state = _split_checkpoint(checkpoint)
+    recipe = _RECIPES[model_id.lower()]
+    checkpoint = load_file(hf_hub_download(**recipe["source"]), device="cpu")
+    transformer_state, conditioner_state = _split_checkpoint(
+        checkpoint, recipe.get("checkpoint_prefix", "model.diffusion_model."),
+    )
     del checkpoint
-    transformer = _load_component(CosmosTransformer3DModel, shared / "transformer", transformer_state)
+    # Preview expands the same-width Base transformer from 28 to 40 layers.
+    # Override its pinned architecture before strict loading; all learned
+    # layers still come from the selected checkpoint, including the new ones.
+    transformer = _load_component(
+        CosmosTransformer3DModel, shared / "transformer", transformer_state,
+        **recipe.get("transformer_config", {}),
+    )
     conditioner = _load_component(AnimaTextConditioner, shared / "text_conditioner", conditioner_state)
     del transformer_state, conditioner_state
     # The shared descriptors are local pinned files, so none of these loaders

@@ -93,6 +93,8 @@ def test_anima_is_matched_exactly_and_never_by_animagines_token():
     assert names("circlestone-labs/Anima") == ["Qwen3-0.6B", "T5 ids"]
     assert names(anima_loading.AESTHETIC_MODEL_ID) == ["Qwen3-0.6B", "T5 ids"]
     assert names(anima_loading.AESTHETIC_MODEL_ID.upper()) == ["Qwen3-0.6B", "T5 ids"]
+    assert names(anima_loading.PREVIEW_MODEL_ID) == ["Qwen3-0.6B", "T5 ids"]
+    assert names(anima_loading.PREVIEW_MODEL_ID.upper()) == ["Qwen3-0.6B", "T5 ids"]
     assert pe.encoders_for("circlestone-labs/Anima@aesthetic-v1.0") is None
     assert pe.encoders_for("someone/anima-remix") is None
     assert pe.encoders_for("someone/unknown-model") is None

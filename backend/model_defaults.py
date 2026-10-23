@@ -1025,6 +1025,36 @@ _EXACT_PROFILES: dict[str, dict[str, Any]] = {
             ),
         },
     },
+    "gazingstars123/anima-2.9b": {
+        "steps": 30,
+        "guidance_scale": 4.0,
+        "mu": None,
+        "mu_supported": False,
+        "cfg_threshold": 1.0,
+        "negative_prompt_supported": True,
+        "reference_supported": False,
+        "refine_supported": False,
+        "inpaint_supported": False,
+        "refine_strength": None,
+        "true_cfg_supported": False,
+        "guide": guides.ANIMA_PREVIEW_GUIDE,
+        "hints": {
+            "steps": (
+                "Denoising steps. The Anima 2.9B preview author recommends 28-50; "
+                "{steps} is this app's starting point."
+            ),
+            "guidance_scale": (
+                "Classifier-free guidance. The preview author recommends 3.5-5; "
+                "{guidance_scale:g} is this app's starting point. Above "
+                "{cfg_threshold:g} the negative prompt applies and adds a second "
+                "pass per step."
+            ),
+            "mu": (
+                "Unavailable: Anima 2.9B preview's pipeline uses its fixed flow "
+                "schedule and does not expose a Mu override."
+            ),
+        },
+    },
 }
 
 _FALLBACK: dict[str, Any] = {
@@ -1096,7 +1126,7 @@ def _inpaint_strength_runs(family: str | None) -> list[str]:
             names.append(name)
     return names
 
-# The checkpoints whose pipeline is this repo's own class - both Anima variants'
+# The checkpoints whose pipeline is this repo's own class - the Anima variants'
 # modular blocks and NewBie's - beside which diffusers exports no
 # image-to-image class, so `refine.sibling` answers None loaded or not
 # (`tests/test_refine.py`). Their `refine_supported` is the answer a load
@@ -1104,6 +1134,7 @@ def _inpaint_strength_runs(family: str | None) -> list[str]:
 # stops telling the user that a load will decide.
 _OWN_PIPELINES = frozenset({
     "circlestone-labs/anima", "circlestone-labs/anima@aesthetic-v1.1",
+    "gazingstars123/anima-2.9b",
     "newbie-ai/newbie-image-exp0.1",
 })
 

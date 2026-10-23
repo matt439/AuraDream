@@ -251,7 +251,7 @@ def lora_refusal(model_id: str) -> str | None:
     """Why this checkpoint takes no user LoRA whatever the installation, or None.
 
     A fact about the integration, answerable from the id before anything
-    downloads: both Anima variants' and NewBie's pipelines are the app's own, with no
+    downloads: the Anima variants' and NewBie's pipelines are the app's own, with no
     adapter path. `DiffusersBackend.lora_unavailable_reason` asks this first,
     and the browser checks' fake server asks it of the id it claims, so the
     fake refuses an adapter exactly where the real server does. The ids are
@@ -264,6 +264,8 @@ def lora_refusal(model_id: str) -> str | None:
         return "User LoRAs are not supported by this Anima Turbo integration"
     if key == anima_loading.AESTHETIC_MODEL_ID.lower():
         return "User LoRAs are not supported by this Anima Aesthetic integration"
+    if key == anima_loading.PREVIEW_MODEL_ID.lower():
+        return "User LoRAs are not supported by this Anima 2.9B Preview integration"
     if key == newbie_loading.MODEL_ID.lower():
         return "User LoRAs are not supported by this NewBie integration"
     return None

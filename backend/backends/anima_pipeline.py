@@ -170,3 +170,7 @@ class AnimaAestheticPipeline(AnimaTurboPipeline):
             generator=generator, callback_on_step_end=callback_on_step_end,
             output_type=output_type,
         )
+
+
+class AnimaPreviewPipeline(AnimaAestheticPipeline):
+    """The 40-layer 2.9B preview uses the same non-distilled inference blocks."""

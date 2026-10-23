@@ -765,6 +765,63 @@ Sources: [official release](https://huggingface.co/circlestone-labs/Anima/commit
 and the shared component/conversion sources above. GPU evidence is recorded
 separately in `verified.md`.
 
+## Anima 2.9B Preview v1: the expanded community checkpoint
+
+Added 2026-10-24 as `Gazingstars123/Anima-2.9B`, separately from the
+official Turbo and Aesthetic selectors. The source is
+`Anima-2.9B-preview-v1.safetensors` at
+`9f9cb502dbae7a616c3cc5a530633427fe735665`, SHA-256
+`0b3020d1b906155f7eb30667622723e87160632c8c7a5f1c93bdce685f2a346d`.
+The author's file metadata lists 5,843,204,206 bytes. Its safetensors header
+was read with bounded HTTP ranges, without downloading the weights: unlike
+the v1.1 files it uses `net.`, and its transformer has 40 layers rather
+than 28. Mapping the header to meta tensors and comparing against the pinned
+shared configs with `num_layers=40` matched all 807 converted denoiser and
+118 conditioner keys and shapes. This establishes the structural conversion
+contract, not real output quality.
+
+`anima_loading.PREVIEW_RECIPE` records the prefix and layer override, so
+normal CPU conversion strictly loads every tensor and caches a separate
+tree. The official Base tree supplies only shared configs, Qwen3 encoder,
+Qwen-Image VAE and tokenizers; the preview supplies its own learned
+conditioner. `AnimaPreviewPipeline` inherits Aesthetic's callback-capable
+inference interface with 30-step/CFG-4 defaults. It keeps this integration's
+FlowMatch Euler shift 3; the author's Euler/sgm-uniform and other ComfyUI
+combinations are separate recipes. Mu, references, user LoRAs, Refine,
+inpaint and Nunchaku remain unavailable.
+
+The preview has its own sourced guide and critic grounding. It recommends
+detailed mixed tag/prose prompts, uses `@` artist tags, and distinguishes
+the absence of training score captions from a prohibition on score tags.
+Its card's list of prompting ingredients does not become a checked order.
+The Tags menu and Check show the inherited parent's explicit tag order as
+information; the preview's order remains unchecked. The inherited parent
+example and spelling rules retain their parent source.
+Size guidance uses the author's first two recommended sizes, 812x1216 and
+1152x1536 (about 0.99-1.77 MP); the app needs multiples of 16, so the 812
+side must be adjusted. The separately mentioned 1536-square (2.36 MP) stays
+labelled "iffy", outside the highlighted recommended span.
+
+The picker retains a verified 7,302,999,907-byte source inventory (about
+7.3 GB including shared components). No converted output sizes have been
+measured: cached source checks remain usable, while an unverified converted
+tree alone cannot prove that all required files are on disk. HTTP checks
+keep the public id in gallery scope, Resume and PNG metadata; the preview's
+browser smoke checks its controls, guide and saved settings. Real loading,
+VRAM, timing, repeatability and visual quality remain unmeasured and are
+tracked in `verified.md` and `TODO.md`'s `CARD#6`.
+
+Automated validation on 2026-10-24: the full suite passed 3,474 tests and
+skipped four, exposing one Tags-menu source-agreement failure. After adding
+the inherited informational sequence, all 342 affected guide/source/order
+checks and 191 loader/API/encoder/metadata/map checks passed, as did
+`smoke-anima-preview.json` on a fresh fake gallery. The full suite was not
+repeated after that source-only correction.
+
+Sources: [author's model card](https://huggingface.co/Gazingstars123/Anima-2.9B),
+[pinned release](https://huggingface.co/Gazingstars123/Anima-2.9B/tree/9f9cb502dbae7a616c3cc5a530633427fe735665),
+and the shared Anima/Diffusers sources above.
+
 ## Profiles key off the checkpoint id
 
 `model_defaults.py` keys recommended steps/CFG/mu off the checkpoint id, not the

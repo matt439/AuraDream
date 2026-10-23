@@ -133,7 +133,7 @@ before changing it.
   `tree`), and each converter's work directory ignores its own cleanup
   errors so a failed conversion reports its own error
 - `backend/backends/anima_loading.py` — pinned CPU conversion of full Anima
-  Turbo and Aesthetic v1.1 and their conditioners, with official shared components
+  Turbo, Aesthetic v1.1 and 2.9B Preview v1 and their conditioners, with official shared components
   and separate cached trees
 - `backend/backends/anima_pipeline.py` — upstream Anima modular blocks behind
   the standard pipeline interface, with per-step progress and cancellation
@@ -414,6 +414,19 @@ Model and loader:
   Aesthetic's places the score tags (`order.tags`) without offering them.
   The card's full tag example passes Check clean
   (`test_anima_cards_full_tag_example_passes_check_clean`).
+
+- `Gazingstars123/Anima-2.9B` selects the pinned community
+  `Anima-2.9B-preview-v1.safetensors`. Keep its separate conversion recipe/cache,
+  `net.` checkpoint prefix and 40-layer transformer config; strictly load all
+  denoiser and conditioner tensors, sharing only the pinned official Anima
+  configs, Qwen3 encoder, Qwen-Image VAE and tokenizers. Preserve the public id
+  in settings and metadata. `AnimaPreviewPipeline` uses the existing fixed
+  FlowMatch Euler shift 3 integration with 30-step/CFG-4 defaults; this is not
+  the author's ComfyUI sampler/scheduler recipe. Mu, references, user LoRAs,
+  Refine, inpaint and Nunchaku are unavailable. Its own guide/critic grounding
+  describes detailed mixed prompts and the preview's size advice without
+  inheriting Turbo distillation or Aesthetic score prohibitions. Do not infer
+  measured speed, memory or quality from the other Anima selections.
 
 - `duongve/NetaYume-Lumina-Image-2.0` selects the pinned v4 split denoiser.
   `netayume_loading` strictly converts it on CPU and uses the pinned official
@@ -5318,6 +5331,19 @@ controls, saved variant identity and final no-Refine answer on port 7895:
 ```powershell
 uv run python tools/fake_server.py --port 7895 --model circlestone-labs/Anima@aesthetic-v1.1
 node tools/browser.mjs tools/smoke-anima-aesthetic.json
+```
+
+`smoke-anima-preview.json` checks Preview v1's name and public identity,
+30-step/CFG-4 defaults, picker row and source/download/size facts, preview
+guide and size caveat, score-free Tags menu with inherited parent order as
+information,
+its two encoder budgets, unchecked tag order, negative-prompt activation,
+unsupported-input refusals and applied saved settings on port 7911, using a
+fresh scratch gallery:
+
+```powershell
+uv run python tools/fake_server.py --port 7911 --model Gazingstars123/Anima-2.9B --data <scratch-directory>
+node tools/browser.mjs tools/smoke-anima-preview.json
 ```
 
 `smoke-model-switch.json` runs a FLUX.1-claiming fake on port 7896, on a

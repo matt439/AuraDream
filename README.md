@@ -51,6 +51,7 @@ uv run python -m backend.main --model cagliostrolab/animagine-xl-4.0
 uv run python -m backend.main --model Minthy/RouWei-0.8   # epsilon release
 uv run python -m backend.main --model Laxhar/noobai-XL-Vpred-1.0
 uv run python -m backend.main --model circlestone-labs/Anima@aesthetic-v1.1
+uv run python -m backend.main --model Gazingstars123/Anima-2.9B
 uv run python -m backend.main --defaults   # ignore saved browser choices
 uv run python -m backend.main --menu       # optional terminal picker
 uv run python -m backend.main --model krea/Krea-2-Turbo --quant int8 --offload model
@@ -103,6 +104,16 @@ still selects Turbo. The first load converts Aesthetic's weights on CPU and
 caches them separately. Use tags, prose, or both; omit `score_*` tags from
 both prompts. Mu, references, Refine, user LoRAs and Nunchaku are unavailable
 for these Anima integrations.
+
+**Anima 2.9B Preview v1** is also available in Models. It selects
+[`Gazingstars123/Anima-2.9B`](https://huggingface.co/Gazingstars123/Anima-2.9B),
+a community expansion to 40 layers, with its own pinned file and conversion
+cache. It starts at 30 steps/CFG 4; use detailed tags, prose, or both. The
+author recommends 28-50 steps and CFG 3.5-5. Start around 1 MP; 1536-square
+is explicitly described as "iffy". The same Anima feature limits apply.
+A full download is about 7.3 GB including shared components; existing cached
+files reduce it. The first load converts on CPU. This preview's GPU fit,
+timing and output quality have not been measured locally.
 
 For everyday use:
 

@@ -39,6 +39,7 @@ def test_anima_variants_share_tokenizers_but_read_their_own_converted_tree(monke
 
     turbo_specs = pe.encoders_for(anima_loading.MODEL_ID)
     aesthetic_specs = pe.encoders_for(anima_loading.AESTHETIC_MODEL_ID)
+    preview_specs = pe.encoders_for(anima_loading.PREVIEW_MODEL_ID)
     for turbo, aesthetic in zip(turbo_specs, aesthetic_specs):
         assert (aesthetic.source.repo, aesthetic.source.revision, aesthetic.source.subfolder) == (
             turbo.source.repo, turbo.source.revision, turbo.source.subfolder,
@@ -46,19 +47,26 @@ def test_anima_variants_share_tokenizers_but_read_their_own_converted_tree(monke
         assert aesthetic.source.tree == anima_loading.AESTHETIC_MODEL_ID
         assert turbo.source.tree == anima_loading.MODEL_ID
         assert aesthetic.max_length == turbo.max_length == pe.ANIMA_SEQUENCE
+    for turbo, preview in zip(turbo_specs, preview_specs):
+        assert (preview.source.repo, preview.source.revision, preview.source.subfolder) == (
+            turbo.source.repo, turbo.source.revision, turbo.source.subfolder,
+        )
+        assert preview.source.tree == anima_loading.PREVIEW_MODEL_ID
+        assert preview.max_length == pe.ANIMA_SEQUENCE
     roots = {}
     for model, specs in (
         (anima_loading.MODEL_ID, turbo_specs),
         (anima_loading.AESTHETIC_MODEL_ID, aesthetic_specs),
+        (anima_loading.PREVIEW_MODEL_ID, preview_specs),
     ):
-        root = tmp_path / ("aesthetic" if "@" in model else "turbo")
+        root = tmp_path / model.rsplit("/", 1)[-1]
         roots[model] = str(root)
         for spec in specs:
             (root / spec.source.tree_subfolder).mkdir(parents=True)
     monkeypatch.setattr(pe, "_converted_tree", roots.get)
     monkeypatch.setattr(pe, "_from_pretrained", lambda directory: directory)
     monkeypatch.setattr(huggingface_hub, "snapshot_download", lambda *a, **k: pytest.fail("cached tree ignored"))
-    for specs in (turbo_specs, aesthetic_specs):
+    for specs in (turbo_specs, aesthetic_specs, preview_specs):
         for spec in specs:
             assert pe._load_tokenizer(spec.source) == Path(roots[spec.source.tree]) / spec.source.tree_subfolder
 

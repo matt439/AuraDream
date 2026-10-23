@@ -11,6 +11,13 @@ slows two to three times (schnell's 2 MP read 35-45 s that way and 25 s at a
 
 ## Checkpoints
 
+Anima 2.9B Preview v1 was added on 2026-10-24 from the author's pinned
+[`Gazingstars123/Anima-2.9B`](https://huggingface.co/Gazingstars123/Anima-2.9B)
+release. Loader, HTTP and fake-browser checks do not establish GPU fit,
+generation quality, cancellation latency, repeatability or timing. This
+selection has not been loaded or measured on the card; Turbo and Aesthetic
+measurements below do not apply to its expanded 40-layer transformer.
+
 | Checkpoint | Quantization | Size | Steps | Time | Peak | Date |
 | --- | --- | --- | --- | --- | --- | --- |
 | Krea 2 Turbo | fp8, Windows | 1 MP | 8 | - | ~13 GB | 2026-09 |

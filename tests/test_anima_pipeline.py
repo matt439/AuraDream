@@ -12,7 +12,7 @@ import pytest
 import torch
 
 from backend.backends import Cancelled
-from backend.backends.anima_pipeline import AnimaAestheticPipeline, AnimaTurboPipeline
+from backend.backends.anima_pipeline import AnimaAestheticPipeline, AnimaPreviewPipeline, AnimaTurboPipeline
 from backend.latent_preview import unpack
 from diffusers import FlowMatchEulerDiscreteScheduler, ModelMixin
 
@@ -77,7 +77,7 @@ class _VAE(_CPUModel):
         return (latents.repeat_interleave(8, dim=-2).repeat_interleave(8, dim=-1),)
 
 
-@pytest.fixture(params=[AnimaTurboPipeline, AnimaAestheticPipeline])
+@pytest.fixture(params=[AnimaTurboPipeline, AnimaAestheticPipeline, AnimaPreviewPipeline])
 def pipe(request):
     pipeline = request.param(
         tokenizer=_Tokenizer(), t5_tokenizer=_Tokenizer(),

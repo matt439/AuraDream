@@ -782,6 +782,35 @@ _ANIMA_AESTHETIC = tuple(excerpt for excerpt in _ANIMA if excerpt.id != "anima.p
     ),
 )
 
+_ANIMA_PREVIEW_CARD = "https://huggingface.co/Gazingstars123/Anima-2.9B"
+_ANIMA_PREVIEW = (
+    Excerpt(
+        "anima.preview_detail",
+        "THE MORE DETAILED THE PROMPT, THE BETTER",
+        _ANIMA_PREVIEW_CARD,
+    ),
+    Excerpt(
+        "anima.preview_scores",
+        "The dataset does not include scores in its captions, however, you can still use them.",
+        _ANIMA_PREVIEW_CARD,
+    ),
+    Excerpt(
+        "anima.preview_spelling",
+        "Use lowercase for tags, and spaces instead of underscores.",
+        _ANIMA_CARD,
+        "inherited parent Anima spelling guidance; the preview author follows Anima prompting tips",
+    ),
+    Excerpt(
+        "anima.preview_parent_order",
+        "[quality/meta/year/safety tags] [1girl/1boy/1other etc] [character] [series] "
+        "[artist] [general tags]",
+        _ANIMA_CARD,
+        "inherited parent Anima tag sequence, shown as reference; the preview author "
+        "follows Anima prompting tips, and this app does not enforce this sequence",
+        order=True,
+    ),
+)
+
 _NETA_BOOK = "https://neta.art/blog/neta_lumina_prompt_book/"
 _NETA_NOTE = "inherited from the parent Neta Lumina's prompt book"
 _NETAYUME = (
@@ -1251,6 +1280,25 @@ GROUNDING: dict[str, Grounding] = {
             "in both prompts. Turbo's distillation and CFG 1 advice do not apply."
         ),
         unsourced=_ANIMA_APP,
+    ),
+    "ANIMA_PREVIEW_GUIDE": Grounding(
+        _ANIMA_PREVIEW,
+        caveat=(
+            "This is Gazingstars123's Anima 2.9B preview v1. Its own card's "
+            "detailed-prompt and score-tag advice takes precedence over Turbo's "
+            "prefix and Aesthetic's score-tag advice. The Tags vocabulary, spelling, "
+            "reference sequence and labelled example are inherited from the parent "
+            "Anima card. The reference sequence is informational: the app checks no "
+            "fixed tag order for this preview."
+        ),
+        unsourced=(
+            "The Tags menu uses the parent Anima vocabulary; autocomplete checks Danbooru's live index.",
+            "This app checks no fixed tag order.",
+            "The example is inherited from the parent Anima card.",
+            "A negative prompt applies at CFG > 1.",
+            "This app uses fixed FlowMatch Euler; the author's alternative samplers and "
+            "schedules are different setups.",
+        ),
     ),
     "NETAYUME_GUIDE": Grounding(
         _NETAYUME,

@@ -202,6 +202,32 @@ def test_a_complete_conversion_needs_no_original_downloads(cache_factory, monkey
     assert model_info.download_facts("example/converted")["cache_state"] == "complete"
 
 
+@pytest.mark.parametrize("output_exists", [False, True])
+def test_a_conversion_without_output_sizes_uses_verified_source_files(cache_factory, monkeypatch, output_exists):
+    data, _, _ = cache_factory
+    write_one, write_shared, write_output, _ = _converted(cache_factory, monkeypatch)
+    converted = data["models"]["example/converted"]["converted"]
+    del converted["files"], converted["indexes"]
+    if output_exists:
+        write_output(["local-diffusion-conversion.json", "model_index.json"])
+    first = model_info.download_facts("example/converted")
+    assert first["cache_state"] == ("unknown" if output_exists else "absent")
+    write_one()
+    model_info.invalidate_cache_facts()
+    assert model_info.download_facts("example/converted")["cache_state"] == ("unknown" if output_exists else "partial")
+    write_shared()
+    model_info.invalidate_cache_facts()
+    facts = model_info.download_facts("example/converted")
+    assert facts["cache_state"] == "complete" and "source files are cached" in facts["cache_note"]
+
+
+def test_download_reference_can_record_its_own_observation_date(cache_factory):
+    data, _, pipeline = cache_factory
+    pipeline()
+    data["models"]["example/model"]["observed_at"] = "2026-10-24"
+    assert "checked 2026-10-24" in model_info.download_facts("example/model")["download_note"]
+
+
 def test_a_changed_converter_recipe_is_unknown(cache_factory, monkeypatch):
     data, _, _ = cache_factory
     _, _, write_output, _ = _converted(cache_factory, monkeypatch)
@@ -286,6 +312,7 @@ def test_retained_custom_loader_inputs_follow_the_actual_pins():
         single_file.ROUWEI_ID: [single_file.ROUWEI_SOURCE, single_file.SDXL_CONFIG],
         anima_loading.MODEL_ID: [anima_loading.SOURCE, anima_loading.SHARED],
         anima_loading.AESTHETIC_MODEL_ID: [anima_loading.AESTHETIC_SOURCE, anima_loading.SHARED],
+        anima_loading.PREVIEW_MODEL_ID: [anima_loading.PREVIEW_SOURCE, anima_loading.SHARED],
         netayume_loading.MODEL_ID: [netayume_loading.SOURCE, netayume_loading.SHARED],
         newbie_loading.MODEL_ID: [newbie_loading.SOURCE],
         loading.NOOB_MODEL_ID: [{"repo_id": loading.NOOB_MODEL_ID, "revision": loading.NOOB_REVISION}],

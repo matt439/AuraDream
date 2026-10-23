@@ -1,5 +1,55 @@
 {
   "models": {
+    "Gazingstars123/Anima-2.9B": {
+      "converted": {
+        "basis": "Pinned source metadata inspected 2026-10-24; converted output has not been serialized or measured. Source-file checks apply until a complete converted-file reference is available.",
+        "recipe": {
+          "checkpoint_prefix": "net.",
+          "dtype": "bfloat16",
+          "scheduler": "FlowMatchEulerDiscreteScheduler",
+          "shared": {
+            "repo_id": "circlestone-labs/Anima-Base-v1.0-Diffusers",
+            "revision": "073c3a9db359c31ad0e8aa268d15775473c2176c"
+          },
+          "shift": 3.0,
+          "source": {
+            "filename": "Anima-2.9B-preview-v1.safetensors",
+            "repo_id": "Gazingstars123/Anima-2.9B",
+            "revision": "9f9cb502dbae7a616c3cc5a530633427fe735665"
+          },
+          "transformer_config": {
+            "num_layers": 40
+          },
+          "version": 1
+        }
+      },
+      "kind": "converted",
+      "observed_at": "2026-10-24",
+      "sources": [
+        {
+          "files": [
+            "Anima-2.9B-preview-v1.safetensors"
+          ],
+          "source": "Gazingstars123/Anima-2.9B@9f9cb502dbae7a616c3cc5a530633427fe735665"
+        },
+        {
+          "files": [
+            "t5_tokenizer/tokenizer.json",
+            "t5_tokenizer/tokenizer_config.json",
+            "text_conditioner/config.json",
+            "text_encoder/config.json",
+            "text_encoder/model.safetensors",
+            "tokenizer/chat_template.jinja",
+            "tokenizer/tokenizer.json",
+            "tokenizer/tokenizer_config.json",
+            "transformer/config.json",
+            "vae/config.json",
+            "vae/diffusion_pytorch_model.safetensors"
+          ],
+          "source": "circlestone-labs/Anima-Base-v1.0-Diffusers@073c3a9db359c31ad0e8aa268d15775473c2176c"
+        }
+      ]
+    },
     "KBlueLeaf/Kohaku-XL-Zeta": {
       "kind": "pipeline",
       "sources": [
@@ -2350,6 +2400,43 @@
       "repo_id": "Alpha-VLLM/Lumina-Image-2.0",
       "revision": "53504abd8178b30685b6c4c7a4cd181ff78b73e9",
       "url": "https://huggingface.co/api/models/Alpha-VLLM/Lumina-Image-2.0/revision/53504abd8178b30685b6c4c7a4cd181ff78b73e9?blobs=true"
+    },
+    "Gazingstars123/Anima-2.9B@9f9cb502dbae7a616c3cc5a530633427fe735665": {
+      "commit": "9f9cb502dbae7a616c3cc5a530633427fe735665",
+      "files": {
+        ".gitattributes": 3076,
+        "Anima-2.9B-preview-v1.safetensors": 5843204206,
+        "Anima-2.9B-preview-v1_int8_convrot.safetensors": 3082486758,
+        "Anima_Sample/preview_2.9b_00001_.png": 2076168,
+        "Anima_Sample/preview_2.9b_00002_.png": 1900480,
+        "Anima_Sample/preview_2.9b_00003_.png": 1996885,
+        "Anima_Sample/preview_2.9b_00004_.png": 1710059,
+        "Anima_Sample/preview_2.9b_00005_.png": 2449638,
+        "Anima_Sample/preview_2.9b_00006_.png": 2050669,
+        "Anima_Sample/preview_2.9b_00007_.png": 1426065,
+        "Anima_Sample/preview_2.9b_00008_.png": 2175583,
+        "Anima_Sample/preview_2.9b_00009_.png": 1828108,
+        "Anima_Sample/preview_2.9b_00034___1785355712.png": 2604485,
+        "Anima_Sample/preview_2.9b_00201___1786388172.png": 2027326,
+        "Anima_Sample/preview_2.9b_00265_.png": 560299,
+        "Anima_Sample/preview_2.9b_00314_.png": 756454,
+        "Anima_Sample/preview_2.9b_00387_.png": 2269943,
+        "Anima_Sample/preview_2.9b_00685_.png": 493781,
+        "Anima_Sample/preview_2.9b_00686_.png": 2076175,
+        "Anima_Sample/preview_2.9b_00687_.png": 1546595,
+        "Anima_Sample/preview_2.9b_00688_.png": 1278186,
+        "Anima_Sample/preview_2.9b_00689_.png": 1987134,
+        "Anima_Sample/preview_2.9b_00690_.png": 1834171,
+        "Anima_Sample/preview_2.9b_00691_.png": 1425507,
+        "LICENSE.md": 18259,
+        "README.md": 4602,
+        "config.json": 221,
+        "expand_manifest.json": 5287
+      },
+      "indexes": {},
+      "repo_id": "Gazingstars123/Anima-2.9B",
+      "revision": "9f9cb502dbae7a616c3cc5a530633427fe735665",
+      "url": "https://huggingface.co/api/models/Gazingstars123/Anima-2.9B/revision/9f9cb502dbae7a616c3cc5a530633427fe735665?blobs=true"
     },
     "KBlueLeaf/Kohaku-XL-Zeta@main": {
       "commit": "c14affd9483ac7603cfff3f06b05da22a06deaa6",

@@ -97,6 +97,13 @@ _FACTS: dict[str, tuple[str, tuple[str, str]]] = {
     )),
     "circlestone-labs/Anima": ("Stylised anime", _ANIMA_SIZE),
     "circlestone-labs/Anima@aesthetic-v1.1": ("Stylised anime", _ANIMA_SIZE),
+    "Gazingstars123/Anima-2.9B": ("Stylised anime", (
+        "1.77 MP",
+        "The preview author's recommended 812×1216 and 1152×1536 shapes span "
+        "about 0.99–1.77 MP. The listed 1536-square size (2.36 MP) is marked "
+        "'iffy'; it is not the recommended upper figure here. This variant "
+        "has not been measured locally.",
+    )),
     "duongve/NetaYume-Lumina-Image-2.0": ("Stylised anime", (
         "1.57 MP",
         "Inherited/v2 examples cover 1.05–1.57 MP, "
@@ -290,13 +297,19 @@ def _cached_state(model_id: str, cache_dir: str, converted_home: str, minute: in
     recipe = references["models"].get(model_id)
     if recipe is None:
         return "unknown", "Could not establish that every required model file is cached."
+    unverified_conversion = False
     try:
         if recipe["kind"] == "converted":
             target, marker, recipe_text = _conversion_target(model_id)
             converted = recipe["converted"]
             if json.loads(recipe_text) != converted["recipe"]:
                 return "unknown", "The cached-file reference does not cover this conversion recipe."
-            if target.exists():
+            if target.exists() and not converted.get("files"):
+                # A newly supported converter can have a complete source
+                # inventory before its output has ever been serialized.
+                # Its marker alone cannot establish complete converted files.
+                unverified_conversion = True
+            elif target.exists():
                 marker_ok = marker.is_file() and marker.read_text(encoding="utf-8") == recipe_text
                 state = _file_set_state(converted["files"], converted["indexes"],
                                         lambda name: target / name if (target / name).is_file() else None)
@@ -309,6 +322,8 @@ def _cached_state(model_id: str, cache_dir: str, converted_home: str, minute: in
             if recipe["kind"] == "converted":
                 return "complete", "The source files are cached; the first load still converts them locally."
             return "complete", "The required model files for the checked cached revision are on disk. A first load still takes time."
+        if unverified_conversion:
+            return "unknown", "The converted files have no complete size reference, and not every required source file is cached."
         if "unknown" in states:
             return "unknown", "Could not establish that every required model file is cached."
         if any(state != "absent" for state in states):
@@ -327,8 +342,9 @@ def download_facts(model_id: str) -> dict[str, str]:
                    for item in recipe["sources"] for name in item["files"])
         amount = f"{size / 1_000_000_000:.1f}".rstrip("0").rstrip(".")
         download = f"~{amount} GB" if size >= 100_000_000 else "<0.1 GB"
+        observed_at = recipe.get("observed_at", references["observed_at"])
         note = (f"About {amount} GB for the full image-model download, from selected-file metadata checked "
-                f"{references['observed_at']}. This is not the amount still missing; cached files may reduce it. "
+                f"{observed_at}. This is not the amount still missing; cached files may reduce it. "
                 "Future unpinned repository updates may change it.")
     else:
         download = "Unknown"

@@ -109,6 +109,11 @@ CHECKPOINTS: tuple[Checkpoint, ...] = (
         "open; official split files",
     ),
     Checkpoint(
+        "Anima 2.9B Preview v1",
+        "Gazingstars123/Anima-2.9B",
+        "open; community expansion, single file converted locally on first load",
+    ),
+    Checkpoint(
         "NetaYume Lumina v4",
         "duongve/NetaYume-Lumina-Image-2.0",
         "open; split denoiser, converted locally on first load",

@@ -193,6 +193,7 @@ def test_converted_conditioner_is_strict_and_has_no_meta_parameters(tmp_path):
 @pytest.mark.parametrize("model_id,source,pipeline_name", [
     (module.MODEL_ID, module.SOURCE, "AnimaTurboPipeline"),
     (module.AESTHETIC_MODEL_ID, module.AESTHETIC_SOURCE, "AnimaAestheticPipeline"),
+    (module.PREVIEW_MODEL_ID, module.PREVIEW_SOURCE, "AnimaPreviewPipeline"),
 ])
 def test_conversion_downloads_only_pinned_variant_and_shared_components(
     monkeypatch, tmp_path, model_id, source, pipeline_name,
@@ -207,9 +208,10 @@ def test_conversion_downloads_only_pinned_variant_and_shared_components(
 
     monkeypatch.setattr(huggingface_hub, "snapshot_download", download)
     monkeypatch.setattr(huggingface_hub, "hf_hub_download", download)
+    prefix = "net." if model_id == module.PREVIEW_MODEL_ID else "model.diffusion_model."
     monkeypatch.setattr(safetensors.torch, "load_file", lambda path, device: {
-        "model.diffusion_model.blocks.0.self_attn.q_proj.weight": torch.ones(1),
-        "model.diffusion_model.llm_adapter.embed.weight": torch.full((1,), 2.0),
+        prefix + "blocks.0.self_attn.q_proj.weight": torch.ones(1),
+        prefix + "llm_adapter.embed.weight": torch.full((1,), 2.0),
     })
 
     class Component:
@@ -217,7 +219,9 @@ def test_conversion_downloads_only_pinned_variant_and_shared_components(
             assert kwargs == {"dtype": torch.bfloat16}
             return self
 
-    def converted(cls, config, state):
+    def converted(cls, config, state, **overrides):
+        expected = {"num_layers": 40} if model_id == module.PREVIEW_MODEL_ID and cls is diffusers.CosmosTransformer3DModel else {}
+        assert overrides == expected
         components[Path(config).name] = (cls, state)
         return Component()
 
@@ -263,6 +267,7 @@ def test_conversion_downloads_only_pinned_variant_and_shared_components(
 @pytest.mark.parametrize("model_id,pipeline_name", [
     (module.MODEL_ID, "AnimaTurboPipeline"),
     (module.AESTHETIC_MODEL_ID, "AnimaAestheticPipeline"),
+    (module.PREVIEW_MODEL_ID, "AnimaPreviewPipeline"),
 ])
 def test_backend_quantizes_converted_tree_with_concrete_pipeline_and_keeps_public_id(
     monkeypatch, tmp_path, quant, model_id, pipeline_name,
@@ -349,3 +354,62 @@ def test_aesthetic_nunchaku_refuses_and_unknown_variants_pass_through(conversion
     assert module.resolve_model(unknown, "fp8") == unknown
     assert module.converted_tree(unknown) is None
     assert not conversion
+
+
+def test_preview_prefix_preserves_all_expanded_layers_and_its_conditioner():
+    weights = {f"net.blocks.{layer}.self_attn.q_proj.weight": torch.full((1,), layer)
+               for layer in range(40)}
+    conditioner = torch.ones(1)
+    weights["net.llm_adapter.embed.weight"] = conditioner
+    transformer, adapter = module._split_checkpoint(weights, prefix="net.")
+    assert len(transformer) == 40
+    for layer in range(40):
+        assert transformer[f"transformer_blocks.{layer}.attn1.to_q.weight"].item() == layer
+    assert adapter == {"embed.weight": conditioner}
+    # A different release's format is not guessed from its keys.
+    with pytest.raises(ValueError, match="Unexpected Anima checkpoint key"):
+        module._split_checkpoint(weights)
+
+
+def test_preview_depth_override_strictly_loads_the_full_expanded_transformer(tmp_path):
+    original = diffusers.CosmosTransformer3DModel(
+        num_attention_heads=2, attention_head_dim=16, in_channels=2, out_channels=2,
+        num_layers=3, text_embed_dim=8, adaln_lora_dim=4,
+    )
+    original.save_config(tmp_path)
+    expanded = diffusers.CosmosTransformer3DModel.from_config(original.config, num_layers=40)
+    weights = expanded.state_dict()
+    loaded = module._load_component(
+        diffusers.CosmosTransformer3DModel, tmp_path, weights, num_layers=40,
+    )
+    assert loaded.config.num_layers == 40
+    assert len(loaded.transformer_blocks) == 40
+    assert all(parameter.device.type == "cpu" for parameter in loaded.parameters())
+    for key, value in loaded.state_dict().items():
+        assert torch.equal(value, weights[key])
+    # Removing a newly inserted layer fails; it cannot silently load Base.
+    missing = {key: value for key, value in weights.items()
+               if not key.startswith("transformer_blocks.39.")}
+    with pytest.raises(RuntimeError, match="Missing key"):
+        module._load_component(
+            diffusers.CosmosTransformer3DModel, tmp_path, missing, num_layers=40,
+        )
+
+
+def test_preview_cache_is_distinct_and_reused_without_changing_existing_recipes(conversion):
+    trees = {model_id: module.resolve_model(model_id, "fp8")
+             for model_id in (module.MODEL_ID, module.AESTHETIC_MODEL_ID, module.PREVIEW_MODEL_ID)}
+    assert len(set(trees.values())) == 3
+    preview = trees[module.PREVIEW_MODEL_ID]
+    assert Path(preview).name.startswith("Anima-2.9B-preview-v1-")
+    assert json.loads(Path(preview, "local-diffusion-conversion.json").read_text()) == module.PREVIEW_RECIPE
+    assert module.PREVIEW_SOURCE == {
+        "repo_id": "Gazingstars123/Anima-2.9B",
+        "filename": "Anima-2.9B-preview-v1.safetensors",
+        "revision": "9f9cb502dbae7a616c3cc5a530633427fe735665",
+    }
+    for quant in ("fp8", "int8", "none"):
+        assert module.resolve_model(module.PREVIEW_MODEL_ID.upper(), quant) == preview
+    with pytest.raises(RuntimeError, match="not a Nunchaku Lite"):
+        module.resolve_model(module.PREVIEW_MODEL_ID, "nunchaku")
+    assert len(conversion) == 3

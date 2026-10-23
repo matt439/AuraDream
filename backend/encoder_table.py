@@ -350,6 +350,7 @@ _EXACT: dict[str, Callable[[str], list[EncoderSpec]]] = {
     _key(_Z_ANIME_ID): _z_anime,
     _key(anima_loading.MODEL_ID): _anima,
     _key(anima_loading.AESTHETIC_MODEL_ID): _anima,
+    _key(anima_loading.PREVIEW_MODEL_ID): _anima,
     _key(netayume_loading.MODEL_ID): _netayume,
     _key(newbie_loading.MODEL_ID): _newbie,
 }

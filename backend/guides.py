@@ -1464,6 +1464,55 @@ ANIMA_AESTHETIC_GUIDE = {
     },
 }
 
+# The preview's author follows the Anima vocabulary, but lists prompting
+# ingredients rather than a fixed sequence. Keep that vocabulary without
+# importing Turbo's score prefix, checked order or two-sentence minimum.
+ANIMA_PREVIEW_GUIDE = {
+    "prompt": (
+        "Anima 2.9B preview v1 makes anime and illustrations from tags, natural "
+        "language, or both. Describe the scene and background in detail; the author "
+        "warns that short prompts often produce simple backgrounds. Put @ before "
+        "an artist name, follow character names with series tags, and describe "
+        "each character's appearance in multi-character scenes. The training "
+        "captions have no score tags, though the author says they may still be used.\n"
+        "Following the parent Anima guide, write tags in lowercase with spaces "
+        "instead of underscores, except score tags. The Tags menu uses the parent "
+        "Anima vocabulary; autocomplete checks Danbooru's live index. This app "
+        "checks no fixed tag order. The example is inherited from the parent "
+        "Anima card. A negative prompt applies at CFG > 1. This app uses fixed "
+        "FlowMatch Euler; the author's alternative samplers and schedules are "
+        "different setups."
+    ),
+    "size": (
+        "The author recommends 812x1216 and 1152x1536, about 0.99-1.77 MP, "
+        "and calls 1536x1536 (2.36 MP) iffy. Size highlighting follows the first "
+        "two sizes. The listed 812-pixel side is off this app's 16-pixel grid; "
+        "use a nearby 1 MP preset. These are author recommendations, not "
+        "measurements on this card."
+    ),
+    "pixels": (812 * 1216 / 1e6, 1152 * 1536 / 1e6),
+    "pixels_word": "recommended",
+    "examples": list(ANIMA_TURBO_GUIDE["examples"]),
+    "example_notes": {
+        example: "Parent Anima author example; the preview card publishes no scene prompt."
+        for example in ANIMA_TURBO_GUIDE["examples"]
+    },
+    "tag_helper": {**_anima_helper(score=False), "order": []},
+    "analysis": {
+        "url": "https://huggingface.co/Gazingstars123/Anima-2.9B",
+        "underscores": {
+            "keep": r"score_\d+(?:_up)?",
+            "cite": "write tags in lowercase with spaces instead of underscores, except score tags",
+            "url": "https://huggingface.co/circlestone-labs/Anima",
+        },
+        "lowercase": {
+            "cite": "write tags in lowercase",
+            "url": "https://huggingface.co/circlestone-labs/Anima",
+        },
+        "artist_prefix": {"cite": "Put @ before an artist name"},
+    },
+}
+
 NETAYUME_GUIDE = {
     "prompt": (
         "NetaYume Lumina v4 is an anime finetune of Neta Lumina. Its author's "
