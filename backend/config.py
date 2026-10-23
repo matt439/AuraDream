@@ -75,6 +75,9 @@ class Settings:
     # locks. The web directory stays code - it is read once, and small.
     outputs_dir: Path = Path(os.getenv("LOCAL_DIFFUSION_OUTPUTS_DIR", ROOT / "outputs")).expanduser()
     db_path: Path = Path(os.getenv("LOCAL_DIFFUSION_DB_PATH", ROOT / "local-diffusion.db")).expanduser()
+    # Saved archives may live on another drive without moving the gallery.
+    # None keeps the legacy bundles/ beside whichever database is in use.
+    bundles_dir: Path | None = _env_path("LOCAL_DIFFUSION_BUNDLES_DIR")
     web_dir: Path = ROOT / "web"
     # Where LoRA adapters are read from - one directory of *.safetensors, listed
     # by `GET /api/loras` and chosen by *name*. A path taken from the request

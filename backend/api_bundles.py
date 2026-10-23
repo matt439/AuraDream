@@ -218,7 +218,7 @@ def create_router(get_manager: Callable[[], BundleManager], services: AppService
     @router.get(PREFIX)
     async def saved_bundles():
         items = await asyncio.to_thread(bundles.list_bundles)
-        return {"bundles": items, "directory": str(storage.settings.db_path.parent / "bundles")}
+        return {"bundles": items, "directory": str(storage.bundle_directory())}
 
     @router.get(PREFIX + "/preview")
     async def preview():

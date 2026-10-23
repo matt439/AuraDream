@@ -3,6 +3,7 @@ from __future__ import annotations
 
 import os
 import time
+from dataclasses import replace
 from pathlib import Path
 
 import pytest
@@ -14,9 +15,10 @@ from tests.bundle_helpers import _save, _export, _destination
 def _leftovers(store):
     beside = store.settings.db_path.parent
     staging = store.bundle_staging_dir()
-    (beside / "bundles").mkdir(exist_ok=True)
+    directory = store.bundle_directory()
+    directory.mkdir(parents=True, exist_ok=True)
     made = {
-        "archive": beside / "bundles" / "local-diffusion-x.zip.part",
+        "archive": directory / "local-diffusion-x.zip.part",
         "export": beside / ".bundle-ab12cd_3",
         "merge": beside / ".bundle-merge-ab12cd34",
         "old upload": beside / ".bundle-upload-ab12cd34.part",
@@ -41,7 +43,10 @@ def _leftovers(store):
 
 
 @pytest.mark.parametrize("sweep", ["startup", "export", "import", "clear"])
-def test_what_a_killed_bundle_operation_left_is_swept_once_settled(store, sweep):
+@pytest.mark.parametrize("configured", [False, True])
+def test_what_a_killed_bundle_operation_left_is_swept_once_settled(store, sweep, configured, monkeypatch, tmp_path):
+    if configured:
+        monkeypatch.setattr(store, "settings", replace(store.settings, bundles_dir=tmp_path / "archive-drive" / "saved"))
     _save("source", 1)
     made, kept = _leftovers(store)
     assert store.summarise()["partial_files"] == len(made)

@@ -241,6 +241,7 @@ relative to the repository unless overridden; WSL uses its separate defaults.
 | `LOCAL_DIFFUSION_PRELOAD` | `false` | Load weights at startup |
 | `LOCAL_DIFFUSION_OUTPUTS_DIR` | `outputs/` | Generated PNGs |
 | `LOCAL_DIFFUSION_DB_PATH` | `local-diffusion.db` | Gallery database |
+| `LOCAL_DIFFUSION_BUNDLES_DIR` | `bundles/` beside the database | Saved gallery archives; independent of images and database |
 | `LOCAL_DIFFUSION_LORAS_DIR` | `loras/` | `.safetensors` adapters |
 | `LOCAL_DIFFUSION_MAX_BATCH_PIXELS` | `12902400` | Pixel budget per pipeline call |
 | `LOCAL_DIFFUSION_MAX_GRID_IMAGES` | `1024` | Image limit for a grid |

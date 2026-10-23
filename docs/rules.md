@@ -1599,6 +1599,12 @@ Jobs:
   `_MAX_IMAGE_BYTES` (256 MiB) is refused before it is read into memory, and
   so is any member whose `compress_size` exceeds what deflate could make of
   its `file_size` (a whole `read()` fetches all of it in one call).
+- Saved archives use `storage.bundle_directory()`: `LOCAL_DIFFUSION_BUNDLES_DIR`
+  when set, otherwise `bundles/` beside the database. Listing, downloads,
+  export/import, the dialog's directory and archive `.part` cleanup must use
+  the same location. Keep it outside the images directory and refuse a
+  symbolic link or junction as the archive directory or an archive file.
+  This setting does not move database work or image staging.
 - Imports unpack, and uploads land, in `storage.bundle_staging_dir()`
   (`.local-diffusion-staging` beside the images directory, or inside it when
   it is its own volume); the merged database is built in a `.bundle-merge-*`
@@ -4821,7 +4827,10 @@ installed), the cross-volume copy and oversized or padded members.
 palette/mode identity and regenerated thumbnails.
 `tests/test_bundles_staging.py` covers staging and free space per volume and
 the leftover sweep, and `tests/test_gallery_lock.py` process/thread
-reservations. `tests/test_api_bundles.py` covers browser
+reservations. `tests/test_bundles_directory.py` covers independent archive
+storage, default fallback, containment and link refusals, and the fake
+server overriding an inherited production archive path.
+`tests/test_api_bundles.py` covers browser
 export/download/upload/import, admission during jobs, the card's editor
 work, a model switch or load lock and maintenance, another process's
 reservation failing the operation readably, origins,

@@ -4350,6 +4350,18 @@ never an overwrite.
 
 ## Gallery bundles: verify before clearing, stage before merging
 
+**Archive storage on a separate drive (2026-10-24).**
+`LOCAL_DIFFUSION_BUNDLES_DIR` selects the saved archives independently of the
+database and generated images; unset, it retains `bundles/` beside the
+database. A shared storage helper supplies the directory for archive
+operations, the browser's location label and stale archive partials. A
+junction is still refused, so relocation uses a real configured directory.
+Database snapshots and merge copies remain beside the database, and uploads
+and unpacked images remain on the images' volume. Free-space checks continue
+to account for each volume. Moving existing archives is an offline copy with
+SHA-256 comparison before source removal, with backup coverage following the
+new location.
+
 Copying PNGs without SQLite loses favourites and timings. **Gallery bundles**
 packages both in one portable ZIP, with thumbnails and unindexed PNGs, then
 clears the server's gallery. Its scope is every checkpoint and favourite;

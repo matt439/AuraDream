@@ -77,6 +77,7 @@ def main() -> int:
     # Before backend.config is imported: its settings freeze at import.
     os.environ["LOCAL_DIFFUSION_DB_PATH"] = str(data / "local-diffusion.db")
     os.environ["LOCAL_DIFFUSION_OUTPUTS_DIR"] = str(data / "outputs")
+    os.environ["LOCAL_DIFFUSION_BUNDLES_DIR"] = str(data / "bundles")
     os.environ["LOCAL_DIFFUSION_PORT"] = str(args.port)
     os.environ["LOCAL_DIFFUSION_MODEL_ID"] = args.model
     # An adapter directory of its own, with one file in it, so the LoRA select

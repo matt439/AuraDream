@@ -710,6 +710,26 @@ BUNDLE_STAGING = ".local-diffusion-staging"
 _BUNDLE_WORK = re.compile(r"\.bundle-(?:import-|merge-|upload-)?[a-z0-9_]{8}(?:\.part)?")
 
 
+def bundle_directory() -> Path:
+    """The saved archives' directory, shared by reads, writes and cleanup."""
+    # bundle_common imports reindex, which imports storage: defer the error
+    # import until this module is ready rather than introducing a cycle.
+    from .bundle_common import BundleError
+
+    directory = settings.bundles_dir
+    if directory is None:
+        directory = settings.db_path.parent.resolve() / "bundles"
+    # Check the configured name before resolve follows a direct junction or
+    # symlink and hides it. Parent links still resolve for the containment test.
+    if directory.is_symlink() or directory.is_junction():
+        raise BundleError("the bundles directory must not be a symbolic link")
+    directory = directory.resolve()
+    outputs = settings.outputs_dir.resolve()
+    if directory == outputs or directory.is_relative_to(outputs):
+        raise BundleError("the bundles directory must be outside the images directory")
+    return directory
+
+
 def bundle_staging_dir() -> Path:
     """The staging directory on the images' volume, created on demand.
 
@@ -739,7 +759,7 @@ def _bundle_leftovers() -> list:
     beside = settings.db_path.parent
     outputs = settings.outputs_dir
     return [
-        *(beside / "bundles").glob("*.part"),
+        *bundle_directory().glob("*.part"),
         *(p for p in beside.glob(".bundle-*") if _BUNDLE_WORK.fullmatch(p.name)),
         *(outputs.parent / BUNDLE_STAGING).glob("*"),
         *(outputs / BUNDLE_STAGING).glob("*"),

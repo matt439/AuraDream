@@ -788,7 +788,8 @@ recovered, and the gallery is cleared after export, so keep it safe. Finish or c
 must also finish before this operation can start.
 
 The server saves the bundle (a ZIP, or with a password an encrypted
-`.ldbundle`) in `bundles/` beside its gallery database, reads it back and
+`.ldbundle`) in `bundles/` beside its gallery database (or in
+`LOCAL_DIFFUSION_BUNDLES_DIR` when set), reads it back and
 checks every file against its checksum (decrypting and authenticating every
 part of a protected bundle), and only then removes the original PNGs and
 thumbnails. The old database is replaced with a compact empty gallery, ready
@@ -823,8 +824,8 @@ imported and the partial upload is removed. Once the upload has arrived the
 import is the server's to finish. If another Local Diffusion process (such as
 a running `reindex`) is using the gallery, the operation fails at once and
 can be retried when it ends. Creating and importing a bundle need free space
-for the archive and staged files: the bundle and the merged database on the
-database's drive, uploads and unpacked images in `.local-diffusion-staging`
+for the archive and staged files: the bundle on its configured drive, database
+working copies on the database's drive, uploads and unpacked images in `.local-diffusion-staging`
 on the images' drive. An export without room for every file it would copy
 (the images, the database and its working copies) is refused before it
 writes anything. If an image is locked or files change during
@@ -841,6 +842,27 @@ refresh: put in place when it is an image the gallery already lists,
 removed otherwise. In Windows
 and WSL, the saved-bundle directory belongs to the server environment whose
 gallery is open.
+
+To move saved bundles to another drive, stop the server, copy the existing
+archives to a real directory outside `outputs/`, and compare their SHA-256
+hashes before removing the originals. Set `LOCAL_DIFFUSION_BUNDLES_DIR` to
+that directory before restarting; the dialog shows the configured location.
+This moves only archive storage: the gallery database, generated images and
+import staging keep their existing locations. Symbolic links and junctions
+are refused. Include the new location in any backup scope that previously
+covered the old `bundles/` directory.
+
+For example, in PowerShell, persist the Windows setting and also apply it to
+the current terminal before starting the server:
+
+```powershell
+[Environment]::SetEnvironmentVariable('LOCAL_DIFFUSION_BUNDLES_DIR', 'D:\LocalDiffusion\bundles', 'User')
+$env:LOCAL_DIFFUSION_BUNDLES_DIR = 'D:\LocalDiffusion\bundles'
+local-diffusion
+```
+
+Existing terminals inherit their old environment; open a new terminal or set
+the variable there too. WSL can use its own Linux path via an explicit export.
 
 ## Clear or recover a gallery
 

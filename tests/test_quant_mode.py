@@ -12,6 +12,7 @@ import json
 import os
 import subprocess
 import sys
+from pathlib import Path
 
 import pytest
 
@@ -97,7 +98,7 @@ def test_refuses_a_bf16_repo(nunchaku, monkeypatch):
 _IMPORT_SETTINGS = (
     "import os; from backend.config import settings; "
     "print(settings.outputs_dir); print(settings.db_path); "
-    "print(os.environ.get('DIFFUSERS_TRUST_REMOTE_KERNELS', ''))"
+    "print(os.environ.get('DIFFUSERS_TRUST_REMOTE_KERNELS', '')); print(settings.bundles_dir)"
 )
 
 
@@ -121,7 +122,7 @@ def _settings_in_subprocess(env: dict[str, str]) -> dict[str, str]:
     result = _run_import(env)
     assert result.returncode == 0, result.stderr
     out = result.stdout.splitlines()
-    return {"outputs_dir": out[0], "db_path": out[1], "trust": out[2]}
+    return {"outputs_dir": out[0], "db_path": out[1], "trust": out[2], "bundles_dir": out[3]}
 
 
 def test_data_paths_come_from_the_environment(tmp_path):
@@ -133,6 +134,14 @@ def test_data_paths_come_from_the_environment(tmp_path):
     # Created by storage when something is about to be written, not at import:
     # `clear.py --dry-run` promises to change nothing.
     assert not (tmp_path / "out").exists()
+
+
+@pytest.mark.parametrize("raw", [None, "", "   ", "relative-bundles", "~/saved-bundles"])
+def test_bundle_directory_is_optional_and_configured_without_creating_it(raw):
+    env = {} if raw is None else {"LOCAL_DIFFUSION_BUNDLES_DIR": raw}
+    got = _settings_in_subprocess(env)["bundles_dir"]
+    expected = "None" if raw is None or not raw.strip() else str(Path(raw).expanduser().absolute())
+    assert got == expected
 
 
 @pytest.mark.parametrize(

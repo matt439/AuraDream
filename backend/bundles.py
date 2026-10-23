@@ -49,13 +49,7 @@ def _is_link(path: Path) -> bool:
 
 
 def _directory() -> Path:
-    directory = _settings().db_path.parent.resolve() / "bundles"
-    outputs = _settings().outputs_dir.resolve()
-    if directory == outputs or directory.is_relative_to(outputs):
-        raise BundleError("the bundles directory must be outside the images directory")
-    if _is_link(directory):
-        raise BundleError("the bundles directory must not be a symbolic link")
-    return directory
+    return storage.bundle_directory()
 
 
 def bundle_path(name: str) -> Path:

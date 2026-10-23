@@ -6,6 +6,8 @@ import base64
 import json
 import threading
 import time
+from dataclasses import replace
+from pathlib import Path
 
 import pytest
 from fastapi import HTTPException
@@ -37,7 +39,10 @@ def test_a_missing_image_answers_with_its_id_beside_the_detail(client, store):
     assert body["detail"].startswith(f"Image #{record.id} ({record.filename}) has no file in ")
 
 
-def test_browser_export_download_and_uploaded_merge(client, store):
+@pytest.mark.parametrize("configured", [False, True])
+def test_browser_export_download_and_uploaded_merge(client, store, configured, monkeypatch, tmp_path):
+    if configured:
+        monkeypatch.setattr(store, "settings", replace(store.settings, bundles_dir=tmp_path / "archive-drive" / "saved"))
     job_id, _ = run_one(client, seed=19)
     record = store.list_images()[0][0]
     store.set_favorite(record.id, True)
@@ -52,6 +57,8 @@ def test_browser_export_download_and_uploaded_merge(client, store):
     assert client.get(f"/api/jobs/{job_id}").json()["images"] == []
     name = result["result"]["name"]
     listing = client.get("/api/gallery/bundles").json()
+    assert listing["directory"] == str(store.bundle_directory())
+    assert Path(result["result"]["path"]).parent == store.bundle_directory()
     assert any(item["name"] == name for item in listing["bundles"])
     download = client.get(f"/api/gallery/bundles/files/{name}")
     assert download.status_code == 200
