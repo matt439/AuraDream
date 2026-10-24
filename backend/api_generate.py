@@ -8,11 +8,12 @@ from dataclasses import dataclass
 
 from fastapi import APIRouter, HTTPException
 
-from . import gallery_reports, grid, storage, submission
+from . import gallery_reports, grid, storage, submission, then_refine
 from .api_more_seeds import more_seeds_plan
 from .app_context import AppServices
 from .schemas import (
     GenerateRequest,
+    GenerateSubmission,
     GridPreview,
     GridRequest,
     JobAccepted,
@@ -20,6 +21,7 @@ from .schemas import (
     RerenderGone,
     RerenderRequest,
     MoreSeedsRequest,
+    ThenRefine,
     error_detail,
 )
 from .schemas_rerun import (
@@ -141,6 +143,28 @@ def _finish_key(services: AppServices, cell: grid.Cell) -> tuple:
     return cell.request.width, cell.request.height, tuple(grid.cell_keys(ran))
 
 
+async def then_refine_spec(
+    services: AppServices, spec: ThenRefine | None, requests: list[GenerateRequest],
+) -> ThenRefine | None:
+    """Then refine as the job runs it, its strength resolved, or a 422 in
+    words where these cells cannot each be followed by a pass."""
+    if spec is None or not requests:
+        return None
+    spec = then_refine.resolved(spec)
+    reason = then_refine.refusal(requests, spec, await submission.refine_unavailable(services))
+    if reason is not None:
+        raise HTTPException(status_code=422, detail=reason)
+    return spec
+
+
+def _retained_then_refine(metadata: dict) -> ThenRefine | None:
+    """A retained job's Then refine, without the pass run id beside it."""
+    saved = metadata.get("then_refine")
+    if not isinstance(saved, dict):
+        return None
+    return ThenRefine.model_validate({k: v for k, v in saved.items() if k != "pass_run_id"})
+
+
 async def finish_plan(services: AppServices, run_id: str) -> FinishPlan:
     """Resolve retained cells without the composer, preserving stored order.
 
@@ -177,6 +201,15 @@ async def finish_plan(services: AppServices, run_id: str) -> FinishPlan:
     reason = ""
     if definition is None:
         reason = "made before runs kept their cells: use the panel's Resume tick"
+        # A Then refine pass run keeps no cells of its own: its records' job
+        # is the base job, whose definition names it.
+        base = await asyncio.to_thread(
+            storage.retained_run_metadata, sorted({r.job_id for r in records if r.job_id}),
+        )
+        for base_run, metadata in base.values():
+            if (metadata.get("then_refine") or {}).get("pass_run_id") == run_id:
+                reason = f"the refine passes of run {base_run}: finish that run, and its passes follow"
+                break
     elif any(saved["model_id"] != services.model_id() for saved in definitions):
         reason = f"made on {definition['model_id']}; the server is running {services.model_id()}"
     elif any(saved["quantization"] != services.quantization() for saved in definitions):
@@ -306,6 +339,7 @@ def create_router(services: AppServices) -> APIRouter:
                 grid=metadata.get("grid", True), prompt_template=metadata.get("prompt_template"),
                 comparison=plan.definition["comparison"], swap=metadata.get("swap"),
                 refine_batch=metadata.get("refine_batch"), more_seeds=metadata.get("more_seeds"),
+                then_refine=_retained_then_refine(metadata),
             )
             return FinishRunAccepted(
                 job_id=job.id, seed=job.seed, run_id=run_id, cells=preview.cells, images=preview.images,
@@ -314,7 +348,8 @@ def create_router(services: AppServices) -> APIRouter:
             )
 
     @router.post("/api/generate", response_model=JobAccepted)
-    async def generate(request: GenerateRequest) -> JobAccepted:
+    async def generate(submitted: GenerateSubmission) -> JobAccepted:
+        request = submitted.base()
         try:
             request.check_budget()
         except ValueError as exc:
@@ -327,7 +362,8 @@ def create_router(services: AppServices) -> APIRouter:
         # The job waits on ensure_loaded() itself, so a previously failed load is
         # retried here rather than short-circuiting - the user may have just been
         # granted repo access.
-        job = await services.jobs().submit(request)
+        spec = await then_refine_spec(services, submitted.then_refine, [request])
+        job = await services.jobs().submit(request, then_refine=spec)
         return JobAccepted(job_id=job.id, seed=job.seed, run_id=job.run_id)
 
 
@@ -353,12 +389,14 @@ def create_router(services: AppServices) -> APIRouter:
             raise HTTPException(status_code=409, detail=(
                 "every cell is already rendered or queued" if queued else "every cell is already rendered"
             ))
+        spec = await then_refine_spec(services, request.then_refine, [cell.request for cell in cells])
         job = await services.jobs().submit_cells(
             cells,
             run_id=run_id,
             budget_minutes=request.budget_minutes,
             prompt_template=request.prompt,
             comparison=bool(request.prompt_variants),
+            then_refine=spec,
         )
         return JobAccepted(job_id=job.id, seed=job.seed, run_id=job.run_id)
 
@@ -516,11 +554,29 @@ def create_router(services: AppServices) -> APIRouter:
         )
         images = len(cells) * request.num_images
         listed = len(values.get("seed", []))
+        # Then refine: a pass of each image after its cell, priced as passes
+        # at the pass size are; the cells and their passes priced as the
+        # worker runs them, each cell's passes after it.
+        spec = await then_refine_spec(services, request.then_refine, [cell.request for cell in cells])
+        priced, pass_size, pass_bytes = cells, None, 0
+        if spec is not None and cells:
+            stand_ins = [then_refine.stand_in(cell.request, spec) for cell in cells]
+            pass_size = (stand_ins[0].width, stand_ins[0].height)
+            refine_costs = await asyncio.to_thread(
+                gallery_reports.refine_cost_ms, *pass_size, services.model_id()
+            )
+            pass_image = await asyncio.to_thread(gallery_reports.image_bytes, *pass_size, services.model_id())
+            pass_bytes = pass_image * images if pass_image else None
+            priced = [
+                unit
+                for cell, probe in zip(cells, stand_ins)
+                for unit in [cell, *[grid.Cell(request=probe, seed=cell.seed)] * cell.request.num_images]
+            ]
         # Under Resume the seeds left are no longer alike, and the page says
         # nothing of the budget there.
         budget_seeds = (
             grid.seeds_within_budget(
-                cells, listed or request.seeds, per_step_ms, request.budget_minutes * 60,
+                priced, listed or request.seeds, per_step_ms, request.budget_minutes * 60,
                 refine_costs=refine_costs, inpaint_costs=inpaint_costs,
             )
             if request.budget_minutes and not request.resume
@@ -535,6 +591,11 @@ def create_router(services: AppServices) -> APIRouter:
             applied = [services.backend().applied(cell.request) for cell in cells]
             if len({(r.steps, r.mu, r.strength) for r in applied}) == 1 and applied[0].refine is not None:
                 start_sigma = services.backend().start_sigma(applied[0])
+        elif spec is not None and cells and len({cell.request.steps for cell in cells}) == 1:
+            # Then refine's pass, where every cell's starts at one point.
+            start_sigma = services.backend().start_sigma(
+                services.backend().applied(then_refine.stand_in(cells[0].request, spec))
+            )
         return GridPreview(
             values=values,
             cells=len(cells),
@@ -548,11 +609,14 @@ def create_router(services: AppServices) -> APIRouter:
             duplicates=grid.duplicate_count(cells, services.backend().applied),
             summary=grid.describe(values, listed or request.seeds, listed=bool(listed)),
             seconds=grid.estimate_seconds(
-                cells, per_step_ms, refine_costs=refine_costs, inpaint_costs=inpaint_costs
+                priced, per_step_ms, refine_costs=refine_costs, inpaint_costs=inpaint_costs
             ),
             budget_seeds=budget_seeds,
-            bytes=per_image_bytes * images if per_image_bytes else None,
+            bytes=per_image_bytes * images + pass_bytes if per_image_bytes and pass_bytes is not None else None,
             start_sigma=start_sigma,
+            passes=images if spec is not None else 0,
+            pass_width=pass_size[0] if pass_size else None,
+            pass_height=pass_size[1] if pass_size else None,
         )
 
     return router

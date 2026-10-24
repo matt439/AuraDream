@@ -554,6 +554,36 @@ def error_detail(exc: ValueError) -> str:
     )
 
 
+class ThenRefine(BaseModel):
+    """A refine pass of every image a Generate or a grid makes, run right
+    after its cell: Mass refine's three numbers. `strength` None is the
+    checkpoint's own (`default_strength`), `steps` None each cell's own. No
+    prompt and no upscaler: the pass keeps its base's prompt pair and
+    resizes with Lanczos, as Mass refine does."""
+
+    scale: float = Field(default=1.5, ge=1.0, le=2.0)
+    strength: float | None = None
+    steps: int | None = Field(default=None, ge=1, le=100)
+
+    @field_validator("strength")
+    @classmethod
+    def _a_fraction(cls, value: float | None) -> float | None:
+        return GenerateRequest._a_fraction.__func__(cls, value)
+
+
+class GenerateSubmission(GenerateRequest):
+    """What `/api/generate` takes: the request and, beside it, what is to be
+    done with its images once made. `then_refine` is never part of the
+    reproduction set - a cell is built from the request without it - so the
+    base rows are what a plain Generate of the same settings writes."""
+
+    then_refine: ThenRefine | None = None
+
+    def base(self) -> GenerateRequest:
+        """The request alone, as the cells carry it."""
+        return GenerateRequest.model_validate(self.model_dump(exclude={"then_refine"}))
+
+
 class PromptVariant(BaseModel):
     """One whole prompt on a comparison grid's prompt axis, under a short name."""
 
@@ -561,7 +591,7 @@ class PromptVariant(BaseModel):
     prompt: str = Field(min_length=1, max_length=4000)
 
 
-class GridRequest(GenerateRequest):
+class GridRequest(GenerateSubmission):
     """A sweep over the sampling axes, sitting on top of a normal request.
 
     The inherited fields are the *base*: an axis left blank contributes the one
@@ -688,6 +718,11 @@ class GridPreview(BaseModel):
     # different sizes on FLUX.1, whose shift grows with the size. Null before
     # a load, for a schedule that is not flow matching, and for a sweep.
     start_sigma: float | None = None
+    # Under Then refine: the passes queued after the cells (one per image)
+    # and their size. Their time and disk are in `seconds` and `bytes`.
+    passes: int = 0
+    pass_width: int | None = None
+    pass_height: int | None = None
 
 
 class JobAccepted(BaseModel):

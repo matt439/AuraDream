@@ -92,7 +92,8 @@ Backend (`backend/`):
   scoped delete, recycle bin, clear;
   `search.py` search grammar; `grid.py` axes, variables, variants, cells,
   records as cells (`cell_from_record`); `tag_swap.py` Swap tags' rewrite;
-  `refine_batch.py` Mass refine's per-image plan; `more_seeds.py` More
+  `refine_batch.py` Mass refine's per-image plan; `then_refine.py` Then
+  refine's stand-in pass, refusals and pass run id; `more_seeds.py` More
   seeds' batches and their next seeds;
   `seeds.py`; `sizes.py` presets and size guards; `loras.py` adapter names to
   paths; `refine.py` the image-to-image pass and the inpaint (`sibling(kind)`,

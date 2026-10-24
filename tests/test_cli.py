@@ -161,6 +161,47 @@ def test_the_cli_saves_its_calls_peak_on_every_image_of_the_batch(cli, store):
     assert {(r.vram_peak_allocated, r.vram_peak_reserved) for r in items} == {cli.peak}
 
 
+def test_then_refine_follows_each_image_with_the_servers_pass(cli, store):
+    from backend import grid, refine_batch, then_refine
+    from backend.model_defaults import defaults_for
+    from backend.model_selection import current_model_id
+    from backend.schemas import ThenRefine
+
+    flags = ["--then-refine-scale", "1.5", "--then-refine-strength", "0.5"]
+    assert generate.main(["a fox", "--seed", "7", "--runs", "2", "--steps", "8", *SIZE, *flags, "-q"]) == 0
+    # Each cell, then its pass, as the server's worker runs them.
+    assert [r.refine is not None for r in cli.requests] == [False, True, False, True]
+    rows = sorted(store.list_images()[0], key=lambda r: r.id)
+    bases = [r for r in rows if r.refine is None]
+    passes = {r.refine: r for r in rows if r.refine is not None}
+    assert set(passes) == {b.id for b in bases}
+    spec = ThenRefine(scale=1.5, strength=0.5)
+    running = current_model_id(config.settings)
+    for base in bases:
+        made = passes[base.id]
+        assert made.run_id == then_refine.pass_run_id(base.run_id, spec) and made.job_id == base.job_id
+        planned = refine_batch.plan(
+            base, running=running, profile=defaults_for(running), scale=1.5, strength=0.5, steps=None,
+            include_foreign=False, skip_passes=False,
+        )
+        assert grid.cell_key(planned.cell) == grid.cell_key(grid.cell_from_record(made))
+
+
+def test_then_refine_flags_are_refused_in_words(cli, store, capsys):
+    for argv, said in (
+        (["--then-refine-strength", "0.5"], "need --then-refine-scale"),
+        (["--then-refine-scale", "3"], "from 1 to 2"),
+        (["--then-refine-scale", "1.5", "--refine", "1"], "are alternatives"),
+    ):
+        with pytest.raises(SystemExit):
+            generate.main(["a fox", *SIZE, *argv])
+        assert said in capsys.readouterr().err
+    assert generate.main(["a fox", "--steps", "4", *SIZE, "--then-refine-scale", "1.5",
+                          "--then-refine-strength", "0.1", "-q"]) == 2
+    assert "leaves no step" in capsys.readouterr().err
+    assert cli.requests == []
+
+
 def test_a_failed_cell_is_skipped_and_the_exit_code_says_so(cli, store):
     cli.fail_on = {2}
     code = generate.main(["a fox", "--seed", "1", "--grid-steps", "6,8,10", *SIZE, "-q"])

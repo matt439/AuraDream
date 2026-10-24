@@ -24,8 +24,9 @@ from .model_selection import current_settings
 from .config import settings
 from .grid import Cell, CellKey, cell_keys, progress_steps, run_id as _run_id
 from .latent_preview import data_url
-from .schemas import GenerateRequest
+from .schemas import GenerateRequest, ThenRefine
 from .seeds import random_seed, wrap_seed
+from .then_refine import pass_run_id, stand_in
 
 log = logging.getLogger(__name__)
 
@@ -160,6 +161,14 @@ class Job:
     # More seeds' count: its cells continue batches the gallery already
     # holds, so the job is named as more of its prompt, not as a new one.
     more_seeds: int | None = None
+    # Then refine: a pass of each image right after its cell, the strength
+    # resolved, saved under `pass_run_id`. `stage` is "pass" while one runs,
+    # and `pending_passes` the cell's passes still to run - planned, so More
+    # seeds and Mass refine count them as made.
+    then_refine: ThenRefine | None = None
+    pass_run_id: str | None = None
+    stage: str | None = None
+    pending_passes: list[Cell] = field(default_factory=list)
     # One queue per attached stream. A single shared queue is destructive: a
     # reconnecting client that overlaps the stream it replaces splits the events
     # between the two readers, and only one of them ever sees `done`.
@@ -268,7 +277,12 @@ class Job:
             "strength": self.request.strength if self.refine_batch is not None else None,
             "width": self.request.width,
             "height": self.request.height,
-            "planned_images": sum(cell.request.num_images for cell in self.cells),
+            # With Then refine every image has its pass after it.
+            "planned_images": sum(cell.request.num_images for cell in self.cells)
+            * (2 if self.then_refine is not None else 1),
+            "then_refine": None if self.then_refine is None else self.then_refine.model_dump(),
+            "pass_run_id": self.pass_run_id,
+            "stage": self.stage,
             "grid": self.grid,
             "prompt_template": None if self.prompt_template is None else self.prompt_template[:120],
             "comparison": self.comparison,
@@ -425,7 +439,7 @@ class JobManager:
         job's cells are fixed when it is made."""
         planned: dict[tuple[int, int], set[CellKey]] = {}
         for job in self.active():
-            for cell in job.cells:
+            for cell in [*job.cells, *list(job.pending_passes)]:
                 ran = Cell(request=self.backend.applied(cell.request), seed=cell.seed)
                 planned.setdefault((cell.request.width, cell.request.height), set()).update(cell_keys(ran))
         return planned
@@ -601,7 +615,7 @@ class JobManager:
         self.stop_all("shutdown")
         await asyncio.to_thread(self._pool.shutdown, True)
 
-    async def submit(self, request: GenerateRequest) -> Job:
+    async def submit(self, request: GenerateRequest, then_refine: ThenRefine | None = None) -> Job:
         """An ordinary request: `runs` passes of one setting, seed stepped.
 
         Each pass steps the seed past the whole of the previous batch, so every
@@ -615,6 +629,7 @@ class JobManager:
                 for index in range(request.runs)
             ],
             grid=False,
+            then_refine=then_refine,
         )
 
     async def submit_cells(
@@ -628,6 +643,7 @@ class JobManager:
         swap: str | None = None,
         refine_batch: float | None = None,
         more_seeds: int | None = None,
+        then_refine: ThenRefine | None = None,
     ) -> Job:
         """Queue an already-expanded list of pipeline calls - a grid, usually.
 
@@ -639,8 +655,9 @@ class JobManager:
         by the time the cells are built - as is the grid's own prompt, which
         `prompt_template` carries for the snapshot to name the job by, and
         whether its prompts were a comparison's versions (`comparison`), and
-        Swap tags' rows (`swap`), Mass refine's scale (`refine_batch`) and
-        More seeds' count (`more_seeds`).
+        Swap tags' rows (`swap`), Mass refine's scale (`refine_batch`),
+        More seeds' count (`more_seeds`) and Then refine's pass of every image
+        (`then_refine`, its strength resolved by the route).
         """
         self._loop = asyncio.get_running_loop()
         selected = current_settings(settings)
@@ -675,7 +692,10 @@ class JobManager:
             swap=swap,
             refine_batch=refine_batch,
             more_seeds=more_seeds,
+            then_refine=then_refine,
         )
+        if then_refine is not None:
+            job.pass_run_id = pass_run_id(job.run_id, then_refine)
         # Held where every process's mask sweep looks, before the job is
         # queued: a CLI `clear --bin` an hour on must not take the mask of a
         # cell still waiting its turn (`storage.hold_masks`).
@@ -711,6 +731,9 @@ class JobManager:
                 "grid": grid, "prompt_template": prompt_template, "swap": swap,
                 "refine_batch": refine_batch, "more_seeds": more_seeds,
                 "budget_minutes": budget_minutes,
+                "then_refine": None if then_refine is None else {
+                    **then_refine.model_dump(), "pass_run_id": job.pass_run_id,
+                },
             },
         }
         try:
@@ -937,6 +960,10 @@ class JobManager:
         # or quietly normalize its source away.
         for cell in job.cells:
             self.backend.check_refine_supported(cell.request)
+        # And a stand-in of the passes Then refine will run: a profile's guess
+        # a load contradicts fails here, before the first base image.
+        if job.then_refine is not None:
+            self.backend.check_refine_supported(stand_in(job.cells[0].request, job.then_refine))
 
         def should_cancel() -> bool:
             return job.cancel_requested
@@ -987,6 +1014,9 @@ class JobManager:
             )
 
         consecutive = 0
+        # Then refine's passes in a row that failed, apart from the cells':
+        # a base made between them does not say the pass size will work.
+        pass_streak = 0
         for index, cell in enumerate(job.cells):
             if job.cancel_requested:
                 return True
@@ -1038,7 +1068,7 @@ class JobManager:
                     on_preview=on_preview,
                 )
                 elapsed_ms = int((time.perf_counter() - started) * 1000)
-                self._save(job, loop, cell, images, elapsed_ms, self.backend.last_peak())
+                records = self._save(job, loop, cell, images, elapsed_ms, self.backend.last_peak())
                 if len(images) == req.num_images:
                     job.completed_indices.append(index)
             except Cancelled:
@@ -1056,12 +1086,94 @@ class JobManager:
                     "job %s: cell %d/%d failed: %s", job.id, index + 1, len(job.cells), exc
                 )
                 log.debug("cell traceback", exc_info=True)
-                if self._too_many_failures(consecutive, job.failures, len(job.cells)):
+                if self._too_many_failures(consecutive, job.failures, self._units(job)):
                     job.stopped_by = "failures"
                     raise
                 continue
             consecutive = 0
+            if job.then_refine is not None:
+                cancelled, pass_streak = self._passes(
+                    job, loop, records, pass_streak, on_progress, should_cancel, on_preview,
+                )
+                if cancelled:
+                    return True
         return False
+
+    @staticmethod
+    def _units(job: Job) -> int:
+        """What the failure rule's share is of: the cells, and under Then
+        refine every image's pass beside them."""
+        if job.then_refine is None:
+            return len(job.cells)
+        return len(job.cells) + sum(cell.request.num_images for cell in job.cells)
+
+    def _passes(self, job, loop, records, streak, on_progress, should_cancel, on_preview):
+        """Then refine's stage: a pass of each record a cell just saved, run
+        before the next cell, so a base and its passes are one unit - pause
+        and the budget wait for both; a cancel stops inside a pass, the base
+        kept. Each pass is Mass refine's of that record (`refine_batch.plan`)
+        and saved under the pass run. A failed pass keeps its base and counts
+        under the cells' failure rule - three passes in a row (`streak`,
+        which a base made between them does not reset) or the share - but is
+        no failed cell: the base cell did complete, and Finish reads
+        `failed_indices` as cells. (cancelled, streak)."""
+        from .model_defaults import defaults_for
+        from .model_selection import current_model_id
+        from .refine_batch import QUEUED, plan
+
+        spec = job.then_refine
+        running = current_model_id(settings)
+        planned = [
+            plan(
+                record, running=running, profile=defaults_for(running), scale=spec.scale,
+                strength=spec.strength, steps=spec.steps, include_foreign=False, skip_passes=False,
+            )
+            for record in records
+        ]
+        job.pending_passes = [p.cell for p in planned if p.status == QUEUED]
+        try:
+            for outcome in planned:
+                label = f"pass of #{outcome.record.id}"
+                if job.cancel_requested:
+                    return True, streak
+                try:
+                    if outcome.status != QUEUED:
+                        raise ValueError(outcome.detail or outcome.status)
+                    cell = outcome.cell
+                    job.stage, job.step, job.label = "pass", 0, label
+                    job.total_steps = progress_steps(cell.request)
+                    self._emit(loop, job, {"type": "status", **job.snapshot(images=False)})
+                    started = time.perf_counter()
+                    images = self.backend.generate(
+                        cell.request, seed=cell.seed, on_progress=on_progress,
+                        should_cancel=should_cancel, on_preview=on_preview,
+                    )
+                    elapsed_ms = int((time.perf_counter() - started) * 1000)
+                    self._save(
+                        job, loop, cell, images, elapsed_ms, self.backend.last_peak(), run_id=job.pass_run_id,
+                    )
+                except Cancelled:
+                    log.info("job %s cancelled during %s", job.id, label)
+                    return True, streak
+                except Exception as exc:  # noqa: BLE001 - a pass's failure, not the night's
+                    streak += 1
+                    job.failures += 1
+                    job.error = short_error(exc)
+                    job.failed_cells.append({"label": label, "seed": outcome.record.seed, "error": job.error})
+                    log.error("job %s: %s failed: %s", job.id, label, exc)
+                    log.debug("pass traceback", exc_info=True)
+                    if self._too_many_failures(streak, job.failures, self._units(job)):
+                        job.stopped_by = "failures"
+                        raise
+                    continue
+                finally:
+                    if outcome.cell in job.pending_passes:
+                        job.pending_passes.remove(outcome.cell)
+                streak = 0
+            return False, streak
+        finally:
+            job.pending_passes = []
+            job.stage = None
 
     def _hold(self, job: Job, loop: asyncio.AbstractEventLoop, index: int) -> None:
         """Wait at a cell boundary until resumed or cancelled, the card handed back.
@@ -1109,8 +1221,11 @@ class JobManager:
         images: list,
         elapsed_ms: int,
         peak: tuple[int, int] | None = None,
-    ) -> None:
-        """Write a cell's images and publish each one as it lands.
+        run_id: str | None = None,
+    ) -> list:
+        """Write a cell's images and publish each one as it lands; the
+        records written. `run_id` is the run they join, the job's by default
+        (Then refine's passes join theirs).
 
         `peak` is the call's, so every image of the batch gets it whole: a
         maximum does not divide as the duration does."""
@@ -1120,6 +1235,7 @@ class JobManager:
         ran = self.backend.applied(cell.request)
         selected = current_settings(settings)
         seed = cell.seed
+        written = []
         for offset, image in enumerate(images):
             # Each image in a batch gets its own reproducible seed. Wrapped
             # for the same reason the run seed is - and with the same helper
@@ -1133,7 +1249,7 @@ class JobManager:
                         duration_ms=elapsed_ms // max(len(images), 1),
                         model_id=selected.model_id,
                         job_id=job.id,
-                        run_id=job.run_id,
+                        run_id=run_id or job.run_id,
                         quantization=selected.quantization,
                         variables=cell.variables,
                         batch=cell.request.num_images,
@@ -1149,6 +1265,7 @@ class JobManager:
                         raise Cancelled() from None
                     log.warning("job %s: gallery busy in another process; still waiting to save", job.id)
             job.images.append(record.model_dump())
+            written.append(record)
             # Publish it now: a long sweep should fill the page as it goes
             # rather than all at once at the end.
             self._emit(
@@ -1161,6 +1278,7 @@ class JobManager:
                     "total_runs": job.total_runs,
                 },
             )
+        return written
 
     async def events(self, job: Job):
         """Yield SSE payloads until the job finishes.

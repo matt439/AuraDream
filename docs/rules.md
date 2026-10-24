@@ -157,6 +157,10 @@ before changing it.
   negative prompt (pure; the routes are `api_swap.py`'s)
 - `backend/refine_batch.py` — Mass refine's plan of one record: the pass
   it becomes or why not (pure; the routes are `api_refine_batch.py`'s)
+- `backend/then_refine.py` — Then refine's pure parts: the strength
+  resolved, a cell's stand-in pass for the submit's checks and prices, its
+  refusals in words and the pass run id (the passes themselves are
+  `refine_batch.plan`'s, built in the worker, `JobManager._passes`)
 - `backend/more_seeds.py` — More seeds' batches of a selection, each one's
   next seeds, Batch and cells (pure; the routes are `api_more_seeds.py`'s)
 - `backend/latent_preview.py` — the latent-to-RGB maps the live preview

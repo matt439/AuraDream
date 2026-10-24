@@ -153,6 +153,20 @@ def _build_parser() -> argparse.ArgumentParser:
         "SDXL, 1 on Z-Image). About steps x S of the steps run",
     )
     conditioning.add_argument(
+        "--then-refine-scale", type=float, metavar="F",
+        help="then refine: after each cell, a refine pass of every image it made at F times "
+        "its size (1 to 2), as Mass refine makes one - the base's seed and prompt, Lanczos - "
+        "saved under a run of its own. Not with --refine, --mask or --outpaint",
+    )
+    conditioning.add_argument(
+        "--then-refine-strength", type=float, metavar="S",
+        help="with --then-refine-scale: the passes' strength (default the checkpoint's own)",
+    )
+    conditioning.add_argument(
+        "--then-refine-steps", type=int, metavar="N",
+        help="with --then-refine-scale: the passes' steps (default each cell's own)",
+    )
+    conditioning.add_argument(
         "--upscaler", choices=("lanczos", "realesrgan-x4plus-anime6b"),
         help="with ordinary --refine on WAI v17 or RouWei: opt into R-ESRGAN 4x+ Anime6B "
         "(one verified ~18 MB download), then resize to the target; default lanczos. "
@@ -609,6 +623,80 @@ def _resolve_size(args: argparse.Namespace, parser: argparse.ArgumentParser) -> 
     return SIZES[args.aspect or "1:1"][args.mp or 1]
 
 
+def _then_refine_flags(args, parser) -> dict | None:
+    """--then-refine-*, as the request's `then_refine`, or None."""
+    if args.then_refine_scale is None:
+        if args.then_refine_strength is not None or args.then_refine_steps is not None:
+            parser.error("--then-refine-strength and --then-refine-steps need --then-refine-scale")
+        return None
+    for flag, value in (("--refine", args.refine), ("--mask", args.mask), ("--outpaint", args.outpaint)):
+        if value is not None:
+            parser.error(f"--then-refine-scale and {flag} are alternatives: a pass follows a direct render")
+    if not 1.0 <= args.then_refine_scale <= 2.0:
+        parser.error("--then-refine-scale is from 1 to 2")
+    strength = args.then_refine_strength
+    if strength is not None and not (math.isfinite(strength) and 0.0 < strength <= 1.0):
+        parser.error("--then-refine-strength is a fraction above 0, up to 1")
+    if args.then_refine_steps is not None and not 1 <= args.then_refine_steps <= 100:
+        parser.error("--then-refine-steps is from 1 to 100")
+    return {"scale": args.then_refine_scale, "strength": strength, "steps": args.then_refine_steps}
+
+
+def _then_refine_passes(p, backend, records, spec, pass_run, job_id, on_progress, should_cancel, streak,
+                        *, quiet: bool, live: bool):
+    """A pass of each record a cell just saved, as the server's worker runs
+    them (`JobManager._passes`): Mass refine's of that record, saved under
+    the pass run; a failure keeps its base, and three in a row end the run.
+    (records made, passes failed, streak)."""
+    from backend.refine_batch import QUEUED, plan
+
+    made, failed = [], 0
+    for record in records:
+        if should_cancel():
+            break
+        outcome = plan(
+            record, running=p.settings.model_id, profile=p.defaults_for(p.settings.model_id),
+            scale=spec.scale, strength=spec.strength, steps=spec.steps, include_foreign=False,
+            skip_passes=False,
+        )
+        if not quiet and not live:
+            print(f"  pass of #{record.id}", flush=True)
+        started = time.perf_counter()
+        try:
+            if outcome.status != QUEUED:
+                raise ValueError(outcome.detail or outcome.status)
+            cell = outcome.cell
+            images = backend.generate(
+                cell.request, seed=cell.seed, on_progress=on_progress, should_cancel=should_cancel,
+            )
+        except p.Cancelled:
+            break
+        except Exception as exc:  # noqa: BLE001 - one pass's failure, not the night's
+            failed += 1
+            streak += 1
+            if live:
+                print("\r" + " " * 40 + "\r", end="")
+            print(f"  pass of #{record.id} failed: {type(exc).__name__}: {exc}", file=sys.stderr)
+            if streak >= 3:
+                raise
+            continue
+        streak = 0
+        if live:
+            print("\r" + " " * 40 + "\r", end="")
+        elapsed_ms = int((time.perf_counter() - started) * 1000)
+        ran = backend.applied(cell.request)
+        peak = backend.last_peak()
+        for image in images:
+            saved = p.storage.save_image(
+                image, ran, seed=cell.seed, duration_ms=elapsed_ms // max(len(images), 1),
+                model_id=p.settings.model_id, job_id=job_id, run_id=pass_run,
+                quantization=p.settings.quantization, variables=cell.variables, batch=1, peak=peak,
+            )
+            made.append(saved)
+            print(f"{p.settings.outputs_dir / saved.filename}  seed {saved.seed}  pass of #{record.id}", flush=True)
+    return made, failed, streak
+
+
 def _project() -> SimpleNamespace:
     """Import the project, reporting the wrong interpreter clearly."""
     try:
@@ -836,6 +924,8 @@ def _via_server(args, parser, source, carried, mask_image, width, height, sized,
                 "reference": references, "lora": args.lora, "lora_scale": args.lora_scale}
         if args.upscaler not in (None, "lanczos"):
             body["upscaler"] = args.upscaler
+        if args.then_refine is not None:
+            body["then_refine"] = args.then_refine
         for name, value in (("steps", args.steps), ("guidance_scale", args.cfg), ("true_cfg", args.true_cfg),
                             ("seed", args.seed), ("strength", args.strength)):
             if value is not None:
@@ -1017,6 +1107,7 @@ def main(argv: list[str] | None = None) -> int:
     carried = _image_variables(args, source) if source is not None else None
     mask_image = _mask_file(args.mask, parser) if args.mask is not None else None
     width, height = _resolve_size(args, parser)
+    args.then_refine = _then_refine_flags(args, parser)
     apply_env(args)
     if args.via_server:
         return _via_server(args, parser, source, carried, mask_image, width, height, sized, outpaint_sides)
@@ -1384,6 +1475,23 @@ def main(argv: list[str] | None = None) -> int:
         skipped = before - len(cells)
 
     total_images = len(cells) * request.num_images
+    # Then refine: the same checks the server's submit makes, and the run the
+    # passes are saved under; a pass of each image follows its cell below.
+    spec = pass_run = None
+    if args.then_refine is not None and cells:
+        from backend import then_refine
+        from backend.schemas import ThenRefine
+
+        spec = then_refine.resolved(ThenRefine(**args.then_refine))
+        unavailable = None if p.defaults_for(p.settings.model_id).get("refine_supported", True) else (
+            f"{p.settings.model_id} has no refine pass in this app"
+        )
+        reason = then_refine.refusal([cell.request for cell in cells], spec, unavailable)
+        if reason is not None:
+            print(f"--then-refine-scale: {reason}", file=sys.stderr)
+            return 2
+        pass_run = then_refine.pass_run_id(run_id, spec)
+        total_images *= 2
     if not args.quiet:
         if source is not None:
             made_with = source.get("quantization")
@@ -1654,6 +1762,8 @@ def main(argv: list[str] | None = None) -> int:
     try:
         for cell in cells:
             backend.check_refine_supported(cell.request)
+        if spec is not None:
+            backend.check_refine_supported(then_refine.stand_in(cells[0].request, spec))
     except ValueError as exc:
         print(str(exc), file=sys.stderr)
         backend.unload()
@@ -1667,6 +1777,9 @@ def main(argv: list[str] | None = None) -> int:
     saved = 0
     failed = 0
     consecutive = 0
+    # Then refine's passes failed in a row, apart from the cells', as the
+    # server's worker counts them.
+    pass_streak = 0
     out_of_time = False
     # The pixel hashes of what landed: the summary says how many *different*
     # pictures a night made, which is the number an ignored axis shows up in.
@@ -1755,6 +1868,7 @@ def main(argv: list[str] | None = None) -> int:
             # The call's peak, whole on every image of the batch, as the server saves it.
             peak = backend.last_peak()
 
+            written = []
             for offset, image in enumerate(images):
                 # Each image in a batch gets its own reproducible seed, wrapped
                 # with the same helper the generator uses so the recorded seed
@@ -1787,11 +1901,20 @@ def main(argv: list[str] | None = None) -> int:
                                   file=sys.stderr, flush=True)
                             waiting = True
                 saved += 1
+                written.append(record)
                 if record.content_hash:
                     distinct.add(record.content_hash)
                 print(
                     f"{p.settings.outputs_dir / record.filename}  seed {record.seed}", flush=True
                 )
+            if spec is not None:
+                made, failed_passes, pass_streak = _then_refine_passes(
+                    p, backend, written, spec, pass_run, job_id, on_progress, should_cancel, pass_streak,
+                    quiet=args.quiet, live=live,
+                )
+                saved += len(made)
+                failed += failed_passes
+                distinct.update(r.content_hash for r in made if r.content_hash)
     except KeyboardInterrupt:
         print("\nForced stop.", file=sys.stderr)
     except Exception as exc:  # noqa: BLE001 - the CLI reports, it does not crash

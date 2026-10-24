@@ -1783,6 +1783,29 @@ def retain_run_job(definition: dict[str, Any], cells: Sequence[Cell]) -> None:
         )
 
 
+def retained_run_metadata(job_ids: Sequence[str]) -> dict[str, tuple[str, dict[str, Any]]]:
+    """Each retained job's (run id, metadata), by job id, without decoding
+    its cells: what names a Then refine pass run's base (its records' job is
+    the base job, whose metadata carries the pass run id). A job not
+    retained, or whose metadata is not an object, is left out."""
+    ids = list(dict.fromkeys(job_ids))
+    if not ids:
+        return {}
+    with _session() as conn:
+        rows = conn.execute(
+            f"SELECT job_id, run_id, metadata FROM run_jobs WHERE job_id IN ({','.join('?' * len(ids))})", ids,
+        ).fetchall()
+    found = {}
+    for row in rows:
+        try:
+            metadata = json.loads(row["metadata"])
+        except (TypeError, ValueError):
+            continue
+        if isinstance(metadata, dict):
+            found[row["job_id"]] = (row["run_id"], metadata)
+    return found
+
+
 def retained_run_jobs(run_id: str | None = None) -> list[dict[str, Any]]:
     """Retained jobs in creation order, with raw cells and metadata decoded.
 
