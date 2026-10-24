@@ -39,7 +39,7 @@
   {"expect": "document.querySelectorAll('.card').length >= 12"},
   {"expect": "document.getElementById('run-list').options.length >= 2"},
 
-  {"eval": "document.querySelector('.card img').click()"},
+  {"eval": "document.querySelector('.card img').dispatchEvent(new MouseEvent('dblclick', {bubbles: true}))"},
   {"wait": 500},
   {"expect": "document.getElementById('lightbox').open && document.getElementById('lb-zoom').textContent.startsWith('fit')"},
   {"click": [560, 450]},

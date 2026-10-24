@@ -25,7 +25,7 @@
 //                                {"drag": [x1, y1, x2, y2]} drags
 //   {"rightclick": [x, y]}       a right-button press there (the page's contextmenu);
 //                                a selector as for click; "shift": true holds Shift
-//   {"hover": "selector"}, {"click": "selector"}   the same at the middle of that
+//   {"hover": "selector"}, {"click": "selector"}, {"dblclick": "selector"}   the same at the middle of that
 //                                element's box as it is at that moment, wherever the
 //                                layout has put it
 //   {"viewport": [w, h, dpr]}    resize the page (dpr optional, default 1) and wait for layout
@@ -301,7 +301,7 @@ for (const [n, step] of steps.entries()) {
     await mouse('mouseReleased', x, y, { button: 'right', modifiers });
     await sleep(150);
   } else if (step.dblclick) {
-    const [x, y] = step.dblclick;
+    const [x, y] = await point(step.dblclick);
     await mouse('mouseMoved', x, y);
     for (const clickCount of [1, 2]) {
       await mouse('mousePressed', x, y, { clickCount }); await mouse('mouseReleased', x, y, { clickCount });

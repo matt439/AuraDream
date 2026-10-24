@@ -128,7 +128,7 @@ function syncBundleControls() {
   const what = scope === 'all' ? 'the entire gallery' : `the ${bundleImages(scope === 'picked' ? picked : starred, scope)}`;
   hold(els.bundleBackup, why || (bundleReading ? 'Wait for the gallery counts' : '')
     || (!bundlePreview ? 'Refresh the gallery counts first' : '')
-    || (scope === 'picked' && !picked ? 'No cards are picked; pick them with Select first' : '')
+    || (scope === 'picked' && !picked ? 'No cards are picked; click cards to pick them first' : '')
     || (scope === 'starred' && !starred ? 'No image is starred' : '') || differ,
     `${password ? 'Save, encrypt and verify' : 'Save and verify'} a bundle of ${what}; the gallery is kept`);
   hold(els.bundleRefresh, bundleHold() || (bundleReading ? 'Reading the gallery counts' : ''), 'Read the current gallery counts');

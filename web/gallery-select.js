@@ -6,10 +6,12 @@
 // several images at once (Re-render, Swap tags, Mass refine, More seeds, and
 // the Picked menu's star, unstar and bin), where the filter alone was
 // the only scope - a search that matched exactly the right images was often
-// not to be had. The head's Select (in its footer row, beside Bundles…) turns
-// a card's press into picking it; out of that mode a card does what it always
-// did - its image opens the lightbox, F stars it, its tools are its own - and
-// a selection already made stays marked and counted until Clear or Escape.
+// not to be had. A card's image picks as a file manager's item does (click,
+// Ctrl, Shift; a double click or Enter opens the lightbox: cardPress), and
+// the head's Select (in its footer row, beside Bundles…) is the same with no
+// modifier keys, for touch: every press toggles. F stars a card and its tools
+// are its own either way; a selection stays marked and counted until Clear,
+// Escape or a click between the cards.
 //
 // By id, in the order picked, with the record each id was picked from: the
 // selection outlives the cards. A new search, a filter, a sheet or a page
@@ -113,9 +115,8 @@ function syncSelection() {
   els.select.classList.toggle('active', picking);
   els.select.setAttribute('aria-disabled', String(sheetMode));
   els.select.dataset.title ??= els.select.title;
-  els.select.title = sheetMode ? SELECT_ON_SHEET : els.select.dataset.title
-    + (picking ? ' In Select mode, Ctrl+A (Cmd+A) adds every loaded card to the picks.' : '');
-  els.select.setAttribute('aria-keyshortcuts', picking ? 'Escape Control+A Meta+A' : 'Escape');
+  els.select.title = sheetMode ? SELECT_ON_SHEET : els.select.dataset.title;
+  els.select.setAttribute('aria-keyshortcuts', sheetMode ? 'Escape' : 'Escape Control+A Meta+A');
   const n = selection.size;
   const away = n - selectedIds().filter((id) => shown.has(id)).length;
   const text = n ? `${n} selected${away ? ` · ${away} not shown` : ''}`
@@ -147,9 +148,9 @@ function countParts(n, away, text) {
   return away ? [num, part('tail', ` · ${away} not shown`)] : [num];
 }
 
-// One card's mark. Picking is the image's press in select mode, so the image
-// is the toggle there (aria-pressed, named "Select #N"); out of it, the press
-// opens the lightbox as ever and the group's name says the card is selected.
+// One card's mark. A card image's press picks, in select mode or out of it,
+// so the image is a toggle everywhere (aria-pressed, named "Select #N"); the
+// group's name says the card is selected too. Enter is what opens it.
 function syncCardSelected(div) {
   const id = +div.dataset.id;
   const on = selection.has(id);
@@ -157,24 +158,64 @@ function syncCardSelected(div) {
   div.setAttribute('aria-label', `#${id}${on ? ' (selected)' : ''}`);
   const img = div.querySelector(':scope > img');
   if (!img) return;
-  if (selectMode) img.setAttribute('aria-pressed', String(on));
-  else img.removeAttribute('aria-pressed');
+  img.setAttribute('aria-pressed', String(on));
   const label = img.getAttribute('aria-label') ?? '';
-  img.setAttribute('aria-label', label.replace(/^(Open|Select) /, selectMode ? 'Select ' : 'Open '));
-  img.setAttribute('aria-keyshortcuts', selectMode ? 'F Space Shift+Space Escape Control+A Meta+A' : 'F');
+  img.setAttribute('aria-label', label.replace(/^(Open|Select) /, 'Select '));
+  // A recycle bin card has no star, so no F (binCard).
+  const star = div.classList.contains('binned') ? '' : 'F ';
+  img.setAttribute('aria-keyshortcuts', `Enter ${star}Space Shift+Space Escape Control+A Meta+A`);
 }
 
-// A card image's press (thumb's `open`, from card()): the lightbox, as
-// always, out of select mode - and in it on Enter, so the keyboard can still
-// look before picking. In select mode a click or Space picks or unpicks it,
-// and with Shift picks every loaded card from the last one picked to it. Out
-// of it, a Ctrl click picks as a click in it does, and a Shift or Ctrl+Shift
-// click picks the range, as a file list's do - no trip to Select first.
+// A card image's press (thumb's `open`, from card()), as a file manager's
+// (2026-10-24; it used to open the lightbox): a click picks the card alone, a
+// Ctrl click picks or unpicks it beside the rest, a Shift click picks the
+// range from the anchor to it alone and Ctrl+Shift adds that range. A double
+// click opens the lightbox (cardDoubleClick), as Enter does from the
+// keyboard; Space toggles, Shift+Space adds the range. Select mode is the
+// path with no modifier keys - a touch screen's - where every click toggles
+// as a Ctrl click does and Shift adds.
 function cardPress(div, rec, e) {
-  const modified = e?.type === 'click' && (e.ctrlKey || e.metaKey || e.shiftKey);
-  if (!modified && (!selectMode || e?.key === 'Enter')) { openLightbox(rec, galleryRecords); return; }
-  if (e?.shiftKey && selectRange(div)) return;
-  toggleSelected(rec);
+  if (e?.type === 'keydown') {
+    if (e.key === 'Enter') { openLightbox(rec, galleryRecords); return; }
+    if (e.shiftKey && selectRange(div)) return;
+    toggleSelected(rec);
+    return;
+  }
+  // A double click's second click is the double click's to answer - but in
+  // select mode every press toggles, quick ones too, and nothing opens.
+  if (e?.detail > 1 && !selectMode) return;
+  const add = selectMode || e?.ctrlKey || e?.metaKey;
+  if (e?.shiftKey && selectRange(div, { add })) return;
+  if (add) toggleSelected(rec);
+  else selectOnly(rec);
+}
+
+// The lightbox, from a card image's double click; its first click has picked
+// the card alone, as Explorer's does. With a modifier held it was a pick,
+// and in select mode two quick toggles (Enter opens there).
+function cardDoubleClick(rec, e) {
+  if (selectMode || e.ctrlKey || e.metaKey || e.shiftKey || e.altKey) return;
+  openLightbox(rec, galleryRecords);
+}
+
+// A plain click: this card, and only it, picked.
+function selectOnly(rec) {
+  selection.clear();
+  selection.set(rec.id, rec);
+  selectAnchor = rec.id;
+  syncSelection();
+}
+
+// A click on the grid between cards (on a day's line, past the last card)
+// empties the selection, as a file manager's does, so the actions go back to
+// the filter. Not in select mode, the path for touch, where a tap between
+// cards is too easily made to cost the picks; not with a modifier held, nor
+// at the end of a drag selecting a day line's text.
+function galleryBlankClick(e) {
+  if (selectMode || e.button !== 0 || e.ctrlKey || e.metaKey || e.shiftKey || e.altKey) return;
+  if (!(getSelection()?.isCollapsed ?? true)) return;
+  if (e.target.closest?.('.card, button, a, input, select, textarea, summary, [role="button"], [tabindex]')) return;
+  clearSelection();
 }
 
 // The anchor moves only with a toggle that happened: a pick refused at the
@@ -189,13 +230,16 @@ function toggleSelected(rec) {
 }
 
 // The loaded cards from the anchor to this one, in the gallery's order, all
-// picked. False where there is no anchor among them - none yet, or one this
-// view does not show - and the press picks the one card instead.
-function selectRange(div) {
+// picked - beside the rest with `add`, else in their place (a plain Shift
+// click), the anchor kept. False where there is no anchor among them - none
+// yet, or one this view does not show - and the press picks the one card
+// instead.
+function selectRange(div, { add = true } = {}) {
   const cards = [...els.gallery.querySelectorAll('.card[data-id]')];
   const from = cards.findIndex((c) => +c.dataset.id === selectAnchor);
   const to = cards.indexOf(div);
   if (from < 0 || to < 0) return false;
+  if (!add) selection.clear();
   const span = cards.slice(Math.min(from, to), Math.max(from, to) + 1);
   // In the order the range runs, from the anchor out.
   if (to < from) span.reverse();
@@ -232,7 +276,7 @@ function selectEscape() {
 
 function selectKey(e) {
   if (e.defaultPrevented || e.isComposing) return;
-  if (selectMode && !sheetMode && (e.ctrlKey || e.metaKey) && !e.altKey && !e.shiftKey
+  if (!sheetMode && (e.ctrlKey || e.metaKey) && !e.altKey && !e.shiftKey
       && e.key.toLowerCase() === 'a'
       && e.target.closest?.('#gallery .card, #btn-select')
       && !e.target.closest?.('input, textarea, select, [contenteditable]')) {
@@ -294,7 +338,7 @@ function forgetSelected(gone, { stashed = true } = {}) {
 // It is a role=menu and keeps that promise as Examples does: ArrowDown on the
 // button opens it on its first item, the arrows walk it, Escape or a choice
 // closes it with focus back on the button, and leaving it closes it.
-const PICKED_NONE = 'Pick cards with Select to star, unstar, bin or use their seeds in a grid';
+const PICKED_NONE = 'Pick cards (click, Ctrl+click) to star, unstar, bin or use their seeds in a grid';
 
 // Seeds only: the picked order is the investigation's order, while another
 // image of the same seed contributes no second entry. Leave grid limits to
@@ -448,11 +492,11 @@ function galleryActionTarget(purpose, one) {
   const search = els.search.value.trim();
   const filtered = els.favOnly.checked || search !== '';
   if (!filtered) {
-    return { why: `Pick cards with Select, or narrow the gallery with a search or Starred, ${purpose}` };
+    return { why: `Pick cards (click, Ctrl+click), or narrow the gallery with a search or Starred, ${purpose}` };
   }
   if (total === 0) return { why: 'Nothing in the gallery matches the filter' };
   if (total > sheetPage) {
-    return { why: `${total} images match; ${one} takes at most ${sheetPage}. Narrow the search, or pick cards with Select` };
+    return { why: `${total} images match; ${one} takes at most ${sheetPage}. Narrow the search, or pick cards` };
   }
   return {
     scope: { search: search || null, favorites: els.favOnly.checked, all_models: els.allModels.checked },

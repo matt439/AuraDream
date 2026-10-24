@@ -6454,8 +6454,8 @@ unstarred's slot.
 
 ## The gallery selection
 
-**Pick loaded cards (2026-10-18, `UI#6`).** In Select mode, Ctrl/Cmd+A
-from a card or Select adds the current view's loaded cards up to the cap,
+**Pick loaded cards (2026-10-18, `UI#6`).** Ctrl/Cmd+A (in Select mode
+until 2026-10-24, everywhere since) from a card or Select adds the current view's loaded cards up to the cap,
 retaining picks from other filters. It never fetches another page and says
 when unloaded images were not picked. The shortcut leaves text selection
 and other focus contexts native, keeps the range anchor, and applies only
@@ -6471,15 +6471,33 @@ card or a lasso. `gallery-select.js` keeps one selection for every such
 action, and the actions read it (`selectedIds()`, `onSelectionChange`) and
 say whether they act on it or on the filter.
 
-**A mode, not a modifier.** Select in the head turns a card image's press
-into a pick; out of it the card does what it always did. Ctrl+click on the
-image was the other way, but the card already has a press of its own (the
-lightbox), a click's modifiers are invisible to a touch screen and to a
-screen reader, and a pick made by accident opens nothing to show it. In the
-mode Enter still opens the lightbox - the keyboard can look before it picks
-- and F and the tools stay the card's. Shift picks a range, from the last
-card toggled to this one, in the loaded order (the grid's DOM order), as a
-file manager's does: a night's sweep is a run of neighbours.
+**A file manager's clicks, and a mode for touch** (2026-10-24). A card
+image's click used to open the lightbox, and picking needed Select or a
+Ctrl click; Matt found that backwards against every Windows file list, so
+the press is now a pick: a click picks the card alone, Ctrl+click picks or
+unpicks one beside the rest, Shift+click picks the range from the anchor
+(the last card toggled or clicked) to it alone, Ctrl+Shift+click adds that
+range, and a double click - or Enter - opens the lightbox, its first click
+having picked the card as Explorer's does. Space toggles and Shift+Space
+adds a range; Ctrl/Cmd+A adds the loaded cards, out of the mode too. A
+click between the cards (a day's line, past the last card) empties the
+selection, so the actions go back to the filter: with a click now always
+leaving a card picked, Re-render, Swap tags and the rest would otherwise
+never see the filter again without Escape or Clear. The plain click's
+replace costs picks made across other searches, as Explorer's does; Ctrl
+keeps them. What the mode was for still holds - a click's modifiers are
+invisible to a touch screen, and a double tap is no dependable gesture - so
+Select stays as the path without them: in it every press toggles as a
+Ctrl click does, quick ones too (a double click opens nothing there; Enter
+does), Shift adds, and a tap between cards empties nothing, since a stray
+one there would cost the picks. Out of it, a click between the cards drops
+picks the view does not show as well, as a plain click on a card does. The image is a toggle in both
+(`aria-pressed`, "Select #N: …"), since a screen reader's activation is a
+click and so a pick; Enter and the context menu's Open are the ways in. The
+earlier choice (a mode, not a modifier, 2026-10-10) argued a pick made by
+accident opened nothing to show it; the ring and the count show it now. The
+#recent strip, the viewer's and a sheet's cells still open on a click:
+nothing there is picked.
 
 **Ids that outlive the cards.** The selection is ids, so a new search, a
 filter, a sheet or another page keeps it: picking across two searches is the
@@ -6571,12 +6589,11 @@ left out; a run's sheet is `run:` or `job:` as before.
 number and the top-right the star, so the pick's mark is a ring at the top
 centre: empty on every card in select mode, a filled check on a picked card,
 which also gets an accent ring round the card over a star's or this run's.
-The image is a toggle in the mode (`aria-pressed`, "Select #N: …"); out of
-it, a picked card's group is named "#N (selected)", since `aria-pressed` on
-a press that opens the lightbox would lie. The grid has `user-select: none`
-in the mode, so Shift+click picks a range rather than the page's text; out
-of it, where Ctrl+click and Shift+click pick too, the card image's
-Shift mousedown is cancelled for the same reason.
+The image is a toggle (`aria-pressed`, "Select #N: …") and a picked card's
+group is named "#N (selected)". The grid has `user-select: none` in the
+mode, so Shift+click picks a range rather than the page's text; out of it
+the card image's Shift mousedown, and a double click's second, are
+cancelled for the same reason.
 
 ## LOCAL_DIFFUSION_DEVICE reaches the offload hooks
 

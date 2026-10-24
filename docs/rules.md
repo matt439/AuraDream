@@ -3864,7 +3864,8 @@ Frontend and CLI:
   `object-fit: contain`, or `cover` from 1800 px where the head's Crop is
   chosen (`#gallery[data-fit="cover"]`); below 1800 px neither choice
   applies. `thumb(rec, list, src, open)` labels every image "Open #N:
-  <prompt>"; a sheet cell is labelled instead by what the sheet lays out
+  <prompt>" - a gallery card's becomes "Select #N: <prompt>" in
+  `syncCardSelected`, its press being a pick; a sheet cell is labelled instead by what the sheet lays out
   ("Open #N · Steps 2 · Seed 7", a version by its name), set in
   `renderSheet`. `thumb` titles the image with `cardTitle(rec)` (#N · W×H ·
   seed N · a pass's source, "(deleted)" after a gone one, then the prompt)
@@ -3919,14 +3920,19 @@ Frontend and CLI:
   picks too, except the bin's cards leaving its view on a Restore
   (`dropFromBinView`, `stashed: false`). Select (`#btn-select`, `aria-pressed`, the
   footer row beside Bundles…, styled as it is so the line keeps its height)
-  turns a card image's press into a pick through `cardPress`, which `card()`
-  hands `thumb` as `open`: click or Space toggles, Shift+click or
-  Shift+Space adds every loaded card from the anchor (the last card toggled;
-  a pick refused at the cap and a range leave it) to this one in DOM order, Enter still opens the lightbox, F and the tools
-  are unchanged. Out of select mode a press opens the lightbox as before,
-  except a Ctrl click (toggles) and a Shift or Ctrl+Shift click (the range),
-  whose image's mousedown is kept from dragging a text selection;
-  and a selection already made stays marked and counted. Escape on a card,
+  is the touch path. A card image's press is `cardPress`, which `card()`
+  hands `thumb` as `open`, as a file manager's: a click picks the card
+  alone (`selectOnly`), Ctrl/Cmd+click toggles it, Shift+click picks the
+  range from the anchor alone and Ctrl+Shift+click adds it
+  (`selectRange(div, {add})`); a double click (`cardDoubleClick`, a click's
+  `detail` over 1 left to it) or Enter opens the lightbox; Space toggles and
+  Shift+Space adds the range. In select mode every click toggles, quick ones
+  too, Shift adds, and only Enter opens. The anchor is the last card toggled or clicked (a pick refused at
+  the cap and a range leave it); a range runs in DOM order. F and the tools
+  are unchanged. The image's Shift mousedown, and a double click's, are kept
+  from selecting text; a click between the cards (`galleryBlankClick`, on
+  `#gallery`; never in select mode, with a modifier, or ending a text
+  selection's drag) empties the selection. Escape on a card,
   Select or Clear (`selectKey`, on `#library`) empties the selection, then
   leaves select mode, and is otherwise left to the page. Clear hands its
   focus to Select as it hides. The cap is `sheetPage` (the server's
@@ -3942,8 +3948,8 @@ Frontend and CLI:
   ellipsis. Before a shown Clear it keeps 4 px, Clear's own padding on that
   side halved; with Clear hidden, the row's gap before Select. A picked card is `.selected` (its group named "#N
   (selected)"); in select mode `#gallery.selecting` draws a ring at each
-  card's top centre and the image is a toggle (`aria-pressed`, named
-  "Select #N: …"). `syncSelection` derives all of it from the state; call it
+  card's top centre. The image is a toggle in and out of the mode
+  (`aria-pressed`, named "Select #N: …"; `aria-keyshortcuts` with Enter). `syncSelection` derives all of it from the state; call it
   after anything that adds cards other than through `card()` and
   `loadGallery`.
 - The Picked menu (`#picked`: `#btn-picked`, `aria-haspopup="menu"`, and
@@ -5137,7 +5143,7 @@ one pending, printing the step it was on, and 2 on a script it refuses
 before starting - among them an
 `expect` joining an async helper (`__until`, or a `window.__x = async` the
 file defines) to more with && or ||, which is never awaited: the whole
-condition goes inside the predicate. A `hover` or `click` step takes a
+condition goes inside the predicate. A `hover`, `click` or `dblclick` step takes a
 CSS selector in place of a point, aiming at the middle of that element's box
 as it is then. It opens the page at 1400x900,
 where the smokes are written: `LOCAL_DIFFUSION_VIEWPORT=2560x1305` (a
@@ -6205,19 +6211,38 @@ node tools/browser.mjs tools/smoke-batch-mates.json
 ```
 
 `smoke-select.json` checks the gallery selection on a default fake on 7898
-with a fresh `--data` (it builds a 60-image grid): Select in the footer row
-before Swap tags…, Refine…, More seeds… and Bundles…, at Bundles…'s height; a click opening the lightbox out of
-select mode; Select pressed with neither it nor the grid moving as the count
-appears, its hint the row's gap from Select and the count 4 px from a
-shown Clear; a click, Space, Shift+click and Shift+Space (a range from the anchor
-out, backwards too) picking, a second click unpicking, the image's
-`aria-pressed` and name and the group's "(selected)"; Enter still opening
-the lightbox and F still starring; a search showing one of eight counted as
-"7 not shown", and back; the next page's cards marked and a range across the
-page boundary; a picked image deleted by its ⌦ leaving the selection; the
-cap (a range picking what fits, a single pick refused, both said); Escape
-clearing, then leaving select mode, then left to the page; Select off
-keeping a selection that a click no longer changes; Clear handing focus to
+with a fresh `--data` (it builds a 60-image grid): Ctrl+A (Cmd+A) on a
+focused card or on Select, with Select off as well as in it, adding just the
+loaded cards (no gallery fetch, saying unloaded images were not picked),
+with picks from another search kept and the cap applied, and leaving native
+text selection in the search and the prompt; in the recycle bin adding only
+the bin's cards, the gallery's picks set aside and back unchanged; Select in
+the footer row before Swap tags…, Refine…, More seeds… and Bundles…, at
+Bundles…'s height; with Select off, a card picked as a file manager's item
+is: a plain click picking it alone and opening nothing, replacing every
+earlier pick including one the search does not show; Ctrl+click (Cmd+click)
+picking or unpicking it beside the rest and moving the anchor; Shift+click
+replacing the selection with the range from the anchor (backwards from the
+anchor out); Ctrl+Shift+click adding the range; a click of detail 2 picking
+nothing; a real double click opening the lightbox on the card its first
+click picked, with no text selected; a double click with Ctrl held opening
+nothing; Space picking and unpicking the focused card and Enter opening it
+with the picks left alone; every card image `aria-pressed`, named "Select
+#N", Enter first among its keys; a card's star starring it with the picks
+kept; a click on blank grid space clearing the selection with Select off but
+not in Select mode; Select pressed with neither it nor the grid moving as
+the count appears, its hint the row's gap from Select and the count 4 px
+from a shown Clear; in Select mode a quick double click toggling twice and
+opening nothing, a click, Space, Shift+click and Shift+Space (a range from
+the anchor out, backwards too) picking, a second click unpicking, the
+image's `aria-pressed` and name and the group's "(selected)"; Enter still
+opening the lightbox and F still starring; a search showing one of eight
+counted as "7 not shown", and back; the next page's cards marked and a range
+across the page boundary; a picked image deleted by its ⌦ leaving the
+selection; the cap (a range picking what fits, a single pick refused, both
+said); Escape clearing, then leaving select mode (the image still a "Select
+#N" toggle), then left to the page; Select off keeping a selection that a
+double click does not change; Clear handing focus to
 Select; on a sheet Select held with its reason, not pressed and with no
 hint, and the selection kept and counted; a refused pick leaving the anchor;
 `selectedRecords()` giving the loaded page's records after a search; the

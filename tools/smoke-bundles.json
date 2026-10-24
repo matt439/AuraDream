@@ -253,7 +253,7 @@
   {"expect": "els.bundleStatus.textContent === 'No image is starred.' && els.bundleStatus.classList.contains('failed') && bundleStatus.state === 'done'"},
   {"click": "input[name='bundle-scope'][value='picked']"},
   {"click": "#bundle-backup"},
-  {"expect": "els.bundleScopePicked.textContent === 'Picked (0)' && els.bundleStatus.textContent === 'No cards are picked; pick them with Select first.'"},
+  {"expect": "els.bundleScopePicked.textContent === 'Picked (0)' && els.bundleStatus.textContent === 'No cards are picked; click cards to pick them first.'"},
   {"viewport": [600, 900]},
   {"expect": "document.documentElement.scrollWidth <= innerWidth && [els.bundleBackup, els.bundleExport, document.querySelector('.bundle-scope')].every((el) => el.getBoundingClientRect().right <= els.bundlesDialog.getBoundingClientRect().right)"},
   {"shot": "bundle-dialog-backup-600.png"},

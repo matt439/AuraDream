@@ -179,8 +179,8 @@ function toggleBin() {
   if (binMode) { leaveBin(); void resetGallery(); } else enterBin();
 }
 
-// The bin's card: its picture, which opens the lightbox (or picks it in
-// select mode), and two tools - ↶ Restore, and ⌦ Delete permanently, last,
+// The bin's card: its picture, picked as a gallery card's is and opened by
+// a double click (cardPress, cardDoubleClick), and two tools - ↶ Restore, and ⌦ Delete permanently, last,
 // which asks first. No star, Reuse, ❐ or ⊞: the image is gone from all
 // they act on until it is restored.
 function binCard(div, img, rec) {

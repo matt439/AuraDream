@@ -166,7 +166,9 @@ els.gallery.addEventListener('focusin', galleryFocus);
 els.gallery.addEventListener('pointerover', batchMatesOver);
 els.gallery.addEventListener('pointerout', batchMatesOut);
 // The selection's Select, Clear and Escape (gallery-select.js); a card's
-// press picks through cardPress, which card() hands thumb.
+// press picks through cardPress, which card() hands thumb, and a click
+// between the cards empties it.
+els.gallery.addEventListener('click', galleryBlankClick);
 els.select.onclick = () => {
   if (els.select.getAttribute('aria-disabled') === 'true') { setSelectMode(true); return; }
   setSelectMode(!selectMode);
