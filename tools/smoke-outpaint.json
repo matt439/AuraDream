@@ -153,6 +153,7 @@
   {"keycombo": ["Control", "Enter"]},
   {"expect": "__until(() => !els.outpaintDialog.open && viewerRecords.length === 1 && viewerRecords[0].outpaint, 15000)"},
   {"eval": "window.__made = viewerRecords[0];"},
+  {"expect": "__until(() => els.viewerNote.textContent.startsWith('Outpainted from #' + __made.refine + ' at '))"},
   {"expect": "__made.refine === __src.id && __made.width === 1824 && __made.height === 1024 && /^[0-9a-f]{64}$/.test(__made.mask) && __made.outpaint.left === 400 && __made.outpaint.right === 400 && __made.outpaint.band === 32 && __made.outpaint.fill === 'edge-box3-r16' && __made.prompt === __src.prompt"},
   {"expect": "settingsLine(__made).includes('outpaint of #' + __src.id + ' +400/+0/+400/+0 @ 0.9999')"},
 

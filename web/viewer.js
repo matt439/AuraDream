@@ -471,7 +471,10 @@ function noteViewer() {
     const strengths = [...new Set(viewerRecords.map((r) => r.strength))].join(', ');
     const line = document.createElement('span');
     line.className = 'lineage';
-    line.append('Refined from ', sourceLink(first), ` at ${strengths} · ${first.width}×${first.height}`);
+    // Named as the facts row names the pass (facts.js), where every pass agrees.
+    const verb = viewerRecords.every((r) => r.outpaint) ? 'Outpainted from '
+      : viewerRecords.every((r) => r.mask && !r.outpaint) ? 'Inpainted from ' : 'Refined from ';
+    line.append(verb, sourceLink(first), ` at ${strengths} · ${first.width}×${first.height}`);
     parts.push(line);
   } else if (first && viewerRecords.length === 1 && viewerJob.expected <= 1) {
     const line = document.createElement('span');

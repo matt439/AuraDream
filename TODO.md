@@ -28,13 +28,12 @@ An index of open work, one row per item; each row points to the doc that owns th
 
 | id | status | sev | size | item |
 |---|---|---|---|---|
-| `CARD#1` | CARD | LOW | M+card | Inpaint: Z-Image Turbo (not cached), FLUX.1 dev and schnell at 0.95, SDXL LoRA, seam metrics, blended preview and start-noise display; the other SDXL profiles and Z-Image were run 2026-10-20. Nunchaku is `CARD#3`, later families are `INP`. [Inpaint](docs/verified.md#inpaint). |
-| `CARD#2` | CARD | LOW | M+card | Outpaint: Z-Image Turbo, FLUX.1 dev and schnell, seam metrics and intermediate band widths. [Outpaint](docs/verified.md#outpaint). |
+| `CARD#1` | CARD | LOW | S+card | Inpaint: FLUX.1 dev and schnell at 0.95, a LoRA through a FLUX.1 inpaint, and the seam by number on FLUX.1; SDXL, Z-Image and Z-Image Turbo are done (2026-10-17 to 10-24). Nunchaku is `CARD#3`, later families are `INP`. [Inpaint](docs/verified.md#inpaint). |
+| `CARD#2` | CARD | LOW | S+card | Outpaint: FLUX.1 dev and schnell, and the seam by number on FLUX.1. [Outpaint](docs/verified.md#outpaint). |
 | `CARD#3` | CARD | MED | S+card | An inpaint over a Nunchaku Z-Image or FLUX.1 transformer under WSL: the profiles allow it, but the class has never run over either. [Inpainting](docs/design-notes.md#inpainting). |
 | `CARD#4` | CARD | LOW | L+card | INT8, full BF16 and sequential offload per checkpoint; the picker says INT8 is "not yet compared on this card". [Checkpoints](docs/verified.md#checkpoints). |
 | `CARD#6` | CARD | LOW | M+card | Catalogue entries never loaded on the card: Krea 2 Raw (manual approval), FLUX.2 [klein] 9B, klein base 4B and 9B; Krea 2 Turbo's Windows fp8 row has a peak but no time. [Checkpoints](docs/verified.md#checkpoints). |
 | `CARD#7` | CARD | LOW | M+card | Refine gaps: FLUX.1 dev at fp8; what the starting strengths keep on schnell, Z-Image Turbo, Z-Image and Qwen-Image; offload none/sequential; true CFG through FluxImg2Img; review the 2026-10-05 ladder pictures. [Refine pass](docs/verified.md#refine-pass). |
-| `CARD#8` | CARD | LOW | S+card | User LoRAs on an SDXL checkpoint: the adapter changes the image, weight 0 is byte-identical to none, unload restores the base hash. So far FLUX.1 Krea dev only. [Behaviour](docs/verified.md#behaviour). |
 | `CARD#9` | CARD | LOW | S+card | ERNIE-Image Turbo on the Windows fp8 path, and its Expand (rewriter, Marian translation, the 7 GB first-use download). Measured only under Nunchaku NVFP4. [Behaviour](docs/verified.md#behaviour). |
 | `CARD#10` | CARD | LOW | M+card | On the real server, fixes checked only on the fake: 9377de1, 7733f81, 6a7570d, ad01fdc, 2a4d2cc, 2b89ed5, 81781bf; and R50's fix (1744dc3) with a real console Ctrl-C, plus the not_found/offline load failures. [Behaviour](docs/verified.md#behaviour); [10-12 not reached](docs/review-2026-10-12.md#review--2026-10-12). |
 | `CARD#11` | CARD | LOW | M+card | The critic for real: a reorder where Check placed only some tags, kill-on-close stopping a real `llama-server`, int8 or sequential offload beside it, and whether rewrites beat originals over more than two seeds. [Prompt analyser](docs/verified.md#prompt-analyser). |

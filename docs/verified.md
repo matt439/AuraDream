@@ -549,6 +549,7 @@ add to that, which is why schnell is not the speed win Z-Image Turbo is.
 | Bit-determinism through torchao fp8 with offload moving components mid-forward | The same request twice on FLUX.1 Krea dev is the same hash; a negative prompt the pipeline dropped hashes the same as none | 2026-09-08 |
 | True CFG on FLUX.1 | A negative prompt with no true CFG is byte-identical to none; true CFG 1.5 is a different, reproducible image | 2026-09-08 |
 | LoRA under torchao fp8 + PEFT | The adapter changes the image and reproduces; `unload_lora_weights` restores the base hash; weight 0 is byte-identical to no adapter | 2026-09-08 |
+| LoRA on an SDXL checkpoint (Animagine XL 4.0, fp8, model offload, 1024x1024, seed 12345; `nerijs/pixel-art-xl`, 170 MB, from a scratch `LOCAL_DIFFUSION_LORAS_DIR`) | The same three as on FLUX.1: weight 1.0 changes the image (a coarser pixel grid, a muted palette, another pose) and is the same hash twice; weight 0 is the no-adapter hash; the no-adapter request after it is the base hash again, so the unload restores it. Through an inpaint too: the adapter changes the masked part (a plaid blue scarf) and reproduces, weight 0 and the inpaint after it are the plain inpaint's hash, and every pixel outside the mask is the source's (largest difference 0). It costs 0.23 GiB allocated (3.35 against 3.12 GiB; 3.51 against 3.28 through the inpaint) and 0.26-0.27 s a step against 0.22-0.23; card 6,421-6,664 MiB over a 2.5 GB desktop. The process held 9.4 GB of RAM at its peak. Evidence: `animagine-lora.log` and `animagine-xl-4-0-light/lora.jpg` in `%TEMP%/local-diffusion-inpaint-card/` | 2026-10-24 |
 | Animagine XL 4.0 basic generation | User-verified on the card after integration: the weights loaded and output looked good; exact quantization and offload settings were not recorded | 2026-09-10 |
 | Animagine XL 4.0, Batch 8 at 1 MP | 9.6 GB of the 16 as read off the card, which is what raised the Batch cap to 12; Batch 12 read 11.3 GB on 2026-10-21 (Checkpoints, "Size and batch gaps") | 2026-09-12 |
 | Reference images on klein | The referenced scene reappears in the asked-for pose, same hash twice; no 2-3x cost (see the table) | 2026-09-08 |
@@ -609,7 +610,7 @@ words (b396e2e) and the page's sizes labelled in binary units, "about 4.5 GiB"
 Not verified: `LOCAL_DIFFUSION_DEVICE=cuda:1` (one card here); the fp8 path for klein
 on Windows; ERNIE-Image Turbo on the fp8 path; ERNIE's new explicit prompt
 expansion path on the card; a live-preview map for FLUX.2's VAE (ERNIE, klein);
-Animagine XL 4.0 LoRA behavior and four-channel SDXL VAE preview fit (its fp8
+Animagine XL 4.0's four-channel SDXL VAE preview fit (its LoRA row is above; its fp8
 speed and memory are the October 5 row above; the quantization and offload
 settings of its earlier successful user run were not recorded). Illustrious XL
 v2.0-STABLE int8/full-bfloat16 GPU runs, LoRA behavior, batch scaling and
@@ -860,11 +861,10 @@ is what a user asking for a change does not want. These are one prompt and
 one mask per checkpoint, looked at by eye: they establish that the pass
 runs, reproduces and keeps every unmasked pixel, not a quality benchmark.
 
-Not measured: Z-Image Turbo (not in this machine's cache); a LoRA through an inpaint (no SDXL
-adapter was at hand; `frosting-lane` is FLUX.1's); an inpaint over a
-Nunchaku Z-Image transformer under WSL; the seam measured against the VAE
-round trip by number; the live preview through Z-Anime's blend and the
-dialogs' "starts at N% noise" on Z-Image (not checked on the card); and, for the deferred families (FLUX.2
+Z-Image Turbo, a LoRA through an inpaint, the seam by number, the live
+preview through the blend and the dialog's start noise were measured
+2026-10-24 (below). Not measured: an inpaint over a
+Nunchaku Z-Image transformer under WSL; and, for the deferred families (FLUX.2
 [klein], Qwen-Image), the measurements their phases name before they are
 enabled (FLUX.1's are below). Evidence is under `%TEMP%/local-diffusion-inpaint-card/`:
 `measure.py`, and per checkpoint its gallery, `results.jsonl` and the
@@ -972,6 +972,111 @@ Nunchaku FLUX.1 transformer under WSL, which the profile allows as it does
 Nunchaku Z-Image's and which has never run (TODO `CARD#3`); a LoRA through
 the inpaint; the seam by number.
 
+### Z-Image Turbo, an SDXL LoRA, the seam by number (2026-10-24)
+
+The same harness (`measure_light.py` beside `measure.py`, with the repo
+path brought up to date, a RAM guard that would have ended the process
+below 3 GB available, and `lora` and `seam` phases), fp8, model offload,
+Windows, a throwaway gallery per run, the same seed-12345 1024x1024 source,
+ellipse mask and scarf prompts, the watchdog at 15,500 MiB (it never
+tripped). The desktop held 2.4-2.6 GB; about 28 GB of the 64 GB of RAM was
+free before each load, beside other work.
+
+Z-Image Turbo (now cached), the whole base set in one process, at the
+class's default 1.0 and its 8 steps:
+
+| Run | Steps run | Time (per step) | Allocated / reserved | Card |
+| --- | --- | --- | --- | --- |
+| Text-to-image source, 1 MP | 8 | 18.5 s, the first of the process (0.88 s); 10.7 s run again | 6.43 / 7.17 GiB | 10,094-10,156 MiB |
+| Inpaint, 1 MP | 8 of 8 | 11.2-12.4 s (0.88-0.90 s) | 6.59 / 7.33 GiB | 10,248-10,533 MiB |
+| Inpaint, Batch 2 | 16 | 23.3 s | 6.59 / 7.33 GiB | 10,389 MiB |
+| Outpaint to 16:9, 1824x1024, 1.9 MP | 8 of 8 | 19.7-20.1 s (1.74-1.78 s) | 6.82 / 7.50 GiB | 10,448-10,556 MiB |
+| Outpaint to 16:9, Batch 2 | 16 | 39.0 s | 6.82 / 7.50 GiB | 10,547 MiB |
+| Outpaint +25%, 1280x1280, 1.6 MP | 8 of 8 | 17.6 s (1.52 s) | 6.72 / 7.53 GiB | 10,556 MiB |
+
+The load took 42-49 s and peaked at 26.4-26.6 GB of the process's RAM
+(17.8 GB on a third load, the files then in the page cache), leaving 5.7 GB
+of the machine's free at the lowest: Z-Image Turbo's load is not light on
+RAM, though its card cost is the undistilled Z-Image's less 1-2 GB.
+
+| What | Result |
+| --- | --- |
+| Determinism, batches, cancel | The same inpaint and the same outpaint twice is the same hash; a Batch 2 is the solo passes at seeds 12345 and 12346; cancelled at step 2, the next pass is the uncancelled hash |
+| The composite keeps what is not masked | Largest difference outside the mask 0 |
+| The text-to-image pipeline afterwards | The source's own request is the source's hash (`02366ad0962cb95e`) |
+| The embedded mask | 3,836 bytes hard-edged, 35,592 feathered, 5,104 for 16:9 and 5,968 for +25%, as on the others |
+| What a strength keeps | By eye. 0.5 and 0.7 keep the red scarf; at 0.85 a dark navy knitted scarf, as the undistilled Z-Image already drew at 0.85; the default 1.0 the blue knitted scarf asked for. The library default stays the right start |
+| Outpaint fill and band | By eye. 0.6 and 0.8 continue the scene softly, the default draws new trees and a fence. Band 0 leaves a visible vertical line at the original's edge, 32 joins, 64 and 128 leave a translucent second figure at the right side (a ghost of the girl), as the others' double image |
+
+The real server and page, Z-Image Turbo (fp8, model offload, a scratch
+gallery on port 7860, headless Edge at 1400x900, `tools/browser.mjs`
+steps; evidence in `zturbo-page/`):
+
+- The Inpaint dialog's line, after a brush stroke: "1 image · strength 1 ·
+  starts at 100% noise · about 8 of 8 steps run · keeps nothing of the
+  masked part"; at 0.7 "starts at 90% noise · about 6 of 8 steps run"; at
+  0.5 "starts at 75% noise · about 4 of 8 steps run". Those are the shift-3
+  schedule's sigma at the first step each pass runs (3t/(1+2t) at t = 0.75
+  and 0.5). The Strength note names Z-Anime as where 1.0 was measured;
+  that is still the note's wording.
+- The live preview through the blend: frames at steps 2-7 of 8, 0.9 s
+  apart, in the strip's tile ("Live preview · step 3/8"). The whole frame
+  is noisy, the unmasked part included, since the class re-noises the
+  source there to the step's level; by step 5 the source's composition
+  is plain, and the finished image replaced the tile in the same box.
+- Found there and fixed the same day: the line under the strip called the
+  inpaint "Refined from #1 at 1", where the record's facts say "Inpainted
+  from"; it now names an inpaint or outpaint as the facts row does
+  (`viewer.js`), checked in smoke-inpaint and smoke-outpaint.
+
+The seam by number. For each pass, the mean step in 8-bit levels between
+neighbouring pixels across the mask's edge (where it goes from 0 to above
+0) in three pictures: the source, the source composited over its own VAE
+round trip the same way (what an encode and decode alone cost there), and
+the result. For a soft mask, also the mean gradient inside the soft region.
+
+| Checkpoint | Pass | Step: source / round trip / result | Soft region gradient: source / round trip / result |
+| --- | --- | --- | --- |
+| Animagine XL 4.0 | Inpaint, hard | 10.1 / 10.5 / 41.7 | - |
+| Animagine XL 4.0 | Inpaint, feather 24 | 10.3 / 10.5 / 10.5 | 20.0 / 19.4 / 19.7 |
+| Animagine XL 4.0 | Outpaint 16:9, band 0 | 18.4 / 17.5 / 22.9 | - |
+| Animagine XL 4.0 | Outpaint 16:9, band 32 | 9.9 / 10.0 / 9.9 | 8.9 / 8.7 / 8.8 |
+| Z-Image Turbo | Inpaint, hard | 2.8 / 4.1 / 26.6 | - |
+| Z-Image Turbo | Inpaint, feather 24 | 3.7 / 3.9 / 4.0 | 5.3 / 5.4 / 7.1 |
+| Z-Image Turbo | Outpaint 16:9, band 0 | 6.6 / 8.0 / 8.4 | - |
+| Z-Image Turbo | Outpaint 16:9, band 32 | 1.1 / 1.2 / 1.2 | 2.1 / 2.3 / 2.5 |
+
+A hard mask's cut is the new content's, not the VAE's: 4 to 10 times the
+source's step, where the round trip adds at most 1.4 levels. A feather or
+a band brings the edge to the round trip's level. The number cannot see the
+double image a wide feather leaves (by eye above); Z-Image Turbo's 35%
+higher gradient inside the feather is the nearest it comes. The whole
+picture's round trip differs from the source by 2.7 levels on average on
+Animagine and 2.0 on Z-Image Turbo.
+
+Band widths between 0 and 64, outpaint to 16:9 at the default strength:
+
+| Band | Animagine: step / soft gradient | Z-Image Turbo: step / soft gradient |
+| --- | --- | --- |
+| 0 | 22.9 against the source's 18.4 / - | 8.4 against 6.6 / - |
+| 16 | 5.1 against 4.8 / 8.7 against 7.7 | 1.4 against 0.9 / 3.1 against 1.9 |
+| 24 | 5.9 against 5.9 / 8.4 against 7.9 | 1.3 against 1.0 / 2.7 against 2.0 |
+| 32 | 9.9 against 9.9 / 8.8 against 8.9 | 1.2 against 1.1 / 2.5 against 2.1 |
+| 48 | 6.5 against 6.4 / 8.6 against 9.6 | 1.3 against 0.9 / 2.4 against 2.2 |
+| 64 | 5.1 against 4.9 / 8.8 against 10.4 | 1.4 against 1.0 / 2.3 against 2.2 |
+
+(The source column differs per band because the edge the mask reaches
+moves into the original as the band widens.) By eye on 3x crops: band 0
+cuts on both; on Animagine 16, 24 and 32 join, a faint ghost starts at
+32, and 48 and 64 show plain double branches; Z-Image Turbo's edge here is
+plain sky and shows nothing past band 0. Narrow bands keep a little more
+gradient than the source, wide ones less (the blend softens it). So 16-24
+join as well as 32 with less ghosting on this one Animagine source; one
+source does not move the default. Evidence: `zturbo.log`,
+`zturbo-seam.log`, `animagine-seam.log`, `bands.log`, and
+`z-image-turbo/`, `*-bands/outpaint-band-seams-fine.jpg`, in
+`%TEMP%/local-diffusion-inpaint-card/`.
+
 ## Outpaint
 
 Measured 2026-10-17 in the same runs, the same way, from the same
@@ -1046,9 +1151,10 @@ One source, one seed, by eye. Evidence: `flux-outpaint.log`, and
 `outpaint-strengths.jpg`, `seams-full.jpg`), in
 `%TEMP%/local-diffusion-inpaint-card/`.
 
-Not measured: Z-Image Turbo (not in this machine's cache); FLUX.1 dev and
-schnell outpaint; the seam by number against the VAE round trip at the
-original's edge; band widths between 0 and 64 other than 32. Evidence is in
+Z-Image Turbo, the seam by number and band widths 16, 24 and 48 were
+measured 2026-10-24 (Inpaint, "Z-Image Turbo, an SDXL LoRA, the seam by
+number"), on Animagine XL 4.0 and Z-Image Turbo. Not measured: FLUX.1 dev
+and schnell outpaint; the seam by number on FLUX.1. Evidence is in
 `%TEMP%/local-diffusion-inpaint-card/` with the inpaint's.
 
 ## Prompt analyser
