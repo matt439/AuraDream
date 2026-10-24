@@ -224,9 +224,20 @@ async function evaluate(expression) {
 const mouse = (type, x, y, extra = {}) =>
   send('Input.dispatchMouseEvent', { type, x, y, button: 'left', clickCount: 1, ...extra });
 // A point, or a selector standing for the middle of its element's box.
+// The centre once it holds still across two reads 50 ms apart (2 s at
+// most): a press made while a smooth scroll is still moving the page - Show
+// new gallery images scrolls to the gallery's head - landed where the
+// element had been, and the next click missed its button now and then.
 async function point(at) {
   if (Array.isArray(at)) return at;
-  const xy = await evaluate(`(() => { const e = document.querySelector(${JSON.stringify(at)}); if (!e) return null; const r = e.getBoundingClientRect(); return [r.x + r.width / 2, r.y + r.height / 2]; })()`);
+  const read = () => evaluate(`(() => { const e = document.querySelector(${JSON.stringify(at)}); if (!e) return null; const r = e.getBoundingClientRect(); return [r.x + r.width / 2, r.y + r.height / 2]; })()`);
+  let xy = await read();
+  for (let n = 0; xy && n < 40; n++) {
+    await sleep(50);
+    const again = await read();
+    if (again && again[0] === xy[0] && again[1] === xy[1]) break;
+    xy = again;
+  }
   if (!xy) console.log('  ! no element for ' + at);
   return xy ?? [0, 0];
 }

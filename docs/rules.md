@@ -5654,7 +5654,11 @@ starting strength (`refine_strength_profiled` false); and Mass refine's
 Refine… held with the hedge, then `REFINE_NONE`, even under a search that
 gives it images, a press opening nothing, and live once the status says
 the pipeline has a pass. `browser.mjs` sends Escape with its
-key code, so a modal dialog closes on it as on a real press. Fake servers
+key code, so a modal dialog closes on it as on a real press. A click, right click, double click, hover or wheel on a
+selector waits until the element's centre holds still across two reads
+50 ms apart (2 s at most), so a press made during a smooth scroll lands
+on its target: `smoke-bundles` missed the Bundles button now and then
+after Show new gallery images scrolled to the gallery's head. Fake servers
 share one throwaway gallery unless `--data` gives each its own, and
 `smoke.json` counts the images planted under another checkpoint: run it on
 a fake of its own while others are up.
