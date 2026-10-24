@@ -1,6 +1,6 @@
 # Plan: generate, then refine, in one job
 
-**Status, 2026-10-24: planned, not built (`GEN#16`).** Nothing below changes code yet.
+**Status, 2026-10-24: planned, not built (`GEN#16`); ready to build. Matt took every recommended answer to the open questions the same day ("i like recommended").** Nothing below changes code yet.
 Every statement about today's behaviour cites the file and line it was read
 from on this date. What only the card can say (time, memory, how a pass
 looks) is out of scope: the design reuses the refine pass unchanged, so no
@@ -389,6 +389,12 @@ back cost more than the two run apart.
   goes through `_finish`.
 
 ## Open questions for Matt
+
+Answered 2026-10-24: every recommendation taken - the numbers remembered
+and the tick off on reload; one strength; pass failures under the cells'
+failure rule; missing passes in Finish in a later phase, Mass refine over
+`run:<id>` until then; More seeds makes bases only; steps but no prompt of
+the pass's own; Lanczos only.
 
 1. **Remembered or per session?** Is the tick saved with the panel, or off
    on every reload? Recommended: the numbers remembered (shared with the

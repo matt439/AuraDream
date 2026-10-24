@@ -1,8 +1,8 @@
 # Plan: peak GPU memory per image
 
-**Status, 2026-10-24: planned, not built (`GEN#15`).** Matt decided the feature the
-same day; the open questions at the end are what the plan could not settle
-from the code. Every statement about today's behaviour cites the file and
+**Status, 2026-10-24: planned, not built (`GEN#15`); ready to build.** Matt
+decided the feature the same day and took every proposed answer to the open
+questions at the end ("i like recommended"). Every statement about today's behaviour cites the file and
 line it was read from on 2026-10-24 (`525cb24`).
 
 The design in one paragraph: the backend resets PyTorch's CUDA peak
@@ -356,6 +356,10 @@ decision about whether a history-based line may loosen the measured one or
 only tighten it. That waits for phase 3 and for weeks of rows.
 
 ## Open questions for Matt
+
+Answered 2026-10-24: every proposal taken - allocated in the facts with
+reserved in the title, no offload column now, a refine batch's rows sharing
+the cell's peak, and the CLI's line unchanged.
 
 1. Allocated alone in the facts with reserved in the title (proposed), or
    both visible?
