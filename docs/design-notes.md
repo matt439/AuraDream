@@ -11616,6 +11616,41 @@ responsibility too, retaining their test bodies and parameter cases. The full
 inventory, reasons for keeping other long files together and verification are
 in [the source audit](source-audit.md).
 
+## Generate, then refine
+
+**Built 2026-10-24 (`GEN#16`, `docs/plan-then-refine.md`).** The SDXL anime
+authors' recipe is a render then a hires pass; Matt rates Refine, enlarging
+with it, several strengths and Mass refine all Often. Then refine runs a
+pass of every image right after its cell, in the same job.
+
+- **A stage in the worker, not a planned cell.** A pass's source is the
+  gallery id of an image not yet made, so a pass planned at expand time
+  could be no `GenerateRequest`, no `CellKey`, no retained cell and no
+  Resume key. Built from the saved record, the pass is Mass refine's own
+  (`refine_batch.plan`), and every reader sees an ordinary refine row.
+- **A run of its own.** A run has one size (`run_id` hashes it; the Runs
+  list reads it off one row), so the passes join `then_refine.pass_run_id`
+  of the base run and the spec, the same for every job that continues the
+  base run. The pass run keeps no cells; its Finish names its base.
+- **One unit.** Pause and the budget wait for a cell's passes, so a budget
+  never leaves a finished image without its pass; a cancel stops inside
+  one. A failed pass is no failed cell - the cell completed and Finish
+  reads cells - but it counts, with its own streak: a base made between
+  two failed passes says nothing about whether the pass size fits.
+- **Visible while on, never remembered on.** It doubles every press, so the
+  opener's words and both buttons say it, and the tick starts off on each
+  load (Matt's answer); the numbers are the Refine dialog's.
+- **No height.** The plan's fold below Generate added a summary row, and at
+  1400x900 that pushed Run grid below the window (`smoke-grid`) and made
+  the stage scroll (`smoke-stage`). The opener ends the Notify row instead,
+  in the 84 px the row had free, at its height; the controls are a dialog.
+- **Built differently from the plan:** passes' failures have their own
+  streak (the plan's shared count never reached three when bases
+  succeeded between them); the fold's tight-line warning is the guard's
+  only (past what a pass renders), not the measured tight line; and Finish
+  does not yet add a missing pass beside a finished base (Mass refine over
+  the run does).
+
 ## Peak memory per image
 
 **Built 2026-10-24 (`GEN#15`, `docs/plan-peak-vram.md`).** Each image

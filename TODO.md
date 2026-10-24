@@ -8,7 +8,7 @@ An index of open work, one row per item; each row points to the doc that owns th
 
 **Aim (2026-10-18):** keep useful work ready for Matt's common workstation tasks. [Reported use](docs/design/preferences.md) guides priority; it does not approve the candidate redesign.
 
-**Ready backlog:** six `OPEN` tasks from the [2026-10-24 review](docs/review-2026-10-24.md): `GEN#16` planned and ready to build; `GEN#17`-`GEN#19`, `UI#11` and `UI#12` each needing a plan first. Deferred features remain deferred.
+**Ready backlog:** five `OPEN` tasks from the [2026-10-24 review](docs/review-2026-10-24.md), each needing a plan first: `GEN#17`-`GEN#19`, `UI#11` and `UI#12`. Deferred features remain deferred.
 
 **Needs Matt:** workbench task trials (`DEV#1`) and hands-on screen-reader/touch checks (`UI#7`) are the next `USER` work. One decision waits: whether SDXL prompt weighting is wanted at all (`GEN#20`). Whole-app layout implementation waits for its trials; it remains a design hypothesis.
 
@@ -59,7 +59,7 @@ An index of open work, one row per item; each row points to the doc that owns th
 | `GEN#6` | DEFERRED | LOW | M+card | Live-preview maps for the four-channel SDXL VAE and FLUX.2's VAE (ERNIE; klein also lacks an unpack hook); previews switch themselves off there. [Behaviour](docs/verified.md#behaviour). |
 | `GEN#8` | DEFERRED | LOW | L | U61 part B: one's own photo or sketch as a reference (import route, a source marker through storage, reindex and reruns; add, drop and paste). Matt deferred it 2026-10-05; only when he raises it. [References](docs/design-notes.md#reference-images-by-gallery-id). |
 | `GEN#15` | CARD | LOW | S+card | Peak memory per image, built 2026-10-24: one render each on an SDXL profile and FLUX.1 Krea [dev], the recorded peak beside `nvidia-smi` and shared memory (phase 3). [Plan](docs/plan-peak-vram.md). |
-| `GEN#16` | OPEN | LOW | L | Generate then refine in one job: a worker stage after each base cell, built by `refine_batch.plan`. Questions answered; phases 1-2 ready. [Plan](docs/plan-then-refine.md). |
+| `GEN#16` | CARD | LOW | S+card | Generate then refine, built 2026-10-24: a then-refine night on WAI v17 and FLUX.1 Krea dev at 1.5x, one per session - peak of the alternation and the pair's time (phase 3). [Plan](docs/plan-then-refine.md). |
 | `GEN#17` | OPEN | LOW | M | Random-choice prompt variables drawn from each image's seed; plan first. [10-24 G5](docs/review-2026-10-24.md#g5-random-choice-prompt-variables). |
 | `GEN#18` | OPEN | LOW | M | Queue: move a job to the front (an admission order of the manager's own, not the gate lock's) and skip the running cell; plan first. [10-24 G7](docs/review-2026-10-24.md#g7-queue-move-to-front-and-skip-one-cell). |
 | `GEN#19` | OPEN | LOW | L | Size as a grid axis and a crop anchor for Refine, widening the key once; a run then has more than one size. Plan first. [10-24 G8](docs/review-2026-10-24.md#g8-size-as-a-grid-axis-and-a-crop-anchor-for-refine). |

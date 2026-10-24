@@ -248,7 +248,7 @@ before changing it.
   per version
 - `backend/reindex.py` — rows rebuilt from the PNGs' `local-diffusion` chunk, in place or
   copied in from another gallery; idempotent on the UNIQUE filename
-- `web/` — served as-is from `/static`; `index.html` loads 49 classic
+- `web/` — served as-is from `/static`; `index.html` loads 50 classic
   scripts in order, sharing one global scope; only `app.js`, the last, runs
   the wiring and boot. `state.js` owns shared state; `generation.js`,
   `grid-preview.js`, `job-stream.js` and `job-results.js` handle submission,
@@ -279,7 +279,8 @@ before changing it.
   included) and background-operation polling;
   `gallery-select.js` the picked cards and the Picked menu, `gallery-batch.js` a
   card's batch outlined on hover, `tag-swap.js` Swap tags,
-  `refine-batch.js` Mass refine, `more-seeds.js` More seeds and `bin.js` the
+  `refine-batch.js` Mass refine, `then-refine.js` Then refine's opener
+  on the Notify row and its dialog, `more-seeds.js` More seeds and `bin.js` the
   recycle bin's view, undo note and Empty; `context-menu.js` the right-click
   menu on an image (`styles/context-menu.css`). The stylesheet is
   `style.css` (tokens and base layout), followed by `styles/*.css` in the
@@ -4170,6 +4171,46 @@ Frontend and CLI:
   reason and checks again. ↑/↓ step Strength by 0.05, 0.01 with Shift. The
   results list has a fixed height and scrolls, the count keeps two lines
   and `#refine-batch-error` one, so nothing below moves.
+- Then refine (`docs/plan-then-refine.md`; `then_refine.py`,
+  `JobManager._passes`, `then-refine.js`) is a submission field, never a
+  request field: `GenerateSubmission.then_refine` (`/api/generate`) and
+  `GridRequest`'s, `ThenRefine` (scale 1-2, strength None for the
+  checkpoint's own, steps None for each cell's). The cells are built from
+  the request without it (`GenerateSubmission.base()`; `grid.expand`
+  ignores it), so a then-refine run's base rows, `CellKey`, run id and
+  Resume are a plain run's. The route resolves the strength
+  (`then_refine.resolved`) and refuses in words before queueing
+  (`then_refine.refusal`: `refine_unavailable`, a base that is already a
+  pass, a pass past `refine_batch.too_big`, a strength leaving no step of
+  any cell's steps, checked on a stand-in pass per distinct steps); the
+  worker checks a stand-in against the loaded pipeline with the cells.
+  After each cell's saves, `_passes` builds one pass per record with
+  `refine_batch.plan` (Mass refine's cell, so Mass refine reports it
+  `rendered`) and runs them before the next cell, under
+  `job.pass_run_id` (`then_refine.pass_run_id` of the base run and the
+  spec: deterministic, so a Finish or Resume continues it; a run keeps one
+  size). A cell and its passes are one unit: pause and the budget act
+  before cells only, a cancel stops inside a pass with the base kept. A
+  failed pass is in `failed_cells` ("pass of #N") and `failures`, never in
+  `failed_indices`, and has its own streak (three passes in a row end the
+  job; a base made between them does not reset it) beside the share of
+  cells plus passes. Pending passes are in `planned_keys`. The snapshot
+  carries `then_refine`, `pass_run_id`, `stage` ("pass") and
+  `planned_images` doubled; the retained metadata `then_refine` with its
+  `pass_run_id`, which Finish passes back, and a pass run's Finish names
+  its base run (`storage.retained_run_metadata`). The grid preview gives
+  `passes`, `pass_width`/`pass_height`, the passes' time at the pass size
+  and disk, budget seeds pricing each cell with its passes, and the pass's
+  start sigma. The page's opener, `#then-refine-open`, ends the Notify
+  row under Generate at that row's own height (the hint before it
+  ellipsizes), because the panel has no height to spare at 1400x900 - a
+  fold of its own there pushed Run grid below the window and scrolled the
+  stage; it opens `#then-refine-dialog`, whose tick is off on every load
+  and held (`aria-disabled`, `REFINE_NONE`, a press says it) without a
+  pass. The opener's words ("Refine 1.5× · 0.4"), Generate's and Run
+  grid's words and titles say the setting while it is on; scale and
+  strength are `REFINE_KEY`'s. The CLI's
+  `--then-refine-*` run the same plan (`_then_refine_passes`).
 - More seeds (`POST /api/more-seeds/preview`, `POST /api/more-seeds`,
   `more_seeds.py`, `more-seeds.js`, `styles/more-seeds.css`) is the sixth
   producer of cells: `count` more images of each batch the selection
@@ -5155,6 +5196,29 @@ smokes on one fake in order, as the commands below run them by hand.
 `--jobs N` runs N rows at once, each worker 100 ports further on, the
 smokes' output kept until each finishes; `--list` prints the table as read.
 It exits 0 when every smoke passed, 1 on a failure, 2 on a refusal.
+`tests/test_then_refine.py` covers Then refine: each image's pass after
+its cell (a batch's bases then their passes, runs alternating), the pass
+equal to Mass refine's and reported `rendered`, the base rows a plain
+Generate's, every refusal in words, a failed pass kept off
+`failed_indices`, three in a row ending the job, a cancel inside a pass
+keeping the base, a grid's passes and retained spec, a pass run's Finish
+naming its base, Finish carrying the spec, and the preview's passes;
+`tests/test_cli.py` the CLI's passes equal to the server's and its flag
+refusals. `smoke-then-refine.json` uses a fresh FLUX.1 Krea [dev] fake on
+7912 with `--step 0.3`: the opener ending the Notify row at its height,
+off, the dialog and its focus, the tick, the opener's and both buttons'
+words and titles, the hint's pass size, Generate and the grid fold not
+moving, Escape closing it, a batch of two making its bases then their passes with the pass
+in the cell line, the pass rows' size, strength, seeds and run, the grid
+preview's passes, the tick off after a reload with the strength
+remembered, and the tick held with `REFINE_NONE` on a status stubbed to no
+pass:
+
+```powershell
+uv run python tools/fake_server.py --port 7912 --model black-forest-labs/FLUX.1-Krea-dev --step 0.3 --data <new-scratch-directory>
+node tools/browser.mjs tools/smoke-then-refine.json
+```
+
 `tests/test_peak.py` covers the peak pair: the row and the chunk, an older
 database, a PNG-only reindex and a malformed chunk value, no change to a
 cell's key, run id or Resume, a batch sharing its call's peak and a raised

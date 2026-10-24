@@ -325,6 +325,7 @@ galleryHead.addEventListener('pointerleave', () => pointHead(false));
 els.library.addEventListener('pointerover', () => { libraryPointer = true; });
 els.library.addEventListener('pointerleave', libraryPointerLeft);
 initBundles();
+initThenRefine();
 // The right-click menu on an image (context-menu.js): the right button or
 // the Menu key opens it, and a press elsewhere, a scroll or the window
 // going closes it. Capture, so the lightbox's stage never sees the press

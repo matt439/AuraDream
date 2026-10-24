@@ -1,6 +1,19 @@
 # Plan: generate, then refine, in one job
 
-**Status, 2026-10-24: planned, not built (`GEN#16`); ready to build. Matt took every recommended answer to the open questions the same day ("i like recommended").** Nothing below changes code yet.
+**Status, 2026-10-24: phases 1 and 2 built (`GEN#16`); phase 3 waits.**
+Matt took every recommended answer to the open questions the same day ("i
+like recommended"). Built as below except: a pass's failures have a streak
+of their own, apart from the cells', since a base made between two failed
+passes reset the shared count and three failed passes never ended a night;
+the new module is `backend/then_refine.py` (the stand-in pass, the
+refusals, the pass run id); the fold warns only past the guard, not at the
+measured tight line; the run hint is the fold's own hint line; the control is
+not the fold the plan drew but an opener at the Notify row's end and a
+dialog, since the fold's summary row pushed Run grid below a 900 px window;
+and `smoke-wide`/`smoke-narrow` were run unchanged rather than extended. Why it
+is built so is in `docs/design-notes.md`'s "Generate, then refine". Phase 3
+(several strengths, Finish adding missing passes, More seeds carrying the
+follow-on, the card's word) is not built.
 Every statement about today's behaviour cites the file and line it was read
 from on this date. What only the card can say (time, memory, how a pass
 looks) is out of scope: the design reuses the refine pass unchanged, so no

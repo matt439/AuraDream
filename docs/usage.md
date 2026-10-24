@@ -327,6 +327,32 @@ in the gallery, but they can no longer be reproduced from that source; a
 source in the recycle bin is named as such, and restoring it makes its
 passes reproducible again.
 
+### Then refine: refine every image as it is made
+
+**Then refine** runs a refine pass of each image right after the image is
+made - the two-stage "render, then a hires pass" recipe in one press. Open
+it from **Then refine: off** at the end of the Notify when done line under
+Generate, tick **Refine each image as it is made** and choose Strength,
+Scale and Steps (blank: each image's own), as in Mass refine. While it is
+on, that line reads, for example, **Refine 1.5× · 0.4**, and the buttons read
+**Generate + refine** and **Run grid + refine**. The tick starts off every
+time the page loads; the scale and strength are the ones last used in Refine
+on this checkpoint.
+
+Each pass is exactly what Mass refine would make of that image: its own
+prompt, negative prompt, seed, CFG, mu and LoRA, resized with Lanczos. The
+images Generate makes are the same as without Then refine. The passes are
+saved under a run of their own, so the Runs list shows the images and their
+passes as two runs. A grid refines every cell, and its preview counts the
+passes and adds their time and disk. Pause and the time budget wait for an
+image's pass; Cancel during a pass keeps the image. A pass that fails keeps
+its image and counts towards the job's failure rule. Finish run makes the
+missing images and their passes; to add a pass that is missing beside an
+image already made, run Mass refine over the run at the same numbers. It
+is held, with the reason, on checkpoints without a refine pass. From the
+terminal: `--then-refine-scale 1.5 [--then-refine-strength S]
+[--then-refine-steps N]`.
+
 ## Inpaint part of an image
 
 **Inpaint…** repaints only the part of a gallery image you paint over and

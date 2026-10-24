@@ -546,6 +546,11 @@
       <label class="check" id="notify-done-label"><input type="checkbox" id="notify-done"
         aria-describedby="notify-done-note"> Notify when done</label>
       <span class="hint" id="notify-done-note" role="status">Hidden tabs only</span>
+      <!-- Then refine (then-refine.js): a refine pass of every image a
+           Generate or a grid makes, right after it. On this row, which had
+           room at its end, since the panel has no height to spare at
+           1400x900; its words say the setting, and the dialog holds it. -->
+      <button type="button" class="tr-open" id="then-refine-open" aria-haspopup="dialog">Then refine: off</button>
     </div>
 
     <!-- Folded away by default: a grid is an overnight tool, not the workflow. -->
@@ -1513,6 +1518,37 @@
   </div>
 </dialog>
 
+<!-- Then refine (then-refine.js): the tick and Mass refine's three numbers
+     for the passes Generate and Run grid follow each image with. -->
+<dialog class="rb-dialog tr-dialog" id="then-refine-dialog" aria-labelledby="then-refine-title"
+        aria-describedby="then-refine-hint">
+  <header class="rb-head">
+    <h2 id="then-refine-title">Then refine</h2>
+  </header>
+  <label class="check" id="then-refine-label"><input type="checkbox" id="then-refine"> Refine each image as it is made</label>
+  <div class="tr-controls">
+    <div class="field tr-strength">
+      <i><label for="then-refine-strength">Strength</label></i>
+      <input type="text" id="then-refine-strength" autocomplete="off" inputmode="decimal"
+             title="How much of each image the pass redraws - low keeps the picture, 1 keeps nothing">
+    </div>
+    <div class="field">
+      <i id="then-refine-scale-label">Scale</i>
+      <div class="presets" id="then-refine-scales" role="group" aria-labelledby="then-refine-scale-label"></div>
+    </div>
+    <div class="field tr-steps">
+      <i><label for="then-refine-steps">Steps</label></i>
+      <input type="text" id="then-refine-steps" autocomplete="off" inputmode="numeric" placeholder="each image's own">
+    </div>
+  </div>
+  <p class="hint" id="then-refine-hint" role="status"></p>
+  <p class="hint">Each pass is the one Mass refine makes of its image: its own prompt, seed, CFG, mu and LoRA,
+    resized with Lanczos, saved in a run of its own. The tick is off each time the page loads.</p>
+  <div class="rb-actions">
+    <button type="button" class="primary" id="then-refine-close">Done</button>
+  </div>
+</dialog>
+
 <!-- Mass refine (refine-batch.js): one strength, one scale, every image
      checked on the server as they change and each outcome listed; Refine held
      with its reason until the answer is to what the dialog says. -->
@@ -1705,6 +1741,7 @@
 <script src="/static/bundles.js"></script>
 <script src="/static/tag-swap.js"></script>
 <script src="/static/refine-batch.js"></script>
+<script src="/static/then-refine.js"></script>
 <script src="/static/more-seeds.js"></script>
 <script src="/static/bin.js"></script>
 <script src="/static/context-menu.js"></script>

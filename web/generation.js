@@ -59,8 +59,8 @@ function setBusy(on) {
   // Unloading mid-job frees nothing - the worker holds its own reference to the
   // pipeline - and the server refuses it with a 409 anyway (syncUnload).
   syncUnload();
-  els.generate.textContent = on ? 'Generate (queue)' : 'Generate';
-  els.gridRun.textContent = on ? 'Run grid (queue)' : 'Run grid';
+  // Then refine's "+ refine" in both while its tick is on (then-refine.js).
+  syncThenRefine();
   els.refineRun.textContent = on ? 'Refine (queue)' : 'Refine';
   syncRefineBatchRun();
   syncMoreSeedsRun();
@@ -133,6 +133,7 @@ function describeJob(job, length = 60, { markup = false } = {}) {
     job.planned_images ? plural(job.planned_images, 'image') : '',
     job.width && job.height ? `${job.width}×${job.height}` : '',
     what,
+    job.then_refine ? `then refine ${job.then_refine.scale}× at ${job.then_refine.strength}` : '',
   ].filter(Boolean).join(' · ');
 }
 
@@ -184,7 +185,7 @@ function submissionLabel(path, payload) {
     ...payload,
     grid,
     prompt_template: grid ? payload.prompt : null,
-    planned_images: grid ? null : payload.num_images * (payload.runs || 1),
+    planned_images: grid ? null : payload.num_images * (payload.runs || 1) * (payload.then_refine ? 2 : 1),
   });
 }
 
@@ -514,7 +515,8 @@ function generate() {
     showError('Run grid fills the {placeholders}; Generate would render the braces.');
     return;
   }
-  return startJob('/api/generate', body);
+  const then = thenRefinePayload();
+  return startJob('/api/generate', then ? { ...body, then_refine: then } : body);
 }
 
 // The gallery's picked cards, else its current filter - the search box, the

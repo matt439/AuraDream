@@ -7,6 +7,25 @@
   min-width: 0; margin: 0; white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
 }
 
+/* Then refine (then-refine.js): its opener at the Notify row's end, sized
+   as the row's text so the row keeps its height - the hint before it
+   ellipsizes, as it does already - and its dialog's three controls in a
+   row, the hint the pass's size or why it cannot run. */
+.notification-choice > .tr-open {
+  flex: 0 0 auto; margin-left: auto; padding: 0; border: 0; background: none;
+  font: inherit; font-size: var(--fs-label); line-height: inherit; color: var(--text-3);
+  text-decoration: underline dotted; text-underline-offset: 2px; cursor: pointer;
+}
+.notification-choice > .tr-open:hover { color: var(--text); }
+.notification-choice > .tr-open.on { color: var(--text); font-weight: 600; }
+.tr-dialog { width: min(520px, calc(100vw - 2 * var(--sp-4))); }
+.tr-controls { display: flex; flex-wrap: wrap; align-items: flex-start; gap: var(--sp-3) var(--sp-4); }
+.tr-controls .field { display: flex; flex-direction: column; gap: var(--sp-1); margin: 0; }
+.tr-controls .field > i { font-style: normal; color: var(--text-3); font-size: var(--fs-label); }
+.tr-strength input { width: 7em; }
+.tr-steps input { width: 10em; }
+#then-refine-label[aria-disabled="true"] { color: var(--text-3); }
+
 /* ---------------------------------------------------------- grid search */
 
 /* Folded away: a grid is for leaving running overnight, not for the next image.

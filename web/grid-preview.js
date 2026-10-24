@@ -20,6 +20,7 @@ function gridPayload() {
     seed_axis: els.gridSeedList.value.trim(),
     resume: els.gridResume.checked,
     budget_minutes: els.gridBudget.value.trim() === '' ? null : +els.gridBudget.value,
+    then_refine: thenRefinePayload(),
   };
 }
 
@@ -230,6 +231,8 @@ async function previewGrid() {
     totals.className = 'totals';
     totals.textContent =
       `${p.images} image${p.images === 1 ? '' : 's'} · ${gridFactors(p.summary)}` +
+        // Then refine's passes, one per image, priced in the time and disk.
+        (p.passes ? ` · + ${p.passes} refine pass${p.passes === 1 ? '' : 'es'} at ${p.pass_width}×${p.pass_height}` : '') +
         (p.skipped ? ` · ${p.skipped} already done` : '') +
         // Resume's other drop: cells a live job already plans, the same run
         // still queued - not "done", which is the gallery's.
@@ -264,6 +267,8 @@ async function previewGrid() {
 // this preview's totals - the size, the steps, the seed - moves its too.
 let gridTimer;
 function schedulePreview() {
+  // Then refine's fold says the pass size of the size now in the panel.
+  syncThenRefine();
   clearTimeout(gridTimer);
   gridTimer = setTimeout(previewGrid, 250);
   scheduleComparePreview();

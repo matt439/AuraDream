@@ -656,6 +656,9 @@ function receiveStatus(s, asked = Date.now()) {
       if (refineSource) scheduleRefinePreview();
       if (els.lightbox.open) renderLightbox();
     }
+    // Then refine's tick is held where there is no pass, and its strength
+    // is this checkpoint's (then-refine.js).
+    syncThenRefine();
     // The dialog's negative prompt, Mu and True CFG follow the same answers
     // as the panel's boxes above.
     if (refineSource) syncRefine();
