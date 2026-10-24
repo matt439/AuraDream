@@ -503,6 +503,14 @@ retain their meaning. Star images directly on the sheet or in the lightbox.
 In the lightbox, **Download** beside the zoom controls saves the full-size
 PNG with its settings intact, named by image id, short model name and seed.
 
+The Created row also gives the most GPU memory the render held, such as
+"3.89 GiB peak", with the reserved figure in its tooltip. Images made
+together in one batch share their batch's number ("peak of its batch").
+It is what PyTorch itself allocated, not the whole card: the desktop, the
+driver and any spill into shared system memory are not counted, so a
+number close to 16 GB is no proof the render fitted. Images made before
+this was recorded, or without a GPU, show no number.
+
 **Select** (first in the row under the search box) picks cards for an
 action on several images: in select mode a click or Space picks a card,
 Shift picks a range from the last card picked, and Enter still opens the

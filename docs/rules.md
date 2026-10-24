@@ -851,7 +851,18 @@ Reproduction:
   NULL on older rows), which is no part of it - one generator per image -
   but what More seeds runs a batch's next images at; a reindex, a merge
   and a bundle carry it, and a chunk's value that is no positive integer
-  is read as NULL (`storage._batch`). `CellKey` holds the prompt pair, steps, CFG, mu,
+  is read as NULL (`storage._batch`). So is the peak pair,
+  `vram_peak_allocated` and `vram_peak_reserved`: the bytes PyTorch's
+  allocator held at most during the `generate()` call that made the image
+  (`GenerationBackend.last_peak()`, reset as `DiffusersBackend.generate`
+  begins and read as it returns, None on a call that raised, with no CUDA
+  device and from the fakes), saved whole on every image of a batch by
+  `jobs._save` and the CLI, never divided as the duration is. A result, no
+  part of the reproduction set, `CellKey`, `run_id`, `applied()` or a search
+  key; absent from the chunk when unmeasured, and a chunk's or a bundle's
+  value that is no non-negative integer is NULL (`storage._peak`), never a
+  refused row. Reindex (both paths) and bundles carry it; the bundle
+  staging table adds both as INTEGER. `CellKey` holds the prompt pair, steps, CFG, mu,
   true CFG, references, LoRA and weight, refine source and strength, and the
   seed; size, checkpoint and quantization scope the resume lookup
   (`storage.completed_cells`) and, with the batch, `run_id`'s definition;
@@ -3744,7 +3755,10 @@ Frontend and CLI:
   taken back once another image is drawn - `lbSeedNote`), the column's does
   not. The lightbox's (`search: true`) ends each row the search grammar can
   say (Model, Size, Sampling, LoRA without whitespace, Refined from, Seed,
-  Created as `date:` the local day, Run) with a muted ⌕ (`.lb-search`,
+  Created as `date:` the local day, Run; the Created row's peak,
+  `peakFact`, "N.NN GiB peak" in GiB of the allocated bytes, "of its batch"
+  when `batch > 1`, the reserved figure and the allocator caveat in its
+  title, nothing at all without one) with a muted ⌕ (`.lb-search`,
   `aria-label` "Search the gallery for …", the terms in its title), and
   `promptSearchLine` puts "⌕ Search for this prompt" over the facts: the
   prompt's words, less any with no letter or digit or that would read as a
@@ -5137,6 +5151,13 @@ smokes on one fake in order, as the commands below run them by hand.
 `--jobs N` runs N rows at once, each worker 100 ports further on, the
 smokes' output kept until each finishes; `--list` prints the table as read.
 It exits 0 when every smoke passed, 1 on a failure, 2 on a refusal.
+`tests/test_peak.py` covers the peak pair: the row and the chunk, an older
+database, a PNG-only reindex and a malformed chunk value, no change to a
+cell's key, run id or Resume, a batch sharing its call's peak and a raised
+call leaving none, a bundle carrying it (and dropping a bad one) into
+INTEGER columns, Load settings from PNG ignoring it, and the real
+backend's reset/read order over a stubbed `torch.cuda`, a failed read and
+no CUDA device; `tests/test_cli.py` the CLI saving it.
 `tests/test_run_smoke.py` holds every smoke to one parsed row with a full
 checkpoint id. Under load from parallel rows a timing-sensitive smoke can
 run slower than alone; a failure seen only under `--jobs` is rerun alone
@@ -6062,7 +6083,10 @@ node tools/browser.mjs tools/smoke-results.json
 ```
 
 `smoke-lightbox.json` checks the lightbox on a FLUX.1 Krea [dev] fake on
-7884: the facts list and its rows, the Seed row's Use seed (said in the
+7884: the facts list and its rows, the Created row's peak (made through
+`POST /api/fake/peak`: its words, the reserved figure and caveat in its
+title, "of its batch" on a batch of two, nothing without one, and the head
+still fitting), the Seed row's Use seed (said in the
 lightbox's line, the panel's kept, taken back by a step to another image);
 the keys line, naming S on every image with each key bound to its action
 ("Del bin"),

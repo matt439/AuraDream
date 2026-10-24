@@ -373,6 +373,11 @@ def _database_meta(
         "outpaint_fill": outpaint.fill if outpaint is not None else None,
         "batch": storage._batch(row.get("batch")),
         **({"upscaler": upscaler} if upscaler is not None else {}),
+        **{
+            key: storage._peak(row.get(key))
+            for key in ("vram_peak_allocated", "vram_peak_reserved")
+            if storage._peak(row.get(key)) is not None
+        },
     }
 
 
@@ -532,6 +537,8 @@ def merge_database(
             "binned_at": row.get("binned_at"),
             "mask": mask,
             "outpaint": spec.key() if spec is not None else None,
+            "vram_peak_allocated": storage._peak(row.get("vram_peak_allocated")),
+            "vram_peak_reserved": storage._peak(row.get("vram_peak_reserved")),
         }
         copied = source != outputs
         try:

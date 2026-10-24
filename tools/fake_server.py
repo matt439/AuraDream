@@ -25,7 +25,8 @@ refuses every switch to another checkpoint, as the real check refuses one
 this sign-in cannot download; the fake never asks the Hub); `POST
 /api/fake/lora` moves an adapter out of the directory and back
 (`present`); `POST /api/fake/bin-age` backdates binned images' `binned_at`
-by `days`, for Empty recycle bin's age scope. The
+by `days`, for Empty recycle bin's age scope; `POST /api/fake/peak` sets the
+(`allocated`, `reserved`) bytes the jobs after it save as their peak. The
 prompt check reads the tests' word tokenizers - a token per word or mark, at
 each encoder's real budget - and the critic is the tests' FakeCritic, whose
 answer is built from the prompt. The gallery lives under the system temp directory (or --data),
@@ -144,6 +145,7 @@ def main() -> int:
             return super().expand_prompt(prompt, width, height, should_cancel)
 
         def generate(self, request, seed, on_progress=None, should_cancel=None, on_preview=None):
+            self._last_peak = None
             if "[fail]" in request.prompt:
                 raise RuntimeError("a [fail] cell, as the prompt asked")
             # Drawn first, so the steps can hand out ever-sharper previews of
@@ -525,6 +527,13 @@ def main() -> int:
         elif not present and path.exists():
             path.replace(aside)
         return {"name": path.name, "present": path.exists()}
+
+    # A measured peak, which a fake never has: the (allocated, reserved)
+    # bytes the jobs after it save, or null for none again. Answers it.
+    @app_main.app.post("/api/fake/peak", include_in_schema=False)
+    async def fake_peak(allocated: int | None = Body(None), reserved: int | None = Body(None)) -> dict:
+        fake.peak = (allocated, reserved) if allocated is not None and reserved is not None else None
+        return {"peak": fake.peak}
 
     # Time in the recycle bin, which no page can make: these binned images
     # backdated to `days` ago, for Empty recycle bin's age scope. Live rows

@@ -772,7 +772,7 @@ def import_bundle(path: Path, password: str | None = None, progress: Progress = 
                 columns = {r["name"] for r in conn.execute("PRAGMA table_info(images)")}
                 for column in storage._COLUMNS:
                     if column not in columns:
-                        kind = "REAL" if column in {"true_cfg", "lora_scale", "strength"} else "INTEGER" if column in {"refine", "batch"} else "TEXT"
+                        kind = "REAL" if column in {"true_cfg", "lora_scale", "strength"} else "INTEGER" if column in {"refine", "batch", "vram_peak_allocated", "vram_peak_reserved"} else "TEXT"
                         conn.execute(f"ALTER TABLE images ADD COLUMN {column} {kind}")
                 seq = conn.execute("SELECT seq FROM sqlite_sequence WHERE name='images'").fetchone()
                 next_id = max([r["id"] for r in current] + [seq[0] if seq else 0])
@@ -815,6 +815,9 @@ def import_bundle(path: Path, password: str | None = None, progress: Progress = 
                         mapping[row["id"]] = next_id
                         values = {key: row.get(key) for key in storage._COLUMNS}
                         values.update(id=next_id, content_hash=digest)
+                        # A result, so a bad one is dropped, never the bundle.
+                        for key in ("vram_peak_allocated", "vram_peak_reserved"):
+                            values[key] = storage._peak(values[key])
                         pending.append((row, values))
                 unresolved = 0
                 masks_missing = 0

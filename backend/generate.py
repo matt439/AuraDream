@@ -1752,6 +1752,8 @@ def main(argv: list[str] | None = None) -> int:
                 print("\r" + " " * 40 + "\r", end="")
             # What ran, not what was asked - the same rule the server follows.
             ran = backend.applied(cell.request)
+            # The call's peak, whole on every image of the batch, as the server saves it.
+            peak = backend.last_peak()
 
             for offset, image in enumerate(images):
                 # Each image in a batch gets its own reproducible seed, wrapped
@@ -1771,6 +1773,7 @@ def main(argv: list[str] | None = None) -> int:
                             quantization=p.settings.quantization,
                             variables=cell.variables,
                             batch=cell.request.num_images,
+                            peak=peak,
                         )
                         break
                     except p.gallery_lock.GalleryBusy:

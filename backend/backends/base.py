@@ -148,6 +148,17 @@ class GenerationBackend(abc.ABC):
         """
         return None
 
+    def last_peak(self) -> tuple[int, int] | None:
+        """(allocated, reserved) bytes at most during the last `generate()`
+        that returned images. Optional.
+
+        A result saved beside the images, never part of what made them. The
+        peak is the call's, so a batch's images share it. None where this
+        backend cannot say - no CUDA device, a call that raised, or the
+        default.
+        """
+        return None
+
     def prompt_expansion_supported(self) -> bool:
         """Whether this backend can turn a short prompt into a reviewed one.
 

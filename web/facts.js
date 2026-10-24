@@ -127,7 +127,7 @@ function factsList(rec, { useSeed: seedButton = false, search = false, megapixel
   const made = new Date(rec.created_at).toLocaleString([], {
     year: 'numeric', month: 'short', day: 'numeric', hour: '2-digit', minute: '2-digit',
   });
-  row('Created', `${made} · took ${(rec.duration_ms / 1000).toFixed(1)}s`);
+  row('Created', `${made} · took ${(rec.duration_ms / 1000).toFixed(1)}s`, ...peakFact(rec));
   // What the card's ⊞ does: the run id spans every job that worked on a grid,
   // a resumed night included; the job id names one of them.
   const run = rec.run_id ? `run:${rec.run_id}` : rec.job_id ? `job:${rec.job_id}` : null;
@@ -139,6 +139,22 @@ function factsList(rec, { useSeed: seedButton = false, search = false, megapixel
     : 'none: made before runs were grouped');
   if (search) addFactSearches(dl, rec);
   return dl;
+}
+
+// The most GPU memory the call that made the image held, as PyTorch's
+// allocator counts it - a batch's images share their call's, so the words
+// say so. Nothing at all where nothing was measured: a CPU, the fake, every
+// row from before it, with no "unknown" on each.
+function peakFact(rec) {
+  if (rec.vram_peak_allocated == null) return [];
+  const gib = (bytes) => (bytes / 1024 ** 3).toFixed(2);
+  const span = document.createElement('span');
+  span.className = 'lb-peak';
+  span.textContent = `${gib(rec.vram_peak_allocated)} GiB peak${rec.batch > 1 ? ' of its batch' : ''}`;
+  const reserved = rec.vram_peak_reserved == null ? '' : ` (${gib(rec.vram_peak_reserved)} GiB reserved)`;
+  span.title = `Peak GPU memory PyTorch allocated during the call that made this${reserved}. `
+    + 'Not the whole card: the desktop, the driver and shared-memory spill are not counted.';
+  return [' · ', span];
 }
 
 function factButton(text, title, onClick) {

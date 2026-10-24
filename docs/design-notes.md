@@ -11616,6 +11616,37 @@ responsibility too, retaining their test bodies and parameter cases. The full
 inventory, reasons for keeping other long files together and verification are
 in [the source audit](source-audit.md).
 
+## Peak memory per image
+
+**Built 2026-10-24 (`GEN#15`, `docs/plan-peak-vram.md`).** Each image
+records the most GPU memory PyTorch's caching allocator held during the
+`generate()` call that made it, allocated and reserved, in bytes, on the
+row and in the chunk; the lightbox's Created row shows the allocated
+figure. Matt hand-recorded peaks in `docs/verified.md` while nothing in the
+app read `max_memory_allocated`; now every ordinary render is a note.
+
+- **Per call, not per image.** A text-to-image batch is one pipeline call,
+  its images indistinguishable in memory, so a batch's rows share the
+  call's pair and the facts say "of its batch". A refine batch, one call
+  per image, shares the cell's too: per-image peaks there would differ by
+  call order (the first VAE encode leaves the VAE resident), not by image.
+  The duration divides by the image count; a maximum does not.
+- **In the backend.** Neither the worker nor the CLI imports torch, and the
+  fake must be able to answer, so `last_peak()` is an optional backend
+  method like `start_sigma`, rather than a changed `generate()` return
+  type. The counters reset before the LoRA swap and the Anime6B pre-pass,
+  which count; the load's own allocations are before the reset.
+- **Bytes, absent when unknown.** Exact, as torch answers; no "unknown" on
+  every old row, and a chunk without the keys reads the same as one from
+  before them. A result, so a bad value anywhere is NULL, never a refusal.
+- **Not a fit test.** The allocator sees neither the CUDA context nor
+  workspaces outside it, the desktop's share, another process (the critic's
+  `llama-server`), nor Windows' spill into shared memory as such: a spilled
+  run shows a plausible peak and a slow time. A CARD run still reads
+  whole-card and shared memory.
+- **Not searchable**, by Matt's rating of that kind of search (Never), and
+  no part of the reproduction set, so no key, run id or Resume count moves.
+
 ## uv.lock's hand-pinned torch hashes
 
 **`uv.lock` carries hashes for the PyTorch wheels by hand.** The

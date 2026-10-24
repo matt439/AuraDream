@@ -68,6 +68,10 @@ class FakeBackend(GenerationBackend):
         # Calls (1-based) that raise instead of rendering, and a hook run after
         # each render - for a cancel that lands after the last step.
         self.fail_on: set[int] = set()
+        # The (allocated, reserved) bytes `last_peak()` answers after a call
+        # that returned: None, as on a CPU, unless a test sets it.
+        self.peak: tuple[int, int] | None = None
+        self._last_peak: tuple[int, int] | None = None
         self.after_generate = None
 
     def _sync_model_profile(self) -> None:
@@ -179,6 +183,7 @@ class FakeBackend(GenerationBackend):
             # The real backend's contract: loading happens in main.ensure_loaded
             # and nowhere else, so a job that reaches here unloaded is a bug.
             raise RuntimeError("model is not loaded")
+        self._last_peak = None
         self.requests.append(request)
         self.seeds.append(seed)
         if len(self.requests) in self.fail_on:
@@ -196,6 +201,7 @@ class FakeBackend(GenerationBackend):
                 raise Cancelled
         if self.after_generate is not None:
             self.after_generate()
+        self._last_peak = self.peak
         if request.refine is not None and request.mask is not None:
             return self._inpaint(request, seed)
         # At the size that was asked for: the row records the image's own
@@ -204,6 +210,9 @@ class FakeBackend(GenerationBackend):
         return [
             Image.new("RGB", (request.width, request.height)) for _ in range(request.num_images)
         ]
+
+    def last_peak(self):
+        return self._last_peak
 
     @staticmethod
     def _inpaint(request, seed):

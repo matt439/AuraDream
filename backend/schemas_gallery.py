@@ -96,6 +96,12 @@ class ImageRecord(BaseModel):
     # for anything written before runs had one.
     run_id: str | None = None
     duration_ms: int
+    # The most GPU memory PyTorch's allocator held during the call that made
+    # it, in bytes, allocated and reserved - a batch's images share their
+    # call's. A result, never part of the reproduction set; None where
+    # nothing was measured (a CPU, rows from before it).
+    vram_peak_allocated: int | None = None
+    vram_peak_reserved: int | None = None
     created_at: str
     favorite: bool = False
     # When the image was moved to the recycle bin, as an ISO UTC string like

@@ -169,7 +169,9 @@ CREATE TABLE IF NOT EXISTS images (
     binned_at       TEXT,
     mask            TEXT,
     outpaint        TEXT,
-    upscaler        TEXT
+    upscaler        TEXT,
+    vram_peak_allocated INTEGER,
+    vram_peak_reserved  INTEGER
 );
 CREATE INDEX IF NOT EXISTS idx_images_created ON images (created_at DESC);
 CREATE INDEX IF NOT EXISTS idx_images_job ON images (job_id);
@@ -292,6 +294,12 @@ def _migrate(conn: sqlite3.Connection) -> None:
         ("outpaint", "TEXT", "idx_images_outpaint"),
         # The optional GAN preparing an ordinary Refine source.
         ("upscaler", "TEXT", None),
+        # The peak GPU memory PyTorch's allocator held during the call that
+        # made this image, in bytes, allocated and reserved: a result, as
+        # `duration_ms` is, never part of the reproduction set. NULL where
+        # nothing was measured (a CPU, the fake, rows from before it).
+        ("vram_peak_allocated", "INTEGER", None),
+        ("vram_peak_reserved", "INTEGER", None),
     )
     for column, kind, index in added:
         if column in columns:
@@ -417,6 +425,8 @@ def _row_to_record(
         # Unguarded, as every column: the stored type has no bound a setting
         # could move, and only validated keys are ever written.
         outpaint=OutpaintSpec.parse_key(row["outpaint"]) if row["outpaint"] else None,
+        vram_peak_allocated=row["vram_peak_allocated"],
+        vram_peak_reserved=row["vram_peak_reserved"],
     )
 
 
@@ -427,6 +437,7 @@ _COLUMNS = (
     "mu", "seed", "model_id", "duration_ms", "favorite", "created_at", "job_id", "run_id",
     "quantization", "variables", "true_cfg", "content_hash", "reference", "lora", "lora_scale",
     "refine", "strength", "batch", "binned_at", "mask", "outpaint", "upscaler",
+    "vram_peak_allocated", "vram_peak_reserved",
 )
 
 # What every live-facing read adds: an image in the recycle bin is gone from
@@ -492,6 +503,7 @@ def save_image(
     quantization: str | None = None,
     variables: dict[str, str] | None = None,
     batch: int | None = None,
+    peak: tuple[int, int] | None = None,
 ) -> ImageRecord:
     """Write the PNG and its row. `request` must be what actually ran -
     `backend.applied()` - not what was asked for: a negative prompt the
@@ -500,9 +512,12 @@ def save_image(
     the sheet can show what varied rather than reconstruct it from prose.
     `batch` is how many images the call that made this one held: not part
     of the reproduction set (one generator per image), but what More seeds
-    runs the batch's next images at.
+    runs the batch's next images at. `peak` is the (allocated, reserved)
+    bytes the call held at most - its batch's whole, a result like the
+    duration - or None where nothing was measured.
     """
     created = datetime.now(timezone.utc)
+    allocated, reserved = (_peak(peak[0]), _peak(peak[1])) if peak is not None else (None, None)
     variables_json = json.dumps(variables) if variables else None
     mask = request.mask if request.refine is not None else None
     # An outpaint never without its source and its stamped mask.
@@ -565,6 +580,10 @@ def save_image(
         "outpaint_fill": outpaint.fill if outpaint is not None else None,
         "batch": batch,
         **({"upscaler": upscaler} if upscaler is not None else {}),
+        # Results, not settings, so absent rather than null when unmeasured:
+        # a chunk from a CPU or before them reads the same.
+        **({"vram_peak_allocated": allocated} if allocated is not None else {}),
+        **({"vram_peak_reserved": reserved} if reserved is not None else {}),
     }
     info = PngImagePlugin.PngInfo()
     # A1111-style single-line block, so other tools can read the params back.
@@ -655,6 +674,8 @@ def save_image(
                         "mask": mask,
                         "outpaint": outpaint.key() if outpaint is not None else None,
                         "upscaler": upscaler,
+                        "vram_peak_allocated": allocated,
+                        "vram_peak_reserved": reserved,
                     },
                 )
                 # A pass whose source was deleted while it ran - read as the
@@ -1233,6 +1254,8 @@ def index_file(
                     meta.get("upscaler"), source=meta.get("refine"), model_id=meta.get("model"),
                     mask=mask, outpaint=meta.get("outpaint"),
                 ),
+                "vram_peak_allocated": _peak(meta.get("vram_peak_allocated")),
+                "vram_peak_reserved": _peak(meta.get("vram_peak_reserved")),
             },
         )
     return _row_to_record(row)
@@ -1270,6 +1293,12 @@ def _batch(value: Any) -> int | None:
     another tool says what it likes, and a row is not refused for the one
     field that is no part of the reproduction set."""
     return value if type(value) is int and value >= 1 else None
+
+
+def _peak(value: Any) -> int | None:
+    """A peak's bytes, where it is a count of them; anything else - a block
+    written by hand, a string - is None, never a refused row, as `_batch`."""
+    return value if type(value) is int and value >= 0 else None
 
 
 def thumbnail_for(image: Image.Image, filename: str) -> None:

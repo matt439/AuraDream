@@ -175,7 +175,9 @@ Reproduction and storage:
   through `grid.cell_from_record`, their images through
   `submission.resolve_selection`.
 - The reproduction set lives on the row and in the PNG's `local-diffusion`
-  chunk; `CellKey`/`run_id` widen without changing existing ids.
+  chunk; `CellKey`/`run_id` widen without changing existing ids. The peak
+  GPU memory pair beside it is a result, never in `CellKey`, `run_id` or
+  `applied()`.
 - A new column needs a `_migrate` entry; `_row_to_record` reads unguarded.
 - `save_image` writes `.png.part` and renames after the row commits.
 - Page deletes bin (`binned_at`); live reads exclude it,
@@ -365,7 +367,7 @@ Gotchas:
 - Each run gets its own browser profile directory; a shared one stays locked
   by a crashed Edge.
 - Fake-server knobs: `POST /api/fake/load`, `/api/fake/step`,
-  `/api/fake/expand`, `/api/fake/lora`, `/api/fake/bin-age`; a prompt containing `[fail]` fails its cell;
+  `/api/fake/expand`, `/api/fake/lora`, `/api/fake/bin-age`, `/api/fake/peak`; a prompt containing `[fail]` fails its cell;
   `--critic-delay`, `--no-critic`.
 
 GPU behaviour, pixels, timing and memory are the card's to say, recorded in

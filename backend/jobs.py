@@ -1038,7 +1038,7 @@ class JobManager:
                     on_preview=on_preview,
                 )
                 elapsed_ms = int((time.perf_counter() - started) * 1000)
-                self._save(job, loop, cell, images, elapsed_ms)
+                self._save(job, loop, cell, images, elapsed_ms, self.backend.last_peak())
                 if len(images) == req.num_images:
                     job.completed_indices.append(index)
             except Cancelled:
@@ -1108,8 +1108,12 @@ class JobManager:
         cell: Cell,
         images: list,
         elapsed_ms: int,
+        peak: tuple[int, int] | None = None,
     ) -> None:
-        """Write a cell's images and publish each one as it lands."""
+        """Write a cell's images and publish each one as it lands.
+
+        `peak` is the call's, so every image of the batch gets it whole: a
+        maximum does not divide as the duration does."""
         # Record what ran, not what was asked: a negative prompt the pipeline
         # dropped below its threshold, or a mu it had no way to take, must not
         # reach the row - resume compares against it.
@@ -1133,6 +1137,7 @@ class JobManager:
                         quantization=selected.quantization,
                         variables=cell.variables,
                         batch=cell.request.num_images,
+                        peak=peak,
                     )
                     break
                 except gallery_lock.GalleryBusy:

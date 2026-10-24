@@ -7,7 +7,10 @@ what `nvidia-smi` showed, unless said otherwise - the desktop holds about
 5,200-6,100 MiB of the card while Unreal Editor and the browsers are open,
 and a run that lands within a gigabyte of the top spills into system RAM and
 slows two to three times (schnell's 2 MP read 35-45 s that way and 25 s at a
-1,270 MiB baseline).
+1,270 MiB baseline). Since 2026-10-24 each image records its call's peak
+(the lightbox's Created row): the allocator's, as this file's peaks are,
+so a measurement here cites it only beside its own whole-card and
+shared-memory readings.
 
 ## Checkpoints
 

@@ -75,6 +75,9 @@ class DiffusersBackend(GenerationBackend):
         # enable_model_cpu_offload" rule to obey - and a load path driven from
         # the job worker is the one thing `main.ensure_loaded` exists to stop.
         self._lora: tuple[str, float] | None = None
+        # The last generate()'s (allocated, reserved) peak bytes, for
+        # `last_peak()`; cleared as each call begins.
+        self._peak: tuple[int, int] | None = None
         # What an adapter is matched against, as (source, denoiser): the live
         # pipeline's once there is one, the checkpoint's configs on the meta
         # device before that, and None where neither could be read. The same
@@ -647,6 +650,52 @@ class DiffusersBackend(GenerationBackend):
         return "true_cfg_scale" in self._call_params
 
     def generate(
+        self,
+        request: "GenerateRequest",
+        seed: int,
+        on_progress: ProgressFn | None = None,
+        should_cancel: CancelFn | None = None,
+        on_preview: PreviewFn | None = None,
+    ) -> list["Image"]:
+        # Reset before anything can allocate - the LoRA swap and the Anime6B
+        # pre-pass count - and read after the last GPU work. Set only on a
+        # return, so a cancelled or failed cell leaves no peak for the next.
+        self._peak = None
+        device = self._peak_device() if self._pipe is not None else None
+        if device is not None:
+            try:
+                import torch
+
+                torch.cuda.reset_peak_memory_stats(device)
+            except Exception:  # noqa: BLE001 - a measurement never fails a cell
+                device = None
+        images = self._generate_images(request, seed, on_progress, should_cancel, on_preview)
+        if device is not None:
+            try:
+                import torch
+
+                self._peak = (torch.cuda.max_memory_allocated(device), torch.cuda.max_memory_reserved(device))
+            except Exception:  # noqa: BLE001 - a measurement never fails a cell
+                self._peak = None
+        return images
+
+    def last_peak(self) -> tuple[int, int] | None:
+        return self._peak
+
+    def _peak_device(self) -> int | None:
+        """The CUDA index the weights run on, by `describe()`'s rule, or None."""
+        try:
+            import torch
+
+            selected = current_settings(settings)
+            device = torch.device(selected.device)
+            if torch.cuda.is_available() and (device.type == "cuda" or selected.offload != "none"):
+                return device.index if device.type == "cuda" and device.index is not None else 0
+        except Exception:  # noqa: BLE001 - a measurement never fails a cell
+            pass
+        return None
+
+    def _generate_images(
         self,
         request: "GenerateRequest",
         seed: int,

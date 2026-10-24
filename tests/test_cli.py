@@ -152,6 +152,15 @@ def test_a_cli_sweep_writes_the_seeds_the_server_would(cli, store):
     assert len({r.run_id for r in items}) == 1 and items[0].run_id
 
 
+def test_the_cli_saves_its_calls_peak_on_every_image_of_the_batch(cli, store):
+    # As the server's worker does: the call's peak whole on each image.
+    cli.peak = (3 * 1024**3, 4 * 1024**3)
+    assert generate.main(["a fox", "--seed", "7", "--batch", "2", *SIZE, "-q"]) == 0
+    items = store.list_images()[0]
+    assert len(items) == 2
+    assert {(r.vram_peak_allocated, r.vram_peak_reserved) for r in items} == {cli.peak}
+
+
 def test_a_failed_cell_is_skipped_and_the_exit_code_says_so(cli, store):
     cli.fail_on = {2}
     code = generate.main(["a fox", "--seed", "1", "--grid-steps", "6,8,10", *SIZE, "-q"])

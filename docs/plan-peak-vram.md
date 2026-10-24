@@ -1,8 +1,15 @@
 # Plan: peak GPU memory per image
 
-**Status, 2026-10-24: planned, not built (`GEN#15`); ready to build.** Matt
-decided the feature the same day and took every proposed answer to the open
-questions at the end ("i like recommended"). Every statement about today's behaviour cites the file and
+**Status, 2026-10-24: phases 1 and 2 built (`GEN#15`); phase 3, the card
+check, is Matt's.** Matt decided the feature the same day and took every
+proposed answer to the open questions at the end ("i like recommended").
+Built as written, except: the body of `generate()` moved to
+`_generate_images` under the name, the wrapper keeping the signature;
+the peak keys are absent from the chunk when unmeasured rather than null,
+as `upscaler` is, so an unmeasured chunk is byte-for-byte what it was; and
+`bundle_images._validate_row` drops a bad value before validating, so a
+bundle is never refused over it. Why it is built so is in
+`docs/design-notes.md`'s "Peak memory per image". Every statement about today's behaviour cites the file and
 line it was read from on 2026-10-24 (`525cb24`).
 
 The design in one paragraph: the backend resets PyTorch's CUDA peak
@@ -316,13 +323,13 @@ Effort on the review's scale: S a day or less, M a few days, L a project.
 
 **Phase 1 - record it (S).**
 
-- [ ] `last_peak()` on the ABC; the wrapper and `_peak_device()` in
+- [x] `last_peak()` on the ABC; the wrapper and `_peak_device()` in
       `DiffusersBackend`; the fake's `peak`.
-- [ ] Columns, `_migrate`, `_COLUMNS`, `_row_to_record`, `ImageRecord`,
+- [x] Columns, `_migrate`, `_COLUMNS`, `_row_to_record`, `ImageRecord`,
       `save_image`, the chunk keys, `storage._peak`, `index_file`.
-- [ ] Worker and CLI pass it through.
-- [ ] Reindex (both paths) and bundles (`_metadata`, the staging types).
-- [ ] Every Python test above.
+- [x] Worker and CLI pass it through.
+- [x] Reindex (both paths) and bundles (`_metadata`, the staging types).
+- [x] Every Python test above.
 
 Done when `uv run --group dev pytest` passes, a fresh gallery's rows carry
 the pair from the fake, an old database and old PNGs read None, and no
@@ -330,9 +337,9 @@ existing run id, `CellKey` or Resume count changes.
 
 **Phase 2 - show it (S).**
 
-- [ ] The Created row's words and title in `facts.js`.
-- [ ] `/api/fake/peak` and the smoke step; `smoke-lightbox` passes whole.
-- [ ] `rules.md`, `design-notes.md`, `usage.md`, `verified.md`, `AGENTS.md`.
+- [x] The Created row's words and title in `facts.js`.
+- [x] `/api/fake/peak` and the smoke step; `smoke-lightbox` passes whole.
+- [x] `rules.md`, `design-notes.md`, `usage.md`, `verified.md`, `AGENTS.md`.
 
 Done when the smoke passes at 1400x900 and nothing changes for a record
 without a peak.

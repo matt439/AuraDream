@@ -155,6 +155,9 @@ def _validate_row(row: dict, width: int, height: int, content_hash: str) -> None
         raise BundleError(f"invalid upscaler on image {row['id']}")
     values = {key: row.get(key) for key in storage._COLUMNS}
     values.update(id=row["id"], content_hash=content_hash)
+    # A bad peak is dropped by the merge, as a result; it refuses nothing.
+    for key in ("vram_peak_allocated", "vram_peak_reserved"):
+        values[key] = storage._peak(values[key])
     try:
         storage._row_to_record(values)
     except (TypeError, ValueError) as exc:
@@ -231,6 +234,16 @@ def _metadata(row: dict, by_id: dict[int, dict]) -> dict:
         "outpaint_fill": outpaint.fill if outpaint is not None else None,
         "batch": row.get("batch"),
         **({"upscaler": row["upscaler"]} if row.get("upscaler") is not None else {}),
+        **_peak_chunk(row),
+    }
+
+
+def _peak_chunk(row: dict) -> dict:
+    """The peak keys as `save_image` writes them: absent where unmeasured."""
+    return {
+        key: storage._peak(row.get(key))
+        for key in ("vram_peak_allocated", "vram_peak_reserved")
+        if storage._peak(row.get(key)) is not None
     }
 
 
