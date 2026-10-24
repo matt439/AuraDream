@@ -419,7 +419,7 @@ def test_reversing_a_comparison_can_be_read_by_submission(client, fake, store):
     # Same rendered cells, same resume/run identity; the submission owns its
     # version labels. Reading that job keeps each sheet and rate meaningful.
     assert runs[0][0] == runs[1][0]
-    for run, job, original in runs:
+    for _run, job, original in runs:
         page = client.get("/api/gallery", params={"search": f"job:{job}"}).json()
         assert page["total"] == 4
         assert {r["prompt"] for r in page["items"] if r["variables"]["variant"] == "original"} == {original}

@@ -8,9 +8,9 @@ An index of open work, one row per item; each row points to the doc that owns th
 
 **Aim (2026-10-18):** keep useful work ready for Matt's common workstation tasks. [Reported use](docs/design/preferences.md) guides priority; it does not approve the candidate redesign.
 
-**Ready backlog:** no `OPEN` tasks. Deferred features remain deferred.
+**Ready backlog:** five `OPEN` tasks from the [2026-10-24 review](docs/review-2026-10-24.md), each needing a plan before it is built: `GEN#17`-`GEN#19`, `UI#11`, `UI#12`. Deferred features remain deferred.
 
-**Needs Matt:** workbench task trials (`DEV#1`) and hands-on screen-reader/touch checks (`UI#7`) are the next `USER` work. No feature decision is waiting: FLUX.1 Fill [dev] closed 2026-10-21, FLUX.1 outpaint having joined cleanly on the card. Whole-app layout implementation waits for its trials; it remains a design hypothesis.
+**Needs Matt:** workbench task trials (`DEV#1`) and hands-on screen-reader/touch checks (`UI#7`) are the next `USER` work. Three decisions wait: the open questions of the peak-memory plan (`GEN#15`) and the generate-then-refine plan (`GEN#16`), each with a recommended answer, and whether SDXL prompt weighting is wanted at all (`GEN#20`). Whole-app layout implementation waits for its trials; it remains a design hypothesis.
 
 **GPU runs are Matt's to run or OK, never past the 16 GB card** (every `CARD` row). Check the checkpoint's measured peaks in `docs/verified.md` first; a run that spills into shared memory proves only that it doesn't fit.
 
@@ -58,6 +58,12 @@ An index of open work, one row per item; each row points to the doc that owns th
 |---|---|---|---|---|
 | `GEN#6` | DEFERRED | LOW | M+card | Live-preview maps for the four-channel SDXL VAE and FLUX.2's VAE (ERNIE; klein also lacks an unpack hook); previews switch themselves off there. [Behaviour](docs/verified.md#behaviour). |
 | `GEN#8` | DEFERRED | LOW | L | U61 part B: one's own photo or sketch as a reference (import route, a source marker through storage, reindex and reruns; add, drop and paste). Matt deferred it 2026-10-05; only when he raises it. [References](docs/design-notes.md#reference-images-by-gallery-id). |
+| `GEN#15` | DECISION | LOW | M+card | Peak GPU memory per image on the row, the chunk and the facts; a result, never a key. Four open questions. [Plan](docs/plan-peak-vram.md). |
+| `GEN#16` | DECISION | LOW | L | Generate then refine in one job: a worker stage after each base cell, built by `refine_batch.plan`. Seven open questions. [Plan](docs/plan-then-refine.md). |
+| `GEN#17` | OPEN | LOW | M | Random-choice prompt variables drawn from each image's seed; plan first. [10-24 G5](docs/review-2026-10-24.md#g5-random-choice-prompt-variables). |
+| `GEN#18` | OPEN | LOW | M | Queue: move a job to the front (an admission order of the manager's own, not the gate lock's) and skip the running cell; plan first. [10-24 G7](docs/review-2026-10-24.md#g7-queue-move-to-front-and-skip-one-cell). |
+| `GEN#19` | OPEN | LOW | L | Size as a grid axis and a crop anchor for Refine, widening the key once; a run then has more than one size. Plan first. [10-24 G8](docs/review-2026-10-24.md#g8-size-as-a-grid-axis-and-a-crop-anchor-for-refine). |
+| `GEN#20` | DECISION | LOW | L+card | Whether to plan opt-in A1111 weighting and 77-token chunking on SDXL; only if Matt writes weighted prompts. [10-24 G10](docs/review-2026-10-24.md#g10-a1111-style-weighting-and-long-prompts-on-sdxl). |
 
 ## Prompt analyser
 
@@ -74,6 +80,8 @@ An index of open work, one row per item; each row points to the doc that owns th
 | id | status | sev | size | item |
 |---|---|---|---|---|
 | `UI#7` | USER | LOW | M | Hands-on screen-reader (NVDA/Narrator) and touch validation; browser emulation and accessibility-tree inspection do not complete it. [Manual checks](docs/design/validation.md#accessibility-and-desktop-checks). |
+| `UI#11` | OPEN | LOW | M | Matt's own prompt snippets, inserted through `writeBox`, kept beside the saved settings, with an entry point of no height; plan first. [10-24 G6](docs/review-2026-10-24.md#g6-own-prompt-snippets). |
+| `UI#12` | OPEN | LOW | S | A `?` overlay listing the page's keyboard shortcuts. [10-24 G9](docs/review-2026-10-24.md#g9-keyboard-shortcut-overlay). |
 
 ## Review coverage
 
@@ -87,6 +95,7 @@ Each review's remaining work is indexed above; closed findings stay in their own
 | 2026-10-04 UI | All done but U61 B (`GEN#8`); U5, U12, U79, U100 and U108 were left by decision. |
 | 2026-10-05 areas | 84 fixed, A68 partly by decision; the integration review's K1-K5 fixed. |
 | 2026-10-12 | R1-R53 fixed; F1-F5, F7-F13 and F15-F19 built. F6's supported inpaint/outpaint paths are built; remaining families/measurements are `INP`/`CARD`. F14 was qualified on the card 2026-10-21; F5's age-scoped emptying was built 2026-10-19 (`GAL#5`). |
+| 2026-10-24 | Gaps and tooling: G1 (smoke runner) and G2 (lint, CI) built the same day; G3-G10 indexed above; the rest recorded as not taken. |
 
 ---
 

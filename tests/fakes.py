@@ -15,7 +15,7 @@ from typing import NamedTuple
 from PIL import Image
 
 from backend import critic, prompt_encoding
-from backend.backends.base import GenerationBackend
+from backend.backends.base import Cancelled, GenerationBackend
 from backend.config import settings
 from backend.critic import CriticError, CriticUnavailable
 from backend.grid import progress_steps

@@ -23,6 +23,7 @@ uv run python -m backend.main      # http://127.0.0.1:7860; restores saved brows
 uv run python -m backend.main --defaults   # ignore saved choices; environment/defaults
 uv run python -m backend.main --menu       # optional terminal picker
 uv run --group dev pytest          # no GPU, no weights, about three minutes
+uv run --group dev ruff check .    # correctness lint; CI runs both on push
 ```
 
 ```bash
@@ -286,9 +287,13 @@ The UI is checked with smokes: start a fake server, then run the smoke.
 What each smoke covers is listed in `docs/rules.md` under Tests.
 
 ```powershell
-uv run python tools/fake_server.py --port <port> [--model <id>] [--step 0.3]
+uv run python tools/run_smoke.py <smoke> [...]   # starts the row's fake, runs, stops it
+uv run python tools/run_smoke.py --all --jobs 4  # every row; --offset N moves ports
+uv run python tools/fake_server.py --port <port> [--model <id>] [--step 0.3]   # by hand
 node tools/browser.mjs tools/<smoke>.json
 ```
+
+`run_smoke.py` reads the table below, so a new smoke needs only its row.
 
 | Port | `--model` (default Krea 2 Turbo) | Smokes |
 |---|---|---|

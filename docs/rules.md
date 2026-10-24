@@ -295,7 +295,9 @@ before changing it.
   and `browser.mjs` + `smoke.json` and a `smoke-*.json` per checkpoint or
   feature (headless browser over DevTools; among the features
   `smoke-stage.json`, Gallery beside, and `smoke-narrow.json`, one column
-  and narrow windows): the UI's stand-in for a test suite, see Tests
+  and narrow windows): the UI's stand-in for a test suite, and
+  `run_smoke.py`, which starts each smoke's fake from `AGENTS.md`'s port
+  table and runs it; see Tests
 - `tests/` — the pytest suite, no GPU and no weights: `conftest.py`,
   `fakes.py` and `api_helpers.py` (the fake backend and its fixtures),
   `test_api*.py` (the HTTP routes, one file per area), and a file per module
@@ -5110,6 +5112,35 @@ or mark (on Qwen also per run of newlines, which its BPE merges into one
 token), with real offsets, at each encoder's real budget.
 `test_the_fake_tokenizers_budgets_are_the_real_ones` holds them to the
 `REAL` table.
+
+`uv run --group dev ruff check .` lints with `pyproject.toml`'s
+`[tool.ruff]`: correctness rules only (`E4`, `E7`, `E9`, `F`, `B`), with
+FastAPI's `Body()` defaults, unchecked `zip` lengths, the base backend's
+optional no-op hooks and the fixtures `tests/` imports from helper modules
+allowed; style is the code's own and no formatter runs.
+`.github/workflows/ci.yml` runs ruff and this suite on Ubuntu (Python 3.13,
+`uv sync --locked --group dev`) on every push and pull request, and by hand;
+the smokes, which need a browser, stay local.
+
+`uv run python tools/run_smoke.py <smoke> [<smoke> ...]` runs smokes without
+a second terminal: it reads `AGENTS.md`'s port table (the port, the
+`--model`, short names resolved through the line under the table, and
+`--step`), starts the row's fake on a gallery of its own in a new temporary
+directory, runs the named smokes on it in the row's order, stops it, and
+keeps the fake's log (named on a failure) only when a smoke failed. So
+every fake it starts is a fresh one, which meets every row's "fresh scratch
+`--data`" and keeps `smoke.json`'s planted count its own. A smoke named
+alone runs alone, on a fake of its own; `--all` runs every row, a row's
+smokes on one fake in order, as the commands below run them by hand.
+`--offset N` adds N to every port, the fake's and the smoke's (through
+`LOCAL_DIFFUSION_PORT_OFFSET`), and refuses a port already in use;
+`--jobs N` runs N rows at once, each worker 100 ports further on, the
+smokes' output kept until each finishes; `--list` prints the table as read.
+It exits 0 when every smoke passed, 1 on a failure, 2 on a refusal.
+`tests/test_run_smoke.py` holds every smoke to one parsed row with a full
+checkpoint id. Under load from parallel rows a timing-sensitive smoke can
+run slower than alone; a failure seen only under `--jobs` is rerun alone
+before it is believed.
 
 There is no JavaScript test suite. `web/` is checked in a real browser
 instead: `uv run python tools/fake_server.py` serves the app on 7861 on the

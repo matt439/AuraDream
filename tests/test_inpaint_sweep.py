@@ -57,7 +57,7 @@ def test_the_sweep_spares_what_a_row_a_job_or_the_window_holds(store):
     source = _source()
     live = _stored((0, 0, 10, 10))
     binned = _stored((0, 0, 20, 20))
-    unused = _stored((0, 0, 30, 30))
+    _stored((0, 0, 30, 30))  # named by no row or job: the one swept
     young = _stored((0, 0, 40, 40), old=False)
     queued = _stored((0, 0, 50, 50))
     kept = _inpainted(source, live)

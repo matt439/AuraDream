@@ -877,7 +877,7 @@ def import_bundle(path: Path, password: str | None = None, progress: Progress = 
                             masks_missing += 1
                     by_id[values["id"]] = values
                 rewrites = []
-                for original, values in pending:
+                for _original, values in pending:
                     try:
                         inserted = storage._insert_row(conn, values)
                         if inserted["id"] != values["id"]:

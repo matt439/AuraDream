@@ -14,7 +14,8 @@ bundles/
 .bundle-import-*/
 .bundle-upload-*.part
 .local-diffusion-staging/
-/bundle-dialog-*.png
+# Smokes' screenshots, written to the directory the smoke runs from.
+/*.png
 server.log
 server.err
 local-diffusion.settings.json

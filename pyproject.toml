@@ -32,7 +32,7 @@ dependencies = [
 
 [dependency-groups]
 # Nothing in the app imports these; `uv run --group dev pytest` gets them.
-dev = ["pytest>=8"]
+dev = ["pytest>=8", "ruff>=0.17"]
 
 [tool.uv]
 # torch/torchvision come from the CUDA 13.0 index (Blackwell sm_120 support)
@@ -55,3 +55,22 @@ packages = ["backend"]
 [build-system]
 requires = ["hatchling"]
 build-backend = "hatchling.build"
+
+[tool.ruff]
+target-version = "py313"
+line-length = 120
+extend-exclude = ["work", "docs"]
+
+[tool.ruff.lint]
+# Correctness only: syntax, undefined and unused names, and the bugbear
+# checks that catch real mistakes. Style stays the code's own.
+select = ["E4", "E7", "E9", "F", "B"]
+# Body()/Query() defaults are FastAPI's idiom; zip() lengths are checked
+# where they matter; the base class's no-op hooks are optional on purpose.
+ignore = ["B008", "B905", "B027", "E731"]
+
+[tool.ruff.lint.per-file-ignores]
+# Fixtures are imported from helper modules so pytest finds them.
+"tests/*" = ["F401", "F811"]
+# Each layer's closures are called inside the iteration that defines them.
+"tests/test_newbie_text_encoder.py" = ["B023"]
