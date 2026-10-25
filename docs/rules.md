@@ -5271,7 +5271,12 @@ one pending, printing the step it was on, and 2 on a script it refuses
 before starting - among them an
 `expect` joining an async helper (`__until`, or a `window.__x = async` the
 file defines) to more with && or ||, which is never awaited: the whole
-condition goes inside the predicate. A `hover`, `click` or `dblclick` step takes a
+condition goes inside the predicate. Each run's browser profile, under the
+system temp directory, is removed on every way out - the steps' end, a
+failure, a throw, Ctrl-C or SIGTERM - once the browser's whole process tree
+has stopped; one a killed run left behind is swept by a later run after six
+hours (`tests/test_browser_profile.py`, skipped without Node and a browser).
+A `hover`, `click` or `dblclick` step takes a
 CSS selector in place of a point, aiming at the middle of that element's box
 as it is then. It opens the page at 1400x900,
 where the smokes are written: `LOCAL_DIFFUSION_VIEWPORT=2560x1305` (a
