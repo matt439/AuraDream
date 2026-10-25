@@ -430,6 +430,109 @@ def nunchaku_preflight(settings: "Settings") -> None:
         )
 
 
+# A quantizing load used to keep the whole bf16 checkpoint mapped beside the
+# quantized copy it made of it. safetensors hands each tensor out as a view of
+# its shard's memory map, and the loaders keep every tensor they do not
+# quantize - biases, norms, embeddings - as that view, so a few kilobytes per
+# layer held every shard open for the life of the pipeline: on Windows that is
+# working set and commit, about 46 GiB at FLUX.1's second transformer shard
+# (verified.md, "RAM at the load", 2026-10-25). Copying those tensors out lets
+# each shard go once diffusers is done with it, and a transformers component's
+# files once it has loaded. Only while quantizing: a bf16 load keeps the
+# mapping on purpose, paging weights in as offload first moves them.
+_SHARD_LOADER = ("diffusers.models.model_loading_utils", "load_model_dict_into_meta")
+_COMPONENT_LOADER = ("diffusers.pipelines.pipeline_utils", "load_sub_model")
+
+
+def own_tensors(module: Any, names: "set[str] | None" = None) -> int:
+    """Replace each plain CPU parameter and buffer of `module` - those in
+    `names` when given - with a copy of its own, and answer how many.
+
+    Quantized tensors (torchao subclasses) are new allocations already and
+    are left alone; a weight tied to two modules stays one tensor.
+    """
+    import torch
+
+    slots = [
+        (store, key, value, f"{prefix}.{key}" if prefix else key)
+        for prefix, sub in module.named_modules(remove_duplicate=False)
+        for store in (sub._parameters, sub._buffers)
+        for key, value in store.items()
+        if value is not None
+    ]
+    # Chosen by name, replaced under every name: a tied alias the shard did
+    # not list must follow, or the tie breaks and the old view stays alive.
+    copies: dict[int, Any] = {}
+    for _, _, value, name in slots:
+        if id(value) in copies or (names is not None and name not in names):
+            continue
+        data = value.data if isinstance(value, torch.nn.Parameter) else value
+        if type(data) is not torch.Tensor or data.device.type != "cpu":
+            continue
+        copy = data.clone()
+        if isinstance(value, torch.nn.Parameter):
+            copy = torch.nn.Parameter(copy, requires_grad=value.requires_grad)
+        copies[id(value)] = copy
+    for store, key, value, _ in slots:
+        if id(value) in copies:
+            store[key] = copies[id(value)]
+    return len(copies)
+
+
+@contextmanager
+def checkpoint_files_released(active: bool) -> Iterator[None]:
+    """While a quantizing `from_pretrained` runs, copy the tensors it leaves
+    unquantized out of the files they were read from (above): diffusers
+    models after each shard, transformers components once loaded.
+
+    Patches two diffusers module globals and puts them back; `load()` holds
+    it, under its own lock, and nothing else loads through either.
+    """
+    if not active:
+        yield
+        return
+    import importlib
+
+    import torch
+
+    patched: list[tuple[Any, str, Any]] = []
+
+    def patch(target: tuple[str, str], wrap: Any) -> None:
+        module = importlib.import_module(target[0])
+        original = getattr(module, target[1], None)
+        if original is None:
+            log.warning("%s.%s not found; quantized loads keep their files mapped", *target)
+            return
+        patched.append((module, target[1], original))
+        setattr(module, target[1], wrap(original))
+
+    def per_shard(original: Any) -> Any:
+        def load_model_dict_into_meta(model: Any, state_dict: Any, *args: Any, **kwargs: Any) -> Any:
+            result = original(model, state_dict, *args, **kwargs)
+            own_tensors(model, set(state_dict))
+            return result
+        return load_model_dict_into_meta
+
+    def per_component(original: Any) -> Any:
+        from diffusers import ModelMixin
+
+        def load_sub_model(*args: Any, **kwargs: Any) -> Any:
+            loaded = original(*args, **kwargs)
+            # A diffusers model let its shards go one at a time already.
+            if isinstance(loaded, torch.nn.Module) and not isinstance(loaded, ModelMixin):
+                own_tensors(loaded)
+            return loaded
+        return load_sub_model
+
+    patch(_SHARD_LOADER, per_shard)
+    patch(_COMPONENT_LOADER, per_component)
+    try:
+        yield
+    finally:
+        for module, name, original in reversed(patched):
+            setattr(module, name, original)
+
+
 def place_pipeline(pipe: Any, settings: "Settings") -> None:
     """Apply the configured device strategy, initially or after PE arrives."""
     import torch

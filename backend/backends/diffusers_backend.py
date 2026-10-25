@@ -172,7 +172,8 @@ class DiffusersBackend(GenerationBackend):
             # quantizer checks above have had a chance to refuse the pairing.
             model_id = loading.resolve_model(source_id, weights=True)
             kwargs.update(loading.component_overrides(checkpoint_id, quant, resolved_model_id=model_id))
-            pipe = loader.from_pretrained(model_id, **kwargs)
+            with loading.checkpoint_files_released(quant is not None):
+                pipe = loader.from_pretrained(model_id, **kwargs)
             log.info("resolved pipeline class: %s", type(pipe).__name__)
 
             loading.place_pipeline(pipe, selected)

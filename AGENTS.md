@@ -129,6 +129,9 @@ Model and loader:
   `TorchAoConfig` per component, from the library that owns it, built from an
   `AOBaseConfig` *instance*. Never `quant_backend="torchao"`.
 - `torch.no_grad()`, never `torch.inference_mode()`, around the pipeline call.
+- A quantizing `from_pretrained` runs inside
+  `loading.checkpoint_files_released`, which copies unquantized tensors out
+  of their shards; without it the whole bf16 checkpoint stays mapped.
 - `config.py` is imported before diffusers everywhere, the CLI included.
 - Loading happens only in `main.ensure_loaded()` under its asyncio lock, after
   `jobs.wait_for_gate`. `generate()` raises on a missing pipeline; unload is

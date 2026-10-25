@@ -32,23 +32,50 @@ torchao `AOBaseConfig` **instance** (`Float8WeightOnlyConfig()`), not a string.
 
 ## The quantizing load's RAM peak
 
-Open, found on the card 2026-10-25 (TODO `GEN#22`; `verified.md`,
-Checkpoints, "RAM at the load"). Every cold fp8 or int8 load tried that day
-of a FLUX.1-, Krea 2-, klein 9B- or Qwen-Image-sized checkpoint on Windows
-took the process to about 46 GiB working set (53-62 GiB private) and
-stopped at the harnesses' 4 GiB free-RAM floor before a weight reached the
-card, from 49-50 GiB free with the usual apps and WSL resident. int8's
-peak is fp8's, so it is the quantizing load path (by the runners' reading,
-the bf16 weights held before quantizing), not the dtype. The same loads
-completed earlier with more RAM free (Krea dev from 52 GB after a reboot on
-2026-10-21; schnell 2026-10-05; Krea 2 Turbo 2026-09). BF16 with
-sequential offload avoids it and runs, slowly (2.8 s a step on FLUX.1).
-This blocks every FLUX-family card row (`CARD#1`, `#2`, `#4`, `#6`, `#7`,
-`#10`, `#11`, `#12`, `GEN#15`, `GEN#16`). Matt's options: free RAM before
-such a run (close apps, shut WSL down, reboot); lower the guard's floor
-for a supervised run; or change the loader to quantize one shard or
-component at a time, which is a code change of its own with a plan first.
-None is chosen.
+Found on the card 2026-10-25 (TODO `GEN#22`; `verified.md`, Checkpoints,
+"RAM at the load"); fixed in the loader 2026-10-25, not yet re-run on the
+card. Every cold fp8 or int8 load tried that day of a FLUX.1-, Krea 2-,
+klein 9B- or Qwen-Image-sized checkpoint on Windows took the process to
+about 46 GiB working set (53-62 GiB private) and stopped at the harnesses'
+4 GiB free-RAM floor before a weight reached the card, from 49-50 GiB free
+with the usual apps and WSL resident. int8's peak was fp8's, so it was the
+load path, not the dtype.
+
+**The cause: the bf16 files never let go.** safetensors hands each tensor
+out as a view of its shard's memory map, and the shard stays mapped while any
+view of it lives. torchao replaces each Linear weight with a new quantized
+tensor, but everything it leaves unquantized - biases, norms, embeddings,
+modulation vectors - is kept by diffusers (`set_module_tensor_to_device` to
+the same device is no copy) and by transformers 5 as the view itself. A few
+kilobytes per layer therefore held every shard of every quantized
+component mapped for the life of the pipeline: the whole bf16 checkpoint
+beside its quantized copy. On Windows a touched mapped page is working set,
+and the copy-on-write view is charged to commit, which is why the private
+figure ran past the working set. FLUX.1's arithmetic matches the stops:
+T5-XXL's 9.5 GB mapped plus 4.8 GB quantized, then each 10 GB transformer
+shard mapped plus about 5 GB quantized, is about 44 GB at the second shard.
+It was not the bf16 weights being materialised before quantizing (they are
+quantized one Linear at a time), and `low_cpu_mem_usage` was already on
+(a quantization config forces it). On Linux the same pages are clean and
+reclaimable, which is why WSL loads never showed it.
+
+**The fix.** `load()` runs a quantizing `from_pretrained` inside
+`loading.checkpoint_files_released`, which wraps two diffusers module
+globals for the length of the call: `load_model_dict_into_meta`, after
+which the shard's unquantized tensors are copied (`own_tensors`), so the
+shard goes when diffusers drops its state dict and the next is read; and
+`load_sub_model`, after which a transformers component's are copied, so its
+files go before the next component loads. Ties survive (T5's `shared` and
+`embed_tokens` stay one tensor), torchao subclasses are never touched, and
+a bf16 load is left as it was, since its offload pages weights in from the
+mapping on purpose. The expected peak for FLUX.1 Krea dev fp8 is the
+quantized text encoders plus the transformer quantized so far plus one
+shard: roughly 25-28 GB rather than 46+. On the CPU
+(`tests/test_quantized_load_ram.py`, and a 2.1 GiB bf16 FLUX-shaped
+transformer in 400 MB shards measured by RSS) the peak fell from +3.56 to
++1.78 GiB at fp8 and the resident size after the load from +3.29 to +1.19
+GiB; int8 the same. What this machine's Windows loads now take is the
+card's to say (`CARD#4`, `#6`, `#12` and the rows behind them).
 
 ## mu, sigmas and the shift that lands
 
