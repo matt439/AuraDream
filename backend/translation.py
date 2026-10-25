@@ -32,7 +32,9 @@ _CONFIG = "config.json"
 _WEIGHTS = ("pytorch_model.bin", "model.safetensors")
 _MODEL_TOKEN_LIMIT = 512
 _SPECIAL_TOKEN_ROOM = 2
-_SENTENCE_END = re.compile(r"(?<=[。！？!?；;\n])")
+# A sentence ends at Chinese or Western sentence punctuation or a newline;
+# a Western full stop only before whitespace, so "1.5" stays whole.
+_SENTENCE_END = re.compile(r"(?<=[。！？!?；;\n])|(?<=\.)(?=\s)")
 
 
 @contextmanager
@@ -117,31 +119,30 @@ class MarianTranslator:
 
     @classmethod
     def _chunks(cls, text: str, tokenizer: Any) -> list[str]:
-        """Keep every source token while preferring Chinese sentence breaks."""
+        """One sequence per sentence, every source token kept.
+
+        Marian translates a sentence or two of a longer sequence and drops
+        the rest with no error, so sentences are never packed together: an
+        expansion sent as one chunk came back as a fraction of its English
+        (measured on the card 2026-10-25). Only a sentence longer than the
+        token limit is cut, at the limit.
+        """
         limit = cls._source_limit(tokenizer)
         chunks: list[str] = []
-        current: list[int] = []
-
-        def flush() -> None:
-            if current:
-                chunk = tokenizer.decode(current, skip_special_tokens=True).strip()
-                if chunk:
-                    chunks.append(chunk)
-                current.clear()
-
-        for sentence in filter(None, _SENTENCE_END.split(text)):
+        for sentence in _SENTENCE_END.split(text):
+            sentence = sentence.strip()
+            if not sentence:
+                continue
             token_ids = list(tokenizer.encode(sentence, add_special_tokens=False))
             if len(token_ids) <= limit:
-                if current and len(current) + len(token_ids) > limit:
-                    flush()
-                current.extend(token_ids)
+                chunks.append(sentence)
                 continue
-            flush()
-            while token_ids:
-                current.extend(token_ids[:limit])
-                del token_ids[:limit]
-                flush()
-        flush()
+            for start in range(0, len(token_ids), limit):
+                piece = tokenizer.decode(
+                    token_ids[start:start + limit], skip_special_tokens=True
+                ).strip()
+                if piece:
+                    chunks.append(piece)
         return chunks
 
     def translate(self, text: str, should_cancel: Callable[[], bool] | None = None) -> str:

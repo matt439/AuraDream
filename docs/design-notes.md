@@ -7971,7 +7971,11 @@ Measured on the card 2026-10-25, that aid loses most of a whole expansion:
 `MarianTranslator._chunks` packs sentences up to the token limit, so an
 expansion goes in as one chunk, and Marian translates part of it and drops
 the rest with no error, where one sentence at a time keeps every one
-(`verified.md`, Behaviour, the Marian row). Open (TODO `GEN#21`). Translation failure is
+(`verified.md`, Behaviour, the Marian row). Fixed 2026-10-25 (`GEN#21`):
+`_chunks` now sends one sentence per sequence - split after `。！？；!?;`, a
+newline, or a full stop before whitespace - all in one `generate()` batch,
+cutting only a sentence longer than the token limit, at the limit, and the
+English joins them with spaces; in tests, not re-measured on the card. Translation failure is
 returned separately so a useful multi-GB expansion is not thrown away. The
 index read is a try/except that yields nothing on failure - an optimisation,
 not a gate - and the tests' conftest now refuses `loading.hub_file` for every test,

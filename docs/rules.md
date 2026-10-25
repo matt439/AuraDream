@@ -85,6 +85,8 @@ before changing it.
   answer grounding and rewrite validation
 - `backend/translation.py` — lazy CPU-only Marian translation of ERNIE's
   expanded Chinese prompt for the UI; the Chinese prompt remains canonical.
+  One sentence per sequence (`_chunks`), never packed: Marian drops most of
+  a packed one silently; only a sentence past the token limit is cut.
   `cached()` is a file check (a local tree or the Hub cache, no network) for
   the status's first-use line. The load sets `DISABLE_SAFETENSORS_CONVERSION`
   for itself alone (`_without_conversion`, the previous value put back),

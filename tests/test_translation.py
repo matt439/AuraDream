@@ -79,7 +79,9 @@ def test_stop_after_the_translators_download_skips_translation(monkeypatch):
     assert model.generations == 0
 
 
-def test_marian_loads_once_on_cpu_and_keeps_long_prompt_chunks(monkeypatch):
+def test_marian_loads_once_on_cpu_and_cuts_only_an_over_long_sentence(monkeypatch):
+    # Each sentence is its own sequence; one past the limit is cut at it,
+    # every token kept.
     tokenizer = StubTokenizer()
     model = StubModel()
     tokenizer_load = SimpleNamespace(calls=0)
@@ -107,6 +109,34 @@ def test_marian_loads_once_on_cpu_and_keeps_long_prompt_chunks(monkeypatch):
 
     translator.unload()
     assert translator._tokenizer is None and translator._model is None
+
+
+def test_a_multi_sentence_expansion_sends_each_sentence_separately(monkeypatch):
+    # Marian keeps a sentence or two of a packed sequence and drops the rest
+    # with no error (GEN#21, measured on the card): sentences that would fit
+    # the limit together still go one to a sequence, in one generate() call.
+    tokenizer = StubTokenizer()
+    model = StubModel()
+    monkeypatch.setattr("transformers.AutoTokenizer.from_pretrained", lambda model_id: tokenizer)
+    monkeypatch.setattr(
+        "transformers.AutoModelForSeq2SeqLM.from_pretrained", lambda model_id, **kwargs: model
+    )
+    translator = MarianTranslator("local/marian")
+
+    assert translator.translate("一。二！三？\n四；五. 六\n\n七") == " ".join(
+        f"translated-{10 + index}" for index in range(7)
+    )
+    assert tokenizer.batches == [["一。", "二！", "三？", "四；", "五.", "六", "七"]]
+    assert model.generations == 1
+
+
+def test_a_western_full_stop_ends_a_sentence_only_before_whitespace():
+    tokenizer = StubTokenizer()
+    tokenizer.model_max_length = 64
+    assert MarianTranslator._chunks("It is 1.5 m tall. It is red.", tokenizer) == [
+        "It is 1.5 m tall.",
+        "It is red.",
+    ]
 
 
 def test_the_translators_load_fetches_no_second_copy_of_its_weights(monkeypatch):
