@@ -367,7 +367,8 @@ Gotchas:
   condition inside the predicate).
 - A `web/` edit needs no server restart; a `backend/` edit does.
 - Each run gets its own browser profile directory; a shared one stays locked
-  by a crashed Edge.
+  by a crashed Edge. It is removed on every exit (failures and Ctrl-C too),
+  and a later run sweeps any left over six hours.
 - Fake-server knobs: `POST /api/fake/load`, `/api/fake/step`,
   `/api/fake/expand`, `/api/fake/lora`, `/api/fake/bin-age`, `/api/fake/peak`; a prompt containing `[fail]` fails its cell;
   `--critic-delay`, `--no-critic`.
