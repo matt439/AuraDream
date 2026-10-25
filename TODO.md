@@ -8,7 +8,7 @@ The maintainer's working backlog for this personal project: it records what is p
 
 **Aim (2026-10-18):** keep useful work ready for Matt's common workstation tasks. [Reported use](docs/design/preferences.md) guides priority; it does not approve the candidate redesign.
 
-**Ready backlog:** four `OPEN` tasks from the [2026-10-24 review](docs/review-2026-10-24.md), each needing a plan first: `GEN#17`-`GEN#19` and `UI#11`. Deferred features remain deferred.
+**Ready backlog:** three `OPEN` tasks from the [2026-10-24 review](docs/review-2026-10-24.md), each needing a plan first: `GEN#18`, `GEN#19` and `UI#11`. Deferred features remain deferred.
 
 **Needs Matt:** workbench task trials (`DEV#1`) and hands-on screen-reader/touch checks (`UI#7`) are the next `USER` work. Two decisions wait: whether SDXL prompt weighting is wanted at all (`GEN#20`), and how a cold quantizing FLUX-family load fits this machine's RAM (`GEN#22`), which unblocks the FLUX-family `CARD` rows and `GEN#15`/`GEN#16`. Whole-app layout implementation waits for its trials; it remains a design hypothesis.
 
@@ -60,7 +60,6 @@ The maintainer's working backlog for this personal project: it records what is p
 | `GEN#8` | DEFERRED | LOW | L | U61 part B: one's own photo or sketch as a reference (import route, a source marker through storage, reindex and reruns; add, drop and paste). Matt deferred it 2026-10-05; only when he raises it. [References](docs/design-notes.md#reference-images-by-gallery-id). |
 | `GEN#15` | CARD | LOW | S+card | Peak memory per image: phase 3's FLUX.1 Krea [dev] render, the recorded peak beside `nvidia-smi` and shared memory; its load stops at the RAM guard (`GEN#22`). [Plan](docs/plan-peak-vram.md). |
 | `GEN#16` | CARD | LOW | S+card | Generate then refine: phase 3's FLUX.1 Krea dev night at 1.5x, peak of the alternation and the pair's time; its load stops at the RAM guard (`GEN#22`). [Plan](docs/plan-then-refine.md). |
-| `GEN#17` | OPEN | LOW | M | Random-choice prompt variables drawn from each image's seed; plan first. [10-24 G5](docs/review-2026-10-24.md#g5-random-choice-prompt-variables). |
 | `GEN#18` | OPEN | LOW | M | Queue: move a job to the front (an admission order of the manager's own, not the gate lock's) and skip the running cell; plan first. [10-24 G7](docs/review-2026-10-24.md#g7-queue-move-to-front-and-skip-one-cell). |
 | `GEN#19` | OPEN | LOW | L | Size as a grid axis and a crop anchor for Refine, widening the key once; a run then has more than one size. Plan first. [10-24 G8](docs/review-2026-10-24.md#g8-size-as-a-grid-axis-and-a-crop-anchor-for-refine). |
 | `GEN#20` | DECISION | LOW | L+card | Whether to plan opt-in A1111 weighting and 77-token chunking on SDXL; only if Matt writes weighted prompts. [10-24 G10](docs/review-2026-10-24.md#g10-a1111-style-weighting-and-long-prompts-on-sdxl). |
@@ -95,7 +94,7 @@ Each review's remaining work is indexed above; closed findings stay in their own
 | 2026-10-04 UI | All done but U61 B (`GEN#8`); U5, U12, U79, U100 and U108 were left by decision. |
 | 2026-10-05 areas | 84 fixed, A68 partly by decision; the integration review's K1-K5 fixed. |
 | 2026-10-12 | R1-R53 fixed; F1-F5, F7-F13 and F15-F19 built. F6's supported inpaint/outpaint paths are built; remaining families/measurements are `INP`/`CARD`. F14 was qualified on the card 2026-10-21; F5's age-scoped emptying was built 2026-10-19 (`GAL#5`). |
-| 2026-10-24 | Gaps and tooling: G1 (smoke runner) and G2 (lint, CI) built the same day; G9 (shortcut help) built 2026-10-25 ([plan](docs/plan-shortcuts.md)); G3-G8 and G10 indexed above; the rest recorded as not taken. |
+| 2026-10-24 | Gaps and tooling: G1 (smoke runner) and G2 (lint, CI) built the same day; G5 (random choices) and G9 (shortcut help) built 2026-10-25 ([choices](docs/plan-random-prompt-variables.md), [help](docs/plan-shortcuts.md)); G3, G4, G6-G8 and G10 indexed above; the rest recorded as not taken. |
 
 ---
 

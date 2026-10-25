@@ -831,6 +831,16 @@ Reproduction:
 - `grid.expand()` is the one cell loop for the CLI and `/api/grid`;
   `jobs.submit()` keeps its inline copy of the seed loop deliberately, asserted
   equal to the CLI's in `tests/test_cli.py`.
+- Grid prompt variables default to `prompt_mode="cross"`. In `random` mode,
+  each variable is drawn from the image seed and variable name by the frozen
+  `grid.random_assignment` hash recipe. Numeric axes share that draw; Batch N
+  expands to N one-image cells so each saved row and PNG carries its actual
+  prompt and `variables`. Random mode never constructs the variables' Cartesian
+  product, and adds no reproduction field or key extension. Resume and
+  duplicates use the resolved cells. Preview expands once and reports
+  `prompt_sample` when neither a base seed nor a seed list fixes its choices;
+  the page labels those prompts as examples and says Batch images run
+  separately. The CLI uses `--grid-prompt-mode random`.
 - A producer that runs gallery records again builds its cells with
   `grid.cell_from_record` (one record, naming only what changes: a size, a
   prompt, a negative prompt, variables) or `grid.cells_from_records` (a list
@@ -4858,6 +4868,11 @@ Frontend and CLI:
   meanwhile from fetching).
 
 ## Tests
+
+`smoke-random-prompts.json` uses a fresh FLUX.1 Krea [dev] fake on 7916.
+It checks random/cross selection, saved mode and Reset, deterministic choices
+across numeric axes and per-image batch seeds, preview counts and unseeded
+sample wording, saved choices, Resume, and unchanged Cartesian behavior.
 
 `smoke-shortcuts.json` uses a fresh fake on 7913. It checks the complete
 shortcut list before any images exist, the top-bar and `?` openers, typing,

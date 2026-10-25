@@ -39,6 +39,41 @@ def cli(store, monkeypatch):
 SIZE = ["--width", "256", "--height", "256"]
 
 
+def test_random_prompt_cli_draws_per_image_and_saves_the_same_choices_as_grid(cli, store, capsys):
+    from backend import grid
+    from backend.schemas import GenerateRequest
+
+    flags = [
+        "a {size} fox", "--grid-prompt", "size = small | large | none", "--grid-prompt-mode", "random",
+        "--grid-steps", "6,8", "--grid-seeds", "2", "--batch", "2", "--seed", "42", *SIZE,
+    ]
+    assert generate.main([*flags, "--dry-run"]) == 0
+    output = capsys.readouterr().out
+    assert "output   : 8 image(s) - 8 run(s) x 1" in output
+    assert "one choice per image" in output and "run separately" in output
+    assert cli.requests == []
+    assert generate.main([*flags, "-q"]) == 0
+    expected = grid.expand(
+        GenerateRequest(prompt="a {size} fox", width=256, height=256, seed=42, num_images=2),
+        prompt="size = small | large | none", prompt_mode="random", steps="6,8", seeds=2,
+    )
+    assert [(request.prompt, seed) for request, seed in zip(cli.requests, cli.seeds)] == [
+        (cell.request.prompt, cell.seed) for cell in expected
+    ]
+    rows = sorted(store.list_images()[0], key=lambda row: row.id)
+    assert [(row.seed, row.variables, row.batch) for row in rows] == [
+        (cell.seed, cell.variables, 1) for cell in expected
+    ]
+    assert generate.main([*flags, "--resume", "-q"]) == 0
+    assert len(cli.requests) == 8
+
+
+def test_random_prompt_mode_requires_a_variable_block_in_the_cli(cli, capsys):
+    assert generate.main(["a fox", "--grid-prompt-mode", "random", "--dry-run", *SIZE]) == 2
+    assert "needs prompt variables" in capsys.readouterr().err
+    assert cli.requests == []
+
+
 @pytest.fixture
 def lora_dir(tmp_path, monkeypatch):
     """An adapter directory with two files, so a flag can win over a PNG."""
@@ -1298,6 +1333,22 @@ def test_via_server_grid_body_uses_the_same_axes_and_seed_order(via_server, caps
     )
     assert via_server.backend.seeds == [seed for seed in (11, 99) for _ in range(8)]
     assert [request.prompt for request in via_server.backend.requests[:8]] == ["a fox"] * 4 + ["a wolf"] * 4
+
+
+def test_via_server_random_prompt_mode_matches_the_direct_expansion(via_server, capsys):
+    from backend import grid
+
+    assert generate.main([
+        "a {size} fox", "--via-server", *SIZE, "--grid-prompt", "size = small | large | none",
+        "--grid-prompt-mode", "random", "--grid-steps", "6,8", "--seed-list", "42,80", "--batch", "2", "-q",
+    ]) == 0
+    body = next(call[2] for call in via_server.calls if call[1] == "/api/grid")
+    assert body["prompt_mode"] == "random"
+    assert via_server.backend.seeds == [42, 42, 43, 43, 80, 80, 81, 81]
+    expected = grid.parse_variables(body["prompt_axis"])
+    for request, seed in zip(via_server.backend.requests, via_server.backend.seeds):
+        assert request.num_images == 1
+        assert request.prompt == grid.substitute("a {size} fox", grid.random_assignment(expected, seed))
 
 
 def test_via_server_resume_and_plain_repeat_budget_use_grid_semantics(via_server, capsys):

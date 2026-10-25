@@ -463,6 +463,14 @@ ground = grass | dirt
 
 This makes six prompts. `none` removes that fragment; commas remain part of
 a value. Unused variables and placeholders without values are refused.
+The default **Cross all values** tries every combination. **One choice per
+image** instead draws one value for each variable from the image's seed,
+keeping those choices across the numeric axes. With Batch above one, those
+images run separately and are saved as batches of one. Fix Seed or use Seed
+list to repeat the same choices; with neither set, the preview labels its
+prompts as examples and Run grid chooses another base. The terminal option
+is `--grid-prompt-mode random` alongside `--grid-prompt`.
+
 Use **Run grid** to substitute variables, not Generate. Seeds are the outer
 loop: each seed is tried across all settings before moving to the next.
 

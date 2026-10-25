@@ -219,6 +219,11 @@ def _build_parser() -> argparse.ArgumentParser:
         help="values for a {NAME} placeholder in the prompt, split on `|`; "
         "repeat the flag for a second variable, and they cross like any other axes",
     )
+    sweep.add_argument(
+        "--grid-prompt-mode", choices=["cross", "random"], default="cross",
+        help="cross all prompt values (default), or draw one choice per image seed; "
+        "random images run separately even with --batch",
+    )
     sweep.add_argument("--grid-steps", metavar="SPEC", default="", help="step counts to sweep")
     sweep.add_argument("--grid-cfg", metavar="SPEC", default="", help="guidance scales to sweep")
     sweep.add_argument(
@@ -829,7 +834,10 @@ def _via_server(args, parser, source, carried, mask_image, width, height, sized,
         )
     prompt_axis = "\n".join(args.grid_prompt)
     gridding = bool(prompt_axis or args.grid_steps or args.grid_cfg or args.grid_mu or args.grid_lora_scale
-                    or args.grid_strength or args.seed_list or args.grid_seeds != 1)
+                    or args.grid_strength or args.seed_list or args.grid_seeds != 1
+                    or args.grid_prompt_mode != "cross")
+    if args.grid_prompt_mode == "random" and not prompt_axis.strip():
+        parser.error("--grid-prompt-mode random needs --grid-prompt variables")
     if gridding and args.runs != 1:
         parser.error("--runs and --grid-* are alternatives; a grid steps its own seeds")
     if args.grid_seeds < 1:
@@ -978,7 +986,8 @@ def _via_server(args, parser, source, carried, mask_image, width, height, sized,
         path = "/api/generate"
         if gridding or args.resume or args.budget is not None:
             path = "/api/grid"
-            body.update(runs=1, prompt_axis=prompt_axis, steps_axis=args.grid_steps, cfg_axis=args.grid_cfg,
+            body.update(runs=1, prompt_axis=prompt_axis, prompt_mode=args.grid_prompt_mode,
+                        steps_axis=args.grid_steps, cfg_axis=args.grid_cfg,
                         mu_axis=args.grid_mu, lora_scale_axis=args.grid_lora_scale, strength_axis=args.grid_strength,
                         seeds=args.grid_seeds if gridding else args.runs, seed_axis=args.seed_list,
                         resume=args.resume, budget_minutes=args.budget)
@@ -1258,6 +1267,7 @@ def main(argv: list[str] | None = None) -> int:
             or args.grid_lora_scale
             or args.grid_strength
             or args.seed_list
+            or args.grid_prompt_mode != "cross"
         )
         or args.grid_seeds > 1
     )
@@ -1287,7 +1297,8 @@ def main(argv: list[str] | None = None) -> int:
         )
         # A batch past the budget is told the flag to use instead, which on a
         # grid - whose seeds are its runs - is a smaller --batch.
-        request.check_budget(grid=gridding, cli=True)
+        budget_request = request.model_copy(update={"num_images": 1}) if args.grid_prompt_mode == "random" else request
+        budget_request.check_budget(grid=gridding, cli=True)
     except ValueError as exc:
         print(p.error_detail(exc), file=sys.stderr)
         return 2
@@ -1331,6 +1342,7 @@ def main(argv: list[str] | None = None) -> int:
             seeds=args.grid_seeds if gridding else args.runs,
             seed_list=seed_list or None,
             variants=variants,
+            prompt_mode=args.grid_prompt_mode,
         )
         if carried is not None and variants is None:
             # Leading the log line too, as they do in a grid's own cells.
@@ -1350,6 +1362,7 @@ def main(argv: list[str] | None = None) -> int:
     # so a night continued from the terminal joins the one it continues - in the
     # gallery's `run:` filter and on the contact sheet.
     run_id = p.grid.run_id(cells, p.settings.model_id, p.settings.quantization)
+    axis_cells = cells  # Full sampled prompt list, before Resume subtracts cells.
 
     # Built before the load, and cheap to: unloaded, `applied()` answers from
     # the checkpoint profile, which is what decides the resume comparison and
@@ -1474,7 +1487,7 @@ def main(argv: list[str] | None = None) -> int:
         ]
         skipped = before - len(cells)
 
-    total_images = len(cells) * request.num_images
+    total_images = sum(cell.request.num_images for cell in cells)
     # Then refine: the same checks the server's submit makes, and the run the
     # passes are saved under; a pass of each image follows its cell below.
     spec = pass_run = None
@@ -1607,6 +1620,8 @@ def main(argv: list[str] | None = None) -> int:
                 args.grid_lora_scale,
                 variants,
                 strength=args.grid_strength,
+                prompt_mode=args.grid_prompt_mode,
+                cells=axis_cells,
             )
             if len(values["prompt"]) > 1:
                 # The substituted prompts, not the variables that made them:
@@ -1629,8 +1644,12 @@ def main(argv: list[str] | None = None) -> int:
             if not seed_list:
                 print(f"  seeds  : {args.grid_seeds} from {seed}")
             count = len(seed_list) or args.grid_seeds
+            summary = p.grid.describe(
+                values, count, listed=bool(seed_list),
+                prompt_mode=args.grid_prompt_mode, batch=request.num_images,
+            )
             print(
-                f"grid     : {p.grid.describe(values, count, listed=bool(seed_list))}"
+                f"grid     : {summary}"
                 f" = {len(cells)} cell(s)"
             )
         if skipped:
@@ -1648,7 +1667,7 @@ def main(argv: list[str] | None = None) -> int:
             )
         print(
             f"output   : {total_images} image(s) - {len(cells)} run(s) x "
-            f"{request.num_images} -> {p.settings.outputs_dir}"
+            f"{1 if args.grid_prompt_mode == 'random' else request.num_images} -> {p.settings.outputs_dir}"
         )
         # The same estimate the browser's preview shows, from recent images at
         # this size on this checkpoint - the one number that decides whether a

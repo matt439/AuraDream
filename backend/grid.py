@@ -372,6 +372,33 @@ def _close_hole(out: str, text: str, pos: int) -> tuple[str, int]:
     return out, pos
 
 
+def _check_variables(request: GenerateRequest, variables: dict[str, list[str]]) -> None:
+    """Both variable modes reject missing and unused placeholders alike."""
+    used = _placeholders(request)
+    for name in variables:
+        if name not in used:
+            raise ValueError(f"prompt: nothing in the prompt says {{{name}}}")
+    for name in sorted(used - set(variables)):
+        raise ValueError(f"prompt: {{{name}}} has no values")
+
+
+def random_assignment(variables: dict[str, list[str]], seed: int) -> dict[str, str]:
+    """A frozen draw per image seed and name, independent of variable line order.
+
+    The versioned JSON bytes and SHA-256 selection are reproduction behavior:
+    changing either needs another mode/version, not a different old seed's draw.
+    """
+    assignment = {}
+    for name, values in variables.items():
+        material = json.dumps(
+            ["local-diffusion.prompt-choice.v1", seed, name],
+            ensure_ascii=False, separators=(",", ":"),
+        ).encode("utf-8")
+        index = int.from_bytes(hashlib.sha256(material).digest(), "big") % len(values)
+        assignment[name] = values[index]
+    return assignment
+
+
 def prompt_assignments(
     request: GenerateRequest, variables: dict[str, list[str]]
 ) -> list[dict[str, str]]:
@@ -389,12 +416,7 @@ def prompt_assignments(
     lines built 262,144 dicts on the event loop - on every keystroke of the
     preview - before the whole-grid ceiling could refuse them.
     """
-    used = _placeholders(request)
-    for name in variables:
-        if name not in used:
-            raise ValueError(f"prompt: nothing in the prompt says {{{name}}}")
-    for name in sorted(used - set(variables)):
-        raise ValueError(f"prompt: {{{name}}} has no values")
+    _check_variables(request, variables)
     if not variables:
         return [{}]
     count = math.prod(len(values) for values in variables.values())
@@ -463,6 +485,8 @@ def axis_values(
     variants: Sequence[PromptVariant] | None = None,
     *,
     strength: str = "",
+    prompt_mode: str = "cross",
+    cells: Sequence[Cell] | None = None,
 ) -> dict[str, list[Any]]:
     """The axes resolved against the request they sit on top of.
 
@@ -471,10 +495,18 @@ def axis_values(
     groups by - is the text that will actually be encoded. Variants add their
     labels under `variant`, in the same order, so a caller can name each text.
     """
-    resolved = resolve_prompts(request, prompt, variants)
-    values: dict[str, list[Any]] = {"prompt": [text for _, text, _ in resolved]}
-    if variants:
-        values[VARIANT] = [one[VARIANT] for one, _, _ in resolved]
+    if prompt_mode == "random":
+        if cells is None:
+            raise ValueError("random prompt values need the expanded cells")
+        values: dict[str, list[Any]] = {
+            "prompt": list(dict.fromkeys(cell.request.prompt for cell in cells)),
+            "negative_prompt": list(dict.fromkeys(cell.request.negative_prompt for cell in cells)),
+        }
+    else:
+        resolved = resolve_prompts(request, prompt, variants)
+        values = {"prompt": [text for _, text, _ in resolved]}
+        if variants:
+            values[VARIANT] = [one[VARIANT] for one, _, _ in resolved]
     return {**values, **_sampling_values(request, steps, cfg, mu, lora_scale, strength)}
 
 
@@ -558,7 +590,10 @@ def _within(values: list[Any], field: str, label: str) -> list[Any]:
     return values
 
 
-def describe(values: dict[str, list[Any]], seeds: int, listed: bool = False) -> str:
+def describe(
+    values: dict[str, list[Any]], seeds: int, listed: bool = False, *,
+    prompt_mode: str = "cross", batch: int = 1,
+) -> str:
     """`2 prompts x 4 steps x 3 CFG x 1 mu x 2 seeds`, for a preview or a log.
 
     The prompt count appears only when there is more than one: a sampling grid
@@ -567,7 +602,9 @@ def describe(values: dict[str, list[Any]], seeds: int, listed: bool = False) -> 
     are counted as what they are, since that is what the sheet's rows say.
     """
     parts = []
-    if len(values.get("prompt", [])) > 1:
+    if prompt_mode == "random":
+        parts.append("one choice per image")
+    elif len(values.get("prompt", [])) > 1:
         noun = "variants" if VARIANT in values else "prompts"
         parts.append(f"{len(values['prompt'])} {noun}")
     parts.append(f"{len(values['steps'])} steps")
@@ -580,6 +617,8 @@ def describe(values: dict[str, list[Any]], seeds: int, listed: bool = False) -> 
     if len(values.get("strength", [])) > 1:
         parts.append(f"{len(values['strength'])} strength")
     parts.append(f"{seeds} {'listed ' if listed else ''}seed{'' if seeds == 1 else 's'}")
+    if prompt_mode == "random" and batch > 1:
+        parts.append(f"{batch} images per seed (run separately)")
     return " x ".join(parts)
 
 
@@ -939,6 +978,7 @@ def expand(
     seeds: int = 1,
     seed_list: list[int] | None = None,
     variants: Sequence[PromptVariant] | None = None,
+    prompt_mode: str = "cross",
 ) -> list[Cell]:
     """The cartesian product, as cells ready to hand to a job.
 
@@ -959,7 +999,20 @@ def expand(
     count - reads the resolved prompt, so a variant is an ordinary prompt cell
     to all of it and only the label is new.
     """
-    prompts = resolve_prompts(request, prompt, variants)
+    if prompt_mode not in {"cross", "random"}:
+        raise ValueError("prompt mode must be cross or random")
+    variables = None
+    if prompt_mode == "random":
+        if variants:
+            raise ValueError("random prompt variables cannot accompany prompt variants")
+        variables = parse_variables(prompt)
+        if not variables:
+            raise ValueError("random prompt mode needs prompt variables")
+        _check_variables(request, variables)
+        # One assignment per image, never the variables' Cartesian product.
+        prompts = [({}, request.prompt, request.negative_prompt)]
+    else:
+        prompts = resolve_prompts(request, prompt, variants)
     values = _sampling_values(request, steps, cfg, mu, lora_scale, strength)
     seed_count = len(seed_list) if seed_list else seeds
     total = (
@@ -977,14 +1030,28 @@ def expand(
             "a grid may queue; narrow an axis or drop the batch size"
         )
 
-    base = request.seed if request.seed is not None else random_seed()
+    base = request.seed if request.seed is not None else (seed_list[0] if seed_list else random_seed())
     # Step past the whole batch, exactly as a sweep does, so no two images in
     # the grid are drawn from the same seed. A listed seed is taken as given -
     # the schema, not a wrap, decides whether it is one.
     seed_values = seed_list or [wrap_seed(base + index * request.num_images) for index in range(seeds)]
     template = request.model_dump()
+    if variables is not None:
+        # Validate listed bases before wrapping their image offsets; a typo'd
+        # negative or oversized base must not become a valid wrapped seed.
+        _within(seed_values, "seed", "Seed list")
+        seed_values = [
+            wrap_seed(seed + offset) for seed in seed_values for offset in range(request.num_images)
+        ]
+        template["num_images"] = 1
     cells: list[Cell] = []
     for seed in seed_values:
+        if variables is not None:
+            assignment = random_assignment(variables, seed)
+            prompts = [(
+                assignment, substitute(request.prompt, assignment),
+                substitute(request.negative_prompt, assignment),
+            )]
         # Every parameter cell of one seed shares it - comparing settings on
         # the same noise is the point.
         # The prompt sits just inside the seed, for the reason the seed is

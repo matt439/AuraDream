@@ -56,21 +56,13 @@ async def expand_grid(
     """
     await submission.refuse_unusable_inputs(services, request)
     try:
-        request.check_budget()
-        values = grid.axis_values(
-            request,
-            request.steps_axis,
-            request.cfg_axis,
-            request.mu_axis,
-            request.prompt_axis,
-            request.lora_scale_axis,
-            variants=request.prompt_variants,
-            strength=request.strength_axis,
-        )
+        # Random choices split the requested batch into single-image calls.
+        # Check the pixels resident in one call, not their seed-group count.
+        budget_request = request.model_copy(update={"num_images": 1}) if request.prompt_mode == "random" else request
+        budget_request.check_budget()
         # Listed seeds are an axis the preview shows like the others; counted
         # seeds are derived from the base and are not.
         seed_list = grid.parse_seeds(request.seed_axis)
-        values["seed"] = list(seed_list)
         cells = grid.expand(
             request,
             prompt=request.prompt_axis,
@@ -82,7 +74,17 @@ async def expand_grid(
             seeds=request.seeds,
             seed_list=seed_list or None,
             variants=request.prompt_variants,
+            prompt_mode=request.prompt_mode,
         )
+        # Random choices resolve once. A second expansion with an unset seed
+        # would list another sample beside the cells whose counts we report.
+        values = grid.axis_values(
+            request, request.steps_axis, request.cfg_axis, request.mu_axis,
+            request.prompt_axis, request.lora_scale_axis,
+            variants=request.prompt_variants, strength=request.strength_axis,
+            prompt_mode=request.prompt_mode, cells=cells,
+        )
+        values["seed"] = list(seed_list)
     except ValueError as exc:
         raise HTTPException(status_code=422, detail=error_detail(exc)) from exc
     run_id = grid.run_id(cells, services.model_id(), services.quantization())
@@ -552,7 +554,7 @@ def create_router(services: AppServices) -> APIRouter:
         per_image_bytes = await asyncio.to_thread(
             gallery_reports.image_bytes, request.width, request.height, services.model_id()
         )
-        images = len(cells) * request.num_images
+        images = sum(cell.request.num_images for cell in cells)
         listed = len(values.get("seed", []))
         # Then refine: a pass of each image after its cell, priced as passes
         # at the pass size are; the cells and their passes priced as the
@@ -598,6 +600,9 @@ def create_router(services: AppServices) -> APIRouter:
             )
         return GridPreview(
             values=values,
+            prompt_sample=(
+                request.prompt_mode == "random" and request.seed is None and not request.seed_axis.strip()
+            ),
             cells=len(cells),
             images=images,
             skipped=skipped,
@@ -607,7 +612,10 @@ def create_router(services: AppServices) -> APIRouter:
             # endpoint publishes, applied cell by cell, say which cells collapse
             # into one picture before the night is spent finding out.
             duplicates=grid.duplicate_count(cells, services.backend().applied),
-            summary=grid.describe(values, listed or request.seeds, listed=bool(listed)),
+            summary=grid.describe(
+                values, listed or request.seeds, listed=bool(listed),
+                prompt_mode=request.prompt_mode, batch=request.num_images,
+            ),
             seconds=grid.estimate_seconds(
                 priced, per_step_ms, refine_costs=refine_costs, inpaint_costs=inpaint_costs
             ),

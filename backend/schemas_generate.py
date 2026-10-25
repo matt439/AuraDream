@@ -606,6 +606,9 @@ class GridRequest(GenerateSubmission):
     # `size = big | small`. Longer than the numeric axes because its values are
     # prose, and split on `|` because a prompt is full of commas.
     prompt_axis: str = Field(default="", max_length=2000)
+    # Cross every value, or draw one value per variable from each image's seed.
+    # Random mode runs images separately so each cell has one resolved prompt.
+    prompt_mode: Literal["cross", "random"] = "cross"
     # Whole prompts as the prompt axis - the analyser's original, reordered
     # and rewritten versions on shared seeds. Variables cannot carry them:
     # three long prompts overrun `prompt_axis`, a `|` or a newline in one
@@ -649,6 +652,11 @@ class GridRequest(GenerateSubmission):
 
     @model_validator(mode="after")
     def _variants_are_the_prompt_axis(self) -> "GridRequest":
+        if self.prompt_mode == "random":
+            if self.prompt_variants is not None:
+                raise ValueError("random prompt variables cannot accompany prompt variants")
+            if not self.prompt_axis.strip():
+                raise ValueError("random prompt mode needs prompt variables")
         if self.prompt_variants is None:
             return self
         if self.prompt_axis.strip():
@@ -682,6 +690,9 @@ class GridPreview(BaseModel):
     # finished prompt of every cell - the substitution is the half of a prompt
     # grid that is easy to get wrong, so the panel shows what it produced.
     values: dict[str, list[float | int | str | None]]
+    # With no fixed base/list, random-choice text is a sample, not the next
+    # submission's promise. Counts are exact; Run grid draws another base.
+    prompt_sample: bool = False
     cells: int
     images: int
     # Cells dropped because the gallery already holds them; always 0 unless the

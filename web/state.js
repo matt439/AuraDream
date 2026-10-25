@@ -86,7 +86,7 @@ const els = {
   thenRefine: $('then-refine'), thenRefineLabel: $('then-refine-label'),
   thenRefineStrength: $('then-refine-strength'), thenRefineScales: $('then-refine-scales'),
   thenRefineSteps: $('then-refine-steps'), thenRefineHint: $('then-refine-hint'),
-  gridSection: $('grid-section'), gridPrompt: $('grid-prompt'),
+  gridSection: $('grid-section'), gridPrompt: $('grid-prompt'), gridPromptMode: $('grid-prompt-mode'),
   gridSteps: $('grid-steps'), gridCfg: $('grid-cfg'),
   gridMu: $('grid-mu'), gridMuField: $('grid-mu-field'), gridMuTip: $('grid-mu-tip'),
   gridSeeds: $('grid-seeds'), gridSeedList: $('grid-seed-list'),

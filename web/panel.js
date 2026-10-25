@@ -17,7 +17,7 @@ const PANEL_KEY = 'local-diffusion.panel.v1';
 const LEGACY_PANEL_KEYS = ['krea.panel.v1'];
 const PANEL_FIELDS = [
   'prompt', 'negative', 'width', 'height', 'seed', 'batch', 'runs', 'lora', 'loraScale',
-  'gridPrompt', 'gridSteps', 'gridCfg', 'gridMu', 'gridSeeds', 'gridSeedList', 'gridBudget',
+  'gridPrompt', 'gridPromptMode', 'gridSteps', 'gridCfg', 'gridMu', 'gridSeeds', 'gridSeedList', 'gridBudget',
   'gridLoraScale',
 ];
 // What else is remembered beside the fields, merged key by key as they are.
@@ -151,6 +151,9 @@ function restorePanel() {
   for (const key of PANEL_FIELDS) {
     if (typeof state[key] === 'string') els[key].value = state[key];
   }
+  // Older panels have no mode; a malformed stored select must not send an
+  // empty mode and turn every preview into a schema error.
+  if (!['cross', 'random'].includes(els.gridPromptMode.value)) els.gridPromptMode.value = 'cross';
   // Set again by refreshLoras once the options exist.
   pendingLora = typeof state.lora === 'string' ? state.lora : '';
   els.gridSection.open = !!state.gridOpen;
@@ -223,6 +226,7 @@ function resetPanel() {
     els[key].value = '';
   }
   els.gridSeeds.value = 1;
+  els.gridPromptMode.value = 'cross';
   els.gridSeeds.disabled = false;
   els.gridResume.checked = false;
   els.gridSection.open = false;

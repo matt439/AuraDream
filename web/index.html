@@ -571,8 +571,9 @@
               one its values here, one variable per line:<br>
               <b>{size} dog sitting on {ground}</b><br>
               <b>size = big | small</b><br>
-              <b>ground = grass | dirt</b> — four prompts, and they cross with the
-              ranges below.<br>
+              <b>ground = grass | dirt</b> - four prompts in Cross all values mode.
+              One choice per image instead draws a value for each variable from
+              that image's seed, keeping it across the ranges below.<br>
               Values split on <b>|</b>, not on commas: a comma belongs to the prompt.<br>
               <b>none</b> is a value too — the word and its space come out
               altogether, so <b>size = big | none</b> compares saying it against
@@ -581,6 +582,12 @@
               still has <b>{placeholders}</b> in it, rather than rendering the braces.</span></span></i>
           <textarea id="grid-prompt" rows="2" spellcheck="false" aria-describedby="grid-prompt-tip"
             placeholder="size = big | small | none"></textarea>
+          <label for="grid-prompt-mode">Variable mode</label>
+          <select id="grid-prompt-mode" aria-describedby="grid-prompt-mode-hint">
+            <option value="cross">Cross all values</option>
+            <option value="random">One choice per image</option>
+          </select>
+          <p class="hint" id="grid-prompt-mode-hint">A fixed image seed draws the same choices. One choice per image runs Batch images separately.</p>
         </div>
       </div>
       <div class="row">

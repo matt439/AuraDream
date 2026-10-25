@@ -3121,6 +3121,25 @@ server never refuses braces, which in a plain prompt can be text or pasted
 `{tag}` emphasis. Both buttons show the shortcut as generated content with
 empty alt text, since `setBusy` rewrites their labels as text.
 
+## Random-choice prompt variables
+
+The [random-choice plan](plan-random-prompt-variables.md) adds `GEN#17`'s
+alternative to crossing every variable value. `prompt_mode="random"` draws
+each variable from an image seed and the variable's name using a versioned
+SHA-256 recipe. Reordering variable lines or sampling axes cannot change a
+seed's choices. The chosen text, rather than the template, is what existing
+cells, gallery rows, PNG chunks and Resume keep.
+
+A batch normally shares one scalar prompt and assignment. Random mode must
+give each image its own, so Batch N becomes N single-image cells at the usual
+wrapped seeds. Each image's parameter sweep completes before the next image;
+budget counts still group the original seed-axis batches. The preview says
+these images run separately and counts their actual single-image cells.
+Without an explicit seed or seed list, its prompt text is an example: Run
+grid chooses another base. Expansion happens once per request, so the shown
+prompts and counts describe the same sample. Existing Cartesian run identities
+and the default mode stay unchanged.
+
 ## Prompt labels on the sheet
 
 The contact sheet's axes gained **Prompt**, whose labels are only the words
