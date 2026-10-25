@@ -51,7 +51,9 @@ checkpoint in the gallery (it ticks **All models**, clears **Starred** and
 searches for `model:=<id>`). A checkpoint with no images says so instead.
 
 **Quantization** trades memory for precision: FP8 and INT8 keep 8-bit weights
-(the same size; INT8's output is not yet compared with FP8's on the card),
+(the same size; on the sixteen checkpoints compared, INT8 was 3-10% faster
+a step and nearer BF16 on fourteen, and FLUX.1, Krea 2, klein 9B and
+Qwen-Image were not compared),
 BF16 is full precision and the largest, and Nunchaku
 4-bit builds are the smallest but run only on Linux or WSL. **Offload** trades
 memory for speed: Model offload keeps one component on the GPU at a time,

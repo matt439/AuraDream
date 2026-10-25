@@ -691,11 +691,15 @@ Model and loader:
   (`.model-fit`, the note its title and part of the radio's description),
   and the picker note says it, before the state line, while that row is
   chosen. It does
-  not hold Switch & load: sequential offload is unmeasured, not refused.
+  not hold Switch & load: sequential offload is not refused. FP8 with it
+  stopped at the RAM guard during the load (2026-10-25, a 64 GB machine,
+  transformer shard 6 of 9); BF16 with it is untried.
 - Quantization and offload descriptions live in `loader_choices.py` and are
   shared by the menu and the picker; only figures true of every catalogue
   checkpoint go there, and no unmeasured quality claim (INT8 is "the same
-  size as FP8; not yet compared on this card").
+  size as FP8", and a little faster and usually nearer BF16 only "where
+  compared", naming FLUX.1, Krea 2, klein 9B and Qwen-Image as not compared:
+  `verified.md`, "Quantization and offload (2026-10-25)").
 - On Linux, the server launcher prepares `DIFFUSERS_TRUST_REMOTE_KERNELS=true`
   before diffusers imports for optional browser Nunchaku selection; an explicit
   false remains authoritative and refuses Nunchaku before unload. The standalone
@@ -1257,7 +1261,9 @@ Reproduction:
   refused with the class installed. True only on
   the six SDXL checkpoints, Z-Image Turbo, Z-Image and Z-Anime, and FLUX.1
   Krea dev, dev and schnell (from 2026-10-19; the Nunchaku Z-Image and FLUX.1
-  repos share those profiles, never run over Nunchaku); the fallback is False. A
+  repos share those profiles and nothing refuses them; the class ran over
+  the Z-Image Turbo and Krea dev Nunchaku builds under WSL on 2026-10-25,
+  the other Nunchaku repos not run); the fallback is False. A
   deferred profile carries `inpaint_deferred`, so the page says "not
   enabled yet" rather than "no inpaint pipeline in the installed
   diffusers". `tests/test_inpaint.py` holds every True to an installed,

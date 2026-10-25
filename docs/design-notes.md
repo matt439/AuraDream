@@ -513,8 +513,8 @@ note is in front of the button before the press. Measured 2026-10-25
 fp8 load with sequential offload stopped at a 4 GiB free-RAM guard at
 transformer shard 6 of 9 (46.0 GiB working set, 56.1 private), before
 anything reached the card. BF16 with sequential offload was not tried; by
-estimate its weights exceed the free RAM. The note and the button are
-unchanged.
+estimate its weights exceed the free RAM. The button is unchanged; the note
+(and `docs/rules.md`) said it 2026-10-25, in place of "unmeasured".
 
 The INT8 description said "slightly softer", which nothing on the card
 measured and the loader's own comment contradicts (int8 tends to be more
@@ -523,14 +523,16 @@ FP8, not yet compared on this card. Compared on the card 2026-10-25 on
 sixteen checkpoints (`verified.md`, Checkpoints, "Quantization and
 offload": the card cost of FP8, 3-10% faster a step, nearer BF16 by mean
 difference on 14 of 16); not FLUX.1, Krea 2 or klein 9B, whose int8/fp8
-loads stopped at the RAM guard or were not tried. The wording in
-`loader_choices.py`, `docs/rules.md` and `docs/usage.md` is not yet updated
-(TODO `GEN#23`), nor are other lines the 2026-10-25 runs made stale:
-`docs/rules.md`'s "never run over Nunchaku" for the inpaint profiles (the
-class ran over Nunchaku Z-Image Turbo and Krea dev), and its and
-`model_info.py`'s "sequential offload is unmeasured" for Qwen-Image (fp8
-with sequential offload stops at the RAM guard during the load; BF16
-sequential untried).
+loads stopped at the RAM guard or were not tried, nor Qwen-Image, no mode of
+which was measured on Windows. The wording in
+`loader_choices.py`, `docs/rules.md` and `docs/usage.md` was updated
+2026-10-25: the same size as FP8 and, "where compared (not FLUX.1, Krea 2,
+klein 9B or Qwen-Image)", a little faster and usually nearer BF16. So were the other
+lines those runs made stale: `docs/rules.md`'s "never run over Nunchaku"
+for the inpaint profiles (no code refused it; the class ran over Nunchaku
+Z-Image Turbo and Krea dev), and its and `model_info.py`'s "sequential
+offload is unmeasured" for Qwen-Image (fp8 with sequential offload stops at
+the RAM guard during the load; BF16 sequential untried).
 
 The quantization and offload explanations were vaguer in the browser than in
 the menu, while the menu's figures were Krea 2's (~13 GB peak, ~25 GB in BF16)

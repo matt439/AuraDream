@@ -12,7 +12,7 @@ _FOR_16_GB = "recommended for a 16 GB card"
 # (value, short browser label, description).
 QUANTIZATION_CHOICES: tuple[tuple[str, str, str], ...] = (
     ("fp8", "FP8", f"8-bit float weights; {_FOR_16_GB}."),
-    ("int8", "INT8", "8-bit integer weights, the same size as FP8; not yet compared on this card."),
+    ("int8", "INT8", "8-bit integer weights, the same size as FP8; where compared (not FLUX.1, Krea 2, klein 9B or Qwen-Image), a little faster and usually nearer BF16."),
     ("none", "BF16", "Full bfloat16 precision; the most VRAM, and FLUX-size models may not fit 16 GB."),
     ("nunchaku", "Nunchaku 4-bit", "Pre-quantized 4-bit lite-infer builds, the smallest; Linux or WSL only."),
 )

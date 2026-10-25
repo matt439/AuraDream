@@ -159,10 +159,10 @@ def test_browser_loader_options_are_short_and_keep_their_explanations(monkeypatc
     assert "recommended for a 16 GB card" in descriptions["quantizations"]["fp8"]
     assert "recommended for a 16 GB card" in descriptions["offloads"]["model"]
     assert "may not fit 16 GB" in descriptions["quantizations"]["none"]
-    # Both are one byte a weight, and no INT8 image has been compared on the
-    # card: no unmeasured quality claim steers the choice.
+    # Both are one byte a weight; INT8 was compared on the card on sixteen
+    # checkpoints, not FLUX.1, Krea 2, klein 9B or Qwen-Image, and the line says so.
     assert "same size as FP8" in descriptions["quantizations"]["int8"]
-    assert "not yet compared" in descriptions["quantizations"]["int8"]
+    assert "where compared (not FLUX.1, Krea 2, klein 9B or Qwen-Image)" in descriptions["quantizations"]["int8"]
     assert "softer" not in descriptions["quantizations"]["int8"]
     assert "24 GB+" in descriptions["offloads"]["none"]
     # The terminal menu prints the same words.

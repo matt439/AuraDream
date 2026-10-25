@@ -167,7 +167,8 @@ _FIT = {
     "Qwen/Qwen-Image": ("Over 16 GB", (
         "Larger than a 16 GB card at FP8, INT8 or BF16 (the 20B transformer "
         "alone is about 20 GB at one byte a weight). Only the 4-bit Nunchaku build (WSL) has run "
-        "on this card, at about 12 GiB; sequential offload is unmeasured."
+        "on this card, at about 12 GiB. FP8 with sequential offload stopped at a free-RAM "
+        "guard during the load on a 64 GB machine; BF16 with sequential offload is untried."
     )),
 }
 

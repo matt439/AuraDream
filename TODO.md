@@ -8,7 +8,7 @@ An index of open work, one row per item; each row points to the doc that owns th
 
 **Aim (2026-10-18):** keep useful work ready for Matt's common workstation tasks. [Reported use](docs/design/preferences.md) guides priority; it does not approve the candidate redesign.
 
-**Ready backlog:** five `OPEN` tasks from the [2026-10-24 review](docs/review-2026-10-24.md), each needing a plan first: `GEN#17`-`GEN#19`, `UI#11` and `UI#12`; and `GEN#23`, text the 2026-10-25 card runs made stale. Deferred features remain deferred.
+**Ready backlog:** five `OPEN` tasks from the [2026-10-24 review](docs/review-2026-10-24.md), each needing a plan first: `GEN#17`-`GEN#19`, `UI#11` and `UI#12`. Deferred features remain deferred.
 
 **Needs Matt:** workbench task trials (`DEV#1`) and hands-on screen-reader/touch checks (`UI#7`) are the next `USER` work. Two decisions wait: whether SDXL prompt weighting is wanted at all (`GEN#20`), and how a cold quantizing FLUX-family load fits this machine's RAM (`GEN#22`), which unblocks the FLUX-family `CARD` rows and `GEN#15`/`GEN#16`. Whole-app layout implementation waits for its trials; it remains a design hypothesis.
 
@@ -65,7 +65,6 @@ An index of open work, one row per item; each row points to the doc that owns th
 | `GEN#19` | OPEN | LOW | L | Size as a grid axis and a crop anchor for Refine, widening the key once; a run then has more than one size. Plan first. [10-24 G8](docs/review-2026-10-24.md#g8-size-as-a-grid-axis-and-a-crop-anchor-for-refine). |
 | `GEN#20` | DECISION | LOW | L+card | Whether to plan opt-in A1111 weighting and 77-token chunking on SDXL; only if Matt writes weighted prompts. [10-24 G10](docs/review-2026-10-24.md#g10-a1111-style-weighting-and-long-prompts-on-sdxl). |
 | `GEN#22` | DECISION | MED | M+card | How a cold quantizing FLUX.1, Krea 2, klein 9B or Qwen-Image load fits this machine's RAM (about 46 GiB at the load, 2026-10-25): free RAM before a run, lower the guard's floor, or quantize a shard at a time (a loader change, plan first). Unblocks the FLUX-family card rows. [The quantizing load's RAM peak](docs/design-notes.md#the-quantizing-loads-ram-peak). |
-| `GEN#23` | OPEN | LOW | S | Reword INT8 from the 2026-10-25 comparison (`loader_choices.py`, `docs/rules.md`, `docs/usage.md`), with the other lines those runs made stale (`rules.md`'s Nunchaku inpaint and Qwen-Image sequential, `model_info.py`'s Qwen note). [Switching](docs/design-notes.md#switching-checkpoints-while-the-server-stays-open). |
 
 ## Prompt analyser
 
