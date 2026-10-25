@@ -30,6 +30,26 @@ pipeline: the text encoder is a *transformers* model (Qwen3-VL) and its
 `TorchAoConfig.__init__` signature differs from the diffusers one. Both take a
 torchao `AOBaseConfig` **instance** (`Float8WeightOnlyConfig()`), not a string.
 
+## The quantizing load's RAM peak
+
+Open, found on the card 2026-10-25 (TODO `GEN#22`; `verified.md`,
+Checkpoints, "RAM at the load"). Every cold fp8 or int8 load tried that day
+of a FLUX.1-, Krea 2-, klein 9B- or Qwen-Image-sized checkpoint on Windows
+took the process to about 46 GiB working set (53-62 GiB private) and
+stopped at the harnesses' 4 GiB free-RAM floor before a weight reached the
+card, from 49-50 GiB free with the usual apps and WSL resident. int8's
+peak is fp8's, so it is the quantizing load path (by the runners' reading,
+the bf16 weights held before quantizing), not the dtype. The same loads
+completed earlier with more RAM free (Krea dev from 52 GB after a reboot on
+2026-10-21; schnell 2026-10-05; Krea 2 Turbo 2026-09). BF16 with
+sequential offload avoids it and runs, slowly (2.8 s a step on FLUX.1).
+This blocks every FLUX-family card row (`CARD#1`, `#2`, `#4`, `#6`, `#7`,
+`#10`, `#11`, `#12`, `GEN#15`, `GEN#16`). Matt's options: free RAM before
+such a run (close apps, shut WSL down, reboot); lower the guard's floor
+for a supervised run; or change the loader to quantize one shard or
+component at a time, which is a code change of its own with a plan first.
+None is chosen.
+
 ## mu, sigmas and the shift that lands
 
 **`sigmas` is an input to the shift, not the shift's result.** `__call__`
@@ -487,13 +507,30 @@ download of tens of GB that ends in an out-of-memory error or a spill
 the catalogue's own record for the official repo ("Over 16 GB"; the 20B
 transformer is about 20 GB at one byte a weight), shown beside the access
 label and in the picker note while the row is chosen. Switch & load is not
-held for it: sequential offload is unmeasured, not known to fail, and the
-note is in front of the button before the press.
+held for it: sequential offload was unmeasured, not known to fail, and the
+note is in front of the button before the press. Measured 2026-10-25
+(`verified.md`, Checkpoints, "RAM at the load"): on this 64 GB machine the
+fp8 load with sequential offload stopped at a 4 GiB free-RAM guard at
+transformer shard 6 of 9 (46.0 GiB working set, 56.1 private), before
+anything reached the card. BF16 with sequential offload was not tried; by
+estimate its weights exceed the free RAM. The note and the button are
+unchanged.
 
 The INT8 description said "slightly softer", which nothing on the card
 measured and the loader's own comment contradicts (int8 tends to be more
 accurate, fp8 keeps more range). It now says what is known: the same size as
-FP8, not yet compared on this card.
+FP8, not yet compared on this card. Compared on the card 2026-10-25 on
+sixteen checkpoints (`verified.md`, Checkpoints, "Quantization and
+offload": the card cost of FP8, 3-10% faster a step, nearer BF16 by mean
+difference on 14 of 16); not FLUX.1, Krea 2 or klein 9B, whose int8/fp8
+loads stopped at the RAM guard or were not tried. The wording in
+`loader_choices.py`, `docs/rules.md` and `docs/usage.md` is not yet updated
+(TODO `GEN#23`), nor are other lines the 2026-10-25 runs made stale:
+`docs/rules.md`'s "never run over Nunchaku" for the inpaint profiles (the
+class ran over Nunchaku Z-Image Turbo and Krea dev), and its and
+`model_info.py`'s "sequential offload is unmeasured" for Qwen-Image (fp8
+with sequential offload stops at the RAM guard during the load; BF16
+sequential untried).
 
 The quantization and offload explanations were vaguer in the browser than in
 the menu, while the menu's figures were Krea 2's (~13 GB peak, ~25 GB in BF16)
@@ -2032,7 +2069,11 @@ yet" rather than "no inpaint pipeline in the installed diffusers". Because a
 load can only take an inpaint away (it needs the profile's True and the
 class), every False is final before a load (`inpaint_settled`). The Nunchaku
 Z-Image repos share the Z-Image profile and so answer True; an inpaint over
-a Nunchaku transformer has not been run on the card.
+a Nunchaku transformer ran on the card 2026-10-25 (Z-Image Turbo and FLUX.1
+Krea dev lite under WSL, `verified.md` Inpaint, "Under Nunchaku"): it keeps
+every unmasked pixel and costs less of the card than fp8, but like
+everything under Nunchaku it does not reproduce bit for bit, not even
+within one process.
 
 **FLUX.1 enabled (2026-10-19, INP#3).** The card ran Krea dev's inpaint at
 1 MP (`verified.md`, Inpaint, "FLUX.1 Krea dev"): 0.16 GiB allocated over
@@ -2044,8 +2085,8 @@ and the lite and Nunchaku repos resolving to them) carry
 (below). Enabling FLUX.1 enables its outpaint too, which runs through the
 same class: its 16:9 canvas from a 1 MP source is 1.9 MP, near the top the
 card held for this family's refine pass, and not measured. The Nunchaku
-FLUX.1 repos answer True as the Nunchaku Z-Image ones do; the class has not
-run over that transformer either (TODO `CARD#3`). The catch-all `flux`
+FLUX.1 repos answer True as the Nunchaku Z-Image ones do; the class ran
+over Krea dev's lite transformer on 2026-10-25 (the same section). The catch-all `flux`
 profile also takes hand-entered ids that load as another FLUX.1 class
 (Kontext loads as `FluxKontextPipeline`, beside which diffusers ships
 `FluxKontextInpaintPipeline`); while `FluxPipeline` was deferred the class
@@ -7925,7 +7966,12 @@ Chinese-to-English checkpoint loaded lazily through the Transformers and
 SentencePiece packages already in the app, kept on CPU so it never disturbs
 the image pipeline's offload chain, and dropped by Unload. The Chinese text
 remains in the editor and is the only prompt sent and recorded; the English is
-a read-only aid, cleared by the first edit of the prompt it translates. Translation failure is
+a read-only aid, cleared by the first edit of the prompt it translates.
+Measured on the card 2026-10-25, that aid loses most of a whole expansion:
+`MarianTranslator._chunks` packs sentences up to the token limit, so an
+expansion goes in as one chunk, and Marian translates part of it and drops
+the rest with no error, where one sentence at a time keeps every one
+(`verified.md`, Behaviour, the Marian row). Open (TODO `GEN#21`). Translation failure is
 returned separately so a useful multi-GB expansion is not thrown away. The
 index read is a try/except that yields nothing on failure - an optimisation,
 not a gate - and the tests' conftest now refuses `loading.hub_file` for every test,
@@ -7954,7 +8000,12 @@ with 17% of pixels off by more than 8 (a different seed: 36/255, 85%),
 ERNIE's 14-24/255 and 58-75% (a different seed: 41/255, 94%) - visibly
 different details on the 8-step model, not rounding. The fp8 path on
 Windows reproduces (see `verified.md`), so a duplicate count or a re-render
-hash is that path's guarantee only. One measurement trap: right after WSL
+hash is that path's guarantee only. 2026-10-25 showed it is not even
+within one process (`verified.md`, Behaviour, the Nunchaku row: a repeat
+inpaint 0.7-0.8 levels off, text-to-image later in the process 3.8-10.8);
+the same acceptance covers it (`docs/rules.md` keeps the duplicate count
+and a re-render's hash as the fp8 path's guarantee only, and
+`docs/usage.md` says Nunchaku is not bitwise reproducible). One measurement trap: right after WSL
 reclaimed memory (`Cached: 0`) Z-Image read 17-19 s per image, 10.6 s on the
 next run; the card was idle and boosting fine. And the 7.7 GB the base-class
 load had pulled was deleted from the cache before the concrete-class load
@@ -11420,6 +11471,12 @@ finding's have a Show. The comparison's always-run Original box carries the
 
 **Open questions the build turned up**, for decisions rather than code:
 
+- Open, found on the card 2026-10-25 (TODO `PA#10`): the critic's rewrite
+  loses tags the user wrote and nothing says so - 8 of 19 SDXL rewrites
+  lost or changed one (`verified.md`, Prompt analyser, the defect row).
+  `dropped` counts dropped issues, and `heuristic.rewrite_adds` has no
+  counterpart for removals. A removals finding beside it is not built;
+  whether such a rewrite should also be set aside is a decision.
 - Resolved 2026-10-17: the tag autocomplete wrote Danbooru names with A1111
   escapes - `tags.display_tag` turned `(` into `\(` - to match the authors'
   own examples (Animagine's has them). Diffusers never unescapes, so CLIP

@@ -8,9 +8,9 @@ An index of open work, one row per item; each row points to the doc that owns th
 
 **Aim (2026-10-18):** keep useful work ready for Matt's common workstation tasks. [Reported use](docs/design/preferences.md) guides priority; it does not approve the candidate redesign.
 
-**Ready backlog:** five `OPEN` tasks from the [2026-10-24 review](docs/review-2026-10-24.md), each needing a plan first: `GEN#17`-`GEN#19`, `UI#11` and `UI#12`. Deferred features remain deferred.
+**Ready backlog:** five `OPEN` tasks from the [2026-10-24 review](docs/review-2026-10-24.md), each needing a plan first: `GEN#17`-`GEN#19`, `UI#11` and `UI#12`; two defects the 2026-10-25 card runs found, `GEN#21` and `PA#10`; and `GEN#23`, text those runs made stale. Deferred features remain deferred.
 
-**Needs Matt:** workbench task trials (`DEV#1`) and hands-on screen-reader/touch checks (`UI#7`) are the next `USER` work. One decision waits: whether SDXL prompt weighting is wanted at all (`GEN#20`). Whole-app layout implementation waits for its trials; it remains a design hypothesis.
+**Needs Matt:** workbench task trials (`DEV#1`) and hands-on screen-reader/touch checks (`UI#7`) are the next `USER` work. Two decisions wait: whether SDXL prompt weighting is wanted at all (`GEN#20`), and how a cold quantizing FLUX-family load fits this machine's RAM (`GEN#22`), which unblocks the FLUX-family `CARD` rows and `GEN#15`/`GEN#16`. Whole-app layout implementation waits for its trials; it remains a design hypothesis.
 
 **GPU runs are Matt's to run or OK, never past the 16 GB card** (every `CARD` row). Check the checkpoint's measured peaks in `docs/verified.md` first; a run that spills into shared memory proves only that it doesn't fit.
 
@@ -28,16 +28,16 @@ An index of open work, one row per item; each row points to the doc that owns th
 
 | id | status | sev | size | item |
 |---|---|---|---|---|
-| `CARD#1` | CARD | LOW | S+card | Inpaint: FLUX.1 dev and schnell at 0.95, a LoRA through a FLUX.1 inpaint, and the seam by number on FLUX.1; SDXL, Z-Image and Z-Image Turbo are done (2026-10-17 to 10-24). Nunchaku is `CARD#3`, later families are `INP`. [Inpaint](docs/verified.md#inpaint). |
-| `CARD#2` | CARD | LOW | S+card | Outpaint: FLUX.1 dev and schnell, and the seam by number on FLUX.1. [Outpaint](docs/verified.md#outpaint). |
-| `CARD#3` | CARD | MED | S+card | An inpaint over a Nunchaku Z-Image or FLUX.1 transformer under WSL: the profiles allow it, but the class has never run over either. [Inpainting](docs/design-notes.md#inpainting). |
-| `CARD#4` | CARD | LOW | L+card | INT8, full BF16 and sequential offload per checkpoint; the picker says INT8 is "not yet compared on this card". [Checkpoints](docs/verified.md#checkpoints). |
-| `CARD#6` | CARD | LOW | M+card | Catalogue entries never loaded on the card: Krea 2 Raw (manual approval), FLUX.2 [klein] 9B, klein base 4B and 9B; Krea 2 Turbo's Windows fp8 row has a peak but no time. [Checkpoints](docs/verified.md#checkpoints). |
-| `CARD#7` | CARD | LOW | M+card | Refine gaps: FLUX.1 dev at fp8; what the starting strengths keep on schnell, Z-Image Turbo, Z-Image and Qwen-Image; offload none/sequential; true CFG through FluxImg2Img; review the 2026-10-05 ladder pictures. [Refine pass](docs/verified.md#refine-pass). |
-| `CARD#9` | CARD | LOW | S+card | ERNIE-Image Turbo on the Windows fp8 path, and its Expand (rewriter, Marian translation, the 7 GB first-use download). Measured only under Nunchaku NVFP4. [Behaviour](docs/verified.md#behaviour). |
-| `CARD#10` | CARD | LOW | M+card | On the real server, fixes checked only on the fake: 9377de1, 7733f81, 6a7570d, ad01fdc, 2a4d2cc, 2b89ed5, 81781bf; and R50's fix (1744dc3) with a real console Ctrl-C, plus the not_found/offline load failures. [Behaviour](docs/verified.md#behaviour); [10-12 not reached](docs/review-2026-10-12.md#review--2026-10-12). |
-| `CARD#11` | CARD | LOW | M+card | The critic for real: a reorder where Check placed only some tags, kill-on-close stopping a real `llama-server`, int8 or sequential offload beside it, and whether rewrites beat originals over more than two seeds. [Prompt analyser](docs/verified.md#prompt-analyser). |
-| `CARD#12` | CARD | LOW | S+card | Whether official Qwen-Image (over 16 GB) runs on Windows under sequential offload. [Switching](docs/design-notes.md#switching-checkpoints-while-the-server-stays-open). |
+| `CARD#1` | CARD | LOW | S+card | Inpaint at fp8: FLUX.1 dev and schnell at 0.95, a LoRA through a FLUX.1 inpaint, the seam by number on FLUX.1; their loads stop at the RAM guard (`GEN#22`). Nunchaku is `CARD#3`, later families are `INP`. [Inpaint](docs/verified.md#inpaint). |
+| `CARD#2` | CARD | LOW | S+card | Outpaint: FLUX.1 dev and schnell, and the outpaint's seam by number on FLUX.1; their loads stop at the RAM guard (`GEN#22`). [Outpaint](docs/verified.md#outpaint). |
+| `CARD#3` | CARD | LOW | S+card | An inpaint under WSL through the real server and the Inpaint dialog, and over the FLUX.1 dev and schnell lite transformers. [Under Nunchaku](docs/verified.md#under-nunchaku-wsl-2026-10-25). |
+| `CARD#4` | CARD | LOW | M+card | INT8 and fp8 under either offload on FLUX.1 Krea dev, dev, schnell, Krea 2 Turbo and Raw, klein 9B and base 9B (fp8 stopped at the RAM guard on all but Raw and base 9B, int8 on Krea dev; the rest untried, the same load; `GEN#22`); INT8 with sequential offload. Qwen-Image is `CARD#12`. [Quantization and offload](docs/verified.md#quantization-and-offload-2026-10-25). |
+| `CARD#6` | CARD | LOW | M+card | Windows fp8 rows: Krea 2 Turbo's time, Krea 2 Raw, FLUX.2 [klein] 9B and base 9B. Krea 2 Turbo's and klein 9B's fp8 loads stop at the RAM guard (`GEN#22`); Raw's and base 9B's were not tried (the same scale). [RAM at the load](docs/verified.md#ram-at-the-load-2026-10-25). |
+| `CARD#7` | CARD | LOW | M+card | Refine on FLUX.1 at fp8: dev, what schnell's starting strength keeps, true CFG through FluxImg2Img (their loads stop at the RAM guard, `GEN#22`); offload none and sequential past Z-Image Turbo. [Refine pass](docs/verified.md#refine-pass). |
+| `CARD#9` | CARD | LOW | S+card | ERNIE-Image Turbo on fp8: seed reproduction across two processes, whether the 4 MP batch of two fits (the harness's projection refused it), and the page's Expand line and clock over the rewriter's real first-use download. [Behaviour](docs/verified.md#behaviour). |
+| `CARD#10` | CARD | LOW | M+card | On the real server, fixes checked only on the fake: 9377de1, 7733f81, 6a7570d, ad01fdc, 2a4d2cc, 2b89ed5 (the FLUX.1 Krea dev load stops at the RAM guard, `GEN#22`); R50's fix (1744dc3) with a typed Ctrl-C, and Ctrl-C to an idle server with a model loaded. [Behaviour](docs/verified.md#behaviour); [10-12 not reached](docs/review-2026-10-12.md#review--2026-10-12). |
+| `CARD#11` | CARD | LOW | M+card | The critic: a reorder that reaches the partial-placement check (none of 16 did; every 4B reorder changed words); FLUX.1 Krea [dev] at int8 or sequential beside it, and its rewrites against originals over more seeds (RAM guard, `GEN#22`); kill-on-close under WSL; Ctrl-C during a critique. [Prompt analyser](docs/verified.md#prompt-analyser). |
+| `CARD#12` | CARD | LOW | S+card | Official Qwen-Image on Windows: fp8 with sequential offload stops at the RAM guard during the load (`GEN#22`); BF16 with sequential offload is untried. [RAM at the load](docs/verified.md#ram-at-the-load-2026-10-25); [Switching](docs/design-notes.md#switching-checkpoints-while-the-server-stays-open). |
 
 ## Inpainting and outpainting
 
@@ -58,12 +58,15 @@ An index of open work, one row per item; each row points to the doc that owns th
 |---|---|---|---|---|
 | `GEN#6` | DEFERRED | LOW | M+card | Live-preview maps for the four-channel SDXL VAE and FLUX.2's VAE (ERNIE; klein also lacks an unpack hook); previews switch themselves off there. [Behaviour](docs/verified.md#behaviour). |
 | `GEN#8` | DEFERRED | LOW | L | U61 part B: one's own photo or sketch as a reference (import route, a source marker through storage, reindex and reruns; add, drop and paste). Matt deferred it 2026-10-05; only when he raises it. [References](docs/design-notes.md#reference-images-by-gallery-id). |
-| `GEN#15` | CARD | LOW | S+card | Peak memory per image, built 2026-10-24: one render each on an SDXL profile and FLUX.1 Krea [dev], the recorded peak beside `nvidia-smi` and shared memory (phase 3). [Plan](docs/plan-peak-vram.md). |
-| `GEN#16` | CARD | LOW | S+card | Generate then refine, built 2026-10-24: a then-refine night on WAI v17 and FLUX.1 Krea dev at 1.5x, one per session - peak of the alternation and the pair's time (phase 3). [Plan](docs/plan-then-refine.md). |
+| `GEN#15` | CARD | LOW | S+card | Peak memory per image: phase 3's FLUX.1 Krea [dev] render, the recorded peak beside `nvidia-smi` and shared memory; its load stops at the RAM guard (`GEN#22`). [Plan](docs/plan-peak-vram.md). |
+| `GEN#16` | CARD | LOW | S+card | Generate then refine: phase 3's FLUX.1 Krea dev night at 1.5x, peak of the alternation and the pair's time; its load stops at the RAM guard (`GEN#22`). [Plan](docs/plan-then-refine.md). |
 | `GEN#17` | OPEN | LOW | M | Random-choice prompt variables drawn from each image's seed; plan first. [10-24 G5](docs/review-2026-10-24.md#g5-random-choice-prompt-variables). |
 | `GEN#18` | OPEN | LOW | M | Queue: move a job to the front (an admission order of the manager's own, not the gate lock's) and skip the running cell; plan first. [10-24 G7](docs/review-2026-10-24.md#g7-queue-move-to-front-and-skip-one-cell). |
 | `GEN#19` | OPEN | LOW | L | Size as a grid axis and a crop anchor for Refine, widening the key once; a run then has more than one size. Plan first. [10-24 G8](docs/review-2026-10-24.md#g8-size-as-a-grid-axis-and-a-crop-anchor-for-refine). |
 | `GEN#20` | DECISION | LOW | L+card | Whether to plan opt-in A1111 weighting and 77-token chunking on SDXL; only if Matt writes weighted prompts. [10-24 G10](docs/review-2026-10-24.md#g10-a1111-style-weighting-and-long-prompts-on-sdxl). |
+| `GEN#21` | OPEN | MED | S | ERNIE's Expand: the English gloss drops most of an expansion, since `MarianTranslator._chunks` sends it to Marian as one chunk; one sentence at a time keeps them all (card, 2026-10-25). [ERNIE](docs/design-notes.md#ernie-image-turbo-the-prompt-rewriter-and-a-mu-with-no-way-in). |
+| `GEN#22` | DECISION | MED | M+card | How a cold quantizing FLUX.1, Krea 2, klein 9B or Qwen-Image load fits this machine's RAM (about 46 GiB at the load, 2026-10-25): free RAM before a run, lower the guard's floor, or quantize a shard at a time (a loader change, plan first). Unblocks the FLUX-family card rows. [The quantizing load's RAM peak](docs/design-notes.md#the-quantizing-loads-ram-peak). |
+| `GEN#23` | OPEN | LOW | S | Reword INT8 from the 2026-10-25 comparison (`loader_choices.py`, `docs/rules.md`, `docs/usage.md`), with the other lines those runs made stale (`rules.md`'s Nunchaku inpaint and Qwen-Image sequential, `model_info.py`'s Qwen note). [Switching](docs/design-notes.md#switching-checkpoints-while-the-server-stays-open). |
 
 ## Prompt analyser
 
@@ -71,6 +74,7 @@ An index of open work, one row per item; each row points to the doc that owns th
 
 | id | status | sev | size | item |
 |---|---|---|---|---|
+| `PA#10` | OPEN | MED | S | Say when the critic's rewrite drops or changes a tag the user wrote (8 of 19 SDXL rewrites on the card, 2026-10-25, unreported): a removals counterpart to `heuristic.rewrite_adds`. [Design notes, The prompt analyser, "Open questions the build turned up"](docs/design-notes.md#the-prompt-analyser). |
 | `PA#9` | DEFERRED | LOW | L | Scoring comparison images automatically with a VLM (does each element appear); accuracy unmeasured. |
 
 ## The page

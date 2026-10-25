@@ -69,10 +69,41 @@ Aesthetic; the qualification and its memory limits are recorded below.
 | Anima 2.9B Preview v1, CFG 4 | fp8, Windows | 1024x1024 | 30 | 32.037 s after cancellation; 31.203 s repeat | 2.958 GiB allocated, 3.123 GiB reserved | 2026-10-24 |
 | Anima 2.9B Preview v1, CFG 4 | fp8, Windows | 1152x1536 | 30 | 58.779 s, one sample | 3.051 GiB allocated, 3.482 GiB reserved | 2026-10-24 |
 | NoobAI-XL V-pred 1.0, CFG 5 | fp8, Windows | 1024x1024 | 28 | 8.078 s after cancellation; 8.490 s repeat | 3.686 GiB allocated, 4.371 GiB reserved (maximum of the pair) | 2026-10-07 |
+| FLUX.2 klein base 4B, CFG 4 | fp8, Windows | 1024x1024 | 50 | 57.680 s after cancellation; 57.730 s repeat | 8.149 GiB allocated, 8.381 GiB reserved (maximum of the pair); 9,249 MiB whole-card, the desktop's 361 MiB included | 2026-10-25 |
+| ERNIE-Image Turbo | fp8, Windows | 1 MP | 8 | 12.8-13.3 s once warm (1.20 s a step), 26.7 s for the first of a process (18.3 s load) | 8.54 GiB allocated, 8.93 GiB reserved; 9,815 MiB whole-card, the desktop's 361 MiB included | 2026-10-25 |
+| ERNIE-Image Turbo | fp8, Windows | 1440x1440, 2 MP | 8 | 25.6 s (2.63 s a step) | 9.06 GiB allocated, 9.35 GiB reserved; 10,247 MiB whole-card | 2026-10-25 |
+| ERNIE-Image Turbo | fp8, Windows | 2048x2048, 4 MP | 8 | 63.3 s (7.04 s a step) | 10.43 GiB allocated, 11.68 GiB reserved; 12,631 MiB whole-card | 2026-10-25 |
 
 The October 5 rows were each the source of a refine ladder ("Past 4 MP",
 below), with another project's processes keeping the CPU near 75% busy:
 their times are upper bounds.
+
+The 2026-10-25 rows: one process and one load each, seed 12345, model
+offload, `HF_HUB_OFFLINE=1`, a scratch gallery, with nvidia-smi, the
+Windows shared-memory counters and free RAM watched (shared memory never
+rose past the constant 82-86 MiB a first render adds, so nothing spilled).
+klein base 4B (`card6.py`) loaded in 21.6 s at 22.9 GiB working set; the
+call before the first row was cancelled after step 2 in 6.17 s; both renders
+hash `8a877bdbb10c2d3b`, and the repeat peaked lower (4.58 / 5.21 GiB,
+5,999 MiB), so the pair's maximum is the first render's. `card4.py`'s first
+render of its own fresh fp8 load, with no cancelled call before it, peaked
+at 4.58 / 5.21 GiB ("Quantization and offload", below), so the 8.15 GiB
+follows the cancelled call and is not the render's own cost; why is not
+measured. No live previews:
+FLUX.2's VAE has no map. By eye, a coherent botanist in a navy coat with a
+satchel in a dusk greenhouse. ERNIE (`ernie_card.py`): the process held
+35.4-36.0 GiB of RAM at the load (14.0 GiB free at the lowest) and 14 GiB
+after it; 1 MP at 848x1264, 1376x768 and 1200x896 took 12.9-13.3 s at the
+same peak. A 4 MP batch of two was refused by the harness's own linear
+projection (17,354 MiB against a 15,200 limit) and not run; NVFP4 ran that
+pair at 12.0 GiB reserved, so the projection is probably pessimistic, but
+whether it fits is unmeasured. By eye the 1 MP renders follow their prompts;
+the 4 MP street is coherent but open where the prompt asked for a covered
+one, and the small text on a web-page render is garbled. Evidence:
+`card6-catalogue/` and `ernie/run-card/` in
+`%TEMP%/local-diffusion-card-20261025/` ("the cards directory" below; a
+copy of the 2026-10-25 card session's scratch directory, with each
+session's report in `results/`), each with `results.jsonl` and named PNGs.
 
 Anima 2.9B Preview v1's source file matched its pinned SHA-256,
 `0b3020d1b906155f7eb30667622723e87160632c8c7a5f1c93bdce685f2a346d`.
@@ -120,8 +151,7 @@ Evidence is in `%TEMP%/local-diffusion-anima-preview-20261024/`:
 `baseline.json`, `memory.jsonl`, `watchdog.json`, `converted-inventory.json`,
 the separate `gpu.db`, previews and `outputs/` PNGs. The two stopped attempts
 are retained in `first-load-ram-stop/` and `cached-load-ram-stop/`.
-Other sizes, batch scaling, INT8/BF16 and sequential offload remain
-unmeasured. Mu, references, user LoRAs, Refine, inpaint and Nunchaku remain
+Other sizes and batch scaling remain unmeasured (INT8, full BF16 and fp8 with sequential offload at 1024x1024 were measured 2026-10-25: "Quantization and offload", below). Mu, references, user LoRAs, Refine, inpaint and Nunchaku remain
 unavailable in this integration.
 The measurement/cache-fact updates passed 69 focused Python tests
 (`test_model_info`, `test_model_benchmarks`, `test_model_downloads` and
@@ -170,8 +200,8 @@ The full CPU suite passed 2,216 tests with 4 skips and 49 dependency
 deprecation warnings. `tools/smoke-noobai.json` passed all 19 browser
 expectations. The real pinned tokenizers both reported a 77-token sequence
 limit; the author's prefix used 17 tokens and negative 47, including special
-tokens. Larger direct/Refine sizes, batch scaling, int8/bfloat16, sequential
-offload and user LoRAs remain unmeasured. There is no SDXL live latent-preview
+tokens. Larger direct/Refine sizes, batch scaling and user LoRAs remain
+unmeasured (INT8, full BF16 and fp8 with sequential offload at 1024x1024 were measured 2026-10-25: "Quantization and offload", below). There is no SDXL live latent-preview
 map, and no Nunchaku build is mapped.
 
 Anima Aesthetic v1.1 was verified on 2026-10-07 with Windows FP8, model
@@ -202,8 +232,7 @@ null. The pipeline was unloaded afterward. Evidence is in
 The full Python suite passed 2,187 tests with 4 skips and 39
 dependency deprecation warnings. `smoke-anima-aesthetic.json` passed all 23
 browser expectations. Higher
-resolutions, batch scaling, int8/bfloat16 and sequential offload remain
-unmeasured for Aesthetic. Mu, references, Refine, user LoRAs and Nunchaku
+resolutions and batch scaling remain unmeasured for Aesthetic (INT8, full BF16 and fp8 with sequential offload at 1024x1024 were measured 2026-10-25: "Quantization and offload", below). Mu, references, Refine, user LoRAs and Nunchaku
 are unavailable in this integration.
 
 RouWei 0.8 epsilon was verified on 2026-10-07 with Windows FP8, model
@@ -240,8 +269,7 @@ assertions completed and the pipeline unloaded (`passed: true`,
 `unloaded: true` in the result). The production gallery was not used.
 Evidence is under `%TEMP%/local-diffusion-rouwei-20261007/`: `qualify.py`,
 `gpu-results.json`, the separate `gpu.db` and `outputs/` PNGs. Batch scaling,
-int8/full-bfloat16 generation, sequential offload, user LoRAs and larger
-direct or Refine sizes remain unmeasured.
+user LoRAs and larger direct or Refine sizes remain unmeasured (INT8, full BF16 and fp8 with sequential offload at 1024x1024 were measured 2026-10-25: "Quantization and offload", below).
 
 The same checkout passed the full CPU suite (2,150 passed, 4 skipped) and
 all 22 expectations in `tools/smoke-rouwei.json` on a fresh fake server:
@@ -277,8 +305,7 @@ used; evidence is in `%TEMP%/local-diffusion-wai-validation/`: `validate.py`,
 The full Python suite passed 453 tests and `smoke-wai.json` passed all 20
 browser expectations. CPU conditioning tests cover none/FP8/int8 and both
 positive/negative prompts with non-finite weights in the unused CLIP layer.
-GPU int8/full-bfloat16, sequential offload, LoRAs, batch scaling and larger
-resolutions remain unmeasured.
+LoRAs, batch scaling and larger resolutions remain unmeasured (INT8, full BF16 and fp8 with sequential offload at 1024x1024 were measured 2026-10-25: "Quantization and offload", below).
 
 NewBie Image Exp0.1 was verified on the RTX 5080 with Windows FP8 and model
 offload. The pinned official components are strictly converted on CPU; the
@@ -353,8 +380,7 @@ The full Python suite passes 438 tests, including strict tensor conversions,
 atomic cache publication, owned quantization, real tiny pipeline round trips,
 CFG/flow/Mu semantics, seeded batches, XML conditioning and cancellation
 cleanup. `smoke-newbie.json` passes all 14 browser expectations. Higher
-resolutions, GPU int8/full-bfloat16, sequential offload and GPU batch scaling
-remain unmeasured. References, user LoRAs and Nunchaku are disabled.
+resolutions and GPU batch scaling remain unmeasured (INT8, full BF16 and fp8 with sequential offload at 1024x1024 were measured 2026-10-25: "Quantization and offload", below). References, user LoRAs and Nunchaku are disabled.
 
 NetaYume Lumina v4 was verified on the RTX 5080 with Windows FP8 and model
 offload. The first load, including downloading the pinned v4 denoiser and
@@ -387,9 +413,8 @@ The full Python suite passes 396 tests, including strict tensor conversion,
 cache publication and retry, selective pinned downloads, all three normal
 quantization routes, and actual Lumina pipeline CPU checks of the fixed
 system instruction, negative-prompt gate and final scheduler sigmas.
-`smoke-netayume.json` passes all 12 browser expectations. Int8/full-bfloat16
-GPU paths, sequential offload, user LoRAs, batch scaling and larger image
-sizes have not been measured. The guide's 1.05-1.57 MP span comes from
+`smoke-netayume.json` passes all 12 browser expectations. User LoRAs, batch
+scaling and larger image sizes have not been measured (INT8, full BF16 and fp8 with sequential offload at 1024x1024 were measured 2026-10-25: "Quantization and offload", below). The guide's 1.05-1.57 MP span comes from
 published family examples, not a verified v4 output limit.
 
 Kohaku XL Zeta was verified with Windows FP8 and model offload using the
@@ -414,9 +439,8 @@ The pipeline was unloaded afterward. Evidence is under
 `%TEMP%/local-diffusion-kohaku-validation/`: `validate.py`, `validation.log`,
 `results.json`, the separate database and `outputs/` PNGs. The production
 gallery was not used. The Python suite passes 375 tests and
-`smoke-kohaku.json` passes all 16 browser expectations. Kohaku's int8/full-
-bfloat16 GPU paths, sequential offload, user LoRAs, batch scaling and higher
-resolutions have not been measured.
+`smoke-kohaku.json` passes all 16 browser expectations. Kohaku's user LoRAs,
+batch scaling and higher resolutions have not been measured (INT8, full BF16 and fp8 with sequential offload at 1024x1024 were measured 2026-10-25: "Quantization and offload", below).
 
 Anima Turbo v1.1 was verified on the RTX 5080 with Windows FP8, model
 offload, the pinned full Turbo checkpoint and FlowMatch Euler shift 3.
@@ -440,8 +464,7 @@ afterward. The production gallery was not used. Evidence is in
 The Python suite passes 373 tests, including strict Turbo conversion,
 quantized-loader routing, real modular-block CPU seed/CFG/cancel checks and
 Accelerate hook cleanup. `smoke-anima.json` passes all 12 browser expectations.
-Anima's int8/full-bfloat16 GPU paths, sequential offload, batch scaling and
-higher resolutions have not been measured. Mu, reference images and user
+Anima's batch scaling and higher resolutions have not been measured (INT8, full BF16 and fp8 with sequential offload at 1024x1024 were measured 2026-10-25: "Quantization and offload", below). Mu, reference images and user
 LoRAs are unavailable in this integration.
 
 Z-Anime uses the pinned nested Base denoiser, its supplied FlowMatch Euler
@@ -545,6 +568,180 @@ Under model offload the per-image weight transfer costs about 5 s and
 dominates a 4-step image; on FLUX.1 the text encoders under bitsandbytes NF4
 add to that, which is why schnell is not the speed win Z-Image Turbo is.
 
+### Quantization and offload (2026-10-25)
+
+INT8, full BF16 (quantization none) and fp8 with sequential offload against
+fp8 with model offload, per checkpoint: Windows, 1024x1024, the profile's
+own steps and CFG, seed 12345, batch 1, one `card4.py` process and one load
+per checkpoint and mode, a scratch gallery, `HF_HUB_OFFLINE=1`, the card
+watched at 250 ms with a 15.5 GB stop, the Windows shared-memory counters
+and a 4 GiB free-RAM floor. Time is the first render of the process, then
+an identical repeat where the first took under 90 s (every repeat had the
+first's pixels), and the per-step figure; allocated / reserved is torch's
+peak (equal to the backend's `last_peak` in every row); "card" is the
+whole card, the desktop's 361 MiB (later 399) included. Teams, the
+ChatGPT/Codex app and others were running: individual samples, one seed.
+
+| Checkpoint (steps, CFG) | Mode | Time: first; repeat (per step) | Allocated / reserved | Card | Load |
+| --- | --- | --- | --- | --- | --- |
+| WAI v17 (28, 6) | fp8 / int8 / bf16 | 9.76; 7.50 / 8.53; 7.22 / 8.85; 6.51 s (0.22 / 0.21 / 0.17) | 3.12 / 4.37, the same, 5.23 / 5.64 GiB | 5,143 / 5,143 / 6,445 MiB | 9.8 / 5.5 / 3.6 s |
+| WAI v17 | fp8, sequential | 29.07; 23.84 s (0.81) | 2.41 / 2.54 GiB | 2,538 MiB | 11.1 s |
+| Animagine XL 4.0 (28, 5) | fp8 / int8 / bf16 | 8.18; 7.60 / 7.98; 7.28 / 7.68; 6.81 s (0.22 / 0.20 / 0.17) | 3.12 / 3.47, 3.12 / 3.46, 5.23 / 5.64 GiB | 4,219 / 4,215 / 6,445 MiB | 11.5 / 6.4 / 5.5 s |
+| Animagine XL 4.0 | fp8, sequential | 28.42; 23.93 s (0.81) | 0.63 / 0.79 GiB | 1,254 MiB | 12.4 s |
+| Illustrious XL v2.0 (28, 5) | fp8 / int8 / bf16 | 9.89; 7.61 / 8.66; 7.21 / 9.21; 6.68 s (0.22 / 0.21 / 0.17) | 3.12 / 4.37, the same, 5.23 / 5.64 GiB | 5,180 / 5,180 / 6,482 MiB | 10.4 / 5.7 / 3.6 s |
+| Illustrious XL v2.0 | fp8, sequential | 25.23; 23.61 s (0.81) | 2.41 / 2.54 GiB | 2,024 MiB | 11.0 s |
+| Kohaku XL Zeta (28, 5) | fp8 / int8 / bf16 | 8.58; 7.85 / 8.07; 7.45 / 7.98; 6.93 s (0.22 / 0.20 / 0.17) | 3.12 / 3.47, 3.12 / 3.46, 5.23 / 5.64 GiB | 4,256 / 4,252 / 6,482 MiB | 12.1 / 6.6 / 5.7 s |
+| Kohaku XL Zeta | fp8, sequential | 26.21; 25.33 s (0.81) | 0.36 / 0.40 GiB | 1,110 MiB | 12.5 s |
+| RouWei 0.8 (28, 6) | fp8 / int8 / bf16 | 9.91; 7.58 / 8.76; 7.20 / 9.20; 6.67 s (0.22 / 0.21 / 0.17) | 3.12 / 4.37, the same, 5.23 / 5.64 GiB | 5,180 / 5,180 / 6,482 MiB | 10.4 / 5.7 / 3.6 s |
+| RouWei 0.8 | fp8, sequential | 25.44; 23.88 s (0.82) | 2.41 / 2.54 GiB | 2,536 MiB | 10.9 s |
+| NoobAI-XL V-pred 1.0 (28, 5) | fp8 / int8 / bf16 | 8.22; 7.60 / 7.84; 7.19 / 7.66; 6.61 s (0.22 / 0.20 / 0.17) | 3.12 / 4.37, the same, 5.23 / 5.64 GiB | 5,180 / 5,180 / 6,482 MiB | 12.2 / 6.7 / 5.6 s |
+| NoobAI-XL V-pred 1.0 | fp8, sequential | 24.49; 23.79 s (0.81) | 2.41 / 2.54 GiB | 2,022 MiB | 12.6 s |
+| Z-Image Turbo (8, 0) | fp8 / int8 / bf16 | 12.77; 10.17 / 11.08; 9.31 / 14.30; 11.61 s (0.89 / 0.81 / 0.76) | 6.43 / 7.17, 6.30 / 7.15, 12.07 / 12.89 GiB | 8,005 / 8,022 / 13,900 MiB | 41.5 / 17.1 / 7.9 s |
+| Z-Image Turbo | fp8, sequential | 19.64; 10.80 s (1.25) | 2.41 / 2.98 GiB | 2,992 MiB | 43.2 s |
+| Z-Anime Base (40, 4) | fp8 / int8 / bf16 | 75.95; 72.56 / 72.82; 69.95 / 75.04; 69.01 s (1.73 / 1.68 / 1.60) | 6.77 / 8.44, 6.77 / 8.04, 12.55 / 13.85 GiB | 9,350 / 8,932 / 14,888 MiB | 29.7 / 13.2 / 3.6 s |
+| Z-Anime Base | fp8, sequential | 93.84 s, no repeat (2.25) | 2.42 / 2.99 GiB | 2,282 MiB | 30.2 s |
+| Anima Turbo v1.1 (8, 1) | fp8 / int8 / bf16 | 9.94; 4.00 / 5.34; 3.92 / 6.28; 4.08 s (0.32 / 0.31 / 0.28) | 2.17 / 2.34, 2.08 / 2.25, 3.92 / 4.10 GiB | 3,096 / 3,012 / 4,900 MiB | 10.3 / 5.2 / 3.7 s |
+| Anima Turbo v1.1 | fp8, sequential | 12.45; 6.00 s (0.56) | 0.34 / 0.61 GiB | 1,072 MiB | 9.7 s |
+| Anima Aesthetic v1.1 (30, 4) | fp8 / int8 / bf16 | 22.77; 20.66 / 21.29; 19.79 / 21.17; 18.90 s (0.64 / 0.61 / 0.57) | 2.17 / 2.34, 2.08 / 2.26, 3.92 / 4.10 GiB | 3,098 / 3,014 / 4,902 MiB | 8.8 / 5.2 / 3.7 s |
+| Anima Aesthetic v1.1 | fp8, sequential | 36.91; 33.84 s (1.07) | 0.34 / 0.61 GiB | 1,106 MiB | 9.4 s |
+| Anima 2.9B Preview v1 (30, 4) | fp8 / int8 / bf16 | 31.60; 29.15 / 29.70; 27.94 / 29.44; 26.80 s (0.91 / 0.87 / 0.81) | 2.96 / 3.12, 2.87 / 3.04, 5.49 / 5.69 GiB | 3,902 / 3,820 / 6,526 MiB | 10.4 / 6.2 / 3.7 s |
+| Anima 2.9B Preview v1 | fp8, sequential | 48.18; 47.46 s (1.53) | 0.34 / 0.61 GiB | 1,106 MiB | 11.0 s |
+| NetaYume Lumina v4 (40, 5) | fp8 / int8 / bf16 | 39.22; 34.96 / 35.01; 32.82 / 35.16; 31.79 s (0.83 / 0.78 / 0.73) | 3.30 / 4.38, 3.14 / 4.38, 5.37 / 5.97 GiB | 5,186 / 5,188 / 6,818 MiB | 13.2 / 8.1 / 4.5 s |
+| NetaYume Lumina v4 | fp8, sequential | 49.02; 47.03 s (1.15) | 2.41 / 3.11 GiB | 2,988 MiB | 14.1 s |
+| NewBie Exp0.1 (28, 4) | fp8 / int8 / bf16 | 40.14; 34.43 / 35.08; 32.34 / 36.83; 31.63 s (1.13 / 1.06 / 0.98) | 4.63 / 4.69, 4.44 / 4.46, 7.28 / 7.68 GiB | 5,510 / 5,272 / 8,568 MiB | 21.6 / 12.2 / 5.7 s |
+| NewBie Exp0.1 | fp8, sequential | 46.74; 44.15 s (1.55) | 2.41 / 3.26 GiB | 4,042 MiB | 22.1 s |
+| FLUX.2 klein 4B (4, 1) | fp8 / int8 / bf16 | 8.15; 4.70 / 6.92; 4.42 / 10.75; 5.83 s (0.55 / 0.51 / 0.46) | 4.58 / 5.19, 4.42 / 5.27, 7.83 / 8.46 GiB | 6,020 / 6,098 / 9,370 MiB | 23.5 / 11.3 / 3.5 s |
+| FLUX.2 klein 4B | fp8, sequential | 5.85; 4.28 s (0.86) | 2.42 / 3.00 GiB | 3,758 MiB | 25.5 s |
+| FLUX.2 klein base 4B (50, 4) | fp8 / int8 / bf16 | 61.35; 57.95 / 55.54; 52.80 / 55.75; 50.78 s (1.11 / 1.01 / 0.93) | 4.58 / 5.21, 4.43 / 5.27, 7.84 / 8.48 GiB | 6,036 / 6,098 / 9,392 MiB | 22.9 / 11.5 / 3.5 s |
+| FLUX.2 klein base 4B | fp8, sequential | 86.40; 86.60 s (1.71) | 2.43 / 3.00 GiB | 2,478 MiB | 23.8 s |
+| ERNIE-Image Turbo (8, 1) | fp8 / int8 | 17.23; 13.14 / 15.22; 11.97 s (1.18 / 1.08) | 8.53 / 8.93, 8.25 / 8.64 GiB | 9,850 / 9,554 MiB | 34.7 / 16.3 s |
+| ERNIE-Image Turbo | fp8, sequential / bf16, sequential | 15.74; 13.99 (1.66) / 21.17; 15.72 s (1.87) | 2.42 / 3.03 GiB both | 2,268 / 2,540 MiB | 35.4 / 4.2 s |
+| FLUX.1 Krea dev (28, 3.5) | bf16, sequential | 109.7 s, no repeat (2.81) | 2.41 / 2.56 GiB | 2,556 MiB | 3.8 s |
+| FLUX.1 dev (28, 3.5) | bf16, sequential | 107.2 s, no repeat (2.82) | 2.41 / 2.56 GiB | 1,988 MiB | 3.8 s |
+| FLUX.1 schnell (4, 0) | bf16, sequential | 39.61; 12.64 s (2.86) | 2.41 / 2.56 GiB | 2,168 MiB | 3.8 s |
+| Krea 2 Turbo (8, 0) | bf16, sequential | 51.96; 24.41 s (2.84) | 0.76 / 1.47 GiB | 1,894 MiB | 5.4 s |
+| Krea 2 Raw (52, 3.5) | bf16, sequential | 329.8 s, no repeat (5.77) | 0.79 / 1.47 GiB | 1,896 MiB | 5.2 s |
+| FLUX.2 klein 9B (4, 1) | bf16, sequential | 36.82; 8.58 s (1.82) | 2.43 / 3.19 GiB | 3,106 MiB | 3.8 s |
+| FLUX.2 klein base 9B (50, 4) | bf16, sequential | 212.6 s, no repeat (3.64) | 2.44 / 3.19 GiB | 3,102 MiB | 3.8 s |
+
+- INT8 costs what fp8 costs on the card (within 0.4 GiB, the same 3.12 GiB
+  on SDXL), runs 3-10% faster a step on all sixteen (2.9% on Z-Anime to
+  9.9% on klein base 4B; a repeat render 2.0-8.9% faster), and loads in
+  about half the time. Full BF16 fits under model offload on every
+  checkpoint it was tried on, the two nearest the top being Z-Image Turbo
+  (13,900 MiB) and Z-Anime (14,888 MiB). fp8 with sequential offload is
+  pixel-identical to fp8 with model offload on all sixteen, at 2.43 GiB
+  allocated or less (3.26 GiB reserved at most, NewBie).
+- Nothing spilled: the process's shared GPU memory rose a constant 82 MiB
+  on every model-offload first render (8 MiB under sequential), 0 on every
+  repeat, including 4 GB SDXL runs nowhere near the card's top.
+- These are the first renders on this machine of Krea 2 Raw, klein 9B and
+  klein base 9B, the first Windows render of FLUX.1 dev, and the first
+  timed Windows one of Krea 2 Turbo (schnell rendered at fp8 on 2026-10-05,
+  Krea 2 Turbo at fp8 in 2026-09, the rows above); all of these ran only in
+  BF16 with sequential offload, since the fp8 and int8 loads tried stopped
+  at the RAM guard and the rest were not tried ("RAM at the load", below). The BF16 loads map the files and page them in during the first
+  render (about 30 s for its first step on FLUX.1 and Krea 2), the process
+  peaking at 33-35 GiB working set then, 14.7 GiB free at the lowest. By
+  eye each of the FLUX.1 Krea dev, Krea 2 Turbo and Krea 2 Raw images is a
+  clean photograph that matches the prompt; there is no fp8 image of them
+  to compare.
+- Skipped as past the card by `card4.py`'s estimate, not run: BF16 under
+  model offload on FLUX.1 Krea dev, dev and schnell (about 23.5 GiB),
+  Krea 2 Turbo (24.5), Krea 2 Raw (25.0), ERNIE (16.5), klein 9B (17.5)
+  and base 9B (18.5). `card4.py` skipped every Qwen-Image mode: model
+  offload as past the card (20.5-39 GiB), fp8 sequential on its RAM
+  estimate (about 62 GiB against 50 free). The zimage-qwen session ran
+  that load, and it stopped at the RAM guard ("RAM at the load", below).
+- Not tried, inferred from same-sized loads that stopped at the RAM guard:
+  int8 on FLUX.1 dev, schnell, Krea 2 Turbo and klein 9B; fp8 and int8 on
+  Krea 2 Raw and klein base 9B; fp8 with sequential offload on all seven
+  FLUX.1, Krea 2 and klein 9B checkpoints (the quantizing load comes before
+  placement).
+
+Against fp8 with model offload, by number (mean absolute difference in
+8-bit levels / PSNR in dB / % of pixels off by more than 16):
+
+| Checkpoint | INT8 against fp8 | BF16 against fp8 | INT8 against BF16 |
+| --- | --- | --- | --- |
+| WAI v17 | 16.7 / 18.1 / 34.0 | 19.7 / 16.9 / 37.9 | 13.4 / 19.3 / 25.1 |
+| Animagine XL 4.0 | 9.2 / 23.0 / 21.9 | 8.4 / 23.5 / 19.8 | 6.1 / 26.1 / 13.0 |
+| Z-Image Turbo | 8.9 / 21.4 / 12.2 | 8.2 / 21.8 / 10.6 | 3.8 / 26.8 / 5.4 |
+| Anima Turbo | 27.5 / 14.1 / 43.2 | 30.1 / 13.5 / 45.6 | 16.8 / 16.2 / 24.0 |
+| Anima Aesthetic | 31.6 / 12.8 / 42.6 | 32.9 / 12.5 / 43.5 | 6.1 / 22.9 / 8.7 |
+| Anima 2.9B | 14.1 / 18.7 / 27.7 | 12.9 / 19.1 / 23.5 | 6.8 / 23.1 / 10.5 |
+| Illustrious XL v2.0 | 6.0 / 27.9 / 6.9 | 8.4 / 25.6 / 15.4 | 5.7 / 27.6 / 7.4 |
+| Kohaku XL Zeta | 9.8 / 21.8 / 18.3 | 8.9 / 22.5 / 16.6 | 5.6 / 25.8 / 9.0 |
+| RouWei 0.8 | 7.5 / 22.7 / 11.3 | 6.0 / 24.4 / 8.6 | 5.5 / 25.4 / 7.4 |
+| NoobAI-XL V-pred | 7.3 / 22.6 / 13.1 | 5.8 / 25.3 / 10.2 | 5.2 / 24.5 / 7.8 |
+| Z-Anime | 19.0 / 17.6 / 54.2 | 17.7 / 17.9 / 47.0 | 15.4 / 20.4 / 42.6 |
+| NetaYume v4 | 9.9 / 20.5 / 16.4 | 5.0 / 26.9 / 7.4 | 9.4 / 21.1 / 15.7 |
+| NewBie Exp0.1 | 9.3 / 24.2 / 17.0 | 7.3 / 26.1 / 11.6 | 7.6 / 25.0 / 12.2 |
+| klein 4B | 11.3 / 20.4 / 19.2 | 9.7 / 21.4 / 17.2 | 7.8 / 22.9 / 11.6 |
+| klein base 4B | 12.9 / 19.4 / 28.2 | 16.4 / 17.8 / 37.4 | 10.4 / 20.2 / 17.8 |
+| ERNIE Turbo (BF16 sequential) | 8.2 / 22.2 / 13.7 | 9.0 / 21.0 / 14.2 | 7.4 / 22.0 / 10.5 |
+
+INT8 is nearer BF16 than fp8 is, by mean difference, on 14 of 16 (not
+NetaYume or NewBie; on NoobAI, PSNR favours fp8, 25.3 dB against 24.5).
+These sixteen leave out FLUX.1, Krea 2 and klein 9B, which have no INT8 or
+fp8 image to compare. By
+eye, on the sheets viewed (WAI, Animagine, Z-Image Turbo, the three Animas,
+NoobAI, Z-Anime, klein 4B, ERNIE): the three modes give the same picture
+with detail changes - straps, a fur hood, an ear under hair, coat
+closures, an expression, a lamp post's shape - and larger ones on Anima
+Turbo, Anima Aesthetic and Z-Anime (the figure's size or place, the coat's
+colour); no mode looked degraded, and one seed cannot say one is better.
+The Illustrious, Kohaku, RouWei, NetaYume, NewBie and klein base 4B sheets
+were not viewed. Evidence: `card4-quant/` in the cards directory
+(`summary.txt`, `results.jsonl`, `compare.jsonl`, `verdicts.txt`,
+`compare/*.jpg`, per-run logs and PNGs).
+
+Not measured: INT8 and fp8 under either offload on FLUX.1 Krea dev, dev,
+schnell, Krea 2 Turbo, Krea 2 Raw, klein 9B and base 9B (the RAM guard, or
+the same load known to reach it); any Qwen-Image mode on Windows; INT8 with
+sequential offload; other sizes, batches, LoRAs, Refine and inpaint under
+these modes.
+
+### RAM at the load (2026-10-25)
+
+Every Windows load tried that day that quantizes a FLUX.1-, Krea 2-,
+klein 9B- or Qwen-Image-sized checkpoint stopped at the harnesses' 4 GiB free-RAM floor
+before a weight reached the card (the card at its desktop level, shared
+memory flat), starting from 49-50 GiB free with Teams, the ChatGPT/Codex
+app, Edge WebView, another project's server and WSL (1.7 GB) resident. None
+was retried, no app was closed and the floor was not lowered.
+
+| Checkpoint | Load | Stopped at | Free RAM at the stop | The process |
+| --- | --- | --- | --- | --- |
+| FLUX.1 Krea dev | fp8, model offload: the real server twice (`--defaults`), `card4.py` once | transformer shard 2 of 3, about 51 s in | 3.83 / 3.8 / 3.81 GiB | 46.31 / 46.2 / 46.2 GiB working set (55.2 private) |
+| FLUX.1 Krea dev | int8, model offload | during the load | 3.93 GiB | 46.05 GiB working set, 53.4 private |
+| FLUX.1 dev | fp8, model offload | transformer shard 2 of 3 | 3.7 GiB | 46.4 GiB peak RSS |
+| FLUX.1 schnell | fp8, model offload | the next component after the 3 transformer shards (164 of 219 weights), 44 s in | 3.8 GiB | not logged |
+| FLUX.2 klein 9B | fp8, model offload | 89% through the 4th of 5 components, 51 s in | 4.0 GiB | 46.02 GiB working set |
+| Krea 2 Turbo | fp8, model offload | during the load | 3.78 GiB | 46.2 GiB working set, 61.5 private |
+| Qwen-Image (`Qwen/Qwen-Image`) | fp8, sequential offload | transformer shard 6 of 9, about 50 s in | 3.7 GiB (commit headroom 10.0) | 46.0 GiB working set, 56.1 private |
+
+So on this 64 GB machine, as it was that day, a cold fp8 or int8 load of
+these checkpoints needs more than about 46 GiB of headroom; int8's spike is
+fp8's, so it comes from the quantizing load path (which, by the runners'
+reading, holds the bf16 weights before quantizing), not the dtype. The
+2026-10-21 FLUX.1 Krea dev outpaint run's load completed from 52 GB free
+after a reboot, with no guard, and earlier fp8 loads completed too:
+schnell's on 2026-10-05 and Krea 2 Turbo's in 2026-09 (the Checkpoints
+rows above), so the 46 GiB figure describes the machine as it was that
+day, not a limit of the checkpoints. Whether to free RAM, lower the floor
+or change the loader is open (design notes, "The quantizing load's RAM
+peak"). The BF16 sequential loads above avoid it.
+Loads that completed: klein base 4B 22.9 GiB working set; ERNIE fp8
+35.4-36.0 GiB RSS, 14 GiB free at the lowest; Z-Image Turbo fp8 18.4-18.6
+GiB working set (23-25 GiB private), and under offload none 31.3 GiB private with 7.2 GiB free at the lowest (a
+WSL download's page cache was also holding Windows RAM then: WSL's
+`drop_caches` gave back about 15 GB). Evidence: `flux-krea/`, `flux1-dev/`,
+`flux1-schnell/`, `card6-catalogue/`, `card11-critic/`, `card4-quant/` and
+`zimage-qwen/` in the cards directory, each guard stop a `ram_guard` (or
+`TRIP`) row in its `results.jsonl` or `harness.jsonl` (card11-critic's in
+`runs_phase3_stdout.txt`).
+
 ## Behaviour
 
 | What | Result | Date |
@@ -577,8 +774,14 @@ add to that, which is why schnell is not the speed win Z-Image Turbo is.
 | A failure stop from a real exception (WAI v17, fp8): a 1024x1344 source refined at 1.5x with Strength "0.2,0.3,0.4,0.5,0.6" and Versions 2 (10 cells, seeds outermost), the source deleted from its gallery card with the page's own dialog once cell 1 had landed | The dialog said "#2 was refined from this one; once it is gone, that pass cannot be made again."; the card became "Deleted · #1" 0.9 s after cell 1 landed (7.4 s). Cell 2 had read its source as it began and landed (9.6 s); cells 3, 4 and 5 then failed within 2 ms of one another (`ValueError: no gallery image with id 1`), so the cell line's live "1 skipped" and "2 skipped" were drawn and replaced in the same few milliseconds and never on screen. The job ended at 17.4 s: `stopped_by` failures, "Stopped at cell 5 of 10 after 3 cells failed; 2 images kept. Last: ValueError: no gallery image with id 1", the tab "Stopped", the sweep's sheet open on `job:` reading "2 of 2 loaded · source #1 (deleted)", and the finish line "Resume the remaining 8 cells". Pressed, Resume was refused at submit and the line under Generate said only "no gallery image with id 1"; the button stayed live and focused, so every press is refused the same. The card was back at 2,341-2,351 MiB (loaded, idle) within 3 s of the stop; peak 7,126 MiB. The pass that landed after the delete was shown with its source still there (see the next row). Another project's processes kept the CPU 28-34% busy | 2026-10-05 |
 | A pass that lands after its source was deleted during its own cell (WAI v17, fp8; the sweep above, and again as a two-cell sweep with the source deleted while cell 2 ran) | Both times the late pass came back from the job with `refine_missing` false - `storage.save_image` builds its record without looking the source up - and the page's `forgetImages` marks only the records it already held, so in the viewer that pass read "refine of #N @ 0.3" with no "(deleted)", and its ↻ "Open the Refine dialog on #N with this pass's size, strength and seed", while the pass beside it that had landed before the delete said the source had gone. After the gallery reloaded, the same image's card said "(deleted)" and "cannot be made again", and its tile in the viewer still did not. Fixed the same day in 2b89ed5: `save_image` looks the source up in the transaction it inserts in, under the write lock a delete takes, a job's replay marks the passes whose source a delete took, and the page marks an arriving pass whose source it has seen deleted (`deletedIds`, `markGoneSource`); checked on the fake (`tests/test_api_refine.py`, smoke-refine, the source deleted mid-pass), not again on the card | 2026-10-05 |
 | A load started while the page's first adapter listing runs (WAI v17, fp8; a fresh process each time, Load pressed 0.8-3 s after the page opened) | Failed 3 times out of 3: "Float8Tensor.__new__() got multiple values for argument 'qdata'", raised through accelerate's `register_empty_parameter` while torchao quantized a component's weights (a CLIP encoder's layer, or a diffusers component). The listing (`GET /api/loras`, which the page asks on its first status) builds the denoiser on the meta device under `accelerate.init_empty_weights()` (`loading.denoiser`), which patches `torch.nn.Module.register_parameter` for the whole process while it lasts; on a cold process it answered 2.8 s after the page opened (WAI, the CPU idle) and 23 s after (FLUX.1 Krea [dev], another project's processes saturating the CPU). Load pressed once the listing had answered: loaded in 5.4 s; a load asked again in the failed process: loaded. Anima Turbo, whose profile takes no adapters, never builds it. Fixed the same day in 02cd1d9: the build goes through `loading.empty_weights` and never overlaps a load - `load()` holds `loading.weights_loading()` throughout and waits out a build in progress, a build asked for during a load raises `LoadInProgress` and the adapter is listed unchecked, and builds go one at a time. Rechecked on the card that evening the same way (WAI v17, fp8, model offload, a fresh process each time, the card at 2,096-2,107 MiB before each start, Load pressed 0.87-0.88 s after the page opened, `frosting-lane.safetensors` in the adapter directory): loaded 3 times out of 3, in 5.6, 3.8 and 3.6 s; each time the listing arrived during the load and logged "adapter fit unchecked until the load: a model load is in progress", and the listing after the status turned ready answered from the live denoiser (the FLUX.1 adapter hidden as a misfit). The card was back at 2,093-2,118 MiB after each stop. Evidence under `d1-fix/` | 2026-10-05 |
-| The failed-load card against the real Hub, with no token and nothing cached (`HF_HOME` an empty scratch directory, `HF_TOKEN` unset, Load pressed at 2560x1305; then the card's Retry load) | FLUX.1 [dev]: `GatedRepoError` on `model_index.json`, 6.8 s after the press; `detail_kind` gated, "FLUX.1 [dev] is gated on Hugging Face: accept its terms on the model page (a click-through), run `uv run hf auth login` once with a read token, then press Retry load.", the command set as code, "Open the model page" to https://huggingface.co/black-forest-labs/FLUX.1-dev in a new tab, a primary Retry load. Krea 2 Raw: the same in 6.8 s, worded "ask for access on the model page and wait for its authors to approve it". A made-up id: `RepositoryNotFoundError` in 3.7 s, `not_found`, "local-diffusion-check/no-such-checkpoint is not on Hugging Face, or is private: check the checkpoint id (LOCAL_DIFFUSION_MODEL_ID, or the start-up menu); for a private repo, …", headed "Couldn't load no-such-checkpoint", the link to the id's (missing) page. Each time the topbar read the checkpoint's name and "· load failed", its Load relabelled "Retry load" and keeping the press's focus, Unload hidden, nothing in the panel's line; the card's Retry load failed again in 1.4-1.5 s with one card, focus on Generate (the card went during the load, and the one that came back does not take it). With `HF_HUB_OFFLINE=1` on an uncached FLUX.1 Krea [dev]: huggingface_hub 1.29.0 raises `LocalEntryNotFoundError` from an `OfflineModeIsEnabled`, `main._hub_failure` takes the outer one, and the card said "FLUX.1 Krea [dev] is not all downloaded yet, and Hugging Face cannot be reached: connect to the network, then press Retry load." - the network was up; the offline sentence ("HF_HUB_OFFLINE is set: unset it for one load") never showed. Nothing was downloaded: the scratch `HF_HOME` held 5,778 bytes after all four, huggingface_hub's own `.agent_harnesses.json`; the adapter listing logged "adapter fit unchecked until the load: 401". The offline sentence was fixed the same day in 81781bf: `_hub_failure` prefers `OfflineModeIsEnabled` wherever it is on the chain, tested on the chain huggingface_hub's own `hf_hub_download` builds under its offline switch (`tests/test_api.py`), not again on the card | 2026-10-05 |
+| The failed-load card against the real Hub, with no token and nothing cached (`HF_HOME` an empty scratch directory, `HF_TOKEN` unset, Load pressed at 2560x1305; then the card's Retry load) | FLUX.1 [dev]: `GatedRepoError` on `model_index.json`, 6.8 s after the press; `detail_kind` gated, "FLUX.1 [dev] is gated on Hugging Face: accept its terms on the model page (a click-through), run `uv run hf auth login` once with a read token, then press Retry load.", the command set as code, "Open the model page" to https://huggingface.co/black-forest-labs/FLUX.1-dev in a new tab, a primary Retry load. Krea 2 Raw: the same in 6.8 s, worded "ask for access on the model page and wait for its authors to approve it". A made-up id: `RepositoryNotFoundError` in 3.7 s, `not_found`, "local-diffusion-check/no-such-checkpoint is not on Hugging Face, or is private: check the checkpoint id (LOCAL_DIFFUSION_MODEL_ID, or the start-up menu); for a private repo, …", headed "Couldn't load no-such-checkpoint", the link to the id's (missing) page. Each time the topbar read the checkpoint's name and "· load failed", its Load relabelled "Retry load" and keeping the press's focus, Unload hidden, nothing in the panel's line; the card's Retry load failed again in 1.4-1.5 s with one card, focus on Generate (the card went during the load, and the one that came back does not take it). With `HF_HUB_OFFLINE=1` on an uncached FLUX.1 Krea [dev]: huggingface_hub 1.29.0 raises `LocalEntryNotFoundError` from an `OfflineModeIsEnabled`, `main._hub_failure` takes the outer one, and the card said "FLUX.1 Krea [dev] is not all downloaded yet, and Hugging Face cannot be reached: connect to the network, then press Retry load." - the network was up; the offline sentence ("HF_HUB_OFFLINE is set: unset it for one load") never showed. Nothing was downloaded: the scratch `HF_HOME` held 5,778 bytes after all four, huggingface_hub's own `.agent_harnesses.json`; the adapter listing logged "adapter fit unchecked until the load: 401". The offline sentence was fixed the same day in 81781bf: `_hub_failure` prefers `OfflineModeIsEnabled` wherever it is on the chain, tested on the chain huggingface_hub's own `hf_hub_download` builds under its offline switch (`tests/test_api.py`); checked on the real server 2026-10-25 (the load failures row below) | 2026-10-05 |
 | The critic's first-use line and clock over a real download (the FLUX.1 Krea [dev] profile, an empty `HF_HOME`, the image model never loaded) | The line named what was still to fetch and changed as each piece landed, and the clock ran to "· 199 s" for a 199.7 s first use whose route `seconds` said 9.4, the critique alone; the row is in the Prompt analyser section | 2026-10-05 |
+| Load failures on the real server after 81781bf (FLUX.1 Krea [dev] with `HF_HUB_OFFLINE=1`, an empty scratch `HF_HOME` and no token; a made-up id against the real Hub; `--defaults`, a scratch gallery, the page at 1400x900) | Offline: `detail_kind` offline in 3.2 s, "FLUX.1 Krea [dev] is not all downloaded yet, and HF_HUB_OFFLINE is set: unset it for one load, then press Retry load."; the Models footer said "Couldn't load FLUX.1 Krea [dev]: ..." with that sentence, the topbar "FLUX.1 Krea [dev] · load failed" with Retry load, and the row "Accept licence · Load failed" (the scratch home has no token). `local-diffusion-check/no-such-checkpoint`: `not_found` in 3.7 s with the id's Hub link and "... is not on Hugging Face, or is private: check the checkpoint id (Models in the browser, or LOCAL_DIFFUSION_MODEL_ID); ...", the same in the footer. A retry, sent over the API rather than pressed, failed the same way in 0.0-0.5 s each time; no Traceback in either log; nothing downloaded (`HF_HOME` 0 bytes, and 5,778, huggingface_hub's own file). Each server was stopped by a console Ctrl-C: rc 130, gone 0.85-0.89 s after it. Evidence: `flux-krea/runs/fail-*` in the cards directory | 2026-10-25 |
+| Ctrl-C while a job waits on a real first load, R50's fix (1744dc3; FLUX.1 Krea [dev], fp8, model offload, a fresh scratch server; Generate clicked with a real mouse event at 1400x900, nothing loaded) | The job queued at once with `waiting_on` load, the page reading "loading weights · 0:00". About 10 s in (pipeline components 4 of 7) a helper process attached to the server's console and sent `CTRL_C_EVENT` to it (`GenerateConsoleCtrlEvent`), the event a Ctrl-C typed in that window sends, not a key press. The stream's `done` (cancelled, `stopped_by` shutdown) 0.01 s after it, the server gone with rc 130 3.3 s after it, no second Ctrl-C; the log held "cancelled: 0 image(s)", the shutdown lines and no Traceback, ASGI exception or graceful-timeout line. The page: the title "Server stopped — Local Diffusion" and "Stopped: the server is shutting down — nothing had finished." 0.09 s after the signal (read from the element: the error line was below the 1400x900 view, where 3 s later the topbar read "server not answering — retrying"). Not run: Ctrl-C to an idle server with a model loaded. Evidence: `flux-krea/runs/r50-20261025-091238/` | 2026-10-25 |
+| ERNIE-Image Turbo on the fp8 path, one process (Windows, model offload, `ernie_card.py`) | The same seed twice is the same hash (`e5274c48832008cd`), and again after the rewriter was registered and the offload chain rebuilt; seed + 1 differs. Two processes were not compared. The live preview switches itself off ("no latent-to-RGB map for AutoencoderKLFlux2") | 2026-10-25 |
+| ERNIE's Expand on the card: the rewriter's first use through the real server (fp8, model offload, scratch gallery; the rewriter's `pe/` not cached, so the real first use, into the user's Hugging Face cache) | Before it, the status listed "ERNIE's prompt rewriter" at 7,663,346,520 bytes. First Expand: 132.7 s; the file landed at 110.5 s (69.4 MB/s), then about 15 s to load the rewriter and rewrite on the card and about 5 s of Marian on the CPU; 7,371 MiB whole-card, no shared rise. `card_holder` read "expand" through the download and the rewrite and cleared while Marian ran. Warm: 11.1 s over HTTP; in-process 8.0-9.9 s (15.8 s the first from disk), 6.49-6.54 / 6.55-6.61 GiB, 7,371-7,435 MiB; the process's RAM rose about 6.3-7 GiB with the rewriter resident (to 20.4-21.2 GiB). Stop 1.5 s into a rewrite: the Expand request answered 409 at once, the rewrite held the card about 8 s more (`pe.generate` runs to its end; in-process `Cancelled` came at 8.4 s), and a Generate sent straight after queued and started only once the holder had become the job - no overlap (the harness's own overlap flag misread this; `status.jsonl` shows it). The rewriter answers in Chinese for an English prompt too, and two expansions of one prompt differ (sampling). Not driven: the page's Expand line and clock over the download. Evidence: `ernie/run-server/` | 2026-10-25 |
+| Marian (`Helsinki-NLP/opus-mt-zh-en`) on first use and on whole expansions (CPU) | First use from an empty scratch cache: 20.4 s with the download (315,369,018 bytes), 1.06 GiB RSS, no GPU; warm 0.4-1.0 s. No second weights file was fetched in 150 s after (the only `model.safetensors` was the 0-byte 404 marker). **A defect:** `MarianTranslator._chunks` packs sentences up to the token limit, so a whole expansion goes in as one chunk, and Marian translates part of it and drops the rest with no error: a 7-sentence text kept only sentences 2-3, where one sentence at a time kept all 7 (`marian_split_check.py`), and every expansion's English on the card lost most of its text (one kept about 3 of 9 sentences). The rendered and recorded prompt is the Chinese, so images are unaffected; the page's gloss is not. Not changed. Evidence: `ernie/run-step1.log` | 2026-10-25 |
+| Seed reproduction under Nunchaku NVFP4 within one process (WSL 2, lite-infer NVFP4 r32, model offload; Z-Image Turbo and FLUX.1 Krea dev) | Not bit-for-bit either: the same request again in the same process gave a new hash every time, text-to-image as well as inpaint. Inpaint against its repeat: 0.72 / 0.84 levels mean over the whole image, 3.4% / 4.3% of pixels off by more than 8 (all inside the mask, about 9% of the frame), against 2.24 / 3.28 and 7.6% / 8.7% for seed + 1; a batch's images differ from their solo passes by as much. Text-to-image run again later in the process: 10.84 / 3.80 levels, 41% / 13% of pixels. (Inpaint section, "Under Nunchaku") | 2026-10-25 |
 
 The rows dated 2026-10-05 that drive the page ran the real server
 (`--defaults`, fp8, model offload, port 7860), one at a time and each on a
@@ -608,17 +811,22 @@ counting seeds by the job's stop rule, 5 of 6 for the Kohaku grid above
 the estimate of the time left running from the end of the first step (2a4d2cc);
 and, in the Prompt analyser section, the critic's clock on the line with its
 words (b396e2e) and the page's sizes labelled in binary units, "about 4.5 GiB"
-(5ec8adb).
+(5ec8adb). The 2026-10-25 session that was to check the first five and
+2b89ed5 (above) on the real server with FLUX.1 Krea [dev] stopped at the RAM guard during its one
+load (Checkpoints, "RAM at the load"), so they are still unchecked on the
+card; 81781bf's sentence was checked there (the load failures row above).
 
-Not verified: `LOCAL_DIFFUSION_DEVICE=cuda:1` (one card here); the fp8 path for klein
-on Windows; ERNIE-Image Turbo on the fp8 path; ERNIE's new explicit prompt
-expansion path on the card; a live-preview map for FLUX.2's VAE (ERNIE, klein);
+Not verified: `LOCAL_DIFFUSION_DEVICE=cuda:1` (one card here); ERNIE-Image
+Turbo's fp8 reproduction across two processes, and its 4 MP batch of two
+on fp8 (refused by the harness's projection, not run); the page's Expand
+line and clock over the rewriter's real download; a live-preview map for
+FLUX.2's VAE (ERNIE, klein);
 Animagine XL 4.0's four-channel SDXL VAE preview fit (its LoRA row is above; its fp8
 speed and memory are the October 5 row above; the quantization and offload
 settings of its earlier successful user run were not recorded). Illustrious XL
-v2.0-STABLE int8/full-bfloat16 GPU runs, LoRA behavior, batch scaling and
-repeat-seed determinism are also unmeasured; its fp8 peak is the October 5
-row.
+v2.0-STABLE LoRA behavior and batch scaling are also unmeasured; its fp8 peak
+is the October 5 row, and its int8, full-bfloat16 and sequential-offload
+runs, each repeating its own pixels, are in "Quantization and offload".
 
 ## Refine pass
 
@@ -723,7 +931,11 @@ undistilled Z-Image, with CFG, reads as Z-Anime does at 2.4 MP and was
 taken no further, Z-Anime having filled the card at 4.2 MP. The passes'
 start sigmas, off the sibling's scheduler: schnell 0.5 at 0.5 (its
 unshifted schedule), Z-Image Turbo 0.5 at 0.25 at both sizes, Z-Image
-0.678 at 0.25. The pictures were not reviewed.
+0.678 at 0.25. The pictures were not reviewed then, and their Windows
+evidence directories are gone (checked 2026-10-25): the Z-Image Turbo and
+Z-Image strengths were re-run that day ("Strengths and offload on Z-Image
+and Qwen-Image", below); the SDXL and schnell ladders' pictures cannot be
+reviewed.
 
 Under Nunchaku (WSL 2, the lite-infer NVFP4 re-uploads, model offload),
 measured 2026-10-05 the same way. Qwen-Image fits this card only this way
@@ -758,10 +970,12 @@ the schema is built), each checkpoint's copied gallery with its
 `validation.log` and outputs, and `strip-*.jpg` (`strips.py`).
 
 Not measured: FLUX.1 dev at fp8, whose starting strength carries over the
-Krea dev measurement on the same schedule; what schnell, Z-Image Turbo,
-Z-Image and Qwen-Image's starting strengths keep of a picture, which is
-schedule arithmetic alone; int8 and full bfloat16; a Nunchaku pass past
-the two above; and the author's own WAI recipe whole (its separate 20
+Krea dev measurement on the same schedule (a 2026-10-25 session stopped at
+the RAM guard during its load); what schnell's starting strength keeps of a
+picture, which is schedule arithmetic alone (the same); true CFG through
+`FluxImg2ImgPipeline`; int8 and full bfloat16; offload none and sequential
+past Z-Image Turbo (below); a Nunchaku pass past
+the two above and Qwen-Image's three strengths (below); and the author's own WAI recipe whole (its separate 20
 hires steps; the Anime6B preparation itself is measured below). The October 5
 runs' evidence is under `%TEMP%/local-diffusion-leftovers-gpu/` (one
 throwaway gallery per checkpoint with its `ladder.log` and `ladder.jsonl`)
@@ -809,6 +1023,161 @@ runs (seed 12345) refined to 1536x1536 at the authors' range, 0.35 and
 Evidence: `wai-gan.log`, `rouwei-gan.log`, and per checkpoint
 `gan-4x.png`, `gan-4x-seams.jpg` (WAI), `gan-refine.jpg` and
 `gan-refine-face.jpg`, in `%TEMP%/local-diffusion-inpaint-card/`.
+
+### Strengths and offload on Z-Image and Qwen-Image (2026-10-25)
+
+`card_refine.py`, one process and one `backend.load()` per row group, a
+scratch gallery: a 1024x1024 seed-12345 source ("A portrait of an old
+fisherman in a yellow raincoat on a wooden pier at dawn, ..."; negative
+"blurry, low quality" on Z-Image and Qwen-Image), then passes of it. Times
+exclude the load and the save; the per-step time leaves out step 1, which
+carries the VAE encode. "Card" is nvidia-smi's whole card every 500 ms,
+the desktop's 250-1,250 MiB included; shared memory by the Windows
+counters, with a stop at card 15,500 MiB, adapter shared +1,024 MiB,
+process shared +512 MiB or under 4 GiB of free RAM or commit. Windows fp8
+unless named; Qwen-Image is its NVFP4 Nunchaku build under WSL 2.
+
+| Checkpoint, offload | Run | Steps run | Time (per step) | Allocated / reserved | Card | Start sigma |
+| --- | --- | --- | --- | --- | --- | --- |
+| Z-Image Turbo, model | source, 1 MP | 8 of 8 | 25.7 s first of a process; 10.3 s again (0.85-0.89 s) | 6.43 / 7.17 GiB | 8,667 MiB | - |
+| Z-Image Turbo, model | 1.5x (1536x1536) at 0.15 / 0.25 / 0.35 / 0.5 | 2 / 2 / 3 / 4 of 8 | 9.0 / 9.1-9.2 / 11.3 / 13.7 s (2.36 s) | 7.04 / 8.84 GiB | 10,381 MiB | 0.5 / 0.5 / 0.643 / 0.75 |
+| Z-Image Turbo, model | 2x (2048x2048) at 0.25 | 2 of 8 | 16.1 s (5.33 s) | 7.86 / 10.09 GiB | 11,657 MiB | 0.5 |
+| Z-Image Turbo, none | source, 1 MP | 8 of 8 | 8.9 s (0.85 s) | 12.51 / 15.0 GiB | 15,470 MiB | - |
+| Z-Image Turbo, none | 1.25x (1280x1280) at 0.25 | stopped after 1 | - | 11.64 / 15.0 GiB | 15,725 MiB, spilling (shared +274 adapter / +200 process MiB) | - |
+| Z-Image Turbo, sequential | source, 1 MP | 8 of 8 | 11.8 s (1.25 s); 10.7 s again | 2.41 / 2.98 GiB | 3,631 MiB | - |
+| Z-Image Turbo, sequential | 1.5x at 0.25 | 2 of 8 | 8.3-8.4 s (3.15 s) | 2.42 / 2.98 GiB | 2,307-3,631 MiB | 0.5 |
+| Z-Image, CFG 5, model | source, 1 MP | 50 of 50 | 93.5 s first of a process (1.71 s) | 6.77 / 8.44 GiB | 9,223 MiB | - |
+| Z-Image, CFG 5, model | 1.5x at 0.15 / 0.25 / 0.35 | 8 / 13 / 18 of 50 | 42.5 / 66.6 / 90.5 s (4.80 s) | 8.10 / 10.58 GiB | 11,411-11,422 MiB | 0.533 / 0.678 / 0.771 |
+| Qwen-Image, true CFG 4, NVFP4 (WSL), model | source, 1 MP | 50 of 50 | 76.0 s first of a process (0.97 s; the first step 18.2 s) | 11.75 / 11.98 GiB | 13,028 MiB | - |
+| Qwen-Image, NVFP4 (WSL), model | 1.25x at 0.2 / 0.3 / 0.4 | 10 / 15 / 20 of 50 | 22.7 / 34.9 / 38.9 s (1.66 s) | 12.20 / 12.45-12.46 GiB | 13,478-13,526 MiB | 0.344 / 0.478 / 0.590 |
+
+- Every start sigma is `backend.start_sigma`'s prediction. The Z-Image
+  Turbo and Z-Image memory repeats 2026-10-05's ("Past 4 MP") to the
+  hundredth; the card figures are 0.8-1.6 GB lower, the desktop's share
+  being smaller. Qwen-Image's 1.25x pass took 34.9 s where 2026-10-05's,
+  with another project's processes busy, took 91.1 s.
+- On Z-Image Turbo's 8 steps 0.15 is the same pass as 0.25 (2 steps from
+  sigma 0.5, one hash): `start_index = int(8 - 8 * strength)` floors, so
+  the strength moves in eighths there, and the next pass down is 0.125 or
+  less, one step (not run).
+- Offload does not change the pixels: the source, the 1.5x pass at 0.25
+  and the text-to-image repeat hash the same under model, none and
+  sequential. Offload none fits only the 1 MP render, with the card full;
+  even a 1.25x pass spilled at its first step and was stopped, so none
+  fits no refine pass on Z-Image Turbo. Its load left 7.2 GiB of RAM free
+  at the lowest (31.3 GiB private). Sequential holds 2.4 / 3.0 GiB and at
+  most 3,631 MiB of the card and is barely slower on this checkpoint: 1.25 s
+  a step at 1 MP against 0.85, and the 1.5x pass 8.4 s against 9.2 (3.15 s
+  a step against 2.36, its first step cheaper).
+- Repeats: the same pass twice is the same hash on Z-Image Turbo, and the
+  text-to-image source afterwards is the source's hash. No hash is
+  recorded under Nunchaku (Behaviour).
+- What each strength keeps, by eye on the strips and face and coat crops.
+  Z-Image Turbo: the composition, coat, hood, beanie and stains are kept
+  at every strength up to 0.5 and at 2x, with no artefacts; the face is not
+  kept even at the profile's 0.25 - a narrower, smoother face with other
+  eyes and fewer lines, a closely related man - and 0.35, 0.5 and 2x drift
+  a little further. Z-Image at CFG 5: the composition is kept at 0.15-0.35
+  and the face redrawn already at 0.15; all three passes carry fine
+  horizontal streaks over the coat's flat areas (a trace of them in the
+  source, none on Z-Image Turbo's passes at the same size), unmeasured at
+  1.25x or on another source. Qwen-Image: the composition, coat, boats,
+  house and rope are kept element for element at 0.2-0.4; the face is
+  repainted already at 0.2 (the head more frontal, other eyes and
+  wrinkles). So on all three the profile's start keeps the picture but not
+  the face.
+- The surviving 2026-10-05 WSL pictures, looked at again: Qwen-Image at
+  0.3 (1.25x) keeps the picture and redraws the face as above; FLUX.1 dev
+  NVFP4 at 0.1 (1.5x) keeps the same man, a little more redrawn (hair,
+  eyes, smile) than the Krea dev fp8 line "0.05 and 0.1 keep the face"
+  suggests.
+- The Nunchaku repo's `main` has moved: it ran at `906c1900ddad`, where
+  the recipe and `backend/model-downloads.json` record `41e6737e1712`, and
+  the WSL run needed one online fetch of the ungated
+  `rootonchair/nunchaku-lite-kernels`.
+
+Evidence: `zimage-qwen/` in the cards directory (`stdout-*.txt`,
+`data/<plan>/results.jsonl`, `run.log`, `pics/`, `strip-*.jpg`, the face
+and coat crops; `data-wsl/qwen-nunchaku/`; `ladder-1005/`).
+
+### Peak per image and Then refine, WAI v17 (2026-10-25)
+
+The real server (`--defaults --model LyliaEngine/waiIllustriousSDXL_v170
+--quant fp8 --offload model`, port 7930, a scratch gallery, no switch and
+no download), one load (12.1 s, the card then at 1,220 MiB), driven over
+its API by `card_wai.py`. nvidia-smi every 500 ms; the Windows adapter and
+per-process shared and dedicated counters about every 1.5 s; free RAM
+every 250 ms; stops at card 15,500 MiB, the server's shared memory +512
+MiB, the adapter's +1,024 MiB or under 4 GiB free (none tripped). The
+desktop held 993 MiB. 1024x1344, 28 steps, CFG 6. "Recorded" is the row's
+own `vram_peak_allocated` / `vram_peak_reserved`, the allocator's.
+
+| Job | Time | Recorded | Card | Server's own dedicated | Shared rise: server / adapter |
+| --- | --- | --- | --- | --- | --- |
+| One image, the first after the load | 12.37 s | 3.22 / 4.37 GiB (3,455,958,016 / 4,695,523,328 B) | 5,774 MiB | 4,094 MiB | +8 / +82 MiB |
+| The same request again | 9.63 s | 3.22 / 4.37 GiB | 5,776 MiB | 4,094 MiB | +8 / +82 MiB |
+| Batch 2 | 16.75 s (8.28 s recorded each) | both rows 3.63 / 4.38 GiB | 5,778 MiB | 4,786 MiB | +8 / +82 MiB |
+| Refine to 1536x2016 at 0.4, 11 of 28 steps | 12.76 s (the first img2img; first step 4.1 s) | 3.89 / 4.70 GiB | 6,114 MiB | 5,122 MiB | +8 / +80 MiB |
+
+- The record, `GET /api/images/{id}` and the PNG's `local-diffusion` chunk
+  agree byte for byte on all 53 images of the session; the repeat is the
+  same hash and the same pair; a batch's rows share one pair, as the plan
+  says (a batch of two allocates 0.41 GiB more and reserves 0.01 more).
+- The recorded pairs equal this file's: 3.22 / 4.37 GiB is the 2026-10-03
+  refine table's source, and 3.89 / 4.70 its 1.5x pass ("Past 4 MP",
+  7,676 MiB whole-card then with a larger desktop). The 2026-09-26 row's
+  3.69 GiB allocated was another prompt; its script is gone, so it was not
+  re-run.
+- The allocator does not see the CUDA context, the desktop or a spill:
+  the card less the desktop's 993 MiB came to 4,781-5,121 MiB, about 0.3
+  GiB above reserved each time; the server's own dedicated counter,
+  sampled every 1.5 s, read 4,094-5,122 MiB, below the card's figure
+  for the 1024x1344 images. The server's shared memory, 74 MiB from before the load (the
+  context's bookkeeping), rose 8 MiB.
+
+Then refine at 1.5x and 0.4 (1536x2016, 11 of 28 steps), six seeds a
+round, two rounds in opposite orders: apart, `/api/generate` with six
+runs then Mass refine (`/api/refine/batch`) of the six; together,
+`/api/generate` with six runs and `then_refine {scale 1.5, strength 0.4}`.
+
+| Round | Mode | Wall (server) | Generation sum | Base / pass mean | Recorded peak | Card |
+| --- | --- | --- | --- | --- | --- | --- |
+| 1, seeds 20001-20006 | apart (57.58 + 68.50 s) | 126.08 s | 124.46 s | 9.50 / 11.24 s | 3.89 / 4.70 GiB | 6,114 MiB |
+| 1 | together | 125.68 s | 124.01 s | 9.51 / 11.16 s | 3.89 / 4.70 GiB | 6,114 MiB |
+| 2, seeds 30001-30006 | together | 126.05 s | 124.39 s | 9.55 / 11.18 s | 3.89 / 4.70 GiB | 6,114 MiB |
+| 2 | apart (57.83 + 68.53 s) | 126.36 s | 124.67 s | 9.54 / 11.24 s | 3.89 / 4.70 GiB | 6,114 MiB |
+
+- Together cost no more than apart: 0.40 and 0.31 s less wall time of
+  about 126 s, within what one round per mode can tell apart.
+- The alternation does not drift: in both together jobs every base
+  recorded 3.22 / 4.37 GiB and every pass 3.89 / 4.70, passes 11.11-11.23
+  s and bases 9.48-9.59 s. Steps ran 0.278-0.279 s (base) and 0.715-0.717
+  s (pass) in every mode, and a pass's first step 2.49-2.62 s (one 2.97 s,
+  apart) whether a base
+  or a pass came before it, so that cost is the pass's own start (the
+  source's encode), not the swap between the text-to-image pipeline and
+  its sibling.
+- Bases and passes are byte-identical between the two modes in both
+  rounds; the together job's base run id is plain Generate's
+  (`a2c1c380f7aa`, `bf09ea65b232`) and its passes sit under their own pass
+  run id (`13b16d77532d`, `0e303690afcb`), each pass's `refine` its own
+  base.
+- The card peaked at 6,114 MiB, the server's shared memory rose 8 MiB, and
+  free RAM stayed at or above 43.4 GiB through the then-refine rounds
+  (39.2 at the load and 38.9 during the first render; the server held 9.5
+  and 9.8 GiB then and about 5.7 GiB after).
+- By eye (seed 20001's base and pass, the first image): clean; the pass
+  keeps the composition, pose and palette, sharper line work and hair, the
+  face slightly redrawn, as 0.4 does.
+- The server logged "live preview switched off: no latent-to-RGB map for
+  AutoencoderKL" at every cell's start, bases and passes alike (52 times):
+  SDXL has no preview map (`GEN#6`), not a fault of the sibling.
+
+Not measured: the same on FLUX.1 Krea [dev], whose session stopped at the
+RAM guard during its load (Checkpoints, "RAM at the load"); the stops'
+behaviour on a real spill or RAM trip in this harness (nothing came near).
+Evidence: `sdxl-wai/run-card/` in the cards directory (`summary.json`,
+`results.jsonl`, `samples.jsonl`, `server.log`, `images/`).
 
 ## Inpaint
 
@@ -866,9 +1235,9 @@ runs, reproduces and keeps every unmasked pixel, not a quality benchmark.
 
 Z-Image Turbo, a LoRA through an inpaint, the seam by number, the live
 preview through the blend and the dialog's start noise were measured
-2026-10-24 (below). Not measured: an inpaint over a
-Nunchaku Z-Image transformer under WSL; and, for the deferred families (FLUX.2
-[klein], Qwen-Image), the measurements their phases name before they are
+2026-10-24 and an inpaint over the Nunchaku Z-Image and FLUX.1 Krea dev
+transformers under WSL 2026-10-25 (below). Not measured: for the deferred
+families (FLUX.2 [klein], Qwen-Image), the measurements their phases name before they are
 enabled (FLUX.1's are below). Evidence is under `%TEMP%/local-diffusion-inpaint-card/`:
 `measure.py`, and per checkpoint its gallery, `results.jsonl` and the
 `inpaint-*.jpg` and `outpaint-*.jpg` strips.
@@ -966,14 +1335,12 @@ profiles start an inpaint at 0.95, their own start over the library's
 0.6, and the Strength note says it was measured here, on Krea dev.
 
 Not measured on FLUX.1: dev and schnell, at 0.95 or at all (their profiles
-share the class and the start; the note says so); an outpaint, now enabled
-with the inpaint and unmeasured (its 16:9 canvas from a 1 MP source is
-1.9 MP, near the card's top for this family, whose refine pass filled the
-card at 2.4 MP and whose 1 MP inpaint read 15.6 GB with this desktop); the
-inpaint class over the
-Nunchaku FLUX.1 transformer under WSL, which the profile allows as it does
-Nunchaku Z-Image's and which has never run (TODO `CARD#3`); a LoRA through
-the inpaint; the seam by number.
+share the class and the start; the note says so; their 2026-10-25 sessions
+stopped at the RAM guard during the load, Checkpoints, "RAM at the load");
+a LoRA through the inpaint; the seam by number at fp8. The outpaint was
+measured 2026-10-21 (Outpaint, "FLUX.1 Krea dev"), and the class over the
+Nunchaku Krea dev transformer, with its seam by number, 2026-10-25 ("Under
+Nunchaku", below).
 
 ### Z-Image Turbo, an SDXL LoRA, the seam by number (2026-10-24)
 
@@ -1080,6 +1447,80 @@ source does not move the default. Evidence: `zturbo.log`,
 `z-image-turbo/`, `*-bands/outpaint-band-seams-fine.jpg`, in
 `%TEMP%/local-diffusion-inpaint-card/`.
 
+### Under Nunchaku, WSL (2026-10-25)
+
+The inpaint class over the lite-infer NVFP4 r32 transformers with their
+bnb4 text encoders (`lite-infer/z-image-turbo-nunchaku-lite-nvfp4_r32-bnb4-text-encoder`
+and `lite-infer/flux.1-krea-dev-nunchaku-lite-nvfp4_r32-bnb4-text-encoder`,
+ungated), WSL 2 (`wsl/env.sh`; torch 2.13.0+cu130, diffusers 0.40.0,
+kernels 0.16.1, bitsandbytes 0.50.2), quantization `nunchaku`, model
+offload, one process and one load per checkpoint (`card3_inpaint.py`), a
+scratch gallery on ext4. The same seed-12345 1024x1024 sources, ellipse
+mask and scarf prompts as above (`measure_light.py`'s for Z-Image Turbo,
+`measure_flux.py`'s for Krea dev); the 1536 source is a refine pass of the
+1 MP one. A Windows watcher (shared memory over baseline +300 MiB, card
+15,500 MiB, host RAM 4 GiB) and the harness's own card, slow-step and WSL
+RAM guards; none fired. "Card" is WSL nvidia-smi's whole card at 500 ms,
+the desktop's 411-435 MiB included.
+
+| Checkpoint | Run | Steps run | Time (per step) | Allocated / reserved | Card |
+| --- | --- | --- | --- | --- | --- |
+| Z-Image Turbo lite | Source, 1 MP, the first of the process | 8 of 8 | 12.4 s (0.34 s; the first step 6.7 s) | 4.09 / 4.93 GiB | 5,814 MiB |
+| Z-Image Turbo lite | Inpaint at 1.0, 1 MP | 8 of 8 | 6.8 s; 4.7 s again (0.34 s) | 4.35 / 5.10 GiB | 5,990 MiB |
+| Z-Image Turbo lite | Inpaint, Batch 2 | 16 | 9.3 s | 4.35 / 5.10 GiB | 5,990 MiB |
+| Z-Image Turbo lite | Outpaint to 16:9, 1824x1024, 1.9 MP | 8 of 8 | 9.8 s (0.73 s) | 4.62 / 5.28 GiB | 6,182 MiB |
+| Z-Image Turbo lite | Inpaint at 1.0, 1536x1536, 2.4 MP | 8 of 8 | 11.4 s (1.01 s) | 4.84 / 6.28 GiB | 7,206 MiB |
+| FLUX.1 Krea dev lite | Source, 1 MP, the first of the process | 28 of 28 | 31.7 s (0.51 s; the first step 12.3 s); 22.3 s again | 7.38 / 8.10 GiB | 9,076-9,386 MiB |
+| FLUX.1 Krea dev lite | Inpaint at 0.95, 1 MP | 27 of 28 | 20.7 s; 19.9 s again (0.50 s) | 7.55 / 8.28 GiB | 9,252 MiB |
+| FLUX.1 Krea dev lite | Inpaint, Batch 2 | 54 | 36.0 s | 7.55 / 8.28 GiB | 9,252 MiB |
+| FLUX.1 Krea dev lite | Inpaint at 0.6 / 0.8 / 1.0 | 17 / 23 / 28 | 11.9 / 14.9 / 19.2 s (0.51 s) | 7.55 / 8.28 GiB | 9,252 MiB |
+| FLUX.1 Krea dev lite | Outpaint to 16:9, 1.9 MP, at 0.95 | 27 of 28 | 35.3 s (1.04 s) | 7.87 / 8.99 GiB | 10,019 MiB |
+| FLUX.1 Krea dev lite | Inpaint at 0.95, 1536x1536, 2.4 MP | 27 of 28 | 41.2 s (1.35 s) | 8.06 / 9.41 GiB | 10,935 MiB |
+
+Loads took 12.8 s (Z-Image Turbo) and 15.3 s (Krea dev). Against fp8 on
+Windows, the inpaint at 1 MP costs about 2.2 GiB less allocated on Z-Image
+Turbo (6.59 / 7.33 there) and 4.6 GiB less on Krea dev (12.16 / 12.83,
+whose 0.95 pass took 45.8 s against 20.7 here); Krea dev's 2.4 MP inpaint
+runs with about 5,370 MiB of the card to spare (10,935 of 16,303 MiB),
+where the fp8 refine pass at that size reached 15,278 MiB. The 1536
+refine source on Krea dev lite peaked at 8.05 / 9.41 GiB, the 2026-10-05
+Nunchaku FLUX.1 dev pass's figure.
+
+| What | Result |
+| --- | --- |
+| The class over the Nunchaku components | `ZImageInpaintPipeline` and `FluxInpaintPipeline` ran from `refine.build` over the loaded Nunchaku transformer and bnb4 encoder, with no error, out-of-memory or refusal |
+| The composite keeps what is not masked | Largest difference outside the mask 0 on both (mean inside 48.0 and 49.9 levels) |
+| Determinism | Not bit-for-bit within the process, text-to-image as well (Behaviour, the Nunchaku row): a repeat, a batch's images against their solo passes, the pass after a cancel and the text-to-image afterwards each hash anew, a repeat staying closer to the first than seed + 1 does |
+| Cancel | Cancelled at step 2 (2.5 s on Z-Image Turbo, 4.0 s on Krea dev); the next pass completed; text-to-image ran afterwards |
+| The embedded mask | 3,928 bytes hard-edged, 36,108 with a 24 px feather, 5,092 for 16:9 and 6,828 at 2.4 MP, on both |
+| The live preview | 3 frames an 8-step pass on Z-Image Turbo (6 for a batch and at 1.9-2.4 MP), 20 a 27-28-step pass on Krea dev (40 for a batch, 15-17 at 1.9-2.4 MP) |
+| What a strength keeps | By eye. Z-Image Turbo: 0.5 and 0.7 keep the red scarf, 0.85 a navy knit, 1.0 the blue knitted scarf asked for. Krea dev: 0.6 and 0.8 keep the red scarf with a little blue at the collar, 0.95 and 1.0 the blue knitted cowl - as on fp8 |
+| The picture | Both put a blue knitted scarf or cowl in the ellipse, lit to match. Krea dev at 0.95 and 1.0 also redraws a pale neck or collar patch under the chin, a visible second chin line at full size. Both outpaints extend the scene naturally with no seam showing at the source's borders (Z-Image Turbo added a red flag in the new margin); both 2.4 MP inpaints are clean |
+| The seam, by eye on 2x crops | A hard mask is a visible content cut on both; feather 24 hides it and leaves a faint ghost (a blue haze on the chin on Z-Image Turbo, a doubled jaw line on Krea dev) |
+
+The seam by number, the same measure as above (the step across the
+mask's edge in 8-bit levels: source / its VAE round trip / the result;
+and the gradient inside a soft region):
+
+| Checkpoint | Pass | Step: source / round trip / result | Soft region gradient |
+| --- | --- | --- | --- |
+| Z-Image Turbo lite | Inpaint, hard | 1.87 / 3.21 / 20.79 | - |
+| Z-Image Turbo lite | Inpaint, feather 24 | 1.85 / 1.93 / 1.94 | 3.92 / 4.05 / 5.62 |
+| FLUX.1 Krea dev lite | Inpaint, hard | 4.29 / 4.56 / 24.29 | - |
+| FLUX.1 Krea dev lite | Inpaint, feather 24 | 4.03 / 4.12 / 4.12 | 8.91 / 8.79 / 9.29 |
+
+The pattern fp8 Z-Image Turbo showed: a hard mask's cut is the new
+content's, five to ten times the source's step, and a feather brings it to
+the round trip's level. Shared GPU memory peaked 82 MiB over its baseline
+on Z-Image Turbo and 138 MiB on Krea dev; free host RAM stayed at or above
+17.6 GiB (18,002 MiB). Not run: FLUX.1 dev and schnell lite (another 12 GB download each,
+the same class), Krea 2 Turbo and ERNIE lite (`inpaint_supported` False),
+Qwen-Image (deferred), cross-process reproduction (known to fail),
+anything above 2.4 MP, and the real server and Inpaint dialog under WSL.
+Evidence: `card3-wsl/out/` in the cards directory (`zturbo/` and
+`kreadev/`: `results.jsonl`, `run.log`, PNGs, previews, the strips;
+`watch-*.csv`), and `~/ld-card3/` in WSL.
+
 ## Outpaint
 
 Measured 2026-10-17 in the same runs, the same way, from the same
@@ -1156,8 +1597,11 @@ One source, one seed, by eye. Evidence: `flux-outpaint.log`, and
 
 Z-Image Turbo, the seam by number and band widths 16, 24 and 48 were
 measured 2026-10-24 (Inpaint, "Z-Image Turbo, an SDXL LoRA, the seam by
-number"), on Animagine XL 4.0 and Z-Image Turbo. Not measured: FLUX.1 dev
-and schnell outpaint; the seam by number on FLUX.1. Evidence is in
+number"), on Animagine XL 4.0 and Z-Image Turbo; a 16:9 outpaint over
+the Nunchaku Z-Image Turbo and FLUX.1 Krea dev transformers under WSL
+2026-10-25 (Inpaint, "Under Nunchaku"). Not measured: FLUX.1 dev and
+schnell outpaint (their 2026-10-25 sessions stopped at the RAM guard during
+the load); the outpaint's seam by number on FLUX.1. Evidence is in
 `%TEMP%/local-diffusion-inpaint-card/` with the inpaint's.
 
 ## Prompt analyser
@@ -1195,12 +1639,17 @@ context, which `/api/status`'s memory query creates.
 | The same under WSL 2 (GGUF from `/mnt/c` via `LOCAL_DIFFUSION_CRITIC_MODEL`) | The Krea [dev] prompt: 38.1 s, 1,072 prompt tokens, 1,127 generated at 136 tokens/s, counted again at 1,072. The listening socket's inode was held in the server's process session, so the check passed. The Greek prompt was refused on the count in 27.8 s, most of it the model's read over 9P. The process session was empty after each stop, no llama-server was left and the card was at baseline | 2026-09-28 |
 | Qwen3-4B's tokenizer for the critic's estimate (CPU) | FLUX.2 [klein]'s `tokenizer.json` gives the same ids as b11206's `llama-tokenize` on the pinned GGUF for 31 texts. Against it, `estimate_tokens` (NFC, per-script rates, a token at least per camel-case hump) is long by up to 1.59 on ordinary text (Vietnamese; English prose 1.26-1.39) and 2.3-2.6 on lists of identifiers or brands. It is short on Turkish 0.84, Polish 0.87, Icelandic 0.82, romanised names 0.83, base64 0.78, traditional Chinese 0.92, kanji names 0.75, Cantonese 0.61 and rare Han 0.50, which the server's own count covers once it runs | 2026-09-28 |
 | Wrapped-server stop under full CPU load, Windows (stand-in server behind a .bat) | 30 critiques with the log's removal retry off: the log was still held after the stop in 0 of 30, against 17 of 30 when only the job's process list was polled | 2026-09-28 |
-| An app killed outright on Windows (stand-in server) | A server started through `_ServerProcess` stopped listening within a second of its app's TerminateProcess: the job's kill-on-close. Not tried with llama-server | 2026-09-28 |
+| An app killed outright on Windows (stand-in server) | A server started through `_ServerProcess` stopped listening within a second of its app's TerminateProcess: the job's kill-on-close. Not tried with llama-server then; it was 2026-10-25 (below) | 2026-09-28 |
 | Critique through the routes on the final tree, FLUX.1 Krea [dev], Windows | The 2026-09-28 row's bookshop prompt twice, `/api/prompt/analyze` then `/api/prompt/critique` with the body the page sends: 11.8 and 13.1 s, 1,177 prompt tokens both times (the route's analysis names Krea's "subject first", so the question asks for three copies of the prompt where the 2026-09-28 run's asked for two at 1,072), 1,125 and 1,460 generated at 140 and 144 tokens/s. Check took 2.6 s on the fresh server (tokenizers from the Hub cache) and 0.03 s after: CLIP-L 30 and T5 34 tokens, the order "Not checked", `guide.quote_text` and `guide.words`. Both rewrites quoted "open late"; the model's `reordered` changed words and was set aside both times, so `reordered` stayed null, and `dropped` was 0. The first answer kept one issue (A5: "shot on film" is no concrete style) and left out one that restated the quotation-mark finding; the second had none. +5,570 MiB over a 3,231 MiB baseline on the second (the first run's poll wrote nothing); the card was back at its baseline before the route answered, and no `llama-server.exe` was left after either | 2026-09-29 |
 | The same on Animagine XL 4.0, an unknown tag ahead of 1girl | "zzkx oc, 1girl, green hair, masterpiece, smile, outdoors", the Danbooru index reachable ("zzkx oc" not found; green hair, smile and outdoors general). Check did not say "Partly checked": `order_checked` true and `order_detail` null, since an unknown tag ahead of 1girl is out of order whatever its category, which `unplaced_items` counts as settled. It gave one `guide.order` finding ("zzkx oc" before 1girl), `reordered` "1girl, zzkx oc, green hair, smile, outdoors, masterpiece", `guide.quality` and `guide.negative_prompt`, in 3.3 s on the fresh server (tokenizers and the tag lookup); 15 tokens on both CLIPs. Critique 20.3 s: 883 prompt tokens, 2,521 generated at 145 tokens/s; +5,626 MiB over 3,178. Three issues were left out for restating the tag-order finding, and the model's `reordered` for changing words, so `reordered` and `reordered_kind` were null; `dropped` 0. The one issue kept, "Missing negative prompt" (G5), restates the `guide.negative_prompt` finding, which validation has no restatement check for. The rewrite dropped "oc", added "[series]" and "[rating]" placeholders and appended the card's recommended negative prompt to the prompt; the lint flagged both brackets, a CLIP cut at 75 of 77 tokens, the order, 26 added words and the missing negative prompt. No `llama-server.exe` was left | 2026-09-29 |
 | The same, an unknown tag whose category decides the order | "1girl, green hair, zzkx oc, smile, outdoors, masterpiece": `order_detail` "the tag index has no usable Danbooru category for 1 tag, so it is not placed: "zzkx oc"" (the page's "Partly checked"), no order finding and no `reordered`. Critique 18.3 s: 843 prompt tokens, 2,268 generated at 146 tokens/s; +5,687 MiB over 3,184, probably about 100 of it not the server's (3,282-3,302 MiB in the 5 s after the stop). No issue was left out; four were kept: two `order` issues on A1 asking for a series and a rating after the character, the missing quality finish (A2, restating the `guide.quality` finding, which validation has no restatement check for either) and "No negative prompt", cited to A3, the card's tag-format sentence. The model's `reordered` changed words and was set aside before the partial-placement check, so that check did not run and `reordered_kind` stayed null. The rewrite again added "[series]", "safe", the quality finish and the whole recommended negative prompt, and drew the same lint findings, with one bracket this time. No `llama-server.exe` was left after the run or after the app was terminated | 2026-09-29 |
 | Critique under WSL 2 through the routes, the GGUF where the app puts it (the Hugging Face cache on ext4), FLUX.1 Krea [dev] lite-infer id | The real server with `wsl/env.sh` sourced and `--defaults` on `1b8e9b4` (the app as at `5aa01f4`), port 7990, a scratch database and outputs directory, the image model never loaded; the bookshop prompt at 1024x1024, 1,191 prompt tokens every time. The WSL cache held the b11206 tree but no GGUF, so the first critique's `prepare()` downloaded the pinned file into `~/.cache/huggingface/hub`, hashed and stamped it: 96.4 s for the request, 21.6 s of it the critique (1,559 generated at 111 tokens/s). With the file in the page cache: 11.4 and 11.6 s (929 and 1,050 generated at 117 and 121 tokens/s). After `echo 3 > /proc/sys/vm/drop_caches` (the VM's `Cached` fell from 5,138 and 4,842 MiB to 569 each time): 17.5 and 18.5 s (1,127 and 945 generated at 121 and 100 tokens/s). Less the generation at the server's own rate, the rest - start, load, the prompt, the stop - was 2.9-3.5 s warm and 8.2-9.1 s after the drop: reading the 4.28 GB file from ext4 adds about 5-6 s, where `/mnt/c` added about 20. The drop empties the VM's page cache only; Windows may still have held the virtual disk's blocks. Generation ran at 100-121 tokens/s, against 140-154 on Windows. +5,610-5,663 MiB over a 3,197-3,223 MiB baseline (the desktop's 2,946 and the idle app's context), back to it after each, no `llama-server` left after any critique or after the server was stopped; `dropped` 0 throughout, `reordered` null, one issue kept in one answer | 2026-09-29 |
 | The critic's first-use line and clock in the page, over a real download (Windows, the FLUX.1 Krea [dev] profile, the image model never loaded; `HF_HOME` an empty scratch directory holding only a token; Check, then Ask the critic, pressed at 2560x1305) | Before the press: "First use downloads llama.cpp b11206 and Qwen3-4B Q8_0 (about 4.5 GB) once." - 4,856,283,677 bytes, in binary gigabytes (4.9 GB decimal). Check took 7.4 s, the CLIP and T5 tokenizers fetched on the way (CLIP-L 30, T5 34 tokens). On the press: "Downloading llama.cpp b11206 and Qwen3-4B Q8_0 (about 4.5 GB) once - this can take a few minutes - then thinking…", Ask reading "Thinking…", Generate aria-disabled "Wait for the critic to finish", and the clock from "· 1 s" a second later, a tick a second; at QHD the clock wrapped to a line of its own under the sentence. The status poll after the server had installed llama.cpp (both zips, 548 MB, in 8.7 s) changed the line at 11.2 s to "Downloading Qwen3-4B Q8_0 (about 4.0 GB) once - …", and the one after the GGUF had landed (4.28 GB in about 181 s, at 3-88 MB/s) to "Thinking… about 15 seconds on the GPU." at 191 s. The answer came 199.7 s after the press with the clock at "· 199 s"; the route's `seconds` said 9.4, which counts the critique alone - server start, completion and stop: 1,201 prompt tokens, 939 generated at 143 tokens/s. The line after it: "Local Qwen3-4B Q8_0 on the GPU, about 15 seconds; waits for image jobs.", unchanged by the next poll. A second ask: "Thinking… about 15 seconds on the GPU.", the clock to "· 11 s", the answer at 11.1 s against `seconds` 11.1. +5,600-5,670 MiB over the idle app's 2,380-2,420 MiB. An attempt six minutes earlier, whose page driver stopped waiting at 280 s, took 306 s on the server with the GGUF at 2-46 MB/s; neither comes near the 114.2 s of 2026-09-27, and the line promises no time for the download ("this can take a few minutes") | 2026-10-05 |
+| Kill-on-close with the real llama-server (Windows; the pinned b11206 server and Qwen3-4B Q8_0 GGUF, the real app with `--defaults` and a scratch gallery, four trials each on a fresh app; the app's real interpreter killed with TerminateProcess) | One trial killed while llama-server was loading, three mid-answer with the card at 6,164-6,172 MiB: llama-server gone 0.05-0.46 s after the kill, the port free within 0.05 s, the card back to its baseline within 0.25 s, no `llama-server.exe` left after any (`tasklist`). The killed apps' `%TEMP%\llama-server-*.log` stayed, as expected of an app that never reached its `finally`. Evidence: `card11-critic/runs/phase1-kill/` in the cards directory (defined under Checkpoints) | 2026-10-25 |
+| A critic reorder where Check placed only some tags (Animagine XL 4.0, fp8, model offload; five prompts Check placed in part, three critiques each, cold, and a fully placed control) | `reordered_kind` null in all 16: every critic `reordered` was set aside as "changed words, not only their order" before the partial-placement question was reached - the 4B model adds `safe`, `great score`, `absurdres`, writes `zzkx (series)` for `zzkx oc` and `hatsune miku (vocaloid)`. The only "check" of the session was beside the loaded pipeline on the fully known Miku prompt, equal to Check's own reorder. Each critique: +5,581-5,583 MiB over the idle app, 8.0-18.1 s, 891-943 prompt tokens and 831-2,403 generated at 147-155 tokens/s (every layer on the GPU, by that rate; the log at the app's verbosity prints no offload lines), adapter shared memory +172-180 MiB while llama-server ran (the same with no image model loaded: its own allocation, not a spill), nothing left after. Beside the loaded idle pipeline: +5,581 MiB, 9.1 s | 2026-10-25 |
+| **A defect: the critic's rewrite loses the user's tags unreported** (the same SDXL session) | 8 of 19 rewrites lost or changed a tag the user wrote (`twintails` three times, `green hair` once, `zzkx oc` four times; `runs/phase2-sdxl/rewrite_tag_loss.txt`); `dropped` counts dropped issues, not tags, and nothing counts removals the way `heuristic.rewrite_adds` counts additions. One rewrite also put the literal slots `[series], [rating]` into the prompt (flagged `encoder.weighting`, the rewrite still offered). On Z-Image Turbo a lighthouse rewrite dropped "a dramatic and melancholic mood". Not changed | 2026-10-25 |
+| The critic beside int8 and sequential offload (Z-Image Turbo, the real app; FLUX.1 Krea [dev]'s fp8 load had stopped at the RAM guard, so Z-Image Turbo stood in) | int8, model offload: loaded in 19.1 s, idle 589 MiB; 768x768 8.0 s at 6.09 / 6.58 GiB and 7,407 MiB, 1024x1024 9.3 s at 6.29 / 7.14 GiB and 7,983 MiB. fp8, sequential: loaded in 17.5 s, idle 591 MiB (1,413 after its first image); 768x768 8.2 s at 1.37 / 1.86 GiB and 1,449 MiB. Beside each, a critique added +5,583 MiB (to 6,292 and 6,996 MiB) in 8.2 and 7.4 s at 149 and 148 tokens/s, with no spill, and the same image after it was the same hash. fp8 with model offload beside it, for scale: the image 6.42 / 7.16 GiB and 8,003 MiB, the critique +5,583 MiB to 6,294 | 2026-10-25 |
+| Whether a rewrite beats its original over six seeds (judged by eye, one viewer, each image against the original prompt's elements; Z-Image Turbo fp8 at 1024x1024 and 8 steps for four prose prompts, Animagine XL 4.0 at 832x1216 for two tag prompts; 12 or 18 images a grid, 9.8-10.2 s and 7.4-8.6 s an image) | Of 36 seed pairs the rewrite won 12, lost 6 and tied 18. Quoting lettering won every seed: open_late ("Open Late" legible on all six against pseudo-glyphs on all six) and bookshop ("open late" against a hanging "OPEN"), 6 of 6 each. Pure rewording tied every seed (lighthouse with its mood clause dropped, hiker, Miku with Check's order and "(vocaloid)"). The rewrite that dropped `twintails` lost every seed (no twintails in any). Check's reorder against the original tied all six on both Animagine prompts. Not on FLUX.1 Krea [dev], whose session stopped at the RAM guard; its rewrites, made cold before the stop, were more invasive (restructured; an invented `"Hiker" in bold font`) and were never rendered, and the gate image's re-render against `7d161ca06d8753e7` was not reached. Evidence: `card11-critic/runs/judgement.json` and the sheets in `runs/phase2-sdxl/sheets/` and `runs/phase3z-zturbo/sheets/` | 2026-10-25 |
 
 **The FLUX prompts.** The Analyse row and the "Critique on Windows, FLUX.1
 Krea [dev]" row used four prompts, given here as sent with their CLIP-L and
@@ -1376,6 +1825,7 @@ at seed 4242, and `INDEX.md` lists the comparison grid's four. The
 2026-09-27 critique rows and the paragraphs above rest on the recovered
 printed output alone; checking them again means new runs. The production
 gallery was not used. Not measured: a critique beside a load in progress
-(refused by design), int8 or sequential offload beside the critic, and
-whether a rewrite renders better than its original over more than two
-seeds.
+(refused by design); int8 or sequential offload of FLUX.1 Krea [dev] beside
+the critic, and a rewrite against its original over more than two seeds on
+FLUX.1 (both measured 2026-10-25 on Z-Image Turbo and Animagine, the rows
+above); kill-on-close under WSL; Ctrl-C during a critique.

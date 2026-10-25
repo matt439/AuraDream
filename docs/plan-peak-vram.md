@@ -1,7 +1,12 @@
 # Plan: peak GPU memory per image
 
 **Status, 2026-10-24: phases 1 and 2 built (`GEN#15`); phase 3, the card
-check, is Matt's.** Matt decided the feature the same day and took every
+check, is Matt's. 2026-10-25: phase 3's SDXL half is done (WAI v17: the
+recorded pair is the allocator's, equal to `verified.md`'s refine table,
+and agrees across the record, the API and the PNG; `verified.md`, Refine
+pass, "Peak per image and Then refine, WAI v17"); its FLUX.1 Krea [dev]
+half is not, the session having stopped at the RAM guard during its
+load.** Matt decided the feature the same day and took every
 proposed answer to the open questions at the end ("i like recommended").
 Built as written, except: the body of `generate()` moved to
 `_generate_images` under the name, the wrapper keeping the signature;
@@ -350,6 +355,9 @@ notes ask), compared with a hand reading of `nvidia-smi` and shared GPU
 memory. Done when the recorded allocated/reserved agree with the process's
 own allocator figures in the style of `verified.md`'s refine table, and
 the result is a row in `verified.md`. Nothing here is claimed until then.
+SDXL done 2026-10-25 on WAI v17, against nvidia-smi and the Windows
+shared-memory counters rather than a hand reading (the counters Task
+Manager shows); FLUX.1 Krea [dev] not yet.
 
 **Later, not designed:** the Refine size warning reading local history.
 Today the tight line is a profile's measured pixel count from
