@@ -1,9 +1,10 @@
-"""Critic rewrites preserve rendered lettering and expose added content."""
+"""Critic rewrites preserve rendered lettering and expose added and dropped content."""
 from __future__ import annotations
 
 from backend import critic_validation
 
 from tests.critic_helpers import (
+    ANIMAGINE,
     KLEIN,
     KREA_DEV,
     _answer,
@@ -251,3 +252,112 @@ def test_a_rewrite_that_adds_content_says_so():
     chinese = "一只猫在沙发上"
     longer = "一只橘色的猫在阳光下的旧沙发上睡觉，背景是木地板和绿植，电影感光线"
     assert _validate(_answer(rewrite=longer), prompt=chinese).rewrite_findings == []
+
+
+def _dropping(rewrite, prompt, style="tags", model_id=ANIMAGINE):
+    found = _validate(_answer(rewrite=rewrite), prompt=prompt, model_id=model_id, style=style)
+    return [flag for flag in found.rewrite_findings if flag.rule == "heuristic.rewrite_drops"]
+
+
+def test_a_rewrite_that_drops_the_users_tags_says_so():
+    # The card's SDXL session, 2026-10-25: 8 of 19 rewrites lost or changed
+    # a tag the user wrote, unreported. These are its recorded prompt and
+    # rewrite pairs (Animagine XL 4.0); a CPU replay of all 19 flags the 8.
+    doc = "1girl, green hair, zzkx oc, smile, outdoors, masterpiece"
+    (drops,) = _dropping(
+        "1girl, zzkx oc, (series), safe, smile, outdoors, masterpiece, high score, great score, "
+        "absurdres", doc,
+    )
+    assert drops.severity == "info" and drops.source == "heuristic" and drops.start is None
+    assert drops.cite is None and drops.url is None
+    assert "drops 1 of your tags (green hair) in any form" in drops.message
+    # A changed tag is a lost one.
+    (drops,) = _dropping(
+        "1girl, zzkx (series), safe, green hair, smile, outdoors, masterpiece, high score, "
+        "great score, absurdres", doc,
+    )
+    assert "drops 1 of your tags (zzkx oc)" in drops.message
+    quality_first = (
+        "masterpiece, high score, 1girl, twintails, mirelle valcour, smile, cherry blossoms, "
+        "outdoors, upper body"
+    )
+    (drops,) = _dropping(
+        "1girl, mirelle valcour, [series], [rating], smile, cherry blossoms, outdoors, upper body, "
+        "masterpiece, high score, great score, absurdres", quality_first,
+    )
+    assert "drops 1 of your tags (twintails)" in drops.message
+    # Spacing aside: `twin tails` is Danbooru's alias of `twintails`.
+    assert _dropping("1girl, mirelle valcour, long twin tails, smile, cherry blossoms, outdoors, "
+                     "upper body, masterpiece, high score", quality_first) == []
+    # The rule set reports it beside the rewrite: it is not set aside.
+    settled = "zzkx oc, 1girl, green hair, masterpiece, smile, outdoors"
+    rewrite = (
+        "1girl, zzkx (series), safe, green hair, smile, outdoors, masterpiece, high score, "
+        "great score, absurdres"
+    )
+    result = _validate(_answer(rewrite=rewrite), prompt=settled, model_id=ANIMAGINE, style="tags")
+    assert [flag.rule for flag in result.rewrite_findings if flag.rule.endswith("drops")] == [
+        "heuristic.rewrite_drops"
+    ]
+    assert result.rewrite is not None and "zzkx (series)" in result.rewrite
+
+
+def test_a_rewrite_that_keeps_every_tag_in_some_form_drops_nothing():
+    # Recorded on the card, and not among the 8: the tags moved, gained
+    # brackets or sit inside a longer tag.
+    out_of_order = "green hair, zzkx oc, 1girl, smile, outdoors, masterpiece, high score"
+    for rewrite in (
+        "1girl, zzkx oc, smile, outdoors, green hair, safe, masterpiece, high score, great score, "
+        "absurdres",
+        "1girl, zzkx (oc), safe, green hair, smile, outdoors, masterpiece, high score, great score, "
+        "absurdres",
+    ):
+        assert _dropping(rewrite, out_of_order) == [], rewrite
+    miku = (
+        "1girl, solo, hatsune miku, smile, zzkx oc, vocaloid, twintails, outdoors, masterpiece, "
+        "absurdres"
+    )
+    assert _dropping(
+        "1girl, hatsune miku, vocaloid, safe, solo, smile, zzkx oc, twintails, outdoors, "
+        "masterpiece, high score, great score, absurdres", miku,
+    ) == []
+    two = (
+        "1girl, aqua eyes, zzkx oc, long hair, qqvr series, school uniform, smile, classroom, "
+        "masterpiece, great score"
+    )
+    assert _dropping(
+        "1girl, zzkx oc (qqvr series), safe, aqua eyes, long hair, school uniform, smile, "
+        "classroom, masterpiece, high score, great score, absurdres", two,
+    ) == []
+    prompt = r"1girl, zzkx oc, green hair, twintails, hatsune miku \(vocaloid\), masterpiece"
+    for rewrite in (
+        # A pure reorder.
+        r"masterpiece, 1girl, hatsune miku \(vocaloid\), twintails, green hair, zzkx oc",
+        # Underscores, case, escapes and a weight only.
+        "1girl, ZZKX_OC, green_hair, (twintails:1.2), hatsune_miku_(vocaloid), Masterpiece",
+        # A longer tag holding one, and added tags beside them.
+        r"1girl, zzkx oc, long green hair, twintails, hatsune miku \(vocaloid\), masterpiece, smile",
+    ):
+        assert _dropping(rewrite, prompt) == [], rewrite
+
+
+def test_a_prose_rewrite_drops_words_only_past_rewording():
+    # Z-Image Turbo on the card lost "a dramatic and melancholic mood": the
+    # recorded prompt, and its recorded rewrite, the same less that clause.
+    prompt = (
+        "A weathered lighthouse keeper in his seventies stands on the rocky shore of a stormy "
+        "North Atlantic coast, his yellow oilskin coat whipping in the wind as he holds a brass "
+        "lantern up against the dusk. Behind him the red and white striped lighthouse rises from "
+        "black basalt cliffs, its beam cutting a pale arc through sheets of rain and low, bruised "
+        "clouds. Waves explode against the rocks in the foreground, throwing spray that catches the "
+        "last orange light from a break in the western sky. Shot on a medium format film camera "
+        "with an 80mm lens at f/4, shallow depth of field, cinematic colour grading with teal "
+        "shadows and warm highlights, fine film grain, a dramatic and melancholic mood."
+    )
+    rewrite = prompt.replace(", a dramatic and melancholic mood.", ".")
+    (drops,) = _dropping(rewrite, prompt, style="prose", model_id="Tongyi-MAI/Z-Image-Turbo")
+    assert "drops 3 of the prompt's words (dramatic, melancholic, mood)" in drops.message
+    # Rewording one word is not taken out content.
+    sign = "A quiet street, no people, a sign that says Open Late."
+    assert _dropping("A quiet street, empty, a sign that says Open Late.", sign, style="prose",
+                     model_id=KREA_DEV) == []

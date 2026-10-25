@@ -8,7 +8,7 @@ An index of open work, one row per item; each row points to the doc that owns th
 
 **Aim (2026-10-18):** keep useful work ready for Matt's common workstation tasks. [Reported use](docs/design/preferences.md) guides priority; it does not approve the candidate redesign.
 
-**Ready backlog:** five `OPEN` tasks from the [2026-10-24 review](docs/review-2026-10-24.md), each needing a plan first: `GEN#17`-`GEN#19`, `UI#11` and `UI#12`; a defect the 2026-10-25 card runs found, `PA#10`; and `GEN#23`, text those runs made stale. Deferred features remain deferred.
+**Ready backlog:** five `OPEN` tasks from the [2026-10-24 review](docs/review-2026-10-24.md), each needing a plan first: `GEN#17`-`GEN#19`, `UI#11` and `UI#12`; and `GEN#23`, text the 2026-10-25 card runs made stale. Deferred features remain deferred.
 
 **Needs Matt:** workbench task trials (`DEV#1`) and hands-on screen-reader/touch checks (`UI#7`) are the next `USER` work. Two decisions wait: whether SDXL prompt weighting is wanted at all (`GEN#20`), and how a cold quantizing FLUX-family load fits this machine's RAM (`GEN#22`), which unblocks the FLUX-family `CARD` rows and `GEN#15`/`GEN#16`. Whole-app layout implementation waits for its trials; it remains a design hypothesis.
 
@@ -73,7 +73,6 @@ An index of open work, one row per item; each row points to the doc that owns th
 
 | id | status | sev | size | item |
 |---|---|---|---|---|
-| `PA#10` | OPEN | MED | S | Say when the critic's rewrite drops or changes a tag the user wrote (8 of 19 SDXL rewrites on the card, 2026-10-25, unreported): a removals counterpart to `heuristic.rewrite_adds`. [Design notes, The prompt analyser, "Open questions the build turned up"](docs/design-notes.md#the-prompt-analyser). |
 | `PA#9` | DEFERRED | LOW | L | Scoring comparison images automatically with a VLM (does each element appear); accuracy unmeasured. |
 
 ## The page

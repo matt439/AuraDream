@@ -169,7 +169,9 @@ def test_the_rewrite_is_dropped_when_it_changes_nothing():
     # Layer 1's lint of the rewrite is the route's (test_api_analysis), once
     # the gate is open; validate adds only its own checks.
     result = _validate(_answer(rewrite="  A calm street.  "))
-    assert result.rewrite == "A calm street." and result.rewrite_findings == []
+    # It loses the whole of the prompt's scene, and says so.
+    assert result.rewrite == "A calm street."
+    assert [flag.rule for flag in result.rewrite_findings] == ["heuristic.rewrite_drops"]
     # The prompt back, spaced otherwise or with a closing stop, is no
     # rewrite; the answer says so rather than just lacking one.
     unchanged = [

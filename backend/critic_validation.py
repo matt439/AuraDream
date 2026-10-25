@@ -10,7 +10,7 @@ from typing import Any, Literal
 from . import critic_context, critic_reorder, critic_runtime
 from .prompt_order import order_checked, scene_ahead
 from .prompt_rules import order_finding
-from .prompt_text import QUOTED, _WORD_NOT_CJK, _capitalised, rendered_targets
+from .prompt_text import QUOTED, _WORD_NOT_CJK, _capitalised, _is_prose, _norm, rendered_targets
 from .schemas import CritiqueIssue, PromptCritique, PromptFinding
 
 # A letter or digit of a script that spaces its words. A quote that starts or
@@ -691,6 +691,68 @@ def _added_words(rewrite: str, prompt: str) -> list[str]:
     return added
 
 
+# A weight written into a tag - "(twintails:1.2)" - is how strongly it reads,
+# not which words it has.
+_TAG_WEIGHT = re.compile(r":\s*-?(?:\d+\.?\d*|\.\d+)\s*(?=[)\]>])")
+# A tag's words: an underscore is its space, and escapes, brackets and
+# weights are not words.
+_TAG_WORD = re.compile(r"[^\W_]+")
+# The prompt's prose content words the rewrite may lose before it is said to
+# drop content: one is rewording ("no people" -> "empty"); a lighthouse
+# rewrite on Z-Image Turbo lost "a dramatic and melancholic mood", three.
+_DROPPED_WORDS = 3
+
+
+def _tag_words(text: str) -> tuple[str, ...]:
+    unweighted = _TAG_WEIGHT.sub(" ", text.translate(critic_reorder._FOLD))
+    return tuple(_stem(word) for word in _TAG_WORD.findall(unweighted))
+
+
+def _dropped(rewrite: str, prompt: str, style: str) -> tuple[list[str], list[str]]:
+    """The prompt's tags the rewrite has in no form, and the content words of
+    its prose the rewrite has in no form.
+
+    A tag is kept where its words, in its order, run whole inside one of the
+    rewrite's comma pieces: case, underscores for spaces, spacing (`twin
+    tails` for `twintails`), parenthesis escapes, a weight, an inflection
+    and where the tag sits do not lose it, and nor
+    does a longer tag holding it ("long twintails"). A changed tag is lost:
+    `zzkx oc` -> `zzkx (series)` keeps no `zzkx oc`. A hybrid prompt's
+    phrases are counted as prose, word by word, since rewording one is the
+    rewrite's job.
+    """
+    pieces = [_tag_words(rewrite[start:end]) for start, end, _ in critic_reorder._piece_spans(rewrite, "tags")]
+
+    def kept(words: tuple[str, ...]) -> bool:
+        # Spacing aside: `twintails` and `twin tails` (a Danbooru alias) are
+        # one tag, so the words are compared run together.
+        joined = "".join(words)
+        return any(
+            "".join(piece[start:end]) == joined
+            for piece in pieces
+            for start in range(len(piece))
+            for end in range(start + 1, len(piece) + 1)
+        )
+
+    tags: list[str] = []
+    prose: list[str] = []
+    if style in ("tags", "hybrid"):
+        for start, end, _ in critic_reorder._piece_spans(prompt, "tags"):
+            item = prompt[start:end]
+            if style == "hybrid" and _is_prose(item):
+                prose.append(item)
+                continue
+            words = _tag_words(item)
+            shown = _norm(item)
+            if words and not kept(words) and shown not in tags:
+                tags.append(shown)
+    else:
+        prose.append(prompt)
+    # The prose's words the rewrite lacks are the rewrite's added words the
+    # other way round.
+    return tags, _added_words(", ".join(prose), rewrite) if prose else []
+
+
 _UNCHANGED = "The critic's rewrite was your prompt as it stands, so there is no rewrite to show."
 _TAG_ESCAPES_KEPT = (
     "Your parenthesis escaping was kept in tags the rewrite otherwise left unchanged."
@@ -805,6 +867,31 @@ def _check_rewrite(
                         f"The rewrite adds {len(added)} words the prompt does not have "
                         f"({shown}): new content as well as new wording, so a comparison "
                         "against it tests both."
+                    ),
+                    source="heuristic",
+                )
+            )
+        # And the other way: 8 of 19 SDXL rewrites on the card lost or
+        # changed a tag the user wrote (`twintails`, `green hair`, `zzkx oc`
+        # as `zzkx (series)`), and nothing said so. Any tag lost is said; a
+        # prose rewrite rewords, so its words count from `_DROPPED_WORDS`.
+        tags, words = _dropped(rewrite, prompt, style)
+        if len(words) < _DROPPED_WORDS:
+            words = []
+        if tags or words:
+            lost = [
+                f"{len(tags)} of your tags ({', '.join(tags)})" if tags else "",
+                f"{len(words)} of the prompt's words ({', '.join(words[:8])}"
+                f"{'…' if len(words) > 8 else ''})" if words else "",
+            ]
+            findings.append(
+                PromptFinding(
+                    rule="heuristic.rewrite_drops",
+                    severity="info",
+                    message=(
+                        f"The rewrite drops {' and '.join(part for part in lost if part)} in "
+                        "any form: content taken out as well as wording changed, so a "
+                        "comparison against it tests both."
                     ),
                     source="heuristic",
                 )

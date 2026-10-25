@@ -10927,7 +10927,17 @@ only its lettering's punctuation was not built. A rewrite with six or more
 content words the prompt has in no form gets `heuristic.rewrite_adds`
 (info), naming them: the instruction not to pad did not stop the card's
 critic from adding lenses, light and scenery to short prompts, and a
-comparison against such a rewrite tests new content, not only wording. What
+comparison against such a rewrite tests new content, not only wording. Its
+counterpart for removals, `heuristic.rewrite_drops` (info, built
+2026-10-25, TODO `PA#10`), names the user's tags the rewrite has in no form
+- a tag is kept where its words, in order, run whole inside one of the
+rewrite's comma pieces, the words compared run together, so a reorder,
+case, underscores, spacing (Danbooru's alias `twin tails` for
+`twintails`), parenthesis escapes, a weight, an inflection or a longer tag
+holding it ("long twintails") lose nothing, while a changed tag (`zzkx oc` -> `zzkx
+(series)`) is lost - and, on prose and a hybrid prompt's phrases, three or
+more of the prompt's content words it has in no form (one is rewording,
+"no people" -> "empty"). Neither sets the rewrite aside. What
 validation takes out besides uncited issues is said on the page
 (`PromptCritique.set_aside`): restated issues and ones speaking to a length
 the check measured, order issues the documented order reverses or that
@@ -11475,12 +11485,22 @@ finding's have a Show. The comparison's always-run Original box carries the
 
 **Open questions the build turned up**, for decisions rather than code:
 
-- Open, found on the card 2026-10-25 (TODO `PA#10`): the critic's rewrite
-  loses tags the user wrote and nothing says so - 8 of 19 SDXL rewrites
-  lost or changed one (`verified.md`, Prompt analyser, the defect row).
-  `dropped` counts dropped issues, and `heuristic.rewrite_adds` has no
-  counterpart for removals. A removals finding beside it is not built;
-  whether such a rewrite should also be set aside is a decision.
+- Found on the card 2026-10-25 (TODO `PA#10`), reported since the same
+  day: the critic's rewrite lost tags the user wrote and nothing said so -
+  8 of 19 SDXL rewrites lost or changed one (`verified.md`, Prompt
+  analyser, the defect row). `heuristic.rewrite_drops` (info) now names
+  them beside the rewrite (`critic_validation._dropped`): any tag the
+  rewrite has in no form, a changed one included, and on prose three or
+  more lost content words, as the lighthouse rewrite's "a dramatic and
+  melancholic mood" was. Tested in `tests/test_critic_lettering.py` on the
+  card's recorded prompt and rewrite pairs (`green hair` lost, `zzkx oc` ->
+  `zzkx (series)`, `twintails` lost beside `[series], [rating]`, the
+  lighthouse's mood; `zzkx (oc)`, a reorder and `zzkx oc (qqvr series)`
+  silent), with stand-in prompts for an escape, underscore, case, spacing
+  or weight difference, also silent; a CPU replay of the 19 saved SDXL
+  critiques flags exactly the 8. Not re-run on the card. Still open,
+  a decision for Matt: whether such a rewrite should also be set aside
+  rather than offered with the finding.
 - Resolved 2026-10-17: the tag autocomplete wrote Danbooru names with A1111
   escapes - `tags.display_tag` turned `(` into `\(` - to match the authors'
   own examples (Animagine's has them). Diffusers never unescapes, so CLIP
