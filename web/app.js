@@ -582,7 +582,19 @@ els.confirmCount.addEventListener('keydown', (e) => {
   if (e.key === 'Enter' && !e.isComposing) { e.preventDefault(); els.confirmDialog.close('ok'); }
 });
 
+els.shortcuts.onclick = openShortcuts;
+els.shortcutsClose.onclick = closeShortcuts;
+els.shortcutsDialog.addEventListener('close', shortcutsClosed);
+els.shortcutsDialog.addEventListener('click', shortcutsBackdrop);
+
 document.addEventListener('keydown', (e) => {
+  shortcutKey(e);
+  // Help may sit above another dialog. Its Escape and Ctrl+Enter belong to
+  // help alone, never the lightbox or generation controls underneath it.
+  if (els.shortcutsDialog.open) {
+    if (e.key === 'Enter' && (e.ctrlKey || e.metaKey)) e.preventDefault();
+    return;
+  }
   // Nothing of the page's while a delete asks: Escape there is its Cancel,
   // which closed the lightbox under it as well, and Ctrl+Enter generated.
   if (els.confirmDialog.open || els.bundlesDialog.open) return;

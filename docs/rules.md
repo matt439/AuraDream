@@ -250,7 +250,7 @@ before changing it.
   per version
 - `backend/reindex.py` — rows rebuilt from the PNGs' `local-diffusion` chunk, in place or
   copied in from another gallery; idempotent on the UNIQUE filename
-- `web/` — served as-is from `/static`; `index.html` loads 50 classic
+- `web/` - served as-is from `/static`; `index.html` loads 51 classic
   scripts in order, sharing one global scope; only `app.js`, the last, runs
   the wiring and boot. `state.js` owns shared state; `generation.js`,
   `grid-preview.js`, `job-stream.js` and `job-results.js` handle submission,
@@ -284,7 +284,8 @@ before changing it.
   `refine-batch.js` Mass refine, `then-refine.js` Then refine's opener
   on the Notify row and its dialog, `more-seeds.js` More seeds and `bin.js` the
   recycle bin's view, undo note and Empty; `context-menu.js` the right-click
-  menu on an image (`styles/context-menu.css`). The stylesheet is
+  menu on an image (`styles/context-menu.css`); `shortcuts.js` the keyboard
+  help dialog. The stylesheet is
   `style.css` (tokens and base layout), followed by `styles/*.css` in the
   explicit link order: `model-picker.css` the Models picker (first, at its
   old place in `style.css`), `fields.css` the panel's fields,
@@ -294,7 +295,8 @@ before changing it.
   lightbox, `refine.css` the Refine dialog and motion, `inpaint.css` and
   `outpaint.css` their dialogs, `bundles.css` the bundle dialog,
   `swap.css`, `refine-batch.css` and `more-seeds.css` those dialogs,
-  `bin.css` the recycle bin and `context-menu.css` the right-click menu;
+  `bin.css` the recycle bin, `context-menu.css` the right-click menu and
+  `shortcuts.css` the keyboard help dialog;
   preserve that cascade (`tests/test_docs_maps.py` holds this list to
   `index.html`'s links, in order). `docs/source-audit.md` records the
   split audits and why each long file it kept stays whole.
@@ -2116,6 +2118,15 @@ Prompt analyser:
 
 Frontend and CLI:
 
+- Keyboard help (`shortcuts.js`) opens with `?` or the top bar's named
+  button, never while typing in an input, textarea, select or editable
+  content, during composition, on a repeat or with Ctrl/Meta/Alt. Its native
+  dialog may sit above another dialog; while open, the page's global
+  shortcut dispatcher returns before Ctrl/Cmd+Enter or Escape can act
+  underneath it. Tab stays on help's sole Close control. Close, native Escape
+  and an actual backdrop press restore the connected opener with
+  `preventScroll`. The complete, grouped list is
+  available even when the gallery is empty or a comparison is inactive.
 - `web/` has no build step and no test suite; check it in a real browser with
   `tools/fake_server.py` and `tools/browser.mjs` (see Tests). The page script
   is classic scripts sharing one global scope, loaded in the order
@@ -4847,6 +4858,12 @@ Frontend and CLI:
   meanwhile from fetching).
 
 ## Tests
+
+`smoke-shortcuts.json` uses a fresh fake on 7913. It checks the complete
+shortcut list before any images exist, the top-bar and `?` openers, typing,
+composition/modifier/repeat guards, help above a lightbox and a Refine draft,
+no underlying submission or image action, native Escape, Close and actual
+backdrop focus restoration, and a 390 px layout without horizontal overflow.
 
 `uv run --group dev pytest`. They stub the pipeline (`tests/fakes.py`'s
 `FakeBackend`, wired by the `fake` and `client` fixtures in `tests/conftest.py`

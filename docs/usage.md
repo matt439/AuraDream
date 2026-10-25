@@ -657,6 +657,10 @@ naming the run, its image count and the checkpoint it was made on.
 
 ### Keyboard and lightbox
 
+Press **?** outside a text field, or the **Keyboard shortcuts** button in the
+top bar, for the full list. **Escape** closes help and returns focus to where
+you opened it. Help can be opened above a lightbox or dialog without closing it.
+
 | Where | Keys |
 | --- | --- |
 | Anywhere | Ctrl/Cmd+Enter generates; inside an open Grid field runs the grid; in Refine runs the pass; in Refine… (Mass refine) runs the batch; in Swap tags queues; in More seeds… queues the batches |

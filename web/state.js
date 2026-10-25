@@ -60,6 +60,8 @@ const els = {
   gridLoraField: $('grid-lora-field'), gridLoraTip: $('grid-lora-tip'),
   generate: $('btn-generate'), dice: $('btn-dice'), unload: $('btn-unload'), load: $('btn-load'),
   models: $('btn-models'), modelPicker: $('model-picker'),
+  shortcuts: $('btn-shortcuts'), shortcutsDialog: $('shortcuts-dialog'),
+  shortcutsClose: $('shortcuts-close'), shortcutsBody: $('shortcuts-body'),
   modelTable: $('model-table'), modelTableHead: $('model-table-head'),
   modelSwitch: $('btn-model-switch'), modelSave: $('btn-model-save'), modelPickerNote: $('model-picker-note'),
   modelPickerNoteText: $('model-picker-note-text'), modelRevert: $('btn-model-revert'), modelPickerHelp: $('model-picker-help'),

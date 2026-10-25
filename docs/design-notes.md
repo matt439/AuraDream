@@ -7394,6 +7394,24 @@ Delete wraps to a second row at 2048x1040 at 125% with or without Gallery beside
 (348 against 346 px of column) - the column's own, not this layout's.
 `smoke-stage.json` checks all of it at 2560x1305 and 2048x1040 at 125%.
 
+## Keyboard shortcut help
+
+The [shortcut overlay plan](plan-shortcuts.md) implements `UI#12` from the
+2026-10-24 review. `?` and the named top-bar button open native modal help,
+with no extra line in the settings panel. The grouped list covers the
+existing handlers as well as the controls' `aria-keyshortcuts`: reading only
+currently rendered attributes would omit gallery navigation on an empty
+gallery and comparison keys before a comparison was opened.
+
+Typing, composition, key repeats and Ctrl/Meta/Alt chords never open help.
+Help can sit above a lightbox or pass dialog. The document's dispatcher
+returns while help is open, before its Ctrl+Enter and Escape branches: without
+that guard, reading help could submit an image or close the lightbox below.
+Native Escape closes only help; Close and a real backdrop press do the same.
+Its connected origin receives focus without scrolling. The dialog scrolls
+inside the window, with Close kept in view, and the narrow layout stacks
+keys above their explanations.
+
 ## The ? badges are named
 
 Every `?` badge (`.help`, role `note`, a tab stop) is named for what it

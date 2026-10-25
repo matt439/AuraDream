@@ -22,6 +22,7 @@
 <link rel="stylesheet" href="/static/styles/more-seeds.css">
 <link rel="stylesheet" href="/static/styles/bin.css">
 <link rel="stylesheet" href="/static/styles/context-menu.css">
+<link rel="stylesheet" href="/static/styles/shortcuts.css">
 </head>
 <body>
 <header class="topbar">
@@ -39,6 +40,7 @@
        panel's #progress-text is the status a screen reader hears. -->
   <span class="job-mirror" id="job-mirror" aria-hidden="true" hidden></span>
   <div class="vram" id="vram"></div>
+  <button type="button" class="ghost" id="btn-shortcuts" aria-label="Keyboard shortcuts" aria-keyshortcuts="?" aria-haspopup="dialog" aria-controls="shortcuts-dialog" title="Keyboard shortcuts (?)">?</button>
   <button class="ghost" id="btn-models" aria-expanded="false" aria-controls="model-picker">Models</button>
   <section class="model-picker" id="model-picker" aria-label="Models" hidden>
     <!-- tabindex -1: a press on the picker's empty space or its heading keeps
@@ -1696,6 +1698,15 @@
      the page under it inert. -->
 <ul class="menu context-menu" id="context-menu" role="menu" tabindex="-1" hidden></ul>
 
+<dialog class="shortcuts-dialog" id="shortcuts-dialog" aria-labelledby="shortcuts-title" aria-describedby="shortcuts-intro">
+  <div class="shortcuts-head">
+    <h2 id="shortcuts-title">Keyboard shortcuts</h2>
+    <button type="button" class="ghost" id="shortcuts-close" autofocus>Close</button>
+  </div>
+  <p class="hint" id="shortcuts-intro">Keys act where focus is. Letter shortcuts leave text fields alone; Ctrl or Cmd keys keep their usual editing meaning unless listed below. Escape closes this help first.</p>
+  <div id="shortcuts-body"></div>
+</dialog>
+
 <script src="/static/state.js"></script>
 <script src="/static/sizes.js"></script>
 <script src="/static/status.js"></script>
@@ -1745,6 +1756,7 @@
 <script src="/static/more-seeds.js"></script>
 <script src="/static/bin.js"></script>
 <script src="/static/context-menu.js"></script>
+<script src="/static/shortcuts.js"></script>
 <script src="/static/app.js"></script>
 </body>
 </html>
