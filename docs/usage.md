@@ -1,7 +1,7 @@
 # Using Local Diffusion
 
-For installation, launch options, sizes and environment variables, start with
-the [README](../README.md). The [anime model guide](anime-model-guide.md) helps
+For a first install, follow [first-time setup](setup.md); for launch options,
+sizes and environment variables, see the [README](../README.md). The [anime model guide](anime-model-guide.md) helps
 choose a checkpoint; [verified.md](verified.md) records measured performance.
 
 ## Load and switch models

@@ -5,7 +5,7 @@ gallery. Supports FLUX, Krea 2, Z-Image, Qwen-Image, ERNIE-Image and a range of
 anime checkpoints. Built with FastAPI, diffusers, vanilla JavaScript and SQLite;
 the frontend has no build step.
 
-[Quick start](#quick-start) · [Usage guide](docs/usage.md) ·
+[First-time setup](docs/setup.md) · [Quick start](#quick-start) · [Usage guide](docs/usage.md) ·
 [Anime model guide](docs/anime-model-guide.md) · [GPU measurements](docs/verified.md) ·
 [Product design](docs/design/README.md)
 
@@ -30,7 +30,9 @@ the frontend has no build step.
 
 ## Quick start
 
-Run these commands from the repository root:
+New to this? [First-time setup](docs/setup.md) walks through it step by
+step, from the GPU driver and installing uv to a first image, with fixes for
+common first-run problems. The short version, from the repository root:
 
 ```powershell
 uv sync
@@ -297,6 +299,7 @@ Static frontend edits need no server restart; backend edits do.
 
 ## Documentation
 
+- [First-time setup](docs/setup.md): from a fresh machine to a first image, step by step.
 - [Usage guide](docs/usage.md): prompts, batches, grids, gallery, CLI and recovery.
 - [Anime model guide](docs/anime-model-guide.md): choosing a checkpoint and its settings.
 - [GPU verification](docs/verified.md): measured behaviour and remaining gaps.
