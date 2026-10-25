@@ -3971,13 +3971,13 @@ Frontend and CLI:
   (`dropFromBinView`, `stashed: false`). Select (`#btn-select`, `aria-pressed`, the
   footer row beside Bundles…, styled as it is so the line keeps its height)
   is the touch path. A card image's press is `cardPress`, which `card()`
-  hands `thumb` as `open`, as a file manager's: a click picks the card
-  alone (`selectOnly`), Ctrl/Cmd+click toggles it, Shift+click picks the
-  range from the anchor alone and Ctrl+Shift+click adds it
-  (`selectRange(div, {add})`); a double click (`cardDoubleClick`, a click's
-  `detail` over 1 left to it) or Enter opens the lightbox; Space toggles and
+  hands `thumb` as `open`: a plain click opens the lightbox without changing
+  the picks or anchor. Ctrl/Cmd+click toggles a pick; Shift+click picks the
+  range from the anchor alone, falling back to `selectOnly` without a loaded
+  anchor, and Ctrl/Cmd+Shift+click adds it (`selectRange(div, {add})`). Only
+  the first click of a multi-click opens. Enter opens; Space toggles and
   Shift+Space adds the range. In select mode every click toggles, quick ones
-  too, Shift adds, and only Enter opens. The anchor is the last card toggled or clicked (a pick refused at
+  too, Shift adds, and only Enter opens. The anchor is the last card toggled or picked (a pick refused at
   the cap and a range leave it); a range runs in DOM order. F and the tools
   are unchanged. The image's Shift mousedown, and a double click's, are kept
   from selecting text; a click between the cards (`galleryBlankClick`, on
@@ -3998,8 +3998,9 @@ Frontend and CLI:
   ellipsis. Before a shown Clear it keeps 4 px, Clear's own padding on that
   side halved; with Clear hidden, the row's gap before Select. A picked card is `.selected` (its group named "#N
   (selected)"); in select mode `#gallery.selecting` draws a ring at each
-  card's top centre. The image is a toggle in and out of the mode
-  (`aria-pressed`, named "Select #N: …"; `aria-keyshortcuts` with Enter). `syncSelection` derives all of it from the state; call it
+  card's top centre. The image is a toggle only in Select (`aria-pressed`,
+  named "Select #N"); outside it is named "Open #N" without `aria-pressed`.
+  Its `aria-keyshortcuts` includes Enter in both modes. `syncSelection` derives all of it from the state; call it
   after anything that adds cards other than through `card()` and
   `loadGallery`.
 - The Picked menu (`#picked`: `#btn-picked`, `aria-haspopup="menu"`, and
@@ -6390,17 +6391,13 @@ with picks from another search kept and the cap applied, and leaving native
 text selection in the search and the prompt; in the recycle bin adding only
 the bin's cards, the gallery's picks set aside and back unchanged; Select in
 the footer row before Swap tags…, Refine…, More seeds… and Bundles…, at
-Bundles…'s height; with Select off, a card picked as a file manager's item
-is: a plain click picking it alone and opening nothing, replacing every
-earlier pick including one the search does not show; Ctrl+click (Cmd+click)
-picking or unpicking it beside the rest and moving the anchor; Shift+click
-replacing the selection with the range from the anchor (backwards from the
-anchor out); Ctrl+Shift+click adding the range; a click of detail 2 picking
-nothing; a real double click opening the lightbox on the card its first
-click picked, with no text selected; a double click with Ctrl held opening
-nothing; Space picking and unpicking the focused card and Enter opening it
-with the picks left alone; every card image `aria-pressed`, named "Select
-#N", Enter first among its keys; a card's star starring it with the picks
+Bundles…'s height; with Select off, plain click opening a card while keeping
+the selection (including hidden picks) and range anchor, Ctrl+click
+(Cmd+click) toggling a pick and moving the anchor, Shift+click replacing the
+picks with the range and Ctrl/Cmd+Shift+click adding it; duplicate click
+details and non-left clicks opening or picking nothing; Space toggling and
+Enter opening with picks left alone; image names Open outside Select and
+Select with aria-pressed inside it, Enter first among the keys; a card's star starring it with the picks
 kept; a click on blank grid space clearing the selection with Select off but
 not in Select mode; Select pressed with neither it nor the grid moving as
 the count appears, its hint the row's gap from Select and the count 4 px
@@ -6412,9 +6409,9 @@ opening the lightbox and F still starring; a search showing one of eight
 counted as "7 not shown", and back; the next page's cards marked and a range
 across the page boundary; a picked image deleted by its ⌦ leaving the
 selection; the cap (a range picking what fits, a single pick refused, both
-said); Escape clearing, then leaving select mode (the image still a "Select
-#N" toggle), then left to the page; Select off keeping a selection that a
-double click does not change; Clear handing focus to
+said); Escape clearing, then leaving select mode (the image becomes an
+"Open #N" button), then left to the page; Select off keeping a selection that
+a plain click does not change; Clear handing focus to
 Select; on a sheet Select held with its reason, not pressed and with no
 hint, and the selection kept and counted; a refused pick leaving the anchor;
 `selectedRecords()` giving the loaded page's records after a search; the

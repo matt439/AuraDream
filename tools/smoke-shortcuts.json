@@ -9,7 +9,7 @@
   {"expect": "els.shortcutsDialog.open && document.activeElement === els.shortcutsClose && !!els.shortcutsDialog.getAttribute('aria-labelledby')"},
   {"expect": "['Generate and passes', 'Gallery and selection', 'Contact sheet', 'Lightbox and comparison', 'Prompts and tag chips', 'Reference images', 'Inpaint picture', 'Menus and settings groups'].every((title) => __helpHeadings().includes(title))"},
   {"expect": "['Ctrl/Cmd+Enter', 'Shift+Space', 'Ctrl/Cmd+A', 'Ctrl+Home', 'Ctrl+End', 'F', 'R', 'S', 'Delete', 'Shift+Left', 'PageUp', 'F2', 'Alt+Left', 'B', 'E', 'I', '[', ']', 'Ctrl/Cmd+Y', 'Menu', 'Shift+F10'].every((key) => __helpKeys().includes(key))"},
-  {"expect": "__helpBody().includes('loaded gallery card') && __helpBody().includes('recycle bin') && __helpBody().includes('Reset the sheet zoom')"},
+  {"expect": "__helpBody().includes('Click opens an image') && __helpBody().includes('Ctrl/Cmd+Shift+click adds a range') && __helpBody().includes('loaded gallery card') && __helpBody().includes('recycle bin') && __helpBody().includes('Reset the sheet zoom')"},
   {"key": "Tab", "native": true},
   {"expect": "els.shortcutsDialog.contains(document.activeElement)"},
   {"keycombo": ["Shift", "Tab"]},

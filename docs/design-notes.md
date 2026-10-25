@@ -6533,33 +6533,33 @@ card or a lasso. `gallery-select.js` keeps one selection for every such
 action, and the actions read it (`selectedIds()`, `onSelectionChange`) and
 say whether they act on it or on the filter.
 
-**A file manager's clicks, and a mode for touch** (2026-10-24). A card
-image's click used to open the lightbox, and picking needed Select or a
-Ctrl click; Matt found that backwards against every Windows file list, so
-the press is now a pick: a click picks the card alone, Ctrl+click picks or
-unpicks one beside the rest, Shift+click picks the range from the anchor
-(the last card toggled or clicked) to it alone, Ctrl+Shift+click adds that
-range, and a double click - or Enter - opens the lightbox, its first click
-having picked the card as Explorer's does. Space toggles and Shift+Space
-adds a range; Ctrl/Cmd+A adds the loaded cards, out of the mode too. A
-click between the cards (a day's line, past the last card) empties the
-selection, so the actions go back to the filter: with a click now always
-leaving a card picked, Re-render, Swap tags and the rest would otherwise
-never see the filter again without Escape or Clear. The plain click's
-replace costs picks made across other searches, as Explorer's does; Ctrl
-keeps them. What the mode was for still holds - a click's modifiers are
-invisible to a touch screen, and a double tap is no dependable gesture - so
-Select stays as the path without them: in it every press toggles as a
-Ctrl click does, quick ones too (a double click opens nothing there; Enter
-does), Shift adds, and a tap between cards empties nothing, since a stray
-one there would cost the picks. Out of it, a click between the cards drops
-picks the view does not show as well, as a plain click on a card does. The image is a toggle in both
-(`aria-pressed`, "Select #N: …"), since a screen reader's activation is a
-click and so a pick; Enter and the context menu's Open are the ways in. The
-earlier choice (a mode, not a modifier, 2026-10-10) argued a pick made by
-accident opened nothing to show it; the ring and the count show it now. The
-#recent strip, the viewer's and a sheet's cells still open on a click:
-nothing there is picked.
+**Opening and picking are separate gestures** (2026-10-25). Matt reverted
+the 2026-10-24 file-manager-style click-to-pick change. A plain card click
+opens the large image and leaves the picks and range anchor unchanged.
+Ctrl/Cmd+click toggles one pick, moving the anchor only when the toggle
+happens; Ctrl/Cmd+Shift+click adds the loaded range from that anchor. The
+existing Shift-only range replaces the picks, and falls back to picking one
+card where its anchor is absent from the loaded view. A range keeps the
+anchor. Space toggles, Shift+Space adds a range, and Enter opens in either
+mode. Ctrl/Cmd+A still adds loaded cards.
+
+Select remains the modifier-free touch path: every click toggles there,
+including quick consecutive clicks; Shift adds a range. Its image is named
+"Select #N" with `aria-pressed`; outside Select it is named "Open #N" with
+the card group's name retaining the selection state. The viewer hint,
+selection tooltip, Picked/action hold reasons and keyboard help describe the
+same gestures. A click between cards clears picks outside Select, and Clear
+or Escape remains available. Recent images, viewer images and sheet cells
+continue to open on a click.
+
+The restoration's six documentation-map tests and changed-script syntax
+checks pass against an isolated copy of HEAD plus this change; independent
+static review found no functional issues. After explicit local-browser test
+approval, `smoke-select`, `smoke-shortcuts` and `smoke-context-menu` passed
+serially on Chrome and scratch fake servers. Selection coverage includes
+hidden picks, anchors, both modifier conventions, keyboard activation,
+Select mode, focus restoration, caps, paging and bin stashing. No models
+were loaded or downloaded.
 
 **Ids that outlive the cards.** The selection is ids, so a new search, a
 filter, a sheet or another page keeps it: picking across two searches is the

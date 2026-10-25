@@ -6,10 +6,10 @@
 // several images at once (Re-render, Swap tags, Mass refine, More seeds, and
 // the Picked menu's star, unstar and bin), where the filter alone was
 // the only scope - a search that matched exactly the right images was often
-// not to be had. A card's image picks as a file manager's item does (click,
-// Ctrl, Shift; a double click or Enter opens the lightbox: cardPress), and
-// the head's Select (in its footer row, beside Bundles…) is the same with no
-// modifier keys, for touch: every press toggles. F stars a card and its tools
+// not to be had. A card's image opens on a click; Ctrl/Cmd toggles a pick
+// and Ctrl/Cmd+Shift adds a range (cardPress). The keyboard keeps Enter
+// for opening and Space for picking. The head's Select provides modifier-free
+// touch picking: every press toggles. F stars a card and its tools
 // are its own either way; a selection stays marked and counted until Clear,
 // Escape or a click between the cards.
 //
@@ -31,7 +31,7 @@
 //   clearSelection()
 let selectMode = false;
 const selection = new Map();
-// The card a plain pick was last made on, by id: a Shift pick runs from it.
+// The card last toggled, by id: a Shift pick runs from it. Opening leaves it.
 let selectAnchor = null;
 const selectionListeners = [];
 
@@ -148,9 +148,8 @@ function countParts(n, away, text) {
   return away ? [num, part('tail', ` · ${away} not shown`)] : [num];
 }
 
-// One card's mark. A card image's press picks, in select mode or out of it,
-// so the image is a toggle everywhere (aria-pressed, named "Select #N"); the
-// group's name says the card is selected too. Enter is what opens it.
+// One card's mark. Outside Select the image opens; in Select it is a toggle.
+// The group's name still says whether this card belongs to the picks.
 function syncCardSelected(div) {
   const id = +div.dataset.id;
   const on = selection.has(id);
@@ -158,20 +157,19 @@ function syncCardSelected(div) {
   div.setAttribute('aria-label', `#${id}${on ? ' (selected)' : ''}`);
   const img = div.querySelector(':scope > img');
   if (!img) return;
-  img.setAttribute('aria-pressed', String(on));
+  if (selectMode) img.setAttribute('aria-pressed', String(on));
+  else img.removeAttribute('aria-pressed');
   const label = img.getAttribute('aria-label') ?? '';
-  img.setAttribute('aria-label', label.replace(/^(Open|Select) /, 'Select '));
+  img.setAttribute('aria-label', label.replace(/^(Open|Select) /, selectMode ? 'Select ' : 'Open '));
   // A recycle bin card has no star, so no F (binCard).
   const star = div.classList.contains('binned') ? '' : 'F ';
   img.setAttribute('aria-keyshortcuts', `Enter ${star}Space Shift+Space Escape Control+A Meta+A`);
 }
 
-// A card image's press (thumb's `open`, from card()), as a file manager's
-// (2026-10-24; it used to open the lightbox): a click picks the card alone, a
-// Ctrl click picks or unpicks it beside the rest, a Shift click picks the
-// range from the anchor to it alone and Ctrl+Shift adds that range. A double
-// click opens the lightbox (cardDoubleClick), as Enter does from the
-// keyboard; Space toggles, Shift+Space adds the range. Select mode is the
+// A card image's press (thumb's `open`, from card()): a plain click opens
+// without changing the picks or their anchor; Ctrl/Cmd toggles one pick.
+// Shift picks the range alone and Ctrl/Cmd+Shift adds it. Enter opens,
+// Space toggles, Shift+Space adds the range. Select mode is the
 // path with no modifier keys - a touch screen's - where every click toggles
 // as a Ctrl click does and Shift adds.
 function cardPress(div, rec, e) {
@@ -181,24 +179,18 @@ function cardPress(div, rec, e) {
     toggleSelected(rec);
     return;
   }
-  // A double click's second click is the double click's to answer - but in
-  // select mode every press toggles, quick ones too, and nothing opens.
+  if (e?.button != null && e.button !== 0) return;
+  // Opening needs only the first click. In Select every press toggles,
+  // quick ones too, and nothing opens.
   if (e?.detail > 1 && !selectMode) return;
   const add = selectMode || e?.ctrlKey || e?.metaKey;
   if (e?.shiftKey && selectRange(div, { add })) return;
   if (add) toggleSelected(rec);
-  else selectOnly(rec);
+  else if (e?.shiftKey) selectOnly(rec);
+  else if (!e?.altKey) openLightbox(rec, galleryRecords);
 }
 
-// The lightbox, from a card image's double click; its first click has picked
-// the card alone, as Explorer's does. With a modifier held it was a pick,
-// and in select mode two quick toggles (Enter opens there).
-function cardDoubleClick(rec, e) {
-  if (selectMode || e.ctrlKey || e.metaKey || e.shiftKey || e.altKey) return;
-  openLightbox(rec, galleryRecords);
-}
-
-// A plain click: this card, and only it, picked.
+// A Shift range with no loaded anchor starts by picking just this card.
 function selectOnly(rec) {
   selection.clear();
   selection.set(rec.id, rec);
@@ -338,7 +330,7 @@ function forgetSelected(gone, { stashed = true } = {}) {
 // It is a role=menu and keeps that promise as Examples does: ArrowDown on the
 // button opens it on its first item, the arrows walk it, Escape or a choice
 // closes it with focus back on the button, and leaving it closes it.
-const PICKED_NONE = 'Pick cards (click, Ctrl+click) to star, unstar, bin or use their seeds in a grid';
+const PICKED_NONE = 'Pick cards (Ctrl/Cmd+click or Select) to star, unstar, bin or use their seeds in a grid';
 
 // Seeds only: the picked order is the investigation's order, while another
 // image of the same seed contributes no second entry. Leave grid limits to
@@ -492,7 +484,7 @@ function galleryActionTarget(purpose, one) {
   const search = els.search.value.trim();
   const filtered = els.favOnly.checked || search !== '';
   if (!filtered) {
-    return { why: `Pick cards (click, Ctrl+click), or narrow the gallery with a search or Starred, ${purpose}` };
+    return { why: `Pick cards (Ctrl/Cmd+click or Select), or narrow the gallery with a search or Starred, ${purpose}` };
   }
   if (total === 0) return { why: 'Nothing in the gallery matches the filter' };
   if (total > sheetPage) {

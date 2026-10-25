@@ -550,8 +550,10 @@ this was recorded, or without a GPU, show no number.
 **Select** (first in the row under the search box) picks cards for an
 action on several images: in select mode a click or Space picks a card,
 Shift picks a range from the last card picked, and Enter still opens the
-lightbox. Without Select, Ctrl+click picks a card and Shift+click (or
-Ctrl+Shift+click) picks the range from it. The selection survives searches, filters and paging; its count
+lightbox. Without Select, a plain click opens the large image without changing
+the picks. Ctrl+click (Cmd+click) picks or unpicks one card; Ctrl+Shift+click
+(Cmd+Shift+click) adds the range from the last card toggled. Shift+click alone
+replaces the picks with that range. The selection survives searches, filters and paging; its count
 says how many picked images the current view does not show. **Clear** or
 Esc empties it, and a second Esc leaves select mode. Pick exactly two images, then choose **Picked > Compare picked** (also in
 the picked-card context menu). Matching aspect ratios are required; their
