@@ -681,7 +681,7 @@ _ILLUSTRIOUS = (
     ),
 )
 
-_WAI_V17 = "https://civarchive.com/models/827184/wai-nsfw-illustrious-sdxl?modelVersionId=2883731"
+_WAI_V17 = "https://civarchive.com/models/827184?modelVersionId=2883731"
 _WAI_NOTE = "author WAI0731's v17 description, archived copy"
 _WAI = (
     Excerpt(

@@ -274,7 +274,7 @@ def test_a_tag_inside_lettering_is_no_tag():
     # or counted as the tag the prompt has.
     assert silent(ILLUSTRIOUS, '1girl, sign says "hi, safe, bye", masterpiece', "guide.rating")
     assert silent(ILLUSTRIOUS, "1girl, 封面上写着《hi, safe, bye》, masterpiece", "guide.rating")
-    assert silent(KOHAKU, '1girl, sign says "no, explicit, content"', "guide.rating")
+    assert silent(KOHAKU, 'scenery, sign says "no, explicit, content"', "guide.rating")
     artist = '1girl, sign says "hi, nnn yryr, bye", smile'
     assert silent(ANIMA, artist, "guide.artist_prefix", {"nnn yryr": "artist"})
     rule = "guide.artist_prefix"
@@ -298,8 +298,8 @@ def test_a_tag_inside_lettering_is_no_tag():
 def test_a_rule_that_adds_or_drops_an_item_keeps_the_lettering_as_typed():
     # The items after an inserted or dropped one shift into the gaps before
     # them; a comma with no space inside the lettering once took ", ".
-    [pair] = only(run(KOHAKU, '1girl, explicit, sign says "hi,there"'), "guide.rating")
-    assert pair.suggestion == '1girl, nsfw, explicit, sign says "hi,there"'
+    [pair] = only(run(KOHAKU, 'scenery, explicit, sign says "hi,there"'), "guide.rating")
+    assert pair.suggestion == 'scenery, nsfw, explicit, sign says "hi,there"'
     [repeat] = only(run(KOHAKU, 'smile, smile, sign says "hi,there"'), "heuristic.repeated")
     assert repeat.suggestion == 'smile, sign says "hi,there"'
 

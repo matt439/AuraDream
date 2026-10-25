@@ -11,9 +11,18 @@ the frontend has no build step.
 
 ## Requirements
 
-- NVIDIA GPU. The tested configuration is an **RTX 5080 with 16 GB VRAM**;
+- **Windows 11**, or **WSL 2** on Windows (needed for Nunchaku); both tested.
+  Native Linux is untested; macOS is not supported.
+- NVIDIA GPU with a driver recent enough for **CUDA 13** (torch comes from the
+  cu130 index). The tested configuration is an **RTX 5080 with 16 GB VRAM**;
   memory requirements depend on the checkpoint, size and batch. The defaults
   use FP8 quantization and model offload. See [measured results](docs/verified.md).
+- System RAM: a cold quantizing load of FLUX.1, FLUX.2 klein 9B, Krea 2 or
+  Qwen-Image peaked around **46 GiB** working set on the 64 GB test machine,
+  where it stopped at the app's free-RAM guard; see
+  [RAM at the load](docs/verified.md#ram-at-the-load-2026-10-25). Plan on
+  **64 GB or more** for those. The SDXL anime checkpoints (Animagine,
+  Illustrious, RouWei, NoobAI) need far less and are a lighter place to start.
 - **Python 3.13** and [uv](https://docs.astral.sh/uv/).
 - Disk space for the selected model: about **32 GiB for the default model's
   weights**. Some checkpoints also need a converted copy; Illustrious, WAI
@@ -88,35 +97,10 @@ From PowerShell they run as `.ps1` scripts (allowed under the `RemoteSigned`
 policy), so Ctrl-C stops the server without asking; from cmd.exe the `.cmd`
 versions run and Ctrl-C asks "Terminate batch job (Y/N)?".
 
-RouWei 0.8 selects the author's epsilon checkpoint and starts at 28 steps/CFG 6.
-Its first load converts the 6.94 GB single file on CPU. Start around 1 MP;
-the [anime model guide](docs/anime-model-guide.md) explains its hybrid prompts,
-artist placement and 77-token text limit.
-
-NoobAI-XL V-pred 1.0 starts at 28 steps/CFG 5 with Euler V-prediction and
-zero-terminal-SNR rescaling. Its pinned official Diffusers tree loads directly;
-no single-file conversion is needed. Start around 1 MP and keep prompts within
-the SDXL 77-token limit. Mu is disabled; the SDXL Refine pass is available.
-
-Anima Aesthetic v1.1 starts at 30 steps/CFG 4. Its selector above loads the
-official Aesthetic file from `circlestone-labs/Anima`; the bare repository id
-still selects Turbo. The first load converts Aesthetic's weights on CPU and
-caches them separately. Use tags, prose, or both; omit `score_*` tags from
-both prompts. Mu, references, Refine, user LoRAs and Nunchaku are unavailable
-for these Anima integrations.
-
-**Anima 2.9B Preview v1** is also available in Models. It selects
-[`Gazingstars123/Anima-2.9B`](https://huggingface.co/Gazingstars123/Anima-2.9B),
-a community expansion to 40 layers, with its own pinned file and conversion
-cache. It starts at 30 steps/CFG 4; use detailed tags, prose, or both. The
-author recommends 28-50 steps and CFG 3.5-5. Start around 1 MP; 1536-square
-is explicitly described as "iffy". The same Anima feature limits apply.
-A full download is about 7.3 GB including shared components; existing cached
-files reduce it. The first load converts on CPU. Windows FP8 with model offload
-passed 1024-square and 1152x1536 runtime checks on the RTX 5080; the square
-took about 31-32 seconds at the defaults, including live previews. These
-samples establish no quality advantage; see [card measurements](docs/verified.md#checkpoints)
-for memory costs and test conditions.
+Each anime checkpoint (RouWei, NoobAI, the Anima variants and the rest) has its
+own defaults, sizes and prompt habits, and some convert on CPU at first load; the
+[anime model guide](docs/anime-model-guide.md) compares them, and
+[card measurements](docs/verified.md#checkpoints) record their memory and timing.
 
 For everyday use:
 
@@ -253,6 +237,13 @@ relative to the repository unless overridden; WSL uses its separate defaults.
 | `LOCAL_DIFFUSION_CRITIC_SERVER` | unset | Use a local compatible `llama-server` binary |
 | `LOCAL_DIFFUSION_CRITIC_MODEL` | unset | Use a local `.gguf` instead of downloading the pinned critic model |
 
+**The server has no login.** Anyone who can reach it can read every prompt and
+image, delete or import galleries, and make the machine download checkpoints
+with your Hugging Face token. Keep the default loopback address unless the
+network is trusted; otherwise put it behind an authenticating proxy or VPN
+(see [the usage guide](docs/usage.md#scripting-the-running-server) for the
+proxy's host and port).
+
 Custom critic binaries must support the pinned server's flags and authentication;
 see the [critic design notes](docs/design-notes.md#the-prompt-analyser).
 All settings are defined in [backend/config.py](backend/config.py).
@@ -312,9 +303,28 @@ Static frontend edits need no server restart; backend edits do.
 - [Design notes](docs/design-notes.md): implementation decisions and model sources.
 - [Module map](docs/rules.md#layout): what every source file is responsible for.
 - [Refactor audit](docs/source-audit.md): the file splits and why the long files stay whole.
+- [Everything in docs/](docs/README.md), including which files are maintainer records.
+
+## Contributing and security
+
+See [CONTRIBUTING.md](CONTRIBUTING.md); [AGENTS.md](AGENTS.md) is the
+contributor guide for humans and coding agents alike. Report vulnerabilities
+privately as described in [SECURITY.md](SECURITY.md).
 
 ## Licence
 
-Model weights have their own licences. Consult the selected model's terms;
-for WAI, use the [author's permissions](https://tensor.art/models/990778216270553015/WAI-illustrious-v17)
-rather than the community mirror's metadata.
+The code is licensed under the [Apache License 2.0](LICENSE). Portions adapted
+from diffusers, BasicSR and Real-ESRGAN keep their notices; see [NOTICE](NOTICE)
+and [LICENSES/](LICENSES). Quoted prompting guidance in `backend/guides.py`,
+`backend/prompt_sources.py` and `docs/` remains its cited authors' words.
+
+No model weights are distributed. Each checkpoint is downloaded from its own
+source under its own licence, which you accept there: FLUX.1 [dev] and
+FLUX.1 Krea [dev] are non-commercial, Krea 2 is gated, and the anime
+checkpoints carry their authors' own licences and use restrictions. Consult
+the selected model's terms. WAI is fetched from an unofficial community mirror; use the
+[author's permissions](https://tensor.art/models/990778216270553015/WAI-illustrious-v17)
+rather than the mirror's metadata.
+
+Local Diffusion is not affiliated with or endorsed by Black Forest Labs, Krea,
+or any checkpoint's authors.

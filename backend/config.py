@@ -99,7 +99,9 @@ class Settings:
     # once rebound the attacker's page is same-origin and CORS stops applying.
     # Deliberately not derived from `host`: with LOCAL_DIFFUSION_HOST=0.0.0.0 the browser
     # sends the machine's LAN address or name, never 0.0.0.0, so that case needs
-    # naming here (LOCAL_DIFFUSION_ALLOWED_HOSTS=my-box,192.168.1.20).
+    # naming here (LOCAL_DIFFUSION_ALLOWED_HOSTS=my-box,192.168.1.20). There
+    # is no login: whoever reaches a non-loopback bind controls the server,
+    # which `main.run` warns about at start-up.
     allowed_hosts: tuple[str, ...] = tuple(
         part.strip()
         for part in os.getenv("LOCAL_DIFFUSION_ALLOWED_HOSTS", "127.0.0.1,localhost").split(",")

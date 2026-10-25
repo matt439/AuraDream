@@ -1,0 +1,26 @@
+Local Diffusion
+Copyright 2026 Matt Harding
+
+Licensed under the Apache License, Version 2.0 (see LICENSE).
+
+This product includes software adapted from the following projects. Their
+licences and attribution are kept in the files they cover or in LICENSES/.
+
+- diffusers (The HuggingFace Team) and Alpha-VLLM's Lumina 2 / NewBie
+  conditioning, Apache-2.0: backend/backends/newbie_transformer.py, whose
+  header keeps the original copyright notice; the flow loop in
+  backend/backends/newbie_pipeline.py follows the same diffusers NewBie
+  proposal (PR #12803).
+- diffusers pipeline prompt templates, Apache-2.0: the strings in
+  backend/encoder_table.py, copied from the installed pipelines.
+- BasicSR (BasicSR Authors), Apache-2.0: the RRDBNet in backend/refine.py.
+- Real-ESRGAN (Xintao Wang), BSD-3-Clause: the tiling and pre/post-processing
+  in backend/refine.py.
+  Both licences in full: LICENSES/RealESRGAN-Anime6B.txt.
+
+Model weights are not distributed with this project. Each checkpoint is
+downloaded by the user from its own source under its own licence.
+
+Prompting guides in backend/guides.py, backend/prompt_sources.py and docs/
+quote the checkpoints' authors; each quote is cited, and the quoted words
+remain their authors'.

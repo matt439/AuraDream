@@ -8930,7 +8930,7 @@ on port 7873; actual card measurements belong in `verified.md`.
 Sources checked 2026-09-26:
 - [Author's v17 release card and permissions](https://tensor.art/models/990778216270553015/WAI-illustrious-v17).
 - [Pinned community transport repository](https://huggingface.co/LyliaEngine/waiIllustriousSDXL_v170/tree/5ef4e2da7173a160ad04aebcaa2fdcd6d20ed792).
-- [CivArchive's author-model record, including version 2883731](https://civarchive.com/models/827184/wai-nsfw-illustrious-sdxl).
+- [CivArchive's author-model record, including version 2883731](https://civarchive.com/models/827184).
 
 ## Z-Anime Base: a nested Diffusers tree
 
@@ -10608,7 +10608,7 @@ instruction (`XML Prompt.json`), nothing of its adult-content captioning;
 the Anima, Animagine, Z-Anime, Kohaku Zeta and Epsilon-rev2 cards; the
 Illustrious report (<https://arxiv.org/html/2409.19946v1>); and WAI's v17
 description through its archive
-(<https://civarchive.com/models/827184/wai-nsfw-illustrious-sdxl?modelVersionId=2883731>).
+(<https://civarchive.com/models/827184?modelVersionId=2883731>).
 A per-guide `caveat` says how far the sources reach: Krea published no
 prompting rules for Krea [dev], so both lists are BFL's; on every FLUX.1
 checkpoint, that BFL's steps start with the image type and subject - so

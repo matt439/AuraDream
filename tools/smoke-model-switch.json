@@ -691,7 +691,7 @@
   {"expect": "!modelCatalogueLoaded && els.modelPicker.hidden && loadedModel !== __rows()[0]?.dataset.model"},
   {"click": "#btn-models"},
   {"expect": "__until(() => modelCatalogueLoaded && !modelCataloguePending && __inView() && __rows().at(-1).dataset.model === loadedModel)"},
-  {"shot": "C:/Users/matsi/AppData/Local/Temp/claude/C--VSProjects-ImageGeneratorLocal/0a43d4f5-d1f3-4b78-85b8-cbb0a11d5b1d/scratchpad/d1-first-open.png"},
+  {"shot": "model-switch-first-open.png"},
   {"key": "Escape"},
   {"expect": "els.modelPicker.hidden && document.activeElement === els.models"},
   {"click": "#btn-models"},

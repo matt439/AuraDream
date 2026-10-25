@@ -8,6 +8,11 @@ on:
   pull_request:
   workflow_dispatch:
 
+# Read-only token: the job checks out, lints and tests, and forks' pull
+# requests run it too.
+permissions:
+  contents: read
+
 concurrency:
   group: ci-${{ github.ref }}
   cancel-in-progress: true

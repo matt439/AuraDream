@@ -20,9 +20,9 @@ from backend.metadata import embedded_metadata
 # Civitai keep and `storage.save_image` writes beside ours.
 PARAMETERS_KEY = "parameters"
 
-# A1111's `parse_generation_parameters` (`modules/infotext_utils.py`): one
-# `Key: value` per comma, a value that holds a comma quoted as JSON. The
-# settings line is the last line, and only when it holds three or more.
+# The A1111 infotext format: one `Key: value` per comma, a value that holds a
+# comma quoted as JSON. The settings line is the last line, and only when it
+# holds three or more.
 _PARAM = re.compile(r'\s*(\w[\w \-/]+):\s*("(?:\\.|[^\\"])+"|[^,]*)(?:,|$)')
 _NEGATIVE = "Negative prompt:"
 

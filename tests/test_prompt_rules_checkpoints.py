@@ -92,13 +92,13 @@ def test_illustrious_composition_and_rating_names():
     # The release post accepts these; the guide does not repeat them, and
     # nothing here calls them wrong.
     for accepted in ("nsfw", "sfw", "r-18", "general"):
-        assert only(run(ILLUSTRIOUS, f"1girl, {accepted}, masterpiece"), "guide.rating") == []
+        assert only(run(ILLUSTRIOUS, f"scenery, {accepted}, masterpiece"), "guide.rating") == []
 
 
 def test_kohaku_explicit_and_underscores():
-    [pair] = only(run(KOHAKU, "1girl, explicit"), "guide.rating")
-    assert pair.suggestion == "1girl, nsfw, explicit"
-    assert only(run(KOHAKU, "1girl, nsfw, explicit"), "guide.rating") == []
+    [pair] = only(run(KOHAKU, "scenery, explicit"), "guide.rating")
+    assert pair.suggestion == "scenery, nsfw, explicit"
+    assert only(run(KOHAKU, "scenery, nsfw, explicit"), "guide.rating") == []
     prompt = "1girl, long_hair, ^_^, o_o"
     [finding] = only(run(KOHAKU, prompt), "guide.underscores")
     assert spanned(prompt, finding) == "long_hair"
@@ -319,4 +319,4 @@ def test_wai_rating_and_the_nsfw_negative():
     # Written, but dropped by applied() at CFG 1.
     [idle] = only(run(WAI, prompt, negative_prompt="lowres, nsfw", guidance_scale=1), rule)
     assert "does not run" in idle.message and idle.suggestion is None
-    assert only(run(WAI, "1girl, explicit, masterpiece"), "guide.rating_negative") == []
+    assert only(run(WAI, "scenery, explicit, masterpiece"), "guide.rating_negative") == []

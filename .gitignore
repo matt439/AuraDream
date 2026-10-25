@@ -21,6 +21,12 @@ server.err
 local-diffusion.settings.json
 .local-diffusion.settings.*.tmp
 .env
+# Local agent state and model files that may sit in a checkout.
+.claude/
+*.gguf
+*.safetensors
+*.pth
+*.ckpt
 
 # HuggingFace tokens - never commit these
 *token*.txt

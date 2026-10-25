@@ -369,3 +369,12 @@ def test_ctrl_c_ends_the_server_with_130_and_no_traceback(fake, monkeypatch):
         pytest.fail("Ctrl-C still reached the caller as KeyboardInterrupt")
     assert started.is_set() and exc.value.code == 130
     assert fake.critic.unloads >= 1
+
+
+@pytest.mark.parametrize(
+    ("host", "loopback"),
+    [("127.0.0.1", True), ("localhost", True), ("LocalHost", True), ("::1", True), ("127.0.0.2", True),
+     ("0.0.0.0", False), ("192.168.1.20", False), ("::", False), ("my-box", False)],
+)
+def test_only_a_loopback_bind_is_quiet_about_the_missing_login(host, loopback):
+    assert main._is_loopback(host) is loopback

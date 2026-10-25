@@ -773,6 +773,18 @@ same server. Successful completion exits 0; cancellation (including an incomplet
 stop) exits 130, bad arguments/refusals 2, and runtime failures 1. Saved
 images remain available.
 
+These routes have no login. To reach the server from another machine, set
+`LOCAL_DIFFUSION_HOST` and name the address the browser uses in
+`LOCAL_DIFFUSION_ALLOWED_HOSTS`, but only on a network you trust: anyone who
+can reach it can read and delete the gallery, import bundles and make the
+machine download checkpoints with its Hugging Face token. Otherwise put it
+behind an authenticating proxy or a VPN. Behind a proxy, list its public
+hostname in `LOCAL_DIFFUSION_ALLOWED_HOSTS` and serve it on the same port as
+`LOCAL_DIFFUSION_PORT`: the server refuses a write whose `Origin` names
+another host or port, so a proxy on 443 in front of 7860 has every write
+refused. The server logs a warning at start-up whenever it binds to anything
+other than loopback.
+
 ## Review starred rates
 
 ```powershell

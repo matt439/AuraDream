@@ -170,6 +170,15 @@ See [the measurement record](verified.md#checkpoints) for the exact conditions.
   tags are unnecessary, though `masterpiece, best quality` may stay. Select
   **Anima Aesthetic v1.1** in the menu or use
   `--model circlestone-labs/Anima@aesthetic-v1.1`; the bare Anima id remains Turbo.
+- **Anima's integrations share their limits.** Mu, references, Refine, user
+  LoRAs and Nunchaku are unavailable for Turbo, Aesthetic and 2.9B Preview.
+  Anima 2.9B Preview's author recommends 28-50 steps and CFG 3.5-5 and calls
+  1536-square "iffy"; start around 1 MP.
+- **Some first loads convert on CPU.** RouWei converts its 6.94 GB single
+  file; Anima Aesthetic and Anima 2.9B Preview convert their weights and cache
+  them separately. A full Anima 2.9B Preview download is about 7.3 GB including
+  shared components; cached files reduce it. NoobAI V-pred loads its pinned
+  official Diffusers tree directly, with no conversion.
 - **Keep NetaYume's system prefix out of the editor.** The app adds it
   automatically. Its 256-token total sequence includes that instruction.
 - **For NewBie, group attributes by character.** XML provides separate

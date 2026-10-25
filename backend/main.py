@@ -2,6 +2,7 @@
 from __future__ import annotations
 
 import asyncio
+import ipaddress
 import logging
 import threading
 import time
@@ -961,11 +962,29 @@ class Server(uvicorn.Server):
         super().handle_exit(sig, frame)
 
 
+def _is_loopback(host: str) -> bool:
+    """Whether binding `host` keeps the server to this machine."""
+    if host.lower() == "localhost":
+        return True
+    try:
+        return ipaddress.ip_address(host).is_loopback
+    except ValueError:
+        return False
+
+
 def run() -> None:
     """Serve until a signal. Ctrl-C exits with status 130, as the start-up
     menu's does, and without a traceback: once shutdown is complete uvicorn
     re-raises the signal it captured, which lands here as KeyboardInterrupt
     (`uvicorn.run()` swallows it, and the status with it)."""
+    if not _is_loopback(settings.host):
+        # The API has no login: anyone who reaches it can read, delete and
+        # import galleries and make this machine download with the HF token.
+        log.warning(
+            "Serving on %s: the server has no login, so anyone who can reach "
+            "this address controls it. Expose it only on a trusted network.",
+            settings.host,
+        )
     config = uvicorn.Config(
         app,
         host=settings.host,
