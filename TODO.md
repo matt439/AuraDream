@@ -88,7 +88,7 @@ Matt's approved [shortcut and compact-setup stages](docs/plan-shortcut-workflow.
 
 | id | status | sev | size | item |
 |---|---|---|---|---|
-| `GAL#6` | OPEN | LOW | L | Wire backup lifecycle, cross-process leases and managed retention; policy/preferences, verified-export proofs, receipts, download leases and an inactive coordinator are built. Matt chooses unattended protection and activation policies. [Plan](docs/plan-automatic-backups.md). |
+| `GAL#6` | OPEN | LOW | L | Wire backup lifecycle, shared-lock installation and managed retention; default-off policy, verified receipts, an inactive coordinator and opt-in shared lease helpers are built. Matt chooses unattended protection and activation policies. [Plan](docs/plan-automatic-backups.md). |
 
 ## Prompt analyser
 

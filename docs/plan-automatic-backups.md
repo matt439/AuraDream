@@ -1,8 +1,8 @@
 # Plan: automatic whole-gallery backups
 
-**Status, 2026-10-26: policy, preferences, managed-export evidence, download leases
-and an inactive one-attempt coordinator are built;
-`GAL#6` remains open for lifecycle wiring, cross-process leases, retention and
+**Status, 2026-10-26: policy, preferences, managed-export evidence, download leases,
+opt-in shared locks and an inactive one-attempt coordinator are built;
+`GAL#6` remains open for lifecycle/shared-lock installation, retention and
 activation decisions.** This expands
 [R8](review-2026-10-25.md#r8-automatic-whole-gallery-backup). Tests export and
 restore scratch galleries only; no real gallery or credential store was touched.
@@ -257,7 +257,7 @@ timestamp differences are handled without substituting metadata for the
 digest. Linux publication and actual OS credential delivery remain untested.
 
 There are no automatic-backup startup/API/UI callers, credential lookup
-or retention deletion. Shared leases, remaining capacity accounting,
+or retention deletion. Shared-lock installation, remaining capacity accounting,
 activation/recovery decisions and end-to-end startup acceptance below remain
 unimplemented. The inactive coordinator described below derives age from
 currently matching receipts rather than maintaining a separate success clock.
@@ -273,10 +273,43 @@ still permits downloads. All 13 pure focused tests passed, and the combined
 lease/existing bundle HTTP suite passed 41 tests, with Ruff and narrow
 Pyright clean. Independent review found no actionable gaps.
 
-These leases cover only cooperating threads in this process. Shared leases
-across processes remain mandatory before retention deletion can be enabled.
-The exclusive claim primitive has no mutation caller. Startup, activation
-and retention stages remain unconnected.
+Default downloads cover cooperating threads in this process. Shared-lock
+installation across all cooperating processes remains mandatory before
+retention deletion can be enabled. The exclusive claim primitive has no
+mutation caller. Startup, activation and retention stages remain unconnected.
+
+**Opt-in shared-lock slice.** An explicitly constructed
+`LeaseRegistry(cross_process=True)` adds native nonblocking shared/exclusive
+locks on persistent `<archive basename>.lease.lock` companions. Windows
+uses `LockFileEx`; the CRT's similarly named read lock is exclusive
+([Microsoft's locking reference](https://learn.microsoft.com/en-us/cpp/c-runtime-library/reference/locking?view=msvc-170)).
+The companion is never truncated, initialized, replaced or deleted. Opened
+handle, current path and parent identities are checked; linked, reparse,
+nonregular and hardlinked companions refuse. Windows handles deny delete
+sharing while held. Only lock contention becomes a busy response; access,
+identity and cleanup failures remain errors without an unlocked fallback.
+
+Registries share process-wide reader/exclusive exclusion and reader hints.
+An acquired native shared handle remains held until every local reader,
+including a default-mode reader, releases. Cross-thread release is
+idempotent; uncertain close retains local exclusion without an implicit
+retry. Original body failures retain release diagnostics. Defaults retain
+non-writing downloads, so a readable recovery destination need not become
+writable for this inactive feature. A future shared-mode installer must run
+while quiescent and before admitting streams/retention everywhere.
+
+All 51 focused scratch checks pass, including actual Windows shared readers,
+exclusive contention, process exit and mixed-mode lifetime handshakes through
+owned subprocesses. No native access denial occurred. Injected open/lock/
+unlock/close and identity failures exercise fail-closed paths. Ruff and
+narrow pinned Pyright pass; independent review accepted ownership and the
+final process-wide reader hints. Linux/fork, network filesystems and mixed
+old/default/noncooperating processes remain unqualified. No shared installer
+or deletion caller exists; a lease never substitutes for receipt, destination
+and archive identity checks at a future mutation boundary.
+The combined lease/coordinator/bundle HTTP integration check passed all 114
+tests; this ordinary fixture run includes its existing CUDA-availability guard,
+with no model loads, tensor execution or generation.
 
 **Inactive one-attempt coordinator.** `backup_coordinator.BackupCoordinator`
 accepts an explicit policy, gallery/destination/operation identities, aware

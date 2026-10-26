@@ -1,4 +1,4 @@
-"""Per-process lease exclusion and complete ASGI FileResponse lifetime."""
+"""Local/shared lease exclusion and complete ASGI FileResponse lifetime."""
 from __future__ import annotations
 
 import asyncio
@@ -8,6 +8,7 @@ import pytest
 from starlette.background import BackgroundTask
 
 from backend.bundle_leases import LeaseBusy, LeaseRegistry, LeasedFileResponse
+from backend import bundle_file_lock, bundle_leases
 
 
 def test_readers_share_resolved_paths_and_exclude_claims_until_every_release(tmp_path):
@@ -47,6 +48,16 @@ def test_context_errors_release_and_snapshot_is_only_a_snapshot(tmp_path):
         with pytest.raises(LeaseBusy):
             registry.exclusive(path)
     assert registry.snapshot() == before
+
+
+def test_independent_registry_reader_hints_are_process_wide(tmp_path):
+    first, second = LeaseRegistry(), LeaseRegistry()
+    path = tmp_path / "copy.zip"
+    with first.reader(path):
+        assert second.leased(path)
+        assert first.snapshot() == second.snapshot() == frozenset({first._key(path)})
+    assert not second.leased(path)
+    assert first.snapshot() == second.snapshot() == frozenset()
 
 
 def test_reusing_one_token_cannot_pretend_to_protect_an_unleased_file(tmp_path):
@@ -204,3 +215,160 @@ def test_head_and_exclusive_claim_keep_original_download_behavior(tmp_path):
         assert messages[1]["body"] == b"" and not registry.leased(path)
 
     asyncio.run(scenario())
+
+
+def test_default_downloads_never_create_or_open_companions(tmp_path, monkeypatch):
+    def forbidden(*args, **kwargs):
+        raise AssertionError("Default recovery downloads must not require companion writes")
+
+    monkeypatch.setattr(bundle_file_lock, "acquire", forbidden)
+    path = tmp_path / "copy.zip"
+    path.write_bytes(b"body")
+    registry = LeaseRegistry()
+    with registry.reader(path):
+        with pytest.raises(LeaseBusy):
+            LeaseRegistry().exclusive(path)
+    response = LeasedFileResponse(path)
+    messages = []
+
+    async def send(message):
+        messages.append(message)
+
+    asyncio.run(response(scope(), receive, send))
+    assert messages[0]["status"] == 200
+    assert list(tmp_path.iterdir()) == [path]
+
+
+class FakeLock:
+    def __init__(self):
+        self.closed = False
+        self.releases = 0
+        self.validations = 0
+        self.failure = None
+
+    def validate(self):
+        self.validations += 1
+
+    def release(self):
+        self.releases += 1
+        if self.failure is not None:
+            raise self.failure
+        self.closed = True
+
+
+@pytest.mark.parametrize("shared_first", [False, True])
+def test_mixed_registries_retain_native_handle_until_every_local_reader_releases(tmp_path, monkeypatch, shared_first):
+    path = tmp_path / "copy.zip"
+    native = FakeLock()
+    calls = []
+
+    def acquire(archive, *, exclusive):
+        calls.append((archive, exclusive))
+        return native
+
+    monkeypatch.setattr(bundle_file_lock, "acquire", acquire)
+    local = LeaseRegistry()
+    shared = LeaseRegistry(cross_process=True)
+    first = shared.reader(path) if shared_first else local.reader(path)
+    second = local.reader(path) if shared_first else shared.reader(path)
+    third = LeaseRegistry(cross_process=True).reader(path)
+    assert calls == [(path, False)] and native.validations == 1
+    with pytest.raises(LeaseBusy):
+        LeaseRegistry(cross_process=True).exclusive(path)
+    # Releasing both shared tokens must not remove the lock while the local
+    # stream remains. This is not an installer for mixed-process safety.
+    (first if shared_first else second).release()
+    third.release()
+    assert native.releases == 0
+    (second if shared_first else first).release()
+    assert native.releases == 1 and native.closed
+    assert local.snapshot() == shared.snapshot() == frozenset()
+
+
+@pytest.mark.parametrize("exclusive", [False, True])
+def test_native_access_failure_is_preserved_and_never_reported_as_busy(tmp_path, monkeypatch, exclusive):
+    original = PermissionError(13, "injected access denial", str(tmp_path / "copy.zip.lease.lock"))
+
+    def denied(*args, **kwargs):
+        raise original
+
+    monkeypatch.setattr(bundle_file_lock, "acquire", denied)
+    registry = LeaseRegistry(cross_process=True)
+    with pytest.raises(PermissionError) as caught:
+        (registry.exclusive if exclusive else registry.reader)(tmp_path / "copy.zip")
+    assert caught.value is original
+    assert registry.snapshot() == frozenset()
+
+
+def test_only_native_contention_becomes_lease_busy(tmp_path, monkeypatch):
+    def contended(*args, **kwargs):
+        raise bundle_file_lock.LockContended("injected native contention")
+
+    monkeypatch.setattr(bundle_file_lock, "acquire", contended)
+    with pytest.raises(LeaseBusy, match="another process") as caught:
+        LeaseRegistry(cross_process=True).reader(tmp_path / "copy.zip")
+    assert isinstance(caught.value.__cause__, bundle_file_lock.LockContended)
+
+
+def test_failed_close_keeps_local_exclusion_and_never_retries_implicitly(tmp_path, monkeypatch):
+    path = tmp_path / "copy.zip"
+    native = FakeLock()
+    original = PermissionError("injected close denial")
+    native.failure = original
+    monkeypatch.setattr(bundle_file_lock, "acquire", lambda *args, **kwargs: native)
+    registry = LeaseRegistry(cross_process=True)
+    lease = registry.reader(path)
+    try:
+        with pytest.raises(PermissionError) as caught:
+            lease.release()
+        assert caught.value is original and not lease._released
+        with pytest.raises(RuntimeError, match="no implicit retry"):
+            lease.release()
+        with pytest.raises(RuntimeError, match="release failed"):
+            LeaseRegistry().reader(path)
+        with pytest.raises(LeaseBusy):
+            LeaseRegistry(cross_process=True).exclusive(path)
+        assert native.releases == 1
+    finally:
+        # This is injected state, with no native fd or actual denied action.
+        bundle_leases._states.pop(registry._key(path))
+
+
+def test_unlock_error_after_successful_close_releases_local_state(tmp_path, monkeypatch):
+    native = FakeLock()
+    original = OSError("injected unlock error")
+
+    def released_with_error():
+        native.closed = True
+        native.releases += 1
+        raise original
+
+    monkeypatch.setattr(native, "release", released_with_error)
+    monkeypatch.setattr(bundle_file_lock, "acquire", lambda *args, **kwargs: native)
+    path = tmp_path / "copy.zip"
+    registry = LeaseRegistry(cross_process=True)
+    lease = registry.reader(path)
+    with pytest.raises(OSError) as caught:
+        lease.release()
+    assert caught.value is original and lease._released
+    lease.release()
+    assert native.releases == 1 and registry.snapshot() == frozenset()
+    with LeaseRegistry().exclusive(path):
+        pass
+
+
+def test_release_failure_does_not_hide_original_response_error(tmp_path, monkeypatch):
+    native = FakeLock()
+    native.failure = OSError("injected cleanup failure")
+    monkeypatch.setattr(bundle_file_lock, "acquire", lambda *args, **kwargs: native)
+    path = tmp_path / "copy.zip"
+    registry = LeaseRegistry(cross_process=True)
+    original = ValueError("original body failure")
+    try:
+        with pytest.raises(ValueError) as caught:
+            with registry.reader(path):
+                raise original
+        assert caught.value is original
+        assert "Archive lease release failed" in " ".join(original.__notes__)
+    finally:
+        bundle_leases._states.pop(registry._key(path))

@@ -34,7 +34,9 @@ before changing it.
   due/export worker under bundle admission and gallery reservation; supplied
   policy, identities, clock and transient protection, with no lifecycle caller
 - `backend/bundle_leases.py` - per-process archive reader/exclusive claims and
-  leased FileResponse lifetime; cross-process retention still needs shared leases
+  leased FileResponse lifetime; shared process state and explicit native-lock mode
+- `backend/bundle_file_lock.py` - opt-in nonblocking shared/exclusive native
+  locks on persistent archive companions, with identity and cleanup ownership checks
 - `backend/snippets.py` - bounded, revisioned personal prompt snippets in an
   atomic sidecar beside the settings, under an independent cross-process lock
 - `backend/api_snippets.py` - model-free snippet CRUD routes, independent of
@@ -1738,8 +1740,15 @@ Jobs:
   because its send completion does not prove transfer completion. Reader
   leases exclude an exclusive claim on the same resolved path; release is
   idempotent across threads. Ordinary bundle maintenance still permits these
-  downloads. This registry covers cooperating threads only and cannot make
-  cross-process retention deletion safe; no deletion caller is enabled.
+  downloads. Default registries cover cooperating threads without sidecar
+  writes. Explicit cross-process mode adds native shared/exclusive locks on
+  persistent, identity-checked archive companions; never delete or replace
+  those companions. Retain native ownership until the last local reader
+  releases, including mixed-mode readers. Uncertain close retains exclusion;
+  native access/identity errors never become an unlocked fallback. Shared-mode
+  installation must be quiescent and complete across cooperating processes
+  before any retention caller. Linux/fork and mixed old processes remain
+  unqualified; no shared installer or deletion caller is enabled.
 - Bundles and the recycle bin: export carries every row, binned ones
   included (`preview()`'s `records` stays all rows, for the typed
   confirmation, and `binned` says how many are in the bin; the export
