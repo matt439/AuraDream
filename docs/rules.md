@@ -5533,7 +5533,10 @@ optional no-op hooks and the fixtures `tests/` imports from helper modules
 allowed; style is the code's own and no formatter runs.
 `.github/workflows/ci.yml` runs ruff and this suite on Ubuntu (Python 3.13,
 `uv sync --locked --group dev`) on every push and pull request, and by hand;
-the smokes, which need a browser, stay local. It runs the suite with
+the smokes, which need a browser, stay local. On main (pushes and by hand)
+it runs on Windows too, about five times slower. `tests/conftest.py` makes
+`torch.cuda.is_current_stream_capturing` answer False on a driverless Windows
+machine, where torch's native call crashes the worker. It runs the suite with
 `pytest -n auto` (pytest-xdist, one worker per core). Before it,
 `tools/fetch_tokenizers.py` caches the tokenizer files (never weights) that
 the real-tokenizer tests in `test_prompt_encoding.py` and

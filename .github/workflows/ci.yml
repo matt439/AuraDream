@@ -1,6 +1,7 @@
 # The CPU suite and the lint on every push and on demand. No GPU, no
 # weights: what `uv run --group dev pytest` needs locally, on Linux (as under
-# WSL) and on Windows, where the app runs and a few tests run only there.
+# WSL) and, on main, on Windows, where the app runs and a few tests run only
+# there.
 # Hosted runners cost nothing on a public repository.
 name: CI
 
@@ -23,8 +24,11 @@ jobs:
     strategy:
       # One system's failure never cancels the other's answer.
       fail-fast: false
+      # Windows takes about five times as long as Linux for the suite, so it
+      # runs on main only (pushes and by hand); branches and pull requests
+      # get Linux.
       matrix:
-        os: [ubuntu-latest, windows-latest]
+        os: ${{ fromJSON(github.ref == 'refs/heads/main' && github.event_name != 'pull_request' && '["ubuntu-latest", "windows-latest"]' || '["ubuntu-latest"]') }}
     runs-on: ${{ matrix.os }}
     timeout-minutes: 30
     steps:
