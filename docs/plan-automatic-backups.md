@@ -104,6 +104,12 @@ unproven. Reads of that first run's result/fake-log artifacts were denied and
 stopped; its separate stdout receipt supplied diagnostics. No further read in
 that artifact tree or permission workaround was attempted.
 
+The intended duplicate saved-import step now also waits for no UI action hold
+and an enabled saved-import button, in addition to dialog/count readiness. Its
+result and identity assertions are unchanged. The revised stock smoke passed
+all 133 expectations in 32 browser seconds (35 seconds total). This strengthens
+the setup condition; it does not establish the cause of the earlier failure.
+
 After the subsequent loader-ownership integration, the final complete offline
 gate passed **4,920 tests with eight skips** in **225.12 seconds**, covering the
 receipt/configuration overlap fix too. All **120** production/tool sources pass
