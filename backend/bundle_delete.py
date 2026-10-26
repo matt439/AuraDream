@@ -1,9 +1,9 @@
-"""Unconnected Windows handle-bound managed archive deletion mechanism.
+"""Windows handle-bound managed archive deletion mechanism.
 
 The caller must supply a receipt validated against its journal, exact intended
 scope and a policy-approved candidate under the gallery reservation BEFORE
-binding. This module chooses no retention count, writes no journal and has no
-startup/API caller. A receipt or installed lease mode alone is not consent.
+binding. This module chooses no retention count and writes no journal; the v3
+orchestrator owns activation. A receipt or installed lease mode alone is not consent.
 """
 from __future__ import annotations
 
@@ -98,6 +98,7 @@ class BoundArchive(AbstractContextManager["BoundArchive"]):
         self._mark: Literal["not_requested", "refused", "accepted", "unknown"] = "not_requested"
         self._mark_attempted = False
         self._archive_close_confirmed = False
+        self._normal_close = False
         self._operation_lock = threading.RLock()
 
     @property
@@ -106,6 +107,12 @@ class BoundArchive(AbstractContextManager["BoundArchive"]):
         # attribute-only handle, nor assert power-loss durability.
         with self._operation_lock:
             return DeletionOutcome(self._mark, self._archive_close_confirmed)
+
+    @property
+    def closed_normally(self) -> bool:
+        """Every archive/marker/directory/claim cleanup completed normally."""
+        with self._operation_lock:
+            return self._normal_close
 
     def _quarantine(self, error: BaseException) -> None:
         if self._failed is None:
@@ -280,6 +287,7 @@ class BoundArchive(AbstractContextManager["BoundArchive"]):
                 self._closed = True
             raise
         self._closed = True
+        self._normal_close = True
 
     def __exit__(self, _kind: object, error: BaseException | None, _traceback: object) -> None:
         try:

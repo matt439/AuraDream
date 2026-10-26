@@ -92,6 +92,7 @@ Backend (`backend/`):
   `backup_settings.py` explicit v2 activation and durable backup scope;
   `backup_receipts.py` internal managed-export identity, byte proof and atomic journal;
   `backup_coordinator.py` one-attempt due/export worker using bundle admission;
+  `backup_retention.py` separately consented post-success cleanup and pending-intent stops;
   `backup_service.py` default-off startup/configuration/status lifecycle;
   `api_backup.py` explicit backup configuration and cached status routes,
   with models in `schemas_backup.py`;
@@ -99,7 +100,7 @@ Backend (`backend/`):
 - `bundle_leases.py` archive reader/exclusive leases, complete download/import
   lifetimes and uncertain-input quarantine, with opt-in shared companion locks in
   `bundle_file_lock.py`; `bundle_mode.py` explicit Windows/NTFS mode installation
-  and destination discovery; `bundle_delete.py` unconnected same-handle managed
+  and destination discovery; `bundle_delete.py` same-handle managed
   deletion mechanism; `bundle_capacity.py` managed-export logical-byte budgets
 - `jobs.py` single-worker queue and SSE; `storage.py` SQLite + PNGs;
   `metadata.py` the PNG chunk's key, legacy `krea` reader and file-placement guard;
@@ -128,8 +129,8 @@ Backend (`backend/`):
   (everything decided before the weights move), `schedule.py` (mu, sigmas,
   refine start), `regional_compile.py` (private regional preparation and
   scoped call policy; public execution stays unavailable), `attention_selection.py`
-  (inactive processor ownership
-  and restoration), `fbc_cache.py` (inactive per-call cache ownership and cleanup),
+  (private processor ownership, restoration and terminal discard), `fbc_cache.py`
+  (inactive per-call cache ownership and cleanup),
   per-checkpoint converters and pipelines (`single_file`,
   `anima_*`, `netayume_loading`, `newbie_*`)
 - CLIs: `generate.py`, `clear.py`, `stats.py`, `reindex.py`
@@ -408,6 +409,7 @@ node tools/browser.mjs tools/<smoke>.json
 | 7925 | FLUX.1-Krea-dev, fresh scratch `--data` | `smoke-compact-setup` |
 | 7926 | FLUX.1-Krea-dev, fresh scratch `--data` | `smoke-execution-reuse` |
 | 7927 | FLUX.1-Krea-dev, fresh scratch `--data` | `smoke-automatic-backup` |
+| 7928 | FLUX.1-Krea-dev, fresh scratch `--data` | `smoke-retention` |
 
 FLUX.1-Krea-dev is `black-forest-labs/FLUX.1-Krea-dev`; animagine is
 `cagliostrolab/animagine-xl-4.0`.

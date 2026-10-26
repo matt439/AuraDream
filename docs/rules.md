@@ -25,6 +25,8 @@ before changing it.
   the server launcher restores it before config imports
 - `backend/backup_policy.py` - pure automatic-backup policy, verified-success
   age and managed-retention predicates; no startup scheduling or archive I/O
+- `backend/backup_retention.py` - explicitly consented post-success managed cleanup;
+  durable pending-intent stops, protected copies and separate cleanup outcomes
 - `backend/backup_preferences.py` - strict bounded, atomic database-scoped
   backup policy sidecars; no lifecycle activation or credential fields
 - `backend/backup_settings.py` - explicit v2 plaintext activation and durable
@@ -45,7 +47,7 @@ before changing it.
   locks on persistent archive companions, with identity and cleanup ownership checks
 - `backend/bundle_mode.py` - explicit Windows/NTFS shared-download installation,
   immutable destination marker and sticky discovery; no retention activation
-- `backend/bundle_delete.py` - unconnected Windows same-handle managed archive
+- `backend/bundle_delete.py` - Windows same-handle managed archive
   verification/disposition, mandatory installed-mode exclusion and uncertainty ownership
 - `backend/bundle_capacity.py` - conservative current-format managed ZIP,
   encryption framing and receipt-temp logical-byte budgets; no allocation guarantee
@@ -160,9 +162,9 @@ before changing it.
 - `backend/backends/regional_compile.py` - exact-region discovery, private lazy
   registration, candidate disposal, owned-call validation and scoped compiler
   policy; public nonempty execution remains unavailable
-- `backend/backends/attention_selection.py` - inactive complete FLUX processor
+- `backend/backends/attention_selection.py` - private complete FLUX processor
   coverage, shared ownership, public-context configuration and restoration;
-  None is import-cold and no runtime callers enable cuDNN
+  None is import-cold and public selection/admission remains closed
 - `backend/backends/fbc_cache.py` - inactive exact FLUX cache-layout checks,
   per-call hook/state cleanup and shared-denoiser ownership/invalidation;
   library imports are lazy and render admission remains closed
@@ -927,7 +929,7 @@ Reproduction:
   then strict policy around one forward without retry. Public request, applied
   and direct-generation guards remain closed. Registration facts establish no
   compiled kernels, warm image or fallback qualification.
-- Inactive attention configuration owns one exact FLUX transformer's complete
+- Private attention configuration owns one exact FLUX transformer's complete
   joint/single processor layout. Validate types, config counts and every path
   before mutation; retain block/attention/processor identities and prior
   backend values. The public native context restores the setter's incidental
@@ -937,6 +939,14 @@ Reproduction:
   later replacement/backend changes, and restore releases owned references
   only after restoration succeeds. Callers must retain the handle, configure
   only while idle and discard failed candidates. None changes nothing.
+  Private preparation now transfers that handle with the unpublished pipeline;
+  both unload paths restore/dispose outside locks. Verify the exact owner/root
+  before and after one direct base call. Preserve a primary forward failure or
+  cancellation with verification notes; never retry or save a changed result.
+  Terminal discard/failed setup weakly excludes original identities from reuse
+  without retaining weights or poisoning unrelated replacement processors.
+  Ordinary retained-owner restoration repair remains; every public nonempty
+  request and generation guard stays closed.
 - `config.ATTENTION_ENVIRONMENT_WARNING` snapshots the external
   `DIFFUSERS_ATTN_BACKEND` before framework imports, matching the installed
   verbatim default of `native`. Missing/exact-native values are silent;
@@ -1776,7 +1786,8 @@ Jobs:
   atomic receipt journal only after verified publication under the same
   reservation. Journal failure leaves the archive unmanaged with a fixed
   warning and preserves prior receipts. Explicitly enabled startup backups use
-  this path; no pruning is connected. `matches_current` checks regular-file identity,
+  this path; separately consented v3 cleanup follows only a new success.
+  `matches_current` checks regular-file identity,
   destination and full raw digest; its snapshot never authorizes deletion.
 - Automatic startup backup defaults off. Only an explicit v2 save with complete
   age/count, displayed destination and fresh plaintext acknowledgement activates
@@ -1787,8 +1798,23 @@ Jobs:
   reads bounded settings off-loop. Neither Save nor Reload creates an archive.
   A startup attempt reserves before lifespan yields, waits before optional
   preload and drains its owned writer at shutdown. Fixed errors carry no secrets.
-  No credential provider, automatic retry or retention deletion is installed;
-  the UI must say the saved N is not enforced and all existing copies are kept.
+  Older v2 settings remain export-only: their N is not enforced and they confer
+  no deletion permission. No credential provider or automatic retry is installed.
+- Retention requires explicit v3 configuration with fresh separate deletion
+  acknowledgement, N/protection/scope and matching full installed shared mode.
+  Save/reload never export or prune; cached GET is native-I/O-free. Disable clears
+  permission without destination access, preserving local pending/unknown warnings.
+  Only a fresh exact nonempty managed success can enter cleanup under the worker/
+  gallery reservation. Protect new success and newest N current same-scope copies
+  with shared claims; requalify older protected copies without fully rereading
+  the new export. Manual/foreign/unknown/busy copies confer no deletion authority.
+  Persist one exact intent before marking. Pending blocks cleanup/restart retry
+  and is excluded from age/N. Known no-mark/refusal may restore only after normal
+  entire bound close; accepted mark plus normal close retires without claiming
+  physical removal. Unknown mark/cleanup/final-write failures preserve pending and
+  stop. Journal v2 retains active/pending/retired proofs and all-record uniqueness/
+  retry lookup within 20,000-record/16-MiB caps, with no eviction. Backup success
+  and actual receipt time remain separate from cleanup warnings/counters.
 - Managed export adds a final logical-byte capacity check before opening its
   partial: actual post-compaction snapshot and inventory sizes, exact manifest
   JSON names/sizes, maximal ZIP64 headers/descriptors, encryption framing and
@@ -1834,8 +1860,8 @@ Jobs:
   claim until restart, without resolving a possibly retargeted name or retrying
   close. Preserve body failures with cleanup notes. No extra full archive pass
   or key derivation is introduced, and no retention deletion is connected.
-- The unconnected Windows managed-deletion helper accepts only an exact receipt
-  and expected scope/installed mode. Its future caller must establish journal
+- The Windows managed-deletion helper accepts only an exact receipt
+  and expected scope/installed mode. Its caller must establish journal
   membership, gallery reservation, policy eligibility and explicit deletion
   consent. Require positive matching shared mode and native exclusive ownership;
   an ordinary optional-mode lease is insufficient. Pin directory and marker
@@ -1845,7 +1871,8 @@ Jobs:
   the native disposition mark. Never reopen/unlink by pathname. Mark only once;
   unknown mark or close retains original handles/exclusion until restart without
   retry. Distinguish accepted disposition and confirmed owned close from physical
-  removal. No startup caller, journal mutation or v2-N activation is connected.
+  removal. The helper itself changes no journal or settings; only separately
+  consented v3 orchestration may call it. V2 N grants no deletion permission.
 - Bundles and the recycle bin: export carries every row, binned ones
   included (`preview()`'s `records` stays all rows, for the typed
   confirmation, and `binned` says how many are in the bin; the export
@@ -5333,6 +5360,11 @@ shared ownership, later replacements and idempotent restoration with stubs.
 It also executes source-extracted installed public context/setter bodies.
 Its focused run uses `--noconftest`, with no actual Diffusers import, tensor,
 forward or device probe; real runtime/card qualification remains separate.
+`tests/test_attention_backend.py` checks actual private preparation/publication/
+unload/invocation with synthetic runtime modules, exact ownership and closed
+public guards. It covers primary error/cancellation plus post-forward ownership
+failure, cleanup outside locks, terminal weak exclusions, GC/identity-reuse
+safety and fresh-root recovery. No real dispatcher or card behavior is established.
 File-based readers use `metadata.require_header_metadata` to refuse app-owned
 text after PNG pixel data, which Pillow's header-only `info` would miss.
 The scan skips payloads, reads at most 80 bytes per text keyword and restores
@@ -5380,11 +5412,18 @@ Windows child processes exercise native exclusion across databases; injected
 uncertain file closes preserve primary failures and the original reader claim
 even after pathname retargeting. These are scratch tests, not retention acceptance.
 
-`tests/test_bundle_delete.py` exercises the unconnected Windows same-handle
+`tests/test_bundle_delete.py` exercises the Windows same-handle
 deletion mechanism on owned scratch files, required installed-mode exclusion,
 receipt scope/identity/raw-byte refusals and single-use mutation. Injected
 mark/close failures check original-key quarantine and honest post-mark outcomes.
-No test enables automatic pruning or operates on a real gallery destination.
+No test operates on a real gallery destination.
+
+`tests/test_backup_retention.py` and `tests/test_backup_retention_journal.py`
+exercise v3 consent, unchanged v2 behavior, pending/retired transitions, current-N
+protection, leased excess, retired-operation retry and caps. Owned Windows scratch
+lifecycle cases actually export, mark/close and retire copies with unchanged gallery
+bytes. Injected failures check pending/unknown state, complete-close restoration,
+no pruning after failed/empty/skipped/unmanaged exports and preserved success/time.
 
 `smoke-execution-reuse.json` uses a fresh FLUX.1 Krea [dev] fake on 7926.
 Browser fixtures add execution recipes to a synthetic eager record, checking
@@ -5398,6 +5437,13 @@ It checks explicit plaintext consent and settings validation, stale revisions,
 dirty edits and reload, fixed startup-outcome presentation, manual-field
 preservation, disabling and narrow layout. It configures scratch settings only:
 no server restart, automatic export, real gallery or credential store is used.
+
+`smoke-retention.json` uses a fresh FLUX.1 Krea [dev] fake on 7928. All backup
+API responses/saves are intercepted synthetic data: inert old N, missing/stale
+mode, fresh separate deletion consent, dirty drafts, marked/unknown wording,
+pending while off and disabling without destination access. Desktop/narrow
+screenshots check containment and stationary Save. No policy, shared-mode install,
+restart, export or deletion is executed; native lifecycle evidence is CPU scratch.
 
 `tests/test_classic_scripts.py` invokes `tools/check_classic_scripts.py`
 and its Node helper to parse every local classic script in HTML order,

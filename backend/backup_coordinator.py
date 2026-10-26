@@ -1,17 +1,17 @@
-"""Inactive, explicitly invoked check/export coordinator; no startup caller.
+"""One admitted startup check/export with separately consented post-success cleanup.
 
 The caller supplies policy, stable identities, clock, transient protection and
 an ownership-trust fact. No settings, credentials or defaults are selected here.
 Only currently matching, nonempty managed copies cover age. Missing ownership
 must not be reconstructed from archive names; a new namespace's trust must be
-supplied explicitly. There is no retry loop, pruning or age-state sidecar.
-Per-process download leases do not establish cross-process deletion safety.
+supplied explicitly. There is no retry loop or independent age-state sidecar.
+Cleanup additionally requires the v3 permission and installed native protocol.
 """
 from __future__ import annotations
 
 import asyncio
 from collections.abc import Callable
-from dataclasses import asdict, dataclass
+from dataclasses import asdict, dataclass, field
 from datetime import datetime
 from pathlib import Path
 from typing import Literal
@@ -21,6 +21,8 @@ from fastapi import HTTPException
 from . import backup_receipts, bundles, gallery_lock, storage
 from .api_bundles import BundleManager
 from .backup_policy import BackupPolicy, CopyFacts, backup_due
+from .backup_retention import RetentionOutcome, prune_after_success
+from .backup_settings import RetentionPermission
 from .bundle_leases import LeaseRegistry
 
 State = Literal["idle", "disabled", "running", "skipped", "deferred", "failed", "unmanaged", "succeeded"]
@@ -32,6 +34,8 @@ class BackupOutcome:
     reason: str
     operation_id: str | None = None
     archive_name: str | None = None
+    retention: RetentionOutcome = field(default_factory=RetentionOutcome)
+    verified_at: str | None = None
 
     @property
     def clock_warning(self) -> bool:
@@ -61,11 +65,12 @@ class BackupCoordinator:
     def start_once(
         self, policy: BackupPolicy, identity: backup_receipts.ManagedIdentity, *,
         clock: Callable[[], datetime], password: str | None, ownership_trusted: bool,
+        retention: RetentionPermission | None = None,
     ) -> BackupOutcome:
         """Reserve synchronously, then check/export in one owned worker.
 
         Disabled is a no-op. Enabled checks briefly reserve admission even
-        when the worker finds no export due; startup integration is absent.
+        when the worker finds no export due; the lifespan owns this worker.
         Protection errors never change mode or fall back to plaintext.
         """
         try:
@@ -101,7 +106,7 @@ class BackupCoordinator:
             self._outcome = BackupOutcome("failed", reason, identity.operation_id)
 
         try:
-            self.manager.start(lambda: self._work(policy, identity, clock, password), on_not_started=not_started)
+            self.manager.start(lambda: self._work(policy, identity, clock, password, retention), on_not_started=not_started)
         except Exception:
             self.manager.fail("The automatic backup worker could not start.")
             self._outcome = BackupOutcome("failed", "worker_start_failed", identity.operation_id)
@@ -114,6 +119,7 @@ class BackupCoordinator:
     def _work(
         self, policy: BackupPolicy, identity: backup_receipts.ManagedIdentity,
         clock: Callable[[], datetime], password: str | None,
+        retention: RetentionPermission | None = None,
     ) -> dict:
         try:
             # Bind the explicit source before creating a reservation anywhere.
@@ -123,8 +129,9 @@ class BackupCoordinator:
                 directory = storage.bundle_directory()
                 if self.directory.resolve() != directory:
                     return self._complete(BackupOutcome("failed", "destination_mismatch", identity.operation_id))
-                journal = backup_receipts.load(self.db_path, identity.gallery_id)
-                previous = next((receipt for receipt in journal
+                journal_state = backup_receipts.load_state(self.db_path, identity.gallery_id)
+                journal = journal_state.receipts
+                previous = next((receipt for receipt in journal_state.all_receipts
                                  if receipt.identity.operation_id == identity.operation_id), None)
                 if previous is not None:
                     return self._complete(BackupOutcome("skipped", "operation_already_recorded",
@@ -160,7 +167,21 @@ class BackupCoordinator:
                     return self._complete(BackupOutcome("unmanaged", "receipt_not_saved", identity.operation_id, name))
                 # The exporter verified and journaled this copy. Do not read it
                 # again or synthesize an independent successful-backup clock.
-                return self._complete(BackupOutcome("succeeded", "verified_publication", identity.operation_id, name))
+                cleanup = RetentionOutcome()
+                verified_at = None
+                if retention is not None:
+                    try:
+                        current = backup_receipts.load_state(self.db_path, identity.gallery_id)
+                        fresh = next((item for item in current.receipts if item.identity == identity and item.name == name), None)
+                        if fresh is None:
+                            raise ValueError("new receipt missing")
+                        verified_at = fresh.verified_at.isoformat()
+                        cleanup = prune_after_success(self.db_path, retention, policy, identity, fresh,
+                                                      now=clock(), previous_facts=copies)
+                    except Exception:
+                        cleanup = RetentionOutcome("warning", "journal_unusable", uncertain=True,
+                                                   warning="The backup succeeded, but cleanup could not confirm its journal. No further cleanup was attempted.")
+                return self._complete(BackupOutcome("succeeded", "verified_publication", identity.operation_id, name, cleanup, verified_at))
         except gallery_lock.GalleryBusy:
             return self._complete(BackupOutcome("deferred", "gallery_busy", identity.operation_id))
         except backup_receipts.ReceiptError:

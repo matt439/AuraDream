@@ -4517,8 +4517,8 @@ waits before preload. Shutdown cancels a waiting preload and drains the admitted
 writer. Status stays cached during maintenance; explicit Reload reads settings
 without journal hashing or another attempt. UI drafts survive polls and stale or
 late replies, while manual creation/import passwords and the clear count stay
-separate. Automatic cleanup is not implemented: the disclosure explicitly says
-that every existing copy is kept and the saved N is not enforced. OS credentials,
+separate. In that initial v2 slice, automatic cleanup was not implemented: the
+disclosure said every copy was kept and N was not enforced. OS credentials,
 shared-mode installation and deletion remain separate stages in the
 [backup plan](plan-automatic-backups.md).
 
@@ -4556,6 +4556,18 @@ and remaining handles until restart. Accepted disposition and confirmed owned
 close are separate from physical removal. A future caller still needs validated
 journal membership, gallery reservation, policy eligibility and new deletion
 consent; no v2 count, startup path or journal mutation is connected.
+
+**Explicit retention (2026-10-26, `GAL#6`).** V3 now adds separately confirmed,
+mode/scope/N-bound deletion permission; v2 remains export-only. After a fresh
+managed success the existing worker protects current N/new-success copies and
+records one durable intent before native marking. Pending stops cleanup/restart
+retries; active/pending/retired proofs preserve bounded idempotency. Only normal
+entire-close outcomes can restore/retire evidence. Cleanup warnings and counters
+remain separate from verified backup state/time, and pending/unknown state stays
+visible when disabled. Save executes no export/deletion, and no installer or OS
+provider UI was added. Native lifecycle checks use owned Windows scratch galleries;
+no real gallery was activated. The [backup plan](plan-automatic-backups.md#explicit-v3-retention-and-durable-uncertainty)
+records the current contract, evidence and remaining qualifications.
 
 **Password scope and the clear's safety step (2026-10-26, `UI#14`/`UI#15`).**
 The browser review reproduced a scope mismatch: a password under Import a

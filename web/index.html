@@ -1758,20 +1758,26 @@
       <div class="bundle-automatic-fields">
         <label for="automatic-backup-age">Minimum age of the latest verified automatic copy (hours)</label>
         <input type="number" id="automatic-backup-age" min="1" max="876000" step="1" inputmode="numeric" aria-describedby="automatic-backup-age-hint">
-        <label for="automatic-backup-keep">Requested copies to keep when cleanup is available</label>
+        <label for="automatic-backup-keep">Minimum automatic copies to keep with cleanup</label>
         <input type="number" id="automatic-backup-keep" min="1" max="10000" step="1" inputmode="numeric" aria-describedby="automatic-backup-retention-hint">
       </div>
       <p class="hint" id="automatic-backup-age-hint">Enter a whole number of hours. Only a currently verified automatic copy counts toward this age; manual bundles do not.</p>
-      <p class="hint" id="automatic-backup-retention-hint">Automatic cleanup is not enabled; all existing copies are kept. The requested count is saved for a future cleanup feature and is not enforced.</p>
+      <p class="hint" id="automatic-backup-retention-hint">Without separate cleanup permission, all existing copies are kept and this count is not enforced. Cleanup keeps the newest confirmed automatic copies, the new backup and any copy in use, so more than this count may remain.</p>
       <label class="bundle-automatic-check" id="automatic-backup-consent-label"><input type="checkbox" id="automatic-backup-consent" aria-describedby="automatic-backup-protection-hint automatic-backup-destination"> I allow unattended unencrypted backups, including images and prompts, at the destination shown below.</label>
       <p class="hint" id="automatic-backup-protection-hint">Automatic password protection is not available. These copies are ordinary, unencrypted ZIPs. For a protected copy, leave this off and use the manual Back up action with a password. A copy on the same physical disk does not protect against losing that disk.</p>
+      <label class="bundle-automatic-check"><input type="checkbox" id="automatic-backup-retention-enabled" aria-describedby="automatic-backup-cleanup-hint automatic-backup-mode"> Enable cleanup after a new verified automatic startup backup</label>
+      <p class="hint" id="automatic-backup-cleanup-hint">Cleanup affects only older verified automatic copies from this gallery and destination with the same protection. Manual bundles, foreign or uncertain copies and files in use are kept. No cleanup follows a failed, skipped or unmanaged backup.</p>
+      <label class="bundle-automatic-check"><input type="checkbox" id="automatic-backup-delete-consent" aria-describedby="automatic-backup-retention-hint automatic-backup-mode automatic-backup-destination"> I allow irreversible deletion of eligible older automatic copies at the displayed destination, keeping at least the count shown above.</label>
       <div class="bundle-backup-row">
         <button type="button" class="ghost small" id="automatic-backup-save" aria-disabled="true">Save startup backup settings</button>
         <button type="button" class="ghost small" id="automatic-backup-reload" aria-disabled="true">Reload saved settings</button>
       </div>
       <p class="hint" id="automatic-backup-destination">Backup destination is not yet known.</p>
+      <p class="hint" id="automatic-backup-mode">Cleanup requires installed Windows shared archive mode. This page never installs it.</p>
       <p id="automatic-backup-status">Open this dialog to read automatic backup settings.</p>
+      <p class="hint" id="automatic-backup-retention-status">Open this dialog to read cleanup settings.</p>
       <p class="hint" id="automatic-backup-warning" hidden></p>
+      <p class="hint" id="automatic-backup-retention-warning" hidden></p>
       <p class="hint">An empty gallery is skipped, and a busy startup is deferred without an automatic retry. The next server start checks again. Existing manual backups remain available.</p>
       <p id="automatic-backup-feedback" role="status" aria-live="polite"></p>
     </div>

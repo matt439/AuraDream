@@ -2,16 +2,16 @@
 
 **Status, 2026-10-26: explicit default-off plaintext startup backups,
 configuration/status UI and owned preload/shutdown sequencing are implemented.
-Managed receipts, capacity budgets, explicit Windows shared-mode installation
-and mode-aware downloads are built;
-`GAL#6` remains open for retention orchestration/activation and an OS-backed
-protection option.** This expands
+Managed receipts, capacity budgets, Windows shared mode, archive reader leases
+and separately consented v3 retention are built. `GAL#6` remains open for an
+OS-backed protection/setup/recovery option.** This expands
 [R8](review-2026-10-25.md#r8-automatic-whole-gallery-backup). Tests export and
 restore scratch galleries only; no real gallery or credential store was touched.
-Automatic backups default off. No real gallery was activated. The implemented
+Automatic backups and deletion default off. No real gallery was activated. The implemented
 plaintext option needs explicit consent, age and count at its displayed
-destination; no values or protection mode are selected for Matt. Automatic
-cleanup is absent, so the saved retention count is explicitly not enforced.
+destination; no values or protection mode are selected for Matt. Older v2
+settings remain export-only and N is not enforced. V3 below requires new separate
+deletion consent. Earlier stage descriptions record implementation history.
 
 ## Existing path to reuse
 
@@ -265,6 +265,71 @@ and 75 existing warnings** in **223.40 seconds** with two workers. All **123**
 production/tool sources pass pinned types with zero errors/warnings; repository
 Ruff passes. This combined gate also includes the private regional loader/call
 wiring and enables no automatic retention.
+
+## Explicit v3 retention and durable uncertainty
+
+V3 adds optional deletion permission through the existing reserved/CAS save.
+It needs fresh separate acknowledgement, explicit N/protection and exact gallery/
+destination/path bound to the complete installed `SharedMode` identity/digest.
+A stale mode revision refuses. V2 still exports and keeps every copy; missing/
+default-off settings create nothing. Disable clears permission without destination
+or native access and preserves pending/unknown local-journal warnings. Cached GET
+does no I/O; preparation/reload reads bounded facts off-loop. Save/reload never
+export or prune. Fresh acknowledgements, dirty mode/destination bases and dynamic
+feedback below Save remain separate from the manual bundle controls.
+
+Only a fresh exact durable nonempty managed success enters `backup_retention`
+inside the existing worker/gallery reservation. Shared claims protect new success
+and newest N current same-scope/protection copies; older protected copies are
+requalified without fully rereading the new export. Manual/foreign/unknown/busy
+copies remain, with known leased excess counted. Candidates bind before recording
+intent, so ordinary busy refusal creates no pending state. There is no pre-delete,
+cleanup-only retry or pruning after failed/empty/skipped/unmanaged exports.
+
+Journal v2 starts only on an authorized intent: active receipts, at most one exact
+pending intent and retired full proofs. Every append preserves history; operation/
+name uniqueness and retry lookup cover all three sets. Pending/retired copies
+cover neither age nor N. The existing **20,000-record/16-MiB** caps cover all
+records, fail closed and never evict/compact authority. A later export whose
+receipt cannot be saved remains unmanaged with a warning, as before.
+
+Intent is durable before marking. Known pre-mark/refused outcomes may restore
+only after normal entire bound close. Accepted mark plus normal exit retires;
+physical removal remains unconfirmed. Unknown mark, cleanup or final-write failure
+leaves pending and stops. Restart cannot retry that intent or adopt a surviving
+name. Repair is deliberate; unresolved cleanup can remain blocked while backups
+continue. Actual fresh receipt time is captured before cleanup so cleanup errors
+preserve successful backup state/time.
+
+All **140 focused tests** pass; seven production modules pass pinned types with
+zero errors/warnings, Ruff passes and independent review is clear. Actual owned
+Windows lifecycle acceptance starts a scratch server, exports, marks/closes and
+retires copies, proves unchanged gallery bytes and refuses retired-operation
+retry. Cases cover current N, manual/foreign/leased copies, no extra new-archive
+read, old formats, stale consent/mode, pending while off, unknown state, caps and
+injected intent/cleanup/final-write faults. All author/child jobs ended.
+
+The new synthetic browser smoke passed **27/27**, and the unchanged v2 backup
+smoke **35/35**. The UI author inspected eight 1400/600 screenshots before later
+`Get-ChildItem` inventories were denied (Access denied, exit 1) for the two exact
+artifact trees reported in the thread. Those trees are now off limits: no further
+read/view/copy/escalation or alternate access was attempted. Filenames came only
+from prior successful tool history; separate stdout receipts remain readable.
+The new smoke intercepts every backup API/save; the compatibility smoke writes
+scratch v2 settings but does no startup/export/deletion. Native acceptance comes
+from the Windows CPU fixtures, not those browser simulations.
+
+No real gallery/destination/mode/retention was activated. This qualifies updated
+cooperating Windows fixed-local-NTFS scratch processes only. Linux, old/unrelated
+servers, network/removable filesystems, actual OS credentials and physical deletion
+durability remain unqualified.
+
+The complete offline run passed **5,162 tests with eight skips**, with one
+documentation-map failure: this new smoke lacked its Tests description. That
+entry was added and all **six focused documentation-map checks** passed. No
+production change was needed. Whole-source pinned types checked **124 files
+with zero errors/warnings**, and repository Ruff passed. These results are
+reported separately rather than claiming that the original full run was green.
 
 ## Activation, age and saved state
 

@@ -15,6 +15,9 @@ class BackupSettingsRequest(BaseModel):
     keep_last: StrictInt | None = Field(default=None, ge=1, le=MAX_KEEP_LAST)
     allow_unencrypted: StrictBool = False
     destination: str | None = Field(default=None, max_length=32768)
+    retention_enabled: StrictBool = False
+    allow_managed_deletion: StrictBool = False
+    expected_mode_revision: str | None = Field(default=None, max_length=64)
 
 
 class BackupStatus(BaseModel):
@@ -31,3 +34,12 @@ class BackupStatus(BaseModel):
     verified_at: str | None = None
     retention_enabled: bool = False
     requires_confirmation: bool = False
+    mode_revision: str | None = None
+    shared_mode_id: str | None = None
+    retention_state: str = "disabled"
+    retention_reason: str = "not_enabled"
+    retention_warning: str | None = None
+    retention_marked: int = 0
+    retention_retained: int = 0
+    retention_pending: bool = False
+    retention_uncertain: bool = False

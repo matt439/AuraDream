@@ -96,7 +96,7 @@ def test_invalid_v2_never_activates_and_is_not_rewritten(tmp_path, change):
 def test_future_oversized_and_duplicate_formats_refuse_implicit_repair(tmp_path):
     db = tmp_path / "gallery.db"
     path = backup_preferences.path_for(db)
-    for data in (b'{"version":3}', b"x" * (65536 + 1)):
+    for data in (b'{"version":4}', b"x" * (65536 + 1)):
         path.write_bytes(data)
         loaded = backup_settings.load(db)
         assert loaded.revision is None and not loaded.settings.enabled

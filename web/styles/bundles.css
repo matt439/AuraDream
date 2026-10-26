@@ -61,9 +61,10 @@
 .bundle-automatic-fields { display: grid; grid-template-columns: minmax(0, 1fr) 100px; gap: var(--sp-2) var(--sp-3); align-items: center; }
 .bundle-automatic-fields label { font-size: var(--fs-label); color: var(--text-3); }
 .bundle-automatic-fields input { width: 100%; min-width: 0; }
-#automatic-backup-status, #automatic-backup-destination, #automatic-backup-warning { overflow-wrap: anywhere; }
+#automatic-backup-status, #automatic-backup-destination, #automatic-backup-warning,
+#automatic-backup-mode, #automatic-backup-retention-status, #automatic-backup-retention-warning { overflow-wrap: anywhere; }
 #automatic-backup-feedback { min-height: 2lh; }
-#automatic-backup-feedback.failed, #automatic-backup-warning { color: var(--danger); }
+#automatic-backup-feedback.failed, #automatic-backup-warning, #automatic-backup-retention-warning { color: var(--danger); }
 @media (max-width: 520px) {
   .bundle-automatic-fields { grid-template-columns: minmax(0, 1fr); }
   .bundle-automatic-fields input { max-width: 140px; }

@@ -157,8 +157,11 @@ imports, listings, public encrypted helpers and receipt hashing then joined the
 same protocol, including original-key quarantine for uncertain input closes.
 The unconnected Windows mutation mechanism then gained mandatory installed-mode
 exclusion, pinned scope and same-handle hash/disposition with scratch qualification.
-Retention orchestration/activation and OS-backed protection remain. No real gallery
-or destination was activated and no automatic deletion was added.
+V3 then added separately consented retention, current-N protection and durable
+pending/retired proofs with bounded retry history. Cleanup warnings preserve
+verified backup success/time, and pending/unknown state remains visible while
+disabled. OS-backed protection/setup/recovery remains. No real gallery or
+destination was activated; older v2 counts remain inert.
 
 The next bounded PERF#1 slice also landed in source: actual eager-load publication
 and shared teardown own unpublished pipeline/component references and future
@@ -169,6 +172,12 @@ loader/call stage then wired cold preflight and owned regional registration into
 the actual load transaction, with one policy boundary for direct/refine forwards.
 Synthetic checks preserve eager behavior and every public nonempty refusal;
 compiler/cache setup and real qualification remain separate.
+
+Private attention preparation/call ownership then joined the same transaction,
+with exact pre/post-forward verification and weak terminal-discard exclusions.
+Focused synthetic checks preserve primary exceptions, eager behavior and every
+public nonempty refusal. Effective imported environment behavior, public
+selection and actual cuDNN/card qualification remain in the attention owner.
 
 Approved workflow work was reconciled against its owners, production paths and
 regression fixtures: mixed tag/prose handling and native tag spelling, More seeds
