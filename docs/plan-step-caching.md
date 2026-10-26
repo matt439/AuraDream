@@ -1,15 +1,45 @@
 # Plan: opt-in First Block Cache on FLUX.1
 
-**Status, 2026-10-26: CPU-only planning slice complete.** Implementation
-and a separately approved card comparison remain `PERF#4`. This is the
+**Status, 2026-10-26: CPU contracts, persisted carry and inactive per-call
+ownership helpers are built.** Runtime integration, UI and a separately
+approved card comparison remain `PERF#4`. This is the
 bounded next slice from [R4](review-2026-10-25.md#r4-step-caching-for-the-long-undistilled-schedules).
 No package installation, runtime model import, weights, tensor allocation
 or GPU operation was used. Nothing enables caching or changes a default.
 
 The shared `ExecutionSpec`, nullable SQL/PNG carry and refusal paths are
 implemented with `PERF#1`. A recorded `fbc-005-v1` remains unavailable to
-render or Reuse; this establishes metadata transport, not hook installation
-or quality, speed and memory qualification.
+render or Reuse. The inactive helper is tested with synthetic bindings;
+real hook arithmetic, quality, speed and memory remain unqualified.
+
+## Inactive ownership helper built
+
+`backends/fbc_cache.py` validates the exact eager FLUX root and joint/single
+block classes, installer order, configuration counts and registered output
+metadata before setup. It owns a fresh explicit 0.05 configuration for one
+call and tracks installed hooks even if installation fails before assigning
+the library's cache configuration. State and current context reset before
+and after each call. Cleanup removes only those hooks and restores prior
+forward attribute ownership, foreign hooks and child-registry caches.
+The installed registry caches its child list without invalidating it on
+hook changes; the helper invalidates it during setup and restores it on exit.
+
+One identity-based weak claim covers a denoiser shared by base and sibling
+pipelines. Duplicate owners refuse. Cleanup failure marks that exact model
+unsafe before invoking the caller's shared-pipeline disposal callback;
+closing or losing the owner cannot make the same model safe again. A fresh
+model identity is required. Valid close releases ownership and references.
+Original setup/call failures retain cleanup diagnostics, with no fallback.
+
+All 52 focused synthetic tests pass, including partial setup, cancellation,
+reset/removal failure, forward restoration, shared identity races and weak
+lifetime cleanup. Ruff and narrow pinned Pyright pass. Independent review
+identified the duplicate-owner recovery gap; its regression covers a failed
+reset that leaves no visible hooks yet still makes reuse unsafe. Tests stub
+the real FBC/class adapter; no real FBC import, tensor, forward or compiler
+execution was used. The ordinary test conftest still performs its existing
+CUDA-availability check. Loader/generation/UI callers remain absent and
+every nonempty execution recipe remains refused.
 
 ## One algorithm and one undistilled family
 

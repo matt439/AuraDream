@@ -146,6 +146,9 @@ before changing it.
 - `backend/backends/attention_selection.py` - inactive complete FLUX processor
   coverage, shared ownership, public-context configuration and restoration;
   None is import-cold and no runtime callers enable cuDNN
+- `backend/backends/fbc_cache.py` - inactive exact FLUX cache-layout checks,
+  per-call hook/state cleanup and shared-denoiser ownership/invalidation;
+  library imports are lazy and render admission remains closed
 - `backend/backends/loading.py` — everything decided before the weights
   move: the quantization config, the Nunchaku preflight and the
   prequantized refusal, the components left out of the download, the
@@ -898,6 +901,13 @@ Reproduction:
   later replacement/backend changes, and restore releases owned references
   only after restoration succeeds. Callers must retain the handle, configure
   only while idle and discard failed candidates. None changes nothing.
+- Inactive FBC ownership validates exact eager FLUX block identities, order,
+  counts and output metadata. One retained owner covers the shared denoiser;
+  each call installs fresh fixed-threshold hooks, resets state/context before
+  and after use, and restores only its own hooks, forwards and registry caches.
+  A failed cleanup invalidates that model identity before discarding every
+  shared pipeline; invalidation survives owner close and requires a fresh
+  model. These helpers have no runtime callers or arithmetic qualification.
 - Seeds are drawn from `2**53 - 1` and wrapped at `2**63 - 1`; both live in
   `seeds.py`. One generator per image, seeded `seed + i`; runs take base
   `seed + i * num_images`. The page refuses a typed seed past

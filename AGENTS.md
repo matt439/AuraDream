@@ -119,7 +119,8 @@ Backend (`backend/`):
   (everything decided before the weights move), `schedule.py` (mu, sigmas,
   refine start), `regional_compile.py` (inactive regional registration and
   scoped compiler policy), `attention_selection.py` (inactive processor ownership
-  and restoration), per-checkpoint converters and pipelines (`single_file`,
+  and restoration), `fbc_cache.py` (inactive per-call cache ownership and cleanup),
+  per-checkpoint converters and pipelines (`single_file`,
   `anima_*`, `netayume_loading`, `newbie_*`)
 - CLIs: `generate.py`, `clear.py`, `stats.py`, `reindex.py`
 
