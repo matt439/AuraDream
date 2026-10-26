@@ -870,10 +870,28 @@ def _cli_execution_intent(args) -> bool:
         values = {} if spec is None else spec.model_dump(exclude_none=True)
         spec = ExecutionSpec(**{**values, "step_cache": cache})
     require_default_execution(spec)
+    args.execution_recipe = spec
     return (
-        compilation is not None or attention is not None or cache is not None
+        compilation is not None or attention is not None
         or "LOCAL_DIFFUSION_COMPILATION" in os.environ or "LOCAL_DIFFUSION_ATTENTION" in os.environ
     )
+
+
+def _resolved_cli_execution(args, selected_loader: object, source: dict | None):
+    """Bind composer/replay identity before sources or grid identities."""
+    from backend.execution import resolve_execution
+
+    cache = getattr(args, "step_cache", None)
+    if getattr(args, "execution_explicit", False):
+        resolve_execution(selected_loader, getattr(args, "execution_recipe", None))
+    if source is not None:
+        recorded = source.get("execution")
+        if cache is not None:
+            return resolve_execution(selected_loader, recorded, step_cache=None if cache == "off" else cache)
+        return resolve_execution(selected_loader, recorded)
+    if cache is not None:
+        return resolve_execution(selected_loader, step_cache=None if cache == "off" else cache)
+    return resolve_execution(selected_loader)
 
 
 def _via_server(args, parser, source, carried, mask_image, width, height, sized, outpaint_sides) -> int:
@@ -933,6 +951,10 @@ def _via_server(args, parser, source, carried, mask_image, width, height, sized,
         ))
         if reason is not None:
             raise _ServerError(reason, 422)
+        try:
+            effective_execution = _resolved_cli_execution(args, status.get("execution"), source)
+        except ValueError as exc:
+            raise _ServerError(str(exc), 422) from exc
         for value, key, flag, env in (
             (args.model, "model_id", "--model", "LOCAL_DIFFUSION_MODEL_ID"),
             (args.quant, "quantization", "--quant", "LOCAL_DIFFUSION_QUANT"),
@@ -996,8 +1018,7 @@ def _via_server(args, parser, source, carried, mask_image, width, height, sized,
         body = {"prompt": args.prompt, "negative_prompt": args.negative,
                 "width": width, "height": height, "num_images": args.batch, "runs": args.runs,
                 "reference": references, "lora": args.lora, "lora_scale": args.lora_scale}
-        if source is not None or getattr(args, "execution_explicit", False):
-            body["execution"] = None  # Explicit Eager replay/flags must not become inherited intent.
+        body["execution"] = effective_execution.model_dump(exclude_none=True) if effective_execution is not None else None
         if args.crop_anchor is not None:
             body["crop_anchor"] = args.crop_anchor
         if args.upscaler not in (None, "lanczos"):
@@ -1206,6 +1227,7 @@ def main(argv: list[str] | None = None) -> int:
 
     try:
         require_configured_loader_available(p.settings)
+        effective_execution = _resolved_cli_execution(args, getattr(p.settings, "loader_execution", None), source)
     except ValueError as exc:
         print(str(exc), file=sys.stderr)
         return 2
@@ -1384,7 +1406,7 @@ def main(argv: list[str] | None = None) -> int:
             seed=seed,
             num_images=args.batch,
             runs=args.runs,
-            **({"execution": None} if source is not None or args.execution_explicit else {}),
+            execution=effective_execution,
         )
         # A batch past the budget is told the flag to use instead, which on a
         # grid - whose seeds are its runs - is a smaller --batch.

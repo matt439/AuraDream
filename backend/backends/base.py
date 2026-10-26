@@ -103,6 +103,8 @@ class GenerationBackend(abc.ABC):
         must say so here. The default applies everything as given.
         """
         require_default_execution(request.execution)
+        request = request.with_execution(None)
+        require_default_execution(request.execution)
         return request
 
     def lora_supported(self) -> bool:

@@ -22,7 +22,9 @@ from pydantic import ValidationError
 
 from . import png_settings, storage
 from .app_context import AppServices
+from .execution import require_configured_loader_available, require_default_execution, resolve_execution
 from .metadata import PNG_METADATA_KEY
+from .model_selection import current_settings
 from .png_settings import PARAMETERS_KEY, PngSettingsError
 from .schemas import GenerateRequest, PngPanelSampling, PngSettings, PngSettingsRequest, error_detail
 
@@ -159,6 +161,9 @@ def _from_record(meta: dict, name: str) -> tuple[dict, _ImageSize, bool, list[st
         )
         if meta.get(field) is not None
     }
+    # A Local Diffusion PNG is replay metadata. Older Eager images must not
+    # acquire current loader intent when the browser submits these settings.
+    fields["execution"] = meta.get("execution")
     # An explicit null is a render with no shift of ours, as `--from-image`
     # reads it; absent, the profile's.
     if "mu" in meta:
@@ -250,6 +255,13 @@ def read_settings(services: AppServices, asked: PngSettingsRequest) -> PngSettin
     name, chunks = asked.name, asked.chunks
     meta = png_settings.record(chunks, name)
     if meta is not None:
+        try:
+            require_default_execution(meta.get("execution"))
+            selected = current_settings(services.settings())
+            require_configured_loader_available(selected)
+            resolve_execution(selected.loader_execution, meta.get("execution"))
+        except ValueError as exc:
+            raise PngSettingsError(str(exc)) from exc
         source = PNG_METADATA_KEY
         fields, size, sampling, notes = _from_record(meta, name)
         model = meta.get("model") if isinstance(meta.get("model"), str) else None

@@ -659,9 +659,10 @@ class DiffusersBackend(GenerationBackend):
             self._require_compiler_cache()
             return result
 
-    def _require_execution(self, request: GenerateRequest) -> None:
+    def _require_execution(self, request: GenerateRequest) -> GenerateRequest:
         require_default_execution(request.execution)
-        require_configured_loader_available(current_settings(settings))
+        selected = current_settings(settings)
+        require_configured_loader_available(selected)
         # Private prepared state cannot make an ordinary Eager request run
         # compiled code, even if it bypassed the closed selection surface.
         require_default_execution(self._loaded_execution)
@@ -673,6 +674,9 @@ class DiffusersBackend(GenerationBackend):
             raise ValueError("Attention execution is not available in this build; unload this pipeline.")
         if self._cache_owner is not None or self._cache_disposal is not None:
             raise ValueError("Cached execution is not available in this build; unload this pipeline.")
+        request = request.with_execution(selected.loader_execution)
+        require_default_execution(request.execution)
+        return request
 
     def prompt_expansion_supported(self) -> bool:
         pipe = self._pipe
@@ -801,7 +805,7 @@ class DiffusersBackend(GenerationBackend):
         the row a job later writes agree whether or not the weights were resident
         when the grid was previewed.
         """
-        self._require_execution(request)
+        request = self._require_execution(request)
         if self._pipe is None:
             profile = defaults_for(current_model_id(settings))
             return request.applied(
@@ -1135,7 +1139,7 @@ class DiffusersBackend(GenerationBackend):
         # pre-pass count - and read after the last GPU work. Set only on a
         # return, so a cancelled or failed cell leaves no peak for the next.
         self._peak = None
-        self._require_execution(request)
+        request = self._require_execution(request)
         device = self._peak_device() if self._pipe is not None else None
         if device is not None:
             try:
@@ -1178,7 +1182,7 @@ class DiffusersBackend(GenerationBackend):
         should_cancel: CancelFn | None = None,
         on_preview: PreviewFn | None = None,
     ) -> list["Image"]:
-        self._require_execution(request)
+        request = self._require_execution(request)
         if self._cache_disposal is not None or self._pending_cache_disposal is not None:
             with _CallDisposal(self) as disposal:
                 return self._generate_images_prepared(request, seed, on_progress, should_cancel, on_preview, disposal)

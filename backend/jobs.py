@@ -15,14 +15,14 @@ import time
 import uuid
 from collections.abc import Awaitable, Callable
 from concurrent.futures import ThreadPoolExecutor
-from dataclasses import dataclass, field
+from dataclasses import dataclass, field, replace
 from typing import Any
 
 from . import gallery_lock, storage
 from .backends import Cancelled, GenerationBackend
 from .model_selection import current_settings
 from .config import settings
-from .execution import require_configured_loader_available, require_default_execution
+from .execution import require_configured_loader_available, require_default_execution, resolve_execution
 from .grid import Cell, CellKey, cell_keys, progress_steps, run_id as _run_id
 from .latent_preview import data_url
 from .more_seeds_intents import IntentLedger
@@ -728,6 +728,11 @@ class JobManager:
         image in a sweep keeps a seed that reproduces it on its own. Wrapped
         rather than allowed to overflow the signed 64-bit seed column.
         """
+        require_default_execution(request.execution)
+        selected = current_settings(settings)
+        require_configured_loader_available(selected)
+        request = request.with_execution(selected.loader_execution)
+        require_default_execution(request.execution)
         base = request.seed if request.seed is not None else random_seed()
         return await self.submit_cells(
             [
@@ -771,8 +776,15 @@ class JobManager:
         # deliberately cannot go through whole-request validation again.
         for cell in cells:
             require_default_execution(cell.request.execution)
+            if "step_cache" in cell.request.model_fields_set:
+                raise ValueError("Resolve composer step cache before submitting expanded cells.")
         selected = current_settings(settings)
         require_configured_loader_available(selected)
+        # Expanded/stored cells already describe complete requests. Missing
+        # legacy execution is Eager replay here, never fresh composer intent.
+        cells = [replace(cell, request=cell.request.model_copy(update={
+            "execution": resolve_execution(selected.loader_execution, cell.request.execution),
+        })) for cell in cells]
         self._loop = asyncio.get_running_loop()
         raw_cells = list(cells)
         # An outpaint's mask, built and stored before anything reads the

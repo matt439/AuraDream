@@ -60,7 +60,7 @@ Backend (`backend/`):
   `model_info.py` supplies cold catalogue details from existing sourced guides;
   `hub_access.py` asks the Hub whether a switch's checkpoint can download;
   `model_benchmarks.py` supplies retained timing references and speed categories
-- `execution.py` frozen execution recipes, cold candidate checks and shared
+- `execution.py` frozen execution recipes, composer/replay resolution, cold candidate checks and shared
   SQL/PNG codecs; nonempty recipes remain unavailable until runtime support
 - `compiler_cache.py` private one-use startup binding for compiler artifact
   directories; Eager stays cold and no public recipe is activated

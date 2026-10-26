@@ -32,6 +32,44 @@ INVALID_LOADER_CONFIGURATION = (
     "The saved or startup performance configuration is invalid; choose and save "
     "valid loading options or restart with --defaults."
 )
+EXECUTION_OMITTED = object()
+EXECUTION_MISMATCH = (
+    "This request records different model loading options; select its recorded "
+    "compilation and attention options before rendering it."
+)
+
+
+def resolve_execution(
+    selected_loader: object, recorded: object = EXECUTION_OMITTED, *,
+    step_cache: object = EXECUTION_OMITTED,
+) -> ExecutionSpec | None:
+    """Resolve identity only; this never grants permission to execute.
+
+    Omitted recorded metadata denotes a new composer request. A supplied value,
+    including null/empty legacy Eager, denotes a complete replay. The separate
+    cache channel belongs only to composer input, not to portable metadata.
+    """
+    loader = canonical_loader_execution(selected_loader)
+    if recorded is not EXECUTION_OMITTED and step_cache is not EXECUTION_OMITTED:
+        raise ValueError("Choose composer step cache or a recorded execution recipe, not both.")
+    if recorded is EXECUTION_OMITTED:
+        values = loader.model_dump(exclude_none=True) if loader is not None else {}
+        if step_cache is not EXECUTION_OMITTED:
+            values["step_cache"] = step_cache
+        effective = canonical_execution(values)
+    else:
+        effective = canonical_execution(recorded)
+        recorded_loader = canonical_loader_execution({
+            "compilation": effective.compilation if effective is not None else None,
+            "attention_backend": effective.attention_backend if effective is not None else None,
+        })
+        if recorded_loader != loader:
+            raise ValueError(EXECUTION_MISMATCH)
+    if effective is not None and sum(value is not None for value in (
+        effective.compilation, effective.attention_backend, effective.step_cache,
+    )) > 1:
+        raise ValueError("Execution recipe combinations require separate qualification.")
+    return effective
 
 
 def canonical_execution(value: object) -> ExecutionSpec | None:

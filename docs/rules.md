@@ -19,7 +19,7 @@ before changing it.
   and `current_settings` supply runtime reads, and `available` limits choices
   to the selected quantization/format/platform
 - `backend/execution.py` - frozen named execution recipes, canonical empty/key
-  contracts, distribution metadata and pure compilation/attention/cache candidate
+  contracts, composer/replay resolution, distribution metadata and pure compilation/attention/cache candidate
   matrices; every nonempty recipe is currently refused before execution
 - `backend/compiler_cache.py` - private one-use startup binding for isolated
   compiler artifact directories, immutable process ownership and drift checks;
@@ -934,15 +934,20 @@ Reproduction:
   refused at validation, submission, queue admission, `applied()` and direct
   generation before model work; the queue checks every cell before stamping
   masks or retaining work, even with an explicit run id. The fake shares the
-  backend guards. Only `GenerateRequest.applied()`
-  writes an empty specification back to None. Canonical empty/key helpers
-  describe identity without changing requests. Stored records carry the
+  backend guards. Runtime request resolution distinguishes omission (a new
+  composer inherits selected loader intent) from a present complete replay
+  (null/empty means legacy Eager, whose loader must match exactly).
+  Submission-only `step_cache` belongs to the composer; its presence cannot
+  accompany `execution`, including explicit Off. Resolve before run/planned
+  identities, using narrow copies for stamped masks. Portable codecs never
+  consult current selection. Resolution and `applied()` canonicalize empty
+  intent to None without granting availability. Stored records carry the
   nullable recipe through canonical JSON in `images.execution` and named
   PNG metadata; empty execution is SQL NULL and absent from the PNG chunk.
   Its CellKey slot is immediately before canvas/crop, preserving shape[-2]
   and the final seed. `run_id` explicitly omits an absent execution slot
   even where a later shape is nonempty, then applies legacy shape/extension
-  compaction. No loader choice or enabled non-default runtime exists.
+  compaction. Loader choices can be saved, but no nondefault runtime is enabled.
 - `backends.regional_compile` validates a fresh exact FLUX transformer,
   its uncompiled root and both installed region families before registration.
   Setup uses fullgraph/static Inductor registration under scoped strict
@@ -5377,6 +5382,12 @@ mask stamping, retained work or model work; explicit run ids do not bypass
 queue admission. Empty execution retains legacy keys/PNG metadata and normalizes only
 through `applied()`, without revalidating a stamped outpaint. These are CPU
 contract checks, not compiler or GPU qualification.
+
+`tests/test_execution_resolver.py` checks composer inheritance versus complete
+replay, explicit Off/channel conflicts, resolution before run/planned identities,
+legacy retained runs, source PNG/CLI intent and stamped-mask-safe narrowing.
+Direct submission subtypes must consume or refuse cache intent before device,
+source, queue or backend effects. These synthetic checks grant no availability.
 
 `tests/test_execution_candidates.py` checks the initial cuDNN/FBC candidate
 matrices, combinations, copied-spec validation, external override refusals and

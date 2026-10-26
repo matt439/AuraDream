@@ -2,7 +2,7 @@
 
 **Status, 2026-10-26: CPU contracts, persisted carry, private loader/call wiring,
 backend publication/teardown, startup compiler-cache ownership and unavailable
-selector/settings/status/UI source are implemented. Real nonempty admission,
+selector/settings/status/UI and composer/replay resolution source are implemented. Real nonempty admission,
 optional toolchain setup and card qualification remain
 `PERF#1`.** This is the next slice from
 [R1](review-2026-10-25.md#r1-compile-the-denoisers-repeated-blocks), not a
@@ -79,12 +79,34 @@ passed. An initial broader command was rejected by automatic approval review
 before execution over browser-launch risk; the narrower scope was accepted.
 All test processes closed, and no denied browser action was retried.
 
-**Remaining source before qualification.** Preserve the new distinction between
-omitted composer intent and an explicit Eager replay in a runtime resolver: stamp
-the selected loader recipe for a fresh composer, require equality for a replay,
-and reject unsupported loader/cache combinations without conversion. Availability
-and portable record codecs remain separate checks; synthetic tests can cover all
-of these cases with public rendering closed. Registration/first-call diagnostics
+**Runtime resolution contract.** Omitted execution means a fresh composer whose
+resolved recipe includes the selected loader. Present execution means a complete
+replay, including null/empty as legacy Eager; its loader portion must match the
+selected loader exactly. A separate submission-only step-cache choice belongs to
+the composer and cannot accompany a replay field, even when explicitly Off.
+Cache-only replay metadata therefore never inherits a different selected loader.
+Resolution must precede planned, duplicate and run identities. Portable record
+codecs remain independent of runtime selection, and unsupported combinations are
+refused without conversion. Resolution grants no runtime availability.
+
+The resolver now feeds Generate/grid, queue admission, retained-run Finish,
+backend/fake boundaries and both CLI modes before identities or source/device
+effects. Submission subtypes cannot hide an unconsumed cache choice from direct
+callers or normalization. Legacy Local Diffusion PNGs and retained cells remain
+explicit Eager replay; A1111 prompt/settings extraction remains fresh composer
+input. Stamped masks use narrow copies. Public nonempty guards remain closed.
+
+Independent source review accepted the resolver. Its final targeted runtime/docs
+group passed **262 checks**; another **45 disjoint pure-diagnostic helper checks**
+passed in that process but belong to the next slice. The earlier wider affected
+group passed 487 cases before cold private-state guards exposed an ordering
+regression; those guards now refuse before typed request resolution, preserving
+the existing no-device-work assertions. A prior omission assertion now distinguishes
+raw input from deliberately resolved output. Pinned Pyright checked 128 sources
+with zero diagnostics and Ruff passed. These checks use fake/CPU source paths;
+browser and real execution qualification remain incomplete.
+
+**Remaining source before qualification.** Registration/first-call diagnostics
 also need a bounded path into backend/Models/job status, including failure,
 cancellation and unload/reset. A registration or successful first call must not
 be described as a proven warm kernel or disk-cache hit. These are implementation
@@ -119,9 +141,9 @@ first run's request assertions passed but a test sentinel intercepted legitimate
 lifespan unload; limiting it to the request corrected the fixture without
 changing production behavior. The passing run used fresh task-owned scratch.
 
-Only `GenerateRequest.applied()` writes empty execution back to None. Raw
-validated requests may retain an empty specification; its canonical key is
-None. This avoids another whole-request validation of a stamped outpaint.
+Raw validated requests may retain an empty specification; its canonical key is
+None. Runtime resolution and `GenerateRequest.applied()` normalize that spelling
+to None using narrow copies, avoiding whole-request validation of a stamped outpaint.
 The nullable `images.execution` column migrates on every connection. Shared
 codecs carry canonical named JSON through records, PNG chunks, verified
 bundles and both reindex paths. Known recipes remain inspectable and

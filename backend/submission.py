@@ -53,7 +53,15 @@ async def unusable_input(services: AppServices, request: GenerateRequest) -> tup
     reason = unavailable_reason(request.execution)
     if reason is not None:
         return "execution", reason
-    reason = configured_loader_unavailable_reason(current_settings(services.settings()))
+    selected = current_settings(services.settings())
+    reason = configured_loader_unavailable_reason(selected)
+    if reason is not None:
+        return "execution", reason
+    try:
+        request = request.with_execution(selected.loader_execution)
+    except ValueError as exc:
+        return "execution", str(exc)
+    reason = unavailable_reason(request.execution)
     if reason is not None:
         return "execution", reason
     reason = refine.upscaler_reason(request, services.model_id())

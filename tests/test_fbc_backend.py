@@ -376,7 +376,7 @@ def test_actual_outer_generate_disposes_after_sigma_and_no_grad_exit(cache_loade
     monkeypatch.setattr(module.schedule, "forced_mu", lambda *_: context("sigma"))
     # Exercise the private flow under an explicitly stubbed public gate. The
     # real gate remains tested closed above; production has no bypass flag.
-    monkeypatch.setattr(backend, "_require_execution", lambda *_: None)
+    monkeypatch.setattr(backend, "_require_execution", lambda request: request)
     monkeypatch.setattr(backend, "applied", lambda request: request)
     monkeypatch.setattr(backend, "_apply_lora", lambda *_: None)
     backend._call_params = {"prompt", "width", "height", "num_inference_steps", "guidance_scale",

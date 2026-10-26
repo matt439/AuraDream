@@ -142,12 +142,13 @@ def test_http_selected_recipe_cannot_render_an_omitted_or_explicit_eager_request
 
 
 @pytest.mark.parametrize("payload,explicit", [({}, False), ({"execution": None}, True), ({"execution": {}}, True)])
-def test_composer_base_and_grid_keep_execution_omission_distinct_from_eager(payload, explicit):
+def test_composer_resolution_preserves_original_omission_then_stamps_base_and_grid(payload, explicit):
     request = GenerateSubmission(prompt="a fox", seed=4, **payload)
-    base = request.base()
-    assert ("execution" in base.model_fields_set) is explicit
+    assert ("execution" in request.model_fields_set) is explicit
+    base = request.base(None)
+    assert "execution" in base.model_fields_set
     cells = grid.expand(base, seeds=2)
-    assert all(("execution" in cell.request.model_fields_set) is explicit for cell in cells)
+    assert all("execution" in cell.request.model_fields_set for cell in cells)
     assert all(execution.execution_key(cell.request.execution) is None for cell in cells)
 
 

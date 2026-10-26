@@ -132,7 +132,10 @@ class FakeBackend(GenerationBackend):
         from backend.execution import require_configured_loader_available, require_default_execution
 
         require_default_execution(request.execution)
-        require_configured_loader_available(current_settings(settings))
+        selected = current_settings(settings)
+        require_configured_loader_available(selected)
+        request = request.with_execution(selected.loader_execution)
+        require_default_execution(request.execution)
         self._sync_model_profile()
         # What this fake would drop, the way the real backend drops it: an
         # input it cannot use must not reach the row.
@@ -188,7 +191,10 @@ class FakeBackend(GenerationBackend):
         from backend.execution import require_configured_loader_available, require_default_execution
 
         require_default_execution(request.execution)
-        require_configured_loader_available(current_settings(settings))
+        selected = current_settings(settings)
+        require_configured_loader_available(selected)
+        request = request.with_execution(selected.loader_execution)
+        require_default_execution(request.execution)
         if not self.loaded:
             # The real backend's contract: loading happens in main.ensure_loaded
             # and nowhere else, so a job that reaches here unloaded is a bug.

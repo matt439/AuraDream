@@ -4,13 +4,15 @@ from __future__ import annotations
 import asyncio
 import hashlib
 import json
-from dataclasses import dataclass
+from dataclasses import dataclass, replace
 
 from fastapi import APIRouter, HTTPException
 
 from . import gallery_reports, grid, storage, submission, then_refine
 from .api_more_seeds import more_seeds_plan
 from .app_context import AppServices
+from .execution import require_configured_loader_available, resolve_execution
+from .model_selection import current_settings
 from .schemas import (
     GenerateRequest,
     GenerateSubmission,
@@ -54,6 +56,12 @@ async def expand_grid(
     still queued, render nothing twice; counted apart, since the preview's
     "already done" is the gallery's.
     """
+    selected = current_settings(services.settings())
+    try:
+        require_configured_loader_available(selected)
+        base = request.base(selected.loader_execution)
+    except ValueError as exc:
+        raise HTTPException(status_code=422, detail=error_detail(exc)) from exc
     if request.refine is not None:
         unavailable = (
             await submission.inpaint_unavailable(services, outpainting=request.outpaint is not None)
@@ -66,7 +74,7 @@ async def expand_grid(
         # seeds are derived from the base and are not.
         seed_list = grid.parse_seeds(request.seed_axis)
         cells = grid.expand(
-            request,
+            base,
             prompt=request.prompt_axis,
             steps=request.steps_axis,
             cfg=request.cfg_axis,
@@ -194,6 +202,17 @@ async def finish_plan(services: AppServices, run_id: str) -> FinishPlan:
         raise HTTPException(status_code=404, detail="unknown run")
 
     definition = definitions[0] if definitions else None
+    # Retained cells are complete replay, including old payloads written
+    # before execution existed. Keep the portable decoder selection-free.
+    selected = current_settings(services.settings())
+    try:
+        require_configured_loader_available(selected)
+        for saved in definitions:
+            saved["cells"] = [replace(cell, request=cell.request.model_copy(update={
+                "execution": resolve_execution(selected.loader_execution, cell.request.execution),
+            })) for cell in saved["cells"]]
+    except ValueError as exc:
+        raise HTTPException(status_code=422, detail=error_detail(exc)) from exc
     saved_job_ids = {saved["job_id"] for saved in definitions}
     cells: list[grid.Cell] = []
     keys: set[tuple] = set()
@@ -375,8 +394,10 @@ def create_router(services: AppServices) -> APIRouter:
 
     @router.post("/api/generate", response_model=JobAccepted)
     async def generate(submitted: GenerateSubmission) -> JobAccepted:
-        request = submitted.base()
         try:
+            selected = current_settings(services.settings())
+            require_configured_loader_available(selected)
+            request = submitted.base(selected.loader_execution)
             request.check_budget()
         except ValueError as exc:
             raise HTTPException(status_code=422, detail=str(exc)) from exc

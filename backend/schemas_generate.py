@@ -21,7 +21,10 @@ from pydantic_core import PydanticCustomError
 from . import outpaint as outpaint_rules
 from .model_selection import current_model_id
 from .config import settings
-from .execution import ExecutionSpec, canonical_execution, require_default_execution
+from .execution import (
+    EXECUTION_OMITTED, ExecutionSpec, canonical_execution, require_default_execution,
+    resolve_execution,
+)
 from .model_defaults import defaults_for, inpaint_family, inpaint_start
 from .refine import DEFAULT_STRENGTH, Upscaler, leaves_a_step, upscaler_supported
 from .seeds import MAX_BATCH, MAX_GRID_SEEDS, MAX_RUNS, MAX_SEED
@@ -272,6 +275,11 @@ class GenerateRequest(BaseModel):
     def _execution_is_available(self) -> "GenerateRequest":
         require_default_execution(self.execution)
         return self
+
+    def with_execution(self, selected_loader: object) -> "GenerateRequest":
+        """Resolve a runtime request narrowly, without revalidating its mask."""
+        recorded = self.execution if "execution" in self.model_fields_set else EXECUTION_OMITTED
+        return self.model_copy(update={"execution": resolve_execution(selected_loader, recorded)})
 
     @model_validator(mode="after")
     def _profile_defaults(self) -> "GenerateRequest":
@@ -628,13 +636,39 @@ class GenerateSubmission(GenerateRequest):
     base rows are what a plain Generate of the same settings writes."""
 
     then_refine: ThenRefine | None = None
+    # Composer intent only. `execution`, when present, is complete replay
+    # metadata even when it is null or contains only a step-cache recipe.
+    step_cache: Literal["fbc-005-v1"] | None = None
 
-    def base(self) -> GenerateRequest:
+    @model_validator(mode="after")
+    def _one_execution_channel(self) -> "GenerateSubmission":
+        if "execution" in self.model_fields_set and "step_cache" in self.model_fields_set:
+            raise ValueError("Choose composer step cache or a recorded execution recipe, not both.")
+        return self
+
+    def base(self, selected_loader: object = None) -> GenerateRequest:
         """The request alone, as the cells carry it."""
-        exclude = {"then_refine"}
-        if "execution" not in self.model_fields_set:
-            exclude.add("execution")
-        return GenerateRequest.model_validate(self.model_dump(exclude=exclude))
+        return GenerateRequest.model_validate(self.with_execution(selected_loader).model_dump())
+
+    def with_execution(self, selected_loader: object) -> GenerateRequest:
+        """Consume submission-only intent at direct runtime boundaries too."""
+        recorded = self.execution if "execution" in self.model_fields_set else EXECUTION_OMITTED
+        cache = self.step_cache if "step_cache" in self.model_fields_set else EXECUTION_OMITTED
+        effective = resolve_execution(selected_loader, recorded, step_cache=cache)
+        # Copy field objects, not serialized dictionaries. A stamped outpaint
+        # deliberately carries both its spec and derived mask at this point.
+        fields = {name: getattr(self, name) for name in GenerateRequest.model_fields}
+        fields["execution"] = effective
+        return GenerateRequest.model_construct(
+            _fields_set=(self.model_fields_set - {"then_refine", "step_cache"}) | {"execution"}, **fields,
+        )
+
+    def applied(self, **kwargs: Any) -> GenerateRequest:
+        # Portable normalization cannot infer a loader for composer transport.
+        # Require that its submission-only channel was consumed first.
+        if "step_cache" in self.model_fields_set:
+            raise ValueError("Resolve composer step cache before normalizing its request.")
+        return super().applied(**kwargs)
 
 
 class PromptVariant(BaseModel):
