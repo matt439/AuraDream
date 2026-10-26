@@ -32,6 +32,7 @@ let automaticBackupStatus = null;
 let automaticBackupDraftRevision = null;
 let automaticBackupDraftDestination = null;
 let automaticBackupDraftModeRevision = null;
+let automaticBackupDraftCredentialGeneration = null;
 let automaticBackupDirty = false;
 let automaticBackupEditEpoch = 0;
 let automaticBackupReading = false;
@@ -636,6 +637,10 @@ function automaticBackupElements() {
     age: document.getElementById('automatic-backup-age'),
     keep: document.getElementById('automatic-backup-keep'),
     consent: document.getElementById('automatic-backup-consent'),
+    protection: document.getElementById('automatic-backup-protection'),
+    encryptedConsent: document.getElementById('automatic-backup-encrypted-consent'),
+    recoveryConsent: document.getElementById('automatic-backup-recovery-consent'),
+    credentialStatus: document.getElementById('automatic-backup-credential-status'),
     retentionEnabled: document.getElementById('automatic-backup-retention-enabled'),
     deleteConsent: document.getElementById('automatic-backup-delete-consent'),
     save: document.getElementById('automatic-backup-save'),
@@ -681,6 +686,12 @@ function automaticBackupOutcomeText(status) {
     destination_identity_mismatch: 'Automatic startup backup failed because its saved destination identity did not match. Earlier copies are kept.',
     invalid_policy: 'Automatic startup backup failed because its saved policy is invalid. Earlier copies are kept.',
     invalid_identity_or_protection: 'Automatic startup backup failed because its identity or protection settings are invalid. Earlier copies are kept.',
+    credential_pending: 'Automatic startup backup is inactive because offline credential setup is pending. Inspect the local setup outcome before enabling it.',
+    credential_unavailable: 'Automatic encrypted backup could not obtain its configured credential. No plaintext fallback was used.',
+    credential_missing: 'The configured encrypted-backup credential is missing. Inspect the local profile and repair its offline setup using the intended Windows account. No plaintext fallback was used.',
+    credential_session_unavailable: 'This Windows session cannot read the configured backup credential. Use the intended Windows account and an available sign-in session before the next start. No plaintext fallback was used.',
+    credential_access_denied: 'Windows refused access to the configured backup credential. Review credential-store access for the intended account before the next start. No plaintext fallback was used.',
+    credential_unusable: 'The configured backup credential could not be used. Inspect the local profile and repair the offline credential setup before the next start. No plaintext fallback was used.',
     worker_cancelled_before_start: 'Automatic startup backup stopped before its worker started. No new backup was created.',
     worker_start_failed: 'Automatic startup backup could not start its worker. Earlier copies are kept.',
     backup_failed: 'Automatic startup backup failed. Earlier copies are kept; check the destination and settings before the next server start.',
@@ -726,6 +737,30 @@ function automaticBackupRetentionText(status) {
   return 'Automatic cleanup is not enabled for future backups. The requested count is not enforced.';
 }
 
+function automaticBackupCredentialText(status) {
+  if (status.credential_state === 'pending') {
+    return 'Offline credential setup is pending. Startup backups cannot be enabled until the setup outcome is resolved. Use the offline inspect command for local metadata; this page never checks the credential store.';
+  }
+  if (status.credential_configured && status.credential_state === 'ready') {
+    return `An encrypted credential reference is configured${status.credential_generation ? ` for generation ${status.credential_generation}` : ''}. Its availability has not been checked here. The backup worker reads it only when an encrypted backup is due; saving, reloading and status do not check the credential store.`;
+  }
+  return 'Encrypted startup backups need an offline credential setup for this gallery and destination. This page accepts no password and never reuses the manual bundle password fields.';
+}
+
+function automaticBackupEncryptionIssue() {
+  const status = automaticBackupStatus;
+  if (status?.credential_state === 'pending') return 'Resolve the pending offline credential setup before enabling encrypted backups';
+  if (!status?.credential_configured || status.credential_state !== 'ready'
+      || status.credential_provider !== 'windows-credential-manager-v1' || !status.credential_generation
+      || status.protection !== 'encrypted' || status.reason === 'destination_changed') {
+    return 'Complete a new offline encrypted credential setup for this gallery and destination, then reload the settings';
+  }
+  if (automaticBackupDraftCredentialGeneration !== status.credential_generation) {
+    return 'Reload saved settings and confirm the changed credential generation before enabling encrypted backups';
+  }
+  return '';
+}
+
 function automaticBackupRetentionIssue() {
   if (!automaticBackupStatus || automaticBackupUnavailable) return 'Read the automatic backup settings before enabling cleanup';
   if (automaticBackupStatus.retention_pending) return 'Repair the unresolved deletion attempt before enabling cleanup';
@@ -748,6 +783,7 @@ function receiveAutomaticBackup(status, replaceDraft = false) {
   fields.retentionWarning.textContent = status.retention_warning || '';
   fields.retentionWarning.hidden = !status.retention_warning;
   fields.retentionStatus.textContent = automaticBackupRetentionText(status);
+  fields.credentialStatus.textContent = automaticBackupCredentialText(status);
   fields.mode.textContent = status.shared_mode_id && status.mode_revision
     ? `Installed shared archive mode: ${status.shared_mode_id}. Cleanup permission applies to this mode and destination.`
     : 'Cleanup needs Windows shared archive mode installed offline while every server using this destination is stopped. Use the documented offline shared-mode installer, then Reload saved settings. This page never installs it.';
@@ -758,11 +794,15 @@ function receiveAutomaticBackup(status, replaceDraft = false) {
     fields.age.value = status.minimum_age_hours ?? '';
     fields.keep.value = status.keep_last ?? '';
     fields.consent.checked = false;
+    fields.protection.value = status.protection || '';
+    fields.encryptedConsent.checked = false;
+    fields.recoveryConsent.checked = false;
     fields.retentionEnabled.checked = !!status.retention_enabled;
     fields.deleteConsent.checked = false;
     automaticBackupDraftRevision = status.revision;
     automaticBackupDraftDestination = status.destination;
     automaticBackupDraftModeRevision = status.mode_revision || null;
+    automaticBackupDraftCredentialGeneration = status.credential_generation || null;
     automaticBackupDirty = false;
   }
   syncAutomaticBackupControls();
@@ -814,7 +854,20 @@ function automaticBackupIssue() {
   if (automaticBackupDraftDestination !== automaticBackupStatus.destination) {
     return { reason: 'Reload saved settings and confirm the changed backup destination before enabling automatic backups' };
   }
-  if (!fields.consent.checked) return { reason: 'Explicitly allow unencrypted images and prompts at the displayed destination', field: fields.consent };
+  if (!['unencrypted', 'encrypted'].includes(fields.protection.value)) {
+    return { reason: 'Choose archive protection before enabling automatic backups', field: fields.protection };
+  }
+  if (automaticBackupStatus.credential_state === 'pending') {
+    return { reason: 'Resolve the pending offline credential setup before enabling automatic backups', field: fields.protection };
+  }
+  if (fields.protection.value === 'encrypted') {
+    const encryptionIssue = automaticBackupEncryptionIssue();
+    if (encryptionIssue) return { reason: encryptionIssue, field: fields.protection };
+    if (!fields.encryptedConsent.checked) return { reason: 'Explicitly allow unattended encrypted archives with the configured credential reference', field: fields.encryptedConsent };
+    if (!fields.recoveryConsent.checked) return { reason: 'Confirm independent password recovery outside this Windows account and PC', field: fields.recoveryConsent };
+  } else if (!fields.consent.checked) {
+    return { reason: 'Explicitly allow unencrypted images and prompts at the displayed destination', field: fields.consent };
+  }
   if (fields.retentionEnabled.checked) {
     const retentionIssue = automaticBackupRetentionIssue();
     if (retentionIssue) return { reason: retentionIssue, field: fields.retentionEnabled };
@@ -853,15 +906,21 @@ async function saveAutomaticBackup() {
   const body = { revision: automaticBackupDraftRevision, enabled: fields.enabled.checked };
   if (body.enabled) Object.assign(body, {
     minimum_age_hours: fields.age.valueAsNumber, keep_last: fields.keep.valueAsNumber,
-    allow_unencrypted: fields.consent.checked, destination: automaticBackupDraftDestination,
+    protection: fields.protection.value, destination: automaticBackupDraftDestination,
     retention_enabled: fields.retentionEnabled.checked,
     allow_managed_deletion: fields.retentionEnabled.checked && fields.deleteConsent.checked,
     expected_mode_revision: fields.retentionEnabled.checked ? automaticBackupDraftModeRevision : null,
   });
+  if (body.enabled && body.protection === 'encrypted') Object.assign(body, {
+    allow_encrypted: fields.encryptedConsent.checked, confirm_recovery: fields.recoveryConsent.checked,
+  });
+  else if (body.enabled) body.allow_unencrypted = fields.consent.checked;
   const draftEpoch = automaticBackupEditEpoch;
   ++automaticBackupEpoch;
   automaticBackupSaving = true;
   fields.deleteConsent.checked = false;
+  fields.encryptedConsent.checked = false;
+  fields.recoveryConsent.checked = false;
   syncAutomaticBackupControls();
   automaticBackupSay('Saving settings for the next server start. No backup is created and no file is deleted now.');
   try {
@@ -884,14 +943,21 @@ async function saveAutomaticBackup() {
   } finally {
     automaticBackupSaving = false;
     fields.deleteConsent.checked = false;
+    fields.encryptedConsent.checked = false;
+    fields.recoveryConsent.checked = false;
     syncAutomaticBackupControls();
   }
 }
 
 function initAutomaticBackup() {
   const fields = automaticBackupElements();
-  for (const input of [fields.enabled, fields.age, fields.keep, fields.consent, fields.retentionEnabled, fields.deleteConsent]) input.addEventListener('input', () => {
+  for (const input of [fields.enabled, fields.age, fields.keep, fields.consent, fields.protection, fields.encryptedConsent, fields.recoveryConsent, fields.retentionEnabled, fields.deleteConsent]) input.addEventListener('input', () => {
+    if (input === fields.protection) fields.consent.checked = false;
     if (input !== fields.deleteConsent) fields.deleteConsent.checked = false;
+    if (![fields.encryptedConsent, fields.recoveryConsent, fields.deleteConsent].includes(input)) {
+      fields.encryptedConsent.checked = false;
+      fields.recoveryConsent.checked = false;
+    }
     ++automaticBackupEditEpoch;
     automaticBackupDirty = true;
     syncAutomaticBackupControls();

@@ -408,7 +408,8 @@ def test_unknown_close_retains_original_claim_and_outcome_without_retry(candidat
     monkeypatch.setattr(deletion.os, "close", refuse)
     with pytest.raises(PermissionError, match="injected") as caught:
         bound.close()
-    assert bound._claim._retained is caught.value
+    assert bound._claim._retained is not caught.value
+    assert bound._claim._retained.__traceback__ is None
     assert bound.outcome == deletion.DeletionOutcome("accepted" if accepted else "not_requested", failed_kind != "archive")
     if accepted:
         assert any("Do not assume" in note for note in caught.value.__notes__)

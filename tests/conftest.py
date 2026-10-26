@@ -8,6 +8,8 @@ import os
 import sys
 
 import pytest
+
+
 from fastapi.testclient import TestClient
 
 # The suite runs on config.py's defaults, whatever the shell exports. `settings`
@@ -44,6 +46,17 @@ if sys.platform == "win32":
 
 
 _SHIPPED_SCRYPT = (bundle_crypto._LOG2_N, bundle_crypto._R, bundle_crypto._P)
+
+
+@pytest.fixture(autouse=True)
+def no_real_credential_vault(monkeypatch):
+    """All credential qualification is stub-only; never call the user's vault."""
+    from backend import backup_credentials
+
+    def forbidden():
+        pytest.fail("A test attempted a real Windows credential API; inject an explicit stub instead")
+
+    monkeypatch.setattr(backup_credentials, "_credential_api", forbidden)
 
 
 @pytest.fixture(autouse=True)

@@ -247,7 +247,7 @@ def test_disabling_preserves_pending_visibility_without_destination_access(cohor
     previous = settings.BackupSettings(True, 1, 2, "unencrypted", True, permission.gallery_id,
                                        permission.destination_id, str(directory))
     settings.backup_preferences.path_for(db).write_text(json.dumps(
-        {"version": 2, **{key: value for key, value in previous.__dict__.items() if key != "retention"}}))
+        {"version": 2, **{key: value for key, value in previous.__dict__.items() if key in settings._FIELDS - {"version"}}}))
     chosen = enable(db, directory, permission.mode)
     intent = receipts.PendingDeletion(copies[0], str(uuid4()), copies[-1].identity.operation_id, permission.mode)
     receipts.begin_deletion(db, intent)

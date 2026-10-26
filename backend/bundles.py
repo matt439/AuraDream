@@ -631,6 +631,8 @@ def export_bundle(expected: int | None = None, password: str | None = None, prog
             proof: backup_receipts.DigestWriter | None = None
             written: backup_receipts.FileStamp | None = None
             owned: tuple[int, int] | None = None
+            cipher: bundle_crypto.EncryptingWriter | None = None
+            write_failure: BaseException | None = None
             try:
                 with partial.open("xb") as stream:
                     if managed is not None:
@@ -691,12 +693,21 @@ def export_bundle(expected: int | None = None, password: str | None = None, prog
                     # existing archive. Both paths remain in the same directory.
                     _claim(partial, final)
                     _remove_owned_partial(partial, owned)
-            except BaseException:
+            except BaseException as error:
+                write_failure = error
                 if managed is None:
                     partial.unlink(missing_ok=True)
                 else:
                     _remove_owned_partial(partial, owned)
                 raise
+            finally:
+                if cipher is not None:
+                    try:
+                        cipher.close()
+                    except BaseException:
+                        if write_failure is None:
+                            raise
+                        write_failure.add_note("Closing the encrypted writer also failed; its terminal crypto references were released.")
 
             result = {
                 "name": name, "path": str(final), "images": before["images"],

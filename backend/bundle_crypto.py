@@ -30,6 +30,7 @@ from contextlib import ExitStack
 from pathlib import Path
 
 from . import bundle_leases
+from .failure_state import retained_failure
 
 from cryptography.exceptions import InvalidTag
 from cryptography.hazmat.primitives.ciphers.aead import AESGCM
@@ -147,6 +148,8 @@ class EncryptingWriter(io.RawIOBase):
         raise io.UnsupportedOperation("an encrypted bundle is written forward only")
 
     def _emit(self, data, final: bool) -> None:
+        if self._aead is None:
+            raise ValueError("the encrypted writer is closed")
         self._stream.write(self._aead.encrypt(
             _nonce(self._prefix, self._index), data, _aad(self._digest, self._index, final)))
         self._index += 1
@@ -187,6 +190,10 @@ class EncryptingWriter(io.RawIOBase):
     def close(self) -> None:
         # Closing never finishes implicitly: an exception mid-archive must not
         # produce a validly terminated ciphertext.
+        self._key = b""
+        self._aead = None
+        self._buffer = bytearray()
+        self._finished = True
         super().close()
 
 
@@ -235,6 +242,8 @@ class _DecryptingReader(io.RawIOBase):
             self._size = (self._count - 1) * chunk + len(final)
             self._position = 0
         except BaseException as error:
+            self._aead = None
+            self._cache = None
             try:
                 self._file.close()
             except BaseException as cleanup:
@@ -246,7 +255,9 @@ class _DecryptingReader(io.RawIOBase):
     def _retain_failure(self, error: BaseException) -> None:
         # A failed close must not make a live handle look unleased or invite
         # an implicit destructor retry. Retain ownership until process exit.
-        self._close_failure = error
+        self._close_failure = retained_failure()
+        self._aead = None
+        self._cache = None
         _failed_readers.append(self)
         if self._reader_owner is not None:
             self._reader_owner.retain(error)
@@ -261,6 +272,8 @@ class _DecryptingReader(io.RawIOBase):
                            + " ".join(getattr(cleanup, "__notes__", ())))
 
     def _block(self, index: int) -> bytes:
+        if self._close_failure is not None or self._aead is None:
+            raise RuntimeError("The encrypted reader is closed or quarantined.")
         if self._cache and self._cache[0] == index:
             return self._cache[1]
         stride = self._chunk + _TAG
@@ -330,8 +343,12 @@ class _DecryptingReader(io.RawIOBase):
                 except BaseException as error:
                     if not source.closed:
                         self._retain_failure(error)
+                    else:
+                        self._aead = None
+                        self._cache = None
                     raise
             self._cache = None
+            self._aead = None
         super().close()
 
 

@@ -14,11 +14,12 @@ from collections.abc import Callable
 from dataclasses import asdict, dataclass, field
 from datetime import datetime
 from pathlib import Path
+from contextlib import nullcontext
 from typing import Literal
 
 from fastapi import HTTPException
 
-from . import backup_receipts, bundles, gallery_lock, storage
+from . import backup_credentials, backup_receipts, bundles, gallery_lock, storage
 from .api_bundles import BundleManager
 from .backup_policy import BackupPolicy, CopyFacts, backup_due
 from .backup_retention import RetentionOutcome, prune_after_success
@@ -66,6 +67,7 @@ class BackupCoordinator:
         self, policy: BackupPolicy, identity: backup_receipts.ManagedIdentity, *,
         clock: Callable[[], datetime], password: str | None, ownership_trusted: bool,
         retention: RetentionPermission | None = None,
+        credential: backup_credentials.CredentialReference | None = None,
     ) -> BackupOutcome:
         """Reserve synchronously, then check/export in one owned worker.
 
@@ -84,10 +86,15 @@ class BackupCoordinator:
             if type(ownership_trusted) is not bool:
                 raise ValueError("ownership must be an explicit boolean")
             if policy.protection == "encrypted":
-                if not isinstance(password, str) or not password or len(password) > 1024:
+                if credential is not None:
+                    credential = backup_credentials.read_reference(backup_credentials.reference_wire(credential))
+                    if password is not None or (credential.gallery_id, credential.destination_id) != (identity.gallery_id, identity.destination_id):
+                        raise ValueError("credential scope mismatch")
+                elif not isinstance(password, str) or not password or len(password) > 1024:
                     raise ValueError("protection mismatch")
-                password.encode("utf-8")
-            elif password is not None:
+                if password is not None:
+                    password.encode("utf-8")
+            elif password is not None or credential is not None:
                 raise ValueError("protection mismatch")
         except (AttributeError, ValueError, TypeError):
             return self._immediate(BackupOutcome("failed", "invalid_identity_or_protection"))
@@ -106,7 +113,7 @@ class BackupCoordinator:
             self._outcome = BackupOutcome("failed", reason, identity.operation_id)
 
         try:
-            self.manager.start(lambda: self._work(policy, identity, clock, password, retention), on_not_started=not_started)
+            self.manager.start(lambda: self._work(policy, identity, clock, password, retention, credential), on_not_started=not_started)
         except Exception:
             self.manager.fail("The automatic backup worker could not start.")
             self._outcome = BackupOutcome("failed", "worker_start_failed", identity.operation_id)
@@ -120,6 +127,7 @@ class BackupCoordinator:
         self, policy: BackupPolicy, identity: backup_receipts.ManagedIdentity,
         clock: Callable[[], datetime], password: str | None,
         retention: RetentionPermission | None = None,
+        credential: backup_credentials.CredentialReference | None = None,
     ) -> dict:
         try:
             # Bind the explicit source before creating a reservation anywhere.
@@ -158,8 +166,18 @@ class BackupCoordinator:
                 )
                 if not due.due:
                     return self._complete(BackupOutcome("skipped", due.reason, identity.operation_id))
-                result = bundles.export_bundle(keep_gallery=True, managed=identity, password=password,
-                                               progress=self.manager.report)
+                secret_scope = backup_credentials.read_secret(credential) if credential is not None else nullcontext(password)
+                try:
+                    with secret_scope as resolved:
+                        if policy.protection == "encrypted" and (not isinstance(resolved, str) or not resolved or len(resolved) > 1024):
+                            raise backup_credentials.CredentialError("credential_unusable")
+                        if credential is not None:
+                            resolved = backup_credentials.checked_secret(resolved)
+                        result = bundles.export_bundle(keep_gallery=True, managed=identity, password=resolved,
+                                                       progress=self.manager.report)
+                finally:
+                    resolved = None
+                    secret_scope = None
                 name = result.get("name")
                 if not isinstance(name, str):
                     raise ValueError("invalid export result")
@@ -186,6 +204,8 @@ class BackupCoordinator:
             return self._complete(BackupOutcome("deferred", "gallery_busy", identity.operation_id))
         except backup_receipts.ReceiptError:
             return self._complete(BackupOutcome("failed", "journal_unusable", identity.operation_id))
+        except backup_credentials.CredentialError as error:
+            return self._complete(BackupOutcome("failed", error.reason, identity.operation_id))
         except Exception:
             # Provider, filesystem and injected errors may contain a secret;
             # status stores a fixed reason, never their message or traceback.

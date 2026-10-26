@@ -89,7 +89,9 @@ Backend (`backend/`):
   `bundle_crypto.py` its optional password layer;
   `backup_policy.py` pure default-off backup age and retention planning;
   `backup_preferences.py` atomic database-scoped backup policy sidecars;
-  `backup_settings.py` explicit v2 activation and durable backup scope;
+  `backup_settings.py` explicit versioned activation and durable backup scope;
+  `backup_credentials.py` cold Windows credential references, explicit setup and
+  admitted-worker secret lookup; `failure_state.py` traceback-free quarantine snapshots;
   `backup_receipts.py` internal managed-export identity, byte proof and atomic journal;
   `backup_coordinator.py` one-attempt due/export worker using bundle admission;
   `backup_retention.py` separately consented post-success cleanup and pending-intent stops;
@@ -410,6 +412,7 @@ node tools/browser.mjs tools/<smoke>.json
 | 7926 | FLUX.1-Krea-dev, fresh scratch `--data` | `smoke-execution-reuse` |
 | 7927 | FLUX.1-Krea-dev, fresh scratch `--data` | `smoke-automatic-backup` |
 | 7928 | FLUX.1-Krea-dev, fresh scratch `--data` | `smoke-retention` |
+| 7929 | FLUX.1-Krea-dev, fresh scratch `--data` | `smoke-credential` |
 
 FLUX.1-Krea-dev is `black-forest-labs/FLUX.1-Krea-dev`; animagine is
 `cagliostrolab/animagine-xl-4.0`.

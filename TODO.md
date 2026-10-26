@@ -8,11 +8,11 @@ The maintainer's working backlog for this personal project: it records what is p
 
 **Aim (2026-10-18):** keep useful work ready for Matt's common workstation tasks. [Reported use](docs/design/preferences.md) guides priority; it does not approve the candidate redesign.
 
-**Ready backlog (updated 2026-10-26):** five `OPEN` rows, with implementation stages in their owners. Marian's token boundary, portable screenshots, the classic-script guard and the complete pinned type gate are built and checked. The four feature plans are written. `DEV#4`'s diagnostic stage is built; its Linux browser qualification awaits WSL service access. [Tooling results](docs/plan-tooling.md).
+**Ready backlog (updated 2026-10-26):** four `OPEN` rows, with implementation stages in their owners. Marian's token boundary, portable screenshots, the classic-script guard and the complete pinned type gate are built and checked. The four feature plans are written. `DEV#4`'s diagnostic stage is built; its Linux browser qualification awaits WSL service access. [Tooling results](docs/plan-tooling.md).
 
-**Feature stages next:** `PERF#1` ([compilation](docs/plan-regional-compilation.md)), then `GAL#6` ([backups](docs/plan-automatic-backups.md)), `PERF#3` ([attention](docs/plan-attention-backends.md)) and `PERF#4` ([caching](docs/plan-step-caching.md)). Execution admission/carry, backend ownership, private regional/attention/cache loader/call ownership is built; public performance selection/admission and qualification remain. Default-off plaintext startup backups, explicit Windows shared mode and separately consented v3 retention are built; OS-backed protection/setup/recovery remains. Existing v2 N is inert, and no real gallery was activated. Source implementation can continue independently of activation/card decisions. `PERF#2` still waits on `PERF#1`; these CPU stages need no layout trial or RAM-loader card check.
+**Feature stages next:** `PERF#1` ([compilation](docs/plan-regional-compilation.md)), then `PERF#3` ([attention](docs/plan-attention-backends.md)) and `PERF#4` ([caching](docs/plan-step-caching.md)). Execution admission/carry, backend ownership, private regional/attention/cache loader/call ownership is built; public performance selection/admission and qualification remain. Default-off plaintext startup backups, explicit Windows shared mode and separately consented v3 retention are built; Windows credential source/stub setup/recovery is built; actual store/user recovery qualification remains. Existing v2 N is inert, and no real gallery was activated. Source implementation can continue independently of activation/card decisions. `PERF#2` still waits on `PERF#1`; these CPU stages need no layout trial or RAM-loader card check.
 
-**Needs Matt:** workbench task trials (`DEV#1`) and hands-on accessibility/desktop checks (`UI#7`). Four decisions remain: SDXL weighting (`GEN#20`), whether to plan instruction editing (`INP#11`) or a detailer (`INP#12`), and whether to withhold critic rewrites that lose user content (`PA#11`). Whole-app layout implementation waits for its trials; it remains a design hypothesis.
+**Needs Matt:** workbench task trials (`DEV#1`), hands-on accessibility/desktop checks (`UI#7`) and intended-user Windows credential/recovery qualification (`GAL#6`, source/stubs built; no real vault accessed). Four decisions remain: SDXL weighting (`GEN#20`), whether to plan instruction editing (`INP#11`) or a detailer (`INP#12`), and whether to withhold critic rewrites that lose user content (`PA#11`). Whole-app layout implementation waits for its trials; it remains a design hypothesis.
 
 **Card prerequisite:** the quantizing load's RAM fix is implemented but its real Windows peak is unverified (`GEN#22`). Start with a separately approved cold fp8 FLUX.1 Krea dev load; each other checkpoint still needs its own measured load and render. Earlier guard stops remain historical evidence, not measurements of the fixed loader.
 
@@ -88,7 +88,7 @@ Matt's approved [shortcut and compact-setup stages](docs/plan-shortcut-workflow.
 
 | id | status | sev | size | item |
 |---|---|---|---|---|
-| `GAL#6` | OPEN | LOW | L | Design/implement a named OS-backed protection/setup/recovery option. Default-off startup backups and separately consented Windows managed retention are built, with shared reader leases and durable pending/retired proofs. Existing v2 N is inert; no real gallery was activated. [Plan](docs/plan-automatic-backups.md). |
+| `GAL#6` | USER | LOW | S | Qualify intended-user Windows credential setup/session and independent-password recovery. OS APIs were stub-tested; no real vault access or gallery activation was performed. [Plan](docs/plan-automatic-backups.md). |
 
 ## Prompt analyser
 

@@ -129,6 +129,10 @@ class BackupService:
             retention_state=retention_state, retention_reason=retention_reason, retention_warning=retention_warning,
             retention_marked=marked, retention_retained=retained, retention_pending=pending_cleanup,
             retention_uncertain=uncertain,
+            credential_configured=saved.credential_state == "ready" and saved.credential_reference is not None,
+            credential_state=saved.credential_state,
+            credential_provider="windows-credential-manager-v1" if saved.credential_reference is not None else None,
+            credential_generation=saved.credential_reference.destination_id if saved.credential_reference is not None else None,
         )
 
     def start_once(self) -> None:
@@ -146,6 +150,7 @@ class BackupService:
             saved.policy(), backup_receipts.ManagedIdentity(saved.gallery_id, saved.destination_id, str(uuid4())),
             clock=lambda: datetime.now(timezone.utc), password=None, ownership_trusted=True,
             retention=saved.retention,
+            credential=saved.credential_reference,
         )
 
     async def finish(self) -> None:
@@ -199,6 +204,7 @@ class BackupService:
                     allow_unencrypted=request.allow_unencrypted,
                     retention_enabled=request.retention_enabled, allow_managed_deletion=request.allow_managed_deletion,
                     expected_mode_revision=request.expected_mode_revision,
+                    protection=request.protection, allow_encrypted=request.allow_encrypted, confirm_recovery=request.confirm_recovery,
                 )
             except Exception:
                 # Reconcile an uncertain publication before another request may

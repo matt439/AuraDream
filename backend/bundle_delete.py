@@ -20,6 +20,7 @@ import threading
 from typing import Literal
 
 from . import backup_receipts as receipts, bundle_file_lock, bundle_leases, bundle_mode
+from .failure_state import retained_failure
 
 _CHUNK = 1024 * 1024
 
@@ -116,7 +117,7 @@ class BoundArchive(AbstractContextManager["BoundArchive"]):
 
     def _quarantine(self, error: BaseException) -> None:
         if self._failed is None:
-            self._failed = error
+            self._failed = retained_failure()
             _quarantined.append(self)
             self._claim.retain(error)
         if self._mark in {"accepted", "unknown"}:

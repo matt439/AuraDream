@@ -4984,6 +4984,19 @@ re-reads the adapter list (`lorasLive`) and the previews once, and
 `GalleryAdmission` refused those. The bundle's settle re-reads both, as it
 already re-read the gallery.
 
+**Windows credential source (2026-10-26, `GAL#6`).** V4 now stores only an opaque
+scoped credential reference and inactive pending/ready state. Explicit hidden-input
+setup writes pending metadata before a new generic WinCred target; uncertain
+outcomes remain inactive and never retry automatically. Fresh encrypted/recovery
+consent separately enables a future startup. Lookup occurs only in the admitted
+due/nonempty worker, with no empty-secret/plaintext fallback. User passwords do
+not enter settings/receipts/status or process-lifetime quarantine tracebacks;
+terminal crypto refs are cleared without promising Python zeroing. Source/stub
+and owned encrypted-restore/browser checks pass, but no real vault entry/API/setup
+was used. Intended-user store/session and independent recovery qualification
+remain. The [backup plan](plan-automatic-backups.md#v4-windows-credential-source-and-recovery)
+owns the exact contract, operator commands and limitations.
+
 ## The CLI reads PNGs and probes the server
 
 **The CLI reads PNGs and probes the server.** `--from-image` reads

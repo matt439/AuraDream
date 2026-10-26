@@ -3,8 +3,9 @@
 **Status, 2026-10-26: explicit default-off plaintext startup backups,
 configuration/status UI and owned preload/shutdown sequencing are implemented.
 Managed receipts, capacity budgets, Windows shared mode, archive reader leases
-and separately consented v3 retention are built. `GAL#6` remains open for an
-OS-backed protection/setup/recovery option.** This expands
+and separately consented v3 retention are built. V4 adds Windows credential
+source/setup/recovery with stub qualification; actual OS-store/user recovery
+qualification remains `GAL#6`.** This expands
 [R8](review-2026-10-25.md#r8-automatic-whole-gallery-backup). Tests export and
 restore scratch galleries only; no real gallery or credential store was touched.
 Automatic backups and deletion default off. No real gallery was activated. The implemented
@@ -330,6 +331,97 @@ entry was added and all **six focused documentation-map checks** passed. No
 production change was needed. Whole-source pinned types checked **124 files
 with zero errors/warnings**, and repository Ruff passed. These results are
 reported separately rather than claiming that the original full run was green.
+
+## V4 Windows credential source and recovery
+
+`backup_credentials.py` implements lazy Windows Credential Manager generic
+credentials through stdlib `ctypes`, with no new dependency, enumeration, deletion,
+prompting or fallback provider. `CRED_PERSIST_LOCAL_MACHINE` means the same Windows
+user and PC across logons, not every user or a portable recovery key. Exact app/
+gallery/destination UUID references, expected metadata and a scoped blob marker
+prevent accidental adoption. NFC/UTF-8 and the native 2,560-byte blob ceiling are
+validated, including scope overhead. Returned buffers are freed once and errors
+have fixed secret-free reason classes.
+
+The dedicated setup CLI accepts passwords only through two hidden prompts and
+refuses echoed-input fallback. Explicit storage and independent-recovery
+acknowledgements are required. A new random generation/target and inactive pending
+v4 profile are durable before any write. Existing pending/unreadable evidence
+blocks another attempt or ordinary enable/protection change. Known completion is
+still inactive; the UI separately requires fresh encrypted/recovery consent,
+explicit age/N and the matching scope before a future start. Disable preserves
+pending/reference metadata without vault access. No values/password/recovery
+location were selected for Matt.
+
+Every setup/rotation uses a new managed destination generation even at the same
+directory and clears retention permission. Old credentials/sets are kept. WinCred
+writes replace existing targets and have no atomic create-only flag: exact-target
+preflight plus the gallery reservation protect cooperating app writers, while
+noncooperating writers can still race. An uncertain write/profile outcome remains
+pending, is never automatically retried, overwritten or deleted, and needs explicit
+inspection/repair. `inspect` reads local profile metadata only, never the vault.
+
+`SecretSource` stays opaque during validation/status/configuration/reload. Lookup
+occurs only inside the admitted worker after due/nonempty checks, immediately
+before the existing encrypted export. Missing/session/access/invalid/empty secrets
+refuse before export or pruning; none can select plaintext through truthiness.
+The worker releases its local reference afterward without caching. Settings,
+receipts, status, arguments, URLs and logs contain no password. Memory cleanup is
+best effort, with no deterministic Python-string zeroing claim.
+
+Long-lived file/lease/mutation quarantine now retains fixed failure snapshots
+without caller exceptions, traceback/cause/context/notes or secret text. Terminal
+crypto readers drop key/AEAD/plaintext cache references while keeping uncertain
+files/claims and prohibiting retry. The export cipher is explicitly closed after
+its one derived-key verifying read on success and failure. Original caller errors
+still receive cleanup diagnostics. Archive encryption does not protect the live
+plaintext SQLite/images, established snapshot/decrypted staging volumes, or a
+compromised logged-in account.
+
+These examples describe future operator actions, not commands run during this
+session. Setup never enables backups or retention:
+
+```powershell
+uv run python tools/backup_credential.py inspect --database "C:\path\gallery.sqlite3"
+uv run python tools/backup_credential.py setup --database "C:\path\gallery.sqlite3" --destination "D:\path\bundles" --allow-os-storage --confirm-independent-recovery
+uv run python tools/backup_credential.py verify-recovery --archive "D:\path\saved.ldbundle"
+```
+
+`--new-generation` is an additional explicit setup choice when rotating a ready
+profile. Recovery verification uses the user's independently retained password
+and the ordinary full archive verifier under a reader claim; it performs no vault
+lookup/import. Losing this Windows profile/PC without that password can lose
+access to encrypted copies. Setup's recovery acknowledgement is a user attestation,
+not a machine-verified independent copy.
+
+The source contract follows Microsoft's [CredReadW](https://learn.microsoft.com/en-us/windows/win32/api/wincred/nf-wincred-credreadw),
+[CredWriteW](https://learn.microsoft.com/en-us/windows/win32/api/wincred/nf-wincred-credwritew),
+[CREDENTIALW](https://learn.microsoft.com/en-us/windows/win32/api/wincred/ns-wincred-credentialw)
+and [CredFree](https://learn.microsoft.com/en-us/windows/win32/api/wincred/nf-wincred-credfree)
+documentation. **No real CredRead/Write/Free/Enumerate/Delete, setup, credential
+entry or real-gallery activation occurred.** Every pytest blocks the real factory;
+explicit API stubs/fake providers supply all test lookups. Actual Windows ABI/store/
+session behavior and production user recovery remain unqualified.
+
+The focused backend batch passed **253 tests**, followed by **60 targeted checks**
+for final local cleanup; 11-source types and the last affected-source types report
+zero errors/warnings, with Ruff clean. A fake provider performs actual owned
+encrypted export and independent-password restore with one existing verifying pass.
+The new intercepted UI smoke passed **34/34**, compatibility **35/35**; eight final
+1400/600 screenshots were inspected. A real 17-pixel dialog-scroll clamp was fixed
+by reserving the metadata slot, with the original Save tolerance retained across
+all three narrow states; the new select uses the existing 41-pixel field tokens.
+UI fixtures enter no passwords, perform no vault operation and claim no native
+credential acceptance. All author/child jobs ended and independent review is clear.
+
+The complete offline suite passed **5,272 tests, eight skips and 75 existing
+warnings** in **228.09 seconds** with two workers; whole-source pinned types checked
+**127 files with zero errors/warnings**, and Ruff passed. Two final CLI defenses
+then passed **71 focused checks**, two-source types and three-file Ruff: unsupported
+platforms refuse before input/profile mutation, and password locals clear on every
+reviewed failure/cancellation path. These results are separate from the earlier
+full run. All jobs ended and the final delta passed independent review; no real
+vault was consulted.
 
 ## Activation, age and saved state
 

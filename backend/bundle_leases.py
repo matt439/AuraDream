@@ -18,6 +18,7 @@ from starlette.responses import FileResponse, JSONResponse
 from starlette.types import Receive, Scope, Send
 
 from . import bundle_file_lock, bundle_mode
+from .failure_state import retained_failure
 
 
 class LeaseBusy(RuntimeError):
@@ -158,7 +159,7 @@ class LeaseRegistry:
                         state.native.release()
                     except BaseException as exc:
                         if not state.native.closed:
-                            state.failure = exc
+                            state.failure = retained_failure()
                             raise
                         failure = exc
                 del _states[lease._key]
@@ -263,7 +264,7 @@ class ModeExclusive(AbstractContextManager["ModeExclusive"]):
         if self._lease is None or self._lease._released:
             raise RuntimeError("The exclusive mode capability is no longer active.")
         if self._retained is None:
-            self._retained = error
+            self._retained = retained_failure()
             _retained_exclusives.append(self)
 
     def __exit__(self, kind: object, error: BaseException | None, traceback: object) -> None:
@@ -310,7 +311,7 @@ class ArchiveRead(AbstractContextManager["ArchiveRead"]):
         if self._lease is None or self._lease._released:
             raise RuntimeError("The archive read owner is no longer active.")
         if self._retained is None:
-            self._retained = error
+            self._retained = retained_failure()
             _retained_reads.append(self)
 
     def __exit__(self, kind: object, error: BaseException | None, traceback: object) -> None:

@@ -27,6 +27,12 @@ before changing it.
   age and managed-retention predicates; no startup scheduling or archive I/O
 - `backend/backup_retention.py` - explicitly consented post-success managed cleanup;
   durable pending-intent stops, protected copies and separate cleanup outcomes
+- `backend/backup_credentials.py` - Windows generic credential adapter, exact
+  opaque scope references and fixed provider errors; vault APIs are lazy
+- `backend/failure_state.py` - traceback/cause/context-free ownership failure
+  snapshots; process-lifetime quarantine never stores caller exceptions
+- `tools/backup_credential.py` - explicit inactive/pending credential setup,
+  local profile inspection and independent-password archive recovery verification
 - `backend/backup_preferences.py` - strict bounded, atomic database-scoped
   backup policy sidecars; no lifecycle activation or credential fields
 - `backend/backup_settings.py` - explicit v2 plaintext activation and durable
@@ -5322,6 +5328,22 @@ Frontend and CLI:
   meanwhile from fetching).
 
 ## Tests
+
+`tests/test_backup_credentials.py` and `tests/test_backup_credential_integration.py`
+check WinCred ABI declarations through API stubs, exact opaque references, bounds,
+redaction/free/cleanup, inactive pending provisioning, no uncertain retry, hidden
+input, independent-password recovery and worker-only lookup after due/nonempty
+admission. A fake provider exports/restores an actual owned encrypted gallery
+without another verifying pass. `tests/conftest.py` blocks the real credential
+factory for every test; only explicit fake overrides may pass. No Windows vault
+entry is read/written/listed/deleted and no OS credential qualification follows.
+
+`smoke-credential.json` uses a fresh FLUX.1 Krea [dev] fake on 7929. Backup API
+responses/saves are intercepted fixtures: explicit protection selection, absent/
+pending/ready credential profiles, fresh encrypted/recovery acknowledgement,
+generation/dirty-draft guards, plaintext transition, disabling and layout. It
+enters no password and reads/writes no real Windows vault entry. OS-API evidence
+comes from stub tests, not this browser fixture.
 
 `tests/test_execution.py` checks frozen/strict named recipes, internal-copy
 validation, canonical empty/key spelling, cold distribution facts and the

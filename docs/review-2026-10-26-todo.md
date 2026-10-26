@@ -160,8 +160,10 @@ exclusion, pinned scope and same-handle hash/disposition with scratch qualificat
 V3 then added separately consented retention, current-N protection and durable
 pending/retired proofs with bounded retry history. Cleanup warnings preserve
 verified backup success/time, and pending/unknown state remains visible while
-disabled. OS-backed protection/setup/recovery remains. No real gallery or
-destination was activated; older v2 counts remain inert.
+disabled. V4 then added Windows credential source/setup/recovery, pending-first
+provisioning and worker-only lookup with API stubs, without real vault access.
+Actual intended-user store/session and independent recovery qualification remain.
+No real gallery/destination was activated; older v2 counts remain inert.
 
 The next bounded PERF#1 slice also landed in source: actual eager-load publication
 and shared teardown own unpublished pipeline/component references and future
