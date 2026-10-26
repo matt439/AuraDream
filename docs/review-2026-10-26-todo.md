@@ -7,7 +7,7 @@ owns the confirmed defect below; TODO owns its priority.
 
 ## GEN#26: Marian truncates a full sentence chunk
 
-**OPEN · MED · S.** `MarianTranslator._source_limit` reserves room for
+**Fixed and checked, 2026-10-26.** `MarianTranslator._source_limit` reserves room for
 special tokens: the model limit of 512 becomes a source budget of 510.
 `_chunks` splits an over-long sentence into pieces within that budget.
 `translate` then passes the same 510 as the tokenizer's *total* input
@@ -68,8 +68,23 @@ Done means:
   check when available and record the preserved source tokens; this is
   additional dependency evidence, not a requirement to download files.
 
-This closes a deterministic input-loss defect, not a translation-quality
-claim. Separately, `GEN#21`'s earlier sentence-splitting fix has only stub
+The fix separates `_input_limit` (the tokenizer's bounded total input,
+512 here) from `_source_limit` (510 after reserving special-token room).
+`translate` now passes the total limit to the tokenizer. All 18 focused
+translation tests pass on Windows/Python 3.13.15, including a truncating
+tokenizer that inserts two special tokens and checks actual model input
+at, just past and across multiple full source chunks. An independent
+review found no blocking issue.
+
+The cached tokenizer reproduction above was repeated with both offline
+flags and `local_files_only=True`, without weights or model inference.
+The 1,201 source tokens still split into 510, 510 and 181. The actual total
+lengths are now 511, 511 and 182, equal to their untruncated inputs; both
+full chunks preserve final source token 5667. No download or GPU run was
+used. This closes a deterministic input-loss defect, not a
+translation-quality claim.
+
+Separately, `GEN#21`'s earlier sentence-splitting fix has only stub
 tests after its implementation (`verified.md`, Behaviour, the Marian
 row). A later bounded CPU qualification can replay a synthetic
 multi-sentence expansion through the real translator using already cached

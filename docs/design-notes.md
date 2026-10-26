@@ -8178,7 +8178,14 @@ the rest with no error, where one sentence at a time keeps every one
 `_chunks` now sends one sentence per sequence - split after `。！？；!?;`, a
 newline, or a full stop before whitespace - all in one `generate()` batch,
 cutting only a sentence longer than the token limit, at the limit, and the
-English joins them with spaces; in tests, not re-measured on the card. Translation failure is
+English joins them with spaces; in tests, not re-measured on the card.
+Fixed 2026-10-26 (`GEN#26`): the source chunk budget and total tokenizer
+input limit are distinct, so EOS no longer replaces the last source token
+of a full chunk. CPU regression tests and the cached offline Marian
+tokenizer preserve every input token at the boundary; no model inference
+or translation-quality qualification was performed
+([evidence](review-2026-10-26-todo.md#gen26-marian-truncates-a-full-sentence-chunk)).
+Translation failure is
 returned separately so a useful multi-GB expansion is not thrown away. The
 index read is a try/except that yields nothing on failure - an optimisation,
 not a gate - and the tests' conftest now refuses `loading.hub_file` for every test,

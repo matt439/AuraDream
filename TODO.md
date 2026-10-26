@@ -8,12 +8,11 @@ The maintainer's working backlog for this personal project: it records what is p
 
 **Aim (2026-10-18):** keep useful work ready for Matt's common workstation tasks. [Reported use](docs/design/preferences.md) guides priority; it does not approve the candidate redesign.
 
-**Ready backlog (audited 2026-10-26):** nine `OPEN` rows: five with CPU/browser implementation work and four whose next deliverable is a plan. The [audit](docs/review-2026-10-26-todo.md) found two concrete defects; start with these bounded slices, then the development checks:
+**Ready backlog (updated 2026-10-26):** eight `OPEN` rows: four with CPU/browser implementation work and four whose next deliverable is a plan. The [audit](docs/review-2026-10-26-todo.md) found two concrete defects; Marian's token boundary is fixed. Continue with these bounded slices, then the development checks:
 
-1. `GEN#26`: preserve Marian's source tokens at a full chunk's boundary; CPU regression checks, no model download.
-2. `DEV#7`: make smoke screenshots portable across Windows accounts and Linux.
-3. `DEV#5`: check every classic script's syntax and shared declarations, including `app.js`, without booting the page.
-4. `DEV#4`, then `DEV#6`: retain smoke diagnostics and qualify a separate Linux browser CI job; establish a type-check baseline, fix bounded batches and enable its gate. [Stages and completion criteria](docs/plan-tooling.md).
+1. `DEV#7`: make smoke screenshots portable across Windows accounts and Linux.
+2. `DEV#5`: check every classic script's syntax and shared declarations, including `app.js`, without booting the page.
+3. `DEV#4`, then `DEV#6`: retain smoke diagnostics and qualify a separate Linux browser CI job; establish a type-check baseline, fix bounded batches and enable its gate. [Stages and completion criteria](docs/plan-tooling.md).
 
 **Plan next:** `PERF#1` (regional compilation), then `GAL#6` (automatic backups), `PERF#3` (attention backend) and `PERF#4` (step caching). Their [owner](docs/review-2026-10-25.md) defines CPU-only planning deliverables. `PERF#2` still waits on `PERF#1`. These starts do not depend on Matt's layout trials or the RAM-loader card check.
 
@@ -75,7 +74,6 @@ Matt's approved [shortcut and compact-setup stages](docs/plan-shortcut-workflow.
 | `GEN#16` | CARD | LOW | S+card | Generate then refine: phase 3's FLUX.1 Krea dev night at 1.5x, peak of the alternation and the pair's time; load recheck first (`GEN#22`). [Plan](docs/plan-then-refine.md). |
 | `GEN#20` | DECISION | LOW | L+card | Whether to plan opt-in A1111 weighting and 77-token chunking on SDXL; only if Matt writes weighted prompts. [10-24 G10](docs/review-2026-10-24.md#g10-a1111-style-weighting-and-long-prompts-on-sdxl). |
 | `GEN#22` | CARD | MED | M+card | The quantizing load's RAM peak (about 46 GiB at the load, 2026-10-25) is fixed in the loader: unquantized tensors kept every bf16 shard mapped, and `loading.checkpoint_files_released` now lets each go. Re-run a cold fp8 FLUX.1 Krea dev load on Windows and record its peak, then the FLUX-family card rows it unblocks. [The quantizing load's RAM peak](docs/design-notes.md#the-quantizing-loads-ram-peak). |
-| `GEN#26` | OPEN | MED | S | Preserve every Marian source token at a full chunk boundary: separate the source budget from the input limit including special tokens. [Reproduction and completion](docs/review-2026-10-26-todo.md#gen26-marian-truncates-a-full-sentence-chunk). |
 
 ## Speed
 
