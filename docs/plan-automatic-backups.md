@@ -1,10 +1,10 @@
 # Plan: automatic whole-gallery backups
 
-**Status, 2026-10-26: planning, pure CPU policy and atomic preferences are complete;
-`GAL#6` remains open for durable ownership, coordinator implementation and
+**Status, 2026-10-26: policy, preferences and managed-export evidence are built;
+`GAL#6` remains open for startup coordination, download leases, retention and
 activation decisions.** This expands
-[R8](review-2026-10-25.md#r8-automatic-whole-gallery-backup). No live export,
-archive deletion, credential access or configuration change was performed.
+[R8](review-2026-10-25.md#r8-automatic-whole-gallery-backup). Tests export and
+restore scratch galleries only; no real gallery or credential store was touched.
 Automatic backups remain off. Proposed policies below require an explicit
 choice before activation; this plan selects no age, retention count or
 password policy for Matt.
@@ -221,10 +221,44 @@ Pyright check reports zero errors/warnings. The subsequent preference slice
 and shared retention-ceiling tests passed 112 pure scratch checks covering
 strict bounded reads, database isolation, exact durations and injected
 write/fsync/replace failures that preserve previous bytes. Ruff and pinned
-Pyright pass. This remains a partial stage 1: durable identity binding/
-journal, user policy decisions and all execution/acceptance stages below
-remain unimplemented. No real gallery or archive was touched by these
+Pyright pass. No real gallery or archive was touched by these
 policy/preference checks.
+
+**Managed-export evidence slice.** The internal optional `managed` argument
+accepts canonical nonzero gallery/destination/operation UUIDs only for a
+whole-gallery export that keeps its source. A reserved `managed_backup`
+manifest marker is checked against that identity during the existing one
+verifying read. A forward-only outer writer computes SHA-256 and byte count
+over the actual ZIP or ciphertext, with no second archive read. Ordinary
+exports retain their writer/manifest and create no receipt journal.
+
+After closing the writer, its partial's identity must still match before
+verification. Publication claims a fresh name without overwrite; success
+and failure cleanup remove only a partial whose device/inode still belongs
+to that worker. Under the existing gallery reservation, a database-specific
+bounded atomic journal then records scope, exact basename, UTC verification,
+protection, raw digest/count and file identity. Failed journal publication
+keeps prior bytes and the new archive, reports a fixed warning and leaves
+that archive unmanaged. Malformed/missing ownership is never reconstructed
+from a name or marker. Current-file checks require resolved destination,
+regular-file identity and a full raw digest, including for encrypted files
+without obtaining their password. They return a snapshot, never deletion
+authority. Portable basenames reject Windows device names.
+
+Focused validation passed 139 bundle/receipt/backup/password/merge/staging
+checks before review hardening, then all 62 managed/receipt cases after the
+final fixes. Ruff and narrow pinned Pyright pass. Independent review caught
+pre-verification partial replacement, successful cleanup of a recreated
+unowned partial and reserved Windows names; regressions cover each. Plain
+and encrypted scratch copies restore through the ordinary importer with
+bin, stars and lineage intact, and verify exactly once. Windows path/handle
+timestamp differences are handled without substituting metadata for the
+digest. Linux publication and actual OS credential delivery remain untested.
+
+There are no startup/API/UI callers, credential lookup, age advancement or
+retention deletion. The coordinator, download leases, remaining capacity
+accounting, activation/recovery decisions and end-to-end startup acceptance
+below remain unimplemented.
 
 1. **Policy and journal contracts, CPU only.** Settle the decisions below;
    implement validated default-off preferences and a pure due/retention

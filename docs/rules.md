@@ -27,6 +27,9 @@ before changing it.
   age and managed-retention predicates; no startup scheduling or archive I/O
 - `backend/backup_preferences.py` - strict bounded, atomic database-scoped
   backup policy sidecars; no lifecycle activation or credential fields
+- `backend/backup_receipts.py` - internal managed-export marker, outer-byte
+  proof, strict atomic ownership journal and current-file identity checks;
+  no startup, age advancement or pruning callers
 - `backend/snippets.py` - bounded, revisioned personal prompt snippets in an
   atomic sidecar beside the settings, under an independent cross-process lock
 - `backend/api_snippets.py` - model-free snippet CRUD routes, independent of
@@ -1689,6 +1692,18 @@ Jobs:
   files and database copy (with its `-wal`; twice for a chosen bundle's
   VACUUM) before it writes. A finished backup reloads the gallery views,
   as every bundle operation does, but keeps the typed count.
+- Internal managed exports additionally require whole-gallery `keep_gallery`
+  and strict gallery/destination/operation UUIDs. Their reserved manifest
+  marker is verified during the existing read-back; a forward-only outer
+  writer hashes ZIP bytes or ciphertext while writing. Bind the closed
+  partial to the original writer identity before verification, publish
+  without replacing an existing name, and clean a partial only while its
+  device/inode still belongs to that writer. Append the database-specific
+  atomic receipt journal only after verified publication under the same
+  reservation. Journal failure leaves the archive unmanaged with a fixed
+  warning and preserves prior receipts. No startup/API caller, age advancement
+  or pruning is connected. `matches_current` checks regular-file identity,
+  destination and full raw digest; its snapshot never authorizes deletion.
 - Bundles and the recycle bin: export carries every row, binned ones
   included (`preview()`'s `records` stays all rows, for the typed
   confirmation, and `binned` says how many are in the bin; the export
@@ -5168,6 +5183,12 @@ database isolation, exact integer-microsecond durations, fixed failure
 warnings and atomic saves preserving prior bytes on write/fsync/replace
 failure. The shared 10,000-copy validation ceiling is an engineering limit,
 not a selected retention policy. Neither module is connected to startup.
+`tests/test_backup_receipts.py` and `tests/test_bundles_managed.py` check
+strict bounded ownership journals, portable names, exact outer-byte proofs,
+plain/encrypted scratch restore and single verifying reads. They inject
+publication/journal failures and partial replacements before verification
+and after claim, preserving unowned files and prior successful copies.
+No real gallery, credential store, startup or pruning is exercised.
 
 `smoke-execution-reuse.json` uses a fresh FLUX.1 Krea [dev] fake on 7926.
 Browser fixtures add execution recipes to a synthetic eager record, checking

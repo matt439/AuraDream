@@ -19,7 +19,7 @@ from concurrent.futures import ThreadPoolExecutor
 from contextlib import contextmanager
 from pathlib import Path, PurePosixPath
 
-from . import bundle_crypto, reindex
+from . import backup_receipts, bundle_crypto, reindex
 from .bundle_common import _CHUNK, _WORKERS, MASK_HASH, BundleError, Progress, _basename, _mask_rows, _quiet, _rows
 from .bundle_images import _inspect_mask, _inspect_source
 
@@ -138,6 +138,7 @@ def _verify_archive(path: Path, destination: Path | None = None, *, password: st
                     merge: tuple[Path, int] | None = None,
                     derived: tuple[bytes, bytes] | None = None,
                     masks: dict[str, dict] | None = None,
+                    managed: backup_receipts.ManagedIdentity | None = None,
                     progress: Progress = _quiet) -> tuple[dict, list[dict] | None, dict]:
     """Read every member once, verifying ZIP CRC, the manifest SHA-256 and, for
     a password-protected bundle, every chunk's tag.
@@ -178,6 +179,13 @@ def _verify_archive(path: Path, destination: Path | None = None, *, password: st
             manifest = json.loads(archive.read(_MANIFEST))
             if not isinstance(manifest, dict) or manifest.get("format") != _FORMAT or manifest.get("version") != 1:
                 raise BundleError("this is not a supported Local Diffusion bundle")
+            if backup_receipts.MARKER in manifest or managed is not None:
+                try:
+                    marker = backup_receipts.read_marker(manifest.get(backup_receipts.MARKER))
+                except backup_receipts.ReceiptError:
+                    raise BundleError("the bundle's managed identity is invalid") from None
+                if managed is not None and marker != managed:
+                    raise BundleError("the bundle's managed identity does not match this export")
             files = manifest.get("files")
             if not isinstance(files, dict) or set(files) != set(names) - {_MANIFEST} or _DATABASE not in files:
                 raise BundleError("the bundle manifest does not match its files")

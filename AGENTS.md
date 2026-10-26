@@ -88,6 +88,7 @@ Backend (`backend/`):
   `bundle_crypto.py` its optional password layer;
   `backup_policy.py` pure default-off backup age and retention planning;
   `backup_preferences.py` atomic database-scoped backup policy sidecars;
+  `backup_receipts.py` internal managed-export identity, byte proof and atomic journal;
   `gallery_lock.py` reservations across storage threads and processes
 - `jobs.py` single-worker queue and SSE; `storage.py` SQLite + PNGs;
   `metadata.py` the PNG chunk's key, legacy `krea` reader and file-placement guard;

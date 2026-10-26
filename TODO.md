@@ -88,7 +88,7 @@ Matt's approved [shortcut and compact-setup stages](docs/plan-shortcut-workflow.
 
 | id | status | sev | size | item |
 |---|---|---|---|---|
-| `GAL#6` | OPEN | LOW | L | Add durable ownership and verified-export coordination before managed retention; default-off policy contracts and atomic preferences are built. Matt chooses unattended protection and activation policies. [Plan](docs/plan-automatic-backups.md). |
+| `GAL#6` | OPEN | LOW | L | Wire startup coordination, download leases and managed retention; policy/preferences, verified-export proofs and durable receipts are built. Matt chooses unattended protection and activation policies. [Plan](docs/plan-automatic-backups.md). |
 
 ## Prompt analyser
 

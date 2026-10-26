@@ -20,7 +20,7 @@ from pathlib import Path, PurePosixPath
 
 from PIL import Image
 
-from . import bundle_crypto, bundle_images, gallery_lock, storage
+from . import backup_receipts, bundle_crypto, bundle_images, gallery_lock, storage
 from .bundle_archive import _DATABASE, _FORMAT, _MANIFEST, _READ_AHEAD_MAX, _check_space, _verify_archive
 from .bundle_common import (
     _CHUNK,
@@ -358,6 +358,18 @@ def _claim(source: Path, target: Path) -> None:
         os.link(source, target)  # rename would replace one on POSIX
 
 
+def _remove_owned_partial(path: Path, owned: tuple[int, int] | None) -> None:
+    """A claimed name may already have been reused by an unrelated writer."""
+    if owned is None:
+        return
+    try:
+        current = path.lstat()
+        if (current.st_dev, current.st_ino) == owned:
+            path.unlink(missing_ok=True)
+    except FileNotFoundError:
+        pass
+
+
 def _install(source: Path, target: Path, installed: list[Path]) -> None:
     """Move a synced staged file into place, never replacing an existing file."""
     try:
@@ -523,7 +535,8 @@ def _links_outside(rows: list[dict]) -> int:
 
 
 def export_bundle(expected: int | None = None, password: str | None = None, progress: Progress = _quiet, *,
-                  keep_gallery: bool = False, ids: list[int] | None = None) -> dict:
+                  keep_gallery: bool = False, ids: list[int] | None = None,
+                  managed: backup_receipts.ManagedIdentity | None = None) -> dict:
     """Write and verify a bundle; then, unless `keep_gallery`, clear the gallery.
 
     `expected` is the record count typed into the dialog, held to the
@@ -534,6 +547,12 @@ def export_bundle(expected: int | None = None, password: str | None = None, prog
     """
     if ids is not None and not keep_gallery:
         raise BundleError("only a bundle of the whole gallery can clear it; a selection is backed up and kept")
+    if managed is not None:
+        if not keep_gallery or ids is not None:
+            raise BundleError("managed exports must keep the whole gallery")
+        if not isinstance(managed, backup_receipts.ManagedIdentity):
+            raise BundleError("invalid managed export identity")
+        managed = backup_receipts.read_marker(managed.marker())
     settings = _settings()
     with gallery_lock.hold(settings.db_path):
         if ids is None:
@@ -576,13 +595,23 @@ def export_bundle(expected: int | None = None, password: str | None = None, prog
             if ids is not None and rows != chosen:
                 raise BundleChanged("the gallery changed while its bundle was prepared; try again")
             manifest = {"format": _FORMAT, "version": 1, "records": len(rows), "files": {}}
+            if managed is not None:
+                manifest[backup_receipts.MARKER] = managed.marker()
             members = [(_DATABASE, snapshot), *files]
+            proof: backup_receipts.DigestWriter | None = None
+            written: backup_receipts.FileStamp | None = None
+            owned: tuple[int, int] | None = None
             try:
                 with partial.open("xb") as stream:
+                    if managed is not None:
+                        opened = os.fstat(stream.fileno())
+                        owned = (opened.st_dev, opened.st_ino)
                     # A password streams the ZIP through the cipher; no
                     # plaintext copy of the archive is ever written.
-                    cipher = bundle_crypto.EncryptingWriter(stream, password) if password else None
-                    sink = cipher if cipher is not None else stream
+                    proof = backup_receipts.DigestWriter(stream) if managed is not None else None
+                    outer = proof if proof is not None else stream
+                    cipher = bundle_crypto.EncryptingWriter(outer, password) if password else None
+                    sink = cipher if cipher is not None else outer
                     with (zipfile.ZipFile(sink, "w", compression=zipfile.ZIP_STORED, allowZip64=True) as archive,
                           _ReadAhead([path for _, path in members]) as ahead):
                         for done, (member, path) in enumerate(members, 1):
@@ -610,15 +639,33 @@ def export_bundle(expected: int | None = None, password: str | None = None, prog
                         cipher.finish()
                     stream.flush()
                     os.fsync(stream.fileno())
+                if managed is not None:
+                    # Windows finalizes write timestamps when its last writable
+                    # handle closes; snapshot after close, before read-back.
+                    written = backup_receipts.FileStamp.of(partial.lstat())
+                    if (written.device, written.inode) != owned:
+                        raise BundleError("the managed archive changed after writing")
                 # The one read-back checks every member (and, with a password,
                 # every chunk's tag) and decodes the archived originals from
                 # the bytes it read, so a damaged tracked PNG can never be
                 # cleared into an unusable import.
                 _verify_archive(partial, password=password, rows=rows, progress=progress,
-                                derived=cipher.derived if cipher is not None else None, masks=_mask_rows(snapshot))
-                partial.rename(final)
+                                derived=cipher.derived if cipher is not None else None, masks=_mask_rows(snapshot),
+                                managed=managed)
+                if managed is None:
+                    partial.rename(final)
+                else:
+                    if backup_receipts.FileStamp.of(partial.lstat()) != written:
+                        raise BundleError("the managed archive changed during verification")
+                    # Unlike replace/rename on POSIX, claim never overwrites an
+                    # existing archive. Both paths remain in the same directory.
+                    _claim(partial, final)
+                    _remove_owned_partial(partial, owned)
             except BaseException:
-                partial.unlink(missing_ok=True)
+                if managed is None:
+                    partial.unlink(missing_ok=True)
+                else:
+                    _remove_owned_partial(partial, owned)
                 raise
 
             result = {
@@ -631,6 +678,26 @@ def export_bundle(expected: int | None = None, password: str | None = None, prog
                 "masks": sum(member.startswith("masks/") for member, _ in files),
             }
             if keep_gallery:
+                if managed is not None:
+                    result["managed"] = False
+                    try:
+                        assert proof is not None
+                        stamp = backup_receipts.FileStamp.of(final.lstat())
+                        if (written is None or stamp.size != proof.count
+                                or (stamp.device, stamp.inode, stamp.modified_ns) !=
+                                (written.device, written.inode, written.modified_ns)):
+                            raise backup_receipts.ReceiptError("published archive size changed")
+                        receipt = backup_receipts.Receipt(
+                            managed, str(directory.resolve()), name, proof.sha256, stamp,
+                            datetime.now(timezone.utc), "encrypted" if password else "unencrypted",
+                            len(rows), before["images"],
+                        )
+                        backup_receipts.append(settings.db_path, receipt)
+                        result["managed"] = True
+                    except (OSError, ValueError, TypeError):
+                        # Publication already succeeded. Never remove the copy
+                        # or advance ownership on an uncertain journal update.
+                        result["managed_warning"] = backup_receipts.JOURNAL_WARNING
                 # A backup ends at the verified read-back: nothing is cleared,
                 # so there is nothing for the second inventory to protect.
                 return result
