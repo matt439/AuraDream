@@ -4,7 +4,7 @@
 configuration/status UI and owned preload/shutdown sequencing are implemented.
 Managed receipts, capacity budgets, explicit Windows shared-mode installation
 and mode-aware downloads are built;
-`GAL#6` remains open for handle-bound retention and an OS-backed
+`GAL#6` remains open for retention orchestration/activation and an OS-backed
 protection option.** This expands
 [R8](review-2026-10-25.md#r8-automatic-whole-gallery-backup). Tests export and
 restore scratch galleries only; no real gallery or credential store was touched.
@@ -174,8 +174,8 @@ analyzed **122 production/tool sources with zero errors/warnings**, and reposito
 Ruff passes. The verification job was reconciled after a transport disconnect;
 the same owned process completed successfully and no duplicate run was started.
 
-This is not retention readiness. Future Windows deletion must bind to the validated archive
-handle, recheck ownership/digest/destination and require new deletion consent.
+This is not retention readiness. The unconnected Windows mutation mechanism below
+does not establish policy eligibility, journal membership or deletion consent.
 The v2 count explicitly described as not enforced remains inert. Linux/fork,
 network/removable filesystems and mixed old/noncooperating servers are unqualified.
 
@@ -215,6 +215,50 @@ skips and 75 existing warnings** in **224.41 seconds** with two workers. All
 **122 production/tool sources** pass the pinned type gate with zero errors or
 warnings, and repository Ruff passes. Both independent reviews accepted the
 final resource-ownership changes. No deletion caller was enabled.
+
+## Unconnected Windows mutation mechanism
+
+`bundle_delete.bind_managed_archive` accepts one exact managed receipt, intended
+gallery/destination/operation identity and expected installed `SharedMode`. Its
+future caller must first validate journal membership and select an eligible
+candidate under gallery reservation with explicit deletion consent. The helper
+chooses no N, changes no settings or journal and has no production caller.
+
+A separate mandatory-mode capability compares the complete installation and
+acquires native exclusive ownership without process-only fallback. The owner
+pins the directory and opens the marker read-only with sharing that prevents
+writes/replacement. One archive handle uses READ|DELETE access, share0 and
+OPEN_REPARSE_POINT, never DELETE_ON_CLOSE. Receipt, descriptor/path identity,
+regular-file status, link count, reparse attributes and delete-pending state must
+agree. The sole full SHA-256 pass reads that descriptor at `mark_for_deletion`,
+then scope and identity are checked again immediately before marking that same
+handle with `FileDispositionInfo`. Its native BOOLEAN is one byte. No pathname
+unlink, reopen or nested public receipt reader is used.
+
+The owner marks once. A rejected mark reports the native error without retry.
+An uncertain mark or any uncertain resource close retains the original native
+claim and remaining handles until restart, preserving primary errors and cleanup
+notes without resolving a possibly changed name. Outcomes distinguish accepted
+disposition and confirmed owned archive close; even both together do not claim
+physical namespace removal or power-loss durability. No real destination was
+activated, and the v2 count still does not authorize deletion.
+
+This mechanism follows the native [CreateFileW sharing contract](https://learn.microsoft.com/en-us/windows/win32/api/fileapi/nf-fileapi-createfilew),
+[file-disposition contract](https://learn.microsoft.com/en-us/windows/win32/api/winbase/ns-winbase-file_disposition_info)
+and [CRT handle-ownership transfer](https://learn.microsoft.com/en-us/cpp/c-runtime-library/reference/open-osfhandle).
+
+All **131 focused integration checks** passed, including **36 new mechanism
+cases** on owned Windows scratch files and child processes. They cover exact
+native flags/BOOLEAN layout, absent/wrong mode and identity, digest/replaced-file/
+hardlink refusals, marker pinning, the single hash at mark time and native
+cross-process exclusion. Injected unknown marks and archive/marker/directory
+close failures retain the original capability; a barrier checks that close
+cannot recycle the descriptor while a mark runs. Per-owner reentrant locking
+serializes those operations. Both changed production modules pass pinned types
+with zero errors/warnings, Ruff passes and independent review is clear. Every
+owned job/child has ended. These results qualify the bounded mechanism on this
+scratch cohort, not automatic pruning, physical deletion durability or host-wide
+quiescence. There was no actual native access denial.
 
 ## Activation, age and saved state
 

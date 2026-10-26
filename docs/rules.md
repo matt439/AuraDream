@@ -45,6 +45,8 @@ before changing it.
   locks on persistent archive companions, with identity and cleanup ownership checks
 - `backend/bundle_mode.py` - explicit Windows/NTFS shared-download installation,
   immutable destination marker and sticky discovery; no retention activation
+- `backend/bundle_delete.py` - unconnected Windows same-handle managed archive
+  verification/disposition, mandatory installed-mode exclusion and uncertainty ownership
 - `backend/bundle_capacity.py` - conservative current-format managed ZIP,
   encryption framing and receipt-temp logical-byte budgets; no allocation guarantee
 - `backend/snippets.py` - bounded, revisioned personal prompt snippets in an
@@ -1824,6 +1826,18 @@ Jobs:
   claim until restart, without resolving a possibly retargeted name or retrying
   close. Preserve body failures with cleanup notes. No extra full archive pass
   or key derivation is introduced, and no retention deletion is connected.
+- The unconnected Windows managed-deletion helper accepts only an exact receipt
+  and expected scope/installed mode. Its future caller must establish journal
+  membership, gallery reservation, policy eligibility and explicit deletion
+  consent. Require positive matching shared mode and native exclusive ownership;
+  an ordinary optional-mode lease is insufficient. Pin directory and marker
+  against replacement/writes. Open one archive READ|DELETE/share0 handle without
+  delete-on-close, refuse links/reparse/directory/delete-pending states, and hash
+  that same descriptor once immediately before final scope/identity checks and
+  the native disposition mark. Never reopen/unlink by pathname. Mark only once;
+  unknown mark or close retains original handles/exclusion until restart without
+  retry. Distinguish accepted disposition and confirmed owned close from physical
+  removal. No startup caller, journal mutation or v2-N activation is connected.
 - Bundles and the recycle bin: export carries every row, binned ones
   included (`preview()`'s `records` stays all rows, for the typed
   confirmation, and `binned` says how many are in the bin; the export
@@ -5351,6 +5365,12 @@ receipt hashes, wrong scopes and separate private upload/export partials. Owned
 Windows child processes exercise native exclusion across databases; injected
 uncertain file closes preserve primary failures and the original reader claim
 even after pathname retargeting. These are scratch tests, not retention acceptance.
+
+`tests/test_bundle_delete.py` exercises the unconnected Windows same-handle
+deletion mechanism on owned scratch files, required installed-mode exclusion,
+receipt scope/identity/raw-byte refusals and single-use mutation. Injected
+mark/close failures check original-key quarantine and honest post-mark outcomes.
+No test enables automatic pruning or operates on a real gallery destination.
 
 `smoke-execution-reuse.json` uses a fresh FLUX.1 Krea [dev] fake on 7926.
 Browser fixtures add execution recipes to a synthetic eager record, checking

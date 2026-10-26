@@ -155,7 +155,9 @@ Explicit Windows shared-mode installation and mode-aware downloads were then
 implemented and checked on an owned NTFS process cohort. Published archive
 imports, listings, public encrypted helpers and receipt hashing then joined the
 same protocol, including original-key quarantine for uncertain input closes.
-Handle-bound managed retention and OS-backed protection remain. No real gallery
+The unconnected Windows mutation mechanism then gained mandatory installed-mode
+exclusion, pinned scope and same-handle hash/disposition with scratch qualification.
+Retention orchestration/activation and OS-backed protection remain. No real gallery
 or destination was activated and no automatic deletion was added.
 
 The next bounded PERF#1 slice also landed in source: actual eager-load publication

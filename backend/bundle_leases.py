@@ -217,6 +217,72 @@ class ModeAwareRegistry(LeaseRegistry):
 downloads = ModeAwareRegistry()
 
 
+class ModeExclusive(AbstractContextManager["ModeExclusive"]):
+    """Mandatory installed-mode native claim, never a process-only fallback.
+
+    This capability alone does not authorize deletion. Mutation must also pin
+    the destination/marker and verify one owned archive handle.
+    """
+
+    def __init__(self, path: Path, expected: bundle_mode.SharedMode):
+        self.path, self.expected = Path(path), expected
+        self._lease: Lease | None = None
+        self._retained: BaseException | None = None
+
+    def __enter__(self) -> ModeExclusive:
+        if self._lease is not None:
+            raise RuntimeError("This exclusive mode capability has already been entered.")
+        with downloads._lock:
+            mode = bundle_mode.discover(self.path.parent)
+            if mode is None or not isinstance(self.expected, bundle_mode.SharedMode) or mode != self.expected:
+                raise bundle_mode.ModeError("The expected installed shared mode is required for archive mutation.")
+            canonical = bundle_file_lock.archive_path(self.path)
+            if _directory_key(canonical.parent) != _directory_key(mode.directory):
+                raise bundle_mode.ModeError("The archive is outside the expected shared-mode destination.")
+            key = os.path.normcase(str(canonical))
+            _check_installation(key)
+            self._lease = downloads._exclusive_locked(key, shared=True)
+        self._lease.__enter__()
+        return self
+
+    def require(self) -> None:
+        lease = self._lease
+        with downloads._lock:
+            state = _states.get(lease._key) if lease is not None else None
+            if (lease is None or lease._released or not lease._entered or state is None
+                    or not state.exclusive or state.native is None or state.failure is not None):
+                raise RuntimeError("The installed-mode native exclusive capability is no longer active.")
+            if os.path.normcase(str(bundle_file_lock.archive_path(self.path))) != lease._key:
+                raise bundle_mode.ModeError("The exclusive archive capability no longer names its acquired path.")
+            state.native.validate()
+            if bundle_mode.discover(self.path.parent) != self.expected:
+                raise bundle_mode.ModeError("The installed shared mode changed during archive mutation.")
+
+    def retain(self, error: BaseException) -> None:
+        # Retain the original acquired key, never resolve a failed-close name.
+        if self._lease is None or self._lease._released:
+            raise RuntimeError("The exclusive mode capability is no longer active.")
+        if self._retained is None:
+            self._retained = error
+            _retained_exclusives.append(self)
+
+    def __exit__(self, kind: object, error: BaseException | None, traceback: object) -> None:
+        if self._retained is not None:
+            if error is None:
+                raise RuntimeError("Archive mutation ownership is quarantined until restart.") from self._retained
+            error.add_note("The original native exclusive claim remains held until restart.")
+            return
+        assert self._lease is not None
+        self._lease.__exit__(kind, error, traceback)
+
+
+_retained_exclusives: list[ModeExclusive] = []
+
+
+def exclusive_for_mode(path: Path, expected: bundle_mode.SharedMode) -> ModeExclusive:
+    return ModeExclusive(path, expected)
+
+
 class ArchiveRead(AbstractContextManager["ArchiveRead"]):
     """One explicit read owner, including quarantined borrowed-file failures."""
 

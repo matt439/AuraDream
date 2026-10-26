@@ -4547,6 +4547,16 @@ object remain held until restart, independent of later name retargeting. Body
 errors retain cleanup notes. This closes the cooperating-consumer gap without
 adding a full read, key derivation or deletion caller.
 
+**Bound Windows mutation mechanism (2026-10-26, `GAL#6`).** A separate unconnected
+helper now combines mandatory installed-mode native exclusion, pinned directory
+and marker, and one READ|DELETE/share0 archive handle. It checks receipt identity,
+native file conditions and the same descriptor's raw digest immediately before
+marking that handle. Uncertain mark/close outcomes retain the original capability
+and remaining handles until restart. Accepted disposition and confirmed owned
+close are separate from physical removal. A future caller still needs validated
+journal membership, gallery reservation, policy eligibility and new deletion
+consent; no v2 count, startup path or journal mutation is connected.
+
 **Password scope and the clear's safety step (2026-10-26, `UI#14`/`UI#15`).**
 The browser review reproduced a scope mismatch: a password under Import a
 file also controlled Protected saved imports below a separate section. File
