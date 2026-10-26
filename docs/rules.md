@@ -19,8 +19,8 @@ before changing it.
   and `current_settings` supply runtime reads, and `available` limits choices
   to the selected quantization/format/platform
 - `backend/execution.py` - frozen named execution recipes, canonical empty/key
-  contracts, distribution metadata and the pure first-compilation candidate
-  matrix; every nonempty recipe is currently refused before execution
+  contracts, distribution metadata and pure compilation/attention/cache candidate
+  matrices; every nonempty recipe is currently refused before execution
 - `backend/startup_preferences.py` — validated atomic loader/startup persistence;
   the server launcher restores it before config imports
 - `backend/backup_policy.py` - pure automatic-backup policy, verified-success
@@ -915,6 +915,12 @@ Reproduction:
   `ModelStatus.attention_environment_warning`. Never echo or mutate its value,
   reread it from status, infer an effective recipe or change admission. This
   diagnostic chooses no app/environment precedence or acceptance policy.
+- Cold attention/cache candidate checks use supplied request, distribution and
+  external-attention observations only. They reject unsupported combinations,
+  adapters/passes and nonnative overrides without importing a framework or
+  changing the environment. FBC additionally refuses true CFG and an existing
+  cache. A matching candidate grants no runtime availability or loaded-API,
+  processor, shape, kernel or device qualification.
 - Inactive FBC ownership validates exact eager FLUX block identities, order,
   counts and output metadata. One retained owner covers the shared denoiser;
   each call installs fresh fixed-threshold hooks, resets state/context before
@@ -5216,6 +5222,12 @@ mask stamping, retained work or model work; explicit run ids do not bypass
 queue admission. Empty execution retains legacy keys/PNG metadata and normalizes only
 through `applied()`, without revalidating a stamped outpaint. These are CPU
 contract checks, not compiler or GPU qualification.
+
+`tests/test_execution_candidates.py` checks the initial cuDNN/FBC candidate
+matrices, combinations, copied-spec validation, external override refusals and
+FBC guidance/cache exclusions. An isolated subprocess forbids framework/config
+imports and metadata/environment reads by the validators, proves the environment
+unchanged and confirms matching recipes remain unavailable to execute.
 
 `tests/test_execution_storage.py`, `tests/test_execution_bundles.py` and
 `tests/test_execution_replay.py` cover the nullable recipe migration and

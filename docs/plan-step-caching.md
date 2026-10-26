@@ -1,7 +1,7 @@
 # Plan: opt-in First Block Cache on FLUX.1
 
 **Status, 2026-10-26: CPU contracts, persisted carry and inactive per-call
-ownership helpers are built.** Runtime integration, UI and a separately
+ownership helpers and cold request candidate checks are built.** Runtime integration, UI and a separately
 approved card comparison remain `PERF#4`. This is the
 bounded next slice from [R4](review-2026-10-25.md#r4-step-caching-for-the-long-undistilled-schedules).
 No package installation, runtime model import, weights, tensor allocation
@@ -147,6 +147,15 @@ These source findings motivate CPU contract tests; they are not a runtime
 qualification of FBC under torchao or offload.
 
 ## Per-call ownership and failure policy
+
+`execution.cache_candidate_reason` now implements the initial cold request and
+distribution matrix from supplied facts: exact model/loader/device/batch, no
+adapter/edit pass, no stacked recipe, ordinary guidance, no existing cache and
+no nonnative external attention override. It does not inspect a loaded model or
+read the environment, import a framework or grant runtime permission. Loaded
+APIs, ownership and arithmetic remain separate checks. The shared cuDNN/FBC
+slice passed 122 focused tests with `--noconftest`, narrow pinned Pyright and Ruff;
+an independent review accepted it. All nonempty recipes remain unavailable.
 
 Keep weights loaded by `ensure_loaded` alone. A cold capability helper
 answers whether the request matches the recipe without importing/loading

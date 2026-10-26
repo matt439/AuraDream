@@ -1,7 +1,7 @@
 # Plan: native and cuDNN attention on FLUX.1
 
 **Status, 2026-10-26: shared carry, inactive processor-isolation helpers and
-cold external-override diagnostics are implemented.** Runtime/loader policy
+cold external-override diagnostics and request candidate checks are implemented.** Runtime/loader policy
 wiring and separately approved card
 qualification remain `PERF#3`. This is the
 bounded next slice from [R3](review-2026-10-25.md#r3-attention-backend).
@@ -85,6 +85,19 @@ follows. The earlier compiler-fixture native CUDA initialization and corrected
 guarded trial remain recorded in the [compilation owner](plan-regional-compilation.md#installed-cpu-compiler-policy-probe).
 
 ## First comparison and capability matrix
+
+`execution.attention_candidate_reason` now checks this initial request and
+distribution matrix from supplied facts only. Every nonnative external override
+is conservatively refused with a fixed reason; this selects no precedence policy
+or changes to the environment. Exact loaded processor/API coverage remains the
+inactive helper's separate concern. A matching candidate remains unavailable at
+every existing request/runtime admission boundary.
+
+The shared cuDNN/FBC slice passed 122 focused tests in 0.44 seconds with
+`--noconftest`, including an isolated cold-import/environment guard. Narrow pinned
+Pyright reports zero errors/warnings for the changed production source, Ruff
+passes, and independent source review accepted the checks. No framework, model,
+device, compiler or kernel operation was used by these candidate checks.
 
 Start with the exact catalogue id `black-forest-labs/FLUX.1-Krea-dev`,
 torchao fp8, CUDA, model offload and one-image text-to-image calls. Compare
