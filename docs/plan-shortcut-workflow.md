@@ -49,4 +49,24 @@ Receipts: `%TEMP%/local-diffusion-shortcut-existing-20261026-i1.log`,
 `%TEMP%/local-diffusion-shortcut-dispatch-20261026-i2.log` and
 `%TEMP%/local-diffusion-shortcut-harness-20261026-i1.log`.
 
-Stages 2 and 3 remain open.
+Stage 2 completed and qualified 2026-10-26. Relevant groups appear first and
+all 11 groups remain available. Help snapshots menu context and visible focus
+fallbacks before focusout; `?` works from image menus, including shifted `?`.
+Queue/Bundles describe native controls and retained safeguards. Visible menu
+hints distinguish menu activation from image-context shortcuts; R appears only
+for the lightbox route. Recent and contact-sheet help avoid promising the image
+menu where it is unavailable.
+
+Independent reviews are clear. Contextual help, dispatch and context-menu browser
+suites passed, plus six docs-map tests and syntax/whitespace checks. Screenshots
+`shortcut-help-context-menu.png` and `shortcut-help-context-lightbox.png` were
+visually inspected. The existing menu fixture assumed the old first child and
+Star's fixed row number; it now asserts the presentation hint separately and
+native-clicks the exact Star action after checking its hit target. No product
+behavior was loosened to satisfy that fixture. Receipt:
+`%TEMP%/local-diffusion-shortcut-help-20261026-j1.log` (help/dispatch),
+`%TEMP%/local-diffusion-shortcut-help-menu-20261026-j2.log` (menu).
+Disconnected-origin fallback is source-reviewed; hidden-menu-origin return is
+browser-qualified. Physical screen-reader/touch acceptance remains UI#7.
+
+Stage 3 remains open.

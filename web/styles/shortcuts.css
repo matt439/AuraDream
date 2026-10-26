@@ -17,6 +17,8 @@
 .shortcuts-head h2 { margin: 0; font-size: var(--fs-lg); }
 .shortcuts-head button { flex: none; }
 #shortcuts-intro { margin: var(--sp-2) 0 var(--sp-4); }
+.shortcuts-context { margin: 0 0 var(--sp-4); padding: var(--sp-2); background: var(--panel-2); border-left: 2px solid var(--accent-2); font-size: var(--fs-body-sm); }
+#shortcuts-body .shortcut-relevant h3 { color: var(--accent-2); }
 #shortcuts-body section + section { margin-top: var(--sp-4); }
 #shortcuts-body h3 { margin: 0 0 var(--sp-2); font-size: var(--fs-md); }
 #shortcuts-body dl {

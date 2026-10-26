@@ -42,6 +42,7 @@ function contextTarget(target) {
 function buttonItem(label, button, hint = '') {
   if (!button || button.hidden) return null;
   const held = button.getAttribute('aria-disabled') === 'true';
+  if (button === els.lbRefine) hint = 'R';
   return { label, hint, held, title: button.title, run: () => button.click() };
 }
 
@@ -153,6 +154,11 @@ function pickedItems() {
 function renderContextMenu(items) {
   const menu = els.contextMenu;
   menu.replaceChildren();
+  const hint = document.createElement('li');
+  hint.className = 'context-key-hint';
+  hint.setAttribute('role', 'presentation');
+  hint.textContent = 'Enter chooses · Image keys apply outside this menu · ? help';
+  menu.append(hint);
   let gap = false;
   for (const item of items) {
     if (!item) { gap = menu.childElementCount > 0; continue; }
@@ -264,6 +270,11 @@ function contextMenuKey(e) {
 // its Escape is not the lightbox's.
 function contextMenuKeydown(e) {
   if (keyboardEventHeld(e) || keyboardCommandModifier(e) || keyboardEditingTarget(e.target)) return;
+  // A real question mark can include Shift. Snapshot this menu's origin
+  // before focusout closes it and clears its return target.
+  if (e.key === '?' && !e.repeat) {
+    e.preventDefault(); e.stopPropagation(); openShortcuts(); return;
+  }
   // Shift+Tab still dismisses the menu before normal backward navigation.
   if (e.shiftKey && e.key !== 'Tab') return;
   if (e.repeat && ['Enter', ' ', 'Escape'].includes(e.key)) {

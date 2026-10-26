@@ -693,8 +693,9 @@ naming the run, its image count and the checkpoint it was made on.
 ### Keyboard and lightbox
 
 Press **?** outside a text field, or the **Keyboard shortcuts** button in the
-top bar, for the full list. **Escape** closes help and returns focus to where
-you opened it. Help can be opened above a lightbox or dialog without closing it.
+top bar, for the full list. The current context comes first; every other group
+remains below it. **Escape** closes help and returns focus to where you opened
+it, or the visible opener of a menu that closed. Help can be opened above a lightbox or dialog without closing it.
 
 | Where | Keys |
 | --- | --- |
@@ -711,6 +712,9 @@ you opened it. Help can be opened above a lightbox or dialog without closing it.
 
 Settings dialogs, menus, help, Bundles and the lightbox keep Ctrl/Cmd+Enter
 from generating underneath. Use the exact chord without Alt or Shift.
+Queue and Bundles use their visible buttons and native Tab/Enter/Space; there
+is no dedicated queue, archive or import accelerator. Image-menu key hints apply
+when back on the image; Enter/Space chooses an open menu item.
 Fields/selects keep editing and browser keys; discrete actions ignore held-key
 repeats while navigation and zoom still repeat.
 

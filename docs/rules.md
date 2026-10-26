@@ -2235,6 +2235,15 @@ Frontend and CLI:
   and an actual backdrop press restore the connected opener with
   `preventScroll`. The complete, grouped list is
   available even when the gallery is empty or a comparison is inactive.
+  Opening snapshots the current context before a menu loses focus. Relevant
+  groups lead, followed by the complete inventory; there are no hidden shortcut
+  groups or extra help controls. Queue/Bundles help names native button/field
+  navigation and explicitly promises no dedicated submit/queue accelerator.
+  A menu item's hidden-but-connected node is not a valid return target: use its
+  visible opener fallback, without reopening the menu or scrolling. Context-menu
+  help owns `?` before the menu's propagation stop. Image shortcut hints apply
+  after closing that menu; Enter/Space chooses within it. Sheet images retain
+  their own documented keys, without promising the image actions menu.
 - `web/` has no build step and no test suite; check it in a real browser with
   `tools/fake_server.py` and `tools/browser.mjs` (see Tests). The page script
   is classic scripts sharing one global scope, loaded in the order
@@ -5132,7 +5141,8 @@ and Grid, and delayed More seeds/help Escape precedence.
 shortcut list before any images exist, the top-bar and `?` openers, typing,
 composition/modifier/repeat guards, help above a lightbox and a Refine draft,
 no underlying submission or image action, native Escape, Close and actual
-backdrop focus restoration, and a 390 px layout without horizontal overflow.
+backdrop focus restoration, context ordering with the full inventory, menu-opener
+fallbacks, accurate menu hints and a 390 px layout without horizontal overflow.
 
 `uv run --group dev pytest`. They stub the pipeline (`tests/fakes.py`'s
 `FakeBackend`, wired by the `fake` and `client` fixtures in `tests/conftest.py`

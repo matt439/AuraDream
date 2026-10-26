@@ -24,10 +24,12 @@ function keyboardSubmit(event) {
 
 const SHORTCUT_GROUPS = [
   {
+    id: 'help',
     title: 'Help',
     rows: [[['?'], 'Open this help outside text fields; Escape closes it first.']],
   },
   {
+    id: 'generate',
     title: 'Generate and passes',
     scope: 'Ctrl/Cmd+Enter follows the focused action dialog or Grid field. Help, settings, menus, Bundles and the lightbox never generate underneath.',
     rows: [
@@ -38,6 +40,7 @@ const SHORTCUT_GROUPS = [
     ],
   },
   {
+    id: 'gallery',
     title: 'Gallery and selection',
     scope: 'Click opens an image. Ctrl/Cmd+click toggles a pick; Ctrl/Cmd+Shift+click adds a range. Select makes clicks pick. These keys act on the focused card; Ctrl/Cmd+A also works on Select.',
     rows: [
@@ -51,6 +54,7 @@ const SHORTCUT_GROUPS = [
     ],
   },
   {
+    id: 'sheet',
     title: 'Contact sheet',
     scope: 'Navigation starts on a populated cell; zoom also works on its star.',
     rows: [
@@ -64,6 +68,7 @@ const SHORTCUT_GROUPS = [
     ],
   },
   {
+    id: 'lightbox',
     title: 'Lightbox and comparison',
     scope: 'Letter and zoom keys do not replace typing or modified browser shortcuts. A select keeps its own arrows.',
     rows: [
@@ -78,6 +83,7 @@ const SHORTCUT_GROUPS = [
     ],
   },
   {
+    id: 'prompt',
     title: 'Prompts and tag chips',
     scope: 'Suggestions and chip editors take Escape before the helper or prompt check beneath them.',
     rows: [
@@ -93,6 +99,7 @@ const SHORTCUT_GROUPS = [
     ],
   },
   {
+    id: 'references',
     title: 'Reference images',
     scope: 'Focus a reference chip\'s remove button.',
     rows: [
@@ -101,6 +108,7 @@ const SHORTCUT_GROUPS = [
     ],
   },
   {
+    id: 'inpaint',
     title: 'Inpaint picture',
     scope: 'Focus the picture to use these keys; text fields keep normal editing.',
     rows: [
@@ -113,9 +121,29 @@ const SHORTCUT_GROUPS = [
     ],
   },
   {
+    id: 'queue',
+    title: 'Job queue and recovery',
+    scope: 'There are no dedicated queue accelerators. Use the visible current-job, queued-row and recovery buttons; each names what it affects.',
+    rows: [
+      [['Tab', 'Shift+Tab'], 'Move between the available job actions.'],
+      [['Enter', 'Space'], 'Activate the focused button, including Cancel, Skip, Move to front or a recovery action. A held button explains its reason.'],
+    ],
+  },
+  {
+    id: 'bundles',
+    title: 'Gallery bundles',
+    scope: 'There are no dedicated bundle accelerators. Ctrl/Cmd+Enter never starts a bundle operation. Bundle & clear still requires the exact gallery-record count.',
+    rows: [
+      [['Tab', 'Shift+Tab'], 'Move between bundle scope, passwords, confirmation and actions.'],
+      [['Enter', 'Space'], 'Activate the focused button; this does not bypass a held action or its safety checks.'],
+      [['Escape'], 'Close Bundles; an operation already accepted by the server continues.'],
+    ],
+  },
+  {
+    id: 'menus',
     title: 'Menus and settings groups',
     rows: [
-      [['Menu', 'Shift+F10'], 'Open the focused image\'s actions.'],
+      [['Menu', 'Shift+F10'], 'Open actions for a focused gallery card, result image or lightbox image. Contact-sheet cells keep the browser\'s menu.'],
       [['Up', 'Down', 'Home', 'End'], 'Move through an open menu.'],
       [['Enter', 'Space'], 'Choose the focused menu item or setting button.'],
       [['Escape'], 'Close the menu and return focus.'],
@@ -126,11 +154,76 @@ const SHORTCUT_GROUPS = [
 
 let shortcutsOrigin = null;
 
-function renderShortcuts() {
-  const sections = SHORTCUT_GROUPS.map((group, index) => {
+// Read before showModal moves focus and closes an originating menu. Every
+// group remains in the inventory, including contexts with no images yet.
+function shortcutContext(target) {
+  const at = target?.closest ? target : null;
+  const context = (label, groups, note) => ({ label, groups, note });
+  if (at?.closest('#context-menu')) {
+    const source = shortcutContext(ctxMenu.host);
+    return context('Image actions', ['menus', ...source.groups], 'Enter chooses a menu item. Image shortcuts apply outside the menu in their listed contexts.');
+  }
+  if (at?.closest('#examples-menu')) return context('Example prompts', ['menus', 'prompt'], 'Enter chooses an example; Escape returns to Examples.');
+  if (at?.closest('#picked-menu')) return context('Picked images', ['menus', 'gallery'], 'Enter chooses a picked-image action; Escape returns to Picked.');
+  if (at?.closest('#inpaint-canvas')) return context('Inpaint picture', ['inpaint', 'generate'], 'Picture keys act on the mask; text fields keep normal editing.');
+  if (at?.closest('#bundles-dialog')) return context('Gallery bundles', ['bundles'], 'Use the focused controls. Ctrl/Cmd+Enter does not start an operation here.');
+  const dialog = at?.closest('dialog[open]') || document.querySelector('dialog[open]:not(#shortcuts-dialog)');
+  if (dialog === els.lightbox) return context('Lightbox', ['lightbox'], 'Image shortcuts leave text fields and selects alone. Ctrl/Cmd+Enter does not Generate here.');
+  if ([els.refineDialog, els.inpaintDialog, els.outpaintDialog, els.refineBatchDialog, els.swapDialog, els.moreSeedsDialog].includes(dialog)) {
+    return context(dialog.querySelector('h2')?.textContent.trim() || 'Image action', ['generate'], 'Ctrl/Cmd+Enter runs this action. Help above it never submits underneath.');
+  }
+  if (dialog) return context(dialog.querySelector('h2')?.textContent.trim() || 'Settings', ['menus'], 'Use the focused controls. Ctrl/Cmd+Enter does not Generate underneath settings.');
+  if (at?.closest('#reference-list')) return context('Reference images', ['references'], 'Reference keys act on the focused reference chip.');
+  if (at?.closest('#tag-validation, #prompt-analysis, .prompt-editor, #negative-field, #examples, #tag-helper, #tags-menu, #tag-finder, #btn-analyze, #btn-reset, #btn-expand')) {
+    return context('Prompt editing', ['prompt'], 'Typing stays in its field; suggestions and chip editors own their keys first.');
+  }
+  if (at?.closest('#grid-section')) return context('Grid search', ['generate', 'menus'], 'Ctrl/Cmd+Enter runs the grid from a focused field in the open Grid section.');
+  if (at?.closest('#progress, #queue-note, #finish-note, #last-run, #btn-new-image')) {
+    return context('Job queue and recovery', ['queue'], 'Tab reaches the visible job actions. No global key cancels or reorders jobs.');
+  }
+  if (at?.closest('#sheet')) return context('Contact sheet', ['sheet'], 'Navigation starts on a populated cell. Image actions are available after opening its lightbox.');
+  if (at?.closest('#viewer')) return context('Result image', ['menus'], 'Enter or Space opens a focused result image; Menu or Shift+F10 opens its image actions.');
+  if (at?.closest('#recent')) return context('Earlier session image', ['menus'], 'Enter or Space opens this image. This strip has no app image-actions menu; open its lightbox for more actions.');
+  if (at?.closest('#library, .gallery-head')) {
+    if (sheetMode) return context('Contact sheet', ['sheet'], 'Navigation starts on a populated cell. Image actions are available after opening its lightbox.');
+    return context(binMode ? 'Recycle bin' : 'Gallery', ['gallery'], binMode ? 'These are the bin\'s picks. Starring and the app\'s image-actions menu are unavailable here.' : 'Card keys act on the focused image; fields keep their normal editing.');
+  }
+  if (sheetMode && (!at || at === els.shortcuts || at === document.body)) return context('Contact sheet', ['sheet'], 'Navigation starts on a populated cell. Image actions are available after opening its lightbox.');
+  return context('Generation settings', ['generate'], 'Keys act where focus is. All shortcut groups remain available below.');
+}
+
+function shortcutReturnTargets(origin) {
+  const targets = [origin];
+  if (origin?.closest?.('#examples-menu')) targets.push(els.examplesBtn);
+  if (origin?.closest?.('#picked-menu')) targets.push(els.pickedBtn);
+  if (origin?.closest?.('#context-menu')) {
+    targets.push(ctxMenu.opener, ctxMenu.host?.querySelector('img'));
+    if (ctxMenu.host === els.lbStage) targets.push(els.lbClose);
+  }
+  const dialog = origin?.closest?.('dialog[open]');
+  if (dialog) targets.push(dialog.querySelector('button:not([disabled])'));
+  targets.push(els.shortcuts);
+  return [...new Set(targets.filter(Boolean))];
+}
+
+function shortcutFocusReady(target) {
+  return target?.isConnected && !target.disabled && !target.closest?.('[hidden], [inert]')
+    && target.getClientRects().length > 0 && getComputedStyle(target).visibility === 'visible';
+}
+
+function renderShortcuts(context) {
+  const order = new Map(context.groups.map((id, index) => [id, index]));
+  const groups = [...SHORTCUT_GROUPS].sort((a, b) => (order.get(a.id) ?? 100) - (order.get(b.id) ?? 100));
+  const note = document.createElement('p');
+  note.id = 'shortcuts-context';
+  note.className = 'shortcuts-context';
+  note.textContent = `${context.label} shortcuts first. ${context.note} The full list is below.`;
+  const sections = groups.map((group) => {
     const section = document.createElement('section');
+    section.dataset.shortcutGroup = group.id;
+    section.classList.toggle('shortcut-relevant', order.has(group.id));
     const heading = document.createElement('h3');
-    heading.id = `shortcuts-group-${index}`;
+    heading.id = `shortcuts-group-${group.id}`;
     heading.textContent = group.title;
     section.setAttribute('aria-labelledby', heading.id);
     section.append(heading);
@@ -156,13 +249,17 @@ function renderShortcuts() {
     section.append(list);
     return section;
   });
-  els.shortcutsBody.replaceChildren(...sections);
+  els.shortcutsBody.replaceChildren(note, ...sections);
 }
 
 function openShortcuts() {
   if (els.shortcutsDialog.open) return;
-  shortcutsOrigin = document.activeElement;
-  renderShortcuts();
+  const origin = document.activeElement;
+  const context = shortcutContext(origin);
+  shortcutsOrigin = shortcutReturnTargets(origin);
+  renderShortcuts(context);
+  els.shortcutsDialog.setAttribute('aria-describedby', 'shortcuts-intro shortcuts-context');
+  els.shortcutsDialog.scrollTop = 0;
   els.shortcutsDialog.showModal();
   els.shortcutsClose.focus({ preventScroll: true });
 }
@@ -174,9 +271,13 @@ function closeShortcuts() {
 function shortcutsClosed() {
   // A queued close event must not restore focus under a help opened again.
   if (els.shortcutsDialog.open) return;
-  const origin = shortcutsOrigin;
+  const targets = shortcutsOrigin ?? [];
   shortcutsOrigin = null;
-  if (origin?.isConnected) origin.focus?.({ preventScroll: true });
+  for (const target of targets) {
+    if (!shortcutFocusReady(target)) continue;
+    target.focus?.({ preventScroll: true });
+    if (document.activeElement === target) break;
+  }
 }
 
 function shortcutsBackdrop(event) {

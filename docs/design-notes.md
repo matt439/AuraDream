@@ -7524,7 +7524,13 @@ Help can sit above a lightbox or pass dialog. The document's dispatcher
 returns while help is open, before its Ctrl+Enter and Escape branches: without
 that guard, reading help could submit an image or close the lightbox below.
 Native Escape closes only help; Close and a real backdrop press do the same.
-Its connected origin receives focus without scrolling. The dialog scrolls
+Its visible usable origin receives focus without scrolling; a menu closed by
+opening help returns to the menu's opener instead of a hidden item. Help takes
+a context snapshot before focus changes, places that context's groups first and
+retains the full inventory. Queue and Bundles name native navigation and their
+absence of dedicated accelerators. Context-menu hints describe image shortcuts
+after returning to the image, while the menu's own keys stay Enter/Space and
+arrows; no new accelerators are invented for that menu. The dialog scrolls
 inside the window, with Close kept in view, and the narrow layout stacks
 keys above their explanations.
 
