@@ -5486,6 +5486,11 @@ sharing, strict/sloppy block functions, unsupported script kinds, missing
 files and missing Node. Node is required locally and verified by CPU CI;
 this guard does not replace the independent browser smokes.
 
+`tests/test_browser_capabilities.py` runs the actual Node harness with absent
+or noncallable `fetch`/`WebSocket` globals. Fixed exit-2 diagnostics occur
+before browser lookup, script reads, output/profile creation or any network
+call; a callable fixture continues to the existing browser-discovery path.
+
 `smoke-control-sizing.json` uses a fresh FLUX.1 Krea [dev] fake on 7923.
 It measures prompt/footer targets and primary emphasis at 1400x900, 600x900,
 1536x864 and 2048x1040 (the latter two at DPR 1.25), checks actual hit targets,

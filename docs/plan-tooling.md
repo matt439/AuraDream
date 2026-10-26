@@ -180,6 +180,20 @@ table, resource budget and hosted diagnostic upload are unverified.
 `Wsl/EnumerateDistros/Service/E_ACCESSDENIED`; the denied access was not
 retried through another route. No Linux browser CI job has been added.
 
+**Native API preflight (2026-10-26).** The harness now checks that Node's
+`fetch` and `WebSocket` globals are callable before browser discovery,
+script reads, profile creation or screenshot/output work. Missing or
+noncallable APIs return a fixed diagnostic naming only the missing APIs
+and exit 2; a Node version number is not treated as capability evidence.
+Fourteen black-box tests mask either or both APIs and instrument the real
+filesystem/process/network entry points to refuse downstream effects.
+They also verify that callable globals continue into ordinary browser
+discovery. Node syntax and focused ruff pass. The unchanged supported path
+passed all 35 checks in `smoke-automatic-backup` against an owned Windows
+fake (Node 24.14.0, Edge, 14 seconds total). No startup export, credential
+lookup, model load or GPU work occurred. This closes the source preflight
+gap in stage 2; Linux and hosted qualification remain open.
+
 ## Backend type checking
 
 `DEV#6` · implemented and qualified locally, 2026-10-26. The pinned gate

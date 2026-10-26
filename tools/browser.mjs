@@ -64,6 +64,15 @@ import { existsSync, readdirSync, readFileSync, rmSync, statSync } from 'node:fs
 import { tmpdir } from 'node:os';
 import { screenshotRoot, writeScreenshot } from './browser-output.mjs';
 
+// Fail before even looking for a browser or preparing script/output paths.
+// Check capabilities rather than guessing a supported Node version.
+const missingApis = ['fetch', 'WebSocket'].filter((name) => typeof globalThis[name] !== 'function');
+if (missingApis.length) {
+  console.error('browser.mjs requires callable native Node APIs: ' + missingApis.join(', ')
+    + '. Use a Node runtime providing both fetch and WebSocket.');
+  process.exit(2);
+}
+
 const CANDIDATES = [
   process.env.LOCAL_DIFFUSION_BROWSER,
   'C:/Program Files (x86)/Microsoft/Edge/Application/msedge.exe',
