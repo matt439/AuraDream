@@ -1,7 +1,7 @@
 # Plan: regional compilation of FLUX.1
 
-**Status, 2026-10-26: CPU contracts, persisted carry and inactive registration
-helpers are implemented and checked. Runtime wiring, loader controls and
+**Status, 2026-10-26: CPU contracts, persisted carry, inactive registration
+helpers and backend publication/teardown ownership are implemented and checked. Regional runtime wiring, loader controls and
 card qualification remain `PERF#1`.** This is the next slice from
 [R1](review-2026-10-25.md#r1-compile-the-denoisers-repeated-blocks), not a
 speed result or approval to load a model. No package, model or compiler was
@@ -94,6 +94,51 @@ no model or performance qualification. Real lazy imports,
 fallback/recompilation behavior, toolchain/cache setup, loading/call wiring
 and card qualification remain. There are no production callers and every
 nonempty execution recipe remains refused.
+
+## Backend publication and teardown ownership
+
+The real eager `DiffusersBackend.load` now uses an unpublished candidate for
+returned component overrides and the complete pipeline. It owns those references
+through shard-context entry/exit, placement, VAE options, callback validation,
+progress/diagnostics and weights-context exit. Publication happens last, transferring
+parameters, effective recipe and an optional owned regional registration together.
+No loader calls the regional registration helper and no public selection is added.
+
+A failed construction can already have loaded overrides, so their argument mapping
+is cleared even if shard-context entry or `from_pretrained` fails. Failed-load
+frames retain the candidate rather than a separate pipeline/VAE/bound-method alias.
+Candidate cleanup drops its application references before the existing allocator
+release outside the backend and weights locks. Cleanup failures attach diagnostics
+without replacing the primary exception. Retained arbitrary library exception
+frames may still own their arguments; this is not a guarantee of physical GPU
+reclamation or permission to strip useful tracebacks.
+
+Both unload forms use one detach path for base/sibling pipelines, adapters,
+parameters, recipe and registration. Compatibility caches and console preference
+remain; a contended `try_unload` mutates nothing. A privately supplied nonempty or
+malformed loaded recipe cannot make an ordinary eager request reach device, peak
+or pipeline work, including direct private generation. Ordinary request admission
+and every nonempty-render refusal remain unchanged.
+
+All **23 isolated synthetic checks** passed with `--noconftest`; the combined
+ownership/runtime-settings/execution/profile/upscaler group passed **195 tests**. The changed
+production source passed pinned Pyright and Ruff. Independent review fixed retained
+load aliases, ownership of overrides before pipeline construction, context-entry
+cleanup and a test assertion which cleanup-error preservation could otherwise
+swallow. Weak-reference results are now asserted outside the exception context.
+Tests use synthetic loaders/runtime modules and release hooks, never model weights,
+real compilation or device execution. A fresh subprocess also forbids framework
+imports while checking loaded-recipe refusals. Full regional setup, actual execution
+under strict compiler policy, selection/loader controls and card qualification
+remain separate stages.
+
+The complete offline CPU gate then passed **4,920 tests, eight platform skips
+and 75 existing warnings** in **225.12 seconds** with two workers. Pinned Pyright
+checked **120 production/tool sources with zero errors/warnings**, and repository
+Ruff passed. The first full run found an old upscaler fixture constructing the
+backend with `__new__`, bypassing its initialized execution fields. It now uses
+the ordinary cold constructor; its unsupported-upscaler and no-normalization
+assertions are unchanged. No production guard was weakened.
 
 ## Installed CPU compiler-policy probe
 

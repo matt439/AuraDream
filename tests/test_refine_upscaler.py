@@ -185,7 +185,7 @@ def test_direct_backend_generation_refuses_unsupported_gan_before_normalizing(mo
     from backend.backends.diffusers_backend import DiffusersBackend
     from backend.schemas import GenerateRequest
 
-    backend = DiffusersBackend.__new__(DiffusersBackend)
+    backend = DiffusersBackend()
     backend._pipe = object()
     monkeypatch.setattr(backend, "describe", lambda: {"model_id": "cagliostrolab/animagine-xl-4.0"})
     monkeypatch.setattr(backend, "applied", lambda *a: pytest.fail("explicit unsupported choice was normalized"))

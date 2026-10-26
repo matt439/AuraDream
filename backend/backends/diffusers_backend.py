@@ -22,14 +22,16 @@ import inspect
 import logging
 import threading
 import time
+from collections.abc import Callable
 from contextlib import ExitStack
-from dataclasses import replace
+from dataclasses import dataclass, field, replace
+from types import TracebackType
 from typing import TYPE_CHECKING, Any
 
 from .. import latent_preview, loras, refine
 from ..model_selection import current_model_id, current_settings
 from ..config import settings
-from ..execution import require_default_execution
+from ..execution import ExecutionSpec, canonical_execution, require_default_execution
 from ..model_defaults import INPAINT_DEFERRED, defaults_for, inpaint_family, inpaint_start
 from ..seeds import wrap_seed
 from . import anima_loading, loading, netayume_loading, newbie_loading, schedule, single_file
@@ -39,6 +41,7 @@ if TYPE_CHECKING:
     from PIL.Image import Image
 
     from ..schemas import GenerateRequest
+    from .regional_compile import RegionalRegistration
 
 log = logging.getLogger(__name__)
 
@@ -62,6 +65,60 @@ _REQUIRED_PARAMS = frozenset({"generator", "callback_on_step_end"})
 _LORA_ADAPTER = "local_diffusion"
 
 
+@dataclass
+class _PipelineCandidate:
+    """Own unpublished or detached pipeline references until transfer/close.
+
+    The eager loader uses this transaction too. Registration fields reserve
+    ownership for later preparation; nothing here installs compiler wrappers.
+    """
+
+    release: Callable[[], None]
+    pipe: Any = None
+    params: set[str] = field(default_factory=set)
+    registration: RegionalRegistration | None = None
+    execution: ExecutionSpec | None = None
+    related: tuple[Any, ...] = ()
+
+    def __enter__(self) -> _PipelineCandidate:
+        return self
+
+    def __exit__(
+        self, kind: type[BaseException] | None, error: BaseException | None,
+        traceback: TracebackType | None,
+    ) -> None:
+        try:
+            self.close()
+        except BaseException as cleanup:
+            if error is None:
+                raise
+            error.add_note(f"Discarding the pipeline candidate also failed: {type(cleanup).__name__}: {cleanup}")
+
+    def disown(self) -> None:
+        self.pipe, self.params, self.registration, self.execution, self.related = None, set(), None, None, ()
+
+    def close(self) -> None:
+        release = self.pipe is not None or self.registration is not None or bool(self.related)
+        registration = self.registration
+        self.disown()
+        failure: BaseException | None = None
+        if registration is not None:
+            try:
+                registration.close()
+            except BaseException as exc:
+                failure = exc
+        if release:
+            try:
+                self.release()
+            except BaseException as exc:
+                if failure is None:
+                    failure = exc
+                else:
+                    failure.add_note(f"Releasing the detached pipeline also failed: {type(exc).__name__}: {exc}")
+        if failure is not None:
+            raise failure
+
+
 class DiffusersBackend(GenerationBackend):
     name = "diffusers"
 
@@ -69,6 +126,8 @@ class DiffusersBackend(GenerationBackend):
         self._pipe: Any = None
         self._lock = threading.Lock()
         self._call_params: set[str] = set()
+        self._regional_registration: RegionalRegistration | None = None
+        self._loaded_execution: ExecutionSpec | None = None
         # The adapter currently attached to the live pipeline, as
         # (name, weight). Hot-swapped between cells rather than baked into
         # `load()`: diffusers strips and re-attaches the offload hooks around
@@ -109,7 +168,9 @@ class DiffusersBackend(GenerationBackend):
     # ---------------------------------------------------------------- loading
 
     def load(self) -> None:
-        with self._lock, ExitStack() as held:
+        # The candidate exits after the backend/weights locks, including a
+        # failed placement or late preparation. Publication disowns it once.
+        with _PipelineCandidate(self._release) as candidate, self._lock, ExitStack() as held:
             if self._pipe is not None:
                 return
             selected = current_settings(settings)
@@ -173,38 +234,89 @@ class DiffusersBackend(GenerationBackend):
             # Pinned repos download only their component tree, after the
             # quantizer checks above have had a chance to refuse the pairing.
             model_id = loading.resolve_model(source_id, weights=True)
-            kwargs.update(loading.component_overrides(checkpoint_id, quant, resolved_model_id=model_id))
-            with loading.checkpoint_files_released(quant is not None):
-                pipe = loader.from_pretrained(model_id, **kwargs)
-            log.info("resolved pipeline class: %s", type(pipe).__name__)
+            # An override can already own loaded weights before a complete
+            # pipeline exists. Keep those references in the transaction too.
+            candidate.related = tuple(loading.component_overrides(checkpoint_id, quant, resolved_model_id=model_id).items())
+            kwargs.update(candidate.related)
+            try:
+                with loading.checkpoint_files_released(quant is not None):
+                    candidate.pipe = loader.from_pretrained(model_id, **kwargs)
+            finally:
+                # Also covers a failure entering the shard-release context.
+                # The candidate owns overrides, not a retained load frame.
+                kwargs.clear()
+            log.info("resolved pipeline class: %s", type(candidate.pipe).__name__)
 
-            loading.place_pipeline(pipe, selected)
+            loading.place_pipeline(candidate.pipe, selected)
 
             # VAE decode at 2K is the other memory spike; slice and tile it. Most
             # pipelines expose the switches themselves; FLUX.2 klein's does not,
             # but its VAE has them, so fall through to the component.
-            vae = getattr(pipe, "vae", None)
             for opt, on_vae in (("enable_vae_slicing", "enable_slicing"), ("enable_vae_tiling", "enable_tiling")):
-                fn = getattr(pipe, opt, None) or getattr(vae, on_vae, None)
-                if callable(fn):
-                    try:
-                        fn()
-                    except Exception:  # noqa: BLE001 - purely opportunistic
-                        log.debug("%s unavailable", opt)
+                try:
+                    fn = getattr(candidate.pipe, opt, None) or getattr(getattr(candidate.pipe, "vae", None), on_vae, None)
+                    if callable(fn):
+                        try:
+                            fn()
+                        except Exception:  # noqa: BLE001 - purely opportunistic
+                            log.debug("%s unavailable", opt)
+                finally:
+                    fn = None  # no bound-method reference in a failed load frame
 
-            params = set(inspect.signature(pipe.__call__).parameters)
+            params = set(inspect.signature(candidate.pipe.__call__).parameters)
             missing = sorted(_REQUIRED_PARAMS - params)
             if missing:
                 raise RuntimeError(
-                    f"{type(pipe).__name__}.__call__ takes no {' or '.join(missing)}; this "
+                    f"{type(candidate.pipe).__name__}.__call__ takes no {' or '.join(missing)}; this "
                     "backend needs the current diffusers callback and generator API, or "
                     "seeds would reproduce nothing and Cancel could never land."
                 )
-            self._apply_console_progress(pipe)
-            schedule.warn_about_post_processing(pipe)
-            self._call_params = params
-            self._pipe = pipe
-            log.info("model ready: %s", type(pipe).__name__)
+            self._apply_console_progress(candidate.pipe)
+            schedule.warn_about_post_processing(candidate.pipe)
+            candidate.params = params
+            # Publication is last, after the weights hold has exited too.
+            held.close()
+            log.info("model ready: %s", type(candidate.pipe).__name__)
+            self._publish_candidate_locked(candidate)
+
+    def _publish_candidate_locked(self, candidate: _PipelineCandidate) -> None:
+        """Transfer a fully prepared candidate without replacing working weights."""
+        if self._pipe is not None or self._regional_registration is not None or self._loaded_execution is not None:
+            raise RuntimeError("cannot publish a pipeline over working weights")
+        if candidate.pipe is None:
+            raise RuntimeError("cannot publish an empty pipeline candidate")
+        execution = canonical_execution(candidate.execution)
+        regional = execution is not None and execution.compilation is not None
+        if regional != (candidate.registration is not None):
+            raise ValueError("a regional pipeline and its registration must transfer together")
+        params = set(candidate.params)
+        self._regional_registration = candidate.registration
+        self._loaded_execution = execution
+        self._call_params = params
+        self._pipe = candidate.pipe
+        candidate.disown()
+
+    def _detach_pipeline_locked(self) -> _PipelineCandidate:
+        """Drop every shared-pipeline reference together; retain compatibility caches."""
+        candidate = _PipelineCandidate(
+            self._release, self._pipe, self._call_params, self._regional_registration,
+            self._loaded_execution,
+            tuple(pipe for pipe in (self._refine_pipe, self._inpaint_pipe) if pipe is not None),
+        )
+        self._pipe, self._call_params = None, set()
+        self._regional_registration, self._loaded_execution = None, None
+        self._lora = None
+        self._refine_pipe, self._refine_params = None, set()
+        self._inpaint_pipe, self._inpaint_params = None, set()
+        return candidate
+
+    def _require_execution(self, request: GenerateRequest) -> None:
+        require_default_execution(request.execution)
+        # Private prepared state cannot make an ordinary Eager request run
+        # compiled code, even if it bypassed the closed selection surface.
+        require_default_execution(self._loaded_execution)
+        if self._regional_registration is not None:
+            raise ValueError("Regional execution is not available in this build; unload this pipeline.")
 
     def prompt_expansion_supported(self) -> bool:
         pipe = self._pipe
@@ -280,16 +392,8 @@ class DiffusersBackend(GenerationBackend):
 
     def unload(self) -> None:
         with self._lock:
-            if self._pipe is None:
-                return
-            self._pipe = None
-            self._call_params = set()
-            # The adapter lives on the pipeline that is going away, and the
-            # refine pipeline is a second set of references to its modules.
-            self._lora = None
-            self._refine_pipe, self._refine_params = None, set()
-            self._inpaint_pipe, self._inpaint_params = None, set()
-        self._release()
+            candidate = self._detach_pipeline_locked()
+        candidate.close()
 
     def try_unload(self) -> bool:
         """Unload unless `load()` holds the lock, without waiting for it.
@@ -302,14 +406,10 @@ class DiffusersBackend(GenerationBackend):
         if not self._lock.acquire(blocking=False):
             return False
         try:
-            loaded, self._pipe, self._call_params = self._pipe is not None, None, set()
-            self._lora = None
-            self._refine_pipe, self._refine_params = None, set()
-            self._inpaint_pipe, self._inpaint_params = None, set()
+            candidate = self._detach_pipeline_locked()
         finally:
             self._lock.release()
-        if loaded:
-            self._release()
+        candidate.close()
         return True
 
     @staticmethod
@@ -345,7 +445,7 @@ class DiffusersBackend(GenerationBackend):
         the row a job later writes agree whether or not the weights were resident
         when the grid was previewed.
         """
-        require_default_execution(request.execution)
+        self._require_execution(request)
         if self._pipe is None:
             profile = defaults_for(current_model_id(settings))
             return request.applied(
@@ -679,7 +779,7 @@ class DiffusersBackend(GenerationBackend):
         # pre-pass count - and read after the last GPU work. Set only on a
         # return, so a cancelled or failed cell leaves no peak for the next.
         self._peak = None
-        require_default_execution(request.execution)
+        self._require_execution(request)
         device = self._peak_device() if self._pipe is not None else None
         if device is not None:
             try:
@@ -722,6 +822,7 @@ class DiffusersBackend(GenerationBackend):
         should_cancel: CancelFn | None = None,
         on_preview: PreviewFn | None = None,
     ) -> list["Image"]:
+        self._require_execution(request)
         if self._pipe is None:
             # Loading happens in exactly one place - main.ensure_loaded() - which
             # holds a lock across the whole load. Loading here instead would do

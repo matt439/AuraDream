@@ -154,6 +154,12 @@ implemented and checked on scratch galleries, as recorded in the backup plan.
 Shared-lock installation, managed retention and OS-backed protection remain;
 no real gallery was activated and no automatic deletion was added.
 
+The next bounded PERF#1 slice also landed in source: actual eager-load publication
+and shared teardown own unpublished pipeline/component references and future
+registration state, with strict synthetic failure/weak-reference checks. It
+changes no public loader selection or nonempty-render admission. Regional setup,
+selection and real execution remain in the compilation owner.
+
 Approved workflow work was reconciled against its owners, production paths and
 regression fixtures: mixed tag/prose handling and native tag spelling, More seeds
 queueing and response retries, queue controls and missed outcomes, deterministic

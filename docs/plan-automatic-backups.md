@@ -104,6 +104,12 @@ unproven. Reads of that first run's result/fake-log artifacts were denied and
 stopped; its separate stdout receipt supplied diagnostics. No further read in
 that artifact tree or permission workaround was attempted.
 
+After the subsequent loader-ownership integration, the final complete offline
+gate passed **4,920 tests with eight skips** in **225.12 seconds**, covering the
+receipt/configuration overlap fix too. All **120** production/tool sources pass
+the pinned type gate, and repository Ruff passes. No additional backup behavior
+was activated by that validation.
+
 ## Activation, age and saved state
 
 Use gallery-scoped, atomically saved backup preferences, independent of

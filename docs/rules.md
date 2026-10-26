@@ -767,6 +767,17 @@ Model and loader:
 - `load()` refuses a pipeline whose `__call__` lacks `generator` or
   `callback_on_step_end` (`_REQUIRED_PARAMS`): the seed and the cancel depend
   on them.
+- Backend loading owns returned component overrides and the unpublished pipeline
+  in one candidate through shard/weights-context exit, placement, callback checks,
+  console configuration and diagnostics. Publish the complete call parameters,
+  effective recipe and owned registration before assigning the live pipeline
+  last. Failed candidates drop owned application containers before allocator
+  release, outside backend/weights locks, preserving the original exception and
+  attaching cleanup errors. Both unload paths detach base/sibling/adapter/recipe
+  ownership together, retaining compatibility caches and console preference;
+  contention in `try_unload` changes nothing. Private nonempty loaded state must
+  refuse an ordinary eager request before device or pipeline work. This opens no
+  selection/render gate and proves no physical GPU memory release.
 - `LOCAL_DIFFUSION_QUANT=nunchaku` means a pre-quantized lite-infer repo, Linux only
   (WSL 2 here), and no quantization config; `loading.nunchaku_preflight` and `loading.refuse_prequantized` refuse the other pairings before any download. Under
   WSL, `source wsl/env.sh` before `uv`.
@@ -5257,6 +5268,13 @@ candidate disposal, precompiled root/region refusal and idempotent reference
 cleanup with stubs. Installed `ConfigModule.patch` over synthetic flags
 checks nested/thread restoration. Real Flux/Dynamo imports, compiler calls,
 fallback and device behavior remain unexecuted.
+`tests/test_pipeline_ownership.py` exercises the actual eager loader over strict
+synthetic runtime modules, unpublished override/pipeline failure at context entry
+and exit, publication order, registration transfer and shared unload behavior.
+Weak-reference assertions outside exception handling prove application containers
+drop ownership before release; arbitrary library traceback references and actual
+GPU reclamation are separate. An isolated subprocess forbids framework imports
+while checking private loaded-recipe refusal before work.
 `tests/test_attention_selection.py` checks coverage, transactional failures,
 shared ownership, later replacements and idempotent restoration with stubs.
 It also executes source-extracted installed public context/setter bodies.

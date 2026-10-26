@@ -181,6 +181,19 @@ Components are `text_encoder` (Qwen3-VL), `transformer` (Krea2Transformer2DModel
 
 ## Loading happens in one place
 
+**Backend publication and failure ownership (2026-10-26, `PERF#1`).** The eager
+backend now holds returned component overrides and a pipeline in one unpublished
+candidate until every preparation step and weights context has completed. The
+live pipeline is assigned last. Both unload forms detach shared siblings, adapters
+and future registration ownership through one path, preserving compatibility
+caches and console preference. Failed application containers are cleared before
+allocator release without replacing the primary error; library traceback frames
+can still retain their arguments. Synthetic weak-reference tests establish that
+bounded ownership result, not physical card memory release. The
+[compilation plan](plan-regional-compilation.md#backend-publication-and-teardown-ownership)
+records this preparation stage; no new loader choice or experimental render is
+enabled.
+
 Loading happens in exactly one place: `main.ensure_loaded()`, which holds an
 asyncio lock across the whole load. Jobs `await` it rather than calling
 `backend.load()` from the worker thread — doing both raced two concurrent
