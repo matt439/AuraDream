@@ -257,6 +257,14 @@ sites document verified library annotation gaps; the main backend needs
 no exception. Schedules, seeds, arithmetic, source composition and cleanup
 remain unchanged; no GPU behavior was measured.
 
+**Critic lifecycle slice (2026-10-26).** All 23 runtime/server findings
+are resolved without suppressions or casts. Scoped checking, ruff and
+independent review pass; 62 focused tests pass with one expected skip.
+A sandboxed invalid-executable test hung, its owned session was closed,
+and the isolated test plus full focused suite passed through supported
+approval. No process-inventory denial was bypassed, and no real critic
+or GPU work was used.
+
 **Stages.**
 
 1. Select and record a reproducible Pyright version and basic-mode

@@ -241,6 +241,23 @@ Receipts: `work/dev6-pipeline-interfaces-after.json`,
 `work/dev6-custom-pipelines-validation.json`. No GPU acceptance follows
 from these CPU checks.
 
+2026-10-26, critic lifecycle slice: all 23 initial runtime/server findings
+are resolved with precise pinned-source fields, optional platform results
+and Windows handle/job contracts. Keys, commands, pins and stop/wait
+sequencing are unchanged. Scoped static checking, ruff and independent
+review pass without suppressions or casts. The focused suite passed
+**62 tests with one expected skip** through the supported test approval
+route in 2.31 seconds.
+
+The initial sandboxed suite stopped making progress in its synthetic
+invalid-executable startup test. Its owned session was reconciled and
+closed with the supported interrupt before retrying; no completion was
+claimed for it. The isolated test then passed through approval in 0.21
+seconds, followed by the complete focused suite above. Windows process
+inventory was denied and was not bypassed; task-owned session receipts
+were used instead. No real critic, model, download or GPU run occurred.
+Scoped evidence: `work/dev6-critic-after.json`.
+
 ## Initial counts by diagnostic
 
 <!-- Counts below are generated from the retained initial Pyright JSON. -->

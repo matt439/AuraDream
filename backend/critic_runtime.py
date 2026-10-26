@@ -18,6 +18,7 @@ import urllib.request
 import zipfile
 from dataclasses import dataclass
 from pathlib import Path, PurePosixPath
+from typing import TypedDict
 
 log = logging.getLogger(__name__)
 
@@ -109,7 +110,13 @@ BUILDS: dict[str, Build] = {
 # per critique on Windows, median 10.5, 19.3 s for a tag prompt, and about
 # 5.5 GiB of VRAM over the desktop's. The research's 8.8-9.0 s and ~5.0 GiB
 # were greedy decoding, which thinking mode is not run with.
-MODEL = {
+class _ModelSource(TypedDict):
+    repo_id: str
+    filename: str
+    revision: str
+
+
+MODEL: _ModelSource = {
     "repo_id": "Qwen/Qwen3-4B-GGUF",
     "filename": "Qwen3-4B-Q8_0.gguf",
     "revision": "bc640142c66e1fdd12af0bd68f40445458f3869b",
@@ -157,7 +164,10 @@ def glibc_version() -> tuple[int, int] | None:
     """This process's glibc, or None where the C library is not glibc (musl,
     Windows). A libc call, no file read: cheap enough for `/api/status`."""
     try:
-        name, version = os.confstr("CS_GNU_LIBC_VERSION").split()
+        answer = os.confstr("CS_GNU_LIBC_VERSION")
+        if answer is None:
+            return None
+        name, version = answer.split()
         major, minor = version.split(".")[:2]
         return (int(major), int(minor)) if name == "glibc" else None
     except (AttributeError, ValueError, OSError):
@@ -435,7 +445,7 @@ def _sweep_work(target: Path) -> None:
 
 def install_server(key: str) -> Path:
     """Download, verify and install the pinned build once; return the binary."""
-    from huggingface_hub.utils import WeakFileLock
+    from huggingface_hub.utils._fixes import WeakFileLock
 
     build = BUILDS[key]
     target = _target(key)
