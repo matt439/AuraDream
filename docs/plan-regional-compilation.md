@@ -87,8 +87,10 @@ Tests use strict defining-class/registration stubs and the installed
 `ConfigModule.patch` on a synthetic two-flag module to check nested/thread
 restoration. A reviewer caught the precompiled-root case; its regression
 proves no policy entry or model/block registration occurs before refusal.
-No real Flux or Dynamo import graph, compiler, tensor, model, device or
-cache operation was used for this helper qualification. Real lazy imports,
+The helper cases use no real Flux or Dynamo import graph, compiler, tensor,
+model or cache operation and reject new device calls. The normal test
+conftest still ran its established Windows CUDA-availability guard; that is
+no model or performance qualification. Real lazy imports,
 fallback/recompilation behavior, toolchain/cache setup, loading/call wiring
 and card qualification remain. There are no production callers and every
 nonempty execution recipe remains refused.

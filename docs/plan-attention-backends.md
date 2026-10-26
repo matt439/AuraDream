@@ -1,15 +1,54 @@
 # Plan: native and cuDNN attention on FLUX.1
 
-**Status, 2026-10-26: CPU-only planning slice complete.** Implementation
-and separately approved card qualification remain `PERF#3`. This is the
+**Status, 2026-10-26: shared carry and inactive processor-isolation helpers
+are implemented.** Runtime/environment wiring and separately approved card
+qualification remain `PERF#3`. This is the
 bounded next slice from [R3](review-2026-10-25.md#r3-attention-backend).
 No package installation, model load, tensor allocation or GPU operation
 was used to prepare this plan. No speed default changes.
 
 The shared `ExecutionSpec`, nullable SQL/PNG carry and refusal paths are
 implemented with `PERF#1`. A recorded `cudnn-v1` remains unavailable to
-render or Reuse; this establishes metadata transport, not attention
-processor isolation or card qualification.
+render or Reuse; this establishes metadata transport, not runtime processor
+or card qualification.
+
+## Inactive processor ownership and restoration
+
+`backend/backends/attention_selection.py` leaves None import-cold and
+unchanged. Explicit `cudnn-v1` configuration lazily checks exact defining
+FLUX model/block/attention/processor classes, declared block counts and
+every joint/single processor path before mutation. It snapshots identities
+and prior per-instance/class-backed values, deduplicating shared processors.
+The public native backend context encloses the setter and verification,
+restoring its incidental global registry change on success and exceptions.
+Failed setup rolls every original processor back and preserves its cause;
+the unpublished candidate must be discarded if cleanup cannot complete.
+
+One handle owns the transformer and its processors for all shared siblings.
+Another transformer cannot claim or graft owned processors. Verification
+detects changed blocks, attention modules, processors or backend values.
+Restoration attempts every original processor, preserves unrelated replacements,
+is idempotent after success and retains ownership after a restoration failure
+for repair/disposal. Successful release drops module/snapshot/traceback
+references. The future caller must retain the handle and obey idle/load
+ownership; no loader, request, catalogue or UI path calls it now.
+
+All **43 focused tests** passed with `--noconftest`; Ruff and narrow pinned
+Pyright pass. Tests use strict stubs and source-extracted installed public
+context/setter functions. They make no real Diffusers import, tensor,
+forward, model or device call. Import audit found `torch_utils` asks for a
+device during real dispatcher/transformer imports, so that binding path is
+explicitly unexecuted here. Independent review fixed ownership across
+replacement modules and shared processors. Real imports, dispatcher/shape
+support, repeatability, performance and fit remain unqualified. Environment
+override policy and activation decisions below are still unresolved; every
+nonempty execution recipe remains refused.
+
+Combined Windows integration passed **4,542 CPU tests, eight platform
+skips**, in **204.93 seconds** with two workers. This includes the new
+regional helper and managed-backup proof/journal stages. The pinned checker
+reports **111 sources, zero errors/warnings**; repository Ruff passed.
+No model load, render, Linux/hosted run or card qualification follows.
 
 ## First comparison and capability matrix
 

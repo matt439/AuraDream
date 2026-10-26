@@ -141,6 +141,9 @@ before changing it.
 - `backend/backends/regional_compile.py` - inactive exact-region discovery,
   lazy registration, candidate disposal and scoped compiler-policy helpers;
   no loading/generation or availability wiring
+- `backend/backends/attention_selection.py` - inactive complete FLUX processor
+  coverage, shared ownership, public-context configuration and restoration;
+  None is import-cold and no runtime callers enable cuDNN
 - `backend/backends/loading.py` — everything decided before the weights
   move: the quantization config, the Nunchaku preflight and the
   prequantized refusal, the components left out of the download, the
@@ -883,6 +886,16 @@ Reproduction:
   it never unwraps modules, resets global compiler state or deletes caches.
   The helper remains disconnected from loading and generation. Registration
   facts establish no compiled kernels, warm image or fallback qualification.
+- Inactive attention configuration owns one exact FLUX transformer's complete
+  joint/single processor layout. Validate types, config counts and every path
+  before mutation; retain block/attention/processor identities and prior
+  backend values. The public native context restores the setter's incidental
+  global change. Roll back all snapshots on failed setup, preserve the cause,
+  and never publish a failed candidate. A shared sibling uses the same handle;
+  a second transformer cannot claim already-owned processors. Verify detects
+  later replacement/backend changes, and restore releases owned references
+  only after restoration succeeds. Callers must retain the handle, configure
+  only while idle and discard failed candidates. None changes nothing.
 - Seeds are drawn from `2**53 - 1` and wrapped at `2**63 - 1`; both live in
   `seeds.py`. One generator per image, seeded `seed + i`; runs take base
   `seed + i * num_images`. The page refuses a typed seed past
@@ -5167,6 +5180,11 @@ candidate disposal, precompiled root/region refusal and idempotent reference
 cleanup with stubs. Installed `ConfigModule.patch` over synthetic flags
 checks nested/thread restoration. Real Flux/Dynamo imports, compiler calls,
 fallback and device behavior remain unexecuted.
+`tests/test_attention_selection.py` checks coverage, transactional failures,
+shared ownership, later replacements and idempotent restoration with stubs.
+It also executes source-extracted installed public context/setter bodies.
+Its focused run uses `--noconftest`, with no actual Diffusers import, tensor,
+forward or device probe; real runtime/card qualification remains separate.
 File-based readers use `metadata.require_header_metadata` to refuse app-owned
 text after PNG pixel data, which Pillow's header-only `info` would miss.
 The scan skips payloads, reads at most 80 bytes per text keyword and restores
