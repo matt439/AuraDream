@@ -1,7 +1,6 @@
-# The CPU suite and the lint on every push and on demand. No GPU, no
-# weights: what `uv run --group dev pytest` needs locally, on Linux (as under
-# WSL) and, on main, on Windows, where the app runs and a few tests run only
-# there.
+# Lint every push/PR. Documentation-only changes skip the CPU test matrix
+# and its application/tokenizer downloads. Manual runs keep the full gate.
+# CPU tests use Linux and, on main, Windows. No GPU or model weights.
 # Hosted runners cost nothing on a public repository.
 name: CI
 
@@ -20,7 +19,31 @@ concurrency:
   cancel-in-progress: true
 
 jobs:
+  lint:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    outputs:
+      full_tests: ${{ steps.changes.outputs.full_tests }}
+    steps:
+      - uses: actions/checkout@v7
+        with:
+          # Compare the entire pushed range or PR, not only the tip commit.
+          fetch-depth: 0
+      - uses: astral-sh/setup-uv@v10.3.2
+        with:
+          enable-cache: true
+          python-version: "3.13"
+      - name: Install development tools only
+        run: uv sync --locked --only-group dev
+      - name: Classify changed paths
+        id: changes
+        run: uv run --no-sync python tools/ci_changes.py
+      - name: Lint
+        run: uv run --no-sync ruff check .
+
   test:
+    needs: lint
+    if: ${{ needs.lint.outputs.full_tests == 'true' }}
     strategy:
       # One system's failure never cancels the other's answer.
       fail-fast: false
@@ -39,8 +62,6 @@ jobs:
           python-version: "3.13"
       - name: Install
         run: uv sync --locked --group dev
-      - name: Lint
-        run: uv run --group dev ruff check .
       # The real-tokenizer tests skip without these: tokenizer files only,
       # never weights. HF_TOKEN (a read token whose account has accepted the
       # gated FLUX.1-Krea-dev and Krea 2 Turbo) reaches this step alone;

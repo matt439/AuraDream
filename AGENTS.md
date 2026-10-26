@@ -291,8 +291,10 @@ in the HTTP layer or the UI needs to change.
 `tests/fakes.py`; HTTP tests are `tests/test_api*.py`, one file per area.
 
 CI (`.github/workflows/ci.yml`, detail in `docs/rules.md` under Tests): ruff
-and `pytest -n auto` on Linux for every push and pull request, and on
-Windows too for main (pushes and by hand; about 12 minutes). Its runners are
+on Linux for every push and pull request. Documentation-only changes run
+just lint, without app/tokenizer installs; executable files under `docs/`
+still get tests. Other changes and manual runs get `pytest -n auto` on Linux,
+and on Windows too for main (pushes and by hand; about 12 minutes). Its runners are
 slow and have no GPU driver: a test that races a clock (a time budget, a
 cell to skip or pause mid-run) needs seconds of margin, not milliseconds.
 `tools/fetch_tokenizers.py` fetches the real-tokenizer tests' files first,

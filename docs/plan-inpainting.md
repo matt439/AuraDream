@@ -730,8 +730,9 @@ inpaint start that is not the class's own default: the FLUX.1 profiles
 (Krea dev, dev, schnell) carry `inpaint_start: 0.95`, which every place
 deciding an inpaint's start asks first (`model_defaults.inpaint_start`),
 and the Strength note says where it was measured. Its outpaint comes with
-it. Still unmeasured: dev and schnell, a FLUX.1 outpaint and the class
-over the Nunchaku FLUX.1 transformer.
+it. FLUX.1 Krea dev outpaint was measured 2026-10-21, and the inpaint
+class over its Nunchaku transformer 2026-10-25 (`verified.md`, Outpaint
+and Under Nunchaku). Dev and schnell remain `CARD#1`/`CARD#2`/`CARD#3`.
 
 **Phase 4 - klein (M).** One reference beside the source, the refusal of
 more, the `compute_empirical_mu` recipe or no reading, memory with the
@@ -753,6 +754,13 @@ Total: an L, about two weeks of work for phases 0-2 and a few days for each
 of 3-6, plus card time that only the user can run.
 
 ## Open measurements (the card's to say)
+
+This numbered list preserves the original measurement scope, not a fresh
+queue. Results since then are in [verified.md](verified.md#inpaint),
+including embedded-mask sizes, Krea dev outpaint and Nunchaku inpaint.
+Current remaining work is indexed in [TODO](../TODO.md): `CARD#1` and
+`CARD#3` for supported inpaints, `INP#5`/`INP#6` for deferred families.
+Do not reopen completed measurements from this original checklist.
 
 1. Peak memory and time per family at 1 MP, and the largest size each holds
    (see "Memory and offload"), including FLUX.1 at 1 MP against the spill.

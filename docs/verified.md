@@ -722,16 +722,19 @@ was retried, no app was closed and the floor was not lowered.
 | Qwen-Image (`Qwen/Qwen-Image`) | fp8, sequential offload | transformer shard 6 of 9, about 50 s in | 3.7 GiB (commit headroom 10.0) | 46.0 GiB working set, 56.1 private |
 
 So on this 64 GB machine, as it was that day, a cold fp8 or int8 load of
-these checkpoints needs more than about 46 GiB of headroom; int8's spike is
-fp8's, so it comes from the quantizing load path (which, by the runners'
-reading, holds the bf16 weights before quantizing), not the dtype. The
-2026-10-21 FLUX.1 Krea dev outpaint run's load completed from 52 GB free
+these checkpoints needed more than about 46 GiB of headroom in the pre-fix
+loader; int8's spike was fp8's. The later diagnosis found unquantized
+tensors retaining the bf16 shard mappings alongside quantized weights,
+not a whole bf16 load before quantization (design notes, "The quantizing
+load's RAM peak"). The 2026-10-21 FLUX.1 Krea dev outpaint run's load
+completed from 52 GB free
 after a reboot, with no guard, and earlier fp8 loads completed too:
 schnell's on 2026-10-05 and Krea 2 Turbo's in 2026-09 (the Checkpoints
 rows above), so the 46 GiB figure describes the machine as it was that
-day, not a limit of the checkpoints. Whether to free RAM, lower the floor
-or change the loader is open (design notes, "The quantizing load's RAM
-peak"). The BF16 sequential loads above avoid it.
+day, not a limit of the checkpoints. The loader was fixed 2026-10-25 to
+release those shard mappings; its real Windows RAM peak has not been
+remeasured (`GEN#22`). The BF16 sequential loads above avoid that
+quantizing path. None of the guard stops above measures the fixed loader.
 Loads that completed: klein base 4B 22.9 GiB working set; ERNIE fp8
 35.4-36.0 GiB RSS, 14 GiB free at the lowest; Z-Image Turbo fp8 18.4-18.6
 GiB working set (23-25 GiB private), and under offload none 31.3 GiB private with 7.2 GiB free at the lowest (a

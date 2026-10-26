@@ -317,7 +317,8 @@ before changing it.
   `smoke-stage.json`, Gallery beside, and `smoke-narrow.json`, one column
   and narrow windows): the UI's stand-in for a test suite, and
   `run_smoke.py`, which starts each smoke's fake from `AGENTS.md`'s port
-  table and runs it; see Tests
+  table and runs it; `ci_changes.py` classifies GitHub push/PR ranges for
+  the documentation-only lint path; see Tests
 - `tests/` — the pytest suite, no GPU and no weights: `conftest.py`,
   `fakes.py` and `api_helpers.py` (the fake backend and its fixtures),
   `test_api*.py` (the HTTP routes, one file per area), and a file per module
@@ -5531,10 +5532,23 @@ token), with real offsets, at each encoder's real budget.
 FastAPI's `Body()` defaults, unchecked `zip` lengths, the base backend's
 optional no-op hooks and the fixtures `tests/` imports from helper modules
 allowed; style is the code's own and no formatter runs.
-`.github/workflows/ci.yml` runs ruff and this suite on Ubuntu (Python 3.13,
-`uv sync --locked --group dev`) on every push and pull request, and by hand;
-the smokes, which need a browser, stay local. On main (pushes and by hand)
-it runs on Windows too, about five times slower. `tests/conftest.py` makes
+`.github/workflows/ci.yml` always runs a Linux lint job (Python 3.13,
+`uv sync --locked --only-group dev`, then `uv run --no-sync ruff check .`).
+It installs only development tools, not torch or the application. For a
+documentation-only push or PR, this is the only job that runs: no tokenizer
+downloads or test matrix. `tools/ci_changes.py` compares the entire push's
+before/after range or the PR's merge-base/head range with a local Git diff.
+Root and `docs/` Markdown/reStructuredText, plus images/PDFs under `docs/`,
+are documentation; executable files and JSON under `docs/` still get full
+tests, as do workflows, dependencies and any other paths. Renames check
+both the old and new paths. New branches without a previous SHA, missing
+history, unknown/empty comparisons and manual dispatch keep the full gate.
+A docs-only tip on a code-changing PR does not bypass its tests.
+
+Other changes and manual runs get the CPU suite on Ubuntu
+(`uv sync --locked --group dev`, `pytest -n auto`); on main (pushes and by
+hand) it runs on Windows too, about five times slower. The smokes, which
+need a browser, stay local. `tests/conftest.py` makes
 `torch.cuda.is_current_stream_capturing` answer False on a driverless Windows
 machine, where torch's native call crashes the worker. It runs the suite with
 `pytest -n auto` (pytest-xdist, one worker per core). Before it,
@@ -5543,6 +5557,12 @@ the real-tokenizer tests in `test_prompt_encoding.py` and
 `test_critic_tokens.py` read, so those tests run instead of skipping. The
 `HF_TOKEN` repository secret covers the gated FLUX.1-Krea-dev and Krea 2
 Turbo; without it, as on forks' pull requests, those two warn and skip.
+
+`tests/test_ci_changes.py` exercises the path policy and real temporary
+Git histories: full pushed ranges, PR merge bases, deletions/renames and
+the full-test fallback when classification cannot be established. The
+design notes' [CI range policy](design-notes.md#ci-compares-the-whole-change-range)
+explains why the workflow itself is never path-filtered away.
 
 `uv run python tools/run_smoke.py <smoke> [<smoke> ...]` runs smokes without
 a second terminal: it reads `AGENTS.md`'s port table (the port, the

@@ -1083,6 +1083,13 @@ already reaches Outpaint (design notes, Outpainting).
 
 ## Open measurements (the card's to say)
 
+This numbered list preserves the original measurement scope. The
+[dated results](verified.md#outpaint) already include embedded-mask sizes,
+CPU fill/mask timings and FLUX.1 Krea dev outpaint. Current remaining
+supported-family measurements are `CARD#2` in [TODO](../TODO.md); later
+families remain with their deferred inpaint phases. This list does not
+reopen completed measurements.
+
 1. Peak memory and time per step at outpainted sizes for WAI and one other
    SDXL checkpoint, and Z-Image Turbo and Z-Anime: an outpaint's canvas is
    larger than its source (a 1 MP source to 16:9 is about 1.8 MP, +25% about

@@ -11730,7 +11730,12 @@ all now ask for no Apply (`[data-writes]`), since the cut's words and the order
 finding's have a Show. The comparison's always-run Original box carries the
 `aria-description` "Always runs: the other versions are compared against it".
 
-**Open questions the build turned up**, for decisions rather than code:
+### Open questions from the analyser
+
+These are decisions rather than implementation defects. The omission-warning
+policy below is indexed as `PA#11`. Historical `PA#10` labels were used for
+both the completed 2026-10-25 warning and the completed 2026-10-26 hybrid-prompt
+fix; refer to those completed changes by name and date, not as open rows.
 
 - Found on the card 2026-10-25 (TODO `PA#10`), reported since the same
   day: the critic's rewrite lost tags the user wrote and nothing said so -
@@ -11746,7 +11751,7 @@ finding's have a Show. The comparison's always-run Original box carries the
   silent), with stand-in prompts for an escape, underscore, case, spacing
   or weight difference, also silent; a CPU replay of the 19 saved SDXL
   critiques flags exactly the 8. Not re-run on the card. Still open,
-  a decision for Matt: whether such a rewrite should also be set aside
+  `PA#11`, a decision for Matt: whether such a rewrite should also be set aside
   rather than offered with the finding.
 - Resolved 2026-10-17: the tag autocomplete wrote Danbooru names with A1111
   escapes - `tags.display_tag` turned `(` into `\(` - to match the authors'
@@ -12009,6 +12014,31 @@ app read `max_memory_allocated`; now every ordinary render is a note.
   whole-card and shared memory.
 - **Not searchable**, by Matt's rating of that kind of search (Never), and
   no part of the reproduction set, so no key, run id or Resume count moves.
+
+## CI compares the whole change range
+
+Changed 2026-10-26 at Matt's request: documentation-only commits should run
+lint instead of paying for the application install, tokenizers and CPU
+suite. The always-run `lint` job installs the locked development group
+alone (`uv sync --locked --only-group dev`); its subsequent commands use
+`--no-sync` so they cannot pull application dependencies back in. The
+existing Linux/Windows test matrix depends on its `full_tests` output.
+
+`tools/ci_changes.py` uses the event payload and a full-history checkout:
+pushes compare before/after, PRs compare the merge base with the head.
+Checking only the tip commit could hide code changes earlier in a push or
+PR. `--no-renames` preserves both sides of a move, and NUL-separated paths
+preserve unusual filenames. Only root/docs prose and docs image/PDF paths
+skip tests: `docs/` also contains runnable prototypes, Python helpers and
+JSON fixtures. Every unknown path or unavailable/empty comparison keeps
+tests; manual dispatch always requests them. The workflow itself has no
+`paths-ignore`, so documentation changes still produce a lint result.
+
+The range comparison follows [GitHub's push/PR diff semantics](https://docs.github.com/en/actions/reference/workflows-and-actions/workflow-syntax#git-diff-comparisons),
+and the lightweight install uses [uv's dependency groups](https://docs.astral.sh/uv/concepts/projects/dependencies/#dependency-groups).
+The rules' Tests section owns the exact path policy and commands;
+`tests/test_ci_changes.py` covers the classifier with temporary Git histories.
+Hosted execution remains unverified until this workflow is pushed and run.
 
 ## uv.lock's hand-pinned torch hashes
 

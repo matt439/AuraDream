@@ -8,13 +8,22 @@ The maintainer's working backlog for this personal project: it records what is p
 
 **Aim (2026-10-18):** keep useful work ready for Matt's common workstation tasks. [Reported use](docs/design/preferences.md) guides priority; it does not approve the candidate redesign.
 
-**Ready backlog (2026-10-26):** no unblocked implementation rows remain. Matt's approved [shortcut and compact-setup stages](docs/plan-shortcut-workflow.md) are complete and qualified: dispatch/focus, contextual help, scoped fast routes and two setup disclosures. Earlier workflow/Bundles fixes remain qualified; deferred features remain deferred.
+**Ready backlog (audited 2026-10-26):** nine `OPEN` rows: five with CPU/browser implementation work and four whose next deliverable is a plan. The [audit](docs/review-2026-10-26-todo.md) found two concrete defects; start with these bounded slices, then the development checks:
 
-**Needs Matt:** workbench task trials (`DEV#1`) and hands-on screen-reader/touch checks (`UI#7`) are the next `USER` work. One decision waits: whether SDXL prompt weighting is wanted at all (`GEN#20`). The FLUX-family quantizing load's RAM peak is fixed in code and waits for a card run (`GEN#22`), which unblocks the FLUX-family `CARD` rows and `GEN#15`/`GEN#16`. Whole-app layout implementation waits for its trials; it remains a design hypothesis.
+1. `GEN#26`: preserve Marian's source tokens at a full chunk's boundary; CPU regression checks, no model download.
+2. `DEV#7`: make smoke screenshots portable across Windows accounts and Linux.
+3. `DEV#5`: check every classic script's syntax and shared declarations, including `app.js`, without booting the page.
+4. `DEV#4`, then `DEV#6`: retain smoke diagnostics and qualify a separate Linux browser CI job; establish a type-check baseline, fix bounded batches and enable its gate. [Stages and completion criteria](docs/plan-tooling.md).
+
+**Plan next:** `PERF#1` (regional compilation), then `GAL#6` (automatic backups), `PERF#3` (attention backend) and `PERF#4` (step caching). Their [owner](docs/review-2026-10-25.md) defines CPU-only planning deliverables. `PERF#2` still waits on `PERF#1`. These starts do not depend on Matt's layout trials or the RAM-loader card check.
+
+**Needs Matt:** workbench task trials (`DEV#1`) and hands-on accessibility/desktop checks (`UI#7`). Four decisions remain: SDXL weighting (`GEN#20`), whether to plan instruction editing (`INP#11`) or a detailer (`INP#12`), and whether to withhold critic rewrites that lose user content (`PA#11`). Whole-app layout implementation waits for its trials; it remains a design hypothesis.
+
+**Card prerequisite:** the quantizing load's RAM fix is implemented but its real Windows peak is unverified (`GEN#22`). Start with a separately approved cold fp8 FLUX.1 Krea dev load; each other checkpoint still needs its own measured load and render. Earlier guard stops remain historical evidence, not measurements of the fixed loader.
 
 **GPU runs are Matt's to run or OK, never past the 16 GB card** (every `CARD` row). Check the checkpoint's measured peaks in `docs/verified.md` first; a run that spills into shared memory proves only that it doesn't fit.
 
-**Proposed 2026-10-25, not yet triaged by Matt:** larger work from the [2026-10-25 review](docs/review-2026-10-25.md). Ready, plan first: speed (`PERF#1`, `PERF#3`, `PERF#4`; `PERF#2` waits on `PERF#1`), tooling (`DEV#4`-`DEV#6`) and automatic backups (`GAL#6`). Two decisions: whether to plan editing by instruction (`INP#11`) and a face and hand detailer (`INP#12`).
+Matt's approved [shortcut and compact-setup stages](docs/plan-shortcut-workflow.md) and earlier workflow/Bundles fixes remain complete. This audit scopes existing tooling proposals and planning work; speed defaults, unattended backup policy and the edit features remain unsettled in their owners. Deferred features remain deferred.
 
 ## Product design
 
@@ -30,16 +39,16 @@ The maintainer's working backlog for this personal project: it records what is p
 
 | id | status | sev | size | item |
 |---|---|---|---|---|
-| `CARD#1` | CARD | LOW | S+card | Inpaint at fp8: FLUX.1 dev and schnell at 0.95, a LoRA through a FLUX.1 inpaint, the seam by number on FLUX.1; their loads stop at the RAM guard (`GEN#22`). Nunchaku is `CARD#3`, later families are `INP`. [Inpaint](docs/verified.md#inpaint). |
-| `CARD#2` | CARD | LOW | S+card | Outpaint: FLUX.1 dev and schnell, and the outpaint's seam by number on FLUX.1; their loads stop at the RAM guard (`GEN#22`). [Outpaint](docs/verified.md#outpaint). |
+| `CARD#1` | CARD | LOW | S+card | Inpaint at fp8: FLUX.1 dev and schnell at 0.95, a LoRA through a FLUX.1 inpaint, the seam by number on FLUX.1; load recheck first (`GEN#22`). Nunchaku is `CARD#3`, later families are `INP`. [Inpaint](docs/verified.md#inpaint). |
+| `CARD#2` | CARD | LOW | S+card | Outpaint: FLUX.1 dev and schnell, and the outpaint's seam by number on FLUX.1; load recheck first (`GEN#22`). [Outpaint](docs/verified.md#outpaint). |
 | `CARD#3` | CARD | LOW | S+card | An inpaint under WSL through the real server and the Inpaint dialog, and over the FLUX.1 dev and schnell lite transformers. [Under Nunchaku](docs/verified.md#under-nunchaku-wsl-2026-10-25). |
-| `CARD#4` | CARD | LOW | M+card | INT8 and fp8 under either offload on FLUX.1 Krea dev, dev, schnell, Krea 2 Turbo and Raw, klein 9B and base 9B (fp8 stopped at the RAM guard on all but Raw and base 9B, int8 on Krea dev; the rest untried, the same load; `GEN#22`); INT8 with sequential offload. Qwen-Image is `CARD#12`. [Quantization and offload](docs/verified.md#quantization-and-offload-2026-10-25). |
-| `CARD#6` | CARD | LOW | M+card | Windows fp8 rows: Krea 2 Turbo's time, Krea 2 Raw, FLUX.2 [klein] 9B and base 9B. Krea 2 Turbo's and klein 9B's fp8 loads stop at the RAM guard (`GEN#22`); Raw's and base 9B's were not tried (the same scale). [RAM at the load](docs/verified.md#ram-at-the-load-2026-10-25). |
-| `CARD#7` | CARD | LOW | M+card | Refine on FLUX.1 at fp8: dev, what schnell's starting strength keeps, true CFG through FluxImg2Img (their loads stop at the RAM guard, `GEN#22`); offload none and sequential past Z-Image Turbo. [Refine pass](docs/verified.md#refine-pass). |
+| `CARD#4` | CARD | LOW | M+card | INT8 and fp8 under either offload on FLUX.1 Krea dev, dev, schnell, Krea 2 Turbo and Raw, klein 9B and base 9B; load recheck first (`GEN#22`). INT8 with sequential offload. Qwen-Image is `CARD#12`. [Measured modes and guard stops](docs/verified.md#quantization-and-offload-2026-10-25). |
+| `CARD#6` | CARD | LOW | M+card | Windows fp8 rows: Krea 2 Turbo's time, Krea 2 Raw, FLUX.2 [klein] 9B and base 9B; load recheck first (`GEN#22`). Raw and base 9B were not tried. [RAM at the load](docs/verified.md#ram-at-the-load-2026-10-25). |
+| `CARD#7` | CARD | LOW | M+card | Refine on FLUX.1 at fp8: dev, what schnell's starting strength keeps, true CFG through FluxImg2Img; load recheck first (`GEN#22`). Offload none and sequential past Z-Image Turbo. [Refine pass](docs/verified.md#refine-pass). |
 | `CARD#9` | CARD | LOW | S+card | ERNIE-Image Turbo on fp8: seed reproduction across two processes, whether the 4 MP batch of two fits (the harness's projection refused it), and the page's Expand line and clock over the rewriter's real first-use download. [Behaviour](docs/verified.md#behaviour). |
-| `CARD#10` | CARD | LOW | M+card | On the real server, fixes checked only on the fake: 9377de1, 7733f81, 6a7570d, ad01fdc, 2a4d2cc, 2b89ed5 (the FLUX.1 Krea dev load stops at the RAM guard, `GEN#22`); R50's fix (1744dc3) with a typed Ctrl-C, and Ctrl-C to an idle server with a model loaded. [Behaviour](docs/verified.md#behaviour); [10-12 not reached](docs/review-2026-10-12.md#review--2026-10-12). |
-| `CARD#11` | CARD | LOW | M+card | The critic: a reorder that reaches the partial-placement check (none of 16 did; every 4B reorder changed words); FLUX.1 Krea [dev] at int8 or sequential beside it, and its rewrites against originals over more seeds (RAM guard, `GEN#22`); kill-on-close under WSL; Ctrl-C during a critique. [Prompt analyser](docs/verified.md#prompt-analyser). |
-| `CARD#12` | CARD | LOW | S+card | Official Qwen-Image on Windows: fp8 with sequential offload stops at the RAM guard during the load (`GEN#22`); BF16 with sequential offload is untried. [RAM at the load](docs/verified.md#ram-at-the-load-2026-10-25); [Switching](docs/design-notes.md#switching-checkpoints-while-the-server-stays-open). |
+| `CARD#10` | CARD | LOW | M+card | On the real server, fixes checked only on the fake: 9377de1, 7733f81, 6a7570d, ad01fdc, 2a4d2cc, 2b89ed5; load recheck first (`GEN#22`). R50's fix (1744dc3) with a typed Ctrl-C, and Ctrl-C to an idle server with a model loaded. [Behaviour](docs/verified.md#behaviour); [10-12 not reached](docs/review-2026-10-12.md#review--2026-10-12). |
+| `CARD#11` | CARD | LOW | M+card | The critic: a reorder that reaches the partial-placement check (none of 16 did; every 4B reorder changed words); FLUX.1 Krea [dev] at int8 or sequential beside it, and its rewrites against originals over more seeds (load recheck first, `GEN#22`); kill-on-close under WSL; Ctrl-C during a critique. [Prompt analyser](docs/verified.md#prompt-analyser). |
+| `CARD#12` | CARD | LOW | S+card | Official Qwen-Image on Windows: recheck fp8 with sequential offload after its historical RAM-guard stop (`GEN#22`); BF16 with sequential offload is untried. [RAM at the load](docs/verified.md#ram-at-the-load-2026-10-25); [Switching](docs/design-notes.md#switching-checkpoints-while-the-server-stays-open). |
 
 ## Inpainting, outpainting and edits
 
@@ -62,14 +71,15 @@ The maintainer's working backlog for this personal project: it records what is p
 |---|---|---|---|---|
 | `GEN#6` | DEFERRED | LOW | M+card | Live-preview maps for the four-channel SDXL VAE and FLUX.2's VAE (ERNIE; klein also lacks an unpack hook); previews switch themselves off there. [Behaviour](docs/verified.md#behaviour). |
 | `GEN#8` | DEFERRED | LOW | L | U61 part B: one's own photo or sketch as a reference (import route, a source marker through storage, reindex and reruns; add, drop and paste). Matt deferred it 2026-10-05; only when he raises it. [References](docs/design-notes.md#reference-images-by-gallery-id). |
-| `GEN#15` | CARD | LOW | S+card | Peak memory per image: phase 3's FLUX.1 Krea [dev] render, the recorded peak beside `nvidia-smi` and shared memory; its load stops at the RAM guard (`GEN#22`). [Plan](docs/plan-peak-vram.md). |
-| `GEN#16` | CARD | LOW | S+card | Generate then refine: phase 3's FLUX.1 Krea dev night at 1.5x, peak of the alternation and the pair's time; its load stops at the RAM guard (`GEN#22`). [Plan](docs/plan-then-refine.md). |
+| `GEN#15` | CARD | LOW | S+card | Peak memory per image: phase 3's FLUX.1 Krea [dev] render, the recorded peak beside `nvidia-smi` and shared memory; load recheck first (`GEN#22`). [Plan](docs/plan-peak-vram.md). |
+| `GEN#16` | CARD | LOW | S+card | Generate then refine: phase 3's FLUX.1 Krea dev night at 1.5x, peak of the alternation and the pair's time; load recheck first (`GEN#22`). [Plan](docs/plan-then-refine.md). |
 | `GEN#20` | DECISION | LOW | L+card | Whether to plan opt-in A1111 weighting and 77-token chunking on SDXL; only if Matt writes weighted prompts. [10-24 G10](docs/review-2026-10-24.md#g10-a1111-style-weighting-and-long-prompts-on-sdxl). |
 | `GEN#22` | CARD | MED | M+card | The quantizing load's RAM peak (about 46 GiB at the load, 2026-10-25) is fixed in the loader: unquantized tensors kept every bf16 shard mapped, and `loading.checkpoint_files_released` now lets each go. Re-run a cold fp8 FLUX.1 Krea dev load on Windows and record its peak, then the FLUX-family card rows it unblocks. [The quantizing load's RAM peak](docs/design-notes.md#the-quantizing-loads-ram-peak). |
+| `GEN#26` | OPEN | MED | S | Preserve every Marian source token at a full chunk boundary: separate the source budget from the input limit including special tokens. [Reproduction and completion](docs/review-2026-10-26-todo.md#gen26-marian-truncates-a-full-sentence-chunk). |
 
 ## Speed
 
-**Owner:** the [2026-10-25 review](docs/review-2026-10-25.md#speed). Weight-only fp8/int8 run slower a step than bf16 today; none of these is used yet. Each pixel-changing choice is recorded for reproduction.
+**Owner:** the [2026-10-25 review](docs/review-2026-10-25.md#speed), including each row's CPU-only next planning slice. The measured weight-only fp8/int8 cases run slower a step than bf16; none of the proposed speed tools is used yet. Each pixel-changing choice is recorded for reproduction.
 
 | id | status | sev | size | item |
 |---|---|---|---|---|
@@ -88,11 +98,12 @@ The maintainer's working backlog for this personal project: it records what is p
 
 ## Prompt analyser
 
-**Owner:** the 2026-09-28 checklist's [What remains](docs/review-2026-09-28-checklist.md#what-remains) for the residues; the design notes' [prompt analyser](docs/design-notes.md#the-prompt-analyser) ("Open questions the build turned up") for the decisions.
+**Owner:** the 2026-09-28 checklist's [What remains](docs/review-2026-09-28-checklist.md#what-remains) for the residues; the design notes' [open questions from the analyser](docs/design-notes.md#open-questions-from-the-analyser) for decisions.
 
 | id | status | sev | size | item |
 |---|---|---|---|---|
 | `PA#9` | DEFERRED | LOW | L | Scoring comparison images automatically with a VLM (does each element appear); accuracy unmeasured. |
+| `PA#11` | DECISION | LOW | S | Whether a critic rewrite that loses user tags/content should be withheld or remain offered with its info finding; the omission warning is already built. [Decision](docs/design-notes.md#open-questions-from-the-analyser). |
 
 ## The page
 
@@ -100,17 +111,18 @@ The maintainer's working backlog for this personal project: it records what is p
 
 | id | status | sev | size | item |
 |---|---|---|---|---|
-| `UI#7` | USER | LOW | M | Hands-on screen-reader (NVDA/Narrator) and touch validation; browser emulation and accessibility-tree inspection do not complete it. [Manual checks](docs/design/validation.md#accessibility-and-desktop-checks). |
+| `UI#7` | USER | LOW | M | Hands-on NVDA/Narrator, touch, native notification delivery and actual Windows scaling checks; browser emulation and accessibility-tree inspection do not complete them. [Manual checks](docs/design/validation.md#accessibility-and-desktop-checks). |
 
 ## Tooling
 
-**Owner:** the [2026-10-25 review](docs/review-2026-10-25.md#tooling).
+**Owner:** [Tooling stages and completion criteria](docs/plan-tooling.md); proposal provenance is in the [2026-10-25 review](docs/review-2026-10-25.md#tooling).
 
 | id | status | sev | size | item |
 |---|---|---|---|---|
-| `DEV#4` | OPEN | LOW | L | Run the browser smokes in CI on Linux Chrome as a second job; fix font-sensitive assertions properly, keep a failed fake's log. Plan first. [10-25 R5](docs/review-2026-10-25.md#r5-run-the-smokes-in-ci). |
-| `DEV#5` | OPEN | LOW | S | A pytest that loads `web/`'s classic scripts in `index.html` order into one Node `vm` context and fails on a redeclared global or a syntax error. [10-25 R6](docs/review-2026-10-25.md#r6-check-webs-shared-global-scope-without-a-browser). |
-| `DEV#6` | OPEN | LOW | L | Pyright (basic) over `backend/` and `tools/` in CI; fix or individually suppress the first run's findings. [10-25 R7](docs/review-2026-10-25.md#r7-a-type-checker-over-backend). |
+| `DEV#4` | OPEN | LOW | L | Retain collectable smoke diagnostics, then qualify a separate Linux Chrome CI job; the job follows `DEV#7`'s portable output. [Stages](docs/plan-tooling.md#browser-smokes-in-ci). |
+| `DEV#5` | OPEN | LOW | S | A pytest-to-Node syntax/shared-scope guard derived from HTML script order, including `app.js` without running its boot. [Completion](docs/plan-tooling.md#shared-classic-script-scope). |
+| `DEV#6` | OPEN | LOW | L | Establish Pyright basic's baseline over `backend/` and `tools/`, fix bounded batches, then gate CI; no blanket suppressions. [Stages](docs/plan-tooling.md#backend-type-checking). |
+| `DEV#7` | OPEN | MED | S | Remove account-specific screenshot paths from the compact-setup smoke and define portable screenshot output for the browser runner. [Defect and completion](docs/plan-tooling.md#portable-smoke-screenshots). |
 
 ## Review coverage
 
@@ -125,10 +137,11 @@ Each review's remaining work is indexed above; closed findings stay in their own
 | 2026-10-05 areas | 84 fixed, A68 partly by decision; the integration review's K1-K5 fixed. |
 | 2026-10-12 | R1-R53 fixed; F1-F5, F7-F13 and F15-F19 built. F6's supported inpaint/outpaint paths are built; remaining families/measurements are `INP`/`CARD`. F14 was qualified on the card 2026-10-21; F5's age-scoped emptying was built 2026-10-19 (`GAL#5`). |
 | 2026-10-24 | G1 smoke runner and G2 lint/CI built the same day; G5 choices, G6 snippets, G7 queue, G8 size/crop and G9 help built 2026-10-25/26 ([choices](docs/plan-random-prompt-variables.md), [snippets](docs/plan-prompt-snippets.md), [queue](docs/plan-queue-controls.md), [size/crop](docs/plan-size-axis-crop-anchor.md), [help](docs/plan-shortcuts.md)); G3, G4 and G10 indexed above; the rest recorded as not taken. |
-| 2026-10-25 | Speed, tooling, backups and edits: R1-R10 indexed above (`PERF`, `DEV#4`-`DEV#6`, `GAL#6`, `INP#11`/`INP#12`), untriaged. |
+| 2026-10-25 | R1-R10 indexed above. Tooling has [execution stages](docs/plan-tooling.md); speed/backups have CPU-only planning starts. Edits remain Matt's decisions. |
 | 2026-10-26 workflow | Three reproduced findings fixed and qualified: mixed prompt prose (`PA#10`), incomplete numbers (`GEN#24`) and unseen queued outcomes (`GEN#25`). [Evidence and results](docs/review-2026-10-26-ux.md). |
 | 2026-10-26 keyboard | All three approved stages (`UI#17`-`UI#19`) fixed and qualified, including fast routes and compact setup. [Evidence](docs/plan-shortcut-workflow.md). |
 | 2026-10-26 sizing/Bundles | Password association (`UI#14`), clear-count explanation (`UI#15`) and frequent secondary target sizing (`UI#16`) fixed and qualified. [Evidence and results](docs/review-2026-10-26-sizing-bundles.md). |
+| 2026-10-26 TODO audit | [Owner/code reconciliation](docs/review-2026-10-26-todo.md): Marian chunk truncation (`GEN#26`), portable screenshots (`DEV#7`), restored critic decision (`PA#11`) and bounded tooling/planning stages. |
 
 ---
 
