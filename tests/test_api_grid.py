@@ -270,10 +270,12 @@ def test_a_grid_stops_at_its_time_budget_and_says_so(client, fake):
     # Over-provision on purpose and take what the night reaches; the rest is
     # a resume. The budget means "start no cell after": the cell in flight
     # finishes, and the stop is reported as the plan working, not a cancel.
-    fake.step_seconds = 0.02
+    # The deadline is fixed at submission: 1 s lets a slow runner start the
+    # first cell (50 ms did not on CI's Windows), and every cell outlasts it.
+    fake.step_seconds = 0.3  # 1.5-2.4 s cells
     body = {
         "prompt": "x", "width": 256, "height": 256, "steps": 5, "steps_axis": "5,6,7,8",
-        "seed": 1, "budget_minutes": 0.05 / 60,  # 50 ms
+        "seed": 1, "budget_minutes": 1.0 / 60,  # 1 s
     }
     _, events = run_grid(client, **body)
     done = events[-1]
