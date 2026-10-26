@@ -681,10 +681,10 @@ function refineSideTyped(event) {
 // a number box steps; a list or a range is text and left alone. Ctrl+Enter is
 // the document's (app.js), and runs the pass from anywhere in the dialog.
 function refineKeydown(event) {
-  if (event.isComposing || event.ctrlKey || event.metaKey || event.altKey) return;
+  if (keyboardEventHeld(event) || keyboardCommandModifier(event)) return;
   if (event.key === 'Enter' && !event.shiftKey && event.target.matches('input:not([type="checkbox"])')) {
     event.preventDefault();
-    void runRefine();
+    if (!event.repeat) void runRefine();
     return;
   }
   if ((event.key === 'ArrowUp' || event.key === 'ArrowDown') && event.target === els.refineStrength) {

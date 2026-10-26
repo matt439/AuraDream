@@ -327,18 +327,27 @@ function renderTagValidation(results, state = 'checked', detail = '') {
     // The tray is one tab stop: arrows, Home and End walk the chips (Alt
     // with an arrow moves the tag instead), the rest act on the one focused.
     chip.onkeydown = (event) => {
+      if (keyboardEventHeld(event) || keyboardEditingTarget(event.target)) return;
+      const insert = (!event.shiftKey && event.key === 'ContextMenu') || (event.shiftKey && event.key === 'F10');
+      if (insert && !keyboardCommandModifier(event)) {
+        event.preventDefault();
+        if (!event.repeat) openTagInsert(index + 1);
+        return;
+      }
+      const reorder = event.altKey && !event.ctrlKey && !event.metaKey && !event.shiftKey
+        && ['ArrowLeft', 'ArrowRight'].includes(event.key);
+      if (reorder) {
+        event.preventDefault();
+        movePromptTag(index, index + (event.key === 'ArrowLeft' ? -1 : 1));
+        return;
+      }
+      if (keyboardCommandModifier(event) || event.shiftKey) return;
       if (event.key === 'Delete' || event.key === 'Backspace') {
         event.preventDefault();
-        deletePromptTag(index);
+        if (!event.repeat) deletePromptTag(index);
       } else if (event.key === 'Enter' || event.key === 'F2') {
         event.preventDefault();
-        openTagEdit(index);
-      } else if (event.altKey && event.key === 'ArrowLeft') {
-        event.preventDefault();
-        movePromptTag(index, index - 1);
-      } else if (event.altKey && event.key === 'ArrowRight') {
-        event.preventDefault();
-        movePromptTag(index, index + 1);
+        if (!event.repeat) openTagEdit(index);
       } else if (['ArrowLeft', 'ArrowRight', 'Home', 'End'].includes(event.key)) {
         event.preventDefault();
         const chips = [...els.tagValidation.querySelectorAll('.tag-check')];

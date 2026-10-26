@@ -2922,12 +2922,19 @@ Frontend and CLI:
   open prompt check. In the Refine dialog the list's Escape is prevented on
   the box's keydown, which keeps the modal dialog's cancel from firing: it
   closes the list, and the next one closes the dialog.
-- Ctrl+Enter is routed by focus (app.js's keydown): in the Refine dialog it
+- Keyboard events already prevented, composing (including keyCode 229), or
+  carrying unsupported extra modifiers never become a second page command.
+  Discrete activation does not repeat; navigation, zoom, numeric stepping and
+  the mask's held stroke retain repeat. Native repeated Enter/Space activation
+  is held for discrete buttons too. A focused input, select or editable owns
+  its text/navigation keys. The event's native modal owns dispatch; settings,
+  help, Bundles, menus and the lightbox cannot generate behind themselves.
+- Ctrl/Cmd+Enter (exactly one primary modifier, no Alt/Shift) is routed by focus (app.js's keydown): in the Refine dialog it
   runs the pass, and so does a plain Enter in the dialog's one-line boxes
   (`refineKeydown`); in Mass refine's dialog it runs that
   (`runRefineBatch`) and in Swap tags' it queues (`queueSwap`); from a box
   of the open grid fold it clicks Run grid;
-  anywhere else, a focused image included, it generates - `thumb()`'s Enter
+  on the main workspace, a focused image included, it generates - `thumb()`'s Enter
   and Space open the lightbox only without Ctrl, Meta or Alt. Generate
   itself refuses in the page alone (never the server, where braces can be
   text or {tag} emphasis) while the fold is open, its variables box has text
@@ -5115,6 +5122,11 @@ one-call Skip and Finish recovery, and held paused/Then refine reasons.
 It checks random/cross selection, saved mode and Reset, deterministic choices
 across numeric axes and per-image batch seeds, preview counts and unseeded
 sample wording, saved choices, Resume, and unchanged Cartesian behavior.
+
+`smoke-shortcut-dispatch.json` uses a fresh fake on 7924. It checks modal and
+menu ownership, exact modifiers, handled/composing/repeated events, native
+button repeat, lightbox editing/select/browser navigation, ordinary Generate
+and Grid, and delayed More seeds/help Escape precedence.
 
 `smoke-shortcuts.json` uses a fresh fake on 7913. It checks the complete
 shortcut list before any images exist, the top-bar and `?` openers, typing,

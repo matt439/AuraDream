@@ -698,14 +698,15 @@ function refitSheet() {
 
 // F stars the focused cell from its image or tools; navigation is image-only.
 async function sheetKey(e) {
-  if (e.metaKey || e.altKey || els.lightbox.open) return;
+  if (keyboardEventHeld(e) || keyboardEditingTarget(e.target) || e.metaKey || e.altKey || els.lightbox.open) return;
   const cell = e.target.closest('.sheet-cell[data-id]');
   if (!cell) return;
-  if (!e.ctrlKey && (e.key === 'f' || e.key === 'F')) {
+  if (!e.ctrlKey && !e.shiftKey && (e.key === 'f' || e.key === 'F')) {
+    e.preventDefault();
+    if (e.repeat) return;
     const id = Number(cell.dataset.id);
     const rec = sheetRecords.find((r) => r.id === id) ?? (sheetLayout?.source?.id === id ? sheetLayout.source : null);
     if (!rec) return;
-    e.preventDefault();
     await starCell(cell, rec, { say: true });
     return;
   }
@@ -715,7 +716,7 @@ async function sheetKey(e) {
     sheetZoomKey(e.key, cell);
     return;
   }
-  if (e.target.tagName !== 'IMG' || (e.ctrlKey && e.key !== 'Home' && e.key !== 'End')) return;
+  if (e.shiftKey || e.target.tagName !== 'IMG' || (e.ctrlKey && e.key !== 'Home' && e.key !== 'End')) return;
   if (!['ArrowLeft', 'ArrowRight', 'ArrowUp', 'ArrowDown', 'Home', 'End'].includes(e.key)) return;
   e.preventDefault();
   moveSheetCell(cell, e.key, e.ctrlKey);

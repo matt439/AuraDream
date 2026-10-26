@@ -511,10 +511,10 @@ function forgetRefineBatchImages(gone) {
 // ArrowUp and ArrowDown step Strength by 0.05, 0.01 with Shift, as the
 // single dialog's do. Ctrl+Enter is the document's (app.js).
 function refineBatchKeydown(event) {
-  if (event.isComposing || event.ctrlKey || event.metaKey || event.altKey) return;
+  if (keyboardEventHeld(event) || keyboardCommandModifier(event)) return;
   if (event.key === 'Enter' && !event.shiftKey && event.target.matches('input:not([type="checkbox"])')) {
     event.preventDefault();
-    void runRefineBatch();
+    if (!event.repeat) void runRefineBatch();
     return;
   }
   if ((event.key === 'ArrowUp' || event.key === 'ArrowDown') && event.target === els.refineBatchStrength) {

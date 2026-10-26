@@ -34,6 +34,7 @@ function buildPresets() {
 // panel and asks for a preview, so it waits for Enter or Space, as before.
 // The buttons are queried, not the strip's children: a pair is a box of two.
 function stepPreset(strip, e) {
+  if (keyboardEventHeld(e) || keyboardCommandModifier(e) || keyboardEditingTarget(e.target) || e.shiftKey) return;
   const buttons = [...strip.querySelectorAll('button')];
   const from = buttons.indexOf(e.target);
   if (from < 0) return;
@@ -412,13 +413,14 @@ function renderReferences() {
     drop.setAttribute('aria-keyshortcuts', 'Delete Alt+ArrowLeft Alt+ArrowRight');
     drop.onclick = () => removeReference(i);
     drop.onkeydown = (e) => {
-      if (e.altKey && (e.key === 'ArrowLeft' || e.key === 'ArrowRight')) {
+      if (keyboardEventHeld(e) || keyboardEditingTarget(e.target)) return;
+      if (e.altKey && !e.ctrlKey && !e.metaKey && !e.shiftKey && (e.key === 'ArrowLeft' || e.key === 'ArrowRight')) {
         e.preventDefault();
         const to = i + (e.key === 'ArrowLeft' ? -1 : 1);
         if (moveReference(i, to)) focusReference(to);
-      } else if (e.key === 'Delete') {
+      } else if (!keyboardCommandModifier(e) && !e.shiftKey && e.key === 'Delete') {
         e.preventDefault();
-        removeReference(i);
+        if (!e.repeat) removeReference(i);
       }
     };
     chip.ondragstart = (e) => {

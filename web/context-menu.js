@@ -245,15 +245,16 @@ function contextMenuEvent(e) {
 }
 
 function contextMenuKey(e) {
-  const asked = e.key === 'ContextMenu' || (e.key === 'F10' && e.shiftKey);
-  if (!asked || e.ctrlKey || e.altKey || e.metaKey) return;
+  const asked = (e.key === 'ContextMenu' && !e.shiftKey) || (e.key === 'F10' && e.shiftKey);
+  if (!asked || keyboardEventHeld(e) || keyboardCommandModifier(e)) return;
   // In the lightbox, from any of its controls but a field: its picture is
   // what the menu is about, and the stage takes no focus of its own.
   const at = document.activeElement;
-  const field = at?.closest?.('input, textarea, select, #context-menu');
+  const field = keyboardEditingTarget(at) || at?.closest?.('#context-menu');
   const found = contextTarget(els.lightbox.open && els.lightbox.contains(at) && !field ? els.lbStage : at);
   if (!found || field) return;
   e.preventDefault();
+  if (e.repeat) return;
   ctxMenu.keyAt = performance.now();
   const box = (found.host.contains(at) ? at : found.host).getBoundingClientRect();
   openContextMenu(found, box.left + Math.min(16, box.width / 2), box.top + Math.min(16, box.height / 2), true);
@@ -262,6 +263,12 @@ function contextMenuKey(e) {
 // The menu's keys are a menu's, as the Picked menu's are, and go no further:
 // its Escape is not the lightbox's.
 function contextMenuKeydown(e) {
+  if (keyboardEventHeld(e) || keyboardCommandModifier(e) || keyboardEditingTarget(e.target)) return;
+  // Shift+Tab still dismisses the menu before normal backward navigation.
+  if (e.shiftKey && e.key !== 'Tab') return;
+  if (e.repeat && ['Enter', ' ', 'Escape'].includes(e.key)) {
+    e.preventDefault(); e.stopPropagation(); return;
+  }
   if (e.key === 'Escape') { e.preventDefault(); e.stopPropagation(); closeContextMenu(); return; }
   if (e.key === 'Tab') { e.preventDefault(); e.stopPropagation(); closeContextMenu(); return; }
   if ((e.key === 'Enter' || e.key === ' ') && e.target.matches('[role="menuitem"]')) {

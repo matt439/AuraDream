@@ -698,7 +698,7 @@ you opened it. Help can be opened above a lightbox or dialog without closing it.
 
 | Where | Keys |
 | --- | --- |
-| Anywhere | Ctrl/Cmd+Enter generates; inside an open Grid field runs the grid; in Refine runs the pass; in Refine… (Mass refine) runs the batch; in Swap tags queues; in More seeds… queues the batches |
+| Main workspace | Ctrl/Cmd+Enter generates; inside an open Grid field runs the grid; in Refine runs the pass; in Refine… (Mass refine) runs the batch; in Swap tags queues; in More seeds… queues the batches |
 | Gallery | Tab enters the cards; arrows/Home/End navigate, Enter opens, F stars; in select mode Space picks, Shift+Space picks a range, Esc clears |
 | Lightbox | Left/Right browse, F stars, R opens Refine, S toggles the picked pair, or otherwise compares a pass with its source or an image with its CFG neighbour, Delete moves the image to the recycle bin (in the bin: asks to delete it permanently), Esc closes |
 | Lightbox zoom | Wheel or +/− zoom, drag pans, 0 fits, 1 or double-click shows actual pixels |
@@ -708,6 +708,11 @@ you opened it. Help can be opened above a lightbox or dialog without closing it.
 | Prompt replacements | Ctrl+Z restores text after Apply, Reuse (or a loaded PNG), Expand, Examples or a chip edit |
 | Inpaint | With the picture focused: B brush, E eraser, `[` `]` or Alt+wheel size, I invert, Ctrl+Z / Ctrl+Shift+Z undo and redo, arrows move the brush, Space paints; Ctrl+Enter runs (Outpaint too) |
 | Refine | Enter in a one-line field runs; Strength arrows step by 0.05, or 0.01 with Shift |
+
+Settings dialogs, menus, help, Bundles and the lightbox keep Ctrl/Cmd+Enter
+from generating underneath. Use the exact chord without Alt or Shift.
+Fields/selects keep editing and browser keys; discrete actions ignore held-key
+repeats while navigation and zoom still repeat.
 
 Lightbox zoom and position carry between images of the same shape, useful
 for comparing a detail across seeds or settings. Its facts include source,

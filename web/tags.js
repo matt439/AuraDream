@@ -713,6 +713,8 @@ function buildTagEditor(initial = null) {
     scheduleEditorSuggestions(input, menu);
   };
   input.onkeydown = (event) => {
+    if (keyboardEventHeld(event) || keyboardCommandModifier(event) || event.shiftKey) return;
+    if (event.repeat && ['Enter', 'Tab', 'Escape'].includes(event.key)) { event.preventDefault(); return; }
     if (event.key === 'ArrowDown' && !menu.hidden) {
       event.preventDefault();
       selectEditorSuggestion(menu, menu._index + 1);

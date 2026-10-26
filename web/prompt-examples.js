@@ -58,7 +58,13 @@ function showExamples(open) {
     }
     li.title = text;
     li.onclick = () => pickExample(text);
-    li.onkeydown = (e) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); pickExample(text); } };
+    li.onkeydown = (e) => {
+      if (keyboardEventHeld(e) || keyboardCommandModifier(e) || e.shiftKey) return;
+      if (e.key === 'Enter' || e.key === ' ') {
+        e.preventDefault();
+        if (!e.repeat) pickExample(text);
+      }
+    };
     els.examplesMenu.appendChild(li);
   });
   appendSnippetsMenuItem();

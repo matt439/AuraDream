@@ -255,7 +255,11 @@ function appendSnippetsMenuItem() {
   const open = () => { showExamples(false); void openSnippets(); };
   item.onclick = open;
   item.onkeydown = (event) => {
-    if (event.key === 'Enter' || event.key === ' ') { event.preventDefault(); open(); }
+    if (keyboardEventHeld(event) || keyboardCommandModifier(event) || event.shiftKey) return;
+    if (event.key === 'Enter' || event.key === ' ') {
+      event.preventDefault();
+      if (!event.repeat) open();
+    }
   };
   els.examplesMenu.appendChild(item);
 }

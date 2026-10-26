@@ -527,13 +527,13 @@ function maskWheel(event) {
 // paints with it, held down along the way it moves. Each is taken, so a key
 // here never scrolls the dialog or reaches the page.
 function maskKeydown(event) {
-  if (event.isComposing) return;
+  if (keyboardEventHeld(event)) return;
   const key = event.key;
   if (event.ctrlKey || event.metaKey) {
-    if (event.altKey) return;
+    if (event.altKey || (event.ctrlKey && event.metaKey)) return;
     const lower = key.toLowerCase();
     if (lower === 'z' && !event.shiftKey) { event.preventDefault(); undoMask(); }
-    else if ((lower === 'z' && event.shiftKey) || lower === 'y') { event.preventDefault(); redoMask(); }
+    else if ((lower === 'z' && event.shiftKey) || (lower === 'y' && !event.shiftKey)) { event.preventDefault(); redoMask(); }
     return;
   }
   if (event.altKey) return;
@@ -561,7 +561,7 @@ function maskKeydown(event) {
   const lower = key.toLowerCase();
   if (lower === 'b') { event.preventDefault(); setMaskTool('brush'); }
   else if (lower === 'e') { event.preventDefault(); setMaskTool('eraser'); }
-  else if (lower === 'i') { event.preventDefault(); invertMask(); }
+  else if (lower === 'i') { event.preventDefault(); if (!event.repeat && !event.shiftKey) invertMask(); }
   else if (key === '[') { event.preventDefault(); stepMaskSize(false); }
   else if (key === ']') { event.preventDefault(); stepMaskSize(true); }
 }

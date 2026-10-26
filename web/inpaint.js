@@ -651,11 +651,11 @@ function inpaintChanged() {
 // single Strength by 0.05 (0.01 with Shift). The canvas has keys of its own
 // (maskKeydown), which never reach here as these.
 function inpaintKeydown(event) {
-  if (event.isComposing || event.ctrlKey || event.metaKey || event.altKey) return;
+  if (keyboardEventHeld(event) || keyboardCommandModifier(event)) return;
   if (event.target === els.inpaintCanvas) return;
   if (event.key === 'Enter' && !event.shiftKey && event.target.matches('input:not([type="checkbox"]):not([type="range"])')) {
     event.preventDefault();
-    void runInpaint();
+    if (!event.repeat) void runInpaint();
     return;
   }
   if ((event.key === 'ArrowUp' || event.key === 'ArrowDown') && event.target === els.inpaintStrength) {

@@ -267,20 +267,21 @@ function selectEscape() {
 }
 
 function selectKey(e) {
-  if (e.defaultPrevented || e.isComposing) return;
+  if (keyboardEventHeld(e)) return;
   if (!sheetMode && (e.ctrlKey || e.metaKey) && !e.altKey && !e.shiftKey
       && e.key.toLowerCase() === 'a'
       && e.target.closest?.('#gallery .card, #btn-select')
-      && !e.target.closest?.('input, textarea, select, [contenteditable]')) {
+      && !keyboardEditingTarget(e.target)) {
     e.preventDefault();
-    pickLoadedCards();
+    if (!e.repeat) pickLoadedCards();
     return;
   }
-  if (e.key !== 'Escape' || e.defaultPrevented || e.altKey || e.ctrlKey || e.metaKey) return;
+  if (e.key !== 'Escape' || keyboardCommandModifier(e) || e.shiftKey || keyboardEditingTarget(e.target)) return;
   // On a card or on the selection's own controls only: the search box's
   // Escape empties it, the Runs picker's is its own, and the sheet's cells
   // are not picked. The Picked menu's, open, closes it first (pickedKey).
   if (!e.target.closest?.('#gallery .card, #btn-select, #btn-select-clear, #btn-picked')) return;
+  if (e.repeat) { e.preventDefault(); return; }
   if (selectEscape()) e.preventDefault();
 }
 
@@ -435,6 +436,8 @@ function pickedPress(e) {
 }
 
 function pickedKey(e) {
+  if (keyboardEventHeld(e) || keyboardCommandModifier(e) || keyboardEditingTarget(e.target) || e.shiftKey) return;
+  if (e.repeat && ['Enter', ' ', 'Escape'].includes(e.key)) { e.preventDefault(); return; }
   if (e.key === 'Escape' && !els.pickedMenu.hidden) { e.preventDefault(); showPickedMenu(false); return; }
   if (e.target === els.pickedBtn) {
     if (e.key !== 'ArrowDown' || els.pickedBtn.getAttribute('aria-disabled') === 'true') return;
@@ -443,7 +446,7 @@ function pickedKey(e) {
     els.pickedMenu.querySelector('[role="menuitem"]')?.focus();
     return;
   }
-  if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); pickedChoose(e.target); return; }
+  if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); e.stopPropagation(); pickedChoose(e.target); return; }
   const items = [...els.pickedMenu.querySelectorAll('[role="menuitem"]')];
   const at = items.indexOf(document.activeElement);
   const next = { ArrowDown: at + 1, ArrowUp: at - 1, Home: 0, End: items.length - 1 }[e.key];

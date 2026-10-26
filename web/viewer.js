@@ -659,8 +659,12 @@ function thumb(rec, list, src = rec.thumb_url ?? rec.url, open = () => openLight
   // (app.js), and on a focused image - where closing the lightbox leaves the
   // focus - it opened the lightbox and queued a job behind it.
   img.onkeydown = (e) => {
-    if (e.ctrlKey || e.metaKey || e.altKey) return;
-    if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); open(e); }
+    if (keyboardEventHeld(e) || keyboardCommandModifier(e) || keyboardEditingTarget(e.target)) return;
+    if (e.key === 'Enter' && e.shiftKey) return;
+    if (e.key === 'Enter' || e.key === ' ') {
+      e.preventDefault();
+      if (!e.repeat) open(e);
+    }
   };
   return img;
 }

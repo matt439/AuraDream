@@ -3,6 +3,25 @@
 // Native field editing and browser shortcuts keep their own meaning.
 'use strict';
 
+// Shared by local handlers and the document dispatcher. A key already owned
+// by an editor/menu, or still composing, must never become a second command.
+function keyboardEventHeld(event) {
+  return event.defaultPrevented || event.isComposing || event.keyCode === 229;
+}
+
+function keyboardEditingTarget(target) {
+  return !!target?.closest?.('input, textarea, select') || !!target?.isContentEditable;
+}
+
+function keyboardCommandModifier(event) {
+  return event.ctrlKey || event.metaKey || event.altKey;
+}
+
+function keyboardSubmit(event) {
+  return event.key === 'Enter' && event.ctrlKey !== event.metaKey
+    && !event.altKey && !event.shiftKey;
+}
+
 const SHORTCUT_GROUPS = [
   {
     title: 'Help',
@@ -10,7 +29,7 @@ const SHORTCUT_GROUPS = [
   },
   {
     title: 'Generate and passes',
-    scope: 'Ctrl/Cmd+Enter follows the open dialog or the focused grid field.',
+    scope: 'Ctrl/Cmd+Enter follows the focused action dialog or Grid field. Help, settings, menus, Bundles and the lightbox never generate underneath.',
     rows: [
       [['Ctrl/Cmd+Enter'], 'Generate; in an open Grid field, run the grid. In Refine, Inpaint or Outpaint, run that pass; in Mass refine, Swap tags or More seeds, queue that action.'],
       [['Enter'], 'Run from a one-line Refine or Inpaint field. In Outpaint, padding and band fields commit their values, the shape field applies its preset, and other one-line fields run the pass.'],
@@ -178,9 +197,8 @@ function shortcutKey(event) {
     }
     return;
   }
-  if (event.key !== '?' || event.defaultPrevented
-      || event.isComposing || event.repeat || event.ctrlKey || event.metaKey || event.altKey
-      || event.target.closest?.('input, textarea, select, [contenteditable]')) return;
+  if (event.key !== '?' || keyboardEventHeld(event)
+      || event.repeat || keyboardCommandModifier(event) || keyboardEditingTarget(event.target)) return;
   event.preventDefault();
   openShortcuts();
 }

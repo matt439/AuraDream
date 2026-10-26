@@ -729,16 +729,17 @@ function galleryFocus(e) {
 // arrows walk the grid and Home and End go to the first and last card loaded;
 // on a tool they are left to the tool.
 function galleryKey(e) {
-  if (e.altKey || e.ctrlKey || e.metaKey) return;
+  if (keyboardEventHeld(e) || keyboardCommandModifier(e) || keyboardEditingTarget(e.target)) return;
   const div = e.target.closest?.('.card[data-id]');
   if (!div) return;
-  if (e.key === 'f' || e.key === 'F') {
+  if (!e.shiftKey && (e.key === 'f' || e.key === 'F')) {
     e.preventDefault();
+    if (e.repeat) return;
     const rec = galleryRecords.find((r) => r.id === +div.dataset.id);
     if (rec) void setFavorite(rec, !rec.favorite, { say: true });
     return;
   }
-  if (e.target.parentElement !== div || e.target.tagName !== 'IMG') return;
+  if (e.shiftKey || e.target.parentElement !== div || e.target.tagName !== 'IMG') return;
   const step = { ArrowLeft: -1, ArrowRight: 1, ArrowUp: 'up', ArrowDown: 'down', Home: 'first', End: 'last' }[e.key];
   if (step === undefined) return;
   e.preventDefault();

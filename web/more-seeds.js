@@ -559,10 +559,10 @@ function forgetMoreSeedsImages(gone) {
 // ArrowUp and ArrowDown step the count by one. Ctrl+Enter is the
 // document's (app.js).
 function moreSeedsKeydown(event) {
-  if (event.isComposing || event.ctrlKey || event.metaKey || event.altKey) return;
+  if (keyboardEventHeld(event) || keyboardCommandModifier(event)) return;
   if (event.key === 'Enter' && !event.shiftKey && event.target === els.moreSeedsCount) {
     event.preventDefault();
-    void runMoreSeeds();
+    if (!event.repeat) void runMoreSeeds();
     return;
   }
   if ((event.key === 'ArrowUp' || event.key === 'ArrowDown') && event.target === els.moreSeedsCount) {
@@ -614,7 +614,11 @@ function setupMoreSeeds() {
   // A preview has no modal yet. Escape still cancels that opening, and a
   // late reply is checked against its original lightbox/results context.
   document.addEventListener('keydown', (event) => {
-    if (event.key !== 'Escape' || !msOpening) return;
+    if (event.key !== 'Escape' || !msOpening || keyboardEventHeld(event)
+        || keyboardCommandModifier(event) || event.shiftKey || event.repeat) return;
+    // Help/settings above the pending opener own Escape until they close.
+    const dialog = event.target.closest?.('dialog[open]');
+    if (els.shortcutsDialog.open || els.snippetsDialog.open || (dialog && dialog !== els.lightbox)) return;
     event.preventDefault();
     cancelMoreSeedsOpening();
   }, true);

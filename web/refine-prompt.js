@@ -393,13 +393,13 @@ function applyRefineSuggestion(suggestion) {
 // the next one closes the dialog. Ctrl+Enter stays the document's.
 function refinePromptKeydown(event) {
   const menu = els.refineTagSuggestions;
-  if (menu.hidden || event.isComposing || event.ctrlKey || event.metaKey) return;
+  if (menu.hidden || keyboardEventHeld(event) || keyboardCommandModifier(event) || event.shiftKey) return;
   if (event.key === 'ArrowDown' || event.key === 'ArrowUp') {
     event.preventDefault();
     selectEditorSuggestion(menu, menu._index + (event.key === 'ArrowDown' ? 1 : -1));
   } else if ((event.key === 'Enter' || event.key === 'Tab') && menu._index >= 0) {
     event.preventDefault();
-    menu._pick(menu._suggestions[menu._index]);
+    if (!event.repeat) menu._pick(menu._suggestions[menu._index]);
   } else if (event.key === 'Escape') {
     event.preventDefault();
     hideRefineSuggestions();

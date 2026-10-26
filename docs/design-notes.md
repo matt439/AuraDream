@@ -6559,7 +6559,7 @@ gallery images apart; a sheet cell is named by its axis values instead, and so
 described by its size and source alone (The contact sheet). `forgetImages`
 retitles through `titleImage` too. The image's Enter and Space, `thumb()`'s as
 well, open the lightbox only without Ctrl, Meta or
-Alt: Ctrl+Enter is Generate's from anywhere, and on a focused image - where
+Alt: Ctrl+Enter is Generate's on the main workspace, and on a focused image - where
 the lightbox's close leaves focus - it opened the lightbox and queued a job
 behind it. The rest here is `card()`'s.
 
@@ -7500,6 +7500,17 @@ the browser harness sends Ctrl+Z's physical key code to exercise that native
 history rather than an application key handler.
 
 ## Keyboard shortcut help
+
+**Ownership review (2026-10-26).** The [approved follow-up](plan-shortcut-workflow.md)
+fixes actual browser conflicts: Ctrl+Enter generated behind Then refine settings,
+Picked activated and generated in one event, lightbox Alt+Arrow intercepted
+browser history, and F in its Against select starred an image. Shared event
+guards now respect prior handling/composition, exact modifiers, fields and
+modal context; unknown dialogs block background commands. Repeated discrete
+activation is held, including native button Enter, while navigation/zoom and
+numeric stepping retain repeat. Pending More seeds opening leaves Escape to
+help above it. These are synthetic-browser guarantees, not physical-device
+or IME acceptance.
 
 The [shortcut overlay plan](plan-shortcuts.md) implements `UI#12` from the
 2026-10-24 review. `?` and the named top-bar button open native modal help,

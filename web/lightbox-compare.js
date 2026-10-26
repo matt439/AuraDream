@@ -365,6 +365,8 @@ async function lbSourceFailed() {
 // it, so the step does not depend on where the focus is; PageUp/PageDown
 // (10%), Home and End move it either way, as a slider's do.
 function lbSplitKey(e) {
+  if (keyboardEventHeld(e) || keyboardCommandModifier(e)) return;
+  if (e.shiftKey && e.key !== 'ArrowLeft' && e.key !== 'ArrowRight') return;
   const arrow = e.key === 'ArrowLeft' || e.key === 'ArrowRight';
   if (arrow && !e.shiftKey && (lbSiblingPass(1) >= 0 || ladderArrows() || lbCompare.kind === 'picked')) return;
   const to = {

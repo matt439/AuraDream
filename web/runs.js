@@ -423,15 +423,15 @@ let runKeyed = false;
 let runPending = null;
 const RUN_BROWSE_KEYS = new Set(['ArrowUp', 'ArrowDown', 'ArrowLeft', 'ArrowRight', 'Home', 'End', 'PageUp', 'PageDown']);
 function runListKey(e) {
+  if (keyboardEventHeld(e) || keyboardCommandModifier(e) || e.shiftKey) return;
   if (e.key === 'Enter') {
-    if (runPending !== null) { e.preventDefault(); commitRunList(); }
+    if (runPending !== null) { e.preventDefault(); if (!e.repeat) commitRunList(); }
     return;
   }
   if (e.key === 'Escape') {
-    if (runPending !== null) { e.preventDefault(); runPending = null; syncRunList(); }
+    if (runPending !== null) { e.preventDefault(); if (!e.repeat) { runPending = null; syncRunList(); } }
     return;
   }
-  if (e.altKey || e.ctrlKey || e.metaKey) return;
   if (RUN_BROWSE_KEYS.has(e.key) || (e.key.length === 1 && e.key !== ' ')) {
     runKeyed = true;
     setTimeout(() => { runKeyed = false; });
