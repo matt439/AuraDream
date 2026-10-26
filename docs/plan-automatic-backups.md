@@ -1,7 +1,7 @@
 # Plan: automatic whole-gallery backups
 
 **Status, 2026-10-26: policy, preferences, managed-export evidence, download leases,
-opt-in shared locks and an inactive one-attempt coordinator are built;
+opt-in shared locks, managed capacity budgets and an inactive one-attempt coordinator are built;
 `GAL#6` remains open for lifecycle/shared-lock installation, retention and
 activation decisions.** This expands
 [R8](review-2026-10-25.md#r8-automatic-whole-gallery-backup). Tests export and
@@ -179,10 +179,13 @@ set and never prune the old location implicitly.
 ## Space checks, scope and presentation
 
 Retain export's per-volume `_check_space` for the archive plus database
-snapshot/WAL and any retained-job snapshot compaction. Before exposing
-automatic operation, account explicitly for ZIP member overhead,
-encryption overhead and receipt writes; the existing estimate does not
-include all of these. A full or unavailable destination refuses before
+snapshot/WAL and any retained-job snapshot compaction. Managed exports now
+also budget ZIP member overhead, encryption framing and an atomic receipt
+temporary, using the actual compacted snapshot before archive creation.
+These are logical-byte preflights, not an allocation or disk-fit guarantee;
+filesystem overhead, SQLite growth/temp placement and other writers remain
+limits. Ordinary manual exports retain their existing estimate.
+A full or unavailable destination refuses before
 writing where possible. Disk races and write/verify/fsync failures still
 remove only the worker's own partials and leave prior good copies intact.
 An automatic backup on the same physical disk offers rollback, not proof
@@ -257,8 +260,8 @@ timestamp differences are handled without substituting metadata for the
 digest. Linux publication and actual OS credential delivery remain untested.
 
 There are no automatic-backup startup/API/UI callers, credential lookup
-or retention deletion. Shared-lock installation, remaining capacity accounting,
-activation/recovery decisions and end-to-end startup acceptance below remain
+or retention deletion. Shared-lock installation, activation/recovery decisions
+and end-to-end startup acceptance below remain
 unimplemented. The inactive coordinator described below derives age from
 currently matching receipts rather than maintaining a separate success clock.
 
@@ -310,6 +313,37 @@ and archive identity checks at a future mutation boundary.
 The combined lease/coordinator/bundle HTTP integration check passed all 114
 tests; this ordinary fixture run includes its existing CUDA-availability guard,
 with no model loads, tensor execution or generation.
+
+**Managed capacity slice.** `bundle_capacity.managed_capacity` uses current
+member stat sizes, the actual post-compaction SQLite snapshot and a manifest
+skeleton with real names/sizes/ownership marker and fixed-length SHA-256
+placeholders. Its ZIP_STORED bound includes local/central headers, UTF-8
+filename lengths, maximal ZIP64 extras, forward-only descriptors and end
+records. Encrypted output adds the current header and exact chunk framing;
+it does not reserve or write a second plaintext archive. The receipt budget
+reserves the journal's validated 16 MiB cap for its atomic temporary beside
+the database. Existing volume grouping sums shared-volume needs.
+
+Managed export checks these final budgets before opening its archive
+partial, with no extra content read, verification pass or key derivation.
+Its early DB+WAL check remains a heuristic; when retained cells require
+VACUUM it allows three snapshot-size equivalents, since SQLite documents
+up to two additional copies while the snapshot already exists
+([SQLite VACUUM](https://www.sqlite.org/lang_vacuum.html)). Actual filesystem
+allocation, SQLite growth and external changes still prevent a fit promise.
+The ordinary manual export check and writer remain unchanged.
+
+All 110 focused math/managed-export/backup/password/receipt checks passed,
+including 35 new cases. They compare actual plain/encrypted output against
+bounds, force ZIP64 branches on small buffers, cover chunk boundaries and
+virtual large integer sizes, and inject shortages before archive creation.
+Previous archives, journal and live scratch gallery survive refusal; successful
+copies still verify once. Two initial enlarged-snapshot fixtures left their
+SQLite connection open and hit Windows sharing refusals at temporary cleanup;
+their published archive/receipt outcomes were checked before fixing the
+fixture with explicit close and rerunning in fresh scratch. The original
+cleanup targets were not retried. Ruff and narrow pinned Pyright pass;
+no real gallery, password store or GPU work was used.
 
 **Inactive one-attempt coordinator.** `backup_coordinator.BackupCoordinator`
 accepts an explicit policy, gallery/destination/operation identities, aware

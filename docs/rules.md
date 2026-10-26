@@ -37,6 +37,8 @@ before changing it.
   leased FileResponse lifetime; shared process state and explicit native-lock mode
 - `backend/bundle_file_lock.py` - opt-in nonblocking shared/exclusive native
   locks on persistent archive companions, with identity and cleanup ownership checks
+- `backend/bundle_capacity.py` - conservative current-format managed ZIP,
+  encryption framing and receipt-temp logical-byte budgets; no allocation guarantee
 - `backend/snippets.py` - bounded, revisioned personal prompt snippets in an
   atomic sidecar beside the settings, under an independent cross-process lock
 - `backend/api_snippets.py` - model-free snippet CRUD routes, independent of
@@ -1734,6 +1736,13 @@ Jobs:
   warning and preserves prior receipts. No startup/API caller, age advancement
   or pruning is connected. `matches_current` checks regular-file identity,
   destination and full raw digest; its snapshot never authorizes deletion.
+- Managed export adds a final logical-byte capacity check before opening its
+  partial: actual post-compaction snapshot and inventory sizes, exact manifest
+  JSON names/sizes, maximal ZIP64 headers/descriptors, encryption framing and
+  the bounded atomic receipt temporary. Group these by actual volume. Its
+  early DB+WAL heuristic allows three equivalents for retained-cell VACUUM;
+  allocation metadata, SQLite growth and other writers prevent a fit guarantee.
+  Ordinary manual estimates and the single archive read-back remain unchanged.
 - Saved archive downloads hold a per-process reader lease for the complete
   ASGI response, acquired before stat/open and released in finally through
   body/range/HEAD/error/cancellation/background paths. Disable pathsend handoff

@@ -20,7 +20,7 @@ from pathlib import Path, PurePosixPath
 
 from PIL import Image
 
-from . import backup_receipts, bundle_crypto, bundle_images, gallery_lock, storage
+from . import backup_receipts, bundle_capacity, bundle_crypto, bundle_images, gallery_lock, storage
 from .bundle_archive import _DATABASE, _FORMAT, _MANIFEST, _READ_AHEAD_MAX, _check_space, _verify_archive
 from .bundle_common import (
     _CHUNK,
@@ -575,9 +575,19 @@ def export_bundle(expected: int | None = None, password: str | None = None, prog
         database = sum(p.stat().st_size for p in (settings.db_path, wal) if p.exists())
         with storage._session() as conn:
             retained_cells = conn.execute("SELECT 1 FROM run_jobs LIMIT 1").fetchone() is not None
-        _check_space([(directory, database + sum(p.stat().st_size for _, p in files), "write the bundle"),
-                      (settings.db_path.parent, database * (2 if ids is not None or retained_cells else 1),
-                       "copy the gallery database for the bundle")])
+        if managed is None:
+            _check_space([(directory, database + sum(p.stat().st_size for _, p in files), "write the bundle"),
+                          (settings.db_path.parent, database * (2 if ids is not None or retained_cells else 1),
+                           "copy the gallery database for the bundle")])
+        else:
+            # Early DB+WAL heuristic only. A VACUUM can need two additional
+            # copies while the snapshot already exists; reserve three here.
+            # Final archive sizing below uses the actual compacted snapshot.
+            _check_space([(directory, database + sum(p.stat().st_size for _, p in files), "write the bundle"),
+                          (settings.db_path.parent, database * (3 if retained_cells else 1),
+                           "copy the gallery database for the managed bundle"),
+                          (settings.db_path.parent, bundle_capacity.JOURNAL_TEMP_BYTES,
+                           "record the managed bundle receipt")])
         # The name is for the person saving it, on their own machine: local
         # wall-clock time. Nothing reads a time back out of the name.
         name = f"local-diffusion-{datetime.now().astimezone():%Y%m%d-%H%M%S}-{uuid.uuid4().hex[:8]}"
@@ -598,6 +608,20 @@ def export_bundle(expected: int | None = None, password: str | None = None, prog
             if managed is not None:
                 manifest[backup_receipts.MARKER] = managed.marker()
             members = [(_DATABASE, snapshot), *files]
+            if managed is not None:
+                try:
+                    capacity = bundle_capacity.managed_capacity(
+                        [(member, path.stat().st_size) for member, path in members], manifest,
+                        manifest_name=_MANIFEST, encrypted=bool(password),
+                    )
+                except (ValueError, TypeError, OverflowError) as exc:
+                    raise BundleError("the managed bundle capacity could not be estimated") from exc
+                # Snapshot/VACUUM space is already consumed. Check remaining
+                # archive + full atomic journal temporary per actual volume;
+                # encryption is streamed, never another plaintext copy.
+                _check_space([(directory, capacity.archive_bytes, "write the managed bundle"),
+                              (settings.db_path.parent, capacity.receipt_bytes,
+                               "record the managed bundle receipt")])
             proof: backup_receipts.DigestWriter | None = None
             written: backup_receipts.FileStamp | None = None
             owned: tuple[int, int] | None = None
