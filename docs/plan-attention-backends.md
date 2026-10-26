@@ -88,6 +88,17 @@ broader group uses the existing ordinary fixture availability guard. No kernel,
 memory, pixels, repeatability or GPU qualification is claimed. The final combined
 whole-source gate follows the concurrent managed-retention implementation.
 
+## Shared Native attention invariant
+
+The read-only effective-Native guard is now shared by private regional and FBC
+preparation/calls. It checks the source-verified dispatcher getter and complete
+processor overrides without mutation; a cold startup warning alone is not an
+effective-runtime proof. Regional pre/post-forward changes preserve primary
+errors/cancellation with notes and never retry. This invariant fix passed **755
+focused checks**, **154 isolated synthetic checks**, three-source pinned types
+and Ruff, with independent review clear. Actual imported dispatcher/device behavior
+and public Eager/environment precedence remain separate qualification/policy work.
+
 ## Cold external-override diagnostics
 
 `config.ATTENTION_ENVIRONMENT_WARNING` snapshots the installed Diffusers

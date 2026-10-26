@@ -17,6 +17,7 @@ from backend.backends import Cancelled
 from backend.backends import diffusers_backend as module
 from backend.backends import regional_compile as regional
 from backend.execution import CompilerMetadata, ExecutionSpec
+from tests.test_fbc_backend import native_world
 from tests.test_pipeline_ownership import synthetic_loader
 from tests.test_regional_compile import (
     ARGS, FluxSingleTransformerBlock, FluxTransformer2DModel, FluxTransformerBlock,
@@ -25,6 +26,7 @@ from tests.test_regional_compile import (
 
 SPEC = ExecutionSpec(compilation="regional-v1")
 FACTS = CompilerMetadata("win32", (3, 13), "2.13.0+cu130", "0.40.0", "0.18.0", None, "3.7.1.post27")
+NATIVE_GUARD = module.attention_selection.require_native_attention
 
 
 @pytest.fixture
@@ -42,6 +44,15 @@ def prepared_loader(synthetic_loader, monkeypatch):
     ))
     control.root = FluxTransformer2DModel()
     control.policy_active = False
+    control.native = True
+    control.native_checks = []
+
+    def native(root):
+        control.native_checks.append((root is control.root, control.native, list(control.root.calls)))
+        if root is not control.root or not control.native:
+            raise ValueError("synthetic nonnative regional attention")
+
+    monkeypatch.setattr(module.attention_selection, "require_native_attention", native)
 
     @contextmanager
     def policy():
@@ -74,6 +85,7 @@ def test_public_eager_load_uses_actual_private_path_without_metadata_registratio
     monkeypatch.setattr(module, "compiler_metadata", forbidden)
     monkeypatch.setattr(regional, "register_regions", forbidden)
     monkeypatch.setattr(regional, "_dynamo_patch", forbidden)
+    monkeypatch.setattr(module.attention_selection, "require_native_attention", forbidden)
     backend.load()
     assert backend.is_ready() and backend._loaded_execution is None
     assert control.root.calls == [] and "strict-enter" not in events
@@ -88,6 +100,7 @@ def test_private_regional_load_registers_after_placement_and_checks_before_atomi
     assert type(registration) is regional.RegionalRegistration
     assert registration.require(control.root).total_blocks == 3
     assert backend._loaded_execution == SPEC and control.root.calls == [ARGS]
+    assert control.native_checks == [(True, True, []), (True, True, [ARGS])]
     assert all(block.calls == [ARGS] for block in control.root.blocks)
     assert events.index("place") < events.index("console") < events.index("post") < events.index("strict-enter")
     assert events.index("strict-exit") < events.index("weights-exit") < events.index("ready-log")
@@ -179,7 +192,7 @@ def test_private_preparation_cannot_replace_an_already_loaded_eager_pipeline(pre
 def private_call(monkeypatch):
     backend = module.DiffusersBackend()
     events = []
-    state = SimpleNamespace(active=False, failure=None)
+    state = SimpleNamespace(active=False, failure=None, native=True, change_native=False, native_checks=[])
     monkeypatch.setattr(module, "ATTENTION_ENVIRONMENT_WARNING", None)
 
     class Pipeline:
@@ -187,6 +200,8 @@ def private_call(monkeypatch):
 
         def __call__(self, **kwargs):
             events.append(("call", dict(kwargs), state.active))
+            if state.change_native:
+                state.native = False
             if state.failure is not None:
                 raise state.failure
             return SimpleNamespace(images=["synthetic image"])
@@ -208,6 +223,13 @@ def private_call(monkeypatch):
     backend._regional_registration = regional.RegionalRegistration(pipe.transformer, regional.RegionFacts(
         "regional-v1", (("FluxTransformerBlock", 2), ("FluxSingleTransformerBlock", 1)),
     ))
+
+    def native(root):
+        state.native_checks.append((root is pipe.transformer, state.native))
+        if not state.native:
+            raise ValueError("synthetic nonnative regional attention")
+
+    monkeypatch.setattr(module.attention_selection, "require_native_attention", native)
     return backend, pipe, state, events
 
 
@@ -225,6 +247,88 @@ def test_private_call_encloses_exactly_one_forward_and_restores_policy_without_r
         assert raised.value is failure
     assert events == ["enter", ("call", before, True), "exit"]
     assert kwargs == before and not state.active
+    assert state.native_checks == [(True, True), (True, True)]
+
+
+def test_nonnative_regional_preparation_refuses_before_registration(prepared_loader):
+    backend, control, events = prepared_loader
+    control.native = False
+    with pytest.raises(ValueError, match="nonnative regional attention"):
+        backend._load_prepared(SPEC)
+    assert control.root.calls == [] and "strict-enter" not in events
+    assert not backend.is_ready() and control.releases == 1
+
+
+@pytest.mark.parametrize("fault", ["global", "processor"])
+def test_shared_effective_native_guard_refuses_private_regional_setup(prepared_loader, native_world, monkeypatch, fault):
+    backend, control, events = prepared_loader
+    root, native = native_world
+    control.root = root
+    if fault == "global":
+        native.active = "_native_cudnn"
+    else:
+        root.transformer_blocks[0].attn.processor._attention_backend = "_native_cudnn"
+    monkeypatch.setattr(module.attention_selection, "require_native_attention", NATIVE_GUARD)
+    with pytest.raises(ValueError, match="requires.*Native"):
+        backend._load_prepared(SPEC)
+    assert root.calls == [] and "strict-enter" not in events
+    assert not backend.is_ready() and control.releases == 1
+
+
+def test_native_state_is_rechecked_after_weights_exit_before_publication(prepared_loader, monkeypatch):
+    backend, control, _events = prepared_loader
+    weights = module.loading.weights_loading
+
+    @contextmanager
+    def changed_at_exit():
+        with weights():
+            yield
+        control.native = False
+
+    monkeypatch.setattr(module.loading, "weights_loading", changed_at_exit)
+    with pytest.raises(ValueError, match="nonnative regional attention"):
+        backend._load_prepared(SPEC)
+    assert control.root.calls == [ARGS] and not backend.is_ready() and control.releases == 1
+    assert backend._regional_registration is None
+
+
+def test_nonnative_regional_call_refuses_before_policy_and_forward(private_call):
+    backend, pipe, state, events = private_call
+    state.native = False
+    with pytest.raises(ValueError, match="nonnative regional attention"):
+        backend._invoke_pipeline(pipe, {"num_images_per_prompt": 1})
+    assert events == [] and not state.active
+
+
+@pytest.mark.parametrize("fault", ["global", "processor"])
+def test_shared_effective_native_guard_refuses_private_regional_call(private_call, native_world, monkeypatch, fault):
+    backend, pipe, state, events = private_call
+    root, native = native_world
+    pipe.transformer = root
+    backend._regional_registration = regional.RegionalRegistration(root, regional.RegionFacts(
+        "regional-v1", (("FluxTransformerBlock", 2), ("FluxSingleTransformerBlock", 1)),
+    ))
+    if fault == "global":
+        native.active = "_native_cudnn"
+    else:
+        root.single_transformer_blocks[0].attn.processor._attention_backend = "_native_cudnn"
+    monkeypatch.setattr(module.attention_selection, "require_native_attention", NATIVE_GUARD)
+    with pytest.raises(ValueError, match="requires.*Native"):
+        backend._invoke_pipeline(pipe, {"num_images_per_prompt": 1})
+    assert events == [] and not state.active and root.calls == []
+
+
+@pytest.mark.parametrize("failure", [None, RuntimeError("regional forward failed"), Cancelled("regional forward cancelled")])
+def test_native_change_during_regional_forward_preserves_primary_and_restores_policy(private_call, failure):
+    backend, pipe, state, events = private_call
+    state.failure, state.change_native = failure, True
+    with pytest.raises(ValueError if failure is None else type(failure)) as caught:
+        backend._invoke_pipeline(pipe, {"num_images_per_prompt": 1})
+    if failure is not None:
+        assert caught.value is failure
+        assert "Regional Native attention verification also failed" in " ".join(failure.__notes__)
+    assert events == ["enter", ("call", {"num_images_per_prompt": 1}, True), "exit"]
+    assert not state.active and state.native_checks == [(True, True), (True, False)]
 
 
 @pytest.mark.parametrize("change", ["closed", "foreign-root", "wrong-handle", "wrong-recipe", "bad-counts",
@@ -276,6 +380,7 @@ def test_actual_eager_refine_loop_uses_call_boundary_preserving_generators_and_f
     with pytest.raises(Cancelled):
         backend._refine(pipe, pipe, kwargs, generators, batch, None)
     assert len(events) == 1 and freed == [True, True] and not state.active
+    assert state.native_checks == []
 
 
 def test_actual_eager_direct_path_keeps_no_grad_mu_callbacks_and_single_call(synthetic_loader, monkeypatch):

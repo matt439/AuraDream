@@ -436,8 +436,8 @@ def test_foreign_hook_is_preserved_across_an_owned_cached_call(cache_loader, mon
 def native_world(monkeypatch):
     state = SimpleNamespace(active="native", function=lambda: None)
     bindings = attention._Bindings(Transformer, Joint, Single, Attention, Processor, backend_context, "_native_cudnn")
-    api = fbc._NativeAttentionApi("native", lambda: (state.active, state.function), bindings)
-    monkeypatch.setattr(fbc, "_native_attention_api", lambda: api)
+    api = attention._NativeAttentionApi("native", lambda: (state.active, state.function), bindings)
+    monkeypatch.setattr(attention, "_native_attention_api", lambda: api)
     return Transformer(), state
 
 
@@ -489,9 +489,9 @@ class ColdOnly(importlib.abc.MetaPathFinder):
     def find_spec(self,fullname,path=None,target=None):
         if fullname.split(".",1)[0] in blocked:raise AssertionError("runtime import: "+fullname)
 sys.meta_path.insert(0,ColdOnly())
-from backend.backends import fbc_cache
+from backend.backends import attention_selection
 assert "backend.config" not in sys.modules
-try:fbc_cache._native_attention_api()
+try:attention_selection._native_attention_api()
 except AssertionError as error:
     assert "runtime import: diffusers" in str(error) and "backend.config" in sys.modules
 else:raise AssertionError("native adapter imported a real runtime")

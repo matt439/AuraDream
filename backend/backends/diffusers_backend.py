@@ -456,6 +456,7 @@ class DiffusersBackend(GenerationBackend):
                             raise RuntimeError("attention preparation did not return its owned selection")
                         candidate.attention.require(getattr(candidate.pipe, "transformer", None))
                     else:
+                        attention_selection.require_native_attention(getattr(candidate.pipe, "transformer", None))
                         candidate.registration = regional_compile.register_regions(
                             getattr(candidate.pipe, "transformer", None), discard_on_failure=candidate.invalidate,
                         )
@@ -485,6 +486,8 @@ class DiffusersBackend(GenerationBackend):
         regional = execution is not None and execution.compilation is not None
         if regional != (candidate.registration is not None):
             raise ValueError("a regional pipeline and its registration must transfer together")
+        if regional:
+            attention_selection.require_native_attention(getattr(candidate.pipe, "transformer", None))
         attended = execution is not None and execution.attention_backend is not None
         if attended != (candidate.attention is not None):
             raise ValueError("an attention pipeline and its selection must transfer together")
@@ -618,8 +621,20 @@ class DiffusersBackend(GenerationBackend):
         if runner is not self._pipe or self._lora is not None or kwargs.get("num_images_per_prompt") != 1:
             raise ValueError("the first regional call needs its base pipeline, no LoRA and one image")
         registration.require(getattr(runner, "transformer", None))
+        attention_selection.require_native_attention(getattr(runner, "transformer", None))
         with regional_compile.strict_compiler_policy():
-            return runner(**kwargs)
+            try:
+                result = runner(**kwargs)
+            except BaseException as error:
+                try:
+                    registration.require(getattr(runner, "transformer", None))
+                    attention_selection.require_native_attention(getattr(runner, "transformer", None))
+                except BaseException as changed:
+                    error.add_note(f"Regional Native attention verification also failed: {type(changed).__name__}: {changed}")
+                raise
+            registration.require(getattr(runner, "transformer", None))
+            attention_selection.require_native_attention(getattr(runner, "transformer", None))
+            return result
 
     def _require_execution(self, request: GenerateRequest) -> None:
         require_default_execution(request.execution)

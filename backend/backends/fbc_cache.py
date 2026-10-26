@@ -14,7 +14,6 @@ from typing import TYPE_CHECKING, Literal
 from weakref import ReferenceType, ref
 
 if TYPE_CHECKING:
-    from .attention_selection import _Bindings
     from torch.nn import Module, ModuleList
     from diffusers.hooks._helpers import TransformerBlockMetadata
     from diffusers.hooks.first_block_cache import FBCBlockHook, FBCHeadBlockHook, FirstBlockCacheConfig
@@ -118,39 +117,11 @@ def inspect_fbc_layout(transformer: object) -> FbcLayout:
     return _inspect(transformer, _api())[2]
 
 
-@dataclass(frozen=True)
-class _NativeAttentionApi:
-    native: object
-    active: Callable[[], tuple[object, object]]
-    bindings: _Bindings
-
-
-def _native_attention_api() -> _NativeAttentionApi:
-    # Source contract: get_active_backend only reads the selected enum/function;
-    # dispatch_attention_fn uses it when a processor override is None.
-    import_module("..config", __package__)
-    from diffusers.models.attention_dispatch import AttentionBackendName, _AttentionBackendRegistry
-
-    from . import attention_selection
-
-    return _NativeAttentionApi(AttentionBackendName.NATIVE, _AttentionBackendRegistry.get_active_backend,
-                               attention_selection._load_bindings())
-
-
 def require_native_attention(transformer: object) -> None:
-    """Read effective dispatch/processor state without changing any default."""
+    """Use the common read-only guard; retain the private cache call seam."""
     from . import attention_selection
 
-    api = _native_attention_api()
-    try:
-        active, function = api.active()
-    except Exception:
-        raise ValueError("The private FBC recipe could not establish Native attention dispatch") from None
-    if active != api.native or not callable(function):
-        raise ValueError("The private FBC recipe requires the active Native attention dispatcher")
-    coverage = attention_selection._coverage(transformer, api.bindings)
-    if any(slot.processor._attention_backend not in (None, api.native) for slot in coverage.values()):
-        raise ValueError("The private FBC recipe requires Native attention on every processor")
+    attention_selection.require_native_attention(transformer)
 
 
 def _registry(module: Module, api: _Api) -> HookRegistry | None:

@@ -14,6 +14,7 @@ import weakref
 from collections.abc import Callable, Iterable, Mapping
 from contextlib import AbstractContextManager
 from dataclasses import dataclass
+from importlib import import_module
 from typing import Protocol, cast
 
 
@@ -126,6 +127,37 @@ def _coverage(transformer: object, bindings: _Bindings) -> dict[str, _Slot]:
     if any(actual[path] is not slot.processor for path, slot in expected.items()):
         raise AttentionSelectionError("FLUX attention processor identities disagree with their blocks")
     return expected
+
+
+@dataclass(frozen=True)
+class _NativeAttentionApi:
+    native: object
+    active: Callable[[], tuple[object, object]]
+    bindings: _Bindings
+
+
+def _native_attention_api() -> _NativeAttentionApi:
+    # Source contract: get_active_backend only reads the selected enum/function;
+    # dispatch_attention_fn uses it when a processor override is None.
+    import_module("..config", __package__)
+    from diffusers.models.attention_dispatch import AttentionBackendName, _AttentionBackendRegistry
+
+    return _NativeAttentionApi(AttentionBackendName.NATIVE, _AttentionBackendRegistry.get_active_backend,
+                               _load_bindings())
+
+
+def require_native_attention(transformer: object) -> None:
+    """Read effective dispatch/processor state without changing any default."""
+    api = _native_attention_api()
+    try:
+        active, function = api.active()
+    except Exception:
+        raise ValueError("The private execution recipe could not establish Native attention dispatch") from None
+    if active != api.native or not callable(function):
+        raise ValueError("The private execution recipe requires the active Native attention dispatcher")
+    coverage = _coverage(transformer, api.bindings)
+    if any(slot.processor._attention_backend not in (None, api.native) for slot in coverage.values()):
+        raise ValueError("The private execution recipe requires Native attention on every processor")
 
 
 @dataclass(frozen=True)

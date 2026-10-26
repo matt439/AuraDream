@@ -79,6 +79,15 @@ checks, not real imported dispatcher/FBC/model/device/kernels, memory, pixels or
 main-status/card qualification. The combined whole-source gate follows the
 concurrent credential-source stage.
 
+## Shared Native attention invariant
+
+The effective-Native implementation was subsequently moved intact to the shared
+attention helper, with this module delegating. Regional preparation/calls now
+enforce the same invariant instead of trusting a startup warning. The refactor/
+regional fix passed **755 focused** and **154 isolated synthetic checks**, pinned
+three-source types, Ruff and independent review, without changing cache policy,
+environment, eager behavior or public nonempty admission.
+
 ## Installed FBC CPU probe
 
 Four focused assertions share one fresh guarded worker using the installed

@@ -183,6 +183,20 @@ sources with zero errors/warnings**, and repository Ruff passed. All owned
 validation processes ended successfully. No real model, compiler or GPU
 generation was used for this private-wiring stage.
 
+## Shared Native attention invariant
+
+The later shared Native invariant fix adds read-only effective-dispatch and
+complete processor checks before regional registration/publication and before/
+after one strict forward. A startup warning alone cannot exclude import-frozen
+or later nonnative overrides. The common guard lives in `attention_selection`,
+with FBC delegation; it neither resets defaults nor chooses public override
+precedence. Changed successful results fail, while primary errors/cancellations
+retain identity plus diagnostic notes. Eager and all public guards are unchanged.
+The fix passed **755 focused checks** and **154 isolated synthetic checks**,
+three-source pinned types with zero diagnostics, Ruff and independent review.
+All jobs ended. Broader fixtures retain their ordinary availability guard; actual
+dispatcher/model/device/kernel behavior remains unqualified.
+
 ## Installed CPU compiler-policy probe
 
 One isolated worker now exercises the actual installed Dynamo configuration
