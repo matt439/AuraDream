@@ -638,7 +638,7 @@ function toggleReference(div, rec) {
     refuseInCard(div, 'Four reference images is the most this panel sends; remove one first.', 'Four is the most');
     return;
   }
-  setReferences([...referenceIds, rec.id]);
+  setReferences([...referenceIds, rec.id], { reveal: true });
   cardNote(div, `Added as image ${referenceIds.length}`);
 }
 

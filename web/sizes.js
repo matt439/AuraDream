@@ -90,13 +90,58 @@ function syncOrientation() {
   els.orientation.setAttribute('aria-label', els.orientation.title);
 }
 
+function sizePresetMatch(w = +els.width.value, h = +els.height.value) {
+  return ASPECTS.flatMap((a) => TIERS.map((t) => [a, t]))
+    .find(([a, t]) => SIZES[a][t][0] === w && SIZES[a][t][1] === h);
+}
+
+function syncCustomSizeSummary(match = sizePresetMatch()) {
+  const bad = [els.width, els.height].some((input) => input.validity.badInput || !input.value.trim());
+  const text = bad ? 'check width and height'
+    : `${+els.width.value} × ${+els.height.value}${match ? '' : ' · custom'}`;
+  if (els.customSizeValue.textContent !== text) els.customSizeValue.textContent = text;
+  els.customSizeValue.classList.toggle('warn', bad);
+}
+
+// These sync functions change words only. Polling or a preset match must not
+// reopen a group the user collapsed, or close one beneath focus/the pointer.
+function syncConditioningSummary() {
+  const adapter = els.lora.value || pendingLora;
+  const n = referenceIds.length;
+  const badWeight = !!adapter && els.loraScale.validity.badInput;
+  const parts = [];
+  if (adapter) {
+    const weight = badWeight ? 'weight incomplete' : els.loraScale.value.trim() ? `× ${els.loraScale.value}` : 'weight blank';
+    const state = !els.lora.value && pendingLora ? ' · retained · not currently listed'
+      : !loraSupported ? ' · retained · unavailable on this model' : '';
+    parts.push(`LoRA ${adapter.replace(/\.safetensors$/i, '')} ${weight}${state}`);
+  }
+  if (n) parts.push(`${n} reference${n === 1 ? '' : 's'}${referenceSupported ? '' : ' retained · unavailable on this model'}`);
+  const text = parts.join(' · ') || 'none selected';
+  if (els.conditioningSummary.textContent !== text) els.conditioningSummary.textContent = text;
+  els.conditioningSummary.classList.toggle('warn', badWeight || (!!adapter && !loraSupported) || (!!n && !referenceSupported));
+}
+
+function revealSetupField(input) {
+  const group = input?.closest?.('#custom-size, #conditioning-section');
+  if (group) group.open = true;
+}
+
+// Only explicit restore/reuse/navigation calls this. A background sync never
+// opens a disclosure, and even Reset leaves its chosen open/closed state.
+function revealActiveSetup() {
+  syncCustomSizeSummary();
+  syncConditioningSummary();
+  if (!sizePresetMatch()) els.customSize.open = true;
+  if (els.lora.value || pendingLora || referenceIds.length) els.conditioningSection.open = true;
+}
+
 function syncSize() {
   const w = +els.width.value, h = +els.height.value;
   syncRerender();
   // Recover which preset this is, so a reused or hand-typed size lights the
   // buttons up too, and the next click off it starts from the right place.
-  const match = ASPECTS.flatMap((a) => TIERS.map((t) => [a, t]))
-    .find(([a, t]) => SIZES[a][t][0] === w && SIZES[a][t][1] === h);
+  const match = sizePresetMatch(w, h);
   if (match) [pickedAspect, pickedTier] = match;
   syncOrientation();
 
@@ -155,6 +200,7 @@ function syncSize() {
   if (sizeIsTight(w, h)) notes.push('may run tight on 16GB VRAM');
   els.sizeHint.textContent = `${mp.toFixed(1)} MP` + notes.map((n) => ` — ${n}`).join('');
   els.sizeHint.classList.toggle('warn', notes.length > 0);
+  syncCustomSizeSummary(match);
 }
 
 // 4 MP on a 16GB card is the edge of what fits once the DiT is resident; the
@@ -458,6 +504,7 @@ function renderReferences() {
   });
   // The gallery's cards and the sheet's cells say which images these are.
   syncReferenceMarks();
+  syncConditioningSummary();
 }
 
 function clearReferenceDropMarkers() {
@@ -485,6 +532,7 @@ function removeReference(index) {
 }
 
 function focusReference(index) {
+  revealSetupField(els.referenceList);
   els.referenceList.querySelectorAll('.chip button')[index]?.focus();
 }
 
@@ -513,9 +561,10 @@ function forgetReferences({ ids, binned }) {
   return (deleted.length ? forgetImages(deleted) : '') + (binned.length ? forgetImages(binned, { binned: true }) : '');
 }
 
-function setReferences(ids) {
+function setReferences(ids, { reveal = false } = {}) {
   referenceIds = ids.slice(0, 4);
   renderReferences();
+  if (reveal && referenceIds.length) revealSetupField(els.referenceList);
   schedulePreview();
   persistPanel();
   // The prompt check counted them: klein's guide asks what each one is for.

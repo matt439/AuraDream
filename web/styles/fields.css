@@ -8,6 +8,15 @@
    dimming multiplied in, on the one line that explains why the field is off. */
 .field em { text-transform: none; font-style: normal; font-weight: 400; color: var(--text-3); letter-spacing: 0; }
 
+/* Infrequent setup stays one native disclosure away. Its current values and
+   warnings remain in the summary, and size guidance stays outside the fold. */
+.setup-disclosure { min-width: 0; padding-block: var(--sp-1); border-top: 1px solid var(--line); }
+.setup-disclosure > summary { min-height: var(--h-sm); padding-block: var(--sp-1); cursor: pointer; color: var(--text); font-size: var(--fs-label); font-weight: 600; }
+.setup-disclosure > summary span { color: var(--text-3); font-weight: 400; overflow-wrap: anywhere; }
+.setup-disclosure > summary span.warn { color: var(--warn); }
+.setup-body { display: flex; flex-direction: column; gap: var(--sp-2); margin-top: var(--sp-2); min-width: 0; }
+.custom-orientation { display: flex; }
+
 textarea, input[type="number"], input[type="search"], input[type="text"], input[type="password"] {
   background: var(--panel-2);
   border: 1px solid var(--line-strong);

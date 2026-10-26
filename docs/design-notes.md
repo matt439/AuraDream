@@ -7501,6 +7501,20 @@ history rather than an application key handler.
 
 ## Keyboard shortcut help
 
+**Small fast routes and compact setup (2026-10-26).** The same approved follow-up
+adds `/` to gallery search and M to the focused image's More seeds preview. M
+uses one image id, independent of picks, and requires a separate Queue action.
+Fields, menus, composition, unsupported modifiers, repeats and other modals keep
+their keys. Literal slash permits Shift for keyboard layouts that require it.
+Current dimensions and size warnings remain visible while custom W/H/Orientation
+move into a native disclosure; LoRA/reference setup has its own active summary.
+Restore/Reuse/error navigation reveal relevant fields, while background status
+never reopens a collapsed group. No values or disclosure persistence are invented.
+A delayed catalogue also exposed a stale pending LoRA after Reset; clearing that
+pending choice and retaining it in Undo snapshots restores documented behavior.
+Comparison grouping and C were left out of this bounded slice; existing S and
+visible comparison controls remain.
+
 **Ownership review (2026-10-26).** The [approved follow-up](plan-shortcut-workflow.md)
 fixes actual browser conflicts: Ctrl+Enter generated behind Then refine settings,
 Picked activated and generated in one event, lightbox Alt+Arrow intercepted

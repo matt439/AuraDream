@@ -459,7 +459,7 @@ function drawSheet() {
     // What a zoomed sheet shows instead (sizeSheetImages).
     img.dataset.full = rec.url;
     img.setAttribute('aria-keyshortcuts',
-      'ArrowLeft ArrowRight ArrowUp ArrowDown Home End Control+Home Control+End F Plus - 0 1');
+      'ArrowLeft ArrowRight ArrowUp ArrowDown Home End Control+Home Control+End F M Plus - 0 1');
     const star = document.createElement('button');
     star.type = 'button';
     star.className = 'star fav-badge';

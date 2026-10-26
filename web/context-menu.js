@@ -48,10 +48,10 @@ function buttonItem(label, button, hint = '') {
 
 // An item held as a button built for it would be, by that button's own
 // sync function (Outpaint… and ❐ where the place has no such button).
-function syncedItem(label, sync, run) {
+function syncedItem(label, sync, run, hint = '') {
   const scratch = document.createElement('button');
   sync(scratch);
-  return { label, held: scratch.getAttribute('aria-disabled') === 'true', title: scratch.title, run };
+  return { label, hint, held: scratch.getAttribute('aria-disabled') === 'true', title: scratch.title, run };
 }
 
 const CLIPBOARD_NONE = 'The browser opens the clipboard only to a page at 127.0.0.1 or localhost';
@@ -104,8 +104,8 @@ function imageItems({ kind, rec, host }) {
       run: () => { useSeed(rec.seed); cardNote(host, lightbox ? `Seed ${rec.seed} is in the Seed box.` : 'Seed set'); },
     },
     // The lightbox's button where it has one; held as it would be elsewhere.
-    lightbox ? buttonItem('More seeds of this batch…', els.lbMoreSeeds)
-      : syncedItem('More seeds of this batch…', (b) => syncMoreSeedsFor(b, rec), () => moreSeedsOfImage(rec, host)),
+    lightbox ? buttonItem('More seeds of this batch…', els.lbMoreSeeds, 'M')
+      : syncedItem('More seeds of this batch…', (b) => syncMoreSeedsFor(b, rec), () => moreSeedsOfImage(rec, host), 'M'),
     null,
     buttonItem('⤢ Refine…', lightbox ? els.lbRefine : find('.refine-tool')),
     buttonItem('✎ Inpaint…', lightbox ? els.lbInpaint : find('.inpaint-tool')),

@@ -34,6 +34,7 @@ function fillPanel(rec, sampling) {
   referenceIds = referenceSupported ? [...(rec.reference ?? [])] : [];
   const listed = [...els.lora.options].some((o) => o.value === rec.lora);
   els.lora.value = loraSupported && rec.lora && listed ? rec.lora : '';
+  pendingLora = '';
   els.loraScale.value = els.lora.value ? (rec.lora_scale ?? 1) : 1;
 }
 
@@ -74,7 +75,7 @@ function reuseFields() {
     prompt: els.prompt.value, negative: els.negative.value, seed: els.seed.value,
     width: els.width.value, height: els.height.value,
     steps: els.steps.value, cfg: els.cfg.value, mu: els.mu.value, trueCfg: els.trueCfg.value,
-    owned: { ...owned }, reference: [...referenceIds], lora: els.lora.value, loraScale: els.loraScale.value,
+    owned: { ...owned }, reference: [...referenceIds], lora: els.lora.value || pendingLora, loraScale: els.loraScale.value,
   };
 }
 
@@ -117,6 +118,7 @@ function reuseIntoPanel(rec, withSize, note = '', { name = `#${rec.id}`, samplin
   syncSize();
   syncCfg();
   syncConditioning();
+  revealActiveSetup();
   syncRuns();
   schedulePreview();
   scheduleTagValidation(0);
@@ -293,6 +295,7 @@ function undoReuse(note) {
   els.trueCfg.value = values.trueCfg;
   referenceIds = state.reference;
   els.lora.value = state.lora;
+  pendingLora = state.lora && !els.lora.value ? state.lora : '';
   els.loraScale.value = state.loraScale;
   promptReplaced();
   // An expansion's English, where the prompt put back is the one it
@@ -302,6 +305,7 @@ function undoReuse(note) {
   syncSize();
   syncCfg();
   syncConditioning();
+  revealActiveSetup();
   syncRuns();
   schedulePreview();
   scheduleTagValidation(0);

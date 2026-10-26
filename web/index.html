@@ -347,15 +347,22 @@
       <div class="presets" id="presets" role="group" aria-label="Aspect"></div>
       <div class="size-tier-row">
         <div class="presets tiers" id="tiers" role="group" aria-label="Size in megapixels"></div>
-        <button type="button" class="ghost small orientation" id="btn-orientation"
-                title="Square has no portrait or landscape orientation" disabled>Orientation</button>
       </div>
-      <div class="row size-row">
-        <!-- max is the longest side of any preset - backend/sizes.py, which
-             tests/test_profiles.py holds this to. -->
-        <label class="sub"><i>W</i><input type="number" id="width" value="1024" step="16" min="256" max="3168"></label>
-        <label class="sub"><i>H</i><input type="number" id="height" value="1024" step="16" min="256" max="3168"></label>
-      </div>
+      <details class="setup-disclosure" id="custom-size">
+        <summary id="custom-size-summary" aria-describedby="size-hint">Custom dimensions <span id="custom-size-value">1024 × 1024</span></summary>
+        <div class="setup-body">
+          <div class="row size-row">
+            <!-- max is the longest side of any preset - backend/sizes.py, which
+                 tests/test_profiles.py holds this to. -->
+            <label class="sub"><i>W</i><input type="number" id="width" value="1024" step="16" min="256" max="3168"></label>
+            <label class="sub"><i>H</i><input type="number" id="height" value="1024" step="16" min="256" max="3168"></label>
+          </div>
+          <div class="custom-orientation">
+            <button type="button" class="ghost small orientation" id="btn-orientation"
+                    title="Square has no portrait or landscape orientation" disabled>Orientation</button>
+          </div>
+        </div>
+      </details>
       <p class="hint" id="size-hint"></p>
     </div>
 
@@ -686,41 +693,43 @@
               aria-keyshortcuts="Control+Enter">Run grid</button>
     </details>
 
-    <!-- Conditioning: reference images, and an adapter. Both are greyed rather
-         than hidden where they do not apply, the way True CFG is - the panel
-         keeps its shape, and the badge says why the box is dead. Last in the
-         panel, under the grid fold's summary: both are rarely used, and
-         between Sampling and Output they put Generate's progress, its bar and
-         its time, past the foot of a 2048 x 1040 window (QHD at 125%) while
-         the page is at its top, where the panel cannot be lifted. A request
-         reads them wherever they sit (collect). -->
-    <div class="field" id="reference-field">
-      <span>Reference images
-        <span class="help" tabindex="0" role="note" aria-label="Reference images help" aria-describedby="reference-tip">?<span
-          class="tip" id="reference-tip">Reference images condition the picture on one you
-          have already made. This checkpoint's pipeline takes none - FLUX.2 [klein] is the
-          one here that does.</span></span>
-        <em id="reference-note"></em></span>
-      <!-- Focusable by script alone (tabindex -1): where focus goes once the
-           last chip's × is gone (sizes.js, removeReference). -->
-      <div class="chips" id="reference-list" role="group" aria-label="Reference images"
-           tabindex="-1" aria-describedby="reference-tip"></div>
-    </div>
+    <!-- Conditioning stays available behind a native disclosure when inactive.
+         Its summary names selected inputs even when closed; unsupported retained
+         inputs remain named as unavailable. Explicit restore/reuse/navigation can
+         reveal the controls, while background sync never opens or closes them.
+         Their values and collect() semantics do not depend on the disclosure. -->
+    <details class="setup-disclosure" id="conditioning-section">
+      <summary>LoRA &amp; references <span id="conditioning-summary">none selected</span></summary>
+      <div class="setup-body">
+        <div class="field" id="reference-field">
+          <span>Reference images
+            <span class="help" tabindex="0" role="note" aria-label="Reference images help" aria-describedby="reference-tip">?<span
+              class="tip" id="reference-tip">Reference images condition the picture on one you
+              have already made. This checkpoint's pipeline takes none - FLUX.2 [klein] is the
+              one here that does.</span></span>
+            <em id="reference-note"></em></span>
+          <!-- Focusable by script alone (tabindex -1): where focus goes once the
+               last chip's × is gone (sizes.js, removeReference). -->
+          <div class="chips" id="reference-list" role="group" aria-label="Reference images"
+               tabindex="-1" aria-describedby="reference-tip"></div>
+        </div>
 
-    <div class="row" id="lora-field">
-      <div class="sub grow">
-        <i><label for="lora">LoRA</label>
-          <span class="help" tabindex="0" role="note" aria-label="LoRA help" aria-describedby="lora-tip">?<span
-            class="tip" id="lora-tip">A LoRA adapter from the loras/ directory; Weight 0-2
-            scales its effect.</span></span></i>
-        <select id="lora" aria-describedby="lora-tip"><option value="">none</option></select>
+        <div class="row" id="lora-field">
+          <div class="sub grow">
+            <i><label for="lora">LoRA</label>
+              <span class="help" tabindex="0" role="note" aria-label="LoRA help" aria-describedby="lora-tip">?<span
+                class="tip" id="lora-tip">A LoRA adapter from the loras/ directory; Weight 0-2
+                scales its effect.</span></span></i>
+            <select id="lora" aria-describedby="lora-tip"><option value="">none</option></select>
+          </div>
+          <div class="sub narrow">
+            <i><label for="lora-scale">Weight</label></i>
+            <input type="number" id="lora-scale" value="1" min="0" max="2" step="0.05"
+                   aria-describedby="lora-tip">
+          </div>
+        </div>
       </div>
-      <div class="sub narrow">
-        <i><label for="lora-scale">Weight</label></i>
-        <input type="number" id="lora-scale" value="1" min="0" max="2" step="0.05"
-               aria-describedby="lora-tip">
-      </div>
-    </div>
+    </details>
   </section>
 
   <section class="stage" id="stage">
@@ -801,7 +810,8 @@
         <select id="run-list" class="runs" aria-label="Recent runs" disabled>
           <option value="">Runs…</option>
         </select>
-        <input type="search" id="search" placeholder="Search prompts, or seed:42 cfg:0.5…" aria-describedby="search-tip">
+        <input type="search" id="search" placeholder="Search prompts · / to focus" aria-label="Search gallery"
+               aria-keyshortcuts="/" title="Search gallery (/ outside fields, menus and dialogs)" aria-describedby="search-tip">
         <span class="help" tabindex="0" role="note" aria-label="Search help" aria-describedby="search-tip">?<span class="tip" id="search-tip">
           Bare words match the prompt. <b>key:value</b> filters the settings:<br>
           <b>seed:42</b> · <b>steps:8</b> · <b>cfg:0.5</b> · <b>tcfg:1.5</b> · <b>mu:none</b> ·

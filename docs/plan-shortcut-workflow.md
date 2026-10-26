@@ -69,4 +69,62 @@ behavior was loosened to satisfy that fixture. Receipt:
 Disconnected-origin fallback is source-reviewed; hidden-menu-origin return is
 browser-qualified. Physical screen-reader/touch acceptance remains UI#7.
 
-Stage 3 remains open.
+Stage 3 completed and qualified 2026-10-26. `/` focuses gallery search without
+changing query/scope/picks. M opens the focused image's existing More seeds
+preview, independently of hidden picks, and queues nothing. Its holds, actual
+visible opener and late-reply guards remain in force. Hints appear beside the
+lightbox button, in its image menu and in contextual help. Comparison controls
+remain visible with S; the compact legend retains its prior geometry.
+
+Custom dimensions and LoRA/reference setup are native disclosures with current
+summaries. Presets, dimensions, warnings, Generate, More seeds entry points and
+queue/error controls remain direct. Restore, Reuse/Undo, new reference activation
+and validation focus reveal relevant controls; ordinary polling changes words
+only. Manual collapse retains every value. Pending LoRA choices are named
+truthfully, cleared by Reset/replacement Reuse and preserved by Undo snapshots.
+
+The browser sweep caught and corrected three related issues: a narrow lightbox
+menu used its hidden More seeds button as opener, a record redraw could remove
+or hide the focused lightbox control, and the new activation guard caught the
+intentional Shift+Space range command on an ARIA image button. The final guard
+limits native modified-button prevention to native controls. Native Source
+activation now returns lost focus to Close without stealing a higher dialog's
+focus. Native and synthetic Shift+Space regressions retain exact pick counts.
+An intermediate M legend entry changed comparison-button positions; M remains
+discoverable beside its action/menu/help while the original legend is retained.
+These follow-ups qualify the final tree rather than implying the earlier Stage 1
+commit alone had the final preservation coverage.
+
+Independent reviews are clear. Seventeen distinct isolated browser suites passed
+across the final qualification runs:
+
+| Receipt under `%TEMP%` | Passing coverage |
+|---|---|
+| `local-diffusion-compact-existing-20261026-k1.log` | Conditioning, numeric inputs, control sizing (wide-layout assumptions were corrected later). |
+| `local-diffusion-compact-preservation-20261026-k3.log` | Wide, grid, Bundles, More seeds, shortcuts, More seeds tabs, mixed prompts (the other five failures were rechecked below). |
+| `local-diffusion-compact-rechecks-20261026-k4.log` | Lightbox, selection, CFG/steps comparison, PNG settings, size/crop, shortcut dispatch and compact setup: 7/7 passed. |
+
+The 307-step compact suite covers real status replies, delayed catalogue replies,
+Reset/Undo, focus, actual bin/restore, hidden picks, opening without queuing and
+390/600/1400/2048 px layouts. Six docs-map tests, Ruff, frontend/harness syntax
+and whitespace checks passed. Desktop/narrow proof screenshots were visually
+inspected; `compact-setup-20261026.png` is the retained desktop proof.
+
+Fixture repairs preserved outcomes: wide tests explicitly exercise overheight
+panels when needed, PNG tests navigate the new disclosure, comparison tests use
+native focused controls, and crop tests await actual close cleanup before a new
+Reuse. Initial closed-details visibility probes were corrected to consult native
+`checkVisibility`; bin tests set their intended query before entering the bin.
+The earlier failing receipts remain available. Synthetic CPU/browser checks do
+not establish physical IME, screen-reader, touch or GPU/model acceptance.
+
+## Shared conventions
+
+For the parent's DeckLab coordination: Escape owns the top context, primary
+Ctrl/Cmd+Enter is contextual and exact, native editing/Undo and browser/OS chords
+keep their meaning, and discrete actions do not repeat. Image's two new routes
+are intentionally scoped: `/` searches the main gallery; M opens the focused
+image's continuation preview. No extra global letter bindings were added.
+
+The approved three stages are complete. No model was loaded or downloaded, and
+nothing was pushed or deployed.

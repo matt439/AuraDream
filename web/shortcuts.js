@@ -47,6 +47,8 @@ const SHORTCUT_GROUPS = [
       [['Tab'], 'Enter the current card and its controls.'],
       [['Left', 'Right', 'Up', 'Down', 'Home', 'End'], 'Move between card images; moving past the last loaded card can load more.'],
       [['Enter'], 'Open the focused image in the lightbox.'],
+      [['/'], 'Focus gallery search from the workspace, leaving the query and filters unchanged. Fields, menus and dialogs keep their keys.'],
+      [['M'], 'Open More seeds for the focused image\'s batch. Picks stay unchanged; nothing queues until Queue is pressed.'],
       [['Space', 'Shift+Space'], 'Pick or unpick the focused image; with Shift, add the range from the selection anchor.'],
       [['Ctrl/Cmd+A'], 'Add every loaded gallery card to the selection.'],
       [['Escape'], 'Clear the picks, then leave Select mode on the next press.'],
@@ -63,6 +65,7 @@ const SHORTCUT_GROUPS = [
       [['Ctrl+Home', 'Ctrl+End'], 'Move to the first or last populated cell.'],
       [['Enter', 'Space'], 'Open the focused image in the lightbox.'],
       [['F'], 'Star or unstar the focused cell.'],
+      [['M'], 'Open More seeds for the focused cell\'s batch; review and Queue separately.'],
       [['+', '-'], 'Zoom the sheet in or out.'],
       [['0', '1'], 'Reset the sheet zoom; show one image pixel per screen pixel.'],
     ],
@@ -74,6 +77,7 @@ const SHORTCUT_GROUPS = [
     rows: [
       [['Left', 'Right'], 'Browse images, or step through the current picked pair, source passes or comparison values.'],
       [['F', 'R', 'S'], 'Star the image; open Refine; toggle the current comparison.'],
+      [['M'], 'Open More seeds for this image\'s batch. Opening does not queue images.'],
       [['Delete'], 'Move this image to the recycle bin. In the bin, ask to delete it permanently. Holding the key does not repeat.'],
       [['+', '-'], 'Zoom in or out.'],
       [['0', '1'], 'Fit the picture; show one image pixel per screen pixel.'],
@@ -182,8 +186,8 @@ function shortcutContext(target) {
     return context('Job queue and recovery', ['queue'], 'Tab reaches the visible job actions. No global key cancels or reorders jobs.');
   }
   if (at?.closest('#sheet')) return context('Contact sheet', ['sheet'], 'Navigation starts on a populated cell. Image actions are available after opening its lightbox.');
-  if (at?.closest('#viewer')) return context('Result image', ['menus'], 'Enter or Space opens a focused result image; Menu or Shift+F10 opens its image actions.');
-  if (at?.closest('#recent')) return context('Earlier session image', ['menus'], 'Enter or Space opens this image. This strip has no app image-actions menu; open its lightbox for more actions.');
+  if (at?.closest('#viewer')) return context('Result image', ['menus', 'gallery'], 'Enter or Space opens a focused result image; M opens More seeds for its batch. Menu or Shift+F10 opens its image actions. Gallery navigation keys belong to gallery cards.');
+  if (at?.closest('#recent')) return context('Earlier session image', ['gallery'], 'Enter or Space opens this image; M opens More seeds for its batch. This strip has no app image-actions menu or gallery-card navigation; open its lightbox for more actions.');
   if (at?.closest('#library, .gallery-head')) {
     if (sheetMode) return context('Contact sheet', ['sheet'], 'Navigation starts on a populated cell. Image actions are available after opening its lightbox.');
     return context(binMode ? 'Recycle bin' : 'Gallery', ['gallery'], binMode ? 'These are the bin\'s picks. Starring and the app\'s image-actions menu are unavailable here.' : 'Card keys act on the focused image; fields keep their normal editing.');

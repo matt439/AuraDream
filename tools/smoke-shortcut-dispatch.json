@@ -88,6 +88,33 @@
     "expect": "__spaceGuards.every(Boolean)&&!els.lightbox.open"
   },
   {
+    "log": "'Shift+Space on a focused gallery image adds the exact anchor range, via both a trusted native key combination and a browser-event probe; it never navigates or queues.'"
+  },
+  {
+    "eval": "window.__nativeShiftSpace=null;window.__recordShiftSpace=e=>{if(e.key===' ')window.__nativeShiftSpace={trusted:e.isTrusted,shift:e.shiftKey,ctrl:e.ctrlKey,alt:e.altKey,meta:e.metaKey,repeat:e.repeat,prevented:e.defaultPrevented};};__img(2).addEventListener('keydown',__recordShiftSpace);__img(2).focus({preventScroll:true});"
+  },
+  {
+    "keycombo": [
+      "Shift",
+      " "
+    ]
+  },
+  {
+    "expect": "selectedIds().join()===__sourceIds.join()&&document.activeElement===__img(2)&&!els.lightbox.open&&!sheetMode&&__noSubmission()&&__nativeShiftSpace?.trusted&&__nativeShiftSpace.shift&&!__nativeShiftSpace.ctrl&&!__nativeShiftSpace.alt&&!__nativeShiftSpace.meta&&!__nativeShiftSpace.repeat&&__nativeShiftSpace.prevented"
+  },
+  {
+    "eval": "__img(2).removeEventListener('keydown',__recordShiftSpace);clearSelection();__img(0).focus({preventScroll:true});__probe(__img(0),' ');"
+  },
+  {
+    "expect": "selectedIds().join()===String(__sourceIds[0])&&!els.lightbox.open"
+  },
+  {
+    "eval": "__img(2).focus({preventScroll:true});window.__syntheticShiftSpace=__probe(__img(2),' ',{shiftKey:true});"
+  },
+  {
+    "expect": "selectedIds().join()===__sourceIds.join()&&document.activeElement===__img(2)&&__syntheticShiftSpace.defaultPrevented&&!els.lightbox.open&&!sheetMode&&__noSubmission()"
+  },
+  {
     "eval": "clearSelection();window.__cardStarCount=__stars.length;window.__cardFavorite=galleryRecords[0].favorite;__img(0).focus({preventScroll:true});window.__cardGuards=[{repeat:true},{isComposing:true},{prevented:true},{ctrlKey:true},{metaKey:true},{altKey:true}].map(flags=>{__probe(__img(0),'f',flags);return __stars.length===__cardStarCount;});"
   },
   {

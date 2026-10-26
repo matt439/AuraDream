@@ -243,7 +243,7 @@ function referenceThumbs(rec) {
     // Asked again after the answers: a load can change the checkpoint meanwhile.
     syncUseReferences(use);
     if (use.getAttribute('aria-disabled') === 'true') { showError(use.title, true); return; }
-    setReferences(live);
+    setReferences(live, { reveal: true });
     const put = live.length === 1 ? `Reference ${imageNames(live)} is in the panel`
       : `References ${imageNames(live)} are in the panel`;
     showError(!dead.length ? `${put}.` : `${put}; ${imageNames(dead)} ${dead.length === 1

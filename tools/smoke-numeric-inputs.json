@@ -78,7 +78,7 @@
     "log": "\"Width: actual native typing 1e stays invalid, says which field to fix and focuses it without a POST.\""
   },
   {
-    "eval": "__fixNumber(els.steps, '4'); __fixNumber(els.cfg, '3.5'); __fixNumber(els.seed, '42'); __fixNumber(els.width, '256'); __fixNumber(els.trueCfg, ''); __incomplete(els.width);"
+    "eval": "__fixNumber(els.steps, '4'); __fixNumber(els.cfg, '3.5'); __fixNumber(els.seed, '42'); __fixNumber(els.width, '256'); __fixNumber(els.trueCfg, ''); els.customSize.open=true; __incomplete(els.width);"
   },
   {
     "type": "1e"

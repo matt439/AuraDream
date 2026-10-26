@@ -2419,6 +2419,17 @@ Frontend and CLI:
   `#negative-field` is a div with `<label for="negative">`: a button inside a
   label becomes the label's control. `#negative` is described by `#neg-note`
   (`aria-describedby`), so a greyed box says why.
+- Custom dimensions and LoRA/reference setup use native details/summary
+  disclosures (`#custom-size`, `#conditioning-section`). Inactive defaults
+  start closed; summaries retain actual dimensions, adapter/weight and reference
+  count, with incomplete/unavailable state named. Aspect/MP presets and size
+  warnings stay outside. Native summaries retain `--h-sm` targets and the
+  common focus ring. Explicit restore, Reuse/Undo and new reference activation
+  reveal relevant setup; numeric-error and reference focus open the containing
+  fold first. Polling/sync changes words only. Closing never changes values;
+  no automatic close or poll-driven reopen, and no new persistence key.
+  Pending restored LoRA names survive snapshots/Undo, but Reset or a replacement
+  Reuse clears them so a late catalogue cannot restore stale conditioning.
 - The sampling row (`.sampling-row`) keeps each name on one line, with
   `white-space: nowrap` on the `<label>` alone - never on the label line,
   which also holds the ? badge and its tip. No box is narrower than its name
@@ -2952,6 +2963,20 @@ Frontend and CLI:
   opacity, since `setBusy` rewrites the buttons' text) plus
   `aria-keyshortcuts`; the lightbox's Compare with source shares that rule,
   its content S (style.css's lightbox section).
+- `/` focuses and selects gallery search on the workspace, preserving its
+  query, filters, bin/run and picks. A literal slash may carry Shift on a
+  localized keyboard. Fields, menus, popups and modals own their keys;
+  Ctrl/Meta/Alt, composition, handled events and repeats never take this route.
+  Explicit navigation reveals a clipped search, without moving a visible one.
+  Unshifted M opens More seeds for the focused gallery/result/sheet/session
+  image or unobstructed lightbox image, using its one id and the existing holds
+  and preview. It never queues or widens to hidden picks. Its actual visible
+  opener owns focus and pending-preview validity, including narrow lightboxes.
+  Visible M hints stay in image context and help; the More seeds entry points
+  remain. A narrow lightbox menu uses its visible launcher instead of the hidden
+  button for pending-preview validity. Lightbox redraws preserve valid focus;
+  when their owned control disappears or becomes hidden/disabled, Close receives
+  focus without scrolling, unless another dialog is open. Comparison controls and S retain their existing behavior.
 - The grid preview is the server's expansion; the page adds only
   presentation and advice. It trims factors of one other than the seeds
   from the totals and writes ×, since `grid.describe` keeps its ASCII x and
@@ -5131,6 +5156,13 @@ one-call Skip and Finish recovery, and held paused/Then refine reasons.
 It checks random/cross selection, saved mode and Reset, deterministic choices
 across numeric axes and per-image batch seeds, preview counts and unseeded
 sample wording, saved choices, Resume, and unchanged Cartesian behavior.
+
+`smoke-compact-setup.json` uses a fresh fake on 7925. It checks inactive and
+active disclosures, value preservation and actual status-poll non-reopening,
+restore/Reuse/Undo and pending LoRA catalogue behavior, numeric-focus reveal,
+reference activation/order/capability state, native expansion, scoped `/` and M,
+hidden-pick independence, no immediate queue, modal/editing/modifier/IME/repeat
+protection and responsive screenshots at 390/600/1400/2048 px.
 
 `smoke-shortcut-dispatch.json` uses a fresh fake on 7924. It checks modal and
 menu ownership, exact modifiers, handled/composing/repeated events, native

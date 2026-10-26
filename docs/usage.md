@@ -690,6 +690,15 @@ made and queues none of them. Pause and **Resume** on a running job are a differ
 they hold and carry on the job itself. A run's sheet ends with a line
 naming the run, its image count and the checkpoint it was made on.
 
+### Compact setup
+
+Aspect and MP presets stay direct. Open **Custom dimensions** for W, H and
+Orientation; its summary always shows the current dimensions, with size warnings
+below it. **LoRA & references** contains adapter/weight and reference controls;
+its summary names active or retained inputs. Restore and Reuse reveal relevant
+setup, and an incomplete number reveals its field before focusing it. Closing
+a group keeps every setting. Status updates preserve your chosen open state.
+
 ### Keyboard and lightbox
 
 Press **?** outside a text field, or the **Keyboard shortcuts** button in the
@@ -700,8 +709,8 @@ it, or the visible opener of a menu that closed. Help can be opened above a ligh
 | Where | Keys |
 | --- | --- |
 | Main workspace | Ctrl/Cmd+Enter generates; inside an open Grid field runs the grid; in Refine runs the pass; in Refine… (Mass refine) runs the batch; in Swap tags queues; in More seeds… queues the batches |
-| Gallery | Tab enters the cards; arrows/Home/End navigate, Enter opens, F stars; in select mode Space picks, Shift+Space picks a range, Esc clears |
-| Lightbox | Left/Right browse, F stars, R opens Refine, S toggles the picked pair, or otherwise compares a pass with its source or an image with its CFG neighbour, Delete moves the image to the recycle bin (in the bin: asks to delete it permanently), Esc closes |
+| Gallery | `/` focuses search outside fields, menus and dialogs. M opens More seeds for the focused image's batch without queuing. Tab enters the cards; arrows/Home/End navigate, Enter opens, F stars; in select mode Space picks, Shift+Space picks a range, Esc clears |
+| Lightbox | Left/Right browse, F stars, R opens Refine, M opens More seeds without queuing, S toggles the picked pair, or otherwise compares a pass with its source or an image with its CFG neighbour, Delete moves the image to the recycle bin (in the bin: asks to delete it permanently), Esc closes |
 | Lightbox zoom | Wheel or +/− zoom, drag pans, 0 fits, 1 or double-click shows actual pixels |
 | Right-click an image | A menu of its actions: Star, Reuse settings, Use seed, More seeds of this batch…, Refine…, Inpaint…, Outpaint…, reference, Show run as sheet, Copy prompt / seed / image, Open PNG in new tab, Move to recycle bin. On a picked card: the picks' actions. The Menu key or Shift+F10 opens it from the keyboard; Shift+right-click gives the browser's own menu |
 | Contact sheet | Arrows move between populated cells; Home/End use row ends, Ctrl+Home/End the corners. Tab reaches the current cell's star; Enter/Space opens its lightbox, F stars |

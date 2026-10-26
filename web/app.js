@@ -287,6 +287,7 @@ els.cfg.oninput = () => { own('cfg'); syncCfg(); };
 // The weight boxes are dead without an adapter, so selecting one has to wake
 // them - and clearing it has to stop a stale axis reaching the server.
 els.lora.onchange = () => { syncConditioning(); schedulePreview(); };
+els.loraScale.addEventListener('input', () => syncConditioningSummary());
 els.trueCfg.oninput = () => { own('trueCfg'); syncCfg(); };
 // The greyed negative box points at the box that wakes it.
 els.negEnable.onclick = focusNegativeKnob;
@@ -600,9 +601,10 @@ document.addEventListener('keydown', (e) => {
   if (keyboardEventHeld(e)) return;
   const activation = e.key === 'Enter' || e.key === ' ';
   const button = e.target.closest?.('button, summary, [role="button"], [role="menuitem"], input[type="button"], input[type="submit"]');
+  const nativeButton = e.target.closest?.('button, summary, input[type="button"], input[type="submit"]');
   // Chromium activates a focused button even on Alt+Enter/Shift+Enter. These
   // are not alternate submit bindings; only the exact primary chord routes.
-  if (activation && button && (keyboardCommandModifier(e) || e.shiftKey) && !keyboardSubmit(e)) {
+  if (activation && nativeButton && (keyboardCommandModifier(e) || e.shiftKey) && !keyboardSubmit(e)) {
     e.preventDefault();
     return;
   }
@@ -656,6 +658,19 @@ document.addEventListener('keydown', (e) => {
     if (!els.tagFinderMenu.hidden) { showTagFinder(false); return; }
     if (!els.promptAnalysis.hidden && !(e.target.matches?.('input[type="search"]') && e.target.value)) {
       escapeAnalysis();
+      return;
+    }
+  }
+  // Two small routes, scoped to the current work. A literal slash may need
+  // Shift on a localized keyboard; M is an unshifted image command.
+  const popup = e.target.closest?.('[role="dialog"], #model-picker')
+    || (!modal && !els.modelPicker.hidden)
+    || (!els.examplesMenu.hidden && e.target.closest?.('#examples'))
+    || (!els.pickedMenu.hidden && e.target.closest?.('#picked'));
+  if (!e.repeat && !inMenu && !popup && !keyboardEditingTarget(e.target) && !keyboardCommandModifier(e)) {
+    if (e.key === '/' && !modal) { e.preventDefault(); focusGallerySearch(); return; }
+    if (!e.shiftKey && e.key.toLowerCase() === 'm' && openMoreSeedsFromKey(e.target)) {
+      e.preventDefault();
       return;
     }
   }

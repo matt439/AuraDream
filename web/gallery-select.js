@@ -163,7 +163,7 @@ function syncCardSelected(div) {
   img.setAttribute('aria-label', label.replace(/^(Open|Select) /, selectMode ? 'Select ' : 'Open '));
   // A recycle bin card has no star, so no F (binCard).
   const star = div.classList.contains('binned') ? '' : 'F ';
-  img.setAttribute('aria-keyshortcuts', `Enter ${star}Space Shift+Space Escape Control+A Meta+A`);
+  img.setAttribute('aria-keyshortcuts', `Enter ${star}M Space Shift+Space Escape Control+A Meta+A`);
 }
 
 // A card image's press (thumb's `open`, from card()): a plain click opens

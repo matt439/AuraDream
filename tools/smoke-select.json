@@ -104,7 +104,7 @@
   {"key": "Escape"},
   {"expect": "__until(() => !els.lightbox.open)"},
   {"log": "'With Select off each image is named Open, without aria-pressed; the card group retains the picked state and Enter stays among its keys.'"},
-  {"expect": "!selectMode && !__img(0).hasAttribute('aria-pressed') && __img(0).getAttribute('aria-label').startsWith('Open #' + __id(0) + ': ') && !__img(1).hasAttribute('aria-pressed') && __cards()[1].classList.contains('selected') && __img(1).getAttribute('aria-label').startsWith('Open #' + __c2 + ': ') && __img(1).getAttribute('aria-keyshortcuts') === 'Enter F Space Shift+Space Escape Control+A Meta+A'"},
+  {"expect": "!selectMode && !__img(0).hasAttribute('aria-pressed') && __img(0).getAttribute('aria-label').startsWith('Open #' + __id(0) + ': ') && !__img(1).hasAttribute('aria-pressed') && __cards()[1].classList.contains('selected') && __img(1).getAttribute('aria-label').startsWith('Open #' + __c2 + ': ') && __img(1).getAttribute('aria-keyshortcuts') === 'Enter F M Space Shift+Space Escape Control+A Meta+A'"},
   {"log": "'a card\\'s star is its own: a click on it stars the card and keeps the picks'"},
   {"eval": "scrollTo(0, 0)"},
   {"hover": "#gallery .card[data-id]:nth-child(2) .star"},

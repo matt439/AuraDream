@@ -585,6 +585,7 @@ function moreSeedsBackdrop(event) {
 }
 
 function setupMoreSeeds() {
+  els.lbMoreSeeds.setAttribute('aria-keyshortcuts', 'M');
   els.moreSeeds.onclick = () => { void openMoreSeeds(null, { opener: els.moreSeeds }); };
   els.viewerMoreSeeds.onclick = () => {
     syncViewerMoreSeeds();
@@ -676,11 +677,12 @@ function syncMoreSeedsFor(button, rec) {
 // nothing; else the dialog opens on `target`, a ready one ({scope, line}).
 function pressMoreSeedsTool(button, target, options = {}) {
   syncMoreSeedsTool(button);
+  const opener = options.opener ?? button;
   if (button.getAttribute('aria-disabled') === 'true') {
-    msRefuse(button.title, msOpenSlot(button, options.host));
+    msRefuse(button.title, msOpenSlot(opener, options.host));
     return;
   }
-  void openMoreSeeds(target, { ...options, opener: button });
+  void openMoreSeeds(target, { ...options, opener });
 }
 
 function moreSeedsImageTarget(rec) {
@@ -719,9 +721,49 @@ function moreSeedsOfImage(rec, host) {
   void openMoreSeeds(moreSeedsImageTarget(rec), { host });
 }
 
+// M always refers to the focused image's batch, independent of the picks or
+// gallery filter. Reuse the existing holds and preview; this never queues.
+function openMoreSeedsFromKey(target) {
+  let rec, host = null;
+  if (els.lightbox.open) {
+    rec = lbList[lbIndex];
+    host = els.lbStage;
+  } else {
+    const card = target.closest?.('#gallery .card[data-id]');
+    const result = target.closest?.('#viewer figure[data-id]');
+    const cell = target.closest?.('#sheet-grid .sheet-cell[data-id]');
+    const recent = target.closest?.('#recent img[data-id]');
+    if (card) { rec = galleryRecords.find((r) => r.id === +card.dataset.id); host = card; }
+    else if (result) { rec = viewerRecords.find((r) => r.id === +result.dataset.id); host = result.querySelector('.tile'); }
+    else if (cell) {
+      rec = sheetRecords.find((r) => r.id === +cell.dataset.id)
+        ?? (sheetLayout?.source?.id === +cell.dataset.id ? sheetLayout.source : null);
+      host = cell;
+    } else if (recent) rec = sessionRecords.find((r) => r.id === +recent.dataset.id);
+  }
+  if (!rec) return false;
+  if (deletedIds.has(rec.id)) {
+    msRefuse('Its image has been deleted since', msOpenSlot(target, host));
+    return true;
+  }
+  const scratch = document.createElement('button');
+  syncMoreSeedsFor(scratch, binnedIds.has(rec.id) && !rec.binned_at ? { ...rec, binned_at: true } : rec);
+  if (scratch.getAttribute('aria-disabled') === 'true') {
+    msRefuse(scratch.title, msOpenSlot(target, host));
+    return true;
+  }
+  void openMoreSeeds(moreSeedsImageTarget(rec), { opener: target, host });
+  return true;
+}
+
 function pressLightboxMoreSeeds() {
   const rec = lbList[lbIndex];
   if (!rec) return;
   syncMoreSeedsFor(els.lbMoreSeeds, rec);
-  pressMoreSeedsTool(els.lbMoreSeeds, moreSeedsImageTarget(rec));
+  // At phone width the menu invokes this button while CSS hides it. Keep the
+  // real visible launcher, or the opening's stale-context guard rejects it.
+  const focused = document.activeElement;
+  const opener = isShown(els.lbMoreSeeds) ? els.lbMoreSeeds
+    : els.lightbox.contains(focused) && isShown(focused) ? focused : els.lbClose;
+  pressMoreSeedsTool(els.lbMoreSeeds, moreSeedsImageTarget(rec), { opener });
 }

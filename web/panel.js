@@ -49,6 +49,7 @@ function panelState() {
     translation: translatedSource !== null ? { source: translatedSource, text: els.promptTranslation.value } : null,
   };
   for (const key of PANEL_FIELDS) state[key] = els[key].value;
+  state.lora = els.lora.value || pendingLora;
   // Sampling values travel with the checkpoint they were set on, and only
   // the ones the user took off the profile - the profile itself is the
   // server's to give back.
@@ -168,6 +169,7 @@ function restorePanel() {
     pendingTranslation = t;
   }
   syncConditioning();
+  revealActiveSetup();
 }
 
 // Reset: every box back to what a first visit shows - the checkpoint's own
@@ -217,6 +219,7 @@ function resetPanel() {
   els.trueCfg.value = '';
   referenceIds = [];
   els.lora.value = '';
+  pendingLora = '';
   els.loraScale.value = 1;
   els.seed.value = '';
   els.batch.value = 1;
@@ -308,6 +311,7 @@ function undoReset(note) {
   for (const key of PANEL_FIELDS) {
     if (key !== 'prompt' && key !== 'negative') els[key].value = state[key];
   }
+  pendingLora = state.lora && !els.lora.value ? state.lora : '';
   els.gridSection.open = state.gridOpen;
   els.gridSeeds.disabled = els.gridSeedList.value.trim() !== '';
   referenceIds = state.reference;
@@ -325,6 +329,7 @@ function undoReset(note) {
   syncSize();
   syncCfg();
   syncConditioning();
+  revealActiveSetup();
   syncRuns();
   schedulePreview();
   scheduleTagValidation(0);

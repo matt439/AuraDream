@@ -26,6 +26,7 @@ function refuseBadNumber(inputs) {
   if (!bad) return false;
   const [el, name] = bad;
   showError(`${name} has an incomplete number. Finish typing it before running.`);
+  revealSetupField(el);
   el.focus({ preventScroll: true });
   return true;
 }

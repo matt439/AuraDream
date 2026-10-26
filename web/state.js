@@ -49,6 +49,8 @@ const els = {
   comparePreview: $('compare-preview'), compareRun: $('compare-run'),
   promptTranslationField: $('prompt-translation-field'), promptTranslation: $('prompt-translation'),
   width: $('width'), height: $('height'), steps: $('steps'), cfg: $('cfg'),
+  customSize: $('custom-size'), customSizeSummary: $('custom-size-summary'), customSizeValue: $('custom-size-value'),
+  conditioningSection: $('conditioning-section'), conditioningSummary: $('conditioning-summary'),
   mu: $('mu'), muField: $('mu-field'), seed: $('seed'), batch: $('batch'), runs: $('runs'),
   trueCfg: $('true-cfg'), trueCfgField: $('true-cfg-field'), trueCfgTip: $('true-cfg-tip'),
   stepsTip: $('steps-tip'), cfgTip: $('cfg-tip'), muTip: $('mu-tip'),

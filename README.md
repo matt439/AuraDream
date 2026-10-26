@@ -117,6 +117,8 @@ For everyday use:
 - **Select** picks gallery cards to act on together: re-render them at another
   size, swap tags, refine, make more seeds, or star, unstar or bin them at once.
 - **Ctrl/Cmd + Enter** generates; inside Grid search or Refine, it runs that action.
+- **/** focuses gallery search outside fields, menus and dialogs. **M** opens
+  More seeds for the focused image's batch; review it and press Queue separately.
 
 See the [usage guide](docs/usage.md) for these workflows, keyboard shortcuts,
 search syntax and gallery maintenance.

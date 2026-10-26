@@ -442,6 +442,8 @@ function onPicture(e) {
 function renderLightbox() {
   const rec = lbList[lbIndex];
   if (!rec) { closeLightbox(); return; }
+  const focused = document.activeElement;
+  const keepFocus = els.lightbox.open && focused?.closest?.('dialog[open]') === els.lightbox;
   // Another image ends a comparison: it was that pass's with its source.
   // stepPass and stepLadder (lightbox-compare.js, lightbox-cfg.js) carry it by
   // setting `id` to the next image first.
@@ -516,6 +518,14 @@ function renderLightbox() {
   // Open first: the stage has no size while the dialog is display: none.
   if (!els.lightbox.open) els.lightbox.showModal();
   layoutLightbox();
+  // Facts links are replaced for another image, and a source can hide the
+  // comparison toggle that held focus. Keep keyboard focus in this modal;
+  // a dialog above it keeps its own focus throughout a background redraw.
+  const active = document.activeElement;
+  if (keepFocus && !document.querySelector('dialog[open]:not(#lightbox)')
+      && (active === els.lightbox || !els.lightbox.contains(active) || active.disabled || !isShown(active))) {
+    els.lbClose.focus({ preventScroll: true });
+  }
 }
 
 // Where this image is in what the arrows walk, and its name: "3/144 · #57".

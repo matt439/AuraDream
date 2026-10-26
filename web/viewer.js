@@ -647,6 +647,7 @@ function thumb(rec, list, src = rec.thumb_url ?? rec.url, open = () => openLight
   img.dataset.id = rec.id;
   img.tabIndex = 0;
   img.setAttribute('role', 'button');
+  img.setAttribute('aria-keyshortcuts', 'Enter Space M');
   // Named as the page names images, by gallery id - the cells of a sweep
   // share a prompt, and "Open: …" named none of them apart - and titled with
   // what tells it from the one beside it under the pointer (cardTitle): its
