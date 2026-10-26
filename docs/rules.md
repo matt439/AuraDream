@@ -5602,6 +5602,13 @@ failures, independently of the fake's disposable gallery; parallel runs
 cannot overwrite one another's files. `tests/test_browser_output.py` checks
 all repository screenshot fields and deliberately invalid destinations;
 `tests/test_run_smoke.py` checks isolated output and failure retention.
+Each smoke retains `result.json` and combined `browser.log`, with exact
+exit status, phase and duration; failures copy `fake-server.log` after the
+owned fake stops. A completed run writes `summary.json` at the run root.
+Browser output is printed after each smoke finishes. An interrupted smoke
+retains its full partial output and result, without a final run summary.
+The runner grants the Node harness cleanup time before its owned-process
+fallback; focused tests cover startup failures, interruption and cleanup.
 `tests/test_then_refine.py` covers Then refine: each image's pass after
 its cell (a batch's bases then their passes, runs alternating), the pass
 equal to Mass refine's and reported `rendered`, the base rows a plain

@@ -17,17 +17,20 @@ row's fake; `--all` runs every row with its smokes in order.
 `LOCAL_DIFFUSION_PORT_OFFSET`, the smoke's), so a run can sit beside fakes
 already up; `--jobs` runs rows in parallel, each worker 100 ports further
 on. The fake's log is kept beside its gallery and named on a failure.
-Screenshots are retained in a fresh artifact directory for every smoke,
-reported as it starts. `--artifacts PATH` puts this run below a chosen root.
+Every smoke retains screenshots, browser.log and result.json in its reported
+artifact directory; failures retain fake-server.log too. The run's summary.json
+lists all results. `--artifacts PATH` puts this run below a chosen root.
 Exit 0 when every smoke passed, 1 when one failed, 2 when the command or a
 smoke file was refused (as `browser.mjs` refuses one).
 """
 from __future__ import annotations
 
 import argparse
+import json
 import os
 import re
 import shutil
+import signal
 import socket
 import subprocess
 import sys
@@ -125,55 +128,127 @@ def _tail(path: Path, lines: int = 30) -> str:
         return ""
 
 
+def _run_browser(command: list[str], env: dict[str, str], log_path: Path) -> int:
+    """Capture output in order; let the harness clean its browser on interruption."""
+    with open(log_path, "w", encoding="utf-8") as log:
+        browser = subprocess.Popen(
+            command, cwd=ROOT, env=env, stdout=log, stderr=subprocess.STDOUT,
+            creationflags=subprocess.CREATE_NEW_PROCESS_GROUP if sys.platform == "win32" else 0,
+        )
+        try:
+            return browser.wait()
+        except BaseException:
+            if browser.poll() is None:
+                try:
+                    browser.send_signal(signal.CTRL_BREAK_EVENT if sys.platform == "win32" else signal.SIGTERM)
+                except (OSError, ValueError) as exc:
+                    _say(f"browser cleanup signal failed: {exc}")
+                try:
+                    browser.wait(timeout=10)
+                except subprocess.TimeoutExpired:
+                    if sys.platform == "win32":
+                        subprocess.run(
+                            ["taskkill", "/pid", str(browser.pid), "/T", "/F"],
+                            stdout=log, stderr=subprocess.STDOUT, check=False,
+                        )
+                    if browser.poll() is None:
+                        browser.kill()
+                    browser.wait()
+            raise
+
+
 def run_row(row: Row, smokes: list[str], offset: int, stream: bool, artifacts: Path) -> dict[str, int]:
     """Start the row's fake on a new gallery, run `smokes` on it in order,
-    stop it; each smoke's exit code (a fake that never came up is 1)."""
+    stop it, retaining results even when startup fails."""
     port = row.port + offset
-    if not _port_free(port):
-        _say(f"port {port} is in use: stop that server or pass --offset")
-        return {smoke: 2 for smoke in smokes}
-    data = Path(tempfile.mkdtemp(prefix=f"local-diffusion-smoke-{row.port}-"))
-    log_path = data / "fake-server.log"
-    with open(log_path, "w", encoding="utf-8") as log:
-        fake = subprocess.Popen(
-            [sys.executable, str(ROOT / "tools" / "fake_server.py"), *row.fake_args(port, data)],
-            cwd=ROOT, stdout=log, stderr=subprocess.STDOUT,
-        )
+    row_started = time.monotonic()
+    outputs = {smoke: Path(tempfile.mkdtemp(prefix=f"{smoke}-", dir=artifacts)) for smoke in smokes}
+    for smoke, output_dir in outputs.items():
+        _say(f"artifacts  {smoke}: {output_dir}")
     results: dict[str, int] = {}
+    reports: dict[str, dict] = {}
+    data: Path | None = None
+    log_path: Path | None = None
+    fake: subprocess.Popen | None = None
+
+    def record(smoke: str, code: int, phase: str, started: float, output: str) -> None:
+        results[smoke] = code
+        (outputs[smoke] / "browser.log").write_text(output, encoding="utf-8")
+        reports[smoke] = {
+            "smoke": smoke, "model": row.model, "port": port,
+            "phase": phase, "result": "passed" if code == 0 else "failed",
+            "exit_code": code, "duration_seconds": round(time.monotonic() - started, 6),
+            "browser_log": "browser.log", "fake_log": None,
+            "detail": output.strip() if phase != "browser" else None,
+        }
+
     try:
+        if not _port_free(port):
+            message = f"port {port} is in use: stop that server or pass --offset"
+            _say(message)
+            for smoke in smokes:
+                record(smoke, 2, "port", row_started, message + "\n")
+            return results
+        data = Path(tempfile.mkdtemp(prefix=f"local-diffusion-smoke-{row.port}-"))
+        log_path = data / "fake-server.log"
+        try:
+            with open(log_path, "w", encoding="utf-8") as log:
+                fake = subprocess.Popen(
+                    [sys.executable, str(ROOT / "tools" / "fake_server.py"), *row.fake_args(port, data)],
+                    cwd=ROOT, stdout=log, stderr=subprocess.STDOUT,
+                )
+        except OSError as exc:
+            message = f"fake on {port} could not start: {exc}"
+            _say(message)
+            for smoke in smokes:
+                record(smoke, 2, "fake_start", row_started, message + "\n")
+            return results
         if not _wait_ready(fake, port):
-            _say(f"FAIL  fake on {port} ({row.model}) never answered; its log, {log_path}:", _tail(log_path))
-            return {smoke: 1 for smoke in smokes}
+            message = f"fake on {port} ({row.model}) never answered"
+            _say(f"FAIL  {message}; its log, {log_path}:", _tail(log_path))
+            code = fake.poll() or 1
+            for smoke in smokes:
+                record(smoke, code, "fake_start", row_started, message + "\n")
+            return results
         env = {**os.environ, "LOCAL_DIFFUSION_PORT_OFFSET": str(offset)}
         for smoke in smokes:
-            output_dir = Path(tempfile.mkdtemp(prefix=f"{smoke}-", dir=artifacts))
-            env["LOCAL_DIFFUSION_SCREENSHOT_DIR"] = str(output_dir)
-            _say(f"artifacts  {smoke}: {output_dir}")
+            env["LOCAL_DIFFUSION_SCREENSHOT_DIR"] = str(outputs[smoke])
             started = time.monotonic()
             command = ["node", str(ROOT / "tools" / "browser.mjs"), str(ROOT / "tools" / f"{smoke}.json")]
-            if stream:
-                code = subprocess.run(command, cwd=ROOT, env=env).returncode
-                output = ""
-            else:
-                done = subprocess.run(
-                    command, cwd=ROOT, env=env, capture_output=True, text=True,
-                    encoding="utf-8", errors="replace",
-                )
-                code, output = done.returncode, (done.stdout + done.stderr).rstrip()
-            results[smoke] = code
+            phase = "browser"
+            try:
+                code = _run_browser(command, env, outputs[smoke] / "browser.log")
+                output = (outputs[smoke] / "browser.log").read_text(encoding="utf-8", errors="replace")
+            except OSError as exc:
+                code, output, phase = 2, f"browser could not start: {exc}\n", "browser_start"
+            except KeyboardInterrupt:
+                output = (outputs[smoke] / "browser.log").read_text(encoding="utf-8", errors="replace")
+                output += "\nbrowser interrupted\n"
+                record(smoke, 130, "interrupted", started, output)
+                raise
+            record(smoke, code, phase, started, output)
             took = f"{time.monotonic() - started:.0f} s"
+            if output and (stream or code != 0):
+                _say(output.rstrip())
             if code == 0:
                 _say(f"pass  {smoke} ({took})")
             else:
-                _say(*([output] if output else []), f"FAIL  {smoke} (exit {code}, {took}); fake log {log_path}")
+                _say(f"FAIL  {smoke} (exit {code}, {took}); fake log {log_path}")
     finally:
-        fake.terminate()
-        try:
-            fake.wait(timeout=10)
-        except subprocess.TimeoutExpired:
-            fake.kill()
-            fake.wait()
-    if all(code == 0 for code in results.values()):
+        if fake is not None:
+            if fake.poll() is None:
+                fake.terminate()
+            try:
+                fake.wait(timeout=10)
+            except subprocess.TimeoutExpired:
+                fake.kill()
+                fake.wait()
+        for smoke, report in reports.items():
+            if results[smoke] != 0 and log_path is not None and log_path.exists():
+                shutil.copyfile(log_path, outputs[smoke] / "fake-server.log")
+                report["fake_log"] = "fake-server.log"
+            (outputs[smoke] / "result.json").write_text(json.dumps(report, indent=2) + "\n", encoding="utf-8")
+    if results and all(code == 0 for code in results.values()) and data is not None:
         # Windows can hold the log a moment after the fake has exited.
         for _ in range(20):
             shutil.rmtree(data, ignore_errors=True)
@@ -200,10 +275,6 @@ def main() -> int:
             step = f" --step {row.step}" if row.step is not None else ""
             print(f"{row.port}  {row.model}{step}  {' '.join(row.smokes)}")
         return 0
-    if shutil.which("node") is None:
-        print("node is not on PATH")
-        return 2
-
     known = {smoke: row for row in rows for smoke in row.smokes}
     wanted = [Path(name).name.removesuffix(".json") for name in args.smokes]
     unknown = [name for name in wanted if name not in known]
@@ -249,6 +320,13 @@ def main() -> int:
                 results.update(done)
 
     failed = [smoke for smoke, code in results.items() if code != 0]
+    receipts = [
+        {**json.loads(path.read_text(encoding="utf-8")), "artifact_dir": path.parent.name}
+        for path in sorted(artifacts.glob("*/result.json"))
+    ]
+    (artifacts / "summary.json").write_text(json.dumps({
+        "duration_seconds": round(time.monotonic() - started, 6), "results": receipts,
+    }, indent=2) + "\n", encoding="utf-8")
     print(f"\n{len(results) - len(failed)} of {len(results)} passed in {time.monotonic() - started:.0f} s")
     if failed:
         print("failed: " + " ".join(failed))

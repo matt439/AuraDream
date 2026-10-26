@@ -10,7 +10,7 @@ The maintainer's working backlog for this personal project: it records what is p
 
 **Ready backlog (updated 2026-10-26):** six `OPEN` rows: two with CPU/browser implementation work and four whose next deliverable is a plan. The [audit](docs/review-2026-10-26-todo.md)'s Marian token-boundary and portable-screenshot defects are fixed, and the shared classic-script guard is built. Continue with the development checks:
 
-1. `DEV#4`, then `DEV#6`: retain smoke diagnostics and qualify a separate Linux browser CI job; establish a type-check baseline, fix bounded batches and enable its gate. [Stages and completion criteria](docs/plan-tooling.md).
+1. `DEV#6`: continue bounded type-check fixes and enable its gate when the full scope passes. `DEV#4`'s diagnostic stage is built; Linux browser qualification awaits WSL service access. [Stages and completion criteria](docs/plan-tooling.md).
 
 **Plan next:** `PERF#1` (regional compilation), then `GAL#6` (automatic backups), `PERF#3` (attention backend) and `PERF#4` (step caching). Their [owner](docs/review-2026-10-25.md) defines CPU-only planning deliverables. `PERF#2` still waits on `PERF#1`. These starts do not depend on Matt's layout trials or the RAM-loader card check.
 
@@ -115,7 +115,7 @@ Matt's approved [shortcut and compact-setup stages](docs/plan-shortcut-workflow.
 
 | id | status | sev | size | item |
 |---|---|---|---|---|
-| `DEV#4` | OPEN | LOW | L | Retain collectable smoke diagnostics, then qualify a separate Linux Chrome CI job; the job follows `DEV#7`'s portable output. [Stages](docs/plan-tooling.md#browser-smokes-in-ci). |
+| `DEV#4` | OPEN | LOW | L | Qualify Linux Chrome and its separate CI job; portable screenshots and collectable diagnostics are built. WSL enumeration currently returns `E_ACCESSDENIED`; Linux/hosted execution is unverified. [Stages](docs/plan-tooling.md#browser-smokes-in-ci). |
 | `DEV#6` | OPEN | LOW | L | Fix the remaining 325 Pyright basic errors over `backend/` and `tools/` in bounded batches, then gate CI; the baseline and benchmark batch are complete, with no suppressions. [Stages](docs/plan-tooling.md#backend-type-checking). |
 
 ## Review coverage

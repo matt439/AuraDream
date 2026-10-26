@@ -109,8 +109,8 @@ added.
 
 ## Browser smokes in CI
 
-`DEV#4` · OPEN · LOW · L. Diagnostic preparation can start now; the final
-CI job depends on `DEV#7`'s portable outputs.
+`DEV#4` · OPEN · LOW · L. Stage 1 diagnostics are implemented; Linux
+qualification and the hosted browser job remain open.
 
 **Evidence.** `.github/workflows/ci.yml` has an always-run `lint` job and
 a conditional CPU `test` job; documentation-only changes skip the latter
@@ -143,6 +143,42 @@ the selected budget, and a deliberate failing smoke produces downloadable
 diagnostics and a failed job. Record actual qualification evidence here
 and in the tests documentation. A workflow file alone does not close this
 row; hosted execution remains unverified until it has run.
+
+**Stage 1 result (2026-10-26).** `run_smoke.py --artifacts PATH` retains
+`summary.json` in its unique run directory and `result.json` plus
+`browser.log` in every smoke directory. Each result records the smoke,
+checkpoint, effective port, phase, pass/fail result, exact exit code and
+phase duration. Early port, fake-launch/readiness and browser-launch
+failures get receipts too; startup exception text is in both the detail
+and log. Each failed smoke receives `fake-server.log` after the owned fake
+stops. Successes retain their result/output/screenshots after the scratch
+gallery is removed. Existing table-derived setup and parallel isolation
+remain the only smoke inventory. Both serial and parallel browser output
+are now captured together and printed after the smoke finishes.
+
+Interruption gives the Node harness time to run its existing browser
+cleanup, with a Windows owned-tree fallback, and stops/waits for the fake
+(including terminate-to-kill fallback). An interrupted smoke retains its
+complete partial output and an exit-130 receipt; interruption prevents
+the final run summary, so collect the per-smoke receipts in that case.
+
+Focused runner/output/docs-map checks: **63 passed**; focused ruff passed.
+Tests cover original exit codes including script refusal, launch/readiness
+failures, log retention, isolation, successful gallery cleanup and both
+cleanup fallbacks. The interruption regression retains all 60 log lines.
+A deliberately failing synthetic fixture injected through the existing
+FLUX row on an isolated fake returned runner exit 1 and retained a failed
+result/summary, full browser output, nonempty fake log and valid screenshot;
+the fake port was closed after completion (**7.4 seconds**, Windows, Node
+24.14.0, Edge 156.0.4314.42). This was an intentional fixture failure, not
+a failure of the repository's FLUX smoke. The fixture and mock checks use
+no model weights or GPU generation.
+
+**Remaining qualification gate.** Linux Chrome's representative/full
+table, resource budget and hosted diagnostic upload are unverified.
+`wsl.exe --list --verbose` and `wsl.exe --status` were denied with
+`Wsl/EnumerateDistros/Service/E_ACCESSDENIED`; the denied access was not
+retried through another route. No Linux browser CI job has been added.
 
 ## Backend type checking
 
