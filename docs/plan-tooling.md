@@ -241,6 +241,14 @@ response validation. The 480 focused grid/size and HTTP/rerun checks,
 scoped static checks and ruff pass. Independent helper and route reviews
 found no actionable issue; no suppressions or casts were added.
 
+**Remaining loader interfaces (2026-10-26).** The converters' remaining
+24 findings and loader helper's 21 findings are addressed. Scoped static
+checks, ruff, 111 converter tests and 47 loader/runtime tests pass; three
+Linux-only map checks skip on Windows. Independent review accepted the
+same-class imports and explicit return/keyword contracts. Four local
+comments document verified lazy-export/bound-method typing gaps; the
+quantization and RAM-release behavior is unchanged.
+
 **Stages.**
 
 1. Select and record a reproducible Pyright version and basic-mode

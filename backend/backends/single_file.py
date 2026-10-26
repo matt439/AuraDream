@@ -153,8 +153,9 @@ def sweep_work(target: Path) -> None:
 
 
 def _convert(destination: Path, model_id: str = ILLUSTRIOUS_ID) -> None:
-    import diffusers
     import torch
+    from diffusers.pipelines.stable_diffusion_xl.pipeline_stable_diffusion_xl import StableDiffusionXLPipeline
+    from diffusers.schedulers.scheduling_euler_ancestral_discrete import EulerAncestralDiscreteScheduler
     from huggingface_hub import hf_hub_download, snapshot_download
 
     recipe = _CHECKPOINTS[model_id.lower()].recipe
@@ -171,7 +172,7 @@ def _convert(destination: Path, model_id: str = ILLUSTRIOUS_ID) -> None:
             actual_hash = hashlib.file_digest(source, "sha256").hexdigest()
         if actual_hash != expected_hash:
             raise RuntimeError(f"{model_id} checkpoint SHA-256 does not match the pinned release")
-    pipe = diffusers.StableDiffusionXLPipeline.from_single_file(
+    pipe = StableDiffusionXLPipeline.from_single_file(
         checkpoint, config=config, local_files_only=True,
         dtype=torch.bfloat16, add_watermarker=False,
     )
@@ -181,7 +182,7 @@ def _convert(destination: Path, model_id: str = ILLUSTRIOUS_ID) -> None:
     # three quantization modes; no replacement encoder is involved.
     # These entries recommend Euler A. Fix epsilon prediction and persist the
     # scheduler with the component tree, before ordinary quantized loading.
-    pipe.scheduler = diffusers.EulerAncestralDiscreteScheduler.from_config(
+    pipe.scheduler = EulerAncestralDiscreteScheduler.from_config(
         pipe.scheduler.config, prediction_type="epsilon",
     )
     pipe.save_pretrained(destination, safe_serialization=True)
@@ -229,7 +230,7 @@ def resolve_model(model_id: str, quantization: str) -> str:
             "Use LOCAL_DIFFUSION_QUANT=fp8, int8 or none."
         )
 
-    from huggingface_hub.utils import WeakFileLock
+    from huggingface_hub.utils._fixes import WeakFileLock
 
     target, marker, recipe = _target(model_id)
     root = target.parent

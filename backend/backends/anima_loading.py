@@ -139,11 +139,15 @@ def _load_component(
 
 def _convert(destination: Path, model_id: str = MODEL_ID) -> None:
     import torch
-    from diffusers import AnimaTextConditioner, AutoencoderKLQwenImage, CosmosTransformer3DModel
-    from diffusers import FlowMatchEulerDiscreteScheduler
+    from diffusers.models.autoencoders.autoencoder_kl_qwenimage import AutoencoderKLQwenImage
+    from diffusers.models.condition_embedders.condition_embedder_anima import AnimaTextConditioner
+    from diffusers.models.transformers.transformer_cosmos import CosmosTransformer3DModel
+    from diffusers.schedulers.scheduling_flow_match_euler_discrete import FlowMatchEulerDiscreteScheduler
     from huggingface_hub import hf_hub_download, snapshot_download
     from safetensors.torch import load_file
-    from transformers import AutoTokenizer, Qwen3Model, T5TokenizerFast
+    from transformers import AutoTokenizer, Qwen3Model
+    # Transformers 5's lazy Fast-name fallback returns this same class.
+    from transformers.models.t5.tokenization_t5 import T5Tokenizer as T5TokenizerFast
 
     shared = Path(snapshot_download(**SHARED, allow_patterns=SHARED_PATTERNS))
     recipe = _RECIPES[model_id.lower()]
@@ -210,7 +214,7 @@ def resolve_model(model_id: str, quantization: str) -> str:
             "Use LOCAL_DIFFUSION_QUANT=fp8, int8 or none."
         )
 
-    from huggingface_hub.utils import WeakFileLock
+    from huggingface_hub.utils._fixes import WeakFileLock
 
     target, marker, recipe = _target(model_id)
     root = target.parent

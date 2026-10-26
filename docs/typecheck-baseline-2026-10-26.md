@@ -202,6 +202,24 @@ received independent review; no suppressions or casts were added.
 Receipts: `work/dev6-grid-submission.json` and
 `work/dev6-rerun-routes.json`.
 
+2026-10-26, remaining loader interfaces: the four converters' remaining
+24 findings and `loading.py`'s 21 findings are addressed. Defining-module
+imports retain the installed classes, Transformers 5 tokenizer aliases
+retain their actual fallback classes, and default-False config/scheduler
+return unions have explicit postconditions. Snapshot option keys and
+manifest component strings are precise; quantization construction and
+RAM-release hooks are unchanged. Independent review found no blocking
+issue. The 111 mocked converter tests and 47 loader/runtime tests passed,
+with three expected Linux-only map checks skipped on Windows; scoped
+static checks and ruff pass.
+
+Four local exceptions name verified library limitations: NetaYume keeps
+its public lazy pipeline import/test seam (`reportPrivateImportUsage`),
+and three bound `.to` calls retain subclass guards despite the installed
+wrapper's unbound-self signature (`reportCallIssue`). No broader
+suppression or cast was added. Receipts:
+`work/dev6-loader-iface-after.json` and `work/dev6-loading-helper.json`.
+
 ## Initial counts by diagnostic
 
 <!-- Counts below are generated from the retained initial Pyright JSON. -->

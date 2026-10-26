@@ -17,7 +17,7 @@ import threading
 from collections.abc import Iterator
 from contextlib import contextmanager
 from pathlib import Path
-from typing import TYPE_CHECKING, Any
+from typing import TYPE_CHECKING, Any, TypedDict
 
 if TYPE_CHECKING:
     from .. import loras
@@ -173,6 +173,10 @@ Z_ANIME_TEXT_ENCODER = {
 }
 
 
+class _NestedSnapshotOptions(TypedDict, total=False):
+    ignore_patterns: list[str]
+
+
 def resolve_model(model_id: str, *, weights: bool = False, quantization: str | None = None) -> str:
     """Resolve a pinned component tree, reading configs before any weights.
 
@@ -211,7 +215,9 @@ def resolve_model(model_id: str, *, weights: bool = False, quantization: str | N
         f"{folder}/scheduler/scheduler_config.json",
     ]
     log.info("resolving %s/%s (%s)", model_id, folder, "weights" if weights else "configs")
-    options = {"ignore_patterns": [f"{folder}/text_encoder/*"]} if weights and model_id == "SeeSee21/Z-Anime" else {}
+    options: _NestedSnapshotOptions = (
+        {"ignore_patterns": [f"{folder}/text_encoder/*"]} if weights and model_id == "SeeSee21/Z-Anime" else {}
+    )
     snapshot = snapshot_download(model_id, revision=revision, allow_patterns=patterns, **options)
     return str(Path(snapshot) / folder)
 
@@ -219,7 +225,7 @@ def resolve_model(model_id: str, *, weights: bool = False, quantization: str | N
 def component_overrides(model_id: str, quant: Any, *, resolved_model_id: str | None = None) -> dict[str, Any]:
     """Pinned replacements for incorrectly packaged upstream components."""
     if model_id.lower() == NOOB_MODEL_ID.lower():
-        from diffusers import EulerDiscreteScheduler
+        from diffusers.schedulers.scheduling_euler_discrete import EulerDiscreteScheduler
 
         # The author prescribes Euler, v-prediction and zero terminal SNR.
         # Diffusers recommends trailing spacing for that zero-SNR endpoint;
@@ -306,10 +312,11 @@ def component_libraries(model_id: str) -> dict[str, str]:
         # matches the prefix below without being a component at all.
         if name.startswith("_") or not isinstance(spec, (list, tuple)) or len(spec) != 2:
             continue
-        if not all(isinstance(part, str) for part in spec):
+        library, component_class = spec
+        if not isinstance(library, str) or not isinstance(component_class, str):
             continue
-        if name.startswith(QUANTIZABLE_PREFIXES) and spec[0]:
-            libraries[name] = COMPONENT_LIBRARY_OWNERS.get(spec[0], spec[0])
+        if name.startswith(QUANTIZABLE_PREFIXES) and library:
+            libraries[name] = COMPONENT_LIBRARY_OWNERS.get(library, library)
     return libraries
 
 
@@ -348,8 +355,8 @@ def quantization_config(settings: "Settings") -> Any:
     if settings.quantization not in QUANT_BACKENDS:
         return None
 
-    from diffusers import PipelineQuantizationConfig
-    from diffusers import TorchAoConfig as DiffusersTorchAoConfig
+    from diffusers.quantizers.pipe_quant_config import PipelineQuantizationConfig
+    from diffusers.quantizers.quantization_config import TorchAoConfig as DiffusersTorchAoConfig
     from torchao.quantization import Float8WeightOnlyConfig, Int8WeightOnlyConfig
     from transformers import TorchAoConfig as TransformersTorchAoConfig
 
@@ -514,7 +521,7 @@ def checkpoint_files_released(active: bool) -> Iterator[None]:
         return load_model_dict_into_meta
 
     def per_component(original: Any) -> Any:
-        from diffusers import ModelMixin
+        from diffusers.models.modeling_utils import ModelMixin
 
         def load_sub_model(*args: Any, **kwargs: Any) -> Any:
             loaded = original(*args, **kwargs)
