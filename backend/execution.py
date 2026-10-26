@@ -39,11 +39,32 @@ def canonical_execution(value: object) -> ExecutionSpec | None:
 
 
 def execution_key(value: object) -> str | None:
-    """Canonical named extension for later carry; no CellKey slot is used yet."""
+    """Canonical compact JSON for the shared database/key extension, or NULL."""
     spec = canonical_execution(value)
     if spec is None:
         return None
     return json.dumps(spec.model_dump(exclude_none=True), sort_keys=True, separators=(",", ":"))
+
+
+def execution_from_json(value: str | None) -> ExecutionSpec | None:
+    """Validate stored JSON independently of runtime availability; never drop it."""
+    if value is None:
+        return None
+    if not isinstance(value, str):
+        raise ValueError("stored execution must be JSON text or NULL")
+    return canonical_execution(json.loads(value))
+
+
+def execution_chunk(value: object) -> dict[str, dict[str, str]]:
+    """Named PNG metadata; absent for every empty spelling, including old rows."""
+    spec = canonical_execution(value)
+    if spec is None:
+        return {}
+    recipes = (
+        ("compilation", spec.compilation), ("attention_backend", spec.attention_backend),
+        ("step_cache", spec.step_cache),
+    )
+    return {"execution": {name: recipe for name, recipe in recipes if recipe is not None}}
 
 
 def unavailable_reason(value: object) -> str | None:

@@ -32,6 +32,7 @@ from dataclasses import dataclass, field
 
 from . import grid
 from .config import settings
+from .execution import execution_key
 from .schemas import GenerateRequest, ImageRecord, error_detail
 from .seeds import wrap_seed
 
@@ -67,6 +68,7 @@ def settings_key(record: ImageRecord) -> tuple:
         grid.refine_key(record.refine, record.strength),
         grid.mask_key(record.mask, record.outpaint.key() if record.outpaint is not None else None),
         record.upscaler,
+        execution_key(record.execution),
         grid.shape_key(record.width, record.height, record.crop_anchor),
     )
 

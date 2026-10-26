@@ -1,13 +1,13 @@
 # Plan: regional compilation of FLUX.1
 
-**Status, 2026-10-26: planning complete; the first CPU contract/admission
-slice is implemented and checked. Persisted carry, compilation runtime and
+**Status, 2026-10-26: CPU contracts, admission and persisted recipe carry
+are implemented and checked. Compilation runtime, loader controls and
 card qualification remain `PERF#1`.** This is the next slice from
 [R1](review-2026-10-25.md#r1-compile-the-denoisers-repeated-blocks), not a
 speed result or approval to load a model. No package, model or compiler was
 installed and no CUDA operation was run for this plan.
 
-## CPU contract and admission slice
+## CPU contracts, admission and persisted carry
 
 `backend/execution.py` defines one frozen, extra-forbid `ExecutionSpec`
 with the three named recipe fields, canonical empty/key helpers, installed
@@ -24,16 +24,51 @@ including unvalidated copies of the execution specification itself.
 Only `GenerateRequest.applied()` writes empty execution back to None. Raw
 validated requests may retain an empty specification; its canonical key is
 None. This avoids another whole-request validation of a stamped outpaint.
-No storage column, key-layout extension, Models/environment/CLI option,
-compiler installation or runtime compilation is included in this slice.
-All existing render identities and PNG metadata remain unchanged.
+The nullable `images.execution` column migrates on every connection. Shared
+codecs carry canonical named JSON through records, PNG chunks, verified
+bundles and both reindex paths. Known recipes remain inspectable and
+portable without becoming executable. Unknown names and explicit SQL/PNG
+disagreements are refused; a field absent from an older schema may recover
+the other source's recipe. Gallery ids may remap or sources disappear
+without dropping the recipe. Same-filename imports cannot replace another
+recipe's identity. File-based readers explicitly refuse app-owned text after
+PNG image data instead of missing a late recipe through Pillow's header-only
+metadata view. A bounded keyword/header scan restores the source position
+and adds no pixel decoding or second full archive read.
+
+CellKey has one shared execution element before canvas/crop, keeping shape
+at `[-2]` and seed last. An absent recipe is explicitly removed from hashed
+run definitions before legacy shape/extension compaction; trailing-None
+trimming alone would rename mixed-size and noncenter runs. Six pre-change
+layout hashes are pinned, including comparison grids. Empty execution
+remains SQL NULL and absent from PNG chunks. Existing eager identities and
+metadata bytes remain unchanged.
+
+Re-render, Swap tags, Mass refine, More seeds, retained Finish, PNG settings
+and CLI replay refuse unavailable recipes rather than render eagerly.
+Browser Reuse is held with its reason before composer/Undo changes or
+source lookup; a held lightbox press keeps the dialog open. No Models,
+environment or CLI selection, compiler installation or runtime compilation
+is included.
 
 Checked on Windows/Python 3.13.15: 605 focused execution, queue, grid, API,
 inpaint/outpaint and CLI tests pass. The six affected production modules
 pass the pinned Pyright basic check; metadata/import checks load no torch,
 diffusers or Hub module in a fresh subprocess. No model or GPU acceptance
-follows from these results. The remaining stage 1 carry work below must
-land before any nonempty execution recipe can become available.
+follows from these results. The carry stage additionally passed 537 focused
+foundation/regression checks and 30 replay checks. Edge passed the new
+synthetic-record `smoke-execution-reuse` and existing `smoke-png-settings`;
+the former is a browser fixture over an eager fake image, never a compiled
+render. Runtime and separately approved card stages must land before a
+nonempty recipe can become available.
+
+Final integration evidence: the complete offline CPU suite passed **4,405
+tests, eight platform skips**, in **211.01 seconds** with two workers on
+Windows/Python 3.13.15. The pinned checker analyzed **108 Python sources
+with zero errors/warnings**, and repository ruff passed. Independent review
+fixed retained-destination SQL/PNG disagreement and a held Reuse press
+removing an existing Undo; the expanded fixtures cover both. No Linux,
+hosted CI, model load, compiler execution or GPU qualification is claimed.
 
 ## Initial slice and refusal matrix
 

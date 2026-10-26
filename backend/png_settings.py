@@ -14,7 +14,8 @@ import re
 from collections.abc import Mapping
 from typing import TYPE_CHECKING, Any
 
-from backend.metadata import embedded_metadata
+from backend.metadata import embedded_metadata, require_header_metadata
+from backend.execution import canonical_execution
 from backend.refine import CROP_ANCHORS
 
 if TYPE_CHECKING:
@@ -69,6 +70,7 @@ def record(chunks: Mapping[str, Any], name: str) -> dict | None:
     if not isinstance(meta, dict):
         raise PngSettingsError(f"the Local Diffusion metadata in {name} is not a settings record")
     try:
+        canonical_execution(meta.get("execution"))
         crop_anchor(
             meta.get("crop_anchor"), source=meta.get("refine"),
             mask=meta.get("mask"), outpaint=meta.get("outpaint"),
@@ -90,6 +92,10 @@ def image_settings(path: str) -> dict:
 
     try:
         with Image.open(path) as image:
+            if image.format == "PNG":
+                if image.fp is None:
+                    raise ValueError("the PNG metadata stream is unavailable")
+                require_header_metadata(image.fp)
             info = {key: value for key, value in image.info.items() if isinstance(key, str)}
     except (OSError, ValueError) as exc:
         raise PngSettingsError(f"cannot open {path}: {exc}") from None

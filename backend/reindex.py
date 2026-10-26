@@ -60,7 +60,8 @@ try:
 
     from backend import gallery_lock, storage
     from backend.config import settings
-    from backend.metadata import PNG_MASK_KEY, PNG_METADATA_KEY, PNG_METADATA_KEYS, embedded_metadata
+    from backend.execution import ExecutionSpec, canonical_execution, execution_chunk, execution_from_json, execution_key
+    from backend.metadata import PNG_MASK_KEY, PNG_METADATA_KEY, PNG_METADATA_KEYS, embedded_metadata, require_header_metadata
 except ModuleNotFoundError as exc:  # pragma: no cover - startup guard
     sys.exit(
         f"Missing dependency: {exc.name}\n\n"
@@ -98,24 +99,50 @@ def _created_at(path: Path) -> datetime:
     return datetime.fromtimestamp(path.stat().st_mtime, tz=timezone.utc)
 
 
-def _read(path: Path) -> tuple[dict | None, tuple[int, int], Image.Image | None]:
+def _read(path: Path, *, require_metadata: bool = True) -> tuple[dict | None, tuple[int, int], Image.Image | None]:
     """The embedded record, the size and a copy of the image for its thumbnail.
 
     `.info`, not `.text`: the latter is a property that decodes every pixel to
     answer a question the header settles.
     """
-    with Image.open(path) as image:
-        raw = embedded_metadata({key: image.info.get(key) for key in PNG_METADATA_KEYS})
-        size = image.size
-        if not raw:
-            return None, size, image.copy()
-        try:
-            meta = json.loads(raw)
-        except ValueError:
-            return None, size, image.copy()
-        if not isinstance(meta, dict) or any(meta.get(key) is None for key in _REQUIRED):
-            return None, size, image.copy()
-        return meta, size, image.copy()
+    with path.open("rb") as stream:
+        require_header_metadata(stream)
+        with Image.open(stream) as image:
+            raw = embedded_metadata({key: image.info.get(key) for key in PNG_METADATA_KEYS})
+            size = image.size
+            if not raw:
+                return None, size, image.copy()
+            try:
+                meta = json.loads(raw)
+            except ValueError:
+                return None, size, image.copy()
+            if not isinstance(meta, dict) or (require_metadata and any(meta.get(key) is None for key in _REQUIRED)):
+                return None, size, image.copy()
+            return meta, size, image.copy()
+
+
+def _execution_from_sources(row: dict, meta: dict | None) -> ExecutionSpec | None:
+    """Read stored recipes without granting generation availability.
+
+    An older SQL schema or PNG may omit execution entirely: recover the
+    other source's recipe then. Explicit NULL/empty is an Eager statement,
+    so two present fields must agree, including Eager versus a recipe.
+    Validate both values even when one is absent or empty.
+    """
+    database = execution_from_json(row.get("execution"))
+    embedded = canonical_execution(meta.get("execution") if meta is not None else None)
+    if "execution" in row and meta is not None and "execution" in meta and database != embedded:
+        raise ValueError("execution recipes disagree between the database and PNG")
+    return database if "execution" in row else embedded
+
+
+def _execution_from_info(row: dict, info: dict | None) -> ExecutionSpec | None:
+    """Strict recipe reconciliation from PNG header metadata, without decoding pixels."""
+    raw = embedded_metadata(info) if info is not None else None
+    metadata = json.loads(raw) if raw else None
+    if raw is not None and not isinstance(metadata, dict):
+        raise ValueError("PNG metadata must be a JSON object")
+    return _execution_from_sources(row, metadata)
 
 
 def _text_keyword(kind: bytes, data: bytes) -> bytes | None:
@@ -378,6 +405,7 @@ def _database_meta(
         "batch": storage._batch(row.get("batch")),
         **({"crop_anchor": crop_anchor} if crop_anchor is not None else {}),
         **({"upscaler": upscaler} if upscaler is not None else {}),
+        **execution_chunk(execution_from_json(row.get("execution"))),
         **{
             key: storage._peak(row.get(key))
             for key in ("vram_peak_allocated", "vram_peak_reserved")
@@ -423,6 +451,7 @@ def merge_database(
         filename = row["filename"]
         source_id = int(row["id"])
         try:
+            execution_from_json(row.get("execution"))
             storage._crop_anchor(
                 row.get("crop_anchor"), source=row.get("refine"),
                 mask=row.get("mask"), outpaint=row.get("outpaint"),
@@ -446,30 +475,55 @@ def merge_database(
             counts["invalid"] += 1
             print(f"  skip  source row {source_id}: unsafe PNG filename {filename!r}", file=out)
             continue
-        if filename in existing:
-            counts["present"] += 1
-            id_map[source_id] = existing[filename]
-            continue
         path = source / filename
         if not path.is_file():
             counts["missing"] += 1
             print(f"  skip  {filename}: source image is missing", file=out)
             continue
         target = outputs / filename
-        if source != outputs and target.exists():
+        if filename not in existing and source != outputs and target.exists():
             counts["conflicts"] += 1
             print(f"  skip  {filename}: a file of that name is already in outputs", file=out)
             continue
         try:
-            _, (width, height), image = _read(path)
-        except OSError:
+            png_meta, (width, height), image = _read(path, require_metadata=False)
+        except (OSError, ValueError) as exc:
             counts["invalid"] += 1
-            print(f"  skip  {filename}: not a readable PNG", file=out)
+            print(f"  skip  {filename}: not a readable PNG: {exc}", file=out)
             continue
         if image is None:  # Defensive: database imports do not require embedded metadata.
             counts["invalid"] += 1
             print(f"  skip  {filename}: not a readable PNG", file=out)
             continue
+        try:
+            execution = _execution_from_sources(row, png_meta)
+        except ValueError as exc:
+            counts["invalid"] += 1
+            print(f"  skip  {filename}: invalid execution metadata: {exc}", file=out)
+            continue
+        if filename in existing:
+            try:
+                known = storage.get_image(existing[filename], include_binned=True)
+                if known is None:
+                    raise ValueError("the retained row disappeared")
+                with target.open("rb") as stream:
+                    require_header_metadata(stream)
+                    with Image.open(stream) as kept:
+                        if kept.format != "PNG":
+                            raise ValueError("the retained image is not a PNG")
+                        retained = _execution_from_info({"execution": execution_key(known.execution)}, kept.info)
+                if retained != execution:
+                    raise ValueError("different execution already uses that filename")
+            except (OSError, ValueError) as exc:
+                counts["conflicts"] += 1
+                print(f"  skip  {filename}: cannot keep its existing execution metadata: {exc}", file=out)
+                continue
+            counts["present"] += 1
+            id_map[source_id] = existing[filename]
+            continue
+        # A recovered PNG-only recipe becomes the row's value too. The
+        # source database is read-only and is never migrated or repaired.
+        row = {**row, "execution": execution_key(execution)}
 
         source_references = [
             value for value in _json_list(row.get("reference")) if isinstance(value, int)
@@ -546,6 +600,7 @@ def merge_database(
             "strength": row.get("strength") if refine is not None else None,
             "crop_anchor": meta.get("crop_anchor"),
             "upscaler": meta.get("upscaler"),
+            "execution": execution_key(execution),
             "batch": storage._batch(row.get("batch")),
             # The recycle bin is SQLite's alone, as the star is: carried with
             # the database, and None (live) from one that predates it.
@@ -557,7 +612,9 @@ def merge_database(
         }
         copied = source != outputs
         try:
-            if copied or row.get("refine") != refine or row.get("crop_anchor") != meta.get("crop_anchor"):
+            png_execution = canonical_execution(png_meta.get("execution") if png_meta is not None else None)
+            if (copied or row.get("refine") != refine or row.get("crop_anchor") != meta.get("crop_anchor")
+                    or execution != png_execution):
                 # A database rebuilt beside its original PNGs can renumber or
                 # lose a source too. Keep --from-image's crop and source in
                 # agreement with the new row, without rewriting an unchanged
@@ -586,6 +643,7 @@ def reindex(
         "outpaint_malformed": 0, "outpaints_recovered": 0, "outpaint_masks_rebuilt": 0,
         "invalid_upscalers": 0,
         "invalid_crop_anchors": 0,
+        "invalid_execution": 0,
     }
     source = source.resolve()
     outputs = settings.outputs_dir.resolve()
@@ -642,11 +700,21 @@ def reindex(
             return
         try:
             meta, (width, height), image = _read(path)
+        except ValueError as exc:
+            counts["invalid_execution"] += 1
+            print(f"  skip  {path.name}: invalid PNG metadata: {exc}", file=out)
+            return
         except OSError:  # not a PNG at all, or truncated - UnidentifiedImageError is one
             meta = None
         if meta is None:
             counts["no_metadata"] += 1
             print(f"  skip  {path.name}: no Local Diffusion metadata", file=out)
+            return
+        try:
+            execution = canonical_execution(meta.get("execution"))
+        except ValueError as exc:
+            counts["invalid_execution"] += 1
+            print(f"  skip  {path.name}: invalid execution metadata: {exc}", file=out)
             return
         try:
             original_crop_anchor = storage._crop_anchor(
@@ -737,6 +805,8 @@ def reindex(
             meta["crop_anchor"] = crop_anchor
         else:
             meta.pop("crop_anchor", None)
+        meta.pop("execution", None)
+        meta.update(execution_chunk(execution))
         digest = storage.content_hash(image) if image is not None else None
         identities[path.name] = {
             "filename": path.name, "hash": digest, "width": width, "height": height,
@@ -843,6 +913,8 @@ def main(argv: list[str] | None = None) -> int:
             summary += f", {counts['invalid_upscalers']} with an invalid upscaler"
         if counts["invalid_crop_anchors"]:
             summary += f", {counts['invalid_crop_anchors']} with an invalid crop anchor"
+        if counts["invalid_execution"]:
+            summary += f", {counts['invalid_execution']} with invalid execution metadata"
     if counts["unresolved_references"]:
         summary += f", {counts['unresolved_references']} unresolved reference/refine source(s)"
     if counts["masks"]:

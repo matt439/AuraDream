@@ -6,6 +6,11 @@ bounded next slice from [R3](review-2026-10-25.md#r3-attention-backend).
 No package installation, model load, tensor allocation or GPU operation
 was used to prepare this plan. No speed default changes.
 
+The shared `ExecutionSpec`, nullable SQL/PNG carry and refusal paths are
+implemented with `PERF#1`. A recorded `cudnn-v1` remains unavailable to
+render or Reuse; this establishes metadata transport, not attention
+processor isolation or card qualification.
+
 ## First comparison and capability matrix
 
 Start with the exact catalogue id `black-forest-labs/FLUX.1-Krea-dev`,

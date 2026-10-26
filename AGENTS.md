@@ -59,8 +59,8 @@ Backend (`backend/`):
   `model_info.py` supplies cold catalogue details from existing sourced guides;
   `hub_access.py` asks the Hub whether a switch's checkpoint can download;
   `model_benchmarks.py` supplies retained timing references and speed categories
-- `execution.py` frozen execution recipes and cold candidate checks; nonempty
-  recipes remain unavailable until carry and runtime support are complete
+- `execution.py` frozen execution recipes, cold candidate checks and shared
+  SQL/PNG codecs; nonempty recipes remain unavailable until runtime support
 - `schemas.py` re-exports the request/response models, each defined in
   `schemas_generate.py` (the generation request and `applied()`, grids, job
   answers, Load settings from PNG's), `schemas_prompt.py` (Expand, Check, critic, tag lookup),
@@ -90,7 +90,7 @@ Backend (`backend/`):
   `backup_preferences.py` atomic database-scoped backup policy sidecars;
   `gallery_lock.py` reservations across storage threads and processes
 - `jobs.py` single-worker queue and SSE; `storage.py` SQLite + PNGs;
-  `metadata.py` the PNG chunk's key and its legacy `krea` reader;
+  `metadata.py` the PNG chunk's key, legacy `krea` reader and file-placement guard;
   `png_settings.py` a PNG's record and A1111 'parameters' block read back
   (`--from-image` and `api_png.py` share it);
   `gallery_reports.py` estimates, keep rates, runs; `gallery_delete.py`
@@ -390,6 +390,7 @@ node tools/browser.mjs tools/<smoke>.json
 | 7923 | FLUX.1-Krea-dev, fresh scratch `--data` | `smoke-control-sizing` |
 | 7924 | FLUX.1-Krea-dev, fresh scratch `--data` | `smoke-shortcut-dispatch` |
 | 7925 | FLUX.1-Krea-dev, fresh scratch `--data` | `smoke-compact-setup` |
+| 7926 | FLUX.1-Krea-dev, fresh scratch `--data` | `smoke-execution-reuse` |
 
 FLUX.1-Krea-dev is `black-forest-labs/FLUX.1-Krea-dev`; animagine is
 `cagliostrolab/animagine-xl-4.0`.

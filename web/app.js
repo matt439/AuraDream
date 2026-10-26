@@ -396,7 +396,13 @@ els.lbNext.onclick = () => stepLightbox(1);
 // reachable from the lightbox as well as from a gallery card. Closed first:
 // Reuse writes the prompt as typing would, which needs the focus a modal
 // lightbox keeps to itself.
-els.lbReuse.onclick = () => { const rec = lbList[lbIndex]; if (rec) { closeLightbox(); reuse(rec); } };
+els.lbReuse.onclick = () => {
+  const rec = lbList[lbIndex];
+  if (!rec) return;
+  if (refuseExecutionReuse(rec)) return;
+  closeLightbox();
+  reuse(rec);
+};
 els.lbDownload.onclick = downloadLightboxImage;
 // Refine likewise: openRefine closes the lightbox for its dialog, and a close
 // that runs nothing gives it back (refineClosed). Where the checkpoint has no

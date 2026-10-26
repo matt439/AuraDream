@@ -54,7 +54,26 @@ function rewriteBox(el, text) {
 // Reuse restores what made a record. A direct render's settings go into the
 // panel; a refine pass is the Refine dialog's, so a refined record opens the
 // dialog on its source with the pass as it ran (`reusePass`).
+function executionReuseReason(rec) {
+  const spec = rec.execution;
+  if (spec == null) return '';
+  const empty = typeof spec === 'object' && !Array.isArray(spec)
+    && Object.keys(spec).every((name) => ['compilation', 'attention_backend', 'step_cache'].includes(name)
+      && spec[name] == null);
+  return empty ? '' : 'This image uses an execution recipe that is unavailable in this build. Its settings cannot be reused.';
+}
+
+function refuseExecutionReuse(rec) {
+  const reason = executionReuseReason(rec);
+  if (!reason) return false;
+  // Keep the composer's current Reuse note and its Undo intact. Card and
+  // lightbox presses share the gallery's slot; showError mirrors a modal.
+  showError(reason, false, { slot: els.galleryError });
+  return true;
+}
+
 function reuse(rec) {
+  if (refuseExecutionReuse(rec)) return;
   // An outpaint's is the Outpaint dialog's, on its source with its sides -
   // asked first, since an outpaint has a mask as well.
   if (rec.refine != null && rec.outpaint) { void reuseOutpaint(rec); return; }
@@ -99,6 +118,7 @@ function syncReuseUndo() {
 // writes only the prompt pair and the seed, as `fillPanel` takes it: an
 // A1111 block's steps and CFG are another sampler's.
 function reuseIntoPanel(rec, withSize, note = '', { name = `#${rec.id}`, sampling = true } = {}) {
+  if (refuseExecutionReuse(rec)) return;
   // One Undo on offer at a time: an Example's, for the text this replaces,
   // goes with it.
   dropPromptUndo();

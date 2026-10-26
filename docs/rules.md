@@ -862,8 +862,13 @@ Reproduction:
   masks or retaining work, even with an explicit run id. The fake shares the
   backend guards. Only `GenerateRequest.applied()`
   writes an empty specification back to None. Canonical empty/key helpers
-  describe identity without changing requests. No execution storage column,
-  CellKey slot, loader choice or enabled runtime exists in this first slice.
+  describe identity without changing requests. Stored records carry the
+  nullable recipe through canonical JSON in `images.execution` and named
+  PNG metadata; empty execution is SQL NULL and absent from the PNG chunk.
+  Its CellKey slot is immediately before canvas/crop, preserving shape[-2]
+  and the final seed. `run_id` explicitly omits an absent execution slot
+  even where a later shape is nonempty, then applies legacy shape/extension
+  compaction. No loader choice or enabled non-default runtime exists.
 - Seeds are drawn from `2**53 - 1` and wrapped at `2**63 - 1`; both live in
   `seeds.py`. One generator per image, seeded `seed + i`; runs take base
   `seed + i * num_images`. The page refuses a typed seed past
@@ -942,7 +947,7 @@ Reproduction:
   value that is no non-negative integer is NULL (`storage._peak`), never a
   refused row. Reindex (both paths) and bundles carry it; the bundle
   staging table adds both as INTEGER. `CellKey` holds the prompt pair, steps, CFG, mu,
-  true CFG, references, LoRA and weight, refine source and strength, size/crop
+  true CFG, references, LoRA and weight, refine source and strength, execution, size/crop
   shape, and the seed; checkpoint and quantization scope the resume lookup
   (`storage.completed_cells`) and, with the batch, `run_id`'s definition;
   variables and hash are the row's and the chunk's alone. `run_id` names a
@@ -3590,6 +3595,12 @@ Frontend and CLI:
   `syncReuseButtons` where the checkpoint changes, where
   `reference_supported` or `lora_supported` flips, and at the end of
   `refreshLoras`.
+- Reuse refuses every nonempty recorded execution recipe before writing
+  the composer or looking up pass sources. Its button is `aria-disabled`
+  with the reason as title; a press says it in the gallery error slot and
+  mirrors it into an open lightbox without closing it. The composer's prior
+  Reuse note and Undo stay intact. `syncReuseButtons` preserves the recipe
+  in its dataset so a capability refresh cannot clear this hold.
 - Load settings from PNG (`png-settings.js`, `api_png.py`,
   `png_settings.py`; `smoke-png-settings.json`, `tests/test_api_png.py`).
   A file dragged over the page outlines the window (`body.png-drop::after`,
@@ -5119,6 +5130,18 @@ queue admission. Empty execution retains legacy keys/PNG metadata and normalizes
 through `applied()`, without revalidating a stamped outpaint. These are CPU
 contract checks, not compiler or GPU qualification.
 
+`tests/test_execution_storage.py`, `tests/test_execution_bundles.py` and
+`tests/test_execution_replay.py` cover the nullable recipe migration and
+canonical codecs, legacy hash fixtures including mixed-size/crop/comparison
+runs, distinct recipe keys, stored/PNG/bundle/reindex carry and unavailable
+rerun/PNG/CLI/retained recovery. Known recorded recipes confer no permission
+to execute; invalid or contradictory metadata is refused rather than dropped.
+File-based readers use `metadata.require_header_metadata` to refuse app-owned
+text after PNG pixel data, which Pillow's header-only `info` would miss.
+The scan skips payloads, reads at most 80 bytes per text keyword and restores
+the stream position; it adds no pixel decode. Browser-provided text chunks
+already include the complete parsed record and need no file-position scan.
+
 `tests/test_backup_policy.py` checks pure default-off backup decisions with
 explicit age, retention and protection. It covers UTC age boundaries and
 repeated-hour ordering, unavailable or untrusted copies, exact scope,
@@ -5129,6 +5152,13 @@ database isolation, exact integer-microsecond durations, fixed failure
 warnings and atomic saves preserving prior bytes on write/fsync/replace
 failure. The shared 10,000-copy validation ceiling is an engineering limit,
 not a selected retention policy. Neither module is connected to startup.
+
+`smoke-execution-reuse.json` uses a fresh FLUX.1 Krea [dev] fake on 7926.
+Browser fixtures add execution recipes to a synthetic eager record, checking
+held Reuse buttons, status refresh, lightbox reason without dismissal,
+direct panel/pass/inpaint/outpaint refusal before source reads and unchanged
+composer/scroll. Legacy empty recipes retain Reuse and Undo. It runs no
+non-default recipe and establishes no compiler or GPU behavior.
 
 `tests/test_classic_scripts.py` invokes `tools/check_classic_scripts.py`
 and its Node helper to parse every local classic script in HTML order,

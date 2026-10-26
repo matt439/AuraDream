@@ -2391,15 +2391,20 @@ strength has been run on the card.
 
 ## CellKey and run_id
 
-**Four things widen `CellKey`, and `run_id` survives each.** The key is
+**Optional reproduction fields widen `CellKey`, and `run_id` survives each.** The key is
 (prompt, negative, steps, CFG, mu, true CFG, references, LoRA, refine,
-mask, seed), with `grid.reference_key` (ids in order), `grid.lora_key`
+mask, upscaler, execution, canvas/crop, seed), with `grid.reference_key` (ids in order), `grid.lora_key`
 (`name@weight`), `grid.refine_key` (`id@strength`) and `grid.mask_key` (the
-hash, the inpaint's)
-spelled once and built from a request in `grid` and from columns in
+hash, the inpaint's). The composite elements are spelled once and built
+from a request in `grid` and from columns in
 `storage.completed_cells`. `run_id` names a cell by the **shortest** key
 carrying all its non-None optional elements - it drops true CFG, references,
-LoRA, refine and mask from the right while they are None - so a grid using none of
+LoRA, refine, mask and upscaler from the right while they are None. Shape is
+removed for uniform centered runs, and absent execution is explicitly
+removed before that shape handling. An interior None before a mixed-size
+or noncenter shape cannot be removed by trailing trim; retaining it would
+rename existing runs. The execution slot precedes shape, keeping shape at
+`[-2]` and seed last. Thus a grid using none of
 them is still named by the six-element key its images have carried since
 before any of them existed, and a refine run keeps the id it had before the
 mask existed (pinned in `tests/test_conditioning.py`). `duplicate_count`

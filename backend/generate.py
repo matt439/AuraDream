@@ -45,7 +45,7 @@ if __package__ in (None, ""):
 # launch.py owns --model/--quant/--offload for the server and this CLI alike;
 # sizes.py owns the preset table the browser's copy is asserted against.
 from backend.launch import add_model_arguments, apply_env  # noqa: E402
-from backend.png_settings import PngSettingsError, image_settings  # noqa: E402
+from backend.png_settings import image_settings  # noqa: E402
 from backend.seeds import random_seed, wrap_seed  # noqa: E402
 from backend.sizes import SIZES, TIERS  # noqa: E402
 
@@ -331,8 +331,14 @@ def _image_settings(path: str, parser: argparse.ArgumentParser) -> dict:
     JSON - are argument errors here, not tracebacks.
     """
     try:
-        return image_settings(path)
-    except PngSettingsError as exc:
+        from backend.execution import require_default_execution
+
+        meta = image_settings(path)
+        # A file's recipe is part of its reproduction set. Until this build
+        # can run it, refuse before apply_env, source reads or local loading.
+        require_default_execution(meta.get("execution"))
+        return meta
+    except ValueError as exc:
         parser.error(f"--from-image: {exc}")
 
 

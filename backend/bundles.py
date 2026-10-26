@@ -36,6 +36,7 @@ from .bundle_common import (
     _rows,
 )
 from .bundle_images import _critical_digest, _inspect_source, _metadata, _references, _rewrite_all, _validate_row
+from .metadata import require_header_metadata
 
 _SUFFIXES = (".zip", bundle_crypto.SUFFIX)
 
@@ -722,7 +723,21 @@ def import_bundle(path: Path, password: str | None = None, progress: Progress = 
             def inspect(row: dict, data: bytes):
                 target = present_file(row["filename"])
                 if target is None:
-                    return _inspect_source(row, data), False
+                    pixels = _inspect_source(row, data)
+                    return pixels, False, pixels.execution
+                # Keeping the local file also keeps its metadata. Validate
+                # that header against its own row before either identity
+                # path can call it present; pixel equality says nothing
+                # about which arithmetic recipe the PNG records.
+                try:
+                    with target.open("rb") as stream:
+                        require_header_metadata(stream)
+                        with Image.open(stream) as image:
+                            if image.format != "PNG":
+                                raise BundleError(f"not a PNG image: {target.name}")
+                            bundle_images._execution(existing[row["filename"].casefold()], image.info)
+                except (OSError, ValueError, Image.DecompressionBombError) as exc:
+                    raise BundleError(f"cannot read existing execution metadata for {target.name}: {exc}") from exc
                 # A present image is kept and its bundle copy never unpacked.
                 # Identical pixel-deciding chunks mean identical pixels, so the
                 # copy is not decoded: its header's size and its row are still
@@ -733,10 +748,17 @@ def import_bundle(path: Path, password: str | None = None, progress: Progress = 
                 if (known is not None and data[12:16] == b"IHDR"
                         and known == _critical_digest(io.BytesIO(data))):
                     width, height = struct.unpack(">II", data[16:24])
+                    stream = io.BytesIO(data)
+                    try:
+                        require_header_metadata(stream)
+                    except ValueError as exc:
+                        raise BundleError(f"invalid PNG metadata for {row['filename']}: {exc}") from exc
+                    with Image.open(stream) as image:
+                        execution = bundle_images._execution(row, image.info)
                     _validate_row(row, width, height, existing[row["filename"].casefold()]["content_hash"])
-                    return None, True
+                    return None, True, execution
                 pixels = _inspect_source(row, data)
-                return pixels, bundle_images._pixels(target).identity == pixels.identity
+                return pixels, bundle_images._pixels(target).identity == pixels.identity, pixels.execution
 
             def extract(member: str) -> bool:
                 # An existing image wins on repeated import, so its bundle copy
@@ -785,7 +807,7 @@ def import_bundle(path: Path, password: str | None = None, progress: Progress = 
                 progress("merging", 0, len(source_rows))
                 for row in source_rows:
                     name = row["filename"]
-                    pixels, same = inspected["images/" + name]
+                    pixels, same, execution = inspected["images/" + name]
                     digest = pixels.hash if pixels else None  # None: present and unchanged
                     known = existing.get(name.casefold())
                     if known:
@@ -807,6 +829,8 @@ def import_bundle(path: Path, password: str | None = None, progress: Progress = 
                         for key in ("prompt", "negative_prompt", "steps", "guidance_scale", "mu", "seed", "model_id"):
                             if known[key] != row[key]:
                                 raise BundleError(f"different image metadata already uses the filename {name}")
+                        if bundle_images._execution(known) != execution:
+                            raise BundleError(f"different execution already uses the filename {name}")
                         incoming_anchor = row.get("crop_anchor")
                         if known.get("refine") is None:
                             # A prior import of this source-less selection
@@ -825,7 +849,7 @@ def import_bundle(path: Path, password: str | None = None, progress: Progress = 
                         next_id += 1
                         mapping[row["id"]] = next_id
                         values = {key: row.get(key) for key in storage._COLUMNS}
-                        values.update(id=next_id, content_hash=digest)
+                        values.update(id=next_id, content_hash=digest, execution=execution)
                         # A result, so a bad one is dropped, never the bundle.
                         for key in ("vram_peak_allocated", "vram_peak_reserved"):
                             values[key] = storage._peak(values[key])

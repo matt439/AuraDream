@@ -6,6 +6,11 @@ bounded next slice from [R4](review-2026-10-25.md#r4-step-caching-for-the-long-u
 No package installation, runtime model import, weights, tensor allocation
 or GPU operation was used. Nothing enables caching or changes a default.
 
+The shared `ExecutionSpec`, nullable SQL/PNG carry and refusal paths are
+implemented with `PERF#1`. A recorded `fbc-005-v1` remains unavailable to
+render or Reuse; this establishes metadata transport, not hook installation
+or quality, speed and memory qualification.
+
 ## One algorithm and one undistilled family
 
 Start with diffusers' **First Block Cache (FBC)** on the exact catalogue

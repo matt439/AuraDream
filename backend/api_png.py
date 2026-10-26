@@ -155,6 +155,7 @@ def _from_record(meta: dict, name: str) -> tuple[dict, _ImageSize, bool, list[st
             ("prompt", "prompt"), ("negative_prompt", "negative_prompt"), ("steps", "steps"),
             ("guidance_scale", "guidance_scale"), ("true_cfg", "true_cfg"), ("seed", "seed"),
             ("lora", "lora"), ("lora_scale", "lora_scale"),
+            ("execution", "execution"),
         )
         if meta.get(field) is not None
     }
