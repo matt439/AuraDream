@@ -22,7 +22,7 @@ Edit `AGENTS.md` only: `CLAUDE.md` just imports it (`@AGENTS.md`).
 uv run python -m backend.main      # http://127.0.0.1:7860; restores saved browser choices
 uv run python -m backend.main --defaults   # ignore saved choices; environment/defaults
 uv run python -m backend.main --menu       # optional terminal picker
-uv run --group dev pytest          # no GPU, no weights, about three minutes
+uv run --group dev pytest          # no GPU, no weights; add -n auto for parallel
 uv run --group dev ruff check .    # correctness lint; CI runs both on push
 ```
 
@@ -289,6 +289,14 @@ in the HTTP layer or the UI needs to change.
 `uv run --group dev pytest` - no GPU, no weights, a throwaway database, and
 `LOCAL_DIFFUSION_*` cleared by `tests/conftest.py`. The fake backend is
 `tests/fakes.py`; HTTP tests are `tests/test_api*.py`, one file per area.
+
+CI (`.github/workflows/ci.yml`, detail in `docs/rules.md` under Tests): ruff
+and `pytest -n auto` on Linux for every push and pull request, and on
+Windows too for main (pushes and by hand; about 12 minutes). Its runners are
+slow and have no GPU driver: a test that races a clock (a time budget, a
+cell to skip or pause mid-run) needs seconds of margin, not milliseconds.
+`tools/fetch_tokenizers.py` fetches the real-tokenizer tests' files first,
+with the `HF_TOKEN` repository secret for the two gated repos.
 
 The UI is checked with smokes: start a fake server, then run the smoke.
 What each smoke covers is listed in `docs/rules.md` under Tests.
