@@ -118,7 +118,7 @@ class DiffusersBackend(GenerationBackend):
             # The conversions below run inside the hold.
             held.enter_context(loading.weights_loading())
             import torch
-            from diffusers import DiffusionPipeline
+            from diffusers.pipelines.pipeline_utils import DiffusionPipeline
 
             # Offload resolves its own accelerator inside diffusers, so it needs
             # CUDA whatever LOCAL_DIFFUSION_DEVICE says; the check has to see both, or
@@ -164,6 +164,7 @@ class DiffusersBackend(GenerationBackend):
             if unused:
                 import diffusers
 
+                assert class_name is not None, "excluded components require their concrete pipeline class"
                 loader = getattr(diffusers, class_name, None) or DiffusionPipeline
                 log.info("leaving out %s via %s", ", ".join(sorted(unused)), loader.__name__)
                 kwargs.update(unused)
@@ -357,9 +358,11 @@ class DiffusersBackend(GenerationBackend):
                 refine_supported=profile["refine_supported"],
                 inpaint_supported=profile["inpaint_supported"],
             )
+        threshold = self.cfg_threshold()
+        assert threshold is not None, "a loaded pipeline supplies its guidance threshold"
         return request.applied(
             negative_prompt_supported="negative_prompt" in self._call_params,
-            cfg_threshold=self.cfg_threshold(),
+            cfg_threshold=threshold,
             mu_supported=self._mu_supported(self._pipe),
             true_cfg_supported=self._true_cfg_supported(),
             reference_supported=self._reference_supported(),
@@ -409,7 +412,9 @@ class DiffusersBackend(GenerationBackend):
                 raise RuntimeError(
                     f"{type(pipe).__name__} has no image-to-image counterpart to refine with"
                 )
-            runner = refine.build(pipe, self._refine_class[1])
+            sibling = self._refine_class
+            assert sibling is not None and sibling[1] is not None  # The capability check resolved it.
+            runner = refine.build(pipe, sibling[1])
             self._apply_console_progress(runner)
             self._refine_params = set(inspect.signature(runner.__call__).parameters)
             self._refine_pipe = runner
@@ -448,7 +453,9 @@ class DiffusersBackend(GenerationBackend):
         if self._inpaint_pipe is None:
             if not self._inpaint_supported():
                 raise RuntimeError(f"{type(pipe).__name__} has no inpaint pass in this app")
-            runner = refine.build(pipe, self._inpaint_class[1])
+            sibling = self._inpaint_class
+            assert sibling is not None and sibling[1] is not None  # The capability check resolved it.
+            runner = refine.build(pipe, sibling[1])
             self._apply_console_progress(runner)
             self._inpaint_params = set(inspect.signature(runner.__call__).parameters)
             self._inpaint_pipe = runner
@@ -468,7 +475,9 @@ class DiffusersBackend(GenerationBackend):
         start = inpaint_start(current_model_id(settings))
         if start is not None:
             return start
-        return refine.library_strength(self._inpaint_class[1])
+        sibling = self._inpaint_class
+        assert sibling is not None and sibling[1] is not None  # Inpainting is supported above.
+        return refine.library_strength(sibling[1])
 
     def start_sigma(self, request: "GenerateRequest") -> float | None:
         """How much noise this refine pass starts at, read off the schedule.
@@ -487,13 +496,17 @@ class DiffusersBackend(GenerationBackend):
         if pipe is None or request.refine is None or request.strength is None:
             return None
         inpaint = request.inpainting
+        steps = request.steps
+        assert steps is not None, "the start-sigma request has its applied step count"
         start = refine.start_index(
-            request.steps, request.strength, current_model_id(settings), inpaint
+            steps, request.strength, current_model_id(settings), inpaint
         )
         supported = self._inpaint_supported() if inpaint else self._refine_supported()
         if start is None or not supported:
             return None
-        sibling = (self._inpaint_class if inpaint else self._refine_class)[1]
+        counterpart = self._inpaint_class if inpaint else self._refine_class
+        assert counterpart is not None and counterpart[1] is not None  # Supported by the resolved class.
+        sibling = counterpart[1]
         try:
             return schedule.start_sigma(pipe, sibling, request, start)
         except Exception:  # noqa: BLE001 - advice: no answer rather than a refused preview
@@ -556,7 +569,9 @@ class DiffusersBackend(GenerationBackend):
         # The pipeline class names its denoiser attribute for its LoRA loader:
         # `transformer_name` on the transformer families, `unet_name` on SDXL.
         component = getattr(pipe, "transformer_name", None) or getattr(pipe, "unet_name", None)
-        module = getattr(pipe, component, None) if component else None
+        if not component:
+            return None
+        module = getattr(pipe, component, None)
         if module is None:
             return None
         try:
@@ -738,6 +753,7 @@ class DiffusersBackend(GenerationBackend):
         else:
             runner, params = pipe, self._call_params
         total = request.steps
+        assert total is not None, "generation runs the request's applied step count"
         # Before the cancel check and the kwargs: a swap that fails must fail
         # the cell, not run it under whatever adapter the last cell left on.
         # On the loaded pipeline either way: the adapter goes into the
@@ -768,7 +784,7 @@ class DiffusersBackend(GenerationBackend):
             done = batch["index"] * steps + step + 1
             if on_progress is not None:
                 on_progress(done, steps * batch["count"])
-            if preview["on"] and step + 1 < steps:
+            if preview["on"] and on_preview is not None and step + 1 < steps:
                 now = time.monotonic()
                 if now - preview["last"] >= latent_preview.INTERVAL_SECONDS:
                     try:
@@ -803,7 +819,7 @@ class DiffusersBackend(GenerationBackend):
             "prompt": request.prompt,
             "width": request.width,
             "height": request.height,
-            "num_inference_steps": request.steps,
+            "num_inference_steps": total,
             "guidance_scale": request.guidance_scale,
             "num_images_per_prompt": request.num_images,
             "generator": generator,
@@ -839,32 +855,38 @@ class DiffusersBackend(GenerationBackend):
         # it repaints everywhere the composite below blends with the painted
         # grey levels - which it is given instead.
         painted = None
+        inpaint_source: Image | None = None
         # An outpaint's picture is its source on the padded canvas, the new
         # area holding the fill (`refine.outpaint_source`); its mask is the
         # one the submit built and stored, read like any other.
         if inpainting:
+            source_id, mask = request.refine, request.mask
+            assert source_id is not None and mask is not None, "an inpaint has its source and stamped mask"
             if request.outpaint is not None:
-                kwargs["image"] = refine.outpaint_source(
-                    request.refine, request.outpaint, request.width, request.height
+                inpaint_source = refine.outpaint_source(
+                    source_id, request.outpaint, request.width, request.height
                 )
             else:
-                kwargs["image"] = refine.inpaint_source(request.refine, request.width, request.height)
-            painted = refine.mask_image(request.mask, request.width, request.height)
+                inpaint_source = refine.inpaint_source(source_id, request.width, request.height)
+            kwargs["image"] = inpaint_source
+            painted = refine.mask_image(mask, request.width, request.height)
             block = getattr(runner, "vae_scale_factor", None)
             kwargs["mask_image"] = refine.pipeline_mask(
                 painted, block if isinstance(block, int) and block > 0 else refine.LATENT_BLOCK
             )
             kwargs["strength"] = request.strength
         elif refining:
+            source_id = request.refine
+            assert source_id is not None, "a refine pass has its source"
             crop = {"crop_anchor": request.crop_anchor} if request.crop_anchor != "center" else {}
             if request.upscaler is not None:
                 kwargs["image"] = refine.source_image(
-                    request.refine, request.width, request.height, upscaler=request.upscaler,
+                    source_id, request.width, request.height, upscaler=request.upscaler,
                     should_cancel=should_cancel, device=current_settings(settings).device,
                     **crop,
                 )
             else:
-                kwargs["image"] = refine.source_image(request.refine, request.width, request.height, **crop)
+                kwargs["image"] = refine.source_image(source_id, request.width, request.height, **crop)
             kwargs["strength"] = request.strength
         elif request.reference and self._reference_supported():
             kwargs["image"] = self._reference_images(request.reference)
@@ -884,7 +906,7 @@ class DiffusersBackend(GenerationBackend):
         # it does not, hand it a pre-shifted schedule - minus the *static* shift
         # it will apply on top regardless, so the total is still e^mu. The
         # Refine preview's start sigma asks the same question (`start_sigma`).
-        sigmas, mu = schedule.requested_shift(pipe, request.steps, request.mu)
+        sigmas, mu = schedule.requested_shift(pipe, total, request.mu)
         if sigmas is not None:
             kwargs["sigmas"] = sigmas
 
@@ -911,8 +933,9 @@ class DiffusersBackend(GenerationBackend):
         # VAE's round trip of the source; put the source's own pixels back
         # wherever the mask does not reach (`refine.composite`).
         processor = getattr(runner, "image_processor", None)
+        assert painted is not None and inpaint_source is not None  # Built together in the inpaint branch.
         return [
-            refine.composite(painted, kwargs["image"], image, processor)
+            refine.composite(painted, inpaint_source, image, processor)
             for image in images
         ]
 

@@ -157,7 +157,7 @@ def render(latent: Any, factors: _Factors, sigma: float = 0.0) -> bytes | None:
     pixels = ((rgb.clamp(-1, 1) + 1) * 127.5).to(torch.uint8).permute(1, 2, 0).cpu().numpy()
     image = Image.fromarray(pixels)
     if UPSCALE > 1:
-        image = image.resize((image.width * UPSCALE, image.height * UPSCALE), Image.BILINEAR)
+        image = image.resize((image.width * UPSCALE, image.height * UPSCALE), Image.Resampling.BILINEAR)
     buffer = io.BytesIO()
     image.save(buffer, format="JPEG", quality=75)
     return buffer.getvalue()

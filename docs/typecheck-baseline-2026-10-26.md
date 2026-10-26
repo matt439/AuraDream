@@ -220,6 +220,27 @@ wrapper's unbound-self signature (`reportCallIssue`). No broader
 suppression or cast was added. Receipts:
 `work/dev6-loader-iface-after.json` and `work/dev6-loading-helper.json`.
 
+2026-10-26, batch 5: the eight pipeline/schedule/refine/preview modules
+address all 63 initial findings. Main-backend contracts retain applied
+steps, sibling/source objects and callback presence; Pillow enums and a
+256-level L-mode LUT preserve the previous pixels. The 387 existing
+focused tests passed, and 24 tiny mode/block combinations matched the
+prior mask algorithm byte-for-byte. The four custom pipelines retain
+their schedule values, seeds, arithmetic, callback cleanup and serialized
+component identity; their 53 existing CPU tests passed.
+
+Scoped static checks, ruff and independent source reviews pass. No main
+backend exception was needed. Seven precisely commented custom-pipeline
+sites cover nine verified library annotation mismatches: Anima's tuple,
+duck-component and state contracts; FrozenDict attributes; the decorated
+progress-bar signature; valid tensor image outputs; and Jina's decorator-
+consumed `return_dict`. No blanket suppression or cast was added.
+Receipts: `work/dev6-pipeline-interfaces-after.json`,
+`work/dev6-pipeline-mask-equivalence.json`,
+`work/dev6-custom-pipelines-after.json` and
+`work/dev6-custom-pipelines-validation.json`. No GPU acceptance follows
+from these CPU checks.
+
 ## Initial counts by diagnostic
 
 <!-- Counts below are generated from the retained initial Pyright JSON. -->

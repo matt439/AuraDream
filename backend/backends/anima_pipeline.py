@@ -12,21 +12,19 @@ from typing import Callable
 from .. import config as _config  # noqa: F401
 
 import torch
-from diffusers import (
-    AnimaTextConditioner,
-    AutoencoderKLQwenImage,
-    CosmosTransformer3DModel,
-    DiffusionPipeline,
-    FlowMatchEulerDiscreteScheduler,
-)
-from diffusers.guiders import ClassifierFreeGuidance
+from diffusers.guiders.classifier_free_guidance import ClassifierFreeGuidance
 from diffusers.image_processor import VaeImageProcessor
+from diffusers.models.autoencoders.autoencoder_kl_qwenimage import AutoencoderKLQwenImage
+from diffusers.models.condition_embedders.condition_embedder_anima import AnimaTextConditioner
+from diffusers.models.transformers.transformer_cosmos import CosmosTransformer3DModel
 from diffusers.modular_pipelines.anima.denoise import AnimaDenoiseStep
 from diffusers.modular_pipelines.anima.encoders import AnimaTextEncoderStep
 from diffusers.modular_pipelines.anima.modular_blocks_anima import AnimaCoreDenoiseStep, AnimaDecodeStep
 from diffusers.modular_pipelines.modular_pipeline import PipelineState
-from diffusers.pipelines.pipeline_utils import ImagePipelineOutput
-from transformers import Qwen2Tokenizer, Qwen3Model, T5TokenizerFast
+from diffusers.pipelines.pipeline_utils import DiffusionPipeline, ImagePipelineOutput
+from diffusers.schedulers.scheduling_flow_match_euler_discrete import FlowMatchEulerDiscreteScheduler
+from transformers import Qwen2Tokenizer, Qwen3Model
+from transformers.models.t5.tokenization_t5 import T5Tokenizer as T5TokenizerFast
 
 
 class _CallbackDenoiseStep(AnimaDenoiseStep):
@@ -39,7 +37,9 @@ class _CallbackDenoiseStep(AnimaDenoiseStep):
         if self.callback is not None:
             updates = self.callback(components, i, t, {"latents": state.latents})
             if updates is not None and "latents" in updates:
-                state.latents = updates["latents"]
+                # loop_step annotates PipelineState but actually returns the
+                # dynamic BlockState built by AnimaDenoiseLoopWrapper.
+                state.latents = updates["latents"]  # pyright: ignore[reportAttributeAccessIssue]
         return components, state
 
 
@@ -132,13 +132,18 @@ class AnimaTurboPipeline(DiffusionPipeline):
         })
         self._step.callback = callback_on_step_end
         try:
-            _, state = self._encode(self, state)
+            # The installed block returns (components, state), despite its
+            # PipelineState annotation, and reads the standard components we
+            # register above rather than requiring AnimaModularPipeline itself.
+            _, state = self._encode(self, state)  # pyright: ignore[reportGeneralTypeIssues, reportArgumentType]
             # SequentialPipelineBlocks logs every escaping exception as an
             # error. Call its blocks directly so cooperative cancellation is
             # handled by the job layer without a misleading error traceback.
             for block in self._denoise.sub_blocks.values():
                 _, state = block(self, state)
-            _, state = self._decode(self, state)
+            # SequentialPipelineBlocks also returns (components, state), not
+            # the PipelineState stated by its installed return annotation.
+            _, state = self._decode(self, state)  # pyright: ignore[reportGeneralTypeIssues]
             return ImagePipelineOutput(images=state.get("images"))
         finally:
             self._step.callback = None

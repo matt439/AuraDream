@@ -249,6 +249,14 @@ same-class imports and explicit return/keyword contracts. Four local
 comments document verified lazy-export/bound-method typing gaps; the
 quantization and RAM-release behavior is unchanged.
 
+**Batch 5 (2026-10-26).** All 63 initial pipeline/schedule/refine/preview
+findings are addressed. The 387 focused backend tests and 53 tiny custom
+pipeline tests pass; 24 mask mode/block cases match prior bytes. Scoped
+checks, ruff and independent reviews pass. Seven local custom-pipeline
+sites document verified library annotation gaps; the main backend needs
+no exception. Schedules, seeds, arithmetic, source composition and cleanup
+remain unchanged; no GPU behavior was measured.
+
 **Stages.**
 
 1. Select and record a reproducible Pyright version and basic-mode
