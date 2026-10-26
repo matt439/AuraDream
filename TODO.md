@@ -14,6 +14,8 @@ The maintainer's working backlog for this personal project: it records what is p
 
 **GPU runs are Matt's to run or OK, never past the 16 GB card** (every `CARD` row). Check the checkpoint's measured peaks in `docs/verified.md` first; a run that spills into shared memory proves only that it doesn't fit.
 
+**Proposed 2026-10-25, not yet triaged by Matt:** larger work from the [2026-10-25 review](docs/review-2026-10-25.md). Ready, plan first: speed (`PERF#1`, `PERF#3`, `PERF#4`; `PERF#2` waits on `PERF#1`), tooling (`DEV#4`-`DEV#6`) and automatic backups (`GAL#6`). Two decisions: whether to plan editing by instruction (`INP#11`) and a face and hand detailer (`INP#12`).
+
 ## Product design
 
 **Owner:** [docs/design/README.md](docs/design/README.md); [validation](docs/design/validation.md) owns the remaining task trials and evidence.
@@ -39,9 +41,9 @@ The maintainer's working backlog for this personal project: it records what is p
 | `CARD#11` | CARD | LOW | M+card | The critic: a reorder that reaches the partial-placement check (none of 16 did; every 4B reorder changed words); FLUX.1 Krea [dev] at int8 or sequential beside it, and its rewrites against originals over more seeds (RAM guard, `GEN#22`); kill-on-close under WSL; Ctrl-C during a critique. [Prompt analyser](docs/verified.md#prompt-analyser). |
 | `CARD#12` | CARD | LOW | S+card | Official Qwen-Image on Windows: fp8 with sequential offload stops at the RAM guard during the load (`GEN#22`); BF16 with sequential offload is untried. [RAM at the load](docs/verified.md#ram-at-the-load-2026-10-25); [Switching](docs/design-notes.md#switching-checkpoints-while-the-server-stays-open). |
 
-## Inpainting and outpainting
+## Inpainting, outpainting and edits
 
-**Owner:** [docs/plan-inpainting.md](docs/plan-inpainting.md#phases) and [docs/plan-outpainting.md](docs/plan-outpainting.md#phases), their Phases; what was built differently is in the design notes' [Inpainting](docs/design-notes.md#inpainting) and [Outpainting](docs/design-notes.md#outpainting).
+**Owner:** [docs/plan-inpainting.md](docs/plan-inpainting.md#phases) and [docs/plan-outpainting.md](docs/plan-outpainting.md#phases), their Phases; what was built differently is in the design notes' [Inpainting](docs/design-notes.md#inpainting) and [Outpainting](docs/design-notes.md#outpainting). `INP#11` and `INP#12`: the [2026-10-25 review](docs/review-2026-10-25.md#edits---matts-call).
 
 | id | status | sev | size | item |
 |---|---|---|---|---|
@@ -49,6 +51,8 @@ The maintainer's working backlog for this personal project: it records what is p
 | `INP#6` | DEFERRED | LOW | M+card | Phase 5, Qwen-Image under Nunchaku (WSL), only if the inpaint class runs over the Nunchaku transformer at all. |
 | `INP#9` | DEFERRED | LOW | M | Phase 6, the masked area only (`padding_mask_crop` at a working size, a recorded `mask_crop`); not on Z-Image, whose class lacks it. Also for large SDXL outpaint canvases. |
 | `INP#10` | DEFERRED | LOW | M | Outpaint, later if wanted: the server's fill shown in the frame (kept for later, 2026-10-17), an outpaint over a painted mask, a second fill. |
+| `INP#11` | DECISION | LOW | XL+card | Whether to plan editing an image by instruction (FLUX.1 Kontext [dev]; Qwen-Image-Edit under Nunchaku): a new pass kind from a gallery source, recorded in the chunk and key. [10-25 R9](docs/review-2026-10-25.md#r9-edit-an-image-by-instruction). |
+| `INP#12` | DECISION | LOW | L+card | Whether to plan a face and hand detailer (detect, mask per box, the existing inpaint); first, a detector whose licence fits Apache-2.0 (Ultralytics is AGPL-3.0). [10-25 R10](docs/review-2026-10-25.md#r10-a-face-and-hand-detailer). |
 
 ## Generation, jobs and models
 
@@ -62,6 +66,25 @@ The maintainer's working backlog for this personal project: it records what is p
 | `GEN#16` | CARD | LOW | S+card | Generate then refine: phase 3's FLUX.1 Krea dev night at 1.5x, peak of the alternation and the pair's time; its load stops at the RAM guard (`GEN#22`). [Plan](docs/plan-then-refine.md). |
 | `GEN#20` | DECISION | LOW | L+card | Whether to plan opt-in A1111 weighting and 77-token chunking on SDXL; only if Matt writes weighted prompts. [10-24 G10](docs/review-2026-10-24.md#g10-a1111-style-weighting-and-long-prompts-on-sdxl). |
 | `GEN#22` | DECISION | MED | M+card | How a cold quantizing FLUX.1, Krea 2, klein 9B or Qwen-Image load fits this machine's RAM (about 46 GiB at the load, 2026-10-25): free RAM before a run, lower the guard's floor, or quantize a shard at a time (a loader change, plan first). Unblocks the FLUX-family card rows. [The quantizing load's RAM peak](docs/design-notes.md#the-quantizing-loads-ram-peak). |
+
+## Speed
+
+**Owner:** the [2026-10-25 review](docs/review-2026-10-25.md#speed). Weight-only fp8/int8 run slower a step than bf16 today; none of these is used yet. Each pixel-changing choice is recorded for reproduction.
+
+| id | status | sev | size | item |
+|---|---|---|---|---|
+| `PERF#1` | OPEN | MED | L+card | Compile the denoiser's repeated blocks under model offload (`compile_repeated_blocks`); Triton on Windows, recompiles per size, LoRA hot-swap, eager-vs-compiled pixels. Plan first. [10-25 R1](docs/review-2026-10-25.md#r1-compile-the-denoisers-repeated-blocks). |
+| `PERF#2` | BLOCKED | LOW | M+card | A quantization choice with fp8 activations (torchao `Float8DynamicActivationFloat8WeightConfig`) on the card's fp8 tensor cores; waits on `PERF#1`. [10-25 R2](docs/review-2026-10-25.md#r2-fp8-with-fp8-activations). |
+| `PERF#3` | OPEN | LOW | M+card | An attention backend per family (`set_attention_backend`: cuDNN, flash, sage), its Windows wheels and its pixels. Plan first. [10-25 R3](docs/review-2026-10-25.md#r3-attention-backend). |
+| `PERF#4` | OPEN | LOW | L+card | Opt-in step caching (First Block Cache, TaylorSeer or MagCache) for the 30-50 step undistilled checkpoints, widening the key once. Plan first. [10-25 R4](docs/review-2026-10-25.md#r4-step-caching-for-the-long-undistilled-schedules). |
+
+## Gallery and storage
+
+**Owner:** the [2026-10-25 review](docs/review-2026-10-25.md#gallery).
+
+| id | status | sev | size | item |
+|---|---|---|---|---|
+| `GAL#6` | OPEN | LOW | L | Automatic whole-gallery backup at start-up past a set age, keeping the last N, through the verified export; decide how a password works unattended. Plan first. [10-25 R8](docs/review-2026-10-25.md#r8-automatic-whole-gallery-backup). |
 
 ## Prompt analyser
 
@@ -79,6 +102,16 @@ The maintainer's working backlog for this personal project: it records what is p
 |---|---|---|---|---|
 | `UI#7` | USER | LOW | M | Hands-on screen-reader (NVDA/Narrator) and touch validation; browser emulation and accessibility-tree inspection do not complete it. [Manual checks](docs/design/validation.md#accessibility-and-desktop-checks). |
 
+## Tooling
+
+**Owner:** the [2026-10-25 review](docs/review-2026-10-25.md#tooling).
+
+| id | status | sev | size | item |
+|---|---|---|---|---|
+| `DEV#4` | OPEN | LOW | L | Run the browser smokes in CI on Linux Chrome as a second job; fix font-sensitive assertions properly, keep a failed fake's log. Plan first. [10-25 R5](docs/review-2026-10-25.md#r5-run-the-smokes-in-ci). |
+| `DEV#5` | OPEN | LOW | S | A pytest that loads `web/`'s classic scripts in `index.html` order into one Node `vm` context and fails on a redeclared global or a syntax error. [10-25 R6](docs/review-2026-10-25.md#r6-check-webs-shared-global-scope-without-a-browser). |
+| `DEV#6` | OPEN | LOW | L | Pyright (basic) over `backend/` and `tools/` in CI; fix or individually suppress the first run's findings. [10-25 R7](docs/review-2026-10-25.md#r7-a-type-checker-over-backend). |
+
 ## Review coverage
 
 Each review's remaining work is indexed above; closed findings stay in their owners.
@@ -92,6 +125,7 @@ Each review's remaining work is indexed above; closed findings stay in their own
 | 2026-10-05 areas | 84 fixed, A68 partly by decision; the integration review's K1-K5 fixed. |
 | 2026-10-12 | R1-R53 fixed; F1-F5, F7-F13 and F15-F19 built. F6's supported inpaint/outpaint paths are built; remaining families/measurements are `INP`/`CARD`. F14 was qualified on the card 2026-10-21; F5's age-scoped emptying was built 2026-10-19 (`GAL#5`). |
 | 2026-10-24 | G1 smoke runner and G2 lint/CI built the same day; G5 choices, G6 snippets, G7 queue, G8 size/crop and G9 help built 2026-10-25/26 ([choices](docs/plan-random-prompt-variables.md), [snippets](docs/plan-prompt-snippets.md), [queue](docs/plan-queue-controls.md), [size/crop](docs/plan-size-axis-crop-anchor.md), [help](docs/plan-shortcuts.md)); G3, G4 and G10 indexed above; the rest recorded as not taken. |
+| 2026-10-25 | Speed, tooling, backups and edits: R1-R10 indexed above (`PERF`, `DEV#4`-`DEV#6`, `GAL#6`, `INP#11`/`INP#12`), untriaged. |
 | 2026-10-26 workflow | Three reproduced findings fixed and qualified: mixed prompt prose (`PA#10`), incomplete numbers (`GEN#24`) and unseen queued outcomes (`GEN#25`). [Evidence and results](docs/review-2026-10-26-ux.md). |
 | 2026-10-26 keyboard | All three approved stages (`UI#17`-`UI#19`) fixed and qualified, including fast routes and compact setup. [Evidence](docs/plan-shortcut-workflow.md). |
 | 2026-10-26 sizing/Bundles | Password association (`UI#14`), clear-count explanation (`UI#15`) and frequent secondary target sizing (`UI#16`) fixed and qualified. [Evidence and results](docs/review-2026-10-26-sizing-bundles.md). |
@@ -110,7 +144,7 @@ Rules for writing it: read them before editing a row, not before picking one.
 4. **New work starts in an owner:** a plan in `docs/plan-*.md` for a feature, a review's findings for a defect, the design notes for a deliberate gap. Then it gets a row here.
 5. **NOW changes only when its items finish or Matt reorders them.** Refresh its ready count when rows or statuses change.
 
-**`id`:** a stable handle, not an order; a retired id is never reused. The prefix is the section: `CARD` measurements on the card, `INP` inpainting and outpainting, `GEN` generation, jobs and models, `GAL` gallery and storage, `PA` prompt analyser, `UI` the page, `DEV` docs and tooling. A review's own id (10-12 F7, U61) is named in the clause.
+**`id`:** a stable handle, not an order; a retired id is never reused. The prefix is the section: `CARD` measurements on the card, `INP` inpainting, outpainting and edits, `GEN` generation, jobs and models, `PERF` speed, `GAL` gallery and storage, `PA` prompt analyser, `UI` the page, `DEV` docs and tooling. A review's own id (10-12 F7, U61) is named in the clause.
 
 **`status`**, a closed list:
 
