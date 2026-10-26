@@ -87,8 +87,11 @@ def test_finish_retains_order_labels_variables_and_original_id_without_grid_expa
 
 def test_finish_after_a_budget_stop_uses_same_budget_and_only_remaining_seeds(client, store, fake):
     cells = [cell(seed) for seed in range(100, 108)]
-    run = retain(store, cells, metadata={"budget_minutes": 0.01})
-    fake.step_seconds = 0.15
+    # 3 s and 1 s cells: the first pass stops partway through the eight, and
+    # the finish, with instant cells, fits the rest in the same budget even on
+    # CI's Windows runner (0.6 s did not).
+    run = retain(store, cells, metadata={"budget_minutes": 0.05})
+    fake.step_seconds = 1.0
     response = client.post(f"/api/runs/{run}/finish", json={})
     assert response.status_code == 200, response.text
     stopped = stream_job(client, response.json()["job_id"])[-1]
@@ -96,9 +99,9 @@ def test_finish_after_a_budget_stop_uses_same_budget_and_only_remaining_seeds(cl
     before = len(stopped["images"])
     fake.step_seconds = 0
     answer = preview(client, run)
-    assert answer["cells"] == 8 - before and answer["budget_minutes"] == 0.01
+    assert answer["cells"] == 8 - before and answer["budget_minutes"] == 0.05
     accepted, done = finish(client, run, answer)
-    assert accepted["budget_minutes"] == 0.01 and len(done["images"]) == 8 - before
+    assert accepted["budget_minutes"] == 0.05 and len(done["images"]) == 8 - before
     assert fake.seeds == list(range(100, 108))
 
 
