@@ -8,7 +8,7 @@ The maintainer's working backlog for this personal project: it records what is p
 
 **Aim (2026-10-18):** keep useful work ready for Matt's common workstation tasks. [Reported use](docs/design/preferences.md) guides priority; it does not approve the candidate redesign.
 
-**Ready backlog:** the implementation and CPU/browser checks from the [2026-10-24 review](docs/review-2026-10-24.md) are complete. No `OPEN` rows remain from that review. Deferred features remain deferred.
+**Ready backlog (Matt's 2026-10-26 direction):** two `OPEN` UX tasks: make More seeds direct and safe while generating (`GEN#23`), then clarify button hierarchy and states (`UI#13`). The implementation and CPU/browser checks from the [2026-10-24 review](docs/review-2026-10-24.md) are complete. Deferred features remain deferred.
 
 **Needs Matt:** workbench task trials (`DEV#1`) and hands-on screen-reader/touch checks (`UI#7`) are the next `USER` work. Two decisions wait: whether SDXL prompt weighting is wanted at all (`GEN#20`), and how a cold quantizing FLUX-family load fits this machine's RAM (`GEN#22`), which unblocks the FLUX-family `CARD` rows and `GEN#15`/`GEN#16`. Whole-app layout implementation waits for its trials; it remains a design hypothesis.
 
@@ -62,6 +62,7 @@ The maintainer's working backlog for this personal project: it records what is p
 | `GEN#16` | CARD | LOW | S+card | Generate then refine: phase 3's FLUX.1 Krea dev night at 1.5x, peak of the alternation and the pair's time; its load stops at the RAM guard (`GEN#22`). [Plan](docs/plan-then-refine.md). |
 | `GEN#20` | DECISION | LOW | L+card | Whether to plan opt-in A1111 weighting and 77-token chunking on SDXL; only if Matt writes weighted prompts. [10-24 G10](docs/review-2026-10-24.md#g10-a1111-style-weighting-and-long-prompts-on-sdxl). |
 | `GEN#22` | DECISION | MED | M+card | How a cold quantizing FLUX.1, Krea 2, klein 9B or Qwen-Image load fits this machine's RAM (about 46 GiB at the load, 2026-10-25): free RAM before a run, lower the guard's floor, or quantize a shard at a time (a loader change, plan first). Unblocks the FLUX-family card rows. [The quantizing load's RAM peak](docs/design-notes.md#the-quantizing-loads-ram-peak). |
+| `GEN#23` | OPEN | MED | L | Make More seeds direct and simple while a run is active, with safe pending requests, retries and multiple tabs. [UX and safety plan](docs/plan-more-seeds-ux.md). |
 
 ## Prompt analyser
 
@@ -78,6 +79,7 @@ The maintainer's working backlog for this personal project: it records what is p
 | id | status | sev | size | item |
 |---|---|---|---|---|
 | `UI#7` | USER | LOW | M | Hands-on screen-reader (NVDA/Narrator) and touch validation; browser emulation and accessibility-tree inspection do not complete it. [Manual checks](docs/design/validation.md#accessibility-and-desktop-checks). |
+| `UI#13` | OPEN | MED | M | Clarify enabled, selected, held, hover and focus button states without changing layout. [Hierarchy plan](docs/plan-button-hierarchy.md). |
 
 ## Review coverage
 
