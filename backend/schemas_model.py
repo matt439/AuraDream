@@ -9,6 +9,7 @@ from typing import Literal
 from pydantic import BaseModel, Field
 
 from .config import settings
+from .execution import ExecutionSpec
 from .schemas_prompt import AuthorOrder
 
 class PromptTagGroup(BaseModel):
@@ -143,6 +144,9 @@ class ModelSwitchRequest(BaseModel):
     format: Literal["nvfp4", "int4"] | None = None
     load_on_startup: bool | None = None
     load: bool = True
+    # Parse the shared extension instead of silently dropping an explicit
+    # recipe. Selection validation still refuses every nonempty execution.
+    execution: ExecutionSpec | None = None
 
 
 class ModelStatus(BaseModel):

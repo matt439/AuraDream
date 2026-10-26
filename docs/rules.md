@@ -21,6 +21,9 @@ before changing it.
 - `backend/execution.py` - frozen named execution recipes, canonical empty/key
   contracts, distribution metadata and pure compilation/attention/cache candidate
   matrices; every nonempty recipe is currently refused before execution
+- `backend/compiler_cache.py` - private one-use startup binding for isolated
+  compiler artifact directories, immutable process ownership and drift checks;
+  Eager is cold and no public recipe is activated
 - `backend/startup_preferences.py` — validated atomic loader/startup persistence;
   the server launcher restores it before config imports
 - `backend/backup_policy.py` - pure automatic-backup policy, verified-success
@@ -567,6 +570,10 @@ Model and loader:
   quantization/format; Nunchaku remains Linux-only. Checkpoint, quantization and
   offload form one immutable runtime snapshot. `load=false` applies and saves
   without loading changed weights; an unchanged selection keeps its weights.
+  Its typed `execution` extension is never silently ignored: cold selection
+  validation refuses every nonempty or malformed recipe before option/catalogue
+  reads, Hub access, preference saves or unload. Missing/null/empty remain Eager;
+  direct internal callers face the same guard and no recipe is activated.
   Both actions atomically save the four loader/startup preferences beside the
   database before releasing existing weights; a save failure is an HTTP error
   and leaves the selection and existing preference file intact.
@@ -5384,6 +5391,13 @@ cold preflight before weights/imports, registration/publication failure ownershi
 strict-policy restoration for success/error/cancellation, fixed handle/facts and
 unchanged eager direct/refine semantics. Public nonempty execution stays refused;
 no real compiler, model, device or toolchain qualification follows.
+`tests/test_compiler_cache.py` checks pure runtime/gallery namespacing, the owned
+startup window, environment and path ownership, handle-owned scratch probes,
+partial/uncertain initialization and later binding drift. It imports no real
+compiler or model; directory usability is not toolchain or performance evidence.
+`tests/test_model_switch_execution.py` checks typed switch recipes, direct/copied
+internal bypasses and fixed refusal before Hub, save, unload, selection or preload
+effects. Empty/legacy Eager switches and stale revision guards remain covered.
 `tests/test_attention_selection.py` checks coverage, transactional failures,
 shared ownership, later replacements and idempotent restoration with stubs.
 It also executes source-extracted installed public context/setter bodies.

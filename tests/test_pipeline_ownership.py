@@ -263,6 +263,7 @@ def test_try_unload_contention_preserves_state_without_cleanup(synthetic_loader)
 def test_private_regional_ownership_transfers_once_but_all_eager_entrypoints_stay_closed(monkeypatch):
     # This test owns a plain object pipeline, not a runtime attention layout.
     monkeypatch.setattr(module.attention_selection, "require_native_attention", lambda *_: None)
+    monkeypatch.setattr(module.DiffusersBackend, "_require_compiler_cache", lambda *_: None)
     backend = module.DiffusersBackend()
     released = []
     registration = Registration()

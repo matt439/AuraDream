@@ -27,6 +27,7 @@ from tests.test_regional_compile import (
 SPEC = ExecutionSpec(compilation="regional-v1")
 FACTS = CompilerMetadata("win32", (3, 13), "2.13.0+cu130", "0.40.0", "0.18.0", None, "3.7.1.post27")
 NATIVE_GUARD = module.attention_selection.require_native_attention
+CACHE_BINDING = module.compiler_cache.require_binding
 
 
 @pytest.fixture
@@ -37,6 +38,12 @@ def prepared_loader(synthetic_loader, monkeypatch):
     monkeypatch.setattr(module, "current_settings", lambda startup: selected)
     monkeypatch.setattr(module, "compiler_metadata", lambda: FACTS)
     monkeypatch.setattr(module, "ATTENTION_ENVIRONMENT_WARNING", None)
+    control.binding_checks = []
+
+    def bound(db, outputs, bundles, facts, *, web):
+        control.binding_checks.append((db, outputs, bundles, facts, tuple(events)))
+
+    monkeypatch.setattr(module.compiler_cache, "require_binding", bound)
     # This is the fixture's ModuleType runtime, never the installed torch.
     sys.modules["torch"].cuda.is_available = lambda: True
     monkeypatch.setattr(regional, "_flux_types", lambda: (
@@ -86,6 +93,7 @@ def test_public_eager_load_uses_actual_private_path_without_metadata_registratio
     monkeypatch.setattr(regional, "register_regions", forbidden)
     monkeypatch.setattr(regional, "_dynamo_patch", forbidden)
     monkeypatch.setattr(module.attention_selection, "require_native_attention", forbidden)
+    monkeypatch.setattr(module.compiler_cache, "require_binding", forbidden)
     backend.load()
     assert backend.is_ready() and backend._loaded_execution is None
     assert control.root.calls == [] and "strict-enter" not in events
@@ -101,12 +109,16 @@ def test_private_regional_load_registers_after_placement_and_checks_before_atomi
     assert registration.require(control.root).total_blocks == 3
     assert backend._loaded_execution == SPEC and control.root.calls == [ARGS]
     assert control.native_checks == [(True, True, []), (True, True, [ARGS])]
+    assert len(control.binding_checks) == 2 and control.binding_checks[0][-2] == FACTS
+    assert control.binding_checks[0][-1] == ()
+    assert "weights-exit" in control.binding_checks[1][-1]
     assert all(block.calls == [ARGS] for block in control.root.blocks)
     assert events.index("place") < events.index("console") < events.index("post") < events.index("strict-enter")
     assert events.index("strict-exit") < events.index("weights-exit") < events.index("ready-log")
     assert not control.policy_active and control.releases == 0
     backend._load_prepared(SPEC)
     assert control.root.calls == [ARGS]  # no warm-up or second registration
+    assert len(control.binding_checks) == 3
     request = SimpleNamespace(execution=None)
     backend._peak_device = lambda: pytest.fail("public admission reached a device query")
     for call in (lambda: backend.applied(request), lambda: backend.generate(request, 1),
@@ -115,6 +127,49 @@ def test_private_regional_load_registers_after_placement_and_checks_before_atomi
             call()
     backend.unload()
     assert registration.closed and control.releases == 1
+
+
+def test_missing_startup_cache_binding_refuses_before_weights(prepared_loader, monkeypatch):
+    backend, control, events = prepared_loader
+    monkeypatch.setattr(module.compiler_cache, "require_binding", CACHE_BINDING)
+    monkeypatch.setattr(module.compiler_cache, "_attempt", None)
+    with pytest.raises(RuntimeError, match="binding from fresh startup"):
+        backend._load_prepared(SPEC)
+    assert events == [] and not backend.is_ready() and control.releases == 0
+    assert control.root.calls == [] and control.native_checks == []
+
+
+def test_repeated_private_load_rechecks_binding_without_discarding_working_pipeline(prepared_loader, monkeypatch):
+    backend, control, events = prepared_loader
+    backend._load_prepared(SPEC)
+    pipe = backend._pipe
+    def changed(*args, **kwargs):
+        raise RuntimeError("synthetic changed compiler cache")
+    monkeypatch.setattr(module.compiler_cache, "require_binding", changed)
+    before = list(events)
+    with pytest.raises(RuntimeError, match="changed compiler cache"):
+        backend._load_prepared(SPEC)
+    assert backend._pipe is pipe and events == before and control.releases == 0
+    backend.unload()
+
+
+def test_binding_drift_at_weights_exit_refuses_publication_and_releases_outside_locks(prepared_loader, monkeypatch):
+    backend, control, events = prepared_loader
+    bound = module.compiler_cache.require_binding
+    def changed(*args, **kwargs):
+        if "weights-exit" in events:
+            raise RuntimeError("synthetic late cache drift")
+        return bound(*args, **kwargs)
+    monkeypatch.setattr(module.compiler_cache, "require_binding", changed)
+    with pytest.raises(RuntimeError, match="late cache drift"):
+        backend._load_prepared(SPEC)
+    assert not backend.is_ready() and control.releases == 1 and control.pipe_ref() is None
+
+
+def test_backend_construction_seals_unused_cache_startup_window(monkeypatch):
+    monkeypatch.setattr(module.compiler_cache, "_sealed", False)
+    module.DiffusersBackend()
+    assert module.compiler_cache._sealed
 
 
 @pytest.mark.parametrize("spec", [
@@ -192,7 +247,8 @@ def test_private_preparation_cannot_replace_an_already_loaded_eager_pipeline(pre
 def private_call(monkeypatch):
     backend = module.DiffusersBackend()
     events = []
-    state = SimpleNamespace(active=False, failure=None, native=True, change_native=False, native_checks=[])
+    state = SimpleNamespace(active=False, failure=None, native=True, change_native=False, native_checks=[],
+                            cache_valid=True, change_cache=False, cache_checks=[])
     monkeypatch.setattr(module, "ATTENTION_ENVIRONMENT_WARNING", None)
 
     class Pipeline:
@@ -202,6 +258,8 @@ def private_call(monkeypatch):
             events.append(("call", dict(kwargs), state.active))
             if state.change_native:
                 state.native = False
+            if state.change_cache:
+                state.cache_valid = False
             if state.failure is not None:
                 raise state.failure
             return SimpleNamespace(images=["synthetic image"])
@@ -230,6 +288,11 @@ def private_call(monkeypatch):
             raise ValueError("synthetic nonnative regional attention")
 
     monkeypatch.setattr(module.attention_selection, "require_native_attention", native)
+    def cache_binding(*args):
+        state.cache_checks.append((state.cache_valid, state.active))
+        if not state.cache_valid:
+            raise RuntimeError("synthetic compiler cache drift")
+    monkeypatch.setattr(backend, "_require_compiler_cache", cache_binding)
     return backend, pipe, state, events
 
 
@@ -248,6 +311,31 @@ def test_private_call_encloses_exactly_one_forward_and_restores_policy_without_r
     assert events == ["enter", ("call", before, True), "exit"]
     assert kwargs == before and not state.active
     assert state.native_checks == [(True, True), (True, True)]
+
+
+def test_private_regional_call_refuses_cache_drift_before_policy_or_forward(private_call):
+    backend, pipe, state, events = private_call
+    state.cache_valid = False
+    with pytest.raises(RuntimeError, match="compiler cache drift"):
+        backend._invoke_pipeline(pipe, {"num_images_per_prompt": 1})
+    assert events == [] and not state.active and state.cache_checks == [(False, False)]
+
+
+@pytest.mark.parametrize("failure", [None, RuntimeError("forward failed while cache changed"), Cancelled("cancelled while cache changed")])
+def test_cache_drift_after_one_forward_refuses_result_or_preserves_exact_primary(private_call, failure):
+    backend, pipe, state, events = private_call
+    state.change_cache = True
+    state.failure = failure
+    with pytest.raises(RuntimeError if failure is None else type(failure)) as caught:
+        backend._invoke_pipeline(pipe, {"num_images_per_prompt": 1})
+    if failure is None:
+        assert "compiler cache drift" in str(caught.value)
+    else:
+        assert caught.value is failure
+        assert "Regional compiler cache verification also failed" in " ".join(failure.__notes__)
+    assert state.cache_checks == [(True, False), (False, True)]
+    assert events == ["enter", ("call", {"num_images_per_prompt": 1}, True), "exit"]
+    assert not state.active
 
 
 def test_nonnative_regional_preparation_refuses_before_registration(prepared_loader):

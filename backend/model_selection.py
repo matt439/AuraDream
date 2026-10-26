@@ -13,6 +13,7 @@ from dataclasses import replace
 from sys import modules as imported_modules
 
 from .launch import CHECKPOINTS, FORMATS
+from .execution import require_default_execution
 from .loader_choices import OFFLOAD_CHOICES, QUANTIZATION_CHOICES
 from .model_defaults import OFFLOAD_MODES, QUANT_MODES
 
@@ -112,8 +113,12 @@ def available(settings, quantization: str | None = None, format: str | None = No
 def validate(
     settings, model_id: str, *, quantization: str | None = None,
     offload: str | None = None, format: str | None = None,
+    execution: object = None,
 ):
     """Resolve browser options and refuse incompatible choices before unload."""
+    # This also covers direct/unvalidated callers, not only typed HTTP input.
+    # Refuse before even resolving the current loader or browsing a catalogue.
+    require_default_execution(execution)
     selected = current_settings(settings)
     quantization = selected.quantization if quantization is None else quantization
     offload = selected.offload if offload is None else offload

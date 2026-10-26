@@ -1,4 +1,6 @@
 .venv/
+# Explicit regional compiler artifacts, never part of gallery bundles or source.
+local-diffusion.compile-cache/
 # Local test fixtures, static-checker installations and diagnostic receipts.
 /work/
 __pycache__/

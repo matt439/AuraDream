@@ -29,11 +29,11 @@ from dataclasses import dataclass, field, replace
 from types import TracebackType
 from typing import TYPE_CHECKING, Any
 
-from .. import latent_preview, loras, refine
+from .. import compiler_cache, latent_preview, loras, refine
 from ..model_selection import current_model_id, current_settings
 from ..config import ATTENTION_ENVIRONMENT_WARNING, settings
 from ..execution import (
-    ExecutionSpec, attention_candidate_reason, cache_candidate_reason, canonical_execution, compiler_metadata, regional_candidate_reason,
+    CompilerMetadata, ExecutionSpec, attention_candidate_reason, cache_candidate_reason, canonical_execution, compiler_metadata, regional_candidate_reason,
     require_default_execution,
 )
 from ..model_defaults import INPAINT_DEFERRED, defaults_for, inpaint_family, inpaint_start
@@ -258,6 +258,9 @@ class DiffusersBackend(GenerationBackend):
     name = "diffusers"
 
     def __init__(self) -> None:
+        # Direct/CLI construction also closes any unused bootstrap window.
+        # A model loader is too late to redirect process-global artifact caches.
+        compiler_cache._seal_startup()
         self._pipe: Any = None
         self._lock = threading.Lock()
         self._call_params: set[str] = set()
@@ -325,6 +328,8 @@ class DiffusersBackend(GenerationBackend):
             if self._pipe is not None:
                 if canonical_execution(self._loaded_execution) != execution:
                     raise RuntimeError("unload the current pipeline before preparing another execution recipe")
+                if execution is not None and execution.compilation is not None:
+                    self._require_compiler_cache()
                 return
             selected = current_settings(settings)
             checkpoint_id = selected.model_id
@@ -333,12 +338,15 @@ class DiffusersBackend(GenerationBackend):
                     raise ValueError("Private execution preparation requires native attention without a nonnative external override.")
                 check = (cache_candidate_reason if execution.step_cache is not None else
                          attention_candidate_reason if execution.attention_backend is not None else regional_candidate_reason)
+                facts = compiler_metadata()
                 reason = check(
-                    execution, compiler_metadata(), model_id=checkpoint_id,
+                    execution, facts, model_id=checkpoint_id,
                     quantization=selected.quantization, offload=selected.offload, device=selected.device,
                 )
                 if reason is not None:
                     raise ValueError(reason)
+                if execution.compilation is not None:
+                    self._require_compiler_cache(facts)
             # No meta-device build beside the load (`loading.weights_loading`):
             # the adapter fit's patches every module's parameters process-wide.
             # The conversions below run inside the hold.
@@ -487,6 +495,7 @@ class DiffusersBackend(GenerationBackend):
         if regional != (candidate.registration is not None):
             raise ValueError("a regional pipeline and its registration must transfer together")
         if regional:
+            self._require_compiler_cache()
             attention_selection.require_native_attention(getattr(candidate.pipe, "transformer", None))
         attended = execution is not None and execution.attention_backend is not None
         if attended != (candidate.attention is not None):
@@ -540,6 +549,11 @@ class DiffusersBackend(GenerationBackend):
                 finally:
                     runner = None  # drop the direct-call alias before draining
         return self._invoke_pipeline_prepared(runner, kwargs, disposal)
+
+    def _require_compiler_cache(self, facts: CompilerMetadata | None = None) -> compiler_cache.CacheBinding:
+        selected = current_settings(settings)
+        return compiler_cache.require_binding(selected.db_path, selected.outputs_dir, selected.bundles_dir,
+                                              compiler_metadata() if facts is None else facts, web=selected.web_dir)
 
     def _invoke_pipeline_prepared(self, runner: Any, kwargs: dict[str, Any], disposal: _CallDisposal | None) -> Any:
         """One actual call boundary; eager calls never import compiler policy."""
@@ -621,6 +635,7 @@ class DiffusersBackend(GenerationBackend):
         if runner is not self._pipe or self._lora is not None or kwargs.get("num_images_per_prompt") != 1:
             raise ValueError("the first regional call needs its base pipeline, no LoRA and one image")
         registration.require(getattr(runner, "transformer", None))
+        self._require_compiler_cache()
         attention_selection.require_native_attention(getattr(runner, "transformer", None))
         with regional_compile.strict_compiler_policy():
             try:
@@ -631,9 +646,14 @@ class DiffusersBackend(GenerationBackend):
                     attention_selection.require_native_attention(getattr(runner, "transformer", None))
                 except BaseException as changed:
                     error.add_note(f"Regional Native attention verification also failed: {type(changed).__name__}: {changed}")
+                try:
+                    self._require_compiler_cache()
+                except BaseException as changed:
+                    error.add_note(f"Regional compiler cache verification also failed: {type(changed).__name__}: {changed}")
                 raise
             registration.require(getattr(runner, "transformer", None))
             attention_selection.require_native_attention(getattr(runner, "transformer", None))
+            self._require_compiler_cache()
             return result
 
     def _require_execution(self, request: GenerateRequest) -> None:

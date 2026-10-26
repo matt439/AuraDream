@@ -124,7 +124,7 @@ general claim about translation accuracy.
 
 ## Remaining-work audit after the overnight stages
 
-The five OPEN rows still include implementation. They are not a declaration
+The four OPEN rows still include implementation. They are not a declaration
 that every remaining step needs Matt. The original speed review specified a
 plan first, then implementation, then CARD; the new plans' "before shipping"
 and "before exposing" questions do not prohibit source work or scratch tests.
@@ -202,3 +202,30 @@ instruction-editing scope, INP#12's detailer/detector scope and PA#11's choice
 about withholding content-losing rewrites. PERF#2 retains its PERF#1 dependency;
 CARD and explicitly deferred rows keep their existing status. No agent trial,
 CPU test or browser emulation supplies those missing human or card results.
+
+## Current boundary origins
+
+The renewed audit used the actual TODO and owners after the credential source
+stage. Requirements below are distinguished from ordinary engineering choices;
+historical plan-only wording and old local-browser approval receipts do not
+create another approval requirement for current source work.
+
+| Remaining item | Requirement and origin | Independent work still allowed |
+|---|---|---|
+| PERF#1 | The compilation owner's selection/cache/lifecycle stages remain source work. Its exposure section requires an optional compiler/toolchain pin, supported restricted experiment and measured cold/warm trade-off before offering it. The current user scope excludes package installation, compiler/model execution and opening non-Eager rendering. | Private startup cache ownership and cold switch validation; further selection/status/preferences integration and fake tests can proceed with rendering closed. Cache isolation and refusal of unowned environment values are conservative implementation choices, not new user-policy gates. |
+| PERF#3 | The attention owner's exposure section leaves nondefault external-environment representation/refusal explicit; actual native/cuDNN fit and repeatability need the card. The current user scope keeps non-Eager rendering closed and excludes external wheel installation. | Shared closed selection contracts, source/status integration and synthetic lifecycle checks. The implemented private Native invariant does not choose public environment precedence. |
+| PERF#4 | The cache owner's finite acceptance requires the fixed image pairs, time/memory checks and Matt's quality judgment before routine use. Current user scope excludes model/GPU work and cached-render activation. | Closed selection/admission/status integration and fake checks. New visible opt-in controls have no useful acceptance result while exposure remains closed; that is an implementation sequencing choice, not a denied action. |
+| DEV#4 | Linux qualification is blocked by actual `Wsl/EnumerateDistros/Service/E_ACCESSDENIED`; the user explicitly forbids retry. Hosted execution requires publishing, excluded by the local-only request. | Native Node API preflight is now built and checked. No additional established tooling source defect remains; Linux/font/resource and hosted evidence remain unqualified. |
+| GAL#6 | The backup owner requires actual intended-user OS credential delivery and independent-password recovery. This session explicitly excludes real vault operations; API stubs cannot supply that evidence. Activating any gallery also requires its protection/age/count/destination inputs and separate deletion consent. | The default-off source, encrypted fake-provider restore and recovery tool are built. No source defect remains established by this audit; no real credential or gallery was activated. |
+| DEV#1; UI#7 | The validation owner calls for Matt's observed common-task trials and hands-on NVDA/Narrator, touch, native notification and actual Windows-scaling evidence. These are human/desktop evidence requirements, not missing browser fixtures. | Preparation and the approved browser/layout fixes are built. Keep the trial records blank until observed; do not infer a redesign winner from emulation. |
+| GEN#20; INP#11; INP#12; PA#11 | Current TODO marks these DECISION: whether to plan SDXL A1111 weighting/chunking, instruction edits, a detailer with a suitable detector, and whether to withhold content-losing critic rewrites. Their owners specify those product choices. | Preserve current native prompt parsing and warning behavior. No newly authorized feature implementation is implied by the overnight loop. |
+| PERF#2 | Current TODO explicitly waits on PERF#1. | Do not broaden into activation-quantization experiments before that dependency. |
+| CARD rows; GEN#15/#16/#22 | Repository rules require separately approved real-card runs and the existing RAM/VRAM limits; current user scope excludes model loading/download and GPU workloads. GEN#22 is the cold-load prerequisite for dependent FLUX measurements. | Preserve the implemented CPU contracts and finite measurement protocols; no fabricated device acceptance. |
+| INP#5/#6/#9/#10; GEN#6/#8; PA#9 | Current TODO keeps these DEFERRED. GEN#8 specifically waits until Matt raises it. | No new deferred feature is admitted by this audit. |
+
+The small exposure decision set is therefore the restricted performance
+experiment/toolchain and environment policy, the four indexed product choices,
+and explicit real-data activation inputs if wanted. None of these is a blanket
+ban on the remaining performance source stages. Approved mixed-prompt/native-tag
+parsing, seed queueing/retries, bundle clarity, shortcuts and compact setup have
+no current open row or reproduced regression in this audit.

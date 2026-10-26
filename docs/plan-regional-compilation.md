@@ -1,8 +1,9 @@
 # Plan: regional compilation of FLUX.1
 
-**Status, 2026-10-26: CPU contracts, persisted carry, private loader/call wiring
-and backend publication/teardown ownership are implemented and checked. Public
-selection/admission, compiler/cache setup and card qualification remain `PERF#1`.** This is the next slice from
+**Status, 2026-10-26: CPU contracts, persisted carry, private loader/call wiring,
+backend publication/teardown and startup compiler-cache ownership are implemented.
+Public selection/admission, optional toolchain setup and card qualification remain
+`PERF#1`.** This is the next slice from
 [R1](review-2026-10-25.md#r1-compile-the-denoisers-repeated-blocks), not a
 speed result or approval to load a model. No package, model or compiler was
 installed. The isolated CPU policy probe and its earlier native-CUDA initialization
@@ -21,6 +22,21 @@ cell list before mask stamping/holds, retained work or loading, even with
 an explicit run id. The real direct-generation guard precedes device/peak
 queries and pipeline work. Unknown fields or recipe names are rejected,
 including unvalidated copies of the execution specification itself.
+
+The switch request now also recognizes the typed execution extension instead
+of letting Pydantic ignore it. Cold selection validation refuses every nonempty
+or malformed recipe before resolving loader/catalogue options, checking Hub
+access, saving preferences or unloading working weights. Direct/copied internal
+callers use the same guard. Omitted, null and empty specifications remain Eager;
+this boundary adds no public selector or nonempty runtime permission.
+
+The focused model-switch/startup group passed **146 checks**, including all
+three recipe fields and their combination for both current/other checkpoints
+and both load flags, malformed/direct/copied inputs, unchanged preference bytes,
+empty Eager spellings and stale revisions. Independent review is clear. The
+first run's request assertions passed but a test sentinel intercepted legitimate
+lifespan unload; limiting it to the request corrected the fixture without
+changing production behavior. The passing run used fresh task-owned scratch.
 
 Only `GenerateRequest.applied()` writes empty execution back to None. Raw
 validated requests may retain an empty specification; its canonical key is
@@ -196,6 +212,61 @@ The fix passed **755 focused checks** and **154 isolated synthetic checks**,
 three-source pinned types with zero diagnostics, Ruff and independent review.
 All jobs ended. Broader fixtures retain their ordinary availability guard; actual
 dispatcher/model/device/kernel behavior remains unqualified.
+
+## Startup compiler-cache ownership
+
+`compiler_cache.py` defines a pure gallery/runtime/recipe namespace and separate
+Inductor/Triton artifact directories outside gallery outputs, bundles and the
+served static tree. The private default is `local-diffusion.compile-cache` beside
+the database, ignored by Git and excluded from gallery exports. A private root
+override is validated without relocating or sweeping existing cache contents.
+This supplies a source contract, not an installed toolchain or cache-hit result.
+
+Only the owned `python -m backend.main` bootstrap has a one-use initialization
+window, after launcher configuration and before project workers/requests. Imported
+ASGI hosts and direct backend construction seal it; None and failed initialization
+seal it too. None creates no directory or environment value. A module-prefix
+observation refuses already imported compiler consumers, but does not prove that
+an unrelated host has no importing thread. Embedded hosts cannot establish that
+startup guarantee by invoking a hot loader.
+
+Initially present compiler cache variables are preserved and refused even when
+their text equals the proposed path: matching text does not establish ownership.
+Successful initialization fixes both environment values and directory identities
+for process lifetime. Existing links, served/gallery overlap and malformed plans
+are refused. Scratch usability probes use Windows handle-owned deletion or an
+anonymous Linux file, with no pathname-unlink fallback. Partial initialization
+retains its operation/ownership receipt; unknown closes are never retried, external
+values are never overwritten and created directories are not swept after failure.
+
+Private regional preparation requires that existing binding before weights move;
+same-recipe reload and pre/post-forward checks also refuse environment, directory,
+runtime or protected-path drift without repair. Primary forward errors/cancellation
+retain identity with diagnostic notes. Unload and failed model setup retain the
+process cache binding. Eager remains cold and all public nonempty-render guards
+remain closed. Optional compiler installation, actual lazy compilation, Windows/
+Linux cache behavior, retained-cache reuse and card performance remain unqualified.
+
+Independent review is clear. The final six-file synthetic lifecycle group passed
+**255 checks** with real Torch/Diffusers/Triton/Hub imports blocked, plugin autoload
+off and `--noconftest`; this includes owned Windows scratch probes, uncertain
+close/no-retry and zero/unavailable inode refusals. Three changed production
+sources passed pinned types with zero diagnostics and focused Ruff passed.
+An earlier broader guarded batch reached 253 passing checks plus 84 setup errors
+because two unchanged helper fixtures require importing real Torch. The final
+bounded group kept the strict guard and excluded those helper files; it added no
+shim or weakened assertion. Their established checks belong to the normal full
+CPU gate, which retains its existing availability guard. No new OS denial or
+real compiler/model/card qualification occurred.
+
+The combined offline integration gate then passed **5,428 tests, eight platform
+skips and 75 existing warnings** in **232.61 seconds**, with two workers and
+file-based distribution on Windows/Python 3.13.15. Whole-scope pinned Pyright
+checked **128 production/tool sources with zero errors/warnings**, repository
+Ruff passed, and every owned validation process closed successfully. The complete
+suite covers the established helper fixtures excluded from the stricter isolated
+batch. This is CPU/source integration evidence, not real compiler-cache reuse,
+GPU performance, Linux or hosted acceptance.
 
 ## Installed CPU compiler-policy probe
 

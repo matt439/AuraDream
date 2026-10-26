@@ -27,6 +27,16 @@ if __name__ == "__main__":
 
     configure()
 
+# Only this owned entrypoint has not yet created project workers or accepted
+# requests. Imported ASGI/embedded hosts cannot assert that startup guarantee.
+# None is the private default and performs no cache I/O or environment writes.
+from . import compiler_cache  # noqa: E402
+
+if __name__ == "__main__":
+    compiler_cache._owned_startup()
+else:
+    compiler_cache._seal_startup()
+
 from . import api_backup, api_bundles, api_gallery, api_generate, api_jobs, api_masks, api_more_seeds, api_png, api_prompt, api_refine_batch, api_snippets, api_swap, app_context, bundle_common, bundles, gallery_lock, hub_access, loras, model_selection, prompt_encoding, startup_preferences, storage  # noqa: E402
 from .backup_service import BackupService  # noqa: E402
 from .backends import get_backend  # noqa: E402
@@ -838,7 +848,7 @@ async def switch_model(request: ModelSwitchRequest, http_request: Request) -> Mo
     try:
         target = model_selection.validate(
             settings, request.model_id, quantization=request.quantization,
-            offload=request.offload, format=request.format,
+            offload=request.offload, format=request.format, execution=request.execution,
         )
     except ValueError as exc:
         raise HTTPException(status_code=422, detail=str(exc)) from exc

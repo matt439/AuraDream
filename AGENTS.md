@@ -62,6 +62,8 @@ Backend (`backend/`):
   `model_benchmarks.py` supplies retained timing references and speed categories
 - `execution.py` frozen execution recipes, cold candidate checks and shared
   SQL/PNG codecs; nonempty recipes remain unavailable until runtime support
+- `compiler_cache.py` private one-use startup binding for compiler artifact
+  directories; Eager stays cold and no public recipe is activated
 - `schemas.py` re-exports the request/response models, each defined in
   `schemas_generate.py` (the generation request and `applied()`, grids, job
   answers, Load settings from PNG's), `schemas_prompt.py` (Expand, Check, critic, tag lookup),
