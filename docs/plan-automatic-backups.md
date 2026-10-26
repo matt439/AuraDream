@@ -260,6 +260,12 @@ owned job/child has ended. These results qualify the bounded mechanism on this
 scratch cohort, not automatic pruning, physical deletion durability or host-wide
 quiescence. There was no actual native access denial.
 
+The subsequent complete offline suite passed **5,060 tests, eight platform skips
+and 75 existing warnings** in **223.40 seconds** with two workers. All **123**
+production/tool sources pass pinned types with zero errors/warnings; repository
+Ruff passes. This combined gate also includes the private regional loader/call
+wiring and enables no automatic retention.
+
 ## Activation, age and saved state
 
 Use gallery-scoped, atomically saved backup preferences, independent of

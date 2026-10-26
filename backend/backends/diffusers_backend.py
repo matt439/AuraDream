@@ -30,11 +30,14 @@ from typing import TYPE_CHECKING, Any
 
 from .. import latent_preview, loras, refine
 from ..model_selection import current_model_id, current_settings
-from ..config import settings
-from ..execution import ExecutionSpec, canonical_execution, require_default_execution
+from ..config import ATTENTION_ENVIRONMENT_WARNING, settings
+from ..execution import (
+    ExecutionSpec, canonical_execution, compiler_metadata, regional_candidate_reason,
+    require_default_execution,
+)
 from ..model_defaults import INPAINT_DEFERRED, defaults_for, inpaint_family, inpaint_start
 from ..seeds import wrap_seed
-from . import anima_loading, loading, netayume_loading, newbie_loading, schedule, single_file
+from . import anima_loading, loading, netayume_loading, newbie_loading, regional_compile, schedule, single_file
 from .base import CancelFn, Cancelled, GenerationBackend, PreviewFn, ProgressFn
 
 if TYPE_CHECKING:
@@ -69,8 +72,8 @@ _LORA_ADAPTER = "local_diffusion"
 class _PipelineCandidate:
     """Own unpublished or detached pipeline references until transfer/close.
 
-    The eager loader uses this transaction too. Registration fields reserve
-    ownership for later preparation; nothing here installs compiler wrappers.
+    The eager loader uses this transaction too. Private preparation can attach
+    its regional registration; public execution selection remains unavailable.
     """
 
     release: Callable[[], None]
@@ -79,6 +82,7 @@ class _PipelineCandidate:
     registration: RegionalRegistration | None = None
     execution: ExecutionSpec | None = None
     related: tuple[Any, ...] = ()
+    _invalid: bool = field(default=False, init=False)
 
     def __enter__(self) -> _PipelineCandidate:
         return self
@@ -96,6 +100,11 @@ class _PipelineCandidate:
 
     def disown(self) -> None:
         self.pipe, self.params, self.registration, self.execution, self.related = None, set(), None, None, ()
+
+    def invalidate(self) -> None:
+        # Registration can fail while backend/weights locks are held. Prevent
+        # publication now; the outer owner drops references/releases afterward.
+        self._invalid = True
 
     def close(self) -> None:
         release = self.pipe is not None or self.registration is not None or bool(self.related)
@@ -168,13 +177,34 @@ class DiffusersBackend(GenerationBackend):
     # ---------------------------------------------------------------- loading
 
     def load(self) -> None:
+        # No public loader or selection can request a nonempty recipe yet.
+        self._load_prepared(None)
+
+    def _load_prepared(self, execution: ExecutionSpec | None) -> None:
+        """Private preparation path, also used by every ordinary eager load.
+
+        A supplied recipe prepares ownership only; public generation continues
+        to refuse every nonempty request and loaded execution specification.
+        """
+        execution = canonical_execution(execution)
         # The candidate exits after the backend/weights locks, including a
         # failed placement or late preparation. Publication disowns it once.
-        with _PipelineCandidate(self._release) as candidate, self._lock, ExitStack() as held:
+        with _PipelineCandidate(self._release, execution=execution) as candidate, self._lock, ExitStack() as held:
             if self._pipe is not None:
+                if canonical_execution(self._loaded_execution) != execution:
+                    raise RuntimeError("unload the current pipeline before preparing another execution recipe")
                 return
             selected = current_settings(settings)
             checkpoint_id = selected.model_id
+            if execution is not None:
+                if ATTENTION_ENVIRONMENT_WARNING is not None:
+                    raise ValueError("Regional preparation requires native attention without a nonnative external override.")
+                reason = regional_candidate_reason(
+                    execution, compiler_metadata(), model_id=checkpoint_id,
+                    quantization=selected.quantization, offload=selected.offload, device=selected.device,
+                )
+                if reason is not None:
+                    raise ValueError(reason)
             # No meta-device build beside the load (`loading.weights_loading`):
             # the adapter fit's patches every module's parameters process-wide.
             # The conversions below run inside the hold.
@@ -274,6 +304,17 @@ class DiffusersBackend(GenerationBackend):
             self._apply_console_progress(candidate.pipe)
             schedule.warn_about_post_processing(candidate.pipe)
             candidate.params = params
+            if execution is not None:
+                try:
+                    candidate.registration = regional_compile.register_regions(
+                        getattr(candidate.pipe, "transformer", None), discard_on_failure=candidate.invalidate,
+                    )
+                    if type(candidate.registration) is not regional_compile.RegionalRegistration:
+                        raise RuntimeError("regional preparation did not return its owned registration")
+                    candidate.registration.require(getattr(candidate.pipe, "transformer", None))
+                except BaseException:
+                    candidate.invalidate()
+                    raise
             # Publication is last, after the weights hold has exited too.
             held.close()
             log.info("model ready: %s", type(candidate.pipe).__name__)
@@ -281,6 +322,8 @@ class DiffusersBackend(GenerationBackend):
 
     def _publish_candidate_locked(self, candidate: _PipelineCandidate) -> None:
         """Transfer a fully prepared candidate without replacing working weights."""
+        if candidate._invalid:
+            raise RuntimeError("cannot publish an invalidated pipeline candidate")
         if self._pipe is not None or self._regional_registration is not None or self._loaded_execution is not None:
             raise RuntimeError("cannot publish a pipeline over working weights")
         if candidate.pipe is None:
@@ -309,6 +352,27 @@ class DiffusersBackend(GenerationBackend):
         self._refine_pipe, self._refine_params = None, set()
         self._inpaint_pipe, self._inpaint_params = None, set()
         return candidate
+
+    def _invoke_pipeline(self, runner: Any, kwargs: dict[str, Any]) -> Any:
+        """One actual call boundary; eager calls never import compiler policy."""
+        execution = canonical_execution(self._loaded_execution)
+        registration = self._regional_registration
+        if execution is None:
+            if registration is not None:
+                raise RuntimeError("an unrecorded regional registration cannot execute as Eager")
+            return runner(**kwargs)
+        if (execution.compilation != "regional-v1" or execution.attention_backend is not None
+                or execution.step_cache is not None):
+            raise ValueError("this private call boundary supports only the initial regional recipe")
+        if ATTENTION_ENVIRONMENT_WARNING is not None:
+            raise ValueError("Regional execution requires native attention without a nonnative external override.")
+        if type(registration) is not regional_compile.RegionalRegistration:
+            raise RuntimeError("the regional pipeline has no valid owned registration")
+        if runner is not self._pipe or self._lora is not None or kwargs.get("num_images_per_prompt") != 1:
+            raise ValueError("the first regional call needs its base pipeline, no LoRA and one image")
+        registration.require(getattr(runner, "transformer", None))
+        with regional_compile.strict_compiler_policy():
+            return runner(**kwargs)
 
     def _require_execution(self, request: GenerateRequest) -> None:
         require_default_execution(request.execution)
@@ -1030,7 +1094,7 @@ class DiffusersBackend(GenerationBackend):
             if refining:
                 images = self._refine(pipe, runner, kwargs, generator, batch, should_cancel)
             else:
-                return list(pipe(**kwargs).images)
+                return list(self._invoke_pipeline(pipe, kwargs).images)
         if not inpainting:
             return images
         # The class decoded the whole picture, so its "kept" region is the
@@ -1076,7 +1140,7 @@ class DiffusersBackend(GenerationBackend):
                 if index and should_cancel is not None and should_cancel():
                     raise Cancelled
                 batch["index"] = index
-                result = runner(**{**kwargs, "num_images_per_prompt": 1, "generator": generator})
+                result = self._invoke_pipeline(runner, {**kwargs, "num_images_per_prompt": 1, "generator": generator})
                 images.extend(result.images)
         finally:
             free_hooks = getattr(pipe, "maybe_free_model_hooks", None)

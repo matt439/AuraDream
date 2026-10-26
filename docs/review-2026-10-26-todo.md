@@ -164,7 +164,11 @@ The next bounded PERF#1 slice also landed in source: actual eager-load publicati
 and shared teardown own unpublished pipeline/component references and future
 registration state, with strict synthetic failure/weak-reference checks. It
 changes no public loader selection or nonempty-render admission. Regional setup,
-selection and real execution remain in the compilation owner.
+selection and real execution remain in the compilation owner. The next private
+loader/call stage then wired cold preflight and owned regional registration into
+the actual load transaction, with one policy boundary for direct/refine forwards.
+Synthetic checks preserve eager behavior and every public nonempty refusal;
+compiler/cache setup and real qualification remain separate.
 
 Approved workflow work was reconciled against its owners, production paths and
 regression fixtures: mixed tag/prose handling and native tag spelling, More seeds

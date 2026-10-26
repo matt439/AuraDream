@@ -1,11 +1,12 @@
 # Plan: regional compilation of FLUX.1
 
-**Status, 2026-10-26: CPU contracts, persisted carry, inactive registration
-helpers and backend publication/teardown ownership are implemented and checked. Regional runtime wiring, loader controls and
-card qualification remain `PERF#1`.** This is the next slice from
+**Status, 2026-10-26: CPU contracts, persisted carry, private loader/call wiring
+and backend publication/teardown ownership are implemented and checked. Public
+selection/admission, compiler/cache setup and card qualification remain `PERF#1`.** This is the next slice from
 [R1](review-2026-10-25.md#r1-compile-the-denoisers-repeated-blocks), not a
 speed result or approval to load a model. No package, model or compiler was
-installed and no CUDA operation was run for this plan.
+installed. The isolated CPU policy probe and its earlier native-CUDA initialization
+failure are recorded below; no model or GPU generation was run.
 
 ## CPU contracts, admission and persisted carry
 
@@ -139,6 +140,48 @@ Ruff passed. The first full run found an old upscaler fixture constructing the
 backend with `__new__`, bypassing its initialized execution fields. It now uses
 the ordinary cold constructor; its unsupported-upscaler and no-normalization
 assertions are unchanged. No production guard was weakened.
+
+## Private loader and invocation wiring
+
+The public no-argument `load()` now delegates to `_load_prepared(None)`, so the
+ordinary eager path uses the same transaction as private regional preparation.
+An explicit private regional specification is canonically revalidated and checked
+against the cold dependency/model/placement matrix before weights or framework
+imports. A fixed nonnative external-attention startup warning also refuses that
+private experiment without echoing or changing the environment. This does not
+settle later environment mutation/effective-import precedence for public selection.
+
+After normal placement, VAE options and mandatory callback/progress checks, the
+candidate registers its transformer and validates the returned owned handle and
+fixed discovery facts. Failed setup invalidates the candidate immediately;
+allocator release remains with the outer transaction after backend/weights locks
+exit. The registration and recipe transfer together only at final publication.
+
+Both actual direct and refine pipeline calls now use `_invoke_pipeline`. Eager
+forwards once without entering compiler policy; its existing `no_grad`, schedule,
+refine generator and hook-cleanup scopes stay outside the wrapper. A private
+regional call requires its exact live base root/registration/fixed facts, one
+image and no adapter, and enters strict policy around one forward. Success,
+compiler failure and cooperative cancellation restore policy without eager retry.
+Every public nonempty request, applied and direct-generation refusal is unchanged.
+This wiring adds no selector, dependency install, warm-up or permission to render.
+
+All **29 new isolated tests** passed with `--noconftest`. The focused ownership,
+execution/runtime-settings, regional, schedule, refine/inpaint/upscaler and module
+map group passed **394 checks**. Tests use synthetic pipelines, blocks and runtime
+modules; a fresh subprocess forbids framework imports during cold refusal. Both
+changed production sources pass pinned types with zero errors/warnings, Ruff is
+clean and independent review is clear. These checks establish wiring and failure
+ownership, not real registration, kernels, memory, pixels or fallback-free card
+execution. Public admission, optional compiler/cache setup and the card protocol
+remain separate stages.
+
+The complete offline suite then passed **5,060 tests, eight platform skips and
+75 existing warnings** in **223.40 seconds** with two workers, including the
+new Windows mutation mechanism. Pinned Pyright analyzed **123 production/tool
+sources with zero errors/warnings**, and repository Ruff passed. All owned
+validation processes ended successfully. No real model, compiler or GPU
+generation was used for this private-wiring stage.
 
 ## Installed CPU compiler-policy probe
 

@@ -126,8 +126,9 @@ Backend (`backend/`):
   ERNIE's Marian translation
 - `backends/`: `base.py` (the ABC), `diffusers_backend.py`, `loading.py`
   (everything decided before the weights move), `schedule.py` (mu, sigmas,
-  refine start), `regional_compile.py` (inactive regional registration and
-  scoped compiler policy), `attention_selection.py` (inactive processor ownership
+  refine start), `regional_compile.py` (private regional preparation and
+  scoped call policy; public execution stays unavailable), `attention_selection.py`
+  (inactive processor ownership
   and restoration), `fbc_cache.py` (inactive per-call cache ownership and cleanup),
   per-checkpoint converters and pipelines (`single_file`,
   `anima_*`, `netayume_loading`, `newbie_*`)

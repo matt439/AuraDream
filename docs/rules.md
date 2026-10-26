@@ -157,9 +157,9 @@ before changing it.
   table are all held to it by `tests/test_profiles.py`
 - `backend/backends/base.py` — the `GenerationBackend` ABC
 - `backend/backends/diffusers_backend.py` — in-process diffusers implementation
-- `backend/backends/regional_compile.py` - inactive exact-region discovery,
-  lazy registration, candidate disposal and scoped compiler-policy helpers;
-  no loading/generation or availability wiring
+- `backend/backends/regional_compile.py` - exact-region discovery, private lazy
+  registration, candidate disposal, owned-call validation and scoped compiler
+  policy; public nonempty execution remains unavailable
 - `backend/backends/attention_selection.py` - inactive complete FLUX processor
   coverage, shared ownership, public-context configuration and restoration;
   None is import-cold and no runtime callers enable cuDNN
@@ -917,8 +917,16 @@ Reproduction:
   compiler flags; failure discards the unpublished candidate and preserves
   its original exception. Closing a registration only drops owned references;
   it never unwraps modules, resets global compiler state or deletes caches.
-  The helper remains disconnected from loading and generation. Registration
-  facts establish no compiled kernels, warm image or fallback qualification.
+  Public `load()` delegates to private eager preparation. Only an explicitly
+  supplied private regional recipe reaches cold dependency/override preflight
+  and registration after ordinary placement/callback checks. Invalidate a
+  failed candidate before publication; drop/release through the outer owner
+  outside backend/weights locks. Actual direct and refine pipeline calls share
+  one invocation boundary; Eager enters no compiler policy. Private regional
+  calls require the exact owned live root/fixed facts, one image and no adapter,
+  then strict policy around one forward without retry. Public request, applied
+  and direct-generation guards remain closed. Registration facts establish no
+  compiled kernels, warm image or fallback qualification.
 - Inactive attention configuration owns one exact FLUX transformer's complete
   joint/single processor layout. Validate types, config counts and every path
   before mutation; retain block/attention/processor identities and prior
@@ -948,7 +956,7 @@ Reproduction:
   and after use, and restores only its own hooks, forwards and registry caches.
   A failed cleanup invalidates that model identity before discarding every
   shared pipeline; invalidation survives owner close and requires a fresh
-  model. These helpers have no runtime callers or arithmetic qualification.
+  model. These helpers have no runtime callers or model/card qualification.
 - Seeds are drawn from `2**53 - 1` and wrapped at `2**63 - 1`; both live in
   `seeds.py`. One generator per image, seeded `seed + i`; runs take base
   `seed + i * num_images`. The page refuses a typed seed past
@@ -5314,6 +5322,12 @@ Weak-reference assertions outside exception handling prove application container
 drop ownership before release; arbitrary library traceback references and actual
 GPU reclamation are separate. An isolated subprocess forbids framework imports
 while checking private loaded-recipe refusal before work.
+`tests/test_regional_backend.py` exercises the actual private preparation and
+invocation paths with synthetic runtime modules, pipeline and regions. It checks
+cold preflight before weights/imports, registration/publication failure ownership,
+strict-policy restoration for success/error/cancellation, fixed handle/facts and
+unchanged eager direct/refine semantics. Public nonempty execution stays refused;
+no real compiler, model, device or toolchain qualification follows.
 `tests/test_attention_selection.py` checks coverage, transactional failures,
 shared ownership, later replacements and idempotent restoration with stubs.
 It also executes source-extracted installed public context/setter bodies.

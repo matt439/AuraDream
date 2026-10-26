@@ -1,8 +1,8 @@
-"""Inactive regional-registration helpers; no loading or availability wiring.
+"""Regional registration for private preparation; public availability stays closed.
 
-Registration installs lazy wrappers, not kernels or a warm image. A future
-caller must own an unpublished, already-placed candidate and discard it on
-failure. Every later compiled call must also enter strict_compiler_policy.
+Registration installs lazy wrappers, not kernels or a warm image. The private
+backend caller owns an unpublished, already-placed candidate and discards it
+on failure. Its compiled calls also enter strict_compiler_policy.
 Importing this module imports no tensor, model or compiler library.
 """
 from __future__ import annotations
@@ -58,6 +58,20 @@ class RegionalRegistration:
     def close(self) -> None:
         self._transformer = None
         self._facts = None
+
+    def require(self, transformer: object) -> RegionFacts:
+        """Require the live root and this fixed recipe, without new imports."""
+        facts = self._facts
+        if (self._transformer is None or self._transformer is not transformer
+                or type(facts) is not RegionFacts or facts.recipe != "regional-v1"):
+            raise RuntimeError("the regional registration does not own this live transformer and recipe")
+        counts = facts.block_counts
+        if (not isinstance(counts, tuple) or len(counts) != len(_BLOCK_NAMES)
+                or any(not isinstance(entry, tuple) or len(entry) != 2 or entry[0] != name
+                       or type(entry[1]) is not int or entry[1] < 1
+                       for name, entry in zip(_BLOCK_NAMES, counts))):
+            raise RuntimeError("the regional registration has invalid discovery facts")
+        return facts
 
 
 def _flux_types() -> tuple[
