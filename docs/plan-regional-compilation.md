@@ -95,6 +95,37 @@ fallback/recompilation behavior, toolchain/cache setup, loading/call wiring
 and card qualification remain. There are no production callers and every
 nonempty execution recipe remains refused.
 
+## Installed CPU compiler-policy probe
+
+One isolated worker now exercises the actual installed Dynamo configuration
+and `strict_compiler_policy` with tiny float32 CPU arithmetic modules and a
+custom Python graph backend. Its diagnostic uses `fullgraph=False`, static
+shapes and isolated recompilation state: fullgraph has a separate hard-error
+path which would not isolate the policy flag. Under a subprocess-local limit
+of one graph, the same shape runs twice through that graph, a new shape raises
+`FailOnRecompileLimitHit` without another backend execution, and an intentionally
+failing backend propagates `BackendCompilerFailed` with its original cause.
+Nested contexts and both error paths restore the caller's actual flags.
+
+The worker runs with one CPU thread, owned temporary/cache/debug paths and
+inherited Dynamo/compiler repro controls removed. CUDA availability is
+explicitly mocked false to model CPU-only CI. A native `_cuda_init` guard,
+as well as Python aliases, must remain untouched; the final receipt records
+no initialization attempts, an intact guard and uninitialized CUDA. No
+checkpoint, Diffusers model, Inductor backend or toolchain runs.
+
+The first trial's incomplete Python-only guard did reach native CUDA
+initialization while Dynamo preserved RNG state, despite CPU inputs. That
+child exited with an error before its graph backend; no GPU tensor or
+generation was requested. Its stderr is retained under
+`work/pytest-regional-cpu-policy-20261026/test_real_strict_policy_propag0/worker.stderr`.
+The corrected final guarded run passed its one subprocess test in 3.84 seconds,
+with Ruff clean and independent review accepted. Its receipt is under
+`work/pytest-regional-cpu-policy-20261026-3/test_real_strict_policy_propag0/`.
+This proves the bounded CPU failure policy, not regional kernels, native CUDA
+behavior, model compatibility, fallback-free card execution or performance.
+Runtime admission remains closed.
+
 ## Initial slice and refusal matrix
 
 Propose an explicit, experimental loader choice: **Eager** (the unchanged
