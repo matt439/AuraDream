@@ -10,7 +10,7 @@ The maintainer's working backlog for this personal project: it records what is p
 
 **Ready backlog (updated 2026-10-26):** four `OPEN` rows, with implementation stages in their owners. Marian's token boundary, portable screenshots, the classic-script guard and the complete pinned type gate are built and checked. The four feature plans are written. `DEV#4`'s diagnostics and native Node API preflight are built; its Linux browser qualification awaits WSL service access. [Tooling results](docs/plan-tooling.md).
 
-**Feature stages next:** `PERF#1` ([compilation](docs/plan-regional-compilation.md)), then `PERF#3` ([attention](docs/plan-attention-backends.md)) and `PERF#4` ([caching](docs/plan-step-caching.md)). Execution admission/carry, backend ownership, private regional/attention/cache loader/call ownership and startup compiler-cache binding are built; public performance selection/admission and qualification remain. Default-off plaintext startup backups, explicit Windows shared mode and separately consented v3 retention are built; Windows credential source/stub setup/recovery is built; actual store/user recovery qualification remains. Existing v2 N is inert, and no real gallery was activated. Source implementation can continue independently of activation/card decisions. `PERF#2` still waits on `PERF#1`; these CPU stages need no layout trial or RAM-loader card check.
+**Feature stages next:** `PERF#1` ([compilation](docs/plan-regional-compilation.md)), then `PERF#3` ([attention](docs/plan-attention-backends.md)) and `PERF#4` ([caching](docs/plan-step-caching.md)). Unavailable performance configuration/settings/status/UI are built with Eager defaults and closed execution guards. Remaining source includes request-driven FBC ownership, composer/replay recipe resolution and truthful first-call diagnostics; these can use synthetic tests without GPU qualification. Corrected browser validation is blocked by an actual Windows access denial. Default-off backups, explicit shared mode/retention and credential source/stubs are built; actual credential/recovery qualification remains. No real gallery was activated. `PERF#2` still waits on `PERF#1`; source stages need no layout trial or RAM-loader card check.
 
 **Needs Matt:** workbench task trials (`DEV#1`), hands-on accessibility/desktop checks (`UI#7`) and intended-user Windows credential/recovery qualification (`GAL#6`, source/stubs built; no real vault accessed). Four decisions remain: SDXL weighting (`GEN#20`), whether to plan instruction editing (`INP#11`) or a detailer (`INP#12`), and whether to withhold critic rewrites that lose user content (`PA#11`). Whole-app layout implementation waits for its trials; it remains a design hypothesis.
 
@@ -77,10 +77,10 @@ Matt's approved [shortcut and compact-setup stages](docs/plan-shortcut-workflow.
 
 | id | status | sev | size | item |
 |---|---|---|---|---|
-| `PERF#1` | OPEN | MED | L+card | Implement public regional selection/admission; qualify the optional toolchain/cache, shapes, memory and pixels separately. Cold contracts, persisted carry, private loader/call wiring, backend ownership, startup cache binding and CPU policy checks are built. [Plan](docs/plan-regional-compilation.md). |
+| `PERF#1` | OPEN | MED | L+card | Complete composer/replay intent resolution and registration/first-call diagnostics with closed public admission; then qualify toolchain/cache and the card. Unavailable selector/settings/status/UI and private runtime ownership are built. [Plan](docs/plan-regional-compilation.md). |
 | `PERF#2` | BLOCKED | LOW | M+card | A quantization choice with fp8 activations (torchao `Float8DynamicActivationFloat8WeightConfig`) on the card's fp8 tensor cores; waits on `PERF#1`. [10-25 R2](docs/review-2026-10-25.md#r2-fp8-with-fp8-activations). |
-| `PERF#3` | OPEN | LOW | M+card | Implement public selection/effective environment handling and qualify native/cuDNN speed, fit and repeatability before broader backends. Shared carry, cold diagnostics/candidate checks and private processor/load/call ownership are built. [Plan](docs/plan-attention-backends.md). |
-| `PERF#4` | OPEN | LOW | L+card | Implement public cache selection/admission and UI, then qualify quality/time/memory separately. Shared carry, cold candidate checks, private per-call runtime ownership/deferred disposal and isolated CPU checks are built. [Plan](docs/plan-step-caching.md). |
+| `PERF#3` | OPEN | LOW | M+card | Complete composer/replay recipe resolution and effective environment policy; qualify native/cuDNN speed, fit and repeatability separately. Unavailable selector/settings/status/UI, carry and private ownership are built. [Plan](docs/plan-attention-backends.md). |
+| `PERF#4` | OPEN | LOW | L+card | Wire request-driven cache-on/off/on over one Eager load with synthetic lifetime tests; qualify quality/time/memory separately. Unavailable per-render UI/persistence and private load-owned cache/call disposal are built. [Plan](docs/plan-step-caching.md). |
 
 ## Gallery and storage
 
@@ -113,7 +113,7 @@ Matt's approved [shortcut and compact-setup stages](docs/plan-shortcut-workflow.
 
 | id | status | sev | size | item |
 |---|---|---|---|---|
-| `DEV#4` | OPEN | LOW | L | Qualify Linux Chrome and its separate CI job; portable screenshots and collectable diagnostics are built. WSL enumeration currently returns `E_ACCESSDENIED`; Linux/hosted execution is unverified. [Stages](docs/plan-tooling.md#browser-smokes-in-ci). |
+| `DEV#4` | OPEN | LOW | L | Qualify Linux Chrome and its separate CI job; portable screenshots and bounded diagnostics are built. WSL service access is denied; Windows browser retries also stopped after `IAppCapability` denial. Corrected UI/profile and Linux/hosted checks remain unverified. [Stages](docs/plan-tooling.md#browser-smokes-in-ci). |
 
 ## Review coverage
 

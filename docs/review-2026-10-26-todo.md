@@ -206,7 +206,11 @@ CPU test or browser emulation supplies those missing human or card results.
 ## Current boundary origins
 
 The renewed audit used the actual TODO and owners after the credential source
-stage. Requirements below are distinguished from ordinary engineering choices;
+stage. The table below records that checkpoint; the selector implementation and
+current source steps are updated afterward. The blanket closed-render boundary
+came from the parent delegation's task scope, not Matt's quoted overnight
+authorization or a general prohibition on source work. Requirements below are
+distinguished from ordinary engineering choices;
 historical plan-only wording and old local-browser approval receipts do not
 create another approval requirement for current source work.
 
@@ -214,7 +218,7 @@ create another approval requirement for current source work.
 |---|---|---|
 | PERF#1 | The compilation owner's selection/cache/lifecycle stages remain source work. Its exposure section requires an optional compiler/toolchain pin, supported restricted experiment and measured cold/warm trade-off before offering it. The current user scope excludes package installation, compiler/model execution and opening non-Eager rendering. | Private startup cache ownership and cold switch validation; further selection/status/preferences integration and fake tests can proceed with rendering closed. Cache isolation and refusal of unowned environment values are conservative implementation choices, not new user-policy gates. |
 | PERF#3 | The attention owner's exposure section leaves nondefault external-environment representation/refusal explicit; actual native/cuDNN fit and repeatability need the card. The current user scope keeps non-Eager rendering closed and excludes external wheel installation. | Shared closed selection contracts, source/status integration and synthetic lifecycle checks. The implemented private Native invariant does not choose public environment precedence. |
-| PERF#4 | The cache owner's finite acceptance requires the fixed image pairs, time/memory checks and Matt's quality judgment before routine use. Current user scope excludes model/GPU work and cached-render activation. | Closed selection/admission/status integration and fake checks. New visible opt-in controls have no useful acceptance result while exposure remains closed; that is an implementation sequencing choice, not a denied action. |
+| PERF#4 | The cache owner's finite acceptance requires the fixed image pairs, time/memory checks and Matt's quality judgment before routine use. Delegated task scope excludes model/GPU work and cached-render activation. | Source selection/admission/status integration and fake checks remain permitted; inspection/configuration does not require opening rendering. |
 | DEV#4 | Linux qualification is blocked by actual `Wsl/EnumerateDistros/Service/E_ACCESSDENIED`; the user explicitly forbids retry. Hosted execution requires publishing, excluded by the local-only request. | Native Node API preflight is now built and checked. No additional established tooling source defect remains; Linux/font/resource and hosted evidence remain unqualified. |
 | GAL#6 | The backup owner requires actual intended-user OS credential delivery and independent-password recovery. This session explicitly excludes real vault operations; API stubs cannot supply that evidence. Activating any gallery also requires its protection/age/count/destination inputs and separate deletion consent. | The default-off source, encrypted fake-provider restore and recovery tool are built. No source defect remains established by this audit; no real credential or gallery was activated. |
 | DEV#1; UI#7 | The validation owner calls for Matt's observed common-task trials and hands-on NVDA/Narrator, touch, native notification and actual Windows-scaling evidence. These are human/desktop evidence requirements, not missing browser fixtures. | Preparation and the approved browser/layout fixes are built. Keep the trial records blank until observed; do not infer a redesign winner from emulation. |
@@ -235,9 +239,28 @@ reports a discarded private pipeline as not-ready, and explicit Load consults
 actual readiness rather than requiring a preceding GET. Fake checks preserve
 loading/error details, selection, preferences and ordinary load coalescing. This
 is latent lifecycle groundwork; today's valid public requests still cannot enter
-private FBC. After that repair, the renewed bounded audit identified no additional
-present correctness change under the closed-gate restrictions. Public selection/
-preferences/UI remain unimplemented, rather than falsely qualified or declared
-done. Ordinary source preparation remains permitted; the next functional exposure
-needs the explicit recipe/toolchain/bootstrap and external-environment choices
-above, while actual card/OS/human evidence retains its separate boundaries.
+private FBC.
+
+## Selector implementation and remaining source
+
+The parent then explicitly authorized unavailable selector implementation. Models
+loader choices, v2 settings/environment/CLI carry, status/options and per-render
+FBC browser controls are now built without granting execution. Omission preserves
+loader intent; explicit Eager replacement, revisions, exact invalid-file rollback,
+startup diagnostics and runtime refusal prevent silent fallback. The four product
+decisions remain unchanged. Source review and CPU checks do not claim device or
+quality qualification. Corrected browser validation is blocked by an actual Windows
+`IAppCapability` access denial, separately from the earlier WSL denial.
+
+The current audit identifies these ordinary source steps; none requires another
+approval merely to implement and synthetically test it with public guards closed:
+
+| Source step | Existing owner | Concrete remaining implementation |
+|---|---|---|
+| A | PERF#1/#3, selection/reproduction | Resolve new composer intent against the selected loader and require exact recipe equality for an explicit replay, preserving legacy Eager and rejecting loader/cache conflicts. Omission and pure recipe normalization are preserved, but the runtime intent resolver is still separate work. |
+| B | PERF#1, first call/status | Carry truthful per-load registration and first-call diagnostics into backend/Models/job status with synthetic success/error/cancel/reset checks. Registration alone cannot claim warm kernels or cache hits. |
+| C | PERF#4, per-call ownership | Dispatch the composer request's cache-on/off/on over one ordinary Eager load. Current private FBC owner/dispatch is still attached to `_loaded_execution`, so request-driven ownership/disposal must be connected and checked for cancellation, foreign state and cleanup failure. |
+
+Optional toolchain installation/use, an actual startup compiler qualification,
+GEN#22/card comparisons, real credential recovery and Matt's human judgments
+remain separate evidence/actions. They do not block the source steps above.

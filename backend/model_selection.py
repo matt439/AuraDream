@@ -13,7 +13,11 @@ from dataclasses import replace
 from sys import modules as imported_modules
 
 from .launch import CHECKPOINTS, FORMATS
-from .execution import require_default_execution
+from .execution import (
+    INVALID_LOADER_CONFIGURATION, canonical_loader_execution, loader_configuration_reason,
+    loader_unavailable_reason, require_loader_available, step_cache_configuration_reason,
+    unavailable_reason,
+)
 from .loader_choices import OFFLOAD_CHOICES, QUANTIZATION_CHOICES
 from .model_defaults import OFFLOAD_MODES, QUANT_MODES
 
@@ -22,17 +26,23 @@ from .model_defaults import OFFLOAD_MODES, QUANT_MODES
 # revision starts at this process's start in milliseconds (below 2**53), so a
 # page still holding the last process's revision is refused after a restart.
 _selection: tuple = (None, int(time.time() * 1000))
+# Omission keeps the current intent; an explicitly empty recipe selects Eager.
+UNSET_EXECUTION = object()
 
 
 def current_settings(settings):
     """Read one immutable snapshot without modifying the launch configuration."""
     selected = _selection
-    quant, offload = selected[2:] if len(selected) == 4 else (None, None)
+    if len(selected) < 2:
+        raise ValueError("the current model selection is incomplete")
+    quant, offload = selected[2:4] if len(selected) >= 4 else (None, None)
     return replace(
         settings,
         model_id=selected[0] or settings.model_id,
         quantization=quant or settings.quantization,
         offload=offload or settings.offload,
+        loader_execution=selected[4] if len(selected) >= 5 else getattr(settings, "loader_execution", None),
+        loader_execution_error=selected[5] if len(selected) >= 6 else getattr(settings, "loader_execution_error", None),
     )
 
 
@@ -44,11 +54,90 @@ def revision() -> int:
     return _selection[1]
 
 
-def select(model_id: str, *, quantization: str | None = None, offload: str | None = None) -> None:
+def select(
+    model_id: str, *, quantization: str | None = None, offload: str | None = None,
+    loader_execution: object = UNSET_EXECUTION,
+) -> None:
     global _selection
     selected = _selection
-    quant, placement = selected[2:] if len(selected) == 4 else (None, None)
-    _selection = (model_id, selected[1] + 1, quantization or quant, offload or placement)
+    if len(selected) < 2:
+        raise ValueError("the current model selection is incomplete")
+    quant, placement = selected[2:4] if len(selected) >= 4 else (None, None)
+    updated = (model_id, selected[1] + 1, quantization or quant, offload or placement)
+    if loader_execution is UNSET_EXECUTION:
+        _selection = (*updated, selected[4], selected[5] if len(selected) >= 6 else None) if len(selected) >= 5 else updated
+    else:
+        # Only an explicitly validated choice repairs a startup diagnostic.
+        _selection = (*updated, canonical_loader_execution(loader_execution), None)
+
+
+def execution_configuration_reason(
+    selected, *, execution: object = UNSET_EXECUTION, model_id: str | None = None,
+    quantization: str | None = None, offload: str | None = None,
+) -> str | None:
+    """A cold finding from one frozen selection, never a later global read."""
+    if execution is UNSET_EXECUTION:
+        if selected.loader_execution_error is not None:
+            return INVALID_LOADER_CONFIGURATION
+        execution = selected.loader_execution
+    return loader_configuration_reason(
+        execution, model_id=model_id or selected.model_id,
+        quantization=quantization or selected.quantization,
+        offload=offload or selected.offload, device=selected.device,
+    )
+
+
+def execution_status(selected, *, execution: object = UNSET_EXECUTION) -> dict:
+    actual = canonical_loader_execution(selected.loader_execution)
+    draft = actual if execution is UNSET_EXECUTION else canonical_loader_execution(execution)
+    configuration_reason = execution_configuration_reason(selected, execution=execution)
+    reason = configuration_reason or loader_unavailable_reason(draft)
+    return {
+        "execution": actual.model_dump(exclude_none=True) if actual is not None else None,
+        "execution_available": reason is None,
+        "execution_unavailable_reason": reason,
+        "execution_configuration_reason": configuration_reason,
+    }
+
+
+def execution_options(
+    selected, *, execution: object = UNSET_EXECUTION, model_id: str | None = None,
+    quantization: str | None = None, offload: str | None = None,
+) -> dict[str, list[dict]]:
+    """Keep every named choice visible, including incompatible combinations."""
+    draft = canonical_loader_execution(selected.loader_execution if execution is UNSET_EXECUTION else execution)
+    values = draft.model_dump(exclude_none=True) if draft is not None else {}
+    result = {}
+    for field, key, choices in (
+        ("compilation", "compilation", ((None, "Eager"), ("regional-v1", "Regional compilation"))),
+        ("attention_backend", "attention", ((None, "Native"), ("cudnn-v1", "cuDNN attention"))),
+    ):
+        options = []
+        for value, label in choices:
+            candidate = canonical_loader_execution({**values, field: value})
+            options.append({
+                "value": value,
+                "label": label,
+                "configuration_reason": loader_configuration_reason(
+                    candidate, model_id=model_id or selected.model_id,
+                    quantization=quantization or selected.quantization,
+                    offload=offload or selected.offload, device=selected.device,
+                ),
+                "unavailable_reason": loader_unavailable_reason(candidate),
+            })
+        result[key] = options
+    result["step_cache"] = [{
+        "value": value,
+        "label": label,
+        "configuration_reason": step_cache_configuration_reason(
+            {"step_cache": value}, loader_execution=draft,
+            model_id=model_id or selected.model_id,
+            quantization=quantization or selected.quantization,
+            offload=offload or selected.offload, device=selected.device,
+        ),
+        "unavailable_reason": unavailable_reason({"step_cache": value}),
+    } for value, label in ((None, "Off"), ("fbc-005-v1", "First Block Cache"))]
+    return result
 
 
 def format_for(settings) -> str:
@@ -113,19 +202,33 @@ def available(settings, quantization: str | None = None, format: str | None = No
 def validate(
     settings, model_id: str, *, quantization: str | None = None,
     offload: str | None = None, format: str | None = None,
-    execution: object = None,
+    execution: object = UNSET_EXECUTION, load: bool = True,
 ):
     """Resolve browser options and refuse incompatible choices before unload."""
-    # This also covers direct/unvalidated callers, not only typed HTTP input.
-    # Refuse before even resolving the current loader or browsing a catalogue.
-    require_default_execution(execution)
+    # Explicit unsupported load attempts stop before even resolving options.
+    # An omitted recipe preserves the selected intent, including a diagnostic.
+    checked = canonical_loader_execution(execution) if execution is not UNSET_EXECUTION else UNSET_EXECUTION
+    if checked is not UNSET_EXECUTION and load:
+        require_loader_available(checked)
     selected = current_settings(settings)
+    if checked is UNSET_EXECUTION:
+        if selected.loader_execution_error is not None:
+            raise ValueError(INVALID_LOADER_CONFIGURATION)
+        checked = canonical_loader_execution(selected.loader_execution)
+        if load:
+            require_loader_available(checked)
     quantization = selected.quantization if quantization is None else quantization
     offload = selected.offload if offload is None else offload
     if quantization not in QUANT_MODES:
         raise ValueError(f"Quantization must be one of: {', '.join(QUANT_MODES)}")
     if offload not in OFFLOAD_MODES:
         raise ValueError(f"Offload must be one of: {', '.join(OFFLOAD_MODES)}")
+    reason = loader_configuration_reason(
+        checked, model_id=model_id, quantization=quantization, offload=offload,
+        device=selected.device,
+    )
+    if reason is not None:
+        raise ValueError(reason)
     if format is not None and format not in dict(FORMATS):
         raise ValueError(f"Nunchaku format must be one of: {', '.join(dict(FORMATS))}")
     if quantization == "nunchaku" and sys.platform != "linux":
@@ -155,4 +258,5 @@ def validate(
     ), None)
     if model_id not in {item["model_id"] for item in available(settings, quantization, format or target_format)}:
         raise ValueError("Choose a checkpoint from the catalogue for this quantization.")
-    return replace(selected, model_id=model_id, quantization=quantization, offload=offload)
+    return replace(selected, model_id=model_id, quantization=quantization, offload=offload,
+                   loader_execution=checked, loader_execution_error=None)

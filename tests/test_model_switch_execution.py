@@ -87,10 +87,9 @@ def test_direct_copied_or_constructed_execution_cannot_bypass_central_guard(monk
     assert effects == []
 
 
-@pytest.mark.parametrize("load", [False, True])
 @pytest.mark.parametrize("recipe", NONEMPTY)
 @pytest.mark.parametrize("same_checkpoint", [False, True])
-def test_http_known_recipe_refuses_before_catalogue_hub_save_unload_or_selection(client, fake, monkeypatch, recipe, load, same_checkpoint):
+def test_http_known_recipe_load_refuses_before_catalogue_hub_save_unload_or_selection(client, fake, monkeypatch, recipe, same_checkpoint):
     snapshot, effects = saved_snapshot(), []
     # Guard endpoint effects only. Lifespan shutdown legitimately unloads the
     # fake after this test's assertions, so restore before TestClient exits.
@@ -103,8 +102,9 @@ def test_http_known_recipe_refuses_before_catalogue_hub_save_unload_or_selection
         guard.setattr(fake, "load", forbidden("load", effects))
         guard.setattr(model_selection, "select", forbidden("selection", effects))
         response = client.post("/api/model/switch", json={"model_id": main.settings.model_id if same_checkpoint else ANIMAGINE, "execution": recipe,
-                                                         "load": load, "load_on_startup": True})
-    assert response.status_code == 422 and response.json()["detail"] == UNAVAILABLE
+                                                         "load": True, "load_on_startup": True})
+    expected = "Step caching is a per-render choice, not a model loading option." if "step_cache" in recipe else UNAVAILABLE
+    assert response.status_code == 422 and response.json()["detail"] == expected
     assert effects == []
     assert_unchanged(snapshot, fake)
 

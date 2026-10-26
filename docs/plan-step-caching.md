@@ -1,12 +1,25 @@
 # Plan: opt-in First Block Cache on FLUX.1
 
 **Status, 2026-10-26: CPU contracts, persisted carry, private loader/call ownership
-and cold request candidate checks are built.** Public selection/admission, UI and a separately
+and cold request candidate checks are built.** The unavailable per-render selector,
+browser persistence, holds and Reset/Reuse/Undo source are built; real request-driven
+cache admission/dispatch and a separately
 approved card comparison remain `PERF#4`. This is the
 bounded next slice from [R4](review-2026-10-25.md#r4-step-caching-for-the-long-undistilled-schedules).
 No package installation, runtime model import, weights, tensor allocation
 or GPU generation was used for the source stages. Public caching stays unavailable
 and defaults are unchanged.
+
+The selector stage keeps step cache as composer intent, never a loader preference.
+Off is the default; choosing FBC retains the requested recipe while showing its
+unavailable reason and holding Generate/grid/comparison before a POST. Ordinary
+Eager Reuse explicitly chooses Off and Undo restores the previous intent; known
+nonempty stored records retain their existing held Reuse boundary. Unsupported
+placement/loader combinations are described by the server rather than inferred
+as supported in the page. The shared
+[configuration stage](plan-regional-compilation.md#unavailable-performance-configuration)
+records source contracts and the partial browser evidence. No actual request can
+enable cached rendering, and no quality/time/memory claim follows from selection.
 
 The shared `ExecutionSpec`, nullable SQL/PNG carry and refusal paths are
 implemented with `PERF#1`. A recorded `fbc-005-v1` remains unavailable to
@@ -257,6 +270,17 @@ fail closed: discard the unsafe base and all shared sibling references,
 report not-ready, and let the next ordinary `ensure_loaded` perform any
 reload. No later cell may render with uncertain hooks under an off recipe.
 Preserve the original failure alongside any cleanup error in diagnostics.
+
+**Next source integration, with admission closed.** The private implementation
+currently creates its cache owner from a load-owned cache recipe and dispatches
+from `_loaded_execution`. The composer choice now exists, but actual per-request
+cache-on/off/on over one ordinary Eager load is not wired. Add a private request
+dispatch seam with fresh call ownership and unchanged loaded recipe, using the
+existing deferred disposal rather than keeping residuals or reloading for every
+toggle. Synthetic tests must cover on/off/on, a new seed/cell, cancellation,
+foreign state and cleanup failure followed by safe uncached recovery. Keep every
+public availability guard closed; no real FBC/model/card run is needed for this
+source stage. Card quality acceptance remains a separate later requirement.
 
 Fresh ownership prevents state crossing image seeds, prompts, sizes, cells,
 jobs, retries, Pause/resume or checkpoints. Do not cache tensors on disk or

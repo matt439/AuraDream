@@ -6,6 +6,8 @@ import os
 from dataclasses import dataclass
 from pathlib import Path
 
+from .execution import ExecutionSpec, loader_execution_from_choices
+from .startup_preferences import LOADER_EXECUTION_ERROR, LOADER_EXECUTION_ERROR_VARIABLE
 from .model_defaults import (
     DEFAULT_MODEL_ID,
     DEFAULT_OFFLOAD,
@@ -54,6 +56,20 @@ def _env_path(name: str) -> Path | None:
     return Path(raw).expanduser().absolute() if raw else None
 
 
+def _loader_execution_environment() -> tuple[ExecutionSpec | None, str | None]:
+    """Snapshot app-owned recipe names without framework/device/cache work."""
+    compilation = os.getenv("LOCAL_DIFFUSION_COMPILATION", "eager")
+    attention = os.getenv("LOCAL_DIFFUSION_ATTENTION", "native")
+    try:
+        spec = loader_execution_from_choices(compilation, attention)
+    except (TypeError, ValueError):
+        return None, LOADER_EXECUTION_ERROR
+    return spec, LOADER_EXECUTION_ERROR if LOADER_EXECUTION_ERROR_VARIABLE in os.environ else None
+
+
+_STARTUP_LOADER_EXECUTION, _STARTUP_LOADER_EXECUTION_ERROR = _loader_execution_environment()
+
+
 @dataclass(frozen=True)
 class Settings:
     # Which checkpoint to serve. Krea 2 Turbo is the 8-step distilled variant.
@@ -82,6 +98,8 @@ class Settings:
 
     device: str = os.getenv("LOCAL_DIFFUSION_DEVICE", "cuda")
     load_on_startup: bool = _env_bool("LOCAL_DIFFUSION_PRELOAD", False)
+    loader_execution: ExecutionSpec | None = _STARTUP_LOADER_EXECUTION
+    loader_execution_error: str | None = _STARTUP_LOADER_EXECUTION_ERROR
 
     # Where the images and their index live. Overridable so a server run from
     # WSL 2 against a checkout on the Windows drive can keep them on the Linux

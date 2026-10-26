@@ -309,7 +309,7 @@ before changing it.
   per version
 - `backend/reindex.py` — rows rebuilt from the PNGs' `local-diffusion` chunk, in place or
   copied in from another gallery; idempotent on the UNIQUE filename
-- `web/` - served as-is from `/static`; `index.html` loads 52 classic
+- `web/` - served as-is from `/static`; `index.html` loads 53 classic
   scripts in order, sharing one global scope; only `app.js`, the last, runs
   the wiring and boot. `state.js` owns shared state; `generation.js`,
   `grid-preview.js`, `job-stream.js` and `job-results.js` handle submission,
@@ -334,7 +334,9 @@ before changing it.
   Examples menu, `prompt-expand.js` ERNIE's Expand; `analysis.js`,
   `analysis-critic.js` and `comparison.js` the check and critic. `sizes.js`
   and `status.js` retain their control/profile roles; `model-switch.js` owns
-  checkpoint selection and retiring state prepared under the old model,
+  checkpoint selection and retiring state prepared under the old model;
+  `execution.js` owns inspectable unavailable performance choices, composer
+  cache intent and shared execution holds;
   `model-shots.js` the picker's strip of the chosen checkpoint's images;
   `bundles.js` owns the gallery bundle dialog (Back up and its scope
   included) and background-operation polling;
@@ -575,11 +577,14 @@ Model and loader:
   quantization/format; Nunchaku remains Linux-only. Checkpoint, quantization and
   offload form one immutable runtime snapshot. `load=false` applies and saves
   without loading changed weights; an unchanged selection keeps its weights.
-  Its typed `execution` extension is never silently ignored: cold selection
-  validation refuses every nonempty or malformed recipe before option/catalogue
-  reads, Hub access, preference saves or unload. Missing/null/empty remain Eager;
-  direct internal callers face the same guard and no recipe is activated.
-  Both actions atomically save the four loader/startup preferences beside the
+  Its typed `execution` extension is never silently ignored: omission preserves
+  the current loader intent, while explicit null/empty chooses Eager/native.
+  `load=false` may save a structurally compatible unavailable recipe, without a
+  Hub check or a load. Invalid placement/combinations and per-render step cache
+  are refused as loader configuration. `load=true` and explicit Load refuse
+  unavailable intent before Hub, save, unload or load-state effects; the runtime
+  backend and queue also refuse an omitted/Eager request under that selection.
+  No nonempty recipe is activated. Both actions atomically save loader/startup preferences beside the
   database before releasing existing weights; a save failure is an HTTP error
   and leaves the selection and existing preference file intact.
   A switch to another checkpoint first asks `hub_access.check` (through
@@ -638,7 +643,7 @@ Model and loader:
 - Server launch restores `startup_preferences` before config imports, without
   terminal input unless `--menu` is given. Flags override explicit environment,
   then saved preferences, then defaults; `--defaults` skips preferences. The
-  four are one choice: an explicit model (flag or environment, not env.sh's
+  preferences are one choice: an explicit model (flag or environment, not env.sh's
   marked default) other than the saved one sets all of them aside, with a
   warning. The saved choice fills `--menu`'s marked defaults; a menu pick of
   another checkpoint than the saved one sets the saved `load_on_startup`
@@ -648,8 +653,15 @@ Model and loader:
   `launch.configure` records what was explicit in
   `LOCAL_DIFFUSION_STARTUP_OVERRIDES`; status and `/api/models` report it as
   `startup_overrides` (empty when `backend.main` is imported). Malformed
-  preferences warn and fall back. Only model id, quantization, offload and
-  `load_on_startup` are saved, never secrets or unrelated settings. The browser's
+  legacy preferences retain their existing fallback behavior. V2 stores the
+  canonical loader recipe as well; invalid execution-bearing files/env values
+  retain a fixed diagnostic and refuse loading/rendering until explicit repair.
+  Save/rollback preserves exact prior bounded bytes, including an invalid file.
+  Only model id, quantization, offload, `load_on_startup` and loader intent are
+  saved, never secrets, per-render step cache or unrelated settings. Named
+  `--compilation`/`--attention` and their `LOCAL_DIFFUSION_COMPILATION`/
+  `LOCAL_DIFFUSION_ATTENTION` variables follow existing explicit override rules.
+  The browser's
   compact model facts reuse sourced guides, catalogue data and recorded local
   evidence. The size fact shows upper guidance and labels recommendations,
   native/documented maxima and examples distinctly; an example never becomes
@@ -5407,6 +5419,27 @@ effects. Empty/legacy Eager switches and stale revision guards remain covered.
 read-only GET, explicit and same-checkpoint reload without a preceding poll,
 concurrent load coalescing, held loading and preserved error/retry behavior with
 fake pipelines. This does not establish public FBC reachability or card behavior.
+`tests/test_execution_selection_admission.py` checks pure configuration limits,
+invalid/selected startup intent, omitted versus explicit Eager requests and closed
+queue/backend/HTTP admission before side effects. Portable normalization/codecs
+remain independent of current selection. CLI cases additionally refuse unavailable
+flags/environment before source or project reads and preserve explicit Eager intent.
+`tests/test_model_selection_performance.py` and `tests/test_loader_startup.py`
+check unavailable configuration saves, structural refusals, omission/clear,
+execution-only revisions, exact invalid-file rollback, frozen descriptor snapshots,
+v1/v2 startup compatibility/precedence and fail-closed invalid intent. None grants
+runtime permission; saved preload cannot bypass the load guard.
+
+`tests/test_browser_diagnostics.py` uses a synthetic no-pid child stream to verify
+opt-in failure-only stderr diagnostics and a bounded tail. It opens no browser,
+socket or native cleanup process. Real browser/profile checks are separate.
+
+`smoke-execution-selector.json` uses a fresh FLUX.1 Krea [dev] fake on 7930.
+It checks inspectable configuration, honest unavailable status and held Load/render
+actions, structural conflicts, saved and unsaved recipes across polling/reload,
+explicit Eager recovery and per-render cache persistence/Reuse/Reset/Undo. Nonempty
+record Reuse stays refused. Only an ordinary Eager fixture may generate; no compiler,
+model download, non-Eager execution or performance/quality acceptance is established.
 `tests/test_attention_selection.py` checks coverage, transactional failures,
 shared ownership, later replacements and idempotent restoration with stubs.
 It also executes source-extracted installed public context/setter bodies.

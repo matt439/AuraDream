@@ -44,6 +44,7 @@ const modelPickerEditedKeys = new Set();
 let modelChoiceIntent = null;
 let modelPickerStartupSeen = false;
 let modelRuntimeSettings = null;
+let modelExecutionOptions = null;
 let modelPickerAppliedSettings = null;
 let modelPickerDeferredReset = null;
 let modelCatalogueRequested = null;
@@ -88,7 +89,7 @@ function modelFavouriteId(modelId) {
 function modelListOpen() {
   if (els.modelPicker.hidden) return false;
   try {
-    return [els.modelQuantization, els.modelOffload, els.modelFormat]
+    return [els.modelQuantization, els.modelOffload, els.modelFormat, els.modelCompilation, els.modelAttention]
       .some((select) => select.matches(':open'));
   } catch { return false; } // No :open: a native popup the page cannot see.
 }
@@ -481,17 +482,20 @@ function modelPickerSettings() {
     offload: els.modelOffload.value,
     format: els.modelFormat.value || undefined,
     load_on_startup: els.modelLoadOnStartup.checked,
+    compilation: els.modelCompilation.value,
+    attention: els.modelAttention.value,
+    execution: loaderExecution(els.modelCompilation.value, els.modelAttention.value),
   };
 }
 
 function modelLoaderChanged() {
   const selected = modelPickerSettings();
-  return !modelRuntimeSettings || ['model_id', 'quantization', 'offload'].some((key) => selected[key] !== modelRuntimeSettings[key])
+  return !modelRuntimeSettings || ['model_id', 'quantization', 'offload', 'compilation', 'attention'].some((key) => selected[key] !== modelRuntimeSettings[key])
     || (selected.quantization === 'nunchaku' && selected.format !== modelRuntimeSettings.format);
 }
 
 function modelCatalogueKey(selected) {
-  return `${selected.quantization}|${selected.quantization === 'nunchaku' ? selected.format : ''}|${selected.offload}`;
+  return `${selected.quantization}|${selected.quantization === 'nunchaku' ? selected.format : ''}|${selected.offload}|${selected.compilation || ''}|${selected.attention || ''}`;
 }
 
 // Work in this page a switch waits for; the picker never opens by itself
@@ -518,6 +522,8 @@ function modelSwitchHold({ load = true } = {}) {
     || (modelCatalogueFailed() ? 'The checkpoint list could not be loaded; retrying' : '')
     || (!modelCatalogueLoaded || modelCataloguePending ? 'The checkpoint list is still loading' : '')
     || (!modelChoice() ? 'Choose a checkpoint compatible with these settings' : '')
+    || executionConfigurationHold()
+    || (load ? executionPickerUnavailable() : '')
     || (load && !modelLoaderChanged() && modelState === 'ready' ? 'These model settings are already loaded; use Apply & save to remember them' : '');
 }
 
@@ -530,17 +536,20 @@ function modelRuntimeLabel() {
   const current = modelRuntimeSettings;
   return [modelLabel(current.model_id), modelOptionLabel(els.modelQuantization, current.quantization),
     ...(current.quantization === 'nunchaku' ? [modelOptionLabel(els.modelFormat, current.format)] : []),
-    modelOptionLabel(els.modelOffload, current.offload)].filter(Boolean).join(' · ');
+    modelOptionLabel(els.modelOffload, current.offload),
+    ...(current.execution ? [modelOptionLabel(els.modelCompilation, current.compilation),
+      modelOptionLabel(els.modelAttention, current.attention)] : [])].filter(Boolean).join(' · ');
 }
 
 // Edits that differ from the server's settings, which Revert puts back.
 function modelPickerUnsaved() {
   return modelPickerEditedKeys.size > 0 && !!modelRuntimeSettings
-    && (modelLoaderChanged() || els.modelLoadOnStartup.checked !== modelRuntimeSettings.load_on_startup);
+    && (!!invalidLoaderDraftReason() || modelLoaderChanged() || els.modelLoadOnStartup.checked !== modelRuntimeSettings.load_on_startup);
 }
 
 const MODEL_PREFERENCE_NAMES = {
   model_id: 'checkpoint', quantization: 'quantization', offload: 'offload', load_on_startup: 'startup load',
+  execution: 'performance configuration',
 };
 
 function joinWords(words) {
@@ -565,6 +574,10 @@ function modelOverridesSentence() {
 
 // What an accepted press did, by name, with the startup choice.
 function modelSavedMessage(selected, before, { load, wasReady, startup }) {
+  if (selected.execution) {
+    return 'Performance configuration saved. It is unavailable in this build; Load and rendering remain held. '
+      + 'Choose Eager and Native to load and render.';
+  }
   const name = modelLabel(selected.model_id);
   const changed = !before || ['model_id', 'quantization', 'offload'].some((key) => selected[key] !== before[key])
     || (selected.quantization === 'nunchaku' && selected.format !== before.format);
@@ -585,7 +598,7 @@ function modelPickerNote() {
   const lead = modelSwitchError || (modelPressReason ? `${modelPressReason.why}.` : '')
     || modelServerSwitchError
     || (modelState === 'error' && modelLoadDetail ? `Couldn't load ${current}: ${modelLoadDetail}` : '')
-    || modelFavouriteMessage || modelPickerMessage || '';
+    || modelFavouriteMessage || modelPickerMessage || executionLoadHold() || '';
   const chosen = modelChoice();
   const info = modelCatalogueDetails[modelState === 'loading' ? runtime : chosen] ?? {};
   const firstLoad = info.cache_state === 'complete' ? info.cache_note
@@ -593,9 +606,10 @@ function modelPickerNote() {
       ? `Full download reference: ${info.download}. ${info.cache_note || ''} A first load may take several minutes.`
       : 'Download size and cache completeness are unknown. A first load may download weights and take several minutes.';
   const unsaved = modelState !== 'loading' && modelPickerUnsaved();
+  const unavailable = executionPickerUnavailable();
   const state = modelState === 'loading' ? `Loading ${current}… ${firstLoad}`
     : unsaved ? `Unsaved changes. ${modelState === 'ready' ? 'Loaded' : "Server's choice"}: ${modelRuntimeLabel()}.`
-      + (modelLoaderChanged() ? ` ${firstLoad}` : '')
+      + (unavailable ? ` ${unavailable}` : modelLoaderChanged() ? ` ${firstLoad}` : '')
     : lead || modelState === 'error' ? ''
     : modelState === 'ready' ? `${current} is loaded.`
     : `${current} is not loaded. ${firstLoad}`;
@@ -611,6 +625,9 @@ function syncModelSwitch() {
   if (modelPressReason && modelSwitchHold({ load: modelPressReason.load }) !== modelPressReason.why) modelPressReason = null;
   const why = modelSwitchHold();
   const saveWhy = modelSwitchHold({ load: false });
+  const configuration = !!modelPickerSettings().execution;
+  els.modelSave.textContent = configuration ? 'Save configuration' : 'Apply & save';
+  syncExecutionControls();
   syncModelRowStates();
   syncModelTabStops();
   // Every poll runs this more than once; write only what changed.
@@ -620,10 +637,14 @@ function syncModelSwitch() {
   const unloads = modelState === 'ready' && !!modelRuntimeSettings && modelChoice() !== '' && modelLoaderChanged();
   const current = modelLabel(modelRuntimeSettings?.model_id ?? loadedModel);
   setModelAttribute(els.modelSave, 'aria-disabled', String(!!saveWhy));
-  setModelAttribute(els.modelSave, 'title', saveWhy || (unloads
+  setModelAttribute(els.modelSave, 'title', saveWhy || (configuration
+    ? 'Save this unavailable configuration without loading; changed loaded weights will be unloaded'
+    : unloads
     ? `Save and unload ${current} now; ${modelLabel(modelChoice())} loads on Load, Switch & load or Generate`
     : 'Remember these settings without starting a new load'));
-  const help = unloads
+  const help = configuration
+    ? 'Save configuration remembers these choices without loading. This experimental configuration cannot load or render in this build.'
+    : unloads
     ? `Apply & save saves these settings and unloads ${current} now; Switch & load loads ${modelLabel(modelChoice())} now.`
     : 'Apply & save saves these settings without loading them; Switch & load loads them now.';
   if (els.modelPickerHelp.textContent !== help) els.modelPickerHelp.textContent = help;
@@ -658,6 +679,7 @@ function syncModelSwitch() {
 // Revert puts the server's settings back in every field. The focus, which
 // the hidden button gives up, goes to the chosen row.
 function revertModelPicker() {
+  forgetExecutionDraft(modelPickerSettings(), { revert: true });
   modelPickerEditedKeys.clear();
   modelPressReason = null;
   applyModelSettings(true);
@@ -669,6 +691,10 @@ function revertModelPicker() {
 
 function modelPickerEdited(key, { catalogue = false } = {}) {
   modelPickerEditedKeys.add(key);
+  if (key === 'compilation' || key === 'attention') {
+    acceptLoaderChoice(key);
+    rememberExecutionDraft();
+  }
   if (key === 'model_id') rememberModelChoice(modelChoice());
   modelSwitchError = null;
   modelPickerMessage = null;
@@ -680,7 +706,7 @@ function modelPickerEdited(key, { catalogue = false } = {}) {
 // checkpoint by name, else the loader edits; none that the new settings match.
 function modelDroppedEdits() {
   const selected = modelPickerSettings();
-  const lost = [...modelPickerEditedKeys].filter((key) => key in selected
+  const lost = [...modelPickerEditedKeys].filter((key) => !['compilation', 'attention'].includes(key) && key in selected
     && selected[key] !== modelRuntimeSettings[key]);
   if (!lost.length) return '';
   return lost.includes('model_id') && selected.model_id
@@ -698,6 +724,9 @@ function receiveModelSettings(status, { reset = false } = {}) {
     offload: status.offload ?? modelRuntimeSettings?.offload,
     format: status.format ?? modelRuntimeSettings?.format,
     load_on_startup: status.load_on_startup ?? modelRuntimeSettings?.load_on_startup ?? false,
+    compilation: status.execution?.compilation ?? '',
+    attention: status.execution?.attention_backend ?? '',
+    execution: loaderExecution(status.execution?.compilation, status.execution?.attention_backend),
   };
   if (status.startup_overrides) modelStartupOverrides = status.startup_overrides;
   if (typeof status.cache_revision === 'number') modelCacheRevision = status.cache_revision;
@@ -716,15 +745,20 @@ function receiveModelSettings(status, { reset = false } = {}) {
   if (reset) {
     // The controls still hold the edits a change made elsewhere retires.
     const dropped = modelDroppedEdits();
+    // Performance drafts remain explicit choices across another selection's
+    // revision. An incompatible model explains/holds them instead of clearing.
+    const performanceEdits = ['compilation', 'attention'].filter((key) => modelPickerEditedKeys.has(key));
     modelPickerEditedKeys.clear();
+    for (const key of performanceEdits) modelPickerEditedKeys.add(key);
     // The revision this page's own switch made keeps the note saying so.
-    const own = modelOwnSwitch && ['model_id', 'quantization', 'offload']
+    const own = modelOwnSwitch && ['model_id', 'quantization', 'offload', 'compilation', 'attention']
       .every((key) => modelOwnSwitch[key] === modelRuntimeSettings[key]);
     // Otherwise an unsaved choice went without a word (review, 2026-10-12).
     if (!own) {
       modelPickerMessage = dropped
         ? `${modelLabel(modelRuntimeSettings.model_id)} was selected in another tab or window; ${dropped}.`
-        : null;
+          + (performanceEdits.length ? ' Your unsaved performance choices were kept.' : '')
+        : performanceEdits.length ? 'The server selection changed; your unsaved performance choices were kept.' : null;
     }
     modelOwnSwitch = null;
   }
@@ -757,6 +791,7 @@ function applyModelSettings(reset) {
   let held = false;
   for (const [control, key] of [
     [els.modelQuantization, 'quantization'], [els.modelOffload, 'offload'], [els.modelFormat, 'format'],
+    [els.modelCompilation, 'compilation'], [els.modelAttention, 'attention'],
   ]) {
     if (edited(key) || (!reset && applied && applied[key] === selected[key])) continue;
     if (modelListOpen() && control.matches(':open')) held = true;
@@ -775,13 +810,15 @@ function applyModelSettings(reset) {
     els.modelLoadOnStartup.checked = selected.load_on_startup;
   }
   modelPickerAppliedSettings = { ...selected };
-  // Edited loading options keep the catalogue their own change asked for.
-  if (['quantization', 'offload', 'format'].some(edited)) return;
+  // Keep edited values, while validating their pair with any unedited loader
+  // fields another tab changed. A retained draft is not a retained capability.
+  const draft = ['quantization', 'offload', 'format', 'compilation', 'attention'].some(edited);
+  const wanted = draft ? modelPickerSettings() : selected;
   // A runtime id missing from its own catalogue (an off-catalogue launch id
   // under other loading options) is asked for once, not on every poll.
-  if (modelCatalogueKind !== modelCatalogueKey(selected)
+  if (modelCatalogueKind !== modelCatalogueKey(wanted)
       || (!modelChoice() && modelCatalogueRequested !== `${modelCatalogueKind}|${selected.model_id}`)) {
-    void refreshModelCatalogue({ current: true });
+    void refreshModelCatalogue({ current: !draft });
   }
 }
 
@@ -855,11 +892,16 @@ async function refreshModelCatalogue({ current = false } = {}) {
   syncModelSwitch();
   // A failed catalogue request must not make its retry use the old runtime
   // quantization while the controls still show the user's edited choice.
-  const selected = !els.modelQuantization.options.length || current ? modelRuntimeSettings : modelPickerSettings();
+  const selected = { ...(!els.modelQuantization.options.length || current ? modelRuntimeSettings : modelPickerSettings()) };
+  for (const [key, control] of [['compilation', els.modelCompilation], ['attention', els.modelAttention]]) {
+    if (modelPickerEditedKeys.has(key)) selected[key] = control.value;
+  }
   const query = new URLSearchParams();
   if (selected?.quantization) query.set('quantization', selected.quantization);
   if (selected?.format) query.set('format', selected.format);
   if (selected?.offload) query.set('offload', selected.offload);
+  query.set('compilation', (performanceChoiceInvalid(els.modelCompilation) ? modelRuntimeSettings?.compilation : selected?.compilation) || 'eager');
+  query.set('attention', (performanceChoiceInvalid(els.modelAttention) ? modelRuntimeSettings?.attention : selected?.attention) || 'native');
   try {
     const body = await api(`/api/models${query.size ? `?${query}` : ''}`);
     if (epoch !== modelCatalogueEpoch) return;
@@ -877,6 +919,7 @@ async function refreshModelCatalogue({ current = false } = {}) {
     }
     modelCatalogueEntries = body.models ?? [];
     modelCatalogueDetails = body.details ?? {};
+    modelExecutionOptions = body.execution_options ?? null;
     modelCatalogueCacheRevision = body.cache_revision ?? modelCacheRevision;
     const wantedModel = wanted.model_id ?? loadedModel;
     // Only the server decides which checkpoint/loader combinations are valid.
@@ -905,6 +948,9 @@ async function refreshModelCatalogue({ current = false } = {}) {
       }));
       const value = wanted[key] ?? body[key];
       if ([...control.options].some((o) => o.value === value)) selectModelValue(control, value);
+    }
+    for (const [control, key] of [[els.modelCompilation, 'compilation'], [els.modelAttention, 'attention']]) {
+      selectModelValue(control, wanted[key] ?? body.execution?.[key === 'attention' ? 'attention_backend' : key] ?? '');
     }
     // Unless edited, the server's checkbox as it is now: a poll may have
     // brought another tab's save while this request was in flight.
@@ -940,6 +986,7 @@ async function switchModel({ load = true } = {}) {
     return;
   }
   const selected = modelPickerSettings();
+  const { compilation: _compilation, attention: _attention, ...payload } = selected;
   const before = modelRuntimeSettings ? { ...modelRuntimeSettings } : null;
   const wasReady = modelState === 'ready';
   modelSwitchError = null;
@@ -955,14 +1002,20 @@ async function switchModel({ load = true } = {}) {
   try {
     const status = await api('/api/model/switch', {
       method: 'POST', headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ ...selected, load }),
+      body: JSON.stringify({ ...payload, load }),
     });
+    const newerPerformance = [
+      ['compilation', els.modelCompilation], ['attention', els.modelAttention],
+    ].filter(([key, control]) => modelPickerEditedKeys.has(key) && control.value !== selected[key]).map(([key]) => key);
     modelPickerEditedKeys.clear();
+    for (const key of newerPerformance) modelPickerEditedKeys.add(key);
+    forgetExecutionDraft(selected);
     rememberModelChoice(selected.model_id);
     receiveStatus(status, Date.now());
     // No switch in the background: no revision of its own will come.
     if (!status.switching) modelOwnSwitch = null;
-    modelPickerMessage = modelSavedMessage(selected, before, { load, wasReady, startup: status.load_on_startup });
+    modelPickerMessage = modelSavedMessage(selected, before, { load, wasReady, startup: status.load_on_startup })
+      + (newerPerformance.length ? ' Your newer performance choices remain unsaved.' : '');
     // An earlier press's refusal ("wait for it to finish") is answered now;
     // the error line must not go on saying it beside the switch it allowed.
     if (modelSwitchRefusal && els.error.textContent === modelSwitchRefusal) showError('');

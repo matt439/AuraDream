@@ -8,6 +8,7 @@ from __future__ import annotations
 
 import dataclasses
 import io
+import os
 import signal
 import sys
 
@@ -17,6 +18,15 @@ import backend.backends as backends
 from backend import config, gallery_lock, generate, storage
 
 from tests.fakes import FakeBackend
+
+
+@pytest.fixture(autouse=True)
+def isolated_execution_environment(monkeypatch):
+    # apply_env writes directly; record original absence before each test so
+    # new explicit flags cannot leak into another local or remote invocation.
+    for name in ("LOCAL_DIFFUSION_COMPILATION", "LOCAL_DIFFUSION_ATTENTION", "LOCAL_DIFFUSION_LOADER_EXECUTION_ERROR"):
+        monkeypatch.setenv(name, os.environ.get(name, ""))
+        monkeypatch.delenv(name, raising=False)
 
 
 @pytest.fixture
@@ -37,6 +47,65 @@ def cli(store, monkeypatch):
 
 
 SIZE = ["--width", "256", "--height", "256"]
+
+
+@pytest.mark.parametrize("flags", [
+    ["--compilation", "regional-v1"], ["--attention", "cudnn-v1"], ["--step-cache", "fbc-005-v1"],
+])
+@pytest.mark.parametrize("remote", [False, True])
+def test_unavailable_cli_recipe_refuses_before_files_project_or_network(monkeypatch, capsys, flags, remote):
+    def forbidden(*_args, **_kwargs):
+        pytest.fail("unavailable execution reached source, project or network work")
+    for name in ("_image_settings", "_mask_file", "_project", "_server_json"):
+        monkeypatch.setattr(generate, name, forbidden)
+    with pytest.raises(SystemExit) as stopped:
+        generate.main(["a fox", "--from-image", "must-not-read.png", *flags, *( ["--via-server"] if remote else [])])
+    assert stopped.value.code == 2
+    assert "not available" in capsys.readouterr().err
+
+
+@pytest.mark.parametrize("value", ["", "fixed invalid profile"])
+@pytest.mark.parametrize("replace_flags", [[], ["--compilation", "eager", "--attention", "native"]])
+def test_cli_error_marker_presence_always_refuses_before_files(monkeypatch, capsys, value, replace_flags):
+    monkeypatch.setenv("LOCAL_DIFFUSION_LOADER_EXECUTION_ERROR", value)
+    def forbidden(*_args, **_kwargs):
+        pytest.fail("invalid startup intent reached a source read")
+    monkeypatch.setattr(generate, "_image_settings", forbidden)
+    with pytest.raises(SystemExit) as stopped:
+        generate.main(["--from-image", "must-not-read.png", *replace_flags])
+    assert stopped.value.code == 2
+    assert "configuration is invalid" in capsys.readouterr().err
+
+
+@pytest.mark.parametrize("variable,value", [
+    ("LOCAL_DIFFUSION_COMPILATION", "regional-v1"), ("LOCAL_DIFFUSION_ATTENTION", "cudnn-v1"),
+    ("LOCAL_DIFFUSION_COMPILATION", "private invalid fixture"),
+])
+def test_cli_environment_intent_is_not_ignored_or_echoed_before_source_reads(monkeypatch, capsys, variable, value):
+    monkeypatch.setenv(variable, value)
+    def forbidden(*_args, **_kwargs):
+        pytest.fail("environment execution intent reached a source read")
+    monkeypatch.setattr(generate, "_image_settings", forbidden)
+    with pytest.raises(SystemExit) as stopped:
+        generate.main(["--from-image", "must-not-read.png"])
+    assert stopped.value.code == 2
+    # Argparse legitimately lists known recipe names in its static usage.
+    # The actual diagnostic must not interpolate any environment value.
+    diagnostic = capsys.readouterr().err.rsplit(": error: ", 1)[-1]
+    assert value not in diagnostic
+
+
+def test_local_cli_snapshot_is_checked_before_gallery_sources(cli, store, monkeypatch, capsys):
+    from backend.execution import ExecutionSpec
+    monkeypatch.setattr(config, "settings", dataclasses.replace(
+        store.settings, loader_execution=ExecutionSpec(compilation="regional-v1"),
+    ))
+    def forbidden(*_args, **_kwargs):
+        pytest.fail("unavailable local configuration reached gallery/source work")
+    monkeypatch.setattr(generate, "_check_carried_source", forbidden)
+    assert generate.main(["a fox", *SIZE]) == 2
+    assert "not available" in capsys.readouterr().err
+    assert cli.loads == 0 and cli.requests == []
 
 
 def test_size_axis_cli_crosses_pairs_and_resumes_per_canvas(cli, store, capsys):
@@ -1335,6 +1404,27 @@ def test_via_server_queues_the_plain_body_and_prints_each_url_seed_once(via_serv
     }
     assert headers["X-Local-Diffusion-Model-Revision"] == str(main.model_selection.revision())
     assert via_server.backend.seeds == [41, 43, 45]
+
+
+def test_via_server_refuses_configured_recipe_after_status_before_any_reference_or_generate(via_server, capsys):
+    from backend import main
+    from backend.execution import ExecutionSpec
+    main.model_selection.select(
+        "black-forest-labs/FLUX.1-Krea-dev", quantization="fp8", offload="model",
+        loader_execution=ExecutionSpec(compilation="regional-v1"),
+    )
+    assert generate.main(["a fox", "--via-server", *SIZE, "--reference", "99", "-q"]) == 2
+    assert [call[1] for call in via_server.calls] == ["/api/status"]
+    assert via_server.backend.loads == 0 and via_server.backend.requests == []
+    assert "not available" in capsys.readouterr().err
+
+
+def test_via_server_explicit_eager_flags_remain_explicit_in_the_request(via_server):
+    assert generate.main(["a fox", "--via-server", *SIZE, "--steps", "1", "--compilation", "eager",
+                          "--attention", "native", "--step-cache", "off", "-q"]) == 0
+    body = next(call[2] for call in via_server.calls if call[1] == "/api/generate")
+    assert "execution" in body and body["execution"] is None
+    assert "execution" in via_server.backend.requests[0].model_fields_set
 
 
 def test_via_server_uses_the_selected_servers_profile_when_flags_are_omitted(via_server, capsys):

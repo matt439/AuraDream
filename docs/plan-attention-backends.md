@@ -1,9 +1,19 @@
 # Plan: native and cuDNN attention on FLUX.1
 
 **Status, 2026-10-26: shared carry, private processor/loader/call ownership and
-cold external-override diagnostics and request candidate checks are implemented.** Public selection/admission, effective environment policy and separately approved card
+cold external-override diagnostics, request candidate checks and unavailable
+selector/persistence/status/UI source are implemented.** Effective runtime
+environment policy, real nonempty admission and separately approved card
 qualification remain `PERF#3`. This is the
 bounded next slice from [R3](review-2026-10-25.md#r3-attention-backend).
+
+The shared [unavailable configuration stage](plan-regional-compilation.md#unavailable-performance-configuration)
+adds inspectable Native/cuDNN intent without changing global attention state.
+Compatible intent can be saved, but Load/render always refuse it; omission,
+explicit Eager replacement, revision, startup and rollback semantics are shared
+with compilation. This does not claim effective imported environment precedence
+or qualify any native/cuDNN runtime. Browser validation has the actual Windows
+access limitation recorded in [tooling](plan-tooling.md#browser-smokes-in-ci).
 No package installation, model load, tensor allocation or GPU operation
 was used to prepare this plan. No speed default changes.
 

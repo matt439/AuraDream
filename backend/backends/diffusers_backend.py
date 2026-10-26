@@ -33,8 +33,8 @@ from .. import compiler_cache, latent_preview, loras, refine
 from ..model_selection import current_model_id, current_settings
 from ..config import ATTENTION_ENVIRONMENT_WARNING, settings
 from ..execution import (
-    CompilerMetadata, ExecutionSpec, attention_candidate_reason, cache_candidate_reason, canonical_execution, compiler_metadata, regional_candidate_reason,
-    require_default_execution,
+    CompilerMetadata, ExecutionSpec, attention_candidate_reason, cache_candidate_reason, canonical_execution, canonical_loader_execution, compiler_metadata, regional_candidate_reason,
+    require_configured_loader_available, require_default_execution,
 )
 from ..model_defaults import INPAINT_DEFERRED, defaults_for, inpaint_family, inpaint_start
 from ..seeds import wrap_seed
@@ -310,8 +310,11 @@ class DiffusersBackend(GenerationBackend):
     # ---------------------------------------------------------------- loading
 
     def load(self) -> None:
-        # No public loader or selection can request a nonempty recipe yet.
-        self._load_prepared(None)
+        # Configuring a recipe does not grant permission to load it or silently
+        # substitute Eager, including when old working weights are still ready.
+        selected = current_settings(settings)
+        require_configured_loader_available(selected)
+        self._load_prepared(canonical_loader_execution(getattr(selected, "loader_execution", None)))
 
     def _load_prepared(self, execution: ExecutionSpec | None) -> None:
         """Private preparation path, also used by every ordinary eager load.
@@ -658,6 +661,7 @@ class DiffusersBackend(GenerationBackend):
 
     def _require_execution(self, request: GenerateRequest) -> None:
         require_default_execution(request.execution)
+        require_configured_loader_available(current_settings(settings))
         # Private prepared state cannot make an ordinary Eager request run
         # compiled code, even if it bypassed the closed selection surface.
         require_default_execution(self._loaded_execution)

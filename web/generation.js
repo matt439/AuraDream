@@ -61,6 +61,7 @@ function collect() {
     // Never a refine pass: that is the Refine dialog's (refine.js), so
     // Generate, the grid and the comparison always render from the prompt.
     refine: null,
+    execution: composerExecution(),
     seed: seed === '' ? null : +seed,
     num_images: +els.batch.value,
     runs: +els.runs.value,
@@ -264,17 +265,17 @@ function sayJob(text) {
 // neither: the server queues behind it.
 const GENERATE_TITLE = els.generate.title;
 const GRID_RUN_TITLE = els.gridRun.title;
-function submitHold() {
+function submitHold({ composer = false } = {}) {
   return serverOffline ? 'The server is not answering'
     : bundleHold() ? bundleHold()
     : modelChangeHold() ? modelChangeHold()
     : expandingPrompt ? 'Wait for prompt expansion to finish'
     : critiquing ? 'Wait for the critic to finish'
-    : '';
+    : composer ? executionSubmitHold() : executionLoadHold();
 }
 
 function syncSubmitButtons() {
-  const why = submitHold();
+  const why = submitHold({ composer: true });
   const held = String(submitting || !!why);
   els.generate.setAttribute('aria-disabled', held);
   els.gridRun.setAttribute('aria-disabled', held);
@@ -353,6 +354,9 @@ async function startJob(path, payload, {
   // behind it on the server anyway, but a click that seems to do nothing for
   // fifteen seconds reads as a lost one.
   if (critiquing) { showError('Wait for the critic to finish.', false, { slot }); return; }
+  const recipe = payload.execution;
+  const executionWhy = executionLoadHold() || (recipe && Object.values(recipe).some((value) => value != null) ? EXECUTION_UNAVAILABLE : '');
+  if (executionWhy) { showError(executionWhy, false, { slot }); return; }
   // A re-render carries no prompt of its own - every cell brings its record's.
   if ('prompt' in payload && !payload.prompt) { showError('Enter a prompt first.'); return; }
   // A double holds every integer only up to 2^53 - 1: a Seed typed past it -
@@ -538,6 +542,7 @@ async function dropRefusedLora(err, path, payload, slot) {
 // Run grid's press. The same pattern as grid.PLACEHOLDER.
 const GRID_PLACEHOLDER = /\{[A-Za-z_]\w*\}/;
 function generate() {
+  if (refuseComposerExecution()) return undefined;
   if (refuseBadNumber(panelNumberInputs())) return undefined;
   const body = collect();
   if (els.gridSection.open && els.gridPrompt.value.trim()

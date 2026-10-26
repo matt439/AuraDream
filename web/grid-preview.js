@@ -43,6 +43,7 @@ function gridNumberInputs() {
 }
 
 function runGrid() {
+  if (refuseComposerExecution()) return undefined;
   if (refuseBadNumber(gridNumberInputs())) return undefined;
   return startJob('/api/grid', gridPayload());
 }

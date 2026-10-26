@@ -6,7 +6,7 @@ from __future__ import annotations
 
 from typing import Literal
 
-from pydantic import BaseModel, Field
+from pydantic import BaseModel, Field, field_serializer
 
 from .config import settings
 from .execution import ExecutionSpec
@@ -144,8 +144,8 @@ class ModelSwitchRequest(BaseModel):
     format: Literal["nvfp4", "int4"] | None = None
     load_on_startup: bool | None = None
     load: bool = True
-    # Parse the shared extension instead of silently dropping an explicit
-    # recipe. Selection validation still refuses every nonempty execution.
+    # Omission preserves loader intent; explicit empty selects Eager/native.
+    # Only load=false may save a supported but unavailable loader recipe.
     execution: ExecutionSpec | None = None
 
 
@@ -165,6 +165,16 @@ class ModelStatus(BaseModel):
     model_id: str
     quantization: str
     offload: str
+    execution: ExecutionSpec | None = None
+    execution_available: bool = True
+    execution_unavailable_reason: str | None = None
+    execution_configuration_reason: str | None = None
+    execution_options: dict[str, list[dict]] = Field(default_factory=dict)
+
+    @field_serializer("execution")
+    def _compact_execution(self, value: ExecutionSpec | None) -> dict | None:
+        return value.model_dump(exclude_none=True) if value is not None else None
+
     format: str = "nvfp4"
     load_on_startup: bool = False
     # The saved choices this start's flags or environment set aside, as

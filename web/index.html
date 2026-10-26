@@ -52,6 +52,8 @@
       <div class="model-loader-options">
         <div><label for="model-quantization">Quantization</label><select id="model-quantization" autocomplete="off" aria-describedby="model-quantization-help"></select><p class="model-loader-help" id="model-quantization-help"></p></div>
         <div><label for="model-offload">Offload</label><select id="model-offload" autocomplete="off" aria-describedby="model-offload-help"></select><p class="model-loader-help" id="model-offload-help"></p></div>
+        <div><label for="model-compilation">Compilation</label><select id="model-compilation" autocomplete="off" aria-describedby="model-compilation-help"><option value="">Eager</option><option value="regional-v1">Regional v1 (unavailable)</option></select><p class="model-loader-help" id="model-compilation-help"></p></div>
+        <div><label for="model-attention">Attention</label><select id="model-attention" autocomplete="off" aria-describedby="model-attention-help"><option value="">Native (default)</option><option value="cudnn-v1">cuDNN v1 (unavailable)</option></select><p class="model-loader-help" id="model-attention-help"></p></div>
       </div>
       <!-- The help sits outside the label, so it describes the select without
            also joining its name. -->
@@ -417,6 +419,12 @@
           <input type="number" id="true-cfg" min="1" max="20" step="0.1" placeholder="off" aria-describedby="true-cfg-tip">
         </div>
       </div>
+    </div>
+
+    <div class="execution-cache-row">
+      <label for="step-cache">Step cache</label>
+      <select id="step-cache" aria-describedby="step-cache-note"><option value="">Off</option><option value="fbc-005-v1">FBC 0.05 v1 (unavailable)</option></select>
+      <span id="step-cache-note" class="sr-only">Off. FBC 0.05 v1 is experimental and unavailable in this build.</span>
     </div>
 
     <!-- What a press makes, under a caption of its own as Sampling's (shown
@@ -1840,6 +1848,7 @@
 </dialog>
 
 <script src="/static/state.js"></script>
+<script src="/static/execution.js"></script>
 <script src="/static/sizes.js"></script>
 <script src="/static/status.js"></script>
 <script src="/static/model-switch.js"></script>

@@ -28,6 +28,10 @@ UNAVAILABLE = (
     "Execution recipes are not available in this build; "
     "use Eager, native attention and no step cache."
 )
+INVALID_LOADER_CONFIGURATION = (
+    "The saved or startup performance configuration is invalid; choose and save "
+    "valid loading options or restart with --defaults."
+)
 
 
 def canonical_execution(value: object) -> ExecutionSpec | None:
@@ -75,6 +79,101 @@ def require_default_execution(value: object) -> None:
     reason = unavailable_reason(value)
     if reason is not None:
         raise ValueError(reason)
+
+
+def canonical_loader_execution(value: object) -> ExecutionSpec | None:
+    """Loader intent excludes the composer's per-render step-cache choice."""
+    spec = canonical_execution(value)
+    if spec is not None and spec.step_cache is not None:
+        raise ValueError("Step caching is a per-render choice, not a model loading option.")
+    return spec
+
+
+def loader_execution_from_choices(compilation: str | None, attention: str | None) -> ExecutionSpec | None:
+    """Named command/environment controls, with explicit Eager/native defaults."""
+    if compilation not in (None, "eager", "regional-v1") or attention not in (None, "native", "cudnn-v1"):
+        raise ValueError(INVALID_LOADER_CONFIGURATION)
+    return canonical_loader_execution(ExecutionSpec(
+        compilation="regional-v1" if compilation == "regional-v1" else None,
+        attention_backend="cudnn-v1" if attention == "cudnn-v1" else None,
+    ))
+
+
+def loader_configuration_reason(
+    value: object, *, model_id: str, quantization: str, offload: str, device: str,
+) -> str | None:
+    """Pure configurable first-slice limits, separate from execution permission.
+
+    A structurally valid configuration may be saved without an installed
+    compiler or a qualified card. Neither fact grants permission to load it.
+    """
+    spec = canonical_loader_execution(value)
+    if spec is None:
+        return None
+    if spec.compilation is not None and spec.attention_backend is not None:
+        return "Compilation and nonnative attention cannot be combined in the first experiment."
+    return _configuration_placement_reason(model_id, quantization, offload, device)
+
+
+def _configuration_placement_reason(model_id: str, quantization: str, offload: str, device: str) -> str | None:
+    if model_id != "black-forest-labs/FLUX.1-Krea-dev":
+        return "Experimental recipes require FLUX.1 Krea dev."
+    if quantization != "fp8" or offload != "model":
+        return "Experimental recipes require fp8 quantization and model offload."
+    kind, separator, index = device.partition(":")
+    if kind != "cuda" or (separator and not (index.isascii() and index.isdecimal())):
+        return "Experimental recipes require a CUDA device."
+    return None
+
+
+def loader_unavailable_reason(value: object) -> str | None:
+    """Saved loader intent is never evidence of executable runtime support."""
+    return unavailable_reason(canonical_loader_execution(value))
+
+
+def require_loader_available(value: object) -> None:
+    reason = loader_unavailable_reason(value)
+    if reason is not None:
+        raise ValueError(reason)
+
+
+def configured_loader_unavailable_reason(configuration: object) -> str | None:
+    """One explicit snapshot, including an unusable saved/startup intent.
+
+    Older synthetic/custom settings have no execution fields and mean Eager.
+    An invalid intent must never become that default merely because no valid
+    specification could be recovered. Diagnostic payloads are never echoed.
+    """
+    if getattr(configuration, "loader_execution_error", None) is not None:
+        return INVALID_LOADER_CONFIGURATION
+    try:
+        return loader_unavailable_reason(getattr(configuration, "loader_execution", None))
+    except (ValueError, TypeError):
+        return INVALID_LOADER_CONFIGURATION
+
+
+def require_configured_loader_available(configuration: object) -> None:
+    reason = configured_loader_unavailable_reason(configuration)
+    if reason is not None:
+        raise ValueError(reason)
+
+
+def step_cache_configuration_reason(
+    value: object, *, loader_execution: object = None, model_id: str,
+    quantization: str, offload: str, device: str,
+) -> str | None:
+    """Pure composer configuration limits; all nonempty cache calls stay closed."""
+    spec = canonical_execution(value)
+    if spec is None:
+        return None
+    if spec.compilation is not None or spec.attention_backend is not None:
+        return "The per-render step-cache choice cannot replace model loading options."
+    if canonical_loader_execution(loader_execution) is not None:
+        return "Step caching cannot be combined with compilation or nonnative attention."
+    # The initial cache and loader experiments share the same structural
+    # model/placement limits. This checks configuration only, never metadata,
+    # device availability, an imported attention dispatcher or real cache APIs.
+    return _configuration_placement_reason(model_id, quantization, offload, device)
 
 
 @dataclass(frozen=True)

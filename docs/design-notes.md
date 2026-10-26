@@ -289,9 +289,22 @@ press's own refusal, Expand's pointer (`loadLine`), the status's sentence
 
 ## Switching checkpoints while the server stays open
 
+**Unavailable performance intent (2026-10-26).** Models can now inspect/save
+compilation and attention recipes without granting their execution. The runtime
+snapshot also owns canonical loader intent and any fixed invalid-startup diagnostic;
+an execution-only change participates in revision, unload and exact-byte rollback.
+V2 startup preferences read v1 as Eager; omission preserves intent and an explicit
+empty recipe chooses Eager/native. Separate per-render FBC lives in composer
+settings with Reset/Reuse/Undo. All nonempty load/render admission remains closed,
+including legacy clients omitting execution and already-ready Eager weights.
+The [configuration owner](plan-regional-compilation.md#unavailable-performance-configuration)
+records these source changes and their validation limits; this changes no global
+attention setting or measured model capability.
+
 The browser's **Models > Switch & load** selects another catalogue checkpoint
 without restarting the process (2026-10-08). Startup `Settings` remains frozen;
-`model_selection` owns one immutable `(model_id, revision, quantization, offload)` snapshot, and
+`model_selection` owns one immutable checkpoint/revision/quantization/offload
+snapshot with canonical loader intent and its startup diagnostic, and
 `current_model_id(settings)` supplies the model to defaults, the loader, jobs,
 saved metadata, resume lookups and gallery scope. `current_settings(settings)`
 supplies a frozen copy with the effective loader options. Quantization and

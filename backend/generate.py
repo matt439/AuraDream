@@ -108,6 +108,10 @@ def _build_parser() -> argparse.ArgumentParser:
     )
     shift.add_argument("--no-mu", action="store_true", help="let the pipeline pick its own shift")
     sampling.add_argument("--seed", type=int, help="base seed; random when omitted")
+    sampling.add_argument(
+        "--step-cache", choices=("off", "fbc-005-v1"),
+        help="per-render cache recipe (off by default; nonempty recipes remain unavailable)",
+    )
 
     conditioning = parser.add_argument_group("conditioning")
     conditioning.add_argument(
@@ -842,6 +846,36 @@ def _server_json(base: str, path: str, *, body=None, data=None, headers=None, ti
     return answer
 
 
+def _cli_execution_intent(args) -> bool:
+    """Refuse before local image/project reads; retain explicit Eager intent."""
+    import os
+
+    from backend.execution import (
+        ExecutionSpec, INVALID_LOADER_CONFIGURATION, loader_execution_from_choices,
+        require_default_execution,
+    )
+
+    compilation = getattr(args, "compilation", None)
+    attention = getattr(args, "attention", None)
+    # This internal diagnostic is invalid even when its value is empty.
+    # Generation flags do not repair a saved startup profile or its marker.
+    if "LOCAL_DIFFUSION_LOADER_EXECUTION_ERROR" in os.environ:
+        raise ValueError(INVALID_LOADER_CONFIGURATION)
+    spec = loader_execution_from_choices(
+        compilation if compilation is not None else os.getenv("LOCAL_DIFFUSION_COMPILATION"),
+        attention if attention is not None else os.getenv("LOCAL_DIFFUSION_ATTENTION"),
+    )
+    cache = getattr(args, "step_cache", None)
+    if cache not in (None, "off"):
+        values = {} if spec is None else spec.model_dump(exclude_none=True)
+        spec = ExecutionSpec(**{**values, "step_cache": cache})
+    require_default_execution(spec)
+    return (
+        compilation is not None or attention is not None or cache is not None
+        or "LOCAL_DIFFUSION_COMPILATION" in os.environ or "LOCAL_DIFFUSION_ATTENTION" in os.environ
+    )
+
+
 def _via_server(args, parser, source, carried, mask_image, width, height, sized, outpaint_sides) -> int:
     """Script the public API; all model defaults and admission stay server-owned."""
     import io
@@ -891,6 +925,14 @@ def _via_server(args, parser, source, carried, mask_image, width, height, sized,
             raise _ServerError("the server's status has no checkpoint/loading settings")
         if status.get("switching"):
             raise _ServerError("the checkpoint is switching; wait for the switch to finish", 409)
+        from backend.execution import configured_loader_unavailable_reason
+
+        reason = configured_loader_unavailable_reason(SimpleNamespace(
+            loader_execution=status.get("execution"),
+            loader_execution_error=(True if status.get("execution_available") is False and not status.get("execution") else None),
+        ))
+        if reason is not None:
+            raise _ServerError(reason, 422)
         for value, key, flag, env in (
             (args.model, "model_id", "--model", "LOCAL_DIFFUSION_MODEL_ID"),
             (args.quant, "quantization", "--quant", "LOCAL_DIFFUSION_QUANT"),
@@ -954,6 +996,8 @@ def _via_server(args, parser, source, carried, mask_image, width, height, sized,
         body = {"prompt": args.prompt, "negative_prompt": args.negative,
                 "width": width, "height": height, "num_images": args.batch, "runs": args.runs,
                 "reference": references, "lora": args.lora, "lora_scale": args.lora_scale}
+        if source is not None or getattr(args, "execution_explicit", False):
+            body["execution"] = None  # Explicit Eager replay/flags must not become inherited intent.
         if args.crop_anchor is not None:
             body["crop_anchor"] = args.crop_anchor
         if args.upscaler not in (None, "lanczos"):
@@ -1076,6 +1120,10 @@ def main(argv: list[str] | None = None) -> int:
         reconfigure(encoding="utf-8", errors="backslashreplace")
     parser = _build_parser()
     args = parser.parse_args(argv)
+    try:
+        args.execution_explicit = _cli_execution_intent(args)
+    except ValueError as exc:
+        parser.error(str(exc))
     args.reference_given = bool(args.reference)
     # A mask hash carried from --from-image's record, where --mask names none;
     # the record's refine source's identity, and whether its strength carried.
@@ -1154,6 +1202,13 @@ def main(argv: list[str] | None = None) -> int:
     if args.via_server:
         return _via_server(args, parser, source, carried, mask_image, width, height, sized, outpaint_sides)
     p = _project()
+    from backend.execution import require_configured_loader_available
+
+    try:
+        require_configured_loader_available(p.settings)
+    except ValueError as exc:
+        print(str(exc), file=sys.stderr)
+        return 2
     if _check_carried_source(args, p, parser):
         inpainting = False
         outpaint_sides = None
@@ -1329,6 +1384,7 @@ def main(argv: list[str] | None = None) -> int:
             seed=seed,
             num_images=args.batch,
             runs=args.runs,
+            **({"execution": None} if source is not None or args.execution_explicit else {}),
         )
         # A batch past the budget is told the flag to use instead, which on a
         # grid - whose seeds are its runs - is a smaller --batch.

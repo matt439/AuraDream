@@ -1,13 +1,94 @@
 # Plan: regional compilation of FLUX.1
 
 **Status, 2026-10-26: CPU contracts, persisted carry, private loader/call wiring,
-backend publication/teardown and startup compiler-cache ownership are implemented.
-Public selection/admission, optional toolchain setup and card qualification remain
+backend publication/teardown, startup compiler-cache ownership and unavailable
+selector/settings/status/UI source are implemented. Real nonempty admission,
+optional toolchain setup and card qualification remain
 `PERF#1`.** This is the next slice from
 [R1](review-2026-10-25.md#r1-compile-the-denoisers-repeated-blocks), not a
 speed result or approval to load a model. No package, model or compiler was
 installed. The isolated CPU policy probe and its earlier native-CUDA initialization
 failure are recorded below; no model or GPU generation was run.
+
+## Unavailable performance configuration
+
+Models now offers inspectable Eager/Regional v1 and Native/cuDNN v1 choices.
+`Settings.loader_execution` and one immutable selection snapshot retain their
+canonical named intent. V2 startup preferences read legacy v1 as Eager, preserve
+explicit overrides and write the recipe atomically. Named `--compilation`/
+`--attention` flags and matching app-owned environment variables carry the same
+choices; none changes global Diffusers attention settings. Per-render FBC stays
+in composer settings instead of becoming a loader option.
+
+Configuration and execution are deliberately distinct. `load=false` may save
+a structurally compatible unavailable recipe; unsupported model/placement or
+stacked recipes are refused with their chosen values intact. Save configuration
+does not download or load. Omission retains the current loader recipe, whereas
+explicit null/empty chooses Eager/native. An execution-only change participates
+in unload, equality, revision, stale-tab refusal and rollback. Descriptor workers
+read one frozen snapshot, rather than mixing a concurrent switch into option rows.
+
+Every real load/render boundary still refuses nonempty intent, even when working
+Eager weights are already ready or a request omits execution. Queue checks precede
+stamps/holds/retained work; public backend load forwards only after its closed
+availability guard. Pure codecs and record normalization remain independent of
+runtime selection. Request/base/grid construction retains omission versus an
+explicit Eager replay, and normalization never erases a known recipe if a future
+caller has independently established availability. CLI flags/environment refuse
+before source/project reads; the remote CLI checks server intent before reference
+lookups and preserves explicit Eager flags/replay on the wire.
+
+Malformed execution-bearing saved preferences or explicit environment choices
+keep a fixed diagnostic and refuse loading/rendering instead of falling back to
+Eager. Exact bounded prior bytes, including invalid preferences, survive failed
+repair before selection. Explicit valid replacement or `--defaults` can repair
+the configuration. No saved profile, browser draft or automatic-start checkbox
+grants runtime permission or actual qualification.
+
+The browser says configuration only and holds Load/Generate with a reason. Drafts
+survive polling, reload, another tab's placement changes and edits during Save.
+FBC persists per browser and participates in Reset/Reuse/Undo; nonempty recorded
+recipes retain their existing held Reuse behavior. Known choices remain off by
+default. The four unrelated product decisions stay undecided.
+
+Unknown or malformed browser performance choices are also retained: fixed
+placeholders and action holds never serialize arbitrary payload into labels,
+URLs or requests. Explicit replacement/Revert/Off resolves that intent; Reset,
+Eager Reuse and Undo deliberately replace or restore it. The final 84-step smoke
+contains these cases, but they remain unrun after the actual browser denial.
+
+Focused execution/storage/replay/grid/CLI/map checks passed 574 cases before two
+new assertion-only failures; the corrected CLI/admission group then passed all
+155. Selector/model APIs passed before an oversized parameter-ID fixture hit a
+Windows environment-length limit; the final startup/preferences group passed
+123 cases after short IDs, without changing payloads or assertions. Independent
+backend/admission/UI source review is clear. The browser/visual limitation is
+recorded in [tooling](plan-tooling.md#browser-smokes-in-ci): one diagnostic run
+reached 74 steps and five inspected screenshots, but the corrected final smoke
+was blocked before step 1 by an actual Windows access denial. No full browser,
+GPU, memory, speed, pixels or quality acceptance is claimed.
+
+Final CPU/source validation passed **5,490 tests, seven platform skips and 75
+existing warnings** in **273.85 seconds**, with two workers. This explicitly
+excluded every `tests/test_browser*.py` file and `tests/test_run_smoke.py`; it is
+not a claim that the normal whole-suite/browser gate passed. A separate cold
+Node/output/map group passed **60 checks** without a real browser, and all
+**53 classic scripts** passed the syntax/shared-scope guard. Whole-scope pinned
+Pyright checked **128 sources with zero errors/warnings**, and repository Ruff
+passed. An initial broader command was rejected by automatic approval review
+before execution over browser-launch risk; the narrower scope was accepted.
+All test processes closed, and no denied browser action was retried.
+
+**Remaining source before qualification.** Preserve the new distinction between
+omitted composer intent and an explicit Eager replay in a runtime resolver: stamp
+the selected loader recipe for a fresh composer, require equality for a replay,
+and reject unsupported loader/cache combinations without conversion. Availability
+and portable record codecs remain separate checks; synthetic tests can cover all
+of these cases with public rendering closed. Registration/first-call diagnostics
+also need a bounded path into backend/Models/job status, including failure,
+cancellation and unload/reset. A registration or successful first call must not
+be described as a proven warm kernel or disk-cache hit. These are implementation
+steps under this owner, not a request for another source-work approval.
 
 ## CPU contracts, admission and persisted carry
 

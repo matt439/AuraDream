@@ -144,6 +144,8 @@ in order, sharing one global scope; only `app.js`, the last, runs anything.
 `style.css` (tokens, base) then `styles/*.css` in link order - keep that
 cascade. `docs/rules.md`'s Layout maps every file; `docs/source-audit.md`
 records the split audits.
+`execution.js` owns inspectable performance controls and unavailable-recipe
+holds; configuring a recipe never enables its loading or rendering.
 
 Also: `tools/` (fake server, headless-browser smokes), `tests/`, `wsl/`,
 `docs/`.
@@ -415,6 +417,7 @@ node tools/browser.mjs tools/<smoke>.json
 | 7927 | FLUX.1-Krea-dev, fresh scratch `--data` | `smoke-automatic-backup` |
 | 7928 | FLUX.1-Krea-dev, fresh scratch `--data` | `smoke-retention` |
 | 7929 | FLUX.1-Krea-dev, fresh scratch `--data` | `smoke-credential` |
+| 7930 | FLUX.1-Krea-dev, fresh scratch `--data` | `smoke-execution-selector` |
 
 FLUX.1-Krea-dev is `black-forest-labs/FLUX.1-Krea-dev`; animagine is
 `cagliostrolab/animagine-xl-4.0`.

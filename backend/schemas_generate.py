@@ -21,7 +21,7 @@ from pydantic_core import PydanticCustomError
 from . import outpaint as outpaint_rules
 from .model_selection import current_model_id
 from .config import settings
-from .execution import ExecutionSpec, require_default_execution
+from .execution import ExecutionSpec, canonical_execution, require_default_execution
 from .model_defaults import defaults_for, inpaint_family, inpaint_start
 from .refine import DEFAULT_STRENGTH, Upscaler, leaves_a_step, upscaler_supported
 from .seeds import MAX_BATCH, MAX_GRID_SEEDS, MAX_RUNS, MAX_SEED
@@ -491,7 +491,9 @@ class GenerateRequest(BaseModel):
         require_default_execution(self.execution)
         changes: dict[str, Any] = {}
         if self.execution is not None:
-            changes["execution"] = None  # The only available execution is empty.
+            # Availability is checked above. Normalization canonicalizes an
+            # empty spelling; it must never erase a known admitted recipe.
+            changes["execution"] = canonical_execution(self.execution)
         negative = self.negative_prompt or None
         scale = self.true_cfg if true_cfg_supported else self.guidance_scale
         if negative and (
@@ -629,7 +631,10 @@ class GenerateSubmission(GenerateRequest):
 
     def base(self) -> GenerateRequest:
         """The request alone, as the cells carry it."""
-        return GenerateRequest.model_validate(self.model_dump(exclude={"then_refine"}))
+        exclude = {"then_refine"}
+        if "execution" not in self.model_fields_set:
+            exclude.add("execution")
+        return GenerateRequest.model_validate(self.model_dump(exclude=exclude))
 
 
 class PromptVariant(BaseModel):

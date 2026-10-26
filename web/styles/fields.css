@@ -148,6 +148,13 @@ textarea:focus, input:where(:not([type="checkbox"], [type="radio"])):focus { out
    padding: beside a wider CFG the others are 62 px, and Mu's "auto" was cut
    to "aut" by the spinner. */
 .sampling-row input { padding-left: 6px; padding-right: 2px; }
+.execution-cache-row { display: flex; flex-wrap: wrap; align-items: center; gap: var(--sp-2); font-size: var(--fs-sm); }
+.execution-cache-row > span:not(.sr-only) { flex-basis: 100%; color: var(--warn); overflow-wrap: anywhere; }
+.execution-cache-row select {
+  flex: 1; min-width: 0; height: var(--h-sm); padding: 0 var(--sp-2);
+  color: var(--text); background: var(--panel-2); border: 1px solid var(--line-strong);
+  border-radius: var(--r-sm); font: inherit;
+}
 /* The seed's dice, in the Seed name's line rather than the row: there it was
    a 41 px square that, with its gap, took the room of six digits, and at
    1400 the box showed eleven of a seed's sixteen. Now the box has the row

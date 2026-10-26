@@ -22,7 +22,7 @@ from . import gallery_lock, storage
 from .backends import Cancelled, GenerationBackend
 from .model_selection import current_settings
 from .config import settings
-from .execution import require_default_execution
+from .execution import require_configured_loader_available, require_default_execution
 from .grid import Cell, CellKey, cell_keys, progress_steps, run_id as _run_id
 from .latent_preview import data_url
 from .more_seeds_intents import IntentLedger
@@ -771,8 +771,9 @@ class JobManager:
         # deliberately cannot go through whole-request validation again.
         for cell in cells:
             require_default_execution(cell.request.execution)
-        self._loop = asyncio.get_running_loop()
         selected = current_settings(settings)
+        require_configured_loader_available(selected)
+        self._loop = asyncio.get_running_loop()
         raw_cells = list(cells)
         # An outpaint's mask, built and stored before anything reads the
         # cells - the job's own list, its request, the holds below - so the

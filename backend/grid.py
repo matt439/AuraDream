@@ -1104,6 +1104,8 @@ def expand(
     # the schema, not a wrap, decides whether it is one.
     seed_values = seed_list or [wrap_seed(base + index * request.num_images) for index in range(seeds)]
     template = request.model_dump()
+    if "execution" not in request.model_fields_set:
+        template.pop("execution", None)
     if variables is not None:
         # Validate listed bases before wrapping their image offsets; a typo'd
         # negative or oversized base must not become a valid wrapped seed.

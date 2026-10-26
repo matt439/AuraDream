@@ -17,6 +17,7 @@ function fillPanel(rec, sampling) {
   promptReplaced();
   els.seed.value = rec.seed;
   if (!sampling) return;
+  setStepCache('');
   ownControls();
   els.steps.value = rec.steps;
   els.cfg.value = rec.guidance_scale;
@@ -95,6 +96,7 @@ function reuseFields() {
     width: els.width.value, height: els.height.value,
     steps: els.steps.value, cfg: els.cfg.value, mu: els.mu.value, trueCfg: els.trueCfg.value,
     owned: { ...owned }, reference: [...referenceIds], lora: els.lora.value || pendingLora, loraScale: els.loraScale.value,
+    stepCache: stepCacheValue(),
   };
 }
 
@@ -140,6 +142,8 @@ function reuseIntoPanel(rec, withSize, note = '', { name = `#${rec.id}`, samplin
   syncConditioning();
   revealActiveSetup();
   syncRuns();
+  syncExecutionControls();
+  syncSubmitButtons();
   schedulePreview();
   scheduleTagValidation(0);
   persistPanel();
@@ -313,6 +317,7 @@ function undoReuse(note) {
   els.cfg.value = values.cfg;
   els.mu.value = values.mu;
   els.trueCfg.value = values.trueCfg;
+  setStepCache(Object.hasOwn(state, 'stepCache') ? state.stepCache : '');
   referenceIds = state.reference;
   els.lora.value = state.lora;
   pendingLora = state.lora && !els.lora.value ? state.lora : '';
@@ -327,6 +332,8 @@ function undoReuse(note) {
   syncConditioning();
   revealActiveSetup();
   syncRuns();
+  syncExecutionControls();
+  syncSubmitButtons();
   schedulePreview();
   scheduleTagValidation(0);
   persistPanel();
