@@ -189,6 +189,19 @@ live process/model run was used. Receipts:
 `work/dev6-storage-after.json`, `work/dev6-tools-after.json` and
 `work/dev6-tools-fixture-result.json`.
 
+2026-10-26, batch 3 route/grid slice: another 57 initial findings are
+resolved across six modules. Grid and source checks state already
+validated profile/refine invariants; no-refine progress and estimate
+arithmetic reuse the same step helper. Response validation keeps the same
+fields and positions, retained-run/gallery fallbacks remain equivalent,
+and optional cached findings/sigma readings are narrowed without changing
+admission, replay or refusal order. All 480 existing focused grid/size,
+API/rerun/refine/swap/More seeds/inpaint/outpaint checks passed, along with
+clean scoped static checks and ruff. Both the helper and route slices
+received independent review; no suppressions or casts were added.
+Receipts: `work/dev6-grid-submission.json` and
+`work/dev6-rerun-routes.json`.
+
 ## Initial counts by diagnostic
 
 <!-- Counts below are generated from the retained initial Pyright JSON. -->

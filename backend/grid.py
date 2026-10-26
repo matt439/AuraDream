@@ -122,7 +122,8 @@ def shape_key(width: int, height: int, crop_anchor: str | None = None) -> str:
 
 def parse_sizes(text: str | None) -> list[tuple[int, int]]:
     """Comma-separated WIDTHxHEIGHT pairs, preserving order and repeats."""
-    if not (text or "").strip():
+    text = text or ""
+    if not text.strip():
         return []
     pairs = text.split(",")
     if len(pairs) > MAX_AXIS_VALUES:
@@ -165,7 +166,10 @@ def refine_key(source: int | None, strength: float | None) -> str | None:
     not a setting, and the same element has to come out of a request here and
     out of an INTEGER and a REAL in `storage.completed_cells`, to the digit.
     """
-    return None if source is None else f"{source}@{round(float(strength), 6):g}"
+    if source is None:
+        return None
+    assert strength is not None, "a refine source carries its applied strength"
+    return f"{source}@{round(float(strength), 6):g}"
 
 
 def mask_key(mask: str | None, outpaint: str | None = None) -> str | None:
@@ -690,6 +694,7 @@ def cell_key(cell: "Cell") -> CellKey:
     through SQLite's REAL and back still matches the axis that generated it.
     """
     request = cell.request
+    assert request.steps is not None and request.guidance_scale is not None, "profile defaults fill sampling"
     return (
         request.prompt,
         request.negative_prompt or None,
@@ -729,6 +734,7 @@ def duplicate_count(
         ran = Cell(request=applied(cell.request), seed=cell.seed)
         for key in cell_keys(ran):
             if ran.request.refine is not None:
+                assert ran.request.steps is not None and ran.request.strength is not None
                 start = start_index(
                     ran.request.steps, ran.request.strength, model_id or current_model_id(settings),
                     inpaint=ran.request.inpainting,
@@ -863,8 +869,10 @@ def cells_from_records(
 def denoised_steps(request: GenerateRequest) -> int:
     """The steps one image of this request denoises: all of them, or the part
     of the schedule a refine pass's strength leaves (`refine.steps_run`)."""
+    assert request.steps is not None, "profile defaults fill steps"
     if request.refine is None:
         return request.steps
+    assert request.strength is not None, "a refine source carries its applied strength"
     return steps_run(
         request.steps, request.strength, current_model_id(settings), inpaint=request.inpainting
     )
@@ -878,7 +886,7 @@ def progress_steps(request: GenerateRequest) -> int:
     and counts each.
     """
     if request.refine is None:
-        return request.steps
+        return denoised_steps(request)
     return denoised_steps(request) * request.num_images
 
 
@@ -925,7 +933,7 @@ def _cell_ms(
         if request.refine is None:
             if direct is None:
                 return None
-            image_ms = direct * request.steps
+            image_ms = direct * denoised_steps(request)
         else:
             costs = inpaints if request.inpainting else passes
             image_ms = (costs or {}).get(denoised_steps(request))

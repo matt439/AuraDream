@@ -3,6 +3,7 @@ selection Re-render, Swap tags, Mass refine and More seeds act on."""
 from __future__ import annotations
 
 import asyncio
+from typing import Literal
 
 from fastapi import HTTPException
 
@@ -12,7 +13,7 @@ from .schemas import GenerateRequest, ImageRecord
 
 
 # The per-image status a reason from `unusable_input` becomes.
-UNUSABLE_STATUS = {
+UNUSABLE_STATUS: dict[str, Literal["source_deleted", "lora_missing", "mask_missing", "outpaint"]] = {
     "source": "source_deleted", "lora": "lora_missing", "mask_missing": "mask_missing", "outpaint": "outpaint",
 }
 
@@ -51,6 +52,7 @@ async def unusable_input(services: AppServices, request: GenerateRequest) -> tup
     if reason is not None:
         return "upscaler", reason
     if request.upscaler is not None:
+        assert request.refine is not None, "a validated upscaler request names its source"
         try:
             await asyncio.to_thread(refine.check_upscaler_source, request.refine)
         except ValueError as exc:
@@ -251,6 +253,7 @@ def outpaint_unusable(request: GenerateRequest) -> str | None:
     kept rectangle of at least 16 px each way. The source has been checked
     live first. Blocking: reads the database."""
     spec = request.outpaint
+    assert spec is not None and request.refine is not None, "an outpaint names its spec and source"
     source = storage.get_image(request.refine)
     if source is None:
         return f"source image {request.refine} has just gone"
@@ -275,6 +278,7 @@ def mask_unusable(request: GenerateRequest) -> str | None:
     and the request are one size - an inpaint runs at its source's size,
     which the mask was painted at. The source has been checked live first.
     Blocking: reads the database."""
+    assert request.mask is not None and request.refine is not None, "an inpaint names its mask and source"
     try:
         storage.mask_path(request.mask)
     except ValueError as exc:

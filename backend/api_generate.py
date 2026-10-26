@@ -273,8 +273,9 @@ async def finish_plan(services: AppServices, run_id: str) -> FinishPlan:
                     request.lora, request.width, request.height, request.upscaler)
             if spec not in checked:
                 checked[spec] = await submission.unusable_input(services, request)
-            if checked[spec] is not None:
-                reason, refusal_code = checked[spec][1], 422
+            unusable = checked[spec]
+            if unusable is not None:
+                reason, refusal_code = unusable[1], 422
                 break
 
     pin = hashlib.sha256(json.dumps(
@@ -304,7 +305,15 @@ def create_router(services: AppServices) -> APIRouter:
         definition, records = plan.definition, plan.records
         first = records[0] if records else None
         live = [record for record in records if record.binned_at is None]
-        made_on = definition["model_id"] if definition else first.model_id
+        if definition:
+            made_on = definition["model_id"]
+            quantization, width, height = definition["quantization"], definition["width"], definition["height"]
+            batch, comparison = definition["batch"], definition["comparison"]
+        else:
+            assert first is not None, "a known run has a retained definition or gallery records"
+            made_on = first.model_id
+            quantization, width, height = first.quantization, first.width, first.height
+            batch, comparison = first.batch or 1, False
         seed_reason = (
             f"made on {made_on}; the server is running {services.model_id()}"
             if made_on != services.model_id() else
@@ -322,12 +331,12 @@ def create_router(services: AppServices) -> APIRouter:
                 seed_reason = str(exc.detail)
         return RunDetails(
             run_id=run_id, model_id=made_on,
-            quantization=definition["quantization"] if definition else first.quantization,
-            width=definition["width"] if definition else first.width,
-            height=definition["height"] if definition else first.height,
+            quantization=quantization,
+            width=width,
+            height=height,
             sizes=plan.sizes, size_count=len(plan.sizes),
-            batch=definition["batch"] if definition else first.batch or 1,
-            comparison=definition["comparison"] if definition else False,
+            batch=batch,
+            comparison=comparison,
             images=len(live), binned=len(records) - len(live), cells=plan.preview.total,
             actions={
                 "finish": RunAction(available=plan.preview.available, reason=plan.preview.reason, count=plan.preview.cells),
@@ -348,19 +357,21 @@ def create_router(services: AppServices) -> APIRouter:
                 raise HTTPException(status_code=409, detail="the run changed since the preview; check Finish run again")
             if not preview.available:
                 raise HTTPException(status_code=plan.refusal_code, detail=preview.reason)
-            metadata = plan.definition["metadata"]
+            definition = plan.definition
+            assert definition is not None, "an available Finish run has its retained definition"
+            metadata = definition["metadata"]
             job = await services.jobs().submit_cells(
                 plan.cells, run_id=run_id, budget_minutes=preview.budget_minutes,
                 grid=metadata.get("grid", True), prompt_template=metadata.get("prompt_template"),
-                comparison=plan.definition["comparison"], swap=metadata.get("swap"),
+                comparison=definition["comparison"], swap=metadata.get("swap"),
                 refine_batch=metadata.get("refine_batch"), more_seeds=metadata.get("more_seeds"),
                 then_refine=_retained_then_refine(metadata),
             )
-            return FinishRunAccepted(
-                job_id=job.id, seed=job.seed, run_id=run_id, cells=preview.cells, images=preview.images,
-                pruned=preview.rendered, planned=preview.queued, redrawn=preview.redrawn,
-                budget_minutes=preview.budget_minutes,
-            )
+            return FinishRunAccepted.model_validate({
+                "job_id": job.id, "seed": job.seed, "run_id": run_id, "cells": preview.cells, "images": preview.images,
+                "pruned": preview.rendered, "planned": preview.queued, "redrawn": preview.redrawn,
+                "budget_minutes": preview.budget_minutes,
+            })
 
     @router.post("/api/generate", response_model=JobAccepted)
     async def generate(submitted: GenerateSubmission) -> JobAccepted:
@@ -379,7 +390,7 @@ def create_router(services: AppServices) -> APIRouter:
         # granted repo access.
         spec = await then_refine_spec(services, submitted.then_refine, [request])
         job = await services.jobs().submit(request, then_refine=spec)
-        return JobAccepted(job_id=job.id, seed=job.seed, run_id=job.run_id)
+        return JobAccepted.model_validate({"job_id": job.id, "seed": job.seed, "run_id": job.run_id})
 
 
     @router.post("/api/grid", response_model=JobAccepted)
@@ -413,7 +424,7 @@ def create_router(services: AppServices) -> APIRouter:
             comparison=bool(request.prompt_variants),
             then_refine=spec,
         )
-        return JobAccepted(job_id=job.id, seed=job.seed, run_id=job.run_id)
+        return JobAccepted.model_validate({"job_id": job.id, "seed": job.seed, "run_id": job.run_id})
 
 
     @router.post("/api/rerender", response_model=RerenderAccepted)
@@ -524,10 +535,10 @@ def create_router(services: AppServices) -> APIRouter:
                 detail=f"every selected image is already {state} at {request.width}x{request.height}",
             )
         job = await services.jobs().submit_cells(kept, run_id=run_id)
-        return RerenderAccepted(
-            job_id=job.id, seed=job.seed, run_id=job.run_id, deleted=deleted,
-            pruned=pruned, planned=already_planned,
-        )
+        return RerenderAccepted.model_validate({
+            "job_id": job.id, "seed": job.seed, "run_id": job.run_id, "deleted": deleted,
+            "pruned": pruned, "planned": already_planned,
+        })
 
 
     @router.post("/api/grid/preview", response_model=GridPreview)

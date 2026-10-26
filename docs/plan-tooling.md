@@ -235,6 +235,12 @@ are clean without suppressions or casts; 237 storage/bundle/job tests and
 without real scale/interruption benchmarks, downloads or model work.
 Independent reviews found no actionable issue.
 
+**Batch 3, route/grid slice (2026-10-26).** Six modules resolve another
+57 initial findings with explicit existing invariants and unchanged
+response validation. The 480 focused grid/size and HTTP/rerun checks,
+scoped static checks and ruff pass. Independent helper and route reviews
+found no actionable issue; no suppressions or casts were added.
+
 **Stages.**
 
 1. Select and record a reproducible Pyright version and basic-mode

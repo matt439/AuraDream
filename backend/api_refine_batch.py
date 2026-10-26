@@ -82,8 +82,9 @@ async def refine_batch_plan(
         if lora:
             if lora not in checked:
                 checked[lora] = await submission.unusable_input(services, GenerateRequest(prompt="x", lora=lora))
-            if checked[lora] is not None:
-                p.status, p.detail = "lora_missing", checked[lora][1]
+            unusable = checked[lora]
+            if unusable is not None:
+                p.status, p.detail = "lora_missing", unusable[1]
                 p.cell = None
     # The gallery's own answer, per size: `completed_cells` is scoped to one.
     sizes: dict[tuple[int, int], list[grid.Cell]] = {}
@@ -115,11 +116,11 @@ async def refine_batch_plan(
         RefineBatchResult(id=image_id, status="deleted", detail=submission.gone_detail(image_id, binned))
         for image_id in gone
     ] + [
-        RefineBatchResult(
-            id=p.record.id, thumb_url=p.record.thumb_url, width=p.record.width,
-            height=p.record.height, target_width=p.width, target_height=p.height,
-            seed=p.record.seed, status=p.status, detail=p.detail, notes=p.notes,
-        )
+        RefineBatchResult.model_validate({
+            "id": p.record.id, "thumb_url": p.record.thumb_url, "width": p.record.width,
+            "height": p.record.height, "target_width": p.width, "target_height": p.height,
+            "seed": p.record.seed, "status": p.status, "detail": p.detail, "notes": p.notes,
+        })
         for p in plans
     ]
     results.sort(key=lambda result: result.id)
@@ -169,8 +170,9 @@ def create_router(services: AppServices) -> APIRouter:
             applied.setdefault((ran.width, ran.height, ran.steps, ran.mu, ran.strength), ran)
         if applied and len(applied) <= REFINE_BATCH_SIGMA_KEYS:
             sigmas = [services.backend().start_sigma(ran) for ran in applied.values()]
-            if all(isinstance(sigma, (int, float)) for sigma in sigmas):
-                low, high = min(sigmas), max(sigmas)
+            known_sigmas = [sigma for sigma in sigmas if isinstance(sigma, (int, float))]
+            if len(known_sigmas) == len(sigmas):
+                low, high = min(known_sigmas), max(known_sigmas)
         # The scale applies to every image not left out before its size is
         # looked at: the largest of those caps the dialog's opening scale.
         scaled = [p.record for p in plans if p.status not in ("pass", "foreign")]
@@ -248,7 +250,7 @@ def create_router(services: AppServices) -> APIRouter:
             job = await services.jobs().submit_cells(
                 group, run_id=grid.run_id(group, model, quantization), refine_batch=request.scale,
             )
-            accepted.append(JobAccepted(job_id=job.id, seed=job.seed, run_id=job.run_id))
+            accepted.append(JobAccepted.model_validate({"job_id": job.id, "seed": job.seed, "run_id": job.run_id}))
         first = accepted[0]
         return RefineBatchAccepted(
             job_id=first.job_id, seed=first.seed, run_id=first.run_id, more=accepted[1:],
