@@ -7,6 +7,7 @@ import logging
 import threading
 import time
 from contextlib import asynccontextmanager
+from typing import Literal, NotRequired, TypedDict
 
 import uvicorn
 from fastapi import FastAPI, HTTPException, Request
@@ -41,6 +42,7 @@ from .schemas import (  # noqa: E402
     ExpanderStatus,
     ModelStatus,
     ModelSwitchRequest,
+    PromptGuide,
 )
 from .translation import MODEL_BYTES as TRANSLATOR_BYTES  # noqa: E402
 from .translation import prompt_translator  # noqa: E402
@@ -53,7 +55,14 @@ log = logging.getLogger("local_diffusion")
 backend = get_backend("diffusers")
 
 # Loading ~13GB of weights takes minutes, so it runs off-request.
-_load_state: dict[str, str | None] = {"state": "unloaded", "detail": None}
+class _LoadState(TypedDict):
+    state: Literal["unloaded", "loading", "ready", "error"]
+    detail: str | None
+    detail_kind: NotRequired[str | None]
+    detail_url: NotRequired[str | None]
+
+
+_load_state: _LoadState = {"state": "unloaded", "detail": None}
 _load_lock = asyncio.Lock()
 _switching = False
 _switch_task: asyncio.Task | None = None
@@ -101,12 +110,13 @@ def _hub_failure(exc: BaseException) -> str | None:
     a network that was up rather than to the variable."""
     seen: set[int] = set()
     found: list[str] = []
-    while exc is not None and id(exc) not in seen:
-        seen.add(id(exc))
-        kind = next((k.__name__ for k in type(exc).__mro__ if k.__name__ in _HUB_FAILURES), None)
+    current: BaseException | None = exc
+    while current is not None and id(current) not in seen:
+        seen.add(id(current))
+        kind = next((k.__name__ for k in type(current).__mro__ if k.__name__ in _HUB_FAILURES), None)
         if kind is not None:
             found.append(kind)
-        exc = exc.__cause__ or exc.__context__
+        current = current.__cause__ or current.__context__
     if "OfflineModeIsEnabled" in found:
         return "OfflineModeIsEnabled"
     return found[0] if found else None
@@ -306,7 +316,7 @@ async def run_persistence_failed(request: Request, exc: RunPersistenceFailed):
 
 @app.exception_handler(bundles.BundleError)
 async def invalid_bundle(request: Request, exc: bundles.BundleError):
-    body = {"detail": bundle_common.sentence(str(exc))}
+    body: dict[str, str | int | bool] = {"detail": bundle_common.sentence(str(exc))}
     if isinstance(exc, bundles.MissingImage):
         # Which row, for the dialog's Show it.
         body.update(image_id=exc.image_id, binned=exc.binned)
@@ -478,7 +488,7 @@ async def status() -> ModelStatus:
             defaults["lora_supported"],
             defaults["refine_supported"],
         ),
-        guide=guide_for(info["model_id"]),
+        guide=PromptGuide.model_validate(guide_for(info["model_id"])),
         model_id=info["model_id"],
         quantization=info["quantization"],
         offload=info["offload"],

@@ -16,7 +16,7 @@ import argparse
 import json
 import os
 import sys
-from collections.abc import Callable
+from collections.abc import Callable, Mapping
 from dataclasses import dataclass
 from typing import TextIO
 
@@ -378,21 +378,21 @@ def prompt(
     *,
     ask: Callable[[str], str] = input,
     out: TextIO | None = None,
-    env: dict[str, str] | None = None,
+    env: Mapping[str, str] | None = None,
     linux: bool | None = None,
 ) -> Choice:
     """Run the menu and return what was chosen. Ctrl-C exits with status 130."""
-    out = out or sys.stdout
-    env = os.environ if env is None else env
+    stream = out or sys.stdout
+    environment = os.environ if env is None else env
     linux = sys.platform == "linux" if linux is None else linux
     try:
-        return _prompt(ask, out, env, linux)
+        return _prompt(ask, stream, environment, linux)
     except KeyboardInterrupt:
-        out.write("\n")
+        stream.write("\n")
         raise SystemExit(130) from None
 
 
-def _prompt(ask: Callable[[str], str], out: TextIO, env: dict[str, str], linux: bool) -> Choice:
+def _prompt(ask: Callable[[str], str], out: TextIO, env: Mapping[str, str], linux: bool) -> Choice:
     current_model = env.get("LOCAL_DIFFUSION_MODEL_ID", _DEFAULT_MODEL)
     current_checkpoint, current_fmt = _match(current_model)
 

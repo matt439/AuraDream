@@ -75,8 +75,9 @@ def main(argv: list[str] | None = None) -> int:
     # UnicodeEncodeError. So does `> NUL`, which answers isatty(); the Windows
     # console is UTF-8 already. Elsewhere a terminal keeps its own encoding. A
     # StringIO has none to change, and under pythonw there is no stdout.
-    if hasattr(sys.stdout, "reconfigure") and (sys.platform == "win32" or not sys.stdout.isatty()):
-        sys.stdout.reconfigure(encoding="utf-8", errors="backslashreplace")
+    reconfigure = getattr(sys.stdout, "reconfigure", None)
+    if callable(reconfigure) and (sys.platform == "win32" or not sys.stdout.isatty()):
+        reconfigure(encoding="utf-8", errors="backslashreplace")
     parser = argparse.ArgumentParser(
         prog="python -m backend.stats",
         description="The starred rate per setting: which steps, CFG and mu produced the favourites.",

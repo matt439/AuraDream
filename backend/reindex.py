@@ -105,7 +105,7 @@ def _read(path: Path) -> tuple[dict | None, tuple[int, int], Image.Image | None]
     answer a question the header settles.
     """
     with Image.open(path) as image:
-        raw = embedded_metadata(image.info)
+        raw = embedded_metadata({key: image.info.get(key) for key in PNG_METADATA_KEYS})
         size = image.size
         if not raw:
             return None, size, image.copy()
@@ -778,8 +778,9 @@ def main(argv: list[str] | None = None) -> int:
     # Windows console is UTF-8 already. Elsewhere a terminal keeps its own
     # encoding. A StringIO has none to change, and under pythonw there is no
     # stdout.
-    if hasattr(sys.stdout, "reconfigure") and (sys.platform == "win32" or not sys.stdout.isatty()):
-        sys.stdout.reconfigure(encoding="utf-8", errors="backslashreplace")
+    reconfigure = getattr(sys.stdout, "reconfigure", None)
+    if callable(reconfigure) and (sys.platform == "win32" or not sys.stdout.isatty()):
+        reconfigure(encoding="utf-8", errors="backslashreplace")
     parser = argparse.ArgumentParser(
         prog="python -m backend.reindex",
         description="Rebuild gallery rows from the PNGs' own metadata; idempotent.",

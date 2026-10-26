@@ -429,10 +429,16 @@ def _carried_outpaint(meta: dict) -> tuple[int, int, int, int, int, str] | None:
     value, fill = meta.get("outpaint"), meta.get("outpaint_fill")
     if not isinstance(value, dict) or not isinstance(fill, str) or meta.get("mask") is None:
         return None
-    sides = [value.get(name) for name in ("left", "top", "right", "bottom", "band")]
-    if any(type(side) is not int or side < 0 for side in sides):
+    left, top, right, bottom, band = (value.get(name) for name in ("left", "top", "right", "bottom", "band"))
+    if (
+        type(left) is not int or left < 0
+        or type(top) is not int or top < 0
+        or type(right) is not int or right < 0
+        or type(bottom) is not int or bottom < 0
+        or type(band) is not int or band < 0
+    ):
         return None
-    return (*sides, fill)
+    return left, top, right, bottom, band, fill
 
 
 def _outpaint_sides(text: str, parser: argparse.ArgumentParser) -> tuple[int, int, int, int] | str:
@@ -456,7 +462,7 @@ def _outpaint_sides(text: str, parser: argparse.ArgumentParser) -> tuple[int, in
             parser.error(f"--outpaint: {side} is not a multiple of 16: {below} or {below + 16}")
     if not any(sides):
         parser.error("--outpaint: an outpaint extends at least one side")
-    return sides
+    return sides[0], sides[1], sides[2], sides[3]
 
 
 def _check_carried_source(args: argparse.Namespace, p: SimpleNamespace, parser: argparse.ArgumentParser) -> bool:
@@ -1059,8 +1065,9 @@ def main(argv: list[str] | None = None) -> int:
     # isatty(); the Windows console is UTF-8 already. Elsewhere a terminal
     # keeps its own encoding. A StringIO has none to change, and under pythonw
     # there is no stdout.
-    if hasattr(sys.stdout, "reconfigure") and (sys.platform == "win32" or not sys.stdout.isatty()):
-        sys.stdout.reconfigure(encoding="utf-8", errors="backslashreplace")
+    reconfigure = getattr(sys.stdout, "reconfigure", None)
+    if callable(reconfigure) and (sys.platform == "win32" or not sys.stdout.isatty()):
+        reconfigure(encoding="utf-8", errors="backslashreplace")
     parser = _build_parser()
     args = parser.parse_args(argv)
     args.reference_given = bool(args.reference)

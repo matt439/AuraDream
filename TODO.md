@@ -116,7 +116,7 @@ Matt's approved [shortcut and compact-setup stages](docs/plan-shortcut-workflow.
 | id | status | sev | size | item |
 |---|---|---|---|---|
 | `DEV#4` | OPEN | LOW | L | Qualify Linux Chrome and its separate CI job; portable screenshots and collectable diagnostics are built. WSL enumeration currently returns `E_ACCESSDENIED`; Linux/hosted execution is unverified. [Stages](docs/plan-tooling.md#browser-smokes-in-ci). |
-| `DEV#6` | OPEN | LOW | L | Fix the remaining 325 Pyright basic errors over `backend/` and `tools/` in bounded batches, then gate CI; the baseline and benchmark batch are complete, with no suppressions. [Stages](docs/plan-tooling.md#backend-type-checking). |
+| `DEV#6` | OPEN | LOW | L | Continue bounded Pyright basic fixes over `backend/` and `tools/`, then gate CI; the baseline, benchmark, CLI and prompt-helper batches are checked. The full scope is still failing. [Stages](docs/plan-tooling.md#backend-type-checking). |
 
 ## Review coverage
 

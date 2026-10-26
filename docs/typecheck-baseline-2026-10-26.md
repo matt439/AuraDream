@@ -122,6 +122,27 @@ zero warnings: precisely the nine benchmark diagnostics were removed,
 with no new file/rule counts. JSON evidence is retained locally at
 `work/dev6-pyright-after-benchmarks.json`; exit 1 remains expected.
 
+2026-10-26, batch 2: the six CLI/launcher/lifecycle modules now describe
+read-only environment mappings, fixed outpaint tuple shapes, load-state
+fields and PNG metadata keys precisely. Stdout reconfiguration still
+supports compatible custom streams, `StringIO` and absent output. The
+274 existing CLI/storage/API/lifecycle checks passed; after correcting a
+ruff B009 finding in the draft, the 13 relevant stdout/outpaint tests and
+six-file static check passed. Independent review found no blocking issue.
+All 15 initial batch diagnostics are resolved without suppressions.
+The final scoped JSON is `work/dev6-cli-final.json`.
+
+2026-10-26, batch 7: prompt/catalogue helpers validate the same dictionaries
+at their existing Pydantic response boundaries, express optional
+invariants and preserve matched tag text/indices. The critic server's
+`_spawn` return annotation now names the existing `_ServerProcess`,
+preserving its process-tree contract. Guide prose and citations are
+unchanged. All 488 existing focused tests, the scoped static check and
+ruff passed; independent review found no actionable issue. All 22 initial
+batch diagnostics are resolved without suppressions or casts. Scoped
+JSON evidence is `work/dev6-prompt-helpers.json`. These are scoped results;
+the full baseline remains failing until the other batches are fixed.
+
 ## Initial counts by diagnostic
 
 <!-- Counts below are generated from the retained initial Pyright JSON. -->

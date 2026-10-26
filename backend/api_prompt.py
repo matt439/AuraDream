@@ -84,18 +84,18 @@ def chip_verdicts(model_id: str, helper: dict, request: TagValidationRequest) ->
             result = unchecked_results([name or tag], set() if name is not None else special,
                                        False if name is not None else year)[0]
             results.append({**result, "tag": tag})
-        return TagValidationResponse(
-            available=False,
-            results=results,
-            detail=short_error(exc),
-            parts=prompt_parts.contextual_parts(helper, request.prompt, request.tags, results),
+        return TagValidationResponse.model_validate({
+            "available": False,
+            "results": results,
+            "detail": short_error(exc),
+            "parts": prompt_parts.contextual_parts(helper, request.prompt, request.tags, results),
             **prompt_check.order_slots(model_id, request.prompt, reachable=False),
-        )
-    return TagValidationResponse(
-        available=True, results=results,
-        parts=prompt_parts.contextual_parts(helper, request.prompt, request.tags, results),
+        })
+    return TagValidationResponse.model_validate({
+        "available": True, "results": results,
+        "parts": prompt_parts.contextual_parts(helper, request.prompt, request.tags, results),
         **prompt_check.order_slots(model_id, request.prompt, reachable=True)
-    )
+    })
 
 
 def expand_detail(exc: Exception) -> str:
@@ -199,7 +199,7 @@ def create_router(services: AppServices) -> APIRouter:
     @router.get("/api/tags/suggest", response_model=TagSuggestionResponse)
     async def suggest_tags(q: str = Query(min_length=1, max_length=100)) -> TagSuggestionResponse:
         helper = tag_helper_config(services.model_id())
-        prefix = helper.get("artist_prefix")
+        prefix = helper.get("artist_prefix") or ""
         artist_only = bool(prefix and q.lower().startswith(prefix.lower()))
         query = q[len(prefix):].strip() if artist_only else q
         if not query:
@@ -211,11 +211,11 @@ def create_router(services: AppServices) -> APIRouter:
                 tag_lookup.tag_vocabulary.suggest, query, helper["vocabulary_cutoff"]
             )
         except TagLookupUnavailable as exc:
-            return TagSuggestionResponse(
-                available=False,
-                suggestions=rank_suggestions(query, local, [], avoid),
-                detail=short_error(exc),
-            )
+            return TagSuggestionResponse.model_validate({
+                "available": False,
+                "suggestions": rank_suggestions(query, local, [], avoid),
+                "detail": short_error(exc),
+            })
         if artist_only:
             remote = [item for item in remote if item["category"] == "artist"]
         suggestions = rank_suggestions(query, local, remote, avoid)
@@ -224,7 +224,7 @@ def create_router(services: AppServices) -> APIRouter:
                 {**item, "text": prefix + item["text"]} if item["category"] == "artist" else item
                 for item in suggestions
             ]
-        return TagSuggestionResponse(available=True, suggestions=suggestions)
+        return TagSuggestionResponse.model_validate({"available": True, "suggestions": suggestions})
 
 
     @router.get("/api/tags/describe", response_model=TagDescriptionResponse)
@@ -240,7 +240,7 @@ def create_router(services: AppServices) -> APIRouter:
             )
         except TagLookupUnavailable as exc:
             return TagDescriptionResponse(available=False, detail=short_error(exc))
-        return TagDescriptionResponse(available=True, results=results)
+        return TagDescriptionResponse.model_validate({"available": True, "results": results})
 
     @router.post("/api/tags/validate", response_model=TagValidationResponse)
     async def validate_tags(request: TagValidationRequest) -> TagValidationResponse:

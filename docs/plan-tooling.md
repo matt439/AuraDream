@@ -206,6 +206,15 @@ pass, and independent review found no blocking issue. No suppressions or
 module exclusions were added. The baseline report preserves the initial
 counts and records later batches separately.
 
+**Batches 2 and 7 (2026-10-26).** CLI/launcher/lifecycle and
+prompt/catalogue contracts resolve another 15 and 22 initial diagnostics.
+Their scoped static checks are clean, with no suppressions or casts.
+Existing focused checks passed: 274 CLI/storage/API/lifecycle tests and
+488 prompt/tag/critic/catalogue tests. The final stdout correction passed
+its 13-test subset and ruff. Both batches received independent review.
+The baseline report records the exact scope and receipts; this does not
+claim the entire configured type-check scope is clean.
+
 **Stages.**
 
 1. Select and record a reproducible Pyright version and basic-mode

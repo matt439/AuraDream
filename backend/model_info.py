@@ -302,7 +302,10 @@ def _cached_state(model_id: str, cache_dir: str, converted_home: str, minute: in
     unverified_conversion = False
     try:
         if recipe["kind"] == "converted":
-            target, marker, recipe_text = _conversion_target(model_id)
+            conversion = _conversion_target(model_id)
+            if conversion is None:
+                return "unknown", "Could not establish that every required model file is cached."
+            target, marker, recipe_text = conversion
             converted = recipe["converted"]
             if json.loads(recipe_text) != converted["recipe"]:
                 return "unknown", "The cached-file reference does not cover this conversion recipe."

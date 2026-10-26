@@ -35,6 +35,8 @@ part of `guide_for`: the page shows findings, not the rules behind them.
 """
 from __future__ import annotations
 
+from collections.abc import Collection
+
 # The primary sources the `analysis` entries point at, as design-notes keeps
 # them. BFL's unified guide covers the whole FLUX family (FLUX.1, Kontext,
 # FLUX.2); its technical page is where "working without negative prompts"
@@ -1355,7 +1357,7 @@ def _anima_helper(*, score: bool) -> dict:
     }
 
 
-def _anima_order(groups: dict) -> dict:
+def _anima_order(groups: Collection[str]) -> dict:
     """`analysis.order` over a variant's helper groups. Danbooru's meta
     category goes with the general tags: the card's full tag example writes
     twitter username, a Danbooru meta tag, among them, and the meta tags it

@@ -402,7 +402,7 @@ class _ServerProcess(subprocess.Popen):
         return code
 
 
-def _spawn(command: list[str], log_file: Any, api_key: str) -> subprocess.Popen:
+def _spawn(command: list[str], log_file: Any, api_key: str) -> _ServerProcess:
     """Start the server as a `_ServerProcess`. The seam the tests replace."""
     server = Path(command[0])
     return _ServerProcess(
