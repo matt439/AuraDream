@@ -1,6 +1,7 @@
 # The CPU suite and the lint on every push and on demand. No GPU, no
-# weights: what `uv run --group dev pytest` needs locally, on Linux, where a
-# runner minute costs half a Windows one and the suite already runs (WSL).
+# weights: what `uv run --group dev pytest` needs locally, on Linux (as under
+# WSL) and on Windows, where the app runs and a few tests run only there.
+# Hosted runners cost nothing on a public repository.
 name: CI
 
 on:
@@ -19,7 +20,12 @@ concurrency:
 
 jobs:
   test:
-    runs-on: ubuntu-latest
+    strategy:
+      # One system's failure never cancels the other's answer.
+      fail-fast: false
+      matrix:
+        os: [ubuntu-latest, windows-latest]
+    runs-on: ${{ matrix.os }}
     timeout-minutes: 30
     steps:
       - uses: actions/checkout@v7
@@ -38,7 +44,7 @@ jobs:
       - uses: actions/cache@v5
         with:
           path: ~/.cache/huggingface/hub
-          key: tokenizers-${{ hashFiles('backend/encoder_table.py', 'tools/fetch_tokenizers.py') }}
+          key: tokenizers-${{ runner.os }}-${{ hashFiles('backend/encoder_table.py', 'tools/fetch_tokenizers.py') }}
       - name: Tokenizers
         run: uv run --group dev python -m tools.fetch_tokenizers
         env:
