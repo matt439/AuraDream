@@ -22,7 +22,7 @@ function pickedDifferences(pair) {
   const axes = [...new Map([...SHEET_AXES, ...axesFor(pair)].map((axis) => [axis.key, axis])).values()];
   const fields = axes.filter((axis) => axisValue(axis, a) !== axisValue(axis, b));
   const extras = [
-    ['Model', (r) => r.model_id], ['Size', (r) => `${r.width}x${r.height}`],
+    ['Model', (r) => r.model_id],
     ['Quantization', (r) => r.quantization], ['Refined from', (r) => r.refine],
     ['Mask', (r) => r.mask], ['Outpaint', (r) => r.outpaint ? JSON.stringify(r.outpaint) : null],
   ].filter(([, of]) => of(a) !== of(b));
@@ -225,9 +225,9 @@ function sourceNote(rec, source) {
   if (rec.refine == null) return '';
   if (rec.refine_missing || lbSources.get(rec.refine) === null) return `source #${rec.refine} ${goneWord(rec)}`;
   if (!source) return '';
-  const kept = refineKept(source.width, source.height, rec.width, rec.height);
+  const kept = refineKept(source.width, source.height, rec.width, rec.height, rec.crop_anchor);
   const cropped = kept.w < 1 || kept.h < 1;
-  return `#${source.id}, ${source.width}×${source.height}${cropped ? ', cropped as the pass was' : ''}`;
+  return `#${source.id}, ${source.width}×${source.height}${cropped ? ', cropped as the pass was' + (rec.crop_anchor && rec.crop_anchor !== 'center' ? ` (${rec.crop_anchor})` : '') : ''}`;
 }
 
 // The lightbox's keys, under the comparison (index.html has the line as the

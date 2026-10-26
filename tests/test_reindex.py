@@ -86,6 +86,7 @@ def test_reindex_copies_another_gallery_in(store, monkeypatch, tmp_path):
         "unresolved_references": 0, "masks": 0, "bad_masks": 0, "unresolved_masks": 0,
         "outpaint_malformed": 0, "outpaints_recovered": 0, "outpaint_masks_rebuilt": 0,
         "invalid_upscalers": 0,
+        "invalid_crop_anchors": 0,
     }
     assert (store.settings.outputs_dir / made[0].filename).exists()
     assert (store.settings.outputs_dir / "thumbnails" / made[0].filename.replace(".png", ".webp")).exists()

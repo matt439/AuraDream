@@ -3142,6 +3142,19 @@ and the default mode stay unchanged.
 
 ## Prompt labels on the sheet
 
+Mixed-size grids and crop anchors are specified in the
+[size/crop plan](plan-size-axis-crop-anchor.md). Sizes are explicit pairs
+crossed inside each seed and prompt, with per-size Resume and history. One
+shape key extension carries size and crop together; the legacy hash path
+remains for uniform centered runs. An anchor is a setting of an ordinary
+Refine, carried with its source and dropped with it. Center's old rounding
+and pixels remain the reference. A sheet can lay out Size or Crop, and a
+spanning source thumbnail appears only when every displayed pass keeps the
+same rectangle; otherwise the sheet says to open an image for its exact
+source comparison. CPU tests, synthetic browser geometry and export-pixel
+checks are recorded in the plan; model quality and GPU measurements remain
+the card's to establish.
+
 The contact sheet's axes gained **Prompt**, whose labels are only the words
 that vary across the run (`promptLabels` in `web/sheet.js`): a column header
 repeating the forty words every cell shares is unreadable. Equal word counts

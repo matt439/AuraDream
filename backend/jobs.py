@@ -277,6 +277,11 @@ class Job:
             return "batch"
         return "image"
 
+    @functools.cached_property
+    def canvas_sizes(self) -> list[tuple[int, int]]:
+        """Concrete canvases, fixed with the retained cells rather than their header."""
+        return sorted({(cell.request.width, cell.request.height) for cell in self.cells})
+
     def units(self, count: int) -> str:
         """`count` of the job's units: "1 image", "3 batches"."""
         if count == 1:
@@ -323,6 +328,8 @@ class Job:
             "strength": self.request.strength if self.refine_batch is not None else None,
             "width": self.request.width,
             "height": self.request.height,
+            "sizes": self.canvas_sizes,
+            "size_count": len(self.canvas_sizes),
             # With Then refine every image has its pass after it.
             "planned_images": sum(cell.request.num_images for cell in self.cells)
             * (2 if self.then_refine is not None else 1),

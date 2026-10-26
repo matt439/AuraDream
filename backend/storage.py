@@ -29,11 +29,12 @@ from PIL import Image, PngImagePlugin
 
 from .config import settings
 from . import gallery_lock, refine
-# The four key elements that are built from columns here and from a request
+# The key elements that are built from columns here and from a request
 # in `grid`: one spelling of each, or a resume compares strings that only look
 # alike. `grid` imports neither this module nor anything that does.
-from .grid import lora_key, mask_key, reference_key, refine_key
+from .grid import lora_key, mask_key, reference_key, refine_key, shape_key
 from .metadata import PNG_MASK_KEY, PNG_METADATA_KEY
+from .png_settings import crop_anchor as _crop_anchor
 from .search import like_escape, split_search
 from .schemas import ImageRecord, OutpaintSpec, effective_true_cfg
 
@@ -165,6 +166,7 @@ CREATE TABLE IF NOT EXISTS images (
     lora_scale      REAL,
     refine          INTEGER,
     strength        REAL,
+    crop_anchor     TEXT,
     batch           INTEGER,
     binned_at       TEXT,
     mask            TEXT,
@@ -276,6 +278,9 @@ def _migrate(conn: sqlite3.Connection) -> None:
         # strength; NULL together on a text-to-image row.
         ("refine", "INTEGER", None),
         ("strength", "REAL", None),
+        # NULL preserves the legacy centered crop; a choice belongs only to
+        # an ordinary Refine source.
+        ("crop_anchor", "TEXT", None),
         # How many images the pipeline call that made this one held - the
         # panel's Batch - which More seeds runs a batch's extra images at.
         # NULL on rows from before it was recorded.
@@ -412,6 +417,9 @@ def _row_to_record(
         refine_missing=refine_missing,
         refine_binned=refine_binned,
         strength=row["strength"],
+        crop_anchor=_crop_anchor(
+            row["crop_anchor"], source=row["refine"], mask=row["mask"], outpaint=row["outpaint"],
+        ),
         upscaler=row["upscaler"],
         batch=row["batch"],
         job_id=row["job_id"],
@@ -436,7 +444,7 @@ _COLUMNS = (
     "filename", "prompt", "negative_prompt", "width", "height", "steps", "guidance_scale",
     "mu", "seed", "model_id", "duration_ms", "favorite", "created_at", "job_id", "run_id",
     "quantization", "variables", "true_cfg", "content_hash", "reference", "lora", "lora_scale",
-    "refine", "strength", "batch", "binned_at", "mask", "outpaint", "upscaler",
+    "refine", "strength", "crop_anchor", "batch", "binned_at", "mask", "outpaint", "upscaler",
     "vram_peak_allocated", "vram_peak_reserved",
 )
 
@@ -525,6 +533,9 @@ def save_image(
     upscaler = _upscaler(
         request.upscaler, source=request.refine, model_id=model_id, mask=mask, outpaint=request.outpaint,
     )
+    crop_anchor = _crop_anchor(
+        request.crop_anchor, source=request.refine, mask=request.mask, outpaint=request.outpaint,
+    )
     digest = content_hash(image)
     filename = f"{created:%Y%m%d-%H%M%S}-{seed}-{uuid.uuid4().hex[:6]}.png"
     # The directory can disappear under a running server - renamed, deleted by
@@ -579,6 +590,9 @@ def save_image(
         "outpaint": outpaint_chunk(outpaint),
         "outpaint_fill": outpaint.fill if outpaint is not None else None,
         "batch": batch,
+        # Absent for the default so legacy PNG metadata stays byte-for-byte
+        # unchanged when no crop position was requested.
+        **({"crop_anchor": crop_anchor} if crop_anchor is not None else {}),
         **({"upscaler": upscaler} if upscaler is not None else {}),
         # Results, not settings, so absent rather than null when unmeasured:
         # a chunk from a CPU or before them reads the same.
@@ -618,6 +632,7 @@ def save_image(
         )
         + (f", Inpaint mask: {mask[:16]}" if mask is not None else "")
         + (f", Hires upscaler: {refine.ANIME6B_LABEL}" if upscaler is not None else "")
+        + (f", Crop anchor: {crop_anchor}" if crop_anchor is not None else "")
         + (outpaint_parameters(outpaint) if outpaint is not None else ""),
     )
     info.add_text(PNG_METADATA_KEY, json.dumps(meta))
@@ -669,6 +684,7 @@ def save_image(
                         "lora_scale": request.lora_scale if request.lora else None,
                         "refine": request.refine,
                         "strength": request.strength if request.refine is not None else None,
+                        "crop_anchor": crop_anchor,
                         "batch": batch,
                         "binned_at": None,
                         "mask": mask,
@@ -1049,7 +1065,8 @@ def completed_cells(
     quantization: str | None = None,
 ) -> set[CellKey]:
     """The key of everything already rendered: the prompt pair, the settings,
-    the references, adapter, refine source, mask and upscaler, the seed.
+    the references, adapter, refine source, mask, upscaler and canvas/crop,
+    the seed.
 
     What a resumed grid subtracts from its cells. Keyed on the settings that
     make the image rather than on the job that made it, so a night that died
@@ -1083,7 +1100,7 @@ def completed_cells(
             marks = ",".join("?" * len(chunk))
             rows = conn.execute(
                 f"""SELECT prompt, negative_prompt, steps, guidance_scale, mu, true_cfg,
-                           reference, lora, lora_scale, refine, strength, mask, outpaint, upscaler, seed
+                           reference, lora, lora_scale, refine, strength, mask, outpaint, upscaler, crop_anchor, seed
                     FROM images
                     WHERE width = ? AND height = ? AND model_id = ? {scope}
                       AND prompt IN ({marks})""",
@@ -1108,6 +1125,7 @@ def completed_cells(
                         refine_key(row["refine"], row["strength"]),
                         mask_key(row["mask"], _canonical_outpaint(row["outpaint"])),
                         row["upscaler"],
+                        shape_key(width, height, row["crop_anchor"]),
                         row["seed"],
                     )
                 )
@@ -1188,6 +1206,10 @@ def import_file(values: dict[str, Any]) -> ImageRecord:
     path preserves the fields that are not embedded in the PNG: favorite and
     generation duration.
     """
+    values = {**values, "crop_anchor": _crop_anchor(
+        values.get("crop_anchor"), source=values.get("refine"),
+        mask=values.get("mask"), outpaint=values.get("outpaint"),
+    )}
     with _write_lock, _session() as conn:
         row = _insert_row(conn, {column: values.get(column) for column in _COLUMNS})
     return _row_to_record(row)
@@ -1216,6 +1238,10 @@ def index_file(
     mask = _mask(meta.get("mask")) if meta.get("refine") is not None else None
     # Never without its source and its mask; a malformed one is left off.
     outpaint = chunk_outpaint(meta) if mask is not None else None
+    crop_anchor = _crop_anchor(
+        meta.get("crop_anchor"), source=meta.get("refine"),
+        mask=meta.get("mask"), outpaint=meta.get("outpaint"),
+    )
     with _write_lock, _session() as conn:
         row = _insert_row(
             conn,
@@ -1244,6 +1270,7 @@ def index_file(
                 "lora_scale": meta.get("lora_scale") if meta.get("lora") else None,
                 "refine": meta.get("refine"),
                 "strength": meta.get("strength") if meta.get("refine") is not None else None,
+                "crop_anchor": crop_anchor,
                 "batch": _batch(meta.get("batch")),
                 # Bin state lives in SQLite alone, as `favorite` does: a PNG
                 # recovered from its own chunk comes back live.

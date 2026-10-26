@@ -18,7 +18,7 @@ const LEGACY_PANEL_KEYS = ['krea.panel.v1'];
 const PANEL_FIELDS = [
   'prompt', 'negative', 'width', 'height', 'seed', 'batch', 'runs', 'lora', 'loraScale',
   'gridPrompt', 'gridPromptMode', 'gridSteps', 'gridCfg', 'gridMu', 'gridSeeds', 'gridSeedList', 'gridBudget',
-  'gridLoraScale',
+  'gridLoraScale', 'gridSize',
 ];
 // What else is remembered beside the fields, merged key by key as they are.
 const PANEL_KEYS = [...PANEL_FIELDS, 'gridOpen', 'reference', 'translation'];
@@ -222,7 +222,7 @@ function resetPanel() {
   els.batch.value = 1;
   els.runs.value = 1;
   for (const key of ['gridPrompt', 'gridSteps', 'gridCfg', 'gridMu', 'gridSeedList', 'gridBudget',
-                     'gridLoraScale']) {
+                     'gridLoraScale', 'gridSize']) {
     els[key].value = '';
   }
   els.gridSeeds.value = 1;

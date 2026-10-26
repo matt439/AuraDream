@@ -132,6 +132,32 @@ def image_bytes(width: int, height: int, model_id: str | None = None, sample: in
     return sizes[len(sizes) // 2]
 
 
+def execution_estimates(cells: Sequence[Any], model_id: str) -> tuple[dict, int | None]:
+    """Matching history per concrete canvas, and the sum of its PNG samples.
+
+    Callers pass execution units in their real order, including Then refine's
+    stand-ins. Missing history for one size never borrows another's sample.
+    """
+    groups: dict[tuple[int, int], list[Any]] = {}
+    for cell in cells:
+        groups.setdefault((cell.request.width, cell.request.height), []).append(cell)
+    prices = {}
+    disk: int | None = 0 if cells else None
+    for size, group in groups.items():
+        prices[size] = (
+            step_cost_ms(*size, model_id),
+            refine_cost_ms(*size, model_id),
+            refine_cost_ms(*size, model_id, inpaint=True)
+            if any(cell.request.inpainting for cell in group) else {},
+        )
+        sample = image_bytes(*size, model_id)
+        if sample is None:
+            disk = None
+        elif disk is not None:
+            disk += sample * sum(cell.request.num_images for cell in group)
+    return prices, disk
+
+
 # The columns `keep_rates` can group by, as SQL. CFG and mu are rounded to the
 # six decimals the axis parser produces, so a value that went through REAL and
 # back does not split one setting into two buckets.
@@ -239,6 +265,8 @@ def keep_rates(
 # count of distinct values over the run (a NULL counted as a value of its own
 # where the column takes one), read back as RunSummary.axes.
 _RUN_AXES = {
+    "size": "width || 'x' || height",
+    "crop_anchor": "COALESCE(crop_anchor, 'center')",
     "steps": "steps",
     "cfg": "guidance_scale",
     "mu": "COALESCE(mu, 'none')",
@@ -252,14 +280,33 @@ _RUN_AXES = {
 _AXIS_COUNTS = ", ".join(f"COUNT(DISTINCT {expr}) AS axis_{name}" for name, expr in _RUN_AXES.items())
 
 
+def run_sizes(run_id: str) -> list[tuple[int, int]]:
+    """Retained concrete requests define a run, including its unfinished sizes."""
+    try:
+        retained = storage.retained_run_jobs(run_id)
+    except ValueError:
+        retained = []
+    sizes = sorted({
+        (cell.request.width, cell.request.height)
+        for saved in retained for cell in saved["cells"]
+    })
+    if sizes:
+        return sizes
+    with storage._session() as conn:
+        return sorted((row["width"], row["height"]) for row in conn.execute(
+            "SELECT DISTINCT width, height FROM images WHERE run_id = ?", (run_id,),
+        ))
+
+
 def runs(limit: int = 20, model_id: str | None = None) -> list[RunSummary]:
     """The gallery grouped by run, the most recently written first.
 
     What `GET /api/runs` serves and the Runs picker lists: the night's output
     as one line per grid rather than 480 cards to scroll past. Rows written
-    before runs had an id are not a run and are left out. Size, checkpoint and
-    quantizer are constant within a run - `run_id` hashes them - so they are
-    read off the oldest image along with its prompt and its seed, which is the
+    before runs had an id are not a run and are left out. Checkpoint and
+    quantizer are constant within a run. Its distinct canvases come from
+    retained requests, else its images; scalar dimensions remain representative.
+    The oldest image supplies its prompt and its seed, which is the
     base seed the grid was started from. `model_id` keeps the list to one
     checkpoint's runs, as the gallery it is a table of contents for is kept.
     Binned images are left out, as the gallery leaves them out, and a run
@@ -292,6 +339,7 @@ def runs(limit: int = 20, model_id: str | None = None) -> list[RunSummary]:
     summaries = []
     for group in groups:
         first = firsts[group["first_id"]]
+        sizes = run_sizes(group["run_id"])
         summaries.append(
             RunSummary(
                 run_id=group["run_id"],
@@ -310,6 +358,7 @@ def runs(limit: int = 20, model_id: str | None = None) -> list[RunSummary]:
                 quantization=first["quantization"],
                 width=first["width"],
                 height=first["height"],
+                sizes=sizes, size_count=len(sizes),
                 started_at=group["started_at"],
                 finished_at=group["finished_at"],
                 axes={name: group[f"axis_{name}"] for name in _RUN_AXES if group[f"axis_{name}"] > 1},
@@ -353,6 +402,8 @@ def runs(limit: int = 20, model_id: str | None = None) -> list[RunSummary]:
             prompt=first["metadata"].get("prompt_template") or request.prompt,
             seed=first["cells"][0].seed, model_id=first["model_id"],
             quantization=first["quantization"], width=first["width"], height=first["height"],
+            sizes=sorted({(cell.request.width, cell.request.height) for cell in cells}),
+            size_count=len({(cell.request.width, cell.request.height) for cell in cells}),
             started_at=stamp(first["created_at"]),
             finished_at=stamp((last.get("outcome") or {}).get("finished_at") or last["created_at"]),
         )

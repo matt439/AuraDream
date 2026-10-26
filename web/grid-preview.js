@@ -14,6 +14,7 @@ function gridPayload() {
     prompt_axis: els.gridPrompt.value.trim(),
     prompt_mode: els.gridPromptMode.value,
     steps_axis: els.gridSteps.value.trim(),
+    size_axis: els.gridSize.value.trim(),
     cfg_axis: els.gridCfg.value.trim(),
     mu_axis: els.gridMu.disabled ? '' : els.gridMu.value.trim(),
     lora_scale_axis: els.gridLoraScale.disabled ? '' : els.gridLoraScale.value.trim(),
@@ -240,7 +241,7 @@ async function previewGrid() {
     totals.textContent =
       `${p.images} image${p.images === 1 ? '' : 's'} · ${gridFactors(p.summary)}` +
         // Then refine's passes, one per image, priced in the time and disk.
-        (p.passes ? ` · + ${p.passes} refine pass${p.passes === 1 ? '' : 'es'} at ${p.pass_width}×${p.pass_height}` : '') +
+        (p.passes ? ` · + ${p.passes} refine pass${p.passes === 1 ? '' : 'es'} at ${(p.pass_sizes?.length ? p.pass_sizes : [[p.pass_width, p.pass_height]]).map(([w, h]) => `${w}×${h}`).join(", ")}` : '') +
         (p.skipped ? ` · ${p.skipped} already done` : '') +
         // Resume's other drop: cells a live job already plans, the same run
         // still queued - not "done", which is the gallery's.
@@ -260,6 +261,7 @@ async function previewGrid() {
       totals,
       `\nsteps ${axisText(p.values.steps)}  ·  CFG ${axisText(p.values.guidance_scale)}` +
         `  ·  mu ${muAxisText(p.values.mu)}` +
+        (body.size_axis ? `  \u00b7  size ${axisText(p.values.size)}` : '') +
         // Only when it is an axis: every other run would carry a constant.
         // Named, since a sweep's weights mean nothing without the adapter.
         (p.values.lora_scale && p.values.lora_scale.length > 1

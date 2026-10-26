@@ -39,6 +39,32 @@ def cli(store, monkeypatch):
 SIZE = ["--width", "256", "--height", "256"]
 
 
+def test_size_axis_cli_crosses_pairs_and_resumes_per_canvas(cli, store, capsys):
+    flags = ["a fox", *SIZE, "--grid-size", "256x256,512x256", "--grid-steps", "4,8", "--seed", "13"]
+    assert generate.main([*flags, "--dry-run"]) == 0
+    output = capsys.readouterr().out
+    assert "2 sizes" in output and "256x256, 512x256" in output
+    assert generate.main([*flags, "-q"]) == 0
+    assert [(r.width, r.height, r.steps) for r in cli.requests] == [
+        (w, h, steps) for w, h in ((256, 256), (512, 256)) for steps in (4, 8)
+    ]
+    assert generate.main([*flags, "--resume", "-q"]) == 0
+    assert len(cli.requests) == 4
+
+
+def test_crop_anchor_cli_carries_from_png_and_explicit_choice_wins(cli, store):
+    source = _to_refine(store)
+    flags = ["a fox", *SIZE, "--refine", str(source.id), "--strength", "0.5", "--crop-anchor", "top", "--seed", "3", "-q"]
+    assert generate.main(flags) == 0
+    made = store.list_images()[0][0]
+    assert made.crop_anchor == "top" and cli.requests[-1].crop_anchor == "top"
+    path = store.settings.outputs_dir / made.filename
+    assert generate.main(["--from-image", str(path), "-q"]) == 0
+    assert cli.requests[-1].crop_anchor == "top"
+    assert generate.main(["--from-image", str(path), "--crop-anchor", "bottom", "-q"]) == 0
+    assert cli.requests[-1].crop_anchor == "bottom"
+
+
 def test_random_prompt_cli_draws_per_image_and_saves_the_same_choices_as_grid(cli, store, capsys):
     from backend import grid
     from backend.schemas import GenerateRequest
@@ -1349,6 +1375,20 @@ def test_via_server_random_prompt_mode_matches_the_direct_expansion(via_server, 
     for request, seed in zip(via_server.backend.requests, via_server.backend.seeds):
         assert request.num_images == 1
         assert request.prompt == grid.substitute("a {size} fox", grid.random_assignment(expected, seed))
+
+
+def test_size_axis_and_crop_anchor_via_server_match_direct_requests(via_server, store):
+    assert generate.main(["a fox", "--via-server", *SIZE, "--grid-size", "256x256,512x256",
+                          "--grid-steps", "4,8", "--seed", "13", "-q"]) == 0
+    body = next(call[2] for call in via_server.calls if call[1] == "/api/grid")
+    assert body["size_axis"] == "256x256,512x256"
+    assert [(r.width, r.height, r.steps) for r in via_server.backend.requests] == [
+        (w, h, steps) for w, h in ((256, 256), (512, 256)) for steps in (4, 8)
+    ]
+    source = _to_refine(store)
+    assert generate.main(["a fox", "--via-server", *SIZE, "--refine", str(source.id), "--strength", "0.5",
+                          "--crop-anchor", "bottom-left", "--seed", "3", "-q"]) == 0
+    assert via_server.backend.requests[-1].crop_anchor == "bottom-left"
 
 
 def test_via_server_resume_and_plain_repeat_budget_use_grid_semantics(via_server, capsys):

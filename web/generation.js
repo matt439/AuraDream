@@ -132,7 +132,8 @@ function describeJob(job, length = 60, { markup = false } = {}) {
     : 're-render';
   return [
     job.planned_images ? plural(job.planned_images, 'image') : '',
-    job.width && job.height ? `${job.width}×${job.height}` : '',
+    job.sizes?.length ? job.sizes.map(([w, h]) => `${w}\u00d7${h}`).join(', ')
+      : job.width && job.height ? `${job.width}×${job.height}` : '',
     what,
     job.then_refine ? `then refine ${job.then_refine.scale}× at ${job.then_refine.strength}` : '',
   ].filter(Boolean).join(' · ');

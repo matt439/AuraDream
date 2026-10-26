@@ -65,12 +65,13 @@ function syncThenRefine() {
   const strength = thenRefineStrengthText();
   const width = +els.width.value;
   const height = +els.height.value;
-  const size = width && height ? refineScaled(width, height, trScale) : null;
+  const sizeAxis = els.gridSection.open && els.gridSize.value.trim();
+  const size = !sizeAxis && width && height ? refineScaled(width, height, trScale) : null;
   [...els.thenRefineScales.children].forEach((button, i) => {
     const scale = REFINE_SCALES[i];
     button.classList.toggle('active', scale === trScale);
     button.setAttribute('aria-pressed', String(scale === trScale));
-    const made = width && height ? refineScaled(width, height, scale) : null;
+    const made = !sizeAxis && width && height ? refineScaled(width, height, scale) : null;
     button.title = made ? `${scale}×: ${width}×${height} becomes ${made[0]}×${made[1]}` : `${scale} times each image's size`;
   });
   els.thenRefineOpen.textContent = on ? `Refine ${trScale}× · ${strength}` : 'Then refine: off';
@@ -79,6 +80,7 @@ function syncThenRefine() {
     : on ? `Each image is then refined at ${trScale}× and strength ${strength}; change or turn it off`
     : 'Follow each image Generate or Run grid makes with a refine pass';
   els.thenRefineHint.textContent = held ? REFINE_NONE
+    : sizeAxis ? `Run grid refines every image at ${trScale}x its own size; the grid preview lists the pass sizes. Each pass keeps its image's prompt and seed.`
     : size && !refineFits(size) ? `${width}×${height} at ${trScale}× is ${size[0]}×${size[1]}, past what a refine pass renders.`
     : size ? `Each image is then refined at ${trScale}× to ${size[0]}×${size[1]} from its own prompt and seed; the passes join a run of their own.`
     : '';

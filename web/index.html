@@ -598,6 +598,14 @@
       </div>
       <div class="row">
         <div class="sub grow">
+          <i><label for="grid-size">Sizes</label></i>
+          <input type="text" id="grid-size" maxlength="2000" autocomplete="off"
+                 placeholder="1024x1024, 768x1024" aria-describedby="grid-size-hint">
+          <p class="hint" id="grid-size-hint">Width x height pairs, separated by commas. Blank keeps the panel size.</p>
+        </div>
+      </div>
+      <div class="row">
+        <div class="sub grow">
           <i><label for="grid-steps">Steps</label>
             <span class="help" tabindex="0" role="note" aria-label="Steps axis help" aria-describedby="grid-steps-tip">?<span
               class="tip" id="grid-steps-tip">One value, a list or a range:<br>
@@ -1126,6 +1134,16 @@
         <label class="check rf-lock" title="Typing W or H keeps the source's shape"><input type="checkbox" id="refine-lock" checked> Keep shape</label>
       </div>
       <p class="hint" id="refine-size-hint"></p>
+      <label class="sub grow"><i>Crop anchor</i>
+        <select id="refine-crop-anchor" aria-describedby="refine-crop-hint">
+          <option value="center">Center</option>
+          <option value="top">Top</option><option value="bottom">Bottom</option>
+          <option value="left">Left</option><option value="right">Right</option>
+          <option value="top-left">Top left</option><option value="top-right">Top right</option>
+          <option value="bottom-left">Bottom left</option><option value="bottom-right">Bottom right</option>
+        </select>
+      </label>
+      <p class="hint" id="refine-crop-hint">When the shapes differ, choose which part of the source to keep.</p>
     </div>
 
     <div class="field" id="refine-upscaler-field" hidden>

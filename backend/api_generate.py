@@ -54,12 +54,14 @@ async def expand_grid(
     still queued, render nothing twice; counted apart, since the preview's
     "already done" is the gallery's.
     """
-    await submission.refuse_unusable_inputs(services, request)
+    if request.refine is not None:
+        unavailable = (
+            await submission.inpaint_unavailable(services, outpainting=request.outpaint is not None)
+            if request.inpainting else await submission.refine_unavailable(services)
+        )
+        if unavailable is not None:
+            raise HTTPException(status_code=422, detail=unavailable)
     try:
-        # Random choices split the requested batch into single-image calls.
-        # Check the pixels resident in one call, not their seed-group count.
-        budget_request = request.model_copy(update={"num_images": 1}) if request.prompt_mode == "random" else request
-        budget_request.check_budget()
         # Listed seeds are an axis the preview shows like the others; counted
         # seeds are derived from the base and are not.
         seed_list = grid.parse_seeds(request.seed_axis)
@@ -75,6 +77,7 @@ async def expand_grid(
             seed_list=seed_list or None,
             variants=request.prompt_variants,
             prompt_mode=request.prompt_mode,
+            size=request.size_axis,
         )
         # Random choices resolve once. A second expansion with an unset seed
         # would list another sample beside the cells whose counts we report.
@@ -83,10 +86,15 @@ async def expand_grid(
             request.prompt_axis, request.lora_scale_axis,
             variants=request.prompt_variants, strength=request.strength_axis,
             prompt_mode=request.prompt_mode, cells=cells,
+            size=request.size_axis,
         )
         values["seed"] = list(seed_list)
     except ValueError as exc:
         raise HTTPException(status_code=422, detail=error_detail(exc)) from exc
+    # Sources and masks are held to each actual canvas; the base size may be
+    # replaced completely by the paired size axis.
+    for group in submission.cells_by_size(cells).values():
+        await submission.refuse_unusable_inputs(services, group[0].request)
     run_id = grid.run_id(cells, services.model_id(), services.quantization())
     if not request.resume:
         return cells, values, 0, 0, run_id
@@ -137,6 +145,7 @@ class FinishPlan:
     definition: dict | None
     cells: list[grid.Cell]
     records: list
+    sizes: list[tuple[int, int]]
     refusal_code: int = 409
 
 
@@ -279,7 +288,10 @@ async def finish_plan(services: AppServices, run_id: str) -> FinishPlan:
         redrawn=sum(_finish_key(services, cell) in succeeded for cell in kept),
         budget_minutes=budget, pin=pin,
     )
-    return FinishPlan(preview, definition, kept, records, refusal_code)
+    sizes = sorted({(cell.request.width, cell.request.height) for cell in cells}) if definitions else sorted(
+        {(record.width, record.height) for record in records}
+    )
+    return FinishPlan(preview, definition, kept, records, sizes, refusal_code)
 
 
 def create_router(services: AppServices) -> APIRouter:
@@ -313,6 +325,7 @@ def create_router(services: AppServices) -> APIRouter:
             quantization=definition["quantization"] if definition else first.quantization,
             width=definition["width"] if definition else first.width,
             height=definition["height"] if definition else first.height,
+            sizes=plan.sizes, size_count=len(plan.sizes),
             batch=definition["batch"] if definition else first.batch or 1,
             comparison=definition["comparison"] if definition else False,
             images=len(live), binned=len(records) - len(live), cells=plan.preview.total,
@@ -535,51 +548,27 @@ def create_router(services: AppServices) -> APIRouter:
             in_gallery = len(cells) - len(
                 await submission.not_yet_rendered(services, cells, request.width, request.height)
             )
-        # Cost is per step, and a grid's cells rarely agree on how many they take.
-        per_step_ms = await asyncio.to_thread(
-            gallery_reports.step_cost_ms, request.width, request.height, services.model_id()
-        )
-        refine_costs = await asyncio.to_thread(
-            gallery_reports.refine_cost_ms, request.width, request.height, services.model_id()
-        )
-        # An inpaint's price is inpaints' alone; a mask is fixed across a job.
-        inpaint_costs = (
-            await asyncio.to_thread(
-                gallery_reports.refine_cost_ms, request.width, request.height, services.model_id(),
-                inpaint=True,
-            )
-            if request.inpainting
-            else None
-        )
-        per_image_bytes = await asyncio.to_thread(
-            gallery_reports.image_bytes, request.width, request.height, services.model_id()
-        )
         images = sum(cell.request.num_images for cell in cells)
         listed = len(values.get("seed", []))
-        # Then refine: a pass of each image after its cell, priced as passes
-        # at the pass size are; the cells and their passes priced as the
-        # worker runs them, each cell's passes after it.
         spec = await then_refine_spec(services, request.then_refine, [cell.request for cell in cells])
-        priced, pass_size, pass_bytes = cells, None, 0
+        priced = cells
+        pass_sizes = []
         if spec is not None and cells:
             stand_ins = [then_refine.stand_in(cell.request, spec) for cell in cells]
-            pass_size = (stand_ins[0].width, stand_ins[0].height)
-            refine_costs = await asyncio.to_thread(
-                gallery_reports.refine_cost_ms, *pass_size, services.model_id()
-            )
-            pass_image = await asyncio.to_thread(gallery_reports.image_bytes, *pass_size, services.model_id())
-            pass_bytes = pass_image * images if pass_image else None
+            pass_sizes = sorted({(probe.width, probe.height) for probe in stand_ins})
             priced = [
                 unit
                 for cell, probe in zip(cells, stand_ins)
                 for unit in [cell, *[grid.Cell(request=probe, seed=cell.seed)] * cell.request.num_images]
             ]
+        prices, disk_bytes = await asyncio.to_thread(
+            gallery_reports.execution_estimates, priced, services.model_id(),
+        )
         # Under Resume the seeds left are no longer alike, and the page says
         # nothing of the budget there.
         budget_seeds = (
             grid.seeds_within_budget(
-                priced, listed or request.seeds, per_step_ms, request.budget_minutes * 60,
-                refine_costs=refine_costs, inpaint_costs=inpaint_costs,
+                priced, listed or request.seeds, None, request.budget_minutes * 60, by_size=prices,
             )
             if request.budget_minutes and not request.resume
             else None
@@ -591,9 +580,9 @@ def create_router(services: AppServices) -> APIRouter:
         start_sigma = None
         if request.refine is not None and cells:
             applied = [services.backend().applied(cell.request) for cell in cells]
-            if len({(r.steps, r.mu, r.strength) for r in applied}) == 1 and applied[0].refine is not None:
+            if len({(r.width, r.height, r.steps, r.mu, r.strength) for r in applied}) == 1 and applied[0].refine is not None:
                 start_sigma = services.backend().start_sigma(applied[0])
-        elif spec is not None and cells and len({cell.request.steps for cell in cells}) == 1:
+        elif spec is not None and cells and len({(cell.request.width, cell.request.height, cell.request.steps) for cell in cells}) == 1:
             # Then refine's pass, where every cell's starts at one point.
             start_sigma = services.backend().start_sigma(
                 services.backend().applied(then_refine.stand_in(cells[0].request, spec))
@@ -617,14 +606,15 @@ def create_router(services: AppServices) -> APIRouter:
                 prompt_mode=request.prompt_mode, batch=request.num_images,
             ),
             seconds=grid.estimate_seconds(
-                priced, per_step_ms, refine_costs=refine_costs, inpaint_costs=inpaint_costs
+                priced, None, by_size=prices
             ),
             budget_seeds=budget_seeds,
-            bytes=per_image_bytes * images + pass_bytes if per_image_bytes and pass_bytes is not None else None,
+            bytes=disk_bytes,
             start_sigma=start_sigma,
             passes=images if spec is not None else 0,
-            pass_width=pass_size[0] if pass_size else None,
-            pass_height=pass_size[1] if pass_size else None,
+            pass_width=pass_sizes[0][0] if len(pass_sizes) == 1 else None,
+            pass_height=pass_sizes[0][1] if len(pass_sizes) == 1 else None,
+            pass_sizes=pass_sizes,
         )
 
     return router

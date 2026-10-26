@@ -198,7 +198,7 @@ els.gridRun.onclick = () => startJob('/api/grid', gridPayload());
 // there - the server validates it - and Resume because the whole "N already
 // done" half of the preview is what ticking it is for. Repeat (`runs`) moves
 // nothing a grid runs, but the preview says so while it is above one.
-for (const el of [els.gridPrompt, els.gridPromptMode, els.gridSteps, els.gridCfg, els.gridMu, els.gridSeeds,
+for (const el of [els.gridPrompt, els.gridPromptMode, els.gridSize, els.gridSteps, els.gridCfg, els.gridMu, els.gridSeeds,
                   els.gridSeedList, els.gridBudget, els.prompt, els.negative, els.steps,
                   els.cfg, els.trueCfg, els.mu, els.batch, els.runs, els.width, els.height,
                   els.seed, els.gridLoraScale, els.loraScale]) {
@@ -499,6 +499,7 @@ for (const el of [els.refineWidth, els.refineHeight, els.refineStrength, els.ref
 }
 els.refineVersions.addEventListener('change', refineChanged);
 els.refineUpscaler.addEventListener('change', refineChanged);
+els.refineCropAnchor.addEventListener('change', refineChanged);
 
 // The Inpaint dialog (inpaint.js) and its mask (inpaint-mask.js). The canvas
 // paints with pointer events, captured for the stroke; its keys are its own

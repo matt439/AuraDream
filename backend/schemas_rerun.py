@@ -106,6 +106,8 @@ class RunDetails(BaseModel):
     quantization: str | None = None
     width: int
     height: int
+    sizes: list[tuple[int, int]] = Field(default_factory=list)
+    size_count: int = 1
     batch: int
     comparison: bool = False
     images: int = 0

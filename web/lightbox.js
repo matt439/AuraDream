@@ -338,7 +338,7 @@ function layoutCompare(rec, ports, pass, boxIn, rectOf) {
       x: -rec.outpaint.left / source.width, y: -rec.outpaint.top / source.height,
       w: rec.width / source.width, h: rec.height / source.height,
     }
-      : refineKept(source.width, source.height, rec.width, rec.height);
+      : refineKept(source.width, source.height, rec.width, rec.height, rec.crop_anchor);
   const full = { w: at.w / kept.w, h: at.h / kept.h };
   const box = { left: at.left - kept.x * full.w, top: at.top - kept.y * full.h, ...full };
   placeBox(els.lbSrcImg, box);

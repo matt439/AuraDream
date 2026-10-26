@@ -312,6 +312,11 @@ The app records references, adapter and weight for Reuse and Resume.
 
 ## Refine an existing image
 
+**Crop anchor** chooses which part of a differently shaped source Refine
+keeps: the center, an edge or a corner. It applies to ordinary Refine, and is
+kept when loading or rerunning its settings. Inpaint and outpaint use their
+own source geometry.
+
 Open **Refine** on a gallery image. Its dialog starts from the source's prompt,
 sampling settings and seed, independently of the main panel. Choose a scale
 and **Strength**; lower strengths retain more of the source, higher strengths
@@ -459,6 +464,7 @@ previous renders provide measurements, time and disk estimates.
 | Seeds | Count of consecutive seeds crossed with all settings | `4` |
 | Seed list | Explicit seeds instead of Seeds and the panel's Seed | `4471,8823`, `100-103` |
 | LoRA weight | Numeric axis with an adapter selected | `0-1x0.25` |
+| Sizes | Width x height pairs, separated by commas | `1024x1024, 768x1024` |
 | Budget | Minutes before starting no further cell | `420` |
 
 A range without a step counts in ones; write `0.8-1.2x0.1` for decimals.
@@ -495,6 +501,10 @@ The panel's **Resume** tick skips settings the gallery already holds,
 including matching images from other jobs and live queued work. An entirely
 completed grid is refused. A hand-built Resume still needs the original
 prompt, axes and base seed in the panel.
+
+Sizes cross with the other axes and keep each image's seed. Each size must
+meet the usual bounds; a larger canvas never borrows another size's timing
+estimate. The run and contact sheet show its distinct sizes.
 
 **Finish run** on a finish line, last-run banner or run sheet uses the
 server's stored cells instead. It works after a tab reload or server restart,

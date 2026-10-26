@@ -35,7 +35,7 @@ def stand_in(request: GenerateRequest, spec: ThenRefine) -> GenerateRequest:
     return request.model_copy(update={
         "width": width, "height": height, "num_images": 1, "runs": 1,
         "refine": 1, "strength": spec.strength, "steps": spec.steps or request.steps,
-        "reference": [], "mask": None, "outpaint": None, "upscaler": None,
+        "reference": [], "mask": None, "outpaint": None, "upscaler": None, "crop_anchor": "center",
     })
 
 
@@ -44,22 +44,26 @@ def refusal(requests: list[GenerateRequest], spec: ThenRefine, unavailable: str 
     `unavailable` is `submission.refine_unavailable`'s answer."""
     if unavailable is not None:
         return unavailable
-    first = requests[0]
-    if first.refine is not None:
-        what = (
-            "an outpaint" if first.outpaint is not None
-            else "an inpaint" if first.mask is not None else "a refine pass"
-        )
-        return f"Then refine follows a direct render; this is already {what} of #{first.refine}"
-    width, height = scaled(first.width, first.height, spec.scale)
-    if too_big(width, height):
-        return (
-            f"{first.width}×{first.height} at {spec.scale:g}× is {width}×{height}, past the "
-            f"{settings.refine_max_side}-pixel side and "
-            f"{settings.refine_max_pixels / 1e6:.1f} MP a refine pass takes"
-        )
-    for steps in sorted({request.steps for request in requests}):
-        probe = stand_in(first.model_copy(update={"steps": steps}), spec)
+    seen = set()
+    for request in requests:
+        if request.refine is not None:
+            what = (
+                "an outpaint" if request.outpaint is not None
+                else "an inpaint" if request.mask is not None else "a refine pass"
+            )
+            return f"Then refine follows a direct render; this is already {what} of #{request.refine}"
+        key = request.width, request.height, request.steps
+        if key in seen:
+            continue
+        seen.add(key)
+        width, height = scaled(request.width, request.height, spec.scale)
+        if too_big(width, height):
+            return (
+                f"{request.width}×{request.height} at {spec.scale:g}× is {width}×{height}, past the "
+                f"{settings.refine_max_side}-pixel side and "
+                f"{settings.refine_max_pixels / 1e6:.1f} MP a refine pass takes"
+            )
+        probe = stand_in(request, spec)
         try:
             probe.check_budget()
         except ValueError as exc:
@@ -75,8 +79,8 @@ def refusal(requests: list[GenerateRequest], spec: ThenRefine, unavailable: str 
 
 
 def pass_run_id(base_run_id: str, spec: ThenRefine) -> str:
-    """The run the passes are saved under: their own, since a run has one
-    size, and the same for every job that continues the base run, so a
+    """The run the passes are saved under, separate from their bases and
+    the same for every job that continues the base run, so a
     Resume or a Finish of it joins the passes already made."""
     definition = {
         "then_refine_of": base_run_id, "scale": spec.scale,

@@ -825,7 +825,7 @@ def test_gan_reproduction_reaches_the_row_png_resume_key_and_rerun(store):
         assert "Hires upscaler" not in png.info["parameters"]
     base = grid.Cell(request, seed=1)
     enhanced = grid.Cell(gan, seed=1)
-    assert grid.cell_key(enhanced)[-2:] == (refine.ANIME6B, 1)
+    assert grid.cell_key(enhanced)[-3:] == (refine.ANIME6B, "256x256@center", 1)
     assert len({grid.cell_key(base), grid.cell_key(enhanced)}) == 2
     assert grid.run_id([base], _WAI, "fp8") != grid.run_id([enhanced], _WAI, "fp8")
     done = store.completed_cells(["a fox"], 256, 256, _WAI)

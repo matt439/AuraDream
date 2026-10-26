@@ -805,6 +805,15 @@ def import_bundle(path: Path, password: str | None = None, progress: Progress = 
                         for key in ("prompt", "negative_prompt", "steps", "guidance_scale", "mu", "seed", "model_id"):
                             if known[key] != row[key]:
                                 raise BundleError(f"different image metadata already uses the filename {name}")
+                        incoming_anchor = row.get("crop_anchor")
+                        if known.get("refine") is None:
+                            # A prior import of this source-less selection
+                            # already dropped both its source and its crop.
+                            # Known rows win even if this archive now includes
+                            # the source: importing it cannot relink that row.
+                            incoming_anchor = None
+                        if (known.get("crop_anchor") or "center") != (incoming_anchor or "center"):
+                            raise BundleError(f"different crop anchor already uses the filename {name}")
                         mapping[row["id"]] = known["id"]
                         if lost:
                             restoring.append(known)
@@ -839,9 +848,14 @@ def import_bundle(path: Path, password: str | None = None, progress: Progress = 
                         unresolved += 1
                         values["strength"] = None
                         values["upscaler"] = None
+                        values["crop_anchor"] = None
                         # Its mask covered that source's pixels, and a mask is
                         # never kept without the source it covers.
                         values["mask"] = None
+                    values["crop_anchor"] = storage._crop_anchor(
+                        values.get("crop_anchor"), source=values.get("refine"),
+                        mask=values.get("mask"), outpaint=values.get("outpaint"),
+                    )
                     if values.get("mask") is None or values.get("refine") is None:
                         # An outpaint never without its source and its mask.
                         values["outpaint"] = None

@@ -15,6 +15,7 @@ from collections.abc import Mapping
 from typing import Any
 
 from backend.metadata import embedded_metadata
+from backend.refine import CROP_ANCHORS
 
 # A1111's own keyword for the block (`modules/images.py`), which Forge and
 # Civitai keep and `storage.save_image` writes beside ours.
@@ -29,6 +30,23 @@ _NEGATIVE = "Negative prompt:"
 
 class PngSettingsError(ValueError):
     """A PNG whose settings cannot be read, in words for the CLI or the page."""
+
+
+def crop_anchor(value: Any, *, source: Any, mask: Any = None, outpaint: Any = None) -> str | None:
+    """A stored crop anchor, with the legacy centered choice represented by NULL.
+
+    Noncenter crops describe an ordinary Refine source. Validate before
+    provenance remapping; a caller dropping that source must drop its anchor
+    too rather than turn a source-dependent setting into a direct render.
+    Pure so the CLI can read a PNG before selecting its configuration.
+    """
+    if value is None or value == "center":
+        return None
+    if not isinstance(value, str) or value not in CROP_ANCHORS:
+        raise ValueError("invalid crop anchor")
+    if type(source) is not int or source <= 0 or mask is not None or outpaint is not None:
+        raise ValueError("a noncenter crop anchor needs an ordinary Refine source")
+    return value
 
 
 def record(chunks: Mapping[str, Any], name: str) -> dict | None:
@@ -47,6 +65,13 @@ def record(chunks: Mapping[str, Any], name: str) -> dict | None:
         raise PngSettingsError(f"the Local Diffusion metadata in {name} is not JSON") from None
     if not isinstance(meta, dict):
         raise PngSettingsError(f"the Local Diffusion metadata in {name} is not a settings record")
+    try:
+        crop_anchor(
+            meta.get("crop_anchor"), source=meta.get("refine"),
+            mask=meta.get("mask"), outpaint=meta.get("outpaint"),
+        )
+    except ValueError as exc:
+        raise PngSettingsError(f"the Local Diffusion metadata in {name} has {exc}") from None
     return meta
 
 

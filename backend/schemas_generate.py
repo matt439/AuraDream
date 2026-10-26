@@ -29,6 +29,11 @@ from .seeds import MAX_BATCH, MAX_GRID_SEEDS, MAX_RUNS, MAX_SEED
 # references is already several times the cost of the prompt alone.
 MAX_REFERENCES = 4
 
+CropAnchor = Literal[
+    "center", "top", "bottom", "left", "right",
+    "top-left", "top-right", "bottom-left", "bottom-right",
+]
+
 
 def default_strength() -> float:
     """Where a refine pass's strength starts on the running checkpoint.
@@ -232,6 +237,7 @@ class GenerateRequest(BaseModel):
     # In (0, 1], checked by `_a_fraction` below rather than by gt/le, whose
     # "Input should be less than or equal to 1" the Refine dialog would show.
     strength: float | None = None
+    crop_anchor: CropAnchor = "center"
     # An optional GAN before an ordinary Refine pass; absent keeps the
     # existing Lanczos source fit. Never applied to a mask or an outpaint.
     upscaler: Literal[ANIME6B] | None = None
@@ -310,6 +316,15 @@ class GenerateRequest(BaseModel):
                 raise ValueError("an upscaler needs the image to refine")
             if self.mask is not None or self.outpaint is not None:
                 raise ValueError("an upscaler is for an ordinary refine pass, without a mask or outpaint")
+        return self
+
+    @model_validator(mode="after")
+    def _a_crop_anchor_needs_an_ordinary_pass(self) -> "GenerateRequest":
+        if self.crop_anchor != "center":
+            if self.refine is None:
+                raise ValueError("a crop anchor needs the image to refine")
+            if self.mask is not None or self.outpaint is not None:
+                raise ValueError("a crop anchor is for an ordinary refine pass, without a mask or outpaint")
         return self
 
     @model_validator(mode="after")
@@ -513,6 +528,8 @@ class GenerateRequest(BaseModel):
             changes["upscaler"] = None
         if refine is None and self.strength != default_strength():
             changes["strength"] = default_strength()
+        if self.crop_anchor != "center" and (refine is None or mask is not None or outpaint is not None):
+            changes["crop_anchor"] = "center"
         # The sibling's `image` is the source, so references have nowhere to
         # go on a refine pass (or an inpaint: SDXL's and Z-Image's classes take
         # none) even where the text-to-image call takes them.
@@ -616,6 +633,8 @@ class GridRequest(GenerateSubmission):
     # `variables={"variant": label}`, so the sheet gives each its own row.
     prompt_variants: list[PromptVariant] | None = Field(default=None, min_length=2, max_length=8)
     steps_axis: str = Field(default="", max_length=200)
+    # Paired sizes, never independent width and height products.
+    size_axis: str = Field(default="", max_length=2000)
     cfg_axis: str = Field(default="", max_length=200)
     mu_axis: str = Field(default="", max_length=200)
     # LoRA weight as an axis. The comparison a LoRA is bought for - "the same
@@ -734,6 +753,7 @@ class GridPreview(BaseModel):
     passes: int = 0
     pass_width: int | None = None
     pass_height: int | None = None
+    pass_sizes: list[tuple[int, int]] = Field(default_factory=list)
 
 
 class JobAccepted(BaseModel):

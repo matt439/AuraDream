@@ -34,6 +34,7 @@ function settingsLine(rec) {
     // An outpaint says its padding too: "outpaint of #N +400/+0/+400/+0 @ 0.9999".
     (rec.refine != null ? `${passWord(rec)} of #${rec.refine}${outpaintOf(rec)}${rec.refine_missing ? ` (${goneWord(rec)})` : ''} @ ${rec.strength}, ` : '') +
     (rec.upscaler ? `upscaler ${upscalerName(rec.upscaler)}, ` : '') +
+    (rec.crop_anchor && rec.crop_anchor !== 'center' ? `crop ${rec.crop_anchor}, ` : '') +
     `seed ${rec.seed}, ${(rec.duration_ms / 1000).toFixed(1)}s`
   );
 }
@@ -85,6 +86,7 @@ function factsList(rec, { useSeed: seedButton = false, search = false, megapixel
   if (rec.lora) row('LoRA', `${rec.lora} @ ${rec.lora_scale}`);
   if (rec.reference?.length) row('References', referenceThumbs(rec));
   if (rec.upscaler) row('Upscaler', upscalerName(rec.upscaler));
+  if (rec.refine != null && !rec.mask && !rec.outpaint) row('Crop anchor', rec.crop_anchor || 'center');
   if (rec.refine != null) {
     // A source that has gone cannot be opened: said, not linked - with a
     // Restore where it waits in the recycle bin (bin.js).

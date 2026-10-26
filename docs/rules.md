@@ -846,6 +846,21 @@ Reproduction:
   `prompt_sample` when neither a base seed nor a seed list fixes its choices;
   the page labels those prompts as examples and says Batch images run
   separately. The CLI uses `--grid-prompt-mode random`.
+- Grid sizes are paired `WIDTHxHEIGHT` values in `size_axis`, never independent
+  width/height products. Each concrete cell keeps its image seed and random
+  assignment across sizes, passes the existing guards and contributes to the
+  grid ceiling. Resume/planned work and estimates use each actual size. A
+  mixed run reports all sizes, and Then refine reports all `pass_sizes`, with
+  the old scalar pass dimensions only for a uniform result.
+- `crop_anchor` is ordinary Refine reproduction data: center by default, or
+  an edge/corner. It is refused beside a mask/outpaint or without a source,
+  and resets when a source is dropped or Mass refine chooses another. Center
+  keeps the old resize/rounding/crop path. Noncenter anchors travel through
+  rows, PNGs, reruns, reindex, retained work and bundles; center remains NULL
+  in storage and absent in legacy metadata. One shape extension carries size
+  and anchor together in `CellKey`. Uniform centered run hashes keep the
+  legacy definition; mixed/noncenter runs name their concrete shapes. Source
+  frames, comparisons and sheet/export thumbnails must show that exact crop.
 - A producer that runs gallery records again builds its cells with
   `grid.cell_from_record` (one record, naming only what changes: a size, a
   prompt, a negative prompt, variables) or `grid.cells_from_records` (a list
@@ -891,8 +906,8 @@ Reproduction:
   value that is no non-negative integer is NULL (`storage._peak`), never a
   refused row. Reindex (both paths) and bundles carry it; the bundle
   staging table adds both as INTEGER. `CellKey` holds the prompt pair, steps, CFG, mu,
-  true CFG, references, LoRA and weight, refine source and strength, and the
-  seed; size, checkpoint and quantization scope the resume lookup
+  true CFG, references, LoRA and weight, refine source and strength, size/crop
+  shape, and the seed; checkpoint and quantization scope the resume lookup
   (`storage.completed_cells`) and, with the batch, `run_id`'s definition;
   variables and hash are the row's and the chunk's alone. `run_id` names a
   cell by the shortest key carrying its non-None optional elements, so every
@@ -4901,6 +4916,12 @@ Frontend and CLI:
   meanwhile from fetching).
 
 ## Tests
+
+`tests/test_size_crop.py` and `tests/test_crop_anchor_storage.py` cover paired
+size parsing, limits, shape identity and legacy hashes, crop pixels and the
+GAN path, actual-size Resume/Finish/estimates, persistence and source-loss
+cleanup. `smoke-size-crop.json` uses a fresh FLUX.1 Krea [dev] fake on 7917
+for sizes, Resume/sheet axes, crop frames, metadata, Reuse and source views.
 
 `tests/test_snippets.py` covers CRUD, exact text, bounds, malformed-file
 preservation, independent locking, stale/concurrent edits and admission
