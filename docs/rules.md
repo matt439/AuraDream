@@ -5533,7 +5533,13 @@ optional no-op hooks and the fixtures `tests/` imports from helper modules
 allowed; style is the code's own and no formatter runs.
 `.github/workflows/ci.yml` runs ruff and this suite on Ubuntu (Python 3.13,
 `uv sync --locked --group dev`) on every push and pull request, and by hand;
-the smokes, which need a browser, stay local.
+the smokes, which need a browser, stay local. It runs the suite with
+`pytest -n auto` (pytest-xdist, one worker per core). Before it,
+`tools/fetch_tokenizers.py` caches the tokenizer files (never weights) that
+the real-tokenizer tests in `test_prompt_encoding.py` and
+`test_critic_tokens.py` read, so those tests run instead of skipping. The
+`HF_TOKEN` repository secret covers the gated FLUX.1-Krea-dev and Krea 2
+Turbo; without it, as on forks' pull requests, those two warn and skip.
 
 `uv run python tools/run_smoke.py <smoke> [<smoke> ...]` runs smokes without
 a second terminal: it reads `AGENTS.md`'s port table (the port, the

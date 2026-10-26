@@ -31,6 +31,19 @@ jobs:
         run: uv sync --locked --group dev
       - name: Lint
         run: uv run --group dev ruff check .
+      # The real-tokenizer tests skip without these: tokenizer files only,
+      # never weights. HF_TOKEN (a read token whose account has accepted the
+      # gated FLUX.1-Krea-dev and Krea 2 Turbo) reaches this step alone;
+      # forks' pull requests get no secrets, so those two warn and skip.
+      - uses: actions/cache@v5
+        with:
+          path: ~/.cache/huggingface/hub
+          key: tokenizers-${{ hashFiles('backend/encoder_table.py', 'tools/fetch_tokenizers.py') }}
+      - name: Tokenizers
+        run: uv run --group dev python -m tools.fetch_tokenizers
+        env:
+          HF_TOKEN: ${{ secrets.HF_TOKEN }}
+          HF_HUB_DISABLE_PROGRESS_BARS: "1"
       # One worker per runner core (pytest-xdist): about half the serial time.
       - name: Test
         run: uv run --group dev pytest -q -n auto
