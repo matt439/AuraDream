@@ -11,6 +11,7 @@ els.cancel.onclick = cancelJob;
 els.pause.onclick = togglePause;
 els.cancelQueued.onclick = cancelQueued;
 initQueueControls();
+initSnippets();
 els.notifyDone.onchange = () => { void toggleJobNotifications(); };
 document.addEventListener('visibilitychange', () => syncJobNotifications());
 els.newImage.onclick = goToNewImage;
@@ -593,6 +594,10 @@ document.addEventListener('keydown', (e) => {
   // Help may sit above another dialog. Its Escape and Ctrl+Enter belong to
   // help alone, never the lightbox or generation controls underneath it.
   if (els.shortcutsDialog.open) {
+    if (e.key === 'Enter' && (e.ctrlKey || e.metaKey)) e.preventDefault();
+    return;
+  }
+  if (els.snippetsDialog.open) {
     if (e.key === 'Enter' && (e.ctrlKey || e.metaKey)) e.preventDefault();
     return;
   }

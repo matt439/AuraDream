@@ -7432,6 +7432,28 @@ Delete wraps to a second row at 2048x1040 at 125% with or without Gallery beside
 (348 against 346 px of column) - the column's own, not this layout's.
 `smoke-stage.json` checks all of it at 2560x1305 and 2048x1040 at 125%.
 
+## Personal prompt snippets
+
+The [snippet plan](plan-prompt-snippets.md) implements `UI#11`. **Examples >
+Personal snippets…** follows the authors' prompts, and is available when no
+author examples exist. A separate caption button grew the Tags and Expand
+captions from 20 to 39 px at 1400x900; the menu entry adds no width or height
+and preserves the first author example's keyboard position. The native
+dialog stores named exact text
+for Prompt or Negative prompt and inserts it through `writeBox` with one
+newline between nonempty pieces. Append and Prepend preserve the surrounding
+text and native Undo. A greyed negative is held with its reason.
+
+The sidecar lives beside loader settings, outside gallery rows and bundles.
+An independent lock and atomic replace protect concurrent processes; item
+revisions refuse stale edits or deletes, and malformed/newer files stay
+untouched. The API bypasses gallery maintenance admission, so bundling does
+not take away prompt snippets. Only opening the dialog reads the list.
+Pending writes hold Close; a queued close event cannot invalidate a reopened
+dialog. Insertion uses `rewriteBox` to preserve page scroll and native Undo;
+the browser harness sends Ctrl+Z's physical key code to exercise that native
+history rather than an application key handler.
+
 ## Keyboard shortcut help
 
 The [shortcut overlay plan](plan-shortcuts.md) implements `UI#12` from the

@@ -8,7 +8,7 @@ The maintainer's working backlog for this personal project: it records what is p
 
 **Aim (2026-10-18):** keep useful work ready for Matt's common workstation tasks. [Reported use](docs/design/preferences.md) guides priority; it does not approve the candidate redesign.
 
-**Ready backlog:** two `OPEN` tasks from the [2026-10-24 review](docs/review-2026-10-24.md): `GEN#19` and `UI#11`; their plans own the remaining verification. Deferred features remain deferred.
+**Ready backlog:** one `OPEN` task from the [2026-10-24 review](docs/review-2026-10-24.md): `GEN#19`; its plan owns the remaining verification. Deferred features remain deferred.
 
 **Needs Matt:** workbench task trials (`DEV#1`) and hands-on screen-reader/touch checks (`UI#7`) are the next `USER` work. Two decisions wait: whether SDXL prompt weighting is wanted at all (`GEN#20`), and how a cold quantizing FLUX-family load fits this machine's RAM (`GEN#22`), which unblocks the FLUX-family `CARD` rows and `GEN#15`/`GEN#16`. Whole-app layout implementation waits for its trials; it remains a design hypothesis.
 
@@ -79,7 +79,6 @@ The maintainer's working backlog for this personal project: it records what is p
 | id | status | sev | size | item |
 |---|---|---|---|---|
 | `UI#7` | USER | LOW | M | Hands-on screen-reader (NVDA/Narrator) and touch validation; browser emulation and accessibility-tree inspection do not complete it. [Manual checks](docs/design/validation.md#accessibility-and-desktop-checks). |
-| `UI#11` | OPEN | LOW | M | Matt's own prompt snippets, inserted through `writeBox`, kept beside the saved settings, with an entry point of no height; plan first. [10-24 G6](docs/review-2026-10-24.md#g6-own-prompt-snippets). |
 
 ## Review coverage
 
@@ -93,7 +92,7 @@ Each review's remaining work is indexed above; closed findings stay in their own
 | 2026-10-04 UI | All done but U61 B (`GEN#8`); U5, U12, U79, U100 and U108 were left by decision. |
 | 2026-10-05 areas | 84 fixed, A68 partly by decision; the integration review's K1-K5 fixed. |
 | 2026-10-12 | R1-R53 fixed; F1-F5, F7-F13 and F15-F19 built. F6's supported inpaint/outpaint paths are built; remaining families/measurements are `INP`/`CARD`. F14 was qualified on the card 2026-10-21; F5's age-scoped emptying was built 2026-10-19 (`GAL#5`). |
-| 2026-10-24 | Gaps and tooling: G1 (smoke runner) and G2 (lint, CI) built the same day; G5 (random choices), G7 (queue controls) and G9 (shortcut help) built 2026-10-25 ([choices](docs/plan-random-prompt-variables.md), [queue](docs/plan-queue-controls.md), [help](docs/plan-shortcuts.md)); G3, G4, G6, G8 and G10 indexed above; the rest recorded as not taken. |
+| 2026-10-24 | G1 smoke runner and G2 lint/CI built the same day; G5 choices, G6 snippets, G7 queue and G9 help built 2026-10-25/26 ([choices](docs/plan-random-prompt-variables.md), [snippets](docs/plan-prompt-snippets.md), [queue](docs/plan-queue-controls.md), [help](docs/plan-shortcuts.md)); G3, G4, G8 and G10 indexed above; the rest recorded as not taken. |
 
 ---
 

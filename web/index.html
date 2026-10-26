@@ -23,6 +23,7 @@
 <link rel="stylesheet" href="/static/styles/bin.css">
 <link rel="stylesheet" href="/static/styles/context-menu.css">
 <link rel="stylesheet" href="/static/styles/shortcuts.css">
+<link rel="stylesheet" href="/static/styles/snippets.css">
 </head>
 <body>
 <header class="topbar">
@@ -128,7 +129,7 @@
           the server answers.</span></span>
         <span class="examples" id="examples">
           <button type="button" class="ghost tiny" id="btn-examples" aria-haspopup="menu"
-                  aria-expanded="false" title="Example prompts for this checkpoint, from its authors">Examples</button>
+                  aria-expanded="false" title="Example prompts from the authors, and your personal snippets">Examples</button>
           <ul class="menu" id="examples-menu" role="menu" aria-labelledby="btn-examples" hidden></ul>
         </span>
         <span class="tag-helper" id="tag-helper" hidden>
@@ -1719,6 +1720,34 @@
   <div id="shortcuts-body"></div>
 </dialog>
 
+<dialog class="snippets-dialog" id="snippets-dialog" aria-labelledby="snippets-title" aria-describedby="snippets-intro">
+  <div class="snippets-head">
+    <h2 id="snippets-title">Prompt snippets</h2>
+    <button type="button" class="ghost" id="snippets-close">Close</button>
+  </div>
+  <p class="hint" id="snippets-intro">Save your own reusable prompt text. Append or prepend it to a prompt; Ctrl+Z restores the box.</p>
+  <div class="snippets-layout">
+    <label class="snippets-library">Saved snippets
+      <select id="snippets-list" size="6" aria-label="Saved snippets"></select>
+    </label>
+    <div class="snippets-editor">
+      <label>Name<input type="text" id="snippets-name" maxlength="80" autocomplete="off" autofocus></label>
+      <label>Text<textarea id="snippets-text" rows="5" maxlength="16000" spellcheck="false"></textarea></label>
+      <div class="row">
+        <label class="sub grow"><i>Insert into</i><select id="snippets-target"><option value="prompt">Prompt</option><option value="negative">Negative prompt</option></select></label>
+        <label class="sub grow"><i>Position</i><select id="snippets-placement"><option value="append">Append</option><option value="prepend">Prepend</option></select></label>
+      </div>
+    </div>
+  </div>
+  <div class="snippets-actions">
+    <button type="button" class="ghost" id="snippets-new">New</button>
+    <button type="button" class="ghost" id="snippets-save" aria-disabled="true">Save</button>
+    <button type="button" class="ghost danger" id="snippets-delete" aria-disabled="true">Delete</button>
+    <button type="button" class="primary" id="snippets-insert" aria-disabled="true">Insert</button>
+  </div>
+  <p id="snippets-status" role="status" aria-live="polite"></p>
+</dialog>
+
 <script src="/static/state.js"></script>
 <script src="/static/sizes.js"></script>
 <script src="/static/status.js"></script>
@@ -1769,6 +1798,7 @@
 <script src="/static/bin.js"></script>
 <script src="/static/context-menu.js"></script>
 <script src="/static/shortcuts.js"></script>
+<script src="/static/prompt-snippets.js"></script>
 <script src="/static/app.js"></script>
 </body>
 </html>

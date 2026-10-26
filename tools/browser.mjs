@@ -296,6 +296,9 @@ const COMBO_KEYS = {
   // Ctrl+A must also exercise the browser's native text selection, so a
   // smoke can prove an application shortcut leaves text fields alone.
   a: { code: 'KeyA', windowsVirtualKeyCode: 65 }, A: { code: 'KeyA', windowsVirtualKeyCode: 65 },
+  // Native Undo needs its physical key code too; a key name alone only
+  // exercises application handlers, leaving a textarea's history untouched.
+  z: { code: 'KeyZ', windowsVirtualKeyCode: 90 }, Z: { code: 'KeyZ', windowsVirtualKeyCode: 90 },
 };
 // The codes a {"key", "native": true} step adds, so the focused control's
 // own default action runs as on a real press (a closed <select>'s arrows).

@@ -26,7 +26,7 @@ if __name__ == "__main__":
 
     configure()
 
-from . import api_bundles, api_gallery, api_generate, api_jobs, api_masks, api_more_seeds, api_png, api_prompt, api_refine_batch, api_swap, app_context, bundle_common, bundles, gallery_lock, hub_access, loras, model_selection, prompt_encoding, startup_preferences, storage  # noqa: E402
+from . import api_bundles, api_gallery, api_generate, api_jobs, api_masks, api_more_seeds, api_png, api_prompt, api_refine_batch, api_snippets, api_swap, app_context, bundle_common, bundles, gallery_lock, hub_access, loras, model_selection, prompt_encoding, startup_preferences, storage  # noqa: E402
 from .backends import get_backend  # noqa: E402
 from .detached import detached as _detached  # noqa: E402
 from .model_selection import current_model_id, current_settings  # noqa: E402
@@ -921,6 +921,7 @@ services = app_context.AppServices(
 
 # The routers read the app-owned worker and scope when a request arrives.
 app.include_router(api_prompt.create_router(services))
+app.include_router(api_snippets.create_router(services))
 app.include_router(api_generate.create_router(services))
 app.include_router(api_swap.create_router(services))
 app.include_router(api_refine_batch.create_router(services))

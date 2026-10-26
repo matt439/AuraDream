@@ -8,7 +8,7 @@
   {"expect": "els.promptTip.textContent.includes('NewBie image Exp0.1') && els.promptTip.textContent.includes('multiple characters') && els.promptTip.textContent.includes('XML')"},
   {"expect": "els.cfgTip.textContent.includes('sampling script') && els.sizeTip.textContent.includes('1024x1024') && els.sizeTip.textContent.includes('not a supported maximum')"},
   {"eval": "els.examplesBtn.click();"},
-  {"expect": "!els.examplesMenu.hidden && els.examplesMenu.children.length === 1"},
+  {"expect": "!els.examplesMenu.hidden && els.examplesMenu.querySelectorAll('[data-example]').length === 1"},
   {"log": "'The complete XML example keeps the authors\\' anonymous character labels; there is no required fill-in note or one-word stub'"},
   {"expect": "!els.examplesMenu.children[0].querySelector('.example-note') && els.promptTip.textContent.includes('Keep $character_1$ and $character_2$ for unnamed characters')"},
   {"eval": "els.examplesMenu.children[0].click();"},

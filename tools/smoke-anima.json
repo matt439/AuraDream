@@ -11,7 +11,7 @@
   {"log": "'The size tip names every tier the strip marks in range - 1.5 MP too - and the size line quotes the card\\'s 0.26-2.36 MP as written, not 0.3-2.4'"},
   {"expect": "els.sizeTip.textContent.includes('The 1, 1.5 and 2 MP presets are inside this range') && [...els.tiers.children].map((b) => b.classList.contains('recommended')).join() === 'true,true,true,false'"},
   {"eval": "els.examplesBtn.click();"},
-  {"expect": "!els.examplesMenu.hidden && els.examplesMenu.children.length === 1"},
+  {"expect": "!els.examplesMenu.hidden && els.examplesMenu.querySelectorAll('[data-example]').length === 1"},
   {"eval": "els.examplesMenu.children[0].click();"},
   {"expect": "els.prompt.value.startsWith('Digital painting of a fiery dragon') && collect().steps === 8 && collect().guidance_scale === 1 && collect().mu === null"},
   {"log": "'The Example is the card\\'s caption whole, both sentences, and Check raises no sentence-count note on it'"},

@@ -20,6 +20,10 @@ before changing it.
   to the selected quantization/format/platform
 - `backend/startup_preferences.py` — validated atomic loader/startup persistence;
   the server launcher restores it before config imports
+- `backend/snippets.py` - bounded, revisioned personal prompt snippets in an
+  atomic sidecar beside the settings, under an independent cross-process lock
+- `backend/api_snippets.py` - model-free snippet CRUD routes, independent of
+  gallery maintenance; `backend/schemas_snippets.py` owns their validated models
 - `backend/model_info.py` — cold catalogue details from existing sourced guides,
   plus each entry's Hugging Face access from its catalogue gate word
 - `backend/hub_access.py` — the Hugging Face access check a switch asks before
@@ -250,7 +254,7 @@ before changing it.
   per version
 - `backend/reindex.py` — rows rebuilt from the PNGs' `local-diffusion` chunk, in place or
   copied in from another gallery; idempotent on the UNIQUE filename
-- `web/` - served as-is from `/static`; `index.html` loads 51 classic
+- `web/` - served as-is from `/static`; `index.html` loads 52 classic
   scripts in order, sharing one global scope; only `app.js`, the last, runs
   the wiring and boot. `state.js` owns shared state; `generation.js`,
   `grid-preview.js`, `job-stream.js` and `job-results.js` handle submission,
@@ -285,7 +289,8 @@ before changing it.
   on the Notify row and its dialog, `more-seeds.js` More seeds and `bin.js` the
   recycle bin's view, undo note and Empty; `context-menu.js` the right-click
   menu on an image (`styles/context-menu.css`); `shortcuts.js` the keyboard
-  help dialog. The stylesheet is
+  help dialog; `prompt-snippets.js` the personal snippet dialog and insertion.
+  The stylesheet is
   `style.css` (tokens and base layout), followed by `styles/*.css` in the
   explicit link order: `model-picker.css` the Models picker (first, at its
   old place in `style.css`), `fields.css` the panel's fields,
@@ -296,7 +301,7 @@ before changing it.
   `outpaint.css` their dialogs, `bundles.css` the bundle dialog,
   `swap.css`, `refine-batch.css` and `more-seeds.css` those dialogs,
   `bin.css` the recycle bin, `context-menu.css` the right-click menu and
-  `shortcuts.css` the keyboard help dialog;
+  `shortcuts.css` the keyboard help dialog and `snippets.css` the snippet dialog;
   preserve that cascade (`tests/test_docs_maps.py` holds this list to
   `index.html`'s links, in order). `docs/source-audit.md` records the
   split audits and why each long file it kept stays whole.
@@ -2144,6 +2149,17 @@ Prompt analyser:
 
 Frontend and CLI:
 
+- Personal snippets are the final item of Examples, after the authors' prompts,
+  and remain available with no author examples. They open a native dialog,
+  with declarations in `prompt-snippets.js` and `initSnippets()` called by
+  `app.js`. Writes go through `rewriteBox`/`writeBox`, keeping page scroll,
+  with Append/Prepend and undo; a
+  greyed negative refuses insertion. The modal owns its keys, with no
+  Ctrl/Cmd+Enter submission underneath it. CRUD uses a bounded atomic
+  `local-diffusion.snippets.json` sidecar, optimistic item revisions and an
+  independent lock; unreadable files are never replaced by an empty list.
+  Snippets remain available during gallery bundle maintenance. The sidecar
+  and temporary files are ignored by Git. No read is made at page startup.
 - Keyboard help (`shortcuts.js`) opens with `?` or the top bar's named
   button, never while typing in an input, textarea, select or editable
   content, during composition, on a repeat or with Ctrl/Meta/Alt. Its native
@@ -4885,6 +4901,15 @@ Frontend and CLI:
   meanwhile from fetching).
 
 ## Tests
+
+`tests/test_snippets.py` covers CRUD, exact text, bounds, malformed-file
+preservation, independent locking, stale/concurrent edits and admission
+during bundle maintenance. `smoke-snippets.json` uses a fresh FLUX.1 Krea
+[dev] fake on 7915 for CRUD, server persistence, Append/Prepend with Undo,
+held negative insertion, conflicts, modal keys and the narrow layout. It also
+checks that the menu adds no caption height beside ordinary, Tags and Expand
+controls at 1400x900 and 400x650, and insertion into an offscreen prompt keeps
+page scroll. Native Undo in the browser harness carries the Z key code.
 
 `smoke-queue-controls.json` uses a fresh FLUX.1 Krea [dev] fake on 7914 with
 0.3 s steps. It checks authoritative Move order and focus through reload,

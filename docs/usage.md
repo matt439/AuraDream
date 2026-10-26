@@ -197,6 +197,13 @@ gallery image onto the panel does nothing: use its **Reuse** instead.
 
 ## Write and check prompts
 
+Use **Examples > Personal snippets…** beside the prompt to save
+your own named text for Prompt or Negative prompt. **New**, **Save** and
+**Delete** manage the saved list. **Insert** appends or prepends the editor's
+text; Ctrl+Z restores the prompt. Snippets are shared by tabs on this server
+and stay through a gallery clear. They are kept separately from gallery
+bundles, so include the snippets sidecar in a settings backup.
+
 **Examples** supplies the authors' prompts; templates select the first slot
 to fill. **Tags**, where available, supplies the checkpoint's own vocabulary
 and recommended negative prompt. Its comma chips can be reordered or removed.
