@@ -133,6 +133,14 @@ selected and loaded and the saved settings are left as they were. The preference
 
 ## Generate and manage jobs
 
+Queued rows have a **Move to front** arrow: it puts that job next without
+interrupting current work. The progress row has the same arrow when the
+watched job is queued. **Skip** stops only the current image, batch or grid
+cell after its next step and continues with the next one. Earlier images
+stay, and **Finish run** can check the missing work later. Skip explains why
+it is held while loading, paused, saving or between cells. A Then refine pass
+also holds Skip because Finish currently recovers its base cells only.
+
 Enter a prompt, choose a size and press **Generate**. The checkpoint supplies
 its starting Steps, CFG and Mu. The **?** badges explain each control and
 which settings the model uses. A blank Seed draws a new seed; a fixed Seed
@@ -188,6 +196,13 @@ uploaded, not added to the gallery and not used as a reference. Dragging a
 gallery image onto the panel does nothing: use its **Reuse** instead.
 
 ## Write and check prompts
+
+Use **Examples > Personal snippets…** beside the prompt to save
+your own named text for Prompt or Negative prompt. **New**, **Save** and
+**Delete** manage the saved list. **Insert** appends or prepends the editor's
+text; Ctrl+Z restores the prompt. Snippets are shared by tabs on this server
+and stay through a gallery clear. They are kept separately from gallery
+bundles, so include the snippets sidecar in a settings backup.
 
 **Examples** supplies the authors' prompts; templates select the first slot
 to fill. **Tags**, where available, supplies the checkpoint's own vocabulary
@@ -296,6 +311,11 @@ and Aesthetic) and NewBie.
 The app records references, adapter and weight for Reuse and Resume.
 
 ## Refine an existing image
+
+**Crop anchor** chooses which part of a differently shaped source Refine
+keeps: the center, an edge or a corner. It applies to ordinary Refine, and is
+kept when loading or rerunning its settings. Inpaint and outpaint use their
+own source geometry.
 
 Open **Refine** on a gallery image. Its dialog starts from the source's prompt,
 sampling settings and seed, independently of the main panel. Choose a scale
@@ -444,6 +464,7 @@ previous renders provide measurements, time and disk estimates.
 | Seeds | Count of consecutive seeds crossed with all settings | `4` |
 | Seed list | Explicit seeds instead of Seeds and the panel's Seed | `4471,8823`, `100-103` |
 | LoRA weight | Numeric axis with an adapter selected | `0-1x0.25` |
+| Sizes | Width x height pairs, separated by commas | `1024x1024, 768x1024` |
 | Budget | Minutes before starting no further cell | `420` |
 
 A range without a step counts in ones; write `0.8-1.2x0.1` for decimals.
@@ -463,6 +484,14 @@ ground = grass | dirt
 
 This makes six prompts. `none` removes that fragment; commas remain part of
 a value. Unused variables and placeholders without values are refused.
+The default **Cross all values** tries every combination. **One choice per
+image** instead draws one value for each variable from the image's seed,
+keeping those choices across the numeric axes. With Batch above one, those
+images run separately and are saved as batches of one. Fix Seed or use Seed
+list to repeat the same choices; with neither set, the preview labels its
+prompts as examples and Run grid chooses another base. The terminal option
+is `--grid-prompt-mode random` alongside `--grid-prompt`.
+
 Use **Run grid** to substitute variables, not Generate. Seeds are the outer
 loop: each seed is tried across all settings before moving to the next.
 
@@ -472,6 +501,10 @@ The panel's **Resume** tick skips settings the gallery already holds,
 including matching images from other jobs and live queued work. An entirely
 completed grid is refused. A hand-built Resume still needs the original
 prompt, axes and base seed in the panel.
+
+Sizes cross with the other axes and keep each image's seed. Each size must
+meet the usual bounds; a larger canvas never borrows another size's timing
+estimate. The run and contact sheet show its distinct sizes.
 
 **Finish run** on a finish line, last-run banner or run sheet uses the
 server's stored cells instead. It works after a tab reload or server restart,
@@ -542,8 +575,10 @@ this was recorded, or without a GPU, show no number.
 **Select** (first in the row under the search box) picks cards for an
 action on several images: in select mode a click or Space picks a card,
 Shift picks a range from the last card picked, and Enter still opens the
-lightbox. Without Select, Ctrl+click picks a card and Shift+click (or
-Ctrl+Shift+click) picks the range from it. The selection survives searches, filters and paging; its count
+lightbox. Without Select, a plain click opens the large image without changing
+the picks. Ctrl+click (Cmd+click) picks or unpicks one card; Ctrl+Shift+click
+(Cmd+Shift+click) adds the range from the last card toggled. Shift+click alone
+replaces the picks with that range. The selection survives searches, filters and paging; its count
 says how many picked images the current view does not show. **Clear** or
 Esc empties it, and a second Esc leaves select mode. Pick exactly two images, then choose **Picked > Compare picked** (also in
 the picked-card context menu). Matching aspect ratios are required; their
@@ -655,13 +690,27 @@ made and queues none of them. Pause and **Resume** on a running job are a differ
 they hold and carry on the job itself. A run's sheet ends with a line
 naming the run, its image count and the checkpoint it was made on.
 
+### Compact setup
+
+Aspect and MP presets stay direct. Open **Custom dimensions** for W, H and
+Orientation; its summary always shows the current dimensions, with size warnings
+below it. **LoRA & references** contains adapter/weight and reference controls;
+its summary names active or retained inputs. Restore and Reuse reveal relevant
+setup, and an incomplete number reveals its field before focusing it. Closing
+a group keeps every setting. Status updates preserve your chosen open state.
+
 ### Keyboard and lightbox
+
+Press **?** outside a text field, or the **Keyboard shortcuts** button in the
+top bar, for the full list. The current context comes first; every other group
+remains below it. **Escape** closes help and returns focus to where you opened
+it, or the visible opener of a menu that closed. Help can be opened above a lightbox or dialog without closing it.
 
 | Where | Keys |
 | --- | --- |
-| Anywhere | Ctrl/Cmd+Enter generates; inside an open Grid field runs the grid; in Refine runs the pass; in Refine… (Mass refine) runs the batch; in Swap tags queues; in More seeds… queues the batches |
-| Gallery | Tab enters the cards; arrows/Home/End navigate, Enter opens, F stars; in select mode Space picks, Shift+Space picks a range, Esc clears |
-| Lightbox | Left/Right browse, F stars, R opens Refine, S toggles the picked pair, or otherwise compares a pass with its source or an image with its CFG neighbour, Delete moves the image to the recycle bin (in the bin: asks to delete it permanently), Esc closes |
+| Main workspace | Ctrl/Cmd+Enter generates; inside an open Grid field runs the grid; in Refine runs the pass; in Refine… (Mass refine) runs the batch; in Swap tags queues; in More seeds… queues the batches |
+| Gallery | `/` focuses search outside fields, menus and dialogs. M opens More seeds for the focused image's batch without queuing. Tab enters the cards; arrows/Home/End navigate, Enter opens, F stars; in select mode Space picks, Shift+Space picks a range, Esc clears |
+| Lightbox | Left/Right browse, F stars, R opens Refine, M opens More seeds without queuing, S toggles the picked pair, or otherwise compares a pass with its source or an image with its CFG neighbour, Delete moves the image to the recycle bin (in the bin: asks to delete it permanently), Esc closes |
 | Lightbox zoom | Wheel or +/− zoom, drag pans, 0 fits, 1 or double-click shows actual pixels |
 | Right-click an image | A menu of its actions: Star, Reuse settings, Use seed, More seeds of this batch…, Refine…, Inpaint…, Outpaint…, reference, Show run as sheet, Copy prompt / seed / image, Open PNG in new tab, Move to recycle bin. On a picked card: the picks' actions. The Menu key or Shift+F10 opens it from the keyboard; Shift+right-click gives the browser's own menu |
 | Contact sheet | Arrows move between populated cells; Home/End use row ends, Ctrl+Home/End the corners. Tab reaches the current cell's star; Enter/Space opens its lightbox, F stars |
@@ -669,6 +718,14 @@ naming the run, its image count and the checkpoint it was made on.
 | Prompt replacements | Ctrl+Z restores text after Apply, Reuse (or a loaded PNG), Expand, Examples or a chip edit |
 | Inpaint | With the picture focused: B brush, E eraser, `[` `]` or Alt+wheel size, I invert, Ctrl+Z / Ctrl+Shift+Z undo and redo, arrows move the brush, Space paints; Ctrl+Enter runs (Outpaint too) |
 | Refine | Enter in a one-line field runs; Strength arrows step by 0.05, or 0.01 with Shift |
+
+Settings dialogs, menus, help, Bundles and the lightbox keep Ctrl/Cmd+Enter
+from generating underneath. Use the exact chord without Alt or Shift.
+Queue and Bundles use their visible buttons and native Tab/Enter/Space; there
+is no dedicated queue, archive or import accelerator. Image-menu key hints apply
+when back on the image; Enter/Space chooses an open menu item.
+Fields/selects keep editing and browser keys; discrete actions ignore held-key
+repeats while navigation and zoom still repeat.
 
 Lightbox zoom and position carry between images of the same shape, useful
 for comparing a detail across seeds or settings. Its facts include source,

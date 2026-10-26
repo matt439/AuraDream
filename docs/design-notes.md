@@ -3121,7 +3121,39 @@ server never refuses braces, which in a plain prompt can be text or pasted
 `{tag}` emphasis. Both buttons show the shortcut as generated content with
 empty alt text, since `setBusy` rewrites their labels as text.
 
+## Random-choice prompt variables
+
+The [random-choice plan](plan-random-prompt-variables.md) adds `GEN#17`'s
+alternative to crossing every variable value. `prompt_mode="random"` draws
+each variable from an image seed and the variable's name using a versioned
+SHA-256 recipe. Reordering variable lines or sampling axes cannot change a
+seed's choices. The chosen text, rather than the template, is what existing
+cells, gallery rows, PNG chunks and Resume keep.
+
+A batch normally shares one scalar prompt and assignment. Random mode must
+give each image its own, so Batch N becomes N single-image cells at the usual
+wrapped seeds. Each image's parameter sweep completes before the next image;
+budget counts still group the original seed-axis batches. The preview says
+these images run separately and counts their actual single-image cells.
+Without an explicit seed or seed list, its prompt text is an example: Run
+grid chooses another base. Expansion happens once per request, so the shown
+prompts and counts describe the same sample. Existing Cartesian run identities
+and the default mode stay unchanged.
+
 ## Prompt labels on the sheet
+
+Mixed-size grids and crop anchors are specified in the
+[size/crop plan](plan-size-axis-crop-anchor.md). Sizes are explicit pairs
+crossed inside each seed and prompt, with per-size Resume and history. One
+shape key extension carries size and crop together; the legacy hash path
+remains for uniform centered runs. An anchor is a setting of an ordinary
+Refine, carried with its source and dropped with it. Center's old rounding
+and pixels remain the reference. A sheet can lay out Size or Crop, and a
+spanning source thumbnail appears only when every displayed pass keeps the
+same rectangle; otherwise the sheet says to open an image for its exact
+source comparison. CPU tests, synthetic browser geometry and export-pixel
+checks are recorded in the plan; model quality and GPU measurements remain
+the card's to establish.
 
 The contact sheet's axes gained **Prompt**, whose labels are only the words
 that vary across the run (`promptLabels` in `web/sheet.js`): a column header
@@ -3905,13 +3937,46 @@ meaning of run.
 
 ## The browser's queue
 
+**An accepted job still owes its outcome (2026-10-26, `GEN#25`).** An actual
+browser review queued a successful image and an immediately failing image
+behind a paused job. Both finished before the next active-job listing; the
+page kept the successful job's finish line and lost the failure and its
+recovery action. The queue now retains this tab's accepted, unseen request
+receipts through resync. When an active listing misses one, bounded server
+history finds its terminal snapshot and the existing stream/finish path
+shows its outcome once, in receipt order. A transient history failure is
+retried by idle polling. Ownership remembered after reload is not a replay
+list, and another tab's finished work or an explicitly cancelled queue row
+does not take the viewer. Missing server history is not reconstructed.
+The isolated browser regression covers these transitions; no real GPU or
+device behavior is established by the fake.
+
+The [queue controls plan](plan-queue-controls.md) implements `GEN#18`.
+The manager now owns an explicit admission list, rather than relying on the
+gate lock's waiter order. Move to front puts queued work next without
+interrupting a running job, a pause or an editor operation. Loading stays
+outside the gate, and a job checks admission again after acquiring it.
+The API listings and browser rows use that same order. Delayed Move/status
+replies preserve a newer local submission, and reordering preserves focus on
+the same row action. A watched job can itself be queued, so its progress row
+also carries a Move button whose slot stays while the job runs.
+
+Skip uses a token for the exact active call and the existing cooperative
+`Cancelled` path. Its missing cell is recorded separately from a failure and
+does not advance the failure stop rule. Earlier saved images stay; Finish
+finds the skipped cell later. Cancel takes priority, and a late Skip cannot
+spill into another call. The call-ending status holds the button before a
+slow save. Pause, loading and the intervals between calls have no active call
+to skip. Dynamic Then refine passes are held explicitly because Finish can
+recover only their base cells; a standalone Refine remains an ordinary cell.
+
 **The browser can hold a queue.** `startJob` no longer refuses while busy:
 a submission during a job is POSTed and its id kept in `queuedIds`, the
 buttons are held (`aria-disabled`) only for the POST itself as the
 double-submit guard, and `watchNext()` attaches to the next job when the
 watched stream ends. `resumeActiveJob` attaches to the running job, else
-the *oldest* queued (`active[0]` - `active()` is newest last), never the
-newest. Cancel acts on the watched job; "Cancel queued" on the rest.
+the first queued job in the manager's admission order. Cancel acts on the
+watched job; "Cancel queued" on the rest.
 
 **One watch per job** (2026-10-05). When a job ends the page asks
 `/api/jobs` which job to watch next. `watchNext` checked `busy` before that
@@ -4392,6 +4457,24 @@ key, and an unindexed destination file of the same name remains a conflict,
 never an overwrite.
 
 ## Gallery bundles: verify before clearing, stage before merging
+
+**Password scope and the clear's safety step (2026-10-26, `UI#14`/`UI#15`).**
+The browser review reproduced a scope mismatch: a password under Import a
+file also controlled Protected saved imports below a separate section. File
+and saved imports now share a named Import a bundle region and one Import
+password. Protected rows explicitly link back to that field, including
+keyboard focus, without per-row passwords or new storage. New password and
+Repeat belong only to creation, applying to Back up or Bundle & clear.
+Feedback remains near file/saved actions, with the same one live status.
+
+Back up is the primary creation action. Clearing has a separate bordered
+safety group explaining that the typed value is the entire gallery's current
+record count, including the bin and every model, not a number of files to
+export. The label supplies the exact number; the hint explains accidental-clear
+prevention, verified-before-removal and enablement. Backup still needs no
+typed confirmation. Count checks, verification, encryption and secret
+lifetimes did not change. The extended isolated smoke exercises missing/wrong
+counts/passwords, retries, cancellation, repeats, keyboard and narrow layouts.
 
 **Archive storage on a separate drive (2026-10-24).**
 `LOCAL_DIFFUSION_BUNDLES_DIR` selects the saved archives independently of the
@@ -6476,7 +6559,7 @@ gallery images apart; a sheet cell is named by its axis values instead, and so
 described by its size and source alone (The contact sheet). `forgetImages`
 retitles through `titleImage` too. The image's Enter and Space, `thumb()`'s as
 well, open the lightbox only without Ctrl, Meta or
-Alt: Ctrl+Enter is Generate's from anywhere, and on a focused image - where
+Alt: Ctrl+Enter is Generate's on the main workspace, and on a focused image - where
 the lightbox's close leaves focus - it opened the lightbox and queued a job
 behind it. The rest here is `card()`'s.
 
@@ -6514,33 +6597,33 @@ card or a lasso. `gallery-select.js` keeps one selection for every such
 action, and the actions read it (`selectedIds()`, `onSelectionChange`) and
 say whether they act on it or on the filter.
 
-**A file manager's clicks, and a mode for touch** (2026-10-24). A card
-image's click used to open the lightbox, and picking needed Select or a
-Ctrl click; Matt found that backwards against every Windows file list, so
-the press is now a pick: a click picks the card alone, Ctrl+click picks or
-unpicks one beside the rest, Shift+click picks the range from the anchor
-(the last card toggled or clicked) to it alone, Ctrl+Shift+click adds that
-range, and a double click - or Enter - opens the lightbox, its first click
-having picked the card as Explorer's does. Space toggles and Shift+Space
-adds a range; Ctrl/Cmd+A adds the loaded cards, out of the mode too. A
-click between the cards (a day's line, past the last card) empties the
-selection, so the actions go back to the filter: with a click now always
-leaving a card picked, Re-render, Swap tags and the rest would otherwise
-never see the filter again without Escape or Clear. The plain click's
-replace costs picks made across other searches, as Explorer's does; Ctrl
-keeps them. What the mode was for still holds - a click's modifiers are
-invisible to a touch screen, and a double tap is no dependable gesture - so
-Select stays as the path without them: in it every press toggles as a
-Ctrl click does, quick ones too (a double click opens nothing there; Enter
-does), Shift adds, and a tap between cards empties nothing, since a stray
-one there would cost the picks. Out of it, a click between the cards drops
-picks the view does not show as well, as a plain click on a card does. The image is a toggle in both
-(`aria-pressed`, "Select #N: …"), since a screen reader's activation is a
-click and so a pick; Enter and the context menu's Open are the ways in. The
-earlier choice (a mode, not a modifier, 2026-10-10) argued a pick made by
-accident opened nothing to show it; the ring and the count show it now. The
-#recent strip, the viewer's and a sheet's cells still open on a click:
-nothing there is picked.
+**Opening and picking are separate gestures** (2026-10-25). Matt reverted
+the 2026-10-24 file-manager-style click-to-pick change. A plain card click
+opens the large image and leaves the picks and range anchor unchanged.
+Ctrl/Cmd+click toggles one pick, moving the anchor only when the toggle
+happens; Ctrl/Cmd+Shift+click adds the loaded range from that anchor. The
+existing Shift-only range replaces the picks, and falls back to picking one
+card where its anchor is absent from the loaded view. A range keeps the
+anchor. Space toggles, Shift+Space adds a range, and Enter opens in either
+mode. Ctrl/Cmd+A still adds loaded cards.
+
+Select remains the modifier-free touch path: every click toggles there,
+including quick consecutive clicks; Shift adds a range. Its image is named
+"Select #N" with `aria-pressed`; outside Select it is named "Open #N" with
+the card group's name retaining the selection state. The viewer hint,
+selection tooltip, Picked/action hold reasons and keyboard help describe the
+same gestures. A click between cards clears picks outside Select, and Clear
+or Escape remains available. Recent images, viewer images and sheet cells
+continue to open on a click.
+
+The restoration's six documentation-map tests and changed-script syntax
+checks pass against an isolated copy of HEAD plus this change; independent
+static review found no functional issues. After explicit local-browser test
+approval, `smoke-select`, `smoke-shortcuts` and `smoke-context-menu` passed
+serially on Chrome and scratch fake servers. Selection coverage includes
+hidden picks, anchors, both modifier conventions, keyboard activation,
+Select mode, focus restoration, caps, paging and bin stashing. No models
+were loaded or downloaded.
 
 **Ids that outlive the cards.** The selection is ids, so a new search, a
 filter, a sheet or another page keeps it: picking across two searches is the
@@ -7394,6 +7477,77 @@ Delete wraps to a second row at 2048x1040 at 125% with or without Gallery beside
 (348 against 346 px of column) - the column's own, not this layout's.
 `smoke-stage.json` checks all of it at 2560x1305 and 2048x1040 at 125%.
 
+## Personal prompt snippets
+
+The [snippet plan](plan-prompt-snippets.md) implements `UI#11`. **Examples >
+Personal snippets…** follows the authors' prompts, and is available when no
+author examples exist. A separate caption button grew the Tags and Expand
+captions from 20 to 39 px at 1400x900; the menu entry adds no width or height
+and preserves the first author example's keyboard position. The native
+dialog stores named exact text
+for Prompt or Negative prompt and inserts it through `writeBox` with one
+newline between nonempty pieces. Append and Prepend preserve the surrounding
+text and native Undo. A greyed negative is held with its reason.
+
+The sidecar lives beside loader settings, outside gallery rows and bundles.
+An independent lock and atomic replace protect concurrent processes; item
+revisions refuse stale edits or deletes, and malformed/newer files stay
+untouched. The API bypasses gallery maintenance admission, so bundling does
+not take away prompt snippets. Only opening the dialog reads the list.
+Pending writes hold Close; a queued close event cannot invalidate a reopened
+dialog. Insertion uses `rewriteBox` to preserve page scroll and native Undo;
+the browser harness sends Ctrl+Z's physical key code to exercise that native
+history rather than an application key handler.
+
+## Keyboard shortcut help
+
+**Small fast routes and compact setup (2026-10-26).** The same approved follow-up
+adds `/` to gallery search and M to the focused image's More seeds preview. M
+uses one image id, independent of picks, and requires a separate Queue action.
+Fields, menus, composition, unsupported modifiers, repeats and other modals keep
+their keys. Literal slash permits Shift for keyboard layouts that require it.
+Current dimensions and size warnings remain visible while custom W/H/Orientation
+move into a native disclosure; LoRA/reference setup has its own active summary.
+Restore/Reuse/error navigation reveal relevant fields, while background status
+never reopens a collapsed group. No values or disclosure persistence are invented.
+A delayed catalogue also exposed a stale pending LoRA after Reset; clearing that
+pending choice and retaining it in Undo snapshots restores documented behavior.
+Comparison grouping and C were left out of this bounded slice; existing S and
+visible comparison controls remain.
+
+**Ownership review (2026-10-26).** The [approved follow-up](plan-shortcut-workflow.md)
+fixes actual browser conflicts: Ctrl+Enter generated behind Then refine settings,
+Picked activated and generated in one event, lightbox Alt+Arrow intercepted
+browser history, and F in its Against select starred an image. Shared event
+guards now respect prior handling/composition, exact modifiers, fields and
+modal context; unknown dialogs block background commands. Repeated discrete
+activation is held, including native button Enter, while navigation/zoom and
+numeric stepping retain repeat. Pending More seeds opening leaves Escape to
+help above it. These are synthetic-browser guarantees, not physical-device
+or IME acceptance.
+
+The [shortcut overlay plan](plan-shortcuts.md) implements `UI#12` from the
+2026-10-24 review. `?` and the named top-bar button open native modal help,
+with no extra line in the settings panel. The grouped list covers the
+existing handlers as well as the controls' `aria-keyshortcuts`: reading only
+currently rendered attributes would omit gallery navigation on an empty
+gallery and comparison keys before a comparison was opened.
+
+Typing, composition, key repeats and Ctrl/Meta/Alt chords never open help.
+Help can sit above a lightbox or pass dialog. The document's dispatcher
+returns while help is open, before its Ctrl+Enter and Escape branches: without
+that guard, reading help could submit an image or close the lightbox below.
+Native Escape closes only help; Close and a real backdrop press do the same.
+Its visible usable origin receives focus without scrolling; a menu closed by
+opening help returns to the menu's opener instead of a hidden item. Help takes
+a context snapshot before focus changes, places that context's groups first and
+retains the full inventory. Queue and Bundles name native navigation and their
+absence of dedicated accelerators. Context-menu hints describe image shortcuts
+after returning to the image, while the menu's own keys stay Enter/Space and
+arrows; no new accelerators are invented for that menu. The dialog scrolls
+inside the window, with Close kept in view, and the narrow layout stacks
+keys above their explanations.
+
 ## The ? badges are named
 
 Every `?` badge (`.help`, role `note`, a tab stop) is named for what it
@@ -7434,6 +7588,26 @@ button (`aria-labelledby`); and the chips' spoken summary counts with `plural`
 ("1 prompt tag", never "1 prompt tags").
 
 ## The settings panel's sticky top
+
+**Frequent secondary targets (2026-10-26, `UI#16`).** The actual browser
+review measured 19 px/10 px prompt-caption tools and about 20 px gallery footer
+targets, versus a clear 43 px Generate primary. Common prompt/result tasks,
+supported by Matt's recorded self-report rather than telemetry, justify a
+small target adjustment: 24 px/11 px prompt tools below the wide tier,
+`--h-sm` footer targets, and 24 px collapsed Picked/Clear widths. Wide-caption
+scaling, primary buttons, fixed-seed width and section order remain. The
+responsive smoke measures fit, focus, hit testing and stable state geometry;
+this is a bounded polish slice, not acceptance of the separate layout proposal.
+
+**An unfinished number is not an intentional blank (2026-10-26, `GEN#24`).**
+In the actual-browser review, typing `1e` into Steps left that text visible
+but the native number input exposed an empty DOM value. Generate silently
+used Kohaku's default 28 steps. Submission now checks native `badInput`, names
+the unfinished field and focuses it before any POST. Deliberately empty
+Steps/CFG still use profile defaults, and an empty Seed remains random.
+Run grid and comparison check only applicable controls; saved reruns and
+More seeds keep using their own saved settings. Real typing in the isolated
+browser smoke checks the native state, keyboard paths and axis overrides.
 
 The settings panel is `position: sticky`, and its top is kept by
 `web/panel.js` (`panelPos`) and written inline over the stylesheet's
@@ -8303,7 +8477,10 @@ without asking it, reachable or not (`tag_lookup.lookup_tags`,
 `tags.unchecked_results`), and only a blank item or one past 4000 characters
 is refused (`TagValidationRequest`). Every item had been bounded at 200, so
 one 213-character sentence on Kohaku refused the whole request (a 422), and
-the tray read "Danbooru unreachable" (2026-10-05). A grid placeholder
+the tray read "Danbooru unreachable" (2026-10-05). These remain the raw
+dictionary answers; the contextual hybrid presentation built on 2026-10-26
+(under Kohaku below) can display that sentence as prose without changing
+its lexical verdict. A grid placeholder
 whole, `{hair}` (`prompt_text.GRID_VARIABLE`, grid.PLACEHOLDER's shape), is
 neither: answered with no verdict and `code` grid_variable
 (`tags.grid_variable_result`), never asked about, reachable or not, and drawn
@@ -9017,12 +9194,53 @@ repository is mapped to this entry.
 `KOHAKU_GUIDE` uses Zeta's documented tag vocabulary and the Epsilon-rev2
 caption order that Zeta refers to. The general-tag slot can hold prose or a
 mixture of prose and tags. `hybrid_prompt` preserves spellcheck and avoids
-validating a single sentence as one unknown Danbooru tag. The shared tag
+displaying a sentence as one unknown Danbooru tag; mixed text now keeps its
+prose passages too, as the implementation record below explains. The shared tag
 service uses the model's 2024-07-10 Danbooru cutoff; no frontend checkpoint
 branch is required. Quality and date choices are exclusive. Rating choices
 remain individual toggles because the author's explicit-rating caption
 contains both `nsfw` and `explicit`. There is no fixed suffix or recommended
 negative-prompt button: the Zeta card supplies neither recipe.
+
+**Mixed prose keeps its commas (built 2026-10-26).** Matt reported that
+`1boy, masterpiece, a man wearing a red, old hat` turned both `a man wearing
+a red` and `old hat` into red, draggable tags. The old hybrid exception
+suppressed validation only when there was no comma. Checking sentence
+grammar on each fragment could not repair it: `old hat` has no grammar
+that says whether it is a tag or the continuation of the preceding prose.
+
+The server now supplies contextual `parts` beside its unchanged strict
+dictionary `results` (`prompt_parts.py`, `chip_verdicts`). An explicitly
+hybrid helper and the matching whole prompt enable it. An absent
+prose-shaped fragment anchors adjacent absent fragments as one passage,
+bounded by known/model tags, concrete dictionary problems, explicit artist
+prefixes and grid variables. Quoted lettering remains text. A long tag
+list can still contain one prose passage; the whole prompt's majority
+style is not the gate. In the reported example the first two items are
+tag parts and `a man wearing a red, old hat` is one prose part. This is a
+contextual reading for the editor, not a claim that absence from Danbooru
+makes text grammatically prose or proves what the model learned.
+
+Parts retain original comma-item indexes and UTF-16 offsets into the exact
+raw prompt, so the page preserves internal commas, whitespace and astral
+characters. They are cached only for that prompt and checkpoint, separate
+from lexical verdicts: the same fragment queried without prompt context
+still receives the same strict answer. Tag-only profiles and pure tag
+lists keep their chips and errors. Unchecked ambiguous fragments past the
+64-item cap or during an outage do not become evidence of absence; definite
+sentences and quotations can still be text without that lookup.
+
+The tray renders prose as selectable text with no tag tools, order caption
+or unknown count. Pure prose stays in the prompt box with its token readout.
+Tag edits move around whole prose passages and keep Ctrl+Z; delayed
+suggestion replies cannot reopen over a classified prose caret. Refine uses
+the same raw prompt context to omit prose from its advisory unknown-tag
+line. Check and the critic refuse only reordered candidates that would
+split a comma-containing passage, explaining the app's precaution rather
+than offering an unsafe Apply or claiming an additional author rule.
+`tests/test_prompt_parts.py` and the actual-browser
+`smoke-mixed-prompts.json` passed against CPU fixtures and an isolated fake
+server. They establish editor and API behavior, not model output quality.
 
 The author's size recommendation is 1024x1024 or a comparable area, so the
 guide publishes one recommended area in MP and lets the common tolerance

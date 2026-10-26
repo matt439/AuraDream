@@ -415,10 +415,9 @@ function card(rec) {
   div.classList.toggle('this-run', viewerRecords.some((r) => r.id === rec.id));
 
   // Named "#N" and titled by thumb(), as every image of the page is.
-  // Its press picks it and a double click opens it (cardPress,
-  // cardDoubleClick, gallery-select.js); syncCardSelected names it.
+  // Its click opens it; Ctrl/Cmd or Select picks it (cardPress,
+  // gallery-select.js); syncCardSelected names the current action.
   const img = thumb(rec, galleryRecords, undefined, (e) => cardPress(div, rec, e));
-  img.addEventListener('dblclick', (e) => cardDoubleClick(rec, e));
   // A Shift+click picks a range out of select mode too, where the grid's
   // text is selectable: the press must not drag a text selection across it,
   // nor a double click select the words beside it.
@@ -639,7 +638,7 @@ function toggleReference(div, rec) {
     refuseInCard(div, 'Four reference images is the most this panel sends; remove one first.', 'Four is the most');
     return;
   }
-  setReferences([...referenceIds, rec.id]);
+  setReferences([...referenceIds, rec.id], { reveal: true });
   cardNote(div, `Added as image ${referenceIds.length}`);
 }
 
@@ -730,16 +729,17 @@ function galleryFocus(e) {
 // arrows walk the grid and Home and End go to the first and last card loaded;
 // on a tool they are left to the tool.
 function galleryKey(e) {
-  if (e.altKey || e.ctrlKey || e.metaKey) return;
+  if (keyboardEventHeld(e) || keyboardCommandModifier(e) || keyboardEditingTarget(e.target)) return;
   const div = e.target.closest?.('.card[data-id]');
   if (!div) return;
-  if (e.key === 'f' || e.key === 'F') {
+  if (!e.shiftKey && (e.key === 'f' || e.key === 'F')) {
     e.preventDefault();
+    if (e.repeat) return;
     const rec = galleryRecords.find((r) => r.id === +div.dataset.id);
     if (rec) void setFavorite(rec, !rec.favorite, { say: true });
     return;
   }
-  if (e.target.parentElement !== div || e.target.tagName !== 'IMG') return;
+  if (e.shiftKey || e.target.parentElement !== div || e.target.tagName !== 'IMG') return;
   const step = { ArrowLeft: -1, ArrowRight: 1, ArrowUp: 'up', ArrowDown: 'down', Home: 'first', End: 'last' }[e.key];
   if (step === undefined) return;
   e.preventDefault();

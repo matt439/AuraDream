@@ -22,6 +22,8 @@
 <link rel="stylesheet" href="/static/styles/more-seeds.css">
 <link rel="stylesheet" href="/static/styles/bin.css">
 <link rel="stylesheet" href="/static/styles/context-menu.css">
+<link rel="stylesheet" href="/static/styles/shortcuts.css">
+<link rel="stylesheet" href="/static/styles/snippets.css">
 </head>
 <body>
 <header class="topbar">
@@ -39,6 +41,7 @@
        panel's #progress-text is the status a screen reader hears. -->
   <span class="job-mirror" id="job-mirror" aria-hidden="true" hidden></span>
   <div class="vram" id="vram"></div>
+  <button type="button" class="ghost" id="btn-shortcuts" aria-label="Keyboard shortcuts" aria-keyshortcuts="?" aria-haspopup="dialog" aria-controls="shortcuts-dialog" title="Keyboard shortcuts (?)">?</button>
   <button class="ghost" id="btn-models" aria-expanded="false" aria-controls="model-picker">Models</button>
   <section class="model-picker" id="model-picker" aria-label="Models" hidden>
     <!-- tabindex -1: a press on the picker's empty space or its heading keeps
@@ -126,7 +129,7 @@
           the server answers.</span></span>
         <span class="examples" id="examples">
           <button type="button" class="ghost tiny" id="btn-examples" aria-haspopup="menu"
-                  aria-expanded="false" title="Example prompts for this checkpoint, from its authors">Examples</button>
+                  aria-expanded="false" title="Example prompts from the authors, and your personal snippets">Examples</button>
           <ul class="menu" id="examples-menu" role="menu" aria-labelledby="btn-examples" hidden></ul>
         </span>
         <span class="tag-helper" id="tag-helper" hidden>
@@ -344,15 +347,22 @@
       <div class="presets" id="presets" role="group" aria-label="Aspect"></div>
       <div class="size-tier-row">
         <div class="presets tiers" id="tiers" role="group" aria-label="Size in megapixels"></div>
-        <button type="button" class="ghost small orientation" id="btn-orientation"
-                title="Square has no portrait or landscape orientation" disabled>Orientation</button>
       </div>
-      <div class="row size-row">
-        <!-- max is the longest side of any preset - backend/sizes.py, which
-             tests/test_profiles.py holds this to. -->
-        <label class="sub"><i>W</i><input type="number" id="width" value="1024" step="16" min="256" max="3168"></label>
-        <label class="sub"><i>H</i><input type="number" id="height" value="1024" step="16" min="256" max="3168"></label>
-      </div>
+      <details class="setup-disclosure" id="custom-size">
+        <summary id="custom-size-summary" aria-describedby="size-hint">Custom dimensions <span id="custom-size-value">1024 × 1024</span></summary>
+        <div class="setup-body">
+          <div class="row size-row">
+            <!-- max is the longest side of any preset - backend/sizes.py, which
+                 tests/test_profiles.py holds this to. -->
+            <label class="sub"><i>W</i><input type="number" id="width" value="1024" step="16" min="256" max="3168"></label>
+            <label class="sub"><i>H</i><input type="number" id="height" value="1024" step="16" min="256" max="3168"></label>
+          </div>
+          <div class="custom-orientation">
+            <button type="button" class="ghost small orientation" id="btn-orientation"
+                    title="Square has no portrait or landscape orientation" disabled>Orientation</button>
+          </div>
+        </div>
+      </details>
       <p class="hint" id="size-hint"></p>
     </div>
 
@@ -454,8 +464,13 @@
       <div class="progress-head">
         <p class="now" id="progress-now"></p>
         <div class="progress-actions">
+          <button type="button" class="ghost small" id="btn-queue-front"
+                  aria-label="Move this job to the front of the queue" aria-disabled="true"
+                  title="Only a queued job can move to front">&#8593;</button>
           <button class="ghost small" id="btn-pause"
                   title="Hold after the current cell and hand the GPU back; Resume carries on">Pause</button>
+          <button type="button" class="ghost small" id="btn-skip" aria-disabled="true"
+                  title="No cell is running">Skip</button>
           <button class="ghost small danger" id="btn-cancel" title="Stop after the current step">Cancel</button>
         </div>
       </div>
@@ -569,8 +584,9 @@
               one its values here, one variable per line:<br>
               <b>{size} dog sitting on {ground}</b><br>
               <b>size = big | small</b><br>
-              <b>ground = grass | dirt</b> — four prompts, and they cross with the
-              ranges below.<br>
+              <b>ground = grass | dirt</b> - four prompts in Cross all values mode.
+              One choice per image instead draws a value for each variable from
+              that image's seed, keeping it across the ranges below.<br>
               Values split on <b>|</b>, not on commas: a comma belongs to the prompt.<br>
               <b>none</b> is a value too — the word and its space come out
               altogether, so <b>size = big | none</b> compares saying it against
@@ -579,6 +595,20 @@
               still has <b>{placeholders}</b> in it, rather than rendering the braces.</span></span></i>
           <textarea id="grid-prompt" rows="2" spellcheck="false" aria-describedby="grid-prompt-tip"
             placeholder="size = big | small | none"></textarea>
+          <label for="grid-prompt-mode">Variable mode</label>
+          <select id="grid-prompt-mode" aria-describedby="grid-prompt-mode-hint">
+            <option value="cross">Cross all values</option>
+            <option value="random">One choice per image</option>
+          </select>
+          <p class="hint" id="grid-prompt-mode-hint">A fixed image seed draws the same choices. One choice per image runs Batch images separately.</p>
+        </div>
+      </div>
+      <div class="row">
+        <div class="sub grow">
+          <i><label for="grid-size">Sizes</label></i>
+          <input type="text" id="grid-size" maxlength="2000" autocomplete="off"
+                 placeholder="1024x1024, 768x1024" aria-describedby="grid-size-hint">
+          <p class="hint" id="grid-size-hint">Width x height pairs, separated by commas. Blank keeps the panel size.</p>
         </div>
       </div>
       <div class="row">
@@ -663,41 +693,43 @@
               aria-keyshortcuts="Control+Enter">Run grid</button>
     </details>
 
-    <!-- Conditioning: reference images, and an adapter. Both are greyed rather
-         than hidden where they do not apply, the way True CFG is - the panel
-         keeps its shape, and the badge says why the box is dead. Last in the
-         panel, under the grid fold's summary: both are rarely used, and
-         between Sampling and Output they put Generate's progress, its bar and
-         its time, past the foot of a 2048 x 1040 window (QHD at 125%) while
-         the page is at its top, where the panel cannot be lifted. A request
-         reads them wherever they sit (collect). -->
-    <div class="field" id="reference-field">
-      <span>Reference images
-        <span class="help" tabindex="0" role="note" aria-label="Reference images help" aria-describedby="reference-tip">?<span
-          class="tip" id="reference-tip">Reference images condition the picture on one you
-          have already made. This checkpoint's pipeline takes none - FLUX.2 [klein] is the
-          one here that does.</span></span>
-        <em id="reference-note"></em></span>
-      <!-- Focusable by script alone (tabindex -1): where focus goes once the
-           last chip's × is gone (sizes.js, removeReference). -->
-      <div class="chips" id="reference-list" role="group" aria-label="Reference images"
-           tabindex="-1" aria-describedby="reference-tip"></div>
-    </div>
+    <!-- Conditioning stays available behind a native disclosure when inactive.
+         Its summary names selected inputs even when closed; unsupported retained
+         inputs remain named as unavailable. Explicit restore/reuse/navigation can
+         reveal the controls, while background sync never opens or closes them.
+         Their values and collect() semantics do not depend on the disclosure. -->
+    <details class="setup-disclosure" id="conditioning-section">
+      <summary>LoRA &amp; references <span id="conditioning-summary">none selected</span></summary>
+      <div class="setup-body">
+        <div class="field" id="reference-field">
+          <span>Reference images
+            <span class="help" tabindex="0" role="note" aria-label="Reference images help" aria-describedby="reference-tip">?<span
+              class="tip" id="reference-tip">Reference images condition the picture on one you
+              have already made. This checkpoint's pipeline takes none - FLUX.2 [klein] is the
+              one here that does.</span></span>
+            <em id="reference-note"></em></span>
+          <!-- Focusable by script alone (tabindex -1): where focus goes once the
+               last chip's × is gone (sizes.js, removeReference). -->
+          <div class="chips" id="reference-list" role="group" aria-label="Reference images"
+               tabindex="-1" aria-describedby="reference-tip"></div>
+        </div>
 
-    <div class="row" id="lora-field">
-      <div class="sub grow">
-        <i><label for="lora">LoRA</label>
-          <span class="help" tabindex="0" role="note" aria-label="LoRA help" aria-describedby="lora-tip">?<span
-            class="tip" id="lora-tip">A LoRA adapter from the loras/ directory; Weight 0-2
-            scales its effect.</span></span></i>
-        <select id="lora" aria-describedby="lora-tip"><option value="">none</option></select>
+        <div class="row" id="lora-field">
+          <div class="sub grow">
+            <i><label for="lora">LoRA</label>
+              <span class="help" tabindex="0" role="note" aria-label="LoRA help" aria-describedby="lora-tip">?<span
+                class="tip" id="lora-tip">A LoRA adapter from the loras/ directory; Weight 0-2
+                scales its effect.</span></span></i>
+            <select id="lora" aria-describedby="lora-tip"><option value="">none</option></select>
+          </div>
+          <div class="sub narrow">
+            <i><label for="lora-scale">Weight</label></i>
+            <input type="number" id="lora-scale" value="1" min="0" max="2" step="0.05"
+                   aria-describedby="lora-tip">
+          </div>
+        </div>
       </div>
-      <div class="sub narrow">
-        <i><label for="lora-scale">Weight</label></i>
-        <input type="number" id="lora-scale" value="1" min="0" max="2" step="0.05"
-               aria-describedby="lora-tip">
-      </div>
-    </div>
+    </details>
   </section>
 
   <section class="stage" id="stage">
@@ -722,13 +754,20 @@
          it have headings of their own. -->
     <div class="viewer" id="viewer" role="region" aria-label="Results">
       <p class="placeholder"><span class="idle-line">Nothing generated this session - Ctrl+Enter runs the
-        prompt; double-click a gallery image to open it.</span><span class="first-run">Nothing here yet: write a
+        prompt; click a gallery image to open it.</span><span class="first-run">Nothing here yet: write a
         prompt and Generate (Ctrl+Enter), or start from one of this checkpoint's own examples.
         <button type="button" class="ghost small" id="viewer-examples">Examples</button></span></p>
     </div>
     <!-- Outside the strip on purpose: the strip is capped and cleared per job,
          and a note inside it would be the first thing the cap removed. -->
-    <p class="hint" id="viewer-note"></p>
+    <div class="hint" id="viewer-note">
+      <div class="result-seeds" id="viewer-seeds" hidden>
+        <button type="button" class="ghost small" id="viewer-more-seeds" aria-haspopup="dialog"
+                aria-describedby="viewer-more-seeds-target">More seeds</button>
+        <span id="viewer-more-seeds-target"></span>
+      </div>
+      <span id="viewer-note-text"></span>
+    </div>
     <!-- This page's earlier results, beside a single image from 2000 px:
          outside the strip, whose records and images are the newest job's. -->
     <aside class="recent" id="recent" aria-labelledby="recent-head" hidden>
@@ -771,7 +810,8 @@
         <select id="run-list" class="runs" aria-label="Recent runs" disabled>
           <option value="">Runs…</option>
         </select>
-        <input type="search" id="search" placeholder="Search prompts, or seed:42 cfg:0.5…" aria-describedby="search-tip">
+        <input type="search" id="search" placeholder="Search prompts · / to focus" aria-label="Search gallery"
+               aria-keyshortcuts="/" title="Search gallery (/ outside fields, menus and dialogs)" aria-describedby="search-tip">
         <span class="help" tabindex="0" role="note" aria-label="Search help" aria-describedby="search-tip">?<span class="tip" id="search-tip">
           Bare words match the prompt. <b>key:value</b> filters the settings:<br>
           <b>seed:42</b> · <b>steps:8</b> · <b>cfg:0.5</b> · <b>tcfg:1.5</b> · <b>mu:none</b> ·
@@ -868,7 +908,7 @@
           </span>
           <button type="button" class="ghost small foot-btn" id="btn-select" aria-pressed="false"
             aria-keyshortcuts="Escape"
-            title="Pick cards by touch: in Select every tap picks or unpicks a card, Shift adds a range. Without it a click picks one card, Ctrl+click adds or removes one, Shift+click picks a range and Ctrl+Shift+click adds one; a double click opens. Ctrl+A (Cmd+A) adds every loaded card; Escape or a click between the cards clears">Select</button>
+            title="Pick cards by touch: in Select every tap picks or unpicks a card, Shift adds a range. Without it a click opens the large image, Ctrl+click (Cmd+click) adds or removes one pick, Shift+click picks a range and Ctrl+Shift+click (Cmd+Shift+click) adds one. Ctrl+A (Cmd+A) adds every loaded card; Escape or a click between the cards clears">Select</button>
           <!-- Swap tags (tag-swap.js): the selection when there is one, else what
                the filter matches. Always here, held with its reason where
                there is nothing to act on, so it never comes and goes beside
@@ -1111,6 +1151,16 @@
         <label class="check rf-lock" title="Typing W or H keeps the source's shape"><input type="checkbox" id="refine-lock" checked> Keep shape</label>
       </div>
       <p class="hint" id="refine-size-hint"></p>
+      <label class="sub grow"><i>Crop anchor</i>
+        <select id="refine-crop-anchor" aria-describedby="refine-crop-hint">
+          <option value="center">Center</option>
+          <option value="top">Top</option><option value="bottom">Bottom</option>
+          <option value="left">Left</option><option value="right">Right</option>
+          <option value="top-left">Top left</option><option value="top-right">Top right</option>
+          <option value="bottom-left">Bottom left</option><option value="bottom-right">Bottom right</option>
+        </select>
+      </label>
+      <p class="hint" id="refine-crop-hint">When the shapes differ, choose which part of the source to keep.</p>
     </div>
 
     <div class="field" id="refine-upscaler-field" hidden>
@@ -1605,24 +1655,31 @@
   </header>
   <div class="ms-controls">
     <div class="field ms-count">
-      <i><label for="more-seeds-count">More of each batch</label></i>
+      <i><label for="more-seeds-count" id="more-seeds-count-label">Additional images</label></i>
       <!-- Text, as Mass refine's boxes: a number box reports what it cannot
            parse as blank, and the page refuses it in words instead. -->
       <input type="text" id="more-seeds-count" autocomplete="off" inputmode="numeric"
-             title="How many more images each batch gets. ↑ and ↓ step it">
+             title="How many additional images to make. ↑ and ↓ step it">
     </div>
   </div>
-  <p class="ms-hint">A batch is the images of one run that differ only in their seed; picking one of its images
-    takes all of it. Its new images keep its prompt, size and settings, take the seeds after its highest - any already
-    made are stepped over - and run at the Batch it was made with, or the panel's Batch where that was not recorded.
-    They join its run.</p>
+  <p class="ms-hint">Same prompt, size and settings. New seeds. The images join the original run.</p>
   <p class="ms-count-line" id="more-seeds-line" role="status"></p>
-  <ol class="ms-results" id="more-seeds-results" aria-label="What happens to each batch"></ol>
-  <p class="error one-line" id="more-seeds-error" role="alert"></p>
+  <ol class="ms-results" id="more-seeds-results" aria-label="Settings groups and any refusals"></ol>
+  <div class="ms-feedback">
+    <p class="ms-hold" id="more-seeds-hold" role="status"></p>
+    <p class="error one-line" id="more-seeds-error" role="alert"></p>
+  </div>
   <div class="ms-actions">
     <button type="button" class="ghost" id="more-seeds-cancel">Cancel</button>
     <button type="button" class="primary" id="more-seeds-run" aria-disabled="true">Queue</button>
   </div>
+  <details class="ms-technical" id="more-seeds-details">
+    <summary>How settings and seeds are kept</summary>
+    <p>Images with the same settings in one run form a settings group. Picking several images of that group
+      still adds this count once. New seeds follow the highest saved seed and skip seeds already made or queued.
+      Each group keeps its execution Batch; older images without a recorded Batch use the panel's Batch.</p>
+    <p id="more-seeds-notes"></p>
+  </details>
 </dialog>
 
 <!-- Classic scripts sharing one global scope; app.js, the last, is the
@@ -1635,7 +1692,7 @@
   <p id="bundles-intro">Save images, thumbnails and their gallery records in one ZIP file, optionally protected by a password: as a backup that keeps the gallery, or as a bundle of the entire gallery that then clears it. Import a bundle to merge its images with the current gallery.</p>
   <section class="bundle-section" aria-labelledby="bundle-export-title">
     <div class="bundles-head">
-      <h3 id="bundle-export-title">Back up or bundle &amp; clear</h3>
+      <h3 id="bundle-export-title">Create a bundle</h3>
       <button type="button" class="ghost small" id="bundle-refresh">Refresh counts</button>
     </div>
     <fieldset class="bundle-scope">
@@ -1646,48 +1703,52 @@
     </fieldset>
     <p class="hint" id="bundle-scope-hint">Includes every model, every starred image and the recycle bin. The gallery's search and filters do not limit this action.</p>
     <p id="bundle-preview">Reading the gallery…</p>
-    <p class="hint">Every bundle is saved on the server and verified by reading it back. Back up keeps the gallery as it is. Bundle &amp; clear then removes the originals and old database, and creates a new empty database so you can keep generating. You can download the bundle afterwards.</p>
+    <p class="hint">Save a verified copy on the server, ready to download. Back up keeps the gallery and needs no typed confirmation.</p>
     <div class="bundle-password">
-      <label for="bundle-password">Password <span class="optional">(optional)</span></label>
+      <label for="bundle-password">New password <span class="optional">(optional)</span></label>
       <input id="bundle-password" type="password" autocomplete="new-password" maxlength="1024" aria-describedby="bundle-password-hint">
       <label for="bundle-password-again">Repeat password</label>
       <input id="bundle-password-again" type="password" autocomplete="new-password" maxlength="1024" aria-describedby="bundle-password-hint">
     </div>
-    <p class="hint" id="bundle-password-hint">With a password the bundle is encrypted as a .ldbundle file that only Local Diffusion can open. The password is not saved anywhere and cannot be recovered; without it the bundle cannot be opened, and a cleared gallery is lost.</p>
+    <p class="hint" id="bundle-password-hint">Applies to both Back up and Bundle &amp; clear. A password encrypts the new bundle as a .ldbundle file that only Local Diffusion can open. It is not saved and cannot be recovered; without it the bundle cannot be opened, and a cleared gallery is lost.</p>
     <div class="bundle-backup-row">
-      <button type="button" class="ghost" id="bundle-backup" aria-disabled="true">Back up (keep gallery)</button>
+      <button type="button" class="primary" id="bundle-backup" aria-disabled="true">Back up (keep gallery)</button>
     </div>
-    <div class="bundle-confirm">
-      <label for="bundle-count" id="bundle-count-label">Type the gallery record count to confirm</label>
-      <input id="bundle-count" type="text" inputmode="numeric" autocomplete="off" aria-describedby="bundle-preview">
-      <button type="button" class="ghost danger" id="bundle-export" aria-disabled="true">Bundle &amp; clear gallery</button>
+    <div class="bundle-clear" role="group" aria-labelledby="bundle-clear-title" aria-describedby="bundle-clear-hint">
+      <h4 id="bundle-clear-title">Bundle &amp; clear entire gallery</h4>
+      <p class="hint" id="bundle-clear-hint">To prevent accidental clearing, type the exact count of all gallery records, including every model and the recycle bin. This confirms removal after the saved bundle is verified, not how many images to save. When the app is ready, the count enables Bundle &amp; clear for Entire gallery. A held button explains anything else needed.</p>
+      <div class="bundle-confirm">
+        <label for="bundle-count" id="bundle-count-label">Type the exact gallery record count to enable Bundle &amp; clear</label>
+        <input id="bundle-count" type="text" inputmode="numeric" autocomplete="off" aria-describedby="bundle-preview bundle-clear-hint">
+        <button type="button" class="ghost danger" id="bundle-export" aria-disabled="true">Bundle &amp; clear gallery</button>
+      </div>
     </div>
   </section>
   <section class="bundle-section" aria-labelledby="bundle-upload-title">
-    <h3 id="bundle-upload-title">Import a file</h3>
+    <h3 id="bundle-upload-title">Import a bundle</h3>
     <p class="hint">Existing images stay. Images already imported from this bundle are kept without creating duplicates.</p>
     <div class="bundle-password bundle-unlock">
-      <label for="bundle-unlock">Password for protected bundles</label>
+      <label for="bundle-unlock">Import password</label>
       <input id="bundle-unlock" type="password" autocomplete="current-password" maxlength="1024" aria-describedby="bundle-unlock-hint">
     </div>
-    <p class="hint" id="bundle-unlock-hint">Used for a selected or saved bundle marked Protected.</p>
+    <p class="hint" id="bundle-unlock-hint">One shared password for Import selected file and the saved bundles marked Protected below. Plain ZIP files do not need it.</p>
     <div class="bundle-upload-row">
       <label class="sr-only" for="bundle-file">Bundle file</label>
       <input id="bundle-file" type="file" accept=".zip,.ldbundle,application/zip">
-      <button type="button" class="ghost" id="bundle-upload" aria-disabled="true">Import selected file</button>
+      <button type="button" class="ghost" id="bundle-upload" aria-disabled="true" aria-describedby="bundle-unlock-hint">Import selected file</button>
       <button type="button" class="ghost" id="bundle-upload-cancel" aria-disabled="true">Cancel upload</button>
     </div>
-  </section>
-  <div class="bundle-feedback">
-    <p id="bundle-status" role="status" aria-live="polite"></p>
-    <p id="bundle-progress" class="hint"></p>
-    <a id="bundle-download" hidden download>Download saved bundle</a>
-    <details id="bundle-retained" hidden><summary>Files still on disk</summary><ul></ul></details>
-  </div>
-  <section class="bundle-section" aria-labelledby="bundle-list-title">
-    <h3 id="bundle-list-title">Saved bundles</h3>
-    <p class="hint" id="bundle-directory"></p>
-    <ul id="bundle-list"><li>Reading saved bundles…</li></ul>
+    <div class="bundle-feedback" role="group" aria-label="Bundle operation status">
+      <p id="bundle-status" role="status" aria-live="polite"></p>
+      <p id="bundle-progress" class="hint"></p>
+      <a id="bundle-download" hidden download>Download saved bundle</a>
+      <details id="bundle-retained" hidden><summary>Files still on disk</summary><ul></ul></details>
+    </div>
+    <div class="bundle-saved" role="group" aria-labelledby="bundle-list-title">
+      <h4 id="bundle-list-title">Saved bundles</h4>
+      <p class="hint" id="bundle-directory"></p>
+      <ul id="bundle-list"><li>Reading saved bundles…</li></ul>
+    </div>
   </section>
 </dialog>
 
@@ -1695,6 +1756,43 @@
      moved into the lightbox while that is up, since a modal dialog leaves
      the page under it inert. -->
 <ul class="menu context-menu" id="context-menu" role="menu" tabindex="-1" hidden></ul>
+
+<dialog class="shortcuts-dialog" id="shortcuts-dialog" aria-labelledby="shortcuts-title" aria-describedby="shortcuts-intro">
+  <div class="shortcuts-head">
+    <h2 id="shortcuts-title">Keyboard shortcuts</h2>
+    <button type="button" class="ghost" id="shortcuts-close" autofocus>Close</button>
+  </div>
+  <p class="hint" id="shortcuts-intro">Keys act where focus is. Letter shortcuts leave text fields alone; Ctrl or Cmd keys keep their usual editing meaning unless listed below. Escape closes this help first.</p>
+  <div id="shortcuts-body"></div>
+</dialog>
+
+<dialog class="snippets-dialog" id="snippets-dialog" aria-labelledby="snippets-title" aria-describedby="snippets-intro">
+  <div class="snippets-head">
+    <h2 id="snippets-title">Prompt snippets</h2>
+    <button type="button" class="ghost" id="snippets-close">Close</button>
+  </div>
+  <p class="hint" id="snippets-intro">Save your own reusable prompt text. Append or prepend it to a prompt; Ctrl+Z restores the box.</p>
+  <div class="snippets-layout">
+    <label class="snippets-library">Saved snippets
+      <select id="snippets-list" size="6" aria-label="Saved snippets"></select>
+    </label>
+    <div class="snippets-editor">
+      <label>Name<input type="text" id="snippets-name" maxlength="80" autocomplete="off" autofocus></label>
+      <label>Text<textarea id="snippets-text" rows="5" maxlength="16000" spellcheck="false"></textarea></label>
+      <div class="row">
+        <label class="sub grow"><i>Insert into</i><select id="snippets-target"><option value="prompt">Prompt</option><option value="negative">Negative prompt</option></select></label>
+        <label class="sub grow"><i>Position</i><select id="snippets-placement"><option value="append">Append</option><option value="prepend">Prepend</option></select></label>
+      </div>
+    </div>
+  </div>
+  <div class="snippets-actions">
+    <button type="button" class="ghost" id="snippets-new">New</button>
+    <button type="button" class="ghost" id="snippets-save" aria-disabled="true">Save</button>
+    <button type="button" class="ghost danger" id="snippets-delete" aria-disabled="true">Delete</button>
+    <button type="button" class="primary" id="snippets-insert" aria-disabled="true">Insert</button>
+  </div>
+  <p id="snippets-status" role="status" aria-live="polite"></p>
+</dialog>
 
 <script src="/static/state.js"></script>
 <script src="/static/sizes.js"></script>
@@ -1745,6 +1843,8 @@
 <script src="/static/more-seeds.js"></script>
 <script src="/static/bin.js"></script>
 <script src="/static/context-menu.js"></script>
+<script src="/static/shortcuts.js"></script>
+<script src="/static/prompt-snippets.js"></script>
 <script src="/static/app.js"></script>
 </body>
 </html>

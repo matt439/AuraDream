@@ -17,8 +17,8 @@ const PANEL_KEY = 'local-diffusion.panel.v1';
 const LEGACY_PANEL_KEYS = ['krea.panel.v1'];
 const PANEL_FIELDS = [
   'prompt', 'negative', 'width', 'height', 'seed', 'batch', 'runs', 'lora', 'loraScale',
-  'gridPrompt', 'gridSteps', 'gridCfg', 'gridMu', 'gridSeeds', 'gridSeedList', 'gridBudget',
-  'gridLoraScale',
+  'gridPrompt', 'gridPromptMode', 'gridSteps', 'gridCfg', 'gridMu', 'gridSeeds', 'gridSeedList', 'gridBudget',
+  'gridLoraScale', 'gridSize',
 ];
 // What else is remembered beside the fields, merged key by key as they are.
 const PANEL_KEYS = [...PANEL_FIELDS, 'gridOpen', 'reference', 'translation'];
@@ -49,6 +49,7 @@ function panelState() {
     translation: translatedSource !== null ? { source: translatedSource, text: els.promptTranslation.value } : null,
   };
   for (const key of PANEL_FIELDS) state[key] = els[key].value;
+  state.lora = els.lora.value || pendingLora;
   // Sampling values travel with the checkpoint they were set on, and only
   // the ones the user took off the profile - the profile itself is the
   // server's to give back.
@@ -151,6 +152,9 @@ function restorePanel() {
   for (const key of PANEL_FIELDS) {
     if (typeof state[key] === 'string') els[key].value = state[key];
   }
+  // Older panels have no mode; a malformed stored select must not send an
+  // empty mode and turn every preview into a schema error.
+  if (!['cross', 'random'].includes(els.gridPromptMode.value)) els.gridPromptMode.value = 'cross';
   // Set again by refreshLoras once the options exist.
   pendingLora = typeof state.lora === 'string' ? state.lora : '';
   els.gridSection.open = !!state.gridOpen;
@@ -165,6 +169,7 @@ function restorePanel() {
     pendingTranslation = t;
   }
   syncConditioning();
+  revealActiveSetup();
 }
 
 // Reset: every box back to what a first visit shows - the checkpoint's own
@@ -214,15 +219,17 @@ function resetPanel() {
   els.trueCfg.value = '';
   referenceIds = [];
   els.lora.value = '';
+  pendingLora = '';
   els.loraScale.value = 1;
   els.seed.value = '';
   els.batch.value = 1;
   els.runs.value = 1;
   for (const key of ['gridPrompt', 'gridSteps', 'gridCfg', 'gridMu', 'gridSeedList', 'gridBudget',
-                     'gridLoraScale']) {
+                     'gridLoraScale', 'gridSize']) {
     els[key].value = '';
   }
   els.gridSeeds.value = 1;
+  els.gridPromptMode.value = 'cross';
   els.gridSeeds.disabled = false;
   els.gridResume.checked = false;
   els.gridSection.open = false;
@@ -304,6 +311,7 @@ function undoReset(note) {
   for (const key of PANEL_FIELDS) {
     if (key !== 'prompt' && key !== 'negative') els[key].value = state[key];
   }
+  pendingLora = state.lora && !els.lora.value ? state.lora : '';
   els.gridSection.open = state.gridOpen;
   els.gridSeeds.disabled = els.gridSeedList.value.trim() !== '';
   referenceIds = state.reference;
@@ -321,6 +329,7 @@ function undoReset(note) {
   syncSize();
   syncCfg();
   syncConditioning();
+  revealActiveSetup();
   syncRuns();
   schedulePreview();
   scheduleTagValidation(0);

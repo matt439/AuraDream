@@ -17,7 +17,7 @@ from typing import TYPE_CHECKING
 
 from fastapi import APIRouter, HTTPException, Path, Query
 
-from . import prompt_check, prompt_encoding, prompt_text, tag_lookup
+from . import prompt_check, prompt_encoding, prompt_parts, prompt_text, tag_lookup
 from .app_context import AppServices
 from .backends.base import Cancelled
 from .critic import CriticError, CriticUnavailable
@@ -88,10 +88,13 @@ def chip_verdicts(model_id: str, helper: dict, request: TagValidationRequest) ->
             available=False,
             results=results,
             detail=short_error(exc),
+            parts=prompt_parts.contextual_parts(helper, request.prompt, request.tags, results),
             **prompt_check.order_slots(model_id, request.prompt, reachable=False),
         )
     return TagValidationResponse(
-        available=True, results=results, **prompt_check.order_slots(model_id, request.prompt, reachable=True)
+        available=True, results=results,
+        parts=prompt_parts.contextual_parts(helper, request.prompt, request.tags, results),
+        **prompt_check.order_slots(model_id, request.prompt, reachable=True)
     )
 
 

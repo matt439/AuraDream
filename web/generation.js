@@ -4,6 +4,33 @@
 
 // --------------------------------------------------------------- generation
 
+// Native number boxes keep unfinished text such as "1e" on screen while
+// exposing an empty value. That is different from intentionally clearing a
+// box for a profile default or a random seed. Check only at submission, and
+// only the controls that submission reads; stored reruns have their own data.
+function panelNumberInputs({ batch = true, runs = true } = {}) {
+  return [
+    [els.width, 'Width'], [els.height, 'Height'], [els.steps, 'Steps'],
+    [els.cfg, 'CFG'], [els.mu, 'Mu'], [els.trueCfg, 'True CFG'],
+    [els.seed, 'Seed'], [els.loraScale, 'LoRA weight'],
+    ...(batch ? [[els.batch, 'Batch']] : []),
+    ...(runs ? [[els.runs, 'Repeat']] : []),
+  ];
+}
+
+function refuseBadNumber(inputs) {
+  // A held button still explains its existing hold in startJob. Its title
+  // must not promise one reason while the press reports a different one.
+  if (submitting || submitHold()) return false;
+  const bad = inputs.find(([el]) => !el.disabled && el.validity.badInput);
+  if (!bad) return false;
+  const [el, name] = bad;
+  showError(`${name} has an incomplete number. Finish typing it before running.`);
+  revealSetupField(el);
+  el.focus({ preventScroll: true });
+  return true;
+}
+
 function collect() {
   const seed = els.seed.value.trim();
   // An empty box is "not given", which the server fills from the checkpoint's
@@ -79,6 +106,7 @@ function setBusy(on) {
   els.progressNow.title = '';
   jobEta = '';
   cellArgs = null;
+  syncSkip(null);
   // The finished job's line stays - only the next job's end replaces it -
   // and says whose it is while another runs.
   syncFinishLead();
@@ -131,7 +159,8 @@ function describeJob(job, length = 60, { markup = false } = {}) {
     : 're-render';
   return [
     job.planned_images ? plural(job.planned_images, 'image') : '',
-    job.width && job.height ? `${job.width}×${job.height}` : '',
+    job.sizes?.length ? job.sizes.map(([w, h]) => `${w}\u00d7${h}`).join(', ')
+      : job.width && job.height ? `${job.width}×${job.height}` : '',
     what,
     job.then_refine ? `then refine ${job.then_refine.scale}× at ${job.then_refine.strength}` : '',
   ].filter(Boolean).join(' · ');
@@ -509,6 +538,7 @@ async function dropRefusedLora(err, path, payload, slot) {
 // Run grid's press. The same pattern as grid.PLACEHOLDER.
 const GRID_PLACEHOLDER = /\{[A-Za-z_]\w*\}/;
 function generate() {
+  if (refuseBadNumber(panelNumberInputs())) return undefined;
   const body = collect();
   if (els.gridSection.open && els.gridPrompt.value.trim()
       && GRID_PLACEHOLDER.test(`${body.prompt}\n${body.negative_prompt ?? ''}`)) {

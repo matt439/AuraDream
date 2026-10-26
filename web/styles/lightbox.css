@@ -215,6 +215,7 @@
 .lb-pair { display: flex; gap: var(--sp-2); }
 .lb-pair .ghost { flex: 1 1 0; min-width: 0; width: auto; white-space: nowrap; padding-left: 4px; padding-right: 4px; }
 #lb-refine::after { content: 'R' / ''; margin-left: var(--sp-1); font-size: var(--fs-sm); font-weight: 400; }
+#lb-more-seeds::after { content: 'M' / ''; margin-left: var(--sp-1); font-size: var(--fs-sm); font-weight: 400; }
 #lb-fav.active { color: var(--star); border-color: var(--star); }
 #lb-reuse.model-mismatch { color: var(--warn); border-color: var(--warn); }
 #lb-delete:hover { color: var(--danger); border-color: var(--danger); }

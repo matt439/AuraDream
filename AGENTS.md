@@ -94,7 +94,8 @@ Backend (`backend/`):
   records as cells (`cell_from_record`); `tag_swap.py` Swap tags' rewrite;
   `refine_batch.py` Mass refine's per-image plan; `then_refine.py` Then
   refine's stand-in pass, refusals and pass run id; `more_seeds.py` More
-  seeds' batches and their next seeds;
+  seeds' batches and their next seeds; `more_seeds_intents.py` bounded
+  preview-issued submission receipts and safe retries;
   `seeds.py`; `sizes.py` presets and size guards; `loras.py` adapter names to
   paths; `refine.py` the image-to-image pass and the inpaint (`sibling(kind)`,
   `composite`); `latent_preview.py`
@@ -352,6 +353,19 @@ node tools/browser.mjs tools/<smoke>.json
 | 7910 | FLUX.1-Krea-dev, fresh scratch `--data` | `smoke-sheet-zoom` |
 | 7911 | Gazingstars123/Anima-2.9B, fresh scratch `--data` | `smoke-anima-preview` |
 | 7912 | FLUX.1-Krea-dev, fresh scratch `--data`, `--step 0.3` | `smoke-then-refine` |
+| 7913 | FLUX.1-Krea-dev, fresh scratch `--data` | `smoke-shortcuts` |
+| 7914 | FLUX.1-Krea-dev, fresh scratch `--data`, `--step 0.3` | `smoke-queue-controls` |
+| 7915 | FLUX.1-Krea-dev, fresh scratch `--data` | `smoke-snippets` |
+| 7916 | FLUX.1-Krea-dev, fresh scratch `--data` | `smoke-random-prompts` |
+| 7917 | FLUX.1-Krea-dev, fresh scratch `--data` | `smoke-size-crop` |
+| 7918 | animagine-xl-4.0, fresh scratch `--data` | `smoke-button-states` |
+| 7919 | FLUX.1-Krea-dev, fresh scratch `--data` | `smoke-more-seeds-tabs` |
+| 7920 | KBlueLeaf/Kohaku-XL-Zeta, fresh scratch `--data` | `smoke-mixed-prompts` |
+| 7921 | FLUX.1-Krea-dev, fresh scratch `--data` | `smoke-numeric-inputs` |
+| 7922 | FLUX.1-Krea-dev, fresh scratch `--data` | `smoke-queue-outcomes` |
+| 7923 | FLUX.1-Krea-dev, fresh scratch `--data` | `smoke-control-sizing` |
+| 7924 | FLUX.1-Krea-dev, fresh scratch `--data` | `smoke-shortcut-dispatch` |
+| 7925 | FLUX.1-Krea-dev, fresh scratch `--data` | `smoke-compact-setup` |
 
 FLUX.1-Krea-dev is `black-forest-labs/FLUX.1-Krea-dev`; animagine is
 `cagliostrolab/animagine-xl-4.0`.

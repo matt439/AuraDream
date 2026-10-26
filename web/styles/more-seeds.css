@@ -4,20 +4,23 @@
    their height while empty, so a check that lists more or fewer batches, or
    a refusal, never moves Queue or Cancel under the pointer. */
 .ms-dialog {
-  width: min(720px, calc(100vw - 2 * var(--sp-4)));
+  width: min(600px, calc(100vw - 2 * var(--sp-4)));
   max-height: calc(100vh - 2 * var(--sp-4));
   margin-top: var(--sp-4); margin-bottom: auto;
-  padding: var(--gutter); overflow-y: auto;
+  padding: var(--gutter); overflow-y: auto; scrollbar-gutter: stable;
   border: 1px solid var(--line-strong); border-radius: var(--r-lg);
   background: var(--panel); color: var(--text); box-shadow: var(--shadow-pop);
 }
 .ms-dialog::backdrop { background: rgba(0, 0, 0, 0.6); }
-.ms-dialog[open] { display: flex; flex-direction: column; gap: var(--sp-3); }
+.ms-dialog[open] { display: flex; flex-direction: column; gap: var(--sp-2); }
 .ms-dialog[open] > * { flex-shrink: 0; }
 .ms-dialog p { margin: 0; }
 .ms-head { display: flex; flex-direction: column; gap: var(--sp-1); }
 .ms-head h2 { margin: 0; font-size: var(--fs-lg); font-weight: 600; font-variant-numeric: tabular-nums; }
-#more-seeds-scope { color: var(--text-readout); font-size: var(--fs-body-sm); overflow-wrap: anywhere; }
+#more-seeds-scope {
+  color: var(--text-readout); font-size: var(--fs-body-sm); overflow-wrap: anywhere;
+  height: calc(2 * var(--fs-body-sm) * var(--lh)); overflow: hidden;
+}
 
 /* The count: a label over its box, as Mass refine's Strength. */
 .ms-controls { display: flex; flex-wrap: wrap; align-items: flex-start; gap: var(--sp-3) var(--sp-4); }
@@ -25,7 +28,7 @@
 .ms-controls .field > i { font-style: normal; color: var(--text-3); font-size: var(--fs-label); }
 .ms-count input { width: 7em; }
 
-.ms-hint { color: var(--text-3); font-size: var(--fs-label); }
+.ms-hint { color: var(--text-readout); font-size: var(--fs-body-sm); }
 /* Two lines, always; what does not fit is in its title. */
 .ms-count-line {
   height: calc(2 * var(--fs-body-sm) * var(--lh)); overflow: hidden;
@@ -35,9 +38,10 @@
 
 .ms-results {
   list-style: none; margin: 0; padding: 0;
-  height: min(34vh, 300px); overflow-y: auto;
+  height: min(25vh, 180px); overflow-y: auto;
   border: 1px solid var(--line); border-radius: var(--r-sm); background: var(--panel-2);
 }
+.ms-single .ms-results { height: 88px; }
 .ms-result {
   display: flex; gap: var(--sp-3); align-items: flex-start;
   padding: var(--sp-2); border-bottom: 1px solid var(--line);
@@ -48,21 +52,49 @@
   border: 1px solid var(--line); border-radius: var(--r-xs); background: var(--bg);
 }
 .ms-body { display: flex; flex-direction: column; gap: 2px; min-width: 0; font-size: var(--fs-body-sm); }
-.ms-line { color: var(--text-2); font-variant-numeric: tabular-nums; }
+.ms-line { color: var(--text-3); font-size: var(--fs-label); font-variant-numeric: tabular-nums; }
 .ms-chip {
   display: inline-block; padding: 0 var(--sp-1); border: 1px solid var(--line-strong);
   border-radius: var(--r-xs); font-size: var(--fs-label); color: var(--text-3);
 }
 .ms-result[data-status="queued"] .ms-chip { border-color: var(--accent); color: var(--text); background: var(--accent-soft); }
 /* The prompt on one line: the row is a batch, and its title has it whole. */
-.ms-prompt { color: var(--text-3); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.ms-prompt { order: -1; color: var(--text-2); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
 .ms-detail { color: var(--text-3); overflow-wrap: anywhere; }
 .ms-notes { color: var(--text-3); font-size: var(--fs-label); }
 
+.ms-feedback { display: grid; height: calc(3 * var(--fs-label) * var(--lh)); }
+.ms-feedback > p { grid-area: 1 / 1; }
+.ms-feedback:has(> #more-seeds-error:not([hidden])) > .ms-hold { visibility: hidden; }
 #more-seeds-error {
-  min-height: calc(var(--fs-body-sm) * var(--lh)); margin: 0;
-  white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+  height: 100%; min-height: 0; margin: 0;
+  white-space: normal; overflow-y: auto; overflow-wrap: anywhere;
 }
 /* showError hides an empty slot; this one keeps its line, as #swap-error does. */
 #more-seeds-error[hidden] { display: block !important; visibility: hidden; }
-.ms-actions { display: flex; justify-content: space-between; gap: var(--sp-3); }
+.ms-actions { display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 2fr); gap: var(--sp-3); }
+.ms-actions button { min-width: 0; }
+.ms-hold {
+  height: 100%; overflow-y: auto;
+  font-size: var(--fs-label); color: var(--text-readout);
+}
+.ms-technical { font-size: var(--fs-label); color: var(--text-3); }
+.ms-technical summary { cursor: pointer; color: var(--text-readout); }
+.ms-technical p { padding-top: var(--sp-2); }
+.ms-count input[readonly] { border-color: var(--warn); }
+
+/* The results action stays the same element as images arrive. Its label
+   has a fixed width and the target text yields before it at every width. */
+#viewer-note { display: flex; flex-direction: column; gap: var(--sp-1); }
+/* Reserve the old note line from the first frame through the final image,
+   including when a wide result column hides its seed/source text. */
+#viewer-note-text { min-height: calc(var(--fs-sm) * var(--lh)); }
+.result-seeds { display: flex; align-items: center; gap: var(--sp-2); min-width: 0; height: var(--h-sm); }
+.result-seeds[hidden] { display: none; }
+.result-seeds button { flex: none; min-width: 8em; border-color: var(--accent); color: var(--text); background: var(--accent-soft); }
+.result-seeds > span { min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; color: var(--text-readout); }
+#btn-more-seeds { color: var(--text); border-color: var(--line-strong); }
+
+@media (min-width: 1800px) {
+  .result-seeds { height: var(--h-sm); }
+}

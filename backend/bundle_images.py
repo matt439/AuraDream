@@ -153,6 +153,10 @@ def _validate_row(row: dict, width: int, height: int, content_hash: str) -> None
         upscaler, source=refine, model_id=row.get("model_id"), mask=mask, outpaint=outpaint,
     ) is None:
         raise BundleError(f"invalid upscaler on image {row['id']}")
+    try:
+        storage._crop_anchor(row.get("crop_anchor"), source=refine, mask=mask, outpaint=outpaint)
+    except ValueError as exc:
+        raise BundleError(f"invalid crop anchor on image {row['id']}: {exc}") from exc
     values = {key: row.get(key) for key in storage._COLUMNS}
     values.update(id=row["id"], content_hash=content_hash)
     # A bad peak is dropped by the merge, as a result; it refuses nothing.
@@ -212,6 +216,9 @@ def _metadata(row: dict, by_id: dict[int, dict]) -> dict:
     outpaint = (
         storage.OutpaintSpec.parse_key(row["outpaint"]) if row.get("outpaint") and row.get("mask") else None
     )
+    crop_anchor = storage._crop_anchor(
+        row.get("crop_anchor"), source=row.get("refine"), mask=row.get("mask"), outpaint=row.get("outpaint"),
+    )
     return {
         "prompt": row["prompt"], "negative_prompt": row["negative_prompt"],
         "steps": row["steps"], "guidance_scale": row["guidance_scale"], "true_cfg": row["true_cfg"],
@@ -233,6 +240,7 @@ def _metadata(row: dict, by_id: dict[int, dict]) -> dict:
         "outpaint": storage.outpaint_chunk(outpaint),
         "outpaint_fill": outpaint.fill if outpaint is not None else None,
         "batch": row.get("batch"),
+        **({"crop_anchor": crop_anchor} if crop_anchor is not None else {}),
         **({"upscaler": row["upscaler"]} if row.get("upscaler") is not None else {}),
         **_peak_chunk(row),
     }

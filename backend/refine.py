@@ -476,8 +476,14 @@ def scaled(width: int, height: int, factor: float) -> tuple[int, int]:
     )
 
 
-def fitted(image: "Image", width: int, height: int) -> "Image":
-    """`image` at exactly `width` x `height`: scaled to cover, centre-cropped.
+CROP_ANCHORS = (
+    "center", "top", "bottom", "left", "right",
+    "top-left", "top-right", "bottom-left", "bottom-right",
+)
+
+
+def fitted(image: "Image", width: int, height: int, crop_anchor: str = "center") -> "Image":
+    """`image` at exactly `width` x `height`: scaled to cover, then cropped.
 
     Never stretched. A size that is the source's own times a factor loses a
     few pixels at most to the 16-pixel grid; a size of another shape is a
@@ -487,6 +493,8 @@ def fitted(image: "Image", width: int, height: int) -> "Image":
     """
     from PIL import Image as PILImage
 
+    if crop_anchor not in CROP_ANCHORS:
+        raise ValueError(f"unknown crop anchor {crop_anchor!r}")
     if image.size == (width, height):
         return image
     cover = max(width / image.width, height / image.height)
@@ -494,12 +502,14 @@ def fitted(image: "Image", width: int, height: int) -> "Image":
         (max(width, round(image.width * cover)), max(height, round(image.height * cover))),
         PILImage.LANCZOS,
     )
-    left, top = (resized.width - width) // 2, (resized.height - height) // 2
+    horizontal, vertical = resized.width - width, resized.height - height
+    left = 0 if "left" in crop_anchor else horizontal if "right" in crop_anchor else horizontal // 2
+    top = 0 if "top" in crop_anchor else vertical if "bottom" in crop_anchor else vertical // 2
     return resized.crop((left, top, left + width, top + height))
 
 
 def source_image(image_id: int, width: int, height: int, *, upscaler: str | None = None,
-                 should_cancel=None, device: str = "cpu") -> "Image":
+                 should_cancel=None, device: str = "cpu", crop_anchor: str = "center") -> "Image":
     """The gallery image a refine pass starts from, at the requested size.
 
     Decoded here and the file handle closed, as the reference images are: the
@@ -519,7 +529,7 @@ def source_image(image_id: int, width: int, height: int, *, upscaler: str | None
         if upscaler != ANIME6B:
             raise ValueError("the requested Refine upscaler is not supported by this build")
         source = anime6b_upscale(source, should_cancel, device=device)
-    return fitted(source, width, height)
+    return fitted(source, width, height, crop_anchor)
 
 
 def inpaint_source(image_id: int, width: int, height: int) -> "Image":

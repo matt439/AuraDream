@@ -172,6 +172,8 @@ function tickPauseClock() {
 // A function is asked again at each redraw, for a note with a clock in it.
 function showCell(data, { job = null, budget = null, note = '', jobId = null } = {}) {
   cellArgs = [data, { job, budget, note, jobId }];
+  rememberQueueState(job);
+  syncSkip(job);
   const unit = unitWord(job);
   const parts = [];
   if (job?.paused) {
@@ -215,12 +217,72 @@ function showCell(data, { job = null, budget = null, note = '', jobId = null } =
   els.cellNote.textContent = parts.join(' · ');
   // A grid's skipped cells as they happen, in the failure colour: the line
   // used to go from cell 4 to cell 6 with no mark.
-  const skipped = job?.failures ?? 0;
+  const skipped = (job?.failures ?? 0) + (job?.skipped ?? 0);
   if (skipped) {
     const span = document.createElement('span');
     span.className = 'skipped';
     span.textContent = `${parts.length ? ' · ' : ''}${skipped} skipped`;
     els.cellNote.append(span);
+  }
+}
+
+// Skip names the exact active call, not the job's next cell. Keep the token
+// while its POST is out, and never enable a stale snapshot over that press.
+let skipAsking = null;
+let skipSnapshot = null;
+// A queue redraw can replay cellArgs from before the POST's acknowledgement.
+// Keep the accepted token held until a new call or the between-call frame.
+let skipAccepted = null;
+
+function initQueueControls() {
+  for (const button of [els.skip, els.topbarSkip]) if (button) button.onclick = skipCurrentCell;
+  if (els.front) els.front.onclick = moveCurrentJobFront;
+  syncSkip(null);
+  syncQueueFront();
+}
+
+function syncSkip(job) {
+  skipSnapshot = job?.job_id === currentJob ? job : null;
+  if (!skipSnapshot || skipAccepted?.jobId !== currentJob
+    || skipAccepted.call !== skipSnapshot.current_call) skipAccepted = null;
+  if (skipSnapshot?.skip_requested && skipSnapshot.current_call != null) {
+    skipAccepted = { jobId: currentJob, call: skipSnapshot.current_call };
+  }
+  const pending = (skipAsking?.jobId === currentJob
+    && skipAsking.call === skipSnapshot?.current_call)
+    || (skipAccepted?.jobId === currentJob && skipAccepted.call === skipSnapshot?.current_call);
+  const reason = pending ? 'Skipping this cell after the current step'
+    : !busy || !skipSnapshot ? 'No cell is running'
+    : skipSnapshot.skip_reason || (skipSnapshot.current_call == null ? 'No cell is running' : '');
+  for (const button of [els.skip, els.topbarSkip]) {
+    if (!button) continue;
+    button.setAttribute('aria-disabled', String(!!reason));
+    button.title = reason || `Skip this ${unitWord(job)} after the current step; Finish run can make it later`;
+    // The short label stays one width so progress controls do not move.
+    button.textContent = 'Skip';
+  }
+}
+
+async function skipCurrentCell() {
+  const jobId = currentJob;
+  const call = skipSnapshot?.current_call;
+  const button = els.skip ?? els.topbarSkip;
+  if (!jobId || !button || button.getAttribute('aria-disabled') === 'true' || call == null) {
+    if (busy) showJobNote(`${button?.title ?? 'No cell is running'}.`);
+    return;
+  }
+  const asking = { jobId, call };
+  skipAsking = asking;
+  syncSkip(skipSnapshot);
+  showJobNote(`Skipping this ${unitWord(skipSnapshot)} after the current step.`);
+  try {
+    const answer = await api(`/api/jobs/${jobId}/skip?call=${call}`, { method: 'POST' });
+    if (currentJob === jobId && skipSnapshot?.current_call === call) syncSkip(answer);
+  } catch (err) {
+    if (currentJob === jobId) showJobNote(err.message);
+  } finally {
+    if (skipAsking === asking) skipAsking = null;
+    if (currentJob === jobId) syncSkip(skipSnapshot);
   }
 }
 
@@ -393,12 +455,16 @@ async function toggleJobNotifications() {
 
 function jobNotificationWords(data, { atLoad = false, cancelledElsewhere = false } = {}) {
   const made = data.image_count ?? data.images?.length ?? 0;
-  const kept = `${plural(made, 'image')} made${data.deleted_count ? `; ${plural(data.deleted_count, 'image')} since deleted` : ''}.`;
+  const skipped = data.skipped ? `${plural(data.skipped, unitWord(data))} skipped by request.` : '';
+  const kept = `${plural(made, 'image')} made${data.deleted_count ? `; ${plural(data.deleted_count, 'image')} since deleted` : ''}.${skipped ? ` ${skipped}` : ''}`;
   if (data.stopped_by === 'budget') return ['Time budget reached', `${kept} Finish run checks what remains.`];
   if (data.stopped_by === 'shutdown') return ['Server stopped', kept];
   if (data.status === 'cancelled') return [cancelledElsewhere ? 'Cancelled elsewhere' : 'Cancelled', kept];
   if (data.status === 'error') return [atLoad ? 'Load failed' : 'Job stopped', `${kept} Open Local Diffusion for the error.`];
-  if (!made) return ['Nothing made', data.failures ? `${plural(data.failures, unitWord(data))} failed.` : 'No images were made.'];
+  if (!made) {
+    const missing = [data.failures ? `${plural(data.failures, unitWord(data))} failed.` : '', skipped].filter(Boolean).join(' ');
+    return ['Nothing made', missing || 'No images were made.'];
+  }
   if (data.failures || data.error) return ['Finished with failures', `${kept} ${data.failures ? `${plural(data.failures, unitWord(data))} failed.` : 'Some work failed.'}`];
   return [`Finished ${plural(made, 'image')}`, kept];
 }

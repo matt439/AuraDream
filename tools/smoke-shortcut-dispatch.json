@@ -1,0 +1,862 @@
+[
+  {
+    "log": "'Shortcut dispatch on a fresh FLUX fake: collisions, consumed/IME/modified/repeated keys, modal precedence, navigation repeat, normal Generate/Grid and preserved image picking. Pass actions use dispatch spies; ordinary Generate/Grid use the real fake-server submission path.'"
+  },
+  {
+    "viewport": [
+      1400,
+      900,
+      1
+    ]
+  },
+  {
+    "navigate": "http://127.0.0.1:7924/"
+  },
+  {
+    "eval": "window.__until=async(fn,ms=20000)=>{const end=Date.now()+ms;while(Date.now()<end){if(await fn())return true;await new Promise(r=>setTimeout(r,50));}return false;};\nwindow.__probe=(target,key,flags={})=>{const e=new KeyboardEvent('keydown',{key,bubbles:true,cancelable:true,...flags});if(flags.prevented)e.preventDefault();target.dispatchEvent(e);return e;};\nwindow.__cards=()=>[...els.gallery.querySelectorAll('.card[data-id]')];\nwindow.__img=i=>__cards()[i].querySelector(':scope > img');\nwindow.__id=i=>Number(__cards()[i].dataset.id);\nwindow.__press=(i,flags={})=>__img(i).dispatchEvent(new MouseEvent('click',{button:0,detail:1,bubbles:true,cancelable:true,...flags}));\nwindow.__clickable=el=>{const r=el.getBoundingClientRect();const hit=document.elementFromPoint(r.left+r.width/2,r.top+r.height/2);return r.width>0&&r.height>0&&r.top>=document.querySelector('.topbar').getBoundingClientRect().bottom&&r.bottom<=innerHeight&&r.left>=0&&r.right<=document.documentElement.clientWidth&&!!hit&&(hit===el||el.contains(hit));};\nwindow.__realApi=api;window.__posts=[];window.__stars=[];window.__bins=[];window.__bundleWrites=[];\napi=(path,options)=>{if(options?.method==='POST'){if(['/api/generate','/api/grid','/api/refine/batch','/api/swap-tags','/api/more-seeds'].includes(path))__posts.push({path,body:options.body?JSON.parse(options.body):null});if(/^\\/api\\/images\\/(?:\\d+\\/)?favorite(?:\\?|$)/.test(path))__stars.push(path);if(path==='/api/images/bin')__bins.push(path);if(path.startsWith('/api/gallery/bundles'))__bundleWrites.push(path);}return __realApi(path,options);};\nwindow.__spyApi=api;window.__passCalls=[];\nwindow.__savedPasses={runRefine,runInpaint,runOutpaint,runRefineBatch,queueSwap,runMoreSeeds};\nrunRefine=()=>{__passCalls.push('refine');return Promise.resolve();};\nrunInpaint=()=>{__passCalls.push('inpaint');return Promise.resolve();};\nrunOutpaint=()=>{__passCalls.push('outpaint');return Promise.resolve();};\nrunRefineBatch=()=>{__passCalls.push('mass-refine');return Promise.resolve();};\nqueueSwap=()=>{__passCalls.push('swap');return Promise.resolve();};\nrunMoreSeeds=()=>{__passCalls.push('more-seeds');return Promise.resolve();};\nwindow.__noSubmission=()=>__posts.length===0&&__passCalls.length===0&&!busy&&!submitting;\nwindow.__waitJob=async id=>{let final=null;if(!await __until(async()=>{const j=await __realApi('/api/jobs/'+id);if(['queued','running'].includes(j.status))return false;final=j;return true;},20000))throw new Error('Shortcut fixture job timed out');if(final.status!=='done')throw new Error('Shortcut fixture job '+final.status);return final;};"
+  },
+  {
+    "expect": "__until(()=>modelState==='ready'&&refineSupported&&inpaintSupported&&!galleryPending)"
+  },
+  {
+    "eval": "(async()=>{resetPanel();showError('');window.__shortcutModel=loadedModel;const r=await fetch('/api/grid',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({prompt:'shortcut dispatch source',width:256,height:256,steps:2,cfg_axis:'0,1,2',seed:7924})});if(!r.ok)throw new Error(await r.text());window.__sourceJob=(await r.json()).job_id;await __waitJob(__sourceJob);await resetGallery();})()"
+  },
+  {
+    "expect": "__until(()=>!galleryPending&&galleryRecords.length===3&&__cards().length===3)"
+  },
+  {
+    "log": "'Image clicks retain their established meanings: plain opens, Ctrl/Cmd toggles picks and Ctrl/Cmd+Shift adds the range.'"
+  },
+  {
+    "eval": "clearSelection();setSelectMode(false);__img(0).scrollIntoView({block:'center'});window.__sourceIds=__cards().map(c=>Number(c.dataset.id));"
+  },
+  {
+    "expect": "__until(()=>__clickable(__img(0)))"
+  },
+  {
+    "click": "#gallery .card[data-id] > img"
+  },
+  {
+    "expect": "els.lightbox.open&&lbList[lbIndex].id===__sourceIds[0]&&selectedIds().length===0"
+  },
+  {
+    "key": "Escape"
+  },
+  {
+    "expect": "__until(()=>!els.lightbox.open)"
+  },
+  {
+    "eval": "__press(0,{ctrlKey:true});__press(1,{metaKey:true});"
+  },
+  {
+    "expect": "!els.lightbox.open&&selectedIds().join()===__sourceIds.slice(0,2).join()"
+  },
+  {
+    "eval": "__press(2,{ctrlKey:true,shiftKey:true});"
+  },
+  {
+    "expect": "!els.lightbox.open&&selectedIds().join()===__sourceIds.join()"
+  },
+  {
+    "eval": "__press(1);"
+  },
+  {
+    "expect": "els.lightbox.open&&lbList[lbIndex].id===__sourceIds[1]&&selectedIds().join()===__sourceIds.join()"
+  },
+  {
+    "key": "Escape"
+  },
+  {
+    "expect": "__until(()=>!els.lightbox.open)"
+  },
+  {
+    "log": "'Card pick/star actions are discrete. Already consumed, composing, modified and repeated events cannot act, while repeated navigation still moves focus.'"
+  },
+  {
+    "eval": "clearSelection();__img(0).focus({preventScroll:true});"
+  },
+  {
+    "key": " "
+  },
+  {
+    "expect": "selectedIds().join()===String(__sourceIds[0])"
+  },
+  {
+    "eval": "window.__spaceGuards=[{repeat:true},{isComposing:true},{prevented:true},{altKey:true},{ctrlKey:true}].map(flags=>{__probe(__img(0),' ',flags);return selectedIds().join()===String(__sourceIds[0]);});"
+  },
+  {
+    "expect": "__spaceGuards.every(Boolean)&&!els.lightbox.open"
+  },
+  {
+    "log": "'Shift+Space on a focused gallery image adds the exact anchor range, via both a trusted native key combination and a browser-event probe; it never navigates or queues.'"
+  },
+  {
+    "eval": "window.__nativeShiftSpace=null;window.__recordShiftSpace=e=>{if(e.key===' ')window.__nativeShiftSpace={trusted:e.isTrusted,shift:e.shiftKey,ctrl:e.ctrlKey,alt:e.altKey,meta:e.metaKey,repeat:e.repeat,prevented:e.defaultPrevented};};__img(2).addEventListener('keydown',__recordShiftSpace);__img(2).focus({preventScroll:true});"
+  },
+  {
+    "keycombo": [
+      "Shift",
+      " "
+    ]
+  },
+  {
+    "expect": "selectedIds().join()===__sourceIds.join()&&document.activeElement===__img(2)&&!els.lightbox.open&&!sheetMode&&__noSubmission()&&__nativeShiftSpace?.trusted&&__nativeShiftSpace.shift&&!__nativeShiftSpace.ctrl&&!__nativeShiftSpace.alt&&!__nativeShiftSpace.meta&&!__nativeShiftSpace.repeat&&__nativeShiftSpace.prevented"
+  },
+  {
+    "eval": "__img(2).removeEventListener('keydown',__recordShiftSpace);clearSelection();__img(0).focus({preventScroll:true});__probe(__img(0),' ');"
+  },
+  {
+    "expect": "selectedIds().join()===String(__sourceIds[0])&&!els.lightbox.open"
+  },
+  {
+    "eval": "__img(2).focus({preventScroll:true});window.__syntheticShiftSpace=__probe(__img(2),' ',{shiftKey:true});"
+  },
+  {
+    "expect": "selectedIds().join()===__sourceIds.join()&&document.activeElement===__img(2)&&__syntheticShiftSpace.defaultPrevented&&!els.lightbox.open&&!sheetMode&&__noSubmission()"
+  },
+  {
+    "eval": "clearSelection();window.__cardStarCount=__stars.length;window.__cardFavorite=galleryRecords[0].favorite;__img(0).focus({preventScroll:true});window.__cardGuards=[{repeat:true},{isComposing:true},{prevented:true},{ctrlKey:true},{metaKey:true},{altKey:true}].map(flags=>{__probe(__img(0),'f',flags);return __stars.length===__cardStarCount;});"
+  },
+  {
+    "expect": "__cardGuards.every(Boolean)&&galleryRecords[0].favorite===__cardFavorite"
+  },
+  {
+    "key": "f"
+  },
+  {
+    "expect": "__until(()=>__stars.length===__cardStarCount+1&&galleryRecords[0].favorite!==__cardFavorite)"
+  },
+  {
+    "eval": "__probe(__img(0),'f',{repeat:true});window.__navStart=__img(0);__img(0).focus({preventScroll:true});__probe(__img(0),'ArrowRight',{repeat:true});"
+  },
+  {
+    "expect": "document.activeElement===__img(1)&&__stars.length===__cardStarCount+1"
+  },
+  {
+    "eval": "__probe(__img(1),'ArrowRight',{repeat:true});window.__navGuardAt=document.activeElement;window.__navGuards=[{isComposing:true},{prevented:true},{altKey:true},{ctrlKey:true}].map(flags=>{__probe(document.activeElement,'ArrowLeft',flags);return document.activeElement===__navGuardAt;});"
+  },
+  {
+    "expect": "document.activeElement===__img(2)&&__navGuards.every(Boolean)&&__noSubmission()"
+  },
+  {
+    "log": "'Ctrl/Cmd+Enter on Star picked activates neither the menu item nor Generate. Plain Enter still stars exactly once; repeated activation does nothing.'"
+  },
+  {
+    "hover": ".topbar"
+  },
+  {
+    "eval": "clearSelection();toggleSelected(galleryRecords[1]);els.pickedBtn.focus({preventScroll:true});"
+  },
+  {
+    "key": "ArrowDown"
+  },
+  {
+    "expect": "!els.pickedMenu.hidden&&document.activeElement===els.pickedMenu.querySelector('[data-picked=star]')"
+  },
+  {
+    "eval": "window.__pickedStars=__stars.length;"
+  },
+  {
+    "keycombo": [
+      "Control",
+      "Enter"
+    ]
+  },
+  {
+    "keycombo": [
+      "Meta",
+      "Enter"
+    ]
+  },
+  {
+    "expect": "!els.pickedMenu.hidden&&__stars.length===__pickedStars&&__noSubmission()"
+  },
+  {
+    "eval": "window.__pickedRepeat=__probe(document.activeElement,'Enter',{repeat:true});__probe(document.activeElement,'Enter',{isComposing:true});__probe(document.activeElement,'Enter',{prevented:true});"
+  },
+  {
+    "expect": "!els.pickedMenu.hidden&&__stars.length===__pickedStars&&__pickedRepeat.defaultPrevented&&__noSubmission()"
+  },
+  {
+    "key": "Enter"
+  },
+  {
+    "expect": "__until(()=>els.pickedMenu.hidden&&__stars.length===__pickedStars+1&&galleryRecords.find(r=>r.id===__sourceIds[1]).favorite)"
+  },
+  {
+    "log": "'Then refine is a settings dialog. Ctrl/Cmd+Enter cannot Generate; help above it receives Escape first without closing or altering the settings.'"
+  },
+  {
+    "eval": "clearSelection();els.thenRefineOpen.click();els.thenRefineStrength.value='0.45';els.thenRefineStrength.focus({preventScroll:true});window.__thenDraft=els.thenRefineStrength.value;"
+  },
+  {
+    "expect": "els.thenRefineDialog.open"
+  },
+  {
+    "keycombo": [
+      "Control",
+      "Enter"
+    ]
+  },
+  {
+    "keycombo": [
+      "Meta",
+      "Enter"
+    ]
+  },
+  {
+    "expect": "els.thenRefineDialog.open&&els.thenRefineStrength.value===__thenDraft&&!els.thenRefine.checked&&__noSubmission()"
+  },
+  {
+    "eval": "els.thenRefineClose.focus({preventScroll:true});"
+  },
+  {
+    "key": "?"
+  },
+  {
+    "expect": "els.shortcutsDialog.open&&els.thenRefineDialog.open"
+  },
+  {
+    "keycombo": [
+      "Control",
+      "Enter"
+    ]
+  },
+  {
+    "key": "Escape"
+  },
+  {
+    "expect": "__until(()=>!els.shortcutsDialog.open&&els.thenRefineDialog.open&&__noSubmission())"
+  },
+  {
+    "key": "Escape"
+  },
+  {
+    "expect": "__until(()=>!els.thenRefineDialog.open)"
+  },
+  {
+    "log": "'Bundles keeps Ctrl/Cmd+Enter inside its own dialog. Help above Bundles closes before Bundles, with no submission or bundle write.'"
+  },
+  {
+    "eval": "openBundles()"
+  },
+  {
+    "expect": "__until(()=>els.bundlesDialog.open&&!bundleReading)"
+  },
+  {
+    "keycombo": [
+      "Control",
+      "Enter"
+    ]
+  },
+  {
+    "keycombo": [
+      "Meta",
+      "Enter"
+    ]
+  },
+  {
+    "expect": "els.bundlesDialog.open&&__bundleWrites.length===0&&__noSubmission()"
+  },
+  {
+    "eval": "els.bundlesClose.focus({preventScroll:true});"
+  },
+  {
+    "key": "?"
+  },
+  {
+    "expect": "els.shortcutsDialog.open&&els.bundlesDialog.open"
+  },
+  {
+    "keycombo": [
+      "Control",
+      "Enter"
+    ]
+  },
+  {
+    "key": "Escape"
+  },
+  {
+    "expect": "__until(()=>!els.shortcutsDialog.open&&els.bundlesDialog.open&&__bundleWrites.length===0&&__noSubmission())"
+  },
+  {
+    "key": "Escape"
+  },
+  {
+    "expect": "__until(()=>!els.bundlesDialog.open)"
+  },
+  {
+    "log": "'Lightbox navigation ignores browser modifiers, consumed events and composition. Navigation/zoom repeats remain useful; star/delete repeats stay discrete.'"
+  },
+  {
+    "eval": "openLightbox(galleryRecords[1],galleryRecords);els.lbClose.focus({preventScroll:true});window.__lightboxStart=lbList[lbIndex].id;window.__lbStars=__stars.length;window.__lbBins=__bins.length;window.__lightboxGuards=[{altKey:true},{ctrlKey:true},{metaKey:true},{isComposing:true},{prevented:true}].map(flags=>{const e=__probe(els.lbClose,'ArrowLeft',flags);return lbList[lbIndex].id===__lightboxStart&&(flags.prevented||!e.defaultPrevented);});"
+  },
+  {
+    "expect": "els.lightbox.open&&__lightboxGuards.every(Boolean)&&__noSubmission()"
+  },
+  {
+    "keycombo": [
+      "Control",
+      "Enter"
+    ]
+  },
+  {
+    "keycombo": [
+      "Meta",
+      "Enter"
+    ]
+  },
+  {
+    "expect": "els.lightbox.open&&lbList[lbIndex].id===__lightboxStart&&__noSubmission()"
+  },
+  {
+    "eval": "__probe(els.lbClose,'f',{repeat:true});__probe(els.lbClose,'Delete',{repeat:true});__probe(els.lbClose,'f',{isComposing:true});__probe(els.lbClose,'f',{prevented:true});window.__zoomBefore=lbView.scale;__probe(els.lbClose,'+',{repeat:true});"
+  },
+  {
+    "expect": "__stars.length===__lbStars&&__bins.length===__lbBins&&lbView.scale>__zoomBefore"
+  },
+  {
+    "eval": "zoomFit();openLightbox(galleryRecords[0],galleryRecords);els.lbClose.focus({preventScroll:true});__probe(els.lbClose,'ArrowRight',{repeat:true});"
+  },
+  {
+    "expect": "lbList[lbIndex].id===galleryRecords[1].id"
+  },
+  {
+    "eval": "__probe(els.lbClose,'ArrowRight',{repeat:true});"
+  },
+  {
+    "expect": "lbList[lbIndex].id===galleryRecords[2].id"
+  },
+  {
+    "log": "'F in the enabled Against select remains native select input; it cannot star or browse the displayed image.'"
+  },
+  {
+    "eval": "(async()=>{openLightbox(galleryRecords[1],galleryRecords);await toggleCompare(null,'cfg');els.lbCompareAgainst.focus({preventScroll:true});window.__selectImage=lbList[lbIndex].id;window.__selectStars=__stars.length;})()"
+  },
+  {
+    "expect": "els.lbCompareAgainst.getAttribute('aria-disabled')==='false'&&els.lbCompareAgainst.options.length>=2&&[...els.lbCompareAgainst.options].every(o=>o.value)&&lbCompare.kind==='cfg'&&lbCompare.id===__selectImage&&els.lbCompareAgainst.getBoundingClientRect().height>0&&document.activeElement===els.lbCompareAgainst"
+  },
+  {
+    "key": "f"
+  },
+  {
+    "expect": "document.activeElement===els.lbCompareAgainst&&lbList[lbIndex].id===__selectImage&&__stars.length===__selectStars&&__noSubmission()"
+  },
+  {
+    "log": "'A delayed More seeds preview does not let its capture listener steal Escape from help above the lightbox.'"
+  },
+  {
+    "eval": "window.__releasePreview=null;window.__previewHeld=false;api=async(path,options)=>{const answer=await __spyApi(path,options);if(path==='/api/more-seeds/preview'&&!__previewHeld){__previewHeld=true;await new Promise(resolve=>{window.__releasePreview=resolve;});}return answer;};void openMoreSeeds({scope:{ids:[lbList[lbIndex].id]},n:1,words:'the selected image'},{count:1,opener:els.lbMoreSeeds});els.lbClose.focus({preventScroll:true});"
+  },
+  {
+    "expect": "__until(()=>!!__releasePreview&&!!msOpening&&!els.moreSeedsDialog.open)"
+  },
+  {
+    "key": "?"
+  },
+  {
+    "expect": "els.shortcutsDialog.open&&els.lightbox.open&&!!msOpening"
+  },
+  {
+    "key": "Escape"
+  },
+  {
+    "expect": "__until(()=>!els.shortcutsDialog.open&&els.lightbox.open&&!!msOpening&&!els.moreSeedsDialog.open)"
+  },
+  {
+    "eval": "__releasePreview();"
+  },
+  {
+    "expect": "__until(()=>els.moreSeedsDialog.open&&els.lightbox.open&&!msOpening)"
+  },
+  {
+    "eval": "api=__spyApi;window.__beforeMsCalls=__passCalls.length;"
+  },
+  {
+    "keycombo": [
+      "Control",
+      "Enter"
+    ]
+  },
+  {
+    "expect": "__passCalls.length===__beforeMsCalls+1&&__passCalls.at(-1)==='more-seeds'&&els.moreSeedsDialog.open&&els.lightbox.open&&__posts.length===0"
+  },
+  {
+    "key": "Escape"
+  },
+  {
+    "expect": "__until(()=>!els.moreSeedsDialog.open&&els.lightbox.open)"
+  },
+  {
+    "key": "Escape"
+  },
+  {
+    "expect": "__until(()=>!els.lightbox.open)"
+  },
+  {
+    "eval": "window.__passCalls=[];"
+  },
+  {
+    "log": "'An open pass owns Ctrl/Cmd+Enter exactly once. Help above it owns the shortcut instead. Consumed, composing, repeated and extra-modifier events cannot run the pass.'"
+  },
+  {
+    "eval": "openRefine(galleryRecords[0]);"
+  },
+  {
+    "expect": "__until(()=>els.refineDialog.open)"
+  },
+  {
+    "eval": "els.refineStrength.focus({preventScroll:true});window.__passBefore=__passCalls.length;window.__draftBefore=els.refineStrength.value;for(const flags of [{ctrlKey:true,repeat:true},{ctrlKey:true,isComposing:true},{ctrlKey:true,prevented:true},{ctrlKey:true,altKey:true},{ctrlKey:true,shiftKey:true},{ctrlKey:true,metaKey:true}])__probe(els.refineStrength,'Enter',flags);"
+  },
+  {
+    "expect": "els.refineDialog.open&&__passCalls.length===__passBefore&&els.refineStrength.value===__draftBefore&&__posts.length===0"
+  },
+  {
+    "keycombo": [
+      "Control",
+      "Enter"
+    ]
+  },
+  {
+    "expect": "__passCalls.length===__passBefore+1&&__passCalls.at(-1)==='refine'&&els.refineDialog.open&&__posts.length===0"
+  },
+  {
+    "eval": "els.refineCancel.focus({preventScroll:true});"
+  },
+  {
+    "key": "?"
+  },
+  {
+    "expect": "els.shortcutsDialog.open&&els.refineDialog.open"
+  },
+  {
+    "keycombo": [
+      "Meta",
+      "Enter"
+    ]
+  },
+  {
+    "key": "Escape"
+  },
+  {
+    "expect": "__until(()=>!els.shortcutsDialog.open&&els.refineDialog.open&&__passCalls.length===__passBefore+1&&__posts.length===0)"
+  },
+  {
+    "key": "Escape"
+  },
+  {
+    "expect": "__until(()=>!els.refineDialog.open)"
+  },
+  {
+    "eval": "if(els.lightbox.open)dismissLightbox();"
+  },
+  {
+    "eval": "openInpaint(galleryRecords[0]);"
+  },
+  {
+    "expect": "__until(()=>els.inpaintDialog.open)"
+  },
+  {
+    "eval": "els.inpaintStrength.focus({preventScroll:true});window.__passBefore=__passCalls.length;window.__draftBefore=els.inpaintStrength.value;for(const flags of [{ctrlKey:true,repeat:true},{ctrlKey:true,isComposing:true},{ctrlKey:true,prevented:true},{ctrlKey:true,altKey:true},{ctrlKey:true,shiftKey:true},{ctrlKey:true,metaKey:true}])__probe(els.inpaintStrength,'Enter',flags);"
+  },
+  {
+    "expect": "els.inpaintDialog.open&&__passCalls.length===__passBefore&&els.inpaintStrength.value===__draftBefore&&__posts.length===0"
+  },
+  {
+    "keycombo": [
+      "Control",
+      "Enter"
+    ]
+  },
+  {
+    "expect": "__passCalls.length===__passBefore+1&&__passCalls.at(-1)==='inpaint'&&els.inpaintDialog.open&&__posts.length===0"
+  },
+  {
+    "eval": "els.inpaintClose.focus({preventScroll:true});"
+  },
+  {
+    "key": "?"
+  },
+  {
+    "expect": "els.shortcutsDialog.open&&els.inpaintDialog.open"
+  },
+  {
+    "keycombo": [
+      "Meta",
+      "Enter"
+    ]
+  },
+  {
+    "key": "Escape"
+  },
+  {
+    "expect": "__until(()=>!els.shortcutsDialog.open&&els.inpaintDialog.open&&__passCalls.length===__passBefore+1&&__posts.length===0)"
+  },
+  {
+    "key": "Escape"
+  },
+  {
+    "expect": "__until(()=>!els.inpaintDialog.open)"
+  },
+  {
+    "eval": "if(els.lightbox.open)dismissLightbox();"
+  },
+  {
+    "eval": "openOutpaint(galleryRecords[0]);"
+  },
+  {
+    "expect": "__until(()=>els.outpaintDialog.open)"
+  },
+  {
+    "eval": "els.outpaintStrength.focus({preventScroll:true});window.__passBefore=__passCalls.length;window.__draftBefore=els.outpaintStrength.value;for(const flags of [{ctrlKey:true,repeat:true},{ctrlKey:true,isComposing:true},{ctrlKey:true,prevented:true},{ctrlKey:true,altKey:true},{ctrlKey:true,shiftKey:true},{ctrlKey:true,metaKey:true}])__probe(els.outpaintStrength,'Enter',flags);"
+  },
+  {
+    "expect": "els.outpaintDialog.open&&__passCalls.length===__passBefore&&els.outpaintStrength.value===__draftBefore&&__posts.length===0"
+  },
+  {
+    "keycombo": [
+      "Control",
+      "Enter"
+    ]
+  },
+  {
+    "expect": "__passCalls.length===__passBefore+1&&__passCalls.at(-1)==='outpaint'&&els.outpaintDialog.open&&__posts.length===0"
+  },
+  {
+    "eval": "els.outpaintClose.focus({preventScroll:true});"
+  },
+  {
+    "key": "?"
+  },
+  {
+    "expect": "els.shortcutsDialog.open&&els.outpaintDialog.open"
+  },
+  {
+    "keycombo": [
+      "Meta",
+      "Enter"
+    ]
+  },
+  {
+    "key": "Escape"
+  },
+  {
+    "expect": "__until(()=>!els.shortcutsDialog.open&&els.outpaintDialog.open&&__passCalls.length===__passBefore+1&&__posts.length===0)"
+  },
+  {
+    "key": "Escape"
+  },
+  {
+    "expect": "__until(()=>!els.outpaintDialog.open)"
+  },
+  {
+    "eval": "if(els.lightbox.open)dismissLightbox();"
+  },
+  {
+    "log": "'Sheet F guards match gallery F; repeated arrows and Ctrl+End still navigate.'"
+  },
+  {
+    "eval": "(async()=>{clearSelection();els.search.value='job:'+__sourceJob;await setSheet(true);})()"
+  },
+  {
+    "expect": "__until(()=>sheetMode&&!galleryPending&&sheetCells().length===3)"
+  },
+  {
+    "eval": "window.__sheetStars=__stars.length;sheetCells()[0].querySelector('img').focus({preventScroll:true});for(const flags of [{repeat:true},{isComposing:true},{prevented:true},{ctrlKey:true},{altKey:true}])__probe(document.activeElement,'f',flags);"
+  },
+  {
+    "expect": "__stars.length===__sheetStars"
+  },
+  {
+    "key": "f"
+  },
+  {
+    "expect": "__until(()=>__stars.length===__sheetStars+1)"
+  },
+  {
+    "eval": "sheetCells()[0].querySelector('img').focus({preventScroll:true});__probe(document.activeElement,'ArrowRight',{repeat:true});"
+  },
+  {
+    "expect": "document.activeElement===sheetCells()[1].querySelector('img')"
+  },
+  {
+    "keycombo": [
+      "Control",
+      "End"
+    ]
+  },
+  {
+    "expect": "document.activeElement===sheetCells().at(-1).querySelector('img')"
+  },
+  {
+    "eval": "(async()=>{await setSheet(false);els.search.value='';await resetGallery();runRefine=__savedPasses.runRefine;runInpaint=__savedPasses.runInpaint;runOutpaint=__savedPasses.runOutpaint;runRefineBatch=__savedPasses.runRefineBatch;queueSwap=__savedPasses.queueSwap;runMoreSeeds=__savedPasses.runMoreSeeds;})()"
+  },
+  {
+    "log": "'Focused Generate/Grid buttons reject native extra-modifier Enter, while plain Enter and exact Ctrl/Cmd+Enter still activate once. Spies isolate native button defaults from jobs.'"
+  },
+  {
+    "eval": "window.__buttonCalls=[];window.__savedButtons={generate,runGrid,generateClick:els.generate.onclick,gridClick:els.gridRun.onclick};generate=()=>{__buttonCalls.push('generate-command');};runGrid=()=>{__buttonCalls.push('grid-command');};els.generate.onclick=()=>{__buttonCalls.push('generate-click');};els.gridRun.onclick=()=>{__buttonCalls.push('grid-click');};window.__buttonKeys=[];window.__traceButton=e=>{if(e.key==='Enter')__buttonKeys.push({trusted:e.isTrusted,target:e.target.id,ctrl:e.ctrlKey,meta:e.metaKey,alt:e.altKey,shift:e.shiftKey,repeat:e.repeat,composing:e.isComposing});};document.addEventListener('keydown',__traceButton,true);window.__nativeFlags=(el,mods,repeat=false)=>{const e=__buttonKeys.at(-1);return !!e&&e.trusted&&e.target===el.id&&e.repeat===repeat&&!e.composing&&e.ctrl===mods.includes('Control')&&e.meta===mods.includes('Meta')&&e.alt===mods.includes('Alt')&&e.shift===mods.includes('Shift');};"
+  },
+  {
+    "eval": "els.gridSection.open=true;els.generate.focus({preventScroll:true});window.__buttonBefore=__buttonCalls.length;"
+  },
+  {
+    "keycombo": [
+      "Control",
+      "Alt",
+      "Enter"
+    ]
+  },
+  {
+    "log": "JSON.stringify({focusedPrimary:'generate',keys:[\"Control\",\"Alt\",\"Enter\"],event:__buttonKeys.at(-1),calls:__buttonCalls.slice(__buttonBefore),focus:document.activeElement?.id})"
+  },
+  {
+    "expect": "document.activeElement===els.generate&&__buttonCalls.length===__buttonBefore&&__posts.length===0&&__nativeFlags(els.generate,[\"Control\",\"Alt\"])"
+  },
+  {
+    "keycombo": [
+      "Control",
+      "Shift",
+      "Enter"
+    ]
+  },
+  {
+    "log": "JSON.stringify({focusedPrimary:'generate',keys:[\"Control\",\"Shift\",\"Enter\"],event:__buttonKeys.at(-1),calls:__buttonCalls.slice(__buttonBefore),focus:document.activeElement?.id})"
+  },
+  {
+    "expect": "document.activeElement===els.generate&&__buttonCalls.length===__buttonBefore&&__posts.length===0&&__nativeFlags(els.generate,[\"Control\",\"Shift\"])"
+  },
+  {
+    "keycombo": [
+      "Alt",
+      "Enter"
+    ]
+  },
+  {
+    "log": "JSON.stringify({focusedPrimary:'generate',keys:[\"Alt\",\"Enter\"],event:__buttonKeys.at(-1),calls:__buttonCalls.slice(__buttonBefore),focus:document.activeElement?.id})"
+  },
+  {
+    "expect": "document.activeElement===els.generate&&__buttonCalls.length===__buttonBefore&&__posts.length===0&&__nativeFlags(els.generate,[\"Alt\"])"
+  },
+  {
+    "keycombo": [
+      "Shift",
+      "Enter"
+    ]
+  },
+  {
+    "log": "JSON.stringify({focusedPrimary:'generate',keys:[\"Shift\",\"Enter\"],event:__buttonKeys.at(-1),calls:__buttonCalls.slice(__buttonBefore),focus:document.activeElement?.id})"
+  },
+  {
+    "expect": "document.activeElement===els.generate&&__buttonCalls.length===__buttonBefore&&__posts.length===0&&__nativeFlags(els.generate,[\"Shift\"])"
+  },
+  {
+    "key": "Enter",
+    "native": true,
+    "repeat": true
+  },
+  {
+    "log": "JSON.stringify({nativeHeldPrimary:'generate',event:__buttonKeys.at(-1),calls:__buttonCalls.slice(__buttonBefore)})"
+  },
+  {
+    "expect": "__buttonCalls.length===__buttonBefore&&__nativeFlags(els.generate,[],true)&&__posts.length===0"
+  },
+  {
+    "eval": "window.__buttonRepeated=['Enter',' '].map(key=>__probe(els.generate,key,{repeat:true}).defaultPrevented);"
+  },
+  {
+    "expect": "__buttonRepeated.every(Boolean)&&__buttonCalls.length===__buttonBefore"
+  },
+  {
+    "key": "Enter",
+    "native": true
+  },
+  {
+    "expect": "__buttonCalls.length===__buttonBefore+1&&__buttonCalls.at(-1)==='generate-click'"
+  },
+  {
+    "keycombo": [
+      "Control",
+      "Enter"
+    ]
+  },
+  {
+    "expect": "__buttonCalls.length===__buttonBefore+2&&__buttonCalls.at(-1).startsWith('generate-')&&__posts.length===0"
+  },
+  {
+    "eval": "els.gridSection.open=true;els.gridRun.focus({preventScroll:true});window.__buttonBefore=__buttonCalls.length;"
+  },
+  {
+    "keycombo": [
+      "Control",
+      "Alt",
+      "Enter"
+    ]
+  },
+  {
+    "log": "JSON.stringify({focusedPrimary:'gridRun',keys:[\"Control\",\"Alt\",\"Enter\"],event:__buttonKeys.at(-1),calls:__buttonCalls.slice(__buttonBefore),focus:document.activeElement?.id})"
+  },
+  {
+    "expect": "document.activeElement===els.gridRun&&__buttonCalls.length===__buttonBefore&&__posts.length===0&&__nativeFlags(els.gridRun,[\"Control\",\"Alt\"])"
+  },
+  {
+    "keycombo": [
+      "Control",
+      "Shift",
+      "Enter"
+    ]
+  },
+  {
+    "log": "JSON.stringify({focusedPrimary:'gridRun',keys:[\"Control\",\"Shift\",\"Enter\"],event:__buttonKeys.at(-1),calls:__buttonCalls.slice(__buttonBefore),focus:document.activeElement?.id})"
+  },
+  {
+    "expect": "document.activeElement===els.gridRun&&__buttonCalls.length===__buttonBefore&&__posts.length===0&&__nativeFlags(els.gridRun,[\"Control\",\"Shift\"])"
+  },
+  {
+    "keycombo": [
+      "Alt",
+      "Enter"
+    ]
+  },
+  {
+    "log": "JSON.stringify({focusedPrimary:'gridRun',keys:[\"Alt\",\"Enter\"],event:__buttonKeys.at(-1),calls:__buttonCalls.slice(__buttonBefore),focus:document.activeElement?.id})"
+  },
+  {
+    "expect": "document.activeElement===els.gridRun&&__buttonCalls.length===__buttonBefore&&__posts.length===0&&__nativeFlags(els.gridRun,[\"Alt\"])"
+  },
+  {
+    "keycombo": [
+      "Shift",
+      "Enter"
+    ]
+  },
+  {
+    "log": "JSON.stringify({focusedPrimary:'gridRun',keys:[\"Shift\",\"Enter\"],event:__buttonKeys.at(-1),calls:__buttonCalls.slice(__buttonBefore),focus:document.activeElement?.id})"
+  },
+  {
+    "expect": "document.activeElement===els.gridRun&&__buttonCalls.length===__buttonBefore&&__posts.length===0&&__nativeFlags(els.gridRun,[\"Shift\"])"
+  },
+  {
+    "key": "Enter",
+    "native": true,
+    "repeat": true
+  },
+  {
+    "log": "JSON.stringify({nativeHeldPrimary:'gridRun',event:__buttonKeys.at(-1),calls:__buttonCalls.slice(__buttonBefore)})"
+  },
+  {
+    "expect": "__buttonCalls.length===__buttonBefore&&__nativeFlags(els.gridRun,[],true)&&__posts.length===0"
+  },
+  {
+    "eval": "window.__buttonRepeated=['Enter',' '].map(key=>__probe(els.gridRun,key,{repeat:true}).defaultPrevented);"
+  },
+  {
+    "expect": "__buttonRepeated.every(Boolean)&&__buttonCalls.length===__buttonBefore"
+  },
+  {
+    "key": "Enter",
+    "native": true
+  },
+  {
+    "expect": "__buttonCalls.length===__buttonBefore+1&&__buttonCalls.at(-1)==='grid-click'"
+  },
+  {
+    "keycombo": [
+      "Control",
+      "Enter"
+    ]
+  },
+  {
+    "expect": "__buttonCalls.length===__buttonBefore+2&&__buttonCalls.at(-1).startsWith('grid-')&&__posts.length===0"
+  },
+  {
+    "eval": "generate=__savedButtons.generate;runGrid=__savedButtons.runGrid;els.generate.onclick=__savedButtons.generateClick;els.gridRun.onclick=__savedButtons.gridClick;document.removeEventListener('keydown',__traceButton,true);"
+  },
+  {
+    "log": "'Ordinary Ctrl/Cmd+Enter still Generates, and a focused grid field still Runs grid. Guarded variants do neither.'"
+  },
+  {
+    "eval": "resetPanel();writeBox(els.prompt,'ordinary shortcut generation');els.width.value='256';els.height.value='256';els.steps.value='2';els.seed.value='7930';els.batch.value='1';els.runs.value='1';syncSize();syncRuns();els.prompt.focus({preventScroll:true});window.__mainGuards=[{ctrlKey:true,repeat:true},{ctrlKey:true,isComposing:true},{ctrlKey:true,prevented:true},{ctrlKey:true,altKey:true},{ctrlKey:true,shiftKey:true},{ctrlKey:true,metaKey:true}].map(flags=>{__probe(els.prompt,'Enter',flags);return __posts.length===0;});"
+  },
+  {
+    "expect": "__mainGuards.every(Boolean)&&__posts.length===0&&!submitting&&!busy"
+  },
+  {
+    "keycombo": [
+      "Control",
+      "Enter"
+    ]
+  },
+  {
+    "expect": "__until(()=>__posts.length===1&&__posts[0].path==='/api/generate')"
+  },
+  {
+    "expect": "__until(()=>!busy&&!submitting&&viewerRecords.length===1&&viewerRecords[0].prompt==='ordinary shortcut generation')"
+  },
+  {
+    "eval": "writeBox(els.prompt,'ordinary shortcut grid');els.gridSection.open=true;els.gridSteps.value='1,2';els.gridSeeds.value='1';els.gridCfg.value='';els.gridPrompt.value='';els.gridSize.value='';els.gridSteps.dispatchEvent(new Event('input',{bubbles:true}));els.gridSteps.focus({preventScroll:true});"
+  },
+  {
+    "keycombo": [
+      "Meta",
+      "Enter"
+    ]
+  },
+  {
+    "expect": "__until(()=>__posts.length===2&&__posts[1].path==='/api/grid')"
+  },
+  {
+    "expect": "__until(()=>!busy&&!submitting&&viewerRecords.length===2&&viewerRecords.every(r=>r.prompt==='ordinary shortcut grid'))"
+  },
+  {
+    "log": "'Tag-only chips preserve deliberate Alt+Arrow moves; composing/consumed/repeated edit/delete keys do nothing. Suggestions do not accept guarded Enter.'"
+  },
+  {
+    "eval": "(async()=>{if(sheetMode)await setSheet(false);writeBox(els.prompt,'');const r=await fetch('/api/model/switch',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({model_id:'cagliostrolab/animagine-xl-4.0',load:false})});if(!r.ok)throw new Error(await r.text());if(!await __until(async()=>{const s=await __realApi('/api/status');if(s.model_id!=='cagliostrolab/animagine-xl-4.0'||s.switching)return false;receiveStatus(s,Date.now());return tagVocabularyEnabled;}))throw new Error('Tag profile switch timed out');writeBox(els.prompt,'1girl, green hair, masterpiece');els.prompt.blur();scheduleTagValidation(0);})()"
+  },
+  {
+    "expect": "__until(()=>els.tagValidation.querySelectorAll('.tag-check').length===3&&!els.tagValidation.hidden)"
+  },
+  {
+    "eval": "window.__chips=()=>[...els.tagValidation.querySelectorAll('.tag-check')];window.__tagBefore=els.prompt.value;__chips()[0].focus({preventScroll:true});for(const flags of [{repeat:true},{isComposing:true},{prevented:true}]){__probe(document.activeElement,'Delete',flags);__probe(document.activeElement,'Enter',flags);}"
+  },
+  {
+    "expect": "els.prompt.value===__tagBefore&&tagEditAt===null&&tagInsertAt===null&&__posts.length===2"
+  },
+  {
+    "keycombo": [
+      "Alt",
+      "ArrowRight"
+    ]
+  },
+  {
+    "expect": "__until(()=>els.prompt.value==='green hair, 1girl, masterpiece'&&__chips().length===3)"
+  },
+  {
+    "eval": "writeBox(els.prompt,'1girl, green h');els.prompt.focus({preventScroll:true});els.prompt.setSelectionRange(els.prompt.value.length,els.prompt.value.length);void requestTagSuggestions();"
+  },
+  {
+    "expect": "__until(()=>!els.tagSuggestions.hidden&&tagSuggestionIndex>=0)"
+  },
+  {
+    "eval": "window.__suggestBefore=els.prompt.value;window.__suggestGuards=[{isComposing:true},{repeat:true},{prevented:true},{altKey:true},{ctrlKey:true,shiftKey:true}].map(flags=>{__probe(els.prompt,'Enter',flags);return els.prompt.value===__suggestBefore&&!els.tagSuggestions.hidden;});"
+  },
+  {
+    "expect": "__suggestGuards.every(Boolean)&&__posts.length===2"
+  },
+  {
+    "key": "Enter"
+  },
+  {
+    "expect": "__until(()=>els.prompt.value==='1girl, green hair'&&els.tagSuggestions.hidden)"
+  },
+  {
+    "eval": "(async()=>{writeBox(els.prompt,'');const r=await fetch('/api/model/switch',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({model_id:__shortcutModel,load:false})});if(!r.ok)throw new Error(await r.text());await __until(async()=>{const s=await __realApi('/api/status');if(s.model_id!==__shortcutModel||s.switching)return false;receiveStatus(s,Date.now());return true;});api=__realApi;})()"
+  },
+  {
+    "expect": "loadedModel===__shortcutModel&&__posts.map(p=>p.path).join()==='/api/generate,/api/grid'&&!busy&&!submitting&&!document.querySelector('dialog[open]')"
+  },
+  {
+    "log": "'Shortcut dispatch regressions completed on synthetic fake data; no real-device/model acceptance is implied.'"
+  }
+]

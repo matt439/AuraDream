@@ -67,6 +67,7 @@ def settings_key(record: ImageRecord) -> tuple:
         grid.refine_key(record.refine, record.strength),
         grid.mask_key(record.mask, record.outpaint.key() if record.outpaint is not None else None),
         record.upscaler,
+        grid.shape_key(record.width, record.height, record.crop_anchor),
     )
 
 

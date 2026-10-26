@@ -6,11 +6,12 @@ from __future__ import annotations
 
 from typing import Annotated, Literal
 
-from pydantic import BaseModel, Field
+from pydantic import BaseModel, Field, model_validator
 
 from .config import settings
 from .refine import ANIME6B
-from .schemas_generate import OutpaintSpec
+from .png_settings import crop_anchor
+from .schemas_generate import CropAnchor, OutpaintSpec
 
 class ImageRecord(BaseModel):
     id: int
@@ -52,6 +53,9 @@ class ImageRecord(BaseModel):
     # the schedule's length, of which the pass ran about `steps * strength`.
     refine: int | None = None
     strength: float | None = None
+    # Which edge/corner an ordinary Refine retained. NULL is the legacy
+    # centered crop; masks and outpaints never carry a noncenter anchor.
+    crop_anchor: CropAnchor | None = None
     # The optional GAN that prepared the source for an ordinary Refine pass.
     upscaler: Literal[ANIME6B] | None = None
     # True when `refine` names an image no longer in the gallery: the pass is
@@ -109,6 +113,11 @@ class ImageRecord(BaseModel):
     # `GET /api/images/{id}?binned=true` serve a record with one.
     binned_at: str | None = None
 
+    @model_validator(mode="after")
+    def _crop_needs_an_ordinary_source(self) -> ImageRecord:
+        crop_anchor(self.crop_anchor, source=self.refine, mask=self.mask, outpaint=self.outpaint)
+        return self
+
 
 class RunSummary(BaseModel):
     """One run of the gallery - a grid, a sweep, a CLI invocation - as a line.
@@ -133,6 +142,10 @@ class RunSummary(BaseModel):
     quantization: str | None = None
     width: int
     height: int
+    # Every concrete canvas in the run; width/height stay a representative
+    # legacy field while mixed-size consumers read this list.
+    sizes: list[tuple[int, int]] = Field(default_factory=list)
+    size_count: int = 1
     started_at: str
     finished_at: str
     # What varied across it, so the Runs picker can name a run by its axes -

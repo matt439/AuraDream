@@ -12,7 +12,9 @@ function gridPayload() {
     ...collect(),
     runs: 1,
     prompt_axis: els.gridPrompt.value.trim(),
+    prompt_mode: els.gridPromptMode.value,
     steps_axis: els.gridSteps.value.trim(),
+    size_axis: els.gridSize.value.trim(),
     cfg_axis: els.gridCfg.value.trim(),
     mu_axis: els.gridMu.disabled ? '' : els.gridMu.value.trim(),
     lora_scale_axis: els.gridLoraScale.disabled ? '' : els.gridLoraScale.value.trim(),
@@ -22,6 +24,27 @@ function gridPayload() {
     budget_minutes: els.gridBudget.value.trim() === '' ? null : +els.gridBudget.value,
     then_refine: thenRefinePayload(),
   };
+}
+
+// The button and Ctrl/Cmd+Enter share this entry. Repeat belongs only to
+// Generate; a grid uses its own Seeds and Budget controls instead.
+function gridNumberInputs() {
+  const overridden = new Set([
+    ...(els.gridSeedList.value.trim() ? [els.seed, els.gridSeeds] : []),
+    ...(els.gridSteps.value.trim() ? [els.steps] : []),
+    ...(els.gridCfg.value.trim() ? [els.cfg] : []),
+    ...(!els.gridMu.disabled && els.gridMu.value.trim() ? [els.mu] : []),
+    ...(!els.gridLoraScale.disabled && els.gridLoraScale.value.trim() ? [els.loraScale] : []),
+  ]);
+  return [
+    ...panelNumberInputs({ runs: false }),
+    [els.gridSeeds, 'Grid seeds'], [els.gridBudget, 'Budget'],
+  ].filter(([el]) => !overridden.has(el));
+}
+
+function runGrid() {
+  if (refuseBadNumber(gridNumberInputs())) return undefined;
+  return startJob('/api/grid', gridPayload());
 }
 
 function humanTime(seconds) {
@@ -67,7 +90,7 @@ function gridFactors(summary) {
 // (style.css): a nested scroller, never the panel, whose menus and tips hang
 // out past its edge.
 const PREVIEW_PROMPTS = 3;
-function promptListing(prompts, template) {
+function promptListing(prompts, template, name = 'prompt') {
   if (!prompts || !prompts.length) return null;
   const shown = prompts.slice(0, PREVIEW_PROMPTS);
   const lines = template.split('\n');
@@ -79,12 +102,13 @@ function promptListing(prompts, template) {
     const where = `${marked.length === 1 ? 'line' : 'lines'} ${marked.map((i) => i + 1).join(', ')} of ${lines.length}`;
     // Continuation lines are indented with no-break spaces, which pre-line
     // keeps; each line's own indentation is the prompt's, not the listing's.
-    rows = [`${prompts.length === 1 ? 'prompt' : 'prompts'}, ${where}:`, ...shown.flatMap((text) => {
+    rows = [`${name}${prompts.length === 1 ? '' : 's'}, ${where}:`, ...shown.flatMap((text) => {
       const own = text.split('\n');
       return marked.map((i, k) => `${k ? '  ' : '· '}${own[i].trim()}`);
     })];
   } else {
-    rows = prompts.length === 1 ? [`prompt: ${prompts[0]}`] : shown.map((text) => `· ${text}`);
+    rows = prompts.length === 1 ? [`${name}: ${prompts[0]}`] : shown.map((text) => `· ${text}`);
+    if (prompts.length > 1 && name !== 'prompt') rows.unshift(`${name}s:`);
   }
   if (prompts.length > PREVIEW_PROMPTS) rows.push(`· … and ${prompts.length - PREVIEW_PROMPTS} more`);
   const box = document.createElement('span');
@@ -192,8 +216,14 @@ async function previewGrid() {
     // them again), a variable that never varies, a budget that stops short,
     // and the panel's Repeat, which a grid does not take.
     const notes = [];
+    if (body.prompt_mode === 'random') {
+      notes.push(p.prompt_sample
+        ? 'Prompts shown are examples; Run grid draws a new seed and choices. Images run separately.'
+        : 'Prompt choices are fixed by each image seed. Images run separately.');
+    }
     if (p.in_gallery) {
-      const n = p.in_gallery * body.num_images;
+      // Random mode has already split Batch into one-image cells.
+      const n = p.in_gallery * (body.prompt_mode === 'random' ? 1 : body.num_images);
       notes.push(`${n} of these ${n === 1 ? 'is' : 'are'} already in the gallery - tick Resume to skip them`);
     }
     const single = body.prompt_axis ? singleValueLines(body.prompt_axis) : [];
@@ -232,7 +262,7 @@ async function previewGrid() {
     totals.textContent =
       `${p.images} image${p.images === 1 ? '' : 's'} · ${gridFactors(p.summary)}` +
         // Then refine's passes, one per image, priced in the time and disk.
-        (p.passes ? ` · + ${p.passes} refine pass${p.passes === 1 ? '' : 'es'} at ${p.pass_width}×${p.pass_height}` : '') +
+        (p.passes ? ` · + ${p.passes} refine pass${p.passes === 1 ? '' : 'es'} at ${(p.pass_sizes?.length ? p.pass_sizes : [[p.pass_width, p.pass_height]]).map(([w, h]) => `${w}×${h}`).join(", ")}` : '') +
         (p.skipped ? ` · ${p.skipped} already done` : '') +
         // Resume's other drop: cells a live job already plans, the same run
         // still queued - not "done", which is the gallery's.
@@ -243,16 +273,23 @@ async function previewGrid() {
     // .hint.pre renders the breaks. The prompts are a box of their own
     // between the axes and the notes (promptListing), on its own line.
     const listing = body.prompt_axis ? promptListing(p.values.prompt, body.prompt) : null;
+    // Random draws can vary only the negative, or both boxes together. Show
+    // that resolved text too; it otherwise disappears behind a constant prompt.
+    const negatives = body.prompt_mode === 'random' && GRID_PLACEHOLDER.test(body.negative_prompt ?? '')
+      ? promptListing(p.values.negative_prompt.map((text) => text ?? ''), body.negative_prompt, 'negative prompt')
+      : null;
     els.gridPreview.replaceChildren(
       totals,
       `\nsteps ${axisText(p.values.steps)}  ·  CFG ${axisText(p.values.guidance_scale)}` +
         `  ·  mu ${muAxisText(p.values.mu)}` +
+        (body.size_axis ? `  \u00b7  size ${axisText(p.values.size)}` : '') +
         // Only when it is an axis: every other run would carry a constant.
         // Named, since a sweep's weights mean nothing without the adapter.
         (p.values.lora_scale && p.values.lora_scale.length > 1
           ? `  ·  LoRA ${axisText(p.values.lora_scale)} (${els.lora.value.replace(/\.safetensors$/, '')})` : '') +
         (p.values.seed && p.values.seed.length ? `  ·  seeds ${axisText(p.values.seed)}` : ''),
       ...(listing ? ['\n', listing] : []),
+      ...(negatives ? ['\n', negatives] : []),
       ...(notes.length ? [`\n${notes.join('\n')}`] : []),
     );
   } catch (err) {

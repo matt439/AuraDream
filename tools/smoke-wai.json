@@ -37,7 +37,7 @@
   {"eval": "choose('1:1', 4);"},
   {"eval": "els.examplesBtn.click();"},
   {"log": "'The author scene excerpts show their omission notes beside the prompt; choosing either inserts only its exact scene text'"},
-  {"expect": "!els.examplesMenu.hidden && els.examplesMenu.children.length === 2 && [...els.examplesMenu.querySelectorAll('.example-note')].length === 2 && [...els.examplesMenu.querySelectorAll('.example-note')].every(n => n.textContent === 'Author scene excerpt; quality suffix omitted' && n.getClientRects().length > 0)"},
+  {"expect": "!els.examplesMenu.hidden && els.examplesMenu.querySelectorAll('[data-example]').length === 2 && [...els.examplesMenu.querySelectorAll('.example-note')].length === 2 && [...els.examplesMenu.querySelectorAll('.example-note')].every(n => n.textContent === 'Author scene excerpt; quality suffix omitted' && n.getClientRects().length > 0)"},
   {"eval": "els.examplesMenu.children[0].click();"},
   {"expect": "els.prompt.value === \"1girl, hatsune miku, dress, long hair, jewelry, white dress, blue eyes, necklace, bubble, solo, underwater, hair between eyes, looking at viewer, bangs, blue hair, bow\" && collect().prompt === els.prompt.value && collect().mu === null && els.examplesMenu.hidden && document.activeElement === els.prompt"},
   {"eval": "els.examplesBtn.click(); els.examplesMenu.children[1].click();"},

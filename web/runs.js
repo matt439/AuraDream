@@ -266,7 +266,8 @@ async function announceLastRun() {
   const left = !deleted ? '' : deleted === last.image_count ? ', all since deleted' : `, ${deleted} since deleted`;
   els.lastRunText.textContent =
     `Last run ${outcome} at ${when(last.finished_at * 1000)}: ${images}${cells}${left}.` +
-    (last.error ? ` ${last.error}` : '');
+    (last.error ? ` ${last.error}` : '') +
+    (last.skipped ? ` ${last.skipped} ${last.skipped === 1 ? unit : units} skipped.` : '');
   els.lastRun.classList.toggle('bad', last.status === 'error');
   els.lastRun.dataset.job = last.job_id;
   els.lastRun.dataset.run = last.run_id || '';
@@ -322,23 +323,26 @@ const whenExactly = (ms) => new Date(ms).toLocaleString([], {
 // "6 img · A weathered…", and a steps × CFG grid, a batch and a refine sweep
 // told apart by count and time.
 const RUN_AXIS_NAMES = {
-  steps: 'steps', cfg: 'CFG', mu: 'Mu', true_cfg: 'True CFG', lora_scale: 'LoRA', reference: 'refs',
+  steps: 'steps', cfg: 'CFG', mu: 'Mu', true_cfg: 'True CFG', lora_scale: 'LoRA', reference: 'refs', crop_anchor: 'crop anchors',
 };
+const runSizesWords = (run) => run.sizes?.length > 1
+  ? `${run.sizes.length} sizes (${run.sizes.map(([w, h]) => `${w}\u00d7${h}`).join(', ')})` : '';
 function runAxes(run) {
   const axes = run.axes ?? {};
-  if (axes.variant) return `comparison · ${axes.variant} versions`;
+  const sizes = runSizesWords(run);
+  if (axes.variant) return [`comparison \u00b7 ${axes.variant} versions`, sizes].filter(Boolean).join(' \u00b7 ');
   if (run.refine != null) {
     const [low, high] = run.strengths ?? [];
     const at = low == null ? '' : low === high ? `strength ${low} ` : `strength ${low}-${high} `;
-    return `${at}of #${run.refine}`;
+    return [`${at}of #${run.refine}`, sizes, axes.crop_anchor > 1 ? `${axes.crop_anchor} crop anchors` : ''].filter(Boolean).join(' \u00b7 ');
   }
   const varied = Object.keys(RUN_AXIS_NAMES).filter((key) => axes[key] > 1);
   const seeds = axes.seed > 1 ? `${axes.seed} seeds` : '';
-  if (!varied.length) return seeds;
+  if (!varied.length) return [sizes, seeds].filter(Boolean).join(' \u00b7 ');
   const names = varied.map((key) => RUN_AXIS_NAMES[key]);
   const counts = varied.map((key) => axes[key]);
   const grid = varied.length === 1 ? `${names[0]} ×${counts[0]}` : `${names.join('×')} ${counts.join('×')}`;
-  return [grid, seeds].filter(Boolean).join(' · ');
+  return [grid, sizes, seeds].filter(Boolean).join(' \u00b7 ');
 }
 
 let runsEpoch = 0;
@@ -419,15 +423,15 @@ let runKeyed = false;
 let runPending = null;
 const RUN_BROWSE_KEYS = new Set(['ArrowUp', 'ArrowDown', 'ArrowLeft', 'ArrowRight', 'Home', 'End', 'PageUp', 'PageDown']);
 function runListKey(e) {
+  if (keyboardEventHeld(e) || keyboardCommandModifier(e) || e.shiftKey) return;
   if (e.key === 'Enter') {
-    if (runPending !== null) { e.preventDefault(); commitRunList(); }
+    if (runPending !== null) { e.preventDefault(); if (!e.repeat) commitRunList(); }
     return;
   }
   if (e.key === 'Escape') {
-    if (runPending !== null) { e.preventDefault(); runPending = null; syncRunList(); }
+    if (runPending !== null) { e.preventDefault(); if (!e.repeat) { runPending = null; syncRunList(); } }
     return;
   }
-  if (e.altKey || e.ctrlKey || e.metaKey) return;
   if (RUN_BROWSE_KEYS.has(e.key) || (e.key.length === 1 && e.key !== ' ')) {
     runKeyed = true;
     setTimeout(() => { runKeyed = false; });

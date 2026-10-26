@@ -5,10 +5,132 @@ from __future__ import annotations
 import asyncio
 import time
 
+import pytest
+
 from backend.jobs import JobManager
 from backend.schemas import GenerateRequest
 from tests.api_helpers import run_grid, run_one, stream_job, wait_for
 from tests.fakes import FakeBackend
+
+
+def test_move_front_lists_the_authoritative_order_and_never_preempts(client, fake):
+    fake.step_seconds = 0.01
+    payload = {"width": 256, "height": 256, "steps": 35}
+    first = client.post("/api/generate", json={**payload, "prompt": "first"}).json()["job_id"]
+    wait_for(client, first, lambda s: s["current_call"] is not None)
+    second = client.post("/api/generate", json={**payload, "prompt": "second"}).json()["job_id"]
+    third = client.post("/api/generate", json={**payload, "prompt": "third"}).json()["job_id"]
+    moved = client.post(f"/api/jobs/{third}/front")
+    assert moved.status_code == 200
+    assert moved.json()["active_jobs"] == [first, third, second]
+    assert [job["job_id"] for job in client.get("/api/jobs").json()] == [first, third, second]
+    assert client.post(f"/api/jobs/{first}/front").status_code == 409
+    assert client.post("/api/jobs/unknown/front").status_code == 404
+    for job_id in (first, third, second):
+        assert stream_job(client, job_id)[-1]["status"] == "done"
+    assert [request.prompt for request in fake.requests] == ["first", "third", "second"]
+    assert client.post(f"/api/jobs/{third}/front").status_code == 409
+
+
+def test_skip_keeps_earlier_images_continues_and_finish_recovers_the_hole(client, fake, store):
+    fake.step_seconds = 0.01
+    job_id = client.post("/api/generate", json={
+        "prompt": "a fox", "width": 256, "height": 256, "steps": 20, "runs": 3, "seed": 10,
+    }).json()["job_id"]
+    running = wait_for(client, job_id, lambda s: s["run"] == 2 and s["current_call"] is not None)
+    response = client.post(f"/api/jobs/{job_id}/skip", params={"call": running["current_call"]})
+    assert response.status_code == 200
+    assert response.json()["skip_requested"]
+    done = stream_job(client, job_id)[-1]
+    assert done["status"] == "done" and done["failures"] == 0 and done["skipped"] == 1
+    assert [image["seed"] for image in done["images"]] == [10, 12]
+    assert done["skipped_cells"] == [{"label": None, "seed": 11, "error": "Skipped by user"}]
+    deadline = time.monotonic() + 3
+    while (saved := store.retained_run_jobs(done["run_id"])[0])["outcome"] is None:
+        assert time.monotonic() < deadline
+        time.sleep(0.01)
+    assert saved["outcome"]["skipped_indices"] == [1]
+    assert saved["outcome"]["completed_indices"] == [0, 2]
+    answer = client.post(f"/api/runs/{done['run_id']}/finish/preview").json()
+    assert answer["available"] and answer["cells"] == 1
+    fake.step_seconds = 0
+    accepted = client.post(f"/api/runs/{done['run_id']}/finish", json={"expected": answer["pin"]})
+    assert accepted.status_code == 200
+    recovered = stream_job(client, accepted.json()["job_id"])[-1]
+    assert [image["seed"] for image in recovered["images"]] == [11]
+
+
+def test_multiple_intentional_skips_do_not_trigger_the_failure_rule(client, fake):
+    fake.step_seconds = 0.01
+    job_id = client.post("/api/generate", json={
+        "prompt": "a fox", "width": 256, "height": 256, "steps": 20, "runs": 5,
+    }).json()["job_id"]
+    for run in range(1, 5):
+        running = wait_for(client, job_id, lambda s, run=run: s["run"] == run and s["current_call"] is not None)
+        assert client.post(f"/api/jobs/{job_id}/skip", params={"call": running["current_call"]}).status_code == 200
+    done = stream_job(client, job_id)[-1]
+    assert (done["status"], done["skipped"], done["failures"], len(done["images"])) == ("done", 4, 0, 1)
+
+
+def test_a_stale_skip_cannot_skip_the_next_cell(client, fake):
+    fake.step_seconds = 0.01
+    job_id = client.post("/api/generate", json={
+        "prompt": "x", "width": 256, "height": 256, "steps": 15, "runs": 2,
+    }).json()["job_id"]
+    old = wait_for(client, job_id, lambda s: s["current_call"] is not None)["current_call"]
+    wait_for(client, job_id, lambda s: s["run"] == 2 and s["current_call"] is not None)
+    response = client.post(f"/api/jobs/{job_id}/skip", params={"call": old})
+    assert response.status_code == 409 and "already finished" in response.json()["detail"]
+    done = stream_job(client, job_id)[-1]
+    assert done["skipped"] == 0 and len(done["images"]) == 2
+
+
+def test_a_skip_after_the_last_callback_keeps_the_completed_image(client, fake):
+    job_id, answers = None, []
+    fake.step_seconds = 0.01
+
+    def late_skip():
+        current = client.get(f"/api/jobs/{job_id}").json()["current_call"]
+        answers.append(client.post(f"/api/jobs/{job_id}/skip", params={"call": current}))
+
+    fake.after_generate = late_skip
+    job_id = client.post("/api/generate", json={
+        "prompt": "x", "width": 256, "height": 256, "steps": 5, "runs": 2,
+    }).json()["job_id"]
+    done = stream_job(client, job_id)[-1]
+    assert all(answer.status_code == 200 for answer in answers)
+    assert done["status"] == "done" and done["skipped"] == 0 and len(done["images"]) == 2
+
+
+def test_skip_is_held_while_paused_and_during_then_refine(client, fake):
+    fake.step_seconds = 0.01
+    job_id = client.post("/api/generate", json={
+        "prompt": "x", "width": 256, "height": 256, "steps": 20, "runs": 2,
+    }).json()["job_id"]
+    running = wait_for(client, job_id, lambda s: s["current_call"] is not None)
+    client.post(f"/api/jobs/{job_id}/pause")
+    paused = wait_for(client, job_id, lambda s: s["paused"])
+    assert "Resume" in paused["skip_reason"]
+    assert client.post(f"/api/jobs/{job_id}/skip", params={"call": running["current_call"]}).status_code == 409
+    client.post(f"/api/jobs/{job_id}/cancel")
+    assert stream_job(client, job_id)[-1]["status"] == "cancelled"
+    job_id = client.post("/api/generate", json={
+        "prompt": "x", "width": 256, "height": 256, "steps": 20,
+        "then_refine": {"scale": 1.5, "strength": 0.5},
+    }).json()["job_id"]
+    stage = wait_for(client, job_id, lambda s: s["stage"] == "pass")
+    assert "base cells only" in stage["skip_reason"]
+    assert client.post(f"/api/jobs/{job_id}/skip", params={"call": 1}).status_code == 409
+    assert stream_job(client, job_id)[-1]["status"] == "done"
+
+
+@pytest.mark.parametrize("call", [None, 0, -1, "bad"])
+def test_skip_requires_a_positive_call_token(client, call):
+    assert client.post("/api/jobs/unknown/skip", params={} if call is None else {"call": call}).status_code == 422
+
+
+def test_skip_unknown_job_is_404(client):
+    assert client.post("/api/jobs/unknown/skip", params={"call": 1}).status_code == 404
 
 
 # ---------------------------------------------------------------- the stream

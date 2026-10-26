@@ -184,6 +184,8 @@ def _from_record(meta: dict, name: str) -> tuple[dict, dict, bool, list[str]]:
         )
     if meta.get("upscaler") is not None:
         notes.append("Its upscaler is left out: it prepares a gallery source for an ordinary Refine pass.")
+    if meta.get("crop_anchor") not in (None, "center"):
+        notes.append("Its crop anchor is left out: it crops a gallery source for an ordinary Refine pass.")
     return fields, size, True, notes
 
 

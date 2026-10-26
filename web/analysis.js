@@ -640,6 +640,7 @@ function renderOrder(body) {
     // the items and why each has none.
     box.appendChild(note(`Partly checked: ${body.order_detail}. Any of those may sit out of order unflagged.`));
   }
+  if (body.reordered_detail) box.appendChild(note(body.reordered_detail));
   // The prompt's own items moved into that order, nothing added or removed -
   // shown whole, since it is read before it is used.
   if (body.reordered) {

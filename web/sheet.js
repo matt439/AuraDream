@@ -10,6 +10,8 @@
 // prompt is the one axis whose values are prose, which is why it is labelled
 // rather than printed - see promptLabels.
 const SHEET_AXES = [
+  { key: 'size', label: 'Size', of: (r) => `${r.width}x${r.height}` },
+  { key: 'crop', label: 'Crop anchor', of: (r) => r.refine != null && !r.mask && !r.outpaint ? r.crop_anchor || 'center' : null },
   { key: 'prompt', label: 'Prompt', of: (r) => r.prompt },
   // A `{name}` placeholder may live in the negative prompt alone, which is a
   // legal axis the grid renders; without it here such a run collapsed to one
@@ -631,7 +633,7 @@ const thumbWidthOf = (rec) => Math.round(rec.width * Math.min(1, THUMB_SIDE / Ma
 
 // Settings nothing on the sheet has - no adapter, no references, no pass -
 // are left out of the Fixed line rather than listed as `none`.
-const ABSENT_WHEN_NONE = new Set(['tcfg', 'lora', 'adapter', 'ref', 'strength', 'upscaler']);
+const ABSENT_WHEN_NONE = new Set(['tcfg', 'lora', 'adapter', 'ref', 'strength', 'upscaler', 'crop']);
 
 // The settings every image on the sheet shares. Under the Starred tick they
 // are what made the keepers, and the tick takes them off every axis: two
@@ -691,7 +693,9 @@ function sheetRunStatus(run) {
   const model = sheetRecords[0]?.model_id ?? details?.model_id;
   const made = [model ? checkpointName(model) : '', quants.size === 1 ? quant : details?.quantization]
     .filter(Boolean).join(' ');
-  return [`Run ${run}`, `${plural(n, els.favOnly.checked ? 'starred image' : 'image')}`, made].filter(Boolean).join(' · ');
+  const sizes = details?.sizes?.length ? details.sizes : [...new Map(sheetRecords.map((r) => [`${r.width}x${r.height}`, [r.width, r.height]])).values()];
+  const canvases = sizes.length > 1 ? `${sizes.length} sizes: ${sizes.map(([w, h]) => `${w}\u00d7${h}`).join(', ')}` : '';
+  return [`Run ${run}`, `${plural(n, els.favOnly.checked ? 'starred image' : 'image')}`, made, canvases].filter(Boolean).join(' · ');
 }
 
 // A sheet with nothing down it and more across than fits - a seeds-only run,

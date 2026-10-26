@@ -132,6 +132,7 @@ function finishJob(jobId, data, { submitted, sheet, foreign = false, staleBefore
       if ((seeded || pass) && images.length) line.push(finishMoreSeeds(images));
     }
   }
+  if (data.skipped) line.push(intentionalSkippedCells(data));
   // A grid's sheet is its payoff, and the way to it was the Runs picker or a
   // card's ⊞. Offered, never opened: a night ending under a user browsing
   // the gallery must not take the gallery away.
@@ -183,7 +184,9 @@ function finishJob(jobId, data, { submitted, sheet, foreign = false, staleBefore
   } else if (data.error) {
     // Done, but not every cell: the grid carried on past a failure and says
     // which, rather than dropping the rest of the night.
-    showOutcome(`${whose}${skippedCells(data)}`);
+    showOutcome(`${whose}${skippedCells(data)}${data.skipped ? ` ${intentionalSkippedCells(data)}` : ''}`);
+  } else if (data.skipped) {
+    showOutcome(`${whose}${intentionalSkippedCells(data)}`, true);
   }
   // Said once to a screen reader where the panel's alert line has not said
   // the outcome already: the finish line's sentence, without its buttons. A
@@ -191,7 +194,7 @@ function finishJob(jobId, data, { submitted, sheet, foreign = false, staleBefore
   // holds images (syncLoadFailure); over the load card, which is no live
   // region, its "Not made" sentence is said here.
   const inAlert = data.status === 'cancelled'
-    || (atLoad ? !!els.viewer.querySelector('img, figure, .tomb') : data.status === 'error' || !!data.error);
+    || (atLoad ? !!els.viewer.querySelector('img, figure, .tomb') : data.status === 'error' || !!data.error || !!data.skipped);
   if (!inAlert) {
     sayJob(line.filter((node) => node.nodeName !== 'BUTTON')
       .map((node) => (typeof node === 'string' ? node : node.textContent)).join('').trim());
@@ -296,9 +299,19 @@ function showAllImages() {
   loadRuns();
 }
 
-// The cells a grid skipped, by name: which settings, which seed, and the
-// error - "1 cell(s) failed" left the hole in the sheet to be found by eye.
-// In the job's own units (unitWord): a plain job's are images or batches.
+// Intentional skips are missing work even when the job ended without an
+// error. Name their seeds and keep Finish available for the missing cells.
+function intentionalSkippedCells(data) {
+  const count = data.skipped ?? 0;
+  const unit = unitWord(data);
+  const units = count === 1 ? unit : unit === 'batch' ? 'batches' : `${unit}s`;
+  const cells = data.skipped_cells ?? [];
+  const named = cells.slice(0, 3).map((cell) => [cell.label, `seed ${cell.seed}`].filter(Boolean).join(', '));
+  const more = cells.length > 3 ? `; and ${cells.length - 3} more` : '';
+  return `${count} ${units} skipped${named.length ? `: ${named.join('; ')}${more}` : ''}. Finish run checks the missing work.`;
+}
+
+// Failure-skipped cells retain their error and the existing retry wording.
 function skippedCells(data) {
   const cells = data.failed_cells ?? [];
   if (!cells.length) return data.error;
@@ -594,7 +607,8 @@ function showLostRun({ heading, text, run }, submitted) {
   els.viewer.replaceChildren(card);
   els.viewer.classList.remove('multi', 'many', 'fitted');
   els.viewer.style.minHeight = els.viewer.style.maxHeight = '';
-  els.viewerNote.replaceChildren();
+  els.viewerNoteText.replaceChildren();
+  syncViewerMoreSeeds();
 }
 
 // The server answers again: the card says so rather than that it is gone.

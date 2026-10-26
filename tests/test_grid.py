@@ -16,6 +16,116 @@ def request(**overrides) -> GenerateRequest:
     return GenerateRequest(**{**BASE, **overrides})
 
 
+# ------------------------------------------------------ seeded prompt choices
+
+
+@pytest.mark.parametrize("seed,indices", [
+    (0, (1, 1)), (1, (0, 0)), (2, (0, 1)), (4, (2, 0)), (42, (0, 0)), (2**63 - 1, (2, 2)),
+])
+def test_random_prompt_choices_have_frozen_vectors(seed, indices):
+    values = {"size": ["small", "large", ""], "ground": ["grass", "dirt", "snow"]}
+    expected = {name: choices[index] for (name, choices), index in zip(values.items(), indices)}
+    assert grid.random_assignment(values, seed) == expected
+    assert grid.random_assignment(dict(reversed(list(values.items()))), seed) == expected
+    assert grid.random_assignment({"other": ["x", "y"], **values}, seed)["size"] == expected["size"]
+
+
+def test_random_choices_are_per_image_and_shared_across_sampling_axes():
+    cells = grid.expand(
+        request(prompt="a {size} fox", negative_prompt="not {size}", seed=0, num_images=2),
+        prompt="size = small | large | none", prompt_mode="random", steps="6,8", seeds=2,
+    )
+    assert [cell.seed for cell in cells] == [0, 0, 1, 1, 2, 2, 3, 3]
+    assert all(cell.request.num_images == 1 for cell in cells)
+    for first, second in zip(cells[::2], cells[1::2]):
+        assert first.variables == second.variables
+        assert first.request.prompt == second.request.prompt
+        assert first.request.negative_prompt == second.request.negative_prompt
+        assert first.request.steps == 6 and second.request.steps == 8
+        assert "{" not in first.request.prompt + first.request.negative_prompt
+    assert len({tuple(cell.variables.items()) for cell in cells}) > 1
+
+
+def test_random_choice_batch_offsets_wrap_but_invalid_listed_bases_do_not():
+    from backend.seeds import MAX_SEED
+
+    cells = grid.expand(
+        request(prompt="{size}", seed=MAX_SEED, num_images=2),
+        prompt="size = small | large", prompt_mode="random", seeds=2,
+    )
+    assert [cell.seed for cell in cells] == [MAX_SEED, 0, 1, 2]
+    listed = grid.expand(
+        request(prompt="{size}", num_images=2), prompt="size = small | large",
+        prompt_mode="random", seed_list=[5, 20],
+    )
+    assert [cell.seed for cell in listed] == [5, 6, 20, 21]
+    with pytest.raises(ValueError, match="Seed list"):
+        grid.expand(request(prompt="{size}"), prompt="size = x", prompt_mode="random", seed_list=[-1])
+
+
+def test_random_choices_do_not_construct_the_variable_product():
+    names = [f"word{i}" for i in range(20)]
+    cells = grid.expand(
+        request(prompt=" ".join("{" + name + "}" for name in names), seed=1),
+        prompt="\n".join(f"{name} = yes | no" for name in names), prompt_mode="random",
+    )
+    assert len(cells) == 1 and len(cells[0].variables) == 20
+
+
+def test_random_choice_none_uses_the_existing_xml_substitution():
+    cell = grid.expand(
+        request(prompt="<root>\n  <size>{size} fox</size>\n</root>", seed=2**63 - 1),
+        prompt="size = small | large | none", prompt_mode="random",
+    )[0]
+    assert cell.variables == {"size": ""}
+    assert cell.request.prompt == "<root>\n  <size>fox</size>\n</root>"
+
+
+@pytest.mark.parametrize("block,said", [
+    ("", "needs prompt variables"), ("other = x", "nothing in the prompt"),
+    ("size =", "has no values"), ("size = x\nsize = y", "given twice"),
+    ("size = {missing}", ""),
+])
+def test_random_choice_validation_uses_the_variable_parser(block, said):
+    if not said:
+        # Values are literal fragments; their own braces are not recursively substituted.
+        cell = grid.expand(request(prompt="{size}"), prompt=block, prompt_mode="random")[0]
+        assert cell.request.prompt == "{missing}"
+    else:
+        with pytest.raises(ValueError, match=said):
+            grid.expand(request(prompt="{size}"), prompt=block, prompt_mode="random")
+
+
+def test_random_choices_keep_the_actual_image_ceiling_and_prompt_bounds(monkeypatch):
+    import dataclasses
+
+    monkeypatch.setattr(grid, "settings", dataclasses.replace(grid.settings, max_grid_images=3))
+    with pytest.raises(ValueError, match="4 images"):
+        grid.expand(
+            request(prompt="{size}", num_images=2), prompt="size = small | large",
+            prompt_mode="random", seeds=2,
+        )
+    with pytest.raises(ValueError):
+        grid.expand(request(prompt="{size}"), prompt="size = " + "x" * 4001, prompt_mode="random")
+    with pytest.raises(ValueError, match="prompt variants"):
+        grid.expand(
+            request(prompt="{size}"), prompt="size = x", prompt_mode="random",
+            variants=[PromptVariant(label="one", prompt="x")],
+        )
+
+
+def test_random_choices_use_concrete_prompt_identity_and_do_not_multiply_the_summary():
+    base = request(prompt="{size}", seed=42)
+    crossed = grid.expand(base, prompt="size = small")
+    drawn = grid.expand(base, prompt="size = small", prompt_mode="random")
+    assert grid.run_id(crossed, "m", "fp8") == grid.run_id(drawn, "m", "fp8")
+    assert grid.prune_done(drawn, set(grid.cell_keys(crossed[0]))) == []
+    values = grid.axis_values(base, "", "", "", "size = small", prompt_mode="random", cells=drawn)
+    summary = grid.describe(values, 2, prompt_mode="random", batch=3)
+    assert summary.startswith("one choice per image x ")
+    assert "prompts" not in summary and "3 images per seed (run separately)" in summary
+
+
 # ------------------------------------------------------------------- parsing
 
 
@@ -599,7 +709,7 @@ def test_a_grid_without_true_cfg_keeps_the_id_its_images_carry():
     )
     assert grid.run_id(cells, "krea/Krea-2-Turbo", "fp8") == "0ebe5101c492"
     assert grid.cell_key(cells[0]) == (
-        "a big fox", "blurry", 6, 2.0, 1.15, None, None, None, None, None, None, 42
+        "a big fox", "blurry", 6, 2.0, 1.15, None, None, None, None, None, None, "256x256@center", 42
     )
     # Setting it is a different run - and the element is part of the key.
     with_it = grid.expand(

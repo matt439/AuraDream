@@ -20,6 +20,8 @@ server.log
 server.err
 local-diffusion.settings.json
 .local-diffusion.settings.*.tmp
+local-diffusion.snippets.json
+.local-diffusion.snippets.*.tmp
 .env
 # Local agent state and model files that may sit in a checkout.
 .claude/

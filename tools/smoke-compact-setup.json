@@ -1,0 +1,993 @@
+[
+  {
+    "log": "'Compact setup and scoped shortcuts on fresh FLUX fake7925: current dimensions/presets/warnings stay direct, disclosure collapse preserves settings, explicit restored/active setup reveals, and M only opens More seeds. All fixture data is synthetic.'"
+  },
+  {
+    "viewport": [
+      1400,
+      900,
+      1
+    ]
+  },
+  {
+    "navigate": "http://127.0.0.1:7925/"
+  },
+  {
+    "eval": "window.__until=async(fn,ms=20000)=>{const end=Date.now()+ms;while(Date.now()<end){if(await fn())return true;await new Promise(r=>setTimeout(r,50));}return false;};\nwindow.__frames=()=>new Promise(r=>requestAnimationFrame(()=>requestAnimationFrame(r)));\nwindow.__custom=()=>document.getElementById('custom-size');\nwindow.__customSummary=()=>document.getElementById('custom-size-summary');\nwindow.__customValue=()=>document.getElementById('custom-size-value');\nwindow.__conditioning=()=>document.getElementById('conditioning-section');\nwindow.__conditioningSummary=()=>document.querySelector('#conditioning-section > summary');\nwindow.__visible=el=>!!el&&el.checkVisibility()&&el.getBoundingClientRect().width>0&&el.getBoundingClientRect().height>0&&getComputedStyle(el).visibility!=='hidden';\nwindow.__hit=el=>{const r=el.getBoundingClientRect();const hit=document.elementFromPoint(r.left+r.width/2,r.top+r.height/2);return r.width>0&&r.height>0&&r.left>=0&&r.right<=document.documentElement.clientWidth&&r.top>=document.querySelector('.topbar').getBoundingClientRect().bottom&&r.bottom<=innerHeight&&!!hit&&(hit===el||el.contains(hit));};\nwindow.__fits=()=>document.documentElement.scrollWidth<=document.documentElement.clientWidth+1;\nwindow.__hasSize=(w,h)=>new RegExp(String(w)+'\\\\D+'+String(h)).test(__customValue().textContent);\nwindow.__values=()=>JSON.stringify({width:els.width.value,height:els.height.value,lora:els.lora.value,weight:els.loraScale.value,refs:[...referenceIds]});\nwindow.__probe=(target,key,flags={})=>{const e=new KeyboardEvent('keydown',{key,bubbles:true,cancelable:true,...flags});if(flags.prevented)e.preventDefault();target.dispatchEvent(e);return e;};\nwindow.__cards=()=>[...els.gallery.querySelectorAll('.card[data-id]')];\nwindow.__img=i=>__cards()[i].querySelector(':scope > img');\nwindow.__realApi=api;window.__queued=[];window.__msPreviews=[];\napi=(route,options)=>{if(options?.method==='POST'){if(['/api/generate','/api/grid','/api/more-seeds','/api/refine/batch','/api/swap-tags'].includes(route))__queued.push(route);if(route==='/api/more-seeds/preview')__msPreviews.push(JSON.parse(options.body));}return __realApi(route,options);};\nwindow.__trackedApi=api;\nwindow.__post=async(route,body)=>{const r=await fetch(route,{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify(body)});if(!r.ok)throw new Error(await r.text());return r.json();};\nwindow.__waitJob=async id=>{let done;if(!await __until(async()=>{const j=await __realApi('/api/jobs/'+id);if(['queued','running'].includes(j.status))return false;done=j;return true;}))throw new Error('Compact fixture timed out');if(done.status!=='done')throw new Error('Compact fixture '+done.status);return done;};\nwindow.__switch=async id=>{await __post('/api/model/switch',{model_id:id,load:false});if(!await __until(async()=>{const s=await __realApi('/api/status');if(s.model_id!==id||s.switching)return false;receiveStatus(s,Date.now());return true;}))throw new Error('Compact profile switch timed out');await __frames();};\nwindow.__refresh=async()=>{const asked=Date.now();const status=await __realApi('/api/status');receiveStatus(status,asked);await __frames();};\nwindow.__closedInactive=()=>!__custom().open&&!__conditioning().open&&__visible(__customSummary())&&__visible(__customValue())&&__hasSize(1024,1024)&&__visible(els.presets)&&__visible(els.tiers)&&__visible(els.sizeHint)&&!__visible(els.width)&&!__visible(els.lora);\nwindow.__targetHit=el=>{const r=el.getBoundingClientRect();const hit=document.elementFromPoint(r.left+r.width/2,r.top+r.height/2);return r.width>0&&r.height>0&&r.left>=0&&r.right<=innerWidth&&r.top>=0&&r.bottom<=innerHeight&&!!hit&&(hit===el||el.contains(hit));};"
+  },
+  {
+    "expect": "__until(()=>modelState==='ready'&&!galleryPending)"
+  },
+  {
+    "eval": "resetPanel();showError('');window.__originalModel=loadedModel;"
+  },
+  {
+    "expect": "__custom()?.tagName==='DETAILS'&&__conditioning()?.tagName==='DETAILS'&&__closedInactive()&&/none/i.test(__conditioningSummary().textContent)&&__fits()"
+  },
+  {
+    "log": "'Inactive setup begins compact at each supported width. Native summary Enter expands/collapses without changing any setting, focus stays on the summary, and polling cannot reopen it.'"
+  },
+  {
+    "viewport": [
+      390,
+      844,
+      1
+    ]
+  },
+  {
+    "eval": "(async()=>{window.__beforeDisclosure=__values();__customSummary().scrollIntoView({block:'center'});__customSummary().focus({preventScroll:true});await __frames();})()"
+  },
+  {
+    "expect": "__fits()&&__hit(__customSummary())&&__closedInactive()"
+  },
+  {
+    "shot": "C:\\Users\\matsi\\AppData\\Local\\Temp\\local-diffusion-compact-setup-390-closed-20261026.png"
+  },
+  {
+    "key": "Enter",
+    "native": true
+  },
+  {
+    "expect": "__custom().open&&__visible(els.width)&&__visible(els.height)&&document.activeElement===__customSummary()&&__values()===__beforeDisclosure"
+  },
+  {
+    "key": "Enter",
+    "native": true
+  },
+  {
+    "expect": "!__custom().open&&document.activeElement===__customSummary()&&__values()===__beforeDisclosure"
+  },
+  {
+    "eval": "(async()=>{__conditioningSummary().scrollIntoView({block:'center'});__conditioningSummary().focus({preventScroll:true});await __frames();})()"
+  },
+  {
+    "key": "Enter",
+    "native": true
+  },
+  {
+    "expect": "__conditioning().open&&__visible(els.lora)&&document.activeElement===__conditioningSummary()&&__fits()&&__values()===__beforeDisclosure"
+  },
+  {
+    "shot": "C:\\Users\\matsi\\AppData\\Local\\Temp\\local-diffusion-compact-setup-390-expanded-20261026.png"
+  },
+  {
+    "key": "Enter",
+    "native": true
+  },
+  {
+    "eval": "(async()=>{window.__collapsedY=scrollY;await __refresh();})()"
+  },
+  {
+    "expect": "!__custom().open&&!__conditioning().open&&__values()===__beforeDisclosure&&Math.abs(scrollY-__collapsedY)<1&&__fits()&&__queued.length===0"
+  },
+  {
+    "viewport": [
+      600,
+      900,
+      1
+    ]
+  },
+  {
+    "eval": "(async()=>{window.__beforeDisclosure=__values();__customSummary().scrollIntoView({block:'center'});__customSummary().focus({preventScroll:true});await __frames();})()"
+  },
+  {
+    "expect": "__fits()&&__hit(__customSummary())&&__closedInactive()"
+  },
+  {
+    "shot": "C:\\Users\\matsi\\AppData\\Local\\Temp\\local-diffusion-compact-setup-600-closed-20261026.png"
+  },
+  {
+    "key": "Enter",
+    "native": true
+  },
+  {
+    "expect": "__custom().open&&__visible(els.width)&&__visible(els.height)&&document.activeElement===__customSummary()&&__values()===__beforeDisclosure"
+  },
+  {
+    "key": "Enter",
+    "native": true
+  },
+  {
+    "expect": "!__custom().open&&document.activeElement===__customSummary()&&__values()===__beforeDisclosure"
+  },
+  {
+    "eval": "(async()=>{__conditioningSummary().scrollIntoView({block:'center'});__conditioningSummary().focus({preventScroll:true});await __frames();})()"
+  },
+  {
+    "key": "Enter",
+    "native": true
+  },
+  {
+    "expect": "__conditioning().open&&__visible(els.lora)&&document.activeElement===__conditioningSummary()&&__fits()&&__values()===__beforeDisclosure"
+  },
+  {
+    "shot": "C:\\Users\\matsi\\AppData\\Local\\Temp\\local-diffusion-compact-setup-600-expanded-20261026.png"
+  },
+  {
+    "key": "Enter",
+    "native": true
+  },
+  {
+    "eval": "(async()=>{window.__collapsedY=scrollY;await __refresh();})()"
+  },
+  {
+    "expect": "!__custom().open&&!__conditioning().open&&__values()===__beforeDisclosure&&Math.abs(scrollY-__collapsedY)<1&&__fits()&&__queued.length===0"
+  },
+  {
+    "viewport": [
+      1400,
+      900,
+      1
+    ]
+  },
+  {
+    "eval": "(async()=>{window.__beforeDisclosure=__values();__customSummary().scrollIntoView({block:'center'});__customSummary().focus({preventScroll:true});await __frames();})()"
+  },
+  {
+    "expect": "__fits()&&__hit(__customSummary())&&__closedInactive()"
+  },
+  {
+    "shot": "C:\\Users\\matsi\\AppData\\Local\\Temp\\local-diffusion-compact-setup-1400-closed-20261026.png"
+  },
+  {
+    "key": "Enter",
+    "native": true
+  },
+  {
+    "expect": "__custom().open&&__visible(els.width)&&__visible(els.height)&&document.activeElement===__customSummary()&&__values()===__beforeDisclosure"
+  },
+  {
+    "key": "Enter",
+    "native": true
+  },
+  {
+    "expect": "!__custom().open&&document.activeElement===__customSummary()&&__values()===__beforeDisclosure"
+  },
+  {
+    "eval": "(async()=>{__conditioningSummary().scrollIntoView({block:'center'});__conditioningSummary().focus({preventScroll:true});await __frames();})()"
+  },
+  {
+    "key": "Enter",
+    "native": true
+  },
+  {
+    "expect": "__conditioning().open&&__visible(els.lora)&&document.activeElement===__conditioningSummary()&&__fits()&&__values()===__beforeDisclosure"
+  },
+  {
+    "shot": "C:\\Users\\matsi\\AppData\\Local\\Temp\\local-diffusion-compact-setup-1400-expanded-20261026.png"
+  },
+  {
+    "key": "Enter",
+    "native": true
+  },
+  {
+    "eval": "(async()=>{window.__collapsedY=scrollY;await __refresh();})()"
+  },
+  {
+    "expect": "!__custom().open&&!__conditioning().open&&__values()===__beforeDisclosure&&Math.abs(scrollY-__collapsedY)<1&&__fits()&&__queued.length===0"
+  },
+  {
+    "viewport": [
+      2048,
+      1040,
+      1.25
+    ]
+  },
+  {
+    "eval": "(async()=>{window.__beforeDisclosure=__values();__customSummary().scrollIntoView({block:'center'});__customSummary().focus({preventScroll:true});await __frames();})()"
+  },
+  {
+    "expect": "__fits()&&__hit(__customSummary())&&__closedInactive()"
+  },
+  {
+    "shot": "C:\\Users\\matsi\\AppData\\Local\\Temp\\local-diffusion-compact-setup-2048-closed-20261026.png"
+  },
+  {
+    "key": "Enter",
+    "native": true
+  },
+  {
+    "expect": "__custom().open&&__visible(els.width)&&__visible(els.height)&&document.activeElement===__customSummary()&&__values()===__beforeDisclosure"
+  },
+  {
+    "key": "Enter",
+    "native": true
+  },
+  {
+    "expect": "!__custom().open&&document.activeElement===__customSummary()&&__values()===__beforeDisclosure"
+  },
+  {
+    "eval": "(async()=>{__conditioningSummary().scrollIntoView({block:'center'});__conditioningSummary().focus({preventScroll:true});await __frames();})()"
+  },
+  {
+    "key": "Enter",
+    "native": true
+  },
+  {
+    "expect": "__conditioning().open&&__visible(els.lora)&&document.activeElement===__conditioningSummary()&&__fits()&&__values()===__beforeDisclosure"
+  },
+  {
+    "shot": "C:\\Users\\matsi\\AppData\\Local\\Temp\\local-diffusion-compact-setup-2048-expanded-20261026.png"
+  },
+  {
+    "key": "Enter",
+    "native": true
+  },
+  {
+    "eval": "(async()=>{window.__collapsedY=scrollY;await __refresh();})()"
+  },
+  {
+    "expect": "!__custom().open&&!__conditioning().open&&__values()===__beforeDisclosure&&Math.abs(scrollY-__collapsedY)<1&&__fits()&&__queued.length===0"
+  },
+  {
+    "viewport": [
+      1400,
+      900,
+      1
+    ]
+  },
+  {
+    "log": "'The visible current size and warnings belong to the Size group even with custom controls collapsed. Changing presets never auto-closes an explicitly opened disclosure.'"
+  },
+  {
+    "eval": "__customSummary().scrollIntoView({block:'center'});__customSummary().focus({preventScroll:true});"
+  },
+  {
+    "key": "Enter",
+    "native": true
+  },
+  {
+    "eval": "els.width.value='1000';els.height.value='512';els.width.dispatchEvent(new Event('input',{bubbles:true}));els.height.dispatchEvent(new Event('input',{bubbles:true}));__customSummary().focus({preventScroll:true});"
+  },
+  {
+    "expect": "__custom().open&&__hasSize(1000,512)&&els.sizeHint.textContent.includes('1000')&&els.sizeHint.textContent.includes('16')"
+  },
+  {
+    "key": "Enter",
+    "native": true
+  },
+  {
+    "eval": "__refresh()"
+  },
+  {
+    "expect": "!__custom().open&&els.width.value==='1000'&&els.height.value==='512'&&__hasSize(1000,512)&&__visible(els.sizeHint)&&els.sizeHint.textContent.includes('1000')&&__visible(els.presets)&&__visible(els.tiers)"
+  },
+  {
+    "log": "'Restore deliberately reveals a saved custom size once. Later status polls respect a manual collapse and retain the value.'"
+  },
+  {
+    "expect": "__until(()=>storedPanel()?.width==='1000'&&storedPanel()?.height==='512')"
+  },
+  {
+    "navigate": "http://127.0.0.1:7925/"
+  },
+  {
+    "eval": "window.__until=async(fn,ms=20000)=>{const end=Date.now()+ms;while(Date.now()<end){if(await fn())return true;await new Promise(r=>setTimeout(r,50));}return false;};\nwindow.__custom=()=>document.getElementById('custom-size');window.__customSummary=()=>document.getElementById('custom-size-summary');window.__customValue=()=>document.getElementById('custom-size-value');window.__conditioning=()=>document.getElementById('conditioning-section');window.__conditioningSummary=()=>document.querySelector('#conditioning-section > summary');\nwindow.__frames=()=>new Promise(r=>requestAnimationFrame(()=>requestAnimationFrame(r)));window.__visible=el=>!!el&&el.checkVisibility()&&el.getBoundingClientRect().width>0&&el.getBoundingClientRect().height>0&&getComputedStyle(el).visibility!=='hidden';window.__fits=()=>document.documentElement.scrollWidth<=document.documentElement.clientWidth+1;window.__hasSize=(w,h)=>new RegExp(String(w)+'\\\\D+'+String(h)).test(__customValue().textContent);window.__values=()=>JSON.stringify({width:els.width.value,height:els.height.value,lora:els.lora.value,weight:els.loraScale.value,refs:[...referenceIds]});\nwindow.__probe=(target,key,flags={})=>{const e=new KeyboardEvent('keydown',{key,bubbles:true,cancelable:true,...flags});if(flags.prevented)e.preventDefault();target.dispatchEvent(e);return e;};window.__cards=()=>[...els.gallery.querySelectorAll('.card[data-id]')];window.__img=i=>__cards()[i].querySelector(':scope > img');window.__realApi=api;window.__queued=[];window.__msPreviews=[];\napi=(route,options)=>{if(options?.method==='POST'){if(['/api/generate','/api/grid','/api/more-seeds','/api/refine/batch','/api/swap-tags'].includes(route))__queued.push(route);if(route==='/api/more-seeds/preview')__msPreviews.push(JSON.parse(options.body));}return __realApi(route,options);};window.__trackedApi=api;\nwindow.__post=async(route,body)=>{const r=await fetch(route,{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify(body)});if(!r.ok)throw new Error(await r.text());return r.json();};\nwindow.__waitJob=async id=>{let done;if(!await __until(async()=>{const j=await __realApi('/api/jobs/'+id);if(['queued','running'].includes(j.status))return false;done=j;return true;}))throw new Error('Compact fixture timed out');if(done.status!=='done')throw new Error('Compact fixture '+done.status);return done;};\nwindow.__switch=async id=>{await __post('/api/model/switch',{model_id:id,load:false});if(!await __until(async()=>{const s=await __realApi('/api/status');if(s.model_id!==id||s.switching)return false;receiveStatus(s,Date.now());return true;}))throw new Error('Compact profile switch timed out');await __frames();};window.__refresh=async()=>{const asked=Date.now();const status=await __realApi('/api/status');receiveStatus(status,asked);await __frames();};\nwindow.__targetHit=el=>{const r=el.getBoundingClientRect();const hit=document.elementFromPoint(r.left+r.width/2,r.top+r.height/2);return r.width>0&&r.height>0&&r.left>=0&&r.right<=innerWidth&&r.top>=0&&r.bottom<=innerHeight&&!!hit&&(hit===el||el.contains(hit));};"
+  },
+  {
+    "expect": "__until(()=>modelState==='ready'&&__custom().open&&els.width.value==='1000'&&els.height.value==='512'&&__hasSize(1000,512))"
+  },
+  {
+    "eval": "window.__originalModel=loadedModel;__customSummary().focus({preventScroll:true});"
+  },
+  {
+    "key": "Enter",
+    "native": true
+  },
+  {
+    "eval": "__refresh()"
+  },
+  {
+    "expect": "!__custom().open&&__hasSize(1000,512)"
+  },
+  {
+    "log": "'A hidden incomplete custom number must reveal its disclosure before focus/refusal; it must never become a default request.'"
+  },
+  {
+    "eval": "__customSummary().focus({preventScroll:true});"
+  },
+  {
+    "key": "Enter",
+    "native": true
+  },
+  {
+    "eval": "els.width.value='';els.width.focus({preventScroll:true});"
+  },
+  {
+    "type": "1e"
+  },
+  {
+    "expect": "els.width.validity.badInput&&els.width.value===''"
+  },
+  {
+    "eval": "__customSummary().focus({preventScroll:true});"
+  },
+  {
+    "key": "Enter",
+    "native": true
+  },
+  {
+    "expect": "!__custom().open&&els.width.validity.badInput"
+  },
+  {
+    "eval": "writeBox(els.prompt,'bad custom number fixture');els.generate.focus({preventScroll:true});"
+  },
+  {
+    "keycombo": [
+      "Control",
+      "Enter"
+    ]
+  },
+  {
+    "expect": "__custom().open&&document.activeElement===els.width&&els.error.textContent.includes('Width has an incomplete number')&&__queued.length===0&&!busy&&!submitting"
+  },
+  {
+    "eval": "els.width.value='1008';els.height.value='512';els.width.dispatchEvent(new Event('input',{bubbles:true}));els.height.dispatchEvent(new Event('input',{bubbles:true}));__customSummary().focus({preventScroll:true});"
+  },
+  {
+    "key": "Enter",
+    "native": true
+  },
+  {
+    "eval": "(async()=>{await __refresh();resetPanel();showError('');await __frames();})()"
+  },
+  {
+    "expect": "!__custom().open&&!__conditioning().open&&els.seed.value===''"
+  },
+  {
+    "log": "'Four synthetic images supply a ready result batch, a separate hidden picked batch and a nonpreset Reuse source. Fixture calls bypass shortcut request counters.'"
+  },
+  {
+    "eval": "(async()=>{api=__realApi;await startJob('/api/generate',{prompt:'compact ready source',width:512,height:512,steps:1,seed:100,num_images:2});window.__readyRecords=viewerRecords.slice();window.__readyJob=viewerRecords[0].job_id;window.__hiddenRecord=(await __waitJob((await __post('/api/generate',{prompt:'compact hidden picked source',width:512,height:512,steps:1,seed:200})).job_id)).images[0];window.__customRecord=(await __waitJob((await __post('/api/generate',{prompt:'compact custom reuse source',width:1008,height:512,steps:1,seed:300})).job_id)).images[0];await resetGallery();api=__trackedApi;window.__queued=[];window.__msPreviews=[];})()"
+  },
+  {
+    "expect": "__until(()=>!galleryPending&&viewerRecords.length===2&&galleryRecords.length===4)"
+  },
+  {
+    "log": "'/ focuses gallery search from the workspace only; typing, selects, editable descendants, menus and modals retain / and M.'"
+  },
+  {
+    "eval": "els.generate.focus({preventScroll:true});window.__searchBefore=els.search.value;"
+  },
+  {
+    "key": "/"
+  },
+  {
+    "expect": "document.activeElement===els.search&&els.search.value===__searchBefore&&__queued.length===0"
+  },
+  {
+    "eval": "writeBox(els.prompt,'literal');els.prompt.focus({preventScroll:true});els.prompt.setSelectionRange(7,7);"
+  },
+  {
+    "key": "/"
+  },
+  {
+    "key": "m"
+  },
+  {
+    "expect": "document.activeElement===els.prompt&&els.prompt.value==='literal/m'&&!els.moreSeedsDialog.open"
+  },
+  {
+    "expect": "__until(()=>!els.runList.disabled)"
+  },
+  {
+    "eval": "window.__editor=document.createElement('div');__editor.contentEditable='true';__editor.textContent='editable';document.querySelector('.panel').append(__editor);window.__guardResults=[els.prompt,els.negative,els.search,els.steps,els.runList,__editor].filter(el=>!el.disabled).map(el=>{el.focus({preventScroll:true});__probe(el,'/');__probe(el,'m');return document.activeElement===el&&!els.moreSeedsDialog.open;});__editor.remove();els.generate.focus({preventScroll:true});window.__routeGuards=[{repeat:true},{prevented:true},{isComposing:true},{ctrlKey:true},{metaKey:true},{altKey:true}].map(flags=>{__probe(els.generate,'/',flags);return document.activeElement===els.generate;});"
+  },
+  {
+    "expect": "__guardResults.every(Boolean)&&__routeGuards.every(Boolean)&&__queued.length===0"
+  },
+  {
+    "log": "'Localized keyboards may send / with Shift: the literal slash key still focuses search outside editing.'"
+  },
+  {
+    "eval": "els.generate.focus({preventScroll:true});window.__localizedSlash=__probe(els.generate,'/',{shiftKey:true});"
+  },
+  {
+    "expect": "__localizedSlash.defaultPrevented&&document.activeElement===els.search&&__queued.length===0"
+  },
+  {
+    "eval": "els.thenRefineOpen.click();els.thenRefineClose.focus({preventScroll:true});"
+  },
+  {
+    "key": "/"
+  },
+  {
+    "key": "m"
+  },
+  {
+    "expect": "els.thenRefineDialog.open&&document.activeElement===els.thenRefineClose&&!els.moreSeedsDialog.open&&__queued.length===0"
+  },
+  {
+    "key": "Escape"
+  },
+  {
+    "expect": "__until(()=>!els.thenRefineDialog.open)"
+  },
+  {
+    "log": "'M opens only the focused image batch, even while a different picked batch is hidden by the filter. It cannot silently widen to the picks or queue.'"
+  },
+  {
+    "hover": ".topbar"
+  },
+  {
+    "eval": "(async()=>{clearSelection();setSelectMode(false);toggleSelected(__hiddenRecord);els.search.value='compact ready source';await resetGallery();window.__focusedRecord=galleryRecords[0];__img(0).focus({preventScroll:true});window.__mBefore=__msPreviews.length;for(const flags of [{repeat:true},{prevented:true},{isComposing:true},{ctrlKey:true},{metaKey:true},{altKey:true},{shiftKey:true}])__probe(__img(0),'m',flags);})()"
+  },
+  {
+    "expect": "selectedIds().join()===String(__hiddenRecord.id)&&!galleryRecords.some(r=>r.id===__hiddenRecord.id)&&!els.moreSeedsDialog.open&&__msPreviews.length===__mBefore"
+  },
+  {
+    "key": "m"
+  },
+  {
+    "expect": "__until(()=>els.moreSeedsDialog.open&&msScope?.ids?.join()===String(__focusedRecord.id)&&__msPreviews.at(-1)?.ids?.join()===String(__focusedRecord.id))"
+  },
+  {
+    "expect": "selectedIds().join()===String(__hiddenRecord.id)&&__queued.length===0"
+  },
+  {
+    "key": "Escape"
+  },
+  {
+    "expect": "__until(()=>!els.moreSeedsDialog.open)"
+  },
+  {
+    "expect": "document.activeElement===document.querySelector('#gallery .card[data-id=\"'+__focusedRecord.id+'\"] > img')&&__queued.length===0"
+  },
+  {
+    "eval": "els.pickedBtn.focus({preventScroll:true});"
+  },
+  {
+    "key": "ArrowDown"
+  },
+  {
+    "expect": "!els.pickedMenu.hidden"
+  },
+  {
+    "key": "/"
+  },
+  {
+    "key": "m"
+  },
+  {
+    "expect": "!els.pickedMenu.hidden&&els.pickedMenu.contains(document.activeElement)&&!els.moreSeedsDialog.open&&__queued.length===0"
+  },
+  {
+    "key": "Escape"
+  },
+  {
+    "eval": "window.__resultId=viewerRecords[0].id;document.querySelector('#viewer img[data-id=\"'+__resultId+'\"]').focus({preventScroll:true});"
+  },
+  {
+    "key": "m"
+  },
+  {
+    "expect": "__until(()=>els.moreSeedsDialog.open&&msScope?.ids?.join()===String(__resultId))"
+  },
+  {
+    "expect": "__queued.length===0&&selectedIds().join()===String(__hiddenRecord.id)"
+  },
+  {
+    "eval": "els.moreSeedsCancel.scrollIntoView({block:'center'});"
+  },
+  {
+    "expect": "__until(()=>__targetHit(els.moreSeedsCancel))"
+  },
+  {
+    "click": "#more-seeds-cancel"
+  },
+  {
+    "expect": "__until(()=>!els.moreSeedsDialog.open)"
+  },
+  {
+    "expect": "document.activeElement===document.querySelector('#viewer img[data-id=\"'+__resultId+'\"]')&&__queued.length===0"
+  },
+  {
+    "eval": "(async()=>{els.search.value='job:'+__readyJob;await setSheet(true);sheetCells()[0].querySelector('img').focus({preventScroll:true});window.__sheetId=Number(sheetCells()[0].dataset.id);})()"
+  },
+  {
+    "key": "m"
+  },
+  {
+    "expect": "__until(()=>els.moreSeedsDialog.open&&msScope?.ids?.join()===String(__sheetId))"
+  },
+  {
+    "expect": "__queued.length===0&&selectedIds().join()===String(__hiddenRecord.id)"
+  },
+  {
+    "key": "Escape"
+  },
+  {
+    "expect": "__until(()=>!els.moreSeedsDialog.open)"
+  },
+  {
+    "expect": "document.activeElement===els.sheetGrid.querySelector('.sheet-cell[data-id=\"'+__sheetId+'\"] img')&&__queued.length===0"
+  },
+  {
+    "eval": "(async()=>{await setSheet(false);els.search.value='compact ready source';await resetGallery();openLightbox(galleryRecords[0],galleryRecords);els.lbClose.focus({preventScroll:true});window.__lbMId=lbList[lbIndex].id;})()"
+  },
+  {
+    "key": "m"
+  },
+  {
+    "expect": "__until(()=>els.moreSeedsDialog.open&&els.lightbox.open&&msScope?.ids?.join()===String(__lbMId))"
+  },
+  {
+    "expect": "__queued.length===0&&selectedIds().join()===String(__hiddenRecord.id)"
+  },
+  {
+    "key": "Escape"
+  },
+  {
+    "expect": "__until(()=>!els.moreSeedsDialog.open&&els.lightbox.open)"
+  },
+  {
+    "expect": "document.activeElement===els.lbClose&&__queued.length===0"
+  },
+  {
+    "log": "'390px lightbox M uses the visible focused Close control as its opener and returns focus there; it opens a preview without queuing.'"
+  },
+  {
+    "viewport": [
+      390,
+      844,
+      1
+    ]
+  },
+  {
+    "eval": "els.lbClose.focus({preventScroll:true});"
+  },
+  {
+    "expect": "__targetHit(els.lbClose)&&document.activeElement===els.lbClose"
+  },
+  {
+    "key": "m"
+  },
+  {
+    "expect": "__until(()=>els.moreSeedsDialog.open&&els.lightbox.open&&msScope?.ids?.join()===String(__lbMId))"
+  },
+  {
+    "expect": "__queued.length===0"
+  },
+  {
+    "key": "Escape"
+  },
+  {
+    "expect": "__until(()=>!els.moreSeedsDialog.open&&els.lightbox.open&&document.activeElement===els.lbClose&&__targetHit(els.lbClose))"
+  },
+  {
+    "log": "'The visible image-menu M hint and help inventory match the scoped M and / routes; the narrow lightbox menu action itself must also open More seeds.'"
+  },
+  {
+    "key": "ContextMenu"
+  },
+  {
+    "eval": "window.__menuMore=()=>[...els.contextMenu.querySelectorAll('[role=menuitem]')].find(li=>li.firstElementChild?.textContent.startsWith('More seeds of this batch'));"
+  },
+  {
+    "expect": "!els.contextMenu.hidden&&__menuMore()?.querySelector('kbd')?.textContent==='M'&&__visible(__menuMore().querySelector('kbd'))"
+  },
+  {
+    "key": "?"
+  },
+  {
+    "expect": "els.shortcutsDialog.open&&els.lightbox.open"
+  },
+  {
+    "eval": "window.__helpRows=key=>[...els.shortcutsBody.querySelectorAll('kbd')].filter(k=>k.textContent===key).map(k=>k.closest('dt').nextElementSibling.textContent);"
+  },
+  {
+    "expect": "__helpRows('M').some(text=>/More seeds/i.test(text)&&/queue/i.test(text))&&__helpRows('/').some(text=>/gallery search/i.test(text))&&__queued.length===0"
+  },
+  {
+    "key": "Escape"
+  },
+  {
+    "expect": "__until(()=>!els.shortcutsDialog.open&&els.lightbox.open)"
+  },
+  {
+    "eval": "closeContextMenu(false);els.lbClose.focus({preventScroll:true});"
+  },
+  {
+    "key": "ContextMenu"
+  },
+  {
+    "eval": "window.__narrowMore=__menuMore();if(!__narrowMore)throw Error('More seeds menu action missing');__narrowMore.dataset.smokeCompact='more-seeds';"
+  },
+  {
+    "expect": "__narrowMore.getAttribute('aria-disabled')!=='true'&&__targetHit(__narrowMore)"
+  },
+  {
+    "log": "JSON.stringify({narrowMenuMoreSeeds:{buttonShown:isShown(els.lbMoreSeeds),buttonDisplay:getComputedStyle(els.lbMoreSeeds).display,menuActionVisible:__targetHit(__narrowMore),focused:document.activeElement?.id,previews:__msPreviews.length}})"
+  },
+  {
+    "click": "#context-menu [data-smoke-compact=more-seeds]"
+  },
+  {
+    "expect": "__until(()=>els.moreSeedsDialog.open&&els.lightbox.open&&msScope?.ids?.join()===String(__lbMId))"
+  },
+  {
+    "expect": "__queued.length===0"
+  },
+  {
+    "key": "Escape"
+  },
+  {
+    "expect": "__until(()=>!els.moreSeedsDialog.open&&els.lightbox.open)"
+  },
+  {
+    "viewport": [
+      1400,
+      900,
+      1
+    ]
+  },
+  {
+    "key": "Escape"
+  },
+  {
+    "expect": "__until(()=>!els.lightbox.open)"
+  },
+  {
+    "log": "'Plain click still opens, Ctrl/Cmd toggles and Ctrl/Cmd+Shift adds a range after the new route bindings.'"
+  },
+  {
+    "eval": "clearSelection();setSelectMode(false);window.__clickIds=galleryRecords.map(r=>r.id);__img(0).dispatchEvent(new MouseEvent('click',{button:0,detail:1,bubbles:true,cancelable:true}));"
+  },
+  {
+    "expect": "els.lightbox.open&&selectedIds().length===0"
+  },
+  {
+    "key": "Escape"
+  },
+  {
+    "expect": "__until(()=>!els.lightbox.open)"
+  },
+  {
+    "eval": "__img(0).dispatchEvent(new MouseEvent('click',{button:0,detail:1,bubbles:true,cancelable:true,ctrlKey:true}));__img(1).dispatchEvent(new MouseEvent('click',{button:0,detail:1,bubbles:true,cancelable:true,metaKey:true,shiftKey:true}));"
+  },
+  {
+    "expect": "!els.lightbox.open&&selectedIds().join()===__clickIds.join()&&__queued.length===0"
+  },
+  {
+    "hover": ".topbar"
+  },
+  {
+    "log": "'Reuse reveals actual nonpreset dimensions; choosing a preset while open keeps the disclosure open. A later manual collapse is respected by polls.'"
+  },
+  {
+    "eval": "(async()=>{clearSelection();reuse(__customRecord);await __frames();})()"
+  },
+  {
+    "expect": "__custom().open&&els.width.value==='1008'&&els.height.value==='512'&&__hasSize(1008,512)"
+  },
+  {
+    "eval": "choose('1:1',1);"
+  },
+  {
+    "expect": "__custom().open&&__hasSize(1024,1024)"
+  },
+  {
+    "eval": "__customSummary().focus({preventScroll:true});"
+  },
+  {
+    "key": "Enter",
+    "native": true
+  },
+  {
+    "eval": "__refresh()"
+  },
+  {
+    "expect": "!__custom().open&&__hasSize(1024,1024)&&__queued.length===0"
+  },
+  {
+    "log": "'LoRA setup exposes the active adapter and weight in the summary. Collapse preserves the adapter/weight, and a delayed catalogue restoration still names the pending adapter.'"
+  },
+  {
+    "expect": "__until(()=>[...els.lora.options].some(o=>o.value==='demo-style.safetensors')&&!els.lora.disabled)"
+  },
+  {
+    "eval": "__conditioningSummary().focus({preventScroll:true});"
+  },
+  {
+    "key": "Enter",
+    "native": true
+  },
+  {
+    "eval": "els.lora.value='demo-style.safetensors';els.loraScale.value='0.65';els.lora.dispatchEvent(new Event('change',{bubbles:true}));els.loraScale.dispatchEvent(new Event('input',{bubbles:true}));window.__loraValues=__values();__conditioningSummary().focus({preventScroll:true});"
+  },
+  {
+    "expect": "__conditioning().open&&__conditioningSummary().textContent.includes('demo-style')&&__conditioningSummary().textContent.includes('0.65')"
+  },
+  {
+    "key": "Enter",
+    "native": true
+  },
+  {
+    "eval": "__refresh()"
+  },
+  {
+    "expect": "!__conditioning().open&&__values()===__loraValues&&__conditioningSummary().textContent.includes('demo-style')&&__conditioningSummary().textContent.includes('0.65')"
+  },
+  {
+    "log": "'An incomplete active LoRA weight reveals Conditioning before focus and cannot queue while hidden.'"
+  },
+  {
+    "eval": "__conditioningSummary().focus({preventScroll:true});"
+  },
+  {
+    "key": "Enter",
+    "native": true
+  },
+  {
+    "eval": "els.loraScale.value='';els.loraScale.focus({preventScroll:true});"
+  },
+  {
+    "type": "1e"
+  },
+  {
+    "expect": "els.loraScale.validity.badInput&&els.loraScale.value===''"
+  },
+  {
+    "eval": "__conditioningSummary().focus({preventScroll:true});"
+  },
+  {
+    "key": "Enter",
+    "native": true
+  },
+  {
+    "expect": "!__conditioning().open&&els.loraScale.validity.badInput"
+  },
+  {
+    "eval": "els.generate.focus({preventScroll:true});"
+  },
+  {
+    "keycombo": [
+      "Control",
+      "Enter"
+    ]
+  },
+  {
+    "expect": "__conditioning().open&&document.activeElement===els.loraScale&&els.error.textContent.includes('incomplete number')&&__queued.length===0"
+  },
+  {
+    "eval": "els.loraScale.value='0.65';els.loraScale.dispatchEvent(new Event('input',{bubbles:true}));__conditioningSummary().focus({preventScroll:true});"
+  },
+  {
+    "key": "Enter",
+    "native": true
+  },
+  {
+    "expect": "__until(()=>storedPanel()?.lora==='demo-style.safetensors'&&storedPanel()?.loraScale==='0.65')"
+  },
+  {
+    "eval": "window.__gateLoras=()=>{window.__releaseLoras=null;api=async(route,options)=>{const body=await __trackedApi(route,options);if(route==='/api/loras')await new Promise(resolve=>{window.__releaseLoras=resolve;});return body;};els.lora.replaceChildren(Object.assign(document.createElement('option'),{value:'',text:'none'}));restorePanel();window.__lorasRestoring=refreshLoras();};__gateLoras();"
+  },
+  {
+    "expect": "__until(()=>!!__releaseLoras&&pendingLora==='demo-style.safetensors'&&__conditioningSummary().textContent.includes('demo-style')&&__conditioningSummary().textContent.includes('0.65'))"
+  },
+  {
+    "eval": "(async()=>{__releaseLoras();await __lorasRestoring;api=__trackedApi;})()"
+  },
+  {
+    "expect": "els.lora.value==='demo-style.safetensors'&&els.loraScale.value==='0.65'&&__conditioningSummary().textContent.includes('demo-style')"
+  },
+  {
+    "log": "'Reset while the catalogue is delayed clears the pending adapter permanently; a late successful reply cannot reattach it.'"
+  },
+  {
+    "eval": "__gateLoras();"
+  },
+  {
+    "expect": "__until(()=>!!__releaseLoras&&pendingLora==='demo-style.safetensors')"
+  },
+  {
+    "eval": "els.reset.scrollIntoView({block:'center'});"
+  },
+  {
+    "expect": "__until(()=>__targetHit(els.reset))"
+  },
+  {
+    "click": "#btn-reset"
+  },
+  {
+    "expect": "pendingLora===''&&els.lora.value===''&&__queued.length===0"
+  },
+  {
+    "eval": "(async()=>{__releaseLoras();await __lorasRestoring;api=__trackedApi;})()"
+  },
+  {
+    "expect": "pendingLora===''&&els.lora.value===''&&!__conditioningSummary().textContent.includes('demo-style')&&__queued.length===0"
+  },
+  {
+    "log": "'Undo Reset before the delayed catalogue reply restores the pending adapter and its exact weight, then the reply selects it normally.'"
+  },
+  {
+    "eval": "els.lora.value='demo-style.safetensors';els.loraScale.value='0.35';els.lora.dispatchEvent(new Event('change',{bubbles:true}));els.loraScale.dispatchEvent(new Event('input',{bubbles:true}));"
+  },
+  {
+    "expect": "__until(()=>storedPanel()?.lora==='demo-style.safetensors'&&storedPanel()?.loraScale==='0.35')"
+  },
+  {
+    "eval": "__gateLoras();"
+  },
+  {
+    "expect": "__until(()=>!!__releaseLoras&&pendingLora==='demo-style.safetensors')"
+  },
+  {
+    "eval": "els.reset.scrollIntoView({block:'center'});"
+  },
+  {
+    "expect": "__until(()=>__targetHit(els.reset))"
+  },
+  {
+    "click": "#btn-reset"
+  },
+  {
+    "expect": "pendingLora===''&&els.lora.value===''&&!els.promptNoteUndo.hidden"
+  },
+  {
+    "expect": "__until(()=>__targetHit(els.promptNoteUndo))"
+  },
+  {
+    "click": "#prompt-note-undo"
+  },
+  {
+    "expect": "pendingLora==='demo-style.safetensors'&&els.lora.value===''&&els.loraScale.value==='0.35'&&__conditioningSummary().textContent.includes('demo-style')&&__conditioningSummary().textContent.includes('0.35')"
+  },
+  {
+    "eval": "(async()=>{__releaseLoras();await __lorasRestoring;api=__trackedApi;})()"
+  },
+  {
+    "expect": "pendingLora===''&&els.lora.value==='demo-style.safetensors'&&els.loraScale.value==='0.35'&&__queued.length===0"
+  },
+  {
+    "log": "'Reference activation/reordering keeps its disclosure and focus useful. A capability switch retains the ids and says they are unavailable, then makes them usable again on Klein.'"
+  },
+  {
+    "eval": "(async()=>{els.lora.value='';els.lora.dispatchEvent(new Event('change',{bubbles:true}));await __switch('black-forest-labs/FLUX.2-klein-4B');})()"
+  },
+  {
+    "expect": "referenceSupported"
+  },
+  {
+    "eval": "if(__conditioning().open)__conditioningSummary().click();"
+  },
+  {
+    "expect": "!__conditioning().open"
+  },
+  {
+    "eval": "setReferences(__readyRecords.map(r=>r.id),{reveal:true});"
+  },
+  {
+    "expect": "__conditioning().open&&referenceIds.join()===__readyRecords.map(r=>r.id).join()&&__conditioningSummary().textContent.includes('2')&&els.referenceList.querySelectorAll('.chip').length===2"
+  },
+  {
+    "eval": "els.referenceList.querySelector('.chip button').focus({preventScroll:true});"
+  },
+  {
+    "keycombo": [
+      "Alt",
+      "ArrowRight"
+    ]
+  },
+  {
+    "expect": "referenceIds.join()===__readyRecords.map(r=>r.id).reverse().join()&&document.activeElement===els.referenceList.querySelectorAll('.chip button')[1]&&__conditioning().open"
+  },
+  {
+    "eval": "window.__referenceValues=__values();__conditioningSummary().focus({preventScroll:true});"
+  },
+  {
+    "key": "Enter",
+    "native": true
+  },
+  {
+    "eval": "(async()=>{renderReferences();syncConditioning();await __refresh();})()"
+  },
+  {
+    "expect": "!__conditioning().open&&__values()===__referenceValues&&__conditioningSummary().textContent.includes('2')"
+  },
+  {
+    "eval": "__switch(__originalModel)"
+  },
+  {
+    "expect": "!referenceSupported&&referenceIds.length===2&&collect().reference.length===0&&/retained/i.test(__conditioningSummary().textContent)&&/unavailable.*model/i.test(__conditioningSummary().textContent)"
+  },
+  {
+    "eval": "__switch('black-forest-labs/FLUX.2-klein-4B')"
+  },
+  {
+    "expect": "referenceSupported&&referenceIds.length===2&&collect().reference.join()===referenceIds.join()&&!/unavailable.*model/i.test(__conditioningSummary().textContent)"
+  },
+  {
+    "log": "'M on an actual other-model image respects the existing held reason, opens no dialog and submits nothing.'"
+  },
+  {
+    "eval": "openLightbox(__readyRecords[0],__readyRecords);els.lbClose.focus({preventScroll:true});window.__heldPreviewCount=__msPreviews.length;"
+  },
+  {
+    "expect": "els.lbMoreSeeds.getAttribute('aria-disabled')==='true'"
+  },
+  {
+    "key": "m"
+  },
+  {
+    "expect": "!els.moreSeedsDialog.open&&els.lightbox.open&&__msPreviews.length===__heldPreviewCount&&__queued.length===0&&els.lbError.textContent.length>0"
+  },
+  {
+    "key": "Escape"
+  },
+  {
+    "expect": "__until(()=>!els.lightbox.open)"
+  },
+  {
+    "log": "'M on a locally binned real record says why and cannot preview or queue; restoring it re-enables the focused-image route.'"
+  },
+  {
+    "eval": "(async()=>{setReferences([]);await __switch(__originalModel);await deleteImage(__customRecord);els.search.value='id:'+__customRecord.id;enterBin();})()"
+  },
+  {
+    "expect": "__until(()=>binMode&&!galleryPending&&galleryRecords.some(r=>r.id===__customRecord.id&&r.binned_at))"
+  },
+  {
+    "eval": "window.__binImage=document.querySelector('#gallery .card[data-id=\"'+__customRecord.id+'\"] > img');__binImage.focus({preventScroll:true});window.__binPreviewCount=__msPreviews.length;"
+  },
+  {
+    "key": "m"
+  },
+  {
+    "expect": "!els.moreSeedsDialog.open&&__msPreviews.length===__binPreviewCount&&__queued.length===0&&/recycle bin/i.test(els.galleryError.textContent)"
+  },
+  {
+    "eval": "(async()=>{await restoreImages([__customRecord.id]);leaveBin();els.search.value='id:'+__customRecord.id;await resetGallery();await syncBin();})()"
+  },
+  {
+    "expect": "__until(()=>!binMode&&!galleryPending&&galleryRecords.some(r=>r.id===__customRecord.id&&!r.binned_at))"
+  },
+  {
+    "eval": "window.__restoredImage=document.querySelector('#gallery .card[data-id=\"'+__customRecord.id+'\"] > img');__restoredImage.focus({preventScroll:true});"
+  },
+  {
+    "key": "m"
+  },
+  {
+    "expect": "__until(()=>els.moreSeedsDialog.open&&msScope?.ids?.join()===String(__customRecord.id))"
+  },
+  {
+    "expect": "__queued.length===0"
+  },
+  {
+    "key": "Escape"
+  },
+  {
+    "expect": "__until(()=>!els.moreSeedsDialog.open&&document.activeElement===__restoredImage)"
+  },
+  {
+    "eval": "(async()=>{setReferences([]);await __switch(__originalModel);api=__realApi;})()"
+  },
+  {
+    "expect": "loadedModel===__originalModel&&__queued.length===0&&!busy&&!submitting&&!document.querySelector('dialog[open]')"
+  },
+  {
+    "log": "'End of compact-setup checks; all data/images were synthetic.'"
+  }
+]

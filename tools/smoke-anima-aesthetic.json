@@ -22,7 +22,7 @@
   {"eval": "els.analysisClose.click();"},
   {"expect": "els.promptTip.textContent.includes('Anima Aesthetic') && els.promptTip.textContent.includes('avoiding score_* tags in both the positive and negative prompts') && els.promptTip.textContent.includes('quality tags')"},
   {"eval": "els.examplesBtn.click();"},
-  {"expect": "!els.examplesMenu.hidden && els.examplesMenu.children.length === 1"},
+  {"expect": "!els.examplesMenu.hidden && els.examplesMenu.querySelectorAll('[data-example]').length === 1"},
   {"eval": "els.examplesMenu.children[0].click();"},
   {"expect": "els.prompt.value.startsWith('Digital painting of a fiery dragon') && els.prompt.value.endsWith('molten rock formation. The background is a gradient of dark purple to orange.')"},
   {"expect": "collect().steps === 30 && collect().guidance_scale === 4 && collect().mu === null"},

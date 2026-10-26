@@ -46,6 +46,7 @@ function exportLayout() {
   const fill = sheetFill() && !sheetLayout.wrap;
   return {
     ...sheetLayout, axes: sheetAxesList, words: sheetWords(), search: els.search.value.trim(),
+    sources: new Map(sheetSources),
     shown: fill ? sheetCellWidth() / sheetZoom : 0, dpr: window.devicePixelRatio || 1,
   };
 }
@@ -70,16 +71,16 @@ function exportGrid({ colAxis, colValues, rowValues, wrap, source, words }) {
   if (wrap) {
     const n = colValues.length + (source ? 1 : 0);
     const cols = Math.ceil(Math.sqrt(n));
-    const place = (cellOf) => {
+    const place = (cellOf, sliceSource = source) => {
       const row = colValues.map((v, c) => ({ rec: cellOf.get(c), label: headText(colAxis, v, words) }));
-      if (source) row.unshift({ rec: source, label: `Source #${source.id}` });
+      if (source) row.unshift({ rec: sliceSource, label: sliceSource ? `Source #${sliceSource.id}` : '', isSource: true });
       return row.map((item, i) => ({ ...item, col: i % cols, row: Math.floor(i / cols) }));
     };
     return { cols, rows: Math.ceil(n / cols), lead: 0, place };
   }
   const lead = source ? 1 : 0;
-  const place = (cellOf) => {
-    const items = source ? [{ rec: source, col: 0, row: 0, span: true }] : [];
+  const place = (cellOf, sliceSource = source) => {
+    const items = source ? [{ rec: sliceSource, col: 0, row: 0, span: true, isSource: true }] : [];
     rowValues.forEach((_, r) => colValues.forEach((__, c) => {
       items.push({ rec: cellOf.get(r * colValues.length + c), col: lead + c, row: r });
     }));
@@ -124,7 +125,8 @@ async function buildSheetCanvas(slices = null, { layout = exportLayout(), cellW 
   if (!layout) return null;
   const { colAxis, rowAxis, colValues, rowValues, values, wrap, source, records, aspect, axes, words } = layout;
   const head = (axis, v) => headText(axis, v, words);
-  const blocks = slices ?? [{ pins: layout.pins, cellOf: layout.cellOf }];
+  const blocks = (slices ?? [{ pins: layout.pins, cellOf: layout.cellOf }])
+    .map((block) => ({ source, sourceCrop: layout.sourceCrop, sourceAspect: layout.sourceAspect, ...block }));
   const titled = blocks.length > 1;
   const { cols, rows, lead, place } = exportGrid(layout);
   const cellWidth = cellW ?? exportCellWidth(layout);
@@ -162,10 +164,10 @@ async function buildSheetCanvas(slices = null, { layout = exportLayout(), cellW 
   // variable run's values as declared, since its template is not a prompt any
   // cell ran, what every image shares, and when the run was made: the oldest
   // image's time, not the export's.
-  const placed = blocks.map((block) => place(block.cellOf));
+  const placed = blocks.map((block) => place(block.cellOf, block.source));
   const first = records[0];
   const oldest = first && records.reduce((a, r) => (r.id < a.id ? r : a));
-  const opening = placed.flat().find((item) => item.rec && item.rec !== source)?.rec;
+  const opening = placed.flat().find((item) => item.rec && !item.isSource)?.rec;
   const prompt = values.prompt?.length === 1 ? `Prompt: ${values.prompt[0]}`
     : opening ? `Prompt of the first image: ${opening.prompt}` : '';
   const declared = axes.filter((a) => a.key.startsWith('var:'))
@@ -180,7 +182,7 @@ async function buildSheetCanvas(slices = null, { layout = exportLayout(), cellW 
     ...(prompt ? wrapText(prompt, max, 3) : []),
     ...(declared ? wrapText(declared, max, 2) : []),
     ...(fixed ? wrapText(fixed, max, 2) : []),
-    first ? clipText(`${first.model_id.split('/').pop()} · ${first.width}×${first.height}` +
+    first ? clipText(`${first.model_id.split('/').pop()} · ${[...new Set(records.map((rec) => `${rec.width}×${rec.height}`))].join(", ")}` +
       (first.run_id ? ` · run ${first.run_id}` : '') + ` · ${when(Date.parse(oldest.created_at))}`, max) : '',
   ].filter(Boolean);
   const caption = 12 + lines.length * 20;
@@ -216,7 +218,7 @@ async function buildSheetCanvas(slices = null, { layout = exportLayout(), cellW 
     }
     ctx.fillStyle = '#e8e8ee';
     ctx.textAlign = 'center';
-    if (source && !wrap) ctx.fillText(clipText(`Source #${source.id}`, cellWidth), headW + gap + cellWidth / 2, top + headH / 2);
+    if (block.source && !wrap) ctx.fillText(clipText(`Source #${block.source.id}`, cellWidth), headW + gap + cellWidth / 2, top + headH / 2);
     colValues.forEach((v, c) => {
       if (!colAxis || wrap) return;
       const x = headW + gap + (lead + c) * (cellWidth + gap) + cellWidth / 2;
@@ -248,7 +250,17 @@ async function buildSheetCanvas(slices = null, { layout = exportLayout(), cellW 
         // Contain, as the sheet does: the whole frame, letterboxed if it must be.
         const k = Math.min(cellWidth / img.naturalWidth, cellH / img.naturalHeight);
         const w = img.naturalWidth * k, h = img.naturalHeight * k;
-        ctx.drawImage(img, x + (cellWidth - w) / 2, y + (cellH - h) / 2, w, h);
+        if (item.isSource && block.sourceCrop) {
+          const crop = block.sourceCrop;
+          const cropAspect = block.sourceAspect ?? img.naturalWidth * crop.w / (img.naturalHeight * crop.h);
+          const cropW = Math.min(cellWidth, cellH * cropAspect);
+          const cropH = cropW / cropAspect;
+          ctx.drawImage(img, crop.x * img.naturalWidth, crop.y * img.naturalHeight,
+            crop.w * img.naturalWidth, crop.h * img.naturalHeight,
+            x + (cellWidth - cropW) / 2, y + (cellH - cropH) / 2, cropW, cropH);
+        } else {
+          ctx.drawImage(img, x + (cellWidth - w) / 2, y + (cellH - h) / 2, w, h);
+        }
         if (rec.favorite) {
           ctx.fillStyle = '#fbbf24';
           ctx.textAlign = 'right';
@@ -351,7 +363,7 @@ async function exportSheet() {
 // pins as Export PNG names it, and told apart where two names come out alike.
 // A slice no image is in is left out.
 async function exportAllSheet() {
-  const layout = exportLayout();
+  let layout = exportLayout();
   if (!layout || !layout.pins.length) return;
   const slot = { slot: els.galleryError };
   const axes = layout.pins.map(([axis]) => axis);
@@ -363,8 +375,13 @@ async function exportAllSheet() {
   }
   let combos = [[]];
   for (const axis of axes) combos = combos.flatMap((held) => layout.values[axis.key].map((v) => [...held, [axis, v]]));
-  const slices = combos.map((pins) => ({ pins, cellOf: sliceCells(layout, pins, layout.records).cellOf }))
-    .filter((slice) => slice.cellOf.size);
+  const slices = combos.map((pins) => {
+    const { cellOf } = sliceCells(layout, pins, layout.records);
+    return { pins, cellOf, ...sheetSourceView([...cellOf.values()], layout.sources) };
+  }).filter((slice) => slice.cellOf.size);
+  // Keep the source column aligned across slices, leaving it empty where a
+  // slice has no common crop. Each block draws its own source and rectangle.
+  layout = { ...layout, source: slices.find((slice) => slice.source)?.source ?? null };
   if (slices.length < 2) {
     const [only] = slices;
     const name = sheetFileName(only?.pins ?? layout.pins, false, layout);

@@ -10,6 +10,8 @@ els.generate.onclick = generate;
 els.cancel.onclick = cancelJob;
 els.pause.onclick = togglePause;
 els.cancelQueued.onclick = cancelQueued;
+initQueueControls();
+initSnippets();
 els.notifyDone.onchange = () => { void toggleJobNotifications(); };
 document.addEventListener('visibilitychange', () => syncJobNotifications());
 els.newImage.onclick = goToNewImage;
@@ -21,12 +23,13 @@ els.orientation.onclick = swapOrientation;
 // and End jump; leaving it - Tab, a click elsewhere - closes it, rather than
 // leaving it open over the prompt.
 els.examplesBtn.addEventListener('keydown', (e) => {
-  if (e.key !== 'ArrowDown') return;
+  if (keyboardEventHeld(e) || keyboardCommandModifier(e) || e.shiftKey || e.key !== 'ArrowDown') return;
   e.preventDefault();
   if (els.examplesMenu.hidden) showExamples(true);
   els.examplesMenu.querySelector('[role="menuitem"]')?.focus();
 });
 els.examplesMenu.addEventListener('keydown', (e) => {
+  if (keyboardEventHeld(e) || keyboardCommandModifier(e) || e.shiftKey) return;
   const items = [...els.examplesMenu.querySelectorAll('[role="menuitem"]')];
   const at = items.indexOf(document.activeElement);
   const next = { ArrowDown: at + 1, ArrowUp: at - 1, Home: 0, End: items.length - 1 }[e.key];
@@ -66,7 +69,7 @@ els.compareOwnFill.onclick = compareOwnFromPrompt;
 els.tagValidation.addEventListener('contextmenu', (event) => {
   // Keep the ordinary text-editing menu inside the inline input. Everywhere
   // else in the validation tray, including the flex gaps, is an insert point.
-  if (event.target.closest('.tag-editor')) return;
+  if (event.target.closest('.tag-editor, .prompt-prose')) return;
   event.preventDefault();
   openTagInsert(tagInsertionIndexAtPoint(event.clientX, event.clientY));
 });
@@ -129,7 +132,7 @@ els.prompt.addEventListener('keyup', (event) => {
 // nothing selected, moves on, and must not leave suggestions open behind.
 els.prompt.addEventListener('blur', () => { hideTagSuggestions(); endTagTyping(); });
 els.prompt.addEventListener('keydown', (event) => {
-  if (els.tagSuggestions.hidden || event.ctrlKey || event.metaKey) return;
+  if (els.tagSuggestions.hidden || keyboardEventHeld(event) || keyboardCommandModifier(event) || event.shiftKey) return;
   if (event.key === 'ArrowDown') {
     event.preventDefault();
     selectTagSuggestion(tagSuggestionIndex + 1);
@@ -138,7 +141,7 @@ els.prompt.addEventListener('keydown', (event) => {
     selectTagSuggestion(tagSuggestionIndex - 1);
   } else if ((event.key === 'Enter' || event.key === 'Tab') && tagSuggestionIndex >= 0) {
     event.preventDefault();
-    applyTagSuggestion(tagSuggestions[tagSuggestionIndex]);
+    if (!event.repeat) applyTagSuggestion(tagSuggestions[tagSuggestionIndex]);
   } else if (event.key === 'Escape') {
     event.preventDefault();
     hideTagSuggestions();
@@ -189,14 +192,14 @@ restoreBeside();
 // before the button is. Hidden - no older rows, or the sheet - it never
 // intersects. `loadGallery` serialises a click racing this.
 if (!moreWatcher) armMore();
-els.gridRun.onclick = () => startJob('/api/grid', gridPayload());
+els.gridRun.onclick = runGrid;
 // The preview reflects the panel as much as the axes: a blank axis is the
 // control's own value, and both the size and the batch move the totals.
 // The negative prompt is in the list because a `{name}` placeholder may live
 // there - the server validates it - and Resume because the whole "N already
 // done" half of the preview is what ticking it is for. Repeat (`runs`) moves
 // nothing a grid runs, but the preview says so while it is above one.
-for (const el of [els.gridPrompt, els.gridSteps, els.gridCfg, els.gridMu, els.gridSeeds,
+for (const el of [els.gridPrompt, els.gridPromptMode, els.gridSize, els.gridSteps, els.gridCfg, els.gridMu, els.gridSeeds,
                   els.gridSeedList, els.gridBudget, els.prompt, els.negative, els.steps,
                   els.cfg, els.trueCfg, els.mu, els.batch, els.runs, els.width, els.height,
                   els.seed, els.gridLoraScale, els.loraScale]) {
@@ -284,6 +287,7 @@ els.cfg.oninput = () => { own('cfg'); syncCfg(); };
 // The weight boxes are dead without an adapter, so selecting one has to wake
 // them - and clearing it has to stop a stale axis reaching the server.
 els.lora.onchange = () => { syncConditioning(); schedulePreview(); };
+els.loraScale.addEventListener('input', () => syncConditioningSummary());
 els.trueCfg.oninput = () => { own('trueCfg'); syncCfg(); };
 // The greyed negative box points at the box that wakes it.
 els.negEnable.onclick = focusNegativeKnob;
@@ -497,6 +501,7 @@ for (const el of [els.refineWidth, els.refineHeight, els.refineStrength, els.ref
 }
 els.refineVersions.addEventListener('change', refineChanged);
 els.refineUpscaler.addEventListener('change', refineChanged);
+els.refineCropAnchor.addEventListener('change', refineChanged);
 
 // The Inpaint dialog (inpaint.js) and its mask (inpaint-mask.js). The canvas
 // paints with pointer events, captured for the stroke; its keys are its own
@@ -579,112 +584,118 @@ els.confirmCancel.onclick = () => els.confirmDialog.close('');
 els.confirmDialog.addEventListener('close', askClosed);
 els.confirmDialog.addEventListener('click', askBackdrop);
 els.confirmCount.addEventListener('keydown', (e) => {
-  if (e.key === 'Enter' && !e.isComposing) { e.preventDefault(); els.confirmDialog.close('ok'); }
+  if (e.key === 'Enter' && !keyboardEventHeld(e) && !keyboardCommandModifier(e) && !e.shiftKey) {
+    e.preventDefault();
+    if (!e.repeat) els.confirmDialog.close('ok');
+  }
 });
 
+els.shortcuts.onclick = openShortcuts;
+els.shortcutsClose.onclick = closeShortcuts;
+els.shortcutsDialog.addEventListener('close', shortcutsClosed);
+els.shortcutsDialog.addEventListener('click', shortcutsBackdrop);
+
+// Native buttons also repeat Enter clicks. Discrete actions own one press;
+// navigation, zoom, numeric stepping and the mask's held stroke still repeat.
 document.addEventListener('keydown', (e) => {
-  // Nothing of the page's while a delete asks: Escape there is its Cancel,
-  // which closed the lightbox under it as well, and Ctrl+Enter generated.
-  if (els.confirmDialog.open || els.bundlesDialog.open) return;
-  // An open loader list (quantization, offload, format) draws in the page, so its keys reach
-  // here; they are the list's own (Escape closes only it), as they were when
-  // the native popup kept them from the page.
-  if (modelListOpen()) return;
-  // Not under a dialog: Escape there is the dialog's (Refine, Mass refine,
-  // Swap tags, More seeds), the picker staying open under it.
-  if (e.key === 'Escape' && !e.defaultPrevented && !els.modelPicker.hidden
-      && !els.lightbox.open && !els.refineDialog.open && !els.inpaintDialog.open && !els.outpaintDialog.open
-      && !els.refineBatchDialog.open && !els.swapDialog.open && !els.moreSeedsDialog.open) {
+  if (keyboardEventHeld(e)) return;
+  const activation = e.key === 'Enter' || e.key === ' ';
+  const button = e.target.closest?.('button, summary, [role="button"], [role="menuitem"], input[type="button"], input[type="submit"]');
+  const nativeButton = e.target.closest?.('button, summary, input[type="button"], input[type="submit"]');
+  // Chromium activates a focused button even on Alt+Enter/Shift+Enter. These
+  // are not alternate submit bindings; only the exact primary chord routes.
+  if (activation && nativeButton && (keyboardCommandModifier(e) || e.shiftKey) && !keyboardSubmit(e)) {
     e.preventDefault();
-    showModelPicker(false);
     return;
   }
-  // Ctrl/Cmd+Enter submits whatever the focus is in: inside the Refine dialog
-  // it runs the pass and inside the open grid fold it runs the grid, which is
-  // what their boxes are for - from a grid box Generate would render the
-  // prompt's {placeholders} literally. Anywhere else, the prompt box included,
-  // it generates. Run grid's click, so its handler and guards are the press's.
-  if (e.key === 'Enter' && (e.ctrlKey || e.metaKey)) {
-    // Taken, so the Enter goes nowhere else: the button a closing dialog
-    // hands focus back to - the card's ⤢ - read it as a press of its own.
+  if (!e.repeat) return;
+  const repeatControl = e.target.closest?.('#lb-prev, #lb-next, #lb-fit, #lb-one, #lb-cfg-lower, #lb-cfg-higher, #lb-steps-lower, #lb-steps-higher, .sheet-zoom button');
+  if (activation && button && !repeatControl && !keyboardCommandModifier(e) && !e.shiftKey) {
     e.preventDefault();
-    if (els.refineDialog.open) void runRefine();
-    else if (els.inpaintDialog.open) void runInpaint();
-    else if (els.outpaintDialog.open) void runOutpaint();
-    else if (els.refineBatchDialog.open) void runRefineBatch();
-    else if (els.swapDialog.open) void queueSwap();
-    else if (els.moreSeedsDialog.open) void runMoreSeeds();
-    else if (els.gridSection.open && e.target.closest?.('#grid-section')) els.gridRun.click();
+  }
+  if (e.key === 'Escape' && !keyboardCommandModifier(e) && !e.shiftKey) e.preventDefault();
+}, true);
+
+document.addEventListener('keydown', (e) => {
+  if (keyboardEventHeld(e)) return;
+  shortcutKey(e);
+  if (e.defaultPrevented) return;
+
+  // The event's modal owns its commands. An unknown settings dialog blocks
+  // background actions too; adding another dialog cannot opt into Generate.
+  const dialog = e.target.closest?.('dialog[open]');
+  const modal = dialog || document.querySelector('dialog[open]');
+  if (els.shortcutsDialog.open || els.snippetsDialog.open) {
+    if (keyboardSubmit(e)) e.preventDefault();
+    return;
+  }
+  if (modelListOpen()) return;
+  const inMenu = e.target.closest?.('[role="menu"], [role="listbox"]');
+  if (keyboardSubmit(e)) {
+    e.preventDefault();
+    if (e.repeat || inMenu || e.target.closest?.('.tag-editor')
+        || (!dialog && e.target.closest?.('[role="dialog"], #model-picker'))) return;
+    if (modal) {
+      if (dialog === els.refineDialog) void runRefine();
+      else if (dialog === els.inpaintDialog) void runInpaint();
+      else if (dialog === els.outpaintDialog) void runOutpaint();
+      else if (dialog === els.refineBatchDialog) void runRefineBatch();
+      else if (dialog === els.swapDialog) void queueSwap();
+      else if (dialog === els.moreSeedsDialog) void runMoreSeeds();
+    } else if (els.gridSection.open && e.target.closest?.('#grid-section')) els.gridRun.click();
     else generate();
     return;
   }
-  // The lightbox's Escape before the menus': it is modal over a menu left
-  // open under it - the Tags helper stays open when focus leaves it by
-  // keyboard - and the menu's branch took the key, so the dialog's own
-  // cancel closed the lightbox without dismissLightbox, focus going back to
-  // the image it was opened on rather than the one the walk ended on. The
-  // menu stays open under the page, as it was before the lightbox came up.
-  // More seeds opens over the lightbox, which stays (more-seeds.js): its
-  // keys are the dialog's own, Escape its Cancel, until it closes.
-  if (els.lightbox.open && els.moreSeedsDialog.open) return;
-  if (e.key === 'Escape' && !e.defaultPrevented && els.lightbox.open) { dismissLightbox(); return; }
-  // An Escape the prompt's suggestion list or a chip's editor took closes that
-  // alone: the helper stays open under the box while its list comes and goes.
-  if (e.key === 'Escape' && !e.defaultPrevented && !els.examplesMenu.hidden) { showExamples(false); return; }
-  if (e.key === 'Escape' && !e.defaultPrevented && !els.tagsMenu.hidden) { showTagHelper(false); return; }
-  if (e.key === 'Escape' && !e.defaultPrevented && !els.tagFinderMenu.hidden) { showTagFinder(false); return; }
-  // Then the prompt check, as its Close does - not under a dialog, whose
-  // Escape is its own (the lightbox's below), nor in the middle of a
-  // composition, nor in a search box with text, which Escape empties.
-  if (e.key === 'Escape' && !e.defaultPrevented && !e.isComposing && !els.promptAnalysis.hidden
-      && !els.lightbox.open && !els.refineDialog.open && !els.inpaintDialog.open && !els.outpaintDialog.open
-      && !els.refineBatchDialog.open && !els.swapDialog.open && !els.moreSeedsDialog.open
-      && !(e.target.matches?.('input[type="search"]') && e.target.value)) {
-    escapeAnalysis();
-    return;
+  // Native Escape cancels the top dialog; only the lightbox has a custom
+  // close path so that browsing returns focus to the image actually reached.
+  if (modal && dialog !== els.lightbox) return;
+  const plainEscape = e.key === 'Escape' && !keyboardCommandModifier(e) && !e.shiftKey && !e.repeat;
+  if (plainEscape && els.lightbox.open) { dismissLightbox(); return; }
+  if (!modal && plainEscape) {
+    if (!els.modelPicker.hidden) { e.preventDefault(); showModelPicker(false); return; }
+    if (!els.examplesMenu.hidden) { showExamples(false); return; }
+    if (!els.tagsMenu.hidden) { showTagHelper(false); return; }
+    if (!els.tagFinderMenu.hidden) { showTagFinder(false); return; }
+    if (!els.promptAnalysis.hidden && !(e.target.matches?.('input[type="search"]') && e.target.value)) {
+      escapeAnalysis();
+      return;
+    }
   }
-  if (!els.lightbox.open) return;
-  // A key the lightbox's own control took - the swipe divider's arrows.
-  if (e.defaultPrevented) return;
-  // Arrows walk whichever strip the lightbox was opened from. Nothing else on
-  // the page reads them while it is up, so the caret keys are free to take.
-  // Comparing a pass, they swap to another pass of the same source where the
-  // strip has one (`stepPass`), comparing across CFG or steps they step
-  // along it where the strip has another value (`stepLadder`), the comparison
-  // kept, and
-  // Shift+arrows move a swipe's divider (`nudgeSplit`); otherwise they walk,
-  // as ever. On Against they are the select's own: a closed select changes on
-  // ← → as on ↑ ↓ on Windows, and taking them had walked to another image
-  // under the focus.
+  // Two small routes, scoped to the current work. A literal slash may need
+  // Shift on a localized keyboard; M is an unshifted image command.
+  const popup = e.target.closest?.('[role="dialog"], #model-picker')
+    || (!modal && !els.modelPicker.hidden)
+    || (!els.examplesMenu.hidden && e.target.closest?.('#examples'))
+    || (!els.pickedMenu.hidden && e.target.closest?.('#picked'));
+  if (!e.repeat && !inMenu && !popup && !keyboardEditingTarget(e.target) && !keyboardCommandModifier(e)) {
+    if (e.key === '/' && !modal) { e.preventDefault(); focusGallerySearch(); return; }
+    if (!e.shiftKey && e.key.toLowerCase() === 'm' && openMoreSeedsFromKey(e.target)) {
+      e.preventDefault();
+      return;
+    }
+  }
+  if (!els.lightbox.open || inMenu || keyboardEditingTarget(e.target) || keyboardCommandModifier(e)) return;
+  // Shift+arrows belongs to an active swipe. Alt/Ctrl/Meta arrows keep their
+  // browser/OS meaning, and fields/selects retain all of their editing keys.
   if (e.key === 'ArrowLeft' || e.key === 'ArrowRight') {
-    if (e.target.tagName === 'SELECT') return;
     e.preventDefault();
     const delta = e.key === 'ArrowLeft' ? -1 : 1;
     if (e.shiftKey ? nudgeSplit(delta) : stepPicked(delta) || stepPass(delta) || stepLadder(delta)) return;
     void stepLightbox(delta);
     return;
   }
-  // F, R, S, Delete and the zoom keys act on the image in view - unless a text
-  // field still holds the caret, where they are typing, or a modifier makes
-  // them the browser's: Ctrl+F is find, Ctrl+plus the page's zoom.
-  if (e.target.matches('input, textarea') || e.ctrlKey || e.metaKey || e.altKey) return;
-  // F does what the Star button's press does, and says so where focus is not
-  // on that button (setFavorite's `say`): its state alone changed.
-  if (e.key === 'f' || e.key === 'F') { const rec = lbList[lbIndex]; if (rec) void setFavorite(rec, !rec.favorite, { say: true }); }
-  else if (e.key === 'r' || e.key === 'R') {
-    // Refine focuses Strength during this keydown: without taking the key,
-    // the browser would type its R into that newly focused box.
+  const key = e.key.toLowerCase();
+  if (['f', 'r', 's', 'delete'].includes(key)) {
+    if (e.shiftKey || e.repeat) return;
     e.preventDefault();
-    els.lbRefine.click();
-  }
-  else if (e.key === 's' || e.key === 'S') void toggleCompare();
-  // Not a held key's repeats: the delete asks nothing now (it moves the
-  // image to the recycle bin), and Del held down would bin a run of images.
-  else if (e.key === 'Delete' && !e.repeat) els.lbDelete.click();
-  else if (e.key === '+' || e.key === '=') { e.preventDefault(); zoomLightbox(ZOOM_STEP); }
+    if (key === 'f') { const rec = lbList[lbIndex]; if (rec) void setFavorite(rec, !rec.favorite, { say: true }); }
+    else if (key === 'r') els.lbRefine.click();
+    else if (key === 's') void toggleCompare();
+    else els.lbDelete.click();
+  } else if (e.key === '+' || e.key === '=') { e.preventDefault(); zoomLightbox(ZOOM_STEP); }
   else if (e.key === '-' || e.key === '_') { e.preventDefault(); zoomLightbox(1 / ZOOM_STEP); }
-  else if (e.key === '0') zoomFit();
-  else if (e.key === '1') zoomOneToOne();
+  else if (!e.shiftKey && e.key === '0') { e.preventDefault(); zoomFit(); }
+  else if (!e.shiftKey && e.key === '1') { e.preventDefault(); zoomOneToOne(); }
 });
 
 // A file dragged over the page is a PNG whose settings fill the panel

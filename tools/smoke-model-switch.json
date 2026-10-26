@@ -137,7 +137,7 @@
     "expect": "__star(__anime).getAttribute('aria-pressed') === 'true' && __star(__anime).textContent === '★' && __star(__anime).getAttribute('aria-label') === __starName && __star(__anime).title.includes('favourite') && modelFavourites.has(__anime) && __order() === __rowOrder && !__groups().length && !__row(__anime).querySelector('.model-title .sr-only') && modelChoice() === __anime && els.modelOffload.value === 'sequential' && els.modelLoadOnStartup.checked && (modelPickerEditedKeys.size > 0) && els.modelSwitch.getBoundingClientRect().top === __actionsY && document.activeElement === __star(__anime) && __rows().filter((r) => r.querySelector('.model-star').getAttribute('aria-pressed') === 'true').length === 1"
   },
   {
-    "keycombo": ["", "Enter"]
+    "key": "Enter", "native": true
   },
   {
     "expect": "__star(__anime).getAttribute('aria-pressed') === 'false' && __star(__anime).textContent === '☆' && __star(__anime).getAttribute('aria-label') === __starName && !modelFavourites.has(__anime) && __order() === __rowOrder && modelChoice() === __anime && els.modelOffload.value === 'sequential' && els.modelSwitch.getBoundingClientRect().top === __actionsY"

@@ -16,7 +16,9 @@
 //                                code, so a focused <select> moves as on a real press, and
 //                                an Enter its code and text, so a form submits and a button
 //                                is pressed)
+//                                "repeat": true sends a held key's native repeated keydown
 //   {"keycombo": ["Control", "Enter"]}   press a key with a modifier held
+//   {"keycombo": ["Control", "Shift", "Enter"]}   several unique modifiers, then the key
 //   {"type": "text"}             type text into the focused element
 //   {"wheel": [x, y, deltaY]}    scroll the wheel at a point
 //   {"wheel": ["selector", deltaY]}   the same at the middle of that element's box
@@ -79,6 +81,23 @@ if (OFFSET) {
   text = text.replace(/\b(127\.0\.0\.1|localhost):(\d{2,5})\b/g, (_, host, port) => `${host}:${Number(port) + OFFSET}`);
 }
 const steps = JSON.parse(text);
+const KEY_MODIFIERS = { Alt: 1, Control: 2, Meta: 4, Shift: 8 };
+const invalidCombos = steps.flatMap((step, index) => {
+  if (!Object.hasOwn(step, 'keycombo')) return [];
+  const combo = step.keycombo;
+  if (!Array.isArray(combo) || combo.length < 2
+      || typeof combo.at(-1) !== 'string' || !combo.at(-1).length) {
+    return [`step ${index + 1}: keycombo needs modifiers followed by a key`];
+  }
+  const modifiers = combo.slice(0, -1);
+  return modifiers.some((modifier) => typeof modifier !== 'string' || !Object.hasOwn(KEY_MODIFIERS, modifier))
+      || new Set(modifiers).size !== modifiers.length
+    ? [`step ${index + 1}: keycombo modifiers must be known and unique`] : [];
+});
+if (invalidCombos.length) {
+  console.error(invalidCombos.join('\n'));
+  process.exit(2);
+}
 
 // An expect that joins an async helper's call to more with && or || never
 // waits: the promise is truthy, so the rest is evaluated at once, and only a
@@ -296,6 +315,9 @@ const COMBO_KEYS = {
   // Ctrl+A must also exercise the browser's native text selection, so a
   // smoke can prove an application shortcut leaves text fields alone.
   a: { code: 'KeyA', windowsVirtualKeyCode: 65 }, A: { code: 'KeyA', windowsVirtualKeyCode: 65 },
+  // Native Undo needs its physical key code too; a key name alone only
+  // exercises application handlers, leaving a textarea's history untouched.
+  z: { code: 'KeyZ', windowsVirtualKeyCode: 90 }, Z: { code: 'KeyZ', windowsVirtualKeyCode: 90 },
 };
 // The codes a {"key", "native": true} step adds, so the focused control's
 // own default action runs as on a real press (a closed <select>'s arrows).
@@ -320,17 +342,31 @@ for (const [n, step] of steps.entries()) {
   } else if (step.key) {
     const text = step.key.length === 1 ? step.key : undefined;
     const code = step.key === 'Escape' ? ESCAPE : step.native ? (NATIVE_KEYS[step.key] ?? {}) : {};
-    await send('Input.dispatchKeyEvent', { type: 'keyDown', key: step.key, text, ...code });
+    await send('Input.dispatchKeyEvent', {
+      type: 'keyDown', key: step.key, text, ...code, ...(step.repeat === true ? { autoRepeat: true } : {}),
+    });
     await send('Input.dispatchKeyEvent', { type: 'keyUp', key: step.key, ...code });
     await sleep(100);
   } else if (step.keycombo) {
-    const [mod, key] = step.keycombo;
-    const bit = { Alt: 1, Control: 2, Meta: 4, Shift: 8 }[mod] || 0;
+    const mods = step.keycombo.slice(0, -1);
+    const key = step.keycombo.at(-1);
     const code = COMBO_KEYS[key] ?? {};
-    await send('Input.dispatchKeyEvent', { type: 'rawKeyDown', key: mod, modifiers: bit });
-    await send('Input.dispatchKeyEvent', { type: 'keyDown', key, modifiers: bit, ...code });
-    await send('Input.dispatchKeyEvent', { type: 'keyUp', key, modifiers: bit, ...code, text: undefined });
-    await send('Input.dispatchKeyEvent', { type: 'keyUp', key: mod, modifiers: 0 });
+    const held = [];
+    let modifiers = 0;
+    try {
+      for (const mod of mods) {
+        modifiers |= KEY_MODIFIERS[mod];
+        held.push(mod);
+        await send('Input.dispatchKeyEvent', { type: 'rawKeyDown', key: mod, modifiers });
+      }
+      await send('Input.dispatchKeyEvent', { type: 'keyDown', key, modifiers, ...code });
+      await send('Input.dispatchKeyEvent', { type: 'keyUp', key, modifiers, ...code, text: undefined });
+    } finally {
+      for (const mod of held.reverse()) {
+        modifiers &= ~KEY_MODIFIERS[mod];
+        await send('Input.dispatchKeyEvent', { type: 'keyUp', key: mod, modifiers });
+      }
+    }
     await sleep(100);
   } else if (step.type) {
     await send('Input.insertText', { text: step.type });

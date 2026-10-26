@@ -11,6 +11,7 @@ either place:
 - `schemas_gallery` - records, runs, the recycle bin
 - `schemas_rerun` - Re-render, Swap tags, Mass refine, More seeds
 - `schemas_model` - the model status poll, the prompting guide, the switch
+- `schemas_snippets` - personal prompt snippets
 
 `settings` here is a separate binding of `config.settings`, kept for
 readers: patching it changes nothing at run time. A test that changes the
@@ -20,6 +21,7 @@ running checkpoint through `settings` patches `schemas_generate`, whose
 from __future__ import annotations
 
 from .config import settings
+from .schemas_snippets import Snippet, SnippetCollection, SnippetFields, SnippetUpdate
 from .schemas_generate import (
     MAX_REFERENCES,
     default_strength,
@@ -63,6 +65,7 @@ from .schemas_prompt import (
     TagValidationRequest,
     TagValidationItem,
     TagSlot,
+    PromptPart,
     TagValidationResponse,
 )
 from .schemas_gallery import (
@@ -158,6 +161,7 @@ __all__ = [
     "TagValidationRequest",
     "TagValidationItem",
     "TagSlot",
+    "PromptPart",
     "TagValidationResponse",
     "ImageRecord",
     "RunSummary",
@@ -203,4 +207,8 @@ __all__ = [
     "ExpanderStatus",
     "ModelSwitchRequest",
     "ModelStatus",
+    "Snippet",
+    "SnippetCollection",
+    "SnippetFields",
+    "SnippetUpdate",
 ]

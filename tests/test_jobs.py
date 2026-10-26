@@ -6,10 +6,166 @@ import threading
 import pytest
 import time
 
-from backend.jobs import JobManager, short_error
+from backend.jobs import Job, JobManager, short_error
 from backend.schemas import GenerateRequest
 
 from tests.fakes import FakeBackend
+
+
+async def _until_queue(predicate):
+    deadline = time.monotonic() + 3
+    while not predicate():
+        assert time.monotonic() < deadline, "queue did not reach the expected state"
+        await asyncio.sleep(0.005)
+
+
+def test_move_front_overrides_a_job_already_waiting_on_the_gate(store):
+    async def scenario():
+        fake = FakeBackend()
+        manager = JobManager(fake)
+        await manager._gate.acquire()
+        manager._holder = "critic"
+        jobs = [await manager.submit(GenerateRequest(prompt=name, width=256, height=256, steps=1))
+                for name in ("first", "second", "third")]
+        await _until_queue(lambda: len(manager._at_gate) == 3)
+        manager.move_front(jobs[2].id)
+        manager.move_front(jobs[2].id)  # idempotent
+        assert manager.active() == [jobs[2], jobs[0], jobs[1]]
+        manager.cancel(jobs[0].id)
+        assert jobs[0].status == "cancelled"
+        manager._holder = None
+        manager._gate.release()
+        await _until_queue(lambda: not manager.active())
+        assert [request.prompt for request in fake.requests] == ["third", "second"]
+        assert all(job.done_sent for job in jobs)
+        await manager.shutdown()
+
+    asyncio.run(scenario())
+
+
+def test_a_later_completed_load_does_not_overtake_the_admission_head(store):
+    async def scenario():
+        first_load = asyncio.Event()
+        calls = 0
+
+        async def load():
+            nonlocal calls
+            calls += 1
+            if calls == 1:
+                await first_load.wait()
+
+        fake = FakeBackend()
+        manager = JobManager(fake, load)
+        first = await manager.submit(GenerateRequest(prompt="first", width=256, height=256, steps=1))
+        await _until_queue(lambda: calls == 1)
+        second = await manager.submit(GenerateRequest(prompt="second", width=256, height=256, steps=1))
+        await _until_queue(lambda: second.id in manager._at_gate)
+        assert not fake.requests and not manager._gate.locked()
+        first_load.set()
+        await _until_queue(lambda: not manager.active())
+        assert [request.prompt for request in fake.requests] == ["first", "second"]
+        assert first.status == second.status == "done"
+        await manager.shutdown()
+
+    asyncio.run(scenario())
+
+
+def test_skip_tokens_are_idempotent_and_cannot_name_a_following_call():
+    async def scenario():
+        manager = JobManager(FakeBackend())
+        job = Job("token-test", GenerateRequest(prompt="x"), status="running")
+        manager._jobs[job.id] = job
+        call = job.begin_call()
+        manager.skip(job.id, call)
+        manager.skip(job.id, call)
+        assert job.snapshot()["skip_requested"]
+        job.end_call(call, clear_skip=True)
+        next_call = job.begin_call()
+        with pytest.raises(ValueError, match="already finished"):
+            manager.skip(job.id, call)
+        assert not job.skips_call(next_call)
+        job.end_call(next_call, clear_skip=True)
+        job.status = "done"
+        await manager.shutdown()
+
+    asyncio.run(scenario())
+
+
+def test_saving_publishes_a_held_skip_before_the_image_is_written(store, monkeypatch):
+    entered, release = threading.Event(), threading.Event()
+    save_image = store.save_image
+
+    def held_save(*args, **kwargs):
+        entered.set()
+        assert release.wait(3), "save was never released"
+        return save_image(*args, **kwargs)
+
+    monkeypatch.setattr(store, "save_image", held_save)
+
+    async def scenario():
+        manager = JobManager(FakeBackend())
+        job = await manager.submit(GenerateRequest(prompt="x", width=256, height=256, steps=2))
+        events = asyncio.Queue()
+        job.subscribers.append(events)
+        try:
+            await _until_queue(entered.is_set)
+            await asyncio.sleep(0)  # deliver the worker's compact status frames
+            statuses = []
+            while not events.empty():
+                event = events.get_nowait()
+                if event["type"] == "status":
+                    statuses.append(event)
+            active = next(event for event in statuses if event["current_call"] is not None)
+            saving = statuses[-1]
+            assert saving["status"] == "running" and saving["current_call"] is None
+            assert saving["skip_reason"] == "No cell is running between calls"
+            assert "images" not in saving and "skipped_cells" not in saving
+            with pytest.raises(ValueError, match="already finished"):
+                manager.skip(job.id, active["current_call"])
+        finally:
+            release.set()
+            await _until_queue(lambda: not manager.active())
+            await manager.shutdown()
+        assert job.status == "done" and len(job.images) == 1 and not job.skipped_indices
+
+    asyncio.run(scenario())
+
+
+@pytest.mark.parametrize("cancel_first", [False, True])
+def test_cancel_wins_over_a_skip_of_the_same_call(store, monkeypatch, cancel_first):
+    entered, release = threading.Event(), threading.Event()
+    fake = FakeBackend()
+    generate = fake.generate
+
+    def held_generate(*args, **kwargs):
+        entered.set()
+        assert release.wait(3), "generation was never released"
+        return generate(*args, **kwargs)
+
+    monkeypatch.setattr(fake, "generate", held_generate)
+
+    async def scenario():
+        manager = JobManager(fake)
+        job = await manager.submit(GenerateRequest(prompt="x", width=256, height=256, steps=2))
+        try:
+            await _until_queue(entered.is_set)
+            call = job.snapshot()["current_call"]
+            assert call is not None
+            if cancel_first:
+                manager.cancel(job.id)
+                with pytest.raises(ValueError, match="stopping"):
+                    manager.skip(job.id, call)
+            else:
+                manager.skip(job.id, call)
+                manager.cancel(job.id)
+        finally:
+            release.set()
+            await _until_queue(lambda: not manager.active())
+            await manager.shutdown()
+        assert job.status == "cancelled"
+        assert not job.images and not job.skipped_indices and not job.failed_indices
+
+    asyncio.run(scenario())
 
 
 def test_a_cancelled_queued_job_is_not_rewritten_when_its_load_fails(store):

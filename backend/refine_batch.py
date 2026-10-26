@@ -117,6 +117,7 @@ def plan(
         # A new pass has no opt-in GAN choice; the source record may have
         # used one to prepare its own, different source.
         "upscaler": None,
+        "crop_anchor": "center",
     }
     if foreign:
         changes.update(
