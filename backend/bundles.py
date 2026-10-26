@@ -15,12 +15,14 @@ import time
 import uuid
 import zipfile
 from concurrent.futures import ThreadPoolExecutor
+from collections.abc import Callable
+from contextlib import AbstractContextManager, nullcontext
 from datetime import datetime, timezone
 from pathlib import Path, PurePosixPath
 
 from PIL import Image
 
-from . import backup_receipts, bundle_capacity, bundle_crypto, bundle_images, gallery_lock, storage
+from . import backup_receipts, bundle_capacity, bundle_crypto, bundle_images, bundle_leases, gallery_lock, storage
 from .bundle_archive import _DATABASE, _FORMAT, _MANIFEST, _READ_AHEAD_MAX, _check_space, _verify_archive
 from .bundle_common import (
     _CHUNK,
@@ -70,12 +72,16 @@ def list_bundles() -> list[dict]:
     for p in directory.iterdir():
         if p.suffix.lower() not in _SUFFIXES or not p.is_file() or _is_link(p):
             continue
-        try:
-            encrypted = bundle_crypto.is_encrypted(p)
-        except OSError:
-            continue
-        found.append({"name": p.name, "bytes": p.stat().st_size, "created_at": p.stat().st_mtime,
-                      "encrypted": encrypted})
+        # Acquisition and release remain outside the availability catch: an
+        # installed-mode/native failure must not silently hide an archive.
+        with bundle_leases.reading(p) as read_owner:
+            try:
+                encrypted = bundle_crypto._is_encrypted(p, read_owner)
+                info = p.stat()
+            except OSError:
+                continue
+            found.append({"name": p.name, "bytes": info.st_size, "created_at": info.st_mtime,
+                          "encrypted": encrypted})
     return sorted(found, key=lambda b: b["name"], reverse=True)
 
 
@@ -790,8 +796,21 @@ def export_bundle(expected: int | None = None, password: str | None = None, prog
 
 
 def import_bundle(path: Path, password: str | None = None, progress: Progress = _quiet) -> dict:
+    """Consume a published archive under one lease through staging and merge."""
+    return _import_bundle(path, password, progress, lambda: bundle_leases.reading(path))
+
+
+def _import_uploaded_bundle(path: Path, password: str | None = None, progress: Progress = _quiet) -> dict:
+    """Only the API worker's owned unpublished upload; never infer by suffix."""
+    return _import_bundle(path, password, progress, nullcontext)
+
+
+def _import_bundle(path: Path, password: str | None, progress: Progress,
+                   read_scope: Callable[[], AbstractContextManager[bundle_leases.ArchiveRead | None]]) -> dict:
     settings = _settings()
-    with gallery_lock.hold(settings.db_path):
+    # Every path reserves the destination first. Only published inputs acquire
+    # a source reader; private uploads have no shared archive to protect.
+    with gallery_lock.hold(settings.db_path), read_scope() as read_owner:
         storage.settle_partials()
         _inventory()  # A partial write or linked destination is not an import target.
         settings.db_path.parent.mkdir(parents=True, exist_ok=True)
@@ -869,7 +888,7 @@ def import_bundle(path: Path, password: str | None = None, progress: Progress = 
             live = settings.db_path.stat().st_size if settings.db_path.exists() else 0
             manifest, source_rows, inspected = _verify_archive(
                 Path(path), work, password=password, inspect=inspect, extract=extract,
-                merge=(Path(merging), live), progress=progress)
+                merge=(Path(merging), live), progress=progress, read_owner=read_owner)
             assert source_rows is not None  # A destination makes the verifier read the staged database.
             stage_db = Path(merging) / "merged.sqlite3"
             _backup(settings.db_path, stage_db)

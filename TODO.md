@@ -10,7 +10,7 @@ The maintainer's working backlog for this personal project: it records what is p
 
 **Ready backlog (updated 2026-10-26):** five `OPEN` rows, with implementation stages in their owners. Marian's token boundary, portable screenshots, the classic-script guard and the complete pinned type gate are built and checked. The four feature plans are written. `DEV#4`'s diagnostic stage is built; its Linux browser qualification awaits WSL service access. [Tooling results](docs/plan-tooling.md).
 
-**Feature stages next:** `PERF#1` ([compilation](docs/plan-regional-compilation.md)), then `GAL#6` ([backups](docs/plan-automatic-backups.md)), `PERF#3` ([attention](docs/plan-attention-backends.md)) and `PERF#4` ([caching](docs/plan-step-caching.md)). Execution admission/carry, backend ownership and inactive performance helpers are built; performance runtime wiring remains. Default-off plaintext startup backups, configuration/status UI and explicit Windows shared-download mode are built; all-consumer lease integration, retention and OS protection remain. Source implementation can continue independently of activation/card decisions. `PERF#2` still waits on `PERF#1`; these CPU stages need no layout trial or RAM-loader card check.
+**Feature stages next:** `PERF#1` ([compilation](docs/plan-regional-compilation.md)), then `GAL#6` ([backups](docs/plan-automatic-backups.md)), `PERF#3` ([attention](docs/plan-attention-backends.md)) and `PERF#4` ([caching](docs/plan-step-caching.md)). Execution admission/carry, backend ownership and inactive performance helpers are built; performance runtime wiring remains. Default-off plaintext startup backups, configuration/status UI and explicit Windows shared mode and published-consumer leases are built; handle-bound retention and OS protection remain. Source implementation can continue independently of activation/card decisions. `PERF#2` still waits on `PERF#1`; these CPU stages need no layout trial or RAM-loader card check.
 
 **Needs Matt:** workbench task trials (`DEV#1`) and hands-on accessibility/desktop checks (`UI#7`). Four decisions remain: SDXL weighting (`GEN#20`), whether to plan instruction editing (`INP#11`) or a detailer (`INP#12`), and whether to withhold critic rewrites that lose user content (`PA#11`). Whole-app layout implementation waits for its trials; it remains a design hypothesis.
 
@@ -88,7 +88,7 @@ Matt's approved [shortcut and compact-setup stages](docs/plan-shortcut-workflow.
 
 | id | status | sev | size | item |
 |---|---|---|---|---|
-| `GAL#6` | OPEN | LOW | L | Implement managed retention and protect all archive readers; OS-backed protection remains unsettled. Default-off plaintext startup backups, explicit Windows shared-mode installation and mode-aware downloads are built. No deletion or credential provider is enabled. [Plan](docs/plan-automatic-backups.md). |
+| `GAL#6` | OPEN | LOW | L | Implement handle-bound managed retention; OS-backed protection remains unsettled. Default-off plaintext startup backups, explicit Windows shared-mode installation and leases for published archive consumers are built. No deletion or credential provider is enabled. [Plan](docs/plan-automatic-backups.md). |
 
 ## Prompt analyser
 

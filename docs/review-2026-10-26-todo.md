@@ -152,8 +152,10 @@ provider and recovery design; it cannot fall back to plaintext.
 The explicit default-off GAL#6 startup/configuration/status slice was then
 implemented and checked on scratch galleries, as recorded in the backup plan.
 Explicit Windows shared-mode installation and mode-aware downloads were then
-implemented and checked on an owned NTFS process cohort. All-consumer lease
-integration, managed retention and OS-backed protection remain. No real gallery
+implemented and checked on an owned NTFS process cohort. Published archive
+imports, listings, public encrypted helpers and receipt hashing then joined the
+same protocol, including original-key quarantine for uncertain input closes.
+Handle-bound managed retention and OS-backed protection remain. No real gallery
 or destination was activated and no automatic deletion was added.
 
 The next bounded PERF#1 slice also landed in source: actual eager-load publication

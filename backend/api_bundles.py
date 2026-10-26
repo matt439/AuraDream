@@ -405,7 +405,10 @@ def create_router(get_manager: Callable[[], BundleManager], services: AppService
             # one is too late: the page then reports what the status says.
             if await request.is_disconnected():
                 raise ClientDisconnect()
-            return manager.start(lambda: bundles.import_bundle(path, password, manager.report), cleanup=path)
+            # This worker owns the newly received private partial through its
+            # cleanup. It is not a published archive, even if staging happens
+            # to share a destination with installed shared mode.
+            return manager.start(lambda: bundles._import_uploaded_bundle(path, password, manager.report), cleanup=path)
         except BaseException as exc:
             # The browser's Cancel, a reload or a closed tab ends the body
             # early (ClientDisconnect); shutdown cancels the request.

@@ -26,7 +26,10 @@ import io
 import os
 import struct
 import unicodedata
+from contextlib import ExitStack
 from pathlib import Path
+
+from . import bundle_leases
 
 from cryptography.exceptions import InvalidTag
 from cryptography.hazmat.primitives.ciphers.aead import AESGCM
@@ -76,7 +79,14 @@ def _nonce(prefix: bytes, index: int) -> bytes:
 
 
 def is_encrypted(path: Path) -> bool:
-    with Path(path).open("rb") as stream:
+    """Read a published archive's header under one mode-aware reader claim."""
+    with bundle_leases.reading(path) as read_owner:
+        return _is_encrypted(path, read_owner)
+
+
+def _is_encrypted(path: Path, read_owner: bundle_leases.ArchiveRead | None = None) -> bool:
+    """Borrowed/owned input primitive; caller already owns its read lifetime."""
+    with bundle_leases._open_input(path, read_owner) as stream:
         return stream.read(len(MAGIC)) == MAGIC
 
 
@@ -180,7 +190,10 @@ class EncryptingWriter(io.RawIOBase):
         super().close()
 
 
-class DecryptingReader(io.RawIOBase):
+_failed_readers: list[io.RawIOBase] = []
+
+
+class _DecryptingReader(io.RawIOBase):
     """Seekable plaintext view of an encrypted bundle; each chunk is authenticated before use.
 
     `derived` is the (header, key) an `EncryptingWriter` just used: export's
@@ -189,8 +202,13 @@ class DecryptingReader(io.RawIOBase):
     the header's digest is in every chunk's associated data.
     """
 
-    def __init__(self, path: Path, password: str, *, derived: tuple[bytes, bytes] | None = None):
+    def __init__(self, path: Path, password: str, *, derived: tuple[bytes, bytes] | None = None,
+                 read_owner: bundle_leases.ArchiveRead | None = None):
         super().__init__()
+        self._close_failure: BaseException | None = None
+        self._reader_owner = read_owner
+        if read_owner is not None:
+            read_owner.require(path)
         self._file = Path(path).open("rb")
         try:
             header = self._file.read(HEADER_SIZE)
@@ -216,9 +234,31 @@ class DecryptingReader(io.RawIOBase):
             final = self._block(self._count - 1)
             self._size = (self._count - 1) * chunk + len(final)
             self._position = 0
-        except BaseException:
-            self._file.close()
+        except BaseException as error:
+            try:
+                self._file.close()
+            except BaseException as cleanup:
+                if not self._file.closed:
+                    self._retain_failure(cleanup)
+                error.add_note(f"Closing the encrypted archive also failed: {cleanup}")
             raise
+
+    def _retain_failure(self, error: BaseException) -> None:
+        # A failed close must not make a live handle look unleased or invite
+        # an implicit destructor retry. Retain ownership until process exit.
+        self._close_failure = error
+        _failed_readers.append(self)
+        if self._reader_owner is not None:
+            self._reader_owner.retain(error)
+
+    def __exit__(self, _kind: object, error: BaseException | None, _traceback: object) -> None:
+        try:
+            self.close()
+        except BaseException as cleanup:
+            if error is None:
+                raise
+            error.add_note(f"Closing the encrypted archive also failed: {cleanup} "
+                           + " ".join(getattr(cleanup, "__notes__", ())))
 
     def _block(self, index: int) -> bytes:
         if self._cache and self._cache[0] == index:
@@ -280,7 +320,45 @@ class DecryptingReader(io.RawIOBase):
         return done
 
     def close(self) -> None:
+        if getattr(self, "_close_failure", None) is not None:
+            raise RuntimeError("The earlier encrypted-archive close failed; restart before reusing this reader.") from self._close_failure
         if not self.closed:
-            self._file.close()
+            source = getattr(self, "_file", None)
+            if source is not None:
+                try:
+                    source.close()
+                except BaseException as error:
+                    if not source.closed:
+                        self._retain_failure(error)
+                    raise
             self._cache = None
         super().close()
+
+
+class DecryptingReader(_DecryptingReader):
+    """Public encrypted-file reader: one claim from open through final close.
+
+    Private verification uses the unleased primitive above under its outer
+    import claim, or for an exporter-owned unpublished partial.
+    """
+
+    def __init__(self, path: Path, password: str, *, derived: tuple[bytes, bytes] | None = None):
+        self._reader_scope = ExitStack()
+        read_owner = self._reader_scope.enter_context(bundle_leases.reading(path))
+        try:
+            super().__init__(path, password, derived=derived, read_owner=read_owner)
+        except BaseException as error:
+            if getattr(self, "_close_failure", None) is None:
+                self._reader_scope.__exit__(type(error), error, error.__traceback__)
+            raise
+
+    def close(self) -> None:
+        scope = getattr(self, "_reader_scope", None)
+        try:
+            super().close()
+        except BaseException as error:
+            if scope is not None and getattr(self, "_close_failure", None) is None:
+                scope.__exit__(type(error), error, error.__traceback__)
+            raise
+        if scope is not None:
+            scope.close()

@@ -318,6 +318,23 @@ def matches_current(receipt: Receipt, directory: Path) -> bool:
     A later coordinator must still hold admission/reservation and account for
     download leases. A true result is a snapshot, not deletion authorization.
     """
+    # Keep lease errors outside the False-return catch. Otherwise a broken
+    # installed mode could masquerade as a missing copy and trigger an export.
+    from .bundle_leases import reading
+
+    # Reject the wrong scope before creating any companion in an unrelated
+    # installed destination. The leased check below repeats these cheap facts.
+    try:
+        if directory.is_symlink() or directory.is_junction() or not directory.is_dir() or directory.resolve() != Path(receipt.directory):
+            return False
+    except (OSError, ValueError, TypeError):
+        return False
+    with reading(directory / receipt.name) as read_owner:
+        return _matches_current(receipt, directory, read_owner)
+
+
+def _matches_current(receipt: Receipt, directory: Path, read_owner=None) -> bool:
+    """Unleased fact check, not an exclusive/handle-bound mutation authority."""
     try:
         if directory.is_symlink() or directory.is_junction() or not directory.is_dir():
             return False
@@ -327,7 +344,9 @@ def matches_current(receipt: Receipt, directory: Path) -> bool:
         if FileStamp.of(path.lstat()) != receipt.stamp:
             return False
         digest = hashlib.sha256()
-        with path.open("rb") as stream:
+        from .bundle_leases import _open_input
+
+        with _open_input(path, read_owner) as stream:
             opened = FileStamp.of(os.fstat(stream.fileno()))
             if not opened.same_file(receipt.stamp):
                 return False

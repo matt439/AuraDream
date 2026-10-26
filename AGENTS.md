@@ -96,8 +96,8 @@ Backend (`backend/`):
   `api_backup.py` explicit backup configuration and cached status routes,
   with models in `schemas_backup.py`;
   `gallery_lock.py` reservations across storage threads and processes
-- `bundle_leases.py` per-process archive reader/exclusive leases and complete
-  download-response lifetime, with opt-in shared companion locks in
+- `bundle_leases.py` archive reader/exclusive leases, complete download/import
+  lifetimes and uncertain-input quarantine, with opt-in shared companion locks in
   `bundle_file_lock.py`; `bundle_mode.py` explicit Windows/NTFS mode installation
   and destination discovery; `bundle_capacity.py` managed-export logical-byte budgets
 - `jobs.py` single-worker queue and SSE; `storage.py` SQLite + PNGs;

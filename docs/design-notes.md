@@ -4533,8 +4533,19 @@ response cannot start with an earlier process-only choice. Uninstalled destinati
 keep non-writing downloads; installed errors remain errors. The read-only check
 can inspect uncertain outcomes without repeating installation. These Windows
 scratch-cohort results do not qualify old/noncooperating processes, Linux or network
-filesystems. Archive imports and every other reader must join the protocol before
-retention is connected, and deleting archives requires separate explicit consent.
+filesystems. Deleting archives requires separate explicit consent and a validated
+handle-bound mutation path.
+
+**Published archive readers (2026-10-26, `GAL#6`).** Imports now reserve the
+destination gallery before acquiring one source reader, and retain that reader
+through staging, merge and rollback. Listing, public encrypted helpers and receipt
+hashing share the protocol, with native failures outside availability catches.
+The verifier borrows an explicit read-owner capability; owned upload/export
+partials use private seams without nested claims or a suffix-based exemption.
+If a file close leaves liveness uncertain, the original acquired claim and file
+object remain held until restart, independent of later name retargeting. Body
+errors retain cleanup notes. This closes the cooperating-consumer gap without
+adding a full read, key derivation or deletion caller.
 
 **Password scope and the clear's safety step (2026-10-26, `UI#14`/`UI#15`).**
 The browser review reproduced a scope mismatch: a password under Import a

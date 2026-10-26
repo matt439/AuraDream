@@ -10,7 +10,7 @@ from __future__ import annotations
 
 import os
 import threading
-from contextlib import contextmanager
+from contextlib import AbstractContextManager, contextmanager
 from dataclasses import dataclass, field
 from pathlib import Path
 
@@ -215,6 +215,83 @@ class ModeAwareRegistry(LeaseRegistry):
 
 
 downloads = ModeAwareRegistry()
+
+
+class ArchiveRead(AbstractContextManager["ArchiveRead"]):
+    """One explicit read owner, including quarantined borrowed-file failures."""
+
+    def __init__(self, path: Path):
+        self.path = Path(path)
+        self._lease: Lease | None = None
+        self._retained: BaseException | None = None
+
+    def __enter__(self) -> ArchiveRead:
+        if self._lease is not None:
+            raise RuntimeError("This archive read owner has already been entered.")
+        self._lease = downloads.reader(self.path)
+        self._lease.__enter__()
+        return self
+
+    def require(self, path: Path) -> None:
+        lease = self._lease
+        if (lease is None or lease._released
+                or os.path.normcase(str(Path(path).resolve())) != lease._key):
+            raise RuntimeError("The borrowed archive reader does not own this input.")
+
+    def retain(self, error: BaseException) -> None:
+        # Quarantine the already acquired key. A failed close is precisely
+        # when pathname resolution may have changed or become unavailable.
+        if self._lease is None or self._lease._released:
+            raise RuntimeError("The archive read owner is no longer active.")
+        if self._retained is None:
+            self._retained = error
+            _retained_reads.append(self)
+
+    def __exit__(self, kind: object, error: BaseException | None, traceback: object) -> None:
+        if self._retained is not None:
+            if error is None:
+                raise RuntimeError("An archive file close failed; its reader claim is retained until restart.") from self._retained
+            error.add_note("The archive reader claim remains held after an uncertain file close; restart before reusing this input.")
+            return
+        assert self._lease is not None
+        self._lease.__exit__(kind, error, traceback)
+
+
+_retained_reads: list[ArchiveRead] = []
+_failed_inputs: list[object] = []
+
+
+@contextmanager
+def reading(path: Path):
+    """Defer acquisition until entry, preserving gallery-before-archive order."""
+    with ArchiveRead(path) as owner:
+        yield owner
+
+
+@contextmanager
+def _open_input(path: Path, read_owner: ArchiveRead | None = None):
+    """Private file primitive: borrowed reader or an explicitly owned input."""
+    if read_owner is not None:
+        read_owner.require(path)
+    source = Path(path).open("rb")
+    body_error: BaseException | None = None
+    try:
+        yield source
+    except BaseException as error:
+        body_error = error
+        raise
+    finally:
+        try:
+            source.close()
+        except BaseException as cleanup:
+            if not source.closed:
+                _failed_inputs.append(source)
+                if read_owner is not None:
+                    read_owner.retain(cleanup)
+            if body_error is None:
+                raise
+            body_error.add_note(f"Closing archive input also failed: {path}: {cleanup} "
+                                + " ".join(getattr(cleanup, "__notes__", ())))
 
 
 class LeasedFileResponse(FileResponse):

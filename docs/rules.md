@@ -1811,8 +1811,19 @@ Jobs:
   retain non-writing defaults; observed loss, replacement, named-path retarget,
   invalid/foreign data or native errors fail before archive headers/bytes. Never
   overwrite/adopt a bad marker or silently fall back. `--check` is read-only
-  outcome inspection and makes no quiescence claim. Imports/other consumers and
-  handle-bound mutation remain prerequisites to future retention; v2 N is inert.
+  outcome inspection and makes no quiescence claim. Handle-bound mutation remains
+  a prerequisite to future retention; v2 N is inert.
+- Published archive imports take the destination gallery reservation before one
+  source reader, held through verification, staging, merge and rollback. Listing,
+  public encrypted readers/header checks and receipt hashing join the same
+  mode-aware protocol. Keep native acquisition/release outside availability
+  catches; wrong receipt scopes refuse before companion creation. Private owned
+  uploads/export partials use explicit private seams, never a suffix-based or
+  ambient bypass. Forward the read-owner capability rather than nesting claims.
+  If an input close may leave a live file, retain its object and original reader
+  claim until restart, without resolving a possibly retargeted name or retrying
+  close. Preserve body failures with cleanup notes. No extra full archive pass
+  or key derivation is introduced, and no retention deletion is connected.
 - Bundles and the recycle bin: export carries every row, binned ones
   included (`preview()`'s `records` stays all rows, for the typed
   confirmation, and `binned` says how many are in the bin; the export
@@ -5333,6 +5344,13 @@ checks use owned Windows scratch processes, never unknown server inventory.
 `tools/install_bundle_mode.py` is the explicit offline installation entry point;
 other-server quiescence is operator-attested, not machine-verified. Neither the
 marker nor the tool enables retention or turns a v2 saved N into deletion consent.
+
+`tests/test_bundle_consumers_leases.py` covers public encrypted-reader/header
+lifetime, saved-import reservation order and complete merge lifetime, listings,
+receipt hashes, wrong scopes and separate private upload/export partials. Owned
+Windows child processes exercise native exclusion across databases; injected
+uncertain file closes preserve primary failures and the original reader claim
+even after pathname retargeting. These are scratch tests, not retention acceptance.
 
 `smoke-execution-reuse.json` uses a fresh FLUX.1 Krea [dev] fake on 7926.
 Browser fixtures add execution recipes to a synthetic eager record, checking

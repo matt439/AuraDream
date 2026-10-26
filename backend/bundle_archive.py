@@ -19,7 +19,7 @@ from concurrent.futures import ThreadPoolExecutor
 from contextlib import contextmanager
 from pathlib import Path, PurePosixPath
 
-from . import backup_receipts, bundle_crypto, reindex
+from . import backup_receipts, bundle_crypto, bundle_leases, reindex
 from .bundle_common import _CHUNK, _WORKERS, MASK_HASH, BundleError, Progress, _basename, _mask_rows, _quiet, _rows
 from .bundle_images import _inspect_mask, _inspect_source
 
@@ -115,19 +115,22 @@ class _Pool:
 
 
 @contextmanager
-def _open_archive(path: Path, password: str | None, derived: tuple[bytes, bytes] | None = None):
+def _open_archive(path: Path, password: str | None, derived: tuple[bytes, bytes] | None = None,
+                  read_owner: bundle_leases.ArchiveRead | None = None):
+    # Private callers own either a published-source reader (import) or this
+    # unpublished partial (export). Do not add nested/.part companion claims.
     try:
-        encrypted = bundle_crypto.is_encrypted(path)
+        encrypted = bundle_crypto._is_encrypted(path, read_owner)
     except OSError as exc:
         raise BundleError(f"cannot read the bundle: {exc}") from exc
     if not encrypted:
-        with zipfile.ZipFile(path) as archive:
+        with bundle_leases._open_input(path, read_owner) as source, zipfile.ZipFile(source) as archive:
             yield archive
         return
     if not password:
         raise BundleError("this bundle is password-protected; enter its password")
     # Plaintext exists only in memory: every chunk is authenticated as read.
-    with (bundle_crypto.DecryptingReader(path, password, derived=derived) as reader,
+    with (bundle_crypto._DecryptingReader(path, password, derived=derived, read_owner=read_owner) as reader,
           zipfile.ZipFile(reader) as archive):
         yield archive
 
@@ -139,6 +142,7 @@ def _verify_archive(path: Path, destination: Path | None = None, *, password: st
                     derived: tuple[bytes, bytes] | None = None,
                     masks: dict[str, dict] | None = None,
                     managed: backup_receipts.ManagedIdentity | None = None,
+                    read_owner: bundle_leases.ArchiveRead | None = None,
                     progress: Progress = _quiet) -> tuple[dict, list[dict] | None, dict]:
     """Read every member once, verifying ZIP CRC, the manifest SHA-256 and, for
     a password-protected bundle, every chunk's tag.
@@ -156,7 +160,7 @@ def _verify_archive(path: Path, destination: Path | None = None, *, password: st
     member's inspection result, the masks' included.
     """
     try:
-        with _open_archive(path, password, derived) as archive, _Pool() as pool, _Stager() as stager:
+        with _open_archive(path, password, derived, read_owner) as archive, _Pool() as pool, _Stager() as stager:
             infos = archive.infolist()
             names = [info.filename for info in infos]
             if len(names) != len(set(n.casefold() for n in names)):

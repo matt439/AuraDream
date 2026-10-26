@@ -4,7 +4,7 @@
 configuration/status UI and owned preload/shutdown sequencing are implemented.
 Managed receipts, capacity budgets, explicit Windows shared-mode installation
 and mode-aware downloads are built;
-`GAL#6` remains open for all-consumer lease integration, retention and an OS-backed
+`GAL#6` remains open for handle-bound retention and an OS-backed
 protection option.** This expands
 [R8](review-2026-10-25.md#r8-automatic-whole-gallery-backup). Tests export and
 restore scratch galleries only; no real gallery or credential store was touched.
@@ -174,12 +174,47 @@ analyzed **122 production/tool sources with zero errors/warnings**, and reposito
 Ruff passes. The verification job was reconciled after a transport disconnect;
 the same owned process completed successfully and no duplicate run was started.
 
-This is not retention readiness. Saved imports and other archive readers must
-join the shared protocol before mutation is connected, across databases using
-one destination. Future Windows deletion must bind to the validated archive
+This is not retention readiness. Future Windows deletion must bind to the validated archive
 handle, recheck ownership/digest/destination and require new deletion consent.
 The v2 count explicitly described as not enforced remains inert. Linux/fork,
 network/removable filesystems and mixed old/noncooperating servers are unqualified.
+
+## Shared leases for published archive consumers
+
+Saved imports now acquire their destination gallery reservation first, then one
+mode-aware source reader held through verification, staging, merge and rollback.
+This also protects imports between databases sharing an archive destination.
+Listing holds one reader through header inspection and metadata reads; public
+encrypted header/decryption helpers and managed-receipt raw hashing hold the same
+protocol. Native acquisition/release failures remain outside availability catches
+and cannot become a hidden row, false receipt result or unlocked fallback.
+An unrelated receipt scope is rejected before creating any destination companion.
+
+The import passes an explicit read-owner capability to private verification/file
+primitives rather than reacquiring a nested lease. API-owned unpublished uploads
+and export read-back use separate private entry points: a filename suffix never
+grants an exemption. The ordinary one verifying read and key-derivation behavior
+are retained, and owned partials create no lease companions.
+
+File-close failures preserve the original body exception with cleanup notes. If
+the file may still be live, its original reader claim and file object are retained
+until process restart, including initialization failures and borrowed plain or
+encrypted imports. Quarantine uses the already acquired key, independent of later
+path retargeting. There is no implicit retry of an uncertain close. This exclusion
+is deliberately conservative and is not proof that a future deletion succeeded.
+
+The focused consumer/bundle integration passed **137 tests**. Regressions exercise
+actual owned Windows child-process exclusion during cross-database merge, plain
+and encrypted imports, public helper lifetime, installed-mode errors, wrong-scope
+receipts and uncertain closes with path retargeting. Injected failures are labelled;
+no actual native denial, real-gallery operation or retention deletion was used.
+Narrow pinned types and Ruff pass; independent review covers resource ownership.
+
+The complete offline regression gate then passed **4,995 tests, eight platform
+skips and 75 existing warnings** in **224.41 seconds** with two workers. All
+**122 production/tool sources** pass the pinned type gate with zero errors or
+warnings, and repository Ruff passes. Both independent reviews accepted the
+final resource-ownership changes. No deletion caller was enabled.
 
 ## Activation, age and saved state
 
