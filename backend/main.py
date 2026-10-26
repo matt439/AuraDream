@@ -32,7 +32,7 @@ from .backends import get_backend  # noqa: E402
 from .detached import detached as _detached  # noqa: E402
 from .model_selection import current_model_id, current_settings  # noqa: E402
 from .model_info import cache_revision as model_cache_revision, details_for, invalidate_cache_facts  # noqa: E402
-from .config import settings  # noqa: E402
+from .config import ATTENTION_ENVIRONMENT_WARNING, settings  # noqa: E402
 from .critic import CriticError, prompt_critic  # noqa: E402
 from .jobs import JobManager, LoadFailed, MaskGone, OutpaintStampFailed, RunPersistenceFailed, short_error  # noqa: E402
 from .launch import CHECKPOINTS  # noqa: E402
@@ -495,6 +495,7 @@ async def status() -> ModelStatus:
         format=model_selection.format_for(settings),
         load_on_startup=_load_on_startup(),
         startup_overrides=_startup_overrides,
+        attention_environment_warning=ATTENTION_ENVIRONMENT_WARNING,
         switch_error=_switch_error,
         detail=_load_state["detail"],
         # Only beside the detail they describe: every other update of the

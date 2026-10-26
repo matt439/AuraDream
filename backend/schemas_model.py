@@ -168,6 +168,8 @@ class ModelStatus(BaseModel):
     # "--defaults", "--menu" - so the page can say a saved choice will not
     # apply to a start like this one. Empty when imported rather than launched.
     startup_overrides: dict[str, str] = {}
+    # Snapshot before Diffusers imports, never the external variable's value.
+    attention_environment_warning: str | None = None
     # Why the last switch stopped before selecting its checkpoint, with the
     # running one still selected and loaded as it was; not a load failure.
     switch_error: str | None = None

@@ -1,6 +1,7 @@
 """Runtime settings, overridable by environment variables."""
 from __future__ import annotations
 
+import logging
 import os
 from dataclasses import dataclass
 from pathlib import Path
@@ -20,6 +21,17 @@ from .sizes import (
     refine_largest_pixels,
     refine_largest_side,
 )
+
+# Diffusers 0.40 snapshots os.getenv(name, "native") verbatim at import:
+# absence uses native, but an explicitly empty value is not that default.
+# Observe before its import without interpreting, clearing or accepting it.
+ATTENTION_ENVIRONMENT_WARNING: str | None = (
+    "DIFFUSERS_ATTN_BACKEND differs from Diffusers' native default. "
+    "This external setting is not recorded as a Local Diffusion execution recipe."
+    if os.getenv("DIFFUSERS_ATTN_BACKEND", "native") != "native" else None
+)
+if ATTENTION_ENVIRONMENT_WARNING is not None:
+    logging.getLogger(__name__).warning("%s", ATTENTION_ENVIRONMENT_WARNING)
 
 ROOT = Path(__file__).resolve().parent.parent
 

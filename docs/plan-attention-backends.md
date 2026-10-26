@@ -1,7 +1,8 @@
 # Plan: native and cuDNN attention on FLUX.1
 
-**Status, 2026-10-26: shared carry and inactive processor-isolation helpers
-are implemented.** Runtime/environment wiring and separately approved card
+**Status, 2026-10-26: shared carry, inactive processor-isolation helpers and
+cold external-override diagnostics are implemented.** Runtime/loader policy
+wiring and separately approved card
 qualification remain `PERF#3`. This is the
 bounded next slice from [R3](review-2026-10-25.md#r3-attention-backend).
 No package installation, model load, tensor allocation or GPU operation
@@ -49,6 +50,39 @@ skips**, in **204.93 seconds** with two workers. This includes the new
 regional helper and managed-backup proof/journal stages. The pinned checker
 reports **111 sources, zero errors/warnings**; repository Ruff passed.
 No model load, render, Linux/hosted run or card qualification follows.
+
+## Cold external-override diagnostics
+
+`config.ATTENTION_ENVIRONMENT_WARNING` snapshots the installed Diffusers
+verbatim `os.getenv("DIFFUSERS_ATTN_BACKEND", "native")` contract before
+framework imports. Missing or exact `native` values are silent; empty,
+case-changed, whitespace and other values receive one fixed warning through
+the common config logger. The typed optional
+`ModelStatus.attention_environment_warning` carries the same snapshot.
+Neither channel echoes the arbitrary environment value. Server and generation
+CLI selection flags remain unchanged; no frontend edit is included.
+
+The warning observes an existing external setting. It does not clear or
+rewrite it, choose override precedence/accepted backends, infer an effective
+execution recipe, change admission or qualify the requested backend. Status
+does not reread the environment after framework initialization.
+
+All 90 focused cold-diagnostic, status, launch, saved-preference and runtime
+settings checks pass. New subprocess checks forbid Torch/Diffusers imports,
+compare the installed source without importing it, cover empty/absent/exact
+native and hostile long values, and prove unchanged environment/selection
+and bounded fixed output. Ruff passes and narrow pinned Pyright reports zero
+errors/warnings across the three affected production modules. Runtime and
+card gates remain unchanged.
+Independent source review accepted the snapshot, safe output, CLI ordering
+and status wiring without further findings.
+
+The final combined offline CPU gate passed **4,732 tests, eight skips and 75
+existing warnings** in **221.50 seconds** with two workers. The pinned whole-source
+gate checked **116 files with zero errors/warnings**, and repository Ruff passed.
+No checkpoint load, generation, Linux/hosted qualification or card acceptance
+follows. The earlier compiler-fixture native CUDA initialization and corrected
+guarded trial remain recorded in the [compilation owner](plan-regional-compilation.md#installed-cpu-compiler-policy-probe).
 
 ## First comparison and capability matrix
 

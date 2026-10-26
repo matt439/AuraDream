@@ -908,6 +908,13 @@ Reproduction:
   later replacement/backend changes, and restore releases owned references
   only after restoration succeeds. Callers must retain the handle, configure
   only while idle and discard failed candidates. None changes nothing.
+- `config.ATTENTION_ENVIRONMENT_WARNING` snapshots the external
+  `DIFFUSERS_ATTN_BACKEND` before framework imports, matching the installed
+  verbatim default of `native`. Missing/exact-native values are silent;
+  every other value, including empty, gets a fixed bounded config log and
+  `ModelStatus.attention_environment_warning`. Never echo or mutate its value,
+  reread it from status, infer an effective recipe or change admission. This
+  diagnostic chooses no app/environment precedence or acceptance policy.
 - Inactive FBC ownership validates exact eager FLUX block identities, order,
   counts and output metadata. One retained owner covers the shared denoiser;
   each call installs fresh fixed-threshold hooks, resets state/context before

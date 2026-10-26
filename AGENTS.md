@@ -49,7 +49,8 @@ in `local-diffusion.settings.json`; explicit environment/flags override them.
 
 Backend (`backend/`):
 
-- `config.py` settings (`LOCAL_DIFFUSION_*`); `launch.py` start-up menu,
+- `config.py` settings (`LOCAL_DIFFUSION_*`) and cold external-attention warning;
+  `launch.py` start-up menu,
   `--model/--quant/--offload`, the checkpoint catalogue;
   `loader_choices.py` the quantization/offload wording the menu and picker share
 - `model_selection.py` current server checkpoint/loading options/revision,
