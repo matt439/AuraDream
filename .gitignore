@@ -1,4 +1,6 @@
 .venv/
+# Local test fixtures, static-checker installations and diagnostic receipts.
+/work/
 __pycache__/
 *.pyc
 outputs/

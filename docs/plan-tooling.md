@@ -146,12 +146,29 @@ row; hosted execution remains unverified until it has run.
 
 ## Backend type checking
 
-`DEV#6` · OPEN · LOW · L. Begin with the bounded baseline stage.
+`DEV#6` · OPEN · LOW · L. The baseline stage is complete; fix bounded
+batches before enabling its gate.
 
 **Evidence.** `backend/` uses annotations across schemas, applied requests
-and storage records. `pyproject.toml`'s dev group and CI contain no type
-checker, and there is no Pyright configuration. The number and nature of
-initial findings are unknown; the audit did not install or run Pyright.
+and storage records. The 2026-10-26 audit did not install or run Pyright.
+Stage 1 was implemented later that day: `pyrightconfig.json` selects basic
+mode, Python 3.13, all platform branches and the local `.venv`, over every
+Python source in `backend/` and `tools/`, with no diagnostic overrides or
+module exclusions. Pinned Pyright 1.1.407 checked 104 files in 10.4 seconds:
+334 errors in 52 files, zero warnings. The
+[baseline report](typecheck-baseline-2026-10-26.md) records the command,
+environment, complete per-rule/per-module counts, third-party interface
+gaps and eight bounded investigation batches. No app import, model load
+or GPU run was used. The checker is not yet in the dev group or CI;
+`DEV#6` remains open for stages 2 and 3.
+
+**Batch 1 (2026-10-26).** Benchmark keyword/format contracts are checked
+without changing retained timing values or selection behavior. All nine
+benchmark diagnostics are gone; the full scope now has 325 errors in 104
+files, zero warnings. The 21 existing benchmark tests and focused ruff
+pass, and independent review found no blocking issue. No suppressions or
+module exclusions were added. The baseline report preserves the initial
+counts and records later batches separately.
 
 **Stages.**
 

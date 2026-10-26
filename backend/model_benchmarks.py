@@ -7,6 +7,7 @@ from __future__ import annotations
 
 import sys
 from dataclasses import dataclass
+from typing import TypedDict
 
 from .launch import CHECKPOINTS, FORMATS
 from .model_defaults import defaults_for
@@ -46,7 +47,14 @@ _BUSY_CPU = (
     "timing."
 )
 _BUSY = {"caveat": _BUSY_CPU, "basis": "First run, busy PC", "warm": False}
-_NVFP4 = {"quantization": "nunchaku", "platform": "linux", "format": "nvfp4", "size": "1 MP"}
+class _NunchakuSetup(TypedDict):
+    quantization: str
+    platform: str
+    format: str
+    size: str
+
+
+_NVFP4: _NunchakuSetup = {"quantization": "nunchaku", "platform": "linux", "format": "nvfp4", "size": "1 MP"}
 
 # The table's approximately 1 MP direct renders, at the model's normal step
 # count. Keep WAI's actual 1.38 MP portrait visible. Krea dev's old 8-step
@@ -211,6 +219,7 @@ def speed_for(
 def _timed_with(sample: Sample, quantization: str, fmt: str | None, offload: str) -> str:
     """Name, in plain words, what the reference sample ran with that differs."""
     if sample.quantization == "nunchaku":
+        assert sample.format is not None, "a Nunchaku timing must name its format"
         quant = (
             "" if quantization == "nunchaku" and sample.format == fmt
             else sample.format.upper() if quantization == "nunchaku"

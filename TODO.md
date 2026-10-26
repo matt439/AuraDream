@@ -116,7 +116,7 @@ Matt's approved [shortcut and compact-setup stages](docs/plan-shortcut-workflow.
 | id | status | sev | size | item |
 |---|---|---|---|---|
 | `DEV#4` | OPEN | LOW | L | Retain collectable smoke diagnostics, then qualify a separate Linux Chrome CI job; the job follows `DEV#7`'s portable output. [Stages](docs/plan-tooling.md#browser-smokes-in-ci). |
-| `DEV#6` | OPEN | LOW | L | Establish Pyright basic's baseline over `backend/` and `tools/`, fix bounded batches, then gate CI; no blanket suppressions. [Stages](docs/plan-tooling.md#backend-type-checking). |
+| `DEV#6` | OPEN | LOW | L | Fix the remaining 325 Pyright basic errors over `backend/` and `tools/` in bounded batches, then gate CI; the baseline and benchmark batch are complete, with no suppressions. [Stages](docs/plan-tooling.md#backend-type-checking). |
 
 ## Review coverage
 
