@@ -751,7 +751,14 @@
     </div>
     <!-- Outside the strip on purpose: the strip is capped and cleared per job,
          and a note inside it would be the first thing the cap removed. -->
-    <p class="hint" id="viewer-note"></p>
+    <div class="hint" id="viewer-note">
+      <div class="result-seeds" id="viewer-seeds" hidden>
+        <button type="button" class="ghost small" id="viewer-more-seeds" aria-haspopup="dialog"
+                aria-describedby="viewer-more-seeds-target">More seeds</button>
+        <span id="viewer-more-seeds-target"></span>
+      </div>
+      <span id="viewer-note-text"></span>
+    </div>
     <!-- This page's earlier results, beside a single image from 2000 px:
          outside the strip, whose records and images are the newest job's. -->
     <aside class="recent" id="recent" aria-labelledby="recent-head" hidden>
@@ -1638,24 +1645,31 @@
   </header>
   <div class="ms-controls">
     <div class="field ms-count">
-      <i><label for="more-seeds-count">More of each batch</label></i>
+      <i><label for="more-seeds-count" id="more-seeds-count-label">Additional images</label></i>
       <!-- Text, as Mass refine's boxes: a number box reports what it cannot
            parse as blank, and the page refuses it in words instead. -->
       <input type="text" id="more-seeds-count" autocomplete="off" inputmode="numeric"
-             title="How many more images each batch gets. ↑ and ↓ step it">
+             title="How many additional images to make. ↑ and ↓ step it">
     </div>
   </div>
-  <p class="ms-hint">A batch is the images of one run that differ only in their seed; picking one of its images
-    takes all of it. Its new images keep its prompt, size and settings, take the seeds after its highest - any already
-    made are stepped over - and run at the Batch it was made with, or the panel's Batch where that was not recorded.
-    They join its run.</p>
+  <p class="ms-hint">Same prompt, size and settings. New seeds. The images join the original run.</p>
   <p class="ms-count-line" id="more-seeds-line" role="status"></p>
-  <ol class="ms-results" id="more-seeds-results" aria-label="What happens to each batch"></ol>
-  <p class="error one-line" id="more-seeds-error" role="alert"></p>
+  <ol class="ms-results" id="more-seeds-results" aria-label="Settings groups and any refusals"></ol>
+  <div class="ms-feedback">
+    <p class="ms-hold" id="more-seeds-hold" role="status"></p>
+    <p class="error one-line" id="more-seeds-error" role="alert"></p>
+  </div>
   <div class="ms-actions">
     <button type="button" class="ghost" id="more-seeds-cancel">Cancel</button>
     <button type="button" class="primary" id="more-seeds-run" aria-disabled="true">Queue</button>
   </div>
+  <details class="ms-technical" id="more-seeds-details">
+    <summary>How settings and seeds are kept</summary>
+    <p>Images with the same settings in one run form a settings group. Picking several images of that group
+      still adds this count once. New seeds follow the highest saved seed and skip seeds already made or queued.
+      Each group keeps its execution Batch; older images without a recorded Batch use the panel's Batch.</p>
+    <p id="more-seeds-notes"></p>
+  </details>
 </dialog>
 
 <!-- Classic scripts sharing one global scope; app.js, the last, is the

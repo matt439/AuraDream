@@ -382,14 +382,12 @@
   .gallery-footer { flex-wrap: wrap; row-gap: var(--sp-1); }
 }
 /* Select and Clear share the footer's line as Bundles… does (bundles.css),
-   no taller than it, so neither moves the grid; pressed, Select takes the
-   accent (.ghost.small.active). The count sits to their left. */
+   no taller than it, so neither moves the grid. Keep the ghost buttons'
+   surface and edge: these actions used to look like muted labels until
+   hovered. Pressed, Select takes the accent (.ghost.small.active). */
 .gallery-footer .foot-btn {
-  flex: none; margin-block: -1px; padding-block: 0; border-color: transparent;
-  line-height: var(--lh); color: var(--muted);
-}
-.gallery-footer .foot-btn:hover, .gallery-footer .foot-btn:focus-visible {
-  color: var(--text); border-color: var(--line-strong);
+  flex: none; margin-block: -1px; padding-block: 0;
+  line-height: var(--lh);
 }
 /* The count gives way before the buttons do, so a narrow footer never runs
    past its column, but after the message beside it (whose shrink is a

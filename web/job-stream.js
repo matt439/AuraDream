@@ -385,7 +385,7 @@ function streamJob(jobId, { reattached = 0 } = {}) {
         jobEta = '';
         els.cellNote.textContent = '';
         if (failures === 1) {
-          els.viewerNote.replaceChildren(`${LOST_PHRASE[0].toUpperCase()}${LOST_PHRASE.slice(1)}…`);
+          els.viewerNoteText.replaceChildren(`${LOST_PHRASE[0].toUpperCase()}${LOST_PHRASE.slice(1)}…`);
           void refreshStatus();
         }
         streamLost = true;

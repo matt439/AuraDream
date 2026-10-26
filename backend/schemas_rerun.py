@@ -333,6 +333,9 @@ class MoreSeedsRequest(BaseModel):
     count: int = Field(default=4, ge=1, le=settings.max_grid_images)
     batch: int = Field(default=1, ge=1, le=MAX_BATCH)
     expected: list[int] | None = None
+    # A preview-issued token makes an uncertain submit safely replayable.
+    # Legacy callers without one retain deliberate fresh-extension semantics.
+    intent: str | None = Field(default=None, min_length=1, max_length=128)
 
     # Written out: a validator assigned from another model is not run.
     @field_validator("ids")
@@ -413,6 +416,7 @@ class MoreSeedsPreview(BaseModel):
     # For a `run` scope with something to queue, the server's one-line
     # account of it: per cell, the cells, the total and the seeds.
     headline: str | None = None
+    intent: str | None = None
 
 
 class SwapTagsAccepted(BaseModel):
@@ -447,3 +451,8 @@ class MoreSeedsAccepted(BaseModel):
     more: list[JobAccepted] = Field(default_factory=list)
     queued: int
     batches: int
+    # A later group can fail after earlier groups were admitted. Those jobs
+    # are acknowledged, with a terminal warning; replay never adds the rest.
+    warning: str | None = None
+    not_queued: int = 0
+    not_queued_batches: int = 0

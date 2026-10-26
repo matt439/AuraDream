@@ -607,7 +607,8 @@ function showLostRun({ heading, text, run }, submitted) {
   els.viewer.replaceChildren(card);
   els.viewer.classList.remove('multi', 'many', 'fitted');
   els.viewer.style.minHeight = els.viewer.style.maxHeight = '';
-  els.viewerNote.replaceChildren();
+  els.viewerNoteText.replaceChildren();
+  syncViewerMoreSeeds();
 }
 
 // The server answers again: the card says so rather than that it is gone.

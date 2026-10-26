@@ -1,14 +1,11 @@
 /* Gallery bundles stay anchored as counts, progress and saved files arrive.
    The footer row Bundles… sits in is gallery.css's (.gallery-footer). */
 /* No taller than the line it shares: as a small button (26 px) it grew the
-   18 px line and moved the grid down 8 px. In the controls' row instead, it
-   wrapped Delete unstarred onto a row of its own whenever a filter showed it. */
+   18 px line and moved the grid down 8 px. Keep the shared ghost surface,
+   edge and held/hover states, as the footer's other actions do. */
 .gallery-footer #btn-bundles {
-  flex: none; margin: -1px 0 -1px auto; padding-block: 0; border-color: transparent;
-  line-height: var(--lh); color: var(--muted);
-}
-.gallery-footer #btn-bundles:hover, .gallery-footer #btn-bundles:focus-visible {
-  color: var(--text); border-color: var(--line-strong);
+  flex: none; margin: -1px 0 -1px auto; padding-block: 0;
+  line-height: var(--lh);
 }
 .bundles-dialog {
   width: min(680px, calc(100vw - 2 * var(--sp-4)));

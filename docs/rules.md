@@ -169,6 +169,8 @@ before changing it.
   `refine_batch.plan`'s, built in the worker, `JobManager._passes`)
 - `backend/more_seeds.py` — More seeds' batches of a selection, each one's
   next seeds, Batch and cells (pure; the routes are `api_more_seeds.py`'s)
+- `backend/more_seeds_intents.py` - bounded preview-issued More seeds tokens,
+  one owned admission per intent, replay receipts, expiry and shutdown drain
 - `backend/latent_preview.py` — the latent-to-RGB maps the live preview
   draws with, one per VAE, fitted on the card
 - `backend/jobs.py` — single-worker queue, SSE progress
@@ -2296,6 +2298,14 @@ Frontend and CLI:
   buttons (Show, Apply) and its scale buttons past the guard are `disabled`
   with the reason as their title - the documented exceptions (below): each
   dies with a state its own panel says in words beside it.
+- Secondary `.ghost` actions use the existing panel surface, readable text
+  and strong edge; tiny caption tools stay tertiary. Enabled hover is scoped
+  to enabled controls and has low specificity so selected component states
+  keep their readable text and accent fill/edge. Held controls retain their
+  reason-on-press behavior, reduced surface and keyboard focus ring, and
+  never brighten as enabled on hover. Footer actions keep their existing
+  geometry while sharing those states; inpaint and small selected tools use
+  readable text rather than small purple labels on the panel.
 - Each of the panel's size strips (`#presets`, `#tiers`) is a `role="group"`
   with one tab stop (the chosen preset, else the first) and `aria-pressed`;
   Left and Right, Home and End move focus
@@ -4333,7 +4343,7 @@ Frontend and CLI:
   opens the count at) and, for a `run` scope with something queued,
   `headline` (`more_seeds.run_headline`: "N more of each of C cells = T
   images · seeds a–b · Starred ignored", "of its one cell" for one, the
-  Starred part only where the request ticked it); it has no side effects, is not model-dependent and is
+  Starred part only where the request ticked it); it has no gallery/queue side effects, is not model-dependent and is
   advisory in `api`. The queueing route is model-dependent, refuses 409
   when `expected` is not the ids resolved now, 422 naming every count when
   no batch is queued, and submits one job per lineage and size
@@ -4363,7 +4373,7 @@ Frontend and CLI:
   `total` changes under it: `moreSeedsGalleryChanged`), aborting one still
   out; the scope line ("From …") counts the answer's `ids`. Queue is
   aria-disabled with `submitHold()` (re-synced from `syncSubmitButtons`),
-  the count's refusal, "Checking the batches…", the server's refusal,
+  the count's refusal, "Checking the settings groups…", the server's refusal,
   "The checkpoint changed…" or "No batch can have more seeds here; each
   one says why"; a press (Queue, Enter in the box, Ctrl+Enter) waits for
   the check of what the dialog says, then says a hold in
@@ -4371,9 +4381,38 @@ Frontend and CLI:
   the POST is out Queue reads "Sending…" and Escape, Cancel and the
   backdrop wait (`msSending`); accepted, the dialog closes and the count is
   remembered; refused, it stays open with the reason and checks again. The
-  results list has a fixed height and scrolls, the count line keeps two
-  lines and `#more-seeds-error` one, so nothing below moves; Queue is
-  right-aligned, its right edge fixed.
+  results list has a fixed height per opening and scrolls, the count line
+  keeps two lines and the feedback three, so nothing below moves; Queue and
+  Cancel keep fixed action columns.
+- The direct results action (`#viewer-more-seeds`) stays outside the strip,
+  on the same element as images arrive. It takes only settings groups already
+  represented by completed results, and says that scope. `#viewer-note-text`
+  owns the former result-note text; `#viewer-note` also holds the action.
+  The caption keeps its reserved line even when empty or hidden by the wide
+  result column, preserving gallery geometry through arrival and docking.
+  More seeds leads with additional images and unchanged settings, calls a
+  ready preview Ready, and puts technical seed/Batch explanations in details.
+  Each opening fixes its compact or multiple-group list height; fixed action
+  columns preserve Queue and Cancel rectangles through asynchronous replies.
+  An active job permits queuing; another POST still pending visibly holds it.
+  Opening previews can be cancelled with Escape and cannot open after their
+  originating result, lightbox, footer scope or modal context has gone.
+- Browser More seeds submissions carry the preview's `intent` and resolved
+  `expected` ids. `more_seeds_intents.IntentLedger` owns one admission task
+  per token through disconnects, under the same rerun admission lock. It
+  bounds itself to 512 entries, issues previews for 15 minutes and retains
+  settled receipts for one hour. Unknown, expired or mismatched tokens refuse
+  before allocation; repeated accepted tokens return the original job ids.
+  A partial multi-job admission acknowledges the admitted jobs and counts
+  the remainder in a terminal warning; replay never adds that remainder.
+  Pending intents count as busy and drain before worker shutdown. This is
+  scoped to the manager lifetime, never durable exactly-once execution.
+  After a lost reply, the browser freezes the exact body/count/token through
+  later errors, including generic 4xx middleware refusals; Retry same request
+  does no preview. Receipt-specific 409s stay held and require reviewing the
+  queue before a deliberate new request. Closing can abandon an uncertain
+  reply, as the dialog says. Legacy callers without a token still request a
+  deliberate new extension on every POST.
 - More seeds where a run ends (`docs/plan-continue-run.md`, phase 1) is the
   same dialog on a ready target, `openMoreSeeds(target, {count, opener, host})`
   with `target` `{scope, line}`: an image's batch (`{ids: [id]}`,
@@ -4413,7 +4452,7 @@ Frontend and CLI:
   `refuseInCard`. `aria-busy` is the pressed button's only (`opener`; the
   footer passes its own); a menu item, its menu gone, has none.
   `moreSeedsGalleryChanged` skips a run scope as it skips `ids`; the count
-  line leads with the server's `headline` where there is one. The sheet's
+  technical details retain the server's `headline` where there is one. The sheet's
   run bar is More seeds of this run… after Resume this run, on
   `sheetShownRun` (one run opened on `run:<id>`, a refine sweep's and a
   comparison's too, held - not hidden - on another checkpoint), then its
@@ -4916,6 +4955,22 @@ Frontend and CLI:
   meanwhile from fetching).
 
 ## Tests
+
+`smoke-button-states.json` uses a fresh Animagine fake on 7918 to check
+secondary/primary and selected text contrast, held hover and reason-on-press,
+focus rings, unchanged state-transition geometry, and footer widths at
+600/1400/2560/2048 pixels (the last at DPR 1.25).
+
+`tests/test_more_seeds_intents.py` and `tests/test_api_more_seeds_intents.py`
+cover receipt replay, conflicting choices, concurrent tokens and waiters,
+cancelled HTTP waiters, bounded retention/expiry, shutdown and partial
+multi-job admission. The extended `smoke-more-seeds.json` checks active
+Batch x Repeat, delayed/repeated presses, two deliberate extensions, lost
+replies through 503 and generic 409 responses, terminal receipts, partial
+warnings, stale opening contexts and narrow/normal/wide result reachability.
+`smoke-more-seeds-tabs.json` uses a fresh FLUX fake on 7919 with two actual
+tabs, separate owned-job/viewer/composer state, simultaneous stale previews,
+distinct seed allocations, lost-response replay and queue transitions.
 
 `tests/test_size_crop.py` and `tests/test_crop_anchor_storage.py` cover paired
 size parsing, limits, shape identity and legacy hashes, crop pixels and the
@@ -6586,7 +6641,7 @@ and selected, one picked image of the four taking all four ("4 images,
 seeds 100–103 → seeds 104–107 · Batch 2") beside the single one, the
 count line, Queue's label and title; a count of 0 refused on the page, a
 press saying it and marking the box, Queue's right edge, Cancel and the
-list unmoved; "Checking the batches…" while typing, ↑ and ↓ stepping it;
+list unmoved; "Checking the settings groups…" while typing, ↑ and ↓ stepping it;
 Ctrl+Enter queueing one job per run, the Now line "more seeds · …",
 Cancel's "Stop these more seeds", the last finish line "seeds 8–10. Job 2
 of 2 of these more seeds, at 256×384."; the new images in the run they

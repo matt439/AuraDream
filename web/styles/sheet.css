@@ -164,7 +164,9 @@
   color: #fff; font-size: var(--fs-label); text-align: center; pointer-events: none;
   white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
 }
-.ghost.small.active { color: var(--accent); border-color: var(--accent); }
+/* Purple marks the selection's edge and surface; the small label stays as
+   readable as other actions, including on a panel behind the control. */
+.ghost.small.active { color: var(--text); border-color: var(--accent); background: var(--accent-soft); }
 
 .card {
   position: relative;

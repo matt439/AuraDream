@@ -30,6 +30,26 @@ independent review and record exact checks before a scoped local commit.
 
 ## Status
 
-Static audit and before screenshots complete; implementation not started.
-The size/crop batch is being qualified first. More seeds workflow changes
-have their separate owner in [GEN#23](plan-more-seeds-ux.md).
+Built and independently reviewed, 2026-10-26. Secondary actions share the
+existing panel surface, readable text and strong border; tiny caption tools
+stay quieter. Footer actions now keep that surface and edge. Selected tools
+use readable text with accent fill/edge. Held hover cannot imitate enabled
+hover, and the existing reason-on-press behavior and cyan keyboard focus
+remain. The button-state changes preserve control dimensions.
+
+`smoke-button-states` passed enabled/selected text contrast (at least 4.5:1),
+primary/secondary distinction, held hover and reason-on-press, keyboard focus,
+state-transition geometry and widths at 600x900, 1400x900, 2560x1305 and
+2048x1040 at DPR 1.25. Current selection and inpaint smokes also passed. The
+preceding retained UI pass cleared wide, bin and inpaint checks; its only
+failure was a selection test's temporary cap racing status polling, fixed by
+overriding `selectionCap` directly and rechecked successfully. Normal and
+narrow/wide screenshots were visually inspected.
+
+Evidence: `%TEMP%/local-diffusion-ux-more-buttons-final-20261026.log`,
+`local-diffusion-ux-resume-browser-20261026.log`,
+`local-diffusion-ux-caption-tabs-final-20261026.log` and the retained
+`local-diffusion-buttons-20261026-a1/` screenshots/browser receipt.
+More seeds workflow and shared CPU verification are recorded in
+[GEN#23](plan-more-seeds-ux.md). These are synthetic browser checks; manual
+screen-reader/touch acceptance remains `UI#7`.

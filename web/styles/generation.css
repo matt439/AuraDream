@@ -250,20 +250,26 @@ button { font: inherit; cursor: pointer; }
    pressing Enter on Generate used to drop a keyboard user's place to <body>. */
 .primary:disabled, .primary[aria-disabled="true"] { opacity: 0.5; cursor: not-allowed; filter: none; }
 
+/* Secondary actions have a surface and a readable label at rest; the caption
+   tools stay tertiary. Keep the same borders and padding in every state so
+   an available, held or hovered action never changes its box. */
 .ghost {
-  background: transparent;
+  background: var(--panel-2);
   border: 1px solid var(--line-strong);
-  color: var(--muted);
+  color: var(--text-2);
   border-radius: var(--r-md);
   padding: calc((var(--h-md) - var(--lh) * var(--fs-md) - 2px) / 2) 11px;
 }
-.ghost:hover { color: var(--text); border-color: var(--muted); }
+.ghost.tiny { background: transparent; color: var(--muted); }
+/* :where keeps selected component styles stronger than this hover. Held
+   actions still take focus and explain a press, but never light up on hover. */
+.ghost:where(:not(:disabled):not([aria-disabled="true"])):hover { color: var(--text); border-color: var(--muted); }
 .ghost.square { padding: 8px 10px; }
 .ghost.wide { width: 100%; margin-top: var(--sp-3); }
 .ghost.small { padding: calc((var(--h-sm) - var(--lh) * var(--fs-label) - 2px) / 2) 8px; font-size: var(--fs-label); flex: none; }
-.ghost:disabled, .ghost[aria-disabled="true"] { opacity: 0.45; cursor: not-allowed; }
-/* A dead button does not brighten under the pointer as if a press would act. */
-.ghost:disabled:hover, .ghost[aria-disabled="true"]:hover { color: var(--muted); border-color: var(--line-strong); }
+.ghost:disabled, .ghost[aria-disabled="true"] {
+  background: transparent; color: var(--muted); opacity: 0.45; cursor: not-allowed;
+}
 /* Red under the pointer only where the press destroys or stops something:
    Cancel, Cancel queued, Delete unstarred. It used to be every small ghost
    button - Sheet, Pause, Export PNG - which taught the colour to mean nothing,

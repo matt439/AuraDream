@@ -37,7 +37,7 @@ const MS_STATUS_WORDS = {
   outpaint: 'with an outpaint that cannot run', invalid: 'invalid', deleted: 'deleted',
 };
 const MS_CHIP = {
-  queued: 'queued', foreign: 'other checkpoint', source_deleted: 'source deleted',
+  queued: 'Ready', foreign: 'other checkpoint', source_deleted: 'source deleted',
   lora_missing: 'LoRA missing', mask_missing: 'mask missing', outpaint: 'outpaint refused', invalid: 'invalid',
   deleted: 'deleted',
 };
@@ -71,6 +71,13 @@ let msSending = false;
 let msWaiting = false;
 // An open waiting on its first check: a second press does nothing.
 let msOpening = null;
+// The fallback is chosen when the dialog opens, not by later composer edits.
+let msBatch = 1;
+let msFavorites = false;
+// Once sent, this exact body and intent survive a lost response. A retry
+// must recover that receipt before any new preview can allocate an intent.
+let msSubmission = null;
+let msUncertain = false;
 
 function moreSeedsTarget() {
   return galleryActionTarget('to choose the batches to make more of', 'one press of More seeds');
@@ -93,7 +100,7 @@ function syncMoreSeedsButton() {
 // asked again, so the answer and the ids a press pins are the filter's now.
 // A run's scope is the run's, whatever the gallery shows.
 function moreSeedsGalleryChanged() {
-  if (!els.moreSeedsDialog.open || !msScope || msScope.ids || msScope.run || msSending) return;
+  if (!els.moreSeedsDialog.open || !msScope || msScope.ids || msScope.run || msSending || msSubmission) return;
   if (total === msSeenTotal) return;
   msSeenTotal = total;
   msAnswerKey = '';
@@ -116,7 +123,7 @@ function msCountText() { return els.moreSeedsCount.value.trim(); }
 function msCountProblem() {
   const text = msCountText();
   return /^\d+$/.test(text) && +text >= 1 && +text <= sheetPage ? ''
-    : `More of each batch is a whole number from 1 to ${sheetPage}`;
+    : `Additional images is a whole number from 1 to ${sheetPage}`;
 }
 
 // The panel's Batch, for a batch whose own was not recorded: the box's
@@ -131,8 +138,8 @@ function msFallbackBatch() {
 // Starred is ticked, so it carries the box's state; the filter's scope
 // carries its own.
 function msPayload() {
-  const starred = msScope.run ? { favorites: els.favOnly.checked } : {};
-  return { ...msScope, ...starred, count: +msCountText(), batch: msFallbackBatch() };
+  const starred = msScope.run ? { favorites: msFavorites } : {};
+  return { ...msScope, ...starred, count: +msCountText(), batch: msBatch };
 }
 
 async function askMoreSeeds(payload, signal) {
@@ -181,14 +188,37 @@ async function openMoreSeeds(target = null, { count = null, opener = null, host 
   const said = msOpenSlot(opener, host);
   if (footer) target = moreSeedsTarget();
   if (!target.scope) { msRefuse(target.why, said); return; }
-  msScope = target.scope;
+  msScope = structuredClone(target.scope);
   msTarget = target;
   msFooter = footer;
   msSeenTotal = total;
   msRevision = modelRevision;
+  msBatch = msFallbackBatch();
+  msFavorites = els.favOnly.checked;
+  msSubmission = null;
+  msUncertain = false;
+  els.moreSeedsCount.readOnly = false;
+  els.moreSeedsDetails.open = false;
+  els.moreSeedsCountLabel.textContent = 'Additional images';
+  els.moreSeedsNotes.textContent = '';
   const kept = footer ? +remembered(MORE_SEEDS_KEY) : count;
   els.moreSeedsCount.value = String(msCountFits(kept) ? kept : MORE_SEEDS_COUNT);
-  const opening = {};
+  const controller = new AbortController();
+  const lightboxId = els.lightbox.open ? lbList[lbIndex]?.id : null;
+  const fromViewer = opener === els.viewerMoreSeeds || !!(host?.closest?.('#viewer') || opener?.closest?.('#viewer'));
+  const viewerContext = viewerRecords[0]?.job_id ?? viewerRecords[0]?.id ?? null;
+  const scopeKey = JSON.stringify(msScope);
+  const openDialogs = [...document.querySelectorAll('dialog[open]')];
+  const opening = { controller, valid: () => {
+    if (msOpening !== opening || controller.signal.aborted) return false;
+    if (opener && (!opener.isConnected || !isShown(opener))) return false;
+    if (host && (!host.isConnected || !isShown(host))) return false;
+    if ([...document.querySelectorAll('dialog[open]')].some((dialog) => !openDialogs.includes(dialog))) return false;
+    if (lightboxId != null && (!els.lightbox.open || lbList[lbIndex]?.id !== lightboxId)) return false;
+    if (fromViewer && (viewerRecords[0]?.job_id ?? viewerRecords[0]?.id ?? null) !== viewerContext) return false;
+    if (footer && JSON.stringify(moreSeedsTarget().scope) !== scopeKey) return false;
+    return true;
+  } };
   msOpening = opening;
   opener?.setAttribute('aria-busy', 'true');
   syncMoreSeedsTools();
@@ -196,16 +226,18 @@ async function openMoreSeeds(target = null, { count = null, opener = null, host 
   let answer = null;
   let overCap = '';
   try {
-    let first = await askMoreSeeds(msPayload());
+    let first = await askMoreSeeds(msPayload(), controller.signal);
+    if (!opening.valid()) return;
     const suggested = first.count_default;
     if (!footer && count == null && msCountFits(suggested) && suggested !== +msCountText()) {
       els.moreSeedsCount.value = String(suggested);
       first = null;
-      first = await askMoreSeeds(msPayload());
+      first = await askMoreSeeds(msPayload(), controller.signal);
+      if (!opening.valid()) return;
     }
     answer = first;
   } catch (err) {
-    if (msOpening !== opening) return;
+    if (!opening.valid() || err.name === 'AbortError') return;
     if (err.status === 422 && /^\d+ batch/.test(err.message)) overCap = err.message;
     else { msRefuse(err.message, said); return; }
   } finally {
@@ -225,6 +257,9 @@ async function openMoreSeeds(target = null, { count = null, opener = null, host 
   msRefused = false;
   els.moreSeedsCount.removeAttribute('aria-invalid');
   showError('', false, { slot: els.moreSeedsError });
+  // Choose one fixed list size for this opening. Later previews, including
+  // refusals and deletions, cannot move Queue or Cancel under the pointer.
+  els.moreSeedsDialog.classList.toggle('ms-single', !!answer && answer.total === 1);
   if (answer) renderMoreSeeds(answer);
   else {
     // Nothing listed: the refusal is the count's, said in the count line and
@@ -245,8 +280,17 @@ async function openMoreSeeds(target = null, { count = null, opener = null, host 
   els.moreSeedsCount.select();
 }
 
+function cancelMoreSeedsOpening() {
+  if (!msOpening) return;
+  msOpening.controller.abort();
+  msOpening = null;
+  document.querySelectorAll('.more-seeds-tool[aria-busy], #btn-more-seeds[aria-busy]').forEach((button) => button.removeAttribute('aria-busy'));
+  syncMoreSeedsTools();
+}
+
 // An edit: a refusal said for the press before it is no longer the news.
 function moreSeedsEdited(delay = MS_CHECK_DELAY) {
+  if (msSubmission) return;
   els.moreSeedsCount.removeAttribute('aria-invalid');
   if (msRefused || els.moreSeedsError.textContent) {
     msRefused = false;
@@ -256,13 +300,14 @@ function moreSeedsEdited(delay = MS_CHECK_DELAY) {
 }
 
 function scheduleMoreSeedsCheck(delay = MS_CHECK_DELAY) {
+  if (msSubmission) return;
   clearTimeout(msTimer);
   msTimer = setTimeout(() => { void runMoreSeedsCheck(); }, delay);
   syncMoreSeedsRun();
 }
 
 async function runMoreSeedsCheck() {
-  if (!els.moreSeedsDialog.open || !msScope) return;
+  if (!els.moreSeedsDialog.open || !msScope || msSubmission) return;
   const payload = msPayload();
   const key = JSON.stringify(payload);
   msAsking?.abort();
@@ -304,24 +349,29 @@ function msSay(text, failed = false) {
   els.moreSeedsLine.classList.toggle('failed', failed);
 }
 
-const msBatches = (n) => `${n} batch${n === 1 ? '' : 'es'}`;
+const msBatches = (n) => `${n} settings group${n === 1 ? '' : 's'}`;
 
 function renderMoreSeeds(answer) {
   msSayScope(answer);
   els.moreSeedsTitle.textContent = answer.queued ? plural(answer.queued, 'more image') : 'More seeds';
+  const multiple = answer.total > 1;
+  els.moreSeedsCountLabel.textContent = multiple ? 'Additional images per settings group' : 'Additional images';
   const time = answer.seconds ? `about ${humanTime(answer.seconds)}`
     : answer.unpriced_sizes ? `no estimate: ${plural(answer.unpriced_sizes, 'size')} ${answer.unpriced_sizes === 1 ? 'has' : 'have'} no history`
       : '';
   // A run's first words are the server's headline: "2 more of each of 6
   // cells = 12 images · seeds 8–9 · Starred ignored".
-  const parts = [answer.headline || `${plural(answer.queued, 'image')} in ${msBatches(answer.batches)}`, time];
-  if (answer.unrecorded) parts.push(`${msBatches(answer.unrecorded)} at the panel's Batch ${msFallbackBatch()}`);
+  const parts = [multiple
+    ? `${msCountText()} per settings group × ${answer.batches} ready = ${plural(answer.queued, 'additional image')}`
+    : `${plural(answer.queued, 'additional image')}`, time];
+  if (answer.unrecorded) parts.push(`${msBatches(answer.unrecorded)} use panel Batch ${msBatch}`);
   for (const [status, words] of Object.entries(MS_STATUS_WORDS)) {
     if (answer.counts[status]) parts.push(`${answer.counts[status]} ${words}`);
   }
   if (answer.jobs > 1) parts.push(`${answer.jobs} jobs, one per run`);
   if (answer.total > answer.results.length) parts.push(`the first ${answer.results.length} of ${answer.total} listed`);
   msSay(parts.filter(Boolean).join(' · '));
+  els.moreSeedsNotes.textContent = answer.headline || '';
   els.moreSeedsResults.replaceChildren(...answer.results.map(moreSeedsRow));
 }
 
@@ -373,47 +423,54 @@ function moreSeedsRow(result) {
 
 // Why Queue is held now, or '' when it may go.
 function moreSeedsHold() {
+  if (submitting && !msSending) return 'Wait for the last submission to be accepted; then queue these images';
   const held = submitHold();
   if (held) return held;
+  if (msRevision !== modelRevision) return 'The checkpoint changed; close More seeds and open it again';
+  if (msUncertain) return '';
   const field = msCountProblem();
   if (field) return field;
-  if (msAsking || JSON.stringify(msPayload()) !== msAnswerKey) return 'Checking the batches…';
+  if (msAsking || JSON.stringify(msPayload()) !== msAnswerKey) return 'Checking the settings groups…';
   if (msProblem) return msProblem;
-  if (msRevision !== modelRevision) return 'The checkpoint changed; close More seeds and open it again';
-  if (!msAnswer?.queued) return 'No batch can have more seeds here; each one says why';
+  if (!msAnswer?.queued) return 'No settings group can have more seeds here; each one says why';
+  if (!msAnswer.intent) return 'This preview has no submission receipt; close More seeds and open it again';
   return '';
 }
 
 function syncMoreSeedsRun() {
   if (!els.moreSeedsDialog.open) return;
+  els.moreSeedsCount.readOnly = msSending || !!msSubmission;
   if (msSending) {
     els.moreSeedsRun.textContent = 'Sending…';
     els.moreSeedsRun.setAttribute('aria-disabled', 'true');
     els.moreSeedsRun.title = 'Waiting for the server to take the batches';
+    els.moreSeedsHold.textContent = 'Sending this request. Wait for its reply before closing.';
     return;
   }
   const hold = moreSeedsHold();
-  const queue = busy ? ' (queue)' : '';
-  els.moreSeedsRun.textContent = !hold && msAnswer
-    ? `Queue ${plural(msAnswer.queued, 'image')}${msAnswer.jobs > 1 ? ` (${msAnswer.jobs} jobs)` : ''}${queue}`
-    : `Queue${queue}`;
+  els.moreSeedsRun.textContent = msUncertain ? 'Retry same request'
+    : !hold && msAnswer ? `Queue ${plural(msAnswer.queued, 'image')}${msAnswer.jobs > 1 ? ` (${msAnswer.jobs} jobs)` : ''}` : 'Queue';
   els.moreSeedsRun.setAttribute('aria-disabled', String(Boolean(hold)));
   els.moreSeedsRun.title = hold
-    || `Queue ${plural(msAnswer.queued, 'more image')} in ${msBatches(msAnswer.batches)} (Ctrl+Enter)`;
-  if (!hold && !msRefused && els.moreSeedsError.textContent) showError('', false, { slot: els.moreSeedsError });
+    || (msUncertain ? 'Retry the original request and recover its original jobs; no extra extension is added'
+      : `Queue ${plural(msAnswer.queued, 'more image')} in ${msBatches(msAnswer.batches)} (Ctrl+Enter)`);
+  els.moreSeedsHold.textContent = hold || (msUncertain
+    ? 'The reply was lost. Retry keeps this count and the same request. Closing abandons the reply; the jobs may already be queued.'
+    : busy ? 'These images will queue after the current work.' : 'Ready to queue.');
+  if (!hold && !msRefused && !msUncertain && els.moreSeedsError.textContent) showError('', false, { slot: els.moreSeedsError });
 }
 
 // Queue: waits for the check of what the dialog says, then queues. Held,
 // the press says why in the error line and points at the count where that
 // is what holds it.
 async function runMoreSeeds() {
-  if (!els.moreSeedsDialog.open || msSending || submitting || msWaiting) return;
+  if (!els.moreSeedsDialog.open || msSending || msWaiting) return;
   msRefused = false;
-  while (!msCountProblem() && (msAsking || JSON.stringify(msPayload()) !== msAnswerKey)) {
+  while (!msSubmission && !submitting && !msCountProblem() && (msAsking || JSON.stringify(msPayload()) !== msAnswerKey)) {
     clearTimeout(msTimer);
     msWaiting = true;
     try { await runMoreSeedsCheck(); } finally { msWaiting = false; }
-    if (!els.moreSeedsDialog.open || msSending || submitting) return;
+    if (!els.moreSeedsDialog.open || msSending) return;
   }
   const hold = moreSeedsHold();
   if (hold) {
@@ -425,25 +482,54 @@ async function runMoreSeeds() {
     if (serverOffline) void refreshStatus();
     return;
   }
-  const payload = { ...msPayload(), expected: msAnswer.ids };
+  if (!msSubmission) msSubmission = {
+    payload: structuredClone({ ...msPayload(), expected: msAnswer.ids, intent: msAnswer.intent }),
+    model: loadedModel, revision: msRevision,
+  };
+  const { payload, model, revision } = msSubmission;
   msSending = true;
   syncMoreSeedsRun();
   let accepted = false;
   await startJob('/api/more-seeds', payload, {
     slot: els.moreSeedsError,
     panel: false,
-    onAccepted: () => {
+    model, revision,
+    onAccepted: (_, answer) => {
       accepted = true;
       msSending = false;
+      if (answer.warning || answer.not_queued) {
+        const jobs = [answer.job_id, ...(answer.more ?? []).map((job) => job.job_id)].join(', ');
+        const slot = els.lightbox.open ? els.lbError : els.galleryError;
+        showError(`Queued ${plural(answer.queued, 'image')} in the original job${answer.more?.length ? 's' : ''} ${jobs}. ${plural(answer.not_queued ?? 0, 'image')} in ${msBatches(answer.not_queued_batches ?? 0)} not queued. ${answer.warning ?? ''} No further images were added automatically.`, false, { slot, mirror: slot !== els.lbError });
+      }
       if (msFooter) remember(MORE_SEEDS_KEY, String(payload.count));
       els.moreSeedsDialog.close();
       // Focus goes back to the button that opened the dialog.
     },
     // Refused - the selection changed under it: the dialog stays open with
     // the reason, and checks again.
-    onRefused: () => {
+    onRefused: (err) => {
       msSending = false;
       msRefused = Boolean(els.moreSeedsError.textContent);
+      const receiptRefused = err.status === 409 && /intent|receipt|more seeds request/i.test(err.message);
+      // Once a reply was lost, even a later explicit refusal can come from
+      // middleware before the receipt is read (for example bundle admission).
+      // It cannot resolve whether the original request already queued work.
+      if (!receiptRefused && (msUncertain || !err.status || err.status >= 500)) {
+        msUncertain = true;
+        showError(`The server's reply is uncertain: ${err.message}. Retry this same request to recover its jobs.`, false, { slot: els.moreSeedsError });
+        syncMoreSeedsRun();
+        return;
+      }
+      msUncertain = false;
+      // Unknown or expired receipts cannot silently acquire a fresh intent.
+      if (receiptRefused) {
+        msProblem = `${err.message} Review the queue before starting a new More seeds request.`;
+        showError(msProblem, false, { slot: els.moreSeedsError });
+        syncMoreSeedsRun();
+        return;
+      }
+      msSubmission = null;
       msAnswer = null;
       msAnswerKey = '';
       scheduleMoreSeedsCheck(0);
@@ -480,6 +566,7 @@ function moreSeedsKeydown(event) {
     return;
   }
   if ((event.key === 'ArrowUp' || event.key === 'ArrowDown') && event.target === els.moreSeedsCount) {
+    if (els.moreSeedsCount.readOnly) { event.preventDefault(); return; }
     const text = msCountText();
     if (!/^\d+$/.test(text)) return;
     event.preventDefault();
@@ -499,6 +586,15 @@ function moreSeedsBackdrop(event) {
 
 function setupMoreSeeds() {
   els.moreSeeds.onclick = () => { void openMoreSeeds(null, { opener: els.moreSeeds }); };
+  els.viewerMoreSeeds.onclick = () => {
+    syncViewerMoreSeeds();
+    const records = viewerRecords.filter((rec) => !isGone(rec.id));
+    const target = records.length === 1 ? moreSeedsImageTarget(records[0]) : {
+      scope: { ids: records.map((rec) => rec.id) },
+      line: `From the settings groups in these ${records.length} generated result images.`,
+    };
+    pressMoreSeedsTool(els.viewerMoreSeeds, target);
+  };
   els.moreSeedsCancel.onclick = closeMoreSeeds;
   els.moreSeedsRun.onclick = () => { void runMoreSeeds(); };
   els.moreSeedsDialog.addEventListener('click', moreSeedsBackdrop);
@@ -511,8 +607,17 @@ function setupMoreSeeds() {
     msAsking = null;
     msScope = null;
     msTarget = null;
+    msSubmission = null;
+    msUncertain = false;
     syncMoreSeedsTools();
   });
+  // A preview has no modal yet. Escape still cancels that opening, and a
+  // late reply is checked against its original lightbox/results context.
+  document.addEventListener('keydown', (event) => {
+    if (event.key !== 'Escape' || !msOpening) return;
+    event.preventDefault();
+    cancelMoreSeedsOpening();
+  }, true);
   els.lbMoreSeeds.onclick = pressLightboxMoreSeeds;
   onSelectionChange(syncMoreSeedsButton);
   syncMoreSeedsButton();
@@ -525,7 +630,8 @@ function setupMoreSeeds() {
 // image in the recycle bin, a job's images (`ids`), held once every one has
 // gone since. Everything else - one batch among several from another
 // checkpoint, a source or an adapter gone - is the server's, per batch.
-function moreSeedsToolHold({ model = null, binned = false, ids = null } = {}) {
+function moreSeedsToolHold({ model = null, binned = false, ids = null, unavailable = '' } = {}) {
+  if (unavailable) return unavailable;
   if (ids?.length && ids.every(isGone)) {
     return ids.length === 1 ? 'Its image has been deleted since' : `All ${ids.length} of its images have been deleted since`;
   }

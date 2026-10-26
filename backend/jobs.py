@@ -24,6 +24,7 @@ from .model_selection import current_settings
 from .config import settings
 from .grid import Cell, CellKey, cell_keys, progress_steps, run_id as _run_id
 from .latent_preview import data_url
+from .more_seeds_intents import IntentLedger
 from .schemas import GenerateRequest, ThenRefine
 from .seeds import random_seed, wrap_seed
 from .then_refine import pass_run_id, stand_in
@@ -427,6 +428,7 @@ class JobManager:
         # await (outpaint stamping and mask holds included). Ordinary
         # Generate and deliberate repeats do not take it.
         self.rerun_admission = asyncio.Lock()
+        self.more_seeds_intents = IntentLedger()
         # Who holds the gate: a job's id, or the editor action `run_when_idle`
         # was given ("critic", "expand"), None while it is free. What a job
         # queued behind it waits on is read off this (`_waiting_label`).
@@ -558,13 +560,13 @@ class JobManager:
         return masks
 
     def busy(self) -> bool:
-        """True while anything is queued or running.
+        """True while work is queued, running or settling an owned admission.
 
         Wider than `self._gate.locked()` on purpose: a job still waiting its turn
         starts on its own, so acting in front of it is the same mistake one step
         later.
         """
-        return bool(self.active())
+        return bool(self.active()) or self.more_seeds_intents.pending
 
     async def run_when_idle(
         self, fn: Callable[[], Any], holder: str = "editor", ticket: str | None = None
@@ -712,6 +714,9 @@ class JobManager:
         out from under a running denoise. The cancel is the same cooperative one
         the button uses, so it lands within a step and keeps what it finished.
         """
+        # Admission owns its task across a disconnected HTTP caller. Settle it
+        # before stopping jobs, so no task can enqueue into a closed executor.
+        await self.more_seeds_intents.close()
         self.stop_all("shutdown")
         await asyncio.to_thread(self._pool.shutdown, True)
 

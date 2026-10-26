@@ -56,6 +56,49 @@ before removing the TODO row in its scoped local commit.
 
 ## Status
 
-Investigation complete; implementation not started. The browser probe above
-used the committed queue/click baseline and synthetic images. The current
-size/crop batch is being qualified first.
+Built and independently reviewed, 2026-10-26. The persistent results action
+names the generated settings it extends, including while later images are
+still running. The compact dialog leads with additional images and unchanged
+settings; multiple groups and refusals remain explicit. Technical seed/Batch
+details are secondary. Queue and Cancel keep fixed rectangles, and the
+result caption reserves its line through image arrival and wide docking.
+
+Preview-issued receipts bind the count, scope, expected ids and checkpoint.
+One owned admission survives a disconnected caller; accepted retries recover
+the original jobs. Distinct intentional requests allocate distinct seeds
+under shared admission. A partial admission acknowledges the original jobs,
+the unqueued count and a warning visible even over the lightbox. Receipts
+are bounded to 512 entries, issued for 15 minutes and kept for one hour after
+settlement. Expired/unknown tokens refuse; this is not durable execution
+across a server restart.
+
+Independent review found that a generic 409 after a lost accepted response
+could discard the original intent. That path now preserves the exact body
+and token through later errors; its regression checks lost reply, 503,
+generic middleware 409 and successful recovery with no new preview. Opening
+previews also reject stale results/lightbox/modal contexts and Escape cancels
+them. Original Batch, settings and modifier selection behavior are kept.
+
+Browser checks passed serially on isolated fake galleries: `smoke-more-seeds`,
+`smoke-more-seeds-tabs`, `smoke-select`, `smoke-results`, `smoke-jobs`,
+`smoke-refine`, `smoke-inpaint`, `smoke-outpaint`, `smoke-lightbox`,
+`smoke-context-menu` and `smoke-queue-controls`. The two actual tabs prove
+simultaneous previews allocate 1012-1013 and 1014-1015 behind paused work,
+retry adds no extension, and each tab keeps its own composer/results through
+queue handoff. Normal, narrow and wide reachability and compact-dialog
+screenshots were checked. No real model, card acceptance or download is
+claimed; hands-on accessibility checks remain `UI#7`.
+
+The full CPU suite passed: **3745 passed, 5 skipped**; Ruff and
+`git diff --check` passed. Receipt:
+`%TEMP%/local-diffusion-ux-full-cpu-20261026-f1.log`. The first sandboxed
+full-suite attempts were interrupted after Windows process creation stalled
+on an existing one-byte dummy-executable test. That test passed outside the
+sandbox, followed by this complete suite; no product workaround was added.
+
+Receipts are in `%TEMP%/local-diffusion-ux-more-final-20261026.log`,
+`local-diffusion-ux-caption-tabs-final-20261026.log`,
+`local-diffusion-ux-tabs-regressions-20261026.log` (the lightbox/context-menu/
+queue-control passes), and `local-diffusion-ux-resume-browser-20261026.log`
+(selection pass). Earlier failures in those latter two receipts were fixed
+and rerun as recorded above.
