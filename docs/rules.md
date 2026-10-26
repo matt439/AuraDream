@@ -30,6 +30,8 @@ before changing it.
 - `backend/backup_receipts.py` - internal managed-export marker, outer-byte
   proof, strict atomic ownership journal and current-file identity checks;
   no startup, age advancement or pruning callers
+- `backend/bundle_leases.py` - per-process archive reader/exclusive claims and
+  leased FileResponse lifetime; cross-process retention still needs shared leases
 - `backend/snippets.py` - bounded, revisioned personal prompt snippets in an
   atomic sidecar beside the settings, under an independent cross-process lock
 - `backend/api_snippets.py` - model-free snippet CRUD routes, independent of
@@ -1717,6 +1719,14 @@ Jobs:
   warning and preserves prior receipts. No startup/API caller, age advancement
   or pruning is connected. `matches_current` checks regular-file identity,
   destination and full raw digest; its snapshot never authorizes deletion.
+- Saved archive downloads hold a per-process reader lease for the complete
+  ASGI response, acquired before stat/open and released in finally through
+  body/range/HEAD/error/cancellation/background paths. Disable pathsend handoff
+  because its send completion does not prove transfer completion. Reader
+  leases exclude an exclusive claim on the same resolved path; release is
+  idempotent across threads. Ordinary bundle maintenance still permits these
+  downloads. This registry covers cooperating threads only and cannot make
+  cross-process retention deletion safe; no deletion caller is enabled.
 - Bundles and the recycle bin: export carries every row, binned ones
   included (`preview()`'s `records` stays all rows, for the typed
   confirmation, and `binned` says how many are in the bin; the export
@@ -5207,6 +5217,9 @@ plain/encrypted scratch restore and single verifying reads. They inject
 publication/journal failures and partial replacements before verification
 and after claim, preserving unowned files and prior successful copies.
 No real gallery, credential store, startup or pruning is exercised.
+`tests/test_bundle_leases.py` checks canonical path sharing, reader/exclusive
+exclusion and complete FileResponse lifetime, including range/HEAD/error/
+cancel/background behavior and disabled pathsend without scope mutation.
 
 `smoke-execution-reuse.json` uses a fresh FLUX.1 Krea [dev] fake on 7926.
 Browser fixtures add execution recipes to a synthetic eager record, checking

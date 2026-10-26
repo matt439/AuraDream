@@ -13,13 +13,14 @@ from pathlib import Path
 from typing import Literal
 
 from fastapi import APIRouter, HTTPException, Request
-from fastapi.responses import FileResponse, JSONResponse
+from fastapi.responses import JSONResponse
 from pydantic import BaseModel, Field, SecretStr
 from starlette.requests import ClientDisconnect
 
 from . import bundle_crypto, bundles, storage, submission
 from .app_context import AppServices
 from .bundle_common import sentence
+from .bundle_leases import LeasedFileResponse
 from .config import settings
 from .jobs import JobManager
 
@@ -356,6 +357,6 @@ def create_router(get_manager: Callable[[], BundleManager], services: AppService
         if not path.is_file():
             raise HTTPException(404, "Bundle file not found.")
         media = "application/zip" if path.suffix.lower() == ".zip" else "application/octet-stream"
-        return FileResponse(path, media_type=media, filename=path.name)
+        return LeasedFileResponse(path, media_type=media, filename=path.name)
 
     return router

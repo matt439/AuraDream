@@ -90,6 +90,8 @@ Backend (`backend/`):
   `backup_preferences.py` atomic database-scoped backup policy sidecars;
   `backup_receipts.py` internal managed-export identity, byte proof and atomic journal;
   `gallery_lock.py` reservations across storage threads and processes
+- `bundle_leases.py` per-process archive reader/exclusive leases and complete
+  download-response lifetime; cross-process retention remains unimplemented
 - `jobs.py` single-worker queue and SSE; `storage.py` SQLite + PNGs;
   `metadata.py` the PNG chunk's key, legacy `krea` reader and file-placement guard;
   `png_settings.py` a PNG's record and A1111 'parameters' block read back

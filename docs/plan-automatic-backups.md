@@ -1,7 +1,7 @@
 # Plan: automatic whole-gallery backups
 
 **Status, 2026-10-26: policy, preferences and managed-export evidence are built;
-`GAL#6` remains open for startup coordination, download leases, retention and
+`GAL#6` remains open for startup coordination, cross-process leases, retention and
 activation decisions.** This expands
 [R8](review-2026-10-25.md#r8-automatic-whole-gallery-backup). Tests export and
 restore scratch galleries only; no real gallery or credential store was touched.
@@ -255,10 +255,26 @@ bin, stars and lineage intact, and verify exactly once. Windows path/handle
 timestamp differences are handled without substituting metadata for the
 digest. Linux publication and actual OS credential delivery remain untested.
 
-There are no startup/API/UI callers, credential lookup, age advancement or
-retention deletion. The coordinator, download leases, remaining capacity
+There are no automatic-backup startup/API/UI callers, credential lookup,
+age advancement or retention deletion. The coordinator, shared leases, remaining capacity
 accounting, activation/recovery decisions and end-to-end startup acceptance
 below remain unimplemented.
+
+**Per-process download lease slice.** Saved bundle downloads now use
+`bundle_leases.LeasedFileResponse`. It acquires a resolved-path reader
+lease when the ASGI response starts, then releases in finally across normal
+body, ranges, HEAD, errors, cancellation and background completion. It
+disables pathsend handoff rather than release before the server finishes
+transferring a path. A mutex-protected registry supplies reader/exclusive
+exclusion and idempotent cross-thread release; ordinary bundle maintenance
+still permits downloads. All 13 pure focused tests passed, and the combined
+lease/existing bundle HTTP suite passed 41 tests, with Ruff and narrow
+Pyright clean. Independent review found no actionable gaps.
+
+These leases cover only cooperating threads in this process. Shared leases
+across processes remain mandatory before retention deletion can be enabled.
+The exclusive claim primitive has no mutation caller, and startup/coordinator,
+activation and retention stages remain unconnected.
 
 1. **Policy and journal contracts, CPU only.** Settle the decisions below;
    implement validated default-off preferences and a pure due/retention

@@ -10,7 +10,7 @@ The maintainer's working backlog for this personal project: it records what is p
 
 **Ready backlog (updated 2026-10-26):** five `OPEN` rows, with implementation stages in their owners. Marian's token boundary, portable screenshots, the classic-script guard and the complete pinned type gate are built and checked. The four feature plans are written. `DEV#4`'s diagnostic stage is built; its Linux browser qualification awaits WSL service access. [Tooling results](docs/plan-tooling.md).
 
-**Feature stages next:** `PERF#1` ([compilation](docs/plan-regional-compilation.md)), then `GAL#6` ([backups](docs/plan-automatic-backups.md)), `PERF#3` ([attention](docs/plan-attention-backends.md)) and `PERF#4` ([caching](docs/plan-step-caching.md)). Execution admission/persisted carry and backup policy/preferences are built; runtime and durable ownership/coordinator stages remain, while the owners retain activation and separately approved card decisions. `PERF#2` still waits on `PERF#1`. These CPU starts do not depend on Matt's layout trials or the RAM-loader card check.
+**Feature stages next:** `PERF#1` ([compilation](docs/plan-regional-compilation.md)), then `GAL#6` ([backups](docs/plan-automatic-backups.md)), `PERF#3` ([attention](docs/plan-attention-backends.md)) and `PERF#4` ([caching](docs/plan-step-caching.md)). Execution admission/persisted carry and backup policy/preferences are built; runtime and backup coordination/retention stages remain, while the owners retain activation and separately approved card decisions. `PERF#2` still waits on `PERF#1`. These CPU starts do not depend on Matt's layout trials or the RAM-loader card check.
 
 **Needs Matt:** workbench task trials (`DEV#1`) and hands-on accessibility/desktop checks (`UI#7`). Four decisions remain: SDXL weighting (`GEN#20`), whether to plan instruction editing (`INP#11`) or a detailer (`INP#12`), and whether to withhold critic rewrites that lose user content (`PA#11`). Whole-app layout implementation waits for its trials; it remains a design hypothesis.
 
@@ -88,7 +88,7 @@ Matt's approved [shortcut and compact-setup stages](docs/plan-shortcut-workflow.
 
 | id | status | sev | size | item |
 |---|---|---|---|---|
-| `GAL#6` | OPEN | LOW | L | Wire startup coordination, download leases and managed retention; policy/preferences, verified-export proofs and durable receipts are built. Matt chooses unattended protection and activation policies. [Plan](docs/plan-automatic-backups.md). |
+| `GAL#6` | OPEN | LOW | L | Wire startup coordination, cross-process leases and managed retention; policy/preferences, verified-export proofs, receipts and in-process download leases are built. Matt chooses unattended protection and activation policies. [Plan](docs/plan-automatic-backups.md). |
 
 ## Prompt analyser
 
