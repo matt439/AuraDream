@@ -242,7 +242,7 @@ class GalleryAdmission:
         if scope["type"] != "http":
             return await self.app(scope, receive, send)
         path = scope["path"]
-        control = path in {PREFIX, PREFIX + "/status", PREFIX + "/export", PREFIX + "/import",
+        control = path in {"/api/gallery/automatic-backup", "/api/gallery/automatic-backup/reload", PREFIX, PREFIX + "/status", PREFIX + "/export", PREFIX + "/import",
                            PREFIX + "/upload", PREFIX + "/password"} or path.startswith(PREFIX + "/files/")
         status = path == "/api/status" or path == "/api/jobs" or path.startswith("/api/jobs/")
         # Personal snippets have their own sidecar and reservation. Their

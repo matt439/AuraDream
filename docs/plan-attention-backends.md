@@ -262,3 +262,7 @@ Windows/Python/torch/CUDA/sm120 compatibility and license checks; no wheel
 claim or installation is part of this slice. Keep Native as the default
 until measured evidence justifies any separately chosen change. Leave
 `PERF#3` OPEN for implementation, then CARD for the remaining runs.
+
+These exposure questions do not block ordinary source implementation and
+fake-based checks with render admission closed. The cold candidate helper's
+conservative override refusal changes no environment/selection precedence.

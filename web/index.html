@@ -1750,6 +1750,32 @@
       <ul id="bundle-list"><li>Reading saved bundles…</li></ul>
     </div>
   </section>
+  <details class="bundle-automatic" id="automatic-backup-settings">
+    <summary>Automatic startup backup</summary>
+    <div class="bundle-automatic-body">
+      <p class="hint">Check once when the server starts and save the entire gallery, including every model, prompts, starred images and the recycle bin. Saving these settings does not create a backup now.</p>
+      <label class="bundle-automatic-check"><input type="checkbox" id="automatic-backup-enabled"> Enable automatic backups on the next server start</label>
+      <div class="bundle-automatic-fields">
+        <label for="automatic-backup-age">Minimum age of the latest verified automatic copy (hours)</label>
+        <input type="number" id="automatic-backup-age" min="1" max="876000" step="1" inputmode="numeric" aria-describedby="automatic-backup-age-hint">
+        <label for="automatic-backup-keep">Requested copies to keep when cleanup is available</label>
+        <input type="number" id="automatic-backup-keep" min="1" max="10000" step="1" inputmode="numeric" aria-describedby="automatic-backup-retention-hint">
+      </div>
+      <p class="hint" id="automatic-backup-age-hint">Enter a whole number of hours. Only a currently verified automatic copy counts toward this age; manual bundles do not.</p>
+      <p class="hint" id="automatic-backup-retention-hint">Automatic cleanup is not enabled; all existing copies are kept. The requested count is saved for a future cleanup feature and is not enforced.</p>
+      <label class="bundle-automatic-check" id="automatic-backup-consent-label"><input type="checkbox" id="automatic-backup-consent" aria-describedby="automatic-backup-protection-hint automatic-backup-destination"> I allow unattended unencrypted backups, including images and prompts, at the destination shown below.</label>
+      <p class="hint" id="automatic-backup-protection-hint">Automatic password protection is not available. These copies are ordinary, unencrypted ZIPs. For a protected copy, leave this off and use the manual Back up action with a password. A copy on the same physical disk does not protect against losing that disk.</p>
+      <div class="bundle-backup-row">
+        <button type="button" class="ghost small" id="automatic-backup-save" aria-disabled="true">Save startup backup settings</button>
+        <button type="button" class="ghost small" id="automatic-backup-reload" aria-disabled="true">Reload saved settings</button>
+      </div>
+      <p class="hint" id="automatic-backup-destination">Backup destination is not yet known.</p>
+      <p id="automatic-backup-status">Open this dialog to read automatic backup settings.</p>
+      <p class="hint" id="automatic-backup-warning" hidden></p>
+      <p class="hint">An empty gallery is skipped, and a busy startup is deferred without an automatic retry. The next server start checks again. Existing manual backups remain available.</p>
+      <p id="automatic-backup-feedback" role="status" aria-live="polite"></p>
+    </div>
+  </details>
 </dialog>
 
 <!-- The right-click menu on an image (context-menu.js): filled as it opens,

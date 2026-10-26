@@ -121,3 +121,51 @@ general claim about translation accuracy.
 - The manual-validation owner also leaves native notification delivery
   and actual Windows display scaling unchecked. `UI#7` should name these
   alongside screen-reader and touch checks.
+
+## Remaining-work audit after the overnight stages
+
+The five OPEN rows still include implementation. They are not a declaration
+that every remaining step needs Matt. The original speed review specified a
+plan first, then implementation, then CARD; the new plans' "before shipping"
+and "before exposing" questions do not prohibit source work or scratch tests.
+The continuing implementation request permits those stages while leaving
+real model loads/downloads, GPU runs and experimental render activation out
+of this session.
+
+| Row | Independent implementation identified by the audit | Separate activation or evidence boundary |
+|---|---|---|
+| PERF#1 | Loader/selection/status lifecycle and fake-backed placement, failure and teardown checks | Compiler/toolchain installation; opening compiled rendering; GEN#22 and the finite card protocol |
+| PERF#3 | Cold request checks, dormant selection/status/processor lifecycle and fake checks | An explicit external-override policy before exposing selection; native/cuDNN card fit and repeatability; external wheels remain later work |
+| PERF#4 | Cold request checks, dormant per-call integration and presentation checks | Opening cached rendering and the shared-seed card comparison; Matt's quality acceptance before routine use |
+| GAL#6 | Default-off configuration, startup/preload ordering and status using scratch galleries | Explicit unattended protection/activation values; real OS credential integration; verified shared exclusion before retention deletion |
+| DEV#4 | Diagnostic/artifact preparation is complete | Linux qualification is blocked by the actual WSL service denial; hosted qualification requires publishing, outside the local-only request |
+
+The first missing cold cuDNN/FBC checks were implemented following this audit,
+with all nonempty-render refusals retained. Backup lifecycle work can likewise
+require age, count, destination and informed protection as explicit activation
+inputs rather than invent values for Matt. Existing draft policies must not
+silently become active when lifecycle wiring lands. Conservative empty-gallery
+skips, manual-age exclusion and no retry are existing first-version semantics,
+not evidence of a personal preference. The OS-secret option still needs a real
+provider and recovery design; it cannot fall back to plaintext.
+
+The explicit default-off GAL#6 startup/configuration/status slice was then
+implemented and checked on scratch galleries, as recorded in the backup plan.
+Shared-lock installation, managed retention and OS-backed protection remain;
+no real gallery was activated and no automatic deletion was added.
+
+Approved workflow work was reconciled against its owners, production paths and
+regression fixtures: mixed tag/prose handling and native tag spelling, More seeds
+queueing and response retries, queue controls and missed outcomes, deterministic
+prompt choices, Bundles password/count clarity, target sizing, button hierarchy,
+shortcuts and compact setup are complete. No new implementation defect was
+established in that subset. A1111 weighting/chunking is the separate GEN#20
+decision, not an unfinished native-parser fix. The historical local-browser
+approval language in completed result paragraphs creates no new test gate.
+
+Genuine remaining human/product boundaries are DEV#1's task trials, UI#7's
+hands-on accessibility/desktop evidence, GEN#20's weighting behavior, INP#11's
+instruction-editing scope, INP#12's detailer/detector scope and PA#11's choice
+about withholding content-losing rewrites. PERF#2 retains its PERF#1 dependency;
+CARD and explicitly deferred rows keep their existing status. No agent trial,
+CPU test or browser emulation supplies those missing human or card results.

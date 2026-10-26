@@ -27,12 +27,18 @@ before changing it.
   age and managed-retention predicates; no startup scheduling or archive I/O
 - `backend/backup_preferences.py` - strict bounded, atomic database-scoped
   backup policy sidecars; no lifecycle activation or credential fields
+- `backend/backup_settings.py` - explicit v2 plaintext activation and durable
+  gallery/destination scope; older draft policies never activate implicitly
 - `backend/backup_receipts.py` - internal managed-export marker, outer-byte
   proof, strict atomic ownership journal and current-file identity checks;
   no startup, age advancement or pruning callers
-- `backend/backup_coordinator.py` - inactive explicitly invoked one-attempt
+- `backend/backup_coordinator.py` - explicitly invoked one-attempt
   due/export worker under bundle admission and gallery reservation; supplied
-  policy, identities, clock and transient protection, with no lifecycle caller
+  policy, identities, clock and transient protection
+- `backend/backup_service.py` - default-off startup/configuration/status
+  lifecycle over the coordinator, with cached status during maintenance
+- `backend/api_backup.py` - explicit backup configuration and cached status
+  routes; `backend/schemas_backup.py` owns their validated models
 - `backend/bundle_leases.py` - per-process archive reader/exclusive claims and
   leased FileResponse lifetime; shared process state and explicit native-lock mode
 - `backend/bundle_file_lock.py` - opt-in nonblocking shared/exclusive native
@@ -1746,9 +1752,20 @@ Jobs:
   device/inode still belongs to that writer. Append the database-specific
   atomic receipt journal only after verified publication under the same
   reservation. Journal failure leaves the archive unmanaged with a fixed
-  warning and preserves prior receipts. No startup/API caller, age advancement
-  or pruning is connected. `matches_current` checks regular-file identity,
+  warning and preserves prior receipts. Explicitly enabled startup backups use
+  this path; no pruning is connected. `matches_current` checks regular-file identity,
   destination and full raw digest; its snapshot never authorizes deletion.
+- Automatic startup backup defaults off. Only an explicit v2 save with complete
+  age/count, displayed destination and fresh plaintext acknowledgement activates
+  the next start; every older v1 draft remains inactive. Create durable namespace
+  UUIDs only on explicit configuration, under reservation, and never adopt an
+  existing foreign/damaged journal. Atomic saves use revision comparison and the
+  reader's size bound. Cached GET status takes no gallery lock; explicit Reload
+  reads bounded settings off-loop. Neither Save nor Reload creates an archive.
+  A startup attempt reserves before lifespan yields, waits before optional
+  preload and drains its owned writer at shutdown. Fixed errors carry no secrets.
+  No credential provider, automatic retry or retention deletion is installed;
+  the UI must say the saved N is not enforced and all existing copies are kept.
 - Managed export adds a final logical-byte capacity check before opening its
   partial: actual post-compaction snapshot and inventory sizes, exact manifest
   JSON names/sizes, maximal ZIP64 headers/descriptors, encryption framing and
@@ -5261,6 +5278,12 @@ database isolation, exact integer-microsecond durations, fixed failure
 warnings and atomic saves preserving prior bytes on write/fsync/replace
 failure. The shared 10,000-copy validation ceiling is an engineering limit,
 not a selected retention policy. Neither module is connected to startup.
+`tests/test_backup_activation_settings.py` and `tests/test_api_automatic_backup.py`
+cover explicit v2 activation, inactive legacy
+policies, stable gallery/destination namespaces and scratch startup/configuration
+integration. Status stays available during maintenance, configuration reserves
+before writing, and preload waits for the admitted attempt. No OS credentials or
+retention deletion are exercised.
 `tests/test_backup_receipts.py` and `tests/test_bundles_managed.py` check
 strict bounded ownership journals, portable names, exact outer-byte proofs,
 plain/encrypted scratch restore and single verifying reads. They inject
@@ -5277,6 +5300,12 @@ held Reuse buttons, status refresh, lightbox reason without dismissal,
 direct panel/pass/inpaint/outpaint refusal before source reads and unchanged
 composer/scroll. Legacy empty recipes retain Reuse and Undo. It runs no
 non-default recipe and establishes no compiler or GPU behavior.
+
+`smoke-automatic-backup.json` uses a fresh FLUX.1 Krea [dev] fake on 7927.
+It checks explicit plaintext consent and settings validation, stale revisions,
+dirty edits and reload, fixed startup-outcome presentation, manual-field
+preservation, disabling and narrow layout. It configures scratch settings only:
+no server restart, automatic export, real gallery or credential store is used.
 
 `tests/test_classic_scripts.py` invokes `tools/check_classic_scripts.py`
 and its Node helper to parse every local classic script in HTML order,

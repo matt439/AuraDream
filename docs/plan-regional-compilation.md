@@ -372,6 +372,12 @@ or broaden the capability matrix before those results are recorded.
 
 ## Decisions left explicit
 
+These are questions before exposing or promoting the opt-in, not a requirement
+for another conversation approval before ordinary source implementation and
+fake-based checks. Loader/selection/status lifecycle work may continue while
+every nonempty-render admission boundary remains closed. Package/toolchain
+installation and actual model/card execution remain separate actions.
+
 The implementation proposal above keeps defaults Eager and excludes LoRAs
 and sibling passes initially. Before shipping the opt-in, decide whether
 Matt finds that restricted experiment useful and whether its observed

@@ -91,7 +91,7 @@ class BackupCoordinator:
         # Catch invocation outside an event loop before reserving anything.
         asyncio.get_running_loop()
         try:
-            self.manager.reserve("backup")
+            self.manager.reserve("automatic_backup")
         except HTTPException:
             return self._immediate(BackupOutcome("deferred", "admission_busy", identity.operation_id))
         self._has_admitted_attempt = True

@@ -27,7 +27,8 @@ if __name__ == "__main__":
 
     configure()
 
-from . import api_bundles, api_gallery, api_generate, api_jobs, api_masks, api_more_seeds, api_png, api_prompt, api_refine_batch, api_snippets, api_swap, app_context, bundle_common, bundles, gallery_lock, hub_access, loras, model_selection, prompt_encoding, startup_preferences, storage  # noqa: E402
+from . import api_backup, api_bundles, api_gallery, api_generate, api_jobs, api_masks, api_more_seeds, api_png, api_prompt, api_refine_batch, api_snippets, api_swap, app_context, bundle_common, bundles, gallery_lock, hub_access, loras, model_selection, prompt_encoding, startup_preferences, storage  # noqa: E402
+from .backup_service import BackupService  # noqa: E402
 from .backends import get_backend  # noqa: E402
 from .detached import detached as _detached  # noqa: E402
 from .model_selection import current_model_id, current_settings  # noqa: E402
@@ -236,6 +237,19 @@ bundle_manager = api_bundles.BundleManager(
     # job, which `reserve` refuses on its own.
     lambda: _switching,
 )
+backup_service: BackupService | None = None
+_startup_task: asyncio.Task | None = None
+
+
+def _backup_service() -> BackupService:
+    assert backup_service is not None, "backup service is available during app lifespan"
+    return backup_service
+
+
+async def _finish_startup(service: BackupService, preload: bool) -> None:
+    await service.finish()
+    if preload:
+        await _load_in_background()
 
 
 def _stop_critic() -> None:
@@ -252,6 +266,7 @@ def _stop_critic() -> None:
 
 @asynccontextmanager
 async def lifespan(app: FastAPI):
+    global backup_service, _startup_task
     storage.init_db()
     # No job survives a restart, so neither does a hold on its mask; one a
     # crashed server left would spare that mask from every sweep for good.
@@ -263,9 +278,18 @@ async def lifespan(app: FastAPI):
         storage.settle_partials()
     except gallery_lock.GalleryBusy:
         pass  # another process is mid-operation; the next bundle operation sweeps
-    if settings.load_on_startup:
-        asyncio.create_task(_load_in_background())
+    backup_service = BackupService(bundle_manager, settings.db_path)
+    await asyncio.to_thread(backup_service.prepare)
+    backup_service.start_once()
+    # Track this supervisor: shutdown cancels it before a waiting preload can
+    # begin, then drains the admitted file writer through BundleManager.
+    _startup_task = None
+    if backup_service.coordinator is not None or settings.load_on_startup:
+        _startup_task = asyncio.create_task(_finish_startup(backup_service, settings.load_on_startup))
     yield
+    if _startup_task is not None and not _startup_task.done():
+        _startup_task.cancel()
+        await asyncio.gather(_startup_task, return_exceptions=True)
     if _switch_task is not None and not _switch_task.done():
         _switch_task.cancel()
         await asyncio.gather(_switch_task, return_exceptions=True)
@@ -941,6 +965,7 @@ app.include_router(api_png.create_router(services))
 app.include_router(api_masks.create_router(services))
 app.include_router(api_jobs.create_router(lambda: jobs))
 app.include_router(api_bundles.create_router(lambda: bundle_manager, services))
+app.include_router(api_backup.create_router(_backup_service))
 app.include_router(api_gallery.create_router(
     lambda: jobs, services.model_scope, max_grid_images=settings.max_grid_images,
 ))

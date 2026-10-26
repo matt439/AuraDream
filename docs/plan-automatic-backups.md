@@ -1,14 +1,16 @@
 # Plan: automatic whole-gallery backups
 
-**Status, 2026-10-26: policy, preferences, managed-export evidence, download leases,
-opt-in shared locks, managed capacity budgets and an inactive one-attempt coordinator are built;
-`GAL#6` remains open for lifecycle/shared-lock installation, retention and
-activation decisions.** This expands
+**Status, 2026-10-26: explicit default-off plaintext startup backups,
+configuration/status UI and owned preload/shutdown sequencing are implemented.
+Managed receipts, capacity budgets and opt-in shared-lock helpers are built;
+`GAL#6` remains open for shared-lock installation, retention and an OS-backed
+protection option.** This expands
 [R8](review-2026-10-25.md#r8-automatic-whole-gallery-backup). Tests export and
 restore scratch galleries only; no real gallery or credential store was touched.
-Automatic backups remain off. Proposed policies below require an explicit
-choice before activation; this plan selects no age, retention count or
-password policy for Matt.
+Automatic backups default off. No real gallery was activated. The implemented
+plaintext option needs explicit consent, age and count at its displayed
+destination; no values or protection mode are selected for Matt. Automatic
+cleanup is absent, so the saved retention count is explicitly not enforced.
 
 ## Existing path to reuse
 
@@ -33,6 +35,75 @@ These facts were checked in `api_bundles.py`, `bundles.py`,
 `tests/test_bundles_backup.py`, against the rules' Gallery bundles contract
 and design notes' [bundle section](design-notes.md#gallery-bundles-verify-before-clearing-stage-before-merging).
 
+## Explicit startup/configuration slice
+
+`backup_settings.py` adds a strict v2 activation envelope at the existing
+database-specific policy path. Missing settings create nothing; every v1 draft,
+even `enabled: true`, stays inactive and requires new confirmation. Reads are
+bounded to 64 KiB and writes fit the same limit. Explicit saves use the gallery
+reservation, revision comparison and an atomic same-directory temporary. A
+failed or uncertain save rereads the policy before another attempt. No raw
+payload or exception is returned by the configuration route.
+
+Enabling requires fresh acknowledgement of unencrypted images/prompts, positive
+whole-hour age and count, and the exact displayed destination. Only that save
+creates stable gallery/destination UUIDs; a destination change rotates its managed
+set without adopting old archives. An existing journal for another or damaged
+namespace refuses. Disabling remains possible when the destination is unavailable.
+Unknown credentials/protection fields are rejected with a fixed validation error;
+no OS provider or plaintext fallback is installed.
+
+`BackupService` reads settings off-loop after normal startup settlement, reserves
+the existing bundle manager synchronously before serving changing requests and
+invokes one due/export attempt. Its tracked supervisor waits for that attempt
+before optional preload; shutdown cancels pending preload and drains admitted
+file-writing work through the existing manager. Disabled/missing settings create
+no IDs, directories, companions or archives. Startup still makes no retry loop.
+
+`GET /api/gallery/automatic-backup` is a cached, model-free status even during
+maintenance. An explicit POST to its `/reload` reads bounded settings off-loop,
+without journal hashes or an export, and retains its read guard through request
+cancellation. PUT configures the next server start; Save itself creates no backup.
+The collapsed Bundles section keeps drafts/revisions separate from polls, handles
+external changes and late replies, and leaves manual password/count fields alone.
+Automatic outcomes use their own response shape; verified publication is required
+before success wording. Age counts only currently matching managed copies,
+skips an empty gallery and warns about backward clocks. UI copy states that all
+existing copies are kept and the requested N is not yet enforced.
+
+The new activation/settings/API batch has **43 tests**; the combined
+manager/admission/docs/classic-scope batch passed **137 tests**. Seven affected
+production modules passed the pinned type check, and independent source review
+accepted the final fixes. Scratch acceptance covers two server starts, verified
+restore of two checkpoints, stars, bin, refine lineage and mask data, preservation
+of a manual archive, preload ordering and shutdown while a writer is admitted.
+These are synthetic storage/lifecycle checks, not real gallery, OS credential,
+device or deletion acceptance.
+
+Before the final receipt/configuration overlap fix, the complete offline CPU gate passed **4,896 tests, eight skips and 75 existing
+warnings** in **223.93 seconds**, with two workers. The pinned whole-source type
+gate checked **120 files with zero errors/warnings**, and repository Ruff passed.
+The final fix snapshots cache state under a short lock, reads receipts off-loop
+against a captured attempt and publishes its timestamp only if that same attempt
+and scope still own the service. The affected integration group then passed all
+**106 tests**; the final barrier at the actual receipt-read boundary passed its
+isolated check too. Narrow types and Ruff stayed clean. The regression disables
+settings after worker admission releases but before the receipt read finishes,
+and proves preload still completes without an old timestamp or supervisor error.
+The automatic-settings browser smoke passed on an isolated Edge fake, including
+1400/600 px containment and stationary Save under a synthetic long warning.
+The four retained screenshots were inspected. Browser configuration itself
+creates no archive and performs no server restart; scratch lifecycle/restore
+acceptance is covered by the CPU integration cases above.
+
+The existing full manual Bundles smoke passed all **133 original assertions** in
+32 browser seconds. Its first full run failed two expectations at a duplicate
+saved-import step; a bounded diagnostic and then the fresh full run did not
+reproduce them. No product code or assertion was loosened; the initial cause is
+unproven. Reads of that first run's result/fake-log artifacts were denied and
+stopped; its separate stdout receipt supplied diagnostics. No further read in
+that artifact tree or permission workaround was attempted.
+
 ## Activation, age and saved state
 
 Use gallery-scoped, atomically saved backup preferences, independent of
@@ -51,7 +122,8 @@ retention and protection. Missing settings read disabled; malformed,
 duplicate/unknown-field, nonfinite, oversized or newer data returns a fixed
 repairable warning and disabled policy, without changing its file. Saves
 validate first, fsync an owned temporary and atomically replace this
-database's sidecar. There is no credential field or lifecycle hookup yet.
+database's sidecar. This v1 draft contract has no credential field and does not
+activate; the lifecycle uses only the explicit v2 envelope described above.
 
 Keep operational receipts separate from user preferences: gallery/owner
 identifier, operation UUID, archive basename, successful verification time
@@ -374,8 +446,8 @@ All 77 focused coordinator/lease/bundle HTTP checks pass, with Ruff and narrow
 pinned Pyright clean. No startup/preload,
 credential provider, recurring retry, UI or pruning is connected.
 
-1. **Policy and journal contracts, CPU only.** Settle the decisions below;
-   implement validated default-off preferences and a pure due/retention
+1. **Policy and journal contracts, CPU only.** Implement validated default-off
+   preferences and a pure due/retention
    planner with fake clocks and temporary paths. Cover old/malformed
    settings, UTC age boundary, backward clock, missing files, empty gallery,
    ownership/replaced-file rejection, N retention and destination changes.
@@ -388,8 +460,8 @@ credential provider, recurring retry, UI or pruning is connected.
    each retention unlink. Assert the live gallery is byte-for-byte
    unchanged, old good archives survive, success age is honest, locks are
    held until thread exit and downloads cannot race deletion.
-3. **Protection and UI.** Implement only the policy Matt chooses. For the
-   OS option, unit tests use a fake credential provider and integration
+3. **Protection and UI.** Require explicit choices before activation; never
+   select a mode or values for Matt. For the OS option, unit tests use a fake credential provider and integration
    checks require the intended OS backend separately. Verify missing/locked
    credentials produce no plaintext archive or secret output. Extend the
    scratch-fake Bundles smoke for activation, status, held actions, retry,
@@ -411,3 +483,11 @@ whether manual whole-gallery backups satisfy age, empty-gallery handling
 and whether deferred startup work should retry later. Implementation may
 prepare the default-off CPU contracts independently. It must not invent
 these choices or enable automatic exports/retention to demonstrate progress.
+
+This is an activation boundary, not a block on writing configurable software.
+Age, count and destination can remain required inputs with no selected values;
+plaintext needs informed explicit consent and encrypted activation needs an
+actual supported credential provider. Existing conservative empty-gallery,
+manual-age and no-retry semantics are versioned first-slice behavior, not
+inferred personal preferences. Source work and synthetic lifecycle checks may
+continue without activating any real gallery or credential store.

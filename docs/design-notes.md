@@ -4490,6 +4490,25 @@ never an overwrite.
 
 ## Gallery bundles: verify before clearing, stage before merging
 
+**Explicit startup backups (2026-10-26, `GAL#6`).** The initial v1 policy
+sidecar deliberately had no lifecycle. Wiring it directly would have activated
+hand-edited drafts, so startup accepts only a newly confirmed v2 envelope.
+Enabling needs an age, requested count, displayed destination and fresh consent
+to unencrypted images/prompts; there is no selected default or OS-secret fallback.
+Saving affects the next start and creates no archive. Namespace UUIDs are created
+only by that explicit reserved save, with a new destination set after relocation.
+
+The existing verified whole-gallery export and bundle admission own the attempt.
+Its startup reservation precedes changing requests, and the tracked supervisor
+waits before preload. Shutdown cancels a waiting preload and drains the admitted
+writer. Status stays cached during maintenance; explicit Reload reads settings
+without journal hashing or another attempt. UI drafts survive polls and stale or
+late replies, while manual creation/import passwords and the clear count stay
+separate. Automatic cleanup is not implemented: the disclosure explicitly says
+that every existing copy is kept and the saved N is not enforced. OS credentials,
+shared-mode installation and deletion remain separate stages in the
+[backup plan](plan-automatic-backups.md).
+
 **Password scope and the clear's safety step (2026-10-26, `UI#14`/`UI#15`).**
 The browser review reproduced a scope mismatch: a password under Import a
 file also controlled Protected saved imports below a separate section. File
