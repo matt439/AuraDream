@@ -2,8 +2,9 @@
 
 **Status, 2026-10-26: explicit default-off plaintext startup backups,
 configuration/status UI and owned preload/shutdown sequencing are implemented.
-Managed receipts, capacity budgets and opt-in shared-lock helpers are built;
-`GAL#6` remains open for shared-lock installation, retention and an OS-backed
+Managed receipts, capacity budgets, explicit Windows shared-mode installation
+and mode-aware downloads are built;
+`GAL#6` remains open for all-consumer lease integration, retention and an OS-backed
 protection option.** This expands
 [R8](review-2026-10-25.md#r8-automatic-whole-gallery-backup). Tests export and
 restore scratch galleries only; no real gallery or credential store was touched.
@@ -115,6 +116,70 @@ gate passed **4,920 tests with eight skips** in **225.12 seconds**, covering the
 receipt/configuration overlap fix too. All **120** production/tool sources pass
 the pinned type gate, and repository Ruff passes. No additional backup behavior
 was activated by that validation.
+
+## Explicit Windows shared-download installation
+
+`bundle_mode.py` and `tools/install_bundle_mode.py` implement a separate, explicit
+destination cutover on Windows fixed local NTFS volumes. Nothing installs from
+backup enabled state, age or N. The installer requires the operator to stop every
+other server using the destination and supply `--other-servers-stopped`; the marker
+records that attestation and `machine_verified: false`. This process checks its
+own complete lease table, refusing active readers, exclusive claims or uncertain
+release state, and blocks new local claims through publication. It cannot discover
+foreign default/old-version responses or establish host-wide quiescence.
+
+The existing destination must have stable identity and no direct link/reparse
+point. A native directory handle denies rename/delete during installation. The
+bounded, strict `local-diffusion.bundle-leases.json` marker binds a version,
+installation UUID, canonical path and directory device/inode. An owned fsynced
+temporary is published without replacement; expected ID, file identity and digest
+are checked before the mode is observed. A collision, bad or foreign marker is
+kept. Ownership transfers at rename, so a recreated old temporary name is never
+cleaned. Cleanup errors retain the primary failure and notes; uncertain native
+handles poison another attempt instead of being silently retried.
+
+The default download registry now chooses mode at ASGI entry, under the same
+process mutex as reader registration. A response created before cutover therefore
+cannot start later with a stale default registry. No marker retains ordinary
+non-writing downloads, without Windows API queries or companion creation.
+Installed-mode errors propagate before archive headers/bytes; none falls back to
+an unlocked response. Sticky named/canonical observations reject marker loss,
+replacement or destination retargeting. Shared locks cover the established full
+response lifetime, including HEAD, ranges and exceptional exits.
+
+The CLI's `--check` reads the outcome without writing or making a quiescence
+claim. Use it to inspect an uncertain publication before deciding another action.
+These commands illustrate an existing, operator-chosen destination; no real
+destination was installed during development:
+
+```powershell
+uv run python tools/install_bundle_mode.py "C:\path\to\bundles" --check
+# Only after every other participating server is stopped:
+uv run python tools/install_bundle_mode.py "C:\path\to\bundles" --other-servers-stopped
+```
+
+Focused mode/lease/response integration passed **123 checks**. The new-feature
+batch passed **45 checks**, followed by four final CLI/API checks. Actual owned
+Windows/NTFS processes exercise installation, restart discovery and complete-response
+reader/exclusive handshakes. Fault cases cover pending responses at cutover,
+publication substitution/collision, fsync, owned cleanup and native close failures;
+injected denials are labelled, with no actual native access denial observed.
+Independent source review accepted the final ownership and cutover changes; narrow
+pinned types and Ruff pass. No process inventory, WSL, network filesystem, model,
+GPU or real-gallery operation is used.
+
+The complete offline gate passed **4,965 tests, eight platform skips and 75
+existing warnings** in **222.29 seconds** with two workers. The pinned checker
+analyzed **122 production/tool sources with zero errors/warnings**, and repository
+Ruff passes. The verification job was reconciled after a transport disconnect;
+the same owned process completed successfully and no duplicate run was started.
+
+This is not retention readiness. Saved imports and other archive readers must
+join the shared protocol before mutation is connected, across databases using
+one destination. Future Windows deletion must bind to the validated archive
+handle, recheck ownership/digest/destination and require new deletion consent.
+The v2 count explicitly described as not enforced remains inert. Linux/fork,
+network/removable filesystems and mixed old/noncooperating servers are unqualified.
 
 ## Activation, age and saved state
 
@@ -382,8 +447,9 @@ including a default-mode reader, releases. Cross-thread release is
 idempotent; uncertain close retains local exclusion without an implicit
 retry. Original body failures retain release diagnostics. Defaults retain
 non-writing downloads, so a readable recovery destination need not become
-writable for this inactive feature. A future shared-mode installer must run
-while quiescent and before admitting streams/retention everywhere.
+writable by default. The explicit installer above supplies the separate cutover
+for updated cooperating download servers; all other archive consumers still need
+integration before future retention.
 
 All 51 focused scratch checks pass, including actual Windows shared readers,
 exclusive contention, process exit and mixed-mode lifetime handshakes through
@@ -391,8 +457,8 @@ owned subprocesses. No native access denial occurred. Injected open/lock/
 unlock/close and identity failures exercise fail-closed paths. Ruff and
 narrow pinned Pyright pass; independent review accepted ownership and the
 final process-wide reader hints. Linux/fork, network filesystems and mixed
-old/default/noncooperating processes remain unqualified. No shared installer
-or deletion caller exists; a lease never substitutes for receipt, destination
+old/default/noncooperating processes remain unqualified. No deletion caller
+exists; a lease never substitutes for receipt, destination
 and archive identity checks at a future mutation boundary.
 The combined lease/coordinator/bundle HTTP integration check passed all 114
 tests; this ordinary fixture run includes its existing CUDA-availability guard,

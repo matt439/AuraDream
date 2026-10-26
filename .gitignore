@@ -26,6 +26,8 @@ local-diffusion.backup-policy-*.json
 .local-diffusion.backup-policy.*.tmp
 local-diffusion.backup-receipts-*.json
 .local-diffusion.backup-receipts.*.tmp
+local-diffusion.bundle-leases.json
+.local-diffusion.bundle-leases.*.part
 local-diffusion.snippets.json
 .local-diffusion.snippets.*.tmp
 .env

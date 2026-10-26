@@ -4522,6 +4522,20 @@ that every existing copy is kept and the saved N is not enforced. OS credentials
 shared-mode installation and deletion remain separate stages in the
 [backup plan](plan-automatic-backups.md).
 
+**Shared download cutover (2026-10-26, `GAL#6`).** Per-gallery maintenance cannot
+prove that another process has no archive response, so installing native leases
+is a separate offline operation, not a consequence of enabling backups or saving
+N. The operator supplies the other-servers-stopped fact; the installer verifies
+only local lease quiescence and fixed-local-NTFS eligibility. It pins the directory
+and exclusively publishes an immutable, identity-bound destination marker.
+Updated downloads choose mode at ASGI entry under the cutover mutex, so a pending
+response cannot start with an earlier process-only choice. Uninstalled destinations
+keep non-writing downloads; installed errors remain errors. The read-only check
+can inspect uncertain outcomes without repeating installation. These Windows
+scratch-cohort results do not qualify old/noncooperating processes, Linux or network
+filesystems. Archive imports and every other reader must join the protocol before
+retention is connected, and deleting archives requires separate explicit consent.
+
 **Password scope and the clear's safety step (2026-10-26, `UI#14`/`UI#15`).**
 The browser review reproduced a scope mismatch: a password under Import a
 file also controlled Protected saved imports below a separate section. File

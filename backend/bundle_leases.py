@@ -10,13 +10,14 @@ from __future__ import annotations
 
 import os
 import threading
+from contextlib import contextmanager
 from dataclasses import dataclass, field
 from pathlib import Path
 
 from starlette.responses import FileResponse, JSONResponse
 from starlette.types import Receive, Scope, Send
 
-from . import bundle_file_lock
+from . import bundle_file_lock, bundle_mode
 
 
 class LeaseBusy(RuntimeError):
@@ -33,6 +34,31 @@ class _State:
 
 _process_lock = threading.Lock()
 _states: dict[str, _State] = {}
+_installing: set[str] = set()
+
+
+def _directory_key(directory: Path) -> str:
+    return os.path.normcase(str(Path(directory).resolve()))
+
+
+def _check_installation(key: str) -> None:
+    if _directory_key(Path(key).parent) in _installing:
+        raise LeaseBusy("Shared archive mode is being installed; try the download again after cutover.")
+
+
+@contextmanager
+def installation_guard(directory: Path):
+    """Local quiescence only; keep all registries out through marker publish."""
+    key = _directory_key(directory)
+    with _process_lock:
+        if key in _installing or any(_directory_key(Path(path).parent) == key for path in _states):
+            raise LeaseBusy("An archive response or claim is still active in this process; wait for it to finish before installing shared mode.")
+        _installing.add(key)
+    try:
+        yield
+    finally:
+        with _process_lock:
+            _installing.remove(key)
 
 
 @dataclass
@@ -74,10 +100,10 @@ class LeaseRegistry:
         canonical = bundle_file_lock.archive_path(path) if self._cross_process else Path(path).resolve()
         return os.path.normcase(str(canonical))
 
-    def _native(self, key: str, state: _State, *, exclusive: bool) -> None:
+    def _native(self, key: str, state: _State, *, exclusive: bool, shared: bool | None = None) -> None:
         if state.failure is not None:
             raise RuntimeError(f"An archive lease release failed; restart before reusing {key}") from state.failure
-        if not self._cross_process:
+        if not (self._cross_process if shared is None else shared):
             return
         try:
             if state.native is None:
@@ -90,24 +116,32 @@ class LeaseRegistry:
     def reader(self, path: Path) -> Lease:
         key = self._key(path)
         with self._lock:
-            state = _states.get(key, _State())
-            if state.exclusive:
-                raise LeaseBusy("This archive is temporarily reserved; try the download again.")
-            self._native(key, state, exclusive=False)
-            state.readers += 1
-            _states[key] = state
-            self._readers[key] = self._readers.get(key, 0) + 1
+            _check_installation(key)
+            return self._reader_locked(key)
+
+    def _reader_locked(self, key: str, *, shared: bool | None = None) -> Lease:
+        state = _states.get(key, _State())
+        if state.exclusive:
+            raise LeaseBusy("This archive is temporarily reserved; try the download again.")
+        self._native(key, state, exclusive=False, shared=shared)
+        state.readers += 1
+        _states[key] = state
+        self._readers[key] = self._readers.get(key, 0) + 1
         return Lease(self, key, False)
 
     def exclusive(self, path: Path) -> Lease:
         key = self._key(path)
         with self._lock:
-            if key in _states:
-                raise LeaseBusy("This archive is in use.")
-            state = _State(exclusive=True)
-            self._native(key, state, exclusive=True)
-            _states[key] = state
-            self._claims.add(key)
+            _check_installation(key)
+            return self._exclusive_locked(key)
+
+    def _exclusive_locked(self, key: str, *, shared: bool | None = None) -> Lease:
+        if key in _states:
+            raise LeaseBusy("This archive is in use.")
+        state = _State(exclusive=True)
+        self._native(key, state, exclusive=True, shared=shared)
+        _states[key] = state
+        self._claims.add(key)
         return Lease(self, key, True)
 
     def _release(self, lease: Lease) -> None:
@@ -155,7 +189,32 @@ class LeaseRegistry:
             return frozenset(key for key, state in _states.items() if state.readers)
 
 
-downloads = LeaseRegistry()
+class ModeAwareRegistry(LeaseRegistry):
+    """Discover the destination's immutable opt-in at each response entry."""
+
+    def _acquire(self, path: Path, *, exclusive: bool) -> Lease:
+        with self._lock:
+            # The mode read and local reader registration share the cutover
+            # mutex, including responses constructed before installation.
+            _check_installation(str(path))
+            mode = bundle_mode.discover(Path(path).parent)
+            key = self._key(path)
+            _check_installation(key)
+            if mode is None and _directory_key(Path(key).parent) != _directory_key(Path(path).parent):
+                mode = bundle_mode.discover(Path(key).parent)
+            if mode is not None:
+                key = os.path.normcase(str(bundle_file_lock.archive_path(path)))
+            claim = self._exclusive_locked if exclusive else self._reader_locked
+            return claim(key, shared=mode is not None or self._cross_process)
+
+    def reader(self, path: Path) -> Lease:
+        return self._acquire(path, exclusive=False)
+
+    def exclusive(self, path: Path) -> Lease:
+        return self._acquire(path, exclusive=True)
+
+
+downloads = ModeAwareRegistry()
 
 
 class LeasedFileResponse(FileResponse):

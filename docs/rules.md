@@ -43,6 +43,8 @@ before changing it.
   leased FileResponse lifetime; shared process state and explicit native-lock mode
 - `backend/bundle_file_lock.py` - opt-in nonblocking shared/exclusive native
   locks on persistent archive companions, with identity and cleanup ownership checks
+- `backend/bundle_mode.py` - explicit Windows/NTFS shared-download installation,
+  immutable destination marker and sticky discovery; no retention activation
 - `backend/bundle_capacity.py` - conservative current-format managed ZIP,
   encryption framing and receipt-temp logical-byte budgets; no allocation guarantee
 - `backend/snippets.py` - bounded, revisioned personal prompt snippets in an
@@ -1798,7 +1800,19 @@ Jobs:
   native access/identity errors never become an unlocked fallback. Shared-mode
   installation must be quiescent and complete across cooperating processes
   before any retention caller. Linux/fork and mixed old processes remain
-  unqualified; no shared installer or deletion caller is enabled.
+  unqualified; no deletion caller is enabled.
+- Shared download mode is installed only by the explicit Windows fixed-local-NTFS
+  tool, independent of startup backup policy and N. The operator confirms every
+  other server using that destination is stopped; this is not machine-verified.
+  A common process guard refuses existing lease state and blocks new claims
+  through immutable destination-bound marker publication. The default download
+  registry discovers mode and acquires its reader atomically at ASGI entry,
+  including responses constructed before cutover. Missing never-observed markers
+  retain non-writing defaults; observed loss, replacement, named-path retarget,
+  invalid/foreign data or native errors fail before archive headers/bytes. Never
+  overwrite/adopt a bad marker or silently fall back. `--check` is read-only
+  outcome inspection and makes no quiescence claim. Imports/other consumers and
+  handle-bound mutation remain prerequisites to future retention; v2 N is inert.
 - Bundles and the recycle bin: export carries every row, binned ones
   included (`preview()`'s `records` stays all rows, for the typed
   confirmation, and `binned` says how many are in the bin; the export
@@ -5311,6 +5325,14 @@ No real gallery, credential store, startup or pruning is exercised.
 `tests/test_bundle_leases.py` checks canonical path sharing, reader/exclusive
 exclusion and complete FileResponse lifetime, including range/HEAD/error/
 cancel/background behavior and disabled pathsend without scope mutation.
+
+`tests/test_bundle_mode.py` and `tests/test_api_bundle_mode.py` cover explicit
+destination-mode installation and discovery, default non-writing downloads,
+installed-mode failures and ASGI response admission across local cutover. Native
+checks use owned Windows scratch processes, never unknown server inventory.
+`tools/install_bundle_mode.py` is the explicit offline installation entry point;
+other-server quiescence is operator-attested, not machine-verified. Neither the
+marker nor the tool enables retention or turns a v2 saved N into deletion consent.
 
 `smoke-execution-reuse.json` uses a fresh FLUX.1 Krea [dev] fake on 7926.
 Browser fixtures add execution recipes to a synthetic eager record, checking
