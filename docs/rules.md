@@ -566,6 +566,11 @@ Model and loader:
   so a job that ended at the load and Expand (a 503 from its route) carry
   the status's sentence.
   `ModelStatus.started_at` is set once, at import.
+  Status derives ready/unloaded from actual backend readiness without changing
+  the load supervisor's cached state; loading/error and their details remain
+  authoritative. An explicit Load also consults actual readiness, so an unsafe
+  private pipeline disposal cannot leave a cached ready flag blocking reload.
+  GET starts no load; retries still use the ordinary load lock and generation gate.
 - `POST /api/model/switch` accepts only `GET /api/models` choices for the selected
   quantization/format; Nunchaku remains Linux-only. Checkpoint, quantization and
   offload form one immutable runtime snapshot. `load=false` applies and saves
@@ -5398,6 +5403,10 @@ compiler or model; directory usability is not toolchain or performance evidence.
 `tests/test_model_switch_execution.py` checks typed switch recipes, direct/copied
 internal bypasses and fixed refusal before Hub, save, unload, selection or preload
 effects. Empty/legacy Eager switches and stale revision guards remain covered.
+`tests/test_api_model_readiness.py` checks truthful ready/unloaded presentation,
+read-only GET, explicit and same-checkpoint reload without a preceding poll,
+concurrent load coalescing, held loading and preserved error/retry behavior with
+fake pipelines. This does not establish public FBC reachability or card behavior.
 `tests/test_attention_selection.py` checks coverage, transactional failures,
 shared ownership, later replacements and idempotent restoration with stubs.
 It also executes source-extracted installed public context/setter bodies.

@@ -229,3 +229,15 @@ and explicit real-data activation inputs if wanted. None of these is a blanket
 ban on the remaining performance source stages. Approved mixed-prompt/native-tag
 parsing, seed queueing/retries, bundle clarity, shortcuts and compact setup have
 no current open row or reproduced regression in this audit.
+
+The last established closed-gate PERF#4 app gap was then repaired: status now
+reports a discarded private pipeline as not-ready, and explicit Load consults
+actual readiness rather than requiring a preceding GET. Fake checks preserve
+loading/error details, selection, preferences and ordinary load coalescing. This
+is latent lifecycle groundwork; today's valid public requests still cannot enter
+private FBC. After that repair, the renewed bounded audit identified no additional
+present correctness change under the closed-gate restrictions. Public selection/
+preferences/UI remain unimplemented, rather than falsely qualified or declared
+done. Ordinary source preparation remains permitted; the next functional exposure
+needs the explicit recipe/toolchain/bootstrap and external-environment choices
+above, while actual card/OS/human evidence retains its separate boundaries.

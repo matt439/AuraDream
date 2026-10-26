@@ -503,8 +503,10 @@ async def status() -> ModelStatus:
         if revision == model_selection.revision() and switching == _switching:
             break
     state = _load_state["state"]
-    if state == "unloaded" and backend.is_ready():
-        state = "ready"
+    if state in {"unloaded", "ready"}:
+        # A backend may discard an unsafe pipeline between loads. Reflect its
+        # actual readiness without changing the load supervisor's own state.
+        state = "ready" if backend.is_ready() else "unloaded"
     defaults = _merged_defaults(info)
     card_holder, card_ticket = jobs.card()
     return ModelStatus(
@@ -688,7 +690,7 @@ def _disk_free_mb() -> int | None:
 async def load_model() -> ModelStatus:
     global _switch_error
     _switch_error = None
-    if _load_state["state"] != "ready":
+    if _load_state["state"] != "ready" or not backend.is_ready():
         # Reserve the pending load before its task has entered the lock.
         _load_state.update(state="loading", detail=None)
         asyncio.create_task(_load_in_background())

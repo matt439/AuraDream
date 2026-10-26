@@ -79,6 +79,37 @@ checks, not real imported dispatcher/FBC/model/device/kernels, memory, pixels or
 main-status/card qualification. The combined whole-source gate follows the
 concurrent credential-source stage.
 
+## Application readiness after private disposal
+
+The app now derives a returned ready/unloaded state from actual backend readiness
+without mutating the load supervisor's cached state. A discarded private pipeline
+therefore reports not-ready; a GET starts no replacement load. Loading/error states
+and their details remain authoritative. Explicit Load independently checks actual
+readiness, including the unchanged-checkpoint Switch & load path, so recovery does
+not depend on a preceding status poll. Existing `ensure_loaded` locking and the
+generation gate still own the one ordinary reload attempt.
+
+This closes latent app/private lifecycle groundwork in this owner. Today's public
+load still supplies None and nonempty generation guards prevent entering private
+FBC through a valid public request. Fake readiness tests do not qualify that path,
+physical GPU release or real cache arithmetic. Public selection/admission and the
+fixed-pair quality/time/memory qualification remain open.
+
+All **175 focused API/model-switch/analysis checks** passed, including 13 new fake
+readiness cases with event-held loads and a concurrent request barrier. They prove
+returned status is observational, explicit reload needs no preceding GET, loading/
+error details remain supervised and retries/coalescing keep selection/preferences
+unchanged. The changed production file passes pinned types with zero diagnostics,
+Ruff passes and independent review is clear. Every author validation job closed;
+no actual private-FBC/public request, model, compiler or GPU run occurred.
+
+The complete offline gate then passed **5,441 tests, eight platform skips and
+75 existing warnings** in **235.87 seconds**, using two workers with file-based
+distribution on Windows/Python 3.13.15. Whole-scope pinned Pyright checked
+**128 production/tool sources with zero errors/warnings**, repository Ruff passed
+and all validation jobs closed successfully. This establishes the bounded source/
+fake app lifecycle behavior; public selection and card/quality acceptance remain.
+
 ## Shared Native attention invariant
 
 The effective-Native implementation was subsequently moved intact to the shared
