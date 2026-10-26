@@ -77,7 +77,7 @@ Matt's approved [shortcut and compact-setup stages](docs/plan-shortcut-workflow.
 
 | id | status | sev | size | item |
 |---|---|---|---|---|
-| `PERF#1` | OPEN | MED | L+card | Implement the initial regional-compilation runtime and loader controls; qualify compiler, shapes, memory and pixels separately on the card. Cold contracts, admission and persisted carry are built. [Plan](docs/plan-regional-compilation.md). |
+| `PERF#1` | OPEN | MED | L+card | Wire the initial regional-compilation runtime and loader controls; qualify compiler, shapes, memory and pixels separately on the card. Cold contracts, persisted carry and inactive registration helpers are built. [Plan](docs/plan-regional-compilation.md). |
 | `PERF#2` | BLOCKED | LOW | M+card | A quantization choice with fp8 activations (torchao `Float8DynamicActivationFloat8WeightConfig`) on the card's fp8 tensor cores; waits on `PERF#1`. [10-25 R2](docs/review-2026-10-25.md#r2-fp8-with-fp8-activations). |
 | `PERF#3` | OPEN | LOW | M+card | Implement native/cuDNN attention contracts and processor/global-state isolation; qualify speed, fit and repeatability separately before broader backends. CPU plan complete. [Plan](docs/plan-attention-backends.md). |
 | `PERF#4` | OPEN | LOW | L+card | Implement opt-in FBC contracts, fresh per-call hooks and the shared execution-key extension; qualify quality/time/memory separately. CPU plan complete. [Plan](docs/plan-step-caching.md). |

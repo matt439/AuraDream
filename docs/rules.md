@@ -135,6 +135,9 @@ before changing it.
   table are all held to it by `tests/test_profiles.py`
 - `backend/backends/base.py` — the `GenerationBackend` ABC
 - `backend/backends/diffusers_backend.py` — in-process diffusers implementation
+- `backend/backends/regional_compile.py` - inactive exact-region discovery,
+  lazy registration, candidate disposal and scoped compiler-policy helpers;
+  no loading/generation or availability wiring
 - `backend/backends/loading.py` — everything decided before the weights
   move: the quantization config, the Nunchaku preflight and the
   prequantized refusal, the components left out of the download, the
@@ -869,6 +872,14 @@ Reproduction:
   and the final seed. `run_id` explicitly omits an absent execution slot
   even where a later shape is nonempty, then applies legacy shape/extension
   compaction. No loader choice or enabled non-default runtime exists.
+- `backends.regional_compile` validates a fresh exact FLUX transformer,
+  its uncompiled root and both installed region families before registration.
+  Setup uses fullgraph/static Inductor registration under scoped strict
+  compiler flags; failure discards the unpublished candidate and preserves
+  its original exception. Closing a registration only drops owned references;
+  it never unwraps modules, resets global compiler state or deletes caches.
+  The helper remains disconnected from loading and generation. Registration
+  facts establish no compiled kernels, warm image or fallback qualification.
 - Seeds are drawn from `2**53 - 1` and wrapped at `2**63 - 1`; both live in
   `seeds.py`. One generator per image, seeded `seed + i`; runs take base
   `seed + i * num_images`. The page refuses a typed seed past
@@ -5136,6 +5147,11 @@ canonical codecs, legacy hash fixtures including mixed-size/crop/comparison
 runs, distinct recipe keys, stored/PNG/bundle/reindex carry and unavailable
 rerun/PNG/CLI/retained recovery. Known recorded recipes confer no permission
 to execute; invalid or contradictory metadata is refused rather than dropped.
+`tests/test_regional_compile.py` checks discovery, exact arguments, failed
+candidate disposal, precompiled root/region refusal and idempotent reference
+cleanup with stubs. Installed `ConfigModule.patch` over synthetic flags
+checks nested/thread restoration. Real Flux/Dynamo imports, compiler calls,
+fallback and device behavior remain unexecuted.
 File-based readers use `metadata.require_header_metadata` to refuse app-owned
 text after PNG pixel data, which Pillow's header-only `info` would miss.
 The scan skips payloads, reads at most 80 bytes per text keyword and restores

@@ -1,7 +1,7 @@
 # Plan: regional compilation of FLUX.1
 
-**Status, 2026-10-26: CPU contracts, admission and persisted recipe carry
-are implemented and checked. Compilation runtime, loader controls and
+**Status, 2026-10-26: CPU contracts, persisted carry and inactive registration
+helpers are implemented and checked. Runtime wiring, loader controls and
 card qualification remain `PERF#1`.** This is the next slice from
 [R1](review-2026-10-25.md#r1-compile-the-denoisers-repeated-blocks), not a
 speed result or approval to load a model. No package, model or compiler was
@@ -69,6 +69,29 @@ with zero errors/warnings**, and repository ruff passed. Independent review
 fixed retained-destination SQL/PNG disagreement and a held Reuse press
 removing an existing Undo; the expanded fixtures cover both. No Linux,
 hosted CI, model load, compiler execution or GPU qualification is claimed.
+
+## Inactive registration and policy helpers
+
+`backend/backends/regional_compile.py` now validates the exact defining
+FLUX model and both repeated-block classes, complete declarations, callable
+APIs and fresh root/region compile state before mutation. It registers
+`backend="inductor", fullgraph=True, dynamic=False, mode="default"` inside
+the installed context-local strict policy. Setup failures, including
+cancellation and policy exits, discard the unpublished candidate exactly
+once while preserving the original exception. A handle records region
+counts and drops only its own references on close; it cannot unwrap a
+partially registered model or reset another caller's compiler state.
+
+All **32 helper tests** passed, with Ruff and narrow pinned Pyright clean.
+Tests use strict defining-class/registration stubs and the installed
+`ConfigModule.patch` on a synthetic two-flag module to check nested/thread
+restoration. A reviewer caught the precompiled-root case; its regression
+proves no policy entry or model/block registration occurs before refusal.
+No real Flux or Dynamo import graph, compiler, tensor, model, device or
+cache operation was used for this helper qualification. Real lazy imports,
+fallback/recompilation behavior, toolchain/cache setup, loading/call wiring
+and card qualification remain. There are no production callers and every
+nonempty execution recipe remains refused.
 
 ## Initial slice and refusal matrix
 
