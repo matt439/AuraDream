@@ -1,8 +1,7 @@
 # Plan: native and cuDNN attention on FLUX.1
 
-**Status, 2026-10-26: shared carry, inactive processor-isolation helpers and
-cold external-override diagnostics and request candidate checks are implemented.** Runtime/loader policy
-wiring and separately approved card
+**Status, 2026-10-26: shared carry, private processor/loader/call ownership and
+cold external-override diagnostics and request candidate checks are implemented.** Public selection/admission, effective environment policy and separately approved card
 qualification remain `PERF#3`. This is the
 bounded next slice from [R3](review-2026-10-25.md#r3-attention-backend).
 No package installation, model load, tensor allocation or GPU operation
@@ -50,6 +49,44 @@ skips**, in **204.93 seconds** with two workers. This includes the new
 regional helper and managed-backup proof/journal stages. The pinned checker
 reports **111 sources, zero errors/warnings**; repository Ruff passed.
 No model load, render, Linux/hosted run or card qualification follows.
+
+## Private loader, call and terminal-discard ownership
+
+`DiffusersBackend._load_prepared` now accepts a private attention-only candidate
+after cold matrix and fixed external-warning checks, before weights. Public
+`load()` still supplies None and every public nonempty admission remains closed.
+After ordinary placement/checks, configuration belongs to the unpublished pipeline
+transaction; the exact root/processor owner transfers with its recipe only at
+final publication. Both unload paths detach it with base/sibling references and
+restore/dispose outside backend/weights locks. Eager and regional paths retain
+their previous behavior and cannot carry an orphaned attention override.
+
+The actual invocation boundary verifies the exact retained root, owner registry
+and complete layout before and after one private base forward. A successful
+forward with changed ownership is refused; a failed/cancelled forward retains
+the exact original exception and attaches any verification failure as a note.
+There is no native retry, global dispatcher mutation or save of an uncertain
+result. The first private matrix still excludes adapters, siblings and recipe
+combinations. No selector, environment mutation, dependency or real device call
+was added.
+
+Terminal discard and failed setup now retain weak identity exclusions for the
+root and original processors, even after snapshot rollback. Otherwise dropping
+the last failed owner could allow a partially changed layout to be adopted as a
+new baseline. Weak references are prepared before mutation, callbacks check their
+own identity before removal, and no weights or error tracebacks are retained.
+A fresh root/processors is required after terminal discard. A retained owner's
+ordinary restoration-repair semantics and None's cold no-op remain unchanged.
+
+The focused lifecycle/execution/refine regression group passed **644 checks**;
+the final isolated synthetic helper/regional/attention group passed **113 checks**
+with `--noconftest`, including the combined forward-failure/cancellation cases.
+Both production sources pass pinned Pyright with zero errors/warnings, Ruff
+passes and independent review is clear. All author jobs ended successfully.
+The isolated checks use no real dispatcher/framework/model/device work; the
+broader group uses the existing ordinary fixture availability guard. No kernel,
+memory, pixels, repeatability or GPU qualification is claimed. The final combined
+whole-source gate follows the concurrent managed-retention implementation.
 
 ## Cold external-override diagnostics
 

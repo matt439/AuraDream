@@ -1,4 +1,4 @@
-"""Inactive FLUX attention configuration; no loader or request path calls this.
+"""Private FLUX attention preparation; public execution remains unavailable.
 
 This owns processor overrides, never the process-global dispatcher. The
 public Diffusers context restores the setter's incidental global change.
@@ -165,6 +165,24 @@ def _restore(snapshots: tuple[_Snapshot, ...]) -> list[BaseException]:
 _lock = threading.RLock()
 _owners: dict[int, weakref.ReferenceType[AttentionSelection]] = {}
 _processor_owners: dict[int, weakref.ReferenceType[AttentionSelection]] = {}
+_discarded: dict[int, weakref.ReferenceType[object]] = {}
+
+
+def _identity_reference(value: object) -> weakref.ReferenceType[object]:
+    identity = id(value)
+
+    def gone(reference: weakref.ReferenceType[object]) -> None:
+        with _lock:
+            if _discarded.get(identity) is reference:
+                del _discarded[identity]
+
+    return weakref.ref(value, gone)
+
+
+def _require_fresh(value: object) -> None:
+    reference = _discarded.get(id(value))
+    if reference is not None and reference() is value:
+        raise AttentionSelectionError("This attention identity was discarded; load fresh transformer and processors")
 
 
 class AttentionSelection:
@@ -186,9 +204,30 @@ class AttentionSelection:
         self._bindings = bindings
         self._coverage = coverage
         self._snapshots = snapshots
+        self._identity_refs = tuple(
+            (id(value), _identity_reference(value))
+            for value in (transformer, *(snapshot.processor for snapshot in snapshots))
+        )
         self._restored = False
         self._restore_started = False
         self._changed: Exception | None = None
+
+    @property
+    def closed(self) -> bool:
+        return self._restored
+
+    def require(self, transformer: object) -> None:
+        """Require the same owned root and complete live configured layout."""
+        with _lock:
+            if self._transformer is not transformer or self._restored or self._restore_started:
+                raise AttentionSelectionError("This attention selection does not own the live transformer")
+            reference = _owners.get(id(transformer))
+            if reference is None or reference() is not self:
+                raise AttentionSelectionError("This attention selection no longer owns its transformer")
+            if any((reference := _processor_owners.get(id(snapshot.processor))) is None or reference() is not self
+                   for snapshot in self._snapshots):
+                raise AttentionSelectionError("This attention selection no longer owns its processors")
+            self.verify()
 
     def verify(self) -> None:
         with _lock:
@@ -213,6 +252,7 @@ class AttentionSelection:
         self._transformer = None
         self._coverage = {}
         self._snapshots = ()
+        self._identity_refs = ()
         self._restored = True
 
     def restore(self) -> None:
@@ -232,16 +272,33 @@ class AttentionSelection:
                 )
             changed = self._changed
             self._changed = None  # Its traceback can otherwise retain modules after release.
-            self._release()
             if changed is not None:
+                self.discard()
                 raise AttentionSelectionError("Attention coverage changed; discard this transformer") from changed
+            self._release()
+
+    def discard(self) -> None:
+        """Terminal abandonment; poison weak identities without retaining weights.
+
+        The owning loader has already dropped its pipeline and sibling references.
+        Do not retry restoration, adopt a failed override or keep error tracebacks.
+        """
+        with _lock:
+            if self._restored:
+                return
+            # Weak identities were prepared before the first setter mutation;
+            # terminal cleanup cannot discover unsupported weak references.
+            for identity, reference in self._identity_refs:
+                _discarded[identity] = reference
+            self._changed = None
+            self._restore_started = True
+            self._release()
 
 
 def configure_attention(transformer: object, recipe: str | None) -> AttentionSelection | None:
-    """Prepare the inactive cudnn-v1 helper; None leaves everything unchanged.
+    """Prepare private cudnn-v1 ownership; None leaves everything unchanged.
 
-    This is deliberately disconnected from application loading/generation.
-    The caller still needs admission, environment policy and separate card
+    The caller still needs public admission, environment policy and separate card
     qualification before activation. It must call only while idle, after
     placement, and retain the returned handle until all shared siblings go.
     """
@@ -250,12 +307,15 @@ def configure_attention(transformer: object, recipe: str | None) -> AttentionSel
     if type(recipe) is not str or recipe != "cudnn-v1":
         raise AttentionSelectionError(f"Unsupported attention recipe: {recipe!r}")
     with _lock:
+        _require_fresh(transformer)
         previous = _owners.get(id(transformer))
         if previous is not None and previous() is not None:
             raise AttentionSelectionError("This shared transformer already has an attention owner")
         bindings = _load_bindings()
         coverage = _coverage(transformer, bindings)
         snapshots = _snapshots(coverage)
+        for value in (transformer, *(snapshot.processor for snapshot in snapshots)):
+            _require_fresh(value)
         identities = tuple(id(snapshot.processor) for snapshot in snapshots)
         if any((owner := _processor_owners.get(identity)) is not None and owner() is not None
                for identity in identities):
@@ -284,6 +344,11 @@ def configure_attention(transformer: object, recipe: str | None) -> AttentionSel
             if failures:
                 exc.add_note("Attention rollback failed; discard this transformer: "
                              + "; ".join(f"{type(error).__name__}: {error}" for error in failures))
-            handle._release()
+            # No owner can be returned after failed setup. Even successful
+            # snapshot rollback may leave a replacement layout on this root.
+            try:
+                handle.discard()
+            except BaseException as cleanup:
+                exc.add_note(f"Discarding the failed attention owner also failed: {type(cleanup).__name__}: {cleanup}")
             raise
         return handle

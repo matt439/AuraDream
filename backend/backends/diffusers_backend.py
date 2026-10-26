@@ -32,12 +32,12 @@ from .. import latent_preview, loras, refine
 from ..model_selection import current_model_id, current_settings
 from ..config import ATTENTION_ENVIRONMENT_WARNING, settings
 from ..execution import (
-    ExecutionSpec, canonical_execution, compiler_metadata, regional_candidate_reason,
+    ExecutionSpec, attention_candidate_reason, canonical_execution, compiler_metadata, regional_candidate_reason,
     require_default_execution,
 )
 from ..model_defaults import INPAINT_DEFERRED, defaults_for, inpaint_family, inpaint_start
 from ..seeds import wrap_seed
-from . import anima_loading, loading, netayume_loading, newbie_loading, regional_compile, schedule, single_file
+from . import anima_loading, attention_selection, loading, netayume_loading, newbie_loading, regional_compile, schedule, single_file
 from .base import CancelFn, Cancelled, GenerationBackend, PreviewFn, ProgressFn
 
 if TYPE_CHECKING:
@@ -73,7 +73,7 @@ class _PipelineCandidate:
     """Own unpublished or detached pipeline references until transfer/close.
 
     The eager loader uses this transaction too. Private preparation can attach
-    its regional registration; public execution selection remains unavailable.
+    its regional or attention owner; public execution selection remains unavailable.
     """
 
     release: Callable[[], None]
@@ -82,6 +82,7 @@ class _PipelineCandidate:
     registration: RegionalRegistration | None = None
     execution: ExecutionSpec | None = None
     related: tuple[Any, ...] = ()
+    attention: attention_selection.AttentionSelection | None = None
     _invalid: bool = field(default=False, init=False)
 
     def __enter__(self) -> _PipelineCandidate:
@@ -100,6 +101,7 @@ class _PipelineCandidate:
 
     def disown(self) -> None:
         self.pipe, self.params, self.registration, self.execution, self.related = None, set(), None, None, ()
+        self.attention = None
 
     def invalidate(self) -> None:
         # Registration can fail while backend/weights locks are held. Prevent
@@ -107,15 +109,27 @@ class _PipelineCandidate:
         self._invalid = True
 
     def close(self) -> None:
-        release = self.pipe is not None or self.registration is not None or bool(self.related)
-        registration = self.registration
+        release = self.pipe is not None or self.registration is not None or self.attention is not None or bool(self.related)
+        registration, attention = self.registration, self.attention
         self.disown()
         failure: BaseException | None = None
+        if attention is not None:
+            try:
+                attention.restore()
+            except BaseException as exc:
+                failure = exc
+                try:
+                    attention.discard()
+                except BaseException as cleanup:
+                    exc.add_note(f"Discarding the attention owner also failed: {type(cleanup).__name__}: {cleanup}")
         if registration is not None:
             try:
                 registration.close()
             except BaseException as exc:
-                failure = exc
+                if failure is None:
+                    failure = exc
+                else:
+                    failure.add_note(f"Closing the regional owner also failed: {type(exc).__name__}: {exc}")
         if release:
             try:
                 self.release()
@@ -136,6 +150,7 @@ class DiffusersBackend(GenerationBackend):
         self._lock = threading.Lock()
         self._call_params: set[str] = set()
         self._regional_registration: RegionalRegistration | None = None
+        self._attention_selection: attention_selection.AttentionSelection | None = None
         self._loaded_execution: ExecutionSpec | None = None
         # The adapter currently attached to the live pipeline, as
         # (name, weight). Hot-swapped between cells rather than baked into
@@ -198,8 +213,9 @@ class DiffusersBackend(GenerationBackend):
             checkpoint_id = selected.model_id
             if execution is not None:
                 if ATTENTION_ENVIRONMENT_WARNING is not None:
-                    raise ValueError("Regional preparation requires native attention without a nonnative external override.")
-                reason = regional_candidate_reason(
+                    raise ValueError("Private execution preparation requires native attention without a nonnative external override.")
+                check = attention_candidate_reason if execution.attention_backend is not None else regional_candidate_reason
+                reason = check(
                     execution, compiler_metadata(), model_id=checkpoint_id,
                     quantization=selected.quantization, offload=selected.offload, device=selected.device,
                 )
@@ -306,12 +322,20 @@ class DiffusersBackend(GenerationBackend):
             candidate.params = params
             if execution is not None:
                 try:
-                    candidate.registration = regional_compile.register_regions(
-                        getattr(candidate.pipe, "transformer", None), discard_on_failure=candidate.invalidate,
-                    )
-                    if type(candidate.registration) is not regional_compile.RegionalRegistration:
-                        raise RuntimeError("regional preparation did not return its owned registration")
-                    candidate.registration.require(getattr(candidate.pipe, "transformer", None))
+                    if execution.attention_backend is not None:
+                        candidate.attention = attention_selection.configure_attention(
+                            getattr(candidate.pipe, "transformer", None), execution.attention_backend,
+                        )
+                        if type(candidate.attention) is not attention_selection.AttentionSelection:
+                            raise RuntimeError("attention preparation did not return its owned selection")
+                        candidate.attention.require(getattr(candidate.pipe, "transformer", None))
+                    else:
+                        candidate.registration = regional_compile.register_regions(
+                            getattr(candidate.pipe, "transformer", None), discard_on_failure=candidate.invalidate,
+                        )
+                        if type(candidate.registration) is not regional_compile.RegionalRegistration:
+                            raise RuntimeError("regional preparation did not return its owned registration")
+                        candidate.registration.require(getattr(candidate.pipe, "transformer", None))
                 except BaseException:
                     candidate.invalidate()
                     raise
@@ -324,7 +348,8 @@ class DiffusersBackend(GenerationBackend):
         """Transfer a fully prepared candidate without replacing working weights."""
         if candidate._invalid:
             raise RuntimeError("cannot publish an invalidated pipeline candidate")
-        if self._pipe is not None or self._regional_registration is not None or self._loaded_execution is not None:
+        if (self._pipe is not None or self._regional_registration is not None
+                or self._attention_selection is not None or self._loaded_execution is not None):
             raise RuntimeError("cannot publish a pipeline over working weights")
         if candidate.pipe is None:
             raise RuntimeError("cannot publish an empty pipeline candidate")
@@ -332,8 +357,16 @@ class DiffusersBackend(GenerationBackend):
         regional = execution is not None and execution.compilation is not None
         if regional != (candidate.registration is not None):
             raise ValueError("a regional pipeline and its registration must transfer together")
+        attended = execution is not None and execution.attention_backend is not None
+        if attended != (candidate.attention is not None):
+            raise ValueError("an attention pipeline and its selection must transfer together")
+        if candidate.attention is not None:
+            if type(candidate.attention) is not attention_selection.AttentionSelection:
+                raise ValueError("the attention candidate has no valid owned selection")
+            candidate.attention.require(getattr(candidate.pipe, "transformer", None))
         params = set(candidate.params)
         self._regional_registration = candidate.registration
+        self._attention_selection = candidate.attention
         self._loaded_execution = execution
         self._call_params = params
         self._pipe = candidate.pipe
@@ -342,12 +375,13 @@ class DiffusersBackend(GenerationBackend):
     def _detach_pipeline_locked(self) -> _PipelineCandidate:
         """Drop every shared-pipeline reference together; retain compatibility caches."""
         candidate = _PipelineCandidate(
-            self._release, self._pipe, self._call_params, self._regional_registration,
-            self._loaded_execution,
-            tuple(pipe for pipe in (self._refine_pipe, self._inpaint_pipe) if pipe is not None),
+            self._release, pipe=self._pipe, params=self._call_params, registration=self._regional_registration,
+            execution=self._loaded_execution, attention=self._attention_selection,
+            related=tuple(pipe for pipe in (self._refine_pipe, self._inpaint_pipe) if pipe is not None),
         )
         self._pipe, self._call_params = None, set()
         self._regional_registration, self._loaded_execution = None, None
+        self._attention_selection = None
         self._lora = None
         self._refine_pipe, self._refine_params = None, set()
         self._inpaint_pipe, self._inpaint_params = None, set()
@@ -357,10 +391,33 @@ class DiffusersBackend(GenerationBackend):
         """One actual call boundary; eager calls never import compiler policy."""
         execution = canonical_execution(self._loaded_execution)
         registration = self._regional_registration
+        attention = self._attention_selection
         if execution is None:
             if registration is not None:
                 raise RuntimeError("an unrecorded regional registration cannot execute as Eager")
+            if attention is not None:
+                raise RuntimeError("an unrecorded attention selection cannot execute as Eager")
             return runner(**kwargs)
+        if execution.attention_backend is not None:
+            if execution.attention_backend != "cudnn-v1" or execution.compilation is not None or execution.step_cache is not None:
+                raise ValueError("this private attention call supports only the initial attention recipe")
+            if ATTENTION_ENVIRONMENT_WARNING is not None:
+                raise ValueError("Private attention execution refuses a nonnative external override.")
+            if registration is not None or type(attention) is not attention_selection.AttentionSelection:
+                raise RuntimeError("the attention pipeline has no valid exclusive owned selection")
+            if runner is not self._pipe or self._lora is not None or kwargs.get("num_images_per_prompt") != 1:
+                raise ValueError("the first attention call needs its base pipeline, no LoRA and one image")
+            attention.require(getattr(runner, "transformer", None))
+            try:
+                result = runner(**kwargs)
+            except BaseException as error:
+                try:
+                    attention.require(getattr(runner, "transformer", None))
+                except BaseException as cleanup:
+                    error.add_note(f"Attention ownership verification also failed: {type(cleanup).__name__}: {cleanup}")
+                raise
+            attention.require(getattr(runner, "transformer", None))
+            return result
         if (execution.compilation != "regional-v1" or execution.attention_backend is not None
                 or execution.step_cache is not None):
             raise ValueError("this private call boundary supports only the initial regional recipe")
@@ -368,6 +425,8 @@ class DiffusersBackend(GenerationBackend):
             raise ValueError("Regional execution requires native attention without a nonnative external override.")
         if type(registration) is not regional_compile.RegionalRegistration:
             raise RuntimeError("the regional pipeline has no valid owned registration")
+        if attention is not None:
+            raise RuntimeError("the initial regional recipe cannot own an attention selection")
         if runner is not self._pipe or self._lora is not None or kwargs.get("num_images_per_prompt") != 1:
             raise ValueError("the first regional call needs its base pipeline, no LoRA and one image")
         registration.require(getattr(runner, "transformer", None))
@@ -381,6 +440,8 @@ class DiffusersBackend(GenerationBackend):
         require_default_execution(self._loaded_execution)
         if self._regional_registration is not None:
             raise ValueError("Regional execution is not available in this build; unload this pipeline.")
+        if self._attention_selection is not None:
+            raise ValueError("Attention execution is not available in this build; unload this pipeline.")
 
     def prompt_expansion_supported(self) -> bool:
         pipe = self._pipe
