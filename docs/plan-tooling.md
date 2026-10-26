@@ -222,6 +222,12 @@ pass. Independent reviews accepted the changes. Two precise, locally
 explained Pydantic typing exceptions preserve the supported computed error
 code and required-field override; the baseline report records both.
 
+**Batch 4, keyword slice (2026-10-26).** Precise Hub/recipe keyword
+contracts remove 40 findings from four converter modules, leaving 24
+library-export/model-interface findings there. Pins, checksums, filters
+and cache serialization are unchanged. The 111 mocked loader tests,
+focused ruff and independent review pass; no suppressions or casts.
+
 **Stages.**
 
 1. Select and record a reproducible Pyright version and basic-mode

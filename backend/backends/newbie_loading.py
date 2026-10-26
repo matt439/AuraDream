@@ -8,11 +8,11 @@ from pathlib import Path
 from tempfile import TemporaryDirectory
 
 from .. import config as _config  # noqa: F401 - before Diffusers
-from .single_file import cache_root, sweep_work
+from .single_file import HubRepo, cache_root, sweep_work
 
 log = logging.getLogger(__name__)
 MODEL_ID = "NewBie-AI/NewBie-image-Exp0.1"
-SOURCE = {"repo_id": MODEL_ID, "revision": "4f7825a1a7e1ed5c1882a52e3c51d1119a43e298"}
+SOURCE: HubRepo = {"repo_id": MODEL_ID, "revision": "4f7825a1a7e1ed5c1882a52e3c51d1119a43e298"}
 PATTERNS = [
     "transformer/config.json", "transformer/diffusion_pytorch_model.safetensors",
     "text_encoder/config.json", "text_encoder/gemma3-4b-it.safetensors",
@@ -70,14 +70,13 @@ def _convert(destination: Path) -> None:
     jina = load_jina_text_encoder(
         load_file(source / "clip_model/jina-clip-v2.safetensors", device="cpu"),
     )
-    local = {"local_files_only": True}
     pipe = NewbiePipeline(
         transformer=transformer.to(dtype=torch.bfloat16),
         text_encoder=gemma.to(dtype=torch.bfloat16),
         text_encoder_2=jina.to(dtype=torch.bfloat16),
-        tokenizer=AutoTokenizer.from_pretrained(source / "text_encoder", **local),
-        tokenizer_2=AutoTokenizer.from_pretrained(source / "clip_model", **local),
-        vae=AutoencoderKL.from_pretrained(source / "vae", dtype=torch.bfloat16, **local),
+        tokenizer=AutoTokenizer.from_pretrained(source / "text_encoder", local_files_only=True),
+        tokenizer_2=AutoTokenizer.from_pretrained(source / "clip_model", local_files_only=True),
+        vae=AutoencoderKL.from_pretrained(source / "vae", dtype=torch.bfloat16, local_files_only=True),
         scheduler=FlowMatchEulerDiscreteScheduler(shift=6.0, use_dynamic_shifting=False),
     )
     pipe.save_pretrained(destination, safe_serialization=True)

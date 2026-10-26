@@ -14,17 +14,17 @@ from tempfile import TemporaryDirectory
 from typing import Any
 
 from .. import config as _config  # noqa: F401 - before any diffusers imports
-from .single_file import cache_root, sweep_work
+from .single_file import HubFile, HubRepo, cache_root, sweep_work
 
 log = logging.getLogger(__name__)
 
 MODEL_ID = "duongve/NetaYume-Lumina-Image-2.0"
-SOURCE = {
+SOURCE: HubFile = {
     "repo_id": MODEL_ID,
     "filename": "Unet/v4/NetaYumev4_unet.safetensors",
     "revision": "69c29c441119d43405d8373c654b16827d3cf46e",
 }
-SHARED = {
+SHARED: HubRepo = {
     "repo_id": "Alpha-VLLM/Lumina-Image-2.0",
     "revision": "53504abd8178b30685b6c4c7a4cd181ff78b73e9",
 }
@@ -75,13 +75,12 @@ def _convert(destination: Path) -> None:
     checkpoint = load_file(hf_hub_download(**SOURCE), device="cpu")
     transformer = _load_transformer(shared / "transformer", checkpoint)
     del checkpoint
-    local = {"local_files_only": True}
     pipe = Lumina2Pipeline(
         transformer=transformer.to(dtype=torch.bfloat16),
-        text_encoder=Gemma2Model.from_pretrained(shared / "text_encoder", dtype=torch.bfloat16, **local),
-        vae=AutoencoderKL.from_pretrained(shared / "vae", dtype=torch.bfloat16, **local),
-        tokenizer=GemmaTokenizerFast.from_pretrained(shared / "tokenizer", **local),
-        scheduler=FlowMatchEulerDiscreteScheduler.from_pretrained(shared / "scheduler", **local),
+        text_encoder=Gemma2Model.from_pretrained(shared / "text_encoder", dtype=torch.bfloat16, local_files_only=True),
+        vae=AutoencoderKL.from_pretrained(shared / "vae", dtype=torch.bfloat16, local_files_only=True),
+        tokenizer=GemmaTokenizerFast.from_pretrained(shared / "tokenizer", local_files_only=True),
+        scheduler=FlowMatchEulerDiscreteScheduler.from_pretrained(shared / "scheduler", local_files_only=True),
     )
     pipe.save_pretrained(destination, safe_serialization=True)
 

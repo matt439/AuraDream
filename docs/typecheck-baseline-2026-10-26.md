@@ -161,6 +161,16 @@ validation or suppresses a module/rule globally. Evidence is retained in
 `work/dev6-schema-contracts.json`, `work/dev6-schema-equivalence.json` and
 `work/dev6-png-size.json`.
 
+2026-10-26, batch 4 keyword slice: the four checkpoint-converter modules
+now name their actual Hub and recipe dictionary keys, and pass the same
+explicit local-only flag. All pins, checksums, filters and serialized
+recipe/cache values are unchanged. Their diagnostics fell from 64 to 24
+(40 keyword/call findings removed), with no suppressions or casts.
+The 111 existing mocked loader tests, focused ruff and independent review
+passed. Remaining library-export/model-interface findings are a separate
+slice. Receipts: `work/dev6-hubkw-before.json` and
+`work/dev6-hubkw-after.json`.
+
 ## Initial counts by diagnostic
 
 <!-- Counts below are generated from the retained initial Pyright JSON. -->
