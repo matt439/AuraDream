@@ -1,11 +1,12 @@
 # Plan: opt-in First Block Cache on FLUX.1
 
-**Status, 2026-10-26: CPU contracts, persisted carry and inactive per-call
-ownership helpers and cold request candidate checks are built.** Runtime integration, UI and a separately
+**Status, 2026-10-26: CPU contracts, persisted carry, private loader/call ownership
+and cold request candidate checks are built.** Public selection/admission, UI and a separately
 approved card comparison remain `PERF#4`. This is the
 bounded next slice from [R4](review-2026-10-25.md#r4-step-caching-for-the-long-undistilled-schedules).
 No package installation, runtime model import, weights, tensor allocation
-or GPU operation was used. Nothing enables caching or changes a default.
+or GPU generation was used for the source stages. Public caching stays unavailable
+and defaults are unchanged.
 
 The shared `ExecutionSpec`, nullable SQL/PNG carry and refusal paths are
 implemented with `PERF#1`. A recorded `fbc-005-v1` remains unavailable to
@@ -41,6 +42,42 @@ the real FBC/class adapter; no real FBC import, tensor, forward or compiler
 execution was used. The ordinary test conftest still performs its existing
 CUDA-availability check. Loader/generation/UI callers remain absent and
 every nonempty execution recipe remains refused.
+
+## Private loader, invocation and deferred disposal
+
+Private cache-only preparation cold-checks the matrix and retains its owner after
+ordinary placement/checks, without installing hooks. Pipeline, recipe and owner
+transfer together; closed/orphan/mismatched state refuses. Public `load()` still
+supplies None and every public nonempty request/applied/generation guard stays
+closed. One private base forward requires exact root/owner/layout, batch one,
+ordinary guidance and no adapter/compile/attention combination.
+
+Effective Native dispatch is checked read-only using the source-verified lazy
+getter and complete processor coverage; empty app metadata alone is insufficient.
+Nonnative/unknown state refuses without resetting globals/environment. Each call
+owns fresh cache hooks/state. Post-call changes fail the result while preserving
+primary errors/cancellations with diagnostics, never retrying.
+
+The expected owner's failure callback immediately detaches unsafe base/sibling/
+adapter/recipe state under the backend lock into explicit pending disposal.
+It closes no owner/allocator there. Per-call ownership drains once after the
+cache helper, sigma/`no_grad` scopes and application aliases unwind, outside locks;
+direct private calls own a local boundary. Pending disposal holds load/forward,
+and stale callbacks cannot detach replacements. No TLS/admission bypass exists.
+Terminal discard weakly invalidates unsafe roots without removing foreign hooks/
+cache; ordinary repair semantics remain.
+
+All **49 new isolated cases** pass with `--noconftest`; the broader backend/helper/
+execution/refine group passes **745 checks**. Both production modules pass pinned
+types with zero errors/warnings, Ruff passes and independent review is clear.
+Cases cover partial setup/cleanup/reset/foreign replacement, cancellation, scope/
+lock order, stale callbacks, pending not-ready state, weak invalidation and Native
+changes during successful/failed/cancelled forwards. An old kwargs-introspection
+test now follows the extracted body, preserving exact `refine.CARRIED` equality
+and exclusions. All author jobs ended. These are synthetic wiring/lifetime
+checks, not real imported dispatcher/FBC/model/device/kernels, memory, pixels or
+main-status/card qualification. The combined whole-source gate follows the
+concurrent credential-source stage.
 
 ## Installed FBC CPU probe
 

@@ -165,7 +165,7 @@ before changing it.
 - `backend/backends/attention_selection.py` - private complete FLUX processor
   coverage, shared ownership, public-context configuration and restoration;
   None is import-cold and public selection/admission remains closed
-- `backend/backends/fbc_cache.py` - inactive exact FLUX cache-layout checks,
+- `backend/backends/fbc_cache.py` - private exact FLUX cache-layout checks,
   per-call hook/state cleanup and shared-denoiser ownership/invalidation;
   library imports are lazy and render admission remains closed
 - `backend/backends/loading.py` — everything decided before the weights
@@ -960,13 +960,20 @@ Reproduction:
   changing the environment. FBC additionally refuses true CFG and an existing
   cache. A matching candidate grants no runtime availability or loaded-API,
   processor, shape, kernel or device qualification.
-- Inactive FBC ownership validates exact eager FLUX block identities, order,
+- Private FBC ownership validates exact eager FLUX block identities, order,
   counts and output metadata. One retained owner covers the shared denoiser;
   each call installs fresh fixed-threshold hooks, resets state/context before
   and after use, and restores only its own hooks, forwards and registry caches.
   A failed cleanup invalidates that model identity before discarding every
   shared pipeline; invalidation survives owner close and requires a fresh
-  model. These helpers have no runtime callers or model/card qualification.
+  model. Private preparation retains its owner without hooks; one direct base
+  call gets fresh hooks/state after exact ownership, ordinary-guidance and
+  read-only effective Native checks. Cleanup failure detaches the expected
+  unsafe pipeline, then explicit disposal drains after call/sigma/no_grad scopes
+  outside locks. Pending disposal holds load/forward; stale callbacks cannot
+  detach replacements. Terminal discard drops refs without touching foreign
+  hooks. Public nonempty guards remain closed; actual runtime/card qualification
+  remains separate.
 - Seeds are drawn from `2**53 - 1` and wrapped at `2**63 - 1`; both live in
   `seeds.py`. One generator per image, seeded `seed + i`; runs take base
   `seed + i * num_images`. The page refuses a typed seed past
@@ -5365,6 +5372,10 @@ unload/invocation with synthetic runtime modules, exact ownership and closed
 public guards. It covers primary error/cancellation plus post-forward ownership
 failure, cleanup outside locks, terminal weak exclusions, GC/identity-reuse
 safety and fresh-root recovery. No real dispatcher or card behavior is established.
+`tests/test_fbc_backend.py` checks private preparation, one-forward ownership and
+deferred disposal with synthetic dependencies: hook-free load, effective Native,
+partial cleanup/foreign hooks, primary errors/cancel, scope/lock order, pending
+not-ready state, stale callbacks and public refusals. No real model/GPU runs.
 File-based readers use `metadata.require_header_metadata` to refuse app-owned
 text after PNG pixel data, which Pillow's header-only `info` would miss.
 The scan skips payloads, reads at most 80 bytes per text keyword and restores

@@ -130,7 +130,7 @@ Backend (`backend/`):
   refine start), `regional_compile.py` (private regional preparation and
   scoped call policy; public execution stays unavailable), `attention_selection.py`
   (private processor ownership, restoration and terminal discard), `fbc_cache.py`
-  (inactive per-call cache ownership and cleanup),
+  (private per-call cache ownership, cleanup and deferred disposal),
   per-checkpoint converters and pipelines (`single_file`,
   `anima_*`, `netayume_loading`, `newbie_*`)
 - CLIs: `generate.py`, `clear.py`, `stats.py`, `reindex.py`

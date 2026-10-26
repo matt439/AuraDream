@@ -105,7 +105,7 @@ def test_private_regional_load_registers_after_placement_and_checks_before_atomi
 
 
 @pytest.mark.parametrize("spec", [
-    ExecutionSpec(step_cache="fbc-005-v1"), ExecutionSpec(compilation="regional-v1", step_cache="fbc-005-v1"),
+    ExecutionSpec(compilation="regional-v1", attention_backend="cudnn-v1"), ExecutionSpec(compilation="regional-v1", step_cache="fbc-005-v1"),
     SPEC.model_copy(update={"unknown": None}), SPEC.model_copy(update={"compilation": "future"}),
 ])
 def test_invalid_or_combined_private_recipe_refuses_before_any_loading(prepared_loader, spec):
@@ -347,7 +347,7 @@ def forbidden(*args, **kwargs):
     raise AssertionError("cold refusal entered the weights hold")
 module.loading.weights_loading = forbidden
 backend = module.DiffusersBackend()
-for spec in (ExecutionSpec(compilation="regional-v1"), ExecutionSpec(step_cache="fbc-005-v1"),
+for spec in (ExecutionSpec(compilation="regional-v1"), ExecutionSpec(compilation="regional-v1", attention_backend="cudnn-v1"),
              ExecutionSpec().model_copy(update={"unknown": None})):
     try:
         backend._load_prepared(spec)

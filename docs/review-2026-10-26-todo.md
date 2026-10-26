@@ -179,6 +179,12 @@ Focused synthetic checks preserve primary exceptions, eager behavior and every
 public nonempty refusal. Effective imported environment behavior, public
 selection and actual cuDNN/card qualification remain in the attention owner.
 
+Private FBC ownership then joined load/publication/call/teardown, with effective
+Native checks and explicit deferred disposal after unsafe cleanup. Synthetic
+checks cover scope/lock order, stale callbacks, primary failures and weak terminal
+invalidation. Public cached rendering, main-status reconciliation and actual
+quality/time/memory qualification remain separate.
+
 Approved workflow work was reconciled against its owners, production paths and
 regression fixtures: mixed tag/prose handling and native tag spelling, More seeds
 queueing and response retries, queue controls and missed outcomes, deterministic

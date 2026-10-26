@@ -1,7 +1,7 @@
-"""Inactive, per-denoiser First Block Cache ownership; no generation wiring.
+"""Private per-denoiser First Block Cache ownership; public admission stays closed.
 
-All library imports are lazy. Real FBC/class imports, arithmetic and device
-behavior remain unqualified; this module never changes runtime admission.
+All library imports are lazy. Real model/device behavior remains unqualified;
+this module never changes runtime admission.
 """
 from __future__ import annotations
 
@@ -14,6 +14,7 @@ from typing import TYPE_CHECKING, Literal
 from weakref import ReferenceType, ref
 
 if TYPE_CHECKING:
+    from .attention_selection import _Bindings
     from torch.nn import Module, ModuleList
     from diffusers.hooks._helpers import TransformerBlockMetadata
     from diffusers.hooks.first_block_cache import FBCBlockHook, FBCHeadBlockHook, FirstBlockCacheConfig
@@ -115,6 +116,41 @@ def _inspect(value: object, api: _Api) -> tuple[FluxTransformer2DModel, tuple[Mo
 def inspect_fbc_layout(transformer: object) -> FbcLayout:
     """Read the first supported layout without installing hooks or contexts."""
     return _inspect(transformer, _api())[2]
+
+
+@dataclass(frozen=True)
+class _NativeAttentionApi:
+    native: object
+    active: Callable[[], tuple[object, object]]
+    bindings: _Bindings
+
+
+def _native_attention_api() -> _NativeAttentionApi:
+    # Source contract: get_active_backend only reads the selected enum/function;
+    # dispatch_attention_fn uses it when a processor override is None.
+    import_module("..config", __package__)
+    from diffusers.models.attention_dispatch import AttentionBackendName, _AttentionBackendRegistry
+
+    from . import attention_selection
+
+    return _NativeAttentionApi(AttentionBackendName.NATIVE, _AttentionBackendRegistry.get_active_backend,
+                               attention_selection._load_bindings())
+
+
+def require_native_attention(transformer: object) -> None:
+    """Read effective dispatch/processor state without changing any default."""
+    from . import attention_selection
+
+    api = _native_attention_api()
+    try:
+        active, function = api.active()
+    except Exception:
+        raise ValueError("The private FBC recipe could not establish Native attention dispatch") from None
+    if active != api.native or not callable(function):
+        raise ValueError("The private FBC recipe requires the active Native attention dispatcher")
+    coverage = attention_selection._coverage(transformer, api.bindings)
+    if any(slot.processor._attention_backend not in (None, api.native) for slot in coverage.values()):
+        raise ValueError("The private FBC recipe requires Native attention on every processor")
 
 
 def _registry(module: Module, api: _Api) -> HookRegistry | None:
@@ -236,7 +272,7 @@ def _invalidate_identity(model: object) -> None:
 class FirstBlockCacheOwner:
     """One owner for a loaded denoiser shared by base and sibling pipelines.
 
-    A future host must retain this owner, use it under its existing worker
+    The private backend must retain this owner, use it under its existing worker
     gate, and discard all shared pipeline references when discard_shared runs.
     """
 
@@ -314,6 +350,26 @@ class FirstBlockCacheOwner:
         if layout != self._layout or any(a is not b for a, b in zip(blocks, self._blocks, strict=True)):
             raise ValueError("the shared FLUX block layout changed")
         self._snapshot(model, api)
+
+    def require(self, transformer: object) -> FbcLayout:
+        """Require this exact safe root with no installed call hooks/state."""
+        model, _ = self._live()
+        if model is not transformer:
+            raise ValueError("the FBC owner does not own this live transformer")
+        self.assert_off()
+        assert self._layout is not None
+        return self._layout
+
+    def discard(self) -> None:
+        """Abandon an idle owner without touching uncertain/foreign hooks."""
+        if self.closed:
+            return
+        if self._active:
+            raise RuntimeError("cannot discard an active FBC call")
+        self._invalidated = True
+        if self._model is not None:
+            _invalidate_identity(self._model)
+        self.close()
 
     def close(self) -> None:
         if self.closed:
@@ -520,9 +576,16 @@ class FirstBlockCacheOwner:
                 errors = [*discovery_errors, f"FBC cleanup aborted: {type(cleanup).__name__}: {cleanup}"]
             finally:
                 self._active = False
-            if errors:
-                unsafe = self._unsafe(errors)
-                if failure is not None:
-                    failure.add_note(str(unsafe))
-                else:
-                    raise unsafe
+            try:
+                if errors:
+                    unsafe = self._unsafe(errors)
+                    if failure is not None:
+                        failure.add_note(str(unsafe))
+                    else:
+                        raise unsafe
+            finally:
+                # Deferred backend disposal runs after this generator exits.
+                # Do not keep app-owned module snapshots in its error frame.
+                snapshots.clear()
+                owned.clear()
+                del model, api, config

@@ -109,9 +109,11 @@ def test_every_sibling_takes_what_the_backend_passes(class_name):
 def test_carried_names_every_argument_generate_passes():
     # `CARRIED` is what `sibling` checks a class against, so it has to be the
     # list `generate()` really builds - read off its body's source
-    # (`_generate_images`, inside the peak measurement), since a new
+    # (`_generate_images_prepared`, inside the peak/disposal scopes), since a new
     # argument added there and forgotten here would be dropped unnoticed.
-    source = inspect.getsource(DiffusersBackend._generate_images)
+    outer = inspect.getsource(DiffusersBackend._generate_images)
+    assert "self._generate_images_prepared(" in outer
+    source = inspect.getsource(DiffusersBackend._generate_images_prepared)
     literal = source[source.index("kwargs: dict[str, Any] = {"):]
     literal = literal[: literal.index("}")]
     passed = set(re.findall(r'"(\w+)":', literal)) | set(re.findall(r'kwargs\["(\w+)"\]', source))
