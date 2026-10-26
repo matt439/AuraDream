@@ -22,6 +22,7 @@ from . import gallery_lock, storage
 from .backends import Cancelled, GenerationBackend
 from .model_selection import current_settings
 from .config import settings
+from .execution import require_default_execution
 from .grid import Cell, CellKey, cell_keys, progress_steps, run_id as _run_id
 from .latent_preview import data_url
 from .more_seeds_intents import IntentLedger
@@ -764,6 +765,12 @@ class JobManager:
         More seeds' count (`more_seeds`) and Then refine's pass of every image
         (`then_refine`, its strength resolved by the route).
         """
+        # Internal model_copy cells bypass request validation. Refuse the
+        # whole batch before stamping masks, retaining work or starting a load,
+        # including callers that supply their own run id. Stamped outpaints
+        # deliberately cannot go through whole-request validation again.
+        for cell in cells:
+            require_default_execution(cell.request.execution)
         self._loop = asyncio.get_running_loop()
         selected = current_settings(settings)
         raw_cells = list(cells)

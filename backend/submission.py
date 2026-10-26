@@ -9,6 +9,7 @@ from fastapi import HTTPException
 
 from . import grid, loras, outpaint, refine, storage
 from .app_context import AppServices
+from .execution import unavailable_reason
 from .schemas import GenerateRequest, ImageRecord
 
 
@@ -48,6 +49,9 @@ async def unusable_input(services: AppServices, request: GenerateRequest) -> tup
     run where there is a mask - an outpaint has none until its stamp - and
     an outpaint's own (`outpaint_unusable`, kind `outpaint`) where there is
     one."""
+    reason = unavailable_reason(request.execution)
+    if reason is not None:
+        return "execution", reason
     reason = refine.upscaler_reason(request, services.model_id())
     if reason is not None:
         return "upscaler", reason

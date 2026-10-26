@@ -18,8 +18,13 @@ before changing it.
   and revision, separate from immutable startup settings; `current_model_id`
   and `current_settings` supply runtime reads, and `available` limits choices
   to the selected quantization/format/platform
+- `backend/execution.py` - frozen named execution recipes, canonical empty/key
+  contracts, distribution metadata and the pure first-compilation candidate
+  matrix; every nonempty recipe is currently refused before execution
 - `backend/startup_preferences.py` — validated atomic loader/startup persistence;
   the server launcher restores it before config imports
+- `backend/backup_policy.py` - pure automatic-backup policy, verified-success
+  age and managed-retention predicates; no startup scheduling or archive I/O
 - `backend/snippets.py` - bounded, revisioned personal prompt snippets in an
   atomic sidecar beside the settings, under an independent cross-process lock
 - `backend/api_snippets.py` - model-free snippet CRUD routes, independent of
@@ -847,6 +852,16 @@ Schedule and guidance:
 
 Reproduction:
 
+- The reserved `execution` request field uses `execution.ExecutionSpec`:
+  frozen named compilation, attention and step-cache recipes, with unknown
+  fields/names refused. Every nonempty recipe is unavailable in this build,
+  refused at validation, submission, queue admission, `applied()` and direct
+  generation before model work; the queue checks every cell before stamping
+  masks or retaining work, even with an explicit run id. The fake shares the
+  backend guards. Only `GenerateRequest.applied()`
+  writes an empty specification back to None. Canonical empty/key helpers
+  describe identity without changing requests. No execution storage column,
+  CellKey slot, loader choice or enabled runtime exists in this first slice.
 - Seeds are drawn from `2**53 - 1` and wrapped at `2**63 - 1`; both live in
   `seeds.py`. One generator per image, seeded `seed + i`; runs take base
   `seed + i * num_images`. The page refuses a typed seed past
@@ -1281,7 +1296,7 @@ Reproduction:
   refuses it; `--from-image` with a `--band` of its own builds the new
   band's mask and holds nothing to the record's.
   The mask is the server's: `storage.stamp_outpaints` builds
-  (`outpaint.mask`) and stores it as the **first step** of
+  (`outpaint.mask`) and stores it as the **first storage step** of
   `JobManager.submit_cells`, before `Job(...)` (`OSError`/`GalleryBusy` a
   worded 503, `jobs.OutpaintStampFailed`), and in `generate.py` after the
   resume prune and before the load (never under `--dry-run`; no
@@ -5092,6 +5107,21 @@ Frontend and CLI:
   meanwhile from fetching).
 
 ## Tests
+
+`tests/test_execution.py` checks frozen/strict named recipes, internal-copy
+validation, canonical empty/key spelling, cold distribution facts and the
+first regional candidate matrix. A matching candidate remains unavailable.
+HTTP, queue and direct backend/fake checks refuse nonempty recipes before
+mask stamping, retained work or model work; explicit run ids do not bypass
+queue admission. Empty execution retains legacy keys/PNG metadata and normalizes only
+through `applied()`, without revalidating a stamped outpaint. These are CPU
+contract checks, not compiler or GPU qualification.
+
+`tests/test_backup_policy.py` checks pure default-off backup decisions with
+explicit age, retention and protection. It covers UTC age boundaries and
+repeated-hour ordering, unavailable or untrusted copies, exact scope,
+conflicting identities, new-success retention and download leases. These
+checks perform no archive I/O and confer no deletion or activation authority.
 
 `tests/test_classic_scripts.py` invokes `tools/check_classic_scripts.py`
 and its Node helper to parse every local classic script in HTML order,

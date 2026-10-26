@@ -1,7 +1,8 @@
 # Plan: automatic whole-gallery backups
 
-**Status, 2026-10-26: CPU-only planning slice complete; `GAL#6` remains open
-for implementation and an unattended-password decision.** This expands
+**Status, 2026-10-26: planning and the pure CPU policy slice are complete;
+`GAL#6` remains open for durable ownership, coordinator implementation and
+activation decisions.** This expands
 [R8](review-2026-10-25.md#r8-automatic-whole-gallery-backup). No live export,
 archive deletion, credential access or configuration change was performed.
 Automatic backups remain off. Proposed policies below require an explicit
@@ -189,6 +190,29 @@ while maintenance ran. Settings and status are gallery-scoped and contain
 no prompts, passwords or per-model scope confusion.
 
 ## Bounded implementation and checks
+
+**Completed CPU contract slice, 2026-10-26.** `backend/backup_policy.py`
+adds a default-off policy requiring explicit positive age, retention and
+protection before it can be enabled, plus pure `backup_due` and
+`retention_plan` functions. Inputs are supplied verification/ownership
+facts and an aware clock, not filenames or a new receipt format. Only
+currently verified managed copies for the exact gallery, destination and
+protection set cover age or enter retention; the new success, newest N and
+download leases are protected. Untrusted ownership, unsuccessful attempts
+and backward clocks produce no pruning candidates. Manual/unknown/missing/
+replaced copies confer no deletion authority. No filesystem, app lifecycle,
+export, credential, settings write or activation is connected.
+
+All 27 focused tests passed with `--noconftest` (no app fixtures/imports),
+covering age boundaries/offsets, false trust, missing/changed copies,
+empty/skipped/failed attempts, protection/destination changes, retained
+counts, leases and clock corrections. Verification times are normalized
+to UTC so a repeated wall hour's `fold` cannot reverse chronological
+order; contradictory same-scope archive identities are rejected before
+filtering copy states. Focused ruff passed and the pinned
+Pyright check reports zero errors/warnings. This is a partial stage 1:
+saved preferences, durable identity binding/journal, user policy decisions
+and all execution/acceptance stages below remain unimplemented.
 
 1. **Policy and journal contracts, CPU only.** Settle the decisions below;
    implement validated default-off preferences and a pure due/retention

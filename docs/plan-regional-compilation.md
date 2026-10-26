@@ -1,10 +1,39 @@
 # Plan: regional compilation of FLUX.1
 
-**Status, 2026-10-26: CPU-only planning slice complete; implementation and
+**Status, 2026-10-26: planning complete; the first CPU contract/admission
+slice is implemented and checked. Persisted carry, compilation runtime and
 card qualification remain `PERF#1`.** This is the next slice from
 [R1](review-2026-10-25.md#r1-compile-the-denoisers-repeated-blocks), not a
 speed result or approval to load a model. No package, model or compiler was
 installed and no CUDA operation was run for this plan.
+
+## CPU contract and admission slice
+
+`backend/execution.py` defines one frozen, extra-forbid `ExecutionSpec`
+with the three named recipe fields, canonical empty/key helpers, installed
+distribution facts and the pure first-regional-candidate matrix. Even a
+matching candidate cannot run. `GenerateRequest` recognizes the shared
+field and refuses every nonempty recipe; submission, queue admission,
+`applied()` and direct real/fake backend boundaries also refuse internal
+requests which bypass schema validation. Queue admission checks the whole
+cell list before mask stamping/holds, retained work or loading, even with
+an explicit run id. The real direct-generation guard precedes device/peak
+queries and pipeline work. Unknown fields or recipe names are rejected,
+including unvalidated copies of the execution specification itself.
+
+Only `GenerateRequest.applied()` writes empty execution back to None. Raw
+validated requests may retain an empty specification; its canonical key is
+None. This avoids another whole-request validation of a stamped outpaint.
+No storage column, key-layout extension, Models/environment/CLI option,
+compiler installation or runtime compilation is included in this slice.
+All existing render identities and PNG metadata remain unchanged.
+
+Checked on Windows/Python 3.13.15: 605 focused execution, queue, grid, API,
+inpaint/outpaint and CLI tests pass. The six affected production modules
+pass the pinned Pyright basic check; metadata/import checks load no torch,
+diffusers or Hub module in a fresh subprocess. No model or GPU acceptance
+follows from these results. The remaining stage 1 carry work below must
+land before any nonempty execution recipe can become available.
 
 ## Initial slice and refusal matrix
 
@@ -191,6 +220,15 @@ Coordinate this carry with [attention](plan-attention-backends.md) and
 extension with named recipe fields, widened once. The empty extension
 preserves legacy identities; independent features must not claim the same
 positional key slot.
+
+For that later carry, inserting the shared slot before shape preserves the
+current penultimate shape position, but is not sufficient to preserve
+hashed definitions. Explicitly omit absent execution from canonical run
+serialization even when nonempty shape follows it. Pin legacy uniform,
+mixed-size, noncenter and comparison hashes before widening; test them
+all. Metadata/record validation must preserve a known specification while
+normalizing older fields without granting runtime permission. Do not add
+a blanket availability bypass to load a record or rebuild a stamped pass.
 
 For a new composer submission, `applied()` stamps the selected effective
 recipe after ordinary validation; a replay carries its recorded recipe

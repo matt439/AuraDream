@@ -59,6 +59,8 @@ Backend (`backend/`):
   `model_info.py` supplies cold catalogue details from existing sourced guides;
   `hub_access.py` asks the Hub whether a switch's checkpoint can download;
   `model_benchmarks.py` supplies retained timing references and speed categories
+- `execution.py` frozen execution recipes and cold candidate checks; nonempty
+  recipes remain unavailable until carry and runtime support are complete
 - `schemas.py` re-exports the request/response models, each defined in
   `schemas_generate.py` (the generation request and `applied()`, grids, job
   answers, Load settings from PNG's), `schemas_prompt.py` (Expand, Check, critic, tag lookup),
@@ -84,6 +86,7 @@ Backend (`backend/`):
   `bundle_images.py` a tracked PNG's identity, row checks and metadata
   rewrite, `bundle_common.py` their errors and database reads,
   `bundle_crypto.py` its optional password layer;
+  `backup_policy.py` pure default-off backup age and retention planning;
   `gallery_lock.py` reservations across storage threads and processes
 - `jobs.py` single-worker queue and SSE; `storage.py` SQLite + PNGs;
   `metadata.py` the PNG chunk's key and its legacy `krea` reader;

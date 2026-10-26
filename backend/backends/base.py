@@ -8,6 +8,8 @@ from __future__ import annotations
 import abc
 from typing import TYPE_CHECKING, Callable
 
+from ..execution import require_default_execution
+
 if TYPE_CHECKING:
     from PIL.Image import Image
 
@@ -100,6 +102,7 @@ class GenerationBackend(abc.ABC):
         compare against for resume, so a backend that quietly drops a setting
         must say so here. The default applies everything as given.
         """
+        require_default_execution(request.execution)
         return request
 
     def lora_supported(self) -> bool:

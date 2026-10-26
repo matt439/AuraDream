@@ -129,6 +129,9 @@ class FakeBackend(GenerationBackend):
         return {"loaded": self.loaded and self.expander_loaded, "fetch": fetch}
 
     def applied(self, request):
+        from backend.execution import require_default_execution
+
+        require_default_execution(request.execution)
         self._sync_model_profile()
         # What this fake would drop, the way the real backend drops it: an
         # input it cannot use must not reach the row.
@@ -178,7 +181,9 @@ class FakeBackend(GenerationBackend):
 
     def generate(self, request, seed, on_progress=None, should_cancel=None, on_preview=None):
         from backend.backends import Cancelled
+        from backend.execution import require_default_execution
 
+        require_default_execution(request.execution)
         if not self.loaded:
             # The real backend's contract: loading happens in main.ensure_loaded
             # and nowhere else, so a job that reaches here unloaded is a bug.

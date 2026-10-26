@@ -29,6 +29,7 @@ from typing import TYPE_CHECKING, Any
 from .. import latent_preview, loras, refine
 from ..model_selection import current_model_id, current_settings
 from ..config import settings
+from ..execution import require_default_execution
 from ..model_defaults import INPAINT_DEFERRED, defaults_for, inpaint_family, inpaint_start
 from ..seeds import wrap_seed
 from . import anima_loading, loading, netayume_loading, newbie_loading, schedule, single_file
@@ -344,6 +345,7 @@ class DiffusersBackend(GenerationBackend):
         the row a job later writes agree whether or not the weights were resident
         when the grid was previewed.
         """
+        require_default_execution(request.execution)
         if self._pipe is None:
             profile = defaults_for(current_model_id(settings))
             return request.applied(
@@ -677,6 +679,7 @@ class DiffusersBackend(GenerationBackend):
         # pre-pass count - and read after the last GPU work. Set only on a
         # return, so a cancelled or failed cell leaves no peak for the next.
         self._peak = None
+        require_default_execution(request.execution)
         device = self._peak_device() if self._pipe is not None else None
         if device is not None:
             try:

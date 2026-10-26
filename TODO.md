@@ -10,7 +10,7 @@ The maintainer's working backlog for this personal project: it records what is p
 
 **Ready backlog (updated 2026-10-26):** five `OPEN` rows, with implementation stages in their owners. Marian's token boundary, portable screenshots, the classic-script guard and the complete pinned type gate are built and checked. The four feature plans are written. `DEV#4`'s diagnostic stage is built; its Linux browser qualification awaits WSL service access. [Tooling results](docs/plan-tooling.md).
 
-**Feature stages next:** `PERF#1` ([compilation](docs/plan-regional-compilation.md)), then `GAL#6` ([backups](docs/plan-automatic-backups.md)), `PERF#3` ([attention](docs/plan-attention-backends.md)) and `PERF#4` ([caching](docs/plan-step-caching.md)). Their CPU plans are complete; default-off contracts can be prepared, while the owners retain activation and separately approved card decisions. `PERF#2` still waits on `PERF#1`. These CPU starts do not depend on Matt's layout trials or the RAM-loader card check.
+**Feature stages next:** `PERF#1` ([compilation](docs/plan-regional-compilation.md)), then `GAL#6` ([backups](docs/plan-automatic-backups.md)), `PERF#3` ([attention](docs/plan-attention-backends.md)) and `PERF#4` ([caching](docs/plan-step-caching.md)). Execution admission and pure backup policy contracts are built; persisted carry and durable ownership/coordinator stages remain, while the owners retain activation and separately approved card decisions. `PERF#2` still waits on `PERF#1`. These CPU starts do not depend on Matt's layout trials or the RAM-loader card check.
 
 **Needs Matt:** workbench task trials (`DEV#1`) and hands-on accessibility/desktop checks (`UI#7`). Four decisions remain: SDXL weighting (`GEN#20`), whether to plan instruction editing (`INP#11`) or a detailer (`INP#12`), and whether to withhold critic rewrites that lose user content (`PA#11`). Whole-app layout implementation waits for its trials; it remains a design hypothesis.
 
@@ -77,7 +77,7 @@ Matt's approved [shortcut and compact-setup stages](docs/plan-shortcut-workflow.
 
 | id | status | sev | size | item |
 |---|---|---|---|---|
-| `PERF#1` | OPEN | MED | L+card | Implement the default-off regional-compilation contracts and initial supported slice; qualify compiler, shapes, memory and pixels separately on the card. CPU plan complete. [Plan](docs/plan-regional-compilation.md). |
+| `PERF#1` | OPEN | MED | L+card | Persist the guarded execution recipe end to end and implement the initial regional-compilation slice; qualify compiler, shapes, memory and pixels separately on the card. Cold contracts/admission are built. [Plan](docs/plan-regional-compilation.md). |
 | `PERF#2` | BLOCKED | LOW | M+card | A quantization choice with fp8 activations (torchao `Float8DynamicActivationFloat8WeightConfig`) on the card's fp8 tensor cores; waits on `PERF#1`. [10-25 R2](docs/review-2026-10-25.md#r2-fp8-with-fp8-activations). |
 | `PERF#3` | OPEN | LOW | M+card | Implement native/cuDNN attention contracts and processor/global-state isolation; qualify speed, fit and repeatability separately before broader backends. CPU plan complete. [Plan](docs/plan-attention-backends.md). |
 | `PERF#4` | OPEN | LOW | L+card | Implement opt-in FBC contracts, fresh per-call hooks and the shared execution-key extension; qualify quality/time/memory separately. CPU plan complete. [Plan](docs/plan-step-caching.md). |
@@ -88,7 +88,7 @@ Matt's approved [shortcut and compact-setup stages](docs/plan-shortcut-workflow.
 
 | id | status | sev | size | item |
 |---|---|---|---|---|
-| `GAL#6` | OPEN | LOW | L | Implement default-off whole-gallery backup contracts and managed retention through verified export; Matt chooses unattended protection and activation policies. CPU plan complete. [Plan](docs/plan-automatic-backups.md). |
+| `GAL#6` | OPEN | LOW | L | Add durable ownership and verified-export coordination before managed retention; pure default-off policy contracts are built. Matt chooses unattended protection and activation policies. [Plan](docs/plan-automatic-backups.md). |
 
 ## Prompt analyser
 

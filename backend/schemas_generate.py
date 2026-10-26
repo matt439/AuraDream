@@ -21,6 +21,7 @@ from pydantic_core import PydanticCustomError
 from . import outpaint as outpaint_rules
 from .model_selection import current_model_id
 from .config import settings
+from .execution import ExecutionSpec, require_default_execution
 from .model_defaults import defaults_for, inpaint_family, inpaint_start
 from .refine import DEFAULT_STRENGTH, Upscaler, leaves_a_step, upscaler_supported
 from .seeds import MAX_BATCH, MAX_GRID_SEEDS, MAX_RUNS, MAX_SEED
@@ -257,12 +258,20 @@ class GenerateRequest(BaseModel):
     # (`storage.stamp_outpaints`). Never sent with a mask; dropped by
     # `applied()` with the source, as a mask is.
     outpaint: Outpaint | None = None
+    # Reserved shared reproduction extension. No non-default recipe can run
+    # before its storage/key carry and backend implementation are complete.
+    execution: ExecutionSpec | None = None
     seed: int | None = Field(default=None, ge=0, le=MAX_SEED)
     num_images: int = Field(default=1, ge=1, le=MAX_BATCH)
     # Sequential passes. Each one is a separate pipeline call whose base seed is
     # the previous run's plus `num_images`, so a long sweep costs no more VRAM
     # than a single image - which is what makes 2K sweeps possible at all.
     runs: int = Field(default=1, ge=1, le=MAX_RUNS)
+
+    @model_validator(mode="after")
+    def _execution_is_available(self) -> "GenerateRequest":
+        require_default_execution(self.execution)
+        return self
 
     @model_validator(mode="after")
     def _profile_defaults(self) -> "GenerateRequest":
@@ -477,7 +486,12 @@ class GenerateRequest(BaseModel):
         or None when it was not - one meaning for the column whatever the
         checkpoint, which is what lets a resume compare rows across the two.
         """
+        # Also covers internal model_copy requests without revalidating a
+        # stamped outpaint (whose derived mask is deliberately post-validation).
+        require_default_execution(self.execution)
         changes: dict[str, Any] = {}
+        if self.execution is not None:
+            changes["execution"] = None  # The only available execution is empty.
         negative = self.negative_prompt or None
         scale = self.true_cfg if true_cfg_supported else self.guidance_scale
         if negative and (
