@@ -8,7 +8,7 @@
   {"expect": "els.promptTip.textContent.includes('NetaYume Lumina v4') && els.promptTip.textContent.includes('applied automatically')"},
   {"expect": "els.stepsTip.textContent.includes('40-50') && els.sizeTip.textContent.includes('1024x1536') && els.sizeTip.textContent.includes('not a supported maximum')"},
   {"eval": "els.examplesBtn.click();"},
-  {"expect": "!els.examplesMenu.hidden && els.examplesMenu.children.length === 1"},
+  {"expect": "!els.examplesMenu.hidden && els.examplesMenu.querySelectorAll('[data-example]').length === 1"},
   {"eval": "els.examplesMenu.children[0].click();"},
   {"expect": "els.prompt.value.startsWith('Gawr Gura, 1girl, solo') && !els.prompt.value.includes('<Prompt Start>') && collect().steps === 40 && collect().guidance_scale === 5 && collect().mu === null"},
   {"eval": "els.width.value = '1024'; els.height.value = '1536'; syncSize();"},

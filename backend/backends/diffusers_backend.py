@@ -856,13 +856,15 @@ class DiffusersBackend(GenerationBackend):
             )
             kwargs["strength"] = request.strength
         elif refining:
+            crop = {"crop_anchor": request.crop_anchor} if request.crop_anchor != "center" else {}
             if request.upscaler is not None:
                 kwargs["image"] = refine.source_image(
                     request.refine, request.width, request.height, upscaler=request.upscaler,
                     should_cancel=should_cancel, device=current_settings(settings).device,
+                    **crop,
                 )
             else:
-                kwargs["image"] = refine.source_image(request.refine, request.width, request.height)
+                kwargs["image"] = refine.source_image(request.refine, request.width, request.height, **crop)
             kwargs["strength"] = request.strength
         elif request.reference and self._reference_supported():
             kwargs["image"] = self._reference_images(request.reference)

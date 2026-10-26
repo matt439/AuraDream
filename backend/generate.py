@@ -153,6 +153,11 @@ def _build_parser() -> argparse.ArgumentParser:
         "SDXL, 1 on Z-Image). About steps x S of the steps run",
     )
     conditioning.add_argument(
+        "--crop-anchor",
+        choices=("center", "top", "bottom", "left", "right", "top-left", "top-right", "bottom-left", "bottom-right"),
+        help="with ordinary --refine: which part of a differently shaped source the crop keeps (default center)",
+    )
+    conditioning.add_argument(
         "--then-refine-scale", type=float, metavar="F",
         help="then refine: after each cell, a refine pass of every image it made at F times "
         "its size (1 to 2), as Mass refine makes one - the base's seed and prompt, Lanczos - "
@@ -219,7 +224,13 @@ def _build_parser() -> argparse.ArgumentParser:
         help="values for a {NAME} placeholder in the prompt, split on `|`; "
         "repeat the flag for a second variable, and they cross like any other axes",
     )
+    sweep.add_argument(
+        "--grid-prompt-mode", choices=["cross", "random"], default="cross",
+        help="cross all prompt values (default), or draw one choice per image seed; "
+        "random images run separately even with --batch",
+    )
     sweep.add_argument("--grid-steps", metavar="SPEC", default="", help="step counts to sweep")
+    sweep.add_argument("--grid-size", metavar="WxH,...", default="", help="paired canvas sizes, e.g. 1024x1024,768x1024")
     sweep.add_argument("--grid-cfg", metavar="SPEC", default="", help="guidance scales to sweep")
     sweep.add_argument(
         "--grid-mu",
@@ -376,6 +387,9 @@ def _apply_image_settings(args: argparse.Namespace, meta: dict) -> None:
         if args.upscaler is None and meta.get("upscaler") is not None:
             args.upscaler = meta["upscaler"]
             args.carried_upscaler = True
+        if args.crop_anchor is None and meta.get("crop_anchor") is not None:
+            args.crop_anchor = meta["crop_anchor"]
+            args.carried_crop_anchor = True
         # An inpaint reproduces over the same mask: by the hash its record
         # names, which `_mask_from_record` finds in the gallery or in the
         # PNG's own copy. Only with the source it covers - a --refine of
@@ -481,6 +495,7 @@ def _check_carried_source(args: argparse.Namespace, p: SimpleNamespace, parser: 
         (args.strength is not None and not args.carried_strength) or args.scale is not None
         or args.mask is not None or named_outpaint
         or (args.upscaler is not None and not args.carried_upscaler)
+        or (args.crop_anchor not in (None, "center") and not args.carried_crop_anchor)
     ):
         parser.error(
             f"--from-image: source image {args.refine} {said} the PNG was made from, so it cannot "
@@ -492,6 +507,7 @@ def _check_carried_source(args: argparse.Namespace, p: SimpleNamespace, parser: 
         file=sys.stderr,
     )
     args.refine = None
+    args.crop_anchor = None
     args.mask_hash = None
     # An outpaint goes with its source, or the run would be a plain render
     # at the canvas's size.
@@ -700,7 +716,7 @@ def _then_refine_passes(p, backend, records, spec, pass_run, job_id, on_progress
 def _project() -> SimpleNamespace:
     """Import the project, reporting the wrong interpreter clearly."""
     try:
-        from backend import gallery_lock, gallery_reports, grid, loras, outpaint, refine, storage
+        from backend import gallery_lock, gallery_reports, grid, loras, outpaint, refine, storage, submission
         from backend.backends import Cancelled, get_backend
         from backend.config import settings
         from backend.model_defaults import defaults_for
@@ -722,6 +738,7 @@ def _project() -> SimpleNamespace:
         outpaint=outpaint,
         refine=refine,
         storage=storage,
+        submission=submission,
         Cancelled=Cancelled,
         get_backend=get_backend,
         settings=settings,
@@ -828,8 +845,11 @@ def _via_server(args, parser, source, carried, mask_image, width, height, sized,
             "run without --via-server, change the prompt, or define new variables with --grid-prompt"
         )
     prompt_axis = "\n".join(args.grid_prompt)
-    gridding = bool(prompt_axis or args.grid_steps or args.grid_cfg or args.grid_mu or args.grid_lora_scale
-                    or args.grid_strength or args.seed_list or args.grid_seeds != 1)
+    gridding = bool(prompt_axis or args.grid_size or args.grid_steps or args.grid_cfg or args.grid_mu or args.grid_lora_scale
+                    or args.grid_strength or args.seed_list or args.grid_seeds != 1
+                    or args.grid_prompt_mode != "cross")
+    if args.grid_prompt_mode == "random" and not prompt_axis.strip():
+        parser.error("--grid-prompt-mode random needs --grid-prompt variables")
     if gridding and args.runs != 1:
         parser.error("--runs and --grid-* are alternatives; a grid steps its own seeds")
     if args.grid_seeds < 1:
@@ -922,6 +942,8 @@ def _via_server(args, parser, source, carried, mask_image, width, height, sized,
         body = {"prompt": args.prompt, "negative_prompt": args.negative,
                 "width": width, "height": height, "num_images": args.batch, "runs": args.runs,
                 "reference": references, "lora": args.lora, "lora_scale": args.lora_scale}
+        if args.crop_anchor is not None:
+            body["crop_anchor"] = args.crop_anchor
         if args.upscaler not in (None, "lanczos"):
             body["upscaler"] = args.upscaler
         if args.then_refine is not None:
@@ -978,7 +1000,9 @@ def _via_server(args, parser, source, carried, mask_image, width, height, sized,
         path = "/api/generate"
         if gridding or args.resume or args.budget is not None:
             path = "/api/grid"
-            body.update(runs=1, prompt_axis=prompt_axis, steps_axis=args.grid_steps, cfg_axis=args.grid_cfg,
+            body.update(runs=1, prompt_axis=prompt_axis, prompt_mode=args.grid_prompt_mode,
+                        size_axis=args.grid_size,
+                        steps_axis=args.grid_steps, cfg_axis=args.grid_cfg,
                         mu_axis=args.grid_mu, lora_scale_axis=args.grid_lora_scale, strength_axis=args.grid_strength,
                         seeds=args.grid_seeds if gridding else args.runs, seed_axis=args.seed_list,
                         resume=args.resume, budget_minutes=args.budget)
@@ -1046,6 +1070,7 @@ def main(argv: list[str] | None = None) -> int:
     args.carried_source = None
     args.carried_strength = False
     args.carried_upscaler = False
+    args.carried_crop_anchor = False
     # An outpaint the command line names, or one --from-image carried: its
     # fill (this build's for one named here), and the record's mask hash,
     # kept aside to hold the rebuilt mask to.
@@ -1075,6 +1100,8 @@ def main(argv: list[str] | None = None) -> int:
             parser.error("--mask needs --refine: a mask covers the image it was painted on")
         if args.upscaler is not None:
             parser.error("--upscaler needs --refine: there is no source to upscale")
+        if args.crop_anchor not in (None, "center"):
+            parser.error("--crop-anchor needs --refine: there is no source to crop")
     if args.outpaint is None and args.band is not None:
         parser.error("--band needs --outpaint: the band is how far an outpaint's mask reaches into the original")
     outpaint_sides = None
@@ -1094,6 +1121,8 @@ def main(argv: list[str] | None = None) -> int:
             )
         outpaint_sides = _outpaint_sides(args.outpaint, parser)
     inpainting = args.mask is not None or args.mask_hash is not None
+    if args.crop_anchor not in (None, "center") and (inpainting or outpaint_sides is not None):
+        parser.error("--crop-anchor is for an ordinary --refine pass, without --mask or --outpaint")
     if inpainting and args.scale is not None:
         parser.error("--scale and --mask are alternatives: an inpaint runs at its source's own size")
     if args.scale is not None:
@@ -1252,12 +1281,14 @@ def main(argv: list[str] | None = None) -> int:
     gridding = (
         bool(
             prompt_axis
+            or args.grid_size
             or args.grid_steps
             or args.grid_cfg
             or args.grid_mu
             or args.grid_lora_scale
             or args.grid_strength
             or args.seed_list
+            or args.grid_prompt_mode != "cross"
         )
         or args.grid_seeds > 1
     )
@@ -1276,6 +1307,7 @@ def main(argv: list[str] | None = None) -> int:
             lora=args.lora,
             lora_scale=args.lora_scale,
             refine=args.refine,
+            crop_anchor=args.crop_anchor or "center",
             upscaler=None if args.upscaler == "lanczos" else args.upscaler,
             # None is "not given": the checkpoint's own starting strength.
             strength=args.strength,
@@ -1287,7 +1319,9 @@ def main(argv: list[str] | None = None) -> int:
         )
         # A batch past the budget is told the flag to use instead, which on a
         # grid - whose seeds are its runs - is a smaller --batch.
-        request.check_budget(grid=gridding, cli=True)
+        budget_request = request.model_copy(update={"num_images": 1}) if args.grid_prompt_mode == "random" else request
+        if not args.grid_size.strip():
+            budget_request.check_budget(grid=gridding, cli=True)
     except ValueError as exc:
         print(p.error_detail(exc), file=sys.stderr)
         return 2
@@ -1331,6 +1365,9 @@ def main(argv: list[str] | None = None) -> int:
             seeds=args.grid_seeds if gridding else args.runs,
             seed_list=seed_list or None,
             variants=variants,
+            prompt_mode=args.grid_prompt_mode,
+            size=args.grid_size,
+            cli=True,
         )
         if carried is not None and variants is None:
             # Leading the log line too, as they do in a grid's own cells.
@@ -1350,6 +1387,7 @@ def main(argv: list[str] | None = None) -> int:
     # so a night continued from the terminal joins the one it continues - in the
     # gallery's `run:` filter and on the contact sheet.
     run_id = p.grid.run_id(cells, p.settings.model_id, p.settings.quantization)
+    axis_cells = cells  # Full sampled prompt list, before Resume subtracts cells.
 
     # Built before the load, and cheap to: unloaded, `applied()` answers from
     # the checkpoint profile, which is what decides the resume comparison and
@@ -1383,19 +1421,21 @@ def main(argv: list[str] | None = None) -> int:
                 print(str(exc), file=sys.stderr)
                 return 2
     if mask is not None:
-        reason = _mask_unusable(p, request, mask_image, store=not args.dry_run)
-        if reason is not None:
-            print(reason, file=sys.stderr)
-            return 2
+        for group in p.submission.cells_by_size(cells).values():
+            reason = _mask_unusable(p, group[0].request, mask_image, store=not args.dry_run)
+            if reason is not None:
+                print(reason, file=sys.stderr)
+                return 2
     if request.outpaint is not None:
         # The server's submit check, and - for one --from-image carried - the
         # mask this build builds held to the one the image was made under.
         from backend.submission import outpaint_unusable
 
-        reason = outpaint_unusable(request)
-        if reason is not None:
-            print(reason, file=sys.stderr)
-            return 2
+        for group in p.submission.cells_by_size(cells).values():
+            reason = outpaint_unusable(group[0].request)
+            if reason is not None:
+                print(reason, file=sys.stderr)
+                return 2
         if args.carried_outpaint_mask is not None and p.storage.outpaint_mask_hash(
             request.width, request.height, request.outpaint
         ) != args.carried_outpaint_mask:
@@ -1453,13 +1493,12 @@ def main(argv: list[str] | None = None) -> int:
         # The lookup's connection checks the schema. Leave output setup and
         # thumbnail migration to init_db() below, after the dry-run guard.
         try:
-            done = p.storage.completed_cells(
-                p.grid.prompts_of(cells),
-                request.width,
-                request.height,
-                p.settings.model_id,
-                p.settings.quantization,
-            )
+            done = set()
+            for (actual_width, actual_height), group in p.submission.cells_by_size(cells).items():
+                done.update(p.storage.completed_cells(
+                    p.grid.prompts_of(group), actual_width, actual_height,
+                    p.settings.model_id, p.settings.quantization,
+                ))
         except p.gallery_lock.GalleryBusy as exc:
             # Nothing is rendered yet, so nothing is lost: say so, not a traceback.
             print(f"--resume: {exc}", file=sys.stderr)
@@ -1474,7 +1513,7 @@ def main(argv: list[str] | None = None) -> int:
         ]
         skipped = before - len(cells)
 
-    total_images = len(cells) * request.num_images
+    total_images = sum(cell.request.num_images for cell in cells)
     # Then refine: the same checks the server's submit makes, and the run the
     # passes are saved under; a pass of each image follows its cell below.
     spec = pass_run = None
@@ -1540,10 +1579,8 @@ def main(argv: list[str] | None = None) -> int:
                 f"true cfg : {args.true_cfg:g}  [ignored: on this checkpoint --cfg is real "
                 "CFG already]"
             )
-        print(
-            f"size     : {request.width}x{request.height} "
-            f"({request.width * request.height / 1e6:.1f} MP)"
-        )
+        actual_sizes = list(p.submission.cells_by_size(axis_cells))
+        print("size     : " + ", ".join(f"{w}x{h}" for w, h in actual_sizes))
         # A Mu this checkpoint cannot take is dropped by `applied()` and the
         # row records none, so the report says so rather than show it as run.
         # Asked with a Mu of its own, since the base request may carry none.
@@ -1590,6 +1627,8 @@ def main(argv: list[str] | None = None) -> int:
                     else ")"
                 )
             )
+            if request.crop_anchor != "center":
+                print(f"crop     : {request.crop_anchor}")
             if request.upscaler is not None:
                 print(f"upscaler : {p.refine.ANIME6B_LABEL} (verified ~18 MB first use; 4x then target fit)")
         if seed_list:
@@ -1607,6 +1646,9 @@ def main(argv: list[str] | None = None) -> int:
                 args.grid_lora_scale,
                 variants,
                 strength=args.grid_strength,
+                prompt_mode=args.grid_prompt_mode,
+                cells=axis_cells,
+                size=args.grid_size,
             )
             if len(values["prompt"]) > 1:
                 # The substituted prompts, not the variables that made them:
@@ -1629,8 +1671,12 @@ def main(argv: list[str] | None = None) -> int:
             if not seed_list:
                 print(f"  seeds  : {args.grid_seeds} from {seed}")
             count = len(seed_list) or args.grid_seeds
+            summary = p.grid.describe(
+                values, count, listed=bool(seed_list),
+                prompt_mode=args.grid_prompt_mode, batch=request.num_images,
+            )
             print(
-                f"grid     : {p.grid.describe(values, count, listed=bool(seed_list))}"
+                f"grid     : {summary}"
                 f" = {len(cells)} cell(s)"
             )
         if skipped:
@@ -1648,7 +1694,7 @@ def main(argv: list[str] | None = None) -> int:
             )
         print(
             f"output   : {total_images} image(s) - {len(cells)} run(s) x "
-            f"{request.num_images} -> {p.settings.outputs_dir}"
+            f"{1 if args.grid_prompt_mode == 'random' else request.num_images} -> {p.settings.outputs_dir}"
         )
         # The same estimate the browser's preview shows, from recent images at
         # this size on this checkpoint - the one number that decides whether a
@@ -1656,26 +1702,24 @@ def main(argv: list[str] | None = None) -> int:
         # lookup would otherwise write the schema into a new file, which a
         # --dry-run promises not to do.
         if p.settings.db_path.exists():
-            seconds = p.grid.estimate_seconds(
-                cells,
-                p.gallery_reports.step_cost_ms(request.width, request.height, p.settings.model_id),
-                refine_costs=p.gallery_reports.refine_cost_ms(
-                    request.width, request.height, p.settings.model_id
-                ),
-                inpaint_costs=p.gallery_reports.refine_cost_ms(
-                    request.width, request.height, p.settings.model_id, inpaint=True
-                ),
-            )
+            priced = cells
+            if spec is not None:
+                priced = [
+                    unit for cell in cells
+                    for unit in [cell, *[p.grid.Cell(
+                        request=then_refine.stand_in(cell.request, spec), seed=cell.seed,
+                    )] * cell.request.num_images]
+                ]
+            prices, need = p.gallery_reports.execution_estimates(priced, p.settings.model_id)
+            seconds = p.grid.estimate_seconds(priced, None, by_size=prices)
             if seconds is not None:
                 print(f"estimate : about {_duration(seconds)} of generation, plus the load")
             # And the disk, which is the other thing a night can run out of:
             # a full volume dies at the first save, and per the cell rule
             # takes every remaining cell with it.
-            per_image = p.gallery_reports.image_bytes(request.width, request.height, p.settings.model_id)
-            if per_image:
+            if need is not None:
                 import shutil
 
-                need = per_image * total_images
                 try:
                     free = shutil.disk_usage(p.settings.outputs_dir).free
                 except OSError:

@@ -513,7 +513,8 @@ function forgetImages(ids, { binned = false } = {}) {
     const focusHere = els.viewer.contains(document.activeElement);
     els.viewer.replaceChildren(placeholder);
     els.viewer.classList.remove('multi', 'many');
-    els.viewerNote.textContent = '';
+    els.viewerNoteText.textContent = '';
+    syncViewerMoreSeeds();
     // Saying what went, where the focus was rather than on <body>.
     if (focusHere) { placeholder.tabIndex = -1; placeholder.focus({ preventScroll: true }); }
   }

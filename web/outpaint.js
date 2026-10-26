@@ -634,21 +634,23 @@ function outpaintChanged() {
 // runs, as the Inpaint dialog's. ArrowUp and ArrowDown step a single
 // Strength by 0.05 (0.01 with Shift).
 function outpaintKeydown(event) {
-  if (event.isComposing || event.ctrlKey || event.metaKey || event.altKey) return;
+  if (keyboardEventHeld(event) || keyboardCommandModifier(event)) return;
   const side = OUTPAINT_SIDES.find((s) => outpaintBox(s) === event.target);
-  if (event.key === 'Enter' && event.target === els.outpaintShape) {
+  if (event.key === 'Enter' && !event.shiftKey && event.target === els.outpaintShape) {
     event.preventDefault();
-    applyOutpaintShape();
+    if (!event.repeat) applyOutpaintShape();
     return;
   }
-  if (event.key === 'Enter' && (side || event.target === els.outpaintBand)) {
+  if (event.key === 'Enter' && !event.shiftKey && (side || event.target === els.outpaintBand)) {
     event.preventDefault();
-    if (side) commitOutpaintSide(side); else commitOutpaintBand();
+    if (!event.repeat) {
+      if (side) commitOutpaintSide(side); else commitOutpaintBand();
+    }
     return;
   }
   if (event.key === 'Enter' && !event.shiftKey && event.target.matches('input:not([type="checkbox"]):not([type="range"])')) {
     event.preventDefault();
-    void runOutpaint();
+    if (!event.repeat) void runOutpaint();
     return;
   }
   if ((event.key === 'ArrowUp' || event.key === 'ArrowDown') && event.target === els.outpaintStrength) {

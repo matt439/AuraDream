@@ -308,16 +308,18 @@ async def rendered_keys(
 
 
 async def not_yet_rendered(
-    services: AppServices, cells: list[grid.Cell], width: int, height: int
+    services: AppServices, cells: list[grid.Cell], width: int | None = None, height: int | None = None
 ) -> list[grid.Cell]:
-    """The cells the gallery does not hold yet at this size: what Resume runs.
+    """The cells the gallery does not hold at each actual size: what Resume runs.
 
     Compare what the pipeline would *run*, not what the panel says: the rows
     were written from `backend.applied()`, so a negative prompt a Turbo cell
     at CFG 0 never saw is None on both sides rather than on one. Off the
     loop: up to three chunked scans, fired by the preview on every keystroke.
     """
-    done = await rendered_keys(services, cells, width, height)
+    done: set[grid.CellKey] = set()
+    for (actual_width, actual_height), group in cells_by_size(cells).items():
+        done.update(await rendered_keys(services, group, actual_width, actual_height))
     return [
         cell
         for cell in cells

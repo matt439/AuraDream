@@ -8,6 +8,15 @@
    dimming multiplied in, on the one line that explains why the field is off. */
 .field em { text-transform: none; font-style: normal; font-weight: 400; color: var(--text-3); letter-spacing: 0; }
 
+/* Infrequent setup stays one native disclosure away. Its current values and
+   warnings remain in the summary, and size guidance stays outside the fold. */
+.setup-disclosure { min-width: 0; padding-block: var(--sp-1); border-top: 1px solid var(--line); }
+.setup-disclosure > summary { min-height: var(--h-sm); padding-block: var(--sp-1); cursor: pointer; color: var(--text); font-size: var(--fs-label); font-weight: 600; }
+.setup-disclosure > summary span { color: var(--text-3); font-weight: 400; overflow-wrap: anywhere; }
+.setup-disclosure > summary span.warn { color: var(--warn); }
+.setup-body { display: flex; flex-direction: column; gap: var(--sp-2); margin-top: var(--sp-2); min-width: 0; }
+.custom-orientation { display: flex; }
+
 textarea, input[type="number"], input[type="search"], input[type="text"], input[type="password"] {
   background: var(--panel-2);
   border: 1px solid var(--line-strong);
@@ -256,6 +265,16 @@ textarea:focus, input:where(:not([type="checkbox"], [type="radio"])):focus { out
    learn a checkpoint's voice. */
 .examples, .tag-helper { position: relative; display: inline-block; margin-left: var(--sp-2); }
 .ghost.tiny { padding: calc((var(--h-xs) - var(--lh) * var(--fs-xs) - 2px) / 2) 7px; font-size: var(--fs-xs); line-height: var(--lh); flex: none; }
+/* Frequently used prompt tools need more than the badge-sized tiny target.
+   Keep their compact caption row and secondary tone; the wide tier already
+   has its own larger caption targets. */
+@media (width < 1800px) {
+  .field > span:has(> label[for="prompt"]) .ghost.tiny {
+    min-height: calc(var(--h-sm) - 2px);
+    padding-block: calc((var(--h-sm) - 2px - var(--lh) * var(--fs-sm) - 2px) / 2);
+    font-size: var(--fs-sm);
+  }
+}
 /* From 1800 px the tiny buttons are the most-used secondary controls - the
    Prompt caption's Examples, Check and Reset, the check's Apply and Use
    rewrite - at a caption's type and 30 px tall (26 on a short window): 12 px
@@ -490,6 +509,14 @@ textarea:focus, input:where(:not([type="checkbox"], [type="radio"])):focus { out
   cursor: grab; user-select: none;
 }
 .tag-check-label { display: inline-flex; align-items: center; gap: var(--sp-1); }
+/* A mixed prompt's prose stays ordinary selectable text. Its internal
+   commas are the original prompt's, rather than chip separators. */
+.prompt-prose {
+  align-self: center; min-width: 0; max-width: 100%;
+  color: var(--text); font-size: var(--fs-label); line-height: var(--lh);
+  white-space: pre-wrap; overflow-wrap: anywhere; user-select: text; cursor: text;
+}
+.prompt-prose .prose-past-cut { color: var(--muted); text-decoration: underline dotted var(--warn); text-underline-offset: 3px; }
 .tag-check.valid { border-color: #31985a; color: #f2f4f7; background: #17191c; }
 .tag-check.valid .tag-check-mark { color: #63e894; font-weight: 700; }
 .tag-check.unknown { border-color: var(--danger); color: #ffe1e6; background: #211619; }

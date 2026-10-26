@@ -2,6 +2,8 @@
 
 ## Using the app
 
+- [setup.md](setup.md): first-time setup, step by step, from the GPU driver
+  to a first image.
 - [usage.md](usage.md): prompts, batches, grids, refine, inpaint and outpaint,
   the gallery, the CLI and recovery.
 - [anime-model-guide.md](anime-model-guide.md): choosing an anime checkpoint

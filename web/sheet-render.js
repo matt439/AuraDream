@@ -28,6 +28,23 @@ function sliceCells({ colAxis, rowAxis, colValues, rowValues }, pins, records = 
   return { cellOf, repeats, crowded };
 }
 
+// A leading source belongs to this slice only: pins can change its crop, or
+// leave several crops that no one source thumbnail could represent. Exports
+// use the same decision with their captured source cache for every slice.
+function sheetSourceView(records, sources = sheetSources) {
+  const sourceId = sharedSource(records);
+  const candidate = sourceId === null ? null : sources.get(sourceId) ?? null;
+  const crops = candidate ? records.map((rec) => refineKept(
+    candidate.width, candidate.height, rec.width, rec.height, rec.crop_anchor,
+  )) : [];
+  const commonCrop = crops.length > 0 && crops.every((crop) => JSON.stringify(crop) === JSON.stringify(crops[0]));
+  const source = commonCrop ? candidate : null;
+  return {
+    sourceId, candidate, commonCrop, source, sourceCrop: source ? crops[0] : null,
+    sourceAspect: source ? records[0].width / records[0].height : null,
+  };
+}
+
 // Prompt iterations made on random seeds share no seed: a version stands on a
 // seed of its own, so the sheet can only lay them out as a diagonal or pin the
 // seed to one of them ("1 of 6 loaded"), which read as a broken sheet. The
@@ -361,12 +378,12 @@ function drawSheet() {
   const pins = Object.entries(sheetAxes.pins).map(([key, v]) => [axisByKey(key), v]);
   const { cellOf, repeats, crowded } = sliceCells({ colAxis, rowAxis, colValues, rowValues }, pins);
 
-  const sourceId = sharedSource(sheetRecords);
-  const source = sourceId === null ? null : sheetSources.get(sourceId) ?? null;
+  const displayed = [...cellOf.values()].filter(Boolean);
+  const { sourceId, candidate, commonCrop, source, sourceCrop, sourceAspect } = sheetSourceView(displayed);
   const columns = colValues.length + (source ? 1 : 0);
   const wrap = sheetWraps(colAxis, rowAxis, columns);
 
-  // One aspect ratio for the whole sheet - size is not a sheet axis, and a
+  // One aspect ratio for the whole sheet - a size axis or a
   // free-text search can mix sizes - so the commonest one wins and the odd
   // cell letterboxes inside it rather than being cropped.
   const ratios = new Map();
@@ -381,7 +398,7 @@ function drawSheet() {
   // over the records it was laid out from.
   sheetLayout = {
     colAxis, rowAxis, colValues, rowValues, cellOf, pins, values, wrap, source,
-    records: sheetRecords, aspect: aspectH ? aspectW / aspectH : 1,
+    records: sheetRecords, aspect: aspectH ? aspectW / aspectH : 1, sourceCrop, sourceAspect,
   };
 
   els.sheetGrid.style.setProperty('--cell-aspect', aspect);
@@ -442,7 +459,7 @@ function drawSheet() {
     // What a zoomed sheet shows instead (sizeSheetImages).
     img.dataset.full = rec.url;
     img.setAttribute('aria-keyshortcuts',
-      'ArrowLeft ArrowRight ArrowUp ArrowDown Home End Control+Home Control+End F Plus - 0 1');
+      'ArrowLeft ArrowRight ArrowUp ArrowDown Home End Control+Home Control+End F M Plus - 0 1');
     const star = document.createElement('button');
     star.type = 'button';
     star.className = 'star fav-badge';
@@ -529,12 +546,31 @@ function drawSheet() {
     // beside 3:2 passes cut from it set two framings side by side, which
     // the eye compared as one. Said where the shapes differ.
     if (source && r === 0) {
-      const passAspect = aspectH ? aspectW / aspectH : 1;
+      const passAspect = sourceAspect;
       const cropped = Math.abs(source.width / source.height - passAspect) / passAspect > 0.01;
       const caption = [wrap ? `Source #${source.id}` : '', cropped ? 'cropped as the passes were' : '']
         .filter(Boolean).join(' · ');
       const cell = add(cellFor(source, caption, true, ['Source']));
       cell.classList.add('source');
+      const image = cell.querySelector('img');
+      // The slice may have another shape than the common sheet cell. Keep
+      // its crop in the same contained box as its passes, with letterboxing.
+      const frame = document.createElement('div');
+      frame.className = 'sheet-source-frame';
+      const width = Math.min(1, sourceAspect / sheetLayout.aspect);
+      const height = Math.min(1, sheetLayout.aspect / sourceAspect);
+      Object.assign(frame.style, {
+        position: 'absolute', overflow: 'hidden',
+        width: `${100 * width}%`, height: `${100 * height}%`,
+        left: `${50 * (1 - width)}%`, top: `${50 * (1 - height)}%`,
+      });
+      image.before(frame);
+      frame.appendChild(image);
+      Object.assign(image.style, {
+        position: 'absolute', objectFit: 'fill', maxWidth: 'none',
+        width: `${100 / sourceCrop.w}%`, height: `${100 / sourceCrop.h}%`,
+        left: `${-100 * sourceCrop.x / sourceCrop.w}%`, top: `${-100 * sourceCrop.y / sourceCrop.h}%`,
+      });
       cell.dataset.sheetRow = '0';
       cell.dataset.sheetCol = '0';
       if (!wrap) {
@@ -577,6 +613,7 @@ function drawSheet() {
     (total > sheetRecords.length ? ` · ${total} match the search` : '') +
     (sourceId !== null && sheetSources.get(sourceId) === null ? ` · source #${sourceId} (deleted)` : '') +
     (ownSeeds(values, sheetRecords) ? ` · ${OWN_SEEDS}` : '') +
+    (candidate && !commonCrop ? ' \u00b7 Source crops vary; open an image to compare its source.' : '') +
     (notice ? ` · ${notice.text}` : '');
   fitSheet(scrolled);
 }
@@ -661,14 +698,15 @@ function refitSheet() {
 
 // F stars the focused cell from its image or tools; navigation is image-only.
 async function sheetKey(e) {
-  if (e.metaKey || e.altKey || els.lightbox.open) return;
+  if (keyboardEventHeld(e) || keyboardEditingTarget(e.target) || e.metaKey || e.altKey || els.lightbox.open) return;
   const cell = e.target.closest('.sheet-cell[data-id]');
   if (!cell) return;
-  if (!e.ctrlKey && (e.key === 'f' || e.key === 'F')) {
+  if (!e.ctrlKey && !e.shiftKey && (e.key === 'f' || e.key === 'F')) {
+    e.preventDefault();
+    if (e.repeat) return;
     const id = Number(cell.dataset.id);
     const rec = sheetRecords.find((r) => r.id === id) ?? (sheetLayout?.source?.id === id ? sheetLayout.source : null);
     if (!rec) return;
-    e.preventDefault();
     await starCell(cell, rec, { say: true });
     return;
   }
@@ -678,7 +716,7 @@ async function sheetKey(e) {
     sheetZoomKey(e.key, cell);
     return;
   }
-  if (e.target.tagName !== 'IMG' || (e.ctrlKey && e.key !== 'Home' && e.key !== 'End')) return;
+  if (e.shiftKey || e.target.tagName !== 'IMG' || (e.ctrlKey && e.key !== 'Home' && e.key !== 'End')) return;
   if (!['ArrowLeft', 'ArrowRight', 'ArrowUp', 'ArrowDown', 'Home', 'End'].includes(e.key)) return;
   e.preventDefault();
   moveSheetCell(cell, e.key, e.ctrlKey);

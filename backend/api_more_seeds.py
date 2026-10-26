@@ -5,8 +5,9 @@ import asyncio
 
 from fastapi import APIRouter, HTTPException
 
-from . import gallery_reports, grid, more_seeds, storage, submission
+from . import gallery_reports, grid, model_selection, more_seeds, storage, submission
 from .app_context import AppServices
+from .more_seeds_intents import IntentProblem
 from .schemas import (
     ImageRecord,
     JobAccepted,
@@ -174,6 +175,26 @@ def _more_seeds_counts(results: list[MoreSeedsResult]) -> dict[str, int]:
     return counts
 
 
+def _intent_context(services: AppServices) -> tuple:
+    return (model_selection.revision(), services.model_id(), services.quantization())
+
+
+def _intent_payload(request: MoreSeedsRequest, expected: list[int] | None = None) -> dict:
+    """The submitted choice, including the preview's image pin, not its token.
+
+    Order and repeated ids do not change a selection. All other validated
+    fields stay explicit, including defaults, so a replay cannot change its
+    count, scope or legacy Batch fallback.
+    """
+    payload = request.model_dump(mode="json", exclude={"intent"})
+    if expected is not None:
+        payload["expected"] = expected
+    for name in ("ids", "expected"):
+        if payload[name] is not None:
+            payload[name] = sorted(set(payload[name]))
+    return payload
+
+
 def create_router(services: AppServices) -> APIRouter:
     """The routes, reading the app's state through `services` per request."""
     router = APIRouter()
@@ -183,9 +204,12 @@ def create_router(services: AppServices) -> APIRouter:
         """What More seeds would queue, batch by batch, without queueing it,
         and how long it would take.
 
-        No side effects, so not a model-dependent request in the middleware's
-        sense, as Swap tags' preview is not: the queueing request is.
+        No gallery or queue side effects. The optional short-lived intent
+        records only this preview's choices for a safely replayable submit.
+        The queueing request, rather than this preview, is model-dependent.
         """
+        manager = services.jobs()
+        context = _intent_context(services)
         ids, results, batches = await more_seeds_plan(services, request)
         queued = [batch for batch in batches if batch.status == more_seeds.QUEUED]
         model = services.model_id()
@@ -208,6 +232,12 @@ def create_router(services: AppServices) -> APIRouter:
                 unpriced += 1
             else:
                 seconds += priced
+        if context != _intent_context(services) or manager is not services.jobs():
+            raise HTTPException(409, "the checkpoint or server changed while checking; review the batches again")
+        try:
+            intent = manager.more_seeds_intents.issue(_intent_payload(request, ids), context) if queued else None
+        except IntentProblem as exc:
+            raise HTTPException(exc.status_code, exc.detail) from exc
         return MoreSeedsPreview(
             ids=ids,
             counts=_more_seeds_counts(results),
@@ -224,13 +254,29 @@ def create_router(services: AppServices) -> APIRouter:
                 more_seeds.run_headline(queued, request.count, request.favorites)
                 if request.run is not None else None
             ),
+            intent=intent,
         )
 
 
     @router.post("/api/more-seeds", response_model=MoreSeedsAccepted)
     async def more_seeds_submit(request: MoreSeedsRequest) -> MoreSeedsAccepted:
-        async with services.jobs().rerun_admission:
-            return await submit_more_seeds(request)
+        manager = services.jobs()
+
+        async def admitted() -> dict:
+            async with manager.rerun_admission:
+                return (await submit_more_seeds(request)).model_dump(mode="json")
+
+        # Older API callers deliberately ask for another extension on every
+        # POST. Browser requests use the preview's token and immutable body.
+        if request.intent is None:
+            return MoreSeedsAccepted.model_validate(await admitted())
+        try:
+            receipt = await manager.more_seeds_intents.execute(
+                request.intent, _intent_payload(request), _intent_context(services), admitted,
+            )
+        except IntentProblem as exc:
+            raise HTTPException(exc.status_code, exc.detail) from exc
+        return MoreSeedsAccepted.model_validate(receipt)
 
 
     async def submit_more_seeds(request: MoreSeedsRequest) -> MoreSeedsAccepted:
@@ -257,16 +303,47 @@ def create_router(services: AppServices) -> APIRouter:
             )
             raise HTTPException(status_code=422, detail=f"no selected batch can have more seeds ({said})")
         accepted = []
-        for group in _more_seeds_jobs(queued).values():
-            job = await services.jobs().submit_cells(
-                [cell for batch in group for cell in batch.cells],
-                run_id=group[0].run_id, more_seeds=request.count,
-            )
+        accepted_batches = []
+        groups = list(_more_seeds_jobs(queued).values())
+        warning = None
+        remaining: list[more_seeds.Batch] = []
+        for index, group in enumerate(groups):
+            try:
+                job = await services.jobs().submit_cells(
+                    [cell for batch in group for cell in batch.cells],
+                    run_id=group[0].run_id, more_seeds=request.count,
+                )
+            except Exception as exc:
+                if not accepted:
+                    raise
+                # Earlier groups are already admitted. Acknowledge their ids
+                # rather than conceal them behind an error. This is terminal:
+                # replay returns this same partial receipt, never fresh seeds.
+                remaining = [batch for later in groups[index:] for batch in later]
+                examples = [
+                    f"#{batch.template.id} at {batch.template.width}x{batch.template.height}"
+                    for batch in remaining[:6]
+                ]
+                if len(remaining) > len(examples):
+                    examples.append(f"and {len(remaining) - len(examples)} more batches")
+                detail = str(getattr(exc, "detail", None) or exc).strip().rstrip(".")[:320]
+                images = sum(len(batch.seeds) for batch in remaining)
+                warning = (
+                    f"{images} more image{'' if images == 1 else 's'} in "
+                    f"{len(remaining)} batch{'' if len(remaining) == 1 else 'es'} "
+                    f"were not queued ({', '.join(examples)}): {detail}. "
+                    + ("Retrying this request will not add the remainder." if request.intent is not None else
+                       "Review the remaining batches before requesting more; another request adds new seeds.")
+                )
+                break
             accepted.append(JobAccepted(job_id=job.id, seed=job.seed, run_id=job.run_id))
+            accepted_batches.extend(group)
         first = accepted[0]
         return MoreSeedsAccepted(
             job_id=first.job_id, seed=first.seed, run_id=first.run_id, more=accepted[1:],
-            queued=sum(len(batch.seeds) for batch in queued), batches=len(queued),
+            queued=sum(len(batch.seeds) for batch in accepted_batches), batches=len(accepted_batches),
+            warning=warning, not_queued=sum(len(batch.seeds) for batch in remaining),
+            not_queued_batches=len(remaining),
         )
 
     return router

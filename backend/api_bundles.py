@@ -5,6 +5,7 @@ import asyncio
 import base64
 import binascii
 import logging
+import re
 import tempfile
 import uuid
 from collections.abc import Callable
@@ -173,7 +174,10 @@ class GalleryAdmission:
         control = path in {PREFIX, PREFIX + "/status", PREFIX + "/export", PREFIX + "/import",
                            PREFIX + "/upload", PREFIX + "/password"} or path.startswith(PREFIX + "/files/")
         status = path == "/api/status" or path == "/api/jobs" or path.startswith("/api/jobs/")
-        counted = (path.startswith("/api/") or path.startswith("/outputs/")) and not control and not status
+        # Personal snippets have their own sidecar and reservation. Their
+        # complete route shapes stay independent of gallery maintenance.
+        snippets = re.fullmatch(r"/api/snippets(?:/[a-f0-9]{32})?", path) is not None
+        counted = (path.startswith("/api/") or path.startswith("/outputs/")) and not control and not status and not snippets
         if not counted:
             return await self.app(scope, receive, send)
         manager = self.get_manager()

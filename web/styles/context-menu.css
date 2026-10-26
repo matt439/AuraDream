@@ -26,3 +26,5 @@
   padding: 4px 8px 2px; cursor: default; color: var(--muted); font-size: var(--fs-label);
 }
 .context-menu li.heading:hover { background: none; }
+.context-menu .context-key-hint { color: var(--text-3); font-size: var(--fs-sm); cursor: default; }
+.context-menu .context-key-hint:hover { background: none; }

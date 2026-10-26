@@ -11,7 +11,7 @@ from dataclasses import dataclass
 from typing import Any, Literal
 from xml.etree import ElementTree
 
-from . import prompt_order, prompt_text
+from . import prompt_order, prompt_parts, prompt_text
 from .backends.netayume_loading import SYSTEM_PROMPT as NETAYUME_SYSTEM_PROMPT
 from .schemas import GenerateRequest, PromptFinding
 
@@ -27,6 +27,7 @@ from .prompt_order import (
     places_every_item as places_every_item,
     places_items as places_items,
     reads_order as reads_order,
+    reordered_detail as reordered_detail,
     reorder_tags as reorder_tags,
     scene_ahead as scene_ahead,
     unplaced_items as unplaced_items,
@@ -671,13 +672,14 @@ def _order(ctx: _Context) -> Iterable[PromptFinding]:
     # None where the move would change what is quoted: the order is still
     # out, but there is no one-click fix.
     reordered = prompt_order._reordered(ctx.text, ctx.items, places, spec, lettered)
+    problem = prompt_parts.reorder_problem(ctx.guide.get("tag_helper") or {}, ctx.text, reordered, ctx.lookup)
     yield ctx.finding(
         order, "guide.order", "info",
         f'"{first.text}"{label(places[pair[0]])} comes before "{second.text}"'
         f"{label(places[pair[1]])}; the documented order is "
-        f"{' → '.join(spec.steps)}.",
+        f"{' → '.join(spec.steps)}." + (f" {problem}" if problem else ""),
         start=first.start, end=first.end,
-        suggestion=reordered,
+        suggestion=None if problem else reordered,
     )
 
 

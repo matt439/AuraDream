@@ -170,13 +170,16 @@ function compareStepsNeeded() {
 // refine.fitted's arithmetic - scaled to cover, each side rounded as Python
 // rounds (half to even), then the middle cropped out - so the frame drawn on
 // the source and the size line's numbers are the pass's own.
-function refineKept(sw, sh, w, h) {
+function refineKept(sw, sh, w, h, anchor = 'center') {
   if (sw === w && sh === h) return { x: 0, y: 0, w: 1, h: 1 };
   const even = (v) => { const r = Math.round(v); return r - v === 0.5 && r % 2 ? r - 1 : r; };
   const cover = Math.max(w / sw, h / sh);
   const rw = Math.max(w, even(sw * cover));
   const rh = Math.max(h, even(sh * cover));
-  return { x: Math.floor((rw - w) / 2) / rw, y: Math.floor((rh - h) / 2) / rh, w: w / rw, h: h / rh };
+  anchor ||= 'center';
+  const x = anchor.includes('left') ? 0 : anchor.includes('right') ? rw - w : Math.floor((rw - w) / 2);
+  const y = anchor.includes('top') ? 0 : anchor.includes('bottom') ? rh - h : Math.floor((rh - h) / 2);
+  return { x: x / rw, y: y / rh, w: w / rw, h: h / rh };
 }
 
 // Why the dialog opened below the scale it was asked for, named by the first
@@ -235,6 +238,11 @@ function openRefine(rec, pass = null) {
   refineRan = false;
   const prefs = refinePrefs();
   const from = pass ?? rec;
+  const anchors = ['center', 'top', 'bottom', 'left', 'right', 'top-left', 'top-right', 'bottom-left', 'bottom-right'];
+  // A missing anchor on an old/centered pass is center, not a new pass's
+  // remembered choice: Reuse must keep the framing that made this image.
+  const anchor = pass ? pass.crop_anchor ?? 'center' : prefs.cropAnchor ?? 'center';
+  els.refineCropAnchor.value = anchors.includes(anchor) ? anchor : 'center';
   // An image from another checkpoint refines like any other - the pass starts
   // from pixels - but its steps, CFG, mu and strength are that checkpoint's,
   // so this one's profile stands in for them.
@@ -413,7 +421,7 @@ function refineBoxes() {
     versions: els.refineVersions, seed: els.refineSeed, prompt: els.refinePrompt,
     negative: els.refineNegative, steps: els.refineSteps, cfg: els.refineCfg,
     mu: els.refineMu, trueCfg: els.refineTrueCfg,
-    upscaler: els.refineUpscaler,
+    upscaler: els.refineUpscaler, cropAnchor: els.refineCropAnchor,
   };
 }
 
@@ -511,10 +519,11 @@ function syncRefine() {
   const fy = h / src.height;
   const sized = w > 0 && h > 0;
   const cropped = sized && Math.abs(fx - fy) > 0.02 * Math.max(fx, fy);
-  const kept = sized ? refineKept(src.width, src.height, w, h) : null;
+  const anchor = els.refineCropAnchor.value;
+  const kept = sized ? refineKept(src.width, src.height, w, h, anchor) : null;
   const percent = (part) => `${Math.round(part * 100)}%`;
   const shape = !sized ? '' : !cropped ? `${+((fx + fy) / 2).toFixed(2)}× the source`
-    : `the source cropped to this shape, keeping the middle ${percent(kept.w)} × ${percent(kept.h)}`;
+    : `the source cropped to this shape, keeping the ${anchor === 'center' ? 'middle' : anchor.replaceAll('-', ' ')} ${percent(kept.w)} × ${percent(kept.h)}`;
   // At the size it opened at in place of the scale asked for, why: the next
   // scale up is past the line (or the guard), and so is every larger one.
   const capped = !notes.length && refineSkipped && w === refineSkipped.size[0] && h === refineSkipped.size[1]
@@ -672,10 +681,10 @@ function refineSideTyped(event) {
 // a number box steps; a list or a range is text and left alone. Ctrl+Enter is
 // the document's (app.js), and runs the pass from anywhere in the dialog.
 function refineKeydown(event) {
-  if (event.isComposing || event.ctrlKey || event.metaKey || event.altKey) return;
+  if (keyboardEventHeld(event) || keyboardCommandModifier(event)) return;
   if (event.key === 'Enter' && !event.shiftKey && event.target.matches('input:not([type="checkbox"])')) {
     event.preventDefault();
-    void runRefine();
+    if (!event.repeat) void runRefine();
     return;
   }
   if ((event.key === 'ArrowUp' || event.key === 'ArrowDown') && event.target === els.refineStrength) {
@@ -732,6 +741,7 @@ function refineRequest() {
     lora: refineLora?.name ?? null,
     lora_scale: refineLora?.scale ?? 1,
     refine: refineSource.id,
+    crop_anchor: els.refineCropAnchor.value,
     upscaler: refineUpscalerAvailable() && els.refineUpscaler.value === REFINE_ANIME6B
       ? REFINE_ANIME6B : null,
     // Blank is "not given": the server fills in the checkpoint's own.
@@ -984,6 +994,7 @@ function rememberRefine() {
   const chosen = !refineCapped || w !== +refineFilled?.width || h !== +refineFilled?.height;
   if (scale && chosen) prefs.scale = scale;
   prefs.versions = +els.refineVersions.value || 1;
+  prefs.cropAnchor = els.refineCropAnchor.value;
   const strengths = prefs.strength && typeof prefs.strength === 'object' ? prefs.strength : {};
   const text = els.refineStrength.value.trim();
   if (loadedModel && SINGLE_STRENGTH.test(text)) {

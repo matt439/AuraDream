@@ -20,6 +20,123 @@ from tests.api_helpers import run_grid, run_one, stream_job, wait_for
 # ---------------------------------------------------------------- grid search
 
 
+RANDOM_BODY = {
+    "prompt": "a {size} fox", "negative_prompt": "not {size}",
+    "prompt_axis": "size = small | large | none", "prompt_mode": "random",
+    "width": 256, "height": 256, "seed": 42, "num_images": 2,
+    "steps_axis": "6,8", "seeds": 2, "guidance_scale": 2.0,
+}
+
+
+def test_random_prompt_preview_and_render_agree_per_image_and_save_the_choices(client, fake, store):
+    # Apply real CFG normalization so recorded negative prompts and Resume
+    # compare the same effective true CFG, as a real backend does.
+    fake.cfg_threshold = 1.0
+    preview = client.post("/api/grid/preview", json=RANDOM_BODY).json()
+    assert (preview["cells"], preview["images"], preview["prompt_sample"]) == (8, 8, False)
+    assert preview["summary"].startswith("one choice per image x ")
+    assert "2 images per seed (run separately)" in preview["summary"]
+    accepted = client.post("/api/grid", json=RANDOM_BODY).json()
+    done = stream_job(client, accepted["job_id"])[-1]
+    assert done["status"] == "done" and len(done["images"]) == 8
+    assert fake.seeds == [42, 42, 43, 43, 44, 44, 45, 45]
+    assert all(request.num_images == 1 for request in fake.requests)
+    assert set(preview["values"]["prompt"]) == {request.prompt for request in fake.requests}
+    assert set(preview["values"]["negative_prompt"]) == {request.negative_prompt for request in fake.requests}
+    for image in done["images"]:
+        expected = grid.random_assignment({"size": ["small", "large", ""]}, image["seed"])
+        assert image["variables"] == expected and image["batch"] == 1
+        with Image.open(store.settings.outputs_dir / image["filename"]) as png:
+            assert json.loads(png.info["local-diffusion"])["variables"] == expected
+        record = store.get_image(image["id"])
+        assert grid.cell_from_record(record).variables == expected
+    resumed = client.post("/api/grid/preview", json={**RANDOM_BODY, "resume": True}).json()
+    assert (resumed["images"], resumed["cells"], resumed["skipped"]) == (0, 0, 8)
+    assert resumed["values"]["prompt"] == preview["values"]["prompt"]
+    assert client.post("/api/grid", json={**RANDOM_BODY, "resume": True}).status_code == 409
+
+
+def test_unseeded_random_preview_is_one_expansion_and_honestly_marked_as_a_sample(client, monkeypatch):
+    drawn = []
+
+    def seed():
+        drawn.append(42)
+        assert len(drawn) == 1
+        return 42
+
+    monkeypatch.setattr(grid, "random_seed", seed)
+    body = {**RANDOM_BODY, "seed": None}
+    preview = client.post("/api/grid/preview", json=body).json()
+    assert preview["prompt_sample"] and preview["images"] == 8 and drawn == [42]
+    assert preview["values"]["prompt"][0] == "a small fox"
+    listed = client.post("/api/grid/preview", json={**body, "seed_axis": "42,80"}).json()
+    assert listed["prompt_sample"] is False
+
+
+@pytest.mark.parametrize("changes,said", [
+    ({"prompt_axis": ""}, "needs prompt variables"),
+    ({"prompt_mode": "unknown"}, "cross"),
+    ({"prompt_variants": [{"label": "one", "prompt": "a fox"},
+                          {"label": "two", "prompt": "a wolf"}]}, "prompt variants"),
+])
+def test_random_prompt_mode_rejects_incomplete_or_conflicting_requests(client, changes, said):
+    response = client.post("/api/grid/preview", json={**RANDOM_BODY, **changes})
+    assert response.status_code == 422 and said in str(response.json()["detail"])
+
+
+def test_random_prompt_resume_skips_images_held_in_the_live_queue(client, fake):
+    body = {**RANDOM_BODY, "seeds": 1}
+    release = threading.Event()
+    fake.after_generate = lambda: release.wait(5)
+    try:
+        first = client.post("/api/grid", json=body).json()["job_id"]
+        preview = client.post("/api/grid/preview", json={**body, "resume": True}).json()
+        assert preview["cells"] == 0 and preview["skipped"] + preview["queued"] == 4
+        assert client.post("/api/grid", json={**body, "resume": True}).status_code == 409
+    finally:
+        release.set()
+    assert stream_job(client, first)[-1]["status"] == "done"
+    assert len(fake.requests) == 4
+
+
+def test_random_prompt_duplicates_are_counted_after_the_pipeline_drops(client, fake):
+    fake.cfg_threshold = 1.0
+    fake.mu_supported = False
+    body = {
+        **RANDOM_BODY, "num_images": 1, "seeds": 1, "steps_axis": "6",
+        "mu_axis": "none,1.15", "guidance_scale": 0.5,
+    }
+    preview = client.post("/api/grid/preview", json=body).json()
+    assert (preview["images"], preview["duplicates"]) == (2, 1)
+
+
+def test_random_prompt_budget_counts_complete_original_seed_groups(client, monkeypatch):
+    from backend import gallery_reports
+
+    monkeypatch.setattr(gallery_reports, "step_cost_ms", lambda *args: 1000.0)
+    # Each original seed group has two images, each at 6 and 8 steps:
+    # starts at 0, 6, 14, 20 seconds. Completing the first image alone
+    # must not count a complete seed group.
+    for seconds, expected in [(14, 0), (20, 1), (48, 2)]:
+        response = client.post(
+            "/api/grid/preview", json={**RANDOM_BODY, "budget_minutes": seconds / 60}
+        )
+        assert response.status_code == 200, response.text
+        assert response.json()["budget_seeds"] == expected
+
+
+def test_random_choices_check_the_actual_single_image_batch_budget(client, monkeypatch):
+    from backend import schemas_generate
+
+    monkeypatch.setattr(
+        schemas_generate, "settings", dataclasses.replace(schemas_generate.settings, max_batch_pixels=256 * 256)
+    )
+    random = client.post("/api/grid/preview", json=RANDOM_BODY)
+    assert random.status_code == 200 and random.json()["images"] == 8
+    crossed = client.post("/api/grid/preview", json={**RANDOM_BODY, "prompt_mode": "cross"})
+    assert crossed.status_code == 422 and "in one batch" in str(crossed.json()["detail"])
+
+
 def test_a_grid_runs_every_cell_of_every_seed(client, fake):
     _, events = run_grid(client, steps_axis="6,8", cfg_axis="0,1", seeds=2, seed=42)
 

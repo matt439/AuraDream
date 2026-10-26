@@ -17,6 +17,46 @@ const queueCancelling = new Set();
 // When each queued id was put in the list, so a status asked before then -
 // whose listing could not have it - does not take it out (resyncQueue).
 const queuedAt = new Map();
+const queueStates = new Map();
+let queueFirstId = null;
+let queueMoving = null;
+let queueOrderChangedAt = 0;
+
+function rememberQueueState(job) {
+  if (!job?.job_id) return;
+  queueStates.set(job.job_id, job.status);
+  if (job.job_id === currentJob && job.status === 'running' && queueFirstId === currentJob) {
+    queueFirstId = queuedIds[0] ?? null;
+    syncQueueNote();
+  }
+  syncQueueFront();
+}
+
+// The watched job can itself be queued behind another tab's work. It is not
+// one of the queue rows, so its own Move action lives beside the progress.
+function syncQueueFront() {
+  const button = els.front;
+  if (!button) return;
+  const queued = busy && !!currentJob && queueStates.get(currentJob) === 'queued';
+  // The progress parent hides at idle. Keep this slot throughout a job so
+  // its admission to the worker cannot move Skip, Pause or Cancel.
+  button.hidden = false;
+  const reason = !busy || !currentJob ? 'No queued job is selected'
+    : !queued ? 'Only a queued job can move to front'
+    : queueMoving !== null ? 'Wait for the queue change to finish'
+    : queueFirstId === null ? 'Checking the queue order'
+    : queueFirstId === currentJob ? 'This job is already first in the queue' : '';
+  button.setAttribute('aria-disabled', String(!!reason));
+  button.title = reason || 'Move this job to the front of the queue; current work keeps running';
+}
+
+function moveCurrentJobFront() {
+  if (!els.front || els.front.hidden || els.front.getAttribute('aria-disabled') === 'true') {
+    if (busy) showJobNote(`${els.front?.title ?? 'No queued job is selected'}.`);
+    return;
+  }
+  if (currentJob) void moveQueuedFront(currentJob);
+}
 
 // The queue replaced: a row whose job has gone keeps focus where it was - the
 // row now in its place, else the one before, else Cancel - as an × press does.
@@ -26,31 +66,37 @@ function setQueue(ids) {
   for (const id of queuedAt.keys()) if (!ids.includes(id)) queuedAt.delete(id);
   const rows = [...els.queueList.children];
   const row = rows.findIndex((li) => li.contains(document.activeElement));
+  const action = document.activeElement?.dataset.queueAction ?? 'cancel';
   const lost = row >= 0 && !ids.includes(rows[row].dataset.id);
   queuedIds = ids;
   syncQueueNote();
   // A paused job's cell line says what waits behind it.
   if (cellArgs) showCell(...cellArgs);
   if (!lost) return;
-  const left = els.queueList.querySelectorAll('li button');
-  (left[row] ?? left[row - 1] ?? (busy ? els.cancel : els.generate)).focus();
+  const left = [...els.queueList.children];
+  const replacement = left[row] ?? left[row - 1];
+  (replacement?.querySelector(`[data-queue-action="${action}"]`)
+    ?? replacement?.querySelector('button') ?? (busy ? els.cancel : els.generate)).focus({ preventScroll: true });
 }
 
 function syncQueueNote() {
+  syncQueueFront();
   const n = queuedIds.length;
   els.queueNote.hidden = !(busy && n > 0);
-  els.queueText.textContent = n > 1 ? `${n} jobs queued behind this one:` : '';
+  const waiting = queueStates.get(currentJob) === 'queued';
+  els.queueText.textContent = n > 1 ? `${n} jobs queued${waiting ? '' : ' behind this one'}:` : '';
   els.queueText.hidden = n < 2;
   // Its × is the whole choice for one job; Cancel queued is for several.
   els.cancelQueued.hidden = n < 2;
   // A row of another tab's is that tab's work: Cancel queued says it takes
   // those too.
   els.cancelQueued.title = queuedIds.some((id) => !ownJobs.has(id))
-    ? "Cancel every job waiting behind this one, another tab's included"
-    : 'Cancel every job waiting behind this one';
+    ? "Cancel every other queued job, another tab's included"
+    : 'Cancel every other queued job';
   const focused = document.activeElement?.closest?.('#queue-list li')?.dataset.id;
+  const action = document.activeElement?.dataset.queueAction ?? 'cancel';
   els.queueList.replaceChildren(...queuedIds.map((id) => queueRow(id, n === 1)));
-  if (focused) els.queueList.querySelector(`li[data-id="${focused}"] button`)?.focus();
+  if (focused) els.queueList.querySelector(`li[data-id="${focused}"] [data-queue-action="${action}"]`)?.focus({ preventScroll: true });
 }
 
 // A row this page did not submit - another tab's job, listed from the
@@ -64,10 +110,12 @@ function queueRow(jobId, alone) {
   const li = document.createElement('li');
   li.dataset.id = jobId;
   const text = document.createElement('span');
-  text.textContent = foreign ? `${alone ? "Next, another tab's job" : ANOTHER_TABS_JOB}: ${label}`
-    : alone ? `Next: ${label}` : label;
+  const next = jobId === (queueFirstId ?? queuedIds[0]);
+  text.textContent = foreign ? `${alone && next ? "Next, another tab's job" : ANOTHER_TABS_JOB}: ${label}`
+    : alone ? `${next ? 'Next' : 'Queued'}: ${label}` : label;
   const cancel = document.createElement('button');
   cancel.type = 'button';
+  cancel.dataset.queueAction = 'cancel';
   cancel.className = 'ghost tiny danger';
   cancel.textContent = '×';
   cancel.title = foreign ? "Cancel this job, another tab's, before it starts" : 'Cancel this job before it starts';
@@ -75,8 +123,53 @@ function queueRow(jobId, alone) {
   // Held while its POST runs, as Generate is during its own.
   cancel.setAttribute('aria-disabled', String(queueCancelling.has(jobId)));
   cancel.onclick = () => { void cancelQueuedJob(jobId); };
-  li.append(text, cancel);
+  const front = document.createElement('button');
+  front.type = 'button';
+  front.dataset.queueAction = 'front';
+  front.className = 'ghost tiny';
+  front.textContent = '↑';
+  const reason = queueMoving !== null ? 'Wait for the queue change to finish'
+    : next ? 'This job is already first in the queue' : '';
+  front.title = reason || 'Move this job to the front of the queue; current work keeps running';
+  front.setAttribute('aria-label', `Move ${foreign ? "another tab's " : ''}queued job to front: ${label}`);
+  front.setAttribute('aria-disabled', String(!!reason));
+  front.onclick = () => {
+    if (reason) { showJobNote(`${reason}.`); return; }
+    void moveQueuedFront(jobId);
+  };
+  li.append(text, cancel, front);
   return li;
+}
+
+async function moveQueuedFront(jobId) {
+  if (queueMoving !== null) return;
+  const watched = currentJob;
+  const asked = Date.now();
+  const before = new Set(queuedIds);
+  queueMoving = jobId;
+  queueOrderChangedAt = asked;
+  syncQueueNote();
+  try {
+    const answer = await api(`/api/jobs/${jobId}/front`, { method: 'POST' });
+    queueOrderChangedAt = Date.now();
+    if (!busy || currentJob !== watched) return;
+    const ids = answer.active_jobs ?? [];
+    const ordered = ids.filter((id) => id !== watched && queueStates.get(id) !== 'running');
+    // A Generate accepted while this reply was out is newer than its list.
+    // Keep it at the tail, as a new server submission is appended there too.
+    const newer = queuedIds.filter((id) => !ordered.includes(id)
+      && ((queuedAt.get(id) ?? 0) > asked || !before.has(id)));
+    queueFirstId = queueStates.get(jobId) === 'running' ? ordered[0] ?? null : jobId;
+    queueWaiting = null;
+    setQueue([...ordered, ...newer]);
+    showJobNote('Moved to the front of the queue. Current work keeps running.');
+  } catch (err) {
+    showError(err.message);
+  } finally {
+    queueMoving = null;
+    syncQueueNote();
+    void refreshStatus();
+  }
 }
 
 async function cancelQueuedJob(jobId) {
@@ -113,6 +206,12 @@ async function watchNext() {
   if (jobId) await jobStreams.get(jobId);
 }
 
+// Only an accepted request still held by this page can owe an outcome.
+// ownJobs survives reloads and includes old jobs; it is not a replay list.
+function unwatchedSubmission(jobId) {
+  return submissions.has(jobId) && !watchedJobs.has(jobId) && !cancelledHere.has(jobId);
+}
+
 // A page between jobs asks the server which to watch: the one holding the
 // GPU, not the newest - with two live jobs the newest is the queued one, and
 // attaching to it made Cancel stop the wrong job while the running grid kept
@@ -131,8 +230,31 @@ function adoptListedJob(text) {
       let active;
       try { active = await api('/api/jobs'); } catch { return undefined; }
       if (busy) return null;
-      if (!active.length) { setQueue([]); return null; }
-      const job = active.find((j) => j.status === 'running') ?? active[0];
+      // A short job can end between the previous stream and this listing.
+      // Read the bounded server history only for accepted, unseen receipts
+      // missing from the active list. Replay one at a time, in receipt order,
+      // through the ordinary stream/finish path (including recovery tools).
+      const pending = [...submissions.keys()].filter(unwatchedSubmission);
+      let finished = null;
+      if (pending.some((id) => !active.some((job) => job.job_id === id))) {
+        let listed;
+        try { listed = await api('/api/jobs?include_finished=true'); } catch { /* retry on the next poll */ }
+        if (busy) return null;
+        if (listed) {
+          const byId = new Map(listed.map((job) => [job.job_id, job]));
+          active = listed.filter((job) => ['queued', 'running'].includes(job.status));
+          for (const id of pending) {
+            if (!unwatchedSubmission(id)) continue;
+            const job = byId.get(id);
+            // Explicitly cancelled rows have been forgotten. A receipt the
+            // server lost to a restart/retention cannot be streamed either.
+            if (!job) { forgetJob(id); continue; }
+            if (!finished && ['done', 'error', 'cancelled'].includes(job.status)) finished = job;
+          }
+        }
+      }
+      if (!finished && !active.length) { setQueue([]); return null; }
+      const job = finished ?? active.find((j) => j.status === 'running') ?? active[0];
       learnJobs(active);
       setQueue(active.filter((j) => j.job_id !== job.job_id).map((j) => j.job_id));
       setBusy(true);
@@ -153,7 +275,12 @@ function adoptListedJob(text) {
 // Names for the jobs a listing returns that this page did not submit - a
 // reload's, another tab's - keeping a submission's own where there is one.
 function learnJobs(listed) {
-  for (const job of listed) if (!jobLabels.has(job.job_id)) jobLabels.set(job.job_id, describeJob(job));
+  for (const job of listed) {
+    rememberQueueState(job);
+    if (!jobLabels.has(job.job_id)) jobLabels.set(job.job_id, describeJob(job));
+  }
+  queueFirstId = listed.find((job) => job.status === 'queued')?.job_id ?? null;
+  syncQueueFront();
 }
 
 // What the status poll says is live on the server (`ModelStatus.active_jobs`,
@@ -168,6 +295,8 @@ function followServerJobs(ids, asked) {
   // Between jobs the listing that picks the next one decides, and a POST
   // out is this page's own job on its way.
   if (jobListing || submitting) return;
+  // A transient listing failure must not strand an accepted receipt at idle.
+  if ([...submissions.keys()].some(unwatchedSubmission)) { void watchNext(); return; }
   setElsewhereBusy(ids.some((id) => !watchedJobs.has(id) && !submissions.has(id)));
 }
 
@@ -292,31 +421,50 @@ function keepGalleryHead(newest) {
 let queueResyncing = false;
 async function resyncQueue(ids, asked) {
   if (queueResyncing || !currentJob || submitting || jobListing) return;
+  if (queueMoving !== null || asked < queueOrderChangedAt) return;
   const watched = currentJob;
+  const previousFirst = queueFirstId;
   const at = ids.indexOf(watched);
   // Ended: its stream says so, and the next listing picks the queue up.
   if (at < 0) { queueWaiting = null; return; }
-  const behind = ids.slice(at + 1);
-  if (behind.some((id) => !jobLabels.has(id))) {
+  if (at > 0 || ids.some((id) => !jobLabels.has(id))) {
     queueResyncing = true;
     try {
-      learnJobs(await api('/api/jobs'));
+      const listed = await api('/api/jobs');
+      // A move or a different watched job may have superseded this request.
+      // Do not let its old statuses or first queued id leak past the guard.
+      if (!busy || submitting || jobListing || currentJob !== watched
+        || queueMoving !== null || asked < queueOrderChangedAt) return;
+      learnJobs(listed);
+      ids = listed.map((job) => job.job_id);
     } catch {
       return;
     } finally {
       queueResyncing = false;
     }
-    if (!busy || submitting || jobListing || currentJob !== watched) return;
+    if (!busy || submitting || jobListing || currentJob !== watched
+      || queueMoving !== null || asked < queueOrderChangedAt) return;
   }
+  // A page can watch a queued job while an editor or another tab runs.
+  // Moving another queued job ahead must keep it visible, rather than drop
+  // everything before the watched id as the old insertion-order queue did.
+  const behind = ids.filter((id) => id !== watched && queueStates.get(id) !== 'running');
+  const first = ids.find((id) => queueStates.get(id) !== 'running');
+  queueFirstId = first ?? null;
+  syncQueueFront();
   const mine = queuedIds.filter((id) => !behind.includes(id) && (queuedAt.get(id) ?? 0) > asked);
   const next = [...behind, ...mine];
   // Back where it is shown, a change held for the pointer is gone with it:
   // replayed, a job queued and cancelled elsewhere came in as the pointer
   // left, its × a cancelled job's, and went at the next poll.
-  if (next.length === queuedIds.length && next.every((id, i) => id === queuedIds[i])) { queueWaiting = null; return; }
+  if (next.length === queuedIds.length && next.every((id, i) => id === queuedIds[i])) {
+    queueWaiting = null;
+    if (previousFirst !== queueFirstId) syncQueueNote();
+    return;
+  }
   // Under a resting pointer it waits, asked again as it leaves (queuePointer).
   if (queuePointer) { queueWaiting = { ids, asked }; return; }
-  for (const id of queuedIds) if (!next.includes(id)) forgetJob(id);
+  for (const id of queuedIds) if (!next.includes(id) && !unwatchedSubmission(id)) forgetJob(id);
   setQueue(next);
 }
 

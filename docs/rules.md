@@ -20,6 +20,10 @@ before changing it.
   to the selected quantization/format/platform
 - `backend/startup_preferences.py` — validated atomic loader/startup persistence;
   the server launcher restores it before config imports
+- `backend/snippets.py` - bounded, revisioned personal prompt snippets in an
+  atomic sidecar beside the settings, under an independent cross-process lock
+- `backend/api_snippets.py` - model-free snippet CRUD routes, independent of
+  gallery maintenance; `backend/schemas_snippets.py` owns their validated models
 - `backend/model_info.py` — cold catalogue details from existing sourced guides,
   plus each entry's Hugging Face access from its catalogue gate word
 - `backend/hub_access.py` — the Hugging Face access check a switch asks before
@@ -62,6 +66,9 @@ before changing it.
   control tokens, T5's unknown characters; `measure` adds
   `prompt_weighting`'s findings and re-exports `encoder_table`'s names
 - `backend/prompt_text.py` — shared prompt parsing, prose/tag detection and lettering spans
+- `backend/prompt_parts.py` - contextual tag/prose passages beside unchanged
+  dictionary verdicts, exact UTF-16 display spans, and the guard against
+  reorders that split a comma-containing prose passage
 - `backend/prompt_order.py` — documented tag placement, ordering and category coverage
 - `backend/prompt_rules.py` — the analyser's rule checks against the guide's
   `analysis`: style, documented order, `reorder_tags`, the items left
@@ -166,6 +173,8 @@ before changing it.
   `refine_batch.plan`'s, built in the worker, `JobManager._passes`)
 - `backend/more_seeds.py` — More seeds' batches of a selection, each one's
   next seeds, Batch and cells (pure; the routes are `api_more_seeds.py`'s)
+- `backend/more_seeds_intents.py` - bounded preview-issued More seeds tokens,
+  one owned admission per intent, replay receipts, expiry and shutdown drain
 - `backend/latent_preview.py` — the latent-to-RGB maps the live preview
   draws with, one per VAE, fitted on the card
 - `backend/jobs.py` — single-worker queue, SSE progress
@@ -251,7 +260,7 @@ before changing it.
   per version
 - `backend/reindex.py` — rows rebuilt from the PNGs' `local-diffusion` chunk, in place or
   copied in from another gallery; idempotent on the UNIQUE filename
-- `web/` — served as-is from `/static`; `index.html` loads 50 classic
+- `web/` - served as-is from `/static`; `index.html` loads 52 classic
   scripts in order, sharing one global scope; only `app.js`, the last, runs
   the wiring and boot. `state.js` owns shared state; `generation.js`,
   `grid-preview.js`, `job-stream.js` and `job-results.js` handle submission,
@@ -285,7 +294,9 @@ before changing it.
   `refine-batch.js` Mass refine, `then-refine.js` Then refine's opener
   on the Notify row and its dialog, `more-seeds.js` More seeds and `bin.js` the
   recycle bin's view, undo note and Empty; `context-menu.js` the right-click
-  menu on an image (`styles/context-menu.css`). The stylesheet is
+  menu on an image (`styles/context-menu.css`); `shortcuts.js` the keyboard
+  help dialog; `prompt-snippets.js` the personal snippet dialog and insertion.
+  The stylesheet is
   `style.css` (tokens and base layout), followed by `styles/*.css` in the
   explicit link order: `model-picker.css` the Models picker (first, at its
   old place in `style.css`), `fields.css` the panel's fields,
@@ -295,7 +306,8 @@ before changing it.
   lightbox, `refine.css` the Refine dialog and motion, `inpaint.css` and
   `outpaint.css` their dialogs, `bundles.css` the bundle dialog,
   `swap.css`, `refine-batch.css` and `more-seeds.css` those dialogs,
-  `bin.css` the recycle bin and `context-menu.css` the right-click menu;
+  `bin.css` the recycle bin, `context-menu.css` the right-click menu and
+  `shortcuts.css` the keyboard help dialog and `snippets.css` the snippet dialog;
   preserve that cascade (`tests/test_docs_maps.py` holds this list to
   `index.html`'s links, in order). `docs/source-audit.md` records the
   split audits and why each long file it kept stays whole.
@@ -840,6 +852,31 @@ Reproduction:
 - `grid.expand()` is the one cell loop for the CLI and `/api/grid`;
   `jobs.submit()` keeps its inline copy of the seed loop deliberately, asserted
   equal to the CLI's in `tests/test_cli.py`.
+- Grid prompt variables default to `prompt_mode="cross"`. In `random` mode,
+  each variable is drawn from the image seed and variable name by the frozen
+  `grid.random_assignment` hash recipe. Numeric axes share that draw; Batch N
+  expands to N one-image cells so each saved row and PNG carries its actual
+  prompt and `variables`. Random mode never constructs the variables' Cartesian
+  product, and adds no reproduction field or key extension. Resume and
+  duplicates use the resolved cells. Preview expands once and reports
+  `prompt_sample` when neither a base seed nor a seed list fixes its choices;
+  the page labels those prompts as examples and says Batch images run
+  separately. The CLI uses `--grid-prompt-mode random`.
+- Grid sizes are paired `WIDTHxHEIGHT` values in `size_axis`, never independent
+  width/height products. Each concrete cell keeps its image seed and random
+  assignment across sizes, passes the existing guards and contributes to the
+  grid ceiling. Resume/planned work and estimates use each actual size. A
+  mixed run reports all sizes, and Then refine reports all `pass_sizes`, with
+  the old scalar pass dimensions only for a uniform result.
+- `crop_anchor` is ordinary Refine reproduction data: center by default, or
+  an edge/corner. It is refused beside a mask/outpaint or without a source,
+  and resets when a source is dropped or Mass refine chooses another. Center
+  keeps the old resize/rounding/crop path. Noncenter anchors travel through
+  rows, PNGs, reruns, reindex, retained work and bundles; center remains NULL
+  in storage and absent in legacy metadata. One shape extension carries size
+  and anchor together in `CellKey`. Uniform centered run hashes keep the
+  legacy definition; mixed/noncenter runs name their concrete shapes. Source
+  frames, comparisons and sheet/export thumbnails must show that exact crop.
 - A producer that runs gallery records again builds its cells with
   `grid.cell_from_record` (one record, naming only what changes: a size, a
   prompt, a negative prompt, variables) or `grid.cells_from_records` (a list
@@ -885,8 +922,8 @@ Reproduction:
   value that is no non-negative integer is NULL (`storage._peak`), never a
   refused row. Reindex (both paths) and bundles carry it; the bundle
   staging table adds both as INTEGER. `CellKey` holds the prompt pair, steps, CFG, mu,
-  true CFG, references, LoRA and weight, refine source and strength, and the
-  seed; size, checkpoint and quantization scope the resume lookup
+  true CFG, references, LoRA and weight, refine source and strength, size/crop
+  shape, and the seed; checkpoint and quantization scope the resume lookup
   (`storage.completed_cells`) and, with the batch, `run_id`'s definition;
   variables and hash are the row's and the chunk's alone. `run_id` names a
   cell by the shortest key carrying its non-None optional elements, so every
@@ -1340,6 +1377,22 @@ Reproduction:
 
 Jobs:
 
+- The manager owns queued admission order. `active()` and both HTTP listings
+  show running work first, then that order. Move to front changes only queued
+  work and never preempts a holder. Loading stays outside the gate; admission
+  is checked again after taking it. The page uses `setQueue` for the same
+  order, preserves newer local submissions across delayed replies and keeps
+  the focused row/action when reordered. A watched job that is queued has
+  its own Move button beside progress.
+- Skip names `current_call` in `POST /api/jobs/{id}/skip?call=N` and raises
+  `Cancelled` cooperatively for that call only. Stale tokens are refused;
+  Cancel wins, and a late Skip never discards a completed image or reaches
+  the following call. Intentional skips are retained separately from failures,
+  excluded from successful indices and recoverable by Finish. Skip is held
+  between calls, while saving/paused/loading and during dynamic Then refine
+  passes, which Finish cannot recover separately. The worker emits a compact
+  status on ending a call so the page holds Skip before a slow save. Held
+  controls keep their size, `aria-disabled` and the reason as their title.
 - Cancel and pause are cooperative and polled: cancel from
   `callback_on_step_end` (raise `Cancelled`), pause at the cell boundary
   every quarter second. Never `Event.wait()`. The page answers a Pause press
@@ -1438,7 +1491,7 @@ Jobs:
   (a grid's prompt as submitted, its variables unfilled, from `/api/grid`;
   None for a plain request and a re-render), so a page that did not submit
   a job can name it - a grid by its own prompt, never its first cell's.
-- `ModelStatus.active_jobs` (the live ids, oldest first) feeds
+- `ModelStatus.active_jobs` (running first, then queued admission order) feeds
   `followServerJobs` on every status poll. A page watching nothing that sees
   a job it neither submitted nor watched sets `elsewhereBusy`: Unload and
   Expand are held aria-disabled with "A job started in another tab or
@@ -1675,6 +1728,21 @@ Jobs:
   altered chunk is refused when it is read, before anything is installed, and
   the staging directory is discarded. Never add an up-front pass to
   authenticate every chunk.
+- The dialog separates **Create a bundle** from **Import a bundle**.
+  New password/Repeat apply to either creation action. Back up is the primary
+  creation action and requires no typed count; the separate clear group names
+  its safety purpose, entire-gallery scope and exact current record count,
+  including all models and the recycle bin. That count is a confirmation,
+  never an export quantity. A held clear press focuses a missing/wrong count
+  only when that is its remaining gate, revealing it inside the dialog if
+  clipped; all server safeguards stay in force.
+  File and saved imports share one **Import password** field within the same
+  import section. Protected rows visibly say **Uses Import password**, with
+  keyboard navigation to that field; pressing an import held only for its
+  password goes there too. There is no per-row secret. Feedback stays between
+  file and saved controls, named Bundle operation status, so import failures
+  and recovery remain near their actions. Downloads need no password and
+  protected files stay encrypted. Secret lifetimes remain as described below.
 - An upload whose body stops early (the page's Cancel, a reload, a closed tab:
   `ClientDisconnect`) or whose request is cancelled fails the reservation with
   `api_bundles.UPLOAD_STOPPED` and removes its `.bundle-upload-*.part` before
@@ -1958,6 +2026,29 @@ Prompt analyser:
   item never looked up, or one with no usable category. A failure placing
   the slots costs the slots, never the verdicts answered beside them. The
   page never places a chip itself.
+- Hybrid tag/prose presentation is separate from lexical validation.
+  `chip_verdicts` adds `TagValidationResponse.parts` only for a guide whose
+  helper explicitly sets `hybrid_prompt`, with a whole raw `prompt` whose
+  comma items match the request's tag prefix. A capped prefix and grid-value
+  lookups appended after all prompt items are allowed; missing, mismatched,
+  XML/JSON or tag-only context supplies no parts. Strict `results` and the
+  dictionary cache never change with the prompt context.
+  `prompt_parts.contextual_parts` returns `kind` (`tag` or `prose`), inclusive
+  original comma-item indexes `first`/`last`, and exact raw `start`/`end`
+  offsets in JavaScript UTF-16 units. A prose-shaped dictionary miss anchors
+  adjacent absent fragments as one passage: `1boy, masterpiece, a man
+  wearing a red, old hat` has two tag units and one prose unit containing its
+  internal comma. This does not depend on the whole prompt's majority style.
+  Known/model tags, concrete deprecated/empty/no-date/cutoff findings,
+  explicit artist prefixes (including malformed ones) and grid variables
+  bound passages; quoted lettering stays text even when it contains a model
+  tag. Unchecked items beyond the lookup cap or during an outage provide no
+  evidence of absence; definite sentences and quoted text need none.
+  Check's order finding's Apply suggestion, its `reordered`, and the critic's
+  reordered candidate are withheld only when that candidate would split a
+  multi-item prose passage. The finding remains advisory with no Apply;
+  `PromptAnalysis.reordered_detail` and the critic's `set_aside` explain the
+  app's precaution, without changing the author's order or cite.
 - The critic is pinned: llama.cpp `b11206` archives (`critic.BUILDS`: Windows
   CUDA 13.4, and Ubuntu for WSL) and `Qwen/Qwen3-4B-GGUF` `Qwen3-4B-Q8_0.gguf`
   at a fixed revision, each held to its size and sha256 (`.part`, verify,
@@ -2127,6 +2218,43 @@ Prompt analyser:
 
 Frontend and CLI:
 
+- Native numeric inputs can display unfinished text such as `1e` while their
+  DOM value is empty. `refuseBadNumber` checks `validity.badInput` at Generate,
+  Run grid and comparison submission, names the field and focuses it without
+  submitting. Intentional blanks retain profile defaults/random seeds;
+  disabled inputs, sampling/seed values replaced by grid axes, and comparison's
+  own Batch/Repeat values are ignored. Both the Run grid button and its keyboard
+  path use `runGrid`.
+  Stored reruns and More seeds do not validate unrelated composer inputs.
+- Personal snippets are the final item of Examples, after the authors' prompts,
+  and remain available with no author examples. They open a native dialog,
+  with declarations in `prompt-snippets.js` and `initSnippets()` called by
+  `app.js`. Writes go through `rewriteBox`/`writeBox`, keeping page scroll,
+  with Append/Prepend and undo; a
+  greyed negative refuses insertion. The modal owns its keys, with no
+  Ctrl/Cmd+Enter submission underneath it. CRUD uses a bounded atomic
+  `local-diffusion.snippets.json` sidecar, optimistic item revisions and an
+  independent lock; unreadable files are never replaced by an empty list.
+  Snippets remain available during gallery bundle maintenance. The sidecar
+  and temporary files are ignored by Git. No read is made at page startup.
+- Keyboard help (`shortcuts.js`) opens with `?` or the top bar's named
+  button, never while typing in an input, textarea, select or editable
+  content, during composition, on a repeat or with Ctrl/Meta/Alt. Its native
+  dialog may sit above another dialog; while open, the page's global
+  shortcut dispatcher returns before Ctrl/Cmd+Enter or Escape can act
+  underneath it. Tab stays on help's sole Close control. Close, native Escape
+  and an actual backdrop press restore the connected opener with
+  `preventScroll`. The complete, grouped list is
+  available even when the gallery is empty or a comparison is inactive.
+  Opening snapshots the current context before a menu loses focus. Relevant
+  groups lead, followed by the complete inventory; there are no hidden shortcut
+  groups or extra help controls. Queue/Bundles help names native button/field
+  navigation and explicitly promises no dedicated submit/queue accelerator.
+  A menu item's hidden-but-connected node is not a valid return target: use its
+  visible opener fallback, without reopening the menu or scrolling. Context-menu
+  help owns `?` before the menu's propagation stop. Image shortcut hints apply
+  after closing that menu; Enter/Space chooses within it. Sheet images retain
+  their own documented keys, without promising the image actions menu.
 - `web/` has no build step and no test suite; check it in a real browser with
   `tools/fake_server.py` and `tools/browser.mjs` (see Tests). The page script
   is classic scripts sharing one global scope, loaded in the order
@@ -2184,7 +2312,7 @@ Frontend and CLI:
   badged "image N", a card's (24 px wide at the gallery's S, 32 tall) and a
   long run's tile tools and a result's row `--h-tool` (32 px), and the
   lightbox's arrow circles `--lb-nav` (52 px; 40 under 1800 px). Nothing
-  changes under 1800 px, where the
+  changes from this wide-tier scaling under 1800 px, where the
   smokes run, but the panel's gap and field height on a two-column window
   under 900 px tall (the panel's order, below); 1400x900 is not short. That is scale; a component's own layout breakpoint is not,
   and is named in its rule (the Models picker's column of pictures from
@@ -2239,6 +2367,22 @@ Frontend and CLI:
   buttons (Show, Apply) and its scale buttons past the guard are `disabled`
   with the reason as their title - the documented exceptions (below): each
   dies with a state its own panel says in words beside it.
+- Secondary `.ghost` actions use the existing panel surface, readable text
+  and strong edge; tiny caption tools stay tertiary. Enabled hover is scoped
+  to enabled controls and has low specificity so selected component states
+  keep their readable text and accent fill/edge. Held controls retain their
+  reason-on-press behavior, reduced surface and keyboard focus ring, and
+  never brighten as enabled on hover. Footer actions keep their existing
+  geometry while sharing those states; inpaint and small selected tools use
+  readable text rather than small purple labels on the panel.
+- Frequent prompt-caption tools have a 24 px floor and `--fs-sm` type below
+  1800 px (`--h-sm - 2px`, scoped in fields.css); their existing wide sizes
+  stay intact. Gallery footer actions use `--h-sm` as a stable minimum height,
+  including Bundles, with a 24 px width floor for collapsed Picked/Clear
+  arrows. Primary Generate/Run grid sizes, seed width and layout order stay
+  intact. These target-size changes apply in every held/selected/hover state,
+  so a state change cannot move a control under the pointer. Narrow footer
+  wrapping and the error line's reserved slot remain unchanged.
 - Each of the panel's size strips (`#presets`, `#tiers`) is a `role="group"`
   with one tab stop (the chosen preset, else the first) and `aria-pressed`;
   Left and Right, Home and End move focus
@@ -2286,6 +2430,17 @@ Frontend and CLI:
   `#negative-field` is a div with `<label for="negative">`: a button inside a
   label becomes the label's control. `#negative` is described by `#neg-note`
   (`aria-describedby`), so a greyed box says why.
+- Custom dimensions and LoRA/reference setup use native details/summary
+  disclosures (`#custom-size`, `#conditioning-section`). Inactive defaults
+  start closed; summaries retain actual dimensions, adapter/weight and reference
+  count, with incomplete/unavailable state named. Aspect/MP presets and size
+  warnings stay outside. Native summaries retain `--h-sm` targets and the
+  common focus ring. Explicit restore, Reuse/Undo and new reference activation
+  reveal relevant setup; numeric-error and reference focus open the containing
+  fold first. Polling/sync changes words only. Closing never changes values;
+  no automatic close or poll-driven reopen, and no new persistence key.
+  Pending restored LoRA names survive snapshots/Undo, but Reset or a replacement
+  Reuse clears them so a late catalogue cannot restore stale conditioning.
 - The sampling row (`.sampling-row`) keeps each name on one line, with
   `white-space: nowrap` on the `<label>` alone - never on the label line,
   which also holds the ? badge and its tip. No box is narrower than its name
@@ -2619,9 +2774,10 @@ Frontend and CLI:
   title's legend only while some chip has one. For a text not answered yet,
   a chip keeps the last answer's step for the same tag until its own answer
   lands (`chipSlots`). The page works out no slot itself. The Refine
-  dialog lists the comma items `/api/tags/validate` answers `valid: false`
+  dialog lists only tag units `/api/tags/validate` answers `valid: false`
   for under its Prompt box, each once, only where `tagVocabularyEnabled`,
-  silent when the lookup is unavailable; it has no chips and never calls
+  excluding its exact matching contextual prose parts and silent when the
+  lookup is unavailable; it has no chips and never calls
   `writePromptTags`. Its Prompt box suggests tags there too, from tags.js's
   editor list: `scheduleEditorSuggestions` and `renderEditorSuggestions`
   with `query` set to the comma item at the caret
@@ -2720,6 +2876,21 @@ Frontend and CLI:
   sections' single column (`.analysis-body`) and the sticky head
   (`.tag-validation-wide .analysis-head`) are the check's in both places.
   Nothing in the stage moves as it opens, the chips included.
+- On hybrid guides the annotation tray draws server-classified prose as
+  selectable `.prompt-prose` text, grouped with its exact internal commas
+  and spacing, without tag marks, drag/edit/delete tools, duplicate flags,
+  order captions or unknown/tag counts. A paragraph made entirely of prose
+  keeps the tray hidden; its encoder readout remains under the prompt.
+  Token cuts can still mark unread prose using the original offsets.
+  `tagPromptLayout` is valid only for the same model and exact raw prompt;
+  it never enters the lexical `tagVerdicts` cache. While changed hybrid text
+  awaits classification, raw text replaces stale chip controls. A model
+  change or prompt edit cannot reuse another context's layout. Panel and
+  Refine suggestions exclude a classified prose caret and recheck their
+  text/model/caret after delayed replies. Prose keeps the native selection
+  and context menu; tag edits operate at whole-passage boundaries through
+  `promptEditingUnits`/`writePromptUnits`, preserving internal commas and
+  ordinary Ctrl+Z. Tag-only models and pure tag lists retain strict chips.
 - Validation chips edit the prompt: drag (or Alt+Left/Right) reorders, × or
   Delete removes, and a click or right-click in a gap inserts there (a
   chip's right-click or Menu key inserts after itself, + tag at the end) with
@@ -2782,12 +2953,19 @@ Frontend and CLI:
   open prompt check. In the Refine dialog the list's Escape is prevented on
   the box's keydown, which keeps the modal dialog's cancel from firing: it
   closes the list, and the next one closes the dialog.
-- Ctrl+Enter is routed by focus (app.js's keydown): in the Refine dialog it
+- Keyboard events already prevented, composing (including keyCode 229), or
+  carrying unsupported extra modifiers never become a second page command.
+  Discrete activation does not repeat; navigation, zoom, numeric stepping and
+  the mask's held stroke retain repeat. Native repeated Enter/Space activation
+  is held for discrete buttons too. A focused input, select or editable owns
+  its text/navigation keys. The event's native modal owns dispatch; settings,
+  help, Bundles, menus and the lightbox cannot generate behind themselves.
+- Ctrl/Cmd+Enter (exactly one primary modifier, no Alt/Shift) is routed by focus (app.js's keydown): in the Refine dialog it
   runs the pass, and so does a plain Enter in the dialog's one-line boxes
   (`refineKeydown`); in Mass refine's dialog it runs that
   (`runRefineBatch`) and in Swap tags' it queues (`queueSwap`); from a box
   of the open grid fold it clicks Run grid;
-  anywhere else, a focused image included, it generates - `thumb()`'s Enter
+  on the main workspace, a focused image included, it generates - `thumb()`'s Enter
   and Space open the lightbox only without Ctrl, Meta or Alt. Generate
   itself refuses in the page alone (never the server, where braces can be
   text or {tag} emphasis) while the fold is open, its variables box has text
@@ -2796,6 +2974,20 @@ Frontend and CLI:
   opacity, since `setBusy` rewrites the buttons' text) plus
   `aria-keyshortcuts`; the lightbox's Compare with source shares that rule,
   its content S (style.css's lightbox section).
+- `/` focuses and selects gallery search on the workspace, preserving its
+  query, filters, bin/run and picks. A literal slash may carry Shift on a
+  localized keyboard. Fields, menus, popups and modals own their keys;
+  Ctrl/Meta/Alt, composition, handled events and repeats never take this route.
+  Explicit navigation reveals a clipped search, without moving a visible one.
+  Unshifted M opens More seeds for the focused gallery/result/sheet/session
+  image or unobstructed lightbox image, using its one id and the existing holds
+  and preview. It never queues or widens to hidden picks. Its actual visible
+  opener owns focus and pending-preview validity, including narrow lightboxes.
+  Visible M hints stay in image context and help; the More seeds entry points
+  remain. A narrow lightbox menu uses its visible launcher instead of the hidden
+  button for pending-preview validity. Lightbox redraws preserve valid focus;
+  when their owned control disappears or becomes hidden/disabled, Close receives
+  focus without scrolling, unless another dialog is open. Comparison controls and S retain their existing behavior.
 - The grid preview is the server's expansion; the page adds only
   presentation and advice. It trims factors of one other than the seeds
   from the totals and writes ×, since `grid.describe` keeps its ASCII x and
@@ -3101,7 +3293,16 @@ Frontend and CLI:
   forgotten (`forgetJob`) if that stream has already ended; otherwise it
   takes the page if nothing is watched, and else queues an id that is not
   queued already. So no job is streamed twice (`watchedJobs`, every id a
-  stream was opened for) or listed as its own Next: row. A stream that gives up probes
+  stream was opened for) or listed as its own Next: row. An accepted in-memory
+  receipt not yet watched (`unwatchedSubmission`) also owes an outcome if its
+  job finished between watches. The adopter queries finished history only
+  while such a receipt is absent from the active list, then replays terminal
+  snapshots one at a time through the ordinary stream/finish path in receipt
+  order. Queue resync preserves those unseen receipts, and idle polling retries
+  transient listing failures. `ownJobs` alone never authorizes historical
+  replay after reload; foreign jobs and explicitly cancelled/forgotten rows
+  are excluded. A receipt missing from server history is forgotten.
+  A stream that gives up probes
   `GET /api/jobs/<id>`: alive, it streams again (three times at most); no
   answer, an offline message counting the saved images; a 404, "The server
   restarted, and this job ended with it after N of M images". The stale
@@ -3961,13 +4162,13 @@ Frontend and CLI:
   (`dropFromBinView`, `stashed: false`). Select (`#btn-select`, `aria-pressed`, the
   footer row beside Bundles…, styled as it is so the line keeps its height)
   is the touch path. A card image's press is `cardPress`, which `card()`
-  hands `thumb` as `open`, as a file manager's: a click picks the card
-  alone (`selectOnly`), Ctrl/Cmd+click toggles it, Shift+click picks the
-  range from the anchor alone and Ctrl+Shift+click adds it
-  (`selectRange(div, {add})`); a double click (`cardDoubleClick`, a click's
-  `detail` over 1 left to it) or Enter opens the lightbox; Space toggles and
+  hands `thumb` as `open`: a plain click opens the lightbox without changing
+  the picks or anchor. Ctrl/Cmd+click toggles a pick; Shift+click picks the
+  range from the anchor alone, falling back to `selectOnly` without a loaded
+  anchor, and Ctrl/Cmd+Shift+click adds it (`selectRange(div, {add})`). Only
+  the first click of a multi-click opens. Enter opens; Space toggles and
   Shift+Space adds the range. In select mode every click toggles, quick ones
-  too, Shift adds, and only Enter opens. The anchor is the last card toggled or clicked (a pick refused at
+  too, Shift adds, and only Enter opens. The anchor is the last card toggled or picked (a pick refused at
   the cap and a range leave it); a range runs in DOM order. F and the tools
   are unchanged. The image's Shift mousedown, and a double click's, are kept
   from selecting text; a click between the cards (`galleryBlankClick`, on
@@ -3988,8 +4189,9 @@ Frontend and CLI:
   ellipsis. Before a shown Clear it keeps 4 px, Clear's own padding on that
   side halved; with Clear hidden, the row's gap before Select. A picked card is `.selected` (its group named "#N
   (selected)"); in select mode `#gallery.selecting` draws a ring at each
-  card's top centre. The image is a toggle in and out of the mode
-  (`aria-pressed`, named "Select #N: …"; `aria-keyshortcuts` with Enter). `syncSelection` derives all of it from the state; call it
+  card's top centre. The image is a toggle only in Select (`aria-pressed`,
+  named "Select #N"); outside it is named "Open #N" without `aria-pressed`.
+  Its `aria-keyshortcuts` includes Enter in both modes. `syncSelection` derives all of it from the state; call it
   after anything that adds cards other than through `card()` and
   `loadGallery`.
 - The Picked menu (`#picked`: `#btn-picked`, `aria-haspopup="menu"`, and
@@ -4275,7 +4477,7 @@ Frontend and CLI:
   opens the count at) and, for a `run` scope with something queued,
   `headline` (`more_seeds.run_headline`: "N more of each of C cells = T
   images · seeds a–b · Starred ignored", "of its one cell" for one, the
-  Starred part only where the request ticked it); it has no side effects, is not model-dependent and is
+  Starred part only where the request ticked it); it has no gallery/queue side effects, is not model-dependent and is
   advisory in `api`. The queueing route is model-dependent, refuses 409
   when `expected` is not the ids resolved now, 422 naming every count when
   no batch is queued, and submits one job per lineage and size
@@ -4305,7 +4507,7 @@ Frontend and CLI:
   `total` changes under it: `moreSeedsGalleryChanged`), aborting one still
   out; the scope line ("From …") counts the answer's `ids`. Queue is
   aria-disabled with `submitHold()` (re-synced from `syncSubmitButtons`),
-  the count's refusal, "Checking the batches…", the server's refusal,
+  the count's refusal, "Checking the settings groups…", the server's refusal,
   "The checkpoint changed…" or "No batch can have more seeds here; each
   one says why"; a press (Queue, Enter in the box, Ctrl+Enter) waits for
   the check of what the dialog says, then says a hold in
@@ -4313,9 +4515,38 @@ Frontend and CLI:
   the POST is out Queue reads "Sending…" and Escape, Cancel and the
   backdrop wait (`msSending`); accepted, the dialog closes and the count is
   remembered; refused, it stays open with the reason and checks again. The
-  results list has a fixed height and scrolls, the count line keeps two
-  lines and `#more-seeds-error` one, so nothing below moves; Queue is
-  right-aligned, its right edge fixed.
+  results list has a fixed height per opening and scrolls, the count line
+  keeps two lines and the feedback three, so nothing below moves; Queue and
+  Cancel keep fixed action columns.
+- The direct results action (`#viewer-more-seeds`) stays outside the strip,
+  on the same element as images arrive. It takes only settings groups already
+  represented by completed results, and says that scope. `#viewer-note-text`
+  owns the former result-note text; `#viewer-note` also holds the action.
+  The caption keeps its reserved line even when empty or hidden by the wide
+  result column, preserving gallery geometry through arrival and docking.
+  More seeds leads with additional images and unchanged settings, calls a
+  ready preview Ready, and puts technical seed/Batch explanations in details.
+  Each opening fixes its compact or multiple-group list height; fixed action
+  columns preserve Queue and Cancel rectangles through asynchronous replies.
+  An active job permits queuing; another POST still pending visibly holds it.
+  Opening previews can be cancelled with Escape and cannot open after their
+  originating result, lightbox, footer scope or modal context has gone.
+- Browser More seeds submissions carry the preview's `intent` and resolved
+  `expected` ids. `more_seeds_intents.IntentLedger` owns one admission task
+  per token through disconnects, under the same rerun admission lock. It
+  bounds itself to 512 entries, issues previews for 15 minutes and retains
+  settled receipts for one hour. Unknown, expired or mismatched tokens refuse
+  before allocation; repeated accepted tokens return the original job ids.
+  A partial multi-job admission acknowledges the admitted jobs and counts
+  the remainder in a terminal warning; replay never adds that remainder.
+  Pending intents count as busy and drain before worker shutdown. This is
+  scoped to the manager lifetime, never durable exactly-once execution.
+  After a lost reply, the browser freezes the exact body/count/token through
+  later errors, including generic 4xx middleware refusals; Retry same request
+  does no preview. Receipt-specific 409s stay held and require reviewing the
+  queue before a deliberate new request. Closing can abandon an uncertain
+  reply, as the dialog says. Legacy callers without a token still request a
+  deliberate new extension on every POST.
 - More seeds where a run ends (`docs/plan-continue-run.md`, phase 1) is the
   same dialog on a ready target, `openMoreSeeds(target, {count, opener, host})`
   with `target` `{scope, line}`: an image's batch (`{ids: [id]}`,
@@ -4355,7 +4586,7 @@ Frontend and CLI:
   `refuseInCard`. `aria-busy` is the pressed button's only (`opener`; the
   footer passes its own); a menu item, its menu gone, has none.
   `moreSeedsGalleryChanged` skips a run scope as it skips `ids`; the count
-  line leads with the server's `headline` where there is one. The sheet's
+  technical details retain the server's `headline` where there is one. The sheet's
   run bar is More seeds of this run… after Resume this run, on
   `sheetShownRun` (one run opened on `run:<id>`, a refine sweep's and a
   comparison's too, held - not hidden - on another checkpoint), then its
@@ -4859,6 +5090,103 @@ Frontend and CLI:
 
 ## Tests
 
+`smoke-control-sizing.json` uses a fresh FLUX.1 Krea [dev] fake on 7923.
+It measures prompt/footer targets and primary emphasis at 1400x900, 600x900,
+1536x864 and 2048x1040 (the latter two at DPR 1.25), checks actual hit targets,
+focus rings, held/selected geometry, fixed-seed/panel widths and a crowded
+footer with picks and a nonempty bin. Every cold catalogue caption combination
+is checked for fit, with no model load.
+
+`smoke-numeric-inputs.json` uses a fresh FLUX.1 Krea [dev] fake on 7921.
+Native typing checks incomplete Steps/CFG/Seed/size/True CFG before a POST,
+button and keyboard paths, intentional blanks, queuing, independent More
+seeds settings, grid Seeds/Budget and sampling overrides, and comparison
+controls that replace unrelated panel values.
+
+`smoke-queue-outcomes.json` uses a fresh FLUX.1 Krea [dev] fake on 7922.
+Gated listings reproduce fast queued completion/failure, once-only outcomes
+and Finish recovery, ordered rapid receipts, delayed POST/history snapshots,
+transient history retries, cancellation/foreign-job exclusions and no
+historical replay after reload.
+
+`tests/test_prompt_parts.py` covers the reported mixed example, pure tags
+and prose, a prose passage in a majority-tag prompt, known titles and
+concrete validation findings, explicit prefixes and grid variables,
+punctuation/UTF-16 spans, matching context and grid lookup tails, cap/offline
+boundaries, hybrid capability metadata, unchanged raw/cached verdicts,
+checkpoint switching, and Check/critic reorders that would split prose.
+`smoke-mixed-prompts.json` uses a fresh Kohaku fake on 7920 for two actual
+tag chips beside one exact comma-containing prose span, accessible counts,
+pure-prose tray hiding and token-limit readout, strict misspellings, cached
+edits, a majority-tag prompt, raw whitespace/non-BMP offsets, tag
+edit/move/delete/insertion and undo around the prose, a gated suggestion
+reply, Kohaku-to-Animagine-and-back reclassification, and matching Refine
+warnings. The browser checks use synthetic images and no real model.
+
+```powershell
+uv run python tools/run_smoke.py smoke-mixed-prompts
+```
+
+`smoke-button-states.json` uses a fresh Animagine fake on 7918 to check
+secondary/primary and selected text contrast, held hover and reason-on-press,
+focus rings, unchanged state-transition geometry, and footer widths at
+600/1400/2560/2048 pixels (the last at DPR 1.25).
+
+`tests/test_more_seeds_intents.py` and `tests/test_api_more_seeds_intents.py`
+cover receipt replay, conflicting choices, concurrent tokens and waiters,
+cancelled HTTP waiters, bounded retention/expiry, shutdown and partial
+multi-job admission. The extended `smoke-more-seeds.json` checks active
+Batch x Repeat, delayed/repeated presses, two deliberate extensions, lost
+replies through 503 and generic 409 responses, terminal receipts, partial
+warnings, stale opening contexts and narrow/normal/wide result reachability.
+`smoke-more-seeds-tabs.json` uses a fresh FLUX fake on 7919 with two actual
+tabs, separate owned-job/viewer/composer state, simultaneous stale previews,
+distinct seed allocations, lost-response replay and queue transitions.
+
+`tests/test_size_crop.py` and `tests/test_crop_anchor_storage.py` cover paired
+size parsing, limits, shape identity and legacy hashes, crop pixels and the
+GAN path, actual-size Resume/Finish/estimates, persistence and source-loss
+cleanup. `smoke-size-crop.json` uses a fresh FLUX.1 Krea [dev] fake on 7917
+for sizes, Resume/sheet axes, crop frames, metadata, Reuse and source views.
+
+`tests/test_snippets.py` covers CRUD, exact text, bounds, malformed-file
+preservation, independent locking, stale/concurrent edits and admission
+during bundle maintenance. `smoke-snippets.json` uses a fresh FLUX.1 Krea
+[dev] fake on 7915 for CRUD, server persistence, Append/Prepend with Undo,
+held negative insertion, conflicts, modal keys and the narrow layout. It also
+checks that the menu adds no caption height beside ordinary, Tags and Expand
+controls at 1400x900 and 400x650, and insertion into an offscreen prompt keeps
+page scroll. Native Undo in the browser harness carries the Z key code.
+
+`smoke-queue-controls.json` uses a fresh FLUX.1 Krea [dev] fake on 7914 with
+0.3 s steps. It checks authoritative Move order and focus through reload,
+delayed-response/new-submission races, a watched queued job's Move control,
+one-call Skip and Finish recovery, and held paused/Then refine reasons.
+
+`smoke-random-prompts.json` uses a fresh FLUX.1 Krea [dev] fake on 7916.
+It checks random/cross selection, saved mode and Reset, deterministic choices
+across numeric axes and per-image batch seeds, preview counts and unseeded
+sample wording, saved choices, Resume, and unchanged Cartesian behavior.
+
+`smoke-compact-setup.json` uses a fresh fake on 7925. It checks inactive and
+active disclosures, value preservation and actual status-poll non-reopening,
+restore/Reuse/Undo and pending LoRA catalogue behavior, numeric-focus reveal,
+reference activation/order/capability state, native expansion, scoped `/` and M,
+hidden-pick independence, no immediate queue, modal/editing/modifier/IME/repeat
+protection and responsive screenshots at 390/600/1400/2048 px.
+
+`smoke-shortcut-dispatch.json` uses a fresh fake on 7924. It checks modal and
+menu ownership, exact modifiers, handled/composing/repeated events, native
+button repeat, lightbox editing/select/browser navigation, ordinary Generate
+and Grid, and delayed More seeds/help Escape precedence.
+
+`smoke-shortcuts.json` uses a fresh fake on 7913. It checks the complete
+shortcut list before any images exist, the top-bar and `?` openers, typing,
+composition/modifier/repeat guards, help above a lightbox and a Refine draft,
+no underlying submission or image action, native Escape, Close and actual
+backdrop focus restoration, context ordering with the full inventory, menu-opener
+fallbacks, accurate menu hints and a 390 px layout without horizontal overflow.
+
 `uv run --group dev pytest`. They stub the pipeline (`tests/fakes.py`'s
 `FakeBackend`, wired by the `fake` and `client` fixtures in `tests/conftest.py`
 and driven through `tests/api_helpers.py`; the HTTP tests are `tests/test_api*.py`,
@@ -4975,7 +5303,14 @@ bin is shown with one binned from another tab left out, an import's
 missing-source count said as a fact, a gallery read refused mid-backup
 (stubbed 409) repaired when the backup ends with the typed count kept, the
 holds with nothing picked or
-starred, and the layout at 600x900 and 2560x1305:
+starred, and the layout at 600x900 and 2560x1305.
+
+Its sizing/Bundles review cases also cover explicit password association and
+keyboard navigation, the clear safety explanation and enablement, blank/wrong
+and leading-zero count entries, a synthetic preview whose record/file/bin
+counts differ, unchanged creation/import password lifetimes, and 360/390 px
+layouts plus forced colours. Scope changes compare dialog-content positions,
+so explicit test scrolling does not masquerade as a moving control.
 
 ```powershell
 uv run python tools/fake_server.py --port 7897 --data <new-scratch-directory>
@@ -5282,7 +5617,12 @@ one pending, printing the step it was on, and 2 on a script it refuses
 before starting - among them an
 `expect` joining an async helper (`__until`, or a `window.__x = async` the
 file defines) to more with && or ||, which is never awaited: the whole
-condition goes inside the predicate. A `hover`, `click` or `dblclick` step takes a
+condition goes inside the predicate. Each run's browser profile, under the
+system temp directory, is removed on every way out - the steps' end, a
+failure, a throw, Ctrl-C or SIGTERM - once the browser's whole process tree
+has stopped; one a killed run left behind is swept by a later run after six
+hours (`tests/test_browser_profile.py`, skipped without Node and a browser).
+A `hover`, `click` or `dblclick` step takes a
 CSS selector in place of a point, aiming at the middle of that element's box
 as it is then. It opens the page at 1400x900,
 where the smokes are written: `LOCAL_DIFFUSION_VIEWPORT=2560x1305` (a
@@ -5614,9 +5954,8 @@ node tools/browser.mjs tools/smoke-model-gallery.json
 
 `smoke-kohaku.json` checks Kohaku's hybrid tag guide, defaults, size guidance
 (the exact 1.05 MP bound), saved settings, and a hybrid prompt's
-213-character sentence answered unknown without the index, the rest
-checked (guide tags valid, the tray never "Danbooru unreachable") and the
-order slots there, on port 7870:
+213-character sentence displayed as prose beside the checked guide tags
+(the tray never "Danbooru unreachable") and their order slots, on port 7870:
 
 ```powershell
 uv run python tools/fake_server.py --port 7870 --model KBlueLeaf/Kohaku-XL-Zeta
@@ -6364,17 +6703,13 @@ with picks from another search kept and the cap applied, and leaving native
 text selection in the search and the prompt; in the recycle bin adding only
 the bin's cards, the gallery's picks set aside and back unchanged; Select in
 the footer row before Swap tags…, Refine…, More seeds… and Bundles…, at
-Bundles…'s height; with Select off, a card picked as a file manager's item
-is: a plain click picking it alone and opening nothing, replacing every
-earlier pick including one the search does not show; Ctrl+click (Cmd+click)
-picking or unpicking it beside the rest and moving the anchor; Shift+click
-replacing the selection with the range from the anchor (backwards from the
-anchor out); Ctrl+Shift+click adding the range; a click of detail 2 picking
-nothing; a real double click opening the lightbox on the card its first
-click picked, with no text selected; a double click with Ctrl held opening
-nothing; Space picking and unpicking the focused card and Enter opening it
-with the picks left alone; every card image `aria-pressed`, named "Select
-#N", Enter first among its keys; a card's star starring it with the picks
+Bundles…'s height; with Select off, plain click opening a card while keeping
+the selection (including hidden picks) and range anchor, Ctrl+click
+(Cmd+click) toggling a pick and moving the anchor, Shift+click replacing the
+picks with the range and Ctrl/Cmd+Shift+click adding it; duplicate click
+details and non-left clicks opening or picking nothing; Space toggling and
+Enter opening with picks left alone; image names Open outside Select and
+Select with aria-pressed inside it, Enter first among the keys; a card's star starring it with the picks
 kept; a click on blank grid space clearing the selection with Select off but
 not in Select mode; Select pressed with neither it nor the grid moving as
 the count appears, its hint the row's gap from Select and the count 4 px
@@ -6386,9 +6721,9 @@ opening the lightbox and F still starring; a search showing one of eight
 counted as "7 not shown", and back; the next page's cards marked and a range
 across the page boundary; a picked image deleted by its ⌦ leaving the
 selection; the cap (a range picking what fits, a single pick refused, both
-said); Escape clearing, then leaving select mode (the image still a "Select
-#N" toggle), then left to the page; Select off keeping a selection that a
-double click does not change; Clear handing focus to
+said); Escape clearing, then leaving select mode (the image becomes an
+"Open #N" button), then left to the page; Select off keeping a selection that
+a plain click does not change; Clear handing focus to
 Select; on a sheet Select held with its reason, not pressed and with no
 hint, and the selection kept and counted; a refused pick leaving the anchor;
 `selectedRecords()` giving the loaded page's records after a search; the
@@ -6496,7 +6831,7 @@ and selected, one picked image of the four taking all four ("4 images,
 seeds 100–103 → seeds 104–107 · Batch 2") beside the single one, the
 count line, Queue's label and title; a count of 0 refused on the page, a
 press saying it and marking the box, Queue's right edge, Cancel and the
-list unmoved; "Checking the batches…" while typing, ↑ and ↓ stepping it;
+list unmoved; "Checking the settings groups…" while typing, ↑ and ↓ stepping it;
 Ctrl+Enter queueing one job per run, the Now line "more seeds · …",
 Cancel's "Stop these more seeds", the last finish line "seeds 8–10. Job 2
 of 2 of these more seeds, at 256×384."; the new images in the run they

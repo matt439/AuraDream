@@ -398,7 +398,7 @@
   {"expect": "__until(() => busy && !els.refineDialog.open && !!els.viewer.querySelector('figure.pending, figure.live'))"},
   {"eval": "deleteImage(window.__src2).then(() => { askConfirm = () => true; return emptyBin(); }).then(() => { askConfirm = confirmDialog; })"},
   {"expect": "__until(() => !busy && viewerRecords.length === 1 && viewerRecords[0].refine === window.__src2.id)"},
-  {"expect": "viewerRecords[0].refine_missing === true && els.viewer.querySelector('img[data-id=\"' + viewerRecords[0].id + '\"]').title.includes('refine of #' + window.__src2.id + ' (deleted)') && els.viewerNote.textContent.includes('#' + window.__src2.id + ' (deleted)')"},
+  {"expect": "viewerRecords[0].refine_missing === true && els.viewer.querySelector('img[data-id=\"' + viewerRecords[0].id + '\"]').title.includes('refine of #' + window.__src2.id + ' (deleted)') && els.viewerNoteText.textContent.includes('#' + window.__src2.id + ' (deleted)')"},
   {"expect": "(() => { const b = els.viewer.querySelector('.result .reuse-settings'); return b.dataset.reusePassGone === 'true' && b.title.includes('has been deleted'); })()"},
   {"expect": "markGoneSource({id: -1, refine: window.__src2.id, refine_missing: false}).refine_missing === true && markGoneSource({id: -2, refine: 987654, refine_missing: false}).refine_missing === false"},
   {"log":"'a sweep stopped by failures because its source was deleted: Finish uses the server reason and holds, its reason as its title and focus kept, where it sent a request the server refused as no gallery image with id N at every press'"},

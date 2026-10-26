@@ -7,7 +7,7 @@ from collections import Counter
 from collections.abc import Iterable
 from typing import Any, NamedTuple
 
-from . import prompt_text
+from . import prompt_parts, prompt_text
 from .model_defaults import _profile_for
 from .schemas import DocumentedOrder
 
@@ -364,10 +364,28 @@ def reorder_tags(model_id: str, prompt: str, categories: dict[str, str] | None) 
     if reading is None:
         return None
     spec, items, lettered = reading
-    return _reordered(
+    candidate = _reordered(
         prompt, items, _places(spec, items, lettered, prompt_text._category_lookup(categories)),
         spec, lettered,
     )
+    return None if reorder_problem(model_id, prompt, candidate, categories) else candidate
+
+
+def reorder_problem(
+    model_id: str, prompt: str, candidate: str | None, categories: dict[str, str] | None,
+) -> str | None:
+    return prompt_parts.reorder_problem((_guide(model_id).get("tag_helper") or {}), prompt, candidate, categories)
+
+
+def reordered_detail(model_id: str, prompt: str, categories: dict[str, str] | None) -> str | None:
+    reading = _order_reading(model_id, prompt)
+    if reading is None:
+        return None
+    spec, items, lettered = reading
+    candidate = _reordered(
+        prompt, items, _places(spec, items, lettered, prompt_text._category_lookup(categories)), spec, lettered,
+    )
+    return reorder_problem(model_id, prompt, candidate, categories)
 
 
 def unplaced_items(model_id: str, prompt: str, categories: dict[str, str] | None) -> list[str]:

@@ -132,7 +132,7 @@
   {"expect": "__until(() => !els.inpaintDialog.open && viewerRecords.length === 1 && viewerRecords[0].mask === __mask)"},
   {"expect": "viewerRecords[0].refine === __src.id && viewerRecords[0].strength === 0.6 && viewerRecords[0].width === 512 && settingsLine(viewerRecords[0]).includes('inpaint of #' + __src.id + ' @ 0.6')"},
   {"expect": "(() => { const side = els.viewer.querySelector('.result-side .lineage'); return !side || side.textContent.startsWith('✎ Inpaint of #' + __src.id); })()"},
-  {"expect": "__until(() => els.viewerNote.textContent.startsWith('Inpainted from #' + __src.id + ' at 0.6 · 512×512'))"},
+  {"expect": "__until(() => els.viewerNoteText.textContent.startsWith('Inpainted from #' + __src.id + ' at 0.6 · 512×512'))"},
   {"eval": "resetGallery()"},
   {"expect": "__until(() => !galleryPending && galleryRecords[0]?.mask === __mask)"},
   {"expect": "(() => { const card = els.gallery.querySelector(`.card[data-id=\"${galleryRecords[0].id}\"]`); return card.classList.contains('inpainted') && getComputedStyle(card, '::before').content.includes('✎') && card.querySelector('img').title.includes('inpaint of #' + __src.id + ' @ 0.6'); })()"},

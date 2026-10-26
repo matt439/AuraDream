@@ -10,6 +10,17 @@
 // key is one of these is a filter, anything else is prompt text.
 const SEARCH_KEYS = new Set(['id', 'seed', 'steps', 'cfg', 'tcfg', 'mu', 'model', 'quant', 'lora', 'refine', 'strength', 'mask', 'inpaint', 'outpaint', 'job', 'run', 'hash', 'date', 'size']);
 
+// Explicit keyboard navigation, without changing the query, bin, run or picks.
+// Reveal only when clipped; a visible search must not move the page.
+function focusGallerySearch() {
+  els.search.focus({ preventScroll: true });
+  els.search.select();
+  const box = els.search.getBoundingClientRect();
+  if (box.top < document.querySelector('.topbar').getBoundingClientRect().bottom || box.bottom > innerHeight) {
+    els.search.scrollIntoView({ block: 'center', inline: 'nearest', behavior: 'auto' });
+  }
+}
+
 // The filter a search word is, by `split_search`'s reading: `key:value` with
 // a known key and a value, else null (free text, `portrait:` included).
 function searchKey(word) {

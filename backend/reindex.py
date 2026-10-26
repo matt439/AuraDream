@@ -344,6 +344,10 @@ def _database_meta(
     upscaler = storage._upscaler(
         row.get("upscaler"), source=refine, model_id=row.get("model_id"), mask=mask, outpaint=outpaint,
     )
+    crop_anchor = storage._crop_anchor(
+        row.get("crop_anchor") if refine is not None else None,
+        source=refine, mask=mask, outpaint=outpaint,
+    )
     return {
         "prompt": row["prompt"],
         "negative_prompt": row.get("negative_prompt"),
@@ -372,6 +376,7 @@ def _database_meta(
         "outpaint": storage.outpaint_chunk(outpaint),
         "outpaint_fill": outpaint.fill if outpaint is not None else None,
         "batch": storage._batch(row.get("batch")),
+        **({"crop_anchor": crop_anchor} if crop_anchor is not None else {}),
         **({"upscaler": upscaler} if upscaler is not None else {}),
         **{
             key: storage._peak(row.get(key))
@@ -417,6 +422,15 @@ def merge_database(
     for row in rows:
         filename = row["filename"]
         source_id = int(row["id"])
+        try:
+            storage._crop_anchor(
+                row.get("crop_anchor"), source=row.get("refine"),
+                mask=row.get("mask"), outpaint=row.get("outpaint"),
+            )
+        except ValueError as exc:
+            counts["invalid"] += 1
+            print(f"  skip  source row {source_id}: {exc}", file=out)
+            continue
         if row.get("upscaler") is not None and storage._upscaler(
             row["upscaler"], source=row.get("refine"), model_id=row.get("model_id"),
             mask=row.get("mask"), outpaint=row.get("outpaint"),
@@ -530,6 +544,7 @@ def merge_database(
             "lora_scale": row.get("lora_scale") if row.get("lora") else None,
             "refine": refine,
             "strength": row.get("strength") if refine is not None else None,
+            "crop_anchor": meta.get("crop_anchor"),
             "upscaler": meta.get("upscaler"),
             "batch": storage._batch(row.get("batch")),
             # The recycle bin is SQLite's alone, as the star is: carried with
@@ -542,7 +557,11 @@ def merge_database(
         }
         copied = source != outputs
         try:
-            if copied:
+            if copied or row.get("refine") != refine or row.get("crop_anchor") != meta.get("crop_anchor"):
+                # A database rebuilt beside its original PNGs can renumber or
+                # lose a source too. Keep --from-image's crop and source in
+                # agreement with the new row, without rewriting an unchanged
+                # legacy centered PNG in place.
                 _copy_in(path, target, meta)
             record = storage.import_file(values)
         except BaseException:
@@ -566,6 +585,7 @@ def reindex(
         "unresolved_references": 0, "masks": 0, "bad_masks": 0, "unresolved_masks": 0,
         "outpaint_malformed": 0, "outpaints_recovered": 0, "outpaint_masks_rebuilt": 0,
         "invalid_upscalers": 0,
+        "invalid_crop_anchors": 0,
     }
     source = source.resolve()
     outputs = settings.outputs_dir.resolve()
@@ -628,6 +648,15 @@ def reindex(
             counts["no_metadata"] += 1
             print(f"  skip  {path.name}: no Local Diffusion metadata", file=out)
             return
+        try:
+            original_crop_anchor = storage._crop_anchor(
+                meta.get("crop_anchor"), source=meta.get("refine"),
+                mask=meta.get("mask"), outpaint=meta.get("outpaint"),
+            )
+        except ValueError as exc:
+            counts["invalid_crop_anchors"] += 1
+            print(f"  skip  {path.name}: {exc}", file=out)
+            return
         if meta.get("upscaler") is not None and storage._upscaler(
             meta["upscaler"], source=meta.get("refine"), model_id=meta.get("model"),
             mask=meta.get("mask"), outpaint=meta.get("outpaint"),
@@ -673,6 +702,10 @@ def reindex(
         upscaler = storage._upscaler(
             meta.get("upscaler"), source=refine, model_id=meta.get("model"), mask=mask, outpaint=spec,
         )
+        # Original metadata was validated before resolving links. Dry-run
+        # source ids are negative stand-ins, so do not validate those as real
+        # gallery ids; only the loss of a source changes its crop setting.
+        crop_anchor = original_crop_anchor if refine is not None else None
         links_changed = (
             meta.get("reference") != (references or None)
             or meta.get("refine") != refine
@@ -681,6 +714,7 @@ def reindex(
             or meta.get("outpaint") != outpaint_meta
             or meta.get("outpaint_fill") != outpaint_fill
             or meta.get("upscaler") != upscaler
+            or meta.get("crop_anchor") != crop_anchor
         )
         meta = {
             **meta,
@@ -699,6 +733,10 @@ def reindex(
             meta["upscaler"] = upscaler
         else:
             meta.pop("upscaler", None)
+        if crop_anchor is not None:
+            meta["crop_anchor"] = crop_anchor
+        else:
+            meta.pop("crop_anchor", None)
         digest = storage.content_hash(image) if image is not None else None
         identities[path.name] = {
             "filename": path.name, "hash": digest, "width": width, "height": height,
@@ -802,6 +840,8 @@ def main(argv: list[str] | None = None) -> int:
         summary += f", {counts['no_metadata']} without metadata" if counts["no_metadata"] else ""
         if counts["invalid_upscalers"]:
             summary += f", {counts['invalid_upscalers']} with an invalid upscaler"
+        if counts["invalid_crop_anchors"]:
+            summary += f", {counts['invalid_crop_anchors']} with an invalid crop anchor"
     if counts["unresolved_references"]:
         summary += f", {counts['unresolved_references']} unresolved reference/refine source(s)"
     if counts["masks"]:

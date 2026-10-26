@@ -472,7 +472,11 @@ function setupSwap() {
   els.swapDialog.addEventListener('change', (e) => { if (e.target.name === 'swap-field') swapEdited(0); });
   // Enter in a box is Queue's press, as in any form.
   els.swapRows.addEventListener('keydown', (e) => {
-    if (e.key === 'Enter' && !e.isComposing && e.target.matches('input')) { e.preventDefault(); void queueSwap(); }
+    if (keyboardEventHeld(e) || keyboardCommandModifier(e) || e.shiftKey) return;
+    if (e.key === 'Enter' && e.target.matches('input')) {
+      e.preventDefault();
+      if (!e.repeat) void queueSwap();
+    }
   });
   els.swapDialog.addEventListener('close', () => {
     clearTimeout(swapTimer);

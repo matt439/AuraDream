@@ -46,6 +46,7 @@ import math
 import re
 from collections.abc import Sequence
 from dataclasses import dataclass
+from itertools import product
 from typing import Any, Callable
 
 from .model_selection import current_model_id
@@ -98,21 +99,41 @@ VARIANT = "variant"
 
 # What identifies an image for resume: the prompt pair, the settings, the seed.
 # (prompt, negative prompt, steps, CFG, mu, true CFG, references, LoRA, refine,
-# mask, upscaler, seed) - the seed last, because `cell_keys` swaps it for each
+# mask, upscaler, canvas/crop, seed) - the seed last, because `cell_keys` swaps it for each
 # image of a batch, and the optional elements in the order they were added, because
 # `run_id` names a cell by the shortest form that carries all of its non-None
 # ones.
 CellKey = tuple[
     str, str | None, int, float, float | None, float | None, str | None, str | None,
-    str | None, str | None, str | None, int,
+    str | None, str | None, str | None, str, int,
 ]
 
 # How many of the trailing elements before the seed are optional extensions -
-# true CFG, references, LoRA, refine, mask, upscaler. `run_id` drops them from
-# the right while they are None, so a grid that uses none of them is named by the
-# six-element key its images have carried since before any of them existed,
-# and a refine run by the nine-element key it carried before the mask.
-_KEY_EXTENSIONS = 6
+# true CFG, references, LoRA, refine, mask, upscaler, canvas/crop. Comparison
+# keys always carry the last one; run_id removes it explicitly for uniform
+# centered runs before dropping unused legacy extensions from the right.
+_KEY_EXTENSIONS = 7
+
+
+def shape_key(width: int, height: int, crop_anchor: str | None = None) -> str:
+    """The canvas and source crop as one reproduction element, including size."""
+    return f"{width}x{height}@{crop_anchor or 'center'}"
+
+
+def parse_sizes(text: str | None) -> list[tuple[int, int]]:
+    """Comma-separated WIDTHxHEIGHT pairs, preserving order and repeats."""
+    if not (text or "").strip():
+        return []
+    pairs = text.split(",")
+    if len(pairs) > MAX_AXIS_VALUES:
+        raise ValueError(f"Size: {len(pairs)} values, more than the {MAX_AXIS_VALUES} allowed")
+    sizes = []
+    for pair in pairs:
+        match = re.fullmatch(r"\s*(\d+)\s*[xX]\s*(\d+)\s*", pair)
+        if match is None:
+            raise ValueError(f"Size: {pair.strip()!r} is not WIDTHxHEIGHT; separate pairs with commas")
+        sizes.append((int(match[1]), int(match[2])))
+    return sizes
 
 
 def reference_key(ids: Sequence[int] | None) -> str | None:
@@ -372,6 +393,33 @@ def _close_hole(out: str, text: str, pos: int) -> tuple[str, int]:
     return out, pos
 
 
+def _check_variables(request: GenerateRequest, variables: dict[str, list[str]]) -> None:
+    """Both variable modes reject missing and unused placeholders alike."""
+    used = _placeholders(request)
+    for name in variables:
+        if name not in used:
+            raise ValueError(f"prompt: nothing in the prompt says {{{name}}}")
+    for name in sorted(used - set(variables)):
+        raise ValueError(f"prompt: {{{name}}} has no values")
+
+
+def random_assignment(variables: dict[str, list[str]], seed: int) -> dict[str, str]:
+    """A frozen draw per image seed and name, independent of variable line order.
+
+    The versioned JSON bytes and SHA-256 selection are reproduction behavior:
+    changing either needs another mode/version, not a different old seed's draw.
+    """
+    assignment = {}
+    for name, values in variables.items():
+        material = json.dumps(
+            ["local-diffusion.prompt-choice.v1", seed, name],
+            ensure_ascii=False, separators=(",", ":"),
+        ).encode("utf-8")
+        index = int.from_bytes(hashlib.sha256(material).digest(), "big") % len(values)
+        assignment[name] = values[index]
+    return assignment
+
+
 def prompt_assignments(
     request: GenerateRequest, variables: dict[str, list[str]]
 ) -> list[dict[str, str]]:
@@ -389,12 +437,7 @@ def prompt_assignments(
     lines built 262,144 dicts on the event loop - on every keystroke of the
     preview - before the whole-grid ceiling could refuse them.
     """
-    used = _placeholders(request)
-    for name in variables:
-        if name not in used:
-            raise ValueError(f"prompt: nothing in the prompt says {{{name}}}")
-    for name in sorted(used - set(variables)):
-        raise ValueError(f"prompt: {{{name}}} has no values")
+    _check_variables(request, variables)
     if not variables:
         return [{}]
     count = math.prod(len(values) for values in variables.values())
@@ -463,6 +506,9 @@ def axis_values(
     variants: Sequence[PromptVariant] | None = None,
     *,
     strength: str = "",
+    prompt_mode: str = "cross",
+    cells: Sequence[Cell] | None = None,
+    size: str = "",
 ) -> dict[str, list[Any]]:
     """The axes resolved against the request they sit on top of.
 
@@ -471,11 +517,22 @@ def axis_values(
     groups by - is the text that will actually be encoded. Variants add their
     labels under `variant`, in the same order, so a caller can name each text.
     """
-    resolved = resolve_prompts(request, prompt, variants)
-    values: dict[str, list[Any]] = {"prompt": [text for _, text, _ in resolved]}
-    if variants:
-        values[VARIANT] = [one[VARIANT] for one, _, _ in resolved]
-    return {**values, **_sampling_values(request, steps, cfg, mu, lora_scale, strength)}
+    if prompt_mode == "random":
+        if cells is None:
+            raise ValueError("random prompt values need the expanded cells")
+        values: dict[str, list[Any]] = {
+            "prompt": list(dict.fromkeys(cell.request.prompt for cell in cells)),
+            "negative_prompt": list(dict.fromkeys(cell.request.negative_prompt for cell in cells)),
+        }
+    else:
+        resolved = resolve_prompts(request, prompt, variants)
+        values = {"prompt": [text for _, text, _ in resolved]}
+        if variants:
+            values[VARIANT] = [one[VARIANT] for one, _, _ in resolved]
+    return {
+        **values, **_sampling_values(request, steps, cfg, mu, lora_scale, strength),
+        "size": [f"{w}x{h}" for w, h in parse_sizes(size) or [(request.width, request.height)]],
+    }
 
 
 def _sampling_values(
@@ -558,7 +615,10 @@ def _within(values: list[Any], field: str, label: str) -> list[Any]:
     return values
 
 
-def describe(values: dict[str, list[Any]], seeds: int, listed: bool = False) -> str:
+def describe(
+    values: dict[str, list[Any]], seeds: int, listed: bool = False, *,
+    prompt_mode: str = "cross", batch: int = 1,
+) -> str:
     """`2 prompts x 4 steps x 3 CFG x 1 mu x 2 seeds`, for a preview or a log.
 
     The prompt count appears only when there is more than one: a sampling grid
@@ -567,7 +627,9 @@ def describe(values: dict[str, list[Any]], seeds: int, listed: bool = False) -> 
     are counted as what they are, since that is what the sheet's rows say.
     """
     parts = []
-    if len(values.get("prompt", [])) > 1:
+    if prompt_mode == "random":
+        parts.append("one choice per image")
+    elif len(values.get("prompt", [])) > 1:
         noun = "variants" if VARIANT in values else "prompts"
         parts.append(f"{len(values['prompt'])} {noun}")
     parts.append(f"{len(values['steps'])} steps")
@@ -579,7 +641,11 @@ def describe(values: dict[str, list[Any]], seeds: int, listed: bool = False) -> 
         parts.append(f"{len(values['lora_scale'])} LoRA")
     if len(values.get("strength", [])) > 1:
         parts.append(f"{len(values['strength'])} strength")
+    if len(values.get("size", [])) > 1:
+        parts.append(f"{len(values['size'])} sizes")
     parts.append(f"{seeds} {'listed ' if listed else ''}seed{'' if seeds == 1 else 's'}")
+    if prompt_mode == "random" and batch > 1:
+        parts.append(f"{batch} images per seed (run separately)")
     return " x ".join(parts)
 
 
@@ -636,6 +702,7 @@ def cell_key(cell: "Cell") -> CellKey:
         refine_key(request.refine, request.strength),
         mask_key(request.mask, _outpaint_text(request.outpaint)),
         request.upscaler,
+        shape_key(request.width, request.height, request.crop_anchor),
         cell.seed,
     )
 
@@ -761,6 +828,7 @@ def cell_from_record(
         "refine": record.refine,
         "strength": record.strength if record.refine is not None else None,
         "upscaler": record.upscaler if record.refine is not None else None,
+        "crop_anchor": (record.crop_anchor or "center") if record.refine is not None else "center",
         # An inpaint runs again over the same region of the same source; an
         # outpaint over the same padding, its mask built again at the stamp
         # (and refused beside one by the validator).
@@ -818,6 +886,7 @@ def estimate_seconds(
     cells: list[Cell], per_step_ms: float | None, *,
     refine_costs: dict[int, float] | None = None,
     inpaint_costs: dict[int, float] | None = None,
+    by_size: dict[tuple[int, int], tuple[float | None, dict[int, float], dict[int, float]]] | None = None,
 ) -> float | None:
     """Generation time from direct step costs or matching refine durations.
 
@@ -831,29 +900,34 @@ def estimate_seconds(
     No estimate if any cell has no matching history. The CLI pays a load per
     invocation on top.
     """
-    priced = _cell_ms(cells, per_step_ms, refine_costs, inpaint_costs)
+    priced = _cell_ms(cells, per_step_ms, refine_costs, inpaint_costs, by_size)
     return None if priced is None else round(sum(priced) / 1000, 1)
 
 
 def _cell_ms(
     cells: list[Cell], per_step_ms: float | None, refine_costs: dict[int, float] | None,
     inpaint_costs: dict[int, float] | None = None,
+    by_size: dict[tuple[int, int], tuple[float | None, dict[int, float], dict[int, float]]] | None = None,
 ) -> list[float] | None:
     """Each cell's price in milliseconds, as `estimate_seconds` sums them;
     None if any cell has no matching history."""
     priced = []
     for cell in cells:
         request = cell.request
+        direct, passes, inpaints = (
+            by_size.get((request.width, request.height), (None, {}, {}))
+            if by_size is not None else (per_step_ms, refine_costs, inpaint_costs)
+        )
         # The GAN adds work before VAE encoding. Ordinary Refine history
         # cannot price it; keep the estimate unknown until measured apart.
         if request.upscaler is not None:
             return None
         if request.refine is None:
-            if per_step_ms is None:
+            if direct is None:
                 return None
-            image_ms = per_step_ms * request.steps
+            image_ms = direct * request.steps
         else:
-            costs = inpaint_costs if request.inpainting else refine_costs
+            costs = inpaints if request.inpainting else passes
             image_ms = (costs or {}).get(denoised_steps(request))
             if image_ms is None:
                 return None
@@ -865,6 +939,7 @@ def seeds_within_budget(
     cells: list[Cell], seeds: int, per_step_ms: float | None, budget_seconds: float, *,
     refine_costs: dict[int, float] | None = None,
     inpaint_costs: dict[int, float] | None = None,
+    by_size: dict[tuple[int, int], tuple[float | None, dict[int, float], dict[int, float]]] | None = None,
 ) -> int | None:
     """How many of a grid's seeds a time budget completes, by the job's own
     rule: a cell starts while the deadline has not passed and runs to its end
@@ -874,7 +949,7 @@ def seeds_within_budget(
     the outer loop, each running the same cells; priced as `estimate_seconds`
     prices, from the job's start - the load and any job ahead spend a budget
     too, which no estimate counts. None where it has no price."""
-    priced = _cell_ms(cells, per_step_ms, refine_costs, inpaint_costs)
+    priced = _cell_ms(cells, per_step_ms, refine_costs, inpaint_costs, by_size)
     if priced is None or seeds < 1 or len(cells) % seeds:
         return None
     per_seed = len(cells) // seeds
@@ -908,10 +983,18 @@ def run_id(cells: list[Cell], model_id: str, quantization: str) -> str:
     order they were added.
     """
     first = cells[0].request
+    sizes = sorted({(cell.request.width, cell.request.height) for cell in cells})
+    legacy = len(sizes) == 1 and all(cell.request.crop_anchor == "center" for cell in cells)
 
     def named(cell: Cell) -> str:
         key = cell_key(cell)
-        head, extras, seed = key[:-1 - _KEY_EXTENSIONS], list(key[-1 - _KEY_EXTENSIONS : -1]), key[-1]
+        # Comparison keys always carry shape. Uniform centered hashed names
+        # keep the exact legacy key and size definition instead.
+        extensions = _KEY_EXTENSIONS
+        if legacy:
+            key = (*key[:-2], key[-1])
+            extensions -= 1
+        head, extras, seed = key[:-1 - extensions], list(key[-1 - extensions : -1]), key[-1]
         while extras and extras[-1] is None:
             extras.pop()
         return json.dumps([*head, *extras, seed])
@@ -919,7 +1002,7 @@ def run_id(cells: list[Cell], model_id: str, quantization: str) -> str:
     definition = {
         "model": model_id,
         "quant": quantization,
-        "size": [first.width, first.height],
+        "size": [first.width, first.height] if len(sizes) == 1 else [list(size) for size in sizes],
         "batch": first.num_images,
         "cells": sorted(named(cell) for cell in cells),
     }
@@ -939,6 +1022,9 @@ def expand(
     seeds: int = 1,
     seed_list: list[int] | None = None,
     variants: Sequence[PromptVariant] | None = None,
+    prompt_mode: str = "cross",
+    size: str = "",
+    cli: bool = False,
 ) -> list[Cell]:
     """The cartesian product, as cells ready to hand to a job.
 
@@ -959,8 +1045,22 @@ def expand(
     count - reads the resolved prompt, so a variant is an ordinary prompt cell
     to all of it and only the label is new.
     """
-    prompts = resolve_prompts(request, prompt, variants)
+    if prompt_mode not in {"cross", "random"}:
+        raise ValueError("prompt mode must be cross or random")
+    variables = None
+    if prompt_mode == "random":
+        if variants:
+            raise ValueError("random prompt variables cannot accompany prompt variants")
+        variables = parse_variables(prompt)
+        if not variables:
+            raise ValueError("random prompt mode needs prompt variables")
+        _check_variables(request, variables)
+        # One assignment per image, never the variables' Cartesian product.
+        prompts = [({}, request.prompt, request.negative_prompt)]
+    else:
+        prompts = resolve_prompts(request, prompt, variants)
     values = _sampling_values(request, steps, cfg, mu, lora_scale, strength)
+    sizes = parse_sizes(size) or [(request.width, request.height)]
     seed_count = len(seed_list) if seed_list else seeds
     total = (
         len(prompts)
@@ -969,6 +1069,7 @@ def expand(
         * len(values["mu"])
         * len(values["lora_scale"])
         * len(values["strength"])
+        * len(sizes)
         * seed_count
     )
     if total * request.num_images > settings.max_grid_images:
@@ -977,14 +1078,28 @@ def expand(
             "a grid may queue; narrow an axis or drop the batch size"
         )
 
-    base = request.seed if request.seed is not None else random_seed()
+    base = request.seed if request.seed is not None else (seed_list[0] if seed_list else random_seed())
     # Step past the whole batch, exactly as a sweep does, so no two images in
     # the grid are drawn from the same seed. A listed seed is taken as given -
     # the schema, not a wrap, decides whether it is one.
     seed_values = seed_list or [wrap_seed(base + index * request.num_images) for index in range(seeds)]
     template = request.model_dump()
+    if variables is not None:
+        # Validate listed bases before wrapping their image offsets; a typo'd
+        # negative or oversized base must not become a valid wrapped seed.
+        _within(seed_values, "seed", "Seed list")
+        seed_values = [
+            wrap_seed(seed + offset) for seed in seed_values for offset in range(request.num_images)
+        ]
+        template["num_images"] = 1
     cells: list[Cell] = []
     for seed in seed_values:
+        if variables is not None:
+            assignment = random_assignment(variables, seed)
+            prompts = [(
+                assignment, substitute(request.prompt, assignment),
+                substitute(request.negative_prompt, assignment),
+            )]
         # Every parameter cell of one seed shares it - comparing settings on
         # the same noise is the point.
         # The prompt sits just inside the seed, for the reason the seed is
@@ -992,43 +1107,27 @@ def expand(
         # the prompts it reached, which is a comparison, rather than leaving
         # every prompt part-swept.
         for assignment, text, negative in prompts:
-            for step_count in values["steps"]:
-                for scale in values["guidance_scale"]:
-                    for shift in values["mu"]:
-                        # Inside the rest, because it is the cheapest change of
-                        # all: a `set_adapters` on the pipeline already in memory.
-                        for weight in values["lora_scale"]:
-                            # One value unless this is a refine pass with a
-                            # strength axis.
-                            for amount in values["strength"]:
-                                cells.append(
-                                    Cell(
-                                        request=GenerateRequest(
-                                            **{
-                                                **template,
-                                                "prompt": text,
-                                                "negative_prompt": negative,
-                                                "steps": step_count,
-                                                "guidance_scale": scale,
-                                                "true_cfg": request.true_cfg,
-                                                "mu": shift,
-                                                "lora_scale": weight,
-                                                "strength": amount,
-                                                "seed": seed,
-                                                "runs": 1,
-                                            }
-                                        ),
-                                        seed=seed,
-                                        label=_label(
-                                            assignment,
-                                            step_count,
-                                            scale,
-                                            shift,
-                                            weight if request.lora else None,
-                                            amount if request.refine is not None else None,
-                                        ),
-                                        variables=assignment or None,
-                                    )
-                                )
-                                cells[-1].request.check_refine_steps()
+            for (width, height), step_count, scale, shift, weight, amount in product(
+                sizes, values["steps"], values["guidance_scale"], values["mu"],
+                values["lora_scale"], values["strength"],
+            ):
+                cell = Cell(
+                    request=GenerateRequest(**{
+                        **template, "prompt": text, "negative_prompt": negative,
+                        "width": width, "height": height, "steps": step_count,
+                        "guidance_scale": scale, "true_cfg": request.true_cfg,
+                        "mu": shift, "lora_scale": weight, "strength": amount,
+                        "seed": seed, "runs": 1,
+                    }),
+                    seed=seed,
+                    label=(f"{width}x{height}, " if size.strip() else "") + _label(
+                        assignment, step_count, scale, shift,
+                        weight if request.lora else None,
+                        amount if request.refine is not None else None,
+                    ),
+                    variables=assignment or None,
+                )
+                cell.request.check_budget(grid=True, cli=cli)
+                cell.request.check_refine_steps()
+                cells.append(cell)
     return cells

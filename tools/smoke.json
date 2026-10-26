@@ -25,7 +25,7 @@
   {"expect": "!els.sizeHint.classList.contains('warn') && els.sizeHint.textContent === '1.0 MP'"},
   {"expect": "els.examplesMenu.hidden"},
   {"eval": "els.examplesBtn.click();"},
-  {"expect": "!els.examplesMenu.hidden && els.examplesMenu.children.length === 4 && els.examplesBtn.getAttribute('aria-expanded') === 'true'"},
+  {"expect": "!els.examplesMenu.hidden && els.examplesMenu.querySelectorAll('[data-example]').length === 4 && els.examplesBtn.getAttribute('aria-expanded') === 'true'"},
   {"eval": "els.examplesMenu.children[0].click();"},
   {"expect": "els.examplesMenu.hidden && els.prompt.value === 'a fox walking in the snow'"},
   {"eval": "els.examplesBtn.click();"},

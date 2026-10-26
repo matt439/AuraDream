@@ -17,8 +17,13 @@ from fastapi.testclient import TestClient
 # default checkpoint and fp8 failed under it. Where the gallery and the adapters
 # live stays the shell's: the tests redirect those themselves, and one that
 # forgot should reach this environment's gallery, not the one under /mnt/c.
+# The browser `tools/browser.mjs` drives is no app setting, and
+# `test_browser_profile.py` finds it there.
 assert "backend.config" not in sys.modules, "backend.config was imported before the tests' environment was set"
-_KEPT = {"LOCAL_DIFFUSION_OUTPUTS_DIR", "LOCAL_DIFFUSION_DB_PATH", "LOCAL_DIFFUSION_LORAS_DIR"}
+_KEPT = {
+    "LOCAL_DIFFUSION_OUTPUTS_DIR", "LOCAL_DIFFUSION_DB_PATH", "LOCAL_DIFFUSION_LORAS_DIR",
+    "LOCAL_DIFFUSION_BROWSER",
+}
 for _name in [name for name in os.environ if name.startswith("LOCAL_DIFFUSION_") and name not in _KEPT]:
     del os.environ[_name]
 

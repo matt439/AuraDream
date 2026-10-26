@@ -40,7 +40,8 @@ function clearResults(job = null) {
   els.viewer.style.maxHeight = '';
   els.viewer.style.minHeight = '';
   viewerTier();
-  els.viewerNote.replaceChildren();
+  els.viewerNoteText.replaceChildren();
+  syncViewerMoreSeeds();
   // The gallery's cards of the run before are not what the strip shows now.
   els.gallery.querySelectorAll('.card.this-run').forEach((div) => div.classList.remove('this-run'));
 }
@@ -492,7 +493,30 @@ function noteViewer() {
   } else if (scrolls) {
     parts.push(`${viewerRecords.length} images this run — scroll the strip, or open one to walk them all`);
   }
-  els.viewerNote.replaceChildren(...parts.flatMap((part, i) => (i ? [' · ', part] : [part])));
+  els.viewerNoteText.replaceChildren(...parts.flatMap((part, i) => (i ? [' · ', part] : [part])));
+  syncViewerMoreSeeds();
+}
+
+// One persistent control, outside the strip that receives images. It takes
+// only settings already represented by completed results, never unseen grid
+// cells. Updating its target keeps the button and keyboard focus in place.
+function syncViewerMoreSeeds() {
+  if (!els.viewerSeeds.isConnected || !els.viewerNoteText.isConnected) {
+    els.viewerNote.replaceChildren(els.viewerSeeds, els.viewerNoteText);
+  }
+  const records = viewerRecords.filter((rec) => !isGone(rec.id));
+  els.viewerSeeds.hidden = !records.length && !viewerJob.expected;
+  const one = records.length === 1;
+  els.viewerMoreSeedsTarget.textContent = one
+    ? `For #${records[0].id}'s settings group`
+    : records.length ? 'For the settings groups already generated here' : 'Available when an image is ready';
+  const model = records[0]?.model_id ?? null;
+  syncMoreSeedsTool(els.viewerMoreSeeds, {
+    model, ids: records.map((rec) => rec.id),
+    unavailable: records.length ? '' : 'Wait for a completed image to choose its settings',
+    title: one ? `More images of #${records[0].id}'s settings group, with the same settings and new seeds`
+      : 'More images of the settings groups already generated in these results; unseen grid settings are not included',
+  });
 }
 
 // The strip's image opens the lightbox on the strip - and, where it is the
@@ -623,6 +647,7 @@ function thumb(rec, list, src = rec.thumb_url ?? rec.url, open = () => openLight
   img.dataset.id = rec.id;
   img.tabIndex = 0;
   img.setAttribute('role', 'button');
+  img.setAttribute('aria-keyshortcuts', 'Enter Space M');
   // Named as the page names images, by gallery id - the cells of a sweep
   // share a prompt, and "Open: …" named none of them apart - and titled with
   // what tells it from the one beside it under the pointer (cardTitle): its
@@ -635,8 +660,12 @@ function thumb(rec, list, src = rec.thumb_url ?? rec.url, open = () => openLight
   // (app.js), and on a focused image - where closing the lightbox leaves the
   // focus - it opened the lightbox and queued a job behind it.
   img.onkeydown = (e) => {
-    if (e.ctrlKey || e.metaKey || e.altKey) return;
-    if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); open(e); }
+    if (keyboardEventHeld(e) || keyboardCommandModifier(e) || keyboardEditingTarget(e.target)) return;
+    if (e.key === 'Enter' && e.shiftKey) return;
+    if (e.key === 'Enter' || e.key === ' ') {
+      e.preventDefault();
+      if (!e.repeat) open(e);
+    }
   };
   return img;
 }

@@ -69,8 +69,9 @@
 }
 .ip-row { display: flex; align-items: center; gap: var(--sp-2); height: var(--h-sm); white-space: nowrap; }
 .ip-group { display: flex; gap: var(--sp-1); }
-/* The tool in use is pressed, in the presets' accent. */
-.ip-tools .ghost.small[aria-pressed="true"] { color: var(--accent); border-color: var(--accent); }
+/* The tool in use is pressed: an accent edge and surface, with a readable
+   label rather than small purple text on the panel. */
+.ip-tools .ghost.small[aria-pressed="true"] { color: var(--text); border-color: var(--accent); background: var(--accent-soft); }
 .ip-show { margin-left: auto; font-size: var(--fs-label); }
 .ip-slider {
   display: flex; align-items: center; gap: var(--sp-2); flex: 1 1 0; min-width: 0;

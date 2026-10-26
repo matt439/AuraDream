@@ -9,8 +9,11 @@
 // invalid for it), how many were unknown - not the item still being typed -
 // the lookup's cap, and the count.
 function syncTagTray(results, state, detail = '', typing = null) {
-  const unknown = results.filter((result, index) => result.valid === false && index !== typing).length;
-  const label = [state === 'offline' ? 'Prompt tags · Danbooru unreachable, not checked' : 'Prompt tags · Danbooru'];
+  const prose = new Set(promptDisplayParts(results).filter((part) => part.kind === 'prose')
+    .flatMap((part) => Array.from({ length: part.last - part.first + 1 }, (_, offset) => part.first + offset)));
+  const unknown = results.filter((result, index) => !prose.has(index) && result.valid === false && index !== typing).length;
+  const name = prose.size ? 'Prompt tags and prose' : 'Prompt tags';
+  const label = [state === 'offline' ? `${name} · Danbooru unreachable, not checked` : `${name} · Danbooru`];
   if (state !== 'offline' && unknown) label.push(`${unknown} unknown`);
   if (state === 'pending') label.push('checking…');
   if (state !== 'offline' && results.length > TAG_LOOKUP_CAP) {
@@ -20,6 +23,7 @@ function syncTagTray(results, state, detail = '', typing = null) {
   if (tokens) label.push(tokens.text);
   els.tagValidation.dataset.label = label.join(' · ');
   els.tagValidation.dataset.state = state;
+  els.tagValidation.setAttribute('aria-label', name);
   els.tagValidation.toggleAttribute('data-over', !!tokens?.over);
   // The caption's legend only where a chip carries one: the guide's steps,
   // which the order rule placed each tag in.
@@ -28,7 +32,8 @@ function syncTagTray(results, state, detail = '', typing = null) {
     state === 'pending' ? 'Checking Danbooru…'
       : state === 'offline'
         ? `Danbooru unreachable; unchecked tags are not treated as invalid${detail ? `: ${detail}` : ''}`
-        : 'Each comma-separated item checked against Danbooru or checkpoint guide tags',
+        : prose.size ? 'Tags checked against Danbooru or checkpoint guide tags; natural language stays as text'
+          : 'Each comma-separated item checked against Danbooru or checkpoint guide tags',
     'edge colour: blue general, green character, purple copyright, red artist, yellow meta, teal guide tag',
     ...(ordered
       ? [`caption: the step of the guide's documented order Check places the tag in (${tagSlots.steps.join(' → ')}); none where it cannot place it`]
@@ -49,10 +54,29 @@ function chipSlots(results) {
   if (!answer) return results.map(() => null);
   const slot = (name) => (name ? { name, n: answer.steps.indexOf(name) + 1, of: answer.steps.length } : null);
   if (answer.prompt === els.prompt.value.trim()) {
-    return results.map((result, index) => (answer.slots[index]?.tag === result.tag ? slot(answer.slots[index].slot) : null));
+    return results.map((result, index) => (!promptProseAt(index) && answer.slots[index]?.tag === result.tag ? slot(answer.slots[index].slot) : null));
   }
   const byTag = new Map(answer.slots.map((item) => [item.tag, item.slot]));
-  return results.map((result) => slot(byTag.get(result.tag)));
+  return results.map((result, index) => (promptProseAt(index) ? null : slot(byTag.get(result.tag))));
+}
+
+function prosePromptText(part, cut) {
+  const span = document.createElement('span');
+  span.className = 'prompt-prose';
+  span.dataset.first = String(part.first);
+  span.dataset.last = String(part.last);
+  const raw = els.prompt.value;
+  span.title = 'Natural-language prose; edit it in the prompt box';
+  if (cut && part.end > cut.offset) {
+    const start = Math.max(part.start, cut.offset);
+    span.append(document.createTextNode(raw.slice(part.start, start)));
+    const unread = document.createElement('span');
+    unread.className = 'prose-past-cut';
+    unread.textContent = raw.slice(start, part.end);
+    span.append(unread);
+    span.title += `; ${part.start >= cut.offset ? 'not read' : 'partly read'}: ${cut.names} stop at ${cut.budget} tokens`;
+  } else span.textContent = raw.slice(part.start, part.end);
+  return span;
 }
 
 // The shared tip for an unknown chip: why, and that nothing is blocked. One
@@ -100,6 +124,7 @@ function followTagCaret() {
 }
 
 function renderTagValidation(results, state = 'checked', detail = '') {
+  const hadFocus = els.tagValidation.contains(document.activeElement);
   lastTagValidationResults = results.map((result) => ({ ...result }));
   lastTagValidationState = state;
   lastTagValidationDetail = detail;
@@ -109,12 +134,16 @@ function renderTagValidation(results, state = 'checked', detail = '') {
   // results (a smoke's) has no place in the box to read from.
   const spans = promptTagSpans();
   const cut = spans.length === results.length ? tagCut() : null;
+  const parts = promptDisplayParts(results);
+  const prose = new Set(parts.filter((part) => part.kind === 'prose')
+    .flatMap((part) => Array.from({ length: part.last - part.first + 1 }, (_, offset) => part.first + offset)));
   const typing = tagTyping && document.activeElement === els.prompt
     && results[tagTyping.index]?.tag === tagTyping.tag ? tagTyping.index : null;
   let focus = tagFocusIndex;
   if (typeof focus === 'number') focus = Math.min(focus, results.length - 1);
   const roving = [focus, ...results.keys()]
-    .find((index) => typeof index === 'number' && index >= 0 && index !== tagEditAt);
+    .find((index) => typeof index === 'number' && index >= 0 && !prose.has(index) && index !== tagEditAt);
+  if (typeof focus === 'number' && prose.has(focus)) focus = roving ?? 'add';
   const seen = new Set();
   const slots = chipSlots(results);
   let past = 0;
@@ -127,6 +156,11 @@ function renderTagValidation(results, state = 'checked', detail = '') {
   tagRendering = false;
   for (const [index, result] of results.entries()) {
     if (tagInsertAt === index) els.tagValidation.appendChild(buildTagEditor());
+    if (prose.has(index)) {
+      const part = parts.find((part) => part.kind === 'prose' && part.first === index);
+      if (part) els.tagValidation.appendChild(prosePromptText(part, cut));
+      continue;
+    }
     if (tagEditAt === index) {
       els.tagValidation.appendChild(buildTagEditor(result.tag));
       continue;
@@ -293,18 +327,27 @@ function renderTagValidation(results, state = 'checked', detail = '') {
     // The tray is one tab stop: arrows, Home and End walk the chips (Alt
     // with an arrow moves the tag instead), the rest act on the one focused.
     chip.onkeydown = (event) => {
+      if (keyboardEventHeld(event) || keyboardEditingTarget(event.target)) return;
+      const insert = (!event.shiftKey && event.key === 'ContextMenu') || (event.shiftKey && event.key === 'F10');
+      if (insert && !keyboardCommandModifier(event)) {
+        event.preventDefault();
+        if (!event.repeat) openTagInsert(index + 1);
+        return;
+      }
+      const reorder = event.altKey && !event.ctrlKey && !event.metaKey && !event.shiftKey
+        && ['ArrowLeft', 'ArrowRight'].includes(event.key);
+      if (reorder) {
+        event.preventDefault();
+        movePromptTag(index, index + (event.key === 'ArrowLeft' ? -1 : 1));
+        return;
+      }
+      if (keyboardCommandModifier(event) || event.shiftKey) return;
       if (event.key === 'Delete' || event.key === 'Backspace') {
         event.preventDefault();
-        deletePromptTag(index);
+        if (!event.repeat) deletePromptTag(index);
       } else if (event.key === 'Enter' || event.key === 'F2') {
         event.preventDefault();
-        openTagEdit(index);
-      } else if (event.altKey && event.key === 'ArrowLeft') {
-        event.preventDefault();
-        movePromptTag(index, index - 1);
-      } else if (event.altKey && event.key === 'ArrowRight') {
-        event.preventDefault();
-        movePromptTag(index, index + 1);
+        if (!event.repeat) openTagEdit(index);
       } else if (['ArrowLeft', 'ArrowRight', 'Home', 'End'].includes(event.key)) {
         event.preventDefault();
         const chips = [...els.tagValidation.querySelectorAll('.tag-check')];
@@ -330,28 +373,33 @@ function renderTagValidation(results, state = 'checked', detail = '') {
     els.tagValidation.appendChild(add);
   }
   syncTagTray(results, state, detail, typing);
-  els.tagValidation.hidden = results.length === 0;
+  // A pure paragraph remains in the prompt box, rather than being duplicated
+  // in an annotation tray. Its encoder readout remains under the box.
+  els.tagValidation.hidden = results.length === 0 || prose.size === results.length;
   syncPromptTokens();
+  if (hadFocus && els.tagValidation.hidden) els.prompt.focus({ preventScroll: true });
   // Read out once a lookup has answered, and only when it says something
   // new: the tray itself is no live region, since it is rebuilt at every
   // pause in typing and holds every chip.
-  if (state !== 'pending' && results.length) {
-    const known = results.filter((result) => result.valid === true).length;
+  if (state !== 'pending' && results.length && (!els.tagValidation.hidden || !promptTokensOver)) {
+    const known = results.filter((result, index) => !prose.has(index) && result.valid === true).length;
     // Not the item still being typed, as the label does not count it: a
     // lookup landing mid-word would read out an unfinished word as unknown.
-    const unknown = results.filter((result, index) => result.valid === false && index !== typing).length;
+    const unknown = results.filter((result, index) => !prose.has(index) && result.valid === false && index !== typing).length;
     const variables = results.filter((result) => result.code === 'grid_variable').length;
     // A spoken line, so "1 prompt tag", never "1 prompt tags" (analysis.js's
     // `plural`, read at call time). A grid variable is no tag: counted apart.
-    const tags = results.length - variables;
-    const summary = (state === 'offline'
+    const tags = results.length - variables - prose.size;
+    const summary = (!tags && prose.size ? 'Natural-language prose' : state === 'offline'
       ? `${plural(tags, 'prompt tag')}, not checked: Danbooru unreachable`
       : `${plural(tags, 'prompt tag')}: ${known} known${unknown ? `, ${unknown} unknown` : ''}`)
       + (variables ? `, ${plural(variables, 'grid variable')}` : '')
+      + (prose.size && tags ? ', natural-language prose' : '')
+      + (cut && parts.some((part) => part.kind === 'prose' && part.end > cut.offset) ? ', prose past the encoders\' token limit' : '')
       + (past ? `, ${past} past the encoders' token limit` : '');
     if (els.tagSummary.textContent !== summary) els.tagSummary.textContent = summary;
   }
-  const target = focus === 'add'
+  const target = els.tagValidation.hidden ? null : focus === 'add'
     ? els.tagValidation.querySelector('.tag-add')
     : typeof focus === 'number' && focus >= 0
       ? els.tagValidation.querySelector(`.tag-check[data-index="${focus}"]`)
@@ -459,13 +507,16 @@ async function validatePromptTags(tags, epoch, prompt) {
     });
     if (epoch !== tagValidationEpoch) return;
     rememberTagVerdicts(body.results);
-    tagSlots = { model, prompt, steps: body.order_steps || [], slots: body.slots || null };
+    keepPromptParts(body.parts, prompt, model);
+    const caret = caretTagIndex();
+    if (currentPromptParts()?.some((part) => part.kind === 'prose' && caret >= part.first && caret <= part.last)) hideTagSuggestions();
+    tagSlots = { model, prompt: prompt.trim(), steps: body.order_steps || [], slots: body.slots || null };
     renderTagValidation([...body.results.slice(0, chipped.length), ...rest], body.available ? 'checked' : 'offline', body.detail || '');
     // The Tags helper's caret line reads these slots.
     syncTagSelection();
   } catch (error) {
     if (epoch !== tagValidationEpoch) return;
-    tagSlots = { model, prompt, steps: [], slots: null, failed: true };
+    tagSlots = { model, prompt: prompt.trim(), steps: [], slots: null, failed: true };
     renderTagValidation(tags.map((tag, index) => (isGridVariable(tag) ? gridVariableResult(tag) : uncheckedTag(tag, index))),
       'offline', error.message);
     syncTagSelection();
@@ -481,8 +532,7 @@ function scheduleTagValidation(delay = 320) {
   tagInsertAt = null;
   tagEditAt = null;
   syncPromptUndo();
-  const hybridSentence = tagHelper?.hybrid_prompt && !els.prompt.value.includes(',');
-  const tags = tagVocabularyEnabled && !hybridSentence ? promptTagParts() : [];
+  const tags = tagVocabularyEnabled ? promptTagParts() : [];
   if (!tags.length) {
     // Nothing is asked, so nothing will answer: the caret line reads this
     // prompt as one the server placed nothing in, not as one still pending.
@@ -505,9 +555,10 @@ function scheduleTagValidation(delay = 320) {
     const known = index < TAG_LOOKUP_CAP && cache.get(tagKey(tag));
     return known ? { ...known, tag } : uncheckedTag(tag, index);
   });
-  const waiting = results.some((result, index) => result.valid === null && !result.code && index < TAG_LOOKUP_CAP);
+  const waiting = (tagHelper?.hybrid_prompt && !currentPromptParts())
+    || results.some((result, index) => result.valid === null && !result.code && index < TAG_LOOKUP_CAP);
   renderTagValidation(results, waiting ? 'pending' : 'checked');
-  const prompt = els.prompt.value.trim();
+  const prompt = els.prompt.value;
   tagValidationTimer = setTimeout(() => validatePromptTags(tags, epoch, prompt), delay);
   scheduleTagMeasure(delay);
 }
@@ -578,7 +629,9 @@ function tagCursorIndex() {
 // so neither the panel nor the page moves to show it - a panel held by its
 // bottom jumped 62 px at each Alt+Arrow in the other column - which is the
 // press's exemption from `revealInPanel`, and no scroll on the focus.
-function writePromptTags(parts, caret = null, focusIndex = null) {
+function writePromptTags(parts, caret = null, focusIndex = null, layout = null) {
+  const text = typeof parts === 'string' ? parts : parts.join(', ');
+  if (layout) keepPromptParts(layout, text);
   const from = document.activeElement;
   const passing = focusIndex !== null && focusIndex >= 0;
   const press = panelPos.press;
@@ -587,7 +640,7 @@ function writePromptTags(parts, caret = null, focusIndex = null) {
     els.prompt.focus({ preventScroll: true });
   }
   try {
-    writeBox(els.prompt, parts.join(', '));
+    writeBox(els.prompt, text);
   } finally {
     panelPos.press = press;
   }
@@ -610,48 +663,48 @@ function writePromptTags(parts, caret = null, focusIndex = null) {
 // rating tag in place; otherwise insertion follows the textarea caret. Nothing
 // silently reorders free-form character, series, pose or scene tags.
 function togglePromptTag(tag, group) {
-  let parts = promptTagParts();
+  let parts = promptEditingUnits();
   const wanted = tag.toLowerCase();
-  const active = parts.findIndex((part) => part.toLowerCase() === wanted);
+  const active = parts.findIndex((part) => part.kind === 'tag' && part.text.toLowerCase() === wanted);
   if (active >= 0) {
     parts.splice(active, 1);
-    writePromptTags(parts);
+    writePromptUnits(parts);
     return;
   }
 
-  let insertAt = Math.min(tagCursorIndex(), parts.length);
+  let insertAt = promptUnitInsertion(tagCursorIndex(), parts);
   if (group.exclusive) {
     const choices = new Set(group.tags.map((choice) => choice.toLowerCase()));
-    const old = parts.findIndex((part) => choices.has(part.toLowerCase()));
-    parts = parts.filter((part) => !choices.has(part.toLowerCase()));
+    const old = parts.findIndex((part) => part.kind === 'tag' && choices.has(part.text.toLowerCase()));
+    parts = parts.filter((part) => part.kind !== 'tag' || !choices.has(part.text.toLowerCase()));
     if (old >= 0) insertAt = Math.min(old, parts.length);
   }
-  parts.splice(insertAt, 0, tag);
-  const caret = parts.slice(0, insertAt + 1).join(', ').length;
-  writePromptTags(parts, caret);
+  parts.splice(insertAt, 0, { kind: 'tag', text: tag });
+  const caret = parts.slice(0, insertAt + 1).map((part) => part.text).join(', ').length;
+  writePromptUnits(parts, { caret });
 }
 
 function setYearTag(year) {
-  let parts = promptTagParts();
-  let insertAt = parts.findIndex((part) => /^year \d{4}$/i.test(part));
-  if (insertAt < 0) insertAt = Math.min(tagCursorIndex(), parts.length);
-  parts = parts.filter((part) => !/^year \d{4}$/i.test(part));
+  let parts = promptEditingUnits();
+  let insertAt = parts.findIndex((part) => part.kind === 'tag' && /^year \d{4}$/i.test(part.text));
+  if (insertAt < 0) insertAt = promptUnitInsertion(tagCursorIndex(), parts);
+  parts = parts.filter((part) => part.kind !== 'tag' || !/^year \d{4}$/i.test(part.text));
   insertAt = Math.min(insertAt, parts.length);
-  parts.splice(insertAt, 0, `year ${year}`);
-  writePromptTags(parts, parts.slice(0, insertAt + 1).join(', ').length);
+  parts.splice(insertAt, 0, { kind: 'tag', text: `year ${year}` });
+  writePromptUnits(parts, { caret: parts.slice(0, insertAt + 1).map((part) => part.text).join(', ').length });
 }
 
 function finishWithTags(suffix) {
   const ending = new Set(suffix.map((tag) => tag.toLowerCase()));
-  const parts = promptTagParts().filter((part) => !ending.has(part.toLowerCase()));
-  writePromptTags([...parts, ...suffix]);
+  const parts = promptEditingUnits().filter((part) => part.kind !== 'tag' || !ending.has(part.text.toLowerCase()));
+  writePromptUnits([...parts, ...suffix.map((text) => ({ kind: 'tag', text }))]);
 }
 
 // The card's recommended positive prefix (Anima Turbo's), offered and never
 // checked: the tags of it the prompt has not got, less any an exclusive group
 // already holds another of - no safe beside sensitive, nsfw or explicit.
 function prefixMissing(prefix) {
-  const present = new Set(promptTagParts().map((part) => part.toLowerCase()));
+  const present = new Set(promptEditingUnits().filter((part) => part.kind === 'tag').map((part) => part.text.toLowerCase()));
   const held = (tag) => (tagHelper?.groups ?? []).some((group) => group.exclusive
     && group.tags.some((choice) => choice.toLowerCase() === tag.toLowerCase())
     && group.tags.some((choice) => present.has(choice.toLowerCase())));
@@ -664,8 +717,12 @@ function prefixMissing(prefix) {
 function startWithTags(prefix) {
   const missing = prefixMissing(prefix);
   if (!missing.length) return;
-  const rest = els.prompt.value.trim();
-  writePromptTags(rest ? [...missing, rest] : missing);
+  if (!tagHelper?.hybrid_prompt) {
+    const rest = els.prompt.value.trim();
+    writePromptTags(rest ? [...missing, rest] : missing);
+    return;
+  }
+  writePromptUnits([...missing.map((text) => ({ kind: 'tag', text })), ...promptEditingUnits()]);
 }
 
 // Held, with the reason as its title, where it would add nothing; live, it
@@ -759,7 +816,7 @@ function syncTagSelection() {
   syncTagFinderSelection();
   if (!els.tagsMenu || els.tagsMenu.hidden) return;
   const parts = promptTagParts();
-  const active = new Set(parts.map((tag) => tag.toLowerCase()));
+  const active = new Set(promptEditingUnits().filter((part) => part.kind === 'tag').map((part) => part.text.toLowerCase()));
   for (const button of els.tagsMenu.querySelectorAll('[data-tag]')) {
     const on = active.has(button.dataset.tag.toLowerCase());
     button.classList.toggle('active', on);

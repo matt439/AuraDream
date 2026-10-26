@@ -5,8 +5,8 @@
    own by overriding these on :root in one media query.
 
    Type (the line is --lh, 1.5, everywhere it is not set by hand)
-     --fs-xs        10px  pills and badges: source and stale badges, the caption
-                          buttons (Examples, Tags, Check, Reset), the chip tray's hint
+     --fs-xs        10px  pills and badges: source and stale badges, tiny tools,
+                          the chip tray's hint (frequent prompt tools use --fs-sm)
      --fs-sm        11px  hints, tips, menus, presets, sub-labels, notes, sheet headings
      --fs-label     12px  field captions, small buttons, progress and the error line,
                           the prompt check's text, the lightbox's counter and zoom

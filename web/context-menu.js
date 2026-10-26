@@ -42,15 +42,16 @@ function contextTarget(target) {
 function buttonItem(label, button, hint = '') {
   if (!button || button.hidden) return null;
   const held = button.getAttribute('aria-disabled') === 'true';
+  if (button === els.lbRefine) hint = 'R';
   return { label, hint, held, title: button.title, run: () => button.click() };
 }
 
 // An item held as a button built for it would be, by that button's own
 // sync function (Outpaint… and ❐ where the place has no such button).
-function syncedItem(label, sync, run) {
+function syncedItem(label, sync, run, hint = '') {
   const scratch = document.createElement('button');
   sync(scratch);
-  return { label, held: scratch.getAttribute('aria-disabled') === 'true', title: scratch.title, run };
+  return { label, hint, held: scratch.getAttribute('aria-disabled') === 'true', title: scratch.title, run };
 }
 
 const CLIPBOARD_NONE = 'The browser opens the clipboard only to a page at 127.0.0.1 or localhost';
@@ -103,8 +104,8 @@ function imageItems({ kind, rec, host }) {
       run: () => { useSeed(rec.seed); cardNote(host, lightbox ? `Seed ${rec.seed} is in the Seed box.` : 'Seed set'); },
     },
     // The lightbox's button where it has one; held as it would be elsewhere.
-    lightbox ? buttonItem('More seeds of this batch…', els.lbMoreSeeds)
-      : syncedItem('More seeds of this batch…', (b) => syncMoreSeedsFor(b, rec), () => moreSeedsOfImage(rec, host)),
+    lightbox ? buttonItem('More seeds of this batch…', els.lbMoreSeeds, 'M')
+      : syncedItem('More seeds of this batch…', (b) => syncMoreSeedsFor(b, rec), () => moreSeedsOfImage(rec, host), 'M'),
     null,
     buttonItem('⤢ Refine…', lightbox ? els.lbRefine : find('.refine-tool')),
     buttonItem('✎ Inpaint…', lightbox ? els.lbInpaint : find('.inpaint-tool')),
@@ -153,6 +154,11 @@ function pickedItems() {
 function renderContextMenu(items) {
   const menu = els.contextMenu;
   menu.replaceChildren();
+  const hint = document.createElement('li');
+  hint.className = 'context-key-hint';
+  hint.setAttribute('role', 'presentation');
+  hint.textContent = 'Enter chooses · Image keys apply outside this menu · ? help';
+  menu.append(hint);
   let gap = false;
   for (const item of items) {
     if (!item) { gap = menu.childElementCount > 0; continue; }
@@ -245,15 +251,16 @@ function contextMenuEvent(e) {
 }
 
 function contextMenuKey(e) {
-  const asked = e.key === 'ContextMenu' || (e.key === 'F10' && e.shiftKey);
-  if (!asked || e.ctrlKey || e.altKey || e.metaKey) return;
+  const asked = (e.key === 'ContextMenu' && !e.shiftKey) || (e.key === 'F10' && e.shiftKey);
+  if (!asked || keyboardEventHeld(e) || keyboardCommandModifier(e)) return;
   // In the lightbox, from any of its controls but a field: its picture is
   // what the menu is about, and the stage takes no focus of its own.
   const at = document.activeElement;
-  const field = at?.closest?.('input, textarea, select, #context-menu');
+  const field = keyboardEditingTarget(at) || at?.closest?.('#context-menu');
   const found = contextTarget(els.lightbox.open && els.lightbox.contains(at) && !field ? els.lbStage : at);
   if (!found || field) return;
   e.preventDefault();
+  if (e.repeat) return;
   ctxMenu.keyAt = performance.now();
   const box = (found.host.contains(at) ? at : found.host).getBoundingClientRect();
   openContextMenu(found, box.left + Math.min(16, box.width / 2), box.top + Math.min(16, box.height / 2), true);
@@ -262,6 +269,17 @@ function contextMenuKey(e) {
 // The menu's keys are a menu's, as the Picked menu's are, and go no further:
 // its Escape is not the lightbox's.
 function contextMenuKeydown(e) {
+  if (keyboardEventHeld(e) || keyboardCommandModifier(e) || keyboardEditingTarget(e.target)) return;
+  // A real question mark can include Shift. Snapshot this menu's origin
+  // before focusout closes it and clears its return target.
+  if (e.key === '?' && !e.repeat) {
+    e.preventDefault(); e.stopPropagation(); openShortcuts(); return;
+  }
+  // Shift+Tab still dismisses the menu before normal backward navigation.
+  if (e.shiftKey && e.key !== 'Tab') return;
+  if (e.repeat && ['Enter', ' ', 'Escape'].includes(e.key)) {
+    e.preventDefault(); e.stopPropagation(); return;
+  }
   if (e.key === 'Escape') { e.preventDefault(); e.stopPropagation(); closeContextMenu(); return; }
   if (e.key === 'Tab') { e.preventDefault(); e.stopPropagation(); closeContextMenu(); return; }
   if ((e.key === 'Enter' || e.key === ' ') && e.target.matches('[role="menuitem"]')) {

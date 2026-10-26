@@ -16,7 +16,9 @@
 //                                code, so a focused <select> moves as on a real press, and
 //                                an Enter its code and text, so a form submits and a button
 //                                is pressed)
+//                                "repeat": true sends a held key's native repeated keydown
 //   {"keycombo": ["Control", "Enter"]}   press a key with a modifier held
+//   {"keycombo": ["Control", "Shift", "Enter"]}   several unique modifiers, then the key
 //   {"type": "text"}             type text into the focused element
 //   {"wheel": [x, y, deltaY]}    scroll the wheel at a point
 //   {"wheel": ["selector", deltaY]}   the same at the middle of that element's box
@@ -55,8 +57,8 @@
 // joins an async helper (`__until`, or a `window.__x = async` of the file's
 // own) to more with && or ||, which would never wait: put the whole
 // condition in the predicate.
-import { spawn } from 'node:child_process';
-import { existsSync, readFileSync, rmSync, writeFileSync } from 'node:fs';
+import { spawn, spawnSync } from 'node:child_process';
+import { existsSync, readdirSync, readFileSync, rmSync, statSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 
 const CANDIDATES = [
@@ -79,6 +81,23 @@ if (OFFSET) {
   text = text.replace(/\b(127\.0\.0\.1|localhost):(\d{2,5})\b/g, (_, host, port) => `${host}:${Number(port) + OFFSET}`);
 }
 const steps = JSON.parse(text);
+const KEY_MODIFIERS = { Alt: 1, Control: 2, Meta: 4, Shift: 8 };
+const invalidCombos = steps.flatMap((step, index) => {
+  if (!Object.hasOwn(step, 'keycombo')) return [];
+  const combo = step.keycombo;
+  if (!Array.isArray(combo) || combo.length < 2
+      || typeof combo.at(-1) !== 'string' || !combo.at(-1).length) {
+    return [`step ${index + 1}: keycombo needs modifiers followed by a key`];
+  }
+  const modifiers = combo.slice(0, -1);
+  return modifiers.some((modifier) => typeof modifier !== 'string' || !Object.hasOwn(KEY_MODIFIERS, modifier))
+      || new Set(modifiers).size !== modifiers.length
+    ? [`step ${index + 1}: keycombo modifiers must be known and unique`] : [];
+});
+if (invalidCombos.length) {
+  console.error(invalidCombos.join('\n'));
+  process.exit(2);
+}
 
 // An expect that joins an async helper's call to more with && or || never
 // waits: the promise is truthy, so the rest is evaluated at once, and only a
@@ -134,16 +153,64 @@ if (!(VW > 0 && VH > 0 && DPR > 0)) {
 // end is left behind, and Windows hands the pid out again - a later run on
 // the same port then opened with that run's localStorage (smoke-model-switch
 // found another run's favourites, under eight runs at once).
-const PROFILE = `${tmpdir()}/local-diffusion-browser-${process.pid}-${Date.now().toString(36)}${Math.random().toString(36).slice(2, 8)}`;
+const PREFIX = 'local-diffusion-browser-';
+const PROFILE = `${tmpdir()}/${PREFIX}${process.pid}-${Date.now().toString(36)}${Math.random().toString(36).slice(2, 8)}`;
+// Every profile is removed on the way out, but a run killed outright (a
+// closed terminal, Task Manager) never gets there, and those piled up in
+// Windows' Temp to 49 GiB. One untouched for six hours is no live run's - the
+// longest smoke takes minutes - so each run sweeps those first; one an orphaned
+// browser still holds stays until it has gone.
+const STALE_MS = 6 * 3600 * 1000;
+for (const name of (() => { try { return readdirSync(tmpdir()); } catch { return []; } })()) {
+  if (!name.startsWith(PREFIX)) continue;
+  const dir = `${tmpdir()}/${name}`;
+  try {
+    if (Date.now() - statSync(dir).mtimeMs > STALE_MS) rmSync(dir, { recursive: true, force: true });
+  } catch { /* held, or another run's sweep took it */ }
+}
 // Port 0: the browser picks a free one and writes it to DevToolsActivePort in
 // the profile. A port of our own choosing could be another run's - two runs on
-// one port drive each other's pages.
+// one port drive each other's pages. The component, extension and background
+// downloads are off: each fresh profile fetched them again, and they were
+// most of what a left-behind profile weighed. On Linux the browser leads a
+// process group of its own, so the whole tree can be stopped at once.
+const WINDOWS = process.platform === 'win32';
 const proc = spawn(browser, [
   '--headless=new', '--remote-debugging-port=0', `--window-size=${VW},${VH}`,
   '--no-first-run', '--no-default-browser-check', '--disable-sync', '--disable-gpu',
+  '--disable-component-update', '--disable-extensions', '--disable-background-networking',
   `--user-data-dir=${PROFILE}`, 'about:blank',
-], { stdio: 'ignore' });
-const cleanup = () => { try { rmSync(PROFILE, { recursive: true, force: true, maxRetries: 10, retryDelay: 200 }); } catch { /* locked */ } };
+], { stdio: 'ignore', detached: !WINDOWS });
+let exited = false;
+proc.on('exit', () => { exited = true; });
+// The browser's whole tree, not its first process: Edge's renderers and
+// utility processes outlived proc.kill() and held the profile open, so the
+// remove that followed failed quietly and the profile stayed for good.
+// On Linux the group outlives its leader, so it is stopped either way.
+function killBrowser() {
+  if (proc.pid === undefined) return;
+  try {
+    if (!WINDOWS) process.kill(-proc.pid, 'SIGKILL');
+    else if (!exited) spawnSync('taskkill', ['/pid', String(proc.pid), '/T', '/F'], { stdio: 'ignore', windowsHide: true });
+  } catch { /* already gone */ }
+}
+// Synchronous, so it runs from the 'exit' handler: every way out - the end of
+// the steps, a failed expect, an abandoned call, a throw, Ctrl-C - ends here.
+// Windows lets a killed process's handles go a moment after it has exited;
+// the retries wait that out (5 s at most), and a profile still there after
+// them is named, not dropped in silence.
+let cleaned = false;
+function cleanup() {
+  if (cleaned) return;
+  cleaned = true;
+  killBrowser();
+  try { rmSync(PROFILE, { recursive: true, force: true, maxRetries: 20, retryDelay: 250 }); } catch { /* reported below */ }
+  if (existsSync(PROFILE)) console.error(`  ! the browser profile ${PROFILE} could not be removed; a later run sweeps it after six hours`);
+}
+process.on('exit', cleanup);
+for (const signal of ['SIGINT', 'SIGTERM', 'SIGHUP', 'SIGBREAK']) {
+  try { process.on(signal, () => process.exit(130)); } catch { /* not on this platform */ }
+}
 
 const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
 let failures = 0;
@@ -161,8 +228,6 @@ async function target() {
     } catch { /* not up yet */ }
     await sleep(200);
   }
-  proc.kill();
-  cleanup();
   throw new Error('the browser did not come up');
 }
 
@@ -189,8 +254,7 @@ function abandon(reason) {
   abandoned = true;
   console.log(`  ! ${reason}, at ${at}`);
   try { ws.close(); } catch { /* already closed */ }
-  proc.kill();
-  setTimeout(() => { cleanup(); process.exit(1); }, 500);
+  process.exit(1);
 }
 ws.onclose = () => { if (pending.size) abandon('the browser closed the connection'); };
 const send = (method, params = {}) => new Promise((resolve) => {
@@ -251,6 +315,9 @@ const COMBO_KEYS = {
   // Ctrl+A must also exercise the browser's native text selection, so a
   // smoke can prove an application shortcut leaves text fields alone.
   a: { code: 'KeyA', windowsVirtualKeyCode: 65 }, A: { code: 'KeyA', windowsVirtualKeyCode: 65 },
+  // Native Undo needs its physical key code too; a key name alone only
+  // exercises application handlers, leaving a textarea's history untouched.
+  z: { code: 'KeyZ', windowsVirtualKeyCode: 90 }, Z: { code: 'KeyZ', windowsVirtualKeyCode: 90 },
 };
 // The codes a {"key", "native": true} step adds, so the focused control's
 // own default action runs as on a real press (a closed <select>'s arrows).
@@ -275,17 +342,31 @@ for (const [n, step] of steps.entries()) {
   } else if (step.key) {
     const text = step.key.length === 1 ? step.key : undefined;
     const code = step.key === 'Escape' ? ESCAPE : step.native ? (NATIVE_KEYS[step.key] ?? {}) : {};
-    await send('Input.dispatchKeyEvent', { type: 'keyDown', key: step.key, text, ...code });
+    await send('Input.dispatchKeyEvent', {
+      type: 'keyDown', key: step.key, text, ...code, ...(step.repeat === true ? { autoRepeat: true } : {}),
+    });
     await send('Input.dispatchKeyEvent', { type: 'keyUp', key: step.key, ...code });
     await sleep(100);
   } else if (step.keycombo) {
-    const [mod, key] = step.keycombo;
-    const bit = { Alt: 1, Control: 2, Meta: 4, Shift: 8 }[mod] || 0;
+    const mods = step.keycombo.slice(0, -1);
+    const key = step.keycombo.at(-1);
     const code = COMBO_KEYS[key] ?? {};
-    await send('Input.dispatchKeyEvent', { type: 'rawKeyDown', key: mod, modifiers: bit });
-    await send('Input.dispatchKeyEvent', { type: 'keyDown', key, modifiers: bit, ...code });
-    await send('Input.dispatchKeyEvent', { type: 'keyUp', key, modifiers: bit, ...code, text: undefined });
-    await send('Input.dispatchKeyEvent', { type: 'keyUp', key: mod, modifiers: 0 });
+    const held = [];
+    let modifiers = 0;
+    try {
+      for (const mod of mods) {
+        modifiers |= KEY_MODIFIERS[mod];
+        held.push(mod);
+        await send('Input.dispatchKeyEvent', { type: 'rawKeyDown', key: mod, modifiers });
+      }
+      await send('Input.dispatchKeyEvent', { type: 'keyDown', key, modifiers, ...code });
+      await send('Input.dispatchKeyEvent', { type: 'keyUp', key, modifiers, ...code, text: undefined });
+    } finally {
+      for (const mod of held.reverse()) {
+        modifiers &= ~KEY_MODIFIERS[mod];
+        await send('Input.dispatchKeyEvent', { type: 'keyUp', key: mod, modifiers });
+      }
+    }
     await sleep(100);
   } else if (step.type) {
     await send('Input.insertText', { text: step.type });
@@ -351,10 +432,12 @@ for (const [n, step] of steps.entries()) {
   }
 }
 
+// Asked to close, the browser shuts every process down and lets go of the
+// profile itself; cleanup() then kills only what is still there after 5 s.
 pending.clear();
-ws.close();
-proc.kill();
-await sleep(500);
+try { ws.send(JSON.stringify({ id: ++id, method: 'Browser.close' })); } catch { /* connection gone */ }
+for (let i = 0; i < 50 && !exited; i++) await sleep(100);
+try { ws.close(); } catch { /* already closed */ }
 cleanup();
 if (failures) console.log(`${failures} expectation(s) failed`);
 process.exit(failures ? 1 : 0);

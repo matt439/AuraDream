@@ -1,14 +1,10 @@
 /* Gallery bundles stay anchored as counts, progress and saved files arrive.
    The footer row Bundles… sits in is gallery.css's (.gallery-footer). */
-/* No taller than the line it shares: as a small button (26 px) it grew the
-   18 px line and moved the grid down 8 px. In the controls' row instead, it
-   wrapped Delete unstarred onto a row of its own whenever a filter showed it. */
+/* The footer now owns a stable small-button target floor (gallery.css).
+   Keep its shared ghost surface, edge and held/hover states. */
 .gallery-footer #btn-bundles {
-  flex: none; margin: -1px 0 -1px auto; padding-block: 0; border-color: transparent;
-  line-height: var(--lh); color: var(--muted);
-}
-.gallery-footer #btn-bundles:hover, .gallery-footer #btn-bundles:focus-visible {
-  color: var(--text); border-color: var(--line-strong);
+  flex: none; margin: -1px 0 -1px auto; padding-block: 0;
+  line-height: var(--lh);
 }
 .bundles-dialog {
   width: min(680px, calc(100vw - 2 * var(--sp-4)));
@@ -23,6 +19,7 @@
 .bundles-dialog[open] > * { flex-shrink: 0; }
 .bundles-dialog h2 { margin: 0; font-size: var(--fs-lg); }
 .bundles-dialog h3 { margin: 0; font-size: var(--fs-md); }
+.bundles-dialog h4 { margin: 0; font-size: var(--fs-body-sm); font-weight: 600; }
 .bundles-dialog p { margin: 0; }
 .bundles-head { display: flex; align-items: center; justify-content: space-between; gap: var(--sp-3); }
 .bundle-section { display: flex; flex-direction: column; gap: var(--sp-2); border-top: 1px solid var(--line); padding-top: var(--sp-3); }
@@ -36,6 +33,8 @@
 .bundle-scope label { display: inline-flex; align-items: center; gap: var(--sp-1); }
 #bundle-scope-hint { min-height: 2lh; }
 .bundle-backup-row { display: flex; flex-wrap: wrap; align-items: center; gap: var(--sp-2); }
+.bundle-clear { display: flex; flex-direction: column; gap: var(--sp-2); padding: var(--sp-3); border: 1px solid var(--line-strong); border-radius: var(--r-sm); }
+.bundle-saved { display: flex; flex-direction: column; gap: var(--sp-2); margin-top: var(--sp-2); }
 .bundle-confirm { display: flex; flex-wrap: wrap; align-items: center; gap: var(--sp-2); }
 .bundle-confirm label { flex: 1 1 100%; font-size: var(--fs-label); color: var(--text-3); }
 #bundle-count { width: 110px; }
@@ -58,6 +57,7 @@
 .bundle-row { display: flex; flex-wrap: wrap; align-items: center; gap: var(--sp-2); border: 1px solid var(--line); border-radius: var(--r-sm); padding: var(--sp-2); }
 .bundle-name { flex: 1 1 100%; overflow-wrap: anywhere; font-size: var(--fs-body-sm); }
 .bundle-size { color: var(--muted); margin-right: auto; font-size: var(--fs-label); }
+.bundle-import-password { font-size: var(--fs-label); }
 .bundles-dialog button[aria-disabled="true"] { opacity: 0.5; cursor: not-allowed; }
 @media (min-width: 1800px) {
   .bundles-dialog { width: min(760px, calc(100vw - 2 * var(--sp-4))); }

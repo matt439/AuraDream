@@ -30,7 +30,6 @@ function showExamples(open) {
     li.className = 'empty';
     li.textContent = 'No examples for this checkpoint yet.';
     els.examplesMenu.appendChild(li);
-    return;
   }
   // The example stays the authors' words; what it needs is said beside it.
   const unreferenced = referenceSupported && !referenceIds.length;
@@ -42,6 +41,7 @@ function showExamples(open) {
   };
   examples.forEach((text) => {
     const li = document.createElement('li');
+    li.dataset.example = '';
     li.setAttribute('role', 'menuitem');
     li.tabIndex = -1;
     const span = document.createElement('span');
@@ -58,9 +58,16 @@ function showExamples(open) {
     }
     li.title = text;
     li.onclick = () => pickExample(text);
-    li.onkeydown = (e) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); pickExample(text); } };
+    li.onkeydown = (e) => {
+      if (keyboardEventHeld(e) || keyboardCommandModifier(e) || e.shiftKey) return;
+      if (e.key === 'Enter' || e.key === ' ') {
+        e.preventDefault();
+        if (!e.repeat) pickExample(text);
+      }
+    };
     els.examplesMenu.appendChild(li);
   });
+  appendSnippetsMenuItem();
 }
 
 // The authors' template slots in `text` - "[character]", "[location]" -

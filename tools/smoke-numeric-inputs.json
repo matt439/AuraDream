@@ -1,0 +1,332 @@
+[
+  {
+    "log": "\"Native incomplete numeric entries never become silent defaults/random values: isolated FLUX fake on 7921.\""
+  },
+  {
+    "navigate": "http://127.0.0.1:7921/"
+  },
+  {
+    "eval": "window.__until = async (fn, ms = 20000) => { const end = Date.now() + ms; while (Date.now() < end) { if (fn()) return true; await new Promise(r => setTimeout(r, 50)); } return false; }; window.__fixNumber = (el, text) => { el.value = text; el.dispatchEvent(new Event('input', {bubbles:true})); }; window.__incomplete = (el) => { el.value = ''; el.focus({preventScroll:true}); };"
+  },
+  {
+    "expect": "__until(() => modelState === 'ready' && !galleryPending)"
+  },
+  {
+    "eval": "resetPanel(); writeBox(els.prompt, 'numeric input source'); __fixNumber(els.width, '256'); __fixNumber(els.height, '256'); window.__realApi = api; window.__posts = []; window.__morePosts = 0; api = async (path, options) => { if (path === '/api/generate' || path === '/api/grid') __posts.push({path, body: JSON.parse(options.body)}); if (path === '/api/more-seeds') __morePosts++; return __realApi(path, options); }; (async () => { await __realApi('/api/fake/step', {method:'POST', headers:{'Content-Type':'application/json'}, body:JSON.stringify({seconds:0})}); })()"
+  },
+  {
+    "log": "\"Steps: actual native typing 1e stays invalid, says which field to fix and focuses it without a POST.\""
+  },
+  {
+    "eval": "__fixNumber(els.steps, '4'); __fixNumber(els.cfg, '3.5'); __fixNumber(els.seed, '42'); __fixNumber(els.width, '256'); __fixNumber(els.trueCfg, ''); __incomplete(els.steps);"
+  },
+  {
+    "type": "1e"
+  },
+  {
+    "expect": "els.steps.value === '' && els.steps.validity.badInput"
+  },
+  {
+    "click": "#btn-generate"
+  },
+  {
+    "expect": "__posts.length === 0 && !busy && !submitting && document.activeElement === els.steps && els.error.textContent === 'Steps has an incomplete number. Finish typing it before running.'"
+  },
+  {
+    "log": "\"CFG: actual native typing 1e stays invalid, says which field to fix and focuses it without a POST.\""
+  },
+  {
+    "eval": "__fixNumber(els.steps, '4'); __fixNumber(els.cfg, '3.5'); __fixNumber(els.seed, '42'); __fixNumber(els.width, '256'); __fixNumber(els.trueCfg, ''); __incomplete(els.cfg);"
+  },
+  {
+    "type": "1e"
+  },
+  {
+    "expect": "els.cfg.value === '' && els.cfg.validity.badInput"
+  },
+  {
+    "keycombo": [
+      "Control",
+      "Enter"
+    ]
+  },
+  {
+    "expect": "__posts.length === 0 && !busy && !submitting && document.activeElement === els.cfg && els.error.textContent === 'CFG has an incomplete number. Finish typing it before running.'"
+  },
+  {
+    "log": "\"Seed: actual native typing 1e stays invalid, says which field to fix and focuses it without a POST.\""
+  },
+  {
+    "eval": "__fixNumber(els.steps, '4'); __fixNumber(els.cfg, '3.5'); __fixNumber(els.seed, '42'); __fixNumber(els.width, '256'); __fixNumber(els.trueCfg, ''); __incomplete(els.seed);"
+  },
+  {
+    "type": "1e"
+  },
+  {
+    "expect": "els.seed.value === '' && els.seed.validity.badInput"
+  },
+  {
+    "keycombo": [
+      "Meta",
+      "Enter"
+    ]
+  },
+  {
+    "expect": "__posts.length === 0 && !busy && !submitting && document.activeElement === els.seed && els.error.textContent === 'Seed has an incomplete number. Finish typing it before running.'"
+  },
+  {
+    "log": "\"Width: actual native typing 1e stays invalid, says which field to fix and focuses it without a POST.\""
+  },
+  {
+    "eval": "__fixNumber(els.steps, '4'); __fixNumber(els.cfg, '3.5'); __fixNumber(els.seed, '42'); __fixNumber(els.width, '256'); __fixNumber(els.trueCfg, ''); els.customSize.open=true; __incomplete(els.width);"
+  },
+  {
+    "type": "1e"
+  },
+  {
+    "expect": "els.width.value === '' && els.width.validity.badInput"
+  },
+  {
+    "click": "#btn-generate"
+  },
+  {
+    "expect": "__posts.length === 0 && !busy && !submitting && document.activeElement === els.width && els.error.textContent === 'Width has an incomplete number. Finish typing it before running.'"
+  },
+  {
+    "log": "\"True CFG: actual native typing 1e stays invalid, says which field to fix and focuses it without a POST.\""
+  },
+  {
+    "eval": "__fixNumber(els.steps, '4'); __fixNumber(els.cfg, '3.5'); __fixNumber(els.seed, '42'); __fixNumber(els.width, '256'); __fixNumber(els.trueCfg, ''); __incomplete(els.trueCfg);"
+  },
+  {
+    "type": "1e"
+  },
+  {
+    "expect": "els.trueCfg.value === '' && els.trueCfg.validity.badInput"
+  },
+  {
+    "click": "#btn-generate"
+  },
+  {
+    "expect": "__posts.length === 0 && !busy && !submitting && document.activeElement === els.trueCfg && els.error.textContent === 'True CFG has an incomplete number. Finish typing it before running.'"
+  },
+  {
+    "log": "\"Deliberately cleared Steps and CFG still take the profile defaults; deliberately cleared Seed still draws a random one.\""
+  },
+  {
+    "eval": "__fixNumber(els.steps, ''); __fixNumber(els.cfg, ''); __fixNumber(els.seed, ''); __fixNumber(els.trueCfg, ''); __fixNumber(els.width, '256');"
+  },
+  {
+    "click": "#btn-generate"
+  },
+  {
+    "expect": "__until(() => !busy && !submitting && viewerRecords.length === 1 && __posts.length === 1)"
+  },
+  {
+    "expect": "!('steps' in __posts[0].body) && !('guidance_scale' in __posts[0].body) && __posts[0].body.seed === null && viewerRecords[0].steps === 28 && viewerRecords[0].guidance_scale === 3.5 && Number.isInteger(viewerRecords[0].seed)"
+  },
+  {
+    "eval": "window.__source = viewerRecords[0];"
+  },
+  {
+    "log": "\"While a job is paused, Generate (queue) and its keyboard route refuse incomplete sampling without changing the watched job.\""
+  },
+  {
+    "eval": "(async () => { await __realApi('/api/fake/step', {method:'POST', headers:{'Content-Type':'application/json'}, body:JSON.stringify({seconds:0.2})}); void startJob('/api/generate', {prompt:'paused numeric fixture', width:256, height:256, steps:4, runs:2, seed:9000}, {onAccepted:(id) => { window.__active = id; void __realApi('/api/jobs/' + id + '/pause', {method:'POST'}); }}); })()"
+  },
+  {
+    "expect": "__until(() => busy && !submitting && currentJob === __active && els.pause.textContent === 'Resume')"
+  },
+  {
+    "eval": "window.__beforeQueued = __posts.length; __incomplete(els.steps);"
+  },
+  {
+    "type": "1e"
+  },
+  {
+    "click": "#btn-generate"
+  },
+  {
+    "expect": "busy && currentJob === __active && __posts.length === __beforeQueued && document.activeElement === els.steps && els.error.textContent.startsWith('Steps has an incomplete number.')"
+  },
+  {
+    "keycombo": [
+      "Control",
+      "Enter"
+    ]
+  },
+  {
+    "expect": "busy && currentJob === __active && __posts.length === __beforeQueued && !submitting && !queuedIds.length"
+  },
+  {
+    "eval": "(async () => { await __realApi('/api/jobs/' + __active + '/cancel', {method:'POST'}); await __realApi('/api/fake/step', {method:'POST', headers:{'Content-Type':'application/json'}, body:JSON.stringify({seconds:0})}); })()"
+  },
+  {
+    "expect": "__until(() => !busy && !jobListing && !queuedIds.length)"
+  },
+  {
+    "log": "\"More seeds uses its saved image settings even while an unrelated panel Steps entry is incomplete.\""
+  },
+  {
+    "eval": "(async () => { await openMoreSeeds(moreSeedsImageTarget(__source), {count:1}); void runMoreSeeds(); })()"
+  },
+  {
+    "expect": "__until(() => __morePosts === 1 && !els.moreSeedsDialog.open && !busy && !submitting && viewerRecords[0]?.run_id === __source.run_id && viewerRecords[0]?.id !== __source.id)"
+  },
+  {
+    "expect": "els.steps.validity.badInput && __posts.length === __beforeQueued && viewerRecords[0].steps === __source.steps"
+  },
+  {
+    "log": "\"Run grid and Ctrl+Enter in a grid box refuse incomplete Seeds/Budget. Repeat belongs only to Generate and does not hold a grid.\""
+  },
+  {
+    "eval": "__fixNumber(els.steps, '2'); __fixNumber(els.cfg, '3.5'); __fixNumber(els.seed, '100'); els.gridSection.open = true; __incomplete(els.gridSeeds); window.__gridBefore = __posts.length;"
+  },
+  {
+    "type": "1e"
+  },
+  {
+    "keycombo": [
+      "Control",
+      "Enter"
+    ]
+  },
+  {
+    "expect": "__posts.length === __gridBefore && !busy && document.activeElement === els.gridSeeds && els.error.textContent.startsWith('Grid seeds has an incomplete number.')"
+  },
+  {
+    "eval": "__fixNumber(els.gridSeeds, '1'); __incomplete(els.gridBudget);"
+  },
+  {
+    "type": "1e"
+  },
+  {
+    "eval": "els.gridRun.scrollIntoView({block:'center'});"
+  },
+  {
+    "expect": "(() => { const r=els.gridRun.getBoundingClientRect(); return r.top>=0 && r.bottom<=innerHeight && document.elementFromPoint(r.x+r.width/2,r.y+r.height/2)===els.gridRun; })()"
+  },
+  {
+    "click": "#btn-grid"
+  },
+  {
+    "expect": "__posts.length === __gridBefore && !busy && document.activeElement === els.gridBudget && els.error.textContent.startsWith('Budget has an incomplete number.')"
+  },
+  {
+    "eval": "__fixNumber(els.gridBudget, ''); __incomplete(els.runs);"
+  },
+  {
+    "type": "1e"
+  },
+  {
+    "eval": "els.gridSeeds.focus({preventScroll:true});"
+  },
+  {
+    "keycombo": [
+      "Control",
+      "Enter"
+    ]
+  },
+  {
+    "expect": "__until(() => !busy && !submitting && __posts.length === __gridBefore + 1)"
+  },
+  {
+    "expect": "els.runs.validity.badInput && __posts.at(-1).path === '/api/grid' && __posts.at(-1).body.runs === 1"
+  },
+  {
+    "log": "\"An explicit Seed list and sampling axes override their panel controls; incomplete unused values do not hold that grid.\""
+  },
+  {
+    "eval": "els.gridSeedList.value = '1234'; els.gridSeedList.dispatchEvent(new Event('input',{bubbles:true})); els.gridSteps.value = '2'; els.gridCfg.value = '3.5'; els.gridMu.value = 'none'; window.__axisBefore = __posts.length; __incomplete(els.steps);"
+  },
+  {
+    "type": "1e"
+  },
+  {
+    "eval": "__incomplete(els.cfg);"
+  },
+  {
+    "type": "1e"
+  },
+  {
+    "eval": "__incomplete(els.mu);"
+  },
+  {
+    "type": "1e"
+  },
+  {
+    "eval": "__incomplete(els.seed);"
+  },
+  {
+    "type": "1e"
+  },
+  {
+    "eval": "els.gridRun.scrollIntoView({block:'center'});"
+  },
+  {
+    "expect": "(() => { const r=els.gridRun.getBoundingClientRect(); return r.top>=0 && r.bottom<=innerHeight && document.elementFromPoint(r.x+r.width/2,r.y+r.height/2)===els.gridRun; })()"
+  },
+  {
+    "click": "#btn-grid"
+  },
+  {
+    "expect": "__until(() => !busy && !submitting && __posts.length === __axisBefore + 1)"
+  },
+  {
+    "expect": "els.steps.validity.badInput && els.cfg.validity.badInput && els.mu.validity.badInput && els.seed.validity.badInput && __posts.at(-1).body.seed_axis === '1234' && viewerRecords[0].seed === 1234 && viewerRecords[0].steps === 2 && viewerRecords[0].guidance_scale === 3.5"
+  },
+  {
+    "log": "\"Comparison ignores the panel Batch/Repeat and grid Seeds/Budget but still refuses malformed panel sampling.\""
+  },
+  {
+    "eval": "(async () => { __fixNumber(els.runs, '1'); __fixNumber(els.steps, '2'); __fixNumber(els.cfg, '3.5'); __fixNumber(els.mu, ''); __fixNumber(els.seed, '42'); els.gridSection.open = false; els.gridSeedList.value = ''; els.gridSeedList.dispatchEvent(new Event('input',{bubbles:true})); await checkPrompt(); els.compareOwn.value = 'numeric input alternate'; compareOwnChanged(); els.compareSeeds.value = '4'; els.compareBatch.value = '1'; window.__compareBefore = __posts.length; __incomplete(els.cfg); })()"
+  },
+  {
+    "type": "1e"
+  },
+  {
+    "eval": "void runComparison()"
+  },
+  {
+    "expect": "__posts.length === __compareBefore && !busy && document.activeElement === els.cfg && els.error.textContent.startsWith('CFG has an incomplete number.')"
+  },
+  {
+    "eval": "__fixNumber(els.cfg, '3.5'); __incomplete(els.batch);"
+  },
+  {
+    "type": "1e"
+  },
+  {
+    "eval": "__incomplete(els.runs);"
+  },
+  {
+    "type": "1e"
+  },
+  {
+    "eval": "els.gridSection.open = true; __incomplete(els.gridSeeds);"
+  },
+  {
+    "type": "1e"
+  },
+  {
+    "eval": "__incomplete(els.gridBudget);"
+  },
+  {
+    "type": "1e"
+  },
+  {
+    "expect": "els.batch.validity.badInput && els.runs.validity.badInput && els.gridSeeds.validity.badInput && els.gridBudget.validity.badInput"
+  },
+  {
+    "eval": "els.gridSection.open = false; runComparison()"
+  },
+  {
+    "expect": "__until(() => !busy && !submitting && __posts.length === __compareBefore + 1)"
+  },
+  {
+    "expect": "__posts.at(-1).path === '/api/grid' && __posts.at(-1).body.num_images === 1 && __posts.at(-1).body.runs === 1 && __posts.at(-1).body.seeds === 4 && __posts.at(-1).body.budget_minutes === null"
+  },
+  {
+    "eval": "api = __realApi;"
+  }
+]

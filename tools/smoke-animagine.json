@@ -138,7 +138,7 @@
   {"eval": "els.tagsMenu.querySelector('[data-action=\"recommended-negative\"]').click();"},
   {"expect": "els.negative.value.startsWith('lowres, bad anatomy')"},
   {"eval": "els.examplesBtn.click();"},
-  {"expect": "!els.examplesMenu.hidden && els.examplesMenu.children.length === 3"},
+  {"expect": "!els.examplesMenu.hidden && els.examplesMenu.querySelectorAll('[data-example]').length === 3"},
   {"eval": "els.examplesMenu.children[0].click();"},
   {"expect": "els.prompt.value.startsWith('1girl, green hair') && collect().mu === null"},
 
