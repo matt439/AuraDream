@@ -15,7 +15,7 @@ from __future__ import annotations
 import asyncio
 import json
 import re
-from typing import Any
+from typing import Any, TypedDict
 
 from fastapi import APIRouter, HTTPException, Request
 from pydantic import ValidationError
@@ -97,7 +97,12 @@ def _verified_references(meta: dict) -> tuple[list[int], int]:
     return kept, len(ids) - len(kept)
 
 
-def _size(text: Any) -> dict[str, int]:
+class _ImageSize(TypedDict, total=False):
+    width: int
+    height: int
+
+
+def _size(text: Any) -> _ImageSize:
     match = _SIZE.match(text) if isinstance(text, str) else None
     return {"width": int(match[1]), "height": int(match[2])} if match else {}
 
@@ -112,7 +117,7 @@ def _reason(exc: ValueError) -> str:
 
 
 def _request(
-    fields: dict[str, Any], size: dict[str, int], notes: list[str], name: str, at: int
+    fields: dict[str, Any], size: _ImageSize, notes: list[str], name: str, at: int
 ) -> tuple[GenerateRequest, bool]:
     """The request, with the PNG's size where it is one a direct render takes.
 
@@ -138,7 +143,7 @@ def _request(
         raise PngSettingsError(f"the settings in {name} do not fit this app: {_reason(exc)}") from None
 
 
-def _from_record(meta: dict, name: str) -> tuple[dict, dict, bool, list[str]]:
+def _from_record(meta: dict, name: str) -> tuple[dict, _ImageSize, bool, list[str]]:
     """This app's record as request fields, the size, whether to write it, notes."""
     notes: list[str] = []
     if not isinstance(meta.get("prompt"), str) or not meta["prompt"].strip():
@@ -207,7 +212,7 @@ def _panel_sampling(fields: dict[str, Any], panel: PngPanelSampling | None) -> d
 
 def _from_parameters(
     text: str, name: str, panel: PngPanelSampling | None
-) -> tuple[dict, dict, bool, list[str]]:
+) -> tuple[dict, _ImageSize, bool, list[str]]:
     """An A1111 'parameters' block as request fields, the size, notes."""
     prompt, negative, params = png_settings.parse_parameters(text)
     if not prompt:

@@ -143,6 +143,24 @@ batch diagnostics are resolved without suppressions or casts. Scoped
 JSON evidence is `work/dev6-prompt-helpers.json`. These are scoped results;
 the full baseline remains failing until the other batches are fixed.
 
+2026-10-26, batch 3 schema/PNG slice: all 17 initial findings in the three
+schema modules and PNG-settings route are addressed. The fixed upscaler
+literal is shared from the leaf module, optional applied values are
+narrowed, error-detail callbacks retain their existing duck-typed contract,
+and PNG size keywords name only width/height. All 31 JSON schemas and the
+custom error code/template/context match HEAD before this batch; persisted
+snippet targets remain required. The 245 existing schema/refine/snippet
+tests and 17 PNG API tests passed, with clean scoped static checks and
+ruff; both slices received independent review.
+
+Two line-specific exceptions document verified Pydantic typing gaps:
+`reportArgumentType` for the internal integer-based custom error code,
+and `reportGeneralTypeIssues` for removing an inherited field default to
+make a persisted snippet field required. Neither changes runtime
+validation or suppresses a module/rule globally. Evidence is retained in
+`work/dev6-schema-contracts.json`, `work/dev6-schema-equivalence.json` and
+`work/dev6-png-size.json`.
+
 ## Initial counts by diagnostic
 
 <!-- Counts below are generated from the retained initial Pyright JSON. -->

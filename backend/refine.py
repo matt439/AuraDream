@@ -39,7 +39,7 @@ it imports none of them at the top.
 from __future__ import annotations
 
 import inspect
-from typing import TYPE_CHECKING, Any
+from typing import TYPE_CHECKING, Any, Literal
 
 if TYPE_CHECKING:
     from PIL.Image import Image
@@ -58,7 +58,8 @@ DEFAULT_SCALE = 1.5
 
 # The sole optional GAN preprocess. The WAI and RouWei guides cite this
 # kind of hires pass; other checkpoints and masked passes stay Lanczos-only.
-ANIME6B = "realesrgan-x4plus-anime6b"
+Upscaler = Literal["realesrgan-x4plus-anime6b"]
+ANIME6B: Upscaler = "realesrgan-x4plus-anime6b"
 ANIME6B_LABEL = "R-ESRGAN 4x+ Anime6B"
 ANIME6B_URL = "https://github.com/xinntao/Real-ESRGAN/releases/download/v0.2.2.4/RealESRGAN_x4plus_anime_6B.pth"
 ANIME6B_BYTES = 17_938_799

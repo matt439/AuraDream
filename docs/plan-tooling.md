@@ -215,6 +215,13 @@ its 13-test subset and ruff. Both batches received independent review.
 The baseline report records the exact scope and receipts; this does not
 claim the entire configured type-check scope is clean.
 
+**Batch 3, schema/PNG slice (2026-10-26).** The scoped checks address 17
+initial findings. All 31 generated model schemas and existing custom
+errors are unchanged; 245 schema/refine/snippet tests and 17 PNG API tests
+pass. Independent reviews accepted the changes. Two precise, locally
+explained Pydantic typing exceptions preserve the supported computed error
+code and required-field override; the baseline report records both.
+
 **Stages.**
 
 1. Select and record a reproducible Pyright version and basic-mode

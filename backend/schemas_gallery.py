@@ -4,12 +4,12 @@ the recycle bin's bodies and answers.
 """
 from __future__ import annotations
 
-from typing import Annotated, Literal
+from typing import Annotated
 
 from pydantic import BaseModel, Field, model_validator
 
 from .config import settings
-from .refine import ANIME6B
+from .refine import Upscaler
 from .png_settings import crop_anchor
 from .schemas_generate import CropAnchor, OutpaintSpec
 
@@ -57,7 +57,7 @@ class ImageRecord(BaseModel):
     # centered crop; masks and outpaints never carry a noncenter anchor.
     crop_anchor: CropAnchor | None = None
     # The optional GAN that prepared the source for an ordinary Refine pass.
-    upscaler: Literal[ANIME6B] | None = None
+    upscaler: Upscaler | None = None
     # True when `refine` names an image no longer in the gallery: the pass is
     # kept, and so is the id, but it cannot be made again. Read, not stored -
     # the gallery's pages and `GET /api/images/{id}` look the source up.
