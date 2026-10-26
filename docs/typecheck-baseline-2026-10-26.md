@@ -7,6 +7,14 @@ This is a failing baseline to work down, not an enabled CI gate or a claim
 about GPU behavior. No application module, model weights or tokenizer was
 loaded to produce it.
 
+**Completed later on 2026-10-26:** the complete gate now checks 105 files
+with **zero errors and zero warnings**. All initial findings and ten
+cross-module integration findings are addressed; precise source comments
+explain the verified library typing exceptions. The final offline CPU
+suite passed **3,950 tests with eight platform/capability skips** in
+186.90 seconds on Windows, with two workers. CI is configured to run the
+same pinned gate; no hosted or Linux execution is claimed.
+
 ## Reproduce
 
 The committed [configuration](../pyrightconfig.json) checks all Python
@@ -18,9 +26,13 @@ overrides, module exclusions or new inline suppressions. No existing
 `type: ignore`, `pyright:` or `@no_type_check` directives were found in
 the configured source files at this baseline.
 
-Use **Pyright 1.1.407**, the native npm package, without changing the app's
-environment or adding a global tool. From the repository root, after
-preparing the normal locked app/development environment:
+The current command is `uv run --group dev python tools/typecheck.py`.
+The locked development group supplies Python package **pyright 1.1.407**;
+the helper verifies its bundled checker and exact installed Node executable,
+disables wrapper update/provision paths and rejects empty scope.
+
+The original baseline used the native npm package in an isolated local
+directory, without adding a global tool. Its historical reproduction was:
 
 ```powershell
 npm.cmd --cache work/dev6-npm-cache install --prefix work/dev6-pyright --no-audit --no-fund --ignore-scripts --save-exact pyright@1.1.407
@@ -257,6 +269,18 @@ seconds, followed by the complete focused suite above. Windows process
 inventory was denied and was not bypassed; task-owned session receipts
 were used instead. No real critic, model, download or GPU run occurred.
 Scoped evidence: `work/dev6-critic-after.json`.
+
+Final integration: the whole-scope wrapper run first found ten additional
+PNG/encoder-table contract diagnostics. The PNG route explicitly retains
+the paired dimension invariant and its typed local; the encoder table
+accepts the same existing `HubRepo` contract used by the loaders. These
+changes preserve runtime inputs and validation. Independent review
+accepted them and the launcher. The final gate receipt is
+`work/dev6-typecheck-gate-final.txt` (105 files, no findings, exit 0), and
+all 87 gate/docs/CI focused tests and ruff passed. A review-found Windows
+`node.cmd` edge has its own regression; only the actual wrapper's platform
+binary can pass preflight. The final full-suite result is recorded in the
+[tooling owner](plan-tooling.md#backend-type-checking).
 
 ## Initial counts by diagnostic
 

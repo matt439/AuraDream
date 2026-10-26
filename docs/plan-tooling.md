@@ -182,8 +182,8 @@ retried through another route. No Linux browser CI job has been added.
 
 ## Backend type checking
 
-`DEV#6` · OPEN · LOW · L. The baseline stage is complete; fix bounded
-batches before enabling its gate.
+`DEV#6` · implemented and qualified locally, 2026-10-26. The pinned gate
+is configured in CPU CI; hosted execution remains unverified.
 
 **Evidence.** `backend/` uses annotations across schemas, applied requests
 and storage records. The 2026-10-26 audit did not install or run Pyright.
@@ -195,8 +195,8 @@ module exclusions. Pinned Pyright 1.1.407 checked 104 files in 10.4 seconds:
 [baseline report](typecheck-baseline-2026-10-26.md) records the command,
 environment, complete per-rule/per-module counts, third-party interface
 gaps and eight bounded investigation batches. No app import, model load
-or GPU run was used. The checker is not yet in the dev group or CI;
-`DEV#6` remains open for stages 2 and 3.
+or GPU run was used for static checking. Later stages fixed the complete
+scope and added the locked development tool and CI command below.
 
 **Batch 1 (2026-10-26).** Benchmark keyword/format contracts are checked
 without changing retained timing values or selection behavior. All nine
@@ -288,3 +288,28 @@ command. Run ruff and tests appropriate to any behavior changed while
 fixing diagnostics; finish with the required CPU suite. Update this plan
 with the baseline, completed batches and actual checks. No GPU acceptance
 claim follows from a clean type check.
+
+**Final result (2026-10-26).** The actual Python-wrapper gate checks
+**105 files with zero errors and zero warnings** in 9.476 seconds. Its
+first whole-scope run caught ten cross-module contract findings beyond
+the scoped batches; explicit PNG dimension invariants and the shared
+pinned-repository input type resolved them. The locked development group
+adds only Pyright 1.1.407 and nodeenv; existing package versions stay put.
+
+`tools/typecheck.py` verifies the local package/bundled JavaScript version
+and exact platform Node executable before invoking the wrapper. Its
+documented controls prevent update queries or automatic npm/Node
+provisioning. Missing tools, version mismatch, empty configured/actual
+scope and malformed output fail; diagnostic output/status survive.
+Independent review caught and verified the Windows command-shim case;
+29 focused gate tests cover it and the other boundaries. Gate/docs/CI
+focused checks passed all 87 tests, and repository ruff passed.
+
+The final offline CPU suite passed **3,950 tests, eight skipped**, in
+**186.90 seconds**, using two workers with file-based distribution on
+Windows/Python 3.13.15. The skips were one unavailable symlink check,
+three Linux critic-process cases, three `/proc/self/maps` checks and the
+Windows-unsupported catchable-SIGTERM browser case. No model download,
+GPU render or human acceptance was performed. The CI job runs the same
+gate after install; docs-only changes retain their lint-only path. Linux
+and hosted execution were not run or claimed; no push/PR was made.

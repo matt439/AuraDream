@@ -127,6 +127,7 @@ def _request(
     the whole answer's.
     """
     if size:
+        assert "width" in size and "height" in size, "a parsed PNG size carries both dimensions"
         try:
             request = GenerateRequest(**fields, **size)
             request.check_budget()
@@ -171,7 +172,7 @@ def _from_record(meta: dict, name: str) -> tuple[dict, _ImageSize, bool, list[st
             f"this gallery holds no copy of {'it' if one else 'them'} under the id "
             f"{'it' if one else 'they'} had where the image was made."
         )
-    size = _size(meta.get("size"))
+    size: _ImageSize = _size(meta.get("size"))
     # A refine pass is the Refine dialog's, made from a source in a gallery;
     # from a file only its prompt and sampling carry, at the panel's own size
     # - as Reuse fills the panel when a pass's source has gone.

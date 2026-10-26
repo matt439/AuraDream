@@ -124,7 +124,7 @@ def _own(model_id: str, subfolder: str) -> TokenizerSource:
 
 
 def _pinned(
-    pin: dict[str, str], subfolder: str, tree: str, tree_subfolder: str | None = None
+    pin: single_file.HubRepo, subfolder: str, tree: str, tree_subfolder: str | None = None
 ) -> TokenizerSource:
     # A loader's pinned source, whose converted tree keeps a copy once built.
     return TokenizerSource(

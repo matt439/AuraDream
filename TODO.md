@@ -8,9 +8,7 @@ The maintainer's working backlog for this personal project: it records what is p
 
 **Aim (2026-10-18):** keep useful work ready for Matt's common workstation tasks. [Reported use](docs/design/preferences.md) guides priority; it does not approve the candidate redesign.
 
-**Ready backlog (updated 2026-10-26):** six `OPEN` rows, with implementation stages in their owners. The [audit](docs/review-2026-10-26-todo.md)'s Marian token-boundary and portable-screenshot defects are fixed, the shared classic-script guard is built, and all four CPU-only feature plans are written. Continue with the development checks:
-
-1. `DEV#6`: continue bounded type-check fixes and enable its gate when the full scope passes. `DEV#4`'s diagnostic stage is built; Linux browser qualification awaits WSL service access. [Stages and completion criteria](docs/plan-tooling.md).
+**Ready backlog (updated 2026-10-26):** five `OPEN` rows, with implementation stages in their owners. Marian's token boundary, portable screenshots, the classic-script guard and the complete pinned type gate are built and checked. The four feature plans are written. `DEV#4`'s diagnostic stage is built; its Linux browser qualification awaits WSL service access. [Tooling results](docs/plan-tooling.md).
 
 **Feature stages next:** `PERF#1` ([compilation](docs/plan-regional-compilation.md)), then `GAL#6` ([backups](docs/plan-automatic-backups.md)), `PERF#3` ([attention](docs/plan-attention-backends.md)) and `PERF#4` ([caching](docs/plan-step-caching.md)). Their CPU plans are complete; default-off contracts can be prepared, while the owners retain activation and separately approved card decisions. `PERF#2` still waits on `PERF#1`. These CPU starts do not depend on Matt's layout trials or the RAM-loader card check.
 
@@ -116,7 +114,6 @@ Matt's approved [shortcut and compact-setup stages](docs/plan-shortcut-workflow.
 | id | status | sev | size | item |
 |---|---|---|---|---|
 | `DEV#4` | OPEN | LOW | L | Qualify Linux Chrome and its separate CI job; portable screenshots and collectable diagnostics are built. WSL enumeration currently returns `E_ACCESSDENIED`; Linux/hosted execution is unverified. [Stages](docs/plan-tooling.md#browser-smokes-in-ci). |
-| `DEV#6` | OPEN | LOW | L | Continue bounded Pyright basic fixes over `backend/` and `tools/`, then gate CI; the baseline, benchmark, CLI and prompt-helper batches are checked. The full scope is still failing. [Stages](docs/plan-tooling.md#backend-type-checking). |
 
 ## Review coverage
 
@@ -136,6 +133,7 @@ Each review's remaining work is indexed above; closed findings stay in their own
 | 2026-10-26 keyboard | All three approved stages (`UI#17`-`UI#19`) fixed and qualified, including fast routes and compact setup. [Evidence](docs/plan-shortcut-workflow.md). |
 | 2026-10-26 sizing/Bundles | Password association (`UI#14`), clear-count explanation (`UI#15`) and frequent secondary target sizing (`UI#16`) fixed and qualified. [Evidence and results](docs/review-2026-10-26-sizing-bundles.md). |
 | 2026-10-26 TODO audit | [Owner/code reconciliation](docs/review-2026-10-26-todo.md): Marian chunk truncation (`GEN#26`), portable screenshots (`DEV#7`), restored critic decision (`PA#11`) and bounded tooling/planning stages. |
+| 2026-10-26 overnight | `GEN#26`, `DEV#5`-`DEV#7` built and locally qualified; all four feature plans written. [Tooling evidence](docs/plan-tooling.md). Linux browser qualification remains `DEV#4`; no hosted/GPU acceptance is claimed. |
 
 ---
 

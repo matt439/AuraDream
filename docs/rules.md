@@ -319,7 +319,8 @@ before changing it.
   and narrow windows): the UI's stand-in for a test suite, and
   `run_smoke.py`, which starts each smoke's fake from `AGENTS.md`'s port
   table and runs it; `ci_changes.py` classifies GitHub push/PR ranges for
-  the documentation-only lint path; see Tests
+  the documentation-only lint path; `typecheck.py` runs the pinned,
+  locally bundled Pyright checker over the configured scope; see Tests
 - `tests/` — the pytest suite, no GPU and no weights: `conftest.py`,
   `fakes.py` and `api_helpers.py` (the fake backend and its fixtures),
   `test_api*.py` (the HTTP routes, one file per area), and a file per module
@@ -5555,7 +5556,7 @@ history, unknown/empty comparisons and manual dispatch keep the full gate.
 A docs-only tip on a code-changing PR does not bypass its tests.
 
 Other changes and manual runs get the CPU suite on Ubuntu
-(`uv sync --locked --group dev`, `pytest -n auto`); on main (pushes and by
+(`uv sync --locked --group dev`, the pinned type gate, `pytest -n auto`); on main (pushes and by
 hand) it runs on Windows too, about five times slower. The smokes, which
 need a browser, stay local. `tests/conftest.py` makes
 `torch.cuda.is_current_stream_capturing` answer False on a driverless Windows
@@ -5572,6 +5573,17 @@ Git histories: full pushed ranges, PR merge bases, deletions/renames and
 the full-test fallback when classification cannot be established. The
 design notes' [CI range policy](design-notes.md#ci-compares-the-whole-change-range)
 explains why the workflow itself is never path-filtered away.
+
+`uv run --group dev python tools/typecheck.py` checks basic Pyright over
+all Python in `backend/` and `tools/`, using `pyrightconfig.json` and the
+locked `pyright==1.1.407` Python package. Node must already be installed.
+The gate verifies the package and bundled JavaScript version, constrains
+the wrapper to that bundle/global Node and disables its update/provision
+paths. Missing tools, absent/empty includes, malformed output and zero
+analyzed files fail; checker diagnostics and nonzero status are preserved.
+`tests/test_typecheck.py` covers these refusal and success paths. The CPU
+CI job runs this same command after installation, before tokenizer fetches;
+documentation-only changes retain the lightweight lint-only path.
 
 `uv run python tools/run_smoke.py <smoke> [<smoke> ...]` runs smokes without
 a second terminal: it reads `AGENTS.md`'s port table (the port, the

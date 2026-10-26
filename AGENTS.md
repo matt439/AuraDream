@@ -23,7 +23,8 @@ uv run python -m backend.main      # http://127.0.0.1:7860; restores saved brows
 uv run python -m backend.main --defaults   # ignore saved choices; environment/defaults
 uv run python -m backend.main --menu       # optional terminal picker
 uv run --group dev pytest          # no GPU, no weights; add -n auto for parallel
-uv run --group dev ruff check .    # correctness lint; CI runs both on push
+uv run --group dev ruff check .    # correctness lint
+uv run --group dev python tools/typecheck.py  # pinned Pyright basic; Node required
 ```
 
 ```bash
@@ -291,11 +292,15 @@ in the HTTP layer or the UI needs to change.
 `tests/fakes.py`; HTTP tests are `tests/test_api*.py`, one file per area.
 Node is required for the classic-script syntax/shared-scope guard; it
 checks HTML script order without executing the page's boot.
+The pinned Pyright gate checks every Python source in `backend/` and
+`tools/`; missing tools and empty scope fail. Its wrapper uses installed
+Node and bundled checker files, without automatic updates or downloads.
 
 CI (`.github/workflows/ci.yml`, detail in `docs/rules.md` under Tests): ruff
 on Linux for every push and pull request. Documentation-only changes run
 just lint, without app/tokenizer installs; executable files under `docs/`
-still get tests. Other changes and manual runs get `pytest -n auto` on Linux,
+still get tests. Other changes and manual runs get the pinned type gate
+and `pytest -n auto` on Linux,
 and on Windows too for main (pushes and by hand; about 12 minutes). Its runners are
 slow and have no GPU driver: a test that races a clock (a time budget, a
 cell to skip or pause mid-run) needs seconds of margin, not milliseconds.

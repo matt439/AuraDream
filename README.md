@@ -284,9 +284,12 @@ another gallery.
 
 ```powershell
 uv run --group dev pytest
+uv run --group dev ruff check .
+uv run --group dev python tools/typecheck.py
 ```
 
 Tests use fake pipelines and a temporary gallery: no GPU or weight downloads.
+Node is required for the script-scope and pinned Pyright checks.
 For a browser smoke check, run the fake server and browser driver in separate
 terminals (requires Node 22+ and Edge or Chrome):
 
