@@ -33,7 +33,7 @@ def test_move_front_lists_the_authoritative_order_and_never_preempts(client, fak
 
 
 def test_skip_keeps_earlier_images_continues_and_finish_recovers_the_hole(client, fake, store):
-    fake.step_seconds = 0.01
+    fake.step_seconds = 0.05  # a 1 s cell: the skip must land while it runs
     job_id = client.post("/api/generate", json={
         "prompt": "a fox", "width": 256, "height": 256, "steps": 20, "runs": 3, "seed": 10,
     }).json()["job_id"]
@@ -61,7 +61,7 @@ def test_skip_keeps_earlier_images_continues_and_finish_recovers_the_hole(client
 
 
 def test_multiple_intentional_skips_do_not_trigger_the_failure_rule(client, fake):
-    fake.step_seconds = 0.01
+    fake.step_seconds = 0.05  # a 1 s cell: the skip must land while it runs
     job_id = client.post("/api/generate", json={
         "prompt": "a fox", "width": 256, "height": 256, "steps": 20, "runs": 5,
     }).json()["job_id"]

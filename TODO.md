@@ -10,7 +10,7 @@ The maintainer's working backlog for this personal project: it records what is p
 
 **Ready backlog (2026-10-26):** no unblocked implementation rows remain. Matt's approved [shortcut and compact-setup stages](docs/plan-shortcut-workflow.md) are complete and qualified: dispatch/focus, contextual help, scoped fast routes and two setup disclosures. Earlier workflow/Bundles fixes remain qualified; deferred features remain deferred.
 
-**Needs Matt:** workbench task trials (`DEV#1`) and hands-on screen-reader/touch checks (`UI#7`) are the next `USER` work. Two decisions wait: whether SDXL prompt weighting is wanted at all (`GEN#20`), and how a cold quantizing FLUX-family load fits this machine's RAM (`GEN#22`), which unblocks the FLUX-family `CARD` rows and `GEN#15`/`GEN#16`. Whole-app layout implementation waits for its trials; it remains a design hypothesis.
+**Needs Matt:** workbench task trials (`DEV#1`) and hands-on screen-reader/touch checks (`UI#7`) are the next `USER` work. One decision waits: whether SDXL prompt weighting is wanted at all (`GEN#20`). The FLUX-family quantizing load's RAM peak is fixed in code and waits for a card run (`GEN#22`), which unblocks the FLUX-family `CARD` rows and `GEN#15`/`GEN#16`. Whole-app layout implementation waits for its trials; it remains a design hypothesis.
 
 **GPU runs are Matt's to run or OK, never past the 16 GB card** (every `CARD` row). Check the checkpoint's measured peaks in `docs/verified.md` first; a run that spills into shared memory proves only that it doesn't fit.
 
@@ -65,7 +65,7 @@ The maintainer's working backlog for this personal project: it records what is p
 | `GEN#15` | CARD | LOW | S+card | Peak memory per image: phase 3's FLUX.1 Krea [dev] render, the recorded peak beside `nvidia-smi` and shared memory; its load stops at the RAM guard (`GEN#22`). [Plan](docs/plan-peak-vram.md). |
 | `GEN#16` | CARD | LOW | S+card | Generate then refine: phase 3's FLUX.1 Krea dev night at 1.5x, peak of the alternation and the pair's time; its load stops at the RAM guard (`GEN#22`). [Plan](docs/plan-then-refine.md). |
 | `GEN#20` | DECISION | LOW | L+card | Whether to plan opt-in A1111 weighting and 77-token chunking on SDXL; only if Matt writes weighted prompts. [10-24 G10](docs/review-2026-10-24.md#g10-a1111-style-weighting-and-long-prompts-on-sdxl). |
-| `GEN#22` | DECISION | MED | M+card | How a cold quantizing FLUX.1, Krea 2, klein 9B or Qwen-Image load fits this machine's RAM (about 46 GiB at the load, 2026-10-25): free RAM before a run, lower the guard's floor, or quantize a shard at a time (a loader change, plan first). Unblocks the FLUX-family card rows. [The quantizing load's RAM peak](docs/design-notes.md#the-quantizing-loads-ram-peak). |
+| `GEN#22` | CARD | MED | M+card | The quantizing load's RAM peak (about 46 GiB at the load, 2026-10-25) is fixed in the loader: unquantized tensors kept every bf16 shard mapped, and `loading.checkpoint_files_released` now lets each go. Re-run a cold fp8 FLUX.1 Krea dev load on Windows and record its peak, then the FLUX-family card rows it unblocks. [The quantizing load's RAM peak](docs/design-notes.md#the-quantizing-loads-ram-peak). |
 
 ## Speed
 

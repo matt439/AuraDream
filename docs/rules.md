@@ -132,8 +132,9 @@ before changing it.
   move: the quantization config, the Nunchaku preflight and the
   prequantized refusal, the components left out of the download, the
   device placement, and the guard that keeps the adapter fit's meta-device
-  build apart from a load (`weights_loading`, `empty_weights`); takes
-  `settings` as a parameter
+  build apart from a load (`weights_loading`, `empty_weights`), and the
+  release of a quantizing load's bf16 files (`checkpoint_files_released`,
+  `own_tensors`); takes `settings` as a parameter
 - `backend/backends/single_file.py` — pinned, CPU-only first-load conversion
   for Illustrious XL v2.0-STABLE, WAI v17 and RouWei 0.8 epsilon; atomic cached
   trees feed the normal loader; `sweep_work`, which every converter calls first under its
@@ -478,6 +479,16 @@ Model and loader:
   `TorchAoConfig` per component from the library that owns it, each built from
   a torchao `AOBaseConfig` *instance*. The `quant_backend="torchao"` shorthand
   raises on a transformers text encoder.
+- A quantizing `from_pretrained` runs inside
+  `loading.checkpoint_files_released`: the tensors the load leaves
+  unquantized are copied out of their safetensors shard (per shard for a
+  diffusers model, per component for a transformers one), or each one keeps
+  its whole bf16 shard mapped beside the quantized copy - about 46 GiB at
+  FLUX.1's second transformer shard (`GEN#22`). A bf16 load keeps its
+  mapping. `tests/test_quantized_load_ram.py` loads a sharded two-library
+  pipeline and reads `/proc/self/maps`; it also asserts that an unreleased
+  load still keeps its files, so a library that stops holding them is
+  noticed.
 - `torch.no_grad()`, never `torch.inference_mode()`, around the pipeline call:
   model offload moves components inside `forward()` and torchao's tensor
   subclasses trip torch 2.13's storage-aliasing guard under inference_mode
