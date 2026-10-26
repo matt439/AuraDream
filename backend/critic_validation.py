@@ -8,7 +8,7 @@ from collections.abc import Mapping
 from typing import Any, Literal
 
 from . import critic_context, critic_reorder, critic_runtime
-from .prompt_order import order_checked, scene_ahead
+from .prompt_order import order_checked, reorder_problem, scene_ahead
 from .prompt_rules import order_finding
 from .prompt_text import QUOTED, _WORD_NOT_CJK, _capitalised, _is_prose, _norm, rendered_targets
 from .schemas import CritiqueIssue, PromptCritique, PromptFinding
@@ -1032,6 +1032,10 @@ def validate(
                 f"The critic's reordered version was left out: it {verb} <{scene}> ahead of a "
                 "character block, against the documented order."
             )
+        elif moved is not None and (problem := reorder_problem(
+            context.sources.model_id, prompt, moved, context.categories
+        )):
+            set_aside.append(problem)
         elif moved is None or not context.order_checked:
             reordered = moved
             kind = None if moved is None else "unchecked"

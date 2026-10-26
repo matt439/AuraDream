@@ -490,6 +490,14 @@ textarea:focus, input:where(:not([type="checkbox"], [type="radio"])):focus { out
   cursor: grab; user-select: none;
 }
 .tag-check-label { display: inline-flex; align-items: center; gap: var(--sp-1); }
+/* A mixed prompt's prose stays ordinary selectable text. Its internal
+   commas are the original prompt's, rather than chip separators. */
+.prompt-prose {
+  align-self: center; min-width: 0; max-width: 100%;
+  color: var(--text); font-size: var(--fs-label); line-height: var(--lh);
+  white-space: pre-wrap; overflow-wrap: anywhere; user-select: text; cursor: text;
+}
+.prompt-prose .prose-past-cut { color: var(--muted); text-decoration: underline dotted var(--warn); text-underline-offset: 3px; }
 .tag-check.valid { border-color: #31985a; color: #f2f4f7; background: #17191c; }
 .tag-check.valid .tag-check-mark { color: #63e894; font-weight: 700; }
 .tag-check.unknown { border-color: var(--danger); color: #ffe1e6; background: #211619; }

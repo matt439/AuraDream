@@ -183,6 +183,9 @@ class PromptAnalysis(BaseModel):
     # - and the page then says "Partly checked"; None otherwise, a lone item
     # and one whose every slot gives the same answer included.
     order_detail: str | None = None
+    # A candidate order can be withheld when comma-separated fragments form
+    # one prose passage that must not be split by the move.
+    reordered_detail: str | None = None
     # The categories themselves, as the rules placed the items with them,
     # for the critic to hold a reorder of its own to the same placement.
     # Never sent: the page has the chips' own lookup for what a tag is.
@@ -377,10 +380,27 @@ class TagSlot(BaseModel):
     slot: str | None = None
 
 
+class PromptPart(BaseModel):
+    """A contextual tag or prose passage beside strict dictionary verdicts.
+
+    ``first``/``last`` are inclusive original comma-item indexes. ``start``
+    and ``end`` slice the exact raw prompt in JavaScript UTF-16 code units.
+    """
+
+    kind: Literal["tag", "prose"]
+    first: int
+    last: int
+    start: int
+    end: int
+
+
 class TagValidationResponse(BaseModel):
     available: bool
     results: list[TagValidationItem] = Field(default_factory=list)
     detail: str | None = None
+    # Whole matching prompt context, on explicitly hybrid guides only.
+    # Lexical results above remain strict and independently cacheable.
+    parts: list[PromptPart] | None = None
     # With a `prompt` in the request, and only where the rules place its items
     # (`prompt_rules.order_slots`; a lone item too): the documented order's steps and
     # every comma item of the prompt - past the lookup's 64 too, where a guide

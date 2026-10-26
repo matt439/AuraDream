@@ -26,6 +26,9 @@ let tagVerdicts = { model: null, results: new Map() };
 // that will not come. The page places nothing itself: the order is the
 // guide's, per checkpoint.
 let tagSlots = null;
+// Contextual presentation is not a tag verdict: the same words may be prose
+// in one prompt and a tag in another. Keep it only for this exact raw text.
+let tagPromptLayout = null;
 // The chip focus belongs to while it is in the tray - a number, or 'add' for
 // the + tag button - which every rebuild of the tray puts back: a move, a
 // delete and a validation landing each rebuild it, and focus fell to <body>
@@ -198,22 +201,103 @@ function discardPromptNote() {
 
 // ------------------------------------------------------------ prompt tag helper
 
-function promptTagParts() {
-  return els.prompt.value.split(',').map((part) => part.trim()).filter(Boolean);
+function promptTagParts(text = els.prompt.value) {
+  return text.split(',').map((part) => part.trim()).filter(Boolean);
 }
 
 // Where each of promptTagParts() sits in the box, index for index: [start, end)
 // of the trimmed item.
-function promptTagSpans() {
+function promptTagSpans(text = els.prompt.value) {
   const spans = [];
   let from = 0;
-  for (const part of els.prompt.value.split(',')) {
+  for (const part of text.split(',')) {
     const body = part.trim();
     const start = from + part.length - part.trimStart().length;
     if (body) spans.push({ start, end: start + body.length });
     from += part.length + 1;
   }
   return spans;
+}
+
+function keepPromptParts(parts, prompt, model = loadedModel) {
+  const spans = promptTagSpans(prompt);
+  let next = 0;
+  const valid = Array.isArray(parts) && parts.every((part) => {
+    const fits = ['tag', 'prose'].includes(part.kind) && part.first === next
+      && Number.isInteger(part.last) && part.last >= part.first
+      && part.start === spans[part.first]?.start && part.end === spans[part.last]?.end;
+    next = part.last + 1;
+    return fits;
+  }) && next === spans.length;
+  tagPromptLayout = valid ? { model, prompt, parts: parts.map((part) => ({ ...part })) } : null;
+}
+
+function currentPromptParts() {
+  return tagHelper?.hybrid_prompt && tagPromptLayout?.model === loadedModel
+    && tagPromptLayout.prompt === els.prompt.value ? tagPromptLayout.parts : null;
+}
+
+// Until the server classifies changed mixed text, show the raw text. A cached
+// dictionary miss must never briefly turn a sentence back into red tag tools.
+function promptDisplayParts(results) {
+  const current = currentPromptParts();
+  if (current) return current;
+  const spans = promptTagSpans();
+  if (tagHelper?.hybrid_prompt && spans.length === results.length && spans.length) {
+    const parts = [];
+    for (const [index, result] of results.entries()) {
+      const variable = result.code === 'grid_variable' || isGridVariable(result.tag);
+      const previous = parts.at(-1);
+      if (!variable && previous?.kind === 'prose') {
+        previous.last = index;
+        previous.end = spans[index].end;
+      } else parts.push({ kind: variable ? 'tag' : 'prose', first: index, last: index,
+        start: spans[index].start, end: spans[index].end });
+    }
+    return parts;
+  }
+  return results.map((_, index) => ({ kind: 'tag', first: index, last: index,
+    start: spans[index]?.start, end: spans[index]?.end }));
+}
+
+function promptProseAt(index) {
+  return promptDisplayParts(lastTagValidationResults)
+    .find((part) => part.kind === 'prose' && index >= part.first && index <= part.last);
+}
+
+// Editing units keep internal commas and spacing in prose intact. Chip tools
+// act on whole units, retaining their original comma indexes at the boundary.
+function promptEditingUnits() {
+  const raw = els.prompt.value;
+  const parts = promptTagParts();
+  return promptDisplayParts(parts.map((tag) => ({ tag }))).map((part) => ({
+    ...part, text: part.kind === 'prose' ? raw.slice(part.start, part.end) : parts[part.first],
+  }));
+}
+
+function promptUnitInsertion(index, units = promptEditingUnits()) {
+  const at = units.findIndex((unit) => index <= unit.last);
+  if (at < 0) return units.length;
+  return index <= units[at].first ? at : at + 1;
+}
+
+function writePromptUnits(units, { focus = null, caret = null } = {}) {
+  const text = units.map((unit) => unit.text).join(', ');
+  let first = 0, start = 0;
+  const parts = units.map((unit) => {
+    const count = promptTagParts(unit.text).length;
+    const part = { kind: unit.kind, first, last: first + count - 1, start, end: start + unit.text.length };
+    first += count;
+    start += unit.text.length + 2;
+    return part;
+  });
+  let focused = focus;
+  if (focused !== null && units[focused]?.kind !== 'tag') {
+    focused = units.map((unit, index) => ({ unit, index }))
+      .filter(({ unit }) => unit.kind === 'tag')
+      .sort((a, b) => Math.abs(a.index - focus) - Math.abs(b.index - focus))[0]?.index ?? null;
+  }
+  writePromptTags(text, caret, focused === null ? null : parts[focused].first, parts);
 }
 
 // The index of the comma item the caret is in, or null in an empty one - the
@@ -359,14 +443,30 @@ async function requestTagSuggestions() {
     hideTagSuggestions();
     return;
   }
-  const { query } = currentTagRange();
+  const at = caretTagIndex();
+  if (currentPromptParts()?.some((part) => part.kind === 'prose' && at >= part.first && at <= part.last)) {
+    hideTagSuggestions();
+    return;
+  }
+  const range = currentTagRange();
+  const { query } = range;
+  const prompt = els.prompt.value;
+  const model = loadedModel;
   if (!query) {
     hideTagSuggestions();
     return;
   }
   try {
     const body = await api(`/api/tags/suggest?q=${encodeURIComponent(query)}`);
-    if (epoch !== tagSuggestionEpoch) return;
+    if (epoch !== tagSuggestionEpoch || model !== loadedModel || prompt !== els.prompt.value
+      || document.activeElement !== els.prompt) return;
+    const current = currentTagRange();
+    if (current.start !== range.start || current.end !== range.end || current.query !== query) return;
+    const caret = caretTagIndex();
+    if (currentPromptParts()?.some((part) => part.kind === 'prose' && caret >= part.first && caret <= part.last)) {
+      hideTagSuggestions();
+      return;
+    }
     renderTagSuggestions(body.suggestions || [], query);
   } catch {
     if (epoch === tagSuggestionEpoch) hideTagSuggestions();
@@ -382,28 +482,33 @@ function scheduleTagSuggestions(delay = 160) {
 // after a delete, the moved one after a move or a drop, the edited or
 // inserted one after an edit.
 function deletePromptTag(index) {
-  const tags = promptTagParts();
-  if (index < 0 || index >= tags.length) return;
-  tags.splice(index, 1);
-  writePromptTags(tags, null, Math.min(index, tags.length - 1));
+  const tags = promptEditingUnits();
+  const at = tags.findIndex((part) => part.first === index && part.kind === 'tag');
+  if (at < 0) return;
+  tags.splice(at, 1);
+  writePromptUnits(tags, { focus: Math.min(at, tags.length - 1) });
 }
 
 function movePromptTag(from, to) {
-  const tags = promptTagParts();
-  if (from < 0 || from >= tags.length || to < 0 || to >= tags.length || from === to) return;
-  const [tag] = tags.splice(from, 1);
-  tags.splice(to, 0, tag);
-  writePromptTags(tags, null, to);
+  const tags = promptEditingUnits();
+  const at = tags.findIndex((part) => part.first === from && part.kind === 'tag');
+  const target = tags.findIndex((part) => to >= part.first && to <= part.last);
+  if (at < 0 || target < 0 || at === target) return;
+  const [tag] = tags.splice(at, 1);
+  tags.splice(target, 0, tag);
+  writePromptUnits(tags, { focus: target });
 }
 
 function dropPromptTag(from, insertion) {
-  const tags = promptTagParts();
-  if (from < 0 || from >= tags.length) return;
-  const [tag] = tags.splice(from, 1);
-  const target = Math.max(0, Math.min(tags.length, insertion > from ? insertion - 1 : insertion));
-  if (target === from) return;
+  const tags = promptEditingUnits();
+  const at = tags.findIndex((part) => part.first === from && part.kind === 'tag');
+  if (at < 0) return;
+  const boundary = promptUnitInsertion(insertion, tags);
+  const target = boundary > at ? boundary - 1 : boundary;
+  if (target === at) return;
+  const [tag] = tags.splice(at, 1);
   tags.splice(target, 0, tag);
-  writePromptTags(tags, null, target);
+  writePromptUnits(tags, { focus: target });
 }
 
 function clearTagDropMarkers() {
@@ -418,6 +523,7 @@ function clearTagDropMarkers() {
 function markTagGap(x, y) {
   clearTagDropMarkers();
   const chips = els.tagValidation.querySelectorAll('.tag-check');
+  if (!chips.length) return;
   const index = tagInsertionIndexAtPoint(x, y, { gap: true });
   if (index === null) return;
   const before = els.tagValidation.querySelector(`.tag-check[data-index="${index}"]`);
@@ -450,20 +556,20 @@ function closeTagEditor() {
 function commitTagEdit(text) {
   const tag = text.trim();
   if (!tag || tag.includes(',')) return;
-  const tags = promptTagParts();
+  const tags = promptEditingUnits();
   let at;
   if (tagEditAt !== null) {
-    if (tagEditAt >= tags.length) return;
-    if (tags[tagEditAt] === tag) { closeTagEditor(); return; }
-    tags[tagEditAt] = tag;
-    at = tagEditAt;
+    at = tags.findIndex((part) => part.first === tagEditAt && part.kind === 'tag');
+    if (at < 0) return;
+    if (tags[at].text === tag) { closeTagEditor(); return; }
+    tags[at] = { kind: 'tag', text: tag };
   } else if (tagInsertAt !== null) {
-    at = Math.min(tagInsertAt, tags.length);
-    tags.splice(at, 0, tag);
+    at = promptUnitInsertion(tagInsertAt, tags);
+    tags.splice(at, 0, { kind: 'tag', text: tag });
   } else {
     return;
   }
-  writePromptTags(tags, null, at);
+  writePromptUnits(tags, { focus: at });
 }
 
 function selectEditorSuggestion(menu, index) {
@@ -547,13 +653,16 @@ function scheduleEditorSuggestions(input, menu, options = {}) {
   clearTimeout(tagEditorSuggestionTimer);
   const epoch = ++tagEditorSuggestionEpoch;
   const query = (options.query ?? input.value).trim();
+  const value = input.value;
+  const model = loadedModel;
   if (options.keep && query && !menu.hidden) deselectEditorSuggestions(menu);
   else renderEditorSuggestions(input, menu, [], options);
   if (!query) return;
   tagEditorSuggestionTimer = setTimeout(async () => {
     try {
       const body = await api(`/api/tags/suggest?q=${encodeURIComponent(query)}`);
-      if (epoch !== tagEditorSuggestionEpoch || !input.isConnected) return;
+      if (epoch !== tagEditorSuggestionEpoch || !input.isConnected || input.value !== value
+        || model !== loadedModel || (options.current && !options.current())) return;
       renderEditorSuggestions(input, menu, body.suggestions || [], options);
     } catch {
       if (epoch === tagEditorSuggestionEpoch) renderEditorSuggestions(input, menu, [], options);
@@ -633,7 +742,8 @@ function buildTagEditor(initial = null) {
 function openTagInsert(index) {
   clearTimeout(tagValidationTimer);
   tagValidationEpoch += 1;
-  tagInsertAt = index;
+  const units = promptEditingUnits();
+  tagInsertAt = units[promptUnitInsertion(index, units)]?.first ?? promptTagParts().length;
   tagEditAt = null;
   renderTagValidation(
     lastTagValidationResults, lastTagValidationState, lastTagValidationDetail,
@@ -641,6 +751,7 @@ function openTagInsert(index) {
 }
 
 function openTagEdit(index) {
+  if (promptProseAt(index)) return;
   clearTimeout(tagValidationTimer);
   tagValidationEpoch += 1;
   tagInsertAt = null;

@@ -3937,6 +3937,20 @@ meaning of run.
 
 ## The browser's queue
 
+**An accepted job still owes its outcome (2026-10-26, `GEN#25`).** An actual
+browser review queued a successful image and an immediately failing image
+behind a paused job. Both finished before the next active-job listing; the
+page kept the successful job's finish line and lost the failure and its
+recovery action. The queue now retains this tab's accepted, unseen request
+receipts through resync. When an active listing misses one, bounded server
+history finds its terminal snapshot and the existing stream/finish path
+shows its outcome once, in receipt order. A transient history failure is
+retried by idle polling. Ownership remembered after reload is not a replay
+list, and another tab's finished work or an explicitly cancelled queue row
+does not take the viewer. Missing server history is not reconstructed.
+The isolated browser regression covers these transitions; no real GPU or
+device behavior is established by the fake.
+
 The [queue controls plan](plan-queue-controls.md) implements `GEN#18`.
 The manager now owns an explicit admission list, rather than relying on the
 gate lock's waiter order. Move to front puts queued work next without
@@ -7526,6 +7540,16 @@ button (`aria-labelledby`); and the chips' spoken summary counts with `plural`
 
 ## The settings panel's sticky top
 
+**An unfinished number is not an intentional blank (2026-10-26, `GEN#24`).**
+In the actual-browser review, typing `1e` into Steps left that text visible
+but the native number input exposed an empty DOM value. Generate silently
+used Kohaku's default 28 steps. Submission now checks native `badInput`, names
+the unfinished field and focuses it before any POST. Deliberately empty
+Steps/CFG still use profile defaults, and an empty Seed remains random.
+Run grid and comparison check only applicable controls; saved reruns and
+More seeds keep using their own saved settings. Real typing in the isolated
+browser smoke checks the native state, keyboard paths and axis overrides.
+
 The settings panel is `position: sticky`, and its top is kept by
 `web/panel.js` (`panelPos`) and written inline over the stylesheet's
 `--sticky-top`. While the whole panel fits the window it rests under the
@@ -8394,7 +8418,10 @@ without asking it, reachable or not (`tag_lookup.lookup_tags`,
 `tags.unchecked_results`), and only a blank item or one past 4000 characters
 is refused (`TagValidationRequest`). Every item had been bounded at 200, so
 one 213-character sentence on Kohaku refused the whole request (a 422), and
-the tray read "Danbooru unreachable" (2026-10-05). A grid placeholder
+the tray read "Danbooru unreachable" (2026-10-05). These remain the raw
+dictionary answers; the contextual hybrid presentation built on 2026-10-26
+(under Kohaku below) can display that sentence as prose without changing
+its lexical verdict. A grid placeholder
 whole, `{hair}` (`prompt_text.GRID_VARIABLE`, grid.PLACEHOLDER's shape), is
 neither: answered with no verdict and `code` grid_variable
 (`tags.grid_variable_result`), never asked about, reachable or not, and drawn
@@ -9108,12 +9135,53 @@ repository is mapped to this entry.
 `KOHAKU_GUIDE` uses Zeta's documented tag vocabulary and the Epsilon-rev2
 caption order that Zeta refers to. The general-tag slot can hold prose or a
 mixture of prose and tags. `hybrid_prompt` preserves spellcheck and avoids
-validating a single sentence as one unknown Danbooru tag. The shared tag
+displaying a sentence as one unknown Danbooru tag; mixed text now keeps its
+prose passages too, as the implementation record below explains. The shared tag
 service uses the model's 2024-07-10 Danbooru cutoff; no frontend checkpoint
 branch is required. Quality and date choices are exclusive. Rating choices
 remain individual toggles because the author's explicit-rating caption
 contains both `nsfw` and `explicit`. There is no fixed suffix or recommended
 negative-prompt button: the Zeta card supplies neither recipe.
+
+**Mixed prose keeps its commas (built 2026-10-26).** Matt reported that
+`1boy, masterpiece, a man wearing a red, old hat` turned both `a man wearing
+a red` and `old hat` into red, draggable tags. The old hybrid exception
+suppressed validation only when there was no comma. Checking sentence
+grammar on each fragment could not repair it: `old hat` has no grammar
+that says whether it is a tag or the continuation of the preceding prose.
+
+The server now supplies contextual `parts` beside its unchanged strict
+dictionary `results` (`prompt_parts.py`, `chip_verdicts`). An explicitly
+hybrid helper and the matching whole prompt enable it. An absent
+prose-shaped fragment anchors adjacent absent fragments as one passage,
+bounded by known/model tags, concrete dictionary problems, explicit artist
+prefixes and grid variables. Quoted lettering remains text. A long tag
+list can still contain one prose passage; the whole prompt's majority
+style is not the gate. In the reported example the first two items are
+tag parts and `a man wearing a red, old hat` is one prose part. This is a
+contextual reading for the editor, not a claim that absence from Danbooru
+makes text grammatically prose or proves what the model learned.
+
+Parts retain original comma-item indexes and UTF-16 offsets into the exact
+raw prompt, so the page preserves internal commas, whitespace and astral
+characters. They are cached only for that prompt and checkpoint, separate
+from lexical verdicts: the same fragment queried without prompt context
+still receives the same strict answer. Tag-only profiles and pure tag
+lists keep their chips and errors. Unchecked ambiguous fragments past the
+64-item cap or during an outage do not become evidence of absence; definite
+sentences and quotations can still be text without that lookup.
+
+The tray renders prose as selectable text with no tag tools, order caption
+or unknown count. Pure prose stays in the prompt box with its token readout.
+Tag edits move around whole prose passages and keep Ctrl+Z; delayed
+suggestion replies cannot reopen over a classified prose caret. Refine uses
+the same raw prompt context to omit prose from its advisory unknown-tag
+line. Check and the critic refuse only reordered candidates that would
+split a comma-containing passage, explaining the app's precaution rather
+than offering an unsafe Apply or claiming an additional author rule.
+`tests/test_prompt_parts.py` and the actual-browser
+`smoke-mixed-prompts.json` passed against CPU fixtures and an isolated fake
+server. They establish editor and API behavior, not model output quality.
 
 The author's size recommendation is 1024x1024 or a comparable area, so the
 guide publishes one recommended area in MP and lets the common tolerance

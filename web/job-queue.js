@@ -206,6 +206,12 @@ async function watchNext() {
   if (jobId) await jobStreams.get(jobId);
 }
 
+// Only an accepted request still held by this page can owe an outcome.
+// ownJobs survives reloads and includes old jobs; it is not a replay list.
+function unwatchedSubmission(jobId) {
+  return submissions.has(jobId) && !watchedJobs.has(jobId) && !cancelledHere.has(jobId);
+}
+
 // A page between jobs asks the server which to watch: the one holding the
 // GPU, not the newest - with two live jobs the newest is the queued one, and
 // attaching to it made Cancel stop the wrong job while the running grid kept
@@ -224,8 +230,31 @@ function adoptListedJob(text) {
       let active;
       try { active = await api('/api/jobs'); } catch { return undefined; }
       if (busy) return null;
-      if (!active.length) { setQueue([]); return null; }
-      const job = active.find((j) => j.status === 'running') ?? active[0];
+      // A short job can end between the previous stream and this listing.
+      // Read the bounded server history only for accepted, unseen receipts
+      // missing from the active list. Replay one at a time, in receipt order,
+      // through the ordinary stream/finish path (including recovery tools).
+      const pending = [...submissions.keys()].filter(unwatchedSubmission);
+      let finished = null;
+      if (pending.some((id) => !active.some((job) => job.job_id === id))) {
+        let listed;
+        try { listed = await api('/api/jobs?include_finished=true'); } catch { /* retry on the next poll */ }
+        if (busy) return null;
+        if (listed) {
+          const byId = new Map(listed.map((job) => [job.job_id, job]));
+          active = listed.filter((job) => ['queued', 'running'].includes(job.status));
+          for (const id of pending) {
+            if (!unwatchedSubmission(id)) continue;
+            const job = byId.get(id);
+            // Explicitly cancelled rows have been forgotten. A receipt the
+            // server lost to a restart/retention cannot be streamed either.
+            if (!job) { forgetJob(id); continue; }
+            if (!finished && ['done', 'error', 'cancelled'].includes(job.status)) finished = job;
+          }
+        }
+      }
+      if (!finished && !active.length) { setQueue([]); return null; }
+      const job = finished ?? active.find((j) => j.status === 'running') ?? active[0];
       learnJobs(active);
       setQueue(active.filter((j) => j.job_id !== job.job_id).map((j) => j.job_id));
       setBusy(true);
@@ -266,6 +295,8 @@ function followServerJobs(ids, asked) {
   // Between jobs the listing that picks the next one decides, and a POST
   // out is this page's own job on its way.
   if (jobListing || submitting) return;
+  // A transient listing failure must not strand an accepted receipt at idle.
+  if ([...submissions.keys()].some(unwatchedSubmission)) { void watchNext(); return; }
   setElsewhereBusy(ids.some((id) => !watchedJobs.has(id) && !submissions.has(id)));
 }
 
@@ -433,7 +464,7 @@ async function resyncQueue(ids, asked) {
   }
   // Under a resting pointer it waits, asked again as it leaves (queuePointer).
   if (queuePointer) { queueWaiting = { ids, asked }; return; }
-  for (const id of queuedIds) if (!next.includes(id)) forgetJob(id);
+  for (const id of queuedIds) if (!next.includes(id) && !unwatchedSubmission(id)) forgetJob(id);
   setQueue(next);
 }
 

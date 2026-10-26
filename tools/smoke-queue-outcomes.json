@@ -1,0 +1,203 @@
+[
+  {
+    "log": "'Accepted jobs that finish before queue handoff retain their own outcomes: fresh FLUX fake on 7922, no model or GPU work.'"
+  },
+  {
+    "navigate": "http://127.0.0.1:7922/"
+  },
+  {
+    "eval": "window.__until = async (fn, ms=20000) => { const end=Date.now()+ms; while(Date.now()<end) { if(fn()) return true; await new Promise(r=>setTimeout(r,40)); } return false; }; window.__post = (path, body) => fetch(path,{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify(body)}).then(r=>r.json()); window.__ended = async id => { const end=Date.now()+20000; while(Date.now()<end) { const j=await (await fetch('/api/jobs/'+id)).json(); if(['done','error','cancelled'].includes(j.status)) return j; await new Promise(r=>setTimeout(r,40)); } throw Error('job did not finish: '+id); }; window.__originalApi=api; window.__holdList=false; window.__listingHeld=false; window.__holdHistory=false; window.__historyHeld=false; api=async (path,opts) => { if(path==='/api/jobs' && __holdList) { __holdList=false; __listingHeld=true; await new Promise(r=>window.__releaseList=r); } if(path==='/api/jobs?include_finished=true' && __holdHistory) { __holdHistory=false; const answer=await __originalApi(path,opts); __historyHeld=true; await new Promise(r=>window.__releaseHistory=r); return answer; } return __originalApi(path,opts); }; window.__finishes=[]; window.__finish=finishJob; finishJob=(id,data,options) => { __finishes.push({id,status:data.status,count:data.image_count,error:data.error,submitted:!!options.submitted,foreign:options.foreign}); return __finish(id,data,options); }; window.__opens=new Map(); window.__ES=window.EventSource; window.EventSource=class extends __ES { constructor(url,opts) { super(url,opts); const id=String(url).split('/')[3]; __opens.set(id,(__opens.get(id)||0)+1); } };"
+  },
+  {
+    "expect": "__until(() => modelState==='ready' && !jobListing && !galleryPending)"
+  },
+  {
+    "eval": "(async()=>{ resetPanel(); showError(''); await __post('/api/fake/step',{seconds:0.15}); void startJob('/api/generate',{prompt:'settlement A paused',width:256,height:256,steps:8,runs:2,seed:5100}); })()"
+  },
+  {
+    "expect": "__until(() => busy && currentJob && skipSnapshot?.current_call!=null)"
+  },
+  {
+    "eval": "window.__a=currentJob; els.pause.click();"
+  },
+  {
+    "expect": "__until(() => els.pause.textContent==='Resume')"
+  },
+  {
+    "log": "'Queue normal B, instant-failing C, a row cancelled here, and a foreign success while A is paused.'"
+  },
+  {
+    "eval": "(async()=>{ await startJob('/api/generate',{prompt:'settlement B success',width:256,height:256,steps:1,seed:5200}); window.__b=queuedIds.find(id=>submissions.get(id)?.payload.prompt==='settlement B success'); await startJob('/api/generate',{prompt:'a lighthouse [fail]',width:256,height:256,steps:2,seed:5300}); window.__c=queuedIds.find(id=>submissions.get(id)?.payload.prompt==='a lighthouse [fail]'); await startJob('/api/generate',{prompt:'settlement cancelled here',width:256,height:256,steps:1,seed:5400}); window.__cancelled=queuedIds.find(id=>submissions.get(id)?.payload.prompt==='settlement cancelled here'); await cancelQueuedJob(__cancelled); window.__foreign=await __post('/api/generate',{prompt:'settlement foreign success',width:256,height:256,steps:1,seed:5500}); await __post('/api/fake/step',{seconds:0}); __holdList=true; els.pause.click(); })()"
+  },
+  {
+    "expect": "__until(() => __listingHeld && !busy && !!jobListing)"
+  },
+  {
+    "eval": "(async()=>{ window.__bDone=await __ended(__b); window.__cDone=await __ended(__c); await __ended(__foreign.job_id); })()"
+  },
+  {
+    "expect": "__bDone.status==='done' && __bDone.image_count===1 && __cDone.status==='done' && __cDone.image_count===0 && __cDone.error.includes('failed') && !watchedJobs.has(__b) && !watchedJobs.has(__c) && submissions.has(__b) && submissions.has(__c)"
+  },
+  {
+    "eval": "__releaseList();"
+  },
+  {
+    "expect": "__until(() => !busy && !jobListing && !submissions.has(__b) && !submissions.has(__c))"
+  },
+  {
+    "expect": "__finishes.map(j=>j.id).join() === [__a,__b,__c].join() && __finishes.every(j=>j.submitted && !j.foreign) && [__a,__b,__c].every(id=>__opens.get(id)===1) && !__opens.has(__cancelled) && !__opens.has(__foreign.job_id)"
+  },
+  {
+    "expect": "els.error.textContent.startsWith('1 of 1 image was skipped:') && els.error.textContent.includes('[fail]') && els.finishNote.querySelector('.finish-run-tool')?.dataset.run===__cDone.run_id && document.title.includes('Nothing made') && viewerRecords.length===1 && viewerRecords[0].job_id===__b && queuedIds.length===0"
+  },
+  {
+    "log": "'Repeated handoff/polls cannot replay watched, historical-owned, foreign, or explicitly cancelled completions.'"
+  },
+  {
+    "eval": "(async()=>{ const before=__finishes.length; await watchNext(); await refreshStatus(); await watchNext(); window.__noReplay=before===__finishes.length; })()"
+  },
+  {
+    "expect": "__noReplay && __opens.get(__c)===1 && !__opens.has(__cancelled) && !__opens.has(__foreign.job_id) && els.error.textContent.startsWith('1 of 1 image was skipped:')"
+  },
+  {
+    "log": "'The skipped image keeps the existing Finish recovery path, which uses the retained failed run rather than the composer.'"
+  },
+  {
+    "expect": "__until(() => els.finishNote.querySelector('.finish-run-tool')?.getAttribute('aria-disabled')==='false')"
+  },
+  {
+    "eval": "window.__failedRun=els.finishNote.querySelector('.finish-run-tool').dataset.run; els.prompt.value='unrelated composer'; els.finishNote.querySelector('.finish-run-tool').click();"
+  },
+  {
+    "expect": "__until(() => !busy && !jobListing && __finishes.length===4)"
+  },
+  {
+    "expect": "__finishes.at(-1).error.includes('failed') && els.error.textContent.includes('[fail]') && els.finishNote.querySelector('.finish-run-tool')?.dataset.run===__failedRun"
+  },
+  {
+    "log": "'Queue resync removes a row cancelled elsewhere but keeps its unseen receipt and ordinary cancellation outcome.'"
+  },
+  {
+    "eval": "(async()=>{ await __post('/api/fake/step',{seconds:0.15}); void startJob('/api/generate',{prompt:'settlement resync holder',width:256,height:256,steps:8,runs:2,seed:5600}); })()"
+  },
+  {
+    "expect": "__until(() => busy && currentJob && skipSnapshot?.current_call!=null)"
+  },
+  {
+    "eval": "window.__resyncA=currentJob; els.pause.click();"
+  },
+  {
+    "expect": "__until(() => els.pause.textContent==='Resume')"
+  },
+  {
+    "eval": "(async()=>{ await startJob('/api/generate',{prompt:'settlement cancelled elsewhere',width:256,height:256,steps:1,seed:5700}); window.__elsewhere=queuedIds.find(id=>submissions.get(id)?.payload.prompt==='settlement cancelled elsewhere'); await __post('/api/jobs/'+__elsewhere+'/cancel',{}); const ids=(await (await fetch('/api/jobs')).json()).map(j=>j.job_id); queuePointer=false; await resyncQueue(ids,Date.now()); })()"
+  },
+  {
+    "expect": "!queuedIds.includes(__elsewhere) && submissions.has(__elsewhere) && !watchedJobs.has(__elsewhere) && !cancelledHere.has(__elsewhere)"
+  },
+  {
+    "eval": "(async()=>{ await __post('/api/fake/step',{seconds:0}); els.pause.click(); })()"
+  },
+  {
+    "expect": "__until(() => !busy && !jobListing && !submissions.has(__elsewhere))"
+  },
+  {
+    "expect": "__opens.get(__elsewhere)===1 && __finishes.at(-1).id===__elsewhere && __finishes.at(-1).status==='cancelled' && els.error.textContent.includes('Cancelled from another tab or window')"
+  },
+  {
+    "log": "'A newer accepted POST answer arriving after a held history snapshot is not discarded by that older snapshot; both rapid own successes settle once in receipt order.'"
+  },
+  {
+    "eval": "(async()=>{ await __post('/api/fake/step',{seconds:0.15}); void startJob('/api/generate',{prompt:'settlement history holder',width:256,height:256,steps:8,runs:2,seed:5800}); })()"
+  },
+  {
+    "expect": "__until(() => busy && currentJob && skipSnapshot?.current_call!=null)"
+  },
+  {
+    "eval": "window.__historyA=currentJob; els.pause.click();"
+  },
+  {
+    "expect": "__until(() => els.pause.textContent==='Resume')"
+  },
+  {
+    "eval": "(async()=>{ await startJob('/api/generate',{prompt:'settlement rapid first',width:256,height:256,steps:1,seed:5900}); window.__rapid1=queuedIds.find(id=>submissions.get(id)?.payload.prompt==='settlement rapid first'); await __post('/api/fake/step',{seconds:0}); __holdList=true; __listingHeld=false; els.pause.click(); })()"
+  },
+  {
+    "expect": "__until(() => __listingHeld && !busy && !!jobListing)"
+  },
+  {
+    "eval": "(async()=>{ await __ended(__rapid1); __holdHistory=true; __releaseList(); })()"
+  },
+  {
+    "expect": "__until(() => __historyHeld && !busy && !!jobListing)"
+  },
+  {
+    "eval": "void startJob('/api/generate',{prompt:'settlement rapid second',width:256,height:256,steps:1,seed:6000},{onAccepted:id=>window.__rapid2=id});"
+  },
+  {
+    "expect": "__until(() => !!window.__rapid2 && !submitting && submissions.has(__rapid2))"
+  },
+  {
+    "eval": "(async()=>{ await __ended(__rapid2); __releaseHistory(); })()"
+  },
+  {
+    "expect": "__until(() => !busy && !jobListing && !submissions.has(__rapid1) && !submissions.has(__rapid2))"
+  },
+  {
+    "expect": "__finishes.slice(-3).map(j=>j.id).join()===[__historyA,__rapid1,__rapid2].join() && __opens.get(__rapid1)===1 && __opens.get(__rapid2)===1 && viewerRecords.length===1 && viewerRecords[0].job_id===__rapid2 && !queuedIds.length && els.error.textContent===''"
+  },
+  {
+    "log": "'Transient history failure leaves the receipt eligible; the idle status poll retries it once.'"
+  },
+  {
+    "eval": "(async()=>{ await __post('/api/fake/step',{seconds:0.15}); void startJob('/api/generate',{prompt:'settlement retry holder',width:256,height:256,steps:8,runs:2,seed:6100}); })()"
+  },
+  {
+    "expect": "__until(() => busy && currentJob && skipSnapshot?.current_call!=null)"
+  },
+  {
+    "eval": "els.pause.click();"
+  },
+  {
+    "expect": "__until(() => els.pause.textContent==='Resume')"
+  },
+  {
+    "eval": "(async()=>{ await startJob('/api/generate',{prompt:'settlement retry result',width:256,height:256,steps:1,seed:6200}); window.__retry=queuedIds.find(id=>submissions.get(id)?.payload.prompt==='settlement retry result'); await __post('/api/fake/step',{seconds:0}); __listingHeld=false; __holdList=true; els.pause.click(); })()"
+  },
+  {
+    "expect": "__until(() => __listingHeld && !busy && !!jobListing)"
+  },
+  {
+    "eval": "(async()=>{ await __ended(__retry); const original=api; window.__historyMisses=0; window.__historyFail=true; api=(path,opts)=>{ if(path==='/api/jobs?include_finished=true' && __historyFail) { __historyMisses++; return Promise.reject(Error('synthetic transient history failure')); } return original(path,opts); }; __releaseList(); })()"
+  },
+  {
+    "expect": "__until(() => __historyMisses>=1 && !busy && !jobListing && submissions.has(__retry))"
+  },
+  {
+    "eval": "__historyFail=false; refreshStatus();"
+  },
+  {
+    "expect": "__until(() => !busy && !jobListing && !submissions.has(__retry) && __opens.get(__retry)===1)"
+  },
+  {
+    "expect": "viewerRecords.length===1 && viewerRecords[0].job_id===__retry && __finishes.at(-1).id===__retry && els.error.textContent===''"
+  },
+  {
+    "log": "'Reload keeps ownership but has no pending receipt: it must not replay completed history into the viewer.'"
+  },
+  {
+    "navigate": "http://127.0.0.1:7922/"
+  },
+  {
+    "eval": "window.__until=async(fn,ms=20000)=>{const end=Date.now()+ms;while(Date.now()<end){if(fn())return true;await new Promise(r=>setTimeout(r,40));}return false;};"
+  },
+  {
+    "expect": "__until(() => modelState==='ready' && !jobListing && !galleryPending)"
+  },
+  {
+    "expect": "!busy && submissions.size===0 && watchedJobs.size===0 && viewerRecords.length===0 && queuedIds.length===0"
+  },
+  {
+    "log": "'Queue outcome settlement smoke complete: synthetic CPU/browser coverage only.'"
+  }
+]

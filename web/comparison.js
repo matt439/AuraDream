@@ -205,6 +205,9 @@ async function previewComparison() {
 function runComparison() {
   const variants = comparedVariants();
   if (!analysisResult || variants.length < 2 || analysisStale) return undefined;
+  // The comparison supplies its own Batch and Seeds, and ignores Repeat,
+  // the panel's grid Seeds and its Budget.
+  if (refuseBadNumber(panelNumberInputs({ batch: false, runs: false }))) return undefined;
   const unfilled = compareUnfilled(variants);
   if (unfilled) { showError(unfilled); return undefined; }
   return startJob('/api/grid', comparePayload(variants), { sheet: true, panel: false });

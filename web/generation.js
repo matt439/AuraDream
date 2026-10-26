@@ -4,6 +4,32 @@
 
 // --------------------------------------------------------------- generation
 
+// Native number boxes keep unfinished text such as "1e" on screen while
+// exposing an empty value. That is different from intentionally clearing a
+// box for a profile default or a random seed. Check only at submission, and
+// only the controls that submission reads; stored reruns have their own data.
+function panelNumberInputs({ batch = true, runs = true } = {}) {
+  return [
+    [els.width, 'Width'], [els.height, 'Height'], [els.steps, 'Steps'],
+    [els.cfg, 'CFG'], [els.mu, 'Mu'], [els.trueCfg, 'True CFG'],
+    [els.seed, 'Seed'], [els.loraScale, 'LoRA weight'],
+    ...(batch ? [[els.batch, 'Batch']] : []),
+    ...(runs ? [[els.runs, 'Repeat']] : []),
+  ];
+}
+
+function refuseBadNumber(inputs) {
+  // A held button still explains its existing hold in startJob. Its title
+  // must not promise one reason while the press reports a different one.
+  if (submitting || submitHold()) return false;
+  const bad = inputs.find(([el]) => !el.disabled && el.validity.badInput);
+  if (!bad) return false;
+  const [el, name] = bad;
+  showError(`${name} has an incomplete number. Finish typing it before running.`);
+  el.focus({ preventScroll: true });
+  return true;
+}
+
 function collect() {
   const seed = els.seed.value.trim();
   // An empty box is "not given", which the server fills from the checkpoint's
@@ -511,6 +537,7 @@ async function dropRefusedLora(err, path, payload, slot) {
 // Run grid's press. The same pattern as grid.PLACEHOLDER.
 const GRID_PLACEHOLDER = /\{[A-Za-z_]\w*\}/;
 function generate() {
+  if (refuseBadNumber(panelNumberInputs())) return undefined;
   const body = collect();
   if (els.gridSection.open && els.gridPrompt.value.trim()
       && GRID_PLACEHOLDER.test(`${body.prompt}\n${body.negative_prompt ?? ''}`)) {

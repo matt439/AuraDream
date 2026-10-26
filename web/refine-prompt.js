@@ -2,6 +2,15 @@
 // Declarations only; state.js has the shared-global load-order contract.
 'use strict';
 
+let refineTagLayout = null;
+
+function refineProseAtCaret() {
+  if (!tagHelper?.hybrid_prompt || refineTagLayout?.model !== loadedModel
+    || refineTagLayout.prompt !== els.refinePrompt.value) return false;
+  const caret = els.refinePrompt.selectionStart ?? els.refinePrompt.value.length;
+  return refineTagLayout.parts?.some((part) => part.kind === 'prose' && caret >= part.start && caret <= part.end) ?? false;
+}
+
 // ------------------------------------------------- the pass's own prompt
 
 // The Prompt box grows with what it holds, to two fifths of the window:
@@ -318,18 +327,26 @@ function copyRefineFromPanel() {
 // that stays in the item it lists asks nothing: before, the list blinked
 // shut on every key and on a click in the box.
 function suggestRefineTags(event) {
-  if (!refineSource || !tagVocabularyEnabled || document.activeElement !== els.refinePrompt) {
+  if (!refineSource || !tagVocabularyEnabled || document.activeElement !== els.refinePrompt || refineProseAtCaret()) {
     hideRefineSuggestions();
     return;
   }
   const menu = els.refineTagSuggestions;
-  const { query } = currentTagRange(els.refinePrompt);
+  const range = currentTagRange(els.refinePrompt);
+  const { query } = range;
+  const prompt = els.refinePrompt.value;
+  const model = loadedModel;
+  const source = refineSource;
   if (event?.type !== 'input' && !menu.hidden && menu._query === query) return;
   scheduleEditorSuggestions(els.refinePrompt, menu, {
     query,
     pick: applyRefineSuggestion,
     place: placeRefineSuggestions,
     keep: true,
+    current: () => refineSource === source && els.refineDialog.open && loadedModel === model
+      && document.activeElement === els.refinePrompt && els.refinePrompt.value === prompt
+      && currentTagRange(els.refinePrompt).start === range.start
+      && currentTagRange(els.refinePrompt).end === range.end && !refineProseAtCaret(),
   });
 }
 
@@ -396,15 +413,15 @@ function refinePromptCaret(event) {
 // A tag checkpoint's unknown comma items, as the panel's chips mark them but
 // as one line: "Not a known tag: smlie". Advisory - the pass still runs - and
 // silent when the lookup is unavailable or fails, as the chips never call an
-// unchecked tag unknown. Not on a hybrid checkpoint's single sentence.
+// unchecked tag unknown. Contextual prose is never a tag warning.
 function scheduleRefineTags(delay = 400) {
   clearTimeout(refineTagTimer);
   const epoch = ++refineTagEpoch;
   const text = els.refinePrompt.value;
-  // Each tag once: a repeated unknown one took the line's dozen names.
-  const tags = [...new Set(text.split(',').map((part) => part.trim()).filter(Boolean))].slice(0, 64);
-  const sentence = tagHelper?.hybrid_prompt && !text.includes(',');
-  if (!refineSource || !tagVocabularyEnabled || sentence || !tags.length) {
+  const model = loadedModel;
+  const tags = promptTagParts(text).slice(0, TAG_LOOKUP_CAP);
+  if (!refineSource || !tagVocabularyEnabled || !tags.length) {
+    refineTagLayout = null;
     els.refineTags.hidden = true;
     return;
   }
@@ -414,9 +431,13 @@ function scheduleRefineTags(delay = 400) {
       const body = await api('/api/tags/validate', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ tags }),
+        body: JSON.stringify({ tags, prompt: text }),
       });
-      if (body.available) unknown = body.results.filter((r) => r.valid === false);
+      if (epoch !== refineTagEpoch || loadedModel !== model || els.refinePrompt.value !== text) return;
+      refineTagLayout = { model, prompt: text, parts: body.parts };
+      if (refineProseAtCaret()) hideRefineSuggestions();
+      if (body.available) unknown = body.results.filter((r, index) => r.valid === false
+        && !body.parts?.some((part) => part.kind === 'prose' && index >= part.first && index <= part.last));
     } catch { /* unchecked is not unknown */ }
     if (epoch !== refineTagEpoch) return;
     // A dozen by name; a prompt the index knows little of is a count after that.

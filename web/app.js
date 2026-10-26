@@ -68,7 +68,7 @@ els.compareOwnFill.onclick = compareOwnFromPrompt;
 els.tagValidation.addEventListener('contextmenu', (event) => {
   // Keep the ordinary text-editing menu inside the inline input. Everywhere
   // else in the validation tray, including the flex gaps, is an insert point.
-  if (event.target.closest('.tag-editor')) return;
+  if (event.target.closest('.tag-editor, .prompt-prose')) return;
   event.preventDefault();
   openTagInsert(tagInsertionIndexAtPoint(event.clientX, event.clientY));
 });
@@ -191,7 +191,7 @@ restoreBeside();
 // before the button is. Hidden - no older rows, or the sheet - it never
 // intersects. `loadGallery` serialises a click racing this.
 if (!moreWatcher) armMore();
-els.gridRun.onclick = () => startJob('/api/grid', gridPayload());
+els.gridRun.onclick = runGrid;
 // The preview reflects the panel as much as the axes: a blank axis is the
 // control's own value, and both the size and the batch move the totals.
 // The negative prompt is in the list because a `{name}` placeholder may live

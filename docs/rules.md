@@ -66,6 +66,9 @@ before changing it.
   control tokens, T5's unknown characters; `measure` adds
   `prompt_weighting`'s findings and re-exports `encoder_table`'s names
 - `backend/prompt_text.py` — shared prompt parsing, prose/tag detection and lettering spans
+- `backend/prompt_parts.py` - contextual tag/prose passages beside unchanged
+  dictionary verdicts, exact UTF-16 display spans, and the guard against
+  reorders that split a comma-containing prose passage
 - `backend/prompt_order.py` — documented tag placement, ordering and category coverage
 - `backend/prompt_rules.py` — the analyser's rule checks against the guide's
   `analysis`: style, documented order, `reorder_tags`, the items left
@@ -1997,6 +2000,29 @@ Prompt analyser:
   item never looked up, or one with no usable category. A failure placing
   the slots costs the slots, never the verdicts answered beside them. The
   page never places a chip itself.
+- Hybrid tag/prose presentation is separate from lexical validation.
+  `chip_verdicts` adds `TagValidationResponse.parts` only for a guide whose
+  helper explicitly sets `hybrid_prompt`, with a whole raw `prompt` whose
+  comma items match the request's tag prefix. A capped prefix and grid-value
+  lookups appended after all prompt items are allowed; missing, mismatched,
+  XML/JSON or tag-only context supplies no parts. Strict `results` and the
+  dictionary cache never change with the prompt context.
+  `prompt_parts.contextual_parts` returns `kind` (`tag` or `prose`), inclusive
+  original comma-item indexes `first`/`last`, and exact raw `start`/`end`
+  offsets in JavaScript UTF-16 units. A prose-shaped dictionary miss anchors
+  adjacent absent fragments as one passage: `1boy, masterpiece, a man
+  wearing a red, old hat` has two tag units and one prose unit containing its
+  internal comma. This does not depend on the whole prompt's majority style.
+  Known/model tags, concrete deprecated/empty/no-date/cutoff findings,
+  explicit artist prefixes (including malformed ones) and grid variables
+  bound passages; quoted lettering stays text even when it contains a model
+  tag. Unchecked items beyond the lookup cap or during an outage provide no
+  evidence of absence; definite sentences and quoted text need none.
+  Check's order finding's Apply suggestion, its `reordered`, and the critic's
+  reordered candidate are withheld only when that candidate would split a
+  multi-item prose passage. The finding remains advisory with no Apply;
+  `PromptAnalysis.reordered_detail` and the critic's `set_aside` explain the
+  app's precaution, without changing the author's order or cite.
 - The critic is pinned: llama.cpp `b11206` archives (`critic.BUILDS`: Windows
   CUDA 13.4, and Ubuntu for WSL) and `Qwen/Qwen3-4B-GGUF` `Qwen3-4B-Q8_0.gguf`
   at a fixed revision, each held to its size and sha256 (`.part`, verify,
@@ -2166,6 +2192,14 @@ Prompt analyser:
 
 Frontend and CLI:
 
+- Native numeric inputs can display unfinished text such as `1e` while their
+  DOM value is empty. `refuseBadNumber` checks `validity.badInput` at Generate,
+  Run grid and comparison submission, names the field and focuses it without
+  submitting. Intentional blanks retain profile defaults/random seeds;
+  disabled inputs, sampling/seed values replaced by grid axes, and comparison's
+  own Batch/Repeat values are ignored. Both the Run grid button and its keyboard
+  path use `runGrid`.
+  Stored reruns and More seeds do not validate unrelated composer inputs.
 - Personal snippets are the final item of Examples, after the authors' prompts,
   and remain available with no author examples. They open a native dialog,
   with declarations in `prompt-snippets.js` and `initSnippets()` called by
@@ -2686,9 +2720,10 @@ Frontend and CLI:
   title's legend only while some chip has one. For a text not answered yet,
   a chip keeps the last answer's step for the same tag until its own answer
   lands (`chipSlots`). The page works out no slot itself. The Refine
-  dialog lists the comma items `/api/tags/validate` answers `valid: false`
+  dialog lists only tag units `/api/tags/validate` answers `valid: false`
   for under its Prompt box, each once, only where `tagVocabularyEnabled`,
-  silent when the lookup is unavailable; it has no chips and never calls
+  excluding its exact matching contextual prose parts and silent when the
+  lookup is unavailable; it has no chips and never calls
   `writePromptTags`. Its Prompt box suggests tags there too, from tags.js's
   editor list: `scheduleEditorSuggestions` and `renderEditorSuggestions`
   with `query` set to the comma item at the caret
@@ -2787,6 +2822,21 @@ Frontend and CLI:
   sections' single column (`.analysis-body`) and the sticky head
   (`.tag-validation-wide .analysis-head`) are the check's in both places.
   Nothing in the stage moves as it opens, the chips included.
+- On hybrid guides the annotation tray draws server-classified prose as
+  selectable `.prompt-prose` text, grouped with its exact internal commas
+  and spacing, without tag marks, drag/edit/delete tools, duplicate flags,
+  order captions or unknown/tag counts. A paragraph made entirely of prose
+  keeps the tray hidden; its encoder readout remains under the prompt.
+  Token cuts can still mark unread prose using the original offsets.
+  `tagPromptLayout` is valid only for the same model and exact raw prompt;
+  it never enters the lexical `tagVerdicts` cache. While changed hybrid text
+  awaits classification, raw text replaces stale chip controls. A model
+  change or prompt edit cannot reuse another context's layout. Panel and
+  Refine suggestions exclude a classified prose caret and recheck their
+  text/model/caret after delayed replies. Prose keeps the native selection
+  and context menu; tag edits operate at whole-passage boundaries through
+  `promptEditingUnits`/`writePromptUnits`, preserving internal commas and
+  ordinary Ctrl+Z. Tag-only models and pure tag lists retain strict chips.
 - Validation chips edit the prompt: drag (or Alt+Left/Right) reorders, × or
   Delete removes, and a click or right-click in a gap inserts there (a
   chip's right-click or Menu key inserts after itself, + tag at the end) with
@@ -3168,7 +3218,16 @@ Frontend and CLI:
   forgotten (`forgetJob`) if that stream has already ended; otherwise it
   takes the page if nothing is watched, and else queues an id that is not
   queued already. So no job is streamed twice (`watchedJobs`, every id a
-  stream was opened for) or listed as its own Next: row. A stream that gives up probes
+  stream was opened for) or listed as its own Next: row. An accepted in-memory
+  receipt not yet watched (`unwatchedSubmission`) also owes an outcome if its
+  job finished between watches. The adopter queries finished history only
+  while such a receipt is absent from the active list, then replays terminal
+  snapshots one at a time through the ordinary stream/finish path in receipt
+  order. Queue resync preserves those unseen receipts, and idle polling retries
+  transient listing failures. `ownJobs` alone never authorizes historical
+  replay after reload; foreign jobs and explicitly cancelled/forgotten rows
+  are excluded. A receipt missing from server history is forgotten.
+  A stream that gives up probes
   `GET /api/jobs/<id>`: alive, it streams again (three times at most); no
   answer, an offline message counting the saved images; a 404, "The server
   restarted, and this job ended with it after N of M images". The stale
@@ -4956,6 +5015,36 @@ Frontend and CLI:
 
 ## Tests
 
+`smoke-numeric-inputs.json` uses a fresh FLUX.1 Krea [dev] fake on 7921.
+Native typing checks incomplete Steps/CFG/Seed/size/True CFG before a POST,
+button and keyboard paths, intentional blanks, queuing, independent More
+seeds settings, grid Seeds/Budget and sampling overrides, and comparison
+controls that replace unrelated panel values.
+
+`smoke-queue-outcomes.json` uses a fresh FLUX.1 Krea [dev] fake on 7922.
+Gated listings reproduce fast queued completion/failure, once-only outcomes
+and Finish recovery, ordered rapid receipts, delayed POST/history snapshots,
+transient history retries, cancellation/foreign-job exclusions and no
+historical replay after reload.
+
+`tests/test_prompt_parts.py` covers the reported mixed example, pure tags
+and prose, a prose passage in a majority-tag prompt, known titles and
+concrete validation findings, explicit prefixes and grid variables,
+punctuation/UTF-16 spans, matching context and grid lookup tails, cap/offline
+boundaries, hybrid capability metadata, unchanged raw/cached verdicts,
+checkpoint switching, and Check/critic reorders that would split prose.
+`smoke-mixed-prompts.json` uses a fresh Kohaku fake on 7920 for two actual
+tag chips beside one exact comma-containing prose span, accessible counts,
+pure-prose tray hiding and token-limit readout, strict misspellings, cached
+edits, a majority-tag prompt, raw whitespace/non-BMP offsets, tag
+edit/move/delete/insertion and undo around the prose, a gated suggestion
+reply, Kohaku-to-Animagine-and-back reclassification, and matching Refine
+warnings. The browser checks use synthetic images and no real model.
+
+```powershell
+uv run python tools/run_smoke.py smoke-mixed-prompts
+```
+
 `smoke-button-states.json` uses a fresh Animagine fake on 7918 to check
 secondary/primary and selected text contrast, held hover and reason-on-press,
 focus rings, unchanged state-transition geometry, and footer widths at
@@ -5763,9 +5852,8 @@ node tools/browser.mjs tools/smoke-model-gallery.json
 
 `smoke-kohaku.json` checks Kohaku's hybrid tag guide, defaults, size guidance
 (the exact 1.05 MP bound), saved settings, and a hybrid prompt's
-213-character sentence answered unknown without the index, the rest
-checked (guide tags valid, the tray never "Danbooru unreachable") and the
-order slots there, on port 7870:
+213-character sentence displayed as prose beside the checked guide tags
+(the tray never "Danbooru unreachable") and their order slots, on port 7870:
 
 ```powershell
 uv run python tools/fake_server.py --port 7870 --model KBlueLeaf/Kohaku-XL-Zeta

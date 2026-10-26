@@ -65,6 +65,7 @@ from .schemas_prompt import (
     TagValidationRequest,
     TagValidationItem,
     TagSlot,
+    PromptPart,
     TagValidationResponse,
 )
 from .schemas_gallery import (
@@ -160,6 +161,7 @@ __all__ = [
     "TagValidationRequest",
     "TagValidationItem",
     "TagSlot",
+    "PromptPart",
     "TagValidationResponse",
     "ImageRecord",
     "RunSummary",

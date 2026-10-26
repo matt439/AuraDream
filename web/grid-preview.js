@@ -26,6 +26,27 @@ function gridPayload() {
   };
 }
 
+// The button and Ctrl/Cmd+Enter share this entry. Repeat belongs only to
+// Generate; a grid uses its own Seeds and Budget controls instead.
+function gridNumberInputs() {
+  const overridden = new Set([
+    ...(els.gridSeedList.value.trim() ? [els.seed, els.gridSeeds] : []),
+    ...(els.gridSteps.value.trim() ? [els.steps] : []),
+    ...(els.gridCfg.value.trim() ? [els.cfg] : []),
+    ...(!els.gridMu.disabled && els.gridMu.value.trim() ? [els.mu] : []),
+    ...(!els.gridLoraScale.disabled && els.gridLoraScale.value.trim() ? [els.loraScale] : []),
+  ]);
+  return [
+    ...panelNumberInputs({ runs: false }),
+    [els.gridSeeds, 'Grid seeds'], [els.gridBudget, 'Budget'],
+  ].filter(([el]) => !overridden.has(el));
+}
+
+function runGrid() {
+  if (refuseBadNumber(gridNumberInputs())) return undefined;
+  return startJob('/api/grid', gridPayload());
+}
+
 function humanTime(seconds) {
   if (seconds < 90) return `${Math.round(seconds)}s`;
   const minutes = Math.round(seconds / 60);
