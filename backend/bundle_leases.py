@@ -8,7 +8,7 @@ from __future__ import annotations
 
 import os
 import threading
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 from pathlib import Path
 
 from starlette.responses import FileResponse, JSONResponse
@@ -24,12 +24,17 @@ class Lease:
     _registry: LeaseRegistry
     _key: str
     _exclusive: bool
-    _released: bool = False
+    _released: bool = field(default=False, init=False)
+    _entered: bool = field(default=False, init=False)
 
     def release(self) -> None:
         self._registry._release(self)
 
     def __enter__(self) -> Lease:
+        with self._registry._lock:
+            if self._released or self._entered:
+                raise RuntimeError("This lease token has already been entered or released.")
+            self._entered = True
         return self
 
     def __exit__(self, *_exc: object) -> None:

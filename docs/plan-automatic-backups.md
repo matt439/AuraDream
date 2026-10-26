@@ -1,7 +1,8 @@
 # Plan: automatic whole-gallery backups
 
-**Status, 2026-10-26: policy, preferences and managed-export evidence are built;
-`GAL#6` remains open for startup coordination, cross-process leases, retention and
+**Status, 2026-10-26: policy, preferences, managed-export evidence, download leases
+and an inactive one-attempt coordinator are built;
+`GAL#6` remains open for lifecycle wiring, cross-process leases, retention and
 activation decisions.** This expands
 [R8](review-2026-10-25.md#r8-automatic-whole-gallery-backup). Tests export and
 restore scratch galleries only; no real gallery or credential store was touched.
@@ -255,10 +256,11 @@ bin, stars and lineage intact, and verify exactly once. Windows path/handle
 timestamp differences are handled without substituting metadata for the
 digest. Linux publication and actual OS credential delivery remain untested.
 
-There are no automatic-backup startup/API/UI callers, credential lookup,
-age advancement or retention deletion. The coordinator, shared leases, remaining capacity
-accounting, activation/recovery decisions and end-to-end startup acceptance
-below remain unimplemented.
+There are no automatic-backup startup/API/UI callers, credential lookup
+or retention deletion. Shared leases, remaining capacity accounting,
+activation/recovery decisions and end-to-end startup acceptance below remain
+unimplemented. The inactive coordinator described below derives age from
+currently matching receipts rather than maintaining a separate success clock.
 
 **Per-process download lease slice.** Saved bundle downloads now use
 `bundle_leases.LeasedFileResponse`. It acquires a resolved-path reader
@@ -273,8 +275,37 @@ Pyright clean. Independent review found no actionable gaps.
 
 These leases cover only cooperating threads in this process. Shared leases
 across processes remain mandatory before retention deletion can be enabled.
-The exclusive claim primitive has no mutation caller, and startup/coordinator,
-activation and retention stages remain unconnected.
+The exclusive claim primitive has no mutation caller. Startup, activation
+and retention stages remain unconnected.
+
+**Inactive one-attempt coordinator.** `backup_coordinator.BackupCoordinator`
+accepts an explicit policy, gallery/destination/operation identities, aware
+clock, transient password and ownership-trust fact. Disabled policies do
+no I/O or admission. Enabled calls reserve the existing `BundleManager`
+synchronously and run the due check and ordinary verified whole-gallery
+export in one worker under the existing cross-process gallery reservation.
+Untrusted ownership, mismatched sources/destinations, unusable journals and
+protection failures produce fixed outcomes without plaintext fallback.
+Both indexed records and unindexed gallery images count as nonempty.
+
+Recorded operation IDs skip before hashing or export, including retries
+through a new coordinator. Age uses only currently matching nonempty
+managed receipts for this destination and protection. A published archive
+without a saved receipt reports unmanaged; no second read-back or independent
+success timestamp is added. Refused calls preserve the latest admitted
+outcome, including the interval between worker completion and admission
+release. Lease tokens reject repeat entry and entry after release.
+
+Shutdown drains the admitted worker. Cancellation before its supervisor's
+first turn releases admission, reports a fixed terminal outcome and cleans
+its owned upload once; caller cancellation still propagates. Tests and
+independent review cover these lifetime boundaries. Executor submission can
+queue a callable before raising; a short submission guard permits it only
+after the supervisor receives its Future, preventing an abandoned writer.
+Submission failure releases admission and records a fixed terminal reason.
+All 77 focused coordinator/lease/bundle HTTP checks pass, with Ruff and narrow
+pinned Pyright clean. No startup/preload,
+credential provider, recurring retry, UI or pruning is connected.
 
 1. **Policy and journal contracts, CPU only.** Settle the decisions below;
    implement validated default-off preferences and a pure due/retention

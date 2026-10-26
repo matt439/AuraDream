@@ -89,6 +89,7 @@ Backend (`backend/`):
   `backup_policy.py` pure default-off backup age and retention planning;
   `backup_preferences.py` atomic database-scoped backup policy sidecars;
   `backup_receipts.py` internal managed-export identity, byte proof and atomic journal;
+  `backup_coordinator.py` inactive one-attempt due/export worker using bundle admission;
   `gallery_lock.py` reservations across storage threads and processes
 - `bundle_leases.py` per-process archive reader/exclusive leases and complete
   download-response lifetime; cross-process retention remains unimplemented

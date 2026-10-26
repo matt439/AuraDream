@@ -49,6 +49,22 @@ def test_context_errors_release_and_snapshot_is_only_a_snapshot(tmp_path):
     assert registry.snapshot() == before
 
 
+def test_reusing_one_token_cannot_pretend_to_protect_an_unleased_file(tmp_path):
+    registry = LeaseRegistry()
+    path = tmp_path / "copy.zip"
+    token = registry.reader(path)
+    with token:
+        with pytest.raises(RuntimeError, match="already"):
+            with token:
+                pytest.fail("one token cannot enter two independent lifetimes")
+        assert registry.leased(path)
+    with pytest.raises(RuntimeError, match="released"):
+        with token:
+            pytest.fail("a released token cannot be reused")
+    with registry.exclusive(path):
+        assert not registry.leased(path)
+
+
 def scope(*, headers=(), method="GET", extensions=None):
     return {"type": "http", "method": method, "headers": list(headers),
             "path": "/copy.zip", "extensions": extensions or {}}

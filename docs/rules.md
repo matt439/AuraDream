@@ -30,6 +30,9 @@ before changing it.
 - `backend/backup_receipts.py` - internal managed-export marker, outer-byte
   proof, strict atomic ownership journal and current-file identity checks;
   no startup, age advancement or pruning callers
+- `backend/backup_coordinator.py` - inactive explicitly invoked one-attempt
+  due/export worker under bundle admission and gallery reservation; supplied
+  policy, identities, clock and transient protection, with no lifecycle caller
 - `backend/bundle_leases.py` - per-process archive reader/exclusive claims and
   leased FileResponse lifetime; cross-process retention still needs shared leases
 - `backend/snippets.py` - bounded, revisioned personal prompt snippets in an
