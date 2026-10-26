@@ -6,7 +6,7 @@ from datetime import datetime, timedelta, timezone, tzinfo
 
 import pytest
 
-from backend.backup_policy import BackupPolicy, CopyFacts, backup_due, retention_plan
+from backend.backup_policy import MAX_KEEP_LAST, BackupPolicy, CopyFacts, backup_due, retention_plan
 
 NOW = datetime(2026, 10, 26, 12, tzinfo=timezone.utc)
 SCOPE = {"gallery_id": "gallery-a", "destination_id": "destination-a", "ownership_trusted": True}
@@ -44,6 +44,19 @@ def test_default_policy_does_no_work_and_requires_explicit_choices_to_enable():
 def test_invalid_policy_never_becomes_a_working_plan(changes):
     with pytest.raises(ValueError):
         replace(POLICY, **changes)
+
+
+@pytest.mark.parametrize("keep_last", [1, MAX_KEEP_LAST - 1, MAX_KEEP_LAST])
+@pytest.mark.parametrize("enabled", [False, True])
+def test_explicit_retention_accepts_both_bounds_and_the_value_below_the_ceiling(keep_last, enabled):
+    assert replace(POLICY, enabled=enabled, keep_last=keep_last).keep_last == keep_last
+
+
+@pytest.mark.parametrize("keep_last", [MAX_KEEP_LAST + 1, 10**100])
+@pytest.mark.parametrize("enabled", [False, True])
+def test_retention_ceiling_also_applies_to_disabled_policies(keep_last, enabled):
+    with pytest.raises(ValueError, match=f"from 1 to {MAX_KEEP_LAST}"):
+        replace(POLICY, enabled=enabled, keep_last=keep_last)
 
 
 def test_due_uses_available_verified_success_and_exact_utc_boundary():

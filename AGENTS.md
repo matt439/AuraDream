@@ -87,6 +87,7 @@ Backend (`backend/`):
   rewrite, `bundle_common.py` their errors and database reads,
   `bundle_crypto.py` its optional password layer;
   `backup_policy.py` pure default-off backup age and retention planning;
+  `backup_preferences.py` atomic database-scoped backup policy sidecars;
   `gallery_lock.py` reservations across storage threads and processes
 - `jobs.py` single-worker queue and SSE; `storage.py` SQLite + PNGs;
   `metadata.py` the PNG chunk's key and its legacy `krea` reader;

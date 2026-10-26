@@ -25,6 +25,8 @@ before changing it.
   the server launcher restores it before config imports
 - `backend/backup_policy.py` - pure automatic-backup policy, verified-success
   age and managed-retention predicates; no startup scheduling or archive I/O
+- `backend/backup_preferences.py` - strict bounded, atomic database-scoped
+  backup policy sidecars; no lifecycle activation or credential fields
 - `backend/snippets.py` - bounded, revisioned personal prompt snippets in an
   atomic sidecar beside the settings, under an independent cross-process lock
 - `backend/api_snippets.py` - model-free snippet CRUD routes, independent of
@@ -5122,6 +5124,11 @@ explicit age, retention and protection. It covers UTC age boundaries and
 repeated-hour ordering, unavailable or untrusted copies, exact scope,
 conflicting identities, new-success retention and download leases. These
 checks perform no archive I/O and confer no deletion or activation authority.
+`tests/test_backup_preferences.py` checks bounded strict schema reads,
+database isolation, exact integer-microsecond durations, fixed failure
+warnings and atomic saves preserving prior bytes on write/fsync/replace
+failure. The shared 10,000-copy validation ceiling is an engineering limit,
+not a selected retention policy. Neither module is connected to startup.
 
 `tests/test_classic_scripts.py` invokes `tools/check_classic_scripts.py`
 and its Node helper to parse every local classic script in HTML order,

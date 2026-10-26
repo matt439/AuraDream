@@ -1,6 +1,6 @@
 # Plan: automatic whole-gallery backups
 
-**Status, 2026-10-26: planning and the pure CPU policy slice are complete;
+**Status, 2026-10-26: planning, pure CPU policy and atomic preferences are complete;
 `GAL#6` remains open for durable ownership, coordinator implementation and
 activation decisions.** This expands
 [R8](review-2026-10-25.md#r8-automatic-whole-gallery-backup). No live export,
@@ -39,11 +39,18 @@ the four model/startup choices. An explicit checkpoint override must not
 disable the gallery's protection or accidentally enable it. A dedicated
 versioned sidecar beside the database is suitable; reuse the existing
 atomic-write discipline without putting unrelated fields in
-`StartupPreferences`. Proposed fields are `enabled`, `minimum_age_hours`,
-`keep_last`, `protection` and an opaque credential reference where needed.
-Validate finite positive age, bounded positive retention count and an
-explicit protection policy. Old/missing settings read disabled; malformed
-settings show a repairable warning and do no work.
+`StartupPreferences`. The implemented v1 sidecar is
+`local-diffusion.backup-policy-<database filename>.json`, isolating databases
+even when they share a parent. Its complete schema is `version`, `enabled`,
+nullable `minimum_age_us`, `keep_last` and `protection`. Integer microseconds
+preserve every timedelta exactly without floating-point age rounding.
+Retention has a shared engineering ceiling of 10,000 copies, with no count
+selected by default. An enabled policy requires explicit positive age,
+retention and protection. Missing settings read disabled; malformed,
+duplicate/unknown-field, nonfinite, oversized or newer data returns a fixed
+repairable warning and disabled policy, without changing its file. Saves
+validate first, fsync an owned temporary and atomically replace this
+database's sidecar. There is no credential field or lifecycle hookup yet.
 
 Keep operational receipts separate from user preferences: gallery/owner
 identifier, operation UUID, archive basename, successful verification time
@@ -210,9 +217,14 @@ counts, leases and clock corrections. Verification times are normalized
 to UTC so a repeated wall hour's `fold` cannot reverse chronological
 order; contradictory same-scope archive identities are rejected before
 filtering copy states. Focused ruff passed and the pinned
-Pyright check reports zero errors/warnings. This is a partial stage 1:
-saved preferences, durable identity binding/journal, user policy decisions
-and all execution/acceptance stages below remain unimplemented.
+Pyright check reports zero errors/warnings. The subsequent preference slice
+and shared retention-ceiling tests passed 112 pure scratch checks covering
+strict bounded reads, database isolation, exact durations and injected
+write/fsync/replace failures that preserve previous bytes. Ruff and pinned
+Pyright pass. This remains a partial stage 1: durable identity binding/
+journal, user policy decisions and all execution/acceptance stages below
+remain unimplemented. No real gallery or archive was touched by these
+policy/preference checks.
 
 1. **Policy and journal contracts, CPU only.** Settle the decisions below;
    implement validated default-off preferences and a pure due/retention

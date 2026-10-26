@@ -13,6 +13,8 @@ from typing import Literal
 
 Protection = Literal["unencrypted", "encrypted"]
 CopyState = Literal["managed", "manual", "missing", "replaced", "unknown"]
+# Validation ceiling only; every enabled policy still chooses its own count.
+MAX_KEEP_LAST = 10_000
 
 
 def _utc(value: datetime) -> datetime:
@@ -35,8 +37,10 @@ class BackupPolicy:
             not isinstance(self.minimum_age, timedelta) or self.minimum_age <= timedelta(0)
         ):
             raise ValueError("backup minimum age must be a positive timedelta")
-        if self.keep_last is not None and (type(self.keep_last) is not int or self.keep_last < 1):
-            raise ValueError("backup retention must be a positive integer")
+        if self.keep_last is not None and (
+            type(self.keep_last) is not int or not 1 <= self.keep_last <= MAX_KEEP_LAST
+        ):
+            raise ValueError(f"backup retention must be an integer from 1 to {MAX_KEEP_LAST}")
         if self.protection is not None and self.protection not in {"unencrypted", "encrypted"}:
             raise ValueError("backup protection must be explicit")
         if self.enabled and (self.minimum_age is None or self.keep_last is None or self.protection is None):
