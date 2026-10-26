@@ -195,12 +195,26 @@ for (const name of (() => { try { return readdirSync(tmpdir()); } catch { return
 // most of what a left-behind profile weighed. On Linux the browser leads a
 // process group of its own, so the whole tree can be stopped at once.
 const WINDOWS = process.platform === 'win32';
+// Explicit diagnostics for an owned scratch run only. Chromium normally writes
+// stderr noisily; retain at most its tail and print it only on a failed run.
+const STARTUP_DIAGNOSTICS = process.env.LOCAL_DIFFUSION_BROWSER_DIAGNOSTICS === '1';
+const STDERR_LIMIT = 16384;
+let browserStderr = '';
 const proc = spawn(browser, [
   '--headless=new', '--remote-debugging-port=0', `--window-size=${VW},${VH}`,
   '--no-first-run', '--no-default-browser-check', '--disable-sync', '--disable-gpu',
   '--disable-component-update', '--disable-extensions', '--disable-background-networking',
   `--user-data-dir=${PROFILE}`, 'about:blank',
-], { stdio: 'ignore', detached: !WINDOWS });
+], { stdio: STARTUP_DIAGNOSTICS ? ['ignore', 'ignore', 'pipe'] : 'ignore', detached: !WINDOWS });
+if (STARTUP_DIAGNOSTICS) {
+  proc.stderr.setEncoding('utf8');
+  proc.stderr.on('data', (chunk) => { browserStderr = (browserStderr + chunk).slice(-STDERR_LIMIT); });
+  process.on('exit', (code) => {
+    if (!code) return;
+    console.error(`browser diagnostics: exit=${proc.exitCode ?? 'running'} signal=${proc.signalCode ?? 'none'}`);
+    if (browserStderr) console.error('browser stderr tail:\n' + browserStderr + '\nbrowser stderr tail [end]');
+  });
+}
 let exited = false;
 proc.on('exit', () => { exited = true; });
 // The browser's whole tree, not its first process: Edge's renderers and
@@ -237,6 +251,7 @@ let failures = 0;
 
 async function target() {
   for (let i = 0; i < 75; i++) {
+    if (STARTUP_DIAGNOSTICS && exited) throw new Error('the browser exited before DevTools was ready');
     try {
       const port = Number(readFileSync(`${PROFILE}/DevToolsActivePort`, 'utf8').split('\n')[0]);
       const list = await (await fetch(`http://127.0.0.1:${port}/json`)).json();

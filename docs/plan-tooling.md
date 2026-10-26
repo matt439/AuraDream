@@ -194,6 +194,39 @@ fake (Node 24.14.0, Edge, 14 seconds total). No startup export, credential
 lookup, model load or GPU work occurred. This closes the source preflight
 gap in stage 2; Linux and hosted qualification remain open.
 
+**Owned-browser diagnostics (2026-10-26).** Set
+`LOCAL_DIFFUSION_BROWSER_DIAGNOSTICS=1` for a scratch smoke to retain at most
+16,384 decoded stderr characters and report its owned exit/signal on failure.
+Normal runs stay quiet; browser/security flags, browser choice and profile
+protocol are unchanged. A synthetic child-stream check exercises bounding and
+failure framing without launching a browser or network request. The focused
+cold diagnostics/capability/output/map group passed **60 checks**.
+
+The performance-selector smoke first lost its DevTools connection before any
+step in two normal attempts. A diagnostic run then reached 74 steps and produced
+five desktop/narrow screenshots, all inspected; one fixture assertion used the
+wrong reason phrase. After that fixture was corrected, the fresh browser exited
+before step 1 with `IAppCapability` access denied (`0x80070005`), repeated child
+exit `-1073741790` and `GPU process isn't usable. Goodbye.` Its own-profile cache
+also reported sharing error `0x20`. The exact failed command was the ordinary
+`run_smoke.py smoke-execution-selector --jobs 1` with diagnostics and fresh
+scratch/artifacts, not model generation. Receipt:
+`work/execution-selector-ui-a3.txt`.
+
+All browser launches stopped after that actual Windows denial. No flag/browser
+substitution, Windows security change or alternative browser API was tried.
+Corrected end-to-end selector/profile/regression coverage remains unverified;
+the source and five inspected earlier screenshots do not establish a full pass.
+Linux/hosted qualification still has its separate recorded WSL/publishing gates.
+
+The first broad pytest request excluded only the real-browser profile file and
+was rejected before execution by automatic approval review over possible browser
+launches in the remaining group. The approved safer CPU gate excluded every
+`tests/test_browser*.py` file plus `tests/test_run_smoke.py` and passed **5,490
+tests, seven skips**. The separate **60** cold Node/output/map checks above had
+already passed with no real browser. Neither result closes actual browser/profile
+acceptance or authorizes retrying the Windows denial.
+
 ## Backend type checking
 
 `DEV#6` · implemented and qualified locally, 2026-10-26. The pinned gate
