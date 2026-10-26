@@ -12,10 +12,13 @@ from __future__ import annotations
 import json
 import re
 from collections.abc import Mapping
-from typing import Any
+from typing import TYPE_CHECKING, Any
 
 from backend.metadata import embedded_metadata
 from backend.refine import CROP_ANCHORS
+
+if TYPE_CHECKING:
+    from .schemas_generate import CropAnchor
 
 # A1111's own keyword for the block (`modules/images.py`), which Forge and
 # Civitai keep and `storage.save_image` writes beside ours.
@@ -32,7 +35,7 @@ class PngSettingsError(ValueError):
     """A PNG whose settings cannot be read, in words for the CLI or the page."""
 
 
-def crop_anchor(value: Any, *, source: Any, mask: Any = None, outpaint: Any = None) -> str | None:
+def crop_anchor(value: Any, *, source: Any, mask: Any = None, outpaint: Any = None) -> CropAnchor | None:
     """A stored crop anchor, with the legacy centered choice represented by NULL.
 
     Noncenter crops describe an ordinary Refine source. Validate before
@@ -87,7 +90,7 @@ def image_settings(path: str) -> dict:
 
     try:
         with Image.open(path) as image:
-            info = dict(image.info)
+            info = {key: value for key, value in image.info.items() if isinstance(key, str)}
     except (OSError, ValueError) as exc:
         raise PngSettingsError(f"cannot open {path}: {exc}") from None
     meta = record(info, path)

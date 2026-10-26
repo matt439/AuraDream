@@ -19,7 +19,7 @@ import sqlite3
 import threading
 import time
 import uuid
-from collections.abc import Sequence
+from collections.abc import Iterable, Mapping, Sequence
 from contextlib import contextmanager
 from datetime import datetime, timezone
 from pathlib import Path
@@ -375,11 +375,11 @@ def init_db() -> None:
 
 
 def _row_to_record(
-    row: sqlite3.Row, refine_missing: bool = False, refine_binned: bool = False
+    row: sqlite3.Row | Mapping[str, Any], refine_missing: bool = False, refine_binned: bool = False
 ) -> ImageRecord:
     """A gallery row as the record the API serves.
 
-    Every column is read unguarded. Rows only ever come out of a connection
+    Every column is read unguarded. Database rows come out of a connection
     `_connect` opened, and `_connect` runs `_migrate` first, so a database from
     an older build has every column by the time a row is fetched - NULL where
     the build that wrote it knew nothing of the field. A new column therefore
@@ -387,6 +387,7 @@ def _row_to_record(
     SELECT succeed and every INSERT after it fail on the missing column.
     `refine_missing` and `refine_binned` are no columns: the reader that has
     looked the source up (`_missing_sources`) says so.
+    Bundle validation supplies the same complete columns as a mapping.
     """
     # Rows from before thumbnails were written have none; the client falls back
     # to the PNG. A locked legacy thumbnail may still be beside its PNG.
@@ -1568,9 +1569,12 @@ def chunk_outpaint(meta: dict[str, Any]) -> OutpaintSpec | None:
     value, fill = meta.get("outpaint"), meta.get("outpaint_fill")
     if not isinstance(value, dict) or not isinstance(fill, str):
         return None
-    sides = [value.get(name) for name in ("left", "top", "right", "bottom", "band")]
-    if any(type(side) is not int for side in sides):
-        return None
+    sides: list[int] = []
+    for name in ("left", "top", "right", "bottom", "band"):
+        side = value.get(name)
+        if type(side) is not int:
+            return None
+        sides.append(side)
     try:
         spec = OutpaintSpec(fill=fill, left=sides[0], top=sides[1], right=sides[2], bottom=sides[3], band=sides[4])
     except ValueError:
@@ -1683,7 +1687,7 @@ def touch_mask(mask: str) -> Path:
 
 
 @gallery_lock.protected(lambda: settings.db_path, waits=True)
-def hold_masks(job_id: str, masks: Sequence[str]) -> list[str]:
+def hold_masks(job_id: str, masks: Iterable[str]) -> list[str]:
     """Hold `masks` for job `job_id` until `release_masks`: no sweep in any
     process removes a held mask. Answers the ones this server no longer has,
     which are not held - gone between the submit's check and here.

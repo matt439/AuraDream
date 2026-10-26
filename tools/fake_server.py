@@ -52,7 +52,7 @@ sys.path.insert(0, str(ROOT))
 
 
 def main() -> int:
-    parser = argparse.ArgumentParser(description=__doc__.split("\n\n")[1])
+    parser = argparse.ArgumentParser(description=__doc__.split("\n\n")[1] if __doc__ else "Serve an isolated fake backend.")
     parser.add_argument("--port", type=int, default=7861)
     parser.add_argument("--step", type=float, default=0.0, help="seconds per denoising step")
     parser.add_argument(
@@ -134,7 +134,7 @@ def main() -> int:
         # it go, or 30 s, so a smoke's steps under a running Expand never race
         # its end however slow the machine.
         expand_seconds = 0.0
-        expand_gate = None
+        expand_gate: threading.Event | None = None
 
         def expand_prompt(self, prompt, width, height, should_cancel=None):
             import time
@@ -248,7 +248,10 @@ def main() -> int:
         inpaint_strength = inpaint_start(args.model)
         if inpaint_strength is None:
             family = inpaint_family(args.model)
-            inpaint_strength = refine.library_strength(refine.sibling(getattr(diffusers, family), "Inpaint"))
+            assert family is not None, "an inpaint-capable profile requires a pipeline family"
+            sibling = refine.sibling(getattr(diffusers, family), "Inpaint")
+            assert sibling is not None, "an inpaint-capable profile requires its inpaint pipeline"
+            inpaint_strength = refine.library_strength(sibling)
     # A Mu only where the claimed checkpoint's schedule can take one: on an
     # Anima or SDXL fake the row drops it, as the real applied() does.
     fake.mu_supported = profile["mu_supported"]
@@ -289,7 +292,8 @@ def main() -> int:
         def unload(self) -> None:
             pass
 
-    app_main.prompt_translator = FakeTranslator()
+    translator = FakeTranslator()
+    app_main.prompt_translator = translator
 
     # The critic without llama.cpp or 4 GB of model: the real route, gate and
     # busy refusals around a deterministic answer. Not "downloaded" until the
@@ -455,8 +459,9 @@ def main() -> int:
     # call without it (any call: each sets every knob); `fresh` puts the
     # rewriter and the translator back off disk, so a first use's line shows
     # again on a server a smoke has already run against. Answers what it set.
-    fake.expand_gate = threading.Event()
-    fake.expand_gate.set()
+    expand_gate = threading.Event()
+    fake.expand_gate = expand_gate
+    expand_gate.set()
 
     @app_main.app.post("/api/fake/expand", include_in_schema=False)
     async def fake_expand(
@@ -468,12 +473,12 @@ def main() -> int:
         fake.expand_seconds = max(0.0, seconds)
         fake.expand_error = RuntimeError(fail) if fail else None
         if hold:
-            fake.expand_gate.clear()
+            expand_gate.clear()
         else:
-            fake.expand_gate.set()
+            expand_gate.set()
         if fresh:
             fake.expander_cached = fake.expander_loaded = False
-            app_main.prompt_translator.downloaded = False
+            translator.downloaded = False
         return {"seconds": fake.expand_seconds, "fail": fail, "hold": hold, "fresh": fresh}
 
     # The Models picker's server facts no page can cause: which saved choices

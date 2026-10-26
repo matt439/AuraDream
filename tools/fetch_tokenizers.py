@@ -17,8 +17,15 @@ from tests.test_prompt_encoding import REAL
 
 
 def main() -> int:
-    sys.stdout.reconfigure(encoding="utf-8")
-    sources = {spec.source for model_id, _ in REAL for spec in pe.encoders_for(model_id)}
+    reconfigure = getattr(sys.stdout, "reconfigure", None)
+    if callable(reconfigure):
+        reconfigure(encoding="utf-8")
+    sources: set[pe.TokenizerSource] = set()
+    for model_id, _ in REAL:
+        encoders = pe.encoders_for(model_id)
+        if encoders is None:
+            raise ValueError(f"no encoder table for real-tokenizer test checkpoint {model_id}")
+        sources.update(spec.source for spec in encoders)
     missing = 0
     for source in sorted(sources, key=lambda s: s.label):
         try:

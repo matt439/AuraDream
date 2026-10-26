@@ -782,12 +782,13 @@ class JobManager:
                 raise OutpaintStampFailed(
                     f"the outpaint's mask could not be written: {exc.strerror or exc}"
                 ) from exc
+        resolved_run_id = run_id or _run_id(cells, selected.model_id, selected.quantization)
         job = Job(
             id=uuid.uuid4().hex[:12],
             request=cells[0].request,
             cells=cells,
             seed=cells[0].seed,
-            run_id=run_id or _run_id(cells, selected.model_id, selected.quantization),
+            run_id=resolved_run_id,
             total_steps=progress_steps(cells[0].request),
             total_runs=len(cells),
             deadline=time.time() + budget_minutes * 60 if budget_minutes else None,
@@ -800,7 +801,7 @@ class JobManager:
             then_refine=then_refine,
         )
         if then_refine is not None:
-            job.pass_run_id = pass_run_id(job.run_id, then_refine)
+            job.pass_run_id = pass_run_id(resolved_run_id, then_refine)
         # Held where every process's mask sweep looks, before the job is
         # queued: a CLI `clear --bin` an hour on must not take the mask of a
         # cell still waiting its turn (`storage.hold_masks`).

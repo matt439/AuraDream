@@ -228,6 +228,13 @@ library-export/model-interface findings there. Pins, checksums, filters
 and cache serialization are unchanged. The 111 mocked loader tests,
 focused ruff and independent review pass; no suppressions or casts.
 
+**Batches 6 and 8 (2026-10-26).** Storage/bundle/job and developer-tool
+boundaries resolve another 18 and 25 initial findings. Their scoped checks
+are clean without suppressions or casts; 237 storage/bundle/job tests and
+63 tooling/docs-map tests pass. Bounded synthetic fixtures cover the tools
+without real scale/interruption benchmarks, downloads or model work.
+Independent reviews found no actionable issue.
+
 **Stages.**
 
 1. Select and record a reproducible Pyright version and basic-mode

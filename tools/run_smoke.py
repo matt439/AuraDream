@@ -78,7 +78,8 @@ def parse_table(text: str) -> list[Row]:
     """Every row of `AGENTS.md`'s port table, in its order."""
     aliases = _aliases(text)
     rows = []
-    for port, setup, smokes in re.findall(r"^\| (\d{4}) \|([^|\n]*)\|([^|\n]*)\|$", text, re.M):
+    for match in re.finditer(r"^\| (\d{4}) \|([^|\n]*)\|([^|\n]*)\|$", text, re.M):
+        port, setup, smokes = match.group(1), match.group(2), match.group(3)
         model, step = DEFAULT_MODEL, None
         for part in (p.strip() for p in setup.split(",")):
             if found := re.fullmatch(r"`--step ([\d.]+)`", part):
@@ -259,8 +260,10 @@ def run_row(row: Row, smokes: list[str], offset: int, stream: bool, artifacts: P
 
 
 def main() -> int:
-    sys.stdout.reconfigure(encoding="utf-8")
-    parser = argparse.ArgumentParser(description=__doc__.split("\n\n")[0])
+    reconfigure = getattr(sys.stdout, "reconfigure", None)
+    if callable(reconfigure):
+        reconfigure(encoding="utf-8")
+    parser = argparse.ArgumentParser(description=(__doc__ or "").split("\n\n")[0])
     parser.add_argument("smokes", nargs="*", help="smoke names, with or without .json or tools/")
     parser.add_argument("--all", action="store_true", help="every row of the port table")
     parser.add_argument("--list", action="store_true", help="print the table as read, and stop")

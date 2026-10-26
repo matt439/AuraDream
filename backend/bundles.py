@@ -580,7 +580,8 @@ def export_bundle(expected: int | None = None, password: str | None = None, prog
                 with partial.open("xb") as stream:
                     # A password streams the ZIP through the cipher; no
                     # plaintext copy of the archive is ever written.
-                    sink = bundle_crypto.EncryptingWriter(stream, password) if password else stream
+                    cipher = bundle_crypto.EncryptingWriter(stream, password) if password else None
+                    sink = cipher if cipher is not None else stream
                     with (zipfile.ZipFile(sink, "w", compression=zipfile.ZIP_STORED, allowZip64=True) as archive,
                           _ReadAhead([path for _, path in members]) as ahead):
                         for done, (member, path) in enumerate(members, 1):
@@ -604,8 +605,8 @@ def export_bundle(expected: int | None = None, password: str | None = None, prog
                             read = data = None
                             progress("writing", done, len(members))
                         archive.writestr(_MANIFEST, json.dumps(manifest, ensure_ascii=True))
-                    if password:
-                        sink.finish()
+                    if cipher is not None:
+                        cipher.finish()
                     stream.flush()
                     os.fsync(stream.fileno())
                 # The one read-back checks every member (and, with a password,
@@ -613,7 +614,7 @@ def export_bundle(expected: int | None = None, password: str | None = None, prog
                 # the bytes it read, so a damaged tracked PNG can never be
                 # cleared into an unusable import.
                 _verify_archive(partial, password=password, rows=rows, progress=progress,
-                                derived=sink.derived if password else None, masks=_mask_rows(snapshot))
+                                derived=cipher.derived if cipher is not None else None, masks=_mask_rows(snapshot))
                 partial.rename(final)
             except BaseException:
                 partial.unlink(missing_ok=True)
@@ -713,7 +714,7 @@ def import_bundle(path: Path, password: str | None = None, progress: Progress = 
             def present_file(relative: str) -> Path | None:
                 known = existing.get(relative.casefold())
                 target = settings.outputs_dir / known["filename"] if known else None
-                return target if known and known["filename"] == relative and target.is_file() else None
+                return target if known and known["filename"] == relative and target is not None and target.is_file() else None
 
             def mask_file(name: str) -> Path:
                 return settings.outputs_dir / storage.MASKS_DIR / name
@@ -756,6 +757,7 @@ def import_bundle(path: Path, password: str | None = None, progress: Progress = 
             manifest, source_rows, inspected = _verify_archive(
                 Path(path), work, password=password, inspect=inspect, extract=extract,
                 merge=(Path(merging), live), progress=progress)
+            assert source_rows is not None  # A destination makes the verifier read the staged database.
             stage_db = Path(merging) / "merged.sqlite3"
             _backup(settings.db_path, stage_db)
             bundle_masks = _mask_rows(work / _DATABASE)

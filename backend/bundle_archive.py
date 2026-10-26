@@ -208,7 +208,7 @@ def _verify_archive(path: Path, destination: Path | None = None, *, password: st
                     raise BundleError(f"invalid size or checksum for {name}")
                 digest = hashlib.sha256()
                 write = destination is not None and (name == _DATABASE or extract is None or extract(name))
-                target = destination.joinpath(*PurePosixPath(name).parts) if write else None
+                target = destination.joinpath(*PurePosixPath(name).parts) if destination is not None and write else None
                 if target:
                     stager.directory(target.parent)
                 row = tracked.get(name)
@@ -244,9 +244,11 @@ def _verify_archive(path: Path, destination: Path | None = None, *, password: st
                     if output:
                         output.close()
                 if row:
+                    assert data is not None  # Tracked members take the bounded whole-read branch above.
                     pool.submit(name, _png_weight(data), _checked, name, expected["sha256"], inspect, row, data)
                     data = None  # the bytes go with their inspection, not with the next member
                 elif mask:
+                    assert data is not None
                     known = (masks or {}).get(PurePosixPath(name).stem)
                     pool.submit(name, _png_weight(data), _checked, name, expected["sha256"], _mask_check,
                                 (name, known), data)

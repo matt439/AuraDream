@@ -171,6 +171,24 @@ passed. Remaining library-export/model-interface findings are a separate
 slice. Receipts: `work/dev6-hubkw-before.json` and
 `work/dev6-hubkw-after.json`.
 
+2026-10-26, batches 6 and 8: storage/bundle/job boundaries resolve all
+18 initial findings across six checked modules (five changed); developer
+tools resolve all 25 findings across six files. Optional guards encode
+existing branch invariants, row/mask/file interfaces describe their
+actual inputs, and the resolved job run id retains its existing value.
+Tool environment setup still precedes app imports; fake events, process
+captures, streaming ZIP reads and tokenizer tables have precise contracts.
+No suppressions or casts were added.
+
+The 237 existing storage/bundle/job tests and 63 tooling/docs-map tests
+passed, with clean scoped checks and ruff. Independent reviews found no
+actionable issue. Additional bounded fixtures checked synthetic fake
+state, mocked tokenizer snapshots/missing tables, a tiny ZIP hash and
+mocked controller start/stop; no storage scale/interruption benchmark or
+live process/model run was used. Receipts:
+`work/dev6-storage-after.json`, `work/dev6-tools-after.json` and
+`work/dev6-tools-fixture-result.json`.
+
 ## Initial counts by diagnostic
 
 <!-- Counts below are generated from the retained initial Pyright JSON. -->
