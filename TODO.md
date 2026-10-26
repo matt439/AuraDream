@@ -80,7 +80,7 @@ Matt's approved [shortcut and compact-setup stages](docs/plan-shortcut-workflow.
 | `PERF#1` | OPEN | MED | L+card | Wire the initial regional-compilation runtime and loader controls; qualify compiler, shapes, memory and pixels separately on the card. Cold contracts, persisted carry, inactive registration helpers and isolated CPU failure-policy checks are built. [Plan](docs/plan-regional-compilation.md). |
 | `PERF#2` | BLOCKED | LOW | M+card | A quantization choice with fp8 activations (torchao `Float8DynamicActivationFloat8WeightConfig`) on the card's fp8 tensor cores; waits on `PERF#1`. [10-25 R2](docs/review-2026-10-25.md#r2-fp8-with-fp8-activations). |
 | `PERF#3` | OPEN | LOW | M+card | Wire loader/environment handling and qualify native/cuDNN speed, fit and repeatability before broader backends. Shared carry and inactive processor/global-state isolation helpers are built. [Plan](docs/plan-attention-backends.md). |
-| `PERF#4` | OPEN | LOW | L+card | Wire the cache runtime and UI, then qualify quality/time/memory separately. Shared carry and inactive per-call ownership/cleanup helpers are built. [Plan](docs/plan-step-caching.md). |
+| `PERF#4` | OPEN | LOW | L+card | Wire the cache runtime and UI, then qualify quality/time/memory separately. Shared carry, inactive per-call ownership/cleanup helpers and isolated CPU cache checks are built. [Plan](docs/plan-step-caching.md). |
 
 ## Gallery and storage
 

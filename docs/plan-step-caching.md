@@ -9,8 +9,9 @@ or GPU operation was used. Nothing enables caching or changes a default.
 
 The shared `ExecutionSpec`, nullable SQL/PNG carry and refusal paths are
 implemented with `PERF#1`. A recorded `fbc-005-v1` remains unavailable to
-render or Reuse. The inactive helper is tested with synthetic bindings;
-real hook arithmetic, quality, speed and memory remain unqualified.
+render or Reuse. The inactive helper has synthetic ownership tests and an
+isolated installed-FBC CPU probe; real model arithmetic, quality, speed and
+memory remain unqualified.
 
 ## Inactive ownership helper built
 
@@ -35,11 +36,45 @@ All 52 focused synthetic tests pass, including partial setup, cancellation,
 reset/removal failure, forward restoration, shared identity races and weak
 lifetime cleanup. Ruff and narrow pinned Pyright pass. Independent review
 identified the duplicate-owner recovery gap; its regression covers a failed
-reset that leaves no visible hooks yet still makes reuse unsafe. Tests stub
+reset that leaves no visible hooks yet still makes reuse unsafe. These 52 tests stub
 the real FBC/class adapter; no real FBC import, tensor, forward or compiler
 execution was used. The ordinary test conftest still performs its existing
 CUDA-availability check. Loader/generation/UI callers remain absent and
 every nonempty execution recipe remains refused.
+
+## Installed FBC CPU probe
+
+Four focused assertions share one fresh guarded worker using the installed
+FBC hooks, CacheMixin, HookRegistry and StateManager on tiny registered CPU
+blocks. Only defining model/block bindings and registry bootstrap are
+synthetic; no Flux constructor or checkpoint is used. The first call computes
+every block, the repeated residual skips later blocks, and a changed leader
+residual recomputes them. Exact outputs and call counts verify both tuple
+components. Cond/uncond state remains separate; cached/off/cached calls start
+fresh, and a propagated cancellation resets context/state and restores ordinary
+bound forwards before subsequent off and cached calls.
+The context cases use identical numerical inputs: they prove state/miss
+separation, not real conditional/unconditional model outputs.
+
+All four checks passed in 5.76 seconds with `--noconftest`, Ruff clean and
+narrow pinned Pyright reporting zero diagnostics. The worker forces CUDA
+availability false before library decorators, keeps the native initializer
+guard installed and reports zero native/lazy CUDA, compute, compile and
+network guard calls, uninitialized CUDA and one CPU/inter-op thread. Owned
+compiler/debug directories remain empty. The receipt is
+`work/pytest-perf4-fbc-runtime-20261026/fbc-runtime0/receipt.json`.
+This is installed-library CPU arithmetic/lifetime evidence; real Flux,
+offload, GPU behavior, speed and visual quality remain unqualified. There
+are still no loader, generation or UI callers, and render admission stays closed.
+Independent source review accepted the guard, arithmetic and lifetime coverage
+with the conditioning-output limitation above.
+
+Final combined integration passed **4,720 tests, eight skips and 75 existing
+warnings** in **212.03 seconds** with two workers on Windows/Python 3.13.15.
+The full production-source type gate analyzed **116 files with zero errors or
+warnings**, and repository Ruff passed. Ordinary suite fixtures retain their
+established CUDA-availability check; none of these results qualifies a real
+checkpoint, GPU performance, pixels, Linux or hosted CI.
 
 ## One algorithm and one undistilled family
 
