@@ -8,11 +8,11 @@ The maintainer's working backlog for this personal project: it records what is p
 
 **Aim (2026-10-18):** keep useful work ready for Matt's common workstation tasks. [Reported use](docs/design/preferences.md) guides priority; it does not approve the candidate redesign.
 
-**Ready backlog (updated 2026-10-26):** six `OPEN` rows: two with CPU/browser implementation work and four whose next deliverable is a plan. The [audit](docs/review-2026-10-26-todo.md)'s Marian token-boundary and portable-screenshot defects are fixed, and the shared classic-script guard is built. Continue with the development checks:
+**Ready backlog (updated 2026-10-26):** six `OPEN` rows, with implementation stages in their owners. The [audit](docs/review-2026-10-26-todo.md)'s Marian token-boundary and portable-screenshot defects are fixed, the shared classic-script guard is built, and all four CPU-only feature plans are written. Continue with the development checks:
 
 1. `DEV#6`: continue bounded type-check fixes and enable its gate when the full scope passes. `DEV#4`'s diagnostic stage is built; Linux browser qualification awaits WSL service access. [Stages and completion criteria](docs/plan-tooling.md).
 
-**Plan next:** `PERF#1` (regional compilation), then `GAL#6` (automatic backups), `PERF#3` (attention backend) and `PERF#4` (step caching). Their [owner](docs/review-2026-10-25.md) defines CPU-only planning deliverables. `PERF#2` still waits on `PERF#1`. These starts do not depend on Matt's layout trials or the RAM-loader card check.
+**Feature stages next:** `PERF#1` ([compilation](docs/plan-regional-compilation.md)), then `GAL#6` ([backups](docs/plan-automatic-backups.md)), `PERF#3` ([attention](docs/plan-attention-backends.md)) and `PERF#4` ([caching](docs/plan-step-caching.md)). Their CPU plans are complete; default-off contracts can be prepared, while the owners retain activation and separately approved card decisions. `PERF#2` still waits on `PERF#1`. These CPU starts do not depend on Matt's layout trials or the RAM-loader card check.
 
 **Needs Matt:** workbench task trials (`DEV#1`) and hands-on accessibility/desktop checks (`UI#7`). Four decisions remain: SDXL weighting (`GEN#20`), whether to plan instruction editing (`INP#11`) or a detailer (`INP#12`), and whether to withhold critic rewrites that lose user content (`PA#11`). Whole-app layout implementation waits for its trials; it remains a design hypothesis.
 
@@ -79,10 +79,10 @@ Matt's approved [shortcut and compact-setup stages](docs/plan-shortcut-workflow.
 
 | id | status | sev | size | item |
 |---|---|---|---|---|
-| `PERF#1` | OPEN | MED | L+card | Compile the denoiser's repeated blocks under model offload (`compile_repeated_blocks`); Triton on Windows, recompiles per size, LoRA hot-swap, eager-vs-compiled pixels. Plan first. [10-25 R1](docs/review-2026-10-25.md#r1-compile-the-denoisers-repeated-blocks). |
+| `PERF#1` | OPEN | MED | L+card | Implement the default-off regional-compilation contracts and initial supported slice; qualify compiler, shapes, memory and pixels separately on the card. CPU plan complete. [Plan](docs/plan-regional-compilation.md). |
 | `PERF#2` | BLOCKED | LOW | M+card | A quantization choice with fp8 activations (torchao `Float8DynamicActivationFloat8WeightConfig`) on the card's fp8 tensor cores; waits on `PERF#1`. [10-25 R2](docs/review-2026-10-25.md#r2-fp8-with-fp8-activations). |
-| `PERF#3` | OPEN | LOW | M+card | An attention backend per family (`set_attention_backend`: cuDNN, flash, sage), its Windows wheels and its pixels. Plan first. [10-25 R3](docs/review-2026-10-25.md#r3-attention-backend). |
-| `PERF#4` | OPEN | LOW | L+card | Opt-in step caching (First Block Cache, TaylorSeer or MagCache) for the 30-50 step undistilled checkpoints, widening the key once. Plan first. [10-25 R4](docs/review-2026-10-25.md#r4-step-caching-for-the-long-undistilled-schedules). |
+| `PERF#3` | OPEN | LOW | M+card | Implement native/cuDNN attention contracts and processor/global-state isolation; qualify speed, fit and repeatability separately before broader backends. CPU plan complete. [Plan](docs/plan-attention-backends.md). |
+| `PERF#4` | OPEN | LOW | L+card | Implement opt-in FBC contracts, fresh per-call hooks and the shared execution-key extension; qualify quality/time/memory separately. CPU plan complete. [Plan](docs/plan-step-caching.md). |
 
 ## Gallery and storage
 
@@ -90,7 +90,7 @@ Matt's approved [shortcut and compact-setup stages](docs/plan-shortcut-workflow.
 
 | id | status | sev | size | item |
 |---|---|---|---|---|
-| `GAL#6` | OPEN | LOW | L | Automatic whole-gallery backup at start-up past a set age, keeping the last N, through the verified export; decide how a password works unattended. Plan first. [10-25 R8](docs/review-2026-10-25.md#r8-automatic-whole-gallery-backup). |
+| `GAL#6` | OPEN | LOW | L | Implement default-off whole-gallery backup contracts and managed retention through verified export; Matt chooses unattended protection and activation policies. CPU plan complete. [Plan](docs/plan-automatic-backups.md). |
 
 ## Prompt analyser
 
