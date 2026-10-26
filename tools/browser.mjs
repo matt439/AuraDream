@@ -36,6 +36,8 @@
 //   {"shot": "file.png"}         screenshot the viewport; {"fullshot": "file.png"} the
 //                                whole scrollable page; {"elshot": ["selector", "file.png"]}
 //                                one element's box, scrolled into view
+// Screenshot names must be portable relative paths, under
+// LOCAL_DIFFUSION_SCREENSHOT_DIR (a fresh reported temp directory if unset).
 //
 // The page opens at 1400x900, where the smokes are written. Two settings move it:
 //   LOCAL_DIFFUSION_VIEWPORT=2560x1305   (a maximized QHD browser at 100% scaling)
@@ -58,8 +60,9 @@
 // own) to more with && or ||, which would never wait: put the whole
 // condition in the predicate.
 import { spawn, spawnSync } from 'node:child_process';
-import { existsSync, readdirSync, readFileSync, rmSync, statSync, writeFileSync } from 'node:fs';
+import { existsSync, readdirSync, readFileSync, rmSync, statSync } from 'node:fs';
 import { tmpdir } from 'node:os';
+import { screenshotRoot, writeScreenshot } from './browser-output.mjs';
 
 const CANDIDATES = [
   process.env.LOCAL_DIFFUSION_BROWSER,
@@ -81,6 +84,14 @@ if (OFFSET) {
   text = text.replace(/\b(127\.0\.0\.1|localhost):(\d{2,5})\b/g, (_, host, port) => `${host}:${Number(port) + OFFSET}`);
 }
 const steps = JSON.parse(text);
+let screenshots;
+try {
+  screenshots = screenshotRoot(steps);
+} catch (error) {
+  console.error(error.message);
+  process.exit(2);
+}
+if (screenshots) console.log('screenshots: ' + screenshots);
 const KEY_MODIFIERS = { Alt: 1, Control: 2, Meta: 4, Shift: 8 };
 const invalidCombos = steps.flatMap((step, index) => {
   if (!Object.hasOwn(step, 'keycombo')) return [];
@@ -414,20 +425,18 @@ for (const [n, step] of steps.entries()) {
     await send('Emulation.setEmulatedMedia', { features });
   } else if (step.shot) {
     const res = await send('Page.captureScreenshot', { format: 'png' });
-    writeFileSync(step.shot, Buffer.from(res.result.data, 'base64'));
-    console.log('  wrote ' + step.shot);
+    console.log('  wrote ' + writeScreenshot(screenshots, step.shot, res.result.data));
   } else if (step.fullshot) {
     const res = await send('Page.captureScreenshot', { format: 'png', captureBeyondViewport: true });
-    writeFileSync(step.fullshot, Buffer.from(res.result.data, 'base64'));
-    console.log('  wrote ' + step.fullshot);
+    console.log('  wrote ' + writeScreenshot(screenshots, step.fullshot, res.result.data));
   } else if (step.elshot) {
     const [sel, out] = step.elshot;
     const box = await evaluate(`(() => { const e = document.querySelector(${JSON.stringify(sel)}); if (!e) return null; e.scrollIntoView({block: 'nearest'}); const r = e.getBoundingClientRect(); return {x: r.x + scrollX, y: r.y + scrollY, width: r.width, height: r.height}; })()`);
     if (!box || !box.width || !box.height) console.log('  ! elshot: no visible element for ' + sel);
     else {
       const res = await send('Page.captureScreenshot', { format: 'png', captureBeyondViewport: true, clip: { ...box, scale: 1 } });
-      writeFileSync(out, Buffer.from(res.result.data, 'base64'));
-      console.log('  wrote ' + out + ' (' + Math.round(box.width) + 'x' + Math.round(box.height) + ')');
+      const destination = writeScreenshot(screenshots, out, res.result.data);
+      console.log('  wrote ' + destination + ' (' + Math.round(box.width) + 'x' + Math.round(box.height) + ')');
     }
   }
 }

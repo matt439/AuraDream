@@ -312,7 +312,8 @@ before changing it.
   `index.html`'s links, in order). `docs/source-audit.md` records the
   split audits and why each long file it kept stays whole.
 - `tools/` — `fake_server.py` (the app on the tests' fake backend, port 7861)
-  and `browser.mjs` + `smoke.json` and a `smoke-*.json` per checkpoint or
+  and `browser.mjs` (portable screenshot paths in `browser-output.mjs`) +
+  `smoke.json` and a `smoke-*.json` per checkpoint or
   feature (headless browser over DevTools; among the features
   `smoke-stage.json`, Gallery beside, and `smoke-narrow.json`, one column
   and narrow windows): the UI's stand-in for a test suite, and
@@ -5091,6 +5092,14 @@ Frontend and CLI:
 
 ## Tests
 
+`tests/test_classic_scripts.py` invokes `tools/check_classic_scripts.py`
+and its Node helper to parse every local classic script in HTML order,
+including `app.js`, and instantiate declarations without executing source
+bodies. It covers syntax, cross-file lexical collisions and permitted
+sharing, strict/sloppy block functions, unsupported script kinds, missing
+files and missing Node. Node is required locally and verified by CPU CI;
+this guard does not replace the independent browser smokes.
+
 `smoke-control-sizing.json` uses a fresh FLUX.1 Krea [dev] fake on 7923.
 It measures prompt/footer targets and primary emphasis at 1400x900, 600x900,
 1536x864 and 2048x1040 (the latter two at DPR 1.25), checks actual hit targets,
@@ -5579,6 +5588,20 @@ smokes on one fake in order, as the commands below run them by hand.
 `--jobs N` runs N rows at once, each worker 100 ports further on, the
 smokes' output kept until each finishes; `--list` prints the table as read.
 It exits 0 when every smoke passed, 1 on a failure, 2 on a refusal.
+Screenshot destinations (`shot`, `fullshot` and the second `elshot` value)
+are portable relative filenames: forward slashes for subdirectories, no
+absolute or drive-relative paths, `..`, backslashes or Windows-invalid
+characters, device names or components ending in a dot or space.
+`browser-output.mjs` applies one policy to all three forms and
+creates their parent directories. `LOCAL_DIFFUSION_SCREENSHOT_DIR` selects
+the output root; a direct `browser.mjs` call without it creates and reports
+a fresh system-temp directory. `run_smoke.py --artifacts PATH` creates a
+unique run directory below PATH (system temp when omitted), then a unique
+directory for each smoke and reports it. Screenshots survive successes and
+failures, independently of the fake's disposable gallery; parallel runs
+cannot overwrite one another's files. `tests/test_browser_output.py` checks
+all repository screenshot fields and deliberately invalid destinations;
+`tests/test_run_smoke.py` checks isolated output and failure retention.
 `tests/test_then_refine.py` covers Then refine: each image's pass after
 its cell (a batch's bases then their passes, runs alternating), the pass
 equal to Mass refine's and reported `rendered`, the base rows a plain

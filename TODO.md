@@ -8,11 +8,9 @@ The maintainer's working backlog for this personal project: it records what is p
 
 **Aim (2026-10-18):** keep useful work ready for Matt's common workstation tasks. [Reported use](docs/design/preferences.md) guides priority; it does not approve the candidate redesign.
 
-**Ready backlog (updated 2026-10-26):** eight `OPEN` rows: four with CPU/browser implementation work and four whose next deliverable is a plan. The [audit](docs/review-2026-10-26-todo.md) found two concrete defects; Marian's token boundary is fixed. Continue with these bounded slices, then the development checks:
+**Ready backlog (updated 2026-10-26):** six `OPEN` rows: two with CPU/browser implementation work and four whose next deliverable is a plan. The [audit](docs/review-2026-10-26-todo.md)'s Marian token-boundary and portable-screenshot defects are fixed, and the shared classic-script guard is built. Continue with the development checks:
 
-1. `DEV#7`: make smoke screenshots portable across Windows accounts and Linux.
-2. `DEV#5`: check every classic script's syntax and shared declarations, including `app.js`, without booting the page.
-3. `DEV#4`, then `DEV#6`: retain smoke diagnostics and qualify a separate Linux browser CI job; establish a type-check baseline, fix bounded batches and enable its gate. [Stages and completion criteria](docs/plan-tooling.md).
+1. `DEV#4`, then `DEV#6`: retain smoke diagnostics and qualify a separate Linux browser CI job; establish a type-check baseline, fix bounded batches and enable its gate. [Stages and completion criteria](docs/plan-tooling.md).
 
 **Plan next:** `PERF#1` (regional compilation), then `GAL#6` (automatic backups), `PERF#3` (attention backend) and `PERF#4` (step caching). Their [owner](docs/review-2026-10-25.md) defines CPU-only planning deliverables. `PERF#2` still waits on `PERF#1`. These starts do not depend on Matt's layout trials or the RAM-loader card check.
 
@@ -118,9 +116,7 @@ Matt's approved [shortcut and compact-setup stages](docs/plan-shortcut-workflow.
 | id | status | sev | size | item |
 |---|---|---|---|---|
 | `DEV#4` | OPEN | LOW | L | Retain collectable smoke diagnostics, then qualify a separate Linux Chrome CI job; the job follows `DEV#7`'s portable output. [Stages](docs/plan-tooling.md#browser-smokes-in-ci). |
-| `DEV#5` | OPEN | LOW | S | A pytest-to-Node syntax/shared-scope guard derived from HTML script order, including `app.js` without running its boot. [Completion](docs/plan-tooling.md#shared-classic-script-scope). |
 | `DEV#6` | OPEN | LOW | L | Establish Pyright basic's baseline over `backend/` and `tools/`, fix bounded batches, then gate CI; no blanket suppressions. [Stages](docs/plan-tooling.md#backend-type-checking). |
-| `DEV#7` | OPEN | MED | S | Remove account-specific screenshot paths from the compact-setup smoke and define portable screenshot output for the browser runner. [Defect and completion](docs/plan-tooling.md#portable-smoke-screenshots). |
 
 ## Review coverage
 

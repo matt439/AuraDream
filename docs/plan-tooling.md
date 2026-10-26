@@ -2,14 +2,14 @@
 
 Owner for `DEV#4`-`DEV#7`. The first three came from the
 [2026-10-25 review](review-2026-10-25.md#tooling); `DEV#7` was found while
-auditing the queue on 2026-10-26. This is a plan, not a qualification result:
-none of these changes or checks has been implemented or run by this audit.
+auditing the queue on 2026-10-26. The audit established this plan; dated
+implementation and qualification results below record the later work.
 Work in the order below. All stages use CPU, synthetic images and scratch
 galleries; they need no model weights or real gallery contents.
 
 ## Portable smoke screenshots
 
-`DEV#7` · OPEN · MED · S. Start here.
+`DEV#7` · implemented and qualified on Windows, 2026-10-26.
 
 **Evidence.** `tools/smoke-compact-setup.json` has eight `shot` destinations
 under `C:\Users\matsi\AppData\Local\Temp` (lines 44, 71, 97, 124, 150,
@@ -36,9 +36,30 @@ on a scratch fake and verify its eight files appear under the reported root.
 Run affected runner/profile tests and docs-map checks. Record the platform
 actually checked; Linux behavior is qualified in `DEV#4`.
 
+**Result (2026-10-26).** All eight compact-setup destinations now use
+relative names. `browser-output.mjs` validates every screenshot field and
+creates parent directories for `shot`, `fullshot` and `elshot`; absolute,
+drive-relative, traversal, Windows device and otherwise nonportable names
+are refused before launch. `LOCAL_DIFFUSION_SCREENSHOT_DIR` chooses the
+root; a direct call without it reports a fresh system-temp root.
+`run_smoke.py --artifacts PATH` creates separate run/smoke directories,
+reports them and retains screenshots even after failure or successful
+gallery cleanup.
+
+Focused output/runner/docs-map tests: **50 passed**. Real browser profile
+and screenshot-form tests: **4 passed, 1 Windows SIGTERM skip**, including
+three PNGs retained after a deliberately failed assertion. The compact
+smoke passed against its isolated fake (**24 seconds**), writing all eight
+390/600/1400/2048 closed/expanded images below its reported root. Node
+24.14.0 and Edge 156.0.4314.42 were used on Windows; no weights or GPU work.
+Browser starts failed inside the execution sandbox before any page step;
+the supported, approved outside-sandbox run passed. Linux remains the
+separate `DEV#4` qualification. Focused ruff and both Node syntax checks
+passed.
+
 ## Shared classic-script scope
 
-`DEV#5` · OPEN · LOW · S. Independent of `DEV#7`.
+**Built and checked 2026-10-26 (`DEV#5`).** Independent of `DEV#7`.
 
 **Evidence.** `web/index.html` currently lists 52 local classic scripts;
 `app.js` is last and owns the wiring and boot. `tests/test_docs_maps.py`
@@ -48,23 +69,43 @@ requires top-level bindings to remain shared. `app.js` itself declares
 bindings, including `searchTimer`, `galleryHead` and `TOKENS_AIMED`, so
 excluding it entirely would miss collisions.
 
-**Bounded change.** Add a pytest-invoked Node check that derives the local
-classic-script list from `index.html` in document order. Check every listed
-script for syntax and cross-file declaration collisions, including
-`app.js`, without running its boot, network requests or timers. Choose the
-smallest reliable approach after checking classic-script declaration
-semantics; do not maintain another script list or approximate declarations
-with a regular expression. This is a load-time guard, not a DOM emulator
-or a replacement for browser smokes.
+**Implementation.** `tools/check_classic_scripts.py` uses the standard
+library's HTML parser to derive every script from `index.html` in document
+order. Missing files, inline/module/remote scripts, changed loading attributes
+and paths outside the web directory fail explicitly. There is no second
+script inventory. Run it directly with:
 
-**Done and checked.** The actual script list passes. Deliberate syntax
-errors and duplicate lexical declarations across separate scripts fail
-with useful source filenames; an `app.js` collision is covered too. Allowed
-classic-script sharing still passes. Missing files and an unexpected script
-kind cannot silently reduce coverage. CI provisions or verifies Node and
-fails if it is missing; document any local skip policy. Run the focused
-pytest, docs-map checks and an ordinary scratch-fake smoke to retain the
-browser's independent answer.
+```powershell
+uv run python tools/check_classic_scripts.py
+```
+
+The Node helper parses each original with `vm.Script`, then instantiates its
+declarations in one shared empty context. A leading throw stops before any
+source statement or initializer, including `app.js`'s boot. It preserves each
+script's own strictness: a parser-only appended `with` probe distinguishes
+strict directives from comments or ordinary strings. This keeps Annex B's
+sloppy block-function declarations distinct from strict block functions,
+and lets V8 decide lexical/var/function collisions rather than approximating
+declarations with a regex or concatenating scripts. Errors name the failing
+file and the preceding files in order. This is a load-time guard, not a DOM
+emulator or a replacement for browser smokes.
+
+**Checks.** On Windows with Python 3.13.15 and Node 24.14.0, all 52 real
+scripts passed. `tests/test_classic_scripts.py` and `tests/test_docs_maps.py`
+passed all 35 cases, including original syntax errors, lexical collisions
+with `app.js`, permitted var/function sharing, strict/sloppy block functions,
+missing/changed script kinds and a missing Node executable. Ruff passed.
+The initial pytest run hit an inaccessible existing shared temp directory;
+the passing run used a fresh task-owned `--basetemp`, with the cache plugin
+disabled. The ordinary `smoke-flux` browser check also passed on an isolated
+fake gallery (17 s browser, 24 s total; no real model), using the supported
+sandbox approval route for browser startup. Linux and hosted CI execution
+remain unmeasured.
+
+The CPU CI job verifies Node before installation/tests; pytest runs this same
+guard and fails if Node is absent. There is no local skip policy: install
+Node to run the complete CPU suite. No npm dependencies or build step were
+added.
 
 ## Browser smokes in CI
 

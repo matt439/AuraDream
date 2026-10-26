@@ -8,6 +8,7 @@ rather than as a smoke against the wrong fake.
 from __future__ import annotations
 
 import importlib.util
+import subprocess
 import sys
 from pathlib import Path
 
@@ -60,3 +61,45 @@ def test_the_fake_is_started_on_its_own_gallery():
         "--port", "7962", "--model", "black-forest-labs/FLUX.1-Krea-dev",
         "--data", "scratch", "--step", "0.3",
     ]
+
+
+def test_smokes_keep_separate_screenshots_after_a_failure(monkeypatch, tmp_path):
+    runner = _runner()
+    artifacts = tmp_path / "artifacts"
+    artifacts.mkdir()
+    scratch = tmp_path / "gallery"
+    scratch.mkdir()
+    make_temp = runner.tempfile.mkdtemp
+    monkeypatch.setattr(runner.tempfile, "mkdtemp", lambda **kwargs: (
+        str(scratch) if kwargs.get("dir") is None else make_temp(**kwargs)
+    ))
+    monkeypatch.setattr(runner, "_port_free", lambda port: True)
+    monkeypatch.setattr(runner, "_wait_ready", lambda fake, port: True)
+
+    class Fake:
+        stopped = False
+
+        def terminate(self):
+            self.stopped = True
+
+        def wait(self, **kwargs):
+            return 0
+
+    fake = Fake()
+    monkeypatch.setattr(runner.subprocess, "Popen", lambda *args, **kwargs: fake)
+    destinations = []
+
+    def browser(command, **kwargs):
+        destination = Path(kwargs["env"]["LOCAL_DIFFUSION_SCREENSHOT_DIR"])
+        destinations.append(destination)
+        (destination / "same-name.png").write_bytes(b"retained")
+        assert kwargs["env"]["LOCAL_DIFFUSION_PORT_OFFSET"] == "100"
+        return subprocess.CompletedProcess(command, len(destinations) - 1, "browser output", "")
+
+    monkeypatch.setattr(runner.subprocess, "run", browser)
+    row = runner.Row(7862, "black-forest-labs/FLUX.1-Krea-dev", None, ["first", "second"])
+    assert runner.run_row(row, row.smokes, 100, stream=False, artifacts=artifacts) == {"first": 0, "second": 1}
+    assert fake.stopped
+    assert len(set(destinations)) == 2
+    assert all(path.parent == artifacts and (path / "same-name.png").exists() for path in destinations)
+    assert (scratch / "fake-server.log").exists()

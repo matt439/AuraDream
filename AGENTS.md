@@ -289,6 +289,8 @@ in the HTTP layer or the UI needs to change.
 `uv run --group dev pytest` - no GPU, no weights, a throwaway database, and
 `LOCAL_DIFFUSION_*` cleared by `tests/conftest.py`. The fake backend is
 `tests/fakes.py`; HTTP tests are `tests/test_api*.py`, one file per area.
+Node is required for the classic-script syntax/shared-scope guard; it
+checks HTML script order without executing the page's boot.
 
 CI (`.github/workflows/ci.yml`, detail in `docs/rules.md` under Tests): ruff
 on Linux for every push and pull request. Documentation-only changes run

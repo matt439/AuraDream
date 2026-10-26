@@ -17,6 +17,8 @@ row's fake; `--all` runs every row with its smokes in order.
 `LOCAL_DIFFUSION_PORT_OFFSET`, the smoke's), so a run can sit beside fakes
 already up; `--jobs` runs rows in parallel, each worker 100 ports further
 on. The fake's log is kept beside its gallery and named on a failure.
+Screenshots are retained in a fresh artifact directory for every smoke,
+reported as it starts. `--artifacts PATH` puts this run below a chosen root.
 Exit 0 when every smoke passed, 1 when one failed, 2 when the command or a
 smoke file was refused (as `browser.mjs` refuses one).
 """
@@ -123,7 +125,7 @@ def _tail(path: Path, lines: int = 30) -> str:
         return ""
 
 
-def run_row(row: Row, smokes: list[str], offset: int, stream: bool) -> dict[str, int]:
+def run_row(row: Row, smokes: list[str], offset: int, stream: bool, artifacts: Path) -> dict[str, int]:
     """Start the row's fake on a new gallery, run `smokes` on it in order,
     stop it; each smoke's exit code (a fake that never came up is 1)."""
     port = row.port + offset
@@ -144,6 +146,9 @@ def run_row(row: Row, smokes: list[str], offset: int, stream: bool) -> dict[str,
             return {smoke: 1 for smoke in smokes}
         env = {**os.environ, "LOCAL_DIFFUSION_PORT_OFFSET": str(offset)}
         for smoke in smokes:
+            output_dir = Path(tempfile.mkdtemp(prefix=f"{smoke}-", dir=artifacts))
+            env["LOCAL_DIFFUSION_SCREENSHOT_DIR"] = str(output_dir)
+            _say(f"artifacts  {smoke}: {output_dir}")
             started = time.monotonic()
             command = ["node", str(ROOT / "tools" / "browser.mjs"), str(ROOT / "tools" / f"{smoke}.json")]
             if stream:
@@ -186,6 +191,7 @@ def main() -> int:
     parser.add_argument("--list", action="store_true", help="print the table as read, and stop")
     parser.add_argument("--offset", type=int, default=0, help="add N to every port (default 0)")
     parser.add_argument("--jobs", type=int, default=1, help="rows run in parallel (default 1)")
+    parser.add_argument("--artifacts", type=Path, help="retain each run's screenshot directories below PATH")
     args = parser.parse_args()
 
     rows = parse_table((ROOT / "AGENTS.md").read_text(encoding="utf-8"))
@@ -214,11 +220,15 @@ def main() -> int:
                 plan.append((row, mine))
 
     jobs = max(1, min(args.jobs, len(plan)))
+    if args.artifacts is not None:
+        args.artifacts.mkdir(parents=True, exist_ok=True)
+    artifacts = Path(tempfile.mkdtemp(prefix="local-diffusion-smoke-artifacts-", dir=args.artifacts)).resolve()
+    print(f"artifacts: {artifacts}", flush=True)
     started = time.monotonic()
     results: dict[str, int] = {}
     if jobs == 1:
         for row, smokes in plan:
-            results.update(run_row(row, smokes, args.offset, stream=True))
+            results.update(run_row(row, smokes, args.offset, stream=True, artifacts=artifacts))
     else:
         # A worker per offset band, so two rows on one port never collide.
         bands = [args.offset + WORKER_SPAN * n for n in range(jobs)]
@@ -229,7 +239,7 @@ def main() -> int:
             with band_lock:
                 band = free.pop()
             try:
-                return run_row(item[0], item[1], band, stream=False)
+                return run_row(item[0], item[1], band, stream=False, artifacts=artifacts)
             finally:
                 with band_lock:
                     free.append(band)
