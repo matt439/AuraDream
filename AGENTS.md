@@ -363,6 +363,7 @@ node tools/browser.mjs tools/<smoke>.json
 | 7920 | KBlueLeaf/Kohaku-XL-Zeta, fresh scratch `--data` | `smoke-mixed-prompts` |
 | 7921 | FLUX.1-Krea-dev, fresh scratch `--data` | `smoke-numeric-inputs` |
 | 7922 | FLUX.1-Krea-dev, fresh scratch `--data` | `smoke-queue-outcomes` |
+| 7923 | FLUX.1-Krea-dev, fresh scratch `--data` | `smoke-control-sizing` |
 
 FLUX.1-Krea-dev is `black-forest-labs/FLUX.1-Krea-dev`; animagine is
 `cagliostrolab/animagine-xl-4.0`.

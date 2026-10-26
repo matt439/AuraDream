@@ -123,7 +123,7 @@ function syncBundleControls() {
   hold(els.bundleExport, why || (bundleReading ? 'Wait for the gallery counts' : '')
     || (scope !== 'all' ? 'Only the entire gallery is cleared; Back up saves the picked or the starred images and keeps them' : '')
     || (!bundlePreview ? 'Refresh the gallery counts first' : '')
-    || differ || (!confirmed ? `Type ${count} to confirm the entire gallery` : ''),
+    || differ || (!confirmed ? `Type ${count} in the confirmation field to enable Bundle & clear` : ''),
     password ? 'Save, encrypt and verify a bundle, then clear the entire gallery' : 'Save and verify a bundle, then clear the entire gallery');
   const what = scope === 'all' ? 'the entire gallery' : `the ${bundleImages(scope === 'picked' ? picked : starred, scope)}`;
   hold(els.bundleBackup, why || (bundleReading ? 'Wait for the gallery counts' : '')
@@ -145,7 +145,34 @@ function bundleRefused(button) {
   syncBundleControls();
   if (button.getAttribute('aria-disabled') !== 'true') return false;
   bundleSay(button.title + '.', true);
+  // The count is the clear's safety check. A press with only that missing
+  // puts the caret beside the explanation, revealing it inside the dialog
+  // only where a narrow wrapped row has put it out of view.
+  if (button === els.bundleExport && !bundleActionHold() && bundleScope() === 'all' && bundlePreview
+      && els.bundlePassword.value === els.bundlePasswordAgain.value
+      && els.bundleCount.value.trim() !== String(bundlePreview.records)) {
+    focusBundleField(els.bundleCount);
+  } else if (!bundleActionHold() && !els.bundleUnlock.value
+      && ('bundleEncrypted' in button.dataset
+        || (button === els.bundleUpload && els.bundleFile.files.length && bundleProtected(bundleFileHeader)))) {
+    focusBundleUnlock();
+  }
   return true;
+}
+
+function focusBundleField(input) {
+  input.focus({ preventScroll: true });
+  const box = els.bundlesDialog.getBoundingClientRect();
+  const top = box.top + els.bundlesDialog.clientTop;
+  const bottom = top + els.bundlesDialog.clientHeight;
+  const field = input.getBoundingClientRect();
+  if (field.top < top || field.bottom > bottom) input.scrollIntoView({ block: 'nearest' });
+}
+
+function focusBundleUnlock() {
+  // Explicit navigation from a Protected row, whose import uses this one
+  // shared field. No per-file secret or password state is kept on the row.
+  focusBundleField(els.bundleUnlock);
 }
 
 function bundleFileURL(name) {
@@ -165,7 +192,7 @@ async function refreshBundlePreview() {
     // The recycle bin's rows are records too, and go into the bundle as binned.
     const binned = preview.binned ? ` (${preview.binned} in the recycle bin)` : '';
     els.bundlePreview.textContent = `${preview.records} gallery records${binned} · ${preview.images} full-size images · ${preview.thumbnails} thumbnails · ${humanBytes(preview.bytes)}`;
-    els.bundleCountLabel.textContent = `Type ${preview.records} to confirm all gallery records will be removed`;
+    els.bundleCountLabel.textContent = `Type ${preview.records} to enable Bundle & clear (${preview.records} gallery records)`;
   } catch (err) {
     if (epoch !== bundlePreviewEpoch) return;
     bundlePreview = null;
@@ -267,9 +294,22 @@ async function refreshBundleList() {
         const button = document.createElement('button');
         button.type = 'button'; button.className = 'ghost small';
         button.dataset.bundleImport = bundle.name; button.textContent = 'Import';
-        if (bundle.encrypted) button.dataset.bundleEncrypted = '';
+        if (bundle.encrypted) {
+          button.dataset.bundleEncrypted = '';
+          button.setAttribute('aria-describedby', 'bundle-unlock-hint');
+        }
         button.setAttribute('aria-label', `Import ${bundle.name}${bundle.encrypted ? ' (password-protected)' : ''}`);
-        row.append(name, tag, size, link, button);
+        row.append(name, tag, size, link);
+        if (bundle.encrypted) {
+          const unlock = document.createElement('button');
+          unlock.type = 'button'; unlock.className = 'ghost tiny bundle-import-password';
+          unlock.dataset.bundleUnlock = '';
+          unlock.textContent = 'Uses Import password';
+          unlock.title = 'Go to the shared Import password field above';
+          unlock.setAttribute('aria-label', `Go to Import password for ${bundle.name}`);
+          row.append(unlock);
+        }
+        row.append(button);
         return row;
       });
       if (!rows.length) {
@@ -548,6 +588,7 @@ function initBundles() {
   els.bundleUploadCancel.onclick = cancelBundleUpload;
   els.bundleRefresh.onclick = () => { if (!bundleRefused(els.bundleRefresh)) void refreshBundlePreview(); };
   els.bundleList.onclick = (event) => {
+    if (event.target.closest('[data-bundle-unlock]')) { focusBundleUnlock(); return; }
     const button = event.target.closest('[data-bundle-import]');
     if (!button || bundleRefused(button)) return;
     const password = 'bundleEncrypted' in button.dataset ? els.bundleUnlock.value : '';

@@ -1,0 +1,281 @@
+[
+  {
+    "log": "'Frequent prompt and gallery controls on an isolated FLUX fake: larger secondary targets without changing primary hierarchy, stable held/selected/focus boxes, all catalogue caption combinations, and a crowded selected/nonempty-bin footer at 1400, 600, 1536 and 2048 CSS pixels. No model weights are loaded.'"
+  },
+  {
+    "viewport": [
+      1400,
+      900,
+      1
+    ]
+  },
+  {
+    "navigate": "http://127.0.0.1:7923/"
+  },
+  {
+    "eval": "window.__until = async (fn, ms = 20000) => { const end = Date.now() + ms; while (Date.now() < end) { if (await fn()) return true; await new Promise(r => setTimeout(r, 50)); } return false; };\nwindow.__frames = () => new Promise(r => requestAnimationFrame(() => requestAnimationFrame(r)));\nwindow.__visible = el => !!el && el.getBoundingClientRect().width > 0 && el.getBoundingClientRect().height > 0;\nwindow.__box = el => { const r = el.getBoundingClientRect(); return {x:r.x,y:r.y,width:r.width,height:r.height}; };\nwindow.__sameBox = (a, b) => ['x','y','width','height'].every(k => Math.abs(a[k] - b[k]) < 0.6);\nwindow.__caption = () => els.prompt.closest('.field').querySelector(':scope > span');\nwindow.__captionButtons = () => [els.examplesBtn,els.tagsBtn,els.analyze,els.expandPrompt,els.reset].filter(__visible);\nwindow.__captionFits = () => { const cap = __caption().getBoundingClientRect(); const bs = __captionButtons(); const rs = bs.map(b => b.getBoundingClientRect()); const centers = rs.map(r => (r.top+r.bottom)/2); const label = __caption().querySelector('label').getBoundingClientRect(); return bs.length >= 3 && bs.every((b,i) => rs[i].height >= 23.5 && parseFloat(getComputedStyle(b).fontSize) >= 11 && rs[i].left >= cap.left-0.6 && rs[i].right <= cap.right+0.6 && rs[i].left >= label.right) && Math.max(...centers)-Math.min(...centers) < 5 && rs.every((a,i) => rs.every((b,j) => i===j || a.right<=b.left+0.6 || b.right<=a.left+0.6)); };\nwindow.__footerButtons = () => [...document.querySelectorAll('.gallery-footer button')].filter(__visible);\nwindow.__footerFits = () => { const f = document.querySelector('.gallery-footer').getBoundingClientRect(); const bs = __footerButtons(); const rs=bs.map(b=>b.getBoundingClientRect()); return document.documentElement.scrollWidth <= document.documentElement.clientWidth && bs.length>=6 && rs.every(r=>r.height>=25.5 && r.width>=23.5 && r.left>=f.left-0.6 && r.right<=f.right+0.6 && r.left>=0 && r.right<=document.documentElement.clientWidth) && Math.max(...rs.map(r=>r.top))-Math.min(...rs.map(r=>r.top))<1; };\nwindow.__hit = el => { const r=el.getBoundingClientRect(); const top=document.querySelector('.topbar').getBoundingClientRect().bottom; return r.top>=top && r.bottom<=innerHeight && [0.15,0.5,0.85].every(v=>{const hit=document.elementFromPoint(r.left+r.width*v,r.top+r.height/2); return hit===el || el.contains(hit);}); };\nwindow.__ring = el => { const s=getComputedStyle(el); return document.activeElement===el && el.matches(':focus-visible') && s.outlineStyle==='solid' && parseFloat(s.outlineWidth)>=2 && s.outlineColor==='rgb(74, 214, 200)'; };\nwindow.__snapshot = () => ({viewport:[innerWidth,innerHeight,devicePixelRatio],model:loadedModel,caption:__captionButtons().map(b=>[b.id,__box(b),getComputedStyle(b).fontSize]),footer:__footerButtons().map(b=>[b.id,__box(b)])});\nwindow.__switchSizingModel = async id => { const r=await fetch('/api/model/switch',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({model_id:id,load:false})}); if(!r.ok)throw new Error(await r.text()); if(!await __until(async()=>{const s=await api('/api/status'); if(s.model_id!==id || s.switching)return false; receiveStatus(s,Date.now()); return true;},5000))throw new Error('Sizing model switch timed out: '+id); await __frames(); };\nwindow.__captionResults = [];\nwindow.__walkCaptionModels = async ids => { for(const id of ids){await __switchSizingModel(id);const fit=__captionFits();__captionResults.push({...__snapshot(),fit});if(!fit)return false;}return true; };"
+  },
+  {
+    "expect": "__until(()=>modelState==='ready'&&!galleryPending)"
+  },
+  {
+    "eval": "resetPanel(); showError(''); clearSelection(); setSelectMode(false); scrollTo(0,0); window.__sizingOriginalModel=loadedModel;"
+  },
+  {
+    "expect": "__captionFits() && Math.abs(els.generate.getBoundingClientRect().height-43)<0.6 && els.generate.getBoundingClientRect().height>els.analyze.getBoundingClientRect().height+15 && getComputedStyle(els.generate).backgroundColor!==getComputedStyle(els.reset).backgroundColor && getComputedStyle(els.reset).backgroundColor===getComputedStyle(els.analyze).backgroundColor"
+  },
+  {
+    "eval": "els.seed.value='5720723289104536'; window.__seedWidth=els.seed.getBoundingClientRect().width; window.__panelWidth=document.querySelector('.panel').getBoundingClientRect().width; els.examplesBtn.focus({preventScroll:true});"
+  },
+  {
+    "key": "Tab"
+  },
+  {
+    "keycombo": [
+      "Shift",
+      "Tab"
+    ]
+  },
+  {
+    "expect": "__ring(els.examplesBtn) && __hit(els.examplesBtn) && els.seed.scrollWidth<=els.seed.clientWidth && Math.abs(document.querySelector('.panel').getBoundingClientRect().width-330)<0.6"
+  },
+  {
+    "log": "'The empty-gallery action remains held, but keeps the full target on hover and keyboard focus.'"
+  },
+  {
+    "eval": "els.moreSeeds.scrollIntoView({block:'center'}); window.__heldBox=__box(els.moreSeeds); window.__heldStyle=getComputedStyle(els.moreSeeds).backgroundColor;"
+  },
+  {
+    "expect": "__footerFits() && els.moreSeeds.getAttribute('aria-disabled')==='true' && __hit(els.moreSeeds)"
+  },
+  {
+    "hover": "#btn-more-seeds"
+  },
+  {
+    "wait": 180
+  },
+  {
+    "expect": "__sameBox(__box(els.moreSeeds),__heldBox) && getComputedStyle(els.moreSeeds).backgroundColor===__heldStyle"
+  },
+  {
+    "eval": "els.moreSeeds.focus({preventScroll:true});"
+  },
+  {
+    "key": "Tab"
+  },
+  {
+    "keycombo": [
+      "Shift",
+      "Tab"
+    ]
+  },
+  {
+    "expect": "__ring(els.moreSeeds) && __sameBox(__box(els.moreSeeds),__heldBox) && __hit(els.moreSeeds)"
+  },
+  {
+    "log": "'Three synthetic images provide two picks and one recycled image. Showing actions and selecting them keeps target sizes stable.'"
+  },
+  {
+    "eval": "(async()=>{await startJob('/api/generate',{prompt:'control sizing fixture',width:256,height:256,steps:2,seed:90,num_images:3});await resetGallery();if(!await __until(()=>!galleryPending&&galleryRecords.length===3))throw new Error('Sizing fixture did not finish');await deleteImage(galleryRecords[2]);await syncBin();toggleSelected(galleryRecords[0]);toggleSelected(galleryRecords[1]);showError('',false,{slot:els.galleryError});els.select.scrollIntoView({block:'center'});await __frames();window.__selectBox=__box(els.select);window.__enabledBox=__box(els.moreSeeds);window.__directSeedsBox=__box(els.viewerMoreSeeds);})()"
+  },
+  {
+    "expect": "__footerFits() && selectedIds().length===2 && els.bin.querySelector('.count').textContent.trim()==='1' && els.moreSeeds.getAttribute('aria-disabled')==='false' && Math.abs(__enabledBox.height-__heldBox.height)<0.6 && Math.abs(__enabledBox.width-__heldBox.width)<0.6 && __hit(els.select) && __hit(els.bundles)"
+  },
+  {
+    "eval": "setSelectMode(true);window.__selectedFill=getComputedStyle(els.select).backgroundColor;els.select.focus({preventScroll:true});"
+  },
+  {
+    "key": "Tab"
+  },
+  {
+    "keycombo": [
+      "Shift",
+      "Tab"
+    ]
+  },
+  {
+    "expect": "__ring(els.select) && els.select.getAttribute('aria-pressed')==='true' && __sameBox(__box(els.select),__selectBox) && __sameBox(__box(els.moreSeeds),__enabledBox)"
+  },
+  {
+    "hover": "#btn-select"
+  },
+  {
+    "wait": 180
+  },
+  {
+    "expect": "__sameBox(__box(els.select),__selectBox) && getComputedStyle(els.select).backgroundColor===__selectedFill && __footerFits()"
+  },
+  {
+    "log": "'600x900: Picked and Clear have usable arrow targets; the two picked images, populated Bin and all actions share one unclipped footer row.'"
+  },
+  {
+    "viewport": [
+      600,
+      900,
+      1
+    ]
+  },
+  {
+    "eval": "els.select.scrollIntoView({block:'center'});"
+  },
+  {
+    "expect": "__until(()=>__footerFits()&&__hit(els.pickedBtn)&&__hit(els.selectClear)&&__hit(els.bundles))"
+  },
+  {
+    "log": "JSON.stringify(__snapshot())"
+  },
+  {
+    "eval": "window.__narrowPicked=__box(els.pickedBtn);els.pickedBtn.focus({preventScroll:true});"
+  },
+  {
+    "key": "Tab"
+  },
+  {
+    "keycombo": [
+      "Shift",
+      "Tab"
+    ]
+  },
+  {
+    "expect": "__ring(els.pickedBtn) && __sameBox(__box(els.pickedBtn),__narrowPicked)"
+  },
+  {
+    "log": "'All catalogue models fit the prompt caption at the base panel width, including Tags and the ERNIE Expand combination. Switching selects cold fake profiles only.'"
+  },
+  {
+    "viewport": [
+      1400,
+      900,
+      1
+    ]
+  },
+  {
+    "eval": "(async()=>{clearSelection();setSelectMode(false);rewriteBox(els.prompt,'');window.__sizingModels=(await api('/api/models')).models.map(m=>m.model_id);if(!__sizingModels.length||__sizingModels.length>40)throw new Error('Unexpected sizing model catalogue');})()"
+  },
+  {
+    "expect": "__walkCaptionModels(__sizingModels)"
+  },
+  {
+    "log": "JSON.stringify({checked:__captionResults.length,failures:__captionResults.filter(r=>!r.fit)})"
+  },
+  {
+    "eval": "(async()=>{await __switchSizingModel(__sizingOriginalModel);scrollTo(0,0);els.examplesBtn.focus({preventScroll:true});await __frames();})()"
+  },
+  {
+    "expect": "__captionFits() && __hit(els.examplesBtn) && Math.abs(els.seed.getBoundingClientRect().width-__seedWidth)<0.6 && Math.abs(document.querySelector('.panel').getBoundingClientRect().width-__panelWidth)<0.6"
+  },
+  {
+    "log": "'Responsive caption shapes at 600x900, 1536x864 at 125%, and 2048x1040 at 125% retain visible focus and a larger primary action. Footer target geometry is checked at each width.'"
+  },
+  {
+    "viewport": [
+      600,
+      900,
+      1
+    ]
+  },
+  {
+    "expect": "__walkCaptionModels(['black-forest-labs/FLUX.1-Krea-dev','cagliostrolab/animagine-xl-4.0','baidu/ERNIE-Image-Turbo'])"
+  },
+  {
+    "eval": "(async()=>{scrollTo(0,0);els.examplesBtn.focus({preventScroll:true});await __frames();})()"
+  },
+  {
+    "key": "Tab"
+  },
+  {
+    "keycombo": [
+      "Shift",
+      "Tab"
+    ]
+  },
+  {
+    "expect": "__captionFits() && __ring(els.examplesBtn) && __hit(els.examplesBtn) && els.generate.getBoundingClientRect().height>=42.5 && els.generate.getBoundingClientRect().height>els.analyze.getBoundingClientRect().height+15 && getComputedStyle(els.generate).backgroundColor!==getComputedStyle(els.analyze).backgroundColor"
+  },
+  {
+    "eval": "els.bundles.scrollIntoView({block:'center'});"
+  },
+  {
+    "expect": "__until(()=>__footerFits()&&__hit(els.bundles)&&__hit(els.moreSeeds))"
+  },
+  {
+    "log": "JSON.stringify(__snapshot())"
+  },
+  {
+    "viewport": [
+      1536,
+      864,
+      1.25
+    ]
+  },
+  {
+    "expect": "__walkCaptionModels(['black-forest-labs/FLUX.1-Krea-dev','cagliostrolab/animagine-xl-4.0','baidu/ERNIE-Image-Turbo'])"
+  },
+  {
+    "eval": "(async()=>{scrollTo(0,0);els.examplesBtn.focus({preventScroll:true});await __frames();})()"
+  },
+  {
+    "key": "Tab"
+  },
+  {
+    "keycombo": [
+      "Shift",
+      "Tab"
+    ]
+  },
+  {
+    "expect": "__captionFits() && __ring(els.examplesBtn) && __hit(els.examplesBtn) && els.generate.getBoundingClientRect().height>=42.5 && els.generate.getBoundingClientRect().height>els.analyze.getBoundingClientRect().height+15 && getComputedStyle(els.generate).backgroundColor!==getComputedStyle(els.analyze).backgroundColor"
+  },
+  {
+    "eval": "els.bundles.scrollIntoView({block:'center'});"
+  },
+  {
+    "expect": "__until(()=>__footerFits()&&__hit(els.bundles)&&__hit(els.moreSeeds))"
+  },
+  {
+    "log": "JSON.stringify(__snapshot())"
+  },
+  {
+    "viewport": [
+      2048,
+      1040,
+      1.25
+    ]
+  },
+  {
+    "expect": "__walkCaptionModels(['black-forest-labs/FLUX.1-Krea-dev','cagliostrolab/animagine-xl-4.0','baidu/ERNIE-Image-Turbo'])"
+  },
+  {
+    "eval": "(async()=>{scrollTo(0,0);els.examplesBtn.focus({preventScroll:true});await __frames();})()"
+  },
+  {
+    "key": "Tab"
+  },
+  {
+    "keycombo": [
+      "Shift",
+      "Tab"
+    ]
+  },
+  {
+    "expect": "__captionFits() && __ring(els.examplesBtn) && __hit(els.examplesBtn) && els.generate.getBoundingClientRect().height>=42.5 && els.generate.getBoundingClientRect().height>els.analyze.getBoundingClientRect().height+15 && getComputedStyle(els.generate).backgroundColor!==getComputedStyle(els.analyze).backgroundColor"
+  },
+  {
+    "eval": "els.bundles.scrollIntoView({block:'center'});"
+  },
+  {
+    "expect": "__until(()=>__footerFits()&&__hit(els.bundles)&&__hit(els.moreSeeds))"
+  },
+  {
+    "log": "JSON.stringify(__snapshot())"
+  },
+  {
+    "log": "'All catalogue caption-fit results and dimensions are retained for diagnostics; model selection is restored without loading.'"
+  },
+  {
+    "eval": "(async()=>{await __switchSizingModel(__sizingOriginalModel);})()"
+  },
+  {
+    "expect": "__captionResults.every(r=>r.fit)"
+  }
+]

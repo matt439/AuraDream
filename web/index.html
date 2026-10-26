@@ -1682,7 +1682,7 @@
   <p id="bundles-intro">Save images, thumbnails and their gallery records in one ZIP file, optionally protected by a password: as a backup that keeps the gallery, or as a bundle of the entire gallery that then clears it. Import a bundle to merge its images with the current gallery.</p>
   <section class="bundle-section" aria-labelledby="bundle-export-title">
     <div class="bundles-head">
-      <h3 id="bundle-export-title">Back up or bundle &amp; clear</h3>
+      <h3 id="bundle-export-title">Create a bundle</h3>
       <button type="button" class="ghost small" id="bundle-refresh">Refresh counts</button>
     </div>
     <fieldset class="bundle-scope">
@@ -1693,48 +1693,52 @@
     </fieldset>
     <p class="hint" id="bundle-scope-hint">Includes every model, every starred image and the recycle bin. The gallery's search and filters do not limit this action.</p>
     <p id="bundle-preview">Reading the gallery…</p>
-    <p class="hint">Every bundle is saved on the server and verified by reading it back. Back up keeps the gallery as it is. Bundle &amp; clear then removes the originals and old database, and creates a new empty database so you can keep generating. You can download the bundle afterwards.</p>
+    <p class="hint">Save a verified copy on the server, ready to download. Back up keeps the gallery and needs no typed confirmation.</p>
     <div class="bundle-password">
-      <label for="bundle-password">Password <span class="optional">(optional)</span></label>
+      <label for="bundle-password">New password <span class="optional">(optional)</span></label>
       <input id="bundle-password" type="password" autocomplete="new-password" maxlength="1024" aria-describedby="bundle-password-hint">
       <label for="bundle-password-again">Repeat password</label>
       <input id="bundle-password-again" type="password" autocomplete="new-password" maxlength="1024" aria-describedby="bundle-password-hint">
     </div>
-    <p class="hint" id="bundle-password-hint">With a password the bundle is encrypted as a .ldbundle file that only Local Diffusion can open. The password is not saved anywhere and cannot be recovered; without it the bundle cannot be opened, and a cleared gallery is lost.</p>
+    <p class="hint" id="bundle-password-hint">Applies to both Back up and Bundle &amp; clear. A password encrypts the new bundle as a .ldbundle file that only Local Diffusion can open. It is not saved and cannot be recovered; without it the bundle cannot be opened, and a cleared gallery is lost.</p>
     <div class="bundle-backup-row">
-      <button type="button" class="ghost" id="bundle-backup" aria-disabled="true">Back up (keep gallery)</button>
+      <button type="button" class="primary" id="bundle-backup" aria-disabled="true">Back up (keep gallery)</button>
     </div>
-    <div class="bundle-confirm">
-      <label for="bundle-count" id="bundle-count-label">Type the gallery record count to confirm</label>
-      <input id="bundle-count" type="text" inputmode="numeric" autocomplete="off" aria-describedby="bundle-preview">
-      <button type="button" class="ghost danger" id="bundle-export" aria-disabled="true">Bundle &amp; clear gallery</button>
+    <div class="bundle-clear" role="group" aria-labelledby="bundle-clear-title" aria-describedby="bundle-clear-hint">
+      <h4 id="bundle-clear-title">Bundle &amp; clear entire gallery</h4>
+      <p class="hint" id="bundle-clear-hint">To prevent accidental clearing, type the exact count of all gallery records, including every model and the recycle bin. This confirms removal after the saved bundle is verified, not how many images to save. When the app is ready, the count enables Bundle &amp; clear for Entire gallery. A held button explains anything else needed.</p>
+      <div class="bundle-confirm">
+        <label for="bundle-count" id="bundle-count-label">Type the exact gallery record count to enable Bundle &amp; clear</label>
+        <input id="bundle-count" type="text" inputmode="numeric" autocomplete="off" aria-describedby="bundle-preview bundle-clear-hint">
+        <button type="button" class="ghost danger" id="bundle-export" aria-disabled="true">Bundle &amp; clear gallery</button>
+      </div>
     </div>
   </section>
   <section class="bundle-section" aria-labelledby="bundle-upload-title">
-    <h3 id="bundle-upload-title">Import a file</h3>
+    <h3 id="bundle-upload-title">Import a bundle</h3>
     <p class="hint">Existing images stay. Images already imported from this bundle are kept without creating duplicates.</p>
     <div class="bundle-password bundle-unlock">
-      <label for="bundle-unlock">Password for protected bundles</label>
+      <label for="bundle-unlock">Import password</label>
       <input id="bundle-unlock" type="password" autocomplete="current-password" maxlength="1024" aria-describedby="bundle-unlock-hint">
     </div>
-    <p class="hint" id="bundle-unlock-hint">Used for a selected or saved bundle marked Protected.</p>
+    <p class="hint" id="bundle-unlock-hint">One shared password for Import selected file and the saved bundles marked Protected below. Plain ZIP files do not need it.</p>
     <div class="bundle-upload-row">
       <label class="sr-only" for="bundle-file">Bundle file</label>
       <input id="bundle-file" type="file" accept=".zip,.ldbundle,application/zip">
-      <button type="button" class="ghost" id="bundle-upload" aria-disabled="true">Import selected file</button>
+      <button type="button" class="ghost" id="bundle-upload" aria-disabled="true" aria-describedby="bundle-unlock-hint">Import selected file</button>
       <button type="button" class="ghost" id="bundle-upload-cancel" aria-disabled="true">Cancel upload</button>
     </div>
-  </section>
-  <div class="bundle-feedback">
-    <p id="bundle-status" role="status" aria-live="polite"></p>
-    <p id="bundle-progress" class="hint"></p>
-    <a id="bundle-download" hidden download>Download saved bundle</a>
-    <details id="bundle-retained" hidden><summary>Files still on disk</summary><ul></ul></details>
-  </div>
-  <section class="bundle-section" aria-labelledby="bundle-list-title">
-    <h3 id="bundle-list-title">Saved bundles</h3>
-    <p class="hint" id="bundle-directory"></p>
-    <ul id="bundle-list"><li>Reading saved bundles…</li></ul>
+    <div class="bundle-feedback" role="group" aria-label="Bundle operation status">
+      <p id="bundle-status" role="status" aria-live="polite"></p>
+      <p id="bundle-progress" class="hint"></p>
+      <a id="bundle-download" hidden download>Download saved bundle</a>
+      <details id="bundle-retained" hidden><summary>Files still on disk</summary><ul></ul></details>
+    </div>
+    <div class="bundle-saved" role="group" aria-labelledby="bundle-list-title">
+      <h4 id="bundle-list-title">Saved bundles</h4>
+      <p class="hint" id="bundle-directory"></p>
+      <ul id="bundle-list"><li>Reading saved bundles…</li></ul>
+    </div>
   </section>
 </dialog>
 

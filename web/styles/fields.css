@@ -256,6 +256,16 @@ textarea:focus, input:where(:not([type="checkbox"], [type="radio"])):focus { out
    learn a checkpoint's voice. */
 .examples, .tag-helper { position: relative; display: inline-block; margin-left: var(--sp-2); }
 .ghost.tiny { padding: calc((var(--h-xs) - var(--lh) * var(--fs-xs) - 2px) / 2) 7px; font-size: var(--fs-xs); line-height: var(--lh); flex: none; }
+/* Frequently used prompt tools need more than the badge-sized tiny target.
+   Keep their compact caption row and secondary tone; the wide tier already
+   has its own larger caption targets. */
+@media (width < 1800px) {
+  .field > span:has(> label[for="prompt"]) .ghost.tiny {
+    min-height: calc(var(--h-sm) - 2px);
+    padding-block: calc((var(--h-sm) - 2px - var(--lh) * var(--fs-sm) - 2px) / 2);
+    font-size: var(--fs-sm);
+  }
+}
 /* From 1800 px the tiny buttons are the most-used secondary controls - the
    Prompt caption's Examples, Check and Reset, the check's Apply and Use
    rewrite - at a caption's type and 30 px tall (26 on a short window): 12 px

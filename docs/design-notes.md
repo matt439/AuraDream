@@ -4458,6 +4458,24 @@ never an overwrite.
 
 ## Gallery bundles: verify before clearing, stage before merging
 
+**Password scope and the clear's safety step (2026-10-26, `UI#14`/`UI#15`).**
+The browser review reproduced a scope mismatch: a password under Import a
+file also controlled Protected saved imports below a separate section. File
+and saved imports now share a named Import a bundle region and one Import
+password. Protected rows explicitly link back to that field, including
+keyboard focus, without per-row passwords or new storage. New password and
+Repeat belong only to creation, applying to Back up or Bundle & clear.
+Feedback remains near file/saved actions, with the same one live status.
+
+Back up is the primary creation action. Clearing has a separate bordered
+safety group explaining that the typed value is the entire gallery's current
+record count, including the bin and every model, not a number of files to
+export. The label supplies the exact number; the hint explains accidental-clear
+prevention, verified-before-removal and enablement. Backup still needs no
+typed confirmation. Count checks, verification, encryption and secret
+lifetimes did not change. The extended isolated smoke exercises missing/wrong
+counts/passwords, retries, cancellation, repeats, keyboard and narrow layouts.
+
 **Archive storage on a separate drive (2026-10-24).**
 `LOCAL_DIFFUSION_BUNDLES_DIR` selects the saved archives independently of the
 database and generated images; unset, it retains `bundles/` beside the
@@ -7539,6 +7557,16 @@ button (`aria-labelledby`); and the chips' spoken summary counts with `plural`
 ("1 prompt tag", never "1 prompt tags").
 
 ## The settings panel's sticky top
+
+**Frequent secondary targets (2026-10-26, `UI#16`).** The actual browser
+review measured 19 px/10 px prompt-caption tools and about 20 px gallery footer
+targets, versus a clear 43 px Generate primary. Common prompt/result tasks,
+supported by Matt's recorded self-report rather than telemetry, justify a
+small target adjustment: 24 px/11 px prompt tools below the wide tier,
+`--h-sm` footer targets, and 24 px collapsed Picked/Clear widths. Wide-caption
+scaling, primary buttons, fixed-seed width and section order remain. The
+responsive smoke measures fit, focus, hit testing and stable state geometry;
+this is a bounded polish slice, not acceptance of the separate layout proposal.
 
 **An unfinished number is not an intentional blank (2026-10-26, `GEN#24`).**
 In the actual-browser review, typing `1e` into Steps left that text visible

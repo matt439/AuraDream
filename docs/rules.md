@@ -1717,6 +1717,21 @@ Jobs:
   altered chunk is refused when it is read, before anything is installed, and
   the staging directory is discarded. Never add an up-front pass to
   authenticate every chunk.
+- The dialog separates **Create a bundle** from **Import a bundle**.
+  New password/Repeat apply to either creation action. Back up is the primary
+  creation action and requires no typed count; the separate clear group names
+  its safety purpose, entire-gallery scope and exact current record count,
+  including all models and the recycle bin. That count is a confirmation,
+  never an export quantity. A held clear press focuses a missing/wrong count
+  only when that is its remaining gate, revealing it inside the dialog if
+  clipped; all server safeguards stay in force.
+  File and saved imports share one **Import password** field within the same
+  import section. Protected rows visibly say **Uses Import password**, with
+  keyboard navigation to that field; pressing an import held only for its
+  password goes there too. There is no per-row secret. Feedback stays between
+  file and saved controls, named Bundle operation status, so import failures
+  and recovery remain near their actions. Downloads need no password and
+  protected files stay encrypted. Secret lifetimes remain as described below.
 - An upload whose body stops early (the page's Cancel, a reload, a closed tab:
   `ClientDisconnect`) or whose request is cancelled fails the reservation with
   `api_bundles.UPLOAD_STOPPED` and removes its `.bundle-upload-*.part` before
@@ -2277,7 +2292,7 @@ Frontend and CLI:
   badged "image N", a card's (24 px wide at the gallery's S, 32 tall) and a
   long run's tile tools and a result's row `--h-tool` (32 px), and the
   lightbox's arrow circles `--lb-nav` (52 px; 40 under 1800 px). Nothing
-  changes under 1800 px, where the
+  changes from this wide-tier scaling under 1800 px, where the
   smokes run, but the panel's gap and field height on a two-column window
   under 900 px tall (the panel's order, below); 1400x900 is not short. That is scale; a component's own layout breakpoint is not,
   and is named in its rule (the Models picker's column of pictures from
@@ -2340,6 +2355,14 @@ Frontend and CLI:
   never brighten as enabled on hover. Footer actions keep their existing
   geometry while sharing those states; inpaint and small selected tools use
   readable text rather than small purple labels on the panel.
+- Frequent prompt-caption tools have a 24 px floor and `--fs-sm` type below
+  1800 px (`--h-sm - 2px`, scoped in fields.css); their existing wide sizes
+  stay intact. Gallery footer actions use `--h-sm` as a stable minimum height,
+  including Bundles, with a 24 px width floor for collapsed Picked/Clear
+  arrows. Primary Generate/Run grid sizes, seed width and layout order stay
+  intact. These target-size changes apply in every held/selected/hover state,
+  so a state change cannot move a control under the pointer. Narrow footer
+  wrapping and the error line's reserved slot remain unchanged.
 - Each of the panel's size strips (`#presets`, `#tiers`) is a `role="group"`
   with one tab stop (the chosen preset, else the first) and `aria-pressed`;
   Left and Right, Home and End move focus
@@ -5015,6 +5038,13 @@ Frontend and CLI:
 
 ## Tests
 
+`smoke-control-sizing.json` uses a fresh FLUX.1 Krea [dev] fake on 7923.
+It measures prompt/footer targets and primary emphasis at 1400x900, 600x900,
+1536x864 and 2048x1040 (the latter two at DPR 1.25), checks actual hit targets,
+focus rings, held/selected geometry, fixed-seed/panel widths and a crowded
+footer with picks and a nonempty bin. Every cold catalogue caption combination
+is checked for fit, with no model load.
+
 `smoke-numeric-inputs.json` uses a fresh FLUX.1 Krea [dev] fake on 7921.
 Native typing checks incomplete Steps/CFG/Seed/size/True CFG before a POST,
 button and keyboard paths, intentional blanks, queuing, independent More
@@ -5208,7 +5238,14 @@ bin is shown with one binned from another tab left out, an import's
 missing-source count said as a fact, a gallery read refused mid-backup
 (stubbed 409) repaired when the backup ends with the typed count kept, the
 holds with nothing picked or
-starred, and the layout at 600x900 and 2560x1305:
+starred, and the layout at 600x900 and 2560x1305.
+
+Its sizing/Bundles review cases also cover explicit password association and
+keyboard navigation, the clear safety explanation and enablement, blank/wrong
+and leading-zero count entries, a synthetic preview whose record/file/bin
+counts differ, unchanged creation/import password lifetimes, and 360/390 px
+layouts plus forced colours. Scope changes compare dialog-content positions,
+so explicit test scrolling does not masquerade as a moving control.
 
 ```powershell
 uv run python tools/fake_server.py --port 7897 --data <new-scratch-directory>

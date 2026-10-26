@@ -373,6 +373,7 @@
    buttons (.foot-btn, and Bundles…, bundles.css), right-aligned. */
 .gallery-footer {
   display: flex; align-items: center; gap: var(--sp-3); flex: 1 0 100%; min-width: 0;
+  min-height: var(--h-sm);
   margin-top: calc(var(--sp-1) - var(--sp-3));
 }
 /* On a phone the row's buttons - Select, More seeds…, Bin, Bundles… - are
@@ -389,6 +390,9 @@
   flex: none; margin-block: -1px; padding-block: 0;
   line-height: var(--lh);
 }
+/* The frequent footer actions keep a stable small-button target in every
+   state, including Bundles whose zero vertical padding lives in bundles.css. */
+.gallery-footer :is(.foot-btn, #btn-bundles) { min-height: var(--h-sm); }
 /* The count gives way before the buttons do, so a narrow footer never runs
    past its column, but after the message beside it (whose shrink is a
    thousand times its own, #gallery-error). It is the one
@@ -444,6 +448,8 @@
   }
   #btn-select-clear .glyph { display: inline; }
   .gallery-footer #btn-picked, .gallery-footer #btn-select-clear { padding-inline: 3px; }
+  /* Their collapsed glyphs otherwise leave only an 18 px-wide target. */
+  .gallery-footer #btn-picked, .gallery-footer #btn-select-clear { min-width: 24px; }
   .gallery-footer .picked, .gallery-footer #btn-select-clear:not([hidden]) {
     margin-right: calc(var(--sp-1) - var(--sp-3));
   }
