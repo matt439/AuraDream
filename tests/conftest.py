@@ -32,6 +32,16 @@ from backend.jobs import JobManager  # noqa: E402
 from tests.api_helpers import ORIGIN  # noqa: E402
 from tests.fakes import FakeBackend, FakeCritic, FakeTranslator, fake_tokenizer  # noqa: E402
 
+# The CUDA build of torch on Windows with no NVIDIA driver (the CI runner) dies
+# with an access violation when transformers' masks ask whether a CUDA stream
+# is capturing - native, so its try/except cannot catch it. With no device
+# none is: answer that without the call. A machine with a GPU is untouched.
+if sys.platform == "win32":
+    import torch
+
+    if not torch.cuda.is_available():
+        torch.cuda.is_current_stream_capturing = lambda: False
+
 
 _SHIPPED_SCRYPT = (bundle_crypto._LOG2_N, bundle_crypto._R, bundle_crypto._P)
 
