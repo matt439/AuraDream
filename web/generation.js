@@ -79,6 +79,7 @@ function setBusy(on) {
   els.progressNow.title = '';
   jobEta = '';
   cellArgs = null;
+  syncSkip(null);
   // The finished job's line stays - only the next job's end replaces it -
   // and says whose it is while another runs.
   syncFinishLead();

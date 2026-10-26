@@ -133,6 +133,14 @@ selected and loaded and the saved settings are left as they were. The preference
 
 ## Generate and manage jobs
 
+Queued rows have a **Move to front** arrow: it puts that job next without
+interrupting current work. The progress row has the same arrow when the
+watched job is queued. **Skip** stops only the current image, batch or grid
+cell after its next step and continues with the next one. Earlier images
+stay, and **Finish run** can check the missing work later. Skip explains why
+it is held while loading, paused, saving or between cells. A Then refine pass
+also holds Skip because Finish currently recovers its base cells only.
+
 Enter a prompt, choose a size and press **Generate**. The checkpoint supplies
 its starting Steps, CFG and Mu. The **?** badges explain each control and
 which settings the model uses. A blank Seed draws a new seed; a fixed Seed

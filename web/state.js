@@ -73,7 +73,7 @@ const els = {
   modelShots: $('model-shots'), modelShotsLabel: $('model-shots-label'), modelShotsAll: $('btn-model-shots-all'),
   modelShotsList: $('model-shots-list'), modelShotsEmpty: $('model-shots-empty'),
   reset: $('btn-reset'), pngButton: $('btn-png'), pngFile: $('png-file'),
-  cancel: $('btn-cancel'), pause: $('btn-pause'),
+  cancel: $('btn-cancel'), pause: $('btn-pause'), skip: $('btn-skip'), front: $('btn-queue-front'),
   queueNote: $('queue-note'), queueText: $('queue-text'), queueList: $('queue-list'),
   cancelQueued: $('btn-cancel-queued'),
   progress: $('progress'), fill: $('progress-fill'), progressText: $('progress-text'),

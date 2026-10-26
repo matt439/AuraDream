@@ -266,7 +266,8 @@ async function announceLastRun() {
   const left = !deleted ? '' : deleted === last.image_count ? ', all since deleted' : `, ${deleted} since deleted`;
   els.lastRunText.textContent =
     `Last run ${outcome} at ${when(last.finished_at * 1000)}: ${images}${cells}${left}.` +
-    (last.error ? ` ${last.error}` : '');
+    (last.error ? ` ${last.error}` : '') +
+    (last.skipped ? ` ${last.skipped} ${last.skipped === 1 ? unit : units} skipped.` : '');
   els.lastRun.classList.toggle('bad', last.status === 'error');
   els.lastRun.dataset.job = last.job_id;
   els.lastRun.dataset.run = last.run_id || '';

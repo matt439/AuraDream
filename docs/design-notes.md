@@ -3924,13 +3924,32 @@ meaning of run.
 
 ## The browser's queue
 
+The [queue controls plan](plan-queue-controls.md) implements `GEN#18`.
+The manager now owns an explicit admission list, rather than relying on the
+gate lock's waiter order. Move to front puts queued work next without
+interrupting a running job, a pause or an editor operation. Loading stays
+outside the gate, and a job checks admission again after acquiring it.
+The API listings and browser rows use that same order. Delayed Move/status
+replies preserve a newer local submission, and reordering preserves focus on
+the same row action. A watched job can itself be queued, so its progress row
+also carries a Move button whose slot stays while the job runs.
+
+Skip uses a token for the exact active call and the existing cooperative
+`Cancelled` path. Its missing cell is recorded separately from a failure and
+does not advance the failure stop rule. Earlier saved images stay; Finish
+finds the skipped cell later. Cancel takes priority, and a late Skip cannot
+spill into another call. The call-ending status holds the button before a
+slow save. Pause, loading and the intervals between calls have no active call
+to skip. Dynamic Then refine passes are held explicitly because Finish can
+recover only their base cells; a standalone Refine remains an ordinary cell.
+
 **The browser can hold a queue.** `startJob` no longer refuses while busy:
 a submission during a job is POSTed and its id kept in `queuedIds`, the
 buttons are held (`aria-disabled`) only for the POST itself as the
 double-submit guard, and `watchNext()` attaches to the next job when the
 watched stream ends. `resumeActiveJob` attaches to the running job, else
-the *oldest* queued (`active[0]` - `active()` is newest last), never the
-newest. Cancel acts on the watched job; "Cancel queued" on the rest.
+the first queued job in the manager's admission order. Cancel acts on the
+watched job; "Cancel queued" on the rest.
 
 **One watch per job** (2026-10-05). When a job ends the page asks
 `/api/jobs` which job to watch next. `watchNext` checked `busy` before that

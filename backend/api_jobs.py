@@ -8,7 +8,7 @@ from __future__ import annotations
 import json
 from collections.abc import Callable
 
-from fastapi import APIRouter, HTTPException
+from fastapi import APIRouter, HTTPException, Query
 from fastapi.responses import StreamingResponse
 
 from .jobs import JobManager
@@ -63,6 +63,31 @@ def create_router(get_jobs: Callable[[], JobManager]) -> APIRouter:
         a denoise may still be running.
         """
         job = get_jobs().pause(job_id, value)
+        if job is None:
+            raise HTTPException(status_code=404, detail="unknown job")
+        return job.snapshot(images=False)
+
+
+    @router.post("/api/jobs/{job_id}/front")
+    async def front_job(job_id: str) -> dict:
+        """Move a queued job next without preempting the current holder."""
+        manager = get_jobs()
+        try:
+            job = manager.move_front(job_id)
+        except ValueError as exc:
+            raise HTTPException(status_code=409, detail=str(exc)) from exc
+        if job is None:
+            raise HTTPException(status_code=404, detail="unknown job")
+        return {**job.snapshot(images=False), "active_jobs": [active.id for active in manager.active()]}
+
+
+    @router.post("/api/jobs/{job_id}/skip")
+    async def skip_cell(job_id: str, call: int = Query(ge=1)) -> dict:
+        """Skip the exact active cell named by its snapshot's current_call."""
+        try:
+            job = get_jobs().skip(job_id, call)
+        except ValueError as exc:
+            raise HTTPException(status_code=409, detail=str(exc)) from exc
         if job is None:
             raise HTTPException(status_code=404, detail="unknown job")
         return job.snapshot(images=False)

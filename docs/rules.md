@@ -1341,6 +1341,22 @@ Reproduction:
 
 Jobs:
 
+- The manager owns queued admission order. `active()` and both HTTP listings
+  show running work first, then that order. Move to front changes only queued
+  work and never preempts a holder. Loading stays outside the gate; admission
+  is checked again after taking it. The page uses `setQueue` for the same
+  order, preserves newer local submissions across delayed replies and keeps
+  the focused row/action when reordered. A watched job that is queued has
+  its own Move button beside progress.
+- Skip names `current_call` in `POST /api/jobs/{id}/skip?call=N` and raises
+  `Cancelled` cooperatively for that call only. Stale tokens are refused;
+  Cancel wins, and a late Skip never discards a completed image or reaches
+  the following call. Intentional skips are retained separately from failures,
+  excluded from successful indices and recoverable by Finish. Skip is held
+  between calls, while saving/paused/loading and during dynamic Then refine
+  passes, which Finish cannot recover separately. The worker emits a compact
+  status on ending a call so the page holds Skip before a slow save. Held
+  controls keep their size, `aria-disabled` and the reason as their title.
 - Cancel and pause are cooperative and polled: cancel from
   `callback_on_step_end` (raise `Cancelled`), pause at the cell boundary
   every quarter second. Never `Event.wait()`. The page answers a Pause press
@@ -1439,7 +1455,7 @@ Jobs:
   (a grid's prompt as submitted, its variables unfilled, from `/api/grid`;
   None for a plain request and a re-render), so a page that did not submit
   a job can name it - a grid by its own prompt, never its first cell's.
-- `ModelStatus.active_jobs` (the live ids, oldest first) feeds
+- `ModelStatus.active_jobs` (running first, then queued admission order) feeds
   `followServerJobs` on every status poll. A page watching nothing that sees
   a job it neither submitted nor watched sets `elsewhereBusy`: Unload and
   Expand are held aria-disabled with "A job started in another tab or
@@ -4869,6 +4885,11 @@ Frontend and CLI:
   meanwhile from fetching).
 
 ## Tests
+
+`smoke-queue-controls.json` uses a fresh FLUX.1 Krea [dev] fake on 7914 with
+0.3 s steps. It checks authoritative Move order and focus through reload,
+delayed-response/new-submission races, a watched queued job's Move control,
+one-call Skip and Finish recovery, and held paused/Then refine reasons.
 
 `smoke-random-prompts.json` uses a fresh FLUX.1 Krea [dev] fake on 7916.
 It checks random/cross selection, saved mode and Reset, deterministic choices

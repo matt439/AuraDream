@@ -10,6 +10,7 @@ els.generate.onclick = generate;
 els.cancel.onclick = cancelJob;
 els.pause.onclick = togglePause;
 els.cancelQueued.onclick = cancelQueued;
+initQueueControls();
 els.notifyDone.onchange = () => { void toggleJobNotifications(); };
 document.addEventListener('visibilitychange', () => syncJobNotifications());
 els.newImage.onclick = goToNewImage;

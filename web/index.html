@@ -456,8 +456,13 @@
       <div class="progress-head">
         <p class="now" id="progress-now"></p>
         <div class="progress-actions">
+          <button type="button" class="ghost small" id="btn-queue-front"
+                  aria-label="Move this job to the front of the queue" aria-disabled="true"
+                  title="Only a queued job can move to front">&#8593;</button>
           <button class="ghost small" id="btn-pause"
                   title="Hold after the current cell and hand the GPU back; Resume carries on">Pause</button>
+          <button type="button" class="ghost small" id="btn-skip" aria-disabled="true"
+                  title="No cell is running">Skip</button>
           <button class="ghost small danger" id="btn-cancel" title="Stop after the current step">Cancel</button>
         </div>
       </div>

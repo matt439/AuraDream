@@ -138,6 +138,10 @@ class Job:
     # Retained outcomes use these to identify failed calls after a restart.
     failed_indices: list[int] = field(default_factory=list)
     completed_indices: list[int] = field(default_factory=list)
+    # Intentional skips are missing cells, not backend failures. Keep their
+    # indices in the terminal outcome without invoking the failure stop rule.
+    skipped_cells: list[dict] = field(default_factory=list)
+    skipped_indices: list[int] = field(default_factory=list)
     # Submitted as cells (a grid, a sweep, a re-render) rather than as one
     # request's repeats: what the page calls each one, a cell or an image.
     grid: bool = False
@@ -175,6 +179,12 @@ class Job:
     subscribers: list[asyncio.Queue] = field(default_factory=list)
     # Set from the event loop, read from the worker thread between steps.
     cancel_requested: bool = False
+    # An exact call token prevents a slow Skip POST from stopping the next
+    # cell. The loop requests it; the worker starts/ends calls under this lock.
+    _call_lock: Any = field(default_factory=threading.Lock, repr=False)
+    _call_serial: int = 0
+    _current_call: int | None = None
+    _skip_call: int | None = None
     # Pause is cooperative like cancel: the endpoint asks, the worker answers
     # at the next cell boundary by setting `paused` - a worker-written
     # acknowledgement, so the UI cannot believe the card is free while a
@@ -206,6 +216,41 @@ class Job:
     # Whether `storage.hold_masks` holds masks for this job, which `_finish`
     # then releases.
     holds_masks: bool = False
+
+    def begin_call(self) -> int:
+        with self._call_lock:
+            self._call_serial += 1
+            self._current_call = self._call_serial
+            self._skip_call = None
+            return self._current_call
+
+    def end_call(self, call: int, *, clear_skip: bool = False) -> None:
+        with self._call_lock:
+            if self._current_call == call:
+                self._current_call = None
+            if clear_skip and self._skip_call == call:
+                self._skip_call = None
+
+    def skips_call(self, call: int) -> bool:
+        with self._call_lock:
+            return self._skip_call == call
+
+    def skip_state(self) -> tuple[int | None, bool, str]:
+        with self._call_lock:
+            call, skipping = self._current_call, self._skip_call == self._current_call
+            skipping = skipping and call is not None
+        reason = (
+            "This job has finished" if self.status in _TERMINAL
+            else "This job is stopping" if self.cancel_requested
+            else "No cell is running while this job is queued" if self.status == "queued"
+            else "Resume this job before skipping a cell" if self.paused
+            else "Then refine passes cannot be skipped: Finish run recovers base cells only"
+            if self.stage == "pass"
+            else "No cell is running between calls" if call is None
+            else "Skipping this cell after the current step" if skipping
+            else ""
+        )
+        return call, skipping, reason
 
     @functools.cached_property
     def one_source(self) -> tuple[int | None, str | None, Any]:
@@ -257,6 +302,7 @@ class Job:
         cells travel with the records, for the same reason: at most a third
         of a grid, but every per-cell event would have carried them.
         """
+        current_call, skip_requested, skip_reason = self.skip_state()
         frame = {
             "job_id": self.id,
             "run_id": self.run_id,
@@ -301,6 +347,10 @@ class Job:
             "label": self.label,
             "error": self.error,
             "failures": self.failures,
+            "skipped": len(self.skipped_indices),
+            "current_call": current_call,
+            "skip_requested": skip_requested,
+            "skip_reason": skip_reason,
             # The count travels even when the records do not: a listing of
             # finished jobs has to say how much a night produced without
             # carrying the night.
@@ -323,6 +373,7 @@ class Job:
         if images:
             frame["images"] = [image for image in self.images if image["id"] not in self.deleted]
             frame["failed_cells"] = list(self.failed_cells)
+            frame["skipped_cells"] = list(self.skipped_cells)
         return frame
 
 
@@ -358,6 +409,10 @@ class JobManager:
         self.backend = backend
         self._ensure_loaded = ensure_loaded
         self._jobs: dict[str, Job] = {}
+        # Admission is ours, rather than asyncio.Lock's FIFO waiters. A moved
+        # head is checked again inside the gate before it may generate.
+        self._pending: list[str] = []
+        self._order_changed = asyncio.Event()
         self._pool = ThreadPoolExecutor(max_workers=1, thread_name_prefix="gen")
         self._gate = asyncio.Lock()
         # Opt-in admission for reruns and continuations that subtract live cells: hold from
@@ -385,8 +440,46 @@ class JobManager:
         return self._jobs.get(job_id)
 
     def active(self) -> list[Job]:
-        """Jobs that have not reached a terminal state, newest last."""
-        return [job for job in self._jobs.values() if job.status not in _TERMINAL]
+        """The running job first, followed by the manager's admission order."""
+        running = [job for job in self._jobs.values() if job.status == "running"]
+        queued = [self._jobs[job_id] for job_id in self._pending
+                  if self._jobs[job_id].status == "queued"]
+        return running + queued
+
+    def _wake_order(self) -> None:
+        changed, self._order_changed = self._order_changed, asyncio.Event()
+        changed.set()
+
+    def move_front(self, job_id: str) -> Job | None:
+        """Put one still-queued job next; never interrupt the current holder."""
+        job = self.get(job_id)
+        if job is None:
+            return None
+        if job.status != "queued" or job_id not in self._pending:
+            raise ValueError("Only a queued job can move to the front")
+        self._pending.remove(job_id)
+        self._pending.insert(0, job_id)
+        self._wake_order()
+        return job
+
+    def skip(self, job_id: str, call: int) -> Job | None:
+        """Request Skip for an exact active cell, atomically with its token."""
+        job = self.get(job_id)
+        if job is None:
+            return None
+        with job._call_lock:
+            if job.status != "running" or job.paused or job.stage == "pass" or job.cancel_requested:
+                # Do not call skip_state while holding its non-reentrant lock.
+                refused = True
+            else:
+                refused = False
+                if job._current_call != call:
+                    raise ValueError("That cell has already finished; no other cell was skipped")
+                job._skip_call = call
+        if refused:
+            raise ValueError(job.skip_state()[2])
+        self._emit(asyncio.get_running_loop(), job, {"type": "status", **job.snapshot(images=False)})
+        return job
 
     def finished(self) -> list[Job]:
         """Jobs that have ended, the most recently finished first.
@@ -753,6 +846,8 @@ class JobManager:
                 ) from exc
             raise
         self._jobs[job.id] = job
+        self._pending.append(job.id)
+        self._wake_order()
         # A line at the start, one per cell and one at the end: an overnight
         # grid started from the browser used to leave nothing in the log unless
         # it broke, where the CLI writes one line per cell when redirected.
@@ -821,6 +916,9 @@ class JobManager:
         """
         if job.done_sent:
             return
+        if job.id in self._pending:
+            self._pending.remove(job.id)
+        self._wake_order()
         if job.holds_masks:
             # Off the loop and never awaited: a hold left by a release that
             # fails is dropped at the next start, and only spares a mask.
@@ -838,6 +936,7 @@ class JobManager:
         outcome = {
             "status": status, "reached": job.run, "failed_indices": list(job.failed_indices),
             "completed_indices": list(job.completed_indices),
+            "skipped_indices": list(job.skipped_indices),
             "stopped_by": job.stopped_by, "finished_at": job.finished_at,
         }
         threading.Thread(
@@ -883,17 +982,28 @@ class JobManager:
         self._wait_on(job, waiting)
         self._at_gate.add(job.id)
         try:
-            async with self._gate:
-                self._at_gate.discard(job.id)
-                self._holder = job.id
-                # The gate has changed hands: whoever still waits is now
-                # behind this job, whatever held it before - the critic, or a
-                # gate passed on while a job arrived (it read nothing ahead).
-                self._relabel_queued(loop)
-                try:
-                    await self._run_holding(job, loop)
-                finally:
-                    self._holder = None
+            while job.status not in _TERMINAL:
+                changed = self._order_changed
+                if not self._pending or self._pending[0] != job.id:
+                    await changed.wait()
+                    continue
+                async with self._gate:
+                    # A Move to front may land while this coroutine waits on
+                    # the gate. Its waiter position must not overrule the move.
+                    if job.status in _TERMINAL:
+                        return
+                    if not self._pending or self._pending[0] != job.id:
+                        continue
+                    self._pending.pop(0)
+                    self._at_gate.discard(job.id)
+                    self._holder = job.id
+                    self._relabel_queued(loop)
+                    try:
+                        await self._run_holding(job, loop)
+                    finally:
+                        self._holder = None
+                        self._wake_order()
+                    return
         finally:
             self._at_gate.discard(job.id)
 
@@ -1040,6 +1150,7 @@ class JobManager:
             # the images: they were each delivered as their own event already.
             job.run, job.step, job.label = index + 1, 0, cell.label
             job.total_steps = progress_steps(req)
+            call = job.begin_call()
             log.info(
                 "job %s: cell %d/%d seed %d%s",
                 job.id, index + 1, len(job.cells), seed, f"  {cell.label}" if cell.label else "",
@@ -1060,18 +1171,31 @@ class JobManager:
                         raise ValueError(
                             "the outpaint's mask has gone from this gallery; submit it again"
                         ) from exc
-                images = self.backend.generate(
-                    req,
-                    seed=seed,
-                    on_progress=on_progress,
-                    should_cancel=should_cancel,
-                    on_preview=on_preview,
-                )
+                try:
+                    images = self.backend.generate(
+                        req,
+                        seed=seed,
+                        on_progress=on_progress,
+                        should_cancel=lambda call=call: should_cancel() or job.skips_call(call),
+                        on_preview=on_preview,
+                    )
+                finally:
+                    # Saving is not an interruptible cell call. A late Skip
+                    # refuses here instead of poisoning the following cell.
+                    job.end_call(call)
+                    self._emit(loop, job, {"type": "status", **job.snapshot(images=False)})
                 elapsed_ms = int((time.perf_counter() - started) * 1000)
                 records = self._save(job, loop, cell, images, elapsed_ms, self.backend.last_peak())
                 if len(images) == req.num_images:
                     job.completed_indices.append(index)
             except Cancelled:
+                if not job.cancel_requested and job.skips_call(call):
+                    job.skipped_indices.append(index)
+                    job.skipped_cells.append({"label": cell.label, "seed": seed, "error": "Skipped by user"})
+                    consecutive = 0
+                    log.info("job %s skipped cell %d/%d", job.id, index + 1, len(job.cells))
+                    self._emit(loop, job, {"type": "status", **job.snapshot(images=False)})
+                    continue
                 log.info(
                     "job %s cancelled during run %d/%d", job.id, index + 1, len(job.cells)
                 )
@@ -1090,6 +1214,8 @@ class JobManager:
                     job.stopped_by = "failures"
                     raise
                 continue
+            finally:
+                job.end_call(call, clear_skip=True)
             consecutive = 0
             if job.then_refine is not None:
                 cancelled, pass_streak = self._passes(

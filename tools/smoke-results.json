@@ -18,7 +18,7 @@
   {"eval": "document.activeElement.blur(); els.gridSection.open = false; scrollTo(0, 0);"},
   {"wait": 300},
   {"log": "'idle, the viewer is one line naming Ctrl+Enter and the gallery, at 1400x900 and at 2560x1305; Reset is red under the pointer'"},
-  {"expect": "els.viewer.querySelector('.placeholder') && __box(els.viewer).height < 60 && els.viewer.textContent.replace(/\\s+/g, ' ').includes('Ctrl+Enter runs the prompt; double-click a gallery image to open it') && !__shown(els.viewer.querySelector('.first-run')) && els.recent.hidden"},
+  {"expect": "els.viewer.querySelector('.placeholder') && __box(els.viewer).height < 60 && els.viewer.textContent.replace(/\\s+/g, ' ').includes('Ctrl+Enter runs the prompt; click a gallery image to open it') && !__shown(els.viewer.querySelector('.first-run')) && els.recent.hidden"},
   {"expect": "els.reset.classList.contains('danger')"},
   {"log": "'a gallery with nothing on this checkpoint says what fills it, with the authors\\' Examples, and what All models would add'"},
   {"expect": "__until(() => !els.galleryEmpty.hidden && els.galleryEmpty.textContent.startsWith('No images yet - Generate') && els.galleryEmpty.textContent.includes('2 images on other checkpoints: tick All models.') && els.galleryEmpty.querySelector('button')?.textContent === 'Examples')"},
