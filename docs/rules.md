@@ -6274,10 +6274,13 @@ hand) it runs on Windows too, about five times slower. A separate
 table on the runner's Linux Chrome (`run_smoke.py --all --jobs 3`) and
 uploads each smoke's result, browser log, screenshots and failed fake's log
 as `smoke-artifacts` when it fails. Before it, `tools/smoke_fonts.py`
-installs Selawik as Segoe UI with Windows line metrics and hides Inter
-(`FONTCONFIG_FILE`), so the page is drawn as on Windows; `tools/font-widths.json`
-logs every page character's advance width, to compare the stand-in with
-Windows. Windows stays where the smokes are written. `tests/conftest.py` makes
+installs Selawik as Segoe UI with Windows line metrics, beside copies of
+DejaVu Sans and Noto Color Emoji for the symbols Segoe UI lacks, and lets
+Chrome see no other font (`FONTCONFIG_FILE`). Every copy carries the advance
+widths Windows measured (`tools/segoe-widths.json`), so text is laid out as
+on Windows; `tools/font-widths.json` logs every page character's advance
+width, the run that table came from. A character the page newly draws gets
+a Windows run of it and a new table. Windows stays where the smokes are written. `tests/conftest.py` makes
 `torch.cuda.is_current_stream_capturing` answer False on a driverless Windows
 machine, where torch's native call crashes the worker. It runs the suite with
 `pytest -n auto` (pytest-xdist, one worker per core). Before it,

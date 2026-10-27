@@ -255,7 +255,7 @@ skips). That run included `smoke-execution-selector`, `-reuse`,
 browser checks the denial had left unrun. Linux Chrome and hosted CI (`DEV#4`)
 remain unqualified: the WSL denial was not retried.
 
-**Linux Chrome and the browser job (2026-10-27, stages 2-3 started).** Run in
+**Linux Chrome and the browser job (2026-10-27, stages 2-3).** Run in
 a cloud container (no GPU, no weights) as a non-root user, since Chrome
 refuses to start as root without `--no-sandbox` and the harness's flags were
 not changed: Chrome for Testing 153.0.8010.12, Node 22.22.0, 4 cores,
@@ -291,13 +291,23 @@ not changed: Chrome for Testing 153.0.8010.12, Node 22.22.0, 4 cores,
   about a pixel). Selawik matches Segoe UI closely, not exactly, and symbols
   Segoe UI lacks fall back to DejaVu Sans on Linux, much wider than Segoe UI
   Symbol on Windows (`⌦` measures 1.41 em). `tools/font-widths.json` logs
-  every character the page draws, in the font Segoe UI resolves to, so one
-  Windows run gives the widths to freeze into the stand-in.
+  every character the page draws, in the font Segoe UI resolves to.
+- Matt ran it on Windows (Edge 156, 2026-10-27), frozen as
+  `tools/segoe-widths.json`. Against it Selawik's Regular and Bold matched
+  every ASCII advance; its Semibold was off by up to 0.16 em, and the symbol
+  fallbacks widely (`↑` +0.37 em, `⏸` -0.5 em). `smoke_fonts.py` now sets each
+  copied font's advances to Windows' widths (Selawik at 400, 600 and 700,
+  DejaVu Sans and Bold, Noto Color Emoji) and lets Chrome see only those
+  fonts. Re-measured on Linux, every character matches but `⏲`, `⏸`, `🎲`
+  (Noto Color Emoji takes its advance from its bitmaps, not hmtx), `⌕`, `⤢`
+  and the three CJK punctuation marks (no copied font has them), and `−`/`≈`
+  at 600, which DejaVu Bold serves with Windows' 700 widths, 0.013 em wider.
+  None of these is in a fit a smoke measures: the whole table passed
+  locally, 77 of 77 in 705 s.
 
-Remaining for `DEV#4`: the Windows width table and the stand-in built from it,
-then the whole table green on the hosted job, and a deliberate failing smoke
-shown to fail the job with downloadable diagnostics (the first hosted run's
-real failures already did both).
+Remaining for `DEV#4`: the whole table green on the hosted job, and a
+deliberate failing smoke shown to fail the job with downloadable diagnostics
+(the first hosted run's real failures already did both).
 
 ## Backend type checking
 

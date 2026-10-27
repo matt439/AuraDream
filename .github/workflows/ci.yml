@@ -108,7 +108,12 @@ jobs:
       - name: Install
         run: uv sync --locked --group dev
       - name: Fonts
-        run: uv run --no-sync python tools/smoke_fonts.py "$RUNNER_TEMP/smoke-fonts"
+        # The stand-in copies the system's DejaVu Sans and Noto Color Emoji.
+        run: |
+          if [ ! -f /usr/share/fonts/truetype/dejavu/DejaVuSans.ttf ] || [ ! -f /usr/share/fonts/truetype/noto/NotoColorEmoji.ttf ]; then
+            sudo apt-get update -q && sudo apt-get install -yq --no-install-recommends fonts-dejavu-core fonts-noto-color-emoji
+          fi
+          uv run --no-sync python tools/smoke_fonts.py "$RUNNER_TEMP/smoke-fonts"
       - name: Smokes
         run: uv run --no-sync python tools/run_smoke.py --all --jobs 3 --artifacts "$RUNNER_TEMP/smoke-artifacts"
         env:
