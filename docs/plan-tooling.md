@@ -310,9 +310,11 @@ not changed: Chrome for Testing 153.0.8010.12, Node 22.22.0, 4 cores,
   45 minutes. Only Inter and the system's own copies of the two fallbacks
   are hidden now.
 
-Remaining for `DEV#4`: the whole table green on the hosted job, and a
-deliberate failing smoke shown to fail the job with downloadable diagnostics
-(the first hosted run's real failures already did both).
+- With that, the hosted `browser` job passed the whole table, 77 of 77, in
+  about 13 minutes on both the push and pull-request runs (PR #15). Earlier
+  hosted runs' real failures already showed a failing smoke failing the job
+  with downloadable diagnostics, so nothing remains for `DEV#4` but the
+  merge.
 
 ## Backend type checking
 

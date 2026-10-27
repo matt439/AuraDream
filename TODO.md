@@ -111,7 +111,7 @@ Matt's approved [shortcut and compact-setup stages](docs/plan-shortcut-workflow.
 
 | id | status | sev | size | item |
 |---|---|---|---|---|
-| `DEV#4` | OPEN | LOW | L | The browser CI job and its Linux Segoe UI stand-in are built; the stand-in carries Windows' measured widths (`tools/segoe-widths.json`) and Linux Chrome passes 77 of 77 locally. Next: the whole table green on the hosted job. [Stages](docs/plan-tooling.md#browser-smokes-in-ci). |
+| `DEV#4` | OPEN | LOW | L | The browser CI job and its Linux Segoe UI stand-in are built; the stand-in carries Windows' measured widths (`tools/segoe-widths.json`) and the hosted job passes the whole table, 77 of 77 (PR #15). Closes when PR #15 merges. [Stages](docs/plan-tooling.md#browser-smokes-in-ci). |
 
 ## Review coverage
 
