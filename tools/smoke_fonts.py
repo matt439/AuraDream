@@ -101,7 +101,7 @@ def install(archive: bytes, out: Path) -> Path:
 
 
 def main(argv: list[str] | None = None) -> int:
-    parser = argparse.ArgumentParser(description=__doc__.splitlines()[0])
+    parser = argparse.ArgumentParser(description="Give Linux Chrome the font the smokes were written against.")
     parser.add_argument("dir", type=Path, help="where the fonts and fonts.conf go")
     args = parser.parse_args(argv)
     with urllib.request.urlopen(URL, timeout=60) as response:
