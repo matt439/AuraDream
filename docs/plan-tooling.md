@@ -297,13 +297,18 @@ not changed: Chrome for Testing 153.0.8010.12, Node 22.22.0, 4 cores,
   every ASCII advance; its Semibold was off by up to 0.16 em, and the symbol
   fallbacks widely (`↑` +0.37 em, `⏸` -0.5 em). `smoke_fonts.py` now sets each
   copied font's advances to Windows' widths (Selawik at 400, 600 and 700,
-  DejaVu Sans and Bold, Noto Color Emoji) and lets Chrome see only those
-  fonts. Re-measured on Linux, every character matches but `⏲`, `⏸`, `🎲`
-  (Noto Color Emoji takes its advance from its bitmaps, not hmtx), `⌕`, `⤢`
-  and the three CJK punctuation marks (no copied font has them), and `−`/`≈`
-  at 600, which DejaVu Bold serves with Windows' 700 widths, 0.013 em wider.
-  None of these is in a fit a smoke measures: the whole table passed
-  locally, 77 of 77 in 705 s.
+  DejaVu Sans and Bold, Noto Color Emoji). Re-measured on Linux, every
+  character matches but `🎲` (Noto Color Emoji takes its advance from its
+  bitmaps, not hmtx), `⌕`, `⤢`, `⏲` and `⏸` (no copy has them as text, so
+  another system font draws them), and `−`/`≈` at 600, which DejaVu Bold
+  serves with Windows' 700 widths, 0.013 em wider. None of these is in a
+  fit a smoke measures.
+- Hiding every font but the copies passed locally (Chrome for Testing, 77
+  of 77) but on the hosted `google-chrome` the browser process aborted on a
+  character no font had (`SkFontMgr_FontConfigInterface ... Not
+  implemented`), and each smoke it hit waited out its 300 s, past the job's
+  45 minutes. Only Inter and the system's own copies of the two fallbacks
+  are hidden now.
 
 Remaining for `DEV#4`: the whole table green on the hosted job, and a
 deliberate failing smoke shown to fail the job with downloadable diagnostics

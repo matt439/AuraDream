@@ -6,7 +6,7 @@ neither is there, and the fallback (DejaVu Sans, or an installed Inter) is
 wider, so text measured to fit one line or one row wraps. Selawik is
 Microsoft's open replacement for Segoe UI. This downloads it (pinned by
 SHA-256) and writes a fontconfig file that names it Segoe UI to the
-browser and lets the browser see no other fonts but these.
+browser and hides Inter.
 
 Close is not enough where a smoke measures a fit to the pixel, so each copy
 carries Windows' own advance widths (`tools/segoe-widths.json`, measured
@@ -156,11 +156,15 @@ def set_advances(font: bytes, widths: dict[str, float]) -> bytes:
     return _seal(out, font, [b"hmtx"])
 
 
-def fonts_conf(font_dir: Path) -> str:
-    """The system's configuration, but only the fonts in font_dir, Selawik
-    among them as Segoe UI: no installed font (Inter, another fallback)
-    can stand in for one of these."""
+def fonts_conf(font_dir: Path, replaced: list[str]) -> str:
+    """The system's configuration plus the fonts in font_dir, Selawik among
+    them as Segoe UI. Inter and the system's own copies of the fallbacks
+    (`replaced`) are hidden, so the patched copies serve; other system fonts
+    stay for the characters none of these has. Hiding every other font left
+    Google Chrome's browser process with no font for such a character, and
+    it aborted (Skia's FontConfigInterface fallback is not implemented)."""
     root = font_dir.resolve().as_posix()
+    hidden = "".join(f"\n    <rejectfont><glob>{Path(path).resolve().as_posix()}</glob></rejectfont>" for path in replaced)
     return f"""<?xml version="1.0"?>
 <!DOCTYPE fontconfig SYSTEM "fonts.dtd">
 <fontconfig>
@@ -172,8 +176,7 @@ def fonts_conf(font_dir: Path) -> str:
     <edit name="family" mode="assign_replace"><string>{FAMILY}</string></edit>
   </match>
   <selectfont>
-    <acceptfont><glob>{root}/*</glob></acceptfont>
-    <rejectfont><glob>*</glob></rejectfont>
+    <rejectfont><pattern><patelt name="family"><string>Inter</string></patelt></pattern></rejectfont>{hidden}
   </selectfont>
 </fontconfig>
 """
@@ -201,7 +204,7 @@ def install(archive: bytes, out: Path, fallbacks: dict[str, str] | None = None) 
     for path, weight in fallbacks.items():
         (out / Path(path).name).write_bytes(set_advances(Path(path).read_bytes(), widths[weight]))
     conf = out / "fonts.conf"
-    conf.write_text(fonts_conf(out), encoding="utf-8")
+    conf.write_text(fonts_conf(out, list(fallbacks)), encoding="utf-8")
     return conf
 
 

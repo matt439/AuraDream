@@ -1,5 +1,5 @@
 """The Linux smokes' Segoe UI stand-in: pinned, Windows line metrics and
-advance widths, no other fonts.
+advance widths, no Inter.
 
 Synthetic sfnts stand in for Selawik and the fallbacks, so nothing downloads. Every table
 checksum and head's whole-file adjustment are checked as FreeType-less
@@ -146,8 +146,10 @@ def test_install_writes_patched_fonts_and_the_conf(tmp_path, monkeypatch):
     assert "<include ignore_missing=\"yes\">/etc/fonts/fonts.conf</include>" in text
     assert f"<dir>{root}</dir>" in text
     assert "<string>Segoe UI</string>" in text and "<string>Selawik</string>" in text
-    assert f"<acceptfont><glob>{root}/*</glob></acceptfont>" in text
-    assert "<rejectfont><glob>*</glob></rejectfont>" in text
+    assert "<rejectfont><pattern><patelt name=\"family\"><string>Inter</string>" in text
+    # The system's own copy of a fallback is hidden; every other font stays.
+    assert f"<rejectfont><glob>{fallback.resolve().as_posix()}</glob></rejectfont>" in text
+    assert text.count("<rejectfont>") == 2 and "<acceptfont>" not in text
 
 
 def test_missing_fallbacks_are_named_before_anything_is_written(tmp_path, monkeypatch):

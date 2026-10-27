@@ -6275,8 +6275,9 @@ table on the runner's Linux Chrome (`run_smoke.py --all --jobs 3`) and
 uploads each smoke's result, browser log, screenshots and failed fake's log
 as `smoke-artifacts` when it fails. Before it, `tools/smoke_fonts.py`
 installs Selawik as Segoe UI with Windows line metrics, beside copies of
-DejaVu Sans and Noto Color Emoji for the symbols Segoe UI lacks, and lets
-Chrome see no other font (`FONTCONFIG_FILE`). Every copy carries the advance
+DejaVu Sans and Noto Color Emoji for the symbols Segoe UI lacks, hiding
+Inter and the system's own copies of those two (`FONTCONFIG_FILE`); other
+system fonts stay, since Google Chrome aborts on a character no font has. Every copy carries the advance
 widths Windows measured (`tools/segoe-widths.json`), so text is laid out as
 on Windows; `tools/font-widths.json` logs every page character's advance
 width, the run that table came from. A character the page newly draws gets
