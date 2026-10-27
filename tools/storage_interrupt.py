@@ -23,7 +23,7 @@ import time
 import uuid
 from contextlib import closing
 from pathlib import Path
-from zipfile import ZipFile
+from zipfile import ZipExtFile, ZipFile
 
 
 BOUNDARIES = ("export-write", "export-verified", "export-removed", "import-installed",
@@ -33,7 +33,7 @@ SIDE = 256
 MIN_FREE = 256 * 1024**2
 
 
-def _app(gallery: Path):
+def _app(gallery: Path) -> None:
     # No inherited model or gallery setting can direct this check elsewhere.
     for name in list(os.environ):
         if name.startswith("LOCAL_DIFFUSION_"):
@@ -41,8 +41,6 @@ def _app(gallery: Path):
     os.environ["LOCAL_DIFFUSION_DB_PATH"] = str(gallery / "local-diffusion.db")
     os.environ["LOCAL_DIFFUSION_OUTPUTS_DIR"] = str(gallery / "outputs")
     sys.path.insert(0, str(Path(__file__).resolve().parent.parent))
-    from backend import bundles, gallery_lock, storage
-    return bundles, gallery_lock, storage
 
 
 def _files(directory: Path) -> dict[str, str]:
@@ -65,7 +63,8 @@ def _size(directory: Path) -> int:
 def _fixture(root: Path, boundary: str):
     from PIL import Image
 
-    bundles, _, storage = _app(root / "source")
+    _app(root / "source")
+    from backend import bundles, storage
     from backend.schemas import GenerateRequest
 
     storage.init_db()
@@ -102,8 +101,9 @@ def _fixture(root: Path, boundary: str):
     existing, existing_files = [], {}
     if boundary.startswith("import"):
         archive = bundles.export_bundle(keep_gallery=True)["path"]
-        storage.settings = dataclasses.replace(settings, db_path=root / "destination" / "local-diffusion.db",
-                                              outputs_dir=root / "destination" / "outputs")
+        storage.settings = dataclasses.replace(
+            settings, db_path=root / "destination" / "local-diffusion.db", outputs_dir=root / "destination" / "outputs",
+        )
         storage.init_db()
         save(1001)
         save(1002)
@@ -126,7 +126,8 @@ def _worker(root: Path, token: str, recover: bool) -> None:
     gallery = Path(state["gallery"]).resolve()
     assert gallery.is_relative_to(root)
     _signal("started", state)
-    bundles, gallery_lock, storage = _app(gallery)
+    _app(gallery)
+    from backend import bundles, gallery_lock, storage
     storage.init_db()
     boundary = state["boundary"]
 
@@ -136,16 +137,11 @@ def _worker(root: Path, token: str, recover: bool) -> None:
         raise AssertionError("the controller must terminate this paused worker")
 
     if not recover:
-        if boundary == "export-write":
-            def progress(phase, done, total):
-                if phase == "writing" and done == 2:
-                    pause()  # database plus one real image member has been written
-        elif boundary == "export-verified":
-            def progress(phase, done, total):
-                if phase == "clearing" and done == 0:
-                    pause()  # verified archive published; no cleanup has started
-        else:
-            progress = lambda *args: None
+        def progress(phase: str, done: int, total: int) -> None:
+            if boundary == "export-write" and phase == "writing" and done == 2:
+                pause()  # database plus one real image member has been written
+            elif boundary == "export-verified" and phase == "clearing" and done == 0:
+                pause()  # verified archive published; no cleanup has started
         if boundary == "export-removed":
             real_remove = bundles._remove_file
 
@@ -298,6 +294,7 @@ def _check_archive(path: Path) -> None:
         assert manifest["records"] == ROWS
         for name, expected in manifest["files"].items():
             with archive.open(name) as member:
+                assert isinstance(member, ZipExtFile), "reading a ZIP member requires its binary stream"
                 assert hashlib.file_digest(member, "sha256").hexdigest() == expected["sha256"]
             assert archive.getinfo(name).file_size == expected["size"]
 

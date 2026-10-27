@@ -10,7 +10,8 @@ the running checkpoint through `settings` patches it here.
 """
 from __future__ import annotations
 
-from typing import Any, Literal
+from collections.abc import Iterable
+from typing import Any, Literal, LiteralString, Protocol, TypedDict
 
 import re
 
@@ -20,8 +21,12 @@ from pydantic_core import PydanticCustomError
 from . import outpaint as outpaint_rules
 from .model_selection import current_model_id
 from .config import settings
+from .execution import (
+    EXECUTION_OMITTED, ExecutionSpec, canonical_execution, require_default_execution,
+    resolve_execution,
+)
 from .model_defaults import defaults_for, inpaint_family, inpaint_start
-from .refine import ANIME6B, DEFAULT_STRENGTH, leaves_a_step, upscaler_supported
+from .refine import DEFAULT_STRENGTH, Upscaler, leaves_a_step, upscaler_supported
 from .seeds import MAX_BATCH, MAX_GRID_SEEDS, MAX_RUNS, MAX_SEED
 
 # How many reference images one request may carry. klein concatenates each one
@@ -81,13 +86,16 @@ _FILL_NAME = r"^[a-z0-9][a-z0-9-]{0,31}$"
 _OUTPAINT_KEY = re.compile(r"^([a-z0-9][a-z0-9-]{0,31}):(\d{1,6}),(\d{1,6}),(\d{1,6}),(\d{1,6})@(\d{1,6})$")
 
 
-def _on_grid(value: int, grid: int, what: str) -> int:
+def _on_grid(value: int, grid: int, what: LiteralString) -> int:
     """`value` where it is a multiple of `grid`, else the custom error the
     size uses, with the value and its two neighbours."""
     if value % grid:
         below = value - value % grid
         raise PydanticCustomError(
-            f"multiple_of_{grid}",
+            # pydantic-core requires LiteralString here, but this identifier
+            # deliberately includes an internal integer grid, never a template
+            # from the request. Keep the existing machine-readable error code.
+            f"multiple_of_{grid}",  # pyright: ignore[reportArgumentType]
             "{value} is not a multiple of {grid}: {below} or {above}" + what,
             {"value": value, "grid": grid, "below": below, "above": below + grid},
         )
@@ -240,7 +248,7 @@ class GenerateRequest(BaseModel):
     crop_anchor: CropAnchor = "center"
     # An optional GAN before an ordinary Refine pass; absent keeps the
     # existing Lanczos source fit. Never applied to a mask or an outpaint.
-    upscaler: Literal[ANIME6B] | None = None
+    upscaler: Upscaler | None = None
     # An inpaint: a refine pass at the source's own size through the inpaint
     # class beside the pipeline, repainting where this mask is white. The
     # mask is a stored picture named by the SHA-256 of its pixels, never a
@@ -253,12 +261,25 @@ class GenerateRequest(BaseModel):
     # (`storage.stamp_outpaints`). Never sent with a mask; dropped by
     # `applied()` with the source, as a mask is.
     outpaint: Outpaint | None = None
+    # Reserved shared reproduction extension. No non-default recipe can run
+    # before its storage/key carry and backend implementation are complete.
+    execution: ExecutionSpec | None = None
     seed: int | None = Field(default=None, ge=0, le=MAX_SEED)
     num_images: int = Field(default=1, ge=1, le=MAX_BATCH)
     # Sequential passes. Each one is a separate pipeline call whose base seed is
     # the previous run's plus `num_images`, so a long sweep costs no more VRAM
     # than a single image - which is what makes 2K sweeps possible at all.
     runs: int = Field(default=1, ge=1, le=MAX_RUNS)
+
+    @model_validator(mode="after")
+    def _execution_is_available(self) -> "GenerateRequest":
+        require_default_execution(self.execution)
+        return self
+
+    def with_execution(self, selected_loader: object) -> "GenerateRequest":
+        """Resolve a runtime request narrowly, without revalidating its mask."""
+        recorded = self.execution if "execution" in self.model_fields_set else EXECUTION_OMITTED
+        return self.model_copy(update={"execution": resolve_execution(selected_loader, recorded)})
 
     @model_validator(mode="after")
     def _profile_defaults(self) -> "GenerateRequest":
@@ -341,11 +362,13 @@ class GenerateRequest(BaseModel):
     def check_refine_steps(self) -> None:
         # Check after capability validation, on actual cells: a grid's axes
         # can replace an otherwise unusable base steps/strength pair.
-        if self.refine is not None and not leaves_a_step(self.steps, self.strength):
-            raise ValueError(
-                f"strength {self.strength:g} of {self.steps} steps is less than one step; "
-                "raise the strength or the steps"
-            )
+        if self.refine is not None:
+            assert self.steps is not None and self.strength is not None, "profile defaults fill steps and strength"
+            if not leaves_a_step(self.steps, self.strength):
+                raise ValueError(
+                    f"strength {self.strength:g} of {self.steps} steps is less than one step; "
+                    "raise the strength or the steps"
+                )
 
     @field_validator("reference")
     @classmethod
@@ -471,7 +494,14 @@ class GenerateRequest(BaseModel):
         or None when it was not - one meaning for the column whatever the
         checkpoint, which is what lets a resume compare rows across the two.
         """
+        # Also covers internal model_copy requests without revalidating a
+        # stamped outpaint (whose derived mask is deliberately post-validation).
+        require_default_execution(self.execution)
         changes: dict[str, Any] = {}
+        if self.execution is not None:
+            # Availability is checked above. Normalization canonicalizes an
+            # empty spelling; it must never erase a known admitted recipe.
+            changes["execution"] = canonical_execution(self.execution)
         negative = self.negative_prompt or None
         scale = self.true_cfg if true_cfg_supported else self.guidance_scale
         if negative and (
@@ -555,6 +585,15 @@ def effective_true_cfg(
     return guidance_scale if negative_prompt else None
 
 
+class _ErrorDetail(TypedDict):
+    loc: Iterable[object]
+    msg: object
+
+
+class _ValidationErrors(Protocol):
+    def __call__(self) -> Iterable[_ErrorDetail]: ...
+
+
 def error_detail(exc: ValueError) -> str:
     """One line out of an axis parser or out of pydantic, for a 422 body or a terminal.
 
@@ -562,7 +601,9 @@ def error_detail(exc: ValueError) -> str:
     raises a ValidationError, whose own str() is several lines of type and url
     noise. The UI puts this straight under the field; the CLI prints it.
     """
-    errors = getattr(exc, "errors", None)
+    # Keep the duck-typed path for callers' custom ValueError subclasses too:
+    # an errors() method supplies the same location/message entries we read.
+    errors: _ValidationErrors | None = getattr(exc, "errors", None)
     if not callable(errors):
         return str(exc)
     return "; ".join(
@@ -595,10 +636,39 @@ class GenerateSubmission(GenerateRequest):
     base rows are what a plain Generate of the same settings writes."""
 
     then_refine: ThenRefine | None = None
+    # Composer intent only. `execution`, when present, is complete replay
+    # metadata even when it is null or contains only a step-cache recipe.
+    step_cache: Literal["fbc-005-v1"] | None = None
 
-    def base(self) -> GenerateRequest:
+    @model_validator(mode="after")
+    def _one_execution_channel(self) -> "GenerateSubmission":
+        if "execution" in self.model_fields_set and "step_cache" in self.model_fields_set:
+            raise ValueError("Choose composer step cache or a recorded execution recipe, not both.")
+        return self
+
+    def base(self, selected_loader: object = None) -> GenerateRequest:
         """The request alone, as the cells carry it."""
-        return GenerateRequest.model_validate(self.model_dump(exclude={"then_refine"}))
+        return GenerateRequest.model_validate(self.with_execution(selected_loader).model_dump())
+
+    def with_execution(self, selected_loader: object) -> GenerateRequest:
+        """Consume submission-only intent at direct runtime boundaries too."""
+        recorded = self.execution if "execution" in self.model_fields_set else EXECUTION_OMITTED
+        cache = self.step_cache if "step_cache" in self.model_fields_set else EXECUTION_OMITTED
+        effective = resolve_execution(selected_loader, recorded, step_cache=cache)
+        # Copy field objects, not serialized dictionaries. A stamped outpaint
+        # deliberately carries both its spec and derived mask at this point.
+        fields = {name: getattr(self, name) for name in GenerateRequest.model_fields}
+        fields["execution"] = effective
+        return GenerateRequest.model_construct(
+            _fields_set=(self.model_fields_set - {"then_refine", "step_cache"}) | {"execution"}, **fields,
+        )
+
+    def applied(self, **kwargs: Any) -> GenerateRequest:
+        # Portable normalization cannot infer a loader for composer transport.
+        # Require that its submission-only channel was consumed first.
+        if "step_cache" in self.model_fields_set:
+            raise ValueError("Resolve composer step cache before normalizing its request.")
+        return super().applied(**kwargs)
 
 
 class PromptVariant(BaseModel):

@@ -15,14 +15,16 @@ from __future__ import annotations
 import asyncio
 import json
 import re
-from typing import Any
+from typing import Any, TypedDict
 
 from fastapi import APIRouter, HTTPException, Request
 from pydantic import ValidationError
 
 from . import png_settings, storage
 from .app_context import AppServices
+from .execution import require_configured_loader_available, require_default_execution, resolve_execution
 from .metadata import PNG_METADATA_KEY
+from .model_selection import current_settings
 from .png_settings import PARAMETERS_KEY, PngSettingsError
 from .schemas import GenerateRequest, PngPanelSampling, PngSettings, PngSettingsRequest, error_detail
 
@@ -97,7 +99,12 @@ def _verified_references(meta: dict) -> tuple[list[int], int]:
     return kept, len(ids) - len(kept)
 
 
-def _size(text: Any) -> dict[str, int]:
+class _ImageSize(TypedDict, total=False):
+    width: int
+    height: int
+
+
+def _size(text: Any) -> _ImageSize:
     match = _SIZE.match(text) if isinstance(text, str) else None
     return {"width": int(match[1]), "height": int(match[2])} if match else {}
 
@@ -112,7 +119,7 @@ def _reason(exc: ValueError) -> str:
 
 
 def _request(
-    fields: dict[str, Any], size: dict[str, int], notes: list[str], name: str, at: int
+    fields: dict[str, Any], size: _ImageSize, notes: list[str], name: str, at: int
 ) -> tuple[GenerateRequest, bool]:
     """The request, with the PNG's size where it is one a direct render takes.
 
@@ -122,6 +129,7 @@ def _request(
     the whole answer's.
     """
     if size:
+        assert "width" in size and "height" in size, "a parsed PNG size carries both dimensions"
         try:
             request = GenerateRequest(**fields, **size)
             request.check_budget()
@@ -138,7 +146,7 @@ def _request(
         raise PngSettingsError(f"the settings in {name} do not fit this app: {_reason(exc)}") from None
 
 
-def _from_record(meta: dict, name: str) -> tuple[dict, dict, bool, list[str]]:
+def _from_record(meta: dict, name: str) -> tuple[dict, _ImageSize, bool, list[str]]:
     """This app's record as request fields, the size, whether to write it, notes."""
     notes: list[str] = []
     if not isinstance(meta.get("prompt"), str) or not meta["prompt"].strip():
@@ -149,9 +157,13 @@ def _from_record(meta: dict, name: str) -> tuple[dict, dict, bool, list[str]]:
             ("prompt", "prompt"), ("negative_prompt", "negative_prompt"), ("steps", "steps"),
             ("guidance_scale", "guidance_scale"), ("true_cfg", "true_cfg"), ("seed", "seed"),
             ("lora", "lora"), ("lora_scale", "lora_scale"),
+            ("execution", "execution"),
         )
         if meta.get(field) is not None
     }
+    # A Local Diffusion PNG is replay metadata. Older Eager images must not
+    # acquire current loader intent when the browser submits these settings.
+    fields["execution"] = meta.get("execution")
     # An explicit null is a render with no shift of ours, as `--from-image`
     # reads it; absent, the profile's.
     if "mu" in meta:
@@ -166,7 +178,7 @@ def _from_record(meta: dict, name: str) -> tuple[dict, dict, bool, list[str]]:
             f"this gallery holds no copy of {'it' if one else 'them'} under the id "
             f"{'it' if one else 'they'} had where the image was made."
         )
-    size = _size(meta.get("size"))
+    size: _ImageSize = _size(meta.get("size"))
     # A refine pass is the Refine dialog's, made from a source in a gallery;
     # from a file only its prompt and sampling carry, at the panel's own size
     # - as Reuse fills the panel when a pass's source has gone.
@@ -207,7 +219,7 @@ def _panel_sampling(fields: dict[str, Any], panel: PngPanelSampling | None) -> d
 
 def _from_parameters(
     text: str, name: str, panel: PngPanelSampling | None
-) -> tuple[dict, dict, bool, list[str]]:
+) -> tuple[dict, _ImageSize, bool, list[str]]:
     """An A1111 'parameters' block as request fields, the size, notes."""
     prompt, negative, params = png_settings.parse_parameters(text)
     if not prompt:
@@ -243,6 +255,13 @@ def read_settings(services: AppServices, asked: PngSettingsRequest) -> PngSettin
     name, chunks = asked.name, asked.chunks
     meta = png_settings.record(chunks, name)
     if meta is not None:
+        try:
+            require_default_execution(meta.get("execution"))
+            selected = current_settings(services.settings())
+            require_configured_loader_available(selected)
+            resolve_execution(selected.loader_execution, meta.get("execution"))
+        except ValueError as exc:
+            raise PngSettingsError(str(exc)) from exc
         source = PNG_METADATA_KEY
         fields, size, sampling, notes = _from_record(meta, name)
         model = meta.get("model") if isinstance(meta.get("model"), str) else None

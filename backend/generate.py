@@ -45,7 +45,7 @@ if __package__ in (None, ""):
 # launch.py owns --model/--quant/--offload for the server and this CLI alike;
 # sizes.py owns the preset table the browser's copy is asserted against.
 from backend.launch import add_model_arguments, apply_env  # noqa: E402
-from backend.png_settings import PngSettingsError, image_settings  # noqa: E402
+from backend.png_settings import image_settings  # noqa: E402
 from backend.seeds import random_seed, wrap_seed  # noqa: E402
 from backend.sizes import SIZES, TIERS  # noqa: E402
 
@@ -108,6 +108,10 @@ def _build_parser() -> argparse.ArgumentParser:
     )
     shift.add_argument("--no-mu", action="store_true", help="let the pipeline pick its own shift")
     sampling.add_argument("--seed", type=int, help="base seed; random when omitted")
+    sampling.add_argument(
+        "--step-cache", choices=("off", "fbc-005-v1"),
+        help="per-render cache recipe (off by default; nonempty recipes remain unavailable)",
+    )
 
     conditioning = parser.add_argument_group("conditioning")
     conditioning.add_argument(
@@ -331,8 +335,14 @@ def _image_settings(path: str, parser: argparse.ArgumentParser) -> dict:
     JSON - are argument errors here, not tracebacks.
     """
     try:
-        return image_settings(path)
-    except PngSettingsError as exc:
+        from backend.execution import require_default_execution
+
+        meta = image_settings(path)
+        # A file's recipe is part of its reproduction set. Until this build
+        # can run it, refuse before apply_env, source reads or local loading.
+        require_default_execution(meta.get("execution"))
+        return meta
+    except ValueError as exc:
         parser.error(f"--from-image: {exc}")
 
 
@@ -429,10 +439,16 @@ def _carried_outpaint(meta: dict) -> tuple[int, int, int, int, int, str] | None:
     value, fill = meta.get("outpaint"), meta.get("outpaint_fill")
     if not isinstance(value, dict) or not isinstance(fill, str) or meta.get("mask") is None:
         return None
-    sides = [value.get(name) for name in ("left", "top", "right", "bottom", "band")]
-    if any(type(side) is not int or side < 0 for side in sides):
+    left, top, right, bottom, band = (value.get(name) for name in ("left", "top", "right", "bottom", "band"))
+    if (
+        type(left) is not int or left < 0
+        or type(top) is not int or top < 0
+        or type(right) is not int or right < 0
+        or type(bottom) is not int or bottom < 0
+        or type(band) is not int or band < 0
+    ):
         return None
-    return (*sides, fill)
+    return left, top, right, bottom, band, fill
 
 
 def _outpaint_sides(text: str, parser: argparse.ArgumentParser) -> tuple[int, int, int, int] | str:
@@ -456,7 +472,7 @@ def _outpaint_sides(text: str, parser: argparse.ArgumentParser) -> tuple[int, in
             parser.error(f"--outpaint: {side} is not a multiple of 16: {below} or {below + 16}")
     if not any(sides):
         parser.error("--outpaint: an outpaint extends at least one side")
-    return sides
+    return sides[0], sides[1], sides[2], sides[3]
 
 
 def _check_carried_source(args: argparse.Namespace, p: SimpleNamespace, parser: argparse.ArgumentParser) -> bool:
@@ -830,6 +846,54 @@ def _server_json(base: str, path: str, *, body=None, data=None, headers=None, ti
     return answer
 
 
+def _cli_execution_intent(args) -> bool:
+    """Refuse before local image/project reads; retain explicit Eager intent."""
+    import os
+
+    from backend.execution import (
+        ExecutionSpec, INVALID_LOADER_CONFIGURATION, loader_execution_from_choices,
+        require_default_execution,
+    )
+
+    compilation = getattr(args, "compilation", None)
+    attention = getattr(args, "attention", None)
+    # This internal diagnostic is invalid even when its value is empty.
+    # Generation flags do not repair a saved startup profile or its marker.
+    if "LOCAL_DIFFUSION_LOADER_EXECUTION_ERROR" in os.environ:
+        raise ValueError(INVALID_LOADER_CONFIGURATION)
+    spec = loader_execution_from_choices(
+        compilation if compilation is not None else os.getenv("LOCAL_DIFFUSION_COMPILATION"),
+        attention if attention is not None else os.getenv("LOCAL_DIFFUSION_ATTENTION"),
+    )
+    cache = getattr(args, "step_cache", None)
+    if cache not in (None, "off"):
+        values = {} if spec is None else spec.model_dump(exclude_none=True)
+        spec = ExecutionSpec(**{**values, "step_cache": cache})
+    require_default_execution(spec)
+    args.execution_recipe = spec
+    return (
+        compilation is not None or attention is not None
+        or "LOCAL_DIFFUSION_COMPILATION" in os.environ or "LOCAL_DIFFUSION_ATTENTION" in os.environ
+    )
+
+
+def _resolved_cli_execution(args, selected_loader: object, source: dict | None):
+    """Bind composer/replay identity before sources or grid identities."""
+    from backend.execution import resolve_execution
+
+    cache = getattr(args, "step_cache", None)
+    if getattr(args, "execution_explicit", False):
+        resolve_execution(selected_loader, getattr(args, "execution_recipe", None))
+    if source is not None:
+        recorded = source.get("execution")
+        if cache is not None:
+            return resolve_execution(selected_loader, recorded, step_cache=None if cache == "off" else cache)
+        return resolve_execution(selected_loader, recorded)
+    if cache is not None:
+        return resolve_execution(selected_loader, step_cache=None if cache == "off" else cache)
+    return resolve_execution(selected_loader)
+
+
 def _via_server(args, parser, source, carried, mask_image, width, height, sized, outpaint_sides) -> int:
     """Script the public API; all model defaults and admission stay server-owned."""
     import io
@@ -879,6 +943,18 @@ def _via_server(args, parser, source, carried, mask_image, width, height, sized,
             raise _ServerError("the server's status has no checkpoint/loading settings")
         if status.get("switching"):
             raise _ServerError("the checkpoint is switching; wait for the switch to finish", 409)
+        from backend.execution import configured_loader_unavailable_reason
+
+        reason = configured_loader_unavailable_reason(SimpleNamespace(
+            loader_execution=status.get("execution"),
+            loader_execution_error=(True if status.get("execution_available") is False and not status.get("execution") else None),
+        ))
+        if reason is not None:
+            raise _ServerError(reason, 422)
+        try:
+            effective_execution = _resolved_cli_execution(args, status.get("execution"), source)
+        except ValueError as exc:
+            raise _ServerError(str(exc), 422) from exc
         for value, key, flag, env in (
             (args.model, "model_id", "--model", "LOCAL_DIFFUSION_MODEL_ID"),
             (args.quant, "quantization", "--quant", "LOCAL_DIFFUSION_QUANT"),
@@ -942,6 +1018,7 @@ def _via_server(args, parser, source, carried, mask_image, width, height, sized,
         body = {"prompt": args.prompt, "negative_prompt": args.negative,
                 "width": width, "height": height, "num_images": args.batch, "runs": args.runs,
                 "reference": references, "lora": args.lora, "lora_scale": args.lora_scale}
+        body["execution"] = effective_execution.model_dump(exclude_none=True) if effective_execution is not None else None
         if args.crop_anchor is not None:
             body["crop_anchor"] = args.crop_anchor
         if args.upscaler not in (None, "lanczos"):
@@ -1059,10 +1136,15 @@ def main(argv: list[str] | None = None) -> int:
     # isatty(); the Windows console is UTF-8 already. Elsewhere a terminal
     # keeps its own encoding. A StringIO has none to change, and under pythonw
     # there is no stdout.
-    if hasattr(sys.stdout, "reconfigure") and (sys.platform == "win32" or not sys.stdout.isatty()):
-        sys.stdout.reconfigure(encoding="utf-8", errors="backslashreplace")
+    reconfigure = getattr(sys.stdout, "reconfigure", None)
+    if callable(reconfigure) and (sys.platform == "win32" or not sys.stdout.isatty()):
+        reconfigure(encoding="utf-8", errors="backslashreplace")
     parser = _build_parser()
     args = parser.parse_args(argv)
+    try:
+        args.execution_explicit = _cli_execution_intent(args)
+    except ValueError as exc:
+        parser.error(str(exc))
     args.reference_given = bool(args.reference)
     # A mask hash carried from --from-image's record, where --mask names none;
     # the record's refine source's identity, and whether its strength carried.
@@ -1141,6 +1223,14 @@ def main(argv: list[str] | None = None) -> int:
     if args.via_server:
         return _via_server(args, parser, source, carried, mask_image, width, height, sized, outpaint_sides)
     p = _project()
+    from backend.execution import require_configured_loader_available
+
+    try:
+        require_configured_loader_available(p.settings)
+        effective_execution = _resolved_cli_execution(args, getattr(p.settings, "loader_execution", None), source)
+    except ValueError as exc:
+        print(str(exc), file=sys.stderr)
+        return 2
     if _check_carried_source(args, p, parser):
         inpainting = False
         outpaint_sides = None
@@ -1316,6 +1406,7 @@ def main(argv: list[str] | None = None) -> int:
             seed=seed,
             num_images=args.batch,
             runs=args.runs,
+            execution=effective_execution,
         )
         # A batch past the budget is told the flag to use instead, which on a
         # grid - whose seeds are its runs - is a smaller --batch.

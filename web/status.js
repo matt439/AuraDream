@@ -276,6 +276,7 @@ function syncUnload() {
 let loadLine = null;
 async function loadModel() {
   if (modelChangeHold()) { sayModelChangeHold(); return; }
+  if (executionLoadHold()) { showError(executionLoadHold()); return; }
   try {
     await api('/api/model/load', { method: 'POST' });
     const said = els.error.textContent;
@@ -562,6 +563,7 @@ function receiveStatus(s, asked = Date.now()) {
     if (changed) checkpointChanged(previousModel);
     loadedModel = s.model_id ?? loadedModel;
     if (s.model_id) checkpointLabel = s.model_label ?? null;
+    receiveExecutionStatus(s, asked);
     receiveModelSettings(s, { reset: changed || restarted });
     if (changed) {
       syncReuseButtons();
@@ -707,6 +709,7 @@ function receiveStatus(s, asked = Date.now()) {
     els.load.hidden = !(s.state === 'unloaded' || s.state === 'error');
     els.load.textContent = s.state === 'error' ? 'Retry load' : 'Load';
     els.load.title = s.state === 'error' ? 'Try the load again, once what stopped it is fixed' : 'Load the weights now';
+    syncExecutionControls();
     // Another tab's job, or one queued behind this page's from elsewhere:
     // before Unload's reason and the line below are written.
     if (Array.isArray(s.active_jobs)) followServerJobs(s.active_jobs, asked);

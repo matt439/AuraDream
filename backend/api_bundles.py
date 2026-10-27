@@ -7,19 +7,21 @@ import binascii
 import logging
 import re
 import tempfile
+import threading
 import uuid
 from collections.abc import Callable
 from pathlib import Path
 from typing import Literal
 
 from fastapi import APIRouter, HTTPException, Request
-from fastapi.responses import FileResponse, JSONResponse
+from fastapi.responses import JSONResponse
 from pydantic import BaseModel, Field, SecretStr
 from starlette.requests import ClientDisconnect
 
 from . import bundle_crypto, bundles, storage, submission
 from .app_context import AppServices
 from .bundle_common import sentence
+from .bundle_leases import LeasedFileResponse
 from .config import settings
 from .jobs import JobManager
 
@@ -29,6 +31,7 @@ PASSWORD_HEADER = "X-Bundle-Password"
 _UPLOAD_BUFFER = 8 * 1024 * 1024
 UPLOAD_STOPPED = "The upload stopped before the whole file arrived; nothing was imported."
 BUSY = "A gallery bundle operation is already in progress."
+StartFailure = Literal["worker_cancelled_before_start", "worker_start_failed"]
 
 
 class ExportRequest(BaseModel):
@@ -89,6 +92,7 @@ class BundleManager:
         self.unavailable = unavailable
         self.readers = 0
         self.task: asyncio.Task | None = None
+        self._settle_start: Callable[[], bool] | None = None
         self.state = {"id": None, "state": "idle", "operation": None, "result": None, "error": None}
         self.progress: dict | None = None
 
@@ -124,16 +128,72 @@ class BundleManager:
         error = sentence(str(exc)) or f"The gallery bundle operation stopped unexpectedly ({type(exc).__name__})."
         self.state = {**self.state, "state": "failed", "error": error}
 
-    def start(self, fn: Callable[[], dict], cleanup: Path | None = None) -> dict:
-        self.task = asyncio.create_task(self._run(fn, cleanup))
+    def start(self, fn: Callable[[], dict], cleanup: Path | None = None, *,
+              on_not_started: Callable[[StartFailure], None] | None = None) -> dict:
+        started = False
+        settled = False
+        operation_id = self.state["id"]
+
+        async def run() -> None:
+            nonlocal started
+            # No await separates this marker from _run submitting its worker.
+            started = True
+            await self._run(fn, cleanup, on_not_started)
+
+        def settle_cancelled_start() -> bool:
+            nonlocal settled
+            if started or not task.cancelled():
+                return False
+            if settled:
+                return True
+            settled = True
+            current = self.task is task and self.state["id"] == operation_id
+            if current:
+                self.fail("The gallery bundle operation was cancelled before its worker started.")
+            # _run's finally never executed: this task still owns its upload.
+            if cleanup is not None:
+                try:
+                    cleanup.unlink(missing_ok=True)
+                except OSError:
+                    log.warning("could not remove uploaded bundle %s", cleanup, exc_info=True)
+            if current and on_not_started is not None:
+                on_not_started("worker_cancelled_before_start")
+            return True
+
+        task = asyncio.create_task(run())
+        self.task = task
+        self._settle_start = settle_cancelled_start
+        task.add_done_callback(lambda _task: settle_cancelled_start())
         return self.status()
 
-    async def _run(self, fn: Callable[[], dict], cleanup: Path | None) -> None:
+    async def _run(self, fn: Callable[[], dict], cleanup: Path | None,
+                   on_not_started: Callable[[StartFailure], None] | None = None) -> None:
         try:
             # A cancelled asyncio task cannot stop a file-writing thread. Keep
             # admission and the uploaded file until that thread actually ends,
             # even if server shutdown cancels the task that is supervising it.
-            worker = asyncio.get_running_loop().run_in_executor(None, fn)
+            submission = threading.Lock()
+            permitted = False
+
+            def owned() -> dict:
+                with submission:
+                    allowed = permitted
+                if not allowed:
+                    return {}
+                return fn()
+
+            try:
+                # ThreadPoolExecutor can queue before starting a thread raises.
+                # Do not let that queued callable write unless submission gave
+                # this supervisor its Future. No await occurs under this lock.
+                with submission:
+                    worker = asyncio.get_running_loop().run_in_executor(None, owned)
+                    permitted = True
+            except Exception:
+                self.fail("The gallery bundle worker could not start.")
+                if on_not_started is not None:
+                    on_not_started("worker_start_failed")
+                return
             while True:
                 try:
                     result = await asyncio.shield(worker)
@@ -156,8 +216,19 @@ class BundleManager:
     async def finish(self) -> None:
         # Requests do not own or cancel this task. Graceful shutdown waits for
         # the worker before storage or the process can disappear underneath it.
-        if self.task is not None:
-            await asyncio.shield(self.task)
+        task, settle = self.task, self._settle_start
+        if task is not None:
+            try:
+                await asyncio.shield(task)
+            except asyncio.CancelledError:
+                # Child cancellation before its first turn is a settled failed
+                # operation. Cancellation of this waiter still propagates and
+                # never cancels an already owned worker/supervisor.
+                if task.cancelled() and settle is not None and settle():
+                    caller = asyncio.current_task()
+                    if caller is None or not caller.cancelling():
+                        return
+                raise
 
 
 class GalleryAdmission:
@@ -171,7 +242,7 @@ class GalleryAdmission:
         if scope["type"] != "http":
             return await self.app(scope, receive, send)
         path = scope["path"]
-        control = path in {PREFIX, PREFIX + "/status", PREFIX + "/export", PREFIX + "/import",
+        control = path in {"/api/gallery/automatic-backup", "/api/gallery/automatic-backup/reload", PREFIX, PREFIX + "/status", PREFIX + "/export", PREFIX + "/import",
                            PREFIX + "/upload", PREFIX + "/password"} or path.startswith(PREFIX + "/files/")
         status = path == "/api/status" or path == "/api/jobs" or path.startswith("/api/jobs/")
         # Personal snippets have their own sidecar and reservation. Their
@@ -334,7 +405,10 @@ def create_router(get_manager: Callable[[], BundleManager], services: AppService
             # one is too late: the page then reports what the status says.
             if await request.is_disconnected():
                 raise ClientDisconnect()
-            return manager.start(lambda: bundles.import_bundle(path, password, manager.report), cleanup=path)
+            # This worker owns the newly received private partial through its
+            # cleanup. It is not a published archive, even if staging happens
+            # to share a destination with installed shared mode.
+            return manager.start(lambda: bundles._import_uploaded_bundle(path, password, manager.report), cleanup=path)
         except BaseException as exc:
             # The browser's Cancel, a reload or a closed tab ends the body
             # early (ClientDisconnect); shutdown cancels the request.
@@ -356,6 +430,6 @@ def create_router(get_manager: Callable[[], BundleManager], services: AppService
         if not path.is_file():
             raise HTTPException(404, "Bundle file not found.")
         media = "application/zip" if path.suffix.lower() == ".zip" else "application/octet-stream"
-        return FileResponse(path, media_type=media, filename=path.name)
+        return LeasedFileResponse(path, media_type=media, filename=path.name)
 
     return router

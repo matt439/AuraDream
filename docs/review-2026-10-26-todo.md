@@ -7,7 +7,7 @@ owns the confirmed defect below; TODO owns its priority.
 
 ## GEN#26: Marian truncates a full sentence chunk
 
-**OPEN · MED · S.** `MarianTranslator._source_limit` reserves room for
+**Fixed and checked, 2026-10-26.** `MarianTranslator._source_limit` reserves room for
 special tokens: the model limit of 512 becomes a source budget of 510.
 `_chunks` splits an over-long sentence into pieces within that budget.
 `translate` then passes the same 510 as the tokenizer's *total* input
@@ -68,8 +68,23 @@ Done means:
   check when available and record the preserved source tokens; this is
   additional dependency evidence, not a requirement to download files.
 
-This closes a deterministic input-loss defect, not a translation-quality
-claim. Separately, `GEN#21`'s earlier sentence-splitting fix has only stub
+The fix separates `_input_limit` (the tokenizer's bounded total input,
+512 here) from `_source_limit` (510 after reserving special-token room).
+`translate` now passes the total limit to the tokenizer. All 18 focused
+translation tests pass on Windows/Python 3.13.15, including a truncating
+tokenizer that inserts two special tokens and checks actual model input
+at, just past and across multiple full source chunks. An independent
+review found no blocking issue.
+
+The cached tokenizer reproduction above was repeated with both offline
+flags and `local_files_only=True`, without weights or model inference.
+The 1,201 source tokens still split into 510, 510 and 181. The actual total
+lengths are now 511, 511 and 182, equal to their untruncated inputs; both
+full chunks preserve final source token 5667. No download or GPU run was
+used. This closes a deterministic input-loss defect, not a
+translation-quality claim.
+
+Separately, `GEN#21`'s earlier sentence-splitting fix has only stub
 tests after its implementation (`verified.md`, Behaviour, the Marian
 row). A later bounded CPU qualification can replay a synthetic
 multi-sentence expansion through the real translator using already cached
@@ -106,3 +121,146 @@ general claim about translation accuracy.
 - The manual-validation owner also leaves native notification delivery
   and actual Windows display scaling unchecked. `UI#7` should name these
   alongside screen-reader and touch checks.
+
+## Remaining-work audit after the overnight stages
+
+The four OPEN rows still include implementation. They are not a declaration
+that every remaining step needs Matt. The original speed review specified a
+plan first, then implementation, then CARD; the new plans' "before shipping"
+and "before exposing" questions do not prohibit source work or scratch tests.
+The continuing implementation request permits those stages while leaving
+real model loads/downloads, GPU runs and experimental render activation out
+of this session.
+
+| Row | Independent implementation identified by the audit | Separate activation or evidence boundary |
+|---|---|---|
+| PERF#1 | Loader/selection/status lifecycle and fake-backed placement, failure and teardown checks | Compiler/toolchain installation; opening compiled rendering; GEN#22 and the finite card protocol |
+| PERF#3 | Cold request checks, dormant selection/status/processor lifecycle and fake checks | An explicit external-override policy before exposing selection; native/cuDNN card fit and repeatability; external wheels remain later work |
+| PERF#4 | Cold request checks, dormant per-call integration and presentation checks | Opening cached rendering and the shared-seed card comparison; Matt's quality acceptance before routine use |
+| GAL#6 | Default-off configuration, startup/preload ordering and status using scratch galleries | Explicit unattended protection/activation values; real OS credential integration; verified shared exclusion before retention deletion |
+| DEV#4 | Diagnostic/artifact preparation is complete | Linux qualification is blocked by the actual WSL service denial; hosted qualification requires publishing, outside the local-only request |
+
+The first missing cold cuDNN/FBC checks were implemented following this audit,
+with all nonempty-render refusals retained. Backup lifecycle work can likewise
+require age, count, destination and informed protection as explicit activation
+inputs rather than invent values for Matt. Existing draft policies must not
+silently become active when lifecycle wiring lands. Conservative empty-gallery
+skips, manual-age exclusion and no retry are existing first-version semantics,
+not evidence of a personal preference. The OS-secret option still needs a real
+provider and recovery design; it cannot fall back to plaintext.
+
+The explicit default-off GAL#6 startup/configuration/status slice was then
+implemented and checked on scratch galleries, as recorded in the backup plan.
+Explicit Windows shared-mode installation and mode-aware downloads were then
+implemented and checked on an owned NTFS process cohort. Published archive
+imports, listings, public encrypted helpers and receipt hashing then joined the
+same protocol, including original-key quarantine for uncertain input closes.
+The unconnected Windows mutation mechanism then gained mandatory installed-mode
+exclusion, pinned scope and same-handle hash/disposition with scratch qualification.
+V3 then added separately consented retention, current-N protection and durable
+pending/retired proofs with bounded retry history. Cleanup warnings preserve
+verified backup success/time, and pending/unknown state remains visible while
+disabled. V4 then added Windows credential source/setup/recovery, pending-first
+provisioning and worker-only lookup with API stubs, without real vault access.
+Actual intended-user store/session and independent recovery qualification remain.
+No real gallery/destination was activated; older v2 counts remain inert.
+
+The next bounded PERF#1 slice also landed in source: actual eager-load publication
+and shared teardown own unpublished pipeline/component references and future
+registration state, with strict synthetic failure/weak-reference checks. It
+changes no public loader selection or nonempty-render admission. Regional setup,
+selection and real execution remain in the compilation owner. The next private
+loader/call stage then wired cold preflight and owned regional registration into
+the actual load transaction, with one policy boundary for direct/refine forwards.
+Synthetic checks preserve eager behavior and every public nonempty refusal;
+compiler/cache setup and real qualification remain separate.
+
+Private attention preparation/call ownership then joined the same transaction,
+with exact pre/post-forward verification and weak terminal-discard exclusions.
+Focused synthetic checks preserve primary exceptions, eager behavior and every
+public nonempty refusal. Effective imported environment behavior, public
+selection and actual cuDNN/card qualification remain in the attention owner.
+
+Private FBC ownership then joined load/publication/call/teardown, with effective
+Native checks and explicit deferred disposal after unsafe cleanup. Synthetic
+checks cover scope/lock order, stale callbacks, primary failures and weak terminal
+invalidation. Public cached rendering, main-status reconciliation and actual
+quality/time/memory qualification remain separate.
+
+Approved workflow work was reconciled against its owners, production paths and
+regression fixtures: mixed tag/prose handling and native tag spelling, More seeds
+queueing and response retries, queue controls and missed outcomes, deterministic
+prompt choices, Bundles password/count clarity, target sizing, button hierarchy,
+shortcuts and compact setup are complete. No new implementation defect was
+established in that subset. A1111 weighting/chunking is the separate GEN#20
+decision, not an unfinished native-parser fix. The historical local-browser
+approval language in completed result paragraphs creates no new test gate.
+
+Genuine remaining human/product boundaries are DEV#1's task trials, UI#7's
+hands-on accessibility/desktop evidence, GEN#20's weighting behavior, INP#11's
+instruction-editing scope, INP#12's detailer/detector scope and PA#11's choice
+about withholding content-losing rewrites. PERF#2 retains its PERF#1 dependency;
+CARD and explicitly deferred rows keep their existing status. No agent trial,
+CPU test or browser emulation supplies those missing human or card results.
+
+## Current boundary origins
+
+The renewed audit used the actual TODO and owners after the credential source
+stage. The table below records that checkpoint; the selector implementation and
+current source steps are updated afterward. The blanket closed-render boundary
+came from the parent delegation's task scope, not Matt's quoted overnight
+authorization or a general prohibition on source work. Requirements below are
+distinguished from ordinary engineering choices;
+historical plan-only wording and old local-browser approval receipts do not
+create another approval requirement for current source work.
+
+| Remaining item | Requirement and origin | Independent work still allowed |
+|---|---|---|
+| PERF#1 | The compilation owner's selection/cache/lifecycle stages remain source work. Its exposure section requires an optional compiler/toolchain pin, supported restricted experiment and measured cold/warm trade-off before offering it. The current user scope excludes package installation, compiler/model execution and opening non-Eager rendering. | Private startup cache ownership and cold switch validation; further selection/status/preferences integration and fake tests can proceed with rendering closed. Cache isolation and refusal of unowned environment values are conservative implementation choices, not new user-policy gates. |
+| PERF#3 | The attention owner's exposure section leaves nondefault external-environment representation/refusal explicit; actual native/cuDNN fit and repeatability need the card. The current user scope keeps non-Eager rendering closed and excludes external wheel installation. | Shared closed selection contracts, source/status integration and synthetic lifecycle checks. The implemented private Native invariant does not choose public environment precedence. |
+| PERF#4 | The cache owner's finite acceptance requires the fixed image pairs, time/memory checks and Matt's quality judgment before routine use. Delegated task scope excludes model/GPU work and cached-render activation. | Source selection/admission/status integration and fake checks remain permitted; inspection/configuration does not require opening rendering. |
+| DEV#4 | Linux qualification is blocked by actual `Wsl/EnumerateDistros/Service/E_ACCESSDENIED`; the user explicitly forbids retry. Hosted execution requires publishing, excluded by the local-only request. | Native Node API preflight is now built and checked. No additional established tooling source defect remains; Linux/font/resource and hosted evidence remain unqualified. |
+| GAL#6 | The backup owner requires actual intended-user OS credential delivery and independent-password recovery. This session explicitly excludes real vault operations; API stubs cannot supply that evidence. Activating any gallery also requires its protection/age/count/destination inputs and separate deletion consent. | The default-off source, encrypted fake-provider restore and recovery tool are built. No source defect remains established by this audit; no real credential or gallery was activated. |
+| DEV#1; UI#7 | The validation owner calls for Matt's observed common-task trials and hands-on NVDA/Narrator, touch, native notification and actual Windows-scaling evidence. These are human/desktop evidence requirements, not missing browser fixtures. | Preparation and the approved browser/layout fixes are built. Keep the trial records blank until observed; do not infer a redesign winner from emulation. |
+| GEN#20; INP#11; INP#12; PA#11 | Current TODO marks these DECISION: whether to plan SDXL A1111 weighting/chunking, instruction edits, a detailer with a suitable detector, and whether to withhold content-losing critic rewrites. Their owners specify those product choices. | Preserve current native prompt parsing and warning behavior. No newly authorized feature implementation is implied by the overnight loop. |
+| PERF#2 | Current TODO explicitly waits on PERF#1. | Do not broaden into activation-quantization experiments before that dependency. |
+| CARD rows; GEN#15/#16/#22 | Repository rules require separately approved real-card runs and the existing RAM/VRAM limits; current user scope excludes model loading/download and GPU workloads. GEN#22 is the cold-load prerequisite for dependent FLUX measurements. | Preserve the implemented CPU contracts and finite measurement protocols; no fabricated device acceptance. |
+| INP#5/#6/#9/#10; GEN#6/#8; PA#9 | Current TODO keeps these DEFERRED. GEN#8 specifically waits until Matt raises it. | No new deferred feature is admitted by this audit. |
+
+The small exposure decision set is therefore the restricted performance
+experiment/toolchain and environment policy, the four indexed product choices,
+and explicit real-data activation inputs if wanted. None of these is a blanket
+ban on the remaining performance source stages. Approved mixed-prompt/native-tag
+parsing, seed queueing/retries, bundle clarity, shortcuts and compact setup have
+no current open row or reproduced regression in this audit.
+
+The last established closed-gate PERF#4 app gap was then repaired: status now
+reports a discarded private pipeline as not-ready, and explicit Load consults
+actual readiness rather than requiring a preceding GET. Fake checks preserve
+loading/error details, selection, preferences and ordinary load coalescing. This
+is latent lifecycle groundwork; today's valid public requests still cannot enter
+private FBC.
+
+## Selector implementation and remaining source
+
+The parent then explicitly authorized unavailable selector implementation. Models
+loader choices, v2 settings/environment/CLI carry, status/options and per-render
+FBC browser controls are now built without granting execution. Omission preserves
+loader intent; explicit Eager replacement, revisions, exact invalid-file rollback,
+startup diagnostics and runtime refusal prevent silent fallback. The four product
+decisions remain unchanged. Source review and CPU checks do not claim device or
+quality qualification. Corrected browser validation is blocked by an actual Windows
+`IAppCapability` access denial, separately from the earlier WSL denial.
+
+The current audit identifies these ordinary source steps; none requires another
+approval merely to implement and synthetically test it with public guards closed:
+
+| Source step | Existing owner | Concrete remaining implementation |
+|---|---|---|
+| A | PERF#1/#3, selection/reproduction | Resolve new composer intent against the selected loader and require exact recipe equality for an explicit replay, preserving legacy Eager and rejecting loader/cache conflicts. Omission and pure recipe normalization are preserved, but the runtime intent resolver is still separate work. |
+| B | PERF#1, first call/status | Carry truthful per-load registration and first-call diagnostics into backend/Models/job status with synthetic success/error/cancel/reset checks. Registration alone cannot claim warm kernels or cache hits. |
+| C | PERF#4, per-call ownership | Dispatch the composer request's cache-on/off/on over one ordinary Eager load. Current private FBC owner/dispatch is still attached to `_loaded_execution`, so request-driven ownership/disposal must be connected and checked for cancellation, foreign state and cleanup failure. |
+
+Optional toolchain installation/use, an actual startup compiler qualification,
+GEN#22/card comparisons, real credential recovery and Matt's human judgments
+remain separate evidence/actions. They do not block the source steps above.

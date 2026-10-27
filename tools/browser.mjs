@@ -36,6 +36,8 @@
 //   {"shot": "file.png"}         screenshot the viewport; {"fullshot": "file.png"} the
 //                                whole scrollable page; {"elshot": ["selector", "file.png"]}
 //                                one element's box, scrolled into view
+// Screenshot names must be portable relative paths, under
+// LOCAL_DIFFUSION_SCREENSHOT_DIR (a fresh reported temp directory if unset).
 //
 // The page opens at 1400x900, where the smokes are written. Two settings move it:
 //   LOCAL_DIFFUSION_VIEWPORT=2560x1305   (a maximized QHD browser at 100% scaling)
@@ -58,8 +60,18 @@
 // own) to more with && or ||, which would never wait: put the whole
 // condition in the predicate.
 import { spawn, spawnSync } from 'node:child_process';
-import { existsSync, readdirSync, readFileSync, rmSync, statSync, writeFileSync } from 'node:fs';
+import { existsSync, readdirSync, readFileSync, rmSync, statSync } from 'node:fs';
 import { tmpdir } from 'node:os';
+import { screenshotRoot, writeScreenshot } from './browser-output.mjs';
+
+// Fail before even looking for a browser or preparing script/output paths.
+// Check capabilities rather than guessing a supported Node version.
+const missingApis = ['fetch', 'WebSocket'].filter((name) => typeof globalThis[name] !== 'function');
+if (missingApis.length) {
+  console.error('browser.mjs requires callable native Node APIs: ' + missingApis.join(', ')
+    + '. Use a Node runtime providing both fetch and WebSocket.');
+  process.exit(2);
+}
 
 const CANDIDATES = [
   process.env.LOCAL_DIFFUSION_BROWSER,
@@ -81,6 +93,14 @@ if (OFFSET) {
   text = text.replace(/\b(127\.0\.0\.1|localhost):(\d{2,5})\b/g, (_, host, port) => `${host}:${Number(port) + OFFSET}`);
 }
 const steps = JSON.parse(text);
+let screenshots;
+try {
+  screenshots = screenshotRoot(steps);
+} catch (error) {
+  console.error(error.message);
+  process.exit(2);
+}
+if (screenshots) console.log('screenshots: ' + screenshots);
 const KEY_MODIFIERS = { Alt: 1, Control: 2, Meta: 4, Shift: 8 };
 const invalidCombos = steps.flatMap((step, index) => {
   if (!Object.hasOwn(step, 'keycombo')) return [];
@@ -175,12 +195,26 @@ for (const name of (() => { try { return readdirSync(tmpdir()); } catch { return
 // most of what a left-behind profile weighed. On Linux the browser leads a
 // process group of its own, so the whole tree can be stopped at once.
 const WINDOWS = process.platform === 'win32';
+// Explicit diagnostics for an owned scratch run only. Chromium normally writes
+// stderr noisily; retain at most its tail and print it only on a failed run.
+const STARTUP_DIAGNOSTICS = process.env.LOCAL_DIFFUSION_BROWSER_DIAGNOSTICS === '1';
+const STDERR_LIMIT = 16384;
+let browserStderr = '';
 const proc = spawn(browser, [
   '--headless=new', '--remote-debugging-port=0', `--window-size=${VW},${VH}`,
   '--no-first-run', '--no-default-browser-check', '--disable-sync', '--disable-gpu',
   '--disable-component-update', '--disable-extensions', '--disable-background-networking',
   `--user-data-dir=${PROFILE}`, 'about:blank',
-], { stdio: 'ignore', detached: !WINDOWS });
+], { stdio: STARTUP_DIAGNOSTICS ? ['ignore', 'ignore', 'pipe'] : 'ignore', detached: !WINDOWS });
+if (STARTUP_DIAGNOSTICS) {
+  proc.stderr.setEncoding('utf8');
+  proc.stderr.on('data', (chunk) => { browserStderr = (browserStderr + chunk).slice(-STDERR_LIMIT); });
+  process.on('exit', (code) => {
+    if (!code) return;
+    console.error(`browser diagnostics: exit=${proc.exitCode ?? 'running'} signal=${proc.signalCode ?? 'none'}`);
+    if (browserStderr) console.error('browser stderr tail:\n' + browserStderr + '\nbrowser stderr tail [end]');
+  });
+}
 let exited = false;
 proc.on('exit', () => { exited = true; });
 // The browser's whole tree, not its first process: Edge's renderers and
@@ -217,6 +251,7 @@ let failures = 0;
 
 async function target() {
   for (let i = 0; i < 75; i++) {
+    if (STARTUP_DIAGNOSTICS && exited) throw new Error('the browser exited before DevTools was ready');
     try {
       const port = Number(readFileSync(`${PROFILE}/DevToolsActivePort`, 'utf8').split('\n')[0]);
       const list = await (await fetch(`http://127.0.0.1:${port}/json`)).json();
@@ -414,20 +449,18 @@ for (const [n, step] of steps.entries()) {
     await send('Emulation.setEmulatedMedia', { features });
   } else if (step.shot) {
     const res = await send('Page.captureScreenshot', { format: 'png' });
-    writeFileSync(step.shot, Buffer.from(res.result.data, 'base64'));
-    console.log('  wrote ' + step.shot);
+    console.log('  wrote ' + writeScreenshot(screenshots, step.shot, res.result.data));
   } else if (step.fullshot) {
     const res = await send('Page.captureScreenshot', { format: 'png', captureBeyondViewport: true });
-    writeFileSync(step.fullshot, Buffer.from(res.result.data, 'base64'));
-    console.log('  wrote ' + step.fullshot);
+    console.log('  wrote ' + writeScreenshot(screenshots, step.fullshot, res.result.data));
   } else if (step.elshot) {
     const [sel, out] = step.elshot;
     const box = await evaluate(`(() => { const e = document.querySelector(${JSON.stringify(sel)}); if (!e) return null; e.scrollIntoView({block: 'nearest'}); const r = e.getBoundingClientRect(); return {x: r.x + scrollX, y: r.y + scrollY, width: r.width, height: r.height}; })()`);
     if (!box || !box.width || !box.height) console.log('  ! elshot: no visible element for ' + sel);
     else {
       const res = await send('Page.captureScreenshot', { format: 'png', captureBeyondViewport: true, clip: { ...box, scale: 1 } });
-      writeFileSync(out, Buffer.from(res.result.data, 'base64'));
-      console.log('  wrote ' + out + ' (' + Math.round(box.width) + 'x' + Math.round(box.height) + ')');
+      const destination = writeScreenshot(screenshots, out, res.result.data);
+      console.log('  wrote ' + destination + ' (' + Math.round(box.width) + 'x' + Math.round(box.height) + ')');
     }
   }
 }

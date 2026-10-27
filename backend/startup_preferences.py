@@ -1,9 +1,9 @@
 """The browser's remembered loader choice, independent of frozen config imports.
 
-Only these four preferences are persisted, beside the gallery database. The
+Only loader/startup preferences are persisted, beside the gallery database. The
 server launcher reads them before importing config; explicit environment and
-command-line values still take precedence. A bad or newer file never prevents
-the browser from opening so its settings can be repaired there.
+command-line values still take precedence. An unreadable execution preference
+keeps the browser open but blocks loading/rendering until explicitly repaired.
 """
 from __future__ import annotations
 
@@ -13,14 +13,18 @@ import os
 import sys
 import tempfile
 from collections.abc import MutableMapping
-from dataclasses import asdict, dataclass
+from dataclasses import asdict, dataclass, field
 from pathlib import Path
 
+from .execution import INVALID_LOADER_CONFIGURATION, ExecutionSpec, canonical_loader_execution
 from .model_defaults import OFFLOAD_MODES, QUANT_MODES
 
 log = logging.getLogger(__name__)
-_VERSION = 1
+_VERSION = 2
+_MAX_BYTES = 64 * 1024
 _ROOT = Path(__file__).resolve().parent.parent
+LOADER_EXECUTION_ERROR_VARIABLE = "LOCAL_DIFFUSION_LOADER_EXECUTION_ERROR"
+LOADER_EXECUTION_ERROR = INVALID_LOADER_CONFIGURATION
 
 
 @dataclass(frozen=True)
@@ -29,6 +33,7 @@ class StartupPreferences:
     quantization: str
     offload: str
     load_on_startup: bool
+    loader_execution: ExecutionSpec | None = None
 
     def __post_init__(self) -> None:
         if (
@@ -45,36 +50,111 @@ class StartupPreferences:
             raise ValueError("unknown offload strategy")
         if type(self.load_on_startup) is not bool:
             raise ValueError("load_on_startup must be a boolean")
+        object.__setattr__(self, "loader_execution", canonical_loader_execution(self.loader_execution))
 
     def environ(self) -> dict[str, str]:
-        return {
+        values = {
             "LOCAL_DIFFUSION_MODEL_ID": self.model_id,
             "LOCAL_DIFFUSION_QUANT": self.quantization,
             "LOCAL_DIFFUSION_OFFLOAD": self.offload,
             "LOCAL_DIFFUSION_PRELOAD": "true" if self.load_on_startup else "false",
         }
+        if self.loader_execution is not None:
+            values.update(
+                LOCAL_DIFFUSION_COMPILATION=self.loader_execution.compilation or "eager",
+                LOCAL_DIFFUSION_ATTENTION=self.loader_execution.attention_backend or "native",
+            )
+        return values
 
 
 def path_for(db_path: Path) -> Path:
     return Path(db_path).expanduser().parent / "local-diffusion.settings.json"
 
 
-def load(db_path: Path) -> StartupPreferences | None:
-    """Read a complete, known schema; ignore a missing or unusable file."""
-    path = path_for(db_path)
+@dataclass(frozen=True)
+class PreferenceSnapshot:
+    """Exact bounded prior file bytes, or absence; never a parsed fallback."""
+
+    data: bytes | None = field(repr=False)
+
+    def __post_init__(self) -> None:
+        if self.data is not None and (not isinstance(self.data, bytes) or len(self.data) > _MAX_BYTES):
+            raise ValueError("Startup preference snapshot is invalid or exceeds its byte bound")
+
+
+def capture_snapshot(db_path: Path) -> PreferenceSnapshot:
+    """Capture before saving; unreadable/oversized data refuses any overwrite."""
     try:
-        payload = json.loads(path.read_text(encoding="utf-8"))
+        with path_for(db_path).open("rb") as stream:
+            data = stream.read(_MAX_BYTES + 1)
+    except FileNotFoundError:
+        return PreferenceSnapshot(None)
+    return PreferenceSnapshot(data)
+
+
+def restore_snapshot(db_path: Path, snapshot: PreferenceSnapshot) -> None:
+    """Restore exact bytes/absence using the existing switch transaction scope."""
+    if not isinstance(snapshot, PreferenceSnapshot):
+        raise ValueError("Startup preference snapshot is invalid")
+    checked = PreferenceSnapshot(snapshot.data)
+    if checked.data is None:
+        path_for(db_path).unlink(missing_ok=True)
+    else:
+        _write_bytes(db_path, checked.data)
+
+
+@dataclass(frozen=True)
+class PreferenceLoad:
+    preferences: StartupPreferences | None
+    loader_execution_error: str | None = None
+
+
+def _unique(pairs: list[tuple[str, object]]) -> dict[str, object]:
+    result: dict[str, object] = {}
+    for key, value in pairs:
+        if key in result:
+            raise ValueError("duplicate startup setting")
+        result[key] = value
+    return result
+
+
+def _constant(_value: str) -> None:
+    raise ValueError("nonfinite startup setting")
+
+
+def load_result(db_path: Path) -> PreferenceLoad:
+    """Read pure metadata; never mutate environment or rewrite an invalid file."""
+    path = path_for(db_path)
+    payload: object = None
+    try:
+        with path.open("rb") as stream:
+            data = stream.read(_MAX_BYTES + 1)
+        if len(data) > _MAX_BYTES:
+            raise ValueError("startup preferences exceed their byte bound")
+        payload = json.loads(data.decode("utf-8"), object_pairs_hook=_unique, parse_constant=_constant)
         if not isinstance(payload, dict):
             raise ValueError("settings must be a JSON object")
-        if type(payload.get("version")) is not int or payload["version"] != _VERSION:
+        if type(payload.get("version")) is not int or payload["version"] not in (1, _VERSION):
             raise ValueError("unsupported settings version")
+        expected = {"version", "model_id", "quantization", "offload", "load_on_startup"}
+        if payload["version"] == 2:
+            expected.add("loader_execution")
+        if payload.keys() != expected:
+            raise ValueError("settings fields do not match the known schema")
         values = {key: value for key, value in payload.items() if key != "version"}
-        return StartupPreferences(**values)
+        return PreferenceLoad(StartupPreferences(**values))
     except FileNotFoundError:
-        return None
-    except (OSError, UnicodeError, ValueError, TypeError) as exc:
-        log.warning("Ignoring saved startup settings at %s: %s", path, exc)
-        return None
+        return PreferenceLoad(None)
+    except (OSError, UnicodeError, ValueError, TypeError, RecursionError, OverflowError):
+        log.warning("Ignoring saved startup settings at %s: unreadable or unsupported preferences", path)
+        legacy = (isinstance(payload, dict) and type(payload.get("version")) is int and payload["version"] == 1
+                  and not payload.keys() & {"loader_execution", "execution", "compilation", "attention_backend", "step_cache"})
+        return PreferenceLoad(None, None if legacy else LOADER_EXECUTION_ERROR)
+
+
+def load(db_path: Path) -> StartupPreferences | None:
+    """Compatibility read; load_result also exposes fail-closed diagnostics."""
+    return load_result(db_path).preferences
 
 
 def save(db_path: Path, preferences: StartupPreferences) -> None:
@@ -82,25 +162,40 @@ def save(db_path: Path, preferences: StartupPreferences) -> None:
     # Revalidate even callers that construct an instance unusually; never dump
     # a Settings instance (which contains paths and unrelated configuration).
     values = asdict(preferences)
-    StartupPreferences(**values)
+    checked = StartupPreferences(**values)
+    values["loader_execution"] = checked.loader_execution.model_dump(exclude_none=True) if checked.loader_execution is not None else None
+    data = json.dumps({"version": _VERSION, **values}, indent=2, ensure_ascii=False, allow_nan=False) + "\n"
+    if len(data.encode("utf-8")) > _MAX_BYTES:
+        raise ValueError("startup preferences exceed their byte bound")
+    _write_bytes(db_path, data.encode("utf-8"))
+
+
+def _write_bytes(db_path: Path, data: bytes) -> None:
+    """One atomic writer for canonical saves and opaque rollback snapshots."""
+    PreferenceSnapshot(data)
     path = path_for(db_path)
     path.parent.mkdir(parents=True, exist_ok=True)
     temporary: Path | None = None
+    owned: tuple[int, int] | None = None
     try:
         with tempfile.NamedTemporaryFile(
-            mode="w", encoding="utf-8", dir=path.parent,
+            mode="wb", dir=path.parent,
             prefix=".local-diffusion.settings.", suffix=".tmp", delete=False,
         ) as stream:
             temporary = Path(stream.name)
-            json.dump({"version": _VERSION, **values}, stream, indent=2, ensure_ascii=False)
-            stream.write("\n")
+            opened = os.fstat(stream.fileno())
+            owned = opened.st_dev, opened.st_ino
+            stream.write(data)
             stream.flush()
             os.fsync(stream.fileno())
         os.replace(temporary, path)
+        temporary = None
     finally:
         if temporary is not None:
             try:
-                temporary.unlink(missing_ok=True)
+                value = temporary.lstat()
+                if owned is not None and owned[1] and (value.st_dev, value.st_ino) == owned:
+                    temporary.unlink()
             except OSError:
                 pass
 
@@ -118,6 +213,8 @@ _VARIABLES = (
     ("LOCAL_DIFFUSION_QUANT", "quantization", "--quant"),
     ("LOCAL_DIFFUSION_OFFLOAD", "offload", "--offload"),
     ("LOCAL_DIFFUSION_PRELOAD", "load_on_startup", None),
+    ("LOCAL_DIFFUSION_COMPILATION", "compilation", "--compilation"),
+    ("LOCAL_DIFFUSION_ATTENTION", "attention_backend", "--attention"),
 )
 # Set by the launcher only: what a saved choice cannot change on this start.
 OVERRIDES_VARIABLE = "LOCAL_DIFFUSION_STARTUP_OVERRIDES"
@@ -177,11 +274,17 @@ def apply_saved_environment(
     """
     env = os.environ if env is None else env
     db_path = Path(env.get("LOCAL_DIFFUSION_DB_PATH", str(_ROOT / "local-diffusion.db")))
-    preferences = load(db_path)
+    result = load_result(db_path)
+    preferences = result.preferences
+    if result.loader_execution_error is not None:
+        env[LOADER_EXECUTION_ERROR_VARIABLE] = LOADER_EXECUTION_ERROR
+        return None
     if preferences is None:
         return None
     if preferences.quantization == "nunchaku" and sys.platform != "linux":
         log.warning("Ignoring saved Nunchaku startup settings: Nunchaku requires Linux/WSL")
+        if preferences.loader_execution is not None:
+            env[LOADER_EXECUTION_ERROR_VARIABLE] = LOADER_EXECUTION_ERROR
         return None
     if model is None and _explicit(env, "LOCAL_DIFFUSION_MODEL_ID"):
         model = env["LOCAL_DIFFUSION_MODEL_ID"]

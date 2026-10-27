@@ -63,17 +63,19 @@ class Check:
         if self.listening():
             raise RuntimeError(f"port {self.port} already has a listener")
         self.starts += 1
-        self.log = (self.directory / f"server-{self.starts}.log").open("w", encoding="utf-8")
-        self.process = subprocess.Popen(
+        log = (self.directory / f"server-{self.starts}.log").open("w", encoding="utf-8")
+        self.log = log
+        process = subprocess.Popen(
             [sys.executable, str(ROOT / "tools/fake_server.py"), "--port", str(self.port),
              "--model", MODEL, "--step", str(step), "--data", str(self.directory / "gallery")],
-            cwd=ROOT, stdout=self.log, stderr=subprocess.STDOUT,
+            cwd=ROOT, stdout=log, stderr=subprocess.STDOUT,
             creationflags=getattr(subprocess, "CREATE_NO_WINDOW", 0),
         )
+        self.process = process
 
         def ready():
-            if self.process.poll() is not None:
-                raise RuntimeError(f"owned fake server exited: {self.log.name}")
+            if process.poll() is not None:
+                raise RuntimeError(f"owned fake server exited: {log.name}")
             try:
                 return self.api("/api/status")
             except (OSError, urllib.error.URLError):
@@ -162,7 +164,9 @@ class Check:
 
 
 def main():
-    sys.stdout.reconfigure(encoding="utf-8")
+    reconfigure = getattr(sys.stdout, "reconfigure", None)
+    if callable(reconfigure):
+        reconfigure(encoding="utf-8")
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--port", type=int, default=7909)
     args = parser.parse_args()

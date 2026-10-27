@@ -234,6 +234,15 @@ els.modelTable.addEventListener('click', (event) => {
   else if (event.target.matches('.model-row:not(.model-row-head)')) event.target.querySelector('input')?.click();
 });
 els.modelOffload.onchange = () => modelPickerEdited('offload', { catalogue: true });
+els.modelCompilation.onchange = () => modelPickerEdited('compilation', { catalogue: true });
+els.modelAttention.onchange = () => modelPickerEdited('attention', { catalogue: true });
+els.stepCache.onchange = () => {
+  if (!performanceChoiceInvalid(els.stepCache)) setStepCache(els.stepCache.value);
+  syncExecutionControls();
+  syncSubmitButtons();
+  schedulePreview();
+  scheduleComparePreview(0);
+};
 els.modelLoadOnStartup.onchange = () => modelPickerEdited('load_on_startup');
 els.modelQuantization.onchange = () => modelPickerEdited('quantization', { catalogue: true });
 els.modelFormat.onchange = () => modelPickerEdited('format', { catalogue: true });
@@ -396,7 +405,13 @@ els.lbNext.onclick = () => stepLightbox(1);
 // reachable from the lightbox as well as from a gallery card. Closed first:
 // Reuse writes the prompt as typing would, which needs the focus a modal
 // lightbox keeps to itself.
-els.lbReuse.onclick = () => { const rec = lbList[lbIndex]; if (rec) { closeLightbox(); reuse(rec); } };
+els.lbReuse.onclick = () => {
+  const rec = lbList[lbIndex];
+  if (!rec) return;
+  if (refuseExecutionReuse(rec)) return;
+  closeLightbox();
+  reuse(rec);
+};
 els.lbDownload.onclick = downloadLightboxImage;
 // Refine likewise: openRefine closes the lightbox for its dialog, and a close
 // that runs nothing gives it back (refineClosed). Where the checkpoint has no
@@ -812,6 +827,9 @@ buildPresets();
 // Before the sync functions, which light the presets, the CFG note and the
 // runs hint up from whatever is in the boxes.
 restorePanel();
+restoreExecutionDraft();
+syncExecutionControls();
+syncSubmitButtons();
 syncSize();
 syncCfg();
 syncRuns();

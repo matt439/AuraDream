@@ -2,14 +2,14 @@
 
 Owner for `DEV#4`-`DEV#7`. The first three came from the
 [2026-10-25 review](review-2026-10-25.md#tooling); `DEV#7` was found while
-auditing the queue on 2026-10-26. This is a plan, not a qualification result:
-none of these changes or checks has been implemented or run by this audit.
+auditing the queue on 2026-10-26. The audit established this plan; dated
+implementation and qualification results below record the later work.
 Work in the order below. All stages use CPU, synthetic images and scratch
 galleries; they need no model weights or real gallery contents.
 
 ## Portable smoke screenshots
 
-`DEV#7` · OPEN · MED · S. Start here.
+`DEV#7` · implemented and qualified on Windows, 2026-10-26.
 
 **Evidence.** `tools/smoke-compact-setup.json` has eight `shot` destinations
 under `C:\Users\matsi\AppData\Local\Temp` (lines 44, 71, 97, 124, 150,
@@ -36,9 +36,30 @@ on a scratch fake and verify its eight files appear under the reported root.
 Run affected runner/profile tests and docs-map checks. Record the platform
 actually checked; Linux behavior is qualified in `DEV#4`.
 
+**Result (2026-10-26).** All eight compact-setup destinations now use
+relative names. `browser-output.mjs` validates every screenshot field and
+creates parent directories for `shot`, `fullshot` and `elshot`; absolute,
+drive-relative, traversal, Windows device and otherwise nonportable names
+are refused before launch. `LOCAL_DIFFUSION_SCREENSHOT_DIR` chooses the
+root; a direct call without it reports a fresh system-temp root.
+`run_smoke.py --artifacts PATH` creates separate run/smoke directories,
+reports them and retains screenshots even after failure or successful
+gallery cleanup.
+
+Focused output/runner/docs-map tests: **50 passed**. Real browser profile
+and screenshot-form tests: **4 passed, 1 Windows SIGTERM skip**, including
+three PNGs retained after a deliberately failed assertion. The compact
+smoke passed against its isolated fake (**24 seconds**), writing all eight
+390/600/1400/2048 closed/expanded images below its reported root. Node
+24.14.0 and Edge 156.0.4314.42 were used on Windows; no weights or GPU work.
+Browser starts failed inside the execution sandbox before any page step;
+the supported, approved outside-sandbox run passed. Linux remains the
+separate `DEV#4` qualification. Focused ruff and both Node syntax checks
+passed.
+
 ## Shared classic-script scope
 
-`DEV#5` · OPEN · LOW · S. Independent of `DEV#7`.
+**Built and checked 2026-10-26 (`DEV#5`).** Independent of `DEV#7`.
 
 **Evidence.** `web/index.html` currently lists 52 local classic scripts;
 `app.js` is last and owns the wiring and boot. `tests/test_docs_maps.py`
@@ -48,28 +69,48 @@ requires top-level bindings to remain shared. `app.js` itself declares
 bindings, including `searchTimer`, `galleryHead` and `TOKENS_AIMED`, so
 excluding it entirely would miss collisions.
 
-**Bounded change.** Add a pytest-invoked Node check that derives the local
-classic-script list from `index.html` in document order. Check every listed
-script for syntax and cross-file declaration collisions, including
-`app.js`, without running its boot, network requests or timers. Choose the
-smallest reliable approach after checking classic-script declaration
-semantics; do not maintain another script list or approximate declarations
-with a regular expression. This is a load-time guard, not a DOM emulator
-or a replacement for browser smokes.
+**Implementation.** `tools/check_classic_scripts.py` uses the standard
+library's HTML parser to derive every script from `index.html` in document
+order. Missing files, inline/module/remote scripts, changed loading attributes
+and paths outside the web directory fail explicitly. There is no second
+script inventory. Run it directly with:
 
-**Done and checked.** The actual script list passes. Deliberate syntax
-errors and duplicate lexical declarations across separate scripts fail
-with useful source filenames; an `app.js` collision is covered too. Allowed
-classic-script sharing still passes. Missing files and an unexpected script
-kind cannot silently reduce coverage. CI provisions or verifies Node and
-fails if it is missing; document any local skip policy. Run the focused
-pytest, docs-map checks and an ordinary scratch-fake smoke to retain the
-browser's independent answer.
+```powershell
+uv run python tools/check_classic_scripts.py
+```
+
+The Node helper parses each original with `vm.Script`, then instantiates its
+declarations in one shared empty context. A leading throw stops before any
+source statement or initializer, including `app.js`'s boot. It preserves each
+script's own strictness: a parser-only appended `with` probe distinguishes
+strict directives from comments or ordinary strings. This keeps Annex B's
+sloppy block-function declarations distinct from strict block functions,
+and lets V8 decide lexical/var/function collisions rather than approximating
+declarations with a regex or concatenating scripts. Errors name the failing
+file and the preceding files in order. This is a load-time guard, not a DOM
+emulator or a replacement for browser smokes.
+
+**Checks.** On Windows with Python 3.13.15 and Node 24.14.0, all 52 real
+scripts passed. `tests/test_classic_scripts.py` and `tests/test_docs_maps.py`
+passed all 35 cases, including original syntax errors, lexical collisions
+with `app.js`, permitted var/function sharing, strict/sloppy block functions,
+missing/changed script kinds and a missing Node executable. Ruff passed.
+The initial pytest run hit an inaccessible existing shared temp directory;
+the passing run used a fresh task-owned `--basetemp`, with the cache plugin
+disabled. The ordinary `smoke-flux` browser check also passed on an isolated
+fake gallery (17 s browser, 24 s total; no real model), using the supported
+sandbox approval route for browser startup. Linux and hosted CI execution
+remain unmeasured.
+
+The CPU CI job verifies Node before installation/tests; pytest runs this same
+guard and fails if Node is absent. There is no local skip policy: install
+Node to run the complete CPU suite. No npm dependencies or build step were
+added.
 
 ## Browser smokes in CI
 
-`DEV#4` · OPEN · LOW · L. Diagnostic preparation can start now; the final
-CI job depends on `DEV#7`'s portable outputs.
+`DEV#4` · OPEN · LOW · L. Stage 1 diagnostics are implemented; Linux
+qualification and the hosted browser job remain open.
 
 **Evidence.** `.github/workflows/ci.yml` has an always-run `lint` job and
 a conditional CPU `test` job; documentation-only changes skip the latter
@@ -103,14 +144,184 @@ diagnostics and a failed job. Record actual qualification evidence here
 and in the tests documentation. A workflow file alone does not close this
 row; hosted execution remains unverified until it has run.
 
+**Stage 1 result (2026-10-26).** `run_smoke.py --artifacts PATH` retains
+`summary.json` in its unique run directory and `result.json` plus
+`browser.log` in every smoke directory. Each result records the smoke,
+checkpoint, effective port, phase, pass/fail result, exact exit code and
+phase duration. Early port, fake-launch/readiness and browser-launch
+failures get receipts too; startup exception text is in both the detail
+and log. Each failed smoke receives `fake-server.log` after the owned fake
+stops. Successes retain their result/output/screenshots after the scratch
+gallery is removed. Existing table-derived setup and parallel isolation
+remain the only smoke inventory. Both serial and parallel browser output
+are now captured together and printed after the smoke finishes.
+
+Interruption gives the Node harness time to run its existing browser
+cleanup, with a Windows owned-tree fallback, and stops/waits for the fake
+(including terminate-to-kill fallback). An interrupted smoke retains its
+complete partial output and an exit-130 receipt; interruption prevents
+the final run summary, so collect the per-smoke receipts in that case.
+
+Focused runner/output/docs-map checks: **63 passed**; focused ruff passed.
+Tests cover original exit codes including script refusal, launch/readiness
+failures, log retention, isolation, successful gallery cleanup and both
+cleanup fallbacks. The interruption regression retains all 60 log lines.
+A deliberately failing synthetic fixture injected through the existing
+FLUX row on an isolated fake returned runner exit 1 and retained a failed
+result/summary, full browser output, nonempty fake log and valid screenshot;
+the fake port was closed after completion (**7.4 seconds**, Windows, Node
+24.14.0, Edge 156.0.4314.42). This was an intentional fixture failure, not
+a failure of the repository's FLUX smoke. The fixture and mock checks use
+no model weights or GPU generation.
+
+**Remaining qualification gate.** Linux Chrome's representative/full
+table, resource budget and hosted diagnostic upload are unverified.
+`wsl.exe --list --verbose` and `wsl.exe --status` were denied with
+`Wsl/EnumerateDistros/Service/E_ACCESSDENIED`; the denied access was not
+retried through another route. No Linux browser CI job has been added.
+
+**Native API preflight (2026-10-26).** The harness now checks that Node's
+`fetch` and `WebSocket` globals are callable before browser discovery,
+script reads, profile creation or screenshot/output work. Missing or
+noncallable APIs return a fixed diagnostic naming only the missing APIs
+and exit 2; a Node version number is not treated as capability evidence.
+Fourteen black-box tests mask either or both APIs and instrument the real
+filesystem/process/network entry points to refuse downstream effects.
+They also verify that callable globals continue into ordinary browser
+discovery. Node syntax and focused ruff pass. The unchanged supported path
+passed all 35 checks in `smoke-automatic-backup` against an owned Windows
+fake (Node 24.14.0, Edge, 14 seconds total). No startup export, credential
+lookup, model load or GPU work occurred. This closes the source preflight
+gap in stage 2; Linux and hosted qualification remain open.
+
+**Hosted CPU fixture correction (2026-10-27).** Node 22.23.3's ESM loader
+reads module source through `fs.readFileSync`, so the original capability
+fixture trapped the loader before the harness could check its APIs. The
+fixture now captures the two real module bodies before instrumentation and
+loads them as data URLs, changing only their local dependency specifier.
+There are no filesystem exemptions: six negative controls still refuse
+input/module reads, output writes, process creation and network APIs. The
+cold capability/diagnostics/output/docs-map group passes all **66 checks**
+on Windows with Node 24.14.0. This corrects fixture portability; it does not
+qualify browser startup, layout or profile cleanup.
+
+**Owned-browser diagnostics (2026-10-26).** Set
+`LOCAL_DIFFUSION_BROWSER_DIAGNOSTICS=1` for a scratch smoke to retain at most
+16,384 decoded stderr characters and report its owned exit/signal on failure.
+Normal runs stay quiet; browser/security flags, browser choice and profile
+protocol are unchanged. A synthetic child-stream check exercises bounding and
+failure framing without launching a browser or network request. The focused
+cold diagnostics/capability/output/map group passed **60 checks**.
+
+The performance-selector smoke first lost its DevTools connection before any
+step in two normal attempts. A diagnostic run then reached 74 steps and produced
+five desktop/narrow screenshots, all inspected; one fixture assertion used the
+wrong reason phrase. After that fixture was corrected, the fresh browser exited
+before step 1 with `IAppCapability` access denied (`0x80070005`), repeated child
+exit `-1073741790` and `GPU process isn't usable. Goodbye.` Its own-profile cache
+also reported sharing error `0x20`. The exact failed command was the ordinary
+`run_smoke.py smoke-execution-selector --jobs 1` with diagnostics and fresh
+scratch/artifacts, not model generation. Receipt:
+`work/execution-selector-ui-a3.txt`.
+
+All browser launches stopped after that actual Windows denial. No flag/browser
+substitution, Windows security change or alternative browser API was tried.
+Corrected end-to-end selector/profile/regression coverage remains unverified;
+the source and five inspected earlier screenshots do not establish a full pass.
+Linux/hosted qualification still has its separate recorded WSL/publishing gates.
+
+The first broad pytest request excluded only the real-browser profile file and
+was rejected before execution by automatic approval review over possible browser
+launches in the remaining group. The approved safer CPU gate excluded every
+`tests/test_browser*.py` file plus `tests/test_run_smoke.py` and passed **5,490
+tests, seven skips**. The separate **60** cold Node/output/map checks above had
+already passed with no real browser. Neither result closes actual browser/profile
+acceptance or authorizes retrying the Windows denial.
+
 ## Backend type checking
 
-`DEV#6` · OPEN · LOW · L. Begin with the bounded baseline stage.
+`DEV#6` · implemented and qualified locally, 2026-10-26. The pinned gate
+is configured in CPU CI; hosted execution remains unverified.
 
 **Evidence.** `backend/` uses annotations across schemas, applied requests
-and storage records. `pyproject.toml`'s dev group and CI contain no type
-checker, and there is no Pyright configuration. The number and nature of
-initial findings are unknown; the audit did not install or run Pyright.
+and storage records. The 2026-10-26 audit did not install or run Pyright.
+Stage 1 was implemented later that day: `pyrightconfig.json` selects basic
+mode, Python 3.13, all platform branches and the local `.venv`, over every
+Python source in `backend/` and `tools/`, with no diagnostic overrides or
+module exclusions. Pinned Pyright 1.1.407 checked 104 files in 10.4 seconds:
+334 errors in 52 files, zero warnings. The
+[baseline report](typecheck-baseline-2026-10-26.md) records the command,
+environment, complete per-rule/per-module counts, third-party interface
+gaps and eight bounded investigation batches. No app import, model load
+or GPU run was used for static checking. Later stages fixed the complete
+scope and added the locked development tool and CI command below.
+
+**Batch 1 (2026-10-26).** Benchmark keyword/format contracts are checked
+without changing retained timing values or selection behavior. All nine
+benchmark diagnostics are gone; the full scope now has 325 errors in 104
+files, zero warnings. The 21 existing benchmark tests and focused ruff
+pass, and independent review found no blocking issue. No suppressions or
+module exclusions were added. The baseline report preserves the initial
+counts and records later batches separately.
+
+**Batches 2 and 7 (2026-10-26).** CLI/launcher/lifecycle and
+prompt/catalogue contracts resolve another 15 and 22 initial diagnostics.
+Their scoped static checks are clean, with no suppressions or casts.
+Existing focused checks passed: 274 CLI/storage/API/lifecycle tests and
+488 prompt/tag/critic/catalogue tests. The final stdout correction passed
+its 13-test subset and ruff. Both batches received independent review.
+The baseline report records the exact scope and receipts; this does not
+claim the entire configured type-check scope is clean.
+
+**Batch 3, schema/PNG slice (2026-10-26).** The scoped checks address 17
+initial findings. All 31 generated model schemas and existing custom
+errors are unchanged; 245 schema/refine/snippet tests and 17 PNG API tests
+pass. Independent reviews accepted the changes. Two precise, locally
+explained Pydantic typing exceptions preserve the supported computed error
+code and required-field override; the baseline report records both.
+
+**Batch 4, keyword slice (2026-10-26).** Precise Hub/recipe keyword
+contracts remove 40 findings from four converter modules, leaving 24
+library-export/model-interface findings there. Pins, checksums, filters
+and cache serialization are unchanged. The 111 mocked loader tests,
+focused ruff and independent review pass; no suppressions or casts.
+
+**Batches 6 and 8 (2026-10-26).** Storage/bundle/job and developer-tool
+boundaries resolve another 18 and 25 initial findings. Their scoped checks
+are clean without suppressions or casts; 237 storage/bundle/job tests and
+63 tooling/docs-map tests pass. Bounded synthetic fixtures cover the tools
+without real scale/interruption benchmarks, downloads or model work.
+Independent reviews found no actionable issue.
+
+**Batch 3, route/grid slice (2026-10-26).** Six modules resolve another
+57 initial findings with explicit existing invariants and unchanged
+response validation. The 480 focused grid/size and HTTP/rerun checks,
+scoped static checks and ruff pass. Independent helper and route reviews
+found no actionable issue; no suppressions or casts were added.
+
+**Remaining loader interfaces (2026-10-26).** The converters' remaining
+24 findings and loader helper's 21 findings are addressed. Scoped static
+checks, ruff, 111 converter tests and 47 loader/runtime tests pass; three
+Linux-only map checks skip on Windows. Independent review accepted the
+same-class imports and explicit return/keyword contracts. Four local
+comments document verified lazy-export/bound-method typing gaps; the
+quantization and RAM-release behavior is unchanged.
+
+**Batch 5 (2026-10-26).** All 63 initial pipeline/schedule/refine/preview
+findings are addressed. The 387 focused backend tests and 53 tiny custom
+pipeline tests pass; 24 mask mode/block cases match prior bytes. Scoped
+checks, ruff and independent reviews pass. Seven local custom-pipeline
+sites document verified library annotation gaps; the main backend needs
+no exception. Schedules, seeds, arithmetic, source composition and cleanup
+remain unchanged; no GPU behavior was measured.
+
+**Critic lifecycle slice (2026-10-26).** All 23 runtime/server findings
+are resolved without suppressions or casts. Scoped checking, ruff and
+independent review pass; 62 focused tests pass with one expected skip.
+A sandboxed invalid-executable test hung, its owned session was closed,
+and the isolated test plus full focused suite passed through supported
+approval. No process-inventory denial was bypassed, and no real critic
+or GPU work was used.
 
 **Stages.**
 
@@ -135,3 +346,28 @@ command. Run ruff and tests appropriate to any behavior changed while
 fixing diagnostics; finish with the required CPU suite. Update this plan
 with the baseline, completed batches and actual checks. No GPU acceptance
 claim follows from a clean type check.
+
+**Final result (2026-10-26).** The actual Python-wrapper gate checks
+**105 files with zero errors and zero warnings** in 9.476 seconds. Its
+first whole-scope run caught ten cross-module contract findings beyond
+the scoped batches; explicit PNG dimension invariants and the shared
+pinned-repository input type resolved them. The locked development group
+adds only Pyright 1.1.407 and nodeenv; existing package versions stay put.
+
+`tools/typecheck.py` verifies the local package/bundled JavaScript version
+and exact platform Node executable before invoking the wrapper. Its
+documented controls prevent update queries or automatic npm/Node
+provisioning. Missing tools, version mismatch, empty configured/actual
+scope and malformed output fail; diagnostic output/status survive.
+Independent review caught and verified the Windows command-shim case;
+29 focused gate tests cover it and the other boundaries. Gate/docs/CI
+focused checks passed all 87 tests, and repository ruff passed.
+
+The final offline CPU suite passed **3,950 tests, eight skipped**, in
+**186.90 seconds**, using two workers with file-based distribution on
+Windows/Python 3.13.15. The skips were one unavailable symlink check,
+three Linux critic-process cases, three `/proc/self/maps` checks and the
+Windows-unsupported catchable-SIGTERM browser case. No model download,
+GPU render or human acceptance was performed. The CI job runs the same
+gate after install; docs-only changes retain their lint-only path. Linux
+and hosted execution were not run or claimed; no push/PR was made.

@@ -109,13 +109,19 @@ class MarianTranslator:
         return self._tokenizer, self._model
 
     @staticmethod
-    def _source_limit(tokenizer: Any) -> int:
+    def _input_limit(tokenizer: Any) -> int:
         advertised = getattr(tokenizer, "model_max_length", _MODEL_TOKEN_LIMIT)
         try:
             advertised = int(advertised)
         except (TypeError, ValueError, OverflowError):
             advertised = _MODEL_TOKEN_LIMIT
-        return max(1, min(advertised, _MODEL_TOKEN_LIMIT) - _SPECIAL_TOKEN_ROOM)
+        return max(1, min(advertised, _MODEL_TOKEN_LIMIT))
+
+    @classmethod
+    def _source_limit(cls, tokenizer: Any) -> int:
+        # Chunk content and the tokenizer's total input have different budgets:
+        # EOS must fit beside a full chunk rather than replace its last token.
+        return max(1, cls._input_limit(tokenizer) - _SPECIAL_TOKEN_ROOM)
 
     @classmethod
     def _chunks(cls, text: str, tokenizer: Any) -> list[str]:
@@ -166,7 +172,7 @@ class MarianTranslator:
                 return_tensors="pt",
                 padding=True,
                 truncation=True,
-                max_length=self._source_limit(tokenizer),
+                max_length=self._input_limit(tokenizer),
             )
             with torch.no_grad():
                 output_ids = model.generate(

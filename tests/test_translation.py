@@ -30,7 +30,7 @@ class StubTokenizer:
             "return_tensors": "pt",
             "padding": True,
             "truncation": True,
-            "max_length": 6,
+            "max_length": 8,
         }
         return {"input_ids": torch.tensor([[index] for index, _ in enumerate(chunks)])}
 
@@ -61,6 +61,50 @@ class StubModel:
             "renormalize_logits": True,
         }
         return input_ids + 10
+
+
+class TruncatingTokenizer(StubTokenizer):
+    """Character source ids, two special tokens, real truncation and padding."""
+
+    def __call__(self, chunks, *, return_tensors, padding, truncation, max_length):
+        assert return_tensors == "pt" and padding and truncation
+        self.batches.append(chunks)
+        rows = []
+        for chunk in chunks:
+            # Like a tokenizer that preserves its special tokens while cutting
+            # the source to fit the requested total input length.
+            source_ids = self.encode(chunk)
+            rows.append([1, *source_ids[:max_length - 2], 2])
+        longest = max(map(len, rows))
+        return {"input_ids": torch.tensor([row + [0] * (longest - len(row)) for row in rows])}
+
+
+@pytest.mark.parametrize("length", [5, 6, 7, 12, 13, 19])
+def test_full_chunks_keep_every_source_token_within_the_total_input_limit(monkeypatch, length):
+    tokenizer = TruncatingTokenizer()
+    received = []
+
+    class RecordingModel(StubModel):
+        def generate(self, input_ids, **kwargs):
+            received.extend(input_ids.tolist())
+            return super().generate(input_ids, **kwargs)
+
+    translator = MarianTranslator("local/marian")
+    monkeypatch.setattr(translator, "_load", lambda: (tokenizer, RecordingModel()))
+    source = "abcdefghijklmnopqrs"[:length]
+    translator.translate(source)
+
+    assert all(len(row) <= tokenizer.model_max_length for row in received)
+    source_ids = [token_id for row in received for token_id in row if token_id > 2]
+    assert source_ids == tokenizer.encode(source)
+    assert len(received) == (length + 5) // 6
+
+
+@pytest.mark.parametrize("advertised", [512, 100000, None, "unknown", float("inf")])
+def test_total_input_limit_stays_bounded_when_tokenizer_limit_is_missing_or_unusable(advertised):
+    tokenizer = SimpleNamespace(model_max_length=advertised)
+    assert MarianTranslator._input_limit(tokenizer) == 512
+    assert MarianTranslator._source_limit(tokenizer) == 510
 
 
 def test_stop_after_the_translators_download_skips_translation(monkeypatch):

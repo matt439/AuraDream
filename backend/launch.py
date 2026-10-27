@@ -16,7 +16,7 @@ import argparse
 import json
 import os
 import sys
-from collections.abc import Callable
+from collections.abc import Callable, Mapping
 from dataclasses import dataclass
 from typing import TextIO
 
@@ -24,6 +24,7 @@ from backend.loader_choices import FORMATS, OFFLOADS, QUANTIZATIONS
 from backend.model_defaults import DEFAULT_MODEL_ID, DEFAULT_OFFLOAD, DEFAULT_QUANT, defaults_for
 from backend.startup_preferences import (
     OVERRIDES_VARIABLE,
+    LOADER_EXECUTION_ERROR_VARIABLE,
     apply_saved_environment,
     explicit_sources,
 )
@@ -222,6 +223,10 @@ def add_model_arguments(parser: argparse.ArgumentParser) -> None:
     group.add_argument(
         "--offload", choices=[key for key, _ in OFFLOADS], help="offload strategy"
     )
+    group.add_argument("--compilation", choices=("eager", "regional-v1"),
+                       help="loader compilation selection; experimental recipes remain unavailable")
+    group.add_argument("--attention", choices=("native", "cudnn-v1"),
+                       help="loader attention selection; experimental recipes remain unavailable")
 
 
 def apply_env(args: argparse.Namespace) -> None:
@@ -230,6 +235,8 @@ def apply_env(args: argparse.Namespace) -> None:
         (args.model, "LOCAL_DIFFUSION_MODEL_ID"),
         (args.quant, "LOCAL_DIFFUSION_QUANT"),
         (args.offload, "LOCAL_DIFFUSION_OFFLOAD"),
+        (getattr(args, "compilation", None), "LOCAL_DIFFUSION_COMPILATION"),
+        (getattr(args, "attention", None), "LOCAL_DIFFUSION_ATTENTION"),
     ):
         if value is not None:
             os.environ[name] = value
@@ -262,16 +269,22 @@ def configure(
     )
     parser.add_argument("--menu", action="store_true", help="use the optional terminal settings menu")
     args = parser.parse_args(argv)
+    # A diagnostic belongs to this launch's preference read, not a previous
+    # in-process configure call. Explicit malformed environment is checked by
+    # cold config independently and still cannot be hidden by --defaults.
+    os.environ.pop(LOADER_EXECUTION_ERROR_VARIABLE, None)
     # Recorded before saved values fill the environment, for the page to say
     # which of its saved choices this start (and one like it) overrides.
     overrides = explicit_sources(flags={
         "LOCAL_DIFFUSION_MODEL_ID": args.model,
         "LOCAL_DIFFUSION_QUANT": args.quant,
         "LOCAL_DIFFUSION_OFFLOAD": args.offload,
+        "LOCAL_DIFFUSION_COMPILATION": args.compilation,
+        "LOCAL_DIFFUSION_ATTENTION": args.attention,
     })
     saved = None
     if args.defaults:
-        overrides = dict.fromkeys(("model_id", "quantization", "offload", "load_on_startup"), "--defaults") | overrides
+        overrides = dict.fromkeys(("model_id", "quantization", "offload", "load_on_startup", "compilation", "attention_backend"), "--defaults") | overrides
     else:
         saved = apply_saved_environment(model=args.model)
     apply_env(args)
@@ -293,6 +306,13 @@ def configure(
             # printed command starts the same way.
             os.environ.pop("LOCAL_DIFFUSION_PRELOAD", None)
             overrides["load_on_startup"] = "--menu"
+        if saved is not None and choice.model_id != saved.model_id:
+            for name, key in (("LOCAL_DIFFUSION_COMPILATION", "compilation"),
+                              ("LOCAL_DIFFUSION_ATTENTION", "attention_backend")):
+                if key not in overrides:
+                    os.environ.pop(name, None)
+                    if saved.loader_execution is not None:
+                        overrides[key] = "--menu"
     else:
         choice = None
     os.environ[OVERRIDES_VARIABLE] = json.dumps(overrides)
@@ -378,21 +398,21 @@ def prompt(
     *,
     ask: Callable[[str], str] = input,
     out: TextIO | None = None,
-    env: dict[str, str] | None = None,
+    env: Mapping[str, str] | None = None,
     linux: bool | None = None,
 ) -> Choice:
     """Run the menu and return what was chosen. Ctrl-C exits with status 130."""
-    out = out or sys.stdout
-    env = os.environ if env is None else env
+    stream = out or sys.stdout
+    environment = os.environ if env is None else env
     linux = sys.platform == "linux" if linux is None else linux
     try:
-        return _prompt(ask, out, env, linux)
+        return _prompt(ask, stream, environment, linux)
     except KeyboardInterrupt:
-        out.write("\n")
+        stream.write("\n")
         raise SystemExit(130) from None
 
 
-def _prompt(ask: Callable[[str], str], out: TextIO, env: dict[str, str], linux: bool) -> Choice:
+def _prompt(ask: Callable[[str], str], out: TextIO, env: Mapping[str, str], linux: bool) -> Choice:
     current_model = env.get("LOCAL_DIFFUSION_MODEL_ID", _DEFAULT_MODEL)
     current_checkpoint, current_fmt = _match(current_model)
 

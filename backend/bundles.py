@@ -15,12 +15,14 @@ import time
 import uuid
 import zipfile
 from concurrent.futures import ThreadPoolExecutor
+from collections.abc import Callable
+from contextlib import AbstractContextManager, nullcontext
 from datetime import datetime, timezone
 from pathlib import Path, PurePosixPath
 
 from PIL import Image
 
-from . import bundle_crypto, bundle_images, gallery_lock, storage
+from . import backup_receipts, bundle_capacity, bundle_crypto, bundle_images, bundle_leases, gallery_lock, storage
 from .bundle_archive import _DATABASE, _FORMAT, _MANIFEST, _READ_AHEAD_MAX, _check_space, _verify_archive
 from .bundle_common import (
     _CHUNK,
@@ -36,6 +38,7 @@ from .bundle_common import (
     _rows,
 )
 from .bundle_images import _critical_digest, _inspect_source, _metadata, _references, _rewrite_all, _validate_row
+from .metadata import require_header_metadata
 
 _SUFFIXES = (".zip", bundle_crypto.SUFFIX)
 
@@ -69,12 +72,16 @@ def list_bundles() -> list[dict]:
     for p in directory.iterdir():
         if p.suffix.lower() not in _SUFFIXES or not p.is_file() or _is_link(p):
             continue
-        try:
-            encrypted = bundle_crypto.is_encrypted(p)
-        except OSError:
-            continue
-        found.append({"name": p.name, "bytes": p.stat().st_size, "created_at": p.stat().st_mtime,
-                      "encrypted": encrypted})
+        # Acquisition and release remain outside the availability catch: an
+        # installed-mode/native failure must not silently hide an archive.
+        with bundle_leases.reading(p) as read_owner:
+            try:
+                encrypted = bundle_crypto._is_encrypted(p, read_owner)
+                info = p.stat()
+            except OSError:
+                continue
+            found.append({"name": p.name, "bytes": info.st_size, "created_at": info.st_mtime,
+                          "encrypted": encrypted})
     return sorted(found, key=lambda b: b["name"], reverse=True)
 
 
@@ -357,6 +364,18 @@ def _claim(source: Path, target: Path) -> None:
         os.link(source, target)  # rename would replace one on POSIX
 
 
+def _remove_owned_partial(path: Path, owned: tuple[int, int] | None) -> None:
+    """A claimed name may already have been reused by an unrelated writer."""
+    if owned is None:
+        return
+    try:
+        current = path.lstat()
+        if (current.st_dev, current.st_ino) == owned:
+            path.unlink(missing_ok=True)
+    except FileNotFoundError:
+        pass
+
+
 def _install(source: Path, target: Path, installed: list[Path]) -> None:
     """Move a synced staged file into place, never replacing an existing file."""
     try:
@@ -522,7 +541,8 @@ def _links_outside(rows: list[dict]) -> int:
 
 
 def export_bundle(expected: int | None = None, password: str | None = None, progress: Progress = _quiet, *,
-                  keep_gallery: bool = False, ids: list[int] | None = None) -> dict:
+                  keep_gallery: bool = False, ids: list[int] | None = None,
+                  managed: backup_receipts.ManagedIdentity | None = None) -> dict:
     """Write and verify a bundle; then, unless `keep_gallery`, clear the gallery.
 
     `expected` is the record count typed into the dialog, held to the
@@ -533,6 +553,12 @@ def export_bundle(expected: int | None = None, password: str | None = None, prog
     """
     if ids is not None and not keep_gallery:
         raise BundleError("only a bundle of the whole gallery can clear it; a selection is backed up and kept")
+    if managed is not None:
+        if not keep_gallery or ids is not None:
+            raise BundleError("managed exports must keep the whole gallery")
+        if not isinstance(managed, backup_receipts.ManagedIdentity):
+            raise BundleError("invalid managed export identity")
+        managed = backup_receipts.read_marker(managed.marker())
     settings = _settings()
     with gallery_lock.hold(settings.db_path):
         if ids is None:
@@ -555,9 +581,19 @@ def export_bundle(expected: int | None = None, password: str | None = None, prog
         database = sum(p.stat().st_size for p in (settings.db_path, wal) if p.exists())
         with storage._session() as conn:
             retained_cells = conn.execute("SELECT 1 FROM run_jobs LIMIT 1").fetchone() is not None
-        _check_space([(directory, database + sum(p.stat().st_size for _, p in files), "write the bundle"),
-                      (settings.db_path.parent, database * (2 if ids is not None or retained_cells else 1),
-                       "copy the gallery database for the bundle")])
+        if managed is None:
+            _check_space([(directory, database + sum(p.stat().st_size for _, p in files), "write the bundle"),
+                          (settings.db_path.parent, database * (2 if ids is not None or retained_cells else 1),
+                           "copy the gallery database for the bundle")])
+        else:
+            # Early DB+WAL heuristic only. A VACUUM can need two additional
+            # copies while the snapshot already exists; reserve three here.
+            # Final archive sizing below uses the actual compacted snapshot.
+            _check_space([(directory, database + sum(p.stat().st_size for _, p in files), "write the bundle"),
+                          (settings.db_path.parent, database * (3 if retained_cells else 1),
+                           "copy the gallery database for the managed bundle"),
+                          (settings.db_path.parent, bundle_capacity.JOURNAL_TEMP_BYTES,
+                           "record the managed bundle receipt")])
         # The name is for the person saving it, on their own machine: local
         # wall-clock time. Nothing reads a time back out of the name.
         name = f"local-diffusion-{datetime.now().astimezone():%Y%m%d-%H%M%S}-{uuid.uuid4().hex[:8]}"
@@ -575,12 +611,39 @@ def export_bundle(expected: int | None = None, password: str | None = None, prog
             if ids is not None and rows != chosen:
                 raise BundleChanged("the gallery changed while its bundle was prepared; try again")
             manifest = {"format": _FORMAT, "version": 1, "records": len(rows), "files": {}}
+            if managed is not None:
+                manifest[backup_receipts.MARKER] = managed.marker()
             members = [(_DATABASE, snapshot), *files]
+            if managed is not None:
+                try:
+                    capacity = bundle_capacity.managed_capacity(
+                        [(member, path.stat().st_size) for member, path in members], manifest,
+                        manifest_name=_MANIFEST, encrypted=bool(password),
+                    )
+                except (ValueError, TypeError, OverflowError) as exc:
+                    raise BundleError("the managed bundle capacity could not be estimated") from exc
+                # Snapshot/VACUUM space is already consumed. Check remaining
+                # archive + full atomic journal temporary per actual volume;
+                # encryption is streamed, never another plaintext copy.
+                _check_space([(directory, capacity.archive_bytes, "write the managed bundle"),
+                              (settings.db_path.parent, capacity.receipt_bytes,
+                               "record the managed bundle receipt")])
+            proof: backup_receipts.DigestWriter | None = None
+            written: backup_receipts.FileStamp | None = None
+            owned: tuple[int, int] | None = None
+            cipher: bundle_crypto.EncryptingWriter | None = None
+            write_failure: BaseException | None = None
             try:
                 with partial.open("xb") as stream:
+                    if managed is not None:
+                        opened = os.fstat(stream.fileno())
+                        owned = (opened.st_dev, opened.st_ino)
                     # A password streams the ZIP through the cipher; no
                     # plaintext copy of the archive is ever written.
-                    sink = bundle_crypto.EncryptingWriter(stream, password) if password else stream
+                    proof = backup_receipts.DigestWriter(stream) if managed is not None else None
+                    outer = proof if proof is not None else stream
+                    cipher = bundle_crypto.EncryptingWriter(outer, password) if password else None
+                    sink = cipher if cipher is not None else outer
                     with (zipfile.ZipFile(sink, "w", compression=zipfile.ZIP_STORED, allowZip64=True) as archive,
                           _ReadAhead([path for _, path in members]) as ahead):
                         for done, (member, path) in enumerate(members, 1):
@@ -604,20 +667,47 @@ def export_bundle(expected: int | None = None, password: str | None = None, prog
                             read = data = None
                             progress("writing", done, len(members))
                         archive.writestr(_MANIFEST, json.dumps(manifest, ensure_ascii=True))
-                    if password:
-                        sink.finish()
+                    if cipher is not None:
+                        cipher.finish()
                     stream.flush()
                     os.fsync(stream.fileno())
+                if managed is not None:
+                    # Windows finalizes write timestamps when its last writable
+                    # handle closes; snapshot after close, before read-back.
+                    written = backup_receipts.FileStamp.of(partial.lstat())
+                    if (written.device, written.inode) != owned:
+                        raise BundleError("the managed archive changed after writing")
                 # The one read-back checks every member (and, with a password,
                 # every chunk's tag) and decodes the archived originals from
                 # the bytes it read, so a damaged tracked PNG can never be
                 # cleared into an unusable import.
                 _verify_archive(partial, password=password, rows=rows, progress=progress,
-                                derived=sink.derived if password else None, masks=_mask_rows(snapshot))
-                partial.rename(final)
-            except BaseException:
-                partial.unlink(missing_ok=True)
+                                derived=cipher.derived if cipher is not None else None, masks=_mask_rows(snapshot),
+                                managed=managed)
+                if managed is None:
+                    partial.rename(final)
+                else:
+                    if backup_receipts.FileStamp.of(partial.lstat()) != written:
+                        raise BundleError("the managed archive changed during verification")
+                    # Unlike replace/rename on POSIX, claim never overwrites an
+                    # existing archive. Both paths remain in the same directory.
+                    _claim(partial, final)
+                    _remove_owned_partial(partial, owned)
+            except BaseException as error:
+                write_failure = error
+                if managed is None:
+                    partial.unlink(missing_ok=True)
+                else:
+                    _remove_owned_partial(partial, owned)
                 raise
+            finally:
+                if cipher is not None:
+                    try:
+                        cipher.close()
+                    except BaseException:
+                        if write_failure is None:
+                            raise
+                        write_failure.add_note("Closing the encrypted writer also failed; its terminal crypto references were released.")
 
             result = {
                 "name": name, "path": str(final), "images": before["images"],
@@ -629,6 +719,26 @@ def export_bundle(expected: int | None = None, password: str | None = None, prog
                 "masks": sum(member.startswith("masks/") for member, _ in files),
             }
             if keep_gallery:
+                if managed is not None:
+                    result["managed"] = False
+                    try:
+                        assert proof is not None
+                        stamp = backup_receipts.FileStamp.of(final.lstat())
+                        if (written is None or stamp.size != proof.count
+                                or (stamp.device, stamp.inode, stamp.modified_ns) !=
+                                (written.device, written.inode, written.modified_ns)):
+                            raise backup_receipts.ReceiptError("published archive size changed")
+                        receipt = backup_receipts.Receipt(
+                            managed, str(directory.resolve()), name, proof.sha256, stamp,
+                            datetime.now(timezone.utc), "encrypted" if password else "unencrypted",
+                            len(rows), before["images"],
+                        )
+                        backup_receipts.append(settings.db_path, receipt)
+                        result["managed"] = True
+                    except (OSError, ValueError, TypeError):
+                        # Publication already succeeded. Never remove the copy
+                        # or advance ownership on an uncertain journal update.
+                        result["managed_warning"] = backup_receipts.JOURNAL_WARNING
                 # A backup ends at the verified read-back: nothing is cleared,
                 # so there is nothing for the second inventory to protect.
                 return result
@@ -697,8 +807,21 @@ def export_bundle(expected: int | None = None, password: str | None = None, prog
 
 
 def import_bundle(path: Path, password: str | None = None, progress: Progress = _quiet) -> dict:
+    """Consume a published archive under one lease through staging and merge."""
+    return _import_bundle(path, password, progress, lambda: bundle_leases.reading(path))
+
+
+def _import_uploaded_bundle(path: Path, password: str | None = None, progress: Progress = _quiet) -> dict:
+    """Only the API worker's owned unpublished upload; never infer by suffix."""
+    return _import_bundle(path, password, progress, nullcontext)
+
+
+def _import_bundle(path: Path, password: str | None, progress: Progress,
+                   read_scope: Callable[[], AbstractContextManager[bundle_leases.ArchiveRead | None]]) -> dict:
     settings = _settings()
-    with gallery_lock.hold(settings.db_path):
+    # Every path reserves the destination first. Only published inputs acquire
+    # a source reader; private uploads have no shared archive to protect.
+    with gallery_lock.hold(settings.db_path), read_scope() as read_owner:
         storage.settle_partials()
         _inventory()  # A partial write or linked destination is not an import target.
         settings.db_path.parent.mkdir(parents=True, exist_ok=True)
@@ -713,7 +836,7 @@ def import_bundle(path: Path, password: str | None = None, progress: Progress = 
             def present_file(relative: str) -> Path | None:
                 known = existing.get(relative.casefold())
                 target = settings.outputs_dir / known["filename"] if known else None
-                return target if known and known["filename"] == relative and target.is_file() else None
+                return target if known and known["filename"] == relative and target is not None and target.is_file() else None
 
             def mask_file(name: str) -> Path:
                 return settings.outputs_dir / storage.MASKS_DIR / name
@@ -721,7 +844,21 @@ def import_bundle(path: Path, password: str | None = None, progress: Progress = 
             def inspect(row: dict, data: bytes):
                 target = present_file(row["filename"])
                 if target is None:
-                    return _inspect_source(row, data), False
+                    pixels = _inspect_source(row, data)
+                    return pixels, False, pixels.execution
+                # Keeping the local file also keeps its metadata. Validate
+                # that header against its own row before either identity
+                # path can call it present; pixel equality says nothing
+                # about which arithmetic recipe the PNG records.
+                try:
+                    with target.open("rb") as stream:
+                        require_header_metadata(stream)
+                        with Image.open(stream) as image:
+                            if image.format != "PNG":
+                                raise BundleError(f"not a PNG image: {target.name}")
+                            bundle_images._execution(existing[row["filename"].casefold()], image.info)
+                except (OSError, ValueError, Image.DecompressionBombError) as exc:
+                    raise BundleError(f"cannot read existing execution metadata for {target.name}: {exc}") from exc
                 # A present image is kept and its bundle copy never unpacked.
                 # Identical pixel-deciding chunks mean identical pixels, so the
                 # copy is not decoded: its header's size and its row are still
@@ -732,10 +869,17 @@ def import_bundle(path: Path, password: str | None = None, progress: Progress = 
                 if (known is not None and data[12:16] == b"IHDR"
                         and known == _critical_digest(io.BytesIO(data))):
                     width, height = struct.unpack(">II", data[16:24])
+                    stream = io.BytesIO(data)
+                    try:
+                        require_header_metadata(stream)
+                    except ValueError as exc:
+                        raise BundleError(f"invalid PNG metadata for {row['filename']}: {exc}") from exc
+                    with Image.open(stream) as image:
+                        execution = bundle_images._execution(row, image.info)
                     _validate_row(row, width, height, existing[row["filename"].casefold()]["content_hash"])
-                    return None, True
+                    return None, True, execution
                 pixels = _inspect_source(row, data)
-                return pixels, bundle_images._pixels(target).identity == pixels.identity
+                return pixels, bundle_images._pixels(target).identity == pixels.identity, pixels.execution
 
             def extract(member: str) -> bool:
                 # An existing image wins on repeated import, so its bundle copy
@@ -755,7 +899,8 @@ def import_bundle(path: Path, password: str | None = None, progress: Progress = 
             live = settings.db_path.stat().st_size if settings.db_path.exists() else 0
             manifest, source_rows, inspected = _verify_archive(
                 Path(path), work, password=password, inspect=inspect, extract=extract,
-                merge=(Path(merging), live), progress=progress)
+                merge=(Path(merging), live), progress=progress, read_owner=read_owner)
+            assert source_rows is not None  # A destination makes the verifier read the staged database.
             stage_db = Path(merging) / "merged.sqlite3"
             _backup(settings.db_path, stage_db)
             bundle_masks = _mask_rows(work / _DATABASE)
@@ -783,7 +928,7 @@ def import_bundle(path: Path, password: str | None = None, progress: Progress = 
                 progress("merging", 0, len(source_rows))
                 for row in source_rows:
                     name = row["filename"]
-                    pixels, same = inspected["images/" + name]
+                    pixels, same, execution = inspected["images/" + name]
                     digest = pixels.hash if pixels else None  # None: present and unchanged
                     known = existing.get(name.casefold())
                     if known:
@@ -805,6 +950,8 @@ def import_bundle(path: Path, password: str | None = None, progress: Progress = 
                         for key in ("prompt", "negative_prompt", "steps", "guidance_scale", "mu", "seed", "model_id"):
                             if known[key] != row[key]:
                                 raise BundleError(f"different image metadata already uses the filename {name}")
+                        if bundle_images._execution(known) != execution:
+                            raise BundleError(f"different execution already uses the filename {name}")
                         incoming_anchor = row.get("crop_anchor")
                         if known.get("refine") is None:
                             # A prior import of this source-less selection
@@ -823,7 +970,7 @@ def import_bundle(path: Path, password: str | None = None, progress: Progress = 
                         next_id += 1
                         mapping[row["id"]] = next_id
                         values = {key: row.get(key) for key in storage._COLUMNS}
-                        values.update(id=next_id, content_hash=digest)
+                        values.update(id=next_id, content_hash=digest, execution=execution)
                         # A result, so a bad one is dropped, never the bundle.
                         for key in ("vram_peak_allocated", "vram_peak_reserved"):
                             values[key] = storage._peak(values[key])

@@ -181,6 +181,19 @@ Components are `text_encoder` (Qwen3-VL), `transformer` (Krea2Transformer2DModel
 
 ## Loading happens in one place
 
+**Backend publication and failure ownership (2026-10-26, `PERF#1`).** The eager
+backend now holds returned component overrides and a pipeline in one unpublished
+candidate until every preparation step and weights context has completed. The
+live pipeline is assigned last. Both unload forms detach shared siblings, adapters
+and future registration ownership through one path, preserving compatibility
+caches and console preference. Failed application containers are cleared before
+allocator release without replacing the primary error; library traceback frames
+can still retain their arguments. Synthetic weak-reference tests establish that
+bounded ownership result, not physical card memory release. The
+[compilation plan](plan-regional-compilation.md#backend-publication-and-teardown-ownership)
+records this preparation stage; no new loader choice or experimental render is
+enabled.
+
 Loading happens in exactly one place: `main.ensure_loaded()`, which holds an
 asyncio lock across the whole load. Jobs `await` it rather than calling
 `backend.load()` from the worker thread — doing both raced two concurrent
@@ -276,9 +289,22 @@ press's own refusal, Expand's pointer (`loadLine`), the status's sentence
 
 ## Switching checkpoints while the server stays open
 
+**Unavailable performance intent (2026-10-26).** Models can now inspect/save
+compilation and attention recipes without granting their execution. The runtime
+snapshot also owns canonical loader intent and any fixed invalid-startup diagnostic;
+an execution-only change participates in revision, unload and exact-byte rollback.
+V2 startup preferences read v1 as Eager; omission preserves intent and an explicit
+empty recipe chooses Eager/native. Separate per-render FBC lives in composer
+settings with Reset/Reuse/Undo. All nonempty load/render admission remains closed,
+including legacy clients omitting execution and already-ready Eager weights.
+The [configuration owner](plan-regional-compilation.md#unavailable-performance-configuration)
+records these source changes and their validation limits; this changes no global
+attention setting or measured model capability.
+
 The browser's **Models > Switch & load** selects another catalogue checkpoint
 without restarting the process (2026-10-08). Startup `Settings` remains frozen;
-`model_selection` owns one immutable `(model_id, revision, quantization, offload)` snapshot, and
+`model_selection` owns one immutable checkpoint/revision/quantization/offload
+snapshot with canonical loader intent and its startup diagnostic, and
 `current_model_id(settings)` supplies the model to defaults, the loader, jobs,
 saved metadata, resume lookups and gallery scope. `current_settings(settings)`
 supplies a frozen copy with the effective loader options. Quantization and
@@ -2391,15 +2417,20 @@ strength has been run on the card.
 
 ## CellKey and run_id
 
-**Four things widen `CellKey`, and `run_id` survives each.** The key is
+**Optional reproduction fields widen `CellKey`, and `run_id` survives each.** The key is
 (prompt, negative, steps, CFG, mu, true CFG, references, LoRA, refine,
-mask, seed), with `grid.reference_key` (ids in order), `grid.lora_key`
+mask, upscaler, execution, canvas/crop, seed), with `grid.reference_key` (ids in order), `grid.lora_key`
 (`name@weight`), `grid.refine_key` (`id@strength`) and `grid.mask_key` (the
-hash, the inpaint's)
-spelled once and built from a request in `grid` and from columns in
+hash, the inpaint's). The composite elements are spelled once and built
+from a request in `grid` and from columns in
 `storage.completed_cells`. `run_id` names a cell by the **shortest** key
 carrying all its non-None optional elements - it drops true CFG, references,
-LoRA, refine and mask from the right while they are None - so a grid using none of
+LoRA, refine, mask and upscaler from the right while they are None. Shape is
+removed for uniform centered runs, and absent execution is explicitly
+removed before that shape handling. An interior None before a mixed-size
+or noncenter shape cannot be removed by trailing trim; retaining it would
+rename existing runs. The execution slot precedes shape, keeping shape at
+`[-2]` and seed last. Thus a grid using none of
 them is still named by the six-element key its images have carried since
 before any of them existed, and a refine run keeps the id it had before the
 mask existed (pinned in `tests/test_conditioning.py`). `duplicate_count`
@@ -4485,6 +4516,72 @@ never an overwrite.
 
 ## Gallery bundles: verify before clearing, stage before merging
 
+**Explicit startup backups (2026-10-26, `GAL#6`).** The initial v1 policy
+sidecar deliberately had no lifecycle. Wiring it directly would have activated
+hand-edited drafts, so startup accepts only a newly confirmed v2 envelope.
+Enabling needs an age, requested count, displayed destination and fresh consent
+to unencrypted images/prompts; there is no selected default or OS-secret fallback.
+Saving affects the next start and creates no archive. Namespace UUIDs are created
+only by that explicit reserved save, with a new destination set after relocation.
+
+The existing verified whole-gallery export and bundle admission own the attempt.
+Its startup reservation precedes changing requests, and the tracked supervisor
+waits before preload. Shutdown cancels a waiting preload and drains the admitted
+writer. Status stays cached during maintenance; explicit Reload reads settings
+without journal hashing or another attempt. UI drafts survive polls and stale or
+late replies, while manual creation/import passwords and the clear count stay
+separate. In that initial v2 slice, automatic cleanup was not implemented: the
+disclosure said every copy was kept and N was not enforced. OS credentials,
+shared-mode installation and deletion remain separate stages in the
+[backup plan](plan-automatic-backups.md).
+
+**Shared download cutover (2026-10-26, `GAL#6`).** Per-gallery maintenance cannot
+prove that another process has no archive response, so installing native leases
+is a separate offline operation, not a consequence of enabling backups or saving
+N. The operator supplies the other-servers-stopped fact; the installer verifies
+only local lease quiescence and fixed-local-NTFS eligibility. It pins the directory
+and exclusively publishes an immutable, identity-bound destination marker.
+Updated downloads choose mode at ASGI entry under the cutover mutex, so a pending
+response cannot start with an earlier process-only choice. Uninstalled destinations
+keep non-writing downloads; installed errors remain errors. The read-only check
+can inspect uncertain outcomes without repeating installation. These Windows
+scratch-cohort results do not qualify old/noncooperating processes, Linux or network
+filesystems. Deleting archives requires separate explicit consent and a validated
+handle-bound mutation path.
+
+**Published archive readers (2026-10-26, `GAL#6`).** Imports now reserve the
+destination gallery before acquiring one source reader, and retain that reader
+through staging, merge and rollback. Listing, public encrypted helpers and receipt
+hashing share the protocol, with native failures outside availability catches.
+The verifier borrows an explicit read-owner capability; owned upload/export
+partials use private seams without nested claims or a suffix-based exemption.
+If a file close leaves liveness uncertain, the original acquired claim and file
+object remain held until restart, independent of later name retargeting. Body
+errors retain cleanup notes. This closes the cooperating-consumer gap without
+adding a full read, key derivation or deletion caller.
+
+**Bound Windows mutation mechanism (2026-10-26, `GAL#6`).** A separate unconnected
+helper now combines mandatory installed-mode native exclusion, pinned directory
+and marker, and one READ|DELETE/share0 archive handle. It checks receipt identity,
+native file conditions and the same descriptor's raw digest immediately before
+marking that handle. Uncertain mark/close outcomes retain the original capability
+and remaining handles until restart. Accepted disposition and confirmed owned
+close are separate from physical removal. A future caller still needs validated
+journal membership, gallery reservation, policy eligibility and new deletion
+consent; no v2 count, startup path or journal mutation is connected.
+
+**Explicit retention (2026-10-26, `GAL#6`).** V3 now adds separately confirmed,
+mode/scope/N-bound deletion permission; v2 remains export-only. After a fresh
+managed success the existing worker protects current N/new-success copies and
+records one durable intent before native marking. Pending stops cleanup/restart
+retries; active/pending/retired proofs preserve bounded idempotency. Only normal
+entire-close outcomes can restore/retire evidence. Cleanup warnings and counters
+remain separate from verified backup state/time, and pending/unknown state stays
+visible when disabled. Save executes no export/deletion, and no installer or OS
+provider UI was added. Native lifecycle checks use owned Windows scratch galleries;
+no real gallery was activated. The [backup plan](plan-automatic-backups.md#explicit-v3-retention-and-durable-uncertainty)
+records the current contract, evidence and remaining qualifications.
+
 **Password scope and the clear's safety step (2026-10-26, `UI#14`/`UI#15`).**
 The browser review reproduced a scope mismatch: a password under Import a
 file also controlled Protected saved imports below a separate section. File
@@ -4899,6 +4996,19 @@ A load landing during a bundle had one page-side cost: its ready status
 re-reads the adapter list (`lorasLive`) and the previews once, and
 `GalleryAdmission` refused those. The bundle's settle re-reads both, as it
 already re-read the gallery.
+
+**Windows credential source (2026-10-26, `GAL#6`).** V4 now stores only an opaque
+scoped credential reference and inactive pending/ready state. Explicit hidden-input
+setup writes pending metadata before a new generic WinCred target; uncertain
+outcomes remain inactive and never retry automatically. Fresh encrypted/recovery
+consent separately enables a future startup. Lookup occurs only in the admitted
+due/nonempty worker, with no empty-secret/plaintext fallback. User passwords do
+not enter settings/receipts/status or process-lifetime quarantine tracebacks;
+terminal crypto refs are cleared without promising Python zeroing. Source/stub
+and owned encrypted-restore/browser checks pass, but no real vault entry/API/setup
+was used. Intended-user store/session and independent recovery qualification
+remain. The [backup plan](plan-automatic-backups.md#v4-windows-credential-source-and-recovery)
+owns the exact contract, operator commands and limitations.
 
 ## The CLI reads PNGs and probes the server
 
@@ -8178,7 +8288,14 @@ the rest with no error, where one sentence at a time keeps every one
 `_chunks` now sends one sentence per sequence - split after `。！？；!?;`, a
 newline, or a full stop before whitespace - all in one `generate()` batch,
 cutting only a sentence longer than the token limit, at the limit, and the
-English joins them with spaces; in tests, not re-measured on the card. Translation failure is
+English joins them with spaces; in tests, not re-measured on the card.
+Fixed 2026-10-26 (`GEN#26`): the source chunk budget and total tokenizer
+input limit are distinct, so EOS no longer replaces the last source token
+of a full chunk. CPU regression tests and the cached offline Marian
+tokenizer preserve every input token at the boundary; no model inference
+or translation-quality qualification was performed
+([evidence](review-2026-10-26-todo.md#gen26-marian-truncates-a-full-sentence-chunk)).
+Translation failure is
 returned separately so a useful multi-GB expansion is not thrown away. The
 index read is a try/except that yields nothing on failure - an optimisation,
 not a gate - and the tests' conftest now refuses `loading.hub_file` for every test,

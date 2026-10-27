@@ -220,7 +220,7 @@ def analyse(
         categories=categories,
         categories_asked=asked,
         # The Tags menu shows the same list (`guide_for`'s tag_helper).
-        author_orders=[AuthorOrder(**item) for item in author_orders(model_id)],
+        author_orders=[AuthorOrder.model_validate(item) for item in author_orders(model_id)],
         reordered=prompt_rules.reorder_tags(model_id, prompt, categories),
         reordered_detail=prompt_rules.reordered_detail(model_id, prompt, categories),
     )

@@ -11,35 +11,47 @@ import json
 import logging
 from pathlib import Path
 from tempfile import TemporaryDirectory
-from typing import Any
+from typing import Any, NotRequired, TypedDict
 
 # Resolve the app's remote-kernel policy even for direct converter imports.
 from .. import config as _config  # noqa: F401
-from .single_file import cache_root, sweep_work
+from .single_file import HubFile, HubRepo, cache_root, sweep_work
 
 log = logging.getLogger(__name__)
+
+
+class _ConversionRecipe(TypedDict):
+    version: int
+    source: HubFile
+    shared: HubRepo
+    dtype: str
+    scheduler: str
+    shift: float
+    checkpoint_prefix: NotRequired[str]
+    transformer_config: NotRequired[dict[str, int]]
+
 
 MODEL_ID = "circlestone-labs/Anima"
 # An app selector, not another Hub repository. Keep the bare id's historical
 # Turbo meaning so saved images and resume keys never change checkpoints.
 AESTHETIC_MODEL_ID = MODEL_ID + "@aesthetic-v1.1"
 PREVIEW_MODEL_ID = "Gazingstars123/Anima-2.9B"
-SOURCE = {
+SOURCE: HubFile = {
     "repo_id": MODEL_ID,
     "filename": "split_files/diffusion_models/anima-turbo-v1.1.safetensors",
     "revision": "f973fc41ec7545364ac9776c2440285f43ff2a30",
 }
-AESTHETIC_SOURCE = {
+AESTHETIC_SOURCE: HubFile = {
     "repo_id": MODEL_ID,
     "filename": "split_files/diffusion_models/anima-aesthetic-v1.1.safetensors",
     "revision": "594c27fea35648b87c86a9b4d5436a6024c820b5",
 }
-PREVIEW_SOURCE = {
+PREVIEW_SOURCE: HubFile = {
     "repo_id": PREVIEW_MODEL_ID,
     "filename": "Anima-2.9B-preview-v1.safetensors",
     "revision": "9f9cb502dbae7a616c3cc5a530633427fe735665",
 }
-SHARED = {
+SHARED: HubRepo = {
     "repo_id": "circlestone-labs/Anima-Base-v1.0-Diffusers",
     "revision": "073c3a9db359c31ad0e8aa268d15775473c2176c",
 }
@@ -47,7 +59,7 @@ SHARED_PATTERNS = [
     "transformer/config.json", "text_conditioner/config.json",
     "text_encoder/*", "vae/*", "tokenizer/*", "t5_tokenizer/*",
 ]
-RECIPE = {
+RECIPE: _ConversionRecipe = {
     "version": 1,
     "source": SOURCE,
     "shared": SHARED,
@@ -55,14 +67,14 @@ RECIPE = {
     "scheduler": "FlowMatchEulerDiscreteScheduler",
     "shift": 3.0,
 }
-AESTHETIC_RECIPE = {**RECIPE, "source": AESTHETIC_SOURCE}
-PREVIEW_RECIPE = {
+AESTHETIC_RECIPE: _ConversionRecipe = {**RECIPE, "source": AESTHETIC_SOURCE}
+PREVIEW_RECIPE: _ConversionRecipe = {
     **RECIPE,
     "source": PREVIEW_SOURCE,
     "checkpoint_prefix": "net.",
     "transformer_config": {"num_layers": 40},
 }
-_RECIPES = {
+_RECIPES: dict[str, _ConversionRecipe] = {
     MODEL_ID.lower(): RECIPE,
     AESTHETIC_MODEL_ID.lower(): AESTHETIC_RECIPE,
     PREVIEW_MODEL_ID.lower(): PREVIEW_RECIPE,
@@ -127,11 +139,15 @@ def _load_component(
 
 def _convert(destination: Path, model_id: str = MODEL_ID) -> None:
     import torch
-    from diffusers import AnimaTextConditioner, AutoencoderKLQwenImage, CosmosTransformer3DModel
-    from diffusers import FlowMatchEulerDiscreteScheduler
+    from diffusers.models.autoencoders.autoencoder_kl_qwenimage import AutoencoderKLQwenImage
+    from diffusers.models.condition_embedders.condition_embedder_anima import AnimaTextConditioner
+    from diffusers.models.transformers.transformer_cosmos import CosmosTransformer3DModel
+    from diffusers.schedulers.scheduling_flow_match_euler_discrete import FlowMatchEulerDiscreteScheduler
     from huggingface_hub import hf_hub_download, snapshot_download
     from safetensors.torch import load_file
-    from transformers import AutoTokenizer, Qwen3Model, T5TokenizerFast
+    from transformers import AutoTokenizer, Qwen3Model
+    # Transformers 5's lazy Fast-name fallback returns this same class.
+    from transformers.models.t5.tokenization_t5 import T5Tokenizer as T5TokenizerFast
 
     shared = Path(snapshot_download(**SHARED, allow_patterns=SHARED_PATTERNS))
     recipe = _RECIPES[model_id.lower()]
@@ -151,14 +167,13 @@ def _convert(destination: Path, model_id: str = MODEL_ID) -> None:
     del transformer_state, conditioner_state
     # The shared descriptors are local pinned files, so none of these loaders
     # can follow an unpinned Hub reference or load a different Base component.
-    local = {"local_files_only": True}
     pipe = pipeline_class(model_id)(
-        tokenizer=AutoTokenizer.from_pretrained(shared / "tokenizer", **local),
-        t5_tokenizer=T5TokenizerFast.from_pretrained(shared / "t5_tokenizer", **local),
-        text_encoder=Qwen3Model.from_pretrained(shared / "text_encoder", dtype=torch.bfloat16, **local),
+        tokenizer=AutoTokenizer.from_pretrained(shared / "tokenizer", local_files_only=True),
+        t5_tokenizer=T5TokenizerFast.from_pretrained(shared / "t5_tokenizer", local_files_only=True),
+        text_encoder=Qwen3Model.from_pretrained(shared / "text_encoder", dtype=torch.bfloat16, local_files_only=True),
         text_conditioner=conditioner.to(dtype=torch.bfloat16),
         transformer=transformer.to(dtype=torch.bfloat16),
-        vae=AutoencoderKLQwenImage.from_pretrained(shared / "vae", dtype=torch.bfloat16, **local),
+        vae=AutoencoderKLQwenImage.from_pretrained(shared / "vae", dtype=torch.bfloat16, local_files_only=True),
         scheduler=FlowMatchEulerDiscreteScheduler(shift=3.0),
     )
     pipe.save_pretrained(destination, safe_serialization=True)
@@ -199,7 +214,7 @@ def resolve_model(model_id: str, quantization: str) -> str:
             "Use LOCAL_DIFFUSION_QUANT=fp8, int8 or none."
         )
 
-    from huggingface_hub.utils import WeakFileLock
+    from huggingface_hub.utils._fixes import WeakFileLock
 
     target, marker, recipe = _target(model_id)
     root = target.parent

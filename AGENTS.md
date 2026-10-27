@@ -23,7 +23,8 @@ uv run python -m backend.main      # http://127.0.0.1:7860; restores saved brows
 uv run python -m backend.main --defaults   # ignore saved choices; environment/defaults
 uv run python -m backend.main --menu       # optional terminal picker
 uv run --group dev pytest          # no GPU, no weights; add -n auto for parallel
-uv run --group dev ruff check .    # correctness lint; CI runs both on push
+uv run --group dev ruff check .    # correctness lint
+uv run --group dev python tools/typecheck.py  # pinned Pyright basic; Node required
 ```
 
 ```bash
@@ -48,7 +49,8 @@ in `local-diffusion.settings.json`; explicit environment/flags override them.
 
 Backend (`backend/`):
 
-- `config.py` settings (`LOCAL_DIFFUSION_*`); `launch.py` start-up menu,
+- `config.py` settings (`LOCAL_DIFFUSION_*`) and cold external-attention warning;
+  `launch.py` start-up menu,
   `--model/--quant/--offload`, the checkpoint catalogue;
   `loader_choices.py` the quantization/offload wording the menu and picker share
 - `model_selection.py` current server checkpoint/loading options/revision,
@@ -58,6 +60,10 @@ Backend (`backend/`):
   `model_info.py` supplies cold catalogue details from existing sourced guides;
   `hub_access.py` asks the Hub whether a switch's checkpoint can download;
   `model_benchmarks.py` supplies retained timing references and speed categories
+- `execution.py` frozen execution recipes, composer/replay resolution, cold candidate checks and shared
+  SQL/PNG codecs; nonempty recipes remain unavailable until runtime support
+- `compiler_cache.py` private one-use startup binding for compiler artifact
+  directories; Eager stays cold and no public recipe is activated
 - `schemas.py` re-exports the request/response models, each defined in
   `schemas_generate.py` (the generation request and `applied()`, grids, job
   answers, Load settings from PNG's), `schemas_prompt.py` (Expand, Check, critic, tag lookup),
@@ -83,9 +89,25 @@ Backend (`backend/`):
   `bundle_images.py` a tracked PNG's identity, row checks and metadata
   rewrite, `bundle_common.py` their errors and database reads,
   `bundle_crypto.py` its optional password layer;
+  `backup_policy.py` pure default-off backup age and retention planning;
+  `backup_preferences.py` atomic database-scoped backup policy sidecars;
+  `backup_settings.py` explicit versioned activation and durable backup scope;
+  `backup_credentials.py` cold Windows credential references, explicit setup and
+  admitted-worker secret lookup; `failure_state.py` traceback-free quarantine snapshots;
+  `backup_receipts.py` internal managed-export identity, byte proof and atomic journal;
+  `backup_coordinator.py` one-attempt due/export worker using bundle admission;
+  `backup_retention.py` separately consented post-success cleanup and pending-intent stops;
+  `backup_service.py` default-off startup/configuration/status lifecycle;
+  `api_backup.py` explicit backup configuration and cached status routes,
+  with models in `schemas_backup.py`;
   `gallery_lock.py` reservations across storage threads and processes
+- `bundle_leases.py` archive reader/exclusive leases, complete download/import
+  lifetimes and uncertain-input quarantine, with opt-in shared companion locks in
+  `bundle_file_lock.py`; `bundle_mode.py` explicit Windows/NTFS mode installation
+  and destination discovery; `bundle_delete.py` same-handle managed
+  deletion mechanism; `bundle_capacity.py` managed-export logical-byte budgets
 - `jobs.py` single-worker queue and SSE; `storage.py` SQLite + PNGs;
-  `metadata.py` the PNG chunk's key and its legacy `krea` reader;
+  `metadata.py` the PNG chunk's key, legacy `krea` reader and file-placement guard;
   `png_settings.py` a PNG's record and A1111 'parameters' block read back
   (`--from-image` and `api_png.py` share it);
   `gallery_reports.py` estimates, keep rates, runs; `gallery_delete.py`
@@ -109,7 +131,11 @@ Backend (`backend/`):
   ERNIE's Marian translation
 - `backends/`: `base.py` (the ABC), `diffusers_backend.py`, `loading.py`
   (everything decided before the weights move), `schedule.py` (mu, sigmas,
-  refine start), per-checkpoint converters and pipelines (`single_file`,
+  refine start), `regional_compile.py` (private regional preparation, scoped
+  call policy and bounded first-call observations; public execution stays unavailable), `attention_selection.py`
+  (private processor ownership, restoration, terminal discard and Native policy), `fbc_cache.py`
+  (private per-call cache ownership, cleanup and deferred disposal),
+  per-checkpoint converters and pipelines (`single_file`,
   `anima_*`, `netayume_loading`, `newbie_*`)
 - CLIs: `generate.py`, `clear.py`, `stats.py`, `reindex.py`
 
@@ -118,6 +144,8 @@ in order, sharing one global scope; only `app.js`, the last, runs anything.
 `style.css` (tokens, base) then `styles/*.css` in link order - keep that
 cascade. `docs/rules.md`'s Layout maps every file; `docs/source-audit.md`
 records the split audits.
+`execution.js` owns inspectable performance controls and unavailable-recipe
+holds; configuring a recipe never enables its loading or rendering.
 
 Also: `tools/` (fake server, headless-browser smokes), `tests/`, `wsl/`,
 `docs/`.
@@ -289,11 +317,17 @@ in the HTTP layer or the UI needs to change.
 `uv run --group dev pytest` - no GPU, no weights, a throwaway database, and
 `LOCAL_DIFFUSION_*` cleared by `tests/conftest.py`. The fake backend is
 `tests/fakes.py`; HTTP tests are `tests/test_api*.py`, one file per area.
+Node is required for the classic-script syntax/shared-scope guard; it
+checks HTML script order without executing the page's boot.
+The pinned Pyright gate checks every Python source in `backend/` and
+`tools/`; missing tools and empty scope fail. Its wrapper uses installed
+Node and bundled checker files, without automatic updates or downloads.
 
 CI (`.github/workflows/ci.yml`, detail in `docs/rules.md` under Tests): ruff
 on Linux for every push and pull request. Documentation-only changes run
 just lint, without app/tokenizer installs; executable files under `docs/`
-still get tests. Other changes and manual runs get `pytest -n auto` on Linux,
+still get tests. Other changes and manual runs get the pinned type gate
+and `pytest -n auto` on Linux,
 and on Windows too for main (pushes and by hand; about 12 minutes). Its runners are
 slow and have no GPU driver: a test that races a clock (a time budget, a
 cell to skip or pause mid-run) needs seconds of margin, not milliseconds.
@@ -379,6 +413,11 @@ node tools/browser.mjs tools/<smoke>.json
 | 7923 | FLUX.1-Krea-dev, fresh scratch `--data` | `smoke-control-sizing` |
 | 7924 | FLUX.1-Krea-dev, fresh scratch `--data` | `smoke-shortcut-dispatch` |
 | 7925 | FLUX.1-Krea-dev, fresh scratch `--data` | `smoke-compact-setup` |
+| 7926 | FLUX.1-Krea-dev, fresh scratch `--data` | `smoke-execution-reuse` |
+| 7927 | FLUX.1-Krea-dev, fresh scratch `--data` | `smoke-automatic-backup` |
+| 7928 | FLUX.1-Krea-dev, fresh scratch `--data` | `smoke-retention` |
+| 7929 | FLUX.1-Krea-dev, fresh scratch `--data` | `smoke-credential` |
+| 7930 | FLUX.1-Krea-dev, fresh scratch `--data` | `smoke-execution-selector` |
 
 FLUX.1-Krea-dev is `black-forest-labs/FLUX.1-Krea-dev`; animagine is
 `cagliostrolab/animagine-xl-4.0`.

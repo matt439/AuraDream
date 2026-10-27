@@ -8,11 +8,11 @@ from pathlib import Path
 from tempfile import TemporaryDirectory
 
 from .. import config as _config  # noqa: F401 - before Diffusers
-from .single_file import cache_root, sweep_work
+from .single_file import HubRepo, cache_root, sweep_work
 
 log = logging.getLogger(__name__)
 MODEL_ID = "NewBie-AI/NewBie-image-Exp0.1"
-SOURCE = {"repo_id": MODEL_ID, "revision": "4f7825a1a7e1ed5c1882a52e3c51d1119a43e298"}
+SOURCE: HubRepo = {"repo_id": MODEL_ID, "revision": "4f7825a1a7e1ed5c1882a52e3c51d1119a43e298"}
 PATTERNS = [
     "transformer/config.json", "transformer/diffusion_pytorch_model.safetensors",
     "text_encoder/config.json", "text_encoder/gemma3-4b-it.safetensors",
@@ -49,7 +49,8 @@ def _load_gemma(checkpoint, config):
 
 def _convert(destination: Path) -> None:
     import torch
-    from diffusers import AutoencoderKL, FlowMatchEulerDiscreteScheduler
+    from diffusers.models.autoencoders.autoencoder_kl import AutoencoderKL
+    from diffusers.schedulers.scheduling_flow_match_euler_discrete import FlowMatchEulerDiscreteScheduler
     from huggingface_hub import snapshot_download
     from safetensors.torch import load_file
     from transformers import AutoTokenizer
@@ -70,14 +71,16 @@ def _convert(destination: Path) -> None:
     jina = load_jina_text_encoder(
         load_file(source / "clip_model/jina-clip-v2.safetensors", device="cpu"),
     )
-    local = {"local_files_only": True}
+    # Diffusers 0.40 / Transformers 5 wrap Module.to with functools.wraps;
+    # Pyright retains its unbound `self`, though these are bound instances.
+    # Keep the subclass methods, including their dtype/quantization guards.
     pipe = NewbiePipeline(
-        transformer=transformer.to(dtype=torch.bfloat16),
-        text_encoder=gemma.to(dtype=torch.bfloat16),
-        text_encoder_2=jina.to(dtype=torch.bfloat16),
-        tokenizer=AutoTokenizer.from_pretrained(source / "text_encoder", **local),
-        tokenizer_2=AutoTokenizer.from_pretrained(source / "clip_model", **local),
-        vae=AutoencoderKL.from_pretrained(source / "vae", dtype=torch.bfloat16, **local),
+        transformer=transformer.to(dtype=torch.bfloat16),  # pyright: ignore[reportCallIssue]
+        text_encoder=gemma.to(dtype=torch.bfloat16),  # pyright: ignore[reportCallIssue]
+        text_encoder_2=jina.to(dtype=torch.bfloat16),  # pyright: ignore[reportCallIssue]
+        tokenizer=AutoTokenizer.from_pretrained(source / "text_encoder", local_files_only=True),
+        tokenizer_2=AutoTokenizer.from_pretrained(source / "clip_model", local_files_only=True),
+        vae=AutoencoderKL.from_pretrained(source / "vae", dtype=torch.bfloat16, local_files_only=True),
         scheduler=FlowMatchEulerDiscreteScheduler(shift=6.0, use_dynamic_shifting=False),
     )
     pipe.save_pretrained(destination, safe_serialization=True)
@@ -112,7 +115,7 @@ def resolve_model(model_id: str, quantization: str) -> str:
             "NewBie Image Exp0.1 is not a Nunchaku Lite checkpoint. "
             "Use LOCAL_DIFFUSION_QUANT=fp8, int8 or none."
         )
-    from huggingface_hub.utils import WeakFileLock
+    from huggingface_hub.utils._fixes import WeakFileLock
 
     target, marker, recipe = _target()
     target.parent.mkdir(parents=True, exist_ok=True)

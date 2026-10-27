@@ -91,6 +91,7 @@ function streamJob(jobId, { reattached = 0 } = {}) {
     // The last status frame: what the job is (a grid's cells or a request's
     // repeats, its size, its budget) and what it waits on.
     let job = null;
+    let executionDiagnostics = null;
     // The load's wait on the page's own clock, from the submission: the
     // server's `elapsed` starts only once the job runs, and minutes of a 0%
     // bar under "loading weights…" looked the same as a hang.
@@ -143,6 +144,8 @@ function streamJob(jobId, { reattached = 0 } = {}) {
     // every second for the minutes a load takes. "loading weights" is said
     // once; the topbar's mirror and the tab's title take the whole text.
     const tick = () => {
+      els.progressText.title = '';
+      els.progressText.removeAttribute('aria-description');
       const s = Math.max(0, Math.floor((Date.now() - waitedFrom) / 1000));
       let clock = els.progressText.querySelector('.clock');
       if (!clock) {
@@ -183,6 +186,10 @@ function streamJob(jobId, { reattached = 0 } = {}) {
       if (streamLost) { streamLost = false; noteViewer(); }
       failures = 0;
       const data = JSON.parse(event.data);
+      if (['status', 'progress', 'done'].includes(data.type)) {
+        executionDiagnostics = mergeExecutionDiagnostics(executionDiagnostics, data.execution_diagnostics);
+        data.execution_diagnostics = executionDiagnostics;
+      }
       const runs = data.total_runs || 1;
       if (data.type === 'progress') {
         stopTicker();
@@ -193,8 +200,8 @@ function streamJob(jobId, { reattached = 0 } = {}) {
         // A single image's step count is shown, not said: "1/12" to
         // "12/12" was read out a step at a time. The run counter is said
         // as it changes, and the bar's aria-valuenow has the fraction.
-        if (runs > 1) setProgressText(`${unitWord(job)} ${data.run}/${runs}`);
-        else setProgressText('denoising…', `${data.step}/${data.total_steps}`);
+        if (runs > 1) setExecutionProgress(jobId, executionDiagnostics, `${unitWord(job)} ${data.run}/${runs}`);
+        else setExecutionProgress(jobId, executionDiagnostics, 'denoising…', `${data.step}/${data.total_steps}`);
         setStep(runs > 1, within, `${data.step}/${data.total_steps}`);
         note(data);
         placeholder ??= jobPlaceholders.get(jobId) ?? null;
@@ -247,12 +254,12 @@ function streamJob(jobId, { reattached = 0 } = {}) {
         const waiting = data.status !== 'queued' ? null
           : data.waiting_on == null ? { text: 'queued…' } : WAITING[data.waiting_on] ?? WAITING.queue;
         if (!loading) {
-          if (data.paused) setProgressText(runs > 1 && data.run ? `${unit} ${data.run}/${runs}` : 'paused');
-          else if (waiting) setProgressText(waiting.text);
-          else if (runs > 1 && data.run) setProgressText(`${unit} ${data.run}/${runs}`);
+          if (data.paused) setExecutionProgress(jobId, null, runs > 1 && data.run ? `${unit} ${data.run}/${runs}` : 'paused');
+          else if (waiting) setExecutionProgress(jobId, null, waiting.text);
+          else if (runs > 1 && data.run) setExecutionProgress(jobId, executionDiagnostics, `${unit} ${data.run}/${runs}`);
           // A single image's counter is the step count from here on, shown
           // beside these words rather than said (the progress branch).
-          else setProgressText('denoising…', 'denoising…');
+          else setExecutionProgress(jobId, executionDiagnostics, 'denoising…', 'denoising…');
         }
         syncPause(data);
         syncNow(data);

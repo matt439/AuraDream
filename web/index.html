@@ -52,6 +52,8 @@
       <div class="model-loader-options">
         <div><label for="model-quantization">Quantization</label><select id="model-quantization" autocomplete="off" aria-describedby="model-quantization-help"></select><p class="model-loader-help" id="model-quantization-help"></p></div>
         <div><label for="model-offload">Offload</label><select id="model-offload" autocomplete="off" aria-describedby="model-offload-help"></select><p class="model-loader-help" id="model-offload-help"></p></div>
+        <div><label for="model-compilation">Compilation</label><select id="model-compilation" autocomplete="off" aria-describedby="model-compilation-help"><option value="">Eager</option><option value="regional-v1">Regional v1 (unavailable)</option></select><p class="model-loader-help" id="model-compilation-help"></p></div>
+        <div><label for="model-attention">Attention</label><select id="model-attention" autocomplete="off" aria-describedby="model-attention-help"><option value="">Native (default)</option><option value="cudnn-v1">cuDNN v1 (unavailable)</option></select><p class="model-loader-help" id="model-attention-help"></p></div>
       </div>
       <!-- The help sits outside the label, so it describes the select without
            also joining its name. -->
@@ -417,6 +419,12 @@
           <input type="number" id="true-cfg" min="1" max="20" step="0.1" placeholder="off" aria-describedby="true-cfg-tip">
         </div>
       </div>
+    </div>
+
+    <div class="execution-cache-row">
+      <label for="step-cache">Step cache</label>
+      <select id="step-cache" aria-describedby="step-cache-note"><option value="">Off</option><option value="fbc-005-v1">FBC 0.05 v1 (unavailable)</option></select>
+      <span id="step-cache-note" class="sr-only">Off. FBC 0.05 v1 is experimental and unavailable in this build.</span>
     </div>
 
     <!-- What a press makes, under a caption of its own as Sampling's (shown
@@ -1750,6 +1758,51 @@
       <ul id="bundle-list"><li>Reading saved bundles…</li></ul>
     </div>
   </section>
+  <details class="bundle-automatic" id="automatic-backup-settings">
+    <summary>Automatic startup backup</summary>
+    <div class="bundle-automatic-body">
+      <p class="hint">Check once when the server starts and save the entire gallery, including every model, prompts, starred images and the recycle bin. Saving these settings does not create a backup now.</p>
+      <label class="bundle-automatic-check"><input type="checkbox" id="automatic-backup-enabled"> Enable automatic backups on the next server start</label>
+      <div class="bundle-automatic-protection">
+        <label for="automatic-backup-protection">Archive protection</label>
+        <select id="automatic-backup-protection" aria-describedby="automatic-backup-protection-hint automatic-backup-credential-status">
+          <option value="">Choose archive protection</option>
+          <option value="unencrypted">Unencrypted ZIP</option>
+          <option value="encrypted">Encrypted archive with offline password setup</option>
+        </select>
+      </div>
+      <div class="bundle-automatic-fields">
+        <label for="automatic-backup-age">Minimum age of the latest verified automatic copy (hours)</label>
+        <input type="number" id="automatic-backup-age" min="1" max="876000" step="1" inputmode="numeric" aria-describedby="automatic-backup-age-hint">
+        <label for="automatic-backup-keep">Minimum automatic copies to keep with cleanup</label>
+        <input type="number" id="automatic-backup-keep" min="1" max="10000" step="1" inputmode="numeric" aria-describedby="automatic-backup-retention-hint">
+      </div>
+      <p class="hint" id="automatic-backup-age-hint">Enter a whole number of hours. Only a currently verified automatic copy counts toward this age; manual bundles do not.</p>
+      <p class="hint" id="automatic-backup-retention-hint">Without separate cleanup permission, all existing copies are kept and this count is not enforced. Cleanup keeps the newest confirmed automatic copies, the new backup and any copy in use, so more than this count may remain.</p>
+      <label class="bundle-automatic-check" id="automatic-backup-consent-label"><input type="checkbox" id="automatic-backup-consent" aria-describedby="automatic-backup-protection-hint automatic-backup-destination"> For unencrypted ZIPs, I allow unattended backups including images and prompts at the destination shown below.</label>
+      <label class="bundle-automatic-check"><input type="checkbox" id="automatic-backup-encrypted-consent" aria-describedby="automatic-backup-protection-hint automatic-backup-credential-status automatic-backup-destination"> For encrypted archives, I allow unattended backups using the configured Windows credential reference at the destination shown below.</label>
+      <label class="bundle-automatic-check"><input type="checkbox" id="automatic-backup-recovery-consent" aria-describedby="automatic-backup-protection-hint"> I have an independent password recovery record outside this Windows account and PC. I understand that losing the password can make encrypted archives unrecoverable.</label>
+      <p class="hint" id="automatic-backup-protection-hint">Encryption protects only the output archive. The live gallery, SQLite snapshot and any decrypted import staging remain plaintext on disk. A Windows credential reference is not independent password recovery and does not by itself protect against losing this PC. Manual bundle password fields are never used for automatic backups.</p>
+      <p class="hint">Switching an encrypted profile to unencrypted ZIPs clears its credential reference and starts a new managed set. Choosing encryption again needs a new offline setup. Existing archives are not converted.</p>
+      <label class="bundle-automatic-check"><input type="checkbox" id="automatic-backup-retention-enabled" aria-describedby="automatic-backup-cleanup-hint automatic-backup-mode"> Enable cleanup after a new verified automatic startup backup</label>
+      <p class="hint" id="automatic-backup-cleanup-hint">Cleanup affects only older verified automatic copies from this gallery and destination with the same protection. Manual bundles, foreign or uncertain copies and files in use are kept. No cleanup follows a failed, skipped or unmanaged backup.</p>
+      <label class="bundle-automatic-check"><input type="checkbox" id="automatic-backup-delete-consent" aria-describedby="automatic-backup-retention-hint automatic-backup-mode automatic-backup-destination"> I allow irreversible deletion of eligible older automatic copies at the displayed destination, keeping at least the count shown above.</label>
+      <div class="bundle-backup-row">
+        <button type="button" class="ghost small" id="automatic-backup-save" aria-disabled="true">Save startup backup settings</button>
+        <button type="button" class="ghost small" id="automatic-backup-reload" aria-disabled="true">Reload saved settings</button>
+      </div>
+      <p class="hint" id="automatic-backup-destination">Backup destination is not yet known.</p>
+      <p class="hint" id="automatic-backup-credential-status">Open this dialog to read the local credential profile metadata. This page never checks the credential store or accepts a password.</p>
+      <p class="hint">For encrypted startup backups, use the offline command <code>uv run python tools/backup_credential.py setup --database &lt;database path&gt; --destination &lt;destination path&gt; --allow-os-storage --confirm-independent-recovery</code>. The two flags acknowledge Windows password storage and independent recovery; the terminal asks for the password twice with hidden input. Setup leaves the profile inactive. Use <code>uv run python tools/backup_credential.py inspect --database &lt;database path&gt;</code> to inspect local setup metadata, then Reload saved settings here. Verify your recovery password separately with <code>uv run python tools/backup_credential.py verify-recovery --archive &lt;archive&gt;</code>; this uses your independently retained password and does not read the credential store.</p>
+      <p class="hint" id="automatic-backup-mode">Cleanup requires installed Windows shared archive mode. This page never installs it.</p>
+      <p id="automatic-backup-status">Open this dialog to read automatic backup settings.</p>
+      <p class="hint" id="automatic-backup-retention-status">Open this dialog to read cleanup settings.</p>
+      <p class="hint" id="automatic-backup-warning" hidden></p>
+      <p class="hint" id="automatic-backup-retention-warning" hidden></p>
+      <p class="hint">An empty gallery is skipped, and a busy startup is deferred without an automatic retry. The next server start checks again. Existing manual backups remain available.</p>
+      <p id="automatic-backup-feedback" role="status" aria-live="polite"></p>
+    </div>
+  </details>
 </dialog>
 
 <!-- The right-click menu on an image (context-menu.js): filled as it opens,
@@ -1795,6 +1848,7 @@
 </dialog>
 
 <script src="/static/state.js"></script>
+<script src="/static/execution.js"></script>
 <script src="/static/sizes.js"></script>
 <script src="/static/status.js"></script>
 <script src="/static/model-switch.js"></script>

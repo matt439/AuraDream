@@ -103,21 +103,21 @@ def _issue(raw: Any, context: critic_context.CriticContext, prompt: str) -> Crit
         if span is not None:
             start, end = span
             quote = prompt[start:end]
-    return CritiqueIssue(
-        kind=kind,
-        problem=problem,
-        fix=_clip(raw.get("fix")),
-        cite_id=cite_id,
+    return CritiqueIssue.model_validate({
+        "kind": kind,
+        "problem": problem,
+        "fix": _clip(raw.get("fix")),
+        "cite_id": cite_id,
         # The citation's own, whatever else the answer carries: a server of
         # one's own need not hold the model to the schema's keys.
-        cite=citation.text,
-        url=citation.url,
-        source=citation.source,
-        note=citation.note,
-        quote=quote,
-        start=start,
-        end=end,
-    )
+        "cite": citation.text,
+        "url": citation.url,
+        "source": citation.source,
+        "note": citation.note,
+        "quote": quote,
+        "start": start,
+        "end": end,
+    })
 
 
 def _same(a: str, b: str) -> bool:
@@ -941,6 +941,7 @@ def validate(
         )
     if measured:
         # No finding to point at: the length was in range.
+        assert context.measured_length is not None, "a measured-length issue requires the measured range"
         words, low, high = context.measured_length
         set_aside.append(
             f"{measured} issue{'' if measured == 1 else 's'} left out: "

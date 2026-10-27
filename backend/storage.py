@@ -19,7 +19,7 @@ import sqlite3
 import threading
 import time
 import uuid
-from collections.abc import Sequence
+from collections.abc import Iterable, Mapping, Sequence
 from contextlib import contextmanager
 from datetime import datetime, timezone
 from pathlib import Path
@@ -28,6 +28,7 @@ from typing import TYPE_CHECKING, Any
 from PIL import Image, PngImagePlugin
 
 from .config import settings
+from .execution import canonical_execution, execution_chunk, execution_from_json, execution_key
 from . import gallery_lock, refine
 # The key elements that are built from columns here and from a request
 # in `grid`: one spelling of each, or a resume compares strings that only look
@@ -172,6 +173,7 @@ CREATE TABLE IF NOT EXISTS images (
     mask            TEXT,
     outpaint        TEXT,
     upscaler        TEXT,
+    execution       TEXT,
     vram_peak_allocated INTEGER,
     vram_peak_reserved  INTEGER
 );
@@ -299,6 +301,8 @@ def _migrate(conn: sqlite3.Connection) -> None:
         ("outpaint", "TEXT", "idx_images_outpaint"),
         # The optional GAN preparing an ordinary Refine source.
         ("upscaler", "TEXT", None),
+        # Named arithmetic recipes as canonical JSON; NULL is legacy Eager.
+        ("execution", "TEXT", None),
         # The peak GPU memory PyTorch's allocator held during the call that
         # made this image, in bytes, allocated and reserved: a result, as
         # `duration_ms` is, never part of the reproduction set. NULL where
@@ -375,11 +379,11 @@ def init_db() -> None:
 
 
 def _row_to_record(
-    row: sqlite3.Row, refine_missing: bool = False, refine_binned: bool = False
+    row: sqlite3.Row | Mapping[str, Any], refine_missing: bool = False, refine_binned: bool = False
 ) -> ImageRecord:
     """A gallery row as the record the API serves.
 
-    Every column is read unguarded. Rows only ever come out of a connection
+    Every column is read unguarded. Database rows come out of a connection
     `_connect` opened, and `_connect` runs `_migrate` first, so a database from
     an older build has every column by the time a row is fetched - NULL where
     the build that wrote it knew nothing of the field. A new column therefore
@@ -387,6 +391,7 @@ def _row_to_record(
     SELECT succeed and every INSERT after it fail on the missing column.
     `refine_missing` and `refine_binned` are no columns: the reader that has
     looked the source up (`_missing_sources`) says so.
+    Bundle validation supplies the same complete columns as a mapping.
     """
     # Rows from before thumbnails were written have none; the client falls back
     # to the PNG. A locked legacy thumbnail may still be beside its PNG.
@@ -421,6 +426,7 @@ def _row_to_record(
             row["crop_anchor"], source=row["refine"], mask=row["mask"], outpaint=row["outpaint"],
         ),
         upscaler=row["upscaler"],
+        execution=execution_from_json(row["execution"]),
         batch=row["batch"],
         job_id=row["job_id"],
         run_id=row["run_id"],
@@ -445,7 +451,7 @@ _COLUMNS = (
     "mu", "seed", "model_id", "duration_ms", "favorite", "created_at", "job_id", "run_id",
     "quantization", "variables", "true_cfg", "content_hash", "reference", "lora", "lora_scale",
     "refine", "strength", "crop_anchor", "batch", "binned_at", "mask", "outpaint", "upscaler",
-    "vram_peak_allocated", "vram_peak_reserved",
+    "execution", "vram_peak_allocated", "vram_peak_reserved",
 )
 
 # What every live-facing read adds: an image in the recycle bin is gone from
@@ -525,6 +531,7 @@ def save_image(
     duration - or None where nothing was measured.
     """
     created = datetime.now(timezone.utc)
+    execution = canonical_execution(request.execution)
     allocated, reserved = (_peak(peak[0]), _peak(peak[1])) if peak is not None else (None, None)
     variables_json = json.dumps(variables) if variables else None
     mask = request.mask if request.refine is not None else None
@@ -594,6 +601,7 @@ def save_image(
         # unchanged when no crop position was requested.
         **({"crop_anchor": crop_anchor} if crop_anchor is not None else {}),
         **({"upscaler": upscaler} if upscaler is not None else {}),
+        **execution_chunk(execution),
         # Results, not settings, so absent rather than null when unmeasured:
         # a chunk from a CPU or before them reads the same.
         **({"vram_peak_allocated": allocated} if allocated is not None else {}),
@@ -690,6 +698,7 @@ def save_image(
                         "mask": mask,
                         "outpaint": outpaint.key() if outpaint is not None else None,
                         "upscaler": upscaler,
+                        "execution": execution_key(execution),
                         "vram_peak_allocated": allocated,
                         "vram_peak_reserved": reserved,
                     },
@@ -1100,7 +1109,8 @@ def completed_cells(
             marks = ",".join("?" * len(chunk))
             rows = conn.execute(
                 f"""SELECT prompt, negative_prompt, steps, guidance_scale, mu, true_cfg,
-                           reference, lora, lora_scale, refine, strength, mask, outpaint, upscaler, crop_anchor, seed
+                           reference, lora, lora_scale, refine, strength, mask, outpaint, upscaler, execution,
+                           crop_anchor, seed
                     FROM images
                     WHERE width = ? AND height = ? AND model_id = ? {scope}
                       AND prompt IN ({marks})""",
@@ -1125,6 +1135,7 @@ def completed_cells(
                         refine_key(row["refine"], row["strength"]),
                         mask_key(row["mask"], _canonical_outpaint(row["outpaint"])),
                         row["upscaler"],
+                        execution_key(execution_from_json(row["execution"])),
                         shape_key(width, height, row["crop_anchor"]),
                         row["seed"],
                     )
@@ -1206,10 +1217,14 @@ def import_file(values: dict[str, Any]) -> ImageRecord:
     path preserves the fields that are not embedded in the PNG: favorite and
     generation duration.
     """
-    values = {**values, "crop_anchor": _crop_anchor(
-        values.get("crop_anchor"), source=values.get("refine"),
-        mask=values.get("mask"), outpaint=values.get("outpaint"),
-    )}
+    values = {
+        **values,
+        "execution": execution_key(execution_from_json(values.get("execution"))),
+        "crop_anchor": _crop_anchor(
+            values.get("crop_anchor"), source=values.get("refine"),
+            mask=values.get("mask"), outpaint=values.get("outpaint"),
+        ),
+    }
     with _write_lock, _session() as conn:
         row = _insert_row(conn, {column: values.get(column) for column in _COLUMNS})
     return _row_to_record(row)
@@ -1242,6 +1257,7 @@ def index_file(
         meta.get("crop_anchor"), source=meta.get("refine"),
         mask=meta.get("mask"), outpaint=meta.get("outpaint"),
     )
+    execution = execution_key(meta.get("execution"))
     with _write_lock, _session() as conn:
         row = _insert_row(
             conn,
@@ -1281,6 +1297,7 @@ def index_file(
                     meta.get("upscaler"), source=meta.get("refine"), model_id=meta.get("model"),
                     mask=mask, outpaint=meta.get("outpaint"),
                 ),
+                "execution": execution,
                 "vram_peak_allocated": _peak(meta.get("vram_peak_allocated")),
                 "vram_peak_reserved": _peak(meta.get("vram_peak_reserved")),
             },
@@ -1568,9 +1585,12 @@ def chunk_outpaint(meta: dict[str, Any]) -> OutpaintSpec | None:
     value, fill = meta.get("outpaint"), meta.get("outpaint_fill")
     if not isinstance(value, dict) or not isinstance(fill, str):
         return None
-    sides = [value.get(name) for name in ("left", "top", "right", "bottom", "band")]
-    if any(type(side) is not int for side in sides):
-        return None
+    sides: list[int] = []
+    for name in ("left", "top", "right", "bottom", "band"):
+        side = value.get(name)
+        if type(side) is not int:
+            return None
+        sides.append(side)
     try:
         spec = OutpaintSpec(fill=fill, left=sides[0], top=sides[1], right=sides[2], bottom=sides[3], band=sides[4])
     except ValueError:
@@ -1683,7 +1703,7 @@ def touch_mask(mask: str) -> Path:
 
 
 @gallery_lock.protected(lambda: settings.db_path, waits=True)
-def hold_masks(job_id: str, masks: Sequence[str]) -> list[str]:
+def hold_masks(job_id: str, masks: Iterable[str]) -> list[str]:
     """Hold `masks` for job `job_id` until `release_masks`: no sweep in any
     process removes a held mask. Answers the ones this server no longer has,
     which are not held - gone between the submit's check and here.

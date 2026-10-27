@@ -15,13 +15,17 @@ import time
 import uuid
 from collections.abc import Awaitable, Callable
 from concurrent.futures import ThreadPoolExecutor
-from dataclasses import dataclass, field
+from dataclasses import asdict, dataclass, field, replace
+from types import MethodType
 from typing import Any
 
 from . import gallery_lock, storage
 from .backends import Cancelled, GenerationBackend
+from .backends.base import ExecutionDiagnosticsReader
+from .backends.regional_compile import RegionalDiagnosticOwner, RegionalDiagnostics
 from .model_selection import current_settings
 from .config import settings
+from .execution import require_configured_loader_available, require_default_execution, resolve_execution
 from .grid import Cell, CellKey, cell_keys, progress_steps, run_id as _run_id
 from .latent_preview import data_url
 from .more_seeds_intents import IntentLedger
@@ -217,6 +221,46 @@ class Job:
     # Whether `storage.hold_masks` holds masks for this job, which `_finish`
     # then releases.
     holds_masks: bool = False
+    # Runtime observation only: never a request/definition/reproduction field.
+    # The active reader is bound to pure state, not a backend or registration.
+    _execution_reader: ExecutionDiagnosticsReader | None = field(default=None, repr=False)
+    _execution_diagnostics: RegionalDiagnostics | None = field(default=None, repr=False)
+
+    def bind_execution_diagnostics(self, reader: ExecutionDiagnosticsReader | None) -> bool:
+        if (not isinstance(reader, MethodType) or type(reader.__self__) is not RegionalDiagnosticOwner
+                or reader.__func__ is not RegionalDiagnosticOwner.snapshot):
+            reader = None
+        with self._call_lock:
+            self._execution_reader, self._execution_diagnostics = reader, None
+        return reader is not None
+
+    @staticmethod
+    def _read_execution_diagnostics(reader: ExecutionDiagnosticsReader) -> RegionalDiagnostics | None:
+        try:
+            value = reader()
+        except Exception:  # noqa: BLE001 - an optional observation never fails an image
+            return None
+        return value if type(value) is RegionalDiagnostics else None
+
+    def execution_diagnostics(self) -> RegionalDiagnostics | None:
+        with self._call_lock:
+            reader, frozen = self._execution_reader, self._execution_diagnostics
+        if reader is None:
+            return frozen
+        value = self._read_execution_diagnostics(reader)
+        with self._call_lock:
+            # A late read cannot overwrite/follow another cell's reader.
+            return value if reader is self._execution_reader else self._execution_diagnostics
+
+    def freeze_execution_diagnostics(self) -> None:
+        with self._call_lock:
+            reader = self._execution_reader
+        if reader is None:
+            return
+        value = self._read_execution_diagnostics(reader)
+        with self._call_lock:
+            if reader is self._execution_reader:
+                self._execution_diagnostics, self._execution_reader = value, None
 
     def begin_call(self) -> int:
         with self._call_lock:
@@ -309,10 +353,12 @@ class Job:
         of a grid, but every per-cell event would have carried them.
         """
         current_call, skip_requested, skip_reason = self.skip_state()
+        diagnostics = self.execution_diagnostics()
         frame = {
             "job_id": self.id,
             "run_id": self.run_id,
             "seed": self.seed,
+            **({"execution_diagnostics": asdict(diagnostics)} if diagnostics is not None else {}),
             # What the job is, for a page that did not submit it - a reload,
             # the queue note naming each job waiting, the line over the bars:
             # the first cell's prompt and a grid's own, a pass's source, the
@@ -727,6 +773,11 @@ class JobManager:
         image in a sweep keeps a seed that reproduces it on its own. Wrapped
         rather than allowed to overflow the signed 64-bit seed column.
         """
+        require_default_execution(request.execution)
+        selected = current_settings(settings)
+        require_configured_loader_available(selected)
+        request = request.with_execution(selected.loader_execution)
+        require_default_execution(request.execution)
         base = request.seed if request.seed is not None else random_seed()
         return await self.submit_cells(
             [
@@ -764,8 +815,22 @@ class JobManager:
         More seeds' count (`more_seeds`) and Then refine's pass of every image
         (`then_refine`, its strength resolved by the route).
         """
-        self._loop = asyncio.get_running_loop()
+        # Internal model_copy cells bypass request validation. Refuse the
+        # whole batch before stamping masks, retaining work or starting a load,
+        # including callers that supply their own run id. Stamped outpaints
+        # deliberately cannot go through whole-request validation again.
+        for cell in cells:
+            require_default_execution(cell.request.execution)
+            if "step_cache" in cell.request.model_fields_set:
+                raise ValueError("Resolve composer step cache before submitting expanded cells.")
         selected = current_settings(settings)
+        require_configured_loader_available(selected)
+        # Expanded/stored cells already describe complete requests. Missing
+        # legacy execution is Eager replay here, never fresh composer intent.
+        cells = [replace(cell, request=cell.request.model_copy(update={
+            "execution": resolve_execution(selected.loader_execution, cell.request.execution),
+        })) for cell in cells]
+        self._loop = asyncio.get_running_loop()
         raw_cells = list(cells)
         # An outpaint's mask, built and stored before anything reads the
         # cells - the job's own list, its request, the holds below - so the
@@ -782,12 +847,13 @@ class JobManager:
                 raise OutpaintStampFailed(
                     f"the outpaint's mask could not be written: {exc.strerror or exc}"
                 ) from exc
+        resolved_run_id = run_id or _run_id(cells, selected.model_id, selected.quantization)
         job = Job(
             id=uuid.uuid4().hex[:12],
             request=cells[0].request,
             cells=cells,
             seed=cells[0].seed,
-            run_id=run_id or _run_id(cells, selected.model_id, selected.quantization),
+            run_id=resolved_run_id,
             total_steps=progress_steps(cells[0].request),
             total_runs=len(cells),
             deadline=time.time() + budget_minutes * 60 if budget_minutes else None,
@@ -800,7 +866,7 @@ class JobManager:
             then_refine=then_refine,
         )
         if then_refine is not None:
-            job.pass_run_id = pass_run_id(job.run_id, then_refine)
+            job.pass_run_id = pass_run_id(resolved_run_id, then_refine)
         # Held where every process's mask sweep looks, before the job is
         # queued: a CLI `clear --bin` an hour on must not take the mask of a
         # cell still waiting its turn (`storage.hold_masks`).
@@ -928,6 +994,7 @@ class JobManager:
         """
         if job.done_sent:
             return
+        job.freeze_execution_diagnostics()
         if job.id in self._pending:
             self._pending.remove(job.id)
         self._wake_order()
@@ -1109,6 +1176,8 @@ class JobManager:
                     # own finished-cell timing, not the gallery's per-step
                     # median: it tracks the slowdown it is meant to reveal.
                     "elapsed": time.time() - (job.started_at or job.created_at),
+                    **({"execution_diagnostics": asdict(value)}
+                       if (value := job.execution_diagnostics()) is not None else {}),
                 },
             )
 
@@ -1184,6 +1253,12 @@ class JobManager:
                             "the outpaint's mask has gone from this gallery; submit it again"
                         ) from exc
                 try:
+                    try:
+                        reader = self.backend.execution_diagnostics_reader()
+                    except Exception:  # noqa: BLE001 - optional cold observation
+                        reader = None
+                    if job.bind_execution_diagnostics(reader):
+                        self._emit(loop, job, {"type": "status", **job.snapshot(images=False)})
                     images = self.backend.generate(
                         req,
                         seed=seed,
@@ -1192,6 +1267,7 @@ class JobManager:
                         on_preview=on_preview,
                     )
                 finally:
+                    job.freeze_execution_diagnostics()
                     # Saving is not an interruptible cell call. A late Skip
                     # refuses here instead of poisoning the following cell.
                     job.end_call(call)

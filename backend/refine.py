@@ -39,7 +39,7 @@ it imports none of them at the top.
 from __future__ import annotations
 
 import inspect
-from typing import TYPE_CHECKING, Any
+from typing import TYPE_CHECKING, Any, Literal
 
 if TYPE_CHECKING:
     from PIL.Image import Image
@@ -58,7 +58,8 @@ DEFAULT_SCALE = 1.5
 
 # The sole optional GAN preprocess. The WAI and RouWei guides cite this
 # kind of hires pass; other checkpoints and masked passes stay Lanczos-only.
-ANIME6B = "realesrgan-x4plus-anime6b"
+Upscaler = Literal["realesrgan-x4plus-anime6b"]
+ANIME6B: Upscaler = "realesrgan-x4plus-anime6b"
 ANIME6B_LABEL = "R-ESRGAN 4x+ Anime6B"
 ANIME6B_URL = "https://github.com/xinntao/Real-ESRGAN/releases/download/v0.2.2.4/RealESRGAN_x4plus_anime_6B.pth"
 ANIME6B_BYTES = 17_938_799
@@ -500,7 +501,7 @@ def fitted(image: "Image", width: int, height: int, crop_anchor: str = "center")
     cover = max(width / image.width, height / image.height)
     resized = image.resize(
         (max(width, round(image.width * cover)), max(height, round(image.height * cover))),
-        PILImage.LANCZOS,
+        PILImage.Resampling.LANCZOS,
     )
     horizontal, vertical = resized.width - width, resized.height - height
     left = 0 if "left" in crop_anchor else horizontal if "right" in crop_anchor else horizontal // 2
@@ -657,7 +658,8 @@ def pipeline_mask(mask: "Image", block: int = LATENT_BLOCK) -> "Image":
 
     block = max(1, int(block))
     width, height = mask.size
-    painted = mask.convert("L").point(lambda level: 255 if level > 0 else 0)
+    positive_levels = [0] + [255] * 255
+    painted = mask.convert("L").point(positive_levels)
     if block == 1:
         return painted
     # Padded out to whole cells, the pad unpainted.
@@ -665,8 +667,8 @@ def pipeline_mask(mask: "Image", block: int = LATENT_BLOCK) -> "Image":
     padded = PILImage.new("L", (cells_w * block, cells_h * block), 0)
     padded.paste(painted, (0, 0))
     # `reduce` averages each cell: any painted pixel leaves it above zero.
-    cells = padded.reduce(block).point(lambda level: 255 if level > 0 else 0)
-    return cells.resize(padded.size, PILImage.NEAREST).crop((0, 0, width, height))
+    cells = padded.reduce(block).point(positive_levels)
+    return cells.resize(padded.size, PILImage.Resampling.NEAREST).crop((0, 0, width, height))
 
 
 def composite(mask: "Image", source: "Image", image: "Image", processor: Any = None) -> "Image":

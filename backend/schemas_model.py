@@ -6,9 +6,11 @@ from __future__ import annotations
 
 from typing import Literal
 
-from pydantic import BaseModel, Field
+from pydantic import BaseModel, Field, field_serializer
 
 from .config import settings
+from .backends.regional_compile import RegionalDiagnostics
+from .execution import ExecutionSpec
 from .schemas_prompt import AuthorOrder
 
 class PromptTagGroup(BaseModel):
@@ -143,6 +145,9 @@ class ModelSwitchRequest(BaseModel):
     format: Literal["nvfp4", "int4"] | None = None
     load_on_startup: bool | None = None
     load: bool = True
+    # Omission preserves loader intent; explicit empty selects Eager/native.
+    # Only load=false may save a supported but unavailable loader recipe.
+    execution: ExecutionSpec | None = None
 
 
 class ModelStatus(BaseModel):
@@ -161,6 +166,19 @@ class ModelStatus(BaseModel):
     model_id: str
     quantization: str
     offload: str
+    execution: ExecutionSpec | None = None
+    execution_available: bool = True
+    execution_unavailable_reason: str | None = None
+    execution_configuration_reason: str | None = None
+    execution_options: dict[str, list[dict]] = Field(default_factory=dict)
+    # Observations for one actual published load, separate from chosen intent.
+    # Returned does not establish warm kernels, disk-cache hits or qualification.
+    execution_diagnostics: RegionalDiagnostics | None = None
+
+    @field_serializer("execution")
+    def _compact_execution(self, value: ExecutionSpec | None) -> dict | None:
+        return value.model_dump(exclude_none=True) if value is not None else None
+
     format: str = "nvfp4"
     load_on_startup: bool = False
     # The saved choices this start's flags or environment set aside, as
@@ -168,6 +186,8 @@ class ModelStatus(BaseModel):
     # "--defaults", "--menu" - so the page can say a saved choice will not
     # apply to a start like this one. Empty when imported rather than launched.
     startup_overrides: dict[str, str] = {}
+    # Snapshot before Diffusers imports, never the external variable's value.
+    attention_environment_warning: str | None = None
     # Why the last switch stopped before selecting its checkpoint, with the
     # running one still selected and loaded as it was; not a load failure.
     switch_error: str | None = None

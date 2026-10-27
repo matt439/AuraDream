@@ -14,22 +14,43 @@ import shutil
 from dataclasses import dataclass
 from pathlib import Path
 from tempfile import TemporaryDirectory
+from typing import NotRequired, TypedDict
 
 log = logging.getLogger(__name__)
+
+
+class HubRepo(TypedDict):
+    repo_id: str
+    revision: str
+
+
+class HubFile(HubRepo):
+    filename: str
+
+
+class _ConversionRecipe(TypedDict):
+    version: int
+    source: HubFile
+    config: HubRepo
+    dtype: str
+    scheduler: str
+    prediction_type: str
+    source_sha256: NotRequired[str]
+
 
 ILLUSTRIOUS_ID = "OnomaAIResearch/Illustrious-XL-v2.0"
 WAI_ID = "LyliaEngine/waiIllustriousSDXL_v170"
 ROUWEI_ID = "Minthy/RouWei-0.8"
 # Pin both weights and descriptors so a changed upstream main cannot silently
 # change this model's scheduler, conversion or recorded generation settings.
-ILLUSTRIOUS_SOURCE = {
+ILLUSTRIOUS_SOURCE: HubFile = {
     "repo_id": ILLUSTRIOUS_ID,
     "filename": "Illustrious-XL-v2.0.safetensors",
     "revision": "69459c1fe6f46db41ab31e6114f05acc0e06bcaa",
 }
 # This is a transport mirror of WAI0731's v17 checkpoint, not an official
 # author repository. Its misleading Hub LoRA metadata is not a loader recipe.
-WAI_SOURCE = {
+WAI_SOURCE: HubFile = {
     "repo_id": WAI_ID,
     "filename": "waiIllustriousSDXL_v170.safetensors",
     "revision": "5ef4e2da7173a160ad04aebcaa2fdcd6d20ed792",
@@ -37,17 +58,17 @@ WAI_SOURCE = {
 WAI_SHA256 = "f116b0c78ff441467b0cdc8f1936e1ed18ea31e9997c7b132b1b8db533f0bd04"
 # The official repository also holds base and v-prediction releases. This
 # entry selects the polished epsilon checkpoint only, with its own cache.
-ROUWEI_SOURCE = {
+ROUWEI_SOURCE: HubFile = {
     "repo_id": ROUWEI_ID,
     "filename": "rouwei_080_epsilon_fp16.safetensors",
     "revision": "95b524750edf2dcbc84967ded3d1bc99deed3b53",
 }
 ROUWEI_SHA256 = "1aba15decd15da1810054ed4c58984610dfafc728bef2fb3f3ebe846b2e287a4"
-SDXL_CONFIG = {
+SDXL_CONFIG: HubRepo = {
     "repo_id": "stabilityai/stable-diffusion-xl-base-1.0",
     "revision": "462165984030d82259a11f4367a4eed129e94a7b",
 }
-RECIPE = {
+RECIPE: _ConversionRecipe = {
     "version": 1,
     "source": ILLUSTRIOUS_SOURCE,
     "config": SDXL_CONFIG,
@@ -55,12 +76,12 @@ RECIPE = {
     "scheduler": "EulerAncestralDiscreteScheduler",
     "prediction_type": "epsilon",
 }
-WAI_RECIPE = {
+WAI_RECIPE: _ConversionRecipe = {
     **RECIPE,
     "source": WAI_SOURCE,
     "source_sha256": WAI_SHA256,
 }
-ROUWEI_RECIPE = {
+ROUWEI_RECIPE: _ConversionRecipe = {
     **RECIPE,
     "source": ROUWEI_SOURCE,
     "source_sha256": ROUWEI_SHA256,
@@ -71,7 +92,7 @@ ROUWEI_RECIPE = {
 class _Checkpoint:
     name: str
     slug: str
-    recipe: dict
+    recipe: _ConversionRecipe
 
 
 _CHECKPOINTS = {
@@ -132,8 +153,9 @@ def sweep_work(target: Path) -> None:
 
 
 def _convert(destination: Path, model_id: str = ILLUSTRIOUS_ID) -> None:
-    import diffusers
     import torch
+    from diffusers.pipelines.stable_diffusion_xl.pipeline_stable_diffusion_xl import StableDiffusionXLPipeline
+    from diffusers.schedulers.scheduling_euler_ancestral_discrete import EulerAncestralDiscreteScheduler
     from huggingface_hub import hf_hub_download, snapshot_download
 
     recipe = _CHECKPOINTS[model_id.lower()].recipe
@@ -150,7 +172,7 @@ def _convert(destination: Path, model_id: str = ILLUSTRIOUS_ID) -> None:
             actual_hash = hashlib.file_digest(source, "sha256").hexdigest()
         if actual_hash != expected_hash:
             raise RuntimeError(f"{model_id} checkpoint SHA-256 does not match the pinned release")
-    pipe = diffusers.StableDiffusionXLPipeline.from_single_file(
+    pipe = StableDiffusionXLPipeline.from_single_file(
         checkpoint, config=config, local_files_only=True,
         dtype=torch.bfloat16, add_watermarker=False,
     )
@@ -160,7 +182,7 @@ def _convert(destination: Path, model_id: str = ILLUSTRIOUS_ID) -> None:
     # three quantization modes; no replacement encoder is involved.
     # These entries recommend Euler A. Fix epsilon prediction and persist the
     # scheduler with the component tree, before ordinary quantized loading.
-    pipe.scheduler = diffusers.EulerAncestralDiscreteScheduler.from_config(
+    pipe.scheduler = EulerAncestralDiscreteScheduler.from_config(
         pipe.scheduler.config, prediction_type="epsilon",
     )
     pipe.save_pretrained(destination, safe_serialization=True)
@@ -208,7 +230,7 @@ def resolve_model(model_id: str, quantization: str) -> str:
             "Use LOCAL_DIFFUSION_QUANT=fp8, int8 or none."
         )
 
-    from huggingface_hub.utils import WeakFileLock
+    from huggingface_hub.utils._fixes import WeakFileLock
 
     target, marker, recipe = _target(model_id)
     root = target.parent

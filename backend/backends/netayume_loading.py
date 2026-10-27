@@ -14,17 +14,17 @@ from tempfile import TemporaryDirectory
 from typing import Any
 
 from .. import config as _config  # noqa: F401 - before any diffusers imports
-from .single_file import cache_root, sweep_work
+from .single_file import HubFile, HubRepo, cache_root, sweep_work
 
 log = logging.getLogger(__name__)
 
 MODEL_ID = "duongve/NetaYume-Lumina-Image-2.0"
-SOURCE = {
+SOURCE: HubFile = {
     "repo_id": MODEL_ID,
     "filename": "Unet/v4/NetaYumev4_unet.safetensors",
     "revision": "69c29c441119d43405d8373c654b16827d3cf46e",
 }
-SHARED = {
+SHARED: HubRepo = {
     "repo_id": "Alpha-VLLM/Lumina-Image-2.0",
     "revision": "53504abd8178b30685b6c4c7a4cd181ff78b73e9",
 }
@@ -50,38 +50,50 @@ RECIPE = {
 def _load_transformer(config: Path, checkpoint: dict[str, Any]) -> Any:
     """Use upstream's Lumina mapping, requiring every converted tensor to fit."""
     from accelerate import init_empty_weights
-    from diffusers import Lumina2Transformer2DModel
+    from diffusers.models.transformers.transformer_lumina2 import Lumina2Transformer2DModel
     from diffusers.loaders.single_file_utils import convert_lumina2_to_diffusers
 
     # The pinned split file uses the original unprefixed keys. The upstream
     # converter removes norm_final.weight, an unused original Lumina tensor.
     state = convert_lumina2_to_diffusers(dict(checkpoint))
     with init_empty_weights():
-        transformer = Lumina2Transformer2DModel.from_config(
-            Lumina2Transformer2DModel.load_config(config),
-        )
+        config_dict = Lumina2Transformer2DModel.load_config(config)
+        assert isinstance(config_dict, dict), "load_config returns a dictionary unless unused kwargs are requested"
+        transformer = Lumina2Transformer2DModel.from_config(config_dict)
+    assert not isinstance(transformer, tuple), "from_config returns a model unless unused kwargs are requested"
     transformer.load_state_dict(state, strict=True, assign=True)
     return transformer
 
 
 def _convert(destination: Path) -> None:
     import torch
-    from diffusers import AutoencoderKL, FlowMatchEulerDiscreteScheduler, Lumina2Pipeline
+    # Diffusers 0.40 explicitly lazy-reexports this public pipeline; keep the
+    # public lookup used by conversion's fake-pipeline boundary.
+    from diffusers import Lumina2Pipeline  # pyright: ignore[reportPrivateImportUsage]
+    from diffusers.models.autoencoders.autoencoder_kl import AutoencoderKL
+    from diffusers.schedulers.scheduling_flow_match_euler_discrete import FlowMatchEulerDiscreteScheduler
     from huggingface_hub import hf_hub_download, snapshot_download
     from safetensors.torch import load_file
-    from transformers import Gemma2Model, GemmaTokenizerFast
+    from transformers import Gemma2Model
+    # Transformers 5's lazy Fast-name fallback returns this same class.
+    from transformers.models.gemma.tokenization_gemma import GemmaTokenizer as GemmaTokenizerFast
 
     shared = Path(snapshot_download(**SHARED, allow_patterns=SHARED_PATTERNS))
     checkpoint = load_file(hf_hub_download(**SOURCE), device="cpu")
     transformer = _load_transformer(shared / "transformer", checkpoint)
     del checkpoint
-    local = {"local_files_only": True}
+
+    def scheduler() -> FlowMatchEulerDiscreteScheduler:
+        loaded = FlowMatchEulerDiscreteScheduler.from_pretrained(shared / "scheduler", local_files_only=True)
+        assert not isinstance(loaded, tuple), "from_pretrained returns a scheduler unless unused kwargs are requested"
+        return loaded
+
     pipe = Lumina2Pipeline(
         transformer=transformer.to(dtype=torch.bfloat16),
-        text_encoder=Gemma2Model.from_pretrained(shared / "text_encoder", dtype=torch.bfloat16, **local),
-        vae=AutoencoderKL.from_pretrained(shared / "vae", dtype=torch.bfloat16, **local),
-        tokenizer=GemmaTokenizerFast.from_pretrained(shared / "tokenizer", **local),
-        scheduler=FlowMatchEulerDiscreteScheduler.from_pretrained(shared / "scheduler", **local),
+        text_encoder=Gemma2Model.from_pretrained(shared / "text_encoder", dtype=torch.bfloat16, local_files_only=True),
+        vae=AutoencoderKL.from_pretrained(shared / "vae", dtype=torch.bfloat16, local_files_only=True),
+        tokenizer=GemmaTokenizerFast.from_pretrained(shared / "tokenizer", local_files_only=True),
+        scheduler=scheduler(),
     )
     pipe.save_pretrained(destination, safe_serialization=True)
 
@@ -118,7 +130,7 @@ def resolve_model(model_id: str, quantization: str) -> str:
             "NetaYume Lumina v4 is not a Nunchaku Lite checkpoint. "
             "Use LOCAL_DIFFUSION_QUANT=fp8, int8 or none."
         )
-    from huggingface_hub.utils import WeakFileLock
+    from huggingface_hub.utils._fixes import WeakFileLock
 
     target, marker, recipe = _target()
     root = target.parent

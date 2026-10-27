@@ -108,6 +108,7 @@ def lookup_tags(helper: dict, tags: list[str]) -> list[dict]:
             continue
         result = {**next(answers), "tag": tag}
         if artist_tag_name(helper, tag) is not None and result.get("valid") and result.get("category") != "artist":
+            assert prefix is not None, "an artist-prefixed name requires its guide's prefix"
             result.update(
                 valid=False, reason=f"the name after {prefix.strip()} is not a Danbooru artist", code="not_found"
             )

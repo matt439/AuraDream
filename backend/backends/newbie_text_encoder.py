@@ -62,8 +62,10 @@ class NewbieJinaTextEncoder(JinaEmbeddingsV3Model):
                 raise ValueError("NewBie Jina requires input_ids or an explicit attention_mask")
             attention_mask = input_ids.ne(self.config.pad_token_id)
         return_dict = kwargs.pop("return_dict", True)
+        # Transformers' capture_outputs decorator consumes return_dict before
+        # invoking the typed body; its TransformersKwargs omits that wrapper option.
         output = super().forward(
-            input_ids=input_ids, attention_mask=attention_mask, return_dict=True, **kwargs,
+            input_ids=input_ids, attention_mask=attention_mask, return_dict=True, **kwargs,  # pyright: ignore[reportCallIssue]
         )
         mask = attention_mask.to(dtype=output.last_hidden_state.dtype).unsqueeze(-1)
         # Tokenizers always supply BOS/EOS, but reject an all-padding input

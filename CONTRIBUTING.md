@@ -15,8 +15,9 @@ Before changing an area, read:
 
 A pull request should:
 
-- pass `uv run --group dev pytest` and `uv run --group dev ruff check .`
-  (CI runs both; no GPU or weights needed);
+- pass `uv run --group dev pytest`, `uv run --group dev ruff check .` and
+  `uv run --group dev python tools/typecheck.py` (Node is required;
+  CI runs these checks, without GPU or weights);
 - for a `web/` change, pass the relevant smokes
   (`uv run python tools/run_smoke.py <smoke>`), since there is no JS test
   suite;

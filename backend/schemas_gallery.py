@@ -4,12 +4,13 @@ the recycle bin's bodies and answers.
 """
 from __future__ import annotations
 
-from typing import Annotated, Literal
+from typing import Annotated
 
-from pydantic import BaseModel, Field, model_validator
+from pydantic import BaseModel, Field, field_validator, model_validator
 
 from .config import settings
-from .refine import ANIME6B
+from .execution import ExecutionSpec, canonical_execution
+from .refine import Upscaler
 from .png_settings import crop_anchor
 from .schemas_generate import CropAnchor, OutpaintSpec
 
@@ -57,7 +58,7 @@ class ImageRecord(BaseModel):
     # centered crop; masks and outpaints never carry a noncenter anchor.
     crop_anchor: CropAnchor | None = None
     # The optional GAN that prepared the source for an ordinary Refine pass.
-    upscaler: Literal[ANIME6B] | None = None
+    upscaler: Upscaler | None = None
     # True when `refine` names an image no longer in the gallery: the pass is
     # kept, and so is the id, but it cannot be made again. Read, not stored -
     # the gallery's pages and `GET /api/images/{id}` look the source up.
@@ -75,6 +76,8 @@ class ImageRecord(BaseModel):
     # set only beside `refine` and `mask` (the mask the server built from
     # it): `refine` is the unpadded source and `width` x `height` the canvas.
     outpaint: OutpaintSpec | None = None
+    # Recorded arithmetic, not permission to execute it on this build.
+    execution: ExecutionSpec | None = None
     # How many images the pipeline call that made this one held (the panel's
     # Batch). No part of the reproduction set - each image has its own
     # generator - but what More seeds runs the batch's next images at. Null
@@ -112,6 +115,11 @@ class ImageRecord(BaseModel):
     # `created_at`; None while it is live. Only the bin's own listing and
     # `GET /api/images/{id}?binned=true` serve a record with one.
     binned_at: str | None = None
+
+    @field_validator("execution", mode="before")
+    @classmethod
+    def _canonical_execution(cls, value: object) -> ExecutionSpec | None:
+        return canonical_execution(value)
 
     @model_validator(mode="after")
     def _crop_needs_an_ordinary_source(self) -> ImageRecord:

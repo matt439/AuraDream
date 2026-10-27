@@ -123,3 +123,21 @@ def test_a_stale_profile_is_swept_and_a_live_one_kept(temp):
     done = _run(temp, [{"expect": "true"}])
     assert done.returncode == 0, done.stdout + done.stderr
     assert _profiles(temp) == [live.name]
+
+
+def test_all_screenshot_forms_use_the_selected_root_and_survive_failure(temp):
+    output = temp / "retained" / "screenshots"
+    done = subprocess.run(
+        _command(temp, [
+            {"navigate": "data:text/html,<body style='width:200px;height:200px'>screenshots</body>"},
+            {"shot": "viewport.png"}, {"fullshot": "nested/full.png"},
+            {"elshot": ["body", "nested/element.png"]}, {"expect": "false"},
+        ]), cwd=ROOT, env={**_env(temp), "LOCAL_DIFFUSION_SCREENSHOT_DIR": str(output)},
+        capture_output=True, text=True, timeout=120,
+    )
+    assert done.returncode == 1, done.stdout + done.stderr
+    assert sorted(path.relative_to(output).as_posix() for path in output.rglob("*.png")) == [
+        "nested/element.png", "nested/full.png", "viewport.png",
+    ]
+    assert all(path.read_bytes().startswith(b"\x89PNG\r\n\x1a\n") for path in output.rglob("*.png"))
+    assert _profiles(temp) == []

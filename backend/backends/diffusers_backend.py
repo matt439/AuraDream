@@ -22,22 +22,31 @@ import inspect
 import logging
 import threading
 import time
-from contextlib import ExitStack
-from dataclasses import replace
+import weakref
+from collections.abc import Callable
+from contextlib import AbstractContextManager, ExitStack
+from dataclasses import dataclass, field, replace
+from types import TracebackType
 from typing import TYPE_CHECKING, Any
 
-from .. import latent_preview, loras, refine
+from .. import compiler_cache, latent_preview, loras, refine
 from ..model_selection import current_model_id, current_settings
-from ..config import settings
+from ..config import ATTENTION_ENVIRONMENT_WARNING, settings
+from ..execution import (
+    EXECUTION_OMITTED, CompilerMetadata, ExecutionSpec, attention_candidate_reason, cache_candidate_reason,
+    canonical_execution, canonical_loader_execution, compiler_metadata, regional_candidate_reason,
+    require_configured_loader_available, require_default_execution, resolve_execution,
+)
 from ..model_defaults import INPAINT_DEFERRED, defaults_for, inpaint_family, inpaint_start
 from ..seeds import wrap_seed
-from . import anima_loading, loading, netayume_loading, newbie_loading, schedule, single_file
-from .base import CancelFn, Cancelled, GenerationBackend, PreviewFn, ProgressFn
+from . import anima_loading, attention_selection, fbc_cache, loading, netayume_loading, newbie_loading, regional_compile, schedule, single_file
+from .base import CancelFn, Cancelled, ExecutionDiagnosticsReader, GenerationBackend, PreviewFn, ProgressFn
 
 if TYPE_CHECKING:
     from PIL.Image import Image
 
     from ..schemas import GenerateRequest
+    from .regional_compile import RegionalRegistration
 
 log = logging.getLogger(__name__)
 
@@ -61,13 +70,293 @@ _REQUIRED_PARAMS = frozenset({"generator", "callback_on_step_end"})
 _LORA_ADAPTER = "local_diffusion"
 
 
+@dataclass
+class _PipelineCandidate:
+    """Own unpublished or detached pipeline references until transfer/close.
+
+    The eager loader uses this transaction too. Private preparation can attach
+    its regional, attention or cache owner; public execution stays unavailable.
+    """
+
+    release: Callable[[], None]
+    pipe: Any = None
+    params: set[str] = field(default_factory=set)
+    registration: RegionalRegistration | None = None
+    execution: ExecutionSpec | None = None
+    related: tuple[Any, ...] = ()
+    attention: attention_selection.AttentionSelection | None = None
+    cache: fbc_cache.FirstBlockCacheOwner | None = None
+    disposal: _CacheDisposal | None = None
+    _invalid: bool = field(default=False, init=False)
+
+    def __enter__(self) -> _PipelineCandidate:
+        return self
+
+    def __exit__(
+        self, kind: type[BaseException] | None, error: BaseException | None,
+        traceback: TracebackType | None,
+    ) -> None:
+        try:
+            self.close()
+        except BaseException as cleanup:
+            if error is None:
+                raise
+            error.add_note(f"Discarding the pipeline candidate also failed: {type(cleanup).__name__}: {cleanup}")
+
+    def disown(self) -> None:
+        self.pipe, self.params, self.registration, self.execution, self.related = None, set(), None, None, ()
+        self.attention = None
+        self.cache, self.disposal = None, None
+
+    def invalidate(self) -> None:
+        # Registration can fail while backend/weights locks are held. Prevent
+        # publication now; the outer owner drops references/releases afterward.
+        self._invalid = True
+
+    def close(self) -> None:
+        release = (self.pipe is not None or self.registration is not None or self.attention is not None
+                   or self.cache is not None or bool(self.related))
+        registration, attention, cache = self.registration, self.attention, self.cache
+        self.disown()
+        failure: BaseException | None = None
+        if cache is not None:
+            try:
+                cache.close()
+            except BaseException as exc:
+                failure = exc
+                try:
+                    cache.discard()
+                except BaseException as cleanup:
+                    exc.add_note(f"Discarding the cache owner also failed: {type(cleanup).__name__}: {cleanup}")
+        if attention is not None:
+            try:
+                attention.restore()
+            except BaseException as exc:
+                if failure is None:
+                    failure = exc
+                else:
+                    failure.add_note(f"Restoring the attention owner also failed: {type(exc).__name__}: {exc}")
+                try:
+                    attention.discard()
+                except BaseException as cleanup:
+                    exc.add_note(f"Discarding the attention owner also failed: {type(cleanup).__name__}: {cleanup}")
+        if registration is not None:
+            try:
+                registration.close()
+            except BaseException as exc:
+                if failure is None:
+                    failure = exc
+                else:
+                    failure.add_note(f"Closing the regional owner also failed: {type(exc).__name__}: {exc}")
+        if release:
+            try:
+                self.release()
+            except BaseException as exc:
+                if failure is None:
+                    failure = exc
+                else:
+                    failure.add_note(f"Releasing the detached pipeline also failed: {type(exc).__name__}: {exc}")
+        if failure is not None:
+            raise failure
+
+
+class _CacheDisposal:
+    """One cache owner's weak callback and deferred detached candidate."""
+
+    def __init__(self, backend: DiffusersBackend):
+        self.backend = weakref.ref(backend)
+        self.owner: weakref.ReferenceType[fbc_cache.FirstBlockCacheOwner] | None = None
+        self.pending: _PipelineCandidate | None = None
+        self.draining = False
+        self.done = False
+
+    def bind(self, owner: fbc_cache.FirstBlockCacheOwner) -> None:
+        if self.owner is not None:
+            raise RuntimeError("this cache disposal is already bound")
+        self.owner = weakref.ref(owner)
+
+    def require(self, backend: DiffusersBackend, owner: fbc_cache.FirstBlockCacheOwner) -> None:
+        if (self.backend() is not backend or self.owner is None or self.owner() is not owner
+                or self.pending is not None or self.draining or self.done):
+            raise RuntimeError("the cache disposal does not own this loaded cache")
+
+    def detach(self) -> None:
+        backend = self.backend()
+        owner = self.owner() if self.owner is not None else None
+        if backend is None or owner is None:
+            return
+        with backend._lock:
+            if backend._cache_owner is not owner:
+                return  # An old callback cannot detach a replacement load.
+            if not owner.invalidated:
+                raise RuntimeError("only an invalidated cache owner can detach shared pipelines")
+            if backend._pending_cache_disposal is not None:
+                raise RuntimeError("another cache disposal already owns detached weights")
+            self.pending = backend._detach_pipeline_locked()
+            backend._pending_cache_disposal = self
+
+    def drain(self) -> None:
+        backend = self.backend()
+        if backend is None:
+            raise RuntimeError("the cache disposal lost its backend owner")
+        with backend._lock:
+            if self.draining:
+                raise RuntimeError("the detached cache candidate is already being disposed")
+            if self.pending is None:
+                return
+            if backend._pending_cache_disposal is not self:
+                raise RuntimeError("the detached cache candidate has another disposal owner")
+            self.draining = True
+            candidate, self.pending = self.pending, None
+        try:
+            candidate.close()
+        finally:
+            with backend._lock:
+                if backend._pending_cache_disposal is self:
+                    backend._pending_cache_disposal = None
+                self.draining = False
+                self.done = True
+
+
+class _CallDisposal(AbstractContextManager["_CallDisposal"]):
+    """Explicit call lifetime, never an execution-admission bypass."""
+
+    def __init__(self, backend: DiffusersBackend, *, request_execution: object = EXECUTION_OMITTED):
+        self.backend = backend
+        self.request_supplied = request_execution is not EXECUTION_OMITTED
+        self.request_execution = canonical_execution(request_execution) if self.request_supplied else None
+        self.disposal: _CacheDisposal | None = None
+        self.cache: fbc_cache.FirstBlockCacheOwner | None = None
+        self.used = False
+        self.active = False
+
+    def __enter__(self) -> _CallDisposal:
+        if self.active:
+            raise RuntimeError("this pipeline call disposal is already active")
+        with self.backend._lock:
+            if self.backend._pending_cache_disposal is not None:
+                raise RuntimeError("finish the pending cache disposal before another call")
+            if self.request_supplied:
+                loaded = canonical_execution(self.backend._loaded_execution)
+                if loaded is not None and loaded.step_cache is not None:
+                    raise ValueError("A request cannot borrow a load-owned cache recipe, including for explicit Off.")
+                self.request_execution = resolve_execution(loaded, self.request_execution)
+                if self.backend._cache_owner is not None or self.backend._cache_disposal is not None:
+                    raise RuntimeError("another cache owner already owns this pipeline call")
+            else:
+                self.disposal = self.backend._cache_disposal
+        self.active = True
+        return self
+
+    def execution_for(self, backend: DiffusersBackend) -> ExecutionSpec | None:
+        if not self.active or self.backend is not backend:
+            raise RuntimeError("this request does not own an active pipeline call")
+        if not self.request_supplied:
+            return canonical_execution(backend._loaded_execution)
+        if self.used:
+            raise RuntimeError("one request cache lifetime permits one pipeline call")
+        # Recheck loader identity at the actual boundary, without changing it.
+        return resolve_execution(backend._loaded_execution, self.request_execution)
+
+    def prepare_cache(self, runner: Any) -> fbc_cache.FirstBlockCacheOwner:
+        """Claim a fresh owner only after the request and call checks pass."""
+        if not self.active or not self.request_supplied or self.used:
+            raise RuntimeError("this request cache lifetime cannot be prepared again")
+        backend = self.backend
+        with backend._lock:
+            if (backend._pipe is not runner or backend._pending_cache_disposal is not None
+                    or backend._cache_owner is not None or backend._cache_disposal is not None
+                    or canonical_execution(backend._loaded_execution) is not None):
+                raise RuntimeError("this request no longer owns its loaded base pipeline")
+        disposal = _CacheDisposal(backend)
+        owner = fbc_cache.FirstBlockCacheOwner(getattr(runner, "transformer", None), discard_shared=disposal.detach)
+        try:
+            disposal.bind(owner)
+            with backend._lock:
+                if (backend._pipe is not runner or backend._pending_cache_disposal is not None
+                        or backend._cache_owner is not None or backend._cache_disposal is not None
+                        or canonical_execution(backend._loaded_execution) is not None):
+                    raise RuntimeError("the loaded pipeline changed during request cache preparation")
+                self.cache, self.disposal, self.used = owner, disposal, True
+                backend._cache_owner, backend._cache_disposal = owner, disposal
+        except BaseException as error:
+            try:
+                owner.close()
+            except BaseException as cleanup:
+                error.add_note(f"Closing the unpublished cache owner also failed: {type(cleanup).__name__}: {cleanup}")
+                try:
+                    owner.discard()
+                except BaseException as discarded:
+                    error.add_note(f"Discarding the unpublished cache owner also failed: {type(discarded).__name__}: {discarded}")
+            raise
+        return owner
+
+    def require(self, backend: DiffusersBackend, disposal: _CacheDisposal | None) -> None:
+        if not self.active or self.backend is not backend or self.disposal is not disposal or disposal is None:
+            raise RuntimeError("this pipeline call does not own the cache disposal lifetime")
+
+    @property
+    def pending(self) -> bool:
+        return self.disposal is not None and self.disposal.pending is not None
+
+    def __exit__(self, _kind: object, error: BaseException | None, _traceback: object) -> None:
+        self.active = False
+        failure = error
+        if self.cache is not None and not self.pending:
+            owner = self.cache
+            try:
+                # Keep the expected owner attached until assert_off/close has
+                # succeeded. A failed close must still be able to detach it.
+                owner.close()
+            except BaseException as cleanup:
+                failure = cleanup if failure is None else failure
+                if failure is not cleanup:
+                    failure.add_note(f"Closing the request cache owner also failed: {type(cleanup).__name__}: {cleanup}")
+                try:
+                    owner.discard()
+                except BaseException as discarded:
+                    failure.add_note(f"Discarding the request cache owner also failed: {type(discarded).__name__}: {discarded}")
+                # discard marks the identity invalid before closing its refs;
+                # a second close failure must not skip expected-owner detach.
+                try:
+                    assert self.disposal is not None
+                    self.disposal.detach()
+                except BaseException as detached:
+                    failure.add_note(f"Detaching the request cache owner also failed: {type(detached).__name__}: {detached}")
+            else:
+                with self.backend._lock:
+                    if self.backend._cache_owner is owner and self.backend._cache_disposal is self.disposal:
+                        self.backend._cache_owner, self.backend._cache_disposal = None, None
+        if self.disposal is not None:
+            try:
+                self.disposal.drain()
+            except BaseException as cleanup:
+                if failure is None:
+                    failure = cleanup
+                else:
+                    failure.add_note(f"Disposing the failed cached pipeline also failed: {type(cleanup).__name__}: {cleanup}")
+        self.cache = None
+        if error is None and failure is not None:
+            raise failure
+
+
 class DiffusersBackend(GenerationBackend):
     name = "diffusers"
 
     def __init__(self) -> None:
+        # Direct/CLI construction also closes any unused bootstrap window.
+        # A model loader is too late to redirect process-global artifact caches.
+        compiler_cache._seal_startup()
         self._pipe: Any = None
         self._lock = threading.Lock()
         self._call_params: set[str] = set()
+        self._regional_registration: RegionalRegistration | None = None
+        self._regional_load_serial = 0
+        self._attention_selection: attention_selection.AttentionSelection | None = None
+        self._cache_owner: fbc_cache.FirstBlockCacheOwner | None = None
+        self._cache_disposal: _CacheDisposal | None = None
+        self._pending_cache_disposal: _CacheDisposal | None = None
+        self._loaded_execution: ExecutionSpec | None = None
         # The adapter currently attached to the live pipeline, as
         # (name, weight). Hot-swapped between cells rather than baked into
         # `load()`: diffusers strips and re-attaches the offload hooks around
@@ -108,17 +397,57 @@ class DiffusersBackend(GenerationBackend):
     # ---------------------------------------------------------------- loading
 
     def load(self) -> None:
-        with self._lock, ExitStack() as held:
+        # Configuring a recipe does not grant permission to load it or silently
+        # substitute Eager, including when old working weights are still ready.
+        selected = current_settings(settings)
+        require_configured_loader_available(selected)
+        self._load_prepared(canonical_loader_execution(getattr(selected, "loader_execution", None)))
+
+    def _load_prepared(self, execution: ExecutionSpec | None) -> None:
+        """Private preparation path, also used by every ordinary eager load.
+
+        A supplied recipe prepares ownership only; public generation continues
+        to refuse every nonempty request and loaded execution specification.
+        """
+        execution = canonical_execution(execution)
+        if execution is not None:
+            attention_selection.require_native_environment()
+        # The candidate exits after the backend/weights locks, including a
+        # failed placement or late preparation. Publication disowns it once.
+        with _PipelineCandidate(self._release, execution=execution) as candidate, self._lock, ExitStack() as held:
+            if self._pending_cache_disposal is not None:
+                raise RuntimeError("finish the pending cache disposal before loading")
             if self._pipe is not None:
+                if canonical_execution(self._loaded_execution) != execution:
+                    raise RuntimeError("unload the current pipeline before preparing another execution recipe")
+                if execution is not None and execution.compilation is not None:
+                    self._require_compiler_cache()
+                if execution is not None:
+                    attention_selection.require_native_dispatch()
                 return
             selected = current_settings(settings)
             checkpoint_id = selected.model_id
+            if execution is not None:
+                if ATTENTION_ENVIRONMENT_WARNING is not None:
+                    raise ValueError("Private execution preparation requires native attention without a nonnative external override.")
+                check = (cache_candidate_reason if execution.step_cache is not None else
+                         attention_candidate_reason if execution.attention_backend is not None else regional_candidate_reason)
+                facts = compiler_metadata()
+                reason = check(
+                    execution, facts, model_id=checkpoint_id,
+                    quantization=selected.quantization, offload=selected.offload, device=selected.device,
+                )
+                if reason is not None:
+                    raise ValueError(reason)
+                if execution.compilation is not None:
+                    self._require_compiler_cache(facts)
+                attention_selection.require_native_dispatch()
             # No meta-device build beside the load (`loading.weights_loading`):
             # the adapter fit's patches every module's parameters process-wide.
             # The conversions below run inside the hold.
             held.enter_context(loading.weights_loading())
             import torch
-            from diffusers import DiffusionPipeline
+            from diffusers.pipelines.pipeline_utils import DiffusionPipeline
 
             # Offload resolves its own accelerator inside diffusers, so it needs
             # CUDA whatever LOCAL_DIFFUSION_DEVICE says; the check has to see both, or
@@ -164,6 +493,7 @@ class DiffusersBackend(GenerationBackend):
             if unused:
                 import diffusers
 
+                assert class_name is not None, "excluded components require their concrete pipeline class"
                 loader = getattr(diffusers, class_name, None) or DiffusionPipeline
                 log.info("leaving out %s via %s", ", ".join(sorted(unused)), loader.__name__)
                 kwargs.update(unused)
@@ -171,38 +501,376 @@ class DiffusersBackend(GenerationBackend):
             # Pinned repos download only their component tree, after the
             # quantizer checks above have had a chance to refuse the pairing.
             model_id = loading.resolve_model(source_id, weights=True)
-            kwargs.update(loading.component_overrides(checkpoint_id, quant, resolved_model_id=model_id))
-            with loading.checkpoint_files_released(quant is not None):
-                pipe = loader.from_pretrained(model_id, **kwargs)
-            log.info("resolved pipeline class: %s", type(pipe).__name__)
+            # An override can already own loaded weights before a complete
+            # pipeline exists. Keep those references in the transaction too.
+            candidate.related = tuple(loading.component_overrides(checkpoint_id, quant, resolved_model_id=model_id).items())
+            kwargs.update(candidate.related)
+            try:
+                with loading.checkpoint_files_released(quant is not None):
+                    candidate.pipe = loader.from_pretrained(model_id, **kwargs)
+            finally:
+                # Also covers a failure entering the shard-release context.
+                # The candidate owns overrides, not a retained load frame.
+                kwargs.clear()
+            log.info("resolved pipeline class: %s", type(candidate.pipe).__name__)
 
-            loading.place_pipeline(pipe, selected)
+            loading.place_pipeline(candidate.pipe, selected)
 
             # VAE decode at 2K is the other memory spike; slice and tile it. Most
             # pipelines expose the switches themselves; FLUX.2 klein's does not,
             # but its VAE has them, so fall through to the component.
-            vae = getattr(pipe, "vae", None)
             for opt, on_vae in (("enable_vae_slicing", "enable_slicing"), ("enable_vae_tiling", "enable_tiling")):
-                fn = getattr(pipe, opt, None) or getattr(vae, on_vae, None)
-                if callable(fn):
-                    try:
-                        fn()
-                    except Exception:  # noqa: BLE001 - purely opportunistic
-                        log.debug("%s unavailable", opt)
+                try:
+                    fn = getattr(candidate.pipe, opt, None) or getattr(getattr(candidate.pipe, "vae", None), on_vae, None)
+                    if callable(fn):
+                        try:
+                            fn()
+                        except Exception:  # noqa: BLE001 - purely opportunistic
+                            log.debug("%s unavailable", opt)
+                finally:
+                    fn = None  # no bound-method reference in a failed load frame
 
-            params = set(inspect.signature(pipe.__call__).parameters)
+            params = set(inspect.signature(candidate.pipe.__call__).parameters)
             missing = sorted(_REQUIRED_PARAMS - params)
             if missing:
                 raise RuntimeError(
-                    f"{type(pipe).__name__}.__call__ takes no {' or '.join(missing)}; this "
+                    f"{type(candidate.pipe).__name__}.__call__ takes no {' or '.join(missing)}; this "
                     "backend needs the current diffusers callback and generator API, or "
                     "seeds would reproduce nothing and Cancel could never land."
                 )
-            self._apply_console_progress(pipe)
-            schedule.warn_about_post_processing(pipe)
-            self._call_params = params
-            self._pipe = pipe
-            log.info("model ready: %s", type(pipe).__name__)
+            self._apply_console_progress(candidate.pipe)
+            schedule.warn_about_post_processing(candidate.pipe)
+            candidate.params = params
+            if execution is not None:
+                try:
+                    if execution.step_cache is not None:
+                        fbc_cache.require_native_attention(getattr(candidate.pipe, "transformer", None))
+                        candidate.disposal = _CacheDisposal(self)
+                        candidate.cache = fbc_cache.FirstBlockCacheOwner(
+                            getattr(candidate.pipe, "transformer", None), discard_shared=candidate.disposal.detach,
+                        )
+                        candidate.disposal.bind(candidate.cache)
+                        candidate.cache.require(getattr(candidate.pipe, "transformer", None))
+                    elif execution.attention_backend is not None:
+                        candidate.attention = attention_selection.configure_attention(
+                            getattr(candidate.pipe, "transformer", None), execution.attention_backend,
+                        )
+                        if type(candidate.attention) is not attention_selection.AttentionSelection:
+                            raise RuntimeError("attention preparation did not return its owned selection")
+                        candidate.attention.require(getattr(candidate.pipe, "transformer", None))
+                    else:
+                        attention_selection.require_native_attention(getattr(candidate.pipe, "transformer", None))
+                        candidate.registration = regional_compile.register_regions(
+                            getattr(candidate.pipe, "transformer", None), discard_on_failure=candidate.invalidate,
+                        )
+                        if type(candidate.registration) is not regional_compile.RegionalRegistration:
+                            raise RuntimeError("regional preparation did not return its owned registration")
+                        candidate.registration.require(getattr(candidate.pipe, "transformer", None))
+                except BaseException:
+                    candidate.invalidate()
+                    raise
+            # Publication is last, after the weights hold has exited too.
+            held.close()
+            log.info("model ready: %s", type(candidate.pipe).__name__)
+            self._publish_candidate_locked(candidate)
+
+    def _publish_candidate_locked(self, candidate: _PipelineCandidate) -> None:
+        """Transfer a fully prepared candidate without replacing working weights."""
+        if candidate._invalid:
+            raise RuntimeError("cannot publish an invalidated pipeline candidate")
+        if (self._pipe is not None or self._regional_registration is not None
+                or self._attention_selection is not None or self._cache_owner is not None
+                or self._cache_disposal is not None or self._pending_cache_disposal is not None
+                or self._loaded_execution is not None):
+            raise RuntimeError("cannot publish a pipeline over working weights")
+        if candidate.pipe is None:
+            raise RuntimeError("cannot publish an empty pipeline candidate")
+        execution = canonical_execution(candidate.execution)
+        regional = execution is not None and execution.compilation is not None
+        if regional != (candidate.registration is not None):
+            raise ValueError("a regional pipeline and its registration must transfer together")
+        if regional:
+            if type(candidate.registration) is not regional_compile.RegionalRegistration:
+                raise ValueError("the regional candidate has no valid owned registration")
+            candidate.registration.require(getattr(candidate.pipe, "transformer", None))
+            self._require_compiler_cache()
+            attention_selection.require_native_attention(getattr(candidate.pipe, "transformer", None))
+        attended = execution is not None and execution.attention_backend is not None
+        if attended != (candidate.attention is not None):
+            raise ValueError("an attention pipeline and its selection must transfer together")
+        if candidate.attention is not None:
+            if type(candidate.attention) is not attention_selection.AttentionSelection:
+                raise ValueError("the attention candidate has no valid owned selection")
+            candidate.attention.require(getattr(candidate.pipe, "transformer", None))
+        cached = execution is not None and execution.step_cache is not None
+        if cached != (candidate.cache is not None) or cached != (candidate.disposal is not None):
+            raise ValueError("a cached pipeline, owner and disposal must transfer together")
+        if candidate.cache is not None:
+            if type(candidate.cache) is not fbc_cache.FirstBlockCacheOwner or type(candidate.disposal) is not _CacheDisposal:
+                raise ValueError("the cache candidate has no valid exclusive owned state")
+            candidate.cache.require(getattr(candidate.pipe, "transformer", None))
+            candidate.disposal.require(self, candidate.cache)
+            fbc_cache.require_native_attention(getattr(candidate.pipe, "transformer", None))
+        params = set(candidate.params)
+        if candidate.registration is not None:
+            self._regional_load_serial += 1
+            candidate.registration.diagnostics.publish(self._regional_load_serial)
+        self._regional_registration = candidate.registration
+        self._attention_selection = candidate.attention
+        self._cache_owner, self._cache_disposal = candidate.cache, candidate.disposal
+        self._loaded_execution = execution
+        self._call_params = params
+        self._pipe = candidate.pipe
+        candidate.disown()
+
+    def _detach_pipeline_locked(self) -> _PipelineCandidate:
+        """Drop every shared-pipeline reference together; retain compatibility caches."""
+        if type(self._regional_registration) is regional_compile.RegionalRegistration:
+            # Pure bounded state only: backend -> diagnostic lock, never the
+            # reverse. Old readers retire before detached cleanup/new loads.
+            self._regional_registration.retire_diagnostics()
+        candidate = _PipelineCandidate(
+            self._release, pipe=self._pipe, params=self._call_params, registration=self._regional_registration,
+            execution=self._loaded_execution, attention=self._attention_selection,
+            cache=self._cache_owner, disposal=self._cache_disposal,
+            related=tuple(pipe for pipe in (self._refine_pipe, self._inpaint_pipe) if pipe is not None),
+        )
+        self._pipe, self._call_params = None, set()
+        self._regional_registration, self._loaded_execution = None, None
+        self._attention_selection = None
+        self._cache_owner, self._cache_disposal = None, None
+        self._lora = None
+        self._refine_pipe, self._refine_params = None, set()
+        self._inpaint_pipe, self._inpaint_params = None, set()
+        return candidate
+
+    def _invoke_pipeline(self, runner: Any, kwargs: dict[str, Any], *, disposal: _CallDisposal | None = None) -> Any:
+        try:
+            if self._pending_cache_disposal is not None:
+                raise RuntimeError("finish the pending cache disposal before another forward")
+            if disposal is None and self._cache_disposal is not None:
+                with _CallDisposal(self) as call:
+                    try:
+                        return self._invoke_pipeline_prepared(runner, kwargs, call)
+                    finally:
+                        runner = None  # drop the direct-call alias before draining
+            return self._invoke_pipeline_prepared(runner, kwargs, disposal)
+        finally:
+            runner = None  # supplied request scopes may detach during close
+
+    def _require_compiler_cache(self, facts: CompilerMetadata | None = None) -> compiler_cache.CacheBinding:
+        selected = current_settings(settings)
+        return compiler_cache.require_binding(selected.db_path, selected.outputs_dir, selected.bundles_dir,
+                                              compiler_metadata() if facts is None else facts, web=selected.web_dir)
+
+    def _require_request_cache_candidate(
+        self, execution: ExecutionSpec, *, num_images: int, lora: str | None = None,
+        refine: int | None = None, mask: str | None = None, outpaint: bool = False,
+        reference: bool = False, true_cfg: float | None = None,
+    ) -> None:
+        """Private structural refusal before adapter/input/hook preparation."""
+        attention_selection.require_native_environment()
+        selected = current_settings(settings)
+        reason = cache_candidate_reason(
+            execution, compiler_metadata(), model_id=selected.model_id,
+            quantization=selected.quantization, offload=selected.offload, device=selected.device,
+            num_images=num_images, lora=lora, refine=refine, mask=mask, outpaint=outpaint,
+            true_cfg=true_cfg, external_attention_backend="override" if ATTENTION_ENVIRONMENT_WARNING else None,
+        )
+        if reason is not None:
+            raise ValueError(reason)
+        if reference:
+            raise ValueError("The first request cache recipe needs direct generation without reference images.")
+
+    def _invoke_pipeline_prepared(self, runner: Any, kwargs: dict[str, Any], disposal: _CallDisposal | None) -> Any:
+        """One actual call boundary; eager calls never import compiler policy."""
+        try:
+            execution = (disposal.execution_for(self) if type(disposal) is _CallDisposal
+                         else canonical_execution(self._loaded_execution))
+            if type(disposal) is _CallDisposal and disposal.request_supplied and self._pipe is None:
+                raise RuntimeError("load the base pipeline before a request-owned call")
+            registration = self._regional_registration
+            attention = self._attention_selection
+            cache = self._cache_owner
+            if execution is None:
+                if registration is not None:
+                    raise RuntimeError("an unrecorded regional registration cannot execute as Eager")
+                if attention is not None:
+                    raise RuntimeError("an unrecorded attention selection cannot execute as Eager")
+                if cache is not None or self._cache_disposal is not None:
+                    raise RuntimeError("an unrecorded cache owner cannot execute as Eager")
+                return runner(**kwargs)
+            if execution.step_cache is not None:
+                if execution.step_cache != "fbc-005-v1" or execution.compilation is not None or execution.attention_backend is not None:
+                    raise ValueError("this private cache call supports only the initial cache recipe")
+                if ATTENTION_ENVIRONMENT_WARNING is not None:
+                    raise ValueError("Private cached execution refuses a nonnative external override.")
+                if runner is not self._pipe or self._lora is not None or kwargs.get("num_images_per_prompt") != 1:
+                    raise ValueError("the first cached call needs its base pipeline, no LoRA and one image")
+                if kwargs.get("true_cfg_scale") not in (None, 1.0):
+                    raise ValueError("the first cached call needs ordinary guidance without true CFG")
+                if type(disposal) is not _CallDisposal:
+                    raise RuntimeError("the cached call needs an explicit disposal lifetime")
+                if registration is not None or attention is not None:
+                    raise RuntimeError("the cached pipeline has another execution owner")
+                if disposal.request_supplied:
+                    self._require_request_cache_candidate(
+                        execution, num_images=kwargs["num_images_per_prompt"],
+                        true_cfg=kwargs.get("true_cfg_scale"),
+                    )
+                    fbc_cache.require_native_attention(getattr(runner, "transformer", None))
+                    cache = disposal.prepare_cache(runner)
+                if type(cache) is not fbc_cache.FirstBlockCacheOwner:
+                    raise RuntimeError("the cached pipeline has no valid exclusive owned cache")
+                disposal.require(self, self._cache_disposal)
+                assert self._cache_disposal is not None
+                self._cache_disposal.require(self, cache)
+                cache.require(getattr(runner, "transformer", None))
+                fbc_cache.require_native_attention(getattr(runner, "transformer", None))
+                try:
+                    with cache.cached_call():
+                        try:
+                            result = runner(**kwargs)
+                        except BaseException as error:
+                            try:
+                                fbc_cache.require_native_attention(getattr(runner, "transformer", None))
+                            except BaseException as changed:
+                                error.add_note(f"Native attention verification also failed: {type(changed).__name__}: {changed}")
+                            raise
+                        fbc_cache.require_native_attention(getattr(runner, "transformer", None))
+                        return result
+                finally:
+                    runner = None
+            if cache is not None or self._cache_disposal is not None:
+                raise RuntimeError("the initial uncached recipe cannot own a cache")
+            if execution.attention_backend is not None:
+                if execution.attention_backend != "cudnn-v1" or execution.compilation is not None or execution.step_cache is not None:
+                    raise ValueError("this private attention call supports only the initial attention recipe")
+                if ATTENTION_ENVIRONMENT_WARNING is not None:
+                    raise ValueError("Private attention execution refuses a nonnative external override.")
+                if registration is not None or type(attention) is not attention_selection.AttentionSelection:
+                    raise RuntimeError("the attention pipeline has no valid exclusive owned selection")
+                if runner is not self._pipe or self._lora is not None or kwargs.get("num_images_per_prompt") != 1:
+                    raise ValueError("the first attention call needs its base pipeline, no LoRA and one image")
+                attention.require(getattr(runner, "transformer", None))
+                try:
+                    result = runner(**kwargs)
+                except BaseException as error:
+                    try:
+                        attention.require(getattr(runner, "transformer", None))
+                    except BaseException as cleanup:
+                        error.add_note(f"Attention ownership verification also failed: {type(cleanup).__name__}: {cleanup}")
+                    raise
+                attention.require(getattr(runner, "transformer", None))
+                return result
+            if (execution.compilation != "regional-v1" or execution.attention_backend is not None
+                    or execution.step_cache is not None):
+                raise ValueError("this private call boundary supports only the initial regional recipe")
+            if ATTENTION_ENVIRONMENT_WARNING is not None:
+                raise ValueError("Regional execution requires native attention without a nonnative external override.")
+            if type(registration) is not regional_compile.RegionalRegistration:
+                raise RuntimeError("the regional pipeline has no valid owned registration")
+            if attention is not None:
+                raise RuntimeError("the initial regional recipe cannot own an attention selection")
+            if runner is not self._pipe or self._lora is not None or kwargs.get("num_images_per_prompt") != 1:
+                raise ValueError("the first regional call needs its base pipeline, no LoRA and one image")
+            registration.require(getattr(runner, "transformer", None))
+            self._require_compiler_cache()
+            attention_selection.require_native_attention(getattr(runner, "transformer", None))
+            diagnostics = registration.diagnostics
+            token: object | None = None
+            stage: regional_compile.FailureStage = "forward"
+            policy = regional_compile.strict_compiler_policy()
+            # Policy entry is preflight: no attempted forward, still pending.
+            policy.__enter__()
+            try:
+                token = diagnostics.begin_first_call()
+                result = runner(**kwargs)
+                stage = "verification"
+                registration.require(getattr(runner, "transformer", None))
+                attention_selection.require_native_attention(getattr(runner, "transformer", None))
+                self._require_compiler_cache()
+            except BaseException as error:
+                if stage == "forward":
+                    try:
+                        registration.require(getattr(runner, "transformer", None))
+                        attention_selection.require_native_attention(getattr(runner, "transformer", None))
+                    except BaseException as changed:
+                        error.add_note(f"Regional Native attention verification also failed: {type(changed).__name__}: {changed}")
+                    try:
+                        self._require_compiler_cache()
+                    except BaseException as changed:
+                        error.add_note(f"Regional compiler cache verification also failed: {type(changed).__name__}: {changed}")
+                try:
+                    # Ignore any unexpected suppression. Bare re-raise below keeps
+                    # the primary's identity, traceback and original cause chain.
+                    policy.__exit__(type(error), error, error.__traceback__)
+                except BaseException as cleanup:
+                    error.add_note(f"Regional compiler policy cleanup also failed: {type(cleanup).__name__}: {cleanup}")
+                try:
+                    diagnostics.finish_first_call(token, "cancelled" if isinstance(error, Cancelled) else "failed", failure_stage=stage)
+                except BaseException as changed:
+                    error.add_note(f"Regional diagnostic update also failed: {type(changed).__name__}: {changed}")
+                raise
+            try:
+                policy.__exit__(None, None, None)
+            except BaseException as error:
+                try:
+                    diagnostics.finish_first_call(token, "cancelled" if isinstance(error, Cancelled) else "failed", failure_stage="policy_exit")
+                except BaseException as changed:
+                    error.add_note(f"Regional diagnostic update also failed: {type(changed).__name__}: {changed}")
+                raise
+            diagnostics.finish_first_call(token, "returned")
+            return result
+        finally:
+            runner = None  # include refusal/preparation exception frames
+
+    def execution_diagnostics_reader(self) -> ExecutionDiagnosticsReader | None:
+        """Bind only the weight-free state, never this backend/registration."""
+        registration = self._regional_registration
+        pipe = self._pipe
+        if pipe is None or type(registration) is not regional_compile.RegionalRegistration:
+            return None
+        try:
+            registration.require(getattr(pipe, "transformer", None))
+            execution = canonical_execution(self._loaded_execution)
+        except (TypeError, ValueError, RuntimeError):
+            return None
+        if (execution is None or execution.compilation != "regional-v1"
+                or execution.attention_backend is not None or execution.step_cache is not None):
+            return None
+        owner = registration.diagnostics
+        if (type(owner) is not regional_compile.RegionalDiagnosticOwner or owner.snapshot() is None
+                or pipe is not self._pipe or registration is not self._regional_registration):
+            return None
+        return owner.snapshot
+
+    def execution_diagnostics(self) -> regional_compile.RegionalDiagnostics | None:
+        registration = self._regional_registration
+        reader = self.execution_diagnostics_reader()
+        value = None if reader is None else reader()
+        # A same-checkpoint unload/reload need not change selection revision.
+        # Never relabel a copied old snapshot as the replacement load's state.
+        return value if registration is self._regional_registration else None
+
+    def _require_execution(self, request: GenerateRequest) -> GenerateRequest:
+        require_default_execution(request.execution)
+        selected = current_settings(settings)
+        require_configured_loader_available(selected)
+        # Private prepared state cannot make an ordinary Eager request run
+        # compiled code, even if it bypassed the closed selection surface.
+        require_default_execution(self._loaded_execution)
+        if self._pending_cache_disposal is not None:
+            raise ValueError("Cached pipeline disposal is pending; wait for the call to finish.")
+        if self._regional_registration is not None:
+            raise ValueError("Regional execution is not available in this build; unload this pipeline.")
+        if self._attention_selection is not None:
+            raise ValueError("Attention execution is not available in this build; unload this pipeline.")
+        if self._cache_owner is not None or self._cache_disposal is not None:
+            raise ValueError("Cached execution is not available in this build; unload this pipeline.")
+        request = request.with_execution(selected.loader_execution)
+        require_default_execution(request.execution)
+        return request
 
     def prompt_expansion_supported(self) -> bool:
         pipe = self._pipe
@@ -278,16 +946,8 @@ class DiffusersBackend(GenerationBackend):
 
     def unload(self) -> None:
         with self._lock:
-            if self._pipe is None:
-                return
-            self._pipe = None
-            self._call_params = set()
-            # The adapter lives on the pipeline that is going away, and the
-            # refine pipeline is a second set of references to its modules.
-            self._lora = None
-            self._refine_pipe, self._refine_params = None, set()
-            self._inpaint_pipe, self._inpaint_params = None, set()
-        self._release()
+            candidate = self._detach_pipeline_locked()
+        candidate.close()
 
     def try_unload(self) -> bool:
         """Unload unless `load()` holds the lock, without waiting for it.
@@ -300,14 +960,10 @@ class DiffusersBackend(GenerationBackend):
         if not self._lock.acquire(blocking=False):
             return False
         try:
-            loaded, self._pipe, self._call_params = self._pipe is not None, None, set()
-            self._lora = None
-            self._refine_pipe, self._refine_params = None, set()
-            self._inpaint_pipe, self._inpaint_params = None, set()
+            candidate = self._detach_pipeline_locked()
         finally:
             self._lock.release()
-        if loaded:
-            self._release()
+        candidate.close()
         return True
 
     @staticmethod
@@ -343,6 +999,7 @@ class DiffusersBackend(GenerationBackend):
         the row a job later writes agree whether or not the weights were resident
         when the grid was previewed.
         """
+        request = self._require_execution(request)
         if self._pipe is None:
             profile = defaults_for(current_model_id(settings))
             return request.applied(
@@ -357,9 +1014,11 @@ class DiffusersBackend(GenerationBackend):
                 refine_supported=profile["refine_supported"],
                 inpaint_supported=profile["inpaint_supported"],
             )
+        threshold = self.cfg_threshold()
+        assert threshold is not None, "a loaded pipeline supplies its guidance threshold"
         return request.applied(
             negative_prompt_supported="negative_prompt" in self._call_params,
-            cfg_threshold=self.cfg_threshold(),
+            cfg_threshold=threshold,
             mu_supported=self._mu_supported(self._pipe),
             true_cfg_supported=self._true_cfg_supported(),
             reference_supported=self._reference_supported(),
@@ -409,7 +1068,9 @@ class DiffusersBackend(GenerationBackend):
                 raise RuntimeError(
                     f"{type(pipe).__name__} has no image-to-image counterpart to refine with"
                 )
-            runner = refine.build(pipe, self._refine_class[1])
+            sibling = self._refine_class
+            assert sibling is not None and sibling[1] is not None  # The capability check resolved it.
+            runner = refine.build(pipe, sibling[1])
             self._apply_console_progress(runner)
             self._refine_params = set(inspect.signature(runner.__call__).parameters)
             self._refine_pipe = runner
@@ -448,7 +1109,9 @@ class DiffusersBackend(GenerationBackend):
         if self._inpaint_pipe is None:
             if not self._inpaint_supported():
                 raise RuntimeError(f"{type(pipe).__name__} has no inpaint pass in this app")
-            runner = refine.build(pipe, self._inpaint_class[1])
+            sibling = self._inpaint_class
+            assert sibling is not None and sibling[1] is not None  # The capability check resolved it.
+            runner = refine.build(pipe, sibling[1])
             self._apply_console_progress(runner)
             self._inpaint_params = set(inspect.signature(runner.__call__).parameters)
             self._inpaint_pipe = runner
@@ -468,7 +1131,9 @@ class DiffusersBackend(GenerationBackend):
         start = inpaint_start(current_model_id(settings))
         if start is not None:
             return start
-        return refine.library_strength(self._inpaint_class[1])
+        sibling = self._inpaint_class
+        assert sibling is not None and sibling[1] is not None  # Inpainting is supported above.
+        return refine.library_strength(sibling[1])
 
     def start_sigma(self, request: "GenerateRequest") -> float | None:
         """How much noise this refine pass starts at, read off the schedule.
@@ -487,13 +1152,17 @@ class DiffusersBackend(GenerationBackend):
         if pipe is None or request.refine is None or request.strength is None:
             return None
         inpaint = request.inpainting
+        steps = request.steps
+        assert steps is not None, "the start-sigma request has its applied step count"
         start = refine.start_index(
-            request.steps, request.strength, current_model_id(settings), inpaint
+            steps, request.strength, current_model_id(settings), inpaint
         )
         supported = self._inpaint_supported() if inpaint else self._refine_supported()
         if start is None or not supported:
             return None
-        sibling = (self._inpaint_class if inpaint else self._refine_class)[1]
+        counterpart = self._inpaint_class if inpaint else self._refine_class
+        assert counterpart is not None and counterpart[1] is not None  # Supported by the resolved class.
+        sibling = counterpart[1]
         try:
             return schedule.start_sigma(pipe, sibling, request, start)
         except Exception:  # noqa: BLE001 - advice: no answer rather than a refused preview
@@ -556,7 +1225,9 @@ class DiffusersBackend(GenerationBackend):
         # The pipeline class names its denoiser attribute for its LoRA loader:
         # `transformer_name` on the transformer families, `unet_name` on SDXL.
         component = getattr(pipe, "transformer_name", None) or getattr(pipe, "unet_name", None)
-        module = getattr(pipe, component, None) if component else None
+        if not component:
+            return None
+        module = getattr(pipe, component, None)
         if module is None:
             return None
         try:
@@ -662,6 +1333,7 @@ class DiffusersBackend(GenerationBackend):
         # pre-pass count - and read after the last GPU work. Set only on a
         # return, so a cancelled or failed cell leaves no peak for the next.
         self._peak = None
+        request = self._require_execution(request)
         device = self._peak_device() if self._pipe is not None else None
         if device is not None:
             try:
@@ -704,6 +1376,34 @@ class DiffusersBackend(GenerationBackend):
         should_cancel: CancelFn | None = None,
         on_preview: PreviewFn | None = None,
     ) -> list["Image"]:
+        request = self._require_execution(request)
+        execution = canonical_execution(request.execution)
+        if execution is not None and execution.step_cache is not None:
+            # Inspect the complete requested pass before adapters, siblings,
+            # references or a refine loop can turn it into one-image calls.
+            self._require_request_cache_candidate(
+                execution, num_images=request.num_images, lora=request.lora, refine=request.refine,
+                mask=request.mask, outpaint=request.outpaint is not None, reference=bool(request.reference),
+                true_cfg=request.true_cfg,
+            )
+        if (execution is not None and execution.step_cache is not None) or "execution" in request.model_fields_set:
+            with _CallDisposal(self, request_execution=execution) as disposal:
+                return self._generate_images_prepared(request, seed, on_progress, should_cancel, on_preview, disposal)
+        if self._cache_disposal is not None or self._pending_cache_disposal is not None:
+            with _CallDisposal(self) as disposal:
+                return self._generate_images_prepared(request, seed, on_progress, should_cancel, on_preview, disposal)
+        return self._generate_images_prepared(request, seed, on_progress, should_cancel, on_preview, None)
+
+    def _generate_images_prepared(
+        self,
+        request: "GenerateRequest",
+        seed: int,
+        on_progress: ProgressFn | None,
+        should_cancel: CancelFn | None,
+        on_preview: PreviewFn | None,
+        disposal: _CallDisposal | None,
+    ) -> list["Image"]:
+        """Actual call body; its caller retains public admission and disposal."""
         if self._pipe is None:
             # Loading happens in exactly one place - main.ensure_loaded() - which
             # holds a lock across the whole load. Loading here instead would do
@@ -738,6 +1438,7 @@ class DiffusersBackend(GenerationBackend):
         else:
             runner, params = pipe, self._call_params
         total = request.steps
+        assert total is not None, "generation runs the request's applied step count"
         # Before the cancel check and the kwargs: a swap that fails must fail
         # the cell, not run it under whatever adapter the last cell left on.
         # On the loaded pipeline either way: the adapter goes into the
@@ -768,7 +1469,7 @@ class DiffusersBackend(GenerationBackend):
             done = batch["index"] * steps + step + 1
             if on_progress is not None:
                 on_progress(done, steps * batch["count"])
-            if preview["on"] and step + 1 < steps:
+            if preview["on"] and on_preview is not None and step + 1 < steps:
                 now = time.monotonic()
                 if now - preview["last"] >= latent_preview.INTERVAL_SECONDS:
                     try:
@@ -803,7 +1504,7 @@ class DiffusersBackend(GenerationBackend):
             "prompt": request.prompt,
             "width": request.width,
             "height": request.height,
-            "num_inference_steps": request.steps,
+            "num_inference_steps": total,
             "guidance_scale": request.guidance_scale,
             "num_images_per_prompt": request.num_images,
             "generator": generator,
@@ -839,32 +1540,38 @@ class DiffusersBackend(GenerationBackend):
         # it repaints everywhere the composite below blends with the painted
         # grey levels - which it is given instead.
         painted = None
+        inpaint_source: Image | None = None
         # An outpaint's picture is its source on the padded canvas, the new
         # area holding the fill (`refine.outpaint_source`); its mask is the
         # one the submit built and stored, read like any other.
         if inpainting:
+            source_id, mask = request.refine, request.mask
+            assert source_id is not None and mask is not None, "an inpaint has its source and stamped mask"
             if request.outpaint is not None:
-                kwargs["image"] = refine.outpaint_source(
-                    request.refine, request.outpaint, request.width, request.height
+                inpaint_source = refine.outpaint_source(
+                    source_id, request.outpaint, request.width, request.height
                 )
             else:
-                kwargs["image"] = refine.inpaint_source(request.refine, request.width, request.height)
-            painted = refine.mask_image(request.mask, request.width, request.height)
+                inpaint_source = refine.inpaint_source(source_id, request.width, request.height)
+            kwargs["image"] = inpaint_source
+            painted = refine.mask_image(mask, request.width, request.height)
             block = getattr(runner, "vae_scale_factor", None)
             kwargs["mask_image"] = refine.pipeline_mask(
                 painted, block if isinstance(block, int) and block > 0 else refine.LATENT_BLOCK
             )
             kwargs["strength"] = request.strength
         elif refining:
+            source_id = request.refine
+            assert source_id is not None, "a refine pass has its source"
             crop = {"crop_anchor": request.crop_anchor} if request.crop_anchor != "center" else {}
             if request.upscaler is not None:
                 kwargs["image"] = refine.source_image(
-                    request.refine, request.width, request.height, upscaler=request.upscaler,
+                    source_id, request.width, request.height, upscaler=request.upscaler,
                     should_cancel=should_cancel, device=current_settings(settings).device,
                     **crop,
                 )
             else:
-                kwargs["image"] = refine.source_image(request.refine, request.width, request.height, **crop)
+                kwargs["image"] = refine.source_image(source_id, request.width, request.height, **crop)
             kwargs["strength"] = request.strength
         elif request.reference and self._reference_supported():
             kwargs["image"] = self._reference_images(request.reference)
@@ -884,7 +1591,7 @@ class DiffusersBackend(GenerationBackend):
         # it does not, hand it a pre-shifted schedule - minus the *static* shift
         # it will apply on top regardless, so the total is still e^mu. The
         # Refine preview's start sigma asks the same question (`start_sigma`).
-        sigmas, mu = schedule.requested_shift(pipe, request.steps, request.mu)
+        sigmas, mu = schedule.requested_shift(pipe, total, request.mu)
         if sigmas is not None:
             kwargs["sigmas"] = sigmas
 
@@ -904,15 +1611,25 @@ class DiffusersBackend(GenerationBackend):
             if refining:
                 images = self._refine(pipe, runner, kwargs, generator, batch, should_cancel)
             else:
-                return list(pipe(**kwargs).images)
+                try:
+                    if disposal is None:
+                        return list(self._invoke_pipeline(pipe, kwargs).images)
+                    return list(self._invoke_pipeline(pipe, kwargs, disposal=disposal).images)
+                finally:
+                    if disposal is not None and (disposal.pending or disposal.request_supplied):
+                        # Clear this frame's app-owned aliases before sigma and
+                        # no_grad unwind. Request-owner close can discover an
+                        # unsafe state only after this body has unwound.
+                        pipe = runner = None
         if not inpainting:
             return images
         # The class decoded the whole picture, so its "kept" region is the
         # VAE's round trip of the source; put the source's own pixels back
         # wherever the mask does not reach (`refine.composite`).
         processor = getattr(runner, "image_processor", None)
+        assert painted is not None and inpaint_source is not None  # Built together in the inpaint branch.
         return [
-            refine.composite(painted, kwargs["image"], image, processor)
+            refine.composite(painted, inpaint_source, image, processor)
             for image in images
         ]
 
@@ -949,7 +1666,7 @@ class DiffusersBackend(GenerationBackend):
                 if index and should_cancel is not None and should_cancel():
                     raise Cancelled
                 batch["index"] = index
-                result = runner(**{**kwargs, "num_images_per_prompt": 1, "generator": generator})
+                result = self._invoke_pipeline(runner, {**kwargs, "num_images_per_prompt": 1, "generator": generator})
                 images.extend(result.images)
         finally:
             free_hooks = getattr(pipe, "maybe_free_model_hooks", None)
@@ -1011,6 +1728,7 @@ class DiffusersBackend(GenerationBackend):
             "model_id": selected.model_id,
             "quantization": selected.quantization,
             "offload": selected.offload,
+            "execution_diagnostics": self.execution_diagnostics(),
             "cfg_threshold": self.cfg_threshold(),
             "mu_supported": self._mu_supported(self._pipe) if self._pipe is not None else None,
             # None until loaded, like the threshold: the parameter list is the answer.

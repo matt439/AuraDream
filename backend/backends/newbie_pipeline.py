@@ -15,9 +15,10 @@ from .. import config as _config  # noqa: F401 - before Diffusers
 
 import numpy as np
 import torch
-from diffusers import AutoencoderKL, DiffusionPipeline, FlowMatchEulerDiscreteScheduler
 from diffusers.image_processor import VaeImageProcessor
-from diffusers.pipelines.pipeline_utils import ImagePipelineOutput
+from diffusers.models.autoencoders.autoencoder_kl import AutoencoderKL
+from diffusers.pipelines.pipeline_utils import DiffusionPipeline, ImagePipelineOutput
+from diffusers.schedulers.scheduling_flow_match_euler_discrete import FlowMatchEulerDiscreteScheduler
 from diffusers.utils.torch_utils import randn_tensor
 from transformers import Gemma3TextModel, PreTrainedTokenizerBase
 
@@ -49,7 +50,9 @@ class NewbiePipeline(DiffusionPipeline):
             text_encoder_2=text_encoder_2, tokenizer=tokenizer,
             tokenizer_2=tokenizer_2, vae=vae, scheduler=scheduler,
         )
-        self.vae_scale_factor = 2 ** (len(vae.config.block_out_channels) - 1)
+        # ConfigMixin annotates dict, but returns a FrozenDict with these
+        # attribute aliases; preserve compatible VAE config stand-ins too.
+        self.vae_scale_factor = 2 ** (len(vae.config.block_out_channels) - 1)  # pyright: ignore[reportAttributeAccessIssue]
         self.image_processor = VaeImageProcessor(vae_scale_factor=self.vae_scale_factor)
         self.tokenizer.padding_side = "right"
 
@@ -153,11 +156,14 @@ class NewbiePipeline(DiffusionPipeline):
                  height // self.vae_scale_factor, width // self.vae_scale_factor),
                 generator=generator, device=device, dtype=self.transformer.dtype,
             )
-            if sigmas is None:
-                sigmas = np.linspace(1.0, 1.0 / num_inference_steps, num_inference_steps)
-            self.scheduler.set_timesteps(sigmas=sigmas, device=device)
+            schedule_sigmas = (
+                np.linspace(1.0, 1.0 / num_inference_steps, num_inference_steps) if sigmas is None else sigmas
+            )
+            self.scheduler.set_timesteps(sigmas=schedule_sigmas, device=device)
             timesteps = self.scheduler.timesteps
-            with self.progress_bar(total=len(timesteps)) as progress:
+            # Diffusers' torch.compiler.disable wrapper loses the original
+            # progress_bar(iterable=None, total=None) signature statically.
+            with self.progress_bar(total=len(timesteps)) as progress:  # pyright: ignore[reportCallIssue]
                 for index, timestep in enumerate(timesteps):
                     # NextDiT uses 0 for noise and 1 for image; FlowMatch Euler
                     # uses the reverse and expects the negative model velocity.
@@ -189,7 +195,9 @@ class NewbiePipeline(DiffusionPipeline):
                     for i in range(batch)
                 ])
                 images = self.image_processor.postprocess(decoded, output_type=output_type)
-            return ImagePipelineOutput(images=images)
+            # The installed output dataclass omits the supported latent/pt
+            # tensor forms (and postprocess annotates a PIL list as one image).
+            return ImagePipelineOutput(images=images)  # pyright: ignore[reportArgumentType]
         finally:
             # Cancellation must release the resident denoiser too.
             self.maybe_free_model_hooks()

@@ -728,7 +728,7 @@ def _quality_tier(ctx: _Context) -> Iterable[PromptFinding]:
         return
     tiers = {prompt_text._norm(tag) for tag in entry["tiers"]}
     present = _distinct(ctx, _group(ctx, entry["group"]))
-    names = [ctx.norms[index] for index in present]
+    names = [norm for _, norm in present]
     # A tier on a line of its own or after "，" is there, though not a comma
     # item (`_suffix` reads it the same way).
     pieces = {prompt_text._norm(piece) for piece in prompt_text._pieces(ctx.bare)}
@@ -739,7 +739,7 @@ def _quality_tier(ctx: _Context) -> Iterable[PromptFinding]:
             f"{', '.join(entry['tiers'])}.",
         )
     elif len(names) > 1:
-        item = ctx.items[present[1]]
+        item = ctx.items[present[1][0]]
         yield ctx.finding(
             entry, "guide.quality", "info",
             f"{len(names)} quality tiers ({', '.join(names)}); the guide ends a tag "
@@ -748,22 +748,22 @@ def _quality_tier(ctx: _Context) -> Iterable[PromptFinding]:
         )
     years = _distinct(ctx, _group(ctx, entry["years"]))
     if len(years) > 1:
-        item = ctx.items[years[1]]
+        item = ctx.items[years[1][0]]
         yield ctx.finding(
             entry, "guide.quality", "info",
-            f"{len(years)} year modifiers ({', '.join(ctx.norms[i] for i in years)}); "
+            f"{len(years)} year modifiers ({', '.join(norm for _, norm in years)}); "
             "the guide allows one.",
             start=item.start, end=item.end,
         )
 
 
-def _distinct(ctx: _Context, tags: set[str]) -> list[int]:
-    """Where each distinct member of `tags` first appears, in prompt order."""
+def _distinct(ctx: _Context, tags: set[str]) -> list[tuple[int, str]]:
+    """Each distinct matched tag's first index and name, in prompt order."""
     first: dict[str, int] = {}
     for index, norm in enumerate(ctx.norms):
-        if norm in tags:
+        if norm is not None and norm in tags:
             first.setdefault(norm, index)
-    return list(first.values())
+    return [(index, norm) for norm, index in first.items()]
 
 
 def _composition(ctx: _Context) -> Iterable[PromptFinding]:
@@ -772,10 +772,10 @@ def _composition(ctx: _Context) -> Iterable[PromptFinding]:
         return
     seen = _distinct(ctx, {prompt_text._norm(tag) for tag in entry["tags"]})
     if len(seen) >= 2:
-        item = ctx.items[seen[1]]
+        item = ctx.items[seen[1][0]]
         yield ctx.finding(
             entry, "guide.composition", "info",
-            f"{len(seen)} composition tags ({', '.join(ctx.norms[i] for i in seen)}); "
+            f"{len(seen)} composition tags ({', '.join(norm for _, norm in seen)}); "
             "the authors warn that conflicting ones confuse it - keep one.",
             start=item.start, end=item.end,
         )

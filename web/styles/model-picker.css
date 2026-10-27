@@ -252,3 +252,4 @@
   .model-loader-options { grid-template-columns: repeat(2, minmax(0, 1fr)); }
   .model-picker .model-loader-help { height: 2lh; }
 }
+.model-picker #model-compilation-help, .model-picker #model-attention-help { height: 3lh; overflow: hidden; }

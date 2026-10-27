@@ -115,8 +115,9 @@ async def swap_plan(
         if spec != (None, (), None, None, None, None):
             if spec not in checked:
                 checked[spec] = await submission.unusable_input(services, cell.request)
-            if checked[spec] is not None:
-                kind, why = checked[spec]
+            unusable = checked[spec]
+            if unusable is not None:
+                kind, why = unusable
                 result.status = submission.UNUSABLE_STATUS.get(kind, "invalid")
                 result.detail = submission.unusable_detail(kind, why, record.id)
                 continue
@@ -242,7 +243,7 @@ def create_router(services: AppServices) -> APIRouter:
         accepted = []
         for group in sizes.values():
             job = await services.jobs().submit_cells(group, run_id=grid.run_id(group, model, quantization), swap=summary)
-            accepted.append(JobAccepted(job_id=job.id, seed=job.seed, run_id=job.run_id))
+            accepted.append(JobAccepted.model_validate({"job_id": job.id, "seed": job.seed, "run_id": job.run_id}))
         first = accepted[0]
         return SwapTagsAccepted(
             job_id=first.job_id, seed=first.seed, run_id=first.run_id, more=accepted[1:],

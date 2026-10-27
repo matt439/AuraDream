@@ -1,0 +1,8 @@
+{
+  "include": ["backend", "tools"],
+  "typeCheckingMode": "basic",
+  "pythonVersion": "3.13",
+  "pythonPlatform": "All",
+  "venvPath": ".",
+  "venv": ".venv"
+}

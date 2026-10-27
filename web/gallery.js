@@ -807,8 +807,19 @@ function syncReuseButton(button, rec, compact = false) {
   button.dataset.reuseOutpaint = rec.outpaint ? outpaintKey(rec.outpaint) : '';
   button.dataset.reuseReference = (rec.reference ?? []).join(',');
   button.dataset.reuseLora = rec.lora || '';
+  button.dataset.reuseExecution = JSON.stringify(rec.execution ?? null);
   button.dataset.reuseCompact = String(compact);
   button.classList.add('reuse-settings');
+  const executionReason = executionReuseReason(rec);
+  if (executionReason) {
+    button.textContent = compact ? '\u21b6' : 'Reuse settings';
+    button.setAttribute('aria-disabled', 'true');
+    button.setAttribute('aria-label', 'Reuse settings (unavailable execution recipe)');
+    button.title = executionReason;
+    button.dataset.tip = 'Reuse unavailable';
+    return;
+  }
+  button.removeAttribute('aria-disabled');
   const mismatch = modelsDiffer(modelId);
   // The running checkpoint by the name the topbar gives it (checkpointName):
   // NetaYume v4's repository is named for its parent model.
@@ -923,6 +934,7 @@ function syncReuseButtons() {
       refine_binned: kept.reusePassBinned === 'true',
       reference: kept.reuseReference ? kept.reuseReference.split(',').map(Number) : [],
       lora: kept.reuseLora || null,
+      execution: JSON.parse(kept.reuseExecution || 'null'),
     }, kept.reuseCompact === 'true');
   });
   // More seeds… is held on another checkpoint's images the same way.

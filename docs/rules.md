@@ -18,8 +18,48 @@ before changing it.
   and revision, separate from immutable startup settings; `current_model_id`
   and `current_settings` supply runtime reads, and `available` limits choices
   to the selected quantization/format/platform
+- `backend/execution.py` - frozen named execution recipes, canonical empty/key
+  contracts, composer/replay resolution, distribution metadata and pure compilation/attention/cache candidate
+  matrices; every nonempty recipe is currently refused before execution
+- `backend/compiler_cache.py` - private one-use startup binding for isolated
+  compiler artifact directories, immutable process ownership and drift checks;
+  Eager is cold and no public recipe is activated
 - `backend/startup_preferences.py` — validated atomic loader/startup persistence;
   the server launcher restores it before config imports
+- `backend/backup_policy.py` - pure automatic-backup policy, verified-success
+  age and managed-retention predicates; no startup scheduling or archive I/O
+- `backend/backup_retention.py` - explicitly consented post-success managed cleanup;
+  durable pending-intent stops, protected copies and separate cleanup outcomes
+- `backend/backup_credentials.py` - Windows generic credential adapter, exact
+  opaque scope references and fixed provider errors; vault APIs are lazy
+- `backend/failure_state.py` - traceback/cause/context-free ownership failure
+  snapshots; process-lifetime quarantine never stores caller exceptions
+- `tools/backup_credential.py` - explicit inactive/pending credential setup,
+  local profile inspection and independent-password archive recovery verification
+- `backend/backup_preferences.py` - strict bounded, atomic database-scoped
+  backup policy sidecars; no lifecycle activation or credential fields
+- `backend/backup_settings.py` - explicit v2 plaintext activation and durable
+  gallery/destination scope; older draft policies never activate implicitly
+- `backend/backup_receipts.py` - internal managed-export marker, outer-byte
+  proof, strict atomic ownership journal and current-file identity checks;
+  no startup, age advancement or pruning callers
+- `backend/backup_coordinator.py` - explicitly invoked one-attempt
+  due/export worker under bundle admission and gallery reservation; supplied
+  policy, identities, clock and transient protection
+- `backend/backup_service.py` - default-off startup/configuration/status
+  lifecycle over the coordinator, with cached status during maintenance
+- `backend/api_backup.py` - explicit backup configuration and cached status
+  routes; `backend/schemas_backup.py` owns their validated models
+- `backend/bundle_leases.py` - per-process archive reader/exclusive claims and
+  leased FileResponse lifetime; shared process state and explicit native-lock mode
+- `backend/bundle_file_lock.py` - opt-in nonblocking shared/exclusive native
+  locks on persistent archive companions, with identity and cleanup ownership checks
+- `backend/bundle_mode.py` - explicit Windows/NTFS shared-download installation,
+  immutable destination marker and sticky discovery; no retention activation
+- `backend/bundle_delete.py` - Windows same-handle managed archive
+  verification/disposition, mandatory installed-mode exclusion and uncertainty ownership
+- `backend/bundle_capacity.py` - conservative current-format managed ZIP,
+  encryption framing and receipt-temp logical-byte budgets; no allocation guarantee
 - `backend/snippets.py` - bounded, revisioned personal prompt snippets in an
   atomic sidecar beside the settings, under an independent cross-process lock
 - `backend/api_snippets.py` - model-free snippet CRUD routes, independent of
@@ -128,6 +168,16 @@ before changing it.
   table are all held to it by `tests/test_profiles.py`
 - `backend/backends/base.py` — the `GenerationBackend` ABC
 - `backend/backends/diffusers_backend.py` — in-process diffusers implementation
+- `backend/backends/regional_compile.py` - exact-region discovery, private lazy
+  registration, candidate disposal, owned-call validation and scoped compiler
+  policy; public nonempty execution remains unavailable
+- `backend/backends/attention_selection.py` - private complete FLUX processor
+  coverage, shared ownership, public-context configuration, restoration and
+  read-only experimental Native environment/dispatcher policy;
+  None is import-cold and public selection/admission remains closed
+- `backend/backends/fbc_cache.py` - private exact FLUX cache-layout checks,
+  per-call hook/state cleanup and shared-denoiser ownership/invalidation;
+  library imports are lazy and render admission remains closed
 - `backend/backends/loading.py` — everything decided before the weights
   move: the quantization config, the Nunchaku preflight and the
   prequantized refusal, the components left out of the download, the
@@ -260,7 +310,7 @@ before changing it.
   per version
 - `backend/reindex.py` — rows rebuilt from the PNGs' `local-diffusion` chunk, in place or
   copied in from another gallery; idempotent on the UNIQUE filename
-- `web/` - served as-is from `/static`; `index.html` loads 52 classic
+- `web/` - served as-is from `/static`; `index.html` loads 53 classic
   scripts in order, sharing one global scope; only `app.js`, the last, runs
   the wiring and boot. `state.js` owns shared state; `generation.js`,
   `grid-preview.js`, `job-stream.js` and `job-results.js` handle submission,
@@ -285,7 +335,9 @@ before changing it.
   Examples menu, `prompt-expand.js` ERNIE's Expand; `analysis.js`,
   `analysis-critic.js` and `comparison.js` the check and critic. `sizes.js`
   and `status.js` retain their control/profile roles; `model-switch.js` owns
-  checkpoint selection and retiring state prepared under the old model,
+  checkpoint selection and retiring state prepared under the old model;
+  `execution.js` owns inspectable unavailable performance choices, composer
+  cache intent and shared execution holds;
   `model-shots.js` the picker's strip of the chosen checkpoint's images;
   `bundles.js` owns the gallery bundle dialog (Back up and its scope
   included) and background-operation polling;
@@ -312,13 +364,15 @@ before changing it.
   `index.html`'s links, in order). `docs/source-audit.md` records the
   split audits and why each long file it kept stays whole.
 - `tools/` — `fake_server.py` (the app on the tests' fake backend, port 7861)
-  and `browser.mjs` + `smoke.json` and a `smoke-*.json` per checkpoint or
+  and `browser.mjs` (portable screenshot paths in `browser-output.mjs`) +
+  `smoke.json` and a `smoke-*.json` per checkpoint or
   feature (headless browser over DevTools; among the features
   `smoke-stage.json`, Gallery beside, and `smoke-narrow.json`, one column
   and narrow windows): the UI's stand-in for a test suite, and
   `run_smoke.py`, which starts each smoke's fake from `AGENTS.md`'s port
   table and runs it; `ci_changes.py` classifies GitHub push/PR ranges for
-  the documentation-only lint path; see Tests
+  the documentation-only lint path; `typecheck.py` runs the pinned,
+  locally bundled Pyright checker over the configured scope; see Tests
 - `tests/` — the pytest suite, no GPU and no weights: `conftest.py`,
   `fakes.py` and `api_helpers.py` (the fake backend and its fixtures),
   `test_api*.py` (the HTTP routes, one file per area), and a file per module
@@ -515,11 +569,23 @@ Model and loader:
   so a job that ended at the load and Expand (a 503 from its route) carry
   the status's sentence.
   `ModelStatus.started_at` is set once, at import.
+  Status derives ready/unloaded from actual backend readiness without changing
+  the load supervisor's cached state; loading/error and their details remain
+  authoritative. An explicit Load also consults actual readiness, so an unsafe
+  private pipeline disposal cannot leave a cached ready flag blocking reload.
+  GET starts no load; retries still use the ordinary load lock and generation gate.
 - `POST /api/model/switch` accepts only `GET /api/models` choices for the selected
   quantization/format; Nunchaku remains Linux-only. Checkpoint, quantization and
   offload form one immutable runtime snapshot. `load=false` applies and saves
   without loading changed weights; an unchanged selection keeps its weights.
-  Both actions atomically save the four loader/startup preferences beside the
+  Its typed `execution` extension is never silently ignored: omission preserves
+  the current loader intent, while explicit null/empty chooses Eager/native.
+  `load=false` may save a structurally compatible unavailable recipe, without a
+  Hub check or a load. Invalid placement/combinations and per-render step cache
+  are refused as loader configuration. `load=true` and explicit Load refuse
+  unavailable intent before Hub, save, unload or load-state effects; the runtime
+  backend and queue also refuse an omitted/Eager request under that selection.
+  No nonempty recipe is activated. Both actions atomically save loader/startup preferences beside the
   database before releasing existing weights; a save failure is an HTTP error
   and leaves the selection and existing preference file intact.
   A switch to another checkpoint first asks `hub_access.check` (through
@@ -578,7 +644,7 @@ Model and loader:
 - Server launch restores `startup_preferences` before config imports, without
   terminal input unless `--menu` is given. Flags override explicit environment,
   then saved preferences, then defaults; `--defaults` skips preferences. The
-  four are one choice: an explicit model (flag or environment, not env.sh's
+  preferences are one choice: an explicit model (flag or environment, not env.sh's
   marked default) other than the saved one sets all of them aside, with a
   warning. The saved choice fills `--menu`'s marked defaults; a menu pick of
   another checkpoint than the saved one sets the saved `load_on_startup`
@@ -588,8 +654,15 @@ Model and loader:
   `launch.configure` records what was explicit in
   `LOCAL_DIFFUSION_STARTUP_OVERRIDES`; status and `/api/models` report it as
   `startup_overrides` (empty when `backend.main` is imported). Malformed
-  preferences warn and fall back. Only model id, quantization, offload and
-  `load_on_startup` are saved, never secrets or unrelated settings. The browser's
+  legacy preferences retain their existing fallback behavior. V2 stores the
+  canonical loader recipe as well; invalid execution-bearing files/env values
+  retain a fixed diagnostic and refuse loading/rendering until explicit repair.
+  Save/rollback preserves exact prior bounded bytes, including an invalid file.
+  Only model id, quantization, offload, `load_on_startup` and loader intent are
+  saved, never secrets, per-render step cache or unrelated settings. Named
+  `--compilation`/`--attention` and their `LOCAL_DIFFUSION_COMPILATION`/
+  `LOCAL_DIFFUSION_ATTENTION` variables follow existing explicit override rules.
+  The browser's
   compact model facts reuse sourced guides, catalogue data and recorded local
   evidence. The size fact shows upper guidance and labels recommendations,
   native/documented maxima and examples distinctly; an example never becomes
@@ -731,6 +804,17 @@ Model and loader:
 - `load()` refuses a pipeline whose `__call__` lacks `generator` or
   `callback_on_step_end` (`_REQUIRED_PARAMS`): the seed and the cancel depend
   on them.
+- Backend loading owns returned component overrides and the unpublished pipeline
+  in one candidate through shard/weights-context exit, placement, callback checks,
+  console configuration and diagnostics. Publish the complete call parameters,
+  effective recipe and owned registration before assigning the live pipeline
+  last. Failed candidates drop owned application containers before allocator
+  release, outside backend/weights locks, preserving the original exception and
+  attaching cleanup errors. Both unload paths detach base/sibling/adapter/recipe
+  ownership together, retaining compatibility caches and console preference;
+  contention in `try_unload` changes nothing. Private nonempty loaded state must
+  refuse an ordinary eager request before device or pipeline work. This opens no
+  selection/render gate and proves no physical GPU memory release.
 - `LOCAL_DIFFUSION_QUANT=nunchaku` means a pre-quantized lite-infer repo, Linux only
   (WSL 2 here), and no quantization config; `loading.nunchaku_preflight` and `loading.refuse_prequantized` refuse the other pairings before any download. Under
   WSL, `source wsl/env.sh` before `uv`.
@@ -845,6 +929,92 @@ Schedule and guidance:
 
 Reproduction:
 
+- The reserved `execution` request field uses `execution.ExecutionSpec`:
+  frozen named compilation, attention and step-cache recipes, with unknown
+  fields/names refused. Every nonempty recipe is unavailable in this build,
+  refused at validation, submission, queue admission, `applied()` and direct
+  generation before model work; the queue checks every cell before stamping
+  masks or retaining work, even with an explicit run id. The fake shares the
+  backend guards. Runtime request resolution distinguishes omission (a new
+  composer inherits selected loader intent) from a present complete replay
+  (null/empty means legacy Eager, whose loader must match exactly).
+  Submission-only `step_cache` belongs to the composer; its presence cannot
+  accompany `execution`, including explicit Off. Resolve before run/planned
+  identities, using narrow copies for stamped masks. Portable codecs never
+  consult current selection. Resolution and `applied()` canonicalize empty
+  intent to None without granting availability. Stored records carry the
+  nullable recipe through canonical JSON in `images.execution` and named
+  PNG metadata; empty execution is SQL NULL and absent from the PNG chunk.
+  Its CellKey slot is immediately before canvas/crop, preserving shape[-2]
+  and the final seed. `run_id` explicitly omits an absent execution slot
+  even where a later shape is nonempty, then applies legacy shape/extension
+  compaction. Loader choices can be saved, but no nondefault runtime is enabled.
+- `backends.regional_compile` validates a fresh exact FLUX transformer,
+  its uncompiled root and both installed region families before registration.
+  Setup uses fullgraph/static Inductor registration under scoped strict
+  compiler flags; failure discards the unpublished candidate and preserves
+  its original exception. Closing a registration only drops owned references;
+  it never unwraps modules, resets global compiler state or deletes caches.
+  Public `load()` delegates to private eager preparation. Only an explicitly
+  supplied private regional recipe reaches cold dependency/override preflight
+  and registration after ordinary placement/callback checks. Invalidate a
+  failed candidate before publication; drop/release through the outer owner
+  outside backend/weights locks. Actual direct and refine pipeline calls share
+  one invocation boundary; Eager enters no compiler policy. Private regional
+  calls require the exact owned live root/fixed facts, one image and no adapter,
+  then strict policy around one forward without retry. Public request, applied
+  and direct-generation guards remain closed. Registration facts establish no
+  compiled kernels, warm image or fallback qualification.
+  Per-load diagnostics distinguish registration from the first attempted call;
+  preflight/entry refusal stays pending, and returned follows verification and
+  policy exit. Retire tokens at detach/unload; cold readers and frozen terminal
+  job snapshots retain no pipeline. Observations never enter saved recipes,
+  CellKey, run ids or image metadata and imply no qualification.
+- Private attention configuration owns one exact FLUX transformer's complete
+  joint/single processor layout. Validate types, config counts and every path
+  before mutation; retain block/attention/processor identities and prior
+  backend values. The public native context restores the setter's incidental
+  global change. Roll back all snapshots on failed setup, preserve the cause,
+  and never publish a failed candidate. A shared sibling uses the same handle;
+  a second transformer cannot claim already-owned processors. Verify detects
+  later replacement/backend changes, and restore releases owned references
+  only after restoration succeeds. Callers must retain the handle, configure
+  only while idle and discard failed candidates. None changes nothing.
+  Private preparation now transfers that handle with the unpublished pipeline;
+  both unload paths restore/dispose outside locks. Verify the exact owner/root
+  before and after one direct base call. Preserve a primary forward failure or
+  cancellation with verification notes; never retry or save a changed result.
+  Terminal discard/failed setup weakly excludes original identities from reuse
+  without retaining weights or poisoning unrelated replacement processors.
+  Ordinary retained-owner restoration repair remains; every public nonempty
+  request and generation guard stays closed.
+- `config.ATTENTION_ENVIRONMENT_WARNING` snapshots the external
+  `DIFFUSERS_ATTN_BACKEND` before framework imports, matching the installed
+  verbatim default of `native`. Missing/exact-native values are silent;
+  every other value, including empty, gets a fixed bounded config log and
+  `ModelStatus.attention_environment_warning`. Never echo or mutate its value,
+  reread it from status, infer an effective recipe or change admission. This
+  diagnostic chooses no app/environment precedence or acceptance policy.
+- Cold attention/cache candidate checks use supplied request, distribution and
+  external-attention observations only. They reject unsupported combinations,
+  adapters/passes and nonnative overrides without importing a framework or
+  changing the environment. FBC additionally refuses true CFG and an existing
+  cache. A matching candidate grants no runtime availability or loaded-API,
+  processor, shape, kernel or device qualification.
+- Private FBC ownership validates exact eager FLUX block identities, order,
+  counts and output metadata. One retained owner covers the shared denoiser;
+  each call installs fresh fixed-threshold hooks, resets state/context before
+  and after use, and restores only its own hooks, forwards and registry caches.
+  A failed cleanup invalidates that model identity before discarding every
+  shared pipeline; invalidation survives owner close and requires a fresh
+  model. Private preparation retains its owner without hooks; one direct base
+  call gets fresh hooks/state after exact ownership, ordinary-guidance and
+  read-only effective Native checks. Cleanup failure detaches the expected
+  unsafe pipeline, then explicit disposal drains after call/sigma/no_grad scopes
+  outside locks. Pending disposal holds load/forward; stale callbacks cannot
+  detach replacements. Terminal discard drops refs without touching foreign
+  hooks. Public nonempty guards remain closed; actual runtime/card qualification
+  remains separate.
 - Seeds are drawn from `2**53 - 1` and wrapped at `2**63 - 1`; both live in
   `seeds.py`. One generator per image, seeded `seed + i`; runs take base
   `seed + i * num_images`. The page refuses a typed seed past
@@ -923,7 +1093,7 @@ Reproduction:
   value that is no non-negative integer is NULL (`storage._peak`), never a
   refused row. Reindex (both paths) and bundles carry it; the bundle
   staging table adds both as INTEGER. `CellKey` holds the prompt pair, steps, CFG, mu,
-  true CFG, references, LoRA and weight, refine source and strength, size/crop
+  true CFG, references, LoRA and weight, refine source and strength, execution, size/crop
   shape, and the seed; checkpoint and quantization scope the resume lookup
   (`storage.completed_cells`) and, with the batch, `run_id`'s definition;
   variables and hash are the row's and the chunk's alone. `run_id` names a
@@ -1279,7 +1449,7 @@ Reproduction:
   refuses it; `--from-image` with a `--band` of its own builds the new
   band's mask and holds nothing to the record's.
   The mask is the server's: `storage.stamp_outpaints` builds
-  (`outpaint.mask`) and stores it as the **first step** of
+  (`outpaint.mask`) and stores it as the **first storage step** of
   `JobManager.submit_cells`, before `Job(...)` (`OSError`/`GalleryBusy` a
   worded 503, `jobs.OutpaintStampFailed`), and in `generate.py` after the
   resume prune and before the load (never under `--dry-run`; no
@@ -1654,6 +1824,103 @@ Jobs:
   files and database copy (with its `-wal`; twice for a chosen bundle's
   VACUUM) before it writes. A finished backup reloads the gallery views,
   as every bundle operation does, but keeps the typed count.
+- Internal managed exports additionally require whole-gallery `keep_gallery`
+  and strict gallery/destination/operation UUIDs. Their reserved manifest
+  marker is verified during the existing read-back; a forward-only outer
+  writer hashes ZIP bytes or ciphertext while writing. Bind the closed
+  partial to the original writer identity before verification, publish
+  without replacing an existing name, and clean a partial only while its
+  device/inode still belongs to that writer. Append the database-specific
+  atomic receipt journal only after verified publication under the same
+  reservation. Journal failure leaves the archive unmanaged with a fixed
+  warning and preserves prior receipts. Explicitly enabled startup backups use
+  this path; separately consented v3 cleanup follows only a new success.
+  `matches_current` checks regular-file identity,
+  destination and full raw digest; its snapshot never authorizes deletion.
+- Automatic startup backup defaults off. Only an explicit v2 save with complete
+  age/count, displayed destination and fresh plaintext acknowledgement activates
+  the next start; every older v1 draft remains inactive. Create durable namespace
+  UUIDs only on explicit configuration, under reservation, and never adopt an
+  existing foreign/damaged journal. Atomic saves use revision comparison and the
+  reader's size bound. Cached GET status takes no gallery lock; explicit Reload
+  reads bounded settings off-loop. Neither Save nor Reload creates an archive.
+  A startup attempt reserves before lifespan yields, waits before optional
+  preload and drains its owned writer at shutdown. Fixed errors carry no secrets.
+  Older v2 settings remain export-only: their N is not enforced and they confer
+  no deletion permission. No credential provider or automatic retry is installed.
+- Retention requires explicit v3 configuration with fresh separate deletion
+  acknowledgement, N/protection/scope and matching full installed shared mode.
+  Save/reload never export or prune; cached GET is native-I/O-free. Disable clears
+  permission without destination access, preserving local pending/unknown warnings.
+  Only a fresh exact nonempty managed success can enter cleanup under the worker/
+  gallery reservation. Protect new success and newest N current same-scope copies
+  with shared claims; requalify older protected copies without fully rereading
+  the new export. Manual/foreign/unknown/busy copies confer no deletion authority.
+  Persist one exact intent before marking. Pending blocks cleanup/restart retry
+  and is excluded from age/N. Known no-mark/refusal may restore only after normal
+  entire bound close; accepted mark plus normal close retires without claiming
+  physical removal. Unknown mark/cleanup/final-write failures preserve pending and
+  stop. Journal v2 retains active/pending/retired proofs and all-record uniqueness/
+  retry lookup within 20,000-record/16-MiB caps, with no eviction. Backup success
+  and actual receipt time remain separate from cleanup warnings/counters.
+- Managed export adds a final logical-byte capacity check before opening its
+  partial: actual post-compaction snapshot and inventory sizes, exact manifest
+  JSON names/sizes, maximal ZIP64 headers/descriptors, encryption framing and
+  the bounded atomic receipt temporary. Group these by actual volume. Its
+  early DB+WAL heuristic allows three equivalents for retained-cell VACUUM;
+  allocation metadata, SQLite growth and other writers prevent a fit guarantee.
+  Ordinary manual estimates and the single archive read-back remain unchanged.
+- Saved archive downloads hold a per-process reader lease for the complete
+  ASGI response, acquired before stat/open and released in finally through
+  body/range/HEAD/error/cancellation/background paths. Disable pathsend handoff
+  because its send completion does not prove transfer completion. Reader
+  leases exclude an exclusive claim on the same resolved path; release is
+  idempotent across threads. Ordinary bundle maintenance still permits these
+  downloads. Default registries cover cooperating threads without sidecar
+  writes. Explicit cross-process mode adds native shared/exclusive locks on
+  persistent, identity-checked archive companions; never delete or replace
+  those companions. Retain native ownership until the last local reader
+  releases, including mixed-mode readers. Uncertain close retains exclusion;
+  native access/identity errors never become an unlocked fallback. Shared-mode
+  installation must be quiescent and complete across cooperating processes
+  before any retention caller. Linux/fork and mixed old processes remain
+  unqualified; no deletion caller is enabled.
+- Shared download mode is installed only by the explicit Windows fixed-local-NTFS
+  tool, independent of startup backup policy and N. The operator confirms every
+  other server using that destination is stopped; this is not machine-verified.
+  A common process guard refuses existing lease state and blocks new claims
+  through immutable destination-bound marker publication. The default download
+  registry discovers mode and acquires its reader atomically at ASGI entry,
+  including responses constructed before cutover. Missing never-observed markers
+  retain non-writing defaults; observed loss, replacement, named-path retarget,
+  invalid/foreign data or native errors fail before archive headers/bytes. Never
+  overwrite/adopt a bad marker or silently fall back. `--check` is read-only
+  outcome inspection and makes no quiescence claim. Handle-bound mutation remains
+  a prerequisite to future retention; v2 N is inert.
+- Published archive imports take the destination gallery reservation before one
+  source reader, held through verification, staging, merge and rollback. Listing,
+  public encrypted readers/header checks and receipt hashing join the same
+  mode-aware protocol. Keep native acquisition/release outside availability
+  catches; wrong receipt scopes refuse before companion creation. Private owned
+  uploads/export partials use explicit private seams, never a suffix-based or
+  ambient bypass. Forward the read-owner capability rather than nesting claims.
+  If an input close may leave a live file, retain its object and original reader
+  claim until restart, without resolving a possibly retargeted name or retrying
+  close. Preserve body failures with cleanup notes. No extra full archive pass
+  or key derivation is introduced, and no retention deletion is connected.
+- The Windows managed-deletion helper accepts only an exact receipt
+  and expected scope/installed mode. Its caller must establish journal
+  membership, gallery reservation, policy eligibility and explicit deletion
+  consent. Require positive matching shared mode and native exclusive ownership;
+  an ordinary optional-mode lease is insufficient. Pin directory and marker
+  against replacement/writes. Open one archive READ|DELETE/share0 handle without
+  delete-on-close, refuse links/reparse/directory/delete-pending states, and hash
+  that same descriptor once immediately before final scope/identity checks and
+  the native disposition mark. Never reopen/unlink by pathname. Mark only once;
+  unknown mark or close retains original handles/exclusion until restart without
+  retry. Distinguish accepted disposition and confirmed owned close from physical
+  removal. The helper itself changes no journal or settings; only separately
+  consented v3 orchestration may call it. V2 N grants no deletion permission.
 - Bundles and the recycle bin: export carries every row, binned ones
   included (`preview()`'s `records` stays all rows, for the typed
   confirmation, and `binned` says how many are in the bin; the export
@@ -3571,6 +3838,12 @@ Frontend and CLI:
   `syncReuseButtons` where the checkpoint changes, where
   `reference_supported` or `lora_supported` flips, and at the end of
   `refreshLoras`.
+- Reuse refuses every nonempty recorded execution recipe before writing
+  the composer or looking up pass sources. Its button is `aria-disabled`
+  with the reason as title; a press says it in the gallery error slot and
+  mirrors it into an open lightbox without closing it. The composer's prior
+  Reuse note and Undo stay intact. `syncReuseButtons` preserves the recipe
+  in its dataset so a capability refresh cannot clear this hold.
 - Load settings from PNG (`png-settings.js`, `api_png.py`,
   `png_settings.py`; `smoke-png-settings.json`, `tests/test_api_png.py`).
   A file dragged over the page outlines the window (`body.png-drop::after`,
@@ -5091,6 +5364,251 @@ Frontend and CLI:
 
 ## Tests
 
+`tests/test_backup_credentials.py` and `tests/test_backup_credential_integration.py`
+check WinCred ABI declarations through API stubs, exact opaque references, bounds,
+redaction/free/cleanup, inactive pending provisioning, no uncertain retry, hidden
+input, independent-password recovery and worker-only lookup after due/nonempty
+admission. A fake provider exports/restores an actual owned encrypted gallery
+without another verifying pass. `tests/conftest.py` blocks the real credential
+factory for every test; only explicit fake overrides may pass. No Windows vault
+entry is read/written/listed/deleted and no OS credential qualification follows.
+
+`smoke-credential.json` uses a fresh FLUX.1 Krea [dev] fake on 7929. Backup API
+responses/saves are intercepted fixtures: explicit protection selection, absent/
+pending/ready credential profiles, fresh encrypted/recovery acknowledgement,
+generation/dirty-draft guards, plaintext transition, disabling and layout. It
+enters no password and reads/writes no real Windows vault entry. OS-API evidence
+comes from stub tests, not this browser fixture.
+
+`tests/test_execution.py` checks frozen/strict named recipes, internal-copy
+validation, canonical empty/key spelling, cold distribution facts and the
+first regional candidate matrix. A matching candidate remains unavailable.
+HTTP, queue and direct backend/fake checks refuse nonempty recipes before
+mask stamping, retained work or model work; explicit run ids do not bypass
+queue admission. Empty execution retains legacy keys/PNG metadata and normalizes only
+through `applied()`, without revalidating a stamped outpaint. These are CPU
+contract checks, not compiler or GPU qualification.
+
+`tests/test_execution_resolver.py` checks composer inheritance versus complete
+replay, explicit Off/channel conflicts, resolution before run/planned identities,
+legacy retained runs, source PNG/CLI intent and stamped-mask-safe narrowing.
+Direct submission subtypes must consume or refuse cache intent before device,
+source, queue or backend effects. These synthetic checks grant no availability.
+
+`tests/test_regional_diagnostics.py` checks immutable per-load observations,
+single first-call tokens, terminal freezing, retirement, competing callers,
+stale updates, model collection and import-cold readers. Pending means no forward
+attempt; returned is not a warm-kernel, cache-hit or qualification result.
+
+`tests/test_api_execution_diagnostics.py` checks fixed diagnostic serialization,
+default/unpublished/retired absence, a fresh read after awaited descriptions,
+catalogue selection changes and same-checkpoint reloads. Draft catalogue options
+never label a per-model detail with the active load's observation; routes start
+no model load.
+
+`tests/test_job_execution_diagnostics.py` checks active first-call observations,
+terminal snapshot freezing, reader retirement/replacement and weight-free
+lifetimes. Diagnostic observations stay outside retained job definitions and
+reproduction identities; optional readers never change generation outcomes.
+
+`tests/test_execution_diagnostics_ui.py` exercises the page's fixed scalar
+captions and load/job lifecycle using Node VM with inert DOM/EventSource stubs.
+It checks progress counters, terminal observations and stale-detail clearing.
+These source contracts do not boot a page or qualify browser layout/accessibility;
+the actual browser denial and incomplete UI validation remain in the tooling plan.
+
+`tests/test_execution_candidates.py` checks the initial cuDNN/FBC candidate
+matrices, combinations, copied-spec validation, external override refusals and
+FBC guidance/cache exclusions. An isolated subprocess forbids framework/config
+imports and metadata/environment reads by the validators, proves the environment
+unchanged and confirms matching recipes remain unavailable to execute.
+
+`tests/test_execution_storage.py`, `tests/test_execution_bundles.py` and
+`tests/test_execution_replay.py` cover the nullable recipe migration and
+canonical codecs, legacy hash fixtures including mixed-size/crop/comparison
+runs, distinct recipe keys, stored/PNG/bundle/reindex carry and unavailable
+rerun/PNG/CLI/retained recovery. Known recorded recipes confer no permission
+to execute; invalid or contradictory metadata is refused rather than dropped.
+`tests/test_regional_compile.py` checks discovery, exact arguments, failed
+candidate disposal, precompiled root/region refusal and idempotent reference
+cleanup with stubs. Installed `ConfigModule.patch` over synthetic flags
+checks nested/thread restoration. Real Flux/Dynamo imports, compiler calls,
+fallback and device behavior remain unexecuted.
+`tests/test_pipeline_ownership.py` exercises the actual eager loader over strict
+synthetic runtime modules, unpublished override/pipeline failure at context entry
+and exit, publication order, registration transfer and shared unload behavior.
+Weak-reference assertions outside exception handling prove application containers
+drop ownership before release; arbitrary library traceback references and actual
+GPU reclamation are separate. An isolated subprocess forbids framework imports
+while checking private loaded-recipe refusal before work.
+`tests/test_regional_backend.py` exercises the actual private preparation and
+invocation paths with synthetic runtime modules, pipeline and regions. It checks
+cold preflight before weights/imports, registration/publication failure ownership,
+strict-policy restoration for success/error/cancellation, fixed handle/facts and
+unchanged eager direct/refine semantics. Public nonempty execution stays refused;
+no real compiler, model, device or toolchain qualification follows.
+`tests/test_compiler_cache.py` checks pure runtime/gallery namespacing, the owned
+startup window, environment and path ownership, handle-owned scratch probes,
+partial/uncertain initialization and later binding drift. It imports no real
+compiler or model; directory usability is not toolchain or performance evidence.
+`tests/test_model_switch_execution.py` checks typed switch recipes, direct/copied
+internal bypasses and fixed refusal before Hub, save, unload, selection or preload
+effects. Empty/legacy Eager switches and stale revision guards remain covered.
+`tests/test_api_model_readiness.py` checks truthful ready/unloaded presentation,
+read-only GET, explicit and same-checkpoint reload without a preceding poll,
+concurrent load coalescing, held loading and preserved error/retry behavior with
+fake pipelines. This does not establish public FBC reachability or card behavior.
+`tests/test_execution_selection_admission.py` checks pure configuration limits,
+invalid/selected startup intent, omitted versus explicit Eager requests and closed
+queue/backend/HTTP admission before side effects. Portable normalization/codecs
+remain independent of current selection. CLI cases additionally refuse unavailable
+flags/environment before source or project reads and preserve explicit Eager intent.
+`tests/test_model_selection_performance.py` and `tests/test_loader_startup.py`
+check unavailable configuration saves, structural refusals, omission/clear,
+execution-only revisions, exact invalid-file rollback, frozen descriptor snapshots,
+v1/v2 startup compatibility/precedence and fail-closed invalid intent. None grants
+runtime permission; saved preload cannot bypass the load guard.
+
+`tests/test_browser_diagnostics.py` uses a synthetic no-pid child stream to verify
+opt-in failure-only stderr diagnostics and a bounded tail. It opens no browser,
+socket or native cleanup process. Real browser/profile checks are separate.
+
+`smoke-execution-selector.json` uses a fresh FLUX.1 Krea [dev] fake on 7930.
+It checks inspectable configuration, honest unavailable status and held Load/render
+actions, structural conflicts, saved and unsaved recipes across polling/reload,
+explicit Eager recovery and per-render cache persistence/Reuse/Reset/Undo. Nonempty
+record Reuse stays refused. Only an ordinary Eager fixture may generate; no compiler,
+model download, non-Eager execution or performance/quality acceptance is established.
+`tests/test_attention_selection.py` checks coverage, transactional failures,
+shared ownership, later replacements and idempotent restoration with stubs.
+It also executes source-extracted installed public context/setter bodies.
+Its focused run uses `--noconftest`, with no actual Diffusers import, tensor,
+forward or device probe; real runtime/card qualification remains separate.
+`tests/test_attention_environment.py` retains the cold warning/source checks:
+exact startup snapshots, fixed redaction, CLI logging, unchanged selection and
+status reads that do not reread environment or import a framework.
+`tests/test_attention_policy.py` checks the experimental Native baseline using
+synthetic modules: startup/current/frozen observations, exact registry function,
+redaction, drift refusal and policy-independent restoration/cleanup. It proves
+no Native/cuDNN kernel, device fit, pixels, speed or repeatability.
+`tests/test_attention_backend.py` checks actual private preparation/publication/
+unload/invocation with synthetic runtime modules, exact ownership and closed
+public guards. It covers primary error/cancellation plus post-forward ownership
+failure, cleanup outside locks, terminal weak exclusions, GC/identity-reuse
+safety and fresh-root recovery. No real dispatcher or card behavior is established.
+`tests/test_fbc_backend.py` checks private preparation, one-forward ownership and
+deferred disposal with synthetic dependencies: hook-free load, effective Native,
+partial cleanup/foreign hooks, primary errors/cancel, scope/lock order, pending
+not-ready state, stale callbacks and public refusals. No real model/GPU runs.
+`tests/test_fbc_request.py` checks request-driven On/Off/On over one synthetic
+Eager load, fresh ownership, explicit Off versus legacy private omission, loader
+equality, unsupported request/call refusals and deferred unsafe disposal. It
+preserves generator/callback/sigma scope behavior and every public admission guard;
+it does not qualify FBC arithmetic, model/device behavior, quality or performance.
+File-based readers use `metadata.require_header_metadata` to refuse app-owned
+text after PNG pixel data, which Pillow's header-only `info` would miss.
+The scan skips payloads, reads at most 80 bytes per text keyword and restores
+the stream position; it adds no pixel decode. Browser-provided text chunks
+already include the complete parsed record and need no file-position scan.
+
+`tests/test_backup_policy.py` checks pure default-off backup decisions with
+explicit age, retention and protection. It covers UTC age boundaries and
+repeated-hour ordering, unavailable or untrusted copies, exact scope,
+conflicting identities, new-success retention and download leases. These
+checks perform no archive I/O and confer no deletion or activation authority.
+`tests/test_backup_preferences.py` checks bounded strict schema reads,
+database isolation, exact integer-microsecond durations, fixed failure
+warnings and atomic saves preserving prior bytes on write/fsync/replace
+failure. The shared 10,000-copy validation ceiling is an engineering limit,
+not a selected retention policy. Neither module is connected to startup.
+`tests/test_backup_activation_settings.py` and `tests/test_api_automatic_backup.py`
+cover explicit v2 activation, inactive legacy
+policies, stable gallery/destination namespaces and scratch startup/configuration
+integration. Status stays available during maintenance, configuration reserves
+before writing, and preload waits for the admitted attempt. No OS credentials or
+retention deletion are exercised.
+`tests/test_backup_receipts.py` and `tests/test_bundles_managed.py` check
+strict bounded ownership journals, portable names, exact outer-byte proofs,
+plain/encrypted scratch restore and single verifying reads. They inject
+publication/journal failures and partial replacements before verification
+and after claim, preserving unowned files and prior successful copies.
+No real gallery, credential store, startup or pruning is exercised.
+`tests/test_bundle_leases.py` checks canonical path sharing, reader/exclusive
+exclusion and complete FileResponse lifetime, including range/HEAD/error/
+cancel/background behavior and disabled pathsend without scope mutation.
+
+`tests/test_bundle_mode.py` and `tests/test_api_bundle_mode.py` cover explicit
+destination-mode installation and discovery, default non-writing downloads,
+installed-mode failures and ASGI response admission across local cutover. Native
+checks use owned Windows scratch processes, never unknown server inventory.
+`tools/install_bundle_mode.py` is the explicit offline installation entry point;
+other-server quiescence is operator-attested, not machine-verified. Neither the
+marker nor the tool enables retention or turns a v2 saved N into deletion consent.
+
+`tests/test_bundle_consumers_leases.py` covers public encrypted-reader/header
+lifetime, saved-import reservation order and complete merge lifetime, listings,
+receipt hashes, wrong scopes and separate private upload/export partials. Owned
+Windows child processes exercise native exclusion across databases; injected
+uncertain file closes preserve primary failures and the original reader claim
+even after pathname retargeting. These are scratch tests, not retention acceptance.
+
+`tests/test_bundle_delete.py` exercises the Windows same-handle
+deletion mechanism on owned scratch files, required installed-mode exclusion,
+receipt scope/identity/raw-byte refusals and single-use mutation. Injected
+mark/close failures check original-key quarantine and honest post-mark outcomes.
+No test operates on a real gallery destination.
+
+`tests/test_backup_retention.py` and `tests/test_backup_retention_journal.py`
+exercise v3 consent, unchanged v2 behavior, pending/retired transitions, current-N
+protection, leased excess, retired-operation retry and caps. Owned Windows scratch
+lifecycle cases actually export, mark/close and retire copies with unchanged gallery
+bytes. Injected failures check pending/unknown state, complete-close restoration,
+no pruning after failed/empty/skipped/unmanaged exports and preserved success/time.
+
+`smoke-execution-reuse.json` uses a fresh FLUX.1 Krea [dev] fake on 7926.
+Browser fixtures add execution recipes to a synthetic eager record, checking
+held Reuse buttons, status refresh, lightbox reason without dismissal,
+direct panel/pass/inpaint/outpaint refusal before source reads and unchanged
+composer/scroll. Legacy empty recipes retain Reuse and Undo. It runs no
+non-default recipe and establishes no compiler or GPU behavior.
+
+`smoke-automatic-backup.json` uses a fresh FLUX.1 Krea [dev] fake on 7927.
+It checks explicit plaintext consent and settings validation, stale revisions,
+dirty edits and reload, fixed startup-outcome presentation, manual-field
+preservation, disabling and narrow layout. It configures scratch settings only:
+no server restart, automatic export, real gallery or credential store is used.
+
+`smoke-retention.json` uses a fresh FLUX.1 Krea [dev] fake on 7928. All backup
+API responses/saves are intercepted synthetic data: inert old N, missing/stale
+mode, fresh separate deletion consent, dirty drafts, marked/unknown wording,
+pending while off and disabling without destination access. Desktop/narrow
+screenshots check containment and stationary Save. No policy, shared-mode install,
+restart, export or deletion is executed; native lifecycle evidence is CPU scratch.
+
+`tests/test_classic_scripts.py` invokes `tools/check_classic_scripts.py`
+and its Node helper to parse every local classic script in HTML order,
+including `app.js`, and instantiate declarations without executing source
+bodies. It covers syntax, cross-file lexical collisions and permitted
+sharing, strict/sloppy block functions, unsupported script kinds, missing
+files and missing Node. Node is required locally and verified by CPU CI;
+this guard does not replace the independent browser smokes.
+
+`tests/test_browser_capabilities.py` captures the actual harness/helper module
+bodies before instrumentation and loads them as data URLs, so Node's own module
+loader does not trip the application file-read guards. It runs the real harness
+with absent or noncallable `fetch`/`WebSocket` globals. Fixed exit-2 diagnostics occur
+before browser lookup, script reads, output/profile creation or any network
+call; a callable fixture continues to the existing browser-discovery path.
+Negative controls keep input/module reads, output writes, spawn and network APIs
+forbidden after source capture.
+
+`tests/test_fbc_runtime.py` exercises installed FBC hooks and arithmetic on tiny
+CPU blocks in an isolated worker. Only the unrelated optional bitsandbytes backend
+is modeled as absent; a discoverable poison package verifies that boundary.
+Compiler, device and network counters stay zero across imports and all arithmetic,
+context, freshness, cancellation and cleanup cases. This is no real-model or card
+qualification.
+
 `smoke-control-sizing.json` uses a fresh FLUX.1 Krea [dev] fake on 7923.
 It measures prompt/footer targets and primary emphasis at 1400x900, 600x900,
 1536x864 and 2048x1040 (the latter two at DPR 1.25), checks actual hit targets,
@@ -5546,7 +6064,7 @@ history, unknown/empty comparisons and manual dispatch keep the full gate.
 A docs-only tip on a code-changing PR does not bypass its tests.
 
 Other changes and manual runs get the CPU suite on Ubuntu
-(`uv sync --locked --group dev`, `pytest -n auto`); on main (pushes and by
+(`uv sync --locked --group dev`, the pinned type gate, `pytest -n auto`); on main (pushes and by
 hand) it runs on Windows too, about five times slower. The smokes, which
 need a browser, stay local. `tests/conftest.py` makes
 `torch.cuda.is_current_stream_capturing` answer False on a driverless Windows
@@ -5564,6 +6082,17 @@ the full-test fallback when classification cannot be established. The
 design notes' [CI range policy](design-notes.md#ci-compares-the-whole-change-range)
 explains why the workflow itself is never path-filtered away.
 
+`uv run --group dev python tools/typecheck.py` checks basic Pyright over
+all Python in `backend/` and `tools/`, using `pyrightconfig.json` and the
+locked `pyright==1.1.407` Python package. Node must already be installed.
+The gate verifies the package and bundled JavaScript version, constrains
+the wrapper to that bundle/global Node and disables its update/provision
+paths. Missing tools, absent/empty includes, malformed output and zero
+analyzed files fail; checker diagnostics and nonzero status are preserved.
+`tests/test_typecheck.py` covers these refusal and success paths. The CPU
+CI job runs this same command after installation, before tokenizer fetches;
+documentation-only changes retain the lightweight lint-only path.
+
 `uv run python tools/run_smoke.py <smoke> [<smoke> ...]` runs smokes without
 a second terminal: it reads `AGENTS.md`'s port table (the port, the
 `--model`, short names resolved through the line under the table, and
@@ -5579,6 +6108,27 @@ smokes on one fake in order, as the commands below run them by hand.
 `--jobs N` runs N rows at once, each worker 100 ports further on, the
 smokes' output kept until each finishes; `--list` prints the table as read.
 It exits 0 when every smoke passed, 1 on a failure, 2 on a refusal.
+Screenshot destinations (`shot`, `fullshot` and the second `elshot` value)
+are portable relative filenames: forward slashes for subdirectories, no
+absolute or drive-relative paths, `..`, backslashes or Windows-invalid
+characters, device names or components ending in a dot or space.
+`browser-output.mjs` applies one policy to all three forms and
+creates their parent directories. `LOCAL_DIFFUSION_SCREENSHOT_DIR` selects
+the output root; a direct `browser.mjs` call without it creates and reports
+a fresh system-temp directory. `run_smoke.py --artifacts PATH` creates a
+unique run directory below PATH (system temp when omitted), then a unique
+directory for each smoke and reports it. Screenshots survive successes and
+failures, independently of the fake's disposable gallery; parallel runs
+cannot overwrite one another's files. `tests/test_browser_output.py` checks
+all repository screenshot fields and deliberately invalid destinations;
+`tests/test_run_smoke.py` checks isolated output and failure retention.
+Each smoke retains `result.json` and combined `browser.log`, with exact
+exit status, phase and duration; failures copy `fake-server.log` after the
+owned fake stops. A completed run writes `summary.json` at the run root.
+Browser output is printed after each smoke finishes. An interrupted smoke
+retains its full partial output and result, without a final run summary.
+The runner grants the Node harness cleanup time before its owned-process
+fallback; focused tests cover startup failures, interruption and cleanup.
 `tests/test_then_refine.py` covers Then refine: each image's pass after
 its cell (a batch's bases then their passes, runs alternating), the pass
 equal to Mass refine's and reported `rendered`, the base rows a plain

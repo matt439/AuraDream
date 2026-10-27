@@ -18,7 +18,7 @@ const LEGACY_PANEL_KEYS = ['krea.panel.v1'];
 const PANEL_FIELDS = [
   'prompt', 'negative', 'width', 'height', 'seed', 'batch', 'runs', 'lora', 'loraScale',
   'gridPrompt', 'gridPromptMode', 'gridSteps', 'gridCfg', 'gridMu', 'gridSeeds', 'gridSeedList', 'gridBudget',
-  'gridLoraScale', 'gridSize',
+  'gridLoraScale', 'gridSize', 'stepCache',
 ];
 // What else is remembered beside the fields, merged key by key as they are.
 const PANEL_KEYS = [...PANEL_FIELDS, 'gridOpen', 'reference', 'translation'];
@@ -49,6 +49,7 @@ function panelState() {
     translation: translatedSource !== null ? { source: translatedSource, text: els.promptTranslation.value } : null,
   };
   for (const key of PANEL_FIELDS) state[key] = els[key].value;
+  state.stepCache = stepCacheValue();
   state.lora = els.lora.value || pendingLora;
   // Sampling values travel with the checkpoint they were set on, and only
   // the ones the user took off the profile - the profile itself is the
@@ -150,8 +151,9 @@ function restorePanel() {
   panelBase = state ?? panelState();
   if (!state) return;
   for (const key of PANEL_FIELDS) {
-    if (typeof state[key] === 'string') els[key].value = state[key];
+    if (key !== 'stepCache' && typeof state[key] === 'string') els[key].value = state[key];
   }
+  setStepCache(Object.hasOwn(state, 'stepCache') ? state.stepCache : '');
   // Older panels have no mode; a malformed stored select must not send an
   // empty mode and turn every preview into a schema error.
   if (!['cross', 'random'].includes(els.gridPromptMode.value)) els.gridPromptMode.value = 'cross';
@@ -217,6 +219,7 @@ function resetPanel() {
   els.cfg.value = lastDefaults?.guidance_scale ?? 3.5;
   els.mu.value = lastDefaults?.mu ?? '';
   els.trueCfg.value = '';
+  setStepCache('');
   referenceIds = [];
   els.lora.value = '';
   pendingLora = '';
@@ -237,6 +240,8 @@ function resetPanel() {
   syncCfg();
   syncConditioning();
   syncRuns();
+  syncExecutionControls();
+  syncSubmitButtons();
   schedulePreview();
   scheduleTagValidation(0);
   // Not persisted, but a change all the same: a Reuse's Undo goes, as an
@@ -309,8 +314,9 @@ function undoReset(note) {
   rewriteBox(els.negative, state.negative);
   rewriteBox(els.prompt, state.prompt);
   for (const key of PANEL_FIELDS) {
-    if (key !== 'prompt' && key !== 'negative') els[key].value = state[key];
+    if (!['prompt', 'negative', 'stepCache'].includes(key)) els[key].value = state[key];
   }
+  setStepCache(Object.hasOwn(state, 'stepCache') ? state.stepCache : '');
   pendingLora = state.lora && !els.lora.value ? state.lora : '';
   els.gridSection.open = state.gridOpen;
   els.gridSeeds.disabled = els.gridSeedList.value.trim() !== '';
@@ -331,6 +337,8 @@ function undoReset(note) {
   syncConditioning();
   revealActiveSetup();
   syncRuns();
+  syncExecutionControls();
+  syncSubmitButtons();
   schedulePreview();
   scheduleTagValidation(0);
   persistPanel();

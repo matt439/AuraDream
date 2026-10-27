@@ -23,7 +23,8 @@ def remembered(tmp_path, monkeypatch):
     path = tmp_path / "gallery" / "local-diffusion.db"
     choice = preferences.StartupPreferences(OTHER, "int8", "sequential", True)
     preferences.save(path, choice)
-    for name in [*choice.environ(), preferences.OVERRIDES_VARIABLE]:
+    for name in [*choice.environ(), preferences.OVERRIDES_VARIABLE, preferences.LOADER_EXECUTION_ERROR_VARIABLE,
+                 "LOCAL_DIFFUSION_COMPILATION", "LOCAL_DIFFUSION_ATTENTION"]:
         # Register restoration even for variables the launcher creates.
         monkeypatch.setenv(name, "")
         monkeypatch.delenv(name)
@@ -39,7 +40,7 @@ def test_round_trip_preserves_only_known_preferences(remembered):
     db_path, choice = remembered
     assert preferences.load(db_path) == choice
     payload = json.loads(preferences.path_for(db_path).read_text(encoding="utf-8"))
-    assert payload == {"version": 1, **asdict(choice)}
+    assert payload == {"version": 2, **asdict(choice)}
     assert not db_path.exists(), "preferences must not create a database"
     assert list(db_path.parent.iterdir()) == [preferences.path_for(db_path)]
 
@@ -142,6 +143,7 @@ def test_defaults_bypasses_saved_choice_and_preserves_explicit_environment(remem
     assert preferences.startup_overrides() == {
         "model_id": "LOCAL_DIFFUSION_MODEL_ID", "quantization": "--quant",
         "offload": "--defaults", "load_on_startup": "--defaults",
+        "compilation": "--defaults", "attention_backend": "--defaults",
     }
     db_path, choice = remembered
     assert preferences.load(db_path) == choice, "one launch must not overwrite browser preferences"
@@ -154,7 +156,7 @@ def test_missing_preferences_are_read_only(tmp_path):
 
 
 @pytest.mark.parametrize("change", [
-    {"version": 2}, {"version": True}, {"model_id": ""}, {"model_id": " bad/id"},
+    {"version": 3}, {"version": True}, {"model_id": ""}, {"model_id": " bad/id"},
     {"model_id": "bad\nid"}, {"model_id": 123}, {"quantization": "fp4"},
     {"offload": "gpu"}, {"load_on_startup": "false"}, {"load_on_startup": 1},
     {"host": "0.0.0.0"},
@@ -162,7 +164,7 @@ def test_missing_preferences_are_read_only(tmp_path):
 def test_invalid_preferences_never_block_startup(remembered, change, caplog):
     db_path, choice = remembered
     path = preferences.path_for(db_path)
-    path.write_text(json.dumps({"version": 1, **asdict(choice), **change}), encoding="utf-8")
+    path.write_text(json.dumps({"version": 2, **asdict(choice), **change}), encoding="utf-8")
     launch.configure([], ask=never_ask, interactive=True)
     assert "Ignoring saved startup settings" in caplog.text
     assert all(name not in os.environ for name in choice.environ())

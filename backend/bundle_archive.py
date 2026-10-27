@@ -19,7 +19,7 @@ from concurrent.futures import ThreadPoolExecutor
 from contextlib import contextmanager
 from pathlib import Path, PurePosixPath
 
-from . import bundle_crypto, reindex
+from . import backup_receipts, bundle_crypto, bundle_leases, reindex
 from .bundle_common import _CHUNK, _WORKERS, MASK_HASH, BundleError, Progress, _basename, _mask_rows, _quiet, _rows
 from .bundle_images import _inspect_mask, _inspect_source
 
@@ -115,19 +115,22 @@ class _Pool:
 
 
 @contextmanager
-def _open_archive(path: Path, password: str | None, derived: tuple[bytes, bytes] | None = None):
+def _open_archive(path: Path, password: str | None, derived: tuple[bytes, bytes] | None = None,
+                  read_owner: bundle_leases.ArchiveRead | None = None):
+    # Private callers own either a published-source reader (import) or this
+    # unpublished partial (export). Do not add nested/.part companion claims.
     try:
-        encrypted = bundle_crypto.is_encrypted(path)
+        encrypted = bundle_crypto._is_encrypted(path, read_owner)
     except OSError as exc:
         raise BundleError(f"cannot read the bundle: {exc}") from exc
     if not encrypted:
-        with zipfile.ZipFile(path) as archive:
+        with bundle_leases._open_input(path, read_owner) as source, zipfile.ZipFile(source) as archive:
             yield archive
         return
     if not password:
         raise BundleError("this bundle is password-protected; enter its password")
     # Plaintext exists only in memory: every chunk is authenticated as read.
-    with (bundle_crypto.DecryptingReader(path, password, derived=derived) as reader,
+    with (bundle_crypto._DecryptingReader(path, password, derived=derived, read_owner=read_owner) as reader,
           zipfile.ZipFile(reader) as archive):
         yield archive
 
@@ -138,6 +141,8 @@ def _verify_archive(path: Path, destination: Path | None = None, *, password: st
                     merge: tuple[Path, int] | None = None,
                     derived: tuple[bytes, bytes] | None = None,
                     masks: dict[str, dict] | None = None,
+                    managed: backup_receipts.ManagedIdentity | None = None,
+                    read_owner: bundle_leases.ArchiveRead | None = None,
                     progress: Progress = _quiet) -> tuple[dict, list[dict] | None, dict]:
     """Read every member once, verifying ZIP CRC, the manifest SHA-256 and, for
     a password-protected bundle, every chunk's tag.
@@ -155,7 +160,7 @@ def _verify_archive(path: Path, destination: Path | None = None, *, password: st
     member's inspection result, the masks' included.
     """
     try:
-        with _open_archive(path, password, derived) as archive, _Pool() as pool, _Stager() as stager:
+        with _open_archive(path, password, derived, read_owner) as archive, _Pool() as pool, _Stager() as stager:
             infos = archive.infolist()
             names = [info.filename for info in infos]
             if len(names) != len(set(n.casefold() for n in names)):
@@ -178,6 +183,13 @@ def _verify_archive(path: Path, destination: Path | None = None, *, password: st
             manifest = json.loads(archive.read(_MANIFEST))
             if not isinstance(manifest, dict) or manifest.get("format") != _FORMAT or manifest.get("version") != 1:
                 raise BundleError("this is not a supported Local Diffusion bundle")
+            if backup_receipts.MARKER in manifest or managed is not None:
+                try:
+                    marker = backup_receipts.read_marker(manifest.get(backup_receipts.MARKER))
+                except backup_receipts.ReceiptError:
+                    raise BundleError("the bundle's managed identity is invalid") from None
+                if managed is not None and marker != managed:
+                    raise BundleError("the bundle's managed identity does not match this export")
             files = manifest.get("files")
             if not isinstance(files, dict) or set(files) != set(names) - {_MANIFEST} or _DATABASE not in files:
                 raise BundleError("the bundle manifest does not match its files")
@@ -208,7 +220,7 @@ def _verify_archive(path: Path, destination: Path | None = None, *, password: st
                     raise BundleError(f"invalid size or checksum for {name}")
                 digest = hashlib.sha256()
                 write = destination is not None and (name == _DATABASE or extract is None or extract(name))
-                target = destination.joinpath(*PurePosixPath(name).parts) if write else None
+                target = destination.joinpath(*PurePosixPath(name).parts) if destination is not None and write else None
                 if target:
                     stager.directory(target.parent)
                 row = tracked.get(name)
@@ -244,9 +256,11 @@ def _verify_archive(path: Path, destination: Path | None = None, *, password: st
                     if output:
                         output.close()
                 if row:
+                    assert data is not None  # Tracked members take the bounded whole-read branch above.
                     pool.submit(name, _png_weight(data), _checked, name, expected["sha256"], inspect, row, data)
                     data = None  # the bytes go with their inspection, not with the next member
                 elif mask:
+                    assert data is not None
                     known = (masks or {}).get(PurePosixPath(name).stem)
                     pool.submit(name, _png_weight(data), _checked, name, expected["sha256"], _mask_check,
                                 (name, known), data)

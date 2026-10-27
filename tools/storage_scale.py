@@ -18,7 +18,7 @@ import tempfile
 import time
 from contextlib import closing
 from pathlib import Path
-from zipfile import ZipFile
+from zipfile import ZipExtFile, ZipFile
 
 
 ROWS = 208
@@ -141,6 +141,7 @@ def _run(root: Path, encrypted: bool) -> dict:
             manifest = json.loads(handle.read("manifest.json"))
             for name, expected in manifest["files"].items():
                 with handle.open(name) as member:
+                    assert isinstance(member, ZipExtFile), "reading a ZIP member requires its binary stream"
                     assert hashlib.file_digest(member, "sha256").hexdigest() == expected["sha256"]
                 assert handle.getinfo(name).file_size == expected["size"]
 
@@ -180,6 +181,7 @@ def _run(root: Path, encrypted: bool) -> dict:
             assert metadata["reference"] == after.reference and metadata["refine"] == after.refine
             assert metadata["hash"] == after.content_hash and metadata["mask"] == after.mask
             if after.reference:
+                assert before.reference is not None, "imported references require their source ids"
                 assert metadata["reference_sources"] == [provenance(i) for i in before.reference]
             if after.refine is not None:
                 assert metadata["refine_source"] == provenance(before.refine)
@@ -241,7 +243,8 @@ def _run(root: Path, encrypted: bool) -> dict:
     assert storage._tracked_masks() == {shared, live_only}
     assert storage.bin_summary()["records"] == 0
     assert storage.get_image(mapped[doomed[0].id], include_binned=True) is None
-    assert storage.get_image(mapped[live[3].id]).refine_missing is True
+    remaining = storage.get_image(mapped[live[3].id])
+    assert remaining is not None and remaining.refine_missing is True
     _integrity(storage.settings.db_path)
     return {"encrypted": encrypted, "rows": ROWS, "binned": BINNED, "size": f"{SIDE}x{SIDE}",
             "source_bytes": source_bytes, "png_bytes": png_bytes, "archive_bytes": archive["bytes"],

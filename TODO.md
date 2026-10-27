@@ -8,16 +8,11 @@ The maintainer's working backlog for this personal project: it records what is p
 
 **Aim (2026-10-18):** keep useful work ready for Matt's common workstation tasks. [Reported use](docs/design/preferences.md) guides priority; it does not approve the candidate redesign.
 
-**Ready backlog (audited 2026-10-26):** nine `OPEN` rows: five with CPU/browser implementation work and four whose next deliverable is a plan. The [audit](docs/review-2026-10-26-todo.md) found two concrete defects; start with these bounded slices, then the development checks:
+**Ready backlog (updated 2026-10-27):** the remaining `OPEN` row, `DEV#4`, awaits restored browser access. Performance source and bounded diagnostics presentation are built; `PERF#1`, `PERF#3` and `PERF#4` are CARD. Marian's token boundary, portable screenshots, the classic-script guard and the complete pinned type gate are built and checked. The four feature plans are written. `DEV#4`'s diagnostics and native Node API preflight are built; its Linux browser qualification awaits WSL service access. [Tooling results](docs/plan-tooling.md).
 
-1. `GEN#26`: preserve Marian's source tokens at a full chunk's boundary; CPU regression checks, no model download.
-2. `DEV#7`: make smoke screenshots portable across Windows accounts and Linux.
-3. `DEV#5`: check every classic script's syntax and shared declarations, including `app.js`, without booting the page.
-4. `DEV#4`, then `DEV#6`: retain smoke diagnostics and qualify a separate Linux browser CI job; establish a type-check baseline, fix bounded batches and enable its gate. [Stages and completion criteria](docs/plan-tooling.md).
+**Performance stages:** `PERF#1` ([compilation](docs/plan-regional-compilation.md)), then `PERF#3` ([attention](docs/plan-attention-backends.md)) and `PERF#4` ([caching](docs/plan-step-caching.md)). Unavailable performance configuration/settings/status/UI are built with Eager defaults and closed execution guards. Composer/replay resolution, first-call diagnostics and Models/job-progress presentation, request-driven FBC and conservative attention-environment refusal are built with synthetic coverage. Subsequent performance work is toolchain/card qualification and nonempty release admission. Corrected browser validation is blocked by an actual Windows access denial. Default-off backups, explicit shared mode/retention and credential source/stubs are built; actual credential/recovery qualification remains. No real gallery was activated. `PERF#2` still waits on `PERF#1`; source implementation is separate from the remaining layout trials and RAM-loader card check.
 
-**Plan next:** `PERF#1` (regional compilation), then `GAL#6` (automatic backups), `PERF#3` (attention backend) and `PERF#4` (step caching). Their [owner](docs/review-2026-10-25.md) defines CPU-only planning deliverables. `PERF#2` still waits on `PERF#1`. These starts do not depend on Matt's layout trials or the RAM-loader card check.
-
-**Needs Matt:** workbench task trials (`DEV#1`) and hands-on accessibility/desktop checks (`UI#7`). Four decisions remain: SDXL weighting (`GEN#20`), whether to plan instruction editing (`INP#11`) or a detailer (`INP#12`), and whether to withhold critic rewrites that lose user content (`PA#11`). Whole-app layout implementation waits for its trials; it remains a design hypothesis.
+**Needs Matt:** workbench task trials (`DEV#1`), hands-on accessibility/desktop checks (`UI#7`) and intended-user Windows credential/recovery qualification (`GAL#6`, source/stubs built; no real vault accessed). Four decisions remain: SDXL weighting (`GEN#20`), whether to plan instruction editing (`INP#11`) or a detailer (`INP#12`), and whether to withhold critic rewrites that lose user content (`PA#11`). Whole-app layout implementation waits for its trials; it remains a design hypothesis.
 
 **Card prerequisite:** the quantizing load's RAM fix is implemented but its real Windows peak is unverified (`GEN#22`). Start with a separately approved cold fp8 FLUX.1 Krea dev load; each other checkpoint still needs its own measured load and render. Earlier guard stops remain historical evidence, not measurements of the fixed loader.
 
@@ -75,7 +70,6 @@ Matt's approved [shortcut and compact-setup stages](docs/plan-shortcut-workflow.
 | `GEN#16` | CARD | LOW | S+card | Generate then refine: phase 3's FLUX.1 Krea dev night at 1.5x, peak of the alternation and the pair's time; load recheck first (`GEN#22`). [Plan](docs/plan-then-refine.md). |
 | `GEN#20` | DECISION | LOW | L+card | Whether to plan opt-in A1111 weighting and 77-token chunking on SDXL; only if Matt writes weighted prompts. [10-24 G10](docs/review-2026-10-24.md#g10-a1111-style-weighting-and-long-prompts-on-sdxl). |
 | `GEN#22` | CARD | MED | M+card | The quantizing load's RAM peak (about 46 GiB at the load, 2026-10-25) is fixed in the loader: unquantized tensors kept every bf16 shard mapped, and `loading.checkpoint_files_released` now lets each go. Re-run a cold fp8 FLUX.1 Krea dev load on Windows and record its peak, then the FLUX-family card rows it unblocks. [The quantizing load's RAM peak](docs/design-notes.md#the-quantizing-loads-ram-peak). |
-| `GEN#26` | OPEN | MED | S | Preserve every Marian source token at a full chunk boundary: separate the source budget from the input limit including special tokens. [Reproduction and completion](docs/review-2026-10-26-todo.md#gen26-marian-truncates-a-full-sentence-chunk). |
 
 ## Speed
 
@@ -83,10 +77,10 @@ Matt's approved [shortcut and compact-setup stages](docs/plan-shortcut-workflow.
 
 | id | status | sev | size | item |
 |---|---|---|---|---|
-| `PERF#1` | OPEN | MED | L+card | Compile the denoiser's repeated blocks under model offload (`compile_repeated_blocks`); Triton on Windows, recompiles per size, LoRA hot-swap, eager-vs-compiled pixels. Plan first. [10-25 R1](docs/review-2026-10-25.md#r1-compile-the-denoisers-repeated-blocks). |
+| `PERF#1` | CARD | MED | L+card | Qualify toolchain/cache and the card after `GEN#22`; source and bounded diagnostics presentation are built. Browser qualification still needs restored access. Public nonempty admission stays closed. [Plan](docs/plan-regional-compilation.md). |
 | `PERF#2` | BLOCKED | LOW | M+card | A quantization choice with fp8 activations (torchao `Float8DynamicActivationFloat8WeightConfig`) on the card's fp8 tensor cores; waits on `PERF#1`. [10-25 R2](docs/review-2026-10-25.md#r2-fp8-with-fp8-activations). |
-| `PERF#3` | OPEN | LOW | M+card | An attention backend per family (`set_attention_backend`: cuDNN, flash, sage), its Windows wheels and its pixels. Plan first. [10-25 R3](docs/review-2026-10-25.md#r3-attention-backend). |
-| `PERF#4` | OPEN | LOW | L+card | Opt-in step caching (First Block Cache, TaylorSeer or MagCache) for the 30-50 step undistilled checkpoints, widening the key once. Plan first. [10-25 R4](docs/review-2026-10-25.md#r4-step-caching-for-the-long-undistilled-schedules). |
+| `PERF#3` | CARD | LOW | M+card | Qualify Native/cuDNN speed, fit and repeatability after `GEN#22`; browser qualification still needs restored access. Public nonempty admission remains closed. [Plan](docs/plan-attention-backends.md). |
+| `PERF#4` | CARD | LOW | L+card | Run the fixed off/on quality, time and memory comparisons after `GEN#22`, then judge the pairs. Browser qualification still needs restored access; public caching remains closed. [Plan](docs/plan-step-caching.md). |
 
 ## Gallery and storage
 
@@ -94,7 +88,7 @@ Matt's approved [shortcut and compact-setup stages](docs/plan-shortcut-workflow.
 
 | id | status | sev | size | item |
 |---|---|---|---|---|
-| `GAL#6` | OPEN | LOW | L | Automatic whole-gallery backup at start-up past a set age, keeping the last N, through the verified export; decide how a password works unattended. Plan first. [10-25 R8](docs/review-2026-10-25.md#r8-automatic-whole-gallery-backup). |
+| `GAL#6` | USER | LOW | S | Qualify intended-user Windows credential setup/session and independent-password recovery. OS APIs were stub-tested; no real vault access or gallery activation was performed. [Plan](docs/plan-automatic-backups.md). |
 
 ## Prompt analyser
 
@@ -119,10 +113,7 @@ Matt's approved [shortcut and compact-setup stages](docs/plan-shortcut-workflow.
 
 | id | status | sev | size | item |
 |---|---|---|---|---|
-| `DEV#4` | OPEN | LOW | L | Retain collectable smoke diagnostics, then qualify a separate Linux Chrome CI job; the job follows `DEV#7`'s portable output. [Stages](docs/plan-tooling.md#browser-smokes-in-ci). |
-| `DEV#5` | OPEN | LOW | S | A pytest-to-Node syntax/shared-scope guard derived from HTML script order, including `app.js` without running its boot. [Completion](docs/plan-tooling.md#shared-classic-script-scope). |
-| `DEV#6` | OPEN | LOW | L | Establish Pyright basic's baseline over `backend/` and `tools/`, fix bounded batches, then gate CI; no blanket suppressions. [Stages](docs/plan-tooling.md#backend-type-checking). |
-| `DEV#7` | OPEN | MED | S | Remove account-specific screenshot paths from the compact-setup smoke and define portable screenshot output for the browser runner. [Defect and completion](docs/plan-tooling.md#portable-smoke-screenshots). |
+| `DEV#4` | OPEN | LOW | L | Qualify Linux Chrome and its separate CI job; portable screenshots and bounded diagnostics are built. WSL service access is denied; Windows browser retries also stopped after `IAppCapability` denial. Corrected UI/profile and Linux/hosted checks remain unverified. [Stages](docs/plan-tooling.md#browser-smokes-in-ci). |
 
 ## Review coverage
 
@@ -142,6 +133,7 @@ Each review's remaining work is indexed above; closed findings stay in their own
 | 2026-10-26 keyboard | All three approved stages (`UI#17`-`UI#19`) fixed and qualified, including fast routes and compact setup. [Evidence](docs/plan-shortcut-workflow.md). |
 | 2026-10-26 sizing/Bundles | Password association (`UI#14`), clear-count explanation (`UI#15`) and frequent secondary target sizing (`UI#16`) fixed and qualified. [Evidence and results](docs/review-2026-10-26-sizing-bundles.md). |
 | 2026-10-26 TODO audit | [Owner/code reconciliation](docs/review-2026-10-26-todo.md): Marian chunk truncation (`GEN#26`), portable screenshots (`DEV#7`), restored critic decision (`PA#11`) and bounded tooling/planning stages. |
+| 2026-10-26 overnight | `GEN#26`, `DEV#5`-`DEV#7` built and locally qualified; all four feature plans written. [Tooling evidence](docs/plan-tooling.md). Linux browser qualification remains `DEV#4`; no hosted/GPU acceptance is claimed. |
 
 ---
 

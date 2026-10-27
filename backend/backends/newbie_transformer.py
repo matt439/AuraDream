@@ -27,12 +27,15 @@ from .. import config as _config  # noqa: F401 - before any diffusers imports
 
 import torch
 from torch import nn
-from diffusers import Lumina2Transformer2DModel, ModelMixin  # noqa: F401 - custom pipeline component loader
 from diffusers.configuration_utils import register_to_config
+from diffusers.models.modeling_utils import ModelMixin  # noqa: F401 - custom pipeline component loader
 from diffusers.models.modeling_outputs import Transformer2DModelOutput
 from diffusers.models.normalization import RMSNorm
-from diffusers.models.transformers.transformer_lumina2 import Lumina2CombinedTimestepCaptionEmbedding
-from diffusers.utils import apply_lora_scale
+from diffusers.models.transformers.transformer_lumina2 import (
+    Lumina2CombinedTimestepCaptionEmbedding,
+    Lumina2Transformer2DModel,
+)
+from diffusers.utils.peft_utils import apply_lora_scale
 
 
 class NewbieTimestepCaptionEmbedding(Lumina2CombinedTimestepCaptionEmbedding):
@@ -118,7 +121,7 @@ class NewbieTransformer2DModel(Lumina2Transformer2DModel):
         max_seq_len = max(seq_lengths)
         use_mask = len(set(seq_lengths)) > 1
         attention_mask = hidden_states.new_zeros(batch_size, max_seq_len, dtype=torch.bool)
-        joint_hidden_states = hidden_states.new_zeros(batch_size, max_seq_len, self.config.hidden_size)
+        joint_hidden_states = hidden_states.new_zeros(batch_size, max_seq_len, self.config["hidden_size"])
         for i, (encoder_seq_len, seq_len) in enumerate(zip(encoder_seq_lengths, seq_lengths)):
             attention_mask[i, :seq_len] = True
             joint_hidden_states[i, :encoder_seq_len] = encoder_hidden_states[i, :encoder_seq_len]
@@ -127,14 +130,16 @@ class NewbieTransformer2DModel(Lumina2Transformer2DModel):
 
         for layer in self.layers:
             if torch.is_grad_enabled() and self.gradient_checkpointing:
-                hidden_states = self._gradient_checkpointing_func(
+                checkpoint = self._gradient_checkpointing_func
+                assert checkpoint is not None, "enabled gradient checkpointing installs its callback"
+                hidden_states = checkpoint(
                     layer, hidden_states, attention_mask if use_mask else None, rotary_emb, temb,
                 )
             else:
                 hidden_states = layer(hidden_states, attention_mask if use_mask else None, rotary_emb, temb)
         hidden_states = self.norm_out(hidden_states, temb)
 
-        patch = self.config.patch_size
+        patch = self.config["patch_size"]
         output = []
         for i, (encoder_seq_len, seq_len) in enumerate(zip(encoder_seq_lengths, seq_lengths)):
             output.append(

@@ -41,7 +41,7 @@
     "expect": "__fits()&&__hit(__customSummary())&&__closedInactive()"
   },
   {
-    "shot": "C:\\Users\\matsi\\AppData\\Local\\Temp\\local-diffusion-compact-setup-390-closed-20261026.png"
+    "shot": "compact-setup-390-closed.png"
   },
   {
     "key": "Enter",
@@ -68,7 +68,7 @@
     "expect": "__conditioning().open&&__visible(els.lora)&&document.activeElement===__conditioningSummary()&&__fits()&&__values()===__beforeDisclosure"
   },
   {
-    "shot": "C:\\Users\\matsi\\AppData\\Local\\Temp\\local-diffusion-compact-setup-390-expanded-20261026.png"
+    "shot": "compact-setup-390-expanded.png"
   },
   {
     "key": "Enter",
@@ -94,7 +94,7 @@
     "expect": "__fits()&&__hit(__customSummary())&&__closedInactive()"
   },
   {
-    "shot": "C:\\Users\\matsi\\AppData\\Local\\Temp\\local-diffusion-compact-setup-600-closed-20261026.png"
+    "shot": "compact-setup-600-closed.png"
   },
   {
     "key": "Enter",
@@ -121,7 +121,7 @@
     "expect": "__conditioning().open&&__visible(els.lora)&&document.activeElement===__conditioningSummary()&&__fits()&&__values()===__beforeDisclosure"
   },
   {
-    "shot": "C:\\Users\\matsi\\AppData\\Local\\Temp\\local-diffusion-compact-setup-600-expanded-20261026.png"
+    "shot": "compact-setup-600-expanded.png"
   },
   {
     "key": "Enter",
@@ -147,7 +147,7 @@
     "expect": "__fits()&&__hit(__customSummary())&&__closedInactive()"
   },
   {
-    "shot": "C:\\Users\\matsi\\AppData\\Local\\Temp\\local-diffusion-compact-setup-1400-closed-20261026.png"
+    "shot": "compact-setup-1400-closed.png"
   },
   {
     "key": "Enter",
@@ -174,7 +174,7 @@
     "expect": "__conditioning().open&&__visible(els.lora)&&document.activeElement===__conditioningSummary()&&__fits()&&__values()===__beforeDisclosure"
   },
   {
-    "shot": "C:\\Users\\matsi\\AppData\\Local\\Temp\\local-diffusion-compact-setup-1400-expanded-20261026.png"
+    "shot": "compact-setup-1400-expanded.png"
   },
   {
     "key": "Enter",
@@ -200,7 +200,7 @@
     "expect": "__fits()&&__hit(__customSummary())&&__closedInactive()"
   },
   {
-    "shot": "C:\\Users\\matsi\\AppData\\Local\\Temp\\local-diffusion-compact-setup-2048-closed-20261026.png"
+    "shot": "compact-setup-2048-closed.png"
   },
   {
     "key": "Enter",
@@ -227,7 +227,7 @@
     "expect": "__conditioning().open&&__visible(els.lora)&&document.activeElement===__conditioningSummary()&&__fits()&&__values()===__beforeDisclosure"
   },
   {
-    "shot": "C:\\Users\\matsi\\AppData\\Local\\Temp\\local-diffusion-compact-setup-2048-expanded-20261026.png"
+    "shot": "compact-setup-2048-expanded.png"
   },
   {
     "key": "Enter",

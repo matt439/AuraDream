@@ -44,7 +44,9 @@ class SnippetUpdate(SnippetFields):
 class Snippet(SnippetFields):
     # Persisted items must name their destination; only a new API request
     # may use the convenient Prompt default.
-    target: Literal["prompt", "negative"]
+    # Pydantic makes this required by removing the inherited default; Pyright's
+    # dataclass override rule cannot represent that supported model contract.
+    target: Literal["prompt", "negative"]  # pyright: ignore[reportGeneralTypeIssues]
     id: str = Field(pattern=r"^[a-f0-9]{32}$")
     revision: int = Field(ge=1)
 

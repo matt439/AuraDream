@@ -186,7 +186,7 @@ def _win32() -> Any:
     return _WIN32
 
 
-def _new_job(process: subprocess.Popen) -> int | None:
+def _new_job(process: _ServerProcess) -> int | None:
     """A job object holding `process`, which kills everything in it when its
     last handle closes; None, and the child alone, if Windows refuses one."""
     win = _win32()
@@ -296,6 +296,10 @@ class _ServerProcess(subprocess.Popen):
     `--sleep-idle-seconds` to free the card.
     """
 
+    # Popen creates this Windows-only integer Handle before the suspended
+    # child is assigned to its job. Its cross-platform stub omits the field.
+    _handle: int
+
     def __init__(self, command: list[str], **kwargs: Any) -> None:
         self._job: int | None = None
         # Windows: a handle to each process seen in the job, to wait on.
@@ -332,9 +336,11 @@ class _ServerProcess(subprocess.Popen):
         taken when first seen. A process leaves the job's list before its
         handles - the log, the listening socket - are closed; its own handle
         is signalled only after they are."""
-        pids = _job_pids(self._job)
+        job = self._job
+        assert job is not None  # Called only while this process owns a Windows job.
+        pids = _job_pids(job)
         for pid in pids - self._held.keys():
-            handle = _waitable(pid, self._job)
+            handle = _waitable(pid, job)
             if handle is not None:
                 self._held[pid] = handle
         return pids
@@ -390,19 +396,21 @@ class _ServerProcess(subprocess.Popen):
         code = super().wait(timeout)
         while self._others_alive():
             if deadline is not None and time.monotonic() >= deadline:
+                assert timeout is not None
                 raise subprocess.TimeoutExpired(self.args, timeout)
             time.sleep(0.05)
-        win = _win32() if self._held else None
         for pid, handle in list(self._held.items()):
+            win = _win32()
             left = 0xFFFFFFFF if deadline is None else (deadline - time.monotonic()) * 1000
             if win.kernel32.WaitForSingleObject(handle, max(0, int(left))) == 0x102:
+                assert timeout is not None  # An INFINITE wait cannot report WAIT_TIMEOUT.
                 raise subprocess.TimeoutExpired(self.args, timeout)  # WAIT_TIMEOUT
             win.kernel32.CloseHandle(handle)
             del self._held[pid]
         return code
 
 
-def _spawn(command: list[str], log_file: Any, api_key: str) -> subprocess.Popen:
+def _spawn(command: list[str], log_file: Any, api_key: str) -> _ServerProcess:
     """Start the server as a `_ServerProcess`. The seam the tests replace."""
     server = Path(command[0])
     return _ServerProcess(

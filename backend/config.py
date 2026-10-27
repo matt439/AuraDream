@@ -1,10 +1,13 @@
 """Runtime settings, overridable by environment variables."""
 from __future__ import annotations
 
+import logging
 import os
 from dataclasses import dataclass
 from pathlib import Path
 
+from .execution import ExecutionSpec, loader_execution_from_choices
+from .startup_preferences import LOADER_EXECUTION_ERROR, LOADER_EXECUTION_ERROR_VARIABLE
 from .model_defaults import (
     DEFAULT_MODEL_ID,
     DEFAULT_OFFLOAD,
@@ -20,6 +23,17 @@ from .sizes import (
     refine_largest_pixels,
     refine_largest_side,
 )
+
+# Diffusers 0.40 snapshots os.getenv(name, "native") verbatim at import:
+# absence uses native, but an explicitly empty value is not that default.
+# Observe before its import without interpreting, clearing or accepting it.
+ATTENTION_ENVIRONMENT_WARNING: str | None = (
+    "DIFFUSERS_ATTN_BACKEND differs from Diffusers' native default. "
+    "This external setting is not recorded as a Local Diffusion execution recipe."
+    if os.getenv("DIFFUSERS_ATTN_BACKEND", "native") != "native" else None
+)
+if ATTENTION_ENVIRONMENT_WARNING is not None:
+    logging.getLogger(__name__).warning("%s", ATTENTION_ENVIRONMENT_WARNING)
 
 ROOT = Path(__file__).resolve().parent.parent
 
@@ -40,6 +54,20 @@ def _env_path(name: str) -> Path | None:
     # snapshot's file links to a blob named by its hash.
     raw = os.getenv(name, "").strip()
     return Path(raw).expanduser().absolute() if raw else None
+
+
+def _loader_execution_environment() -> tuple[ExecutionSpec | None, str | None]:
+    """Snapshot app-owned recipe names without framework/device/cache work."""
+    compilation = os.getenv("LOCAL_DIFFUSION_COMPILATION", "eager")
+    attention = os.getenv("LOCAL_DIFFUSION_ATTENTION", "native")
+    try:
+        spec = loader_execution_from_choices(compilation, attention)
+    except (TypeError, ValueError):
+        return None, LOADER_EXECUTION_ERROR
+    return spec, LOADER_EXECUTION_ERROR if LOADER_EXECUTION_ERROR_VARIABLE in os.environ else None
+
+
+_STARTUP_LOADER_EXECUTION, _STARTUP_LOADER_EXECUTION_ERROR = _loader_execution_environment()
 
 
 @dataclass(frozen=True)
@@ -70,6 +98,8 @@ class Settings:
 
     device: str = os.getenv("LOCAL_DIFFUSION_DEVICE", "cuda")
     load_on_startup: bool = _env_bool("LOCAL_DIFFUSION_PRELOAD", False)
+    loader_execution: ExecutionSpec | None = _STARTUP_LOADER_EXECUTION
+    loader_execution_error: str | None = _STARTUP_LOADER_EXECUTION_ERROR
 
     # Where the images and their index live. Overridable so a server run from
     # WSL 2 against a checkout on the Windows drive can keep them on the Linux

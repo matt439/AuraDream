@@ -12,13 +12,16 @@ import json
 import os
 import zlib
 from concurrent.futures import ThreadPoolExecutor
+from contextlib import nullcontext
 from pathlib import Path, PurePosixPath
-from typing import NamedTuple
+from typing import IO, NamedTuple
 
 from PIL import Image, ImageFile
 
 from . import reindex, storage
 from .bundle_common import _CHUNK, _WORKERS, MASK_HASH, BundleError
+from .execution import execution_chunk, execution_from_json, execution_key
+from .metadata import require_header_metadata
 
 
 class _Pixels(NamedTuple):
@@ -32,6 +35,8 @@ class _Pixels(NamedTuple):
     # Plain RGB, no transparency: what every render is saved as, and so the
     # only form in which `hash` alone (with the size) decides the picture.
     rgb: bool
+    # The strict SQL/PNG recipe carried by a tracked image, not its pixels.
+    execution: str | None = None
 
 
 def _raw_digest(image: Image.Image) -> str:
@@ -55,21 +60,24 @@ def _raw_digest(image: Image.Image) -> str:
     return digest.hexdigest()
 
 
-def _pixels(path, *, name: str | None = None) -> _Pixels:
-    name = name or path.name
+def _pixels(path: Path | str | IO[bytes], *, name: str | None = None, row: dict | None = None) -> _Pixels:
+    name = name or (Path(path).name if isinstance(path, (str, Path)) else str(getattr(path, "name", "PNG")))
     try:
-        with Image.open(path) as image:
-            if image.format != "PNG":
-                raise BundleError(f"not a PNG image: {name}")
-            image.load()
-            raw = _raw_digest(image)
-            identity = hashlib.sha256(repr((
-                image.mode, image.size, (image.palette.mode, image.palette.tobytes()) if image.palette else None,
-                image.info.get("transparency"), raw,
-            )).encode()).hexdigest()
-            # The same digest storage.content_hash takes, without a second pass.
-            rgb = image.mode == "RGB" and "transparency" not in image.info
-            return _Pixels(raw[:16], image.width, image.height, identity, rgb)
+        with (open(path, "rb") if isinstance(path, (str, Path)) else nullcontext(path)) as stream:
+            require_header_metadata(stream)
+            with Image.open(stream) as image:
+                if image.format != "PNG":
+                    raise BundleError(f"not a PNG image: {name}")
+                execution = _execution(row, image.info) if row is not None else None
+                image.load()
+                raw = _raw_digest(image)
+                identity = hashlib.sha256(repr((
+                    image.mode, image.size, (image.palette.mode, image.palette.tobytes()) if image.palette else None,
+                    image.info.get("transparency"), raw,
+                )).encode()).hexdigest()
+                # The same digest storage.content_hash takes, without a second pass.
+                rgb = image.mode == "RGB" and "transparency" not in image.info
+                return _Pixels(raw[:16], image.width, image.height, identity, rgb, execution)
     except (OSError, ValueError, Image.DecompressionBombError) as exc:
         raise BundleError(f"cannot read image {name}: {exc}") from exc
 
@@ -120,7 +128,7 @@ def _references(row: dict) -> list[int]:
 
 
 def _validate_source_row(row: dict, source, *, name: str | None = None) -> _Pixels:
-    pixels = _pixels(source, name=name)
+    pixels = _pixels(source, name=name, row=row)
     _validate_row(row, pixels.width, pixels.height, pixels.hash)
     return pixels
 
@@ -129,6 +137,7 @@ def _validate_row(row: dict, width: int, height: int, content_hash: str) -> None
     if (width, height) != (row["width"], row["height"]):
         raise BundleError(f"image dimensions disagree with the database: {row['filename']}")
     _references(row)
+    _execution(row)
     refine = row.get("refine")
     if refine is not None and (type(refine) is not int or refine <= 0):
         raise BundleError(f"invalid refine source on image {row['id']}")
@@ -166,6 +175,19 @@ def _validate_row(row: dict, width: int, height: int, content_hash: str) -> None
         storage._row_to_record(values)
     except (TypeError, ValueError) as exc:
         raise BundleError(f"invalid metadata for {row['filename']}: {exc}") from exc
+
+
+def _execution(row: dict, info: dict | None = None) -> str | None:
+    """Validate both stored sources, retaining a recipe an older schema lacks.
+
+    Called during the existing in-memory image inspection, including the
+    repeat-import fast path; it neither grants runtime availability nor
+    changes the export's source snapshot before its cleanup comparison.
+    """
+    try:
+        return execution_key(reindex._execution_from_info(row, info))
+    except (TypeError, ValueError) as exc:
+        raise BundleError(f"invalid execution metadata for {row['filename']}: {exc}") from exc
 
 
 def _inspect_source(row: dict, data: bytes):
@@ -242,6 +264,7 @@ def _metadata(row: dict, by_id: dict[int, dict]) -> dict:
         "batch": row.get("batch"),
         **({"crop_anchor": crop_anchor} if crop_anchor is not None else {}),
         **({"upscaler": row["upscaler"]} if row.get("upscaler") is not None else {}),
+        **execution_chunk(execution_from_json(row.get("execution"))),
         **_peak_chunk(row),
     }
 

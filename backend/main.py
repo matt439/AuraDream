@@ -7,6 +7,7 @@ import logging
 import threading
 import time
 from contextlib import asynccontextmanager
+from typing import Literal, NotRequired, TypedDict
 
 import uvicorn
 from fastapi import FastAPI, HTTPException, Request
@@ -26,14 +27,26 @@ if __name__ == "__main__":
 
     configure()
 
-from . import api_bundles, api_gallery, api_generate, api_jobs, api_masks, api_more_seeds, api_png, api_prompt, api_refine_batch, api_snippets, api_swap, app_context, bundle_common, bundles, gallery_lock, hub_access, loras, model_selection, prompt_encoding, startup_preferences, storage  # noqa: E402
+# Only this owned entrypoint has not yet created project workers or accepted
+# requests. Imported ASGI/embedded hosts cannot assert that startup guarantee.
+# None is the private default and performs no cache I/O or environment writes.
+from . import compiler_cache  # noqa: E402
+
+if __name__ == "__main__":
+    compiler_cache._owned_startup()
+else:
+    compiler_cache._seal_startup()
+
+from . import api_backup, api_bundles, api_gallery, api_generate, api_jobs, api_masks, api_more_seeds, api_png, api_prompt, api_refine_batch, api_snippets, api_swap, app_context, bundle_common, bundles, gallery_lock, hub_access, loras, model_selection, prompt_encoding, startup_preferences, storage  # noqa: E402
+from .backup_service import BackupService  # noqa: E402
 from .backends import get_backend  # noqa: E402
 from .detached import detached as _detached  # noqa: E402
 from .model_selection import current_model_id, current_settings  # noqa: E402
 from .model_info import cache_revision as model_cache_revision, details_for, invalidate_cache_facts  # noqa: E402
-from .config import settings  # noqa: E402
+from .config import ATTENTION_ENVIRONMENT_WARNING, settings  # noqa: E402
 from .critic import CriticError, prompt_critic  # noqa: E402
 from .jobs import JobManager, LoadFailed, MaskGone, OutpaintStampFailed, RunPersistenceFailed, short_error  # noqa: E402
+from .execution import canonical_loader_execution, require_configured_loader_available  # noqa: E402
 from .launch import CHECKPOINTS  # noqa: E402
 from .model_defaults import defaults_for, guide_for, hints_for  # noqa: E402
 from .schemas import (  # noqa: E402
@@ -41,6 +54,7 @@ from .schemas import (  # noqa: E402
     ExpanderStatus,
     ModelStatus,
     ModelSwitchRequest,
+    PromptGuide,
 )
 from .translation import MODEL_BYTES as TRANSLATOR_BYTES  # noqa: E402
 from .translation import prompt_translator  # noqa: E402
@@ -53,7 +67,14 @@ log = logging.getLogger("local_diffusion")
 backend = get_backend("diffusers")
 
 # Loading ~13GB of weights takes minutes, so it runs off-request.
-_load_state: dict[str, str | None] = {"state": "unloaded", "detail": None}
+class _LoadState(TypedDict):
+    state: Literal["unloaded", "loading", "ready", "error"]
+    detail: str | None
+    detail_kind: NotRequired[str | None]
+    detail_url: NotRequired[str | None]
+
+
+_load_state: _LoadState = {"state": "unloaded", "detail": None}
 _load_lock = asyncio.Lock()
 _switching = False
 _switch_task: asyncio.Task | None = None
@@ -101,12 +122,13 @@ def _hub_failure(exc: BaseException) -> str | None:
     a network that was up rather than to the variable."""
     seen: set[int] = set()
     found: list[str] = []
-    while exc is not None and id(exc) not in seen:
-        seen.add(id(exc))
-        kind = next((k.__name__ for k in type(exc).__mro__ if k.__name__ in _HUB_FAILURES), None)
+    current: BaseException | None = exc
+    while current is not None and id(current) not in seen:
+        seen.add(id(current))
+        kind = next((k.__name__ for k in type(current).__mro__ if k.__name__ in _HUB_FAILURES), None)
         if kind is not None:
             found.append(kind)
-        exc = exc.__cause__ or exc.__context__
+        current = current.__cause__ or current.__context__
     if "OfflineModeIsEnabled" in found:
         return "OfflineModeIsEnabled"
     return found[0] if found else None
@@ -177,6 +199,7 @@ async def ensure_loaded() -> None:
     of requests waits on a single attempt instead of each starting its own.
     """
     async with _load_lock:
+        require_configured_loader_available(current_settings(settings))
         if backend.is_ready():
             _load_state.update(state="ready", detail=None)
             return
@@ -226,6 +249,19 @@ bundle_manager = api_bundles.BundleManager(
     # job, which `reserve` refuses on its own.
     lambda: _switching,
 )
+backup_service: BackupService | None = None
+_startup_task: asyncio.Task | None = None
+
+
+def _backup_service() -> BackupService:
+    assert backup_service is not None, "backup service is available during app lifespan"
+    return backup_service
+
+
+async def _finish_startup(service: BackupService, preload: bool) -> None:
+    await service.finish()
+    if preload:
+        await _load_in_background()
 
 
 def _stop_critic() -> None:
@@ -242,6 +278,7 @@ def _stop_critic() -> None:
 
 @asynccontextmanager
 async def lifespan(app: FastAPI):
+    global backup_service, _startup_task
     storage.init_db()
     # No job survives a restart, so neither does a hold on its mask; one a
     # crashed server left would spare that mask from every sweep for good.
@@ -253,9 +290,18 @@ async def lifespan(app: FastAPI):
         storage.settle_partials()
     except gallery_lock.GalleryBusy:
         pass  # another process is mid-operation; the next bundle operation sweeps
-    if settings.load_on_startup:
-        asyncio.create_task(_load_in_background())
+    backup_service = BackupService(bundle_manager, settings.db_path)
+    await asyncio.to_thread(backup_service.prepare)
+    backup_service.start_once()
+    # Track this supervisor: shutdown cancels it before a waiting preload can
+    # begin, then drains the admitted file writer through BundleManager.
+    _startup_task = None
+    if backup_service.coordinator is not None or settings.load_on_startup:
+        _startup_task = asyncio.create_task(_finish_startup(backup_service, settings.load_on_startup))
     yield
+    if _startup_task is not None and not _startup_task.done():
+        _startup_task.cancel()
+        await asyncio.gather(_startup_task, return_exceptions=True)
     if _switch_task is not None and not _switch_task.done():
         _switch_task.cancel()
         await asyncio.gather(_switch_task, return_exceptions=True)
@@ -306,7 +352,7 @@ async def run_persistence_failed(request: Request, exc: RunPersistenceFailed):
 
 @app.exception_handler(bundles.BundleError)
 async def invalid_bundle(request: Request, exc: bundles.BundleError):
-    body = {"detail": bundle_common.sentence(str(exc))}
+    body: dict[str, str | int | bool] = {"detail": bundle_common.sentence(str(exc))}
     if isinstance(exc, bundles.MissingImage):
         # Which row, for the dialog's Show it.
         body.update(image_id=exc.image_id, binned=exc.binned)
@@ -459,9 +505,12 @@ async def status() -> ModelStatus:
         if revision == model_selection.revision() and switching == _switching:
             break
     state = _load_state["state"]
-    if state == "unloaded" and backend.is_ready():
-        state = "ready"
+    if state in {"unloaded", "ready"}:
+        # A backend may discard an unsafe pipeline between loads. Reflect its
+        # actual readiness without changing the load supervisor's own state.
+        state = "ready" if backend.is_ready() else "unloaded"
     defaults = _merged_defaults(info)
+    selected_settings = current_settings(settings)
     card_holder, card_ticket = jobs.card()
     return ModelStatus(
         state=state,
@@ -478,13 +527,19 @@ async def status() -> ModelStatus:
             defaults["lora_supported"],
             defaults["refine_supported"],
         ),
-        guide=guide_for(info["model_id"]),
+        guide=PromptGuide.model_validate(guide_for(info["model_id"])),
         model_id=info["model_id"],
         quantization=info["quantization"],
         offload=info["offload"],
+        **model_selection.execution_status(selected_settings),
+        execution_options=model_selection.execution_options(selected_settings),
+        # Read after the threaded description/revision retry: a same-checkpoint
+        # unload/reload can replace its registration without changing revision.
+        execution_diagnostics=backend.execution_diagnostics(),
         format=model_selection.format_for(settings),
         load_on_startup=_load_on_startup(),
         startup_overrides=_startup_overrides,
+        attention_environment_warning=ATTENTION_ENVIRONMENT_WARNING,
         switch_error=_switch_error,
         detail=_load_state["detail"],
         # Only beside the detail they describe: every other update of the
@@ -642,8 +697,12 @@ def _disk_free_mb() -> int | None:
 @app.post("/api/model/load", response_model=ModelStatus)
 async def load_model() -> ModelStatus:
     global _switch_error
+    try:
+        require_configured_loader_available(current_settings(settings))
+    except ValueError as exc:
+        raise HTTPException(status_code=422, detail=str(exc)) from exc
     _switch_error = None
-    if _load_state["state"] != "ready":
+    if _load_state["state"] != "ready" or not backend.is_ready():
         # Reserve the pending load before its task has entered the lock.
         _load_state.update(state="loading", detail=None)
         asyncio.create_task(_load_in_background())
@@ -653,6 +712,7 @@ async def load_model() -> ModelStatus:
 @app.get("/api/models")
 async def list_models(
     quantization: str | None = None, format: str | None = None, offload: str | None = None,
+    compilation: str | None = None, attention: str | None = None,
 ) -> dict:
     options = model_selection.options(settings)
     if quantization is not None and quantization not in {o["value"] for o in options["quantizations"]}:
@@ -661,7 +721,20 @@ async def list_models(
         raise HTTPException(status_code=422, detail="choose a supported Nunchaku format")
     if offload is not None and offload not in {o["value"] for o in options["offloads"]}:
         raise HTTPException(status_code=422, detail="choose a supported offload mode")
+    if compilation is not None and compilation not in {"eager", "regional-v1"}:
+        raise HTTPException(status_code=422, detail="choose a supported compilation option")
+    if attention is not None and attention not in {"native", "cudnn-v1"}:
+        raise HTTPException(status_code=422, detail="choose a supported attention option")
+    revision = model_selection.revision()
     current = current_settings(settings)
+    draft = model_selection.UNSET_EXECUTION
+    if compilation is not None or attention is not None:
+        values = current.loader_execution.model_dump(exclude_none=True) if current.loader_execution is not None else {}
+        if compilation is not None:
+            values["compilation"] = None if compilation == "eager" else compilation
+        if attention is not None:
+            values["attention_backend"] = None if attention == "native" else attention
+        draft = canonical_loader_execution(values)
     models = model_selection.available(settings, quantization=quantization, format=format)
     selected = {
         "model_id": current.model_id,
@@ -670,18 +743,35 @@ async def list_models(
         "format": model_selection.format_for(settings),
         "load_on_startup": _load_on_startup(),
         "startup_overrides": dict(_startup_overrides),
+        **model_selection.execution_status(current),
+        "execution_options": model_selection.execution_options(
+            current, execution=draft, quantization=quantization, offload=offload,
+        ),
     }
     cache_revision = model_cache_revision()
     details = await _detached(lambda: {
-        model["model_id"]: details_for(
-            model["model_id"], quantization=quantization or current.quantization,
-            offload=offload or current.offload,
-        ) for model in models
+        model["model_id"]: {
+            **details_for(
+                model["model_id"], quantization=quantization or current.quantization,
+                offload=offload or current.offload,
+            ),
+            "execution_options": model_selection.execution_options(
+                current, execution=draft, model_id=model["model_id"],
+                quantization=quantization, offload=offload,
+            ),
+            "execution_configuration_reason": model_selection.execution_configuration_reason(
+                current, execution=draft, model_id=model["model_id"],
+                quantization=quantization, offload=offload,
+            ),
+        } for model in models
     })
     return {
         "models": models,
         "details": details,
         "cache_revision": cache_revision,
+        # Catalogue metadata retains its original selection snapshot. Never
+        # attach a newer selection's live observation to that older answer.
+        "execution_diagnostics": backend.execution_diagnostics() if revision == model_selection.revision() else None,
         **selected,
         **options,
     }
@@ -713,6 +803,7 @@ async def _switch_model(target, *, load: bool, previous, previous_preload) -> No
             _load_state.update(state="unloaded", detail=None)
             model_selection.select(
                 target.model_id, quantization=target.quantization, offload=target.offload,
+                loader_execution=target.loader_execution,
             )
             _load_state.update(state="loading" if load else "unloaded", detail=None)
             # The selection is committed: from here on this is an ordinary
@@ -748,10 +839,7 @@ def _restore_preferences(previous, previous_preload) -> None:
     global _startup_preload
     _startup_preload = previous_preload
     try:
-        if previous is None:
-            startup_preferences.path_for(settings.db_path).unlink(missing_ok=True)
-        else:
-            startup_preferences.save(settings.db_path, previous)
+        startup_preferences.restore_snapshot(settings.db_path, previous)
     except Exception as exc:
         log.error("could not restore startup settings: %s", short_error(exc))
 
@@ -803,14 +891,15 @@ async def switch_model(request: ModelSwitchRequest, http_request: Request) -> Mo
     try:
         target = model_selection.validate(
             settings, request.model_id, quantization=request.quantization,
-            offload=request.offload, format=request.format,
+            offload=request.offload, format=request.format, load=request.load,
+            execution=request.execution if "execution" in request.model_fields_set else model_selection.UNSET_EXECUTION,
         )
     except ValueError as exc:
         raise HTTPException(status_code=422, detail=str(exc)) from exc
     if _switching or _switch_draining:
         raise HTTPException(status_code=409, detail="the checkpoint is switching; wait for the switch to finish")
     _refuse_busy_switch()
-    if target.model_id != current_model_id(settings):
+    if target.model_id != current_model_id(settings) and (request.load or target.loader_execution is None):
         # Before anything is saved, reserved or unloaded: a checkpoint the Hub
         # will not let this sign-in download must not cost the working one.
         await _refuse_hub_access(target.model_id)
@@ -843,15 +932,19 @@ async def switch_model(request: ModelSwitchRequest, http_request: Request) -> Mo
     # enter between the idle check and the background task's first instruction.
     _switching = True
     _switch_error = None
-    previous, previous_preload = startup_preferences.load(settings.db_path), _startup_preload
+    previous_preload = _startup_preload
     preload = _load_on_startup() if request.load_on_startup is None else request.load_on_startup
     try:
+        # Keep exact prior bytes, including a diagnostic-bearing invalid file.
+        # If they cannot be boundedly captured, do not overwrite them.
+        previous = startup_preferences.capture_snapshot(settings.db_path)
         # Save before releasing working weights: a disk error must be visible
         # to the browser, and must leave both current and previous settings intact.
         startup_preferences.save(settings.db_path,
             startup_preferences.StartupPreferences(
                 model_id=target.model_id, quantization=target.quantization,
                 offload=target.offload, load_on_startup=preload,
+                loader_execution=target.loader_execution,
             ))
     except Exception as exc:
         _switching = False
@@ -859,8 +952,8 @@ async def switch_model(request: ModelSwitchRequest, http_request: Request) -> Mo
         raise HTTPException(status_code=500, detail=f"Could not save startup settings: {short_error(exc)}") from exc
     _startup_preload = preload
     current = current_settings(settings)
-    if (target.model_id, target.quantization, target.offload) == (
-        current.model_id, current.quantization, current.offload,
+    if (target.model_id, target.quantization, target.offload, target.loader_execution, target.loader_execution_error) == (
+        current.model_id, current.quantization, current.offload, current.loader_execution, current.loader_execution_error,
     ):
         _switching = False
         return await load_model() if request.load else await status()
@@ -930,6 +1023,7 @@ app.include_router(api_png.create_router(services))
 app.include_router(api_masks.create_router(services))
 app.include_router(api_jobs.create_router(lambda: jobs))
 app.include_router(api_bundles.create_router(lambda: bundle_manager, services))
+app.include_router(api_backup.create_router(_backup_service))
 app.include_router(api_gallery.create_router(
     lambda: jobs, services.model_scope, max_grid_images=settings.max_grid_images,
 ))

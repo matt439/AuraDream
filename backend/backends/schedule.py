@@ -126,6 +126,8 @@ def forced_mu(pipe: Any, mu: float | None):
         yield
         return
 
+    assert scheduler is not None and original is not None  # A readable method supplied this signature.
+
     @functools.wraps(original)
     def set_timesteps(*args: Any, **kwargs: Any):
         bound = signature.bind(*args, **kwargs)
@@ -273,7 +275,7 @@ def start_sigma(pipe: Any, sibling: type, request: Any, start: int) -> float | N
     scheduler = getattr(pipe, "scheduler", None)
     recipe = START_RECIPES.get(getattr(sibling, "__name__", ""))
     scale = getattr(pipe, "vae_scale_factor", None)
-    if recipe is None or scale is None or not type(scheduler).__name__.startswith("FlowMatch"):
+    if scheduler is None or recipe is None or scale is None or not type(scheduler).__name__.startswith("FlowMatch"):
         return None
     module = importlib.import_module(sibling.__module__)
     copy = type(scheduler).from_config(scheduler.config)

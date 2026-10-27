@@ -120,8 +120,9 @@ async def more_seeds_plan(
         if spec != (None, (), None, None, None, None):
             if spec not in checked:
                 checked[spec] = await submission.unusable_input(services, first)
-            if checked[spec] is not None:
-                kind, why = checked[spec]
+            unusable = checked[spec]
+            if unusable is not None:
+                kind, why = unusable
                 batch.status = submission.UNUSABLE_STATUS.get(kind, "invalid")
                 batch.detail = submission.unusable_detail(kind, why, batch.template.id)
     results = [
@@ -137,17 +138,17 @@ def _more_seeds_result(batch: more_seeds.Batch) -> MoreSeedsResult:
     held = [record.seed for record in batch.held]
     queued = batch.status == more_seeds.QUEUED
     seeds = batch.seeds if queued else []
-    return MoreSeedsResult(
-        id=template.id, ids=[record.id for record in batch.picked], thumb_url=template.thumb_url,
-        width=template.width, height=template.height, prompt=template.prompt[:300],
-        images=len(held), seed_low=min(held), seed_high=max(held),
-        first=seeds[0] if seeds else None, last=seeds[-1] if seeds else None, queued=len(seeds),
+    return MoreSeedsResult.model_validate({
+        "id": template.id, "ids": [record.id for record in batch.picked], "thumb_url": template.thumb_url,
+        "width": template.width, "height": template.height, "prompt": template.prompt[:300],
+        "images": len(held), "seed_low": min(held), "seed_high": max(held),
+        "first": seeds[0] if seeds else None, "last": seeds[-1] if seeds else None, "queued": len(seeds),
         # The seeds from the batch's highest to the last new one, less the
         # new ones: what was stepped over. Through the wrap, as they are.
-        skipped=(seeds[-1] - max(held)) % (MAX_SEED + 1) - len(seeds) if seeds else 0,
-        batch=batch.size if queued else None, recorded=batch.recorded,
-        status=batch.status, detail=batch.detail, notes=batch.notes if queued else [],
-    )
+        "skipped": (seeds[-1] - max(held)) % (MAX_SEED + 1) - len(seeds) if seeds else 0,
+        "batch": batch.size if queued else None, "recorded": batch.recorded,
+        "status": batch.status, "detail": batch.detail, "notes": batch.notes if queued else [],
+    })
 
 
 def _batches_by_size(batches: list[more_seeds.Batch]) -> dict[tuple[int, int], list[more_seeds.Batch]]:
@@ -336,7 +337,7 @@ def create_router(services: AppServices) -> APIRouter:
                        "Review the remaining batches before requesting more; another request adds new seeds.")
                 )
                 break
-            accepted.append(JobAccepted(job_id=job.id, seed=job.seed, run_id=job.run_id))
+            accepted.append(JobAccepted.model_validate({"job_id": job.id, "seed": job.seed, "run_id": job.run_id}))
             accepted_batches.extend(group)
         first = accepted[0]
         return MoreSeedsAccepted(

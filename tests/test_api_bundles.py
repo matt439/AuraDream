@@ -367,8 +367,8 @@ def test_an_upload_in_many_batches_arrives_byte_for_byte(client, store, monkeypa
     # Small batches: each write overlaps the next batch's arrival.
     monkeypatch.setattr(api_bundles, "_UPLOAD_BUFFER", 4096)
     written = []
-    real = bundles.import_bundle
-    monkeypatch.setattr(bundles, "import_bundle",
+    real = bundles._import_uploaded_bundle
+    monkeypatch.setattr(bundles, "_import_uploaded_bundle",
                         lambda path, *a: written.append(path.read_bytes()) or real(path, *a))
     pieces = (blob[i:i + 1000] for i in range(0, len(blob), 1000))
     response = client.post("/api/gallery/bundles/upload", content=pieces,

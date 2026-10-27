@@ -51,6 +51,7 @@ from typing import Any, Callable
 
 from .model_selection import current_model_id
 from .config import settings
+from .execution import execution_key
 from .refine import start_index, steps_run
 from .schemas import GenerateRequest, ImageRecord, PromptVariant
 from .seeds import random_seed, wrap_seed
@@ -99,20 +100,20 @@ VARIANT = "variant"
 
 # What identifies an image for resume: the prompt pair, the settings, the seed.
 # (prompt, negative prompt, steps, CFG, mu, true CFG, references, LoRA, refine,
-# mask, upscaler, canvas/crop, seed) - the seed last, because `cell_keys` swaps it for each
-# image of a batch, and the optional elements in the order they were added, because
-# `run_id` names a cell by the shortest form that carries all of its non-None
-# ones.
+# mask, upscaler, execution, canvas/crop, seed) - the seed last, because `cell_keys` swaps it for each
+# image of a batch. Existing extension indices stay fixed; execution precedes
+# shape so readers retain shape[-2]. `run_id` omits empty execution explicitly
+# before trimming unused legacy extensions from the right.
 CellKey = tuple[
     str, str | None, int, float, float | None, float | None, str | None, str | None,
-    str | None, str | None, str | None, str, int,
+    str | None, str | None, str | None, str | None, str, int,
 ]
 
 # How many of the trailing elements before the seed are optional extensions -
-# true CFG, references, LoRA, refine, mask, upscaler, canvas/crop. Comparison
+# true CFG, references, LoRA, refine, mask, upscaler, execution, canvas/crop. Comparison
 # keys always carry the last one; run_id removes it explicitly for uniform
 # centered runs before dropping unused legacy extensions from the right.
-_KEY_EXTENSIONS = 7
+_KEY_EXTENSIONS = 8
 
 
 def shape_key(width: int, height: int, crop_anchor: str | None = None) -> str:
@@ -122,7 +123,8 @@ def shape_key(width: int, height: int, crop_anchor: str | None = None) -> str:
 
 def parse_sizes(text: str | None) -> list[tuple[int, int]]:
     """Comma-separated WIDTHxHEIGHT pairs, preserving order and repeats."""
-    if not (text or "").strip():
+    text = text or ""
+    if not text.strip():
         return []
     pairs = text.split(",")
     if len(pairs) > MAX_AXIS_VALUES:
@@ -165,7 +167,10 @@ def refine_key(source: int | None, strength: float | None) -> str | None:
     not a setting, and the same element has to come out of a request here and
     out of an INTEGER and a REAL in `storage.completed_cells`, to the digit.
     """
-    return None if source is None else f"{source}@{round(float(strength), 6):g}"
+    if source is None:
+        return None
+    assert strength is not None, "a refine source carries its applied strength"
+    return f"{source}@{round(float(strength), 6):g}"
 
 
 def mask_key(mask: str | None, outpaint: str | None = None) -> str | None:
@@ -690,6 +695,7 @@ def cell_key(cell: "Cell") -> CellKey:
     through SQLite's REAL and back still matches the axis that generated it.
     """
     request = cell.request
+    assert request.steps is not None and request.guidance_scale is not None, "profile defaults fill sampling"
     return (
         request.prompt,
         request.negative_prompt or None,
@@ -702,6 +708,7 @@ def cell_key(cell: "Cell") -> CellKey:
         refine_key(request.refine, request.strength),
         mask_key(request.mask, _outpaint_text(request.outpaint)),
         request.upscaler,
+        execution_key(request.execution),
         shape_key(request.width, request.height, request.crop_anchor),
         cell.seed,
     )
@@ -729,6 +736,7 @@ def duplicate_count(
         ran = Cell(request=applied(cell.request), seed=cell.seed)
         for key in cell_keys(ran):
             if ran.request.refine is not None:
+                assert ran.request.steps is not None and ran.request.strength is not None
                 start = start_index(
                     ran.request.steps, ran.request.strength, model_id or current_model_id(settings),
                     inpaint=ran.request.inpainting,
@@ -836,6 +844,9 @@ def cell_from_record(
         "outpaint": (
             record.outpaint.model_dump() if record.refine is not None and record.outpaint is not None else None
         ),
+        # Recorded arithmetic must not silently become Eager. The ordinary
+        # request validator refuses recipes unavailable in this build.
+        "execution": record.execution,
         "seed": record.seed,
     }
     unknown = set(changes) - set(GenerateRequest.model_fields)
@@ -863,8 +874,10 @@ def cells_from_records(
 def denoised_steps(request: GenerateRequest) -> int:
     """The steps one image of this request denoises: all of them, or the part
     of the schedule a refine pass's strength leaves (`refine.steps_run`)."""
+    assert request.steps is not None, "profile defaults fill steps"
     if request.refine is None:
         return request.steps
+    assert request.strength is not None, "a refine source carries its applied strength"
     return steps_run(
         request.steps, request.strength, current_model_id(settings), inpaint=request.inpainting
     )
@@ -878,7 +891,7 @@ def progress_steps(request: GenerateRequest) -> int:
     and counts each.
     """
     if request.refine is None:
-        return request.steps
+        return denoised_steps(request)
     return denoised_steps(request) * request.num_images
 
 
@@ -925,7 +938,7 @@ def _cell_ms(
         if request.refine is None:
             if direct is None:
                 return None
-            image_ms = direct * request.steps
+            image_ms = direct * denoised_steps(request)
         else:
             costs = inpaints if request.inpainting else passes
             image_ms = (costs or {}).get(denoised_steps(request))
@@ -991,6 +1004,13 @@ def run_id(cells: list[Cell], model_id: str, quantization: str) -> str:
         # Comparison keys always carry shape. Uniform centered hashed names
         # keep the exact legacy key and size definition instead.
         extensions = _KEY_EXTENSIONS
+        # Execution was added before shape to keep comparison shape[-2]. An
+        # absent slot must be removed explicitly: trailing trim cannot reach
+        # it when a mixed-size/noncenter shape follows it. Preserve the exact
+        # previous serialization for every Eager layout, comparisons included.
+        if key[-3] is None:
+            key = (*key[:-3], *key[-2:])
+            extensions -= 1
         if legacy:
             key = (*key[:-2], key[-1])
             extensions -= 1
@@ -1084,6 +1104,8 @@ def expand(
     # the schema, not a wrap, decides whether it is one.
     seed_values = seed_list or [wrap_seed(base + index * request.num_images) for index in range(seeds)]
     template = request.model_dump()
+    if "execution" not in request.model_fields_set:
+        template.pop("execution", None)
     if variables is not None:
         # Validate listed bases before wrapping their image offsets; a typo'd
         # negative or oversized base must not become a valid wrapped seed.

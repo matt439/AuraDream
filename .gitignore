@@ -1,4 +1,8 @@
 .venv/
+# Explicit regional compiler artifacts, never part of gallery bundles or source.
+local-diffusion.compile-cache/
+# Local test fixtures, static-checker installations and diagnostic receipts.
+/work/
 __pycache__/
 *.pyc
 outputs/
@@ -20,6 +24,12 @@ server.log
 server.err
 local-diffusion.settings.json
 .local-diffusion.settings.*.tmp
+local-diffusion.backup-policy-*.json
+.local-diffusion.backup-policy.*.tmp
+local-diffusion.backup-receipts-*.json
+.local-diffusion.backup-receipts.*.tmp
+local-diffusion.bundle-leases.json
+.local-diffusion.bundle-leases.*.part
 local-diffusion.snippets.json
 .local-diffusion.snippets.*.tmp
 .env

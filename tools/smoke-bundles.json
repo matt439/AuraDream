@@ -84,7 +84,7 @@
   {"eval": "els.search.value = ''; void resetGallery();"},
   {"eval": "document.querySelector(\"#btn-bundles\").scrollIntoView({block:'nearest'});"},
   {"click": "#btn-bundles"},
-  {"expect": "__until(() => els.bundlesDialog.open && !bundleReading && total === 5)"},
+  {"expect": "__until(() => els.bundlesDialog.open && !bundleReading && total === 5 && !bundleActionHold() && document.querySelector('#bundle-list [data-bundle-import]')?.getAttribute('aria-disabled') === 'false')"},
   {"eval": "document.querySelector(\"#bundle-list [data-bundle-import]\").scrollIntoView({block: 'center'})"},
   {"eval": "document.querySelector(\"#bundle-list [data-bundle-import]\").scrollIntoView({block:'nearest'});"},
   {"click": "#bundle-list [data-bundle-import]"},
