@@ -38,7 +38,7 @@
   {"expect": "__until(() => els.moreSeedsDialog.open && document.activeElement === els.moreSeedsCount)"},
   {"expect": "els.moreSeedsCount.value === '4' && els.moreSeedsCount.selectionStart === 0 && els.moreSeedsCount.selectionEnd === 1"},
   {"expect": "els.moreSeedsTitle.textContent === '8 more images' && els.moreSeedsScope.textContent === 'From the 2 selected images.'"},
-  {"expect": "els.moreSeedsLine.textContent === '4 per settings group × 2 ready = 8 additional images · 2 jobs, one per run'"},
+  {"expect": "__until(() => /^4 per settings group × 2 ready = 8 additional images( · about \\d+s)? · 2 jobs, one per run$/.test(els.moreSeedsLine.textContent))"},
   {"expect": "__rows().length === 2 && __rows().every((li) => li.dataset.status === 'queued') && __rows().map(__line).join(' | ') === 'Ready 4 images, seeds 100–103 → seeds 104–107 · Batch 2 | Ready 1 image, seed 7 → seeds 8–11 · Batch 1'"},
   {"expect": "+__rows()[0].dataset.id === __four[1].id && __rows()[0].querySelector('.ms-prompt').textContent === 'a lighthouse at dusk'"},
   {"expect": "els.moreSeedsRun.getAttribute('aria-disabled') === 'false' && els.moreSeedsRun.textContent === 'Queue 8 images (2 jobs)' && els.moreSeedsRun.title === 'Queue 8 more images in 2 settings groups (Ctrl+Enter)'"},
@@ -67,8 +67,7 @@
   {"log": "'Ctrl+Enter queues: the dialog closes, one job per run, named as more seeds of the first batch\\'s prompt; Cancel says what it stops'"},
   {"keycombo": ["Control", "Enter"]},
   {"expect": "__until(() => !els.moreSeedsDialog.open)"},
-  {"expect": "__until(() => els.progressNow.textContent.includes('more seeds · '))"},
-  {"expect": "els.cancel.title.startsWith('Stop these more seeds')"},
+  {"expect": "__until(() => els.progressNow.textContent.includes('more seeds · ') && els.cancel.title.startsWith('Stop these more seeds'))"},
   {"expect": "__until(() => !busy && total === 12, 30000)"},
   {"expect": "els.finishNote.textContent.startsWith('Finished 3 images in ') && els.finishNote.textContent.includes(', seeds 8–10. Job 2 of 2 of these more seeds, at 256×384.')"},
 

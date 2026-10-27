@@ -396,7 +396,8 @@ before changing it.
   `smoke-stage.json`, Gallery beside, and `smoke-narrow.json`, one column
   and narrow windows): the UI's stand-in for a test suite, and
   `run_smoke.py`, which starts each smoke's fake from `AGENTS.md`'s port
-  table and runs it; `ci_changes.py` classifies GitHub push/PR ranges for
+  table and runs it, with `smoke_fonts.py` its Linux Segoe UI stand-in;
+  `ci_changes.py` classifies GitHub push/PR ranges for
   the documentation-only lint path; `typecheck.py` runs the pinned,
   locally bundled Pyright checker over the configured scope; see Tests
 - `tests/` — the pytest suite, no GPU and no weights: `conftest.py`,
@@ -6268,8 +6269,19 @@ A docs-only tip on a code-changing PR does not bypass its tests.
 
 Other changes and manual runs get the CPU suite on Ubuntu
 (`uv sync --locked --group dev`, the pinned type gate, `pytest -n auto`); on main (pushes and by
-hand) it runs on Windows too, about five times slower. The smokes, which
-need a browser, stay local. `tests/conftest.py` makes
+hand) it runs on Windows too, about five times slower. A separate
+`browser` job (same condition, never holding up `test`) runs the whole smoke
+table on the runner's Linux Chrome (`run_smoke.py --all --jobs 3`) and
+uploads each smoke's result, browser log, screenshots and failed fake's log
+as `smoke-artifacts` when it fails. Before it, `tools/smoke_fonts.py`
+installs Selawik as Segoe UI with Windows line metrics, beside copies of
+DejaVu Sans and Noto Color Emoji for the symbols Segoe UI lacks, hiding
+Inter and the system's own copies of those two (`FONTCONFIG_FILE`); other
+system fonts stay, since Google Chrome aborts on a character no font has. Every copy carries the advance
+widths Windows measured (`tools/segoe-widths.json`), so text is laid out as
+on Windows; `tools/font-widths.json` logs every page character's advance
+width, the run that table came from. A character the page newly draws gets
+a Windows run of it and a new table. Windows stays where the smokes are written. `tests/conftest.py` makes
 `torch.cuda.is_current_stream_capturing` answer False on a driverless Windows
 machine, where torch's native call crashes the worker. It runs the suite with
 `pytest -n auto` (pytest-xdist, one worker per core). Before it,

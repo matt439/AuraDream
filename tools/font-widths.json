@@ -1,0 +1,11 @@
+[
+{
+"log": "'Advance widths of every character the page draws, in the font Segoe UI resolves to here, at 1000 px: run on Windows and on Linux to compare the smokes\\' stand-in (tools/smoke_fonts.py) with the real thing'"
+},
+{
+"eval": "window.__chars = \" !\\\"#$%&'()*+,-./0123456789:;<=>?@ABCDEFGHIJKLMNOPQRSTUVWXYZ[\\\\]^_`abcdefghijklmnopqrstuvwxyz{|}~²·×–—“”…‹›←↑→↓↗↶↻−≈⊞⌕⌦⏲⏸▦▸▾★☆⚠✎✐✓✕❐⤢⬚、，；🎲\";"
+},
+{
+"log": "JSON.stringify((() => { const c = document.createElement('canvas').getContext('2d'); const out = {}; for (const w of [400, 600, 700]) { c.font = `${w} 1000px \"Segoe UI\", system-ui, sans-serif`; out[w] = Object.fromEntries([...__chars].map((ch) => [ch, Math.round(c.measureText(ch).width * 100) / 100])); } return {ua: navigator.userAgent, dpr: devicePixelRatio, widths: out}; })())"
+}
+]
