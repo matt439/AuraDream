@@ -130,7 +130,11 @@ class FakeBackend(GenerationBackend):
 
     def applied(self, request):
         from backend.execution import require_configured_loader_available, require_default_execution
+        from backend.instruction_edit import require_execution_available, require_model_available
 
+        if request.edit is not None:
+            require_execution_available(request.validate_edit())
+        require_model_available(current_model_id(settings))
         require_default_execution(request.execution)
         selected = current_settings(settings)
         require_configured_loader_available(selected)
@@ -173,7 +177,9 @@ class FakeBackend(GenerationBackend):
 
     def load(self) -> None:
         from backend.execution import require_configured_loader_available
+        from backend.instruction_edit import require_model_available
 
+        require_model_available(current_model_id(settings))
         require_configured_loader_available(current_settings(settings))
         self._sync_model_profile()
         self.loads += 1
@@ -189,7 +195,11 @@ class FakeBackend(GenerationBackend):
     def generate(self, request, seed, on_progress=None, should_cancel=None, on_preview=None):
         from backend.backends import Cancelled
         from backend.execution import require_configured_loader_available, require_default_execution
+        from backend.instruction_edit import require_execution_available, require_model_available
 
+        if request.edit is not None:
+            require_execution_available(request.validate_edit())
+        require_model_available(current_model_id(settings))
         require_default_execution(request.execution)
         selected = current_settings(settings)
         require_configured_loader_available(selected)

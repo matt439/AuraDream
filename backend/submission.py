@@ -7,7 +7,7 @@ from typing import Literal
 
 from fastapi import HTTPException
 
-from . import grid, loras, outpaint, refine, storage
+from . import grid, instruction_edit, instruction_edit_admission, loras, outpaint, refine, storage
 from .app_context import AppServices
 from .execution import configured_loader_unavailable_reason, unavailable_reason
 from .model_selection import current_settings
@@ -50,6 +50,12 @@ async def unusable_input(services: AppServices, request: GenerateRequest) -> tup
     run where there is a mask - an outpaint has none until its stamp - and
     an outpaint's own (`outpaint_unusable`, kind `outpaint`) where there is
     one."""
+    if request.edit is not None:
+        try:
+            await asyncio.to_thread(instruction_edit_admission.bind_request, request, services.model_id())
+        except ValueError as exc:
+            return "edit", str(exc)
+        return "edit", instruction_edit.INSTRUCTION_EDIT_UNAVAILABLE
     reason = unavailable_reason(request.execution)
     if reason is not None:
         return "execution", reason
@@ -64,6 +70,10 @@ async def unusable_input(services: AppServices, request: GenerateRequest) -> tup
     reason = unavailable_reason(request.execution)
     if reason is not None:
         return "execution", reason
+    from .model_defaults import defaults_for
+
+    if not defaults_for(selected.model_id)["text_to_image_supported"]:
+        return "edit", instruction_edit.INSTRUCTION_EDIT_UNAVAILABLE
     reason = refine.upscaler_reason(request, services.model_id())
     if reason is not None:
         return "upscaler", reason

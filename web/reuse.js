@@ -56,6 +56,7 @@ function rewriteBox(el, text) {
 // panel; a refine pass is the Refine dialog's, so a refined record opens the
 // dialog on its source with the pass as it ran (`reusePass`).
 function executionReuseReason(rec) {
+  if (rec.edit != null) return 'Instruction editing is unavailable in this build. Reuse cannot put its source-dependent instruction into the generation panel.';
   const spec = rec.execution;
   if (spec == null) return '';
   const empty = typeof spec === 'object' && !Array.isArray(spec)

@@ -58,7 +58,7 @@ def step_cost_ms(
         rows = conn.execute(
             f"""SELECT duration_ms, steps FROM images
                WHERE width = ? AND height = ? AND steps > 0 AND duration_ms > 0
-                 AND refine IS NULL {scope}
+                 AND refine IS NULL AND edit IS NULL {scope}
                ORDER BY id DESC LIMIT ?""",
             (width, height, *scope_params, sample),
         ).fetchall()
@@ -88,7 +88,7 @@ def refine_cost_ms(
         rows = conn.execute(
             f"""SELECT duration_ms, steps, strength FROM images
                WHERE width = ? AND height = ? AND model_id = ? AND steps > 0
-                 AND duration_ms > 0 AND refine IS NOT NULL AND strength IS NOT NULL
+                 AND duration_ms > 0 AND refine IS NOT NULL AND edit IS NULL AND strength IS NOT NULL
                  AND {masked} AND upscaler IS NULL
                ORDER BY id DESC LIMIT ?""",
             (width, height, model_id, sample),
@@ -144,6 +144,10 @@ def execution_estimates(cells: Sequence[Any], model_id: str) -> tuple[dict, int 
     prices = {}
     disk: int | None = 0 if cells else None
     for size, group in groups.items():
+        if any(cell.request.edit is not None for cell in group):
+            # There is no qualified edit history/estimator in this release.
+            prices[size], disk = (None, {}, {}), None
+            continue
         prices[size] = (
             step_cost_ms(*size, model_id),
             refine_cost_ms(*size, model_id),
@@ -186,6 +190,7 @@ _GROUPS: dict[str, str] = {
     # An outpaint by its spec (`fill:L,T,R,B@band`): which padding the kept
     # outpaints were made with. NULL on everything else.
     "outpaint": "outpaint",
+    "edit": "CASE WHEN edit IS NOT NULL THEN json_extract(edit, '$.recipe') END",
     # A comparison's version by its label (`prompt_variants`): the starred
     # rate per version. `prompt` cannot say it - reorders share their opening
     # words, which is all a table cell has room for.

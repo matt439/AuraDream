@@ -48,6 +48,8 @@ from .critic import CriticError, prompt_critic  # noqa: E402
 from .jobs import JobManager, LoadFailed, MaskGone, OutpaintStampFailed, RunPersistenceFailed, short_error  # noqa: E402
 from .execution import canonical_loader_execution, require_configured_loader_available  # noqa: E402
 from .launch import CHECKPOINTS  # noqa: E402
+from .instruction_edit import require_model_available  # noqa: E402
+from . import api_instruction_edit  # noqa: E402
 from .model_defaults import defaults_for, guide_for, hints_for  # noqa: E402
 from .schemas import (  # noqa: E402
     ExpanderDownload,
@@ -199,6 +201,7 @@ async def ensure_loaded() -> None:
     of requests waits on a single attempt instead of each starting its own.
     """
     async with _load_lock:
+        require_model_available(current_model_id(settings))
         require_configured_loader_available(current_settings(settings))
         if backend.is_ready():
             _load_state.update(state="ready", detail=None)
@@ -424,6 +427,7 @@ async def hold_model_for_request(request: Request, call_next):
 
     path = request.url.path
     depends_on_model = path in {
+        "/api/instruction-edit/preview",
         "/api/generate", "/api/grid", "/api/rerender", "/api/swap-tags", "/api/refine/batch", "/api/more-seeds",
         "/api/loras", "/api/png/settings",
         "/api/model/load", "/api/model/unload",
@@ -698,6 +702,7 @@ def _disk_free_mb() -> int | None:
 async def load_model() -> ModelStatus:
     global _switch_error
     try:
+        require_model_available(current_model_id(settings))
         require_configured_loader_available(current_settings(settings))
     except ValueError as exc:
         raise HTTPException(status_code=422, detail=str(exc)) from exc
@@ -1016,6 +1021,7 @@ services = app_context.AppServices(
 app.include_router(api_prompt.create_router(services))
 app.include_router(api_snippets.create_router(services))
 app.include_router(api_generate.create_router(services))
+app.include_router(api_instruction_edit.create_router(services))
 app.include_router(api_swap.create_router(services))
 app.include_router(api_refine_batch.create_router(services))
 app.include_router(api_more_seeds.create_router(services))

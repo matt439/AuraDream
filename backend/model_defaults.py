@@ -1088,6 +1088,23 @@ _FALLBACK: dict[str, Any] = {
 }
 
 
+# Exact edit-only intent cannot inherit ordinary FLUX generation capabilities.
+# It is intentionally absent from the load catalogue until pinned configs and
+# the editor's separate load/card qualification are complete.
+_EXACT_PROFILES["black-forest-labs/flux.1-kontext-dev"] = {
+    **_FALLBACK,
+    "steps": 28, "guidance_scale": 2.5, "mu_supported": False,
+    "negative_prompt_supported": False, "true_cfg_supported": False,
+    "text_to_image_supported": False, "instruction_edit_supported": False,
+    "instruction_edit_candidate": True,
+    "hints": {
+        "steps": "Instruction editing is unavailable; 28 is the frozen recipe's unmeasured starting value.",
+        "guidance_scale": "Instruction editing is unavailable; 2.5 is the frozen recipe's starting guidance.",
+        "mu": "Unavailable: the first instruction-edit recipe leaves the scheduler's shift automatic.",
+    },
+}
+
+
 def _profile_for(model_id: str) -> dict[str, Any]:
     key = model_id.lower().replace("_", "-")
     if key in _EXACT_PROFILES:
@@ -1186,6 +1203,8 @@ def defaults_for(model_id: str) -> dict[str, Any]:
     measured = profile.get("refine_measured")
     return {
         **{k: v for k, v in profile.items() if k not in _NOT_DEFAULTS},
+        "text_to_image_supported": profile.get("text_to_image_supported", True),
+        "instruction_edit_supported": False,
         # Every status says both: None where the shift is not a fixed number,
         # False where the CFG box reaches the model.
         "mu_static": profile.get("mu_static"),

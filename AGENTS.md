@@ -119,8 +119,10 @@ Backend (`backend/`):
   seeds' batches and their next seeds; `more_seeds_intents.py` bounded
   preview-issued submission receipts and safe retries;
   `seeds.py`; `sizes.py` presets and size guards; `loras.py` adapter names to
-  paths; `instruction_edit.py` the standalone frozen Kontext recipe, strict
-  request/stored-source types and pure geometry (no runtime integration);
+  paths; `instruction_edit.py` the frozen Kontext recipe, strict source types,
+  geometry and bound keys; `instruction_edit_preflight.py` cold supplied-config
+  checks; `instruction_edit_admission.py` gallery-source proof;
+  `api_instruction_edit.py` cold preview (public editor execution held);
   `refine.py` the image-to-image pass and the inpaint (`sibling(kind)`,
   `composite`); `latent_preview.py`
 - Prompt analyser: `prompt_encoding.py` (tokenizers), `encoder_table.py`
@@ -250,6 +252,11 @@ Reproduction and storage:
   (`outpaint:` + `OutpaintSpec.key()`), and a row whose spec does not build
   its own mask is refused by every rerun. Each `FILLS` entry and
   `outpaint.mask` are frozen: a changed fill gets a new name.
+- Instruction edits retain a distinct `edit` spec and full original-RGB source
+  proof through rows, PNGs, keys, reruns and recovery; unresolved sources keep
+  their intent and refuse replay. Edit bundles use v2; edit-free bundles stay
+  v1. Public editor loading/execution and Reuse remain unavailable. The plan and
+  carry/bundle checklists own the remaining integration and qualification.
 
 Jobs:
 

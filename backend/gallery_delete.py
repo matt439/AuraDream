@@ -17,6 +17,8 @@ from datetime import datetime, timedelta, timezone
 from typing import Any
 
 from . import gallery_lock, storage
+from .instruction_edit import InstructionEditSource, descriptor_from_image
+from .metadata import edit_from_json
 from .search import strict_scope
 
 
@@ -30,11 +32,11 @@ from .search import strict_scope
 # Only a live star protects: a starred image in the recycle bin keeps its
 # flag, so a Restore brings the star back, but is itself unkept until then.
 _STARRED_SOURCE = (
-    "id IN (SELECT refine FROM images WHERE favorite = 1 AND binned_at IS NULL"
+    "(id IN (SELECT refine FROM images WHERE favorite = 1 AND binned_at IS NULL"
     " AND refine IS NOT NULL"
     " UNION SELECT ref.value FROM images AS starred, json_each(starred.reference) AS ref"
     " WHERE starred.favorite = 1 AND starred.binned_at IS NULL"
-    " AND starred.reference IS NOT NULL AND ref.type = 'integer')"
+    " AND starred.reference IS NOT NULL AND ref.type = 'integer') OR instruction_edit_source_kept(id))"
 )
 # What `keep_favorites` leaves out of a delete: the live stars and their
 # sources. The one predicate `delete_matching`, `clear_history` and the
@@ -50,6 +52,50 @@ _UNKEPT = f"{_NOT_LIVE_STAR} AND NOT ({_STARRED_SOURCE})"
 # The CLI has no jobs of its own and passes none; the server's jobs' masks
 # reach its sweeps through the `mask_holds` table instead.
 InFlight = Callable[[], set[str]]
+
+
+def _edit_sources(conn, *, starred: bool = False) -> set[int]:
+    """Only live children's complete, proven edit links protect source pixels.
+
+    Source pixels may be in the bin, where Empty bin needs the same proof.
+    An unresolved id or a forged/colliding source never protects another row.
+    """
+    from PIL import Image
+
+    where = " AND favorite = 1" if starred else ""
+    rows = conn.execute(f"SELECT edit FROM images WHERE binned_at IS NULL AND edit IS NOT NULL{where}")
+    sources = set()
+    proofs = {}
+    for row in rows.fetchall():
+        edit = edit_from_json(row["edit"])
+        if edit is None or edit.source is None:
+            continue
+        if edit.source not in proofs:
+            source = conn.execute("SELECT filename, width, height FROM images WHERE id = ?", (edit.source,)).fetchone()
+            proof = None
+            if source is not None:
+                try:
+                    filename = InstructionEditSource._bare_png(source["filename"])
+                    path = storage.settings.outputs_dir / filename
+                    if path.is_symlink():
+                        raise ValueError("linked instruction-edit source")
+                    with Image.open(path) as image:
+                        candidate = descriptor_from_image(filename, image)
+                    if (candidate.width, candidate.height) == (source["width"], source["height"]):
+                        proof = candidate
+                except (OSError, ValueError, Image.DecompressionBombError):
+                    pass
+            proofs[edit.source] = proof
+        if proofs[edit.source] == edit.edit_source:
+            sources.add(edit.source)
+    return sources
+
+
+def _prepare_edit_sources(conn) -> None:
+    # Per-connection immutable membership, computed in the same storage
+    # reservation/write transaction as the predicate that consumes it.
+    kept = _edit_sources(conn, starred=True)
+    conn.create_function("instruction_edit_source_kept", 1, lambda image_id: int(image_id in kept))
 
 
 def matching_preview(
@@ -97,6 +143,7 @@ def matching_preview(
 
     clause = where()
     with storage._session() as conn:
+        _prepare_edit_sources(conn)
         records, favorites, sources_kept, binned = conn.execute(
             f"""SELECT COUNT(*), COALESCE(SUM({_LIVE_STAR}), 0),
                        COALESCE(SUM({_NOT_LIVE_STAR} AND {_STARRED_SOURCE}), 0),
@@ -200,6 +247,7 @@ def delete_matching(
         filters.append(storage._LIVE)
     where = " AND ".join(filters)
     with storage._write_lock, storage._session() as conn:
+        _prepare_edit_sources(conn)
         if expected is not None:
             (found,) = conn.execute(f"SELECT COUNT(*) FROM images WHERE {where}", params).fetchone()
             if found != expected:
@@ -433,6 +481,7 @@ def bin_summary(before: str | None = None) -> dict[str, Any]:
             )
             if row[0] in scoped
         ]
+        in_use = sorted(set(in_use) | (_edit_sources(conn) & scoped))
     size = 0
     for name in names:
         png = storage.settings.outputs_dir / name
@@ -585,6 +634,7 @@ def summarise() -> dict[str, int]:
     masks = list(storage.masks_dir().glob("*.png"))
     if storage.settings.db_path.exists():
         with storage._session() as conn:
+            _prepare_edit_sources(conn)
             total = conn.execute("SELECT COUNT(*) FROM images").fetchone()[0]
             # The live stars: a binned one is unkept, as `_UNKEPT` reads it.
             favorites = conn.execute(
@@ -639,6 +689,7 @@ def clear_history(keep_favorites: bool = False, in_flight: InFlight | None = Non
     """
     where = f" WHERE {_UNKEPT}" if keep_favorites else ""
     with storage._write_lock, storage._session() as conn:
+        _prepare_edit_sources(conn)
         doomed = [r["filename"] for r in conn.execute(f"SELECT filename FROM images{where}")]
         conn.execute(f"DELETE FROM images{where}")
         # Clear is a deliberate end to local run recovery, including the

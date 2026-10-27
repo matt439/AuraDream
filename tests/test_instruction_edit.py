@@ -33,7 +33,7 @@ def _stored(**changes):
     }
 
 
-@pytest.mark.parametrize("source", [None, True, False, 0, -1, 1.0, "1", [], {}])
+@pytest.mark.parametrize("source", [None, True, False, 0, -1, 1.0, "1", [], {}, 2**63])
 def test_a_request_never_coerces_a_missing_or_noninteger_gallery_id(source):
     with pytest.raises(ValidationError):
         edit.InstructionEditSpec(source=source, recipe="kontext-v1")

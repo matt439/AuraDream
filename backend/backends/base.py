@@ -9,6 +9,7 @@ import abc
 from typing import TYPE_CHECKING, Callable
 
 from ..execution import require_default_execution
+from ..instruction_edit import require_execution_available
 
 if TYPE_CHECKING:
     from PIL.Image import Image
@@ -104,6 +105,8 @@ class GenerationBackend(abc.ABC):
         compare against for resume, so a backend that quietly drops a setting
         must say so here. The default applies everything as given.
         """
+        if getattr(request, "edit", None) is not None:
+            require_execution_available(request.validate_edit())
         require_default_execution(request.execution)
         request = request.with_execution(None)
         require_default_execution(request.execution)
@@ -138,6 +141,8 @@ class GenerationBackend(abc.ABC):
         A profile is only a pre-load guess for an unfamiliar checkpoint id.
         Normalization must not turn an accepted refine job into direct renders.
         """
+        if getattr(request, "edit", None) is not None:
+            require_execution_available(request.validate_edit())
         if getattr(request, "upscaler", None) is not None:
             from .. import refine
 

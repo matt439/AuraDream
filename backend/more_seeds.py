@@ -33,6 +33,7 @@ from dataclasses import dataclass, field
 from . import grid
 from .config import settings
 from .execution import execution_key
+from .instruction_edit import edit_key
 from .schemas import GenerateRequest, ImageRecord, error_detail
 from .seeds import wrap_seed
 
@@ -68,6 +69,7 @@ def settings_key(record: ImageRecord) -> tuple:
         grid.refine_key(record.refine, record.strength),
         grid.mask_key(record.mask, record.outpaint.key() if record.outpaint is not None else None),
         record.upscaler,
+        edit_key(record.edit),
         execution_key(record.execution),
         grid.shape_key(record.width, record.height, record.crop_anchor),
     )
@@ -190,19 +192,22 @@ def plan(
     template = batch.template
     size, batch.recorded = batch_size(batch.held, fallback)
     fit = fitting(size, template.width, template.height, template.refine)
+    if template.edit is not None:
+        fit = 1
     if not batch.recorded:
         batch.notes.append(f"its Batch was not recorded: the panel's {size}")
     if fit < size:
         batch.notes.append(
+            "instruction edits run one image per call" if template.edit is not None else
             f"Batch {size} is past the pixel budget at {template.width}×{template.height}: {fit} at a time"
         )
     batch.size = fit
     try:
         probe = grid.cell_from_record(template)
+        base = grid.cell_key(grid.Cell(request=applied(probe.request), seed=0))[:-1]
     except ValueError as exc:
         batch.status, batch.detail = "invalid", error_detail(exc)
         return
-    base = grid.cell_key(grid.Cell(request=applied(probe.request), seed=0))[:-1]
     top = max(r.seed for r in batch.held)
     seeds = next_seeds(top, count, lambda seed: (*base, seed) in held)
     try:

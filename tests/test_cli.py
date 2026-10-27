@@ -940,7 +940,7 @@ def test_refine_cli_checks_actual_cells_after_axes_replace_base(cli, store, axes
 
 def test_cli_rechecks_refine_after_loading_before_any_cell(cli, store, monkeypatch, capsys):
     source = _to_refine(store)
-    monkeypatch.setattr(generate, "_project", _project_claiming(generate, "black-forest-labs/FLUX.1-Kontext-dev"))
+    monkeypatch.setattr(generate, "_project", _project_claiming(generate, "example/flux-custom-pipeline"))
     load = cli.load
 
     def unsupported_load():

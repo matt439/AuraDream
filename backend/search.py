@@ -48,6 +48,7 @@ FILTERS: dict[str, tuple[str, Any]] = {
     # Handled by outpaint_clause: `outpaint:yes` / `outpaint:no`. An outpaint
     # has a mask too, so `inpaint:yes outpaint:no` is the painted ones.
     "outpaint": ("outpaint", None),
+    "edit": ("edit", None),
     "job": ("job_id", str),
     "run": ("run_id", str),
     # Every image with these pixels - a substring, so a prefix of one is enough.
@@ -150,6 +151,8 @@ def filter_clause(key: str, raw: str) -> tuple[str, list]:
         return inpaint_clause(raw)
     if key == "outpaint":
         return outpaint_clause(raw)
+    if key == "edit":
+        return _yes_no_clause("edit", "edit", raw)
     column, cast = FILTERS[key]
     if cast is str:
         # `model:=<id>` is the whole id, exactly - the gallery's own checkpoint

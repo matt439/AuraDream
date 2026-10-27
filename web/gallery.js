@@ -808,13 +808,14 @@ function syncReuseButton(button, rec, compact = false) {
   button.dataset.reuseReference = (rec.reference ?? []).join(',');
   button.dataset.reuseLora = rec.lora || '';
   button.dataset.reuseExecution = JSON.stringify(rec.execution ?? null);
+  button.dataset.reuseEdit = String(rec.edit != null);
   button.dataset.reuseCompact = String(compact);
   button.classList.add('reuse-settings');
   const executionReason = executionReuseReason(rec);
   if (executionReason) {
     button.textContent = compact ? '\u21b6' : 'Reuse settings';
     button.setAttribute('aria-disabled', 'true');
-    button.setAttribute('aria-label', 'Reuse settings (unavailable execution recipe)');
+    button.setAttribute('aria-label', rec.edit != null ? 'Reuse instruction edit (unavailable)' : 'Reuse settings (unavailable execution recipe)');
     button.title = executionReason;
     button.dataset.tip = 'Reuse unavailable';
     return;
@@ -935,6 +936,7 @@ function syncReuseButtons() {
       reference: kept.reuseReference ? kept.reuseReference.split(',').map(Number) : [],
       lora: kept.reuseLora || null,
       execution: JSON.parse(kept.reuseExecution || 'null'),
+      edit: kept.reuseEdit === 'true' ? {} : null,
     }, kept.reuseCompact === 'true');
   });
   // More seeds… is held on another checkpoint's images the same way.

@@ -19,6 +19,8 @@ from pydantic import BaseModel, ConfigDict, Field, field_validator, model_valida
 from pydantic_core import PydanticCustomError
 
 from . import outpaint as outpaint_rules
+from . import instruction_edit as edit_rules
+from .instruction_edit import InstructionEditSpec, StoredInstructionEdit
 from .model_selection import current_model_id
 from .config import settings
 from .execution import (
@@ -264,12 +266,60 @@ class GenerateRequest(BaseModel):
     # Reserved shared reproduction extension. No non-default recipe can run
     # before its storage/key carry and backend implementation are complete.
     execution: ExecutionSpec | None = None
+    # New intent may carry source/recipe alone. Complete stored replay data
+    # travels here too, but its proof is always checked again at admission.
+    edit: InstructionEditSpec | StoredInstructionEdit | None = None
     seed: int | None = Field(default=None, ge=0, le=MAX_SEED)
     num_images: int = Field(default=1, ge=1, le=MAX_BATCH)
     # Sequential passes. Each one is a separate pipeline call whose base seed is
     # the previous run's plus `num_images`, so a long sweep costs no more VRAM
     # than a single image - which is what makes 2K sweeps possible at all.
     runs: int = Field(default=1, ge=1, le=MAX_RUNS)
+
+    @field_validator("edit", mode="before")
+    @classmethod
+    def _strict_edit(cls, value: object) -> InstructionEditSpec | StoredInstructionEdit | None:
+        if value is None:
+            return None
+        if isinstance(value, StoredInstructionEdit) or isinstance(value, dict) and "edit_source" in value:
+            return StoredInstructionEdit.model_validate(value)
+        return InstructionEditSpec.model_validate(value)
+
+    def validate_edit(self, *, require_bound: bool = False) -> StoredInstructionEdit | InstructionEditSpec | None:
+        """Recheck copied requests before normalization, keys or model work.
+
+        Complete replay proof is untrusted until source admission compares
+        it with current pixels. Requiring it here prevents source ids alone
+        from claiming a durable identity; this function performs no I/O.
+        """
+        spec = self._strict_edit(self.edit)
+        if spec is None:
+            return None
+        if (
+            self.refine is not None or self.mask is not None or self.outpaint is not None
+            or self.reference or self.lora is not None or self.upscaler is not None
+            or self.crop_anchor != "center" or self.strength is not None
+        ):
+            raise ValueError("an instruction edit cannot include references, LoRA, Refine, strength, mask, outpaint, upscaler or crop anchor")
+        if self.negative_prompt or self.true_cfg is not None or self.mu is not None:
+            raise ValueError("kontext-v1 requires an empty negative prompt, no true CFG and automatic Mu")
+        require_default_execution(self.execution)
+        if self.num_images != 1 or self.runs != 1:
+            raise ValueError("an instruction edit runs one image per call; batch and Repeat are unavailable")
+        if isinstance(spec, StoredInstructionEdit):
+            if spec.source is None:
+                raise ValueError(edit_rules.UNRESOLVED_SOURCE)
+            resolved = edit_rules.geometry(spec.edit_source.width, spec.edit_source.height, recipe=spec.recipe)
+            if (self.width, self.height) != resolved.output_size:
+                raise ValueError("instruction-edit dimensions must match the frozen source geometry")
+        elif require_bound:
+            raise ValueError("Bind and verify the instruction-edit source before computing or saving its identity.")
+        return spec
+
+    @model_validator(mode="after")
+    def _edit_is_explicit_and_exclusive(self) -> "GenerateRequest":
+        self.validate_edit()
+        return self
 
     @model_validator(mode="after")
     def _execution_is_available(self) -> "GenerateRequest":
@@ -283,6 +333,13 @@ class GenerateRequest(BaseModel):
 
     @model_validator(mode="after")
     def _profile_defaults(self) -> "GenerateRequest":
+        if self.edit is not None:
+            recipe = edit_rules.recipe_for(self.edit.recipe)
+            if self.steps is None:
+                self.steps = recipe.default_steps
+            if self.guidance_scale is None:
+                self.guidance_scale = recipe.default_guidance_scale
+            return self
         profile = defaults_for(current_model_id(settings))
         if self.steps is None:
             self.steps = profile["steps"]
@@ -435,6 +492,9 @@ class GenerateRequest(BaseModel):
         Batch. `grid` defaults to whether this is a `GridRequest`; the CLI,
         whose grid is a plain request with axes, says so itself.
         """
+        if self.edit is not None:
+            self.validate_edit(require_bound=True)
+            return
         if self.refine is not None:
             if self.width * self.height > settings.refine_max_pixels:
                 raise ValueError(
@@ -475,6 +535,7 @@ class GenerateRequest(BaseModel):
         lora_supported: bool = True,
         refine_supported: bool = False,
         inpaint_supported: bool = False,
+        instruction_edit_supported: bool = False,
     ) -> "GenerateRequest":
         """This request as the pipeline will actually run it.
 
@@ -497,6 +558,16 @@ class GenerateRequest(BaseModel):
         # Also covers internal model_copy requests without revalidating a
         # stamped outpaint (whose derived mask is deliberately post-validation).
         require_default_execution(self.execution)
+        if self.edit is not None:
+            bound_edit = self.validate_edit(require_bound=True)
+            if not instruction_edit_supported:
+                raise ValueError(edit_rules.INSTRUCTION_EDIT_UNAVAILABLE)
+            # The named first recipe has no strength, Mu or negative/true-CFG
+            # branch. Preserve its complete source identity instead of running
+            # ordinary capability normalization that could erase the pass kind.
+            return self.model_copy(update={
+                "edit": bound_edit, "negative_prompt": None, "execution": canonical_execution(self.execution),
+            })
         changes: dict[str, Any] = {}
         if self.execution is not None:
             # Availability is checked above. Normalization canonicalizes an
@@ -642,6 +713,8 @@ class GenerateSubmission(GenerateRequest):
 
     @model_validator(mode="after")
     def _one_execution_channel(self) -> "GenerateSubmission":
+        if self.edit is not None and (self.then_refine is not None or self.step_cache is not None):
+            raise ValueError("instruction edits cannot use Then refine or step caching")
         if "execution" in self.model_fields_set and "step_cache" in self.model_fields_set:
             raise ValueError("Choose composer step cache or a recorded execution recipe, not both.")
         return self
@@ -735,6 +808,8 @@ class GridRequest(GenerateSubmission):
 
     @model_validator(mode="after")
     def _runs_are_not_a_grid_axis(self) -> "GridRequest":
+        if self.edit is not None:
+            raise ValueError("instruction edits cannot run as a grid")
         if self.runs != 1:
             raise ValueError("a grid steps its own seeds; leave runs at 1")
         return self

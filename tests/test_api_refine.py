@@ -400,7 +400,7 @@ def test_load_disproving_refine_guess_fails_before_any_render(client, fake, monk
     load = fake.load
 
     def live_description():
-        return dict(describe(), model_id="black-forest-labs/FLUX.1-Kontext-dev",
+        return dict(describe(), model_id="example/flux-custom-pipeline",
                     refine_supported=fake.refine_supported if fake.loaded else None)
 
     def unsupported_load():

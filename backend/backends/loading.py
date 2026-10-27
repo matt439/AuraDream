@@ -61,6 +61,8 @@ UNUSED_COMPONENTS: dict[str, tuple[str, ...]] = {
     "ErnieImagePipeline": ("pe", "pe_tokenizer"),
 }
 
+INSTRUCTION_EDITOR_CLASSES = frozenset({"FluxKontextPipeline", "QwenImageEditPipeline", "QwenImageEditPlusPipeline"})
+
 # The rewriter's weights, the bulk of what a first Expand downloads: the same
 # file in every ERNIE-Image repository the catalogue names (7,663,346,520
 # bytes in Baidu's Turbo and base repos, 8 fewer in lite-infer's re-upload).
@@ -337,6 +339,41 @@ def unused_components(model_id: str) -> tuple[str | None, dict[str, None]]:
     class_name = index.get("_class_name")
     names = UNUSED_COMPONENTS.get(class_name, ())
     return class_name, {name: None for name in names if name in index}
+
+
+def require_custom_pipeline_class(model_id: str) -> str | None:
+    """Inspect non-catalogue ids strictly before pipeline weights load.
+
+    ``unused_components`` is a best-effort download optimization and cannot
+    decide admission: its failure intentionally means load every component.
+    A custom/local id must instead supply a readable index with a concrete
+    pipeline class. Unknown/unreadable identity refuses, never retries through
+    ``from_pretrained`` after a speculative download. Existing catalogue and
+    its enumerated Nunchaku format ids retain their established loader path.
+    """
+    from ..instruction_edit import INSTRUCTION_EDIT_UNAVAILABLE
+    from ..launch import CHECKPOINTS, FORMATS
+
+    known = {checkpoint.repo.casefold() for checkpoint in CHECKPOINTS}
+    known.update(
+        repo.casefold() for checkpoint in CHECKPOINTS for fmt, _ in FORMATS
+        if (repo := checkpoint.lite_repo(fmt)) is not None
+    )
+    if model_id.casefold() in known:
+        return None
+    try:
+        with open(hub_file(model_id, "model_index.json"), encoding="utf-8") as stream:
+            index = json.load(stream)
+    except Exception as exc:
+        # Keep the original exception chain for the existing Hub/offline load
+        # error mapping; do not echo arbitrary index contents or fetch errors.
+        raise ValueError("Cannot inspect this custom checkpoint's pipeline class; no weights were loaded.") from exc
+    class_name = index.get("_class_name") if isinstance(index, dict) else None
+    if not isinstance(class_name, str) or not class_name.isidentifier():
+        raise ValueError("A custom checkpoint needs a valid pipeline class in model_index.json; no weights were loaded.")
+    if class_name in INSTRUCTION_EDITOR_CLASSES:
+        raise ValueError(INSTRUCTION_EDIT_UNAVAILABLE)
+    return class_name
 
 
 def quantization_config(settings: "Settings") -> Any:

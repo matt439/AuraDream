@@ -52,6 +52,7 @@ from typing import Any, Callable
 from .model_selection import current_model_id
 from .config import settings
 from .execution import execution_key
+from .instruction_edit import edit_key
 from .refine import start_index, steps_run
 from .schemas import GenerateRequest, ImageRecord, PromptVariant
 from .seeds import random_seed, wrap_seed
@@ -100,20 +101,20 @@ VARIANT = "variant"
 
 # What identifies an image for resume: the prompt pair, the settings, the seed.
 # (prompt, negative prompt, steps, CFG, mu, true CFG, references, LoRA, refine,
-# mask, upscaler, execution, canvas/crop, seed) - the seed last, because `cell_keys` swaps it for each
+# mask, upscaler, edit, execution, canvas/crop, seed) - the seed last, because `cell_keys` swaps it for each
 # image of a batch. Existing extension indices stay fixed; execution precedes
 # shape so readers retain shape[-2]. `run_id` omits empty execution explicitly
 # before trimming unused legacy extensions from the right.
 CellKey = tuple[
     str, str | None, int, float, float | None, float | None, str | None, str | None,
-    str | None, str | None, str | None, str | None, str, int,
+    str | None, str | None, str | None, str | None, str | None, str, int,
 ]
 
 # How many of the trailing elements before the seed are optional extensions -
-# true CFG, references, LoRA, refine, mask, upscaler, execution, canvas/crop. Comparison
+# true CFG, references, LoRA, refine, mask, upscaler, edit, execution, canvas/crop. Comparison
 # keys always carry the last one; run_id removes it explicitly for uniform
 # centered runs before dropping unused legacy extensions from the right.
-_KEY_EXTENSIONS = 8
+_KEY_EXTENSIONS = 9
 
 
 def shape_key(width: int, height: int, crop_anchor: str | None = None) -> str:
@@ -695,6 +696,7 @@ def cell_key(cell: "Cell") -> CellKey:
     through SQLite's REAL and back still matches the axis that generated it.
     """
     request = cell.request
+    bound_edit = request.validate_edit(require_bound=True)
     assert request.steps is not None and request.guidance_scale is not None, "profile defaults fill sampling"
     return (
         request.prompt,
@@ -708,6 +710,7 @@ def cell_key(cell: "Cell") -> CellKey:
         refine_key(request.refine, request.strength),
         mask_key(request.mask, _outpaint_text(request.outpaint)),
         request.upscaler,
+        edit_key(bound_edit),
         execution_key(request.execution),
         shape_key(request.width, request.height, request.crop_anchor),
         cell.seed,
@@ -847,12 +850,21 @@ def cell_from_record(
         # Recorded arithmetic must not silently become Eager. The ordinary
         # request validator refuses recipes unavailable in this build.
         "execution": record.execution,
+        "edit": record.edit,
         "seed": record.seed,
     }
     unknown = set(changes) - set(GenerateRequest.model_fields)
     if unknown:
         raise TypeError(f"no GenerateRequest field {', '.join(sorted(unknown))}")
     fields.update(changes)
+    if fields["edit"] is not None:
+        # Replay always retains the original input, never the resulting child.
+        # Source availability/pixels are checked again by submission.
+        from .instruction_edit import bound_spec
+
+        stored_edit = bound_spec(fields["edit"])
+        stored_edit.request()  # Explicitly refuse unresolved imported intent.
+        fields["edit"] = stored_edit
     return Cell(
         request=GenerateRequest(**fields),
         seed=fields["seed"],
@@ -1004,6 +1016,11 @@ def run_id(cells: list[Cell], model_id: str, quantization: str) -> str:
         # Comparison keys always carry shape. Uniform centered hashed names
         # keep the exact legacy key and size definition instead.
         extensions = _KEY_EXTENSIONS
+        # An absent edit cannot rename any existing run, even when execution
+        # or a noncenter/mixed-size shape follows it in the comparison key.
+        if key[-4] is None:
+            key = (*key[:-4], *key[-3:])
+            extensions -= 1
         # Execution was added before shape to keep comparison shape[-2]. An
         # absent slot must be removed explicitly: trailing trim cannot reach
         # it when a mixed-size/noncenter shape follows it. Preserve the exact
@@ -1065,6 +1082,8 @@ def expand(
     count - reads the resolved prompt, so a variant is an ordinary prompt cell
     to all of it and only the label is new.
     """
+    if request.edit is not None:
+        raise ValueError("instruction edits cannot run as a grid")
     if prompt_mode not in {"cross", "random"}:
         raise ValueError("prompt mode must be cross or random")
     variables = None

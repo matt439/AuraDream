@@ -21,6 +21,7 @@ running checkpoint through `settings` patches `schemas_generate`, whose
 from __future__ import annotations
 
 from .config import settings
+from .instruction_edit import InstructionEditSpec, InstructionEditSource, StoredInstructionEdit
 from .schemas_snippets import Snippet, SnippetCollection, SnippetFields, SnippetUpdate
 from .schemas_generate import (
     MAX_REFERENCES,
@@ -120,6 +121,9 @@ from .schemas_model import (
 )
 
 __all__ = [
+    "InstructionEditSpec",
+    "InstructionEditSource",
+    "StoredInstructionEdit",
     "settings",
     "MAX_REFERENCES",
     "default_strength",

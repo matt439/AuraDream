@@ -39,6 +39,8 @@ from .bundle_common import (
 )
 from .bundle_images import _critical_digest, _inspect_source, _metadata, _references, _rewrite_all, _validate_row
 from .metadata import require_header_metadata
+from .instruction_edit import StoredInstructionEdit, edit_key
+from .metadata import edit_from_json
 
 _SUFFIXES = (".zip", bundle_crypto.SUFFIX)
 
@@ -536,8 +538,29 @@ def _links_outside(rows: list[dict]) -> int:
     held = {row["id"] for row in rows}
     return sum(
         sum(i not in held for i in _references(row)) + (row.get("refine") is not None and row["refine"] not in held)
+        + ((edit := edit_from_json(row.get("edit"))) is not None and edit.source not in held)
         for row in rows
     )
+
+
+def _cyclic_edit_sources(rows: dict[int, dict]) -> set[int]:
+    """Imported dependency cycles never become usable numeric links."""
+    cyclic: set[int] = set()
+    finished: set[int] = set()
+    for image_id in rows:
+        path: list[int] = []
+        seen: set[int] = set()
+        current: int | None = image_id
+        while current is not None and current in rows and current not in finished:
+            if current in seen:
+                cyclic.update(path[path.index(current):])
+                break
+            seen.add(current)
+            path.append(current)
+            edit = edit_from_json(rows[current].get("edit"))
+            current = edit.source if edit is not None else None
+        finished.update(path)
+    return cyclic
 
 
 def export_bundle(expected: int | None = None, password: str | None = None, progress: Progress = _quiet, *,
@@ -610,7 +633,8 @@ def export_bundle(expected: int | None = None, password: str | None = None, prog
             rows = _rows(snapshot)
             if ids is not None and rows != chosen:
                 raise BundleChanged("the gallery changed while its bundle was prepared; try again")
-            manifest = {"format": _FORMAT, "version": 1, "records": len(rows), "files": {}}
+            version = 2 if any(bundle_images._edit(row) is not None for row in rows) else 1
+            manifest = {"format": _FORMAT, "version": version, "records": len(rows), "files": {}}
             if managed is not None:
                 manifest[backup_receipts.MARKER] = managed.marker()
             members = [(_DATABASE, snapshot), *files]
@@ -845,7 +869,7 @@ def _import_bundle(path: Path, password: str | None, progress: Progress,
                 target = present_file(row["filename"])
                 if target is None:
                     pixels = _inspect_source(row, data)
-                    return pixels, False, pixels.execution
+                    return pixels, False, pixels.execution, pixels.edit
                 # Keeping the local file also keeps its metadata. Validate
                 # that header against its own row before either identity
                 # path can call it present; pixel equality says nothing
@@ -857,6 +881,7 @@ def _import_bundle(path: Path, password: str | None, progress: Progress,
                             if image.format != "PNG":
                                 raise BundleError(f"not a PNG image: {target.name}")
                             bundle_images._execution(existing[row["filename"].casefold()], image.info)
+                            bundle_images._edit(existing[row["filename"].casefold()], image.info)
                 except (OSError, ValueError, Image.DecompressionBombError) as exc:
                     raise BundleError(f"cannot read existing execution metadata for {target.name}: {exc}") from exc
                 # A present image is kept and its bundle copy never unpacked.
@@ -866,8 +891,9 @@ def _import_bundle(path: Path, password: str | None, progress: Progress,
                 # mode and palette included, never by the short hash.
                 with target.open("rb") as stream:
                     known = _critical_digest(stream)
-                if (known is not None and data[12:16] == b"IHDR"
-                        and known == _critical_digest(io.BytesIO(data))):
+                identical = (known is not None and data[12:16] == b"IHDR"
+                             and known == _critical_digest(io.BytesIO(data)))
+                if identical and not row.get("_edit_source_needed"):
                     width, height = struct.unpack(">II", data[16:24])
                     stream = io.BytesIO(data)
                     try:
@@ -876,10 +902,11 @@ def _import_bundle(path: Path, password: str | None, progress: Progress,
                         raise BundleError(f"invalid PNG metadata for {row['filename']}: {exc}") from exc
                     with Image.open(stream) as image:
                         execution = bundle_images._execution(row, image.info)
+                        edit = bundle_images._edit(row, image.info)
                     _validate_row(row, width, height, existing[row["filename"].casefold()]["content_hash"])
-                    return None, True, execution
+                    return None, True, execution, edit
                 pixels = _inspect_source(row, data)
-                return pixels, bundle_images._pixels(target).identity == pixels.identity, pixels.execution
+                return pixels, identical or bundle_images._pixels(target).identity == pixels.identity, pixels.execution, pixels.edit
 
             def extract(member: str) -> bool:
                 # An existing image wins on repeated import, so its bundle copy
@@ -928,7 +955,7 @@ def _import_bundle(path: Path, password: str | None, progress: Progress,
                 progress("merging", 0, len(source_rows))
                 for row in source_rows:
                     name = row["filename"]
-                    pixels, same, execution = inspected["images/" + name]
+                    pixels, same, execution, edit = inspected["images/" + name]
                     digest = pixels.hash if pixels else None  # None: present and unchanged
                     known = existing.get(name.casefold())
                     if known:
@@ -952,6 +979,8 @@ def _import_bundle(path: Path, password: str | None, progress: Progress,
                                 raise BundleError(f"different image metadata already uses the filename {name}")
                         if bundle_images._execution(known) != execution:
                             raise BundleError(f"different execution already uses the filename {name}")
+                        if bundle_images._portable_edit(bundle_images._edit(known)) != bundle_images._portable_edit(edit):
+                            raise BundleError(f"different instruction edit already uses the filename {name}")
                         incoming_anchor = row.get("crop_anchor")
                         if known.get("refine") is None:
                             # A prior import of this source-less selection
@@ -970,7 +999,7 @@ def _import_bundle(path: Path, password: str | None, progress: Progress,
                         next_id += 1
                         mapping[row["id"]] = next_id
                         values = {key: row.get(key) for key in storage._COLUMNS}
-                        values.update(id=next_id, content_hash=digest, execution=execution)
+                        values.update(id=next_id, content_hash=digest, execution=execution, edit=edit)
                         # A result, so a bad one is dropped, never the bundle.
                         for key in ("vram_peak_allocated", "vram_peak_reserved"):
                             values[key] = storage._peak(values[key])
@@ -982,7 +1011,25 @@ def _import_bundle(path: Path, password: str | None, progress: Progress,
                 # Masks recovered from their results' PNGs, staged as members.
                 embedded: dict[str, Path] = {}
                 by_id = {r["id"]: r for r in current}
+                source_by_id = {r["id"]: r for r in source_rows}
+                cyclic = _cyclic_edit_sources(source_by_id)
                 for original, values in pending:
+                    edit = edit_from_json(values.get("edit"))
+                    if edit is not None:
+                        source = source_by_id.get(edit.source)
+                        proof = edit.edit_source
+                        source_pixels = inspected["images/" + source["filename"]][0] if source is not None else None
+                        proven = (
+                            edit.source not in cyclic and source is not None and source_pixels is not None
+                            and source["filename"] == proof.filename
+                            and (source_pixels.width, source_pixels.height) == (proof.width, proof.height)
+                            and source_pixels.rgb_hash == proof.hash
+                        )
+                        local_id = mapping.get(edit.source) if proven else None
+                        unresolved += local_id is None
+                        values["edit"] = edit_key(StoredInstructionEdit(
+                            source=local_id, recipe=edit.recipe, edit_source=proof,
+                        ))
                     refs = _references(original)
                     unresolved += sum(i not in mapping for i in refs)
                     refs = [mapping[i] for i in refs if i in mapping]
