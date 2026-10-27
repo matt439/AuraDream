@@ -1,4 +1,4 @@
-// Local Diffusion's page script: prompt token counts and reading limits.
+// Auradream's page script: prompt token counts and reading limits.
 // Declarations only; state.js has the shared-global load-order contract.
 'use strict';
 

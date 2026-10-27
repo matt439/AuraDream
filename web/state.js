@@ -1,4 +1,4 @@
-// Local Diffusion's page script: shared state, the element table and
+// Auradream's page script: shared state, the element table and
 // the fetch/error helpers. index.html loads these files in order as classic
 // scripts, so they share one global scope: a top-level `let`, `const` or
 // function in any of them is visible to all the others and to a smoke step's
@@ -18,7 +18,7 @@ const PAGE = 48;
 // A sheet wants the whole run in one go - it is a matrix, and a matrix with a
 // page boundary through it is a puzzle. The rows are small and the thumbnails
 // load lazily, so a full grid is cheaper than it sounds. The size follows the
-// server's grid ceiling (/api/status), so a raised LOCAL_DIFFUSION_MAX_GRID_IMAGES does
+// server's grid ceiling (/api/status), so a raised AURADREAM_MAX_GRID_IMAGES does
 // not silently drop the earliest seeds off a sheet.
 let sheetPage = 1024;
 
@@ -358,6 +358,37 @@ let submitting = false;
 const submissions = new Map();
 const jobLabels = new Map();
 const jobPlaceholders = new Map();
+// Browser storage from before the rename to Auradream, kept under
+// 'local-diffusion.*': each key moved once to its 'auradream.*' name, in both
+// stores, before anything reads them - here, ahead of the tab sets below,
+// which are the first read at load (every other is app.js's boot). Moved, not
+// copied: a key the page forgets (Reset, Gallery beside off, a reverted
+// draft) would otherwise come back from the old copy at the next load. A new
+// key already there wins and the old one just goes; a write that throws (a
+// full store) leaves the old key for the next load to try again.
+const LEGACY_STORAGE_PREFIX = 'local-diffusion.';
+const STORAGE_PREFIX = 'auradream.';
+function carryLegacyStorage(storeOf) {
+  let store;
+  const legacy = [];
+  try {
+    store = storeOf();
+    for (let i = 0; i < store.length; i += 1) {
+      const key = store.key(i);
+      if (key?.startsWith(LEGACY_STORAGE_PREFIX)) legacy.push(key);
+    }
+  } catch { return; /* unavailable: nothing to carry */ }
+  for (const key of legacy) {
+    try {
+      const renamed = STORAGE_PREFIX + key.slice(LEGACY_STORAGE_PREFIX.length);
+      const value = store.getItem(key);
+      if (value !== null && store.getItem(renamed) === null) store.setItem(renamed, value);
+      store.removeItem(key);
+    } catch { /* kept for the next load */ }
+  }
+}
+carryLegacyStorage(() => localStorage);
+carryLegacyStorage(() => sessionStorage);
 // Job ids this tab has a word about, kept in sessionStorage: a reload keeps
 // a tab's sessionStorage and another tab has its own, so what this tab did
 // before a reload is still this tab's when the reloaded page sees the job.
@@ -384,12 +415,12 @@ class TabJobIds extends Set {
 // another tab's, picked up when its own ended - is said to be another tab's,
 // and so is a queue row (queueRow). Kept across a reload, whose listing
 // would otherwise call this tab's own queued jobs another tab's.
-const ownJobs = new TabJobIds('local-diffusion.own-jobs');
+const ownJobs = new TabJobIds('auradream.own-jobs');
 // Cancels this page asked for - Cancel, a queued row's ×, Cancel queued - by
 // job id: finishJob says any other as one from elsewhere. Kept across a
 // reload: a Cancel pressed just before one is still this tab's when the
 // reloaded page sees the job end.
-const cancelledHere = new TabJobIds('local-diffusion.cancelled-jobs');
+const cancelledHere = new TabJobIds('auradream.cancelled-jobs');
 // The seed the page itself put in the Seed box - a grid's base, written back
 // for Resume, or a finished image's through Use seed - while it is still
 // there: the run hint says the next Generate repeats it.
@@ -584,7 +615,7 @@ let sheetRecords = [];
 // named neither the app nor what to do. `offline` marks it, so the status poll
 // can take the page into its offline state and clear the message once the
 // server answers again.
-const OFFLINE_MESSAGE = 'No answer from the Local Diffusion server — is it still running?';
+const OFFLINE_MESSAGE = 'No answer from the Auradream server — is it still running?';
 // The topbar's words for that state, which the watched job's line, the
 // topbar's mirror of it and the tab's title use too while its stream
 // reconnects (job-stream.js): one phrase, not three.
@@ -597,8 +628,8 @@ async function api(path, options) {
   const revision = modelRevision;
   if (path.startsWith('/api/') && revision !== null) {
     const headers = new Headers(options?.headers);
-    if (!headers.has('X-Local-Diffusion-Model-Revision')) {
-      headers.set('X-Local-Diffusion-Model-Revision', String(revision));
+    if (!headers.has('X-Auradream-Model-Revision')) {
+      headers.set('X-Auradream-Model-Revision', String(revision));
     }
     options = { ...options, headers };
   }

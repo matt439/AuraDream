@@ -2,7 +2,7 @@
 
 Pixel identity, the pixel-deciding chunk digest, checking a row against its
 image, the embedded reproduction metadata, and streaming rewrites of the
-PNG's local-diffusion tEXt chunk.
+PNG's auradream tEXt chunk.
 """
 from __future__ import annotations
 

@@ -15,7 +15,7 @@ from typing import Any, NotRequired, TypedDict
 
 # Resolve the app's remote-kernel policy even for direct converter imports.
 from .. import config as _config  # noqa: F401
-from .single_file import HubFile, HubRepo, cache_root, sweep_work
+from .single_file import CONVERSION_MARKER, HubFile, HubRepo, cache_root, sweep_work
 
 log = logging.getLogger(__name__)
 
@@ -185,7 +185,7 @@ def _target(model_id: str = MODEL_ID) -> tuple[Path, Path, str]:
     digest = hashlib.sha256(recipe.encode()).hexdigest()[:16]
     stem = Path(selected["source"]["filename"]).stem
     target = cache_root() / f"{stem}-{digest}"
-    return target, target / "local-diffusion-conversion.json", recipe
+    return target, target / CONVERSION_MARKER, recipe
 
 
 def _converted(target: Path, marker: Path, recipe: str) -> bool:
@@ -211,7 +211,7 @@ def resolve_model(model_id: str, quantization: str) -> str:
     if quantization == "nunchaku":
         raise RuntimeError(
             "This Anima selection is not a Nunchaku Lite checkpoint. "
-            "Use LOCAL_DIFFUSION_QUANT=fp8, int8 or none."
+            "Use AURADREAM_QUANT=fp8, int8 or none."
         )
 
     from huggingface_hub.utils._fixes import WeakFileLock

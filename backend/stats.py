@@ -78,6 +78,9 @@ def main(argv: list[str] | None = None) -> int:
     reconfigure = getattr(sys.stdout, "reconfigure", None)
     if callable(reconfigure) and (sys.platform == "win32" or not sys.stdout.isatty()):
         reconfigure(encoding="utf-8", errors="backslashreplace")
+    from backend.launch import warn_legacy_env
+
+    warn_legacy_env()  # a pre-rename variable left in a shell: named, not read
     parser = argparse.ArgumentParser(
         prog="python -m backend.stats",
         description="The starred rate per setting: which steps, CFG and mu produced the favourites.",

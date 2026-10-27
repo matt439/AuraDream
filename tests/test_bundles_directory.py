@@ -112,10 +112,10 @@ uvicorn.run = inspect
 sys.argv = ['tools/fake_server.py', '--data', sys.argv[1]]
 runpy.run_path('tools/fake_server.py', run_name='__main__')
 """
-    clean = {key: value for key, value in os.environ.items() if not key.startswith("LOCAL_DIFFUSION_")}
+    clean = {key: value for key, value in os.environ.items() if not key.startswith("AURADREAM_")}
     result = subprocess.run(
         [sys.executable, "-c", script, str(scratch)],
-        env={**clean, "LOCAL_DIFFUSION_BUNDLES_DIR": str(production)},
+        env={**clean, "AURADREAM_BUNDLES_DIR": str(production)},
         capture_output=True, text=True, timeout=60,
     )
     assert result.returncode == 0, result.stderr

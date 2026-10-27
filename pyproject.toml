@@ -1,5 +1,5 @@
 [project]
-name = "local-diffusion"
+name = "auradream"
 version = "0.1.0"
 description = "Local text-to-image generator - FastAPI + diffusers"
 readme = "README.md"
@@ -23,7 +23,7 @@ dependencies = [
     "huggingface-hub[hf-xet]>=0.30",
     "pydantic>=2.9",
     "torchao",
-    # LOCAL_DIFFUSION_QUANT=nunchaku only. `kernels` fetches the Nunchaku Lite CUDA ops from
+    # AURADREAM_QUANT=nunchaku only. `kernels` fetches the Nunchaku Lite CUDA ops from
     # the Hub and publishes Linux builds only; bitsandbytes carries those
     # checkpoints' NF4 text encoders. Linux markers, so a Windows `uv sync` is
     # unchanged and one from WSL 2 picks both up.
@@ -35,8 +35,8 @@ dependencies = [
 ]
 
 [project.urls]
-Repository = "https://github.com/matt439/ImageGeneratorLocal"
-Documentation = "https://github.com/matt439/ImageGeneratorLocal/blob/main/docs/usage.md"
+Repository = "https://github.com/matt439/Auradream"
+Documentation = "https://github.com/matt439/Auradream/blob/main/docs/usage.md"
 
 [dependency-groups]
 # Nothing in the app imports these; `uv run --group dev pytest` gets them.

@@ -57,7 +57,7 @@ def test_the_critique_is_refused_where_there_is_no_critic(client, fake, monkeypa
     monkeypatch.setattr(main, "settings", dataclasses.replace(settings, critic=True))
     response = client.post("/api/prompt/critique", json={"prompt": "a lighthouse"})
     assert response.status_code == 422
-    assert "LOCAL_DIFFUSION_CRITIC_SERVER" in response.json()["detail"]
+    assert "AURADREAM_CRITIC_SERVER" in response.json()["detail"]
     monkeypatch.setattr(main, "settings", dataclasses.replace(settings, critic=False))
     response = client.post("/api/prompt/critique", json={"prompt": "a lighthouse"})
     assert response.status_code == 422 and "switched off" in response.json()["detail"]
@@ -461,7 +461,7 @@ def test_a_prompt_too_long_for_the_critics_window_is_a_502(client, fake, monkeyp
     ("failure", "status"),
     [
         (CriticError("llama.zip has sha256 00ff, not the pinned 1d77"), 502),
-        (CriticUnavailable("LOCAL_DIFFUSION_CRITIC_MODEL=x.gguf is not a file"), 503),
+        (CriticUnavailable("AURADREAM_CRITIC_MODEL=x.gguf is not a file"), 503),
         (OSError("the network is unreachable"), 500),
     ],
 )

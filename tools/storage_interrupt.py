@@ -36,10 +36,10 @@ MIN_FREE = 256 * 1024**2
 def _app(gallery: Path) -> None:
     # No inherited model or gallery setting can direct this check elsewhere.
     for name in list(os.environ):
-        if name.startswith("LOCAL_DIFFUSION_"):
+        if name.startswith("AURADREAM_"):
             del os.environ[name]
-    os.environ["LOCAL_DIFFUSION_DB_PATH"] = str(gallery / "local-diffusion.db")
-    os.environ["LOCAL_DIFFUSION_OUTPUTS_DIR"] = str(gallery / "outputs")
+    os.environ["AURADREAM_DB_PATH"] = str(gallery / "auradream.db")
+    os.environ["AURADREAM_OUTPUTS_DIR"] = str(gallery / "outputs")
     sys.path.insert(0, str(Path(__file__).resolve().parent.parent))
 
 
@@ -102,7 +102,7 @@ def _fixture(root: Path, boundary: str):
     if boundary.startswith("import"):
         archive = bundles.export_bundle(keep_gallery=True)["path"]
         storage.settings = dataclasses.replace(
-            settings, db_path=root / "destination" / "local-diffusion.db", outputs_dir=root / "destination" / "outputs",
+            settings, db_path=root / "destination" / "auradream.db", outputs_dir=root / "destination" / "outputs",
         )
         storage.init_db()
         save(1001)
@@ -256,7 +256,7 @@ def _kill_at_boundary(root: Path, state: dict) -> dict:
 
         blocked = False
         try:
-            with gallery_lock.hold(Path(state["gallery"]) / "local-diffusion.db", wait=0.0):
+            with gallery_lock.hold(Path(state["gallery"]) / "auradream.db", wait=0.0):
                 pass
         except gallery_lock.GalleryBusy:
             blocked = True

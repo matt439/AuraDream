@@ -332,7 +332,7 @@ def test_a_database_merge_carries_the_masks_and_the_column(store, monkeypatch, t
     _save("already here", 90)
     elsewhere = tmp_path / "backup" / "outputs"
     elsewhere.mkdir(parents=True)
-    source_db = elsewhere.parent / "local-diffusion.db"
+    source_db = elsewhere.parent / "auradream.db"
     monkeypatch.setattr(storage, "settings", dataclasses.replace(mine, db_path=source_db, outputs_dir=elsewhere))
     storage.init_db()
     source, made, digest, unused = _inpaint_gallery()

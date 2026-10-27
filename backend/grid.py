@@ -417,6 +417,8 @@ def random_assignment(variables: dict[str, list[str]], seed: int) -> dict[str, s
     """
     assignment = {}
     for name, values in variables.items():
+        # Frozen from the app's old name: it feeds the draw, so renaming it
+        # would give every saved random-prompt seed another prompt.
         material = json.dumps(
             ["local-diffusion.prompt-choice.v1", seed, name],
             ensure_ascii=False, separators=(",", ":"),

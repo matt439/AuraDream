@@ -41,10 +41,10 @@ if __package__ in (None, ""):
     sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
 
 # Imported up here rather than in _project(): none of these pulls in config, so
-# all are safe before apply_env() has had its say about LOCAL_DIFFUSION_* variables.
+# all are safe before apply_env() has had its say about AURADREAM_* variables.
 # launch.py owns --model/--quant/--offload for the server and this CLI alike;
 # sizes.py owns the preset table the browser's copy is asserted against.
-from backend.launch import add_model_arguments, apply_env  # noqa: E402
+from backend.launch import add_model_arguments, apply_env, warn_legacy_env  # noqa: E402
 from backend.png_settings import image_settings  # noqa: E402
 from backend.seeds import random_seed, wrap_seed  # noqa: E402
 from backend.sizes import SIZES, TIERS  # noqa: E402
@@ -126,7 +126,7 @@ def _build_parser() -> argparse.ArgumentParser:
         "--lora",
         metavar="FILE",
         help="a .safetensors adapter in the loras directory, by file name "
-        "(LOCAL_DIFFUSION_LORAS_DIR moves it)",
+        "(AURADREAM_LORAS_DIR moves it)",
     )
     conditioning.add_argument(
         "--lora-scale",
@@ -318,7 +318,7 @@ def _build_parser() -> argparse.ArgumentParser:
     parser.add_argument(
         "--ignore-server",
         action="store_true",
-        help="load the weights even if a server on LOCAL_DIFFUSION_HOST:LOCAL_DIFFUSION_PORT already holds them on the GPU",
+        help="load the weights even if a server on AURADREAM_HOST:AURADREAM_PORT already holds them on the GPU",
     )
     parser.add_argument(
         "--via-server", action="store_true",
@@ -328,7 +328,7 @@ def _build_parser() -> argparse.ArgumentParser:
 
 
 def _image_settings(path: str, parser: argparse.ArgumentParser) -> dict:
-    """The Local Diffusion record a gallery PNG carries, as a dict.
+    """The Auradream record a gallery PNG carries, as a dict.
 
     `png_settings.image_settings`, shared with the page's Load settings from
     PNG; its refusals - a JPEG, another tool's PNG, a record that is not
@@ -350,7 +350,7 @@ def _apply_image_settings(args: argparse.Namespace, meta: dict) -> None:
     """Fill the arguments the flags left unset from the PNG's own record.
 
     Before `apply_env`, so the checkpoint the image was made on can reach
-    LOCAL_DIFFUSION_MODEL_ID: a Turbo PNG rendered on FLUX would claim to reproduce an
+    AURADREAM_MODEL_ID: a Turbo PNG rendered on FLUX would claim to reproduce an
     image it cannot. Quantization is *not* carried - a Nunchaku PNG read on
     Windows would otherwise ask for a mode this machine cannot run - and
     neither are the job and run ids: they are displayed, never reused.
@@ -569,21 +569,22 @@ def _mask_file(path: str, parser: argparse.ArgumentParser):
 
 
 def _mask_from_record(path: str, digest: str):
-    """The mask a --from-image PNG carries in its own `local-diffusion-mask`
-    chunk, where it is the one its record names, else None."""
+    """The mask a --from-image PNG carries in its own `auradream-mask`
+    chunk (or Local Diffusion's legacy one), where it is the one its record
+    names, else None."""
     import base64
     import binascii
     import io
 
     from PIL import Image
 
-    from backend.metadata import PNG_MASK_KEY
+    from backend.metadata import embedded_mask
     from backend.storage import mask_hash
 
     try:
         with Image.open(path) as image:
-            raw = image.info.get(PNG_MASK_KEY)
-        if not isinstance(raw, str):
+            raw = embedded_mask(image.info)
+        if raw is None:
             return None
         with Image.open(io.BytesIO(base64.b64decode(raw, validate=True))) as embedded:
             embedded.load()
@@ -861,11 +862,11 @@ def _cli_execution_intent(args) -> bool:
     attention = getattr(args, "attention", None)
     # This internal diagnostic is invalid even when its value is empty.
     # Generation flags do not repair a saved startup profile or its marker.
-    if "LOCAL_DIFFUSION_LOADER_EXECUTION_ERROR" in os.environ:
+    if "AURADREAM_LOADER_EXECUTION_ERROR" in os.environ:
         raise ValueError(INVALID_LOADER_CONFIGURATION)
     spec = loader_execution_from_choices(
-        compilation if compilation is not None else os.getenv("LOCAL_DIFFUSION_COMPILATION"),
-        attention if attention is not None else os.getenv("LOCAL_DIFFUSION_ATTENTION"),
+        compilation if compilation is not None else os.getenv("AURADREAM_COMPILATION"),
+        attention if attention is not None else os.getenv("AURADREAM_ATTENTION"),
     )
     cache = getattr(args, "step_cache", None)
     if cache not in (None, "off"):
@@ -875,7 +876,7 @@ def _cli_execution_intent(args) -> bool:
     args.execution_recipe = spec
     return (
         compilation is not None or attention is not None
-        or "LOCAL_DIFFUSION_COMPILATION" in os.environ or "LOCAL_DIFFUSION_ATTENTION" in os.environ
+        or "AURADREAM_COMPILATION" in os.environ or "AURADREAM_ATTENTION" in os.environ
     )
 
 
@@ -926,16 +927,16 @@ def _via_server(args, parser, source, carried, mask_image, width, height, sized,
         parser.error("--grid-lora-scale needs --lora: with no adapter the weight does nothing")
     if args.grid_strength and args.refine is None:
         parser.error("--grid-strength needs --refine: with no source the strength does nothing")
-    host = os.getenv("LOCAL_DIFFUSION_HOST", "127.0.0.1")
+    host = os.getenv("AURADREAM_HOST", "127.0.0.1")
     host = "127.0.0.1" if host in {"0.0.0.0", "::"} else host
     if ":" in host and not host.startswith("["):
         host = f"[{host}]"
     try:
-        port = int(os.getenv("LOCAL_DIFFUSION_PORT", "7860"))
+        port = int(os.getenv("AURADREAM_PORT", "7860"))
         if not 1 <= port <= 65535:
             raise ValueError
     except ValueError:
-        parser.error("LOCAL_DIFFUSION_PORT must be a port from 1 to 65535")
+        parser.error("AURADREAM_PORT must be a port from 1 to 65535")
     base = f"http://{host}:{port}"
     headers = {}
     job_id = None
@@ -958,9 +959,9 @@ def _via_server(args, parser, source, carried, mask_image, width, height, sized,
         except ValueError as exc:
             raise _ServerError(str(exc), 422) from exc
         for value, key, flag, env in (
-            (args.model, "model_id", "--model", "LOCAL_DIFFUSION_MODEL_ID"),
-            (args.quant, "quantization", "--quant", "LOCAL_DIFFUSION_QUANT"),
-            (args.offload, "offload", "--offload", "LOCAL_DIFFUSION_OFFLOAD"),
+            (args.model, "model_id", "--model", "AURADREAM_MODEL_ID"),
+            (args.quant, "quantization", "--quant", "AURADREAM_QUANT"),
+            (args.offload, "offload", "--offload", "AURADREAM_OFFLOAD"),
         ):
             wanted = value if value is not None else os.getenv(env)
             if wanted is not None and wanted != status[key]:
@@ -971,7 +972,7 @@ def _via_server(args, parser, source, carried, mask_image, width, height, sized,
         revision = status.get("model_revision")
         if not isinstance(revision, int):
             raise _ServerError("the server's status has no model revision; update the server before using --via-server")
-        headers["X-Local-Diffusion-Model-Revision"] = str(revision)
+        headers["X-Auradream-Model-Revision"] = str(revision)
         made_with = source.get("quantization") if source is not None else None
         if made_with and made_with != status["quantization"]:
             print(f"note: the PNG was made with quant={made_with}; the server uses {status['quantization']}, so the pixels will differ", file=sys.stderr)
@@ -1141,6 +1142,7 @@ def main(argv: list[str] | None = None) -> int:
     reconfigure = getattr(sys.stdout, "reconfigure", None)
     if callable(reconfigure) and (sys.platform == "win32" or not sys.stdout.isatty()):
         reconfigure(encoding="utf-8", errors="backslashreplace")
+    warn_legacy_env()  # a pre-rename variable left in a shell: named, not read
     parser = _build_parser()
     args = parser.parse_args(argv)
     try:
@@ -1166,7 +1168,7 @@ def main(argv: list[str] | None = None) -> int:
     # Whether the command line itself names a size, before a PNG fills one in:
     # --scale is an alternative to these, but not to the size of --from-image.
     size_flags = any(v is not None for v in (args.width, args.height, args.aspect, args.mp))
-    # The PNG first, so its checkpoint can reach LOCAL_DIFFUSION_MODEL_ID before the
+    # The PNG first, so its checkpoint can reach AURADREAM_MODEL_ID before the
     # settings freeze on import.
     source = _image_settings(args.from_image, parser) if args.from_image else None
     if source is not None:

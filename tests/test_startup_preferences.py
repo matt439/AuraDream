@@ -20,15 +20,15 @@ OTHER = "krea/Krea-2-Turbo"
 
 @pytest.fixture
 def remembered(tmp_path, monkeypatch):
-    path = tmp_path / "gallery" / "local-diffusion.db"
+    path = tmp_path / "gallery" / "auradream.db"
     choice = preferences.StartupPreferences(OTHER, "int8", "sequential", True)
     preferences.save(path, choice)
     for name in [*choice.environ(), preferences.OVERRIDES_VARIABLE, preferences.LOADER_EXECUTION_ERROR_VARIABLE,
-                 "LOCAL_DIFFUSION_COMPILATION", "LOCAL_DIFFUSION_ATTENTION"]:
+                 "AURADREAM_COMPILATION", "AURADREAM_ATTENTION"]:
         # Register restoration even for variables the launcher creates.
         monkeypatch.setenv(name, "")
         monkeypatch.delenv(name)
-    monkeypatch.setenv("LOCAL_DIFFUSION_DB_PATH", str(path))
+    monkeypatch.setenv("AURADREAM_DB_PATH", str(path))
     return path, choice
 
 
@@ -54,16 +54,16 @@ def test_bare_start_restores_preferences_even_without_a_terminal(remembered, int
 
 def test_flags_then_environment_then_saved_settings_win(remembered, monkeypatch):
     _, choice = remembered
-    monkeypatch.setenv("LOCAL_DIFFUSION_QUANT", "none")
-    monkeypatch.setenv("LOCAL_DIFFUSION_PRELOAD", "false")
+    monkeypatch.setenv("AURADREAM_QUANT", "none")
+    monkeypatch.setenv("AURADREAM_PRELOAD", "false")
     launch.configure(["--model", choice.model_id], ask=never_ask)
-    assert os.environ["LOCAL_DIFFUSION_MODEL_ID"] == choice.model_id
-    assert os.environ["LOCAL_DIFFUSION_QUANT"] == "none"
-    assert os.environ["LOCAL_DIFFUSION_OFFLOAD"] == "sequential"
-    assert os.environ["LOCAL_DIFFUSION_PRELOAD"] == "false"
+    assert os.environ["AURADREAM_MODEL_ID"] == choice.model_id
+    assert os.environ["AURADREAM_QUANT"] == "none"
+    assert os.environ["AURADREAM_OFFLOAD"] == "sequential"
+    assert os.environ["AURADREAM_PRELOAD"] == "false"
     assert preferences.startup_overrides() == {
-        "model_id": "--model", "quantization": "LOCAL_DIFFUSION_QUANT",
-        "load_on_startup": "LOCAL_DIFFUSION_PRELOAD",
+        "model_id": "--model", "quantization": "AURADREAM_QUANT",
+        "load_on_startup": "AURADREAM_PRELOAD",
     }
 
 
@@ -78,14 +78,14 @@ def test_another_explicit_model_sets_the_whole_saved_choice_aside(remembered, mo
     if by == "flag":
         launch.configure(["--model", OTHER], ask=never_ask)
     else:
-        monkeypatch.setenv("LOCAL_DIFFUSION_MODEL_ID", OTHER)
+        monkeypatch.setenv("AURADREAM_MODEL_ID", OTHER)
         launch.configure([], ask=never_ask)
-    assert os.environ["LOCAL_DIFFUSION_MODEL_ID"] == OTHER
+    assert os.environ["AURADREAM_MODEL_ID"] == OTHER
     assert all(name not in os.environ for name in (
-        "LOCAL_DIFFUSION_QUANT", "LOCAL_DIFFUSION_OFFLOAD", "LOCAL_DIFFUSION_PRELOAD",
+        "AURADREAM_QUANT", "AURADREAM_OFFLOAD", "AURADREAM_PRELOAD",
     ))
     assert "Ignoring saved startup settings for black-forest-labs/FLUX.2-klein-4B" in caplog.text
-    source = "--model" if by == "flag" else "LOCAL_DIFFUSION_MODEL_ID"
+    source = "--model" if by == "flag" else "AURADREAM_MODEL_ID"
     assert preferences.startup_overrides() == {"model_id": source}
 
 
@@ -99,7 +99,7 @@ def test_a_menu_pick_of_another_model_sets_the_saved_auto_load_aside(remembered)
     asked = iter(["", number, ""])
     choice = launch.configure(["--menu"], ask=lambda _prompt: next(asked), out=io.StringIO())
     assert choice.model_id == MODEL
-    assert os.environ.get("LOCAL_DIFFUSION_PRELOAD") != "true"
+    assert os.environ.get("AURADREAM_PRELOAD") != "true"
     assert preferences.startup_overrides() == {
         "model_id": "--menu", "quantization": "--menu", "offload": "--menu", "load_on_startup": "--menu",
     }
@@ -110,14 +110,14 @@ def test_a_menu_pick_of_the_saved_model_keeps_its_auto_load(remembered):
     asked = iter(["", "", ""])
     picked = launch.configure(["--menu"], ask=lambda _prompt: next(asked), out=io.StringIO())
     assert picked.model_id == choice.model_id
-    assert os.environ["LOCAL_DIFFUSION_PRELOAD"] == "true"
+    assert os.environ["AURADREAM_PRELOAD"] == "true"
     assert "load_on_startup" not in preferences.startup_overrides()
 
 
 def test_explicit_loader_options_still_apply_with_another_model(remembered):
     launch.configure(["--model", MODEL, "--quant", "fp8", "--offload", "model"], ask=never_ask)
-    assert (os.environ["LOCAL_DIFFUSION_QUANT"], os.environ["LOCAL_DIFFUSION_OFFLOAD"]) == ("fp8", "model")
-    assert "LOCAL_DIFFUSION_PRELOAD" not in os.environ
+    assert (os.environ["AURADREAM_QUANT"], os.environ["AURADREAM_OFFLOAD"]) == ("fp8", "model")
+    assert "AURADREAM_PRELOAD" not in os.environ
     assert preferences.startup_overrides() == {
         "model_id": "--model", "quantization": "--quant", "offload": "--offload",
     }
@@ -134,14 +134,14 @@ def test_unusable_override_record_reads_as_none(recorded):
 
 
 def test_defaults_bypasses_saved_choice_and_preserves_explicit_environment(remembered, monkeypatch):
-    monkeypatch.setenv("LOCAL_DIFFUSION_MODEL_ID", MODEL)
+    monkeypatch.setenv("AURADREAM_MODEL_ID", MODEL)
     launch.configure(["--defaults", "--quant", "fp8"], ask=never_ask)
-    assert os.environ["LOCAL_DIFFUSION_MODEL_ID"] == MODEL
-    assert os.environ["LOCAL_DIFFUSION_QUANT"] == "fp8"
-    assert "LOCAL_DIFFUSION_OFFLOAD" not in os.environ
-    assert "LOCAL_DIFFUSION_PRELOAD" not in os.environ
+    assert os.environ["AURADREAM_MODEL_ID"] == MODEL
+    assert os.environ["AURADREAM_QUANT"] == "fp8"
+    assert "AURADREAM_OFFLOAD" not in os.environ
+    assert "AURADREAM_PRELOAD" not in os.environ
     assert preferences.startup_overrides() == {
-        "model_id": "LOCAL_DIFFUSION_MODEL_ID", "quantization": "--quant",
+        "model_id": "AURADREAM_MODEL_ID", "quantization": "--quant",
         "offload": "--defaults", "load_on_startup": "--defaults",
         "compilation": "--defaults", "attention_backend": "--defaults",
     }
@@ -196,9 +196,9 @@ def test_saved_nunchaku_on_windows_is_ignored_as_one_choice(tmp_path, monkeypatc
     choice = preferences.StartupPreferences("lite-infer/model-nvfp4", "nunchaku", "model", True)
     preferences.save(db_path, choice)
     monkeypatch.setattr(preferences.sys, "platform", "win32")
-    env = {"LOCAL_DIFFUSION_DB_PATH": str(db_path)}
+    env = {"AURADREAM_DB_PATH": str(db_path)}
     preferences.apply_saved_environment(env)
-    assert env == {"LOCAL_DIFFUSION_DB_PATH": str(db_path)}
+    assert env == {"AURADREAM_DB_PATH": str(db_path)}
     assert "requires Linux/WSL" in caplog.text
 
 
@@ -207,7 +207,7 @@ def test_saved_nunchaku_on_linux_retains_checkpoint_format(tmp_path, monkeypatch
     choice = preferences.StartupPreferences("lite-infer/model-int4", "nunchaku", "none", False)
     preferences.save(db_path, choice)
     monkeypatch.setattr(preferences.sys, "platform", "linux")
-    env = {"LOCAL_DIFFUSION_DB_PATH": str(db_path)}
+    env = {"AURADREAM_DB_PATH": str(db_path)}
     preferences.apply_saved_environment(env)
     assert all(env[name] == value for name, value in choice.environ().items())
 
@@ -235,26 +235,26 @@ def test_windows_server_does_not_enable_nunchaku_kernels(remembered, monkeypatch
 def test_browser_choice_overrides_only_unchanged_wsl_script_defaults(remembered):
     db_path, choice = remembered
     env = {
-        "LOCAL_DIFFUSION_DB_PATH": str(db_path),
-        "LOCAL_DIFFUSION_QUANT": "nunchaku",
-        "LOCAL_DIFFUSION_WSL_DEFAULT_QUANT": "nunchaku",
-        "LOCAL_DIFFUSION_MODEL_ID": "lite-infer/wsl-default",
-        "LOCAL_DIFFUSION_WSL_DEFAULT_MODEL_ID": "lite-infer/wsl-default",
+        "AURADREAM_DB_PATH": str(db_path),
+        "AURADREAM_QUANT": "nunchaku",
+        "AURADREAM_WSL_DEFAULT_QUANT": "nunchaku",
+        "AURADREAM_MODEL_ID": "lite-infer/wsl-default",
+        "AURADREAM_WSL_DEFAULT_MODEL_ID": "lite-infer/wsl-default",
     }
     assert preferences.explicit_sources(env) == {}
     preferences.apply_saved_environment(env)
-    assert env["LOCAL_DIFFUSION_QUANT"] == choice.quantization
-    assert env["LOCAL_DIFFUSION_MODEL_ID"] == choice.model_id
+    assert env["AURADREAM_QUANT"] == choice.quantization
+    assert env["AURADREAM_MODEL_ID"] == choice.model_id
     # Changing a supplied value makes it an explicit override, even if the
     # shell still carries env.sh's earlier marker.
-    env.update(LOCAL_DIFFUSION_QUANT="none", LOCAL_DIFFUSION_MODEL_ID=MODEL)
+    env.update(AURADREAM_QUANT="none", AURADREAM_MODEL_ID=MODEL)
     assert preferences.explicit_sources(env) == {
-        "model_id": "LOCAL_DIFFUSION_MODEL_ID", "quantization": "LOCAL_DIFFUSION_QUANT",
-        "offload": "LOCAL_DIFFUSION_OFFLOAD", "load_on_startup": "LOCAL_DIFFUSION_PRELOAD",
+        "model_id": "AURADREAM_MODEL_ID", "quantization": "AURADREAM_QUANT",
+        "offload": "AURADREAM_OFFLOAD", "load_on_startup": "AURADREAM_PRELOAD",
     }
     preferences.apply_saved_environment(env)
-    assert env["LOCAL_DIFFUSION_QUANT"] == "none"
-    assert env["LOCAL_DIFFUSION_MODEL_ID"] == MODEL
+    assert env["AURADREAM_QUANT"] == "none"
+    assert env["AURADREAM_MODEL_ID"] == MODEL
 
 
 @pytest.mark.parametrize("preload", [False, True])
@@ -275,10 +275,10 @@ def test_api_preference_survives_fresh_process_and_controls_lifespan_loading(cli
 
     # A new interpreter is important: config's dataclass defaults are frozen
     # at import, so reusing this test process could hide an ordering regression.
-    env = {key: value for key, value in os.environ.items() if not key.startswith("LOCAL_DIFFUSION_")}
+    env = {key: value for key, value in os.environ.items() if not key.startswith("AURADREAM_")}
     env.update(
-        LOCAL_DIFFUSION_DB_PATH=str(main.settings.db_path),
-        LOCAL_DIFFUSION_OUTPUTS_DIR=str(tmp_path / "restarted-outputs"),
+        AURADREAM_DB_PATH=str(main.settings.db_path),
+        AURADREAM_OUTPUTS_DIR=str(tmp_path / "restarted-outputs"),
         HF_HUB_OFFLINE="1", TRANSFORMERS_OFFLINE="1",
     )
     script = '''

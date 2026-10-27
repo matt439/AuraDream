@@ -26,7 +26,7 @@ from dataclasses import dataclass
 from .launch import CHECKPOINTS
 from .model_info import download_facts, download_references
 
-log = logging.getLogger("local_diffusion")
+log = logging.getLogger("auradream")
 
 # Each request's timeout. The route awaits the whole check for at most
 # `CHECK_SECONDS` (two sources, each its own request) and goes ahead without

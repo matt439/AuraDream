@@ -68,7 +68,9 @@ source-binned presentation is derived state, not a replacement recipe.
 
 ## Archive version gate
 
-Keep the existing `format: "local-diffusion-gallery"` identifier. An export
+Keep the existing `format: "auradream-gallery"` identifier (a bundle
+written before the rename says `local-diffusion-gallery` and imports
+unchanged). An export
 whose selected rows contain any non-null stored edit uses manifest
 `version: 2`; an export without edit intent keeps `version: 1`. Column
 presence alone does not require v2. Whole-gallery, selected, manual and

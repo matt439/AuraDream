@@ -1,4 +1,4 @@
-// Local Diffusion's page script: the Outpaint dialog - the extend controls,
+// Auradream's page script: the Outpaint dialog - the extend controls,
 // the frame, the presets, the preview, submission, close and Reuse.
 // Declarations only; state.js has the shared-global load-order contract.
 'use strict';

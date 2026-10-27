@@ -64,7 +64,7 @@ def path_for(name: str) -> Path:
     if directory not in path.parents or path.suffix.lower() not in SUFFIXES or not path.is_file():
         raise ValueError(
             f"no LoRA named {name!r} in {settings.loras_dir}; "
-            f"put a .safetensors adapter there (LOCAL_DIFFUSION_LORAS_DIR moves the directory)"
+            f"put a .safetensors adapter there (AURADREAM_LORAS_DIR moves the directory)"
         )
     return path
 

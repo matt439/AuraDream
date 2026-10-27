@@ -251,4 +251,4 @@ def test_crop_resume_does_not_confuse_anchors(client, fake, store):
     assert (right["cells"], right["skipped"]) == (0, 1)
     assert (left["cells"], left["skipped"]) == (1, 0)
     with Image.open(store.settings.outputs_dir / store.list_images()[0][0].filename) as png:
-        assert json.loads(png.info["local-diffusion"])["crop_anchor"] == "right"
+        assert json.loads(png.info["auradream"])["crop_anchor"] == "right"

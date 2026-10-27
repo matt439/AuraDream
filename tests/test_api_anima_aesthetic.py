@@ -45,7 +45,7 @@ def test_aesthetic_defaults_and_applied_settings_reach_the_row_and_png(client, a
     # actual CFG, and the unsupported Mu cannot survive into reproduction.
     assert (row["negative_prompt"], row["true_cfg"], row["mu"]) == ("blurry", 4, None)
     with Image.open(store.settings.outputs_dir / row["filename"]) as image:
-        metadata = json.loads(image.info["local-diffusion"])
+        metadata = json.loads(image.info["auradream"])
     assert metadata["model"] == row["model_id"]
     for key in ("steps", "guidance_scale", "negative_prompt", "true_cfg", "mu", "seed"):
         assert metadata[key] == row[key], key

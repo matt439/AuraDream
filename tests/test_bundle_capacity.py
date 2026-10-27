@@ -12,7 +12,7 @@ import pytest
 from backend import backup_receipts, bundle_capacity as capacity, bundle_crypto
 
 
-BASE = {"format": "local-diffusion-gallery", "version": 1, "records": 1,
+BASE = {"format": "auradream-gallery", "version": 1, "records": 1,
         "managed_backup": {"version": 1, "gallery_id": "g", "destination_id": "d", "operation_id": "o"}}
 
 

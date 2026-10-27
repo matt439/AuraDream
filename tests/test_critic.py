@@ -128,7 +128,7 @@ def test_the_critique_route_says_the_glibc_is_too_old(client, monkeypatch):
     assert reply.status_code == 422
     detail = reply.json()["detail"]
     assert "needs glibc 2.38 or newer" in detail and "has glibc 2.35" in detail
-    assert "LOCAL_DIFFUSION_CRITIC_SERVER" in detail
+    assert "AURADREAM_CRITIC_SERVER" in detail
     # A platform with no build at all is still told so.
     monkeypatch.setattr(critic_runtime, "platform_key", lambda: None)
     reply = client.post("/api/prompt/critique", json={"prompt": "a lighthouse"})
@@ -301,7 +301,7 @@ def test_prepare_uses_configured_files_without_downloading(monkeypatch, tmp_path
     assert target._label(model) == "mine"
 
     _configure(monkeypatch, critic_model=tmp_path / "missing.gguf")
-    with pytest.raises(critic_runtime.CriticUnavailable, match="LOCAL_DIFFUSION_CRITIC_MODEL"):
+    with pytest.raises(critic_runtime.CriticUnavailable, match="AURADREAM_CRITIC_MODEL"):
         target.prepare()
 
 

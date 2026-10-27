@@ -89,7 +89,7 @@ def test_a_mask_is_served_back_by_its_hash(client, store):
     assert served.content == (store.masks_dir() / f"{digest}.png").read_bytes()
     assert client.get(f"/api/masks/{'0' * 64}").status_code == 404
     # A hash, never a path: anything else is no route parameter at all.
-    assert client.get("/api/masks/..%2F..%2Flocal-diffusion.db").status_code in (404, 422)
+    assert client.get("/api/masks/..%2F..%2Fauradream.db").status_code in (404, 422)
     assert client.get(f"/api/masks/{'A' * 64}").status_code == 422
 
 

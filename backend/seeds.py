@@ -1,7 +1,7 @@
 """Seed arithmetic, shared by the server, the CLI and the backend.
 
 It lives on its own for two reasons. `generate.py` has to reach it *before* it
-imports `config`, whose frozen settings read LOCAL_DIFFUSION_* variables at import
+imports `config`, whose frozen settings read AURADREAM_* variables at import
 time. And the three places that touch a seed - the draw, the per-image offset
 and the generator itself - have to agree exactly: a recorded seed that does not
 reproduce its own image is worse than recording no seed at all.

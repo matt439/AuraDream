@@ -14,7 +14,7 @@ from tempfile import TemporaryDirectory
 from typing import Any
 
 from .. import config as _config  # noqa: F401 - before any diffusers imports
-from .single_file import HubFile, HubRepo, cache_root, sweep_work
+from .single_file import CONVERSION_MARKER, HubFile, HubRepo, cache_root, sweep_work
 
 log = logging.getLogger(__name__)
 
@@ -102,7 +102,7 @@ def _target() -> tuple[Path, Path, str]:
     recipe = json.dumps(RECIPE, sort_keys=True, indent=2) + "\n"
     digest = hashlib.sha256(recipe.encode()).hexdigest()[:16]
     target = cache_root() / f"netayume-lumina-v4-{digest}"
-    return target, target / "local-diffusion-conversion.json", recipe
+    return target, target / CONVERSION_MARKER, recipe
 
 
 def _converted(target: Path, marker: Path, recipe: str) -> bool:
@@ -128,7 +128,7 @@ def resolve_model(model_id: str, quantization: str) -> str:
     if quantization == "nunchaku":
         raise RuntimeError(
             "NetaYume Lumina v4 is not a Nunchaku Lite checkpoint. "
-            "Use LOCAL_DIFFUSION_QUANT=fp8, int8 or none."
+            "Use AURADREAM_QUANT=fp8, int8 or none."
         )
     from huggingface_hub.utils._fixes import WeakFileLock
 

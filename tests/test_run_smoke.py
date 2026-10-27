@@ -97,10 +97,10 @@ def test_smokes_keep_separate_screenshots_after_a_failure(monkeypatch, tmp_path)
     destinations = []
 
     def browser(command, env, log_path):
-        destination = Path(env["LOCAL_DIFFUSION_SCREENSHOT_DIR"])
+        destination = Path(env["AURADREAM_SCREENSHOT_DIR"])
         destinations.append(destination)
         (destination / "same-name.png").write_bytes(b"retained")
-        assert env["LOCAL_DIFFUSION_PORT_OFFSET"] == "100"
+        assert env["AURADREAM_PORT_OFFSET"] == "100"
         log_path.write_text("browser output", encoding="utf-8")
         return len(destinations) - 1
 

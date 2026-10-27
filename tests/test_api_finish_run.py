@@ -218,7 +218,7 @@ def test_live_run_is_held_with_job_id_and_stale_revision_is_refused(client, stor
     for method, path in (("GET", f"/api/runs/{run}"), ("POST", f"/api/runs/{run}/finish/preview"),
                          ("POST", f"/api/runs/{run}/finish")):
         stale = client.request(method, path, json={} if method == "POST" else None,
-                               headers={"X-Local-Diffusion-Model-Revision": str(revision - 1)})
+                               headers={"X-Auradream-Model-Revision": str(revision - 1)})
         assert stale.status_code == 409 and "checkpoint changed" in stale.json()["detail"]
     stream_job(client, job)
 

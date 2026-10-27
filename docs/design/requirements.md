@@ -1,6 +1,6 @@
 # Candidate design requirements
 
-2026-10-18. Scope: Matt's personal Local Diffusion workstation on the RTX 5080,
+2026-10-18. Scope: Matt's personal Auradream workstation on the RTX 5080,
 including its Windows and WSL environments. These requirements describe his
 whole working cycle; they do not propose a public service, accounts or a new audience.
 

@@ -17,6 +17,7 @@ from datetime import timedelta
 from pathlib import Path
 from typing import Never
 
+from . import legacy_names
 from .backup_policy import BackupPolicy, Protection
 
 _VERSION = 1
@@ -39,7 +40,7 @@ def path_for(db_path: Path) -> Path:
     database = Path(db_path).expanduser()
     if not database.name:
         raise ValueError("backup preferences need a database filename")
-    return database.parent / f"local-diffusion.backup-policy-{database.name}.json"
+    return legacy_names.sidecar(database, f"backup-policy-{database.name}.json")
 
 
 def _unique_object(pairs: list[tuple[str, object]]) -> dict[str, object]:
@@ -136,7 +137,7 @@ def save(db_path: Path, policy: BackupPolicy) -> None:
     temporary: Path | None = None
     try:
         with tempfile.NamedTemporaryFile(
-            mode="wb", dir=path.parent, prefix=".local-diffusion.backup-policy.",
+            mode="wb", dir=path.parent, prefix=".auradream.backup-policy.",
             suffix=".tmp", delete=False,
         ) as stream:
             temporary = Path(stream.name)

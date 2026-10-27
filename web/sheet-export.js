@@ -1,4 +1,4 @@
-// Local Diffusion's page script: contact-sheet PNG export.
+// Auradream's page script: contact-sheet PNG export.
 // Declarations only; state.js has the shared-global load-order contract.
 'use strict';
 

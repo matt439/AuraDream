@@ -123,7 +123,7 @@ def test_stale_revision_and_failed_publication_preserve_saved_bytes(tmp_path, mo
     with pytest.raises(OSError, match="injected"):
         backup_settings.configure(db, revision=first.revision, enabled=False, directory=tmp_path / "archives")
     assert path.read_bytes() == before
-    assert list(tmp_path.glob(".local-diffusion.backup-policy.*.tmp")) == []
+    assert list(tmp_path.glob(".auradream.backup-policy.*.tmp")) == []
 
 
 def test_existing_journal_is_not_adopted_when_scope_settings_are_lost(tmp_path):

@@ -22,6 +22,10 @@ from uuid import UUID, uuid4
 
 from . import bundle_file_lock
 
+# The marker name and format are frozen from the old name (Local Diffusion).
+# The marker is destination-wide and immutable, and receipts bind its identity
+# and digest: a second, renamed marker would be another installation that an
+# older server, or an existing receipt, would not recognise.
 MARKER_NAME = "local-diffusion.bundle-leases.json"
 _FORMAT = "local-diffusion.shared-bundle-leases"
 _LIMIT = 64 * 1024
@@ -286,7 +290,7 @@ def install(directory: Path, *, other_servers_stopped: bool) -> Installation:
         owned: tuple[int, int] | None = None
         body_error: BaseException | None = None
         try:
-            with tempfile.NamedTemporaryFile(mode="wb", dir=canonical, prefix=".local-diffusion.bundle-leases.", suffix=".part", delete=False) as stream:
+            with tempfile.NamedTemporaryFile(mode="wb", dir=canonical, prefix=".auradream.bundle-leases.", suffix=".part", delete=False) as stream:
                 temporary = Path(stream.name)
                 stamp = os.fstat(stream.fileno())
                 owned = stamp.st_dev, stamp.st_ino

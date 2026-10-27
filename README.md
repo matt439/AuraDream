@@ -1,4 +1,4 @@
-# Local Diffusion
+# Auradream
 
 Run text-to-image models locally with a browser UI, live previews and a searchable
 gallery. Supports FLUX, Krea 2, Z-Image, Qwen-Image, ERNIE-Image and a range of
@@ -86,15 +86,15 @@ model loads; a first use can download weights and take several minutes.
 Your prompts and saved images remain, and the controls and gallery follow the
 selected checkpoint. **Apply & save** selects changed settings without loading
 weights; an unchanged selection stays loaded. Both buttons remember the choice
-in `local-diffusion.settings.json` beside the gallery database. Save **Load
+in `auradream.settings.json` beside the gallery database. Save **Load
 automatically on startup** to preload next time; leave it unchecked to open
 quickly and load on demand. Nunchaku and its weight-format choices require Linux/WSL.
 The full
 catalogue is in [backend/launch.py](backend/launch.py).
 
-To start from any folder, add `bin\` to your user PATH. `local-diffusion` runs
-the command above; `local-diffusion-wsl` runs `wsl/serve.sh` in WSL 2 (see
-below). Both pass their arguments through, e.g. `local-diffusion --menu`.
+To start from any folder, add `bin\` to your user PATH. `auradream` runs
+the command above; `auradream-wsl` runs `wsl/serve.sh` in WSL 2 (see
+below). Both pass their arguments through, e.g. `auradream --menu`.
 From PowerShell they run as `.ps1` scripts (allowed under the `RemoteSigned`
 policy), so Ctrl-C stops the server without asking; from cmd.exe the `.cmd`
 versions run and Ctrl-C asks "Terminate batch job (Y/N)?".
@@ -137,14 +137,14 @@ bash wsl/serve.sh                 # restores saved browser choices; no terminal 
 Use the same <http://127.0.0.1:7860> address in your Windows browser.
 The WSL default is the Nunchaku Krea 2 Turbo checkpoint in NVFP4 format
 (RTX 50 series). For RTX 20–40, set
-`export LOCAL_DIFFUSION_NUNCHAKU_FORMAT=int4` before setup/sourcing the environment.
+`export AURADREAM_NUNCHAKU_FORMAT=int4` before setup/sourcing the environment.
 The menu lists the available pre-quantized checkpoints. Keep model offload
 enabled on a 16 GB card.
 
 **Source `wsl/env.sh` before any project `uv` command in WSL.** It keeps the
 Linux virtualenv separate from Windows's `.venv`, and gives WSL its own gallery
-under `~/local-diffusion`. Keep the gallery and model cache on the Linux
-filesystem. Maintenance commands act on that shell's gallery; Git Bash is not WSL.
+under `~/auradream` (an existing `~/local-diffusion` stays in use). Keep the
+gallery and model cache on the Linux filesystem. Maintenance commands act on that shell's gallery; Git Bash is not WSL.
 If setup installs uv, follow its printed instruction to add uv to the current shell.
 
 Nunchaku mode downloads and runs Hugging Face kernels. An explicit
@@ -219,27 +219,30 @@ refinement, PNG settings, dry runs and exit codes.
 
 Set environment variables before starting the server or CLI. Paths below are
 relative to the repository unless overridden; WSL uses its separate defaults.
+Before the rename from Local Diffusion (2026-10-27) these were
+`LOCAL_DIFFUSION_*`; those are no longer read, and the server names any still
+set in a start-up warning.
 
 | Variable | Default | Purpose |
 | --- | --- | --- |
-| `LOCAL_DIFFUSION_MODEL_ID` | `black-forest-labs/FLUX.1-Krea-dev` | Checkpoint repository id |
-| `LOCAL_DIFFUSION_QUANT` | `fp8` | `fp8`, `int8`, `none` (bfloat16), or `nunchaku` (Linux, pre-quantized model) |
-| `LOCAL_DIFFUSION_OFFLOAD` | `model` | `model`, `sequential` (less VRAM, slower), or `none` |
-| `LOCAL_DIFFUSION_DEVICE` | `cuda` | GPU device; e.g. `cuda:1` for the second card |
-| `LOCAL_DIFFUSION_PRELOAD` | `false` | Load weights at startup |
-| `LOCAL_DIFFUSION_OUTPUTS_DIR` | `outputs/` | Generated PNGs |
-| `LOCAL_DIFFUSION_DB_PATH` | `local-diffusion.db` | Gallery database |
-| `LOCAL_DIFFUSION_BUNDLES_DIR` | `bundles/` beside the database | Saved gallery archives; independent of images and database |
-| `LOCAL_DIFFUSION_LORAS_DIR` | `loras/` | `.safetensors` adapters |
-| `LOCAL_DIFFUSION_MAX_BATCH_PIXELS` | `12902400` | Pixel budget per pipeline call |
-| `LOCAL_DIFFUSION_MAX_GRID_IMAGES` | `1024` | Image limit for a grid |
-| `LOCAL_DIFFUSION_HOST` | `127.0.0.1` | Bind address |
-| `LOCAL_DIFFUSION_PORT` | `7860` | Server port |
-| `LOCAL_DIFFUSION_ALLOWED_HOSTS` | `127.0.0.1,localhost` | Allowed hostnames/IPs; include the browser's destination when exposing the server on a LAN |
-| `LOCAL_DIFFUSION_LOG_LEVEL` | `INFO` | Server logging; `DEBUG` includes tracebacks |
-| `LOCAL_DIFFUSION_CRITIC` | `true` | Enable the optional local prompt critic |
-| `LOCAL_DIFFUSION_CRITIC_SERVER` | unset | Use a local compatible `llama-server` binary |
-| `LOCAL_DIFFUSION_CRITIC_MODEL` | unset | Use a local `.gguf` instead of downloading the pinned critic model |
+| `AURADREAM_MODEL_ID` | `black-forest-labs/FLUX.1-Krea-dev` | Checkpoint repository id |
+| `AURADREAM_QUANT` | `fp8` | `fp8`, `int8`, `none` (bfloat16), or `nunchaku` (Linux, pre-quantized model) |
+| `AURADREAM_OFFLOAD` | `model` | `model`, `sequential` (less VRAM, slower), or `none` |
+| `AURADREAM_DEVICE` | `cuda` | GPU device; e.g. `cuda:1` for the second card |
+| `AURADREAM_PRELOAD` | `false` | Load weights at startup |
+| `AURADREAM_OUTPUTS_DIR` | `outputs/` | Generated PNGs |
+| `AURADREAM_DB_PATH` | `auradream.db` (or an existing `local-diffusion.db`) | Gallery database |
+| `AURADREAM_BUNDLES_DIR` | `bundles/` beside the database | Saved gallery archives; independent of images and database |
+| `AURADREAM_LORAS_DIR` | `loras/` | `.safetensors` adapters |
+| `AURADREAM_MAX_BATCH_PIXELS` | `12902400` | Pixel budget per pipeline call |
+| `AURADREAM_MAX_GRID_IMAGES` | `1024` | Image limit for a grid |
+| `AURADREAM_HOST` | `127.0.0.1` | Bind address |
+| `AURADREAM_PORT` | `7860` | Server port |
+| `AURADREAM_ALLOWED_HOSTS` | `127.0.0.1,localhost` | Allowed hostnames/IPs; include the browser's destination when exposing the server on a LAN |
+| `AURADREAM_LOG_LEVEL` | `INFO` | Server logging; `DEBUG` includes tracebacks |
+| `AURADREAM_CRITIC` | `true` | Enable the optional local prompt critic |
+| `AURADREAM_CRITIC_SERVER` | unset | Use a local compatible `llama-server` binary |
+| `AURADREAM_CRITIC_MODEL` | unset | Use a local `.gguf` instead of downloading the pinned critic model |
 
 **The server has no login.** Anyone who can reach it can read every prompt and
 image, delete or import galleries, and make the machine download checkpoints
@@ -269,8 +272,8 @@ or to give to someone. Download a saved bundle or import
 one to merge its images, favourites and timings into the current gallery.
 See [gallery bundles](docs/usage.md#gallery-bundles).
 
-`local-diffusion.db` indexes the gallery. Each PNG
-contains its generation settings in a `local-diffusion` JSON chunk and an
+`auradream.db` indexes the gallery. Each PNG
+contains its generation settings in an `auradream` JSON chunk and an
 A1111-style `parameters` block; see
 [load settings from a PNG](docs/usage.md#load-settings-from-a-png).
 Back up **both the PNGs and database** to retain
@@ -334,5 +337,5 @@ the selected model's terms. WAI is fetched from an unofficial community mirror; 
 [author's permissions](https://tensor.art/models/990778216270553015/WAI-illustrious-v17)
 rather than the mirror's metadata.
 
-Local Diffusion is not affiliated with or endorsed by Black Forest Labs, Krea,
+Auradream is not affiliated with or endorsed by Black Forest Labs, Krea,
 or any checkpoint's authors.

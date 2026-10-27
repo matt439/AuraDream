@@ -85,7 +85,7 @@ def test_queueing_keeps_each_images_seed_size_and_settings(client, fake, store):
     made = second["images"][0]
     assert made["variables"] == {"who": "2girls"}
     with Image.open(store.settings.outputs_dir / made["filename"]) as png:
-        chunk = json.loads(png.info["local-diffusion"])
+        chunk = json.loads(png.info["auradream"])
     assert (chunk["prompt"], chunk["seed"]) == ("2girls, silver hair", 12)
 
     # Asked again, everything is in the gallery already.
@@ -206,7 +206,7 @@ def test_rows_are_checked_before_anything_is_read(client):
 
 def test_the_queue_is_a_model_dependent_request_and_the_preview_is_not(client, fake, store):
     a = plant(store, "red hair, long hair", seed=1)
-    stale = {"X-Local-Diffusion-Model-Revision": "999"}
+    stale = {"X-Auradream-Model-Revision": "999"}
     body = {"swaps": SWAP, "ids": [a.id]}
     refused = client.post("/api/swap-tags", json=body, headers=stale)
     assert refused.status_code == 409 and "checkpoint changed" in refused.json()["detail"]

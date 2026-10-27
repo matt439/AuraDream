@@ -61,7 +61,7 @@ def _link_directory(link: Path, target: Path) -> None:
 
 @pytest.fixture
 def root(tmp_path, monkeypatch):
-    install = tmp_path / "hf" / "local-diffusion" / "llama.cpp"
+    install = tmp_path / "hf" / "auradream" / "llama.cpp"
     monkeypatch.setattr(critic_runtime, "install_root", lambda: install)
     return install
 

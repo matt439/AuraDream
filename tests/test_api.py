@@ -217,7 +217,7 @@ def _offline_miss(tmp_path, monkeypatch):
 
     monkeypatch.setattr(constants, "HF_HUB_OFFLINE", True)
     try:
-        hf_hub_download("local-diffusion-test/none", "model_index.json", cache_dir=str(tmp_path))
+        hf_hub_download("auradream-test/none", "model_index.json", cache_dir=str(tmp_path))
     except Exception as exc:  # noqa: BLE001 - the exception is the point
         return exc
     raise AssertionError("an offline download of an uncached file succeeded")

@@ -619,7 +619,7 @@ def export_bundle(expected: int | None = None, password: str | None = None, prog
                            "record the managed bundle receipt")])
         # The name is for the person saving it, on their own machine: local
         # wall-clock time. Nothing reads a time back out of the name.
-        name = f"local-diffusion-{datetime.now().astimezone():%Y%m%d-%H%M%S}-{uuid.uuid4().hex[:8]}"
+        name = f"auradream-{datetime.now().astimezone():%Y%m%d-%H%M%S}-{uuid.uuid4().hex[:8]}"
         name += bundle_crypto.SUFFIX if password else ".zip"
         final = bundle_path(name)
         partial = final.with_name(final.name + ".part")

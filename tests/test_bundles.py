@@ -333,8 +333,8 @@ def test_bundle_names_carry_the_local_wall_clock_time(store, monkeypatch):
     monkeypatch.setattr(bundles, "datetime", Clock)
     _save("named", 1)
     name = bundles.export_bundle(expected=1)["name"]
-    assert name.startswith("local-diffusion-20260304-050607-") and name.endswith(".zip")
-    assert len(name) == len("local-diffusion-20260304-050607-") + 8 + len(".zip")
+    assert name.startswith("auradream-20260304-050607-") and name.endswith(".zip")
+    assert len(name) == len("auradream-20260304-050607-") + 8 + len(".zip")
 
 
 @pytest.mark.parametrize("name",["../outside.zip", "..\\outside.zip", "/outside.zip", "C:/outside.zip"])

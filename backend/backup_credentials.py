@@ -17,6 +17,9 @@ import unicodedata
 from uuid import UUID
 
 WINDOWS_PROVIDER = "windows-credential-manager-v1"
+# The target prefix, blob magic and username are frozen from the old name
+# (Local Diffusion): they name and bind secrets already in the vault, and
+# renaming them would orphan every stored backup credential.
 _PREFIX = "LocalDiffusion/AutomaticBackup/v1/"
 _MAGIC = b"LocalDiffusion.AutomaticBackup.Credential.v1\x00"
 _MAX_BLOB_BYTES = 2560

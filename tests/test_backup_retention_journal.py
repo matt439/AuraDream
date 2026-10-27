@@ -281,7 +281,7 @@ def test_atomic_transition_failures_preserve_previous_bytes_and_pending(journal,
         action(database, intent)
     assert receipts.path_for(database).read_bytes() == before
     assert receipts.load_state(database, GALLERY).pending == (None if phase == "begin" else intent)
-    assert not list(database.parent.glob(".local-diffusion.backup-receipts.*.tmp"))
+    assert not list(database.parent.glob(".auradream.backup-receipts.*.tmp"))
 
 
 @pytest.mark.parametrize("damage", ["unknown", "duplicate_active", "missing_success", "summary_claims_gone", "mode_bad_inode"])

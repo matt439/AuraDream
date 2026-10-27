@@ -49,7 +49,7 @@ def _snapshot(store):
 
 def _metadata(path):
     with Image.open(path) as image:
-        return json.loads(image.info["local-diffusion"])
+        return json.loads(image.info["auradream"])
 
 
 def _locked_database(staged):

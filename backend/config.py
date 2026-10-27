@@ -6,6 +6,7 @@ import os
 from dataclasses import dataclass
 from pathlib import Path
 
+from .legacy_names import default_db_path
 from .execution import ExecutionSpec, loader_execution_from_choices
 from .startup_preferences import LOADER_EXECUTION_ERROR, LOADER_EXECUTION_ERROR_VARIABLE
 from .model_defaults import (
@@ -29,7 +30,7 @@ from .sizes import (
 # Observe before its import without interpreting, clearing or accepting it.
 ATTENTION_ENVIRONMENT_WARNING: str | None = (
     "DIFFUSERS_ATTN_BACKEND differs from Diffusers' native default. "
-    "This external setting is not recorded as a Local Diffusion execution recipe."
+    "This external setting is not recorded as an Auradream execution recipe."
     if os.getenv("DIFFUSERS_ATTN_BACKEND", "native") != "native" else None
 )
 if ATTENTION_ENVIRONMENT_WARNING is not None:
@@ -58,8 +59,8 @@ def _env_path(name: str) -> Path | None:
 
 def _loader_execution_environment() -> tuple[ExecutionSpec | None, str | None]:
     """Snapshot app-owned recipe names without framework/device/cache work."""
-    compilation = os.getenv("LOCAL_DIFFUSION_COMPILATION", "eager")
-    attention = os.getenv("LOCAL_DIFFUSION_ATTENTION", "native")
+    compilation = os.getenv("AURADREAM_COMPILATION", "eager")
+    attention = os.getenv("AURADREAM_ATTENTION", "native")
     try:
         spec = loader_execution_from_choices(compilation, attention)
     except (TypeError, ValueError):
@@ -76,7 +77,7 @@ class Settings:
 
     # krea/Krea-2-Turbo
     # black-forest-labs/FLUX.1-Krea-dev
-    model_id: str = os.getenv("LOCAL_DIFFUSION_MODEL_ID", DEFAULT_MODEL_ID)
+    model_id: str = os.getenv("AURADREAM_MODEL_ID", DEFAULT_MODEL_ID)
 
     # "fp8"  - torchao float8 weight-only on the transformer (~12GB, fits 16GB cards)
     # "int8" - torchao int8 weight-only, the same size as fp8; on the sixteen
@@ -89,15 +90,15 @@ class Settings:
     #          text-encoder). Nothing is quantized here: the repo's own configs
     #          name the quantizer. Its CUDA kernels ship for Linux only, so on a
     #          Windows machine this means WSL 2 - see wsl/ and the README.
-    quantization: str = os.getenv("LOCAL_DIFFUSION_QUANT", DEFAULT_QUANT)
+    quantization: str = os.getenv("AURADREAM_QUANT", DEFAULT_QUANT)
 
     # "model"      - one component on the GPU at a time (recommended for <=16GB)
     # "sequential" - per-submodule offload, lowest VRAM, much slower
     # "none"       - keep everything resident
-    offload: str = os.getenv("LOCAL_DIFFUSION_OFFLOAD", DEFAULT_OFFLOAD)
+    offload: str = os.getenv("AURADREAM_OFFLOAD", DEFAULT_OFFLOAD)
 
-    device: str = os.getenv("LOCAL_DIFFUSION_DEVICE", "cuda")
-    load_on_startup: bool = _env_bool("LOCAL_DIFFUSION_PRELOAD", False)
+    device: str = os.getenv("AURADREAM_DEVICE", "cuda")
+    load_on_startup: bool = _env_bool("AURADREAM_PRELOAD", False)
     loader_execution: ExecutionSpec | None = _STARTUP_LOADER_EXECUTION
     loader_execution_error: str | None = _STARTUP_LOADER_EXECUTION_ERROR
 
@@ -105,36 +106,38 @@ class Settings:
     # WSL 2 against a checkout on the Windows drive can keep them on the Linux
     # filesystem: /mnt/c is a 9P bridge, slow for writes and unsafe for SQLite's
     # locks. The web directory stays code - it is read once, and small.
-    outputs_dir: Path = Path(os.getenv("LOCAL_DIFFUSION_OUTPUTS_DIR", ROOT / "outputs")).expanduser()
-    db_path: Path = Path(os.getenv("LOCAL_DIFFUSION_DB_PATH", ROOT / "local-diffusion.db")).expanduser()
+    outputs_dir: Path = Path(os.getenv("AURADREAM_OUTPUTS_DIR", ROOT / "outputs")).expanduser()
+    # auradream.db, or the gallery an install made as local-diffusion.db while
+    # that is the only one here (`legacy_names`: it is used, never renamed).
+    db_path: Path = Path(os.getenv("AURADREAM_DB_PATH", default_db_path(ROOT))).expanduser()
     # Saved archives may live on another drive without moving the gallery.
     # None keeps the legacy bundles/ beside whichever database is in use.
-    bundles_dir: Path | None = _env_path("LOCAL_DIFFUSION_BUNDLES_DIR")
+    bundles_dir: Path | None = _env_path("AURADREAM_BUNDLES_DIR")
     web_dir: Path = ROOT / "web"
     # Where LoRA adapters are read from - one directory of *.safetensors, listed
     # by `GET /api/loras` and chosen by *name*. A path taken from the request
     # and joined onto a directory is an arbitrary-file read reachable from
     # /api/generate, so the request never carries one.
-    loras_dir: Path = Path(os.getenv("LOCAL_DIFFUSION_LORAS_DIR", ROOT / "loras")).expanduser()
+    loras_dir: Path = Path(os.getenv("AURADREAM_LORAS_DIR", ROOT / "loras")).expanduser()
 
-    host: str = os.getenv("LOCAL_DIFFUSION_HOST", "127.0.0.1")
-    port: int = int(os.getenv("LOCAL_DIFFUSION_PORT", "7860"))
+    host: str = os.getenv("AURADREAM_HOST", "127.0.0.1")
+    port: int = int(os.getenv("AURADREAM_PORT", "7860"))
     # The server's log level. DEBUG is where the tracebacks and the dropped
     # pipeline arguments go; INFO is enough to follow a night.
-    log_level: str = os.getenv("LOCAL_DIFFUSION_LOG_LEVEL", "INFO").upper()
+    log_level: str = os.getenv("AURADREAM_LOG_LEVEL", "INFO").upper()
 
     # Host headers the API answers to, and with the port appended, the origins
     # allowed to write to it. Binding to loopback stops another machine's TCP,
     # not a browser on this one aimed at 127.0.0.1 by a hostile DNS record -
     # once rebound the attacker's page is same-origin and CORS stops applying.
-    # Deliberately not derived from `host`: with LOCAL_DIFFUSION_HOST=0.0.0.0 the browser
+    # Deliberately not derived from `host`: with AURADREAM_HOST=0.0.0.0 the browser
     # sends the machine's LAN address or name, never 0.0.0.0, so that case needs
-    # naming here (LOCAL_DIFFUSION_ALLOWED_HOSTS=my-box,192.168.1.20). There
+    # naming here (AURADREAM_ALLOWED_HOSTS=my-box,192.168.1.20). There
     # is no login: whoever reaches a non-loopback bind controls the server,
     # which `main.run` warns about at start-up.
     allowed_hosts: tuple[str, ...] = tuple(
         part.strip()
-        for part in os.getenv("LOCAL_DIFFUSION_ALLOWED_HOSTS", "127.0.0.1,localhost").split(",")
+        for part in os.getenv("AURADREAM_ALLOWED_HOSTS", "127.0.0.1,localhost").split(",")
         if part.strip()
     )
 
@@ -165,7 +168,7 @@ class Settings:
     # to hold 9.6 GB of the 16. Runs remain the way to make many large images.
     max_batch_pixels: int = int(
         os.getenv(
-            "LOCAL_DIFFUSION_MAX_BATCH_PIXELS",
+            "AURADREAM_MAX_BATCH_PIXELS",
             str(max(2 * largest_pixels(), MAX_BATCH * largest_tier_pixels(1))),
         )
     )
@@ -173,24 +176,24 @@ class Settings:
     # The most images one grid may queue. A grid is meant to be left running
     # overnight, so this is generous - 1024 at ~30s is nine hours - but a
     # four-axis product grows fast enough that a typo needs a ceiling.
-    max_grid_images: int = int(os.getenv("LOCAL_DIFFUSION_MAX_GRID_IMAGES", "1024"))
+    max_grid_images: int = int(os.getenv("AURADREAM_MAX_GRID_IMAGES", "1024"))
 
     # The local prompt critic (`critic.py`): a pinned llama.cpp `llama-server`,
     # started per critique over a pinned Qwen3-4B GGUF, both fetched and
     # checked on first use. Off hides the Critique action everywhere.
-    critic: bool = _env_bool("LOCAL_DIFFUSION_CRITIC", True)
+    critic: bool = _env_bool("AURADREAM_CRITIC", True)
     # Files already on disk in place of either download: a llama-server of
     # your own build (a platform with no pinned one, a newer release), a .gguf
     # you converted. Neither is held to the pins - naming one is choosing it.
-    critic_server: Path | None = _env_path("LOCAL_DIFFUSION_CRITIC_SERVER")
-    critic_model: Path | None = _env_path("LOCAL_DIFFUSION_CRITIC_MODEL")
+    critic_server: Path | None = _env_path("AURADREAM_CRITIC_SERVER")
+    critic_model: Path | None = _env_path("AURADREAM_CRITIC_MODEL")
 
 
 settings = Settings()
 
 
 def _check_vocabulary(name: str, value: str, allowed: tuple[str, ...]) -> None:
-    """Refuse a LOCAL_DIFFUSION_* value outside its vocabulary, at import, by name.
+    """Refuse a AURADREAM_* value outside its vocabulary, at import, by name.
 
     The menu and the argparse `choices` are safe; the environment variables are
     the documented interface and three start paths skip the menu. An unknown
@@ -200,17 +203,17 @@ def _check_vocabulary(name: str, value: str, allowed: tuple[str, ...]) -> None:
         raise SystemExit(f"{name}={value!r} is not one of: {', '.join(allowed)}")
 
 
-_check_vocabulary("LOCAL_DIFFUSION_QUANT", settings.quantization, QUANT_MODES)
-_check_vocabulary("LOCAL_DIFFUSION_OFFLOAD", settings.offload, OFFLOAD_MODES)
+_check_vocabulary("AURADREAM_QUANT", settings.quantization, QUANT_MODES)
+_check_vocabulary("AURADREAM_OFFLOAD", settings.offload, OFFLOAD_MODES)
 
 # The outputs directory is created by `storage.ensure_outputs_dir()` - from
 # `init_db()`, the server's mount and the first write - not here: an import-time
 # mkdir defeated `--dry-run`'s "nothing changed", and on an unmounted
-# LOCAL_DIFFUSION_OUTPUTS_DIR created the mount point as a plain directory.
+# AURADREAM_OUTPUTS_DIR created the mount point as a plain directory.
 
 # Nunchaku Lite's kernels come from a Hub repo that diffusers does not list as a
 # trusted publisher, so it refuses to download and execute them unless told to.
-# Choosing LOCAL_DIFFUSION_QUANT=nunchaku is that choice. diffusers reads the flag once, at
+# Choosing AURADREAM_QUANT=nunchaku is that choice. diffusers reads the flag once, at
 # import, and this module is imported before diffusers everywhere in the app -
 # the server, the CLI, the tests - which is why it is set here rather than in
 # the backend. setdefault, so an explicit "false" in the environment still wins.

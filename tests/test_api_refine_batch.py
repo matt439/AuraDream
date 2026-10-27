@@ -110,7 +110,7 @@ def test_queueing_refines_each_image_from_itself_with_its_own_settings(client, f
     made = first["images"][0]
     assert made["variables"] == {"who": "fox"} and made["refine"] == a.id
     with Image.open(store.settings.outputs_dir / made["filename"]) as png:
-        chunk = json.loads(png.info["local-diffusion"])
+        chunk = json.loads(png.info["auradream"])
     assert (chunk["refine"], chunk["seed"], chunk["strength"]) == (a.id, 11, 0.5)
 
     # Asked again, every pass is in the gallery already.
@@ -305,7 +305,7 @@ def test_the_time_is_priced_per_size_from_refine_history(client, fake, store):
 
 def test_the_queue_is_a_model_dependent_request_and_the_preview_is_not(client, fake, store):
     a = plant(store, "a fox", seed=1)
-    stale = {"X-Local-Diffusion-Model-Revision": "999"}
+    stale = {"X-Auradream-Model-Revision": "999"}
     body = {"ids": [a.id]}
     refused = client.post("/api/refine/batch", json=body, headers=stale)
     assert refused.status_code == 409 and "checkpoint changed" in refused.json()["detail"]

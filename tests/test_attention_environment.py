@@ -13,7 +13,7 @@ import pytest
 
 WARNING = (
     "DIFFUSERS_ATTN_BACKEND differs from Diffusers' native default. "
-    "This external setting is not recorded as a Local Diffusion execution recipe."
+    "This external setting is not recorded as an Auradream execution recipe."
 )
 KEY = "DIFFUSERS_ATTN_BACKEND"
 ROOT = Path(__file__).resolve().parents[1]
@@ -73,13 +73,13 @@ print(json.dumps({"warning": warning, "cold": True, "environment_unchanged": Tru
 
 
 def cold_child(tmp_path: Path, value: str | None, mode: str = "config"):
-    environment = {name: item for name, item in os.environ.items() if not name.startswith("LOCAL_DIFFUSION_")}
+    environment = {name: item for name, item in os.environ.items() if not name.startswith("AURADREAM_")}
     environment.pop(KEY, None)
     if value is not None:
         environment[KEY] = value
     environment.update({"PYTHONPATH": str(ROOT), "PYTHONDONTWRITEBYTECODE": "1", "PYTHONUTF8": "1",
-                        "LOCAL_DIFFUSION_DB_PATH": str(tmp_path / "never-created.db"),
-                        "LOCAL_DIFFUSION_OUTPUTS_DIR": str(tmp_path / "never-created-outputs")})
+                        "AURADREAM_DB_PATH": str(tmp_path / "never-created.db"),
+                        "AURADREAM_OUTPUTS_DIR": str(tmp_path / "never-created-outputs")})
     result = subprocess.run([sys.executable, "-B", "-c", CHILD, mode], cwd=tmp_path, env=environment,
                             capture_output=True, text=True, encoding="utf-8", timeout=30)
     (tmp_path / "cold.stdout").write_text(result.stdout, encoding="utf-8")

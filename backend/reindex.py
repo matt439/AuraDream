@@ -2,11 +2,11 @@
 
     uv run python -m backend.reindex                  # outputs/ in place
     uv run python -m backend.reindex --from /mnt/d/wsl-outputs   # copy in and index
-    uv run python -m backend.reindex --from D:\\backup\\outputs --database D:\\backup\\local-diffusion.db
+    uv run python -m backend.reindex --from D:\\backup\\outputs --database D:\\backup\\auradream.db
     uv run python -m backend.reindex --dry-run
 
-Every image carries its whole reproduction set in a `local-diffusion` text chunk, and
-nothing could read it back: local-diffusion.db was a single point of failure for an
+Every image carries its whole reproduction set in an `auradream` text chunk, and
+nothing could read it back: auradream.db was a single point of failure for an
 otherwise self-describing gallery, the WSL and Windows galleries could never be
 merged, and a row whose database went missing could never be repaired. This
 walks a directory of PNGs, skips the names the index already has (filename is
@@ -29,7 +29,7 @@ An inpaint's mask is a picture of its own, named by its hash and so never
 remapped. Masks come back from `masks/*.png` beside the images (a file
 whose pixels are not the hash it is named by is skipped and counted), from
 the source database's `masks` table with them, and - where the file is gone -
-from the copy every result carries in its `local-diffusion-mask` chunk. A
+from the copy every result carries in its `auradream-mask` chunk. A
 result whose mask is found nowhere keeps its hash, which still says what
 ran, and is counted.
 
@@ -63,8 +63,8 @@ try:
     from backend.execution import ExecutionSpec, canonical_execution, execution_chunk, execution_from_json, execution_key
     from backend.instruction_edit import StoredInstructionEdit, descriptor_from_image, edit_key
     from backend.metadata import (
-        PNG_MASK_KEY, PNG_METADATA_KEY, PNG_METADATA_KEYS, canonical_edit, edit_chunk, edit_from_info,
-        edit_from_json, edit_from_sources, embedded_metadata, require_header_metadata,
+        PNG_METADATA_KEY, PNG_METADATA_KEYS, canonical_edit, edit_chunk, edit_from_info,
+        edit_from_json, edit_from_sources, embedded_mask, embedded_metadata, require_header_metadata,
         validate_edit_record,
     )
 except ModuleNotFoundError as exc:  # pragma: no cover - startup guard
@@ -269,7 +269,7 @@ def _text_keyword(kind: bytes, data: bytes) -> bytes | None:
     return data.split(b"\0", 1)[0]
 
 
-def _with_local_diffusion_metadata(data: bytes, meta: dict) -> bytes:
+def _with_auradream_metadata(data: bytes, meta: dict) -> bytes:
     """Replace app metadata without recompressing or changing pixels."""
     if not data.startswith(_PNG_SIGNATURE):
         raise OSError("not a PNG")
@@ -316,7 +316,7 @@ def _copy_in(source: Path, target: Path, meta: dict | None = None) -> None:
     partial = target.with_name(target.name + ".part")
     data = source.read_bytes()
     partial.write_bytes(
-        _with_local_diffusion_metadata(data, meta) if meta is not None else data
+        _with_auradream_metadata(data, meta) if meta is not None else data
     )
     partial.replace(target)
 
@@ -337,10 +337,10 @@ def _open_mask(source, digest: str) -> Image.Image | None:
 
 
 def _embedded_mask(image: Image.Image | None, digest: str) -> Image.Image | None:
-    """The mask a result carries in its own `local-diffusion-mask` chunk,
-    where it is the one its record names."""
-    raw = image.info.get(PNG_MASK_KEY) if image is not None else None
-    if not isinstance(raw, str):
+    """The mask a result carries in its own `auradream-mask` chunk (or
+    Local Diffusion's legacy one), where it is the one its record names."""
+    raw = embedded_mask(image.info) if image is not None else None
+    if raw is None:
         return None
     try:
         data = base64.b64decode(raw, validate=True)
@@ -899,7 +899,7 @@ def reindex(
             meta = None
         if meta is None:
             counts["no_metadata"] += 1
-            print(f"  skip  {path.name}: no Local Diffusion metadata", file=out)
+            print(f"  skip  {path.name}: no Auradream metadata", file=out)
             return
         try:
             execution = canonical_execution(meta.get("execution"))
@@ -1056,6 +1056,9 @@ def main(argv: list[str] | None = None) -> int:
     reconfigure = getattr(sys.stdout, "reconfigure", None)
     if callable(reconfigure) and (sys.platform == "win32" or not sys.stdout.isatty()):
         reconfigure(encoding="utf-8", errors="backslashreplace")
+    from backend.launch import warn_legacy_env
+
+    warn_legacy_env()  # a pre-rename variable left in a shell: named, not read
     parser = argparse.ArgumentParser(
         prog="python -m backend.reindex",
         description="Rebuild gallery rows from the PNGs' own metadata; idempotent.",
@@ -1071,7 +1074,7 @@ def main(argv: list[str] | None = None) -> int:
         "--database",
         "--db",
         metavar="FILE",
-        help="the Local Diffusion database belonging to --from; preserves favorites, "
+        help="the Auradream database belonging to --from; preserves favorites, "
         "durations and remaps references",
     )
     parser.add_argument(

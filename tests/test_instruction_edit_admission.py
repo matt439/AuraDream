@@ -111,7 +111,7 @@ def test_preview_is_held_by_stale_model_revision_before_source_reads(client, fak
     monkeypatch.setattr(instruction_edit_admission, "bind_source", forbidden)
     response = client.post("/api/instruction-edit/preview", json={
         "source": original.id, "recipe": "kontext-v1",
-    }, headers={"X-Local-Diffusion-Model-Revision": "999999"})
+    }, headers={"X-Auradream-Model-Revision": "999999"})
     assert response.status_code == 409, response.text
     assert fake.loads == 0 and fake.requests == []
 

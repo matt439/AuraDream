@@ -1,4 +1,4 @@
-# Using Local Diffusion
+# Using Auradream
 
 For a first install, follow [first-time setup](setup.md); for launch options,
 sizes and environment variables, see the [README](../README.md). The [anime model guide](anime-model-guide.md) helps
@@ -123,13 +123,13 @@ variables that beat the saved choice, the saved message names them.
 The list follows the chosen quantization. Nunchaku offers its mapped checkpoints
 and an nvfp4/int4 weight format on Linux/WSL. Explicit launch flags and environment
 variables override remembered settings. Starting with a different model
-(`--model` or `LOCAL_DIFFUSION_MODEL_ID`) ignores the whole saved choice,
+(`--model` or `AURADREAM_MODEL_ID`) ignores the whole saved choice,
 since its quantization, offload and auto-load were picked for its own model.
 `--defaults` ignores the saved file and `--menu` opens the optional terminal
 picker, with the saved choice as its defaults; picking another model there
 does not load automatically at startup either. If a switch cannot release the running model, that model stays
 selected and loaded and the saved settings are left as they were. The preference file is
-`local-diffusion.settings.json`, beside the gallery database.
+`auradream.settings.json`, beside the gallery database.
 
 ## Generate and manage jobs
 
@@ -177,7 +177,8 @@ other gallery (Windows and WSL keep separate ones), from a backup, or from
 another tool. It works like Reuse: the note offers **Undo**, Ctrl+Z gives
 back the prompt boxes, and a PNG made on another checkpoint says so.
 
-- A **Local Diffusion PNG** gives back every setting it was made with:
+- An **Auradream PNG** (including one made before the rename from Local
+  Diffusion) gives back every setting it was made with:
   prompt, negative prompt, size, steps, CFG, Mu, seed and adapter. Its
   reference images come along only if this gallery holds the very same
   pictures under the same numbers; a refine pass fills the panel as a
@@ -253,7 +254,7 @@ The critic is unavailable during an image load, queued/running jobs or Expand.
 While it runs, generation submissions are held, including its initial
 download and any prompt recheck. Its process stops after answering.
 Supported platforms and custom binaries are described in
-[Settings](../README.md#settings); `LOCAL_DIFFUSION_CRITIC=false` disables it.
+[Settings](../README.md#settings); `AURADREAM_CRITIC=false` disables it.
 
 **Compare on the same seeds** renders the selected original, reordered,
 rewritten and **Your version** prompts on four or eight shared seeds.
@@ -792,7 +793,7 @@ configured server and stops if it is ready, loading or times out; use
 across the Windows/WSL boundary. Ctrl+C cancels cooperatively and preserves
 saved images. Exit codes: 0 complete, 130 cancelled, 2 bad arguments, 1 failed
 load or skipped cells, 4 server holding the GPU. Failed cells are reported
-and skipped; repeated failures stop the run. If another Local Diffusion
+and skipped; repeated failures stop the run. If another Auradream
 process holds the gallery (a bundle export, say) when an image is ready, the
 CLI says once that it is still waiting to save and keeps the image until the
 gallery is free; a second Ctrl+C ends it.
@@ -810,7 +811,7 @@ uv run python -m backend.generate "a fox" --via-server --seed 42 -q
 uv run python -m backend.generate "a fox" --via-server --seed 42 --grid-steps 20,30 --grid-seeds 4 --resume
 ```
 
-The address comes from `LOCAL_DIFFUSION_HOST` and `LOCAL_DIFFUSION_PORT`
+The address comes from `AURADREAM_HOST` and `AURADREAM_PORT`
 (default `http://127.0.0.1:7860`). Defaults and request normalization belong
 to that server. Explicit model, quantization and offload flags or environment
 must match its current choices; select them in Models first. Each submission
@@ -831,13 +832,13 @@ stop) exits 130, bad arguments/refusals 2, and runtime failures 1. Saved
 images remain available.
 
 These routes have no login. To reach the server from another machine, set
-`LOCAL_DIFFUSION_HOST` and name the address the browser uses in
-`LOCAL_DIFFUSION_ALLOWED_HOSTS`, but only on a network you trust: anyone who
+`AURADREAM_HOST` and name the address the browser uses in
+`AURADREAM_ALLOWED_HOSTS`, but only on a network you trust: anyone who
 can reach it can read and delete the gallery, import bundles and make the
 machine download checkpoints with its Hugging Face token. Otherwise put it
 behind an authenticating proxy or a VPN. Behind a proxy, list its public
-hostname in `LOCAL_DIFFUSION_ALLOWED_HOSTS` and serve it on the same port as
-`LOCAL_DIFFUSION_PORT`: the server refuses a write whose `Origin` names
+hostname in `AURADREAM_ALLOWED_HOSTS` and serve it on the same port as
+`AURADREAM_PORT`: the server refuses a write whose `Origin` names
 another host or port, so a proxy on 443 in front of 7860 has every write
 refused. The server logs a warning at start-up whenever it binds to anything
 other than loopback.
@@ -887,14 +888,14 @@ leaves those links empty.
 To move the whole gallery out, keep **Entire gallery**, type the displayed
 record count and press **Bundle & clear gallery** (a picked or starred
 bundle never clears anything). To protect the bundle, enter a password twice first: the bundle is
-then saved as an encrypted `.ldbundle` file that only Local Diffusion can
+then saved as an encrypted `.ldbundle` file that only Auradream can
 open (file names included). The password is not saved anywhere and cannot be
 recovered, and the gallery is cleared after export, so keep it safe. Finish or cancel generation first; loading and other gallery work
 must also finish before this operation can start.
 
 The server saves the bundle (a ZIP, or with a password an encrypted
 `.ldbundle`) in `bundles/` beside its gallery database (or in
-`LOCAL_DIFFUSION_BUNDLES_DIR` when set), reads it back and
+`AURADREAM_BUNDLES_DIR` when set), reads it back and
 checks every file against its checksum (decrypting and authenticating every
 part of a protected bundle), and only then removes the original PNGs and
 thumbnails. The old database is replaced with a compact empty gallery, ready
@@ -926,11 +927,11 @@ Keep the server running until the operation finishes; closing the dialog or
 browser does not cancel it. **Cancel upload** stops a selected file only
 while it is still being sent (so does closing the tab then); nothing is
 imported and the partial upload is removed. Once the upload has arrived the
-import is the server's to finish. If another Local Diffusion process (such as
+import is the server's to finish. If another Auradream process (such as
 a running `reindex`) is using the gallery, the operation fails at once and
 can be retried when it ends. Creating and importing a bundle need free space
 for the archive and staged files: the bundle on its configured drive, database
-working copies on the database's drive, uploads and unpacked images in `.local-diffusion-staging`
+working copies on the database's drive, uploads and unpacked images in `.auradream-staging`
 on the images' drive. An export without room for every file it would copy
 (the images, the database and its working copies) is refused before it
 writes anything. If an image is locked or files change during
@@ -950,7 +951,7 @@ gallery is open.
 
 To move saved bundles to another drive, stop the server, copy the existing
 archives to a real directory outside `outputs/`, and compare their SHA-256
-hashes before removing the originals. Set `LOCAL_DIFFUSION_BUNDLES_DIR` to
+hashes before removing the originals. Set `AURADREAM_BUNDLES_DIR` to
 that directory before restarting; the dialog shows the configured location.
 This moves only archive storage: the gallery database, generated images and
 import staging keep their existing locations. Symbolic links and junctions
@@ -961,9 +962,9 @@ For example, in PowerShell, persist the Windows setting and also apply it to
 the current terminal before starting the server:
 
 ```powershell
-[Environment]::SetEnvironmentVariable('LOCAL_DIFFUSION_BUNDLES_DIR', 'D:\LocalDiffusion\bundles', 'User')
-$env:LOCAL_DIFFUSION_BUNDLES_DIR = 'D:\LocalDiffusion\bundles'
-local-diffusion
+[Environment]::SetEnvironmentVariable('AURADREAM_BUNDLES_DIR', 'D:\Auradream\bundles', 'User')
+$env:AURADREAM_BUNDLES_DIR = 'D:\Auradream\bundles'
+auradream
 ```
 
 Existing terminals inherit their old environment; open a new terminal or set
@@ -1044,10 +1045,10 @@ in the environment whose gallery you intend to clear.
 ```powershell
 uv run python -m backend.reindex --dry-run
 uv run python -m backend.reindex
-uv run python -m backend.reindex --from D:\backup\outputs --database D:\backup\local-diffusion.db
+uv run python -m backend.reindex --from D:\backup\outputs --database D:\backup\auradream.db
 ```
 
-Reindex rebuilds the index from Local Diffusion PNG metadata, or copies in
+Reindex rebuilds the index from Auradream PNG metadata, or copies in
 another gallery with `--from`. Existing filenames are skipped and conflicts
 reported without overwriting. PNG-only recovery loses favorites and durations,
 and brings images that were in the recycle bin back into the gallery.

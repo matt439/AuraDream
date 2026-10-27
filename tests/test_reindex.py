@@ -1,11 +1,13 @@
 """Rows rebuilt from the PNGs' own metadata: in place, from elsewhere, idempotently."""
 from __future__ import annotations
 
+import base64
 import dataclasses
 import io
 import json
 import sys
 
+import pytest
 from PIL import Image, PngImagePlugin
 
 from backend import reindex, storage
@@ -110,7 +112,7 @@ def test_database_merge_preserves_db_fields_and_remaps_references(
 
     elsewhere = tmp_path / "backup" / "outputs"
     elsewhere.mkdir(parents=True)
-    source_db = elsewhere.parent / "local-diffusion.db"
+    source_db = elsewhere.parent / "auradream.db"
     other = dataclasses.replace(mine, db_path=source_db, outputs_dir=elsewhere)
     monkeypatch.setattr(storage, "settings", other)
     storage.init_db()
@@ -148,7 +150,7 @@ def test_database_merge_preserves_db_fields_and_remaps_references(
 
     # The copied PNG remains self-describing if this destination DB is rebuilt.
     with Image.open(mine.outputs_dir / conditioned.filename) as image:
-        meta = json.loads(image.info["local-diffusion"])
+        meta = json.loads(image.info["auradream"])
     assert meta["reference"] == [imported_reference.id]
 
     # A second merge is harmless and does not duplicate rows.
@@ -163,7 +165,7 @@ def test_database_merge_can_import_a_png_without_embedded_metadata(
     monkeypatch.setattr(reindex, "settings", mine)
     elsewhere = tmp_path / "backup" / "outputs"
     elsewhere.mkdir(parents=True)
-    source_db = elsewhere.parent / "local-diffusion.db"
+    source_db = elsewhere.parent / "auradream.db"
     other = dataclasses.replace(mine, db_path=source_db, outputs_dir=elsewhere)
     monkeypatch.setattr(storage, "settings", other)
     storage.init_db()
@@ -178,14 +180,15 @@ def test_database_merge_can_import_a_png_without_embedded_metadata(
         "database is the metadata", 40, 30,
     )
     with Image.open(mine.outputs_dir / made.filename) as image:
-        assert json.loads(image.info["local-diffusion"])["prompt"] == "database is the metadata"
+        assert json.loads(image.info["auradream"])["prompt"] == "database is the metadata"
 
 
-def test_reindex_reads_the_pre_rename_metadata_key(tmp_path):
+@pytest.mark.parametrize("legacy", ["local-diffusion", "krea"])
+def test_reindex_reads_the_pre_rename_metadata_key(tmp_path, legacy):
     path = tmp_path / "legacy.png"
     info = PngImagePlugin.PngInfo()
     info.add_text(
-        "krea",
+        legacy,
         json.dumps(
             {
                 "prompt": "legacy gallery",
@@ -202,6 +205,39 @@ def test_reindex_reads_the_pre_rename_metadata_key(tmp_path):
 
     assert size == (32, 24)
     assert meta is not None and meta["prompt"] == "legacy gallery"
+
+
+def test_a_copy_replaces_the_pre_rename_record_with_the_current_key(tmp_path):
+    info = PngImagePlugin.PngInfo()
+    info.add_text("local-diffusion", json.dumps({"prompt": "old"}))
+    info.add_text("local-diffusion-mask", "kept as it is")
+    stream = io.BytesIO()
+    Image.new("RGB", (8, 8)).save(stream, format="PNG", pnginfo=info)
+
+    rewritten = reindex._with_auradream_metadata(stream.getvalue(), {"prompt": "new"})
+
+    with Image.open(io.BytesIO(rewritten)) as image:
+        assert "local-diffusion" not in image.info
+        assert json.loads(image.info["auradream"]) == {"prompt": "new"}
+        # The mask chunk is no record: a copy leaves it, and its key, alone.
+        assert image.info["local-diffusion-mask"] == "kept as it is"
+
+
+@pytest.mark.parametrize("key", ["auradream-mask", "local-diffusion-mask"])
+def test_a_result_s_embedded_mask_is_read_under_either_key(key):
+    mask = Image.new("L", (16, 8), 0)
+    mask.paste(255, (0, 0, 8, 8))
+    encoded = io.BytesIO()
+    mask.save(encoded, format="PNG")
+    info = PngImagePlugin.PngInfo()
+    info.add_text(key, base64.b64encode(encoded.getvalue()).decode("ascii"))
+    stream = io.BytesIO()
+    Image.new("RGB", (16, 8)).save(stream, format="PNG", pnginfo=info)
+
+    with Image.open(stream) as image:
+        found = reindex._embedded_mask(image, storage.mask_hash(mask))
+        assert reindex._embedded_mask(image, "ab" * 32) is None
+    assert found is not None and storage.mask_hash(found) == storage.mask_hash(mask)
 
 
 def test_the_report_writes_utf8_where_its_output_is_redirected(store, monkeypatch, tmp_path):
@@ -233,7 +269,7 @@ def test_the_recycle_bin_survives_a_reindex_and_a_database_merge_but_not_a_png_o
 
     elsewhere = tmp_path / "backup" / "outputs"
     elsewhere.mkdir(parents=True)
-    source_db = elsewhere.parent / "local-diffusion.db"
+    source_db = elsewhere.parent / "auradream.db"
     other = dataclasses.replace(mine, db_path=source_db, outputs_dir=elsewhere)
     monkeypatch.setattr(storage, "settings", other)
     storage.init_db()

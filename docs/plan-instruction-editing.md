@@ -62,7 +62,7 @@ Installed Diffusers **0.40.0** source was inspected without loading a model:
   processor as well as tokenizer/text encoder. It derives source working
   dimensions around its own target area separately from output dimensions.
 - These signatures justify further integration work, not a claim that either
-  editor already works through Local Diffusion's generation path. Freeze and
+  editor already works through Auradream's generation path. Freeze and
   test the exact installed preprocessing before defining portable recipes.
 
 ## Where the current app needs a new contract
@@ -287,7 +287,7 @@ identify the weights used. A different Qwen edition, quantized transformer,
 conditioning template or pixel-changing preprocessing gets a different
 reproducible identity. Quantization remains recorded as it is for other rows.
 
-Persist the applied edit spec and instruction in the row and `local-diffusion`
+Persist the applied edit spec and instruction in the row and `auradream`
 PNG chunk. A nullable `images.edit` migration must update `_COLUMNS`, both
 insertion paths, `_row_to_record`, and all record/PNG codecs. Add an
 `edit_source` descriptor using the existing decoded-pixel hash, filename and

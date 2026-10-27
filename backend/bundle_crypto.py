@@ -66,6 +66,8 @@ def _secret(password: str) -> bytes:
 
 def _derive(password: str, log2_n: int, r: int, p: int, salt: bytes) -> tuple[bytes, bytes]:
     out = Scrypt(salt=salt, length=64, n=1 << log2_n, r=r, p=p).derive(_secret(password))
+    # Frozen from the old name (Local Diffusion): it feeds the stored password
+    # check, so changing it would refuse every existing protected bundle.
     return out[:32], hashlib.sha256(b"local-diffusion bundle password check" + out[32:]).digest()[:16]
 
 
@@ -93,7 +95,7 @@ def _is_encrypted(path: Path, read_owner: bundle_leases.ArchiveRead | None = Non
 
 def _parse(header: bytes) -> tuple:
     if len(header) < HEADER_SIZE or not header.startswith(MAGIC):
-        raise CryptoError("this is not a password-protected Local Diffusion bundle")
+        raise CryptoError("this is not a password-protected Auradream bundle")
     magic, version, log2_n, r, p, salt, chunk, prefix, check = _HEADER.unpack(header[:HEADER_SIZE])
     # Untrusted parameters: bound scrypt's memory (128 * r * n) and the chunk size.
     if version != _VERSION:

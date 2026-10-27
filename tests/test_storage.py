@@ -70,7 +70,7 @@ def test_a_database_from_before_job_ids_gains_the_column(tmp_path, monkeypatch):
     # migration every insert into an older gallery fails on the missing column.
     outputs = tmp_path / "outputs"
     outputs.mkdir()
-    db = tmp_path / "local-diffusion.db"
+    db = tmp_path / "auradream.db"
     monkeypatch.setattr(
         storage,
         "settings",
@@ -182,6 +182,25 @@ def test_stale_partials_are_counted_and_swept_but_fresh_ones_are_not(store):
     assert store.summarise()["partial_files"] == 1
     assert store.clear_history()["partials"] == 1
     assert fresh.exists() and not stale.exists()
+
+
+def test_a_killed_bundle_s_leftovers_under_the_pre_rename_staging_name_are_swept(store):
+    import os
+    import time
+
+    store.ensure_outputs_dir()
+    legacy = store.settings.outputs_dir.resolve().parent / ".local-diffusion-staging"
+    work = legacy / ".bundle-import-ab12cd34"
+    (work / "images").mkdir(parents=True)
+    (work / "images" / "unpacked.png").write_bytes(b"a gallery-sized copy")
+    fresh = legacy / ".bundle-upload-fresh123.part"
+    fresh.write_bytes(b"settling")
+    old = time.time() - 2 * store.PARTIAL_SETTLE_SECONDS
+    os.utime(work, (old, old))
+    assert store.settle_partials() == {"recovered": 0, "discarded": 1}
+    assert not work.exists() and fresh.exists()
+    # Nothing new stages under the old name.
+    assert store.bundle_staging_dir().name == ".auradream-staging"
 
 
 def test_step_cost_is_measured_on_the_same_checkpoint(store):
@@ -472,7 +491,7 @@ def test_completed_cells_are_scoped_to_the_quantizer(store):
     from PIL import Image as PILImage
 
     with PILImage.open(store.settings.outputs_dir / record.filename) as png:
-        assert '"quantization": "fp8"' in png.info["local-diffusion"]
+        assert '"quantization": "fp8"' in png.info["auradream"]
         assert "Quantization: fp8" in png.info["parameters"]
 
 

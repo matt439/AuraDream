@@ -23,10 +23,14 @@ from fastapi.testclient import TestClient
 # `test_browser_profile.py` finds it there.
 assert "backend.config" not in sys.modules, "backend.config was imported before the tests' environment was set"
 _KEPT = {
-    "LOCAL_DIFFUSION_OUTPUTS_DIR", "LOCAL_DIFFUSION_DB_PATH", "LOCAL_DIFFUSION_LORAS_DIR",
-    "LOCAL_DIFFUSION_BROWSER",
+    "AURADREAM_OUTPUTS_DIR", "AURADREAM_DB_PATH", "AURADREAM_LORAS_DIR",
+    "AURADREAM_BROWSER",
 }
-for _name in [name for name in os.environ if name.startswith("LOCAL_DIFFUSION_") and name not in _KEPT]:
+for _name in [name for name in os.environ if name.startswith("AURADREAM_") and name not in _KEPT]:
+    del os.environ[_name]
+# The names from before the rename to Auradream are read by nothing, but
+# importing `main` warns about any still set; the warning has its own tests.
+for _name in [name for name in os.environ if name.startswith("LOCAL_DIFFUSION_")]:
     del os.environ[_name]
 
 from backend import bundle_crypto, main, prompt_encoding, storage  # noqa: E402
@@ -79,7 +83,7 @@ def store(tmp_path, monkeypatch):
     monkeypatch.setattr(
         storage,
         "settings",
-        dataclasses.replace(storage.settings, db_path=tmp_path / "local-diffusion.db", outputs_dir=outputs),
+        dataclasses.replace(storage.settings, db_path=tmp_path / "auradream.db", outputs_dir=outputs),
     )
     storage.init_db()
     return storage

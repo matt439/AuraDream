@@ -83,7 +83,7 @@ def test_a_lost_mask_row_is_given_back_by_its_file(store):
 def test_a_replaced_database_gains_the_column_and_the_masks_table(tmp_path, monkeypatch):
     outputs = tmp_path / "outputs"
     outputs.mkdir()
-    db = tmp_path / "local-diffusion.db"
+    db = tmp_path / "auradream.db"
     monkeypatch.setattr(storage, "settings", dataclasses.replace(storage.settings, db_path=db, outputs_dir=outputs))
     storage.init_db()
     storage.store_mask(_mask())

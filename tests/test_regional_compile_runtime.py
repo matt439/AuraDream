@@ -13,7 +13,7 @@ def test_real_strict_policy_propagates_backend_and_limit_errors_on_cpu(tmp_path)
     worker = root / "tests" / "fixtures" / "regional_compile_cpu.py"
     environment = {
         name: value for name, value in os.environ.items()
-        if not name.startswith(("LOCAL_DIFFUSION_", "TORCHINDUCTOR_", "TORCHDYNAMO_", "TORCH_COMPILE_"))
+        if not name.startswith(("AURADREAM_", "TORCHINDUCTOR_", "TORCHDYNAMO_", "TORCH_COMPILE_"))
         and name not in {"HF_TOKEN", "HUGGING_FACE_HUB_TOKEN", "TORCH_TRACE", "TORCH_LOGS",
                          "TORCH_COMPILE_DEBUG", "TORCHDYNAMO_VERBOSE"}
     }

@@ -6,10 +6,10 @@
   {"eval": "els.prompt.value = 'a fox'; els.steps.value = '6'; els.seed.value = '3'; void startJob('/api/generate', collect());"},
   {"wait": 1200},
   {"expect": "busy && !!document.querySelector('#viewer img.preview') && document.querySelector('#viewer img.preview').src.startsWith('data:image/jpeg')"},
-  {"expect": "/^\\d+% · \\d\\/6 — Local Diffusion$/.test(document.title) && !els.topbarLine.hidden && els.jobMirror.textContent.startsWith(progressShown()) && /^\\d\\/6$/.test(progressShown()) && els.progressText.querySelector('.said').textContent === 'denoising…' && els.progressText.querySelector('.seen').getAttribute('aria-hidden') === 'true'"},
+  {"expect": "/^\\d+% · \\d\\/6 — Auradream$/.test(document.title) && !els.topbarLine.hidden && els.jobMirror.textContent.startsWith(progressShown()) && /^\\d\\/6$/.test(progressShown()) && els.progressText.querySelector('.said').textContent === 'denoising…' && els.progressText.querySelector('.seen').getAttribute('aria-hidden') === 'true'"},
   {"wait": 2500},
   {"expect": "!busy && !document.querySelector('#viewer img.preview') && viewerRecords.length === 1"},
-  {"expect": "document.title === '✓ Finished 1 image — Local Diffusion' && els.topbarLine.hidden && els.finishNote.textContent.includes(', seed 3.')"},
+  {"expect": "document.title === '✓ Finished 1 image — Auradream' && els.topbarLine.hidden && els.finishNote.textContent.includes(', seed 3.')"},
   {"eval": "els.seed.value = ''; els.steps.value = ''; persistPanel();"},
 
   {"log": "'1536x864, forced colours and reduced motion: keyboard-reachable progress, a steady loading bar with readable status, a held Pause reason, queued cancellation and focus after Cancel'"},

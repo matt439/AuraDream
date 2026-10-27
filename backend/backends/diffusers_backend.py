@@ -7,10 +7,10 @@ one component is resident at a time. Peak VRAM lands near 13GB.
 
 Nothing here is Krea-specific: the pipeline class and the set of quantizable
 components are both read from the component tree's `model_index.json`, so
-`LOCAL_DIFFUSION_MODEL_ID` can point at any diffusers text-to-image repo.
+`AURADREAM_MODEL_ID` can point at any diffusers text-to-image repo.
 Illustrious's official single file is converted to a cached tree first.
 
-`LOCAL_DIFFUSION_QUANT=nunchaku` is the other way round: the checkpoint arrives already
+`AURADREAM_QUANT=nunchaku` is the other way round: the checkpoint arrives already
 quantized (Nunchaku Lite, SVDQuant 4-bit weights and activations, with its own
 CUDA kernels) and names its quantizer in its own `config.json`s, so this backend
 passes diffusers no quantization config at all. Those kernels are published for
@@ -67,7 +67,7 @@ _REQUIRED_PARAMS = frozenset({"generator", "callback_on_step_end"})
 # One adapter slot. diffusers can hold several and blend them, but every extra
 # name has to reach `CellKey`, the embedded metadata and Reuse to be reproducible,
 # and one adapter at a weight is the comparison a LoRA is bought for.
-_LORA_ADAPTER = "local_diffusion"
+_LORA_ADAPTER = "auradream"
 
 
 @dataclass
@@ -456,8 +456,8 @@ class DiffusersBackend(GenerationBackend):
             from diffusers.pipelines.pipeline_utils import DiffusionPipeline
 
             # Offload resolves its own accelerator inside diffusers, so it needs
-            # CUDA whatever LOCAL_DIFFUSION_DEVICE says; the check has to see both, or
-            # `LOCAL_DIFFUSION_DEVICE=cpu` sailed past it and died after the download in
+            # CUDA whatever AURADREAM_DEVICE says; the check has to see both, or
+            # `AURADREAM_DEVICE=cpu` sailed past it and died after the download in
             # `enable_model_cpu_offload` with a message naming neither variable.
             needs_cuda = (
                 selected.offload != "none" or torch.device(selected.device).type == "cuda"
@@ -465,7 +465,7 @@ class DiffusersBackend(GenerationBackend):
             if needs_cuda and not torch.cuda.is_available():
                 raise RuntimeError(
                     "CUDA is not available to PyTorch. Model offload needs an accelerator; "
-                    "to run on the CPU set LOCAL_DIFFUSION_OFFLOAD=none and LOCAL_DIFFUSION_DEVICE=cpu."
+                    "to run on the CPU set AURADREAM_OFFLOAD=none and AURADREAM_DEVICE=cpu."
                 )
 
             # DiffusionPipeline resolves the concrete class from model_index.json,
@@ -1203,7 +1203,7 @@ class DiffusersBackend(GenerationBackend):
         """
         if current_settings(settings).quantization == loading.NUNCHAKU:
             return (
-                "LOCAL_DIFFUSION_QUANT=nunchaku loads a checkpoint that is already quantized to "
+                "AURADREAM_QUANT=nunchaku loads a checkpoint that is already quantized to "
                 "4-bit SVDQuant, whose linear layers are not the ones a LoRA attaches "
                 "to; run the same checkpoint under fp8, int8 or none to use adapters"
             )
@@ -1776,7 +1776,7 @@ class DiffusersBackend(GenerationBackend):
             import torch
 
             # The card the weights are on, not GPU 0: with offload the
-            # components live on `LOCAL_DIFFUSION_DEVICE` between moves, and a status
+            # components live on `AURADREAM_DEVICE` between moves, and a status
             # line reporting another card's memory hides a dropped setting.
             device = torch.device(selected.device)
             if torch.cuda.is_available() and (device.type == "cuda" or selected.offload != "none"):

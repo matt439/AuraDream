@@ -293,7 +293,7 @@ def _persist(db_path: Path, chosen: BackupSettings, version: int) -> LoadedSetti
     temporary: Path | None = None
     owned: tuple[int, int] | None = None
     try:
-        with tempfile.NamedTemporaryFile(mode="wb", dir=path.parent, prefix=".local-diffusion.backup-policy.", suffix=".tmp", delete=False) as stream:
+        with tempfile.NamedTemporaryFile(mode="wb", dir=path.parent, prefix=".auradream.backup-policy.", suffix=".tmp", delete=False) as stream:
             temporary = Path(stream.name)
             value = os.fstat(stream.fileno())
             owned = value.st_dev, value.st_ino

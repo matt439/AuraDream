@@ -47,7 +47,7 @@ def test_random_prompt_preview_and_render_agree_per_image_and_save_the_choices(c
         expected = grid.random_assignment({"size": ["small", "large", ""]}, image["seed"])
         assert image["variables"] == expected and image["batch"] == 1
         with Image.open(store.settings.outputs_dir / image["filename"]) as png:
-            assert json.loads(png.info["local-diffusion"])["variables"] == expected
+            assert json.loads(png.info["auradream"])["variables"] == expected
         record = store.get_image(image["id"])
         assert grid.cell_from_record(record).variables == expected
     resumed = client.post("/api/grid/preview", json={**RANDOM_BODY, "resume": True}).json()
@@ -1040,7 +1040,7 @@ def test_a_rerender_keeps_each_cells_variables(client, fake, store):
     ]
     # The PNG's own record carries it as well, for a reindex to bring back.
     with Image.open(store.settings.outputs_dir / images[0]["filename"]) as png:
-        assert json.loads(png.info["local-diffusion"])["variables"] == {"variant": LABELS[0]}
+        assert json.loads(png.info["auradream"])["variables"] == {"variant": LABELS[0]}
 
 
 def test_a_rerender_refuses_another_checkpoints_records(client, fake, store):

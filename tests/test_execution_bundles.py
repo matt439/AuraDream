@@ -116,7 +116,7 @@ def _edited_archive(archive, tmp_path, *, sql=_ABSENT, png=_ABSENT, drop_column=
         with Image.open(io.BytesIO(members[name])) as image:
             meta = json.loads(image.info[reindex.PNG_METADATA_KEY])
         meta["execution"] = png
-        members[name] = reindex._with_local_diffusion_metadata(members[name], meta)
+        members[name] = reindex._with_auradream_metadata(members[name], meta)
     if late_kind is not None:
         name = "images/" + filename
         with Image.open(io.BytesIO(members[name])) as image:

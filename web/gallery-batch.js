@@ -1,4 +1,4 @@
-// Local Diffusion's page script: a gallery card's batch, marked on hover.
+// Auradream's page script: a gallery card's batch, marked on hover.
 // Declarations only; state.js has the load-order contract these files share.
 'use strict';
 

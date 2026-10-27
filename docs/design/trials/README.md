@@ -19,7 +19,7 @@ documented smoke ports and their +400 runs.
 
 ```powershell
 Get-PSDrive C
-$trialData = Join-Path $env:TEMP ('local-diffusion-trial-A-' + [guid]::NewGuid().ToString('N'))
+$trialData = Join-Path $env:TEMP ('auradream-trial-A-' + [guid]::NewGuid().ToString('N'))
 uv run --no-sync python tools/trial_fixture.py --data $trialData --port 8312 --variant A
 Get-Content (Join-Path $trialData 'fixture.json')
 uv run --no-sync python tools/fake_server.py --data $trialData --port 8312 --model black-forest-labs/FLUX.1-Krea-dev
@@ -91,9 +91,9 @@ draft, picks, jobs and synthetic outcomes. Use a new page for each variant.
 The self-check is repeatable without installing software:
 
 ```powershell
-$env:LOCAL_DIFFUSION_PORT_OFFSET = '400'
+$env:AURADREAM_PORT_OFFSET = '400'
 node tools/browser.mjs docs/design/prototype/check.json
-Remove-Item Env:LOCAL_DIFFUSION_PORT_OFFSET
+Remove-Item Env:AURADREAM_PORT_OFFSET
 ```
 
 The existing concept is a bounded sample, not the fake gallery rendered in a
@@ -127,9 +127,9 @@ start its fake server as above, then run in another terminal:
 $trialManifest = Join-Path $trialData 'fixture.json'
 $trialSteps = Join-Path $trialData 'walkthrough.json'
 uv run --no-sync python tools/trial_walkthrough.py --manifest $trialManifest --output $trialSteps
-Remove-Item Env:LOCAL_DIFFUSION_PORT_OFFSET -ErrorAction SilentlyContinue
-$env:LOCAL_DIFFUSION_VIEWPORT = '1400x900'
-$env:LOCAL_DIFFUSION_DPR = '1'
+Remove-Item Env:AURADREAM_PORT_OFFSET -ErrorAction SilentlyContinue
+$env:AURADREAM_VIEWPORT = '1400x900'
+$env:AURADREAM_DPR = '1'
 node tools/browser.mjs $trialSteps 2>&1 | Tee-Object -FilePath (Join-Path $trialData 'walkthrough.log')
 ```
 

@@ -45,8 +45,8 @@ await import(input.url);
 '''
     request = dict(harness=str(ROOT / "tools/browser.mjs"), steps=str(steps),
                    url=(ROOT / "tools/browser.mjs").as_uri())
-    environment = {**os.environ, "LOCAL_DIFFUSION_BROWSER": "owned-synthetic-browser",
-                   "LOCAL_DIFFUSION_BROWSER_DIAGNOSTICS": "1",
+    environment = {**os.environ, "AURADREAM_BROWSER": "owned-synthetic-browser",
+                   "AURADREAM_BROWSER_DIAGNOSTICS": "1",
                    "TEMP": str(tmp_path), "TMP": str(tmp_path), "TMPDIR": str(tmp_path)}
     done = subprocess.run([node, "--input-type=module", "-e", bootstrap, json.dumps(request)],
                           cwd=ROOT, env=environment, capture_output=True, text=True, timeout=15)

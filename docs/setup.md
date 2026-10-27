@@ -47,10 +47,16 @@ is missing.
 ## 3. Get the code and install
 
 ```powershell
-git clone https://github.com/matt439/ImageGeneratorLocal.git
-cd ImageGeneratorLocal
+git clone https://github.com/matt439/Auradream.git
+cd Auradream
 uv sync
 ```
+
+The project was called Local Diffusion, in a repository named
+ImageGeneratorLocal, until 2026-10-27. A clone made before then needs only
+its remote pointed at the new address
+(`git remote set-url origin https://github.com/matt439/Auradream.git`); the
+folder can keep its old name.
 
 `uv sync` creates `.venv` in the folder and installs torch from the CUDA 13
 index, so it downloads a few GB. Check that torch sees the card:
@@ -123,7 +129,7 @@ progress. Later loads come from the cache and take far less.
 Then enter a prompt, choose a size and press **Generate**. **Examples** and
 the **?** hints show the checkpoint's own prompting style and sizes; Steps,
 CFG and Mu start at its defaults. Images and the gallery database are saved
-in the project folder (`outputs/` and `local-diffusion.db`).
+in the project folder (`outputs/` and `auradream.db`).
 
 Stop the server with Ctrl-C. Next time, `uv run python -m backend.main`
 alone restores the checkpoint and settings you last saved in **Models**.
@@ -142,7 +148,8 @@ setx HF_HOME "D:\huggingface"
 Sign in again (step 5) after changing it, since the token is stored there
 too. Checkpoints that convert on first load (Illustrious, WAI, RouWei and
 others) keep the converted copy in the same cache, under
-`local-diffusion\converted`; Illustrious, WAI and RouWei each need about
+`auradream\converted` (or the `local-diffusion\converted` an earlier
+install made, which stays in use); Illustrious, WAI and RouWei each need about
 14 GB for the source and conversion together.
 
 ## If something goes wrong
@@ -170,5 +177,7 @@ others) keep the converted copy in the same cache, under
 - [Settings](../README.md#settings): environment variables, including
   quantization, offload, and the output and database paths.
 - To start from any folder, add the repository's `bin\` folder to your
-  user PATH and run `local-diffusion`
+  user PATH and run `auradream` (`auradream-wsl` for WSL 2; they were
+  `local-diffusion` and `local-diffusion-wsl` before the rename, and a
+  PATH entry for an existing clone's `bin\` needs no change)
   ([details](../README.md#quick-start)).

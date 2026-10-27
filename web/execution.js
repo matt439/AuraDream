@@ -2,7 +2,7 @@
 'use strict';
 
 const EXECUTION_UNAVAILABLE = 'Execution recipes are not available in this build; use Eager, native attention and no step cache.';
-const EXECUTION_DRAFT_KEY = 'local-diffusion.execution-draft.v1';
+const EXECUTION_DRAFT_KEY = 'auradream.execution-draft.v1';
 const INVALID_PERFORMANCE_VALUE = '__unavailable_saved_choice__';
 const INVALID_CACHE_REASON = 'The saved step cache choice is unknown or invalid. Choose Off or a valid named choice explicitly.';
 const INVALID_LOADER_REASON = 'The saved performance draft is unknown or invalid. Open Models to choose valid Compilation and Attention choices, or Revert.';

@@ -131,7 +131,8 @@ foreign default/old-version responses or establish host-wide quiescence.
 
 The existing destination must have stable identity and no direct link/reparse
 point. A native directory handle denies rename/delete during installation. The
-bounded, strict `local-diffusion.bundle-leases.json` marker binds a version,
+bounded, strict `local-diffusion.bundle-leases.json` marker (its name frozen
+from the app's old name) binds a version,
 installation UUID, canonical path and directory device/inode. An owned fsynced
 temporary is published without replacement; expected ID, file identity and digest
 are checked before the mode is observed. A collision, bad or foreign marker is
@@ -431,7 +432,8 @@ disable the gallery's protection or accidentally enable it. A dedicated
 versioned sidecar beside the database is suitable; reuse the existing
 atomic-write discipline without putting unrelated fields in
 `StartupPreferences`. The implemented v1 sidecar is
-`local-diffusion.backup-policy-<database filename>.json`, isolating databases
+`auradream.backup-policy-<database filename>.json` (a pre-rename
+`local-diffusion.` one is taken over once), isolating databases
 even when they share a parent. Its complete schema is `version`, `enabled`,
 nullable `minimum_age_us`, `keep_last` and `protection`. Integer microseconds
 preserve every timedelta exactly without floating-point age rounding.

@@ -29,7 +29,7 @@ from .tags import (
     too_long_result,
 )
 
-log = logging.getLogger("local_diffusion")
+log = logging.getLogger("auradream")
 
 
 def special_tags(helper: dict) -> set[str]:

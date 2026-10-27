@@ -118,7 +118,7 @@ def test_truthy_strings_cannot_replace_validated_trust_or_gallery_facts():
 
 @pytest.mark.parametrize("state", ["manual", "missing", "replaced", "unknown"])
 def test_unconfirmed_or_manual_copy_never_covers_age_or_becomes_a_candidate(state):
-    other = copy("local-diffusion-automatic-looking.zip", 100, state=state)
+    other = copy("auradream-automatic-looking.zip", 100, state=state)
     assert due([other]).reason == "no_copy"
     assert retained([other, copy("one", 10), copy("new", 0)], "new").candidates == ()
     assert retained([copy("old", 100), other], other.archive_id).reason == "no_new_success"

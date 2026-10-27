@@ -6,19 +6,24 @@ from typing import Any, IO
 
 from .instruction_edit import StoredInstructionEdit, geometry, recipe_for, stored_from_json
 
-PNG_METADATA_KEY = "local-diffusion"
+PNG_METADATA_KEY = "auradream"
 
-# Images written before the project rename used the original app name. Keep
-# reading that key so old galleries and backups remain reproducible; every new
-# write, copy and database-backed import uses ``PNG_METADATA_KEY``.
-LEGACY_PNG_METADATA_KEYS = ("krea",)
+# Images written before each project rename carry an earlier app name: Local
+# Diffusion's "local-diffusion" and, before it, "krea". Keep reading those keys
+# so old galleries and backups remain reproducible; every new write, copy and
+# database-backed import uses ``PNG_METADATA_KEY``, replacing a legacy one.
+LEGACY_PNG_METADATA_KEYS = ("local-diffusion", "krea")
 PNG_METADATA_KEYS = (PNG_METADATA_KEY, *LEGACY_PNG_METADATA_KEYS)
 
 # An inpaint's mask, its own PNG's bytes in base64, in a text chunk beside the
 # record: the result's PNG alone then reproduces it, and a PNG-only reindex
 # can put back a mask file that was lost. Text, so no pixel-deciding chunk and
 # no decoded identity changes with it.
-PNG_MASK_KEY = "local-diffusion-mask"
+PNG_MASK_KEY = "auradream-mask"
+# The mask chunk as Local Diffusion wrote it. Metadata rewrites leave a mask
+# chunk as it is, so an old result keeps this key and is read by it.
+LEGACY_PNG_MASK_KEYS = ("local-diffusion-mask",)
+PNG_MASK_KEYS = (PNG_MASK_KEY, *LEGACY_PNG_MASK_KEYS)
 
 
 def require_header_metadata(stream: IO[bytes]) -> None:
@@ -30,7 +35,7 @@ def require_header_metadata(stream: IO[bytes]) -> None:
     metadata placement, not PNG CRCs or decoded image validity.
     """
     position = stream.tell()
-    owned = {key.encode("ascii") for key in (*PNG_METADATA_KEYS, PNG_MASK_KEY)}
+    owned = {key.encode("ascii") for key in (*PNG_METADATA_KEYS, *PNG_MASK_KEYS)}
     image_data = False
     try:
         stream.seek(0)
@@ -43,7 +48,7 @@ def require_header_metadata(stream: IO[bytes]) -> None:
             size = min(length, 80) if kind in {b"tEXt", b"zTXt", b"iTXt"} else 0
             keyword = stream.read(size).split(b"\0", 1)[0] if size else None
             if image_data and keyword in owned:
-                raise ValueError("Local Diffusion metadata must precede PNG image data; app text after IDAT is unsupported")
+                raise ValueError("Auradream metadata must precede PNG image data; app text after IDAT is unsupported")
             stream.seek(length - size + 4, 1)  # Unread payload and CRC.
             if kind == b"IDAT":
                 image_data = True
@@ -59,6 +64,15 @@ def embedded_metadata(info: Mapping[str, Any]) -> str | None:
     for key in PNG_METADATA_KEYS:
         raw = info.get(key)
         if raw:
+            return raw
+    return None
+
+
+def embedded_mask(info: Mapping[Any, Any]) -> str | None:
+    """Return the base64 mask text from either the current or a legacy key."""
+    for key in PNG_MASK_KEYS:
+        raw = info.get(key)
+        if isinstance(raw, str) and raw:
             return raw
     return None
 

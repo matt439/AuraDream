@@ -240,7 +240,7 @@ def test_a_database_merge_leaves_off_a_spec_no_request_could_make(store, monkeyp
     monkeypatch.setattr(reindex, "settings", mine)
     elsewhere = tmp_path / "backup" / "outputs"
     elsewhere.mkdir(parents=True)
-    source_db = elsewhere.parent / "local-diffusion.db"
+    source_db = elsewhere.parent / "auradream.db"
     monkeypatch.setattr(storage, "settings", dataclasses.replace(mine, db_path=source_db, outputs_dir=elsewhere))
     storage.init_db()
     source, made = _gallery()
@@ -261,7 +261,7 @@ def test_a_database_merge_carries_and_drops_the_outpaint(store, monkeypatch, tmp
     _save("already here", 90)
     elsewhere = tmp_path / "backup" / "outputs"
     elsewhere.mkdir(parents=True)
-    source_db = elsewhere.parent / "local-diffusion.db"
+    source_db = elsewhere.parent / "auradream.db"
     monkeypatch.setattr(storage, "settings", dataclasses.replace(mine, db_path=source_db, outputs_dir=elsewhere))
     storage.init_db()
     source, made = _gallery()

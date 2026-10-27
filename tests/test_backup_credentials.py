@@ -93,6 +93,7 @@ def assert_secret_free(error):
 
 def test_reference_is_strict_scope_bound_and_secret_free():
     selected = reference()
+    # Frozen from the old name: existing vault entries keep resolving.
     assert selected.target == f"LocalDiffusion/AutomaticBackup/v1/{GALLERY}/{DESTINATION}"
     wire = credentials.reference_wire(selected)
     assert wire["provider"] == "windows-credential-manager-v1"
@@ -533,3 +534,9 @@ def test_recovery_uses_only_user_password_and_one_borrowed_full_verifier(fake, m
     assert not fake.reads and not fake.writes
     output = capsys.readouterr()
     assert SECRET not in output.out + output.err and json.loads(output.out)["imported"] is False
+
+
+def test_vault_names_are_frozen_from_the_old_name():
+    # Renaming these would orphan every credential stored before Auradream.
+    assert credentials._USERNAME == "LocalDiffusion"
+    assert credentials._MAGIC == b"LocalDiffusion.AutomaticBackup.Credential.v1" + bytes(1)

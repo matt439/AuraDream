@@ -15,7 +15,7 @@ notifies the existing preview, prompt analysis, tags and panel persistence.
 A greyed or unsupported negative box refuses insertion with its reason.
 
 Snippets are shared by tabs and checkpoint selections, stored server-side in
-`local-diffusion.snippets.json` beside the database and saved loader choices.
+`auradream.snippets.json` beside the database and saved loader choices.
 They are independent of gallery rows, bundles, model loading and the GPU gate.
 The browser reads them on opening the dialog, not at page startup. Nothing is
 saved to localStorage. The file is ignored by Git because it holds own prompts.

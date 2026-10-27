@@ -18,7 +18,7 @@
   {"expect": "els.negative.value === 'blurry' && els.seed.value === '4242' && els.steps.value === '6' && els.cfg.value === '2.5' && els.mu.value === '1.3' && els.width.value === '512' && els.height.value === '768' && owned.cfg && scrollY === __y"},
   {"expect": "els.error.textContent.startsWith('Settings from lighthouse.png loaded - your prompt was replaced.') && !!els.error.querySelector('button.undo') && !els.error.textContent.includes('These settings were made on')"},
   {"log": "'only the text went: a name and the chunks by keyword, no IDAT, a fraction of the file'"},
-  {"expect": "(() => { const body = JSON.parse(__sent.at(-1)); return Object.keys(body).sort().join() === 'chunks,name,panel' && body.name === 'lighthouse.png' && 'local-diffusion' in body.chunks && body.chunks.parameters.startsWith('a lighthouse 灯台 in fog') && body.panel.steps === 12 && Object.keys(body.panel).sort().join() === 'guidance_scale,mu,steps,true_cfg' && !__sent.at(-1).includes('IDAT') && __sent.at(-1).length < __galleryPng.size; })()"},
+  {"expect": "(() => { const body = JSON.parse(__sent.at(-1)); return Object.keys(body).sort().join() === 'chunks,name,panel' && body.name === 'lighthouse.png' && 'auradream' in body.chunks && body.chunks.parameters.startsWith('a lighthouse 灯台 in fog') && body.panel.steps === 12 && Object.keys(body.panel).sort().join() === 'guidance_scale,mu,steps,true_cfg' && !__sent.at(-1).includes('IDAT') && __sent.at(-1).length < __galleryPng.size; })()"},
   {"log": "'Ctrl+Z gives the half-written prompt back, as after any Reuse; the note Undo puts back the seed and steps as well'"},
   {"eval": "els.prompt.focus(); document.execCommand('undo');"},
   {"expect": "els.prompt.value === 'my half written prompt about a harbour' && !els.error.querySelector('button.undo')"},
@@ -32,7 +32,7 @@
   {"expect": "els.prompt.value === 'my half written prompt about a harbour' && els.seed.value === '77' && els.steps.value === '12' && els.error.textContent === 'Reuse of lighthouse.png undone: the panel is as it was.'"},
 
   {"log": "'another checkpoint\\'s record, hand-written in tEXt: the other-checkpoint sentence is Reuse\\'s own'"},
-  {"eval": "(async () => { const meta = {prompt: 'a red fox at dusk', negative_prompt: null, steps: 28, guidance_scale: 3.5, true_cfg: null, mu: null, seed: 99, model: 'black-forest-labs/FLUX.1-Krea-dev', size: '1024x1024'}; __drop([await __png('flux.png', [['tEXt', 'local-diffusion', JSON.stringify(meta)]])]); })()"},
+  {"eval": "(async () => { const meta = {prompt: 'a red fox at dusk', negative_prompt: null, steps: 28, guidance_scale: 3.5, true_cfg: null, mu: null, seed: 99, model: 'black-forest-labs/FLUX.1-Krea-dev', size: '1024x1024'}; __drop([await __png('flux.png', [['tEXt', 'auradream', JSON.stringify(meta)]])]); })()"},
   {"expect": "__until(() => els.prompt.value === 'a red fox at dusk')"},
   {"expect": "els.steps.value === '28' && els.cfg.value === '3.5' && els.seed.value === '99' && els.mu.value === '' && els.width.value === '1024' && els.error.textContent.startsWith('Settings from flux.png loaded - your prompt was replaced.') && els.error.textContent.includes('These settings were made on ' + checkpointName('black-forest-labs/FLUX.1-Krea-dev') + ';')"},
 

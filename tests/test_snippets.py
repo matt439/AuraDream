@@ -26,7 +26,7 @@ def test_saved_text_and_destination_survive_another_read(tmp_path):
     )
     assert snippets.read(database) == [first]
     assert not database.exists()
-    assert not (tmp_path / "local-diffusion.settings.json").exists()
+    assert not (tmp_path / "auradream.settings.json").exists()
     updated = snippets.change(database, SnippetUpdate(
         name="New name", text="a prefix", target="prompt", revision=1,
     ), item_id=first.id)[0]
@@ -53,7 +53,7 @@ def test_atomic_replace_failure_keeps_previous_file_and_cleans_temp(tmp_path, mo
     with pytest.raises(snippets.SnippetsError, match="previous saved list"):
         snippets.change(database, SnippetFields(name="not saved", text="new"))
     assert path.read_bytes() == before
-    assert list(tmp_path.glob(".local-diffusion.snippets.*.tmp")) == []
+    assert list(tmp_path.glob(".auradream.snippets.*.tmp")) == []
 
 
 @pytest.mark.parametrize("data", [

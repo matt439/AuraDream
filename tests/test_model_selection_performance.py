@@ -250,7 +250,7 @@ def test_failed_repair_restores_exact_invalid_preferences_and_restart_diagnostic
     assert model_selection._selection == before and fake.loaded and fake.loads == 0
     assert path.read_bytes() == prior
     assert startup_preferences.load_result(main.settings.db_path).loader_execution_error == INVALID_LOADER_CONFIGURATION
-    restarted = {"LOCAL_DIFFUSION_DB_PATH": str(main.settings.db_path)}
+    restarted = {"AURADREAM_DB_PATH": str(main.settings.db_path)}
     startup_preferences.apply_saved_environment(restarted)
     assert restarted[startup_preferences.LOADER_EXECUTION_ERROR_VARIABLE] == INVALID_LOADER_CONFIGURATION
     assert body["execution_available"] is False

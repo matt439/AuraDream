@@ -308,12 +308,11 @@ body.png-drop::after {
   z-index: 20;
 }
 
-/* The page's h1, drawn as the word mark it was as a div. The two words meet
-   with no visible space; the space between them is there for a screen
-   reader, which read "LocalDiffusion" as one word, at no width. */
+/* The page's h1, drawn as the word mark it was as a div: one word, its
+   second half in the accent, with no space between the two for a screen
+   reader to read as two words. */
 .brand { margin: 0; font-weight: 700; letter-spacing: -0.02em; font-size: var(--fs-xl); }
 .brand span { color: var(--accent); }
-.brand .brand-gap { font-size: 0; }
 
 .status { display: flex; align-items: center; gap: 7px; color: var(--muted); font-size: var(--fs-body-sm); }
 /* "· busy in another tab" (status.js) gives way in a phone-width bar, where

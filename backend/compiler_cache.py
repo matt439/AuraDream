@@ -69,7 +69,7 @@ def cache_plan(db: Path, outputs: Path, bundles: Path | None, facts: CompilerMet
     db, outputs = _absolute(db), _absolute(outputs)
     bundles = _absolute(db.parent / "bundles" if bundles is None else bundles)
     web = _absolute(Path(__file__).parent.parent / "web" if web is None else web)
-    root = _absolute(db.parent / "local-diffusion.compile-cache" if root is None else root)
+    root = _absolute(db.parent / "auradream.compile-cache" if root is None else root)
     if any(_overlaps(root, other) for other in (outputs, bundles, web)) or _overlaps(root, db):
         raise ValueError("Compiler artifacts need a separate directory outside served files, gallery data and bundles.")
     recipe = "regional-v1"
@@ -155,7 +155,7 @@ def _probe(path: Path, attempt: _Attempt) -> None:
     if os.name == "nt":
         # CRT delete-on-close is tied to this exclusive file handle. Never
         # lstat-then-unlink a pathname that another writer could replace.
-        attempt.probe = path / (".local-diffusion-probe-" + secrets.token_hex(16))
+        attempt.probe = path / (".auradream-probe-" + secrets.token_hex(16))
         descriptor = os.open(attempt.probe, os.O_RDWR | os.O_CREAT | os.O_EXCL | os.O_BINARY | os.O_TEMPORARY, 0o600)
     elif hasattr(os, "O_TMPFILE"):
         # No named fallback: unsupported filesystems refuse this private stage.
@@ -166,7 +166,7 @@ def _probe(path: Path, attempt: _Attempt) -> None:
     try:
         attempt.probe_identity = _identity(os.fstat(descriptor))
         attempt.operation = "write-probe"
-        data = b"Local Diffusion compiler cache probe\n"
+        data = b"Auradream compiler cache probe\n"
         if os.write(descriptor, data) != len(data):
             raise OSError("Compiler cache probe write was incomplete.")
         os.fsync(descriptor)

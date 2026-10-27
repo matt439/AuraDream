@@ -1,4 +1,4 @@
-// Local Diffusion's page script: a record's facts - the settings line and the
+// Auradream's page script: a record's facts - the settings line and the
 // facts list the lightbox and the viewer share. Declarations only; state.js has
 // the load-order contract these files share.
 'use strict';

@@ -9,9 +9,14 @@ before changing it.
 
 ## Layout
 
-- `backend/config.py` — settings, most overridable by `LOCAL_DIFFUSION_*` env vars
+- `backend/config.py` — settings, most overridable by `AURADREAM_*` env vars
+- `backend/legacy_names.py` — where files made under the old name (Local
+  Diffusion) keep working: the default database, sidecars beside it and
+  `HF_HOME` folders resolve to an existing `local-diffusion` one while no
+  `auradream` one exists; it renames nothing
 - `backend/launch.py` — the start-up menu and the `--model/--quant/--offload`
-  flags, run before `config` is imported; the checkpoint catalogue lives here
+  flags, run before `config` is imported; the checkpoint catalogue lives here;
+  `warn_legacy_env` names any `LOCAL_DIFFUSION_*` still set, which is not read
 - `backend/loader_choices.py` — quantization, offload and Nunchaku format
   choices, worded once for the `--menu` and the browser picker
 - `backend/model_selection.py` — the server's selected checkpoint, loader options
@@ -240,8 +245,9 @@ before changing it.
   draws with, one per VAE, fitted on the card
 - `backend/jobs.py` — single-worker queue, SSE progress
 - `backend/storage.py` — SQLite index + PNGs with embedded metadata
-- `backend/metadata.py` — the PNG chunk's key (`local-diffusion`) and
-  `embedded_metadata`, which still reads the pre-rename `krea` key; shared
+- `backend/metadata.py` — the PNG chunk's key (`auradream`) and
+  `embedded_metadata`, which still reads the legacy `local-diffusion` and
+  `krea` keys (and `auradream-mask`'s legacy `local-diffusion-mask`); shared
   by storage, `png_settings.py` (so `generate.py` and `api_png.py`) and
   `reindex.py`
 - `backend/png_settings.py` — settings read back from a PNG's text chunks:
@@ -319,7 +325,7 @@ before changing it.
 - `backend/stats.py` — the starred *rate* per setting (`gallery_reports.keep_rates`),
   scoped to a run by default; `--by variant` gives a comparison's rate
   per version
-- `backend/reindex.py` — rows rebuilt from the PNGs' `local-diffusion` chunk, in place or
+- `backend/reindex.py` — rows rebuilt from the PNGs' `auradream` chunk, in place or
   copied in from another gallery; idempotent on the UNIQUE filename
 - `web/` - served as-is from `/static`; `index.html` loads 53 classic
   scripts in order, sharing one global scope; only `app.js`, the last, runs
@@ -389,7 +395,7 @@ before changing it.
   `test_api*.py` (the HTTP routes, one file per area), and a file per module
   or invariant beside them - `test_refine_schedules.py`, for one, holds a
   pass's start index and start sigma to the installed diffusers; see Tests
-- `bin/` — `local-diffusion` and `local-diffusion-wsl`, for the user PATH:
+- `bin/` — `auradream` and `auradream-wsl`, for the user PATH:
   the two server starts (`backend.main`, `wsl/serve.sh`) from any folder,
   arguments passed through. Each is a `.ps1` (PowerShell picks it, so
   Ctrl-C stops the server without cmd.exe's "Terminate batch job (Y/N)?")
@@ -537,10 +543,17 @@ Model and loader:
   References, user LoRAs and Nunchaku are unavailable for this integration.
 
 
-- App-owned names use Local Diffusion: `LOCAL_DIFFUSION_*`,
-  `local-diffusion.db`, `~/local-diffusion`, `local-diffusion.*` browser keys
-  and the `local-diffusion` PNG chunk. Keep Krea only in checkpoint/vendor
-  names and explicit compatibility reads for pre-rename data.
+- App-owned names use Auradream: `AURADREAM_*`,
+  `auradream.db`, `~/auradream`, `auradream.*` browser keys
+  and the `auradream` PNG chunk. Keep Krea only in checkpoint/vendor
+  names and explicit compatibility reads for pre-rename data. The
+  project was Local Diffusion until 2026-10-27: its `local-diffusion` names
+  are legacy - PNG chunks and the bundle format are read, never written; an
+  existing database, sidecar or `HF_HOME` folder is used where it is
+  (`legacy_names.py`); browser keys move once on first read - and only
+  `AURADREAM_*` variables are read. An old name whose value feeds a hash, a key derivation or a store
+  outside the app stays frozen, with a comment saying so (see "The
+  project-owned namespace follows Auradream" in `design-notes.md`).
 - Quantize through `PipelineQuantizationConfig(quant_mapping=...)`, one
   `TorchAoConfig` per component from the library that owns it, each built from
   a torchao `AOBaseConfig` *instance*. The `quant_backend="torchao"` shorthand
@@ -663,7 +676,7 @@ Model and loader:
   other model's settings and the menu's printed command starts the same way
   (`test_a_menu_pick_of_another_model_sets_the_saved_auto_load_aside`).
   `launch.configure` records what was explicit in
-  `LOCAL_DIFFUSION_STARTUP_OVERRIDES`; status and `/api/models` report it as
+  `AURADREAM_STARTUP_OVERRIDES`; status and `/api/models` report it as
   `startup_overrides` (empty when `backend.main` is imported). Malformed
   legacy preferences retain their existing fallback behavior. V2 stores the
   canonical loader recipe as well; invalid execution-bearing files/env values
@@ -671,8 +684,8 @@ Model and loader:
   Save/rollback preserves exact prior bounded bytes, including an invalid file.
   Only model id, quantization, offload, `load_on_startup` and loader intent are
   saved, never secrets, per-render step cache or unrelated settings. Named
-  `--compilation`/`--attention` and their `LOCAL_DIFFUSION_COMPILATION`/
-  `LOCAL_DIFFUSION_ATTENTION` variables follow existing explicit override rules.
+  `--compilation`/`--attention` and their `AURADREAM_COMPILATION`/
+  `AURADREAM_ATTENTION` variables follow existing explicit override rules.
   The browser's
   compact model facts reuse sourced guides, catalogue data and recorded local
   evidence. The size fact shows upper guidance and labels recommendations,
@@ -833,12 +846,12 @@ Model and loader:
   contention in `try_unload` changes nothing. Private nonempty loaded state must
   refuse an ordinary eager request before device or pipeline work. This opens no
   selection/render gate and proves no physical GPU memory release.
-- `LOCAL_DIFFUSION_QUANT=nunchaku` means a pre-quantized lite-infer repo, Linux only
+- `AURADREAM_QUANT=nunchaku` means a pre-quantized lite-infer repo, Linux only
   (WSL 2 here), and no quantization config; `loading.nunchaku_preflight` and `loading.refuse_prequantized` refuse the other pairings before any download. Under
   WSL, `source wsl/env.sh` before `uv`.
 - `config.py` sets `DIFFUSERS_TRUST_REMOTE_KERNELS` and must be imported
   before diffusers everywhere, the CLI included. The offload hooks are handed
-  `LOCAL_DIFFUSION_DEVICE` explicitly; given nothing, diffusers takes GPU 0.
+  `AURADREAM_DEVICE` explicitly; given nothing, diffusers takes GPU 0.
 - `loading.UNUSED_COMPONENTS` names what ordinary image loading leaves out
   (ERNIE-Image's prompt rewriter). `load()` reads `model_index.json` ahead of
   the weights and hands them as None to the *concrete* class's
@@ -1094,7 +1107,7 @@ Reproduction:
 - The reproduction set - prompt pair, size, steps, CFG, true CFG, mu, seed,
   checkpoint, quantization, references, LoRA and weight, refine source and
   strength, variables, hash - is on the row and in the PNG's
-  `local-diffusion` chunk. So is `batch`, the image count of the call that
+  `auradream` chunk. So is `batch`, the image count of the call that
   made the image (`cell.request.num_images`, from `jobs._save` and the CLI;
   NULL on older rows), which is no part of it - one generator per image -
   but what More seeds runs a batch's next images at; a reindex, a merge
@@ -1226,7 +1239,7 @@ Reproduction:
   LoRA folder, so it was taken out of LoRA. Generate again to run without
   it." ("no longer fits this checkpoint (the LoRA tip says why)" where the
   file is still there for another checkpoint) - never the server's sentence
-  with the directory's path and `LOCAL_DIFFUSION_LORAS_DIR`. One still
+  with the directory's path and `AURADREAM_LORAS_DIR`. One still
   offered keeps the server's sentence. After a removal focus goes to the next ×,
   else the previous, else the emptied `#reference-list` (tabindex -1), never
   the field's badge, whose tip a focus opens. A LoRA is a bare name that
@@ -1382,7 +1395,7 @@ Reproduction:
   `_migrate` column beside `refine`; the chunk carries `mask`,
   `mask_source` (`storage.mask_provenance`) and `mask_blend: "overlay"`,
   null together otherwise, the A1111 block `, Inpaint mask: <16 hex>`, and
-  the mask's own PNG rides in the `local-diffusion-mask` text chunk
+  the mask's own PNG rides in the `auradream-mask` text chunk
   (`metadata.PNG_MASK_KEY`; best effort, the hash still says what ran).
   `grid.mask_key` is `CellKey`'s fifth optional element, after refine;
   `run_id` is unchanged for every run without one (pinned in
@@ -1729,8 +1742,8 @@ Jobs:
   row's ×, Cancel queued; a POST that got no answer is not one) reads
   "Cancelled from another tab or window — …" and holds the title "Cancelled
   elsewhere". `ownJobs` and `cancelledHere` are per-tab and kept across a
-  reload in sessionStorage (`TabJobIds`: `local-diffusion.own-jobs`,
-  `local-diffusion.cancelled-jobs`, read once at load, the newest 50, every
+  reload in sessionStorage (`TabJobIds`: `auradream.own-jobs`,
+  `auradream.cancelled-jobs`, read once at load, the newest 50, every
   access in try/catch).
 - `ModelStatus.newest_image_id` is the gallery's highest id over every row,
   the bin's included (`storage.newest_image_id`: `MAX(id)` on the rowid, 0
@@ -1975,14 +1988,14 @@ Jobs:
   `_MAX_IMAGE_BYTES` (256 MiB) is refused before it is read into memory, and
   so is any member whose `compress_size` exceeds what deflate could make of
   its `file_size` (a whole `read()` fetches all of it in one call).
-- Saved archives use `storage.bundle_directory()`: `LOCAL_DIFFUSION_BUNDLES_DIR`
+- Saved archives use `storage.bundle_directory()`: `AURADREAM_BUNDLES_DIR`
   when set, otherwise `bundles/` beside the database. Listing, downloads,
   export/import, the dialog's directory and archive `.part` cleanup must use
   the same location. Keep it outside the images directory and refuse a
   symbolic link or junction as the archive directory or an archive file.
   This setting does not move database work or image staging.
 - Imports unpack, and uploads land, in `storage.bundle_staging_dir()`
-  (`.local-diffusion-staging` beside the images directory, or inside it when
+  (`.auradream-staging` beside the images directory, or inside it when
   it is its own volume); the merged database is built in a `.bundle-merge-*`
   directory beside the live one. Free space is checked per volume. Bundle
   leftovers (`bundles/*.part`, `.bundle-*` work directories beside the
@@ -2340,8 +2353,8 @@ Prompt analyser:
   at a fixed revision, each held to its size and sha256 (`.part`, verify,
   extract beside, rename; traversal refused; a tree whose marker is missing
   or does not decode never used).
-  `LOCAL_DIFFUSION_CRITIC` (default on), `LOCAL_DIFFUSION_CRITIC_SERVER` and
-  `LOCAL_DIFFUSION_CRITIC_MODEL` (absolute, resolved only on the server's
+  `AURADREAM_CRITIC` (default on), `AURADREAM_CRITIC_SERVER` and
+  `AURADREAM_CRITIC_MODEL` (absolute, resolved only on the server's
   command line: a link keeps the name answers are labelled with; neither
   held to the pins). The server setting should name llama-server itself: a
   wrapper is stopped with its tree, but a server it moves out of that tree
@@ -2519,7 +2532,7 @@ Frontend and CLI:
   with Append/Prepend and undo; a
   greyed negative refuses insertion. The modal owns its keys, with no
   Ctrl/Cmd+Enter submission underneath it. CRUD uses a bounded atomic
-  `local-diffusion.snippets.json` sidecar, optimistic item revisions and an
+  `auradream.snippets.json` sidecar, optimistic item revisions and an
   independent lock; unreadable files are never replaced by an empty list.
   Snippets remain available during gallery bundle maintenance. The sidecar
   and temporary files are ignored by Git. No read is made at page startup.
@@ -2625,9 +2638,9 @@ Frontend and CLI:
   tabindex=0, and stays outside its field's `<label>`, where a press ticked
   the box (Resume's). Red on hover is the `.ghost.danger` class (Cancel, a
   queue row's ×, Cancel queued, Delete unstarred, Reset), never every small
-  ghost button. The page's one h1 is the word mark (`.brand`), with a
-  no-width `.brand-gap` space so it reads "Local Diffusion", not
-  "LocalDiffusion". The settings panel is a `<section>` named by its first
+  ghost button. The page's one h1 is the word mark (`.brand`), one word
+  ("Aura" and an accent `<span>` "dream"), so it reads "Auradream" with no
+  spacer. The settings panel is a `<section>` named by its first
   child, an `.sr-only` h2 "Settings" (`aria-labelledby="panel-head"`).
   `#viewer` is a region named Results (`role="region"`, `aria-label`), never
   with an unseen heading before it: the docked stage's reading flow read
@@ -3349,7 +3362,7 @@ Frontend and CLI:
   VRAM"); a run at the size it opened at in place of the scale asked for
   leaves the remembered scale alone (`refineCapped`) - unless settings a
   close left unsent on the same image and checkpoint are restored
-  (`unsentRefine`, page memory only, never `local-diffusion.refine.v1`),
+  (`unsentRefine`, page memory only, never `auradream.refine.v1`),
   which it says, with Start over; a run, another image, Reset and a
   checkpoint change forget them. It opens focused on Strength, its value
   selected. The fold's Prompt field is a div with `<label for="refine-prompt">`.
@@ -3441,7 +3454,7 @@ Frontend and CLI:
   `refineKept`), with the same DOM and tab order as the one column; Keep
   shape moves the other side on trusted input only. The dialog remembers the
   scale, the versions and, per checkpoint, a single strength the user ran
-  (`local-diffusion.refine.v1`); `resetPanel` forgets it.
+  (`auradream.refine.v1`); `resetPanel` forgets it.
 - An inpaint is the Inpaint dialog's (`web/inpaint.js`, its canvas
   `web/inpaint-mask.js`, `styles/inpaint.css`), never the panel's and never
   a mode of the Refine dialog: `collect()` sends no mask. `openInpaint(rec,
@@ -3793,7 +3806,7 @@ Frontend and CLI:
   Nothing listens to `storage`. `resetPanel` is the one thing that forgets
   it, since clearing the gallery never reaches the browser. The cards' S/M
   and Fit/Crop (`cardView`, gallery.js) belong to the gallery: they are
-  stored under `local-diffusion.gallery.v1`, every access in try/catch,
+  stored under `auradream.gallery.v1`, every access in try/catch,
   read back at load (`restoreCardView`), and Reset leaves them. Reset first
   keeps an in-memory snapshot read off the page (`panelState()`, the raw
   sampling values, `owned`, the size preset, `REFINE_KEY`'s value and
@@ -3891,7 +3904,8 @@ Frontend and CLI:
   does not parse is skipped. Only `{name, chunks}` is posted - never the
   image, which is never stored or made a reference (U61 B stays
   deferred); a keyword the server does not read (anything but
-  `local-diffusion`, `krea`, `parameters`, `workflow`, `prompt`) goes by
+  `auradream`, `local-diffusion`, `krea`, `parameters`, `workflow`,
+  `prompt`) goes by
   its name with empty text, so an XMP packet beside a settings block does
   not take the body past the cap. The page sends `panel`, `collect()`'s
   steps, CFG, true CFG and Mu, which an A1111 block's request takes
@@ -3904,7 +3918,8 @@ Frontend and CLI:
   render takes it - else the reason as a note and the panel's own),
   `sampling`, `model_id`, the PNG's own `negative_prompt` (the box keeps
   one `applied()` leaves out, greyed, with a note) and `notes`. This
-  app's record (`local-diffusion`, or the legacy `krea`) wins over its
+  app's record (`auradream`, or the legacy `local-diffusion` or `krea`)
+  wins over its
   own 'parameters' line and carries what Reuse does; its reference ids
   carry only where this gallery's live row under the id has the
   record's `reference_sources` hash and size, else a note; a refine pass
@@ -4038,7 +4053,7 @@ Frontend and CLI:
   beside" in the gallery head (`#gallery-beside` in
   `label.check#beside-label`, after Sheet and before Delete unstarred,
   hidden under 2000 px, no ? badge), off by default and remembered as
-  `local-diffusion.gallery-beside` through `remember`/`forget`; not the
+  `auradream.gallery-beside` through `remember`/`forget`; not the
   panel's, so Reset leaves it. While a sheet is open it stays live, and its
   title says it takes effect when the sheet closes (`syncBesideTitle`). The
   gallery's blocks sit in `#library` (the head, then `#library-scroll`,
@@ -4998,7 +5013,7 @@ Frontend and CLI:
   the width instead: `.sheet.fill-width` sets the template's `--cell-w` to
   `1fr`, never through the class `.fill`, which is the progress bar's. The
   toggle keeps one name, with its state in `aria-pressed` and its title; it
-  is remembered under `local-diffusion.sheet.v1` through
+  is remembered under `auradream.sheet.v1` through
   `remembered`/`remember`, is not forgotten by Reset, and is aria-disabled
   with its reason on a wrapped row. A matrix zooms (sheet.js:
   `sheetZoom` times `sheetZoomBase`, the cells' width at zoom 1 that
@@ -5765,7 +5780,7 @@ and driven through `tests/api_helpers.py`; the HTTP tests are `tests/test_api*.p
 one file per area) and the scheduler (`tests/test_schedule.py`'s `StubPipeline`), so
 nothing downloads weights or touches the GPU, and they run against a throwaway
 database and outputs directory (`tests/conftest.py`). They run on `config.py`'s
-defaults: `tests/conftest.py` drops every `LOCAL_DIFFUSION_*` but the gallery
+defaults: `tests/conftest.py` drops every `AURADREAM_*` but the gallery
 and adapter paths before anything imports `backend`, so a sourced
 `wsl/env.sh` changes nothing. They cover the invariants
 that are expensive to get wrong: the schedule the scheduler ends up with, seeds
@@ -6157,7 +6172,7 @@ every fake it starts is a fresh one, which meets every row's "fresh scratch
 alone runs alone, on a fake of its own; `--all` runs every row, a row's
 smokes on one fake in order, as the commands below run them by hand.
 `--offset N` adds N to every port, the fake's and the smoke's (through
-`LOCAL_DIFFUSION_PORT_OFFSET`), and refuses a port already in use;
+`AURADREAM_PORT_OFFSET`), and refuses a port already in use;
 `--jobs N` runs N rows at once, each worker 100 ports further on, the
 smokes' output kept until each finishes; `--list` prints the table as read.
 It exits 0 when every smoke passed, 1 on a failure, 2 on a refusal.
@@ -6166,7 +6181,7 @@ are portable relative filenames: forward slashes for subdirectories, no
 absolute or drive-relative paths, `..`, backslashes or Windows-invalid
 characters, device names or components ending in a dot or space.
 `browser-output.mjs` applies one policy to all three forms and
-creates their parent directories. `LOCAL_DIFFUSION_SCREENSHOT_DIR` selects
+creates their parent directories. `AURADREAM_SCREENSHOT_DIR` selects
 the output root; a direct `browser.mjs` call without it creates and reports
 a fresh system-temp directory. `run_smoke.py --artifacts PATH` creates a
 unique run directory below PATH (system temp when omitted), then a unique
@@ -6257,12 +6272,12 @@ hours (`tests/test_browser_profile.py`, skipped without Node and a browser).
 A `hover`, `click` or `dblclick` step takes a
 CSS selector in place of a point, aiming at the middle of that element's box
 as it is then. It opens the page at 1400x900,
-where the smokes are written: `LOCAL_DIFFUSION_VIEWPORT=2560x1305` (a
-maximized QHD browser) and `LOCAL_DIFFUSION_DPR=1.25` (with 2048x1040, the
+where the smokes are written: `AURADREAM_VIEWPORT=2560x1305` (a
+maximized QHD browser) and `AURADREAM_DPR=1.25` (with 2048x1040, the
 same screen at 125% scaling) move it, a `viewport` step resizes it mid-run,
 a `media` step emulates media features (`{"media":
 {"prefers-reduced-motion": "reduce"}}`; "" drops one's override), and
-`LOCAL_DIFFUSION_PORT_OFFSET=N` adds N to every `127.0.0.1:<port>` in
+`AURADREAM_PORT_OFFSET=N` adds N to every `127.0.0.1:<port>` in
 the steps, so a second checkout can run the same smokes against fake
 servers of its own. `smoke-conditioning.json` runs
 against a klein-claiming fake on 7864 for the negative field as its caption

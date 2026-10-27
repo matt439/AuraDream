@@ -1,4 +1,4 @@
-// Local Diffusion's page script: Find tag - a tag found by what it shows.
+// Auradream's page script: Find tag - a tag found by what it shows.
 // "cowlick sticking up" names no tag the suggestions could complete; the
 // last row of the prompt box's list (tags.js, renderTagSuggestions) opens
 // this dropdown with the words searched. The server searches Danbooru's wiki

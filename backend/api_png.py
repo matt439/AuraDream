@@ -150,7 +150,7 @@ def _from_record(meta: dict, name: str) -> tuple[dict, _ImageSize, bool, list[st
     """This app's record as request fields, the size, whether to write it, notes."""
     notes: list[str] = []
     if not isinstance(meta.get("prompt"), str) or not meta["prompt"].strip():
-        raise PngSettingsError(f"the Local Diffusion metadata in {name} carries no prompt")
+        raise PngSettingsError(f"the Auradream metadata in {name} carries no prompt")
     fields: dict[str, Any] = {
         key: meta[field]
         for key, field in (
@@ -161,7 +161,7 @@ def _from_record(meta: dict, name: str) -> tuple[dict, _ImageSize, bool, list[st
         )
         if meta.get(field) is not None
     }
-    # A Local Diffusion PNG is replay metadata. Older Eager images must not
+    # An Auradream PNG is replay metadata. Older Eager images must not
     # acquire current loader intent when the browser submits these settings.
     fields["execution"] = meta.get("execution")
     # An explicit null is a render with no shift of ours, as `--from-image`
@@ -271,13 +271,13 @@ def read_settings(services: AppServices, asked: PngSettingsRequest) -> PngSettin
         model = None
     elif _workflow(chunks):
         raise PngSettingsError(
-            f"{name} carries a ComfyUI workflow, not settings this app reads: only Local Diffusion's "
+            f"{name} carries a ComfyUI workflow, not settings this app reads: only Auradream's "
             "own record and an A1111-style 'parameters' text are"
         )
     else:
         found = f" (its text: {', '.join(list(chunks)[:_OTHERS_NAMED])})" if chunks else ", nor any text at all"
         raise PngSettingsError(
-            f"{name} carries no settings this app reads{found}: neither Local Diffusion's own record "
+            f"{name} carries no settings this app reads{found}: neither Auradream's own record "
             "nor an A1111-style 'parameters' text"
         )
     at = 1 if source == PARAMETERS_KEY else len(notes)

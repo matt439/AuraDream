@@ -122,7 +122,7 @@ none is proposed.
 ### Two types: the stored spec and the request's
 
 A stored row must parse whatever the server's settings are now: a row
-written under one `LOCAL_DIFFUSION_REFINE_MAX_SIDE` is read under another, or
+written under one `AURADREAM_REFINE_MAX_SIDE` is read under another, or
 by the WSL build with its own settings, and `_row_to_record` reads unguarded
 - a stored type bounded by a setting would make every gallery read fail
 once the setting is lowered. So there are two types in
@@ -435,7 +435,7 @@ From there an outpaint's cell is an inpaint's cell with an `outpaint`
 beside it: held in `mask_holds` while queued, its mask file checked as the
 cell begins (`jobs`, `storage.mask_path`, reworded as above), read by
 `refine.mask_image`, recorded by `save_image`, embedded in
-`local-diffusion-mask`, carried by bundles and reindex, spared by
+`auradream-mask`, carried by bundles and reindex, spared by
 `gallery_delete.sweep_masks` while any row names it.
 
 Rejected alternative: deriving the mask in the backend at run time and
@@ -497,12 +497,12 @@ nowhere in the result: every pixel of the new area is under 255. The
 
 ### The chunk and the A1111 block
 
-- The `local-diffusion` chunk gains `outpaint` (`{"left", "top", "right",
+- The `auradream` chunk gains `outpaint` (`{"left", "top", "right",
   "bottom", "band"}`) and `outpaint_fill` (the spec's fill name), null
   together on every other row. `mask`, `mask_source`
   (`storage.mask_provenance`, at the canvas's size) and `mask_blend:
   "overlay"` are written as for any inpaint, and the mask's PNG rides in
-  `local-diffusion-mask` as for any inpaint, so the PNG alone carries its
+  `auradream-mask` as for any inpaint, so the PNG alone carries its
   mask even though it could be rebuilt. `refine_source` is the unpadded
   source's provenance (its pixel hash and its own size), which is what
   `--from-image`'s `_check_carried_source` compares.
@@ -577,7 +577,7 @@ Every caller passes both:
 - **The column** travels in the database (`_COLUMNS`); the merge's id remap
   touches only `refine`, since the spec holds no id.
 - **The chunk.** `bundle_images._metadata` (lines 186-210) rebuilds the
-  `local-diffusion` chunk from the row on every merge, and
+  `auradream` chunk from the row on every merge, and
   `_rewrite_metadata` replaces it; without the new keys, an imported
   outpaint's PNG would lose its spec and a later reindex would read it back
   as a plain inpaint. `_metadata` gains `outpaint` and `outpaint_fill` from
@@ -626,7 +626,7 @@ result should say" anything be added to builds already shipped. So:
   (`submission.mask_unusable`: the mask and the source are not one size),
   which is the safe failure there.
 - A round trip back would make that permanent - except that an older
-  `_rewrite_metadata` replaces only the `local-diffusion` chunk (and the
+  `_rewrite_metadata` replaces only the `auradream` chunk (and the
   legacy `krea`), so the A1111 `parameters` chunk, with its `Outpaint: ...,
   Outpaint band: ..., Outpaint fill: ...`, survives. **Adopted:** this
   build's bundle merge and both reindex paths recover the spec from it

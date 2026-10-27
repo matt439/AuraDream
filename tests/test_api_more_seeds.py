@@ -213,7 +213,7 @@ def test_the_filter_is_the_selection_without_ids(client, fake):
 def test_the_batch_survives_a_reindex(client, fake, store):
     images = batch_of(client, seed=5, num_images=3, runs=1)
     with Image.open(store.settings.outputs_dir / images[0]["filename"]) as png:
-        chunk = json.loads(png.info["local-diffusion"])
+        chunk = json.loads(png.info["auradream"])
     assert chunk["batch"] == 3
     record = store.index_file("copy.png", {**chunk, "batch": "3"}, 256, 256, store.datetime.now())
     # Garbage in a block written elsewhere is not a Batch.

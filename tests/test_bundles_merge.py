@@ -314,3 +314,41 @@ def test_a_bundle_from_before_the_bin_imports_its_images_live(store, monkeypatch
     assert (imported["imported"], imported["binned"]) == (1, 0)
     (record,) = store.list_images()[0]
     assert record.filename == row.filename and record.binned_at is None
+
+
+@pytest.mark.parametrize("name", ["local-diffusion-gallery", "auradream-gallery"])
+def test_a_bundle_with_the_old_or_new_format_id_imports(store, monkeypatch, tmp_path, name):
+    row = _save("source", 1)
+    bundle = Path(_export()["path"])
+    with ZipFile(bundle) as archive:
+        members = {info.filename: archive.read(info) for info in archive.infolist()}
+    manifest = json.loads(members["manifest.json"])
+    assert manifest["format"] == "auradream-gallery"
+    manifest["format"] = name
+    members["manifest.json"] = json.dumps(manifest).encode()
+    renamed = tmp_path / "renamed.zip"
+    with ZipFile(renamed, "w") as archive:
+        for member, data in members.items():
+            archive.writestr(member, data)
+    _destination(store, monkeypatch, tmp_path)
+    assert bundles.import_bundle(renamed)["imported"] == 1
+    assert [record.filename for record in store.list_images()[0]] == [row.filename]
+
+
+def test_a_bundle_with_another_format_id_is_refused(store, monkeypatch, tmp_path):
+    _save("source", 1)
+    bundle = Path(_export()["path"])
+    with ZipFile(bundle) as archive:
+        members = {info.filename: archive.read(info) for info in archive.infolist()}
+    manifest = json.loads(members["manifest.json"])
+    manifest["format"] = "someone-elses-gallery"
+    members["manifest.json"] = json.dumps(manifest).encode()
+    other = tmp_path / "other.zip"
+    with ZipFile(other, "w") as archive:
+        for member, data in members.items():
+            archive.writestr(member, data)
+    _destination(store, monkeypatch, tmp_path)
+    snapshot = _snapshot(store)
+    with pytest.raises(bundles.BundleError, match="not a supported"):
+        bundles.import_bundle(other)
+    assert _snapshot(store) == snapshot

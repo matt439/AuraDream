@@ -1,4 +1,4 @@
-// Local Diffusion's page script: the watched job's progress, mirrors and Pause.
+// Auradream's page script: the watched job's progress, mirrors and Pause.
 // Declarations only; state.js has the shared-global load-order contract.
 'use strict';
 
@@ -382,8 +382,8 @@ function syncNow(job) {
 // setting or a reason to ask permission at load. A terminal frame is consumed
 // even when visible or opted out: replaying it after hiding the tab must not
 // turn an already seen result into a new notification.
-const NOTIFY_DONE_KEY = 'local-diffusion.notify-done';
-const NOTIFIED_JOBS_KEY = 'local-diffusion.notified-jobs';
+const NOTIFY_DONE_KEY = 'auradream.notify-done';
+const NOTIFIED_JOBS_KEY = 'auradream.notified-jobs';
 const notifiedJobs = new Set();
 let notifyDoneEnabled = false;
 let notifyPermissionPending = false;
@@ -462,7 +462,7 @@ function jobNotificationWords(data, { atLoad = false, cancelledElsewhere = false
   if (data.stopped_by === 'budget') return ['Time budget reached', `${kept} Finish run checks what remains.`];
   if (data.stopped_by === 'shutdown') return ['Server stopped', kept];
   if (data.status === 'cancelled') return [cancelledElsewhere ? 'Cancelled elsewhere' : 'Cancelled', kept];
-  if (data.status === 'error') return [atLoad ? 'Load failed' : 'Job stopped', `${kept} Open Local Diffusion for the error.`];
+  if (data.status === 'error') return [atLoad ? 'Load failed' : 'Job stopped', `${kept} Open Auradream for the error.`];
   if (!made) {
     const missing = [data.failures ? `${plural(data.failures, unitWord(data))} failed.` : '', skipped].filter(Boolean).join(' ');
     return ['Nothing made', missing || 'No images were made.'];
@@ -487,7 +487,7 @@ function notifyJobDone(jobId, data, options = {}) {
   const [outcome, body] = jobNotificationWords(data, options);
   try {
     const notification = new window.Notification(`${PAGE_TITLE}: ${outcome}`, {
-      body, tag: `local-diffusion-job-${jobId}`,
+      body, tag: `auradream-job-${jobId}`,
     });
     notification.onclick = () => { window.focus(); notification.close(); };
   } catch {

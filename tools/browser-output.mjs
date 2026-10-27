@@ -25,12 +25,12 @@ export function screenshotPath(root, name) {
   return resolve(root, name);
 }
 
-export function screenshotRoot(steps, requested = process.env.LOCAL_DIFFUSION_SCREENSHOT_DIR) {
+export function screenshotRoot(steps, requested = process.env.AURADREAM_SCREENSHOT_DIR) {
   const names = screenshotNames(steps);
   // Validate before creating any directories or starting a browser.
   for (const name of names) screenshotPath('.', name);
   if (!names.length) return null;
-  const root = requested ? resolve(requested) : mkdtempSync(join(tmpdir(), 'local-diffusion-shots-'));
+  const root = requested ? resolve(requested) : mkdtempSync(join(tmpdir(), 'auradream-shots-'));
   mkdirSync(root, { recursive: true });
   return root;
 }

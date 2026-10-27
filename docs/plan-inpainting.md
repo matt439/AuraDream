@@ -10,7 +10,7 @@ at the end:
 
 1. A dialog of its own: `web/inpaint.js`, `web/inpaint-mask.js`,
    `web/styles/inpaint.css`.
-2. Embed: each result carries the mask's PNG in `local-diffusion-mask`.
+2. Embed: each result carries the mask's PNG in `auradream-mask`.
 3. SDXL and Z-Image together. FLUX.1, FLUX.2 [klein] and Qwen-Image are
    deferred: their profiles say `inpaint_supported: False` and
    `inpaint_deferred`, `model_defaults.INPAINT_DEFERRED` names their
@@ -305,17 +305,17 @@ blur or invert setting to record.
   remap, `refine_source` provenance, the lightbox's Against-source compare,
   the passes row, `refine:` in search. Labels read "inpaint of #N @ 0.6"
   where `mask` is set.
-- The `local-diffusion` chunk gains `mask` (the hash) and `mask_source`
+- The `auradream` chunk gains `mask` (the hash) and `mask_source`
   (`filename`, the full hash, `width`, `height`), null together on every
   other row, as `refine` / `refine_source` are. The A1111 block gains
   `, Inpaint mask: <first 16 hex>` after `Denoising strength` and `Refine`.
 - **Recommended: the mask's own PNG bytes travel inside the result's PNG**,
-  base64 in a separate text chunk (`local-diffusion-mask`), so the PNG
+  base64 in a separate text chunk (`auradream-mask`), so the PNG
   alone reproduces the image and a PNG-only reindex can recreate a mask file
   that was lost. A mostly-black `L` PNG is small next to the image; its size
   at 1 MP and 8 MP is an open measurement. The bundle code's identity
   comparison (pixel-deciding chunks, decoded identity) must be checked to
-  ignore a text chunk, which it should, since the `local-diffusion` chunk is
+  ignore a text chunk, which it should, since the `auradream` chunk is
   already one. This is an open question for the user.
 
 ### CellKey and run_id

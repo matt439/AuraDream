@@ -21,7 +21,7 @@ from .schemas import (
     TagSlot,
 )
 
-log = logging.getLogger("local_diffusion")
+log = logging.getLogger("auradream")
 
 
 def order_slots(model_id: str, prompt: str | None, reachable: bool) -> dict:

@@ -1,4 +1,4 @@
-# Local Diffusion
+# Auradream
 
 Local text-to-image generator on an RTX 5080. FastAPI backend + vanilla JS
 frontend, no build step. The default checkpoint is **FLUX.1 Krea [dev]**
@@ -6,7 +6,7 @@ frontend, no build step. The default checkpoint is **FLUX.1 Krea [dev]**
 Turbo** (`krea/Krea-2-Turbo`) needs manual approval on HuggingFace and is what
 the sizing notes in `docs/design-notes.md` are written around. The catalogue
 in `backend/launch.py` lists the rest; any of them runs unchanged - set
-`LOCAL_DIFFUSION_MODEL_ID`, or choose in the browser's Models panel.
+`AURADREAM_MODEL_ID`, or choose in the browser's Models panel.
 
 This file is the short version. Before changing an area, read its part of
 **`docs/rules.md`** (every rule in full, the module map, what each smoke
@@ -32,24 +32,25 @@ bash wsl/setup.sh                  # WSL 2, once: Linux venv + CUDA check
 source wsl/env.sh && bash wsl/serve.sh   # 4-bit Nunchaku, same URL
 ```
 
-`bin\` (on the user PATH) holds `local-diffusion` and `local-diffusion-wsl`:
+`bin\` (on the user PATH) holds `auradream` and `auradream-wsl`:
 the two server starts above from any folder, arguments passed through. Each
 is a `.ps1`, which PowerShell picks, beside a `.cmd` for cmd.exe; under a
 `.cmd`, Ctrl-C asks "Terminate batch job (Y/N)?" however idle the server.
 
 The model is *not* loaded at startup unless **Load automatically on startup**
-was saved (or `LOCAL_DIFFUSION_PRELOAD=true`). The first `POST /api/generate` (or
+was saved (or `AURADREAM_PRELOAD=true`). The first `POST /api/generate` (or
 `POST /api/model/load`) triggers a load that takes a few minutes.
 **Models** changes checkpoint, quantization and offload while idle without
 restarting. **Apply & save** selects without loading changed weights;
 **Switch & load** loads too. Both save the choices beside the gallery database
-in `local-diffusion.settings.json`; explicit environment/flags override them.
+in `auradream.settings.json`; explicit environment/flags override them.
 
 ## Layout
 
 Backend (`backend/`):
 
-- `config.py` settings (`LOCAL_DIFFUSION_*`) and cold external-attention warning;
+- `config.py` settings (`AURADREAM_*`) and cold external-attention warning;
+  `legacy_names.py` where pre-rename (Local Diffusion) files keep working;
   `launch.py` start-up menu,
   `--model/--quant/--offload`, the checkpoint catalogue;
   `loader_choices.py` the quantization/offload wording the menu and picker share
@@ -184,10 +185,14 @@ Model and loader:
   scheduler overrides, exact-id profiles, what is unavailable) are in
   `docs/rules.md` under "Model and loader". Keep official/public ids in
   settings and saved metadata; never silently drop weights or scales.
-- `LOCAL_DIFFUSION_QUANT=nunchaku` is Linux (WSL) only; the preflight refuses
+- `AURADREAM_QUANT=nunchaku` is Linux (WSL) only; the preflight refuses
   other pairings before any download.
-- App-owned names say Local Diffusion (`LOCAL_DIFFUSION_*`,
-  `local-diffusion.*`); Krea only in checkpoint/vendor names.
+- App-owned names say Auradream (`AURADREAM_*`,
+  `auradream.*`); Krea only in checkpoint/vendor names. Pre-rename
+  `local-diffusion` names (and the older `krea` chunk) are legacy: read, or
+  an existing file used where it is (`legacy_names.py`), never given to
+  anything new; one feeding a hash, key derivation or outside store stays
+  frozen with a comment. Only `AURADREAM_*` variables are read.
 
 Schedule and profiles:
 
@@ -211,7 +216,7 @@ Reproduction and storage:
   run again (Re-render, Swap tags, Mass refine, More seeds) become cells only
   through `grid.cell_from_record`, their images through
   `submission.resolve_selection`.
-- The reproduction set lives on the row and in the PNG's `local-diffusion`
+- The reproduction set lives on the row and in the PNG's `auradream`
   chunk; `CellKey`/`run_id` widen without changing existing ids. The peak
   GPU memory pair beside it is a result, never in `CellKey`, `run_id` or
   `applied()`.
@@ -236,7 +241,7 @@ Reproduction and storage:
   resolves it - and never a gallery image, reference or source. It runs at
   the source's size and is always composited over the source
   (`refine.composite`; chunk `mask_blend: "overlay"`); the mask's PNG rides
-  in `local-diffusion-mask`. `grid.mask_key` is `CellKey`'s fifth extension
+  in `auradream-mask`. `grid.mask_key` is `CellKey`'s fifth extension
   (existing run ids unchanged); Mass refine drops the mask. An outpaint is
   the exception to the size: it runs at the source plus its padding
   (`refine.outpaint_source`).
@@ -324,7 +329,7 @@ in the HTTP layer or the UI needs to change.
 ## Tests
 
 `uv run --group dev pytest` - no GPU, no weights, a throwaway database, and
-`LOCAL_DIFFUSION_*` cleared by `tests/conftest.py`. The fake backend is
+`AURADREAM_*` cleared by `tests/conftest.py`. The fake backend is
 `tests/fakes.py`; HTTP tests are `tests/test_api*.py`, one file per area.
 Node is required for the classic-script syntax/shared-scope guard; it
 checks HTML script order without executing the page's boot.
@@ -435,8 +440,8 @@ Gotchas:
 
 - Fake servers share one throwaway gallery unless `--data` gives each its
   own; `smoke.json` counts images planted under another checkpoint.
-- Smokes are written at 1400x900; `LOCAL_DIFFUSION_VIEWPORT`,
-  `LOCAL_DIFFUSION_DPR` and `LOCAL_DIFFUSION_PORT_OFFSET` move them.
+- Smokes are written at 1400x900; `AURADREAM_VIEWPORT`,
+  `AURADREAM_DPR` and `AURADREAM_PORT_OFFSET` move them.
 - `browser.mjs` exits 1 on a failed `expect`, 2 on a script it refuses
   (an async helper joined with `&&`/`||` is never awaited: put the whole
   condition inside the predicate).

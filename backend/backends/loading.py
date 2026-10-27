@@ -191,7 +191,7 @@ def resolve_model(model_id: str, *, weights: bool = False, quantization: str | N
         if quantization == NUNCHAKU:
             raise RuntimeError(
                 "NoobAI-XL V-pred 1.0 is not a Nunchaku Lite checkpoint. "
-                "Use LOCAL_DIFFUSION_QUANT=fp8, int8 or none."
+                "Use AURADREAM_QUANT=fp8, int8 or none."
             )
         from huggingface_hub import snapshot_download
 
@@ -425,7 +425,7 @@ def refuse_prequantized(settings: "Settings", component: str) -> None:
     """The mirror image of `nunchaku_preflight`: torchao on top of a repo
     that is already quantized.
 
-    `LOCAL_DIFFUSION_QUANT=fp8` pointed at a Nunchaku Lite re-upload downloads ~9 GB and
+    `AURADREAM_QUANT=fp8` pointed at a Nunchaku Lite re-upload downloads ~9 GB and
     then dies deep inside transformers ("quantized with BitsAndBytesConfig
     but you are passing a TorchAoConfig"). One small config file says so up
     front. Checked per quantizable component, since the text encoder and the
@@ -436,9 +436,9 @@ def refuse_prequantized(settings: "Settings", component: str) -> None:
     if method:
         raise RuntimeError(
             f"{settings.model_id} is already quantized ({component}: quant_method="
-            f"{method!r}); LOCAL_DIFFUSION_QUANT={settings.quantization} would stack torchao on top "
-            "and fail after the download. Use LOCAL_DIFFUSION_QUANT=nunchaku (Linux) for a Nunchaku "
-            "Lite repo, or point LOCAL_DIFFUSION_MODEL_ID at an unquantized checkpoint."
+            f"{method!r}); AURADREAM_QUANT={settings.quantization} would stack torchao on top "
+            "and fail after the download. Use AURADREAM_QUANT=nunchaku (Linux) for a Nunchaku "
+            "Lite repo, or point AURADREAM_MODEL_ID at an unquantized checkpoint."
         )
 
 
@@ -453,14 +453,14 @@ def nunchaku_preflight(settings: "Settings") -> None:
     """
     if sys.platform != "linux":
         raise RuntimeError(
-            "LOCAL_DIFFUSION_QUANT=nunchaku needs Linux: the Nunchaku Lite kernels are "
+            "AURADREAM_QUANT=nunchaku needs Linux: the Nunchaku Lite kernels are "
             "published for x86_64 Linux only. On Windows, run the server from "
             "WSL 2 (bash wsl/setup.sh, then bash wsl/serve.sh)."
         )
     missing = [name for name in ("kernels", "bitsandbytes") if not importable(name)]
     if missing:
         raise RuntimeError(
-            f"LOCAL_DIFFUSION_QUANT=nunchaku needs {' and '.join(missing)}; "
+            f"AURADREAM_QUANT=nunchaku needs {' and '.join(missing)}; "
             "`uv sync` on Linux installs them."
         )
     with open(hub_file(settings.model_id, "transformer/config.json"), encoding="utf-8") as fh:
@@ -468,8 +468,8 @@ def nunchaku_preflight(settings: "Settings") -> None:
     if method != NUNCHAKU_METHOD:
         raise RuntimeError(
             f"{settings.model_id} is not a Nunchaku Lite checkpoint (transformer "
-            f"quant_method={method!r}); under LOCAL_DIFFUSION_QUANT=nunchaku it would load in "
-            f"full bf16. Point LOCAL_DIFFUSION_MODEL_ID at a pre-quantized repo such as "
+            f"quant_method={method!r}); under AURADREAM_QUANT=nunchaku it would load in "
+            f"full bf16. Point AURADREAM_MODEL_ID at a pre-quantized repo such as "
             f"{NUNCHAKU_EXAMPLE}."
         )
 
@@ -582,7 +582,7 @@ def place_pipeline(pipe: Any, settings: "Settings") -> None:
     import torch
 
     # The offload hooks resolve their own accelerator when given none,
-    # which is always GPU 0: `LOCAL_DIFFUSION_DEVICE=cuda:1` used to load onto cuda:0
+    # which is always GPU 0: `AURADREAM_DEVICE=cuda:1` used to load onto cuda:0
     # while describe() reported that card's name and memory. Only a CUDA
     # device is passed through - offload cannot target the CPU.
     device = torch.device(settings.device)

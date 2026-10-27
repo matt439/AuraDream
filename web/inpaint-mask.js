@@ -1,4 +1,4 @@
-// Local Diffusion's page script: the Inpaint dialog's mask - the canvas, its
+// Auradream's page script: the Inpaint dialog's mask - the canvas, its
 // tools, the strokes and their undo, and the mask's export.
 // Declarations only; state.js has the shared-global load-order contract.
 'use strict';

@@ -161,7 +161,7 @@ def test_success_replaces_only_its_target_and_leaves_no_temporary(tmp_path: Path
     database = tmp_path / "gallery.db"
     path = preferences.path_for(database)
     path.write_bytes(b"old settings")
-    unrelated = tmp_path / ".local-diffusion.backup-policy.someone-else.tmp"
+    unrelated = tmp_path / ".auradream.backup-policy.someone-else.tmp"
     unrelated.write_bytes(b"unrelated")
     preferences.save(database, BackupPolicy())
     assert preferences.load(database) == preferences.LoadedPolicy(BackupPolicy())
@@ -178,7 +178,7 @@ def test_failed_save_preserves_previous_bytes_and_cleans_only_owned_temporary(
     preferences.save(database, old_policy)
     path = preferences.path_for(database)
     before = path.read_bytes()
-    unrelated = tmp_path / ".local-diffusion.backup-policy.someone-else.tmp"
+    unrelated = tmp_path / ".auradream.backup-policy.someone-else.tmp"
     unrelated.write_bytes(b"unrelated")
 
     def fail(*_args: object, **_kwargs: object) -> None:
@@ -233,3 +233,25 @@ def test_save_revalidates_shared_retention_ceiling_without_replacing_previous_by
     assert path.read_bytes() == before
     assert preferences.load(database) == preferences.LoadedPolicy(good)
     assert list(tmp_path.iterdir()) == [path]
+
+
+def test_a_sidecar_named_before_the_rename_is_used_in_place(tmp_path: Path) -> None:
+    database = tmp_path / "gallery.db"
+    legacy = tmp_path / "local-diffusion.backup-policy-gallery.db.json"
+    policy = BackupPolicy(True, timedelta(days=1), 2, "unencrypted")
+    preferences.save(database, policy)
+    preferences.path_for(database).rename(legacy)
+    assert preferences.path_for(database) == legacy
+    assert preferences.load(database) == preferences.LoadedPolicy(policy)
+    preferences.save(database, BackupPolicy())
+    assert preferences.load(database) == preferences.LoadedPolicy(BackupPolicy())
+    assert sorted(p.name for p in tmp_path.iterdir()) == [legacy.name]
+
+
+def test_a_current_sidecar_wins_over_a_legacy_one(tmp_path: Path) -> None:
+    database = tmp_path / "gallery.db"
+    legacy = tmp_path / "local-diffusion.backup-policy-gallery.db.json"
+    preferences.save(database, BackupPolicy())
+    legacy.write_bytes(b"stale")
+    assert preferences.load(database) == preferences.LoadedPolicy(BackupPolicy())
+    assert legacy.read_bytes() == b"stale"

@@ -1,4 +1,4 @@
-// Local Diffusion's page script: the prompt critic and its rewrite.
+// Auradream's page script: the prompt critic and its rewrite.
 // Declarations only; state.js has the shared-global load-order contract.
 'use strict';
 
@@ -12,7 +12,7 @@ const CRITIC_ELSEWHERE = 'A job started in another tab or window is running. The
 // And what the server would refuse it under (api_prompt.refuse_critique_now) or
 // could not be asked at all: Expand and Unload are held for both, and the
 // critic was the one editor action left live - a press got "No answer from
-// the Local Diffusion server — is it still running?." in the critic's block
+// the Auradream server — is it still running?." in the critic's block
 // for good, or the route's 409 about the load.
 const CRITIC_OFFLINE = 'The server is not answering.';
 const CRITIC_LOADING = 'The image model is loading; the critic waits for the load.';

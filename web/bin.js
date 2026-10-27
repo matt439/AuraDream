@@ -1,4 +1,4 @@
-// Local Diffusion's page script: the recycle bin.
+// Auradream's page script: the recycle bin.
 // Declarations only; state.js has the shared-global load-order contract.
 'use strict';
 

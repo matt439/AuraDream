@@ -8,7 +8,7 @@ from pathlib import Path
 from tempfile import TemporaryDirectory
 
 from .. import config as _config  # noqa: F401 - before Diffusers
-from .single_file import HubRepo, cache_root, sweep_work
+from .single_file import CONVERSION_MARKER, HubRepo, cache_root, sweep_work
 
 log = logging.getLogger(__name__)
 MODEL_ID = "NewBie-AI/NewBie-image-Exp0.1"
@@ -90,7 +90,7 @@ def _target() -> tuple[Path, Path, str]:
     recipe = json.dumps(RECIPE, sort_keys=True, indent=2) + "\n"
     digest = hashlib.sha256(recipe.encode()).hexdigest()[:16]
     target = cache_root() / f"newbie-exp0.1-{digest}"
-    return target, target / "local-diffusion-conversion.json", recipe
+    return target, target / CONVERSION_MARKER, recipe
 
 
 def _converted(target: Path, marker: Path, recipe: str) -> bool:
@@ -113,7 +113,7 @@ def resolve_model(model_id: str, quantization: str) -> str:
     if quantization == "nunchaku":
         raise RuntimeError(
             "NewBie Image Exp0.1 is not a Nunchaku Lite checkpoint. "
-            "Use LOCAL_DIFFUSION_QUANT=fp8, int8 or none."
+            "Use AURADREAM_QUANT=fp8, int8 or none."
         )
     from huggingface_hub.utils._fixes import WeakFileLock
 

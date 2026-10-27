@@ -277,7 +277,7 @@ def _runtime_worker(root, *, poison_bitsandbytes=False):
         path.mkdir()
     env = os.environ.copy()
     for name in list(env):
-        if name.startswith(("TORCHDYNAMO_", "TORCH_COMPILE_", "TORCHINDUCTOR_", "TRITON_", "LOCAL_DIFFUSION_")) or name in {
+        if name.startswith(("TORCHDYNAMO_", "TORCH_COMPILE_", "TORCHINDUCTOR_", "TRITON_", "AURADREAM_")) or name in {
             "TORCH_TRACE", "TORCH_LOGS", "HF_TOKEN", "HUGGING_FACE_HUB_TOKEN",
         }:
             env.pop(name)
@@ -289,7 +289,7 @@ def _runtime_worker(root, *, poison_bitsandbytes=False):
         "HF_HUB_OFFLINE": "1", "TRANSFORMERS_OFFLINE": "1", "HF_HUB_DISABLE_TELEMETRY": "1",
         "CUDA_VISIBLE_DEVICES": "", "OMP_NUM_THREADS": "1", "MKL_NUM_THREADS": "1",
         "OPENBLAS_NUM_THREADS": "1", "NUMEXPR_NUM_THREADS": "1", "PYTHONDONTWRITEBYTECODE": "1", "PYTHONUTF8": "1",
-        "LOCAL_DIFFUSION_DEVICE": "cpu", "LOCAL_DIFFUSION_OFFLOAD": "none",
+        "AURADREAM_DEVICE": "cpu", "AURADREAM_OFFLOAD": "none",
     })
     arguments = [sys.executable, "-c", _WORKER, str(root)]
     if poison_bitsandbytes:

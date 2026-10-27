@@ -150,7 +150,7 @@ class Check:
         path = self.directory / f"{name}.json"
         path.write_text(json.dumps(steps, ensure_ascii=False, indent=2), encoding="utf-8")
         env = dict(os.environ)
-        env.pop("LOCAL_DIFFUSION_PORT_OFFSET", None)
+        env.pop("AURADREAM_PORT_OFFSET", None)
         log = self.directory / f"{name}.log"
         with log.open("w", encoding="utf-8") as output:
             result = subprocess.run(
@@ -172,7 +172,7 @@ def main():
     args = parser.parse_args()
     if shutil.disk_usage(ROOT.anchor).free < 64 * 1024 * 1024:
         raise SystemExit("not enough free disk for compact fake-server evidence")
-    directory = Path(tempfile.mkdtemp(prefix="local-diffusion-finish-check-"))
+    directory = Path(tempfile.mkdtemp(prefix="auradream-finish-check-"))
     print(f"Evidence: {directory}", flush=True)
     check = Check(args.port, directory)
     try:

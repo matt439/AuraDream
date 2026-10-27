@@ -132,7 +132,7 @@ def _recovery(args) -> dict:
                 raise SetupError("Choose a password-protected archive for a recovery-password check.")
             # A private temporary database lets the existing verifier validate
             # tracked rows/PNGs too. Other members are read/checked, not installed.
-            with tempfile.TemporaryDirectory(prefix=".local-diffusion-recovery-check-") as folder:
+            with tempfile.TemporaryDirectory(prefix=".auradream-recovery-check-") as folder:
                 bundle_archive._verify_archive(args.archive, Path(folder), password=password,
                                                 extract=lambda _name: False, read_owner=owner)
         return {"state": "verified", "archive": str(args.archive), "credential_lookup": False,

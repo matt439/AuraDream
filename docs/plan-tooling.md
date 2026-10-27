@@ -40,7 +40,7 @@ actually checked; Linux behavior is qualified in `DEV#4`.
 relative names. `browser-output.mjs` validates every screenshot field and
 creates parent directories for `shot`, `fullshot` and `elshot`; absolute,
 drive-relative, traversal, Windows device and otherwise nonportable names
-are refused before launch. `LOCAL_DIFFUSION_SCREENSHOT_DIR` chooses the
+are refused before launch. `AURADREAM_SCREENSHOT_DIR` chooses the
 root; a direct call without it reports a fresh system-temp root.
 `run_smoke.py --artifacts PATH` creates separate run/smoke directories,
 reports them and retains screenshots even after failure or successful
@@ -206,7 +206,7 @@ on Windows with Node 24.14.0. This corrects fixture portability; it does not
 qualify browser startup, layout or profile cleanup.
 
 **Owned-browser diagnostics (2026-10-26).** Set
-`LOCAL_DIFFUSION_BROWSER_DIAGNOSTICS=1` for a scratch smoke to retain at most
+`AURADREAM_BROWSER_DIAGNOSTICS=1` for a scratch smoke to retain at most
 16,384 decoded stderr characters and report its owned exit/signal on failure.
 Normal runs stay quiet; browser/security flags, browser choice and profile
 protocol are unchanged. A synthetic child-stream check exercises bounding and

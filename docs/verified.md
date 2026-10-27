@@ -12,6 +12,11 @@ slows two to three times (schnell's 2 MP read 35-45 s that way and 25 s at a
 so a measurement here cites it only beside its own whole-card and
 shared-memory readings.
 
+The project was called Local Diffusion until 2026-10-27. Records made before
+then keep the names in use at the time - `LOCAL_DIFFUSION_*` variables (now
+`AURADREAM_*`), `local-diffusion` PNG chunks and paths, and the page's own
+wording - because they quote what was run and what it printed.
+
 ## Checkpoints
 
 Anima 2.9B Preview v1 was verified on 2026-10-24 from the author's pinned
@@ -819,7 +824,7 @@ words (b396e2e) and the page's sizes labelled in binary units, "about 4.5 GiB"
 load (Checkpoints, "RAM at the load"), so they are still unchecked on the
 card; 81781bf's sentence was checked there (the load failures row above).
 
-Not verified: `LOCAL_DIFFUSION_DEVICE=cuda:1` (one card here); ERNIE-Image
+Not verified: `AURADREAM_DEVICE=cuda:1` (one card here); ERNIE-Image
 Turbo's fp8 reproduction across two processes, and its 4 MP batch of two
 on fp8 (refused by the harness's projection, not run); the page's Expand
 line and clock over the rewriter's real download; a live-preview map for

@@ -1,4 +1,4 @@
-// Local Diffusion's page script: the Refine dialog, submission and source passes.
+// Auradream's page script: the Refine dialog, submission and source passes.
 // Declarations only; state.js has the shared-global load-order contract.
 'use strict';
 
@@ -23,7 +23,7 @@ const REFINE_MAX_PIXELS = 4 * Math.max(...ASPECTS.map((a) => SIZES[a][2][0] * SI
 // user ran instead of the profile's - 0.4 means one thing on SDXL and another
 // on a shifted flow schedule. A sweep is not remembered, or the next open
 // would start one unasked. Reset forgets all of it with the panel.
-const REFINE_KEY = 'local-diffusion.refine.v1';
+const REFINE_KEY = 'auradream.refine.v1';
 const REFINE_ANIME6B = 'realesrgan-x4plus-anime6b';
 const refineUpscalerAvailable = () => refineSupported && !!lastDefaults?.upscaler_supported;
 

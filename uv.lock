@@ -51,6 +51,71 @@ wheels = [
 ]
 
 [[package]]
+name = "auradream"
+version = "0.1.0"
+source = { editable = "." }
+dependencies = [
+    { name = "accelerate" },
+    { name = "bitsandbytes", marker = "sys_platform == 'linux'" },
+    { name = "cryptography" },
+    { name = "diffusers" },
+    { name = "fastapi" },
+    { name = "huggingface-hub", extra = ["hf-xet"] },
+    { name = "kernels", marker = "sys_platform == 'linux'" },
+    { name = "peft" },
+    { name = "pillow" },
+    { name = "protobuf" },
+    { name = "pydantic" },
+    { name = "python-multipart" },
+    { name = "safetensors" },
+    { name = "sentencepiece" },
+    { name = "torch" },
+    { name = "torchao" },
+    { name = "torchvision" },
+    { name = "transformers" },
+    { name = "uvicorn", extra = ["standard"] },
+]
+
+[package.dev-dependencies]
+dev = [
+    { name = "pyright" },
+    { name = "pytest" },
+    { name = "pytest-xdist" },
+    { name = "ruff" },
+]
+
+[package.metadata]
+requires-dist = [
+    { name = "accelerate", specifier = ">=1.0" },
+    { name = "bitsandbytes", marker = "sys_platform == 'linux'", specifier = ">=0.50" },
+    { name = "cryptography", specifier = ">=44" },
+    { name = "diffusers", specifier = ">=0.40.0" },
+    { name = "fastapi", specifier = ">=0.115" },
+    { name = "huggingface-hub", extras = ["hf-xet"], specifier = ">=0.30" },
+    { name = "kernels", marker = "sys_platform == 'linux'", specifier = ">=0.16,<0.17" },
+    { name = "peft", specifier = ">=0.20.0" },
+    { name = "pillow", specifier = ">=11.0" },
+    { name = "protobuf" },
+    { name = "pydantic", specifier = ">=2.9" },
+    { name = "python-multipart" },
+    { name = "safetensors" },
+    { name = "sentencepiece" },
+    { name = "torch", specifier = ">=2.13.0", index = "https://download.pytorch.org/whl/cu130" },
+    { name = "torchao" },
+    { name = "torchvision", index = "https://download.pytorch.org/whl/cu130" },
+    { name = "transformers", specifier = ">=5.16.1" },
+    { name = "uvicorn", extras = ["standard"], specifier = ">=0.32" },
+]
+
+[package.metadata.requires-dev]
+dev = [
+    { name = "pyright", specifier = "==1.1.407" },
+    { name = "pytest", specifier = ">=8" },
+    { name = "pytest-xdist", specifier = ">=3.8" },
+    { name = "ruff", specifier = ">=0.17" },
+]
+
+[[package]]
 name = "bitsandbytes"
 version = "0.50.2"
 source = { registry = "https://pypi.org/simple" }
@@ -533,71 +598,6 @@ wheels = [
     { url = "https://files.pythonhosted.org/packages/38/cf/560ea76b3d18e8b4528940ca108b335a91b7749e83aae20a8ffc2c8b98e0/kernels_data-0.16.1-cp38-abi3-musllinux_1_2_armv7l.whl", hash = "sha256:1da3e03adf9507cadb35efae16c1d8f2320f0879114bafa30aa561acb7ccc18e", size = 1508021, upload-time = "2026-08-24T06:41:58.259Z" },
     { url = "https://files.pythonhosted.org/packages/3c/f5/60c3bf88fb1e7b45b91d88f69bd2c75e10109c8a90557ffc06ef5b409361/kernels_data-0.16.1-cp38-abi3-musllinux_1_2_i686.whl", hash = "sha256:52a49825a108dae9c9f313fc79b29c130e192e0c0fb9e1cdd111093e8d79fbe5", size = 1507770, upload-time = "2026-08-24T06:42:00.883Z" },
     { url = "https://files.pythonhosted.org/packages/27/35/ab4f8a52fc94e6265f3f69bc0f5c1bd66409a8a098ae9541d56cafad42be/kernels_data-0.16.1-cp38-abi3-musllinux_1_2_x86_64.whl", hash = "sha256:04d3899b24eb9e28634705ec2b576f84bc318602357abaf314fb8b866dc1b529", size = 1532912, upload-time = "2026-08-24T06:42:04.154Z" },
-]
-
-[[package]]
-name = "local-diffusion"
-version = "0.1.0"
-source = { editable = "." }
-dependencies = [
-    { name = "accelerate" },
-    { name = "bitsandbytes", marker = "sys_platform == 'linux'" },
-    { name = "cryptography" },
-    { name = "diffusers" },
-    { name = "fastapi" },
-    { name = "huggingface-hub", extra = ["hf-xet"] },
-    { name = "kernels", marker = "sys_platform == 'linux'" },
-    { name = "peft" },
-    { name = "pillow" },
-    { name = "protobuf" },
-    { name = "pydantic" },
-    { name = "python-multipart" },
-    { name = "safetensors" },
-    { name = "sentencepiece" },
-    { name = "torch" },
-    { name = "torchao" },
-    { name = "torchvision" },
-    { name = "transformers" },
-    { name = "uvicorn", extra = ["standard"] },
-]
-
-[package.dev-dependencies]
-dev = [
-    { name = "pyright" },
-    { name = "pytest" },
-    { name = "pytest-xdist" },
-    { name = "ruff" },
-]
-
-[package.metadata]
-requires-dist = [
-    { name = "accelerate", specifier = ">=1.0" },
-    { name = "bitsandbytes", marker = "sys_platform == 'linux'", specifier = ">=0.50" },
-    { name = "cryptography", specifier = ">=44" },
-    { name = "diffusers", specifier = ">=0.40.0" },
-    { name = "fastapi", specifier = ">=0.115" },
-    { name = "huggingface-hub", extras = ["hf-xet"], specifier = ">=0.30" },
-    { name = "kernels", marker = "sys_platform == 'linux'", specifier = ">=0.16,<0.17" },
-    { name = "peft", specifier = ">=0.20.0" },
-    { name = "pillow", specifier = ">=11.0" },
-    { name = "protobuf" },
-    { name = "pydantic", specifier = ">=2.9" },
-    { name = "python-multipart" },
-    { name = "safetensors" },
-    { name = "sentencepiece" },
-    { name = "torch", specifier = ">=2.13.0", index = "https://download.pytorch.org/whl/cu130" },
-    { name = "torchao" },
-    { name = "torchvision", index = "https://download.pytorch.org/whl/cu130" },
-    { name = "transformers", specifier = ">=5.16.1" },
-    { name = "uvicorn", extras = ["standard"], specifier = ">=0.32" },
-]
-
-[package.metadata.requires-dev]
-dev = [
-    { name = "pyright", specifier = "==1.1.407" },
-    { name = "pytest", specifier = ">=8" },
-    { name = "pytest-xdist", specifier = ">=3.8" },
-    { name = "ruff", specifier = ">=0.17" },
 ]
 
 [[package]]

@@ -65,7 +65,7 @@
   {"expect": "els.prompt.value === '' && els.promptTranslationField.hidden && !els.promptNote.hidden && els.promptNoteText.textContent === 'Panel reset.'"},
   {"eval": "els.promptNoteUndo.click();"},
   {"expect": "els.prompt.value === 'Expanded: a fox in snow (1024x1024)' && !els.promptTranslationField.hidden && els.promptTranslation.value === 'English translation of: Expanded: a fox in snow (1024x1024)' && els.promptNoteText.textContent === 'Reset undone: the panel is as it was.'"},
-  {"expect": "__until(() => JSON.parse(localStorage.getItem('local-diffusion.panel.v1') ?? 'null')?.translation?.source === 'Expanded: a fox in snow (1024x1024)')"},
+  {"expect": "__until(() => JSON.parse(localStorage.getItem('auradream.panel.v1') ?? 'null')?.translation?.source === 'Expanded: a fox in snow (1024x1024)')"},
   {"navigate": "http://127.0.0.1:7865/"},
   {"eval": "window.__until = async (fn, ms = 20000) => { const end = Date.now() + ms; while (Date.now() < end) { try { if (await fn()) return true; } catch { /* not yet */ } await new Promise((r) => setTimeout(r, 50)); } return false; }; window.__post = async (path, body) => (await fetch(path, {method: 'POST', headers: {'Content-Type': 'application/json'}, body: JSON.stringify(body)})).json();"},
   {"expect": "__until(() => !els.expandPrompt.hidden && !els.promptTranslationField.hidden)"},

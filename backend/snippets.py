@@ -13,6 +13,7 @@ import uuid
 from pathlib import Path
 
 from . import gallery_lock
+from .legacy_names import sidecar
 from .schemas_snippets import MAX_SNIPPETS, Snippet, SnippetFields, SnippetUpdate
 
 MAX_FILE_BYTES = 8 * 1024 * 1024
@@ -26,7 +27,8 @@ class SnippetsError(RuntimeError):
 
 
 def path_for(database: Path) -> Path:
-    return Path(database).expanduser().parent / "local-diffusion.snippets.json"
+    # An existing local-diffusion.snippets.json is kept and rewritten in place.
+    return sidecar(database, "snippets.json")
 
 
 def _read(path: Path) -> list[Snippet]:
@@ -52,7 +54,7 @@ def _read(path: Path) -> list[Snippet]:
     except (OSError, UnicodeError, ValueError, TypeError, RecursionError) as exc:
         raise SnippetsError(
             "Saved snippets could not be read. Their file has been left unchanged; "
-            "check local-diffusion.snippets.json beside the gallery database."
+            f"check {path.name} beside the gallery database."
         ) from exc
 
 
@@ -67,7 +69,7 @@ def _write(path: Path, items: list[Snippet]) -> None:
     try:
         path.parent.mkdir(parents=True, exist_ok=True)
         with tempfile.NamedTemporaryFile(
-            mode="wb", dir=path.parent, prefix=".local-diffusion.snippets.",
+            mode="wb", dir=path.parent, prefix=".auradream.snippets.",
             suffix=".tmp", delete=False,
         ) as stream:
             temporary = Path(stream.name)
@@ -119,6 +121,6 @@ def change(
             _write(path, items)
             return items
     except gallery_lock.GalleryBusy as exc:
-        raise SnippetsError("Another Local Diffusion process is saving snippets; try again.", 409) from exc
+        raise SnippetsError("Another Auradream process is saving snippets; try again.", 409) from exc
     except OSError as exc:
         raise SnippetsError("The snippets could not be saved. The previous saved list has been kept.") from exc

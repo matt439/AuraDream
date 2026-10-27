@@ -22,8 +22,8 @@ from pathlib import Path
 import pytest
 
 ROOT = Path(__file__).resolve().parent.parent
-PREFIX = "local-diffusion-browser-"
-# browser.mjs's own list, after LOCAL_DIFFUSION_BROWSER.
+PREFIX = "auradream-browser-"
+# browser.mjs's own list, after AURADREAM_BROWSER.
 _CANDIDATES = [
     "C:/Program Files (x86)/Microsoft/Edge/Application/msedge.exe",
     "C:/Program Files/Microsoft/Edge/Application/msedge.exe",
@@ -33,7 +33,7 @@ _CANDIDATES = [
 
 
 def _browser() -> str | None:
-    named = os.environ.get("LOCAL_DIFFUSION_BROWSER")
+    named = os.environ.get("AURADREAM_BROWSER")
     return next((p for p in [named, *_CANDIDATES] if p and Path(p).exists()), None)
 
 
@@ -132,7 +132,7 @@ def test_all_screenshot_forms_use_the_selected_root_and_survive_failure(temp):
             {"navigate": "data:text/html,<body style='width:200px;height:200px'>screenshots</body>"},
             {"shot": "viewport.png"}, {"fullshot": "nested/full.png"},
             {"elshot": ["body", "nested/element.png"]}, {"expect": "false"},
-        ]), cwd=ROOT, env={**_env(temp), "LOCAL_DIFFUSION_SCREENSHOT_DIR": str(output)},
+        ]), cwd=ROOT, env={**_env(temp), "AURADREAM_SCREENSHOT_DIR": str(output)},
         capture_output=True, text=True, timeout=120,
     )
     assert done.returncode == 1, done.stdout + done.stderr

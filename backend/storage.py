@@ -330,7 +330,7 @@ def ensure_outputs_dir() -> None:
 
     Here rather than at import of `config`: `clear.py --dry-run` promises to
     change nothing, and an import-time mkdir created the directory anyway - and
-    on an unmounted `LOCAL_DIFFUSION_OUTPUTS_DIR` created the mount point as a plain
+    on an unmounted `AURADREAM_OUTPUTS_DIR` created the mount point as a plain
     directory, the state that later hides the real data behind an empty mount.
     """
     settings.outputs_dir.mkdir(parents=True, exist_ok=True)
@@ -363,7 +363,7 @@ def _session():
 
     `with sqlite3.connect(...) as conn` commits but does *not* close, which leaks
     a handle per call and keeps the file locked on Windows - deleting or moving
-    local-diffusion.db then fails while the server runs.
+    auradream.db then fails while the server runs.
     """
     with gallery_lock.hold(settings.db_path, wait=gallery_lock.SESSION_WAIT):
         conn = _connect()
@@ -766,7 +766,10 @@ def _rename_with_retry(src, dst, attempts: int = 5) -> None:
 # Bundle imports unpack, and uploads land, in this directory on the images'
 # volume, so installing a staged image is a rename rather than a second copy.
 # Its name matches none of the sweeps' globs or `_BUNDLE_WORK`.
-BUNDLE_STAGING = ".local-diffusion-staging"
+BUNDLE_STAGING = ".auradream-staging"
+# The same directory as Local Diffusion named it. Nothing stages there any
+# more; only what a killed operation of that build left is swept from it.
+LEGACY_BUNDLE_STAGING = (".local-diffusion-staging",)
 # What bundles.py and api_bundles.py create beside the database: export's
 # snapshot directory and import's merge directory (tempfile's eight random
 # characters), and uploads from before they moved to BUNDLE_STAGING.
@@ -824,8 +827,12 @@ def _bundle_leftovers() -> list:
     return [
         *bundle_directory().glob("*.part"),
         *(p for p in beside.glob(".bundle-*") if _BUNDLE_WORK.fullmatch(p.name)),
-        *(outputs.parent / BUNDLE_STAGING).glob("*"),
-        *(outputs / BUNDLE_STAGING).glob("*"),
+        *(
+            path
+            for name in (BUNDLE_STAGING, *LEGACY_BUNDLE_STAGING)
+            for root in (outputs.parent, outputs)
+            for path in (root / name).glob("*")
+        ),
     ]
 
 

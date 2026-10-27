@@ -1,5 +1,5 @@
 @echo off
-rem Start the Local Diffusion server (Windows venv) from any folder.
+rem Start the Auradream server (Windows venv) from any folder.
 rem Arguments pass through to backend.main: --defaults, --menu, --model ...
 setlocal
 pushd "%~dp0.." || exit /b 1

@@ -138,7 +138,7 @@ def test_http_eager_spellings_keep_ordinary_same_checkpoint_selection(client, fa
 def test_stale_header_still_refuses_switch_without_effects(client, fake):
     before = client.get("/api/status").json()
     snapshot = saved_snapshot()
-    response = client.post("/api/model/switch", headers={"x-local-diffusion-model-revision": str(before["model_revision"] + 1)},
+    response = client.post("/api/model/switch", headers={"x-auradream-model-revision": str(before["model_revision"] + 1)},
                            json={"model_id": ANIMAGINE, "execution": None, "load": False})
     assert response.status_code == 409
     assert_unchanged(snapshot, fake)

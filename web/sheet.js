@@ -1,4 +1,4 @@
-// Local Diffusion's page script: contact-sheet axes, labels and controls.
+// Auradream's page script: contact-sheet axes, labels and controls.
 // Declarations only; state.js has the shared-global load-order contract.
 'use strict';
 
@@ -716,7 +716,7 @@ function sheetWraps(colAxis, rowAxis, columns) {
 // .sheet.fill-width alone (not `.fill`, the progress bar's), so the toggle
 // redraws nothing; fitSheet's `sizes` and the export follow it. A wrapped row
 // already takes the width.
-const SHEET_KEY = 'local-diffusion.sheet.v1';
+const SHEET_KEY = 'auradream.sheet.v1';
 let sheetFillOn = null;
 function sheetFill() {
   if (sheetFillOn === null) {

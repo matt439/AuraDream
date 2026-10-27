@@ -72,8 +72,8 @@ await import(harnessModule);
     request = dict(masks=masks, supported=supported, harness=str(ROOT / "tools" / "browser.mjs"),
                    script=str(script), output=str(output), probe=probe,
                    url=(ROOT / "tools" / "browser.mjs").as_uri())
-    env = {**os.environ, "LOCAL_DIFFUSION_SCREENSHOT_DIR": str(output),
-           "LOCAL_DIFFUSION_BROWSER": str(tmp_path / "fake-browser.exe"),
+    env = {**os.environ, "AURADREAM_SCREENSHOT_DIR": str(output),
+           "AURADREAM_BROWSER": str(tmp_path / "fake-browser.exe"),
            "TMPDIR": str(temporary), "TEMP": str(temporary), "TMP": str(temporary)}
     done = subprocess.run(["node", "--input-type=module", "-e", bootstrap, json.dumps(request)],
                           cwd=tmp_path, env=env, capture_output=True, text=True, timeout=15)
@@ -107,7 +107,7 @@ def test_both_missing_apis_are_named_in_fixed_order_without_values(tmp_path):
 def test_callable_apis_continue_to_existing_browser_lookup_without_invoking_them(tmp_path):
     done = run_cold(tmp_path, {}, supported=True)
     assert done.returncode == 2 and done.stdout == ""
-    assert done.stderr == "no Edge or Chrome found; set LOCAL_DIFFUSION_BROWSER to the executable\n"
+    assert done.stderr == "no Edge or Chrome found; set AURADREAM_BROWSER to the executable\n"
 
 
 @pytest.mark.parametrize("probe", ["input_read", "module_read", "output_write", "spawn", "fetch", "websocket"])

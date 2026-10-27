@@ -175,7 +175,7 @@
   {"eval": "els.prompt.blur(); els.error.querySelector('button.undo').click();"},
   {"expect": "els.prompt.value === 'my half written prompt about a harbour' && els.seed.value === '77' && els.steps.value === '12' && owned.steps && !owned.cfg && els.width.value === __before.width && els.height.value === __before.height"},
   {"expect": "els.error.textContent === 'Reuse of #' + __reused.id + ' undone: the panel is as it was.'"},
-  {"expect": "__until(() => JSON.parse(localStorage.getItem('local-diffusion.panel.v1') ?? 'null')?.prompt === 'my half written prompt about a harbour')"},
+  {"expect": "__until(() => JSON.parse(localStorage.getItem('auradream.panel.v1') ?? 'null')?.prompt === 'my half written prompt about a harbour')"},
   {"log": "'Ctrl+Z gives the prompt back too - and a change after the Reuse takes its Undo, the sentence staying: pressed, it would throw that change away. Likewise a seed typed, and an Example, whose own Undo then stands alone'"},
   {"eval": "reuse(__reused);"},
   {"expect": "els.prompt.value === __reused.prompt && !!els.error.querySelector('button.undo')"},

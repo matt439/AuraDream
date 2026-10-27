@@ -93,7 +93,7 @@ refused without conversion. Resolution grants no runtime availability.
 The resolver now feeds Generate/grid, queue admission, retained-run Finish,
 backend/fake boundaries and both CLI modes before identities or source/device
 effects. Submission subtypes cannot hide an unconsumed cache choice from direct
-callers or normalization. Legacy Local Diffusion PNGs and retained cells remain
+callers or normalization. Older Auradream PNGs and retained cells remain
 explicit Eager replay; A1111 prompt/settings extraction remains fresh composer
 input. Stamped masks use narrow copies. Public nonempty guards remain closed.
 
@@ -380,7 +380,7 @@ dispatcher/model/device/kernel behavior remains unqualified.
 
 `compiler_cache.py` defines a pure gallery/runtime/recipe namespace and separate
 Inductor/Triton artifact directories outside gallery outputs, bundles and the
-served static tree. The private default is `local-diffusion.compile-cache` beside
+served static tree. The private default is `auradream.compile-cache` beside
 the database, ignored by Git and excluded from gallery exports. A private root
 override is validated without relocating or sweeping existing cache contents.
 This supplies a source contract, not an installed toolchain or cache-hit result.
@@ -591,7 +591,7 @@ prevent a compiled record from falling back to eager, keep the feature
 unavailable until an observed, honest effective-mode policy is implemented.
 
 Keep runtime/compiler diagnostics separate from reproduction data. Proposed
-disk-cache root: `local-diffusion.compile-cache` beside the database,
+disk-cache root: `auradream.compile-cache` beside the database,
 with a platform/runtime/recipe namespace and an explicit environment
 override. Set compiler cache configuration before compiler imports and
 never redirect it while the worker is live. Cache write failure refuses

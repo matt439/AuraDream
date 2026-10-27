@@ -16,6 +16,7 @@ from collections.abc import MutableMapping
 from dataclasses import asdict, dataclass, field
 from pathlib import Path
 
+from .legacy_names import default_db_path, sidecar
 from .execution import INVALID_LOADER_CONFIGURATION, ExecutionSpec, canonical_loader_execution
 from .model_defaults import OFFLOAD_MODES, QUANT_MODES
 
@@ -23,7 +24,7 @@ log = logging.getLogger(__name__)
 _VERSION = 2
 _MAX_BYTES = 64 * 1024
 _ROOT = Path(__file__).resolve().parent.parent
-LOADER_EXECUTION_ERROR_VARIABLE = "LOCAL_DIFFUSION_LOADER_EXECUTION_ERROR"
+LOADER_EXECUTION_ERROR_VARIABLE = "AURADREAM_LOADER_EXECUTION_ERROR"
 LOADER_EXECUTION_ERROR = INVALID_LOADER_CONFIGURATION
 
 
@@ -54,21 +55,22 @@ class StartupPreferences:
 
     def environ(self) -> dict[str, str]:
         values = {
-            "LOCAL_DIFFUSION_MODEL_ID": self.model_id,
-            "LOCAL_DIFFUSION_QUANT": self.quantization,
-            "LOCAL_DIFFUSION_OFFLOAD": self.offload,
-            "LOCAL_DIFFUSION_PRELOAD": "true" if self.load_on_startup else "false",
+            "AURADREAM_MODEL_ID": self.model_id,
+            "AURADREAM_QUANT": self.quantization,
+            "AURADREAM_OFFLOAD": self.offload,
+            "AURADREAM_PRELOAD": "true" if self.load_on_startup else "false",
         }
         if self.loader_execution is not None:
             values.update(
-                LOCAL_DIFFUSION_COMPILATION=self.loader_execution.compilation or "eager",
-                LOCAL_DIFFUSION_ATTENTION=self.loader_execution.attention_backend or "native",
+                AURADREAM_COMPILATION=self.loader_execution.compilation or "eager",
+                AURADREAM_ATTENTION=self.loader_execution.attention_backend or "native",
             )
         return values
 
 
 def path_for(db_path: Path) -> Path:
-    return Path(db_path).expanduser().parent / "local-diffusion.settings.json"
+    # An existing local-diffusion.settings.json is kept and rewritten in place.
+    return sidecar(db_path, "settings.json")
 
 
 @dataclass(frozen=True)
@@ -180,7 +182,7 @@ def _write_bytes(db_path: Path, data: bytes) -> None:
     try:
         with tempfile.NamedTemporaryFile(
             mode="wb", dir=path.parent,
-            prefix=".local-diffusion.settings.", suffix=".tmp", delete=False,
+            prefix=".auradream.settings.", suffix=".tmp", delete=False,
         ) as stream:
             temporary = Path(stream.name)
             opened = os.fstat(stream.fileno())
@@ -204,20 +206,20 @@ def _write_bytes(db_path: Path, data: bytes) -> None:
 # only values it supplied, so unchanged defaults can yield to a browser choice
 # while an operator's explicit environment still wins.
 _WSL_MARKERS = {
-    "LOCAL_DIFFUSION_MODEL_ID": "LOCAL_DIFFUSION_WSL_DEFAULT_MODEL_ID",
-    "LOCAL_DIFFUSION_QUANT": "LOCAL_DIFFUSION_WSL_DEFAULT_QUANT",
+    "AURADREAM_MODEL_ID": "AURADREAM_WSL_DEFAULT_MODEL_ID",
+    "AURADREAM_QUANT": "AURADREAM_WSL_DEFAULT_QUANT",
 }
 # Each startup variable, the preference it carries and the flag that sets it.
 _VARIABLES = (
-    ("LOCAL_DIFFUSION_MODEL_ID", "model_id", "--model"),
-    ("LOCAL_DIFFUSION_QUANT", "quantization", "--quant"),
-    ("LOCAL_DIFFUSION_OFFLOAD", "offload", "--offload"),
-    ("LOCAL_DIFFUSION_PRELOAD", "load_on_startup", None),
-    ("LOCAL_DIFFUSION_COMPILATION", "compilation", "--compilation"),
-    ("LOCAL_DIFFUSION_ATTENTION", "attention_backend", "--attention"),
+    ("AURADREAM_MODEL_ID", "model_id", "--model"),
+    ("AURADREAM_QUANT", "quantization", "--quant"),
+    ("AURADREAM_OFFLOAD", "offload", "--offload"),
+    ("AURADREAM_PRELOAD", "load_on_startup", None),
+    ("AURADREAM_COMPILATION", "compilation", "--compilation"),
+    ("AURADREAM_ATTENTION", "attention_backend", "--attention"),
 )
 # Set by the launcher only: what a saved choice cannot change on this start.
-OVERRIDES_VARIABLE = "LOCAL_DIFFUSION_STARTUP_OVERRIDES"
+OVERRIDES_VARIABLE = "AURADREAM_STARTUP_OVERRIDES"
 
 
 def _explicit(env: MutableMapping[str, str], name: str) -> bool:
@@ -273,7 +275,7 @@ def apply_saved_environment(
     check against; None when none were.
     """
     env = os.environ if env is None else env
-    db_path = Path(env.get("LOCAL_DIFFUSION_DB_PATH", str(_ROOT / "local-diffusion.db")))
+    db_path = Path(env.get("AURADREAM_DB_PATH", str(default_db_path(_ROOT))))
     result = load_result(db_path)
     preferences = result.preferences
     if result.loader_execution_error is not None:
@@ -286,8 +288,8 @@ def apply_saved_environment(
         if preferences.loader_execution is not None:
             env[LOADER_EXECUTION_ERROR_VARIABLE] = LOADER_EXECUTION_ERROR
         return None
-    if model is None and _explicit(env, "LOCAL_DIFFUSION_MODEL_ID"):
-        model = env["LOCAL_DIFFUSION_MODEL_ID"]
+    if model is None and _explicit(env, "AURADREAM_MODEL_ID"):
+        model = env["AURADREAM_MODEL_ID"]
     if model is not None and model != preferences.model_id:
         log.warning(
             "Ignoring saved startup settings for %s: this start names %s",

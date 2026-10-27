@@ -1,6 +1,6 @@
 """Choose the checkpoint, quantization and offload before the settings freeze.
 
-`settings` (backend/config.py) reads LOCAL_DIFFUSION_* at import time, so the
+`settings` (backend/config.py) reads AURADREAM_* at import time, so the
 server launcher restores browser preferences and applies flags before config
 is imported. Explicit environment values override remembered preferences,
 and flags override both. A bare launch opens the server without any questions;
@@ -14,6 +14,7 @@ from __future__ import annotations
 
 import argparse
 import json
+import logging
 import os
 import sys
 from collections.abc import Callable, Mapping
@@ -196,9 +197,9 @@ class Choice:
 
     def environ(self) -> dict[str, str]:
         return {
-            "LOCAL_DIFFUSION_MODEL_ID": self.model_id,
-            "LOCAL_DIFFUSION_QUANT": self.quantization,
-            "LOCAL_DIFFUSION_OFFLOAD": self.offload,
+            "AURADREAM_MODEL_ID": self.model_id,
+            "AURADREAM_QUANT": self.quantization,
+            "AURADREAM_OFFLOAD": self.offload,
         }
 
     def command(self, prog: str = "uv run python -m backend.main") -> str:
@@ -213,7 +214,7 @@ class Choice:
 
 def add_model_arguments(parser: argparse.ArgumentParser) -> None:
     """The --model/--quant/--offload trio, shared by the server and the CLI."""
-    group = parser.add_argument_group("model (equivalent to LOCAL_DIFFUSION_* variables)")
+    group = parser.add_argument_group("model (equivalent to AURADREAM_* variables)")
     group.add_argument("--model", metavar="ID", help="checkpoint id, e.g. krea/Krea-2-Turbo")
     group.add_argument(
         "--quant",
@@ -232,14 +233,46 @@ def add_model_arguments(parser: argparse.ArgumentParser) -> None:
 def apply_env(args: argparse.Namespace) -> None:
     """Push the flags into the environment, where config.py will read them."""
     for value, name in (
-        (args.model, "LOCAL_DIFFUSION_MODEL_ID"),
-        (args.quant, "LOCAL_DIFFUSION_QUANT"),
-        (args.offload, "LOCAL_DIFFUSION_OFFLOAD"),
-        (getattr(args, "compilation", None), "LOCAL_DIFFUSION_COMPILATION"),
-        (getattr(args, "attention", None), "LOCAL_DIFFUSION_ATTENTION"),
+        (args.model, "AURADREAM_MODEL_ID"),
+        (args.quant, "AURADREAM_QUANT"),
+        (args.offload, "AURADREAM_OFFLOAD"),
+        (getattr(args, "compilation", None), "AURADREAM_COMPILATION"),
+        (getattr(args, "attention", None), "AURADREAM_ATTENTION"),
     ):
         if value is not None:
             os.environ[name] = value
+
+
+# The project was Local Diffusion. Its LOCAL_DIFFUSION_* variables are not read
+# at all since the rename (a clean break), so one left in a shell profile is
+# named at start rather than going quietly unused.
+LEGACY_ENV_PREFIX = "LOCAL_DIFFUSION_"
+_legacy_env_warned = False
+
+
+def legacy_env_names(env: Mapping[str, str] | None = None) -> list[str]:
+    """The ignored LOCAL_DIFFUSION_* variables set in `env` (default os.environ)."""
+    env = os.environ if env is None else env
+    return sorted(name for name in env if name.upper().startswith(LEGACY_ENV_PREFIX))
+
+
+def legacy_env_message(names: list[str]) -> str:
+    renamed = ", ".join("AURADREAM_" + name[len(LEGACY_ENV_PREFIX):] for name in names)
+    return (
+        f"ignored {', '.join(names)}: Local Diffusion is now Auradream and reads "
+        f"only AURADREAM_* variables; set {renamed} instead"
+    )
+
+
+def warn_legacy_env(logger: logging.Logger | None = None, env: Mapping[str, str] | None = None) -> bool:
+    """Log one warning naming any legacy variables, once a process; True if it did."""
+    global _legacy_env_warned
+    names = legacy_env_names(env)
+    if _legacy_env_warned or not names:
+        return False
+    _legacy_env_warned = True
+    (logger or logging.getLogger("auradream")).warning("%s", legacy_env_message(names))
+    return True
 
 
 def configure(
@@ -249,7 +282,7 @@ def configure(
     out: TextIO | None = None,
     interactive: bool | None = None,
 ) -> Choice | None:
-    """Settle the LOCAL_DIFFUSION_* model variables for a server start.
+    """Settle the AURADREAM_* model variables for a server start.
 
     Returns the optional menu's choice, else None. `interactive` remains an
     accepted compatibility argument; only an explicit --menu can ask questions.
@@ -259,7 +292,7 @@ def configure(
     parser = argparse.ArgumentParser(
         prog="python -m backend.main",
         description="Serve the generator without terminal questions. Restore the "
-        "browser's saved settings; LOCAL_DIFFUSION_* and command-line flags override them.",
+        "browser's saved settings; AURADREAM_* and command-line flags override them.",
     )
     add_model_arguments(parser)
     parser.add_argument(
@@ -276,11 +309,11 @@ def configure(
     # Recorded before saved values fill the environment, for the page to say
     # which of its saved choices this start (and one like it) overrides.
     overrides = explicit_sources(flags={
-        "LOCAL_DIFFUSION_MODEL_ID": args.model,
-        "LOCAL_DIFFUSION_QUANT": args.quant,
-        "LOCAL_DIFFUSION_OFFLOAD": args.offload,
-        "LOCAL_DIFFUSION_COMPILATION": args.compilation,
-        "LOCAL_DIFFUSION_ATTENTION": args.attention,
+        "AURADREAM_MODEL_ID": args.model,
+        "AURADREAM_QUANT": args.quant,
+        "AURADREAM_OFFLOAD": args.offload,
+        "AURADREAM_COMPILATION": args.compilation,
+        "AURADREAM_ATTENTION": args.attention,
     })
     saved = None
     if args.defaults:
@@ -304,11 +337,11 @@ def configure(
             # as an explicit --model sets it aside, so the menu's pick does not
             # start loading under the other model's settings, and the menu's
             # printed command starts the same way.
-            os.environ.pop("LOCAL_DIFFUSION_PRELOAD", None)
+            os.environ.pop("AURADREAM_PRELOAD", None)
             overrides["load_on_startup"] = "--menu"
         if saved is not None and choice.model_id != saved.model_id:
-            for name, key in (("LOCAL_DIFFUSION_COMPILATION", "compilation"),
-                              ("LOCAL_DIFFUSION_ATTENTION", "attention_backend")):
+            for name, key in (("AURADREAM_COMPILATION", "compilation"),
+                              ("AURADREAM_ATTENTION", "attention_backend")):
                 if key not in overrides:
                     os.environ.pop(name, None)
                     if saved.loader_execution is not None:
@@ -413,11 +446,11 @@ def prompt(
 
 
 def _prompt(ask: Callable[[str], str], out: TextIO, env: Mapping[str, str], linux: bool) -> Choice:
-    current_model = env.get("LOCAL_DIFFUSION_MODEL_ID", _DEFAULT_MODEL)
+    current_model = env.get("AURADREAM_MODEL_ID", _DEFAULT_MODEL)
     current_checkpoint, current_fmt = _match(current_model)
 
     out.write(
-        "Local Diffusion. Enter keeps the marked default. Omit --menu next "
+        "Auradream. Enter keeps the marked default. Omit --menu next "
         "time to choose settings in the browser.\n"
     )
 
@@ -428,7 +461,7 @@ def _prompt(ask: Callable[[str], str], out: TextIO, env: Mapping[str, str], linu
     quant = _pick(
         "Quantization",
         quants,
-        _index(quants, env.get("LOCAL_DIFFUSION_QUANT"), _DEFAULT_QUANT),
+        _index(quants, env.get("AURADREAM_QUANT"), _DEFAULT_QUANT),
         ask=ask,
         out=out,
     )
@@ -463,7 +496,7 @@ def _prompt(ask: Callable[[str], str], out: TextIO, env: Mapping[str, str], linu
         # id" prompt last time, a local directory, a community re-upload. It
         # gets a real row so that Enter keeps it, as the header promises;
         # without one three bare Enters silently started FLUX instead.
-        name = "current LOCAL_DIFFUSION_MODEL_ID"
+        name = "current AURADREAM_MODEL_ID"
         profile = defaults_for(current_model)
         summary = f"{profile['steps']} steps, CFG {profile['guidance_scale']:g}"
         entries.append((name, f"{summary:<18}  {'unrecognised id':<18}  {current_model}"))
@@ -483,7 +516,7 @@ def _prompt(ask: Callable[[str], str], out: TextIO, env: Mapping[str, str], linu
     offload = _pick(
         "Offload",
         offloads,
-        _index(offloads, env.get("LOCAL_DIFFUSION_OFFLOAD"), _DEFAULT_OFFLOAD),
+        _index(offloads, env.get("AURADREAM_OFFLOAD"), _DEFAULT_OFFLOAD),
         ask=ask,
         out=out,
     )

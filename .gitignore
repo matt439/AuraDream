@@ -1,5 +1,6 @@
 .venv/
 # Explicit regional compiler artifacts, never part of gallery bundles or source.
+auradream.compile-cache/
 local-diffusion.compile-cache/
 # Local test fixtures, static-checker installations and diagnostic receipts.
 /work/
@@ -7,7 +8,7 @@ __pycache__/
 *.pyc
 outputs/
 # LoRA adapters: the user's own files, hundreds of MB each. The directory is
-# read at run time and created on demand; LOCAL_DIFFUSION_LORAS_DIR moves it.
+# read at run time and created on demand; AURADREAM_LORAS_DIR moves it.
 loras/
 *.db
 *.db-wal
@@ -17,11 +18,24 @@ bundles/
 .bundle-*/
 .bundle-import-*/
 .bundle-upload-*.part
+.auradream-staging/
 .local-diffusion-staging/
 # Smokes' screenshots, written to the directory the smoke runs from.
 /*.png
 server.log
 server.err
+auradream.settings.json
+.auradream.settings.*.tmp
+auradream.backup-policy-*.json
+.auradream.backup-policy.*.tmp
+auradream.backup-receipts-*.json
+.auradream.backup-receipts.*.tmp
+auradream.bundle-leases.json
+.auradream.bundle-leases.*.part
+auradream.snippets.json
+.auradream.snippets.*.tmp
+# The same files under the name before the rename to Auradream, still beside
+# a gallery made before it.
 local-diffusion.settings.json
 .local-diffusion.settings.*.tmp
 local-diffusion.backup-policy-*.json

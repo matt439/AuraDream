@@ -50,8 +50,8 @@ def _run(root: Path, encrypted: bool) -> dict:
     # refuses in main(), before any storage method can touch its contents.
     source = root / "source"
     source.mkdir()
-    os.environ["LOCAL_DIFFUSION_DB_PATH"] = str(source / "local-diffusion.db")
-    os.environ["LOCAL_DIFFUSION_OUTPUTS_DIR"] = str(source / "outputs")
+    os.environ["AURADREAM_DB_PATH"] = str(source / "auradream.db")
+    os.environ["AURADREAM_OUTPUTS_DIR"] = str(source / "outputs")
     from PIL import Image
 
     from backend import bundles, storage
@@ -147,7 +147,7 @@ def _run(root: Path, encrypted: bool) -> dict:
 
     destination = root / "destination"
     storage.settings = dataclasses.replace(
-        storage.settings, db_path=destination / "local-diffusion.db", outputs_dir=destination / "outputs",
+        storage.settings, db_path=destination / "auradream.db", outputs_dir=destination / "outputs",
     )
     storage.init_db()
     existing = [save(seed) for seed in (1001, 1002, 1003)]

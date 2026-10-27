@@ -42,7 +42,7 @@ from .tags import TagLookupUnavailable, grid_variable_result, rank_suggestions, 
 if TYPE_CHECKING:
     from .config import Settings
 
-log = logging.getLogger("local_diffusion")
+log = logging.getLogger("auradream")
 
 
 @dataclass
@@ -144,12 +144,12 @@ def critic_unsupported(settings: Settings) -> str:
     from .critic import pinned_build_refusal
 
     if not settings.critic:
-        return "the prompt critic is switched off (LOCAL_DIFFUSION_CRITIC)"
+        return "the prompt critic is switched off (AURADREAM_CRITIC)"
     # A build published for the platform that this system cannot run (glibc
     # too old) says so, rather than that there is none.
     return pinned_build_refusal() or (
         "llama.cpp publishes no pinned llama-server build for this platform; set "
-        "LOCAL_DIFFUSION_CRITIC_SERVER to a llama-server of your own"
+        "AURADREAM_CRITIC_SERVER to a llama-server of your own"
     )
 
 

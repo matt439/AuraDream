@@ -29,7 +29,7 @@ SESSION_WAIT = 30.0
 # maintenance operation, an export - is still refused at once to a person.
 MAINTENANCE_GRACE = 0.25
 _POLL = 0.05
-_BUSY = "another Local Diffusion process is using the gallery; try again when it finishes"
+_BUSY = "another Auradream process is using the gallery; try again when it finishes"
 
 _mutex = threading.Lock()
 _locks: dict[str, threading.RLock] = {}

@@ -54,7 +54,7 @@ today is that it is still not *simple* from where a run ends.
   dated decisions in the design notes and `TODO.md`, the two reviews
   (`docs/review-2026-10-04-ui.md`, `docs/review-2026-10-12.md`),
   `docs/verified.md`, and the saved settings.
-- The live gallery is empty (0 rows in `local-diffusion.db`, no PNGs in
+- The live gallery is empty (0 rows in `auradream.db`, no PNGs in
   `outputs/`). The three `bundles/*.ldbundle` (2026-10-15, -17, -18) are
   behind the password layer (`backend/bundle_crypto.py`). So there are no
   numbers for batch sizes, grid shapes or how often runs are extended.

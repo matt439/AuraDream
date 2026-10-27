@@ -1,4 +1,4 @@
-// Local Diffusion's page script: More seeds, more images of every batch the gallery selection holds.
+// Auradream's page script: More seeds, more images of every batch the gallery selection holds.
 // Declarations only; state.js has the shared-global load-order contract.
 'use strict';
 
@@ -28,7 +28,7 @@
 // writes.
 
 const MS_CHECK_DELAY = 250;
-const MORE_SEEDS_KEY = 'local-diffusion.more-seeds.v1';
+const MORE_SEEDS_KEY = 'auradream.more-seeds.v1';
 const MORE_SEEDS_COUNT = 4;
 // In the count line, in this order whatever the server's.
 const MS_STATUS_WORDS = {

@@ -1,4 +1,4 @@
-// Local Diffusion's page script: Load settings from PNG - a dropped or picked
+// Auradream's page script: Load settings from PNG - a dropped or picked
 // PNG's text read here, its settings filled in through Reuse.
 // Declarations only; state.js has the shared-global load-order contract.
 'use strict';
@@ -78,10 +78,11 @@ let pngEpoch = 0;
 let pageDrag = false;
 
 // The keywords the server reads (api_png.py: this app's record, the legacy
-// one, A1111's 'parameters', ComfyUI's two to name it). Any other is sent by
-// its name alone, for the refusal's words: an XMP packet or a long comment
-// beside a settings block took the body past the server's cap.
-const PNG_SETTINGS_KEYS = new Set(['local-diffusion', 'krea', 'parameters', 'workflow', 'prompt']);
+// ones - 'local-diffusion' from before the rename to Auradream, 'krea' from
+// before that - A1111's 'parameters', ComfyUI's two to name it). Any other is
+// sent by its name alone, for the refusal's words: an XMP packet or a long
+// comment beside a settings block took the body past the server's cap.
+const PNG_SETTINGS_KEYS = new Set(['auradream', 'local-diffusion', 'krea', 'parameters', 'workflow', 'prompt']);
 
 // Load settings from PNG: the file read here, its text chunks - never the
 // image - sent to the server, which answers them as the panel's settings

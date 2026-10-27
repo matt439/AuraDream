@@ -56,23 +56,23 @@ def test_server_env_drops_llama_settings_and_carries_the_key(monkeypatch):
         "LLAMA_API_KEY": "shared",
     }.items():
         monkeypatch.setenv(name, value)
-    monkeypatch.setenv("LOCAL_DIFFUSION_KEEP", "1")
+    monkeypatch.setenv("AURADREAM_KEEP", "1")
     env = critic_server._server_env(Path("bin/llama-server"), "k3y")
     assert [name for name in env if name.upper().startswith("LLAMA_")] == ["LLAMA_API_KEY"]
     # b11206 reads --api-key from LLAMA_API_KEY: this start's, never the user's.
     assert env["LLAMA_API_KEY"] == "k3y"
-    assert env["LOCAL_DIFFUSION_KEEP"] == "1"
+    assert env["AURADREAM_KEEP"] == "1"
 
 
 def test_configured_paths_are_absolute(tmp_path, monkeypatch):
     monkeypatch.chdir(tmp_path)
-    monkeypatch.setenv("LOCAL_DIFFUSION_CRITIC_MODEL", "rel.gguf")
-    monkeypatch.setenv("LOCAL_DIFFUSION_CRITIC_SERVER", "  ")
-    model = config._env_path("LOCAL_DIFFUSION_CRITIC_MODEL")
+    monkeypatch.setenv("AURADREAM_CRITIC_MODEL", "rel.gguf")
+    monkeypatch.setenv("AURADREAM_CRITIC_SERVER", "  ")
+    model = config._env_path("AURADREAM_CRITIC_MODEL")
     assert model.is_absolute() and model == tmp_path / "rel.gguf"
-    assert config._env_path("LOCAL_DIFFUSION_CRITIC_SERVER") is None
-    monkeypatch.setenv("LOCAL_DIFFUSION_CRITIC_SERVER", "~/llama-server")
-    assert config._env_path("LOCAL_DIFFUSION_CRITIC_SERVER").is_absolute()
+    assert config._env_path("AURADREAM_CRITIC_SERVER") is None
+    monkeypatch.setenv("AURADREAM_CRITIC_SERVER", "~/llama-server")
+    assert config._env_path("AURADREAM_CRITIC_SERVER").is_absolute()
 
     # Absolute, not resolved: a path through a link stays the one given.
     blobs = tmp_path / "blobs"
@@ -81,8 +81,8 @@ def test_configured_paths_are_absolute(tmp_path, monkeypatch):
     _link_directory(tmp_path / "snapshot", blobs)
     given = tmp_path / "snapshot" / "Qwen3-4B-Q8_0.gguf"
     assert given.resolve() != given
-    monkeypatch.setenv("LOCAL_DIFFUSION_CRITIC_MODEL", str(given))
-    assert config._env_path("LOCAL_DIFFUSION_CRITIC_MODEL") == given
+    monkeypatch.setenv("AURADREAM_CRITIC_MODEL", str(given))
+    assert config._env_path("AURADREAM_CRITIC_MODEL") == given
 
 
 def test_a_linked_model_is_labelled_by_the_name_it_was_given(tmp_path, monkeypatch):
@@ -95,8 +95,8 @@ def test_a_linked_model_is_labelled_by_the_name_it_was_given(tmp_path, monkeypat
         given.symlink_to(blob)
     except OSError:
         pytest.skip("this user can make no file symlink")
-    monkeypatch.setenv("LOCAL_DIFFUSION_CRITIC_MODEL", str(given))
-    _configure(monkeypatch, critic_model=config._env_path("LOCAL_DIFFUSION_CRITIC_MODEL"))
+    monkeypatch.setenv("AURADREAM_CRITIC_MODEL", str(given))
+    _configure(monkeypatch, critic_model=config._env_path("AURADREAM_CRITIC_MODEL"))
     assert critic.prompt_critic._label(critic.settings.critic_model) == "Qwen3-4B-Q8_0"
 
 
@@ -271,7 +271,7 @@ def test_a_server_that_cannot_be_started_is_a_critic_error(prepared):
     # WinError 216 on Windows, a permission error elsewhere.
     with pytest.raises(critic_runtime.CriticError, match="could not be started") as caught:
         _critique(prepared)
-    assert f"LOCAL_DIFFUSION_CRITIC_SERVER={critic.settings.critic_server}" in str(caught.value)
+    assert f"AURADREAM_CRITIC_SERVER={critic.settings.critic_server}" in str(caught.value)
     assert prepared._process is None
 
 

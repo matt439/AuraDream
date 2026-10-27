@@ -24,7 +24,7 @@ from tests.fakes import FakeBackend
 def isolated_execution_environment(monkeypatch):
     # apply_env writes directly; record original absence before each test so
     # new explicit flags cannot leak into another local or remote invocation.
-    for name in ("LOCAL_DIFFUSION_COMPILATION", "LOCAL_DIFFUSION_ATTENTION", "LOCAL_DIFFUSION_LOADER_EXECUTION_ERROR"):
+    for name in ("AURADREAM_COMPILATION", "AURADREAM_ATTENTION", "AURADREAM_LOADER_EXECUTION_ERROR"):
         monkeypatch.setenv(name, os.environ.get(name, ""))
         monkeypatch.delenv(name, raising=False)
 
@@ -34,7 +34,7 @@ def cli(store, monkeypatch):
     fake = FakeBackend()
     # _project() imports get_backend and settings at call time, so these are
     # what main() sees: the fake, and the throwaway gallery's paths rather than
-    # the real local-diffusion.db in the checkout.
+    # the real auradream.db in the checkout.
     monkeypatch.setattr(backends, "get_backend", lambda name="diffusers": fake)
     monkeypatch.setattr(config, "settings", store.settings)
     # No server is probed: the developer's own may well be up on 7860, and a
@@ -67,7 +67,7 @@ def test_unavailable_cli_recipe_refuses_before_files_project_or_network(monkeypa
 @pytest.mark.parametrize("value", ["", "fixed invalid profile"])
 @pytest.mark.parametrize("replace_flags", [[], ["--compilation", "eager", "--attention", "native"]])
 def test_cli_error_marker_presence_always_refuses_before_files(monkeypatch, capsys, value, replace_flags):
-    monkeypatch.setenv("LOCAL_DIFFUSION_LOADER_EXECUTION_ERROR", value)
+    monkeypatch.setenv("AURADREAM_LOADER_EXECUTION_ERROR", value)
     def forbidden(*_args, **_kwargs):
         pytest.fail("invalid startup intent reached a source read")
     monkeypatch.setattr(generate, "_image_settings", forbidden)
@@ -78,8 +78,8 @@ def test_cli_error_marker_presence_always_refuses_before_files(monkeypatch, caps
 
 
 @pytest.mark.parametrize("variable,value", [
-    ("LOCAL_DIFFUSION_COMPILATION", "regional-v1"), ("LOCAL_DIFFUSION_ATTENTION", "cudnn-v1"),
-    ("LOCAL_DIFFUSION_COMPILATION", "private invalid fixture"),
+    ("AURADREAM_COMPILATION", "regional-v1"), ("AURADREAM_ATTENTION", "cudnn-v1"),
+    ("AURADREAM_COMPILATION", "private invalid fixture"),
 ])
 def test_cli_environment_intent_is_not_ignored_or_echoed_before_source_reads(monkeypatch, capsys, variable, value):
     monkeypatch.setenv(variable, value)
@@ -243,7 +243,7 @@ def test_every_cli_sets_up_its_stdout_the_same_way(name, monkeypatch):
 def test_a_dry_run_with_resume_creates_no_database(cli, store):
     # The resume lookup connects, and connecting writes the schema into any
     # file it opens; a dry run against a gallery that does not exist yet used
-    # to leave a 40 KB local-diffusion.db behind.
+    # to leave a 40 KB auradream.db behind.
     store.settings.db_path.unlink()
     code = generate.main(["a fox", "--dry-run", "--resume", "--seed", "1", "--grid-steps", "6,8", *SIZE])
     assert code == 0
@@ -395,7 +395,7 @@ def test_resume_against_a_busy_gallery_says_so_without_a_traceback(cli, store, m
     holder = _held_gallery(store, monkeypatch, 0.8)
     code = generate.main(["a fox", "--seed", "3", "--grid-steps", "6,8", "--resume", *SIZE, "-q"])
     assert code == 1 and cli.requests == []
-    assert "--resume: another Local Diffusion process is using the gallery" in capsys.readouterr().err
+    assert "--resume: another Auradream process is using the gallery" in capsys.readouterr().err
     holder.join(5)
 
 
@@ -416,7 +416,7 @@ def test_a_seed_list_runs_the_grid_at_exactly_those_seeds(cli, store, capsys):
 def test_from_image_reads_the_pngs_own_record(cli, store, capsys, monkeypatch):
     # The PNG's metadata was write-only: starting from an image you already
     # have cost a browser trip and six numbers retyped by hand.
-    monkeypatch.delenv("LOCAL_DIFFUSION_MODEL_ID", raising=False)
+    monkeypatch.delenv("AURADREAM_MODEL_ID", raising=False)
     assert generate.main([
         "a fox in fog", "-n", "blurry", "--seed", "7", "--steps", "6", "--cfg", "0.5",
         "--mu", "1.3", *SIZE, "-q",
@@ -437,7 +437,7 @@ def test_from_image_reads_the_pngs_own_record(cli, store, capsys, monkeypatch):
     # reach the environment.
     import os
 
-    assert os.environ["LOCAL_DIFFUSION_MODEL_ID"] == store.settings.model_id
+    assert os.environ["AURADREAM_MODEL_ID"] == store.settings.model_id
     # An explicit flag still wins over the record.
     assert generate.main(["--from-image", path, "--steps", "9", "--aspect", "16:9", "--dry-run"]) == 0
     out = capsys.readouterr().out
@@ -527,7 +527,7 @@ def test_from_image_refuses_a_record_that_is_not_one(cli, tmp_path, capsys):
     from PIL import Image, PngImagePlugin
 
     info = PngImagePlugin.PngInfo()
-    info.add_text("local-diffusion", "[1, 2]")
+    info.add_text("auradream", "[1, 2]")
     odd = tmp_path / "odd.png"
     Image.new("RGB", (8, 8)).save(odd, pnginfo=info)
     with pytest.raises(SystemExit) as exc:
@@ -728,7 +728,7 @@ def test_from_image_carries_the_variables_while_the_prompt_is_the_images(cli, st
         recorded = []
         for path in paths:
             with Image.open(path) as png:
-                chunk = json.loads(png.info["local-diffusion"])["variables"]
+                chunk = json.loads(png.info["auradream"])["variables"]
             row = rows[Path(path).name]
             assert chunk == row.variables  # the PNG's own record, for a reindex
             recorded.append((row.prompt, row.variables))
@@ -968,6 +968,33 @@ def _mask_file(tmp_path, size=(256, 384), box=(0, 0, 128, 64), name="mask.png"):
     path = tmp_path / name
     image.convert("RGB").save(path)  # any mode: kept as one channel
     return path, image
+
+
+@pytest.mark.parametrize("record_key, mask_key", [
+    ("auradream", "auradream-mask"), ("local-diffusion", "local-diffusion-mask"),
+])
+def test_from_image_reads_a_pre_rename_record_and_its_mask(tmp_path, record_key, mask_key):
+    import argparse
+    import base64
+    import json
+
+    from PIL import Image, PngImagePlugin
+
+    _, mask = _mask_file(tmp_path)
+    digest = storage.mask_hash(mask)
+    encoded = io.BytesIO()
+    mask.save(encoded, format="PNG")
+    meta = {"prompt": "a red scarf", "steps": 10, "guidance_scale": 5.0, "seed": 4,
+            "model": ANIMAGINE, "refine": 1, "strength": 0.6, "mask": digest}
+    info = PngImagePlugin.PngInfo()
+    info.add_text(record_key, json.dumps(meta))
+    info.add_text(mask_key, base64.b64encode(encoded.getvalue()).decode("ascii"))
+    path = tmp_path / "old.png"
+    Image.new("RGB", (256, 384)).save(path, pnginfo=info)
+
+    assert generate._image_settings(str(path), argparse.ArgumentParser()) == meta
+    found = generate._mask_from_record(str(path), digest)
+    assert found is not None and storage.mask_hash(found) == digest
 
 
 def test_an_inpaint_from_the_terminal_stores_its_mask_and_records_it(cli, store, monkeypatch, tmp_path, capsys):
@@ -1290,10 +1317,10 @@ def _rewrite_record(path, change) -> None:
 
     with Image.open(path) as image:
         image.load()
-        meta = json.loads(image.info["local-diffusion"])
+        meta = json.loads(image.info["auradream"])
         change(meta)
         info = PngImagePlugin.PngInfo()
-        info.add_text("local-diffusion", json.dumps(meta))
+        info.add_text("auradream", json.dumps(meta))
         image.save(path, format="PNG", pnginfo=info)
 
 
@@ -1357,13 +1384,13 @@ def via_server(client, fake, monkeypatch):
     import os
     from types import SimpleNamespace
 
-    for name in ("LOCAL_DIFFUSION_MODEL_ID", "LOCAL_DIFFUSION_QUANT", "LOCAL_DIFFUSION_OFFLOAD"):
+    for name in ("AURADREAM_MODEL_ID", "AURADREAM_QUANT", "AURADREAM_OFFLOAD"):
         # Record the original absence too: apply_env may set a flag directly
         # during this invocation, after the fixture cleared its environment.
         monkeypatch.setenv(name, os.environ.get(name, ""))
         monkeypatch.delenv(name, raising=False)
-    monkeypatch.setenv("LOCAL_DIFFUSION_HOST", "127.0.0.1")
-    monkeypatch.setenv("LOCAL_DIFFUSION_PORT", "7860")
+    monkeypatch.setenv("AURADREAM_HOST", "127.0.0.1")
+    monkeypatch.setenv("AURADREAM_PORT", "7860")
     calls = []
 
     def request(base, path, *, body=None, data=None, headers=None, timeout=30):
@@ -1402,7 +1429,7 @@ def test_via_server_queues_the_plain_body_and_prints_each_url_seed_once(via_serv
         "prompt": "a fox 🦊", "steps": 7, "guidance_scale": 2.5, "true_cfg": 1.5,
         "mu": None, "num_images": 2, "runs": 3, "seed": 41,
     }
-    assert headers["X-Local-Diffusion-Model-Revision"] == str(main.model_selection.revision())
+    assert headers["X-Auradream-Model-Revision"] == str(main.model_selection.revision())
     assert via_server.backend.seeds == [41, 43, 45]
 
 
@@ -1517,7 +1544,7 @@ def test_via_server_model_flags_assert_the_server_selection_without_switching(vi
 
 def test_via_server_matching_model_flags_and_environment_are_accepted(via_server, monkeypatch):
     status = via_server.client.get("/api/status").json()
-    monkeypatch.setenv("LOCAL_DIFFUSION_QUANT", status["quantization"])
+    monkeypatch.setenv("AURADREAM_QUANT", status["quantization"])
     assert generate.main(["a fox", "--via-server", *SIZE, "--model", status["model_id"],
                           "--offload", status["offload"], "-q"]) == 0
 
@@ -1703,10 +1730,10 @@ def test_server_json_sends_json_and_revision_without_retrying_the_transport(monk
 
     monkeypatch.setattr(urllib.request, "urlopen", respond)
     assert generate._server_json("http://127.0.0.1:9999", "/api/generate", body={"prompt": "狐狸 🦊"},
-                                 headers={"X-Local-Diffusion-Model-Revision": "9"}) == {"job_id": "one"}
+                                 headers={"X-Auradream-Model-Revision": "9"}) == {"job_id": "one"}
     [(request, timeout)] = calls
     assert request.get_method() == "POST" and json.loads(request.data) == {"prompt": "狐狸 🦊"}
-    assert request.get_header("X-local-diffusion-model-revision") == "9"
+    assert request.get_header("X-auradream-model-revision") == "9"
     assert request.get_header("Content-type") == "application/json" and timeout == 30
 
 

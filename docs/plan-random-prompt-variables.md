@@ -10,8 +10,9 @@ prompt variants. Existing placeholder/value validation and `none` substitution
 apply in both modes.
 
 Each variable is selected by SHA-256 of the UTF-8 JSON array
-`["local-diffusion.prompt-choice.v1", seed, name]`, using compact separators
-and `ensure_ascii=False`; its big-endian digest modulo the number of values
+`["local-diffusion.prompt-choice.v1", seed, name]` (frozen from the app's
+old name, since it feeds the draw), using compact separators and
+`ensure_ascii=False`; its big-endian digest modulo the number of values
 is the selected index. The variable name makes a draw independent of variable
 line order, other variables, and sampling-axis order. The value order remains
 meaningful. No process hash or global random generator participates.

@@ -49,9 +49,9 @@ def altered_archive(archive, tmp_path, *, version=1, remove_sql=False, remove_pn
     if remove_png:
         member = "images/" + name
         with Image.open(io.BytesIO(members[member])) as image:
-            meta = json.loads(image.info["local-diffusion"])
+            meta = json.loads(image.info["auradream"])
         meta.pop("edit")
-        members[member] = reindex._with_local_diffusion_metadata(members[member], meta)
+        members[member] = reindex._with_auradream_metadata(members[member], meta)
     manifest = json.loads(members["manifest.json"])
     manifest["version"] = version
     for name, data in members.items():
@@ -133,7 +133,7 @@ def test_child_only_selection_preserves_unresolved_proof_across_reexport(store, 
     assert later["links_outside"] == 1
     with ZipFile(later["path"]) as opened:
         with Image.open(io.BytesIO(opened.read("images/" + back.filename))) as image:
-            assert json.loads(image.info["local-diffusion"])["edit"] == back.edit.model_dump(mode="json")
+            assert json.loads(image.info["auradream"])["edit"] == back.edit.model_dump(mode="json")
 
 
 @pytest.mark.parametrize("mismatch", ["hash", "filename", "width"])
@@ -241,7 +241,7 @@ def test_source_proof_uses_decoded_rgb_for_nonrgb_png(store, monkeypatch, tmp_pa
     path = store.settings.outputs_dir / source.filename
     meta = _metadata(path)
     chunks = PngImagePlugin.PngInfo()
-    chunks.add_text("local-diffusion", json.dumps(meta))
+    chunks.add_text("auradream", json.dumps(meta))
     with Image.open(path) as image:
         rgba = image.convert("RGBA")
     rgba.putalpha(71)

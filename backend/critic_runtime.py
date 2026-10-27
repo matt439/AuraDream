@@ -125,6 +125,8 @@ MODEL_SIZE = 4280404704
 MODEL_SHA256 = "8c2f07f26af9747e41988551106f149b03eb9b5cb6df636027b6bf6278473300"
 MODEL_LABEL = "Qwen3-4B Q8_0"
 
+# Frozen from the app's old name: installs on disk carry it, and a tree
+# without it is reinstalled.
 _INSTALL_MARKER = "local-diffusion-install.json"
 
 # --- The server and the request ----------------------------------------------
@@ -186,7 +188,7 @@ def _old_glibc(key: str) -> str | None:
     return (
         f"llama.cpp's pinned {key} build needs glibc {need[0]}.{need[1]} or newer "
         f"(Ubuntu 24.04, Debian 13) and this system has {found}; set "
-        "LOCAL_DIFFUSION_CRITIC_SERVER to a llama-server built for it"
+        "AURADREAM_CRITIC_SERVER to a llama-server built for it"
     )
 
 
@@ -246,9 +248,10 @@ def preflight(key: str) -> None:
 
 
 def install_root() -> Path:
-    from huggingface_hub.constants import HF_HOME
+    from .legacy_names import hf_home_dir
 
-    return Path(HF_HOME) / "local-diffusion" / "llama.cpp"
+    # An install kept under the old HF_HOME/local-diffusion is not repeated.
+    return hf_home_dir("llama.cpp")
 
 
 def _recipe(key: str) -> str:
@@ -290,7 +293,7 @@ def installed_server(key: str) -> Path | None:
 
 def _fetch(url: str, destination: Path, size: int) -> None:
     """Stream one release asset to disk. The seam the tests replace."""
-    request = urllib.request.Request(url, headers={"User-Agent": "local-diffusion"})
+    request = urllib.request.Request(url, headers={"User-Agent": "auradream"})
     step = 64 << 20
     done = reported = 0
     with urllib.request.urlopen(request, timeout=60) as response, destination.open("wb") as out:

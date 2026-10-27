@@ -30,7 +30,7 @@ by `days`, for Empty recycle bin's age scope; `POST /api/fake/peak` sets the
 prompt check reads the tests' word tokenizers - a token per word or mark, at
 each encoder's real budget - and the critic is the tests' FakeCritic, whose
 answer is built from the prompt. The gallery lives under the system temp directory (or --data),
-never in the checkout, so nothing here can reach the real local-diffusion.db.
+never in the checkout, so nothing here can reach the real auradream.db.
 Everything else - the job queue, SSE, resume, the runs summary, pause, the
 budget, the analyser's rules - is the real code, which is the point:
 `tools/browser.mjs` drives a headless browser against this to check the UI.
@@ -56,8 +56,8 @@ def main() -> int:
     parser.add_argument("--port", type=int, default=7861)
     parser.add_argument("--step", type=float, default=0.0, help="seconds per denoising step")
     parser.add_argument(
-        "--data", default=str(Path(tempfile.gettempdir()) / "local-diffusion-fake"),
-        help="where the throwaway gallery lives (default: <temp>/local-diffusion-fake)",
+        "--data", default=str(Path(tempfile.gettempdir()) / "auradream-fake"),
+        help="where the throwaway gallery lives (default: <temp>/auradream-fake)",
     )
     parser.add_argument("--fresh", action="store_true", help="delete the throwaway gallery first")
     parser.add_argument("--model", default="krea/Krea-2-Turbo", help="the checkpoint id to claim")
@@ -76,11 +76,11 @@ def main() -> int:
         shutil.rmtree(data)
     data.mkdir(parents=True, exist_ok=True)
     # Before backend.config is imported: its settings freeze at import.
-    os.environ["LOCAL_DIFFUSION_DB_PATH"] = str(data / "local-diffusion.db")
-    os.environ["LOCAL_DIFFUSION_OUTPUTS_DIR"] = str(data / "outputs")
-    os.environ["LOCAL_DIFFUSION_BUNDLES_DIR"] = str(data / "bundles")
-    os.environ["LOCAL_DIFFUSION_PORT"] = str(args.port)
-    os.environ["LOCAL_DIFFUSION_MODEL_ID"] = args.model
+    os.environ["AURADREAM_DB_PATH"] = str(data / "auradream.db")
+    os.environ["AURADREAM_OUTPUTS_DIR"] = str(data / "outputs")
+    os.environ["AURADREAM_BUNDLES_DIR"] = str(data / "bundles")
+    os.environ["AURADREAM_PORT"] = str(args.port)
+    os.environ["AURADREAM_MODEL_ID"] = args.model
     # An adapter directory of its own, with one file in it, so the LoRA select
     # has something to offer and the panel can be driven end to end. The fake
     # never opens it - it draws gradients - but every path up to the load is
@@ -95,7 +95,7 @@ def main() -> int:
     stranger = loras / "other-family.safetensors"
     if not stranger.exists():
         stranger.write_bytes(b"not a real adapter; addressed to another denoiser")
-    os.environ["LOCAL_DIFFUSION_LORAS_DIR"] = str(loras)
+    os.environ["AURADREAM_LORAS_DIR"] = str(loras)
 
     from PIL import Image, ImageDraw
 

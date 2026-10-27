@@ -115,11 +115,10 @@ def _upscale_cancel(should_cancel) -> None:
 
 
 def _anime6b_path():
-    from pathlib import Path
+    from .legacy_names import hf_home_dir
 
-    from huggingface_hub.constants import HF_HOME
-
-    return Path(HF_HOME) / "local-diffusion" / "upscalers" / ANIME6B_SHA256 / "RealESRGAN_x4plus_anime_6B.pth"
+    # A download kept under the old HF_HOME/local-diffusion is not repeated.
+    return hf_home_dir("upscalers") / ANIME6B_SHA256 / "RealESRGAN_x4plus_anime_6B.pth"
 
 
 def _verify_anime6b(path) -> None:
@@ -160,7 +159,7 @@ def anime6b_weights(should_cancel=None):
     try:
         with tempfile.NamedTemporaryFile(dir=target.parent, prefix="anime6b-", suffix=".part", delete=False) as output:
             temporary = Path(output.name)
-            request = urllib.request.Request(ANIME6B_URL, headers={"User-Agent": "Local-Diffusion"})
+            request = urllib.request.Request(ANIME6B_URL, headers={"User-Agent": "Auradream"})
             with urllib.request.urlopen(request, timeout=60) as response:
                 length = response.headers.get("Content-Length")
                 if length is not None and int(length) != ANIME6B_BYTES:

@@ -1,4 +1,4 @@
-// Local Diffusion's page script: starring, deleting (into the recycle bin) and
+// Auradream's page script: starring, deleting (into the recycle bin) and
 // forgetting gallery images - one, or the picked cards together - and taking
 // them back once restored.
 // Declarations only; state.js has the shared-global load-order contract.
@@ -851,7 +851,7 @@ async function deleteUnstarred() {
   try {
     result = await api(`/api/gallery/unstarred?${params}`, {
       method: 'DELETE',
-      headers: revision === null ? {} : { 'X-Local-Diffusion-Model-Revision': String(revision) },
+      headers: revision === null ? {} : { 'X-Auradream-Model-Revision': String(revision) },
     });
   } catch (err) {
     if (!/selection changed/i.test(err.message)) { showError(err.message, false, slot); return; }

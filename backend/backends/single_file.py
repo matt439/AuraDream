@@ -38,6 +38,11 @@ class _ConversionRecipe(TypedDict):
     source_sha256: NotRequired[str]
 
 
+# Frozen from the app's old name: every converted tree on disk carries it,
+# and a tree without it is "incomplete" and refused, not re-converted.
+# model-downloads.json lists it among each conversion's files.
+CONVERSION_MARKER = "local-diffusion-conversion.json"
+
 ILLUSTRIOUS_ID = "OnomaAIResearch/Illustrious-XL-v2.0"
 WAI_ID = "LyliaEngine/waiIllustriousSDXL_v170"
 ROUWEI_ID = "Minthy/RouWei-0.8"
@@ -105,9 +110,10 @@ _CHECKPOINTS = {
 
 
 def cache_root() -> Path:
-    from huggingface_hub.constants import HF_HOME
+    from ..legacy_names import hf_home_dir
 
-    return Path(HF_HOME) / "local-diffusion" / "converted"
+    # Trees converted under the old HF_HOME/local-diffusion stay hits.
+    return hf_home_dir("converted")
 
 
 def _is_work(path: Path, target: Path) -> bool:
@@ -194,7 +200,7 @@ def _target(model_id: str = ILLUSTRIOUS_ID) -> tuple[Path, Path, str]:
     recipe = json.dumps(entry.recipe, sort_keys=True, indent=2) + "\n"
     digest = hashlib.sha256(recipe.encode()).hexdigest()[:16]
     target = cache_root() / f"{entry.slug}-{digest}"
-    return target, target / "local-diffusion-conversion.json", recipe
+    return target, target / CONVERSION_MARKER, recipe
 
 
 def _converted(target: Path, marker: Path, recipe: str) -> bool:
@@ -227,7 +233,7 @@ def resolve_model(model_id: str, quantization: str) -> str:
     if quantization == "nunchaku":
         raise RuntimeError(
             f"{entry.name} is not a Nunchaku Lite checkpoint. "
-            "Use LOCAL_DIFFUSION_QUANT=fp8, int8 or none."
+            "Use AURADREAM_QUANT=fp8, int8 or none."
         )
 
     from huggingface_hub.utils._fixes import WeakFileLock

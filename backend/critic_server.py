@@ -280,7 +280,7 @@ def _session_pids(session: int) -> set[int]:
 class _ServerProcess(subprocess.Popen):
     """llama-server and whatever it starts, as one tree.
 
-    `LOCAL_DIFFUSION_CRITIC_SERVER` may name a wrapper - a .bat, a venv
+    `AURADREAM_CRITIC_SERVER` may name a wrapper - a .bat, a venv
     trampoline, a shell script that does not `exec` - whose server is a
     grandchild, which stopping the direct child alone left listening, and
     holding the card, after the gate opened. So `terminate`, `kill` and

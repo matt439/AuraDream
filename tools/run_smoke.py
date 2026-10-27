@@ -14,7 +14,7 @@ no fake sees another's planted images. A smoke named alone runs alone on its
 row's fake; `--all` runs every row with its smokes in order.
 
 `--offset N` moves every port by N (the fake's and, through
-`LOCAL_DIFFUSION_PORT_OFFSET`, the smoke's), so a run can sit beside fakes
+`AURADREAM_PORT_OFFSET`, the smoke's), so a run can sit beside fakes
 already up; `--jobs` runs rows in parallel, each worker 100 ports further
 on. The fake's log is kept beside its gallery and named on a failure.
 Every smoke retains screenshots, browser.log and result.json in its reported
@@ -190,7 +190,7 @@ def run_row(row: Row, smokes: list[str], offset: int, stream: bool, artifacts: P
             for smoke in smokes:
                 record(smoke, 2, "port", row_started, message + "\n")
             return results
-        data = Path(tempfile.mkdtemp(prefix=f"local-diffusion-smoke-{row.port}-"))
+        data = Path(tempfile.mkdtemp(prefix=f"auradream-smoke-{row.port}-"))
         log_path = data / "fake-server.log"
         try:
             with open(log_path, "w", encoding="utf-8") as log:
@@ -211,9 +211,9 @@ def run_row(row: Row, smokes: list[str], offset: int, stream: bool, artifacts: P
             for smoke in smokes:
                 record(smoke, code, "fake_start", row_started, message + "\n")
             return results
-        env = {**os.environ, "LOCAL_DIFFUSION_PORT_OFFSET": str(offset)}
+        env = {**os.environ, "AURADREAM_PORT_OFFSET": str(offset)}
         for smoke in smokes:
-            env["LOCAL_DIFFUSION_SCREENSHOT_DIR"] = str(outputs[smoke])
+            env["AURADREAM_SCREENSHOT_DIR"] = str(outputs[smoke])
             started = time.monotonic()
             command = ["node", str(ROOT / "tools" / "browser.mjs"), str(ROOT / "tools" / f"{smoke}.json")]
             phase = "browser"
@@ -296,7 +296,7 @@ def main() -> int:
     jobs = max(1, min(args.jobs, len(plan)))
     if args.artifacts is not None:
         args.artifacts.mkdir(parents=True, exist_ok=True)
-    artifacts = Path(tempfile.mkdtemp(prefix="local-diffusion-smoke-artifacts-", dir=args.artifacts)).resolve()
+    artifacts = Path(tempfile.mkdtemp(prefix="auradream-smoke-artifacts-", dir=args.artifacts)).resolve()
     print(f"artifacts: {artifacts}", flush=True)
     started = time.monotonic()
     results: dict[str, int] = {}

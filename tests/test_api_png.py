@@ -6,6 +6,7 @@ from __future__ import annotations
 
 import json
 
+import pytest
 from PIL import Image
 
 from backend import api_png, png_settings
@@ -51,7 +52,7 @@ def test_a_gallery_png_gives_back_its_whole_record(client, fake, store):
         width=512, height=768, lora="ink.safetensors", lora_scale=0.6,
     )
     answer = ask(client, chunks_of(store, record))
-    assert (answer["source"], answer["name"], answer["model_id"]) == ("local-diffusion", "cat.png", settings.model_id)
+    assert (answer["source"], answer["name"], answer["model_id"]) == ("auradream", "cat.png", settings.model_id)
     assert (answer["size"], answer["sampling"]) == (True, True)
     ran = answer["settings"]
     assert (ran["prompt"], ran["negative_prompt"], ran["seed"]) == ("a heron on a post at dawn", "blurry", 77)
@@ -66,15 +67,17 @@ def test_a_gallery_png_gives_back_its_whole_record(client, fake, store):
 
 def test_an_explicit_null_mu_stays_a_render_with_no_shift(client, fake, store):
     record = plant(store, mu=None)
-    assert json.loads(chunks_of(store, record)["local-diffusion"])["mu"] is None
+    assert json.loads(chunks_of(store, record)["auradream"])["mu"] is None
     assert ask(client, chunks_of(store, record))["settings"]["mu"] is None
 
 
-def test_the_legacy_key_is_read_too(client, fake, store):
+@pytest.mark.parametrize("legacy", ["local-diffusion", "krea"])
+def test_the_legacy_keys_are_read_too(client, fake, store, legacy):
     record = plant(store, seed=5)
     chunks = chunks_of(store, record)
-    chunks["krea"] = chunks.pop("local-diffusion")
-    assert ask(client, chunks)["settings"]["seed"] == 5
+    chunks[legacy] = chunks.pop("auradream")
+    answer = ask(client, chunks)
+    assert (answer["source"], answer["settings"]["seed"]) == ("auradream", 5)
 
 
 def test_a_reference_carries_only_where_this_gallery_holds_the_same_picture(client, fake, store):
@@ -86,9 +89,9 @@ def test_a_reference_carries_only_where_this_gallery_holds_the_same_picture(clie
     assert answer["settings"]["reference"] == [source.id]
     assert answer["notes"] == []
     # The same file read where #N is another picture - WSL's gallery, a backup.
-    meta = json.loads(chunks["local-diffusion"])
+    meta = json.loads(chunks["auradream"])
     meta["reference"] = [other.id]
-    answer = ask(client, {**chunks, "local-diffusion": json.dumps(meta)})
+    answer = ask(client, {**chunks, "auradream": json.dumps(meta)})
     assert answer["settings"]["reference"] == []
     assert answer["notes"] == [
         "One of its reference images is left out: this gallery holds no copy of it "
@@ -96,7 +99,7 @@ def test_a_reference_carries_only_where_this_gallery_holds_the_same_picture(clie
     ]
     # A record with no provenance for an id is not taken on trust either.
     meta["reference"], meta["reference_sources"] = [source.id], None
-    assert ask(client, {**chunks, "local-diffusion": json.dumps(meta)})["settings"]["reference"] == []
+    assert ask(client, {**chunks, "auradream": json.dumps(meta)})["settings"]["reference"] == []
 
 
 def test_a_reference_on_a_checkpoint_that_takes_none_is_said(client, fake, store):
@@ -142,9 +145,9 @@ def test_an_adapter_this_installation_cannot_load_is_said(client, fake, store):
 
 def test_a_negative_applied_leaves_out_is_kept_for_the_box(client, fake, store):
     record = plant(store, negative_prompt="blurry", guidance_scale=4)
-    meta = json.loads(chunks_of(store, record)["local-diffusion"])
+    meta = json.loads(chunks_of(store, record)["auradream"])
     fake.cfg_threshold = 5.0
-    answer = ask(client, {"local-diffusion": json.dumps(meta)})
+    answer = ask(client, {"auradream": json.dumps(meta)})
     assert answer["settings"]["negative_prompt"] is None
     assert answer["negative_prompt"] == "blurry"
     assert answer["notes"] == [
@@ -213,7 +216,7 @@ def test_this_apps_record_wins_over_its_own_parameters_line(client, fake, store)
     record = plant(store, seed=9)
     chunks = chunks_of(store, record)
     assert "parameters" in chunks
-    assert ask(client, chunks)["source"] == "local-diffusion"
+    assert ask(client, chunks)["source"] == "auradream"
 
 
 def test_a_size_a_direct_render_does_not_take_leaves_the_panels(client, fake, store):
@@ -240,24 +243,24 @@ def test_refusals_are_in_words(client, fake, store):
         return ask(client, chunks, name=name, status=status)["detail"]
 
     assert refused({"Software": "GIMP", "Title": "x"}) == (
-        "cat.png carries no settings this app reads (its text: Software, Title): neither Local "
-        "Diffusion's own record nor an A1111-style 'parameters' text."
+        "cat.png carries no settings this app reads (its text: Software, Title): neither "
+        "Auradream's own record nor an A1111-style 'parameters' text."
     )
     assert refused({}).startswith("cat.png carries no settings this app reads, nor any text at all")
     assert refused({"workflow": json.dumps({"nodes": []}), "prompt": json.dumps({"3": {}})}).startswith(
         "cat.png carries a ComfyUI workflow, not settings this app reads"
     )
-    assert refused({"local-diffusion": "{not json"}) == "The Local Diffusion metadata in cat.png is not JSON."
-    assert refused({"local-diffusion": "[1, 2]"}) == (
-        "The Local Diffusion metadata in cat.png is not a settings record."
+    assert refused({"auradream": "{not json"}) == "The Auradream metadata in cat.png is not JSON."
+    assert refused({"auradream": "[1, 2]"}) == (
+        "The Auradream metadata in cat.png is not a settings record."
     )
-    assert refused({"local-diffusion": json.dumps({"prompt": ""})}) == (
-        "The Local Diffusion metadata in cat.png carries no prompt."
+    assert refused({"auradream": json.dumps({"prompt": ""})}) == (
+        "The Auradream metadata in cat.png carries no prompt."
     )
     assert refused({"parameters": "Negative prompt: only this\nSteps: 1, Seed: 2, Size: 512x512"}) == (
         "The 'parameters' text in cat.png carries no prompt."
     )
-    assert refused({"local-diffusion": json.dumps({"prompt": "x", "steps": 500})}) == (
+    assert refused({"auradream": json.dumps({"prompt": "x", "steps": 500})}) == (
         "The settings in cat.png do not fit this app: steps: Input should be less than or equal to 100."
     )
 
@@ -277,7 +280,7 @@ def test_the_text_payload_is_capped(client, fake, store):
 def test_a_stale_page_is_refused_before_anything_is_read(client, fake, store):
     response = client.post(
         "/api/png/settings", json={"chunks": {"parameters": "a cat"}},
-        headers={"X-Local-Diffusion-Model-Revision": "999"},
+        headers={"X-Auradream-Model-Revision": "999"},
     )
     assert response.status_code == 409
 

@@ -133,10 +133,10 @@ DEFAULT_MODEL_ID = "black-forest-labs/FLUX.1-Krea-dev"
 DEFAULT_QUANT = "fp8"
 DEFAULT_OFFLOAD = "model"
 
-# The vocabularies config.py validates LOCAL_DIFFUSION_QUANT and LOCAL_DIFFUSION_OFFLOAD against, and
+# The vocabularies config.py validates AURADREAM_QUANT and AURADREAM_OFFLOAD against, and
 # launch.py builds its menus from. An unknown value used to select the heaviest
-# path silently - `LOCAL_DIFFUSION_QUANT=fp16` loaded 25 GB of bf16 and OOMed at the first
-# image, `LOCAL_DIFFUSION_OFFLOAD=cpu` kept everything resident - while /api/status echoed
+# path silently - `AURADREAM_QUANT=fp16` loaded 25 GB of bf16 and OOMed at the first
+# image, `AURADREAM_OFFLOAD=cpu` kept everything resident - while /api/status echoed
 # the typo back as if it meant something.
 QUANT_MODES: tuple[str, ...] = ("fp8", "int8", "none", "nunchaku")
 OFFLOAD_MODES: tuple[str, ...] = ("model", "sequential", "none")

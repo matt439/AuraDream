@@ -1,4 +1,4 @@
-// Local Diffusion's page script: the last-run banner, run picker and opening a sheet.
+// Auradream's page script: the last-run banner, run picker and opening a sheet.
 // Declarations only; state.js has the shared-global load-order contract.
 'use strict';
 
@@ -194,7 +194,7 @@ async function pressFinishRun(button, { slot = els.galleryError } = {}) {
   }
 }
 
-const ANNOUNCED_KEY = 'local-diffusion.announced-job';
+const ANNOUNCED_KEY = 'auradream.announced-job';
 const LEGACY_ANNOUNCED_KEYS = ['krea.announced-job'];
 const ANNOUNCE_WINDOW_MS = 24 * 3600 * 1000;
 const when = (ms) => new Date(ms).toLocaleString([], {

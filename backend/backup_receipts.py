@@ -22,7 +22,7 @@ from pathlib import Path
 from typing import BinaryIO, Literal, Never
 from uuid import UUID
 
-from . import bundle_mode, gallery_lock
+from . import bundle_mode, gallery_lock, legacy_names
 from .backup_policy import Protection
 
 MARKER = "managed_backup"
@@ -273,7 +273,7 @@ def path_for(db_path: Path) -> Path:
     database = Path(db_path).expanduser()
     if not database.name:
         raise ReceiptError("a journal needs a database filename")
-    return database.parent / f"local-diffusion.backup-receipts-{database.name}.json"
+    return legacy_names.sidecar(database, f"backup-receipts-{database.name}.json")
 
 
 def _unique(pairs: list[tuple[str, object]]) -> dict[str, object]:
@@ -450,7 +450,7 @@ def _store(db_path: Path, gallery_id: str, journal: Journal) -> None:
     temporary_identity: tuple[int, int] | None = None
     try:
         with tempfile.NamedTemporaryFile(mode="wb", dir=path.parent,
-                                         prefix=".local-diffusion.backup-receipts.", suffix=".tmp", delete=False) as stream:
+                                         prefix=".auradream.backup-receipts.", suffix=".tmp", delete=False) as stream:
             temporary = Path(stream.name)
             opened = os.fstat(stream.fileno())
             temporary_identity = (opened.st_dev, opened.st_ino)

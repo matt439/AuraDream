@@ -18,7 +18,7 @@ def _leftovers(store):
     directory = store.bundle_directory()
     directory.mkdir(parents=True, exist_ok=True)
     made = {
-        "archive": directory / "local-diffusion-x.zip.part",
+        "archive": directory / "auradream-x.zip.part",
         "export": beside / ".bundle-ab12cd_3",
         "merge": beside / ".bundle-merge-ab12cd34",
         "old upload": beside / ".bundle-upload-ab12cd34.part",

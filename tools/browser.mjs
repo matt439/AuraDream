@@ -2,7 +2,7 @@
 // nothing but Node's own fetch and WebSocket - no npm install.
 //
 //     node tools/browser.mjs tools/smoke.json
-//     LOCAL_DIFFUSION_BROWSER="C:/Program Files/Google/Chrome/Application/chrome.exe" node tools/browser.mjs steps.json
+//     AURADREAM_BROWSER="C:/Program Files/Google/Chrome/Application/chrome.exe" node tools/browser.mjs steps.json
 //
 // The script is a JSON list of steps, run in order:
 //   {"navigate": url}            load a page (the cache is disabled)
@@ -37,12 +37,12 @@
 //                                whole scrollable page; {"elshot": ["selector", "file.png"]}
 //                                one element's box, scrolled into view
 // Screenshot names must be portable relative paths, under
-// LOCAL_DIFFUSION_SCREENSHOT_DIR (a fresh reported temp directory if unset).
+// AURADREAM_SCREENSHOT_DIR (a fresh reported temp directory if unset).
 //
 // The page opens at 1400x900, where the smokes are written. Two settings move it:
-//   LOCAL_DIFFUSION_VIEWPORT=2560x1305   (a maximized QHD browser at 100% scaling)
-//   LOCAL_DIFFUSION_DPR=1.25             (with 2048x1040, QHD at 125% scaling)
-// and LOCAL_DIFFUSION_PORT_OFFSET=N adds N to every 127.0.0.1:<port> and
+//   AURADREAM_VIEWPORT=2560x1305   (a maximized QHD browser at 100% scaling)
+//   AURADREAM_DPR=1.25             (with 2048x1040, QHD at 125% scaling)
+// and AURADREAM_PORT_OFFSET=N adds N to every 127.0.0.1:<port> and
 // localhost:<port> in the steps, so a second checkout can run the same smokes
 // against fake servers of its own without meeting the first one's.
 //
@@ -74,7 +74,7 @@ if (missingApis.length) {
 }
 
 const CANDIDATES = [
-  process.env.LOCAL_DIFFUSION_BROWSER,
+  process.env.AURADREAM_BROWSER,
   'C:/Program Files (x86)/Microsoft/Edge/Application/msedge.exe',
   'C:/Program Files/Microsoft/Edge/Application/msedge.exe',
   'C:/Program Files/Google/Chrome/Application/chrome.exe',
@@ -82,12 +82,12 @@ const CANDIDATES = [
 ].filter(Boolean);
 const browser = CANDIDATES.find((p) => existsSync(p));
 if (!browser) {
-  console.error('no Edge or Chrome found; set LOCAL_DIFFUSION_BROWSER to the executable');
+  console.error('no Edge or Chrome found; set AURADREAM_BROWSER to the executable');
   process.exit(2);
 }
 const file = process.argv[2];
 if (!file) { console.error('usage: node tools/browser.mjs <steps.json>'); process.exit(2); }
-const OFFSET = Number(process.env.LOCAL_DIFFUSION_PORT_OFFSET || 0);
+const OFFSET = Number(process.env.AURADREAM_PORT_OFFSET || 0);
 let text = readFileSync(file, 'utf8');
 if (OFFSET) {
   text = text.replace(/\b(127\.0\.0\.1|localhost):(\d{2,5})\b/g, (_, host, port) => `${host}:${Number(port) + OFFSET}`);
@@ -158,10 +158,10 @@ if (unawaited.length) {
   process.exit(2);
 }
 
-const [VW, VH] = (process.env.LOCAL_DIFFUSION_VIEWPORT || '1400x900').split('x').map(Number);
-const DPR = Number(process.env.LOCAL_DIFFUSION_DPR || 1);
+const [VW, VH] = (process.env.AURADREAM_VIEWPORT || '1400x900').split('x').map(Number);
+const DPR = Number(process.env.AURADREAM_DPR || 1);
 if (!(VW > 0 && VH > 0 && DPR > 0)) {
-  console.error('LOCAL_DIFFUSION_VIEWPORT is WIDTHxHEIGHT and LOCAL_DIFFUSION_DPR a positive number');
+  console.error('AURADREAM_VIEWPORT is WIDTHxHEIGHT and AURADREAM_DPR a positive number');
   process.exit(2);
 }
 
@@ -173,16 +173,18 @@ if (!(VW > 0 && VH > 0 && DPR > 0)) {
 // end is left behind, and Windows hands the pid out again - a later run on
 // the same port then opened with that run's localStorage (smoke-model-switch
 // found another run's favourites, under eight runs at once).
-const PREFIX = 'local-diffusion-browser-';
+const PREFIX = 'auradream-browser-';
 const PROFILE = `${tmpdir()}/${PREFIX}${process.pid}-${Date.now().toString(36)}${Math.random().toString(36).slice(2, 8)}`;
 // Every profile is removed on the way out, but a run killed outright (a
 // closed terminal, Task Manager) never gets there, and those piled up in
 // Windows' Temp to 49 GiB. One untouched for six hours is no live run's - the
 // longest smoke takes minutes - so each run sweeps those first; one an orphaned
 // browser still holds stays until it has gone.
+// The sweep also takes the prefix runs used before the rename to Auradream.
 const STALE_MS = 6 * 3600 * 1000;
+const SWEPT = [PREFIX, 'local-diffusion-browser-'];
 for (const name of (() => { try { return readdirSync(tmpdir()); } catch { return []; } })()) {
-  if (!name.startsWith(PREFIX)) continue;
+  if (!SWEPT.some((prefix) => name.startsWith(prefix))) continue;
   const dir = `${tmpdir()}/${name}`;
   try {
     if (Date.now() - statSync(dir).mtimeMs > STALE_MS) rmSync(dir, { recursive: true, force: true });
@@ -197,7 +199,7 @@ for (const name of (() => { try { return readdirSync(tmpdir()); } catch { return
 const WINDOWS = process.platform === 'win32';
 // Explicit diagnostics for an owned scratch run only. Chromium normally writes
 // stderr noisily; retain at most its tail and print it only on a failed run.
-const STARTUP_DIAGNOSTICS = process.env.LOCAL_DIFFUSION_BROWSER_DIAGNOSTICS === '1';
+const STARTUP_DIAGNOSTICS = process.env.AURADREAM_BROWSER_DIAGNOSTICS === '1';
 const STDERR_LIMIT = 16384;
 let browserStderr = '';
 const proc = spawn(browser, [

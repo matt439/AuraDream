@@ -147,7 +147,7 @@ class PromptCritic:
         """Download, verify and install what is missing. Idempotent, and no GPU:
         the route runs it before taking the generation gate."""
         if not settings.critic:
-            raise critic_runtime.CriticUnavailable("the prompt critic is switched off (LOCAL_DIFFUSION_CRITIC)")
+            raise critic_runtime.CriticUnavailable("the prompt critic is switched off (AURADREAM_CRITIC)")
         with self._prepare_lock:
             self._prepared = (self._server_path(), self._model_path())
 
@@ -155,14 +155,14 @@ class PromptCritic:
         if settings.critic_server is not None:
             if not settings.critic_server.is_file():
                 raise critic_runtime.CriticUnavailable(
-                    f"LOCAL_DIFFUSION_CRITIC_SERVER={settings.critic_server} is not a file"
+                    f"AURADREAM_CRITIC_SERVER={settings.critic_server} is not a file"
                 )
             return settings.critic_server
         key = critic_runtime.platform_key()
         if key is None:
             raise critic_runtime.CriticUnavailable(
                 "llama.cpp publishes no pinned build for this platform here; "
-                "set LOCAL_DIFFUSION_CRITIC_SERVER to a llama-server of your own"
+                "set AURADREAM_CRITIC_SERVER to a llama-server of your own"
             )
         # Ahead of both downloads: `prepare()` fetches the model after this.
         critic_runtime.preflight(key)
@@ -172,7 +172,7 @@ class PromptCritic:
         if settings.critic_model is not None:
             if not settings.critic_model.is_file():
                 raise critic_runtime.CriticUnavailable(
-                    f"LOCAL_DIFFUSION_CRITIC_MODEL={settings.critic_model} is not a file"
+                    f"AURADREAM_CRITIC_MODEL={settings.critic_model} is not a file"
                 )
             return settings.critic_model
         return critic_runtime.download_model()
@@ -236,7 +236,7 @@ class PromptCritic:
                     process = critic_server._spawn(critic_server.server_command(server, model, port), log_file, api_key)
                 except OSError as exc:
                     where = (
-                        f"LOCAL_DIFFUSION_CRITIC_SERVER={server}"
+                        f"AURADREAM_CRITIC_SERVER={server}"
                         if settings.critic_server is not None else str(server)
                     )
                     raise critic_runtime.CriticError(

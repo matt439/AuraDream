@@ -47,7 +47,7 @@ from .config import ATTENTION_ENVIRONMENT_WARNING, settings  # noqa: E402
 from .critic import CriticError, prompt_critic  # noqa: E402
 from .jobs import JobManager, LoadFailed, MaskGone, OutpaintStampFailed, RunPersistenceFailed, short_error  # noqa: E402
 from .execution import canonical_loader_execution, require_configured_loader_available  # noqa: E402
-from .launch import CHECKPOINTS  # noqa: E402
+from .launch import CHECKPOINTS, warn_legacy_env  # noqa: E402
 from .instruction_edit import require_model_available  # noqa: E402
 from . import api_instruction_edit  # noqa: E402
 from .model_defaults import defaults_for, guide_for, hints_for  # noqa: E402
@@ -64,7 +64,8 @@ from .translation import prompt_translator  # noqa: E402
 logging.basicConfig(
     level=settings.log_level, format="%(asctime)s %(levelname)-7s %(name)s | %(message)s"
 )
-log = logging.getLogger("local_diffusion")
+log = logging.getLogger("auradream")
+warn_legacy_env(log)  # a pre-rename variable left in a shell: named, not read
 
 backend = get_backend("diffusers")
 
@@ -172,7 +173,7 @@ def _load_failure(exc: BaseException) -> tuple[str, str | None, str | None]:
     if kind == "RepositoryNotFoundError":
         return (
             f"{hub_repo} is not on Hugging Face, or is private: check the checkpoint id "
-            "(Models in the browser, or LOCAL_DIFFUSION_MODEL_ID); for a private repo, "
+            "(Models in the browser, or AURADREAM_MODEL_ID); for a private repo, "
             f"{login} that can read it, then press Retry load.",
             "not_found",
             page,
@@ -325,7 +326,7 @@ async def lifespan(app: FastAPI):
     await asyncio.to_thread(prompt_encoding.unload)
 
 
-app = FastAPI(title="Local Diffusion", version="0.1.0", lifespan=lifespan)
+app = FastAPI(title="Auradream", version="0.1.0", lifespan=lifespan)
 app.add_middleware(api_bundles.GalleryAdmission, get_manager=lambda: bundle_manager)
 
 
@@ -371,7 +372,7 @@ def _origin_allowed(origin: str) -> bool:
     """Is this Origin header one of our own pages?
 
     Compared by hostname and *effective* port rather than by string: a browser
-    serialises an origin without a default port, so on `LOCAL_DIFFUSION_PORT=80` the page
+    serialises an origin without a default port, so on `AURADREAM_PORT=80` the page
     sends `http://127.0.0.1` and a string match against `http://127.0.0.1:80`
     refused every one of the app's own writes. `https` is allowed for the LAN
     case behind a TLS proxy.
@@ -441,7 +442,9 @@ async def hold_model_for_request(request: Request, call_next):
             {"detail": "the checkpoint is switching; wait for the switch to finish"},
             status_code=409,
         )
-    expected = request.headers.get("x-local-diffusion-model-revision")
+    # The old name is read for a page loaded before the rename to Auradream.
+    expected = (request.headers.get("x-auradream-model-revision")
+                or request.headers.get("x-local-diffusion-model-revision"))
     if expected is not None:
         try:
             expected_revision = int(expected)
@@ -890,7 +893,8 @@ async def switch_model(request: ModelSwitchRequest, http_request: Request) -> Mo
     global _switching, _switch_task, _startup_preload, _switch_error, _switch_draining
     # Unlike model readers this route is not counted while its body arrives.
     # Another switch can finish after the middleware's revision check.
-    expected = http_request.headers.get("x-local-diffusion-model-revision")
+    expected = (http_request.headers.get("x-auradream-model-revision")
+                or http_request.headers.get("x-local-diffusion-model-revision"))
     if expected is not None and int(expected) != model_selection.revision():
         raise HTTPException(status_code=409, detail="the checkpoint changed; refresh its settings before trying again")
     try:

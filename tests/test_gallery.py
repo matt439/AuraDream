@@ -47,7 +47,7 @@ def test_the_png_carries_the_whole_reproduction_set(store):
         batch=4,
     )
     with Image.open(store.settings.outputs_dir / record.filename) as png:
-        meta = json.loads(png.info["local-diffusion"])
+        meta = json.loads(png.info["auradream"])
     # `batch` is no part of the reproduction set, but like `job` and `run`
     # it is what a reindex has to restore it from: More seeds reads it.
     assert set(meta) == {
@@ -128,7 +128,7 @@ def test_a_grid_cells_variables_round_trip(store):
     import json
 
     with Image.open(store.settings.outputs_dir / record.filename) as png:
-        assert json.loads(png.info["local-diffusion"])["variables"] == {
+        assert json.loads(png.info["auradream"])["variables"] == {
             "size": "big",
             "ground": "grass",
         }

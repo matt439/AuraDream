@@ -329,7 +329,7 @@ def test_the_row_and_the_png_carry_the_source_and_the_strength(store):
     )
     assert (record.refine, record.strength) == (source.id, 0.35)
     with Image.open(store.settings.outputs_dir / record.filename) as png:
-        meta = json.loads(png.info["local-diffusion"])
+        meta = json.loads(png.info["auradream"])
         assert (meta["refine"], meta["strength"]) == (source.id, 0.35)
         # A1111's own key for an image-to-image pass, so other tools read it.
         assert f"Denoising strength: 0.35, Refine: {source.id}" in png.info["parameters"]
@@ -437,7 +437,7 @@ def test_a_database_merge_remaps_the_source_id(store, monkeypatch, tmp_path):
     )
     elsewhere = tmp_path / "backup" / "outputs"
     elsewhere.mkdir(parents=True)
-    source_db = elsewhere.parent / "local-diffusion.db"
+    source_db = elsewhere.parent / "auradream.db"
     monkeypatch.setattr(
         storage, "settings", dataclasses.replace(mine, db_path=source_db, outputs_dir=elsewhere)
     )
@@ -468,9 +468,9 @@ def test_a_database_merge_remaps_the_source_id(store, monkeypatch, tmp_path):
     assert (by_prompt["orphan"].refine, by_prompt["orphan"].strength) == (None, None)
     # The copied PNG says the same, should this gallery be rebuilt from files.
     with Image.open(mine.outputs_dir / refined.filename) as png:
-        assert json.loads(png.info["local-diffusion"])["refine"] == by_prompt["src"].id
+        assert json.loads(png.info["auradream"])["refine"] == by_prompt["src"].id
     with Image.open(mine.outputs_dir / orphan.filename) as png:
-        assert json.loads(png.info["local-diffusion"])["refine"] is None
+        assert json.loads(png.info["auradream"])["refine"] is None
 
 
 # ---------------------------------------------------------------- the backend
@@ -818,12 +818,12 @@ def test_gan_reproduction_reaches_the_row_png_resume_key_and_rerun(store):
     assert record.upscaler == refine.ANIME6B and plain.upscaler is None
     assert store.get_image(record.id).upscaler == refine.ANIME6B
     with Image.open(store.settings.outputs_dir / record.filename) as png:
-        assert json.loads(png.info["local-diffusion"])["upscaler"] == refine.ANIME6B
+        assert json.loads(png.info["auradream"])["upscaler"] == refine.ANIME6B
         assert f"Hires upscaler: {refine.ANIME6B_LABEL}" in png.info["parameters"]
         _, _, parameters = png_settings.parse_parameters(png.info["parameters"])
         assert parameters["Hires upscaler"] == refine.ANIME6B_LABEL
     with Image.open(store.settings.outputs_dir / plain.filename) as png:
-        assert "upscaler" not in json.loads(png.info["local-diffusion"])
+        assert "upscaler" not in json.loads(png.info["auradream"])
         assert "Hires upscaler" not in png.info["parameters"]
     base = grid.Cell(request, seed=1)
     enhanced = grid.Cell(gan, seed=1)
@@ -891,7 +891,7 @@ def test_gan_reindex_carries_the_choice_and_clears_it_with_a_lost_source(store, 
     assert records[orphan.filename].upscaler is None and records[orphan.filename].refine is None
     for saved in (record, orphan):
         with Image.open(target.outputs_dir / saved.filename) as png:
-            metadata = json.loads(png.info["local-diffusion"])
+            metadata = json.loads(png.info["auradream"])
             assert metadata.get("upscaler") == records[saved.filename].upscaler
 
 
@@ -917,7 +917,7 @@ def test_gan_bundle_carries_the_choice_only_with_its_source(store, monkeypatch, 
     assert restored.upscaler == (refine.ANIME6B if include_source else None)
     assert restored.refine == (records[source.filename].id if include_source else None)
     with Image.open(target.outputs_dir / restored.filename) as png:
-        assert json.loads(png.info["local-diffusion"]).get("upscaler") == restored.upscaler
+        assert json.loads(png.info["auradream"]).get("upscaler") == restored.upscaler
 
 
 def test_gan_time_is_never_estimated_from_lanczos_history(store):
@@ -963,9 +963,9 @@ def test_a_reindex_refuses_an_unknown_persisted_upscaler(store, monkeypatch, tmp
         conn.execute("UPDATE images SET upscaler = 'unknown-net' WHERE id = ?", (record.id,))
     path = original.outputs_dir / record.filename
     with Image.open(path) as image:
-        meta = json.loads(image.info["local-diffusion"])
+        meta = json.loads(image.info["auradream"])
     meta["upscaler"] = "unknown-net"
-    path.write_bytes(reindex._with_local_diffusion_metadata(path.read_bytes(), meta))
+    path.write_bytes(reindex._with_auradream_metadata(path.read_bytes(), meta))
     target = dataclasses.replace(
         original, db_path=tmp_path / "target.db", outputs_dir=tmp_path / "target",
     )

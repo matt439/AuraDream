@@ -99,7 +99,7 @@ class CriticStatus(BaseModel):
     is: the model it runs and what a first use still downloads."""
 
     # The model's name as the answer's footer gives it: the pinned GGUF's
-    # label, or the stem of the file LOCAL_DIFFUSION_CRITIC_MODEL names.
+    # label, or the stem of the file AURADREAM_CRITIC_MODEL names.
     label: str
     # Both halves the app's pins, the pairing whose time docs/verified.md
     # measured. A server or a model of the user's own gets no time and no
@@ -182,7 +182,7 @@ class ModelStatus(BaseModel):
     format: str = "nvfp4"
     load_on_startup: bool = False
     # The saved choices this start's flags or environment set aside, as
-    # {preference: what set it} - "--model", "LOCAL_DIFFUSION_QUANT",
+    # {preference: what set it} - "--model", "AURADREAM_QUANT",
     # "--defaults", "--menu" - so the page can say a saved choice will not
     # apply to a start like this one. Empty when imported rather than launched.
     startup_overrides: dict[str, str] = {}
@@ -253,7 +253,7 @@ class ModelStatus(BaseModel):
     prompt_expander: ExpanderStatus | None = None
     # The local prompt critic: supported where it is not switched off and a
     # server can run - a platform with a pinned llama-server build, or one
-    # LOCAL_DIFFUSION_CRITIC_SERVER names; ready once the binary and the model
+    # AURADREAM_CRITIC_SERVER names; ready once the binary and the model
     # file are on disk, so the page can say a first use downloads them.
     prompt_critique_supported: bool = False
     prompt_critique_ready: bool = False

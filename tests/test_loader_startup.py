@@ -14,8 +14,8 @@ from backend import config, launch, startup_preferences as preferences
 
 MODEL = "black-forest-labs/FLUX.1-Krea-dev"
 OTHER = "krea/Krea-2-Turbo"
-VARIABLES = ("LOCAL_DIFFUSION_MODEL_ID", "LOCAL_DIFFUSION_QUANT", "LOCAL_DIFFUSION_OFFLOAD",
-             "LOCAL_DIFFUSION_PRELOAD", "LOCAL_DIFFUSION_COMPILATION", "LOCAL_DIFFUSION_ATTENTION",
+VARIABLES = ("AURADREAM_MODEL_ID", "AURADREAM_QUANT", "AURADREAM_OFFLOAD",
+             "AURADREAM_PRELOAD", "AURADREAM_COMPILATION", "AURADREAM_ATTENTION",
              preferences.OVERRIDES_VARIABLE, preferences.LOADER_EXECUTION_ERROR_VARIABLE)
 
 
@@ -24,7 +24,7 @@ def clean_options(monkeypatch, tmp_path):
     for name in VARIABLES:
         monkeypatch.setenv(name, "")
         monkeypatch.delenv(name)
-    monkeypatch.setenv("LOCAL_DIFFUSION_DB_PATH", str(tmp_path / "gallery.db"))
+    monkeypatch.setenv("AURADREAM_DB_PATH", str(tmp_path / "gallery.db"))
 
 
 def selected(recipe=None, *, preload=False):
@@ -32,7 +32,7 @@ def selected(recipe=None, *, preload=False):
 
 
 def database():
-    return Path(os.environ["LOCAL_DIFFUSION_DB_PATH"])
+    return Path(os.environ["AURADREAM_DB_PATH"])
 
 
 def test_valid_v1_is_eager_and_reads_without_upgrade_or_new_environment_keys():
@@ -60,10 +60,10 @@ def test_unsupported_saved_nunchaku_cannot_discard_a_nonempty_recipe(monkeypatch
                                             {"compilation": "regional-v1"})
     preferences.save(database(), choice)
     monkeypatch.setattr(preferences.sys, "platform", "win32")
-    env = {"LOCAL_DIFFUSION_DB_PATH": str(database())}
+    env = {"AURADREAM_DB_PATH": str(database())}
     assert preferences.apply_saved_environment(env) is None
     assert env[preferences.LOADER_EXECUTION_ERROR_VARIABLE] == preferences.LOADER_EXECUTION_ERROR
-    assert "LOCAL_DIFFUSION_PRELOAD" not in env
+    assert "AURADREAM_PRELOAD" not in env
 
 
 @pytest.mark.parametrize("recipe", [None, {}, {"compilation": "regional-v1"}, {"attention_backend": "cudnn-v1"}])
@@ -85,10 +85,10 @@ def test_malformed_v2_cannot_become_an_eager_preload(recipe):
                "load_on_startup": True, "loader_execution": recipe}
     path.write_text(json.dumps(payload), encoding="utf-8")
     before = path.read_bytes()
-    env = {"LOCAL_DIFFUSION_DB_PATH": str(database()), "LOCAL_DIFFUSION_PRELOAD": "true"}
+    env = {"AURADREAM_DB_PATH": str(database()), "AURADREAM_PRELOAD": "true"}
     assert preferences.apply_saved_environment(env) is None
     assert env[preferences.LOADER_EXECUTION_ERROR_VARIABLE] == preferences.LOADER_EXECUTION_ERROR
-    assert "LOCAL_DIFFUSION_MODEL_ID" not in env and "LOCAL_DIFFUSION_COMPILATION" not in env
+    assert "AURADREAM_MODEL_ID" not in env and "AURADREAM_COMPILATION" not in env
     assert path.read_bytes() == before
 
 
@@ -144,7 +144,7 @@ def test_oversized_snapshot_refuses_capture_without_modifying_original():
     with pytest.raises(ValueError, match="byte bound"):
         preferences.capture_snapshot(database())
     assert path.read_bytes() == original
-    assert not list(path.parent.glob(".local-diffusion.settings.*.tmp"))
+    assert not list(path.parent.glob(".auradream.settings.*.tmp"))
 
 
 def test_unreadable_snapshot_refuses_capture_without_modifying_original(monkeypatch):
@@ -178,26 +178,26 @@ def test_failed_atomic_snapshot_restore_keeps_the_saved_file_and_cleans_owned_te
     with pytest.raises(OSError, match="injected"):
         preferences.restore_snapshot(database(), snapshot)
     assert path.read_bytes() == current
-    assert not list(path.parent.glob(".local-diffusion.settings.*.tmp"))
+    assert not list(path.parent.glob(".auradream.settings.*.tmp"))
 
 
 def test_per_component_flags_and_environment_override_without_clearing_other_saved_component(monkeypatch):
     preferences.save(database(), selected({"compilation": "regional-v1"}))
-    monkeypatch.setenv("LOCAL_DIFFUSION_ATTENTION", "cudnn-v1")
+    monkeypatch.setenv("AURADREAM_ATTENTION", "cudnn-v1")
     launch.configure(["--compilation", "eager"], ask=lambda _p: pytest.fail("asked terminal question"))
-    assert os.environ["LOCAL_DIFFUSION_COMPILATION"] == "eager"
-    assert os.environ["LOCAL_DIFFUSION_ATTENTION"] == "cudnn-v1"
+    assert os.environ["AURADREAM_COMPILATION"] == "eager"
+    assert os.environ["AURADREAM_ATTENTION"] == "cudnn-v1"
     spec, error = config._loader_execution_environment()
     assert spec.compilation is None and spec.attention_backend == "cudnn-v1" and error is None
-    assert preferences.startup_overrides() == {"compilation": "--compilation", "attention_backend": "LOCAL_DIFFUSION_ATTENTION"}
+    assert preferences.startup_overrides() == {"compilation": "--compilation", "attention_backend": "AURADREAM_ATTENTION"}
 
 
 def test_explicit_one_component_keeps_other_saved_component_for_cold_conflict_reporting(monkeypatch):
     preferences.save(database(), selected({"attention_backend": "cudnn-v1"}))
-    monkeypatch.setenv("LOCAL_DIFFUSION_COMPILATION", "regional-v1")
+    monkeypatch.setenv("AURADREAM_COMPILATION", "regional-v1")
     launch.configure([], ask=lambda _p: pytest.fail("asked terminal question"))
-    assert os.environ["LOCAL_DIFFUSION_COMPILATION"] == "regional-v1"
-    assert os.environ["LOCAL_DIFFUSION_ATTENTION"] == "cudnn-v1"
+    assert os.environ["AURADREAM_COMPILATION"] == "regional-v1"
+    assert os.environ["AURADREAM_ATTENTION"] == "cudnn-v1"
     spec, error = config._loader_execution_environment()
     assert spec.compilation == "regional-v1" and spec.attention_backend == "cudnn-v1" and error is None
 
@@ -205,19 +205,19 @@ def test_explicit_one_component_keeps_other_saved_component_for_cold_conflict_re
 def test_defaults_skips_bad_saved_file_and_clears_only_old_diagnostic(monkeypatch):
     preferences.path_for(database()).write_bytes(b"{")
     monkeypatch.setenv(preferences.LOADER_EXECUTION_ERROR_VARIABLE, "untrusted old diagnostic")
-    monkeypatch.setenv("LOCAL_DIFFUSION_ATTENTION", "cudnn-v1")
+    monkeypatch.setenv("AURADREAM_ATTENTION", "cudnn-v1")
     monkeypatch.setattr(preferences, "load_result", lambda _p: pytest.fail("--defaults read preferences"))
     launch.configure(["--defaults", "--compilation", "eager"])
     assert preferences.LOADER_EXECUTION_ERROR_VARIABLE not in os.environ
-    assert os.environ["LOCAL_DIFFUSION_ATTENTION"] == "cudnn-v1"
-    assert os.environ["LOCAL_DIFFUSION_COMPILATION"] == "eager"
+    assert os.environ["AURADREAM_ATTENTION"] == "cudnn-v1"
+    assert os.environ["AURADREAM_COMPILATION"] == "eager"
     assert preferences.startup_overrides()["compilation"] == "--compilation"
 
 
 def test_other_explicit_checkpoint_sets_aside_entire_v2_loader_choice():
     preferences.save(database(), selected({"compilation": "regional-v1"}, preload=True))
     launch.configure(["--model", OTHER])
-    assert os.environ["LOCAL_DIFFUSION_MODEL_ID"] == OTHER
+    assert os.environ["AURADREAM_MODEL_ID"] == OTHER
     assert all(name not in os.environ for name in VARIABLES[1:6])
 
 
@@ -230,13 +230,13 @@ def test_menu_other_checkpoint_drops_only_saved_recipe_not_explicit_component(mo
     number = str(1 + [entry.repo for entry in launch.CHECKPOINTS].index(OTHER))
     answers = iter(["", number, ""])
     launch.configure(args, ask=lambda _p: next(answers), out=io.StringIO())
-    assert "LOCAL_DIFFUSION_COMPILATION" not in os.environ
-    assert os.environ.get("LOCAL_DIFFUSION_ATTENTION") == ("cudnn-v1" if explicit_attention else None)
-    assert "LOCAL_DIFFUSION_PRELOAD" not in os.environ
+    assert "AURADREAM_COMPILATION" not in os.environ
+    assert os.environ.get("AURADREAM_ATTENTION") == ("cudnn-v1" if explicit_attention else None)
+    assert "AURADREAM_PRELOAD" not in os.environ
 
 
-@pytest.mark.parametrize("variable,value", [("LOCAL_DIFFUSION_COMPILATION", ""), ("LOCAL_DIFFUSION_COMPILATION", "future"),
-                                           ("LOCAL_DIFFUSION_ATTENTION", " native "), ("LOCAL_DIFFUSION_ATTENTION", "hostile" * 1000)],
+@pytest.mark.parametrize("variable,value", [("AURADREAM_COMPILATION", ""), ("AURADREAM_COMPILATION", "future"),
+                                           ("AURADREAM_ATTENTION", " native "), ("AURADREAM_ATTENTION", "hostile" * 1000)],
                          ids=["empty-compilation", "unknown-compilation", "whitespace-attention", "long-attention"])
 def test_invalid_explicit_execution_keeps_cold_browser_configuration_but_blocks_loader(monkeypatch, variable, value):
     monkeypatch.setenv(variable, value)
@@ -257,8 +257,8 @@ def test_server_and_standalone_cli_share_explicit_recipe_flags():
 
     parsed = generate._build_parser().parse_args(["fixture", "--compilation", "regional-v1", "--attention", "native"])
     launch.apply_env(parsed)
-    assert os.environ["LOCAL_DIFFUSION_COMPILATION"] == "regional-v1"
-    assert os.environ["LOCAL_DIFFUSION_ATTENTION"] == "native"
+    assert os.environ["AURADREAM_COMPILATION"] == "regional-v1"
+    assert os.environ["AURADREAM_ATTENTION"] == "native"
 
 
 def test_config_import_is_frozen_cold_and_does_not_bind_compiler_caches(tmp_path):
@@ -276,10 +276,10 @@ assert not any(name.startswith(('TORCHINDUCTOR_', 'TRITON_CACHE_')) for name in 
 print(json.dumps({'execution': settings.loader_execution.model_dump(exclude_none=True), 'error': settings.loader_execution_error}))
 '''
     env = {key: value for key, value in os.environ.items()
-           if not key.startswith(("LOCAL_DIFFUSION_", "TORCHINDUCTOR_", "TRITON_CACHE_"))}
-    env.update(LOCAL_DIFFUSION_MODEL_ID=MODEL, LOCAL_DIFFUSION_QUANT="fp8", LOCAL_DIFFUSION_OFFLOAD="model",
-               LOCAL_DIFFUSION_COMPILATION="regional-v1", LOCAL_DIFFUSION_ATTENTION="native",
-               LOCAL_DIFFUSION_DB_PATH=str(tmp_path / "unused.db"))
+           if not key.startswith(("AURADREAM_", "TORCHINDUCTOR_", "TRITON_CACHE_"))}
+    env.update(AURADREAM_MODEL_ID=MODEL, AURADREAM_QUANT="fp8", AURADREAM_OFFLOAD="model",
+               AURADREAM_COMPILATION="regional-v1", AURADREAM_ATTENTION="native",
+               AURADREAM_DB_PATH=str(tmp_path / "unused.db"))
     result = subprocess.run([sys.executable, "-c", script], cwd=Path(__file__).resolve().parents[1],
                             env=env, capture_output=True, text=True, timeout=20)
     assert result.returncode == 0, result.stderr

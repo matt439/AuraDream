@@ -1,4 +1,4 @@
-// Local Diffusion's page script: panel persistence, Reset, sticky placement and tips.
+// Auradream's page script: panel persistence, Reset, sticky placement and tips.
 // Declarations only; state.js has the shared-global load-order contract.
 'use strict';
 
@@ -13,7 +13,7 @@
 // only when it is the one they were set on. Resume is never remembered: a box
 // that came back ticked the next evening would silently skip cells of a grid
 // the user did not mean to continue.
-const PANEL_KEY = 'local-diffusion.panel.v1';
+const PANEL_KEY = 'auradream.panel.v1';
 const LEGACY_PANEL_KEYS = ['krea.panel.v1'];
 const PANEL_FIELDS = [
   'prompt', 'negative', 'width', 'height', 'seed', 'batch', 'runs', 'lora', 'loraScale',

@@ -21,7 +21,7 @@ The design in one paragraph: the backend resets PyTorch's CUDA peak
 counters at the top of each `generate()` call and reads
 `max_memory_allocated` and `max_memory_reserved` when it returns; the job
 worker and the CLI hand the pair to `storage.save_image`, which writes two
-new nullable columns and two keys in the PNG's `local-diffusion` chunk; the
+new nullable columns and two keys in the PNG's `auradream` chunk; the
 facts' Created row shows it beside the duration. It is a *result*, like
 `duration_ms`: no part of the reproduction set, `CellKey`, `run_id`,
 `applied()` or duplicate detection, and not searchable. A row or PNG from

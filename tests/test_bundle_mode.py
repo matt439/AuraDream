@@ -210,7 +210,7 @@ def test_actual_windows_ntfs_installation_is_exclusive_idempotent_and_binds_dest
     before = path.read_bytes()
     again = mode.install(tmp_path, other_servers_stopped=True)
     assert not again.created and again.mode == result.mode and path.read_bytes() == before
-    assert list(tmp_path.glob(".local-diffusion.bundle-leases.*.part")) == []
+    assert list(tmp_path.glob(".auradream.bundle-leases.*.part")) == []
 
 
 @WINDOWS
@@ -278,7 +278,7 @@ def test_existing_final_name_wins_publication_race_without_overwrite(tmp_path, m
     with pytest.raises(FileExistsError):
         mode.install(tmp_path, other_servers_stopped=True)
     assert (tmp_path / mode.MARKER_NAME).read_bytes() == foreign
-    assert list(tmp_path.glob(".local-diffusion.bundle-leases.*.part")) == []
+    assert list(tmp_path.glob(".auradream.bundle-leases.*.part")) == []
 
 
 @WINDOWS
@@ -370,7 +370,7 @@ def test_fsync_failure_leaves_manual_archives_and_no_published_marker(tmp_path, 
         mode.install(tmp_path, other_servers_stopped=True)
     assert not (tmp_path / mode.MARKER_NAME).exists()
     assert manual.read_bytes() == b"unchanged manual archive"
-    assert list(tmp_path.glob(".local-diffusion.bundle-leases.*.part")) == []
+    assert list(tmp_path.glob(".auradream.bundle-leases.*.part")) == []
 
 
 @WINDOWS
@@ -508,3 +508,9 @@ def test_fresh_owned_process_discovers_marker_and_holds_native_lease_for_asgi_li
         if receipt_started:
             receipt_path.write_text(json.dumps({**receipt, "events": events, "state": "finished",
                                                "passed": passed, "owned_child_exit": child.returncode}), encoding="utf-8")
+
+
+def test_marker_name_and_format_are_frozen_from_the_old_name():
+    # Installed destinations and their receipts predate the rename to Auradream.
+    assert mode.MARKER_NAME == "local-diffusion.bundle-leases.json"
+    assert mode._FORMAT == "local-diffusion.shared-bundle-leases"

@@ -89,7 +89,7 @@ def create_router(
     async def gallery(
         # A sheet asks for a whole run at once - up to a full grid - where the grid
         # view pages. The rows are small; the thumbnails load lazily either way.
-        # The ceiling follows LOCAL_DIFFUSION_MAX_GRID_IMAGES, which /api/status publishes, so
+        # The ceiling follows AURADREAM_MAX_GRID_IMAGES, which /api/status publishes, so
         # the sheet's one-page request cannot be refused by the server that sized it.
         limit: int = Query(48, ge=1, le=max(1024, max_grid_images)),
         offset: int = Query(0, ge=0),

@@ -1,4 +1,4 @@
-// Local Diffusion's page script: contact-sheet rendering and navigation.
+// Auradream's page script: contact-sheet rendering and navigation.
 // Declarations only; state.js has the shared-global load-order contract.
 'use strict';
 

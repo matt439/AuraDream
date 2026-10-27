@@ -110,7 +110,7 @@ def test_catalogue_refuses_unknown_loading_options(client, fake, monkeypatch, qu
 
 def test_status_and_catalogue_report_this_starts_overrides(client, monkeypatch):
     assert client.get("/api/status").json()["startup_overrides"] == {}
-    overrides = {"model_id": "--model", "quantization": "LOCAL_DIFFUSION_QUANT"}
+    overrides = {"model_id": "--model", "quantization": "AURADREAM_QUANT"}
     monkeypatch.setattr(main, "_startup_overrides", overrides)
     assert client.get("/api/status").json()["startup_overrides"] == overrides
     assert client.get("/api/models").json()["startup_overrides"] == overrides
@@ -159,7 +159,7 @@ def test_same_checkpoint_new_quantization_reloads_and_records_actual_quantizer(c
     assert first["run_id"] != last["run_id"]
     assert last["quantization"] == "int8"
     with Image.open(store.settings.outputs_dir / last["filename"]) as image:
-        assert json.loads(image.info["local-diffusion"])["quantization"] == "int8"
+        assert json.loads(image.info["auradream"])["quantization"] == "int8"
     assert fake.loads == 1
 
 
@@ -216,7 +216,7 @@ def test_switch_updates_defaults_saved_metadata_and_exact_gallery_scope(client, 
     assert record["quantization"] == initial["quantization"]
     assert record["run_id"] != old_record["run_id"]
     with Image.open(store.settings.outputs_dir / record["filename"]) as image:
-        metadata = json.loads(image.info["local-diffusion"])
+        metadata = json.loads(image.info["auradream"])
     assert (metadata["model"], metadata["steps"], metadata["mu"]) == (
         ANIMAGINE, profile["steps"], None,
     )
@@ -604,10 +604,11 @@ def test_switch_names_a_model_request_that_outlasts_its_wait(client, fake, monke
     _switch(client, ANIMAGINE)
 
 
-def test_old_browser_revision_cannot_submit_settings_to_the_new_model(client, fake):
+@pytest.mark.parametrize("header", ["X-Auradream-Model-Revision", "X-Local-Diffusion-Model-Revision"])
+def test_old_browser_revision_cannot_submit_settings_to_the_new_model(client, fake, header):
+    # The second name is a page loaded before the rename to Auradream.
     initial = client.get("/api/status").json()
     current = _switch(client, ANIMAGINE)
-    header = "X-Local-Diffusion-Model-Revision"
     stale = client.post(
         "/api/generate", json=PAYLOAD, headers={header: str(initial["model_revision"])},
     )
@@ -629,7 +630,7 @@ def test_routes_that_read_no_checkpoint_ignore_the_revision_header(client, fake,
     initial = client.get("/api/status").json()
     _switch(client, ANIMAGINE)
     value = str(initial["model_revision"]) if revision == "stale" else revision
-    headers = {"X-Local-Diffusion-Model-Revision": value}
+    headers = {"X-Auradream-Model-Revision": value}
     for path in (
         "/api/status", "/api/models", "/api/gallery", "/api/runs", "/api/jobs",
         "/api/gallery/bundles/status",
@@ -737,7 +738,7 @@ def test_stale_gallery_confirmation_and_switch_do_not_act_on_the_new_selection(c
     # The old and new gallery happen to have the same count: count checking
     # alone would accept this confirmation against a different image.
     assert client.get("/api/gallery/unstarred").json()["unstarred"] == 1
-    headers = {"X-Local-Diffusion-Model-Revision": str(initial["model_revision"])}
+    headers = {"X-Auradream-Model-Revision": str(initial["model_revision"])}
     deleted = client.delete("/api/gallery/unstarred?expected=1", headers=headers)
     assert deleted.status_code == 409, deleted.text
     switched = client.post("/api/model/switch", json={"model_id": TURBO}, headers=headers)
@@ -767,7 +768,7 @@ def test_switch_rechecks_revision_after_a_slow_request_body(fake):
                 content=slow_body(),
                 headers={
                     "Content-Type": "application/json",
-                    "X-Local-Diffusion-Model-Revision": str(initial["model_revision"]),
+                    "X-Auradream-Model-Revision": str(initial["model_revision"]),
                 },
             ))
             try:

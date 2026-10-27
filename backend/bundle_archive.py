@@ -25,7 +25,10 @@ from .bundle_images import _inspect_mask, _inspect_source
 from .metadata import edit_from_json
 
 
-_FORMAT = "local-diffusion-gallery"
+_FORMAT = "auradream-gallery"
+# Bundles written before the rename to Auradream carry the old id; they
+# import unchanged (version 1 and 2 alike).
+_LEGACY_FORMATS = frozenset({"local-diffusion-gallery"})
 _DATABASE = "database.sqlite3"
 _MANIFEST = "manifest.json"
 _DECODE_BUDGET = 1024 * 1024 * 1024
@@ -182,9 +185,9 @@ def _verify_archive(path: Path, destination: Path | None = None, *, password: st
                 if info.compress_size > info.file_size + info.file_size // 1000 + 1024:
                     raise BundleError(f"{info.filename} is stored larger than its contents")
             manifest = json.loads(archive.read(_MANIFEST))
-            if (not isinstance(manifest, dict) or manifest.get("format") != _FORMAT
+            if (not isinstance(manifest, dict) or manifest.get("format") not in {_FORMAT, *_LEGACY_FORMATS}
                     or type(manifest.get("version")) is not int or manifest["version"] not in (1, 2)):
-                raise BundleError("this is not a supported Local Diffusion bundle")
+                raise BundleError("this is not a supported Auradream bundle")
             if backup_receipts.MARKER in manifest or managed is not None:
                 try:
                     marker = backup_receipts.read_marker(manifest.get(backup_receipts.MARKER))

@@ -178,7 +178,7 @@ def test_journal_write_failure_preserves_previous_bytes_and_owned_temp_cleanup(t
     receipts.append(db, one)
     path = receipts.path_for(db)
     before = path.read_bytes()
-    unrelated = tmp_path / ".local-diffusion.backup-receipts.unrelated.tmp"
+    unrelated = tmp_path / ".auradream.backup-receipts.unrelated.tmp"
     unrelated.write_bytes(b"keep")
     two = fact(tmp_path / "archives", identity=replace(IDENTITY, operation_id=OTHER), name="two.zip")
 
@@ -189,7 +189,7 @@ def test_journal_write_failure_preserves_previous_bytes_and_owned_temp_cleanup(t
     with pytest.raises(OSError):
         receipts.append(db, two)
     assert path.read_bytes() == before
-    assert list(tmp_path.glob(".local-diffusion.backup-receipts.*.tmp")) == [unrelated]
+    assert list(tmp_path.glob(".auradream.backup-receipts.*.tmp")) == [unrelated]
 
 
 def test_missing_replaced_changed_and_wrong_destination_files_match_no_receipt(tmp_path):
@@ -222,3 +222,16 @@ def test_archive_changed_while_hashing_is_refused(tmp_path, monkeypatch):
 
     monkeypatch.setattr(receipts.os, "fstat", changed)
     assert not receipts.matches_current(one, Path(one.directory))
+
+
+def test_a_journal_named_before_the_rename_is_used_in_place(tmp_path):
+    db = tmp_path / "gallery.db"
+    one = fact(tmp_path / "archives")
+    receipts.append(db, one)
+    legacy = tmp_path / "local-diffusion.backup-receipts-gallery.db.json"
+    receipts.path_for(db).rename(legacy)
+    two = fact(tmp_path / "archives", identity=replace(IDENTITY, operation_id=OTHER), name="two.zip")
+    receipts.append(db, two)
+    assert receipts.load(db, GALLERY) == (one, two)
+    assert receipts.path_for(db) == legacy
+    assert not (tmp_path / "auradream.backup-receipts-gallery.db.json").exists()

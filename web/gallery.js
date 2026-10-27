@@ -1,4 +1,4 @@
-// Local Diffusion's page script: gallery paging, cards and keyboard navigation.
+// Auradream's page script: gallery paging, cards and keyboard navigation.
 // Declarations only; state.js has the shared-global load-order contract.
 'use strict';
 
@@ -182,7 +182,7 @@ function watchMore() {
 // default) or the card filled and the picture cut to its middle (cover).
 // This browser's choice, remembered apart from the panel - Reset is the
 // panel's and leaves it - every access in try/catch (remembered/remember).
-const CARD_VIEW_KEY = 'local-diffusion.gallery.v1';
+const CARD_VIEW_KEY = 'auradream.gallery.v1';
 const CARD_VIEW = { density: ['m', 's'], fit: ['contain', 'cover'] };
 const cardView = { density: 'm', fit: 'contain' };
 
@@ -249,7 +249,7 @@ function armMore() {
 // contact sheet is closed: a sheet is laid out for the stage's whole width,
 // so the page goes back to one column for it and lands on it (setSheet).
 // The prompt check, open, takes the column's place (style.css).
-const BESIDE_KEY = 'local-diffusion.gallery-beside';
+const BESIDE_KEY = 'auradream.gallery-beside';
 const BESIDE_MEDIA = '(min-width: 2000px)';
 // Whether it is in effect, which the stage's class says to the stylesheet.
 let besideOn = false;

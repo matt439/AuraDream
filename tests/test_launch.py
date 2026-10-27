@@ -32,14 +32,14 @@ def never_ask(_prompt: str) -> str:
 def clean_env(monkeypatch, tmp_path):
     # Save and restore explicitly. `monkeypatch.delenv` records nothing for a
     # variable that was absent - the normal case - so a configure() that then
-    # wrote LOCAL_DIFFUSION_MODEL_ID leaked it into every test collected afterwards.
+    # wrote AURADREAM_MODEL_ID leaked it into every test collected afterwards.
     import os
 
-    names = ("LOCAL_DIFFUSION_MODEL_ID", "LOCAL_DIFFUSION_QUANT", "LOCAL_DIFFUSION_OFFLOAD", "LOCAL_DIFFUSION_PRELOAD")
+    names = ("AURADREAM_MODEL_ID", "AURADREAM_QUANT", "AURADREAM_OFFLOAD", "AURADREAM_PRELOAD")
     saved = {name: os.environ.get(name) for name in names}
     for name in names:
         os.environ.pop(name, None)
-    monkeypatch.setenv("LOCAL_DIFFUSION_DB_PATH", str(tmp_path / "local-diffusion.db"))
+    monkeypatch.setenv("AURADREAM_DB_PATH", str(tmp_path / "auradream.db"))
     yield
     for name, value in saved.items():
         if value is None:
@@ -54,7 +54,7 @@ def test_enter_three_times_keeps_the_shipped_defaults(clean_env):
 
 
 def test_the_environment_is_the_default(clean_env):
-    env = {"LOCAL_DIFFUSION_MODEL_ID": TURBO, "LOCAL_DIFFUSION_QUANT": "int8", "LOCAL_DIFFUSION_OFFLOAD": "sequential"}
+    env = {"AURADREAM_MODEL_ID": TURBO, "AURADREAM_QUANT": "int8", "AURADREAM_OFFLOAD": "sequential"}
     choice = launch.prompt(ask=answers("", "", ""), out=io.StringIO(), env=env, linux=False)
     assert choice == launch.Choice(TURBO, "int8", "sequential")
 
@@ -108,17 +108,17 @@ def test_int4_names_the_older_cards_repo(clean_env):
 
 
 def test_a_lite_repo_in_the_environment_marks_its_family_and_format(clean_env):
-    env = {"LOCAL_DIFFUSION_MODEL_ID": TURBO_LITE.replace("nvfp4", "int4"), "LOCAL_DIFFUSION_QUANT": "nunchaku"}
+    env = {"AURADREAM_MODEL_ID": TURBO_LITE.replace("nvfp4", "int4"), "AURADREAM_QUANT": "nunchaku"}
     out = io.StringIO()
     choice = launch.prompt(ask=answers("", "", "", ""), out=out, env=env, linux=True)
-    assert choice.model_id == env["LOCAL_DIFFUSION_MODEL_ID"]
+    assert choice.model_id == env["AURADREAM_MODEL_ID"]
     assert choice.quantization == "nunchaku"
 
 
 def test_nunchaku_is_not_offered_off_linux(clean_env):
     out = io.StringIO()
     choice = launch.prompt(
-        ask=answers("", "", ""), out=out, env={"LOCAL_DIFFUSION_QUANT": "nunchaku"}, linux=False
+        ask=answers("", "", ""), out=out, env={"AURADREAM_QUANT": "nunchaku"}, linux=False
     )
     assert "nunchaku" not in out.getvalue().split("Checkpoint")[0]
     assert choice.quantization == "fp8", "an unofferable default falls back to fp8"
@@ -140,7 +140,7 @@ def test_an_unrecognised_id_in_the_environment_survives_bare_enters(clean_env):
     # An id the catalogue does not know - typed at "another repo id" last time,
     # or a local directory - used to leave the marker on FLUX, so the three
     # Enters the header invites started a 32 GB download of the wrong model.
-    env = {"LOCAL_DIFFUSION_MODEL_ID": "nobody/whatever"}
+    env = {"AURADREAM_MODEL_ID": "nobody/whatever"}
     out = io.StringIO()
     choice = launch.prompt(ask=answers("", "", ""), out=out, env=env, linux=False)
     assert choice.model_id == "nobody/whatever"
@@ -196,9 +196,9 @@ def test_menu_flag_asks_and_sets_the_environment(clean_env):
     assert choice is not None
     import os
 
-    assert os.environ["LOCAL_DIFFUSION_MODEL_ID"] == TURBO
-    assert os.environ["LOCAL_DIFFUSION_QUANT"] == "fp8"
-    assert os.environ["LOCAL_DIFFUSION_OFFLOAD"] == "model"
+    assert os.environ["AURADREAM_MODEL_ID"] == TURBO
+    assert os.environ["AURADREAM_QUANT"] == "fp8"
+    assert os.environ["AURADREAM_OFFLOAD"] == "model"
 
 
 def test_no_arguments_on_a_terminal_never_asks(clean_env):
@@ -209,15 +209,15 @@ def test_any_argument_skips_the_menu(clean_env):
     import os
 
     assert launch.configure(["--model", TURBO], ask=never_ask, interactive=True) is None
-    assert os.environ["LOCAL_DIFFUSION_MODEL_ID"] == TURBO
-    assert "LOCAL_DIFFUSION_QUANT" not in os.environ, "what the flags do not name is left to config.py"
+    assert os.environ["AURADREAM_MODEL_ID"] == TURBO
+    assert "AURADREAM_QUANT" not in os.environ, "what the flags do not name is left to config.py"
 
 
 def test_defaults_flag_skips_the_menu_and_touches_nothing(clean_env):
     import os
 
     assert launch.configure(["--defaults"], ask=never_ask, interactive=True) is None
-    assert "LOCAL_DIFFUSION_MODEL_ID" not in os.environ
+    assert "AURADREAM_MODEL_ID" not in os.environ
 
 
 def test_without_a_terminal_there_is_no_menu(clean_env):
@@ -238,7 +238,7 @@ def test_the_cli_shares_the_flags(clean_env):
     launch.apply_env(args)
     import os
 
-    assert (os.environ["LOCAL_DIFFUSION_MODEL_ID"], os.environ["LOCAL_DIFFUSION_QUANT"], os.environ["LOCAL_DIFFUSION_OFFLOAD"]) == (
+    assert (os.environ["AURADREAM_MODEL_ID"], os.environ["AURADREAM_QUANT"], os.environ["AURADREAM_OFFLOAD"]) == (
         TURBO,
         "int8",
         "none",
@@ -254,3 +254,43 @@ def test_a_lite_id_spelled_by_hand_reaches_the_menu(clean_env):
     for fmt in ("nvfp4", "int4"):
         choice = launch.prompt(ask=answers("nunchaku", fmt, number, ""), out=io.StringIO(), env={}, linux=True)
         assert choice.model_id == f"lite-infer/ERNIE-Image-Turbo-nunchaku-lite-{fmt}-bnb4-text-encoder"
+
+
+def test_legacy_variables_are_named_once_and_never_read(monkeypatch, caplog):
+    # A clean break: LOCAL_DIFFUSION_* is not read, only named at a start.
+    monkeypatch.setattr(launch, "_legacy_env_warned", False)
+    env = {"LOCAL_DIFFUSION_QUANT": "fp8", "AURADREAM_PORT": "7860", "LOCAL_DIFFUSION_DB_PATH": "x.db"}
+    assert launch.legacy_env_names(env) == ["LOCAL_DIFFUSION_DB_PATH", "LOCAL_DIFFUSION_QUANT"]
+    with caplog.at_level("WARNING"):
+        assert launch.warn_legacy_env(env=env)
+        assert not launch.warn_legacy_env(env=env)  # once a process
+    [record] = caplog.records
+    assert record.getMessage() == (
+        "ignored LOCAL_DIFFUSION_DB_PATH, LOCAL_DIFFUSION_QUANT: Local Diffusion is now "
+        "Auradream and reads only AURADREAM_* variables; set AURADREAM_DB_PATH, "
+        "AURADREAM_QUANT instead"
+    )
+
+
+def test_no_legacy_variables_no_warning(monkeypatch, caplog):
+    monkeypatch.setattr(launch, "_legacy_env_warned", False)
+    with caplog.at_level("WARNING"):
+        assert not launch.warn_legacy_env(env={"AURADREAM_QUANT": "fp8"})
+    assert caplog.records == []
+
+
+
+def test_no_source_reads_a_legacy_variable():
+    # Only the warning above names LOCAL_DIFFUSION_; no code reads one.
+    from pathlib import Path
+
+    root = Path(__file__).resolve().parent.parent
+    sources = [
+        *(root / "backend").rglob("*.py"), *(root / "tools").glob("*.py"),
+        *(root / "tools").glob("*.mjs"), *(root / "wsl").glob("*.sh"), *(root / "bin").iterdir(),
+    ]
+    readers = [
+        p.relative_to(root).as_posix() for p in sources
+        if p.is_file() and "LOCAL_DIFFUSION_" in p.read_text(encoding="utf-8") and p.name != "launch.py"
+    ]
+    assert readers == []

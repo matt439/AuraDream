@@ -55,7 +55,7 @@ def test_preview_applied_settings_and_public_identity_survive_png_and_resume(cli
     assert (row["model_id"], row["steps"], row["guidance_scale"]) == (PREVIEW_MODEL_ID, 30, 4)
     assert (row["negative_prompt"], row["true_cfg"], row["mu"]) == ("blurry", 4, None)
     with Image.open(store.settings.outputs_dir / row["filename"]) as image:
-        metadata = json.loads(image.info["local-diffusion"])
+        metadata = json.loads(image.info["auradream"])
     assert metadata["model"] == PREVIEW_MODEL_ID
     for key in ("steps", "guidance_scale", "negative_prompt", "true_cfg", "mu", "seed"):
         assert metadata[key] == row[key], key

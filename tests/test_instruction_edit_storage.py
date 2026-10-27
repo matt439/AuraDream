@@ -129,7 +129,7 @@ def test_conflicting_stored_pass_refuses_before_inserting(store, change):
 @pytest.mark.parametrize("edit", [{"source": 1}, {"recipe": "future"}, False, []])
 def test_png_settings_refuse_malformed_edit_before_a1111_fallback(edit):
     with pytest.raises(png_settings.PngSettingsError):
-        png_settings.record({"local-diffusion": json.dumps({"edit": edit}),
+        png_settings.record({"auradream": json.dumps({"edit": edit}),
                              "parameters": "direct\nSteps: 1, Seed: 1, Size: 512x512"}, "edit.png")
 
 

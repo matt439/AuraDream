@@ -38,7 +38,7 @@ def _metadata(path):
 
 
 def _rewrite(path, meta):
-    path.write_bytes(reindex._with_local_diffusion_metadata(path.read_bytes(), meta))
+    path.write_bytes(reindex._with_auradream_metadata(path.read_bytes(), meta))
 
 
 def _destination(store, monkeypatch, tmp_path):
