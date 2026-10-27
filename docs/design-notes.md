@@ -11849,8 +11849,9 @@ finding's have a Show. The comparison's always-run Original box carries the
 
 ### Open questions from the analyser
 
-These are decisions rather than implementation defects. The omission-warning
-policy below is indexed as `PA#11`. Historical `PA#10` labels were used for
+These record policy decisions rather than implementation defects. The
+omission-warning policy below was resolved as `PA#11` on 2026-10-27.
+Historical `PA#10` labels were used for
 both the completed 2026-10-25 warning and the completed 2026-10-26 hybrid-prompt
 fix; refer to those completed changes by name and date, not as open rows.
 
@@ -11867,9 +11868,12 @@ fix; refer to those completed changes by name and date, not as open rows.
   lighthouse's mood; `zzkx (oc)`, a reorder and `zzkx oc (qqvr series)`
   silent), with stand-in prompts for an escape, underscore, case, spacing
   or weight difference, also silent; a CPU replay of the 19 saved SDXL
-  critiques flags exactly the 8. Not re-run on the card. Still open,
-  `PA#11`, a decision for Matt: whether such a rewrite should also be set aside
-  rather than offered with the finding.
+  critiques flags exactly the 8. Not re-run on the card. **Decision,
+  2026-10-27 (`PA#11`):** Matt chose to keep the rewrite available with the
+  warning. The omission finding remains informational: it does not block
+  Use rewrite or remove the Rewrite comparison option. The check is a
+  lexical heuristic, not proof that meaning was lost or preserved. This
+  keeps the existing behavior; no implementation change is needed.
 - Resolved 2026-10-17: the tag autocomplete wrote Danbooru names with A1111
   escapes - `tags.display_tag` turned `(` into `\(` - to match the authors'
   own examples (Animagine's has them). Diffusers never unescapes, so CLIP

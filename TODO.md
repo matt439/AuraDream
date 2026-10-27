@@ -8,17 +8,17 @@ The maintainer's working backlog for this personal project: it records what is p
 
 **Aim (2026-10-18):** keep useful work ready for Matt's common workstation tasks. [Reported use](docs/design/preferences.md) guides priority; it does not approve the candidate redesign.
 
-**Ready backlog (updated 2026-10-27):** the remaining `OPEN` row, `DEV#4`, awaits restored browser access. Performance source and bounded diagnostics presentation are built; `PERF#1`, `PERF#3` and `PERF#4` are CARD. Marian's token boundary, portable screenshots, the classic-script guard and the complete pinned type gate are built and checked. The four feature plans are written. `DEV#4`'s diagnostics and native Node API preflight are built; its Linux browser qualification awaits WSL service access. [Tooling results](docs/plan-tooling.md).
+**Ready backlog (updated 2026-10-27):** the remaining `OPEN` row, `DEV#4`, awaits restored browser access. Performance source and bounded diagnostics presentation are built; `PERF#1`, `PERF#3` and `PERF#4` are CARD. Marian's token boundary, portable screenshots, the classic-script guard and the complete pinned type gate are built and checked. The speed and backup plans are written. `DEV#4`'s diagnostics and native Node API preflight are built; its Linux browser qualification awaits WSL service access. [Tooling results](docs/plan-tooling.md).
 
 **Performance stages:** `PERF#1` ([compilation](docs/plan-regional-compilation.md)), then `PERF#3` ([attention](docs/plan-attention-backends.md)) and `PERF#4` ([caching](docs/plan-step-caching.md)). Unavailable performance configuration/settings/status/UI are built with Eager defaults and closed execution guards. Composer/replay resolution, first-call diagnostics and Models/job-progress presentation, request-driven FBC and conservative attention-environment refusal are built with synthetic coverage. Subsequent performance work is toolchain/card qualification and nonempty release admission. Corrected browser validation is blocked by an actual Windows access denial. Default-off backups, explicit shared mode/retention and credential source/stubs are built; actual credential/recovery qualification remains. No real gallery was activated. `PERF#2` still waits on `PERF#1`; source implementation is separate from the remaining layout trials and RAM-loader card check.
 
-**Needs Matt:** workbench task trials (`DEV#1`), hands-on accessibility/desktop checks (`UI#7`) and intended-user Windows credential/recovery qualification (`GAL#6`, source/stubs built; no real vault accessed). Four decisions remain: SDXL weighting (`GEN#20`), whether to plan instruction editing (`INP#11`) or a detailer (`INP#12`), and whether to withhold critic rewrites that lose user content (`PA#11`). Whole-app layout implementation waits for its trials; it remains a design hypothesis.
+**Needs Matt:** workbench task trials (`DEV#1`), hands-on accessibility/desktop checks (`UI#7`) and intended-user Windows credential/recovery qualification (`GAL#6`, source/stubs built; no real vault accessed). The four decisions were answered 2026-10-27: SDXL weighting is deferred because Matt does not write weighted prompts (`GEN#20`); the requested instruction-editing and detailer plans are written (`INP#11`, `INP#12`), with implementation unscheduled; critic rewrites stay available with the omission warning (`PA#11`, closed in its owner). Whole-app layout implementation waits for its trials; it remains a design hypothesis.
 
 **Card prerequisite:** the quantizing load's RAM fix is implemented but its real Windows peak is unverified (`GEN#22`). Start with a separately approved cold fp8 FLUX.1 Krea dev load; each other checkpoint still needs its own measured load and render. Earlier guard stops remain historical evidence, not measurements of the fixed loader.
 
 **GPU runs are Matt's to run or OK, never past the 16 GB card** (every `CARD` row). Check the checkpoint's measured peaks in `docs/verified.md` first; a run that spills into shared memory proves only that it doesn't fit.
 
-Matt's approved [shortcut and compact-setup stages](docs/plan-shortcut-workflow.md) and earlier workflow/Bundles fixes remain complete. This audit scopes existing tooling proposals and planning work; speed defaults, unattended backup policy and the edit features remain unsettled in their owners. Deferred features remain deferred.
+Matt's approved [shortcut and compact-setup stages](docs/plan-shortcut-workflow.md) and earlier workflow/Bundles fixes remain complete. This audit scopes existing tooling proposals and planning work; speed defaults and unattended backup policy remain unsettled in their owners. The edit plans do not commission implementation or card runs. Deferred features remain deferred.
 
 ## Product design
 
@@ -47,7 +47,7 @@ Matt's approved [shortcut and compact-setup stages](docs/plan-shortcut-workflow.
 
 ## Inpainting, outpainting and edits
 
-**Owner:** [docs/plan-inpainting.md](docs/plan-inpainting.md#phases) and [docs/plan-outpainting.md](docs/plan-outpainting.md#phases), their Phases; what was built differently is in the design notes' [Inpainting](docs/design-notes.md#inpainting) and [Outpainting](docs/design-notes.md#outpainting). `INP#11` and `INP#12`: the [2026-10-25 review](docs/review-2026-10-25.md#edits---matts-call).
+**Owner:** [docs/plan-inpainting.md](docs/plan-inpainting.md#phases) and [docs/plan-outpainting.md](docs/plan-outpainting.md#phases), their Phases; what was built differently is in the design notes' [Inpainting](docs/design-notes.md#inpainting) and [Outpainting](docs/design-notes.md#outpainting). `INP#11` and `INP#12`: the [instruction-editing plan](docs/plan-instruction-editing.md) and [detailer plan](docs/plan-detailer.md), requested 2026-10-27.
 
 | id | status | sev | size | item |
 |---|---|---|---|---|
@@ -55,8 +55,8 @@ Matt's approved [shortcut and compact-setup stages](docs/plan-shortcut-workflow.
 | `INP#6` | DEFERRED | LOW | M+card | Phase 5, Qwen-Image under Nunchaku (WSL), only if the inpaint class runs over the Nunchaku transformer at all. |
 | `INP#9` | DEFERRED | LOW | M | Phase 6, the masked area only (`padding_mask_crop` at a working size, a recorded `mask_crop`); not on Z-Image, whose class lacks it. Also for large SDXL outpaint canvases. |
 | `INP#10` | DEFERRED | LOW | M | Outpaint, later if wanted: the server's fill shown in the frame (kept for later, 2026-10-17), an outpaint over a painted mask, a second fill. |
-| `INP#11` | DECISION | LOW | XL+card | Whether to plan editing an image by instruction (FLUX.1 Kontext [dev]; Qwen-Image-Edit under Nunchaku): a new pass kind from a gallery source, recorded in the chunk and key. [10-25 R9](docs/review-2026-10-25.md#r9-edit-an-image-by-instruction). |
-| `INP#12` | DECISION | LOW | L+card | Whether to plan a face and hand detailer (detect, mask per box, the existing inpaint); first, a detector whose licence fits Apache-2.0 (Ultralytics is AGPL-3.0). [10-25 R10](docs/review-2026-10-25.md#r10-a-face-and-hand-detailer). |
+| `INP#11` | DEFERRED | LOW | XL+card | Instruction-editing plan written at Matt's request 2026-10-27; implementation unscheduled. First stage freezes the gallery-source recipe, editor capability, geometry and compatibility contract. [Plan](docs/plan-instruction-editing.md#stages-and-completion-criteria). |
+| `INP#12` | DEFERRED | LOW | L+card | Face/hand detailer plan written at Matt's request 2026-10-27; implementation unscheduled. First stage qualifies detector code/weight terms, packaging and detection usefulness. [Plan](docs/plan-detailer.md#stages-and-completion-criteria). |
 
 ## Generation, jobs and models
 
@@ -68,7 +68,7 @@ Matt's approved [shortcut and compact-setup stages](docs/plan-shortcut-workflow.
 | `GEN#8` | DEFERRED | LOW | L | U61 part B: one's own photo or sketch as a reference (import route, a source marker through storage, reindex and reruns; add, drop and paste). Matt deferred it 2026-10-05; only when he raises it. [References](docs/design-notes.md#reference-images-by-gallery-id). |
 | `GEN#15` | CARD | LOW | S+card | Peak memory per image: phase 3's FLUX.1 Krea [dev] render, the recorded peak beside `nvidia-smi` and shared memory; load recheck first (`GEN#22`). [Plan](docs/plan-peak-vram.md). |
 | `GEN#16` | CARD | LOW | S+card | Generate then refine: phase 3's FLUX.1 Krea dev night at 1.5x, peak of the alternation and the pair's time; load recheck first (`GEN#22`). [Plan](docs/plan-then-refine.md). |
-| `GEN#20` | DECISION | LOW | L+card | Whether to plan opt-in A1111 weighting and 77-token chunking on SDXL; only if Matt writes weighted prompts. [10-24 G10](docs/review-2026-10-24.md#g10-a1111-style-weighting-and-long-prompts-on-sdxl). |
+| `GEN#20` | DEFERRED | LOW | L+card | Opt-in A1111 weighting and 77-token chunking on SDXL, deferred by Matt 2026-10-27 because he does not write weighted prompts; revisit on request. [10-24 G10](docs/review-2026-10-24.md#g10-a1111-style-weighting-and-long-prompts-on-sdxl). |
 | `GEN#22` | CARD | MED | M+card | The quantizing load's RAM peak (about 46 GiB at the load, 2026-10-25) is fixed in the loader: unquantized tensors kept every bf16 shard mapped, and `loading.checkpoint_files_released` now lets each go. Re-run a cold fp8 FLUX.1 Krea dev load on Windows and record its peak, then the FLUX-family card rows it unblocks. [The quantizing load's RAM peak](docs/design-notes.md#the-quantizing-loads-ram-peak). |
 
 ## Speed
@@ -97,7 +97,6 @@ Matt's approved [shortcut and compact-setup stages](docs/plan-shortcut-workflow.
 | id | status | sev | size | item |
 |---|---|---|---|---|
 | `PA#9` | DEFERRED | LOW | L | Scoring comparison images automatically with a VLM (does each element appear); accuracy unmeasured. |
-| `PA#11` | DECISION | LOW | S | Whether a critic rewrite that loses user tags/content should be withheld or remain offered with its info finding; the omission warning is already built. [Decision](docs/design-notes.md#open-questions-from-the-analyser). |
 
 ## The page
 
@@ -128,12 +127,13 @@ Each review's remaining work is indexed above; closed findings stay in their own
 | 2026-10-05 areas | 84 fixed, A68 partly by decision; the integration review's K1-K5 fixed. |
 | 2026-10-12 | R1-R53 fixed; F1-F5, F7-F13 and F15-F19 built. F6's supported inpaint/outpaint paths are built; remaining families/measurements are `INP`/`CARD`. F14 was qualified on the card 2026-10-21; F5's age-scoped emptying was built 2026-10-19 (`GAL#5`). |
 | 2026-10-24 | G1 smoke runner and G2 lint/CI built the same day; G5 choices, G6 snippets, G7 queue, G8 size/crop and G9 help built 2026-10-25/26 ([choices](docs/plan-random-prompt-variables.md), [snippets](docs/plan-prompt-snippets.md), [queue](docs/plan-queue-controls.md), [size/crop](docs/plan-size-axis-crop-anchor.md), [help](docs/plan-shortcuts.md)); G3, G4 and G10 indexed above; the rest recorded as not taken. |
-| 2026-10-25 | R1-R10 indexed above. Tooling has [execution stages](docs/plan-tooling.md); speed/backups have CPU-only planning starts. Edits remain Matt's decisions. |
+| 2026-10-25 | R1-R10 indexed above. Tooling has [execution stages](docs/plan-tooling.md); speed/backups have CPU-only planning starts. Matt requested both edit plans 2026-10-27; their implementation remains unscheduled. |
 | 2026-10-26 workflow | Three reproduced findings fixed and qualified: mixed prompt prose (`PA#10`), incomplete numbers (`GEN#24`) and unseen queued outcomes (`GEN#25`). [Evidence and results](docs/review-2026-10-26-ux.md). |
 | 2026-10-26 keyboard | All three approved stages (`UI#17`-`UI#19`) fixed and qualified, including fast routes and compact setup. [Evidence](docs/plan-shortcut-workflow.md). |
 | 2026-10-26 sizing/Bundles | Password association (`UI#14`), clear-count explanation (`UI#15`) and frequent secondary target sizing (`UI#16`) fixed and qualified. [Evidence and results](docs/review-2026-10-26-sizing-bundles.md). |
 | 2026-10-26 TODO audit | [Owner/code reconciliation](docs/review-2026-10-26-todo.md): Marian chunk truncation (`GEN#26`), portable screenshots (`DEV#7`), restored critic decision (`PA#11`) and bounded tooling/planning stages. |
 | 2026-10-26 overnight | `GEN#26`, `DEV#5`-`DEV#7` built and locally qualified; all four feature plans written. [Tooling evidence](docs/plan-tooling.md). Linux browser qualification remains `DEV#4`; no hosted/GPU acceptance is claimed. |
+| 2026-10-27 decisions | Matt deferred `GEN#20`; the requested [instruction-editing](docs/plan-instruction-editing.md) and [detailer](docs/plan-detailer.md) plans are written, without implementation or card runs. `PA#11` closed by keeping critic rewrites available with the existing [omission warning](docs/design-notes.md#open-questions-from-the-analyser). |
 
 ---
 
