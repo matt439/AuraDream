@@ -577,7 +577,9 @@ scope; no overnight quality sweep follows from this plan.
 This remains an **XL plus card** feature estimate from the originating review,
 not a measured delivery time. Starting it is commissioned; that does not
 authorize stage 3's model/card runs. Stages 0-2 are built, and the pinned
-configs are qualified. Stage 3 needs Matt's separate approval after `GEN#22`.
+configs are qualified. Stage 3's first trial and bounded pair ran on the card
+2026-10-27 (`docs/verified.md`, "Instruction edit"); stage 4 waits on review
+of those numbers.
 Stage 4 still has to finish the replay producers (Re-render and More seeds)
 and the catalogue entry before the feature can be called portable and
 replayable on the real server. Detector work belongs to the [detailer plan](plan-detailer.md),

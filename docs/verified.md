@@ -1612,6 +1612,73 @@ schnell outpaint (their 2026-10-25 sessions stopped at the RAM guard during
 the load); the outpaint's seam by number on FLUX.1. Evidence is in
 `%TEMP%/local-diffusion-inpaint-card/` with the inpaint's.
 
+## Instruction edit
+
+### FLUX.1 Kontext [dev], stage 3's first trial (2026-10-27)
+
+`INP#11` stage 3, run unattended with Matt's approval after `GEN#22`. The
+loader order was the plan's ("Stage 3's loader order"). Only `CONFIG_PATHS`
+were fetched at `KONTEXT_V1.revision` (`24e9ded…`), and
+`require_pinned(validate_configs(...))` passed before anything else moved.
+Then `FluxKontextPipeline.download` fetched the weights at that revision
+(506 s, into the Hugging Face cache; the repo's licence was already
+accepted). `FluxKontextPipeline.from_pretrained(revision=...)` ran inside
+`loading.weights_loading()` and `loading.checkpoint_files_released(True)`,
+with `loading.quantization_config` (fp8 per component),
+`loading.place_pipeline` (model offload) and VAE slicing and tiling. The
+loaded class was `FluxKontextPipeline` with `vae_scale_factor` 8. The edits
+went through the repository's own `DiffusersBackend.generate` →
+`_edit_images` with source binding by `instruction_edit_admission.bind_request`.
+The gate was opened only by a subclass in the harness, as
+`tests/test_instruction_edit_call.py` does. The repository's gate, its load
+holds and `CHECKPOINTS` are unchanged, so the real server still refuses.
+
+Environment: Windows 11, RTX 5080, Python 3.13.15, torch 2.13.0+cu130,
+diffusers 0.40.0, transformers 5.16.1, torchao 0.18.0, main at 343f8b7.
+Recipe `kontext-v1`, fp8, model offload, Eager, no critic, a scratch gallery
+and outputs directory. Sampled every 0.25 s; the guards were 4 GiB free RAM
+and a 1 GiB rise in shared GPU memory, and neither tripped. It started from
+40.9 GiB free (28.6 GiB committed of 85.6) with the card at 1,340 MiB and
+shared GPU memory at 0.05 GiB; there was 42.5 GiB free when the load began.
+
+The source was a synthetic, owned 1024x1024 picture planted in the scratch
+gallery as image 1: sky, grass, a yellow sun, a house with a red roof and a
+red ball. PNG sha256 `85fd9772a503c2c6d1cb525d2bd9616efa1c878a43327e11c6ee1758f420984f`,
+pixels `289dada683104cc114bb01b6b14952a1055a7978742f1d8ce88a4d1f946542c9`.
+1:1, so the recipe's 512x512 working and output size. Every edit ran
+28 steps at guidance 2.5, one image.
+
+| What | Result |
+| --- | --- |
+| Load | 38.1 s from disk; peak 28.8 GiB working set (the OS's own peak 29.2) and 35.4 GiB private, 15.2 GiB free at the lowest; after it 20.3 GiB working set, 26.5 private, 52.2 GiB committed |
+| First edit ("Change the red ball to a blue ball.", seed 12345) | 29.3 s, the first step 7.0 s (the transformer onto the card), then 0.73-0.75 s a step; pixels `68b864f60dc6734a40695efba9161824fdd114af57b0d1830ba97b593d7822e8`, saved as row 2 |
+| Each edit's memory | 12.00 GiB allocated, 12.55 reserved at the peak; 14,500 MiB whole-card by `nvidia-smi`; shared GPU memory 0.11-0.13 GiB throughout (no spill); the process at most 20.3 GiB working set, 40.0 private, 22.7 GiB free at the lowest |
+| Replay (the same request and seed again) | 26.8 s, pixel-identical to the first edit (largest difference 0) |
+| Cancel (`should_cancel` true from step 10, seed 777) | `Cancelled` at step 10, 12.8 s in; 0.04 GiB allocated afterwards, and the next edit ran normally |
+| The pair: the two instructions at seeds 12345 and 777 | 25.8-26.1 s each; blue ball 777 `21d4523b…`, snow 12345 `18ecb485…`, snow 777 `2b5ae4a9…`; rows 4-6 |
+| Unload | 2.3 s; the pipeline gone, 0.03 GiB allocated, the card back to 1,678 MiB; the process kept 18.2 GiB working set, 27.6 private (it exited after) |
+
+What the edits look like, against the source:
+
+- **Blue ball:** both seeds turned the red ball into a clean, flat blue ball
+  and kept the house, sun, sky and grass. There is drift, though: the ball
+  came out larger and moved up and to the right, the house moved a little,
+  and the horizon rose by about 3-4% of the frame.
+- **Snow:** both seeds covered the grass with snow, but they went further
+  than asked. The red ball became a white snowball and the roof took snow:
+  a snowy red roof on seed 12345, and a wholly white one on seed 777.
+
+So the first slice fits the card with about 1.5 GB of headroom at 512x512,
+reproduces bit for bit within a process, cancels and unloads cleanly. It
+follows a simple instruction's intent, but it does not leave the rest of the
+picture alone.
+
+Not measured: any other size or aspect, a batch, int8, sequential or no
+offload, a real photograph as the source, replay across two processes, the
+real server's route and page (still held by the gate), and WSL. Evidence:
+`events.jsonl`, `samples.jsonl`, the PNGs, `sheet.png` (source and the four
+edits) and the scratch gallery in `%TEMP%/auradream-inp11-stage3/`.
+
 ## Prompt analyser
 
 Measured 2026-09-27 on the real server (`--quant fp8 --offload model`, port
