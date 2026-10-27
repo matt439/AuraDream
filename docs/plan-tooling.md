@@ -255,6 +255,50 @@ skips). That run included `smoke-execution-selector`, `-reuse`,
 browser checks the denial had left unrun. Linux Chrome and hosted CI (`DEV#4`)
 remain unqualified: the WSL denial was not retried.
 
+**Linux Chrome and the browser job (2026-10-27, stages 2-3 started).** Run in
+a cloud container (no GPU, no weights) as a non-root user, since Chrome
+refuses to start as root without `--no-sandbox` and the harness's flags were
+not changed: Chrome for Testing 153.0.8010.12, Node 22.22.0, 4 cores,
+`run_smoke.py --all --jobs 3`, about 12 minutes for the 77 rows. Native
+`fetch`/`WebSocket` passed the harness's preflight.
+
+- With the container's own fonts 59 of 77 passed. Almost every failure was
+  text measured to fit: the page's stack is `"Inter", "Segoe UI", system-ui`,
+  Windows draws it in Segoe UI, and Linux drew it in Inter (installed there)
+  or DejaVu Sans, both wider.
+- `tools/smoke_fonts.py` installs Microsoft's Selawik (Segoe UI's open
+  replacement, pinned by SHA-256) as Segoe UI through a fontconfig file and
+  hides Inter. A family alias alone did not work: Chrome rejects a fontconfig
+  substitute whose name differs, so the scan-time rule renames the family.
+  Selawik's hhea line metrics are 1.2 em where Windows uses its usWin 1.33 em
+  pair, which shortened every `line-height: normal` box (the adapter select
+  in `smoke-wide`); the installed copies carry the usWin pair in hhea.
+  With these, 71 of 77 passed locally.
+- Two smokes assumed the Windows host or an idle machine, and were fixed:
+  `smoke-model-switch` expected the fake's Windows timing basis (the fake
+  answers for `sys.platform`; on Linux a Windows FP8 timing is "timed on
+  Windows"), and `smoke-more-seeds` read its count line and Cancel's title
+  without waiting, where under load the fake's timings give an "about 0s"
+  estimate and the first job can end before the title is read.
+- The `browser` job (`ci.yml`) runs the table on the hosted runner's
+  `google-chrome`, sandboxed as the runner user, after `smoke_fonts.py`, and
+  uploads `smoke-artifacts` on failure. Its first hosted run passed 73 of 77
+  in 778 s and uploaded the artifact (PR #15).
+- Still failing on both: `smoke-lightbox` (the 600 px letterbox room is 77 px
+  where it expects over 100: the head wraps onto a row of its own below the
+  actions), `smoke-select` (the QHD count's tail is 0.85 px short) and
+  `smoke-control-sizing` (ERNIE's Reset wraps under the Prompt caption by
+  about a pixel). Selawik matches Segoe UI closely, not exactly, and symbols
+  Segoe UI lacks fall back to DejaVu Sans on Linux, much wider than Segoe UI
+  Symbol on Windows (`⌦` measures 1.41 em). `tools/font-widths.json` logs
+  every character the page draws, in the font Segoe UI resolves to, so one
+  Windows run gives the widths to freeze into the stand-in.
+
+Remaining for `DEV#4`: the Windows width table and the stand-in built from it,
+then the whole table green on the hosted job, and a deliberate failing smoke
+shown to fail the job with downloadable diagnostics (the first hosted run's
+real failures already did both).
+
 ## Backend type checking
 
 `DEV#6` · implemented and qualified locally, 2026-10-26. The pinned gate

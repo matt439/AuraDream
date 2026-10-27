@@ -6269,8 +6269,15 @@ A docs-only tip on a code-changing PR does not bypass its tests.
 
 Other changes and manual runs get the CPU suite on Ubuntu
 (`uv sync --locked --group dev`, the pinned type gate, `pytest -n auto`); on main (pushes and by
-hand) it runs on Windows too, about five times slower. The smokes, which
-need a browser, stay local. `tests/conftest.py` makes
+hand) it runs on Windows too, about five times slower. A separate
+`browser` job (same condition, never holding up `test`) runs the whole smoke
+table on the runner's Linux Chrome (`run_smoke.py --all --jobs 3`) and
+uploads each smoke's result, browser log, screenshots and failed fake's log
+as `smoke-artifacts` when it fails. Before it, `tools/smoke_fonts.py`
+installs Selawik as Segoe UI with Windows line metrics and hides Inter
+(`FONTCONFIG_FILE`), so the page is drawn as on Windows; `tools/font-widths.json`
+logs every page character's advance width, to compare the stand-in with
+Windows. Windows stays where the smokes are written. `tests/conftest.py` makes
 `torch.cuda.is_current_stream_capturing` answer False on a driverless Windows
 machine, where torch's native call crashes the worker. It runs the suite with
 `pytest -n auto` (pytest-xdist, one worker per core). Before it,

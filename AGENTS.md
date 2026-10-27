@@ -356,7 +356,9 @@ on Linux for every push and pull request. Documentation-only changes run
 just lint, without app/tokenizer installs; executable files under `docs/`
 still get tests. Other changes and manual runs get the pinned type gate
 and `pytest -n auto` on Linux,
-and on Windows too for main (pushes and by hand; about 12 minutes). Its runners are
+and on Windows too for main (pushes and by hand; about 12 minutes); a separate
+`browser` job runs the smoke table on Linux Chrome (fonts from
+`tools/smoke_fonts.py`), uploading diagnostics on failure. Its runners are
 slow and have no GPU driver: a test that races a clock (a time budget, a
 cell to skip or pause mid-run) needs seconds of margin, not milliseconds.
 `tools/fetch_tokenizers.py` fetches the real-tokenizer tests' files first,
