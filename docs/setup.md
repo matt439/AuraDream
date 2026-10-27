@@ -56,7 +56,12 @@ The project was called Local Diffusion, in a repository named
 ImageGeneratorLocal, until 2026-10-27. A clone made before then needs only
 its remote pointed at the new address
 (`git remote set-url origin https://github.com/matt439/AuraDream.git`); the
-folder can keep its old name.
+folder can keep its old name. A folder moved or renamed to match needs two
+things done once: point the user PATH entry at the new `bin\`, and recreate
+the virtual environment (delete `.venv`, then `uv sync`), whose console
+scripts still name the old folder's Python. The default gallery, LoRAs
+and settings move with the folder; an `AURADREAM_*` path variable that
+names the old folder needs the new one.
 
 `uv sync` creates `.venv` in the folder and installs torch from the CUDA 13
 index, so it downloads a few GB. Check that torch sees the card:
@@ -179,5 +184,6 @@ install made, which stays in use); Illustrious, WAI and RouWei each need about
 - To start from any folder, add the repository's `bin\` folder to your
   user PATH and run `auradream` (`auradream-wsl` for WSL 2; they were
   `local-diffusion` and `local-diffusion-wsl` before the rename, and a
-  PATH entry for an existing clone's `bin\` needs no change)
+  PATH entry for an existing clone's `bin\` needs no change unless the
+  folder itself moved)
   ([details](../README.md#quick-start)).

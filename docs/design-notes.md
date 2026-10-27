@@ -61,8 +61,8 @@ torchao `AOBaseConfig` **instance** (`Float8WeightOnlyConfig()`), not a string.
 ## The quantizing load's RAM peak
 
 Found on the card 2026-10-25 (TODO `GEN#22`; `verified.md`, Checkpoints,
-"RAM at the load"); fixed in the loader 2026-10-25, not yet re-run on the
-card. Every cold fp8 or int8 load tried that day of a FLUX.1-, Krea 2-,
+"RAM at the load"); fixed in the loader 2026-10-25 and re-run on the card
+2026-10-27: FLUX.1 Krea dev fp8 peaked at 27.9 GiB working set, 35.4 private. Every cold fp8 or int8 load tried that day of a FLUX.1-, Krea 2-,
 klein 9B- or Qwen-Image-sized checkpoint on Windows took the process to
 about 46 GiB working set (53-62 GiB private) and stopped at the harnesses'
 4 GiB free-RAM floor before a weight reached the card, from 49-50 GiB free
@@ -102,7 +102,8 @@ shard: roughly 25-28 GB rather than 46+. On the CPU
 (`tests/test_quantized_load_ram.py`, and a 2.1 GiB bf16 FLUX-shaped
 transformer in 400 MB shards measured by RSS) the peak fell from +3.56 to
 +1.78 GiB at fp8 and the resident size after the load from +3.29 to +1.19
-GiB; int8 the same. What this machine's Windows loads now take is the
+GiB; int8 the same. On the card (2026-10-27) the FLUX.1 Krea dev fp8 load
+peaked at 27.9 GiB working set; the other checkpoints' loads are still the
 card's to say (`CARD#4`, `#6`, `#12` and the rows behind them).
 
 ## mu, sigmas and the shift that lands

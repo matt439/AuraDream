@@ -737,9 +737,9 @@ after a reboot, with no guard, and earlier fp8 loads completed too:
 schnell's on 2026-10-05 and Krea 2 Turbo's in 2026-09 (the Checkpoints
 rows above), so the 46 GiB figure describes the machine as it was that
 day, not a limit of the checkpoints. The loader was fixed 2026-10-25 to
-release those shard mappings; its real Windows RAM peak has not been
-remeasured (`GEN#22`). The BF16 sequential loads above avoid that
-quantizing path. None of the guard stops above measures the fixed loader.
+release those shard mappings and remeasured 2026-10-27 (below). The BF16
+sequential loads above avoid that quantizing path. None of the guard stops
+above measures the fixed loader.
 Loads that completed: klein base 4B 22.9 GiB working set; ERNIE fp8
 35.4-36.0 GiB RSS, 14 GiB free at the lowest; Z-Image Turbo fp8 18.4-18.6
 GiB working set (23-25 GiB private), and under offload none 31.3 GiB private with 7.2 GiB free at the lowest (a
@@ -749,6 +749,34 @@ WSL download's page cache was also holding Windows RAM then: WSL's
 `zimage-qwen/` in the cards directory, each guard stop a `ram_guard` (or
 `TRIP`) row in its `results.jsonl` or `harness.jsonl` (card11-critic's in
 `runs_phase3_stdout.txt`).
+
+### RAM at the load, the fixed loader (2026-10-27)
+
+One cold load of FLUX.1 Krea dev at fp8 with model offload, through
+`get_backend("diffusers").load()` (`loading.checkpoint_files_released`,
+343f8b7), then one render and an unload, in one process against a scratch
+gallery, `HF_HUB_OFFLINE=1`, sampled every 0.25 s. It started from 44.7 GiB
+free (23.4 GiB committed of an 85.6 GiB limit; the card at 1,353 MiB, shared
+GPU memory 0.07 GiB) with the usual apps resident and WSL stopped. Neither
+guard (4 GiB free RAM, a 1 GiB rise in shared GPU memory) tripped.
+
+| What | Result |
+| --- | --- |
+| Load | 69.7 s from cold, the weights from the page cache's state of the day |
+| Peak during the load | 27.9 GiB working set (the OS's own peak 28.4) and 35.4 GiB private, at its end (72.7 s); 14.2 GiB free at the lowest |
+| Resident after the load | 19.6 GiB working set, 26.8 GiB private, 23.3 GiB free |
+| Render | 1024x1024, 28 steps, CFG 3.5, seed 12345, 45.5 s (1.33-1.45 s a step; the first carries the transformer onto the card) |
+| During the render | 19.6 GiB working set at most; private rose to 39.9 GiB near its end; 22.5 GiB free at the lowest |
+| Card | 12.00 GiB allocated, 12.63 reserved at the peak; 14,947 MiB whole-card by `nvidia-smi`; shared GPU memory 0.07-0.15 GiB throughout, no spill |
+| Unload | 2.3 s; 17.0 GiB working set and 26.6 private left in the process (allocator and file caches; the process exited after) |
+| Image | PNG sha256 `17c6871f98129a9e3bdb5ee04241d2c811e3c1f4b417d2592810565b46841124`, pixels sha256 `016cd669f418c1251a0c43e42362bf9c6c8d5a456fb50f9c34f38e4b25fcff9f`; a clean render of the prompt ("a red fox sitting in a snowy pine forest at dawn, soft golden light through the trees, photograph") |
+
+So the fix holds on Windows: the load's peak fell from the 46+ GiB working
+set (53-62 GiB private) at which every 2026-10-25 load stopped to 27.9 GiB
+working set and 35.4 private, inside the design notes' expected 25-28 GB.
+Other checkpoints and int8 are not measured by this; each keeps its own row.
+Evidence: `samples.jsonl`, `events.jsonl` and the PNG in
+`%TEMP%/auradream-gen22-20261027/`.
 
 ## Behaviour
 
