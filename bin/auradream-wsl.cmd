@@ -1,5 +1,5 @@
 @echo off
-rem Start the Auradream server in WSL 2 (4-bit Nunchaku) from any folder.
+rem Start the AuraDream server in WSL 2 (4-bit Nunchaku) from any folder.
 rem Runs wsl/serve.sh in a login shell so ~/.local/bin (uv) is on PATH.
 rem Arguments pass through to backend.main: --defaults, --menu, --model ...
 setlocal

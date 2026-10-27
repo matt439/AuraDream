@@ -1,4 +1,4 @@
-// Auradream's page script: tag validation chips and guide presets.
+// AuraDream's page script: tag validation chips and guide presets.
 // Declarations only; state.js has the shared-global load-order contract.
 'use strict';
 

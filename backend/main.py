@@ -326,7 +326,7 @@ async def lifespan(app: FastAPI):
     await asyncio.to_thread(prompt_encoding.unload)
 
 
-app = FastAPI(title="Auradream", version="0.1.0", lifespan=lifespan)
+app = FastAPI(title="AuraDream", version="0.1.0", lifespan=lifespan)
 app.add_middleware(api_bundles.GalleryAdmission, get_manager=lambda: bundle_manager)
 
 
@@ -442,7 +442,7 @@ async def hold_model_for_request(request: Request, call_next):
             {"detail": "the checkpoint is switching; wait for the switch to finish"},
             status_code=409,
         )
-    # The old name is read for a page loaded before the rename to Auradream.
+    # The old name is read for a page loaded before the rename to AuraDream.
     expected = (request.headers.get("x-auradream-model-revision")
                 or request.headers.get("x-local-diffusion-model-revision"))
     if expected is not None:

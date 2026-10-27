@@ -1,4 +1,4 @@
-# Auradream: full-app design
+# AuraDream: full-app design
 
 **2026-10-18 · candidate design · personal workstation only.** This expands
 the feature-level [Continue a run design](../plan-continue-run.md) into an
@@ -8,7 +8,7 @@ the proposed interface as built or usability-tested.
 
 ## Product brief
 
-Auradream should let Matt turn an idea into useful images, run bounded
+AuraDream should let Matt turn an idea into useful images, run bounded
 experiments, judge the differences, improve keepers, and preserve the result
 without losing the settings or context needed to continue later.
 

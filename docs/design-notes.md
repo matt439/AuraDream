@@ -6,7 +6,7 @@ wrong before the rule existed, and the evidence, in the notes kept while the
 code was written. Read the section for an area before changing it. The
 measurements quoted here are indexed by date and checkpoint in `verified.md`.
 
-## The project-owned namespace follows Auradream
+## The project-owned namespace follows AuraDream
 
 **Only checkpoint and vendor names use Krea.** App-owned configuration uses
 `AURADREAM_*`; the default database is `auradream.db`; WSL state
@@ -16,8 +16,8 @@ still accepts the chunks of earlier names, so existing images survive
 without making the old names the write path.
 
 The project wrote its PNG record as `krea` at first, then was Local
-Diffusion, and was renamed Auradream on 2026-10-27, with its repository
-moving to `github.com/matt439/Auradream`. Whatever a gallery, backup or cache
+Diffusion, and was renamed AuraDream on 2026-10-27, with its repository
+moving to `github.com/matt439/AuraDream`. Whatever a gallery, backup or cache
 already holds under the old name keeps working, by one of three means
 (`backend/legacy_names.py` explains the choice):
 
@@ -4614,7 +4614,7 @@ would close all three; it would need a new column and is not done.
 **Two writers, one INSERT.** `save_image` and `storage.index_file` (which `reindex` calls) both go
 through `storage._insert_row` over `_COLUMNS`, so the column list exists
 once and the FTS trigger fires for both. The reindex reads
-the Auradream PNG metadata, parses `created_at` from the filename prefix
+the AuraDream PNG metadata, parses `created_at` from the filename prefix
 as UTC (mtime failing that), copies a foreign file in `.part`-then-rename
 and never over a different file of the same name, records `duration_ms=0`
 (so `step_cost_ms`'s `> 0` ignores it) and loses `favorite`, which lives in
@@ -4638,7 +4638,7 @@ reference-image ids are translated through the source-to-destination map.
 References necessarily point to images which already existed when the
 conditioned image was made; a missing or conflicting predecessor is dropped
 and counted rather than left pointing at an unrelated destination row. The
-copied PNG's Auradream text chunk is replaced with the remapped metadata by
+copied PNG's AuraDream text chunk is replaced with the remapped metadata by
 rewriting PNG chunks, not pixels. Filename uniqueness remains the idempotence
 key, and an unindexed destination file of the same name remains a conflict,
 never an overwrite.
@@ -7834,8 +7834,8 @@ could reach neither the settings that drive every job nor the viewer
 (2026-10-05 area review). The word mark is now the page's one h1, drawn as
 before (`.brand`, margin 0). Under the old name its two words met with no
 visible space, and a space of no width between them (`.brand-gap`, font-size
-0) made it read "Local Diffusion", not "LocalDiffusion"; "Auradream" is one
-word ("Aura" and an accent "dream"), so the spacer went with the rename
+0) made it read "Local Diffusion", not "LocalDiffusion"; "AuraDream" is one
+word ("Aura" and an accent "Dream"), so the spacer went with the rename
 (2026-10-27). The panel is a `<section>` named by its first
 child, an h2 "Settings" that is read and not seen (`.sr-only`,
 `aria-labelledby="panel-head"`), so it is a region landmark; as complementary
@@ -11873,7 +11873,7 @@ server never answered is the server's failure, not the critic's: it reads "The
 critic did not answer: the server did not answer." (`critiqueOffline`), and
 the status poll that answers again takes it back (`takeBackCriticOffline`), as
 every offline message is; it had stayed in the critic's block for good as "No
-answer from the Auradream server — is it still running?.".
+answer from the AuraDream server — is it still running?.".
 `critiqueFailureText` drops any closing stop, question mark or exclamation
 mark of the reason's own, so a question no longer ends in "?.".
 

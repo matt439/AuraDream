@@ -328,7 +328,7 @@ def _build_parser() -> argparse.ArgumentParser:
 
 
 def _image_settings(path: str, parser: argparse.ArgumentParser) -> dict:
-    """The Auradream record a gallery PNG carries, as a dict.
+    """The AuraDream record a gallery PNG carries, as a dict.
 
     `png_settings.image_settings`, shared with the page's Load settings from
     PNG; its refusals - a JPEG, another tool's PNG, a record that is not
@@ -972,7 +972,7 @@ def _via_server(args, parser, source, carried, mask_image, width, height, sized,
         revision = status.get("model_revision")
         if not isinstance(revision, int):
             raise _ServerError("the server's status has no model revision; update the server before using --via-server")
-        headers["X-Auradream-Model-Revision"] = str(revision)
+        headers["X-AuraDream-Model-Revision"] = str(revision)
         made_with = source.get("quantization") if source is not None else None
         if made_with and made_with != status["quantization"]:
             print(f"note: the PNG was made with quant={made_with}; the server uses {status['quantization']}, so the pixels will differ", file=sys.stderr)

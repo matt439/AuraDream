@@ -1,4 +1,4 @@
-// Auradream's page script: the watched job's progress, mirrors and Pause.
+// AuraDream's page script: the watched job's progress, mirrors and Pause.
 // Declarations only; state.js has the shared-global load-order contract.
 'use strict';
 
@@ -463,7 +463,7 @@ function jobNotificationWords(data, { atLoad = false, cancelledElsewhere = false
   if (data.stopped_by === 'budget') return ['Time budget reached', `${kept} Finish run checks what remains.`];
   if (data.stopped_by === 'shutdown') return ['Server stopped', kept];
   if (data.status === 'cancelled') return [cancelledElsewhere ? 'Cancelled elsewhere' : 'Cancelled', kept];
-  if (data.status === 'error') return [atLoad ? 'Load failed' : 'Job stopped', `${kept} Open Auradream for the error.`];
+  if (data.status === 'error') return [atLoad ? 'Load failed' : 'Job stopped', `${kept} Open AuraDream for the error.`];
   if (!made) {
     const missing = [data.failures ? `${plural(data.failures, unitWord(data))} failed.` : '', skipped].filter(Boolean).join(' ');
     return ['Nothing made', missing || 'No images were made.'];

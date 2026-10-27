@@ -1,4 +1,4 @@
-# Using Auradream
+# Using AuraDream
 
 For a first install, follow [first-time setup](setup.md); for launch options,
 sizes and environment variables, see the [README](../README.md). The [anime model guide](anime-model-guide.md) helps
@@ -177,7 +177,7 @@ other gallery (Windows and WSL keep separate ones), from a backup, or from
 another tool. It works like Reuse: the note offers **Undo**, Ctrl+Z gives
 back the prompt boxes, and a PNG made on another checkpoint says so.
 
-- An **Auradream PNG** (including one made before the rename from Local
+- An **AuraDream PNG** (including one made before the rename from Local
   Diffusion) gives back every setting it was made with:
   prompt, negative prompt, size, steps, CFG, Mu, seed and adapter. Its
   reference images come along only if this gallery holds the very same
@@ -793,7 +793,7 @@ configured server and stops if it is ready, loading or times out; use
 across the Windows/WSL boundary. Ctrl+C cancels cooperatively and preserves
 saved images. Exit codes: 0 complete, 130 cancelled, 2 bad arguments, 1 failed
 load or skipped cells, 4 server holding the GPU. Failed cells are reported
-and skipped; repeated failures stop the run. If another Auradream
+and skipped; repeated failures stop the run. If another AuraDream
 process holds the gallery (a bundle export, say) when an image is ready, the
 CLI says once that it is still waiting to save and keeps the image until the
 gallery is free; a second Ctrl+C ends it.
@@ -888,7 +888,7 @@ leaves those links empty.
 To move the whole gallery out, keep **Entire gallery**, type the displayed
 record count and press **Bundle & clear gallery** (a picked or starred
 bundle never clears anything). To protect the bundle, enter a password twice first: the bundle is
-then saved as an encrypted `.ldbundle` file that only Auradream can
+then saved as an encrypted `.ldbundle` file that only AuraDream can
 open (file names included). The password is not saved anywhere and cannot be
 recovered, and the gallery is cleared after export, so keep it safe. Finish or cancel generation first; loading and other gallery work
 must also finish before this operation can start.
@@ -927,7 +927,7 @@ Keep the server running until the operation finishes; closing the dialog or
 browser does not cancel it. **Cancel upload** stops a selected file only
 while it is still being sent (so does closing the tab then); nothing is
 imported and the partial upload is removed. Once the upload has arrived the
-import is the server's to finish. If another Auradream process (such as
+import is the server's to finish. If another AuraDream process (such as
 a running `reindex`) is using the gallery, the operation fails at once and
 can be retried when it ends. Creating and importing a bundle need free space
 for the archive and staged files: the bundle on its configured drive, database
@@ -962,8 +962,8 @@ For example, in PowerShell, persist the Windows setting and also apply it to
 the current terminal before starting the server:
 
 ```powershell
-[Environment]::SetEnvironmentVariable('AURADREAM_BUNDLES_DIR', 'D:\Auradream\bundles', 'User')
-$env:AURADREAM_BUNDLES_DIR = 'D:\Auradream\bundles'
+[Environment]::SetEnvironmentVariable('AURADREAM_BUNDLES_DIR', 'D:\AuraDream\bundles', 'User')
+$env:AURADREAM_BUNDLES_DIR = 'D:\AuraDream\bundles'
 auradream
 ```
 
@@ -1048,7 +1048,7 @@ uv run python -m backend.reindex
 uv run python -m backend.reindex --from D:\backup\outputs --database D:\backup\auradream.db
 ```
 
-Reindex rebuilds the index from Auradream PNG metadata, or copies in
+Reindex rebuilds the index from AuraDream PNG metadata, or copies in
 another gallery with `--from`. Existing filenames are skipped and conflicts
 reported without overwriting. PNG-only recovery loses favorites and durations,
 and brings images that were in the recycle bin back into the gallery.

@@ -73,7 +73,7 @@ def _rows(path: Path) -> list[dict]:
             raise BundleError("the gallery database failed its integrity check")
         columns = {r["name"] for r in conn.execute("PRAGMA table_info(images)")}
         if reindex._DB_REQUIRED - columns:
-            raise BundleError("the bundle has no usable Auradream images table")
+            raise BundleError("the bundle has no usable AuraDream images table")
         rows = [dict(r) for r in conn.execute("SELECT * FROM images ORDER BY id")]
         for row in rows:
             if (not _basename(row["filename"]) or Path(row["filename"]).suffix.lower() != ".png"

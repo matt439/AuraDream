@@ -1,4 +1,4 @@
-// Auradream's page script: picking gallery cards for an action on several images.
+// AuraDream's page script: picking gallery cards for an action on several images.
 // Declarations only; state.js has the shared-global load-order contract.
 'use strict';
 

@@ -1,4 +1,4 @@
-// Auradream's page script: generation requests and the job lifecycle.
+// AuraDream's page script: generation requests and the job lifecycle.
 // Declarations only; state.js has the shared-global load-order contract.
 'use strict';
 
@@ -393,7 +393,7 @@ async function startJob(path, payload, {
   try {
     const answer = await api(path, {
       method: 'POST',
-      headers: { 'Content-Type': 'application/json', ...(revision === null ? {} : { 'X-Auradream-Model-Revision': String(revision) }) },
+      headers: { 'Content-Type': 'application/json', ...(revision === null ? {} : { 'X-AuraDream-Model-Revision': String(revision) }) },
       body: JSON.stringify(payload),
     });
     const { job_id, seed, more = [] } = answer;

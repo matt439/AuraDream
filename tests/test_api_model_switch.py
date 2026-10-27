@@ -604,9 +604,9 @@ def test_switch_names_a_model_request_that_outlasts_its_wait(client, fake, monke
     _switch(client, ANIMAGINE)
 
 
-@pytest.mark.parametrize("header", ["X-Auradream-Model-Revision", "X-Local-Diffusion-Model-Revision"])
+@pytest.mark.parametrize("header", ["X-AuraDream-Model-Revision", "X-Local-Diffusion-Model-Revision"])
 def test_old_browser_revision_cannot_submit_settings_to_the_new_model(client, fake, header):
-    # The second name is a page loaded before the rename to Auradream.
+    # The second name is a page loaded before the rename to AuraDream.
     initial = client.get("/api/status").json()
     current = _switch(client, ANIMAGINE)
     stale = client.post(
@@ -630,7 +630,7 @@ def test_routes_that_read_no_checkpoint_ignore_the_revision_header(client, fake,
     initial = client.get("/api/status").json()
     _switch(client, ANIMAGINE)
     value = str(initial["model_revision"]) if revision == "stale" else revision
-    headers = {"X-Auradream-Model-Revision": value}
+    headers = {"X-AuraDream-Model-Revision": value}
     for path in (
         "/api/status", "/api/models", "/api/gallery", "/api/runs", "/api/jobs",
         "/api/gallery/bundles/status",
@@ -738,7 +738,7 @@ def test_stale_gallery_confirmation_and_switch_do_not_act_on_the_new_selection(c
     # The old and new gallery happen to have the same count: count checking
     # alone would accept this confirmation against a different image.
     assert client.get("/api/gallery/unstarred").json()["unstarred"] == 1
-    headers = {"X-Auradream-Model-Revision": str(initial["model_revision"])}
+    headers = {"X-AuraDream-Model-Revision": str(initial["model_revision"])}
     deleted = client.delete("/api/gallery/unstarred?expected=1", headers=headers)
     assert deleted.status_code == 409, deleted.text
     switched = client.post("/api/model/switch", json={"model_id": TURBO}, headers=headers)
@@ -768,7 +768,7 @@ def test_switch_rechecks_revision_after_a_slow_request_body(fake):
                 content=slow_body(),
                 headers={
                     "Content-Type": "application/json",
-                    "X-Auradream-Model-Revision": str(initial["model_revision"]),
+                    "X-AuraDream-Model-Revision": str(initial["model_revision"]),
                 },
             ))
             try:

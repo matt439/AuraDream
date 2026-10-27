@@ -1,4 +1,4 @@
-// Auradream's page script: Edit by instruction… - the capability the status
+// AuraDream's page script: Edit by instruction… - the capability the status
 // answers, the image menu's entry, the dialog, its preview, submission,
 // close and Reuse. Declarations only; state.js has the shared-global
 // load-order contract.

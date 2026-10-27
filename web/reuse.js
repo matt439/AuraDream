@@ -1,4 +1,4 @@
-// Auradream's page script: reusing image settings and undoing that reuse.
+// AuraDream's page script: reusing image settings and undoing that reuse.
 // Declarations only; state.js has the shared-global load-order contract.
 'use strict';
 

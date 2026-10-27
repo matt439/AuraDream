@@ -259,7 +259,7 @@ def legacy_env_names(env: Mapping[str, str] | None = None) -> list[str]:
 def legacy_env_message(names: list[str]) -> str:
     renamed = ", ".join("AURADREAM_" + name[len(LEGACY_ENV_PREFIX):] for name in names)
     return (
-        f"ignored {', '.join(names)}: Local Diffusion is now Auradream and reads "
+        f"ignored {', '.join(names)}: Local Diffusion is now AuraDream and reads "
         f"only AURADREAM_* variables; set {renamed} instead"
     )
 
@@ -450,7 +450,7 @@ def _prompt(ask: Callable[[str], str], out: TextIO, env: Mapping[str, str], linu
     current_checkpoint, current_fmt = _match(current_model)
 
     out.write(
-        "Auradream. Enter keeps the marked default. Omit --menu next "
+        "AuraDream. Enter keeps the marked default. Omit --menu next "
         "time to choose settings in the browser.\n"
     )
 

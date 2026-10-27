@@ -1,4 +1,4 @@
-// Auradream's page script: the prompt check, encoders, order and findings.
+// AuraDream's page script: the prompt check, encoders, order and findings.
 // Declarations only; state.js has the shared-global load-order contract.
 'use strict';
 

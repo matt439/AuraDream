@@ -1,4 +1,4 @@
-// Auradream's page script: size presets, the CFG note and the conditioning controls. Declarations only; state.js has
+// AuraDream's page script: size presets, the CFG note and the conditioning controls. Declarations only; state.js has
 // the load-order contract these files share.
 'use strict';
 

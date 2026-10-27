@@ -95,7 +95,7 @@ def _is_encrypted(path: Path, read_owner: bundle_leases.ArchiveRead | None = Non
 
 def _parse(header: bytes) -> tuple:
     if len(header) < HEADER_SIZE or not header.startswith(MAGIC):
-        raise CryptoError("this is not a password-protected Auradream bundle")
+        raise CryptoError("this is not a password-protected AuraDream bundle")
     magic, version, log2_n, r, p, salt, chunk, prefix, check = _HEADER.unpack(header[:HEADER_SIZE])
     # Untrusted parameters: bound scrypt's memory (128 * r * n) and the chunk size.
     if version != _VERSION:

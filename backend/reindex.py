@@ -899,7 +899,7 @@ def reindex(
             meta = None
         if meta is None:
             counts["no_metadata"] += 1
-            print(f"  skip  {path.name}: no Auradream metadata", file=out)
+            print(f"  skip  {path.name}: no AuraDream metadata", file=out)
             return
         try:
             execution = canonical_execution(meta.get("execution"))
@@ -1074,7 +1074,7 @@ def main(argv: list[str] | None = None) -> int:
         "--database",
         "--db",
         metavar="FILE",
-        help="the Auradream database belonging to --from; preserves favorites, "
+        help="the AuraDream database belonging to --from; preserves favorites, "
         "durations and remaps references",
     )
     parser.add_argument(

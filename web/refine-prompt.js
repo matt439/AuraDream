@@ -1,4 +1,4 @@
-// Auradream's page script: the Refine dialog prompt check and tag suggestions.
+// AuraDream's page script: the Refine dialog prompt check and tag suggestions.
 // Declarations only; state.js has the shared-global load-order contract.
 'use strict';
 

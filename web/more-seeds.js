@@ -1,4 +1,4 @@
-// Auradream's page script: More seeds, more images of every batch the gallery selection holds.
+// AuraDream's page script: More seeds, more images of every batch the gallery selection holds.
 // Declarations only; state.js has the shared-global load-order contract.
 'use strict';
 

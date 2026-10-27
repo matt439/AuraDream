@@ -206,7 +206,7 @@ def test_rows_are_checked_before_anything_is_read(client):
 
 def test_the_queue_is_a_model_dependent_request_and_the_preview_is_not(client, fake, store):
     a = plant(store, "red hair, long hair", seed=1)
-    stale = {"X-Auradream-Model-Revision": "999"}
+    stale = {"X-AuraDream-Model-Revision": "999"}
     body = {"swaps": SWAP, "ids": [a.id]}
     refused = client.post("/api/swap-tags", json=body, headers=stale)
     assert refused.status_code == 409 and "checkpoint changed" in refused.json()["detail"]

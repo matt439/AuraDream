@@ -30,7 +30,7 @@ from .sizes import (
 # Observe before its import without interpreting, clearing or accepting it.
 ATTENTION_ENVIRONMENT_WARNING: str | None = (
     "DIFFUSERS_ATTN_BACKEND differs from Diffusers' native default. "
-    "This external setting is not recorded as an Auradream execution recipe."
+    "This external setting is not recorded as an AuraDream execution recipe."
     if os.getenv("DIFFUSERS_ATTN_BACKEND", "native") != "native" else None
 )
 if ATTENTION_ENVIRONMENT_WARNING is not None:

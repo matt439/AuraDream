@@ -83,7 +83,7 @@ def test_one_checkpoints_images_by_its_exact_id_whichever_is_running(client, sto
     # A gallery read, not model work: answered during a switch, which refuses
     # every model-dependent route, and under a stale revision header.
     monkeypatch.setattr(main, "_switching", True)
-    stale = {"X-Auradream-Model-Revision": "-1"}
+    stale = {"X-AuraDream-Model-Revision": "-1"}
     during = client.get("/api/gallery?model=circlestone-labs/Anima", headers=stale)
     assert during.status_code == 200, during.text
     assert during.json()["total"] == 3

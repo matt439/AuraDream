@@ -159,7 +159,7 @@ def anime6b_weights(should_cancel=None):
     try:
         with tempfile.NamedTemporaryFile(dir=target.parent, prefix="anime6b-", suffix=".part", delete=False) as output:
             temporary = Path(output.name)
-            request = urllib.request.Request(ANIME6B_URL, headers={"User-Agent": "Auradream"})
+            request = urllib.request.Request(ANIME6B_URL, headers={"User-Agent": "AuraDream"})
             with urllib.request.urlopen(request, timeout=60) as response:
                 length = response.headers.get("Content-Length")
                 if length is not None and int(length) != ANIME6B_BYTES:

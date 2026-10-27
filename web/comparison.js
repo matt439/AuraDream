@@ -1,4 +1,4 @@
-// Auradream's page script: prompt-version comparisons.
+// AuraDream's page script: prompt-version comparisons.
 // Declarations only; state.js has the shared-global load-order contract.
 'use strict';
 

@@ -1,6 +1,6 @@
 """Where files written under the app's old name, Local Diffusion, keep working.
 
-The app was renamed Auradream. Everything it creates now takes the new name;
+The app was renamed AuraDream. Everything it creates now takes the new name;
 a gallery, sidecar or cache that already exists under the old one is used
 where it is. Nothing here renames, moves or writes anything:
 
@@ -23,7 +23,7 @@ where it is. Nothing here renames, moves or writes anything:
   and 40-50 GB of RAM). Each subfolder is used where it already is.
 
 So an existing install keeps its old names until its owner renames the set
-by hand (with no Auradream process running); a new one has only new names.
+by hand (with no AuraDream process running); a new one has only new names.
 Import-light on purpose: `config.py` and `startup_preferences.py` resolve the
 default database before anything else is imported.
 """

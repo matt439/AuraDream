@@ -1,4 +1,4 @@
-// Auradream's page script: the lightbox - its view, zoom, layout, walk and
+// AuraDream's page script: the lightbox - its view, zoom, layout, walk and
 // gestures. A record's facts are facts.js's; the comparison's controls, divider
 // and pass stepping lightbox-compare.js's, across CFG lightbox-cfg.js's.
 // Declarations only; state.js has the load-order contract these files share.

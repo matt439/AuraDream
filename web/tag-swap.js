@@ -1,4 +1,4 @@
-// Auradream's page script: Swap tags, a gallery selection run again with some tags swapped.
+// AuraDream's page script: Swap tags, a gallery selection run again with some tags swapped.
 // Declarations only; state.js has the shared-global load-order contract.
 'use strict';
 

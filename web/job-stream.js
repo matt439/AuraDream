@@ -1,4 +1,4 @@
-// Auradream's page script: job cancellation and the progress event stream.
+// AuraDream's page script: job cancellation and the progress event stream.
 // Declarations only; state.js has the shared-global load-order contract.
 'use strict';
 

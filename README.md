@@ -1,4 +1,4 @@
-# Auradream
+# AuraDream
 
 Run text-to-image models locally with a browser UI, live previews and a searchable
 gallery. Supports FLUX, Krea 2, Z-Image, Qwen-Image, ERNIE-Image and a range of
@@ -337,5 +337,5 @@ the selected model's terms. WAI is fetched from an unofficial community mirror; 
 [author's permissions](https://tensor.art/models/990778216270553015/WAI-illustrious-v17)
 rather than the mirror's metadata.
 
-Auradream is not affiliated with or endorsed by Black Forest Labs, Krea,
+AuraDream is not affiliated with or endorsed by Black Forest Labs, Krea,
 or any checkpoint's authors.

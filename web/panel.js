@@ -1,4 +1,4 @@
-// Auradream's page script: panel persistence, Reset, sticky placement and tips.
+// AuraDream's page script: panel persistence, Reset, sticky placement and tips.
 // Declarations only; state.js has the shared-global load-order contract.
 'use strict';
 

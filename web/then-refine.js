@@ -1,4 +1,4 @@
-// Auradream's page script: Then refine, a refine pass of every image a Generate or a grid makes.
+// AuraDream's page script: Then refine, a refine pass of every image a Generate or a grid makes.
 // Declarations only; state.js has the shared-global load-order contract.
 'use strict';
 

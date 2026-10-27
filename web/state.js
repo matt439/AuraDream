@@ -1,4 +1,4 @@
-// Auradream's page script: shared state, the element table and
+// AuraDream's page script: shared state, the element table and
 // the fetch/error helpers. index.html loads these files in order as classic
 // scripts, so they share one global scope: a top-level `let`, `const` or
 // function in any of them is visible to all the others and to a smoke step's
@@ -367,7 +367,7 @@ let submitting = false;
 const submissions = new Map();
 const jobLabels = new Map();
 const jobPlaceholders = new Map();
-// Browser storage from before the rename to Auradream, kept under
+// Browser storage from before the rename to AuraDream, kept under
 // 'local-diffusion.*': each key moved once to its 'auradream.*' name, in both
 // stores, before anything reads them - here, ahead of the tab sets below,
 // which are the first read at load (every other is app.js's boot). Moved, not
@@ -624,7 +624,7 @@ let sheetRecords = [];
 // named neither the app nor what to do. `offline` marks it, so the status poll
 // can take the page into its offline state and clear the message once the
 // server answers again.
-const OFFLINE_MESSAGE = 'No answer from the Auradream server — is it still running?';
+const OFFLINE_MESSAGE = 'No answer from the AuraDream server — is it still running?';
 // The topbar's words for that state, which the watched job's line, the
 // topbar's mirror of it and the tab's title use too while its stream
 // reconnects (job-stream.js): one phrase, not three.
@@ -637,8 +637,8 @@ async function api(path, options) {
   const revision = modelRevision;
   if (path.startsWith('/api/') && revision !== null) {
     const headers = new Headers(options?.headers);
-    if (!headers.has('X-Auradream-Model-Revision')) {
-      headers.set('X-Auradream-Model-Revision', String(revision));
+    if (!headers.has('X-AuraDream-Model-Revision')) {
+      headers.set('X-AuraDream-Model-Revision', String(revision));
     }
     options = { ...options, headers };
   }

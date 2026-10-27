@@ -1,4 +1,4 @@
-// Auradream's page script: grid requests and their preview.
+// AuraDream's page script: grid requests and their preview.
 // Declarations only; state.js has the shared-global load-order contract.
 'use strict';
 

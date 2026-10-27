@@ -1,4 +1,4 @@
-// Auradream's page script: gallery paging, cards and keyboard navigation.
+// AuraDream's page script: gallery paging, cards and keyboard navigation.
 // Declarations only; state.js has the shared-global load-order contract.
 'use strict';
 

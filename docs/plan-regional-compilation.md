@@ -94,7 +94,7 @@ refused without conversion. Resolution grants no runtime availability.
 The resolver now feeds Generate/grid, queue admission, retained-run Finish,
 backend/fake boundaries and both CLI modes before identities or source/device
 effects. Submission subtypes cannot hide an unconsumed cache choice from direct
-callers or normalization. Older Auradream PNGs and retained cells remain
+callers or normalization. Older AuraDream PNGs and retained cells remain
 explicit Eager replay; A1111 prompt/settings extraction remains fresh composer
 input. Stamped masks use narrow copies. Public nonempty guards remain closed.
 

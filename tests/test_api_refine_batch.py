@@ -305,7 +305,7 @@ def test_the_time_is_priced_per_size_from_refine_history(client, fake, store):
 
 def test_the_queue_is_a_model_dependent_request_and_the_preview_is_not(client, fake, store):
     a = plant(store, "a fox", seed=1)
-    stale = {"X-Auradream-Model-Revision": "999"}
+    stale = {"X-AuraDream-Model-Revision": "999"}
     body = {"ids": [a.id]}
     refused = client.post("/api/refine/batch", json=body, headers=stale)
     assert refused.status_code == 409 and "checkpoint changed" in refused.json()["detail"]

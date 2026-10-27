@@ -35,8 +35,8 @@ dependencies = [
 ]
 
 [project.urls]
-Repository = "https://github.com/matt439/Auradream"
-Documentation = "https://github.com/matt439/Auradream/blob/main/docs/usage.md"
+Repository = "https://github.com/matt439/AuraDream"
+Documentation = "https://github.com/matt439/AuraDream/blob/main/docs/usage.md"
 
 [dependency-groups]
 # Nothing in the app imports these; `uv run --group dev pytest` gets them.

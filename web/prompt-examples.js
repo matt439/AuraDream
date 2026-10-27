@@ -1,4 +1,4 @@
-// Auradream's page script: the Examples menu under the prompt.
+// AuraDream's page script: the Examples menu under the prompt.
 // Declarations only; its handlers are wired in app.js, and state.js has the
 // shared-global load-order contract.
 'use strict';

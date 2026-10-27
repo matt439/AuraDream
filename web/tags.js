@@ -1,4 +1,4 @@
-// Auradream's page script: prompt writes, tag autocomplete and editing.
+// AuraDream's page script: prompt writes, tag autocomplete and editing.
 // Declarations only; state.js has the shared-global load-order contract.
 'use strict';
 

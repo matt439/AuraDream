@@ -511,6 +511,6 @@ def test_fresh_owned_process_discovers_marker_and_holds_native_lease_for_asgi_li
 
 
 def test_marker_name_and_format_are_frozen_from_the_old_name():
-    # Installed destinations and their receipts predate the rename to Auradream.
+    # Installed destinations and their receipts predate the rename to AuraDream.
     assert mode.MARKER_NAME == "local-diffusion.bundle-leases.json"
     assert mode._FORMAT == "local-diffusion.shared-bundle-leases"

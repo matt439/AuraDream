@@ -132,7 +132,7 @@
   {"navigate": "http://127.0.0.1:7861/"},
   {"wait": 1200},
   {"expect": "els.prompt.value === 'remembered' && els.gridResume.checked === false"},
-  {"log": "'Pre-rename browser state migrates to the Auradream key'"},
+  {"log": "'Pre-rename browser state migrates to the AuraDream key'"},
   {"eval": "localStorage.setItem('krea.panel.v1', localStorage.getItem('auradream.panel.v1')); localStorage.removeItem('auradream.panel.v1');"},
   {"navigate": "http://127.0.0.1:7861/"},
   {"wait": 1200},
