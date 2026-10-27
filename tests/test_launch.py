@@ -267,7 +267,7 @@ def test_legacy_variables_are_named_once_and_never_read(monkeypatch, caplog):
     [record] = caplog.records
     assert record.getMessage() == (
         "ignored LOCAL_DIFFUSION_DB_PATH, LOCAL_DIFFUSION_QUANT: Local Diffusion is now "
-        "Auradream and reads only AURADREAM_* variables; set AURADREAM_DB_PATH, "
+        "AuraDream and reads only AURADREAM_* variables; set AURADREAM_DB_PATH, "
         "AURADREAM_QUANT instead"
     )
 

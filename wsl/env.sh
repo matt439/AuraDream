@@ -8,7 +8,7 @@
 # uv also has to be told where its environment is: left alone it would find the
 # Windows .venv in the project directory, judge it broken, and replace it.
 
-# Before the rename to Auradream the home was ~/local-diffusion and its gallery
+# Before the rename to AuraDream the home was ~/local-diffusion and its gallery
 # local-diffusion.db. One already there is used where it is, never moved: a
 # virtualenv does not survive a move, and the gallery's files sit beside it.
 if [ -n "${AURADREAM_WSL_HOME:-}" ]; then

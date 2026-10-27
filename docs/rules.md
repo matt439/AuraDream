@@ -552,7 +552,7 @@ Model and loader:
   References, user LoRAs and Nunchaku are unavailable for this integration.
 
 
-- App-owned names use Auradream: `AURADREAM_*`,
+- App-owned names use AuraDream: `AURADREAM_*`,
   `auradream.db`, `~/auradream`, `auradream.*` browser keys
   and the `auradream` PNG chunk. Keep Krea only in checkpoint/vendor
   names and explicit compatibility reads for pre-rename data. The
@@ -562,7 +562,7 @@ Model and loader:
   (`legacy_names.py`); browser keys move once on first read - and only
   `AURADREAM_*` variables are read. An old name whose value feeds a hash, a key derivation or a store
   outside the app stays frozen, with a comment saying so (see "The
-  project-owned namespace follows Auradream" in `design-notes.md`).
+  project-owned namespace follows AuraDream" in `design-notes.md`).
 - Quantize through `PipelineQuantizationConfig(quant_mapping=...)`, one
   `TorchAoConfig` per component from the library that owns it, each built from
   a torchao `AOBaseConfig` *instance*. The `quant_backend="torchao"` shorthand
@@ -2696,7 +2696,7 @@ Frontend and CLI:
   the box (Resume's). Red on hover is the `.ghost.danger` class (Cancel, a
   queue row's ×, Cancel queued, Delete unstarred, Reset), never every small
   ghost button. The page's one h1 is the word mark (`.brand`), one word
-  ("Aura" and an accent `<span>` "dream"), so it reads "Auradream" with no
+  ("Aura" and an accent `<span>` "Dream"), so it reads "AuraDream" with no
   spacer. The settings panel is a `<section>` named by its first
   child, an `.sr-only` h2 "Settings" (`aria-labelledby="panel-head"`).
   `#viewer` is a region named Results (`role="region"`, `aria-label`), never

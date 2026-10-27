@@ -244,18 +244,18 @@ def test_refusals_are_in_words(client, fake, store):
 
     assert refused({"Software": "GIMP", "Title": "x"}) == (
         "cat.png carries no settings this app reads (its text: Software, Title): neither "
-        "Auradream's own record nor an A1111-style 'parameters' text."
+        "AuraDream's own record nor an A1111-style 'parameters' text."
     )
     assert refused({}).startswith("cat.png carries no settings this app reads, nor any text at all")
     assert refused({"workflow": json.dumps({"nodes": []}), "prompt": json.dumps({"3": {}})}).startswith(
         "cat.png carries a ComfyUI workflow, not settings this app reads"
     )
-    assert refused({"auradream": "{not json"}) == "The Auradream metadata in cat.png is not JSON."
+    assert refused({"auradream": "{not json"}) == "The AuraDream metadata in cat.png is not JSON."
     assert refused({"auradream": "[1, 2]"}) == (
-        "The Auradream metadata in cat.png is not a settings record."
+        "The AuraDream metadata in cat.png is not a settings record."
     )
     assert refused({"auradream": json.dumps({"prompt": ""})}) == (
-        "The Auradream metadata in cat.png carries no prompt."
+        "The AuraDream metadata in cat.png carries no prompt."
     )
     assert refused({"parameters": "Negative prompt: only this\nSteps: 1, Seed: 2, Size: 512x512"}) == (
         "The 'parameters' text in cat.png carries no prompt."
@@ -280,7 +280,7 @@ def test_the_text_payload_is_capped(client, fake, store):
 def test_a_stale_page_is_refused_before_anything_is_read(client, fake, store):
     response = client.post(
         "/api/png/settings", json={"chunks": {"parameters": "a cat"}},
-        headers={"X-Auradream-Model-Revision": "999"},
+        headers={"X-AuraDream-Model-Revision": "999"},
     )
     assert response.status_code == 409
 

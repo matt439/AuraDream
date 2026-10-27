@@ -165,7 +165,7 @@ def test_another_process_holding_the_gallery_fails_the_operation_readably(client
         child.stdin.close()
         child.wait(timeout=15)
     assert result["state"] == "failed"
-    assert result["error"] == "Another Auradream process is using the gallery; try again when it finishes."
+    assert result["error"] == "Another AuraDream process is using the gallery; try again when it finishes."
 
 
 def test_a_password_without_a_utf8_form_is_refused_before_any_work(client, store):

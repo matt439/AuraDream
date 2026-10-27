@@ -1,4 +1,4 @@
-# Auradream
+# AuraDream
 
 Local text-to-image generator on an RTX 5080. FastAPI backend + vanilla JS
 frontend, no build step. The default checkpoint is **FLUX.1 Krea [dev]**
@@ -193,7 +193,7 @@ Model and loader:
   settings and saved metadata; never silently drop weights or scales.
 - `AURADREAM_QUANT=nunchaku` is Linux (WSL) only; the preflight refuses
   other pairings before any download.
-- App-owned names say Auradream (`AURADREAM_*`,
+- App-owned names say AuraDream (`AURADREAM_*`,
   `auradream.*`); Krea only in checkpoint/vendor names. Pre-rename
   `local-diffusion` names (and the older `krea` chunk) are legacy: read, or
   an existing file used where it is (`legacy_names.py`), never given to

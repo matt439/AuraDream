@@ -537,6 +537,6 @@ def test_recovery_uses_only_user_password_and_one_borrowed_full_verifier(fake, m
 
 
 def test_vault_names_are_frozen_from_the_old_name():
-    # Renaming these would orphan every credential stored before Auradream.
+    # Renaming these would orphan every credential stored before AuraDream.
     assert credentials._USERNAME == "LocalDiffusion"
     assert credentials._MAGIC == b"LocalDiffusion.AutomaticBackup.Credential.v1" + bytes(1)

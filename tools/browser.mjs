@@ -180,7 +180,7 @@ const PROFILE = `${tmpdir()}/${PREFIX}${process.pid}-${Date.now().toString(36)}$
 // Windows' Temp to 49 GiB. One untouched for six hours is no live run's - the
 // longest smoke takes minutes - so each run sweeps those first; one an orphaned
 // browser still holds stays until it has gone.
-// The sweep also takes the prefix runs used before the rename to Auradream.
+// The sweep also takes the prefix runs used before the rename to AuraDream.
 const STALE_MS = 6 * 3600 * 1000;
 const SWEPT = [PREFIX, 'local-diffusion-browser-'];
 for (const name of (() => { try { return readdirSync(tmpdir()); } catch { return []; } })()) {

@@ -28,7 +28,7 @@ _KEPT = {
 }
 for _name in [name for name in os.environ if name.startswith("AURADREAM_") and name not in _KEPT]:
     del os.environ[_name]
-# The names from before the rename to Auradream are read by nothing, but
+# The names from before the rename to AuraDream are read by nothing, but
 # importing `main` warns about any still set; the warning has its own tests.
 for _name in [name for name in os.environ if name.startswith("LOCAL_DIFFUSION_")]:
     del os.environ[_name]

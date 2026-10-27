@@ -395,7 +395,7 @@ def test_resume_against_a_busy_gallery_says_so_without_a_traceback(cli, store, m
     holder = _held_gallery(store, monkeypatch, 0.8)
     code = generate.main(["a fox", "--seed", "3", "--grid-steps", "6,8", "--resume", *SIZE, "-q"])
     assert code == 1 and cli.requests == []
-    assert "--resume: another Auradream process is using the gallery" in capsys.readouterr().err
+    assert "--resume: another AuraDream process is using the gallery" in capsys.readouterr().err
     holder.join(5)
 
 
@@ -1429,7 +1429,7 @@ def test_via_server_queues_the_plain_body_and_prints_each_url_seed_once(via_serv
         "prompt": "a fox 🦊", "steps": 7, "guidance_scale": 2.5, "true_cfg": 1.5,
         "mu": None, "num_images": 2, "runs": 3, "seed": 41,
     }
-    assert headers["X-Auradream-Model-Revision"] == str(main.model_selection.revision())
+    assert headers["X-AuraDream-Model-Revision"] == str(main.model_selection.revision())
     assert via_server.backend.seeds == [41, 43, 45]
 
 
@@ -1730,7 +1730,7 @@ def test_server_json_sends_json_and_revision_without_retrying_the_transport(monk
 
     monkeypatch.setattr(urllib.request, "urlopen", respond)
     assert generate._server_json("http://127.0.0.1:9999", "/api/generate", body={"prompt": "狐狸 🦊"},
-                                 headers={"X-Auradream-Model-Revision": "9"}) == {"job_id": "one"}
+                                 headers={"X-AuraDream-Model-Revision": "9"}) == {"job_id": "one"}
     [(request, timeout)] = calls
     assert request.get_method() == "POST" and json.loads(request.data) == {"prompt": "狐狸 🦊"}
     assert request.get_header("X-auradream-model-revision") == "9"

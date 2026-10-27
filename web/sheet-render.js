@@ -1,4 +1,4 @@
-// Auradream's page script: contact-sheet rendering and navigation.
+// AuraDream's page script: contact-sheet rendering and navigation.
 // Declarations only; state.js has the shared-global load-order contract.
 'use strict';
 

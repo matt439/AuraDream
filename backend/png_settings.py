@@ -67,9 +67,9 @@ def record(chunks: Mapping[str, Any], name: str) -> dict | None:
     try:
         meta = json.loads(raw)
     except ValueError:
-        raise PngSettingsError(f"the Auradream metadata in {name} is not JSON") from None
+        raise PngSettingsError(f"the AuraDream metadata in {name} is not JSON") from None
     if not isinstance(meta, dict):
-        raise PngSettingsError(f"the Auradream metadata in {name} is not a settings record")
+        raise PngSettingsError(f"the AuraDream metadata in {name} is not a settings record")
     try:
         if canonical_edit(meta.get("edit")) is not None:
             raise ValueError("instruction-edit settings must be reopened from the gallery image")
@@ -79,12 +79,12 @@ def record(chunks: Mapping[str, Any], name: str) -> dict | None:
             mask=meta.get("mask"), outpaint=meta.get("outpaint"),
         )
     except ValueError as exc:
-        raise PngSettingsError(f"the Auradream metadata in {name} has {exc}") from None
+        raise PngSettingsError(f"the AuraDream metadata in {name} has {exc}") from None
     return meta
 
 
 def image_settings(path: str) -> dict:
-    """The Auradream record a gallery PNG on disk carries, as a dict.
+    """The AuraDream record a gallery PNG on disk carries, as a dict.
 
     `Image.open(p).info` - not `.text`, which is a property that calls `load()`
     and decodes every pixel to answer a question the header settles. A JPEG
@@ -104,7 +104,7 @@ def image_settings(path: str) -> dict:
         raise PngSettingsError(f"cannot open {path}: {exc}") from None
     meta = record(info, path)
     if meta is None:
-        raise PngSettingsError(f"{path} carries no Auradream metadata; only this app's PNGs do")
+        raise PngSettingsError(f"{path} carries no AuraDream metadata; only this app's PNGs do")
     return meta
 
 

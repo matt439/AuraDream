@@ -1,6 +1,6 @@
 # Security
 
-Auradream is a single-user application meant to run on your own
+AuraDream is a single-user application meant to run on your own
 machine. The server binds to `127.0.0.1` by default, checks every request's
 `Host` header against `AURADREAM_ALLOWED_HOSTS`, refuses a
 state-changing request whose `Origin` names another site (requests without an
@@ -11,7 +11,7 @@ control of the gallery and of the model downloads; see the warning under
 ## Reporting a vulnerability
 
 Please report vulnerabilities privately through GitHub's
-[private vulnerability reporting](https://github.com/matt439/Auradream/security/advisories/new)
+[private vulnerability reporting](https://github.com/matt439/AuraDream/security/advisories/new)
 rather than in a public issue. Include the version (commit), the steps to
 reproduce and what an attacker gains.
 

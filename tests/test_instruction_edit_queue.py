@@ -165,7 +165,7 @@ def test_stale_model_revision_is_held_before_admission(client, fake, store, monk
 
     monkeypatch.setattr(instruction_edit_admission, "bind_request", forbidden)
     response = client.post("/api/instruction-edit", json=body(rec),
-                           headers={"X-Auradream-Model-Revision": "999999"})
+                           headers={"X-AuraDream-Model-Revision": "999999"})
     assert response.status_code == 409, response.text
     assert fake.loads == 0 and no_work(fake)
 

@@ -13,7 +13,7 @@ import pytest
 
 WARNING = (
     "DIFFUSERS_ATTN_BACKEND differs from Diffusers' native default. "
-    "This external setting is not recorded as an Auradream execution recipe."
+    "This external setting is not recorded as an AuraDream execution recipe."
 )
 KEY = "DIFFUSERS_ATTN_BACKEND"
 ROOT = Path(__file__).resolve().parents[1]

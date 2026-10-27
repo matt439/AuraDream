@@ -1,4 +1,4 @@
-// Auradream's page script: Load settings from PNG - a dropped or picked
+// AuraDream's page script: Load settings from PNG - a dropped or picked
 // PNG's text read here, its settings filled in through Reuse.
 // Declarations only; state.js has the shared-global load-order contract.
 'use strict';
@@ -78,7 +78,7 @@ let pngEpoch = 0;
 let pageDrag = false;
 
 // The keywords the server reads (api_png.py: this app's record, the legacy
-// ones - 'local-diffusion' from before the rename to Auradream, 'krea' from
+// ones - 'local-diffusion' from before the rename to AuraDream, 'krea' from
 // before that - A1111's 'parameters', ComfyUI's two to name it). Any other is
 // sent by its name alone, for the refusal's words: an XMP packet or a long
 // comment beside a settings block took the body past the server's cap.

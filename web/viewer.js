@@ -1,4 +1,4 @@
-// Auradream's page script: the results viewer and recent images.
+// AuraDream's page script: the results viewer and recent images.
 // Declarations only; state.js has the shared-global load-order contract.
 'use strict';
 

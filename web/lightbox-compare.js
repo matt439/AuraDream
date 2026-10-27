@@ -1,4 +1,4 @@
-// Auradream's page script: the lightbox's comparison - its controls,
+// AuraDream's page script: the lightbox's comparison - its controls,
 // toggles, divider and pass stepping; across CFG and steps is lightbox-cfg.js, and its
 // geometry (layoutCompare) and state block (lbCompare, closeLightbox's resets,
 // lbCfgShown's included) are lightbox.js's. Declarations only; state.js has the

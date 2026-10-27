@@ -1,4 +1,4 @@
-Auradream Anime6B adaptation attribution
+AuraDream Anime6B adaptation attribution
 
 RRDBNet: BasicSR v1.4.2 commit 651835a1b9d38dbbdaf45750f56906be2364f01a, basicsr/archs/rrdbnet_arch.py (Apache-2.0). Scale-4/six-block configuration, forward arithmetic and state-dict names retained; registry, unused scale branches and weight initialization omitted for strict checkpoint restoration.
 

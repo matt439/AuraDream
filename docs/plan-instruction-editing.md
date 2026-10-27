@@ -67,7 +67,7 @@ Installed Diffusers **0.40.0** source was inspected without loading a model:
   processor as well as tokenizer/text encoder. It derives source working
   dimensions around its own target area separately from output dimensions.
 - These signatures justify further integration work, not a claim that either
-  editor already works through Auradream's generation path. Freeze and
+  editor already works through AuraDream's generation path. Freeze and
   test the exact installed preprocessing before defining portable recipes.
 
 ## Where the current app needs a new contract

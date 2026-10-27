@@ -1,4 +1,4 @@
-// Auradream's page script: ERNIE's prompt Expand.
+// AuraDream's page script: ERNIE's prompt Expand.
 // Declarations only; its button is wired in app.js, and state.js has the
 // shared-global load-order contract.
 'use strict';

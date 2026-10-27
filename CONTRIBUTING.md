@@ -1,6 +1,6 @@
 # Contributing
 
-Auradream is a personal project, built around one workstation (an
+AuraDream is a personal project, built around one workstation (an
 RTX 5080 on Windows 11, with WSL 2 for Nunchaku). Issues and pull requests are
 welcome, but changes are judged by whether they fit that use, and GPU
 behaviour can only be confirmed on the maintainer's card.

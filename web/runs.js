@@ -1,4 +1,4 @@
-// Auradream's page script: the last-run banner, run picker and opening a sheet.
+// AuraDream's page script: the last-run banner, run picker and opening a sheet.
 // Declarations only; state.js has the shared-global load-order contract.
 'use strict';
 

@@ -1,4 +1,4 @@
-// Auradream's page script: the job queue and which job the page watches.
+// AuraDream's page script: the job queue and which job the page watches.
 // Declarations only; state.js has the shared-global load-order contract.
 'use strict';
 

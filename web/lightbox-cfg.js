@@ -1,4 +1,4 @@
-// Auradream's page script: the lightbox's comparison across CFG, and
+// AuraDream's page script: the lightbox's comparison across CFG, and
 // across steps. Declarations only; state.js has the load-order contract these
 // files share.
 'use strict';

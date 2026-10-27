@@ -1,4 +1,4 @@
-// Auradream's page script: the Inpaint dialog - opening, the mask's
+// AuraDream's page script: the Inpaint dialog - opening, the mask's
 // upload, the preview, submission and close.
 // Declarations only; state.js has the shared-global load-order contract.
 'use strict';

@@ -1,4 +1,4 @@
-// Auradream's page script: the Refine dialog, submission and source passes.
+// AuraDream's page script: the Refine dialog, submission and source passes.
 // Declarations only; state.js has the shared-global load-order contract.
 'use strict';
 

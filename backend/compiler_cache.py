@@ -166,7 +166,7 @@ def _probe(path: Path, attempt: _Attempt) -> None:
     try:
         attempt.probe_identity = _identity(os.fstat(descriptor))
         attempt.operation = "write-probe"
-        data = b"Auradream compiler cache probe\n"
+        data = b"AuraDream compiler cache probe\n"
         if os.write(descriptor, data) != len(data):
             raise OSError("Compiler cache probe write was incomplete.")
         os.fsync(descriptor)

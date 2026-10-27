@@ -48,7 +48,7 @@ def require_header_metadata(stream: IO[bytes]) -> None:
             size = min(length, 80) if kind in {b"tEXt", b"zTXt", b"iTXt"} else 0
             keyword = stream.read(size).split(b"\0", 1)[0] if size else None
             if image_data and keyword in owned:
-                raise ValueError("Auradream metadata must precede PNG image data; app text after IDAT is unsupported")
+                raise ValueError("AuraDream metadata must precede PNG image data; app text after IDAT is unsupported")
             stream.seek(length - size + 4, 1)  # Unread payload and CRC.
             if kind == b"IDAT":
                 image_data = True

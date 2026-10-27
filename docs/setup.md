@@ -47,15 +47,15 @@ is missing.
 ## 3. Get the code and install
 
 ```powershell
-git clone https://github.com/matt439/Auradream.git
-cd Auradream
+git clone https://github.com/matt439/AuraDream.git
+cd AuraDream
 uv sync
 ```
 
 The project was called Local Diffusion, in a repository named
 ImageGeneratorLocal, until 2026-10-27. A clone made before then needs only
 its remote pointed at the new address
-(`git remote set-url origin https://github.com/matt439/Auradream.git`); the
+(`git remote set-url origin https://github.com/matt439/AuraDream.git`); the
 folder can keep its old name.
 
 `uv sync` creates `.venv` in the folder and installs torch from the CUDA 13

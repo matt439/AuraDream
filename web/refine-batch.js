@@ -1,4 +1,4 @@
-// Auradream's page script: Mass refine, a refine pass of every image the gallery selection holds.
+// AuraDream's page script: Mass refine, a refine pass of every image the gallery selection holds.
 // Declarations only; state.js has the shared-global load-order contract.
 'use strict';
 

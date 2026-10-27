@@ -1,4 +1,4 @@
-// Auradream's last page script: the event wiring and the boot.
+// AuraDream's last page script: the event wiring and the boot.
 // Everything called here is declared in the files index.html loads before
 // it; state.js has the load-order contract.
 'use strict';

@@ -461,7 +461,7 @@ class DanbooruTagVocabulary:
     @staticmethod
     def _request_json(path: str, params: dict[str, str]) -> list[dict]:
         url = f"{_API_BASE}{path}?{urlencode(params)}"
-        request = Request(url, headers={"User-Agent": "Auradream/0.1 tag-helper"})
+        request = Request(url, headers={"User-Agent": "AuraDream/0.1 tag-helper"})
         try:
             # The origin and path are module constants; user text is query data.
             with urlopen(request, timeout=5) as response:

@@ -121,6 +121,6 @@ def change(
             _write(path, items)
             return items
     except gallery_lock.GalleryBusy as exc:
-        raise SnippetsError("Another Auradream process is saving snippets; try again.", 409) from exc
+        raise SnippetsError("Another AuraDream process is saving snippets; try again.", 409) from exc
     except OSError as exc:
         raise SnippetsError("The snippets could not be saved. The previous saved list has been kept.") from exc

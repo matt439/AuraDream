@@ -82,7 +82,7 @@
   {"expect": "__until(() => !els.editDialog.open)"},
 
   {"log": "'a stale checkpoint revision is refused before admission (409)'"},
-  {"expect": "(async () => { const r = await __post('/api/instruction-edit', {source: 1, recipe: 'kontext-v1', prompt: 'x', width: 512, height: 512}, {'X-Auradream-Model-Revision': String(modelRevision + 1)}); return r.status === 409; })()"},
+  {"expect": "(async () => { const r = await __post('/api/instruction-edit', {source: 1, recipe: 'kontext-v1', prompt: 'x', width: 512, height: 512}, {'X-AuraDream-Model-Revision': String(modelRevision + 1)}); return r.status === 409; })()"},
 
   {"log": "'a stale preview is asked again before Edit queues: the gate closed behind the page and the preview marked stale, Edit asks once more, says the fresh refusal and sends no edit'"},
   {"eval": "editFromCard(galleryRecords.find((r) => r.id === 3))"},

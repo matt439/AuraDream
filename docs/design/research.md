@@ -2,7 +2,7 @@
 
 **Date:** 2026-10-18. **Status:** repository evidence and proposed design research;
 no new task observation, interview, usability trial or GPU measurement completed.
-**Owner:** Matt. **Scope:** Auradream as Matt's personal image workstation.
+**Owner:** Matt. **Scope:** AuraDream as Matt's personal image workstation.
 
 This discovery broadens the recent Continue a run design into the whole working
 cycle: start, choose a model, author, generate, experiment, recover, judge, edit

@@ -91,7 +91,7 @@ def test_a_password_export_derives_its_key_once(store, monkeypatch, tmp_path):
 
 
 def test_the_password_check_domain_is_frozen_from_the_old_name():
-    # Bundles protected before the rename to Auradream must still open: this
+    # Bundles protected before the rename to AuraDream must still open: this
     # known answer pins the "local-diffusion bundle password check" domain.
     key, check = bundle_crypto._derive("pw", 4, 1, 1, bytes(range(16)))
     assert key.hex() == "d433e37c20a14a80b34bc3a97f160455359facf59598e5547595b2e4c31d7473"

@@ -37,7 +37,7 @@ run(`
     contains() { return false; }
     focus() {}
   }
-  const document = { title: 'Auradream', activeElement: null, createElement: () => new InertElement() };
+  const document = { title: 'AuraDream', activeElement: null, createElement: () => new InertElement() };
   const els = { progressText: new InertElement() };
   let currentJob = 'job-1';
   let serverOffline = false;
