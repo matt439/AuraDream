@@ -596,8 +596,13 @@ class JobManager:
         rather than rendering the same seeds again. Event-loop thread; a
         job's cells are fixed when it is made."""
         planned: dict[tuple[int, int], set[CellKey]] = {}
+        qualified = self.backend.instruction_edit_qualified() is True
         for job in self.active():
             for cell in [*job.cells, *list(job.pending_passes)]:
+                if cell.request.edit is not None and not qualified:
+                    # Its backend has closed the gate since: the cell fails
+                    # as it begins (`_recheck_edit`) and writes nothing.
+                    continue
                 ran = Cell(request=self.backend.applied(cell.request), seed=cell.seed)
                 planned.setdefault((cell.request.width, cell.request.height), set()).update(cell_keys(ran))
         return planned
@@ -833,7 +838,12 @@ class JobManager:
             if cell.request.edit is not None:
                 from .instruction_edit import require_execution_available
 
-                require_execution_available(cell.request.validate_edit())
+                # Only a bound edit (proved by `bind_request`) queues, and
+                # only behind the backend instance's own gate.
+                require_execution_available(
+                    cell.request.validate_edit(require_bound=True),
+                    qualified=self.backend.instruction_edit_qualified(),
+                )
             require_default_execution(cell.request.execution)
             if "step_cache" in cell.request.model_fields_set:
                 raise ValueError("Resolve composer step cache before submitting expanded cells.")
@@ -1046,8 +1056,12 @@ class JobManager:
 
     async def _run(self, job: Job) -> None:
         loop = asyncio.get_running_loop()
-        # Retained/internal jobs cannot bypass the public unavailable boundary.
-        if any(cell.request.edit is not None for cell in job.cells):
+        # Retained/internal jobs cannot bypass the public unavailable boundary:
+        # an edit job runs only while the backend still answers qualified.
+        if (
+            any(cell.request.edit is not None for cell in job.cells)
+            and self.backend.instruction_edit_qualified() is not True
+        ):
             from .instruction_edit import INSTRUCTION_EDIT_UNAVAILABLE
 
             self._finish(loop, job, "error", INSTRUCTION_EDIT_UNAVAILABLE)
@@ -1152,6 +1166,28 @@ class JobManager:
     @staticmethod
     def _too_many_failures(consecutive: int, total: int, cells: int) -> bool:
         return consecutive >= JobManager.MAX_CONSECUTIVE_FAILURES or total > max(3, cells // 3)
+
+    def _recheck_edit(self, request: GenerateRequest) -> None:
+        """An edit cell's checks as it begins, before the backend is called.
+
+        The gate is the backend's answer now, not at submit; the source is
+        proved again against the identity the cell carries. Raises a
+        ValueError in words that fails this cell alone.
+        """
+        from . import instruction_edit_admission
+        from .instruction_edit import StoredInstructionEdit, require_execution_available
+
+        spec = request.validate_edit(require_bound=True)
+        if not isinstance(spec, StoredInstructionEdit):
+            raise ValueError("Bind and verify the instruction-edit source before running it.")
+        require_execution_available(spec, qualified=self.backend.instruction_edit_qualified())
+        try:
+            instruction_edit_admission.bind_source(spec)
+        except ValueError as exc:
+            raise ValueError(
+                f"the edit's source #{spec.source} is missing, in the recycle bin or "
+                "changed since it was queued; submit the edit again"
+            ) from exc
 
     def _generate(self, job: Job, loop: asyncio.AbstractEventLoop) -> bool:
         """Run the job's cells back to back, publishing images as they land.
@@ -1272,6 +1308,12 @@ class JobManager:
                         raise ValueError(
                             "the outpaint's mask has gone from this gallery; submit it again"
                         ) from exc
+                # An instruction edit asks again, as it begins, whether the
+                # backend is still qualified and its source still the pixels
+                # it was queued with: a source binned, deleted or rewritten
+                # since the submit fails this cell in words.
+                if req.edit is not None:
+                    self._recheck_edit(req)
                 try:
                     try:
                         reader = self.backend.execution_diagnostics_reader()

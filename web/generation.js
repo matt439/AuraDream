@@ -150,7 +150,8 @@ function setBusy(on) {
 // strength they share; more seeds' continue batches, named by the first
 // one's prompt.
 function describeJob(job, length = 60, { markup = false } = {}) {
-  const what = job.refine_batch != null ? `refine ×${job.refine_batch} at strength ${job.strength}`
+  const what = job.edit != null ? `instruction edit of #${job.edit.source ?? '?'}`
+    : job.refine_batch != null ? `refine ×${job.refine_batch} at strength ${job.strength}`
     : job.more_seeds != null ? `more seeds · ${snippet(job.prompt ?? '', length, { markup })}`
     : job.swap != null ? `swap · ${snippet(job.swap, length, { markup: true })}`
     : job.refine != null ? `${job.outpaint ? 'outpaint' : job.mask ? 'inpaint' : 'refine'} of #${job.refine}`
@@ -206,6 +207,9 @@ function submissionLabel(path, payload) {
   }
   if (path === '/api/refine/batch') {
     return describeJob({ grid: true, refine_batch: payload.scale, strength: payload.strength ?? refineDefaultStrength() });
+  }
+  if (path === '/api/instruction-edit') {
+    return describeJob({ edit: { source: payload.source }, width: payload.width, height: payload.height, planned_images: 1 });
   }
   if (path === '/api/more-seeds') {
     return `${plural(payload.count, 'more image')} of each batch in the gallery's selection`;
@@ -271,6 +275,7 @@ function submitHold({ composer = false } = {}) {
     : modelChangeHold() ? modelChangeHold()
     : expandingPrompt ? 'Wait for prompt expansion to finish'
     : critiquing ? 'Wait for the critic to finish'
+    : composer && textToImageReason ? textToImageReason
     : composer ? executionSubmitHold() : executionLoadHold();
 }
 
@@ -286,6 +291,7 @@ function syncSubmitButtons() {
   syncRefineRun();
   syncInpaintRun();
   syncOutpaintRun();
+  syncEditRun();
   syncRefineBatchRun();
   syncMoreSeedsRun();
   // And the More seeds… buttons where a run ends, held while it is gone.
@@ -542,6 +548,9 @@ async function dropRefusedLora(err, path, payload, slot) {
 // Run grid's press. The same pattern as grid.PLACEHOLDER.
 const GRID_PLACEHOLDER = /\{[A-Za-z_]\w*\}/;
 function generate() {
+  // A checkpoint that only edits (FLUX.1 Kontext [dev]): the press says so,
+  // in the server's words, and sends nothing.
+  if (textToImageReason) { showError(textToImageReason); return undefined; }
   if (refuseComposerExecution()) return undefined;
   if (refuseBadNumber(panelNumberInputs())) return undefined;
   const body = collect();

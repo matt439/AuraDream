@@ -26,7 +26,11 @@ this sign-in cannot download; the fake never asks the Hub); `POST
 /api/fake/lora` moves an adapter out of the directory and back
 (`present`); `POST /api/fake/bin-age` backdates binned images' `binned_at`
 by `days`, for Empty recycle bin's age scope; `POST /api/fake/peak` sets the
-(`allocated`, `reserved`) bytes the jobs after it save as their peak. The
+(`allocated`, `reserved`) bytes the jobs after it save as their peak;
+`POST /api/fake/instruction-edit` closes or reopens the instruction-edit
+gate (`available`), which is open on a fake claiming FLUX.1 Kontext [dev]
+alone - there an edit is the source proved and prepared, tinted and
+stamped, and two more sources (3:2 and a refused 2:1) are planted. The
 prompt check reads the tests' word tokenizers - a token per word or mark, at
 each encoder's real budget - and the critic is the tests' FakeCritic, whose
 answer is built from the prompt. The gallery lives under the system temp directory (or --data),
@@ -167,7 +171,12 @@ def main() -> int:
                     small.save(buffer, format="JPEG", quality=70)
                     on_preview(buffer.getvalue(), step, total)
 
-            super().generate(request, seed, progress, should_cancel)
+            ran = super().generate(request, seed, progress, should_cancel)
+            if request.edit is not None:
+                # The tests' fake hands back the prepared source it proved;
+                # the drawing above is what this fake saves.
+                for image in ran:
+                    image.close()
             return out
 
         def describe(self) -> dict:
@@ -177,6 +186,13 @@ def main() -> int:
             return {**super().describe(), "inpaint_strength": inpaint_strength if self.inpaint_supported else None}
 
         def _draw(self, request, seed):
+            # An instruction edit starts from its source as the real branch
+            # does: the gate asked again, the pixels proved again and prepared
+            # at the working size (`load_bound_source`), then tinted and
+            # stamped with whose edit it is, so a smoke can tell it from its
+            # source by eye and by pixel. One image, at the output size.
+            if request.edit is not None:
+                return [self._edit_image(request, seed)]
             # An inpaint changes only what its mask covers, through the real
             # composite (the tests' fake fill by seed): no stamp, so a smoke
             # can read every unmasked pixel against the source's.
@@ -214,6 +230,24 @@ def main() -> int:
                     )
                 out.append(image)
             return out
+
+        def _edit_image(self, request, seed):
+            from backend.instruction_edit import require_execution_available
+            from backend.instruction_edit_admission import load_bound_source
+
+            require_execution_available(request.validate_edit(), qualified=self.instruction_edit_qualified())
+            stored, resolved, prepared = load_bound_source(request.validate_edit(require_bound=True))
+            with prepared:
+                tint = Image.new("RGB", prepared.size, (255, 140, 0))
+                image = Image.blend(prepared, tint, 0.35)
+                tint.close()
+            if image.size != resolved.output_size:
+                raise RuntimeError("the fake edit's image is not at the recipe's output size")
+            draw = ImageDraw.Draw(image)
+            draw.rectangle([10, 10, 260, 50], fill=(0, 0, 0))
+            draw.text((16, 16), f"edit of #{stored.source} · seed {seed}", fill=(255, 255, 255))
+            draw.text((16, 32), f"steps {request.steps} cfg {request.guidance_scale}", fill=(255, 255, 255))
+            return image
 
     fake = DrawingBackend(step_seconds=args.step)
     # Behave as the claimed checkpoint's profile predicts: drop the negative
@@ -269,6 +303,14 @@ def main() -> int:
         stranger.name: f"{stranger.name} attaches to 494 modules the fake's denoiser "
         "has not got, such as single_transformer_blocks.0.attn.to_k",
     }
+    # Instruction editing: qualified on a fake claiming FLUX.1 Kontext [dev]
+    # alone, so the edit route, queue and dialog run end to end there while
+    # every other fake - and the real server, whose backend answers the
+    # literal False - holds them with the reason. `POST
+    # /api/fake/instruction-edit` closes and reopens the gate.
+    from backend.instruction_edit import KONTEXT_V1
+
+    fake.edit_qualified = args.model == KONTEXT_V1.model_id
     app_main.backend = fake
     app_main.jobs = JobManager(fake, app_main.ensure_loaded)
 
@@ -432,6 +474,22 @@ def main() -> int:
             for seed in (1, 2)
         ]
         storage.set_favorite(planted[0].id, True)
+    # And on a Kontext fake, two more sources for Edit by instruction…, under
+    # the same other id: a 3:2 one (768x512, edited at 576x384) and a 2:1 one
+    # (512x256), whose aspect the recipe refuses. The 256x256 pair above are
+    # the 1:1 sources (edited at 512x512). Planted once, binned rows counted.
+    if fake.edit_qualified:
+        with storage._session() as conn:
+            edit_sources = conn.execute("SELECT 1 FROM images WHERE job_id = 'planted-edit' LIMIT 1").fetchone()
+        if edit_sources is None:
+            for width, height in ((768, 512), (512, 256)):
+                request = GenerateRequest(
+                    prompt=f"a harbour at {width}x{height} on another checkpoint", width=width, height=height,
+                )
+                storage.save_image(
+                    fake._draw(request, 3)[0], request, seed=3, duration_ms=1,
+                    model_id=other, job_id="planted-edit", run_id="planted-edit",
+                )
 
     # The fake's own knob for the load, which no flag can reach once the
     # smokes' runner has started the server: how long the loads after it take,
@@ -532,6 +590,15 @@ def main() -> int:
         elif not present and path.exists():
             path.replace(aside)
         return {"name": path.name, "present": path.exists()}
+
+    # The instruction-edit gate, as a backend instance answers it: `available`
+    # true opens it (the edit route queues, the dialog's Run is live where
+    # FLUX.1 Kontext [dev] is selected), false closes it with the real
+    # server's reason. Answers what it set and what it replaced.
+    @app_main.app.post("/api/fake/instruction-edit", include_in_schema=False)
+    async def fake_instruction_edit(available: bool = Body(..., embed=True)) -> dict:
+        previous, fake.edit_qualified = fake.edit_qualified is True, available is True
+        return {"available": fake.edit_qualified, "previous": previous}
 
     # A measured peak, which a fake never has: the (allocated, reserved)
     # bytes the jobs after it save, or null for none again. Answers it.

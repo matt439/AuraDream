@@ -1,9 +1,11 @@
 """Cold checks of supplied Kontext configs, never a download or load grant.
 
-The first recipe's gated configs have not been obtained or qualified. This
-validator checks a caller-supplied, pinned snapshot against the integration's
-required component/geometry boundary. Synthetic success proves only this
-validator; a future loader must obtain all files at the pin before weights.
+This validator checks a caller-supplied, pinned snapshot against the
+integration's required component/geometry boundary, and ``require_pinned``
+compares its canonical hashes with the six verified at the recipe's revision.
+Matching the pin proves only the config bytes, never weights or a card
+qualification; a future loader must obtain every config at the pin and pass
+``require_pinned(validate_configs(...))`` before any weights.
 """
 from __future__ import annotations
 
@@ -12,6 +14,7 @@ from dataclasses import dataclass
 import hashlib
 import json
 import math
+from types import MappingProxyType
 
 from backend.instruction_edit import KONTEXT_V1, MAX_SEQUENCE_LENGTH
 
@@ -20,6 +23,17 @@ CONFIG_PATHS = (
     "model_index.json", "scheduler/scheduler_config.json", "transformer/config.json",
     "vae/config.json", "text_encoder/config.json", "text_encoder_2/config.json",
 )
+# Obtained and validated by `validate_configs` on 2026-10-27 at
+# KONTEXT_V1.revision: canonical-JSON SHA-256 per path, in CONFIG_PATHS order.
+# A config pin only - not a weights pin, and never an execution grant.
+QUALIFIED_CONFIG_HASHES = MappingProxyType({
+    "model_index.json": "e8d4c79ae755b47505713457f3465b6e9b30e6a4d88364f11caa2aa159b2446e",
+    "scheduler/scheduler_config.json": "68bd9f2c97f180ecb643a14b46e76394ffc5cc5e7c7f13992766b975dd60fb1d",
+    "transformer/config.json": "1727369bca1eaf7ea80fbce35f2eb539cf0d9c829b50ad30cdbab6e3499b37aa",
+    "vae/config.json": "f42dc49aff7a6250b73b4a2270cc302a5a3f15ae8d690766bb16d0c4dce68f33",
+    "text_encoder/config.json": "3b03552c28eb3bdd2ec0136b3e4d90266a56896274ff581b81b2fa1173afadc0",
+    "text_encoder_2/config.json": "3e22acd66a0aee18b849b36e1afc133386fa8b9715553feed69038529c892164",
+})
 MAX_CONFIG_BYTES = 128 * 1024
 _COMPONENTS = {
     "scheduler": ["diffusers", "FlowMatchEulerDiscreteScheduler"],
@@ -42,6 +56,14 @@ class ConfigPreflight:
     latent_channels: int = 16
     max_sequence_length: int = MAX_SEQUENCE_LENGTH
     execution_available: bool = False
+
+    @property
+    def matches_pin(self) -> bool:
+        """Whether every supplied config hashes to the verified pin."""
+        return (
+            self.model_id == KONTEXT_V1.model_id and self.revision == KONTEXT_V1.revision
+            and self.config_hashes == tuple(QUALIFIED_CONFIG_HASHES.items())
+        )
 
 
 def _refuse(path: str) -> ValueError:
@@ -137,3 +159,24 @@ def validate_configs(model_id: str, revision: str, supplied: Mapping[str, object
         raise _refuse("text_encoder_2/config.json")
     _integer(t5, "d_model", 4096, "text_encoder_2/config.json")
     return ConfigPreflight(model_id=model_id, revision=revision, config_hashes=tuple(hashes))
+
+
+def require_pinned(preflight: ConfigPreflight) -> ConfigPreflight:
+    """Refuse a validated snapshot whose bytes differ from the verified pin.
+
+    Names the first differing path only; never echoes a supplied or pinned
+    hash. Passing grants no execution: ``execution_available`` stays False.
+    """
+    if not isinstance(preflight, ConfigPreflight):
+        raise _refuse("config pin")
+    if preflight.model_id != KONTEXT_V1.model_id or preflight.revision != KONTEXT_V1.revision:
+        raise _refuse("recipe identity")
+    supplied = dict(preflight.config_hashes)
+    if tuple(supplied) != tuple(QUALIFIED_CONFIG_HASHES):
+        raise _refuse("config inventory")
+    for path, expected in QUALIFIED_CONFIG_HASHES.items():
+        if supplied[path] != expected:
+            raise _refuse(path)
+    if not preflight.matches_pin:
+        raise _refuse("config pin")
+    return preflight

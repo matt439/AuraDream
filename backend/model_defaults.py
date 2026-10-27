@@ -123,6 +123,7 @@ from copy import deepcopy
 from typing import Any, NamedTuple
 
 from . import guides
+from .instruction_edit import INSTRUCTION_EDIT_UNAVAILABLE, text_to_image_refusal
 from .refine import DEFAULT_STRENGTH, leaves_a_step, upscaler_supported
 
 # What the server runs when nothing says otherwise. Here rather than in
@@ -1204,7 +1205,17 @@ def defaults_for(model_id: str) -> dict[str, Any]:
     return {
         **{k: v for k, v in profile.items() if k not in _NOT_DEFAULTS},
         "text_to_image_supported": profile.get("text_to_image_supported", True),
+        # The words a held Generate says where it is False (the editor's), as
+        # the server refuses the text-to-image request: the closed gate's
+        # until the loaded backend's own answer replaces them in the status.
+        "text_to_image_reason": (
+            None if profile.get("text_to_image_supported", True)
+            else text_to_image_refusal(model_id, qualified=False)
+        ),
+        # Never a profile's to grant: only the loaded backend's own gate
+        # (`instruction_edit_qualified`) replaces these in the status.
         "instruction_edit_supported": False,
+        "instruction_edit_reason": INSTRUCTION_EDIT_UNAVAILABLE,
         # Every status says both: None where the shift is not a fixed number,
         # False where the CFG box reaches the model.
         "mu_static": profile.get("mu_static"),

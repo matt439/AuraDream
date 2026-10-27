@@ -55,8 +55,26 @@ function rewriteBox(el, text) {
 // Reuse restores what made a record. A direct render's settings go into the
 // panel; a refine pass is the Refine dialog's, so a refined record opens the
 // dialog on its source with the pass as it ran (`reusePass`).
+// An instruction edit's Reuse opens Edit by instruction… on its source
+// (`reuseEdit`), never the panel: it is held only where that source cannot be
+// had - never resolved to a gallery image, deleted, or in the recycle bin.
+function editReuseReason(rec) {
+  const edit = rec.edit;
+  if (edit == null) return '';
+  if (edit.source == null) {
+    return 'The source of this instruction edit was never resolved to a gallery image, so the edit cannot be reopened.';
+  }
+  if (rec.edit_missing && rec.edit_binned) {
+    return `#${edit.source}, the source this was edited from, is in the recycle bin; restore it to reopen the edit.`;
+  }
+  if (rec.edit_missing) {
+    return `#${edit.source}, the source this was edited from, has been deleted, so the edit cannot be reopened.`;
+  }
+  return '';
+}
+
 function executionReuseReason(rec) {
-  if (rec.edit != null) return 'Instruction editing is unavailable in this build. Reuse cannot put its source-dependent instruction into the generation panel.';
+  if (rec.edit != null) return editReuseReason(rec);
   const spec = rec.execution;
   if (spec == null) return '';
   const empty = typeof spec === 'object' && !Array.isArray(spec)
@@ -76,6 +94,8 @@ function refuseExecutionReuse(rec) {
 
 function reuse(rec) {
   if (refuseExecutionReuse(rec)) return;
+  // An edit's is Edit by instruction…'s, on its source with its instruction.
+  if (rec.edit != null) { void reuseEdit(rec); return; }
   // An outpaint's is the Outpaint dialog's, on its source with its sides -
   // asked first, since an outpaint has a mask as well.
   if (rec.refine != null && rec.outpaint) { void reuseOutpaint(rec); return; }
@@ -120,8 +140,14 @@ function syncReuseUndo() {
 // name for Load settings from PNG (png-settings.js) - and `sampling` false
 // writes only the prompt pair and the seed, as `fillPanel` takes it: an
 // A1111 block's steps and CFG are another sampler's.
+// The words for an edit offered to the panel: its instruction is about its
+// source, and means nothing as a prompt of its own.
+const EDIT_NOT_PANEL = 'An instruction edit is reopened in Edit by instruction… on its source; '
+  + 'its source-dependent instruction never goes into the generation panel.';
+
 function reuseIntoPanel(rec, withSize, note = '', { name = `#${rec.id}`, sampling = true } = {}) {
   if (refuseExecutionReuse(rec)) return;
+  if (rec.edit != null) { showError(EDIT_NOT_PANEL, false, { slot: els.galleryError }); return; }
   // One Undo on offer at a time: an Example's, for the text this replaces,
   // goes with it.
   dropPromptUndo();

@@ -105,12 +105,30 @@ class GenerationBackend(abc.ABC):
         compare against for resume, so a backend that quietly drops a setting
         must say so here. The default applies everything as given.
         """
+        qualified = self.instruction_edit_qualified()
         if getattr(request, "edit", None) is not None:
-            require_execution_available(request.validate_edit())
+            require_execution_available(request.validate_edit(), qualified=qualified)
         require_default_execution(request.execution)
         request = request.with_execution(None)
         require_default_execution(request.execution)
+        if request.edit is not None:
+            # The edit branch of `GenerateRequest.applied` ignores every
+            # capability but this one; it binds the edit and drops the negative.
+            return request.applied(
+                negative_prompt_supported=False, cfg_threshold=0.0,
+                instruction_edit_supported=qualified is True,
+            )
         return request
+
+    def instruction_edit_qualified(self) -> bool:
+        """Whether this backend instance may load and run an instruction edit.
+
+        The one gate: an instance answer, never a setting, an environment
+        variable or a flag. The default, and the real diffusers backend until
+        its card qualification, answers the literal False; only a test or
+        fake stand-in opens it. Callers compare with ``is True``.
+        """
+        return False
 
     def execution_diagnostics_reader(self) -> ExecutionDiagnosticsReader | None:
         """Optional pure regional-state reader, with no model/backend reference.
@@ -142,7 +160,7 @@ class GenerationBackend(abc.ABC):
         Normalization must not turn an accepted refine job into direct renders.
         """
         if getattr(request, "edit", None) is not None:
-            require_execution_available(request.validate_edit())
+            require_execution_available(request.validate_edit(), qualified=self.instruction_edit_qualified())
         if getattr(request, "upscaler", None) is not None:
             from .. import refine
 

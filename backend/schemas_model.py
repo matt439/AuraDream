@@ -157,7 +157,8 @@ class ModelStatus(BaseModel):
     # Advances after every image-model load attempt, including failures that
     # downloaded only some files; lets an open picker refresh its cache facts.
     cache_revision: int = 0
-    defaults: dict[str, float | int | bool | None] = {}
+    # Numbers and flags, plus `instruction_edit_reason`: the held edit's words.
+    defaults: dict[str, float | int | bool | str | None] = {}
     # Prose for the same profile, keyed by control name - what steps/CFG/mu mean
     # on *this* checkpoint. Unlike `defaults`, which the UI applies once, these
     # follow the server for the whole session.

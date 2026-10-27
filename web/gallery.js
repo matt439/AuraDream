@@ -411,6 +411,9 @@ function card(rec) {
     div.classList.toggle('outpainted', !!rec.outpaint);
     div.dataset.strength = rec.strength;
   }
+  // An instruction edit says so (instruction-edit.css): it can look like its
+  // source with one thing changed.
+  div.classList.toggle('edited', rec.edit != null);
   // One of the images the viewer shows now (viewer.js).
   div.classList.toggle('this-run', viewerRecords.some((r) => r.id === rec.id));
 
@@ -809,11 +812,16 @@ function syncReuseButton(button, rec, compact = false) {
   button.dataset.reuseLora = rec.lora || '';
   button.dataset.reuseExecution = JSON.stringify(rec.execution ?? null);
   button.dataset.reuseEdit = String(rec.edit != null);
+  // An edit's source, and whether it has gone, for a refresh to rebuild an
+  // edit's button with its hold (`editReuseReason`).
+  button.dataset.reuseEditSource = rec.edit?.source ?? '';
+  button.dataset.reuseEditGone = String(!!rec.edit_missing);
+  button.dataset.reuseEditBinned = String(!!rec.edit_binned);
   button.dataset.reuseCompact = String(compact);
   button.classList.add('reuse-settings');
   const executionReason = executionReuseReason(rec);
   if (executionReason) {
-    button.textContent = compact ? '\u21b6' : 'Reuse settings';
+    button.textContent = compact ? '\u21b6' : rec.edit != null ? 'Reuse instruction edit' : 'Reuse settings';
     button.setAttribute('aria-disabled', 'true');
     button.setAttribute('aria-label', rec.edit != null ? 'Reuse instruction edit (unavailable)' : 'Reuse settings (unavailable execution recipe)');
     button.title = executionReason;
@@ -821,6 +829,17 @@ function syncReuseButton(button, rec, compact = false) {
     return;
   }
   button.removeAttribute('aria-disabled');
+  // An edit's opens Edit by instruction\u2026 on its source with its instruction,
+  // seed, steps and guidance (`reuseEdit`) - never the panel, so no
+  // checkpoint warning: the dialog says what runs it.
+  if (rec.edit != null) {
+    button.classList.remove('model-mismatch');
+    button.textContent = compact ? '\u21bb' : 'Reuse instruction edit\u2026';
+    button.title = `Open Edit by instruction\u2026 on #${rec.edit.source} with this edit's instruction, seed, steps and guidance`;
+    button.setAttribute('aria-label', 'Reuse instruction edit');
+    button.dataset.tip = 'Reuse edit\u2026';
+    return;
+  }
   const mismatch = modelsDiffer(modelId);
   // The running checkpoint by the name the topbar gives it (checkpointName):
   // NetaYume v4's repository is named for its parent model.
@@ -883,7 +902,10 @@ function syncReuseButton(button, rec, compact = false) {
 // lightbox's facts say it.
 function cardTitle(rec) {
   const pass = rec.refine != null
-    ? ` · ${passWord(rec)} of #${rec.refine}${outpaintOf(rec)}${rec.refine_missing ? ` (${goneWord(rec)})` : ''} @ ${rec.strength}` : '';
+    ? ` · ${passWord(rec)} of #${rec.refine}${outpaintOf(rec)}${rec.refine_missing ? ` (${goneWord(rec)})` : ''} @ ${rec.strength}`
+    // An instruction edit says its source, gone or not, as a pass does.
+    : rec.edit != null
+      ? ` · edit of #${rec.edit.source ?? '?'}${rec.edit_missing ? ` (${editGoneWord(rec)})` : ''}` : '';
   return `#${rec.id} · ${rec.width}×${rec.height} · seed ${rec.seed}${pass}\n${rec.prompt}`;
 }
 
@@ -902,6 +924,11 @@ function outpaintOf(rec) {
 // recycle bin" (`refine_binned`), from which a Restore brings it back.
 function goneWord(rec) {
   return rec.refine_binned ? 'in the recycle bin' : 'deleted';
+}
+
+// The same for an instruction edit's source (`edit_missing`, `edit_binned`).
+function editGoneWord(rec) {
+  return rec.edit_binned ? 'in the recycle bin' : 'deleted';
 }
 
 // What a Reuse here leaves behind, as fillPanel decides it - references where
@@ -936,7 +963,9 @@ function syncReuseButtons() {
       reference: kept.reuseReference ? kept.reuseReference.split(',').map(Number) : [],
       lora: kept.reuseLora || null,
       execution: JSON.parse(kept.reuseExecution || 'null'),
-      edit: kept.reuseEdit === 'true' ? {} : null,
+      edit: kept.reuseEdit === 'true' ? { source: kept.reuseEditSource ? +kept.reuseEditSource : null } : null,
+      edit_missing: kept.reuseEditGone === 'true',
+      edit_binned: kept.reuseEditBinned === 'true',
     }, kept.reuseCompact === 'true');
   });
   // More seeds… is held on another checkpoint's images the same way.

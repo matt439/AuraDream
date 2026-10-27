@@ -1,8 +1,12 @@
-"""Frozen instruction-edit contracts; no editor execution is available.
+"""Frozen instruction-edit contracts and the one gated execution seam.
 
 This leaf imports neither application settings/storage nor a model framework.
 The small Kontext geometry is an application recipe for future qualification,
-not a measured model capability. Gated checkpoint configs remain unverified.
+not a measured model capability. Execution opens only where a caller passes
+``qualified=True``, which comes from the running backend instance's
+``instruction_edit_qualified()`` - never a setting. The real diffusers
+backend answers False until card qualification, so its load and execution
+stay closed; only test and fake stand-ins can open the seam.
 """
 from __future__ import annotations
 
@@ -10,7 +14,7 @@ import hashlib
 import json
 from dataclasses import dataclass
 from math import gcd
-from typing import Annotated, Literal, NoReturn
+from typing import Annotated, Literal
 
 from PIL import Image
 from pydantic import BaseModel, ConfigDict, Field, field_validator, model_validator
@@ -23,8 +27,21 @@ PositiveDimension = Annotated[int, Field(strict=True, gt=0)]
 MAX_AREA = 512 * 512
 MAX_SEQUENCE_LENGTH = 512
 INSTRUCTION_EDIT_UNAVAILABLE = (
-    "Instruction editing is not available in this build; "
-    "its persistence, backend, browser and card qualification are not complete."
+    "Instruction editing is not available in this build: "
+    "FLUX.1 Kontext [dev] has not been loaded and measured on this card."
+)
+INSTRUCTION_EDITOR_UNSUPPORTED = (
+    "Instruction editing is not available for this checkpoint: it has no recipe "
+    "in this build; only FLUX.1 Kontext [dev] is planned."
+)
+INSTRUCTION_EDIT_NEEDS_MODEL = "Select FLUX.1 Kontext [dev] in Models to run an instruction edit."
+INSTRUCTION_EDIT_TEXT_TO_IMAGE = (
+    "FLUX.1 Kontext [dev] edits a gallery image; it does not generate from text. "
+    "Use Edit by instruction… on an image."
+)
+INSTRUCTION_EDIT_REPLAY_HELD = (
+    "Instruction edits are queued from Edit by instruction…; "
+    "Generate, Re-render and More seeds do not run them yet."
 )
 UNRESOLVED_SOURCE = "The recorded instruction-edit source has not been resolved to a gallery image."
 
@@ -251,20 +268,69 @@ def prepare_source(image: Image.Image, resolved: InstructionEditGeometry | None 
         return rgb.resize(actual.working_size, resample=Image.Resampling.LANCZOS)
 
 
-def require_execution_available(spec: object) -> NoReturn:
-    """Always refuse execution, even for structurally valid stored intent."""
+def require_execution_available(spec: object, *, qualified: bool = False) -> None:
+    """Validate the intent, then refuse unless the backend is qualified.
+
+    ``qualified`` must be the literal True a backend instance answered;
+    a truthy stand-in (1, a non-empty string) leaves the seam closed.
+    """
     if isinstance(spec, StoredInstructionEdit):
         StoredInstructionEdit.model_validate(spec)
     else:
         InstructionEditSpec.model_validate(spec)
-    raise ValueError(INSTRUCTION_EDIT_UNAVAILABLE)
+    if qualified is not True:
+        raise ValueError(INSTRUCTION_EDIT_UNAVAILABLE)
 
 
-def require_model_available(model_id: str) -> None:
-    """Refuse the known edit-only checkpoint before any public load path.
+def require_model_available(model_id: str, *, qualified: bool = False) -> None:
+    """Refuse the known edit-only checkpoints before any public load path.
 
     A hand-entered id must not bypass the closed release boundary merely
     because it is absent from the catalogue or accepts an image argument.
+    Qwen-Image-Edit has no recipe and is always refused; Kontext only
+    where the backend answered the literal True.
     """
-    if model_id.casefold() in {KONTEXT_V1.model_id.casefold(), "qwen/qwen-image-edit"}:
-        raise ValueError(INSTRUCTION_EDIT_UNAVAILABLE)
+    folded = model_id.casefold()
+    if folded == "qwen/qwen-image-edit":
+        raise ValueError(INSTRUCTION_EDITOR_UNSUPPORTED)
+    if folded == KONTEXT_V1.model_id.casefold():
+        if qualified is not True:
+            raise ValueError(INSTRUCTION_EDIT_UNAVAILABLE)
+        # The recipe's identity is exact (bind_request compares it so); a
+        # case variant would load and then refuse every edit it was for.
+        if model_id != KONTEXT_V1.model_id:
+            raise ValueError(f"Instruction editing needs {KONTEXT_V1.model_id} exactly; select it in Models.")
+
+
+def editor_class_refusal(class_name: str) -> str:
+    """The words for a refused instruction-editor pipeline class."""
+    return INSTRUCTION_EDIT_UNAVAILABLE if class_name == KONTEXT_V1.pipeline_class else INSTRUCTION_EDITOR_UNSUPPORTED
+
+
+def edit_unavailable_reason(model_id: str, *, qualified: bool) -> str | None:
+    """Why an instruction edit cannot queue on this server now, or None.
+
+    Closed backends answer UNAVAILABLE whatever is selected; a qualified one
+    still needs the editor checkpoint to be the selected model.
+    """
+    if qualified is not True:
+        return INSTRUCTION_EDIT_UNAVAILABLE
+    # Exact, as bind_request compares: a case variant is not the recipe's id.
+    if model_id != KONTEXT_V1.model_id:
+        return INSTRUCTION_EDIT_NEEDS_MODEL
+    return None
+
+
+def text_to_image_refusal(model_id: str, *, qualified: bool) -> str:
+    """Generate's words where the selected checkpoint only edits.
+
+    Pointing at Edit by instruction… is right only where that can queue;
+    otherwise the edit gate's own reason is said, never a dead end.
+    """
+    reason = edit_unavailable_reason(model_id, qualified=qualified)
+    if reason is None:
+        return INSTRUCTION_EDIT_TEXT_TO_IMAGE
+    return (
+        "FLUX.1 Kontext [dev] edits a gallery image; it does not generate from text, "
+        f"and instruction editing is held: {reason}"
+    )

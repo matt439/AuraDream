@@ -55,7 +55,12 @@ async def unusable_input(services: AppServices, request: GenerateRequest) -> tup
             await asyncio.to_thread(instruction_edit_admission.bind_request, request, services.model_id())
         except ValueError as exc:
             return "edit", str(exc)
-        return "edit", instruction_edit.INSTRUCTION_EDIT_UNAVAILABLE
+        # Generate, Re-render and More seeds never queue an edit, whatever
+        # the gate: a closed one says the editor is unavailable, an open one
+        # where edits are queued from (`POST /api/instruction-edit`).
+        if services.backend().instruction_edit_qualified() is not True:
+            return "edit", instruction_edit.INSTRUCTION_EDIT_UNAVAILABLE
+        return "edit", instruction_edit.INSTRUCTION_EDIT_REPLAY_HELD
     reason = unavailable_reason(request.execution)
     if reason is not None:
         return "execution", reason
@@ -73,7 +78,8 @@ async def unusable_input(services: AppServices, request: GenerateRequest) -> tup
     from .model_defaults import defaults_for
 
     if not defaults_for(selected.model_id)["text_to_image_supported"]:
-        return "edit", instruction_edit.INSTRUCTION_EDIT_UNAVAILABLE
+        qualified = services.backend().instruction_edit_qualified() is True
+        return "edit", instruction_edit.text_to_image_refusal(selected.model_id, qualified=qualified)
     reason = refine.upscaler_reason(request, services.model_id())
     if reason is not None:
         return "upscaler", reason

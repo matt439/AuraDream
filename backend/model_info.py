@@ -16,6 +16,7 @@ import time
 
 from .launch import CHECKPOINTS, FORMATS
 from .model_benchmarks import speed_for
+from .instruction_edit import INSTRUCTION_EDIT_UNAVAILABLE
 from .model_defaults import defaults_for
 
 
@@ -363,6 +364,20 @@ def download_facts(model_id: str) -> dict[str, str]:
             "cache_state": state, "cache_note": cache_note}
 
 
+_EDIT_CATALOGUE_NOTE = (
+    "Instruction editing uses FLUX.1 Kontext [dev], held until qualified on this card."
+)
+
+
+def _instruction_edit_facts(model_id: str, *, catalogued: bool) -> dict[str, str]:
+    """Whether Edit by instruction runs on `model_id`, as the Models notes say
+    it: never a catalogue checkpoint's; a custom id whose profile is the
+    editor's is held with the gate's words; any other custom id, no."""
+    if not catalogued and defaults_for(model_id).get("instruction_edit_candidate"):
+        return {"instruction_edit": "Held", "instruction_edit_note": INSTRUCTION_EDIT_UNAVAILABLE}
+    return {"instruction_edit": "No", "instruction_edit_note": _EDIT_CATALOGUE_NOTE if catalogued else ""}
+
+
 def details_for(
     model_id: str, quantization: str | None = None, offload: str = "model",
 ) -> dict[str, str]:
@@ -381,6 +396,7 @@ def details_for(
             "access": "Unknown",
             "access_note": "Not in the catalogue; its model page says whether it is gated.",
             "fit": "", "fit_note": "",
+            **_instruction_edit_facts(model_id, catalogued=False),
             **download_facts(model_id),
             **speed_for(model_id, quantization, offload),
         }
@@ -409,6 +425,7 @@ def details_for(
         "access_note": access_note,
         "fit": fit,
         "fit_note": fit_note,
+        **_instruction_edit_facts(model_id, catalogued=True),
         **download_facts(model_id),
         **speed_for(model_id, quantization, offload),
     }

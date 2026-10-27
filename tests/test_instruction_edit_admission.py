@@ -129,13 +129,17 @@ def test_public_submission_refuses_edit_before_load_or_queue(client, fake, store
 
 def test_edit_only_selection_cannot_generate_without_a_source_or_load(client, fake, monkeypatch):
     select_editor(monkeypatch)
-    for route, payload in (
-        ("/api/generate", {"prompt": "make it night", "width": 512, "height": 512}),
-        ("/api/model/load", {}),
+    from backend.instruction_edit import INSTRUCTION_EDIT_UNAVAILABLE, text_to_image_refusal
+
+    # Closed: Generate names the held gate rather than the held editor.
+    held = text_to_image_refusal(KONTEXT_V1.model_id, qualified=False)
+    for route, payload, detail in (
+        ("/api/generate", {"prompt": "make it night", "width": 512, "height": 512}, held),
+        ("/api/model/load", {}, INSTRUCTION_EDIT_UNAVAILABLE),
     ):
         response = client.post(route, json=payload)
         assert response.status_code == 422, response.text
-        assert "not available" in response.text
+        assert response.json()["detail"] == detail
     assert fake.loads == 0 and fake.requests == [] and main.jobs.active() == []
 
 
@@ -200,13 +204,28 @@ def test_png_and_cli_refuse_edit_metadata_without_environment_or_model_work(clie
     assert fake.loads == 0 and fake.requests == []
 
 
-def test_direct_fake_paths_share_unavailable_guard_even_without_cfg_threshold(fake, store):
+def test_direct_fake_paths_share_unavailable_guard_even_without_cfg_threshold_closed_by_default(fake, store):
     _, bound = source(store)
     fake.cfg_threshold = None
     req = request(bound)
     for operation in (lambda: fake.applied(req), lambda: fake.generate(req, 7)):
         with pytest.raises(ValueError, match="not available"):
             operation()
+    assert fake.loads == 0 and fake.requests == []
+
+
+def test_direct_fake_applied_opens_only_behind_the_backend_gate_even_without_cfg_threshold(fake, store):
+    _, bound = source(store)
+    fake.cfg_threshold = None
+    fake.edit_qualified = True
+    req = request(bound, negative_prompt="")
+    applied = fake.applied(req)
+    # Through the request's own edit branch: bound proof, no negative at all.
+    assert applied.edit == bound and applied.negative_prompt is None
+    assert (applied.width, applied.height, applied.num_images) == (512, 512, 1)
+    fake.edit_qualified = 1
+    with pytest.raises(ValueError, match="not available"):
+        fake.applied(req)
     assert fake.loads == 0 and fake.requests == []
 
 

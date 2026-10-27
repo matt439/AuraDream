@@ -680,6 +680,9 @@ function receiveStatus(s, asked = Date.now()) {
     if (refineSource) syncRefine();
     // And the inpaint's, with the tools that open it (inpaint.js).
     if (s.defaults) syncInpaintCapability(s.defaults);
+    // And Edit by instruction's, with Generate held where the checkpoint only
+    // edits (instruction-edit.js).
+    if (s.defaults) syncEditCapability(s.defaults);
     // Mass refine's Refine… says the hedge or the final answer as the status
     // settles it, and an open dialog's Refine what holds it now.
     syncRefineBatchButton();

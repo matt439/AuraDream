@@ -369,7 +369,8 @@ function syncNow(job) {
   const lead = foreign ? `${ANOTHER_TABS_JOB}:` : 'Now:';
   els.progressNow.textContent = what ? `${lead} ${what}` : '';
   els.progressNow.title = what ? `${lead} ${describeJob(job, 120, { markup: true })}` : '';
-  const name = job.refine_batch != null ? 'this batch refine'
+  const name = job.edit != null ? `the instruction edit of #${job.edit.source ?? '?'}`
+    : job.refine_batch != null ? 'this batch refine'
     : job.more_seeds != null ? 'these more seeds'
     : job.swap != null ? 'this swap'
     : job.refine != null ? `the ${job.outpaint ? 'outpaint' : job.mask ? 'inpaint' : 'refine'} of #${job.refine}`

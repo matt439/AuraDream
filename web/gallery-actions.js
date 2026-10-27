@@ -397,6 +397,11 @@ function markGoneSource(rec) {
     rec.refine_missing = true;
     rec.refine_binned = binnedIds.has(rec.refine);
   }
+  // An instruction edit's source likewise (`edit_missing`, `edit_binned`).
+  if (rec.edit?.source != null && isGone(rec.edit.source)) {
+    rec.edit_missing = true;
+    rec.edit_binned = binnedIds.has(rec.edit.source);
+  }
   return rec;
 }
 
@@ -535,8 +540,24 @@ function forgetImages(ids, { binned = false } = {}) {
     r.refine_binned = binned;
     document.querySelectorAll(`img[data-id="${r.id}"]`).forEach((img) => { titleImage(img, r); });
   }
+  // An instruction edit whose source went says so the same way
+  // (`edit_missing`, `edit_binned`), and its Reuse is held until a Restore.
+  const edits = [...galleryRecords, ...viewerRecords, ...sessionRecords, ...lbList]
+    .filter((r) => r.edit?.source != null && gone.has(r.edit.source) && (!r.edit_missing || !!r.edit_binned !== binned));
+  for (const r of edits) {
+    r.edit_missing = true;
+    r.edit_binned = binned;
+    orphans.add(r);
+    document.querySelectorAll(`img[data-id="${r.id}"]`).forEach((img) => { titleImage(img, r); });
+  }
+  // An open Edit by instruction… on one of them asks its preview again.
+  editSourcesMoved(gone, { deleted: !binned });
   if (orphans.size) {
     document.querySelectorAll('.reuse-settings').forEach((b) => {
+      if (b.dataset.reuseEditSource && gone.has(+b.dataset.reuseEditSource)) {
+        b.dataset.reuseEditGone = 'true';
+        b.dataset.reuseEditBinned = String(binned);
+      }
       if (!b.dataset.reusePass || !gone.has(+b.dataset.reusePass)) return;
       b.dataset.reusePassGone = 'true';
       b.dataset.reusePassBinned = String(binned);
@@ -598,7 +619,20 @@ function unforgetImages(ids) {
     r.refine_binned = false;
     document.querySelectorAll(`img[data-id="${r.id}"]`).forEach((img) => { titleImage(img, r); });
   }
+  // An instruction edit's source back: its facts, titles and Reuse say so.
+  const edits = [...galleryRecords, ...viewerRecords, ...sessionRecords, ...lbList]
+    .filter((r) => r.edit?.source != null && back.has(r.edit.source) && r.edit_missing);
+  for (const r of edits) {
+    r.edit_missing = false;
+    r.edit_binned = false;
+    document.querySelectorAll(`img[data-id="${r.id}"]`).forEach((img) => { titleImage(img, r); });
+  }
+  editSourcesMoved(back);
   document.querySelectorAll('.reuse-settings').forEach((b) => {
+    if (b.dataset.reuseEditSource && back.has(+b.dataset.reuseEditSource)) {
+      b.dataset.reuseEditGone = 'false';
+      b.dataset.reuseEditBinned = 'false';
+    }
     if (!b.dataset.reusePass || !back.has(+b.dataset.reusePass)) return;
     b.dataset.reusePassGone = 'false';
     b.dataset.reusePassBinned = 'false';
