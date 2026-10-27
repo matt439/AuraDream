@@ -194,6 +194,17 @@ fake (Node 24.14.0, Edge, 14 seconds total). No startup export, credential
 lookup, model load or GPU work occurred. This closes the source preflight
 gap in stage 2; Linux and hosted qualification remain open.
 
+**Hosted CPU fixture correction (2026-10-27).** Node 22.23.3's ESM loader
+reads module source through `fs.readFileSync`, so the original capability
+fixture trapped the loader before the harness could check its APIs. The
+fixture now captures the two real module bodies before instrumentation and
+loads them as data URLs, changing only their local dependency specifier.
+There are no filesystem exemptions: six negative controls still refuse
+input/module reads, output writes, process creation and network APIs. The
+cold capability/diagnostics/output/docs-map group passes all **66 checks**
+on Windows with Node 24.14.0. This corrects fixture portability; it does not
+qualify browser startup, layout or profile cleanup.
+
 **Owned-browser diagnostics (2026-10-26).** Set
 `LOCAL_DIFFUSION_BROWSER_DIAGNOSTICS=1` for a scratch smoke to retain at most
 16,384 decoded stderr characters and report its owned exit/signal on failure.

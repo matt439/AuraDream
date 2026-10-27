@@ -21,10 +21,13 @@ import socket
 import sys
 import traceback
 from importlib.metadata import version
+from importlib.util import find_spec
 from pathlib import Path
 from types import SimpleNamespace
 
 root = Path(sys.argv[1])
+if len(sys.argv) > 2:
+    sys.path.insert(0, sys.argv[2])
 receipt = {"success": False, "phase": "start", "cases": {}, "guards": {}}
 calls = {"native_cuda_init": 0, "lazy_cuda_init": 0, "cuda_compute": 0, "compile": 0, "network": 0}
 
@@ -56,6 +59,16 @@ try:
     torch.set_num_threads(1)
     torch.set_num_interop_threads(1)
 
+    # Linux also installs bitsandbytes for Nunchaku. Its unrelated default
+    # backend decorates four functions with _try_torch_compile at import,
+    # swallowing the forbidden-compile exception each time. Model that optional
+    # backend as absent here; the actual FBC hooks/math below stay installed.
+    # None blocks both availability discovery and any accidental direct import.
+    optional_bitsandbytes_found = find_spec("bitsandbytes") is not None
+    assert "bitsandbytes" not in sys.modules
+    sys.modules["bitsandbytes"] = None
+    assert find_spec("bitsandbytes") is None
+
     # config must prepare the environment before any Diffusers import.
     from backend import config
     receipt["phase"] = "installed FBC/registry imports"
@@ -68,6 +81,9 @@ try:
     from diffusers.models.cache_utils import CacheMixin
     from backend.backends import Cancelled
     from backend.backends import fbc_cache
+
+    import_guards = calls.copy()
+    assert not any(import_guards.values()), import_guards
 
     class JointBlock(torch.nn.Module):
         def __init__(self, hidden_delta, encoder_delta):
@@ -235,6 +251,7 @@ try:
 
     assert torch._C._cuda_init is native_guard
     assert not torch.cuda.is_initialized()
+    assert sys.modules["bitsandbytes"] is None
     assert all(count == 0 for count in calls.values()), calls
     artifacts = {name: [str(path.relative_to(root)) for path in (root / name).rglob("*") if path.is_file()]
                  for name in ("inductor", "triton", "debug")}
@@ -242,7 +259,8 @@ try:
     receipt.update(success=True, phase="complete", guards=calls, cuda_initialized=False, native_guard_retained=True,
                    torch=version("torch"), diffusers=version("diffusers"), threads=torch.get_num_threads(),
                    interop_threads=torch.get_num_interop_threads(), tensor_shape=list(hidden.shape),
-                   synthetic_registry=True, compiler_artifacts=artifacts)
+                   synthetic_registry=True, compiler_artifacts=artifacts, import_guards=import_guards,
+                   optional_bitsandbytes_found=optional_bitsandbytes_found, bitsandbytes_excluded=True)
 except BaseException as exc:
     receipt.update(error={"type": type(exc).__name__, "message": str(exc), "traceback": traceback.format_exc()}, guards=calls)
     if "torch" in globals():
@@ -253,9 +271,7 @@ finally:
 '''
 
 
-@pytest.fixture(scope="module")
-def runtime_receipt(tmp_path_factory):
-    root = tmp_path_factory.mktemp("fbc-runtime")
+def _runtime_worker(root, *, poison_bitsandbytes=False):
     paths = {name: root / name for name in ("tmp", "hf", "torch", "inductor", "triton", "debug")}
     for path in paths.values():
         path.mkdir()
@@ -275,7 +291,23 @@ def runtime_receipt(tmp_path_factory):
         "OPENBLAS_NUM_THREADS": "1", "NUMEXPR_NUM_THREADS": "1", "PYTHONDONTWRITEBYTECODE": "1", "PYTHONUTF8": "1",
         "LOCAL_DIFFUSION_DEVICE": "cpu", "LOCAL_DIFFUSION_OFFLOAD": "none",
     })
-    done = subprocess.run([sys.executable, "-c", _WORKER, str(root)], env=env,
+    arguments = [sys.executable, "-c", _WORKER, str(root)]
+    if poison_bitsandbytes:
+        # Make the Linux-only dependency discoverable on every platform, with
+        # valid distribution metadata. Importing it must still be impossible.
+        optional = root / "optional-packages"
+        package = optional / "bitsandbytes"
+        package.mkdir(parents=True)
+        (package / "__init__.py").write_text(
+            "raise AssertionError('unrelated optional bitsandbytes backend was imported')\n", encoding="utf-8",
+        )
+        metadata = optional / "bitsandbytes-0.50.2.dist-info"
+        metadata.mkdir()
+        (metadata / "METADATA").write_text(
+            "Metadata-Version: 2.1\nName: bitsandbytes\nVersion: 0.50.2\n", encoding="utf-8",
+        )
+        arguments.append(str(optional))
+    done = subprocess.run(arguments, env=env,
                           cwd=Path(__file__).resolve().parents[1], capture_output=True, text=True,
                           encoding="utf-8", errors="replace", timeout=90)
     (root / "stdout.txt").write_text(done.stdout, encoding="utf-8")
@@ -285,6 +317,11 @@ def runtime_receipt(tmp_path_factory):
     receipt = json.loads(path.read_text(encoding="utf-8"))
     assert receipt["success"] and receipt["phase"] == "complete"
     return receipt
+
+
+@pytest.fixture(scope="module")
+def runtime_receipt(tmp_path_factory):
+    return _runtime_worker(tmp_path_factory.mktemp("fbc-runtime"))
 
 
 def test_actual_fbc_computes_then_reuses_and_recomputes_changed_residual(runtime_receipt):
@@ -306,6 +343,17 @@ def test_actual_fbc_worker_keeps_native_guards_and_cpu_resource_limits(runtime_r
     assert runtime_receipt["cuda_initialized"] is False and runtime_receipt["native_guard_retained"] is True
     assert set(runtime_receipt["guards"]) == {"native_cuda_init", "lazy_cuda_init", "cuda_compute", "compile", "network"}
     assert not any(runtime_receipt["guards"].values())
+    assert runtime_receipt["import_guards"] == runtime_receipt["guards"]
+    assert runtime_receipt["bitsandbytes_excluded"] is True
     assert runtime_receipt["threads"] == runtime_receipt["interop_threads"] == 1
     assert runtime_receipt["tensor_shape"] == [1, 2, 2]
     assert not any(runtime_receipt["compiler_artifacts"].values())
+
+
+def test_actual_fbc_excludes_discoverable_unrelated_bitsandbytes_backend(tmp_path):
+    receipt = _runtime_worker(tmp_path, poison_bitsandbytes=True)
+    assert receipt["optional_bitsandbytes_found"] is True
+    assert receipt["bitsandbytes_excluded"] is True
+    assert not any(receipt["import_guards"].values())
+    assert receipt["guards"] == receipt["import_guards"]
+    assert set(receipt["cases"]) == {"reuse", "contexts", "fresh_calls", "cancel"}

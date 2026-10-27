@@ -188,6 +188,16 @@ are still no loader, generation or UI callers, and render admission stays closed
 Independent source review accepted the guard, arithmetic and lifetime coverage
 with the conditioning-output limitation above.
 
+**Hosted CPU fixture correction (2026-10-27).** Linux installs the optional
+bitsandbytes dependency, whose default backend tries four compile decorators
+while importing and catches the worker's guard exceptions. The isolated FBC
+worker now models only that unrelated backend as absent. The installed FBC
+hooks and arithmetic remain real; compiler, device and network guards remain
+unchanged, with zero counters asserted immediately after imports and again
+after all cases. A discoverable poison bitsandbytes package with distribution
+metadata exercises the dependency boundary on Windows too. All **five**
+focused checks pass; this does not qualify bitsandbytes, a real model or a GPU.
+
 Final combined integration passed **4,720 tests, eight skips and 75 existing
 warnings** in **212.03 seconds** with two workers on Windows/Python 3.13.15.
 The full production-source type gate analyzed **116 files with zero errors or

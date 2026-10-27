@@ -5593,10 +5593,21 @@ sharing, strict/sloppy block functions, unsupported script kinds, missing
 files and missing Node. Node is required locally and verified by CPU CI;
 this guard does not replace the independent browser smokes.
 
-`tests/test_browser_capabilities.py` runs the actual Node harness with absent
-or noncallable `fetch`/`WebSocket` globals. Fixed exit-2 diagnostics occur
+`tests/test_browser_capabilities.py` captures the actual harness/helper module
+bodies before instrumentation and loads them as data URLs, so Node's own module
+loader does not trip the application file-read guards. It runs the real harness
+with absent or noncallable `fetch`/`WebSocket` globals. Fixed exit-2 diagnostics occur
 before browser lookup, script reads, output/profile creation or any network
 call; a callable fixture continues to the existing browser-discovery path.
+Negative controls keep input/module reads, output writes, spawn and network APIs
+forbidden after source capture.
+
+`tests/test_fbc_runtime.py` exercises installed FBC hooks and arithmetic on tiny
+CPU blocks in an isolated worker. Only the unrelated optional bitsandbytes backend
+is modeled as absent; a discoverable poison package verifies that boundary.
+Compiler, device and network counters stay zero across imports and all arithmetic,
+context, freshness, cancellation and cleanup cases. This is no real-model or card
+qualification.
 
 `smoke-control-sizing.json` uses a fresh FLUX.1 Krea [dev] fake on 7923.
 It measures prompt/footer targets and primary emphasis at 1400x900, 600x900,
