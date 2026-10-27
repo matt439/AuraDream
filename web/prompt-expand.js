@@ -86,7 +86,8 @@ async function expandPrompt() {
   });
   if (side) {
     showError(`Expand writes for the size in W and H: set both to whole pixels from ${els.width.min} to ${els.width.max} first.`);
-    side.focus();
+    revealSetupField(side);
+    side.focus({ preventScroll: true });
     return;
   }
   // The last expansion's failure is about that one.

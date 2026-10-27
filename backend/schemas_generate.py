@@ -744,6 +744,52 @@ class GenerateSubmission(GenerateRequest):
         return super().applied(**kwargs)
 
 
+class InstructionEditSubmission(BaseModel):
+    """What `POST /api/instruction-edit` takes: one gallery source, the
+    named recipe, the instruction and the size its preview resolved.
+
+    Nothing else a Generate carries - no negative, references, adapter,
+    Refine, mask, batch, Repeat, grid or execution channel - so an edit
+    cannot borrow a composer setting. The size is the preview's answer,
+    checked against the source again at admission (`bind_request`); the
+    steps and guidance, left out, are the recipe's own."""
+
+    model_config = ConfigDict(extra="forbid", strict=True)
+
+    source: int = Field(gt=0, le=2**63 - 1)
+    recipe: Literal["kontext-v1"]
+    prompt: str = Field(min_length=1, max_length=4000)
+    width: int = Field(ge=256, le=settings.refine_max_side)
+    height: int = Field(ge=256, le=settings.refine_max_side)
+    seed: int | None = Field(default=None, ge=0, le=MAX_SEED)
+    steps: int | None = Field(default=None, ge=1, le=100)
+    guidance_scale: float | None = Field(default=None, ge=0.0, le=20.0)
+
+    @field_validator("prompt")
+    @classmethod
+    def _an_instruction(cls, value: str) -> str:
+        # Kept as typed, as Generate keeps its prompt; only a blank refuses.
+        if not value.strip():
+            raise PydanticCustomError("blank_instruction", "write an instruction for the edit")
+        return value
+
+    def request(self, selected_loader: object = None) -> GenerateRequest:
+        """The one-image request the job carries, its edit still unbound.
+
+        Execution resolves as `GenerateSubmission.base` resolves a composer
+        request's; admission then binds the source (`bind_request`).
+        """
+        values: dict[str, Any] = {
+            "prompt": self.prompt, "width": self.width, "height": self.height,
+            "edit": InstructionEditSpec(source=self.source, recipe=self.recipe),
+            "num_images": 1, "runs": 1, "negative_prompt": None,
+        }
+        for name in ("seed", "steps", "guidance_scale"):
+            if getattr(self, name) is not None:
+                values[name] = getattr(self, name)
+        return GenerateRequest.model_validate(values).with_execution(selected_loader)
+
+
 class PromptVariant(BaseModel):
     """One whole prompt on a comparison grid's prompt axis, under a short name."""
 

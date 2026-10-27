@@ -39,7 +39,7 @@
   {"expect": "document.querySelectorAll('.card').length >= 12"},
   {"expect": "document.getElementById('run-list').options.length >= 2"},
 
-  {"eval": "document.querySelector('.card img').dispatchEvent(new MouseEvent('dblclick', {bubbles: true}))"},
+  {"eval": "document.querySelector('.card img').click()"},
   {"wait": 500},
   {"expect": "document.getElementById('lightbox').open && document.getElementById('lb-zoom').textContent.startsWith('fit')"},
   {"click": [560, 450]},
@@ -53,7 +53,7 @@
   {"expect": "document.getElementById('lb-zoom').textContent === '1:1'"},
   {"wheel": [700, 450, -300]},
   {"expect": "lbView.scale > oneToOneScale(lbList[lbIndex])"},
-  {"eval": "document.dispatchEvent(new KeyboardEvent('keydown', {key: 'ArrowRight', bubbles: true}))"},
+  {"key": "ArrowRight"},
   {"wait": 300},
   {"expect": "lbIndex === 1 && lbView.scale > 1"},
   {"key": "0"},

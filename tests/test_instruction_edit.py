@@ -277,8 +277,13 @@ def test_named_recipe_is_pinned_but_every_execution_remains_unavailable():
     assert recipe.pipeline_class == "FluxKontextPipeline"
     assert (recipe.default_steps, recipe.default_guidance_scale) == (28, 2.5)
     assert (recipe.negative_prompt, recipe.true_cfg, recipe.mu) == ("", None, None)
+    spec = edit.InstructionEditSpec(source=1, recipe="kontext-v1")
     with pytest.raises(ValueError, match="Instruction editing is not available"):
-        edit.require_execution_available(edit.InstructionEditSpec(source=1, recipe="kontext-v1"))
+        edit.require_execution_available(spec)
+    with pytest.raises(ValueError, match="Instruction editing is not available"):
+        edit.require_execution_available(spec, qualified=False)
+    # Only a qualified backend instance's literal True passes the seam.
+    assert edit.require_execution_available(spec, qualified=True) is None
 
 
 def _installed_tree(relative):

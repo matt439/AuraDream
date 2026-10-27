@@ -172,3 +172,36 @@ def test_browser_loader_options_are_short_and_keep_their_explanations(monkeypatc
     assert "nunchaku" not in {
         entry["value"] for entry in model_selection.options(SimpleNamespace())["quantizations"]
     }
+
+
+def test_instruction_edit_facts_on_catalogue_editor_and_other_custom_rows():
+    from backend.instruction_edit import INSTRUCTION_EDIT_UNAVAILABLE, KONTEXT_V1
+    from backend.launch import CHECKPOINTS
+
+    assert KONTEXT_V1.model_id not in {entry.repo for entry in CHECKPOINTS}
+    for entry in CHECKPOINTS:
+        detail = model_info.details_for(entry.repo)
+        assert detail["instruction_edit"] == "No"
+        assert "FLUX.1 Kontext [dev]" in detail["instruction_edit_note"]
+        assert "held until qualified" in detail["instruction_edit_note"]
+    editor = model_info.details_for(KONTEXT_V1.model_id)
+    assert editor["instruction_edit"] == "Held"
+    assert editor["instruction_edit_note"] == INSTRUCTION_EDIT_UNAVAILABLE
+    custom = model_info.details_for("local/custom-checkpoint")
+    assert custom["instruction_edit"] == "No"
+    assert custom["instruction_edit_note"] == ""
+
+
+def test_the_editor_profile_gives_generate_its_held_words():
+    from backend.instruction_edit import INSTRUCTION_EDIT_UNAVAILABLE, KONTEXT_V1
+    from backend.model_defaults import defaults_for
+
+    editor = defaults_for(KONTEXT_V1.model_id)
+    assert editor["text_to_image_supported"] is False
+    # The closed gate's words until a backend answers: never a pointer at
+    # Edit by instruction…, which is itself held.
+    assert editor["text_to_image_reason"].endswith(INSTRUCTION_EDIT_UNAVAILABLE)
+    assert "Use Edit by instruction" not in editor["text_to_image_reason"]
+    plain = defaults_for("black-forest-labs/FLUX.1-Krea-dev")
+    assert plain["text_to_image_supported"] is True
+    assert plain["text_to_image_reason"] is None

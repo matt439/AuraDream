@@ -1,16 +1,21 @@
 # Plan: edit a gallery image by instruction
 
 **Status, 2026-10-27:** Matt commissioned continuing `INP#11` without the
-card. Supplied-config preflight, the installed preprocessing audit, request
-identity, SQL/PNG persistence, cold source preview, replay holds, source lifetime
-and v2 bundle/reindex recovery are built with CPU/fake coverage. The
+card. Stages 0-2 are built. Stage 0's six pinned configs were fetched at the
+revision and qualified (below). Stage 1's CPU persistence and admission are
+built: request identity, SQL/PNG, cold source preview, replay holds, source
+lifetime and v2 bundle/reindex recovery. Stage 2 is
+[built on a stand-in](#stage-2-backend-and-dialog-2026-10-27): the editing
+call branch, the queueing route, the per-cell recheck and the dialog. Its
+evidence is a Kontext-shaped stub, the fake server and a real-browser smoke.
+On the real server everything stays closed: `DiffusersBackend` answers the
+gate with a literal False, Kontext is not in the catalogue, and the editor
+load holds are unconditional. The
 [carry inventory](instruction-edit-carry.md) and [bundle contract](instruction-edit-bundles.md)
-distinguish built source from remaining integration. Actual pinned gated configs
-remain unqualified; catalogue/loader enablement, the real editing call and dialog
-are not built. Public load, queue, replay and Reuse stay held. Browser acceptance
-and the separately approved card pass remain open. No model was downloaded,
-loaded or run, and no live gallery was read or changed. Kontext is the first
-engineering candidate; Qwen-Image-Edit remains a later stage.
+separate what is built from what stage 4 must still check. Stage 3's card pass
+needs separate approval and `GEN#22` first. No model was downloaded, loaded or
+run, and no live gallery was read or changed. Kontext is the first engineering
+candidate; Qwen-Image-Edit comes in a later stage.
 [Origin](review-2026-10-25.md#r9-edit-an-image-by-instruction).
 
 ## First useful result
@@ -131,8 +136,35 @@ configs and remote-code declarations and returns immutable canonical config
 digests with execution unavailable. It fetches/opens nothing and does not
 authenticate that supplied JSON came from the claimed revision. Future
 loader integration must bind the files to the pin before weights move.
-Its fixtures are synthetic; the gated checkpoint's actual configs remain
-unobtained and unqualified, so stage 0 is still incomplete.
+Its fixtures are synthetic.
+
+**Real-config qualification, 2026-10-27.** The six `CONFIG_PATHS` files were
+fetched from the gated repository at the pinned revision
+`24e9dedc4ef646698dc8eb4e18ae2cec3c9fea0d`. Only those configs were fetched,
+with no weights, and they were checked outside the repository. They passed
+`validate_configs` with `execution_available` False. Their canonical digests
+are now pinned as `instruction_edit_preflight.QUALIFIED_CONFIG_HASHES`, in
+`CONFIG_PATHS` order:
+
+| Config | Canonical SHA-256 |
+|---|---|
+| `model_index.json` | `e8d4c79ae755b47505713457f3465b6e9b30e6a4d88364f11caa2aa159b2446e` |
+| `scheduler/scheduler_config.json` | `68bd9f2c97f180ecb643a14b46e76394ffc5cc5e7c7f13992766b975dd60fb1d` |
+| `transformer/config.json` | `1727369bca1eaf7ea80fbce35f2eb539cf0d9c829b50ad30cdbab6e3499b37aa` |
+| `vae/config.json` | `f42dc49aff7a6250b73b4a2270cc302a5a3f15ae8d690766bb16d0c4dce68f33` |
+| `text_encoder/config.json` | `3b03552c28eb3bdd2ec0136b3e4d90266a56896274ff581b81b2fa1173afadc0` |
+| `text_encoder_2/config.json` | `3e22acd66a0aee18b849b36e1afc133386fa8b9715553feed69038529c892164` |
+
+`require_pinned(preflight)` refuses a validated snapshot whose bytes differ.
+It names only the first differing path and never echoes a hash.
+`ConfigPreflight.matches_pin` gives the same answer as a property. This pins
+configs only. It does not pin the weights and does not grant execution.
+
+The configs themselves are **not committed**. The repository is public under
+Apache-2.0, and the files come from a gated repository under the FLUX.1 [dev]
+non-commercial licence. Tests therefore use synthetic configs, plus a
+monkeypatched pin for the positive path. The hashes in the source and this
+record are the evidence, so stage 0 is complete.
 
 The first geometry table preserves these exact source aspect ratios, with
 equal working and output dimensions:
@@ -358,11 +390,163 @@ The proposed dialog shows the source, instruction, checkpoint, seed, steps,
 supported guidance and server-resolved size. It has no Refine strength slider.
 Unsupported/currently unavailable editors give a held reason and a route to
 Models, without switching or queuing by themselves. Ordinary composer text is
-preserved. Prompt writes use `writeBox`/`rewriteBox`; returning focus does not
-scroll the page. Source deletion/binning is handled through the existing
-`forgetImages` flow. Synthetic browser fixtures cover stale previews and
-revision changes, keyboard focus, Ctrl+Z, narrow/wide layouts and source/result
-inspection; actual browser access must be restored before claiming a pass.
+preserved. The dialog writes its own instruction box with `replaceBoxText`, so
+Ctrl+Z works, and never writes the composer; returning focus does not scroll
+the page. Source deletion/binning is handled through the existing
+`forgetImages` flow. As built, `smoke-instruction-edit.json` covers a stale
+preview asked again before Edit queues, a stale revision's 409, keyboard
+focus, Ctrl+Z, the 800x900, 1400x700 and 1900x1000 layouts and source/result
+inspection (see Stage 2 below).
+
+## Stage 2: backend and dialog, 2026-10-27
+
+**The one gate is the backend instance.** `GenerationBackend.instruction_edit_qualified()`
+answers whether this backend may run an edit, and only the literal `True`
+opens it (`qualified is True`, so a truthy object stays closed). The base
+class answers False. `DiffusersBackend` overrides it with a body that is only
+`return False`, and a source scan in `test_instruction_edit_gate.py` holds
+every definition under `backend/` to that literal. No setting, environment
+variable or flag reads into it. These all ask the same instance:
+`require_execution_available` and `require_model_available` (both take
+`qualified=`), `edit_unavailable_reason(model_id, qualified=)`, `applied()`,
+`check_refine_supported()`, `main.ensure_loaded` and `/api/model/load`. The
+diffusers load holds take no `qualified` argument and stay unconditional:
+`load`, `_load_prepared`, both editor-class refusals and
+`loading.require_custom_pipeline_class`. So even a stand-in that answers True
+cannot load the editor on this backend.
+
+The held reasons are five sentences in `instruction_edit.py`.
+`INSTRUCTION_EDIT_UNAVAILABLE` covers a closed gate and the Kontext pipeline
+class. `INSTRUCTION_EDITOR_UNSUPPORTED` covers Qwen-Image-Edit and the Qwen
+editor classes, which have no recipe whatever the gate says.
+`_NEEDS_MODEL` covers an open gate with another checkpoint selected; the
+selected id is compared exactly, as `bind_request` compares it, so a case
+variant needs the editor selected and its load is refused. `_TEXT_TO_IMAGE`
+covers Generate on the editor where an edit can queue; with the gate closed
+`text_to_image_refusal` gives the gate's own reason instead, never a pointer
+at the held dialog. `describe()` sets `text_to_image_reason` from it,
+`defaults.text_to_image_reason` carries it, and the page holds Generate and
+Run grid with it. `_REPLAY_HELD` covers Generate, Re-render, More seeds and
+Finish run of an edit with the gate open. `/api/status` carries
+`instruction_edit_supported` and `instruction_edit_reason` from `describe()`,
+which overrides the profile.
+
+**The call branch** (`DiffusersBackend._edit_images`) is reached from
+`_generate_images_prepared` right after the generator list. It never reaches
+the text-to-image kwargs, sigmas or the step that drops unsupported
+parameters. Its steps, in order:
+
+1. Require the loaded class to be `FluxKontextPipeline`, with one image, one
+   run and one generator.
+2. Require every name in `_EDIT_PARAMS` to be in the call's signature. A
+   missing name is refused, never dropped.
+3. Prove and decode the source through one open handle with
+   `instruction_edit_admission.load_bound_source`, then prepare it at the
+   recipe's working size.
+4. Pass exactly `_EDIT_PARAMS`: the image, the instruction as `prompt`, the
+   size with `max_area=w*h` and `_auto_resize=False`, `num_images_per_prompt=1`,
+   `max_sequence_length=512`, steps, distilled guidance, the generator and
+   the step callback.
+5. Call the pipeline under `torch.no_grad()` and `schedule.forced_mu(pipe, None)`.
+   The offload hooks are freed and the prepared source is closed in `finally`,
+   so cancel and decode errors clean up too.
+6. Require exactly one image at the output size. There is no composite.
+
+There is no negative prompt or true CFG, and no strength, mask, latents or
+`joint_attention_kwargs`.
+
+**Queueing** has one route, `POST /api/instruction-edit`, which takes an
+`InstructionEditSubmission`. It is strict and refuses extra fields: source,
+recipe, instruction, width and height from the preview, and optional seed,
+steps and guidance. It builds a one-image, one-run request with no negative.
+Admission runs in this order:
+
+1. The model-dependent middleware gives 409 for a switch in progress or a
+   stale revision.
+2. The selected loader and its execution must be runnable.
+3. `edit_unavailable_reason` must pass. A refusal is a 422 before any file
+   is read.
+4. `bind_request` proves the source's pixels, the model and the geometry.
+5. The budget and steps checks run, then `jobs.submit`.
+
+The route never asks `refuse_unusable_inputs`, whose text-to-image check
+would refuse everything on the editor. Generate, Re-render and More seeds
+still never queue an edit: `submission.unusable_input` answers UNAVAILABLE or
+REPLAY_HELD after binding. Swap tags, Then refine, grids, Finish and Mass
+refine's semantics are unchanged. In `jobs.py`:
+
+- `submit_cells` takes only a bound edit, behind the gate.
+- `_run` fails a retained edit job closed whenever the backend is not
+  qualified.
+- Each edit cell runs `_recheck_edit` as it begins, before `generate`. It asks
+  the gate again and proves the source again. A source that is missing, in
+  the recycle bin or rewritten since the submit fails that cell in words,
+  with no backend call and no row.
+- `planned_keys` skips edit cells while the gate is closed, so a gate that
+  closes mid-job cannot break other reruns' planning.
+
+**The fake server's gate** opens only when it claims FLUX.1 Kontext [dev].
+`POST /api/fake/instruction-edit {"available": bool}` flips it. The fake
+draws an edit as the proved source, tinted and stamped. A Kontext fake also
+plants a 3:2 source (768x512) and a 2:1 source (512x256) beside the 1:1 pair.
+
+**The page.** "✎ Edit by instruction…" follows Outpaint… in the right-click
+menu on cards, results and the lightbox. It is live wherever the source is
+live, including on the real server, and is held only for a source in the
+recycle bin. It opens `#edit-dialog`, which has:
+
+- the source as a read-only picture and the server-resolved "#N · W×H → w×h";
+- the held reason, with **Open Models…**, which opens the picker and
+  switches nothing;
+- the instruction box, the checkpoint line, seed, steps and guidance;
+- one fixed-height preview/error line.
+
+There is no Strength control and no canvas. Edit is held with `aria-disabled`
+and its reason as the title; a press writes the reason in place and queues
+nothing. An unsent draft returns for the same source and checkpoint. Reuse on
+a resolved edit reopens this dialog with the record's instruction, seed, steps
+and guidance; it never fills Generate. An unresolved, deleted or binned source holds Reuse
+with words. Lineage appears in the settings line ("edit of #N"), the facts
+("Edited from #N", with Restore for the bin, sampling and the recipe), the
+card's "edited" badge and the viewer. Models adds an "Edit" note. The wide
+viewer gets no Edit tool in stage 2; the context menu reaches the dialog at
+every width.
+
+**Held until stage 4:** a catalogue entry for Kontext (it stays out of
+`launch.py` `CHECKPOINTS`), Re-render and More seeds of edits, the real
+server's gate, and a wide-tier viewer tool.
+
+**Stage 3's loader order**, so the card pass does not have to re-derive it:
+
+1. Download only `CONFIG_PATHS` at `KONTEXT_V1.revision`.
+2. Run `require_pinned(validate_configs(...))` before anything else moves.
+3. Call `from_pretrained(revision=...)` inside
+   `loading.checkpoint_files_released`, with the usual per-component
+   quantization.
+4. Assert the loaded class is `FluxKontextPipeline` and `vae_scale_factor`
+   is 8.
+5. Only after the card measurements does `instruction_edit_qualified()` change.
+
+**Stage 2 evidence (no card).** The tests are `test_instruction_edit_gate.py`
+(the gate, the wording and the config pin), `test_instruction_edit_call.py`
+(exact kwargs, the one generator, grad and inference mode off, progress,
+preview, cancel, failure cleanup and refusals against a Kontext-shaped stub
+whose call reports the installed signature) and `test_instruction_edit_queue.py`
+(route admission, saved rows and PNG, the per-cell recheck, cancel, and the
+held producers on both gate states). Also updated: `test_instruction_edit_ui.py`
+(Reuse routing and the lineage branches) and `test_model_info.py`.
+
+`smoke-instruction-edit.json` drives the dialog in a real Edge against a
+Kontext fake on 7931 with fresh data, and `smoke-context-menu.json` checks
+the live item and its held dialog on a FLUX.1 Krea [dev] fake. Stage-2
+acceptance on 2026-10-27:
+
+- Ruff and the pinned type gate are clean (0 errors, 133 files).
+- The full `pytest -n auto` run: 6,250 passed and 8 skipped.
+- The whole smoke table (`run_smoke.py --all --jobs 3`): 77 of 77 passed in
+  802 s on the first run.
+
+Nothing here measures a model, its pixels, its fit or its timing.
 
 ## Stages and completion criteria
 
@@ -392,7 +576,9 @@ scope; no overnight quality sweep follows from this plan.
 
 This remains an **XL plus card** feature estimate from the originating review,
 not a measured delivery time. Starting it is commissioned; that does not
-authorize stage 3's model/card runs. Finish the pinned-config preflight and
-the stage 1 carry checklist before claiming the feature is portable or
-replayable. Detector work belongs to the [detailer plan](plan-detailer.md),
+authorize stage 3's model/card runs. Stages 0-2 are built, and the pinned
+configs are qualified. Stage 3 needs Matt's separate approval after `GEN#22`.
+Stage 4 still has to finish the replay producers (Re-render and More seeds)
+and the catalogue entry before the feature can be called portable and
+replayable on the real server. Detector work belongs to the [detailer plan](plan-detailer.md),
 and importing outside images stays in its existing deferred owner.

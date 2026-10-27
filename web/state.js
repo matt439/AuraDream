@@ -246,6 +246,15 @@ const els = {
   outpaintCarried: $('outpaint-carried'), outpaintCheck: $('outpaint-check'), outpaintCheckSaid: $('outpaint-check-said'),
   outpaintPreview: $('outpaint-preview'), outpaintError: $('outpaint-error'),
   outpaintCancel: $('outpaint-cancel'), outpaintRun: $('outpaint-run'),
+  editDialog: $('edit-dialog'), editTitle: $('edit-title'), editClose: $('edit-close'),
+  editStage: $('edit-stage'), editImage: $('edit-image'), editSourceLine: $('edit-source-line'),
+  editReused: $('edit-reused'), editDraft: $('edit-draft'),
+  editUnavailable: $('edit-unavailable'), editUnavailableText: $('edit-unavailable-text'),
+  editOpenModels: $('edit-open-models'), editInstruction: $('edit-instruction'),
+  editCheckpoint: $('edit-checkpoint'), editSeed: $('edit-seed'), editDice: $('edit-dice'),
+  editSteps: $('edit-steps'), editGuidance: $('edit-guidance'),
+  editPreview: $('edit-preview'), editError: $('edit-error'),
+  editCancel: $('edit-cancel'), editRun: $('edit-run'),
 };
 
 // Aspect × megapixel tier. Every side is a multiple of 16 (the VAE downsamples by

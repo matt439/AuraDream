@@ -374,7 +374,11 @@ def reorder_tags(model_id: str, prompt: str, categories: dict[str, str] | None) 
 def reorder_problem(
     model_id: str, prompt: str, candidate: str | None, categories: dict[str, str] | None,
 ) -> str | None:
-    return prompt_parts.reorder_problem((_guide(model_id).get("tag_helper") or {}), prompt, candidate, categories)
+    guide = _guide(model_id)
+    spec = _order_spec(guide)
+    return prompt_parts.reorder_problem(
+        guide.get("tag_helper") or {}, prompt, candidate, categories, spec.local if spec else (),
+    )
 
 
 def reordered_detail(model_id: str, prompt: str, categories: dict[str, str] | None) -> str | None:

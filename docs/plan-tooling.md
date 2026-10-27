@@ -238,6 +238,23 @@ tests, seven skips**. The separate **60** cold Node/output/map checks above had
 already passed with no real browser. Neither result closes actual browser/profile
 acceptance or authorizes retrying the Windows denial.
 
+**Windows browser access restored (2026-10-27).** An ordinary
+`run_smoke.py smoke-flux` launched Edge 156 and passed, with no flag, browser
+or security change. The whole table then ran (`--all --jobs 4`): 59 of 76
+passed. Sixteen failed again when run alone. Triage found four app regressions
+made while the browser was blocked: the Step cache row above Generate, Expand's
+size refusal focusing a field inside a closed fold, "Expand…" wrapping Reset,
+and Anima Aesthetic withholding a valid reorder. The other twelve were smokes
+not updated for deliberate changes: click to open, modal-owned keys, the queue
+front and Skip buttons, Size as a sheet axis, prose chips and the closed
+conditioning fold. After the fixes the whole table passed (74 of 76 in one
+`--jobs 3` run; the other two passed alone, one of them a load flake), as did
+`pytest -n auto` with the browser tests included (6,170 passed, eight platform
+skips). That run included `smoke-execution-selector`, `-reuse`,
+`smoke-automatic-backup`, `smoke-retention` and `smoke-credential`, the Windows
+browser checks the denial had left unrun. Linux Chrome and hosted CI (`DEV#4`)
+remain unqualified: the WSL denial was not retried.
+
 ## Backend type checking
 
 `DEV#6` · implemented and qualified locally, 2026-10-26. The pinned gate

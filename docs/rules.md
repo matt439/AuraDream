@@ -163,15 +163,21 @@ before changing it.
   cover the requested size and cropped; a leaf module like `seeds`
 - `backend/instruction_edit.py` — standalone `kontext-v1` recipe, strict
   request/stored-source contracts, original-RGB provenance and exact-aspect
-  Lanczos geometry, canonical bound identity and unconditional execution holds;
-  this module does not enable an editing checkpoint.
+  Lanczos geometry, canonical bound identity, the held-reason sentences and
+  the execution holds that open only for `qualified=True`
+  (`edit_unavailable_reason`); this module does not enable an editing checkpoint.
 - `backend/instruction_edit_admission.py` — prove live gallery source pixels,
-  descriptor and exact recipe geometry before key/admission work; no loading.
-- `backend/api_instruction_edit.py` — cold single-source geometry/provenance
-  preview with an explicit unavailable reason; no edit submission or model work.
+  descriptor and exact recipe geometry before key/admission work
+  (`bind_source`, `bind_request`); `load_bound_source` proves and decodes
+  through one open handle and returns the prepared working-size RGB; no loading.
+- `backend/api_instruction_edit.py` — the cold single-source preview and
+  `POST /api/instruction-edit`, the one route that queues an edit, both behind
+  the backend's `instruction_edit_qualified()` and the selected checkpoint.
 - `backend/instruction_edit_preflight.py` — cold, supplied-config Kontext
-  inventory/class/shape checks and canonical config digests; performs no
-  file/Hub access and never grants execution or claims gated-config qualification.
+  inventory/class/shape checks and canonical config digests;
+  `QUALIFIED_CONFIG_HASHES` (the six configs at the revision, qualified
+  2026-10-27; a config pin, not a weights pin) and `require_pinned`; performs
+  no file/Hub access and never grants execution.
 - `backend/outpaint.py` — an outpaint's pure parts: the fills (`FILLS`,
   `padded`), the server-built mask (`mask`), the presets (`presets`, the
   refine guard's limits passed in) and the off-grid words
@@ -327,7 +333,7 @@ before changing it.
   per version
 - `backend/reindex.py` — rows rebuilt from the PNGs' `auradream` chunk, in place or
   copied in from another gallery; idempotent on the UNIQUE filename
-- `web/` - served as-is from `/static`; `index.html` loads 53 classic
+- `web/` - served as-is from `/static`; `index.html` loads 54 classic
   scripts in order, sharing one global scope; only `app.js`, the last, runs
   the wiring and boot. `state.js` owns shared state; `generation.js`,
   `grid-preview.js`, `job-stream.js` and `job-results.js` handle submission,
@@ -347,6 +353,8 @@ before changing it.
   upload, preview, submit and Reuse) and `inpaint-mask.js` its canvas, tools, strokes and export
   (`styles/inpaint.css`); `outpaint.js` the Outpaint dialog (the side, band and preset
   controls, the frame, the preview, submit, close and Reuse; `styles/outpaint.css`);
+  `instruction-edit.js` Edit by instruction… (the capability, the menu item, the
+  dialog's preview, submit, close and Reuse, and an edit's lineage; `styles/instruction-edit.css`);
   `tags.js`, `tag-tokens.js` and `tag-chips.js` the prompt helper, `tag-finder.js` its Find
   tag dropdown; `prompt-examples.js` the
   Examples menu, `prompt-expand.js` ERNIE's Expand; `analysis.js`,
@@ -373,7 +381,8 @@ before changing it.
   the grid search, the buttons and progress, `gallery.css` the stage and
   Gallery beside, `sheet.css` the contact sheet, `lightbox.css` the
   lightbox, `refine.css` the Refine dialog and motion, `inpaint.css` and
-  `outpaint.css` their dialogs, `bundles.css` the bundle dialog,
+  `outpaint.css` their dialogs, `instruction-edit.css` the Edit by
+  instruction dialog and an edit's badge, `bundles.css` the bundle dialog,
   `swap.css`, `refine-batch.css` and `more-seeds.css` those dialogs,
   `bin.css` the recycle bin, `context-menu.css` the right-click menu and
   `shortcuts.css` the keyboard help dialog and `snippets.css` the snippet dialog;
@@ -835,6 +844,32 @@ Model and loader:
   `from_pretrained` after an inconclusive read. The catalogue and its listed
   Nunchaku formats retain their existing load behavior. The optional
   `unused_components` optimization is not an admission decision.
+- Instruction editing has one gate: the running backend instance's
+  `instruction_edit_qualified()`, and only the literal `True` opens it.
+  It is never a setting, environment variable or flag. The base class
+  answers False, and `DiffusersBackend` overrides it with a body of only
+  `return False` until stage-3 card qualification
+  (`test_instruction_edit_gate.py` scans every definition under `backend/`
+  for that literal). Every edit check takes `qualified=` from that instance:
+  `require_execution_available`, `require_model_available`,
+  `edit_unavailable_reason`, `applied()`, `check_refine_supported()`,
+  `ensure_loaded`, `/api/model/load`, `jobs.submit_cells` and `_run`, and
+  the per-cell recheck.
+  The diffusers editor load holds take no `qualified` argument and stay
+  unconditional: `load`, `_load_prepared`, both editor-class refusals and
+  `require_custom_pipeline_class`. Kontext stays out of `launch.py`
+  `CHECKPOINTS` until stage 4. A future editor load runs
+  `require_pinned(validate_configs(...))` on the six `CONFIG_PATHS` fetched
+  at the revision before any weights move.
+- The edit call (`DiffusersBackend._edit_images`) branches off
+  `_generate_images_prepared` right after the generator list. It never
+  reaches the text-to-image kwargs, sigmas or the step that drops
+  unsupported parameters. It passes exactly `_EDIT_PARAMS`, and a parameter
+  missing from the loaded call is refused, never dropped. The source comes
+  through `load_bound_source`. The call runs under `no_grad` and
+  `forced_mu(pipe, None)`; the hooks are freed and the source closed in
+  `finally`; and the result must be exactly one image at the recipe's output
+  size, with no composite.
 - Backend loading owns returned component overrides and the unpublished pipeline
   in one candidate through shard/weights-context exit, placement, callback checks,
   console configuration and diagnostics. Publish the complete call parameters,
@@ -2099,6 +2134,28 @@ Jobs:
   the gate. The critic's download and its rewrite's lint run outside the
   gate. Nothing that holds the gate awaits the load lock, which is why
   `wait_for_gate` cannot deadlock.
+- An instruction edit queues only through `POST /api/instruction-edit`
+  (`InstructionEditSubmission`). The submission is strict and refuses extra
+  fields such as a negative prompt. It becomes one image and one run. Its
+  admission order is fixed:
+  1. the model-dependent middleware (409 for a switch or a stale revision);
+  2. the selected loader and default execution;
+  3. `edit_unavailable_reason` (a 422 before any file is read);
+  4. `bind_request` in a thread, which proves the pixels, model and geometry;
+  5. `check_budget`, `check_refine_steps` and `jobs.submit`.
+
+  The route never asks `refuse_unusable_inputs`, whose text-to-image check
+  refuses everything on the editor. `submission.unusable_input` still binds
+  an edit, then answers UNAVAILABLE, or REPLAY_HELD with the gate open, so
+  Generate, Re-render and More seeds never queue one. `submit_cells` takes
+  only a bound edit, and `_run` fails a retained edit job when the backend is
+  not qualified.
+
+  Each edit cell runs `_recheck_edit` as it begins, after `begin_call` and
+  before `generate`. It asks the gate again and re-proves the source with
+  `bind_source`. A source that is missing, in the recycle bin or rewritten
+  since the submit fails that cell in words, with no backend call and no
+  row. `planned_keys` skips edit cells while the gate is closed.
 
 Prompt analyser:
 
@@ -2769,7 +2826,8 @@ Frontend and CLI:
 - The panel's order is Prompt, Negative, Size, Sampling, Output, Generate
   and what a job adds under it (`#progress`, then the run hint, the finish
   line, the queue, Load settings from PNG… (`.png-load`), `#error`, the
-  last-run banner), the grid fold, then Reference images
+  last-run banner), the grid fold, the Step cache row
+  (`.execution-cache-row`), then Reference images
   (`#reference-field`) and LoRA (`#lora-field`) last. Nothing rarely used
   goes between Sampling and Generate: at scroll 0 the panel is in the
   page's flow and its sticky top cannot lift it, so every line above
@@ -2848,7 +2906,9 @@ Frontend and CLI:
   the example to pass.
 - Prompt expansion is ERNIE-only and explicit. `syncExpandButton` is
   Expand's one writer: it is held while it runs (reading "Expand…", never
-  the wider "Expanding…"), during this page's job or another tab's
+  the wider "Expanding…", in the width it had idle: `syncExpandButton` locks it and
+  `.running` gives the ellipsis its side padding, so the caption row, full at 1400 px,
+  never wraps Reset), during this page's job or another tab's
   (`EXPAND_ELSEWHERE`, after busy in its reasons), during a critique, or
   with the server offline - aria-disabled, with the reason as its title, so
   a keyboard user's focus stays; otherwise the title names a first use's
@@ -3875,9 +3935,59 @@ Frontend and CLI:
   mirrors it into an open lightbox without closing it. The composer's prior
   Reuse note and Undo stay intact. `syncReuseButtons` preserves the recipe
   in its dataset so a capability refresh cannot clear this hold.
-  Instruction-edit records are held at the same boundary, with edit presence
-  retained across refreshes. A source-dependent instruction must not populate
-  ordinary Generate, even when its original source is unresolved.
+  An instruction-edit record never populates ordinary Generate:
+  `reuseIntoPanel` refuses every edit. A resolved edit's Reuse
+  ("Reuse instruction edit…", no checkpoint ⚠) opens the Edit by instruction
+  dialog on its source instead (`reuseEdit`, which looks the source up with
+  `?binned=true`). It writes the recorded instruction with `replaceBoxText`
+  and the recorded seed, steps and guidance, and the composer's draft, Undo
+  and references stay untouched. An unresolved (`source: null`), deleted (`edit_missing`) or
+  binned (`edit_binned`) source holds the button with the reason
+  (`editReuseReason`, through `executionReuseReason`). Edit presence is kept in the dataset across
+  capability refreshes, and binning, deleting or restoring the source updates
+  the edits' records, titles and buttons.
+- Edit by instruction… (`instruction-edit.js`, `styles/instruction-edit.css`;
+  `smoke-instruction-edit.json`, `tests/test_instruction_edit_ui.py`):
+  - **Entry.** It is a right-click menu item after Outpaint… on a card, a
+    result tile and the lightbox (`syncedItem` over `syncEditTool`, running
+    `editFromCard`). It is live wherever its image is live, the real server
+    included, and is held only for an image in the recycle bin ("restore it
+    first"). There is no card glyph, lightbox button or wide viewer tool.
+  - **Opening.** It opens `#edit-dialog`, the Inpaint dialog's box with a
+    read-only picture. Opening from the lightbox closes the lightbox, and
+    Escape gives it back where it was. Focus goes to `#edit-instruction`
+    with `preventScroll`.
+  - **Contents.** The source line is the server's "#N · W×H → w×h". The held
+    reason `#edit-unavailable` (`defaults.instruction_edit_reason`) comes with
+    **Open Models…**, which opens the picker and never switches or queues.
+    Then the instruction, the checkpoint line, seed with its random button,
+    steps and guidance from the preview, and one fixed-height line shared by
+    the preview and the error. There is no Strength control and no canvas.
+  - **Run.** Edit (`#edit-run`) is `aria-disabled` with its reason as the
+    title. The reason is, in order (`editHold`): `submitHold()`, a submit
+    in flight (`EDIT_IN_FLIGHT`), the capability reason, the preview's
+    refusal (shown in place), "Wait for the preview of the source", a bad
+    seed, steps or guidance (`editNumberProblem`), or "Write an instruction
+    first." (`EDIT_NO_INSTRUCTION`). A held press writes the reason in place, with
+    no scroll and no job. Run asks the preview again when it is stale, then
+    queues through `startJob('/api/instruction-edit', …)`. Ctrl+Enter, and
+    Enter in a number box, run it.
+  - **Drafts.** Close keeps an unsent draft, which comes back only for the
+    same source and checkpoint. A checkpoint change clears the drafts and
+    asks the preview again.
+  - **Never written:** `els.prompt`, `els.negative` and the references.
+  - **On Kontext.** Generate and Run grid are held with
+    `defaults.text_to_image_reason`, and pressing Generate says it and sends
+    nothing. The reason comes from the gate (`text_to_image_refusal`): it
+    points at Edit by instruction… only where an edit can queue, and
+    otherwise says the edit gate's own reason.
+  - **Lineage.** Jobs read "instruction edit of #N" in the queue, the
+    progress line and Cancel's title. The settings line says "edit of #N".
+    The facts have "Edited from #N" (marked deleted or in the recycle bin,
+    with Restore for the bin), steps and guidance as the sampling, and the
+    recipe. Cards get the `edited` class and badge, and the viewer labels the
+    prompt "Instruction". Models adds an "Edit" note (`model_info`'s
+    `instruction_edit_note`) and no fact cell.
 - Load settings from PNG (`png-settings.js`, `api_png.py`,
   `png_settings.py`; `smoke-png-settings.json`, `tests/test_api_png.py`).
   A file dragged over the page outlines the window (`body.png-drop::after`,
@@ -5414,17 +5524,42 @@ check strict copied-request admission, bound source keys/legacy run ids,
 SQL/PNG migration/carry/conflicts, v2/v1 bundle compatibility, full-RGB remapping,
 unresolved recovery and cleanup/source availability on scratch galleries.
 `test_instruction_edit_loader.py` checks known-editor and unreadable custom-id
-class refusal before weights; `test_instruction_edit_ui.py` uses Node VM/inert
-DOM to check Reuse holds without modifying draft/Undo or looking up a source.
-None enables an editor or qualifies an actual browser, model or card.
+class refusal before weights. `test_instruction_edit_ui.py` uses Node VM and
+an inert DOM. It checks that Reuse on a resolved edit routes to `reuseEdit`
+and leaves the composer untouched. It checks that unresolved, deleted and
+binned sources are held with words, and it covers the facts and viewer
+lineage branches.
+
+Three files cover stage 2:
+
+- `test_instruction_edit_gate.py` checks the gate. The base and real
+  backends answer False even with every `AURADREAM_*` set, and a source scan
+  holds every `instruction_edit_qualified` under `backend/` to a literal
+  False. `qualified=1` stays closed. It also checks the wording constants,
+  `_merged_defaults` and the config pin: synthetic configs fail
+  `require_pinned`, pass with a monkeypatched pin, and fail again with one
+  path changed.
+- `test_instruction_edit_call.py` drives `_edit_images` against a
+  Kontext-shaped stub whose call reports the installed signature. It checks
+  the exact kwargs, the one seeded generator, grad and inference mode off,
+  progress, the preview, cancel and failure cleanup (hooks freed and the
+  source closed), and the refusals. It also checks that a plain backend and
+  editor loads still refuse.
+- `test_instruction_edit_queue.py` checks the route's admission order and
+  refusals, a saved edit row and PNG, the per-cell recheck, cancel,
+  `planned_keys`, and the held producers on both gate states.
+
+None of these enables the real server's editor or qualifies a model or the card.
 
 `tests/test_instruction_edit_preflight.py` checks the supplied-config refusal
 boundary with synthetic JSON and the installed complete PIL-to-normalized-CPU-
 tensor preprocessing path using source-extracted methods in the fresh
 `tests/fixtures/instruction_edit_processor_cpu.py` child. The child forbids
 pytest/conftest, model and application imports, poisons CUDA initialization
-and verifies no initialization attempt before or after preprocessing. The pinned gated configs remain
-unobtained/unqualified; successful synthetic preflight never permits execution.
+and verifies no initialization attempt before or after preprocessing. The six
+pinned gated configs were fetched at the revision and qualified on 2026-10-27,
+outside the repository and not committed; their hashes are
+`QUALIFIED_CONFIG_HASHES`. A passing preflight never permits execution.
 
 `tests/test_instruction_edit_loader.py` checks strict custom/local class
 inspection, unreadable/malformed/editor aliases, case-insensitive named-editor
@@ -6811,8 +6946,8 @@ on screen after a wheel over the stage and at the end of a 160-image
 gallery, the panel holding its bottom a gutter above the window's (the
 gutter and the resting top read off the page; at 1400x900, where References
 and LoRA run on under the fold, stuck with Run grid in view), the panel's
-order - the run hint under `#progress`, References and LoRA last, under
-the grid fold - and a hand-drawn running
+order - the run hint under `#progress`, the Step cache row after the grid
+fold, References and LoRA last, after it - and a hand-drawn running
 batch's Now line, both bars and elapsed line in the window at scroll 0 at
 2048x1040@1.25, the panel coming back down
 as far as a wheel scrolls up, the prompt and Examples focused from deep in
@@ -6913,7 +7048,9 @@ with every cell done and not on another grid's mismatch, its mismatch
 warning and its absence on another checkpoint's run, whose More seeds of
 this run… stays, held with "Made on …", and says it under the gallery's head, the version rows with their edits and titles (a
 reorder as "same words, moved"), a strength sweep's source column and
-lightbox walk, the refined badge, pins in the export's file name, an
+lightbox walk, the refined badge, two passes alike on every axis but
+their source counted in the note as sharing a cell, pins in the export's
+file name, an
 empty sheet drawing only its note; the cell star (hidden until hover or
 focus, out of the tab order, a click starring without opening the lightbox,
 under the stuck heads when the box scrolls); iterations on random seeds (a
@@ -6938,7 +7075,7 @@ moving the page; and at 1400x900 the sheet's focus kept through F on a
 cell another tab deleted (onto the cell now in its place), a changed
 Columns select, and another tab's job ending under it, the sheet left as
 it was. `smoke-sheet-klein.json` uses a FLUX.2
-[klein] fake on 7886 for the References axis, the shared-cell count and the
+[klein] fake on 7886 for the References axis, the Size row and its pin, and the
 adapter named in LoRA heads, the Fixed line and the export:
 
 ```powershell
@@ -7664,7 +7801,10 @@ node tools/browser.mjs tools/smoke-outpaint.json
 `smoke-context-menu.json` checks the right-click menu on a FLUX.1 Krea
 [dev] fake on 7908 with a fresh `--data`: a card's menu at the pointer, its
 items and groups, Refine, Inpaint and Outpaint live and Use as reference
-held with the card button's title, F beside Star; ArrowDown and Escape with
+held with the card button's title. Edit by instruction… follows Outpaint…,
+live on a server whose editor is held and titled with
+`instruction_edit_reason`. Chosen, it opens its dialog with that reason and
+Edit held in those words. F sits beside Star; ArrowDown and Escape with
 focus back on the image; Star starring the card; Use seed; the copy items
 and Open PNG (the clipboard and `window.open` stubbed); a held Use as
 reference saying why; FLUX.1's inpaint (enabled 2026-10-19): Inpaint…
@@ -7675,7 +7815,9 @@ the prompt box keeping the browser's menu; the Menu key on a focused card
 opening on its first item; a picked card's picks menu starring both picks
 and an unpicked card's own menu; a press outside closing it; a result
 tile's menu; and in the lightbox the menu inside the dialog, no Open, Del
-beside the bin, a press on the stage closing the menu and not the lightbox,
+beside the bin, a press on the picture beside the menu (a quarter of the way
+across, since the menu now reaches below the picture's middle) closing the
+menu and not the lightbox,
 Escape closing the menu only, Use seed saying so in the lightbox's line,
 and Show run as sheet closing the lightbox for the sheet; More seeds of this
 batch… after Use seed on a card (unheld, titled with its batch) and a
@@ -7687,6 +7829,49 @@ Shift):
 ```powershell
 uv run python tools/fake_server.py --port 7908 --model black-forest-labs/FLUX.1-Krea-dev --data <new-scratch-directory>
 node tools/browser.mjs tools/smoke-context-menu.json
+```
+
+`smoke-instruction-edit.json` checks Edit by instruction… on a fake claiming
+FLUX.1 Kontext [dev] on 7931 with a fresh `--data`. Only a Kontext fake
+starts with its gate open, and `POST /api/fake/instruction-edit
+{"available": bool}` flips it. The fake plants a 3:2 and a 2:1 source beside
+the 1:1 pair. The smoke checks:
+
+- **Generate on the editor:** held with `text_to_image_reason`; a press says
+  it and sends nothing, and the composer is unchanged.
+- **Gate closed:** the menu item stays live and opens the dialog, which shows
+  the reason with Edit held in those words. A press writes it in place and
+  queues nothing. Open Models… opens the picker and switches nothing.
+- **Gate open:**
+  - opened from the lightbox, which closes, with focus in the instruction;
+  - the recipe's 512×512, 28 steps and guidance 2.5, with no strength;
+  - the draft from the closed gate kept;
+  - an empty instruction holding Edit with its words, and Ctrl+Z taking
+    typing back;
+  - Escape giving the lightbox back;
+  - the 2:1 source's aspect refusal shown in place;
+  - a stale revision getting 409;
+  - a stale preview (the gate closed behind the page) asked again when Edit
+    is pressed, its refusal said in place and no edit sent;
+  - the dice clearing the seed with the kept draft's note still shown and
+    the dice, instruction and Edit unmoved.
+- **A run:** Ctrl+Enter queues it, and the progress line and queue row read
+  "instruction edit of #1". A second edit queued behind it is cancelled from
+  the queue. The saved record is an edit of #1 with its 64-hex proof, the
+  Kontext id, 512×512, batch 1, and no refine, mask or negative. The viewer
+  lineage, the "Edited from" fact and the `edited` badge show, and the
+  pixels differ from the source. A cancel mid-run saves nothing.
+- **Binning the source:** the edit's Reuse is held, and the facts say "in the
+  recycle bin" with Restore. The source's own menu item is held with
+  "restore it first", and Restore frees both.
+- **Reuse:** reopens the dialog on the source with the instruction and seed,
+  and the composer is untouched.
+- **Layout:** the page neither scrolls nor moves. At 800x900, 1400x700 and
+  1900x1000 the dialog fits with Edit in view. No page errors.
+
+```powershell
+uv run python tools/fake_server.py --port 7931 --model black-forest-labs/FLUX.1-Kontext-dev --data <new-scratch-directory>
+node tools/browser.mjs tools/smoke-instruction-edit.json
 ```
 
 `smoke-tag-finder.json` checks Find tag on an Animagine-claiming fake on

@@ -121,9 +121,12 @@ Backend (`backend/`):
   preview-issued submission receipts and safe retries;
   `seeds.py`; `sizes.py` presets and size guards; `loras.py` adapter names to
   paths; `instruction_edit.py` the frozen Kontext recipe, strict source types,
-  geometry and bound keys; `instruction_edit_preflight.py` cold supplied-config
-  checks; `instruction_edit_admission.py` gallery-source proof;
-  `api_instruction_edit.py` cold preview (public editor execution held);
+  geometry, bound keys and held reasons; `instruction_edit_preflight.py` cold
+  supplied-config checks and the qualified config pin (`require_pinned`);
+  `instruction_edit_admission.py` gallery-source proof (`load_bound_source`
+  for the call); `api_instruction_edit.py` the preview and
+  `POST /api/instruction-edit`, queueing only behind the backend's
+  `instruction_edit_qualified()`;
   `refine.py` the image-to-image pass and the inpaint (`sibling(kind)`,
   `composite`); `latent_preview.py`
 - Prompt analyser: `prompt_encoding.py` (tokenizers), `encoder_table.py`
@@ -151,6 +154,9 @@ cascade. `docs/rules.md`'s Layout maps every file; `docs/source-audit.md`
 records the split audits.
 `execution.js` owns inspectable performance controls and unavailable-recipe
 holds; configuring a recipe never enables its loading or rendering.
+`instruction-edit.js` (`styles/instruction-edit.css`) owns Edit by
+instruction… (the menu item, the dialog, Reuse of an edit and its lineage);
+it never writes the composer's prompt, negative or references.
 
 Also: `tools/` (fake server, headless-browser smokes), `tests/`, `wsl/`,
 `docs/`.
@@ -260,8 +266,16 @@ Reproduction and storage:
 - Instruction edits retain a distinct `edit` spec and full original-RGB source
   proof through rows, PNGs, keys, reruns and recovery; unresolved sources keep
   their intent and refuse replay. Edit bundles use v2; edit-free bundles stay
-  v1. Public editor loading/execution and Reuse remain unavailable. The plan and
-  carry/bundle checklists own the remaining integration and qualification.
+  v1.
+- The one edit gate is the backend instance's `instruction_edit_qualified()`
+  (literal `True` only), never a setting; `DiffusersBackend` returns a literal
+  False, its editor load holds stay unconditional and Kontext stays out of
+  `CHECKPOINTS`. So real-server editor loading and execution remain
+  unavailable until card qualification. The fake and the stub can queue,
+  through `POST /api/instruction-edit` only, which re-proves each cell's
+  source as it begins. Reuse opens the Edit by instruction dialog. Generate,
+  Re-render and More seeds of edits stay held. The plan and the carry/bundle
+  checklists own the remaining integration and qualification.
 
 Jobs:
 
@@ -432,6 +446,7 @@ node tools/browser.mjs tools/<smoke>.json
 | 7928 | FLUX.1-Krea-dev, fresh scratch `--data` | `smoke-retention` |
 | 7929 | FLUX.1-Krea-dev, fresh scratch `--data` | `smoke-credential` |
 | 7930 | FLUX.1-Krea-dev, fresh scratch `--data` | `smoke-execution-selector` |
+| 7931 | black-forest-labs/FLUX.1-Kontext-dev, fresh scratch `--data` | `smoke-instruction-edit` |
 
 FLUX.1-Krea-dev is `black-forest-labs/FLUX.1-Krea-dev`; animagine is
 `cagliostrolab/animagine-xl-4.0`.
@@ -450,7 +465,9 @@ Gotchas:
   by a crashed Edge. It is removed on every exit (failures and Ctrl-C too),
   and a later run sweeps any left over six hours.
 - Fake-server knobs: `POST /api/fake/load`, `/api/fake/step`,
-  `/api/fake/expand`, `/api/fake/lora`, `/api/fake/bin-age`, `/api/fake/peak`; a prompt containing `[fail]` fails its cell;
+  `/api/fake/expand`, `/api/fake/lora`, `/api/fake/bin-age`, `/api/fake/peak`,
+  `/api/fake/instruction-edit` (the edit gate, open by default only on a
+  Kontext fake); a prompt containing `[fail]` fails its cell;
   `--critic-delay`, `--no-critic`.
 
 GPU behaviour, pixels, timing and memory are the card's to say, recorded in

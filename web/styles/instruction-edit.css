@@ -1,0 +1,48 @@
+/* ---------------------------------------------------- instruction edit dialog */
+
+/* Edit by instruction (instruction-edit.js) wears the Inpaint dialog's box,
+   its fixed top and its two panes from 1800 px (inpaint.css's
+   .inpaint-dialog, .ip-paint, .ip-stage, .ip-controls); what is its own is
+   here. The picture is read-only and a little shorter than the mask
+   editor's, which has tools under it, so the dialog fits a 700 px window. */
+.edit-dialog {
+  --ip-image-h: 28vh;
+  /* A scrollbar that comes with a line takes no width from the controls,
+     so none moves sideways under the pointer. */
+  scrollbar-gutter: stable;
+}
+.edit-stage img { object-fit: contain; }
+
+/* Why no edit can run here, and the way to Models, on one line where it fits. */
+#edit-unavailable { margin: 0; }
+#edit-unavailable .ghost.tiny { flex: none; }
+
+/* The preview's line and a refusal share one slot of a fixed height - two
+   lines of the dialog's small text - so neither coming nor going moves Edit
+   under the pointer. */
+.edit-said { min-height: calc(2 * var(--lh) * var(--fs-body-sm)); }
+#edit-preview { margin: 0; font-size: var(--fs-body-sm); color: var(--text); min-height: 0; }
+#edit-preview.warn { color: var(--warn); }
+#edit-error { margin: 0; font-size: var(--fs-body-sm); white-space: pre-line; }
+
+/* An edit's card badge: the refined badge's place and look (sheet.css),
+   moved over for a reference's number as that one is. */
+.card.edited::before {
+  content: "✐ edit"; position: absolute; top: 6px; left: 6px; z-index: 1;
+  padding: 2px 7px; border-radius: var(--r-lg); background: rgba(0, 0, 0, 0.62);
+  color: #fff; font-size: var(--fs-label); pointer-events: none;
+}
+.card.ref.edited::before { left: 36px; }
+
+/* An edit's prompt is its instruction, and the lightbox and the result
+   column say so before it. */
+.lb-prompt.instruction::before, .result-prompt.instruction::before {
+  content: "Instruction · "; color: var(--muted);
+}
+
+/* The wide tier: the picture a pane of its own on the left (inpaint.css's
+   grid), as large as most of the window's height; the controls on the right.
+   Nothing changes under 1800 px. */
+@media (min-width: 1800px) {
+  .edit-dialog { --ip-image-h: min(70vh, 1000px); }
+}

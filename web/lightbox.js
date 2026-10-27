@@ -463,6 +463,8 @@ function renderLightbox() {
   if (els.lbImg.getAttribute('src') !== rec.url) els.lbImg.src = rec.url;
   els.lbImg.alt = rec.prompt;
   els.lbPrompt.textContent = rec.prompt;
+  // An edit's prompt is its instruction, and says so (instruction-edit.css).
+  els.lbPrompt.classList.toggle('instruction', rec.edit != null);
   els.lbDesc.textContent = settingsLine(rec);
   // Use seed's note names the seed of the image it was pressed on.
   if (lbSeedNote && lbSeedNote.id !== rec.id) {

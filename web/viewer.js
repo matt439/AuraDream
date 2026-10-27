@@ -335,7 +335,7 @@ function refineResult(rec, tile) {
 function resultSide(rec, figure) {
   const side = document.createElement('div');
   side.className = 'result-side';
-  if (rec.refine != null) side.append(passLineage(rec));
+  if (rec.refine != null || rec.edit != null) side.append(passLineage(rec));
   const action = (button) => { button.classList.add('ghost', 'small'); return button; };
   // Its word drawn after the glyph (`data-word`): syncStar writes the glyph.
   const star = action(tool('☆', '', () => setFavorite(rec, !rec.favorite)));
@@ -389,6 +389,8 @@ function resultSide(rec, figure) {
   actions.append(seed, more, brief, del);
   const prompt = document.createElement('p');
   prompt.className = 'result-prompt';
+  // An edit's prompt is its instruction, and says so (instruction-edit.css).
+  prompt.classList.toggle('instruction', rec.edit != null);
   prompt.textContent = rec.prompt;
   side.append(actions, prompt, factsList(rec));
   return side;
@@ -428,6 +430,11 @@ function syncCompareResult(button, rec) {
 function passLineage(rec) {
   const line = document.createElement('p');
   line.className = 'lineage';
+  // An instruction edit: which image it changed, gone or not.
+  if (rec.edit != null) {
+    line.append('✐ Instruction edit of ', editSourceLink(rec));
+    return line;
+  }
   line.append(rec.outpaint ? '⬚ Outpaint of ' : rec.mask ? '✎ Inpaint of ' : '⤢ Refine pass of ', sourceLink(rec),
     rec.outpaint ? ` by ${outpaintSidesText(rec.outpaint)}` : '', ` at strength ${rec.strength}`);
   return line;
@@ -450,7 +457,7 @@ function viewerSourcesGone() {
   noteViewer();
   els.viewer.querySelectorAll('.result > .result-side').forEach((side) => {
     const rec = viewerRecords.find((r) => r.id === +side.parentElement.dataset.id);
-    if (rec?.refine == null) return;
+    if (rec?.refine == null && rec?.edit == null) return;
     side.querySelector('.lineage')?.replaceWith(passLineage(rec));
     side.querySelector('.facts')?.replaceWith(factsList(rec));
     const compare = side.querySelector('.compare-source');
@@ -476,6 +483,12 @@ function noteViewer() {
     const verb = viewerRecords.every((r) => r.outpaint) ? 'Outpainted from '
       : viewerRecords.every((r) => r.mask && !r.outpaint) ? 'Inpainted from ' : 'Refined from ';
     line.append(verb, sourceLink(first), ` at ${strengths} · ${first.width}×${first.height}`);
+    parts.push(line);
+  } else if (first?.edit != null && viewerRecords.every((r) => r.edit?.source === first.edit.source)) {
+    // Edits of one image, named as the facts row names them.
+    const line = document.createElement('span');
+    line.className = 'lineage';
+    line.append('Edited from ', editSourceLink(first), ` · ${first.width}×${first.height}`);
     parts.push(line);
   } else if (first && viewerRecords.length === 1 && viewerJob.expected <= 1) {
     const line = document.createElement('span');

@@ -19,6 +19,8 @@ from backend.backends.base import Cancelled, GenerationBackend
 from backend.config import settings
 from backend.critic import CriticError, CriticUnavailable
 from backend.grid import progress_steps
+from backend.instruction_edit import edit_unavailable_reason, text_to_image_refusal
+from backend.model_defaults import defaults_for
 from backend.model_selection import current_model_id, current_settings
 from backend.schemas import CriticStatus, GenerateRequest, PromptCritique, default_strength
 
@@ -73,6 +75,15 @@ class FakeBackend(GenerationBackend):
         self.peak: tuple[int, int] | None = None
         self._last_peak: tuple[int, int] | None = None
         self.after_generate = None
+        # The instruction-edit gate, closed as on the real backend. Only the
+        # literal True opens it (`instruction_edit_qualified`).
+        self.edit_qualified = False
+        # What each instruction edit the fake ran was handed: the recipe's
+        # pipeline geometry, the prepared source's size, the seed and steps.
+        self.edit_calls: list[dict] = []
+
+    def instruction_edit_qualified(self) -> bool:
+        return self.edit_qualified is True
 
     def _sync_model_profile(self) -> None:
         """Switch the fake's capabilities with the server's selected model.
@@ -86,7 +97,6 @@ class FakeBackend(GenerationBackend):
         if model_id == self._profile_model:
             return
         from backend.backends.loading import lora_refusal
-        from backend.model_defaults import defaults_for
 
         profile = defaults_for(model_id)
         self._profile_model = model_id
@@ -132,9 +142,10 @@ class FakeBackend(GenerationBackend):
         from backend.execution import require_configured_loader_available, require_default_execution
         from backend.instruction_edit import require_execution_available, require_model_available
 
+        qualified = self.instruction_edit_qualified()
         if request.edit is not None:
-            require_execution_available(request.validate_edit())
-        require_model_available(current_model_id(settings))
+            require_execution_available(request.validate_edit(), qualified=qualified)
+        require_model_available(current_model_id(settings), qualified=qualified)
         require_default_execution(request.execution)
         selected = current_settings(settings)
         require_configured_loader_available(selected)
@@ -162,6 +173,14 @@ class FakeBackend(GenerationBackend):
             changes["outpaint"] = None
         if changes:
             request = request.model_copy(update=changes)
+        if request.edit is not None:
+            # Always through the request's own edit branch, which binds the
+            # edit and drops the negative whatever the CFG threshold.
+            return request.applied(
+                negative_prompt_supported=self.negative_prompt_supported,
+                cfg_threshold=0.0 if self.cfg_threshold is None else self.cfg_threshold,
+                instruction_edit_supported=qualified,
+            )
         if self.cfg_threshold is None:
             return request
         return request.applied(
@@ -179,7 +198,7 @@ class FakeBackend(GenerationBackend):
         from backend.execution import require_configured_loader_available
         from backend.instruction_edit import require_model_available
 
-        require_model_available(current_model_id(settings))
+        require_model_available(current_model_id(settings), qualified=self.instruction_edit_qualified())
         require_configured_loader_available(current_settings(settings))
         self._sync_model_profile()
         self.loads += 1
@@ -197,9 +216,10 @@ class FakeBackend(GenerationBackend):
         from backend.execution import require_configured_loader_available, require_default_execution
         from backend.instruction_edit import require_execution_available, require_model_available
 
+        qualified = self.instruction_edit_qualified()
         if request.edit is not None:
-            require_execution_available(request.validate_edit())
-        require_model_available(current_model_id(settings))
+            require_execution_available(request.validate_edit(), qualified=qualified)
+        require_model_available(current_model_id(settings), qualified=qualified)
         require_default_execution(request.execution)
         selected = current_settings(settings)
         require_configured_loader_available(selected)
@@ -214,6 +234,8 @@ class FakeBackend(GenerationBackend):
         self.seeds.append(seed)
         if len(self.requests) in self.fail_on:
             raise RuntimeError(f"cell {len(self.requests)} blew up")
+        if request.edit is not None:
+            return self._edit(request, seed, on_progress, should_cancel)
         # A refine pass runs the part of the schedule its strength leaves,
         # once per image, as the real backend's does.
         steps = progress_steps(request)
@@ -240,6 +262,34 @@ class FakeBackend(GenerationBackend):
     def last_peak(self):
         return self._last_peak
 
+    def _edit(self, request, seed, on_progress, should_cancel):
+        """An instruction edit as the real backend's branch runs one: its
+        source proved again and prepared at the working size, one image at
+        the output size, the steps polled for a cancel. The picture is the
+        prepared source itself, so a test can read it against the source."""
+        from backend.instruction_edit_admission import load_bound_source
+
+        _, resolved, prepared = load_bound_source(request.validate_edit(require_bound=True))
+        try:
+            self.edit_calls.append({
+                **resolved.pipeline_kwargs(), "image_size": prepared.size,
+                "seed": seed, "steps": request.steps, "guidance_scale": request.guidance_scale,
+            })
+            for step in range(request.steps):
+                if self.step_seconds:
+                    time.sleep(self.step_seconds)
+                if on_progress is not None:
+                    on_progress(step + 1, request.steps)
+                if should_cancel is not None and should_cancel():
+                    raise Cancelled
+            if self.after_generate is not None:
+                self.after_generate()
+        except BaseException:
+            prepared.close()
+            raise
+        self._last_peak = self.peak
+        return [prepared]
+
     @staticmethod
     def _inpaint(request, seed):
         """The source with only its masked pixels changed: a flat fill by each
@@ -262,7 +312,13 @@ class FakeBackend(GenerationBackend):
     def describe(self) -> dict:
         self._sync_model_profile()
         selected = current_settings(settings)
+        qualified = self.instruction_edit_qualified()
+        edit_reason = edit_unavailable_reason(selected.model_id, qualified=qualified)
+        extra: dict = {}
+        if not defaults_for(selected.model_id)["text_to_image_supported"]:
+            extra["text_to_image_reason"] = text_to_image_refusal(selected.model_id, qualified=qualified)
         return {
+            **extra,
             "model_id": selected.model_id,
             "quantization": selected.quantization,
             "offload": selected.offload,
@@ -271,6 +327,10 @@ class FakeBackend(GenerationBackend):
             "refine_supported": self.refine_supported,
             "inpaint_supported": self.inpaint_supported,
             "lora_supported": self.lora_supported(),
+            # As the real backend answers them: the instance's gate and the
+            # selected checkpoint.
+            "instruction_edit_supported": edit_reason is None,
+            "instruction_edit_reason": edit_reason,
         }
 
     def free_cache(self) -> None:

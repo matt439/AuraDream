@@ -409,6 +409,9 @@ els.lbReuse.onclick = () => {
   const rec = lbList[lbIndex];
   if (!rec) return;
   if (refuseExecutionReuse(rec)) return;
+  // An edit's Reuse opens its dialog, which closes the lightbox itself and
+  // gives it back on a close that ran nothing (reuseEdit, openEdit).
+  if (rec.edit != null) { reuse(rec); return; }
   closeLightbox();
   reuse(rec);
 };
@@ -592,6 +595,19 @@ for (const el of [els.outpaintPrompt, els.outpaintNegative, els.outpaintCfg, els
 }
 new ResizeObserver(() => { if (outpaintSource) drawOutpaintFrame(); }).observe(els.outpaintFrame);
 
+// Edit by instruction (instruction-edit.js): Enter in a number box and
+// Ctrl+Enter run it; Open Models… closes it for the picker, switching nothing.
+els.editRun.onclick = () => { void runEdit(); };
+els.editCancel.onclick = els.editClose.onclick = closeEdit;
+els.editOpenModels.onclick = editOpenModels;
+els.editDialog.addEventListener('cancel', editCancelEvent);
+els.editDialog.addEventListener('close', editClosed);
+els.editDialog.addEventListener('keydown', editKeydown);
+els.editDice.onclick = () => { els.editSeed.value = ''; editChanged(); };
+for (const el of [els.editInstruction, els.editSeed, els.editSteps, els.editGuidance]) {
+  el.addEventListener('input', editChanged);
+}
+
 // A delete's question (gallery-actions.js): Delete, Cancel, Enter in the count's box,
 // a press outside it. Escape is the dialog's own cancel, answered as Cancel.
 els.confirmOk.onclick = () => els.confirmDialog.close('ok');
@@ -654,6 +670,7 @@ document.addEventListener('keydown', (e) => {
       if (dialog === els.refineDialog) void runRefine();
       else if (dialog === els.inpaintDialog) void runInpaint();
       else if (dialog === els.outpaintDialog) void runOutpaint();
+      else if (dialog === els.editDialog) void runEdit();
       else if (dialog === els.refineBatchDialog) void runRefineBatch();
       else if (dialog === els.swapDialog) void queueSwap();
       else if (dialog === els.moreSeedsDialog) void runMoreSeeds();

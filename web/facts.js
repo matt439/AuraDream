@@ -33,6 +33,9 @@ function settingsLine(rec) {
     // An inpaint is a pass with a mask, and says so: "inpaint of #N @ 0.6".
     // An outpaint says its padding too: "outpaint of #N +400/+0/+400/+0 @ 0.9999".
     (rec.refine != null ? `${passWord(rec)} of #${rec.refine}${outpaintOf(rec)}${rec.refine_missing ? ` (${goneWord(rec)})` : ''} @ ${rec.strength}, ` : '') +
+    // An instruction edit: the image it changed, and whether that is still
+    // in the gallery to reopen the edit on.
+    (rec.edit != null ? `edit of #${rec.edit.source ?? '?'}${rec.edit_missing ? ` (${editGoneWord(rec)})` : ''}, ` : '') +
     (rec.upscaler ? `upscaler ${upscalerName(rec.upscaler)}, ` : '') +
     (rec.crop_anchor && rec.crop_anchor !== 'center' ? `crop ${rec.crop_anchor}, ` : '') +
     `seed ${rec.seed}, ${(rec.duration_ms / 1000).toFixed(1)}s`
@@ -76,12 +79,23 @@ function factsList(rec, { useSeed: seedButton = false, search = false, megapixel
   // The running checkpoint by the catalogue's name, as the topbar has it (checkpointName).
   row('Model', [checkpointName(rec.model_id), rec.quantization].filter(Boolean).join(' · ')).title = rec.model_id;
   row('Size', `${rec.width}×${rec.height}` + (megapixels ? ` (${(rec.width * rec.height / 1e6).toFixed(1)} MP)` : ''));
-  row('Sampling', [
+  // An instruction edit's recipe has a guidance and no Mu or negative.
+  row('Sampling', (rec.edit != null ? [`${rec.steps} steps`, `guidance ${rec.guidance_scale}`] : [
     `${rec.steps} steps`, `CFG ${rec.guidance_scale}`,
     // As the settings line has it: only where it is a number of its own.
     ...(rec.true_cfg != null && rec.true_cfg !== rec.guidance_scale ? [`True CFG ${rec.true_cfg}`] : []),
     rec.mu == null ? 'no Mu' : `Mu ${rec.mu}`,
-  ].join(' · '));
+  ]).join(' · '));
+  // An instruction edit: the image it changed - a press opens it with this
+  // one after it - "(deleted)" where it has gone, with a Restore where it
+  // waits in the recycle bin; and the recipe that ran it.
+  if (rec.edit != null) {
+    const restore = rec.edit_missing && rec.edit_binned && rec.edit.source != null
+      ? [' · ', factButton('Restore', `Move #${rec.edit.source} back out of the recycle bin`, () => { void restoreImages([rec.edit.source]); })]
+      : [];
+    row('Edited from', editSourceLink(rec), ...restore);
+    row('Recipe', `${rec.edit.recipe} · ${EDIT_MODEL_NAME}`);
+  }
   if (rec.negative_prompt) row('Negative', negativeShown(rec.negative_prompt)).className = 'text';
   if (rec.lora) row('LoRA', `${rec.lora} @ ${rec.lora_scale}`);
   if (rec.reference?.length) row('References', referenceThumbs(rec));

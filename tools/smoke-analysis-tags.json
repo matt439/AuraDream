@@ -64,7 +64,7 @@
   {"expect": "__until(() => __checked(6))"},
   {"expect": "__still()"},
   {"log": "'Docked with chips, Tab goes as they are drawn: the chips across the top, then the image just made and its tools, its note, the earlier images of the session where they sit between, then the check beside them - the chips and the check have a host each, and one shared host took Tab through the check before the image'"},
-  {"eval": "window.__stops = (root) => [...root.querySelectorAll('a[href], button, input, select, textarea, summary, [tabindex]')].filter((e) => e.tabIndex >= 0 && !e.disabled && e.getClientRects().length && getComputedStyle(e).visibility !== 'hidden'); els.gridSection.open = false; __stops(document.querySelector('.panel')).at(-1).focus();"},
+  {"eval": "window.__stops = (root) => [...root.querySelectorAll('a[href], button, input, select, textarea, summary, [tabindex]')].filter((e) => e.tabIndex >= 0 && !e.disabled && e.getClientRects().length && e.checkVisibility() && getComputedStyle(e).visibility !== 'hidden'); els.gridSection.open = false; __stops(document.querySelector('.panel')).at(-1).focus();"},
   {"key": "Tab"},
   {"expect": "document.activeElement.classList.contains('tag-check') && els.tagValidation.contains(document.activeElement)"},
   {"eval": "__stops(els.tagValidation).at(-1).focus();"},

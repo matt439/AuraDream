@@ -173,7 +173,7 @@ function shortcutContext(target) {
   if (at?.closest('#bundles-dialog')) return context('Gallery bundles', ['bundles'], 'Use the focused controls. Ctrl/Cmd+Enter does not start an operation here.');
   const dialog = at?.closest('dialog[open]') || document.querySelector('dialog[open]:not(#shortcuts-dialog)');
   if (dialog === els.lightbox) return context('Lightbox', ['lightbox'], 'Image shortcuts leave text fields and selects alone. Ctrl/Cmd+Enter does not Generate here.');
-  if ([els.refineDialog, els.inpaintDialog, els.outpaintDialog, els.refineBatchDialog, els.swapDialog, els.moreSeedsDialog].includes(dialog)) {
+  if ([els.refineDialog, els.inpaintDialog, els.outpaintDialog, els.editDialog, els.refineBatchDialog, els.swapDialog, els.moreSeedsDialog].includes(dialog)) {
     return context(dialog.querySelector('h2')?.textContent.trim() || 'Image action', ['generate'], 'Ctrl/Cmd+Enter runs this action. Help above it never submits underneath.');
   }
   if (dialog) return context(dialog.querySelector('h2')?.textContent.trim() || 'Settings', ['menus'], 'Use the focused controls. Ctrl/Cmd+Enter does not Generate underneath settings.');

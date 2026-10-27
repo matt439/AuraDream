@@ -202,7 +202,7 @@ async def ensure_loaded() -> None:
     of requests waits on a single attempt instead of each starting its own.
     """
     async with _load_lock:
-        require_model_available(current_model_id(settings))
+        require_model_available(current_model_id(settings), qualified=backend.instruction_edit_qualified())
         require_configured_loader_available(current_settings(settings))
         if backend.is_ready():
             _load_state.update(state="ready", detail=None)
@@ -428,7 +428,7 @@ async def hold_model_for_request(request: Request, call_next):
 
     path = request.url.path
     depends_on_model = path in {
-        "/api/instruction-edit/preview",
+        "/api/instruction-edit/preview", "/api/instruction-edit",
         "/api/generate", "/api/grid", "/api/rerender", "/api/swap-tags", "/api/refine/batch", "/api/more-seeds",
         "/api/loras", "/api/png/settings",
         "/api/model/load", "/api/model/unload",
@@ -625,9 +625,17 @@ def _merged_defaults(info: dict) -> dict:
         "reference_supported",
         "refine_supported",
         "inpaint_supported",
+        "instruction_edit_supported",
     ):
         if info.get(key) is not None:
             defaults[key] = info[key]
+    # The backend's own answer replaces the profile's held reason (None
+    # where an edit can queue), as its `instruction_edit_supported` does.
+    if "instruction_edit_reason" in info:
+        defaults["instruction_edit_reason"] = info["instruction_edit_reason"]
+    # And Generate's hold on an edit-only checkpoint, which names that gate.
+    if defaults.get("text_to_image_supported") is False and isinstance(info.get("text_to_image_reason"), str):
+        defaults["text_to_image_reason"] = info["text_to_image_reason"]
     defaults["lora_supported"] = bool(info.get("lora_supported"))
     # Whether `refine_supported` is final: the loaded pipeline's class has
     # answered, or the profile's pipeline is one diffusers has no sibling for.
@@ -705,7 +713,7 @@ def _disk_free_mb() -> int | None:
 async def load_model() -> ModelStatus:
     global _switch_error
     try:
-        require_model_available(current_model_id(settings))
+        require_model_available(current_model_id(settings), qualified=backend.instruction_edit_qualified())
         require_configured_loader_available(current_settings(settings))
     except ValueError as exc:
         raise HTTPException(status_code=422, detail=str(exc)) from exc

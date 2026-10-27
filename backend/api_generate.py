@@ -208,17 +208,23 @@ async def finish_plan(services: AppServices, run_id: str) -> FinishPlan:
         # Imported/retained edits remain inspectable, but no applied() call
         # may erase their pass kind or turn an unavailable editor into a 500.
         # There is no runnable remainder to pin while this release is held.
-        from .instruction_edit import INSTRUCTION_EDIT_UNAVAILABLE
+        from .instruction_edit import INSTRUCTION_EDIT_REPLAY_HELD, INSTRUCTION_EDIT_UNAVAILABLE
 
+        # The same split as `submission.unusable_input`: a closed gate says
+        # the editor is unavailable, an open one where edits are queued from.
+        qualified = services.backend().instruction_edit_qualified() is True
+        reason = INSTRUCTION_EDIT_REPLAY_HELD if qualified else INSTRUCTION_EDIT_UNAVAILABLE
         saved_cells = [cell for saved in definitions for cell in saved["cells"]]
         sizes = sorted({(cell.request.width, cell.request.height) for cell in saved_cells}) or sorted(
             {(record.width, record.height) for record in records}
         )
         preview = FinishRunPreview(
-            run_id=run_id, available=False, reason=INSTRUCTION_EDIT_UNAVAILABLE,
+            run_id=run_id, available=False, reason=reason,
             total=len(saved_cells), cells=0, images=0, rendered=0, queued=0, redrawn=0,
             budget_minutes=definition["metadata"].get("budget_minutes") if definition else None,
-            pin=hashlib.sha256(f"{run_id}:instruction-edit-unavailable".encode()).hexdigest()[:16],
+            pin=hashlib.sha256(
+                f"{run_id}:instruction-edit-{'replay-held' if qualified else 'unavailable'}".encode()
+            ).hexdigest()[:16],
         )
         return FinishPlan(preview, definition, [], records, sizes, 422)
     # Retained cells are complete replay, including old payloads written

@@ -244,7 +244,8 @@ function modelNameCell(entry, info, favourite) {
 
 function modelNotes(info) {
   return [['Access', info.access_note], ['Memory', info.fit_note], ['Download', info.download_note],
-    ['Cache', info.cache_note], ['Refine', info.refine_note], ['Size', info.megapixels_note], ['Speed', info.speed_note]]
+    ['Cache', info.cache_note], ['Refine', info.refine_note], ['Edit', info.instruction_edit_note],
+    ['Size', info.megapixels_note], ['Speed', info.speed_note]]
     .filter(([, note]) => note).map(([label, note]) => `${label}: ${note}`).join(' ');
 }
 
@@ -1058,6 +1059,7 @@ function checkpointChanged(previousModel) {
     }
     inpaintCheckpointChanged();
     outpaintCheckpointChanged();
+    editCheckpointChanged();
     els.gridResume.checked = false;
     pendingLora = '';
     els.lora.replaceChildren(new Option('none', ''));

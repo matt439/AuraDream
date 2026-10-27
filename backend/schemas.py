@@ -3,10 +3,10 @@
 Each is defined in the module of its role, and new code may import from
 either place:
 
-- `schemas_generate` - the generation request and `applied()`, grids, the
-  job answer (`JobAccepted`), a stored mask's (`MaskStored`),
-  `effective_true_cfg`, `error_detail`, Load settings from PNG's request
-  and answer
+- `schemas_generate` - the generation request and `applied()`, grids, an
+  instruction edit's submission, the job answer (`JobAccepted`), a stored
+  mask's (`MaskStored`), `effective_true_cfg`, `error_detail`, Load
+  settings from PNG's request and answer
 - `schemas_prompt` - Expand, Check, the critic's critique, tag lookup
 - `schemas_gallery` - records, runs, the recycle bin
 - `schemas_rerun` - Re-render, Swap tags, Mass refine, More seeds
@@ -32,6 +32,7 @@ from .schemas_generate import (
     PromptVariant,
     GridRequest,
     GenerateSubmission,
+    InstructionEditSubmission,
     ThenRefine,
     GridPreview,
     JobAccepted,
@@ -133,6 +134,7 @@ __all__ = [
     "PromptVariant",
     "GridRequest",
     "GenerateSubmission",
+    "InstructionEditSubmission",
     "ThenRefine",
     "GridPreview",
     "JobAccepted",

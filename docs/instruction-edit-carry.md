@@ -1,20 +1,25 @@
 # Instruction editing: carry checklist
 
-**Status, 2026-10-27:** the CPU persistence/admission slice is implemented;
-the state column records remaining boundaries. The
-[feature plan](plan-instruction-editing.md) owns release acceptance. Actual
-pinned configs, catalogue/loader integration, the real call and dialog remain
-open. Stage 1/2 acceptance and real execution remain unavailable. No card,
-model download, browser launch or live gallery was used for this source slice.
+**Status, 2026-10-27:** the CPU persistence/admission slice and stage 2 are
+built; the state column records remaining boundaries. The
+[feature plan](plan-instruction-editing.md) owns release acceptance. The six
+pinned configs were fetched at the revision and qualified, and their hashes
+are pinned. The editing call, the queueing route, the per-cell recheck and the
+dialog are [built on a stand-in](plan-instruction-editing.md#stage-2-backend-and-dialog-2026-10-27):
+a Kontext-shaped stub, the fake server and a real-browser smoke. On the real
+server, editor loading and execution stay unavailable until the stage-3 card
+qualification. The catalogue entry and the Re-render/More seeds execution of
+edits are stage 4. No card, model download or live gallery was used.
 
 ## Frozen first-slice boundary
 
 `kontext-v1` means one live gallery source, the request's `prompt` as the
 instruction, and one image per pipeline call. It selects public checkpoint
 `black-forest-labs/FLUX.1-Kontext-dev` at revision
-`24e9dedc4ef646698dc8eb4e18ae2cec3c9fea0d`. This is a metadata pin;
-the gated checkpoint's actual component/config files have not been
-qualified in this slice. Ordinary text-to-image,
+`24e9dedc4ef646698dc8eb4e18ae2cec3c9fea0d`. The six component configs at
+that revision were qualified on 2026-10-27, and their canonical hashes are
+`QUALIFIED_CONFIG_HASHES` (a config pin, not a weights pin). Ordinary
+text-to-image,
 references, Refine, masks, outpaint, upscalers, crop anchors, user LoRAs,
 performance recipes, grids, Then refine and mass instruction editing are
 outside this recipe. The first source may belong to another checkpoint;
@@ -113,7 +118,7 @@ are owned by [the bundle checklist](instruction-edit-bundles.md).
 | State | Carry site | Required implementation |
 |---|---|---|
 | BUILT | `schemas_generate.py`, `schemas.py` | Add the strict request field/public re-export and exclusive-field validation. Guard `applied()` and internal copied requests; an unsupported edit must refuse, never normalize into plain generation. Enforce one image per call and initial grid refusal. |
-| PARTIAL | `launch.py`, `model_defaults.py`, `model_info.py`, `schemas_model.py`, `main.py`, `app_context.py` | Add explicit text-to-image and instruction-edit capabilities, an exact editor profile/recipe and cold held reasons. Preserve existing catalogue behavior; no capability follows merely from a callable's `image` parameter or a catch-all FLUX profile. |
+| PARTIAL | `launch.py`, `model_defaults.py`, `model_info.py`, `schemas_model.py`, `main.py`, `app_context.py` | Add explicit text-to-image and instruction-edit capabilities, an exact editor profile/recipe and cold held reasons. Preserve existing catalogue behavior; no capability follows merely from a callable's `image` parameter or a catch-all FLUX profile. Built: capability fields, the exact profile, the held reasons (`instruction_edit_reason`, `text_to_image_reason`) and the Models "Edit" note. Remaining: the `launch.py` catalogue entry, which waits for stage 4. |
 | BUILT | `grid.py: cell_key`, `run_id`, `cell_from_record` | Add the bound stored edit key, including complete descriptor/hash, immediately before execution. Keep refine's existing index, shape at `[-2]` and seed last. Explicitly remove an absent edit slot before existing execution/shape compaction, including mixed-size/noncenter runs. Carry the original edit source/instruction on replay; reject unresolved intent. |
 | BUILT | `storage.py: _migrate`, `_COLUMNS`, `_row_to_record`, `save_image`, `index_file` | Add nullable `images.edit`, canonical stored JSON and strict readers. Update both explicit insert dictionaries and PNG/A1111 metadata handling. Preserve the nested source descriptor durably; absent edit stays SQL NULL and absent in old-style PNG metadata. Keep `.png.part`/commit/rename and gallery-lock ordering. |
 | BUILT | `storage.py: completed_cells`; `more_seeds.py: settings_key`, `batch_key` | Read the same canonical bound edit key from rows as from admitted requests. Different source pixels/descriptor, instruction or recipe cannot count as direct/refine output or another edit. Keep existing no-edit keys and batch grouping unchanged. |
@@ -124,19 +129,21 @@ are owned by [the bundle checklist](instruction-edit-bundles.md).
 | BUILT | `png_settings.py`, `api_png.py` | Validate known edit intent without consulting the current selection. Initially refuse restoring an edit workflow from PNG settings with a route to the gallery image; do not populate a plain-render instruction that appears replayable. Malformed/unknown edit metadata does not fall back to A1111 settings. |
 | BUILT | `reindex.py: merge_database`, `_database_meta`, PNG-only `reindex` | Validate SQL/PNG edit agreement before mutation and in existing-file fast paths. Prove/remap sources, preserve `source:null` plus its descriptor when unproven, rewrite changed ids even during in-place recovery, and report unresolved edits separately. Dry-run remains nonwriting. |
 | BUILT | `generate.py` local and `--server` paths | Carry a verified edit or explicitly refuse it, including `--from-image`, overrides and dry-run. Never use `_check_carried_source`'s existing source-dropping fallback for edits. Keep CLI/API applied-cell equivalence and pre-config import ordering. |
-| PARTIAL | `jobs.py`, backend base/real/fake implementations | Retain edit/source identity, refuse unsupported execution before model work and recheck actual loaded capability plus source on each cell. Name progress/snapshots honestly. Preserve callbacks, cancellation, cleanup, terminal `_finish` and saving only completed results. |
+| BUILT | `jobs.py`, backend base/real/fake implementations, `api_instruction_edit.py` | Retain edit/source identity, refuse unsupported execution before model work and recheck the backend's gate plus the source on each cell (`_recheck_edit`). Name progress/snapshots honestly. Preserve callbacks, cancellation, cleanup in `finally`, terminal `_finish` and saving only completed results. Built against a Kontext-shaped stub and the fake (`test_instruction_edit_call.py`, `test_instruction_edit_queue.py`), with no card. The real backend's gate is a literal False, and Re-render/More seeds execution of edits is held until stage 4. |
 | BUILT | `storage.py` source readers; `gallery_delete.py`; `jobs.py: forget_images`, `restore_images` | Derive missing/binned state on get/list/save and job replay. Include verified edit sources in starred-source preservation and bin sources-in-use counts. A source binned/deleted after Queue fails before editor work; restoration updates availability without altering intent. |
 | PARTIAL | `gallery_reports.py`, `grid.py` estimation, runs/search/stats | Exclude edits from direct `refine IS NULL` timing samples. Use matching edit history or no estimate, and distinguish edit pass kind in summaries/filters/facts; ordinary render/refine histories cannot price an edit. |
-| PARTIAL | `web/` dialog, actions, Models, facts, lineage and shared removal | Add the single-source workflow, held reasons, exact server geometry and source/result inspection. Reuse opens the edit dialog; preserve the composer draft and Ctrl+Z. Source removal follows `forgetImages`; no hidden switch/queue or page scroll. Update classic-script/CSS maps and smoke inventory. |
+| BUILT | `web/` dialog, actions, Models, facts, lineage and shared removal | Add the single-source workflow, held reasons, exact server geometry and source/result inspection. Reuse opens the edit dialog; preserve the composer draft and Ctrl+Z. Source removal follows `forgetImages`; no hidden switch/queue or page scroll. Update classic-script/CSS maps and smoke inventory. Built: `instruction-edit.js`, `styles/instruction-edit.css` and `smoke-instruction-edit.json`, checked against the Kontext fake in a real browser with no card. A wide-tier viewer Edit tool is a follow-up. |
 
 ## Acceptance groups
 
-`BUILT` means CPU/source checks in the new `test_instruction_edit_*` groups,
-with no runtime/card or browser qualification. `PARTIAL` retains the requirements
-below: no catalogue/loadable editor, real call or dialog is implemented. Reports
-have edit filters/grouping and safe no-estimate behavior; run/facts presentation
-is still stage 2. The backend/browser row includes public guards and source-only
-Reuse hold tests, not the future editing workflow.
+`BUILT` means checks in the `test_instruction_edit_*` groups, plus a
+real-browser smoke for the backend/browser row. None of it qualifies a runtime
+or the card. Stage 2 adds the editing call against a Kontext-shaped stub, the
+dedicated queueing route, the fake server's edit and the dialog. On the real
+server the editor is not in the catalogue, its load is held and the backend's
+gate is a literal False. `PARTIAL` rows keep the requirements in the table
+above. Reports have edit filters and grouping and give no estimate rather
+than a wrong one; facts now show an edit's lineage and recipe.
 
 | State | Group | Required evidence and existing patterns |
 |---|---|---|
@@ -145,10 +152,11 @@ Reuse hold tests, not the future editing workflow.
 | BUILT | Source portability and recovery | Proven remapped source; omitted, absent, binned, forged, colliding-id or descriptor-mismatching source; unresolved re-export; SQL/PNG disagreement; repeated import and in-place reindex; dry-run; old-reader refusal. Patterns: `test_reindex_provenance.py`, `test_reindex.py`, `test_execution_bundles.py`, `test_inpaint_bundles.py`; also the bundle checklist. |
 | BUILT | Producers and admission | Re-render/More seeds preserve original source; cache verdicts cannot cross source/recipe; Swap refuses; Mass refine changes pass kind; Then refine/grids refuse; Finish retains complete intent; missing source before/after Queue and stale model revision fail before loading/rendering. Patterns: `test_execution_replay.py`, `test_api_more_seeds.py`, `test_refine_batch.py`, `test_then_refine.py`, `test_cli.py`, `test_api_png.py`, `test_jobs.py`. |
 | BUILT | Source lifetime and reports | Starred edits protect proven sources; bin/purge counts include them; deletion/bin/restore updates records and job snapshots; completed children stay visible and unreplayable when needed; edits never contaminate direct/refine estimates. Patterns: `test_gallery.py`, `test_gallery_purge.py`, `test_api_gallery.py`, `test_jobs.py`. |
-| PARTIAL | Backend and browser | Stub exact kwargs, one-image generators, callbacks/cancel and failure cleanup; fake edit dialog smoke with composer draft/Undo, stale preview/revision, focus and narrow/wide layouts. Ruff, pinned whole-source types and relevant CPU regressions follow source integration. Real model quality/fit/timing and nonempty release admission remain separate card gates. |
+| BUILT | Backend and browser | Stub exact kwargs, one-image generators, callbacks/cancel and failure cleanup; fake edit dialog smoke with composer draft/Undo, stale preview/revision, focus and narrow/wide layouts. Ruff, pinned whole-source types and relevant CPU regressions follow source integration. Built 2026-10-27: `test_instruction_edit_call.py`, `test_instruction_edit_queue.py`, `test_instruction_edit_gate.py` and `smoke-instruction-edit.json` on the Kontext fake (port 7931). The smoke presses Edit on a preview made stale behind the page (it asks again and sends no edit), checks a raw stale-revision 409, the kept draft's note not moving the controls, and the dialog at 800x900, 1400x700 and 1900x1000. Real model quality, fit and timing, nonempty release admission and the Re-render/More seeds execution of edits remain stage 3/4 gates. |
 
-The prior Windows browser launch ended with `IAppCapability` access denied
-and the Linux/WSL path was also denied; [tooling](plan-tooling.md#browser-smokes-in-ci)
-owns that evidence. Browser qualification is **unverified** until actual
-access is restored and the new smoke runs. Static/Node VM/fake unit checks
-do not substitute for the real-browser pass or close stage 1/2 acceptance.
+Windows browser access was restored on 2026-10-27
+([tooling](plan-tooling.md#browser-smokes-in-ci)). `smoke-instruction-edit.json`
+passes in a real Edge against the Kontext fake, and `smoke-context-menu.json`
+checks the live menu item and its held dialog on a Krea fake. This qualifies
+the page and the fake's path only. It says nothing about the model, its
+pixels or the card.

@@ -16,6 +16,7 @@
 <link rel="stylesheet" href="/static/styles/refine.css">
 <link rel="stylesheet" href="/static/styles/inpaint.css">
 <link rel="stylesheet" href="/static/styles/outpaint.css">
+<link rel="stylesheet" href="/static/styles/instruction-edit.css">
 <link rel="stylesheet" href="/static/styles/bundles.css">
 <link rel="stylesheet" href="/static/styles/swap.css">
 <link rel="stylesheet" href="/static/styles/refine-batch.css">
@@ -421,12 +422,6 @@
       </div>
     </div>
 
-    <div class="execution-cache-row">
-      <label for="step-cache">Step cache</label>
-      <select id="step-cache" aria-describedby="step-cache-note"><option value="">Off</option><option value="fbc-005-v1">FBC 0.05 v1 (unavailable)</option></select>
-      <span id="step-cache-note" class="sr-only">Off. FBC 0.05 v1 is experimental and unavailable in this build.</span>
-    </div>
-
     <!-- What a press makes, under a caption of its own as Sampling's (shown
          in one column and from 1800 px on a window taller than 1150 px;
          elsewhere only the group's name, so Generate keeps its place:
@@ -700,6 +695,16 @@
       <button class="primary" id="btn-grid" title="Run grid (Ctrl+Enter from a grid box)"
               aria-keyshortcuts="Control+Enter">Run grid</button>
     </details>
+
+    <!-- Step cache: per-render intent (execution.js), rarely used, so below
+         Generate, its progress and the grid fold. Above Generate it pushed a
+         running batch's progress past a 1400x900 window's foot (smoke-narrow)
+         and a Reuse's Undo out of sight at 2048x1040@1.25 (smoke-delete). -->
+    <div class="execution-cache-row">
+      <label for="step-cache">Step cache</label>
+      <select id="step-cache" aria-describedby="step-cache-note"><option value="">Off</option><option value="fbc-005-v1">FBC 0.05 v1 (unavailable)</option></select>
+      <span id="step-cache-note" class="sr-only">Off. FBC 0.05 v1 is experimental and unavailable in this build.</span>
+    </div>
 
     <!-- Conditioning stays available behind a native disclosure when inactive.
          Its summary names selected inputs even when closed; unsupported retained
@@ -1526,6 +1531,72 @@
   </div>
 </dialog>
 
+<!-- Edit by instruction (instruction-edit.js): one gallery image changed by a
+     written instruction through the frozen FLUX.1 Kontext [dev] recipe -
+     the whole picture redrawn at the size the server resolves from the
+     source's aspect, never a mask, a strength or the panel's prompt. Opened
+     from the image's right-click menu and by Reuse on an edit; it opens
+     wherever the editor is held too, and says why with a way to Models. The
+     size, steps and guidance are the server's preview of the source; the
+     preview's line and a refusal share one slot of a fixed height, so Edit
+     never moves under the pointer. Wears the Inpaint dialog's box and panes
+     (inpaint.css), the picture read-only. -->
+<dialog class="inpaint-dialog edit-dialog" id="edit-dialog" aria-labelledby="edit-title"
+        aria-describedby="edit-source-line">
+  <div class="ip-head">
+    <h2 id="edit-title">Edit by instruction</h2>
+    <button type="button" class="close" id="edit-close" aria-label="Close (Escape)">✕</button>
+  </div>
+  <div class="ip-paint">
+    <div class="ip-stage edit-stage" id="edit-stage">
+      <img id="edit-image" alt="" draggable="false">
+    </div>
+  </div>
+  <div class="ip-controls">
+    <p class="rf-source-line" id="edit-source-line"></p>
+    <!-- Reuse of an edit opens on its source: which one, and what it ran at. -->
+    <p class="rf-source-line" id="edit-reused" hidden></p>
+    <!-- What a close without Edit left behind on this image, put back. -->
+    <p class="hint" id="edit-draft" hidden></p>
+    <!-- Why no edit can run here now, in the server's words, and the way to
+         Models (opening the picker only: it switches nothing). -->
+    <p class="hint warn rf-draft" id="edit-unavailable" hidden><span id="edit-unavailable-text"></span>
+      <button type="button" class="ghost tiny" id="edit-open-models">Open Models…</button></p>
+    <label class="field" id="edit-instruction-field">
+      <span>Instruction</span>
+      <textarea id="edit-instruction" rows="3" spellcheck="true" autocomplete="off"
+                placeholder="What to change - &quot;make it night, keep the composition&quot;"></textarea>
+    </label>
+    <p class="rf-source-line" id="edit-checkpoint"></p>
+    <div class="field">
+      <div class="row">
+        <div class="sub grow">
+          <i><label for="edit-seed">Seed</label></i>
+          <input type="number" id="edit-seed" min="0" placeholder="random">
+        </div>
+        <button type="button" class="ghost square" id="edit-dice" title="Clear the seed (random)"
+                aria-label="Clear the seed, so the edit draws a random one">🎲</button>
+        <div class="sub grow">
+          <i><label for="edit-steps">Steps</label></i>
+          <input type="number" id="edit-steps" min="1" max="100" step="1">
+        </div>
+        <div class="sub grow">
+          <i><label for="edit-guidance">Guidance</label></i>
+          <input type="number" id="edit-guidance" min="0" max="20" step="0.1">
+        </div>
+      </div>
+    </div>
+    <div class="edit-said">
+      <p class="hint pre" id="edit-preview" aria-live="polite"></p>
+      <p class="error" id="edit-error" role="alert" hidden></p>
+    </div>
+    <div class="rf-actions">
+      <button type="button" class="ghost" id="edit-cancel">Cancel</button>
+      <button type="button" class="primary" id="edit-run" aria-keyshortcuts="Control+Enter" aria-disabled="true">Edit</button>
+    </div>
+  </div>
+</dialog>
+
 <!-- The questions a delete asks (gallery-actions.js: confirmDialog,
      countDialog) - Delete unstarred's count, and in the recycle bin Delete
      permanently and Empty recycle bin - in the page's own dialog beside what
@@ -1881,6 +1952,7 @@
 <script src="/static/inpaint-mask.js"></script>
 <script src="/static/inpaint.js"></script>
 <script src="/static/outpaint.js"></script>
+<script src="/static/instruction-edit.js"></script>
 <script src="/static/tags.js"></script>
 <script src="/static/tag-tokens.js"></script>
 <script src="/static/tag-chips.js"></script>

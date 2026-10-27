@@ -1249,9 +1249,9 @@ would get outside sources from the same route.
 **CPU contract and persistence slices, 2026-10-27 (`INP#11`).** Matt commissioned
 continuing without the card. The recipe now carries through generation types,
 SQL/PNG, replay/refusal, source lifetime, bundles and reindex. A cold source
-preview binds full original RGB proof and exact geometry. Public model load,
-queue, backend execution and Reuse remain held. No catalogue option, real editing
-call or dialog is enabled. The
+preview binds full original RGB proof and exact geometry. Stage 2 (below)
+adds the call, the queueing route and the dialog behind a gate that the real
+server keeps closed. The
 [feature plan](plan-instruction-editing.md#first-frozen-contract-2026-10-27)
 owns the frozen recipe and sizes; the [carry inventory](instruction-edit-carry.md)
 and [bundle contract](instruction-edit-bundles.md) own integration acceptance.
@@ -1273,9 +1273,65 @@ reader also ignores unfamiliar fields, so edit-containing exports now use v2,
 while edit-free exports keep v1. Strict SQL/PNG agreement and complete source
 proof cover import/reindex fast paths as well as decoded paths. Unresolved
 sources retain intent; explicit ordinary Refine children change pass kind.
-Supplied-config checks and the installed image-to-CPU-tensor audit are built;
-actual gated pinned-config verification, catalogue/loader integration and stage
-2's real call/dialog/browser pass remain open.
+Supplied-config checks and the installed image-to-CPU-tensor audit are built.
+The six pinned configs were fetched at the revision on 2026-10-27, passed
+`validate_configs` and are pinned by hash (`QUALIFIED_CONFIG_HASHES`). They are
+not committed: the repository is public, and they come from a gated,
+non-commercial repository.
+
+**Stage 2 (2026-10-27): built on a stand-in, closed on the real server.**
+
+*Why a backend method, not a setting.* The gate is the backend instance's
+`instruction_edit_qualified()`, a method the real `DiffusersBackend` answers
+with a literal False. An environment variable or flag would be one typo or
+one stale shell away from running an unmeasured 12B editor on the card. That
+is the spill the card rules forbid, and nothing here has measured its fit.
+A method also means a test stub or the fake can open the gate without the
+real server being able to. A source scan holds every definition to the
+literal. Only `True` itself opens the gate, so a truthy leftover cannot.
+The editor load holds stay unconditional and do not consult the gate. Even
+a mistaken `True` therefore reaches no weights until stage 3 changes the
+loader on purpose.
+
+*Why a dedicated route.* `POST /api/instruction-edit` exists because
+`/api/generate`'s `refuse_unusable_inputs` refuses everything on an editor
+through its text-to-image check. Opening `submission.unusable_input` instead
+would also have opened Re-render and More seeds of edits, which stage 2 does
+not qualify. The route also fixes the order in one place: the gate answers
+before any file is read, then the source is bound before `check_budget`. So
+the job carries the complete identity it is keyed and saved by. Generate,
+Re-render, More seeds, Swap tags, Then refine and Finish are unchanged and
+keep refusing in words.
+
+*Why the per-cell recheck.* A queued edit can wait behind other work while
+its source is binned, deleted or rewritten, or while the stand-in's gate
+closes. `_recheck_edit` asks the gate again and re-proves the source as each
+cell begins, before the backend is called. The failure is then one cell's
+words, not a render of different pixels under the old proof. `planned_keys`
+skips edit cells while the gate is closed for the same reason: a gate closing
+mid-job must not break every later rerun's planning.
+
+*Why no catalogue entry.* Listing Kontext in `CHECKPOINTS` would offer a
+download and load the card has never measured. The Models picker would show
+a choice whose every action is held. The editor therefore stays a known,
+profiled id that the loader refuses. Text-to-image on it is refused with its
+own sentence, and the page holds Generate in those words. The catalogue
+entry waits for stage 4, after stage 3's measured load.
+
+*Cleanup in `finally`.* The call frees the offload hooks and closes the
+prepared source in `finally`, so a cancel, a decode error or a refused
+result leaves no hooks on the pipeline and no open image. The stub tests
+were checked to fail when either cleanup line is removed. Errors are raised,
+never `assert`ed, so `python -O` cannot skip them.
+
+*The entry point on the real server.* "Edit by instruction…" is shown
+everywhere, rather than hidden until an editor can run, as the
+[plan's lifecycle](plan-instruction-editing.md#lifecycle-and-interaction) asks.
+The dialog says why it is held and offers Open Models…. Reuse on a resolved
+edit opens the dialog, never Generate, because the instruction only means
+something against its source. The wide viewer gets no Edit tool yet, which
+keeps `smoke-wide` untouched; the context menu reaches the dialog at every
+width.
 
 ## LoRA adapters are the environment's and are hot-swapped
 
@@ -8173,6 +8229,17 @@ References and LoRA still under the window rather than holding the panel by
 its bottom, Run grid no longer being its last block. Tab from the panel's
 last stop reaches the stage as before; that stop is now the LoRA row's.
 
+**The Step cache row under the grid fold** (2026-10-27). The Step cache
+select (`.execution-cache-row`) first went in between Sampling and Output,
+and its 26 px and the panel's gap moved Generate and everything under it
+down 40 px: a running batch's progress ran past the foot of a 1400x900
+window (smoke-narrow), a Reuse's Undo fell out of sight at 2048x1040 at 125%
+(smoke-delete), and with Custom size open Generate's middle sat at 899.5 of
+900 (smoke-numeric-inputs). It now sits after the grid fold and before the
+LoRA & references disclosure: below everything a job adds under Generate and
+below the grid's summary, with References and LoRA still last, so the
+panel's last Tab stop is unchanged.
+
 **The run hint under Generate, the counters on the time's line**
 (2026-10-10). The review of the move above sent it back: at 1400x900, the
 size the smokes are written at, a running batch still showed only its Now
@@ -8435,7 +8502,13 @@ stand (`expandOutcome`, the test its end applies): written in, held, or dropped.
 Running, it reads "Expand…": "Expanding…" was 23 px wider, and at 1400 px
 wrapped Reset onto a second caption line, moving the prompt box down for the
 length of the request; reserving that width would have made the wrap
-permanent.
+permanent. Once the caption's buttons grew to `--fs-sm` under 1800 px, the
+idle row was exactly full at 1400 px and even "Expand…"'s 9 px wrapped Reset
+again (smoke-ernie, 2026-10-27). Running, the button now keeps the width it
+had idle - `syncExpandButton` locks it as the label changes - and `.running`
+gives its side padding to the ellipsis: trimming the padding by a measured
+2 px held only while the ellipsis measured what it did, a locked width holds
+at any font or DPR (measured unchanged at 1400x900, DPR 1 and 1.25).
 
 What a first use costs is the status's to say, from file checks only, as the
 critic's `describe()` is (`ModelStatus.prompt_expander`, `ExpanderStatus`:

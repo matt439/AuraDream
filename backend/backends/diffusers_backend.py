@@ -63,6 +63,15 @@ _GUIDES_FROM_ZERO = ("Krea2Pipeline", "ZImage")
 # say) is refused at load rather than silently drawing unseeded noise under a
 # recorded seed with a Cancel that never lands.
 _REQUIRED_PARAMS = frozenset({"generator", "callback_on_step_end"})
+# Exactly what an instruction edit hands `FluxKontextPipeline.__call__`: the
+# source and prompt, the frozen geometry (`InstructionEditGeometry.
+# pipeline_kwargs`), the sampling pair and the generator/callback. No
+# negative or true CFG, sigmas, strength, mask, latents or attention kwargs.
+# Every name must be on the loaded call; none is ever dropped.
+_EDIT_PARAMS = frozenset({
+    "image", "prompt", "width", "height", "max_area", "_auto_resize", "num_images_per_prompt",
+    "max_sequence_length", "num_inference_steps", "guidance_scale", "generator", "callback_on_step_end",
+})
 
 # One adapter slot. diffusers can hold several and blend them, but every extra
 # name has to reach `CellKey`, the embedded metadata and Reuse to be reproducible,
@@ -498,9 +507,9 @@ class DiffusersBackend(GenerationBackend):
                 loader = NewbiePipeline
             class_name, unused = loading.unused_components(model_id)
             if class_name in loading.INSTRUCTION_EDITOR_CLASSES:
-                from ..instruction_edit import INSTRUCTION_EDIT_UNAVAILABLE
+                from ..instruction_edit import editor_class_refusal
 
-                raise ValueError(INSTRUCTION_EDIT_UNAVAILABLE)
+                raise ValueError(editor_class_refusal(class_name))
             if unused:
                 import diffusers
 
@@ -543,9 +552,9 @@ class DiffusersBackend(GenerationBackend):
 
             params = set(inspect.signature(candidate.pipe.__call__).parameters)
             if type(candidate.pipe).__name__ in loading.INSTRUCTION_EDITOR_CLASSES:
-                from ..instruction_edit import INSTRUCTION_EDIT_UNAVAILABLE
+                from ..instruction_edit import editor_class_refusal
 
-                raise ValueError(INSTRUCTION_EDIT_UNAVAILABLE)
+                raise ValueError(editor_class_refusal(type(candidate.pipe).__name__))
             missing = sorted(_REQUIRED_PARAMS - params)
             if missing:
                 raise RuntimeError(
@@ -868,12 +877,17 @@ class DiffusersBackend(GenerationBackend):
         # Never relabel a copied old snapshot as the replacement load's state.
         return value if registration is self._regional_registration else None
 
+    def instruction_edit_qualified(self) -> bool:
+        """Stage 3/4 card qualification not done; reads nothing."""
+        return False
+
     def _require_execution(self, request: GenerateRequest) -> GenerateRequest:
         from ..instruction_edit import require_execution_available, require_model_available
 
+        qualified = self.instruction_edit_qualified()
         if getattr(request, "edit", None) is not None:
-            require_execution_available(request.validate_edit())
-        require_model_available(current_model_id(settings))
+            require_execution_available(request.validate_edit(), qualified=qualified)
+        require_model_available(current_model_id(settings), qualified=qualified)
         require_default_execution(request.execution)
         selected = current_settings(settings)
         require_configured_loader_available(selected)
@@ -1020,6 +1034,14 @@ class DiffusersBackend(GenerationBackend):
         when the grid was previewed.
         """
         request = self._require_execution(request)
+        if request.edit is not None:
+            # The request's edit branch binds the edit and drops the negative;
+            # it reads no other capability, loaded or not. Closed unless this
+            # instance answered the literal True (`instruction_edit_qualified`).
+            return request.applied(
+                negative_prompt_supported=False, cfg_threshold=0.0,
+                instruction_edit_supported=self.instruction_edit_qualified() is True,
+            )
         if self._pipe is None:
             profile = defaults_for(current_model_id(settings))
             return request.applied(
@@ -1521,6 +1543,10 @@ class DiffusersBackend(GenerationBackend):
             torch.Generator(device="cpu").manual_seed(wrap_seed(seed + offset))
             for offset in range(request.num_images)
         ]
+        if request.edit is not None:
+            # A separate call: none of the text-to-image kwargs, sigmas or
+            # parameter dropping below applies to an instruction edit.
+            return self._edit_images(pipe, request, generator, _step_end, should_cancel, disposal)
 
         kwargs: dict[str, Any] = {
             "prompt": request.prompt,
@@ -1655,6 +1681,93 @@ class DiffusersBackend(GenerationBackend):
             for image in images
         ]
 
+    def _edit_images(
+        self,
+        pipe: Any,
+        request: "GenerateRequest",
+        generator: list[Any],
+        step_end: Callable[..., Any],
+        should_cancel: CancelFn | None,
+        disposal: _CallDisposal | None,
+    ) -> list["Image"]:
+        """Run one instruction edit through the loaded Kontext pipeline.
+
+        Reached only after `_require_execution` and `applied()` admitted the
+        edit, which on this backend cannot happen until card qualification
+        (`instruction_edit_qualified`). Every refusal comes before the call
+        except the result's own checks. The source is reproved from the
+        gallery, its proof and pixels read through one open handle
+        (`instruction_edit_admission.load_bound_source`). The offload hooks
+        are handed back and the prepared source closed on every exit,
+        Cancelled and a decode failure included.
+        """
+        import torch
+
+        from ..instruction_edit import KONTEXT_V1, StoredInstructionEdit
+        from ..instruction_edit_admission import load_bound_source
+
+        if type(pipe).__name__ != KONTEXT_V1.pipeline_class:
+            raise ValueError(
+                f"An instruction edit needs {KONTEXT_V1.pipeline_class}; "
+                f"the loaded pipeline is {type(pipe).__name__}."
+            )
+        if request.num_images != 1 or request.runs != 1 or len(generator) != 1:
+            raise ValueError("an instruction edit runs one image per call; batch and Repeat are unavailable")
+        missing = sorted(_EDIT_PARAMS - self._call_params)
+        if missing:
+            raise RuntimeError(
+                f"{type(pipe).__name__}.__call__ takes no {', '.join(missing)}; "
+                "an instruction edit never drops a parameter of its recipe."
+            )
+        edit = request.edit
+        if not isinstance(edit, StoredInstructionEdit):
+            raise ValueError("Bind and verify the instruction-edit source before running it.")
+        _, resolved, image = load_bound_source(edit)
+        images: list[Image] = []
+        try:
+            if (request.width, request.height) != resolved.output_size:
+                raise ValueError(
+                    f"This instruction-edit source requires {resolved.width}x{resolved.height}; "
+                    f"the request asks for {request.width}x{request.height}."
+                )
+            kwargs: dict[str, Any] = {
+                "image": image,
+                "prompt": request.prompt,
+                "num_inference_steps": request.steps,
+                "guidance_scale": request.guidance_scale,
+                "generator": generator,
+                "callback_on_step_end": step_end,
+                **resolved.pipeline_kwargs(),
+            }
+            if set(kwargs) != _EDIT_PARAMS:
+                raise RuntimeError("the instruction-edit call does not match its recipe's parameters")
+            if should_cancel is not None and should_cancel():
+                raise Cancelled
+            try:
+                # no_grad, never inference_mode (see the text-to-image call).
+                # kontext-v1 has no Mu: the scheduler keeps the pipeline's own.
+                with torch.no_grad(), schedule.forced_mu(pipe, None):
+                    if disposal is None:
+                        images = list(self._invoke_pipeline(pipe, kwargs).images)
+                    else:
+                        images = list(self._invoke_pipeline(pipe, kwargs, disposal=disposal).images)
+            finally:
+                # The pipeline frees its hooks at the end of a finished call,
+                # but a Cancelled or failed one never gets there.
+                free_hooks = getattr(pipe, "maybe_free_model_hooks", None)
+                if callable(free_hooks):
+                    free_hooks()
+                free_hooks = None
+                kwargs.clear()
+        finally:
+            image.close()
+        if len(images) != 1 or getattr(images[0], "size", None) != resolved.output_size:
+            raise RuntimeError(
+                f"An instruction edit must return one {resolved.width}x{resolved.height} image; "
+                f"{type(pipe).__name__} returned {len(images)}."
+            )
+        return images
+
     def _refine(
         self,
         pipe: Any,
@@ -1772,6 +1885,19 @@ class DiffusersBackend(GenerationBackend):
             # both are known before a single weight is downloaded.
             "lora_supported": self.lora_supported(),
         }
+        # The one gate, never a profile or a setting. Closed on this backend
+        # until card qualification, so the held reason always stands here.
+        from ..instruction_edit import KONTEXT_V1, edit_unavailable_reason
+
+        qualified = self.instruction_edit_qualified() is True
+        # Exact, as bind_request compares the recipe's identity.
+        info["instruction_edit_supported"] = qualified and selected.model_id == KONTEXT_V1.model_id
+        info["instruction_edit_reason"] = edit_unavailable_reason(selected.model_id, qualified=qualified)
+        if not defaults_for(selected.model_id)["text_to_image_supported"]:
+            from ..instruction_edit import text_to_image_refusal
+
+            # The gate's words, not the profile's pointer at a held editor.
+            info["text_to_image_reason"] = text_to_image_refusal(selected.model_id, qualified=qualified)
         try:
             import torch
 

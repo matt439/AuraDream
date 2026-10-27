@@ -86,9 +86,13 @@ function syncThenRefine() {
     : '';
   const said = on ? ` - then a refine pass of each image at ${trScale}× and strength ${strength}` : '';
   els.generate.textContent = submitLabel('Generate');
-  els.generate.title = `Generate (Ctrl+Enter)${said}`;
   els.gridRun.textContent = submitLabel('Run grid');
-  els.gridRun.title = `Run grid (Ctrl+Enter from a grid box)${said}`;
+  // A held Generate keeps its reason as its title (syncSubmitButtons): the
+  // status poll reaches here, and a checkpoint that only edits held Generate
+  // under the words of a live one.
+  const why = submitHold({ composer: true });
+  els.generate.title = why || `Generate (Ctrl+Enter)${said}`;
+  els.gridRun.title = why || `Run grid (Ctrl+Enter from a grid box)${said}`;
 }
 
 function chooseThenRefineScale(scale) {

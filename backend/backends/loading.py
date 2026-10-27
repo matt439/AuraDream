@@ -351,7 +351,7 @@ def require_custom_pipeline_class(model_id: str) -> str | None:
     ``from_pretrained`` after a speculative download. Existing catalogue and
     its enumerated Nunchaku format ids retain their established loader path.
     """
-    from ..instruction_edit import INSTRUCTION_EDIT_UNAVAILABLE
+    from ..instruction_edit import editor_class_refusal
     from ..launch import CHECKPOINTS, FORMATS
 
     known = {checkpoint.repo.casefold() for checkpoint in CHECKPOINTS}
@@ -372,7 +372,7 @@ def require_custom_pipeline_class(model_id: str) -> str | None:
     if not isinstance(class_name, str) or not class_name.isidentifier():
         raise ValueError("A custom checkpoint needs a valid pipeline class in model_index.json; no weights were loaded.")
     if class_name in INSTRUCTION_EDITOR_CLASSES:
-        raise ValueError(INSTRUCTION_EDIT_UNAVAILABLE)
+        raise ValueError(editor_class_refusal(class_name))
     return class_name
 
 
