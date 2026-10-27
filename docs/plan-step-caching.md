@@ -1,9 +1,9 @@
 # Plan: opt-in First Block Cache on FLUX.1
 
-**Status, 2026-10-26: CPU contracts, persisted carry, private loader/call ownership
-and cold request candidate checks are built.** The unavailable per-render selector,
-browser persistence, holds and Reset/Reuse/Undo source are built; real request-driven
-cache admission/dispatch and a separately
+**Status, 2026-10-27: CPU contracts, persisted carry, private loader/call ownership,
+request-driven dispatch over one Eager load and cold candidate checks are built.**
+The unavailable per-render selector, browser persistence, holds and Reset/Reuse/Undo
+source are built; real nonempty cache admission and a separately
 approved card comparison remain `PERF#4`. This is the
 bounded next slice from [R4](review-2026-10-25.md#r4-step-caching-for-the-long-undistilled-schedules).
 No package installation, runtime model import, weights, tensor allocation
@@ -26,6 +26,35 @@ implemented with `PERF#1`. A recorded `fbc-005-v1` remains unavailable to
 render or Reuse. The inactive helper has synthetic ownership tests and an
 isolated installed-FBC CPU probe; real model arithmetic, quality, speed and
 memory remain unqualified.
+
+## Request-driven private ownership contract
+
+Each resolved cached request uses a fresh call owner over the ordinary Eager
+pipeline; the loaded loader recipe remains unchanged. Explicit Off never borrows
+a legacy load-owned cache, while omitted legacy private contexts retain their
+existing fixture contract. A request context owns one cached forward. Loader
+equality and unsupported request/call combinations refuse before preparation or
+hooks; no request rewrites or fallback converts the user's recipe.
+
+Success closes only that call's hooks/state and preserves the loaded weights.
+Unsafe cleanup detaches the exact expected pipeline and drains only after outer
+aliases, sigma and `no_grad` scopes unwind, outside backend locks. Foreign state
+is preserved, stale callbacks cannot detach replacements, and a failed cleanup
+requires an ordinary fresh load before Off can run again. Public nonempty
+admission remains closed; this private source contract grants no qualification.
+
+The dedicated request group passes **51 synthetic cases**; **78 existing
+backend/ownership/documentation checks** also passed. Four initial recovery cases
+exposed a fake forward whose replacement signature omitted the required generator
+and callback; only that fixture was corrected, keeping the loader guard intact.
+Independent review accepted the source and tests, pinned Pyright checked 128
+backend/tool sources with zero diagnostics, and Ruff passed.
+
+An initial `uv` attempt was denied opening its external cache `.git` file before
+pytest started. That cache operation was stopped. The existing repository Python
+interpreter ran the approved narrow CPU checks through normal sandbox review,
+without accessing that cache. No browser, model, compiler or GPU workload ran;
+quality, memory, speed and actual release remain unqualified.
 
 ## Inactive ownership helper built
 

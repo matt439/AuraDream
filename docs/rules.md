@@ -5486,6 +5486,11 @@ safety and fresh-root recovery. No real dispatcher or card behavior is establish
 deferred disposal with synthetic dependencies: hook-free load, effective Native,
 partial cleanup/foreign hooks, primary errors/cancel, scope/lock order, pending
 not-ready state, stale callbacks and public refusals. No real model/GPU runs.
+`tests/test_fbc_request.py` checks request-driven On/Off/On over one synthetic
+Eager load, fresh ownership, explicit Off versus legacy private omission, loader
+equality, unsupported request/call refusals and deferred unsafe disposal. It
+preserves generator/callback/sigma scope behavior and every public admission guard;
+it does not qualify FBC arithmetic, model/device behavior, quality or performance.
 File-based readers use `metadata.require_header_metadata` to refuse app-owned
 text after PNG pixel data, which Pillow's header-only `info` would miss.
 The scan skips payloads, reads at most 80 bytes per text keyword and restores
