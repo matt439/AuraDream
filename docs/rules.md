@@ -964,6 +964,11 @@ Reproduction:
   then strict policy around one forward without retry. Public request, applied
   and direct-generation guards remain closed. Registration facts establish no
   compiled kernels, warm image or fallback qualification.
+  Per-load diagnostics distinguish registration from the first attempted call;
+  preflight/entry refusal stays pending, and returned follows verification and
+  policy exit. Retire tokens at detach/unload; cold readers and frozen terminal
+  job snapshots retain no pipeline. Observations never enter saved recipes,
+  CellKey, run ids or image metadata and imply no qualification.
 - Private attention configuration owns one exact FLUX transformer's complete
   joint/single processor layout. Validate types, config counts and every path
   before mutation; retain block/attention/processor identities and prior
@@ -5388,6 +5393,22 @@ replay, explicit Off/channel conflicts, resolution before run/planned identities
 legacy retained runs, source PNG/CLI intent and stamped-mask-safe narrowing.
 Direct submission subtypes must consume or refuse cache intent before device,
 source, queue or backend effects. These synthetic checks grant no availability.
+
+`tests/test_regional_diagnostics.py` checks immutable per-load observations,
+single first-call tokens, terminal freezing, retirement, competing callers,
+stale updates, model collection and import-cold readers. Pending means no forward
+attempt; returned is not a warm-kernel, cache-hit or qualification result.
+
+`tests/test_api_execution_diagnostics.py` checks fixed diagnostic serialization,
+default/unpublished/retired absence, a fresh read after awaited descriptions,
+catalogue selection changes and same-checkpoint reloads. Draft catalogue options
+never label a per-model detail with the active load's observation; routes start
+no model load.
+
+`tests/test_job_execution_diagnostics.py` checks active first-call observations,
+terminal snapshot freezing, reader retirement/replacement and weight-free
+lifetimes. Diagnostic observations stay outside retained job definitions and
+reproduction identities; optional readers never change generation outcomes.
 
 `tests/test_execution_candidates.py` checks the initial cuDNN/FBC candidate
 matrices, combinations, copied-spec validation, external override refusals and

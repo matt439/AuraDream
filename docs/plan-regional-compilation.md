@@ -2,7 +2,8 @@
 
 **Status, 2026-10-26: CPU contracts, persisted carry, private loader/call wiring,
 backend publication/teardown, startup compiler-cache ownership and unavailable
-selector/settings/status/UI and composer/replay resolution source are implemented. Real nonempty admission,
+selector/settings/status/UI, composer/replay resolution and bounded diagnostic
+source are implemented. Real nonempty admission,
 optional toolchain setup and card qualification remain
 `PERF#1`.** This is the next slice from
 [R1](review-2026-10-25.md#r1-compile-the-denoisers-repeated-blocks), not a
@@ -106,11 +107,36 @@ raw input from deliberately resolved output. Pinned Pyright checked 128 sources
 with zero diagnostics and Ruff passed. These checks use fake/CPU source paths;
 browser and real execution qualification remain incomplete.
 
-**Remaining source before qualification.** Registration/first-call diagnostics
-also need a bounded path into backend/Models/job status, including failure,
-cancellation and unload/reset. A registration or successful first call must not
-be described as a proven warm kernel or disk-cache hit. These are implementation
-steps under this owner, not a request for another source-work approval.
+## Registration and first-call observations
+
+Diagnostics describe one published regional registration and its first attempted
+forward. The bounded states are pending, running, returned, failed and cancelled.
+Preflight or policy-entry refusal leaves pending because no forward was attempted.
+Returned requires successful post-call ownership checks and strict-policy exit.
+A job cancelled after a returned forward can still report call returned beside
+job cancelled; these observations describe different boundaries.
+
+Snapshots carry a per-load identity, fixed recipe/registration names and an
+optional fixed failure stage. They contain no error, traceback, timing, model
+reference, cache-hit or qualification claim. The pure owner uses first-call tokens
+and retirement so stale completion cannot update a replacement. API reads stay
+cold, and terminal jobs retain frozen scalar observations rather than a backend
+or pipeline reader. None of these fields participates in reproduction identity.
+A registration or returned first call proves no warm kernel, disk-cache hit,
+speed, memory fit, output quality or repeatability.
+
+All **159 focused checks** passed: 45 pure-helper, 67 backend, 23 ownership,
+10 API, eight job and six documentation-map cases. These include held fake
+forwards before callbacks, successful/failed/cancelled calls, failing or
+suppressing policy exit, original cause preservation, retired/stale readers,
+same-checkpoint reloads and frozen terminal jobs. Pinned Pyright checked all
+128 backend/tool sources with zero diagnostics, Ruff passed and independent
+review is clear. No compiler/model/GPU workload or browser was run; ordinary
+test setup retains its existing availability guard. Public admission is closed.
+
+**Remaining source before qualification.** Request-driven caching and effective
+attention-environment policy remain in their owners. Nonempty render admission,
+compiler/toolchain/cache qualification and the card pass remain separate gates.
 
 ## CPU contracts, admission and persisted carry
 

@@ -15,11 +15,14 @@ import time
 import uuid
 from collections.abc import Awaitable, Callable
 from concurrent.futures import ThreadPoolExecutor
-from dataclasses import dataclass, field, replace
+from dataclasses import asdict, dataclass, field, replace
+from types import MethodType
 from typing import Any
 
 from . import gallery_lock, storage
 from .backends import Cancelled, GenerationBackend
+from .backends.base import ExecutionDiagnosticsReader
+from .backends.regional_compile import RegionalDiagnosticOwner, RegionalDiagnostics
 from .model_selection import current_settings
 from .config import settings
 from .execution import require_configured_loader_available, require_default_execution, resolve_execution
@@ -218,6 +221,46 @@ class Job:
     # Whether `storage.hold_masks` holds masks for this job, which `_finish`
     # then releases.
     holds_masks: bool = False
+    # Runtime observation only: never a request/definition/reproduction field.
+    # The active reader is bound to pure state, not a backend or registration.
+    _execution_reader: ExecutionDiagnosticsReader | None = field(default=None, repr=False)
+    _execution_diagnostics: RegionalDiagnostics | None = field(default=None, repr=False)
+
+    def bind_execution_diagnostics(self, reader: ExecutionDiagnosticsReader | None) -> bool:
+        if (not isinstance(reader, MethodType) or type(reader.__self__) is not RegionalDiagnosticOwner
+                or reader.__func__ is not RegionalDiagnosticOwner.snapshot):
+            reader = None
+        with self._call_lock:
+            self._execution_reader, self._execution_diagnostics = reader, None
+        return reader is not None
+
+    @staticmethod
+    def _read_execution_diagnostics(reader: ExecutionDiagnosticsReader) -> RegionalDiagnostics | None:
+        try:
+            value = reader()
+        except Exception:  # noqa: BLE001 - an optional observation never fails an image
+            return None
+        return value if type(value) is RegionalDiagnostics else None
+
+    def execution_diagnostics(self) -> RegionalDiagnostics | None:
+        with self._call_lock:
+            reader, frozen = self._execution_reader, self._execution_diagnostics
+        if reader is None:
+            return frozen
+        value = self._read_execution_diagnostics(reader)
+        with self._call_lock:
+            # A late read cannot overwrite/follow another cell's reader.
+            return value if reader is self._execution_reader else self._execution_diagnostics
+
+    def freeze_execution_diagnostics(self) -> None:
+        with self._call_lock:
+            reader = self._execution_reader
+        if reader is None:
+            return
+        value = self._read_execution_diagnostics(reader)
+        with self._call_lock:
+            if reader is self._execution_reader:
+                self._execution_diagnostics, self._execution_reader = value, None
 
     def begin_call(self) -> int:
         with self._call_lock:
@@ -310,10 +353,12 @@ class Job:
         of a grid, but every per-cell event would have carried them.
         """
         current_call, skip_requested, skip_reason = self.skip_state()
+        diagnostics = self.execution_diagnostics()
         frame = {
             "job_id": self.id,
             "run_id": self.run_id,
             "seed": self.seed,
+            **({"execution_diagnostics": asdict(diagnostics)} if diagnostics is not None else {}),
             # What the job is, for a page that did not submit it - a reload,
             # the queue note naming each job waiting, the line over the bars:
             # the first cell's prompt and a grid's own, a pass's source, the
@@ -949,6 +994,7 @@ class JobManager:
         """
         if job.done_sent:
             return
+        job.freeze_execution_diagnostics()
         if job.id in self._pending:
             self._pending.remove(job.id)
         self._wake_order()
@@ -1130,6 +1176,8 @@ class JobManager:
                     # own finished-cell timing, not the gallery's per-step
                     # median: it tracks the slowdown it is meant to reveal.
                     "elapsed": time.time() - (job.started_at or job.created_at),
+                    **({"execution_diagnostics": asdict(value)}
+                       if (value := job.execution_diagnostics()) is not None else {}),
                 },
             )
 
@@ -1205,6 +1253,12 @@ class JobManager:
                             "the outpaint's mask has gone from this gallery; submit it again"
                         ) from exc
                 try:
+                    try:
+                        reader = self.backend.execution_diagnostics_reader()
+                    except Exception:  # noqa: BLE001 - optional cold observation
+                        reader = None
+                    if job.bind_execution_diagnostics(reader):
+                        self._emit(loop, job, {"type": "status", **job.snapshot(images=False)})
                     images = self.backend.generate(
                         req,
                         seed=seed,
@@ -1213,6 +1267,7 @@ class JobManager:
                         on_preview=on_preview,
                     )
                 finally:
+                    job.freeze_execution_diagnostics()
                     # Saving is not an interruptible cell call. A late Skip
                     # refuses here instead of poisoning the following cell.
                     job.end_call(call)

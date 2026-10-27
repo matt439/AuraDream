@@ -9,6 +9,7 @@ from typing import Literal
 from pydantic import BaseModel, Field, field_serializer
 
 from .config import settings
+from .backends.regional_compile import RegionalDiagnostics
 from .execution import ExecutionSpec
 from .schemas_prompt import AuthorOrder
 
@@ -170,6 +171,9 @@ class ModelStatus(BaseModel):
     execution_unavailable_reason: str | None = None
     execution_configuration_reason: str | None = None
     execution_options: dict[str, list[dict]] = Field(default_factory=dict)
+    # Observations for one actual published load, separate from chosen intent.
+    # Returned does not establish warm kernels, disk-cache hits or qualification.
+    execution_diagnostics: RegionalDiagnostics | None = None
 
     @field_serializer("execution")
     def _compact_execution(self, value: ExecutionSpec | None) -> dict | None:

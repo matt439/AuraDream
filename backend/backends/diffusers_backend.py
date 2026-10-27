@@ -39,7 +39,7 @@ from ..execution import (
 from ..model_defaults import INPAINT_DEFERRED, defaults_for, inpaint_family, inpaint_start
 from ..seeds import wrap_seed
 from . import anima_loading, attention_selection, fbc_cache, loading, netayume_loading, newbie_loading, regional_compile, schedule, single_file
-from .base import CancelFn, Cancelled, GenerationBackend, PreviewFn, ProgressFn
+from .base import CancelFn, Cancelled, ExecutionDiagnosticsReader, GenerationBackend, PreviewFn, ProgressFn
 
 if TYPE_CHECKING:
     from PIL.Image import Image
@@ -265,6 +265,7 @@ class DiffusersBackend(GenerationBackend):
         self._lock = threading.Lock()
         self._call_params: set[str] = set()
         self._regional_registration: RegionalRegistration | None = None
+        self._regional_load_serial = 0
         self._attention_selection: attention_selection.AttentionSelection | None = None
         self._cache_owner: fbc_cache.FirstBlockCacheOwner | None = None
         self._cache_disposal: _CacheDisposal | None = None
@@ -498,6 +499,9 @@ class DiffusersBackend(GenerationBackend):
         if regional != (candidate.registration is not None):
             raise ValueError("a regional pipeline and its registration must transfer together")
         if regional:
+            if type(candidate.registration) is not regional_compile.RegionalRegistration:
+                raise ValueError("the regional candidate has no valid owned registration")
+            candidate.registration.require(getattr(candidate.pipe, "transformer", None))
             self._require_compiler_cache()
             attention_selection.require_native_attention(getattr(candidate.pipe, "transformer", None))
         attended = execution is not None and execution.attention_backend is not None
@@ -517,6 +521,9 @@ class DiffusersBackend(GenerationBackend):
             candidate.disposal.require(self, candidate.cache)
             fbc_cache.require_native_attention(getattr(candidate.pipe, "transformer", None))
         params = set(candidate.params)
+        if candidate.registration is not None:
+            self._regional_load_serial += 1
+            candidate.registration.diagnostics.publish(self._regional_load_serial)
         self._regional_registration = candidate.registration
         self._attention_selection = candidate.attention
         self._cache_owner, self._cache_disposal = candidate.cache, candidate.disposal
@@ -527,6 +534,10 @@ class DiffusersBackend(GenerationBackend):
 
     def _detach_pipeline_locked(self) -> _PipelineCandidate:
         """Drop every shared-pipeline reference together; retain compatibility caches."""
+        if type(self._regional_registration) is regional_compile.RegionalRegistration:
+            # Pure bounded state only: backend -> diagnostic lock, never the
+            # reverse. Old readers retire before detached cleanup/new loads.
+            self._regional_registration.retire_diagnostics()
         candidate = _PipelineCandidate(
             self._release, pipe=self._pipe, params=self._call_params, registration=self._regional_registration,
             execution=self._loaded_execution, attention=self._attention_selection,
@@ -640,10 +651,21 @@ class DiffusersBackend(GenerationBackend):
         registration.require(getattr(runner, "transformer", None))
         self._require_compiler_cache()
         attention_selection.require_native_attention(getattr(runner, "transformer", None))
-        with regional_compile.strict_compiler_policy():
-            try:
-                result = runner(**kwargs)
-            except BaseException as error:
+        diagnostics = registration.diagnostics
+        token: object | None = None
+        stage: regional_compile.FailureStage = "forward"
+        policy = regional_compile.strict_compiler_policy()
+        # Policy entry is preflight: no attempted forward, still pending.
+        policy.__enter__()
+        try:
+            token = diagnostics.begin_first_call()
+            result = runner(**kwargs)
+            stage = "verification"
+            registration.require(getattr(runner, "transformer", None))
+            attention_selection.require_native_attention(getattr(runner, "transformer", None))
+            self._require_compiler_cache()
+        except BaseException as error:
+            if stage == "forward":
                 try:
                     registration.require(getattr(runner, "transformer", None))
                     attention_selection.require_native_attention(getattr(runner, "transformer", None))
@@ -653,11 +675,55 @@ class DiffusersBackend(GenerationBackend):
                     self._require_compiler_cache()
                 except BaseException as changed:
                     error.add_note(f"Regional compiler cache verification also failed: {type(changed).__name__}: {changed}")
-                raise
-            registration.require(getattr(runner, "transformer", None))
-            attention_selection.require_native_attention(getattr(runner, "transformer", None))
-            self._require_compiler_cache()
-            return result
+            try:
+                # Ignore any unexpected suppression. Bare re-raise below keeps
+                # the primary's identity, traceback and original cause chain.
+                policy.__exit__(type(error), error, error.__traceback__)
+            except BaseException as cleanup:
+                error.add_note(f"Regional compiler policy cleanup also failed: {type(cleanup).__name__}: {cleanup}")
+            try:
+                diagnostics.finish_first_call(token, "cancelled" if isinstance(error, Cancelled) else "failed", failure_stage=stage)
+            except BaseException as changed:
+                error.add_note(f"Regional diagnostic update also failed: {type(changed).__name__}: {changed}")
+            raise
+        try:
+            policy.__exit__(None, None, None)
+        except BaseException as error:
+            try:
+                diagnostics.finish_first_call(token, "cancelled" if isinstance(error, Cancelled) else "failed", failure_stage="policy_exit")
+            except BaseException as changed:
+                error.add_note(f"Regional diagnostic update also failed: {type(changed).__name__}: {changed}")
+            raise
+        diagnostics.finish_first_call(token, "returned")
+        return result
+
+    def execution_diagnostics_reader(self) -> ExecutionDiagnosticsReader | None:
+        """Bind only the weight-free state, never this backend/registration."""
+        registration = self._regional_registration
+        pipe = self._pipe
+        if pipe is None or type(registration) is not regional_compile.RegionalRegistration:
+            return None
+        try:
+            registration.require(getattr(pipe, "transformer", None))
+            execution = canonical_execution(self._loaded_execution)
+        except (TypeError, ValueError, RuntimeError):
+            return None
+        if (execution is None or execution.compilation != "regional-v1"
+                or execution.attention_backend is not None or execution.step_cache is not None):
+            return None
+        owner = registration.diagnostics
+        if (type(owner) is not regional_compile.RegionalDiagnosticOwner or owner.snapshot() is None
+                or pipe is not self._pipe or registration is not self._regional_registration):
+            return None
+        return owner.snapshot
+
+    def execution_diagnostics(self) -> regional_compile.RegionalDiagnostics | None:
+        registration = self._regional_registration
+        reader = self.execution_diagnostics_reader()
+        value = None if reader is None else reader()
+        # A same-checkpoint unload/reload need not change selection revision.
+        # Never relabel a copied old snapshot as the replacement load's state.
+        return value if registration is self._regional_registration else None
 
     def _require_execution(self, request: GenerateRequest) -> GenerateRequest:
         require_default_execution(request.execution)
@@ -1521,6 +1587,7 @@ class DiffusersBackend(GenerationBackend):
             "model_id": selected.model_id,
             "quantization": selected.quantization,
             "offload": selected.offload,
+            "execution_diagnostics": self.execution_diagnostics(),
             "cfg_threshold": self.cfg_threshold(),
             "mu_supported": self._mu_supported(self._pipe) if self._pipe is not None else None,
             # None until loaded, like the threshold: the parameter list is the answer.

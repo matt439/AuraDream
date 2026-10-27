@@ -11,6 +11,7 @@ from collections.abc import Callable, Iterator
 from contextlib import AbstractContextManager, contextmanager
 from dataclasses import dataclass
 from importlib import import_module
+import threading
 from typing import TYPE_CHECKING, Literal
 
 if TYPE_CHECKING:
@@ -20,6 +21,129 @@ if TYPE_CHECKING:
 
 
 _BLOCK_NAMES = ("FluxTransformerBlock", "FluxSingleTransformerBlock")
+FirstCallState = Literal["pending", "running", "returned", "failed", "cancelled"]
+FailureStage = Literal["forward", "verification", "policy_exit"]
+_CALL_STATES = ("pending", "running", "returned", "failed", "cancelled")
+_FAILURE_STAGES = ("forward", "verification", "policy_exit")
+
+
+@dataclass(frozen=True)
+class RegionalDiagnostics:
+    """A per-load observation, never proof of compiled/warm kernels or speed.
+
+    A pending first call has not attempted a forward. Returned means the
+    observed invocation, ownership checks and policy exit all returned; it
+    does not establish pixels, cache hits, fallback behavior or qualification.
+    No timing, error, model reference or reproduction identity belongs here.
+    """
+
+    load_id: int
+    first_call: FirstCallState = "pending"
+    failure_stage: FailureStage | None = None
+    recipe: Literal["regional-v1"] = "regional-v1"
+    registration: Literal["registered"] = "registered"
+
+    def __post_init__(self) -> None:
+        if type(self.load_id) is not int or self.load_id < 1:
+            raise ValueError("regional diagnostics need a positive per-load identity")
+        if (type(self.recipe) is not str or self.recipe != "regional-v1"
+                or type(self.registration) is not str or self.registration != "registered"):
+            raise ValueError("regional diagnostics describe only registered regional-v1")
+        if type(self.first_call) is not str or self.first_call not in _CALL_STATES:
+            raise ValueError("regional diagnostics have an invalid first-call state")
+        failed = self.first_call in ("failed", "cancelled")
+        if ((failed and (type(self.failure_stage) is not str or self.failure_stage not in _FAILURE_STAGES))
+                or (not failed and self.failure_stage is not None)):
+            raise ValueError("regional diagnostics have an invalid failure stage")
+
+
+class RegionalDiagnosticOwner:
+    """Weight-free mutable observation behind immutable snapshots.
+
+    Only successful publication assigns its load identity. The caller begins
+    observation immediately before the first forward, after preflight and
+    policy entry; either refusal leaves pending unchanged. Each owner has one
+    opaque active token. Retired/foreign/repeated completions are ignored, so
+    an old call cannot change a replacement owner's first-call observation.
+    Readers may retain this owner without retaining a registration or model.
+    """
+
+    __slots__ = ("_lock", "_load_id", "_state", "_stage", "_active", "_retired")
+
+    def __init__(self) -> None:
+        self._lock = threading.Lock()
+        self._load_id: int | None = None
+        self._state: FirstCallState = "pending"
+        self._stage: FailureStage | None = None
+        self._active: object | None = None
+        self._retired = False
+
+    def publish(self, load_id: int) -> None:
+        """Bind once at publication; the same identity never resets a call."""
+        if type(load_id) is not int or load_id < 1:
+            raise ValueError("regional diagnostics need a positive per-load identity")
+        with self._lock:
+            if self._retired:
+                raise RuntimeError("cannot publish retired regional diagnostics")
+            if self._load_id is not None and self._load_id != load_id:
+                raise RuntimeError("regional diagnostics already belong to another load")
+            self._load_id = load_id
+
+    def snapshot(self) -> RegionalDiagnostics | None:
+        """Cold value read only, before publication/after retirement is None."""
+        with self._lock:
+            if self._retired or self._load_id is None:
+                return None
+            return RegionalDiagnostics(self._load_id, self._state, self._stage)
+
+    def begin_first_call(self) -> object | None:
+        """Call only after policy entry, immediately before attempting forward.
+
+        A terminal first outcome remains terminal across later calls. Refuse
+        overlapping first calls rather than misreporting their ownership.
+        """
+        with self._lock:
+            if self._retired or self._load_id is None:
+                raise RuntimeError("the first regional call needs published live diagnostics")
+            if type(self._state) is not str or self._state not in _CALL_STATES:
+                raise RuntimeError("the regional diagnostic owner has an invalid state")
+            if self._state == "running":
+                raise RuntimeError("the first regional call is already running")
+            if self._state != "pending":
+                return None
+            token = object()
+            self._active, self._state = token, "running"
+            return token
+
+    def finish_first_call(
+        self, token: object | None, outcome: Literal["returned", "failed", "cancelled"],
+        *, failure_stage: FailureStage | None = None,
+    ) -> bool:
+        """Freeze the first outcome once; stale tokens never mutate state.
+
+        Returned is recorded by the caller only after post-call verification
+        and policy cleanup. A failed/cancelled attempt records its primary
+        failure stage, not an exception or traceback. Later job cancellation
+        after this boundary returned must not relabel the call.
+        """
+        with self._lock:
+            if (self._retired or self._load_id is None or token is None
+                    or token is not self._active or self._state != "running"):
+                return False
+            if type(outcome) is not str or outcome not in ("returned", "failed", "cancelled"):
+                raise ValueError("invalid first regional call outcome")
+            # Validate without changing the running state or consuming its
+            # token, so a malformed update cannot publish a false terminal.
+            value = RegionalDiagnostics(self._load_id, outcome, failure_stage)
+            self._state, self._stage, self._active = value.first_call, value.failure_stage, None
+            return True
+
+    def retire(self) -> None:
+        """Idempotent, bounded cleanup; no model/allocator/global callbacks."""
+        with self._lock:
+            self._retired = True
+            self._load_id, self._active = None, None
+            self._state, self._stage = "pending", None
 
 
 @dataclass(frozen=True)
@@ -41,11 +165,20 @@ class RegionalRegistration:
     The loader must drop the pipeline and its siblings separately on unload.
     """
 
-    __slots__ = ("_transformer", "_facts")
+    __slots__ = ("_transformer", "_facts", "_diagnostics")
 
     def __init__(self, transformer: object, facts: RegionFacts) -> None:
         self._transformer: object | None = transformer
         self._facts: RegionFacts | None = facts
+        self._diagnostics = RegionalDiagnosticOwner()
+
+    @property
+    def diagnostics(self) -> RegionalDiagnosticOwner:
+        """The pure observation owner; its reader retains no model reference."""
+        return self._diagnostics
+
+    def retire_diagnostics(self) -> None:
+        self._diagnostics.retire()
 
     @property
     def facts(self) -> RegionFacts | None:
@@ -56,6 +189,7 @@ class RegionalRegistration:
         return self._transformer is None
 
     def close(self) -> None:
+        self.retire_diagnostics()
         self._transformer = None
         self._facts = None
 

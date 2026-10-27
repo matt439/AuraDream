@@ -533,6 +533,9 @@ async def status() -> ModelStatus:
         offload=info["offload"],
         **model_selection.execution_status(selected_settings),
         execution_options=model_selection.execution_options(selected_settings),
+        # Read after the threaded description/revision retry: a same-checkpoint
+        # unload/reload can replace its registration without changing revision.
+        execution_diagnostics=backend.execution_diagnostics(),
         format=model_selection.format_for(settings),
         load_on_startup=_load_on_startup(),
         startup_overrides=_startup_overrides,
@@ -722,6 +725,7 @@ async def list_models(
         raise HTTPException(status_code=422, detail="choose a supported compilation option")
     if attention is not None and attention not in {"native", "cudnn-v1"}:
         raise HTTPException(status_code=422, detail="choose a supported attention option")
+    revision = model_selection.revision()
     current = current_settings(settings)
     draft = model_selection.UNSET_EXECUTION
     if compilation is not None or attention is not None:
@@ -765,6 +769,9 @@ async def list_models(
         "models": models,
         "details": details,
         "cache_revision": cache_revision,
+        # Catalogue metadata retains its original selection snapshot. Never
+        # attach a newer selection's live observation to that older answer.
+        "execution_diagnostics": backend.execution_diagnostics() if revision == model_selection.revision() else None,
         **selected,
         **options,
     }

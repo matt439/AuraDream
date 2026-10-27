@@ -281,6 +281,7 @@ def private_call(monkeypatch):
     backend._regional_registration = regional.RegionalRegistration(pipe.transformer, regional.RegionFacts(
         "regional-v1", (("FluxTransformerBlock", 2), ("FluxSingleTransformerBlock", 1)),
     ))
+    backend._regional_registration.diagnostics.publish(1)
 
     def native(root):
         state.native_checks.append((root is pipe.transformer, state.native))
@@ -311,6 +312,172 @@ def test_private_call_encloses_exactly_one_forward_and_restores_policy_without_r
     assert events == ["enter", ("call", before, True), "exit"]
     assert kwargs == before and not state.active
     assert state.native_checks == [(True, True), (True, True)]
+
+
+def test_diagnostics_publish_only_after_success_and_retire_on_unload_and_reload(prepared_loader):
+    backend, control, _events = prepared_loader
+    assert backend.execution_diagnostics_reader() is None and backend.execution_diagnostics() is None
+    backend._load_prepared(SPEC)
+    registration = backend._regional_registration
+    reader = backend.execution_diagnostics_reader()
+    assert reader.__self__ is registration.diagnostics
+    first = regional.RegionalDiagnostics(1)
+    assert reader() == backend.execution_diagnostics() == first
+    backend.unload()
+    assert reader() is None and backend.execution_diagnostics_reader() is None
+    assert backend.execution_diagnostics() is None and first == regional.RegionalDiagnostics(1)
+    control.root = FluxTransformer2DModel()
+    backend._load_prepared(SPEC)
+    assert backend.execution_diagnostics() == regional.RegionalDiagnostics(2)
+    assert reader() is None
+    backend.unload()
+
+
+def test_failed_preparation_never_publishes_diagnostics(prepared_loader):
+    backend, control, _events = prepared_loader
+    control.stage = "post"
+    with pytest.raises(RuntimeError, match="synthetic preparation failed"):
+        backend._load_prepared(SPEC)
+    assert backend.execution_diagnostics_reader() is None and backend.execution_diagnostics() is None
+
+
+def test_try_unload_refusal_keeps_observation_then_success_retires_it(prepared_loader):
+    backend, _control, _events = prepared_loader
+    backend._load_prepared(SPEC)
+    reader = backend.execution_diagnostics_reader()
+    with backend._lock:
+        assert not backend.try_unload()
+        assert reader() == regional.RegionalDiagnostics(1)
+    assert backend.try_unload() and reader() is None
+    assert backend.execution_diagnostics() is None
+
+
+@pytest.mark.parametrize("fault", ["batch", "native", "cache", "policy-entry"])
+def test_first_forward_preflight_or_policy_entry_refusal_leaves_pending(private_call, monkeypatch, fault):
+    backend, pipe, state, events = private_call
+    kwargs = {"num_images_per_prompt": 1}
+    failure = RuntimeError("synthetic policy entry failure")
+    if fault == "batch":
+        kwargs["num_images_per_prompt"] = 2
+    elif fault == "native":
+        state.native = False
+    elif fault == "cache":
+        state.cache_valid = False
+    else:
+        class BrokenEntry:
+            def __enter__(self):
+                raise failure
+            def __exit__(self, *args):
+                pytest.fail("an unentered policy was exited")
+        monkeypatch.setattr(regional, "_dynamo_patch", BrokenEntry)
+    with pytest.raises((ValueError, RuntimeError)) as caught:
+        backend._invoke_pipeline(pipe, kwargs)
+    if fault == "policy-entry":
+        assert caught.value is failure
+    assert events == [] and not state.active
+    assert backend.execution_diagnostics() == regional.RegionalDiagnostics(1)
+
+
+@pytest.mark.parametrize("failure_kind", ["success", "error", "cancel"])
+@pytest.mark.parametrize("exit_kind", ["normal", "failure", "suppress"])
+def test_policy_exit_preserves_first_outcome_primary_cause_and_never_claims_return_early(private_call, monkeypatch, failure_kind, exit_kind):
+    backend, pipe, state, events = private_call
+    primary = None if failure_kind == "success" else (
+        Cancelled("synthetic first cancellation") if failure_kind == "cancel" else RuntimeError("synthetic first failure")
+    )
+    cause = ValueError("original pipeline cause")
+    if primary is not None:
+        primary.__cause__ = cause
+    state.failure = primary
+    cleanup = OSError("synthetic policy exit failure")
+    during_exit = []
+    class Policy:
+        def __enter__(self):
+            state.active = True
+            events.append("enter")
+        def __exit__(self, kind, error, trace):
+            during_exit.append(backend.execution_diagnostics())
+            state.active = False
+            events.append("exit")
+            if exit_kind == "failure":
+                raise cleanup
+            return exit_kind == "suppress"
+    monkeypatch.setattr(regional, "_dynamo_patch", Policy)
+    expected_error = primary if primary is not None else cleanup if exit_kind == "failure" else None
+    if expected_error is None:
+        assert backend._invoke_pipeline(pipe, {"num_images_per_prompt": 1}).images == ["synthetic image"]
+        expected = regional.RegionalDiagnostics(1, "returned")
+    else:
+        with pytest.raises(type(expected_error)) as caught:
+            backend._invoke_pipeline(pipe, {"num_images_per_prompt": 1})
+        assert caught.value is expected_error
+        if primary is not None:
+            assert primary.__cause__ is cause
+            if exit_kind == "failure":
+                assert "Regional compiler policy cleanup also failed" in " ".join(primary.__notes__)
+            else:
+                assert not getattr(primary, "__notes__", [])
+        expected = regional.RegionalDiagnostics(1, "cancelled" if failure_kind == "cancel" else "failed",
+                                                 "forward" if primary is not None else "policy_exit")
+    assert during_exit == [regional.RegionalDiagnostics(1, "running")]
+    assert backend.execution_diagnostics() == expected
+    assert events == ["enter", ("call", {"num_images_per_prompt": 1}, True), "exit"]
+    assert not state.active
+
+
+def test_first_post_verification_failure_is_terminal_and_later_success_does_not_relabel_it(private_call):
+    backend, pipe, state, _events = private_call
+    state.change_native = True
+    with pytest.raises(ValueError, match="nonnative regional attention"):
+        backend._invoke_pipeline(pipe, {"num_images_per_prompt": 1})
+    expected = regional.RegionalDiagnostics(1, "failed", "verification")
+    assert backend.execution_diagnostics() == expected
+    state.change_native, state.native = False, True
+    assert backend._invoke_pipeline(pipe, {"num_images_per_prompt": 1}).images == ["synthetic image"]
+    assert backend.execution_diagnostics() == expected
+
+
+def test_current_diagnostic_read_drops_a_snapshot_if_registration_changes_mid_read(private_call, monkeypatch):
+    backend, _pipe, _state, _events = private_call
+    owner = backend._regional_registration.diagnostics
+    old_reader = owner.snapshot
+    def changed():
+        backend._regional_registration = None
+        return old_reader()
+    monkeypatch.setattr(backend, "execution_diagnostics_reader", lambda: changed)
+    assert backend.execution_diagnostics() is None
+
+
+def test_retired_first_call_cannot_update_replacement_diagnostics(private_call, monkeypatch):
+    backend, pipe, state, _events = private_call
+    old = backend._regional_registration
+    reader = backend.execution_diagnostics_reader()
+    replacement_root = object()
+    replacement = regional.RegionalRegistration(replacement_root, regional.RegionFacts(
+        "regional-v1", (("FluxTransformerBlock", 1), ("FluxSingleTransformerBlock", 1)),
+    ))
+    replacement.diagnostics.publish(2)
+    def forward(self, **kwargs):
+        assert reader() == regional.RegionalDiagnostics(1, "running")
+        old.close()
+        backend._regional_registration = replacement
+        backend._pipe = SimpleNamespace(transformer=replacement_root)
+        return SimpleNamespace(images=["stale synthetic image"])
+    monkeypatch.setattr(type(pipe), "__call__", forward)
+    with pytest.raises(RuntimeError, match="does not own"):
+        backend._invoke_pipeline(pipe, {"num_images_per_prompt": 1})
+    assert reader() is None and not state.active
+    assert backend.execution_diagnostics() == regional.RegionalDiagnostics(2)
+
+
+def test_diagnostics_refuse_orphaned_root_without_runtime_work(private_call):
+    backend, pipe, _state, events = private_call
+    original = pipe.transformer
+    pipe.transformer = object()
+    assert backend.execution_diagnostics_reader() is None and backend.execution_diagnostics() is None
+    assert events == []
+    pipe.transformer = original
+    assert backend.execution_diagnostics() == regional.RegionalDiagnostics(1)
 
 
 def test_private_regional_call_refuses_cache_drift_before_policy_or_forward(private_call):

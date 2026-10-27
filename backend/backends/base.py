@@ -14,6 +14,7 @@ if TYPE_CHECKING:
     from PIL.Image import Image
 
     from ..schemas import GenerateRequest
+    from .regional_compile import RegionalDiagnostics
 
 # (completed_steps, total_steps) -> None
 ProgressFn = Callable[[int, int], None]
@@ -23,6 +24,7 @@ CancelFn = Callable[[], bool]
 # image so far, from the latents, a few times a second at most. Optional for
 # a backend to produce and for a caller to take.
 PreviewFn = Callable[[bytes, int, int], None]
+ExecutionDiagnosticsReader = Callable[[], "RegionalDiagnostics | None"]
 
 
 class Cancelled(Exception):
@@ -106,6 +108,20 @@ class GenerationBackend(abc.ABC):
         request = request.with_execution(None)
         require_default_execution(request.execution)
         return request
+
+    def execution_diagnostics_reader(self) -> ExecutionDiagnosticsReader | None:
+        """Optional pure regional-state reader, with no model/backend reference.
+
+        A job binds this after loading for its active cell, then freezes the
+        returned value and drops the reader. Eager/default backends return None;
+        calling this starts no imports, compilation, model or device work.
+        """
+        return None
+
+    def execution_diagnostics(self) -> "RegionalDiagnostics | None":
+        """Current immutable observation; separate from rendering permission."""
+        reader = self.execution_diagnostics_reader()
+        return None if reader is None else reader()
 
     def lora_supported(self) -> bool:
         """Can this backend apply a LoRA adapter? Optional; default no.
