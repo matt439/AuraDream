@@ -672,7 +672,9 @@ def _order(ctx: _Context) -> Iterable[PromptFinding]:
     # None where the move would change what is quoted: the order is still
     # out, but there is no one-click fix.
     reordered = prompt_order._reordered(ctx.text, ctx.items, places, spec, lettered)
-    problem = prompt_parts.reorder_problem(ctx.guide.get("tag_helper") or {}, ctx.text, reordered, ctx.lookup)
+    problem = prompt_parts.reorder_problem(
+        ctx.guide.get("tag_helper") or {}, ctx.text, reordered, ctx.lookup, spec.local,
+    )
     yield ctx.finding(
         order, "guide.order", "info",
         f'"{first.text}"{label(places[pair[0]])} comes before "{second.text}"'

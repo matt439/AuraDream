@@ -8,6 +8,7 @@ remain separate, so a fragment's cached answer never depends on its context.
 from __future__ import annotations
 
 from collections import Counter
+from collections.abc import Collection
 
 from . import prompt_text
 from .tags import is_model_tag
@@ -25,11 +26,16 @@ def _special(helper: dict) -> set[str]:
     return names
 
 
-def _prose_ranges(helper: dict, prompt: str, results: list[dict]) -> list[tuple[int, int]]:
+def _prose_ranges(
+    helper: dict, prompt: str, results: list[dict], placed: Collection[str] = (),
+) -> list[tuple[int, int]]:
     """Inclusive comma-item ranges whose context reads as natural language.
 
     An absent prose-shaped fragment anchors its adjacent absent fragments.
-    A known name, a concrete dictionary problem, an explicit artist prefix
+    A known name, any spelling ``prompt_text._norm`` maps to a name the
+    guide's order places (``placed``: Anima Aesthetic's score tags, which its
+    Tags menu does not offer, or ``best_quality`` for ``best quality``), a
+    concrete dictionary problem, an explicit artist prefix
     or a grid variable ends that passage. Unchecked fragments do not supply
     evidence of dictionary absence, although a definite sentence needs none.
     """
@@ -43,6 +49,7 @@ def _prose_ranges(helper: dict, prompt: str, results: list[dict]) -> list[tuple[
         known = is_model_tag(item.text, special, bool(helper.get("year_tag")))
         protected = (
             known or prompt_text.is_grid_variable(item.text)
+            or prompt_text._norm(item.text) in placed
             or bool(prefix and item.text.lower().startswith(prefix))
             or bool(row and (row.get("valid") is True or row.get("category")))
             or bool(row and row.get("code") not in (None, "not_found"))
@@ -106,6 +113,7 @@ def contextual_parts(
 
 def reorder_problem(
     helper: dict, prompt: str, reordered: str | None, categories: dict[str, str] | None,
+    placed: Collection[str] = (),
 ) -> str | None:
     """Refuse only a candidate that breaks a comma-containing prose passage.
 
@@ -126,7 +134,7 @@ def reorder_problem(
     ]
     blocks = Counter(
         prompt[items[first].start:items[last].end]
-        for first, last in _prose_ranges(helper, prompt, results) if first != last
+        for first, last in _prose_ranges(helper, prompt, results, placed) if first != last
     )
     if any(reordered.count(block) < count for block, count in blocks.items()):
         return REORDER_PROSE_DETAIL

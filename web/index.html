@@ -421,12 +421,6 @@
       </div>
     </div>
 
-    <div class="execution-cache-row">
-      <label for="step-cache">Step cache</label>
-      <select id="step-cache" aria-describedby="step-cache-note"><option value="">Off</option><option value="fbc-005-v1">FBC 0.05 v1 (unavailable)</option></select>
-      <span id="step-cache-note" class="sr-only">Off. FBC 0.05 v1 is experimental and unavailable in this build.</span>
-    </div>
-
     <!-- What a press makes, under a caption of its own as Sampling's (shown
          in one column and from 1800 px on a window taller than 1150 px;
          elsewhere only the group's name, so Generate keeps its place:
@@ -700,6 +694,16 @@
       <button class="primary" id="btn-grid" title="Run grid (Ctrl+Enter from a grid box)"
               aria-keyshortcuts="Control+Enter">Run grid</button>
     </details>
+
+    <!-- Step cache: per-render intent (execution.js), rarely used, so below
+         Generate, its progress and the grid fold. Above Generate it pushed a
+         running batch's progress past a 1400x900 window's foot (smoke-narrow)
+         and a Reuse's Undo out of sight at 2048x1040@1.25 (smoke-delete). -->
+    <div class="execution-cache-row">
+      <label for="step-cache">Step cache</label>
+      <select id="step-cache" aria-describedby="step-cache-note"><option value="">Off</option><option value="fbc-005-v1">FBC 0.05 v1 (unavailable)</option></select>
+      <span id="step-cache-note" class="sr-only">Off. FBC 0.05 v1 is experimental and unavailable in this build.</span>
+    </div>
 
     <!-- Conditioning stays available behind a native disclosure when inactive.
          Its summary names selected inputs even when closed; unsupported retained

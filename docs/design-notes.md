@@ -8173,6 +8173,17 @@ References and LoRA still under the window rather than holding the panel by
 its bottom, Run grid no longer being its last block. Tab from the panel's
 last stop reaches the stage as before; that stop is now the LoRA row's.
 
+**The Step cache row under the grid fold** (2026-10-27). The Step cache
+select (`.execution-cache-row`) first went in between Sampling and Output,
+and its 26 px and the panel's gap moved Generate and everything under it
+down 40 px: a running batch's progress ran past the foot of a 1400x900
+window (smoke-narrow), a Reuse's Undo fell out of sight at 2048x1040 at 125%
+(smoke-delete), and with Custom size open Generate's middle sat at 899.5 of
+900 (smoke-numeric-inputs). It now sits after the grid fold and before the
+LoRA & references disclosure: below everything a job adds under Generate and
+below the grid's summary, with References and LoRA still last, so the
+panel's last Tab stop is unchanged.
+
 **The run hint under Generate, the counters on the time's line**
 (2026-10-10). The review of the move above sent it back: at 1400x900, the
 size the smokes are written at, a running batch still showed only its Now
@@ -8435,7 +8446,13 @@ stand (`expandOutcome`, the test its end applies): written in, held, or dropped.
 Running, it reads "Expand…": "Expanding…" was 23 px wider, and at 1400 px
 wrapped Reset onto a second caption line, moving the prompt box down for the
 length of the request; reserving that width would have made the wrap
-permanent.
+permanent. Once the caption's buttons grew to `--fs-sm` under 1800 px, the
+idle row was exactly full at 1400 px and even "Expand…"'s 9 px wrapped Reset
+again (smoke-ernie, 2026-10-27). Running, the button now keeps the width it
+had idle - `syncExpandButton` locks it as the label changes - and `.running`
+gives its side padding to the ellipsis: trimming the padding by a measured
+2 px held only while the ellipsis measured what it did, a locked width holds
+at any font or DPR (measured unchanged at 1400x900, DPR 1 and 1.25).
 
 What a first use costs is the status's to say, from file checks only, as the
 critic's `describe()` is (`ModelStatus.prompt_expander`, `ExpanderStatus`:

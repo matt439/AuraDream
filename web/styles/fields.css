@@ -282,6 +282,10 @@ textarea:focus, input:where(:not([type="checkbox"], [type="radio"])):focus { out
     font-size: var(--fs-sm);
   }
 }
+/* Running, Expand keeps its idle width (status.js, syncExpandButton, locks
+   it) and "Expand…" uses the side padding for its ellipsis, so the full
+   caption row does not wrap Reset under the pointer. */
+#btn-expand.running { padding-inline: 0; white-space: nowrap; }
 /* From 1800 px the tiny buttons are the most-used secondary controls - the
    Prompt caption's Examples, Check and Reset, the check's Apply and Use
    rewrite - at a caption's type and 30 px tall (26 on a short window): 12 px

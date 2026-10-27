@@ -2769,7 +2769,8 @@ Frontend and CLI:
 - The panel's order is Prompt, Negative, Size, Sampling, Output, Generate
   and what a job adds under it (`#progress`, then the run hint, the finish
   line, the queue, Load settings from PNG… (`.png-load`), `#error`, the
-  last-run banner), the grid fold, then Reference images
+  last-run banner), the grid fold, the Step cache row
+  (`.execution-cache-row`), then Reference images
   (`#reference-field`) and LoRA (`#lora-field`) last. Nothing rarely used
   goes between Sampling and Generate: at scroll 0 the panel is in the
   page's flow and its sticky top cannot lift it, so every line above
@@ -2848,7 +2849,9 @@ Frontend and CLI:
   the example to pass.
 - Prompt expansion is ERNIE-only and explicit. `syncExpandButton` is
   Expand's one writer: it is held while it runs (reading "Expand…", never
-  the wider "Expanding…"), during this page's job or another tab's
+  the wider "Expanding…", in the width it had idle: `syncExpandButton` locks it and
+  `.running` gives the ellipsis its side padding, so the caption row, full at 1400 px,
+  never wraps Reset), during this page's job or another tab's
   (`EXPAND_ELSEWHERE`, after busy in its reasons), during a critique, or
   with the server offline - aria-disabled, with the reason as its title, so
   a keyboard user's focus stays; otherwise the title names a first use's
@@ -6811,8 +6814,8 @@ on screen after a wheel over the stage and at the end of a 160-image
 gallery, the panel holding its bottom a gutter above the window's (the
 gutter and the resting top read off the page; at 1400x900, where References
 and LoRA run on under the fold, stuck with Run grid in view), the panel's
-order - the run hint under `#progress`, References and LoRA last, under
-the grid fold - and a hand-drawn running
+order - the run hint under `#progress`, the Step cache row after the grid
+fold, References and LoRA last, after it - and a hand-drawn running
 batch's Now line, both bars and elapsed line in the window at scroll 0 at
 2048x1040@1.25, the panel coming back down
 as far as a wheel scrolls up, the prompt and Examples focused from deep in
@@ -6913,7 +6916,9 @@ with every cell done and not on another grid's mismatch, its mismatch
 warning and its absence on another checkpoint's run, whose More seeds of
 this run… stays, held with "Made on …", and says it under the gallery's head, the version rows with their edits and titles (a
 reorder as "same words, moved"), a strength sweep's source column and
-lightbox walk, the refined badge, pins in the export's file name, an
+lightbox walk, the refined badge, two passes alike on every axis but
+their source counted in the note as sharing a cell, pins in the export's
+file name, an
 empty sheet drawing only its note; the cell star (hidden until hover or
 focus, out of the tab order, a click starring without opening the lightbox,
 under the stuck heads when the box scrolls); iterations on random seeds (a
@@ -6938,7 +6943,7 @@ moving the page; and at 1400x900 the sheet's focus kept through F on a
 cell another tab deleted (onto the cell now in its place), a changed
 Columns select, and another tab's job ending under it, the sheet left as
 it was. `smoke-sheet-klein.json` uses a FLUX.2
-[klein] fake on 7886 for the References axis, the shared-cell count and the
+[klein] fake on 7886 for the References axis, the Size row and its pin, and the
 adapter named in LoRA heads, the Fixed line and the export:
 
 ```powershell

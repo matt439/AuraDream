@@ -224,7 +224,21 @@ function syncExpandButton() {
   const cost = expandCost();
   els.expandPrompt.setAttribute('aria-disabled', String(!!why));
   els.expandPrompt.title = why || (cost ? `${EXPAND_TITLE}. ${cost}` : EXPAND_TITLE);
-  els.expandPrompt.textContent = expandingPrompt ? 'Expand…' : 'Expand';
+  // Running, it keeps the width it had idle, locked as the label changes, and
+  // the "…" takes its side padding (.running, fields.css): below 1800 px the
+  // caption row is exactly full at 1400 px, and the 9 px "Expand…" adds would
+  // wrap Reset onto a line of its own again. A locked width holds whatever
+  // the font or DPR; a trimmed padding would hold only while the ellipsis
+  // measured what it did.
+  const button = els.expandPrompt;
+  if (expandingPrompt && !button.classList.contains('running')) {
+    const width = button.getBoundingClientRect().width;
+    if (width) button.style.width = `${width}px`;
+  } else if (!expandingPrompt) {
+    button.style.removeProperty('width');
+  }
+  button.classList.toggle('running', expandingPrompt);
+  button.textContent = expandingPrompt ? 'Expand…' : 'Expand';
 }
 
 // What a first Expand costs before it does anything, from the status: the

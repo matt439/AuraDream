@@ -56,7 +56,8 @@ Unknown or malformed browser performance choices are also retained: fixed
 placeholders and action holds never serialize arbitrary payload into labels,
 URLs or requests. Explicit replacement/Revert/Off resolves that intent; Reset,
 Eager Reuse and Undo deliberately replace or restore it. The final 84-step smoke
-contains these cases, but they remain unrun after the actual browser denial.
+contains these cases. It went unrun after the browser denial, then passed on
+2026-10-27 once access was restored ([tooling](plan-tooling.md#browser-smokes-in-ci)).
 
 Focused execution/storage/replay/grid/CLI/map checks passed 574 cases before two
 new assertion-only failures; the corrected CLI/admission group then passed all
@@ -147,9 +148,9 @@ next callback. No new polling, controls, loading or qualification is inferred.
 
 Source review caught and corrected a lost multi-image counter, stale diagnostic
 tooltips and overly definitive pending wording. Node VM checks use inert DOM and
-EventSource stubs; they neither boot the page nor launch a browser. Browser layout,
-screen-reader behavior and real rendering remain unverified after the existing
-Windows access denial. Request-driven caching and conservative attention policy
+EventSource stubs; they neither boot the page nor launch a browser. Screen-reader
+behavior remains unverified; the Windows browser smokes passed once access was
+restored on 2026-10-27. Request-driven caching and conservative attention policy
 source are built in their owners. Nonempty render admission, compiler/toolchain/
 cache qualification and the card pass remain separate gates.
 

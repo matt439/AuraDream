@@ -171,6 +171,30 @@ def test_reordering_withholds_only_a_candidate_that_splits_the_prose():
     assert finding.suggestion is None and prompt_parts.REORDER_PROSE_DETAIL in finding.message
 
 
+def test_a_name_only_the_order_places_is_not_swallowed_into_prose():
+    # Anima Aesthetic's Tags menu leaves out the score tags its order still
+    # puts first; beside a sentence, score_5 is a placed name, not prose, so
+    # moving it splits nothing (smoke-anima-aesthetic).
+    model = "circlestone-labs/Anima@aesthetic-v1.1"
+    prompt = "1girl, score_5, A girl stands in the rain under a red umbrella. She looks up at the grey sky."
+    moved = "score_5, 1girl, A girl stands in the rain under a red umbrella. She looks up at the grey sky."
+    assert not any(tag == "score_5" for group in helper(model)["groups"] for tag in group["tags"])
+    assert prompt_rules.reorder_tags(model, prompt, {}) == moved
+    assert prompt_rules.reordered_detail(model, prompt, {}) is None
+    (finding,) = only(run(model, prompt, {}), "guide.order")
+    assert finding.suggestion == moved and prompt_parts.REORDER_PROSE_DETAIL not in finding.message
+
+
+def test_an_underscore_spelling_of_a_placed_name_ends_a_prose_passage():
+    # Kohaku's order places "best quality" last; its underscore spelling
+    # normalises to the same name, so beside a sentence it is moved past the
+    # passage, not read as part of it.
+    sentence = "A girl stands in the rain under a red umbrella. She looks up at the grey sky."
+    prompt = f"1girl, best_quality, {sentence}"
+    assert prompt_rules.reorder_tags(KOHAKU, prompt, {}) == f"1girl, {sentence}, best_quality"
+    assert prompt_rules.reordered_detail(KOHAKU, prompt, {}) is None
+
+
 def test_analysis_explains_why_use_reordered_is_not_offered(client, fake, monkeypatch):
     claim(monkeypatch, fake, KOHAKU)
     monkeypatch.setattr(tag_lookup, "tag_vocabulary", tags.DanbooruTagVocabulary(lambda path, params: []))
