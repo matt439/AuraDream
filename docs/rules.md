@@ -396,7 +396,8 @@ before changing it.
   `smoke-stage.json`, Gallery beside, and `smoke-narrow.json`, one column
   and narrow windows): the UI's stand-in for a test suite, and
   `run_smoke.py`, which starts each smoke's fake from `AGENTS.md`'s port
-  table and runs it; `ci_changes.py` classifies GitHub push/PR ranges for
+  table and runs it, with `smoke_fonts.py` its Linux Segoe UI stand-in;
+  `ci_changes.py` classifies GitHub push/PR ranges for
   the documentation-only lint path; `typecheck.py` runs the pinned,
   locally bundled Pyright checker over the configured scope; see Tests
 - `tests/` — the pytest suite, no GPU and no weights: `conftest.py`,

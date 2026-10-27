@@ -83,3 +83,43 @@ jobs:
       # One worker per runner core (pytest-xdist): about half the serial time.
       - name: Test
         run: uv run --group dev pytest -q -n auto
+
+  # The browser smokes (DEV#4): every row of AGENTS.md's port table on the
+  # runner's Chrome against fake servers, no GPU or weights. Its own job so
+  # it never holds up or replaces the CPU tests. Selawik stands in for the
+  # Segoe UI the smokes are written against (tools/smoke_fonts.py). Three
+  # smokes at once on the four-core runner; the table took about 15 minutes
+  # at that width on four cores.
+  browser:
+    needs: lint
+    if: ${{ needs.lint.outputs.full_tests == 'true' }}
+    runs-on: ubuntu-latest
+    timeout-minutes: 45
+    steps:
+      - uses: actions/checkout@v7
+      - name: Verify Node and Chrome
+        run: |
+          node --version
+          google-chrome --version
+      - uses: astral-sh/setup-uv@v10.3.2
+        with:
+          enable-cache: true
+          python-version: "3.13"
+      - name: Install
+        run: uv sync --locked --group dev
+      - name: Fonts
+        run: uv run --no-sync python tools/smoke_fonts.py "$RUNNER_TEMP/smoke-fonts"
+      - name: Smokes
+        run: uv run --no-sync python tools/run_smoke.py --all --jobs 3 --artifacts "$RUNNER_TEMP/smoke-artifacts"
+        env:
+          AURADREAM_BROWSER: /usr/bin/google-chrome
+          AURADREAM_BROWSER_DIAGNOSTICS: "1"
+      # Each smoke's result, browser output, screenshots and a failed fake's log.
+      - name: Keep the diagnostics
+        if: ${{ failure() }}
+        uses: actions/upload-artifact@v7
+        with:
+          name: smoke-artifacts
+          path: ${{ runner.temp }}/smoke-artifacts
+          if-no-files-found: warn
+          retention-days: 14
