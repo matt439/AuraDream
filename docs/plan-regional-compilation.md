@@ -1,9 +1,9 @@
 # Plan: regional compilation of FLUX.1
 
-**Status, 2026-10-26: CPU contracts, persisted carry, private loader/call wiring,
+**Status, 2026-10-27: CPU contracts, persisted carry, private loader/call wiring,
 backend publication/teardown, startup compiler-cache ownership and unavailable
 selector/settings/status/UI, composer/replay resolution and bounded diagnostic
-source are implemented. Real nonempty admission,
+source/presentation are implemented. Real nonempty admission,
 optional toolchain setup and card qualification remain
 `PERF#1`.** This is the next slice from
 [R1](review-2026-10-25.md#r1-compile-the-denoisers-repeated-blocks), not a
@@ -134,11 +134,43 @@ same-checkpoint reloads and frozen terminal jobs. Pinned Pyright checked all
 review is clear. No compiler/model/GPU workload or browser was run; ordinary
 test setup retains its existing availability guard. Public admission is closed.
 
-**Remaining presentation and qualification.** Backend/API/job observations are
-built; Models and job-progress consumers still need their bounded presentation
-slice. Request-driven caching and conservative attention environment policy
-source are built in their owners. Nonempty render admission,
-compiler/toolchain/cache qualification and the card pass remain separate gates.
+**Bounded page presentation.** Models labels the actual loaded checkpoint's
+registration and first-call observation in its existing fixed-height note,
+separately from an unsaved selection. Progress preserves its image/batch/cell
+counter and adds the watched job's own last reported first-call state; terminal
+jobs keep their frozen observation. Fixed detail is available as a title and
+accessibility description, cleared by ordinary progress/finish writes. Missing
+or invalid data clears the caption, delayed snapshots cannot reverse one load's
+terminal state, and a different load/server replaces the observation. Pending
+describes the last report: a lazy first call may already be running before its
+next callback. No new polling, controls, loading or qualification is inferred.
+
+Source review caught and corrected a lost multi-image counter, stale diagnostic
+tooltips and overly definitive pending wording. Node VM checks use inert DOM and
+EventSource stubs; they neither boot the page nor launch a browser. Browser layout,
+screen-reader behavior and real rendering remain unverified after the existing
+Windows access denial. Request-driven caching and conservative attention policy
+source are built in their owners. Nonempty render admission, compiler/toolchain/
+cache qualification and the card pass remain separate gates.
+
+The focused page/static/maps group passed **44 checks**. The broad CPU run then
+found one stale expanded-cell assertion expecting a raw empty recipe; it now
+expects resolved Eager while checking that the caller's validated object stays
+untouched. All **192 affected queue/resolver/page/static/maps checks** passed.
+The initial Node fixture's nested slash escaping was corrected without changing
+production behavior. All 53 classic scripts pass the syntax/shared-scope guard,
+Ruff passes, and the unchanged Python runtime sources retain their zero-diagnostic
+pinned type result over 128 sources. These checks grant no browser acceptance.
+
+The final two-worker CPU/static/fake regression run passed **5,749 tests, seven
+platform skips and 75 existing warnings in 272.70 seconds**. It explicitly excluded
+all `tests/test_browser*.py` files and `tests/test_run_smoke.py`, and used the existing
+repository interpreter with fresh task-owned scratch. Its receipt is
+`work/performance-source-cpu-root-a2.txt`. This is a passing restricted CPU result,
+not a normal whole-suite, browser or card qualification result. Independent
+source review and the remaining-TODO audit found no further unblocked source
+slice after this presentation work; `PERF#1` is CARD with the documented access,
+toolchain and qualification prerequisites unchanged.
 
 ## CPU contracts, admission and persisted carry
 

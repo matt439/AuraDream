@@ -174,15 +174,17 @@ def test_queue_keeps_eager_admission_and_explicit_run_id(value, fake, store):
 
         manager = jobs.JobManager(fake, load)
         request = GenerateRequest(prompt="a fox", execution=value, width=256, height=256, steps=1)
+        raw_execution = request.execution
         try:
             job = await manager.submit_cells([grid.Cell(request=request, seed=42)], run_id="explicit-eager-run")
             events = [event async for event in manager.events(job)]
             assert events[-1]["status"] == "done"
             assert job.run_id == "explicit-eager-run" and len(job.images) == 1
             assert loads == 1 and fake.seeds == [42]
-            assert fake.requests == [request]
-            # A default fake preserves the raw request, as the base backend
-            # does; canonical identity still treats its empty object as None.
+            # Expanded cells resolve complete Eager replay before admission
+            # identities; the caller's raw empty spelling stays untouched.
+            assert fake.requests == [request.model_copy(update={"execution": None})]
+            assert request.execution is raw_execution
             assert execution.execution_key(fake.applied(request).execution) is None
         finally:
             await manager.shutdown()

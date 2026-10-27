@@ -617,7 +617,7 @@ function modelPickerNote() {
   // pressed, not only in its row's title.
   const fitNote = modelCatalogueDetails[chosen]?.fit_note;
   const fit = fitNote ? `${modelLabel(chosen)}: ${fitNote}` : '';
-  return { text: [lead, fit, state].filter(Boolean).join(' '), unsaved };
+  return { text: [lead, fit, state, modelExecutionNote()].filter(Boolean).join(' '), unsaved };
 }
 
 function syncModelSwitch() {
@@ -670,6 +670,7 @@ function syncModelSwitch() {
   if (!els.modelPicker.hidden) {
     const { text, unsaved } = modelPickerNote();
     if (els.modelPickerNoteText.textContent !== text) els.modelPickerNoteText.textContent = text;
+    setModelAttribute(els.modelPickerNote, 'title', modelExecutionNote());
     if (els.modelRevert.hidden === unsaved) els.modelRevert.hidden = !unsaved;
   }
   // The strip follows the chosen row (a no-op while it already shows it).

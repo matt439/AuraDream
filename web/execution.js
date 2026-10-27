@@ -16,6 +16,79 @@ let selectedExecutionAvailable = true;
 let executionEnvironmentWarning = '';
 let executionDraftBase = {};
 let executionCacheOptions = null;
+let modelExecutionObservation = null;
+let modelExecutionAsked = -Infinity;
+
+function readExecutionDiagnostics(value) {
+  if (!value || typeof value !== 'object' || Array.isArray(value)) return null;
+  const keys = ['load_id', 'recipe', 'registration', 'first_call', 'failure_stage'];
+  if (Object.keys(value).some((key) => !keys.includes(key))
+      || !Number.isSafeInteger(value.load_id) || value.load_id <= 0
+      || value.recipe !== 'regional-v1' || value.registration !== 'registered'
+      || !['pending', 'running', 'returned', 'failed', 'cancelled'].includes(value.first_call)) return null;
+  const failed = value.first_call === 'failed' || value.first_call === 'cancelled';
+  const stage = value.failure_stage ?? null;
+  if (failed ? !['forward', 'verification', 'policy_exit'].includes(stage) : stage !== null) return null;
+  return Object.freeze({ load_id: value.load_id, recipe: 'regional-v1', registration: 'registered',
+    first_call: value.first_call, failure_stage: stage });
+}
+
+function mergeExecutionDiagnostics(previous, value) {
+  const next = readExecutionDiagnostics(value);
+  const old = readExecutionDiagnostics(previous);
+  if (!next || !old || next.load_id !== old.load_id) return next;
+  // This is one first attempt, not a count of calls or an ordinal across
+  // server restarts. Delayed snapshots cannot reverse its observed outcome.
+  if (['returned', 'failed', 'cancelled'].includes(old.first_call)
+      || (old.first_call === 'running' && next.first_call === 'pending')) return old;
+  return next;
+}
+
+function executionDiagnosticCaption(value) {
+  const diagnostic = readExecutionDiagnostics(value);
+  if (!diagnostic) return null;
+  const short = {
+    pending: 'first call pending', running: 'first call running', returned: 'first call returned',
+    failed: 'first call failed', cancelled: 'first call cancelled',
+  }[diagnostic.first_call];
+  const state = {
+    pending: 'Last reported first-call state: pending; no forward attempt has been observed. The next update may wait for the first callback.',
+    running: 'First call was observed running; its first callback may be delayed.',
+    returned: 'First call returned after ownership checks and policy exit.',
+    failed: 'First call failed.', cancelled: 'First call was cancelled.',
+  }[diagnostic.first_call];
+  const stage = { forward: 'pipeline call', verification: 'ownership verification', policy_exit: 'compiler policy exit' }[diagnostic.failure_stage];
+  const detail = stage ? ` Failure stage: ${stage}. Select Eager before trying an ordinary load.` : '';
+  return { short, full: `Regional registered. ${state}${detail} Warm kernels, cache hits and performance are unverified.` };
+}
+
+function receiveModelExecutionDiagnostics(status, asked) {
+  if (!Number.isFinite(asked) || asked < modelExecutionAsked) return;
+  modelExecutionAsked = asked;
+  const scope = JSON.stringify([status.started_at ?? null, status.model_revision ?? null, status.model_id ?? null]);
+  const prior = modelExecutionObservation?.scope === scope ? modelExecutionObservation.value : null;
+  modelExecutionObservation = { scope, model: status.model_id, revision: status.model_revision,
+    server: status.started_at, value: status.state === 'ready'
+      ? mergeExecutionDiagnostics(prior, status.execution_diagnostics) : null };
+}
+
+function modelExecutionNote() {
+  const observed = modelExecutionObservation;
+  const runtime = modelRuntimeSettings?.model_id ?? loadedModel;
+  if (serverOffline || modelState !== 'ready' || !observed || observed.model !== runtime
+      || observed.revision !== modelRevision || observed.server !== serverStartedAt) return '';
+  const caption = executionDiagnosticCaption(observed.value);
+  return caption ? `Loaded ${modelLabel(runtime)}: ${caption.full}` : '';
+}
+
+function setExecutionProgress(jobId, value, spoken, shown = null) {
+  if (jobId !== currentJob) return;
+  const caption = executionDiagnosticCaption(value);
+  setProgressText(caption ? `${spoken}; ${caption.short}.` : spoken,
+    caption && shown !== null ? `${caption.short} · ${shown}` : shown);
+  els.progressText.title = caption?.full ?? '';
+  if (caption) els.progressText.setAttribute('aria-description', caption.full);
+}
 
 function setPerformanceChoice(control, value, allowed) {
   invalidPerformanceChoices.delete(control);
@@ -161,7 +234,8 @@ function syncExecutionControls() {
   if (why) els.load.title = why;
 }
 
-function receiveExecutionStatus(status) {
+function receiveExecutionStatus(status, asked = Date.now()) {
+  receiveModelExecutionDiagnostics(status, asked);
   selectedExecution = loaderExecution(status.execution?.compilation, status.execution?.attention_backend);
   selectedExecutionReason = status.execution_unavailable_reason || '';
   selectedExecutionAvailable = typeof status.execution_available === 'boolean' ? status.execution_available : !selectedExecution;

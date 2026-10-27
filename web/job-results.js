@@ -15,6 +15,8 @@ let finishStale = false;
 // Generate holds until this line is drawn.
 let finishTakesFocus = false;
 function setFinish(nodes = []) {
+  els.finishNote.title = '';
+  els.finishNote.removeAttribute('aria-description');
   const focused = els.finishNote.contains(document.activeElement)
     || (finishTakesFocus && document.activeElement === els.generate);
   finishTakesFocus = false;
@@ -148,6 +150,8 @@ function finishJob(jobId, data, { submitted, sheet, foreign = false, staleBefore
   // cells this tab never saw. Missing counts and holds never come from the
   // current composer or from this tab's old request payload.
   if (data.run_id && !foreign) line.push(finishRunButton(data.run_id, { className: 'ghost tiny', slot: els.error }));
+  const executionCaption = executionDiagnosticCaption(data.execution_diagnostics);
+  if (executionCaption) line.push(` ${executionCaption.short}.`);
   // Another tab's job keeps out of this page's finish line: that line is
   // this page's own last job, Use seed and all, and the foreign job's end
   // is said once, on the hidden line, as the title is given back below.
@@ -159,6 +163,8 @@ function finishJob(jobId, data, { submitted, sheet, foreign = false, staleBefore
     syncFinishLead();
   } else {
     setFinish(line);
+    els.finishNote.title = executionCaption?.full ?? '';
+    if (executionCaption) els.finishNote.setAttribute('aria-description', executionCaption.full);
   }
 
   // A cancel this page did not ask for - pressed in another tab or window,

@@ -563,7 +563,7 @@ function receiveStatus(s, asked = Date.now()) {
     if (changed) checkpointChanged(previousModel);
     loadedModel = s.model_id ?? loadedModel;
     if (s.model_id) checkpointLabel = s.model_label ?? null;
-    receiveExecutionStatus(s);
+    receiveExecutionStatus(s, asked);
     receiveModelSettings(s, { reset: changed || restarted });
     if (changed) {
       syncReuseButtons();

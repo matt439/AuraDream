@@ -5411,6 +5411,12 @@ terminal snapshot freezing, reader retirement/replacement and weight-free
 lifetimes. Diagnostic observations stay outside retained job definitions and
 reproduction identities; optional readers never change generation outcomes.
 
+`tests/test_execution_diagnostics_ui.py` exercises the page's fixed scalar
+captions and load/job lifecycle using Node VM with inert DOM/EventSource stubs.
+It checks progress counters, terminal observations and stale-detail clearing.
+These source contracts do not boot a page or qualify browser layout/accessibility;
+the actual browser denial and incomplete UI validation remain in the tooling plan.
+
 `tests/test_execution_candidates.py` checks the initial cuDNN/FBC candidate
 matrices, combinations, copied-spec validation, external override refusals and
 FBC guidance/cache exclusions. An isolated subprocess forbids framework/config

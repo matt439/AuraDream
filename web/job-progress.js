@@ -12,6 +12,8 @@
 // the title take what is shown (progressShown).
 function setProgressText(spoken, shown = null) {
   const el = els.progressText;
+  el.title = '';
+  el.removeAttribute('aria-description');
   if (shown === null) {
     if (el.childElementCount || el.textContent !== spoken) el.textContent = spoken;
     return;
