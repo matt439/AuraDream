@@ -1,10 +1,15 @@
 # Plan: edit a gallery image by instruction
 
-**Status, 2026-10-27:** Matt requested this plan (`INP#11`). Planning is
-complete; implementation has not been commissioned. No model was downloaded,
-loaded or run, and no live gallery was read or changed. This document proposes
-Kontext first and Qwen-Image-Edit later; that order is an engineering proposal,
-not a recorded preference from Matt. [Origin](review-2026-10-25.md#r9-edit-an-image-by-instruction).
+**Status, 2026-10-27:** Matt commissioned starting `INP#11` after reviewing
+the work available without the card. The first bounded CPU slice freezes
+the recipe, geometry and request/stored-source contract, with the complete
+[carry inventory](instruction-edit-carry.md) and
+[bundle compatibility contract](instruction-edit-bundles.md). Persistence,
+API/backend integration and the dialog remain stage 1/2 work; the standalone
+contract does not enable an editor. No model was downloaded, loaded or run,
+and no live gallery was read or changed. Kontext is the first engineering
+candidate and Qwen-Image-Edit remains a later stage.
+[Origin](review-2026-10-25.md#r9-edit-an-image-by-instruction).
 
 ## First useful result
 
@@ -94,6 +99,94 @@ Proposed ownership:
 
 ## Request, identity and portable source
 
+### First frozen contract, 2026-10-27
+
+`backend/instruction_edit.py` owns the standalone first contract. It is not
+yet a field on the generation request, a migration, an endpoint or a loader
+choice. The integration checklist below and in the linked inventory must
+be completed before stage 1 can be called built.
+
+The named recipe is `kontext-v1`, selecting the public
+`black-forest-labs/FLUX.1-Kontext-dev` id at revision
+`24e9dedc4ef646698dc8eb4e18ae2cec3c9fea0d`. The public
+[Hub metadata](https://huggingface.co/api/models/black-forest-labs/FLUX.1-Kontext-dev)
+identified that revision on 2026-10-27. The gated model index/config contents
+were unavailable without authentication; installed class annotations are
+not proof of their values. Before future catalogue/load integration, verify
+the pinned index and configs against the expected `FluxKontextPipeline`,
+FlowMatch Euler scheduler, FLUX transformer, VAE, CLIP and T5 components.
+Refuse a mismatch before weights move. No config access, gate acceptance or
+checkpoint download is implied by this source slice.
+
+The first geometry table preserves these exact source aspect ratios, with
+equal working and output dimensions:
+
+| Source aspect | Working/output size |
+|---|---|
+| 1:1 | 512 × 512 |
+| 3:2 | 576 × 384 |
+| 2:3 | 384 × 576 |
+| 4:3 | 512 × 384 |
+| 3:4 | 384 × 512 |
+| 16:9 | 512 × 288 |
+| 9:16 | 288 × 512 |
+
+These are a small qualification envelope, not author-recommended sizes or
+a measured quality/fit claim. Other source aspects are refused. Decode the
+original pixels, convert with Pillow `RGB`, and resize with Lanczos into an
+owned image. Do not crop, apply EXIF orientation, upscale to a library-selected
+preferred resolution or modify the source. Output area never exceeds
+262,144 pixels. A different table or preprocessing gets a new recipe name.
+
+Installed Diffusers 0.40.0 recomputes output size from `max_area` even with
+explicit width/height; its default is 1024². Independently, `_auto_resize`
+normally chooses a preferred source size around 1 MP. The frozen call must
+therefore pass `max_area=width*height` and `_auto_resize=False`, as well as
+the resolved dimensions. It uses one image, `max_sequence_length=512` and
+PIL output, one seeded generator and the ordinary step callback. There is
+no strength, mask or composite. Verify the VAE scale factor is 8 before a
+future call so the pipeline's latent rounding preserves this table. Source
+VAE encoding uses its posterior mode. The standalone source-contract tests
+read the installed pipeline without importing Diffusers or initializing CUDA.
+
+The starting recipe uses 28 steps (the installed call default) and distilled
+guidance 2.5 (the author's example), without a claimed measured optimum.
+First-slice admission will require an empty negative prompt, no separate
+true-CFG pass, automatic Mu, no LoRA/reference/refine/outpaint/upscaler or
+nonempty performance recipe, and no grid, batch or Then refine. Capability
+and normalisation must refuse incompatible fields rather than drop them.
+
+Request intent requires a positive local source id and the explicit recipe.
+Stored intent additionally requires an `edit_source` descriptor with a bare
+PNG filename, dimensions and a full lowercase SHA-256 over the original
+decoded `RGB` bytes, before resizing. This is a new edit-specific proof;
+the existing short `content_hash` is not interchangeable. Stored source may
+be null when recovery/import cannot prove a local link. Keep the recipe,
+instruction and descriptor in SQL and PNG metadata, and refuse replay until
+source identity is proven. Converting a stored spec to a request only checks
+source presence; it is not that proof. The descriptor never resolves a path.
+
+Edit-containing bundles will use manifest version 2; edit-free exports stay
+at version 1. A new reader must reject a version-1 archive that carries edit
+intent in either SQL or PNG metadata. The [bundle contract](instruction-edit-bundles.md)
+freezes omission counting, complete id-map/provenance checks and unresolved
+recovery; this version gate is still to be implemented.
+
+**Checks for this bounded slice:** the existing repository interpreter ran
+`pytest tests/test_instruction_edit.py tests/test_docs_maps.py -q`: **90
+passed**, with one existing FastAPI/Starlette warning. The complete Ruff
+check passed. Pinned Pyright 1.1.407 checked **129 Python sources** with zero
+errors/warnings. The source tests cover strict and forged-copy refusal,
+canonical stored JSON, unresolved intent, full original-RGB identity,
+exact-aspect/owned-image preprocessing, the installed scalar output-size
+formula, source VAE mode and a fresh-process import guard against model
+frameworks/settings/storage. The installed-source guards cover the
+signature/preferred-size flag, scalar output formula and VAE mode; they do
+not qualify the complete image-processor-to-tensor path. Verify that path
+and the pinned configs before finishing stage 0/loader integration. These
+checks do not exercise request/storage/bundle
+integration, a browser, gated checkpoint configs, a model or the card.
+
 Propose a nullable `edit` spec on requests and records. It contains `source`
 (a positive gallery id) and a named frozen recipe such as `kontext-v1`.
 `prompt` is the instruction itself, avoiding two competing copies of the
@@ -125,8 +218,13 @@ dimensions provenance pattern. Missing/binned source flags are derived
 status, not reproduction settings. The saved original source must never be
 overwritten or treated as the editor's output.
 
-Give the edit its own canonical CellKey extension, carrying source and
-recipe while `prompt` already keys the instruction. Preserve seed last and
+Give the edit its own canonical CellKey extension from the bound stored
+identity: source, recipe and the complete source descriptor, including its
+full RGB hash. Resolve and prove that descriptor before expansion, run ids,
+Resume/deduplication and More seeds keys; a raw request id/recipe is not a
+complete edit identity. Replacing a source's pixels must not reuse an old
+edit key, and replay must refuse a mismatch against its frozen proof.
+`prompt` already keys the instruction. Preserve seed last and
 the existing shape/execution conventions. Compact absent edit data so every
 legacy run id and duplicate/resume identity remains unchanged. Test distinct
 sources and instructions separately; edits cannot count as ordinary renders
@@ -216,7 +314,8 @@ particularly under Nunchaku. More seeds/sizes/batches need their own bounded
 scope; no overnight quality sweep follows from this plan.
 
 This remains an **XL plus card** feature estimate from the originating review,
-not a measured delivery time. The next useful engineering step, if
-commissioned, is stage 0. No additional product choice is needed to finish
-this plan; detector work belongs to the [detailer plan](plan-detailer.md),
+not a measured delivery time. Starting it is commissioned; that does not
+authorize stage 3's model/card runs. Finish the pinned-config preflight and
+the stage 1 carry checklist before claiming the feature is portable or
+replayable. Detector work belongs to the [detailer plan](plan-detailer.md),
 and importing outside images stays in its existing deferred owner.

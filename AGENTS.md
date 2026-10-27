@@ -119,7 +119,9 @@ Backend (`backend/`):
   seeds' batches and their next seeds; `more_seeds_intents.py` bounded
   preview-issued submission receipts and safe retries;
   `seeds.py`; `sizes.py` presets and size guards; `loras.py` adapter names to
-  paths; `refine.py` the image-to-image pass and the inpaint (`sibling(kind)`,
+  paths; `instruction_edit.py` the standalone frozen Kontext recipe, strict
+  request/stored-source types and pure geometry (no runtime integration);
+  `refine.py` the image-to-image pass and the inpaint (`sibling(kind)`,
   `composite`); `latent_preview.py`
 - Prompt analyser: `prompt_encoding.py` (tokenizers), `encoder_table.py`
   (each checkpoint's encoders and copied pipeline templates),

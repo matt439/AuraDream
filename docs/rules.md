@@ -156,6 +156,11 @@ before changing it.
   ships beside a pipeline's own (`sibling`), that class built over the loaded
   components (`build`), the steps a strength leaves, and the source scaled to
   cover the requested size and cropped; a leaf module like `seeds`
+- `backend/instruction_edit.py` — standalone `kontext-v1` recipe, strict
+  request/stored-source contracts, original-RGB provenance and exact-aspect
+  Lanczos geometry; no request/storage/API/loader integration or runtime
+  availability. The feature plan and carry/bundle checklists own the remaining
+  stages; this module does not enable an editing checkpoint.
 - `backend/outpaint.py` — an outpaint's pure parts: the fills (`FILLS`,
   `padded`), the server-built mask (`mask`), the presets (`presets`, the
   refine guard's limits passed in) and the off-grid words
@@ -5363,6 +5368,13 @@ Frontend and CLI:
   meanwhile from fetching).
 
 ## Tests
+
+`tests/test_instruction_edit.py` checks the standalone frozen Kontext recipe,
+strict request/stored source types, full original-RGB provenance, unresolved
+source refusal and exact-aspect preprocessing. Installed-pipeline assumptions
+are read from source without importing Diffusers. These are pure CPU/source
+checks; they do not qualify persistence, HTTP admission, bundles, a browser,
+model loading, rendering or the card.
 
 `tests/test_backup_credentials.py` and `tests/test_backup_credential_integration.py`
 check WinCred ABI declarations through API stubs, exact opaque references, bounds,

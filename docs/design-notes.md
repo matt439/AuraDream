@@ -1204,6 +1204,33 @@ Generation itself would not change: `storage.reference_paths` resolves any
 row by id and the pipeline opens each reference as a picture. The refine pass
 would get outside sources from the same route.
 
+## Instruction editing starts with a distinct source contract
+
+**First CPU contract slice, 2026-10-27 (`INP#11`).** Matt commissioned starting
+the feature without the card. `instruction_edit.py` is a standalone contract,
+not a generation request field, catalogue option, loader or dialog. The
+[feature plan](plan-instruction-editing.md#first-frozen-contract-2026-10-27)
+owns the frozen recipe and sizes; the [carry inventory](instruction-edit-carry.md)
+and [bundle contract](instruction-edit-bundles.md) own integration acceptance.
+
+An editor's `image` argument is a source for an instruction, rather than a
+klein reference list or a Refine strength. It must get explicit capabilities
+and retain its pass kind through every producer and reader. The installed
+Kontext class also recomputes output dimensions from its default area, and
+normally resizes a source to a preferred resolution. Explicit width/height
+alone would silently turn a small trial into about 1 MP. The pure contract
+therefore fixes the resize itself and requires both the output-area override
+and disabled automatic source resizing in a future call.
+
+Portable edits need a durable original-source descriptor, including a full
+RGB pixel digest. A foreign numeric id can name unrelated pixels after import;
+unproven links must become null while retaining edit intent and provenance.
+They cannot follow Refine recovery's source-dropping fallback. An old bundle
+reader also ignores unfamiliar fields, so edit-containing exports need a
+version it already refuses. None of that persistence or bundle integration
+is built by the standalone types. Gated pinned-config verification, stage 1's
+carry work and stage 2's backend/browser pass remain separate open work.
+
 ## LoRA adapters are the environment's and are hot-swapped
 
 **A LoRA is the environment's capability, not the checkpoint's.** All three
