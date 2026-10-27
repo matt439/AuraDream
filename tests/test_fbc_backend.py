@@ -31,6 +31,7 @@ from tests.test_pipeline_ownership import synthetic_loader
 
 SPEC = ExecutionSpec(step_cache="fbc-005-v1")
 FACTS = CompilerMetadata("win32", (3, 13), "2.13.0+cu130", "0.40.0", "0.18.0", None, None)
+NATIVE_DISPATCH = attention.require_native_dispatch
 
 
 @pytest.fixture
@@ -434,9 +435,13 @@ def test_foreign_hook_is_preserved_across_an_owned_cached_call(cache_loader, mon
 
 @pytest.fixture
 def native_world(monkeypatch):
+    # This fixture isolates the live registry/processor contract; environment
+    # and frozen-import observations have separate synthetic policy coverage.
+    monkeypatch.setattr(attention, "require_native_environment", lambda: None)
+    monkeypatch.setattr(attention, "require_native_dispatch", NATIVE_DISPATCH)
     state = SimpleNamespace(active="native", function=lambda: None)
     bindings = attention._Bindings(Transformer, Joint, Single, Attention, Processor, backend_context, "_native_cudnn")
-    api = attention._NativeAttentionApi("native", lambda: (state.active, state.function), bindings)
+    api = attention._NativeAttentionApi("native", lambda: (state.active, state.function), bindings, state.function)
     monkeypatch.setattr(attention, "_native_attention_api", lambda: api)
     return Transformer(), state
 

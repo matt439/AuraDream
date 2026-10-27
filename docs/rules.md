@@ -172,7 +172,8 @@ before changing it.
   registration, candidate disposal, owned-call validation and scoped compiler
   policy; public nonempty execution remains unavailable
 - `backend/backends/attention_selection.py` - private complete FLUX processor
-  coverage, shared ownership, public-context configuration and restoration;
+  coverage, shared ownership, public-context configuration, restoration and
+  read-only experimental Native environment/dispatcher policy;
   None is import-cold and public selection/admission remains closed
 - `backend/backends/fbc_cache.py` - private exact FLUX cache-layout checks,
   per-call hook/state cleanup and shared-denoiser ownership/invalidation;
@@ -5477,6 +5478,13 @@ shared ownership, later replacements and idempotent restoration with stubs.
 It also executes source-extracted installed public context/setter bodies.
 Its focused run uses `--noconftest`, with no actual Diffusers import, tensor,
 forward or device probe; real runtime/card qualification remains separate.
+`tests/test_attention_environment.py` retains the cold warning/source checks:
+exact startup snapshots, fixed redaction, CLI logging, unchanged selection and
+status reads that do not reread environment or import a framework.
+`tests/test_attention_policy.py` checks the experimental Native baseline using
+synthetic modules: startup/current/frozen observations, exact registry function,
+redaction, drift refusal and policy-independent restoration/cleanup. It proves
+no Native/cuDNN kernel, device fit, pixels, speed or repeatability.
 `tests/test_attention_backend.py` checks actual private preparation/publication/
 unload/invocation with synthetic runtime modules, exact ownership and closed
 public guards. It covers primary error/cancellation plus post-forward ownership

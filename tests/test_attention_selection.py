@@ -119,6 +119,9 @@ def backend_context(backend):
 
 @pytest.fixture
 def bindings(monkeypatch):
+    # These layout/context tests supply no imported dispatcher implementation.
+    # The separate policy suite exercises the real guard over synthetic modules.
+    monkeypatch.setattr(selection, "require_native_dispatch", lambda: None)
     monkeypatch.setattr(Registry, "active", "unrelated-default")
     value = selection._Bindings(Transformer, Joint, Single, Attention, Processor, backend_context, "_native_cudnn")
     monkeypatch.setattr(selection, "_load_bindings", lambda: value)

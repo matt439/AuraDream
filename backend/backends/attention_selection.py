@@ -8,6 +8,7 @@ No setting here grants permission to render an execution recipe.
 """
 from __future__ import annotations
 
+import os
 import sys
 import threading
 import weakref
@@ -20,6 +21,28 @@ from typing import Protocol, cast
 
 class AttentionSelectionError(ValueError):
     """A processor layout cannot safely own the requested override."""
+
+
+_NATIVE_POLICY_REASON = (
+    "Private execution requires a Native attention startup, environment and imported dispatcher baseline."
+)
+
+
+def require_native_environment() -> None:
+    """Refuse unsupported startup/current overrides before any runtime import.
+
+    Absence and exact native have the same installed meaning. Never normalize,
+    echo or repair a user's value; the ordinary Eager warning remains separate.
+    """
+    configuration = import_module("..config", __package__)
+    try:
+        current = os.environ.get("DIFFUSERS_ATTN_BACKEND", "native")
+        native = (configuration.ATTENTION_ENVIRONMENT_WARNING is None
+                  and type(current) is str and current == "native")
+    except Exception:
+        raise AttentionSelectionError(_NATIVE_POLICY_REASON) from None
+    if not native:
+        raise AttentionSelectionError(_NATIVE_POLICY_REASON)
 
 
 class _Processor(Protocol):
@@ -134,27 +157,46 @@ class _NativeAttentionApi:
     native: object
     active: Callable[[], tuple[object, object]]
     bindings: _Bindings
+    function: object
 
 
 def _native_attention_api() -> _NativeAttentionApi:
     # Source contract: get_active_backend only reads the selected enum/function;
     # dispatch_attention_fn uses it when a processor override is None.
-    import_module("..config", __package__)
-    from diffusers.models.attention_dispatch import AttentionBackendName, _AttentionBackendRegistry
+    require_native_environment()
+    dispatch = import_module("diffusers.models.attention_dispatch")
+    constants = import_module("diffusers.utils.constants")
+    for source in (constants, dispatch):
+        value = getattr(source, "DIFFUSERS_ATTN_BACKEND", None)
+        if type(value) is not str or value != "native":
+            raise AttentionSelectionError(_NATIVE_POLICY_REASON)
+    return _NativeAttentionApi(
+        dispatch.AttentionBackendName.NATIVE, dispatch._AttentionBackendRegistry.get_active_backend,
+        _load_bindings(), dispatch._native_attention,
+    )
 
-    return _NativeAttentionApi(AttentionBackendName.NATIVE, _AttentionBackendRegistry.get_active_backend,
-                               _load_bindings())
+
+def require_native_dispatch() -> _NativeAttentionApi:
+    """Read frozen imports and the exact installed Native registry entry.
+
+    The function is inspected, never invoked. Owned cuDNN processor overrides
+    are separate from this process-wide baseline; cleanup never calls this.
+    """
+    require_native_environment()
+    try:
+        api = _native_attention_api()
+        active, function = api.active()
+        if active is not api.native or function is not api.function or not callable(api.function):
+            raise AttentionSelectionError(_NATIVE_POLICY_REASON)
+    except Exception:
+        raise AttentionSelectionError(_NATIVE_POLICY_REASON) from None
+    require_native_environment()
+    return api
 
 
 def require_native_attention(transformer: object) -> None:
     """Read effective dispatch/processor state without changing any default."""
-    api = _native_attention_api()
-    try:
-        active, function = api.active()
-    except Exception:
-        raise ValueError("The private execution recipe could not establish Native attention dispatch") from None
-    if active != api.native or not callable(function):
-        raise ValueError("The private execution recipe requires the active Native attention dispatcher")
+    api = require_native_dispatch()
     coverage = _coverage(transformer, api.bindings)
     if any(slot.processor._attention_backend not in (None, api.native) for slot in coverage.values()):
         raise ValueError("The private execution recipe requires Native attention on every processor")
@@ -260,6 +302,7 @@ class AttentionSelection:
                    for snapshot in self._snapshots):
                 raise AttentionSelectionError("This attention selection no longer owns its processors")
             self.verify()
+            require_native_dispatch()
 
     def verify(self) -> None:
         with _lock:
@@ -338,6 +381,7 @@ def configure_attention(transformer: object, recipe: str | None) -> AttentionSel
         return None
     if type(recipe) is not str or recipe != "cudnn-v1":
         raise AttentionSelectionError(f"Unsupported attention recipe: {recipe!r}")
+    require_native_dispatch()
     with _lock:
         _require_fresh(transformer)
         previous = _owners.get(id(transformer))
@@ -371,6 +415,9 @@ def configure_attention(transformer: object, recipe: str | None) -> AttentionSel
             with bindings.backend_context("native"):
                 cast(_Transformer, transformer).set_attention_backend("_native_cudnn")
                 handle.verify()
+            # Check after the public context has restored the incidental global
+            # setter change. Rollback below is deliberately policy-independent.
+            require_native_dispatch()
         except BaseException as exc:
             failures = _restore(snapshots)
             if failures:

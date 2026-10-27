@@ -1,9 +1,9 @@
 # Plan: native and cuDNN attention on FLUX.1
 
-**Status, 2026-10-26: shared carry, private processor/loader/call ownership and
+**Status, 2026-10-27: shared carry, private processor/loader/call ownership and
 cold external-override diagnostics, request candidate checks and unavailable
-selector/persistence/status/UI source are implemented.** Effective runtime
-environment policy, real nonempty admission and separately approved card
+selector/persistence/status/UI and conservative environment policy source are
+implemented.** Real nonempty admission and separately approved card
 qualification remain `PERF#3`. This is the
 bounded next slice from [R3](review-2026-10-25.md#r3-attention-backend).
 
@@ -11,8 +11,8 @@ The shared [unavailable configuration stage](plan-regional-compilation.md#unavai
 adds inspectable Native/cuDNN intent without changing global attention state.
 Compatible intent can be saved, but Load/render always refuse it; omission,
 explicit Eager replacement, revision, startup and rollback semantics are shared
-with compilation. This does not claim effective imported environment precedence
-or qualify any native/cuDNN runtime. Browser validation has the actual Windows
+with compilation. Experimental paths refuse inconsistent imported/environment
+observations; no native/cuDNN runtime is qualified. Browser validation has the actual Windows
 access limitation recorded in [tooling](plan-tooling.md#browser-smokes-in-ci).
 No package installation, model load, tensor allocation or GPU operation
 was used to prepare this plan. No speed default changes.
@@ -21,6 +21,36 @@ The shared `ExecutionSpec`, nullable SQL/PNG carry and refusal paths are
 implemented with `PERF#1`. A recorded `cudnn-v1` remains unavailable to
 render or Reuse; this establishes metadata transport, not runtime processor
 or card qualification.
+
+## Conservative experimental environment policy
+
+Experimental execution never overrides `DIFFUSERS_ATTN_BACKEND`. Its startup
+observation and current value must both mean Native: absence and exact `native`
+are equivalent; empty, differently cased, padded or other values refuse. Both
+Diffusers' frozen constants value and the dispatch module's imported copy must
+also be Native. The active registry enum and exact source-verified Native
+function must match; the function is inspected, never invoked as a probe.
+
+The cold environment refusal precedes private weight preparation. Warm checks
+cover publication and pre/post forward boundaries, including request-owned FBC.
+Owned cuDNN processors remain separate from the required Native global baseline.
+Layout verification, rollback, restoration and discard remain policy-independent
+so drift cannot block attempts to clean up app-owned state. Failure uses a fixed
+reason without echoing external values, with no fallback or environment/registry
+repair. Ordinary Eager retains its existing warning-only behavior; status and
+catalogue add no new environment reads or framework imports.
+
+These are source observations and refusal contracts, not proof of Native/cuDNN
+kernel selection, supported shapes, determinism, memory fit or speed.
+
+All **405 focused checks** passed, including 61 new synthetic policy cases and
+all 12 preserved cold-warning cases. Coverage includes preweight/repeated-load
+refusal, both frozen aliases, exact registry identity, drift during successful,
+failed and cancelled forwards, request-owned FBC, and cleanup after drift.
+Independent review accepted the source/tests; pinned Pyright checked 128 sources
+with zero diagnostics and Ruff passed. The tests use supplied fake modules and
+ordinary existing setup; no real model, kernel, device or browser qualification
+was performed.
 
 ## Inactive processor ownership and restoration
 
@@ -313,14 +343,15 @@ If cuDNN is not repeatable under the proposed policy, do not ship that
 recipe as reproducible. Evaluate scoped determinism controls separately
 and measure their cost; a seed alone cannot repair nondeterminism.
 
-Before exposing the opt-in, settle whether the restricted experiment is
-useful and how a nondefault `DIFFUSERS_ATTN_BACKEND` is represented or
-refused. Later external Flash/Sage kernels need their own primary-source
+The bounded source policy refuses unsupported external overrides without
+changing their precedence or values. Before exposing the opt-in, qualify the
+restricted experiment and judge its usefulness on the fixed card cases.
+Later external Flash/Sage kernels need their own primary-source
 Windows/Python/torch/CUDA/sm120 compatibility and license checks; no wheel
 claim or installation is part of this slice. Keep Native as the default
 until measured evidence justifies any separately chosen change. Leave
-`PERF#3` OPEN for implementation, then CARD for the remaining runs.
+`PERF#3` at CARD for the remaining runs; its bounded source stages are built.
 
-These exposure questions do not block ordinary source implementation and
-fake-based checks with render admission closed. The cold candidate helper's
-conservative override refusal changes no environment/selection precedence.
+Qualification does not require another source-work approval for ordinary
+implementation and fake checks. Actual model/card runs remain separately gated;
+no environment/selection precedence is changed by the conservative refusal.

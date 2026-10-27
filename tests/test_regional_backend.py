@@ -527,7 +527,9 @@ def test_shared_effective_native_guard_refuses_private_regional_setup(prepared_l
     with pytest.raises(ValueError, match="requires.*Native"):
         backend._load_prepared(SPEC)
     assert root.calls == [] and "strict-enter" not in events
-    assert not backend.is_ready() and control.releases == 1
+    # Global baseline refusal now precedes the weights hold; a processor-layout
+    # refusal still occurs after the synthetic pipeline has been placed.
+    assert not backend.is_ready() and control.releases == (0 if fault == "global" else 1)
 
 
 def test_native_state_is_rechecked_after_weights_exit_before_publication(prepared_loader, monkeypatch):

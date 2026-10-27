@@ -133,7 +133,7 @@ Backend (`backend/`):
   (everything decided before the weights move), `schedule.py` (mu, sigmas,
   refine start), `regional_compile.py` (private regional preparation, scoped
   call policy and bounded first-call observations; public execution stays unavailable), `attention_selection.py`
-  (private processor ownership, restoration and terminal discard), `fbc_cache.py`
+  (private processor ownership, restoration, terminal discard and Native policy), `fbc_cache.py`
   (private per-call cache ownership, cleanup and deferred disposal),
   per-checkpoint converters and pipelines (`single_file`,
   `anima_*`, `netayume_loading`, `newbie_*`)

@@ -300,16 +300,12 @@ report not-ready, and let the next ordinary `ensure_loaded` perform any
 reload. No later cell may render with uncertain hooks under an off recipe.
 Preserve the original failure alongside any cleanup error in diagnostics.
 
-**Next source integration, with admission closed.** The private implementation
-currently creates its cache owner from a load-owned cache recipe and dispatches
-from `_loaded_execution`. The composer choice now exists, but actual per-request
-cache-on/off/on over one ordinary Eager load is not wired. Add a private request
-dispatch seam with fresh call ownership and unchanged loaded recipe, using the
-existing deferred disposal rather than keeping residuals or reloading for every
-toggle. Synthetic tests must cover on/off/on, a new seed/cell, cancellation,
-foreign state and cleanup failure followed by safe uncached recovery. Keep every
-public availability guard closed; no real FBC/model/card run is needed for this
-source stage. Card quality acceptance remains a separate later requirement.
+**Request integration built, with admission closed.** The private request seam
+now owns fresh per-call cache state over one Eager load without changing the
+loaded recipe or reloading for a toggle. On/off/on, new seed/cell, cancellation,
+foreign state and cleanup/fresh-load recovery have synthetic coverage described
+in [request ownership](#request-driven-private-ownership-contract). Public
+availability guards remain closed; real quality/time/memory acceptance is CARD.
 
 Fresh ownership prevents state crossing image seeds, prompts, sizes, cells,
 jobs, retries, Pause/resume or checkpoints. Do not cache tensors on disk or
@@ -389,5 +385,4 @@ block count does not prove a wall-time improvement, and a measured speed
 gain does not establish acceptable quality. Matt must judge the fixed
 pairs before the experiment is offered for routine use. Keep the feature
 off by default; other models, schedules, batches and compositions are
-separate slices. Leave `PERF#4` OPEN for implementation, then CARD while
-the real comparison remains.
+separate slices. `PERF#4` remains CARD while the real comparison is outstanding.

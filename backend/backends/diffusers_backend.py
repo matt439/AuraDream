@@ -410,6 +410,8 @@ class DiffusersBackend(GenerationBackend):
         to refuse every nonempty request and loaded execution specification.
         """
         execution = canonical_execution(execution)
+        if execution is not None:
+            attention_selection.require_native_environment()
         # The candidate exits after the backend/weights locks, including a
         # failed placement or late preparation. Publication disowns it once.
         with _PipelineCandidate(self._release, execution=execution) as candidate, self._lock, ExitStack() as held:
@@ -420,6 +422,8 @@ class DiffusersBackend(GenerationBackend):
                     raise RuntimeError("unload the current pipeline before preparing another execution recipe")
                 if execution is not None and execution.compilation is not None:
                     self._require_compiler_cache()
+                if execution is not None:
+                    attention_selection.require_native_dispatch()
                 return
             selected = current_settings(settings)
             checkpoint_id = selected.model_id
@@ -437,6 +441,7 @@ class DiffusersBackend(GenerationBackend):
                     raise ValueError(reason)
                 if execution.compilation is not None:
                     self._require_compiler_cache(facts)
+                attention_selection.require_native_dispatch()
             # No meta-device build beside the load (`loading.weights_loading`):
             # the adapter fit's patches every module's parameters process-wide.
             # The conversions below run inside the hold.
@@ -664,6 +669,7 @@ class DiffusersBackend(GenerationBackend):
         reference: bool = False, true_cfg: float | None = None,
     ) -> None:
         """Private structural refusal before adapter/input/hook preparation."""
+        attention_selection.require_native_environment()
         selected = current_settings(settings)
         reason = cache_candidate_reason(
             execution, compiler_metadata(), model_id=selected.model_id,

@@ -32,6 +32,10 @@ class Registration:
 
 @pytest.fixture
 def synthetic_loader(monkeypatch):
+    # The loader fixture owns fake frameworks, not a process dispatcher. Policy
+    # tests restore the actual guard explicitly when testing that boundary.
+    monkeypatch.setattr(module.attention_selection, "require_native_environment", lambda: None)
+    monkeypatch.setattr(module.attention_selection, "require_native_dispatch", lambda: None)
     backend = module.DiffusersBackend()
     events = []
     control = SimpleNamespace(stage=None, error=RuntimeError("synthetic preparation failed"),

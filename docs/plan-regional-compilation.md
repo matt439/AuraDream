@@ -134,8 +134,10 @@ same-checkpoint reloads and frozen terminal jobs. Pinned Pyright checked all
 review is clear. No compiler/model/GPU workload or browser was run; ordinary
 test setup retains its existing availability guard. Public admission is closed.
 
-**Remaining source before qualification.** Request-driven caching and effective
-attention-environment policy remain in their owners. Nonempty render admission,
+**Remaining presentation and qualification.** Backend/API/job observations are
+built; Models and job-progress consumers still need their bounded presentation
+slice. Request-driven caching and conservative attention environment policy
+source are built in their owners. Nonempty render admission,
 compiler/toolchain/cache qualification and the card pass remain separate gates.
 
 ## CPU contracts, admission and persisted carry
