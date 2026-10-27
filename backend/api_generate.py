@@ -202,6 +202,25 @@ async def finish_plan(services: AppServices, run_id: str) -> FinishPlan:
         raise HTTPException(status_code=404, detail="unknown run")
 
     definition = definitions[0] if definitions else None
+    if any(cell.request.edit is not None for saved in definitions for cell in saved["cells"]) or any(
+        record.edit is not None for record in records
+    ):
+        # Imported/retained edits remain inspectable, but no applied() call
+        # may erase their pass kind or turn an unavailable editor into a 500.
+        # There is no runnable remainder to pin while this release is held.
+        from .instruction_edit import INSTRUCTION_EDIT_UNAVAILABLE
+
+        saved_cells = [cell for saved in definitions for cell in saved["cells"]]
+        sizes = sorted({(cell.request.width, cell.request.height) for cell in saved_cells}) or sorted(
+            {(record.width, record.height) for record in records}
+        )
+        preview = FinishRunPreview(
+            run_id=run_id, available=False, reason=INSTRUCTION_EDIT_UNAVAILABLE,
+            total=len(saved_cells), cells=0, images=0, rendered=0, queued=0, redrawn=0,
+            budget_minutes=definition["metadata"].get("budget_minutes") if definition else None,
+            pin=hashlib.sha256(f"{run_id}:instruction-edit-unavailable".encode()).hexdigest()[:16],
+        )
+        return FinishPlan(preview, definition, [], records, sizes, 422)
     # Retained cells are complete replay, including old payloads written
     # before execution existed. Keep the portable decoder selection-free.
     selected = current_settings(services.settings())
@@ -289,7 +308,8 @@ async def finish_plan(services: AppServices, run_id: str) -> FinishPlan:
                 reason, refusal_code = error_detail(exc), 422
                 break
             spec = (request.refine, request.mask, request.outpaint, tuple(request.reference),
-                    request.lora, request.width, request.height, request.upscaler)
+                    request.lora, request.width, request.height, request.upscaler,
+                    grid.edit_key(request.edit))
             if spec not in checked:
                 checked[spec] = await submission.unusable_input(services, request)
             unusable = checked[spec]
@@ -528,13 +548,14 @@ def create_router(services: AppServices) -> APIRouter:
         # outpaint (frozen, so it keys) is checked at that size per padding,
         # never sharing a plain refine's verdict over the same source.
         for spec in {
-            (c.request.lora, tuple(c.request.reference), c.request.refine, c.request.mask, c.request.outpaint, c.request.upscaler)
+            (c.request.lora, tuple(c.request.reference), c.request.refine, c.request.mask, c.request.outpaint,
+             c.request.upscaler, c.request.edit)
             for c in cells
         }:
-            if spec != (None, (), None, None, None, None):
+            if spec != (None, (), None, None, None, None, None):
                 await submission.refuse_unusable_inputs(services, cells[0].request.model_copy(
                     update={"lora": spec[0], "reference": list(spec[1]), "refine": spec[2], "mask": spec[3],
-                            "outpaint": spec[4], "upscaler": spec[5]}
+                            "outpaint": spec[4], "upscaler": spec[5], "edit": spec[6]}
                 ))
         try:
             for cell in cells:

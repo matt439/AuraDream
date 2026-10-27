@@ -22,6 +22,7 @@ from pathlib import Path, PurePosixPath
 from . import backup_receipts, bundle_crypto, bundle_leases, reindex
 from .bundle_common import _CHUNK, _WORKERS, MASK_HASH, BundleError, Progress, _basename, _mask_rows, _quiet, _rows
 from .bundle_images import _inspect_mask, _inspect_source
+from .metadata import edit_from_json
 
 
 _FORMAT = "local-diffusion-gallery"
@@ -181,7 +182,8 @@ def _verify_archive(path: Path, destination: Path | None = None, *, password: st
                 if info.compress_size > info.file_size + info.file_size // 1000 + 1024:
                     raise BundleError(f"{info.filename} is stored larger than its contents")
             manifest = json.loads(archive.read(_MANIFEST))
-            if not isinstance(manifest, dict) or manifest.get("format") != _FORMAT or manifest.get("version") != 1:
+            if (not isinstance(manifest, dict) or manifest.get("format") != _FORMAT
+                    or type(manifest.get("version")) is not int or manifest["version"] not in (1, 2)):
                 raise BundleError("this is not a supported Local Diffusion bundle")
             if backup_receipts.MARKER in manifest or managed is not None:
                 try:
@@ -203,10 +205,24 @@ def _verify_archive(path: Path, destination: Path | None = None, *, password: st
             def track(found: list[dict]) -> dict[str, dict]:
                 if len(found) != manifest.get("records"):
                     raise BundleError("the manifest's record count does not match its database")
+                needed_sources = set()
                 for row in found:
+                    try:
+                        edit = edit_from_json(row.get("edit"))
+                    except (TypeError, ValueError) as exc:
+                        raise BundleError(f"invalid instruction-edit metadata for {row['filename']}: {exc}") from exc
+                    if edit is not None:
+                        if manifest["version"] == 1:
+                            raise BundleError("version 1 bundles cannot carry instruction edits")
+                        if edit.source is not None:
+                            needed_sources.add(edit.source)
                     if "images/" + row["filename"] not in files:
                         raise BundleError(f"the bundle is missing {row['filename']}")
-                return {"images/" + row["filename"]: row for row in found}
+                # Private copies leave export's pre-cleanup snapshot unchanged.
+                return {"images/" + row["filename"]: {
+                    **row, "_bundle_version": manifest["version"],
+                    "_edit_source_needed": row["id"] in needed_sources,
+                } for row in found}
 
             tracked = track(rows) if rows is not None else {}
             masks = {} if masks is None and rows is not None else masks

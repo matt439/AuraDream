@@ -31,6 +31,8 @@ def stand_in(request: GenerateRequest, spec: ThenRefine) -> GenerateRequest:
     the checks and the estimates only - never queued, never saved; the real
     pass is `refine_batch.plan` of the saved record, which makes the same
     request with the record's own id."""
+    if request.edit is not None:
+        raise ValueError("Then refine cannot follow an instruction edit")
     width, height = scaled(request.width, request.height, spec.scale)
     return request.model_copy(update={
         "width": width, "height": height, "num_images": 1, "runs": 1,
@@ -46,6 +48,8 @@ def refusal(requests: list[GenerateRequest], spec: ThenRefine, unavailable: str 
         return unavailable
     seen = set()
     for request in requests:
+        if request.edit is not None:
+            return "Then refine cannot follow an instruction edit"
         if request.refine is not None:
             what = (
                 "an outpaint" if request.outpaint is not None

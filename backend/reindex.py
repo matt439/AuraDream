@@ -61,7 +61,12 @@ try:
     from backend import gallery_lock, storage
     from backend.config import settings
     from backend.execution import ExecutionSpec, canonical_execution, execution_chunk, execution_from_json, execution_key
-    from backend.metadata import PNG_MASK_KEY, PNG_METADATA_KEY, PNG_METADATA_KEYS, embedded_metadata, require_header_metadata
+    from backend.instruction_edit import StoredInstructionEdit, descriptor_from_image, edit_key
+    from backend.metadata import (
+        PNG_MASK_KEY, PNG_METADATA_KEY, PNG_METADATA_KEYS, canonical_edit, edit_chunk, edit_from_info,
+        edit_from_json, edit_from_sources, embedded_metadata, require_header_metadata,
+        validate_edit_record,
+    )
 except ModuleNotFoundError as exc:  # pragma: no cover - startup guard
     sys.exit(
         f"Missing dependency: {exc.name}\n\n"
@@ -143,6 +148,118 @@ def _execution_from_info(row: dict, info: dict | None) -> ExecutionSpec | None:
     if raw is not None and not isinstance(metadata, dict):
         raise ValueError("PNG metadata must be a JSON object")
     return _execution_from_sources(row, metadata)
+
+
+def _edit_metadata(path: Path) -> dict | None:
+    """Read the app header without decoding pixels, before recovery mutation."""
+    try:
+        with path.open("rb") as stream:
+            require_header_metadata(stream)
+            with Image.open(stream) as image:
+                raw = embedded_metadata({key: image.info.get(key) for key in PNG_METADATA_KEYS})
+                value = json.loads(raw) if raw else None
+                return value if isinstance(value, dict) else None
+    except (OSError, ValueError):
+        # Ordinary unreadable images retain the existing skip/report behavior.
+        # A SQL edit with no readable PNG representation is refused below.
+        return None
+
+
+def _preflight_edits(source: Path, rows: list[dict] | None = None) -> None:
+    """Refuse malformed/contradictory intent before rows, copies or masks change."""
+    if rows is None:
+        for path in source.glob("*.png"):
+            meta = _edit_metadata(path)
+            if meta is not None:
+                validate_edit_record(canonical_edit(meta.get("edit")), meta)
+        return
+    for row in rows:
+        stored = edit_from_json(row.get("edit"))
+        filename = row.get("filename")
+        if not isinstance(filename, str) or Path(filename).name != filename:
+            continue  # The normal row validator reports unsafe ordinary names.
+        path = source / filename
+        if path.is_file():
+            meta = _edit_metadata(path)
+            if meta is not None or stored is not None:
+                edit_from_sources(row, meta or {})
+
+
+def _preflight_retained_edits(filenames, existing: dict[str, int], outputs: Path) -> None:
+    for filename in filenames:
+        if filename not in existing:
+            continue
+        known = storage.get_image(existing[filename], include_binned=True)
+        if known is None:
+            continue
+        path = outputs / filename
+        # A missing ordinary destination retains its normal conflict behavior;
+        # an edit cannot claim its durable PNG representation is still present.
+        if path.is_file() or known.edit is not None:
+            edit_from_sources({
+                "edit": edit_key(known.edit), "model_id": known.model_id,
+                "width": known.width, "height": known.height, "prompt": known.prompt,
+            }, _edit_metadata(path) or {})
+
+
+def _proves_edit(path: Path, stored: StoredInstructionEdit) -> bool:
+    """A source's full decoded RGB identity, never an old row's short digest."""
+    try:
+        if path.is_symlink() or path.is_junction():
+            return False
+        with Image.open(path) as image:
+            return descriptor_from_image(path.name, image) == stored.edit_source
+    except (OSError, ValueError, Image.DecompressionBombError):
+        return False
+
+
+def _remapped_edit(stored: StoredInstructionEdit | None, source: int | None, counts: dict[str, int]) -> StoredInstructionEdit | None:
+    if stored is None:
+        return None
+    if source is None:
+        counts["unresolved_edits"] += 1
+    return StoredInstructionEdit(source=source, recipe=stored.recipe, edit_source=stored.edit_source)
+
+
+def _same_edit(left: StoredInstructionEdit | None, right: StoredInstructionEdit | None) -> bool:
+    """Local ids may differ across galleries; intent and complete proof cannot."""
+    if left is None or right is None:
+        return left is right
+    return (left.recipe, left.edit_source) == (right.recipe, right.edit_source)
+
+
+def _dependency_order(rows: list[dict], cycles: set[int]) -> list[dict]:
+    """Make a complete id map for forward edit sources as well as old links.
+
+    Cycles cannot prove a link: the missing map entry stays unresolved. Visit
+    ordinary reference/refine dependencies too, so an edit-source reorder
+    cannot break an otherwise earlier ordinary dependency.
+    """
+    by_id = {row["id"]: row for row in rows}
+    ordered: list[dict] = []
+    visited: set[int] = set()
+    visiting: set[int] = set()
+
+    def visit(row: dict) -> None:
+        identifier = row["id"]
+        if identifier in visiting:
+            cycles.update(visiting)
+            return
+        if identifier in visited:
+            return
+        visiting.add(identifier)
+        stored = edit_from_json(row.get("edit"))
+        links = [*_json_list(row.get("reference")), row.get("refine"), stored.source if stored else None]
+        for source_id in links:
+            if type(source_id) is int and source_id in by_id:
+                visit(by_id[source_id])
+        visiting.remove(identifier)
+        visited.add(identifier)
+        ordered.append(row)
+
+    for row in rows:
+        visit(row)
+    return ordered
 
 
 def _text_keyword(kind: bytes, data: bytes) -> bytes | None:
@@ -406,6 +523,7 @@ def _database_meta(
         **({"crop_anchor": crop_anchor} if crop_anchor is not None else {}),
         **({"upscaler": upscaler} if upscaler is not None else {}),
         **execution_chunk(execution_from_json(row.get("execution"))),
+        **edit_chunk(edit_from_json(row.get("edit"))),
         **{
             key: storage._peak(row.get(key))
             for key in ("vram_peak_allocated", "vram_peak_reserved")
@@ -426,6 +544,7 @@ def merge_database(
         "invalid": 0,
         "conflicts": 0,
         "unresolved_references": 0,
+        "unresolved_edits": 0,
         "masks": 0,
         "bad_masks": 0,
         "unresolved_masks": 0,
@@ -437,7 +556,12 @@ def merge_database(
     sizes = {row["id"]: (row["width"], row["height"]) for row in rows}
     outputs = settings.outputs_dir.resolve()
     source = source.resolve()
+    _preflight_edits(source, rows)
+    edit_cycles: set[int] = set()
+    rows = _dependency_order(rows, edit_cycles)
+    source_rows = {row["id"]: row for row in rows}
     existing = storage.existing_file_ids() if settings.db_path.exists() else {}
+    _preflight_retained_edits((row["filename"] for row in rows if isinstance(row.get("filename"), str)), existing, outputs)
     id_map: dict[int, int] = {}
     if not dry_run:
         storage.init_db()
@@ -452,6 +576,7 @@ def merge_database(
         source_id = int(row["id"])
         try:
             execution_from_json(row.get("execution"))
+            edit_from_json(row.get("edit"))
             storage._crop_anchor(
                 row.get("crop_anchor"), source=row.get("refine"),
                 mask=row.get("mask"), outpaint=row.get("outpaint"),
@@ -497,6 +622,7 @@ def merge_database(
             continue
         try:
             execution = _execution_from_sources(row, png_meta)
+            stored_edit = edit_from_sources(row, png_meta or {})
         except ValueError as exc:
             counts["invalid"] += 1
             print(f"  skip  {filename}: invalid execution metadata: {exc}", file=out)
@@ -512,8 +638,16 @@ def merge_database(
                         if kept.format != "PNG":
                             raise ValueError("the retained image is not a PNG")
                         retained = _execution_from_info({"execution": execution_key(known.execution)}, kept.info)
+                        retained_edit = edit_from_info({
+                            "edit": edit_key(known.edit), "model_id": known.model_id,
+                            "width": known.width, "height": known.height, "prompt": known.prompt,
+                        }, {key: kept.info.get(key) for key in PNG_METADATA_KEYS})
                 if retained != execution:
                     raise ValueError("different execution already uses that filename")
+                if not _same_edit(retained_edit, stored_edit) or (
+                    stored_edit is not None and known.prompt != row["prompt"]
+                ):
+                    raise ValueError("different instruction edit already uses that filename")
             except (OSError, ValueError) as exc:
                 counts["conflicts"] += 1
                 print(f"  skip  {filename}: cannot keep its existing execution metadata: {exc}", file=out)
@@ -523,7 +657,18 @@ def merge_database(
             continue
         # A recovered PNG-only recipe becomes the row's value too. The
         # source database is read-only and is never migrated or repaired.
-        row = {**row, "execution": execution_key(execution)}
+        edit_source = None
+        if stored_edit is not None and stored_edit.source is not None and source_id not in edit_cycles:
+            original_source = source_rows.get(stored_edit.source)
+            mapped_source = id_map.get(stored_edit.source)
+            if (
+                original_source is not None and original_source["filename"] == stored_edit.edit_source.filename
+                and mapped_source is not None and _proves_edit(source / original_source["filename"], stored_edit)
+                and (dry_run or _proves_edit(outputs / original_source["filename"], stored_edit))
+            ):
+                edit_source = mapped_source
+        remapped_edit = _remapped_edit(stored_edit, edit_source, counts)
+        row = {**row, "execution": execution_key(execution), "edit": edit_key(remapped_edit)}
 
         source_references = [
             value for value in _json_list(row.get("reference")) if isinstance(value, int)
@@ -601,6 +746,7 @@ def merge_database(
             "crop_anchor": meta.get("crop_anchor"),
             "upscaler": meta.get("upscaler"),
             "execution": execution_key(execution),
+            "edit": edit_key(remapped_edit),
             "batch": storage._batch(row.get("batch")),
             # The recycle bin is SQLite's alone, as the star is: carried with
             # the database, and None (live) from one that predates it.
@@ -614,7 +760,7 @@ def merge_database(
         try:
             png_execution = canonical_execution(png_meta.get("execution") if png_meta is not None else None)
             if (copied or row.get("refine") != refine or row.get("crop_anchor") != meta.get("crop_anchor")
-                    or execution != png_execution):
+                    or execution != png_execution or remapped_edit != stored_edit):
                 # A database rebuilt beside its original PNGs can renumber or
                 # lose a source too. Keep --from-image's crop and source in
                 # agreement with the new row, without rewriting an unchanged
@@ -640,6 +786,7 @@ def reindex(
     counts = {
         "indexed": 0, "present": 0, "no_metadata": 0, "conflicts": 0,
         "unresolved_references": 0, "masks": 0, "bad_masks": 0, "unresolved_masks": 0,
+        "unresolved_edits": 0,
         "outpaint_malformed": 0, "outpaints_recovered": 0, "outpaint_masks_rebuilt": 0,
         "invalid_upscalers": 0,
         "invalid_crop_anchors": 0,
@@ -650,15 +797,41 @@ def reindex(
     in_place = source == outputs
     existing = storage.existing_file_ids() if settings.db_path.exists() else {}
     paths = {path.name: path for path in sorted(source.glob("*.png"))}
+    _preflight_edits(source)
+    _preflight_retained_edits(paths, existing, outputs)
     visited: set[str] = set()
     visiting: set[str] = set()
     identities: dict[str, dict] = {}
+    edit_cycles: set[str] = set()
+    edit_identities: dict[str, object] = {}
     if not dry_run:
         storage.init_db()
     # The `masks` rows a lost database took with it, from the files first;
     # each result's own embedded copy then covers a file that went too.
     masks = _Masks(counts, dry_run, out)
     masks.from_directory(source / storage.MASKS_DIR)
+
+    def resolve_edit(stored: StoredInstructionEdit) -> int | None:
+        # Already unresolved metadata stays unresolved; explicit repair is a
+        # separate operation, never a side effect of repeating recovery.
+        if stored.source is None:
+            return None
+        filename = stored.edit_source.filename
+        if filename in visiting:
+            edit_cycles.update(visiting)
+            return None
+        if filename in paths:
+            index(paths[filename])
+        if filename not in existing or filename in edit_cycles:
+            return None
+        actual = edit_identities.get(filename)
+        if actual is None:
+            path = outputs / filename
+            if not _proves_edit(path, stored):
+                return None
+        elif actual != stored.edit_source:
+            return None
+        return existing[filename]
 
     def resolve_source(provenance) -> int | None:
         if not isinstance(provenance, dict):
@@ -696,6 +869,24 @@ def reindex(
             return
         visited.add(path.name)
         if path.name in existing:
+            try:
+                incoming = canonical_edit((_edit_metadata(path) or {}).get("edit"))
+                known = storage.get_image(existing[path.name], include_binned=True)
+                if known is None:
+                    raise ValueError("the retained row disappeared")
+                target_meta = _edit_metadata(outputs / path.name)
+                retained = edit_from_sources({
+                    "edit": edit_key(known.edit), "model_id": known.model_id,
+                    "width": known.width, "height": known.height, "prompt": known.prompt,
+                }, target_meta or {})
+                if not _same_edit(incoming, retained) or (
+                    incoming is not None and known.prompt != (_edit_metadata(path) or {}).get("prompt")
+                ):
+                    raise ValueError("different instruction edit already uses that filename")
+            except (OSError, ValueError) as exc:
+                counts["conflicts"] += 1
+                print(f"  skip  {path.name}: cannot keep existing edit metadata: {exc}", file=out)
+                return
             counts["present"] += 1
             return
         try:
@@ -712,6 +903,7 @@ def reindex(
             return
         try:
             execution = canonical_execution(meta.get("execution"))
+            stored_edit = canonical_edit(meta.get("edit"))
         except ValueError as exc:
             counts["invalid_execution"] += 1
             print(f"  skip  {path.name}: invalid execution metadata: {exc}", file=out)
@@ -740,6 +932,14 @@ def reindex(
             print(f"  skip  {path.name}: a different file of that name is already in outputs", file=out)
             return
         visiting.add(path.name)
+        edit_source = resolve_edit(stored_edit) if stored_edit is not None else None
+        if path.name in edit_cycles:
+            edit_source = None
+        # Dry-run ids are negative stand-ins for legacy provenance. Stored edit
+        # contracts require positive ids: retain a positive planning placeholder
+        # only in memory; no dry-run metadata or file is ever written.
+        planned_source = abs(edit_source) if dry_run and edit_source is not None else edit_source
+        remapped_edit = _remapped_edit(stored_edit, planned_source, counts)
         references = []
         reference_sources = []
         sources = _json_list(meta.get("reference_sources"))
@@ -783,6 +983,7 @@ def reindex(
             or meta.get("outpaint_fill") != outpaint_fill
             or meta.get("upscaler") != upscaler
             or meta.get("crop_anchor") != crop_anchor
+            or stored_edit != remapped_edit
         )
         meta = {
             **meta,
@@ -807,10 +1008,14 @@ def reindex(
             meta.pop("crop_anchor", None)
         meta.pop("execution", None)
         meta.update(execution_chunk(execution))
+        meta.pop("edit", None)
+        meta.update(edit_chunk(remapped_edit))
         digest = storage.content_hash(image) if image is not None else None
         identities[path.name] = {
             "filename": path.name, "hash": digest, "width": width, "height": height,
         }
+        if image is not None:
+            edit_identities[path.name] = descriptor_from_image(path.name, image)
         counts["indexed"] += 1
         if dry_run:
             # Synthetic ids exist only in this plan, so dependent files can
@@ -917,6 +1122,8 @@ def main(argv: list[str] | None = None) -> int:
             summary += f", {counts['invalid_execution']} with invalid execution metadata"
     if counts["unresolved_references"]:
         summary += f", {counts['unresolved_references']} unresolved reference/refine source(s)"
+    if counts["unresolved_edits"]:
+        summary += f", {counts['unresolved_edits']} unresolved instruction-edit source(s)"
     if counts["masks"]:
         summary += f", {counts['masks']} inpaint mask(s) {'to restore' if args.dry_run else 'restored'}"
     if counts["bad_masks"]:

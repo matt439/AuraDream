@@ -16,6 +16,7 @@ from typing import TYPE_CHECKING, Any
 
 from backend.metadata import embedded_metadata, require_header_metadata
 from backend.execution import canonical_execution
+from backend.metadata import canonical_edit
 from backend.refine import CROP_ANCHORS
 
 if TYPE_CHECKING:
@@ -70,6 +71,8 @@ def record(chunks: Mapping[str, Any], name: str) -> dict | None:
     if not isinstance(meta, dict):
         raise PngSettingsError(f"the Local Diffusion metadata in {name} is not a settings record")
     try:
+        if canonical_edit(meta.get("edit")) is not None:
+            raise ValueError("instruction-edit settings must be reopened from the gallery image")
         canonical_execution(meta.get("execution"))
         crop_anchor(
             meta.get("crop_anchor"), source=meta.get("refine"),
@@ -141,4 +144,6 @@ def parse_parameters(text: str) -> tuple[str, str, dict[str, str]]:
     params: dict[str, str] = {}
     for key, value in _PARAM.findall(last):
         params.setdefault(key.strip(), _unquote(value.strip()))
+    if any(key.casefold() == "instruction edit" for key in params):
+        raise PngSettingsError("instruction-edit settings must be reopened from the gallery image")
     return "\n".join(prompt).strip(), "\n".join(negative).strip(), params

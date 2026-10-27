@@ -400,6 +400,9 @@ class DiffusersBackend(GenerationBackend):
         # Configuring a recipe does not grant permission to load it or silently
         # substitute Eager, including when old working weights are still ready.
         selected = current_settings(settings)
+        from ..instruction_edit import require_model_available
+
+        require_model_available(selected.model_id)
         require_configured_loader_available(selected)
         self._load_prepared(canonical_loader_execution(getattr(selected, "loader_execution", None)))
 
@@ -409,6 +412,9 @@ class DiffusersBackend(GenerationBackend):
         A supplied recipe prepares ownership only; public generation continues
         to refuse every nonempty request and loaded execution specification.
         """
+        from ..instruction_edit import require_model_available
+
+        require_model_available(current_model_id(settings))
         execution = canonical_execution(execution)
         if execution is not None:
             attention_selection.require_native_environment()
@@ -477,6 +483,7 @@ class DiffusersBackend(GenerationBackend):
             quant = loading.quantization_config(load_settings)
             if quant is not None:
                 kwargs["quantization_config"] = quant
+            loading.require_custom_pipeline_class(checkpoint_id)
             # What the pipeline lists but this backend never runs stays on the
             # Hub: `pe=None` is how diffusers is told, and the concrete class
             # prunes the folder from the download as well as from the load -
@@ -490,6 +497,10 @@ class DiffusersBackend(GenerationBackend):
 
                 loader = NewbiePipeline
             class_name, unused = loading.unused_components(model_id)
+            if class_name in loading.INSTRUCTION_EDITOR_CLASSES:
+                from ..instruction_edit import INSTRUCTION_EDIT_UNAVAILABLE
+
+                raise ValueError(INSTRUCTION_EDIT_UNAVAILABLE)
             if unused:
                 import diffusers
 
@@ -531,6 +542,10 @@ class DiffusersBackend(GenerationBackend):
                     fn = None  # no bound-method reference in a failed load frame
 
             params = set(inspect.signature(candidate.pipe.__call__).parameters)
+            if type(candidate.pipe).__name__ in loading.INSTRUCTION_EDITOR_CLASSES:
+                from ..instruction_edit import INSTRUCTION_EDIT_UNAVAILABLE
+
+                raise ValueError(INSTRUCTION_EDIT_UNAVAILABLE)
             missing = sorted(_REQUIRED_PARAMS - params)
             if missing:
                 raise RuntimeError(
@@ -854,6 +869,11 @@ class DiffusersBackend(GenerationBackend):
         return value if registration is self._regional_registration else None
 
     def _require_execution(self, request: GenerateRequest) -> GenerateRequest:
+        from ..instruction_edit import require_execution_available, require_model_available
+
+        if getattr(request, "edit", None) is not None:
+            require_execution_available(request.validate_edit())
+        require_model_available(current_model_id(settings))
         require_default_execution(request.execution)
         selected = current_settings(settings)
         require_configured_loader_available(selected)
@@ -1036,7 +1056,9 @@ class DiffusersBackend(GenerationBackend):
         catalogue has the parameter, and handing one to a pipeline that has not
         got it would silently drop the whole point of the request.
         """
-        return "image" in self._call_params
+        return "image" in self._call_params and type(self._pipe).__name__ not in {
+            "FluxKontextPipeline", "QwenImageEditPipeline", "QwenImageEditPlusPipeline",
+        }
 
     def _refine_supported(self) -> bool:
         """Can this pipeline run a refine pass?

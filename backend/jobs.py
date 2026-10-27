@@ -364,6 +364,7 @@ class Job:
             # the first cell's prompt and a grid's own, a pass's source, the
             # size, and how many images the whole job makes.
             "prompt": self.request.prompt[:120],
+            "edit": None if self.request.edit is None else self.request.edit.model_dump(mode="json"),
             # Only where every cell shares them: a swap or re-render over many
             # sources is no "inpaint of #N" because its oldest record is one.
             "refine": self.one_source[0],
@@ -563,6 +564,9 @@ class JobManager:
             # record says so in a replay, as the gallery's does - until a
             # Restore, where the source was only binned.
             for image in job.images:
+                if (image.get("edit") or {}).get("source") in gone:
+                    image["edit_missing"] = True
+                    image["edit_binned"] = binned
                 if image.get("refine") in gone:
                     image["refine_missing"] = True
                     image["refine_binned"] = binned
@@ -575,6 +579,12 @@ class JobManager:
         for job in self._jobs.values():
             job.deleted -= back
             for image in job.images:
+                if (image.get("edit") or {}).get("source") in back:
+                    # Availability requires fresh pixel proof; restoration alone
+                    # cannot make an archived source link trustworthy again.
+                    record = storage.get_image(image["id"])
+                    image["edit_missing"] = record is None or record.edit_missing
+                    image["edit_binned"] = record is not None and record.edit_binned
                 if image.get("refine") in back:
                     image["refine_missing"] = False
                     image["refine_binned"] = False
@@ -820,6 +830,10 @@ class JobManager:
         # including callers that supply their own run id. Stamped outpaints
         # deliberately cannot go through whole-request validation again.
         for cell in cells:
+            if cell.request.edit is not None:
+                from .instruction_edit import require_execution_available
+
+                require_execution_available(cell.request.validate_edit())
             require_default_execution(cell.request.execution)
             if "step_cache" in cell.request.model_fields_set:
                 raise ValueError("Resolve composer step cache before submitting expanded cells.")
@@ -1032,6 +1046,12 @@ class JobManager:
 
     async def _run(self, job: Job) -> None:
         loop = asyncio.get_running_loop()
+        # Retained/internal jobs cannot bypass the public unavailable boundary.
+        if any(cell.request.edit is not None for cell in job.cells):
+            from .instruction_edit import INSTRUCTION_EDIT_UNAVAILABLE
+
+            self._finish(loop, job, "error", INSTRUCTION_EDIT_UNAVAILABLE)
+            return
         # Wait for the shared load rather than letting the worker thread start a
         # second one. Failing here keeps the error to a single report.
         if self._ensure_loaded is not None:

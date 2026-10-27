@@ -1,11 +1,11 @@
 # Instruction edits: portable identity and bundle compatibility
 
-**Stage 0 decision, 2026-10-27 (`INP#11`).** This document freezes the
+**CPU implementation, 2026-10-27 (`INP#11`).** This document freezes the
 compatibility contract for the first `kontext-v1` instruction-edit recipe.
 The [feature plan](plan-instruction-editing.md) owns implementation order.
-The policies and acceptance cases below are work for the persistence and
-bundle stages; they do not describe implemented import/export behavior.
-No archive, gallery, credential store, model or GPU was used for this audit.
+The policies below are implemented with synthetic storage/bundle/reindex
+fixtures; public editor execution remains unavailable. No live gallery,
+credential store, model or GPU was used. Validation belongs to the feature plan.
 
 ## Two source representations
 
@@ -153,8 +153,10 @@ availability.
 
 ## Finite acceptance matrix
 
-All fixtures use owned scratch galleries and synthetic images. The table
-specifies future checks; no result is claimed here.
+All fixtures use owned scratch galleries and synthetic images. Implemented
+cases live in `tests/test_instruction_edit_bundles.py`,
+`tests/test_instruction_edit_storage.py` and `tests/test_instruction_edit_reindex.py`.
+They cover the matrix below without granting editor/runtime qualification.
 
 | Case | Required result |
 |---|---|
@@ -185,5 +187,5 @@ JSON; its coverage must include v2 rather than assume a fixed manifest.
 Extend the existing execution-metadata presence/conflict cases, provenance
 reindex cases, selected bundle cases, password/managed export cases and
 repeat-import tests. Update the bundle rules and their owner notes when
-those changes land. This document does not mark any acceptance case passed
-or change the archive format in running code.
+those changes land. The CPU implementation now uses this archive gate;
+public editor execution and browser/card acceptance remain separate.

@@ -73,6 +73,10 @@ async def swap_plan(
             text=(record.prompt if request.field == "prompt" else record.negative_prompt) or "",
         )
         results.append(result)
+        if record.edit is not None:
+            result.status = "invalid"
+            result.detail = "Swap tags cannot rewrite an instruction edit; use its instruction workflow."
+            continue
         if record.model_id != running:
             # Steps, CFG and mu are the checkpoint's: refused as Re-render
             # refuses them, but per image.

@@ -10,8 +10,10 @@ from pydantic import BaseModel, Field, field_validator, model_validator
 
 from .config import settings
 from .execution import ExecutionSpec, canonical_execution
+from .instruction_edit import StoredInstructionEdit
 from .refine import Upscaler
 from .png_settings import crop_anchor
+from .metadata import validate_edit_record
 from .schemas_generate import CropAnchor, OutpaintSpec
 
 class ImageRecord(BaseModel):
@@ -78,6 +80,10 @@ class ImageRecord(BaseModel):
     outpaint: OutpaintSpec | None = None
     # Recorded arithmetic, not permission to execute it on this build.
     execution: ExecutionSpec | None = None
+    # Frozen source proof survives missing or unproven imported source ids.
+    edit: StoredInstructionEdit | None = None
+    edit_missing: bool = False
+    edit_binned: bool = False
     # How many images the pipeline call that made this one held (the panel's
     # Batch). No part of the reproduction set - each image has its own
     # generator - but what More seeds runs the batch's next images at. Null
@@ -124,6 +130,13 @@ class ImageRecord(BaseModel):
     @model_validator(mode="after")
     def _crop_needs_an_ordinary_source(self) -> ImageRecord:
         crop_anchor(self.crop_anchor, source=self.refine, mask=self.mask, outpaint=self.outpaint)
+        if self.edit is not None and (
+            self.refine is not None or self.mask is not None or self.outpaint is not None
+            or self.reference or self.lora is not None or self.upscaler is not None
+            or self.crop_anchor is not None or self.execution is not None
+        ):
+            raise ValueError("an instruction edit cannot also carry another generation workflow")
+        validate_edit_record(self.edit, self.model_dump())
         return self
 
 

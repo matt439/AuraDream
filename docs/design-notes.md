@@ -757,6 +757,18 @@ anywhere (`forgetImages`) asks again for what is left.
 
 ## The loader is model-agnostic
 
+**Custom checkpoint class admission (2026-10-27, `INP#11`).** The optional
+`loading.unused_components` read deliberately falls back to loading everything
+when an index is unavailable. It cannot guard instruction editors: a transient
+read failure could otherwise download/load an editor before the post-load
+class check refused it. Non-catalogue Hub ids and local trees now require a
+separate successful index/class inspection before any pipeline weights move.
+Unreadable, malformed or unavailable editor identity fails that load; a retry
+must pass the same inspection. Known catalogue ids and their enumerated
+Nunchaku variants keep their existing path. The official Kontext and base
+Qwen-Image-Edit ids also refuse immediately, including case variants. No
+editor is added to the catalogue or enabled by these guards.
+
 The loader is model-agnostic: `DiffusionPipeline.from_pretrained` resolves the
 class from `model_index.json`, and `_component_libraries()` reads the same file
 to decide which components to quantize and with whose `TorchAoConfig`. FLUX
@@ -1206,9 +1218,12 @@ would get outside sources from the same route.
 
 ## Instruction editing starts with a distinct source contract
 
-**First CPU contract slice, 2026-10-27 (`INP#11`).** Matt commissioned starting
-the feature without the card. `instruction_edit.py` is a standalone contract,
-not a generation request field, catalogue option, loader or dialog. The
+**CPU contract and persistence slices, 2026-10-27 (`INP#11`).** Matt commissioned
+continuing without the card. The recipe now carries through generation types,
+SQL/PNG, replay/refusal, source lifetime, bundles and reindex. A cold source
+preview binds full original RGB proof and exact geometry. Public model load,
+queue, backend execution and Reuse remain held. No catalogue option, real editing
+call or dialog is enabled. The
 [feature plan](plan-instruction-editing.md#first-frozen-contract-2026-10-27)
 owns the frozen recipe and sizes; the [carry inventory](instruction-edit-carry.md)
 and [bundle contract](instruction-edit-bundles.md) own integration acceptance.
@@ -1226,10 +1241,13 @@ Portable edits need a durable original-source descriptor, including a full
 RGB pixel digest. A foreign numeric id can name unrelated pixels after import;
 unproven links must become null while retaining edit intent and provenance.
 They cannot follow Refine recovery's source-dropping fallback. An old bundle
-reader also ignores unfamiliar fields, so edit-containing exports need a
-version it already refuses. None of that persistence or bundle integration
-is built by the standalone types. Gated pinned-config verification, stage 1's
-carry work and stage 2's backend/browser pass remain separate open work.
+reader also ignores unfamiliar fields, so edit-containing exports now use v2,
+while edit-free exports keep v1. Strict SQL/PNG agreement and complete source
+proof cover import/reindex fast paths as well as decoded paths. Unresolved
+sources retain intent; explicit ordinary Refine children change pass kind.
+Supplied-config checks and the installed image-to-CPU-tensor audit are built;
+actual gated pinned-config verification, catalogue/loader integration and stage
+2's real call/dialog/browser pass remain open.
 
 ## LoRA adapters are the environment's and are hot-swapped
 

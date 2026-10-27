@@ -21,7 +21,8 @@ from PIL import Image, ImageFile
 from . import reindex, storage
 from .bundle_common import _CHUNK, _WORKERS, MASK_HASH, BundleError
 from .execution import execution_chunk, execution_from_json, execution_key
-from .metadata import require_header_metadata
+from .instruction_edit import edit_key
+from .metadata import edit_chunk, edit_from_info, edit_from_json, require_header_metadata, validate_edit_record
 
 
 class _Pixels(NamedTuple):
@@ -37,6 +38,10 @@ class _Pixels(NamedTuple):
     rgb: bool
     # The strict SQL/PNG recipe carried by a tracked image, not its pixels.
     execution: str | None = None
+    edit: str | None = None
+    # Full decoded RGB digest for portable instruction-source proof. Ordinary
+    # RGB images reuse the raw digest; other modes are converted after decoding.
+    rgb_hash: str | None = None
 
 
 def _raw_digest(image: Image.Image) -> str:
@@ -69,6 +74,7 @@ def _pixels(path: Path | str | IO[bytes], *, name: str | None = None, row: dict 
                 if image.format != "PNG":
                     raise BundleError(f"not a PNG image: {name}")
                 execution = _execution(row, image.info) if row is not None else None
+                edit = _edit(row, image.info) if row is not None else None
                 image.load()
                 raw = _raw_digest(image)
                 identity = hashlib.sha256(repr((
@@ -77,7 +83,12 @@ def _pixels(path: Path | str | IO[bytes], *, name: str | None = None, row: dict 
                 )).encode()).hexdigest()
                 # The same digest storage.content_hash takes, without a second pass.
                 rgb = image.mode == "RGB" and "transparency" not in image.info
-                return _Pixels(raw[:16], image.width, image.height, identity, rgb, execution)
+                if image.mode == "RGB":
+                    rgb_hash = raw
+                else:
+                    with image.convert("RGB") as converted:
+                        rgb_hash = _raw_digest(converted)
+                return _Pixels(raw[:16], image.width, image.height, identity, rgb, execution, edit, rgb_hash)
     except (OSError, ValueError, Image.DecompressionBombError) as exc:
         raise BundleError(f"cannot read image {name}: {exc}") from exc
 
@@ -138,6 +149,7 @@ def _validate_row(row: dict, width: int, height: int, content_hash: str) -> None
         raise BundleError(f"image dimensions disagree with the database: {row['filename']}")
     _references(row)
     _execution(row)
+    _edit(row)
     refine = row.get("refine")
     if refine is not None and (type(refine) is not int or refine <= 0):
         raise BundleError(f"invalid refine source on image {row['id']}")
@@ -188,6 +200,23 @@ def _execution(row: dict, info: dict | None = None) -> str | None:
         return execution_key(reindex._execution_from_info(row, info))
     except (TypeError, ValueError) as exc:
         raise BundleError(f"invalid execution metadata for {row['filename']}: {exc}") from exc
+
+
+def _edit(row: dict, info: dict | None = None) -> str | None:
+    """Require matching durable SQL/PNG intent, even in pixel-equality paths."""
+    try:
+        edit = edit_from_json(row.get("edit")) if info is None else edit_from_info(row, info)
+        validate_edit_record(edit, row)
+        if row.get("_bundle_version") == 1 and edit is not None:
+            raise ValueError("version 1 bundles cannot carry instruction edits")
+        return edit_key(edit)
+    except (TypeError, ValueError) as exc:
+        raise BundleError(f"invalid instruction-edit metadata for {row['filename']}: {exc}") from exc
+
+
+def _portable_edit(value: str | None) -> tuple | None:
+    edit = edit_from_json(value)
+    return None if edit is None else (edit.recipe, edit.edit_source)
 
 
 def _inspect_source(row: dict, data: bytes):
@@ -265,6 +294,7 @@ def _metadata(row: dict, by_id: dict[int, dict]) -> dict:
         **({"crop_anchor": crop_anchor} if crop_anchor is not None else {}),
         **({"upscaler": row["upscaler"]} if row.get("upscaler") is not None else {}),
         **execution_chunk(execution_from_json(row.get("execution"))),
+        **edit_chunk(edit_from_json(row.get("edit"))),
         **_peak_chunk(row),
     }
 

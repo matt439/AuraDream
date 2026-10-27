@@ -599,17 +599,20 @@ def test_the_loaded_answer_needs_the_class_and_the_profile(model_id, class_name,
 
 
 def test_another_class_under_an_enabled_profile_is_refused(monkeypatch):
-    # A hand-entered FLUX.1 Kontext id falls to the catch-all FLUX.1 profile,
-    # which enables FluxPipeline's inpaint; Kontext loads as its own class,
-    # beside which diffusers ships an inpaint class no one measured here.
+    # The exact edit-only profile refuses inpaint cold. An unknown alias can
+    # still inherit FLUX's guess, but its loaded class must remove that guess.
     kontext = "black-forest-labs/FLUX.1-Kontext-dev"
-    assert inpaint_family(kontext) == "FluxPipeline"
+    assert inpaint_family(kontext) is None
     assert refine.sibling(diffusers.FluxKontextPipeline, "Inpaint") is diffusers.FluxKontextInpaintPipeline
     backend = _bare("FluxKontextPipeline", kontext, monkeypatch)
     info = backend.describe()
     assert info["inpaint_supported"] is False and info["inpaint_strength"] is None
     with pytest.raises(RuntimeError, match="has no inpaint pass in this app"):
         backend._inpainter(backend._pipe)
+    alias = "example/flux-custom-editor"
+    assert inpaint_family(alias) == "FluxPipeline"
+    backend = _bare("FluxKontextPipeline", alias, monkeypatch)
+    assert backend.describe()["inpaint_supported"] is False
     # The same holds on a catalogue id loaded as another FLUX.1 class.
     backend = _bare("FluxControlPipeline", "black-forest-labs/FLUX.1-dev", monkeypatch)
     assert backend.describe()["inpaint_supported"] is False

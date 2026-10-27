@@ -17,7 +17,7 @@ from pydantic import BaseModel, ConfigDict, Field, field_validator, model_valida
 
 
 RecipeName = Literal["kontext-v1"]
-PositiveSource = Annotated[int, Field(strict=True, gt=0)]
+PositiveSource = Annotated[int, Field(strict=True, gt=0, le=2**63 - 1)]
 PositiveDimension = Annotated[int, Field(strict=True, gt=0)]
 
 MAX_AREA = 512 * 512
@@ -140,6 +140,24 @@ def stored_from_json(value: str) -> StoredInstructionEdit:
     return StoredInstructionEdit.model_validate_json(value)
 
 
+def bound_spec(value: object) -> StoredInstructionEdit:
+    """Validate complete portable proof, including unresolved recovery intent.
+
+    This checks spelling only. It does not prove that a local gallery id
+    still names these pixels; admission must establish that separately.
+    """
+    return StoredInstructionEdit.model_validate(value)
+
+
+def edit_key(value: object | None) -> str | None:
+    """Canonical complete stored identity; raw unbound requests cannot key.
+
+    Unresolved stored intent can still be grouped and exported. Converting
+    it into a replay request requires a proven positive local source first.
+    """
+    return None if value is None else stored_json(bound_spec(value))
+
+
 def descriptor_from_image(filename: str, image: Image.Image) -> InstructionEditSource:
     """Describe supplied pixels without opening a file or mutating the image."""
     # Refuse an invalid name before decoding/copying the supplied pixels.
@@ -240,3 +258,13 @@ def require_execution_available(spec: object) -> NoReturn:
     else:
         InstructionEditSpec.model_validate(spec)
     raise ValueError(INSTRUCTION_EDIT_UNAVAILABLE)
+
+
+def require_model_available(model_id: str) -> None:
+    """Refuse the known edit-only checkpoint before any public load path.
+
+    A hand-entered id must not bypass the closed release boundary merely
+    because it is absent from the catalogue or accepts an image argument.
+    """
+    if model_id.casefold() in {KONTEXT_V1.model_id.casefold(), "qwen/qwen-image-edit"}:
+        raise ValueError(INSTRUCTION_EDIT_UNAVAILABLE)

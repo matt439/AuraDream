@@ -4,6 +4,8 @@ from __future__ import annotations
 from collections.abc import Mapping
 from typing import Any, IO
 
+from .instruction_edit import StoredInstructionEdit, geometry, recipe_for, stored_from_json
+
 PNG_METADATA_KEY = "local-diffusion"
 
 # Images written before the project rename used the original app name. Keep
@@ -59,3 +61,69 @@ def embedded_metadata(info: Mapping[str, Any]) -> str | None:
         if raw:
             return raw
     return None
+
+
+def canonical_edit(value: object) -> StoredInstructionEdit | None:
+    """Strict stored intent; absence alone means an ordinary image."""
+    return None if value is None else StoredInstructionEdit.model_validate(value)
+
+
+def edit_from_json(value: str | None) -> StoredInstructionEdit | None:
+    return None if value is None else stored_from_json(value)
+
+
+def edit_chunk(value: object) -> dict[str, Any]:
+    edit = canonical_edit(value)
+    return {} if edit is None else {"edit": edit.model_dump(mode="json")}
+
+
+def edit_from_sources(row: Mapping[str, Any], meta: Mapping[str, Any] | None) -> StoredInstructionEdit | None:
+    """SQL and PNG must both retain the same edit, including unresolved proof.
+
+    Unlike older optional reproduction data, an absent representation cannot
+    recover an edit from the other: accepting that would permit an older
+    reader to erase the pass kind. SQL-only validation passes ``meta=None``.
+    """
+    database = edit_from_json(row.get("edit"))
+    validate_edit_record(database, row)
+    if meta is None:
+        return database
+    embedded = canonical_edit(meta.get("edit"))
+    validate_edit_record(embedded, meta)
+    if database != embedded or (database is not None and row.get("prompt") != meta.get("prompt")):
+        raise ValueError("instruction edits disagree between the database and PNG")
+    return database
+
+
+def validate_edit_record(edit: StoredInstructionEdit | None, record: Mapping[str, Any]) -> None:
+    """A stored edit is the frozen pass, never a disguised direct/refine result."""
+    if edit is None:
+        return
+    recipe = recipe_for(edit.recipe)
+    expected = geometry(edit.edit_source.width, edit.edit_source.height, recipe=edit.recipe).output_size
+    size = (record.get("width"), record.get("height"))
+    if "size" in record and "width" not in record and "height" not in record:
+        size = tuple(str(record["size"]).split("x"))
+        if size == tuple(str(value) for value in expected):
+            size = expected
+    if record.get("model_id", record.get("model")) != recipe.model_id or size != expected:
+        raise ValueError("instruction-edit result must use its frozen editor checkpoint and output geometry")
+    if record.get("negative_prompt") not in (None, "") or record.get("reference") not in (None, [], "[]"):
+        raise ValueError("instruction edits cannot carry negative prompts or references")
+    if any(record.get(key) is not None for key in (
+        "refine", "strength", "mask", "outpaint", "upscaler", "crop_anchor", "lora", "lora_scale", "true_cfg", "mu",
+    )) or record.get("execution") not in (None, {}, "{}", "null"):
+        raise ValueError("an instruction edit cannot also carry another generation workflow")
+    batch = record.get("batch")
+    if batch is not None and (type(batch) is not int or batch != 1):
+        raise ValueError("instruction edits require one image per pipeline call")
+
+
+def edit_from_info(row: Mapping[str, Any], info: Mapping[str, Any] | None) -> StoredInstructionEdit | None:
+    import json
+
+    raw = embedded_metadata(info) if info is not None else None
+    meta = json.loads(raw) if raw is not None else {}
+    if not isinstance(meta, dict):
+        raise ValueError("PNG metadata must be a JSON object")
+    return edit_from_sources(row, meta)

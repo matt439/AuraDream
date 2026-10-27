@@ -1,14 +1,16 @@
 # Plan: edit a gallery image by instruction
 
-**Status, 2026-10-27:** Matt commissioned starting `INP#11` after reviewing
-the work available without the card. The first bounded CPU slice freezes
-the recipe, geometry and request/stored-source contract, with the complete
-[carry inventory](instruction-edit-carry.md) and
-[bundle compatibility contract](instruction-edit-bundles.md). Persistence,
-API/backend integration and the dialog remain stage 1/2 work; the standalone
-contract does not enable an editor. No model was downloaded, loaded or run,
-and no live gallery was read or changed. Kontext is the first engineering
-candidate and Qwen-Image-Edit remains a later stage.
+**Status, 2026-10-27:** Matt commissioned continuing `INP#11` without the
+card. Supplied-config preflight, the installed preprocessing audit, request
+identity, SQL/PNG persistence, cold source preview, replay holds, source lifetime
+and v2 bundle/reindex recovery are built with CPU/fake coverage. The
+[carry inventory](instruction-edit-carry.md) and [bundle contract](instruction-edit-bundles.md)
+distinguish built source from remaining integration. Actual pinned gated configs
+remain unqualified; catalogue/loader enablement, the real editing call and dialog
+are not built. Public load, queue, replay and Reuse stay held. Browser acceptance
+and the separately approved card pass remain open. No model was downloaded,
+loaded or run, and no live gallery was read or changed. Kontext is the first
+engineering candidate; Qwen-Image-Edit remains a later stage.
 [Origin](review-2026-10-25.md#r9-edit-an-image-by-instruction).
 
 ## First useful result
@@ -101,10 +103,10 @@ Proposed ownership:
 
 ### First frozen contract, 2026-10-27
 
-`backend/instruction_edit.py` owns the standalone first contract. It is not
-yet a field on the generation request, a migration, an endpoint or a loader
-choice. The integration checklist below and in the linked inventory must
-be completed before stage 1 can be called built.
+`backend/instruction_edit.py` owns the frozen source contract. The subsequent
+CPU slice adds a generation-request field, migration and cold source-preview
+endpoint; it does not add a loadable catalogue choice. Remaining entries in
+the linked inventory still prevent stage 1/2 release acceptance.
 
 The named recipe is `kontext-v1`, selecting the public
 `black-forest-labs/FLUX.1-Kontext-dev` id at revision
@@ -117,6 +119,20 @@ the pinned index and configs against the expected `FluxKontextPipeline`,
 FlowMatch Euler scheduler, FLUX transformer, VAE, CLIP and T5 components.
 Refuse a mismatch before weights move. No config access, gate acceptance or
 checkpoint download is implied by this source slice.
+
+**Cold preflight mechanism, 2026-10-27:**
+`instruction_edit_preflight.validate_configs(model_id, revision, supplied)`
+now checks six caller-supplied parsed JSON files: the model index and
+scheduler, transformer, VAE, CLIP and T5 configs. It requires the frozen
+public id/full pin, exact component libraries/classes, FlowMatch Euler,
+the RGB/16-channel VAE with scale factor 8, and the encoder/transformer
+widths needed by this integration. It refuses missing/malformed/oversized
+configs and remote-code declarations and returns immutable canonical config
+digests with execution unavailable. It fetches/opens nothing and does not
+authenticate that supplied JSON came from the claimed revision. Future
+loader integration must bind the files to the pin before weights move.
+Its fixtures are synthetic; the gated checkpoint's actual configs remain
+unobtained and unqualified, so stage 0 is still incomplete.
 
 The first geometry table preserves these exact source aspect ratios, with
 equal working and output dimensions:
@@ -166,13 +182,13 @@ instruction and descriptor in SQL and PNG metadata, and refuse replay until
 source identity is proven. Converting a stored spec to a request only checks
 source presence; it is not that proof. The descriptor never resolves a path.
 
-Edit-containing bundles will use manifest version 2; edit-free exports stay
+Edit-containing bundles use manifest version 2; edit-free exports stay
 at version 1. A new reader must reject a version-1 archive that carries edit
 intent in either SQL or PNG metadata. The [bundle contract](instruction-edit-bundles.md)
 freezes omission counting, complete id-map/provenance checks and unresolved
-recovery; this version gate is still to be implemented.
+recovery; the gate and source-proof remapping are now implemented.
 
-**Checks for this bounded slice:** the existing repository interpreter ran
+**Initial standalone checks (historical):** the existing repository interpreter ran
 `pytest tests/test_instruction_edit.py tests/test_docs_maps.py -q`: **90
 passed**, with one existing FastAPI/Starlette warning. The complete Ruff
 check passed. Pinned Pyright 1.1.407 checked **129 Python sources** with zero
@@ -182,12 +198,73 @@ exact-aspect/owned-image preprocessing, the installed scalar output-size
 formula, source VAE mode and a fresh-process import guard against model
 frameworks/settings/storage. The installed-source guards cover the
 signature/preferred-size flag, scalar output formula and VAE mode; they do
-not qualify the complete image-processor-to-tensor path. Verify that path
-and the pinned configs before finishing stage 0/loader integration. These
+not originally qualify the complete image-processor-to-tensor path. The
+follow-on CPU audit now executes the installed call's preprocessing block
+and image processor methods extracted from source, for all seven frozen
+aspect ratios. Both internal resizes preserve the prepared RGB pixels;
+the resulting CPU float32 tensor is exactly `2 * RGB / 255 - 1`, with shape
+`1 x 3 x height x width`. It checks defaults, disabled automatic preferred
+size selection and no EXIF rotation, without importing Diffusers, a VAE or
+initializing CUDA. The focused contract/preflight run passed **134 tests**;
+this establishes supplied-config refusal and preprocessing, not an encoder
+or model call. Verify the pinned configs before finishing stage 0/loader
+integration. These
 checks do not exercise request/storage/bundle
 integration, a browser, gated checkpoint configs, a model or the card.
 
-Propose a nullable `edit` spec on requests and records. It contains `source`
+### CPU persistence and admission slice, 2026-10-27
+
+`GenerateRequest.edit` accepts a strict source/recipe intent or complete stored
+replay form. The latter is untrusted input: `instruction_edit_admission` proves
+the live source's original decoded RGB digest, basename and dimensions before
+binding it. The cold `POST /api/instruction-edit/preview` returns the bound
+descriptor and exact geometry with `available: false` and its reason. It does
+not select, download, load or queue a model.
+
+The nullable `images.edit` migration and SQL/PNG codecs preserve complete intent,
+including unresolved imported sources. Stored results must match the frozen
+editor/output geometry and cannot also claim another pass kind. Cell keys bind
+the full source proof; absent-edit compaction preserves legacy run ids. Re-render
+and More seeds retain the original source. Swap tags and Then refine refuse edits;
+an explicit Mass refine child changes pass kind and drops the old edit. PNG
+settings and CLI restoration refuse before populating a direct-render workflow.
+Retained Finish runs stay inspectable with an unavailable reason.
+
+Source deletion/bin/restore derives availability while preserving the child.
+Only full-proof links count for starred-source preservation and bin source use.
+Edit history cannot price direct/refine calls; `edit:yes|no` and `stats --by edit`
+distinguish it. Reuse keeps the composer draft and Undo intact and stays held
+across capability refreshes. The Node VM hold checks do not boot the page or
+qualify an actual browser.
+
+Bundle v2 handles whole/selected, plain/password and managed exports while
+edit-free archives remain v1. SQL/PNG agreement and downgrade refusal cover fast
+paths too. Import/reindex use full RGB proof and complete id maps; missing,
+forged, cyclic or omitted links retain unresolved intent. Reindex dry runs stay
+nonwriting; `unresolved_edits` counts recovery without a proven local source.
+
+Public backend, job admission/retained-worker, direct model load and fake guards
+stay closed even for copied requests. The exact cold Kontext profile does not
+inherit ordinary FLUX generation/refine/reference capabilities. Known editor
+classes under other ids are refused before publication; their `image` argument
+does not make them ordinary reference pipelines.
+
+**Integrated validation:** the final offline two-worker regression run passed
+**6,039 tests, seven platform skips and 75 existing warnings in 294.52 seconds**.
+It excluded every `tests/test_browser*.py` file and `tests/test_run_smoke.py`,
+using the existing repository interpreter, scratch galleries and offline Hub
+settings. Receipt: `work/instruction-edit-cpu-final.txt`. An additional **104
+contract/admission checks** passed after bounding source ids to SQLite's positive
+integer range. Whole-repository Ruff and `git diff --check` pass; the complete
+pinned Pyright gate checked **132 Python sources with zero errors/warnings**.
+Independent review found and closed linked-source admission and custom-id
+pre-weight class-inspection gaps. The installed preprocessing audit now runs in
+a fresh isolated interpreter with CUDA initialization poisoned and checked,
+avoiding inherited worker framework state. No real browser/profile acceptance,
+hosted CI, gated-config authentication, model load/render or GPU qualification
+is claimed. INP#11 remains open for the named stage 0/1/2 boundaries above.
+
+The nullable `edit` spec on requests and records contains `source`
 (a positive gallery id) and a named frozen recipe such as `kontext-v1`.
 `prompt` is the instruction itself, avoiding two competing copies of the
 same text. The spec is exclusive with `refine`, mask, outpaint, reference

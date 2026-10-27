@@ -212,8 +212,8 @@ def test_named_recipes_widen_only_before_shape_and_separate_every_layout():
             copied = [grid.Cell(cell.request.model_copy(update={"execution": spec}), cell.seed) for cell in cells]
             for original, other in zip(cells, copied):
                 before, after = grid.cell_key(original), grid.cell_key(other)
-                assert before[:11] == after[:11] and before[-2:] == after[-2:]
-                assert before[11] is None and after[11] == execution.execution_key(spec)
+                assert before[:12] == after[:12] and before[-2:] == after[-2:]
+                assert before[12] is None and after[12] == execution.execution_key(spec)
                 assert after[-2] == grid.shape_key(other.request.width, other.request.height, other.request.crop_anchor)
                 assert [key[-1] for key in grid.cell_keys(other)] == [other.seed]
             named = grid.run_id(copied, "m", "fp8")

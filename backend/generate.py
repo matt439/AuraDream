@@ -355,6 +355,8 @@ def _apply_image_settings(args: argparse.Namespace, meta: dict) -> None:
     Windows would otherwise ask for a mode this machine cannot run - and
     neither are the job and run ids: they are displayed, never reused.
     """
+    if meta.get("edit") is not None:
+        raise ValueError("Instruction-edit settings must be reopened from the gallery image; CLI editing is unavailable.")
     if args.prompt is None:
         args.prompt = meta.get("prompt")
     if args.negative is None:

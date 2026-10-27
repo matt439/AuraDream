@@ -158,9 +158,15 @@ before changing it.
   cover the requested size and cropped; a leaf module like `seeds`
 - `backend/instruction_edit.py` — standalone `kontext-v1` recipe, strict
   request/stored-source contracts, original-RGB provenance and exact-aspect
-  Lanczos geometry; no request/storage/API/loader integration or runtime
-  availability. The feature plan and carry/bundle checklists own the remaining
-  stages; this module does not enable an editing checkpoint.
+  Lanczos geometry, canonical bound identity and unconditional execution holds;
+  this module does not enable an editing checkpoint.
+- `backend/instruction_edit_admission.py` — prove live gallery source pixels,
+  descriptor and exact recipe geometry before key/admission work; no loading.
+- `backend/api_instruction_edit.py` — cold single-source geometry/provenance
+  preview with an explicit unavailable reason; no edit submission or model work.
+- `backend/instruction_edit_preflight.py` — cold, supplied-config Kontext
+  inventory/class/shape checks and canonical config digests; performs no
+  file/Hub access and never grants execution or claims gated-config qualification.
 - `backend/outpaint.py` — an outpaint's pure parts: the fills (`FILLS`,
   `padded`), the server-built mask (`mask`), the presets (`presets`, the
   refine guard's limits passed in) and the off-grid words
@@ -809,6 +815,13 @@ Model and loader:
 - `load()` refuses a pipeline whose `__call__` lacks `generator` or
   `callback_on_step_end` (`_REQUIRED_PARAMS`): the seed and the cancel depend
   on them.
+- A non-catalogue Hub id or local tree must expose a readable
+  `model_index.json` with a concrete pipeline class before weights load.
+  `loading.require_custom_pipeline_class` refuses unavailable editor classes
+  and unreadable/malformed class identity; it never falls through to
+  `from_pretrained` after an inconclusive read. The catalogue and its listed
+  Nunchaku formats retain their existing load behavior. The optional
+  `unused_components` optimization is not an admission decision.
 - Backend loading owns returned component overrides and the unpublished pipeline
   in one candidate through shard/weights-context exit, placement, callback checks,
   console configuration and diagnostics. Publish the complete call parameters,
@@ -3849,6 +3862,9 @@ Frontend and CLI:
   mirrors it into an open lightbox without closing it. The composer's prior
   Reuse note and Undo stay intact. `syncReuseButtons` preserves the recipe
   in its dataset so a capability refresh cannot clear this hold.
+  Instruction-edit records are held at the same boundary, with edit presence
+  retained across refreshes. A source-dependent instruction must not populate
+  ordinary Generate, even when its original source is unresolved.
 - Load settings from PNG (`png-settings.js`, `api_png.py`,
   `png_settings.py`; `smoke-png-settings.json`, `tests/test_api_png.py`).
   A file dragged over the page outlines the window (`body.png-drop::after`,
@@ -5375,6 +5391,31 @@ source refusal and exact-aspect preprocessing. Installed-pipeline assumptions
 are read from source without importing Diffusers. These are pure CPU/source
 checks; they do not qualify persistence, HTTP admission, bundles, a browser,
 model loading, rendering or the card.
+
+`tests/test_instruction_edit_identity.py`, `test_instruction_edit_storage.py`,
+`test_instruction_edit_bundles.py`, `test_instruction_edit_reindex.py`,
+`test_instruction_edit_admission.py` and `test_instruction_edit_lifetime.py`
+check strict copied-request admission, bound source keys/legacy run ids,
+SQL/PNG migration/carry/conflicts, v2/v1 bundle compatibility, full-RGB remapping,
+unresolved recovery and cleanup/source availability on scratch galleries.
+`test_instruction_edit_loader.py` checks known-editor and unreadable custom-id
+class refusal before weights; `test_instruction_edit_ui.py` uses Node VM/inert
+DOM to check Reuse holds without modifying draft/Undo or looking up a source.
+None enables an editor or qualifies an actual browser, model or card.
+
+`tests/test_instruction_edit_preflight.py` checks the supplied-config refusal
+boundary with synthetic JSON and the installed complete PIL-to-normalized-CPU-
+tensor preprocessing path using source-extracted methods in the fresh
+`tests/fixtures/instruction_edit_processor_cpu.py` child. The child forbids
+pytest/conftest, model and application imports, poisons CUDA initialization
+and verifies no initialization attempt before or after preprocessing. The pinned gated configs remain
+unobtained/unqualified; successful synthetic preflight never permits execution.
+
+`tests/test_instruction_edit_loader.py` checks strict custom/local class
+inspection, unreadable/malformed/editor aliases, case-insensitive named-editor
+refusal and unchanged catalogue/Nunchaku paths. Synthetic backend loads prove
+that refused aliases never reach weight overrides, `from_pretrained` or
+placement; no Hub/network or actual weights are used.
 
 `tests/test_backup_credentials.py` and `tests/test_backup_credential_integration.py`
 check WinCred ABI declarations through API stubs, exact opaque references, bounds,

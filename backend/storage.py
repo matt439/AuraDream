@@ -34,7 +34,8 @@ from . import gallery_lock, refine
 # in `grid`: one spelling of each, or a resume compares strings that only look
 # alike. `grid` imports neither this module nor anything that does.
 from .grid import lora_key, mask_key, reference_key, refine_key, shape_key
-from .metadata import PNG_MASK_KEY, PNG_METADATA_KEY
+from .instruction_edit import InstructionEditSource, descriptor_from_image, edit_key
+from .metadata import PNG_MASK_KEY, PNG_METADATA_KEY, canonical_edit, edit_chunk, edit_from_json, validate_edit_record
 from .png_settings import crop_anchor as _crop_anchor
 from .search import like_escape, split_search
 from .schemas import ImageRecord, OutpaintSpec, effective_true_cfg
@@ -174,6 +175,7 @@ CREATE TABLE IF NOT EXISTS images (
     outpaint        TEXT,
     upscaler        TEXT,
     execution       TEXT,
+    edit            TEXT,
     vram_peak_allocated INTEGER,
     vram_peak_reserved  INTEGER
 );
@@ -303,6 +305,8 @@ def _migrate(conn: sqlite3.Connection) -> None:
         ("upscaler", "TEXT", None),
         # Named arithmetic recipes as canonical JSON; NULL is legacy Eager.
         ("execution", "TEXT", None),
+        # Complete instruction-edit intent, including unresolved source proof.
+        ("edit", "TEXT", None),
         # The peak GPU memory PyTorch's allocator held during the call that
         # made this image, in bytes, allocated and reserved: a result, as
         # `duration_ms` is, never part of the reproduction set. NULL where
@@ -379,7 +383,8 @@ def init_db() -> None:
 
 
 def _row_to_record(
-    row: sqlite3.Row | Mapping[str, Any], refine_missing: bool = False, refine_binned: bool = False
+    row: sqlite3.Row | Mapping[str, Any], refine_missing: bool = False, refine_binned: bool = False,
+    edit_missing: bool = False, edit_binned: bool = False,
 ) -> ImageRecord:
     """A gallery row as the record the API serves.
 
@@ -398,6 +403,8 @@ def _row_to_record(
     thumb = _thumb_path(settings.outputs_dir / row["filename"])
     if not thumb.is_file():
         thumb = (settings.outputs_dir / row["filename"]).with_suffix(".webp")
+    edit = edit_from_json(row["edit"])
+    validate_edit_record(edit, dict(row))
     return ImageRecord(
         id=row["id"],
         filename=row["filename"],
@@ -427,6 +434,9 @@ def _row_to_record(
         ),
         upscaler=row["upscaler"],
         execution=execution_from_json(row["execution"]),
+        edit=edit,
+        edit_missing=edit_missing or (edit is not None and edit.source is None),
+        edit_binned=edit_binned,
         batch=row["batch"],
         job_id=row["job_id"],
         run_id=row["run_id"],
@@ -451,7 +461,7 @@ _COLUMNS = (
     "mu", "seed", "model_id", "duration_ms", "favorite", "created_at", "job_id", "run_id",
     "quantization", "variables", "true_cfg", "content_hash", "reference", "lora", "lora_scale",
     "refine", "strength", "crop_anchor", "batch", "binned_at", "mask", "outpaint", "upscaler",
-    "execution", "vram_peak_allocated", "vram_peak_reserved",
+    "execution", "edit", "vram_peak_allocated", "vram_peak_reserved",
 )
 
 # What every live-facing read adds: an image in the recycle bin is gone from
@@ -478,6 +488,7 @@ def content_hash(image: Image.Image) -> str:
 
 def _insert_row(conn: sqlite3.Connection, values: dict[str, Any]) -> sqlite3.Row:
     """One row in, the FTS trigger firing with it, the row read back."""
+    validate_edit_record(edit_from_json(values.get("edit")), values)
     columns = ", ".join(_COLUMNS)
     marks = ", ".join("?" * len(_COLUMNS))
     cur = conn.execute(
@@ -532,6 +543,7 @@ def save_image(
     """
     created = datetime.now(timezone.utc)
     execution = canonical_execution(request.execution)
+    edit = edit_from_json(edit_key(request.edit))
     allocated, reserved = (_peak(peak[0]), _peak(peak[1])) if peak is not None else (None, None)
     variables_json = json.dumps(variables) if variables else None
     mask = request.mask if request.refine is not None else None
@@ -602,12 +614,14 @@ def save_image(
         **({"crop_anchor": crop_anchor} if crop_anchor is not None else {}),
         **({"upscaler": upscaler} if upscaler is not None else {}),
         **execution_chunk(execution),
+        **edit_chunk(edit),
         # Results, not settings, so absent rather than null when unmeasured:
         # a chunk from a CPU or before them reads the same.
         **({"vram_peak_allocated": allocated} if allocated is not None else {}),
         **({"vram_peak_reserved": reserved} if reserved is not None else {}),
     }
     info = PngImagePlugin.PngInfo()
+    validate_edit_record(edit, meta)
     # A1111-style single-line block, so other tools can read the params back.
     # Mu is not an A1111 key, but it is part of what reproduces the image, which
     # is the reason the block exists. Nor is True CFG: on FLUX.1 the CFG
@@ -641,6 +655,7 @@ def save_image(
         + (f", Inpaint mask: {mask[:16]}" if mask is not None else "")
         + (f", Hires upscaler: {refine.ANIME6B_LABEL}" if upscaler is not None else "")
         + (f", Crop anchor: {crop_anchor}" if crop_anchor is not None else "")
+        + (f", Instruction edit: {edit.recipe}" if edit is not None else "")
         + (outpaint_parameters(outpaint) if outpaint is not None else ""),
     )
     info.add_text(PNG_METADATA_KEY, json.dumps(meta))
@@ -699,6 +714,7 @@ def save_image(
                         "outpaint": outpaint.key() if outpaint is not None else None,
                         "upscaler": upscaler,
                         "execution": execution_key(execution),
+                        "edit": edit_key(edit),
                         "vram_peak_allocated": allocated,
                         "vram_peak_reserved": reserved,
                     },
@@ -708,6 +724,7 @@ def save_image(
                 # under the lock a delete takes: returned as present, the page
                 # showed it as one that could be made again until a reload.
                 missing, binned = _missing_sources(conn, [row])
+                edit_states = _edit_states(conn, [row])
             committed = True
             _rename_with_retry(partial, path)
             if thumb is not None:
@@ -725,7 +742,7 @@ def save_image(
     finally:
         if thumb is not None:
             _unlink(thumb)
-    return _row_to_record(row, row["refine"] in missing, row["refine"] in binned)
+    return _row_to_record(row, row["refine"] in missing, row["refine"] in binned, *edit_states[row["id"]])
 
 
 def _rename_with_retry(src, dst, attempts: int = 5) -> None:
@@ -1034,11 +1051,49 @@ def list_images(
                 f"SELECT COUNT(*) FROM images {other_clause}", other_params
             ).fetchone()[0]
         missing, in_bin = _missing_sources(conn, rows)
-    return _records(rows, missing, in_bin), total, others
+        edit_states = _edit_states(conn, rows)
+    return _records(rows, missing, in_bin, edit_states), total, others
 
 
-def _records(rows: Sequence[sqlite3.Row], missing: set[int], binned: set[int]) -> list[ImageRecord]:
-    return [_row_to_record(r, r["refine"] in missing, r["refine"] in binned) for r in rows]
+def _records(
+    rows: Sequence[sqlite3.Row], missing: set[int], binned: set[int],
+    edit_states: Mapping[int, tuple[bool, bool]],
+) -> list[ImageRecord]:
+    return [_row_to_record(r, r["refine"] in missing, r["refine"] in binned, *edit_states[r["id"]]) for r in rows]
+
+
+def _edit_states(conn: sqlite3.Connection, rows: Sequence[sqlite3.Row]) -> dict[int, tuple[bool, bool]]:
+    """Derived availability, proved from current pixels rather than short DB hashes."""
+    states = {}
+    proven: dict[int, tuple[InstructionEditSource | None, bool]] = {}
+    for row in rows:
+        edit = edit_from_json(row["edit"])
+        missing, binned = False, False
+        if edit is not None:
+            if edit.source is None:
+                missing = True
+            else:
+                if edit.source not in proven:
+                    source = conn.execute("SELECT filename, width, height, binned_at FROM images WHERE id = ?", (edit.source,)).fetchone()
+                    descriptor = None
+                    if source is not None:
+                        try:
+                            filename = source["filename"]
+                            # Validate the basename before joining a database-supplied filename.
+                            InstructionEditSource._bare_png(filename)
+                            path = settings.outputs_dir / filename
+                            if path.is_symlink():
+                                raise ValueError("instruction-edit source cannot be a linked file")
+                            with Image.open(path) as image:
+                                if image.size == (source["width"], source["height"]):
+                                    descriptor = descriptor_from_image(filename, image)
+                        except (OSError, ValueError, Image.DecompressionBombError):
+                            pass
+                    proven[edit.source] = descriptor, source is not None and source["binned_at"] is not None
+                descriptor, binned = proven[edit.source]
+                missing = binned or descriptor != edit.edit_source
+        states[row["id"]] = missing, binned
+    return states
 
 
 def _missing_sources(
@@ -1109,7 +1164,7 @@ def completed_cells(
             marks = ",".join("?" * len(chunk))
             rows = conn.execute(
                 f"""SELECT prompt, negative_prompt, steps, guidance_scale, mu, true_cfg,
-                           reference, lora, lora_scale, refine, strength, mask, outpaint, upscaler, execution,
+                           reference, lora, lora_scale, refine, strength, mask, outpaint, upscaler, edit, execution,
                            crop_anchor, seed
                     FROM images
                     WHERE width = ? AND height = ? AND model_id = ? {scope}
@@ -1135,6 +1190,7 @@ def completed_cells(
                         refine_key(row["refine"], row["strength"]),
                         mask_key(row["mask"], _canonical_outpaint(row["outpaint"])),
                         row["upscaler"],
+                        edit_key(edit_from_json(row["edit"])),
                         execution_key(execution_from_json(row["execution"])),
                         shape_key(width, height, row["crop_anchor"]),
                         row["seed"],
@@ -1220,6 +1276,7 @@ def import_file(values: dict[str, Any]) -> ImageRecord:
     values = {
         **values,
         "execution": execution_key(execution_from_json(values.get("execution"))),
+        "edit": edit_key(edit_from_json(values.get("edit"))),
         "crop_anchor": _crop_anchor(
             values.get("crop_anchor"), source=values.get("refine"),
             mask=values.get("mask"), outpaint=values.get("outpaint"),
@@ -1227,7 +1284,8 @@ def import_file(values: dict[str, Any]) -> ImageRecord:
     }
     with _write_lock, _session() as conn:
         row = _insert_row(conn, {column: values.get(column) for column in _COLUMNS})
-    return _row_to_record(row)
+        states = _edit_states(conn, [row])
+    return _row_to_record(row, edit_missing=states[row["id"]][0], edit_binned=states[row["id"]][1])
 
 
 @gallery_lock.protected(lambda: settings.db_path, waits=True)
@@ -1258,6 +1316,8 @@ def index_file(
         mask=meta.get("mask"), outpaint=meta.get("outpaint"),
     )
     execution = execution_key(meta.get("execution"))
+    edit = edit_key(meta.get("edit"))
+    validate_edit_record(canonical_edit(meta.get("edit")), {**meta, "width": width, "height": height})
     with _write_lock, _session() as conn:
         row = _insert_row(
             conn,
@@ -1298,11 +1358,13 @@ def index_file(
                     mask=mask, outpaint=meta.get("outpaint"),
                 ),
                 "execution": execution,
+                "edit": edit,
                 "vram_peak_allocated": _peak(meta.get("vram_peak_allocated")),
                 "vram_peak_reserved": _peak(meta.get("vram_peak_reserved")),
             },
         )
-    return _row_to_record(row)
+        states = _edit_states(conn, [row])
+    return _row_to_record(row, edit_missing=states[row["id"]][0], edit_binned=states[row["id"]][1])
 
 
 _MASK_HASH = re.compile(r"[0-9a-f]{64}")
@@ -1760,7 +1822,8 @@ def get_image(image_id: int, include_binned: bool = False) -> ImageRecord | None
     with _session() as conn:
         row = conn.execute(f"SELECT * FROM images WHERE id = ?{live}", (image_id,)).fetchone()
         missing, binned = _missing_sources(conn, [row]) if row else (set(), set())
-    return _row_to_record(row, row["refine"] in missing, row["refine"] in binned) if row else None
+        states = _edit_states(conn, [row]) if row else {}
+    return _row_to_record(row, row["refine"] in missing, row["refine"] in binned, *states[row["id"]]) if row else None
 
 
 def get_images(ids: Sequence[int], include_binned: bool = False) -> list[ImageRecord]:
@@ -1779,7 +1842,8 @@ def get_images(ids: Sequence[int], include_binned: bool = False) -> list[ImageRe
                 chunk,
             ).fetchall())
         missing, binned = _missing_sources(conn, rows) if rows else (set(), set())
-    return _records(rows, missing, binned)
+        states = _edit_states(conn, rows)
+    return _records(rows, missing, binned, states)
 
 
 def lineage_images(run_ids: Sequence[str], job_ids: Sequence[str]) -> list[ImageRecord]:
@@ -1798,7 +1862,9 @@ def lineage_images(run_ids: Sequence[str], job_ids: Sequence[str]) -> list[Image
                     f"SELECT * FROM images WHERE {column} IN ({','.join('?' * len(chunk))}){extra}",
                     chunk,
                 ).fetchall())
-    return [_row_to_record(row) for row in sorted(rows, key=lambda row: row["id"])]
+        missing, binned = _missing_sources(conn, rows)
+        states = _edit_states(conn, rows)
+    return _records(sorted(rows, key=lambda row: row["id"]), missing, binned, states)
 
 
 @gallery_lock.protected(lambda: settings.db_path, waits=True)
