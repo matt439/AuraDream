@@ -134,6 +134,12 @@ run(`
   const lbList = []; const galleryRecords = []; const viewerRecords = [];
   const restored = []; const opened = [];
   function restoreImages(ids) { restored.push(...ids); }
+  // Bin-write ownership is covered separately; this lineage fixture has no
+  // write in flight and verifies the exact source given to the button port.
+  function syncBinWriteButton(button, ids) {
+    assert.deepEqual(ids, [17]);
+    button.setAttribute('aria-disabled', 'false');
+  }
   function openLightbox(rec, list) { opened.push([rec.id, list.map((r) => r.id)]); }
   function checkpointName(id) { return (id ?? '').split('/').pop(); }
   function edited(extra = {}) {
