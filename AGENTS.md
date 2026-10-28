@@ -400,6 +400,11 @@ uv run python tools/fake_server.py --port <port> [--model <id>] [--step 0.3]   #
 node tools/browser.mjs tools/<smoke>.json
 ```
 
+Use `{"expect": "...", "fatal": true}` for a fixture prerequisite that must
+stop later steps when it fails. Async setup expressions must explicitly return
+true. Ordinary expectations keep aggregate diagnostics; fatal failure still
+uses the driver's graceful close/cleanup. See the full Tests rules.
+
 `run_smoke.py` reads the table below, so a new smoke needs only its row.
 
 | Port | `--model` (default Krea 2 Turbo) | Smokes |

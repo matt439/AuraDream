@@ -5883,7 +5883,19 @@ with absent or noncallable `fetch`/`WebSocket` globals. Fixed exit-2 diagnostics
 before browser lookup, script reads, output/profile creation or any network
 call; a callable fixture continues to the existing browser-discovery path.
 Negative controls keep input/module reads, output writes, spawn and network APIs
-forbidden after source capture.
+forbidden after source capture. The same file checks optional fatal-step
+metadata after input parsing: a boolean belongs only to an expect-only step
+with a nonempty string. Malformed values/ambiguous actions refuse before
+screenshots, profile work or spawn. Valid metadata reaches a poisoned existing
+downstream boundary; these cold tests do not qualify actual driver stopping.
+
+`browser.mjs` supports `{"expect": "...", "fatal": true}` for prerequisites.
+Falsy results, throws and rejected awaited promises fail/count and stop later
+steps through the ordinary graceful close/cleanup path. Async setup expressions
+must explicitly return true. Successful fatal and ordinary nonfatal steps keep
+their normal continuation; eval remains diagnostic-only. Edge selection,
+launch flags and profiles are unchanged. The [dated tooling review](review-2026-10-28-fatal-prerequisites.md)
+owns ordinary-driver probes and the three bounded scratch setup conversions.
 
 `tests/test_fbc_runtime.py` exercises installed FBC hooks and arithmetic on tiny
 CPU blocks in an isolated worker. Only the unrelated optional bitsandbytes backend

@@ -451,3 +451,12 @@ Windows-unsupported catchable-SIGTERM browser case. No model download,
 GPU render or human acceptance was performed. The CI job runs the same
 gate after install; docs-only changes retain their lint-only path. Linux
 and hosted execution were not run or claimed; no push/PR was made.
+
+
+## Explicit fixture prerequisites (2026-10-28, DEV#9)
+
+The [dated review](review-2026-10-28-fatal-prerequisites.md) owns the optional
+fatal expectation, cold metadata checks and actual ordinary-driver cleanup
+qualification. This is a bounded step-control improvement; it changes no
+browser discovery, launch flags, profile or security path and retries no older
+denied operation. Ordinary eval/nonfatal aggregate behavior stays compatible.

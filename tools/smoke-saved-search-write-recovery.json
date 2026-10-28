@@ -12,7 +12,8 @@
     "expect": "__ssUntil(()=>Number.isInteger(modelRevision)&&!galleryPending&&!jobListing)"
   },
   {
-    "eval": "(async()=>{if((await __ssBaseApi(__ssRoot)).items.length!==0)throw Error('Use a fresh scratch saved-search sidecar for this smoke.');resetPanel();rewriteBox(els.prompt,'Composer retained through saved search write recovery');promptReplaced();persistPanel();window.__ssComposer=setupComposerState();await applyGalleryFilter({query:'',favorites:false,all_models:true});if(!await __ssUntil(()=>!galleryPending&&galleryRecords.length>=1))throw Error('Fake other-model fixture did not appear.');window.__ssPick=galleryRecords[0].id;document.querySelector('#gallery .card[data-id=\"'+__ssPick+'\"]').dataset.ssPick='fixture';})()"
+    "expect": "(async()=>{if((await __ssBaseApi(__ssRoot)).items.length!==0)throw Error('Use a fresh scratch saved-search sidecar for this smoke.');resetPanel();rewriteBox(els.prompt,'Composer retained through saved search write recovery');promptReplaced();persistPanel();window.__ssComposer=setupComposerState();await applyGalleryFilter({query:'',favorites:false,all_models:true});if(!await __ssUntil(()=>!galleryPending&&galleryRecords.length>=1))throw Error('Fake other-model fixture did not appear.');window.__ssPick=galleryRecords[0].id;document.querySelector('#gallery .card[data-id=\"'+__ssPick+'\"]').dataset.ssPick='fixture';return true;\n})()",
+    "fatal": true
   },
   {
     "click": "#btn-select"

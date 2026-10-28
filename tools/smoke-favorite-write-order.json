@@ -12,7 +12,8 @@
     "expect": "__until(()=>loadedModel==='black-forest-labs/FLUX.1-Krea-dev' && Number.isInteger(modelRevision) && !busy && !galleryPending && !jobListing)"
   },
   {
-    "eval": "(async()=>{if((await __frBaseApi('/api/gallery')).total!==0)throw Error('This diagnostic requires fresh scratch fake --data.');const job=await __frBaseApi('/api/generate',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({prompt:'owned favorite ordering fixture',width:256,height:256,steps:1,seed:8100,num_images:3})});if(!await __until(async()=>{const state=await __frBaseApi('/api/jobs/'+job.job_id);return !['queued','running'].includes(state.status);}))throw Error('Owned fake fixture did not finish');const rows=(await __frBaseApi('/api/gallery?limit=100')).items.sort((a,b)=>a.id-b.id);if(rows.length!==3||rows.some(rec=>rec.favorite))throw Error('Expected exactly three unstarred owned fake images');sessionStorage.setItem('auradream.smoke.favorite-write-order',JSON.stringify({ids:rows.map(rec=>rec.id)}));})();"
+    "expect": "(async()=>{if((await __frBaseApi('/api/gallery')).total!==0)throw Error('This diagnostic requires fresh scratch fake --data.');const job=await __frBaseApi('/api/generate',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({prompt:'owned favorite ordering fixture',width:256,height:256,steps:1,seed:8100,num_images:3})});if(!await __until(async()=>{const state=await __frBaseApi('/api/jobs/'+job.job_id);return !['queued','running'].includes(state.status);}))throw Error('Owned fake fixture did not finish');const rows=(await __frBaseApi('/api/gallery?limit=100')).items.sort((a,b)=>a.id-b.id);if(rows.length!==3||rows.some(rec=>rec.favorite))throw Error('Expected exactly three unstarred owned fake images');sessionStorage.setItem('auradream.smoke.favorite-write-order',JSON.stringify({ids:rows.map(rec=>rec.id)}));return true;\n})();",
+    "fatal": true
   },
   {
     "navigate": "http://127.0.0.1:7940/"
@@ -57,7 +58,8 @@
     "click": "#gallery .card[data-fr-write=\"b\"] > img"
   },
   {
-    "expect": "selectedIds().join()===__frPair.join() && selectedRecords().every(rec=>rec.favorite===false)"
+    "expect": "selectedIds().join()===__frPair.join() && selectedRecords().every(rec=>rec.favorite===false)",
+    "fatal": true
   },
   {
     "log": "({picked:selectedIds(),expected:__frPair,selectMode,modal:document.querySelector('dialog[open]')?.id,first:__frHit('#gallery .card[data-fr-write=\"a\"] > img'),second:__frHit('#gallery .card[data-fr-write=\"b\"] > img')})"

@@ -10,6 +10,8 @@
 //   {"eval": js}                 run JavaScript in the page (promises awaited)
 //   {"log": js}                  run JavaScript and print its value
 //   {"expect": js}               run JavaScript; a falsy value fails the run
+//   {"expect": js, "fatal": true}  prerequisite: stop after a failing expectation
+//                                before later steps; return true from async setup
 //   {"key": "1"}                 press a key (single characters and names like "Escape";
 //                                Escape also closes a modal <dialog>, as a real press does;
 //                                with "native": true an ArrowDown/ArrowUp carries its key
@@ -93,6 +95,20 @@ if (OFFSET) {
   text = text.replace(/\b(127\.0\.0\.1|localhost):(\d{2,5})\b/g, (_, host, port) => `${host}:${Number(port) + OFFSET}`);
 }
 const steps = JSON.parse(text);
+// Optional fatal metadata belongs only to an unambiguous expectation. Validate
+// before preparing screenshot roots, profiles or browser processes. Unrelated
+// malformed step/container handling remains with the existing preflight.
+const invalidFatal = Array.isArray(steps) ? steps.flatMap((step, index) => {
+  if (step === null || typeof step !== 'object' || !Object.hasOwn(step, 'fatal')) return [];
+  const valid = typeof step.fatal === 'boolean'
+    && typeof step.expect === 'string' && !!step.expect.trim()
+    && Object.keys(step).every((key) => key === 'expect' || key === 'fatal');
+  return valid ? [] : [`step ${index + 1}: fatal must be a boolean on an expect-only step with a nonempty expression`];
+}) : [];
+if (invalidFatal.length) {
+  console.error(invalidFatal.join('\n'));
+  process.exit(2);
+}
 let screenshots;
 try {
   screenshots = screenshotRoot(steps);
@@ -376,6 +392,10 @@ for (const [n, step] of steps.entries()) {
     const value = await evaluate(step.expect);
     if (!value) failures += 1;
     console.log(`  ${value ? 'ok  ' : 'FAIL'} ${step.expect}`);
+    if (!value && step.fatal === true) {
+      console.log(`  ! fatal expectation failed at step ${n + 1}; later steps were not run`);
+      break;
+    }
   } else if (step.key) {
     const text = step.key.length === 1 ? step.key : undefined;
     const code = step.key === 'Escape' ? ESCAPE : step.native ? (NATIVE_KEYS[step.key] ?? {}) : {};
