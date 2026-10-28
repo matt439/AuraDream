@@ -115,6 +115,9 @@ Backend (`backend/`):
   summaries and `api_presets.py` revisioned CRUD/validation, independent of
   gallery maintenance; `web/generation-presets.js` owns explicit composer
   Restore, its whole-draft Undo and the Saved setups dialog
+- `snippet_portability.py` - cold portable snippet codec, collection/input
+  digests and pure merge plans; `schemas_snippet_portability.py` owns strict
+  portable documents and file-index choices; no routes or writer yet
 - `saved_searches.py` bounded atomic database-scoped gallery filters,
   `schemas_saved_searches.py` their strict fields and revisions, and
   `api_saved_searches.py` model-free CRUD independent of gallery maintenance;

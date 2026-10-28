@@ -104,7 +104,7 @@ Matt's approved [shortcut and compact-setup stages](docs/plan-shortcut-workflow.
 | id | status | sev | size | item |
 |---|---|---|---|---|
 | `UI#7` | USER | LOW | M | Hands-on NVDA/Narrator, touch, native notification delivery and actual Windows scaling checks; browser emulation and accessibility-tree inspection do not complete them. [Manual checks](docs/design/validation.md#accessibility-and-desktop-checks). |
-| `UI#20` | OPEN | LOW | M | Export/import personal snippets as a versioned file, with bounded preflight, merge preview, conflict choices and stale-write protection. [Plan](docs/plan-snippet-portability.md). |
+| `UI#20` | OPEN | LOW | M | Portable codec and pure merge planner built; next atomic export/import routes, then explicit browser merge and acceptance. [Plan](docs/plan-snippet-portability.md). |
 
 ## Development tooling
 

@@ -67,6 +67,9 @@ before changing it.
   encryption framing and receipt-temp logical-byte budgets; no allocation guarantee
 - `backend/snippets.py` - bounded, revisioned personal prompt snippets in an
   atomic sidecar beside the settings, under an independent cross-process lock
+- `backend/snippet_portability.py` - cold bounded UTF-8 portable snippet codec,
+  collection/input digests and pure file-index merge planning; strict portable
+  documents and choices live in `backend/schemas_snippet_portability.py`
 - `backend/api_snippets.py` - model-free snippet CRUD routes, independent of
   gallery maintenance; `backend/schemas_snippets.py` owns their validated models
 - `backend/saved_searches.py` - bounded atomic database-scoped gallery filter
@@ -5945,6 +5948,13 @@ performance, stale item edits and draft/model validation replies, the foreign
 checkpoint hold and Models opener, ordinary grid preview/submission, modal
 keys/focus, page errors and geometry at 1400x900 and 400x650. It uses scratch
 gallery data and synthetic conditioning; no real weights or card run is involved.
+
+`tests/test_snippet_portability.py` checks the cold portable codec, exact
+Unicode/multiline/order round trips, strict format/identity fields, duplicate
+JSON keys, byte/depth bounds, collection/input digests, normalized-name
+conflicts and explicit file-index choices. Pure plans preserve local positions,
+require explicit replacement ids/revisions and bound final count/encoded bytes;
+these tests do not qualify routes, persistence or the browser workflow.
 
 `tests/test_snippets.py` covers CRUD, exact text, bounds, malformed-file
 preservation, independent locking, stale/concurrent edits and admission

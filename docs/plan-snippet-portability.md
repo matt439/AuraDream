@@ -1,6 +1,6 @@
 # Plan: export and merge personal snippets
 
-**Status, 2026-10-28: requested for the backlog; not built.** `UI#20` came
+**Status, 2026-10-28: stage 1 built and CPU-checked; stages 2-3 remain.** `UI#20` came
 from the [TODO audit](review-2026-10-28-todo.md). This extends the completed
 [personal snippet feature](plan-prompt-snippets.md); its implementation and
 acceptance are CPU/browser work, without a model or GPU run.
@@ -155,3 +155,20 @@ Import use the established reason/title behavior.
 
 Record actual results here when implemented. A synthetic round trip proves
 portability and merge behavior, not live user data recovery or usability.
+
+## Stage 1 implementation, 2026-10-28
+
+The cold codec and strict portable/decision models are implemented in
+`snippet_portability.py` and `schemas_snippet_portability.py`. UTF-8,
+duplicate-key and depth checks precede parsing; input and saved-collection
+digests cover validated content and ordered local identity. The pure plan
+defaults collisions to Skip, identifies incoming duplicates by file index,
+and requires a specific local id/revision for Replace. It retains positions
+and checks final sidecar count and encoded size using same-width placeholder
+ids; new identities remain the future atomic writer's responsibility.
+
+CPU tests cover the stage-1 acceptance cases, including exact text/order,
+both targets, empty imports, malformed encodings and fields, normalized
+duplicate names, stale/ambiguous replacements and combined byte overflow.
+Ruff and pinned Pyright passed. Routes, atomic import and the browser merge
+workflow are still stages 2-3; no real user sidecar or prompt was changed.
