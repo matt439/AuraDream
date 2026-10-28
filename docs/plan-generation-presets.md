@@ -195,7 +195,9 @@ name, **Save current** creates an item, **Update from current** replaces its
 payload, **Rename** keeps the saved payload and **Delete** removes only that
 item. Failed/stale writes preserve the unsaved name. **Reload list** rereads
 without replacing the editor; explicitly selecting again adopts the newest
-item/revision.
+item/revision. The [dated setup recovery review](review-2026-10-28-setup-list-recovery.md)
+records the native read/selection and sole-item reselection fixes, with their
+separate reproduction and qualification evidence.
 
 Capture reads exact text and raw overrides directly rather than through
 `collect()` or `gridPayload()`, which trim and suppress inactive inputs.

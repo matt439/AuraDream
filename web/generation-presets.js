@@ -133,11 +133,14 @@ function syncSetups() {
   hold(els.setupsReload, pending, 'Reread the list; select an item again to replace the editor');
   hold(els.setupsClose, setupsPending === 'write' ? pending : '', 'Close Saved setups');
   hold(els.setupsModels, pending, 'Open Models without switching or loading');
-  for (const field of [els.setupsList, els.setupsName, els.setupsAll]) field.disabled = setupsPending === 'write';
+  for (const field of [els.setupsName, els.setupsAll]) field.disabled = setupsPending === 'write';
+  els.setupsList.disabled = setupsPending === 'write' || setupsPending === 'read';
   els.setupsModels.hidden = !mismatch;
 }
 
 function renderSetups() {
+  // A view toggle keeps an explicit selection or Reload's deliberate blank.
+  const visibleSelection = els.setupsList.value;
   els.setupsList.replaceChildren();
   const items = setupsItems.filter((item) => els.setupsAll.checked || item.model_id === loadedModel)
     .sort((a, b) => Number(b.model_id === loadedModel) - Number(a.model_id === loadedModel));
@@ -146,7 +149,7 @@ function renderSetups() {
     els.setupsList.append(option);
   }
   if (!items.length) els.setupsList.append(new Option('No saved setups in this view', ''));
-  els.setupsList.value = setupsSelected?.id ?? '';
+  els.setupsList.value = visibleSelection;
   if (setupsWriteRecovery) els.setupsList.selectedIndex = -1;
   syncSetups();
 }
@@ -231,6 +234,11 @@ async function checkSetup(item, restore = false) {
 
 function selectSetup(id, userChoice = true) {
   if (setupsPending === 'write') return;
+  if (setupsPending === 'read') {
+    setupSay('Wait for the saved list to arrive.');
+    syncSetups();
+    return;
+  }
   const item = setupsItems.find((entry) => entry.id === id);
   if (!item) return;
   if (!chooseSetupWriteRecovery(userChoice)) { els.setupsList.selectedIndex = -1; return; }
@@ -279,10 +287,10 @@ async function reloadSetups() {
     setupsPending = null;
     if (setupsWriteRecovery) setupsWriteRecovery.needsReload = false;
     renderSetups();
+    els.setupsList.selectedIndex = -1;
     // Rereading never discards an unsaved name or updates an editor revision.
     // Selecting from the refreshed list is the explicit reread of that item.
     if (setupsWriteRecovery) {
-      els.setupsList.selectedIndex = -1;
       setupSay(`List reloaded; your name and composer are unchanged. ${setupWriteRecoveryReason()}`);
       syncSetups();
     } else if (setupsSelected || setupsDirty) setupSay('List reloaded. Select a setup again to read its latest saved revision; your name is kept until then.');

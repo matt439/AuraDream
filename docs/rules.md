@@ -2642,7 +2642,11 @@ Frontend and CLI:
   read occurs. Opening/selecting never writes the composer. Save current makes
   a new setup, Update from current replaces the selected payload, and Rename
   keeps it. Unsaved names survive failures and list reloads; selecting the
-  refreshed item explicitly adopts its latest revision. Save names omitted
+  refreshed item explicitly adopts its latest revision. Collection reads hold
+  list selection without blocking name edits; successful Reload clears only
+  visible selection, preserving the editor until deliberate selection. View
+  toggles retain that visible selection or deliberate blank. Selection during
+  validation still cancels the older check. Save names omitted
   active LoRA/reference/Then refine inputs as a hold. Restore requires the
   exact checkpoint, offers Models on a mismatch, and validates afresh before
   writing. Its reply must still match item/model revisions, the entire draft,
@@ -5951,6 +5955,13 @@ performance, stale item edits and draft/model validation replies, the foreign
 checkpoint hold and Models opener, ordinary grid preview/submission, modal
 keys/focus, page errors and geometry at 1400x900 and 400x650. It uses scratch
 gallery data and synthetic conditioning; no real weights or card run is involved.
+
+`smoke-setup-list-recovery.json` uses a fresh FLUX.1 Krea [dev] fake on
+7938 for native saved-setup list recovery. The final regression covers held
+collection reads, explicit sole-item revision adoption, view toggles,
+validation selection cancellation and close/reopen late replies while keeping
+the composer unchanged. The dated setup-list-recovery review distinguishes
+the initial diagnostic baseline from actual final acceptance.
 
 `tests/test_snippet_portability.py` checks the cold portable codec, exact
 Unicode/multiline/order round trips, strict format/identity fields, duplicate
