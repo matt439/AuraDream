@@ -74,7 +74,9 @@ def date_clause(raw: str) -> tuple[str, list]:
 
     A *local* day: `created_at` is UTC, and an overnight run crosses midnight
     in every timezone, so the day the user means is the one on their clock,
-    converted here. A half-open `>= start AND < end` rather than a LIKE prefix
+    converted here. Both bounds are local calendar midnights: a clock-change
+    day can be shorter or longer than 24 hours. A half-open `>= start AND < end`
+    rather than a LIKE prefix
     - the prefix cannot use the index and would need the UTC date, which is
     the wrong one for anything made after about 4 pm in the Americas or before
     breakfast east of Greenwich. The bounds are formatted the way the rows are
@@ -93,8 +95,13 @@ def date_clause(raw: str) -> tuple[str, list]:
             day = date.fromisoformat(raw)
         except ValueError:
             raise ValueError(f"date: {raw!r} is not YYYY-MM-DD, today or yesterday") from None
-    start = datetime.combine(day, datetime.min.time()).astimezone(timezone.utc)
-    end = start + timedelta(days=1)
+    try:
+        midnight = datetime.combine(day, datetime.min.time())
+        next_midnight = datetime.combine(day + timedelta(days=1), datetime.min.time())
+        start = midnight.astimezone(timezone.utc)
+        end = next_midnight.astimezone(timezone.utc)
+    except OverflowError:
+        raise ValueError(f"date: {raw!r} is out of range") from None
     return "created_at >= ? AND created_at < ?", [start.isoformat(), end.isoformat()]
 
 
