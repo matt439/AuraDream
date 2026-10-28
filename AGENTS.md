@@ -115,6 +115,10 @@ Backend (`backend/`):
   summaries and `api_presets.py` revisioned CRUD/validation, independent of
   gallery maintenance; `web/generation-presets.js` owns explicit composer
   Restore, its whole-draft Undo and the Saved setups dialog
+- `preset_portability.py` - cold raw setup export/digests and explicit file-index
+  merge plans; `schemas_preset_portability.py` owns the native document and
+  choice/preview models; `strict_json.py` bounds only the new UTF-8 document
+  syntax, without changing existing sidecar or snippet readers
 - `snippet_portability.py` - cold portable snippet codec, collection/input
   digests and pure merge plans; `schemas_snippet_portability.py` owns strict
   portable documents and file-index choices; `api_snippets.py` exposes bounded

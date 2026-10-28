@@ -81,6 +81,10 @@ before changing it.
 - `backend/presets.py` - bounded, revisioned named generation/grid drafts in
   their own atomic sidecar; `backend/schemas_presets.py` owns the strict raw
   payload and API capture types
+- `backend/preset_portability.py` - cold raw setup export, digests and explicit
+  file-index merge plans; `backend/schemas_preset_portability.py` owns the native
+  format and choices; `backend/strict_json.py` supplies bounded UTF-8 syntax for
+  that new document, without rerouting existing sidecar or snippet readers
 - `backend/preset_validation.py` - cold Generate/Grid validation and effective
   summaries through ordinary schemas, grid helpers and `applied`; disposable
   random-grid examples never supply saved seeds
@@ -5983,6 +5987,17 @@ size parsing, limits, shape identity and legacy hashes, crop pixels and the
 GAN path, actual-size Resume/Finish/estimates, persistence and source-loss
 cleanup. `smoke-size-crop.json` uses a fresh FLUX.1 Krea [dev] fake on 7917
 for sizes, Resume/sheet axes, crop frames, metadata, Reuse and source views.
+
+`tests/test_preset_portability.py` and `test_strict_json.py` check strict native
+setup documents, raw Generate/Grid preservation, checkpoint-scoped conflict
+candidates, explicit file-index choices, ordered identities/revisions, stale
+replacement refusal and exact final UTF-8 file bounds. The fresh-process codec
+test denies application/model/grid/store/vault/heavy imports and exercises the
+public cold codec and planner; separate UUID/store sentinels prove planning
+does not allocate or persist. UTF-16/32 scratch sidecar read/edit and malformed
+file preservation remain compatible because existing readers are unchanged.
+This foundation activates no transfer API, browser action or model capability;
+`docs/plan-setup-portability.md` owns the remaining stages.
 
 `tests/test_presets.py`, `test_preset_validation.py` and `test_api_presets.py`
 cover strict saved drafts, bounded atomic failure/corruption preservation,
