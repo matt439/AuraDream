@@ -5928,15 +5928,23 @@ their normal continuation; eval remains diagnostic-only. Edge selection,
 launch flags and profiles are unchanged. The [dated tooling review](review-2026-10-28-fatal-prerequisites.md)
 owns ordinary-driver probes and the three bounded scratch setup conversions.
 
+`tests/test_browser_startup_viewport.py` checks actual parsed startup dimensions
+and DPR with captured real harness/helper bodies and poisoned browser/output/
+profile/network effects. Exactly two dimensions must be integers in 1..10000000;
+DPR must be finite and positive. Defaults, compatible numeric spellings and
+fractional DPR remain accepted; later viewport steps keep zero resets. A declared
+observer before the original lookup reports actual VW/VH/DPR without replacing
+guards, and a separate unmodified-path control reaches the poisoned lookup.
+Maximum values are never applied to a browser. This is cold input qualification.
+
 `tests/test_browser_keycombo_preflight.py` executes the actual harness/helper
 bodies with a counted fixture read and poisoned lookup/output/profile/network
-ports. Existing combo, unawaited-helper and startup positivity refusals occur
-before browser discovery or screenshot preparation, with unchanged diagnostics
-and relative priority. Accepted values reach an inert lookup, preserving the
-existing startup numeric/parser policy. Synthetic successful lookup exposes the
-original mkdir-before-refusal ordering; explicit probes verify effect guards.
-All predicates and native dispatch remain unchanged. This covers cold ordering,
-not browser or hardware acceptance.
+ports. Combo, unawaited-helper and startup refusals occur before browser discovery
+or screenshot preparation, with their relative priority preserved. Accepted
+values reach an inert lookup; startup numeric bounds are covered separately.
+Synthetic successful lookup exposes the original mkdir-before-refusal ordering;
+explicit probes verify effect guards. Preparation ordering leaves native dispatch
+unchanged. This covers cold ordering, not browser or hardware acceptance.
 
 `tests/test_browser_step_containers.py` executes captured actual harness/helper
 bodies with one fixture read permitted and browser/output/profile/network effects
@@ -5964,8 +5972,8 @@ reset values and omitted DPR's default of 1 are preserved. Malformed values
 receive a fixed step-indexed refusal before browser discovery, output/profile
 preparation, process creation or network. Valid arrays reach a poisoned lookup;
 these cold tests do not qualify real resizing or browser cleanup. Native API
-refusal still precedes the input read; the startup environment's positive
-viewport/DPR guard and ordinary browser flags are unchanged.
+refusal still precedes the input read. Startup geometry is checked separately;
+ordinary browser flags are unchanged.
 
 `tests/test_fbc_runtime.py` exercises installed FBC hooks and arithmetic on tiny
 CPU blocks in an isolated worker. Only the unrelated optional bitsandbytes backend

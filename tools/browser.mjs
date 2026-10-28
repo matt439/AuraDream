@@ -204,10 +204,16 @@ if (unawaited.length) {
   process.exit(2);
 }
 
-const [VW, VH] = (process.env.AURADREAM_VIEWPORT || '1400x900').split('x').map(Number);
+// Startup uses positive geometry; viewport steps retain their zero resets.
+// Match CDP's integer size bounds before browser flags or metrics are applied.
+const STARTUP_SIZE = (process.env.AURADREAM_VIEWPORT || '1400x900').split('x').map(Number);
+const [VW, VH] = STARTUP_SIZE;
 const DPR = Number(process.env.AURADREAM_DPR || 1);
-if (!(VW > 0 && VH > 0 && DPR > 0)) {
-  console.error('AURADREAM_VIEWPORT is WIDTHxHEIGHT and AURADREAM_DPR a positive number');
+if (STARTUP_SIZE.length !== 2
+    || !Number.isInteger(VW) || VW < 1 || VW > 10000000
+    || !Number.isInteger(VH) || VH < 1 || VH > 10000000
+    || !Number.isFinite(DPR) || DPR <= 0) {
+  console.error('AURADREAM_VIEWPORT needs WIDTHxHEIGHT with integer dimensions in 1..10000000; AURADREAM_DPR needs a finite positive number');
   process.exit(2);
 }
 

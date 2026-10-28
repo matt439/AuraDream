@@ -172,7 +172,8 @@ def test_existing_unawaited_helper_refusals_precede_browser_and_output(tmp_path,
     assert done.stderr == message + '\nPORTS:{"reads":1,"lookups":0,"mkdir":0}\n'
 
 
-STARTUP_MESSAGE = "AURADREAM_VIEWPORT is WIDTHxHEIGHT and AURADREAM_DPR a positive number"
+STARTUP_MESSAGE = ("AURADREAM_VIEWPORT needs WIDTHxHEIGHT with integer dimensions in 1..10000000; "
+                   "AURADREAM_DPR needs a finite positive number")
 
 
 @pytest.mark.parametrize("environment", [
@@ -194,16 +195,25 @@ def test_existing_nonpositive_or_missing_startup_values_refuse_before_preparatio
     {}, {"AURADREAM_VIEWPORT": "", "AURADREAM_DPR": ""},
     {"AURADREAM_VIEWPORT": "2048x1040", "AURADREAM_DPR": "1.25"},
     {"AURADREAM_VIEWPORT": "1x1", "AURADREAM_DPR": "0.5"},
-    # Preserve existing numeric/parser policy; these are not sent to CDP.
-    {"AURADREAM_VIEWPORT": "1400.5x900.5"},
-    {"AURADREAM_VIEWPORT": "Infinityx900", "AURADREAM_DPR": "Infinity"},
-    {"AURADREAM_VIEWPORT": "1400x900xextra"},
 ])
 def test_startup_guard_acceptance_is_unchanged_without_launching(tmp_path, environment):
     done = run_keycombo_cold(tmp_path, [{"expect": "true"}], environment_updates=environment)
     assert done.returncode == 99 and done.stdout == "", done.stdout + done.stderr
     assert done.stderr == ('UNEXPECTED_KEYCOMBO_PREFLIGHT_EFFECT:browser_lookup\n'
                            'PORTS:{"reads":1,"lookups":1,"mkdir":0}\n')
+
+
+@pytest.mark.parametrize("environment", [
+    # DEV17 preserved permissive numeric parsing to isolate relocation. DEV18
+    # now refuses these configurations while retaining the same early boundary.
+    {"AURADREAM_VIEWPORT": "1400.5x900.5"},
+    {"AURADREAM_VIEWPORT": "Infinityx900", "AURADREAM_DPR": "Infinity"},
+    {"AURADREAM_VIEWPORT": "1400x900xextra"},
+])
+def test_previously_permissive_startup_inputs_now_refuse_before_preparation(tmp_path, environment):
+    done = run_keycombo_cold(tmp_path, [{"expect": "true"}], environment_updates=environment)
+    assert done.returncode == 2 and done.stdout == "", done.stdout + done.stderr
+    assert done.stderr == STARTUP_MESSAGE + '\nPORTS:{"reads":1,"lookups":0,"mkdir":0}\n'
 
 
 @pytest.mark.parametrize(("setup", "expression"), [

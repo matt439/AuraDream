@@ -49,10 +49,11 @@ unique. Alt, Control, Meta and Shift keep their masks/order. A space as the
 key and a modifier name as the last key retain their existing acceptance.
 Native key events, focus, flags, profiles, capture and cleanup are unchanged.
 
-Startup's `> 0` and split/destructure policy also stays unchanged, including
-its acceptance of Infinity, fractional dimensions and ignored extra `x`
-fields. Those numeric/parser gaps are outside this relocation; cold controls
-never send them to CDP. With several kinds of bad input, the same earlier
+At DEV17, startup's `> 0` and split/destructure policy stayed unchanged,
+including Infinity, fractional dimensions and ignored extra `x` fields; cold
+controls never sent them to CDP. The subsequent [DEV18 startup guard](review-2026-10-28-startup-viewport.md)
+now refuses those inputs. The three controls remain as refusal checks and the
+startup diagnostic is updated; the preparation-order boundary is retained. With several kinds of bad input, the same earlier
 validator wins. Existing combo/async/startup refusals now precede missing-browser
 or invalid-screenshot-path errors. This changed invalid-input error precedence
 is intentional.
