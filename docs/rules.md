@@ -5928,6 +5928,15 @@ their normal continuation; eval remains diagnostic-only. Edge selection,
 launch flags and profiles are unchanged. The [dated tooling review](review-2026-10-28-fatal-prerequisites.md)
 owns ordinary-driver probes and the three bounded scratch setup conversions.
 
+`tests/test_browser_step_containers.py` executes captured actual harness/helper
+bodies with one fixture read permitted and browser/output/profile/network effects
+poisoned. The document must be an array of non-null, non-array objects before
+browser discovery. Fixed exit-2 diagnostics name every bad step in input order
+without its contents. Empty lists/objects, unknown metadata and existing action
+precedence remain accepted. A combined repository-fixture inventory reaches the
+same cold lookup boundary; it does not execute or qualify individual smokes.
+Malformed JSON and file-read exception handling are unchanged.
+
 `tests/test_browser_port_preflight.py` executes captured real harness/helper
 bodies with fixture reads counted and browser/output/profile/network effects
 poisoned. Invalid environment offsets receive fixed exit 2 before fixture I/O;

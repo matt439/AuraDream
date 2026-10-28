@@ -100,6 +100,21 @@ if (invalidLocalPort) {
   process.exit(2);
 }
 const steps = JSON.parse(text);
+// A non-null primitive or nested-array entry otherwise has no action properties and
+// silently disappears from the run. Validate the whole list before any
+// browser lookup or output/profile preparation; action metadata stays with
+// the existing per-action rules.
+if (!Array.isArray(steps)) {
+  console.error('browser steps must be a JSON array');
+  process.exit(2);
+}
+const invalidSteps = steps.flatMap((step, index) =>
+  step === null || typeof step !== 'object' || Array.isArray(step)
+    ? [`step ${index + 1}: step must be a JSON object`] : []);
+if (invalidSteps.length) {
+  console.error(invalidSteps.join('\n'));
+  process.exit(2);
+}
 // A malformed resize otherwise throws only after the browser and any earlier
 // steps have run. Refuse every declared viewport before browser discovery or
 // output/profile preparation. Keep the documented two/three-number form and
