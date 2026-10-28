@@ -9,9 +9,9 @@ The port table in `AGENTS.md` is the one source: its row gives the port, the
 `--model` (a short name resolved through the line under the table), any
 `--step`, and which smokes share one fake, in the order the row lists them.
 Every fake started here gets a gallery of its own in a new temporary
-directory, so a row's "fresh scratch `--data`" and `--fresh` hold always and
-no fake sees another's planted images. A smoke named alone runs alone on its
-row's fake; `--all` runs every row with its smokes in order.
+directory passed through `--data`, so each row starts with fresh scratch data
+without `--fresh` and no fake sees another's planted images. A smoke named
+alone runs alone on its row's fake; `--all` runs every row with its smokes in order.
 
 `--offset N` moves every port by N (the fake's and, through
 `AURADREAM_PORT_OFFSET`, the smoke's), so a run can sit beside fakes

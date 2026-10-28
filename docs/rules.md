@@ -6616,6 +6616,18 @@ checkpoint id. Under load from parallel rows a timing-sensitive smoke can
 run slower than alone; a failure seen only under `--jobs` is rerun alone
 before it is believed.
 
+Manual `tools/fake_server.py --fresh` creates a new temporary gallery, prints
+its path before application imports, and retains it after shutdown. It never
+removes a previous directory. `--fresh` and explicit `--data` are mutually
+exclusive and refuse together before filesystem/environment startup work.
+Without `--fresh`, the shared `<temp>/auradream-fake` default and explicit
+`--data` paths retain their existing behavior. Explicit/reused data remains
+caller chosen, including any saved backup settings; use genuinely new scratch
+data for credential-cold browser runs. The smoke runner already creates each
+row's new directory and passes only `--data`. `tests/test_fake_server.py`
+checks these argument/data contracts without starting the application; see
+[the fresh-data review](review-2026-10-28-fake-fresh.md).
+
 There is no JavaScript test suite. `web/` is checked in a real browser
 instead: `uv run python tools/fake_server.py` serves the app on 7861 on the
 tests' fake backend (gradient images stamped with seed and steps, a throwaway
