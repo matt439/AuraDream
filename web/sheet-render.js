@@ -466,7 +466,7 @@ function drawSheet() {
     star.tabIndex = -1;
     star.setAttribute('aria-keyshortcuts', 'F');
     star.onclick = () => { void starCell(cell, rec); };
-    syncStar(star, !!rec.favorite);
+    syncStar(star, !!rec.favorite, rec.id);
     cell.append(img, star);
     markReference(cell, referenceAt(rec.id));
     if (badge && rec.refine != null) {

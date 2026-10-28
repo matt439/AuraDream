@@ -4581,7 +4581,14 @@ Frontend and CLI:
   `aria-pressed`, the fixed "Star" name, `starTitle`); the title names (F)
   only on a button whose `aria-keyshortcuts` is F. `setFavorite` updates every
   `.card`, `.sheet-cell` and `.result` with the id, and the lightbox only
-  when it shows that record. F passes `{ say: true }` (`galleryKey`,
+  when it shows that record. Individual and picked stars claim every
+  affected id synchronously while their request is pending, through confirmed
+  UI propagation. Overlapping star attempts are held with a reason; disjoint
+  images remain usable. `syncStar` receives the image id even before its button
+  is attached. Only Picked's Star/Unstar items share this hold, and the
+  lightbox changes only its star's hold attributes, with the bin reason first.
+  Error cleanup releases the hold without claiming an unknown write failed or
+  providing cross-tab ordering. F passes `{ say: true }` (`galleryKey`,
   `sheetKey` through `starCell`, and the lightbox's keydown in app.js):
   where focus is not on a `.star` or `#lb-fav`, `sayStar` writes "Starred
   #N" / "Unstarred #N" into a visually hidden polite line - `#star-said`
@@ -6015,6 +6022,13 @@ lost or replaced by 5xx. It covers explicit reconciliation, retained editor
 and revisions, failed reads, Apply/Use current with retained picks, reopening,
 known validation and duplicate-name replacement. The dated saved-search
 recovery review records actual reproduction and final acceptance separately.
+
+`smoke-favorite-write-order.json` uses a fresh FLUX.1 Krea [dev] fake on
+7940 for overlapping same-page favorite actions. Its controlled baseline
+establishes actual stored/write/reply order before implementation; the final
+regression checks shared per-id holds, disjoint progress, explicit subsequent
+actions and current/new star controls. The dated favorite-write-order review
+separates diagnostic defect evidence from final repair acceptance and limits.
 
 `tests/test_snippets.py` covers CRUD, exact text, bounds, malformed-file
 preservation, independent locking, stale/concurrent edits and admission

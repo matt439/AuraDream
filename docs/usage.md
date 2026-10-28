@@ -613,6 +613,10 @@ comparison versions take the rows; refine sweeps include their source.
 labels and settings, and **Export all** includes every pinned slice, splitting
 large exports. For a prompt comparison, use its `job:` scope so version labels
 retain their meaning. Star images directly on the sheet or in the lightbox.
+While a star change is waiting, that image's Star and overlapping **Star
+picked/Unstar picked** actions ask you to wait. Other images and the Picked
+menu's Compare, Bin and Seeds actions remain available. After the change
+finishes, you can deliberately star or unstar it again.
 
 In the lightbox, **Download** beside the zoom controls saves the full-size
 PNG with its settings intact, named by image id, short model name and seed.

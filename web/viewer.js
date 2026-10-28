@@ -294,7 +294,7 @@ function resultFigure(rec) {
   img.onerror = () => { void forgetIfGone(rec.id); };
   const star = tool('☆', '', () => setFavorite(rec, !rec.favorite), 'Star');
   star.classList.add('star');
-  syncStar(star, !!rec.favorite);
+  syncStar(star, !!rec.favorite, rec.id);
   const refine = tool('⤢', '', () => refineResult(rec, tile));
   refine.classList.add('refine-tool');
   syncRefineTool(refine);
@@ -341,7 +341,7 @@ function resultSide(rec, figure) {
   const star = action(tool('☆', '', () => setFavorite(rec, !rec.favorite)));
   star.classList.add('star');
   star.dataset.word = 'Star';
-  syncStar(star, !!rec.favorite);
+  syncStar(star, !!rec.favorite, rec.id);
   const refine = action(tool('⤢ Refine…', '', () => refineResult(rec, figure.querySelector('.tile'))));
   refine.classList.add('refine-tool');
   syncRefineTool(refine);

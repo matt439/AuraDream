@@ -4,6 +4,31 @@
 // Declarations only; state.js has the shared-global load-order contract.
 'use strict';
 
+// An ordinary same-page favorite request owns these ids until its response is
+// applied. A refusal/error releases the hold; it proves no cross-tab ordering
+// or unknown-outcome recovery and never triggers an automatic retry.
+const favoriteWriteIds = new Set();
+
+function favoriteWriteReason(ids) {
+  return ids.some((id) => favoriteWriteIds.has(id))
+    ? 'Wait for the current star change to finish' : '';
+}
+
+function syncFavoriteWriteHolds(ids) {
+  for (const id of ids) {
+    const shown = `.card[data-id="${id}"], .sheet-cell[data-id="${id}"], .result[data-id="${id}"]`;
+    document.querySelectorAll(shown).forEach((element) => {
+      element.querySelectorAll('.star').forEach((star) => {
+        // Use the displayed confirmed value: a sheet source can be absent
+        // from recordsWithId until starCell resumes after setFavorite.
+        syncStar(star, star.getAttribute('aria-pressed') === 'true', id);
+      });
+    });
+  }
+  if (els.lightbox.open && ids.includes(lbList[lbIndex]?.id)) syncLightboxFavoriteHold();
+  syncPickedButton();
+}
+
 // The same image can be on the page more than once - in the viewer, in the
 // gallery grid, on the sheet, in the lightbox - as separate record objects
 // fetched at different times, or retained as a pick after its card leaves
@@ -23,31 +48,41 @@ async function setFavorite(rec, value, { say = false } = {}) {
   // The server refuses a star in the recycle bin as an unknown image, which
   // below would forget the card; said instead (bin.js).
   if (refuseBinned(rec, 'star')) return;
+  const ids = [rec.id];
+  const held = favoriteWriteReason(ids);
+  if (held) { showError(held + '.', true, { slot: els.galleryError }); return; }
+  for (const id of ids) favoriteWriteIds.add(id);
   try {
-    await api(`/api/images/${rec.id}/favorite?value=${value}`, { method: 'POST' });
-  } catch (err) {
-    // A star is a gallery control, and says what went wrong where they do -
-    // not in the panel's line a column away (the lightbox's line mirrors it).
-    if (!/unknown image/.test(err.message)) {
-      showError(err.message, false, { slot: els.galleryError });
+    syncFavoriteWriteHolds(ids);
+    try {
+      await api(`/api/images/${rec.id}/favorite?value=${value}`, { method: 'POST' });
+    } catch (err) {
+      // A star is a gallery control, and says what went wrong where they do -
+      // not in the panel's line a column away (the lightbox's line mirrors it).
+      if (!/unknown image/.test(err.message)) {
+        showError(err.message, false, { slot: els.galleryError });
+        return;
+      }
+      // Deleted elsewhere - another tab - while this page still showed it: said
+      // as ⌦ says it in the same case, and forgotten everywhere (forgetImages)
+      // rather than left on the page to be starred again. "unknown image" in
+      // the panel's line said neither, and stayed on under the next image.
+      const fromLightbox = els.lightbox.open;
+      const said = `#${rec.id} was already deleted.${forgetImages([rec.id])}`;
+      if (fromLightbox && els.lightbox.open) noteLightboxDelete(said);
+      else showError(said, true, { slot: els.galleryError });
+      // The Runs picker counts images, as after ⌦.
+      loadRuns();
       return;
     }
-    // Deleted elsewhere - another tab - while this page still showed it: said
-    // as ⌦ says it in the same case, and forgotten everywhere (forgetImages)
-    // rather than left on the page to be starred again. "unknown image" in
-    // the panel's line said neither, and stayed on under the next image.
-    const fromLightbox = els.lightbox.open;
-    const said = `#${rec.id} was already deleted.${forgetImages([rec.id])}`;
-    if (fromLightbox && els.lightbox.open) noteLightboxDelete(said);
-    else showError(said, true, { slot: els.galleryError });
-    // The Runs picker counts images, as after ⌦.
-    loadRuns();
-    return;
+    markFavorite(rec.id, value);
+    // A star with focus says its own new state (aria-pressed); anywhere else
+    // F changed a button nobody was on, and nothing was heard.
+    if (say && !document.activeElement?.matches?.('.star, #lb-fav')) sayStar(rec, value);
+  } finally {
+    for (const id of ids) favoriteWriteIds.delete(id);
+    syncFavoriteWriteHolds(ids);
   }
-  markFavorite(rec.id, value);
-  // A star with focus says its own new state (aria-pressed); anywhere else
-  // F changed a button nobody was on, and nothing was heard.
-  if (say && !document.activeElement?.matches?.('.star, #lb-fav')) sayStar(rec, value);
 }
 
 // A star the server has taken, on every record that carries the id and every
@@ -60,7 +95,7 @@ function markFavorite(id, value) {
   const shown = `.card[data-id="${id}"], .sheet-cell[data-id="${id}"], .result[data-id="${id}"]`;
   document.querySelectorAll(shown).forEach((el) => {
     el.classList.toggle('fav', value);
-    el.querySelectorAll('.star').forEach((star) => syncStar(star, value));
+    el.querySelectorAll('.star').forEach((star) => syncStar(star, value, id));
   });
   if (els.lightbox.open && lbList[lbIndex]?.id === id) renderLightbox();
 }
@@ -81,27 +116,36 @@ async function starPicked(value) {
   const slot = { slot: els.galleryError };
   const ids = selectedIds();
   if (!ids.length) { showError(`${PICKED_NONE}.`, true, slot); return; }
-  let result;
+  const held = favoriteWriteReason(ids);
+  if (held) { showError(held + '.', true, slot); return; }
+  for (const id of ids) favoriteWriteIds.add(id);
   try {
-    result = await api('/api/images/favorite', {
-      method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ ids, value }),
-    });
-  } catch (err) {
-    showError(err.message, false, slot);
-    return;
+    syncFavoriteWriteHolds(ids);
+    let result;
+    try {
+      result = await api('/api/images/favorite', {
+        method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ ids, value }),
+      });
+    } catch (err) {
+      showError(err.message, false, slot);
+      return;
+    }
+    const { changed, already, binned, missing } = result;
+    for (const id of [...changed, ...already]) markFavorite(id, value);
+    const also = (binned.length ? forgetImages(binned, { binned: true }) : '')
+      + (missing.length ? forgetImages(missing) : '');
+    const said = [
+      changed.length ? `${value ? 'Starred' : 'Unstarred'} ${namesOrCount(changed)}.` : '',
+      already.length ? `${namesOrCount(already)} ${wasWere(already)} ${value ? 'already starred' : 'not starred'}.` : '',
+      binned.length ? `${namesOrCount(binned)} ${isAre(binned)} in the recycle bin.` : '',
+      missing.length ? `${namesOrCount(missing)} ${wasWere(missing)} already deleted.` : '',
+    ].filter(Boolean).join(' ') + also;
+    showError(said, true, slot);
+    if (binned.length || missing.length) loadRuns();
+  } finally {
+    for (const id of ids) favoriteWriteIds.delete(id);
+    syncFavoriteWriteHolds(ids);
   }
-  const { changed, already, binned, missing } = result;
-  for (const id of [...changed, ...already]) markFavorite(id, value);
-  const also = (binned.length ? forgetImages(binned, { binned: true }) : '')
-    + (missing.length ? forgetImages(missing) : '');
-  const said = [
-    changed.length ? `${value ? 'Starred' : 'Unstarred'} ${namesOrCount(changed)}.` : '',
-    already.length ? `${namesOrCount(already)} ${wasWere(already)} ${value ? 'already starred' : 'not starred'}.` : '',
-    binned.length ? `${namesOrCount(binned)} ${isAre(binned)} in the recycle bin.` : '',
-    missing.length ? `${namesOrCount(missing)} ${wasWere(missing)} already deleted.` : '',
-  ].filter(Boolean).join(' ') + also;
-  showError(said, true, slot);
-  if (binned.length || missing.length) loadRuns();
 }
 
 // Bin picked (the Picked menu): the picked cards into the recycle bin at

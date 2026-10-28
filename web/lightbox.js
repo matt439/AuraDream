@@ -439,6 +439,16 @@ function onPicture(e) {
   return hit === els.lbImg || hit === els.lbSrcImg;
 }
 
+// A request hold changes only this control, not the view, ladder or focus.
+// The bin's reason remains authoritative if the image is binned meanwhile.
+function syncLightboxFavoriteHold(rec = lbList[lbIndex]) {
+  if (!rec) return;
+  const held = rec.binned_at ? 'In the recycle bin: restore it to star it'
+    : favoriteWriteReason([rec.id]);
+  els.lbFav.setAttribute('aria-disabled', String(!!held));
+  els.lbFav.title = held || starTitle(!!rec.favorite, els.lbFav);
+}
+
 function renderLightbox() {
   const rec = lbList[lbIndex];
   if (!rec) { closeLightbox(); return; }
@@ -499,8 +509,7 @@ function renderLightbox() {
   els.lbRestore.hidden = !binned;
   els.lbDelete.textContent = binned ? '⌦ Delete permanently' : '⌦ Delete';
   els.lbDelete.title = binned ? 'Delete permanently (Del)' : 'Move to the recycle bin (Del)';
-  els.lbFav.setAttribute('aria-disabled', String(binned));
-  if (binned) els.lbFav.title = 'In the recycle bin: restore it to star it';
+  syncLightboxFavoriteHold(rec);
   // Kept facts keep their buttons, whose state follows the checkpoint's.
   for (const use of els.lbSettings.querySelectorAll('.lb-use-refs')) syncUseReferences(use);
   // The record, not its model id: a pass's Reuse names the Refine dialog.

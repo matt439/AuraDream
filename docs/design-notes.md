@@ -6738,6 +6738,17 @@ after a toggle from either, or from the sheet. A sheet cell has the card's
 button too (`.sheet-cell .fav-badge`, tabindex -1; The contact sheet), and F
 stars a focused cell.
 
+**Overlapping star replies (2026-10-28, `GAL#9`).** A later opposite
+favorite can commit before an older successful reply reaches the page; applying
+both captured values then showed a starred image whose row was unstarred.
+Individual and picked stars now share a synchronous per-id in-flight hold,
+through confirmed propagation. Disjoint images and non-star Picked actions
+remain available. Hold-only changes do not rebuild the lightbox. The
+[dated review](review-2026-10-28-favorite-write-order.md) records controlled
+write/reply evidence, cache/control coverage and the explicit unknown-outcome
+and cross-tab limits. A latest-issued response token would not prove server
+commit order.
+
 **A card is a group named by its id** (2026-10-05 area review). The card was
 an unnamed div, so of its seven controls only the image ("Open #12: …") and
 Delete named the image: the star and the Reuse, Refine, Reference and Sheet
