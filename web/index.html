@@ -1934,6 +1934,12 @@
     <button type="button" class="ghost" id="snippets-close">Close</button>
   </div>
   <p class="hint" id="snippets-intro">Save your own reusable prompt text. Append or prepend it to a prompt; Ctrl+Z restores the box.</p>
+<div class="snippets-portability">
+  <button type="button" class="ghost" id="snippets-export">Export.</button>
+  <button type="button" class="ghost" id="snippets-import" aria-haspopup="dialog" aria-controls="snippet-import-dialog">Import.</button>
+  <span class="hint">Export files contain personal prompt text.</span>
+  <input type="file" id="snippets-import-file" accept="application/json,.json" hidden>
+</div>
   <div class="snippets-layout">
     <label class="snippets-library">Saved snippets
       <select id="snippets-list" size="6" aria-label="Saved snippets"></select>
@@ -1954,6 +1960,22 @@
     <button type="button" class="primary" id="snippets-insert" aria-disabled="true">Insert</button>
   </div>
   <p id="snippets-status" role="status" aria-live="polite"></p>
+</dialog>
+
+<dialog class="snippet-import-dialog" id="snippet-import-dialog" aria-labelledby="snippet-import-title" aria-describedby="snippet-import-intro">
+  <div class="snippets-head">
+    <h2 id="snippet-import-title">Import prompt snippets</h2>
+    <button type="button" class="ghost" id="snippet-import-close">Cancel</button>
+  </div>
+  <p class="hint" id="snippet-import-intro">Choose Add, Replace or Skip for each file item. Nothing is saved until Import; your prompt boxes and snippet editor stay unchanged.</p>
+  <p id="snippet-import-filename" aria-label="Selected file"></p>
+  <p id="snippet-import-summary" role="status" aria-live="polite">Nothing has been imported.</p>
+  <div id="snippet-import-rows" tabindex="-1" aria-label="Snippet merge choices"></div>
+  <p id="snippet-import-status" role="status" aria-live="polite"></p>
+  <div class="snippet-import-actions">
+    <button type="button" class="ghost" id="snippet-import-preview">Preview</button>
+    <button type="button" class="primary" id="snippet-import-run" aria-disabled="true">Import</button>
+  </div>
 </dialog>
 
 <dialog class="setups-dialog" id="setups-dialog" aria-labelledby="setups-title" aria-describedby="setups-intro">
@@ -2037,6 +2059,7 @@
 <script src="/static/context-menu.js"></script>
 <script src="/static/shortcuts.js"></script>
 <script src="/static/prompt-snippets.js"></script>
+<script src="/static/snippet-import.js"></script>
 <script src="/static/generation-presets.js"></script>
 <script src="/static/app.js"></script>
 </body>

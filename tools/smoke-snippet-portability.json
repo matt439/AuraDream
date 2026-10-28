@@ -1,0 +1,569 @@
+[
+  {
+    "log": "'Portable personal snippets on a fresh scratch FLUX.1 fake: actual export bytes, raw-file preflight, explicit merge, stale/uncertain recovery and retained editor; no real gallery or model.'"
+  },
+  {
+    "navigate": "http://127.0.0.1:7934/"
+  },
+  {
+    "eval": "window.__until = async (fn, ms=20000) => { const end=Date.now()+ms; while(Date.now()<end){try{if(await fn())return true;}catch{} await new Promise(r=>setTimeout(r,40));}return false; };\nwindow.__sp=(name)=>document.getElementById('snippet-import-'+name);\nwindow.__spRow=(index)=>__sp('rows').querySelector('[data-index=\"'+index+'\"]');\nwindow.__spChange=(index,role,value)=>{const field=__spRow(index).querySelector('[data-role=\"'+role+'\"]'); if(!field)throw Error('Missing row control '+index+'/'+role); field.value=value; field.dispatchEvent(new Event(field.tagName==='SELECT'?'change':'input',{bubbles:true}));};\nwindow.__spDocument=(items)=>({format:'auradream.prompt-snippets',version:1,items});\nwindow.__spFile=async(raw,name='auradream-snippets.json')=>{if(__sp('dialog').open){closeSnippetImport();if(!await __until(()=>!__sp('dialog').open))throw Error('Import did not close');await new Promise(r=>setTimeout(r,50));}const input=document.getElementById('snippets-import-file'); const transfer=new DataTransfer();transfer.items.add(new File([raw],name,{type:'application/json'}));input.files=transfer.files;input.dispatchEvent(new Event('change',{bubbles:true}));};\nwindow.__spFields=(name,text,target='prompt')=>({name,text,target});\nwindow.__spPost=(path,body)=>api(path,{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify(body)});\nwindow.__spRead=()=>api('/api/snippets');\nwindow.__spFits=()=>{const e=__sp('dialog'),r=e.getBoundingClientRect();return r.left>=0&&r.top>=0&&r.right<=innerWidth+1&&r.bottom<=innerHeight+1&&e.scrollWidth<=e.clientWidth+1;};\nwindow.__spErrors=[];addEventListener('error',e=>__spErrors.push(e.message));addEventListener('unhandledrejection',e=>__spErrors.push(String(e.reason)));\nwindow.__spBaseApi=api;window.__spImportPosts=0;window.__spPreviewPosts=0;window.__spGenerationCalls=[];\napi=async(path,options)=>{if(path==='/api/snippets/import'&&options?.method==='POST')__spImportPosts++;if(path==='/api/snippets/import/preview')__spPreviewPosts++;if(['/api/generate','/api/grid','/api/refine'].includes(path)&&options?.method==='POST')__spGenerationCalls.push(path);return __spBaseApi(path,options);};window.__spTrackedApi=api;"
+  },
+  {
+    "expect": "__until(()=>document.getElementById('status-dot').className.includes('ready') && !galleryPending && !jobListing)"
+  },
+  {
+    "viewport": [
+      1400,
+      900
+    ]
+  },
+  {
+    "eval": "(async()=>{resetPanel();writeBox(els.prompt,'Composer prompt must stay');writeBox(els.negative,'Composer negative must stay');promptReplaced();persistPanel();window.__spPrompt=els.prompt.value;window.__spNegative=els.negative.value;await __spPost('/api/snippets',__spFields('Style','  exact'+String.fromCharCode(10)+'watercolor '+String.fromCodePoint(0x65e5,0x672c,0x8a9e)+'  '));await __spPost('/api/snippets',__spFields('Style','second local variant'));const list=await __spPost('/api/snippets',__spFields('Negative local','blurry'+String.fromCharCode(10)+' lowres','negative'));window.__spLocals=list.items;})();"
+  },
+  {
+    "click": "#btn-examples"
+  },
+  {
+    "click": "#snippets-menu-item"
+  },
+  {
+    "expect": "__until(()=>els.snippetsDialog.open && snippetsReady && !snippetsPending && snippetsItems.length===3)"
+  },
+  {
+    "eval": "els.snippetsList.value=__spLocals[1].id;els.snippetsList.dispatchEvent(new Event('change',{bubbles:true}));els.snippetsName.value='Dirty editor kept';els.snippetsText.value='  unsaved editor text'+String.fromCharCode(10)+'kept  ';els.snippetsName.dispatchEvent(new Event('input',{bubbles:true}));els.snippetsText.dispatchEvent(new Event('input',{bubbles:true}));window.__spEditor={name:els.snippetsName.value,text:els.snippetsText.value,target:els.snippetsTarget.value,id:snippetsSelected.id,revision:snippetsSelected.revision};"
+  },
+  {
+    "log": "'Export captures the actual HTTP response Blob and fixed download name, excluding the dirty editor and local identity. The synthetic download is intercepted before any OS Downloads write.'"
+  },
+  {
+    "eval": "window.__spCreateURL=URL.createObjectURL;window.__spAnchorClick=HTMLAnchorElement.prototype.click;URL.createObjectURL=(blob)=>{window.__spExportBlob=blob;return __spCreateURL.call(URL,blob);};HTMLAnchorElement.prototype.click=function(){if(this.download==='auradream-snippets.json'){window.__spDownload=this.download;return;}return __spAnchorClick.call(this);};"
+  },
+  {
+    "click": "#snippets-export"
+  },
+  {
+    "expect": "__until(()=>__spExportBlob instanceof Blob && __spDownload==='auradream-snippets.json')"
+  },
+  {
+    "eval": "(async()=>{window.__spExportRaw=await __spExportBlob.text();window.__spExport=JSON.parse(__spExportRaw);URL.createObjectURL=__spCreateURL;HTMLAnchorElement.prototype.click=__spAnchorClick;})();"
+  },
+  {
+    "expect": "__spExport.format==='auradream.prompt-snippets' && __spExport.version===1 && __spExport.items.length===3 && JSON.stringify(Object.keys(__spExport).sort())===JSON.stringify(['format','items','version']) && __spExport.items.every((item,i)=>JSON.stringify(Object.keys(item).sort())===JSON.stringify(['name','target','text'])&&item.name===__spLocals[i].name&&item.text===__spLocals[i].text&&item.target===__spLocals[i].target) && !__spExportRaw.includes('Dirty editor kept')"
+  },
+  {
+    "eval": "window.__spNewName='New <img src=x onerror=window.__spXss=1>';window.__spIncoming=__spDocument([__spFields('Style',__spLocals[0].text),__spFields('style','replacement from file'),__spFields(__spNewName,'  multiline'+String.fromCharCode(10)+('unbroken-token'.repeat(120))+String.fromCharCode(10)+'end  ','negative'),__spFields('Twin','first incoming duplicate'),__spFields('TWIN','second incoming duplicate'),__spFields('Negative local',__spLocals[2].text,'negative')]);window.__spRaw=JSON.stringify(__spIncoming);__spFile(__spRaw,'<img src=x onerror=window.__spXss=1>.json');"
+  },
+  {
+    "expect": "__until(()=>__sp('dialog').open && !snippetImportBusy && snippetImportShown?.rows.length===6)"
+  },
+  {
+    "expect": "JSON.stringify(snippetImportShown.rows.map(row=>row.action))===JSON.stringify(['skip','skip','add','add','add','skip']) && snippetImportShown.add_count===3 && snippetImportShown.replace_count===0 && snippetImportShown.skip_count===3 && snippetImportShown.rows[0].exact_ids.includes(__spLocals[0].id) && snippetImportShown.rows[1].matches.length===2 && snippetImportShown.rows[3].incoming_collisions.includes(4) && snippetImportShown.rows[4].incoming_collisions.includes(3)"
+  },
+  {
+    "expect": "__spRow(1).querySelectorAll('[data-role=local-text]').length===2 && __spRow(1).querySelector('[data-role=replacement]').value==='' && __spRow(2).querySelector('[data-role=incoming-text]').textContent===__spIncoming.items[2].text && __sp('filename').textContent.includes('<img') && __sp('rows').querySelectorAll('img').length===0 && !window.__spXss"
+  },
+  {
+    "eval": "window.__spFooterTop=__sp('run').getBoundingClientRect().top;window.__spBeforeChoicePosts=__spImportPosts;__spChange(0,'action','copy');__spChange(0,'copy-name','  Copied style  ');__spChange(1,'action','replace');"
+  },
+  {
+    "expect": "snippetImportShown===null && __sp('run').getAttribute('aria-disabled')==='true' && __spRow(1).querySelector('[data-role=replacement]').value==='' && __sp('run').title.length>0"
+  },
+  {
+    "click": "#snippet-import-run"
+  },
+  {
+    "expect": "__spImportPosts===__spBeforeChoicePosts && __sp('dialog').open && __sp('status').textContent.length>0"
+  },
+  {
+    "eval": "__spChange(1,'replacement',__spLocals[1].id);"
+  },
+  {
+    "click": "#snippet-import-preview"
+  },
+  {
+    "expect": "__until(()=>!snippetImportBusy && snippetImportShown?.add_count===4 && snippetImportShown?.replace_count===1 && snippetImportShown?.skip_count===1)"
+  },
+  {
+    "expect": "__sp('run').getAttribute('aria-disabled')==='false' && Math.abs(__sp('run').getBoundingClientRect().top-__spFooterTop)<1 && __spFits() && els.prompt.value===__spPrompt && els.negative.value===__spNegative"
+  },
+  {
+    "expect": "[...__sp('rows').querySelectorAll('[data-role=action], [data-role=replacement]')].filter(field=>field.getClientRects().length).every(field=>field.getBoundingClientRect().height>=37) && Math.abs(__spRow(0).querySelector('[data-role=action]').getBoundingClientRect().height-__spRow(0).querySelector('[data-role=copy-name]').getBoundingClientRect().height)<1"
+  },
+  {
+    "shot": "snippet-portability-wide.png"
+  },
+  {
+    "keycombo": [
+      "Control",
+      "Enter"
+    ]
+  },
+  {
+    "expect": "__sp('dialog').open && !busy && __spGenerationCalls.length===0 && __spImportPosts===__spBeforeChoicePosts"
+  },
+  {
+    "viewport": [
+      400,
+      650
+    ]
+  },
+  {
+    "expect": "__spFits() && __sp('run').getBoundingClientRect().bottom<=innerHeight && __sp('close').getBoundingClientRect().bottom<=innerHeight && document.documentElement.scrollWidth<=innerWidth+1"
+  },
+  {
+    "shot": "snippet-portability-narrow.png"
+  },
+  {
+    "viewport": [
+      1400,
+      600
+    ]
+  },
+  {
+    "expect": "__spFits() && __sp('run').getBoundingClientRect().bottom<=innerHeight && __sp('close').getBoundingClientRect().bottom<=innerHeight"
+  },
+  {
+    "shot": "snippet-portability-short.png"
+  },
+  {
+    "viewport": [
+      1400,
+      900
+    ]
+  },
+  {
+    "log": "'Pending commit holds Close/Escape; one atomic response refreshes the list while preserving the unsaved editor and its old selected revision.'"
+  },
+  {
+    "eval": "api=async(path,options)=>{if(path==='/api/snippets/import'&&options?.method==='POST')await new Promise(resolve=>{window.__spReleaseCommit=resolve;});return __spTrackedApi(path,options);};"
+  },
+  {
+    "click": "#snippet-import-run"
+  },
+  {
+    "expect": "__until(()=>snippetImportBusy==='commit' && typeof __spReleaseCommit==='function')"
+  },
+  {
+    "expect": "__sp('close').getAttribute('aria-disabled')==='true' && __sp('run').getAttribute('aria-disabled')==='true'"
+  },
+  {
+    "key": "Escape"
+  },
+  {
+    "expect": "__sp('dialog').open && snippetImportBusy==='commit'"
+  },
+  {
+    "eval": "__spReleaseCommit();"
+  },
+  {
+    "expect": "__until(()=>!__sp('dialog').open && !snippetsPending && snippetsItems.length===7)"
+  },
+  {
+    "eval": "api=__spTrackedApi;window.__spSaved=snippetsItems.map(item=>({...item}));"
+  },
+  {
+    "expect": "document.activeElement===document.getElementById('snippets-import') && els.snippetsDialog.open && els.snippetsName.value===__spEditor.name && els.snippetsText.value===__spEditor.text && els.snippetsTarget.value===__spEditor.target && snippetsSelected.id===__spEditor.id && snippetsSelected.revision===__spEditor.revision && snippetsDirty && els.prompt.value===__spPrompt && els.negative.value===__spNegative"
+  },
+  {
+    "expect": "__spSaved[0].id===__spLocals[0].id && __spSaved[0].revision===1 && __spSaved[0].text===__spLocals[0].text && __spSaved[1].id===__spLocals[1].id && __spSaved[1].revision===2 && __spSaved[1].name==='style' && __spSaved[1].text==='replacement from file' && __spSaved[2].id===__spLocals[2].id && JSON.stringify(__spSaved.slice(3).map(item=>item.name))===JSON.stringify(['Copied style',__spNewName,'Twin','TWIN']) && __spSaved.slice(3).every(item=>item.revision===1&&!__spLocals.some(local=>local.id===item.id)) && new Set(__spSaved.map(item=>item.id)).size===7"
+  },
+  {
+    "expect": "__spSaved[4].target==='negative' && __spSaved[4].text===__spIncoming.items[2].text && __spSaved[3].target==='prompt'"
+  },
+  {
+    "expect": "els.snippetsSave.getAttribute('aria-disabled')==='true' && els.snippetsSave.title.length>0"
+  },
+  {
+    "click": "#snippets-save"
+  },
+  {
+    "expect": "els.snippetsName.value===__spEditor.name && snippetsSelected.revision===1 && snippetsItems.length===7 && els.snippetsStatus.textContent.length>0"
+  },
+  {
+    "eval": "els.snippetsList.value=__spLocals[1].id;els.snippetsList.dispatchEvent(new Event('change',{bubbles:true}));"
+  },
+  {
+    "expect": "snippetsSelected.revision===2 && els.snippetsText.value==='replacement from file' && !snippetsDirty && els.snippetsSave.getAttribute('aria-disabled')==='false'"
+  },
+  {
+    "log": "'A repeated file defaults every exact tuple to Skip. Empty files are valid no-ops and Cancel saves nothing.'"
+  },
+  {
+    "eval": "__spFile(__spRaw);"
+  },
+  {
+    "expect": "__until(()=>!snippetImportBusy && snippetImportShown?.rows.length===6 && snippetImportShown.skip_count===6)"
+  },
+  {
+    "expect": "snippetImportShown.can_import===false && __sp('run').getAttribute('aria-disabled')==='true' && __sp('run').title.length>0"
+  },
+  {
+    "eval": "window.__spNoopPosts=__spImportPosts;"
+  },
+  {
+    "click": "#snippet-import-run"
+  },
+  {
+    "expect": "__spImportPosts===__spNoopPosts && snippetsItems.length===7"
+  },
+  {
+    "eval": "__spFile(JSON.stringify(__spDocument([])));"
+  },
+  {
+    "expect": "__until(()=>!snippetImportBusy && snippetImportShown?.rows.length===0 && !snippetImportShown.can_import)"
+  },
+  {
+    "click": "#snippet-import-close"
+  },
+  {
+    "expect": "__until(()=>!__sp('dialog').open && document.activeElement===document.getElementById('snippets-import'))"
+  },
+  {
+    "eval": "__spFile(JSON.stringify(__spDocument([__spFields('Canceled incoming','never saved')])));"
+  },
+  {
+    "expect": "__until(()=>!snippetImportBusy && snippetImportShown?.can_import)"
+  },
+  {
+    "key": "Escape"
+  },
+  {
+    "expect": "__until(()=>!__sp('dialog').open && document.activeElement===document.getElementById('snippets-import'))"
+  },
+  {
+    "expect": "__until(async()=>{const saved=await __spRead();return saved.items.length===7&&!saved.items.some(item=>item.name==='Canceled incoming');})"
+  },
+  {
+    "log": "'Malformed/duplicate-key/invalid-UTF8/oversized Files are refused without saving. Duplicate-key file text must reach the raw server parser unchanged.'"
+  },
+  {
+    "eval": "__spFile('{\"format\":\"auradream.prompt-snippets\",\"version\":1,\"items\":[],\"items\":[]}');"
+  },
+  {
+    "expect": "__until(()=>__sp('dialog').open && !snippetImportBusy && !snippetImportShown && __sp('status').textContent.length>0)"
+  },
+  {
+    "expect": "__sp('run').getAttribute('aria-disabled')==='true' && snippetsItems.length===7"
+  },
+  {
+    "eval": "__spFile('{not JSON');"
+  },
+  {
+    "expect": "__until(()=>__sp('dialog').open && !snippetImportBusy && !snippetImportShown && __sp('status').textContent.length>0)"
+  },
+  {
+    "eval": "__spFile(new Uint8Array([255]));"
+  },
+  {
+    "expect": "__until(()=>__sp('dialog').open && !snippetImportBusy && !snippetImportShown && __sp('status').textContent.length>0)"
+  },
+  {
+    "eval": "window.__spBeforeOversizePreviews=__spPreviewPosts;__spFile(new Uint8Array(8*1024*1024+1),'oversized.json');"
+  },
+  {
+    "expect": "__until(()=>__sp('dialog').open && !snippetImportBusy && !snippetImportShown && __sp('status').textContent.length>0)"
+  },
+  {
+    "expect": "__spPreviewPosts===__spBeforeOversizePreviews && __sp('run').getAttribute('aria-disabled')==='true'"
+  },
+  {
+    "eval": "__spFile(JSON.stringify({format:'auradream.prompt-snippets',version:2,items:[]}));"
+  },
+  {
+    "expect": "__until(()=>__sp('dialog').open && !snippetImportBusy && !snippetImportShown && __sp('status').textContent.length>0)"
+  },
+  {
+    "expect": "__until(async()=>{const saved=await __spRead();return saved.items.length===7;})"
+  },
+  {
+    "log": "'A stale collection returns409, retains raw file and choices, blocks blind resubmission, and requires a fresh explicit Preview.'"
+  },
+  {
+    "eval": "window.__spStaleRaw=JSON.stringify(__spDocument([__spFields('Stale candidate','incoming after a stale preview')]));__spFile(__spStaleRaw);"
+  },
+  {
+    "expect": "__until(()=>!snippetImportBusy && snippetImportShown?.can_import)"
+  },
+  {
+    "eval": "(async()=>{window.__spStaleChoices=JSON.stringify(snippetImportChoices);await __spPost('/api/snippets',__spFields('Other tab','unrelated external edit'));})();"
+  },
+  {
+    "click": "#snippet-import-run"
+  },
+  {
+    "expect": "__until(()=>!snippetImportBusy && !snippetImportShown && __sp('status').textContent.length>0)"
+  },
+  {
+    "expect": "snippetImportRaw===__spStaleRaw && JSON.stringify(snippetImportChoices)===__spStaleChoices && __sp('run').getAttribute('aria-disabled')==='true'"
+  },
+  {
+    "eval": "window.__spAfterStalePosts=__spImportPosts;"
+  },
+  {
+    "click": "#snippet-import-run"
+  },
+  {
+    "expect": "__spImportPosts===__spAfterStalePosts"
+  },
+  {
+    "click": "#snippet-import-preview"
+  },
+  {
+    "expect": "__until(()=>!snippetImportBusy && snippetImportShown?.can_import)"
+  },
+  {
+    "click": "#snippet-import-run"
+  },
+  {
+    "expect": "__until(()=>!__sp('dialog').open && !snippetsPending && snippetsItems.length===9 && snippetsItems.some(item=>item.name==='Stale candidate'))"
+  },
+  {
+    "log": "'A successful server commit with its response lost remains uncertain. The held button never resends, and fresh matching rows allow deliberate Skip instead of duplicate copies.'"
+  },
+  {
+    "eval": "window.__spLostRaw=JSON.stringify(__spDocument([__spFields('Lost reply','committed exactly once')]));__spFile(__spLostRaw);"
+  },
+  {
+    "expect": "__until(()=>!snippetImportBusy && snippetImportShown?.can_import)"
+  },
+  {
+    "eval": "window.__spLost=false;api=async(path,options)=>{if(path==='/api/snippets/import'&&options?.method==='POST'&&!__spLost){const result=await __spTrackedApi(path,options);window.__spLost=true;throw new TypeError('Synthetic lost commit reply');}return __spTrackedApi(path,options);};window.__spLostChoices=JSON.stringify(snippetImportChoices);"
+  },
+  {
+    "click": "#snippet-import-run"
+  },
+  {
+    "expect": "__until(()=>__spLost && !snippetImportBusy && !snippetImportShown && __sp('status').textContent.toLowerCase().includes('uncertain'))"
+  },
+  {
+    "eval": "api=__spTrackedApi;window.__spAfterLostPosts=__spImportPosts;"
+  },
+  {
+    "expect": "snippetImportRaw===__spLostRaw && JSON.stringify(snippetImportChoices)===__spLostChoices && __sp('run').getAttribute('aria-disabled')==='true'"
+  },
+  {
+    "click": "#snippet-import-run"
+  },
+  {
+    "expect": "__spImportPosts===__spAfterLostPosts"
+  },
+  {
+    "expect": "__until(async()=>{const saved=await __spRead();return saved.items.filter(item=>item.name==='Lost reply').length===1;})"
+  },
+  {
+    "click": "#snippet-import-preview"
+  },
+  {
+    "expect": "__until(()=>!snippetImportBusy && snippetImportRows[0]?.exact_ids.length===1)"
+  },
+  {
+    "expect": "__spRow(0).querySelector('[data-role=local-text]').textContent==='committed exactly once' && __sp('run').getAttribute('aria-disabled')==='true'"
+  },
+  {
+    "eval": "__spChange(0,'action','skip');"
+  },
+  {
+    "click": "#snippet-import-preview"
+  },
+  {
+    "expect": "__until(()=>!snippetImportBusy && snippetImportShown?.skip_count===1 && !snippetImportShown.can_import)"
+  },
+  {
+    "click": "#snippet-import-close"
+  },
+  {
+    "expect": "__until(()=>!__sp('dialog').open && document.activeElement===document.getElementById('snippets-import'))"
+  },
+  {
+    "log": "'An 80-code-point astral copy name passes the same server limit; one more code point is held before Preview. Cancel keeps the destination unchanged.'"
+  },
+  {
+    "eval": "window.__spCopyRaw=JSON.stringify(__spDocument([__spFields('Style',__spLocals[0].text)]));__spFile(__spCopyRaw);"
+  },
+  {
+    "expect": "__until(()=>!snippetImportBusy && snippetImportShown?.skip_count===1)"
+  },
+  {
+    "eval": "__spChange(0,'action','copy');__spChange(0,'copy-name',String.fromCodePoint(0x1F3A8).repeat(81));"
+  },
+  {
+    "expect": "__sp('run').getAttribute('aria-disabled')==='true' && __sp('preview').getAttribute('aria-disabled')==='true'"
+  },
+  {
+    "eval": "__spChange(0,'copy-name',String.fromCodePoint(0x1F3A8).repeat(80));"
+  },
+  {
+    "click": "#snippet-import-preview"
+  },
+  {
+    "expect": "__until(()=>!snippetImportBusy && snippetImportShown?.can_import && snippetImportShown.rows[0].snippet.name===String.fromCodePoint(0x1F3A8).repeat(80))"
+  },
+  {
+    "expect": "__spRow(0).querySelector('[data-role=copy-name]').maxLength>=160 && __sp('run').getAttribute('aria-disabled')==='false'"
+  },
+  {
+    "click": "#snippet-import-close"
+  },
+  {
+    "expect": "__until(()=>!__sp('dialog').open)"
+  },
+  {
+    "log": "'An uncertain successful Add as copy must be chosen again after fresh Preview; retained Copy never silently authorizes a duplicate.'"
+  },
+  {
+    "eval": "__spFile(__spCopyRaw);"
+  },
+  {
+    "expect": "__until(()=>!snippetImportBusy && snippetImportShown?.skip_count===1)"
+  },
+  {
+    "eval": "__spChange(0,'action','copy');__spChange(0,'copy-name','Uncertain copy');"
+  },
+  {
+    "click": "#snippet-import-preview"
+  },
+  {
+    "expect": "__until(()=>!snippetImportBusy && snippetImportShown?.can_import)"
+  },
+  {
+    "eval": "window.__spLostCopy=false;api=async(path,options)=>{if(path==='/api/snippets/import'&&options?.method==='POST'&&!__spLostCopy){const result=await __spTrackedApi(path,options);window.__spLostCopy=true;throw new TypeError('Synthetic lost copy reply');}return __spTrackedApi(path,options);};"
+  },
+  {
+    "click": "#snippet-import-run"
+  },
+  {
+    "expect": "__until(()=>__spLostCopy && !snippetImportBusy && __sp('status').textContent.toLowerCase().includes('uncertain'))"
+  },
+  {
+    "eval": "api=__spTrackedApi;window.__spAfterLostCopyPosts=__spImportPosts;"
+  },
+  {
+    "click": "#snippet-import-run"
+  },
+  {
+    "expect": "__spImportPosts===__spAfterLostCopyPosts"
+  },
+  {
+    "click": "#snippet-import-preview"
+  },
+  {
+    "expect": "__until(()=>!snippetImportBusy && __spRow(0)?.querySelector('[data-role=action]').value==='' && __sp('run').getAttribute('aria-disabled')==='true')"
+  },
+  {
+    "click": "#snippet-import-run"
+  },
+  {
+    "expect": "__spImportPosts===__spAfterLostCopyPosts"
+  },
+  {
+    "eval": "__spChange(0,'action','skip');"
+  },
+  {
+    "click": "#snippet-import-preview"
+  },
+  {
+    "expect": "__until(()=>!snippetImportBusy && snippetImportShown?.skip_count===1 && !snippetImportShown.can_import)"
+  },
+  {
+    "expect": "__until(async()=>{const saved=await __spRead();return saved.items.filter(item=>item.name==='Uncertain copy').length===1&&saved.items.length===11;})"
+  },
+  {
+    "click": "#snippet-import-close"
+  },
+  {
+    "expect": "__until(()=>!__sp('dialog').open && document.activeElement===document.getElementById('snippets-import'))"
+  },
+  {
+    "log": "'Closing a delayed preview and choosing another file ignores the old response and preserves the current filename and rows.'"
+  },
+  {
+    "eval": "window.__spDelayedOnce=false;api=async(path,options)=>{if(path==='/api/snippets/import/preview'&&!__spDelayedOnce){window.__spDelayedOnce=true;const result=await __spTrackedApi(path,options);await new Promise(resolve=>{window.__spReleasePreview=resolve;});return result;}return __spTrackedApi(path,options);};__spFile(JSON.stringify(__spDocument([__spFields('Old late preview','must not replace current')])),'old-late.json');"
+  },
+  {
+    "expect": "__until(()=>snippetImportBusy==='preview' && typeof __spReleasePreview==='function')"
+  },
+  {
+    "click": "#snippet-import-close"
+  },
+  {
+    "expect": "__until(()=>!__sp('dialog').open)"
+  },
+  {
+    "eval": "__spFile(JSON.stringify(__spDocument([__spFields('Current preview','this file stays')])),'current.json');"
+  },
+  {
+    "expect": "__until(()=>!snippetImportBusy && snippetImportShown?.rows[0]?.snippet.name==='Current preview')"
+  },
+  {
+    "eval": "__spReleasePreview();"
+  },
+  {
+    "expect": "__until(()=>!snippetImportBusy && snippetImportShown?.rows[0]?.snippet.name==='Current preview' && __sp('filename').textContent.includes('current.json'))"
+  },
+  {
+    "eval": "api=__spTrackedApi;"
+  },
+  {
+    "click": "#snippet-import-close"
+  },
+  {
+    "expect": "__until(()=>!__sp('dialog').open && document.activeElement===document.getElementById('snippets-import'))"
+  },
+  {
+    "expect": "__spGenerationCalls.length===0 && els.prompt.value===__spPrompt && els.negative.value===__spNegative && __spErrors.length===0"
+  },
+  {
+    "expect": "__until(async()=>{const saved=await __spRead();return saved.items.length===11&&!saved.items.some(item=>['Canceled incoming','Old late preview','Current preview'].includes(item.name));})"
+  },
+  {
+    "log": "'Only explicit insertion changes a composer box: an imported negative is held when unsupported, and an imported prompt copy still supports native Ctrl+Z.'"
+  },
+  {
+    "eval": "els.snippetsList.value=__spSaved[4].id;els.snippetsList.dispatchEvent(new Event('change',{bubbles:true}));window.__spNegDisabled=els.negative.disabled;window.__spNegUnsupported=els.negField.classList.contains('unsupported');els.negative.disabled=true;els.negField.classList.add('unsupported');syncSnippets();"
+  },
+  {
+    "expect": "els.snippetsInsert.getAttribute('aria-disabled')==='true' && els.snippetsInsert.title.includes('negative prompt is unavailable')"
+  },
+  {
+    "click": "#snippets-insert"
+  },
+  {
+    "expect": "els.snippetsDialog.open && els.negative.value===__spNegative && els.prompt.value===__spPrompt"
+  },
+  {
+    "eval": "els.negative.disabled=__spNegDisabled;els.negField.classList.toggle('unsupported',__spNegUnsupported);els.snippetsList.value=__spSaved[3].id;els.snippetsList.dispatchEvent(new Event('change',{bubbles:true}));els.snippetsPlacement.value='append';"
+  },
+  {
+    "click": "#snippets-insert"
+  },
+  {
+    "expect": "__until(()=>!els.snippetsDialog.open && els.prompt.value===__spPrompt+String.fromCharCode(10)+__spLocals[0].text && document.activeElement===els.prompt)"
+  },
+  {
+    "keycombo": [
+      "Control",
+      "z"
+    ]
+  },
+  {
+    "expect": "els.prompt.value===__spPrompt && els.negative.value===__spNegative"
+  },
+  {
+    "click": "#btn-examples"
+  },
+  {
+    "click": "#snippets-menu-item"
+  },
+  {
+    "expect": "__until(()=>els.snippetsDialog.open && snippetsReady && !snippetsPending)"
+  },
+  {
+    "click": "#snippets-close"
+  },
+  {
+    "expect": "__until(()=>!els.snippetsDialog.open && document.activeElement===els.examplesBtn)"
+  },
+  {
+    "eval": "api=__spBaseApi;"
+  }
+]

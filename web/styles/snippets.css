@@ -34,3 +34,54 @@
 @media (max-width: 640px) {
   .snippets-layout { grid-template-columns: minmax(0, 1fr); }
 }
+
+/* Append to styles/snippets.css: the merge scrolls; its actions stay still. */
+.snippets-portability {
+  display: flex; align-items: center; gap: var(--sp-2); flex-wrap: wrap; flex: none;
+}
+.snippets-portability .hint { flex: 1 1 180px; }
+.snippet-import-dialog {
+  width: min(880px, calc(100vw - 2 * var(--gutter)));
+  max-height: calc(100dvh - 2 * var(--gutter));
+  padding: var(--panel-pad); border: 1px solid var(--line-strong);
+  border-radius: var(--r-lg); background: var(--panel); color: var(--text);
+  box-shadow: var(--shadow-pop); overflow: hidden;
+}
+.snippet-import-dialog[open] { display: flex; flex-direction: column; gap: var(--sp-3); }
+.snippet-import-dialog::backdrop { background: rgba(0, 0, 0, 0.6); }
+.snippet-import-dialog > :not(#snippet-import-rows) { flex: none; }
+.snippet-import-dialog p { margin: 0; }
+#snippet-import-filename {
+  max-height: 2lh; overflow: auto; overflow-wrap: anywhere; font-size: var(--fs-body-sm);
+}
+#snippet-import-summary { min-height: 2lh; max-height: 2lh; overflow: auto; font-size: var(--fs-body-sm); }
+#snippet-import-status {
+  min-height: 3lh; max-height: 3lh; overflow-y: auto;
+  font-size: var(--fs-body-sm); white-space: pre-wrap; overflow-wrap: anywhere;
+}
+#snippet-import-rows {
+  min-height: 0; overflow: auto; overscroll-behavior: contain;
+  display: flex; flex-direction: column; gap: var(--sp-3);
+}
+.snippet-import-row {
+  border: 1px solid var(--line); border-radius: var(--r-sm); padding: var(--sp-3);
+  display: flex; flex-direction: column; gap: var(--sp-2); flex: none; min-width: 0;
+}
+.snippet-import-row h3 { margin: 0; font-size: var(--fs-body-sm); overflow-wrap: anywhere; }
+.snippet-import-row pre {
+  margin: 0; max-height: 6lh; overflow: auto; white-space: pre-wrap; overflow-wrap: anywhere;
+  font: inherit; font-size: var(--fs-body-sm); color: var(--text-2);
+}
+.snippet-import-row summary { overflow-wrap: anywhere; font-size: var(--fs-label); }
+.snippet-import-choice { display: flex; gap: var(--sp-2); flex-wrap: wrap; }
+.snippet-import-choice label { display: flex; flex: 1 1 200px; flex-direction: column; gap: var(--sp-1); min-width: 0; font-size: var(--fs-label); }
+.snippet-import-choice label[hidden] { display: none; }
+.snippet-import-choice input, .snippet-import-choice select { width: 100%; min-width: 0; height: var(--h-field); }
+.snippet-import-choice select {
+  padding: 0 var(--sp-2); font: inherit; color: var(--text); background: var(--panel-2);
+  border: 1px solid var(--line-strong); border-radius: var(--r-md);
+}
+.snippet-import-actions { display: flex; justify-content: flex-end; gap: var(--sp-2); }
+@media (max-width: 640px) {
+  .snippet-import-choice label { flex-basis: 100%; }
+}

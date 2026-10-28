@@ -12,6 +12,7 @@ els.pause.onclick = togglePause;
 els.cancelQueued.onclick = cancelQueued;
 initQueueControls();
 initSnippets();
+initSnippetImport();
 initSetups();
 initSavedSearches();
 els.notifyDone.onchange = () => { void toggleJobNotifications(); };

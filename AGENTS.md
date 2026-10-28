@@ -181,6 +181,9 @@ raw composer capture, validated Restore and whole-draft Undo; it queues no work.
 instruction… (the menu item, the dialog, Reuse of an edit and its lineage);
 it never writes the composer's prompt, negative or references.
 
+`snippet-import.js` owns explicit personal-snippet export and the native
+merge dialog; it preserves the editor and prompt boxes, with no automatic retry.
+
 Also: `tools/` (fake server, headless-browser smokes), `tests/`, `wsl/`,
 `docs/`.
 
@@ -474,6 +477,7 @@ node tools/browser.mjs tools/<smoke>.json
 | 7931 | black-forest-labs/FLUX.1-Kontext-dev, fresh scratch `--data` | `smoke-instruction-edit` |
 | 7932 | FLUX.1-Krea-dev, fresh scratch `--data` | `smoke-generation-presets` |
 | 7933 | FLUX.1-Krea-dev, fresh scratch `--data` | `smoke-saved-searches` |
+| 7934 | FLUX.1-Krea-dev, fresh scratch `--data` | `smoke-snippet-portability` |
 
 FLUX.1-Krea-dev is `black-forest-labs/FLUX.1-Krea-dev`; animagine is
 `cagliostrolab/animagine-xl-4.0`.

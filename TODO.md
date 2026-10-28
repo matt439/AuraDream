@@ -8,7 +8,7 @@ The maintainer's working backlog for this personal project: it records what is p
 
 **Aim (2026-10-18):** keep useful work ready for Matt's common workstation tasks. [Reported use](docs/design/preferences.md) guides priority; it does not approve the candidate redesign.
 
-**Ready backlog (updated 2026-10-28):** two `OPEN` rows remain from Matt's request after the [TODO audit](docs/review-2026-10-28-todo.md). Next snippet export/import (`UI#20`); its owner plan defines bounded implementation and CPU/browser acceptance. `DEV#8` separates compiler dependency/lockfile/notices preparation from `PERF#1`'s toolchain/card qualification. Saved gallery searches (`GAL#7`) are built and locally qualified ([plan](docs/plan-saved-searches.md#browser-acceptance)), as are named generation/grid setups (`GEN#27`, [plan](docs/plan-generation-presets.md#browser-acceptance-2026-10-28)). `DEV#4` is complete: PR #15's hosted browser job passed all 77 smokes on main ([tooling](docs/plan-tooling.md#browser-smokes-in-ci)).
+**Remaining backlog (updated 2026-10-28):** two `OPEN` rows remain. Snippet portability (`UI#20`) is implemented and its CPU/browser workflow passes; final post-style screenshot reinspection is blocked by the task artifact directory's read denial ([evidence](docs/plan-snippet-portability.md#stage-3-implementation-and-browser-evidence-2026-10-28)). `DEV#8` has a primary-metadata/opt-in proposal; actual wheel hash/contents/notices and isolated resolution remain after a denied artifact download ([owner](docs/plan-regional-compilation.md#dependency-proposal-and-remaining-artifact-check-2026-10-28)). Neither denied action was retried through another route. No other implementation slice is currently ready; the user/card/decision gates below remain separate.
 
 **Performance stages:** CPU dependency preparation is `DEV#8`, then `PERF#1` ([compilation](docs/plan-regional-compilation.md)), `PERF#3` ([attention](docs/plan-attention-backends.md)) and `PERF#4` ([caching](docs/plan-step-caching.md)). Performance source, bounded diagnostics and Windows browser checks are complete with Eager defaults and closed execution guards; real toolchain/card qualification and nonempty release admission remain. Default-off backups, explicit shared mode/retention and credential source/stubs are built; actual credential/recovery qualification remains. No real gallery was activated. `PERF#2` still waits on `PERF#1`; source implementation is separate from the remaining layout trials.
 
@@ -104,7 +104,7 @@ Matt's approved [shortcut and compact-setup stages](docs/plan-shortcut-workflow.
 | id | status | sev | size | item |
 |---|---|---|---|---|
 | `UI#7` | USER | LOW | M | Hands-on NVDA/Narrator, touch, native notification delivery and actual Windows scaling checks; browser emulation and accessibility-tree inspection do not complete them. [Manual checks](docs/design/validation.md#accessibility-and-desktop-checks). |
-| `UI#20` | OPEN | LOW | M | Portable codec and atomic export/import API built; next explicit browser merge workflow and acceptance. [Plan](docs/plan-snippet-portability.md). |
+| `UI#20` | OPEN | LOW | S | Export/import implementation and CPU/browser workflow pass; final screenshot reinspection remains after an artifact-directory read denial. [Evidence](docs/plan-snippet-portability.md#stage-3-implementation-and-browser-evidence-2026-10-28). |
 
 ## Development tooling
 

@@ -233,7 +233,13 @@ your own named text for Prompt or Negative prompt. **New**, **Save** and
 **Delete** manage the saved list. **Insert** appends or prepends the editor's
 text; Ctrl+Z restores the prompt. Snippets are shared by tabs on this server
 and stay through a gallery clear. They are kept separately from gallery
-bundles, so include the snippets sidecar in a settings backup.
+bundles. **Export.** downloads the saved list as `auradream-snippets.json`;
+the file contains personal prompt text, and excludes an unsaved editor draft.
+**Import.** previews a file before saving. Choose Skip, Add as copy, or Replace
+one explicitly selected saved snippet, then **Preview** any changed choices
+before **Import**. Your prompt boxes and snippet editor stay unchanged.
+If another tab changes the list or a reply is lost, preview again and check
+what is already saved; uncertain copies need a fresh action choice.
 
 **Examples** supplies the authors' prompts; templates select the first slot
 to fill. **Tags**, where available, supplies the checkpoint's own vocabulary

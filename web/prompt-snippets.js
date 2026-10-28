@@ -25,6 +25,7 @@ function snippetFields() {
 function snippetSaveReason() {
   if (snippetsPending) return snippetsPending === 'read' ? 'Wait for the saved list to arrive.' : 'Wait for the snippet to finish saving.';
   if (!snippetsReady) return 'Reopen Snippets to read the saved list before saving.';
+  if (snippetSelectedReason()) return snippetSelectedReason();
   const { name, text } = snippetFields();
   if (!name) return 'Give the snippet a name.';
   if (!text.trim()) return 'Give the snippet some text.';
@@ -53,7 +54,7 @@ function syncSnippets() {
   held(els.snippetsSave, snippetSaveReason(), snippetsSelected ? 'Save changes to this snippet' : 'Save a new snippet');
   const deleteReason = snippetsPending ? 'Wait for the current snippets request.'
     : !snippetsReady ? 'Reopen Snippets to read the saved list.'
-      : !snippetsSelected ? 'Select a saved snippet to delete.' : '';
+      : !snippetsSelected ? 'Select a saved snippet to delete.' : snippetSelectedReason();
   held(els.snippetsDelete, deleteReason, 'Delete only the selected saved snippet');
   held(els.snippetsInsert, snippetInsertReason(), 'Insert the text into the chosen prompt; Ctrl+Z restores it');
   held(els.snippetsNew, snippetsPending === 'write' ? 'Wait for the snippet to finish saving.' : '', 'Start a new snippet');
@@ -61,6 +62,7 @@ function syncSnippets() {
   for (const field of [els.snippetsList, els.snippetsName, els.snippetsText, els.snippetsTarget, els.snippetsPlacement]) {
     field.disabled = snippetsPending === 'write';
   }
+  syncSnippetPortability();
 }
 
 function renderSnippets() {
@@ -79,6 +81,7 @@ function renderSnippets() {
     list.append(option);
   }
   list.value = snippetsSelected?.id || '';
+  if (snippetSelectedReason()) list.selectedIndex = -1;
   syncSnippets();
 }
 
@@ -174,7 +177,7 @@ async function saveSnippet() {
 
 async function deleteSnippet() {
   const selected = snippetsSelected;
-  if (snippetsPending || !snippetsReady || !selected) {
+  if (snippetsPending || !snippetsReady || !selected || snippetSelectedReason()) {
     snippetSay(els.snippetsDelete.title || 'Select a saved snippet first.', true);
     return;
   }

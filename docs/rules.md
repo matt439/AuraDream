@@ -351,7 +351,7 @@ before changing it.
   per version
 - `backend/reindex.py` — rows rebuilt from the PNGs' `auradream` chunk, in place or
   copied in from another gallery; idempotent on the UNIQUE filename
-- `web/` - served as-is from `/static`; `index.html` loads 56 classic
+- `web/` - served as-is from `/static`; `index.html` loads 57 classic
   scripts in order, sharing one global scope; only `app.js`, the last, runs
   the wiring and boot. `state.js` owns shared state; `generation.js`,
   `grid-preview.js`, `job-stream.js` and `job-results.js` handle submission,
@@ -391,6 +391,7 @@ before changing it.
   recycle bin's view, undo note and Empty; `context-menu.js` the right-click
   menu on an image (`styles/context-menu.css`); `shortcuts.js` the keyboard
   help dialog; `prompt-snippets.js` the personal snippet dialog and insertion;
+  `snippet-import.js` the explicit portable export and file-index merge dialog;
   `generation-presets.js` the named generation/grid setup dialog, raw capture,
   explicit validated Restore and whole-draft Undo.
   `saved-searches.js` owns named gallery filters, their native dialog and the
@@ -5961,6 +5962,14 @@ whole-collection and target revision refusals, concurrent writers, complete
 choices, independent databases, raw-body bounds and malformed local-file
 preservation. Write/fsync/replace failures keep the previous sidecar, and
 model/queue/vault work is blocked. Browser workflow qualification remains.
+
+`smoke-snippet-portability.json` uses a fresh FLUX.1 Krea [dev] fake on 7934
+for portable export/merge. It checks the actual export-response
+bytes, file-index conflict choices, stale/uncertain commit recovery, invalid
+files, dirty-editor preservation, modal keys/focus and contained stationary
+controls at desktop/narrow/short sizes. The 183-step Windows workflow passes;
+final screenshot reinspection remains blocked by an artifact-directory read
+denial. Exact evidence and limits live in `docs/plan-snippet-portability.md`.
 
 `tests/test_snippets.py` covers CRUD, exact text, bounds, malformed-file
 preservation, independent locking, stale/concurrent edits and admission

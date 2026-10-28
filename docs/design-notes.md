@@ -7855,6 +7855,17 @@ dialog. Insertion uses `rewriteBox` to preserve page scroll and native Undo;
 the browser harness sends Ctrl+Z's physical key code to exercise that native
 history rather than an application key handler.
 
+Portable snippet files extend that separate sidecar, through explicit
+Export/Import inside the existing dialog (`snippet-import.js`). Files omit
+local identity and settings. The client retains raw JSON so duplicate keys
+reach the bounded server parser. A preview pins the whole saved collection,
+and commit recomputes the selected file-index choices under the existing
+snippet lock before one atomic write. Imports keep prompt boxes and dirty
+editor drafts intact; changed editor revisions need explicit reselection.
+Uncertain responses reload for a new preview and require renewed Copy intent
+instead of silently resending. The [portability owner](plan-snippet-portability.md#stage-3-implementation-and-browser-evidence-2026-10-28)
+records passing CPU/browser checks and the final screenshot-read limitation.
+
 ## Keyboard shortcut help
 
 **Small fast routes and compact setup (2026-10-26).** The same approved follow-up
