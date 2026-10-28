@@ -8,7 +8,7 @@ The maintainer's working backlog for this personal project: it records what is p
 
 **Aim (2026-10-18):** keep useful work ready for Matt's common workstation tasks. [Reported use](docs/design/preferences.md) guides priority; it does not approve the candidate redesign.
 
-**Ready backlog (updated 2026-10-27):** `INP#11` stage 2 is built on the fake, a stub and a real browser: the editing call, `POST /api/instruction-edit` with its per-cell recheck, and the Edit by instruction dialog. The six pinned configs are qualified and their hashes pinned. On the real server, editor loading and execution stay closed (the backend's gate is a literal False and Kontext is off the catalogue). Stage 3's Kontext card trial ran 2026-10-27 and fits; stage 4 (the gate, catalogue entry and replay producers) waits on Matt's review of those numbers. The one `OPEN` row, `DEV#4`, has its hosted browser job and a Linux Segoe UI stand-in carrying Windows' measured widths; Windows browser access was restored 2026-10-27 and the whole smoke table passes again after fixing what had gone stale ([tooling](docs/plan-tooling.md#browser-smokes-in-ci)). Performance source and bounded diagnostics presentation are built; `PERF#1`, `PERF#3` and `PERF#4` are CARD. Marian's token boundary, portable screenshots, the classic-script guard and the complete pinned type gate are built and checked. [Tooling results](docs/plan-tooling.md).
+**Ready backlog (updated 2026-10-28):** `INP#11` stage 2 is built on the fake, a stub and a real browser: the editing call, `POST /api/instruction-edit` with its per-cell recheck, and the Edit by instruction dialog. The six pinned configs are qualified and their hashes pinned. On the real server, editor loading and execution stay closed (the backend's gate is a literal False and Kontext is off the catalogue). Stage 3's Kontext card trial ran 2026-10-27 and fits; stage 4 (the gate, catalogue entry and replay producers) waits on Matt's review of those numbers. No row is `OPEN`: `DEV#4` closed when PR #15 merged 2026-10-28, its hosted `browser` job passing the whole table on Linux Chrome, 77 of 77, on main ([tooling](docs/plan-tooling.md#browser-smokes-in-ci)). Performance source and bounded diagnostics presentation are built; `PERF#1`, `PERF#3` and `PERF#4` are CARD. Marian's token boundary, portable screenshots, the classic-script guard and the complete pinned type gate are built and checked. [Tooling results](docs/plan-tooling.md).
 
 **Performance stages:** `PERF#1` ([compilation](docs/plan-regional-compilation.md)), then `PERF#3` ([attention](docs/plan-attention-backends.md)) and `PERF#4` ([caching](docs/plan-step-caching.md)). Unavailable performance configuration/settings/status/UI are built with Eager defaults and closed execution guards. Composer/replay resolution, first-call diagnostics and Models/job-progress presentation, request-driven FBC and conservative attention-environment refusal are built with synthetic coverage. Subsequent performance work is toolchain/card qualification and nonempty release admission. The Windows browser checks pass again (2026-10-27). Default-off backups, explicit shared mode/retention and credential source/stubs are built; actual credential/recovery qualification remains. No real gallery was activated. `PERF#2` still waits on `PERF#1`; source implementation is separate from the remaining layout trials.
 
@@ -105,14 +105,6 @@ Matt's approved [shortcut and compact-setup stages](docs/plan-shortcut-workflow.
 |---|---|---|---|---|
 | `UI#7` | USER | LOW | M | Hands-on NVDA/Narrator, touch, native notification delivery and actual Windows scaling checks; browser emulation and accessibility-tree inspection do not complete them. [Manual checks](docs/design/validation.md#accessibility-and-desktop-checks). |
 
-## Tooling
-
-**Owner:** [Tooling stages and completion criteria](docs/plan-tooling.md); proposal provenance is in the [2026-10-25 review](docs/review-2026-10-25.md#tooling).
-
-| id | status | sev | size | item |
-|---|---|---|---|---|
-| `DEV#4` | OPEN | LOW | L | The browser CI job and its Linux Segoe UI stand-in are built; the stand-in carries Windows' measured widths (`tools/segoe-widths.json`) and the hosted job passes the whole table, 77 of 77 (PR #15). Closes when PR #15 merges. [Stages](docs/plan-tooling.md#browser-smokes-in-ci). |
-
 ## Review coverage
 
 Each review's remaining work is indexed above; closed findings stay in their owners.
@@ -131,7 +123,7 @@ Each review's remaining work is indexed above; closed findings stay in their own
 | 2026-10-26 keyboard | All three approved stages (`UI#17`-`UI#19`) fixed and qualified, including fast routes and compact setup. [Evidence](docs/plan-shortcut-workflow.md). |
 | 2026-10-26 sizing/Bundles | Password association (`UI#14`), clear-count explanation (`UI#15`) and frequent secondary target sizing (`UI#16`) fixed and qualified. [Evidence and results](docs/review-2026-10-26-sizing-bundles.md). |
 | 2026-10-26 TODO audit | [Owner/code reconciliation](docs/review-2026-10-26-todo.md): Marian chunk truncation (`GEN#26`), portable screenshots (`DEV#7`), restored critic decision (`PA#11`) and bounded tooling/planning stages. |
-| 2026-10-26 overnight | `GEN#26`, `DEV#5`-`DEV#7` built and locally qualified; all four feature plans written. [Tooling evidence](docs/plan-tooling.md). Linux browser qualification remains `DEV#4`; no hosted/GPU acceptance is claimed. |
+| 2026-10-26 overnight | `GEN#26`, `DEV#5`-`DEV#7` built and locally qualified; all four feature plans written. [Tooling evidence](docs/plan-tooling.md). Linux browser qualification (`DEV#4`) closed with PR #15 (hosted, 77 of 77); no GPU acceptance is claimed. |
 | 2026-10-27 decisions | Matt deferred `GEN#20`; the requested [instruction-editing](docs/plan-instruction-editing.md) and [detailer](docs/plan-detailer.md) plans are written. Matt then commissioned starting `INP#11` without the card; `INP#12` remains deferred. `PA#11` closed by keeping critic rewrites available with the existing [omission warning](docs/design-notes.md#open-questions-from-the-analyser). |
 
 ---

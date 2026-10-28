@@ -109,8 +109,8 @@ added.
 
 ## Browser smokes in CI
 
-`DEV#4` · OPEN · LOW · L. Stage 1 diagnostics are implemented; Linux
-qualification and the hosted browser job remain open.
+`DEV#4` · done 2026-10-28. Stages 1-3 are built and qualified: the hosted
+`browser` job passed the whole table on main after PR #15 merged (below).
 
 **Evidence.** `.github/workflows/ci.yml` has an always-run `lint` job and
 a conditional CPU `test` job; documentation-only changes skip the latter
@@ -313,8 +313,9 @@ not changed: Chrome for Testing 153.0.8010.12, Node 22.22.0, 4 cores,
 - With that, the hosted `browser` job passed the whole table, 77 of 77, in
   about 13 minutes on both the push and pull-request runs (PR #15). Earlier
   hosted runs' real failures already showed a failing smoke failing the job
-  with downloadable diagnostics, so nothing remains for `DEV#4` but the
-  merge.
+  with downloadable diagnostics. The merge commit's own run on main
+  (ab832cf, 2026-10-27 23:24 UTC) passed `browser` in 13 minutes beside
+  `lint` and both `test` jobs, which closed `DEV#4`.
 
 ## Backend type checking
 
