@@ -12401,12 +12401,19 @@ Hosted execution remains unverified until this workflow is pushed and run.
 
 ## uv.lock's hand-pinned torch hashes
 
-**`uv.lock` carries hashes for the PyTorch wheels by hand.** The
-`download.pytorch.org` index publishes none for torch 2.13's three wheels or
-the Windows torchvision wheel, so `uv lock` cannot add them; the four were
+**Historical evidence, 2026-09-08:** the four PyTorch wheel hashes were
 downloaded, hashed and checked file-for-file (`RECORD`) against the Windows
-and WSL venvs on 2026-09-08. `uv lock --check` and `--dry-run` accept the
-edited entries; a `uv lock --upgrade` that moves torch will drop them.
+and WSL venvs, then added to the lock by hand because the index did not
+publish them. `uv lock --check` and `--dry-run` accepted those edited entries;
+a lock regeneration can drop them.
+
+**Current check, 2026-10-28:** the lock's three torch 2.13.0+cu130 wheel
+entries and Windows torchvision 0.28.0+cu130 entry have no `hash` field.
+The two Linux torchvision entries do have hashes. No artifact was downloaded
+or rehashed to reconstruct the missing values. Preserve the current lock and
+resolve that discrepancy during the [optional compiler proposal's isolated
+lock review](plan-regional-compilation.md#dependency-proposal-and-remaining-artifact-check-2026-10-28);
+the historical measurement is not proof that the present lock retains it.
 
 ## Verified on the card, 2026-09-08
 

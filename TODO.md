@@ -112,7 +112,7 @@ Matt's approved [shortcut and compact-setup stages](docs/plan-shortcut-workflow.
 
 | id | status | sev | size | item |
 |---|---|---|---|---|
-| `DEV#8` | OPEN | LOW | S | Prepare optional compiler dependency/pin, lockfile treatment and notices without workstation installation or runtime admission. [Scope and acceptance](docs/plan-regional-compilation.md#cpu-dependency-preparation). |
+| `DEV#8` | OPEN | LOW | S | Primary metadata and opt-in/lock proposal recorded; finish actual wheel hash/contents/notices and isolated resolution after the denied download. [Scope and acceptance](docs/plan-regional-compilation.md#cpu-dependency-preparation). |
 
 ## Review coverage
 

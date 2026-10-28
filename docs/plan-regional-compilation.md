@@ -563,6 +563,90 @@ alter WSL, load weights, compile CUDA code or open public execution as part of
 this slice. Actual installation and the qualification protocol below remain
 `PERF#1`; Windows and WSL results are separate.
 
+### Dependency proposal and remaining artifact check (2026-10-28)
+
+Primary metadata still supports **`triton-windows==3.7.1.post27`** as the
+Windows candidate. [PyPI's versioned metadata](https://pypi.org/pypi/triton-windows/3.7.1.post27/json)
+declares the CPython 3.13 x64 wheel
+`triton_windows-3.7.1.post27-cp313-cp313-win_amd64.whl`, 49,684,257 bytes,
+SHA-256 `e8ed215c02afc85a81f0097196f8bebdf6f68085f1bc0fe8771b9a74783f15ab`,
+and Python `>=3.10,<3.15`. Its only runtime dependency is
+`importlib-metadata; python_version < '3.10'`, inactive for this project's
+Python 3.13. No build/test/tutorial extra is needed. The published digest is
+not a locally checked artifact. The [maintainer's matrix](https://github.com/triton-lang/triton-windows#3-pytorch)
+maps torch 2.13 to Triton 3.7 and lists consumer Blackwell sm120; that does
+not qualify this application's torchao/CUDA recipe.
+
+The [tagged toolchain manifest](https://github.com/triton-lang/triton-windows/blob/v3.7.1-windows.post27/cmake/nvidia-toolchain-version.json)
+names ordinary ptxas 12.8.93 and a separate Blackwell ptxas 13.1.80, plus
+cuobjdump/nvdisasm/cudacrt/cudart 13.1.80 and cupti 12.8.90. The tagged
+[NVIDIA compiler](https://github.com/triton-lang/triton-windows/blob/v3.7.1-windows.post27/third_party/nvidia/backend/compiler.py)
+selects ordinary ptxas; the special selector is commented. These are source
+facts, not a wheel inventory. [Tagged setup.py](https://github.com/triton-lang/triton-windows/blob/v3.7.1-windows.post27/setup.py)
+downloads TinyCC `v0.9.28rc-05bb793`. Triton's [MIT license](https://github.com/triton-lang/triton-windows/blob/v3.7.1-windows.post27/LICENSE),
+TinyCC's [LGPL 2.1 notice](https://github.com/woct0rdho/tinycc/blob/05bb793/COPYING)
+and [NVIDIA's CUDA terms](https://docs.nvidia.com/cuda/eula/index.html) are
+distinct; do not label a bundled binary toolchain MIT-only. Actual included
+notices, toolchain paths and RECORD entries still need inspection. The
+maintainer also requires CPython headers/libraries, the VC++ runtime and a
+working driver; `CUDA_PATH`/`CC` can override bundled tools. CPU-targeted
+compilation has separate C++ compiler needs.
+
+The proposed packaging, **not yet applied**, is:
+
+```toml
+[project.optional-dependencies]
+regional-compiler = [
+  "triton-windows==3.7.1.post27; sys_platform == 'win32' and platform_machine == 'AMD64'",
+]
+```
+
+Keep the compiler outside default dependencies/groups, resolved from PyPI;
+retain the explicit CUDA index only for torch/torchvision. After artifact
+inspection and isolated lock review, the proposed explicit install command
+is `uv sync --locked --extra regional-compiler`. Ordinary `uv sync --locked`
+omits the extra and exact sync can remove it. `uv run` is inexact by default
+and may retain an installed extra; request it explicitly with
+`uv run --locked --extra regional-compiler ...` when intended. These are
+[uv's optional dependency](https://docs.astral.sh/uv/concepts/projects/dependencies/#optional-dependencies)
+and [sync semantics](https://docs.astral.sh/uv/concepts/projects/sync/#syncing-optional-dependencies),
+not commands run during this task. The extra does not exist in the current
+project and must not be advertised as ready to install.
+
+Validate the future change in a scratch copy of project/lock metadata with
+scratch `UV_CACHE_DIR` and `UV_PROJECT_ENVIRONMENT`: `uv lock` without
+`--upgrade`, `uv lock --check`, then default/opt-in `uv sync --locked
+--dry-run` comparisons. Only the root optional edge and exact compiler entry
+should be added; review all source/marker/version/hash changes. Do not run
+sync against the workstation environment. Current lock inspection also found
+that the three torch wheel entries and Windows torchvision entry lack the
+historical hand-added hashes described in the design notes. Do not invent
+or restore them without artifact verification; preserve the current lock
+while this discrepancy is unresolved.
+
+**Separate Linux/WSL account.** `uv.lock` already has official Linux
+`triton==3.7.1` through torch. Its CPython 3.13 x86_64 manylinux 2.27/2.28
+wheel is 197,729,241 bytes, SHA-256
+`58c0e131da05134a2a4788ccbcc0c1105cf0f54c8e98f19e34cd465396dc15eb`,
+matching [the published metadata](https://pypi.org/pypi/triton/3.7.1/json).
+Do not add triton-windows on Linux: both provide the `triton` namespace.
+No WSL command or installation was attempted. Its actual compiler/headers,
+driver and ext4 cache ownership remain separately unverified; keep
+`wsl/env.sh`'s `TORCH_DISABLE_NATIVE_JIT=1` workaround and do not infer that
+it removes Inductor's C compiler requirement. The Nunchaku default is also
+outside the first fp8/model-offload regional candidate.
+
+**Remaining blocker.** `Invoke-WebRequest` of the exact
+[published Windows wheel](https://files.pythonhosted.org/packages/ec/28/f0b2801c2cfd79be5878bf429e82b5da00fb78f046a9c21ba946681cc467/triton_windows-3.7.1.post27-cp313-cp313-win_amd64.whl)
+to an isolated task workspace was denied by socket permissions before a
+file was created. No retry/alternate route, install or uncertain package
+operation followed. Actual wheel hash/metadata/RECORD/notices and isolated
+resolution remain unverified. `pyproject.toml`, `uv.lock`, NOTICE/LICENSES
+and all execution guards are unchanged. `DEV#8` remains OPEN. Cold execution,
+candidate, regional-helper and cache tests still pass with no installed
+triton-windows; this proves Eager's existing cold behavior, not a compiler,
+toolchain, cache, GPU or release qualification.
+
 ## Loader, first call and teardown
 
 Keep a small compilation helper separate from the model-specific loaders.
