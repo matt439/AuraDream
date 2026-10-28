@@ -13,7 +13,37 @@ async function nameJob(jobId) {
 // queued was all or nothing. One waiting is one row, "Next:" under the Now
 // line, with no heading over it: a heading and a row kept the queue below a
 // 1040 px window. Rebuilt whole, with focus kept on the row it was on.
-const queueCancelling = new Set();
+// Each queued-cancel press owns its exact ids through the reply. A late
+// failure must leave the accepted request available to ordinary outcome recovery.
+const queueCancelling = new Map();
+const QUEUE_CANCEL_WAIT = 'Wait for queued cancellations to finish';
+let queueCancelRevision = 0;
+let queueCancelChangedAt = 0;
+
+function queueCancellationOwned(jobId) {
+  const owner = queueCancelling.get(jobId);
+  return !!owner && (owner.startedAt == null || serverStartedAt == null || owner.startedAt === serverStartedAt);
+}
+
+function queueCancelReason(jobId = null) {
+  if (jobId !== null) return queueCancellationOwned(jobId) ? 'Wait for this cancellation to finish' : '';
+  return queuedIds.some((id) => id !== currentJob && queueCancellationOwned(id)) ? QUEUE_CANCEL_WAIT : '';
+}
+
+function noteQueueCancellationChange() {
+  queueCancelRevision += 1;
+  queueCancelChangedAt = Date.now();
+}
+
+// Only listing-derived queues use this hold. A confirmed server restart still
+// clears the queue deliberately, and the watched id never becomes its own row.
+function keepQueueCancellations(ids, watched = currentJob) {
+  const next = [...new Set(ids.filter((id) => id !== watched))];
+  for (const id of queuedIds) {
+    if (id !== watched && queueCancellationOwned(id) && !next.includes(id)) next.push(id);
+  }
+  return next;
+}
 // When each queued id was put in the list, so a status asked before then -
 // whose listing could not have it - does not take it out (resyncQueue).
 const queuedAt = new Map();
@@ -43,6 +73,7 @@ function syncQueueFront() {
   button.hidden = false;
   const reason = !busy || !currentJob ? 'No queued job is selected'
     : !queued ? 'Only a queued job can move to front'
+    : queueCancelReason(currentJob) ? queueCancelReason(currentJob)
     : queueMoving !== null ? 'Wait for the queue change to finish'
     : queueFirstId === null ? 'Checking the queue order'
     : queueFirstId === currentJob ? 'This job is already first in the queue' : '';
@@ -90,9 +121,11 @@ function syncQueueNote() {
   els.cancelQueued.hidden = n < 2;
   // A row of another tab's is that tab's work: Cancel queued says it takes
   // those too.
-  els.cancelQueued.title = queuedIds.some((id) => !ownJobs.has(id))
+  const cancelReason = queueCancelReason();
+  els.cancelQueued.setAttribute('aria-disabled', String(!!cancelReason));
+  els.cancelQueued.title = cancelReason || (queuedIds.some((id) => !ownJobs.has(id))
     ? "Cancel every other queued job, another tab's included"
-    : 'Cancel every other queued job';
+    : 'Cancel every other queued job');
   const focused = document.activeElement?.closest?.('#queue-list li')?.dataset.id;
   const action = document.activeElement?.dataset.queueAction ?? 'cancel';
   els.queueList.replaceChildren(...queuedIds.map((id) => queueRow(id, n === 1)));
@@ -121,15 +154,17 @@ function queueRow(jobId, alone) {
   cancel.title = foreign ? "Cancel this job, another tab's, before it starts" : 'Cancel this job before it starts';
   cancel.setAttribute('aria-label', `Cancel ${foreign ? "another tab's " : ''}queued job: ${label}`);
   // Held while its POST runs, as Generate is during its own.
-  cancel.setAttribute('aria-disabled', String(queueCancelling.has(jobId)));
+  const cancelReason = queueCancelReason(jobId);
+  cancel.setAttribute('aria-disabled', String(!!cancelReason));
+  if (cancelReason) cancel.title = cancelReason;
   cancel.onclick = () => { void cancelQueuedJob(jobId); };
   const front = document.createElement('button');
   front.type = 'button';
   front.dataset.queueAction = 'front';
   front.className = 'ghost tiny';
   front.textContent = '↑';
-  const reason = queueMoving !== null ? 'Wait for the queue change to finish'
-    : next ? 'This job is already first in the queue' : '';
+  const reason = queueCancelReason(jobId) || (queueMoving !== null ? 'Wait for the queue change to finish'
+    : next ? 'This job is already first in the queue' : '');
   front.title = reason || 'Move this job to the front of the queue; current work keeps running';
   front.setAttribute('aria-label', `Move ${foreign ? "another tab's " : ''}queued job to front: ${label}`);
   front.setAttribute('aria-disabled', String(!!reason));
@@ -143,6 +178,10 @@ function queueRow(jobId, alone) {
 
 async function moveQueuedFront(jobId) {
   if (queueMoving !== null) return;
+  const why = queueCancelReason(jobId);
+  if (why) { showJobNote(`${why}.`); return; }
+  const cancellationRevision = queueCancelRevision;
+  const startedAt = serverStartedAt;
   const watched = currentJob;
   const asked = Date.now();
   const before = new Set(queuedIds);
@@ -151,6 +190,8 @@ async function moveQueuedFront(jobId) {
   syncQueueNote();
   try {
     const answer = await api(`/api/jobs/${jobId}/front`, { method: 'POST' });
+    if (queueCancelRevision !== cancellationRevision
+      || (startedAt != null && startedAt !== serverStartedAt)) return;
     queueOrderChangedAt = Date.now();
     if (!busy || currentJob !== watched) return;
     const ids = answer.active_jobs ?? [];
@@ -161,10 +202,11 @@ async function moveQueuedFront(jobId) {
       && ((queuedAt.get(id) ?? 0) > asked || !before.has(id)));
     queueFirstId = queueStates.get(jobId) === 'running' ? ordered[0] ?? null : jobId;
     queueWaiting = null;
-    setQueue([...ordered, ...newer]);
+    setQueue(keepQueueCancellations([...ordered, ...newer], watched));
     showJobNote('Moved to the front of the queue. Current work keeps running.');
   } catch (err) {
-    showError(err.message);
+    if (queueCancelRevision === cancellationRevision && busy && currentJob === watched
+      && (startedAt == null || startedAt === serverStartedAt)) showError(err.message);
   } finally {
     queueMoving = null;
     syncQueueNote();
@@ -172,30 +214,61 @@ async function moveQueuedFront(jobId) {
   }
 }
 
-async function cancelQueuedJob(jobId) {
-  if (queueCancelling.has(jobId)) return;
-  queueCancelling.add(jobId);
-  // Asked here: a page watching it says so as a cancel of its own.
+function reserveQueuedCancellation(jobId) {
+  const owner = { startedAt: serverStartedAt };
+  queueCancelling.set(jobId, owner);
+  // Asked here. Without a confirmed reply, this attribution is withdrawn.
   cancelledHere.add(jobId);
-  syncQueueNote();
+  noteQueueCancellationChange();
+  return owner;
+}
+
+async function performQueuedCancellation(jobId, owner) {
+  if (queueCancelling.get(jobId) !== owner) return;
+  // A later member of a serial batch must not send an old job to a new server.
+  if (!queueCancellationOwned(jobId)) {
+    queueCancelling.delete(jobId);
+    cancelledHere.delete(jobId);
+    return;
+  }
+  let settled = false;
+  let failure = null;
   try {
     await api(`/api/jobs/${jobId}/cancel`, { method: 'POST' });
+    settled = true;
   } catch (err) {
-    // Gone already is what was asked for; no answer is not.
-    if (err.offline) {
+    // Gone already is settled. Every other refusal or unreadable/lost reply
+    // leaves the job tracked, because it may still run or owe its outcome.
+    if (err?.status === 404) settled = true;
+    else failure = err;
+  } finally {
+    if (queueCancelling.get(jobId) === owner) {
+      const current = queueCancellationOwned(jobId);
       queueCancelling.delete(jobId);
-      // Never sent: not this page's cancel should the job end cancelled.
-      cancelledHere.delete(jobId);
-      syncQueueNote();
-      showError(err.message);
-      return;
+      if (!current) {
+        cancelledHere.delete(jobId);
+      } else {
+        noteQueueCancellationChange();
+        if (settled) {
+          forgetJob(jobId);
+          // The queue's one writer preserves row focus and newer submissions.
+          setQueue(queuedIds.filter((id) => id !== jobId));
+        } else {
+          cancelledHere.delete(jobId);
+          syncQueueNote();
+          showError(failure?.message || 'Queued cancellation could not be confirmed.');
+        }
+      }
     }
   }
-  queueCancelling.delete(jobId);
-  forgetJob(jobId);
-  // Through the queue's one writer, which keeps focus where the row was: the
-  // next row's ×, else the one before, else Cancel.
-  setQueue(queuedIds.filter((id) => id !== jobId));
+}
+
+async function cancelQueuedJob(jobId) {
+  const why = queueCancelReason(jobId);
+  if (why) { showJobNote(`${why}.`); return; }
+  const owner = reserveQueuedCancellation(jobId);
+  syncQueueNote();
+  await performQueuedCancellation(jobId, owner);
 }
 
 // Once the watched job ends, the next one in the server's queue - oldest
@@ -225,11 +298,12 @@ function unwatchedSubmission(jobId) {
 // submission waits on (startJob) rather than taking the page beside it, and
 // the page is checked again once it answers.
 function adoptListedJob(text) {
+  const cancellationRevision = queueCancelRevision;
   const listing = (async () => {
     try {
       let active;
       try { active = await api('/api/jobs'); } catch { return undefined; }
-      if (busy) return null;
+      if (busy || queueCancelRevision !== cancellationRevision) return null;
       // A short job can end between the previous stream and this listing.
       // Read the bounded server history only for accepted, unseen receipts
       // missing from the active list. Replay one at a time, in receipt order,
@@ -239,12 +313,12 @@ function adoptListedJob(text) {
       if (pending.some((id) => !active.some((job) => job.job_id === id))) {
         let listed;
         try { listed = await api('/api/jobs?include_finished=true'); } catch { /* retry on the next poll */ }
-        if (busy) return null;
+        if (busy || queueCancelRevision !== cancellationRevision) return null;
         if (listed) {
           const byId = new Map(listed.map((job) => [job.job_id, job]));
           active = listed.filter((job) => ['queued', 'running'].includes(job.status));
           for (const id of pending) {
-            if (!unwatchedSubmission(id)) continue;
+            if (queueCancellationOwned(id) || !unwatchedSubmission(id)) continue;
             const job = byId.get(id);
             // Explicitly cancelled rows have been forgotten. A receipt the
             // server lost to a restart/retention cannot be streamed either.
@@ -253,10 +327,14 @@ function adoptListedJob(text) {
           }
         }
       }
-      if (!finished && !active.length) { setQueue([]); return null; }
-      const job = finished ?? active.find((j) => j.status === 'running') ?? active[0];
+      const available = active.filter((job) => !queueCancellationOwned(job.job_id));
+      if (!finished && !available.length) {
+        setQueue(keepQueueCancellations(active.map((job) => job.job_id)));
+        return null;
+      }
+      const job = finished ?? available.find((j) => j.status === 'running') ?? available[0];
       learnJobs(active);
-      setQueue(active.filter((j) => j.job_id !== job.job_id).map((j) => j.job_id));
+      setQueue(keepQueueCancellations(active.filter((j) => j.job_id !== job.job_id).map((j) => j.job_id), job.job_id));
       setBusy(true);
       currentJob = job.job_id;
       setProgressText(text);
@@ -421,7 +499,8 @@ function keepGalleryHead(newest) {
 let queueResyncing = false;
 async function resyncQueue(ids, asked) {
   if (queueResyncing || !currentJob || submitting || jobListing) return;
-  if (queueMoving !== null || asked < queueOrderChangedAt) return;
+  if (queueMoving !== null || asked < queueOrderChangedAt || asked <= queueCancelChangedAt) return;
+  const cancellationRevision = queueCancelRevision;
   const watched = currentJob;
   const previousFirst = queueFirstId;
   const at = ids.indexOf(watched);
@@ -434,7 +513,8 @@ async function resyncQueue(ids, asked) {
       // A move or a different watched job may have superseded this request.
       // Do not let its old statuses or first queued id leak past the guard.
       if (!busy || submitting || jobListing || currentJob !== watched
-        || queueMoving !== null || asked < queueOrderChangedAt) return;
+        || queueMoving !== null || asked < queueOrderChangedAt
+        || queueCancelRevision !== cancellationRevision || asked <= queueCancelChangedAt) return;
       learnJobs(listed);
       ids = listed.map((job) => job.job_id);
     } catch {
@@ -443,7 +523,8 @@ async function resyncQueue(ids, asked) {
       queueResyncing = false;
     }
     if (!busy || submitting || jobListing || currentJob !== watched
-      || queueMoving !== null || asked < queueOrderChangedAt) return;
+      || queueMoving !== null || asked < queueOrderChangedAt
+      || queueCancelRevision !== cancellationRevision || asked <= queueCancelChangedAt) return;
   }
   // A page can watch a queued job while an editor or another tab runs.
   // Moving another queued job ahead must keep it visible, rather than drop
@@ -453,7 +534,7 @@ async function resyncQueue(ids, asked) {
   queueFirstId = first ?? null;
   syncQueueFront();
   const mine = queuedIds.filter((id) => !behind.includes(id) && (queuedAt.get(id) ?? 0) > asked);
-  const next = [...behind, ...mine];
+  const next = keepQueueCancellations([...behind, ...mine], watched);
   // Back where it is shown, a change held for the pointer is gone with it:
   // replayed, a job queued and cancelled elsewhere came in as the pointer
   // left, its × a cancelled job's, and went at the next poll.
@@ -464,7 +545,9 @@ async function resyncQueue(ids, asked) {
   }
   // Under a resting pointer it waits, asked again as it leaves (queuePointer).
   if (queuePointer) { queueWaiting = { ids, asked }; return; }
-  for (const id of queuedIds) if (!next.includes(id) && !unwatchedSubmission(id)) forgetJob(id);
+  for (const id of queuedIds) {
+    if (!next.includes(id) && !queueCancellationOwned(id) && !unwatchedSubmission(id)) forgetJob(id);
+  }
   setQueue(next);
 }
 
@@ -505,17 +588,12 @@ function releaseQueue() {
 }
 
 async function cancelQueued() {
-  const ids = queuedIds.slice();
-  for (const id of ids) {
-    cancelledHere.add(id);
-    try {
-      await api(`/api/jobs/${id}/cancel`, { method: 'POST' });
-    } catch (err) {
-      // Gone already is what was asked for. Not asked at all, it is not this
-      // page's cancel should it end cancelled.
-      if (err.offline) cancelledHere.delete(id);
-    }
-    forgetJob(id);
-  }
-  setQueue(queuedIds.filter((id) => !ids.includes(id)));
+  const why = queueCancelReason();
+  if (why) { showJobNote(`${why}.`); return; }
+  const ids = queuedIds.filter((id) => id !== currentJob);
+  // Claim the whole captured batch before the first await. Rows cannot send
+  // duplicate cancels, and jobs submitted later are outside this press.
+  const owners = ids.map((id) => ({ id, owner: reserveQueuedCancellation(id) }));
+  syncQueueNote();
+  for (const { id, owner } of owners) await performQueuedCancellation(id, owner);
 }

@@ -5954,6 +5954,20 @@ and Finish recovery, ordered rapid receipts, delayed POST/history snapshots,
 transient history retries, cancellation/foreign-job exclusions and no
 historical replay after reload.
 
+`smoke-queue-cancel-recovery.json` uses a fresh FLUX.1 Krea [dev] fake on
+7944 with 0.3 s steps. Seven owned fake-server jobs and controlled offline,
+HTTP500 and malformed-200 JSON replies check row/bulk cancellation ownership,
+retained receipts when terminal jobs leave the active list, partial successes,
+newer submissions and duplicate-request refusal. Held Move success/error replies
+and an unmodified history-read race check obsolete-response rejection before
+fresh GEN25 recovery. A separately declared synthetic local receipt targets a
+non-UUID missing id for the real 404 route. Same-origin one-use mutation grants,
+cold backup status and final zero active/unexpected jobs, forbidden mutations,
+unused grants and JavaScript errors bound the fixture. Cleanup cancels only
+owned jobs; it never deletes or clears gallery data. Wide/narrow screenshots
+require inspection. No real model, GPU, credentials, user gallery or older
+interrupted run is exercised.
+
 `tests/test_prompt_parts.py` covers the reported mixed example, pure tags
 and prose, a prose passage in a majority-tag prompt, known titles and
 concrete validation findings, explicit prefixes and grid variables,

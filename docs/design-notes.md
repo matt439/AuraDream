@@ -4147,6 +4147,16 @@ does not take the viewer. Missing server history is not reconstructed.
 The isolated browser regression covers these transitions; no real GPU or
 device behavior is established by the fake.
 
+**Queued cancellation keeps its receipt until acknowledged.** A row's x and
+Cancel queued reserve their exact ids before sending. Decoded success or an
+explicit missing-job response settles an id; a refused, lost or unreadable
+reply leaves its accepted request tracked for the same once-only outcome
+recovery, with no automatic cancellation retry. Pending rows survive listing
+changes without becoming the watched job's own row. Listing/history replies and Move queue-order snapshots predating a
+cancellation transition cannot settle the newer queue state.
+[The cancellation recovery review](review-2026-10-28-queued-cancel-recovery.md)
+records the source repair and its separately qualified checks.
+
 The [queue controls plan](plan-queue-controls.md) implements `GEN#18`.
 The manager now owns an explicit admission list, rather than relying on the
 gate lock's waiter order. Move to front puts queued work next without

@@ -1,0 +1,351 @@
+[
+  {
+    "log": "\"Queued-cancellation recovery on a fresh owned FLUX fake, port7944 and0.3s steps. Controlled reply failures are labeled separately from real fake-server effects. No GPU, credentials or real gallery. All setup/mutation assertions are fatal.\""
+  },
+  {
+    "navigate": "http://127.0.0.1:7944/"
+  },
+  {
+    "expect": "(() => {\n  const q = window.__qc = {\n    origin: location.origin, realFetch: window.fetch.bind(window), permits: [], events: [],\n    owned: new Set(), synthetic: new Set(), runs: new Set(), ids: {}, gates: new Map(),\n    violations: [], jsErrors: [], failures: [], shown: [], finishes: [], opens: new Map(),\n    holdStatus: false, statusWaiters: [], accepted: [], readonlyPosts: [],\n    holdHistory: false, historyHeld: false, historyWaiting: 0, historyGateWait: null,\n    historyGateRelease: null, historyActualHasRecover: false, historySnapshots: 0, freshHistoryAfterGate: 0,\n    holdFreshHistory: false, freshHistoryWait: null, freshHistoryRelease: null, freshHistoryWaiting: 0,\n  };\n  q.assert = (condition, message) => { if (!condition) throw Error(message); };\n  q.until = async (fn, milliseconds = 45000) => {\n    const end = Date.now() + milliseconds;\n    while (Date.now() < end) {\n      if (fn()) return true;\n      await new Promise(resolve => setTimeout(resolve, 40));\n    }\n    return false;\n  };\n  q.read = async path => {\n    const url = new URL(path, location.href);\n    q.assert(url.origin === q.origin, 'read left the owned origin');\n    const response = await q.realFetch(url.href);\n    q.assert(response.ok, 'owned read refused: ' + url.pathname + ' ' + response.status);\n    return response.json();\n  };\n  q.terminal = async id => {\n    q.assert(q.owned.has(id), 'terminal lookup is not an owned real job');\n    const end = Date.now() + 45000;\n    while (Date.now() < end) {\n      const job = await q.read('/api/jobs/' + id);\n      if (['done', 'error', 'cancelled'].includes(job.status)) return job;\n      await new Promise(resolve => setTimeout(resolve, 40));\n    }\n    throw Error('owned job did not settle: ' + id);\n  };\n  q.row = id => els.queueList.querySelector('li[data-id=\"' + id + '\"] [data-queue-action=\"cancel\"]');\n  q.front = id => [...els.queueList.children].find(row => row.dataset.id === id)?.querySelector('[data-queue-action=front]');\n  q.wires = id => q.events.filter(event => event.path === '/api/jobs/' + id + '/cancel').length;\n  q.safe = () => location.origin === q.origin && q.violations.length === 0\n    && q.jsErrors.length === 0 && q.failures.length === 0 && q.permits.length === 0;\n  q.allow = (path, { tag = path, mode = 'pass', body = null, detail = 'Controlled queued cancellation failure' } = {}) => {\n    const url = new URL(path, location.href);\n    q.assert(url.origin === q.origin, 'permit left the owned origin');\n    const ownedAction = /^\\/api\\/jobs\\/([^/]+)\\/(cancel|pause|front)$/.exec(url.pathname);\n    q.assert(url.pathname === '/api/generate' || url.pathname === '/api/fake/step'\n      || (ownedAction && (q.owned.has(ownedAction[1]) || q.synthetic.has(ownedAction[1]))),\n      'permit targets an unowned mutation: ' + path);\n    q.assert(!q.gates.has(tag), 'permit tag reused: ' + tag);\n    const grant = { path: url.pathname + url.search, tag, mode, detail, body: body === null ? null : JSON.stringify(body),\n      seen: false, responseReady: false, released: !mode.startsWith('hold-') };\n    if (!grant.released) grant.wait = new Promise(resolve => { grant.release = resolve; });\n    q.gates.set(tag, grant);\n    q.permits.push(grant);\n    return grant;\n  };\n  q.release = tag => {\n    const gate = q.gates.get(tag);\n    q.assert(gate && gate.seen && !gate.released, 'no pending owned gate: ' + tag);\n    gate.released = true;\n    gate.release();\n  };\n  q.releaseHistory = () => {\n    q.assert(q.holdHistory && q.historyHeld && q.historyGateRelease, \"no held controlled history snapshot\");\n    q.holdHistory = false;\n    const release = q.historyGateRelease;\n    q.historyGateRelease = null;\n    release();\n  };\n  q.releaseFreshHistory = () => {\n    q.assert(q.holdFreshHistory && q.freshHistoryRelease, \"no held fresh history gate\");\n    q.holdFreshHistory = false;\n    const release = q.freshHistoryRelease;\n    q.freshHistoryRelease = null;\n    release();\n  };\n  q.releaseStatus = () => {\n    q.holdStatus = false;\n    const waiting = q.statusWaiters.splice(0);\n    waiting.forEach(resolve => resolve());\n  };\n  window.addEventListener('error', event => q.jsErrors.push(String(event.message || 'window error')));\n  window.addEventListener('unhandledrejection', event => q.jsErrors.push(String(event.reason)));\n  const realShowError = showError;\n  showError = (...args) => { q.shown.push(String(args[0] ?? '')); return realShowError(...args); };\n  const realFinish = finishJob;\n  finishJob = (id, data, options) => {\n    q.finishes.push({ id, status: data.status, count: data.image_count, error: data.error,\n      submitted: !!options?.submitted, foreign: !!options?.foreign });\n    return realFinish(id, data, options);\n  };\n  const RealEventSource = window.EventSource;\n  window.EventSource = class extends RealEventSource {\n    constructor(url, options) {\n      const address = new URL(url, location.href);\n      const match = /^\\/api\\/jobs\\/([^/]+)\\/stream$/.exec(address.pathname);\n      if (address.origin !== q.origin || !match || !q.owned.has(match[1])) {\n        q.violations.push('unowned event stream: ' + address.pathname);\n        throw Error('event stream is not an owned fake job');\n      }\n      q.opens.set(match[1], (q.opens.get(match[1]) || 0) + 1);\n      super(url, options);\n    }\n  };\n  window.fetch = async (input, options) => {\n    const address = new URL(typeof input === 'string' || input instanceof URL ? input : input.url, location.href);\n    const method = String(options?.method || (input instanceof Request ? input.method : 'GET')).toUpperCase();\n    if (address.origin !== q.origin) {\n      q.violations.push(method + ' off-origin ' + address.href);\n      throw Error('fixture refused an off-origin request');\n    }\n    const path = address.pathname + address.search;\n    if (method === 'GET' || method === 'HEAD') {\n      const response = await q.realFetch(input, options);\n      if (method === 'GET' && path === '/api/jobs?include_finished=true' && q.holdHistory) {\n        const listed = await response.clone().json();\n        q.assert(response.ok && Array.isArray(listed), 'controlled history source did not answer');\n        q.historyActualHasRecover ||= listed.some(job => job.job_id === q.ids.recover);\n        q.historyHeld = true;\n        q.historySnapshots++;\n        q.historyWaiting++;\n        try { await q.historyGateWait; } finally { q.historyWaiting--; }\n        return response;\n      }\n      if (method === 'GET' && path === '/api/jobs?include_finished=true' && q.historyHeld) {\n        q.freshHistoryAfterGate++;\n        if (q.holdFreshHistory) {\n          q.freshHistoryWaiting++;\n          try { await q.freshHistoryWait; } finally { q.freshHistoryWaiting--; }\n        }\n      }\n      if (method === 'GET' && address.pathname === '/api/status' && q.holdStatus) {\n        await new Promise(resolve => q.statusWaiters.push(resolve));\n      }\n      return response;\n    }\n    const finish = /^\\/api\\/runs\\/([^/]+)\\/finish\\/preview$/.exec(address.pathname);\n    if (method === 'POST' && !address.search && (\n      ['/api/grid/preview', '/api/prompt/analyze'].includes(address.pathname)\n      || (finish && q.runs.has(decodeURIComponent(finish[1])))\n    )) {\n      q.readonlyPosts.push(address.pathname);\n      return q.realFetch(input, options);\n    }\n    const body = options?.body ?? null;\n    const at = q.permits.findIndex(grant => grant.path === path\n      && grant.body === (body === null || body === undefined || body === '' ? null : String(body)));\n    if (method !== 'POST' || at < 0) {\n      q.violations.push(method + ' ' + path);\n      throw Error('fixture refused an unapproved mutation: ' + method + ' ' + path);\n    }\n    const grant = q.permits.splice(at, 1)[0];\n    grant.seen = true;\n    const event = { path, tag: grant.tag, mode: grant.mode, forwarded: false };\n    q.events.push(event);\n    const mode = grant.mode.replace(/^hold-/, '');\n    let response;\n    if (mode === 'pass') {\n      event.forwarded = true;\n      response = await q.realFetch(input, options);\n      if (/^\\/api\\/jobs\\/[^/]+\\/front$/.test(address.pathname) && response.ok) {\n        grant.frontIds = (await response.clone().json()).active_jobs;\n      }\n      if (address.pathname === '/api/generate' && response.ok) {\n        const accepted = await response.clone().json();\n        q.assert(typeof accepted.job_id === 'string' && /^[a-f0-9]{12}$/.test(accepted.job_id), 'no real fake job receipt');\n        q.assert(!q.owned.has(accepted.job_id) && !(accepted.more?.length), 'duplicate or split fake submission');\n        q.owned.add(accepted.job_id);\n        q.accepted.push(accepted.job_id);\n        q.assert(typeof grant.submitLabel === 'string' && grant.tag === 'submit-' + grant.submitLabel,\n          'accepted submission has no exact fixture label');\n        grant.acceptedId = accepted.job_id;\n        q.ids[grant.submitLabel] = accepted.job_id;\n        if (typeof accepted.run_id === 'string') q.runs.add(accepted.run_id);\n      }\n    } else if (mode === 'http500') {\n      response = new Response(JSON.stringify({ detail: grant.detail }),\n        { status: 500, headers: { 'Content-Type': 'application/json' } });\n    } else if (mode === 'badjson') {\n      response = new Response('{', { status: 200, headers: { 'Content-Type': 'application/json' } });\n    } else if (mode !== 'offline') {\n      throw Error('unknown fixture response mode');\n    }\n    grant.responseStatus = response?.status ?? null;\n    grant.responseReady = true;\n    if (!grant.released) await grant.wait;\n    if (mode === 'offline') throw new TypeError('Controlled queued cancellation transport loss');\n    return response;\n  };\n  q.submit = async (label, seed, { holder = false, fail = false } = {}) => {\n    const payload = { prompt: 'queue cancellation smoke ' + label + (fail ? ' [fail]' : ''),\n      width: 256, height: 256, steps: holder ? 12 : 1, seed, ...(holder ? { runs: 2 } : {}) };\n    const grant = q.allow('/api/generate', { tag: 'submit-' + label, body: payload });\n    grant.submitLabel = label;\n    const shownAt = q.shown.length, failuresAt = q.failures.length;\n    let refused = '', completed = false;\n    void startJob('/api/generate', payload, {\n      onRefused: error => { refused = String(error?.message ?? error); },\n    }).catch(error => { refused = String(error); q.failures.push(refused); })\n      .finally(() => { completed = true; });\n    const diagnostic = () => JSON.stringify({ label, seen: grant.seen,\n      status: grant.responseStatus ?? null, accepted: grant.acceptedId ?? null,\n      submitting, retained: !!grant.acceptedId && submissions.has(grant.acceptedId),\n      modelState, serverOffline, busy, refused,\n      shown: q.shown.slice(shownAt).filter(Boolean).slice(-2) });\n    q.assert(await q.until(() => {\n      const error = refused || q.failures.slice(failuresAt).join('; ');\n      q.assert(!error, 'submission refused: ' + diagnostic());\n      q.assert(!(grant.responseReady && grant.responseStatus >= 400), 'submission HTTP refusal: ' + diagnostic());\n      if (grant.acceptedId && !submitting && submissions.has(grant.acceptedId)) return true;\n      q.assert(!(completed || (!grant.acceptedId && q.shown.slice(shownAt).some(Boolean))),\n        'submission did not retain an accepted receipt: ' + diagnostic());\n      return false;\n    }), 'submission acceptance timed out: ' + diagnostic());\n    q.assert(q.owned.has(q.ids[label]) && submissions.has(q.ids[label]), 'accepted receipt missing: ' + label);\n    return q.ids[label];\n  };\n  q.pause = async (id, value) => {\n    q.assert(currentJob === id && busy, 'pause targets another watched job');\n    q.assert(els.pause.textContent === (value ? 'Pause' : 'Resume'), 'pause label does not match the intended request');\n    q.allow('/api/jobs/' + id + '/pause?value=' + value, { tag: 'pause-' + id + '-' + value });\n    els.pause.click();\n    q.assert(await q.until(() => value ? skipSnapshot?.paused && els.pause.textContent === 'Resume'\n      : !skipSnapshot?.paused), 'owned pause did not acknowledge');\n  };\n  q.step = async seconds => {\n    const body = { seconds };\n    q.allow('/api/fake/step', { tag: 'step-' + seconds, body });\n    await api('/api/fake/step', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(body) });\n  };\n  return true;\n})()",
+    "fatal": true
+  },
+  {
+    "expect": "__qc.until(() => modelState === \"ready\" && !jobListing && !galleryPending && !submitting)",
+    "fatal": true
+  },
+  {
+    "expect": "(async () => { const q = __qc; const backup = await q.read(\"/api/gallery/automatic-backup\"); const active = await q.read(\"/api/jobs\"); const history = await q.read(\"/api/jobs?include_finished=true\"); const initial = await q.read(\"/api/gallery?all_models=true\"); q.assert(backup.enabled === false && backup.credential_configured === false && backup.credential_state === \"not_configured\", \"fresh backup settings are not cold\"); q.assert(active.length === 0 && history.length === 0 && submissions.size === 0 && queuedIds.length === 0 && !busy, \"fresh page already owns jobs\"); q.assert(initial.total === 2 && initial.items.every(row => row.job_id === \"planted\"), \"fake data is not the fresh two-row gallery\"); q.initial = initial.items.map(row => ({id:row.id, filename:row.filename, prompt:row.prompt, seed:row.seed, favorite:row.favorite, binned_at:row.binned_at, job_id:row.job_id, model_id:row.model_id})); q.composer = JSON.stringify(collect()); q.assert(q.safe(), \"startup guard failed\"); return true; })()",
+    "fatal": true
+  },
+  {
+    "log": "\"One-row offline failure retains its real accepted receipt. A retried real cancellation held after server acknowledgement must retain the row and receipt through an explicit missing-active resync.\""
+  },
+  {
+    "expect": "(async () => { await __qc.submit(\"holderA\", 794400, {holder:true}); return true; })()",
+    "fatal": true
+  },
+  {
+    "expect": "__qc.until(() => currentJob === __qc.ids.holderA && busy && skipSnapshot?.current_call != null)",
+    "fatal": true
+  },
+  {
+    "expect": "(async () => { await __qc.pause(__qc.ids.holderA, true); __qc.assert(__qc.safe(), \"holder pause guard failed\"); return true; })()",
+    "fatal": true
+  },
+  {
+    "expect": "(async () => { await __qc.submit(\"row\", 794410); await __qc.submit(\"recover\", 794420, {fail:true}); __qc.assert(queuedIds.includes(__qc.ids.row) && queuedIds.includes(__qc.ids.recover) && __qc.safe(), \"owned queued receipts not present\"); return true; })()",
+    "fatal": true
+  },
+  {
+    "expect": "(async () => { const q=__qc, id=q.ids.row; q.allow(\"/api/jobs/\"+id+\"/cancel\", {tag:\"row-offline\",mode:\"offline\"}); q.row(id).focus({preventScroll:true}); q.row(id).click(); return true; })()",
+    "fatal": true
+  },
+  {
+    "expect": "__qc.until(() => __qc.gates.get(\"row-offline\").seen && !queueCancelling.has(__qc.ids.row))",
+    "fatal": true
+  },
+  {
+    "expect": "__qc.safe() && __qc.wires(__qc.ids.row) === 1 && submissions.has(__qc.ids.row) && queuedIds.includes(__qc.ids.row) && !cancelledHere.has(__qc.ids.row) && __qc.shown.some(message => message.includes(OFFLINE_MESSAGE))",
+    "fatal": true
+  },
+  {
+    "expect": "(async () => { const q=__qc,id=q.ids.row; q.allow(\"/api/jobs/\"+id+\"/cancel\",{tag:\"row-held-success\",mode:\"hold-pass\"}); q.row(id).focus({preventScroll:true}); q.row(id).click(); return true; })()",
+    "fatal": true
+  },
+  {
+    "expect": "__qc.until(() => __qc.gates.get(\"row-held-success\").responseReady && queueCancelling.has(__qc.ids.row))",
+    "fatal": true
+  },
+  {
+    "expect": "(async () => { const q=__qc; q.row(__qc.ids.row).click(); q.assert(q.safe() && q.wires(q.ids.row)===2 && q.wires(q.ids.recover)===0, \"held row duplicated a cancellation\"); return true; })()",
+    "fatal": true
+  },
+  {
+    "expect": "(async () => { const q=__qc,id=q.ids.row; const ended=await q.terminal(id); q.assert(ended.status===\"cancelled\", \"held actual cancellation did not finish on server\"); const active=await q.read(\"/api/jobs\"); q.assert(active.some(job=>job.job_id===q.ids.holderA) && !active.some(job=>job.job_id===id), \"actual terminal job is still active\"); queuePointer=false; queueWaiting=null; const changed=typeof queueCancelChangedAt===\"number\" ? queueCancelChangedAt : 0; q.assert(await q.until(()=>Date.now()>changed && !queueResyncing && !submitting && !jobListing), \"no fresh resync window\"); await resyncQueue(active.map(job=>job.job_id),Date.now()); q.assert(q.safe() && submissions.has(id) && queuedIds.includes(id) && queueCancelling.has(id), \"pending cancellation lost its row/receipt during resync\"); return true; })()",
+    "fatal": true
+  },
+  {
+    "expect": "(async () => { els.cancelQueued.click(); __qc.assert(__qc.safe() && __qc.wires(__qc.ids.row)===2 && __qc.wires(__qc.ids.recover)===0, \"held bulk press duplicated cancellation\"); return true; })()",
+    "fatal": true
+  },
+  {
+    "expect": "__qc.row(__qc.ids.row)?.getAttribute(\"aria-disabled\") === \"true\" && __qc.row(__qc.ids.row)?.title === \"Wait for this cancellation to finish\" && els.cancelQueued.getAttribute(\"aria-disabled\") === \"true\" && els.cancelQueued.title === \"Wait for queued cancellations to finish\" && !els.cancelQueued.disabled",
+    "fatal": true
+  },
+  {
+    "fullshot": "queue-cancel-pending-wide.png"
+  },
+  {
+    "expect": "(async () => { __qc.release(\"row-held-success\"); return true; })()",
+    "fatal": true
+  },
+  {
+    "expect": "__qc.until(() => !queueCancelling.has(__qc.ids.row) && !submissions.has(__qc.ids.row) && !queuedIds.includes(__qc.ids.row))",
+    "fatal": true
+  },
+  {
+    "expect": "__qc.safe() && __qc.wires(__qc.ids.row)===2 && !__qc.opens.has(__qc.ids.row)",
+    "fatal": true
+  },
+  {
+    "log": "\"A controlled HTTP500 never reaches the server. Its actual accepted job finishes unseen while the cancellation reply is held; after failure the ordinary GEN25 history path must display its real failed outcome exactly once.\""
+  },
+  {
+    "expect": "(async () => { const q=__qc,id=q.ids.recover; q.allow(\"/api/jobs/\"+id+\"/cancel\",{tag:\"recover-held500\",mode:\"hold-http500\"}); q.row(id).focus({preventScroll:true}); q.row(id).click(); return true; })()",
+    "fatal": true
+  },
+  {
+    "expect": "__qc.until(() => __qc.gates.get(\"recover-held500\").responseReady && queueCancelling.has(__qc.ids.recover))",
+    "fatal": true
+  },
+  {
+    "expect": "(async () => { __qc.row(__qc.ids.recover).click(); __qc.assert(__qc.safe() && __qc.wires(__qc.ids.recover)===1, \"held error request duplicated\"); return true; })()",
+    "fatal": true
+  },
+  {
+    "expect": "(async () => { await __qc.step(0); await __qc.pause(__qc.ids.holderA,false); return true; })()",
+    "fatal": true
+  },
+  {
+    "expect": "(async () => { const q=__qc; q.doneA=await q.terminal(q.ids.holderA); q.doneRecover=await q.terminal(q.ids.recover); q.assert(q.doneRecover.image_count===0 && q.doneRecover.error?.includes(\"failed\"), \"real queued failure did not finish\"); q.assert(await q.until(()=>!busy&&!jobListing), \"holder did not finish on the page\"); await refreshStatus(); await watchNext(); q.assert(q.safe() && submissions.has(q.ids.recover) && queuedIds.includes(q.ids.recover) && queueCancelling.has(q.ids.recover) && !watchedJobs.has(q.ids.recover) && !q.opens.has(q.ids.recover), \"pending failed-cancel receipt was adopted or discarded\"); return true; })()",
+    "fatal": true
+  },
+  {
+    "log": "\"Controlled read-race probe: hold an actual unmodified terminal-history reply and ordinary status replies. A public cancellation-helper call at idle changes ownership while adoption awaits that history. The old read must not stream or discard the receipt; a later fresh read settles the actual outcome. This is a controlled source-race probe, not a claim of a physical click on a hidden idle row.\""
+  },
+  {
+    "expect": "(async () => { const q=__qc; q.holdStatus=true; q.holdHistory=true; q.historyGateWait=new Promise(resolve=>q.historyGateRelease=resolve); q.release(\"recover-held500\"); return true; })()",
+    "fatal": true
+  },
+  {
+    "expect": "__qc.until(() => !queueCancelling.has(__qc.ids.recover) && submissions.has(__qc.ids.recover) && !busy)",
+    "fatal": true
+  },
+  {
+    "expect": "(async () => { if(!jobListing) void watchNext(); return true; })()",
+    "fatal": true
+  },
+  {
+    "expect": "__qc.until(() => __qc.historyHeld && __qc.historyWaiting>0 && !busy && !!jobListing && submissions.has(__qc.ids.recover))",
+    "fatal": true
+  },
+  {
+    "expect": "(async () => { const q=__qc,id=q.ids.recover; q.assert(q.safe() && q.historyActualHasRecover && !q.opens.has(id), \"real history/control precondition missing\"); q.obsoleteListing=jobListing; q.allow(\"/api/jobs/\"+id+\"/cancel\",{tag:\"recover-history500\",mode:\"http500\"}); await cancelQueuedJob(id); q.assert(q.safe() && submissions.has(id) && queuedIds.includes(id) && !queueCancelling.has(id) && !cancelledHere.has(id), \"controlled cancellation failed to retain the pending outcome\"); q.holdFreshHistory=true; q.freshHistoryWait=new Promise(resolve=>q.freshHistoryRelease=resolve); q.releaseHistory(); return true; })()",
+    "fatal": true
+  },
+  {
+    "expect": "(async () => { const q=__qc; q.obsoleteListingResult=await q.obsoleteListing; q.assert(await q.until(()=>q.historyWaiting===0), \"old history deliveries did not release\"); return true; })()",
+    "fatal": true
+  },
+  {
+    "expect": "__qc.safe() && __qc.obsoleteListingResult==null && !busy && submissions.has(__qc.ids.recover) && !__qc.opens.has(__qc.ids.recover) && !__qc.finishes.some(job=>job.id===__qc.ids.recover)",
+    "fatal": true
+  },
+  {
+    "expect": "(async () => { __qc.releaseFreshHistory(); __qc.releaseStatus(); void watchNext(); return true; })()",
+    "fatal": true
+  },
+  {
+    "expect": "__qc.until(() => !busy && !jobListing && !queueCancelling.has(__qc.ids.recover) && !submissions.has(__qc.ids.recover) && __qc.finishes.filter(job=>job.id===__qc.ids.recover).length===1)",
+    "fatal": true
+  },
+  {
+    "expect": "__qc.safe() && __qc.historyActualHasRecover && __qc.historySnapshots>=1 && __qc.freshHistoryAfterGate>=1 && !__qc.holdHistory && __qc.historyWaiting===0 && __qc.historyGateRelease===null && !__qc.holdFreshHistory && __qc.freshHistoryWaiting===0 && __qc.freshHistoryRelease===null && __qc.opens.get(__qc.ids.recover)===1 && __qc.finishes.find(job=>job.id===__qc.ids.recover)?.submitted && !__qc.finishes.find(job=>job.id===__qc.ids.recover)?.foreign && __qc.shown.some(message=>message.includes(\"Controlled queued cancellation failure\")) && els.error.textContent.includes(\"[fail]\") && els.finishNote.querySelector(\".finish-run-tool\")?.dataset.run===__qc.doneRecover.run_id",
+    "fatal": true
+  },
+  {
+    "expect": "(async () => { const q=__qc, before=q.finishes.length; await watchNext(); await refreshStatus(); await watchNext(); q.assert(q.safe() && q.finishes.length===before && q.opens.get(q.ids.recover)===1 && !q.opens.has(q.ids.row), \"settled outcome replayed\"); return true; })()",
+    "fatal": true
+  },
+  {
+    "fullshot": "queue-cancel-recovered-wide.png"
+  },
+  {
+    "log": "\"A bulk request owns the captured row set synchronously. A newer submission stays outside it. Duplicate row/bulk presses make no request, confirmed first success settles, and controlled offline second failure keeps only its own receipt.\""
+  },
+  {
+    "expect": "(async () => { await __qc.step(0.3); await __qc.submit(\"holderB\",794430,{holder:true}); return true; })()",
+    "fatal": true
+  },
+  {
+    "expect": "__qc.until(() => currentJob === __qc.ids.holderB && busy && skipSnapshot?.current_call != null)",
+    "fatal": true
+  },
+  {
+    "expect": "(async () => { await __qc.pause(__qc.ids.holderB,true); await __qc.submit(\"bulkFirst\",794440); await __qc.submit(\"bulkFailed\",794450); __qc.assert(__qc.safe(), \"bulk setup guard failed\"); return true; })()",
+    "fatal": true
+  },
+  {
+    "expect": "(async () => { const q=__qc,id=q.ids.bulkFailed; q.allow(\"/api/jobs/\"+id+\"/front\",{tag:\"bulk-held-front\",mode:\"hold-pass\"}); const button=q.front(id); q.assert(button?.getAttribute(\"aria-disabled\")===\"false\", \"owned move is not available\"); button.focus({preventScroll:true}); button.click(); return true; })()",
+    "fatal": true
+  },
+  {
+    "expect": "__qc.until(() => __qc.gates.get(\"bulk-held-front\").responseReady && queueMoving===__qc.ids.bulkFailed)",
+    "fatal": true
+  },
+  {
+    "expect": "__qc.safe() && __qc.gates.get(\"bulk-held-front\").frontIds.join() === [__qc.ids.holderB,__qc.ids.bulkFailed,__qc.ids.bulkFirst].join()",
+    "fatal": true
+  },
+  {
+    "expect": "(async () => { const q=__qc; q.holdStatus=true; q.allow(\"/api/jobs/\"+q.ids.bulkFirst+\"/cancel\",{tag:\"bulk-held-success\",mode:\"hold-pass\"}); q.allow(\"/api/jobs/\"+q.ids.bulkFailed+\"/cancel\",{tag:\"bulk-offline\",mode:\"offline\"}); els.cancelQueued.click(); return true; })()",
+    "fatal": true
+  },
+  {
+    "expect": "__qc.until(() => __qc.gates.get(\"bulk-held-success\").responseReady && queueCancelling.has(__qc.ids.bulkFirst) && queueCancelling.has(__qc.ids.bulkFailed))",
+    "fatal": true
+  },
+  {
+    "expect": "(async () => { const q=__qc; els.cancelQueued.click(); q.row(q.ids.bulkFirst).click(); q.row(q.ids.bulkFailed).focus({preventScroll:true}); q.row(q.ids.bulkFailed).click(); q.assert(q.violations.length===0 && q.wires(q.ids.bulkFirst)===1 && q.wires(q.ids.bulkFailed)===0, \"bulk ownership permitted a duplicate request\"); return true; })()",
+    "fatal": true
+  },
+  {
+    "expect": "(async () => { await __qc.submit(\"newDuringBulk\",794460); const q=__qc; q.assert(q.violations.length===0 && q.permits.length===1 && q.permits[0].tag===\"bulk-offline\" && submissions.has(q.ids.newDuringBulk) && queuedIds.includes(q.ids.newDuringBulk) && !queueCancelling.has(q.ids.newDuringBulk), \"bulk included or lost the newer submission\"); return true; })()",
+    "fatal": true
+  },
+  {
+    "expect": "(async () => { const q=__qc; q.row(q.ids.bulkFailed).focus({preventScroll:true}); q.release(\"bulk-held-success\"); return true; })()",
+    "fatal": true
+  },
+  {
+    "expect": "__qc.until(() => __qc.gates.get(\"bulk-offline\").seen && queueCancelling.size===0)",
+    "fatal": true
+  },
+  {
+    "expect": "__qc.safe() && !submissions.has(__qc.ids.bulkFirst) && !queuedIds.includes(__qc.ids.bulkFirst) && submissions.has(__qc.ids.bulkFailed) && queuedIds.includes(__qc.ids.bulkFailed) && !cancelledHere.has(__qc.ids.bulkFailed) && submissions.has(__qc.ids.newDuringBulk) && queuedIds.includes(__qc.ids.newDuringBulk) && __qc.wires(__qc.ids.bulkFirst)===1 && __qc.wires(__qc.ids.bulkFailed)===1 && __qc.wires(__qc.ids.newDuringBulk)===0 && __qc.shown.filter(message=>message.includes(OFFLINE_MESSAGE)).length>=2",
+    "fatal": true
+  },
+  {
+    "expect": "(async () => { __qc.release(\"bulk-held-front\"); return true; })()",
+    "fatal": true
+  },
+  {
+    "expect": "__qc.until(() => queueMoving===null)",
+    "fatal": true
+  },
+  {
+    "expect": "__qc.safe() && !submissions.has(__qc.ids.bulkFirst) && !queuedIds.includes(__qc.ids.bulkFirst) && queuedIds.includes(__qc.ids.bulkFailed) && queuedIds.includes(__qc.ids.newDuringBulk) && __qc.events.filter(event=>event.tag===\"bulk-held-front\" && event.forwarded).length===1",
+    "fatal": true
+  },
+  {
+    "expect": "document.activeElement.closest(\"li\")?.dataset.id===__qc.ids.bulkFailed && document.activeElement.dataset.queueAction===\"cancel\" && __qc.row(__qc.ids.bulkFailed)?.getAttribute(\"aria-disabled\")===\"false\" && els.cancelQueued.getAttribute(\"aria-disabled\")===\"false\" && JSON.stringify(collect())===__qc.composer",
+    "fatal": true
+  },
+  {
+    "viewport": [
+      600,
+      1000
+    ]
+  },
+  {
+    "expect": "__qc.safe() && skipSnapshot?.paused && queuedIds.includes(__qc.ids.bulkFailed) && queuedIds.includes(__qc.ids.newDuringBulk)",
+    "fatal": true
+  },
+  {
+    "fullshot": "queue-cancel-partial-narrow.png"
+  },
+  {
+    "viewport": [
+      1400,
+      900
+    ]
+  },
+  {
+    "log": "\"A second controlled held Move failure is obsolete after a newer cancellation failure; it cannot overwrite the current cancellation error. Neither controlled failure is forwarded to the server.\""
+  },
+  {
+    "expect": "(async () => { __qc.releaseStatus(); const q=__qc,id=q.ids.newDuringBulk; q.allow(\"/api/jobs/\"+id+\"/front\",{tag:\"stale-front500\",mode:\"hold-http500\",detail:\"Controlled stale Move reply\"}); const button=q.front(id); q.assert(button?.getAttribute(\"aria-disabled\")===\"false\", \"newer owned Move not available\"); button.click(); return true; })()",
+    "fatal": true
+  },
+  {
+    "expect": "__qc.until(() => __qc.gates.get(\"stale-front500\").responseReady && queueMoving===__qc.ids.newDuringBulk)",
+    "fatal": true
+  },
+  {
+    "expect": "(async () => { const q=__qc,id=q.ids.bulkFailed; q.allow(\"/api/jobs/\"+id+\"/cancel\",{tag:\"failed-retry500\",mode:\"http500\"}); q.row(id).click(); return true; })()",
+    "fatal": true
+  },
+  {
+    "expect": "__qc.until(() => __qc.gates.get(\"failed-retry500\").seen && !queueCancelling.has(__qc.ids.bulkFailed))",
+    "fatal": true
+  },
+  {
+    "expect": "(async () => { const q=__qc; q.assert(q.safe() && submissions.has(q.ids.bulkFailed) && queuedIds.includes(q.ids.bulkFailed) && els.error.textContent.includes(\"Controlled queued cancellation failure\"), \"new cancellation failure not retained\"); q.errorAfterFailedRetry=els.error.textContent; q.release(\"stale-front500\"); return true; })()",
+    "fatal": true
+  },
+  {
+    "expect": "__qc.until(() => queueMoving===null)",
+    "fatal": true
+  },
+  {
+    "expect": "__qc.safe() && els.error.textContent===__qc.errorAfterFailedRetry && !__qc.shown.some(message=>message.includes(\"Controlled stale Move reply\")) && queuedIds.includes(__qc.ids.bulkFailed) && queuedIds.includes(__qc.ids.newDuringBulk)",
+    "fatal": true
+  },
+  {
+    "log": "\"A controlled malformed200JSON cancellation reply also retains the owned row/receipt and releases its hold; this response is not forwarded to the server.\""
+  },
+  {
+    "expect": "(async () => { const q=__qc,id=q.ids.bulkFailed; q.errorsBeforeMalformed=q.shown.length; q.allow(\"/api/jobs/\"+id+\"/cancel\",{tag:\"malformed-cancel200\",mode:\"badjson\"}); q.row(id).click(); return true; })()",
+    "fatal": true
+  },
+  {
+    "expect": "__qc.until(() => __qc.gates.get(\"malformed-cancel200\").responseReady && !queueCancelling.has(__qc.ids.bulkFailed))",
+    "fatal": true
+  },
+  {
+    "expect": "__qc.safe() && __qc.gates.get(\"malformed-cancel200\").responseStatus===200 && __qc.events.some(event=>event.tag===\"malformed-cancel200\" && !event.forwarded) && submissions.has(__qc.ids.bulkFailed) && queuedIds.includes(__qc.ids.bulkFailed) && !cancelledHere.has(__qc.ids.bulkFailed) && __qc.shown.length>__qc.errorsBeforeMalformed && __qc.shown.at(-1).length>0",
+    "fatal": true
+  },
+  {
+    "expect": "(async () => { const q=__qc; q.allow(\"/api/jobs/\"+q.ids.bulkFailed+\"/cancel\",{tag:\"retry-bulk-failed\"}); q.row(q.ids.bulkFailed).click(); return true; })()",
+    "fatal": true
+  },
+  {
+    "expect": "__qc.until(() => !queueCancelling.has(__qc.ids.bulkFailed) && !submissions.has(__qc.ids.bulkFailed) && !queuedIds.includes(__qc.ids.bulkFailed))",
+    "fatal": true
+  },
+  {
+    "expect": "(async () => { const q=__qc; q.allow(\"/api/jobs/\"+q.ids.newDuringBulk+\"/cancel\",{tag:\"cleanup-newer-owned\"}); q.row(q.ids.newDuringBulk).click(); return true; })()",
+    "fatal": true
+  },
+  {
+    "expect": "__qc.until(() => !queueCancelling.has(__qc.ids.newDuringBulk) && !submissions.has(__qc.ids.newDuringBulk) && !queuedIds.includes(__qc.ids.newDuringBulk))",
+    "fatal": true
+  },
+  {
+    "log": "\"The missing-job case is an explicitly synthetic local receipt with an impossible-for-UUID ID. The real server returns404; no existing server job is targeted or claimed missing.\""
+  },
+  {
+    "expect": "(async () => { const q=__qc,id=\"fixture-missing-queued-cancel\"; q.assert(!q.owned.has(id)&&!q.synthetic.has(id), \"synthetic receipt reused\"); q.synthetic.add(id); ownJobs.add(id); submissions.set(id,{path:\"/api/generate\",payload:{prompt:\"queue cancellation smoke declared missing receipt\"},at:Date.now()}); jobLabels.set(id,\"declared missing receipt control\"); setQueue([...queuedIds,id]); q.missing=id; q.allow(\"/api/jobs/\"+id+\"/cancel\",{tag:\"actual-missing404\"}); q.row(id).click(); return true; })()",
+    "fatal": true
+  },
+  {
+    "expect": "__qc.until(() => __qc.gates.get(\"actual-missing404\").responseReady && !queueCancelling.has(__qc.missing) && !submissions.has(__qc.missing) && !queuedIds.includes(__qc.missing))",
+    "fatal": true
+  },
+  {
+    "expect": "__qc.safe() && __qc.gates.get(\"actual-missing404\").responseStatus===404 && __qc.wires(__qc.missing)===1 && !__qc.opens.has(__qc.missing)",
+    "fatal": true
+  },
+  {
+    "log": "\"Cleanup is one explicit cancellation of the remaining owned paused holder. No gallery deletion or clearing occurs; all created images and the original planted rows remain.\""
+  },
+  {
+    "expect": "(async () => { const q=__qc,id=q.ids.holderB; q.assert(currentJob===id && skipSnapshot?.paused && queuedIds.length===0, \"cleanup does not exclusively own the paused holder\"); q.allow(\"/api/jobs/\"+id+\"/cancel\",{tag:\"cleanup-holderB\"}); await api(\"/api/jobs/\"+id+\"/cancel\",{method:\"POST\"}); await q.terminal(id); return true; })()",
+    "fatal": true
+  },
+  {
+    "expect": "__qc.until(() => !busy && !jobListing && !submitting && queuedIds.length===0 && queueCancelling.size===0)",
+    "fatal": true
+  },
+  {
+    "expect": "(async () => { const q=__qc; await refreshStatus(); await watchNext(); const active=await q.read(\"/api/jobs\"); const history=await q.read(\"/api/jobs?include_finished=true\"); const gallery=await q.read(\"/api/gallery?all_models=true\"); const bin=await q.read(\"/api/gallery/bin?all_models=true\"); const backup=await q.read(\"/api/gallery/automatic-backup\"); q.assert(q.safe() && active.length===0 && q.owned.size===7 && q.accepted.length===7 && history.length===7 && history.every(job=>q.owned.has(job.job_id)), \"unexpected or still-active jobs\"); q.assert(submissions.size===0 && queueCancelling.size===0 && [...q.gates.values()].every(gate=>gate.seen&&gate.released) && q.statusWaiters.length===0 && !q.holdStatus && !q.holdHistory && q.historyWaiting===0 && q.historyGateRelease===null && !q.holdFreshHistory && q.freshHistoryWaiting===0 && q.freshHistoryRelease===null, \"unsettled receipt, approval or response gate\"); const expected=new Set(q.initial.map(row=>row.id)); for(const id of q.owned){const job=await q.terminal(id); for(const row of job.images||[]) expected.add(row.id);} q.assert(gallery.total===expected.size && gallery.items.length===expected.size && gallery.items.every(row=>expected.has(row.id)) && bin.total===0, \"unexpected gallery mutation or missing owned image\"); for(const before of q.initial){const row=gallery.items.find(item=>item.id===before.id);q.assert(row&&Object.entries(before).every(([key,value])=>row[key]===value), \"planted row changed\");} q.assert(backup.enabled===false && backup.credential_configured===false && backup.credential_state===\"not_configured\", \"backup settings changed\"); q.assert(q.finishes.filter(job=>job.id===q.ids.recover).length===1 && q.opens.get(q.ids.recover)===1 && !q.opens.has(q.ids.row) && !q.opens.has(q.ids.bulkFirst) && !q.opens.has(q.ids.bulkFailed) && !q.opens.has(q.ids.newDuringBulk) && JSON.stringify(collect())===q.composer, \"outcome replay or unrelated composer change\"); q.final={realJobs:q.owned.size,requests:q.events.length,readonlyPosts:q.readonlyPosts.length,controlledHistory:q.historySnapshots,freshHistory:q.freshHistoryAfterGate,forbidden:q.violations.length,errors:q.jsErrors.length,unused:q.permits.length,gallery:gallery.total};; return true; })()",
+    "fatal": true
+  },
+  {
+    "log": "JSON.stringify(__qc.final)"
+  },
+  {
+    "log": "\"Queued-cancellation recovery fixture complete. Browser/CPU behavior only, with no GPU, credential, real gallery, old artifact or release qualification claim.\""
+  }
+]
