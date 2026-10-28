@@ -13,6 +13,13 @@ the first, at `21afcdf` on 2026-10-07, is kept below and marked as such.
 After this pass 8 files are above 1,000 lines; the table of retained files
 says why each stays whole.
 
+The 2026-10-28 saved gallery search addition follows the same boundary:
+`saved_searches.py`, `schemas_saved_searches.py` and `api_saved_searches.py`
+own definitions and cold CRUD outside gallery SQL readers; `saved-searches.js`
+and `styles/saved-searches.css` own the dialog. Its explicit filter transition
+uses the existing gallery epoch, sheet and bin paths; declarations stay outside
+`app.js` and event wiring stays inside it.
+
 ## Implemented boundaries
 
 | Pass | Original file | Lines before | Responsibilities after the split |

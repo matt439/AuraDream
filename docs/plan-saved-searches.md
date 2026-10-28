@@ -1,8 +1,8 @@
 # Plan: named gallery searches
 
-**Status, 2026-10-28: requested for the backlog; not built.** `GAL#7` came
-from the [TODO audit](review-2026-10-28-todo.md). The first implementation
-slice is CPU/browser work; no model, GPU run or live gallery is needed.
+**Status, 2026-10-28: built; local CPU/browser acceptance recorded below.**
+`GAL#7` came from the [TODO audit](review-2026-10-28-todo.md). The implementation
+uses scratch galleries for acceptance; no model, GPU run or live gallery is needed.
 
 ## Purpose and current behavior
 
@@ -140,3 +140,80 @@ connected opener without scrolling; the modal owns Ctrl/Cmd+Enter.
 
 Record actual implementation and checks here before removing the TODO row.
 Do not report usability improvement or real-gallery acceptance from fake data.
+
+## Implementation, 2026-10-28
+
+All three stages are implemented. `saved_searches.py` owns the strict version-1
+sidecar, bounded UTF-8 reads, unique NFC/casefold names, independent process
+reservation and atomic flush/fsync/replace. It rejects duplicate JSON keys,
+unknown versions/fields and invalid queries through `search.split_search`.
+The API returns fixed validation/refusal text and a duplicate's opaque id so
+the browser can offer an explicit update using the current item revision.
+Reads create no file, and all CRUD bypasses model and gallery admission.
+
+`saved-searches.js` declares the native dialog; only `app.js` wires it. Its
+editor retains unsaved text and old revisions on failures and Reload list.
+Reload deselects the list, allowing a clean single-item editor to explicitly
+adopt a refreshed revision by selecting that item again. Duplicate replacement
+has its own explicit button. Read tickets and edit epochs prevent late reads
+from replacing a newer editor or a reopened dialog. Writes hold their controls
+with reasons until the request ends.
+
+Apply uses one `applyGalleryFilter` transition. It leaves the bin, closes the
+sheet without an intermediate reload (`setSheet(..., {reload: false})`), retires
+the sheet return filter and search debounce, then writes all three fields and
+resets the gallery epoch and Runs once. Existing picks and their hidden count
+remain. Apply may use the editor without saving; its title explicitly names
+that scope. Nothing is applied at startup or by selecting a definition.
+
+The footer uses the full **Saved searches…** label where space permits, and a
+named search glyph below an 800px footer width. Narrow and wide Gallery beside
+spacing retains the existing action targets and selection count. The modal
+keeps a fixed feedback slot so conflicts and status changes do not move its
+controls. Its body scrolls in a short window while Close and Apply stay visible.
+
+### CPU and API acceptance
+
+The **61** focused store/API tests pass, including two-database isolation,
+strict fields/Unicode/query grammar, duplicate names at capacity, corrupt/newer
+file preservation, owned-temp cleanup on fsync/replace failures, stale writes,
+concurrent threads and native cross-process CRUD locking. Route tests prove
+CRUD remains available during gallery maintenance and a model switch without
+loading a model or entering the GPU gate.
+
+The existing gallery, snippets, setup API, bundle API and gallery-lock checks
+also pass (**150 tests**). New tests plus docs-map, classic-script and smoke-runner
+checks pass (**114 tests**). Repository Ruff and pinned Pyright pass (141 Python
+sources, zero diagnostics). The environment's pytest executable trampoline
+fails before test startup; `uv run --group dev python -m pytest` runs the same
+installed suite successfully, with no dependency or lockfile changes.
+
+### Browser acceptance
+
+The **209-step** `smoke-saved-searches.json` passes on Windows against a fresh
+scratch FLUX.1 Krea [dev] fake on port 7933. It covers CRUD and persistence on
+a new page, safe text rendering, explicit duplicate replacement, failed/stale
+writes with the editor retained, clean single-item Reload/reselection and a
+late list reply after Close/reopen. Native Ctrl/Cmd+Enter, Escape, held reasons,
+opener focus and page-scroll checks pass.
+
+Two synthetic checkpoints prove current-model versus All models scope, Starred,
+free text, empty matches, explicit exact-model terms and a fake model switch.
+Relative-day query text stays literal and a later matching image joins the
+search. Apply over an old in-flight page, pending debounce, sheet and bin
+retains the chosen filter and picks, with one gallery/Runs reload and no image
+mutation or generation request. Fixture status polls are drained after direct
+synthetic generation before counting Apply requests, so an ordinary other-tab
+image catch-up is not mistaken for a second filter transition.
+
+Geometry checks pass at **1400x900, 600x900, 1400x650 and 2048x1040** with
+Gallery beside. Narrow/short/wide screenshots were inspected. The new footer
+opener initially squeezed wide-beside controls and the selected count; tighter
+component spacing fixes that without clipping or adding a header row. Existing
+`smoke-gallery`, `smoke-select`, `smoke-sheet` and `smoke-bin` regressions pass,
+including the selection's complete outside-view warning. The select/bin smoke
+order assertions now include the new footer opener.
+
+This completes the planned local CPU/browser acceptance. It demonstrates
+storage and interaction behavior against scratch data; no real gallery,
+weights, card fit, image quality, speed or usability improvement was measured.

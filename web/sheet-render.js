@@ -808,7 +808,7 @@ function toggleSheet() {
 // under the viewer, would otherwise open out of sight of the press.
 // `asker` is the control that asked for it, for the landing's focus
 // (focusSheet). Every sheet opened is said (saySheet).
-function setSheet(on, { land = false, asker = null } = {}) {
+function setSheet(on, { land = false, asker = null, reload = true } = {}) {
   sheetMode = on;
   // Every sheet opens at its own size (sheet.js's zoom), said afresh.
   sheetZoom = 1;
@@ -836,7 +836,9 @@ function setSheet(on, { land = false, asker = null } = {}) {
     if (sheetReturn && els.search.value.trim() === sheetReturn.wrote) els.search.value = sheetReturn.search;
     sheetReturn = null;
   }
-  const opened = resetGallery();
+  // A compound filter transition closes the sheet before writing all its
+  // fields, then starts the one replacement read itself.
+  const opened = reload ? resetGallery() : Promise.resolve();
   if (!on) {
     els.sheetSaid.textContent = '';
     return opened;

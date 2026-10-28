@@ -115,6 +115,10 @@ Backend (`backend/`):
   summaries and `api_presets.py` revisioned CRUD/validation, independent of
   gallery maintenance; `web/generation-presets.js` owns explicit composer
   Restore, its whole-draft Undo and the Saved setups dialog
+- `saved_searches.py` bounded atomic database-scoped gallery filters,
+  `schemas_saved_searches.py` their strict fields and revisions, and
+  `api_saved_searches.py` model-free CRUD independent of gallery maintenance;
+  `web/saved-searches.js` owns their explicit dialog and filter transition
 - `bundle_leases.py` archive reader/exclusive leases, complete download/import
   lifetimes and uncertain-input quarantine, with opt-in shared companion locks in
   `bundle_file_lock.py`; `bundle_mode.py` explicit Windows/NTFS mode installation
@@ -465,6 +469,7 @@ node tools/browser.mjs tools/<smoke>.json
 | 7930 | FLUX.1-Krea-dev, fresh scratch `--data` | `smoke-execution-selector` |
 | 7931 | black-forest-labs/FLUX.1-Kontext-dev, fresh scratch `--data` | `smoke-instruction-edit` |
 | 7932 | FLUX.1-Krea-dev, fresh scratch `--data` | `smoke-generation-presets` |
+| 7933 | FLUX.1-Krea-dev, fresh scratch `--data` | `smoke-saved-searches` |
 
 FLUX.1-Krea-dev is `black-forest-labs/FLUX.1-Krea-dev`; animagine is
 `cagliostrolab/animagine-xl-4.0`.

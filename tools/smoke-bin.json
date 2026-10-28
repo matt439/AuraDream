@@ -9,7 +9,7 @@
   {"eval": "(async () => { window.__eight = (await __wait((await __post('/api/generate', {prompt: 'a heron on a post at dawn', width: 256, height: 256, seed: 10, num_images: 8, steps: 4})).job_id)).images; await fetch('/api/images/' + __eight[7].id + '/favorite?value=true', {method: 'POST'}); await resetGallery(); await syncBin(); })()"},
   {"expect": "__until(() => total === 8 && galleryRecords.length === 8 && !galleryPending)"},
   {"expect": "__binCount() === '' && els.bin.title.startsWith('Recycle bin: empty') && els.bin.getAttribute('aria-pressed') === 'false' && els.emptyBin.hidden && els.restorePicked.hidden && els.galleryTitle.textContent === 'Gallery'"},
-  {"expect": "(() => { const f = document.querySelector('.gallery-footer'); const ids = [...f.querySelectorAll('button')].map((b) => b.id); return ids.indexOf('btn-bin') === ids.indexOf('btn-more-seeds') + 1 && ids.indexOf('btn-bundles') === ids.indexOf('btn-bin') + 1; })()"},
+  {"expect": "(() => { const f = document.querySelector('.gallery-footer'); const ids = [...f.querySelectorAll('button')].map((b) => b.id); return ids.indexOf('btn-bin') === ids.indexOf('btn-more-seeds') + 1 && ids.indexOf('btn-saved-searches') === ids.indexOf('btn-bin') + 1 && ids.indexOf('btn-bundles') === ids.indexOf('btn-saved-searches') + 1; })()"},
 
   {"log": "'⌦ asks nothing: the card is a tombstone in its box, saying where the image went, and the note offers it back; the footer counts it'"},
   {"eval": "window.__a = galleryRecords[2]; window.__aBox = __card(__a.id).getBoundingClientRect(); window.__aEl = __card(__a.id); __aEl.querySelector('.tools .del').click();"},

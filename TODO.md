@@ -8,7 +8,7 @@ The maintainer's working backlog for this personal project: it records what is p
 
 **Aim (2026-10-18):** keep useful work ready for Matt's common workstation tasks. [Reported use](docs/design/preferences.md) guides priority; it does not approve the candidate redesign.
 
-**Ready backlog (updated 2026-10-28):** three `OPEN` rows remain from Matt's request after the [TODO audit](docs/review-2026-10-28-todo.md). Next saved gallery searches (`GAL#7`), then snippet export/import (`UI#20`); their owner plans define bounded implementation and CPU/browser acceptance. `DEV#8` separates compiler dependency/lockfile/notices preparation from `PERF#1`'s toolchain/card qualification. Named generation/grid setups (`GEN#27`) are built and locally qualified ([plan](docs/plan-generation-presets.md#browser-acceptance-2026-10-28)). `DEV#4` is complete: PR #15's hosted browser job passed all 77 smokes on main ([tooling](docs/plan-tooling.md#browser-smokes-in-ci)).
+**Ready backlog (updated 2026-10-28):** two `OPEN` rows remain from Matt's request after the [TODO audit](docs/review-2026-10-28-todo.md). Next snippet export/import (`UI#20`); its owner plan defines bounded implementation and CPU/browser acceptance. `DEV#8` separates compiler dependency/lockfile/notices preparation from `PERF#1`'s toolchain/card qualification. Saved gallery searches (`GAL#7`) are built and locally qualified ([plan](docs/plan-saved-searches.md#browser-acceptance)), as are named generation/grid setups (`GEN#27`, [plan](docs/plan-generation-presets.md#browser-acceptance-2026-10-28)). `DEV#4` is complete: PR #15's hosted browser job passed all 77 smokes on main ([tooling](docs/plan-tooling.md#browser-smokes-in-ci)).
 
 **Performance stages:** CPU dependency preparation is `DEV#8`, then `PERF#1` ([compilation](docs/plan-regional-compilation.md)), `PERF#3` ([attention](docs/plan-attention-backends.md)) and `PERF#4` ([caching](docs/plan-step-caching.md)). Performance source, bounded diagnostics and Windows browser checks are complete with Eager defaults and closed execution guards; real toolchain/card qualification and nonempty release admission remain. Default-off backups, explicit shared mode/retention and credential source/stubs are built; actual credential/recovery qualification remains. No real gallery was activated. `PERF#2` still waits on `PERF#1`; source implementation is separate from the remaining layout trials.
 
@@ -88,7 +88,6 @@ Matt's approved [shortcut and compact-setup stages](docs/plan-shortcut-workflow.
 | id | status | sev | size | item |
 |---|---|---|---|---|
 | `GAL#6` | USER | LOW | S | Qualify intended-user Windows credential setup/session and independent-password recovery. OS APIs were stub-tested; no real vault access or gallery activation was performed. [Plan](docs/plan-automatic-backups.md). |
-| `GAL#7` | OPEN | LOW | M | Named saved gallery searches carrying query, Starred and All models, with explicit reopen and retained selection semantics. [Plan](docs/plan-saved-searches.md). |
 
 ## Prompt analyser
 
@@ -135,7 +134,7 @@ Each review's remaining work is indexed above; closed findings stay in their own
 | 2026-10-26 TODO audit | [Owner/code reconciliation](docs/review-2026-10-26-todo.md): Marian chunk truncation (`GEN#26`), portable screenshots (`DEV#7`), restored critic decision (`PA#11`) and bounded tooling/planning stages. |
 | 2026-10-26 overnight | `GEN#26`, `DEV#5`-`DEV#7` built and locally qualified; all four feature plans written. [Tooling evidence](docs/plan-tooling.md). Linux browser qualification (`DEV#4`) closed with PR #15 (hosted, 77 of 77); no GPU acceptance is claimed. |
 | 2026-10-27 decisions | Matt deferred `GEN#20`; the requested [instruction-editing](docs/plan-instruction-editing.md) and [detailer](docs/plan-detailer.md) plans are written. Matt then commissioned starting `INP#11` without the card; `INP#12` remains deferred. `PA#11` closed by keeping critic rewrites available with the existing [omission warning](docs/design-notes.md#open-questions-from-the-analyser). |
-| 2026-10-28 TODO audit | [Reconciliation and new work](docs/review-2026-10-28-todo.md): corrected stale edit/design status and `CARD#4` scope; added the requested named setups, saved searches, snippet portability and separate compiler preparation. Named setups (`GEN#27`) are built and locally qualified ([plan](docs/plan-generation-presets.md#browser-acceptance-2026-10-28)). |
+| 2026-10-28 TODO audit | [Reconciliation and new work](docs/review-2026-10-28-todo.md): corrected stale edit/design status and `CARD#4` scope; added the requested named setups, saved searches, snippet portability and separate compiler preparation. Named setups (`GEN#27`, [plan](docs/plan-generation-presets.md#browser-acceptance-2026-10-28)) and saved gallery searches (`GAL#7`, [plan](docs/plan-saved-searches.md#browser-acceptance)) are built and locally qualified. |
 
 ---
 

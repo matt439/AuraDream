@@ -7025,6 +7025,34 @@ unquantised load stores the mode `none`. An integer past SQLite's 64 bits
 bad values: sqlite3 raised OverflowError at the query, which no route
 caught, and the gallery said "Internal Server Error".
 
+## Named gallery searches
+
+`GAL#7`'s [plan](plan-saved-searches.md) keeps saved filters separate from
+gallery rows: each definition has a name, the exact query text, Starred and
+All models, plus a server id and optimistic revision. The database filename
+is part of its new AuraDream sidecar name so two galleries in one directory
+do not share definitions. Bounded strict reads, an independent cross-process
+lock and atomic replacement protect the file. Unknown or unreadable files
+are refused without overwriting them. CRUD works cold and during bundle
+maintenance; it never reserves the gallery or loads a model.
+
+**Saved searches…** opens from the gallery footer. Opening is the first
+list read; choosing an entry only fills the editor. Use current filter copies
+the live query and ticks without saving, and is held with a reason in the
+bin. Save/Delete change definitions only. A duplicate normalized name offers
+an explicit revisioned update; stale writes preserve the unsaved editor.
+List reads and writes carry dialog/edit epochs so an answer after Close or a
+new edit cannot replace newer work.
+
+Apply to gallery leaves the bin and sheet, clears the sheet's return filter
+and pending search debounce, writes all three controls and reloads gallery
+and Runs once. Gallery epochs reject old pages. Picks retain their ordinary
+selection semantics and outside-view count, and the apply status says they
+remain selected. The operation does not submit generation or mutate images.
+All models off means the checkpoint selected at apply time; relative dates
+also keep the existing grammar's local-day meaning. An explicit `model:=`
+term remains as written even when that makes the current scope empty.
+
 ## The contact sheet
 
 **Keyboard navigation, 2026-10-18 (`UI#4`).** One current image and its

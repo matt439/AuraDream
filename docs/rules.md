@@ -69,6 +69,10 @@ before changing it.
   atomic sidecar beside the settings, under an independent cross-process lock
 - `backend/api_snippets.py` - model-free snippet CRUD routes, independent of
   gallery maintenance; `backend/schemas_snippets.py` owns their validated models
+- `backend/saved_searches.py` - bounded atomic database-scoped gallery filter
+  definitions, unique normalized names and optimistic item revisions under an
+  independent lock; `backend/schemas_saved_searches.py` owns strict fields and
+  `backend/api_saved_searches.py` model-free CRUD independent of maintenance
 - `backend/presets.py` - bounded, revisioned named generation/grid drafts in
   their own atomic sidecar; `backend/schemas_presets.py` owns the strict raw
   payload and API capture types
@@ -342,7 +346,7 @@ before changing it.
   per version
 - `backend/reindex.py` — rows rebuilt from the PNGs' `auradream` chunk, in place or
   copied in from another gallery; idempotent on the UNIQUE filename
-- `web/` - served as-is from `/static`; `index.html` loads 55 classic
+- `web/` - served as-is from `/static`; `index.html` loads 56 classic
   scripts in order, sharing one global scope; only `app.js`, the last, runs
   the wiring and boot. `state.js` owns shared state; `generation.js`,
   `grid-preview.js`, `job-stream.js` and `job-results.js` handle submission,
@@ -384,6 +388,8 @@ before changing it.
   help dialog; `prompt-snippets.js` the personal snippet dialog and insertion;
   `generation-presets.js` the named generation/grid setup dialog, raw capture,
   explicit validated Restore and whole-draft Undo.
+  `saved-searches.js` owns named gallery filters, their native dialog and the
+  single explicit filter transition out of sheets and the bin.
   The stylesheet is
   `style.css` (tokens and base layout), followed by `styles/*.css` in the
   explicit link order: `model-picker.css` the Models picker (first, at its
@@ -397,7 +403,8 @@ before changing it.
   `swap.css`, `refine-batch.css` and `more-seeds.css` those dialogs,
   `bin.css` the recycle bin, `context-menu.css` the right-click menu and
   `shortcuts.css` the keyboard help dialog, `snippets.css` the snippet dialog
-  and `setups.css` the named setup dialog;
+  and `setups.css` the named setup dialog, followed by `saved-searches.css`
+  for the saved gallery search dialog and its footer opener;
   preserve that cascade (`tests/test_docs_maps.py` holds this list to
   `index.html`'s links, in order). `docs/source-audit.md` records the
   split audits and why each long file it kept stays whole.
@@ -2587,6 +2594,18 @@ Prompt analyser:
 
 Frontend and CLI:
 
+- Saved gallery searches store only Name, Query, Starred and All models in a
+  versioned database-scoped sidecar, never image ids or picks. Names are unique
+  after NFC normalization and case folding; duplicate-name replacement is
+  explicit and revisioned. Reads are cold and first occur on opening the native
+  dialog, not startup. CRUD bypasses gallery maintenance and model work. Select
+  only fills the editor; Apply leaves the bin and sheet, cancels a pending
+  debounce, writes all three filters and reloads gallery/Runs once. Old gallery
+  epochs and sheet return filters cannot replace it. Picks remain selected and
+  visibly counted, and Apply queues no generation or image mutation. Current
+  checkpoint and relative dates are evaluated when applied. Errors, conflicts
+  and late list replies preserve unsaved edits; modal keys and focus stay in
+  the dialog, with connected-opener restoration using `preventScroll`.
 - Native numeric inputs can display unfinished text such as `1e` while their
   DOM value is empty. `refuseBadNumber` checks `validity.badInput` at Generate,
   Run grid and comparison submission, names the field and focuses it without
@@ -5935,6 +5954,14 @@ held negative insertion, conflicts, modal keys and the narrow layout. It also
 checks that the menu adds no caption height beside ordinary, Tags and Expand
 controls at 1400x900 and 400x650, and insertion into an offscreen prompt keeps
 page scroll. Native Undo in the browser harness carries the Z key code.
+
+`tests/test_saved_searches.py` and `tests/test_api_saved_searches.py` cover
+strict fields and file envelopes, Unicode/name/query limits and existing search
+grammar, database isolation, bounded/cold reads, atomic failure preservation,
+concurrent edits and optimistic revisions, plus model/maintenance-independent
+CRUD. `smoke-saved-searches.json` uses a fresh FLUX.1 Krea [dev] fake on 7933
+for the dialog, explicit filter application, saved scope, retained picks,
+stale/late replies, modal keys/focus and responsive footer/dialog geometry.
 
 `smoke-queue-controls.json` uses a fresh FLUX.1 Krea [dev] fake on 7914 with
 0.3 s steps. It checks authoritative Move order and focus through reload,

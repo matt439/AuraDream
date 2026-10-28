@@ -1,0 +1,647 @@
+[
+  {
+    "log": "'Saved gallery searches on a fresh FLUX.1 fake: revisioned CRUD, explicit duplicate replacement, retained drafts and asynchronous reads; scoped application keeps picks and performs no image mutation. All images and settings are scratch data.'"
+  },
+  {
+    "navigate": "http://127.0.0.1:7933/"
+  },
+  {
+    "eval": "window.__until = async (fn, ms = 20000) => { const end = Date.now() + ms; while (Date.now() < end) { try { if (await fn()) return true; } catch {} await new Promise((r) => setTimeout(r, 40)); } return false; }; window.__s = (name) => document.getElementById('saved-searches-' + name); window.__field = (name,value) => { const e=__s(name); if(e.type==='checkbox')e.checked=value;else e.value=value; e.dispatchEvent(new Event('input',{bubbles:true})); e.dispatchEvent(new Event('change',{bubbles:true})); }; window.__open = async () => { await openSavedSearches(); return __until(()=>__s('dialog').open && savedSearchReady && !savedSearchPending); }; window.__post = (path,body) => api(path,{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify(body)}); window.__done = async (job) => { let result; if(!await __until(async()=>{ result=await api('/api/jobs/'+job.job_id); return !['queued','running'].includes(result.status); }))throw Error('Fixture timed out'); if(result.status!=='done')throw Error(result.error||result.status); return result; }; window.__fits = () => { const e=__s('dialog'),b=e.getBoundingClientRect(); return b.left>=0 && b.top>=0 && b.right<=innerWidth+1 && b.bottom<=innerHeight+1 && e.scrollWidth<=e.clientWidth+1; }; window.__errors=[]; addEventListener('error',(e)=>__errors.push(e.message)); addEventListener('unhandledrejection',(e)=>__errors.push(String(e.reason))); window.__settleStatus=async()=>{if(!await __until(()=>!statusPending))throw Error('Status did not settle');await refreshStatus();if(!await __until(()=>!statusPending))throw Error('Status refresh did not settle');};"
+  },
+  {
+    "expect": "__until(()=>Number.isInteger(modelRevision) && !galleryPending && !jobListing)"
+  },
+  {
+    "expect": "performance.getEntriesByType('resource').filter((e)=>e.name.includes('/api/gallery/saved-searches')).length===0 && !__s('dialog').open"
+  },
+  {
+    "eval": "window.__flux='black-forest-labs/FLUX.1-Krea-dev'; window.__turbo='krea/Krea-2-Turbo'; window.__generateY=els.generate.getBoundingClientRect().top; window.__headHeight=document.querySelector('.gallery-head').getBoundingClientRect().height; document.getElementById('btn-saved-searches').focus({preventScroll:true}); window.__scroll=scrollY;"
+  },
+  {
+    "click": "#btn-saved-searches"
+  },
+  {
+    "expect": "__until(()=>__s('dialog').open && savedSearchReady && !savedSearchPending && savedSearchItems.length===0)"
+  },
+  {
+    "expect": "__fits() && els.generate.getBoundingClientRect().top===__generateY && document.querySelector('.gallery-head').getBoundingClientRect().height===__headHeight && __s('dialog').textContent.includes('checkpoint') && scrollY===__scroll"
+  },
+  {
+    "click": "#saved-searches-save"
+  },
+  {
+    "expect": "__s('dialog').open && savedSearchItems.length===0 && __s('status').textContent.length>0 && __s('save').getAttribute('aria-disabled')==='true' && !__s('save').disabled"
+  },
+  {
+    "eval": "__field('name','<img src=x onerror=window.__savedXss=1>'); __field('query','saved search nebula'); __field('favorites',true); __field('all-models',false);"
+  },
+  {
+    "click": "#saved-searches-save"
+  },
+  {
+    "expect": "__until(()=>!savedSearchPending && savedSearchItems.length===1 && savedSearchSelected?.revision===1)"
+  },
+  {
+    "eval": "window.__savedId=savedSearchSelected.id;"
+  },
+  {
+    "expect": "!window.__savedXss && !__s('list').querySelector('img') && __s('name').value.startsWith('<img') && els.search.value==='' && !els.favOnly.checked && !els.allModels.checked"
+  },
+  {
+    "keycombo": [
+      "Control",
+      "Enter"
+    ]
+  },
+  {
+    "expect": "__s('dialog').open && !busy && !submitting"
+  },
+  {
+    "keycombo": [
+      "Meta",
+      "Enter"
+    ]
+  },
+  {
+    "expect": "__s('dialog').open && !busy && !submitting"
+  },
+  {
+    "key": "Escape"
+  },
+  {
+    "expect": "__until(()=>!__s('dialog').open && document.activeElement===document.getElementById('btn-saved-searches') && scrollY===__scroll)"
+  },
+  {
+    "log": "'Close/reopen preserves the server definition. Selecting only edits the dialog; renaming is an item-revision update.'"
+  },
+  {
+    "expect": "__open()"
+  },
+  {
+    "eval": "selectSavedSearch(__savedId); __field('name','Nebula nightly');"
+  },
+  {
+    "click": "#saved-searches-save"
+  },
+  {
+    "expect": "__until(()=>!savedSearchPending && savedSearchSelected?.revision===2 && savedSearchSelected?.name==='Nebula nightly')"
+  },
+  {
+    "click": "#saved-searches-new"
+  },
+  {
+    "eval": "__field('name','NEBULA NIGHTLY'); __field('query','saved search nebula'); __field('favorites',false); __field('all-models',true);"
+  },
+  {
+    "click": "#saved-searches-save"
+  },
+  {
+    "expect": "__until(()=>!savedSearchPending && !__s('replace').hidden && __s('status').textContent.length>0)"
+  },
+  {
+    "expect": "savedSearchItems.length===1 && savedSearchItems[0].revision===2 && __s('name').value==='NEBULA NIGHTLY' && !__s('favorites').checked && __s('all-models').checked"
+  },
+  {
+    "click": "#saved-searches-replace"
+  },
+  {
+    "expect": "__until(()=>!savedSearchPending && savedSearchItems.length===1 && savedSearchSelected?.revision===3 && savedSearchSelected?.all_models===true)"
+  },
+  {
+    "log": "'Failed and stale writes keep the unsaved editor. Reload refreshes the list without adopting a newer item until selected explicitly.'"
+  },
+  {
+    "eval": "window.__baseApi=api; api=async(path,options)=>{if(path.startsWith('/api/gallery/saved-searches/') && options?.method==='PUT')throw Error('Synthetic save failure');return __baseApi(path,options);}; __field('query','my unsaved query');"
+  },
+  {
+    "click": "#saved-searches-save"
+  },
+  {
+    "expect": "__until(()=>!savedSearchPending && __s('status').textContent.includes('Synthetic save failure') && __s('query').value==='my unsaved query' && savedSearchSelected?.revision===3)"
+  },
+  {
+    "eval": "api=__baseApi; (async()=>{await api('/api/gallery/saved-searches/'+__savedId,{method:'PUT',headers:{'Content-Type':'application/json'},body:JSON.stringify({name:'Changed elsewhere',query:'lighthouse',favorites:true,all_models:true,revision:3})});})()"
+  },
+  {
+    "click": "#saved-searches-save"
+  },
+  {
+    "expect": "__until(()=>!savedSearchPending && __s('status').textContent.includes('another tab'))"
+  },
+  {
+    "expect": "__s('query').value==='my unsaved query' && __s('name').value==='NEBULA NIGHTLY' && savedSearchSelected?.revision===3"
+  },
+  {
+    "click": "#saved-searches-reload"
+  },
+  {
+    "expect": "__until(()=>!savedSearchPending && savedSearchItems[0]?.revision===4 && __s('query').value==='my unsaved query')"
+  },
+  {
+    "eval": "selectSavedSearch(__savedId);"
+  },
+  {
+    "expect": "savedSearchSelected?.revision===4 && __s('query').value==='lighthouse' && __s('name').value==='Changed elsewhere'"
+  },
+  {
+    "eval": "__field('name','Nebula nightly'); __field('query','saved search nebula'); __field('favorites',false); __field('all-models',false);"
+  },
+  {
+    "click": "#saved-searches-save"
+  },
+  {
+    "expect": "__until(()=>!savedSearchPending && savedSearchSelected?.revision===5)"
+  },
+  {
+    "eval": "api('/api/gallery/saved-searches/'+__savedId,{method:'PUT',headers:{'Content-Type':'application/json'},body:JSON.stringify({name:'Nebula nightly',query:'a clean refreshed item',favorites:false,all_models:false,revision:5})})"
+  },
+  {
+    "click": "#saved-searches-reload"
+  },
+  {
+    "expect": "__until(()=>!savedSearchPending && savedSearchItems[0]?.revision===6 && savedSearchSelected?.revision===5 && __s('query').value==='saved search nebula' && __s('list').selectedIndex===-1)"
+  },
+  {
+    "eval": "__s('list').value=__savedId; __s('list').dispatchEvent(new Event('change',{bubbles:true}));"
+  },
+  {
+    "expect": "savedSearchSelected?.revision===6 && __s('query').value==='a clean refreshed item'"
+  },
+  {
+    "eval": "__field('query','saved search nebula');"
+  },
+  {
+    "click": "#saved-searches-save"
+  },
+  {
+    "expect": "__until(()=>!savedSearchPending && savedSearchSelected?.revision===7)"
+  },
+  {
+    "click": "#saved-searches-close"
+  },
+  {
+    "log": "'An earlier list response cannot overwrite a reopened dialog or newer unsaved editor.'"
+  },
+  {
+    "eval": "window.__readCount=0; window.__releaseList=null; api=async(path,options)=>{if(path==='/api/gallery/saved-searches' && (!options?.method||options.method==='GET') && ++__readCount===1){const answer=await __baseApi(path,options);await new Promise((resolve)=>{window.__releaseList=resolve;});return answer;}return __baseApi(path,options);}; void openSavedSearches();"
+  },
+  {
+    "expect": "__until(()=>!!__releaseList && __s('dialog').open)"
+  },
+  {
+    "click": "#saved-searches-close"
+  },
+  {
+    "eval": "void openSavedSearches();"
+  },
+  {
+    "expect": "__until(()=>__s('dialog').open && !savedSearchPending && savedSearchReady && __readCount>=2)"
+  },
+  {
+    "click": "#saved-searches-new"
+  },
+  {
+    "eval": "__field('name','newer reopen draft'); __field('query','newer unsaved text'); __releaseList();"
+  },
+  {
+    "expect": "__until(()=>__s('name').value==='newer reopen draft' && __s('query').value==='newer unsaved text' && !savedSearchPending)"
+  },
+  {
+    "eval": "api=__baseApi;"
+  },
+  {
+    "click": "#saved-searches-close"
+  },
+  {
+    "log": "'Three generated scratch images supply current-model text matches; the fake also plants two Turbo images, one starred.'"
+  },
+  {
+    "eval": "(async()=>{await __post('/api/fake/step',{seconds:0}); window.__nebula=(await __done(await __post('/api/generate',{prompt:'saved search nebula',width:256,height:256,steps:1,seed:7300,num_images:3}))).images; await __post('/api/images/favorite',{ids:[__nebula[0].id],value:true}); await __settleStatus(); await resetGallery(); await loadRuns();})()"
+  },
+  {
+    "expect": "__until(()=>!galleryPending && galleryRecords.length===3 && total===3)"
+  },
+  {
+    "eval": "toggleSelected(galleryRecords[1]); window.__pick=selectedIds()[0]; els.search.value='saved search nebula'; els.favOnly.checked=true; els.allModels.checked=true; resetGallery();"
+  },
+  {
+    "expect": "__open()"
+  },
+  {
+    "click": "#saved-searches-current"
+  },
+  {
+    "expect": "__s('query').value==='saved search nebula' && __s('favorites').checked && __s('all-models').checked && savedSearchItems.length===1"
+  },
+  {
+    "click": "#saved-searches-new"
+  },
+  {
+    "eval": "__field('name','Starred nebula'); __field('query','saved search nebula'); __field('favorites',true); __field('all-models',false);"
+  },
+  {
+    "click": "#saved-searches-save"
+  },
+  {
+    "expect": "__until(()=>!savedSearchPending && savedSearchSelected?.name==='Starred nebula' && savedSearchItems.length===2)"
+  },
+  {
+    "eval": "window.__starredId=savedSearchSelected.id; window.__calls=[]; api=async(path,options)=>{__calls.push({path,method:options?.method||'GET'});return __baseApi(path,options);}; window.__applyY=scrollY;"
+  },
+  {
+    "click": "#saved-searches-apply"
+  },
+  {
+    "expect": "__until(()=>!__s('dialog').open && !galleryPending && total===1 && galleryRecords[0]?.id===__nebula[0].id)"
+  },
+  {
+    "expect": "els.search.value==='saved search nebula' && els.favOnly.checked && !els.allModels.checked && selectedIds().join()===String(__pick) && document.getElementById('select-count').textContent.includes('not shown') && els.galleryError.textContent.includes('selected') && scrollY===__applyY && __calls.every((c)=>c.method==='GET') && __calls.filter((c)=>c.path.startsWith('/api/gallery?')).length===1 && __calls.filter((c)=>c.path.startsWith('/api/runs?')).length===1"
+  },
+  {
+    "eval": "api=__baseApi;"
+  },
+  {
+    "log": "'Editing an applied filter does not update its saved definition. Empty/current and All models filters retain the backend scope and other-model count.'"
+  },
+  {
+    "eval": "els.search.value='lighthouse'; resetGallery();"
+  },
+  {
+    "expect": "__open()"
+  },
+  {
+    "eval": "selectSavedSearch(__starredId);"
+  },
+  {
+    "expect": "__s('query').value==='saved search nebula' && __s('favorites').checked"
+  },
+  {
+    "eval": "__field('query','lighthouse'); __field('favorites',false); __field('all-models',false);"
+  },
+  {
+    "click": "#saved-searches-apply"
+  },
+  {
+    "expect": "__until(()=>!galleryPending && total===0 && galleryOthers===2 && els.search.value==='lighthouse' && !els.allModels.checked)"
+  },
+  {
+    "expect": "__open()"
+  },
+  {
+    "eval": "__field('query','lighthouse'); __field('favorites',true); __field('all-models',true);"
+  },
+  {
+    "click": "#saved-searches-apply"
+  },
+  {
+    "expect": "__until(()=>!galleryPending && total===1 && galleryRecords[0]?.model_id===__turbo && galleryRecords[0]?.favorite)"
+  },
+  {
+    "expect": "__open()"
+  },
+  {
+    "eval": "__field('query','model:=krea/Krea-2-Turbo'); __field('favorites',false); __field('all-models',false);"
+  },
+  {
+    "click": "#saved-searches-apply"
+  },
+  {
+    "expect": "__until(()=>!galleryPending && total===0 && galleryOthers===2 && els.search.value==='model:=krea/Krea-2-Turbo' && !els.allModels.checked && loadedModel===__flux)"
+  },
+  {
+    "expect": "__open()"
+  },
+  {
+    "eval": "__field('query',''); __field('favorites',false); __field('all-models',false);"
+  },
+  {
+    "click": "#saved-searches-apply"
+  },
+  {
+    "expect": "__until(()=>!galleryPending && total===3 && galleryRecords.every((r)=>r.model_id===__flux))"
+  },
+  {
+    "log": "'The same saved current-checkpoint filter follows a later selected model; opening or applying never loads or switches models.'"
+  },
+  {
+    "eval": "(async()=>{await __post('/api/model/switch',{model_id:__turbo,load:false}); if(!await __until(async()=>{const s=await api('/api/status');if(s.model_id!==__turbo||s.switching)return false;receiveStatus(s,Date.now());return true;}))throw Error('Model switch timed out');})()"
+  },
+  {
+    "expect": "__until(()=>!galleryPending && loadedModel===__turbo)"
+  },
+  {
+    "expect": "__open()"
+  },
+  {
+    "eval": "__field('query',''); __field('favorites',false); __field('all-models',false); window.__calls=[]; api=async(path,options)=>{__calls.push({path,method:options?.method||'GET'});return __baseApi(path,options);};"
+  },
+  {
+    "click": "#saved-searches-apply"
+  },
+  {
+    "expect": "__until(()=>!galleryPending && total===2 && galleryRecords.every((r)=>r.model_id===__turbo))"
+  },
+  {
+    "expect": "__calls.every((c)=>c.method==='GET') && !__calls.some((c)=>c.path.startsWith('/api/model/')) && selectedIds().join()===String(__pick)"
+  },
+  {
+    "eval": "api=__baseApi; (async()=>{await __post('/api/model/switch',{model_id:__flux,load:false});if(!await __until(async()=>{const s=await api('/api/status');if(s.model_id!==__flux||s.switching)return false;receiveStatus(s,Date.now());return true;}))throw Error('Return model switch timed out');})()"
+  },
+  {
+    "expect": "__until(()=>!galleryPending && loadedModel===__flux)"
+  },
+  {
+    "log": "'Relative-day queries stay literal. A later matching image joins the saved search, since entries store filters rather than matching ids.'"
+  },
+  {
+    "expect": "__open()"
+  },
+  {
+    "click": "#saved-searches-new"
+  },
+  {
+    "eval": "__field('name','Today nebula'); __field('query','date:today saved search nebula'); __field('favorites',false); __field('all-models',false);"
+  },
+  {
+    "click": "#saved-searches-save"
+  },
+  {
+    "expect": "__until(()=>!savedSearchPending && savedSearchSelected?.name==='Today nebula')"
+  },
+  {
+    "eval": "window.__todayId=savedSearchSelected.id;"
+  },
+  {
+    "click": "#saved-searches-apply"
+  },
+  {
+    "expect": "__until(()=>!galleryPending && total===3 && els.search.value==='date:today saved search nebula')"
+  },
+  {
+    "eval": "(async()=>{await __done(await __post('/api/generate',{prompt:'saved search nebula joined later',width:256,height:256,steps:1,seed:7303}));await __settleStatus();await resetGallery();await loadRuns();})()"
+  },
+  {
+    "expect": "__until(()=>!galleryPending && total===4 && galleryRecords.some((r)=>r.seed===7303))"
+  },
+  {
+    "expect": "__open()"
+  },
+  {
+    "eval": "selectSavedSearch(__todayId);"
+  },
+  {
+    "expect": "__s('query').value==='date:today saved search nebula'"
+  },
+  {
+    "eval": "__field('query','date:yesterday saved search nebula');"
+  },
+  {
+    "click": "#saved-searches-apply"
+  },
+  {
+    "expect": "__until(()=>!galleryPending && total===0 && els.search.value==='date:yesterday saved search nebula')"
+  },
+  {
+    "log": "'A pending old page and search debounce cannot win after Apply; the gallery and Runs reload once for the complete new filter.'"
+  },
+  {
+    "eval": "window.__releasePage=null; window.__calls=[]; api=async(path,options)=>{__calls.push({path,method:options?.method||'GET'});if(path.startsWith('/api/gallery?')&&!window.__pageHeld){window.__pageHeld=true;const result=await __baseApi(path,options);await new Promise((r)=>{window.__releasePage=r;});return result;}return __baseApi(path,options);}; els.search.value='no such old page'; void resetGallery();"
+  },
+  {
+    "expect": "__until(()=>!!__releasePage && !!galleryPending)"
+  },
+  {
+    "expect": "__open()"
+  },
+  {
+    "eval": "selectSavedSearch(__todayId); els.search.value='a debounce that must not replace the bookmark'; els.search.dispatchEvent(new Event('input',{bubbles:true})); window.__calls=[]; applySavedSearch(); __releasePage();"
+  },
+  {
+    "expect": "__until(()=>!__s('dialog').open && !galleryPending && total===4 && els.search.value==='date:today saved search nebula')"
+  },
+  {
+    "wait": 400
+  },
+  {
+    "log": "({calls:__calls,pending:!!galleryPending,total,records:galleryRecords.map((r)=>r.id),seen:newestImageSeen,head:galleryReadHead,filter:els.search.value})"
+  },
+  {
+    "expect": "!galleryPending && total===4 && galleryRecords.length===4 && __calls.filter((c)=>c.path.startsWith('/api/gallery?')).length===1 && __calls.filter((c)=>c.path.startsWith('/api/runs?')).length===1 && __calls.every((c)=>c.method==='GET')"
+  },
+  {
+    "eval": "api=__baseApi;"
+  },
+  {
+    "log": "'Apply leaves a sheet without its return filter restoring over the chosen search, then leaves the bin and restores live-gallery picks.'"
+  },
+  {
+    "eval": "showRun(__nebula[0].run_id);"
+  },
+  {
+    "expect": "__until(()=>sheetMode && !galleryPending && !!sheetReturn)"
+  },
+  {
+    "expect": "__open()"
+  },
+  {
+    "eval": "selectSavedSearch(__starredId); window.__calls=[]; api=async(path,options)=>{__calls.push({path,method:options?.method||'GET'});return __baseApi(path,options);};"
+  },
+  {
+    "click": "#saved-searches-apply"
+  },
+  {
+    "expect": "__until(()=>!sheetMode && !galleryPending && total===1 && els.search.value==='saved search nebula' && els.favOnly.checked && !els.allModels.checked)"
+  },
+  {
+    "expect": "sheetReturn===null && __calls.filter((c)=>c.path.startsWith('/api/gallery?')).length===1 && __calls.filter((c)=>c.path.startsWith('/api/runs?')).length===1 && __calls.every((c)=>c.method==='GET') && selectedIds().join()===String(__pick)"
+  },
+  {
+    "eval": "api=__baseApi; enterBin();"
+  },
+  {
+    "expect": "__until(()=>binMode && !galleryPending && selectedIds().length===0)"
+  },
+  {
+    "expect": "__open()"
+  },
+  {
+    "expect": "__s('current').getAttribute('aria-disabled')==='true' && __s('current').title.toLowerCase().includes('bin') && !__s('current').disabled"
+  },
+  {
+    "eval": "window.__draftBeforeBin=__s('query').value;"
+  },
+  {
+    "click": "#saved-searches-current"
+  },
+  {
+    "expect": "__s('query').value===__draftBeforeBin && __s('status').textContent.toLowerCase().includes('bin')"
+  },
+  {
+    "eval": "selectSavedSearch(__todayId); window.__calls=[]; api=async(path,options)=>{__calls.push({path,method:options?.method||'GET'});return __baseApi(path,options);};"
+  },
+  {
+    "click": "#saved-searches-apply"
+  },
+  {
+    "expect": "__until(()=>!binMode && !sheetMode && !galleryPending && total===4 && selectedIds().join()===String(__pick))"
+  },
+  {
+    "expect": "__calls.filter((c)=>c.path.startsWith('/api/gallery?')).length===1 && __calls.filter((c)=>c.path.startsWith('/api/runs?')).length===1 && __calls.every((c)=>c.method==='GET')"
+  },
+  {
+    "eval": "api=__baseApi;"
+  },
+  {
+    "log": "'Deleting a definition does not change the live filter, picks or image count.'"
+  },
+  {
+    "expect": "__open()"
+  },
+  {
+    "eval": "selectSavedSearch(__todayId); window.__filterBefore=JSON.stringify([els.search.value,els.favOnly.checked,els.allModels.checked,total,selectedIds()]);"
+  },
+  {
+    "click": "#saved-searches-delete"
+  },
+  {
+    "expect": "__until(()=>!savedSearchPending && savedSearchItems.length===2 && !savedSearchItems.some((item)=>item.id===__todayId))"
+  },
+  {
+    "expect": "JSON.stringify([els.search.value,els.favOnly.checked,els.allModels.checked,total,selectedIds()])===__filterBefore"
+  },
+  {
+    "click": "#saved-searches-close"
+  },
+  {
+    "log": "'Saved-search geometry and focus stay contained at laptop, narrow, short and wide Gallery beside layouts. Footer targets keep one row from 600 px.'"
+  },
+  {
+    "eval": "window.__footerFits=()=>{const footer=document.querySelector('.gallery-footer').getBoundingClientRect();const boxes=[...document.querySelectorAll('.gallery-footer button')].filter((e)=>!e.hidden&&e.getBoundingClientRect().width>0).map((e)=>e.getBoundingClientRect());const count=document.getElementById('select-count').getBoundingClientRect(),num=document.querySelector('#select-count .num').getBoundingClientRect();return document.documentElement.scrollWidth<=document.documentElement.clientWidth && count.width+1>=num.width && num.width>0 && num.right<=count.right+1 && boxes.every((b)=>b.left>=footer.left-1&&b.right<=footer.right+1&&b.height>=25.5)&&Math.max(...boxes.map((b)=>b.top))-Math.min(...boxes.map((b)=>b.top))<1;}; window.__frames=()=>new Promise((r)=>requestAnimationFrame(()=>requestAnimationFrame(r)));"
+  },
+  {
+    "viewport": [
+      1400,
+      900
+    ]
+  },
+  {
+    "eval": "els.select.scrollIntoView({block:'center'}); window.__footerY=scrollY; window.__openerBox=document.getElementById('btn-saved-searches').getBoundingClientRect().toJSON();"
+  },
+  {
+    "expect": "__footerFits()"
+  },
+  {
+    "hover": "#btn-saved-searches"
+  },
+  {
+    "expect": "__open()"
+  },
+  {
+    "expect": "__fits() && scrollY===__footerY"
+  },
+  {
+    "click": "#saved-searches-close"
+  },
+  {
+    "expect": "scrollY===__footerY && document.activeElement===document.getElementById('btn-saved-searches') && Math.abs(document.getElementById('btn-saved-searches').getBoundingClientRect().left-__openerBox.left)<1"
+  },
+  {
+    "viewport": [
+      600,
+      900
+    ]
+  },
+  {
+    "eval": "els.select.scrollIntoView({block:'center'});window.__footerY=scrollY;"
+  },
+  {
+    "expect": "__footerFits()"
+  },
+  {
+    "expect": "__open()"
+  },
+  {
+    "expect": "__fits() && scrollY===__footerY"
+  },
+  {
+    "shot": "saved-searches-narrow.png"
+  },
+  {
+    "key": "Escape"
+  },
+  {
+    "expect": "__until(()=>!__s('dialog').open && scrollY===__footerY && document.activeElement===document.getElementById('btn-saved-searches'))"
+  },
+  {
+    "viewport": [
+      1400,
+      650
+    ]
+  },
+  {
+    "expect": "__open()"
+  },
+  {
+    "expect": "__fits()"
+  },
+  {
+    "shot": "saved-searches-short.png"
+  },
+  {
+    "click": "#saved-searches-close"
+  },
+  {
+    "viewport": [
+      2048,
+      1040
+    ]
+  },
+  {
+    "eval": "els.besideTick.checked=true; toggleBeside(); __frames();"
+  },
+  {
+    "log": "({viewport:[innerWidth,innerHeight],footer:document.querySelector('.gallery-footer').getBoundingClientRect().toJSON(),count:document.getElementById('select-count').getBoundingClientRect().toJSON(),number:document.querySelector('#select-count .num').getBoundingClientRect().toJSON(),scroll:[document.documentElement.scrollWidth,document.documentElement.clientWidth],buttons:[...document.querySelectorAll('.gallery-footer button')].filter((e)=>!e.hidden&&e.getBoundingClientRect().width>0).map((e)=>({id:e.id,box:e.getBoundingClientRect().toJSON(),text:e.textContent}))})"
+  },
+  {
+    "expect": "__footerFits()"
+  },
+  {
+    "expect": "__open()"
+  },
+  {
+    "expect": "__fits()"
+  },
+  {
+    "shot": "saved-searches-wide.png"
+  },
+  {
+    "click": "#saved-searches-close"
+  },
+  {
+    "expect": "__errors.length===0"
+  },
+  {
+    "log": "'A new page retains definitions on the server, with no startup list read or automatic filter application.'"
+  },
+  {
+    "navigate": "http://127.0.0.1:7933/"
+  },
+  {
+    "eval": "window.__until=async(fn,ms=20000)=>{const end=Date.now()+ms;while(Date.now()<end){if(await fn())return true;await new Promise((r)=>setTimeout(r,50));}return false;};"
+  },
+  {
+    "expect": "__until(()=>Number.isInteger(modelRevision)&&!galleryPending&&!jobListing)"
+  },
+  {
+    "expect": "els.search.value==='' && !els.favOnly.checked && !els.allModels.checked && !selectedIds().length && performance.getEntriesByType('resource').filter((e)=>e.name.includes('/api/gallery/saved-searches')).length===0"
+  },
+  {
+    "eval": "openSavedSearches()"
+  },
+  {
+    "expect": "__until(()=>savedSearchReady&&!savedSearchPending&&savedSearchItems.length===2&&savedSearchItems.some((s)=>s.name==='Nebula nightly')&&savedSearchItems.some((s)=>s.name==='Starred nebula'))"
+  },
+  {
+    "click": "#saved-searches-close"
+  }
+]

@@ -26,6 +26,7 @@
 <link rel="stylesheet" href="/static/styles/shortcuts.css">
 <link rel="stylesheet" href="/static/styles/snippets.css">
 <link rel="stylesheet" href="/static/styles/setups.css">
+<link rel="stylesheet" href="/static/styles/saved-searches.css">
 </head>
 <body>
 <header class="topbar">
@@ -946,6 +947,8 @@
                pressed again, the gallery. Its count is the bin's, every
                checkpoint's. Short, so the row never wraps. -->
           <button type="button" class="ghost small foot-btn" id="btn-bin" aria-pressed="false">Bin<span class="count"></span></button>
+          <button type="button" class="ghost small foot-btn" id="btn-saved-searches" aria-haspopup="dialog"
+            aria-controls="saved-searches-dialog" aria-label="Saved searches…" title="Save, manage and apply named gallery filters"><span class="full">Saved searches…</span><span class="short" aria-hidden="true">⌕</span></button>
           <button type="button" class="ghost small" id="btn-bundles" aria-haspopup="dialog"
             title="Back up the gallery, the picked or the starred images, bundle the entire gallery and clear it, or merge images from a saved bundle">Bundles…</button>
         </div>
@@ -1891,6 +1894,40 @@
   <div id="shortcuts-body"></div>
 </dialog>
 
+<dialog class="saved-searches-dialog" id="saved-searches-dialog" aria-labelledby="saved-searches-title" aria-describedby="saved-searches-intro">
+  <div class="saved-searches-head">
+    <h2 id="saved-searches-title">Saved searches</h2>
+    <button type="button" class="ghost" id="saved-searches-close">Close</button>
+  </div>
+  <p class="hint" id="saved-searches-intro">Save query text, Starred and All models. With All models off, the search uses the checkpoint selected when you apply it. Relative dates use that day's local date. Picks stay selected.</p>
+  <div class="saved-searches-body">
+    <div class="saved-searches-layout">
+      <div class="saved-searches-library">
+        <label>Saved searches<select id="saved-searches-list" size="6" aria-label="Saved searches"></select></label>
+        <div class="saved-searches-actions"><button type="button" class="ghost" id="saved-searches-reload">Reload list</button><button type="button" class="ghost" id="saved-searches-new">New</button></div>
+      </div>
+      <div class="saved-searches-editor">
+        <label>Name<input type="text" id="saved-searches-name" maxlength="80" autocomplete="off" autofocus></label>
+        <label>Query<textarea id="saved-searches-query" rows="4" maxlength="4000" spellcheck="false"></textarea></label>
+        <div class="saved-searches-ticks">
+          <label class="check"><input type="checkbox" id="saved-searches-favorites">Starred</label>
+          <label class="check"><input type="checkbox" id="saved-searches-all-models">All models</label>
+        </div>
+        <button type="button" class="ghost" id="saved-searches-current">Use current filter</button>
+      </div>
+    </div>
+  </div>
+  <div class="saved-searches-actions">
+    <button type="button" class="ghost" id="saved-searches-save" aria-disabled="true">Save</button>
+    <button type="button" class="ghost danger" id="saved-searches-delete" aria-disabled="true">Delete</button>
+    <button type="button" class="primary" id="saved-searches-apply">Apply to gallery</button>
+  </div>
+  <div class="saved-searches-feedback">
+    <p id="saved-searches-status" role="status" aria-live="polite"></p>
+    <button type="button" class="ghost" id="saved-searches-replace" hidden>Update named search</button>
+  </div>
+</dialog>
+
 <dialog class="snippets-dialog" id="snippets-dialog" aria-labelledby="snippets-title" aria-describedby="snippets-intro">
   <div class="snippets-head">
     <h2 id="snippets-title">Prompt snippets</h2>
@@ -1971,6 +2008,7 @@
 <script src="/static/sheet-render.js"></script>
 <script src="/static/sheet-export.js"></script>
 <script src="/static/gallery-search.js"></script>
+<script src="/static/saved-searches.js"></script>
 <script src="/static/facts.js"></script>
 <script src="/static/lightbox.js"></script>
 <script src="/static/lightbox-compare.js"></script>
