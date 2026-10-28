@@ -110,6 +110,10 @@ Backend (`backend/`):
   `api_backup.py` explicit backup configuration and cached status routes,
   with models in `schemas_backup.py`;
   `gallery_lock.py` reservations across storage threads and processes
+- `presets.py` bounded atomic named generation/grid drafts, with strict raw
+  types in `schemas_presets.py`; `preset_validation.py` cold effective
+  summaries and `api_presets.py` revisioned CRUD/validation, independent of
+  gallery maintenance; composer restore/Undo remains in its owner plan
 - `bundle_leases.py` archive reader/exclusive leases, complete download/import
   lifetimes and uncertain-input quarantine, with opt-in shared companion locks in
   `bundle_file_lock.py`; `bundle_mode.py` explicit Windows/NTFS mode installation

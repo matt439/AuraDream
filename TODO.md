@@ -8,7 +8,7 @@ The maintainer's working backlog for this personal project: it records what is p
 
 **Aim (2026-10-18):** keep useful work ready for Matt's common workstation tasks. [Reported use](docs/design/preferences.md) guides priority; it does not approve the candidate redesign.
 
-**Ready backlog (updated 2026-10-28):** four `OPEN` rows added at Matt's request after the [TODO audit](docs/review-2026-10-28-todo.md). Start with named generation/grid setups (`GEN#27`), then saved gallery searches (`GAL#7`) and snippet export/import (`UI#20`); their owner plans define bounded implementation and CPU/browser acceptance. `DEV#8` separates compiler dependency/lockfile/notices preparation from `PERF#1`'s toolchain/card qualification. These features are planned, not built. `DEV#4` is complete: PR #15's hosted browser job passed all 77 smokes on main ([tooling](docs/plan-tooling.md#browser-smokes-in-ci)).
+**Ready backlog (updated 2026-10-28):** four `OPEN` rows added at Matt's request after the [TODO audit](docs/review-2026-10-28-todo.md). Continue named generation/grid setups (`GEN#27`): cold storage/API validation is built; next is explicit composer restore/Undo and browser acceptance. Then saved gallery searches (`GAL#7`) and snippet export/import (`UI#20`); their owner plans define bounded implementation and CPU/browser acceptance. `DEV#8` separates compiler dependency/lockfile/notices preparation from `PERF#1`'s toolchain/card qualification. Those three remain planned. `DEV#4` is complete: PR #15's hosted browser job passed all 77 smokes on main ([tooling](docs/plan-tooling.md#browser-smokes-in-ci)).
 
 **Performance stages:** CPU dependency preparation is `DEV#8`, then `PERF#1` ([compilation](docs/plan-regional-compilation.md)), `PERF#3` ([attention](docs/plan-attention-backends.md)) and `PERF#4` ([caching](docs/plan-step-caching.md)). Performance source, bounded diagnostics and Windows browser checks are complete with Eager defaults and closed execution guards; real toolchain/card qualification and nonempty release admission remain. Default-off backups, explicit shared mode/retention and credential source/stubs are built; actual credential/recovery qualification remains. No real gallery was activated. `PERF#2` still waits on `PERF#1`; source implementation is separate from the remaining layout trials.
 
@@ -69,7 +69,7 @@ Matt's approved [shortcut and compact-setup stages](docs/plan-shortcut-workflow.
 | `GEN#15` | CARD | LOW | S+card | Peak memory per image: phase 3's FLUX.1 Krea [dev] render, the recorded peak beside `nvidia-smi` and shared memory. [Plan](docs/plan-peak-vram.md). |
 | `GEN#16` | CARD | LOW | S+card | Generate then refine: phase 3's FLUX.1 Krea dev night at 1.5x, peak of the alternation and the pair's time. [Plan](docs/plan-then-refine.md). |
 | `GEN#20` | DEFERRED | LOW | L+card | Opt-in A1111 weighting and 77-token chunking on SDXL, deferred by Matt 2026-10-27 because he does not write weighted prompts; revisit on request. [10-24 G10](docs/review-2026-10-24.md#g10-a1111-style-weighting-and-long-prompts-on-sdxl). |
-| `GEN#27` | OPEN | LOW | M | Named generation/grid setups: save checkpoint-scoped drafts and restore explicitly with Undo, keeping server validation and seed/grid semantics. [Plan](docs/plan-generation-presets.md). |
+| `GEN#27` | OPEN | LOW | M | Named generation/grid setups: cold storage/API validation built; next explicit composer restore/Undo and browser acceptance. [Plan](docs/plan-generation-presets.md). |
 
 ## Speed
 

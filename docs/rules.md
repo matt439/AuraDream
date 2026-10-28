@@ -69,6 +69,15 @@ before changing it.
   atomic sidecar beside the settings, under an independent cross-process lock
 - `backend/api_snippets.py` - model-free snippet CRUD routes, independent of
   gallery maintenance; `backend/schemas_snippets.py` owns their validated models
+- `backend/presets.py` - bounded, revisioned named generation/grid drafts in
+  their own atomic sidecar; `backend/schemas_presets.py` owns the strict raw
+  payload and API capture types
+- `backend/preset_validation.py` - cold Generate/Grid validation and effective
+  summaries through ordinary schemas, grid helpers and `applied`; disposable
+  random-grid examples never supply saved seeds
+- `backend/api_presets.py` - setup CRUD and explicit validation, separate from
+  submission; capture/validation holds model selection, while reads/deletes
+  ignore it and every route bypasses gallery maintenance
 - `backend/model_info.py` — cold catalogue details from existing sourced guides,
   plus each entry's Hugging Face access from its catalogue gate word
 - `backend/hub_access.py` — the Hugging Face access check a switch asks before
@@ -2594,6 +2603,14 @@ Frontend and CLI:
   independent lock; unreadable files are never replaced by an empty list.
   Snippets remain available during gallery bundle maintenance. The sidecar
   and temporary files are ignored by Git. No read is made at page startup.
+- Named generation/grid setups currently have cold storage/API support only
+  (`GEN#27` stage 1). Their versioned payload retains raw fields and nullable
+  profile overrides; never store `panelState`, expanded cells, conditioning or
+  execution intent. Capture/validation requires the exact model revision and
+  valid Eager/native loader intent with Step cache Off; GET/DELETE remains
+  checkpoint-independent. Item revisions protect edits/deletes and validation
+  rechecks after calculating. No route submits or restores, and no startup
+  read occurs. Browser restore/Undo remains in the owner plan.
 - Keyboard help (`shortcuts.js`) opens with `?` or the top bar's named
   button, never while typing in an input, textarea, select or editable
   content, during composition, on a repeat or with Ctrl/Meta/Alt. Its native
@@ -5871,6 +5888,14 @@ size parsing, limits, shape identity and legacy hashes, crop pixels and the
 GAN path, actual-size Resume/Finish/estimates, persistence and source-loss
 cleanup. `smoke-size-crop.json` uses a fresh FLUX.1 Krea [dev] fake on 7917
 for sizes, Resume/sheet axes, crop frames, metadata, Reuse and source views.
+
+`tests/test_presets.py`, `test_preset_validation.py` and `test_api_presets.py`
+cover strict saved drafts, bounded atomic failure/corruption preservation,
+thread/process concurrency, optimistic revisions, request/profile and live
+`applied()` parity, grid grammar/budgets, null seeds and disposable random
+examples, held execution, model-switch capture races and gallery-independent
+CRUD/validation. These are stage 1 CPU/API checks; no browser restoration or
+card behavior is qualified.
 
 `tests/test_snippets.py` covers CRUD, exact text, bounds, malformed-file
 preservation, independent locking, stale/concurrent edits and admission

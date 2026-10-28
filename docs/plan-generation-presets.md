@@ -1,8 +1,9 @@
 # Named generation and grid setups
 
 `GEN#27`. Requested for the backlog on **2026-10-28**, after the TODO audit.
-**Status: planned, not built.** This plan defines a CPU/browser implementation
-slice; it does not commission a model load, download or card trial.
+**Status: stage 1 built, 2026-10-28; composer integration and browser acceptance
+remain.** This plan defines CPU/browser implementation slices; it does not
+commission a model load, download or card trial.
 
 ## Purpose and boundary
 
@@ -133,6 +134,56 @@ reason as title and an in-dialog response on a press.
 3. **Browser acceptance and documentation.** Add a scratch fake-server smoke
    and its AGENTS table row. Update usage, module maps and design notes with
    the final behavior; remove the TODO row only when these checks pass.
+
+### Stage 1 implementation, 2026-10-28
+
+`schemas_presets.py` separates the strict raw draft from capture transport.
+`presets.py` stores the version-1 collection at `auradream.presets.json` beside
+the database, with a separate process reservation, atomic replace and optimistic
+item revisions. First reads create nothing. All items are type-checked on read;
+unknown versions/fields, duplicate JSON keys/ids, malformed Unicode and oversized
+files refuse without replacing the file. This new feature has no legacy filename.
+
+The cold routes are `GET/POST /api/presets`, `GET/PUT/DELETE
+/api/presets/{id}` and `POST /api/presets/{id}/validate`. Create/update captures
+require `model_id` and `model_revision`; validation requires the saved item
+revision and model revision. The existing model-request middleware holds the
+selection through validation and saving. Reads/deletes remain available across
+a checkpoint switch; all these routes bypass gallery bundle admission and the
+generation gate. Updating a setup keeps its original checkpoint.
+
+`preset_validation.py` uses the existing Generate/Grid request types, grid
+helpers and `applied()` for an explanation separate from the stored draft.
+The API supplies the backend's pure `applied` reader for live capability answers,
+without calling `describe()` or CUDA. Null overrides follow the exact checkpoint's
+profile; zero remains explicit. The nullable draft seed stays null. Random-grid
+examples use a disposable seed of zero without drawing or returning a new base
+seed. Grid Repeat becomes 1 only in the effective request, and Resume is false.
+Validation checks the item revision again after calculation. It never submits
+work or writes the draft back.
+
+The answer keeps `saved` beside an `effective` base Generate request. `values`
+are the ordinary requested grid axes; `effective_values` separately shows
+normalized negative/Mu/True CFG values and `inactive` names inputs unused by
+at least one cell. Grid definitions remain under `saved.grid`, rather than
+becoming an expanded or resumable run.
+
+The selected loader must be valid Eager/native and submitted Step cache intent
+must be Off for capture/validation. Nonempty, invalid or unknown performance
+intent refuses before a write; saved payloads cannot carry execution fields or
+conditioning. Stage 2 must still capture the entire composer, name active inputs
+that cannot be saved, bind validation replies to the current draft, and implement
+explicit restore/Undo. No browser entry or automatic restoration exists yet.
+
+Stage 1 validation passed **410 focused/regression tests** across the three
+new files, existing grid/model-switch/snippet routes, execution admission and
+resolution, and the classic-script guard. Repository Ruff and the pinned
+Pyright gate passed (138 files, zero diagnostics). The installed environment's
+Python ran these commands directly because `uv run` stopped before execution
+with `uv trampoline failed to canonicalize script path`; dependencies and the
+lockfile were unchanged. A fresh-process validation check imports no Torch,
+Diffusers, Transformers or Hub client. No browser restoration, model load or
+card trial was performed.
 
 ## Completion evidence
 

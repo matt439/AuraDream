@@ -7752,6 +7752,19 @@ Delete wraps to a second row at 2048x1040 at 125% with or without Gallery beside
 (348 against 346 px of column) - the column's own, not this layout's.
 `smoke-stage.json` checks all of it at 2560x1305 and 2048x1040 at 125%.
 
+## Named generation and grid setups
+
+`GEN#27`'s [plan](plan-generation-presets.md) has its cold first stage built
+(2026-10-28). A setup is a raw checkpoint-scoped draft, kept in a bounded atomic
+sidecar beside the database, outside gallery rows and bundles. Sampling nulls
+retain profile ownership and raw prompt/grid text is never replaced with an
+applied request. Validation uses the ordinary schemas, grid helpers and backend
+`applied()` without describing/loading the model, reserving the gallery or
+entering the generation gate. Temporary random-grid examples never become a
+saved seed. Item/model revisions protect capture and validation; invalid or
+held performance intent refuses. The browser dialog, explicit restore and
+whole-setup Undo are still the plan's next stage.
+
 ## Personal prompt snippets
 
 The [snippet plan](plan-prompt-snippets.md) implements `UI#11`. **Examples >
