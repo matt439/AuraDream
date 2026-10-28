@@ -91,6 +91,8 @@ diagnostics. Independent review is clear at source `6e124ba1`, new tests
 `889426b8` and adjusted ordering tests `a565af8d`.
 
 The actual original-source control ran before applying the three exact anchors.
-No real browser, profile, screenshot root, network, model or GPU operation ran.
-All pending UI28/GAL12 work and unknown outcomes remain preserved; no denied
+The 44 new cases blocked the harness's browser/network/profile/output effects.
+The screenshot-output regressions separately created owned scratch directories
+and synthetic files; these results do not qualify browser geometry or cleanup.
+All pending UI28/GAL12 work and unknown outcomes remain preserved, and no denied
 artifact or other stopped action was retried.

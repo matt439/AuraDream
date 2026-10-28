@@ -90,5 +90,7 @@ checks 146 files with zero diagnostics. Independent review is clear at source
 
 The actual original-source control preceded the two exact input anchors.
 Valid flow, launch/profile/cleanup and existing guard order are preserved.
-No actual browser, network, output/profile operation or real denied-path read
-ran, and no earlier denied action or unknown browser run was retried.
+The 40 new input cases blocked the harness's browser/network/profile/output
+effects. The screenshot-output regressions separately created owned scratch
+directories and synthetic files. No browser runtime result is inferred, and no
+denied path or earlier stopped action or unknown browser run was retried.

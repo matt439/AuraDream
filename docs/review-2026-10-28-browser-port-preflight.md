@@ -88,6 +88,8 @@ parsed substitutions and eight active poisoned-effect controls. No-cache Ruff
 passes. The pinned offline Pyright gate checks 146 files with zero diagnostics.
 Independent review is clear at source `aa28c94e` and tests `283db2f8`.
 
-The original-source baseline ran before the one-block source patch. Browser,
-network, output and profile effects were instrumented as forbidden throughout;
-this is independent of and does not retry any denied artifact or browser action.
+The original-source baseline ran before the one-block source patch. The 49
+new port cases blocked the harness's browser/network/profile/output effects.
+The screenshot-output regressions separately created owned scratch directories
+and synthetic files. Those fixtures do not establish browser runtime behavior
+or authorize a read of any denied artifact; no stopped action was retried.
