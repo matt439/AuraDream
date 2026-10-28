@@ -247,7 +247,7 @@ class GalleryAdmission:
         status = path == "/api/status" or path == "/api/jobs" or path.startswith("/api/jobs/")
         # Personal snippets, setups and searches have their own sidecars and reservations. Their
         # complete route shapes stay independent of gallery maintenance.
-        snippets = re.fullmatch(r"/api/snippets(?:/[a-f0-9]{32})?", path) is not None
+        snippets = re.fullmatch(r"/api/snippets(?:/[a-f0-9]{32}|/export|/import(?:/preview)?)?", path) is not None
         presets = re.fullmatch(r"/api/presets(?:/[a-f0-9]{32}(?:/validate)?)?", path) is not None
         saved_searches = re.fullmatch(r"/api/gallery/saved-searches(?:/[a-f0-9]{32})?", path) is not None
         counted = (path.startswith("/api/") or path.startswith("/outputs/")) and not control and not status and not snippets and not presets and not saved_searches

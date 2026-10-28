@@ -1,6 +1,6 @@
 # Plan: export and merge personal snippets
 
-**Status, 2026-10-28: stage 1 built and CPU-checked; stages 2-3 remain.** `UI#20` came
+**Status, 2026-10-28: stages 1-2 built and CPU/API-checked; stage 3 remains.** `UI#20` came
 from the [TODO audit](review-2026-10-28-todo.md). This extends the completed
 [personal snippet feature](plan-prompt-snippets.md); its implementation and
 acceptance are CPU/browser work, without a model or GPU run.
@@ -11,7 +11,8 @@ Provide an explicit way to keep a portable copy of personal snippets and
 merge one into another AuraDream installation without editing sidecars.
 `backend/snippets.py` currently stores exact text beside the database, with
 an independent cross-process lock and per-item revisions. The CRUD API in
-`api_snippets.py` has no export/import operation. Gallery bundles and
+`api_snippets.py` now also provides snapshot export, stateless merge preview
+and explicit atomic import; the browser integration remains stage 3. Gallery bundles and
 automatic gallery backups do not include this sidecar, as recorded in
 [the design notes](design-notes.md#personal-prompt-snippets).
 
@@ -172,3 +173,26 @@ both targets, empty imports, malformed encodings and fields, normalized
 duplicate names, stale/ambiguous replacements and combined byte overflow.
 Ruff and pinned Pyright passed. Routes, atomic import and the browser merge
 workflow are still stages 2-3; no real user sidecar or prompt was changed.
+
+## Stage 2 implementation, 2026-10-28
+
+The three model-free routes are implemented. Export reads one validated
+snapshot and downloads only saved portable fields with no-store caching.
+Import requests are byte-bounded while streaming and parsed for UTF-8,
+duplicate keys and depth before FastAPI validation. Local sidecars now
+use that strict parser too; malformed/newer files remain untouched.
+
+Commit requires one explicit decision per file index, the input digest
+and the whole-collection revision. The existing snippet reservation covers
+reread, revalidation, recomputation and one existing atomic writer call.
+Fresh ids are assigned only to committed additions; replacements preserve
+position/id and increment revisions. Empty/unchanged plans refuse writes.
+
+Scratch tests cover snapshot export during CRUD, unrelated stale edits,
+competing imports, repeated commits, stale/conflicting replacement targets,
+complete choices, corrupt/oversized inputs, raw streaming bounds and
+write/fsync/replace failures. A scratch-to-scratch round trip retains text
+and order, assigns fresh ids and defaults repeat imports to exact skips.
+Model, queue and credential access stay blocked in tests; the routes bypass
+gallery maintenance and switching. Browser integration/acceptance remains
+stage 3, and no real gallery, snippet file or credential was used.

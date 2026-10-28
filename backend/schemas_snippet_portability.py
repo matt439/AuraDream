@@ -5,7 +5,7 @@ from typing import Literal
 
 from pydantic import BaseModel, ConfigDict, Field, field_validator, model_validator
 
-from .schemas_snippets import MAX_SNIPPET_NAME, MAX_SNIPPETS, SnippetFields
+from .schemas_snippets import MAX_SNIPPET_NAME, MAX_SNIPPETS, Snippet, SnippetFields
 
 PORTABLE_FORMAT = "auradream.prompt-snippets"
 MAX_PORTABLE_BYTES = 8 * 1024 * 1024
@@ -51,3 +51,38 @@ class ImportDecision(BaseModel):
         if self.name is not None and self.action != "copy":
             raise ValueError("only Add as copy accepts an edited name")
         return self
+
+
+class SnippetImportRequest(BaseModel):
+    model_config = ConfigDict(extra="forbid", strict=True)
+
+    payload: PortableSnippets
+    decisions: list[ImportDecision] = Field(default_factory=list, max_length=MAX_SNIPPETS)
+
+
+class SnippetImportCommit(SnippetImportRequest):
+    collection_revision: str = Field(pattern=r"^[a-f0-9]{64}$")
+    payload_digest: str = Field(pattern=r"^[a-f0-9]{64}$")
+
+
+class MergeRowResponse(BaseModel):
+    index: int
+    action: Literal["add", "copy", "replace", "skip"]
+    snippet: PortableSnippet
+    matches: list[Snippet]
+    exact_ids: list[str]
+    incoming_collisions: list[int]
+    item_id: str | None = None
+    revision: int | None = None
+
+
+class SnippetImportPreview(BaseModel):
+    collection_revision: str
+    payload_digest: str
+    rows: list[MergeRowResponse]
+    add_count: int
+    replace_count: int
+    skip_count: int
+    changed: bool
+    can_import: bool
+    reason: str

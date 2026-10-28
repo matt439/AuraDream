@@ -12,7 +12,8 @@ import tempfile
 import uuid
 from pathlib import Path
 
-from . import gallery_lock
+from . import gallery_lock, snippet_portability
+from .schemas_snippet_portability import SnippetImportCommit
 from .legacy_names import sidecar
 from .schemas_snippets import MAX_SNIPPETS, Snippet, SnippetFields, SnippetUpdate
 
@@ -37,7 +38,7 @@ def _read(path: Path) -> list[Snippet]:
             raw = stream.read(MAX_FILE_BYTES + 1)
         if len(raw) > MAX_FILE_BYTES:
             raise ValueError("file is too large")
-        payload = json.loads(raw)
+        payload = snippet_portability.parse_json(raw, max_bytes=MAX_FILE_BYTES)
         if not isinstance(payload, dict) or set(payload) != {"version", "items"}:
             raise ValueError("unknown file schema")
         if type(payload["version"]) is not int or payload["version"] != _VERSION:
@@ -120,6 +121,38 @@ def change(
                     items[at] = Snippet(**fields, id=item_id, revision=items[at].revision + 1)
             _write(path, items)
             return items
+    except gallery_lock.GalleryBusy as exc:
+        raise SnippetsError("Another AuraDream process is saving snippets; try again.", 409) from exc
+    except OSError as exc:
+        raise SnippetsError("The snippets could not be saved. The previous saved list has been kept.") from exc
+
+
+def import_collection(database: Path, body: SnippetImportCommit) -> list[Snippet]:
+    """Re-prove the complete preview under the existing snippet reservation."""
+    path = path_for(database)
+    try:
+        with gallery_lock.hold(path):
+            try:
+                body = SnippetImportCommit.model_validate(body.model_dump())
+            except (ValueError, TypeError, RecursionError) as exc:
+                raise snippet_portability.PortabilityError("The snippet import request is invalid.") from exc
+            items = _read(path)
+            if snippet_portability.collection_revision(items) != body.collection_revision:
+                raise SnippetsError("The saved snippets changed. Reload the list and preview again.", 409)
+            if snippet_portability.payload_digest(body.payload) != body.payload_digest:
+                raise snippet_portability.PortabilityError("The selected file changed. Preview it again.")
+            if len(body.decisions) != len(body.payload.items) or {
+                choice.index for choice in body.decisions
+            } != set(range(len(body.payload.items))):
+                raise snippet_portability.PortabilityError("Preview a complete choice for every incoming snippet.")
+            plan = snippet_portability.plan_merge(items, body.payload, body.decisions)
+            if not plan.changed:
+                raise snippet_portability.PortabilityError("The selected import changes nothing.")
+            result = plan.items + [Snippet(
+                **item.model_dump(), id=uuid.uuid4().hex, revision=1,
+            ) for item in plan.additions]
+            _write(path, result)
+            return result
     except gallery_lock.GalleryBusy as exc:
         raise SnippetsError("Another AuraDream process is saving snippets; try again.", 409) from exc
     except OSError as exc:

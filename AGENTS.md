@@ -117,7 +117,8 @@ Backend (`backend/`):
   Restore, its whole-draft Undo and the Saved setups dialog
 - `snippet_portability.py` - cold portable snippet codec, collection/input
   digests and pure merge plans; `schemas_snippet_portability.py` owns strict
-  portable documents and file-index choices; no routes or writer yet
+  portable documents and file-index choices; `api_snippets.py` exposes bounded
+  export/preview/import, with atomic commit under `snippets.py`'s reservation
 - `saved_searches.py` bounded atomic database-scoped gallery filters,
   `schemas_saved_searches.py` their strict fields and revisions, and
   `api_saved_searches.py` model-free CRUD independent of gallery maintenance;

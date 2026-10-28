@@ -12,7 +12,7 @@ import unicodedata
 
 from .schemas_snippet_portability import (
     MAX_JSON_DEPTH, MAX_PORTABLE_BYTES, PORTABLE_FORMAT,
-    ImportDecision, PortableSnippet, PortableSnippets,
+    ImportDecision, MergeRowResponse, PortableSnippet, PortableSnippets, SnippetImportPreview,
 )
 from .schemas_snippets import MAX_SNIPPETS, Snippet
 
@@ -230,3 +230,16 @@ def plan_merge(
     if len(_encoded({"version": 1, "items": bounded}, pretty=True)) > MAX_PORTABLE_BYTES:
         raise PortabilityError("The merged snippets file would exceed 8 MiB.")
     return MergePlan(items=merged, additions=additions, rows=rows, changed=changed)
+
+
+def preview(
+    items: list[Snippet], payload: PortableSnippets, decisions: list[ImportDecision] | None = None,
+) -> SnippetImportPreview:
+    plan = plan_merge(items, payload, decisions)
+    return SnippetImportPreview(
+        collection_revision=collection_revision(items), payload_digest=payload_digest(payload),
+        rows=[MergeRowResponse.model_validate(vars(row)) for row in plan.rows],
+        add_count=plan.add_count, replace_count=plan.replace_count, skip_count=plan.skip_count,
+        changed=plan.changed, can_import=plan.changed,
+        reason="" if plan.changed else "The selected import changes nothing.",
+    )

@@ -71,7 +71,9 @@ before changing it.
   collection/input digests and pure file-index merge planning; strict portable
   documents and choices live in `backend/schemas_snippet_portability.py`
 - `backend/api_snippets.py` - model-free snippet CRUD routes, independent of
-  gallery maintenance; `backend/schemas_snippets.py` owns their validated models
+  gallery maintenance; bounded export/merge preview/import use the existing
+  snippet writer and independent reservation. `backend/schemas_snippets.py`
+  owns CRUD models; portability request/response models live beside the codec
 - `backend/saved_searches.py` - bounded atomic database-scoped gallery filter
   definitions, unique normalized names and optimistic item revisions under an
   independent lock; `backend/schemas_saved_searches.py` owns strict fields and
@@ -5954,7 +5956,11 @@ Unicode/multiline/order round trips, strict format/identity fields, duplicate
 JSON keys, byte/depth bounds, collection/input digests, normalized-name
 conflicts and explicit file-index choices. Pure plans preserve local positions,
 require explicit replacement ids/revisions and bound final count/encoded bytes;
-these tests do not qualify routes, persistence or the browser workflow.
+`tests/test_api_snippet_portability.py` adds scratch snapshot/atomic import,
+whole-collection and target revision refusals, concurrent writers, complete
+choices, independent databases, raw-body bounds and malformed local-file
+preservation. Write/fsync/replace failures keep the previous sidecar, and
+model/queue/vault work is blocked. Browser workflow qualification remains.
 
 `tests/test_snippets.py` covers CRUD, exact text, bounds, malformed-file
 preservation, independent locking, stale/concurrent edits and admission
