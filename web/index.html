@@ -1941,9 +1941,11 @@
   <input type="file" id="snippets-import-file" accept="application/json,.json" hidden>
 </div>
   <div class="snippets-layout">
-    <label class="snippets-library">Saved snippets
+    <div class="snippets-library">
+      <label for="snippets-list">Saved snippets</label>
       <select id="snippets-list" size="6" aria-label="Saved snippets"></select>
-    </label>
+      <button type="button" class="ghost" id="snippets-reload">Reload list</button>
+    </div>
     <div class="snippets-editor">
       <label>Name<input type="text" id="snippets-name" maxlength="80" autocomplete="off" autofocus></label>
       <label>Text<textarea id="snippets-text" rows="5" maxlength="16000" spellcheck="false"></textarea></label>

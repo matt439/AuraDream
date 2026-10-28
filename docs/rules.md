@@ -5971,6 +5971,14 @@ controls at desktop/narrow/short sizes. The 183-step Windows workflow passes;
 final screenshot reinspection remains blocked by an artifact-directory read
 denial. Exact evidence and limits live in `docs/plan-snippet-portability.md`.
 
+`smoke-library-write-recovery.json` uses a fresh FLUX.1 Krea [dev] fake on
+7935. Its 221-step Windows pass exercises actual committed snippet/setup
+writes with lost replies,
+held retries, fresh-read/explicit-choice recovery, retained drafts, known
+validation/stale refusals, New during delayed snippet reads, pending close,
+modal keys and standard/narrow/short containment. The dated review owner
+`docs/review-2026-10-28-library-recovery.md` records actual acceptance.
+
 `tests/test_snippets.py` covers CRUD, exact text, bounds, malformed-file
 preservation, independent locking, stale/concurrent edits and admission
 during bundle maintenance. `smoke-snippets.json` uses a fresh FLUX.1 Krea

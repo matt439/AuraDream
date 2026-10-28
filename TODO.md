@@ -8,7 +8,7 @@ The maintainer's working backlog for this personal project: it records what is p
 
 **Aim (2026-10-18):** keep useful work ready for Matt's common workstation tasks. [Reported use](docs/design/preferences.md) guides priority; it does not approve the candidate redesign.
 
-**Remaining backlog (updated 2026-10-28):** two `OPEN` rows remain. Snippet portability (`UI#20`) is implemented and its CPU/browser workflow passes; final post-style screenshot reinspection is blocked by the task artifact directory's read denial ([evidence](docs/plan-snippet-portability.md#stage-3-implementation-and-browser-evidence-2026-10-28)). `DEV#8` now has an optional compiler extra and matching lock metadata, checked entirely offline; actual wheel hash/contents/notices and fresh online resolution remain after a denied artifact download ([owner](docs/plan-regional-compilation.md#dependency-proposal-and-remaining-artifact-check-2026-10-28)). Neither denied action was retried through another route. No other implementation slice is currently ready; the user/card/decision gates below remain separate.
+**Ready backlog (updated 2026-10-28):** three `OPEN` rows remain. `UI#21`'s saved-library write recovery is built and locally qualified ([221-step evidence and full owner audit](docs/review-2026-10-28-library-recovery.md)). Next `UI#22` aligns saved-name Unicode limits, the next ranked independent source improvement under Matt's autonomous-work request. `UI#20`'s implementation/browser workflow passes, with the older final screenshot reinspection still denied. `DEV#8`'s optional compiler extra/lock and offline plans are prepared; actual artifact inspection and fresh online resolution remain denied/unverified. User/card gates and explicit feature deferrals remain separate.
 
 **Performance stages:** CPU dependency preparation is `DEV#8`, then `PERF#1` ([compilation](docs/plan-regional-compilation.md)), `PERF#3` ([attention](docs/plan-attention-backends.md)) and `PERF#4` ([caching](docs/plan-step-caching.md)). Performance source, bounded diagnostics and Windows browser checks are complete with Eager defaults and closed execution guards; real toolchain/card qualification and nonempty release admission remain. Default-off backups, explicit shared mode/retention and credential source/stubs are built; actual credential/recovery qualification remains. No real gallery was activated. `PERF#2` still waits on `PERF#1`; source implementation is separate from the remaining layout trials.
 
@@ -105,6 +105,8 @@ Matt's approved [shortcut and compact-setup stages](docs/plan-shortcut-workflow.
 |---|---|---|---|---|
 | `UI#7` | USER | LOW | M | Hands-on NVDA/Narrator, touch, native notification delivery and actual Windows scaling checks; browser emulation and accessibility-tree inspection do not complete them. [Manual checks](docs/design/validation.md#accessibility-and-desktop-checks). |
 | `UI#20` | OPEN | LOW | S | Export/import implementation and CPU/browser workflow pass; final screenshot reinspection remains after an artifact-directory read denial. [Evidence](docs/plan-snippet-portability.md#stage-3-implementation-and-browser-evidence-2026-10-28). |
+
+| `UI#22` | OPEN | LOW | S | Align ordinary snippet/setup/search name controls with the existing 80-Unicode-code-point backend bound. [Selected next slice](docs/review-2026-10-28-library-recovery.md#next-selected-slice-unicode-saved-names-ui22). |
 
 ## Development tooling
 

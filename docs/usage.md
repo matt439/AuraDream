@@ -241,6 +241,11 @@ before **Import**. Your prompt boxes and snippet editor stay unchanged.
 If another tab changes the list or a reply is lost, preview again and check
 what is already saved; uncertain copies need a fresh action choice.
 
+For an uncertain Save or Delete in either saved-library dialog, **Reload
+list** and inspect what is saved, then select an item or choose **New** before
+writing again. Your draft stays until that explicit choice; Reload does not
+retry the write. Snippet Reload also keeps text you enter while it is reading.
+
 **Examples** supplies the authors' prompts; templates select the first slot
 to fill. **Tags**, where available, supplies the checkpoint's own vocabulary
 and recommended negative prompt. Its comma chips can be reordered or removed.

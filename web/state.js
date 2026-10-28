@@ -65,7 +65,7 @@ const els = {
   models: $('btn-models'), modelPicker: $('model-picker'),
   shortcuts: $('btn-shortcuts'), shortcutsDialog: $('shortcuts-dialog'),
   shortcutsClose: $('shortcuts-close'), shortcutsBody: $('shortcuts-body'),
-  snippetsDialog: $('snippets-dialog'), snippetsClose: $('snippets-close'),
+  snippetsDialog: $('snippets-dialog'), snippetsClose: $('snippets-close'), snippetsReload: $('snippets-reload'),
   snippetsList: $('snippets-list'), snippetsName: $('snippets-name'), snippetsText: $('snippets-text'),
   snippetsTarget: $('snippets-target'), snippetsPlacement: $('snippets-placement'), snippetsStatus: $('snippets-status'),
   snippetsSave: $('snippets-save'), snippetsNew: $('snippets-new'), snippetsDelete: $('snippets-delete'), snippetsInsert: $('snippets-insert'),

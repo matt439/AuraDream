@@ -4,6 +4,7 @@
 let setupsItems = [];
 let setupsSelected = null;
 let setupsReady = false;
+let setupsWriteRecovery = null;
 let setupsPending = null;
 let setupsTicket = 0;
 let setupsOrigin = null;
@@ -16,6 +17,32 @@ let setupsComposerEpoch = 0;
 function setupSay(text, error = false) {
   els.setupsStatus.textContent = text;
   els.setupsStatus.classList.toggle('error', error);
+}
+
+function setupWriteRecoveryReason() {
+  if (!setupsWriteRecovery) return '';
+  return setupsWriteRecovery.needsReload
+    ? 'The previous setup write result is uncertain. Reload list before selecting a saved setup or choosing New.'
+    : 'The previous setup write result is uncertain. Select a saved setup or choose New before writing again.';
+}
+
+function chooseSetupWriteRecovery(userChoice) {
+  if (!setupsWriteRecovery) return true;
+  if (!userChoice || setupsWriteRecovery.needsReload || !setupsReady) {
+    setupSay(setupWriteRecoveryReason(), true);
+    syncSetups();
+    return false;
+  }
+  setupsWriteRecovery = null;
+  return true;
+}
+
+function uncertainSetupWrite(err, operation) {
+  if (err.status && err.status < 500) return false;
+  setupsWriteRecovery = { needsReload: true };
+  setupsReady = false;
+  setupSay(`Setup ${operation} result is uncertain. Your name and composer are kept. Reload list, then select a saved setup or choose New before writing again.`, true);
+  return true;
 }
 
 function setupPerformanceReason() {
@@ -77,6 +104,7 @@ function setupComposerState() {
 
 function setupRestoreReason() {
   if (setupsPending) return 'Wait for the saved setup request.';
+  if (setupWriteRecoveryReason()) return setupWriteRecoveryReason();
   if (!setupsReady || !setupsSelected) return 'Select a saved setup from the current list.';
   if (setupsSelected.model_id !== loadedModel) return `This setup belongs to ${checkpointName(setupsSelected.model_id)}. Select that checkpoint in Models first.`;
   return setupPerformanceReason() || setupsCheckReason;
@@ -91,11 +119,11 @@ function syncSetups() {
   const pending = setupsPending ? 'Wait for the saved setup request.' : '';
   const name = !els.setupsName.value.trim() ? 'Give the setup a name.'
     : !els.setupsName.validity.valid ? 'The setup name is longer than 80 characters.' : '';
-  const ready = !setupsReady ? 'Reload the saved list before changing it.' : '';
+  const ready = setupWriteRecoveryReason() || (!setupsReady ? 'Reload the saved list before changing it.' : '');
   const selection = !setupsSelected ? 'Select a saved setup first.' : '';
   const mismatch = setupsSelected && setupsSelected.model_id !== loadedModel
     ? `Select ${checkpointName(setupsSelected.model_id)} in Models first.` : '';
-  hold(els.setupsNew, pending, 'Prepare to save the current composer as a new setup');
+  hold(els.setupsNew, pending || (setupsWriteRecovery?.needsReload ? setupWriteRecoveryReason() : ''), 'Prepare to save the current composer as a new setup');
   hold(els.setupsSave, pending || ready || name || setupCaptureReason(), 'Save current composer as a new setup');
   hold(els.setupsUpdate, pending || ready || selection || mismatch || name || setupCaptureReason(), 'Replace this setup with the current composer');
   hold(els.setupsRename, pending || ready || selection || mismatch || name || setupPerformanceReason(), 'Save this name, keeping the saved settings');
@@ -118,6 +146,7 @@ function renderSetups() {
   }
   if (!items.length) els.setupsList.append(new Option('No saved setups in this view', ''));
   els.setupsList.value = setupsSelected?.id ?? '';
+  if (setupsWriteRecovery) els.setupsList.selectedIndex = -1;
   syncSetups();
 }
 
@@ -199,10 +228,11 @@ async function checkSetup(item, restore = false) {
   }
 }
 
-function selectSetup(id) {
+function selectSetup(id, userChoice = true) {
   if (setupsPending === 'write') return;
   const item = setupsItems.find((entry) => entry.id === id);
   if (!item) return;
+  if (!chooseSetupWriteRecovery(userChoice)) { els.setupsList.selectedIndex = -1; return; }
   ++setupsTicket;
   setupsPending = null;
   setupsSelected = item;
@@ -217,8 +247,9 @@ function selectSetup(id) {
   else void checkSetup(item);
 }
 
-function newSetup() {
+function newSetup(userChoice = true) {
   if (setupsPending) { setupSay('Wait for the saved setup request.'); return; }
+  if (!chooseSetupWriteRecovery(userChoice)) return;
   setupsSelected = null;
   setupsCheck = null;
   setupsCheckReason = '';
@@ -236,6 +267,7 @@ async function reloadSetups() {
   const ticket = ++setupsTicket;
   setupsPending = 'read';
   setupsReady = false;
+  if (setupsWriteRecovery) setupsWriteRecovery.needsReload = true;
   setupSay('Reading saved setups.');
   syncSetups();
   try {
@@ -244,11 +276,16 @@ async function reloadSetups() {
     setupsItems = result.items;
     setupsReady = true;
     setupsPending = null;
+    if (setupsWriteRecovery) setupsWriteRecovery.needsReload = false;
     renderSetups();
     // Rereading never discards an unsaved name or updates an editor revision.
     // Selecting from the refreshed list is the explicit reread of that item.
-    if (setupsSelected || setupsDirty) setupSay('List reloaded. Select a setup again to read its latest saved revision; your name is kept until then.');
-    else newSetup();
+    if (setupsWriteRecovery) {
+      els.setupsList.selectedIndex = -1;
+      setupSay(`List reloaded; your name and composer are unchanged. ${setupWriteRecoveryReason()}`);
+      syncSetups();
+    } else if (setupsSelected || setupsDirty) setupSay('List reloaded. Select a setup again to read its latest saved revision; your name is kept until then.');
+    else newSetup(false);
   } catch (err) {
     if (ticket !== setupsTicket || !els.setupsDialog.open) return;
     setupsPending = null;
@@ -285,11 +322,13 @@ async function saveSetup(action) {
     setupsDirty = false;
     renderSetups();
     const saved = selected ? setupsItems.find((item) => item.id === selected.id) : setupsItems.at(-1);
-    if (saved) selectSetup(saved.id);
+    if (saved) selectSetup(saved.id, false);
   } catch (err) {
     setupsPending = null;
     if (err.status === 409 || err.status === 404) setupsReady = false;
-    setupSay(`Setup was not saved: ${err.message} Your name is kept; Reload list before selecting its latest revision.`, true);
+    if (!uncertainSetupWrite(err, 'save')) {
+      setupSay(`Setup was not saved: ${err.message} Your name is kept; Reload list before selecting its latest revision.`, true);
+    }
     syncSetups();
   }
 }
@@ -307,12 +346,14 @@ async function deleteSetup() {
     setupsPending = null;
     setupsSelected = null;
     renderSetups();
-    newSetup();
+    newSetup(false);
     setupSay('Setup deleted. The composer is kept.');
   } catch (err) {
     setupsPending = null;
     if (err.status === 409 || err.status === 404) setupsReady = false;
-    setupSay(`Setup was not deleted: ${err.message} Reload list before selecting its latest revision.`, true);
+    if (!uncertainSetupWrite(err, 'delete')) {
+      setupSay(`Setup was not deleted: ${err.message} Reload list before selecting its latest revision.`, true);
+    }
     syncSetups();
   }
 }
@@ -466,7 +507,7 @@ function initSetups() {
   els.setupsList.onchange = () => selectSetup(els.setupsList.value);
   els.setupsAll.onchange = renderSetups;
   els.setupsName.oninput = () => { setupsDirty = true; syncSetups(); };
-  els.setupsNew.onclick = newSetup;
+  els.setupsNew.onclick = () => newSetup();
   els.setupsReload.onclick = () => { void reloadSetups(); };
   els.setupsSave.onclick = () => { void saveSetup('new'); };
   els.setupsUpdate.onclick = () => { void saveSetup('update'); };

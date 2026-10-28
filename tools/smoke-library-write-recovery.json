@@ -1,0 +1,692 @@
+[
+  {
+    "log": "'Saved-library write recovery on fresh scratch FLUX.1 data: successful writes with lost responses, explicit reconciliation, stable drafts and read intent. No real gallery, model or credentials.'"
+  },
+  {
+    "navigate": "http://127.0.0.1:7935/"
+  },
+  {
+    "eval": "window.__until=async(fn,ms=20000)=>{const end=Date.now()+ms;while(Date.now()<end){try{if(await fn())return true;}catch{}await new Promise(r=>setTimeout(r,40));}return false;};\nwindow.__wrBaseApi=api;window.__wrCalls=[];window.__wrFault=null;window.__wrReadGate=null;window.__wrWriteGate=null;window.__wrErrors=[];\naddEventListener('error',event=>__wrErrors.push(event.message));addEventListener('unhandledrejection',event=>__wrErrors.push(String(event.reason)));\nwindow.__wrCount=(method,path)=>__wrCalls.filter(call=>call.method===method&&call.path===path).length;\nwindow.__wrPost=(path,body)=>__wrBaseApi(path,{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify(body)});\nwindow.__wrFields=(name,text)=>({name,text,target:'prompt'});\nwindow.__wrSnip=(name,text)=>{els.snippetsName.value=name;els.snippetsText.value=text;els.snippetsTarget.value='prompt';for(const field of [els.snippetsName,els.snippetsText,els.snippetsTarget])field.dispatchEvent(new Event('input',{bubbles:true}));};\nwindow.__wrName=(name)=>{els.setupsName.value=name;els.setupsName.dispatchEvent(new Event('input',{bubbles:true}));};\nwindow.__wrSelectSnip=(id)=>{els.snippetsList.value=id;els.snippetsList.dispatchEvent(new Event('change',{bubbles:true}));};\nwindow.__wrSelectSetup=(id)=>{els.setupsList.value=id;els.setupsList.dispatchEvent(new Event('change',{bubbles:true}));};\nwindow.__wrFits=(dialog)=>{const r=dialog.getBoundingClientRect();return r.left>=0&&r.top>=0&&r.right<=innerWidth+1&&r.bottom<=innerHeight+1&&dialog.scrollWidth<=dialog.clientWidth+1;};\nwindow.__wrPosition=(element)=>{const r=element.getBoundingClientRect();return [r.x,r.y,r.width,r.height];};window.__wrStationary=(element,before)=>__wrPosition(element).every((value,index)=>Math.abs(value-before[index])<1);\nwindow.__wrDrop=(method,path,status=null)=>{__wrFault={method,path,status,before:false,done:false};};\nwindow.__wrRefuse=(method,path)=>{__wrFault={method,path,status:422,before:true,done:false};};\napi=async(path,options)=>{const method=options?.method||'GET';__wrCalls.push({method,path});\nconst readGate=__wrReadGate;if(method==='GET'&&readGate?.path===path&&!readGate.captured){readGate.captured=true;const result=await __wrBaseApi(path,options);readGate.snapshot=result;await new Promise(resolve=>{readGate.release=resolve;});return result;}\nconst writeGate=__wrWriteGate;if(method===writeGate?.method&&path===writeGate.path&&!writeGate.captured){writeGate.captured=true;await new Promise(resolve=>{writeGate.release=resolve;});}\nconst fault=__wrFault;if(fault?.method===method&&fault.path===path&&!fault.done){fault.done=true;if(!fault.before)await __wrBaseApi(path,options);const error=new Error(fault.message||(fault.before?'Synthetic validation refusal':'Synthetic lost successful write response'));if(fault.status!==null)error.status=fault.status;throw error;}\nreturn __wrBaseApi(path,options);};"
+  },
+  {
+    "expect": "__until(()=>document.getElementById('status-dot').className.includes('ready') && !galleryPending && !jobListing && Number.isInteger(modelRevision))"
+  },
+  {
+    "eval": "(async()=>{resetPanel();writeBox(els.prompt,'Composer retained through library recovery');promptReplaced();els.seed.value='4281';els.seed.dispatchEvent(new Event('input',{bubbles:true}));persistPanel();window.__wrComposer=setupComposerState();const result=await __wrPost('/api/snippets',__wrFields('Existing original','original saved text'));window.__wrOriginal=result.items[0];})();"
+  },
+  {
+    "log": "'A delayed opening read must not reverse New. A later in-place Reload must keep text entered while its read is pending.'"
+  },
+  {
+    "eval": "window.__wrReadGate={path:'/api/snippets'};"
+  },
+  {
+    "click": "#btn-examples"
+  },
+  {
+    "click": "#snippets-menu-item"
+  },
+  {
+    "expect": "__until(()=>snippetsPending==='read' && typeof __wrReadGate.release==='function')"
+  },
+  {
+    "click": "#snippets-new"
+  },
+  {
+    "expect": "snippetsSelected===null && els.snippetsName.value==='' && els.snippetsText.value===''"
+  },
+  {
+    "eval": "__wrReadGate.release();"
+  },
+  {
+    "expect": "__until(()=>snippetsReady && !snippetsPending && snippetsSelected===null && els.snippetsName.value==='' && els.snippetsText.value==='')"
+  },
+  {
+    "eval": "window.__wrReadGate={path:'/api/snippets'};"
+  },
+  {
+    "click": "#snippets-reload"
+  },
+  {
+    "expect": "__until(()=>snippetsPending==='read' && typeof __wrReadGate.release==='function')"
+  },
+  {
+    "eval": "__wrSnip('Network-created snippet','  draft entered during read'+String.fromCharCode(10)+'kept  ');window.__wrDraft=snippetFields();__wrReadGate.release();"
+  },
+  {
+    "expect": "__until(()=>snippetsReady && !snippetsPending && snippetsSelected===null && JSON.stringify(snippetFields())===JSON.stringify(__wrDraft) && snippetsDirty)"
+  },
+  {
+    "log": "'Reloading the saved list must not cancel a valid export from this same dialog session. Capture actual HTTP Blob bytes before the synthetic download reaches OS Downloads.'"
+  },
+  {
+    "eval": "window.__wrBaseFetch=window.fetch;window.__wrBaseCreateURL=URL.createObjectURL;window.__wrBaseAnchorClick=HTMLAnchorElement.prototype.click;window.__wrExportGate={};window.__wrBlobURLs=new Map();window.__wrDownloadCount=0;window.__wrExportEpoch=snippetsDialogEpoch;window.__wrExportReadTicket=snippetsReadTicket;\nwindow.fetch=async(input,options)=>{const response=await __wrBaseFetch(input,options);const requestURL=typeof input==='string'?input:input instanceof URL?input.href:input.url;const gate=__wrExportGate;if(new URL(requestURL,location.href).pathname==='/api/snippets/export'&&gate&&!gate.captured){gate.captured=true;await new Promise(resolve=>{gate.release=resolve;});}return response;};\nURL.createObjectURL=(blob)=>{const url=__wrBaseCreateURL.call(URL,blob);__wrBlobURLs.set(url,blob);return url;};\nHTMLAnchorElement.prototype.click=function(){if(this.hasAttribute('download')||this.href.startsWith('blob:')){__wrDownloadCount++;window.__wrDownloadBlob=__wrBlobURLs.get(this.href);window.__wrDownloadName=this.download;return;}return __wrBaseAnchorClick.call(this);};"
+  },
+  {
+    "click": "#snippets-export"
+  },
+  {
+    "expect": "__until(()=>snippetExportPending && typeof __wrExportGate.release==='function')"
+  },
+  {
+    "click": "#snippets-reload"
+  },
+  {
+    "expect": "__until(()=>snippetsReady && !snippetsPending && snippetExportPending && snippetsReadTicket>__wrExportReadTicket)"
+  },
+  {
+    "expect": "snippetsDialogEpoch===__wrExportEpoch && JSON.stringify(snippetFields())===JSON.stringify(__wrDraft) && snippetsSelected===null && snippetsDirty && __wrDownloadCount===0"
+  },
+  {
+    "eval": "__wrExportGate.release();"
+  },
+  {
+    "expect": "__until(()=>!snippetExportPending && __wrDownloadCount===1 && __wrDownloadBlob instanceof Blob)"
+  },
+  {
+    "eval": "(async()=>{window.__wrExportedText=await __wrDownloadBlob.text();window.__wrExported=JSON.parse(__wrExportedText);})();"
+  },
+  {
+    "expect": "__wrDownloadName==='auradream-snippets.json' && __wrExported.format==='auradream.prompt-snippets' && __wrExported.version===1 && __wrExported.items.length===1 && __wrExported.items[0].name===__wrOriginal.name && __wrExported.items[0].text===__wrOriginal.text && __wrExported.items[0].target===__wrOriginal.target && JSON.stringify(Object.keys(__wrExported.items[0]).sort())===JSON.stringify(['name','target','text']) && !__wrExportedText.includes(__wrDraft.name) && JSON.stringify(snippetFields())===JSON.stringify(__wrDraft)"
+  },
+  {
+    "log": "'Closing and reopening creates a new dialog session. A held export from the old session emits no download and clears pending state when it settles.'"
+  },
+  {
+    "eval": "window.__wrExportGate={};window.__wrOldExportEpoch=snippetsDialogEpoch;"
+  },
+  {
+    "click": "#snippets-export"
+  },
+  {
+    "expect": "__until(()=>snippetExportPending && typeof __wrExportGate.release==='function')"
+  },
+  {
+    "click": "#snippets-close"
+  },
+  {
+    "expect": "__until(()=>!els.snippetsDialog.open && document.activeElement===els.examplesBtn && snippetExportPending)"
+  },
+  {
+    "click": "#btn-examples"
+  },
+  {
+    "click": "#snippets-menu-item"
+  },
+  {
+    "expect": "__until(()=>els.snippetsDialog.open && snippetsReady && !snippetsPending && snippetExportPending && snippetsDialogEpoch>__wrOldExportEpoch)"
+  },
+  {
+    "eval": "__wrExportGate.release();"
+  },
+  {
+    "expect": "__until(()=>!snippetExportPending && __wrDownloadCount===1)"
+  },
+  {
+    "expect": "JSON.stringify(snippetFields())===JSON.stringify(__wrDraft) && snippetsSelected===null && snippetsDirty && snippetsItems.length===1 && setupComposerState()===__wrComposer"
+  },
+  {
+    "eval": "window.fetch=__wrBaseFetch;URL.createObjectURL=__wrBaseCreateURL;HTMLAnchorElement.prototype.click=__wrBaseAnchorClick;"
+  },
+  {
+    "log": "'The server commits a new snippet but its response is lost. Save stays held through Reload until explicit selection; no duplicate POST is sent.'"
+  },
+  {
+    "eval": "__wrDrop('POST','/api/snippets');window.__wrBeforeCreate=__wrCount('POST','/api/snippets');"
+  },
+  {
+    "click": "#snippets-save"
+  },
+  {
+    "expect": "__until(()=>!snippetsPending && snippetsWriteRecovery?.needsReload===true && els.snippetsStatus.textContent.toLowerCase().includes('uncertain'))"
+  },
+  {
+    "expect": "JSON.stringify(snippetFields())===JSON.stringify(__wrDraft) && snippetsSelected===null && !els.snippetsStatus.textContent.toLowerCase().includes('was not saved') && setupComposerState()===__wrComposer && __wrCount('POST','/api/snippets')===__wrBeforeCreate+1"
+  },
+  {
+    "click": "#snippets-save"
+  },
+  {
+    "expect": "__wrCount('POST','/api/snippets')===__wrBeforeCreate+1 && els.snippetsSave.getAttribute('aria-disabled')==='true' && els.snippetsSave.title.length>0"
+  },
+  {
+    "click": "#snippets-reload"
+  },
+  {
+    "expect": "__until(()=>!snippetsPending && snippetsReady && snippetsWriteRecovery?.needsReload===false && snippetsItems.length===2)"
+  },
+  {
+    "expect": "JSON.stringify(snippetFields())===JSON.stringify(__wrDraft) && snippetsSelected===null && els.snippetsList.selectedIndex===-1 && els.snippetsSave.getAttribute('aria-disabled')==='true'"
+  },
+  {
+    "eval": "window.__wrCreatedSnippet=snippetsItems.find(item=>item.name===__wrDraft.name);__wrSelectSnip(__wrCreatedSnippet.id);"
+  },
+  {
+    "expect": "snippetsWriteRecovery===null && snippetsSelected.id===__wrCreatedSnippet.id && snippetsSelected.revision===1 && els.snippetsText.value===__wrDraft.text && els.snippetsSave.getAttribute('aria-disabled')==='false'"
+  },
+  {
+    "click": "#snippets-new"
+  },
+  {
+    "eval": "__wrSnip('Known-refusal snippet','retryable without duplicating');__wrRefuse('POST','/api/snippets');"
+  },
+  {
+    "click": "#snippets-save"
+  },
+  {
+    "expect": "__until(()=>!snippetsPending && snippetsWriteRecovery===null && snippetsReady && els.snippetsStatus.textContent.includes('Synthetic validation refusal'))"
+  },
+  {
+    "expect": "els.snippetsName.value==='Known-refusal snippet' && els.snippetsText.value==='retryable without duplicating' && els.snippetsSave.getAttribute('aria-disabled')==='false'"
+  },
+  {
+    "eval": "window.__wrWriteGate={method:'POST',path:'/api/snippets'};"
+  },
+  {
+    "click": "#snippets-save"
+  },
+  {
+    "expect": "__until(()=>snippetsPending==='write' && typeof __wrWriteGate.release==='function')"
+  },
+  {
+    "expect": "els.snippetsClose.getAttribute('aria-disabled')==='true' && els.snippetsReload.getAttribute('aria-disabled')==='true'"
+  },
+  {
+    "click": "#snippets-close"
+  },
+  {
+    "key": "Escape"
+  },
+  {
+    "expect": "els.snippetsDialog.open && snippetsPending==='write'"
+  },
+  {
+    "eval": "__wrWriteGate.release();"
+  },
+  {
+    "expect": "__until(()=>!snippetsPending && snippetsItems.length===3 && snippetsSelected?.name==='Known-refusal snippet' && snippetsSelected.revision===1)"
+  },
+  {
+    "eval": "(async()=>{window.__wrStaleSnippet={...snippetsSelected};await __wrBaseApi('/api/snippets/'+__wrStaleSnippet.id,{method:'PUT',headers:{'Content-Type':'application/json'},body:JSON.stringify({...__wrFields('Updated elsewhere','fresh server text'),revision:__wrStaleSnippet.revision})});__wrSnip('My retained edit','unsaved edit after conflict');})();"
+  },
+  {
+    "click": "#snippets-save"
+  },
+  {
+    "expect": "__until(()=>!snippetsPending && !snippetsReady && snippetsWriteRecovery===null && els.snippetsStatus.textContent.includes('another tab'))"
+  },
+  {
+    "click": "#snippets-reload"
+  },
+  {
+    "expect": "__until(()=>!snippetsPending && snippetsReady && snippetsItems.find(item=>item.id===__wrStaleSnippet.id)?.revision===2)"
+  },
+  {
+    "expect": "els.snippetsName.value==='My retained edit' && els.snippetsText.value==='unsaved edit after conflict' && snippetsSelected.revision===1 && els.snippetsSave.getAttribute('aria-disabled')==='true'"
+  },
+  {
+    "eval": "__wrSelectSnip(__wrStaleSnippet.id);"
+  },
+  {
+    "expect": "snippetsSelected.revision===2 && els.snippetsName.value==='Updated elsewhere' && els.snippetsText.value==='fresh server text' && !snippetsDirty"
+  },
+  {
+    "eval": "window.__wrReadGate={path:'/api/snippets'};"
+  },
+  {
+    "click": "#snippets-reload"
+  },
+  {
+    "expect": "__until(()=>snippetsPending==='read' && typeof __wrReadGate.release==='function')"
+  },
+  {
+    "eval": "(async()=>{await __wrBaseApi('/api/snippets/'+__wrStaleSnippet.id,{method:'PUT',headers:{'Content-Type':'application/json'},body:JSON.stringify({...__wrFields('Newest opening version','newest text'),revision:2})});})();"
+  },
+  {
+    "click": "#snippets-close"
+  },
+  {
+    "expect": "__until(()=>!els.snippetsDialog.open && document.activeElement===els.examplesBtn)"
+  },
+  {
+    "click": "#btn-examples"
+  },
+  {
+    "click": "#snippets-menu-item"
+  },
+  {
+    "expect": "__until(()=>snippetsReady && !snippetsPending && snippetsSelected?.revision===3 && els.snippetsName.value==='Newest opening version')"
+  },
+  {
+    "eval": "__wrReadGate.release();"
+  },
+  {
+    "expect": "__until(()=>!snippetsPending && snippetsSelected?.revision===3 && snippetsItems.find(item=>item.id===__wrStaleSnippet.id)?.revision===3 && els.snippetsName.value==='Newest opening version')"
+  },
+  {
+    "log": "'A committed snippet DELETE with a lost500 response is also uncertain; another Delete cannot be sent before reconciliation and deliberate New.'"
+  },
+  {
+    "eval": "window.__wrDeletedSnippet={...snippetsSelected};window.__wrDeleteSnippetPath='/api/snippets/'+snippetsSelected.id+'?revision='+snippetsSelected.revision;__wrDrop('DELETE',__wrDeleteSnippetPath,500);window.__wrBeforeDelete=__wrCount('DELETE',__wrDeleteSnippetPath);"
+  },
+  {
+    "click": "#snippets-delete"
+  },
+  {
+    "expect": "__until(()=>!snippetsPending && snippetsWriteRecovery?.needsReload===true && els.snippetsStatus.textContent.toLowerCase().includes('uncertain'))"
+  },
+  {
+    "click": "#snippets-delete"
+  },
+  {
+    "expect": "__wrCount('DELETE',__wrDeleteSnippetPath)===__wrBeforeDelete+1 && els.snippetsName.value===__wrDeletedSnippet.name && els.snippetsText.value===__wrDeletedSnippet.text && snippetsSelected.id===__wrDeletedSnippet.id"
+  },
+  {
+    "click": "#snippets-reload"
+  },
+  {
+    "expect": "__until(()=>!snippetsPending && snippetsWriteRecovery?.needsReload===false && snippetsItems.length===2 && !snippetsItems.some(item=>item.id===__wrDeletedSnippet.id))"
+  },
+  {
+    "expect": "els.snippetsName.value===__wrDeletedSnippet.name && snippetsSelected.id===__wrDeletedSnippet.id && els.snippetsSave.getAttribute('aria-disabled')==='true' && els.snippetsDelete.getAttribute('aria-disabled')==='true'"
+  },
+  {
+    "click": "#snippets-new"
+  },
+  {
+    "expect": "snippetsWriteRecovery===null && snippetsSelected===null && els.snippetsName.value==='' && els.snippetsText.value===''"
+  },
+  {
+    "eval": "__wrSnip('After reconciled delete','one deliberately new item');window.__wrNextCreate=__wrCount('POST','/api/snippets');"
+  },
+  {
+    "click": "#snippets-save"
+  },
+  {
+    "expect": "__until(()=>!snippetsPending && snippetsItems.length===3 && snippetsSelected?.name==='After reconciled delete')"
+  },
+  {
+    "expect": "__wrCount('POST','/api/snippets')===__wrNextCreate+1 && setupComposerState()===__wrComposer"
+  },
+  {
+    "log": "'A committed snippet PUT with a lost503 response retains its old editor revision. A failed recovery GET cannot clear the write hold or authorize another PUT.'"
+  },
+  {
+    "eval": "window.__wrUpdatedSnippet={...snippetsSelected};__wrSnip('Updated snippet with lost reply','retained update text'+String.fromCharCode(10)+'second line');window.__wrUpdateDraft=snippetFields();window.__wrSnippetPutPath='/api/snippets/'+snippetsSelected.id;window.__wrBeforeSnippetPut=__wrCount('PUT',__wrSnippetPutPath);window.__wrSnippetSavePosition=__wrPosition(els.snippetsSave);window.__wrSnippetClosePosition=__wrPosition(els.snippetsClose);__wrDrop('PUT',__wrSnippetPutPath,503);"
+  },
+  {
+    "click": "#snippets-save"
+  },
+  {
+    "expect": "__until(()=>!snippetsPending && snippetsWriteRecovery?.needsReload===true && els.snippetsStatus.textContent.toLowerCase().includes('uncertain'))"
+  },
+  {
+    "expect": "JSON.stringify(snippetFields())===JSON.stringify(__wrUpdateDraft) && snippetsSelected.id===__wrUpdatedSnippet.id && snippetsSelected.revision===__wrUpdatedSnippet.revision && __wrCount('PUT',__wrSnippetPutPath)===__wrBeforeSnippetPut+1 && __wrStationary(els.snippetsSave,__wrSnippetSavePosition) && __wrStationary(els.snippetsClose,__wrSnippetClosePosition) && setupComposerState()===__wrComposer"
+  },
+  {
+    "click": "#snippets-save"
+  },
+  {
+    "expect": "__wrCount('PUT',__wrSnippetPutPath)===__wrBeforeSnippetPut+1 && els.snippetsSave.getAttribute('aria-disabled')==='true'"
+  },
+  {
+    "eval": "__wrFault={method:'GET',path:'/api/snippets',status:503,before:true,done:false,message:'Synthetic failed recovery read'};"
+  },
+  {
+    "click": "#snippets-reload"
+  },
+  {
+    "expect": "__until(()=>!snippetsPending && !snippetsReady && snippetsWriteRecovery?.needsReload===true && els.snippetsStatus.textContent.includes('Synthetic failed recovery read'))"
+  },
+  {
+    "expect": "JSON.stringify(snippetFields())===JSON.stringify(__wrUpdateDraft) && snippetsSelected.revision===__wrUpdatedSnippet.revision && els.snippetsSave.getAttribute('aria-disabled')==='true' && __wrCount('PUT',__wrSnippetPutPath)===__wrBeforeSnippetPut+1"
+  },
+  {
+    "click": "#snippets-save"
+  },
+  {
+    "expect": "__wrCount('PUT',__wrSnippetPutPath)===__wrBeforeSnippetPut+1"
+  },
+  {
+    "click": "#snippets-reload"
+  },
+  {
+    "expect": "__until(()=>!snippetsPending && snippetsReady && snippetsWriteRecovery?.needsReload===false && snippetsItems.find(item=>item.id===__wrUpdatedSnippet.id)?.revision===__wrUpdatedSnippet.revision+1)"
+  },
+  {
+    "expect": "JSON.stringify(snippetFields())===JSON.stringify(__wrUpdateDraft) && snippetsSelected.revision===__wrUpdatedSnippet.revision && els.snippetsSave.getAttribute('aria-disabled')==='true'"
+  },
+  {
+    "eval": "__wrSelectSnip(__wrUpdatedSnippet.id);"
+  },
+  {
+    "expect": "snippetsWriteRecovery===null && snippetsSelected.revision===__wrUpdatedSnippet.revision+1 && JSON.stringify(snippetFields())===JSON.stringify(__wrUpdateDraft) && snippetsItems.length===3 && setupComposerState()===__wrComposer"
+  },
+  {
+    "viewport": [
+      1400,
+      900
+    ]
+  },
+  {
+    "expect": "__wrFits(els.snippetsDialog) && els.snippetsReload.getBoundingClientRect().bottom<=innerHeight && els.snippetsClose.getBoundingClientRect().bottom<=innerHeight"
+  },
+  {
+    "shot": "library-write-recovery-snippets-wide.png"
+  },
+  {
+    "viewport": [
+      400,
+      650
+    ]
+  },
+  {
+    "expect": "__wrFits(els.snippetsDialog) && els.snippetsReload.getBoundingClientRect().bottom<=innerHeight && els.snippetsClose.getBoundingClientRect().bottom<=innerHeight"
+  },
+  {
+    "shot": "library-write-recovery-snippets-narrow.png"
+  },
+  {
+    "viewport": [
+      1400,
+      600
+    ]
+  },
+  {
+    "expect": "__wrFits(els.snippetsDialog) && els.snippetsReload.getBoundingClientRect().bottom<=innerHeight && els.snippetsClose.getBoundingClientRect().bottom<=innerHeight"
+  },
+  {
+    "shot": "library-write-recovery-snippets-short.png"
+  },
+  {
+    "keycombo": [
+      "Control",
+      "Enter"
+    ]
+  },
+  {
+    "expect": "els.snippetsDialog.open && !busy && !__wrCalls.some(call=>['/api/generate','/api/grid','/api/refine'].includes(call.path)&&call.method==='POST')"
+  },
+  {
+    "click": "#snippets-close"
+  },
+  {
+    "expect": "__until(()=>!els.snippetsDialog.open && document.activeElement===els.examplesBtn)"
+  },
+  {
+    "viewport": [
+      1400,
+      900
+    ]
+  },
+  {
+    "log": "'Saved setups apply the same explicit recovery contract without changing the composer. A successful Create with a lost500 response must not be repeated.'"
+  },
+  {
+    "click": "#btn-examples"
+  },
+  {
+    "click": "#setups-menu-item"
+  },
+  {
+    "expect": "__until(()=>els.setupsDialog.open && setupsReady && !setupsPending && setupsItems.length===0)"
+  },
+  {
+    "eval": "__wrName('Setup with lost response');window.__wrSetupDraft=els.setupsName.value;__wrDrop('POST','/api/presets',503);window.__wrBeforeSetupCreate=__wrCount('POST','/api/presets');"
+  },
+  {
+    "click": "#setups-save"
+  },
+  {
+    "expect": "__until(()=>!setupsPending && setupsWriteRecovery?.needsReload===true && els.setupsStatus.textContent.toLowerCase().includes('uncertain'))"
+  },
+  {
+    "expect": "els.setupsName.value===__wrSetupDraft && setupComposerState()===__wrComposer && !els.setupsStatus.textContent.toLowerCase().includes('was not saved')"
+  },
+  {
+    "click": "#setups-save"
+  },
+  {
+    "expect": "__wrCount('POST','/api/presets')===__wrBeforeSetupCreate+1 && els.setupsSave.getAttribute('aria-disabled')==='true' && els.setupsSave.title.length>0"
+  },
+  {
+    "click": "#setups-reload"
+  },
+  {
+    "expect": "__until(()=>!setupsPending && setupsReady && setupsWriteRecovery?.needsReload===false && setupsItems.length===1)"
+  },
+  {
+    "expect": "els.setupsName.value===__wrSetupDraft && setupsSelected===null && els.setupsList.selectedIndex===-1 && els.setupsSave.getAttribute('aria-disabled')==='true' && setupComposerState()===__wrComposer"
+  },
+  {
+    "eval": "window.__wrCreatedSetup=setupsItems[0];__wrSelectSetup(__wrCreatedSetup.id);"
+  },
+  {
+    "expect": "__until(()=>!setupsPending && setupsWriteRecovery===null && setupsSelected?.id===__wrCreatedSetup.id && setupsSelected.revision===1)"
+  },
+  {
+    "expect": "els.setupsName.value===__wrSetupDraft && els.setupsSave.getAttribute('aria-disabled')==='false' && setupComposerState()===__wrComposer"
+  },
+  {
+    "click": "#setups-new"
+  },
+  {
+    "eval": "__wrName('Known-refusal setup');__wrRefuse('POST','/api/presets');"
+  },
+  {
+    "click": "#setups-save"
+  },
+  {
+    "expect": "__until(()=>!setupsPending && setupsWriteRecovery===null && setupsReady && els.setupsStatus.textContent.includes('Synthetic validation refusal'))"
+  },
+  {
+    "expect": "els.setupsName.value==='Known-refusal setup' && els.setupsSave.getAttribute('aria-disabled')==='false'"
+  },
+  {
+    "click": "#setups-save"
+  },
+  {
+    "expect": "__until(()=>!setupsPending && setupsItems.length===2 && setupsSelected?.name==='Known-refusal setup' && setupsSelected.revision===1)"
+  },
+  {
+    "eval": "(async()=>{window.__wrStaleSetup={...setupsSelected};await __wrBaseApi('/api/presets/'+__wrStaleSetup.id,{method:'PUT',headers:{'Content-Type':'application/json'},body:JSON.stringify({name:'Setup updated elsewhere',model_id:loadedModel,payload:__wrStaleSetup.payload,revision:__wrStaleSetup.revision,model_revision:modelRevision,step_cache:null})});__wrName('My retained setup name');})();"
+  },
+  {
+    "click": "#setups-rename"
+  },
+  {
+    "expect": "__until(()=>!setupsPending && !setupsReady && setupsWriteRecovery===null && els.setupsStatus.textContent.includes('another tab'))"
+  },
+  {
+    "click": "#setups-reload"
+  },
+  {
+    "expect": "__until(()=>!setupsPending && setupsReady && setupsItems.find(item=>item.id===__wrStaleSetup.id)?.revision===2)"
+  },
+  {
+    "expect": "els.setupsName.value==='My retained setup name' && setupsSelected.revision===1 && setupComposerState()===__wrComposer"
+  },
+  {
+    "eval": "__wrSelectSetup(__wrStaleSetup.id);"
+  },
+  {
+    "expect": "__until(()=>!setupsPending && setupsSelected?.revision===2 && els.setupsName.value==='Setup updated elsewhere')"
+  },
+  {
+    "log": "'A committed setup DELETE with its network response lost stays held after Reload until deliberate New. No second DELETE is sent.'"
+  },
+  {
+    "eval": "window.__wrDeletedSetup={...setupsSelected};window.__wrDeleteSetupPath='/api/presets/'+setupsSelected.id+'?revision='+setupsSelected.revision;__wrDrop('DELETE',__wrDeleteSetupPath);window.__wrBeforeSetupDelete=__wrCount('DELETE',__wrDeleteSetupPath);"
+  },
+  {
+    "click": "#setups-delete"
+  },
+  {
+    "expect": "__until(()=>!setupsPending && setupsWriteRecovery?.needsReload===true && els.setupsStatus.textContent.toLowerCase().includes('uncertain'))"
+  },
+  {
+    "click": "#setups-delete"
+  },
+  {
+    "expect": "__wrCount('DELETE',__wrDeleteSetupPath)===__wrBeforeSetupDelete+1 && els.setupsName.value===__wrDeletedSetup.name && setupsSelected.id===__wrDeletedSetup.id && setupComposerState()===__wrComposer"
+  },
+  {
+    "click": "#setups-reload"
+  },
+  {
+    "expect": "__until(()=>!setupsPending && setupsWriteRecovery?.needsReload===false && setupsItems.length===1 && !setupsItems.some(item=>item.id===__wrDeletedSetup.id))"
+  },
+  {
+    "expect": "els.setupsName.value===__wrDeletedSetup.name && setupsSelected.id===__wrDeletedSetup.id && els.setupsSave.getAttribute('aria-disabled')==='true' && els.setupsDelete.getAttribute('aria-disabled')==='true'"
+  },
+  {
+    "click": "#setups-new"
+  },
+  {
+    "expect": "setupsWriteRecovery===null && setupsSelected===null && els.setupsName.value===''"
+  },
+  {
+    "eval": "__wrName('After reconciled setup delete');window.__wrSetupNext=__wrCount('POST','/api/presets');window.__wrWriteGate={method:'POST',path:'/api/presets'};"
+  },
+  {
+    "click": "#setups-save"
+  },
+  {
+    "expect": "__until(()=>setupsPending==='write' && typeof __wrWriteGate.release==='function')"
+  },
+  {
+    "expect": "els.setupsClose.getAttribute('aria-disabled')==='true' && els.setupsReload.getAttribute('aria-disabled')==='true'"
+  },
+  {
+    "click": "#setups-close"
+  },
+  {
+    "key": "Escape"
+  },
+  {
+    "expect": "els.setupsDialog.open && setupsPending==='write'"
+  },
+  {
+    "eval": "__wrWriteGate.release();"
+  },
+  {
+    "expect": "__until(()=>!setupsPending && setupsItems.length===2 && setupsSelected?.name==='After reconciled setup delete')"
+  },
+  {
+    "expect": "__wrCount('POST','/api/presets')===__wrSetupNext+1 && setupComposerState()===__wrComposer"
+  },
+  {
+    "log": "'A committed setup Rename PUT with its network reply lost keeps the old revision. A failed recovery GET keeps the name, composer and write hold until a fresh read and explicit selection.'"
+  },
+  {
+    "eval": "window.__wrUpdatedSetup={...setupsSelected};__wrName('Updated setup with lost reply');window.__wrSetupUpdateName=els.setupsName.value;window.__wrSetupPutPath='/api/presets/'+setupsSelected.id;window.__wrBeforeSetupPut=__wrCount('PUT',__wrSetupPutPath);window.__wrSetupSavePosition=__wrPosition(els.setupsSave);window.__wrSetupClosePosition=__wrPosition(els.setupsClose);__wrDrop('PUT',__wrSetupPutPath);"
+  },
+  {
+    "click": "#setups-rename"
+  },
+  {
+    "expect": "__until(()=>!setupsPending && setupsWriteRecovery?.needsReload===true && els.setupsStatus.textContent.toLowerCase().includes('uncertain'))"
+  },
+  {
+    "expect": "els.setupsName.value===__wrSetupUpdateName && setupsSelected.id===__wrUpdatedSetup.id && setupsSelected.revision===__wrUpdatedSetup.revision && __wrCount('PUT',__wrSetupPutPath)===__wrBeforeSetupPut+1 && __wrStationary(els.setupsSave,__wrSetupSavePosition) && __wrStationary(els.setupsClose,__wrSetupClosePosition) && setupComposerState()===__wrComposer"
+  },
+  {
+    "click": "#setups-rename"
+  },
+  {
+    "expect": "__wrCount('PUT',__wrSetupPutPath)===__wrBeforeSetupPut+1 && els.setupsRename.getAttribute('aria-disabled')==='true'"
+  },
+  {
+    "eval": "__wrFault={method:'GET',path:'/api/presets',status:503,before:true,done:false,message:'Synthetic failed recovery read'};"
+  },
+  {
+    "click": "#setups-reload"
+  },
+  {
+    "expect": "__until(()=>!setupsPending && !setupsReady && setupsWriteRecovery?.needsReload===true && els.setupsStatus.textContent.includes('Synthetic failed recovery read'))"
+  },
+  {
+    "expect": "els.setupsName.value===__wrSetupUpdateName && setupsSelected.revision===__wrUpdatedSetup.revision && els.setupsRename.getAttribute('aria-disabled')==='true' && __wrCount('PUT',__wrSetupPutPath)===__wrBeforeSetupPut+1 && setupComposerState()===__wrComposer"
+  },
+  {
+    "click": "#setups-rename"
+  },
+  {
+    "expect": "__wrCount('PUT',__wrSetupPutPath)===__wrBeforeSetupPut+1"
+  },
+  {
+    "click": "#setups-reload"
+  },
+  {
+    "expect": "__until(()=>!setupsPending && setupsReady && setupsWriteRecovery?.needsReload===false && setupsItems.find(item=>item.id===__wrUpdatedSetup.id)?.revision===__wrUpdatedSetup.revision+1)"
+  },
+  {
+    "expect": "els.setupsName.value===__wrSetupUpdateName && setupsSelected.revision===__wrUpdatedSetup.revision && els.setupsRename.getAttribute('aria-disabled')==='true'"
+  },
+  {
+    "eval": "__wrSelectSetup(__wrUpdatedSetup.id);"
+  },
+  {
+    "expect": "__until(()=>!setupsPending && setupsWriteRecovery===null && setupsSelected?.revision===__wrUpdatedSetup.revision+1 && els.setupsName.value===__wrSetupUpdateName)"
+  },
+  {
+    "expect": "setupsItems.length===2 && setupComposerState()===__wrComposer"
+  },
+  {
+    "viewport": [
+      1400,
+      900
+    ]
+  },
+  {
+    "expect": "__wrFits(els.setupsDialog) && els.setupsClose.getBoundingClientRect().bottom<=innerHeight && els.setupsReload.getBoundingClientRect().bottom<=innerHeight"
+  },
+  {
+    "shot": "library-write-recovery-setups-wide.png"
+  },
+  {
+    "viewport": [
+      400,
+      650
+    ]
+  },
+  {
+    "expect": "__wrFits(els.setupsDialog) && els.setupsClose.getBoundingClientRect().bottom<=innerHeight && els.setupsReload.getBoundingClientRect().bottom<=innerHeight"
+  },
+  {
+    "shot": "library-write-recovery-setups-narrow.png"
+  },
+  {
+    "viewport": [
+      1400,
+      600
+    ]
+  },
+  {
+    "expect": "__wrFits(els.setupsDialog) && els.setupsClose.getBoundingClientRect().bottom<=innerHeight && els.setupsReload.getBoundingClientRect().bottom<=innerHeight"
+  },
+  {
+    "shot": "library-write-recovery-setups-short.png"
+  },
+  {
+    "keycombo": [
+      "Control",
+      "Enter"
+    ]
+  },
+  {
+    "expect": "els.setupsDialog.open && !busy && !__wrCalls.some(call=>['/api/generate','/api/grid','/api/refine'].includes(call.path)&&call.method==='POST')"
+  },
+  {
+    "click": "#setups-close"
+  },
+  {
+    "expect": "__until(()=>!els.setupsDialog.open && document.activeElement===els.examplesBtn)"
+  },
+  {
+    "expect": "__wrErrors.length===0 && setupComposerState()===__wrComposer"
+  },
+  {
+    "eval": "api=__wrBaseApi;"
+  }
+]

@@ -266,7 +266,7 @@ async function commitSnippetImport() {
 async function exportSnippets() {
   const reason = snippetPortabilityReason();
   if (reason) { snippetSay(reason, true); return; }
-  const ticket = snippetsReadTicket;
+  const ticket = snippetsDialogEpoch;
   snippetExportPending = true; syncSnippetPortability();
   try {
     const response = await fetch('/api/snippets/export', { cache: 'no-store' });
@@ -276,14 +276,14 @@ async function exportSnippets() {
       throw new Error(readableDetail(detail));
     }
     const blob = await response.blob();
-    if (ticket !== snippetsReadTicket || !els.snippetsDialog.open) return;
+    if (ticket !== snippetsDialogEpoch || !els.snippetsDialog.open) return;
     if (blob.size > SNIPPET_FILE_LIMIT) throw new Error('The exported file exceeds 8 MiB.');
     const link = document.createElement('a'); link.href = URL.createObjectURL(blob); link.download = 'auradream-snippets.json';
     document.body.append(link); link.click(); link.remove();
     setTimeout(() => URL.revokeObjectURL(link.href), 60_000);
     snippetSay('Saved snippets downloaded. The file contains personal prompt text; your editor is unchanged.');
   } catch (err) {
-    if (ticket === snippetsReadTicket && els.snippetsDialog.open) snippetSay(`Snippets could not be exported: ${err.message}`, true);
+    if (ticket === snippetsDialogEpoch && els.snippetsDialog.open) snippetSay(`Snippets could not be exported: ${err.message}`, true);
   } finally { snippetExportPending = false; syncSnippetPortability(); }
 }
 
