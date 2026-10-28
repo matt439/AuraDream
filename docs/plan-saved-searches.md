@@ -217,3 +217,12 @@ order assertions now include the new footer opener.
 This completes the planned local CPU/browser acceptance. It demonstrates
 storage and interaction behavior against scratch data; no real gallery,
 weights, card fit, image quality, speed or usability improvement was measured.
+
+
+### Follow-up: uncertain saved writes, 2026-10-28
+
+The [dated recovery review](review-2026-10-28-saved-search-recovery.md) owns
+`UI#24`'s reproduced lost-reply feedback and bounded reconciliation repair.
+It preserves the existing normalized-name/revision contract and explicit
+Apply semantics. CPU/browser qualification is recorded there rather than
+inferred from the earlier successful-write CRUD smoke.

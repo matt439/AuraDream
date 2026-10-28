@@ -2609,7 +2609,11 @@ Frontend and CLI:
   debounce, writes all three filters and reloads gallery/Runs once. Old gallery
   epochs and sheet return filters cannot replace it. Picks remain selected and
   visibly counted, and Apply queues no generation or image mutation. Current
-  checkpoint and relative dates are evaluated when applied. Errors, conflicts
+  checkpoint and relative dates are evaluated when applied. Unknown write
+  results preserve the editor, report uncertainty and hold Save/Delete/Update
+  until a fresh read and explicit selection/New. Reopening or applying the
+  valid editor filter never acknowledges that result. Known validation and
+  duplicate-name replacement keep their existing flow. Errors, conflicts
   and late list replies preserve unsaved edits; modal keys and focus stay in
   the dialog, with connected-opener restoration using `preventScroll`.
 - Native numeric inputs can display unfinished text such as `1e` while their
@@ -6004,6 +6008,13 @@ aliases, and checks storage separately from retained snapshots and the actual
 Compare picked star without record rereads. Unstar/already answers, a reply
 arriving in Bin, independent bin picks, selection order and composer text are
 covered. The dated picked-favorites review records reproduction and acceptance.
+
+`smoke-saved-search-write-recovery.json` uses a fresh FLUX.1 Krea [dev]
+fake on 7939 for committed saved-search writes whose successful replies are
+lost or replaced by 5xx. It covers explicit reconciliation, retained editor
+and revisions, failed reads, Apply/Use current with retained picks, reopening,
+known validation and duplicate-name replacement. The dated saved-search
+recovery review records actual reproduction and final acceptance separately.
 
 `tests/test_snippets.py` covers CRUD, exact text, bounds, malformed-file
 preservation, independent locking, stale/concurrent edits and admission

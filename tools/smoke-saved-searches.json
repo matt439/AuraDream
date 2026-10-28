@@ -108,10 +108,10 @@
     "expect": "__until(()=>!savedSearchPending && savedSearchItems.length===1 && savedSearchSelected?.revision===3 && savedSearchSelected?.all_models===true)"
   },
   {
-    "log": "'Failed and stale writes keep the unsaved editor. Reload refreshes the list without adopting a newer item until selected explicitly.'"
+    "log": "'Known validation refusals and stale writes keep the unsaved editor. Reload refreshes the list without adopting a newer item until selected explicitly.'"
   },
   {
-    "eval": "window.__baseApi=api; api=async(path,options)=>{if(path.startsWith('/api/gallery/saved-searches/') && options?.method==='PUT')throw Error('Synthetic save failure');return __baseApi(path,options);}; __field('query','my unsaved query');"
+    "eval": "window.__baseApi=api; api=async(path,options)=>{if(path.startsWith('/api/gallery/saved-searches/') && options?.method==='PUT')throw Object.assign(Error('Synthetic save failure'),{status:422});return __baseApi(path,options);}; __field('query','my unsaved query');"
   },
   {
     "click": "#saved-searches-save"

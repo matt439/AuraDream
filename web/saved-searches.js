@@ -10,6 +10,7 @@ let savedSearchEditEpoch = 0;
 let savedSearchDirty = false;
 let savedSearchOrigin = null;
 let savedSearchConflict = null;
+let savedSearchWriteUncertain = false;
 
 function savedSearchSay(text, error = false) {
   els.savedSearchStatus.textContent = text;
@@ -23,6 +24,26 @@ function savedSearchFields() {
   };
 }
 
+// Readiness already records whether reconciliation has completed; uncertainty
+// remains until an explicit selection or New after that fresh list read.
+function savedSearchWriteRecoveryReason() {
+  if (!savedSearchWriteUncertain) return '';
+  return savedSearchReady && !savedSearchPending
+    ? 'Saved list reloaded. Select a saved search or choose New before saving or deleting.'
+    : 'The previous search write is uncertain. Reload the saved list before saving or deleting.';
+}
+
+function uncertainSavedSearchWrite(err, operation) {
+  if (err.status && err.status < 500) return false;
+  savedSearchPending = null;
+  savedSearchReady = false;
+  savedSearchWriteUncertain = true;
+  savedSearchConflict = null;
+  renderSavedSearches();
+  savedSearchSay(`Search ${operation} result is uncertain. Your editor is kept. Reload the saved list, then select a saved search or choose New before writing again.`, true);
+  return true;
+}
+
 function savedSearchQueryReason() {
   const query = els.savedSearchQuery.value;
   if ([...query].length > 4000) return 'Keep the query within 4,000 characters.';
@@ -32,6 +53,7 @@ function savedSearchQueryReason() {
 
 function savedSearchSaveReason() {
   if (savedSearchPending) return 'Wait for the saved searches request to finish.';
+  if (savedSearchWriteRecoveryReason()) return savedSearchWriteRecoveryReason();
   if (!savedSearchReady) return 'Reload the saved list before saving.';
   const name = els.savedSearchName.value.trim();
   if (!name || /\p{Cc}/u.test(name)) return 'Give the search a name without control characters.';
@@ -48,7 +70,7 @@ function syncSavedSearches() {
   const wait = savedSearchPending ? 'Wait for the saved searches request to finish.' : '';
   const write = savedSearchPending === 'write' ? wait : '';
   held(els.savedSearchSave, savedSearchSaveReason(), savedSearchSelected ? 'Save changes to this search' : 'Save a new named search');
-  held(els.savedSearchDelete, wait || (!savedSearchReady ? 'Reload the saved list before deleting.'
+  held(els.savedSearchDelete, wait || savedSearchWriteRecoveryReason() || (!savedSearchReady ? 'Reload the saved list before deleting.'
     : !savedSearchSelected ? 'Select a saved search to delete.' : ''), 'Delete only this saved definition; keep the gallery and its images');
   held(els.savedSearchApply, wait || savedSearchQueryReason(), 'Apply the editor’s query, Starred and All models to the gallery; keep existing picks');
   held(els.savedSearchCurrent, write || (binMode ? 'Leave the recycle bin to copy a live gallery filter.' : ''), 'Copy the current gallery filter into this editor without saving');
@@ -77,13 +99,15 @@ function renderSavedSearches() {
     els.savedSearchList.append(empty);
   }
   els.savedSearchList.value = savedSearchSelected?.id || '';
+  if (savedSearchWriteUncertain) els.savedSearchList.selectedIndex = -1;
   syncSavedSearches();
 }
 
-function selectSavedSearch(id) {
+function selectSavedSearch(id, userChoice = true) {
   if (savedSearchPending === 'write') return;
   const item = savedSearchItems.find((entry) => entry.id === id);
   if (!item) return;
+  if (userChoice && savedSearchReady && !savedSearchPending) savedSearchWriteUncertain = false;
   ++savedSearchEditEpoch;
   savedSearchSelected = { ...item };
   savedSearchDirty = false;
@@ -93,12 +117,13 @@ function selectSavedSearch(id) {
   els.savedSearchQuery.value = item.query;
   els.savedSearchFavorites.checked = item.favorites;
   els.savedSearchAllModels.checked = item.all_models;
-  savedSearchSay('Selected for editing. Apply to gallery opens this filter.');
+  savedSearchSay(savedSearchWriteRecoveryReason() || 'Selected for editing. Apply to gallery opens this filter.');
   syncSavedSearches();
 }
 
-function newSavedSearch({ focus = true } = {}) {
+function newSavedSearch({ focus = true, userChoice = true } = {}) {
   if (savedSearchPending === 'write') { savedSearchSay('Wait for the saved search to finish saving.', true); return; }
+  if (userChoice && savedSearchReady && !savedSearchPending) savedSearchWriteUncertain = false;
   ++savedSearchEditEpoch;
   savedSearchSelected = null;
   savedSearchDirty = true;
@@ -108,7 +133,7 @@ function newSavedSearch({ focus = true } = {}) {
   els.savedSearchQuery.value = '';
   els.savedSearchFavorites.checked = false;
   els.savedSearchAllModels.checked = false;
-  savedSearchSay('New search. Use current filter to copy the gallery’s query and ticks.');
+  savedSearchSay(savedSearchWriteRecoveryReason() || 'New search. Use current filter to copy the gallery’s query and ticks.');
   syncSavedSearches();
   if (focus) els.savedSearchName.focus({ preventScroll: true });
 }
@@ -119,7 +144,7 @@ function useCurrentSavedSearch() {
   els.savedSearchFavorites.checked = els.favOnly.checked;
   els.savedSearchAllModels.checked = els.allModels.checked;
   savedSearchEdited();
-  savedSearchSay('Current gallery filter copied into the editor. Save keeps it under a name.');
+  savedSearchSay(`Current gallery filter copied into the editor. ${savedSearchWriteRecoveryReason() || 'Save keeps it under a name.'}`);
 }
 
 function savedSearchEdited() {
@@ -147,13 +172,13 @@ async function reloadSavedSearches({ opening = false } = {}) {
     renderSavedSearches();
     // Reload never adopts a new revision for a draft. An opening may fill a
     // clean editor only while no selection or typing happened during its read.
-    if (opening && !savedSearchDirty && edit === savedSearchEditEpoch) {
+    if (opening && !savedSearchDirty && edit === savedSearchEditEpoch && !savedSearchWriteUncertain) {
       const selected = savedSearchItems.find((item) => item.id === savedSearchSelected?.id) || savedSearchItems[0];
-      if (selected) selectSavedSearch(selected.id);
-      else newSavedSearch({ focus: false });
+      if (selected) selectSavedSearch(selected.id, false);
+      else newSavedSearch({ focus: false, userChoice: false });
     } else els.savedSearchList.selectedIndex = -1;
-    savedSearchSay(!opening || savedSearchDirty ? 'List reloaded. Your editor is unchanged; select an entry to read its latest revision.'
-      : savedSearchItems.length ? 'Select a search, then Apply to gallery.' : 'Save a name for a useful gallery filter.');
+    savedSearchSay(savedSearchWriteRecoveryReason() || (!opening || savedSearchDirty ? 'List reloaded. Your editor is unchanged; select an entry to read its latest revision.'
+      : savedSearchItems.length ? 'Select a search, then Apply to gallery.' : 'Save a name for a useful gallery filter.'));
   } catch (err) {
     if (ticket !== savedSearchReadTicket || !els.savedSearchDialog.open) return;
     savedSearchPending = null;
@@ -189,9 +214,10 @@ async function saveSavedSearch({ replace = false } = {}) {
     savedSearchPending = null;
     renderSavedSearches();
     const saved = selected ? savedSearchItems.find((item) => item.id === selected.id) : savedSearchItems.at(-1);
-    if (saved && edit === savedSearchEditEpoch) selectSavedSearch(saved.id);
+    if (saved && edit === savedSearchEditEpoch) selectSavedSearch(saved.id, false);
     savedSearchSay('Search saved. The gallery filter is unchanged.');
   } catch (err) {
+    if (uncertainSavedSearchWrite(err, 'save')) return;
     // A duplicate is identified by the server's NFC/casefold comparison,
     // never by a second, approximate browser spelling rule.
     const conflictId = err.body?.conflict_id;
@@ -229,6 +255,7 @@ async function deleteSavedSearch() {
     renderSavedSearches();
     savedSearchSay('Saved definition deleted. Your editor and gallery filter are unchanged.');
   } catch (err) {
+    if (uncertainSavedSearchWrite(err, 'delete')) return;
     savedSearchPending = null;
     if (err.status === 409 || err.status === 404) savedSearchReady = false;
     savedSearchSay(`Search was not deleted: ${err.message}`, true);

@@ -1,0 +1,422 @@
+[
+  {
+    "log": "'Saved-search uncertain writes on fresh scratch sidecars: actual successful POST/PUT/DELETE with lost or 5xx replies, explicit reconciliation, retained editor/filter/picks and known refusal compatibility. No image/model writes.'"
+  },
+  {
+    "navigate": "http://127.0.0.1:7939/"
+  },
+  {
+    "eval": "window.__ssRoot='/api/gallery/saved-searches';window.__ssBaseApi=api;window.__ssCalls=[];window.__ssFault=null;window.__ssErrors=[];\nwindow.__ssUntil=async(fn,ms=20000)=>{const end=Date.now()+ms;while(Date.now()<end){try{if(await fn())return true;}catch{}await new Promise(resolve=>setTimeout(resolve,40));}return false;};\nwindow.__ssAt=name=>document.getElementById('saved-searches-'+name);\nwindow.__ssField=(name,value)=>{const field=__ssAt(name);if(field.type==='checkbox')field.checked=value;else field.value=value;field.dispatchEvent(new Event('input',{bubbles:true}));field.dispatchEvent(new Event('change',{bubbles:true}));};\nwindow.__ssFields=(name,query,favorites=false,allModels=true)=>{__ssField('name',name);__ssField('query',query);__ssField('favorites',favorites);__ssField('all-models',allModels);};\nwindow.__ssEditor=()=>JSON.stringify({fields:savedSearchFields(),selected:savedSearchSelected,dirty:savedSearchDirty});\nwindow.__ssFilter=()=>JSON.stringify({query:els.search.value,favorites:els.favOnly.checked,all_models:els.allModels.checked});\nwindow.__ssWrites=()=>__ssCalls.filter(call=>['POST','PUT','DELETE'].includes(call.method)&&call.path.startsWith(__ssRoot));\nwindow.__ssCount=(method,path)=>__ssCalls.filter(call=>call.method===method&&call.path===path).length;\nwindow.__ssArm=(method,path,status=null,before=false)=>{__ssFault={method,path,status,before,done:false,response:null};};\nwindow.__ssSelect=id=>{els.savedSearchList.value=id;els.savedSearchList.dispatchEvent(new Event('change',{bubbles:true}));};\nwindow.__ssHeld=()=>['save','delete','replace'].every(name=>__ssAt(name).getAttribute('aria-disabled')==='true'&&!__ssAt(name).disabled);\nwindow.__ssUncertain=()=>typeof savedSearchWriteUncertain!=='undefined'&&savedSearchWriteUncertain;\nwindow.__ssFits=()=>{const dialog=els.savedSearchDialog,box=dialog.getBoundingClientRect();return box.left>=0&&box.top>=0&&box.right<=innerWidth+1&&box.bottom<=innerHeight+1&&dialog.scrollWidth<=dialog.clientWidth+1;};\nwindow.__ssPosition=element=>{const box=element.getBoundingClientRect();return[box.x,box.y,box.width,box.height];};window.__ssStationary=(element,before)=>__ssPosition(element).every((value,index)=>Math.abs(value-before[index])<1);\naddEventListener('error',event=>__ssErrors.push(event.message));addEventListener('unhandledrejection',event=>__ssErrors.push(String(event.reason)));\napi=async(path,options)=>{const method=options?.method||'GET';__ssCalls.push({method,path,body:options?.body||null});const fault=__ssFault;if(fault&&fault.method===method&&fault.path===path&&!fault.done){fault.done=true;if(!fault.before)fault.response=await __ssBaseApi(path,options);const error=new Error(fault.before?'Synthetic saved-search read failure':'Synthetic lost successful saved-search write response');if(fault.status!==null)error.status=fault.status;throw error;}return __ssBaseApi(path,options);};"
+  },
+  {
+    "expect": "__ssUntil(()=>Number.isInteger(modelRevision)&&!galleryPending&&!jobListing)"
+  },
+  {
+    "eval": "(async()=>{if((await __ssBaseApi(__ssRoot)).items.length!==0)throw Error('Use a fresh scratch saved-search sidecar for this smoke.');resetPanel();rewriteBox(els.prompt,'Composer retained through saved search write recovery');promptReplaced();persistPanel();window.__ssComposer=setupComposerState();await applyGalleryFilter({query:'',favorites:false,all_models:true});if(!await __ssUntil(()=>!galleryPending&&galleryRecords.length>=1))throw Error('Fake other-model fixture did not appear.');window.__ssPick=galleryRecords[0].id;document.querySelector('#gallery .card[data-id=\"'+__ssPick+'\"]').dataset.ssPick='fixture';})()"
+  },
+  {
+    "click": "#btn-select"
+  },
+  {
+    "click": "#gallery .card[data-ss-pick=\"fixture\"] > img"
+  },
+  {
+    "expect": "selectedIds().join()===String(__ssPick)&&setupComposerState()===__ssComposer&&__ssWrites().length===0"
+  },
+  {
+    "click": "#btn-saved-searches"
+  },
+  {
+    "expect": "__ssUntil(()=>els.savedSearchDialog.open&&savedSearchReady&&!savedSearchPending&&savedSearchItems.length===0)"
+  },
+  {
+    "eval": "__ssFields('Recovery original','saved search post lost query',false,true);window.__ssCreateEditor=__ssEditor();window.__ssSaveBox=__ssPosition(els.savedSearchSave);window.__ssReloadBox=__ssPosition(els.savedSearchReload);__ssArm('POST',__ssRoot);"
+  },
+  {
+    "click": "#saved-searches-save"
+  },
+  {
+    "expect": "__ssUntil(()=>__ssFault.done&&!savedSearchPending)"
+  },
+  {
+    "eval": "(async()=>{window.__ssBackend=(await __ssBaseApi(__ssRoot)).items;if(__ssBackend.length!==1)throw Error(\"Fixture POST did not commit exactly one saved definition.\");window.__ssCreated=__ssBackend[0];})()"
+  },
+  {
+    "log": "({backend:__ssBackend.map(item=>({id:item.id,name:item.name,revision:item.revision,query:item.query})),status:els.savedSearchStatus.textContent,ready:savedSearchReady,uncertain:__ssUncertain(),saveHeld:els.savedSearchSave.getAttribute(\"aria-disabled\"),editorPreserved:__ssEditor()===__ssCreateEditor,postRequests:__ssCount(\"POST\",__ssRoot)})"
+  },
+  {
+    "shot": "saved-search-write-baseline-or-recovered.png"
+  },
+  {
+    "expect": "__ssBackend[0].query===\"saved search post lost query\"&&__ssCount(\"POST\",__ssRoot)===1&&__ssEditor()===__ssCreateEditor&&/uncertain/i.test(els.savedSearchStatus.textContent)&&!savedSearchReady&&__ssUncertain()&&__ssHeld()"
+  },
+  {
+    "expect": "__ssFits()&&els.savedSearchClose.getBoundingClientRect().bottom<=innerHeight&&els.savedSearchReload.getBoundingClientRect().bottom<=innerHeight&&__ssStationary(els.savedSearchSave,__ssSaveBox)&&__ssStationary(els.savedSearchReload,__ssReloadBox)"
+  },
+  {
+    "viewport": [
+      400,
+      650
+    ]
+  },
+  {
+    "expect": "__ssFits()&&els.savedSearchClose.getBoundingClientRect().bottom<=innerHeight&&els.savedSearchReload.getBoundingClientRect().bottom<=innerHeight&&__ssHeld()"
+  },
+  {
+    "shot": "saved-search-write-uncertain-narrow.png"
+  },
+  {
+    "viewport": [
+      1400,
+      600
+    ]
+  },
+  {
+    "expect": "__ssFits()&&els.savedSearchClose.getBoundingClientRect().bottom<=innerHeight&&els.savedSearchReload.getBoundingClientRect().bottom<=innerHeight&&__ssHeld()"
+  },
+  {
+    "shot": "saved-search-write-uncertain-short.png"
+  },
+  {
+    "viewport": [
+      1400,
+      900
+    ]
+  },
+  {
+    "log": "'Unknown create holds further writes; a failed list read, Use current filter and Apply cannot acknowledge it. Applying a valid draft still keeps existing picks.'"
+  },
+  {
+    "click": "#saved-searches-save"
+  },
+  {
+    "click": "#saved-searches-delete"
+  },
+  {
+    "eval": "void saveSavedSearch({replace:true});"
+  },
+  {
+    "expect": "__ssWrites().length===1&&__ssUncertain()&&!savedSearchReady&&__ssEditor()===__ssCreateEditor"
+  },
+  {
+    "eval": "__ssArm('GET',__ssRoot,503,true);"
+  },
+  {
+    "click": "#saved-searches-reload"
+  },
+  {
+    "expect": "__ssUntil(()=>__ssFault.done&&!savedSearchPending&&!savedSearchReady&&__ssUncertain()&&__ssHeld())"
+  },
+  {
+    "expect": "__ssEditor()===__ssCreateEditor&&/could not be read/i.test(els.savedSearchStatus.textContent)"
+  },
+  {
+    "click": "#saved-searches-current"
+  },
+  {
+    "expect": "__ssUncertain()&&!savedSearchReady&&__ssHeld()&&els.savedSearchName.value===\"Recovery original\"&&els.savedSearchQuery.value===els.search.value&&els.savedSearchAllModels.checked===els.allModels.checked&&/uncertain/i.test(els.savedSearchStatus.textContent)&&__ssWrites().length===1"
+  },
+  {
+    "eval": "__ssField('query','unmatched saved search recovery filter');window.__ssApplyEditor=__ssEditor();"
+  },
+  {
+    "expect": "els.savedSearchApply.getAttribute(\"aria-disabled\")===\"false\"&&els.savedSearchCurrent.getAttribute(\"aria-disabled\")===\"false\"&&__ssUncertain()"
+  },
+  {
+    "keycombo": [
+      "Control",
+      "Enter"
+    ]
+  },
+  {
+    "expect": "els.savedSearchDialog.open&&__ssWrites().length===1&&!busy"
+  },
+  {
+    "click": "#saved-searches-apply"
+  },
+  {
+    "expect": "__ssUntil(()=>!els.savedSearchDialog.open&&!galleryPending&&els.search.value===\"unmatched saved search recovery filter\"&&els.allModels.checked&&selectedIds().join()===String(__ssPick)&&__ssUncertain())"
+  },
+  {
+    "eval": "window.__ssAppliedFilter=__ssFilter();"
+  },
+  {
+    "click": "#btn-saved-searches"
+  },
+  {
+    "expect": "__ssUntil(()=>els.savedSearchDialog.open&&savedSearchReady&&!savedSearchPending&&__ssUncertain()&&savedSearchItems.length===1&&__ssHeld())"
+  },
+  {
+    "expect": "__ssEditor()===__ssApplyEditor&&savedSearchSelected===null&&els.savedSearchList.selectedIndex===-1&&__ssWrites().length===1&&selectedIds().join()===String(__ssPick)"
+  },
+  {
+    "eval": "window.__ssChanges=[];els.savedSearchList.addEventListener(\"change\",event=>__ssChanges.push({trusted:event.isTrusted,value:els.savedSearchList.value}));window.__ssBeforeChoice=__ssChanges.length;els.savedSearchList.focus({preventScroll:true});"
+  },
+  {
+    "click": "#saved-searches-list option"
+  },
+  {
+    "expect": "!__ssUncertain()&&savedSearchReady&&savedSearchSelected?.id===__ssCreated.id&&savedSearchSelected.revision===1&&els.savedSearchQuery.value===\"saved search post lost query\"&&__ssChanges.length===__ssBeforeChoice+1&&__ssChanges.at(-1).trusted&&__ssChanges.at(-1).value===__ssCreated.id"
+  },
+  {
+    "log": "'A successful PUT followed by HTTP 503 preserves the edited draft and old item revision until a fresh list read and explicit reselect.'"
+  },
+  {
+    "eval": "__ssFields(\"Recovery original\",\"saved search put reply changed\",true,true);window.__ssPutEditor=__ssEditor();window.__ssPutPath=__ssRoot+\"/\"+savedSearchSelected.id;__ssArm(\"PUT\",__ssPutPath,503);"
+  },
+  {
+    "click": "#saved-searches-save"
+  },
+  {
+    "expect": "__ssUntil(()=>__ssFault.done&&!savedSearchPending&&__ssUncertain()&&!savedSearchReady)"
+  },
+  {
+    "eval": "(async()=>{window.__ssUpdated=(await __ssBaseApi(__ssRoot)).items.find(item=>item.id===__ssCreated.id);if(__ssUpdated?.revision!==2||__ssUpdated.query!==\"saved search put reply changed\")throw Error(\"Fixture PUT did not commit the expected new revision.\");})()"
+  },
+  {
+    "expect": "__ssEditor()===__ssPutEditor&&savedSearchSelected.revision===1&&__ssHeld()&&/uncertain/i.test(els.savedSearchStatus.textContent)&&__ssCount(\"PUT\",__ssPutPath)===1"
+  },
+  {
+    "click": "#saved-searches-save"
+  },
+  {
+    "click": "#saved-searches-delete"
+  },
+  {
+    "expect": "__ssCount(\"PUT\",__ssPutPath)===1&&!__ssWrites().some(call=>call.method===\"DELETE\")&&__ssEditor()===__ssPutEditor"
+  },
+  {
+    "log": "'Hold an actual reconciliation GET snapshot before delivery. Selecting a cached item and then New during the read must not acknowledge uncertainty, cancel the read, or let its reply replace the new draft.'"
+  },
+  {
+    "eval": "window.__ssReadGate={captured:false,release:null,snapshot:null};window.__ssGateApi=api;window.__ssHeldReadWrites=__ssWrites().length;api=async(path,options)=>{const method=options?.method||\"GET\";if(path===__ssRoot&&method===\"GET\"&&!__ssReadGate.captured){__ssReadGate.captured=true;const snapshot=await __ssGateApi(path,options);__ssReadGate.snapshot=snapshot;await new Promise(resolve=>{__ssReadGate.release=resolve;});return snapshot;}return __ssGateApi(path,options);};"
+  },
+  {
+    "click": "#saved-searches-reload"
+  },
+  {
+    "expect": "__ssUntil(()=>typeof __ssReadGate.release===\"function\"&&__ssReadGate.snapshot?.items.some(item=>item.id===__ssCreated.id&&item.revision===2)&&savedSearchPending===\"read\"&&!savedSearchReady&&__ssUncertain())"
+  },
+  {
+    "expect": "__ssEditor()===__ssPutEditor&&savedSearchSelected.revision===1&&__ssHeld()"
+  },
+  {
+    "eval": "window.__ssHeldReadTicket=savedSearchReadTicket;window.__ssReadChoiceBefore=__ssChanges.length;els.savedSearchList.focus({preventScroll:true});"
+  },
+  {
+    "click": "#saved-searches-list option"
+  },
+  {
+    "expect": "savedSearchPending===\"read\"&&!savedSearchReady&&__ssUncertain()&&savedSearchSelected?.revision===1&&savedSearchReadTicket===__ssHeldReadTicket&&__ssChanges.length===__ssReadChoiceBefore+1&&__ssChanges.at(-1).trusted&&__ssHeld()"
+  },
+  {
+    "click": "#saved-searches-new"
+  },
+  {
+    "expect": "savedSearchPending===\"read\"&&!savedSearchReady&&__ssUncertain()&&savedSearchSelected===null&&els.savedSearchName.value===\"\"&&savedSearchReadTicket===__ssHeldReadTicket&&__ssHeld()"
+  },
+  {
+    "eval": "__ssFields(\"New during reconciliation read\",\"new draft held across delivery\",false,true);window.__ssHeldReadEditor=__ssEditor();"
+  },
+  {
+    "click": "#saved-searches-save"
+  },
+  {
+    "click": "#saved-searches-delete"
+  },
+  {
+    "expect": "savedSearchPending===\"read\"&&!savedSearchReady&&__ssUncertain()&&__ssHeld()&&__ssEditor()===__ssHeldReadEditor&&savedSearchReadTicket===__ssHeldReadTicket&&__ssWrites().length===__ssHeldReadWrites"
+  },
+  {
+    "eval": "__ssReadGate.release();"
+  },
+  {
+    "expect": "__ssUntil(()=>savedSearchReady&&!savedSearchPending&&__ssUncertain()&&__ssHeld()&&savedSearchItems.some(item=>item.id===__ssCreated.id&&item.revision===2))"
+  },
+  {
+    "expect": "__ssEditor()===__ssHeldReadEditor&&savedSearchSelected===null&&els.savedSearchList.selectedIndex===-1&&savedSearchReadTicket===__ssHeldReadTicket&&__ssWrites().length===__ssHeldReadWrites"
+  },
+  {
+    "eval": "api=__ssGateApi;"
+  },
+  {
+    "eval": "window.__ssBeforeChoice=__ssChanges.length;els.savedSearchList.focus({preventScroll:true});"
+  },
+  {
+    "click": "#saved-searches-list option"
+  },
+  {
+    "expect": "!__ssUncertain()&&savedSearchReady&&savedSearchSelected.revision===2&&els.savedSearchQuery.value===\"saved search put reply changed\"&&__ssChanges.length===__ssBeforeChoice+1&&__ssChanges.at(-1).trusted&&__ssChanges.at(-1).value===__ssCreated.id"
+  },
+  {
+    "log": "'A lost successful DELETE cannot be resent with the old revision. Empty-list Reload must not automatically choose New or reauthorize the old Create draft.'"
+  },
+  {
+    "eval": "__ssFault=null;window.__ssDeleteEditor=__ssEditor();window.__ssDeletePath=__ssPutPath+\"?revision=2\";__ssArm(\"DELETE\",__ssDeletePath);"
+  },
+  {
+    "click": "#saved-searches-delete"
+  },
+  {
+    "expect": "__ssUntil(()=>__ssFault.done&&!savedSearchPending&&__ssUncertain()&&!savedSearchReady)"
+  },
+  {
+    "expect": "(async()=>{const items=(await __ssBaseApi(__ssRoot)).items;return items.length===0&&__ssEditor()===__ssDeleteEditor&&savedSearchSelected.revision===2&&__ssHeld()&&/uncertain/i.test(els.savedSearchStatus.textContent);})()"
+  },
+  {
+    "click": "#saved-searches-delete"
+  },
+  {
+    "expect": "__ssCount(\"DELETE\",__ssDeletePath)===1&&!__ssWrites().some(call=>call.method===\"DELETE\"&&call.path.endsWith(\"?revision=1\"))"
+  },
+  {
+    "click": "#saved-searches-close"
+  },
+  {
+    "click": "#btn-saved-searches"
+  },
+  {
+    "expect": "__ssUntil(()=>els.savedSearchDialog.open&&savedSearchReady&&!savedSearchPending&&savedSearchItems.length===0&&__ssUncertain()&&__ssHeld())"
+  },
+  {
+    "expect": "__ssEditor()===__ssDeleteEditor&&savedSearchSelected?.revision===2&&els.savedSearchList.selectedIndex===-1"
+  },
+  {
+    "eval": "__ssArm(\"GET\",__ssRoot,503,true);"
+  },
+  {
+    "click": "#saved-searches-reload"
+  },
+  {
+    "expect": "__ssUntil(()=>__ssFault.done&&!savedSearchPending&&!savedSearchReady&&__ssUncertain()&&__ssHeld())"
+  },
+  {
+    "click": "#saved-searches-new"
+  },
+  {
+    "expect": "__ssUncertain()&&!savedSearchReady&&savedSearchSelected===null&&els.savedSearchName.value===\"\"&&__ssHeld()"
+  },
+  {
+    "eval": "__ssFields(\"Premature New draft\",\"kept through recovery read\",false,true);window.__ssPrematureEditor=__ssEditor();"
+  },
+  {
+    "click": "#saved-searches-save"
+  },
+  {
+    "expect": "__ssCount(\"POST\",__ssRoot)===1&&__ssUncertain()&&!savedSearchReady"
+  },
+  {
+    "click": "#saved-searches-reload"
+  },
+  {
+    "expect": "__ssUntil(()=>savedSearchReady&&!savedSearchPending&&savedSearchItems.length===0&&__ssUncertain()&&__ssHeld())"
+  },
+  {
+    "expect": "__ssEditor()===__ssPrematureEditor&&savedSearchSelected===null&&els.savedSearchList.selectedIndex===-1"
+  },
+  {
+    "click": "#saved-searches-new"
+  },
+  {
+    "expect": "!__ssUncertain()&&savedSearchReady&&savedSearchSelected===null&&els.savedSearchName.value===\"\"&&els.savedSearchQuery.value===\"\""
+  },
+  {
+    "log": "'Known 422 remains retryable, and normalized duplicate 409 still offers explicit Update named search rather than entering uncertainty.'"
+  },
+  {
+    "eval": "__ssFields(\"Retry known refusal\",\"size:invalid\",false,true);window.__ss422Editor=__ssEditor();"
+  },
+  {
+    "click": "#saved-searches-save"
+  },
+  {
+    "expect": "__ssUntil(()=>!savedSearchPending&&savedSearchReady&&!__ssUncertain()&&/not saved/i.test(els.savedSearchStatus.textContent))"
+  },
+  {
+    "expect": "__ssEditor()===__ss422Editor&&els.savedSearchSave.getAttribute(\"aria-disabled\")===\"false\""
+  },
+  {
+    "expect": "(async()=>{return(await __ssBaseApi(__ssRoot)).items.length===0;})()"
+  },
+  {
+    "eval": "__ssField(\"query\",\"saved retry corrected query\");"
+  },
+  {
+    "click": "#saved-searches-save"
+  },
+  {
+    "expect": "__ssUntil(()=>!savedSearchPending&&savedSearchReady&&!__ssUncertain()&&savedSearchSelected?.revision===1&&savedSearchItems.length===1)"
+  },
+  {
+    "eval": "window.__ssRetryId=savedSearchSelected.id;"
+  },
+  {
+    "click": "#saved-searches-new"
+  },
+  {
+    "eval": "__ssFields(\"RETRY KNOWN REFUSAL\",\"explicit normalized replacement\",false,true);window.__ssConflictEditor=__ssEditor();"
+  },
+  {
+    "click": "#saved-searches-save"
+  },
+  {
+    "expect": "__ssUntil(()=>!savedSearchPending&&savedSearchReady&&!__ssUncertain()&&savedSearchConflict?.id===__ssRetryId&&!els.savedSearchReplace.hidden&&els.savedSearchReplace.getAttribute(\"aria-disabled\")===\"false\")"
+  },
+  {
+    "expect": "__ssEditor()===__ssConflictEditor&&savedSearchSelected===null"
+  },
+  {
+    "click": "#saved-searches-replace"
+  },
+  {
+    "expect": "__ssUntil(()=>!savedSearchPending&&savedSearchReady&&!__ssUncertain()&&savedSearchSelected?.id===__ssRetryId&&savedSearchSelected.revision===2&&els.savedSearchReplace.hidden)"
+  },
+  {
+    "expect": "(async()=>{const items=(await __ssBaseApi(__ssRoot)).items;return items.length===1&&items[0].id===__ssRetryId&&items[0].revision===2&&items[0].query===\"explicit normalized replacement\";})()"
+  },
+  {
+    "expect": "selectedIds().join()===String(__ssPick)&&__ssFilter()===__ssAppliedFilter&&setupComposerState()===__ssComposer&&__ssErrors.length===0"
+  },
+  {
+    "viewport": [
+      400,
+      650
+    ]
+  },
+  {
+    "expect": "__ssFits()&&els.savedSearchClose.getBoundingClientRect().bottom<=innerHeight&&els.savedSearchReload.getBoundingClientRect().bottom<=innerHeight"
+  },
+  {
+    "shot": "saved-search-write-recovery-narrow.png"
+  },
+  {
+    "viewport": [
+      1400,
+      600
+    ]
+  },
+  {
+    "expect": "__ssFits()&&els.savedSearchClose.getBoundingClientRect().bottom<=innerHeight&&els.savedSearchReload.getBoundingClientRect().bottom<=innerHeight"
+  },
+  {
+    "shot": "saved-search-write-recovery-short.png"
+  },
+  {
+    "key": "Escape"
+  },
+  {
+    "expect": "__ssUntil(()=>!els.savedSearchDialog.open&&document.activeElement===els.savedSearches)"
+  },
+  {
+    "log": "({nonLibraryWriteShapedRequests:__ssCalls.filter(call=>[\"POST\",\"PUT\",\"DELETE\"].includes(call.method)&&!call.path.startsWith(__ssRoot)).map(({method,path})=>({method,path})),encoderMeasureRequests:__ssCount(\"POST\",\"/api/prompt/measure\")})"
+  },
+  {
+    "expect": "selectedIds().join()===String(__ssPick)&&__ssFilter()===__ssAppliedFilter&&setupComposerState()===__ssComposer&&!__ssCalls.some(call=>[\"POST\",\"PUT\",\"DELETE\"].includes(call.method)&&!call.path.startsWith(__ssRoot)&&!(call.method===\"POST\"&&call.path===\"/api/prompt/measure\"))&&__ssErrors.length===0"
+  },
+  {
+    "eval": "api=__ssBaseApi;"
+  },
+  {
+    "log": "'Confirmed saved-search write uncertainty retains drafts, requires read plus explicit choice, preserves Apply/picks, and keeps known 422/409 workflows available.'"
+  }
+]

@@ -584,6 +584,17 @@ Search combines these terms with free text matching the prompt:
 | `size:1024x768` | Width and height exactly |
 | `date:today`, `date:yesterday`, `date:2026-10-07` | A day in the server's local timezone |
 
+**Saved searches** in the gallery footer keeps named filters. Use current
+filter copies the query, Starred and All models into its editor; Save keeps
+that definition. Selecting an entry fills the editor, and **Apply to gallery**
+uses its filter while retaining your picks. A name already in use offers an
+explicit **Update named search** action.
+
+If a saved-search write result is **uncertain**, your editor is kept. Use
+**Reload list**, then select a saved search or choose **New** before saving
+or deleting again. Reopening alone does not resolve it. You can still Apply
+the valid editor filter while checking whether its saved definition changed.
+
 **Re-render** renders the filtered images at the panel's size with their
 recorded settings and skips completed or already queued cells - or, with cards picked with
 **Select**, exactly those, whatever the filter ("Re-render 2 selected at
