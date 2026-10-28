@@ -592,7 +592,7 @@ maintainer also requires CPython headers/libraries, the VC++ runtime and a
 working driver; `CUDA_PATH`/`CC` can override bundled tools. CPU-targeted
 compilation has separate C++ compiler needs.
 
-The proposed packaging, **not yet applied**, is:
+The optional source packaging, **prepared and checked offline on 2026-10-28**, is:
 
 ```toml
 [project.optional-dependencies]
@@ -603,26 +603,37 @@ regional-compiler = [
 
 Keep the compiler outside default dependencies/groups, resolved from PyPI;
 retain the explicit CUDA index only for torch/torchvision. After artifact
-inspection and isolated lock review, the proposed explicit install command
+inspection and separate toolchain-install authorization, the explicit command
 is `uv sync --locked --extra regional-compiler`. Ordinary `uv sync --locked`
 omits the extra and exact sync can remove it. `uv run` is inexact by default
 and may retain an installed extra; request it explicitly with
 `uv run --locked --extra regional-compiler ...` when intended. These are
 [uv's optional dependency](https://docs.astral.sh/uv/concepts/projects/dependencies/#optional-dependencies)
 and [sync semantics](https://docs.astral.sh/uv/concepts/projects/sync/#syncing-optional-dependencies),
-not commands run during this task. The extra does not exist in the current
-project and must not be advertised as ready to install.
+not installation commands run during this task. The extra and matching lock
+metadata now exist, but the compiler remains uninstalled and unqualified.
 
-Validate the future change in a scratch copy of project/lock metadata with
-scratch `UV_CACHE_DIR` and `UV_PROJECT_ENVIRONMENT`: `uv lock` without
-`--upgrade`, `uv lock --check`, then default/opt-in `uv sync --locked
---dry-run` comparisons. Only the root optional edge and exact compiler entry
-should be added; review all source/marker/version/hash changes. Do not run
-sync against the workstation environment. Current lock inspection also found
-that the three torch wheel entries and Windows torchvision entry lack the
-historical hand-added hashes described in the design notes. Do not invent
-or restore them without artifact verification; preserve the current lock
-while this discrepancy is unresolved.
+The candidate lock was constructed from the verified published metadata,
+not newly resolved from an index. In an isolated project copy with scratch
+`UV_CACHE_DIR`/`UV_PROJECT_ENVIRONMENT`, uv 0.12.7 accepted
+`uv lock --offline --check` (112 package records). Locked offline sync
+dry-runs planned 73 Windows packages by default and 74 with
+`--extra regional-compiler`; the sole addition is the exact compiler pin.
+An extra-enabled Linux-target dry-run (`--python-platform
+x86_64-manylinux_2_28`) planned official `triton==3.7.1` and no
+triton-windows. This was plan emulation on Windows, not a WSL operation.
+Marker checks also exclude Windows ARM64. No environment was created and
+no archive was downloaded, installed, imported or executed.
+
+Deep TOML comparison preserves all 110 existing non-root package records,
+default root dependencies, runtime versions, CUDA sources and current wheel
+hashes. Only the root optional edge/metadata and one compiler record were
+added. The three torch wheel entries and Windows torchvision entry still
+lack the historical hand-added hashes described in the design notes; do not
+invent or restore them without artifact verification. Actual artifact and
+fresh online resolver acceptance remain distinct from these successful
+offline freshness/install-plan checks. Do not sync the workstation as part
+of dependency preparation.
 
 **Separate Linux/WSL account.** `uv.lock` already has official Linux
 `triton==3.7.1` through torch. Its CPython 3.13 x86_64 manylinux 2.27/2.28
@@ -641,8 +652,9 @@ outside the first fp8/model-offload regional candidate.
 to an isolated task workspace was denied by socket permissions before a
 file was created. No retry/alternate route, install or uncertain package
 operation followed. Actual wheel hash/metadata/RECORD/notices and isolated
-resolution remain unverified. `pyproject.toml`, `uv.lock`, NOTICE/LICENSES
-and all execution guards are unchanged. `DEV#8` remains OPEN. Cold execution,
+resolution remain unverified. Only the reviewed optional pyproject/lock
+metadata was added; NOTICE/LICENSES and all execution guards are unchanged.
+`DEV#8` remains OPEN. Cold execution,
 candidate, regional-helper and cache tests still pass with no installed
 triton-windows; this proves Eager's existing cold behavior, not a compiler,
 toolchain, cache, GPU or release qualification.

@@ -8,7 +8,7 @@ The maintainer's working backlog for this personal project: it records what is p
 
 **Aim (2026-10-18):** keep useful work ready for Matt's common workstation tasks. [Reported use](docs/design/preferences.md) guides priority; it does not approve the candidate redesign.
 
-**Remaining backlog (updated 2026-10-28):** two `OPEN` rows remain. Snippet portability (`UI#20`) is implemented and its CPU/browser workflow passes; final post-style screenshot reinspection is blocked by the task artifact directory's read denial ([evidence](docs/plan-snippet-portability.md#stage-3-implementation-and-browser-evidence-2026-10-28)). `DEV#8` has a primary-metadata/opt-in proposal; actual wheel hash/contents/notices and isolated resolution remain after a denied artifact download ([owner](docs/plan-regional-compilation.md#dependency-proposal-and-remaining-artifact-check-2026-10-28)). Neither denied action was retried through another route. No other implementation slice is currently ready; the user/card/decision gates below remain separate.
+**Remaining backlog (updated 2026-10-28):** two `OPEN` rows remain. Snippet portability (`UI#20`) is implemented and its CPU/browser workflow passes; final post-style screenshot reinspection is blocked by the task artifact directory's read denial ([evidence](docs/plan-snippet-portability.md#stage-3-implementation-and-browser-evidence-2026-10-28)). `DEV#8` now has an optional compiler extra and matching lock metadata, checked entirely offline; actual wheel hash/contents/notices and fresh online resolution remain after a denied artifact download ([owner](docs/plan-regional-compilation.md#dependency-proposal-and-remaining-artifact-check-2026-10-28)). Neither denied action was retried through another route. No other implementation slice is currently ready; the user/card/decision gates below remain separate.
 
 **Performance stages:** CPU dependency preparation is `DEV#8`, then `PERF#1` ([compilation](docs/plan-regional-compilation.md)), `PERF#3` ([attention](docs/plan-attention-backends.md)) and `PERF#4` ([caching](docs/plan-step-caching.md)). Performance source, bounded diagnostics and Windows browser checks are complete with Eager defaults and closed execution guards; real toolchain/card qualification and nonempty release admission remain. Default-off backups, explicit shared mode/retention and credential source/stubs are built; actual credential/recovery qualification remains. No real gallery was activated. `PERF#2` still waits on `PERF#1`; source implementation is separate from the remaining layout trials.
 
@@ -112,7 +112,7 @@ Matt's approved [shortcut and compact-setup stages](docs/plan-shortcut-workflow.
 
 | id | status | sev | size | item |
 |---|---|---|---|---|
-| `DEV#8` | OPEN | LOW | S | Primary metadata and opt-in/lock proposal recorded; finish actual wheel hash/contents/notices and isolated resolution after the denied download. [Scope and acceptance](docs/plan-regional-compilation.md#cpu-dependency-preparation). |
+| `DEV#8` | OPEN | LOW | S | Optional extra/lock metadata and offline default/opt-in/Linux plans checked; finish actual wheel hash/contents/notices and fresh resolution after the denied download. [Scope and acceptance](docs/plan-regional-compilation.md#cpu-dependency-preparation). |
 
 ## Review coverage
 
