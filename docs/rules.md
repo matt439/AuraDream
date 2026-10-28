@@ -4981,7 +4981,10 @@ Frontend and CLI:
   opens the count at) and, for a `run` scope with something queued,
   `headline` (`more_seeds.run_headline`: "N more of each of C cells = T
   images · seeds a–b · Starred ignored", "of its one cell" for one, the
-  Starred part only where the request ticked it); it has no gallery/queue side effects, is not model-dependent and is
+  Starred part only where the request ticked it). Its seed span is the numeric
+  minimum/maximum of all new queued seeds, including zero-crossing wraps,
+  without changing allocation order or result first/last/skipped fields;
+  it has no gallery/queue side effects, is not model-dependent and is
   advisory in `api`. The queueing route is model-dependent, refuses 409
   when `expected` is not the ids resolved now, 422 naming every count when
   no batch is queued, and submits one job per lineage and size
@@ -6058,6 +6061,14 @@ uv run python tools/run_smoke.py smoke-mixed-prompts
 secondary/primary and selected text contrast, held hover and reason-on-press,
 focus rings, unchanged state-transition geometry, and footer widths at
 600/1400/2560/2048 pixels (the last at DPR 1.25).
+
+`tests/test_more_seeds_headline.py` checks full server-owned seed headlines
+for wrapped/mixed batches, ordinary gaps/singletons and no eligible batches.
+Owned Python TestClient previews cover wrap allocation, foreign exclusion
+and unrecorded Batch fallback while preserving rows/PNG hashes and poisoning
+model/generation/queue entry points. Counts, first/last/skipped and receipt
+issuance retain their existing behavior. No browser MAX_SEED entry or real
+model/pixel qualification follows.
 
 `tests/test_more_seeds_intents.py` and `tests/test_api_more_seeds_intents.py`
 cover receipt replay, conflicting choices, concurrent tokens and waiters,

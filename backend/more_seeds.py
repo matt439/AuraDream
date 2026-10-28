@@ -246,8 +246,9 @@ def run_headline(queued: Sequence[Batch], count: int, favorites: bool) -> str | 
     images = sum(len(batch.seeds) for batch in queued)
     cells = len(queued)
     each = f"{count} more of each of {cells} cells" if cells > 1 else f"{count} more of its one cell"
-    low = min(batch.seeds[0] for batch in queued)
-    high = max(batch.seeds[-1] for batch in queued)
+    # A wrapped batch's ordered endpoints need not be its numeric extrema.
+    low = min(min(batch.seeds) for batch in queued)
+    high = max(max(batch.seeds) for batch in queued)
     seeds = f"seed {low}" if low == high else f"seeds {low}–{high}"
     starred = " · Starred ignored" if favorites else ""
     return f"{each} = {images} image{'' if images == 1 else 's'} · {seeds}{starred}"

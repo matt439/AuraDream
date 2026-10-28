@@ -5972,8 +5972,10 @@ with the grid - a listed seed axis continues from its highest + 1, not
 from a list. Because that may not read as "more seed rows", the server
 writes the dialog's first words for a run: "2 more of each of 6 cells = 12
 images · seeds 8–9 · Starred ignored" (`run_headline`). The seed span is
-the queued cells' lowest first seed to their highest last; cells with
-different top seeds show the wider span.
+the numeric minimum through maximum of every new seed in the queued cells,
+including a batch that wraps through zero; different top seeds show the
+wider span. [GEN30's review](review-2026-10-28-more-seeds-headline.md) records
+the endpoint-only defect and its source/API qualification.
 
 **The count opens at the batch's own Batch** from a run surface (Q3): the
 server answers `count_default`, the Batch every batch that recorded one
