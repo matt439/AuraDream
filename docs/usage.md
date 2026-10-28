@@ -584,11 +584,18 @@ Search combines these terms with free text matching the prompt:
 | `hash:3f9a` | Identical pixels by hash prefix |
 | `size:1024x768` | Width and height exactly |
 | `size:portrait`, `size:landscape`, `size:square` | Taller, wider or equal stored dimensions across all resolutions |
+| `size:>=1.5mp`, `size:<2mp` | Actual pixel area, with 1 MP equal to 1,000,000 pixels |
 | `date:today`, `date:yesterday`, `date:2026-10-07` | A day in the server's local timezone |
 | `date:2026-10-26..2026-10-28` | October 26 through 28, including both dates in the server's local timezone |
 
 Orientation values compare the stored width and height. Combine them with
 prompt words or other filters, such as `size:portrait seed:42`.
+
+MP comparisons use the exact, unrounded stored pixel area. For example,
+`size:>1mp` includes 1024x1024 (1.048576 MP), while `size:>=1mp` excludes
+1536x640 (0.983040 MP); both dimensions belong to the nominal 1 MP preset
+tier. Use `<`, `<=`, `>` or `>=` and a nonnegative number followed by `mp`.
+Two terms such as `size:>=1mp size:<2mp` form an interval.
 
 A date range needs two absolute `YYYY-MM-DD` dates in order, with no spaces
 around `..`. Both dates are included; the following local midnight is excluded.

@@ -302,7 +302,7 @@ before changing it.
   (the export's scope resolved through `submission.resolve_selection`)
   and exclusive maintenance admission through background completion
 - `backend/search.py` — the search box's grammar: `key:value` terms as SQL
-  predicates (`size:WxH` both sides exact or orientation values; `lora:none` is IS NULL, every
+  predicates (`size:WxH` both sides exact, orientation or MP comparisons; `lora:none` is IS NULL, every
   other text key a substring; an integer past SQLite's 64 bits a
   ValueError, so the routes' 422), the LIKE escape, `strict_scope`
 - `backend/main.py` — app lifecycle and model ownership: load state and
@@ -5402,7 +5402,12 @@ Frontend and CLI:
   `mu:none` is `IS NULL`, `size:1024x768` (or `×`) is the width and the
   height exactly. `size:portrait`, `size:landscape` and `size:square` compare
   stored width/height across resolutions, case-insensitively, with the same
-  AND, exact-size and strict-scope behavior. `id:` is the gallery id the page shows as #N
+  AND, exact-size and strict-scope behavior. `size:<Nmp`, `<=`, `>` and `>=`
+  compare exact actual area (1 MP = 1000000 pixels), with a finite nonnegative
+  threshold no greater than SQLite's integer pixel binding limit. They use
+  positive stored INTEGER dimensions and an exact integer-division boundary;
+  nominal tiers, display rounding and guidance tolerances do not affect it.
+  `id:` is the gallery id the page shows as #N
   (a range is a span), and `search.strict_scope` is the reading for
   `clear --where`, `keep_rates` and the gallery's Delete unstarred
   (`GET`/`DELETE /api/gallery/unstarred`): `clear --where <box>
@@ -6259,6 +6264,15 @@ named in the Layout above (the stylesheets in `index.html`'s link order, and
 its count of classic scripts); and every `tools/smoke*.json` in `AGENTS.md`'s
 port table, on the row whose port its first `navigate` uses, and named
 below - so a new file is added to the maps with it.
+
+`tests/test_search_area.py` checks comparison-only actual MP filters through
+actual SQLite: inclusive/exclusive and one-pixel boundaries, zero/tiny values,
+adjacent integer limits and products beyond SQLite's integer range. Fractional
+thresholds remain exact under low/high Decimal precision, with caller flags
+and traps preserved on success/refusal. Nonpositive, NULL, REAL and text
+dimensions are excluded by the new branch. Scratch API/saved-query/strict
+preview checks retain model/favorite/bin scopes, raw definitions and PNGs,
+with model/queue work poisoned. No live gallery or browser is exercised.
 
 `tests/test_search_orientation.py` checks portrait/landscape/square values on
 the existing size key through actual SQLite, including adjacent large integer

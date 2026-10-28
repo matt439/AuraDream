@@ -7,6 +7,9 @@ touches the database; `storage` owns the queries these clauses go into.
 from __future__ import annotations
 
 from datetime import datetime, timezone
+from decimal import (
+    MAX_EMAX, MIN_EMIN, ROUND_CEILING, ROUND_FLOOR, Context, Decimal, InvalidOperation,
+)
 from typing import Any
 
 # `schemas_generate.effective_true_cfg` in SQL, for the filter and the
@@ -68,6 +71,10 @@ NULLABLE_TEXT = {"lora", "mask"}
 # ValueError, and the routes answered 500.
 SQLITE_INT = (-(2**63), 2**63 - 1)
 
+# Actual megapixels use a million pixels. Build the binding limit by a tuple
+# exponent shift, without division under a caller's Decimal context.
+_MAX_AREA_MP = Decimal((0, tuple(int(digit) for digit in str(SQLITE_INT[1])), -6))
+
 
 def date_clause(raw: str) -> tuple[str, list]:
     """One local day or an inclusive `date:YYYY-MM-DD..YYYY-MM-DD` range.
@@ -119,8 +126,43 @@ def date_clause(raw: str) -> tuple[str, list]:
     return "created_at >= ? AND created_at < ?", [start.isoformat(), end.isoformat()]
 
 
+def _area_clause(raw: str, operator: str, number: str) -> tuple[str, list]:
+    """An exact actual-MP comparison, without multiplying stored dimensions."""
+    context = Context(
+        prec=len(str(SQLITE_INT[1])), rounding=ROUND_FLOOR, Emin=MIN_EMIN, Emax=MAX_EMAX,
+        capitals=1, clamp=0, flags=[], traps=[InvalidOperation],
+    )
+    try:
+        amount = Decimal(number, context=context)
+    except (InvalidOperation, ValueError, OverflowError):
+        raise ValueError(f"size: {raw!r} needs a finite nonnegative MP threshold") from None
+    if not amount.is_finite() or (amount.is_signed() and not amount.is_zero()):
+        raise ValueError(f"size: {raw!r} needs a finite nonnegative MP threshold")
+    if amount > _MAX_AREA_MP:
+        raise ValueError(f"size: {raw!r} is out of range")
+    try:
+        if amount.is_zero():
+            pixels = Decimal(0, context=context)
+        else:
+            parts = amount.as_tuple()
+            assert isinstance(parts.exponent, int)  # finite values have integer exponents
+            pixels = Decimal((0, parts.digits, parts.exponent + 6), context=context)
+        rounding = ROUND_FLOOR if operator in {">", "<="} else ROUND_CEILING
+        bound = int(pixels.to_integral_value(rounding=rounding, context=context))
+    except (InvalidOperation, ValueError, OverflowError):
+        raise ValueError(f"size: {raw!r} is out of range") from None
+    if operator in {">=", "<"}:
+        bound -= 1  # Python integer subtraction, independent of Decimal precision
+    comparison = ">" if operator in {">", ">="} else "<="
+    return (
+        "(typeof(width) = 'integer' AND typeof(height) = 'integer' "
+        f"AND width > 0 AND height > 0 AND width {comparison} (? / height))",
+        [bound],
+    )
+
+
 def size_clause(raw: str) -> tuple[str, list]:
-    """Exact stored dimensions or portrait/landscape/square across resolutions."""
+    """Exact dimensions, orientation or a comparison against actual MP area."""
     orientation = {
         "portrait": "width < height",
         "landscape": "width > height",
@@ -128,6 +170,11 @@ def size_clause(raw: str) -> tuple[str, list]:
     }.get(raw.lower())
     if orientation is not None:
         return orientation, []
+
+    if raw.lower().endswith("mp"):
+        for operator in COMPARISONS:
+            if raw.startswith(operator):
+                return _area_clause(raw, operator, raw[len(operator):-2])
 
     width, sep, height = raw.lower().replace("×", "x").partition("x")
     if not sep or not width.isdigit() or not height.isdigit():

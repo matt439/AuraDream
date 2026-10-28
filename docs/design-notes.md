@@ -7086,6 +7086,13 @@ still supply exact dimensions, and saved queries retain their raw spelling.
 [The orientation plan](plan-gallery-orientation.md) records the use evidence,
 official comparison source, shared strict-scope contract and qualification.
 
+`GAL#17` adds comparison-only actual-area queries such as `size:>=1.5mp`.
+The unit follows the existing Size calculation: 1,000,000 pixels per MP,
+independent of nominal preset tiers and rounded labels. Exact Decimal
+boundaries and integer division preserve inclusive/exclusive pixel limits
+without overflowing stored width/height products. [The area-search plan](plan-gallery-area-search.md)
+owns the contract, context isolation, guarded legacy types and qualification.
+
 ## Named gallery searches
 
 `GAL#7`'s [plan](plan-saved-searches.md) keeps saved filters separate from
