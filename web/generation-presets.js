@@ -117,8 +117,9 @@ function syncSetups() {
     button.title = reason || title;
   };
   const pending = setupsPending ? 'Wait for the saved setup request.' : '';
-  const name = !els.setupsName.value.trim() ? 'Give the setup a name.'
-    : !els.setupsName.validity.valid ? 'The setup name is longer than 80 characters.' : '';
+  const nameValue = els.setupsName.value.trim();
+  const name = !nameValue ? 'Give the setup a name.'
+    : [...nameValue].length > 80 || !els.setupsName.validity.valid ? 'The setup name is longer than 80 characters.' : '';
   const ready = setupWriteRecoveryReason() || (!setupsReady ? 'Reload the saved list before changing it.' : '');
   const selection = !setupsSelected ? 'Select a saved setup first.' : '';
   const mismatch = setupsSelected && setupsSelected.model_id !== loadedModel

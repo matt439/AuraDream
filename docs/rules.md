@@ -5979,6 +5979,13 @@ validation/stale refusals, New during delayed snippet reads, pending close,
 modal keys and standard/narrow/short containment. The dated review owner
 `docs/review-2026-10-28-library-recovery.md` records actual acceptance.
 
+`smoke-saved-name-unicode.json` uses a fresh FLUX.1 Krea [dev] fake on 7936
+for saved-name parity. Native text insertion creates/edits 80 astral-code-point
+names in snippets, setups and saved searches; mixed 81-point names still fit
+the UTF-16 capacity but must hold Save without writes. It also checks BMP
+bounds, programmatic overlimits, reload/navigation persistence and unchanged
+composer/gallery state. Evidence lives in the library-recovery review owner.
+
 `tests/test_snippets.py` covers CRUD, exact text, bounds, malformed-file
 preservation, independent locking, stale/concurrent edits and admission
 during bundle maintenance. `smoke-snippets.json` uses a fresh FLUX.1 Krea

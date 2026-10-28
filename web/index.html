@@ -1907,7 +1907,8 @@
         <div class="saved-searches-actions"><button type="button" class="ghost" id="saved-searches-reload">Reload list</button><button type="button" class="ghost" id="saved-searches-new">New</button></div>
       </div>
       <div class="saved-searches-editor">
-        <label>Name<input type="text" id="saved-searches-name" maxlength="80" autocomplete="off" autofocus></label>
+        <!-- Name limits are code points; native maxlength counts UTF-16 units. -->
+        <label>Name<input type="text" id="saved-searches-name" maxlength="160" aria-description="Up to 80 characters." autocomplete="off" autofocus></label>
         <label>Query<textarea id="saved-searches-query" rows="4" maxlength="4000" spellcheck="false"></textarea></label>
         <div class="saved-searches-ticks">
           <label class="check"><input type="checkbox" id="saved-searches-favorites">Starred</label>
@@ -1947,7 +1948,7 @@
       <button type="button" class="ghost" id="snippets-reload">Reload list</button>
     </div>
     <div class="snippets-editor">
-      <label>Name<input type="text" id="snippets-name" maxlength="80" autocomplete="off" autofocus></label>
+      <label>Name<input type="text" id="snippets-name" maxlength="160" aria-description="Up to 80 characters." autocomplete="off" autofocus></label>
       <label>Text<textarea id="snippets-text" rows="5" maxlength="16000" spellcheck="false"></textarea></label>
       <div class="row">
         <label class="sub grow"><i>Insert into</i><select id="snippets-target"><option value="prompt">Prompt</option><option value="negative">Negative prompt</option></select></label>
@@ -1991,7 +1992,7 @@
         <div class="setups-actions"><button type="button" class="ghost" id="setups-reload">Reload list</button><button type="button" class="ghost" id="setups-new">New</button></div>
       </div>
       <div class="setups-editor">
-        <label>Name<input type="text" id="setups-name" maxlength="80" autocomplete="off" autofocus></label>
+        <label>Name<input type="text" id="setups-name" maxlength="160" aria-description="Up to 80 characters." autocomplete="off" autofocus></label>
         <pre id="setups-summary" aria-label="Saved and effective settings"></pre>
         <button type="button" class="ghost" id="setups-models" hidden>Open Models</button>
       </div>

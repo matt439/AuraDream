@@ -1,7 +1,7 @@
 # Review and plan: saved-library write recovery, 2026-10-28
 
-**Status:** `UI#21` is built and locally qualified; ranked candidate 3 is
-selected next as `UI#22`. This work follows Matt's request to
+**Status:** `UI#21` and `UI#22` are built and locally qualified. This work
+follows Matt's request to
 autonomously choose worthwhile new work once current scoped work is
 exhausted or blocked. This is bounded UI correctness work using scratch
 data. It does not change duplicate-name legality, storage formats, renderer
@@ -179,3 +179,41 @@ write. Check programmatic overlimits, unchanged 80-BMP behavior, reload/full
 navigation persistence, existing library regressions and unchanged composer.
 The selected implementation is a narrow HTML capacity and reason-guard
 change, with no layout or runtime activation.
+
+
+## Unicode saved-name result (2026-10-28)
+
+`UI#22` is complete. The three ordinary saved-name inputs have room for
+160 UTF-16 code units and retain the existing 80-code-point bound through
+explicit save reasons. Native input of 80 astral characters now reaches the
+backend intact. Snippet/setup guards also hold programmatically supplied
+overlimits; saved searches already had that guard. The inputs describe the
+80-character limit to assistive technology. Text/query limits, server bounds,
+normalization, storage formats and composer behavior are unchanged.
+
+The final **197-step** `smoke-saved-name-unicode` passed on ordinary Windows
+Edge through the existing single-worker harness. It covers native astral
+create/edit, a native 81-point mixed name that fits the HTML capacity but
+sends no write, programmatic overlimits, 80/81 BMP bounds, item revisions,
+Reload/full-navigation persistence and retained composer/empty scratch gallery.
+The existing snippets, setups, saved-searches and library-write-recovery
+smokes also passed: **5 of 5 in 108 seconds**. Final artifacts are beneath
+`auradream-smoke-artifacts-6tpzq6dm` in this task's workspace.
+
+An initial run passed the name behavior but exposed an overly broad fixture
+write counter: changing the fixture prompt schedules the existing read-only
+`POST /api/prompt/measure`. Fresh request diagnostics confirmed that call,
+whose backend route measures encoders without loading an image model. The
+fixture now excludes only that exact POST and setup validation from its
+write count; its global route guard still refuses image generation and
+unrelated mutations. No production workaround was needed. The earlier
+attempt to read that failed run's temporary `fake-server.log` was denied;
+that target was not retried or read by another route.
+
+Classic-script/docs-map checks passed **35 tests**, with Ruff and diff checks
+clear. The short static check was repeated once because its earlier result
+was unavailable after the desktop/context interruption; no commit or browser
+run was duplicated. Independent source review found no blocker. This slice
+changes no styles or control positions and makes no new visual acceptance
+claim for `UI#20`'s separately denied older screenshot directory. All data
+was scratch; no models, GPU, credentials or real gallery were used.

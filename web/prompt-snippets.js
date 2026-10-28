@@ -45,6 +45,7 @@ function snippetSaveReason() {
   if (snippetSelectedReason()) return snippetSelectedReason();
   const { name, text } = snippetFields();
   if (!name) return 'Give the snippet a name.';
+  if ([...name].length > 80) return 'Keep the snippet name within 80 characters.';
   if (!text.trim()) return 'Give the snippet some text.';
   if (!els.snippetsName.validity.valid || !els.snippetsText.validity.valid) return 'The name or text is longer than its limit.';
   return '';
