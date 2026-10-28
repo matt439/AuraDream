@@ -25,6 +25,7 @@
 <link rel="stylesheet" href="/static/styles/context-menu.css">
 <link rel="stylesheet" href="/static/styles/shortcuts.css">
 <link rel="stylesheet" href="/static/styles/snippets.css">
+<link rel="stylesheet" href="/static/styles/setups.css">
 </head>
 <body>
 <header class="topbar">
@@ -132,7 +133,7 @@
           the server answers.</span></span>
         <span class="examples" id="examples">
           <button type="button" class="ghost tiny" id="btn-examples" aria-haspopup="menu"
-                  aria-expanded="false" title="Example prompts from the authors, and your personal snippets">Examples</button>
+                  aria-expanded="false" title="Example prompts from the authors, saved setups and your personal snippets">Examples</button>
           <ul class="menu" id="examples-menu" role="menu" aria-labelledby="btn-examples" hidden></ul>
         </span>
         <span class="tag-helper" id="tag-helper" hidden>
@@ -1918,6 +1919,33 @@
   <p id="snippets-status" role="status" aria-live="polite"></p>
 </dialog>
 
+<dialog class="setups-dialog" id="setups-dialog" aria-labelledby="setups-title" aria-describedby="setups-intro">
+  <div class="setups-head"><h2 id="setups-title">Saved setups</h2><button type="button" class="ghost" id="setups-close">Close</button></div>
+  <p class="hint" id="setups-intro">Save a generation or grid draft for this checkpoint. Restore replaces the composer with Undo; it queues no work.</p>
+  <div class="setups-body">
+    <div class="setups-layout">
+      <div class="setups-library">
+        <label>Saved setups<select id="setups-list" size="6" aria-label="Saved setups"></select></label>
+        <label class="check"><input type="checkbox" id="setups-all">Show other checkpoints</label>
+        <div class="setups-actions"><button type="button" class="ghost" id="setups-reload">Reload list</button><button type="button" class="ghost" id="setups-new">New</button></div>
+      </div>
+      <div class="setups-editor">
+        <label>Name<input type="text" id="setups-name" maxlength="80" autocomplete="off" autofocus></label>
+        <pre id="setups-summary" aria-label="Saved and effective settings"></pre>
+        <button type="button" class="ghost" id="setups-models" hidden>Open Models</button>
+      </div>
+    </div>
+  </div>
+  <div class="setups-actions">
+    <button type="button" class="ghost" id="setups-save">Save current</button>
+    <button type="button" class="ghost" id="setups-update">Update from current</button>
+    <button type="button" class="ghost" id="setups-rename">Rename</button>
+    <button type="button" class="ghost danger" id="setups-delete">Delete</button>
+    <button type="button" class="primary" id="setups-restore">Restore</button>
+  </div>
+  <p id="setups-status" role="status" aria-live="polite"></p>
+</dialog>
+
 <script src="/static/state.js"></script>
 <script src="/static/execution.js"></script>
 <script src="/static/sizes.js"></script>
@@ -1971,6 +1999,7 @@
 <script src="/static/context-menu.js"></script>
 <script src="/static/shortcuts.js"></script>
 <script src="/static/prompt-snippets.js"></script>
+<script src="/static/generation-presets.js"></script>
 <script src="/static/app.js"></script>
 </body>
 </html>

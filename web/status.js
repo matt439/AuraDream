@@ -731,6 +731,13 @@ function receiveStatus(s, asked = Date.now()) {
     // before Unload's reason and the line below are written.
     if (Array.isArray(s.active_jobs)) followServerJobs(s.active_jobs, asked);
     syncPromptExpansion();
+    if ((changed || restarted) && els.setupsDialog.open) {
+      setupsCheck = null;
+      setupsCheckReason = '';
+      if (setupsSelected) setupSummary(setupsSelected.payload);
+      renderSetups();
+    }
+    syncSetups();
     if (changed || (wasSwitching && !modelSwitching)) {
       schedulePreview();
       scheduleTagValidation(0);

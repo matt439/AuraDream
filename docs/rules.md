@@ -342,7 +342,7 @@ before changing it.
   per version
 - `backend/reindex.py` — rows rebuilt from the PNGs' `auradream` chunk, in place or
   copied in from another gallery; idempotent on the UNIQUE filename
-- `web/` - served as-is from `/static`; `index.html` loads 54 classic
+- `web/` - served as-is from `/static`; `index.html` loads 55 classic
   scripts in order, sharing one global scope; only `app.js`, the last, runs
   the wiring and boot. `state.js` owns shared state; `generation.js`,
   `grid-preview.js`, `job-stream.js` and `job-results.js` handle submission,
@@ -381,7 +381,9 @@ before changing it.
   on the Notify row and its dialog, `more-seeds.js` More seeds and `bin.js` the
   recycle bin's view, undo note and Empty; `context-menu.js` the right-click
   menu on an image (`styles/context-menu.css`); `shortcuts.js` the keyboard
-  help dialog; `prompt-snippets.js` the personal snippet dialog and insertion.
+  help dialog; `prompt-snippets.js` the personal snippet dialog and insertion;
+  `generation-presets.js` the named generation/grid setup dialog, raw capture,
+  explicit validated Restore and whole-draft Undo.
   The stylesheet is
   `style.css` (tokens and base layout), followed by `styles/*.css` in the
   explicit link order: `model-picker.css` the Models picker (first, at its
@@ -394,7 +396,8 @@ before changing it.
   instruction dialog and an edit's badge, `bundles.css` the bundle dialog,
   `swap.css`, `refine-batch.css` and `more-seeds.css` those dialogs,
   `bin.css` the recycle bin, `context-menu.css` the right-click menu and
-  `shortcuts.css` the keyboard help dialog and `snippets.css` the snippet dialog;
+  `shortcuts.css` the keyboard help dialog, `snippets.css` the snippet dialog
+  and `setups.css` the named setup dialog;
   preserve that cascade (`tests/test_docs_maps.py` holds this list to
   `index.html`'s links, in order). `docs/source-audit.md` records the
   split audits and why each long file it kept stays whole.
@@ -2603,14 +2606,33 @@ Frontend and CLI:
   independent lock; unreadable files are never replaced by an empty list.
   Snippets remain available during gallery bundle maintenance. The sidecar
   and temporary files are ignored by Git. No read is made at page startup.
-- Named generation/grid setups currently have cold storage/API support only
-  (`GEN#27` stage 1). Their versioned payload retains raw fields and nullable
+- Named generation/grid setups open from Examples, before Personal snippets,
+  in a native dialog (`generation-presets.js`, wired only by `app.js`). Their
+  versioned payload retains raw fields and nullable
   profile overrides; never store `panelState`, expanded cells, conditioning or
   execution intent. Capture/validation requires the exact model revision and
   valid Eager/native loader intent with Step cache Off; GET/DELETE remains
   checkpoint-independent. Item revisions protect edits/deletes and validation
   rechecks after calculating. No route submits or restores, and no startup
-  read occurs. Browser restore/Undo remains in the owner plan.
+  read occurs. Opening/selecting never writes the composer. Save current makes
+  a new setup, Update from current replaces the selected payload, and Rename
+  keeps it. Unsaved names survive failures and list reloads; selecting the
+  refreshed item explicitly adopts its latest revision. Save names omitted
+  active LoRA/reference/Then refine inputs as a hold. Restore requires the
+  exact checkpoint, offers Models on a mismatch, and validates afresh before
+  writing. Its reply must still match item/model revisions, the entire draft,
+  performance intent and the edit epoch; otherwise a new press is needed.
+  It closes the modal before undo-aware writes, uses `setReferences`, clears
+  conditioning and Then refine, and keeps raw inactive text/overrides. Its
+  summary shows saved/effective settings and what will clear. Grid restores
+  Resume off and retains its ordinary seed-axis and request Repeat=1 rules.
+  The one whole-draft Undo keeps raw sampling/ownership, grid, conditioning,
+  Then refine and translation; first later edits retire it through panel and
+  Then refine handlers. It shares the stable prompt-note overlay and retirement
+  rules with Reset/Reuse; deleted/binned references leave its snapshot too.
+  Restore/Undo do not scroll; native Ctrl+Z retains prompt history. Held actions
+  explain their title reason in the dialog, and modal keys cannot submit work
+  underneath it. Held/invalid performance intent is never cleared by refusal.
 - Keyboard help (`shortcuts.js`) opens with `?` or the top bar's named
   button, never while typing in an input, textarea, select or editable
   content, during composition, on a repeat or with Ctrl/Meta/Alt. Its native
@@ -5894,8 +5916,16 @@ cover strict saved drafts, bounded atomic failure/corruption preservation,
 thread/process concurrency, optimistic revisions, request/profile and live
 `applied()` parity, grid grammar/budgets, null seeds and disposable random
 examples, held execution, model-switch capture races and gallery-independent
-CRUD/validation. These are stage 1 CPU/API checks; no browser restoration or
-card behavior is qualified.
+CRUD/validation. These CPU/API checks do not qualify card behavior.
+
+`smoke-generation-presets.json` uses a fresh FLUX.1 Krea [dev] fake on 7932.
+It covers saving two raw Generate/Grid setups and reloading them, null profile
+ownership and explicit zero, explicit Restore, whole-draft Undo and native
+Ctrl+Z, cleared conditioning/Then refine and their Undo, Resume off, held
+performance, stale item edits and draft/model validation replies, the foreign
+checkpoint hold and Models opener, ordinary grid preview/submission, modal
+keys/focus, page errors and geometry at 1400x900 and 400x650. It uses scratch
+gallery data and synthetic conditioning; no real weights or card run is involved.
 
 `tests/test_snippets.py` covers CRUD, exact text, bounds, malformed-file
 preservation, independent locking, stale/concurrent edits and admission

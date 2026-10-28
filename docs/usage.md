@@ -169,6 +169,36 @@ per checkpoint. **Reset** restores defaults. Resume is never remembered as
 ticked. **Reuse** on an image restores its settings; check the warning when
 reusing one from another checkpoint. Prompt replacements support Ctrl+Z.
 
+### Save generation and grid setups
+
+Use **Examples > Saved setups…** to keep several named drafts for the selected
+checkpoint. **New** prepares a name; **Save current** saves the current composer
+as a new setup. Selecting an item shows its saved text and settings beside the
+effective sampling values. **Rename** keeps its saved settings, **Update from
+current** replaces them with the current composer, and **Delete** removes only
+that setup. **Show other checkpoints** reveals the rest of the library.
+
+Opening or selecting a setup keeps the current draft. **Restore** checks it
+again, then replaces the composer without queueing work. The note's **Undo**
+restores the previous whole draft, including conditioning, grid and Then refine;
+the first later edit retires it. Ctrl+Z still restores prompt text. A setup from
+another checkpoint holds Restore and offers **Open Models**; choosing and
+loading that checkpoint remain separate actions.
+
+Setups retain exact Prompt/Negative text, size, profile defaults or explicit
+sampling overrides, a random or fixed Seed, Batch/Repeat, and an unexpanded
+grid definition. A restored grid leaves Resume off and uses its seed axis;
+request Repeat is 1. Save holds when LoRA, references or Then refine would be
+omitted. Restore clears conditioning and turns Then refine off, as its preview
+says. Version 1 requires Eager, native attention and Step cache Off; a held or
+invalid performance choice stays intact when Save or Restore refuses it.
+
+Saved setups are shared by tabs on this server and stay through a gallery
+clear. They live in `auradream.presets.json` beside the gallery database,
+separate from gallery bundles; include the sidecar in a settings backup.
+If another tab changed an item, the dialog keeps your unsaved name: **Reload
+list**, then select that item again to read its latest saved revision.
+
 ### Load settings from a PNG
 
 Drop a PNG anywhere on the page, or press **Load settings from PNG…** under

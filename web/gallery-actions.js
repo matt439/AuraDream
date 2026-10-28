@@ -576,6 +576,9 @@ function forgetImages(ids, { binned = false } = {}) {
     reuseNote.before.state.reference = reuseNote.before.state.reference.filter((id) => !gone.has(id));
     reuseNote.after.reference = reuseNote.after.reference.filter((id) => !gone.has(id));
   }
+  if (setupsUndo) {
+    setupsUndo.before.state.reference = setupsUndo.before.state.reference.filter((id) => !gone.has(id));
+  }
   // A reference that has gone would be refused at submit, naming an id the
   // chips never showed.
   const dropped = referenceIds.filter((id) => gone.has(id));

@@ -7754,16 +7754,56 @@ Delete wraps to a second row at 2048x1040 at 125% with or without Gallery beside
 
 ## Named generation and grid setups
 
-`GEN#27`'s [plan](plan-generation-presets.md) has its cold first stage built
-(2026-10-28). A setup is a raw checkpoint-scoped draft, kept in a bounded atomic
+`GEN#27`'s [plan](plan-generation-presets.md) has cold storage/API and explicit
+composer integration built and locally browser-qualified (2026-10-28).
+A setup is a raw checkpoint-scoped draft, kept in a bounded atomic
 sidecar beside the database, outside gallery rows and bundles. Sampling nulls
 retain profile ownership and raw prompt/grid text is never replaced with an
 applied request. Validation uses the ordinary schemas, grid helpers and backend
 `applied()` without describing/loading the model, reserving the gallery or
 entering the generation gate. Temporary random-grid examples never become a
 saved seed. Item/model revisions protect capture and validation; invalid or
-held performance intent refuses. The browser dialog, explicit restore and
-whole-setup Undo are still the plan's next stage.
+held performance intent refuses.
+
+**Examples > Saved setups…** sits before Personal snippets in the existing
+menu, keeping the prompt caption's size and first author example's position.
+`generation-presets.js` declares the dialog behavior and `app.js` wires it;
+opening is the first sidecar read. The library starts with the selected
+checkpoint and can reveal the others. New/Save current creates an item,
+Update from current replaces its payload, Rename keeps it, and Delete touches
+only the saved item. Errors and Reload list retain the unsaved name; choosing
+an item again is the deliberate adoption of its newest revision.
+
+Reading or selecting never changes the composer. Selection checks the saved
+settings for an inspectable raw/effective summary, but Restore always validates
+again. The answer must match its item and model revisions, the captured whole
+draft/performance state and edit epoch. A late answer asks for another press;
+it never writes over newer work. A checkpoint mismatch names it and offers the
+existing Models surface without selecting or loading anything. Unsupported
+active axes and held performance choices remain visible refusals.
+
+Restore closes the native modal before writing both boxes through `rewriteBox`.
+It keeps raw negative text even while inactive, restores sampling ownership,
+clears references through `setReferences`, clears LoRA and its grid axis, and
+turns Then refine off. The summary names those changes before the press.
+Grid restores its unexpanded variable/axis text and mode, leaves Resume off,
+and lets the ordinary preview/submission apply request Repeat=1. No seed is
+drawn and no work is queued by Restore.
+
+The previous whole draft is held only in memory for Undo, including displayed
+sampling values and ownership, size, conditioning, grid, translation and Then
+refine settings. Its note uses the prompt box's stable overlay rather than
+adding panel height. The first later edit retires it, as Reset/Reuse do; Then
+refine and performance controls participate too. Deleted or binned references
+are pruned from the snapshot so Undo cannot reintroduce them. Restore and Undo
+keep page scroll, and native Ctrl+Z still walks prompt history. No saved setup
+contains that broad Undo snapshot, performance intent, sources or gallery ids.
+
+The scratch Windows smoke passed saving/reload, Restore/Undo, native Ctrl+Z,
+conditioning and Then refine, held execution, stale replies/revisions, a fake
+checkpoint switch, grid preview/submission, modal focus and narrow geometry.
+Five existing grid/Reuse/snippet regressions passed too. This is local browser
+acceptance against the fake, with no card fit, image-quality or speed claim.
 
 ## Personal prompt snippets
 

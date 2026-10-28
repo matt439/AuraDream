@@ -1,0 +1,527 @@
+[
+  {
+    "log": "\"Named generation/grid setups on scratch FLUX.1 fake: explicit restore, raw/profile ownership, whole-draft Undo, stale validation and held performance. No real models or GPU.\""
+  },
+  {
+    "navigate": "http://127.0.0.1:7932/"
+  },
+  {
+    "eval": "window.__until = async (fn, ms = 20000) => { const end = Date.now() + ms; while (Date.now() < end) { try { if (await fn()) return true; } catch {} await new Promise((r) => setTimeout(r, 40)); } return false; }; window.__setupOpen = async () => { await openSetups(); return __until(() => els.setupsDialog.open && setupsReady && !setupsPending); }; window.__setupSelect = async (id) => { selectSetup(id); return __until(() => setupsSelected?.id === id && !setupsPending); }; window.__setupName = (text) => { els.setupsName.value = text; els.setupsName.dispatchEvent(new Event('input', {bubbles:true})); }; window.__setupClose = () => { els.setupsClose.click(); }; window.__setupKnob = (key,value) => { els[key].value = value; els[key].dispatchEvent(new Event('input', {bubbles:true})); }; window.__setupFits = () => { const box = els.setupsDialog.getBoundingClientRect(); return box.left >= 0 && box.right <= innerWidth + 1 && box.top >= 0 && box.bottom <= innerHeight + 1 && els.setupsDialog.scrollWidth <= els.setupsDialog.clientWidth + 1; }; window.__setupErrors = []; addEventListener('error', (e) => __setupErrors.push(e.message)); addEventListener('unhandledrejection', (e) => __setupErrors.push(String(e.reason)));"
+  },
+  {
+    "expect": "__until(() => loadedModel === 'black-forest-labs/FLUX.1-Krea-dev' && Number.isInteger(modelRevision) && !busy)"
+  },
+  {
+    "eval": "resetPanel(); rewriteBox(els.prompt, '  A harbour at dawn 夏\\nsoft light  '); rewriteBox(els.negative, '  grain  '); promptReplaced(); els.width.value='256'; els.height.value='256'; els.cfg.value='0'; own('cfg'); els.batch.value='2'; els.runs.value='3'; els.seed.value=''; syncSize(); syncCfg(); syncRuns(); persistPanel(); window.__generateY = els.generate.getBoundingClientRect().top; window.__rawPrompt = els.prompt.value;"
+  },
+  {
+    "click": "#btn-examples"
+  },
+  {
+    "expect": "!els.examplesMenu.hidden && els.examplesMenu.querySelector('#setups-menu-item')?.getAttribute('role') === 'menuitem' && els.examplesMenu.lastElementChild.id === 'snippets-menu-item'"
+  },
+  {
+    "click": "#setups-menu-item"
+  },
+  {
+    "expect": "__until(() => els.setupsDialog.open && setupsReady && !setupsPending)"
+  },
+  {
+    "expect": "setupsItems.length === 0 && els.generate.getBoundingClientRect().top === __generateY && __setupFits()"
+  },
+  {
+    "click": "#setups-new"
+  },
+  {
+    "eval": "__setupName('Harbour defaults');"
+  },
+  {
+    "click": "#setups-save"
+  },
+  {
+    "expect": "__until(() => !setupsPending && setupsItems.length === 1 && setupsSelected?.revision === 1)"
+  },
+  {
+    "eval": "window.__generateId = setupsSelected.id; window.__generatePayload = setupsSelected.payload;"
+  },
+  {
+    "expect": "__generatePayload.mode === 'generate' && __generatePayload.grid === null && __generatePayload.prompt === __rawPrompt && __generatePayload.negative_prompt === '  grain  ' && __generatePayload.seed === null && __generatePayload.steps === null && __generatePayload.guidance_scale === 0 && __generatePayload.mu === null && __generatePayload.true_cfg === null && __generatePayload.num_images === 2 && __generatePayload.runs === 3"
+  },
+  {
+    "keycombo": [
+      "Control",
+      "Enter"
+    ]
+  },
+  {
+    "expect": "els.setupsDialog.open && !busy && !submitting"
+  },
+  {
+    "key": "Escape"
+  },
+  {
+    "expect": "__until(() => !els.setupsDialog.open && document.activeElement === els.examplesBtn)"
+  },
+  {
+    "log": "\"A grid keeps its unexpanded variable/axis order, nullable profile values, fixed seed and saved Repeat; Resume is never part of a saved setup.\""
+  },
+  {
+    "eval": "resetPanel(); rewriteBox(els.prompt,'a {place} fox'); els.width.value='256'; els.height.value='256'; els.seed.value='41'; els.batch.value='1'; els.runs.value='4'; els.gridSection.open=true; els.gridPrompt.value='place = river | woods'; els.gridPromptMode.value='random'; els.gridSteps.value='2,3'; els.gridCfg.value=''; els.gridSeeds.value='2'; els.gridSeedList.value='41, 43'; els.gridBudget.value='2'; els.gridResume.checked=true; syncSize(); syncRuns(); persistPanel();"
+  },
+  {
+    "expect": "__setupOpen()"
+  },
+  {
+    "click": "#setups-new"
+  },
+  {
+    "eval": "__setupName('Fox grid');"
+  },
+  {
+    "click": "#setups-save"
+  },
+  {
+    "expect": "__until(() => !setupsPending && setupsItems.length === 2 && setupsSelected?.name === 'Fox grid')"
+  },
+  {
+    "eval": "window.__gridId = setupsSelected.id; window.__gridPayload = setupsSelected.payload;"
+  },
+  {
+    "expect": "__gridPayload.mode === 'grid' && __gridPayload.grid.prompt_axis === 'place = river | woods' && __gridPayload.grid.prompt_mode === 'random' && __gridPayload.grid.steps_axis === '2,3' && __gridPayload.grid.seed_axis === '41, 43' && __gridPayload.grid.seeds === 2 && __gridPayload.grid.budget_minutes === 2 && __gridPayload.runs === 4 && __gridPayload.seed === 41 && !Object.hasOwn(__gridPayload.grid,'resume')"
+  },
+  {
+    "click": "#setups-close"
+  },
+  {
+    "expect": "__until(() => !els.setupsDialog.open)"
+  },
+  {
+    "eval": "resetPanel(); rewriteBox(els.prompt, 'a newer draft kept on reload'); els.seed.value='998'; persistPanel(); writePanel();"
+  },
+  {
+    "navigate": "http://127.0.0.1:7932/"
+  },
+  {
+    "eval": "window.__until = async (fn, ms = 20000) => { const end = Date.now() + ms; while (Date.now() < end) { try { if (await fn()) return true; } catch {} await new Promise((r) => setTimeout(r, 40)); } return false; }; window.__setupOpen = async () => { await openSetups(); return __until(() => els.setupsDialog.open && setupsReady && !setupsPending); }; window.__setupSelect = async (id) => { selectSetup(id); return __until(() => setupsSelected?.id === id && !setupsPending); }; window.__setupName = (text) => { els.setupsName.value = text; els.setupsName.dispatchEvent(new Event('input', {bubbles:true})); }; window.__setupClose = () => { els.setupsClose.click(); }; window.__setupKnob = (key,value) => { els[key].value = value; els[key].dispatchEvent(new Event('input', {bubbles:true})); }; window.__setupFits = () => { const box = els.setupsDialog.getBoundingClientRect(); return box.left >= 0 && box.right <= innerWidth + 1 && box.top >= 0 && box.bottom <= innerHeight + 1 && els.setupsDialog.scrollWidth <= els.setupsDialog.clientWidth + 1; }; window.__setupErrors = []; addEventListener('error', (e) => __setupErrors.push(e.message)); addEventListener('unhandledrejection', (e) => __setupErrors.push(String(e.reason)));"
+  },
+  {
+    "expect": "__until(() => loadedModel === 'black-forest-labs/FLUX.1-Krea-dev' && Number.isInteger(modelRevision) && els.prompt.value === 'a newer draft kept on reload')"
+  },
+  {
+    "eval": "window.__draftBeforeOpen=setupComposerState();"
+  },
+  {
+    "expect": "__setupOpen()"
+  },
+  {
+    "expect": "setupsItems.length === 2 && setupComposerState() === __draftBeforeOpen"
+  },
+  {
+    "eval": "window.__generateId=setupsItems.find((item)=>item.name==='Harbour defaults').id; window.__gridId=setupsItems.find((item)=>item.name==='Fox grid').id;"
+  },
+  {
+    "expect": "__setupSelect(__generateId)"
+  },
+  {
+    "expect": "setupComposerState() === __draftBeforeOpen && els.setupsSummary.textContent.includes('0') && els.setupsSummary.textContent.length > 40"
+  },
+  {
+    "click": "#setups-restore"
+  },
+  {
+    "expect": "__until(() => !els.setupsDialog.open && els.prompt.value.startsWith('  A harbour') && !!setupsUndo)"
+  },
+  {
+    "expect": "els.seed.value === '' && els.batch.value === '2' && els.runs.value === '3' && !els.gridSection.open && !els.gridResume.checked && owned.cfg && !owned.steps && !owned.mu && !owned.trueCfg && els.cfg.value === '0' && els.negative.value === '  grain  ' && !busy && !submitting"
+  },
+  {
+    "keycombo": [
+      "Control",
+      "z"
+    ]
+  },
+  {
+    "expect": "els.prompt.value === 'a newer draft kept on reload' && !setupsUndo"
+  },
+  {
+    "log": "\"Whole-setup Undo includes grid, conditioning, Then refine and sampling ownership; it retires on the first later edit.\""
+  },
+  {
+    "eval": "(async () => { const job = await api('/api/generate',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({prompt:'setup reference fixture',width:256,height:256,steps:1,seed:12345})}); const done = await __until(async()=> { const item=await api('/api/jobs/'+job.job_id); if(item.status==='done') {window.__source=item.images[0];return true;} if(item.status==='error') throw new Error(item.error); return false; }); if(!done) throw new Error('reference fixture timed out'); })()"
+  },
+  {
+    "eval": "resetPanel(); rewriteBox(els.prompt, 'my conditioned grid'); rewriteBox(els.negative,'my negative'); els.seed.value='77'; els.width.value='512'; els.height.value='256'; els.batch.value='1'; els.runs.value='5'; els.gridSection.open=true; els.gridPrompt.value='tone = warm | cool'; els.gridPromptMode.value='cross'; els.gridSteps.value='3,2'; els.gridResume.checked=false; els.steps.value='7'; own('steps'); setReferences([__source.id]); els.lora.add(new Option('setup-test.safetensors','setup-test.safetensors')); els.lora.value='setup-test.safetensors'; els.loraScale.value='0.65'; els.thenRefine.checked=true; els.thenRefineStrength.value='0.7'; els.thenRefineSteps.value='4'; trScale=1.5; syncSize(); syncCfg(); syncConditioning(); syncThenRefine(); persistPanel(); window.__wholeBefore=setupComposerState();"
+  },
+  {
+    "expect": "__setupOpen()"
+  },
+  {
+    "expect": "__setupSelect(__generateId)"
+  },
+  {
+    "expect": "els.setupsSummary.textContent.toLowerCase().includes('clear') && els.setupsSummary.textContent.toLowerCase().includes('refine')"
+  },
+  {
+    "click": "#setups-restore"
+  },
+  {
+    "expect": "__until(() => !els.setupsDialog.open && !!setupsUndo && referenceIds.length === 0 && !els.thenRefine.checked)"
+  },
+  {
+    "expect": "els.lora.value === '' && pendingLora === '' && !els.gridResume.checked"
+  },
+  {
+    "click": "#prompt-note-undo"
+  },
+  {
+    "expect": "__until(() => setupComposerState() === __wholeBefore && !setupsUndo)"
+  },
+  {
+    "expect": "referenceIds.join() === String(__source.id) && els.lora.value === 'setup-test.safetensors' && els.loraScale.value === '0.65' && els.thenRefine.checked && trScale === 1.5 && els.thenRefineStrength.value === '0.7' && els.thenRefineSteps.value === '4' && owned.steps && els.steps.value === '7' && els.gridSteps.value === '3,2'"
+  },
+  {
+    "expect": "__setupOpen()"
+  },
+  {
+    "click": "#setups-new"
+  },
+  {
+    "eval": "__setupName('Would lose conditioning'); syncSetups();"
+  },
+  {
+    "expect": "els.setupsSave.getAttribute('aria-disabled') === 'true' && /reference|LoRA|refine/i.test(els.setupsSave.title) && !els.setupsSave.disabled"
+  },
+  {
+    "click": "#setups-save"
+  },
+  {
+    "expect": "els.setupsDialog.open && setupsItems.length === 2 && /reference|LoRA|refine/i.test(els.setupsStatus.textContent)"
+  },
+  {
+    "click": "#setups-close"
+  },
+  {
+    "expect": "__until(() => !els.setupsDialog.open)"
+  },
+  {
+    "eval": "resetPanel(); rewriteBox(els.prompt,'a stale validation must keep this');"
+  },
+  {
+    "expect": "__setupOpen()"
+  },
+  {
+    "expect": "__setupSelect(__generateId)"
+  },
+  {
+    "log": "\"Replies held at transport: a newer composer draft and changed model revision each refuse late Restore without changing current Undo or performance intent.\""
+  },
+  {
+    "eval": "window.__setupFetch=window.fetch; window.__setupHeld=false; window.__setupRelease=null; window.fetch=async(...args)=>{const response=await __setupFetch(...args);if(String(args[0]).endsWith('/validate')){__setupHeld=true;await new Promise((r)=>{window.__setupRelease=r;});}return response;};window.__restorePromise=restoreSetup();"
+  },
+  {
+    "expect": "__until(() => __setupHeld)"
+  },
+  {
+    "eval": "rewriteBox(els.prompt,'edited while validation waited'); persistPanel(); window.__raceBefore=setupComposerState(); __setupRelease();"
+  },
+  {
+    "expect": "__until(() => !setupsPending)"
+  },
+  {
+    "expect": "els.setupsDialog.open && setupComposerState() === __raceBefore && /changed|stale|again|newer/i.test(els.setupsStatus.textContent)"
+  },
+  {
+    "eval": "window.fetch=__setupFetch;"
+  },
+  {
+    "expect": "__setupSelect(__generateId)"
+  },
+  {
+    "eval": "window.__setupFetch=window.fetch; window.__setupHeld=false; window.__setupRelease=null; window.fetch=async(...args)=>{const response=await __setupFetch(...args);if(String(args[0]).endsWith('/validate')){__setupHeld=true;await new Promise((r)=>{window.__setupRelease=r;});}return response;};window.__oldRevision=modelRevision; window.__restorePromise=restoreSetup();"
+  },
+  {
+    "expect": "__until(() => __setupHeld)"
+  },
+  {
+    "eval": "modelRevision=__oldRevision+1; window.__raceBefore=setupComposerState(); __setupRelease();"
+  },
+  {
+    "expect": "__until(() => !setupsPending)"
+  },
+  {
+    "expect": "els.setupsDialog.open && setupComposerState() === __raceBefore && /changed|stale|again|checkpoint/i.test(els.setupsStatus.textContent)"
+  },
+  {
+    "eval": "window.fetch=__setupFetch; modelRevision=__oldRevision;"
+  },
+  {
+    "expect": "__setupSelect(__generateId)"
+  },
+  {
+    "log": "\"Invalid and held Step cache/loader intent cannot Save or Restore and cannot retire an existing whole-draft Undo.\""
+  },
+  {
+    "click": "#setups-restore"
+  },
+  {
+    "expect": "__until(() => !els.setupsDialog.open && !!setupsUndo)"
+  },
+  {
+    "expect": "__setupOpen()"
+  },
+  {
+    "eval": "setStepCache('fbc-005-v1'); window.__heldBefore=setupComposerState(); window.__undoBefore=setupsUndo; syncSetups();"
+  },
+  {
+    "expect": "els.setupsRestore.getAttribute('aria-disabled') === 'true' && /execution|cache|unavailable/i.test(els.setupsRestore.title)"
+  },
+  {
+    "click": "#setups-restore"
+  },
+  {
+    "expect": "setupComposerState() === __heldBefore && setupsUndo === __undoBefore && /execution|cache|unavailable/i.test(els.setupsStatus.textContent)"
+  },
+  {
+    "eval": "setStepCache({future:'unknown'}); window.__heldBefore=setupComposerState(); syncSetups();"
+  },
+  {
+    "click": "#setups-restore"
+  },
+  {
+    "expect": "setupComposerState() === __heldBefore && performanceChoiceInvalid(els.stepCache) && setupsUndo === __undoBefore"
+  },
+  {
+    "eval": "setStepCache(''); window.__loaderBefore=selectedExecution; selectedExecution={compilation:'regional-v1'}; window.__availableBefore=selectedExecutionAvailable; selectedExecutionAvailable=false; syncSetups(); window.__heldBefore=setupComposerState();"
+  },
+  {
+    "click": "#setups-restore"
+  },
+  {
+    "expect": "setupComposerState() === __heldBefore && selectedExecution.compilation === 'regional-v1' && setupsUndo === __undoBefore"
+  },
+  {
+    "eval": "selectedExecution=__loaderBefore; selectedExecutionAvailable=__availableBefore; syncSetups();"
+  },
+  {
+    "log": "\"Stale item writes/deletes keep the local name and demand a deliberate reread before the newest revision can be used.\""
+  },
+  {
+    "eval": "(async()=>{const item=setupsSelected; await api('/api/presets/'+item.id,{method:'PUT',headers:{'Content-Type':'application/json'},body:JSON.stringify({name:'Changed in another tab',model_id:item.model_id,payload:item.payload,revision:item.revision,model_revision:modelRevision,step_cache:null})}); __setupName('My unsaved name');})()"
+  },
+  {
+    "click": "#setups-rename"
+  },
+  {
+    "expect": "__until(() => !setupsPending && /another|changed|reload/i.test(els.setupsStatus.textContent))"
+  },
+  {
+    "expect": "els.setupsName.value === 'My unsaved name'"
+  },
+  {
+    "click": "#setups-delete"
+  },
+  {
+    "expect": "els.setupsName.value === 'My unsaved name' && /read|reload|changed|another/i.test(els.setupsStatus.textContent)"
+  },
+  {
+    "click": "#setups-reload"
+  },
+  {
+    "expect": "__until(() => setupsReady && !setupsPending && setupsItems.find((item)=>item.id===__generateId)?.revision === 2)"
+  },
+  {
+    "expect": "__setupSelect(__generateId)"
+  },
+  {
+    "expect": "els.setupsName.value === 'Changed in another tab' && setupsSelected.revision === 2"
+  },
+  {
+    "eval": "__setupName('Renamed harbour');"
+  },
+  {
+    "click": "#setups-rename"
+  },
+  {
+    "expect": "__until(() => !setupsPending && setupsSelected?.revision === 3 && setupsSelected?.name === 'Renamed harbour')"
+  },
+  {
+    "eval": "window.__payloadBeforeRename=setupsSelected.payload;"
+  },
+  {
+    "expect": "__payloadBeforeRename.prompt.startsWith('  A harbour') && __payloadBeforeRename.guidance_scale === 0 && __payloadBeforeRename.seed === null"
+  },
+  {
+    "log": "\"Different checkpoint holds Restore with its identity. Models only opens the existing picker; it never switches or loads by itself.\""
+  },
+  {
+    "eval": "(async()=>{const body={model_id:'cagliostrolab/animagine-xl-4.0',quantization:modelRuntimeSettings.quantization,offload:modelRuntimeSettings.offload,load:false}; const r=await fetch('/api/model/switch',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify(body)}); if(!r.ok)throw new Error(await r.text()); await refreshStatus();})()"
+  },
+  {
+    "expect": "__until(() => loadedModel === 'cagliostrolab/animagine-xl-4.0' && !modelSwitching)"
+  },
+  {
+    "expect": "els.setupsDialog.open && els.setupsRestore.getAttribute('aria-disabled') === 'true' && !els.setupsModels.hidden && !els.setupsSummary.textContent.includes('; effective')"
+  },
+  {
+    "expect": "__setupOpen()"
+  },
+  {
+    "eval": "els.setupsAll.checked=true; els.setupsAll.dispatchEvent(new Event('change',{bubbles:true}));"
+  },
+  {
+    "expect": "__setupSelect(__generateId)"
+  },
+  {
+    "eval": "window.__foreignBefore=setupComposerState(); window.__foreignRevision=modelRevision;"
+  },
+  {
+    "expect": "els.setupsRestore.getAttribute('aria-disabled') === 'true' && /Krea|FLUX|checkpoint/i.test(els.setupsRestore.title)"
+  },
+  {
+    "click": "#setups-restore"
+  },
+  {
+    "expect": "els.setupsDialog.open && setupComposerState() === __foreignBefore && modelRevision === __foreignRevision"
+  },
+  {
+    "click": "#setups-models"
+  },
+  {
+    "expect": "__until(() => !els.modelPicker.hidden && modelRevision === __foreignRevision && loadedModel === 'cagliostrolab/animagine-xl-4.0')"
+  },
+  {
+    "eval": "els.modelPicker.hidden=true;"
+  },
+  {
+    "eval": "if(els.setupsDialog.open) els.setupsClose.click();"
+  },
+  {
+    "expect": "__until(() => !els.setupsDialog.open)"
+  },
+  {
+    "eval": "(async()=>{const r=await fetch('/api/model/switch',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({model_id:'black-forest-labs/FLUX.1-Krea-dev',quantization:modelRuntimeSettings.quantization,offload:modelRuntimeSettings.offload,load:false})});if(!r.ok)throw new Error(await r.text());await refreshStatus();})()"
+  },
+  {
+    "expect": "__until(() => loadedModel === 'black-forest-labs/FLUX.1-Krea-dev' && !modelSwitching)"
+  },
+  {
+    "log": "\"Restore grid uses the ordinary preview and submission. Saved Repeat survives as draft; request Repeat is one, Resume is off and no work starts until Run grid.\""
+  },
+  {
+    "expect": "__setupOpen()"
+  },
+  {
+    "expect": "__setupSelect(__gridId)"
+  },
+  {
+    "click": "#setups-restore"
+  },
+  {
+    "expect": "__until(() => !els.setupsDialog.open && !!setupsUndo && els.gridSection.open)"
+  },
+  {
+    "expect": "els.prompt.value === 'a {place} fox' && els.gridPrompt.value === 'place = river | woods' && els.gridPromptMode.value === 'random' && els.gridSteps.value === '2,3' && els.gridSeedList.value === '41, 43' && els.runs.value === '4' && !els.gridResume.checked && !busy"
+  },
+  {
+    "expect": "__until(() => els.gridPreview.textContent.includes('4 images') && !els.gridPreview.classList.contains('error'))"
+  },
+  {
+    "eval": "window.__gridSubmitReal=window.fetch; window.__gridSubmission=null; window.fetch=(...args)=>{if(String(args[0])==='/api/grid' && args[1]?.method==='POST') window.__gridSubmission=JSON.parse(args[1].body);return __gridSubmitReal(...args);};"
+  },
+  {
+    "eval": "runGrid();"
+  },
+  {
+    "expect": "__until(() => !!__gridSubmission && !busy && !submitting && viewerRecords.length === 4)"
+  },
+  {
+    "expect": "__gridSubmission.runs === 1 && __gridSubmission.resume === false && __gridSubmission.seed_axis === '41, 43' && __gridSubmission.prompt_mode === 'random'"
+  },
+  {
+    "eval": "window.fetch=__gridSubmitReal;"
+  },
+  {
+    "log": "\"Opening/closing and held actions preserve panel geometry at 1400x900. The dialog fits a narrow viewport; Restore and Undo keep page scroll when the prompt is offscreen.\""
+  },
+  {
+    "eval": "resetPanel(); rewriteBox(els.prompt,'narrow prior prompt'); window.__normalY=els.generate.getBoundingClientRect().top; window.__normalScroll=scrollY;"
+  },
+  {
+    "expect": "__setupOpen()"
+  },
+  {
+    "expect": "__setupSelect(__generateId)"
+  },
+  {
+    "expect": "__setupFits() && els.generate.getBoundingClientRect().top === __normalY && scrollY === __normalScroll"
+  },
+  {
+    "viewport": [
+      400,
+      650
+    ]
+  },
+  {
+    "expect": "__setupFits()"
+  },
+  {
+    "shot": "generation-presets-narrow.png"
+  },
+  {
+    "eval": "scrollTo(0,400); window.__narrowScroll=scrollY;"
+  },
+  {
+    "click": "#setups-restore"
+  },
+  {
+    "expect": "__until(() => !els.setupsDialog.open && !!setupsUndo && scrollY === __narrowScroll)"
+  },
+  {
+    "eval": "window.__restoredY=els.generate.getBoundingClientRect().top; document.getElementById('prompt-note-undo').click();"
+  },
+  {
+    "expect": "__until(() => !setupsUndo && els.prompt.value === 'narrow prior prompt' && scrollY === __narrowScroll)"
+  },
+  {
+    "eval": "scrollTo(0,0);"
+  },
+  {
+    "eval": "rewriteBox(els.prompt,'updated current setup draft'); els.seed.value='123'; persistPanel();"
+  },
+  {
+    "expect": "__setupOpen()"
+  },
+  {
+    "expect": "__setupSelect(__generateId)"
+  },
+  {
+    "click": "#setups-update"
+  },
+  {
+    "expect": "__until(() => !setupsPending && setupsSelected?.revision === 4 && setupsSelected?.payload.prompt === 'updated current setup draft' && setupsSelected?.payload.seed === 123)"
+  },
+  {
+    "click": "#setups-delete"
+  },
+  {
+    "expect": "__until(() => !setupsPending && setupsItems.length === 1 && !setupsItems.some((item)=>item.id===__generateId))"
+  },
+  {
+    "expect": "__setupSelect(__gridId)"
+  },
+  {
+    "click": "#setups-delete"
+  },
+  {
+    "expect": "__until(() => !setupsPending && setupsItems.length === 0)"
+  },
+  {
+    "click": "#setups-close"
+  },
+  {
+    "expect": "__until(() => !els.setupsDialog.open)"
+  },
+  {
+    "expect": "__setupErrors.length === 0 && !busy && !submitting"
+  }
+]

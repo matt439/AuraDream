@@ -113,7 +113,8 @@ Backend (`backend/`):
 - `presets.py` bounded atomic named generation/grid drafts, with strict raw
   types in `schemas_presets.py`; `preset_validation.py` cold effective
   summaries and `api_presets.py` revisioned CRUD/validation, independent of
-  gallery maintenance; composer restore/Undo remains in its owner plan
+  gallery maintenance; `web/generation-presets.js` owns explicit composer
+  Restore, its whole-draft Undo and the Saved setups dialog
 - `bundle_leases.py` archive reader/exclusive leases, complete download/import
   lifetimes and uncertain-input quarantine, with opt-in shared companion locks in
   `bundle_file_lock.py`; `bundle_mode.py` explicit Windows/NTFS mode installation
@@ -166,6 +167,8 @@ cascade. `docs/rules.md`'s Layout maps every file; `docs/source-audit.md`
 records the split audits.
 `execution.js` owns inspectable performance controls and unavailable-recipe
 holds; configuring a recipe never enables its loading or rendering.
+`generation-presets.js` (`styles/setups.css`) owns Examples > Saved setups,
+raw composer capture, validated Restore and whole-draft Undo; it queues no work.
 `instruction-edit.js` (`styles/instruction-edit.css`) owns Edit by
 instruction… (the menu item, the dialog, Reuse of an edit and its lineage);
 it never writes the composer's prompt, negative or references.
@@ -461,6 +464,7 @@ node tools/browser.mjs tools/<smoke>.json
 | 7929 | FLUX.1-Krea-dev, fresh scratch `--data` | `smoke-credential` |
 | 7930 | FLUX.1-Krea-dev, fresh scratch `--data` | `smoke-execution-selector` |
 | 7931 | black-forest-labs/FLUX.1-Kontext-dev, fresh scratch `--data` | `smoke-instruction-edit` |
+| 7932 | FLUX.1-Krea-dev, fresh scratch `--data` | `smoke-generation-presets` |
 
 FLUX.1-Krea-dev is `black-forest-labs/FLUX.1-Krea-dev`; animagine is
 `cagliostrolab/animagine-xl-4.0`.
