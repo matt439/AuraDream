@@ -4176,6 +4176,16 @@ slow save. Pause, loading and the intervals between calls have no active call
 to skip. Dynamic Then refine passes are held explicitly because Finish can
 recover only their base cells; a standalone Refine remains an ordinary cell.
 
+**Watched actions own their replies (2026-10-28).** Cancel and Pause bind each
+request to the watched job, its request token and the server start identity
+known at the press. A reply for a predecessor job cannot rewrite its successor's
+progress, error or controls. A late Pause failure also cannot undo a newer
+Pause/Resume press on the same job; only the current token releases its pending
+state and redraws. New jobs remain independently actionable while old replies
+wait. Watched cancellation attribution is cleaned only by its exact per-id owner.
+These are page-local response guards, with no automatic retry, timeout or
+guarantee across reload; backend cooperative behavior is unchanged.
+
 **The browser can hold a queue.** `startJob` no longer refuses while busy:
 a submission during a job is POSTed and its id kept in `queuedIds`, the
 buttons are held (`aria-disabled`) only for the POST itself as the

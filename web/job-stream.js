@@ -3,23 +3,32 @@
 'use strict';
 
 // The server keeps whatever finished before the cancel landed, so this reports
-// a count rather than treating the run as lost.
+// a count rather than treating the run as lost. Each outstanding press owns
+// its attribution and can settle only the watched context that sent it.
+const watchedCancelling = new Map();
 async function cancelJob() {
-  if (!currentJob || els.cancel.getAttribute('aria-disabled') === 'true') return;
+  if (!busy || !currentJob || els.cancel.getAttribute('aria-disabled') === 'true') return;
+  const jobId = currentJob;
+  const asking = { jobId, startedAt: serverStartedAt };
+  watchedCancelling.set(jobId, asking);
   els.cancel.setAttribute('aria-disabled', 'true');
   els.cancel.textContent = 'Stopping…';
   // This page's own press: its end is said as a plain cancel (finishJob).
-  const jobId = currentJob;
   cancelledHere.add(jobId);
   try {
     await api(`/api/jobs/${jobId}/cancel`, { method: 'POST' });
+    if (watchedCancelling.get(jobId) !== asking || !watchedActionCurrent(asking)) return;
     setProgressText('finishing this step…');
     mirrorJob();
   } catch (err) {
+    if (watchedCancelling.get(jobId) !== asking) return;
     cancelledHere.delete(jobId);
+    if (!watchedActionCurrent(asking)) return;
     showError(err.message);
     els.cancel.setAttribute('aria-disabled', 'false');
     els.cancel.textContent = 'Cancel';
+  } finally {
+    if (watchedCancelling.get(jobId) === asking) watchedCancelling.delete(jobId);
   }
 }
 

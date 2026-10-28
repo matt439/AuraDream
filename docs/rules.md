@@ -6143,6 +6143,18 @@ stale/late replies, modal keys/focus and responsive footer/dialog geometry.
 delayed-response/new-submission races, a watched queued job's Move control,
 one-call Skip and Finish recovery, and held paused/Then refine reasons.
 
+`smoke-watched-action-replies.json` uses a fresh FLUX.1 Krea [dev] fake on
+7945 with 0.3 s steps. Three actual owned two-image jobs check late watched
+Cancel success/error and Pause error replies across real successor adoption,
+plus a newer same-job Pause owner. Original async button handlers are observed
+without changing their logic. A declared owned pre-start Pause POST stabilizes
+the final successor; held HTTP500 replies are unforwarded controlled errors.
+Exact same-origin one-use grants and per-job request/stream/outcome counts,
+cold backup checks and a pass-only zero active-job/control/response gate bound
+the fixture. Cleanup uses only owned Cancel; planted gallery facts/composer
+stay unchanged. New wide/narrow screenshots require inspection. No restart,
+real model, GPU, user gallery, credentials or old interrupted run is exercised.
+
 `smoke-random-prompts.json` uses a fresh FLUX.1 Krea [dev] fake on 7916.
 It checks random/cross selection, saved mode and Reset, deterministic choices
 across numeric axes and per-image batch seeds, preview counts and unseeded
