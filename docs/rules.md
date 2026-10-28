@@ -5387,7 +5387,13 @@ Frontend and CLI:
   prompt is `promptGist`'s, one line with an XML prompt's tags dropped,
   before `clip`.
 - Search terms are `key:value` predicates plus FTS text; `date:` is a local
-  day, `mu:none` is `IS NULL`, `size:1024x768` (or `×`) is the width and the
+  day or an inclusive `YYYY-MM-DD..YYYY-MM-DD` calendar range. Range endpoints
+  are two ordered absolute dates; both ends include their whole local day.
+  UTC bounds use the first day's local midnight and the midnight after the
+  last day, including clock changes. Open, relative, reversed or malformed
+  ranges refuse; ordinary single-day/`today`/`yesterday` grammar is unchanged.
+  Terms still AND together, and saved searches retain the raw query.
+  `mu:none` is `IS NULL`, `size:1024x768` (or `×`) is the width and the
   height exactly, `id:` is the gallery id the page shows as #N
   (a range is a span), and `search.strict_scope` is the reading for
   `clear --where`, `keep_rates` and the gallery's Delete unstarred
@@ -6164,6 +6170,15 @@ named in the Layout above (the stylesheets in `index.html`'s link order, and
 its count of classic scripts); and every `tools/smoke*.json` in `AGENTS.md`'s
 port table, on the row whose port its first `navigate` uses, and named
 below - so a new file is added to the maps with it.
+
+`tests/test_search_dates.py` covers local-day UTC bounds, clock changes and
+unrepresentable dates. `tests/test_search_date_ranges.py` adds explicit inclusive
+calendar ranges, same-day equivalence, year/leap rollover, short/long days,
+malformed-range refusal and strict-scope SQLite intersections. Scratch HTTP
+checks cover gallery/bin filtering, unstarred previews and saved-query text/tick
+preservation with model/queue entry points poisoned. One owned-gallery DELETE
+checks count conflicts, star/source retention and PNG-preserving binning. No
+real gallery, browser or host-timezone qualification is involved.
 
 The recycle bin is covered where each read lives: `tests/test_storage.py`
 (the migration, `list_images` live and `binned=True` with total, page and

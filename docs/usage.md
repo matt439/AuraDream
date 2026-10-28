@@ -583,6 +583,12 @@ Search combines these terms with free text matching the prompt:
 | `hash:3f9a` | Identical pixels by hash prefix |
 | `size:1024x768` | Width and height exactly |
 | `date:today`, `date:yesterday`, `date:2026-10-07` | A day in the server's local timezone |
+| `date:2026-10-26..2026-10-28` | October 26 through 28, including both dates in the server's local timezone |
+
+A date range needs two absolute `YYYY-MM-DD` dates in order, with no spaces
+around `..`. Both dates are included; the following local midnight is excluded.
+Combine it with prompt words or other filters as usual. Two separate `date:`
+terms still intersect; they do not join different days into a range.
 
 **Saved searches** in the gallery footer keeps named filters. Use current
 filter copies the query, Starred and All models into its editor; Save keeps

@@ -5423,10 +5423,18 @@ said once on `#job-said` (A cell's failure is the cell's).
 ## date: is a local day
 
 `date:` in the search box is a **local** day (`today`, `yesterday`,
-`YYYY-MM-DD`) as a half-open range on `created_at`, converted to UTC and
-formatted the way the rows are so the string comparison is the time
-comparison. Not a LIKE prefix: that cannot use the index and would need the
-UTC date, which is the wrong one for anything made in the evening.
+`YYYY-MM-DD`) or an inclusive calendar range (`YYYY-MM-DD..YYYY-MM-DD`). Both
+range endpoints are absolute dates in order; the first local midnight and the
+midnight after the last date become a half-open range on `created_at`. Convert
+each midnight independently to UTC so a clock change does not add or drop an
+hour. Format the bounds the way the rows are so the string comparison is the
+time comparison. Not a LIKE prefix: that cannot use the index and would need
+the UTC date, which is the wrong one for anything made in the evening.
+
+The explicit range covers several nights with one term; two single-day terms
+still intersect. It adds no open end, relative range or new date comparator.
+Gallery reads, strict scopes and saved-query validation share this parser.
+[The range plan](plan-gallery-date-ranges.md) records the rationale and checks.
 
 ## Re-render
 
@@ -7028,7 +7036,7 @@ were the setting.
 
 The gallery search box is `key:value` terms plus free text: the terms become
 SQL predicates (`seed:42`, `cfg:<=0.5`, `steps:8-12`, `mu:none`, `model:flux`,
-`run:ab12cd`, `job:ab12cd`, `id:12`) and only what is left goes to the FTS index, so a prompt that
+`run:ab12cd`, `job:ab12cd`, `id:12`, `date:2026-10-26..2026-10-28`) and only what is left goes to the FTS index, so a prompt that
 happens to contain a colon still searches for itself. `mu:none` is `IS NULL` -
 no shift at all is a different image from `mu:0`, and SQL matches NULL with
 neither. `model:` is a substring by design, for the family; the running

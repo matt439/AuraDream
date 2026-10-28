@@ -53,7 +53,7 @@ FILTERS: dict[str, tuple[str, Any]] = {
     "run": ("run_id", str),
     # Every image with these pixels - a substring, so a prefix of one is enough.
     "hash": ("content_hash", str),
-    # Handled by date_clause: a day, not a column with a cast.
+    # Handled by date_clause: local calendar days, not a column with a cast.
     "date": ("created_at", None),
     # Handled by size_clause: `size:1024x1024`, the width and the height as
     # the facts list says them - the lightbox's search buttons write it.
@@ -70,7 +70,10 @@ SQLITE_INT = (-(2**63), 2**63 - 1)
 
 
 def date_clause(raw: str) -> tuple[str, list]:
-    """`date:2026-09-07`, `date:today`, `date:yesterday` as a half-open range.
+    """One local day or an inclusive `date:YYYY-MM-DD..YYYY-MM-DD` range.
+
+    Single days also accept `today` and `yesterday`; ranges use two ordered
+    absolute calendar dates. Every resulting SQL interval stays half-open.
 
     A *local* day: `created_at` is UTC, and an overnight run crosses midnight
     in every timezone, so the day the user means is the one on their clock,
@@ -85,19 +88,30 @@ def date_clause(raw: str) -> tuple[str, list]:
     """
     from datetime import date, timedelta
 
-    lowered = raw.lower()
-    if lowered == "today":
-        day = date.today()
-    elif lowered == "yesterday":
-        day = date.today() - timedelta(days=1)
-    else:
+    if ".." in raw:
+        first, _separator, last = raw.partition("..")
         try:
-            day = date.fromisoformat(raw)
+            first_day = date.fromisoformat(first)
+            last_day = date.fromisoformat(last)
+            if first_day.isoformat() != first or last_day.isoformat() != last or first_day > last_day:
+                raise ValueError
         except ValueError:
-            raise ValueError(f"date: {raw!r} is not YYYY-MM-DD, today or yesterday") from None
+            raise ValueError(f"date: {raw!r} is not an ordered YYYY-MM-DD..YYYY-MM-DD range") from None
+    else:
+        lowered = raw.lower()
+        if lowered == "today":
+            day = date.today()
+        elif lowered == "yesterday":
+            day = date.today() - timedelta(days=1)
+        else:
+            try:
+                day = date.fromisoformat(raw)
+            except ValueError:
+                raise ValueError(f"date: {raw!r} is not YYYY-MM-DD, today or yesterday") from None
+        first_day = last_day = day
     try:
-        midnight = datetime.combine(day, datetime.min.time())
-        next_midnight = datetime.combine(day + timedelta(days=1), datetime.min.time())
+        midnight = datetime.combine(first_day, datetime.min.time())
+        next_midnight = datetime.combine(last_day + timedelta(days=1), datetime.min.time())
         start = midnight.astimezone(timezone.utc)
         end = next_midnight.astimezone(timezone.utc)
     except OverflowError:
