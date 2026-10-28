@@ -863,122 +863,139 @@ async function forgetIfGone(id) {
 // under the gallery's head, where the button is.
 async function deleteUnstarred() {
   const slot = { slot: els.galleryError };
-  const revision = modelRevision;
-  // The grid brought up to what the sweep would reach first: images another
-  // tab made since this page's last look were counted and deleted unseen -
-  // the newest ones, the likeliest still to be starred - and the count to
-  // type back was not the grid's. Under the same filters, as a finished job's
-  // are (prependFinished); not on a sheet, which is one run laid out whole.
-  const head = galleryRecords[0]?.id;
-  if (!sheetMode && head != null) await prependFinished(0, { now: true });
-  const search = els.search.value.trim();
-  const params = new URLSearchParams();
-  if (search) params.set('search', search);
-  if (els.allModels.checked) params.set('all_models', 'true');
-  // How many of the count are newer than the grid's head was is the
-  // server's to say: it keeps a starred image's sources the page cannot see.
-  const ask = new URLSearchParams(params);
-  if (!sheetMode && head != null) ask.set('newer_than', head);
-  let found;
+  const held = binBroadWriteReason();
+  if (held) { showError(held + '.', true, slot); return; }
+  const owner = {};
+  binBroadOwner = owner;
   try {
-    found = await api(`/api/gallery/unstarred?${ask}`);
-  } catch (err) {
-    showError(err.message, false, slot);
+    syncBinWriteHolds();
+    const revision = modelRevision;
+    const allModels = els.allModels.checked;
+    // The grid brought up to what the sweep would reach first: images another
+    // tab made since this page's last look were counted and deleted unseen -
+    // the newest ones, the likeliest still to be starred - and the count to
+    // type back was not the grid's. Under the same filters, as a finished job's
+    // are (prependFinished); not on a sheet, which is one run laid out whole.
+    const head = galleryRecords[0]?.id;
+    if (!sheetMode && head != null) await prependFinished(0, { now: true });
+    const search = els.search.value.trim();
+    const params = new URLSearchParams();
+    if (search) params.set('search', search);
+    if (allModels) params.set('all_models', 'true');
+    // How many of the count are newer than the grid's head was is the
+    // server's to say: it keeps a starred image's sources the page cannot see.
+    const ask = new URLSearchParams(params);
+    if (!sheetMode && head != null) ask.set('newer_than', head);
+    let found;
+    try {
+      found = await api(`/api/gallery/unstarred?${ask}`);
+    } catch (err) {
+      showError(err.message, false, slot);
+      keepUnstarredFocus();
+      return;
+    }
+    // The checkpoint scope is part of what is confirmed: with All models off
+    // the sweep stops at this checkpoint's images, and the dialog says so by
+    // the server's own name for it. With it on, the wider sweep names every
+    // checkpoint it reaches (the server lists six at most).
+    const named = (id) => (id || '').split('/').pop();
+    let scope = search ? `matching "${search}"` : 'in the gallery';
+    if (!allModels) {
+      const only = named(found.models[0] ?? loadedModel);
+      if (only) scope += ` (${only} only)`;
+    } else if (found.models.length) {
+      const many = found.models.length >= 6;
+      const count = many ? '6 or more' : found.models.length;
+      scope += ` across ${count} checkpoint${found.models.length === 1 ? '' : 's'} `
+        + `(${found.models.map(named).join(', ')}${many ? ', …' : ''})`;
+    }
+    const sources = found.sources_kept ?? 0;
+    if (!found.unstarred) {
+      // None left at all - another tab deleted them since this page looked -
+      // is not "every image is starred".
+      const kept = sources ? ' or one a starred image was made from' : '';
+      showError(found.records ? `Nothing to delete: every image ${scope} is starred${kept}.`
+        : `Nothing to delete: no image is left ${scope}.`, true, slot);
+      keepUnstarredFocus();
+      return;
+    }
+    const plural = found.unstarred === 1 ? '' : 's';
+    const sourceNames = found.sources.map((id) => `#${id}`).join(', ') + (sources > found.sources.length ? ', …' : '');
+    const keeping = `keeping ${found.favorites} starred`
+      + (sources === 1 ? ` and ${sourceNames}, which a starred image was made from`
+        : sources > 1 ? ` and ${sources} images starred ones were made from (${sourceNames})` : '');
+    // How much of the gallery's history goes: the sample prompts are the first
+    // three alphabetically and say nothing of how many runs that is, or when.
+    const from = found.first ? when(Date.parse(found.first)) : '';
+    const to = found.last ? when(Date.parse(found.last)) : '';
+    const span = [
+      found.runs ? `From ${found.runs} run${found.runs === 1 ? '' : 's'}` : '',
+      from && (from === to ? `made ${from}` : `made ${from} to ${to}`),
+    ].filter(Boolean).join(', ');
+    const prompts = found.prompts.slice(0, 3).map((p) => `  "${p.length > 60 ? `${p.slice(0, 57)}…` : p}"`);
+    if (found.prompts.length > 3) prompts.push('  …');
+    const message = [
+      `Delete ${found.unstarred} unstarred image${plural} ${scope}, ${keeping}?`,
+      ...(span ? [`${span}.`] : []),
+      ...freshLine(head, found.newer),
+      '',
+      ...prompts,
+      '',
+      // The count is pinned: an image a running job lands in scope before the
+      // answer refuses the whole sweep, and that is better known before typing.
+      // The server's answer, since the job may be another tab's.
+      ...(found.job_active ? ['A job is still running; if it adds an image here before you confirm, nothing is deleted.'] : []),
+      `They move to the recycle bin; Empty recycle bin removes them from disk. Type ${found.unstarred} to continue:`,
+    ].join('\n');
+    const typed = await askCount(message);
+    if (typed === null) return;
+    if (revision !== modelRevision) {
+      showError('Nothing moved: the checkpoint changed. Review the new gallery before deleting.', true, slot);
+      return;
+    }
+    if (typed.trim() !== String(found.unstarred)) {
+      showError(`Nothing moved: "${typed.trim()}" is not ${found.unstarred}.`, true, slot);
+      return;
+    }
+    if (binBroadOwner !== owner) {
+      showError('Nothing moved: the gallery action changed. Review the gallery before deleting.', true, slot);
+      return;
+    }
+    params.set('expected', found.unstarred);
+    let result;
+    try {
+      result = await api(`/api/gallery/unstarred?${params}`, {
+        method: 'DELETE',
+        headers: revision === null ? {} : { 'X-AuraDream-Model-Revision': String(revision) },
+      });
+    } catch (err) {
+      if (!/selection changed/i.test(err.message)) { showError(err.message, false, slot); return; }
+      // The server counts something else now - images a job landed in scope,
+      // most often. The page shows the server's count rather than the one the
+      // message has just called stale. Whether a job is still running is in
+      // the server's sentence: it may be another tab's.
+      await resetGallery();
+      keepUnstarredFocus();
+      loadRuns();
+      showError(err.message, false, slot);
+      return;
+    }
+    // Into the recycle bin; `deleted` is the same ids, from a server before it.
+    const moved = result.binned ?? result.deleted;
+    const also = forgetImages(moved, { binned: true });
+    // The page is now mostly holes; ask for it again from the top, which also
+    // brings the badge back to the server's count - and clears the slot, so
+    // the outcome is written after it.
+    await resetGallery();
     keepUnstarredFocus();
-    return;
-  }
-  // The checkpoint scope is part of what is confirmed: with All models off
-  // the sweep stops at this checkpoint's images, and the dialog says so by
-  // the server's own name for it. With it on, the wider sweep names every
-  // checkpoint it reaches (the server lists six at most).
-  const named = (id) => (id || '').split('/').pop();
-  let scope = search ? `matching "${search}"` : 'in the gallery';
-  if (!els.allModels.checked) {
-    const only = named(found.models[0] ?? loadedModel);
-    if (only) scope += ` (${only} only)`;
-  } else if (found.models.length) {
-    const many = found.models.length >= 6;
-    const count = many ? '6 or more' : found.models.length;
-    scope += ` across ${count} checkpoint${found.models.length === 1 ? '' : 's'} `
-      + `(${found.models.map(named).join(', ')}${many ? ', …' : ''})`;
-  }
-  const sources = found.sources_kept ?? 0;
-  if (!found.unstarred) {
-    // None left at all - another tab deleted them since this page looked -
-    // is not "every image is starred".
-    const kept = sources ? ' or one a starred image was made from' : '';
-    showError(found.records ? `Nothing to delete: every image ${scope} is starred${kept}.`
-      : `Nothing to delete: no image is left ${scope}.`, true, slot);
-    keepUnstarredFocus();
-    return;
-  }
-  const plural = found.unstarred === 1 ? '' : 's';
-  const sourceNames = found.sources.map((id) => `#${id}`).join(', ') + (sources > found.sources.length ? ', …' : '');
-  const keeping = `keeping ${found.favorites} starred`
-    + (sources === 1 ? ` and ${sourceNames}, which a starred image was made from`
-      : sources > 1 ? ` and ${sources} images starred ones were made from (${sourceNames})` : '');
-  // How much of the gallery's history goes: the sample prompts are the first
-  // three alphabetically and say nothing of how many runs that is, or when.
-  const from = found.first ? when(Date.parse(found.first)) : '';
-  const to = found.last ? when(Date.parse(found.last)) : '';
-  const span = [
-    found.runs ? `From ${found.runs} run${found.runs === 1 ? '' : 's'}` : '',
-    from && (from === to ? `made ${from}` : `made ${from} to ${to}`),
-  ].filter(Boolean).join(', ');
-  const prompts = found.prompts.slice(0, 3).map((p) => `  "${p.length > 60 ? `${p.slice(0, 57)}…` : p}"`);
-  if (found.prompts.length > 3) prompts.push('  …');
-  const message = [
-    `Delete ${found.unstarred} unstarred image${plural} ${scope}, ${keeping}?`,
-    ...(span ? [`${span}.`] : []),
-    ...freshLine(head, found.newer),
-    '',
-    ...prompts,
-    '',
-    // The count is pinned: an image a running job lands in scope before the
-    // answer refuses the whole sweep, and that is better known before typing.
-    // The server's answer, since the job may be another tab's.
-    ...(found.job_active ? ['A job is still running; if it adds an image here before you confirm, nothing is deleted.'] : []),
-    `They move to the recycle bin; Empty recycle bin removes them from disk. Type ${found.unstarred} to continue:`,
-  ].join('\n');
-  const typed = await askCount(message);
-  if (typed === null) return;
-  if (revision !== modelRevision) {
-    showError('Nothing moved: the checkpoint changed. Review the new gallery before deleting.', true, slot);
-    return;
-  }
-  if (typed.trim() !== String(found.unstarred)) {
-    showError(`Nothing moved: "${typed.trim()}" is not ${found.unstarred}.`, true, slot);
-    return;
-  }
-  params.set('expected', found.unstarred);
-  let result;
-  try {
-    result = await api(`/api/gallery/unstarred?${params}`, {
-      method: 'DELETE',
-      headers: revision === null ? {} : { 'X-AuraDream-Model-Revision': String(revision) },
-    });
-  } catch (err) {
-    if (!/selection changed/i.test(err.message)) { showError(err.message, false, slot); return; }
-    // The server counts something else now - images a job landed in scope,
-    // most often. The page shows the server's count rather than the one the
-    // message has just called stale. Whether a job is still running is in
-    // the server's sentence: it may be another tab's.
-    void resetGallery().then(keepUnstarredFocus);
     loadRuns();
-    showError(err.message, false, slot);
-    return;
+    const went = moved.length;
+    showError(`Moved ${went} image${went === 1 ? '' : 's'} to the recycle bin, ${keeping}.${also}`, true, slot);
+    void syncBin();
+  } finally {
+    if (binBroadOwner === owner) binBroadOwner = null;
+    syncBinWriteHolds();
   }
-  // Into the recycle bin; `deleted` is the same ids, from a server before it.
-  const moved = result.binned ?? result.deleted;
-  const also = forgetImages(moved, { binned: true });
-  // The page is now mostly holes; ask for it again from the top, which also
-  // brings the badge back to the server's count - and clears the slot, so
-  // the outcome is written after it.
-  void resetGallery().then(keepUnstarredFocus);
-  loadRuns();
-  const went = moved.length;
-  showError(`Moved ${went} image${went === 1 ? '' : 's'} to the recycle bin, ${keeping}.${also}`, true, slot);
-  void syncBin();
 }
 
 // A reload that leaves nothing in scope hides the button (syncDeleteUnstarred)
@@ -1078,6 +1095,16 @@ function releaseHead() {
 function syncDeleteUnstarred(now = false) {
   const givesWay = unstarredGivesWay && (selectedIds().length > 0 || unstarredHeld === viewFilter());
   showInHead(els.deleteUnstarred, !(binMode || els.favOnly.checked || total <= 0 || givesWay), now);
+  syncDeleteUnstarredHold();
+}
+
+// Ownership affects availability only: do not remeasure or move the head
+// merely because a lifecycle write starts or settles.
+function syncDeleteUnstarredHold() {
+  els.deleteUnstarred.dataset.binBroadTitle ??= els.deleteUnstarred.title;
+  const held = binBroadWriteReason();
+  els.deleteUnstarred.setAttribute('aria-disabled', String(!!held));
+  els.deleteUnstarred.title = held || els.deleteUnstarred.dataset.binBroadTitle;
 }
 
 // A change of the picks (onSelectionChange), with the pointer most often on

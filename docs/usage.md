@@ -1053,6 +1053,10 @@ on this page, another of those actions on the same images waits. Its tooltip
 says why; a held Restore note keeps its button and announces the wait. You can
 act on other images, and cancelled confirmations release the hold. Try the
 action again when the current operation finishes.
+Delete unstarred and Empty recycle bin wait while any of those image actions
+is pending. While either broad action is checking, confirming or refreshing
+its result, other Bin, Restore and permanent-delete actions on this page wait.
+The existing count and confirmation still apply; no action is queued for you.
 **Empty recycle bin** deletes
 every image in the bin from disk, whatever the search shows, after a
 confirmation that gives the count and size and says which of them a live

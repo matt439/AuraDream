@@ -5498,8 +5498,17 @@ Frontend and CLI:
   geometry and dismissal state, saying the wait through `sayGalleryAction` on
   the existing polite action channel; `sayStar` uses that same helper. No queue,
   automatic retry, unknown-outcome or cross-client protocol is introduced.
-  Broad Delete unstarred/Empty/Bundle clear coordination remains a source
-  follow-up in the dated Bin/Restore review. `gallery_delete.bin_images` looks up and
+  Delete unstarred/Empty additionally use one `binBroadOwner`: broad admission
+  refuses any exact owner or broad owner, and exact admission sees the broad
+  reason first. Each broad token spans its first await, original question,
+  confirmed request and four existing critical awaited reset paths; only its
+  owner releases in finally. `syncBinWriteHolds()` fully refreshes availability
+  for broad transitions; exact transitions also refresh both broad controls.
+  `syncDeleteUnstarredHold` changes attrs without remeasuring/hiding the head.
+  New controls inherit the reason. Server keeper/count/revision, Empty pin/
+  fixed-before and confirmation semantics remain intact; All models is captured
+  once for sweep request and wording. Bundle clear remains a subsequent source
+  slice in the dated broad-bin review. `gallery_delete.bin_images` looks up and
   writes under `storage._write_lock`, so a second bin answers `already`, and
   `gallery_delete.delete_image` does the same, so a second permanent delete is
   "unknown image".
@@ -6063,6 +6072,19 @@ purge require native confirmations and exact one-use id guards. Broad deletes
 are blocked. Viewer/lineage constructor checks are labeled, not runtime model
 qualification. The dated Bin/Restore review records the earlier 74-step
 reversible defect proof, final acceptance and broad/unknown/cross-tab limits.
+
+`smoke-broad-bin-order.json` uses a fresh FLUX.1 Krea [dev] fake on
+7942 for hidden exact-owner admission and broad preview/confirmation/reply/
+critical-reset exclusion. Its 352-step regression uses fresh epoch/id gates,
+native Cancel/count/Empty questions, known predispatch409 probes and actual
+stored state. Six owned rows span two strict run scopes; the planted pair is
+preserved and only a one-use exact-owned Empty may permanently remove E/F.
+API POST/DELETE guards allow only exact read-only measure and owned Finish
+previews beyond the tested lifecycle requests; actual Finish remains blocked.
+Composer, picks/stashes and notes stay intact. The dated broad-bin review
+records the earlier reversible diagnostic proof and remaining Bundle/unknown/
+cross-client boundaries.
+
 
 `tests/test_snippets.py` covers CRUD, exact text, bounds, malformed-file
 preservation, independent locking, stale/concurrent edits and admission

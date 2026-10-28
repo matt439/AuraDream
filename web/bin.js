@@ -2,12 +2,19 @@
 // Declarations only; state.js has the shared-global load-order contract.
 'use strict';
 
-// Targeted same-page bin lifecycle requests own their explicit ids through
-// response application. Broad sweeps/bundle maintenance, other clients and
-// uncertain outcomes remain outside this hold; nothing is automatically retried.
+// Same-page lifecycle requests own either explicit ids or the broad scope of
+// Delete unstarred/Empty bin through response application. Bundle maintenance,
+// other clients and uncertain outcomes remain outside this hold; no retry.
 const binWriteIds = new Set();
+let binBroadOwner = null;
+
+function binBroadWriteReason() {
+  return (binBroadOwner || binWriteIds.size)
+    ? 'Wait for the current recycle bin change to finish' : '';
+}
 
 function binWriteReason(ids) {
+  if (binBroadOwner) return binBroadWriteReason();
   return ids.some((id) => binWriteIds.has(id))
     ? 'Wait for the current recycle bin change to finish' : '';
 }
@@ -30,12 +37,14 @@ function showBinWriteHold(held) {
   else showError(held + '.', true, { slot: els.galleryError });
 }
 
-function syncBinWriteHolds(ids) {
+function syncBinWriteHolds(ids = null) {
   document.querySelectorAll('[data-bin-write-ids]').forEach((button) => {
     const affected = button.dataset.binWriteIds.split(',').map(Number);
-    if (affected.some((id) => ids.includes(id))) syncBinWriteButton(button, affected);
+    if (!ids || affected.some((id) => ids.includes(id))) syncBinWriteButton(button, affected);
   });
-  if (els.lightbox.open && ids.includes(lbList[lbIndex]?.id)) syncLightboxBinWriteHold();
+  if (els.lightbox.open && (!ids || ids.includes(lbList[lbIndex]?.id))) syncLightboxBinWriteHold();
+  syncDeleteUnstarredHold();
+  syncEmptyBin();
   syncRestorePicked();
   syncPickedButton();
 }
@@ -115,7 +124,7 @@ function binAgeDays() {
 
 function syncEmptyBin() {
   const days = binAgeDays();
-  const why = binCount ? '' : 'The recycle bin is empty';
+  const why = binBroadWriteReason() || (binCount ? '' : 'The recycle bin is empty');
   els.emptyBin.setAttribute('aria-disabled', String(!!why));
   els.emptyBin.title = why || (days
     ? `Delete the images binned more than ${days} days ago from disk, after a confirmation that counts them`
@@ -400,57 +409,71 @@ async function deletePermanently(rec) {
 // the question is up is taken.
 async function emptyBin() {
   const slot = { slot: els.galleryError };
-  const days = binAgeDays();
-  let found;
+  const held = binBroadWriteReason();
+  if (held) { showError(held + '.', true, slot); return; }
+  const owner = {};
+  binBroadOwner = owner;
   try {
-    found = await api(`/api/gallery/bin/summary${days ? `?older_than_days=${days}` : ''}`);
-  } catch (err) {
-    showError(err.message, false, slot);
-    return;
-  }
-  // A scoped summary's count is not the bin's: the footer asks for its own.
-  if (days) void syncBin(); else showBinCount(found);
-  if (!found.bin_records && !found.records) { showError('The recycle bin is empty.', true, slot); return; }
-  if (!found.records) {
-    showError(`Nothing in the recycle bin was binned more than ${days} days ago.`, true, slot);
-    return;
-  }
-  const n = found.records;
-  const stay = days ? found.bin_records - n : 0;
-  const inUse = found.sources_in_use.length;
-  const message = [
-    days ? `Permanently delete the ${plural(n, 'image')} binned more than ${days} days ago (${humanBytes(found.bytes)})?`
-      : `Permanently delete all ${plural(n, 'image')} in the recycle bin (${humanBytes(found.bytes)})?`,
-    ...(stay ? [`${stay === 1 ? '1 image binned since stays' : `${stay} images binned since stay`} in the recycle bin.`] : []),
-    ...(els.search.value.trim() ? ['That is every one of them, not only those this search shows.'] : []),
-    ...(inUse ? [`${inUse} of them ${inUse === 1 ? 'is' : 'are'} the source or a reference of an image outside the bin; `
-      + `${inUse === 1 ? 'that' : 'those'} can't be made again.`] : []),
-    ...(found.job_active ? ['A job is running; a cell that uses one of them will fail.'] : []),
-    'This cannot be undone.',
-  ].join('\n');
-  if (!await askConfirm(message, { okLabel: days ? 'Delete older' : 'Empty bin' })) return;
-  let result;
-  try {
-    const pin = found.pin ? `&pin=${encodeURIComponent(found.pin)}` : '';
-    const before = days ? `&before=${encodeURIComponent(found.before)}` : '';
-    result = await api(`/api/gallery/bin?expected=${n}${pin}${before}`, { method: 'DELETE' });
-  } catch (err) {
-    // The bin changed since the question: shown again as it is now.
-    if (err.status === 409 && binMode) void resetGallery().then(() => showError(err.message, false, slot));
-    else showError(err.message, false, slot);
+    syncBinWriteHolds();
+    const days = binAgeDays();
+    let found;
+    try {
+      found = await api(`/api/gallery/bin/summary${days ? `?older_than_days=${days}` : ''}`);
+    } catch (err) {
+      showError(err.message, false, slot);
+      return;
+    }
+    // A scoped summary's count is not the bin's: the footer asks for its own.
+    if (days) void syncBin(); else showBinCount(found);
+    if (!found.bin_records && !found.records) { showError('The recycle bin is empty.', true, slot); return; }
+    if (!found.records) {
+      showError(`Nothing in the recycle bin was binned more than ${days} days ago.`, true, slot);
+      return;
+    }
+    const n = found.records;
+    const stay = days ? found.bin_records - n : 0;
+    const inUse = found.sources_in_use.length;
+    const message = [
+      days ? `Permanently delete the ${plural(n, 'image')} binned more than ${days} days ago (${humanBytes(found.bytes)})?`
+        : `Permanently delete all ${plural(n, 'image')} in the recycle bin (${humanBytes(found.bytes)})?`,
+      ...(stay ? [`${stay === 1 ? '1 image binned since stays' : `${stay} images binned since stay`} in the recycle bin.`] : []),
+      ...(els.search.value.trim() ? ['That is every one of them, not only those this search shows.'] : []),
+      ...(inUse ? [`${inUse} of them ${inUse === 1 ? 'is' : 'are'} the source or a reference of an image outside the bin; `
+        + `${inUse === 1 ? 'that' : 'those'} can't be made again.`] : []),
+      ...(found.job_active ? ['A job is running; a cell that uses one of them will fail.'] : []),
+      'This cannot be undone.',
+    ].join('\n');
+    if (!await askConfirm(message, { okLabel: days ? 'Delete older' : 'Empty bin' })) return;
+    if (binBroadOwner !== owner) {
+      showError('The recycle bin action changed. Nothing was deleted; look again.', false, slot);
+      return;
+    }
+    let result;
+    try {
+      const pin = found.pin ? `&pin=${encodeURIComponent(found.pin)}` : '';
+      const before = days ? `&before=${encodeURIComponent(found.before)}` : '';
+      result = await api(`/api/gallery/bin?expected=${n}${pin}${before}`, { method: 'DELETE' });
+    } catch (err) {
+      // The bin changed since the question: shown again as it is now.
+      if (err.status === 409 && binMode) await resetGallery();
+      showError(err.message, false, slot);
+      void syncBin();
+      return;
+    }
+    const also = forgetImages(result.deleted);
+    // Tombstones over an emptied bin say less than the bin's empty line; an
+    // age-scoped one leaves the newer cards where they are, the deleted ones
+    // tombstones in their boxes (forgetImages), as Delete picked permanently.
+    if (binMode && !days) await resetGallery();
+    const went = result.deleted.length;
+    showError(days ? `Deleted ${plural(went, 'image')} binned more than ${days} days ago from the recycle bin.${also}`
+      : `Deleted ${plural(went, 'image')} from the recycle bin.${also}`, true, slot);
+    loadRuns();
     void syncBin();
-    return;
+  } finally {
+    if (binBroadOwner === owner) binBroadOwner = null;
+    syncBinWriteHolds();
   }
-  const also = forgetImages(result.deleted);
-  // Tombstones over an emptied bin say less than the bin's empty line; an
-  // age-scoped one leaves the newer cards where they are, the deleted ones
-  // tombstones in their boxes (forgetImages), as Delete picked permanently.
-  if (binMode && !days) void resetGallery();
-  const went = result.deleted.length;
-  showError(days ? `Deleted ${plural(went, 'image')} binned more than ${days} days ago from the recycle bin.${also}`
-    : `Deleted ${plural(went, 'image')} from the recycle bin.${also}`, true, slot);
-  loadRuns();
-  void syncBin();
 }
 
 function restorePicked() {
@@ -531,7 +554,11 @@ async function purgePicked() {
 function setupBin() {
   els.bin.onclick = toggleBin;
   els.emptyBin.onclick = () => {
-    if (!binCount) { showError('The recycle bin is empty.', true, { slot: els.galleryError }); return; }
+    syncEmptyBin();
+    if (els.emptyBin.getAttribute('aria-disabled') === 'true') {
+      showError(els.emptyBin.title + '.', true, { slot: els.galleryError });
+      return;
+    }
     void emptyBin();
   };
   els.binAge.onchange = syncEmptyBin;
