@@ -7073,6 +7073,13 @@ unquantised load stores the mode `none`. An integer past SQLite's 64 bits
 bad values: sqlite3 raised OverflowError at the query, which no route
 caught, and the gallery said "Internal Server Error".
 
+`GAL#15` adds `size:portrait`, `size:landscape` and `size:square` across
+resolution tiers through direct stored width/height comparisons. The existing
+`size:` key keeps frontend classification and facts merging unchanged; facts
+still supply exact dimensions, and saved queries retain their raw spelling.
+[The orientation plan](plan-gallery-orientation.md) records the use evidence,
+official comparison source, shared strict-scope contract and qualification.
+
 ## Named gallery searches
 
 `GAL#7`'s [plan](plan-saved-searches.md) keeps saved filters separate from

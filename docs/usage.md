@@ -582,8 +582,12 @@ Search combines these terms with free text matching the prompt:
 | `lora:ink`, `lora:none` | LoRA name substring, or images made without one (`lora:=none` is an adapter named `none`) |
 | `hash:3f9a` | Identical pixels by hash prefix |
 | `size:1024x768` | Width and height exactly |
+| `size:portrait`, `size:landscape`, `size:square` | Taller, wider or equal stored dimensions across all resolutions |
 | `date:today`, `date:yesterday`, `date:2026-10-07` | A day in the server's local timezone |
 | `date:2026-10-26..2026-10-28` | October 26 through 28, including both dates in the server's local timezone |
+
+Orientation values compare the stored width and height. Combine them with
+prompt words or other filters, such as `size:portrait seed:42`.
 
 A date range needs two absolute `YYYY-MM-DD` dates in order, with no spaces
 around `..`. Both dates are included; the following local midnight is excluded.

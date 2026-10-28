@@ -120,7 +120,15 @@ def date_clause(raw: str) -> tuple[str, list]:
 
 
 def size_clause(raw: str) -> tuple[str, list]:
-    """`size:1024x1024` (or `1024×1024`, as the page prints it): both sides exact."""
+    """Exact stored dimensions or portrait/landscape/square across resolutions."""
+    orientation = {
+        "portrait": "width < height",
+        "landscape": "width > height",
+        "square": "width = height",
+    }.get(raw.lower())
+    if orientation is not None:
+        return orientation, []
+
     width, sep, height = raw.lower().replace("×", "x").partition("x")
     if not sep or not width.isdigit() or not height.isdigit():
         raise ValueError(f"size: {raw!r} is not WIDTHxHEIGHT")

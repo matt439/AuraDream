@@ -302,7 +302,7 @@ before changing it.
   (the export's scope resolved through `submission.resolve_selection`)
   and exclusive maintenance admission through background completion
 - `backend/search.py` — the search box's grammar: `key:value` terms as SQL
-  predicates (`size:WxH` both sides exact; `lora:none` is IS NULL, every
+  predicates (`size:WxH` both sides exact or orientation values; `lora:none` is IS NULL, every
   other text key a substring; an integer past SQLite's 64 bits a
   ValueError, so the routes' 422), the LIKE escape, `strict_scope`
 - `backend/main.py` — app lifecycle and model ownership: load state and
@@ -5394,7 +5394,9 @@ Frontend and CLI:
   ranges refuse; ordinary single-day/`today`/`yesterday` grammar is unchanged.
   Terms still AND together, and saved searches retain the raw query.
   `mu:none` is `IS NULL`, `size:1024x768` (or `×`) is the width and the
-  height exactly, `id:` is the gallery id the page shows as #N
+  height exactly. `size:portrait`, `size:landscape` and `size:square` compare
+  stored width/height across resolutions, case-insensitively, with the same
+  AND, exact-size and strict-scope behavior. `id:` is the gallery id the page shows as #N
   (a range is a span), and `search.strict_scope` is the reading for
   `clear --where`, `keep_rates` and the gallery's Delete unstarred
   (`GET`/`DELETE /api/gallery/unstarred`): `clear --where <box>
@@ -6243,6 +6245,15 @@ named in the Layout above (the stylesheets in `index.html`'s link order, and
 its count of classic scripts); and every `tools/smoke*.json` in `AGENTS.md`'s
 port table, on the row whose port its first `navigate` uses, and named
 below - so a new file is added to the maps with it.
+
+`tests/test_search_orientation.py` checks portrait/landscape/square values on
+the existing size key through actual SQLite, including adjacent large integer
+dimensions, composition and legacy spelling/refusals. A Node VM checks the
+existing key/merge helpers without DOM or app boot. Scratch HTTP checks cover
+gallery/model/favorite/bin scopes, paging, LIKE fallback, strict previews,
+saved raw queries and keeper rates with model/queue entry points poisoned.
+An owned-gallery DELETE checks expected counts, star/source retention and
+PNG-preserving binning. No live gallery, browser or GPU qualification follows.
 
 `tests/test_search_dates.py` covers local-day UTC bounds, clock changes and
 unrepresentable dates. `tests/test_search_date_ranges.py` adds explicit inclusive
