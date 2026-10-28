@@ -147,26 +147,6 @@ if (invalidFatal.length) {
   console.error(invalidFatal.join('\n'));
   process.exit(2);
 }
-const CANDIDATES = [
-  process.env.AURADREAM_BROWSER,
-  'C:/Program Files (x86)/Microsoft/Edge/Application/msedge.exe',
-  'C:/Program Files/Microsoft/Edge/Application/msedge.exe',
-  'C:/Program Files/Google/Chrome/Application/chrome.exe',
-  '/usr/bin/google-chrome', '/usr/bin/chromium', '/usr/bin/chromium-browser', '/usr/bin/microsoft-edge',
-].filter(Boolean);
-const browser = CANDIDATES.find((p) => existsSync(p));
-if (!browser) {
-  console.error('no Edge or Chrome found; set AURADREAM_BROWSER to the executable');
-  process.exit(2);
-}
-let screenshots;
-try {
-  screenshots = screenshotRoot(steps);
-} catch (error) {
-  console.error(error.message);
-  process.exit(2);
-}
-if (screenshots) console.log('screenshots: ' + screenshots);
 const KEY_MODIFIERS = { Alt: 1, Control: 2, Meta: 4, Shift: 8 };
 const invalidCombos = steps.flatMap((step, index) => {
   if (!Object.hasOwn(step, 'keycombo')) return [];
@@ -230,6 +210,29 @@ if (!(VW > 0 && VH > 0 && DPR > 0)) {
   console.error('AURADREAM_VIEWPORT is WIDTHxHEIGHT and AURADREAM_DPR a positive number');
   process.exit(2);
 }
+
+// Preparation starts after the existing script and startup checks.
+// Keep discovery, output behavior and runtime launch policy unchanged.
+const CANDIDATES = [
+  process.env.AURADREAM_BROWSER,
+  'C:/Program Files (x86)/Microsoft/Edge/Application/msedge.exe',
+  'C:/Program Files/Microsoft/Edge/Application/msedge.exe',
+  'C:/Program Files/Google/Chrome/Application/chrome.exe',
+  '/usr/bin/google-chrome', '/usr/bin/chromium', '/usr/bin/chromium-browser', '/usr/bin/microsoft-edge',
+].filter(Boolean);
+const browser = CANDIDATES.find((p) => existsSync(p));
+if (!browser) {
+  console.error('no Edge or Chrome found; set AURADREAM_BROWSER to the executable');
+  process.exit(2);
+}
+let screenshots;
+try {
+  screenshots = screenshotRoot(steps);
+} catch (error) {
+  console.error(error.message);
+  process.exit(2);
+}
+if (screenshots) console.log('screenshots: ' + screenshots);
 
 // A profile of this run's own. A shared one is held by whichever Edge is
 // still alive from a run that crashed, and the next launch then hands its

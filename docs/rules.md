@@ -5928,13 +5928,23 @@ their normal continuation; eval remains diagnostic-only. Edge selection,
 launch flags and profiles are unchanged. The [dated tooling review](review-2026-10-28-fatal-prerequisites.md)
 owns ordinary-driver probes and the three bounded scratch setup conversions.
 
+`tests/test_browser_keycombo_preflight.py` executes the actual harness/helper
+bodies with a counted fixture read and poisoned lookup/output/profile/network
+ports. Existing combo, unawaited-helper and startup positivity refusals occur
+before browser discovery or screenshot preparation, with unchanged diagnostics
+and relative priority. Accepted values reach an inert lookup, preserving the
+existing startup numeric/parser policy. Synthetic successful lookup exposes the
+original mkdir-before-refusal ordering; explicit probes verify effect guards.
+All predicates and native dispatch remain unchanged. This covers cold ordering,
+not browser or hardware acceptance.
+
 `tests/test_browser_step_containers.py` executes captured actual harness/helper
 bodies with one fixture read permitted and browser/output/profile/network effects
 poisoned. The document must be an array of non-null, non-array objects before
 browser discovery. Fixed exit-2 diagnostics name every bad step in input order
 without its contents. Empty lists/objects, unknown metadata and existing action
-precedence remain accepted. A combined repository-fixture inventory reaches the
-same cold lookup boundary; it does not execute or qualify individual smokes.
+precedence remain accepted. Each repository fixture independently reaches the
+same cold lookup boundary; its steps remain unexecuted.
 Malformed JSON and file-read exception handling are unchanged.
 
 `tests/test_browser_port_preflight.py` executes captured real harness/helper

@@ -122,20 +122,18 @@ def test_existing_object_forms_reach_browser_lookup_without_launch(tmp_path, ste
 
 
 def test_repository_smoke_records_reach_the_same_cold_lookup_boundary(tmp_path):
-    # Execute the real whole-list check over the current fixture inventory;
-    # do not mirror that check or run any fixture expression/action here.
+    # Each fixture owns its helper names. Concatenating files can make a
+    # synchronous helper look async because another fixture defines that name.
     smokes = sorted((ROOT / "tools").glob("smoke*.json"))
     assert smokes
-    steps = []
     for script in smokes:
         value = json.loads(script.read_text(encoding="utf-8"))
-        # Represent a malformed document as a bad aggregate entry rather than
-        # letting a dict become an apparently valid ordinary step or disappear.
-        # Dedicated cases above exercise the harness's actual top-level refusal.
-        steps.extend(value if isinstance(value, list) else [None])
-    done = run_container_cold(tmp_path, steps)
-    assert done.returncode == 99 and done.stdout == "", done.stdout + done.stderr
-    assert done.stderr == "UNEXPECTED_CONTAINER_PREFLIGHT_EFFECT\nFIXTURE_READS:1\n"
+        case = tmp_path / script.stem
+        case.mkdir()
+        done = run_container_cold(case, value)
+        details = script.name + ": " + done.stdout + done.stderr
+        assert done.returncode == 99 and done.stdout == "", details
+        assert done.stderr == "UNEXPECTED_CONTAINER_PREFLIGHT_EFFECT\nFIXTURE_READS:1\n", details
 
 
 @pytest.mark.parametrize("probe", [

@@ -54,9 +54,9 @@ must receive fixed exit-2 diagnostics before browser lookup, output, profile,
 process or network ports; compatible object forms reach a poisoned first lookup.
 Eight separate probes verify the effect guards themselves remain active.
 
-The inventory case combines the current repository's smoke records into one cold
-fixture and checks it reaches the same lookup boundary. It neither runs fixture
-actions nor independently qualifies each smoke. Empty fixtures remain permitted;
+The inventory case passes each current repository fixture independently through
+the actual whole-document cold preflight. Each must reach the lookup boundary;
+no fixture action runs and no browser acceptance is inferred. Empty fixtures remain permitted;
 unknown actions and existing multi-action precedence retain their existing policy.
 The new shape guard does not catch JSON syntax or source-read errors.
 
@@ -86,3 +86,14 @@ The original-source negative control preceded the one-insertion source change.
 All new cases run through instrumented real module bodies with actual browser,
 profile, output and network effects forbidden. Existing artifact denials and
 unknown browser outcomes were preserved; this work did not retry those actions.
+
+## Per-file inventory scope during DEV17 integration (2026-10-28)
+
+DEV17 moves existing async-helper checks before discovery. Its first positive
+run passed 343 cases and failed the old concatenated inventory: helper names
+`__small` and `__landed` from separate fixtures contaminated one synthetic global
+scope. The inventory now sends each original JSON document independently to
+the real instrumented harness in its own scratch subdirectory. No validator is
+disabled and values are passed unchanged. The initial DEV16 combined result
+above remains historical. The revised per-file inventory plus six docs-map
+checks pass together in 5.47 seconds; no fixture action or browser is run.
