@@ -7073,6 +7073,12 @@ unquantised load stores the mode `none`. An integer past SQLite's 64 bits
 bad values: sqlite3 raised OverflowError at the query, which no route
 caught, and the gallery said "Internal Server Error".
 
+`GAL#16` reads a whole floating scalar before dash-range parsing, so a
+Sampling facts term such as `cfg:1e-7` or `mu:1e-7` keeps its exponent sign.
+Integer, NULL, comparison and existing range/error behavior stay unchanged.
+[The scalar-search review](review-2026-10-28-numeric-search-scalars.md) owns
+the source evidence and CPU/storage/HTTP qualification.
+
 `GAL#15` adds `size:portrait`, `size:landscape` and `size:square` across
 resolution tiers through direct stored width/height comparisons. The existing
 `size:` key keeps frontend classification and facts merging unchanged; facts

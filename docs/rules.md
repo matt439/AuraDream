@@ -5393,6 +5393,12 @@ Frontend and CLI:
   last day, including clock changes. Open, relative, reversed or malformed
   ranges refuse; ordinary single-day/`today`/`yesterday` grammar is unchanged.
   Terms still AND together, and saved searches retain the raw query.
+  Exact floating terms accept scientific notation (`cfg:1e-7`, `mu:1e-7`):
+  a whole float is read before the existing dash-range grammar. Integer,
+  NULL, comparison and malformed-range operand behavior stay unchanged.
+  `tests/test_search_numeric_scalars.py` couples real Sampling facts to scratch
+  SQL/HTTP reads; [its review](review-2026-10-28-numeric-search-scalars.md)
+  owns the qualification, without a frontend or browser change.
   `mu:none` is `IS NULL`, `size:1024x768` (or `×`) is the width and the
   height exactly. `size:portrait`, `size:landscape` and `size:square` compare
   stored width/height across resolutions, case-insensitively, with the same

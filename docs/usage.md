@@ -575,6 +575,7 @@ Search combines these terms with free text matching the prompt:
 | `run:ab12cd`, `job:ab12cd` | Run or submission |
 | `id:412`, `id:400-420`, `seed:42` | Image ids or seed |
 | `steps:6-12`, `cfg:<=1`, `tcfg:1.5` | Sampling values; `tcfg:none` means no active negative guidance |
+| `cfg:1e-7`, `mu:1e-7` | Exact very small sampling values in scientific notation |
 | `mu:none`, `quant:fp8`, `model:flux` | Default shift, quantization, model substring |
 | `model:=circlestone-labs/Anima` | One checkpoint's whole id exactly (a leading `=` on any text key) |
 | `refine:412`, `refine:none`, `strength:0.3-0.5` | Passes from a source, direct renders, strength |

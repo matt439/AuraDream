@@ -200,6 +200,16 @@ def filter_clause(key: str, raw: str) -> tuple[str, list]:
     for operator in COMPARISONS:
         if raw.startswith(operator):
             return f"{column} {operator} ?", [_cast(cast, key, raw[len(operator):])]
+    # A whole float may contain an exponent sign: the Sampling facts write
+    # `cfg:1e-7` and `mu:1e-7`. Try that scalar before interpreting a hyphen
+    # as a range; failed casts retain the existing range/error grammar below.
+    if cast is float:
+        try:
+            scalar = _cast(cast, key, raw)
+        except ValueError:
+            pass
+        else:
+            return f"{column} = ?", [scalar]
     # A range borrows the grid's own spelling, so `cfg:0-1` reads the same in
     # the search box as it does in the axis that produced those images.
     low, dash, high = raw.partition("-")
