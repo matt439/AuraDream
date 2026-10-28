@@ -1,7 +1,10 @@
 # Review and plan: Bundle & clear ordering, 2026-10-28
 
-**Status:** `GAL#12` selected for controlled owned-fake reproduction and a
-bounded source repair after qualified [broad operations](review-2026-10-28-broad-bin-order.md).
+**Status:** `GAL#12`'s actual complete-clear/late-Restore defect is reproduced.
+The reviewed bounded repair is applied but uncommitted. Its focused
+qualification outcome remains unknown after a desktop disconnect; see the
+interrupted record below. This follows
+[broad operations](review-2026-10-28-broad-bin-order.md).
 
 ## Ranked next work
 
@@ -17,7 +20,7 @@ bounded source repair after qualified [broad operations](review-2026-10-28-broad
 
 ## Bounded design and source evidence
 
-Current Bundle & clear bypasses `binWriteIds`/`binBroadOwner`; server locking
+Before this repair, Bundle & clear bypassed `binWriteIds`/`binBroadOwner`; server locking
 cannot order an earlier Restore's later cache application. Reproduce on a
 new owned fake gallery, holding an actual Restore reply while a native
 count-confirmed clear finishes. Independently inspect actual committed
@@ -76,3 +79,101 @@ committed deletion receipts from injected predispatch/transport probes.
 Run affected existing smokes, classic/docs/lint, independent source/fixture
 review and appropriate visual checks before a local commit. No GPU or user
 gallery operation is authorized by a fake fixture.
+
+
+## Credential-cold preflight and actual baseline
+
+Before browser work, source inspection and independent review traced the
+automatic-backup panel GET to `BackupService.status`, which copies cached
+metadata. Fresh missing DB-scoped settings have revision `missing`, disabled
+state, no gallery identity or credential reference; startup returns before
+coordinator/provider construction. The fake sets DB/output/bundle paths under
+its new `--data` before configuration import. This exact cold GET performs no
+credential API call. Manual password bundle crypto uses the supplied password,
+not Windows Credential Manager; the existing manual Bundle smoke has no
+automatic-backup activation/settings/reload write.
+
+This is NOT global credential isolation for the fake. A reused directory with
+enabled encrypted settings could reach the real worker/provider at startup.
+The runner allocates genuinely NEW scratch data before each fake startup.
+The 63-step baseline diagnostic fatally checked real status
+missing/disabled/not_configured. The focused final fixture requires the same
+cold state and guards settings/activation writes before workflow mutations;
+its unknown execution outcome is recorded below. A client
+stub installed after navigation would not protect reused startup; none was
+used or needed. No credential availability/recovery/worker qualification is
+claimed and no real vault, service or user gallery was activated.
+
+The **63-step baseline diagnostic passed in 15 seconds** (8 browser seconds)
+on 2026-10-28, around 16:18 UTC. It explicitly owned the complete four-row
+fake gallery: the planted other-checkpoint pair plus two newly seeded rows.
+Native Bin A (#3) committed, then its native Restore committed with the reply
+held. Native Bundle & clear/count 4 completed actual archive verification and
+clear before that old reply applied. The server reported a done export,
+`cleared:true`, deleted ids `[1,2,3,4]`; all four rows and PNGs independently
+returned 404, all-model/current/bin counts were 0, and A was locally deleted.
+Releasing old Restore removed A's deleted marker and announced `Restored #3.`
+despite the actual 404. Other three deleted markers remained. The old epoch
+kept all displayed lists empty: no card resurrection is claimed.
+
+The reported archive was present over HTTP with 110622 bytes. This proves
+server-reported verification plus actual archive presence, not independent
+client ZIP/restore verification. Exactly one seed job and three workflow
+writes (Bin, Restore, Clear) were permitted; blocked/error arrays were empty,
+and all four observed automatic-backup status reads stayed cold/disabled.
+This diagnostic pass proves the defect, not the repair. Artifacts:
+`auradream-smoke-artifacts-ixtqnh3_/smoke-bundle-clear-order-aj10fu6v`.
+
+## Applied source checkpoint
+
+A separate clear record now owns admission, known worker/status lifetime,
+raw exact+broad drain, keyed terminal application and unresolved outcomes.
+Only the direct pre-receipt POST 409/422 catch releases an attempt. Malformed
+or unacknowledged/replaced evidence and application exceptions stay held with
+authoritative inspection/manual-reload guidance. No automatic navigation,
+draft discard or retry is added. Other-tab/missed-history and durable receipt
+limits remain above. Successful done metadata is checked before consumption;
+valid partial cleanup and nullable failed-before-archive results are retained.
+
+Independent review caught and removed an unnecessary-await race on ordinary
+status application and guarded late old-attempt sending cleanup by request
+epoch. No-clear backup/import behavior keeps its existing synchronous path.
+The final source replay, Node individual/shared scope and two independent
+reviews were clear. That source checkpoint passed 35 classic/shared-scope/docs checks
+and no-cache Ruff. Existing manual Bundle, 420-step exact ordering and
+352-step broad ordering smokes passed sequentially in 94 seconds (32, 27 and
+19 browser seconds); artifacts `auradream-smoke-artifacts-unnjhtsn`.
+Focused clear-lifecycle regression and visual evidence remain pending here.
+
+## Interrupted final qualification and access boundary
+
+The reviewed final fixture has 465 steps, 396 JavaScript checks, 166 fatal
+prerequisites, two screenshots and eight page lifetimes. Before dispatch,
+independent review strengthened same-origin checks, one-use exact mutation
+approvals and refusal accounting, including fatal zero-counter gates before
+all seven navigations. Its SHA256 is
+`3B596A3459AC939DB85E508E4CF4834D268E758FE5E7C748149988925AAE49E9`.
+
+The ordinary single-worker run started on 2026-10-28 with process handle
+76437, but a desktop disconnect lost that handle. After reconnection it was
+unknown. The known fake endpoint on 7943 actively refused a connection, so no
+replacement job was started. The exact run-root summary was absent, then
+enumeration of `auradream-smoke-artifacts-_pbyyvzf` was denied. Inspection of
+that directory and its descendants is stopped; no alternate read, copied
+artifact or regenerated screenshot was used to evade the denial.
+
+The final run's result is **unknown**. The baseline and three existing
+regressions above remain valid evidence, but they do not complete this focused
+fixture or its visual acceptance. `GAL#12` stays OPEN and its source remains
+uncommitted while independent source work continues. No real gallery, vault,
+model or service was involved. This filesystem denial is separate from the
+historical browser launch boundary and the earlier snippet screenshot denial.
+
+## Later independent fake-tool protection
+
+The credential-cold preflight above records the earlier baseline conditions,
+when the fake had no global factory refusal. The later independent
+[DEV11 repair](review-2026-10-28-fake-credentials.md) now refuses the credential
+factory before app startup, with source/stub checks. It does not retry or
+qualify this interrupted browser run, its artifacts or visual acceptance;
+`GAL#12` remains OPEN with unknown final outcome and uncommitted source.
