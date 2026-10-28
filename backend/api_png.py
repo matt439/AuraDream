@@ -106,7 +106,12 @@ class _ImageSize(TypedDict, total=False):
 
 def _size(text: Any) -> _ImageSize:
     match = _SIZE.match(text) if isinstance(text, str) else None
-    return {"width": int(match[1]), "height": int(match[2])} if match else {}
+    try:
+        return {"width": int(match[1]), "height": int(match[2])} if match else {}
+    except ValueError:
+        # Decimal conversion can refuse even a digit-only dimension. Treat
+        # it as unreadable without changing the interpreter's input limit.
+        return {}
 
 
 def _reason(exc: ValueError) -> str:
@@ -194,6 +199,8 @@ def _from_record(meta: dict, name: str) -> tuple[dict, _ImageSize, bool, list[st
             f"It is {what}, which is made again from its source in the gallery, not from a file: "
             "its prompt and settings fill the panel as a direct render, at the panel's own size."
         )
+    elif "size" in meta and not size:
+        notes.append("Its size could not be read, so the panel keeps its own.")
     if meta.get("upscaler") is not None:
         notes.append("Its upscaler is left out: it prepares a gallery source for an ordinary Refine pass.")
     if meta.get("crop_anchor") not in (None, "center"):
@@ -232,7 +239,10 @@ def _from_parameters(
     read = ["the prompt"] + (["negative prompt"] if negative else []) + (["size"] if size else [])
     notes = [f"Read from its A1111-style 'parameters' text: {_series(read)}."]
     if not size:
-        notes.append("It names no size, so the panel keeps its own.")
+        notes.append(
+            "Its size could not be read, so the panel keeps its own."
+            if "Size" in params else "It names no size, so the panel keeps its own."
+        )
     held = [f"{label} {params[key]}" for key, label in _NOT_CARRIED if params.get(key)]
     if held:
         notes.append(
