@@ -45,11 +45,14 @@ Everything else - the job queue, SSE, resume, the runs summary, pause, the
 budget, the analyser's rules - is the real code, which is the point:
 `tools/browser.mjs` drives a headless browser against this to check the UI.
 
-Port 7861, so it can run beside the real server on 7860.
+Port 7861, so it can run beside the real server on 7860. Invalid ports and
+negative/nonfinite CLI delays refuse before data or application preparation.
+Port zero remains accepted.
 """
 from __future__ import annotations
 
 import argparse
+import math
 import os
 import sys
 import tempfile
@@ -61,10 +64,30 @@ ROOT = Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(ROOT))
 
 
+def _port_argument(value: str) -> int:
+    try:
+        port = int(value)
+    except ValueError:
+        raise argparse.ArgumentTypeError("must be an integer from 0 to 65535") from None
+    if not 0 <= port <= 65535:
+        raise argparse.ArgumentTypeError("must be an integer from 0 to 65535")
+    return port
+
+
+def _seconds_argument(value: str) -> float:
+    try:
+        seconds = float(value)
+    except ValueError:
+        raise argparse.ArgumentTypeError("must be finite seconds at least zero") from None
+    if not math.isfinite(seconds) or seconds < 0:
+        raise argparse.ArgumentTypeError("must be finite seconds at least zero")
+    return seconds
+
+
 def _parse_args(argv: list[str] | None = None) -> argparse.Namespace:
     parser = argparse.ArgumentParser(description=__doc__.split("\n\n")[1] if __doc__ else "Serve an isolated fake backend.")
-    parser.add_argument("--port", type=int, default=7861)
-    parser.add_argument("--step", type=float, default=0.0, help="seconds per denoising step")
+    parser.add_argument("--port", type=_port_argument, default=7861, help="listen port, 0..65535 (default 7861)")
+    parser.add_argument("--step", type=_seconds_argument, default=0.0, help="finite seconds per denoising step, at least zero")
     data_args = parser.add_mutually_exclusive_group()
     data_args.add_argument(
         "--data", default=None,
@@ -76,8 +99,8 @@ def _parse_args(argv: list[str] | None = None) -> argparse.Namespace:
     )
     parser.add_argument("--model", default="krea/Krea-2-Turbo", help="the checkpoint id to claim")
     parser.add_argument(
-        "--critic-delay", type=float, default=0.4,
-        help="seconds each prompt critique takes, so its in-flight state can be seen (default 0.4)",
+        "--critic-delay", type=_seconds_argument, default=0.4,
+        help="finite seconds each prompt critique takes, at least zero (default 0.4)",
     )
     parser.add_argument(
         "--no-critic", action="store_true",

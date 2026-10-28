@@ -140,7 +140,7 @@ Each review's remaining work is indexed above; closed findings stay in their own
 | 2026-10-28 PNG | Named [JSON decoder refusals (`UI#26`)](docs/review-2026-10-28-png-json-refusals.md) and [unreadable-size fallback (`UI#27`)](docs/review-2026-10-28-png-size-refusals.md). |
 | 2026-10-28 library | Recovery owners: [snippet/setup libraries and remaining owner audit](docs/review-2026-10-28-library-recovery.md), [saved searches (`UI#24`)](docs/review-2026-10-28-saved-search-recovery.md). |
 | 2026-10-28 gallery | Owners: [favorites (`GAL#9`)](docs/review-2026-10-28-favorite-write-order.md), [exact lifecycle actions (`GAL#10`)](docs/review-2026-10-28-bin-restore-order.md), [Delete unstarred/Empty (`GAL#11`)](docs/review-2026-10-28-broad-bin-order.md). |
-| 2026-10-28 tooling | Owners: [fatal fixture prerequisites (`DEV#9`)](docs/review-2026-10-28-fatal-prerequisites.md), [fresh fake directories (`DEV#10`)](docs/review-2026-10-28-fake-fresh.md), [fake credential refusal (`DEV#11`)](docs/review-2026-10-28-fake-credentials.md), [port preflight (`DEV#12`)](docs/review-2026-10-28-smoke-port-plan.md). |
+| 2026-10-28 tooling | Owners: [fatal fixture prerequisites (`DEV#9`)](docs/review-2026-10-28-fatal-prerequisites.md), [fresh fake directories (`DEV#10`)](docs/review-2026-10-28-fake-fresh.md), [fake credential refusal (`DEV#11`)](docs/review-2026-10-28-fake-credentials.md), [port preflight (`DEV#12`)](docs/review-2026-10-28-smoke-port-plan.md), [fake CLI numbers (`DEV#13`)](docs/review-2026-10-28-fake-cli-numbers.md). |
 
 ---
 

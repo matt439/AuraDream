@@ -2,6 +2,7 @@
 from __future__ import annotations
 
 import builtins
+import math
 import sys
 from pathlib import Path
 from types import ModuleType
@@ -329,3 +330,133 @@ def test_main_installs_persistent_refusal_after_pillow_before_application_import
     assert data.parent == tmp_path and data.is_dir()
     assert not (data / "auradream.db").exists()
     assert calls == []
+
+
+def _forbid_numeric_startup(fake_server, guard):
+    """Count attempts as well as raising; no downstream masking can pass."""
+    attempts = []
+
+    def forbidden(*_args, **_kwargs):
+        attempts.append("startup-effect")
+        pytest.fail("numeric CLI validation reached data/environment/application/provider work")
+
+    class NoEnvironmentWrites(dict):
+        def __setitem__(self, _key, _value):
+            forbidden()
+
+    original_import = builtins.__import__
+
+    def cold_import(name, *args, **kwargs):
+        if name.split(".", 1)[0] in {"PIL", "backend", "uvicorn"} or name == "tests.fakes":
+            forbidden()
+        return original_import(name, *args, **kwargs)
+
+    guard.setattr(fake_server, "_data_directory", forbidden)
+    guard.setattr(fake_server, "_install_credential_refusal", forbidden)
+    guard.setattr(fake_server.tempfile, "mkdtemp", forbidden)
+    guard.setattr(fake_server.tempfile, "gettempdir", forbidden)
+    guard.setattr(fake_server.os, "environ", NoEnvironmentWrites(fake_server.os.environ))
+    guard.setattr(fake_server.os, "mkdir", forbidden)
+    guard.setattr(fake_server.os, "rmdir", forbidden)
+    guard.setattr(fake_server.os, "unlink", forbidden)
+    for name in ("mkdir", "write_bytes", "write_text", "unlink", "rmdir"):
+        guard.setattr(Path, name, forbidden)
+    guard.setattr(builtins, "__import__", cold_import)
+    return attempts
+
+
+@pytest.mark.parametrize("data_selection", ["fresh", "explicit"])
+@pytest.mark.parametrize(("option", "value", "message"), [
+    ("--port", "-1", "must be an integer from 0 to 65535"),
+    ("--port", "65536", "must be an integer from 0 to 65535"),
+    ("--port", "1.5", "must be an integer from 0 to 65535"),
+    *[
+        (option, value, "must be finite seconds at least zero")
+        for option in ("--step", "--critic-delay")
+        for value in ("-0.25", "nan", "inf", "-inf", "1e309")
+    ],
+])
+def test_invalid_numeric_cli_refuses_before_data_or_application_work(
+    fake_server, monkeypatch, tmp_path, capsys, data_selection, option, value, message,
+):
+    selected = tmp_path / "chosen" / "nested"
+    selected.mkdir(parents=True)
+    sentinel = selected / "keep.txt"
+    sentinel.write_bytes(b"existing chosen gallery")
+    data_args = ["--fresh"] if data_selection == "fresh" else ["--data", str(selected)]
+    argv = ["fake_server.py", *data_args, f"{option}={value}"]
+    environment_before = dict(fake_server.os.environ)
+    with monkeypatch.context() as guard:
+        guard.setattr(sys, "argv", argv)
+        attempts = _forbid_numeric_startup(fake_server, guard)
+        with pytest.raises(SystemExit) as stopped:
+            fake_server.main()
+        assert attempts == []
+        assert dict(fake_server.os.environ) == environment_before
+    assert stopped.value.code == 2
+    output = capsys.readouterr()
+    assert output.out == ""
+    assert f"argument {option}: {message}" in output.err
+    assert sentinel.read_bytes() == b"existing chosen gallery"
+    assert sorted(path.relative_to(tmp_path).as_posix() for path in tmp_path.rglob("*")) == [
+        "chosen", "chosen/nested", "chosen/nested/keep.txt",
+    ]
+
+
+@pytest.mark.parametrize(("value", "expected"), [
+    ("0", 0), ("1", 1), ("65535", 65535), ("+7861", 7861), (" 7861 ", 7861),
+])
+def test_valid_cli_ports_preserve_zero_boundaries_and_integer_spellings(
+    fake_server, monkeypatch, value, expected,
+):
+    with monkeypatch.context() as guard:
+        attempts = _forbid_numeric_startup(fake_server, guard)
+        args = fake_server._parse_args([f"--port={value}"])
+        assert attempts == []
+    assert args.port == expected
+    assert args.step == 0.0 and args.critic_delay == 0.4
+
+
+@pytest.mark.parametrize("option", ["--step", "--critic-delay"])
+@pytest.mark.parametrize("value", ["0", "-0.0", "0.3", "1e-300", "1e100"])
+def test_valid_cli_delays_preserve_zero_sign_and_positive_values(
+    fake_server, monkeypatch, option, value,
+):
+    with monkeypatch.context() as guard:
+        attempts = _forbid_numeric_startup(fake_server, guard)
+        args = fake_server._parse_args([f"{option}={value}"])
+        assert attempts == []
+    actual = args.step if option == "--step" else args.critic_delay
+    assert actual == float(value)
+    assert math.copysign(1, actual) == math.copysign(1, float(value))
+    assert args.port == 7861
+
+
+@pytest.mark.parametrize(("argv", "expected"), [
+    (["--port", "0", "--step", "-0.0", "--critic-delay", "0"], (0, -0.0, 0.0)),
+    (["--port", "65535", "--step", "0.3", "--critic-delay", "-0.0"], (65535, 0.3, -0.0)),
+    (["--port", "1", "--step", "1e100", "--critic-delay", "1e-300"], (1, 1e100, 1e-300)),
+    ([], (7861, 0.0, 0.4)),
+])
+def test_valid_numeric_cli_reaches_the_existing_data_preparation_boundary_unchanged(
+    fake_server, monkeypatch, argv, expected,
+):
+    observed = []
+
+    class PreparationBoundary(Exception):
+        pass
+
+    def stop_at_data(args):
+        observed.append((args.port, args.step, args.critic_delay))
+        raise PreparationBoundary
+
+    with monkeypatch.context() as guard:
+        guard.setattr(sys, "argv", ["fake_server.py", *argv])
+        attempts = _forbid_numeric_startup(fake_server, guard)
+        guard.setattr(fake_server, "_data_directory", stop_at_data)
+        with pytest.raises(PreparationBoundary):
+            fake_server.main()
+        assert attempts == []
+    assert observed == [expected]
+    assert math.copysign(1, observed[0][1]) == math.copysign(1, expected[1])
+    assert math.copysign(1, observed[0][2]) == math.copysign(1, expected[2])
