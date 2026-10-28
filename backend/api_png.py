@@ -66,7 +66,7 @@ def _workflow(chunks: dict[str, str]) -> bool:
         try:
             if isinstance(json.loads(chunks.get(key) or "null"), dict):
                 return True
-        except ValueError:
+        except (ValueError, RecursionError):
             continue
     return False
 
