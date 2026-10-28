@@ -75,18 +75,6 @@ if (missingApis.length) {
   process.exit(2);
 }
 
-const CANDIDATES = [
-  process.env.AURADREAM_BROWSER,
-  'C:/Program Files (x86)/Microsoft/Edge/Application/msedge.exe',
-  'C:/Program Files/Microsoft/Edge/Application/msedge.exe',
-  'C:/Program Files/Google/Chrome/Application/chrome.exe',
-  '/usr/bin/google-chrome', '/usr/bin/chromium', '/usr/bin/chromium-browser', '/usr/bin/microsoft-edge',
-].filter(Boolean);
-const browser = CANDIDATES.find((p) => existsSync(p));
-if (!browser) {
-  console.error('no Edge or Chrome found; set AURADREAM_BROWSER to the executable');
-  process.exit(2);
-}
 const file = process.argv[2];
 if (!file) { console.error('usage: node tools/browser.mjs <steps.json>'); process.exit(2); }
 const OFFSET = Number(process.env.AURADREAM_PORT_OFFSET || 0);
@@ -95,6 +83,24 @@ if (OFFSET) {
   text = text.replace(/\b(127\.0\.0\.1|localhost):(\d{2,5})\b/g, (_, host, port) => `${host}:${Number(port) + OFFSET}`);
 }
 const steps = JSON.parse(text);
+// A malformed resize otherwise throws only after the browser and any earlier
+// steps have run. Refuse every declared viewport before browser discovery or
+// output/profile preparation. Keep the documented two/three-number form and
+// the runtime's omitted-DPR default; unrelated step/container policy is unchanged.
+const invalidViewports = Array.isArray(steps) ? steps.flatMap((step, index) => {
+  if (step === null || typeof step !== 'object' || !Object.hasOwn(step, 'viewport')) return [];
+  const values = step.viewport;
+  const valid = Array.isArray(values) && (values.length === 2 || values.length === 3)
+    && Number.isInteger(values[0]) && values[0] >= 0 && values[0] <= 10000000
+    && Number.isInteger(values[1]) && values[1] >= 0 && values[1] <= 10000000
+    && (values.length === 2 || (Number.isFinite(values[2]) && values[2] >= 0));
+  return valid ? [] : [`step ${index + 1}: viewport needs [width, height] or [width, height, dpr] with integer dimensions from 0 to 10000000 and a finite nonnegative dpr`];
+}) : [];
+if (invalidViewports.length) {
+  console.error(invalidViewports.join('\n'));
+  process.exit(2);
+}
+
 // Optional fatal metadata belongs only to an unambiguous expectation. Validate
 // before preparing screenshot roots, profiles or browser processes. Unrelated
 // malformed step/container handling remains with the existing preflight.
@@ -107,6 +113,18 @@ const invalidFatal = Array.isArray(steps) ? steps.flatMap((step, index) => {
 }) : [];
 if (invalidFatal.length) {
   console.error(invalidFatal.join('\n'));
+  process.exit(2);
+}
+const CANDIDATES = [
+  process.env.AURADREAM_BROWSER,
+  'C:/Program Files (x86)/Microsoft/Edge/Application/msedge.exe',
+  'C:/Program Files/Microsoft/Edge/Application/msedge.exe',
+  'C:/Program Files/Google/Chrome/Application/chrome.exe',
+  '/usr/bin/google-chrome', '/usr/bin/chromium', '/usr/bin/chromium-browser', '/usr/bin/microsoft-edge',
+].filter(Boolean);
+const browser = CANDIDATES.find((p) => existsSync(p));
+if (!browser) {
+  console.error('no Edge or Chrome found; set AURADREAM_BROWSER to the executable');
   process.exit(2);
 }
 let screenshots;

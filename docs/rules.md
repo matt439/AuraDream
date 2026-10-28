@@ -5928,6 +5928,17 @@ their normal continuation; eval remains diagnostic-only. Edge selection,
 launch flags and profiles are unchanged. The [dated tooling review](review-2026-10-28-fatal-prerequisites.md)
 owns ordinary-driver probes and the three bounded scratch setup conversions.
 
+`tests/test_browser_viewport_preflight.py` executes the actual harness/helper
+module bodies with one fixture read permitted and later effects poisoned.
+Every declared viewport must be a two/three-number array: integer dimensions
+in CDP's inclusive 0..10000000 range, optional finite nonnegative DPR. Zero
+reset values and omitted DPR's default of 1 are preserved. Malformed values
+receive a fixed step-indexed refusal before browser discovery, output/profile
+preparation, process creation or network. Valid arrays reach a poisoned lookup;
+these cold tests do not qualify real resizing or browser cleanup. Native API
+refusal still precedes the input read; the startup environment's positive
+viewport/DPR guard and ordinary browser flags are unchanged.
+
 `tests/test_fbc_runtime.py` exercises installed FBC hooks and arithmetic on tiny
 CPU blocks in an isolated worker. Only the unrelated optional bitsandbytes backend
 is modeled as absent; a discoverable poison package verifies that boundary.

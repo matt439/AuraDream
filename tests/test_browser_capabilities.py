@@ -33,6 +33,7 @@ const input = JSON.parse(process.argv[1]);
 const asModule = (source) => 'data:text/javascript;base64,' + Buffer.from(source).toString('base64');
 const outputModule = asModule(fs.readFileSync(new URL('./browser-output.mjs', input.url), 'utf8'));
 const source = fs.readFileSync(input.harness, 'utf8');
+const realRead = fs.readFileSync;
 const dependency = "'./browser-output.mjs'";
 if (source.split(dependency).length !== 2) throw Error('expected one browser-output dependency');
 const harnessModule = asModule(source.replace(dependency, JSON.stringify(outputModule)));
@@ -40,6 +41,11 @@ function forbidden() { console.error('UNEXPECTED_DOWNSTREAM_EFFECT'); process.ex
 for (const name of ['readFileSync', 'readdirSync', 'statSync', 'mkdirSync', 'mkdtempSync', 'rmSync', 'writeFileSync']) {
   fs[name] = forbidden;
 }
+// Supported APIs now permit exactly the script read needed for viewport
+// preflight before browser lookup. Explicit poison probes remain forbidden.
+let inputReads = 0;
+fs.readFileSync = (path, ...args) => input.supported && !input.probe
+  && String(path) === input.script && inputReads++ === 0 ? realRead(path, ...args) : forbidden();
 fs.existsSync = input.supported ? () => false : forbidden;
 childProcess.spawn = childProcess.spawnSync = forbidden;
 syncBuiltinESMExports();
@@ -104,7 +110,7 @@ def test_both_missing_apis_are_named_in_fixed_order_without_values(tmp_path):
                            "Use a Node runtime providing both fetch and WebSocket.\n")
 
 
-def test_callable_apis_continue_to_existing_browser_lookup_without_invoking_them(tmp_path):
+def test_callable_apis_parse_steps_then_reach_browser_lookup_without_invoking_them(tmp_path):
     done = run_cold(tmp_path, {}, supported=True)
     assert done.returncode == 2 and done.stdout == ""
     assert done.stderr == "no Edge or Chrome found; set AURADREAM_BROWSER to the executable\n"
