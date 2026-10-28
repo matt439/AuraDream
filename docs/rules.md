@@ -6628,6 +6628,20 @@ row's new directory and passes only `--data`. `tests/test_fake_server.py`
 checks these argument/data contracts without starting the application; see
 [the fresh-data review](review-2026-10-28-fake-fresh.md).
 
+The standalone fake installs a fixed refusal at the backup credential factory
+before importing `backend.main`, and retains it through all later workers.
+It never calls the original factory or its cache and provides no real-vault
+opt-out. This uses the same factory boundary as the tests' automatic guard;
+production credential behavior is unchanged. Cached credential status and
+platform metadata remain real cached facts, not a successful provider check.
+A due encrypted backup fails through its existing credential error path.
+Plaintext backups and manual bundles with a supplied password retain their
+behavior. Explicit/reused data remains caller chosen and can still perform
+other filesystem/backup operations; use genuinely new scratch data for
+isolated browser runs. `tests/test_fake_server.py` checks installation order
+and real adapter read/setup refusal with synthetic references and poisoned
+provider boundaries; it does not qualify a Windows user credential session.
+
 There is no JavaScript test suite. `web/` is checked in a real browser
 instead: `uv run python tools/fake_server.py` serves the app on 7861 on the
 tests' fake backend (gradient images stamped with seed and steps, a throwaway

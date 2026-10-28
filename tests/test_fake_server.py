@@ -172,3 +172,160 @@ def test_existing_smoke_row_arguments_parse_without_fresh_or_creating_data(fake_
     assert args.data == str(selected) and not args.fresh
     assert fake_server._data_directory(args) == selected
     assert not selected.exists()
+
+
+class _FactoryPoison:
+    def __init__(self, calls):
+        self.calls = calls
+
+    def __call__(self):
+        self.calls.append("original-factory")
+        pytest.fail("fake credential guard called the original factory")
+
+    def __getattr__(self, name):
+        self.calls.append(f"original-factory-attribute:{name}")
+        pytest.fail("fake credential guard inspected the original factory/cache")
+
+
+def test_fake_installer_refuses_without_original_factory_cache_platform_or_dll(
+    fake_server, monkeypatch,
+):
+    import ctypes
+
+    calls = []
+    credentials = ModuleType("backend.backup_credentials")
+    credentials._credential_api = _FactoryPoison(calls)
+
+    def forbidden(*_args, **_kwargs):
+        calls.append("platform-or-provider")
+        pytest.fail("fake credential installation reached a platform/provider boundary")
+
+    credentials.supported_platform = forbidden
+    backend = ModuleType("backend")
+    backend.backup_credentials = credentials
+    original_import = builtins.__import__
+
+    def cold_import(name, *args, **kwargs):
+        if name == "backend":
+            return backend
+        if name.startswith("backend.") or name == "uvicorn":
+            forbidden()
+        return original_import(name, *args, **kwargs)
+
+    monkeypatch.setattr(ctypes, "WinDLL", forbidden, raising=False)
+    monkeypatch.setattr(builtins, "__import__", cold_import)
+    fake_server._install_credential_refusal()
+    refusal = credentials._credential_api
+    assert refusal is fake_server._refuse_credential_api
+    for _ in range(2):
+        with pytest.raises(RuntimeError, match="^Windows backup credentials are unavailable in the fake server[.]$"):
+            refusal()
+    fake_server._install_credential_refusal()
+    assert credentials._credential_api is refusal
+    assert calls == []
+
+
+@pytest.mark.parametrize("operation", ["read", "setup"])
+def test_fake_refusal_stops_real_adapter_before_any_provider(fake_server, monkeypatch, operation):
+    from backend import backup_credentials
+
+    calls = []
+    refusal_calls = []
+    fixed_refusal = fake_server._refuse_credential_api
+
+    def counted_refusal():
+        refusal_calls.append("installed-refusal")
+        fixed_refusal()
+
+    def forbidden(*_args, **_kwargs):
+        calls.append("provider-boundary")
+        pytest.fail("refused fake credential operation reached the original provider")
+
+    monkeypatch.setattr(backup_credentials, "_credential_api", _FactoryPoison(calls))
+    monkeypatch.setattr(backup_credentials, "supported_platform", forbidden)
+    monkeypatch.setattr(backup_credentials, "_last_error", forbidden)
+    monkeypatch.setattr(backup_credentials.ctypes, "WinDLL", forbidden, raising=False)
+    monkeypatch.setattr(fake_server, "_refuse_credential_api", counted_refusal)
+    fake_server._install_credential_refusal()
+    assert backup_credentials._credential_api is fake_server._refuse_credential_api
+    reference = backup_credentials.new_reference(
+        "f78c9158-4e20-497a-8a0b-1b05f3f25784", "ebc02e7d-3c29-47d3-a093-d2a2332b7cd1",
+    )
+    synthetic_password = "synthetic-test-password-only"
+    with pytest.raises(backup_credentials.CredentialError) as refused:
+        if operation == "read":
+            with backup_credentials.read_secret(reference):
+                pytest.fail("fake credential read yielded a secret")
+        else:
+            backup_credentials.create_credential(reference, synthetic_password)
+    assert refused.value.reason == "credential_unusable"
+    assert str(refused.value) == backup_credentials._ERROR
+    assert refused.value.__cause__ is None and refused.value.__context__ is None
+    assert synthetic_password not in str(refused.value)
+    assert "fake server" not in str(refused.value)
+    assert backup_credentials._credential_api is fake_server._refuse_credential_api
+    # _read deliberately catches BaseException; a poison raising by itself
+    # would be masked as the expected fixed error. Independently check calls.
+    assert calls == []
+    assert refusal_calls == ["installed-refusal"]
+
+
+def test_main_installs_persistent_refusal_after_pillow_before_application_import(
+    fake_server, monkeypatch, tmp_path,
+):
+    import ctypes
+
+    monkeypatch.setattr(fake_server.tempfile, "tempdir", str(tmp_path))
+    monkeypatch.setattr(sys, "argv", ["fake_server.py", "--fresh"])
+    monkeypatch.setattr(fake_server.os, "environ", {})
+    calls = []
+    credentials = ModuleType("backend.backup_credentials")
+    credentials._credential_api = _FactoryPoison(calls)
+    backend = ModuleType("backend")
+    backend.backup_credentials = credentials
+    pillow = ModuleType("PIL")
+    pillow.Image = pillow.ImageDraw = object()
+    original_import = builtins.__import__
+    events = []
+
+    class ApplicationBoundary(Exception):
+        pass
+
+    def forbidden(*_args, **_kwargs):
+        calls.append("provider-or-application")
+        pytest.fail("fake main boundary reached a real provider or later application import")
+
+    credentials.supported_platform = forbidden
+
+    def cold_import(name, globals=None, locals=None, fromlist=(), level=0):
+        if name == "PIL":
+            assert tuple(fromlist) == ("Image", "ImageDraw")
+            events.append("PIL")
+            return pillow
+        if name == "backend":
+            if tuple(fromlist) == ("backup_credentials",):
+                events.append("credentials")
+                return backend
+            if tuple(fromlist) == ("main",):
+                events.append("main-boundary")
+                assert credentials._credential_api is fake_server._refuse_credential_api
+                with pytest.raises(RuntimeError, match="^Windows backup credentials are unavailable in the fake server[.]$"):
+                    credentials._credential_api()
+                raise ApplicationBoundary
+            forbidden()
+        if name.startswith("backend.") or name == "uvicorn" or name == "tests.fakes":
+            forbidden()
+        return original_import(name, globals, locals, fromlist, level)
+
+    monkeypatch.setattr(ctypes, "WinDLL", forbidden, raising=False)
+    monkeypatch.setattr(builtins, "__import__", cold_import)
+    with pytest.raises(ApplicationBoundary):
+        fake_server.main()
+    assert events == ["PIL", "credentials", "main-boundary"]
+    assert credentials._credential_api is fake_server._refuse_credential_api
+    with pytest.raises(RuntimeError, match="^Windows backup credentials are unavailable in the fake server[.]$"):
+        credentials._credential_api()
+    data = Path(fake_server.os.environ["AURADREAM_DB_PATH"]).parent
+    assert data.parent == tmp_path and data.is_dir()
+    assert not (data / "auradream.db").exists()
+    assert calls == []

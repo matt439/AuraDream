@@ -37,7 +37,10 @@ answer is built from the prompt. The default gallery lives under the system
 temp directory. --fresh creates a new scratch directory, prints its path
 and retains it after shutdown. Explicit --data selects and may reuse the
 supplied directory, including its saved settings; use genuinely new scratch
-data for isolated runs.
+data for isolated runs. Before importing the application, the fake installs
+a fixed refusal for Windows backup credential access. Cached credential
+metadata and platform facts remain unchanged; this does not isolate reused
+data from other filesystem or backup operations.
 Everything else - the job queue, SSE, resume, the runs summary, pause, the
 budget, the analyser's rules - is the real code, which is the point:
 `tools/browser.mjs` drives a headless browser against this to check the UI.
@@ -52,6 +55,7 @@ import sys
 import tempfile
 import threading
 from pathlib import Path
+from typing import NoReturn
 
 ROOT = Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(ROOT))
@@ -89,6 +93,17 @@ def _data_directory(args: argparse.Namespace) -> Path:
     return Path(args.data) if args.data is not None else Path(tempfile.gettempdir()) / "auradream-fake"
 
 
+def _refuse_credential_api() -> NoReturn:
+    raise RuntimeError("Windows backup credentials are unavailable in the fake server.")
+
+
+def _install_credential_refusal() -> None:
+    """Keep the fake's credential factory refused for all later workers."""
+    from backend import backup_credentials
+
+    backup_credentials._credential_api = _refuse_credential_api
+
+
 def main() -> int:
     args = _parse_args()
     data = _data_directory(args)
@@ -119,6 +134,8 @@ def main() -> int:
 
     from PIL import Image, ImageDraw
 
+    # Match the tests' factory boundary before app startup can create workers.
+    _install_credential_refusal()
     from backend import main as app_main
     from backend import prompt_encoding
     from backend.jobs import JobManager
