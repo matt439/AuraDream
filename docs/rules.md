@@ -5936,6 +5936,14 @@ their normal continuation; eval remains diagnostic-only. Edge selection,
 launch flags and profiles are unchanged. The [dated tooling review](review-2026-10-28-fatal-prerequisites.md)
 owns ordinary-driver probes and the three bounded scratch setup conversions.
 
+`tests/test_browser_input_refusals.py` executes captured actual harness/helper
+bodies with one counted owned fixture read, counted JSON parsing and poisoned
+browser/output/profile/network ports. Simulated read errors and actual malformed
+JSON get fixed exit-2 diagnostics without paths/bodies; non-syntax parser faults
+still propagate. Existing guard order and valid flow stay unchanged. Simulated
+EACCES uses an inert read port and never probes a denied path. This qualifies
+cold input refusal, not browser or hardware behavior.
+
 `tests/test_browser_startup_viewport.py` checks actual parsed startup dimensions
 and DPR with captured real harness/helper bodies and poisoned browser/output/
 profile/network effects. Exactly two dimensions must be integers in 1..10000000;

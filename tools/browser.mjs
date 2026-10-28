@@ -82,7 +82,13 @@ if (!Number.isSafeInteger(OFFSET)) {
   console.error('AURADREAM_PORT_OFFSET must be a finite safe integer');
   process.exit(2);
 }
-let text = readFileSync(file, 'utf8');
+let text;
+try {
+  text = readFileSync(file, 'utf8');
+} catch {
+  console.error('could not read browser steps file; check its path and read access');
+  process.exit(2);
+}
 let invalidLocalPort = false;
 text = text.replace(/\b(127\.0\.0\.1|localhost):(\d{2,5})\b/g, (match, host, port) => {
   const effective = Number(port) + OFFSET;
@@ -99,7 +105,14 @@ if (invalidLocalPort) {
   console.error('effective local ports must be integers in 1..65535 after AURADREAM_PORT_OFFSET');
   process.exit(2);
 }
-const steps = JSON.parse(text);
+let steps;
+try {
+  steps = JSON.parse(text);
+} catch (error) {
+  if (!(error instanceof SyntaxError)) throw error;
+  console.error('browser steps file must contain valid JSON');
+  process.exit(2);
+}
 // A non-null primitive or nested-array entry otherwise has no action properties and
 // silently disappears from the run. Validate the whole list before any
 // browser lookup or output/profile preparation; action metadata stays with
