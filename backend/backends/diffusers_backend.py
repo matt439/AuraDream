@@ -878,7 +878,7 @@ class DiffusersBackend(GenerationBackend):
         return value if registration is self._regional_registration else None
 
     def instruction_edit_qualified(self) -> bool:
-        """Stage 3/4 card qualification not done; reads nothing."""
+        """Public release review and integration remain pending; reads nothing."""
         return False
 
     def _require_execution(self, request: GenerateRequest) -> GenerateRequest:
@@ -1693,8 +1693,8 @@ class DiffusersBackend(GenerationBackend):
         """Run one instruction edit through the loaded Kontext pipeline.
 
         Reached only after `_require_execution` and `applied()` admitted the
-        edit, which on this backend cannot happen until card qualification
-        (`instruction_edit_qualified`). Every refusal comes before the call
+        edit, which on this backend cannot happen until release review and
+        integration finish (`instruction_edit_qualified`). Every refusal comes before the call
         except the result's own checks. The source is reproved from the
         gallery, its proof and pixels read through one open handle
         (`instruction_edit_admission.load_bound_source`). The offload hooks
@@ -1886,7 +1886,7 @@ class DiffusersBackend(GenerationBackend):
             "lora_supported": self.lora_supported(),
         }
         # The one gate, never a profile or a setting. Closed on this backend
-        # until card qualification, so the held reason always stands here.
+        # pending release review and integration, so the held reason always stands here.
         from ..instruction_edit import KONTEXT_V1, edit_unavailable_reason
 
         qualified = self.instruction_edit_qualified() is True

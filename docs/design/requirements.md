@@ -9,6 +9,11 @@ Read [research](./research.md), [workbench](./workbench.md) and
 [usage guide](../usage.md) describes today's app; existing plans and
 [TODO](../../TODO.md) retain ownership of implementation and its ordering.
 
+**Status reconciliation, 2026-10-28:** the current-capability references below
+include the completed model-cache facts, Expand cancellation, restart recovery,
+picked comparison/navigation and import work. The workbench layout and its
+human task trials remain candidates; these source updates do not validate it.
+
 `Current` means the behavior exists, not that usability is established.
 `Accepted-unbuilt` identifies an existing decision awaiting implementation.
 `Proposed` is a candidate for design and evaluation, not approval to build.
@@ -81,16 +86,16 @@ answers and exceptions.
 - **Acceptance:** cold start, save without load, successful load, failed load and another-tab switch each show the effective checkpoint/options and an available next action.
 - **Acceptance:** checkpoint changes update supported controls and defaults; a stale dialog or submission cannot silently use the previous model's assumptions.
 - **Acceptance:** model guidance, favourite status and Load automatically on startup are direct within Models; quantization, offload, save-without-loading and manual load/unload remain accessible secondarily. Failures still expose an intelligible recovery action even though manual loading is not a routine task.
-- **Trace:** [usage: models](../usage.md#load-and-switch-models), [switching owner](../design-notes.md#switching-checkpoints-while-the-server-stays-open); related `GEN#1`, not closed by this baseline.
+- **Trace:** [usage: models](../usage.md#load-and-switch-models), [switching owner](../design-notes.md#switching-checkpoints-while-the-server-stays-open); `GEN#1`'s offline cache/download facts are built, recorded in [F7](../review-2026-10-12.md#f7-show-each-checkpoints-download-size-and-whether-it-is-already-in-the-hf-cache).
 - **Dependency:** current model revision and load lifecycle rules remain authoritative.
 
 ### UX#3 — Judge preparation cost before committing time · P1 · Proposed
 
-- **Basis:** K2 Often supports prominent model guidance, recorded timings and examples. First-use downloads and reference timings are documented; cache/download facts remain open `GEN#1`. Their exact layout remains a hypothesis.
+- **Basis:** K2 Often supports prominent model guidance, recorded timings and examples. First-use downloads and reference timings are documented; Models already shows offline cache/download facts (`GEN#1`, built). Their placement in a redesigned workbench remains a hypothesis.
 - **Story:** I can distinguish a ready local choice from one that may need downloads, approval or unmeasured resource use.
 - **Acceptance:** a candidate model row separates cached/download information where known, access requirements, recorded speed references and unmeasured combinations; unknown values remain explicit.
 - **Acceptance:** a reference timing is never presented as an ETA for my prompt or as proof that a size fits the card.
-- **Trace:** [usage: models](../usage.md#load-and-switch-models), [verified measurements](../verified.md), `GEN#1`, `CARD#4`–`CARD#6`; a switch's live access preflight is built ([Switching](../design-notes.md#switching-checkpoints-while-the-server-stays-open), 2026-10-19), while the rows' access labels stay the static catalogue word.
+- **Trace:** [usage: models](../usage.md#load-and-switch-models), [verified measurements](../verified.md); `GEN#1` is built, while remaining card measurements are indexed in TODO. A switch's live access preflight is built ([Switching](../design-notes.md#switching-checkpoints-while-the-server-stays-open), 2026-10-19), while the rows' access labels stay the static catalogue word.
 - **Dependency:** use existing sourced facts and local cache inspection; no model download or benchmark is required to explore the design.
 
 ## Prompting and immediate iteration
@@ -111,7 +116,7 @@ answers and exceptions.
 - **Story:** I can try advice or reuse an image without losing the prompt and controls I was editing.
 - **Acceptance:** each replacement uses the established text undo path; Reuse/PNG restoration offers the documented settings Undo and names replaced prompt text and omitted inputs.
 - **Acceptance:** edits made while Expand is waiting survive its answer; stale advice cannot silently overwrite newer text.
-- **Trace:** [usage: prompts](../usage.md#write-and-check-prompts), [PNG settings](../usage.md#load-settings-from-a-png), [Reuse owner](../design-notes.md#per-control-defaults-and-reuse); related cancellation gap `GEN#2` remains open.
+- **Trace:** [usage: prompts](../usage.md#write-and-check-prompts), [PNG settings](../usage.md#load-settings-from-a-png), [Reuse owner](../design-notes.md#per-control-defaults-and-reuse); Expand cancellation (`GEN#2`) is built, recorded in [Stop Expand](../design-notes.md#stop-expand-2026-10-18).
 - **Dependency:** preserve separate prompt-text undo and whole-settings restoration semantics.
 
 ### UX#6 — Iterate from the result I am judging · P0 · Current
@@ -121,7 +126,7 @@ answers and exceptions.
 - **Acceptance:** batch and run entry points identify their target, images per cell, total work and seed policy before Queue; repeated submissions skip already planned seeds.
 - **Acceptance:** lightbox/dialog Escape and return focus preserve the inspected image; narrow-width access remains available through the existing image menu.
 - **Acceptance:** Reuse settings, take Seed, copy prompt/seed and More seeds are directly reachable from inspection or the image menu. Recorded-reference reuse (G3 Sometimes) remains available contextually; its use does not imply manual reference management (I3–I4 Never).
-- **Trace:** [usage: continue](../usage.md#continue-a-run), [accepted continuation design](../plan-continue-run.md#the-recommended-design); phase 1 is complete, `GEN#11` covers the separate restart gap.
+- **Trace:** [usage: continue](../usage.md#continue-a-run), [accepted continuation design](../plan-continue-run.md#the-recommended-design); phases 1 and 2, including `GEN#11`'s persisted Finish run, are built.
 - **Dependency:** preserve batch settings and joining the original run; a new continuation shortcut is not required.
 
 ### UX#7 — Understand work while it runs or waits · P0 · Current
@@ -131,7 +136,7 @@ answers and exceptions.
 - **Acceptance:** representative loading, queued, paused, canceling, failed and completed states identify the work and relevant available action; a held action explains its reason when pressed.
 - **Acceptance:** closing/reopening a tab reconnects to surviving server work; a server restart does not imply that queued jobs survived.
 - **Acceptance:** progress/elapsed/estimates, watched-job identity, running and queued cancel actions, and retry/remainder remain direct without opening advanced job controls. Live preview can be shown contextually; Pause is secondary and retains its existing semantics. New arrivals do not displace the watched job or move its cancel target.
-- **Trace:** [usage: jobs](../usage.md#generate-and-manage-jobs), [queue owner](../design-notes.md#the-browsers-queue); `UI#2` notifications and `GEN#2` Expand cancellation remain separate proposals.
+- **Trace:** [usage: jobs](../usage.md#generate-and-manage-jobs), [queue owner](../design-notes.md#the-browsers-queue); notifications (`UI#2`) and Expand cancellation (`GEN#2`) are built. Actual native notification delivery remains a hands-on check under `UI#7`.
 - **Dependency:** single-worker lifecycle and cooperative cancel/pause contracts; no background auto-queueing.
 
 ## Experiments, comparison and continuation
@@ -152,17 +157,17 @@ answers and exceptions.
 - **Acceptance:** prompt versions remain identified within their submission, shared settings and changing axes are visible, and source/refine comparisons retain a meaningful crop.
 - **Acceptance:** sheets and exported labels describe their scope; a small seed sample or a rewrite changing multiple things is not presented as conclusive evidence.
 - **Acceptance:** full-size navigation/zoom, full prompt/settings, star, source comparison, contact-sheet entry and Fill width are direct in their review contexts. Sheet axes/slices and CFG/mode controls remain contextual; export is secondary. Gallery beside is not required to reach them (E11 Never).
-- **Trace:** [usage: prompts](../usage.md#write-and-check-prompts), [usage: gallery](../usage.md#browse-compare-and-keep-results), [sheet owner](../design-notes.md#the-contact-sheet); related `UI#3`, `UI#4` remain open.
+- **Trace:** [usage: prompts](../usage.md#write-and-check-prompts), [usage: gallery](../usage.md#browse-compare-and-keep-results), [sheet owner](../design-notes.md#the-contact-sheet); Seeds to grid (`UI#3`) and sheet keyboard navigation (`UI#4`) are built.
 - **Dependency:** distinguish same-seed experimental comparison from arbitrary aesthetic preference.
 
-### UX#10 — Finish interrupted work after a restart · P0 · Accepted-unbuilt
+### UX#10 — Finish interrupted work after a restart · P0 · Current
 
-- **Basis:** decision: continuation phase 2 records resolved job cells and supplies Finish run; today's Resume still depends on retained panel grid/page state.
+- **Basis:** continuation phase 2 is built: admitted jobs retain resolved cells and terminal outcomes, and Finish run recovers missing work after a restart without the panel's grid.
 - **Story:** the morning after a restart, I can finish a stored run without reconstructing its axes or base seed.
 - **Acceptance:** Finish is held while that run has queued work, naming the job that holds the rest. Otherwise it previews and queues only missing, unplanned cells from stored jobs under the original run identity; binned cells are not redrawn.
 - **Acceptance:** legacy/imported runs, changed model/quantizer, missing sources/adapters/masks, deleted results and storage failures follow the accepted phase-2 refusals and disclosures.
-- **Trace:** [phase-2 owner](../plan-continue-run.md#phase-2-runs-keep-their-cells), [accepted answers](../plan-continue-run.md#open-questions-for-the-user), `GEN#11`; its accepted implementation proceeds independently of whole-app layout validation, in TODO's order.
-- **Dependency:** persisted job definitions/outcomes and ordinary submission checks; this document does not authorize implementing phase 2.
+- **Trace:** [phase-2 owner](../plan-continue-run.md#phase-2-runs-keep-their-cells), [accepted answers](../plan-continue-run.md#open-questions-for-the-user); `GEN#11` is complete, independently of whole-app layout validation.
+- **Dependency:** preserve persisted job definitions/outcomes and ordinary submission checks; legacy/imported runs without retained definitions remain explicitly unavailable for Finish.
 
 ### UX#11 — Predict the scope of every image action · P0 · Current
 
@@ -175,22 +180,22 @@ answers and exceptions.
 
 ### UX#12 — Curate a set across searches without losing it · P1 · Proposed
 
-- **Basis:** E1–E5, E9–E10, E12 and G9 Often supports browsing, Stars, All models, Runs, prompt/from-setting search, card sizing/Fit/Crop, retained picks and bulk starring. Persistent picks/hidden counts exist; Ctrl+A/Pick this run remain open `UI#6` rather than assumed needs.
+- **Basis:** E1–E5, E9–E10, E12 and G9 Often supports browsing, Stars, All models, Runs, prompt/from-setting search, card sizing/Fit/Crop, retained picks and bulk starring. Persistent picks/hidden counts, Ctrl+A and Pick this run are built (`UI#6`); their placement and clarity remain part of task trials.
 - **Story:** I can gather keepers across my runs, inspect them and apply an action to exactly that set.
 - **Acceptance:** design trials retain picks and anchor across search/paging and a bin visit; hidden-pick counts remain understandable and Clear is deliberate.
-- **Acceptance:** any proposed pick-all/run control states its loaded/run scope and cap before action; it does not quietly select an unlimited gallery.
+- **Acceptance:** existing pick-all/run controls state their loaded/run scope and cap before action; they do not quietly select an unlimited gallery.
 - **Acceptance:** browse/older images, prompt search, Stars, All models, Runs, density/Fit/Crop and picked-star actions are directly available in gallery review; searches from an image's prompt/settings preserve the relevant route back. Technical search syntax remains available, while LoRA/source/mask/edit-type search (E8 Never) is secondary.
-- **Trace:** [usage: gallery](../usage.md#browse-compare-and-keep-results), [selection owner](../design-notes.md#the-gallery-selection), `UI#6`; a sheet of picks is not part of this requirement.
+- **Trace:** [usage: gallery](../usage.md#browse-compare-and-keep-results), [selection owner](../design-notes.md#the-gallery-selection); `UI#6` and a sheet of picks are built. This requirement evaluates the curation journey rather than creating another implementation row.
 - **Dependency:** UX#11; keep current per-card star behavior and the separate temporary bin selection.
 
-### UX#13 — Compare two chosen candidates · P1 · Proposed
+### UX#13 — Compare two chosen candidates · P1 · Current
 
-- **Basis:** evidence: arbitrary Compare picked is open `UI#1`; existing comparison covers source/pass and CFG neighbors only. F6 Often and F7–F8 Sometimes supports those existing comparisons, not a rating for the proposed arbitrary pair feature.
+- **Basis:** Compare picked (`UI#1`) is built alongside source/pass and CFG-neighbor comparison. F6 Often and F7–F8 Sometimes rates the original comparison features; those answers do not measure the usefulness of arbitrary pairs.
 - **Story:** when I have two candidates, I can inspect their visual and recorded-setting differences directly.
-- **Acceptance:** the candidate design opens exactly two picked images, labels the pair and differing settings, and supports the existing fit/zoom and comparison modes where geometrically appropriate.
+- **Acceptance:** Compare picked opens exactly two picked images with matching aspect ratios, labels the pair and differing settings, and supports the existing fit/zoom and comparison modes.
 - **Acceptance:** missing/binned inputs and an unsupported picked count have explicit recoverable outcomes; closing comparison returns to the retained selection and focus.
 - **Trace:** [usage: lightbox](../usage.md#keyboard-and-lightbox), [comparison owner](../design-notes.md#the-lightbox-zooms), `UI#1`.
-- **Dependency:** UX#9, UX#11 and UX#12; evaluate the interaction before choosing its implementation or priority in TODO.
+- **Dependency:** UX#9, UX#11 and UX#12; preserve the implemented interaction and evaluate its placement in any candidate layout.
 
 ## Editing, retention and recovery
 
@@ -220,16 +225,16 @@ answers and exceptions.
 - **Acceptance:** whole-gallery backup, subset backup and bundle-and-clear distinguish retained/deleted contents, scope, omitted links and encryption behavior before action.
 - **Acceptance:** only verified export permits clear; failures retain a reviewable result, and archive progress remains recoverable after closing the browser.
 - **Acceptance:** whole-gallery backup, password entry, bundle-and-clear, saved download and import are direct within the archive flow. Its whole-gallery scope remains apparent even with picks, Starred or a model filter active; unused subset export remains secondary and is never silently selected.
-- **Trace:** [usage: bundles](../usage.md#gallery-bundles), [bundle owner](../design-notes.md#gallery-bundles-verify-before-clearing-stage-before-merging); `GAL#3` tracks scale/interruption qualification.
+- **Trace:** [usage: bundles](../usage.md#gallery-bundles), [bundle owner](../design-notes.md#gallery-bundles-verify-before-clearing-stage-before-merging); `GAL#3`'s bounded CPU scale/interruption checks are complete in the [storage review](../review-2026-10-12.md#storage-scale-and-interruption-checks).
 - **Dependency:** gallery maintenance admission and existing verification/staging; no automatic inclusion of unchosen images.
 
-### UX#17 — Find and understand restored work · P1 · Proposed
+### UX#17 — Find and understand restored work · P1 · Current
 
-- **Basis:** J14 Often confirms import/merge as part of the working cycle. Import preserves/remaps records and reports outcomes; Show imported remains open `GAL#2`. A broader archive organizer is only a hypothesis.
+- **Basis:** J14 Often confirms import/merge as part of the working cycle. Import preserves/remaps records and reports outcomes; Show imported (`GAL#2`) is built. A broader archive organizer remains a hypothesis.
 - **Story:** after importing an archive, I can inspect the images just added and tell which dependencies were recovered or omitted.
 - **Acceptance:** import results distinguish added, skipped and restored images, omitted links and failures; a Show imported route reaches the returned imported-image scope without manual id reconstruction.
 - **Acceptance:** importing duplicate content preserves the documented current-gallery star/bin state; an empty import provides an intelligible result.
-- **Trace:** [usage: bundles](../usage.md#gallery-bundles), [bundle owner](../design-notes.md#gallery-bundles-verify-before-clearing-stage-before-merging), `GAL#2`, `GAL#3`.
+- **Trace:** [usage: bundles](../usage.md#gallery-bundles), [bundle owner](../design-notes.md#gallery-bundles-verify-before-clearing-stage-before-merging); `GAL#2` and the bounded CPU checks for `GAL#3` are complete.
 - **Dependency:** server import identity/range answer and UX#11; permanent archive browsing or project management needs separate evidence.
 
 ### UX#18 — Recover deletion and understand permanent loss · P0 · Current
@@ -239,7 +244,7 @@ answers and exceptions.
 - **Acceptance:** single/bulk binning offers Restore, bin search stays within the bin, and visiting it preserves gallery picks; source dependencies remain visible.
 - **Acceptance:** permanent actions confirm their actual scope and lineage consequence; changed contents cannot be removed under a stale confirmation.
 - **Trace:** [usage: recovery](../usage.md#clear-or-recover-a-gallery), [bin owner](../design-notes.md#recycle-bin-why-the-per-image-confirm-went); picked permanent deletion (`GAL#1`, 2026-10-18) and age-scoped Empty recycle bin (`GAL#5`, 2026-10-19) are built, recorded in the same bin owner section. There is no automatic purge.
-- **Dependency:** UX#11 and UX#15; validate large bin operations under `GAL#3` before making scale claims.
+- **Dependency:** UX#11 and UX#15; keep scale claims within `GAL#3`'s completed, bounded CPU checks and record new limits separately.
 
 ## Cross-cutting use
 
@@ -269,16 +274,16 @@ replacement backlog, approval gate or instruction to start implementation.
 1. **Establish the workstation baseline:** use the recorded feature priorities,
    map current states to UX#1–UX#12, UX#14–UX#18 and UX#21, and record evidence gaps.
    Existing behavior is a constraint to understand, not a feature list to rebuild.
-2. **Resolve continuity and scope:** carry accepted `GEN#11` through UX#10's
-   specification, evaluate UX#1 and UX#11 wording and handoffs, then test the
+2. **Resolve continuity and scope:** preserve completed `GEN#11` under UX#10,
+   evaluate UX#1 and UX#11 wording and handoffs, then test the
    immediate-iteration and morning-return journeys together.
 3. **Improve judgment and curation:** evaluate direct inspection, sheet/Fill
    width, search and picked actions under UX#9 and UX#12 first. UX#13's
-   arbitrary pair remains a proposal; consider `UI#1`, `UI#3`, `UI#4` and
-   `UI#6` only where task evidence supports them.
+   arbitrary comparison and `UI#1`, `UI#3`, `UI#4` and `UI#6` are built;
+   evaluate their placement rather than reopening their implementation.
 4. **Close retention and recovery loops:** evaluate UX#15–UX#18 from keeper
-   through archive/import and deletion recovery; `GAL#2` and `GAL#3` retain
-   their owners and distinct implementation/qualification work.
+   through archive/import and deletion recovery, preserving completed `GAL#2`
+   and the bounded scale/interruption evidence for `GAL#3`.
 5. **Validate the full cycle:** apply UX#19 and UX#20 throughout the trials,
    then repeat the selected complete journeys at representative sizes and
    input modes. Hardware quality/performance measurements remain separate.

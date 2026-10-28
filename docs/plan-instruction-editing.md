@@ -1,6 +1,6 @@
 # Plan: edit a gallery image by instruction
 
-**Status, 2026-10-27:** Matt commissioned continuing `INP#11` without the
+**Status, 2026-10-28:** Matt commissioned continuing `INP#11` without the
 card. Stages 0-2 are built. Stage 0's six pinned configs were fetched at the
 revision and qualified (below). Stage 1's CPU persistence and admission are
 built: request identity, SQL/PNG, cold source preview, replay holds, source
@@ -12,10 +12,14 @@ On the real server everything stays closed: `DiffusersBackend` answers the
 gate with a literal False, Kontext is not in the catalogue, and the editor
 load holds are unconditional. The
 [carry inventory](instruction-edit-carry.md) and [bundle contract](instruction-edit-bundles.md)
-separate what is built from what stage 4 must still check. Stage 3's card pass
-needs separate approval and `GEN#22` first. No model was downloaded, loaded or
-run, and no live gallery was read or changed. Kontext is the first engineering
-candidate; Qwen-Image-Edit comes in a later stage.
+separate what is built from what stage 4 must still check. After `GEN#22`,
+stage 3's approved [first card trial and bounded pair](verified.md#instruction-edit)
+ran on 2026-10-27 at 512x512, fp8 and model offload. That slice fits, replays,
+cancels and unloads, but its edits drift beyond the instruction. Stage 4 waits
+on Matt's review of those numbers before the catalogue, loading gate and replay
+producers are released. Other sizes and configurations remain unqualified.
+No live gallery was read or changed. Kontext is the first engineering candidate;
+Qwen-Image-Edit comes in a later stage.
 [Origin](review-2026-10-25.md#r9-edit-an-image-by-instruction).
 
 ## First useful result

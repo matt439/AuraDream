@@ -112,12 +112,13 @@ added.
 `DEV#4` · done 2026-10-28. Stages 1-3 are built and qualified: the hosted
 `browser` job passed the whole table on main after PR #15 merged (below).
 
-**Evidence.** `.github/workflows/ci.yml` has an always-run `lint` job and
-a conditional CPU `test` job; documentation-only changes skip the latter
-(changed 2026-10-26). There is no browser job. `tools/run_smoke.py` already reads the authoritative `AGENTS.md`
-table, isolates each fake's gallery, offsets parallel workers' ports and
-retains a failed fake's log in its temporary directory. It lacks a stable
-CI artifact report. `tools/browser.mjs` knows Linux Chrome paths and uses
+**Initial evidence (2026-10-26, before the stages below).**
+`.github/workflows/ci.yml` had an always-run `lint` job and a conditional
+CPU `test` job; documentation-only changes skipped the latter. There was
+no browser job. `tools/run_smoke.py` already read the authoritative `AGENTS.md`
+table, isolated each fake's gallery, offset parallel workers' ports and
+retained a failed fake's log in its temporary directory. It lacked a stable
+CI artifact report. `tools/browser.mjs` knew Linux Chrome paths and used
 Node's native `fetch` and `WebSocket`.
 
 **Stages.**

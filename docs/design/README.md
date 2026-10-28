@@ -115,9 +115,10 @@ scope actions and whole-gallery archive/model controls have visible routes.
 Some routes show their scope and placement only; they do not emulate the
 production planner or helper.
 
-Finish run is explicitly labelled as an accepted future capability, and
-arbitrary Compare picked remains proposed. Queueing records a simulated
-outcome only. Refinement execution, painting, real model loading and archive
+The concept retains its original labels for Finish run and Compare picked;
+both capabilities are now built in the production app (status reconciled
+2026-10-28 in [requirements](requirements.md)). Queueing in the concept records
+a simulated outcome only. Refinement execution, painting, real model loading and archive
 operations remain specified rather than implemented in the concept. Its
 two independent job fixtures and sample run outcomes are not a durable
 production queue. All sample values are illustrative, including checked

@@ -1,12 +1,13 @@
 """Frozen instruction-edit contracts and the one gated execution seam.
 
 This leaf imports neither application settings/storage nor a model framework.
-The small Kontext geometry is an application recipe for future qualification,
-not a measured model capability. Execution opens only where a caller passes
+The small Kontext geometry is an application recipe, not an author-recommended
+model capability. Its first 512x512 card trial is recorded; other shapes remain
+unqualified. Execution opens only where a caller passes
 ``qualified=True``, which comes from the running backend instance's
 ``instruction_edit_qualified()`` - never a setting. The real diffusers
-backend answers False until card qualification, so its load and execution
-stay closed; only test and fake stand-ins can open the seam.
+backend answers False pending release review and integration, so its load and
+execution stay closed; only test and fake stand-ins can open the seam.
 """
 from __future__ import annotations
 
@@ -28,7 +29,7 @@ MAX_AREA = 512 * 512
 MAX_SEQUENCE_LENGTH = 512
 INSTRUCTION_EDIT_UNAVAILABLE = (
     "Instruction editing is not available in this build: "
-    "FLUX.1 Kontext [dev] has not been loaded and measured on this card."
+    "FLUX.1 Kontext [dev] is awaiting release review after its first card trial."
 )
 INSTRUCTION_EDITOR_UNSUPPORTED = (
     "Instruction editing is not available for this checkpoint: it has no recipe "

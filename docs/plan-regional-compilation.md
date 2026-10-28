@@ -536,6 +536,33 @@ compiler cache on ext4, and account for `wsl/env.sh`'s
 `TORCH_DISABLE_NATIVE_JIT=1`. That eager-kernel workaround does not establish
 that Inductor works without a C compiler. No WSL inspection was run here.
 
+### CPU dependency preparation
+
+`DEV#8` · OPEN, added after the 2026-10-28 TODO audit at Matt's request.
+This is the remaining dependency-preparation slice before `PERF#1`'s
+toolchain/card qualification. It can start without a model or GPU run.
+
+Deliver a reviewed optional-dependency and lockfile proposal for the initial
+Windows recipe, with a separate WSL account. Recheck the recorded candidate
+pin against the maintainer's primary sources and inspect the wheel's declared
+dependencies, bundled toolchain and license notices. Record the artifact hash,
+Python/torch/CUDA/platform constraints, compiler prerequisites and any unresolved
+questions. The pin above is the earlier candidate, not a new compatibility claim.
+
+Choose and document an explicit opt-in install command and how it interacts with
+ordinary `uv sync`, the CUDA index and the existing exact runtime preflight.
+Keep the compiler out of default installation. Update dependency/lock/notice
+files only where the verified metadata supports the choice; leave an unsupported
+pair refused rather than relaxing admission to match an available wheel.
+
+Completion is a reproducible dependency proposal, justified pin/notices and
+cold checks that ordinary Eager operation requires no compiler. Validate any
+packaging edits with resolution/metadata inspection in isolation and the
+existing cold execution tests. Do not install a compiler into the workstation,
+alter WSL, load weights, compile CUDA code or open public execution as part of
+this slice. Actual installation and the qualification protocol below remain
+`PERF#1`; Windows and WSL results are separate.
+
 ## Loader, first call and teardown
 
 Keep a small compilation helper separate from the model-specific loaders.

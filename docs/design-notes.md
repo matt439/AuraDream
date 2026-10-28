@@ -1257,6 +1257,13 @@ server keeps closed. The
 owns the frozen recipe and sizes; the [carry inventory](instruction-edit-carry.md)
 and [bundle contract](instruction-edit-bundles.md) own integration acceptance.
 
+**Current status, 2026-10-28:** stage 3's approved [first card trial and bounded
+pair](verified.md#instruction-edit) ran on 2026-10-27 at 512x512, fp8 and model
+offload. That slice fits, replays, cancels and unloads, with drift beyond the
+instruction. The real server's gate and loader holds stay closed while stage 4
+waits for review of those results and public integration. Other sizes and
+configurations remain unqualified.
+
 An editor's `image` argument is a source for an instruction, rather than a
 klein reference list or a Refine strength. It must get explicit capabilities
 and retain its pass kind through every producer and reader. The installed
@@ -1285,13 +1292,13 @@ non-commercial repository.
 *Why a backend method, not a setting.* The gate is the backend instance's
 `instruction_edit_qualified()`, a method the real `DiffusersBackend` answers
 with a literal False. An environment variable or flag would be one typo or
-one stale shell away from running an unmeasured 12B editor on the card. That
-is the spill the card rules forbid, and nothing here has measured its fit.
+one stale shell away from running a 12B editor outside its qualified envelope.
+The bounded stage-3 trial does not establish that other configurations fit.
 A method also means a test stub or the fake can open the gate without the
 real server being able to. A source scan holds every definition to the
 literal. Only `True` itself opens the gate, so a truthy leftover cannot.
 The editor load holds stay unconditional and do not consult the gate. Even
-a mistaken `True` therefore reaches no weights until stage 3 changes the
+a mistaken `True` therefore reaches no weights until stage 4 changes the
 loader on purpose.
 
 *Why a dedicated route.* `POST /api/instruction-edit` exists because
@@ -1312,12 +1319,13 @@ words, not a render of different pixels under the old proof. `planned_keys`
 skips edit cells while the gate is closed for the same reason: a gate closing
 mid-job must not break every later rerun's planning.
 
-*Why no catalogue entry.* Listing Kontext in `CHECKPOINTS` would offer a
-download and load the card has never measured. The Models picker would show
-a choice whose every action is held. The editor therefore stays a known,
-profiled id that the loader refuses. Text-to-image on it is refused with its
+*Why no catalogue entry.* The first card trial used a harness with one bounded
+configuration; the public loader and replay paths still await stage 4. Listing
+Kontext in `CHECKPOINTS` now would show a choice whose every action is held.
+The editor therefore stays a known, profiled id that the loader refuses.
+Text-to-image on it is refused with its
 own sentence, and the page holds Generate in those words. The catalogue
-entry waits for stage 4, after stage 3's measured load.
+entry waits for stage 4's review of the measured results and public integration.
 
 *Cleanup in `finally`.* The call frees the offload hooks and closes the
 prepared source in `finally`, so a cancel, a decode error or a refused

@@ -1,15 +1,18 @@
 # Instruction editing: carry checklist
 
-**Status, 2026-10-27:** the CPU persistence/admission slice and stage 2 are
+**Status, 2026-10-28:** the CPU persistence/admission slice and stage 2 are
 built; the state column records remaining boundaries. The
 [feature plan](plan-instruction-editing.md) owns release acceptance. The six
 pinned configs were fetched at the revision and qualified, and their hashes
 are pinned. The editing call, the queueing route, the per-cell recheck and the
 dialog are [built on a stand-in](plan-instruction-editing.md#stage-2-backend-and-dialog-2026-10-27):
 a Kontext-shaped stub, the fake server and a real-browser smoke. On the real
-server, editor loading and execution stay unavailable until the stage-3 card
-qualification. The catalogue entry and the Re-render/More seeds execution of
-edits are stage 4. No card, model download or live gallery was used.
+server, editor loading and execution stay unavailable pending stage 4's release
+review and integration. Stage 3's approved [first card trial and bounded pair](verified.md#instruction-edit)
+ran on 2026-10-27 at 512x512, fp8 and model offload; it fits, replays, cancels
+and unloads, with drift beyond the instruction. Other sizes and configurations
+remain unqualified. The catalogue entry and the Re-render/More seeds execution
+of edits are stage 4. No live gallery was used.
 
 ## Frozen first-slice boundary
 
@@ -152,7 +155,7 @@ than a wrong one; facts now show an edit's lineage and recipe.
 | BUILT | Source portability and recovery | Proven remapped source; omitted, absent, binned, forged, colliding-id or descriptor-mismatching source; unresolved re-export; SQL/PNG disagreement; repeated import and in-place reindex; dry-run; old-reader refusal. Patterns: `test_reindex_provenance.py`, `test_reindex.py`, `test_execution_bundles.py`, `test_inpaint_bundles.py`; also the bundle checklist. |
 | BUILT | Producers and admission | Re-render/More seeds preserve original source; cache verdicts cannot cross source/recipe; Swap refuses; Mass refine changes pass kind; Then refine/grids refuse; Finish retains complete intent; missing source before/after Queue and stale model revision fail before loading/rendering. Patterns: `test_execution_replay.py`, `test_api_more_seeds.py`, `test_refine_batch.py`, `test_then_refine.py`, `test_cli.py`, `test_api_png.py`, `test_jobs.py`. |
 | BUILT | Source lifetime and reports | Starred edits protect proven sources; bin/purge counts include them; deletion/bin/restore updates records and job snapshots; completed children stay visible and unreplayable when needed; edits never contaminate direct/refine estimates. Patterns: `test_gallery.py`, `test_gallery_purge.py`, `test_api_gallery.py`, `test_jobs.py`. |
-| BUILT | Backend and browser | Stub exact kwargs, one-image generators, callbacks/cancel and failure cleanup; fake edit dialog smoke with composer draft/Undo, stale preview/revision, focus and narrow/wide layouts. Ruff, pinned whole-source types and relevant CPU regressions follow source integration. Built 2026-10-27: `test_instruction_edit_call.py`, `test_instruction_edit_queue.py`, `test_instruction_edit_gate.py` and `smoke-instruction-edit.json` on the Kontext fake (port 7931). The smoke presses Edit on a preview made stale behind the page (it asks again and sends no edit), checks a raw stale-revision 409, the kept draft's note not moving the controls, and the dialog at 800x900, 1400x700 and 1900x1000. Real model quality, fit and timing, nonempty release admission and the Re-render/More seeds execution of edits remain stage 3/4 gates. |
+| BUILT | Backend and browser | Stub exact kwargs, one-image generators, callbacks/cancel and failure cleanup; fake edit dialog smoke with composer draft/Undo, stale preview/revision, focus and narrow/wide layouts. Ruff, pinned whole-source types and relevant CPU regressions follow source integration. Built 2026-10-27: `test_instruction_edit_call.py`, `test_instruction_edit_queue.py`, `test_instruction_edit_gate.py` and `smoke-instruction-edit.json` on the Kontext fake (port 7931). The smoke presses Edit on a preview made stale behind the page (it asks again and sends no edit), checks a raw stale-revision 409, the kept draft's note not moving the controls, and the dialog at 800x900, 1400x700 and 1900x1000. Stage 3 measured the first 512x512 fp8/model-offload slice; stage 4's release review, nonempty admission and Re-render/More seeds execution of edits remain. |
 
 Windows browser access was restored on 2026-10-27
 ([tooling](plan-tooling.md#browser-smokes-in-ci)). `smoke-instruction-edit.json`
