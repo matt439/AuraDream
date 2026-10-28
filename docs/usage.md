@@ -1048,6 +1048,11 @@ gallery are kept aside and picked again when you leave it.
 **Delete picked permanently** confirms and deletes only those bin picks.
 If a pick was restored, deleted elsewhere or changed while confirming,
 nothing in the requested set is deleted; review the picks and try again.
+While a single-image or picked Bin, Restore or permanent delete is underway
+on this page, another of those actions on the same images waits. Its tooltip
+says why; a held Restore note keeps its button and announces the wait. You can
+act on other images, and cancelled confirmations release the hold. Try the
+action again when the current operation finishes.
 **Empty recycle bin** deletes
 every image in the bin from disk, whatever the search shows, after a
 confirmation that gives the count and size and says which of them a live

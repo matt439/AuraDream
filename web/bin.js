@@ -2,6 +2,44 @@
 // Declarations only; state.js has the shared-global load-order contract.
 'use strict';
 
+// Targeted same-page bin lifecycle requests own their explicit ids through
+// response application. Broad sweeps/bundle maintenance, other clients and
+// uncertain outcomes remain outside this hold; nothing is automatically retried.
+const binWriteIds = new Set();
+
+function binWriteReason(ids) {
+  return ids.some((id) => binWriteIds.has(id))
+    ? 'Wait for the current recycle bin change to finish' : '';
+}
+
+// The ids are explicit even while a control is detached. Notes can restore a
+// whole group, and lineage Restore owns the source's id, not its pass's.
+function syncBinWriteButton(button, ids, title = button.dataset.binWriteTitle ?? button.title) {
+  button.dataset.binWriteIds = ids.join(',');
+  button.dataset.binWriteTitle = title;
+  const held = binWriteReason(ids);
+  button.setAttribute('aria-disabled', String(!!held));
+  button.title = held || title;
+}
+
+// A note's own Restore keeps its words, nodes, focus and geometry when held.
+// The existing polite gallery/lightbox channel says the wait reason instead.
+function showBinWriteHold(held) {
+  const restore = document.activeElement?.closest?.('[data-bin-restore]');
+  if (restore) sayGalleryAction(held + '.');
+  else showError(held + '.', true, { slot: els.galleryError });
+}
+
+function syncBinWriteHolds(ids) {
+  document.querySelectorAll('[data-bin-write-ids]').forEach((button) => {
+    const affected = button.dataset.binWriteIds.split(',').map(Number);
+    if (affected.some((id) => ids.includes(id))) syncBinWriteButton(button, affected);
+  });
+  if (els.lightbox.open && ids.includes(lbList[lbIndex]?.id)) syncLightboxBinWriteHold();
+  syncRestorePicked();
+  syncPickedButton();
+}
+
 // The page's delete - a card's ⌦, the viewer's, the lightbox's Delete and
 // Del, Delete unstarred - moves images to the recycle bin rather than off the
 // disk (`POST /api/images/bin`), so it asks nothing: the note it leaves under
@@ -85,17 +123,18 @@ function syncEmptyBin() {
 }
 
 function syncRestorePicked() {
-  const n = selectedIds().length;
-  els.restorePicked.setAttribute('aria-disabled', String(!n));
-  els.restorePicked.title = n ? `Move the ${n === 1 ? 'picked image' : `${n} picked images`} back to the gallery`
-    : 'Pick images with Select to restore them';
+  const ids = selectedIds();
+  const n = ids.length;
+  const why = !n ? 'Pick images with Select to restore them' : binWriteReason(ids);
+  els.restorePicked.setAttribute('aria-disabled', String(!!why));
+  els.restorePicked.title = why || `Move the ${n === 1 ? 'picked image' : `${n} picked images`} back to the gallery`;
   syncPurgePicked();
 }
 
 function syncPurgePicked() {
   const n = selectedIds().length;
   const why = purgingPicked ? 'Wait for the picked images to be deleted'
-    : !binMode ? BIN_HELD : !n ? 'Pick images with Select to delete them permanently' : '';
+    : !binMode ? BIN_HELD : !n ? 'Pick images with Select to delete them permanently' : binWriteReason(selectedIds());
   els.purgePicked.setAttribute('aria-disabled', String(!!why));
   els.purgePicked.title = why || `Delete only the ${plural(n, 'picked image')} from disk, after a confirmation`;
 }
@@ -188,8 +227,10 @@ function binCard(div, img, rec) {
   img.removeAttribute('aria-keyshortcuts');
   const restore = tool('↶', `Restore #${rec.id}`, () => { void restoreImages([rec.id]); }, 'Restore');
   restore.classList.add('restore');
+  syncBinWriteButton(restore, [rec.id]);
   const del = tool('⌦', `Delete #${rec.id} permanently`, () => deleteImage(rec), 'Delete permanently');
   del.classList.add('del');
+  syncBinWriteButton(del, [rec.id]);
   const tools = document.createElement('div');
   tools.className = 'tools';
   Object.assign(tools.dataset, { n: rec.id, size: `${rec.width}×${rec.height}`, seed: rec.seed });
@@ -218,6 +259,7 @@ function noteBinned(recs, { also = '', fromLightbox = false } = {}) {
     button.textContent = 'Restore';
     button.title = `Move ${names} back to the gallery`;
     button.dataset.binRestore = '';
+    syncBinWriteButton(button, ids);
     button.onclick = () => { void restoreImages(ids); };
     slot.append(' ', button);
   };
@@ -235,40 +277,50 @@ function noteBinned(recs, { also = '', fromLightbox = false } = {}) {
 // server's answer, or null where it refused.
 async function restoreImages(ids, { fromLightbox = els.lightbox.open } = {}) {
   const slot = { slot: els.galleryError };
-  let result;
+  ids = [...new Set(ids)];
+  const held = binWriteReason(ids);
+  if (held) { showBinWriteHold(held); return null; }
+  for (const id of ids) binWriteIds.add(id);
   try {
-    result = await api('/api/images/restore', {
-      method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ ids }),
-    });
-  } catch (err) {
-    showError(err.message, false, slot);
-    return null;
+    syncBinWriteHolds(ids);
+    let result;
+    try {
+      result = await api('/api/images/restore', {
+        method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ ids }),
+      });
+    } catch (err) {
+      showError(err.message, false, slot);
+      return null;
+    }
+    const { restored, not_binned: notBinned, missing } = result;
+    // Out of the bin either way: restored here, or elsewhere first, or gone.
+    if (binMode) {
+      dropFromBinView([...restored, ...notBinned], 'Restored');
+      dropFromBinView(missing, 'Deleted');
+    }
+    // Restored elsewhere first is live all the same; emptied elsewhere is gone
+    // for good, which the passes of it and the tombstones now say ("(deleted)").
+    unforgetImages([...restored, ...notBinned]);
+    const also = missing.length ? forgetImages(missing) : '';
+    const are = (list) => (list.length === 1 ? 'was' : 'were');
+    // Named up to six, as noteBinned does, else counted: a Restore picked over
+    // hundreds was one alert reading out every id.
+    const names = (list) => (list.length > 6 ? plural(list.length, 'image') : imageNames(list));
+    const said = [
+      restored.length ? `Restored ${names(restored)}.` : '',
+      notBinned.length ? `${names(notBinned)} ${are(notBinned)} not in the recycle bin.` : '',
+      missing.length ? `${names(missing)} ${are(missing)} already deleted.` : '',
+    ].filter(Boolean).join(' ') + also;
+    if (fromLightbox && els.lightbox.open) noteLightboxDelete(said);
+    else showError(said, true, slot);
+    // A run comes back to the Runs picker with its images.
+    loadRuns();
+    void syncBin();
+    return result;
+  } finally {
+    for (const id of ids) binWriteIds.delete(id);
+    syncBinWriteHolds(ids);
   }
-  const { restored, not_binned: notBinned, missing } = result;
-  // Out of the bin either way: restored here, or elsewhere first, or gone.
-  if (binMode) {
-    dropFromBinView([...restored, ...notBinned], 'Restored');
-    dropFromBinView(missing, 'Deleted');
-  }
-  // Restored elsewhere first is live all the same; emptied elsewhere is gone
-  // for good, which the passes of it and the tombstones now say ("(deleted)").
-  unforgetImages([...restored, ...notBinned]);
-  const also = missing.length ? forgetImages(missing) : '';
-  const are = (list) => (list.length === 1 ? 'was' : 'were');
-  // Named up to six, as noteBinned does, else counted: a Restore picked over
-  // hundreds was one alert reading out every id.
-  const names = (list) => (list.length > 6 ? plural(list.length, 'image') : imageNames(list));
-  const said = [
-    restored.length ? `Restored ${names(restored)}.` : '',
-    notBinned.length ? `${names(notBinned)} ${are(notBinned)} not in the recycle bin.` : '',
-    missing.length ? `${names(missing)} ${are(missing)} already deleted.` : '',
-  ].filter(Boolean).join(' ') + also;
-  if (fromLightbox && els.lightbox.open) noteLightboxDelete(said);
-  else showError(said, true, slot);
-  // A run comes back to the Runs picker with its images.
-  loadRuns();
-  void syncBin();
-  return result;
 }
 
 // The bin view's cards for these ids gone from it, each a tombstone in its
@@ -312,6 +364,12 @@ async function deletePermanently(rec) {
     passes = await api(`/api/gallery?limit=3&all_models=true&search=refine:${rec.id}`);
   } catch { /* asked without */ }
   if (!await confirmDelete(rec, passes)) return;
+  // Keep the exact action captured before the question; never wait and then
+  // replay a cached Delete after another targeted operation owns its id.
+  if (!binWriteIds.has(rec.id) || !deleting.has(rec.id)) {
+    showError('The image action changed. Nothing was deleted; look again.', false, { slot: els.galleryError });
+    return;
+  }
   const fromLightbox = els.lightbox.open;
   let already = false;
   try {
@@ -413,9 +471,10 @@ async function purgePicked() {
     return;
   }
   const expected = selectedIds().sort((a, b) => a - b);
+  for (const id of expected) binWriteIds.add(id);
   purgingPicked = true;
-  syncPurgePicked();
   try {
+    syncBinWriteHolds(expected);
     let found;
     try { found = await api('/api/gallery/bin/summary'); }
     catch (err) { showError(err.message, false, slot); return; }
@@ -430,7 +489,8 @@ async function purgePicked() {
     ].join('\n');
     if (!await askConfirm(message, { okLabel: 'Delete permanently' })) return;
     const ids = selectedIds().sort((a, b) => a - b);
-    if (!binMode || ids.length !== expected.length || ids.some((id, at) => id !== expected[at])) {
+    if (!binMode || ids.length !== expected.length || ids.some((id, at) => id !== expected[at])
+        || expected.some((id) => !binWriteIds.has(id))) {
       showError('The picked images changed. Nothing was deleted; look again.', false, slot);
       return;
     }
@@ -463,7 +523,8 @@ async function purgePicked() {
     void syncBin();
   } finally {
     purgingPicked = false;
-    syncPurgePicked();
+    for (const id of expected) binWriteIds.delete(id);
+    syncBinWriteHolds(expected);
   }
 }
 

@@ -91,7 +91,7 @@ function factsList(rec, { useSeed: seedButton = false, search = false, megapixel
   // waits in the recycle bin; and the recipe that ran it.
   if (rec.edit != null) {
     const restore = rec.edit_missing && rec.edit_binned && rec.edit.source != null
-      ? [' · ', factButton('Restore', `Move #${rec.edit.source} back out of the recycle bin`, () => { void restoreImages([rec.edit.source]); })]
+      ? [' · ', sourceRestoreButton(rec.edit.source)]
       : [];
     row('Edited from', editSourceLink(rec), ...restore);
     row('Recipe', `${rec.edit.recipe} · ${EDIT_MODEL_NAME}`);
@@ -108,7 +108,7 @@ function factsList(rec, { useSeed: seedButton = false, search = false, megapixel
       : factButton(`#${rec.refine}`, `Open #${rec.refine}, the image this was refined from; → comes back here`,
         () => { void openRefineSource(rec); });
     const restore = rec.refine_missing && rec.refine_binned
-      ? [' · ', factButton('Restore', `Move #${rec.refine} back out of the recycle bin`, () => { void restoreImages([rec.refine]); })]
+      ? [' · ', sourceRestoreButton(rec.refine)]
       : [];
     row(rec.outpaint ? 'Outpainted from' : rec.mask ? 'Inpainted from' : 'Refined from', from, ` @ ${rec.strength}`, ...restore);
     // An outpaint's padding, band and fill, as the server stored them.
@@ -171,6 +171,12 @@ function peakFact(rec) {
   span.title = `Peak GPU memory PyTorch allocated during the call that made this${reserved}. `
     + 'Not the whole card: the desktop, the driver and shared-memory spill are not counted.';
   return [' · ', span];
+}
+
+function sourceRestoreButton(id) {
+  const button = factButton('Restore', `Move #${id} back out of the recycle bin`, () => { void restoreImages([id]); });
+  syncBinWriteButton(button, [id]);
+  return button;
 }
 
 function factButton(text, title, onClick) {

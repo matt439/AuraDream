@@ -449,6 +449,14 @@ function syncLightboxFavoriteHold(rec = lbList[lbIndex]) {
   els.lbFav.title = held || starTitle(!!rec.favorite, els.lbFav);
 }
 
+// Claim/release changes only these controls, without rebuilding the image,
+// comparison, facts, focus or geometry merely to show a targeted write hold.
+function syncLightboxBinWriteHold(rec = lbList[lbIndex]) {
+  if (!rec) return;
+  syncBinWriteButton(els.lbRestore, [rec.id], 'Move this image back to the gallery');
+  syncBinWriteButton(els.lbDelete, [rec.id], rec.binned_at ? 'Delete permanently (Del)' : 'Move to the recycle bin (Del)');
+}
+
 function renderLightbox() {
   const rec = lbList[lbIndex];
   if (!rec) { closeLightbox(); return; }
@@ -510,6 +518,7 @@ function renderLightbox() {
   els.lbDelete.textContent = binned ? '⌦ Delete permanently' : '⌦ Delete';
   els.lbDelete.title = binned ? 'Delete permanently (Del)' : 'Move to the recycle bin (Del)';
   syncLightboxFavoriteHold(rec);
+  syncLightboxBinWriteHold(rec);
   // Kept facts keep their buttons, whose state follows the checkpoint's.
   for (const use of els.lbSettings.querySelectorAll('.lb-use-refs')) syncUseReferences(use);
   // The record, not its model id: a pass's Reuse names the Refine dialog.

@@ -158,30 +158,40 @@ async function binPicked() {
   const slot = { slot: els.galleryError };
   const recs = selectedRecords();
   if (!recs.length) { showError(`${PICKED_NONE}.`, true, slot); return; }
-  let result;
+  const ids = recs.map((r) => r.id);
+  const held = binWriteReason(ids);
+  if (held) { showError(held + '.', true, slot); return; }
+  for (const id of ids) binWriteIds.add(id);
   try {
-    result = await api('/api/images/bin', {
-      method: 'POST', headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ ids: recs.map((r) => r.id) }),
-    });
-  } catch (err) {
-    showError(err.message, false, slot);
-    return;
+    syncBinWriteHolds(ids);
+    let result;
+    try {
+      result = await api('/api/images/bin', {
+        method: 'POST', headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ ids }),
+      });
+    } catch (err) {
+      showError(err.message, false, slot);
+      return;
+    }
+    const { binned, already, missing } = result;
+    // Kept before they are forgotten, so a Restore can put their cards back.
+    const moved = recs.filter((r) => binned.includes(r.id)).sort((a, b) => a.id - b.id);
+    for (const rec of moved) keepBinned(rec);
+    let also = forgetImages([...binned, ...already], { binned: true })
+      + (missing.length ? forgetImages(missing) : '');
+    also += [
+      already.length ? ` ${namesOrCount(already)} ${wasWere(already)} already in the recycle bin.` : '',
+      missing.length ? ` ${namesOrCount(missing)} ${wasWere(missing)} already deleted.` : '',
+    ].join('');
+    if (moved.length) noteBinned(moved, { also });
+    else showError(also.trim(), true, slot);
+    loadRuns();
+    void syncBin();
+  } finally {
+    for (const id of ids) binWriteIds.delete(id);
+    syncBinWriteHolds(ids);
   }
-  const { binned, already, missing } = result;
-  // Kept before they are forgotten, so a Restore can put their cards back.
-  const moved = recs.filter((r) => binned.includes(r.id)).sort((a, b) => a.id - b.id);
-  for (const rec of moved) keepBinned(rec);
-  let also = forgetImages([...binned, ...already], { binned: true })
-    + (missing.length ? forgetImages(missing) : '');
-  also += [
-    already.length ? ` ${namesOrCount(already)} ${wasWere(already)} already in the recycle bin.` : '',
-    missing.length ? ` ${namesOrCount(missing)} ${wasWere(missing)} already deleted.` : '',
-  ].join('');
-  if (moved.length) noteBinned(moved, { also });
-  else showError(also.trim(), true, slot);
-  loadRuns();
-  void syncBin();
 }
 
 // What F did, for a screen reader: "Starred #12", "Unstarred #12", in a
@@ -190,14 +200,17 @@ async function binPicked() {
 // and written on the next frame, so the same words again are heard again,
 // and emptied after a while, so browse mode does not come on a stale one.
 let starSaidTimer = 0;
-function sayStar(rec, value) {
+function sayGalleryAction(text) {
   const line = els.lightbox.open ? els.lbStarSaid : els.starSaid;
-  const text = `${value ? 'Starred' : 'Unstarred'} #${rec.id}`;
   els.starSaid.textContent = '';
   els.lbStarSaid.textContent = '';
   clearTimeout(starSaidTimer);
   requestAnimationFrame(() => { line.textContent = text; });
   starSaidTimer = setTimeout(() => { if (line.textContent === text) line.textContent = ''; }, 5000);
+}
+
+function sayStar(rec, value) {
+  sayGalleryAction(`${value ? 'Starred' : 'Unstarred'} #${rec.id}`);
 }
 
 // Gallery ids as the page names images: "#8", "#8 and #4", "#8, #4 and #2".
@@ -343,12 +356,18 @@ function confirmDelete(rec, passes) {
 const deleting = new Set();
 
 async function deleteImage(rec) {
-  if (deleting.has(rec.id)) return;
+  const ids = [rec.id];
+  const held = binWriteReason(ids);
+  if (held) { showError(held + '.', true, { slot: els.galleryError }); return; }
+  for (const id of ids) binWriteIds.add(id);
   deleting.add(rec.id);
   try {
+    syncBinWriteHolds(ids);
     await deleteOne(rec);
   } finally {
     deleting.delete(rec.id);
+    for (const id of ids) binWriteIds.delete(id);
+    syncBinWriteHolds(ids);
   }
 }
 

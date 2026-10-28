@@ -455,6 +455,7 @@ function card(rec) {
   syncReferenceTool(reference, rec.id);
   const del = tool('⌦', `Move #${rec.id} to the recycle bin`, () => deleteImage(rec), 'Move to recycle bin');
   del.classList.add('del');
+  syncBinWriteButton(del, [rec.id]);
 
   const tools = document.createElement('div');
   tools.className = 'tools';

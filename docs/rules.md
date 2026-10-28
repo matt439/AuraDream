@@ -5486,8 +5486,20 @@ Frontend and CLI:
   the document's keys do nothing (its Escape closed the lightbox under it).
   The smokes stand in for it by assigning `askConfirm`/`askCount` and put
   back `confirmDialog`/`countDialog`; `smoke-delete.json` drives the dialog
-  itself. A delete under way ignores a second
-  press of the same image (`deleting`); `gallery_delete.bin_images` looks up and
+  itself. Exact-id Bin/Bin picked/Restore/single permanent delete/picked purge
+  synchronously claim their ids in `binWriteIds` before the first await, through
+  lookup, the original confirmation and all reply application. A whole overlap
+  refuses; disjoint ids remain usable. `finally` releases on cancel/refusal/error.
+  `deleting` remains the single-delete lifecycle set; confirmed writes recheck
+  captured ownership (and purge's unchanged selection). New card/viewer/lightbox
+  controls and lineage source Restore inherit aria-disabled/title holds; notes
+  carry their full id set. Claim/release updates attrs without rendering the
+  lightbox. A focused note Restore refusal preserves all note text/nodes/focus/
+  geometry and dismissal state, saying the wait through `sayGalleryAction` on
+  the existing polite action channel; `sayStar` uses that same helper. No queue,
+  automatic retry, unknown-outcome or cross-client protocol is introduced.
+  Broad Delete unstarred/Empty/Bundle clear coordination remains a source
+  follow-up in the dated Bin/Restore review. `gallery_delete.bin_images` looks up and
   writes under `storage._write_lock`, so a second bin answers `already`, and
   `gallery_delete.delete_image` does the same, so a second permanent delete is
   "unknown image".
@@ -6041,6 +6053,16 @@ establishes actual stored/write/reply order before implementation; the final
 regression checks shared per-id holds, disjoint progress, explicit subsequent
 actions and current/new star controls. The dated favorite-write-order review
 separates diagnostic defect evidence from final repair acceptance and limits.
+
+`smoke-bin-restore-order.json` uses a fresh FLUX.1 Krea [dev] fake on
+7941 for targeted lifecycle reply ordering. Its final regression holds actual
+replies, checks whole-overlap refusal/disjoint progress and native/new controls,
+and preserves Restore note identity/focus/geometry with polite wait feedback.
+Only six owned fake PNGs are created; single permanent deletion and picked
+purge require native confirmations and exact one-use id guards. Broad deletes
+are blocked. Viewer/lineage constructor checks are labeled, not runtime model
+qualification. The dated Bin/Restore review records the earlier 74-step
+reversible defect proof, final acceptance and broad/unknown/cross-tab limits.
 
 `tests/test_snippets.py` covers CRUD, exact text, bounds, malformed-file
 preservation, independent locking, stale/concurrent edits and admission

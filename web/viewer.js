@@ -309,6 +309,7 @@ function resultFigure(rec) {
   reference.hidden = !referenceSupported;
   const del = tool('⌦', `Move #${rec.id} to the recycle bin`, () => deleteImage(rec), 'Move to recycle bin');
   del.classList.add('del');
+  syncBinWriteButton(del, [rec.id]);
   const tools = document.createElement('div');
   tools.className = 'tools';
   tools.append(reuseButton(rec, true), refine, reference, star, inpaint, del);
@@ -382,6 +383,7 @@ function resultSide(rec, figure) {
   // one tool the column did not have.
   const del = action(tool('Delete', `Move #${rec.id} to the recycle bin`, () => deleteImage(rec)));
   del.classList.add('del', 'danger');
+  syncBinWriteButton(del, [rec.id]);
   const actions = document.createElement('div');
   actions.className = 'result-actions';
   actions.append(star, refine, inpaint, outpaint, action(reuseButton(rec)), reference);
