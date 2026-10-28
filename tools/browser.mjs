@@ -78,9 +78,26 @@ if (missingApis.length) {
 const file = process.argv[2];
 if (!file) { console.error('usage: node tools/browser.mjs <steps.json>'); process.exit(2); }
 const OFFSET = Number(process.env.AURADREAM_PORT_OFFSET || 0);
+if (!Number.isSafeInteger(OFFSET)) {
+  console.error('AURADREAM_PORT_OFFSET must be a finite safe integer');
+  process.exit(2);
+}
 let text = readFileSync(file, 'utf8');
-if (OFFSET) {
-  text = text.replace(/\b(127\.0\.0\.1|localhost):(\d{2,5})\b/g, (_, host, port) => `${host}:${Number(port) + OFFSET}`);
+let invalidLocalPort = false;
+text = text.replace(/\b(127\.0\.0\.1|localhost):(\d{2,5})\b/g, (match, host, port) => {
+  const effective = Number(port) + OFFSET;
+  if (!Number.isSafeInteger(effective)
+      || effective < 1 || effective > 65535) {
+    invalidLocalPort = true;
+    return match;
+  }
+  // A zero offset has always left the fixture text unchanged, including
+  // leading-zero ports and numeric literals embedded in eval expressions.
+  return OFFSET ? `${host}:${effective}` : match;
+});
+if (invalidLocalPort) {
+  console.error('effective local ports must be integers in 1..65535 after AURADREAM_PORT_OFFSET');
+  process.exit(2);
 }
 const steps = JSON.parse(text);
 // A malformed resize otherwise throws only after the browser and any earlier

@@ -5928,6 +5928,15 @@ their normal continuation; eval remains diagnostic-only. Edge selection,
 launch flags and profiles are unchanged. The [dated tooling review](review-2026-10-28-fatal-prerequisites.md)
 owns ordinary-driver probes and the three bounded scratch setup conversions.
 
+`tests/test_browser_port_preflight.py` executes captured real harness/helper
+bodies with fixture reads counted and browser/output/profile/network effects
+poisoned. Invalid environment offsets receive fixed exit 2 before fixture I/O;
+every matched effective local port must be an integer in 1..65535 before later
+effects. Valid negative/zero/Number forms keep their behavior, zero keeps the
+original matched text, and the existing two-to-five-digit raw-text grammar is
+unchanged. Valid inputs reach a poisoned lookup with actual parsed substitutions
+observed. This qualifies only cold refusal and transformation, not a browser run.
+
 `tests/test_browser_viewport_preflight.py` executes the actual harness/helper
 module bodies with one fixture read permitted and later effects poisoned.
 Every declared viewport must be a two/three-number array: integer dimensions
