@@ -16,6 +16,14 @@ wrong before). `docs/verified.md` lists what has been measured on the card.
 fresh thread starts at its NOW.
 Edit `AGENTS.md` only: `CLAUDE.md` just imports it (`@AGENTS.md`).
 
+## Git workflow
+
+Work on a local branch and commit completed changes there. Keep related work
+together on the same branch across commits. Create a pull request only when
+Matt explicitly requests one, collecting the accumulated commits into that
+PR. Do not create a PR for each commit or split related work into stacked
+PRs unless requested. Keep commits local until Matt requests a push or a PR.
+
 ## Run
 
 ```powershell
