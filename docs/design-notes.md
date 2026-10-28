@@ -6925,6 +6925,15 @@ last real toggle put it, so a range never starts from an unpicked card. On a
 sheet Select is held, so it does not read as pressed and the count does not
 invite picks.
 
+**Confirmed stars reach hidden picks (2026-10-28, `GAL#8`).** A picked
+record is still a retained image copy after its card leaves the filter, and
+while Bin sets that selection aside. `recordsWithId` now includes both maps,
+so a confirmed individual/batch star updates these fallback records as well
+as gallery/viewer/session/lightbox copies. Otherwise Compare picked showed an
+unstarred keeper even after the server confirmed Star picked. Selection ids,
+order and anchors stay unchanged. The [dated review](review-2026-10-28-picked-favorites.md)
+records the actual before/after, isolated fake browser regression and limits.
+
 **Where it sits, and what it must not move.** The head's control rows are
 full at 1400 px, so Select, its count and Clear share the footer row with
 Bundles…, styled as Bundles… is so the row keeps its 18 px line (a small

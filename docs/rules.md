@@ -5986,6 +5986,14 @@ the UTF-16 capacity but must hold Save without writes. It also checks BMP
 bounds, programmatic overlimits, reload/navigation persistence and unchanged
 composer/gallery state. Evidence lives in the library-recovery review owner.
 
+`smoke-picked-favorites.json` uses a fresh FLUX.1 Krea [dev] fake on 7937
+for confirmed favorite propagation to hidden active/stashed picks. It seeds
+owned images before a fresh navigation, excludes viewer/session/lightbox
+aliases, and checks storage separately from retained snapshots and the actual
+Compare picked star without record rereads. Unstar/already answers, a reply
+arriving in Bin, independent bin picks, selection order and composer text are
+covered. The dated picked-favorites review records reproduction and acceptance.
+
 `tests/test_snippets.py` covers CRUD, exact text, bounds, malformed-file
 preservation, independent locking, stale/concurrent edits and admission
 during bundle maintenance. `smoke-snippets.json` uses a fresh FLUX.1 Krea

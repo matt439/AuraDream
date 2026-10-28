@@ -6,10 +6,14 @@
 
 // The same image can be on the page more than once - in the viewer, in the
 // gallery grid, on the sheet, in the lightbox - as separate record objects
-// fetched at different times. So both actions apply by id: to every record
+// fetched at different times, or retained as a pick after its card leaves
+// the filter (also while the bin sets those picks aside). Apply by id: to every record
 // that carries it, and to every element tagged with it.
 function recordsWithId(id) {
-  return [...galleryRecords, ...viewerRecords, ...sessionRecords, ...lbList].filter((r) => r.id === id);
+  return [
+    ...galleryRecords, ...viewerRecords, ...sessionRecords, ...lbList,
+    ...selection.values(), ...(stashedSelection?.picks.values() ?? []),
+  ].filter((r) => r.id === id);
 }
 
 // `say` is F's: the key stars an image from wherever focus is in its card,
