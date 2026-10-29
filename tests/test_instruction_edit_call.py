@@ -370,7 +370,8 @@ def test_describe_follows_the_gate_and_the_selection(store, monkeypatch):
     assert still["instruction_edit_reason"] == INSTRUCTION_EDIT_UNAVAILABLE
 
 
-def test_a_qualified_backend_still_refuses_to_load_kontext(synthetic_loader, monkeypatch):  # noqa: F811
+def test_a_qualified_backend_still_refuses_to_load_kontext(synthetic_loader, monkeypatch, tmp_path):  # noqa: F811
+    import json
     from dataclasses import replace
 
     _, _, events = synthetic_loader
@@ -391,6 +392,28 @@ def test_a_qualified_backend_still_refuses_to_load_kontext(synthetic_loader, mon
             call()
         assert str(caught.value) == INSTRUCTION_EDIT_UNAVAILABLE
     assert not backend.is_ready() and events == []
+    # Inside the envelope (loader facts reported as measured, though this
+    # synthetic load runs on the CPU), the unconditional editor-class hold
+    # still refuses before any override, weights or placement.
+    from backend.backends import loading
+
+    measured = LoaderChoice(
+        quantization=QUALIFIED_ENVELOPE.quantization, offload=QUALIFIED_ENVELOPE.offload, device="cuda",
+        platform=QUALIFIED_ENVELOPE.platform, loader_execution=None,
+        diffusers_version=QUALIFIED_ENVELOPE.diffusers_version,
+    )
+    assert measured.refusal(KONTEXT_V1.model_id) is None
+    monkeypatch.setattr(backend, "instruction_edit_loader", lambda selected: measured)
+    path = tmp_path / "model_index.json"
+    path.write_text(json.dumps({"_class_name": KONTEXT_V1.pipeline_class}), encoding="utf-8")
+    monkeypatch.setattr(loading, "hub_file", lambda model_id, filename: str(path))
+    monkeypatch.setattr(loading, "unused_components", lambda model_id: (None, {}))
+    with pytest.raises(ValueError) as caught:
+        backend.load()
+    assert str(caught.value) == INSTRUCTION_EDIT_UNAVAILABLE
+    # Past the load entry, into the weights hold, and no further.
+    assert "weights-enter" in events and not {"overrides", "pretrained", "place"} & set(events)
+    assert not backend.is_ready()
 
 
 def test_a_qualified_backend_still_refuses_an_editor_class_index(synthetic_loader, monkeypatch, tmp_path):  # noqa: F811

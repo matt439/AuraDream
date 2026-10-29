@@ -1227,8 +1227,8 @@ def main(argv: list[str] | None = None) -> int:
     apply_env(args)
     if args.via_server:
         return _via_server(args, parser, source, carried, mask_image, width, height, sized, outpaint_sides)
-    # Before the project, the backend or any file: this command renders from
-    # text, which an edit-only checkpoint never does, whatever its gate.
+    # Before the project, the backend or the gallery: this command renders
+    # from text, which an edit-only checkpoint never does, whatever its gate.
     from backend.instruction_edit import command_line_refusal
     from backend.model_defaults import DEFAULT_MODEL_ID
 
