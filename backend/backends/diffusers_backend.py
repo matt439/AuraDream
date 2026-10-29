@@ -1887,17 +1887,19 @@ class DiffusersBackend(GenerationBackend):
         }
         # The one gate, never a profile or a setting. Closed on this backend
         # pending release review and integration, so the held reason always stands here.
-        from ..instruction_edit import KONTEXT_V1, edit_unavailable_reason
-
         qualified = self.instruction_edit_qualified() is True
-        # Exact, as bind_request compares the recipe's identity.
-        info["instruction_edit_supported"] = qualified and selected.model_id == KONTEXT_V1.model_id
-        info["instruction_edit_reason"] = edit_unavailable_reason(selected.model_id, qualified=qualified)
+        # The gate, the exact id (as bind_request compares the recipe's
+        # identity) and the measured loader envelope, in that order.
+        reason = self.instruction_edit_refusal(selected)
+        info["instruction_edit_supported"] = reason is None
+        info["instruction_edit_reason"] = reason
         if not defaults_for(selected.model_id)["text_to_image_supported"]:
             from ..instruction_edit import text_to_image_refusal
 
             # The gate's words, not the profile's pointer at a held editor.
-            info["text_to_image_reason"] = text_to_image_refusal(selected.model_id, qualified=qualified)
+            info["text_to_image_reason"] = text_to_image_refusal(
+                selected.model_id, qualified=qualified, loader=self.instruction_edit_loader(selected),
+            )
         try:
             import torch
 

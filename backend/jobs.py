@@ -596,12 +596,13 @@ class JobManager:
         rather than rendering the same seeds again. Event-loop thread; a
         job's cells are fixed when it is made."""
         planned: dict[tuple[int, int], set[CellKey]] = {}
-        qualified = self.backend.instruction_edit_qualified() is True
+        editable = self.backend.instruction_edit_refusal(current_settings(settings)) is None
         for job in self.active():
             for cell in [*job.cells, *list(job.pending_passes)]:
-                if cell.request.edit is not None and not qualified:
-                    # Its backend has closed the gate since: the cell fails
-                    # as it begins (`_recheck_edit`) and writes nothing.
+                if cell.request.edit is not None and not editable:
+                    # Its backend has closed the gate since, or the selection
+                    # left the measured envelope: the cell fails as it begins
+                    # (`_recheck_edit`) and writes nothing.
                     continue
                 ran = Cell(request=self.backend.applied(cell.request), seed=cell.seed)
                 planned.setdefault((cell.request.width, cell.request.height), set()).update(cell_keys(ran))
@@ -836,14 +837,18 @@ class JobManager:
         # deliberately cannot go through whole-request validation again.
         for cell in cells:
             if cell.request.edit is not None:
-                from .instruction_edit import require_execution_available
+                from .instruction_edit import bound_geometry_refusal, require_execution_available
 
                 # Only a bound edit (proved by `bind_request`) queues, and
-                # only behind the backend instance's own gate.
-                require_execution_available(
-                    cell.request.validate_edit(require_bound=True),
-                    qualified=self.backend.instruction_edit_qualified(),
+                # only behind the backend instance's own gate, inside the
+                # measured envelope: its loader and its source's aspect.
+                bound = cell.request.validate_edit(require_bound=True)
+                require_execution_available(bound, qualified=self.backend.instruction_edit_qualified())
+                reason = self.backend.instruction_edit_refusal(current_settings(settings)) or (
+                    bound_geometry_refusal(bound)
                 )
+                if reason is not None:
+                    raise ValueError(reason)
             require_default_execution(cell.request.execution)
             if "step_cache" in cell.request.model_fields_set:
                 raise ValueError("Resolve composer step cache before submitting expanded cells.")
@@ -1057,15 +1062,13 @@ class JobManager:
     async def _run(self, job: Job) -> None:
         loop = asyncio.get_running_loop()
         # Retained/internal jobs cannot bypass the public unavailable boundary:
-        # an edit job runs only while the backend still answers qualified.
-        if (
-            any(cell.request.edit is not None for cell in job.cells)
-            and self.backend.instruction_edit_qualified() is not True
-        ):
-            from .instruction_edit import INSTRUCTION_EDIT_UNAVAILABLE
-
-            self._finish(loop, job, "error", INSTRUCTION_EDIT_UNAVAILABLE)
-            return
+        # an edit job runs only while the backend still answers qualified and
+        # the selection is still inside the measured envelope.
+        if any(cell.request.edit is not None for cell in job.cells):
+            reason = self.backend.instruction_edit_refusal(current_settings(settings))
+            if reason is not None:
+                self._finish(loop, job, "error", reason)
+                return
         # Wait for the shared load rather than letting the worker thread start a
         # second one. Failing here keeps the error to a single report.
         if self._ensure_loaded is not None:
@@ -1170,24 +1173,31 @@ class JobManager:
     def _recheck_edit(self, request: GenerateRequest) -> None:
         """An edit cell's checks as it begins, before the backend is called.
 
-        The gate is the backend's answer now, not at submit; the source is
-        proved again against the identity the cell carries. Raises a
-        ValueError in words that fails this cell alone.
+        The gate and the measured envelope are the backend's answer and the
+        selection now, not at submit; the source is proved again against the
+        identity the cell carries, and its aspect must be a measured one.
+        Raises a ValueError in words that fails this cell alone.
         """
         from . import instruction_edit_admission
-        from .instruction_edit import StoredInstructionEdit, require_execution_available
+        from .instruction_edit import StoredInstructionEdit, geometry_refusal, require_execution_available
 
         spec = request.validate_edit(require_bound=True)
         if not isinstance(spec, StoredInstructionEdit):
             raise ValueError("Bind and verify the instruction-edit source before running it.")
         require_execution_available(spec, qualified=self.backend.instruction_edit_qualified())
+        reason = self.backend.instruction_edit_refusal(current_settings(settings))
+        if reason is not None:
+            raise ValueError(reason)
         try:
-            instruction_edit_admission.bind_source(spec)
+            _, resolved = instruction_edit_admission.bind_source(spec)
         except ValueError as exc:
             raise ValueError(
                 f"the edit's source #{spec.source} is missing, in the recycle bin or "
                 "changed since it was queued; submit the edit again"
             ) from exc
+        reason = geometry_refusal(resolved)
+        if reason is not None:
+            raise ValueError(reason)
 
     def _generate(self, job: Job, loop: asyncio.AbstractEventLoop) -> bool:
         """Run the job's cells back to back, publishing images as they land.

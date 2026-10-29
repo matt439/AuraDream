@@ -198,15 +198,18 @@ before changing it.
   Lanczos geometry, canonical bound identity, the held-reason sentences and
   the execution holds that open only for `qualified=True`
   (`edit_unavailable_reason`), and `QUALIFIED_ENVELOPE` with its pure
-  `loader_refusal`/`geometry_refusal` words (stage 4, no callers yet); this
-  module does not enable an editing checkpoint.
+  `loader_refusal`/`geometry_refusal` words, `LoaderChoice` (the loader facts
+  a backend gathers) and `replay_held_reason` (stage 4: the edit routes and
+  jobs consult them, loading not yet); this module does not enable an
+  editing checkpoint.
 - `backend/instruction_edit_admission.py` — prove live gallery source pixels,
   descriptor and exact recipe geometry before key/admission work
   (`bind_source`, `bind_request`); `load_bound_source` proves and decodes
   through one open handle and returns the prepared working-size RGB; no loading.
 - `backend/api_instruction_edit.py` — the cold single-source preview and
   `POST /api/instruction-edit`, the one route that queues an edit, both behind
-  the backend's `instruction_edit_qualified()` and the selected checkpoint.
+  the backend's `instruction_edit_qualified()`, the selected checkpoint, the
+  measured loader envelope and the source's measured aspect.
 - `backend/instruction_edit_preflight.py` — cold, supplied-config Kontext
   inventory/class/shape checks and canonical config digests;
   `QUALIFIED_CONFIG_HASHES` (the six configs at the revision, qualified
@@ -899,6 +902,23 @@ Model and loader:
   `edit_unavailable_reason`, `applied()`, `check_refine_supported()`,
   `ensure_loaded`, `/api/model/load`, `jobs.submit_cells` and `_run`, and
   the per-cell recheck.
+- An open gate is narrowed by the measured envelope
+  (`instruction_edit.QUALIFIED_ENVELOPE`), never widened by it. Every place
+  that answers whether an edit can queue asks
+  `GenerationBackend.instruction_edit_refusal(selected)`: the gate, the exact
+  Kontext id, then `loader_refusal` over the backend's `LoaderChoice`
+  (selection quantization, offload, device and loader recipe, plus the
+  instance's `instruction_edit_host()`: `sys.platform` and the installed
+  diffusers version). The source's aspect is the caller's
+  (`geometry_refusal`, `bound_geometry_refusal`): only 1:1, at 512x512. The
+  callers are the preview and the submit route, `jobs.submit_cells`, `_run`,
+  `_recheck_edit` and `planned_keys`, `describe()` (`instruction_edit_reason`),
+  `submission.unusable_input` and Finish (through `replay_held_reason`). A
+  qualified answer without a `LoaderChoice` is refused. The envelope never
+  reaches `geometry()`, `applied()`, `CellKey`, a run id or the PNG chunk:
+  stored 3:2 edits still bind and inspect. The tests' `FakeBackend` reports
+  the envelope's own host (`edit_host`), so its answers follow the selection
+  on any machine.
   The diffusers editor load holds take no `qualified` argument and stay
   unconditional: `load`, `_load_prepared`, both editor-class refusals and
   `require_custom_pipeline_class`. Kontext stays out of `launch.py`
@@ -2184,20 +2204,24 @@ Jobs:
   admission order is fixed:
   1. the model-dependent middleware (409 for a switch or a stale revision);
   2. the selected loader and default execution;
-  3. `edit_unavailable_reason` (a 422 before any file is read);
-  4. `bind_request` in a thread, which proves the pixels, model and geometry;
+  3. `instruction_edit_refusal` - the gate, the model, the loader envelope
+     (a 422 before any file is read);
+  4. `bind_request` in a thread, which proves the pixels, model and geometry,
+     then `bound_geometry_refusal` (an unmeasured aspect is a 422, no job);
   5. `check_budget`, `check_refine_steps` and `jobs.submit`.
 
   The route never asks `refuse_unusable_inputs`, whose text-to-image check
   refuses everything on the editor. `submission.unusable_input` still binds
-  an edit, then answers UNAVAILABLE, or REPLAY_HELD with the gate open, so
-  Generate, Re-render and More seeds never queue one. `submit_cells` takes
-  only a bound edit, and `_run` fails a retained edit job when the backend is
-  not qualified.
+  an edit, then answers `replay_held_reason`: UNAVAILABLE, an unmeasured
+  loader's words, or REPLAY_HELD where an edit could queue, so Generate,
+  Re-render and More seeds never queue one. `submit_cells` takes only a bound
+  edit inside the envelope (loader and aspect), and `_run` fails a retained
+  edit job, with the reason, when the backend is not qualified or the
+  selection has left the envelope.
 
   Each edit cell runs `_recheck_edit` as it begins, after `begin_call` and
-  before `generate`. It asks the gate again and re-proves the source with
-  `bind_source`. A source that is missing, in the recycle bin or rewritten
+  before `generate`. It asks the gate and the loader envelope again,
+  re-proves the source with `bind_source`, and refuses an unmeasured aspect. A source that is missing, in the recycle bin or rewritten
   since the submit fails that cell in words, with no backend call and no
   row. `planned_keys` skips edit cells while the gate is closed.
 
@@ -5763,7 +5787,12 @@ Three files cover stage 2:
   editor loads still refuse.
 - `test_instruction_edit_queue.py` checks the route's admission order and
   refusals, a saved edit row and PNG, the per-cell recheck, cancel,
-  `planned_keys`, and the held producers on both gate states.
+  `planned_keys`, and the held producers on both gate states. Its envelope
+  tests hold an unmeasured aspect at the preview and the submit (and
+  `submit_cells`) with no job, an unmeasured loader before any source is
+  read, the fake host's platform and diffusers answers, the recheck of a
+  cell whose selection left the envelope, and a queued job erroring with
+  the loader's reason.
 
 None of these enables the real server's editor or qualifies a model or the card.
 
@@ -5771,8 +5800,10 @@ None of these enables the real server's editor or qualifies a model or the card.
 as pure data: the loader refusal matrix (each unmeasured quantization, offload,
 device, platform, loader recipe, diffusers version and inexact id named in
 words), only 1:1 geometry unrefused, the unchanged frozen geometry table, the
-pinned edit `CellKey` and run ids, and a cold import. Nothing calls the
-envelope yet; it qualifies nothing.
+pinned edit `CellKey` and run ids, and a cold import. The edit routes and
+jobs consult it (`test_instruction_edit_queue.py`,
+`test_unavailable_reason_gives_its_five_answers` in
+`test_instruction_edit_gate.py`); it qualifies nothing.
 
 `tests/test_instruction_edit_preflight.py` checks the supplied-config refusal
 boundary with synthetic JSON and the installed complete PIL-to-normalized-CPU-
@@ -8452,7 +8483,9 @@ node tools/browser.mjs tools/smoke-context-menu.json
 FLUX.1 Kontext [dev] on 7931 with a fresh `--data`. Only a Kontext fake
 starts with its gate open, and `POST /api/fake/instruction-edit
 {"available": bool}` flips it. The fake plants a 3:2 and a 2:1 source beside
-the 1:1 pair. The smoke checks:
+the 1:1 pair; the 3:2 one is held by the measured envelope (only 1:1 is
+qualified), so every run and stale-preview step uses #1 or #2. The smoke
+checks:
 
 - **Generate on the editor:** held with `text_to_image_reason`; a press says
   it and sends nothing, and the composer is unchanged.
@@ -8467,6 +8500,9 @@ the 1:1 pair. The smoke checks:
     typing back;
   - Escape giving the lightbox back;
   - the 2:1 source's aspect refusal shown in place;
+  - the 3:2 source held as unmeasured: its 576x384 said, the envelope's
+    reason in the dialog's note and on Edit, a press saying it, and a raw
+    submit answering 422 with no job;
   - a stale revision getting 409;
   - a stale preview (the gate closed behind the page) asked again when Edit
     is pressed, its refusal said in place and no edit sent;
@@ -8484,7 +8520,9 @@ the 1:1 pair. The smoke checks:
 - **Reuse:** reopens the dialog on the source with the instruction and seed,
   and the composer is untouched.
 - **Layout:** the page neither scrolls nor moves. At 800x900, 1400x700 and
-  1900x1000 the dialog fits with Edit in view. No page errors.
+  1900x1000 the dialog fits with Edit in view (1400x700 on a 1:1 source:
+  with a held note the dialog scrolls its own content there). No page
+  errors.
 
 ```powershell
 uv run python tools/fake_server.py --port 7931 --model black-forest-labs/FLUX.1-Kontext-dev --data <new-scratch-directory>

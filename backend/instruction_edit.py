@@ -9,7 +9,10 @@ unqualified. Execution opens only where a caller passes
 backend answers False pending release review and integration, so its load and
 execution stay closed; only test and fake stand-ins can open the seam.
 ``QUALIFIED_ENVELOPE`` records what the card measured (stage 4): pure data
-and refusal words, which no caller consults yet.
+and refusal words. Where the gate is open, the edit routes and the queue also
+hold an unmeasured loader (``edit_unavailable_reason`` with a
+``LoaderChoice``) or source aspect (``geometry_refusal``); loading does not
+consult it yet.
 """
 from __future__ import annotations
 
@@ -18,7 +21,7 @@ import json
 from dataclasses import dataclass
 from importlib import metadata
 from math import gcd
-from typing import Annotated, Literal
+from typing import Annotated, Any, Literal
 
 from PIL import Image
 from pydantic import BaseModel, ConfigDict, Field, field_validator, model_validator
@@ -375,6 +378,37 @@ def loader_refusal(
     return INSTRUCTION_EDIT_LOADER_UNQUALIFIED.format(choice=choice)
 
 
+@dataclass(frozen=True)
+class LoaderChoice:
+    """The loading facts ``loader_refusal`` compares, gathered in one place.
+
+    A backend instance builds it (``GenerationBackend.instruction_edit_loader``)
+    from the server's selection and the host it runs on; nothing here reads
+    either.
+    """
+    quantization: str
+    offload: str
+    device: str
+    platform: str
+    loader_execution: object
+    diffusers_version: str | None
+
+    @classmethod
+    def of(cls, selected: Any, *, platform: str, diffusers_version: str | None) -> LoaderChoice:
+        """From a settings snapshot (``current_settings``), read by attribute."""
+        return cls(
+            quantization=selected.quantization, offload=selected.offload, device=selected.device,
+            platform=platform, loader_execution=selected.loader_execution, diffusers_version=diffusers_version,
+        )
+
+    def refusal(self, model_id: str) -> str | None:
+        return loader_refusal(
+            model_id, quantization=self.quantization, offload=self.offload, device=self.device,
+            platform=self.platform, loader_execution=self.loader_execution,
+            diffusers_version=self.diffusers_version,
+        )
+
+
 def geometry_refusal(resolved: InstructionEditGeometry) -> str | None:
     """Why a frozen-table geometry is outside the measured sizes, or None.
 
@@ -390,6 +424,13 @@ def geometry_refusal(resolved: InstructionEditGeometry) -> str | None:
     return INSTRUCTION_EDIT_ASPECT_UNQUALIFIED.format(
         a=aspect[0], b=aspect[1], w=resolved.width, h=resolved.height,
     )
+
+
+def bound_geometry_refusal(value: object) -> str | None:
+    """``geometry_refusal`` for a bound edit, from its recorded source size."""
+    stored = StoredInstructionEdit.model_validate(value)
+    source = stored.edit_source
+    return geometry_refusal(geometry(source.width, source.height, recipe=stored.recipe))
 
 
 def require_execution_available(spec: object, *, qualified: bool = False) -> None:
@@ -431,27 +472,45 @@ def editor_class_refusal(class_name: str) -> str:
     return INSTRUCTION_EDIT_UNAVAILABLE if class_name == KONTEXT_V1.pipeline_class else INSTRUCTION_EDITOR_UNSUPPORTED
 
 
-def edit_unavailable_reason(model_id: str, *, qualified: bool) -> str | None:
+def edit_unavailable_reason(model_id: str, *, qualified: bool, loader: LoaderChoice | None = None) -> str | None:
     """Why an instruction edit cannot queue on this server now, or None.
 
-    Closed backends answer UNAVAILABLE whatever is selected; a qualified one
-    still needs the editor checkpoint to be the selected model.
+    In order: the gate (closed backends answer UNAVAILABLE whatever is
+    selected), the selected checkpoint, then the measured loader envelope
+    (``loader_refusal``). A qualified answer without its ``loader`` facts is
+    never inside the envelope. The source's aspect is the caller's to add
+    (``geometry_refusal``): this answers for the server, not one image.
     """
     if qualified is not True:
         return INSTRUCTION_EDIT_UNAVAILABLE
     # Exact, as bind_request compares: a case variant is not the recipe's id.
     if model_id != KONTEXT_V1.model_id:
         return INSTRUCTION_EDIT_NEEDS_MODEL
-    return None
+    if not isinstance(loader, LoaderChoice):
+        return INSTRUCTION_EDIT_LOADER_UNQUALIFIED.format(choice="an unknown loader")
+    return loader.refusal(model_id)
 
 
-def text_to_image_refusal(model_id: str, *, qualified: bool) -> str:
+def replay_held_reason(reason: str | None) -> str:
+    """Generate, Re-render, More seeds and Finish's words for an edit.
+
+    ``reason`` is ``edit_unavailable_reason``'s answer. They never queue an
+    edit: where one could queue - or would, with the editor selected - they
+    point at Edit by instruction…; a closed gate or an unmeasured loader is
+    said as it is, so the pointer never leads to another refusal.
+    """
+    if reason is None or reason == INSTRUCTION_EDIT_NEEDS_MODEL:
+        return INSTRUCTION_EDIT_REPLAY_HELD
+    return reason
+
+
+def text_to_image_refusal(model_id: str, *, qualified: bool, loader: LoaderChoice | None = None) -> str:
     """Generate's words where the selected checkpoint only edits.
 
     Pointing at Edit by instruction… is right only where that can queue;
     otherwise the edit gate's own reason is said, never a dead end.
     """
-    reason = edit_unavailable_reason(model_id, qualified=qualified)
+    reason = edit_unavailable_reason(model_id, qualified=qualified, loader=loader)
     if reason is None:
         return INSTRUCTION_EDIT_TEXT_TO_IMAGE
     return (

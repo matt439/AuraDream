@@ -19,7 +19,7 @@ from backend.backends.base import Cancelled, GenerationBackend
 from backend.config import settings
 from backend.critic import CriticError, CriticUnavailable
 from backend.grid import progress_steps
-from backend.instruction_edit import edit_unavailable_reason, text_to_image_refusal
+from backend.instruction_edit import QUALIFIED_ENVELOPE, text_to_image_refusal
 from backend.model_defaults import defaults_for
 from backend.model_selection import current_model_id, current_settings
 from backend.schemas import CriticStatus, GenerateRequest, PromptCritique, default_strength
@@ -78,12 +78,21 @@ class FakeBackend(GenerationBackend):
         # The instruction-edit gate, closed as on the real backend. Only the
         # literal True opens it (`instruction_edit_qualified`).
         self.edit_qualified = False
+        # The host the envelope's loader check is told this fake runs on
+        # (`instruction_edit_host`): the measured one, so an open gate's
+        # answers never depend on the machine the tests run on.
+        self.edit_host: tuple[str, str | None] = (
+            QUALIFIED_ENVELOPE.platform, QUALIFIED_ENVELOPE.diffusers_version,
+        )
         # What each instruction edit the fake ran was handed: the recipe's
         # pipeline geometry, the prepared source's size, the seed and steps.
         self.edit_calls: list[dict] = []
 
     def instruction_edit_qualified(self) -> bool:
         return self.edit_qualified is True
+
+    def instruction_edit_host(self) -> tuple[str, str | None]:
+        return self.edit_host
 
     def _sync_model_profile(self) -> None:
         """Switch the fake's capabilities with the server's selected model.
@@ -313,10 +322,12 @@ class FakeBackend(GenerationBackend):
         self._sync_model_profile()
         selected = current_settings(settings)
         qualified = self.instruction_edit_qualified()
-        edit_reason = edit_unavailable_reason(selected.model_id, qualified=qualified)
+        edit_reason = self.instruction_edit_refusal(selected)
         extra: dict = {}
         if not defaults_for(selected.model_id)["text_to_image_supported"]:
-            extra["text_to_image_reason"] = text_to_image_refusal(selected.model_id, qualified=qualified)
+            extra["text_to_image_reason"] = text_to_image_refusal(
+                selected.model_id, qualified=qualified, loader=self.instruction_edit_loader(selected),
+            )
         return {
             **extra,
             "model_id": selected.model_id,
@@ -327,8 +338,8 @@ class FakeBackend(GenerationBackend):
             "refine_supported": self.refine_supported,
             "inpaint_supported": self.inpaint_supported,
             "lora_supported": self.lora_supported(),
-            # As the real backend answers them: the instance's gate and the
-            # selected checkpoint.
+            # As the real backend answers them: the instance's gate, the
+            # selected checkpoint and the measured loader envelope.
             "instruction_edit_supported": edit_reason is None,
             "instruction_edit_reason": edit_reason,
         }

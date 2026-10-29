@@ -587,7 +587,32 @@ The tests are in `test_instruction_edit_envelope.py`: the refusal matrix, the
 seven aspects, the unchanged table, the pinned edit key and run id, and a cold
 import.
 
-The later slices put the envelope in the edit routes and job rechecks, refuse
+**Slice 2 (built): the envelope in the edit routes.** The real gate is still
+False; where a stand-in's is open, an unmeasured loader or aspect is held in
+words. `GenerationBackend.instruction_edit_refusal(selected)` answers the
+gate, the exact id and `loader_refusal` over the backend's `LoaderChoice`
+(the selection plus `instruction_edit_host()`); the preview adds
+`geometry_refusal` and answers `available: false` at the source's size; the
+submit route refuses an unmeasured aspect after `bind_request`, before a
+job. `jobs.submit_cells`, `_run`, `_recheck_edit` and `planned_keys`,
+`describe()`, `submission.unusable_input` and Finish (`replay_held_reason`)
+ask the same. The tests' fake reports the envelope's host, so its answers
+follow the selection on any machine. The smoke's runs moved to the 1:1
+sources; the 3:2 one is held and queues nothing.
+
+| Gate | Selection | Source | Answer |
+|---|---|---|---|
+| closed | any | any | UNAVAILABLE |
+| open | another model | any | NEEDS_MODEL |
+| open | Kontext, outside the loader envelope | any | LOADER_UNQUALIFIED |
+| open | the envelope | not 1:1 | ASPECT_UNQUALIFIED, no job |
+| open | the envelope | 1:1 | queues |
+
+At 1400x700 a dialog showing a held note scrolls its own content, so Edit is
+below the fold there (the smoke checks that height on a 1:1 source). Slice 9
+owns the page holds.
+
+The later slices refuse
 unmeasured Kontext choices at every load entry, add the pinned loader and the
 catalogue entry, open the real gate, and release More seeds of edits.
 

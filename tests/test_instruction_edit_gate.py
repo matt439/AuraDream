@@ -131,27 +131,89 @@ def test_editor_classes_are_refused_in_their_own_words():
         assert refusal == edit.INSTRUCTION_EDITOR_UNSUPPORTED and "measured" not in refusal
 
 
+_ENVELOPE_LOADER = edit.LoaderChoice(
+    quantization="fp8", offload="model", device="cuda", platform="win32",
+    loader_execution=None, diffusers_version="0.40.0",
+)
+
+
 def test_text_to_image_refusal_names_the_gate_unless_an_edit_can_queue():
     kontext = edit.KONTEXT_V1.model_id
-    assert edit.text_to_image_refusal(kontext, qualified=True) == edit.INSTRUCTION_EDIT_TEXT_TO_IMAGE
-    for qualified in (False, 1):
-        held = edit.text_to_image_refusal(kontext, qualified=qualified)  # type: ignore[arg-type]
-        assert held.endswith(edit.INSTRUCTION_EDIT_UNAVAILABLE) and "Use Edit by instruction" not in held
-
-
-def test_unavailable_reason_gives_its_three_answers():
-    kontext = edit.KONTEXT_V1.model_id
-    assert edit.edit_unavailable_reason(kontext, qualified=False) == edit.INSTRUCTION_EDIT_UNAVAILABLE
-    assert edit.edit_unavailable_reason(kontext, qualified=1) == edit.INSTRUCTION_EDIT_UNAVAILABLE  # type: ignore[arg-type]
-    assert edit.edit_unavailable_reason("black-forest-labs/FLUX.1-Krea-dev", qualified=False) == (
-        edit.INSTRUCTION_EDIT_UNAVAILABLE
+    assert edit.text_to_image_refusal(kontext, qualified=True, loader=_ENVELOPE_LOADER) == (
+        edit.INSTRUCTION_EDIT_TEXT_TO_IMAGE
     )
-    assert edit.edit_unavailable_reason("black-forest-labs/FLUX.1-Krea-dev", qualified=True) == (
+    for qualified in (False, 1):
+        held = edit.text_to_image_refusal(kontext, qualified=qualified, loader=_ENVELOPE_LOADER)  # type: ignore[arg-type]
+        assert held.endswith(edit.INSTRUCTION_EDIT_UNAVAILABLE) and "Use Edit by instruction" not in held
+    # Open but outside the envelope: the loader's words, never the pointer.
+    int8 = dataclasses.replace(_ENVELOPE_LOADER, quantization="int8")
+    held = edit.text_to_image_refusal(kontext, qualified=True, loader=int8)
+    assert "int8 quantization is not measured" in held and "Use Edit by instruction" not in held
+
+
+def test_unavailable_reason_gives_its_five_answers():
+    kontext = edit.KONTEXT_V1.model_id
+    krea = "black-forest-labs/FLUX.1-Krea-dev"
+    # 1. The gate closed: UNAVAILABLE, whatever is selected or loaded.
+    for loader in (None, _ENVELOPE_LOADER):
+        assert edit.edit_unavailable_reason(kontext, qualified=False, loader=loader) == edit.INSTRUCTION_EDIT_UNAVAILABLE
+        assert edit.edit_unavailable_reason(kontext, qualified=1, loader=loader) == (  # type: ignore[arg-type]
+            edit.INSTRUCTION_EDIT_UNAVAILABLE
+        )
+        assert edit.edit_unavailable_reason(krea, qualified=False, loader=loader) == edit.INSTRUCTION_EDIT_UNAVAILABLE
+    # 2. Open, another model: NEEDS_MODEL, before the loader is asked.
+    assert edit.edit_unavailable_reason(krea, qualified=True, loader=_ENVELOPE_LOADER) == (
         edit.INSTRUCTION_EDIT_NEEDS_MODEL
     )
-    assert edit.edit_unavailable_reason(kontext, qualified=True) is None
     # Exact, as `bind_request` compares: a case variant needs the editor selected.
-    assert edit.edit_unavailable_reason(kontext.upper(), qualified=True) == edit.INSTRUCTION_EDIT_NEEDS_MODEL
+    assert edit.edit_unavailable_reason(kontext.upper(), qualified=True, loader=_ENVELOPE_LOADER) == (
+        edit.INSTRUCTION_EDIT_NEEDS_MODEL
+    )
+    # 3. Open, Kontext, outside the loader envelope: LOADER_UNQUALIFIED naming it.
+    prefix = edit.INSTRUCTION_EDIT_LOADER_UNQUALIFIED.split("{choice}")[0]
+    for change, words in (
+        ({"quantization": "int8"}, "int8 quantization"), ({"offload": "sequential"}, "sequential offload"),
+        ({"device": "cpu"}, "the device 'cpu'"), ({"platform": "linux"}, "Linux (WSL)"),
+        ({"diffusers_version": "0.41.0"}, "diffusers 0.41.0"),
+    ):
+        reason = edit.edit_unavailable_reason(
+            kontext, qualified=True, loader=dataclasses.replace(_ENVELOPE_LOADER, **change),
+        )
+        assert reason == edit.INSTRUCTION_EDIT_LOADER_UNQUALIFIED.format(choice=words)
+    # Without its loader facts an open gate is never inside the envelope.
+    assert edit.edit_unavailable_reason(kontext, qualified=True).startswith(prefix)  # type: ignore[union-attr]
+    # 4 and 5 are the source's: the server answers None inside the envelope,
+    # and only a 1:1 source's geometry passes (`geometry_refusal`).
+    assert edit.edit_unavailable_reason(kontext, qualified=True, loader=_ENVELOPE_LOADER) is None
+    assert edit.geometry_refusal(edit.geometry(768, 512)) == edit.INSTRUCTION_EDIT_ASPECT_UNQUALIFIED.format(
+        a=3, b=2, w=576, h=384,
+    )
+    assert edit.geometry_refusal(edit.geometry(256, 256)) is None
+
+
+def test_replay_reason_points_at_the_dialog_only_where_it_could_queue():
+    assert edit.replay_held_reason(None) == edit.INSTRUCTION_EDIT_REPLAY_HELD
+    assert edit.replay_held_reason(edit.INSTRUCTION_EDIT_NEEDS_MODEL) == edit.INSTRUCTION_EDIT_REPLAY_HELD
+    assert edit.replay_held_reason(edit.INSTRUCTION_EDIT_UNAVAILABLE) == edit.INSTRUCTION_EDIT_UNAVAILABLE
+    loader = edit.INSTRUCTION_EDIT_LOADER_UNQUALIFIED.format(choice="int8 quantization")
+    assert edit.replay_held_reason(loader) == loader
+
+
+def test_a_backend_reports_its_host_and_builds_its_loader_from_the_selection():
+    import sys
+
+    from backend.config import settings
+    from backend.model_selection import current_settings
+
+    selected = current_settings(settings)
+    assert _Bare().instruction_edit_host() == (sys.platform, edit.installed_diffusers_version())
+    loader = _Bare().instruction_edit_loader(selected)
+    assert (loader.quantization, loader.offload, loader.device) == (
+        selected.quantization, selected.offload, selected.device,
+    )
+    assert loader.loader_execution is selected.loader_execution
+    # The closed gate answers first, whatever the host.
+    assert _Bare().instruction_edit_refusal(selected) == edit.INSTRUCTION_EDIT_UNAVAILABLE
 
 
 def test_wording_keeps_the_phrases_its_callers_match():

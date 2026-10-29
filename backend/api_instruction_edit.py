@@ -1,11 +1,13 @@
 """Instruction edits: the cold single-source preview and the one queueing route.
 
 Both answer behind the running backend's `instruction_edit_qualified()` -
-an instance answer, never a setting - and the selected checkpoint
-(`edit_unavailable_reason`). The real diffusers backend answers False, so
-on the real server the preview says why and the submission refuses before
-any file is read; only a qualified stand-in queues. Generate, Re-render
-and More seeds never queue an edit (`submission.unusable_input`).
+an instance answer, never a setting - then the selected checkpoint and the
+measured loader envelope (`instruction_edit_refusal`), then the source's
+aspect (`geometry_refusal`): only what the card measured queues. The real
+diffusers backend answers False, so on the real server the preview says why
+and the submission refuses before any file is read; only a qualified
+stand-in queues. Generate, Re-render and More seeds never queue an edit
+(`submission.unusable_input`).
 """
 from __future__ import annotations
 
@@ -22,10 +24,8 @@ from .schemas import InstructionEditSubmission, JobAccepted, error_detail
 
 
 def _unavailable_reason(services: AppServices) -> str | None:
-    """Why no edit can queue on this server now (the gate, then the model)."""
-    return edit.edit_unavailable_reason(
-        services.model_id(), qualified=services.backend().instruction_edit_qualified(),
-    )
+    """Why no edit can queue on this server now: the gate, the model, the loader."""
+    return services.backend().instruction_edit_refusal(current_settings(services.settings()))
 
 
 def create_router(services: AppServices) -> APIRouter:
@@ -38,7 +38,9 @@ def create_router(services: AppServices) -> APIRouter:
         except ValueError as exc:
             raise HTTPException(status_code=422, detail=str(exc)) from exc
         recipe = edit.recipe_for(bound.recipe)
-        reason = _unavailable_reason(services)
+        # The server's reason first; then whether this source's aspect was
+        # measured. The size is still said, so a held 3:2 shows what it is.
+        reason = _unavailable_reason(services) or edit.geometry_refusal(resolved)
         return {
             "edit": bound.model_dump(mode="json"), "model_id": recipe.model_id,
             "selected_model_id": services.model_id(), "width": resolved.width, "height": resolved.height,
@@ -53,9 +55,9 @@ def create_router(services: AppServices) -> APIRouter:
         In order: the middleware has refused a switch in progress or a stale
         revision; the selected loader and execution must be runnable; the
         gate and the selected checkpoint answer before any file is read;
-        the source is proved and bound (pixels, model, size) before the
-        budget, so the job carries the complete identity it is keyed and
-        saved by. `refuse_unusable_inputs` is not asked: on the editor its
+        the source is proved and bound (pixels, model, size) and its aspect
+        must be a measured one before the budget, so the job carries the
+        complete identity it is keyed and saved by. `refuse_unusable_inputs` is not asked: on the editor its
         text-to-image check refuses everything.
         """
         try:
@@ -70,6 +72,9 @@ def create_router(services: AppServices) -> APIRouter:
             raise HTTPException(status_code=422, detail=reason)
         try:
             bound = await asyncio.to_thread(instruction_edit_admission.bind_request, request, services.model_id())
+            reason = edit.bound_geometry_refusal(bound.edit)
+            if reason is not None:
+                raise ValueError(reason)
             bound.check_budget()
             bound.check_refine_steps()
         except ValueError as exc:

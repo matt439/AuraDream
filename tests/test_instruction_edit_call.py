@@ -19,7 +19,8 @@ from backend.backends import Cancelled
 from backend.backends import diffusers_backend as module
 from backend.backends.diffusers_backend import _EDIT_PARAMS, DiffusersBackend
 from backend.instruction_edit import (
-    INSTRUCTION_EDIT_NEEDS_MODEL, INSTRUCTION_EDIT_UNAVAILABLE, KONTEXT_V1, StoredInstructionEdit,
+    INSTRUCTION_EDIT_LOADER_UNQUALIFIED, INSTRUCTION_EDIT_NEEDS_MODEL, INSTRUCTION_EDIT_UNAVAILABLE, KONTEXT_V1,
+    LoaderChoice, StoredInstructionEdit,
 )
 from backend.schemas import GenerateRequest
 from backend.seeds import wrap_seed
@@ -342,7 +343,22 @@ def test_describe_follows_the_gate_and_the_selection(store, monkeypatch):
     assert needs["instruction_edit_supported"] is False
     assert needs["instruction_edit_reason"] == INSTRUCTION_EDIT_NEEDS_MODEL
     select_editor(monkeypatch)
-    opened = Qualified().describe()
+    # Off the card, the selection's own loader is outside the envelope, and
+    # describe says the first unmeasured choice (offload none, before cpu).
+    unmeasured = Qualified().describe()
+    assert unmeasured["instruction_edit_supported"] is False
+    assert unmeasured["instruction_edit_reason"] == INSTRUCTION_EDIT_LOADER_UNQUALIFIED.format(choice="no offload")
+
+    class Measured(Qualified):
+        """The loader facts the card measured, whatever this machine is."""
+
+        def instruction_edit_loader(self, selected):
+            return LoaderChoice(
+                quantization="fp8", offload="model", device="cuda", platform="win32",
+                loader_execution=None, diffusers_version="0.40.0",
+            )
+
+    opened = Measured().describe()
     assert opened["instruction_edit_supported"] is True and opened["instruction_edit_reason"] is None
     still = DiffusersBackend().describe()
     assert still["instruction_edit_supported"] is False

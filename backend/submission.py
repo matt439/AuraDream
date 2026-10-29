@@ -56,11 +56,11 @@ async def unusable_input(services: AppServices, request: GenerateRequest) -> tup
         except ValueError as exc:
             return "edit", str(exc)
         # Generate, Re-render and More seeds never queue an edit, whatever
-        # the gate: a closed one says the editor is unavailable, an open one
-        # where edits are queued from (`POST /api/instruction-edit`).
-        if services.backend().instruction_edit_qualified() is not True:
-            return "edit", instruction_edit.INSTRUCTION_EDIT_UNAVAILABLE
-        return "edit", instruction_edit.INSTRUCTION_EDIT_REPLAY_HELD
+        # the gate: a closed one says the editor is unavailable, an
+        # unmeasured loader says so, else where edits are queued from
+        # (`POST /api/instruction-edit`).
+        refusal = services.backend().instruction_edit_refusal(current_settings(services.settings()))
+        return "edit", instruction_edit.replay_held_reason(refusal)
     reason = unavailable_reason(request.execution)
     if reason is not None:
         return "execution", reason
@@ -78,8 +78,11 @@ async def unusable_input(services: AppServices, request: GenerateRequest) -> tup
     from .model_defaults import defaults_for
 
     if not defaults_for(selected.model_id)["text_to_image_supported"]:
-        qualified = services.backend().instruction_edit_qualified() is True
-        return "edit", instruction_edit.text_to_image_refusal(selected.model_id, qualified=qualified)
+        backend = services.backend()
+        return "edit", instruction_edit.text_to_image_refusal(
+            selected.model_id, qualified=backend.instruction_edit_qualified() is True,
+            loader=backend.instruction_edit_loader(selected),
+        )
     reason = refine.upscaler_reason(request, services.model_id())
     if reason is not None:
         return "upscaler", reason
