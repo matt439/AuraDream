@@ -4872,7 +4872,17 @@ Frontend and CLI:
   Shift+Space adds the range. In select mode every click toggles, quick ones
   too, Shift adds, and only Enter opens. The anchor is the last card toggled or picked (a pick refused at
   the cap and a range leave it); a range runs in DOM order. F and the tools
-  are unchanged. The image's Shift mousedown, and a double click's, are kept
+  are unchanged. The lightbox picks too (`UI#33`): its menu's Pick #N /
+  Unpick #N (hint and `aria-keyshortcuts` X) and X (no Shift, no repeat,
+  never in a field or a menu; P stays free) call `pickFromLightbox`, which
+  toggles the shown image through `toggleSelected(rec, els.lbError)`, so a
+  refusal at the cap (`refuseOverCap(more, slot)`) and what it did ("#N
+  picked (3 picked).") are said in the lightbox's line. Held, the reason the
+  item's title and said on the key (`lightboxPickHeld`): in the recycle bin
+  or on a binned record (`BIN_HELD`), and over a shown sheet
+  (`SELECT_ON_SHEET`, tested by `sheetMode`, since a cell's click opens with
+  no origin). Unpicking a member of the Compare picked pair ends the pair
+  and its comparison, keeping the image; a pick leaves the pair alone. The image's Shift mousedown, and a double click's, are kept
   from selecting text; a click between the cards (`galleryBlankClick`, on
   `#gallery`; never in select mode, with a modifier, or ending a text
   selection's drag) empties the selection. Escape on a card,
@@ -8249,7 +8259,10 @@ for a portrait pass; and at 800x900 a square pass left and right with its
 facts in view; Reuse and More seeds… sharing one `.lb-pair` row, a half each
 and uncut, More seeds… titled with the image's batch on every image, and
 neither button, Refine nor Delete moving from a pass (Reuse pass…) to its
-source (Reuse settings) and an orphaned pass:
+source (Reuse settings) and an orphaned pass; and X and the menu's Pick #N /
+Unpick #N (its X hint and title) toggling the shown image's pick, said in
+the lightbox's line, a held X repeating nothing, X typed in a field picking
+nothing, and the card `.selected` with the count right after the close:
 
 ```powershell
 uv run python tools/fake_server.py --port 7884 --model black-forest-labs/FLUX.1-Krea-dev
@@ -8438,7 +8451,12 @@ it, inside the window, its Escape, ArrowDown, ArrowUp and Enter; Star picked
 Re-render of two picks one of which another tab binned (said, dropped,
 the other rendered again); Bin picked (tombstones, the note's Restore, the
 bin's records, the head unmoved) and Restore; the menu opening over its
-button low in the window; and Picked held with the bin's reason in it:
+button low in the window; and Picked held with the bin's reason in it.
+Then the lightbox's X (`UI#33`): the cap refused in the lightbox's line,
+the gallery's untouched; Compare picked, then X on its shown member ending
+the pair and its comparison with the image kept; over a sheet whose cell
+opened it, X said and the menu item held with `SELECT_ON_SHEET`; in the
+bin, with `BIN_HELD`; and the help's Lightbox group listing X:
 
 ```powershell
 uv run python tools/fake_server.py --port 7898 --data <new-scratch-directory>

@@ -97,6 +97,8 @@ function fixture() {
     syncReuseButton: noop, syncMoreSeedsFor: noop, syncOutpaintTool: noop, syncEditTool: noop,
     syncReferenceTool: noop, syncLightboxInpaint: noop, syncLightboxOutpaint: noop,
     forgetLadders: noop, showModelPicker: poison('model picker'), OFFLINE_MESSAGE: 'offline',
+    selection: new Map(), lightboxPickHeld: () => '', lightboxPickTitle: () => 'Pick',
+    pickFromLightbox: poison('pickFromLightbox'),
   });
   const read = name => fs.readFileSync(path.join(root, 'web', name), 'utf8').replace(/\r\n/g, '\n');
   new vm.Script(exactSlice(read('state.js'), 'const offlineSlots = new Map();',

@@ -61,7 +61,8 @@ real defects first among equals.
 | `GEN#32` queue estimates | Done 2026-10-30 | [plan-queue-estimates.md](plan-queue-estimates.md) |
 | `PA#12` negative-box tag suggestions | Done 2026-10-30 | [review-2026-10-29-backlog.md](review-2026-10-29-backlog.md#pa12-tag-suggestions-in-the-negative-prompt) |
 | `UI#32` sheet-cell menu and Delete | Done 2026-10-30 | [review-2026-10-29-backlog.md](review-2026-10-29-backlog.md#ui32-contact-sheet-cell-menu-and-delete) |
-| `UI#33`, `GEN#33`, `GEN#34`, `GAL#23`, `GEN#36`, `GEN#38`, `UI#38` | OPEN | [review-2026-10-29-backlog.md](review-2026-10-29-backlog.md) |
+| `UI#33` pick from the lightbox | Done 2026-10-30 | [review-2026-10-29-backlog.md](review-2026-10-29-backlog.md#ui33-pick-from-the-lightbox) |
+| `GEN#33`, `GEN#34`, `GAL#23`, `GEN#36`, `GEN#38`, `UI#38` | OPEN | [review-2026-10-29-backlog.md](review-2026-10-29-backlog.md) |
 | `GEN#35`, `GEN#37` Then refine follow-ons | OPEN | [plan-then-refine.md](plan-then-refine.md) |
 | `UI#34` Compare scales | OPEN | [plan-size-axis-crop-anchor.md](plan-size-axis-crop-anchor.md#compare-scales-in-the-refine-dialog) |
 | `UI#35` close-watcher holds | Done 2026-10-30 | [review-2026-10-29-close-watcher.md](review-2026-10-29-close-watcher.md) |

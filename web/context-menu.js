@@ -154,6 +154,12 @@ function imageItems({ kind, rec, host }) {
     },
     null,
     buttonItem(starred ? '★ Unstar' : '☆ Star', lightbox ? els.lbFav : find('.star'), kind === 'result' ? '' : 'F'),
+    // The lightbox's pick (UI#33); a card's is its click and Space. Spread,
+    // since a falsy entry is a group's line.
+    ...(lightbox ? [{
+      label: `${selection.has(rec.id) ? 'Unpick' : 'Pick'} #${rec.id}`, hint: 'X',
+      held: !!lightboxPickHeld(rec), title: lightboxPickTitle(rec), run: () => pickFromLightbox(rec),
+    }] : []),
     sheet ? syncedItem('↻ Reuse settings', (b) => syncReuseButton(b, rec, true), () => reuse(rec))
       : buttonItem('↻ Reuse settings', lightbox ? els.lbReuse : find('.reuse-settings')),
     {

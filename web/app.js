@@ -727,10 +727,11 @@ document.addEventListener('keydown', (e) => {
     return;
   }
   const key = e.key.toLowerCase();
-  if (['f', 'r', 's', 'delete'].includes(key)) {
+  if (['f', 'r', 's', 'x', 'delete'].includes(key)) {
     if (e.shiftKey || e.repeat) return;
     e.preventDefault();
     if (key === 'f') { const rec = lbList[lbIndex]; if (rec) void setFavorite(rec, !rec.favorite, { say: true }); }
+    else if (key === 'x') pickFromLightbox();
     else if (key === 'r') els.lbRefine.click();
     else if (key === 's') void toggleCompare();
     else els.lbDelete.click();

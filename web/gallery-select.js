@@ -213,12 +213,54 @@ function galleryBlankClick(e) {
 // The anchor moves only with a toggle that happened: a pick refused at the
 // cap leaves it where the last real one was, so the next Shift range starts
 // from a card that is picked.
-function toggleSelected(rec) {
+// `slot`: where a refusal at the cap is said (the lightbox's line for X).
+function toggleSelected(rec, slot = els.galleryError) {
   if (selection.has(rec.id)) selection.delete(rec.id);
-  else if (refuseOverCap(1)) return;
+  else if (refuseOverCap(1, slot)) return;
   else selection.set(rec.id, rec);
   selectAnchor = rec.id;
   syncSelection();
+}
+
+// Picks from the lightbox (UI#33): its menu's Pick/Unpick #N and X toggle the
+// image shown as a card's Space does, so keepers are judged at full size.
+// Held in the recycle bin or on a binned record, whose picks are Restore
+// picked's, and over a shown sheet, whose cells are not picked - tested by
+// sheetMode, since a cell's click opens with no origin. A viewer's or the
+// gallery's lightbox may pick: picks hold across filters.
+function lightboxPickHeld(rec) {
+  if (binMode || rec?.binned_at) return BIN_HELD;
+  if (sheetMode) return SELECT_ON_SHEET;
+  return '';
+}
+
+function lightboxPickTitle(rec) {
+  const why = lightboxPickHeld(rec);
+  if (why) return why;
+  return selection.has(rec.id) ? `Take #${rec.id} out of the picks (X)` : `Add #${rec.id} to the picks for the gallery's actions (X)`;
+}
+
+// What it did is said in the lightbox's line; the count beside Select shows
+// it through syncSelection. Unpicking a member of the Compare picked pair
+// ends the pair and its comparison, as a list change does, and keeps the
+// image and its view; a third pick leaves the pair alone.
+function pickFromLightbox(rec = lbList[lbIndex]) {
+  if (!rec || !els.lightbox.open) return;
+  const say = (text) => showError(text, true, { slot: els.lbError, mirror: false });
+  const why = lightboxPickHeld(rec);
+  if (why) { say(why.endsWith('.') ? why : `${why}.`); return; }
+  const was = selection.has(rec.id);
+  toggleSelected(rec, els.lbError);
+  const now = selection.has(rec.id);
+  if (was === now) return;
+  let ended = '';
+  if (!now && lbPickedPair.some((r) => r.id === rec.id)) {
+    lbPickedPair = [];
+    if (lbCompare.kind === 'picked') setCompare(null);
+    else syncCompare(rec);
+    ended = ' Compare picked has ended.';
+  }
+  say(`#${rec.id} ${now ? 'picked' : 'unpicked'} (${selection.size} picked).${ended}`);
 }
 
 // The loaded cards from the anchor to this one, in the gallery's order, all
@@ -246,14 +288,14 @@ function selectRange(div, { add = true } = {}) {
   return true;
 }
 
-// Said where the gallery says things, before the pick: true where `more`
+// Said where the gallery says things (or `slot`), before the pick: true where `more`
 // would take the selection past the cap (and only what fits is picked).
-function refuseOverCap(more) {
+function refuseOverCap(more, slot = els.galleryError) {
   const cap = selectionCap();
   if (selection.size + more <= cap) return false;
   const left = Math.max(0, cap - selection.size);
   showError(`${cap} images is the most one action takes; ${left ? `only ${left} more were picked` : 'nothing more was picked'}.`,
-    true, { slot: els.galleryError });
+    true, { slot, mirror: slot !== els.lbError });
   return true;
 }
 

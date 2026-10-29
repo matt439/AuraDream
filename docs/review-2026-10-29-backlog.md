@@ -2,8 +2,8 @@
 
 **Status:** written 2026-10-29 for the TODO audit's additions that need no
 plan of their own: `PA#12`, `UI#32`, `UI#33`, `GEN#33`, `GEN#34`, `GAL#23`,
-`GEN#36`, `GEN#38` and `UI#38`. `PA#12` and `UI#32` are built (2026-10-30,
-below); the other seven are OPEN. Matt
+`GEN#36`, `GEN#38` and `UI#38`. `PA#12`, `UI#32` and `UI#33` are built
+(2026-10-30, below); the other six are OPEN. Matt
 approved adding every audit item on 2026-10-29. Each section below covers
 one row: what is missing (preference ids from `docs/design/preferences.md`,
 file:line checked against the source on 2026-10-29), the design and the
@@ -283,6 +283,33 @@ sheet cell among the hosts.
    `smoke-sheet-zoom` still passes.
 
 ## UI#33 Pick from the lightbox
+
+**Status:** done 2026-10-30, stage 1, on `feat/todo-backlog-2026-10-29`.
+The file:line claims below were re-checked; the lightbox's keys are now at
+`web/app.js:729-739` and its menu at `web/context-menu.js:135-201`; the others held before this change.
+Built as designed:
+
+- The key is X, the proposal: taken while Matt was away (2026-10-29),
+  revisit if wanted. It sits with F/R/S/Delete in app.js's lightbox keydown,
+  so it keeps their guards (no Shift, no repeat, never in a field, a menu or
+  with a command modifier).
+- `pickFromLightbox(rec)` (`gallery-select.js`) toggles through
+  `toggleSelected(rec, els.lbError)`; `toggleSelected` and `refuseOverCap`
+  gained the `slot` a cap refusal is said in (the gallery's by default, not
+  mirrored when it is the lightbox's). It says "#N picked (3 picked)." or
+  "#N unpicked (2 picked).", with " Compare picked has ended." where the
+  unpicked image was a member of `lbPickedPair`; the pair is emptied and a
+  picked comparison ended with `setCompare(null)`, the image staying shown.
+- `lightboxPickHeld(rec)` answers `BIN_HELD` in the bin or on a binned
+  record, then `SELECT_ON_SHEET` while `sheetMode`; the key says it in the
+  lightbox's line and `lightboxPickTitle` is the menu item's title. The item,
+  "Pick #N" / "Unpick #N" after Star with the X hint (so its
+  `aria-keyshortcuts` is X), is spread into `imageItems` for the lightbox
+  only, since a falsy entry there is a group's line.
+- The help's Lightbox group has an X row (`web/shortcuts.js`).
+- `smoke-lightbox` and `smoke-select` gained the steps listed below; no
+  pytest was added, since nothing in the backend changed (the classic-script
+  guard covers the edited scripts).
 
 **Evidence.** E12 (pick images or ranges across filters) and F1 (open
 full-size images and browse between them) are Often (`preferences.md:106`,

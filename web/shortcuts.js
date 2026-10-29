@@ -78,6 +78,7 @@ const SHORTCUT_GROUPS = [
     rows: [
       [['Left', 'Right'], 'Browse images, or step through the current picked pair, source passes or comparison values.'],
       [['F', 'R', 'S'], 'Star the image; open Refine; toggle the current comparison.'],
+      [['X'], 'Pick or unpick this image for the gallery\'s actions. Not in the recycle bin or over a contact sheet.'],
       [['M'], 'Open More seeds for this image\'s batch. Opening does not queue images.'],
       [['Delete'], 'Move this image to the recycle bin. In the bin, ask to delete it permanently. Holding the key does not repeat.'],
       [['+', '-'], 'Zoom in or out.'],
