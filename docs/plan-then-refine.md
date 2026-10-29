@@ -602,7 +602,9 @@ each new base followed by its pass. `docs/rules.md` and the design notes'
 
 ## Decision: several strengths per image
 
-**Status: `GEN#39`, DECISION, added 2026-10-29: Matt's yes or no.** Matt
+**Decided 2026-10-29: no.** Matt declined a strength list; one strength stays one strength, and a sweep stays Refine's Compare or one Then refine run per strength. Kept for the record (`GEN#39` retired).
+
+**Was: `GEN#39`, DECISION, added 2026-10-29: Matt's yes or no.** Matt
 took Q2's recommendation on 2026-10-24: "one strength in phase 1, a list in
 phase 3 if wanted - it triples a night's time" (Q2 below). Matt
 rates "Try several strengths or versions" (H4) Often

@@ -143,7 +143,10 @@ existing guards still hold. The browser shows the count, the count must be
 typed back, and `delete_matching` pins it as `expected` (409 on a mismatch).
 `clear` shows its preview and asks for `clear`.
 
-Matt to choose:
+**Decided 2026-10-29: A.** Matt took the recommendation. Stages ship A
+once built; the B note below is historical.
+
+The options were:
 
 - **A (recommended).** Strict scopes accept `-key:value`, which is exact SQL
   with no fuzzy index. They keep refusing `-word`, which goes through FTS

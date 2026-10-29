@@ -191,6 +191,10 @@ The `AURADREAM_QUANT=nunchaku` preflight is the model (AGENTS.md: it
 
 ## Decisions for Matt
 
+**Answered 2026-10-29 (Matt took the proposals):** the name is
+`fp8-dynamic`; the first granularity is PerTensor; `PERF#2` compares only
+fp8 against `fp8-dynamic` on the `PERF#6` fixed cases, not bf16.
+
 1. **Name.** Keep `fp8-dynamic`, which widens `quant:fp8` searches as
    described above, or pick a name without the `fp8` substring.
 2. **First granularity.** The library default PerTensor (proposed), or

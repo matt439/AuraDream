@@ -10,7 +10,7 @@ The maintainer's working backlog for this personal project: it records what is p
 
 **Ready backlog (updated 2026-10-29):** 28 `OPEN` rows. Matt chose `INP#11` stage 4 next ([plan](docs/plan-instruction-editing.md#stages-and-completion-criteria)). The [2026-10-29 audit](docs/review-2026-10-29-todo.md)'s rows follow; start with the defects and Often-feature rows: search exclusion (`GAL#21`), close-watcher holds (`UI#35`), queue estimates (`GEN#32`), negative-box tag suggestions (`PA#12`), sheet-cell menu (`UI#32`), picks from the lightbox (`UI#33`), Re-render at a tier (`GEN#33`), Swap tags Add (`GEN#34`), Finish run's missing passes (`GEN#35`), Compare scales (`UI#34`). The card-session tools (`DEV#20`, `DEV#22`, `DEV#23`, `PERF#6`) shorten later card runs; they don't replace them.
 
-**Decisions for Matt:** `PERF#7` (compilation opt-in, cache location/size, dynamic shapes); `GEN#39` (Then refine strength lists); whether to admit the CPU slices of `GEN#6`, `INP#9` and `INP#10`. `GAL#21` and `PERF#5` carry their own smaller questions in their owners.
+**Decisions for Matt:** none open. On 2026-10-29 Matt took the recommended answers for `PERF#7` (cache beside the gallery, cleared on a torch/Triton/driver change, static shapes; shipping waits on `PERF#1`), `PERF#5`, `GAL#21` and `UI#34`; declined `GEN#39` and unattended backups (`GAL#22`, `GAL#6`); kept `GEN#6`, `INP#9` and `INP#10` deferred.
 
 **Needs Matt's hands or card:** workbench task trials (`DEV#1`), hands-on accessibility/desktop checks (`UI#7`), and every `CARD` row, including the speed qualifications `PERF#1`, `PERF#3` and `PERF#4`. `PERF#2`'s card measurement waits on `PERF#1`'s.
 
@@ -54,11 +54,11 @@ The maintainer's working backlog for this personal project: it records what is p
 
 | id | status | sev | size | item |
 |---|---|---|---|---|
-| `INP#9` | DECISION | LOW | M | Admit the CPU slice (the `mask_crop` contract on the fake)? Phase 6, the masked area only (`padding_mask_crop` at a working size, a recorded `mask_crop`); not on Z-Image, whose class lacks it. Also for large SDXL outpaint canvases. |
-| `INP#10` | DECISION | LOW | M | Admit the CPU slice (the server's fill shown as a model-free image)? Outpaint, later if wanted: the server's fill shown in the frame (kept for later, 2026-10-17), an outpaint over a painted mask, a second fill. |
 | `INP#11` | OPEN | LOW | XL+card | Stages 0-3 done; Matt accepted stage 3's Kontext numbers 2026-10-29 (fits at 14.5 GB, replays, cancels, unloads; edits drift beyond the instruction). Stage 4: expose only the qualified combination, catalogue entry, Re-render/More seeds of edits, carry checks. Real-server load stays +card. [Plan](docs/plan-instruction-editing.md#stages-and-completion-criteria). |
 | `INP#5` | DEFERRED | LOW | M+card | Phase 4, klein: one reference beside the source, its mu recipe, memory with the sequence doubled, `smoke-inpaint-klein`. Matt doesn't run klein. |
 | `INP#6` | DEFERRED | LOW | M+card | Phase 5, Qwen-Image under Nunchaku (WSL), only if the inpaint class runs over the Nunchaku transformer at all. |
+| `INP#9` | DEFERRED | LOW | M | Phase 6, the masked area only (`padding_mask_crop` at a working size, a recorded `mask_crop`); not on Z-Image, whose class lacks it. Also for large SDXL outpaint canvases. |
+| `INP#10` | DEFERRED | LOW | M | Outpaint, later if wanted: the server's fill shown in the frame (kept for later, 2026-10-17), an outpaint over a painted mask, a second fill. |
 | `INP#12` | DEFERRED | LOW | L+card | Face/hand detailer plan written at Matt's request 2026-10-27; implementation unscheduled. First stage qualifies detector code/weight terms, packaging and detection usefulness. [Plan](docs/plan-detailer.md#stages-and-completion-criteria). |
 
 ## Generation, jobs and models
@@ -74,10 +74,9 @@ The maintainer's working backlog for this personal project: it records what is p
 | `GEN#36` | OPEN | LOW | S | Mass refine has no Versions (H4/H5 Often). Add `versions` (1/2/4) as one cell per version at seed+i, the seeds the single dialog's Versions take, so pruning stays per image. versions=1 keeps every key, run id and status. Budget counts images x versions. One strength stays one strength. [Owner](docs/review-2026-10-29-backlog.md#gen36-mass-refine-versions) |
 | `GEN#37` | OPEN | LOW | M | Then refine: More seeds of a then-refine run makes bases only. Read the run's retained spec (from the batch's mates' jobs) and queue each new base with its pass under the same pass run id. Add an opt-out tick in the More seeds dialog and a refusal in words for each batch. [Plan](docs/plan-then-refine.md#phase-5-more-seeds-carries-the-pass). |
 | `GEN#38` | OPEN | LOW | M | The model picker's Speed shows only retained card samples (K2 Often). Add 'This gallery: ~N s at WxH, S steps (median of n)' to the Speed note. It comes from direct Eager renders, read in the /api/models route (model_info stays cold). Labelled as history, offload noted as unrecorded, never sets the category. [Owner](docs/review-2026-10-29-backlog.md#gen38-gallery-timing-in-the-model-picker) |
-| `GEN#6` | DECISION | LOW | M+card | Admit the CPU slice? Fitting the SDXL latent-to-RGB map needs Matt's OK for a cached VAE. Live-preview maps for the four-channel SDXL VAE and FLUX.2's VAE (ERNIE; klein also lacks an unpack hook); previews switch themselves off there. [Behaviour](docs/verified.md#behaviour). |
-| `GEN#39` | DECISION | LOW | — | Then refine with a list of strengths per image (Q2, "if wanted"; H4 Often): Matt's yes or no. A yes multiplies a night's pass time and disk by the length of the list. Run ids for a single strength stay unchanged. [Decision](docs/plan-then-refine.md#decision-several-strengths-per-image). |
 | `GEN#15` | CARD | LOW | S+card | Peak memory per image: phase 3's FLUX.1 Krea [dev] render, the recorded peak beside `nvidia-smi` and shared memory. [Plan](docs/plan-peak-vram.md). |
 | `GEN#16` | CARD | LOW | S+card | Generate then refine: phase 3's FLUX.1 Krea dev night at 1.5x, peak of the alternation and the pair's time. [Plan](docs/plan-then-refine.md). |
+| `GEN#6` | DEFERRED | LOW | M+card | Live-preview maps for the four-channel SDXL VAE and FLUX.2's VAE (ERNIE; klein also lacks an unpack hook); previews switch themselves off there. [Behaviour](docs/verified.md#behaviour). |
 | `GEN#8` | DEFERRED | LOW | L | U61 part B: one's own photo or sketch as a reference (import route, a source marker through storage, reindex and reruns; add, drop and paste). Matt deferred it 2026-10-05; only when he raises it. [References](docs/design-notes.md#reference-images-by-gallery-id). |
 | `GEN#20` | DEFERRED | LOW | L+card | Opt-in A1111 weighting and 77-token chunking on SDXL, deferred by Matt 2026-10-27 because he does not write weighted prompts; revisit on request. [10-24 G10](docs/review-2026-10-24.md#g10-a1111-style-weighting-and-long-prompts-on-sdxl). |
 
@@ -89,11 +88,11 @@ The maintainer's working backlog for this personal project: it records what is p
 |---|---|---|---|---|
 | `PERF#5` | OPEN | MED | S | Plan the fp8-activation choice split from `PERF#2`, from the installed torchao 0.18 source: sm_120 passes its 8.9 gate, AUTO runs `torch._scaled_mm`, no compile needed, silent layer skips, today's `fp8` is PerRow weight-only; per-component `quant_mapping`, `fp8-dynamic` carry, refusal matrix, three questions for Matt. [Plan](docs/plan-fp8-activations.md). |
 | `PERF#6` | OPEN | LOW | S | Fix the shared speed comparison cases before any card run: `tools/perf_cases.py` (Krea dev fp8, 28 steps, CFG 3.5, 1024x1024 and 1360x768, three verbatim author prompts x seeds 4471/8823) plus `tests/test_perf_cases.py` (`applied()` unchanged, recipe-only key difference, `--dry-run` counts, nonempty recipe refused). [Cases](docs/plan-step-caching.md#fixed-comparison-cases). |
-| `PERF#7` | DECISION | LOW | — | Matt's compilation questions: after the card, does the restricted Regional v1 experiment ship, through the Models choice that already lists it (held) or the CLI/env only; compiler-cache location; cache size policy; dynamic shapes for a later recipe. The dependency pin is settled (`DEV#8`). [Questions](docs/plan-regional-compilation.md#matts-questions). |
 | `PERF#1` | CARD | MED | L+card | Qualify toolchain/cache and the card; source, bounded diagnostics presentation and Windows browser smokes are done. Public nonempty admission stays closed. [Plan](docs/plan-regional-compilation.md). |
 | `PERF#3` | CARD | LOW | M+card | Qualify Native/cuDNN speed, fit and repeatability. Public nonempty admission remains closed. [Plan](docs/plan-attention-backends.md). |
 | `PERF#4` | CARD | LOW | L+card | Run the fixed off/on quality, time and memory comparisons, then judge the pairs. Public caching remains closed. [Plan](docs/plan-step-caching.md). |
 | `PERF#2` | BLOCKED | LOW | M+card | The card measurement of a quantization choice with fp8 activations (torchao `Float8DynamicActivationFloat8WeightConfig`); waits on `PERF#1`'s card qualification, and its CPU plan is `PERF#5`. [10-25 R2](docs/review-2026-10-25.md#r2-fp8-with-fp8-activations). |
+| `PERF#7` | BLOCKED | LOW | — | Whether the compiled mode ships waits on `PERF#1`'s card table; Matt leans to an opt-in Models choice with Eager the default if it pays off. Cache location, size policy and static shapes are decided. [Questions](docs/plan-regional-compilation.md#matts-questions). |
 
 ## Gallery and storage
 
@@ -101,7 +100,7 @@ The maintainer's working backlog for this personal project: it records what is p
 
 | id | status | sev | size | item |
 |---|---|---|---|---|
-| `GAL#21` | OPEN | MED | M | Gallery search has no exclusion: `-word` reaches FTS as the phrase "word" and returns the images meant to be dropped (E5/E9). Read `-word` as NOT MATCH and `-key:value` as the complement, keeping NULL rows. Mirror it in `mergeSearch`/`searchKey`; keep old saved searches readable. Strict scopes keep refusing exclusions until Matt chooses ([decision](docs/plan-search-exclusion.md#decision-strict-scopes)). [Plan](docs/plan-search-exclusion.md#stages-and-completion-criteria) |
+| `GAL#21` | OPEN | MED | M | Gallery search has no exclusion: `-word` reaches FTS as the phrase "word" and returns the images meant to be dropped (E5/E9). Read `-word` as NOT MATCH and `-key:value` as the complement, keeping NULL rows. Mirror it in `mergeSearch`/`searchKey`; keep old saved searches readable. Strict scopes accept `-key:value` and refuse `-word` (Matt, 2026-10-29; [decision](docs/plan-search-exclusion.md#decision-strict-scopes)). [Plan](docs/plan-search-exclusion.md#stages-and-completion-criteria) |
 | `GAL#23` | OPEN | LOW | S | A search that finds nothing does not say that a mistyped key such as `sed:42` was searched as prompt words (E5/E9 Often). syncGalleryEmpty names a near SEARCH_KEYS match and offers 'Search seed:42' (no scroll), in the bin too. No change to head height. [Owner](docs/review-2026-10-29-backlog.md#gal23-mistyped-search-keys) |
 | `GAL#24` | OPEN | LOW | S | Bin cards do not show their age, although binned_at drives the age-scoped Empty (F5 follow-up). Add 'binned N days ago' (whole days, rounded down) to the card's hover/focus caption and its accessible name, with no new line and no layout change. [F5 follow-up](docs/review-2026-10-12.md#f5-follow-up-bin-card-age-gal24) |
 

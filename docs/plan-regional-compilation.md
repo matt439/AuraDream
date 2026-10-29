@@ -877,6 +877,12 @@ not implied acceptance from the first checkpoint's result.
 
 ### Matt's questions
 
+**Answered 2026-10-29 (Matt took the recommendations):** 1 waits on the
+`PERF#1` card table; if the numbers pay off, Matt leans to (a), an opt-in
+Models choice with Eager the default. 2: keep the cache beside the gallery
+database, as built. 3: (c), clear it when torch, Triton or the driver
+changes. 4: static shapes stay. Only question 1 remains, blocked on the card.
+
 **Status, 2026-10-29: `PERF#7` DECISION** (TODO audit, approved by Matt).
 These are Matt's choices. No agent answers them, and nothing below changes
 a default. Questions 2 to 4 can be answered now. Question 1 waits for the

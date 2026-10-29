@@ -215,6 +215,9 @@ inputs with `submission.refuse_unusable_inputs`. In `web/`, only `grid-preview.j
 
 ### Design
 
+**Decided 2026-10-29:** factors past the tight line are left out, not
+offered with a warning (Matt took the recommendation).
+
 - **One button, no new row.** Add a "Compare scales" ghost button to the
   existing scale group's row (`#refine-scales`, `web/index.html:1161`), in
   the same style as Compare 3 (`#refine-compare`, `:1202`). A press marks
