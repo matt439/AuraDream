@@ -44,7 +44,8 @@ pytestmark = pytest.mark.skipif(
 
 def _env(temp: Path) -> dict[str, str]:
     # os.tmpdir() reads TMPDIR on Linux and macOS, TEMP then TMP on Windows.
-    return {**os.environ, "TMPDIR": str(temp), "TEMP": str(temp), "TMP": str(temp)}
+    return {**os.environ, "TMPDIR": str(temp), "TEMP": str(temp), "TMP": str(temp),
+            "AURADREAM_BROWSER_DIAGNOSTICS": "1"}
 
 
 @pytest.fixture

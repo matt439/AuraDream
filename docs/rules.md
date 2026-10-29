@@ -5673,6 +5673,13 @@ Frontend and CLI:
 
 ## Tests
 
+`tests/test_browser_startup_wait.py` drives actual harness startup with inert
+filesystem/process ports and virtual sleeps: delayed readiness, bounded
+absence and diagnostic early exit, including actual cleanup. Profile tests
+enable the existing bounded startup diagnostics. The publication repair and
+its original/positive evidence are owned by
+`docs/review-2026-10-29-ci-browser-startup.md`.
+
 `tests/test_check_dismissal.py` exercises actual Check/Close/Escape/render,
 stale-write, clear/supersession and critic-precheck handlers on inert DOM/API
 ports. Accepted results remain cached while dismissed, with existing button

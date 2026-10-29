@@ -340,7 +340,9 @@ const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
 let failures = 0;
 
 async function target() {
-  for (let i = 0; i < 75; i++) {
+  // Cold Chromium startup can outlast 15 s while CPU tests share a runner.
+  // Keep the same readiness/cleanup contract, with a bounded 30 s polling allowance.
+  for (let i = 0; i < 150; i++) {
     if (STARTUP_DIAGNOSTICS && exited) throw new Error('the browser exited before DevTools was ready');
     try {
       const port = Number(readFileSync(`${PROFILE}/DevToolsActivePort`, 'utf8').split('\n')[0]);
