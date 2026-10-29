@@ -556,6 +556,41 @@ acceptance on 2026-10-27:
 
 Nothing here measures a model, its pixels, its fit or its timing.
 
+## Stage 4: the qualified first slice, 2026-10-29
+
+Matt approved stage 4 with its defaults: release for 1:1 sources only, at
+512x512, on Windows with fp8, model offload and Eager. Everything else stays
+refused with words. It lands as local slices, each with ruff, the type gate
+and the full suite green.
+
+**The envelope.** `instruction_edit.QUALIFIED_ENVELOPE` records what stage 3
+measured, and nothing wider:
+
+- the exact id `black-forest-labs/FLUX.1-Kontext-dev` at `KONTEXT_V1.revision`,
+  recipe `kontext-v1`;
+- fp8, model offload, a CUDA device, `sys.platform == "win32"`, Eager (no
+  loader recipe, attention or cache override) and diffusers 0.40.0;
+- a 1:1 source aspect, rendering at 512x512. Aspect, not source size, is the
+  qualified dimension: a 256x256 and a 1024x1024 source both render at 512x512.
+
+Batch 1, no LoRA and no references are already the edit request's schema rules.
+
+**Slice 1 (built): the envelope as pure data.** `loader_refusal(...)` names
+the first unmeasured choice (`INSTRUCTION_EDIT_LOADER_UNQUALIFIED`), and
+`geometry_refusal(...)` the unmeasured aspect and its size
+(`INSTRUCTION_EDIT_ASPECT_UNQUALIFIED`). Every fact is passed in;
+`installed_diffusers_version()` reads `importlib.metadata` without importing
+diffusers. Nothing calls them yet, and `instruction_edit_qualified()` stays a
+literal. `geometry()`, its frozen table, `applied()`, `CellKey`, run ids and
+the PNG chunk are unchanged, so a stored 3:2 edit still binds and inspects.
+The tests are in `test_instruction_edit_envelope.py`: the refusal matrix, the
+seven aspects, the unchanged table, the pinned edit key and run id, and a cold
+import.
+
+The later slices put the envelope in the edit routes and job rechecks, refuse
+unmeasured Kontext choices at every load entry, add the pinned loader and the
+catalogue entry, open the real gate, and release More seeds of edits.
+
 ## Stages and completion criteria
 
 | Stage | Bounded work | Completion evidence |

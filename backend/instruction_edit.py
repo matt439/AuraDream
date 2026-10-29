@@ -8,17 +8,22 @@ unqualified. Execution opens only where a caller passes
 ``instruction_edit_qualified()`` - never a setting. The real diffusers
 backend answers False pending release review and integration, so its load and
 execution stay closed; only test and fake stand-ins can open the seam.
+``QUALIFIED_ENVELOPE`` records what the card measured (stage 4): pure data
+and refusal words, which no caller consults yet.
 """
 from __future__ import annotations
 
 import hashlib
 import json
 from dataclasses import dataclass
+from importlib import metadata
 from math import gcd
 from typing import Annotated, Literal
 
 from PIL import Image
 from pydantic import BaseModel, ConfigDict, Field, field_validator, model_validator
+
+from .execution import canonical_loader_execution
 
 
 RecipeName = Literal["kontext-v1"]
@@ -267,6 +272,124 @@ def prepare_source(image: Image.Image, resolved: InstructionEditGeometry | None 
         raise ValueError("the instruction-edit source dimensions changed after geometry was resolved")
     with image.convert("RGB") as rgb:
         return rgb.resize(actual.working_size, resample=Image.Resampling.LANCZOS)
+
+
+@dataclass(frozen=True)
+class QualifiedEnvelope:
+    """What stage 3 measured on this card, and nothing wider.
+
+    Data only: nothing here opens the gate, and nothing here reaches
+    ``applied()``, a ``CellKey``, a run id or the PNG chunk, so stored rows
+    of an unqualified shape still bind and inspect. Batch 1 and no LoRA or
+    references are already the edit request's own schema rules.
+    """
+    model_id: str
+    revision: str
+    recipe: RecipeName
+    quantization: str
+    offload: str
+    devices: tuple[str, ...]
+    platform: str
+    diffusers_version: str
+    # Reduced source aspects and the working sizes they render at.
+    sizes: tuple[tuple[tuple[int, int], tuple[int, int]], ...]
+
+
+QUALIFIED_ENVELOPE = QualifiedEnvelope(
+    model_id=KONTEXT_V1.model_id,
+    revision=KONTEXT_V1.revision,
+    recipe=KONTEXT_V1.name,
+    quantization="fp8",
+    offload="model",
+    devices=("cuda", "cuda:0"),
+    platform="win32",
+    diffusers_version="0.40.0",
+    sizes=(((1, 1), (512, 512)),),
+)
+
+INSTRUCTION_EDIT_LOADER_UNQUALIFIED = (
+    "FLUX.1 Kontext [dev] is qualified on this card only at fp8 with model offload "
+    "on Windows, Eager; {choice} is not measured."
+)
+INSTRUCTION_EDIT_ASPECT_UNQUALIFIED = (
+    "Only square sources are qualified for instruction editing (512x512); "
+    "this {a}:{b} source would render at {w}x{h}, which is not measured."
+)
+
+_QUANTIZATION_WORDS = {"int8": "int8 quantization", "none": "BF16 (no quantization)", "nunchaku": "Nunchaku 4-bit"}
+_OFFLOAD_WORDS = {"sequential": "sequential offload", "none": "no offload"}
+_PLATFORM_WORDS = {"linux": "Linux (WSL)", "darwin": "macOS"}
+
+
+def installed_diffusers_version() -> str | None:
+    """The installed distribution's version, read without importing diffusers."""
+    try:
+        return metadata.version("diffusers")
+    except metadata.PackageNotFoundError:
+        return None
+
+
+def _loader_execution_words(value: object) -> str | None:
+    """The unmeasured part of a loader recipe, or None for plain Eager."""
+    try:
+        spec = canonical_loader_execution(value)
+    except (ValueError, TypeError):
+        return "an unreadable performance configuration"
+    if spec is None:
+        return None
+    words = []
+    if spec.compilation is not None:
+        words.append(f"{spec.compilation} compilation")
+    if spec.attention_backend is not None:
+        words.append(f"{spec.attention_backend} attention")
+    return " with ".join(words)
+
+
+def loader_refusal(
+    model_id: str, *, quantization: str, offload: str, device: str, platform: str,
+    loader_execution: object, diffusers_version: str | None,
+) -> str | None:
+    """Why this loading combination is outside the measured envelope, or None.
+
+    Pure: every fact is passed in (``installed_diffusers_version()`` and
+    ``sys.platform`` are the callers' to read). The first unmeasured choice
+    is named; this never answers whether the backend's gate is open.
+    """
+    envelope = QUALIFIED_ENVELOPE
+    if model_id != envelope.model_id:
+        choice = f"the checkpoint {model_id!r}"
+    elif quantization != envelope.quantization:
+        choice = _QUANTIZATION_WORDS.get(quantization, f"quantization {quantization!r}")
+    elif offload != envelope.offload:
+        choice = _OFFLOAD_WORDS.get(offload, f"offload {offload!r}")
+    elif device not in envelope.devices:
+        choice = f"the device {device!r}"
+    elif platform != envelope.platform:
+        choice = _PLATFORM_WORDS.get(platform, f"the platform {platform!r}")
+    elif (execution := _loader_execution_words(loader_execution)) is not None:
+        choice = execution
+    elif diffusers_version != envelope.diffusers_version:
+        choice = "a missing diffusers" if diffusers_version is None else f"diffusers {diffusers_version}"
+    else:
+        return None
+    return INSTRUCTION_EDIT_LOADER_UNQUALIFIED.format(choice=choice)
+
+
+def geometry_refusal(resolved: InstructionEditGeometry) -> str | None:
+    """Why a frozen-table geometry is outside the measured sizes, or None.
+
+    ``geometry()`` itself stays the whole frozen table: a stored 3:2 edit
+    still binds and inspects, it is only not run.
+    """
+    if not isinstance(resolved, InstructionEditGeometry):
+        raise TypeError("geometry_refusal needs a resolved InstructionEditGeometry")
+    divisor = gcd(resolved.source_width, resolved.source_height)
+    aspect = resolved.source_width // divisor, resolved.source_height // divisor
+    if (aspect, resolved.working_size) in QUALIFIED_ENVELOPE.sizes:
+        return None
+    return INSTRUCTION_EDIT_ASPECT_UNQUALIFIED.format(
+        a=aspect[0], b=aspect[1], w=resolved.width, h=resolved.height,
+    )
 
 
 def require_execution_available(spec: object, *, qualified: bool = False) -> None:
