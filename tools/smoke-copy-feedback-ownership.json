@@ -1,0 +1,187 @@
+[
+  {
+    "log": "\"UI30: fresh FLUX fake7950, actual two planted other-model rows, GET-only guard. Every copy uses a verified synthetic clipboard installed before any copy; no OS clipboard, Ctrl+C, execCommand, permissions or native clipboard fallback. Physical menu choices/navigation; labeled programmatic setup/sentinels/replies.\""
+  },
+  {
+    "navigate": "http://127.0.0.1:7950/"
+  },
+  {
+    "viewport": [
+      1400,
+      1000
+    ]
+  },
+  {
+    "expect": "(async () => {\n  const until = async (fn, ms = 20000) => {\n    const end = Date.now() + ms;\n    while (Date.now() < end) { if (await fn()) return true; await new Promise(resolve => setTimeout(resolve,40)); }\n    return false;\n  };\n  const assert = (value, why) => { if (!value) throw Error(why); };\n  assert(await until(() => loadedModel === 'black-forest-labs/FLUX.1-Krea-dev'\n    && !galleryPending && !jobListing && !busy && !submitting && !els.allModels.checked), 'fresh cold FLUX page did not settle');\n  const q = window.__copyFeedback = { until, assert, calls: [], grants: [], forbidden: [], errors: [],\n    native: window.fetch.bind(window), press: null, changes: [] };\n  const deny = name => { q.forbidden.push(name); throw Error('UI30 synthetic fixture refused ' + name); };\n  q.port = Object.freeze({\n    writeText(text) {\n      const grant = q.grants.find(item => !item.seen);\n      assert(grant && grant.text === text, 'copy lacked its exact one-use synthetic text grant');\n      assert(q.press?.isTrusted\n        && q.press.target.closest('[role=\"menuitem\"]')?.dataset.ui30 === grant.name,\n        'clipboard write did not start synchronously inside its exact physical menu choice');\n      grant.seen = true; grant.trusted = true;\n      q.calls.push({ name: grant.name, text, trusted: true });\n      return grant.promise;\n    },\n    write: () => deny('picture clipboard write'), read: () => deny('clipboard read'), readText: () => deny('clipboard readText'),\n  });\n  // Programmatic port installation does not read, preserve or restore native clipboard contents.\n  Object.defineProperty(navigator, 'clipboard', { configurable: true, value: q.port });\n  assert(navigator.clipboard === q.port && Object.getOwnPropertyDescriptor(navigator,'clipboard').value === q.port\n    && Object.isFrozen(q.port) && q.calls.length === 0, 'synthetic clipboard installation did not verify before copying');\n  document.execCommand = () => deny('execCommand');\n  window.ClipboardItem = function () { return deny('native ClipboardItem'); };\n  // Observe the actual trusted chooser call, not microtask timing between\n  // native capture/bubble listeners. The original product action runs intact.\n  const chooseCopy = chooseContextItem;\n  chooseContextItem = function (li) {\n    const event = window.event;\n    assert(event?.type === 'click' && event.isTrusted\n      && event.target?.closest('[role=\"menuitem\"]') === li,\n      'copy chooser did not receive its actual trusted menu click');\n    q.press = event;\n    try { return chooseCopy.call(this, li); }\n    finally { q.press = null; }\n  };\n  addEventListener('error', event => q.errors.push(event.message));\n  addEventListener('unhandledrejection', event => q.errors.push(String(event.reason)));\n  q.arm = (name, text) => {\n    assert(!q.grants.some(item => item.name === name), 'duplicate synthetic copy grant');\n    let resolve,reject;\n    const promise = new Promise((yes,no) => { resolve = yes; reject = no; });\n    q.grants.push({ name,text,promise,resolve,reject,seen:false,settled:false });\n  };\n  q.finish = (name, error = false) => {\n    const grant = q.grants.find(item => item.name === name);\n    assert(grant?.seen && !grant.settled, 'synthetic completion was unused or duplicate');\n    grant.settled = true;\n    if (error) grant.reject(Error('synthetic UI30 copy refusal')); else grant.resolve();\n  };\n  q.tag = (label, tag) => {\n    assert(!els.contextMenu.hidden, 'physical context menu did not open');\n    const item = [...els.contextMenu.querySelectorAll('[role=\"menuitem\"]')]\n      .find(item => item.firstElementChild?.textContent === label);\n    assert(item && item.getAttribute('aria-disabled') !== 'true', 'requested copy item absent or held');\n    item.dataset.ui30 = tag; // Programmatic selector annotation only; the following choice is physical.\n  };\n  q.note = text => showError(text,true,{ slot:els.lbError,mirror:false }); // Labeled unrelated-message sentinel.\n  q.read = async path => {\n    const url = new URL(path,location.href);\n    assert(url.origin === location.origin && url.pathname.startsWith('/api/'), 'fixture GET escaped same-origin API');\n    const response = await q.native(url.href,{ method:'GET' });\n    assert(response.ok, 'actual fixture GET failed ' + url.pathname); return response.json();\n  };\n  window.fetch = (input,options) => {\n    const url = new URL(typeof input === 'string' ? input : input.url,location.href);\n    const method = String(options?.method ?? (typeof input === 'string' ? 'GET' : input.method) ?? 'GET').toUpperCase();\n    if (url.origin !== location.origin || method !== 'GET') return deny(method + ' ' + url.pathname);\n    return q.native(input,options);\n  };\n  q.pngs = async () => Promise.all(q.rows.map(async row => {\n    const response = await q.native(row.url,{ method:'GET',cache:'no-store' });\n    assert(response.ok && response.headers.get('Content-Type')?.includes('image/png'), 'owned PNG GET failed');\n    const bytes = await response.arrayBuffer();\n    const hash = [...new Uint8Array(await crypto.subtle.digest('SHA-256',bytes))].map(n=>n.toString(16).padStart(2,'0')).join('');\n    return { id:row.id,size:bytes.byteLength,hash };\n  }));\n  const page = await q.read('/api/gallery?all_models=true&limit=20');\n  q.rows = [...page.items].sort((a,b)=>a.id-b.id);\n  assert(page.total === 2 && q.rows.length === 2 && q.rows.every(row => row.job_id === 'planted'\n    && row.run_id === 'planted' && row.model_id === 'krea/Krea-2-Turbo'), 'fixture is not exactly the two actual planted rows');\n  assert((await q.read('/api/jobs?include_finished=true')).length === 0 && !currentJob\n    && queuedIds.length === 0 && submissions.size === 0, 'fixture was not idle');\n  q.recordBefore = JSON.stringify(q.rows); q.pngBefore = JSON.stringify(await q.pngs());\n  q.panelBefore = JSON.stringify(setupComposerState());\n  const onchange = els.allModels.onchange;\n  els.allModels.onchange = function (...args) {\n    q.changes.push({ trusted:args[0]?.isTrusted, checked:this.checked }); return onchange.apply(this,args);\n  };\n  return true;\n})()",
+    "fatal": true
+  },
+  {
+    "click": "#all-models-label"
+  },
+  {
+    "expect": "(async () => { const q = __copyFeedback;\nq.assert(await q.until(() => els.allModels.checked && !galleryPending && galleryRecords.length === 2), 'physical All models did not reveal planted rows');\nq.assert(q.changes.length === 1 && q.changes[0].trusted && q.changes[0].checked, 'All models was not a native setup press');\nconst cards = [...document.querySelectorAll('#gallery .card[data-id]')];\nq.assert(cards.length === 2, 'actual planted cards missing');\ncards[0].dataset.ui30 = 'a'; cards[1].dataset.ui30 = 'b';\nq.a = galleryRecords.find(row=>row.id===+cards[0].dataset.id); q.b = galleryRecords.find(row=>row.id===+cards[1].dataset.id);\nq.assert(q.a && q.b && q.a.id !== q.b.id, 'source rows not bound to actual native card order');\nreturn true; })()",
+    "fatal": true
+  },
+  {
+    "click": "#gallery .card[data-ui30=\"a\"] > img"
+  },
+  {
+    "expect": "(async () => { const q = __copyFeedback;\nq.assert(await q.until(() => els.lightbox.open && lbList[lbIndex]?.id === q.a.id), 'physical card did not open A'); q.arm('walk-late',q.a.prompt);\nreturn true; })()",
+    "fatal": true
+  },
+  {
+    "rightclick": "#lb-img"
+  },
+  {
+    "expect": "(async () => { const q = __copyFeedback;\nq.tag(\"Copy prompt\", \"walk-late\");\nreturn true; })()",
+    "fatal": true
+  },
+  {
+    "click": "#context-menu [data-ui30=\"walk-late\"]"
+  },
+  {
+    "expect": "(async () => { const q = __copyFeedback;\nq.assert(q.calls.length === 1 && q.calls[0].name === 'walk-late' && els.contextMenu.hidden, 'first native copy was not one synchronous synthetic write');\nreturn true; })()",
+    "fatal": true
+  },
+  {
+    "click": "#lb-next"
+  },
+  {
+    "expect": "(async () => { const q = __copyFeedback;\nq.assert(lbList[lbIndex]?.id === q.b.id, 'physical next did not inspect B'); q.note('B unrelated inspection message'); q.walkNode=els.lbError.firstChild; q.finish('walk-late'); await Promise.resolve(); await Promise.resolve(); q.assert(els.lbError.textContent === 'B unrelated inspection message' && els.lbError.firstChild === q.walkNode, 'A late success replaced B feedback'); q.arm('settled-seed',String(q.b.seed));\nreturn true; })()",
+    "fatal": true
+  },
+  {
+    "rightclick": "#lb-img"
+  },
+  {
+    "expect": "(async () => { const q = __copyFeedback;\nq.tag(\"Copy seed\", \"settled-seed\");\nreturn true; })()",
+    "fatal": true
+  },
+  {
+    "click": "#context-menu [data-ui30=\"settled-seed\"]"
+  },
+  {
+    "expect": "(async () => { const q = __copyFeedback;\nq.finish('settled-seed'); q.assert(await q.until(()=>els.lbError.textContent==='Seed copied'), 'current B seed success missing');\nreturn true; })()",
+    "fatal": true
+  },
+  {
+    "click": "#lb-prev"
+  },
+  {
+    "expect": "(async () => { const q = __copyFeedback;\nq.assert(lbList[lbIndex]?.id === q.a.id && els.lbError.hidden && els.lbError.textContent === '', 'settled copy note survived native walk'); q.arm('older-error',String(q.a.seed));\nreturn true; })()",
+    "fatal": true
+  },
+  {
+    "rightclick": "#lb-img"
+  },
+  {
+    "expect": "(async () => { const q = __copyFeedback;\nq.tag(\"Copy seed\", \"older-error\");\nreturn true; })()",
+    "fatal": true
+  },
+  {
+    "click": "#context-menu [data-ui30=\"older-error\"]"
+  },
+  {
+    "expect": "(async () => { const q = __copyFeedback;\nq.arm('newer-success',q.a.prompt);\nreturn true; })()",
+    "fatal": true
+  },
+  {
+    "rightclick": "#lb-img"
+  },
+  {
+    "expect": "(async () => { const q = __copyFeedback;\nq.tag(\"Copy prompt\", \"newer-success\");\nreturn true; })()",
+    "fatal": true
+  },
+  {
+    "click": "#context-menu [data-ui30=\"newer-success\"]"
+  },
+  {
+    "expect": "(async () => { const q = __copyFeedback;\nq.finish('newer-success'); q.assert(await q.until(()=>els.lbError.textContent==='Prompt copied'), 'latest copy success missing'); q.latestNode=els.lbError.firstChild; q.finish('older-error',true); await Promise.resolve(); await Promise.resolve(); q.assert(els.lbError.textContent==='Prompt copied' && els.lbError.firstChild===q.latestNode, 'older copy error overrode latest copy'); q.note('Prompt copied'); q.sameTextNode=els.lbError.firstChild; q.assert(q.sameTextNode!==q.latestNode,'actual showError did not replace identical text node');\nreturn true; })()",
+    "fatal": true
+  },
+  {
+    "click": "#lb-next"
+  },
+  {
+    "expect": "(async () => { const q = __copyFeedback;\nq.assert(lbList[lbIndex]?.id===q.b.id && !els.lbError.hidden && els.lbError.textContent==='Prompt copied' && els.lbError.firstChild===q.sameTextNode, 'retirement cleared newer identical-word feedback');\nreturn true; })()",
+    "fatal": true
+  },
+  {
+    "click": "#lb-prev"
+  },
+  {
+    "expect": "(async () => { const q = __copyFeedback;\nq.assert(lbList[lbIndex]?.id===q.a.id, 'return to A failed'); q.arm('reopen-late',q.a.prompt);\nreturn true; })()",
+    "fatal": true
+  },
+  {
+    "rightclick": "#lb-img"
+  },
+  {
+    "expect": "(async () => { const q = __copyFeedback;\nq.tag(\"Copy prompt\", \"reopen-late\");\nreturn true; })()",
+    "fatal": true
+  },
+  {
+    "click": "#context-menu [data-ui30=\"reopen-late\"]"
+  },
+  {
+    "click": "#lb-close"
+  },
+  {
+    "expect": "(async () => { const q = __copyFeedback;\nq.assert(!els.lightbox.open,'physical Close failed');\nreturn true; })()",
+    "fatal": true
+  },
+  {
+    "click": "#gallery .card[data-ui30=\"a\"] > img"
+  },
+  {
+    "expect": "(async () => { const q = __copyFeedback;\nq.assert(await q.until(()=>els.lightbox.open && lbList[lbIndex]?.id===q.a.id),'physical same-A reopen failed'); q.note('Fresh same-A session'); q.reopenNode=els.lbError.firstChild; q.finish('reopen-late',true); await Promise.resolve(); await Promise.resolve(); q.assert(els.lbError.textContent==='Fresh same-A session' && els.lbError.firstChild===q.reopenNode, 'old error survived same-record reopen');\nreturn true; })()",
+    "fatal": true
+  },
+  {
+    "click": "#lb-close"
+  },
+  {
+    "rightclick": "#gallery .card[data-ui30=\"a\"] > img"
+  },
+  {
+    "expect": "(async () => { const q = __copyFeedback;\nq.tag('Copy seed','card-error'); q.arm('card-error',String(q.a.seed));\nreturn true; })()",
+    "fatal": true
+  },
+  {
+    "click": "#context-menu [data-ui30=\"card-error\"]"
+  },
+  {
+    "click": "#gallery .card[data-ui30=\"b\"] > img"
+  },
+  {
+    "expect": "(async () => { const q = __copyFeedback;\nq.assert(await q.until(()=>els.lightbox.open && lbList[lbIndex]?.id===q.b.id),'physical B open failed'); q.note('B modal note before card failure'); q.cardNode=els.lbError.firstChild; q.finish('card-error',true); q.assert(await q.until(()=>els.galleryError.textContent.includes('synthetic UI30 copy refusal')),'card failure did not report locally'); q.assert(els.lbError.textContent==='B modal note before card failure' && els.lbError.firstChild===q.cardNode,'card failure mirrored over B'); const local=document.querySelector('#gallery .card[data-ui30=\"a\"] > .card-note'); q.assert(local?.textContent==='Copy failed' && local.getAttribute('aria-hidden')==='true' && !local.hasAttribute('role'),'card failure duplicated announcement'); q.arm('current-error',q.b.prompt);\nreturn true; })()",
+    "fatal": true
+  },
+  {
+    "rightclick": "#lb-img"
+  },
+  {
+    "expect": "(async () => { const q = __copyFeedback;\nq.tag(\"Copy prompt\", \"current-error\");\nreturn true; })()",
+    "fatal": true
+  },
+  {
+    "click": "#context-menu [data-ui30=\"current-error\"]"
+  },
+  {
+    "expect": "(async () => { const q = __copyFeedback;\nq.finish('current-error',true); q.assert(await q.until(()=>els.lbError.textContent==='Could not copy: synthetic UI30 copy refusal.' && !els.lbError.hidden), 'current lightbox error missing'); q.assert(q.calls.length===7 && q.grants.every(grant=>grant.seen && grant.settled && grant.trusted),'synthetic calls/grants were skipped, duplicated or untrusted');\nreturn true; })()",
+    "fatal": true
+  },
+  {
+    "shot": "ui30-copy-feedback-current-error.png"
+  },
+  {
+    "click": "#lb-close"
+  },
+  {
+    "expect": "(async () => { const q = __copyFeedback;\nq.assert(!els.lightbox.open && els.contextMenu.hidden,'final physical close did not settle');\nconst after=await q.read('/api/gallery?all_models=true&limit=20');\nq.assert(after.total===2 && JSON.stringify([...after.items].sort((a,b)=>a.id-b.id))===q.recordBefore,'GET-only copy fixture changed actual rows');\nq.assert(JSON.stringify(await q.pngs())===q.pngBefore,'copy fixture changed PNG bytes');\nq.assert((await q.read('/api/jobs?include_finished=true')).length===0 && !currentJob && queuedIds.length===0\n  && submissions.size===0 && !busy && !submitting && !sheetMode && !binMode && selectedIds().length===0,'copy fixture queued work or changed selections/view');\nq.assert(JSON.stringify(setupComposerState())===q.panelBefore && els.search.value==='', 'copy fixture changed composer/seed/search');\nq.assert(navigator.clipboard===q.port && q.calls.length===7 && q.forbidden.length===0 && q.errors.length===0,\n  'fixture escaped synthetic clipboard/GET-only boundary or raised errors');\nreturn true; })()",
+    "fatal": true
+  },
+  {
+    "shot": "ui30-copy-feedback-gallery.png"
+  }
+]

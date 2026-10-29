@@ -5575,7 +5575,16 @@ Frontend and CLI:
   (`showRecordRun`, the card's ⊞), Copy prompt, Copy seed, Copy image (the
   full PNG through `ClipboardItem`, the fetch handed over as a promise) and
   Open PNG in new tab; the copy items are held where the page is no secure
-  context. A picked card, in select mode or out of it, gets the picks' items instead (the
+  context. Copy feedback belongs to the latest press on its original host.
+  A lightbox walk, close or fresh open retires it, even on reopening the same
+  record; a harmless same-record redraw keeps it. Only a copy's still-owned
+  message is cleared: a newer text node survives even if its words match.
+  A card/result refusal is announced in the gallery without mirroring into
+  an unrelated modal image. The existing clipboard write starts once inside
+  the press, with no retry or preflight await; PNG handoff stays unchanged.
+  This is feedback ownership, not a clipboard ordering/permission guarantee
+  (`UI#30`; the dated copy-feedback review owns qualification).
+  A picked card, in select mode or out of it, gets the picks' items instead (the
   Picked menu's three, Swap tags…, Refine…, More seeds…). One `ul.menu`,
   moved into the lightbox while that is up (a modal dialog leaves the page
   inert), fixed at the pointer and turned up or left at the window's edge.
@@ -8266,6 +8275,19 @@ key code, so a focused select moves as on a real press:
 uv run python tools/fake_server.py --port 7907 --model cagliostrolab/animagine-xl-4.0 --data <new-scratch-directory>
 node tools/browser.mjs tools/smoke-outpaint.json
 ```
+
+`tests/test_copy_feedback_ownership.py` loads the actual menu/lightbox
+declarations and actual feedback functions on inert DOM and synthetic
+clipboard ports. Deferred completions cover navigation, same-record reopen,
+latest-copy ordering, local card errors, owned-text-node cleanup and unchanged
+once-per-press payload invocation; no OS clipboard or browser is involved.
+`smoke-copy-feedback-ownership.json` uses fresh FLUX fake 7950 with the two
+actual planted other-model rows, GET-only admission and a verified synthetic
+clipboard installed before every copy action. Physical menu choices and
+lightbox controls exercise those ownership boundaries. Programmatic setup,
+message sentinels and controlled promise replies are labeled explicitly.
+Rows/PNG bytes, jobs and composer stay unchanged. Native clipboard permissions
+and integration remain outside this evidence; see the dated UI#30 owner.
 
 `smoke-context-menu.json` checks the right-click menu on a FLUX.1 Krea
 [dev] fake on 7908 with a fresh `--data`: a card's menu at the pointer, its

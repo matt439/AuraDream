@@ -500,6 +500,7 @@ uses the driver's graceful close/cleanup. See the full Tests rules.
 | 7947 | FLUX.1-Krea-dev, fresh scratch `--data` | `smoke-runs-scope-recovery` |
 | 7948 | default, fresh scratch `--data` | `smoke-grid-preview-close` |
 | 7949 | FLUX.1-Krea-dev, fresh scratch `--data` | `smoke-runs-favorite-counts` |
+| 7950 | FLUX.1-Krea-dev, fresh scratch `--data` | `smoke-copy-feedback-ownership` |
 
 FLUX.1-Krea-dev is `black-forest-labs/FLUX.1-Krea-dev`; animagine is
 `cagliostrolab/animagine-xl-4.0`.

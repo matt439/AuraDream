@@ -56,17 +56,58 @@ function syncedItem(label, sync, run, hint = '') {
 
 const CLIPBOARD_NONE = 'The browser opens the clipboard only to a page at 127.0.0.1 or localhost';
 
-function copyItem(label, title, write, host, said) {
+// Clipboard completion owns feedback only, never the clipboard's actual order.
+// The latest press per original host wins. A lightbox scope survives an ordinary
+// redraw, but not a walk, a close or a fresh open of even the same record.
+const copyFeedbackOwners = new WeakMap();
+let lightboxCopyScope = null;
+
+function syncLightboxCopyScope(rec = null, fresh = false) {
+  if (!fresh && lightboxCopyScope?.rec === rec) return;
+  const note = lightboxCopyScope?.note;
+  // showError replaces the text node even for identical words. Preserve a
+  // newer unrelated message, including one whose text happens to match ours.
+  if (note && els.lbError.firstChild === note.node && els.lbError.textContent === note.text) {
+    showError('', false, { slot: els.lbError, mirror: false });
+  }
+  lightboxCopyScope = rec ? { rec, note: null } : null;
+}
+
+function copyItem(label, title, write, host, said, rec) {
   const held = !navigator.clipboard || !window.isSecureContext;
   return {
     label, held, title: held ? CLIPBOARD_NONE : title,
     run: async () => {
-      if (held) { refuseInCard(host, `${CLIPBOARD_NONE}.`, 'No clipboard here'); return; }
+      // Allocate at the actual press, not while a menu is merely constructed.
+      // Normal menu closure happens before run() and does not retire a copy.
+      const lightbox = host === els.lbStage;
+      const scope = lightbox ? lightboxCopyScope : null;
+      const owner = {};
+      copyFeedbackOwners.set(host, owner);
+      const current = () => copyFeedbackOwners.get(host) === owner && (lightbox
+        ? !!scope && lightboxCopyScope === scope && scope.rec === rec
+          && els.lightbox.open && lbList[lbIndex] === rec
+        : host.isConnected && host.closest('[data-id]')?.dataset.id === String(rec.id)
+          && !host.closest('.gone'));
+      const report = (text, short = null) => {
+        if (!current()) return;
+        if (lightbox) {
+          showError(text, true, { slot: els.lbError, mirror: false });
+          scope.note = { text, node: els.lbError.firstChild };
+        } else if (short) {
+          // A card's delayed refusal must not cover an unrelated modal image.
+          // One announced sentence; the local gist stays quiet as before.
+          showError(text, true, { slot: els.galleryError, mirror: false });
+          cardNote(host, short, { quiet: true });
+        } else cardNote(host, text);
+      };
+      if (held) { report(`${CLIPBOARD_NONE}.`, 'No clipboard here'); return; }
       try {
+        // Start the existing write inside this press, with no preflight await.
         await write();
-        cardNote(host, said);
+        report(said);
       } catch (err) {
-        refuseInCard(host, `Could not copy: ${err?.message || err}.`, 'Copy failed');
+        report(`Could not copy: ${err?.message || err}.`, 'Copy failed');
       }
     },
   };
@@ -117,9 +158,9 @@ function imageItems({ kind, rec, host }) {
       (b) => syncReferenceTool(b, rec.id), () => toggleReference(host, rec)),
     { label: '⊞ Show run as sheet', title: 'Show the run that made this as a sheet', run: () => showRecordRun(rec) },
     null,
-    copyItem('Copy prompt', 'Copy the prompt as text', () => navigator.clipboard.writeText(rec.prompt), host, 'Prompt copied'),
-    copyItem('Copy seed', `Copy ${rec.seed}`, () => navigator.clipboard.writeText(String(rec.seed)), host, 'Seed copied'),
-    copyItem('Copy image', 'Copy the full-size PNG as a picture', () => copyImage(rec), host, 'Image copied'),
+    copyItem('Copy prompt', 'Copy the prompt as text', () => navigator.clipboard.writeText(rec.prompt), host, 'Prompt copied', rec),
+    copyItem('Copy seed', `Copy ${rec.seed}`, () => navigator.clipboard.writeText(String(rec.seed)), host, 'Seed copied', rec),
+    copyItem('Copy image', 'Copy the full-size PNG as a picture', () => copyImage(rec), host, 'Image copied', rec),
     {
       label: 'Open PNG in new tab', title: 'The full-size PNG, with its settings in its text chunks',
       run: () => window.open(rec.url, '_blank', 'noopener'),

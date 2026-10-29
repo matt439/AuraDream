@@ -3595,6 +3595,21 @@ record at the press, and names it `<id>-<short-model>-<seed>.png`. A failed
 fetch stays in the lightbox, a retry clears its own error, and walking while
 it is pending never downloads another image under the captured name.
 
+**Copy feedback belongs to the inspection, 2026-10-29 (`UI#30`).** Copy prompt
+and Copy seed are reported Often (J1). Their captured payload was already
+correct, but a clipboard promise could finish after a walk or reopen and
+write into the shared lightbox stage's new message area. Even a completed
+copy note survived a walk. A copy now owns only its original host and the
+inspect session at the actual press; same-record background redraws retain
+it, while an image change, close or fresh open retires it. The latest copy
+press per host owns completion feedback. A saved text-node identity lets
+retirement clear its own note while preserving a newer unrelated message
+with even identical words. Card refusals remain local without mirroring
+into another modal image. Writes still start once in the original click,
+without retry, preflight await, payload changes or altered PNG promise
+handoff. The dated copy-feedback review separates synthetic ports/fake UI
+qualification from real clipboard permissions and integration.
+
 **The lightbox zooms, and the view carries across cells.** `lbView` in
 `web/lightbox.js` is a scale relative to fit plus a pan, never below fit or
 1:1, whichever is smaller, kept across records whose shape agrees, so the

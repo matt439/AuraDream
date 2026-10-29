@@ -460,6 +460,7 @@ function syncLightboxBinWriteHold(rec = lbList[lbIndex]) {
 function renderLightbox() {
   const rec = lbList[lbIndex];
   if (!rec) { closeLightbox(); return; }
+  syncLightboxCopyScope(rec, !els.lightbox.open);
   const focused = document.activeElement;
   const keepFocus = els.lightbox.open && focused?.closest?.('dialog[open]') === els.lightbox;
   // Another image ends a comparison: it was that pass's with its source.
@@ -657,6 +658,7 @@ async function stepLightbox(delta) {
 }
 
 function closeLightbox({ keepPicker = false } = {}) {
+  syncLightboxCopyScope();
   // Opened from the Models picker's strip, which stays open under it.
   const fromModels = lbOrigin === 'models';
   // The dialog's `close` event is queued, not fired by close(), and app.js
