@@ -696,7 +696,6 @@ function refitSheet() {
   }, 150);
 }
 
-// F stars the focused cell from its image or tools; navigation is image-only.
 // A populated cell's record: the sheet's, or a strength sweep's source,
 // which is no gallery record of the sheet's.
 function sheetCellRecord(cell) {
@@ -704,6 +703,7 @@ function sheetCellRecord(cell) {
   return sheetRecords.find((r) => r.id === id) ?? (sheetLayout?.source?.id === id ? sheetLayout.source : null);
 }
 
+// F stars the focused cell from its image or tools; navigation is image-only.
 async function sheetKey(e) {
   if (keyboardEventHeld(e) || keyboardEditingTarget(e.target) || e.metaKey || e.altKey || els.lightbox.open) return;
   const cell = e.target.closest('.sheet-cell[data-id]');

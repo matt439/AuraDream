@@ -5759,7 +5759,8 @@ Frontend and CLI:
   `styles/context-menu.css`; `smoke-context-menu.json`): a live gallery
   card, a viewer result's tile, a contact sheet's populated cell and the
   lightbox's stage open it; the recycle bin's cards, tombstones, a sheet's
-  holes and everything else keep the browser's menu, as do Shift with the right button and every text field. The Menu
+  holes and everything else keep the browser's menu, as do Shift with the
+  right button and every text field. The Menu
   key or Shift+F10 opens it on the image focus is in (in the lightbox, from
   any control but a field), on its first item. Its items press the image's
   own buttons (`buttonItem`): the hold and the title are the button's as
@@ -5771,7 +5772,8 @@ Frontend and CLI:
   scratch button (`syncedItem`) and runs the same function. A sheet cell's
   Open is its image's own click (the lightbox walking the sheet), and its
   Show run as sheet is held ("The sheet shows this run already") where
-  `sheetShownRun()` is the record's run; a cell never gets the picks' items. Beyond the buttons: Use seed, More seeds of this batch…
+  `sheetShownRun()` is the record's run; a cell never gets the picks'
+  items. Beyond the buttons: Use seed, More seeds of this batch…
   (the lightbox's `#lb-more-seeds` there, elsewhere `syncedItem` over
   `syncMoreSeedsFor` running `moreSeedsOfImage`), Show run as sheet
   (`showRecordRun`, the card's ⊞), Copy prompt, Copy seed, Copy image (the

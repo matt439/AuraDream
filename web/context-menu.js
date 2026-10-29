@@ -1,10 +1,10 @@
 'use strict';
 
 // The right-click menu on an image: a gallery card, a result tile in the
-// viewer, a contact sheet's cell, the lightbox's picture. Its items are the image's own buttons -
-// pressed for you, held and titled as they are, so a held item still says
-// why when chosen - plus what no button does: copy the prompt, the seed or
-// the picture, and open the PNG in a tab. A picked card - in select mode or
+// viewer, a contact sheet's cell, the lightbox's picture. Its items are the
+// image's own buttons - pressed for you, held and titled as they are, so a
+// held item still says why when chosen - plus what no button does: copy the
+// prompt, the seed or the picture, and open the PNG in a tab. A picked card - in select mode or
 // picked with Ctrl or Shift outside it - gets the picks' actions instead. Shift with the right button, and every text
 // box, keep the browser's own menu; the Menu key or Shift+F10 opens this one
 // on the image focus is in. One menu, moved into the lightbox while that is
