@@ -10,6 +10,8 @@
 //   {"eval": js}                 run JavaScript in the page (promises awaited)
 //   {"log": js}                  run JavaScript and print its value
 //   {"expect": js}               run JavaScript; a falsy value fails the run
+//   {"expect": js, "fatal": true}  prerequisite: stop after a failing expectation
+//                                before later steps; return true from async setup
 //   {"key": "1"}                 press a key (single characters and names like "Escape";
 //                                Escape also closes a modal <dialog>, as a real press does;
 //                                with "native": true an ArrowDown/ArrowUp carries its key
@@ -73,34 +75,91 @@ if (missingApis.length) {
   process.exit(2);
 }
 
-const CANDIDATES = [
-  process.env.AURADREAM_BROWSER,
-  'C:/Program Files (x86)/Microsoft/Edge/Application/msedge.exe',
-  'C:/Program Files/Microsoft/Edge/Application/msedge.exe',
-  'C:/Program Files/Google/Chrome/Application/chrome.exe',
-  '/usr/bin/google-chrome', '/usr/bin/chromium', '/usr/bin/chromium-browser', '/usr/bin/microsoft-edge',
-].filter(Boolean);
-const browser = CANDIDATES.find((p) => existsSync(p));
-if (!browser) {
-  console.error('no Edge or Chrome found; set AURADREAM_BROWSER to the executable');
-  process.exit(2);
-}
 const file = process.argv[2];
 if (!file) { console.error('usage: node tools/browser.mjs <steps.json>'); process.exit(2); }
 const OFFSET = Number(process.env.AURADREAM_PORT_OFFSET || 0);
-let text = readFileSync(file, 'utf8');
-if (OFFSET) {
-  text = text.replace(/\b(127\.0\.0\.1|localhost):(\d{2,5})\b/g, (_, host, port) => `${host}:${Number(port) + OFFSET}`);
-}
-const steps = JSON.parse(text);
-let screenshots;
-try {
-  screenshots = screenshotRoot(steps);
-} catch (error) {
-  console.error(error.message);
+if (!Number.isSafeInteger(OFFSET)) {
+  console.error('AURADREAM_PORT_OFFSET must be a finite safe integer');
   process.exit(2);
 }
-if (screenshots) console.log('screenshots: ' + screenshots);
+let text;
+try {
+  text = readFileSync(file, 'utf8');
+} catch {
+  console.error('could not read browser steps file; check its path and read access');
+  process.exit(2);
+}
+let invalidLocalPort = false;
+text = text.replace(/\b(127\.0\.0\.1|localhost):(\d{2,5})\b/g, (match, host, port) => {
+  const effective = Number(port) + OFFSET;
+  if (!Number.isSafeInteger(effective)
+      || effective < 1 || effective > 65535) {
+    invalidLocalPort = true;
+    return match;
+  }
+  // A zero offset has always left the fixture text unchanged, including
+  // leading-zero ports and numeric literals embedded in eval expressions.
+  return OFFSET ? `${host}:${effective}` : match;
+});
+if (invalidLocalPort) {
+  console.error('effective local ports must be integers in 1..65535 after AURADREAM_PORT_OFFSET');
+  process.exit(2);
+}
+let steps;
+try {
+  steps = JSON.parse(text);
+} catch (error) {
+  if (!(error instanceof SyntaxError)) throw error;
+  console.error('browser steps file must contain valid JSON');
+  process.exit(2);
+}
+// A non-null primitive or nested-array entry otherwise has no action properties and
+// silently disappears from the run. Validate the whole list before any
+// browser lookup or output/profile preparation; action metadata stays with
+// the existing per-action rules.
+if (!Array.isArray(steps)) {
+  console.error('browser steps must be a JSON array');
+  process.exit(2);
+}
+const invalidSteps = steps.flatMap((step, index) =>
+  step === null || typeof step !== 'object' || Array.isArray(step)
+    ? [`step ${index + 1}: step must be a JSON object`] : []);
+if (invalidSteps.length) {
+  console.error(invalidSteps.join('\n'));
+  process.exit(2);
+}
+// A malformed resize otherwise throws only after the browser and any earlier
+// steps have run. Refuse every declared viewport before browser discovery or
+// output/profile preparation. Keep the documented two/three-number form and
+// the runtime's omitted-DPR default; unrelated step/container policy is unchanged.
+const invalidViewports = Array.isArray(steps) ? steps.flatMap((step, index) => {
+  if (step === null || typeof step !== 'object' || !Object.hasOwn(step, 'viewport')) return [];
+  const values = step.viewport;
+  const valid = Array.isArray(values) && (values.length === 2 || values.length === 3)
+    && Number.isInteger(values[0]) && values[0] >= 0 && values[0] <= 10000000
+    && Number.isInteger(values[1]) && values[1] >= 0 && values[1] <= 10000000
+    && (values.length === 2 || (Number.isFinite(values[2]) && values[2] >= 0));
+  return valid ? [] : [`step ${index + 1}: viewport needs [width, height] or [width, height, dpr] with integer dimensions from 0 to 10000000 and a finite nonnegative dpr`];
+}) : [];
+if (invalidViewports.length) {
+  console.error(invalidViewports.join('\n'));
+  process.exit(2);
+}
+
+// Optional fatal metadata belongs only to an unambiguous expectation. Validate
+// before preparing screenshot roots, profiles or browser processes. Unrelated
+// malformed step/container handling remains with the existing preflight.
+const invalidFatal = Array.isArray(steps) ? steps.flatMap((step, index) => {
+  if (step === null || typeof step !== 'object' || !Object.hasOwn(step, 'fatal')) return [];
+  const valid = typeof step.fatal === 'boolean'
+    && typeof step.expect === 'string' && !!step.expect.trim()
+    && Object.keys(step).every((key) => key === 'expect' || key === 'fatal');
+  return valid ? [] : [`step ${index + 1}: fatal must be a boolean on an expect-only step with a nonempty expression`];
+}) : [];
+if (invalidFatal.length) {
+  console.error(invalidFatal.join('\n'));
+  process.exit(2);
+}
 const KEY_MODIFIERS = { Alt: 1, Control: 2, Meta: 4, Shift: 8 };
 const invalidCombos = steps.flatMap((step, index) => {
   if (!Object.hasOwn(step, 'keycombo')) return [];
@@ -158,12 +217,41 @@ if (unawaited.length) {
   process.exit(2);
 }
 
-const [VW, VH] = (process.env.AURADREAM_VIEWPORT || '1400x900').split('x').map(Number);
+// Startup uses positive geometry; viewport steps retain their zero resets.
+// Match CDP's integer size bounds before browser flags or metrics are applied.
+const STARTUP_SIZE = (process.env.AURADREAM_VIEWPORT || '1400x900').split('x').map(Number);
+const [VW, VH] = STARTUP_SIZE;
 const DPR = Number(process.env.AURADREAM_DPR || 1);
-if (!(VW > 0 && VH > 0 && DPR > 0)) {
-  console.error('AURADREAM_VIEWPORT is WIDTHxHEIGHT and AURADREAM_DPR a positive number');
+if (STARTUP_SIZE.length !== 2
+    || !Number.isInteger(VW) || VW < 1 || VW > 10000000
+    || !Number.isInteger(VH) || VH < 1 || VH > 10000000
+    || !Number.isFinite(DPR) || DPR <= 0) {
+  console.error('AURADREAM_VIEWPORT needs WIDTHxHEIGHT with integer dimensions in 1..10000000; AURADREAM_DPR needs a finite positive number');
   process.exit(2);
 }
+
+// Preparation starts after the existing script and startup checks.
+// Keep discovery, output behavior and runtime launch policy unchanged.
+const CANDIDATES = [
+  process.env.AURADREAM_BROWSER,
+  'C:/Program Files (x86)/Microsoft/Edge/Application/msedge.exe',
+  'C:/Program Files/Microsoft/Edge/Application/msedge.exe',
+  'C:/Program Files/Google/Chrome/Application/chrome.exe',
+  '/usr/bin/google-chrome', '/usr/bin/chromium', '/usr/bin/chromium-browser', '/usr/bin/microsoft-edge',
+].filter(Boolean);
+const browser = CANDIDATES.find((p) => existsSync(p));
+if (!browser) {
+  console.error('no Edge or Chrome found; set AURADREAM_BROWSER to the executable');
+  process.exit(2);
+}
+let screenshots;
+try {
+  screenshots = screenshotRoot(steps);
+} catch (error) {
+  console.error(error.message);
+  process.exit(2);
+}
+if (screenshots) console.log('screenshots: ' + screenshots);
 
 // A profile of this run's own. A shared one is held by whichever Edge is
 // still alive from a run that crashed, and the next launch then hands its
@@ -252,7 +340,9 @@ const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
 let failures = 0;
 
 async function target() {
-  for (let i = 0; i < 75; i++) {
+  // Cold Chromium startup can outlast 15 s while CPU tests share a runner.
+  // Keep the same readiness/cleanup contract, with a bounded 30 s polling allowance.
+  for (let i = 0; i < 150; i++) {
     if (STARTUP_DIAGNOSTICS && exited) throw new Error('the browser exited before DevTools was ready');
     try {
       const port = Number(readFileSync(`${PROFILE}/DevToolsActivePort`, 'utf8').split('\n')[0]);
@@ -376,6 +466,10 @@ for (const [n, step] of steps.entries()) {
     const value = await evaluate(step.expect);
     if (!value) failures += 1;
     console.log(`  ${value ? 'ok  ' : 'FAIL'} ${step.expect}`);
+    if (!value && step.fatal === true) {
+      console.log(`  ! fatal expectation failed at step ${n + 1}; later steps were not run`);
+      break;
+    }
   } else if (step.key) {
     const text = step.key.length === 1 ? step.key : undefined;
     const code = step.key === 'Escape' ? ESCAPE : step.native ? (NATIVE_KEYS[step.key] ?? {}) : {};

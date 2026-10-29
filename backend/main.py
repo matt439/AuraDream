@@ -37,7 +37,7 @@ if __name__ == "__main__":
 else:
     compiler_cache._seal_startup()
 
-from . import api_backup, api_bundles, api_gallery, api_generate, api_jobs, api_masks, api_more_seeds, api_png, api_prompt, api_refine_batch, api_snippets, api_swap, app_context, bundle_common, bundles, gallery_lock, hub_access, loras, model_selection, prompt_encoding, startup_preferences, storage  # noqa: E402
+from . import api_backup, api_bundles, api_gallery, api_generate, api_jobs, api_masks, api_more_seeds, api_png, api_presets, api_prompt, api_refine_batch, api_saved_searches, api_snippets, api_swap, app_context, bundle_common, bundles, gallery_lock, hub_access, loras, model_selection, prompt_encoding, startup_preferences, storage  # noqa: E402
 from .backup_service import BackupService  # noqa: E402
 from .backends import get_backend  # noqa: E402
 from .detached import detached as _detached  # noqa: E402
@@ -433,7 +433,7 @@ async def hold_model_for_request(request: Request, call_next):
         "/api/loras", "/api/png/settings",
         "/api/model/load", "/api/model/unload",
         "/api/gallery/unstarred",
-    } or path.startswith(("/api/grid/", "/api/prompt/", "/api/tags/", "/api/runs/"))
+    } or path.startswith(("/api/grid/", "/api/prompt/", "/api/tags/", "/api/runs/")) or api_presets.depends_on_model(request.method, path)
     selects_model = path == "/api/model/switch"
     if not depends_on_model and not selects_model:
         return await call_next(request)
@@ -1032,6 +1032,8 @@ services = app_context.AppServices(
 # The routers read the app-owned worker and scope when a request arrives.
 app.include_router(api_prompt.create_router(services))
 app.include_router(api_snippets.create_router(services))
+app.include_router(api_saved_searches.create_router(services))
+app.include_router(api_presets.create_router(services))
 app.include_router(api_generate.create_router(services))
 app.include_router(api_instruction_edit.create_router(services))
 app.include_router(api_swap.create_router(services))

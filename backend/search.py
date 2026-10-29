@@ -7,6 +7,9 @@ touches the database; `storage` owns the queries these clauses go into.
 from __future__ import annotations
 
 from datetime import datetime, timezone
+from decimal import (
+    MAX_EMAX, MIN_EMIN, ROUND_CEILING, ROUND_FLOOR, Context, Decimal, InvalidOperation,
+)
 from typing import Any
 
 # `schemas_generate.effective_true_cfg` in SQL, for the filter and the
@@ -53,7 +56,7 @@ FILTERS: dict[str, tuple[str, Any]] = {
     "run": ("run_id", str),
     # Every image with these pixels - a substring, so a prefix of one is enough.
     "hash": ("content_hash", str),
-    # Handled by date_clause: a day, not a column with a cast.
+    # Handled by date_clause: local calendar days, not a column with a cast.
     "date": ("created_at", None),
     # Handled by size_clause: `size:1024x1024`, the width and the height as
     # the facts list says them - the lightbox's search buttons write it.
@@ -68,13 +71,22 @@ NULLABLE_TEXT = {"lora", "mask"}
 # ValueError, and the routes answered 500.
 SQLITE_INT = (-(2**63), 2**63 - 1)
 
+# Actual megapixels use a million pixels. Build the binding limit by a tuple
+# exponent shift, without division under a caller's Decimal context.
+_MAX_AREA_MP = Decimal((0, tuple(int(digit) for digit in str(SQLITE_INT[1])), -6))
+
 
 def date_clause(raw: str) -> tuple[str, list]:
-    """`date:2026-09-07`, `date:today`, `date:yesterday` as a half-open range.
+    """One local day or an inclusive `date:YYYY-MM-DD..YYYY-MM-DD` range.
+
+    Single days also accept `today` and `yesterday`; ranges use two ordered
+    absolute calendar dates. Every resulting SQL interval stays half-open.
 
     A *local* day: `created_at` is UTC, and an overnight run crosses midnight
     in every timezone, so the day the user means is the one on their clock,
-    converted here. A half-open `>= start AND < end` rather than a LIKE prefix
+    converted here. Both bounds are local calendar midnights: a clock-change
+    day can be shorter or longer than 24 hours. A half-open `>= start AND < end`
+    rather than a LIKE prefix
     - the prefix cannot use the index and would need the UTC date, which is
     the wrong one for anything made after about 4 pm in the Americas or before
     breakfast east of Greenwich. The bounds are formatted the way the rows are
@@ -83,23 +95,87 @@ def date_clause(raw: str) -> tuple[str, list]:
     """
     from datetime import date, timedelta
 
-    lowered = raw.lower()
-    if lowered == "today":
-        day = date.today()
-    elif lowered == "yesterday":
-        day = date.today() - timedelta(days=1)
-    else:
+    if ".." in raw:
+        first, _separator, last = raw.partition("..")
         try:
-            day = date.fromisoformat(raw)
+            first_day = date.fromisoformat(first)
+            last_day = date.fromisoformat(last)
+            if first_day.isoformat() != first or last_day.isoformat() != last or first_day > last_day:
+                raise ValueError
         except ValueError:
-            raise ValueError(f"date: {raw!r} is not YYYY-MM-DD, today or yesterday") from None
-    start = datetime.combine(day, datetime.min.time()).astimezone(timezone.utc)
-    end = start + timedelta(days=1)
+            raise ValueError(f"date: {raw!r} is not an ordered YYYY-MM-DD..YYYY-MM-DD range") from None
+    else:
+        lowered = raw.lower()
+        if lowered == "today":
+            day = date.today()
+        elif lowered == "yesterday":
+            day = date.today() - timedelta(days=1)
+        else:
+            try:
+                day = date.fromisoformat(raw)
+            except ValueError:
+                raise ValueError(f"date: {raw!r} is not YYYY-MM-DD, today or yesterday") from None
+        first_day = last_day = day
+    try:
+        midnight = datetime.combine(first_day, datetime.min.time())
+        next_midnight = datetime.combine(last_day + timedelta(days=1), datetime.min.time())
+        start = midnight.astimezone(timezone.utc)
+        end = next_midnight.astimezone(timezone.utc)
+    except OverflowError:
+        raise ValueError(f"date: {raw!r} is out of range") from None
     return "created_at >= ? AND created_at < ?", [start.isoformat(), end.isoformat()]
 
 
+def _area_clause(raw: str, operator: str, number: str) -> tuple[str, list]:
+    """An exact actual-MP comparison, without multiplying stored dimensions."""
+    context = Context(
+        prec=len(str(SQLITE_INT[1])), rounding=ROUND_FLOOR, Emin=MIN_EMIN, Emax=MAX_EMAX,
+        capitals=1, clamp=0, flags=[], traps=[InvalidOperation],
+    )
+    try:
+        amount = Decimal(number, context=context)
+    except (InvalidOperation, ValueError, OverflowError):
+        raise ValueError(f"size: {raw!r} needs a finite nonnegative MP threshold") from None
+    if not amount.is_finite() or (amount.is_signed() and not amount.is_zero()):
+        raise ValueError(f"size: {raw!r} needs a finite nonnegative MP threshold")
+    if amount > _MAX_AREA_MP:
+        raise ValueError(f"size: {raw!r} is out of range")
+    try:
+        if amount.is_zero():
+            pixels = Decimal(0, context=context)
+        else:
+            parts = amount.as_tuple()
+            assert isinstance(parts.exponent, int)  # finite values have integer exponents
+            pixels = Decimal((0, parts.digits, parts.exponent + 6), context=context)
+        rounding = ROUND_FLOOR if operator in {">", "<="} else ROUND_CEILING
+        bound = int(pixels.to_integral_value(rounding=rounding, context=context))
+    except (InvalidOperation, ValueError, OverflowError):
+        raise ValueError(f"size: {raw!r} is out of range") from None
+    if operator in {">=", "<"}:
+        bound -= 1  # Python integer subtraction, independent of Decimal precision
+    comparison = ">" if operator in {">", ">="} else "<="
+    return (
+        "(typeof(width) = 'integer' AND typeof(height) = 'integer' "
+        f"AND width > 0 AND height > 0 AND width {comparison} (? / height))",
+        [bound],
+    )
+
+
 def size_clause(raw: str) -> tuple[str, list]:
-    """`size:1024x1024` (or `1024×1024`, as the page prints it): both sides exact."""
+    """Exact dimensions, orientation or a comparison against actual MP area."""
+    orientation = {
+        "portrait": "width < height",
+        "landscape": "width > height",
+        "square": "width = height",
+    }.get(raw.lower())
+    if orientation is not None:
+        return orientation, []
+
+    if raw.lower().endswith("mp"):
+        for operator in COMPARISONS:
+            if raw.startswith(operator):
+                return _area_clause(raw, operator, raw[len(operator):-2])
+
     width, sep, height = raw.lower().replace("×", "x").partition("x")
     if not sep or not width.isdigit() or not height.isdigit():
         raise ValueError(f"size: {raw!r} is not WIDTHxHEIGHT")
@@ -171,6 +247,16 @@ def filter_clause(key: str, raw: str) -> tuple[str, list]:
     for operator in COMPARISONS:
         if raw.startswith(operator):
             return f"{column} {operator} ?", [_cast(cast, key, raw[len(operator):])]
+    # A whole float may contain an exponent sign: the Sampling facts write
+    # `cfg:1e-7` and `mu:1e-7`. Try that scalar before interpreting a hyphen
+    # as a range; failed casts retain the existing range/error grammar below.
+    if cast is float:
+        try:
+            scalar = _cast(cast, key, raw)
+        except ValueError:
+            pass
+        else:
+            return f"{column} = ?", [scalar]
     # A range borrows the grid's own spelling, so `cfg:0-1` reads the same in
     # the search box as it does in the axis that produced those images.
     low, dash, high = raw.partition("-")

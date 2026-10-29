@@ -1,0 +1,1181 @@
+[
+  {
+    "log": "'GAL11 broad ownership on fresh FLUX.1 fake7942. Preserve the two planted other-checkpoint rows. Six owned fake rows in two strict run scopes; E/F seeded in bin. Only approved owned Empty may permanently delete. Bundle/jobs/exact permanent routes are blocked.'"
+  },
+  {
+    "navigate": "http://127.0.0.1:7942/"
+  },
+  {
+    "eval": "window.__gbUntil=async(fn,ms=20000)=>{const end=Date.now()+ms;while(Date.now()<end){try{if(await fn())return true;}catch{}await new Promise(resolve=>setTimeout(resolve,40));}return false;};\nwindow.__gbBaseApi=api;window.__gbFetch=fetch;window.__gbErrors=[];window.__gbWrites=[];window.__gbPreviews=[];window.__gbAsks=[];window.__gbPreviewGate=null;window.__gbWriteGate=null;window.__gbResetGate=null;window.__gbExactGate=null;window.__gbJobs=0;window.__gbForbidden=[];window.__gbReadOnlyPosts=[];window.__gbApproved=null;window.__gbAllowDialog=null;\naddEventListener('error',event=>__gbErrors.push(event.message));addEventListener('unhandledrejection',event=>__gbErrors.push(String(event.reason)));\nwindow.__gbAskCount=askCount;window.__gbAskConfirm=askConfirm;askCount=(message)=>{__gbAsks.push({kind:'count',message});if(__gbAllowDialog!=='count')return Promise.resolve(null);return __gbAskCount(message).finally(()=>{__gbAllowDialog=null;});};askConfirm=(message,options)=>{__gbAsks.push({kind:'confirm',message,label:options?.okLabel??'Delete'});if(__gbAllowDialog!=='empty'||options?.okLabel!=='Empty bin')return Promise.resolve(false);return __gbAskConfirm(message,options).finally(()=>{__gbAllowDialog=null;});};\nwindow.__gbKnown=()=>JSON.parse(sessionStorage.getItem('auradream.smoke.broad-bin'));\nwindow.__gbRunPreviewPaths=()=>{const known=__gbKnown();return known?[known.targetRun,known.retainedRun].filter(run=>typeof run==='string'&&run.length>0).map(run=>'/api/runs/'+encodeURIComponent(run)+'/finish/preview'):[];};\nwindow.__gbProject=(row)=>Object.fromEntries(['id','model_id','prompt','seed','favorite','binned_at','run_id','job_id','width','height','steps','guidance_scale','created_at'].map(key=>[key,row[key]]));\nwindow.__gbStored=async(id)=>{try{const row=await __gbBaseApi('/api/images/'+id+'?binned=true');return {id,exists:true,binned:!!row.binned_at,row};}catch(err){if(err.status===404)return {id,exists:false,binned:null};throw err;}};\nwindow.__gbPlantsKept=async()=>{for(const old of __gbKnown().plants){const found=await __gbStored(old.id);if(!found.exists||JSON.stringify(__gbProject(found.row))!==JSON.stringify(old))return false;}return true;};\nwindow.__gbTag=()=>{for(const[index,id]of __gbKnown().ids.entries())for(const node of document.querySelectorAll('.card[data-id=\"'+id+'\"],.result[data-id=\"'+id+'\"]'))node.dataset.gb='abcdef'[index];};\nwindow.__gbWait='Wait for the current recycle bin change to finish';window.__gbHeld=(button)=>!!button&&button.getAttribute('aria-disabled')==='true'&&!button.disabled&&button.title===__gbWait;\nwindow.__gbApiKind=(path,method)=>{const base=path.split('?')[0];if(method==='POST'&&['/api/images/bin','/api/images/restore'].includes(base))return base.endsWith('/bin')?'bin':'restore';if(method==='DELETE'&&base==='/api/gallery/unstarred')return 'sweep';if(method==='DELETE'&&base==='/api/gallery/bin')return 'empty';return null;};\nwindow.__gbApproval=(kind)=>{const found=kind==='sweep'?__gbLastSweep:__gbLastEmpty;if(!found)throw Error('Missing actual broad preview');return {kind,expected:kind==='sweep'?found.result.unstarred:found.result.records,search:'run:'+__gbKnown().targetRun,allModels:found.query.get('all_models')==='true',pin:found.result.pin??null,before:found.result.before??null,revision:modelRevision};};\nwindow.__gbProbeExactAndBroad=async()=>{if(!binBroadOwner)return false;const owner=binBroadOwner,writes=__gbWrites.length,previews=__gbPreviews.length,asks=__gbAsks.length,permit=__gbAllowDialog;__gbAllowDialog=null;try{await restoreImages(__gbKnown().empty);await deleteImage(window.__gbCachedKeeper);await binPicked();await purgePicked();await deleteUnstarred();await emptyBin();}finally{__gbAllowDialog=permit;}return binBroadOwner===owner&&!binWriteIds.size&&__gbWrites.length===writes&&__gbPreviews.length===previews&&__gbAsks.length===asks;};\napi=async(path,options)=>{const method=options?.method??'GET',base=path.split('?')[0],query=new URLSearchParams(path.split('?')[1]??''),kind=__gbApiKind(path,method),readOnlyPost=method==='POST'&&(path==='/api/prompt/measure'||__gbRunPreviewPaths().includes(path));if(readOnlyPost)__gbReadOnlyPosts.push(path);if(method==='POST'&&!kind&&!readOnlyPost){if(['/api/generate','/api/grid','/api/refine','/api/refine/batch','/api/rerender','/api/inpaint','/api/outpaint','/api/more-seeds','/api/instruction-edit','/api/swap-tags'].includes(base)||/^\\/api\\/runs\\/[^/]+\\/finish$/.test(base))__gbJobs++;else __gbForbidden.push(path);throw Error('Unexpected POST refused before dispatch by broad fixture');}if(method==='DELETE'&&!kind){__gbForbidden.push(path);throw Error('Unscoped permanent DELETE refused by broad fixture');}\nif(!kind){const readOwner=binBroadOwner;const result=await __gbBaseApi(path,options);if(method==='GET'&&((base==='/api/gallery/unstarred')||(base==='/api/gallery/bin/summary'&&readOwner&&binBroadOwner===readOwner))){const entry={kind:base==='/api/gallery/unstarred'?'sweep':'empty',path,query,result};__gbPreviews.push(entry);if(entry.kind==='sweep')__gbLastSweep=entry;else __gbLastEmpty=entry;const gate=__gbPreviewGate;if(gate&&!gate.captured&&gate.kind===entry.kind&&readOwner&&binBroadOwner===readOwner){gate.captured=true;gate.entry=entry;await new Promise(resolve=>{gate.release=resolve;});}}\nconst reset=__gbResetGate;if(reset&&!reset.captured&&method==='GET'&&base===reset.base&&galleryEpoch>reset.epoch&&binBroadOwner===reset.owner&&!query.has('before')){reset.captured=true;reset.result=result;await new Promise(resolve=>{reset.release=resolve;});}return result;}\nlet ids=[];if(kind==='bin'||kind==='restore'){ids=JSON.parse(options.body).ids;if(!ids.length||ids.some(id=>!__gbKnown().ids.includes(id)))throw Error('Unowned exact id refused');}else{const approved=__gbApproved;if(!approved||approved.kind!==kind||query.get('expected')!==String(approved.expected))throw Error('Missing exact one-use broad approval');if(kind==='sweep'){if(query.get('search')!==approved.search||(query.get('all_models')==='true')!==approved.allModels||options.headers?.['X-AuraDream-Model-Revision']!==String(approved.revision))throw Error('Captured sweep scope/revision changed');ids=__gbKnown().targets;}else{const actual=await __gbBaseApi('/api/gallery/bin?limit=100');if(actual.items.map(row=>row.id).sort((a,b)=>a-b).join()!==[...__gbKnown().empty].sort((a,b)=>a-b).join()||query.get('pin')!==approved.pin||query.get('before')!==(approved.before??null)||query.get('expected')!=='2')throw Error('Empty must match only owned E/F and actual server pin/before/count');ids=__gbKnown().empty;}__gbApproved=null;}\nconst entry={kind,path,ids,sent:false,finished:false};__gbWrites.push(entry);const write=__gbWriteGate&&!__gbWriteGate.captured&&__gbWriteGate.kind===kind?__gbWriteGate:null;const exact=__gbExactGate&&!__gbExactGate.captured&&kind===__gbExactGate.kind&&ids.join()===__gbExactGate.ids.join()?__gbExactGate:null;if(write){write.captured=true;write.entry=entry;}try{if(write?.mode==='reject409'){await new Promise(resolve=>{write.release=resolve;});const err=new Error(kind==='sweep'?'Selection changed: owned pre-dispatch refusal':'Owned bin pin refusal before dispatch');err.status=409;throw err;}entry.sent=true;entry.result=await __gbBaseApi(path,options);entry.stored=await Promise.all(ids.map(__gbStored));if(exact){exact.captured=true;exact.entry=entry;await new Promise(resolve=>{exact.release=resolve;});}if(write){write.confirmed=true;await new Promise(resolve=>{write.release=resolve;});}return entry.result;}catch(err){entry.error=err.message;entry.status=err.status;throw err;}finally{entry.finished=true;}};\nwindow.__gbDescribe=(el)=>el?{tag:el.tagName,id:el.id,classes:String(el.className),role:el.getAttribute('role')}:null;\nwindow.__gbBox=(el)=>{const r=el.getBoundingClientRect();return {left:r.left,top:r.top,right:r.right,bottom:r.bottom,width:r.width,height:r.height};};\nwindow.__gbRevealAndReport=(selector)=>{const el=document.querySelector(selector);const report={selector,ok:false,scrollBefore:[scrollX,scrollY],viewport:[innerWidth,innerHeight],topbar:document.querySelector('.topbar')?.getBoundingClientRect().bottom,modal:document.querySelector('dialog[open]')?.id,claims:[...binWriteIds],broad:!!binBroadOwner,target:__gbDescribe(el)};if(!el){window.__gbLastReveal=report;return report;}report.before=__gbBox(el);el.scrollIntoView({block:'nearest',inline:'nearest',behavior:'instant'});const r=el.getBoundingClientRect(),top=(report.topbar??0)+12;if(r.top<top)scrollBy(0,r.top-top);else if(r.bottom>innerHeight-12)scrollBy(0,r.bottom-innerHeight+12);const b=el.getBoundingClientRect(),x=b.left+b.width/2,y=b.top+b.height/2,hit=document.elementFromPoint(x,y);report.after=__gbBox(el);report.center=[x,y];report.hit=__gbDescribe(hit);report.stack=document.elementsFromPoint(x,y).slice(0,6).map(__gbDescribe);report.scrollAfter=[scrollX,scrollY];report.parents=[];for(let parent=el.parentElement;parent&&report.parents.length<6;parent=parent.parentElement){const css=getComputedStyle(parent);report.parents.push({...__gbDescribe(parent),rect:__gbBox(parent),overflow:[css.overflowX,css.overflowY],scroll:[parent.scrollLeft,parent.scrollTop],client:[parent.clientWidth,parent.clientHeight],extent:[parent.scrollWidth,parent.scrollHeight],hidden:parent.hidden,visibility:css.visibility});}report.ok=!!hit&&(hit===el||el.contains(hit))&&b.width>0&&b.height>0;window.__gbLastReveal=report;if(!report.ok)return report;const brief={selector,ok:true};const delta=[scrollX-report.scrollBefore[0],scrollY-report.scrollBefore[1]],moved=[report.after.left-report.before.left,report.after.top-report.before.top];if(delta.some(value=>Math.abs(value)>0.1))brief.scrollDelta=delta;if(moved.some(value=>Math.abs(value)>0.1))brief.targetDelta=moved;return brief;};\nwindow.__gbReveal=(selector)=>__gbRevealAndReport(selector).ok;\nwindow.__gbRect=(el)=>{const r=el.getBoundingClientRect();return [r.left,r.top,r.width,r.height];};\nwindow.__gbSameRect=(el,rect)=>__gbRect(el).every((n,i)=>Math.abs(n-rect[i])<1);\nwindow.__gbNoteNodes=(slot)=>{const walker=document.createTreeWalker(slot,NodeFilter.SHOW_ALL),nodes=[];for(let node=walker.nextNode();node;node=walker.nextNode())nodes.push(node);return nodes;};\nwindow.__gbSnapshotNote=(slot)=>({slot,rect:__gbRect(slot),nodes:__gbNoteNodes(slot),text:slot.textContent});\nwindow.__gbNoteUnchanged=(snapshot)=>{const nodes=__gbNoteNodes(snapshot.slot);return snapshot.slot.isConnected&&__gbSameRect(snapshot.slot,snapshot.rect)&&snapshot.slot.textContent===snapshot.text&&nodes.length===snapshot.nodes.length&&snapshot.nodes.every((node,index)=>nodes[index]===node);};"
+  },
+  {
+    "expect": "__gbUntil(()=>loadedModel==='black-forest-labs/FLUX.1-Krea-dev' && Number.isInteger(modelRevision) && !busy && !galleryPending && !jobListing)",
+    "fatal": true
+  },
+  {
+    "expect": "(async()=>{const current=await __gbBaseApi('/api/gallery?limit=100'),all=await __gbBaseApi('/api/gallery?all_models=true&limit=100');if(current.total!==0||all.total!==2||all.items.some(row=>row.model_id===loadedModel||row.run_id!=='planted'||row.binned_at)||all.items.filter(row=>row.favorite).length!==1)return false;const plants=all.items.sort((a,b)=>a.id-b.id).map(__gbProject);const make=async(prompt,seed,num_images)=>{const job=await __gbBaseApi('/api/generate',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({prompt,seed,num_images,width:256,height:256,steps:1})});return __gbUntil(async()=>{const row=await __gbBaseApi('/api/jobs/'+job.job_id);return row.status==='done';});};if(!await make('owned broad selected targets',11100,2)||!await make('owned broad retained rows',11200,4))return false;const own=(await __gbBaseApi('/api/gallery?limit=100')).items.sort((a,b)=>a.id-b.id),targets=own.filter(row=>row.prompt==='owned broad selected targets'),retained=own.filter(row=>row.prompt==='owned broad retained rows');if(own.length!==6||targets.length!==2||retained.length!==4||targets[0].run_id===retained[0].run_id)return false;const ordered=[...targets,...retained];sessionStorage.setItem('auradream.smoke.broad-bin',JSON.stringify({ids:ordered.map(row=>row.id),targets:targets.map(row=>row.id),keepers:retained.slice(0,2).map(row=>row.id),empty:retained.slice(2).map(row=>row.id),targetRun:targets[0].run_id,retainedRun:retained[0].run_id,rows:ordered,plants}));await __gbBaseApi('/api/images/bin',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({ids:retained.slice(2).map(row=>row.id)})});return true;})()",
+    "fatal": true
+  },
+  {
+    "navigate": "http://127.0.0.1:7942/"
+  },
+  {
+    "eval": "window.__gbUntil=async(fn,ms=20000)=>{const end=Date.now()+ms;while(Date.now()<end){try{if(await fn())return true;}catch{}await new Promise(resolve=>setTimeout(resolve,40));}return false;};\nwindow.__gbBaseApi=api;window.__gbFetch=fetch;window.__gbErrors=[];window.__gbWrites=[];window.__gbPreviews=[];window.__gbAsks=[];window.__gbPreviewGate=null;window.__gbWriteGate=null;window.__gbResetGate=null;window.__gbExactGate=null;window.__gbJobs=0;window.__gbForbidden=[];window.__gbReadOnlyPosts=[];window.__gbApproved=null;window.__gbAllowDialog=null;\naddEventListener('error',event=>__gbErrors.push(event.message));addEventListener('unhandledrejection',event=>__gbErrors.push(String(event.reason)));\nwindow.__gbAskCount=askCount;window.__gbAskConfirm=askConfirm;askCount=(message)=>{__gbAsks.push({kind:'count',message});if(__gbAllowDialog!=='count')return Promise.resolve(null);return __gbAskCount(message).finally(()=>{__gbAllowDialog=null;});};askConfirm=(message,options)=>{__gbAsks.push({kind:'confirm',message,label:options?.okLabel??'Delete'});if(__gbAllowDialog!=='empty'||options?.okLabel!=='Empty bin')return Promise.resolve(false);return __gbAskConfirm(message,options).finally(()=>{__gbAllowDialog=null;});};\nwindow.__gbKnown=()=>JSON.parse(sessionStorage.getItem('auradream.smoke.broad-bin'));\nwindow.__gbRunPreviewPaths=()=>{const known=__gbKnown();return known?[known.targetRun,known.retainedRun].filter(run=>typeof run==='string'&&run.length>0).map(run=>'/api/runs/'+encodeURIComponent(run)+'/finish/preview'):[];};\nwindow.__gbProject=(row)=>Object.fromEntries(['id','model_id','prompt','seed','favorite','binned_at','run_id','job_id','width','height','steps','guidance_scale','created_at'].map(key=>[key,row[key]]));\nwindow.__gbStored=async(id)=>{try{const row=await __gbBaseApi('/api/images/'+id+'?binned=true');return {id,exists:true,binned:!!row.binned_at,row};}catch(err){if(err.status===404)return {id,exists:false,binned:null};throw err;}};\nwindow.__gbPlantsKept=async()=>{for(const old of __gbKnown().plants){const found=await __gbStored(old.id);if(!found.exists||JSON.stringify(__gbProject(found.row))!==JSON.stringify(old))return false;}return true;};\nwindow.__gbTag=()=>{for(const[index,id]of __gbKnown().ids.entries())for(const node of document.querySelectorAll('.card[data-id=\"'+id+'\"],.result[data-id=\"'+id+'\"]'))node.dataset.gb='abcdef'[index];};\nwindow.__gbWait='Wait for the current recycle bin change to finish';window.__gbHeld=(button)=>!!button&&button.getAttribute('aria-disabled')==='true'&&!button.disabled&&button.title===__gbWait;\nwindow.__gbApiKind=(path,method)=>{const base=path.split('?')[0];if(method==='POST'&&['/api/images/bin','/api/images/restore'].includes(base))return base.endsWith('/bin')?'bin':'restore';if(method==='DELETE'&&base==='/api/gallery/unstarred')return 'sweep';if(method==='DELETE'&&base==='/api/gallery/bin')return 'empty';return null;};\nwindow.__gbApproval=(kind)=>{const found=kind==='sweep'?__gbLastSweep:__gbLastEmpty;if(!found)throw Error('Missing actual broad preview');return {kind,expected:kind==='sweep'?found.result.unstarred:found.result.records,search:'run:'+__gbKnown().targetRun,allModels:found.query.get('all_models')==='true',pin:found.result.pin??null,before:found.result.before??null,revision:modelRevision};};\nwindow.__gbProbeExactAndBroad=async()=>{if(!binBroadOwner)return false;const owner=binBroadOwner,writes=__gbWrites.length,previews=__gbPreviews.length,asks=__gbAsks.length,permit=__gbAllowDialog;__gbAllowDialog=null;try{await restoreImages(__gbKnown().empty);await deleteImage(window.__gbCachedKeeper);await binPicked();await purgePicked();await deleteUnstarred();await emptyBin();}finally{__gbAllowDialog=permit;}return binBroadOwner===owner&&!binWriteIds.size&&__gbWrites.length===writes&&__gbPreviews.length===previews&&__gbAsks.length===asks;};\napi=async(path,options)=>{const method=options?.method??'GET',base=path.split('?')[0],query=new URLSearchParams(path.split('?')[1]??''),kind=__gbApiKind(path,method),readOnlyPost=method==='POST'&&(path==='/api/prompt/measure'||__gbRunPreviewPaths().includes(path));if(readOnlyPost)__gbReadOnlyPosts.push(path);if(method==='POST'&&!kind&&!readOnlyPost){if(['/api/generate','/api/grid','/api/refine','/api/refine/batch','/api/rerender','/api/inpaint','/api/outpaint','/api/more-seeds','/api/instruction-edit','/api/swap-tags'].includes(base)||/^\\/api\\/runs\\/[^/]+\\/finish$/.test(base))__gbJobs++;else __gbForbidden.push(path);throw Error('Unexpected POST refused before dispatch by broad fixture');}if(method==='DELETE'&&!kind){__gbForbidden.push(path);throw Error('Unscoped permanent DELETE refused by broad fixture');}\nif(!kind){const readOwner=binBroadOwner;const result=await __gbBaseApi(path,options);if(method==='GET'&&((base==='/api/gallery/unstarred')||(base==='/api/gallery/bin/summary'&&readOwner&&binBroadOwner===readOwner))){const entry={kind:base==='/api/gallery/unstarred'?'sweep':'empty',path,query,result};__gbPreviews.push(entry);if(entry.kind==='sweep')__gbLastSweep=entry;else __gbLastEmpty=entry;const gate=__gbPreviewGate;if(gate&&!gate.captured&&gate.kind===entry.kind&&readOwner&&binBroadOwner===readOwner){gate.captured=true;gate.entry=entry;await new Promise(resolve=>{gate.release=resolve;});}}\nconst reset=__gbResetGate;if(reset&&!reset.captured&&method==='GET'&&base===reset.base&&galleryEpoch>reset.epoch&&binBroadOwner===reset.owner&&!query.has('before')){reset.captured=true;reset.result=result;await new Promise(resolve=>{reset.release=resolve;});}return result;}\nlet ids=[];if(kind==='bin'||kind==='restore'){ids=JSON.parse(options.body).ids;if(!ids.length||ids.some(id=>!__gbKnown().ids.includes(id)))throw Error('Unowned exact id refused');}else{const approved=__gbApproved;if(!approved||approved.kind!==kind||query.get('expected')!==String(approved.expected))throw Error('Missing exact one-use broad approval');if(kind==='sweep'){if(query.get('search')!==approved.search||(query.get('all_models')==='true')!==approved.allModels||options.headers?.['X-AuraDream-Model-Revision']!==String(approved.revision))throw Error('Captured sweep scope/revision changed');ids=__gbKnown().targets;}else{const actual=await __gbBaseApi('/api/gallery/bin?limit=100');if(actual.items.map(row=>row.id).sort((a,b)=>a-b).join()!==[...__gbKnown().empty].sort((a,b)=>a-b).join()||query.get('pin')!==approved.pin||query.get('before')!==(approved.before??null)||query.get('expected')!=='2')throw Error('Empty must match only owned E/F and actual server pin/before/count');ids=__gbKnown().empty;}__gbApproved=null;}\nconst entry={kind,path,ids,sent:false,finished:false};__gbWrites.push(entry);const write=__gbWriteGate&&!__gbWriteGate.captured&&__gbWriteGate.kind===kind?__gbWriteGate:null;const exact=__gbExactGate&&!__gbExactGate.captured&&kind===__gbExactGate.kind&&ids.join()===__gbExactGate.ids.join()?__gbExactGate:null;if(write){write.captured=true;write.entry=entry;}try{if(write?.mode==='reject409'){await new Promise(resolve=>{write.release=resolve;});const err=new Error(kind==='sweep'?'Selection changed: owned pre-dispatch refusal':'Owned bin pin refusal before dispatch');err.status=409;throw err;}entry.sent=true;entry.result=await __gbBaseApi(path,options);entry.stored=await Promise.all(ids.map(__gbStored));if(exact){exact.captured=true;exact.entry=entry;await new Promise(resolve=>{exact.release=resolve;});}if(write){write.confirmed=true;await new Promise(resolve=>{write.release=resolve;});}return entry.result;}catch(err){entry.error=err.message;entry.status=err.status;throw err;}finally{entry.finished=true;}};\nwindow.__gbDescribe=(el)=>el?{tag:el.tagName,id:el.id,classes:String(el.className),role:el.getAttribute('role')}:null;\nwindow.__gbBox=(el)=>{const r=el.getBoundingClientRect();return {left:r.left,top:r.top,right:r.right,bottom:r.bottom,width:r.width,height:r.height};};\nwindow.__gbRevealAndReport=(selector)=>{const el=document.querySelector(selector);const report={selector,ok:false,scrollBefore:[scrollX,scrollY],viewport:[innerWidth,innerHeight],topbar:document.querySelector('.topbar')?.getBoundingClientRect().bottom,modal:document.querySelector('dialog[open]')?.id,claims:[...binWriteIds],broad:!!binBroadOwner,target:__gbDescribe(el)};if(!el){window.__gbLastReveal=report;return report;}report.before=__gbBox(el);el.scrollIntoView({block:'nearest',inline:'nearest',behavior:'instant'});const r=el.getBoundingClientRect(),top=(report.topbar??0)+12;if(r.top<top)scrollBy(0,r.top-top);else if(r.bottom>innerHeight-12)scrollBy(0,r.bottom-innerHeight+12);const b=el.getBoundingClientRect(),x=b.left+b.width/2,y=b.top+b.height/2,hit=document.elementFromPoint(x,y);report.after=__gbBox(el);report.center=[x,y];report.hit=__gbDescribe(hit);report.stack=document.elementsFromPoint(x,y).slice(0,6).map(__gbDescribe);report.scrollAfter=[scrollX,scrollY];report.parents=[];for(let parent=el.parentElement;parent&&report.parents.length<6;parent=parent.parentElement){const css=getComputedStyle(parent);report.parents.push({...__gbDescribe(parent),rect:__gbBox(parent),overflow:[css.overflowX,css.overflowY],scroll:[parent.scrollLeft,parent.scrollTop],client:[parent.clientWidth,parent.clientHeight],extent:[parent.scrollWidth,parent.scrollHeight],hidden:parent.hidden,visibility:css.visibility});}report.ok=!!hit&&(hit===el||el.contains(hit))&&b.width>0&&b.height>0;window.__gbLastReveal=report;if(!report.ok)return report;const brief={selector,ok:true};const delta=[scrollX-report.scrollBefore[0],scrollY-report.scrollBefore[1]],moved=[report.after.left-report.before.left,report.after.top-report.before.top];if(delta.some(value=>Math.abs(value)>0.1))brief.scrollDelta=delta;if(moved.some(value=>Math.abs(value)>0.1))brief.targetDelta=moved;return brief;};\nwindow.__gbReveal=(selector)=>__gbRevealAndReport(selector).ok;\nwindow.__gbRect=(el)=>{const r=el.getBoundingClientRect();return [r.left,r.top,r.width,r.height];};\nwindow.__gbSameRect=(el,rect)=>__gbRect(el).every((n,i)=>Math.abs(n-rect[i])<1);\nwindow.__gbNoteNodes=(slot)=>{const walker=document.createTreeWalker(slot,NodeFilter.SHOW_ALL),nodes=[];for(let node=walker.nextNode();node;node=walker.nextNode())nodes.push(node);return nodes;};\nwindow.__gbSnapshotNote=(slot)=>({slot,rect:__gbRect(slot),nodes:__gbNoteNodes(slot),text:slot.textContent});\nwindow.__gbNoteUnchanged=(snapshot)=>{const nodes=__gbNoteNodes(snapshot.slot);return snapshot.slot.isConnected&&__gbSameRect(snapshot.slot,snapshot.rect)&&snapshot.slot.textContent===snapshot.text&&nodes.length===snapshot.nodes.length&&snapshot.nodes.every((node,index)=>nodes[index]===node);};"
+  },
+  {
+    "expect": "__gbUntil(()=>!busy && !galleryPending && !jobListing && galleryRecords.length===4 && galleryRecords.map(row=>row.id).sort((a,b)=>a-b).join()===[...__gbKnown().targets,...__gbKnown().keepers].sort((a,b)=>a-b).join() && !binBroadOwner && !binWriteIds.size)",
+    "fatal": true
+  },
+  {
+    "eval": "resetPanel();writeBox(els.prompt,'Unsent composer kept through broad lifecycle exclusion');promptReplaced();persistPanel();window.__gbComposer=setupComposerState();window.__gbIds=__gbKnown().ids;window.__gbCachedKeeper=structuredClone(galleryRecords.find(row=>row.id===__gbKnown().keepers[0]));__gbTag();"
+  },
+  {
+    "expect": "__gbPlantsKept()",
+    "fatal": true
+  },
+  {
+    "log": "'An actual exact Restore owns hidden A. Both broad functions must refuse before their preview/confirmation, even though A is absent from the current gallery.'"
+  },
+  {
+    "log": "__gbRevealAndReport(\"#gallery .card[data-gb=\\\"a\\\"] .tools .del\")"
+  },
+  {
+    "expect": "__gbLastReveal?.selector===\"#gallery .card[data-gb=\\\"a\\\"] .tools .del\" && __gbLastReveal.ok",
+    "fatal": true
+  },
+  {
+    "hover": "#gallery .card[data-gb=\"a\"] .tools .del"
+  },
+  {
+    "click": "#gallery .card[data-gb=\"a\"] .tools .del"
+  },
+  {
+    "expect": "__gbUntil(()=>!binWriteIds.size && binnedIds.has(__gbIds[0]) && document.querySelector('#gallery-error [data-bin-restore]'))",
+    "fatal": true
+  },
+  {
+    "eval": "window.__gbExactGate={kind:'restore',ids:[__gbIds[0]]};"
+  },
+  {
+    "log": "__gbRevealAndReport(\"#gallery-error [data-bin-restore]\")"
+  },
+  {
+    "expect": "__gbLastReveal?.selector===\"#gallery-error [data-bin-restore]\" && __gbLastReveal.ok",
+    "fatal": true
+  },
+  {
+    "click": "#gallery-error [data-bin-restore]"
+  },
+  {
+    "expect": "__gbUntil(()=>__gbExactGate.captured && typeof __gbExactGate.release==='function')",
+    "fatal": true
+  },
+  {
+    "eval": "window.__gbScopeEpoch=galleryEpoch;window.__gbScopeRun=__gbKnown().retainedRun;window.__gbScopeIds=__gbKnown().keepers;els.search.value='run:'+__gbScopeRun;els.search.dispatchEvent(new Event('input',{bubbles:true}));"
+  },
+  {
+    "expect": "__gbUntil(()=>!galleryPending && galleryEpoch>__gbScopeEpoch && els.search.value==='run:'+__gbScopeRun && galleryRecords.length===2 && galleryRecords.every(row=>row.run_id===__gbScopeRun) && galleryRecords.map(row=>row.id).sort((a,b)=>a-b).join()===[...__gbScopeIds].sort((a,b)=>a-b).join())",
+    "fatal": true
+  },
+  {
+    "eval": "__gbTag();"
+  },
+  {
+    "eval": "window.__gbBefore={previews:__gbPreviews.length,writes:__gbWrites.length,asks:__gbAsks.length};"
+  },
+  {
+    "expect": "binWriteIds.has(__gbIds[0]) && !galleryRecords.some(row=>row.id===__gbIds[0]) && __gbHeld(els.deleteUnstarred) && __gbHeld(els.emptyBin)"
+  },
+  {
+    "log": "__gbRevealAndReport(\"#btn-delete-unstarred\")"
+  },
+  {
+    "expect": "__gbLastReveal?.selector===\"#btn-delete-unstarred\" && __gbLastReveal.ok",
+    "fatal": true
+  },
+  {
+    "click": "#btn-delete-unstarred"
+  },
+  {
+    "log": "'Direct emptyBin admission check: its ordinary button is hidden outside Bin; this is a function guard check, not background native input.'"
+  },
+  {
+    "eval": "(async()=>{await emptyBin();})()"
+  },
+  {
+    "expect": "!binBroadOwner && __gbPreviews.length===__gbBefore.previews && __gbWrites.length===__gbBefore.writes && __gbAsks.length===__gbBefore.asks && !els.confirmDialog.open"
+  },
+  {
+    "eval": "__gbExactGate.release();"
+  },
+  {
+    "expect": "__gbUntil(()=>!binWriteIds.size && !binBroadOwner && !binnedIds.has(__gbIds[0]))",
+    "fatal": true
+  },
+  {
+    "log": "'Broad preview owns every exact id and the competing broad action. Filters stay editable; newly read bin/lightbox controls and new note/source constructors inherit the global hold.'"
+  },
+  {
+    "eval": "window.__gbScopeEpoch=galleryEpoch;window.__gbScopeRun=__gbKnown().targetRun;window.__gbScopeIds=__gbKnown().targets;els.search.value='run:'+__gbScopeRun;els.search.dispatchEvent(new Event('input',{bubbles:true}));"
+  },
+  {
+    "expect": "__gbUntil(()=>!galleryPending && galleryEpoch>__gbScopeEpoch && els.search.value==='run:'+__gbScopeRun && galleryRecords.length===2 && galleryRecords.every(row=>row.run_id===__gbScopeRun) && galleryRecords.map(row=>row.id).sort((a,b)=>a-b).join()===[...__gbScopeIds].sort((a,b)=>a-b).join())",
+    "fatal": true
+  },
+  {
+    "eval": "__gbTag();"
+  },
+  {
+    "hover": [
+      5,
+      5
+    ]
+  },
+  {
+    "expect": "__gbUntil(()=>!els.deleteUnstarred.hidden)",
+    "fatal": true
+  },
+  {
+    "eval": "window.__gbPreviewGate={kind:\"sweep\"};window.__gbWriteGate=null;"
+  },
+  {
+    "eval": "window.__gbAllowDialog='count';"
+  },
+  {
+    "log": "__gbRevealAndReport(\"#btn-delete-unstarred\")"
+  },
+  {
+    "expect": "__gbLastReveal?.selector===\"#btn-delete-unstarred\" && __gbLastReveal.ok",
+    "fatal": true
+  },
+  {
+    "click": "#btn-delete-unstarred"
+  },
+  {
+    "expect": "__gbUntil(()=>__gbPreviewGate.captured && typeof __gbPreviewGate.release==='function' && !!binBroadOwner)",
+    "fatal": true
+  },
+  {
+    "eval": "window.__gbOwner=binBroadOwner;"
+  },
+  {
+    "expect": "!binWriteIds.size && __gbHeld(els.deleteUnstarred) && __gbHeld(els.emptyBin)"
+  },
+  {
+    "eval": "window.__gbScopeEpoch=galleryEpoch;window.__gbScopeRun=__gbKnown().retainedRun;window.__gbScopeIds=__gbKnown().keepers;els.search.value='run:'+__gbScopeRun;els.search.dispatchEvent(new Event('input',{bubbles:true}));"
+  },
+  {
+    "expect": "__gbUntil(()=>!galleryPending && galleryEpoch>__gbScopeEpoch && els.search.value==='run:'+__gbScopeRun && galleryRecords.length===2 && galleryRecords.every(row=>row.run_id===__gbScopeRun) && galleryRecords.map(row=>row.id).sort((a,b)=>a-b).join()===[...__gbScopeIds].sort((a,b)=>a-b).join())",
+    "fatal": true
+  },
+  {
+    "eval": "__gbTag();"
+  },
+  {
+    "eval": "window.__gbNoExact=__gbWrites.length;"
+  },
+  {
+    "expect": "__gbHeld(document.querySelector('#gallery .card[data-gb=\"c\"] .del'))"
+  },
+  {
+    "log": "__gbRevealAndReport(\"#gallery .card[data-gb=\\\"c\\\"] .del\")"
+  },
+  {
+    "expect": "__gbLastReveal?.selector===\"#gallery .card[data-gb=\\\"c\\\"] .del\" && __gbLastReveal.ok",
+    "fatal": true
+  },
+  {
+    "hover": "#gallery .card[data-gb=\"c\"] .del"
+  },
+  {
+    "click": "#gallery .card[data-gb=\"c\"] .del"
+  },
+  {
+    "expect": "__gbWrites.length===__gbNoExact && binBroadOwner===__gbOwner"
+  },
+  {
+    "eval": "window.__gbToggleEpoch=galleryEpoch;"
+  },
+  {
+    "log": "__gbRevealAndReport(\"#btn-bin\")"
+  },
+  {
+    "expect": "__gbLastReveal?.selector===\"#btn-bin\" && __gbLastReveal.ok",
+    "fatal": true
+  },
+  {
+    "click": "#btn-bin"
+  },
+  {
+    "expect": "__gbUntil(()=>binMode && !galleryPending && galleryEpoch>__gbToggleEpoch && galleryRecords.length===2 && galleryRecords.every(row=>row.binned_at&&row.run_id===__gbKnown().retainedRun) && galleryRecords.map(row=>row.id).sort((a,b)=>a-b).join()===[...__gbKnown().empty].sort((a,b)=>a-b).join())",
+    "fatal": true
+  },
+  {
+    "eval": "__gbTag();"
+  },
+  {
+    "log": "__gbRevealAndReport(\"#btn-select\")"
+  },
+  {
+    "expect": "__gbLastReveal?.selector===\"#btn-select\" && __gbLastReveal.ok",
+    "fatal": true
+  },
+  {
+    "click": "#btn-select"
+  },
+  {
+    "expect": "selectMode",
+    "fatal": true
+  },
+  {
+    "log": "__gbRevealAndReport(\"#gallery .card[data-gb=\\\"e\\\"] > img\")"
+  },
+  {
+    "expect": "__gbLastReveal?.selector===\"#gallery .card[data-gb=\\\"e\\\"] > img\" && __gbLastReveal.ok",
+    "fatal": true
+  },
+  {
+    "click": "#gallery .card[data-gb=\"e\"] > img"
+  },
+  {
+    "log": "__gbRevealAndReport(\"#gallery .card[data-gb=\\\"f\\\"] > img\")"
+  },
+  {
+    "expect": "__gbLastReveal?.selector===\"#gallery .card[data-gb=\\\"f\\\"] > img\" && __gbLastReveal.ok",
+    "fatal": true
+  },
+  {
+    "click": "#gallery .card[data-gb=\"f\"] > img"
+  },
+  {
+    "expect": "selectedIds().join()===__gbKnown().empty.join() && __gbHeld(els.restorePicked) && __gbHeld(els.purgePicked) && __gbHeld(document.querySelector('#gallery .card[data-gb=\"e\"] .restore'))"
+  },
+  {
+    "eval": "window.__gbNoExact=__gbWrites.length;window.__gbNoAsk=__gbAsks.length;"
+  },
+  {
+    "log": "__gbRevealAndReport(\"#btn-restore-picked\")"
+  },
+  {
+    "expect": "__gbLastReveal?.selector===\"#btn-restore-picked\" && __gbLastReveal.ok",
+    "fatal": true
+  },
+  {
+    "click": "#btn-restore-picked"
+  },
+  {
+    "log": "__gbRevealAndReport(\"#btn-purge-picked\")"
+  },
+  {
+    "expect": "__gbLastReveal?.selector===\"#btn-purge-picked\" && __gbLastReveal.ok",
+    "fatal": true
+  },
+  {
+    "click": "#btn-purge-picked"
+  },
+  {
+    "log": "__gbRevealAndReport(\"#gallery .card[data-gb=\\\"e\\\"] .restore\")"
+  },
+  {
+    "expect": "__gbLastReveal?.selector===\"#gallery .card[data-gb=\\\"e\\\"] .restore\" && __gbLastReveal.ok",
+    "fatal": true
+  },
+  {
+    "hover": "#gallery .card[data-gb=\"e\"] .restore"
+  },
+  {
+    "click": "#gallery .card[data-gb=\"e\"] .restore"
+  },
+  {
+    "log": "__gbRevealAndReport(\"#btn-empty-bin\")"
+  },
+  {
+    "expect": "__gbLastReveal?.selector===\"#btn-empty-bin\" && __gbLastReveal.ok",
+    "fatal": true
+  },
+  {
+    "click": "#btn-empty-bin"
+  },
+  {
+    "expect": "__gbWrites.length===__gbNoExact && __gbAsks.length===__gbNoAsk && binBroadOwner===__gbOwner"
+  },
+  {
+    "eval": "document.querySelector('#gallery .card[data-gb=\"e\"] > img').focus();"
+  },
+  {
+    "key": "Enter"
+  },
+  {
+    "expect": "__gbUntil(()=>els.lightbox.open && lbList[lbIndex]?.id===__gbKnown().empty[0])",
+    "fatal": true
+  },
+  {
+    "expect": "__gbHeld(els.lbRestore) && __gbHeld(els.lbDelete)"
+  },
+  {
+    "log": "__gbRevealAndReport(\"#lb-restore\")"
+  },
+  {
+    "expect": "__gbLastReveal?.selector===\"#lb-restore\" && __gbLastReveal.ok",
+    "fatal": true
+  },
+  {
+    "click": "#lb-restore"
+  },
+  {
+    "key": "Delete"
+  },
+  {
+    "expect": "__gbWrites.length===__gbNoExact && __gbAsks.length===__gbNoAsk && !els.confirmDialog.open"
+  },
+  {
+    "log": "__gbRevealAndReport(\"#lb-close\")"
+  },
+  {
+    "expect": "__gbLastReveal?.selector===\"#lb-close\" && __gbLastReveal.ok",
+    "fatal": true
+  },
+  {
+    "click": "#lb-close"
+  },
+  {
+    "eval": "window.__gbToggleEpoch=galleryEpoch;"
+  },
+  {
+    "log": "__gbRevealAndReport(\"#btn-bin\")"
+  },
+  {
+    "expect": "__gbLastReveal?.selector===\"#btn-bin\" && __gbLastReveal.ok",
+    "fatal": true
+  },
+  {
+    "click": "#btn-bin"
+  },
+  {
+    "expect": "__gbUntil(()=>!binMode && !galleryPending && galleryEpoch>__gbToggleEpoch && galleryRecords.length===2 && galleryRecords.every(row=>!row.binned_at&&row.run_id===__gbKnown().retainedRun) && galleryRecords.map(row=>row.id).sort((a,b)=>a-b).join()===[...__gbKnown().keepers].sort((a,b)=>a-b).join())",
+    "fatal": true
+  },
+  {
+    "eval": "window.__gbScopeEpoch=galleryEpoch;window.__gbScopeRun=__gbKnown().retainedRun;window.__gbScopeIds=__gbKnown().keepers;els.search.value='run:'+__gbScopeRun;els.search.dispatchEvent(new Event('input',{bubbles:true}));"
+  },
+  {
+    "expect": "__gbUntil(()=>!galleryPending && galleryEpoch>__gbScopeEpoch && els.search.value==='run:'+__gbScopeRun && galleryRecords.length===2 && galleryRecords.every(row=>row.run_id===__gbScopeRun) && galleryRecords.map(row=>row.id).sort((a,b)=>a-b).join()===[...__gbScopeIds].sort((a,b)=>a-b).join())",
+    "fatal": true
+  },
+  {
+    "eval": "__gbTag();"
+  },
+  {
+    "eval": "noteBinned(__gbKnown().rows.slice(4));window.__gbSourceButton=sourceRestoreButton(__gbIds[0]);"
+  },
+  {
+    "expect": "__gbHeld(document.querySelector('#gallery-error [data-bin-restore]')) && __gbHeld(__gbSourceButton) && __gbSourceButton.dataset.binWriteIds===String(__gbIds[0])"
+  },
+  {
+    "log": "'New note/source constructor state only; the owned E/F rows really are binned. A native held note keeps all descendant nodes, its container geometry and focus.'"
+  },
+  {
+    "log": "__gbRevealAndReport('#gallery-error [data-bin-restore]')"
+  },
+  {
+    "expect": "__gbLastReveal.ok",
+    "fatal": true
+  },
+  {
+    "eval": "window.__gbNote=document.querySelector('#gallery-error [data-bin-restore]');window.__gbNoteState=__gbSnapshotNote(els.galleryError);window.__gbBinNote=binNote;"
+  },
+  {
+    "log": "__gbRevealAndReport(\"#gallery-error [data-bin-restore]\")"
+  },
+  {
+    "expect": "__gbLastReveal?.selector===\"#gallery-error [data-bin-restore]\" && __gbLastReveal.ok",
+    "fatal": true
+  },
+  {
+    "click": "#gallery-error [data-bin-restore]"
+  },
+  {
+    "expect": "__gbUntil(()=>els.starSaid.textContent===__gbWait+'.')",
+    "fatal": true
+  },
+  {
+    "expect": "__gbNoteUnchanged(__gbNoteState) && document.querySelector('#gallery-error [data-bin-restore]')===__gbNote && document.activeElement===__gbNote && binNote===__gbBinNote && __gbWrites.length===__gbNoExact"
+  },
+  {
+    "eval": "__gbTag();"
+  },
+  {
+    "log": "__gbRevealAndReport(\"#gallery .card[data-gb=\\\"c\\\"] > img\")"
+  },
+  {
+    "expect": "__gbLastReveal?.selector===\"#gallery .card[data-gb=\\\"c\\\"] > img\" && __gbLastReveal.ok",
+    "fatal": true
+  },
+  {
+    "click": "#gallery .card[data-gb=\"c\"] > img"
+  },
+  {
+    "log": "__gbRevealAndReport(\"#gallery .card[data-gb=\\\"d\\\"] > img\")"
+  },
+  {
+    "expect": "__gbLastReveal?.selector===\"#gallery .card[data-gb=\\\"d\\\"] > img\" && __gbLastReveal.ok",
+    "fatal": true
+  },
+  {
+    "click": "#gallery .card[data-gb=\"d\"] > img"
+  },
+  {
+    "expect": "selectedIds().join()===__gbKnown().keepers.join() && __gbHeld(document.querySelector('#picked-menu [data-picked=\"bin\"]'))"
+  },
+  {
+    "expect": "__gbProbeExactAndBroad()"
+  },
+  {
+    "eval": "__gbPreviewGate.release();"
+  },
+  {
+    "expect": "__gbUntil(()=>els.confirmDialog.open)",
+    "fatal": true
+  },
+  {
+    "expect": "els.confirmDialog.open && !els.confirmCountField.hidden && els.confirmTitle.textContent.startsWith('Delete 2 unstarred images matching \"run:') && els.confirmCountLabel.textContent.endsWith('Type 2 to continue:') && els.confirmOk.textContent==='Delete'",
+    "fatal": true
+  },
+  {
+    "log": "'During the native count dialog, background controls are inert. Direct exact/broad funnel checks explicitly prove the common function barrier.'"
+  },
+  {
+    "expect": "__gbProbeExactAndBroad()"
+  },
+  {
+    "log": "__gbRevealAndReport(\"#confirm-cancel\")"
+  },
+  {
+    "expect": "__gbLastReveal?.selector===\"#confirm-cancel\" && __gbLastReveal.ok",
+    "fatal": true
+  },
+  {
+    "click": "#confirm-cancel"
+  },
+  {
+    "expect": "__gbUntil(()=>!els.confirmDialog.open && !binBroadOwner && !binWriteIds.size)",
+    "fatal": true
+  },
+  {
+    "expect": "selectedIds().join()===__gbKnown().keepers.join() && setupComposerState()===__gbComposer"
+  },
+  {
+    "log": "__gbRevealAndReport(\"#btn-select-clear\")"
+  },
+  {
+    "expect": "__gbLastReveal?.selector===\"#btn-select-clear\" && __gbLastReveal.ok",
+    "fatal": true
+  },
+  {
+    "click": "#btn-select-clear"
+  },
+  {
+    "expect": "selectedIds().length===0",
+    "fatal": true
+  },
+  {
+    "log": "'Wrong count releases ownership without dispatch. The final instruction is the count label, preserving the existing confirmation UI.'"
+  },
+  {
+    "eval": "window.__gbScopeEpoch=galleryEpoch;window.__gbScopeRun=__gbKnown().targetRun;window.__gbScopeIds=__gbKnown().targets;els.search.value='run:'+__gbScopeRun;els.search.dispatchEvent(new Event('input',{bubbles:true}));"
+  },
+  {
+    "expect": "__gbUntil(()=>!galleryPending && galleryEpoch>__gbScopeEpoch && els.search.value==='run:'+__gbScopeRun && galleryRecords.length===2 && galleryRecords.every(row=>row.run_id===__gbScopeRun) && galleryRecords.map(row=>row.id).sort((a,b)=>a-b).join()===[...__gbScopeIds].sort((a,b)=>a-b).join())",
+    "fatal": true
+  },
+  {
+    "eval": "__gbTag();"
+  },
+  {
+    "hover": [
+      5,
+      5
+    ]
+  },
+  {
+    "expect": "__gbUntil(()=>!els.deleteUnstarred.hidden)",
+    "fatal": true
+  },
+  {
+    "eval": "window.__gbPreviewGate=null;window.__gbWriteGate=null;"
+  },
+  {
+    "eval": "window.__gbAllowDialog='count';"
+  },
+  {
+    "log": "__gbRevealAndReport(\"#btn-delete-unstarred\")"
+  },
+  {
+    "expect": "__gbLastReveal?.selector===\"#btn-delete-unstarred\" && __gbLastReveal.ok",
+    "fatal": true
+  },
+  {
+    "click": "#btn-delete-unstarred"
+  },
+  {
+    "expect": "__gbUntil(()=>els.confirmDialog.open && !!binBroadOwner)",
+    "fatal": true
+  },
+  {
+    "eval": "window.__gbOwner=binBroadOwner;"
+  },
+  {
+    "expect": "els.confirmDialog.open && !els.confirmCountField.hidden && els.confirmTitle.textContent.startsWith('Delete 2 unstarred images matching \"run:') && els.confirmCountLabel.textContent.endsWith('Type 2 to continue:') && els.confirmOk.textContent==='Delete'",
+    "fatal": true
+  },
+  {
+    "log": "__gbRevealAndReport(\"#confirm-count\")"
+  },
+  {
+    "expect": "__gbLastReveal?.selector===\"#confirm-count\" && __gbLastReveal.ok",
+    "fatal": true
+  },
+  {
+    "click": "#confirm-count"
+  },
+  {
+    "type": "999"
+  },
+  {
+    "log": "__gbRevealAndReport(\"#confirm-ok\")"
+  },
+  {
+    "expect": "__gbLastReveal?.selector===\"#confirm-ok\" && __gbLastReveal.ok",
+    "fatal": true
+  },
+  {
+    "click": "#confirm-ok"
+  },
+  {
+    "expect": "__gbUntil(()=>!els.confirmDialog.open && !binBroadOwner)",
+    "fatal": true
+  },
+  {
+    "expect": "els.galleryError.textContent.includes('Nothing moved') && __gbJobs===0 && !binWriteIds.size"
+  },
+  {
+    "log": "'A known count-pinned refusal retains the broad owner until its explicit reset result applies; no exact/second broad starts during that awaited refresh.'"
+  },
+  {
+    "eval": "window.__gbScopeEpoch=galleryEpoch;window.__gbScopeRun=__gbKnown().targetRun;window.__gbScopeIds=__gbKnown().targets;els.search.value='run:'+__gbScopeRun;els.search.dispatchEvent(new Event('input',{bubbles:true}));"
+  },
+  {
+    "expect": "__gbUntil(()=>!galleryPending && galleryEpoch>__gbScopeEpoch && els.search.value==='run:'+__gbScopeRun && galleryRecords.length===2 && galleryRecords.every(row=>row.run_id===__gbScopeRun) && galleryRecords.map(row=>row.id).sort((a,b)=>a-b).join()===[...__gbScopeIds].sort((a,b)=>a-b).join())",
+    "fatal": true
+  },
+  {
+    "eval": "__gbTag();"
+  },
+  {
+    "hover": [
+      5,
+      5
+    ]
+  },
+  {
+    "expect": "__gbUntil(()=>!els.deleteUnstarred.hidden)",
+    "fatal": true
+  },
+  {
+    "eval": "window.__gbPreviewGate=null;window.__gbWriteGate=null;"
+  },
+  {
+    "eval": "window.__gbAllowDialog='count';"
+  },
+  {
+    "log": "__gbRevealAndReport(\"#btn-delete-unstarred\")"
+  },
+  {
+    "expect": "__gbLastReveal?.selector===\"#btn-delete-unstarred\" && __gbLastReveal.ok",
+    "fatal": true
+  },
+  {
+    "click": "#btn-delete-unstarred"
+  },
+  {
+    "expect": "__gbUntil(()=>els.confirmDialog.open && !!binBroadOwner)",
+    "fatal": true
+  },
+  {
+    "eval": "window.__gbOwner=binBroadOwner;"
+  },
+  {
+    "expect": "els.confirmDialog.open && !els.confirmCountField.hidden && els.confirmTitle.textContent.startsWith('Delete 2 unstarred images matching \"run:') && els.confirmCountLabel.textContent.endsWith('Type 2 to continue:') && els.confirmOk.textContent==='Delete'",
+    "fatal": true
+  },
+  {
+    "eval": "window.__gbWriteGate={kind:'sweep',mode:'reject409'};"
+  },
+  {
+    "eval": "window.__gbApproved=__gbApproval(\"sweep\");"
+  },
+  {
+    "log": "__gbRevealAndReport(\"#confirm-count\")"
+  },
+  {
+    "expect": "__gbLastReveal?.selector===\"#confirm-count\" && __gbLastReveal.ok",
+    "fatal": true
+  },
+  {
+    "click": "#confirm-count"
+  },
+  {
+    "type": "2"
+  },
+  {
+    "log": "__gbRevealAndReport(\"#confirm-ok\")"
+  },
+  {
+    "expect": "__gbLastReveal?.selector===\"#confirm-ok\" && __gbLastReveal.ok",
+    "fatal": true
+  },
+  {
+    "click": "#confirm-ok"
+  },
+  {
+    "expect": "__gbUntil(()=>__gbWriteGate.captured && typeof __gbWriteGate.release==='function' && !els.confirmDialog.open)",
+    "fatal": true
+  },
+  {
+    "eval": "window.__gbResetGate={owner:binBroadOwner,epoch:galleryEpoch,base:galleryEndpoint()};"
+  },
+  {
+    "eval": "__gbWriteGate.release();"
+  },
+  {
+    "expect": "__gbUntil(()=>__gbResetGate.captured && typeof __gbResetGate.release==='function' && binBroadOwner===__gbOwner)",
+    "fatal": true
+  },
+  {
+    "expect": "!binWriteIds.size && galleryRecords.length===0 && __gbHeld(els.deleteUnstarred) && __gbHeld(els.emptyBin)"
+  },
+  {
+    "expect": "__gbProbeExactAndBroad()"
+  },
+  {
+    "eval": "__gbResetGate.release();"
+  },
+  {
+    "expect": "__gbUntil(()=>!binBroadOwner && !galleryPending && galleryEpoch>__gbResetGate.epoch && galleryRecords.length===2 && galleryRecords.map(row=>row.id).sort((a,b)=>a-b).join()===[...__gbKnown().targets].sort((a,b)=>a-b).join())",
+    "fatal": true
+  },
+  {
+    "eval": "__gbTag();"
+  },
+  {
+    "expect": "els.galleryError.textContent.includes('Selection changed') && __gbWriteGate.entry.status===409 && !__gbWriteGate.entry.sent"
+  },
+  {
+    "log": "'Successful strict-run sweep captures All models once. Toggle it off during the held preview: both native wording and DELETE keep the original true scope. Keep unrelated C/D picks through actual reply and critical reset.'"
+  },
+  {
+    "eval": "window.__gbToggleEpoch=galleryEpoch;"
+  },
+  {
+    "log": "__gbRevealAndReport(\"#all-models\")"
+  },
+  {
+    "expect": "__gbLastReveal?.selector===\"#all-models\" && __gbLastReveal.ok",
+    "fatal": true
+  },
+  {
+    "click": "#all-models"
+  },
+  {
+    "expect": "__gbUntil(()=>els.allModels.checked && !galleryPending && galleryEpoch>__gbToggleEpoch && els.search.value==='run:'+__gbKnown().targetRun && galleryRecords.every(row=>row.run_id===__gbKnown().targetRun) && galleryRecords.map(row=>row.id).sort((a,b)=>a-b).join()===[...__gbKnown().targets].sort((a,b)=>a-b).join())",
+    "fatal": true
+  },
+  {
+    "eval": "window.__gbScopeEpoch=galleryEpoch;window.__gbScopeRun=__gbKnown().targetRun;window.__gbScopeIds=__gbKnown().targets;els.search.value='run:'+__gbScopeRun;els.search.dispatchEvent(new Event('input',{bubbles:true}));"
+  },
+  {
+    "expect": "__gbUntil(()=>!galleryPending && galleryEpoch>__gbScopeEpoch && els.search.value==='run:'+__gbScopeRun && galleryRecords.length===2 && galleryRecords.every(row=>row.run_id===__gbScopeRun) && galleryRecords.map(row=>row.id).sort((a,b)=>a-b).join()===[...__gbScopeIds].sort((a,b)=>a-b).join())",
+    "fatal": true
+  },
+  {
+    "eval": "__gbTag();"
+  },
+  {
+    "hover": [
+      5,
+      5
+    ]
+  },
+  {
+    "expect": "__gbUntil(()=>!els.deleteUnstarred.hidden)",
+    "fatal": true
+  },
+  {
+    "eval": "window.__gbPreviewGate={kind:\"sweep\"};window.__gbWriteGate=null;"
+  },
+  {
+    "eval": "window.__gbAllowDialog='count';"
+  },
+  {
+    "log": "__gbRevealAndReport(\"#btn-delete-unstarred\")"
+  },
+  {
+    "expect": "__gbLastReveal?.selector===\"#btn-delete-unstarred\" && __gbLastReveal.ok",
+    "fatal": true
+  },
+  {
+    "click": "#btn-delete-unstarred"
+  },
+  {
+    "expect": "__gbUntil(()=>__gbPreviewGate.captured && typeof __gbPreviewGate.release==='function' && !!binBroadOwner)",
+    "fatal": true
+  },
+  {
+    "eval": "window.__gbOwner=binBroadOwner;"
+  },
+  {
+    "expect": "__gbPreviewGate.entry.query.get('all_models')==='true' && __gbPreviewGate.entry.query.get('search')==='run:'+__gbKnown().targetRun",
+    "fatal": true
+  },
+  {
+    "eval": "window.__gbToggleEpoch=galleryEpoch;"
+  },
+  {
+    "log": "__gbRevealAndReport(\"#all-models\")"
+  },
+  {
+    "expect": "__gbLastReveal?.selector===\"#all-models\" && __gbLastReveal.ok",
+    "fatal": true
+  },
+  {
+    "click": "#all-models"
+  },
+  {
+    "expect": "__gbUntil(()=>!els.allModels.checked && !galleryPending && galleryEpoch>__gbToggleEpoch && els.search.value==='run:'+__gbKnown().targetRun && galleryRecords.every(row=>row.run_id===__gbKnown().targetRun) && galleryRecords.map(row=>row.id).sort((a,b)=>a-b).join()===[...__gbKnown().targets].sort((a,b)=>a-b).join())",
+    "fatal": true
+  },
+  {
+    "eval": "window.__gbScopeEpoch=galleryEpoch;window.__gbScopeRun=__gbKnown().retainedRun;window.__gbScopeIds=__gbKnown().keepers;els.search.value='run:'+__gbScopeRun;els.search.dispatchEvent(new Event('input',{bubbles:true}));"
+  },
+  {
+    "expect": "__gbUntil(()=>!galleryPending && galleryEpoch>__gbScopeEpoch && els.search.value==='run:'+__gbScopeRun && galleryRecords.length===2 && galleryRecords.every(row=>row.run_id===__gbScopeRun) && galleryRecords.map(row=>row.id).sort((a,b)=>a-b).join()===[...__gbScopeIds].sort((a,b)=>a-b).join())",
+    "fatal": true
+  },
+  {
+    "eval": "__gbTag();"
+  },
+  {
+    "log": "__gbRevealAndReport(\"#gallery .card[data-gb=\\\"c\\\"] > img\")"
+  },
+  {
+    "expect": "__gbLastReveal?.selector===\"#gallery .card[data-gb=\\\"c\\\"] > img\" && __gbLastReveal.ok",
+    "fatal": true
+  },
+  {
+    "click": "#gallery .card[data-gb=\"c\"] > img"
+  },
+  {
+    "log": "__gbRevealAndReport(\"#gallery .card[data-gb=\\\"d\\\"] > img\")"
+  },
+  {
+    "expect": "__gbLastReveal?.selector===\"#gallery .card[data-gb=\\\"d\\\"] > img\" && __gbLastReveal.ok",
+    "fatal": true
+  },
+  {
+    "click": "#gallery .card[data-gb=\"d\"] > img"
+  },
+  {
+    "eval": "window.__gbKeeperOrder=selectedIds().join();window.__gbWriteGate={kind:'sweep',mode:'hold'};"
+  },
+  {
+    "eval": "__gbPreviewGate.release();"
+  },
+  {
+    "expect": "__gbUntil(()=>els.confirmDialog.open)",
+    "fatal": true
+  },
+  {
+    "expect": "els.confirmDialog.open && !els.confirmCountField.hidden && els.confirmTitle.textContent.startsWith('Delete 2 unstarred images matching \"run:') && els.confirmCountLabel.textContent.endsWith('Type 2 to continue:') && els.confirmOk.textContent==='Delete'",
+    "fatal": true
+  },
+  {
+    "expect": "els.confirmTitle.textContent.includes('across 1 checkpoint') && !els.confirmTitle.textContent.includes(' only)') && !els.allModels.checked",
+    "fatal": true
+  },
+  {
+    "eval": "window.__gbApproved=__gbApproval(\"sweep\");"
+  },
+  {
+    "log": "__gbRevealAndReport(\"#confirm-count\")"
+  },
+  {
+    "expect": "__gbLastReveal?.selector===\"#confirm-count\" && __gbLastReveal.ok",
+    "fatal": true
+  },
+  {
+    "click": "#confirm-count"
+  },
+  {
+    "type": "2"
+  },
+  {
+    "log": "__gbRevealAndReport(\"#confirm-ok\")"
+  },
+  {
+    "expect": "__gbLastReveal?.selector===\"#confirm-ok\" && __gbLastReveal.ok",
+    "fatal": true
+  },
+  {
+    "click": "#confirm-ok"
+  },
+  {
+    "expect": "__gbUntil(()=>__gbWriteGate.confirmed && typeof __gbWriteGate.release==='function' && !els.confirmDialog.open)",
+    "fatal": true
+  },
+  {
+    "expect": "__gbWriteGate.entry.stored.every(row=>row.exists&&row.binned) && binBroadOwner===__gbOwner && selectedIds().join()===__gbKeeperOrder"
+  },
+  {
+    "expect": "__gbProbeExactAndBroad()"
+  },
+  {
+    "shot": "broad-bin-sweep-reply-held.png"
+  },
+  {
+    "eval": "window.__gbResetGate={owner:binBroadOwner,epoch:galleryEpoch,base:galleryEndpoint()};"
+  },
+  {
+    "eval": "__gbWriteGate.release();"
+  },
+  {
+    "expect": "__gbUntil(()=>__gbResetGate.captured && typeof __gbResetGate.release==='function' && binBroadOwner===__gbOwner)",
+    "fatal": true
+  },
+  {
+    "expect": "!binWriteIds.size && galleryRecords.length===0 && __gbHeld(els.deleteUnstarred) && __gbHeld(els.emptyBin)"
+  },
+  {
+    "expect": "__gbProbeExactAndBroad()"
+  },
+  {
+    "expect": "selectedIds().join()===__gbKeeperOrder && __gbKnown().targets.every(id=>binnedIds.has(id))"
+  },
+  {
+    "eval": "__gbResetGate.release();"
+  },
+  {
+    "expect": "__gbUntil(()=>!binBroadOwner && !galleryPending && galleryEpoch>__gbResetGate.epoch && galleryRecords.length===2 && galleryRecords.map(row=>row.id).sort((a,b)=>a-b).join()===[...__gbKnown().keepers].sort((a,b)=>a-b).join())",
+    "fatal": true
+  },
+  {
+    "eval": "__gbTag();"
+  },
+  {
+    "expect": "selectedIds().join()===__gbKeeperOrder && __gbKnown().targets.every(id=>binnedIds.has(id)) && galleryRecords.map(row=>row.id).every(id=>__gbKnown().keepers.includes(id)) && !binWriteIds.size && setupComposerState()===__gbComposer"
+  },
+  {
+    "expect": "__gbPlantsKept()",
+    "fatal": true
+  },
+  {
+    "log": "'Ordinary explicit-id Restore cleans up owned A/B between broad phases; it is not a fresh seed or a direct storage mutation.'"
+  },
+  {
+    "eval": "(async()=>{await restoreImages(__gbKnown().targets);})()"
+  },
+  {
+    "expect": "__gbUntil(()=>!binWriteIds.size && !binBroadOwner && __gbKnown().targets.every(id=>!binnedIds.has(id)))",
+    "fatal": true
+  },
+  {
+    "log": "'Empty bin preserves the stashed unrelated C/D picks. It owns preview and confirmation; Cancel keeps E/F and clears ownership.'"
+  },
+  {
+    "eval": "window.__gbToggleEpoch=galleryEpoch;"
+  },
+  {
+    "log": "__gbRevealAndReport(\"#btn-bin\")"
+  },
+  {
+    "expect": "__gbLastReveal?.selector===\"#btn-bin\" && __gbLastReveal.ok",
+    "fatal": true
+  },
+  {
+    "click": "#btn-bin"
+  },
+  {
+    "expect": "__gbUntil(()=>binMode && !galleryPending && galleryEpoch>__gbToggleEpoch && galleryRecords.length===2 && galleryRecords.every(row=>row.binned_at&&row.run_id===__gbKnown().retainedRun) && galleryRecords.map(row=>row.id).sort((a,b)=>a-b).join()===[...__gbKnown().empty].sort((a,b)=>a-b).join() && stashedSelection?.picks.size===2)",
+    "fatal": true
+  },
+  {
+    "eval": "__gbTag();"
+  },
+  {
+    "log": "__gbRevealAndReport(\"#gallery .card[data-gb=\\\"e\\\"] > img\")"
+  },
+  {
+    "expect": "__gbLastReveal?.selector===\"#gallery .card[data-gb=\\\"e\\\"] > img\" && __gbLastReveal.ok",
+    "fatal": true
+  },
+  {
+    "click": "#gallery .card[data-gb=\"e\"] > img"
+  },
+  {
+    "log": "__gbRevealAndReport(\"#gallery .card[data-gb=\\\"f\\\"] > img\")"
+  },
+  {
+    "expect": "__gbLastReveal?.selector===\"#gallery .card[data-gb=\\\"f\\\"] > img\" && __gbLastReveal.ok",
+    "fatal": true
+  },
+  {
+    "click": "#gallery .card[data-gb=\"f\"] > img"
+  },
+  {
+    "eval": "window.__gbPreviewGate={kind:\"empty\"};window.__gbWriteGate=null;"
+  },
+  {
+    "eval": "window.__gbAllowDialog='empty';"
+  },
+  {
+    "log": "__gbRevealAndReport(\"#btn-empty-bin\")"
+  },
+  {
+    "expect": "__gbLastReveal?.selector===\"#btn-empty-bin\" && __gbLastReveal.ok",
+    "fatal": true
+  },
+  {
+    "click": "#btn-empty-bin"
+  },
+  {
+    "expect": "__gbUntil(()=>__gbPreviewGate.captured && typeof __gbPreviewGate.release==='function' && !!binBroadOwner)",
+    "fatal": true
+  },
+  {
+    "eval": "window.__gbOwner=binBroadOwner;"
+  },
+  {
+    "expect": "__gbProbeExactAndBroad()"
+  },
+  {
+    "eval": "__gbPreviewGate.release();"
+  },
+  {
+    "expect": "__gbUntil(()=>els.confirmDialog.open)",
+    "fatal": true
+  },
+  {
+    "expect": "els.confirmDialog.open && els.confirmCountField.hidden && els.confirmTitle.textContent.startsWith('Permanently delete all 2 images in the recycle bin') && els.confirmOk.textContent==='Empty bin'",
+    "fatal": true
+  },
+  {
+    "expect": "__gbProbeExactAndBroad()"
+  },
+  {
+    "log": "__gbRevealAndReport(\"#confirm-cancel\")"
+  },
+  {
+    "expect": "__gbLastReveal?.selector===\"#confirm-cancel\" && __gbLastReveal.ok",
+    "fatal": true
+  },
+  {
+    "click": "#confirm-cancel"
+  },
+  {
+    "expect": "__gbUntil(()=>!els.confirmDialog.open && !binBroadOwner)",
+    "fatal": true
+  },
+  {
+    "expect": "selectedIds().join()===__gbKnown().empty.join() && [...stashedSelection.picks.keys()].join()===__gbKeeperOrder && setupComposerState()===__gbComposer"
+  },
+  {
+    "log": "'Known pre-dispatch Empty 409 awaits its reset while holding all exact ids and the competing broad action. No owned PNG is deleted by this refusal.'"
+  },
+  {
+    "eval": "window.__gbPreviewGate=null;window.__gbWriteGate={kind:'empty',mode:'reject409'};window.__gbAllowDialog='empty';"
+  },
+  {
+    "log": "__gbRevealAndReport(\"#btn-empty-bin\")"
+  },
+  {
+    "expect": "__gbLastReveal?.selector===\"#btn-empty-bin\" && __gbLastReveal.ok",
+    "fatal": true
+  },
+  {
+    "click": "#btn-empty-bin"
+  },
+  {
+    "expect": "__gbUntil(()=>els.confirmDialog.open && !!binBroadOwner)",
+    "fatal": true
+  },
+  {
+    "eval": "window.__gbOwner=binBroadOwner;"
+  },
+  {
+    "expect": "els.confirmDialog.open && els.confirmCountField.hidden && els.confirmTitle.textContent.startsWith('Permanently delete all 2 images in the recycle bin') && els.confirmOk.textContent==='Empty bin'",
+    "fatal": true
+  },
+  {
+    "eval": "window.__gbApproved=__gbApproval(\"empty\");"
+  },
+  {
+    "log": "__gbRevealAndReport(\"#confirm-ok\")"
+  },
+  {
+    "expect": "__gbLastReveal?.selector===\"#confirm-ok\" && __gbLastReveal.ok",
+    "fatal": true
+  },
+  {
+    "click": "#confirm-ok"
+  },
+  {
+    "expect": "__gbUntil(()=>__gbWriteGate.captured && typeof __gbWriteGate.release==='function' && !els.confirmDialog.open)",
+    "fatal": true
+  },
+  {
+    "eval": "window.__gbResetGate={owner:binBroadOwner,epoch:galleryEpoch,base:galleryEndpoint()};"
+  },
+  {
+    "eval": "__gbWriteGate.release();"
+  },
+  {
+    "expect": "__gbUntil(()=>__gbResetGate.captured && typeof __gbResetGate.release==='function' && binBroadOwner===__gbOwner)",
+    "fatal": true
+  },
+  {
+    "expect": "!binWriteIds.size && galleryRecords.length===0 && __gbHeld(els.deleteUnstarred) && __gbHeld(els.emptyBin)"
+  },
+  {
+    "expect": "__gbProbeExactAndBroad()"
+  },
+  {
+    "eval": "__gbResetGate.release();"
+  },
+  {
+    "expect": "__gbUntil(()=>!binBroadOwner && !galleryPending && galleryEpoch>__gbResetGate.epoch && galleryRecords.length===2 && galleryRecords.map(row=>row.id).sort((a,b)=>a-b).join()===[...__gbKnown().empty].sort((a,b)=>a-b).join())",
+    "fatal": true
+  },
+  {
+    "eval": "__gbTag();"
+  },
+  {
+    "expect": "__gbWriteGate.entry.status===409 && !__gbWriteGate.entry.sent && selectedIds().join()===__gbKnown().empty.join() && !binWriteIds.size && !binBroadOwner"
+  },
+  {
+    "expect": "(async()=>{const rows=await Promise.all(__gbKnown().empty.map(__gbStored));if(!rows.every(row=>row.exists&&row.binned))return false;const codes=await Promise.all(rows.map(row=>{const url=new URL(row.row.url,location.href);url.searchParams.set('binned','true');return __gbFetch(url.href).then(response=>response.status);}));return codes.every(code=>code===200);})()"
+  },
+  {
+    "log": "'Only this final native confirmation permits one actual permanent Empty of owned E/F. Guard the exact server expected/pin/before; hold ownership through reply and final reset. No planted or unrelated row may enter its scope.'"
+  },
+  {
+    "eval": "window.__gbPreviewGate=null;window.__gbWriteGate={kind:'empty',mode:'hold'};window.__gbAllowDialog='empty';"
+  },
+  {
+    "log": "__gbRevealAndReport(\"#btn-empty-bin\")"
+  },
+  {
+    "expect": "__gbLastReveal?.selector===\"#btn-empty-bin\" && __gbLastReveal.ok",
+    "fatal": true
+  },
+  {
+    "click": "#btn-empty-bin"
+  },
+  {
+    "expect": "__gbUntil(()=>els.confirmDialog.open && !!binBroadOwner)",
+    "fatal": true
+  },
+  {
+    "eval": "window.__gbOwner=binBroadOwner;"
+  },
+  {
+    "expect": "els.confirmDialog.open && els.confirmCountField.hidden && els.confirmTitle.textContent.startsWith('Permanently delete all 2 images in the recycle bin') && els.confirmOk.textContent==='Empty bin'",
+    "fatal": true
+  },
+  {
+    "eval": "window.__gbApproved=__gbApproval(\"empty\");"
+  },
+  {
+    "log": "__gbRevealAndReport(\"#confirm-ok\")"
+  },
+  {
+    "expect": "__gbLastReveal?.selector===\"#confirm-ok\" && __gbLastReveal.ok",
+    "fatal": true
+  },
+  {
+    "click": "#confirm-ok"
+  },
+  {
+    "expect": "__gbUntil(()=>__gbWriteGate.confirmed && typeof __gbWriteGate.release==='function' && !els.confirmDialog.open)",
+    "fatal": true
+  },
+  {
+    "expect": "__gbWriteGate.entry.stored.every(row=>!row.exists) && binBroadOwner===__gbOwner && __gbHeld(els.restorePicked) && __gbHeld(document.querySelector('#gallery .card[data-gb=\"e\"] .restore'))"
+  },
+  {
+    "expect": "__gbProbeExactAndBroad()"
+  },
+  {
+    "shot": "broad-bin-empty-reply-held.png"
+  },
+  {
+    "eval": "window.__gbResetGate={owner:binBroadOwner,epoch:galleryEpoch,base:galleryEndpoint()};"
+  },
+  {
+    "eval": "__gbWriteGate.release();"
+  },
+  {
+    "expect": "__gbUntil(()=>__gbResetGate.captured && typeof __gbResetGate.release==='function' && binBroadOwner===__gbOwner)",
+    "fatal": true
+  },
+  {
+    "expect": "!binWriteIds.size && galleryRecords.length===0 && __gbHeld(els.deleteUnstarred) && __gbHeld(els.emptyBin)"
+  },
+  {
+    "expect": "__gbProbeExactAndBroad()"
+  },
+  {
+    "expect": "__gbKnown().empty.every(id=>deletedIds.has(id)&&!binnedIds.has(id)) && [...stashedSelection.picks.keys()].join()===__gbKeeperOrder"
+  },
+  {
+    "eval": "__gbResetGate.release();"
+  },
+  {
+    "expect": "__gbUntil(()=>!binBroadOwner && !galleryPending && galleryEpoch>__gbResetGate.epoch && galleryRecords.length===0)",
+    "fatal": true
+  },
+  {
+    "eval": "__gbTag();"
+  },
+  {
+    "expect": "selectedIds().length===0 && [...stashedSelection.picks.keys()].join()===__gbKeeperOrder && __gbKnown().empty.every(id=>deletedIds.has(id)) && !binBroadOwner && !binWriteIds.size"
+  },
+  {
+    "eval": "window.__gbToggleEpoch=galleryEpoch;"
+  },
+  {
+    "log": "__gbRevealAndReport(\"#btn-bin\")"
+  },
+  {
+    "expect": "__gbLastReveal?.selector===\"#btn-bin\" && __gbLastReveal.ok",
+    "fatal": true
+  },
+  {
+    "click": "#btn-bin"
+  },
+  {
+    "expect": "__gbUntil(()=>!binMode && !galleryPending && galleryEpoch>__gbToggleEpoch && galleryRecords.length===2 && galleryRecords.every(row=>!row.binned_at&&row.run_id===__gbKnown().retainedRun) && galleryRecords.map(row=>row.id).sort((a,b)=>a-b).join()===[...__gbKnown().keepers].sort((a,b)=>a-b).join() && selectedIds().join()===__gbKeeperOrder)",
+    "fatal": true
+  },
+  {
+    "expect": "(async()=>{const rows=await Promise.all(__gbKnown().ids.map(__gbStored));return rows.slice(0,4).every(row=>row.exists&&!row.binned)&&rows.slice(4).every(row=>!row.exists)&&await __gbPlantsKept();})()",
+    "fatal": true
+  },
+  {
+    "log": "JSON.stringify({writes:__gbWrites.map(({kind,ids,sent,status})=>({kind,ids,sent,status})),dialogs:__gbAsks.map(({kind,label})=>({kind,label})),plantedIds:__gbKnown().plants.map(row=>row.id),ownedIds:__gbKnown().ids,unexpectedJobs:__gbJobs,allowedReadOnlyPosts:[...new Set(__gbReadOnlyPosts)],forbiddenWrites:__gbForbidden.slice(),pageErrors:__gbErrors.slice(),ownerReleased:!binBroadOwner&&!binWriteIds.size,composerUnchanged:setupComposerState()===__gbComposer})"
+  },
+  {
+    "expect": "!binBroadOwner && !binWriteIds.size && __gbJobs===0 && __gbForbidden.length===0 && __gbErrors.length===0 && setupComposerState()===__gbComposer && __gbWrites.filter(row=>row.kind==='empty'&&row.sent).length===1 && __gbWrites.filter(row=>row.kind==='sweep'&&row.sent).length===1"
+  },
+  {
+    "eval": "api=__gbBaseApi;askCount=__gbAskCount;askConfirm=__gbAskConfirm;"
+  }
+]

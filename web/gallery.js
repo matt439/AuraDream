@@ -436,7 +436,7 @@ function card(rec) {
   star.className = 'star fav-badge';
   star.setAttribute('aria-keyshortcuts', 'F');
   star.onclick = () => setFavorite(rec, !rec.favorite);
-  syncStar(star, !!rec.favorite);
+  syncStar(star, !!rec.favorite, rec.id);
 
   const refine = tool('⤢', '', () => {
     // Said here rather than in openRefine, so the card can say it where it
@@ -455,6 +455,7 @@ function card(rec) {
   syncReferenceTool(reference, rec.id);
   const del = tool('⌦', `Move #${rec.id} to the recycle bin`, () => deleteImage(rec), 'Move to recycle bin');
   del.classList.add('del');
+  syncBinWriteButton(del, [rec.id]);
 
   const tools = document.createElement('div');
   tools.className = 'tools';
@@ -517,11 +518,13 @@ function tool(label, title, onClick, tip = '') {
 // carry - "Unstar, pressed" said the opposite of what it meant, as "Resume,
 // pressed" did on Pause, and the lightbox's star said the same state in
 // other words. The title (starTitle) is where the state is put in words.
-function syncStar(button, on) {
+function syncStar(button, on, id) {
   button.textContent = on ? '★' : '☆';
   button.setAttribute('aria-pressed', String(on));
   button.setAttribute('aria-label', 'Star');
-  button.title = starTitle(on, button);
+  const held = favoriteWriteReason([id]);
+  button.setAttribute('aria-disabled', String(!!held));
+  button.title = held || starTitle(on, button);
 }
 
 // A star's title, the card's and the lightbox's alike. It names F only where

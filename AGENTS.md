@@ -16,6 +16,14 @@ wrong before). `docs/verified.md` lists what has been measured on the card.
 fresh thread starts at its NOW.
 Edit `AGENTS.md` only: `CLAUDE.md` just imports it (`@AGENTS.md`).
 
+## Git workflow
+
+Work on a local branch and commit completed changes there. Keep related work
+together on the same branch across commits. Create a pull request only when
+Matt explicitly requests one, collecting the accumulated commits into that
+PR. Do not create a PR for each commit or split related work into stacked
+PRs unless requested. Keep commits local until Matt requests a push or a PR.
+
 ## Run
 
 ```powershell
@@ -102,6 +110,23 @@ Backend (`backend/`):
   `api_backup.py` explicit backup configuration and cached status routes,
   with models in `schemas_backup.py`;
   `gallery_lock.py` reservations across storage threads and processes
+- `presets.py` bounded atomic named generation/grid drafts, with strict raw
+  types in `schemas_presets.py`; `preset_validation.py` cold effective
+  summaries and `api_presets.py` revisioned CRUD/validation, independent of
+  gallery maintenance; `web/generation-presets.js` owns explicit composer
+  Restore, its whole-draft Undo and the Saved setups dialog
+- `preset_portability.py` - cold raw setup export/digests and explicit file-index
+  merge plans; `schemas_preset_portability.py` owns the native document and
+  choice/preview models; `strict_json.py` bounds only the new UTF-8 document
+  syntax, without changing existing sidecar or snippet readers
+- `snippet_portability.py` - cold portable snippet codec, collection/input
+  digests and pure merge plans; `schemas_snippet_portability.py` owns strict
+  portable documents and file-index choices; `api_snippets.py` exposes bounded
+  export/preview/import, with atomic commit under `snippets.py`'s reservation
+- `saved_searches.py` bounded atomic database-scoped gallery filters,
+  `schemas_saved_searches.py` their strict fields and revisions, and
+  `api_saved_searches.py` model-free CRUD independent of gallery maintenance;
+  `web/saved-searches.js` owns their explicit dialog and filter transition
 - `bundle_leases.py` archive reader/exclusive leases, complete download/import
   lifetimes and uncertain-input quarantine, with opt-in shared companion locks in
   `bundle_file_lock.py`; `bundle_mode.py` explicit Windows/NTFS mode installation
@@ -154,9 +179,14 @@ cascade. `docs/rules.md`'s Layout maps every file; `docs/source-audit.md`
 records the split audits.
 `execution.js` owns inspectable performance controls and unavailable-recipe
 holds; configuring a recipe never enables its loading or rendering.
+`generation-presets.js` (`styles/setups.css`) owns Examples > Saved setups,
+raw composer capture, validated Restore and whole-draft Undo; it queues no work.
 `instruction-edit.js` (`styles/instruction-edit.css`) owns Edit by
 instruction… (the menu item, the dialog, Reuse of an edit and its lineage);
 it never writes the composer's prompt, negative or references.
+
+`snippet-import.js` owns explicit personal-snippet export and the native
+merge dialog; it preserves the editor and prompt boxes, with no automatic retry.
 
 Also: `tools/` (fake server, headless-browser smokes), `tests/`, `wsl/`,
 `docs/`.
@@ -374,6 +404,11 @@ uv run python tools/fake_server.py --port <port> [--model <id>] [--step 0.3]   #
 node tools/browser.mjs tools/<smoke>.json
 ```
 
+Use `{"expect": "...", "fatal": true}` for a fixture prerequisite that must
+stop later steps when it fails. Async setup expressions must explicitly return
+true. Ordinary expectations keep aggregate diagnostics; fatal failure still
+uses the driver's graceful close/cleanup. See the full Tests rules.
+
 `run_smoke.py` reads the table below, so a new smoke needs only its row.
 
 | Port | `--model` (default Krea 2 Turbo) | Smokes |
@@ -449,6 +484,24 @@ node tools/browser.mjs tools/<smoke>.json
 | 7929 | FLUX.1-Krea-dev, fresh scratch `--data` | `smoke-credential` |
 | 7930 | FLUX.1-Krea-dev, fresh scratch `--data` | `smoke-execution-selector` |
 | 7931 | black-forest-labs/FLUX.1-Kontext-dev, fresh scratch `--data` | `smoke-instruction-edit` |
+| 7932 | FLUX.1-Krea-dev, fresh scratch `--data` | `smoke-generation-presets` |
+| 7933 | FLUX.1-Krea-dev, fresh scratch `--data` | `smoke-saved-searches` |
+| 7934 | FLUX.1-Krea-dev, fresh scratch `--data` | `smoke-snippet-portability` |
+| 7935 | FLUX.1-Krea-dev, fresh scratch `--data` | `smoke-library-write-recovery` |
+| 7936 | FLUX.1-Krea-dev, fresh scratch `--data` | `smoke-saved-name-unicode` |
+| 7937 | FLUX.1-Krea-dev, fresh scratch `--data` | `smoke-picked-favorites` |
+| 7938 | FLUX.1-Krea-dev, fresh scratch `--data` | `smoke-setup-list-recovery` |
+| 7939 | FLUX.1-Krea-dev, fresh scratch `--data` | `smoke-saved-search-write-recovery` |
+| 7940 | FLUX.1-Krea-dev, fresh scratch `--data` | `smoke-favorite-write-order` |
+| 7941 | FLUX.1-Krea-dev, fresh scratch `--data` | `smoke-bin-restore-order` |
+| 7942 | FLUX.1-Krea-dev, fresh scratch `--data` | `smoke-broad-bin-order` |
+| 7944 | FLUX.1-Krea-dev, fresh scratch `--data`, `--step 0.3` | `smoke-queue-cancel-recovery` |
+| 7945 | FLUX.1-Krea-dev, fresh scratch `--data`, `--step 0.3` | `smoke-watched-action-replies` |
+| 7947 | FLUX.1-Krea-dev, fresh scratch `--data` | `smoke-runs-scope-recovery` |
+| 7948 | default, fresh scratch `--data` | `smoke-grid-preview-close` |
+| 7949 | FLUX.1-Krea-dev, fresh scratch `--data` | `smoke-runs-favorite-counts` |
+| 7950 | FLUX.1-Krea-dev, fresh scratch `--data` | `smoke-copy-feedback-ownership` |
+| 7952 | FLUX.1-Krea-dev, fresh scratch `--data` | `smoke-check-dismissal` |
 
 FLUX.1-Krea-dev is `black-forest-labs/FLUX.1-Krea-dev`; animagine is
 `cagliostrolab/animagine-xl-4.0`.

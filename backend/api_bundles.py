@@ -245,10 +245,12 @@ class GalleryAdmission:
         control = path in {"/api/gallery/automatic-backup", "/api/gallery/automatic-backup/reload", PREFIX, PREFIX + "/status", PREFIX + "/export", PREFIX + "/import",
                            PREFIX + "/upload", PREFIX + "/password"} or path.startswith(PREFIX + "/files/")
         status = path == "/api/status" or path == "/api/jobs" or path.startswith("/api/jobs/")
-        # Personal snippets have their own sidecar and reservation. Their
+        # Personal snippets, setups and searches have their own sidecars and reservations. Their
         # complete route shapes stay independent of gallery maintenance.
-        snippets = re.fullmatch(r"/api/snippets(?:/[a-f0-9]{32})?", path) is not None
-        counted = (path.startswith("/api/") or path.startswith("/outputs/")) and not control and not status and not snippets
+        snippets = re.fullmatch(r"/api/snippets(?:/[a-f0-9]{32}|/export|/import(?:/preview)?)?", path) is not None
+        presets = re.fullmatch(r"/api/presets(?:/[a-f0-9]{32}(?:/validate)?)?", path) is not None
+        saved_searches = re.fullmatch(r"/api/gallery/saved-searches(?:/[a-f0-9]{32})?", path) is not None
+        counted = (path.startswith("/api/") or path.startswith("/outputs/")) and not control and not status and not snippets and not presets and not saved_searches
         if not counted:
             return await self.app(scope, receive, send)
         manager = self.get_manager()

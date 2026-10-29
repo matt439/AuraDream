@@ -34,6 +34,10 @@ auradream.bundle-leases.json
 .auradream.bundle-leases.*.part
 auradream.snippets.json
 .auradream.snippets.*.tmp
+auradream.presets.json
+.auradream.presets.*.tmp
+auradream.saved-searches-*.json
+.auradream.saved-searches.*.tmp
 # The same files under the name before the rename to AuraDream, still beside
 # a gallery made before it.
 local-diffusion.settings.json

@@ -67,8 +67,30 @@ before changing it.
   encryption framing and receipt-temp logical-byte budgets; no allocation guarantee
 - `backend/snippets.py` - bounded, revisioned personal prompt snippets in an
   atomic sidecar beside the settings, under an independent cross-process lock
+- `backend/snippet_portability.py` - cold bounded UTF-8 portable snippet codec,
+  collection/input digests and pure file-index merge planning; strict portable
+  documents and choices live in `backend/schemas_snippet_portability.py`
 - `backend/api_snippets.py` - model-free snippet CRUD routes, independent of
-  gallery maintenance; `backend/schemas_snippets.py` owns their validated models
+  gallery maintenance; bounded export/merge preview/import use the existing
+  snippet writer and independent reservation. `backend/schemas_snippets.py`
+  owns CRUD models; portability request/response models live beside the codec
+- `backend/saved_searches.py` - bounded atomic database-scoped gallery filter
+  definitions, unique normalized names and optimistic item revisions under an
+  independent lock; `backend/schemas_saved_searches.py` owns strict fields and
+  `backend/api_saved_searches.py` model-free CRUD independent of maintenance
+- `backend/presets.py` - bounded, revisioned named generation/grid drafts in
+  their own atomic sidecar; `backend/schemas_presets.py` owns the strict raw
+  payload and API capture types
+- `backend/preset_portability.py` - cold raw setup export, digests and explicit
+  file-index merge plans; `backend/schemas_preset_portability.py` owns the native
+  format and choices; `backend/strict_json.py` supplies bounded UTF-8 syntax for
+  that new document, without rerouting existing sidecar or snippet readers
+- `backend/preset_validation.py` - cold Generate/Grid validation and effective
+  summaries through ordinary schemas, grid helpers and `applied`; disposable
+  random-grid examples never supply saved seeds
+- `backend/api_presets.py` - setup CRUD and explicit validation, separate from
+  submission; capture/validation holds model selection, while reads/deletes
+  ignore it and every route bypasses gallery maintenance
 - `backend/model_info.py` — cold catalogue details from existing sourced guides,
   plus each entry's Hugging Face access from its catalogue gate word
 - `backend/hub_access.py` — the Hugging Face access check a switch asks before
@@ -280,7 +302,7 @@ before changing it.
   (the export's scope resolved through `submission.resolve_selection`)
   and exclusive maintenance admission through background completion
 - `backend/search.py` — the search box's grammar: `key:value` terms as SQL
-  predicates (`size:WxH` both sides exact; `lora:none` is IS NULL, every
+  predicates (`size:WxH` both sides exact, orientation or MP comparisons; `lora:none` is IS NULL, every
   other text key a substring; an integer past SQLite's 64 bits a
   ValueError, so the routes' 422), the LIKE escape, `strict_scope`
 - `backend/main.py` — app lifecycle and model ownership: load state and
@@ -333,7 +355,7 @@ before changing it.
   per version
 - `backend/reindex.py` — rows rebuilt from the PNGs' `auradream` chunk, in place or
   copied in from another gallery; idempotent on the UNIQUE filename
-- `web/` - served as-is from `/static`; `index.html` loads 54 classic
+- `web/` - served as-is from `/static`; `index.html` loads 57 classic
   scripts in order, sharing one global scope; only `app.js`, the last, runs
   the wiring and boot. `state.js` owns shared state; `generation.js`,
   `grid-preview.js`, `job-stream.js` and `job-results.js` handle submission,
@@ -372,7 +394,12 @@ before changing it.
   on the Notify row and its dialog, `more-seeds.js` More seeds and `bin.js` the
   recycle bin's view, undo note and Empty; `context-menu.js` the right-click
   menu on an image (`styles/context-menu.css`); `shortcuts.js` the keyboard
-  help dialog; `prompt-snippets.js` the personal snippet dialog and insertion.
+  help dialog; `prompt-snippets.js` the personal snippet dialog and insertion;
+  `snippet-import.js` the explicit portable export and file-index merge dialog;
+  `generation-presets.js` the named generation/grid setup dialog, raw capture,
+  explicit validated Restore and whole-draft Undo.
+  `saved-searches.js` owns named gallery filters, their native dialog and the
+  single explicit filter transition out of sheets and the bin.
   The stylesheet is
   `style.css` (tokens and base layout), followed by `styles/*.css` in the
   explicit link order: `model-picker.css` the Models picker (first, at its
@@ -385,7 +412,9 @@ before changing it.
   instruction dialog and an edit's badge, `bundles.css` the bundle dialog,
   `swap.css`, `refine-batch.css` and `more-seeds.css` those dialogs,
   `bin.css` the recycle bin, `context-menu.css` the right-click menu and
-  `shortcuts.css` the keyboard help dialog and `snippets.css` the snippet dialog;
+  `shortcuts.css` the keyboard help dialog, `snippets.css` the snippet dialog
+  and `setups.css` the named setup dialog, followed by `saved-searches.css`
+  for the saved gallery search dialog and its footer opener;
   preserve that cascade (`tests/test_docs_maps.py` holds this list to
   `index.html`'s links, in order). `docs/source-audit.md` records the
   split audits and why each long file it kept stays whole.
@@ -2575,6 +2604,22 @@ Prompt analyser:
 
 Frontend and CLI:
 
+- Saved gallery searches store only Name, Query, Starred and All models in a
+  versioned database-scoped sidecar, never image ids or picks. Names are unique
+  after NFC normalization and case folding; duplicate-name replacement is
+  explicit and revisioned. Reads are cold and first occur on opening the native
+  dialog, not startup. CRUD bypasses gallery maintenance and model work. Select
+  only fills the editor; Apply leaves the bin and sheet, cancels a pending
+  debounce, writes all three filters and reloads gallery/Runs once. Old gallery
+  epochs and sheet return filters cannot replace it. Picks remain selected and
+  visibly counted, and Apply queues no generation or image mutation. Current
+  checkpoint and relative dates are evaluated when applied. Unknown write
+  results preserve the editor, report uncertainty and hold Save/Delete/Update
+  until a fresh read and explicit selection/New. Reopening or applying the
+  valid editor filter never acknowledges that result. Known validation and
+  duplicate-name replacement keep their existing flow. Errors, conflicts
+  and late list replies preserve unsaved edits; modal keys and focus stay in
+  the dialog, with connected-opener restoration using `preventScroll`.
 - Native numeric inputs can display unfinished text such as `1e` while their
   DOM value is empty. `refuseBadNumber` checks `validity.badInput` at Generate,
   Run grid and comparison submission, names the field and focuses it without
@@ -2594,6 +2639,37 @@ Frontend and CLI:
   independent lock; unreadable files are never replaced by an empty list.
   Snippets remain available during gallery bundle maintenance. The sidecar
   and temporary files are ignored by Git. No read is made at page startup.
+- Named generation/grid setups open from Examples, before Personal snippets,
+  in a native dialog (`generation-presets.js`, wired only by `app.js`). Their
+  versioned payload retains raw fields and nullable
+  profile overrides; never store `panelState`, expanded cells, conditioning or
+  execution intent. Capture/validation requires the exact model revision and
+  valid Eager/native loader intent with Step cache Off; GET/DELETE remains
+  checkpoint-independent. Item revisions protect edits/deletes and validation
+  rechecks after calculating. No route submits or restores, and no startup
+  read occurs. Opening/selecting never writes the composer. Save current makes
+  a new setup, Update from current replaces the selected payload, and Rename
+  keeps it. Unsaved names survive failures and list reloads; selecting the
+  refreshed item explicitly adopts its latest revision. Collection reads hold
+  list selection without blocking name edits; successful Reload clears only
+  visible selection, preserving the editor until deliberate selection. View
+  toggles retain that visible selection or deliberate blank. Selection during
+  validation still cancels the older check. Save names omitted
+  active LoRA/reference/Then refine inputs as a hold. Restore requires the
+  exact checkpoint, offers Models on a mismatch, and validates afresh before
+  writing. Its reply must still match item/model revisions, the entire draft,
+  performance intent and the edit epoch; otherwise a new press is needed.
+  It closes the modal before undo-aware writes, uses `setReferences`, clears
+  conditioning and Then refine, and keeps raw inactive text/overrides. Its
+  summary shows saved/effective settings and what will clear. Grid restores
+  Resume off and retains its ordinary seed-axis and request Repeat=1 rules.
+  The one whole-draft Undo keeps raw sampling/ownership, grid, conditioning,
+  Then refine and translation; first later edits retire it through panel and
+  Then refine handlers. It shares the stable prompt-note overlay and retirement
+  rules with Reset/Reuse; deleted/binned references leave its snapshot too.
+  Restore/Undo do not scroll; native Ctrl+Z retains prompt history. Held actions
+  explain their title reason in the dialog, and modal keys cannot submit work
+  underneath it. Held/invalid performance intent is never cleared by refusal.
 - Keyboard help (`shortcuts.js`) opens with `?` or the top bar's named
   button, never while typing in an input, textarea, select or editable
   content, during composition, on a repeat or with Ctrl/Meta/Alt. Its native
@@ -3014,7 +3090,12 @@ Frontend and CLI:
   (`offerModelPicker` on a status answer) stays, and the Escape is the
   dialog's cancel. Focus inside the check
   (or on `<body>`) goes to Check (to the prompt while Check is held), focus
-  elsewhere stays.
+  elsewhere stays. Close/Escape retire only the current Check's reveal/focus:
+  accepted background findings remain cached and the critic pre-check chain
+  keeps its existing routing. A late ordinary Check cannot unhide or focus
+  a dismissed panel; a later explicit Check can reopen it (`UI#31`, dated
+  Check-dismissal review). Reset/model/supersession still use computation
+  epochs, not this dismissal counter.
 - The prompt check describes one text: the prompt and negative prompt as
   `collect()` sent them, whether CFG or True CFG applies that negative, and
   the reference images it counted
@@ -3349,7 +3430,12 @@ Frontend and CLI:
   when their owned control disappears or becomes hidden/disabled, Close receives
   focus without scrolling, unless another dialog is open. Comparison controls and S retain their existing behavior.
 - The grid preview is the server's expansion; the page adds only
-  presentation and advice. It trims factors of one other than the seeds
+  presentation and advice. Closing Grid advances `previewEpoch` before its
+  synchronous CFG-reach clear and return, so older success/error replies
+  cannot restore a grid-only negative caption or obsolete preview text.
+  Reopening takes its own epoch; payloads and the input debounce are unchanged.
+  [The close-ownership review](review-2026-10-28-grid-preview-close.md) owns
+  the source evidence and separate CPU/native-browser qualification. It trims factors of one other than the seeds
   from the totals and writes ×, since `grid.describe` keeps its ASCII x and
   its ones for the CLI's log. It lists the resolved prompt whenever the
   variables box has text, one included, in a `.prompts` box of its own
@@ -4509,7 +4595,20 @@ Frontend and CLI:
   `aria-pressed`, the fixed "Star" name, `starTitle`); the title names (F)
   only on a button whose `aria-keyshortcuts` is F. `setFavorite` updates every
   `.card`, `.sheet-cell` and `.result` with the id, and the lightbox only
-  when it shows that record. F passes `{ say: true }` (`galleryKey`,
+  when it shows that record. Individual and picked stars claim every
+  affected id synchronously while their request is pending, through confirmed
+  UI propagation. Overlapping star attempts are held with a reason; disjoint
+  images remain usable. `syncStar` receives the image id even before its button
+  is attached. Only Picked's Star/Unstar items share this hold, and the
+  lightbox changes only its star's hold attributes, with the bin reason first.
+  Error cleanup releases the hold without claiming an unknown write failed or
+  providing cross-tab ordering. Each confirmed single or bulk star action
+  asks Runs once after propagation (`void loadRuns()`), including bulk
+  already/partial results; never once per `markFavorite` id. Held or
+  ordinary failed writes add no read, and an aggregate read does not
+  extend the favorite hold. Runs publication/retry keeps its current
+  context owner. [The count review](review-2026-10-29-runs-favorite-counts.md)
+  owns the caller and actual-fake qualification. F passes `{ say: true }` (`galleryKey`,
   `sheetKey` through `starCell`, and the lightbox's keydown in app.js):
   where focus is not on a `.star` or `#lb-fav`, `sayStar` writes "Starred
   #N" / "Unstarred #N" into a visually hidden polite line - `#star-said`
@@ -4898,7 +4997,10 @@ Frontend and CLI:
   opens the count at) and, for a `run` scope with something queued,
   `headline` (`more_seeds.run_headline`: "N more of each of C cells = T
   images · seeds a–b · Starred ignored", "of its one cell" for one, the
-  Starred part only where the request ticked it); it has no gallery/queue side effects, is not model-dependent and is
+  Starred part only where the request ticked it). Its seed span is the numeric
+  minimum/maximum of all new queued seeds, including zero-crossing wraps,
+  without changing allocation order or result first/last/skipped fields;
+  it has no gallery/queue side effects, is not model-dependent and is
   advisory in `api`. The queueing route is model-dependent, refuses 409
   when `expected` is not the ids resolved now, 422 naming every count when
   no batch is queued, and submits one job per lineage and size
@@ -5300,12 +5402,39 @@ Frontend and CLI:
   Enter or on the picker's blur (`commitRunList`); Escape puts back the run
   shown. Closed, it is `--runs-w` wide (190 px; `clamp(240px, 14vw, 360px)`
   from 1800 px), cut with an ellipsis, and `syncRunList` puts the picked
-  run's whole label in its title ("Recent runs" otherwise). A label's
+  run's whole label in its title ("Recent runs" otherwise). A new model,
+  revision, All-models or known-server context clears old Runs options and
+  keyboard candidates while `Loading runs…`; a current failure offers
+  `Runs unavailable` with `Retry loading runs` inside the same select.
+  Same-context useful options survive a failed refresh. Retry commits only
+  through deliberate selection/Enter/blur, never focus or an automatic loop;
+  bin holds and latest-response guards apply to both run and retry choices.
+  [The Runs recovery review](review-2026-10-28-runs-scope-recovery.md) owns
+  actual-handler and fresh native qualification. A label's
   prompt is `promptGist`'s, one line with an XML prompt's tags dropped,
   before `clip`.
 - Search terms are `key:value` predicates plus FTS text; `date:` is a local
-  day, `mu:none` is `IS NULL`, `size:1024x768` (or `×`) is the width and the
-  height exactly, `id:` is the gallery id the page shows as #N
+  day or an inclusive `YYYY-MM-DD..YYYY-MM-DD` calendar range. Range endpoints
+  are two ordered absolute dates; both ends include their whole local day.
+  UTC bounds use the first day's local midnight and the midnight after the
+  last day, including clock changes. Open, relative, reversed or malformed
+  ranges refuse; ordinary single-day/`today`/`yesterday` grammar is unchanged.
+  Terms still AND together, and saved searches retain the raw query.
+  Exact floating terms accept scientific notation (`cfg:1e-7`, `mu:1e-7`):
+  a whole float is read before the existing dash-range grammar. Integer,
+  NULL, comparison and malformed-range operand behavior stay unchanged.
+  `tests/test_search_numeric_scalars.py` couples real Sampling facts to scratch
+  SQL/HTTP reads; [its review](review-2026-10-28-numeric-search-scalars.md)
+  owns the qualification, without a frontend or browser change.
+  `mu:none` is `IS NULL`, `size:1024x768` (or `×`) is the width and the
+  height exactly. `size:portrait`, `size:landscape` and `size:square` compare
+  stored width/height across resolutions, case-insensitively, with the same
+  AND, exact-size and strict-scope behavior. `size:<Nmp`, `<=`, `>` and `>=`
+  compare exact actual area (1 MP = 1000000 pixels), with a finite nonnegative
+  threshold no greater than SQLite's integer pixel binding limit. They use
+  positive stored INTEGER dimensions and an exact integer-division boundary;
+  nominal tiers, display rounding and guidance tolerances do not affect it.
+  `id:` is the gallery id the page shows as #N
   (a range is a span), and `search.strict_scope` is the reading for
   `clear --where`, `keep_rates` and the gallery's Delete unstarred
   (`GET`/`DELETE /api/gallery/unstarred`): `clear --where <box>
@@ -5407,8 +5536,29 @@ Frontend and CLI:
   the document's keys do nothing (its Escape closed the lightbox under it).
   The smokes stand in for it by assigning `askConfirm`/`askCount` and put
   back `confirmDialog`/`countDialog`; `smoke-delete.json` drives the dialog
-  itself. A delete under way ignores a second
-  press of the same image (`deleting`); `gallery_delete.bin_images` looks up and
+  itself. Exact-id Bin/Bin picked/Restore/single permanent delete/picked purge
+  synchronously claim their ids in `binWriteIds` before the first await, through
+  lookup, the original confirmation and all reply application. A whole overlap
+  refuses; disjoint ids remain usable. `finally` releases on cancel/refusal/error.
+  `deleting` remains the single-delete lifecycle set; confirmed writes recheck
+  captured ownership (and purge's unchanged selection). New card/viewer/lightbox
+  controls and lineage source Restore inherit aria-disabled/title holds; notes
+  carry their full id set. Claim/release updates attrs without rendering the
+  lightbox. A focused note Restore refusal preserves all note text/nodes/focus/
+  geometry and dismissal state, saying the wait through `sayGalleryAction` on
+  the existing polite action channel; `sayStar` uses that same helper. No queue,
+  automatic retry, unknown-outcome or cross-client protocol is introduced.
+  Delete unstarred/Empty additionally use one `binBroadOwner`: broad admission
+  refuses any exact owner or broad owner, and exact admission sees the broad
+  reason first. Each broad token spans its first await, original question,
+  confirmed request and four existing critical awaited reset paths; only its
+  owner releases in finally. `syncBinWriteHolds()` fully refreshes availability
+  for broad transitions; exact transitions also refresh both broad controls.
+  `syncDeleteUnstarredHold` changes attrs without remeasuring/hiding the head.
+  New controls inherit the reason. Server keeper/count/revision, Empty pin/
+  fixed-before and confirmation semantics remain intact; All models is captured
+  once for sweep request and wording. Bundle clear remains a subsequent source
+  slice in the dated broad-bin review. `gallery_delete.bin_images` looks up and
   writes under `storage._write_lock`, so a second bin answers `already`, and
   `gallery_delete.delete_image` does the same, so a second permanent delete is
   "unknown image".
@@ -5430,7 +5580,16 @@ Frontend and CLI:
   (`showRecordRun`, the card's ⊞), Copy prompt, Copy seed, Copy image (the
   full PNG through `ClipboardItem`, the fetch handed over as a promise) and
   Open PNG in new tab; the copy items are held where the page is no secure
-  context. A picked card, in select mode or out of it, gets the picks' items instead (the
+  context. Copy feedback belongs to the latest press on its original host.
+  A lightbox walk, close or fresh open retires it, even on reopening the same
+  record; a harmless same-record redraw keeps it. Only a copy's still-owned
+  message is cleared: a newer text node survives even if its words match.
+  A card/result refusal is announced in the gallery without mirroring into
+  an unrelated modal image. The existing clipboard write starts once inside
+  the press, with no retry or preflight await; PNG handoff stays unchanged.
+  This is feedback ownership, not a clipboard ordering/permission guarantee
+  (`UI#30`; the dated copy-feedback review owns qualification).
+  A picked card, in select mode or out of it, gets the picks' items instead (the
   Picked menu's three, Swap tags…, Refine…, More seeds…). One `ul.menu`,
   moved into the lightbox while that is up (a modal dialog leaves the page
   inert), fixed at the pointer and turned up or left at the window's edge.
@@ -5507,9 +5666,37 @@ Frontend and CLI:
   `#library-scroll` - and made again when that changes; re-armed by
   `watchMore` after each page that lands, never after one that failed - the
   button is the retry - and `moreArmed` keeps a trigger made again
-  meanwhile from fetching).
+  meanwhile from fetching). The live/bin HTTP paging queries bound `offset`
+  to 0..SQLite signed-64-bit MAX and `before` to 1..MAX, reusing
+  `search.SQLITE_INT`; an oversized value is 422 before gallery storage.
+  MAX itself remains valid (`GAL#20`; dated gallery-page-bounds review).
 
 ## Tests
+
+`tests/test_browser_startup_wait.py` drives actual harness startup with inert
+filesystem/process ports and virtual sleeps: delayed readiness, bounded
+absence and diagnostic early exit, including actual cleanup. Profile tests
+enable the existing bounded startup diagnostics. The publication repair and
+its original/positive evidence are owned by
+`docs/review-2026-10-29-ci-browser-startup.md`.
+
+`tests/test_check_dismissal.py` exercises actual Check/Close/Escape/render,
+stale-write, clear/supersession and critic-precheck handlers on inert DOM/API
+ports. Accepted results remain cached while dismissed, with existing button
+cleanup/error routing and deliberate reopening. `smoke-check-dismissal.json`
+uses fresh FLUX fake 7952, its installed fake tokenizer and actual forwarded
+CPU analyze responses held after receipt. Four exact trusted-edit typing
+measurements pass through the fake tokenizer once and settle before the final
+guards; unrelated writes remain refused. Physical prompt edits, Check/Check
+again, Close/Escape and later reopening are qualified without critic calls:
+the fixture refuses every critique request before dispatch. No real tokenizer,
+critic service/model/card or real-gallery acceptance follows.
+
+`tests/test_gallery_page_bounds.py` checks actual live/bin HTTP query
+validation before storage for SQLite-overflow and existing lower bounds,
+actual-SQL MAX acceptance and ordinary cursor/offset/scope behavior. Owned
+scratch rows/PNG bytes stay unchanged, with model/queue entry points poisoned.
+No browser, real-gallery or runtime activation is qualified.
 
 `tests/test_instruction_edit.py` checks the standalone frozen Kontext recipe,
 strict request/stored source types, full original-RGB provenance, unresolved
@@ -5789,6 +5976,14 @@ pending while off and disabling without destination access. Desktop/narrow
 screenshots check containment and stationary Save. No policy, shared-mode install,
 restart, export or deletion is executed; native lifecycle evidence is CPU scratch.
 
+`tests/test_grid_preview_close.py` loads the actual declaration-only
+`sizes.js` and `grid-preview.js` in a Node VM and captures the exact boot
+toggle registration without page boot. Deferred API responses exercise close,
+repeated close, reopen/current ownership, existing model/blank-prompt holds
+and real CFG/negative presentation on inert DOM ports. It does not qualify
+native events, focus, layout or actual requests. The separate focused smoke
+supplies specific UI and fake-request evidence; neither qualifies model pixels.
+
 `tests/test_classic_scripts.py` invokes `tools/check_classic_scripts.py`
 and its Node helper to parse every local classic script in HTML order,
 including `app.js`, and instantiate declarations without executing source
@@ -5804,7 +5999,74 @@ with absent or noncallable `fetch`/`WebSocket` globals. Fixed exit-2 diagnostics
 before browser lookup, script reads, output/profile creation or any network
 call; a callable fixture continues to the existing browser-discovery path.
 Negative controls keep input/module reads, output writes, spawn and network APIs
-forbidden after source capture.
+forbidden after source capture. The same file checks optional fatal-step
+metadata after input parsing: a boolean belongs only to an expect-only step
+with a nonempty string. Malformed values/ambiguous actions refuse before
+screenshots, profile work or spawn. Valid metadata reaches a poisoned existing
+downstream boundary; these cold tests do not qualify actual driver stopping.
+
+`browser.mjs` supports `{"expect": "...", "fatal": true}` for prerequisites.
+Falsy results, throws and rejected awaited promises fail/count and stop later
+steps through the ordinary graceful close/cleanup path. Async setup expressions
+must explicitly return true. Successful fatal and ordinary nonfatal steps keep
+their normal continuation; eval remains diagnostic-only. Edge selection,
+launch flags and profiles are unchanged. The [dated tooling review](review-2026-10-28-fatal-prerequisites.md)
+owns ordinary-driver probes and the three bounded scratch setup conversions.
+
+`tests/test_browser_input_refusals.py` executes captured actual harness/helper
+bodies with one counted owned fixture read, counted JSON parsing and poisoned
+browser/output/profile/network ports. Simulated read errors and actual malformed
+JSON get fixed exit-2 diagnostics without paths/bodies; non-syntax parser faults
+still propagate. Existing guard order and valid flow stay unchanged. Simulated
+EACCES uses an inert read port and never probes a denied path. This qualifies
+cold input refusal, not browser or hardware behavior.
+
+`tests/test_browser_startup_viewport.py` checks actual parsed startup dimensions
+and DPR with captured real harness/helper bodies and poisoned browser/output/
+profile/network effects. Exactly two dimensions must be integers in 1..10000000;
+DPR must be finite and positive. Defaults, compatible numeric spellings and
+fractional DPR remain accepted; later viewport steps keep zero resets. A declared
+observer before the original lookup reports actual VW/VH/DPR without replacing
+guards, and a separate unmodified-path control reaches the poisoned lookup.
+Maximum values are never applied to a browser. This is cold input qualification.
+
+`tests/test_browser_keycombo_preflight.py` executes the actual harness/helper
+bodies with a counted fixture read and poisoned lookup/output/profile/network
+ports. Combo, unawaited-helper and startup refusals occur before browser discovery
+or screenshot preparation, with their relative priority preserved. Accepted
+values reach an inert lookup; startup numeric bounds are covered separately.
+Synthetic successful lookup exposes the original mkdir-before-refusal ordering;
+explicit probes verify effect guards. Preparation ordering leaves native dispatch
+unchanged. This covers cold ordering, not browser or hardware acceptance.
+
+`tests/test_browser_step_containers.py` executes captured actual harness/helper
+bodies with one fixture read permitted and browser/output/profile/network effects
+poisoned. The document must be an array of non-null, non-array objects before
+browser discovery. Fixed exit-2 diagnostics name every bad step in input order
+without its contents. Empty lists/objects, unknown metadata and existing action
+precedence remain accepted. Each repository fixture independently reaches the
+same cold lookup boundary; its steps remain unexecuted.
+Malformed JSON and file-read exception handling are unchanged.
+
+`tests/test_browser_port_preflight.py` executes captured real harness/helper
+bodies with fixture reads counted and browser/output/profile/network effects
+poisoned. Invalid environment offsets receive fixed exit 2 before fixture I/O;
+every matched effective local port must be an integer in 1..65535 before later
+effects. Valid negative/zero/Number forms keep their behavior, zero keeps the
+original matched text, and the existing two-to-five-digit raw-text grammar is
+unchanged. Valid inputs reach a poisoned lookup with actual parsed substitutions
+observed. This qualifies only cold refusal and transformation, not a browser run.
+
+`tests/test_browser_viewport_preflight.py` executes the actual harness/helper
+module bodies with one fixture read permitted and later effects poisoned.
+Every declared viewport must be a two/three-number array: integer dimensions
+in CDP's inclusive 0..10000000 range, optional finite nonnegative DPR. Zero
+reset values and omitted DPR's default of 1 are preserved. Malformed values
+receive a fixed step-indexed refusal before browser discovery, output/profile
+preparation, process creation or network. Valid arrays reach a poisoned lookup;
+these cold tests do not qualify real resizing or browser cleanup. Native API
+refusal still precedes the input read. Startup geometry is checked separately;
+ordinary browser flags are unchanged.
 
 `tests/test_fbc_runtime.py` exercises installed FBC hooks and arithmetic on tiny
 CPU blocks in an isolated worker. Only the unrelated optional bitsandbytes backend
@@ -5832,6 +6094,20 @@ and Finish recovery, ordered rapid receipts, delayed POST/history snapshots,
 transient history retries, cancellation/foreign-job exclusions and no
 historical replay after reload.
 
+`smoke-queue-cancel-recovery.json` uses a fresh FLUX.1 Krea [dev] fake on
+7944 with 0.3 s steps. Seven owned fake-server jobs and controlled offline,
+HTTP500 and malformed-200 JSON replies check row/bulk cancellation ownership,
+retained receipts when terminal jobs leave the active list, partial successes,
+newer submissions and duplicate-request refusal. Held Move success/error replies
+and an unmodified history-read race check obsolete-response rejection before
+fresh GEN25 recovery. A separately declared synthetic local receipt targets a
+non-UUID missing id for the real 404 route. Same-origin one-use mutation grants,
+cold backup status and final zero active/unexpected jobs, forbidden mutations,
+unused grants and JavaScript errors bound the fixture. Cleanup cancels only
+owned jobs; it never deletes or clears gallery data. Wide/narrow screenshots
+require inspection. No real model, GPU, credentials, user gallery or older
+interrupted run is exercised.
+
 `tests/test_prompt_parts.py` covers the reported mixed example, pure tags
 and prose, a prose passage in a majority-tag prompt, known titles and
 concrete validation findings, explicit prefixes and grid variables,
@@ -5855,6 +6131,14 @@ secondary/primary and selected text contrast, held hover and reason-on-press,
 focus rings, unchanged state-transition geometry, and footer widths at
 600/1400/2560/2048 pixels (the last at DPR 1.25).
 
+`tests/test_more_seeds_headline.py` checks full server-owned seed headlines
+for wrapped/mixed batches, ordinary gaps/singletons and no eligible batches.
+Owned Python TestClient previews cover wrap allocation, foreign exclusion
+and unrecorded Batch fallback while preserving rows/PNG hashes and poisoning
+model/generation/queue entry points. Counts, first/last/skipped and receipt
+issuance retain their existing behavior. No browser MAX_SEED entry or real
+model/pixel qualification follows.
+
 `tests/test_more_seeds_intents.py` and `tests/test_api_more_seeds_intents.py`
 cover receipt replay, conflicting choices, concurrent tokens and waiters,
 cancelled HTTP waiters, bounded retention/expiry, shutdown and partial
@@ -5872,6 +6156,119 @@ GAN path, actual-size Resume/Finish/estimates, persistence and source-loss
 cleanup. `smoke-size-crop.json` uses a fresh FLUX.1 Krea [dev] fake on 7917
 for sizes, Resume/sheet axes, crop frames, metadata, Reuse and source views.
 
+`tests/test_preset_portability.py` and `test_strict_json.py` check strict native
+setup documents, raw Generate/Grid preservation, checkpoint-scoped conflict
+candidates, explicit file-index choices, ordered identities/revisions, stale
+replacement refusal and exact final UTF-8 file bounds. The fresh-process codec
+test denies application/model/grid/store/vault/heavy imports and exercises the
+public cold codec and planner; separate UUID/store sentinels prove planning
+does not allocate or persist. UTF-16/32 scratch sidecar read/edit and malformed
+file preservation remain compatible because existing readers are unchanged.
+This foundation activates no transfer API, browser action or model capability;
+`docs/plan-setup-portability.md` owns the remaining stages.
+
+`tests/test_presets.py`, `test_preset_validation.py` and `test_api_presets.py`
+cover strict saved drafts, bounded atomic failure/corruption preservation,
+thread/process concurrency, optimistic revisions, request/profile and live
+`applied()` parity, grid grammar/budgets, null seeds and disposable random
+examples, held execution, model-switch capture races and gallery-independent
+CRUD/validation. These CPU/API checks do not qualify card behavior.
+
+`smoke-generation-presets.json` uses a fresh FLUX.1 Krea [dev] fake on 7932.
+It covers saving two raw Generate/Grid setups and reloading them, null profile
+ownership and explicit zero, explicit Restore, whole-draft Undo and native
+Ctrl+Z, cleared conditioning/Then refine and their Undo, Resume off, held
+performance, stale item edits and draft/model validation replies, the foreign
+checkpoint hold and Models opener, ordinary grid preview/submission, modal
+keys/focus, page errors and geometry at 1400x900 and 400x650. It uses scratch
+gallery data and synthetic conditioning; no real weights or card run is involved.
+
+`smoke-setup-list-recovery.json` uses a fresh FLUX.1 Krea [dev] fake on
+7938 for native saved-setup list recovery. The final regression covers held
+collection reads, explicit sole-item revision adoption, view toggles,
+validation selection cancellation and close/reopen late replies while keeping
+the composer unchanged. The dated setup-list-recovery review distinguishes
+the initial diagnostic baseline from actual final acceptance.
+
+`tests/test_snippet_portability.py` checks the cold portable codec, exact
+Unicode/multiline/order round trips, strict format/identity fields, duplicate
+JSON keys, byte/depth bounds, collection/input digests, normalized-name
+conflicts and explicit file-index choices. Pure plans preserve local positions,
+require explicit replacement ids/revisions and bound final count/encoded bytes;
+`tests/test_api_snippet_portability.py` adds scratch snapshot/atomic import,
+whole-collection and target revision refusals, concurrent writers, complete
+choices, independent databases, raw-body bounds and malformed local-file
+preservation. Write/fsync/replace failures keep the previous sidecar, and
+model/queue/vault work is blocked. Browser workflow qualification remains.
+
+`smoke-snippet-portability.json` uses a fresh FLUX.1 Krea [dev] fake on 7934
+for portable export/merge. It checks the actual export-response
+bytes, file-index conflict choices, stale/uncertain commit recovery, invalid
+files, dirty-editor preservation, modal keys/focus and contained stationary
+controls at desktop/narrow/short sizes. The 183-step Windows workflow passes;
+final screenshot reinspection remains blocked by an artifact-directory read
+denial. Exact evidence and limits live in `docs/plan-snippet-portability.md`.
+
+`smoke-library-write-recovery.json` uses a fresh FLUX.1 Krea [dev] fake on
+7935. Its 221-step Windows pass exercises actual committed snippet/setup
+writes with lost replies,
+held retries, fresh-read/explicit-choice recovery, retained drafts, known
+validation/stale refusals, New during delayed snippet reads, pending close,
+modal keys and standard/narrow/short containment. The dated review owner
+`docs/review-2026-10-28-library-recovery.md` records actual acceptance.
+
+`smoke-saved-name-unicode.json` uses a fresh FLUX.1 Krea [dev] fake on 7936
+for saved-name parity. Native text insertion creates/edits 80 astral-code-point
+names in snippets, setups and saved searches; mixed 81-point names still fit
+the UTF-16 capacity but must hold Save without writes. It also checks BMP
+bounds, programmatic overlimits, reload/navigation persistence and unchanged
+composer/gallery state. Evidence lives in the library-recovery review owner.
+
+`smoke-picked-favorites.json` uses a fresh FLUX.1 Krea [dev] fake on 7937
+for confirmed favorite propagation to hidden active/stashed picks. It seeds
+owned images before a fresh navigation, excludes viewer/session/lightbox
+aliases, and checks storage separately from retained snapshots and the actual
+Compare picked star without record rereads. Unstar/already answers, a reply
+arriving in Bin, independent bin picks, selection order and composer text are
+covered. The dated picked-favorites review records reproduction and acceptance.
+
+`smoke-saved-search-write-recovery.json` uses a fresh FLUX.1 Krea [dev]
+fake on 7939 for committed saved-search writes whose successful replies are
+lost or replaced by 5xx. It covers explicit reconciliation, retained editor
+and revisions, failed reads, Apply/Use current with retained picks, reopening,
+known validation and duplicate-name replacement. The dated saved-search
+recovery review records actual reproduction and final acceptance separately.
+
+`smoke-favorite-write-order.json` uses a fresh FLUX.1 Krea [dev] fake on
+7940 for overlapping same-page favorite actions. Its controlled baseline
+establishes actual stored/write/reply order before implementation; the final
+regression checks shared per-id holds, disjoint progress, explicit subsequent
+actions and current/new star controls. The dated favorite-write-order review
+separates diagnostic defect evidence from final repair acceptance and limits.
+
+`smoke-bin-restore-order.json` uses a fresh FLUX.1 Krea [dev] fake on
+7941 for targeted lifecycle reply ordering. Its final regression holds actual
+replies, checks whole-overlap refusal/disjoint progress and native/new controls,
+and preserves Restore note identity/focus/geometry with polite wait feedback.
+Only six owned fake PNGs are created; single permanent deletion and picked
+purge require native confirmations and exact one-use id guards. Broad deletes
+are blocked. Viewer/lineage constructor checks are labeled, not runtime model
+qualification. The dated Bin/Restore review records the earlier 74-step
+reversible defect proof, final acceptance and broad/unknown/cross-tab limits.
+
+`smoke-broad-bin-order.json` uses a fresh FLUX.1 Krea [dev] fake on
+7942 for hidden exact-owner admission and broad preview/confirmation/reply/
+critical-reset exclusion. Its 352-step regression uses fresh epoch/id gates,
+native Cancel/count/Empty questions, known predispatch409 probes and actual
+stored state. Six owned rows span two strict run scopes; the planted pair is
+preserved and only a one-use exact-owned Empty may permanently remove E/F.
+API POST/DELETE guards allow only exact read-only measure and owned Finish
+previews beyond the tested lifecycle requests; actual Finish remains blocked.
+Composer, picks/stashes and notes stay intact. The dated broad-bin review
+records the earlier reversible diagnostic proof and remaining Bundle/unknown/
+cross-client boundaries.
+
+
 `tests/test_snippets.py` covers CRUD, exact text, bounds, malformed-file
 preservation, independent locking, stale/concurrent edits and admission
 during bundle maintenance. `smoke-snippets.json` uses a fresh FLUX.1 Krea
@@ -5881,10 +6278,30 @@ checks that the menu adds no caption height beside ordinary, Tags and Expand
 controls at 1400x900 and 400x650, and insertion into an offscreen prompt keeps
 page scroll. Native Undo in the browser harness carries the Z key code.
 
+`tests/test_saved_searches.py` and `tests/test_api_saved_searches.py` cover
+strict fields and file envelopes, Unicode/name/query limits and existing search
+grammar, database isolation, bounded/cold reads, atomic failure preservation,
+concurrent edits and optimistic revisions, plus model/maintenance-independent
+CRUD. `smoke-saved-searches.json` uses a fresh FLUX.1 Krea [dev] fake on 7933
+for the dialog, explicit filter application, saved scope, retained picks,
+stale/late replies, modal keys/focus and responsive footer/dialog geometry.
+
 `smoke-queue-controls.json` uses a fresh FLUX.1 Krea [dev] fake on 7914 with
 0.3 s steps. It checks authoritative Move order and focus through reload,
 delayed-response/new-submission races, a watched queued job's Move control,
 one-call Skip and Finish recovery, and held paused/Then refine reasons.
+
+`smoke-watched-action-replies.json` uses a fresh FLUX.1 Krea [dev] fake on
+7945 with 0.3 s steps. Three actual owned two-image jobs check late watched
+Cancel success/error and Pause error replies across real successor adoption,
+plus a newer same-job Pause owner. Original async button handlers are observed
+without changing their logic. A declared owned pre-start Pause POST stabilizes
+the final successor; held HTTP500 replies are unforwarded controlled errors.
+Exact same-origin one-use grants and per-job request/stream/outcome counts,
+cold backup checks and a pass-only zero active-job/control/response gate bound
+the fixture. Cleanup uses only owned Cancel; planted gallery facts/composer
+stay unchanged. New wide/narrow screenshots require inspection. No restart,
+real model, GPU, user gallery, credentials or old interrupted run is exercised.
 
 `smoke-random-prompts.json` uses a fresh FLUX.1 Krea [dev] fake on 7916.
 It checks random/cross selection, saved mode and Reset, deterministic choices
@@ -5927,6 +6344,33 @@ named in the Layout above (the stylesheets in `index.html`'s link order, and
 its count of classic scripts); and every `tools/smoke*.json` in `AGENTS.md`'s
 port table, on the row whose port its first `navigate` uses, and named
 below - so a new file is added to the maps with it.
+
+`tests/test_search_area.py` checks comparison-only actual MP filters through
+actual SQLite: inclusive/exclusive and one-pixel boundaries, zero/tiny values,
+adjacent integer limits and products beyond SQLite's integer range. Fractional
+thresholds remain exact under low/high Decimal precision, with caller flags
+and traps preserved on success/refusal. Nonpositive, NULL, REAL and text
+dimensions are excluded by the new branch. Scratch API/saved-query/strict
+preview checks retain model/favorite/bin scopes, raw definitions and PNGs,
+with model/queue work poisoned. No live gallery or browser is exercised.
+
+`tests/test_search_orientation.py` checks portrait/landscape/square values on
+the existing size key through actual SQLite, including adjacent large integer
+dimensions, composition and legacy spelling/refusals. A Node VM checks the
+existing key/merge helpers without DOM or app boot. Scratch HTTP checks cover
+gallery/model/favorite/bin scopes, paging, LIKE fallback, strict previews,
+saved raw queries and keeper rates with model/queue entry points poisoned.
+An owned-gallery DELETE checks expected counts, star/source retention and
+PNG-preserving binning. No live gallery, browser or GPU qualification follows.
+
+`tests/test_search_dates.py` covers local-day UTC bounds, clock changes and
+unrepresentable dates. `tests/test_search_date_ranges.py` adds explicit inclusive
+calendar ranges, same-day equivalence, year/leap rollover, short/long days,
+malformed-range refusal and strict-scope SQLite intersections. Scratch HTTP
+checks cover gallery/bin filtering, unstarred previews and saved-query text/tick
+preservation with model/queue entry points poisoned. One owned-gallery DELETE
+checks count conflicts, star/source retention and PNG-preserving binning. No
+real gallery, browser or host-timezone qualification is involved.
 
 The recycle bin is covered where each read lives: `tests/test_storage.py`
 (the migration, `list_images` live and `binned=True` with total, page and
@@ -6379,6 +6823,32 @@ checkpoint id. Under load from parallel rows a timing-sensitive smoke can
 run slower than alone; a failure seen only under `--jobs` is rerun alone
 before it is believed.
 
+Manual `tools/fake_server.py --fresh` creates a new temporary gallery, prints
+its path before application imports, and retains it after shutdown. It never
+removes a previous directory. `--fresh` and explicit `--data` are mutually
+exclusive and refuse together before filesystem/environment startup work.
+Without `--fresh`, the shared `<temp>/auradream-fake` default and explicit
+`--data` paths retain their existing behavior. Explicit/reused data remains
+caller chosen, including any saved backup settings; use genuinely new scratch
+data for credential-cold browser runs. The smoke runner already creates each
+row's new directory and passes only `--data`. `tests/test_fake_server.py`
+checks these argument/data contracts without starting the application; see
+[the fresh-data review](review-2026-10-28-fake-fresh.md).
+
+The standalone fake installs a fixed refusal at the backup credential factory
+before importing `backend.main`, and retains it through all later workers.
+It never calls the original factory or its cache and provides no real-vault
+opt-out. This uses the same factory boundary as the tests' automatic guard;
+production credential behavior is unchanged. Cached credential status and
+platform metadata remain real cached facts, not a successful provider check.
+A due encrypted backup fails through its existing credential error path.
+Plaintext backups and manual bundles with a supplied password retain their
+behavior. Explicit/reused data remains caller chosen and can still perform
+other filesystem/backup operations; use genuinely new scratch data for
+isolated browser runs. `tests/test_fake_server.py` checks installation order
+and real adapter read/setup refusal with synthetic references and poisoned
+provider boundaries; it does not qualify a Windows user credential session.
+
 There is no JavaScript test suite. `web/` is checked in a real browser
 instead: `uv run python tools/fake_server.py` serves the app on 7861 on the
 tests' fake backend (gradient images stamped with seed and steps, a throwaway
@@ -6825,6 +7295,25 @@ uv run python tools/fake_server.py --port 7891 --model Laxhar/noobai-XL-Vpred-1.
 node tools/browser.mjs tools/smoke-noobai.json
 ```
 
+`smoke-runs-scope-recovery.json` uses a fresh FLUX.1 Krea [dev] fake on
+7947 and its two actual other-model planted images. GET-only actual Runs
+responses, held success and declared HTTP500 refusals check scope waiting,
+deliberate native retry, keyboard candidates, obsolete responses and bin
+holds. It creates no jobs or model/data mutations; new wide/narrow shots
+need inspection. `tests/test_runs_scope_recovery.py` checks actual Runs
+handlers with inert presentation/deferred-read ports. The dated review owns
+the exact evidence boundary and clearly labeled programmatic supplements.
+
+`smoke-runs-favorite-counts.json` uses a fresh FLUX.1 Krea [dev] fake
+on 7949 and its two actual other-model planted rows. Native single and
+picked stars, held successful replies and an explicitly nonforwarded
+disjoint failure check one actual Runs read after each confirmed action,
+the server's favorite totals, and retained select focus/pending run id.
+Only exact owned favorite POSTs are admitted; no jobs or model activation.
+`tests/test_runs_favorite_counts.py` observes the complete actual favorite
+module's caller counts, admission, propagation and cleanup using inert
+API/presentation ports. The dated count review owns actual results and limits.
+
 `smoke-refine.json` checks the Refine dialog on a FLUX.1 Krea [dev] fake on
 7875, whose refine cells are the source image under a stamp: no refine
 control in the panel, the card's and the lightbox's Refine opening the
@@ -7013,6 +7502,16 @@ uv run python tools/fake_server.py --port 7889 --model black-forest-labs/FLUX.1-
 node tools/browser.mjs tools/smoke-narrow.json
 ```
 
+`smoke-grid-preview-close.json` uses a fresh default Krea 2 Turbo fake
+on 7948, with only GET/HEAD and existing read-only preview/analysis POSTs.
+Native summary clicks and a transparent observer of the original toggle
+handler hold an actual preview success through close, then require the
+closed negative state/caption/draft to remain intact. Reopening uses real
+current counts/variables; a separately declared, nonforwarded HTTP500 checks
+late error suppression. Planted rows, empty jobs/bin, fixed draft/geometry
+and new wide/narrow screenshots bound the check. No generation, model load,
+real gallery mutation, old artifact read or hardware qualification occurs.
+
 `smoke-grid.json` checks the grid fold on a FLUX.1 Krea [dev] fake on 7879:
 two direct renders back to back, each awaited to its end with one stream and
 one tile; the resolved prompt and the one-value warning (commas named); Run grid as
@@ -7165,6 +7664,15 @@ models and Delete unstarred unmoved, the search narrower (`.held`). Every wait i
 uv run python tools/fake_server.py --port 7881 --model black-forest-labs/FLUX.1-Krea-dev
 node tools/browser.mjs tools/smoke-delete.json
 ```
+
+`smoke-split-extra-queue.json` is a fresh owned-FLUX-fake diagnostic on
+7951 for a delayed mixed-size Swap receipt after an extra job is adopted.
+Its actual receipt/list gates and queue-write observations are intended to
+check that current job's own Next row. Original run 22364 has an unknown
+outcome after transport loss; its owned fake-server log read was denied.
+No acceptance or cleanup is confirmed, the source proposal remains
+unapplied, and that operation is not repeated. Its unchanged fixture and
+registration remain pending while the outcome cannot be reconciled.
 
 `smoke-jobs.json` runs against the default Turbo fake on 7882 at
 `--step 0.3` (it passes at `--step 0.15` too): the tab title and topbar mirror; the one-line Now row, count
@@ -7809,6 +8317,19 @@ key code, so a focused select moves as on a real press:
 uv run python tools/fake_server.py --port 7907 --model cagliostrolab/animagine-xl-4.0 --data <new-scratch-directory>
 node tools/browser.mjs tools/smoke-outpaint.json
 ```
+
+`tests/test_copy_feedback_ownership.py` loads the actual menu/lightbox
+declarations and actual feedback functions on inert DOM and synthetic
+clipboard ports. Deferred completions cover navigation, same-record reopen,
+latest-copy ordering, local card errors, owned-text-node cleanup and unchanged
+once-per-press payload invocation; no OS clipboard or browser is involved.
+`smoke-copy-feedback-ownership.json` uses fresh FLUX fake 7950 with the two
+actual planted other-model rows, GET-only admission and a verified synthetic
+clipboard installed before every copy action. Physical menu choices and
+lightbox controls exercise those ownership boundaries. Programmatic setup,
+message sentinels and controlled promise replies are labeled explicitly.
+Rows/PNG bytes, jobs and composer stay unchanged. Native clipboard permissions
+and integration remain outside this evidence; see the dated UI#30 owner.
 
 `smoke-context-menu.json` checks the right-click menu on a FLUX.1 Krea
 [dev] fake on 7908 with a fresh `--data`: a card's menu at the pointer, its

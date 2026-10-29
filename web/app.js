@@ -12,6 +12,9 @@ els.pause.onclick = togglePause;
 els.cancelQueued.onclick = cancelQueued;
 initQueueControls();
 initSnippets();
+initSnippetImport();
+initSetups();
+initSavedSearches();
 els.notifyDone.onchange = () => { void toggleJobNotifications(); };
 document.addEventListener('visibilitychange', () => syncJobNotifications());
 els.newImage.onclick = goToNewImage;
@@ -656,7 +659,7 @@ document.addEventListener('keydown', (e) => {
   // background actions too; adding another dialog cannot opt into Generate.
   const dialog = e.target.closest?.('dialog[open]');
   const modal = dialog || document.querySelector('dialog[open]');
-  if (els.shortcutsDialog.open || els.snippetsDialog.open) {
+  if (els.shortcutsDialog.open || els.snippetsDialog.open || els.setupsDialog.open || els.savedSearchDialog.open) {
     if (keyboardSubmit(e)) e.preventDefault();
     return;
   }

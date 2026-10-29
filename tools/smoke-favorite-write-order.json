@@ -1,0 +1,932 @@
+[
+  {
+    "log": "'Confirmed same-page favorite overlap regression on fresh FLUX.1 scratch fake 7940. Native actions, actual committed responses held by the harness, per-ID refusal before dispatch, independent IDs, retained picks/composer and controls. This does not qualify unknown outcomes or cross-tab ordering.'"
+  },
+  {
+    "navigate": "http://127.0.0.1:7940/"
+  },
+  {
+    "eval": "window.__until=async(fn,ms=20000)=>{const end=Date.now()+ms;while(Date.now()<end){try{if(await fn())return true;}catch{}await new Promise(resolve=>setTimeout(resolve,40));}return false;};\nwindow.__frBaseApi=api;window.__frErrors=[];window.__frWrites=[];window.__frConfirmed=0;window.__frGate=null;\naddEventListener('error',event=>__frErrors.push(event.message));addEventListener('unhandledrejection',event=>__frErrors.push(String(event.reason)));\nwindow.__frKnown=()=>JSON.parse(sessionStorage.getItem('auradream.smoke.favorite-write-order'));\nwindow.__frServer=(ids=__frKnown().ids)=>Promise.all(ids.map(id=>__frBaseApi('/api/images/'+id)));\nwindow.__frUi=()=>__frKnown().ids.map(id=>{const record=galleryRecords.find(rec=>rec.id===id);const card=document.querySelector('#gallery .card[data-id=\"'+id+'\"]');return {id,record:record?.favorite,pressed:card?.querySelector('.star')?.getAttribute('aria-pressed'),picked:selection.get(id)?.favorite};});\nwindow.__frUiIs=(ids,value)=>ids.every(id=>{const row=__frUi().find(rec=>rec.id===id);return row?.record===value&&row.pressed===String(value);});\nwindow.__frSpec=(path,options)=>{if(options?.method!=='POST')return null;const single=path.match(/^\\/api\\/images\\/([0-9]+)\\/favorite\\?value=(true|false)$/);if(single)return {kind:'single',ids:[Number(single[1])],value:single[2]==='true'};if(path==='/api/images/favorite'){const body=JSON.parse(options.body);return {kind:'batch',ids:body.ids,value:body.value};}return null;};\nwindow.__frFrames=()=>new Promise(resolve=>requestAnimationFrame(()=>requestAnimationFrame(resolve)));\nwindow.__frHit=(selector)=>{const el=document.querySelector(selector);if(!el)return null;const r=el.getBoundingClientRect();const hit=document.elementFromPoint(r.left+r.width/2,r.top+r.height/2);return {rect:{left:r.left,top:r.top,width:r.width,height:r.height},topbar:document.querySelector('.topbar').getBoundingClientRect().bottom,hit:hit?.id||hit?.className,usable:!!hit&&(hit===el||el.contains(hit))};};\nwindow.__frRevealGallery=()=>{const head=document.querySelector('.gallery-head');const top=document.querySelector('.topbar').getBoundingClientRect().bottom+16;scrollBy(0,head.getBoundingClientRect().top-top);};\nwindow.__frReport=async(label)=>({label,ui:__frUi(),server:(await __frServer()).map(({id,favorite})=>({id,favorite})),writes:__frWrites.map(({issued,kind,ids,value,sent,confirmedOrder,delivered,storage})=>({issued,kind,ids,value,sent,confirmedOrder,delivered,storage})),picked:selectedIds(),composerUnchanged:setupComposerState()===window.__frComposer});\napi=async(path,options)=>{const spec=__frSpec(path,options);if(!spec)return __frBaseApi(path,options);const entry={...spec,issued:__frWrites.length+1,sent:false,delivered:false};__frWrites.push(entry);const gate=__frGate;const owned=gate&&!gate.captured&&gate.kind===entry.kind&&gate.value===entry.value&&(!gate.id||entry.ids.includes(gate.id));if(owned){gate.captured=true;gate.entry=entry;}if(owned&&gate.phase==='before'){gate.waitingBefore=true;await new Promise(resolve=>{gate.release=resolve;});}entry.sent=true;const result=await __frBaseApi(path,options);entry.storage=(await __frServer(entry.ids)).map(({id,favorite})=>({id,favorite}));entry.confirmedOrder=++__frConfirmed;if(owned){gate.confirmed=true;if(gate.phase==='after')await new Promise(resolve=>{gate.release=resolve;});}entry.delivered=true;return result;};"
+  },
+  {
+    "expect": "__until(()=>loadedModel==='black-forest-labs/FLUX.1-Krea-dev' && Number.isInteger(modelRevision) && !busy && !galleryPending && !jobListing)"
+  },
+  {
+    "expect": "(async()=>{if((await __frBaseApi('/api/gallery')).total!==0)throw Error('This diagnostic requires fresh scratch fake --data.');const job=await __frBaseApi('/api/generate',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({prompt:'owned favorite ordering fixture',width:256,height:256,steps:1,seed:8100,num_images:3})});if(!await __until(async()=>{const state=await __frBaseApi('/api/jobs/'+job.job_id);return !['queued','running'].includes(state.status);}))throw Error('Owned fake fixture did not finish');const rows=(await __frBaseApi('/api/gallery?limit=100')).items.sort((a,b)=>a.id-b.id);if(rows.length!==3||rows.some(rec=>rec.favorite))throw Error('Expected exactly three unstarred owned fake images');sessionStorage.setItem('auradream.smoke.favorite-write-order',JSON.stringify({ids:rows.map(rec=>rec.id)}));return true;\n})();",
+    "fatal": true
+  },
+  {
+    "navigate": "http://127.0.0.1:7940/"
+  },
+  {
+    "eval": "window.__until=async(fn,ms=20000)=>{const end=Date.now()+ms;while(Date.now()<end){try{if(await fn())return true;}catch{}await new Promise(resolve=>setTimeout(resolve,40));}return false;};\nwindow.__frBaseApi=api;window.__frErrors=[];window.__frWrites=[];window.__frConfirmed=0;window.__frGate=null;\naddEventListener('error',event=>__frErrors.push(event.message));addEventListener('unhandledrejection',event=>__frErrors.push(String(event.reason)));\nwindow.__frKnown=()=>JSON.parse(sessionStorage.getItem('auradream.smoke.favorite-write-order'));\nwindow.__frServer=(ids=__frKnown().ids)=>Promise.all(ids.map(id=>__frBaseApi('/api/images/'+id)));\nwindow.__frUi=()=>__frKnown().ids.map(id=>{const record=galleryRecords.find(rec=>rec.id===id);const card=document.querySelector('#gallery .card[data-id=\"'+id+'\"]');return {id,record:record?.favorite,pressed:card?.querySelector('.star')?.getAttribute('aria-pressed'),picked:selection.get(id)?.favorite};});\nwindow.__frUiIs=(ids,value)=>ids.every(id=>{const row=__frUi().find(rec=>rec.id===id);return row?.record===value&&row.pressed===String(value);});\nwindow.__frSpec=(path,options)=>{if(options?.method!=='POST')return null;const single=path.match(/^\\/api\\/images\\/([0-9]+)\\/favorite\\?value=(true|false)$/);if(single)return {kind:'single',ids:[Number(single[1])],value:single[2]==='true'};if(path==='/api/images/favorite'){const body=JSON.parse(options.body);return {kind:'batch',ids:body.ids,value:body.value};}return null;};\nwindow.__frFrames=()=>new Promise(resolve=>requestAnimationFrame(()=>requestAnimationFrame(resolve)));\nwindow.__frHit=(selector)=>{const el=document.querySelector(selector);if(!el)return null;const r=el.getBoundingClientRect();const hit=document.elementFromPoint(r.left+r.width/2,r.top+r.height/2);return {rect:{left:r.left,top:r.top,width:r.width,height:r.height},topbar:document.querySelector('.topbar').getBoundingClientRect().bottom,hit:hit?.id||hit?.className,usable:!!hit&&(hit===el||el.contains(hit))};};\nwindow.__frRevealGallery=()=>{const head=document.querySelector('.gallery-head');const top=document.querySelector('.topbar').getBoundingClientRect().bottom+16;scrollBy(0,head.getBoundingClientRect().top-top);};\nwindow.__frReport=async(label)=>({label,ui:__frUi(),server:(await __frServer()).map(({id,favorite})=>({id,favorite})),writes:__frWrites.map(({issued,kind,ids,value,sent,confirmedOrder,delivered,storage})=>({issued,kind,ids,value,sent,confirmedOrder,delivered,storage})),picked:selectedIds(),composerUnchanged:setupComposerState()===window.__frComposer});\napi=async(path,options)=>{const spec=__frSpec(path,options);if(!spec)return __frBaseApi(path,options);const entry={...spec,issued:__frWrites.length+1,sent:false,delivered:false};__frWrites.push(entry);const gate=__frGate;const owned=gate&&!gate.captured&&gate.kind===entry.kind&&gate.value===entry.value&&(!gate.id||entry.ids.includes(gate.id));if(owned){gate.captured=true;gate.entry=entry;}if(owned&&gate.phase==='before'){gate.waitingBefore=true;await new Promise(resolve=>{gate.release=resolve;});}entry.sent=true;const result=await __frBaseApi(path,options);entry.storage=(await __frServer(entry.ids)).map(({id,favorite})=>({id,favorite}));entry.confirmedOrder=++__frConfirmed;if(owned){gate.confirmed=true;if(gate.phase==='after')await new Promise(resolve=>{gate.release=resolve;});}entry.delivered=true;return result;};"
+  },
+  {
+    "expect": "__until(()=>document.getElementById('status-dot').className.includes('ready') && !galleryPending && !jobListing && galleryRecords.length===3)"
+  },
+  {
+    "viewport": [
+      1400,
+      900
+    ]
+  },
+  {
+    "eval": "resetPanel();writeBox(els.prompt,'Unrelated composer stays through star response reordering');promptReplaced();persistPanel();window.__frComposer=setupComposerState();window.__frIds=__frKnown().ids;window.__frPair=__frIds.slice(0,2);for(const[index,id]of __frIds.entries()){const card=document.querySelector('#gallery .card[data-id=\"'+id+'\"]');if(!card)throw Error('Missing scratch fixture card');card.dataset.frWrite=['a','b','c'][index];}"
+  },
+  {
+    "expect": "__frUiIs(__frIds,false) && !selectMode"
+  },
+  {
+    "log": "({select:__frHit('#btn-select'),first:__frHit('#gallery .card[data-fr-write=\"a\"] > img'),second:__frHit('#gallery .card[data-fr-write=\"b\"] > img'),modal:document.querySelector('dialog[open]')?.id})"
+  },
+  {
+    "eval": "if(!__frHit('#btn-select')?.usable)throw Error('Fixture Select button is not reachable below the sticky topbar.');"
+  },
+  {
+    "click": "#btn-select"
+  },
+  {
+    "log": "({selectMode,modal:document.querySelector('dialog[open]')?.id,select:__frHit('#btn-select')})"
+  },
+  {
+    "eval": "if(!selectMode||document.querySelector('dialog[open]'))throw Error('Fixture native Select press did not enter Select without a modal.');"
+  },
+  {
+    "click": "#gallery .card[data-fr-write=\"a\"] > img"
+  },
+  {
+    "click": "#gallery .card[data-fr-write=\"b\"] > img"
+  },
+  {
+    "expect": "selectedIds().join()===__frPair.join() && selectedRecords().every(rec=>rec.favorite===false)",
+    "fatal": true
+  },
+  {
+    "log": "({picked:selectedIds(),expected:__frPair,selectMode,modal:document.querySelector('dialog[open]')?.id,first:__frHit('#gallery .card[data-fr-write=\"a\"] > img'),second:__frHit('#gallery .card[data-fr-write=\"b\"] > img')})"
+  },
+  {
+    "eval": "if(selectedIds().join()!==__frPair.join()||!selectMode||document.querySelector('dialog[open]'))throw Error('Fixture native picks failed; do not run ordering cases.');"
+  },
+  {
+    "eval": "window.__frWaitReason='Wait for the current star change to finish';\nwindow.__frExpectedOrder=__frPair.slice();window.__frExpectedAnchor=selectAnchor;window.__frGenerationWrites=0;\nsessionStorage.setItem('auradream.smoke.favorite-write-order.composer',__frComposer);\nwindow.__frTag=()=>{for(const[index,id]of __frIds.entries())for(const el of document.querySelectorAll('.card[data-id=\"'+id+'\"],.sheet-cell[data-id=\"'+id+'\"],.result[data-id=\"'+id+'\"]'))el.dataset.frWrite=['a','b','c'][index];};\nwindow.__frReveal=(selector)=>{const el=document.querySelector(selector);if(!el)throw Error('Missing native target '+selector);const r=el.getBoundingClientRect(),top=document.querySelector('.topbar').getBoundingClientRect().bottom+12;if(r.top<top)scrollBy(0,r.top-top);else if(r.bottom>innerHeight-12)scrollBy(0,r.bottom-innerHeight+12);const p=__frHit(selector);if(!p?.usable)throw Error('Native target is covered/offscreen: '+selector+' '+JSON.stringify(p));};\nwindow.__frRect=(el)=>{const r=el.getBoundingClientRect();return [r.left,r.top,r.width,r.height];};\nwindow.__frSameRect=(el,rect)=>__frRect(el).every((value,index)=>Math.abs(value-rect[index])<1);\nwindow.__frCapture=(selector)=>{const el=document.querySelector(selector);if(!el)throw Error('Missing state capture '+selector);return {el,rect:__frRect(el),text:el.textContent,pressed:el.getAttribute('aria-pressed'),name:el.getAttribute('aria-label')};};\nwindow.__frHeld=(button,on)=>!!button&&button.getAttribute('aria-disabled')==='true'&&!button.disabled&&button.title===__frWaitReason&&button.getAttribute('aria-pressed')===String(on)&&button.getAttribute('aria-label')==='Star';\nwindow.__frUnchanged=(capture)=>capture.el.isConnected&&__frSameRect(capture.el,capture.rect)&&capture.el.textContent===capture.text&&capture.el.getAttribute('aria-pressed')===capture.pressed&&capture.el.getAttribute('aria-label')===capture.name;\nwindow.__frCardStar=(letter)=>document.querySelector('#gallery .card[data-fr-write=\"'+letter+'\"] .star');\nwindow.__frPickedHeld=(held)=>['star','unstar'].every(action=>document.querySelector('#picked-menu [data-picked=\"'+action+'\"]').getAttribute('aria-disabled')===String(held));\nwindow.__frOtherPickedUsable=()=>els.pickedBtn.getAttribute('aria-disabled')==='false'&&['compare','bin','seeds'].every(action=>document.querySelector('#picked-menu [data-picked=\"'+action+'\"]').getAttribute('aria-disabled')==='false');\nwindow.__frNotAliased=(ids)=>[viewerRecords,sessionRecords,lbList].every(rows=>rows.every(rec=>!ids.includes(rec.id)));\nwindow.__frOrderKept=()=>selectedIds().join()===__frExpectedOrder.join()&&selectAnchor===__frExpectedAnchor;\napi=async(path,options)=>{if(options?.method==='POST'&&/^\\/api\\/(generate|grid|rerender|refine|inpaint|outpaint|more-seeds|swap|instruction-edit)(?:\\/|$)/.test(path))__frGenerationWrites++;\nconst spec=__frSpec(path,options);if(!spec)return __frBaseApi(path,options);const entry={...spec,issued:__frWrites.length+1,sent:false,delivered:false,finished:false};__frWrites.push(entry);const own=__frGate&&!__frGate.captured&&__frGate.kind===entry.kind&&__frGate.value===entry.value&&(!__frGate.id||entry.ids.includes(__frGate.id));const gate=own?__frGate:null;if(gate){gate.captured=true;gate.entry=entry;}\ntry{if(gate?.mode==='reject'){await new Promise(resolve=>{gate.release=resolve;});const err=new Error('Owned scratch validation refusal before dispatch');err.status=422;throw err;}entry.sent=true;const result=await __frBaseApi(path,options);entry.storage=(await __frServer(entry.ids)).map(({id,favorite})=>({id,favorite}));entry.confirmedOrder=++__frConfirmed;if(gate){gate.confirmed=true;await new Promise(resolve=>{gate.release=resolve;});}entry.delivered=true;return result;}catch(err){entry.error=err.message;entry.status=err.status;throw err;}finally{entry.finished=true;}};\n__frTag();"
+  },
+  {
+    "expect": "favoriteWriteIds.size===0 && __frOrderKept() && __frNotAliased(__frPair)"
+  },
+  {
+    "log": "'Batch claim: opposite picked action, native individual Star and repeated F must not dispatch; disjoint C may finish. Only the two favorite menu items are held.'"
+  },
+  {
+    "eval": "__frReveal('#btn-picked');window.__frFooter=__frCapture('#btn-picked');window.__frCardA=__frCapture('#gallery .card[data-fr-write=\"a\"] .star');"
+  },
+  {
+    "eval": "window.__frStart=__frWrites.length;window.__frGate={kind:\"batch\",value:true,id:null,mode:\"hold\"};"
+  },
+  {
+    "eval": "__frReveal(\"#btn-picked\");"
+  },
+  {
+    "click": "#btn-picked"
+  },
+  {
+    "click": "#picked-menu [data-picked=\"star\"]"
+  },
+  {
+    "expect": "__until(()=>__frGate.captured && typeof __frGate.release==='function')"
+  },
+  {
+    "eval": "if(!__frGate?.captured||typeof __frGate.release!=='function')throw Error('The intended native favorite request was not captured; stop this case.');"
+  },
+  {
+    "expect": "__frGate.confirmed && __frGate.entry.sent && !__frGate.entry.delivered && __frGate.entry.storage.every(rec=>rec.favorite===true) && __frUiIs(__frPair,false) && favoriteWriteIds.size===2 && __frPair.every(id=>favoriteWriteIds.has(id))"
+  },
+  {
+    "expect": "__frHeld(__frCardStar('a'),false) && __frHeld(__frCardStar('b'),false) && __frCardStar('c').getAttribute('aria-disabled')!=='true' && __frPickedHeld(true) && __frOtherPickedUsable() && __frUnchanged(__frFooter) && __frUnchanged(__frCardA)"
+  },
+  {
+    "shot": "favorite-hold-gallery-desktop.png"
+  },
+  {
+    "eval": "__frReveal(\"#btn-picked\");"
+  },
+  {
+    "click": "#btn-picked"
+  },
+  {
+    "click": "#picked-menu [data-picked=\"unstar\"]"
+  },
+  {
+    "expect": "__frWrites.length===__frStart+1 && els.galleryError.textContent.includes(__frWaitReason) && __frPickedHeld(true) && __frOtherPickedUsable() && __frOrderKept()"
+  },
+  {
+    "eval": "__frReveal(\"#gallery .card[data-fr-write=\\\"a\\\"] .star\");"
+  },
+  {
+    "hover": "#gallery .card[data-fr-write=\"a\"] .star"
+  },
+  {
+    "click": "#gallery .card[data-fr-write=\"a\"] .star"
+  },
+  {
+    "eval": "window.__frFocusedStar=__frCapture('#gallery .card[data-fr-write=\"a\"] .star');"
+  },
+  {
+    "key": "f"
+  },
+  {
+    "key": "f"
+  },
+  {
+    "key": "f",
+    "repeat": true
+  },
+  {
+    "expect": "__frWrites.length===__frStart+1 && document.activeElement===__frFocusedStar.el && __frUnchanged(__frFocusedStar) && __frHeld(__frFocusedStar.el,false) && __frOrderKept()"
+  },
+  {
+    "eval": "__frReveal(\"#gallery .card[data-fr-write=\\\"c\\\"] .star\");"
+  },
+  {
+    "hover": "#gallery .card[data-fr-write=\"c\"] .star"
+  },
+  {
+    "click": "#gallery .card[data-fr-write=\"c\"] .star"
+  },
+  {
+    "expect": "__until(()=>__frWrites.length===__frStart+2 && __frWrites.at(-1).finished && __frUiIs([__frIds[2]],true))"
+  },
+  {
+    "expect": "!__frGate.entry.delivered && favoriteWriteIds.size===2 && !favoriteWriteIds.has(__frIds[2]) && __frUiIs(__frPair,false) && __frOrderKept() && setupComposerState()===__frComposer"
+  },
+  {
+    "log": "'Hide A/B before the held reply. They must be retained only as active picks, not aliased through viewer/session/lightbox.'"
+  },
+  {
+    "eval": "els.search.value='id:'+__frIds[2];els.search.dispatchEvent(new Event('input',{bubbles:true}));"
+  },
+  {
+    "expect": "__until(()=>!galleryPending && galleryRecords.length===1 && galleryRecords[0].id===__frIds[2])"
+  },
+  {
+    "expect": "__frNotAliased(__frPair) && __frPair.every(id=>selection.get(id).favorite===false) && __frOrderKept() && __frPickedHeld(true)"
+  },
+  {
+    "eval": "__frGate.release();"
+  },
+  {
+    "expect": "__until(()=>__frGate.entry.finished && favoriteWriteIds.size===0)"
+  },
+  {
+    "expect": "__frPair.every(id=>selection.get(id).favorite===true) && __frUiIs([__frIds[2]],true) && __frOrderKept() && __frPickedHeld(false) && setupComposerState()===__frComposer"
+  },
+  {
+    "expect": "(async()=>{const rows=await __frServer();return rows.every(rec=>rec.favorite===true);})()"
+  },
+  {
+    "eval": "window.__frGate=null;els.search.value='';els.search.dispatchEvent(new Event('input',{bubbles:true}));"
+  },
+  {
+    "expect": "__until(()=>!galleryPending && galleryRecords.length===3)"
+  },
+  {
+    "eval": "__frTag();window.__frStart=__frWrites.length;"
+  },
+  {
+    "eval": "__frReveal(\"#btn-picked\");"
+  },
+  {
+    "click": "#btn-picked"
+  },
+  {
+    "click": "#picked-menu [data-picked=\"unstar\"]"
+  },
+  {
+    "expect": "__until(()=>__frWrites.length===__frStart+1 && __frWrites.at(-1).finished && !favoriteWriteIds.size && __frUiIs(__frPair,false))"
+  },
+  {
+    "expect": "__frOrderKept() && __frPair.every(id=>selection.get(id).favorite===false) && __frUiIs([__frIds[2]],true)"
+  },
+  {
+    "log": "'Single claim shares the batch hold: a mixed A/B batch is refused wholly, and selection changes recompute the menu without holding its other actions.'"
+  },
+  {
+    "eval": "__frReveal('#gallery .card[data-fr-write=\"a\"] .star');window.__frSingleCapture=__frCapture('#gallery .card[data-fr-write=\"a\"] .star');"
+  },
+  {
+    "eval": "window.__frStart=__frWrites.length;window.__frGate={kind:\"single\",value:true,id:__frIds[0],mode:\"hold\"};"
+  },
+  {
+    "eval": "__frReveal(\"#gallery .card[data-fr-write=\\\"a\\\"] .star\");"
+  },
+  {
+    "hover": "#gallery .card[data-fr-write=\"a\"] .star"
+  },
+  {
+    "click": "#gallery .card[data-fr-write=\"a\"] .star"
+  },
+  {
+    "expect": "__until(()=>__frGate.captured && typeof __frGate.release==='function')"
+  },
+  {
+    "eval": "if(!__frGate?.captured||typeof __frGate.release!=='function')throw Error('The intended native favorite request was not captured; stop this case.');"
+  },
+  {
+    "expect": "__frGate.confirmed && __frGate.entry.storage[0].favorite===true && favoriteWriteIds.size===1 && favoriteWriteIds.has(__frIds[0]) && __frHeld(__frCardStar('a'),false) && __frUnchanged(__frSingleCapture) && document.activeElement===__frSingleCapture.el"
+  },
+  {
+    "eval": "__frReveal(\"#btn-picked\");"
+  },
+  {
+    "click": "#btn-picked"
+  },
+  {
+    "click": "#picked-menu [data-picked=\"unstar\"]"
+  },
+  {
+    "expect": "__frWrites.length===__frStart+1 && __frUiIs([__frIds[1]],false) && __frPickedHeld(true) && __frOtherPickedUsable()"
+  },
+  {
+    "eval": "__frReveal(\"#gallery .card[data-fr-write=\\\"a\\\"] > img\");"
+  },
+  {
+    "click": "#gallery .card[data-fr-write=\"a\"] > img"
+  },
+  {
+    "expect": "selectedIds().join()===String(__frIds[1]) && __frPickedHeld(false) && els.pickedBtn.getAttribute('aria-disabled')==='false'"
+  },
+  {
+    "eval": "__frReveal(\"#gallery .card[data-fr-write=\\\"a\\\"] > img\");"
+  },
+  {
+    "click": "#gallery .card[data-fr-write=\"a\"] > img"
+  },
+  {
+    "eval": "window.__frExpectedOrder=[__frIds[1],__frIds[0]];window.__frExpectedAnchor=__frIds[0];"
+  },
+  {
+    "expect": "__frOrderKept() && __frPickedHeld(true) && __frOtherPickedUsable()"
+  },
+  {
+    "log": "'A normal gallery read creates new cards during the pending response. The server has already committed true, so fresh cards keep that independently confirmed value while remaining held.'"
+  },
+  {
+    "eval": "els.search.value='id:'+__frIds[0];els.search.dispatchEvent(new Event('input',{bubbles:true}));"
+  },
+  {
+    "expect": "__until(()=>!galleryPending && galleryRecords.length===1 && galleryRecords[0].id===__frIds[0])"
+  },
+  {
+    "eval": "__frTag();"
+  },
+  {
+    "expect": "__frHeld(__frCardStar('a'),true) && __frOrderKept() && __frWrites.length===__frStart+1"
+  },
+  {
+    "eval": "els.search.value='';els.search.dispatchEvent(new Event('input',{bubbles:true}));"
+  },
+  {
+    "expect": "__until(()=>!galleryPending && galleryRecords.length===3)"
+  },
+  {
+    "eval": "__frTag();"
+  },
+  {
+    "log": "'Construct controls from the pending record before connection: all constructors need the explicit image ID, even without a closest parent. Append one owned cached result without generating another image.'"
+  },
+  {
+    "eval": "window.__frPendingRecord=structuredClone(galleryRecords.find(rec=>rec.id===__frIds[0]));window.__frDetachedCard=card(__frPendingRecord);window.__frDetachedResult=resultFigure(structuredClone(__frPendingRecord));window.__frDetachedSide=resultSide(structuredClone(__frPendingRecord),__frDetachedResult);appendResult(structuredClone(__frPendingRecord));__frTag();"
+  },
+  {
+    "expect": "[__frDetachedCard.querySelector('.star'),__frDetachedResult.querySelector('.star'),__frDetachedSide.querySelector('.star')].every(button=>__frHeld(button,true)) && !__frDetachedCard.isConnected && !__frDetachedResult.isConnected && !__frDetachedSide.isConnected && [...els.viewer.querySelectorAll('.result[data-fr-write=\"a\"] .star')].length===2 && [...els.viewer.querySelectorAll('.result[data-fr-write=\"a\"] .star')].every(button=>__frHeld(button,true))"
+  },
+  {
+    "eval": "__frReveal(\"#viewer .result[data-fr-write=\\\"a\\\"] .tools .star\");"
+  },
+  {
+    "hover": "#viewer .result[data-fr-write=\"a\"] .tools .star"
+  },
+  {
+    "click": "#viewer .result[data-fr-write=\"a\"] .tools .star"
+  },
+  {
+    "expect": "__frWrites.length===__frStart+1 && __frOrderKept() && setupComposerState()===__frComposer"
+  },
+  {
+    "eval": "__frReveal(\"#btn-picked\");"
+  },
+  {
+    "click": "#btn-picked"
+  },
+  {
+    "click": "#picked-menu [data-picked=\"compare\"]"
+  },
+  {
+    "expect": "__until(()=>els.lightbox.open && lbCompare.kind==='picked' && lbList[lbIndex]?.id===__frIds[1])"
+  },
+  {
+    "expect": "els.lbFav.getAttribute('aria-disabled')!=='true' && els.lbFav.getAttribute('aria-pressed')==='false'"
+  },
+  {
+    "key": "ArrowRight"
+  },
+  {
+    "expect": "__until(()=>lbList[lbIndex]?.id===__frIds[0])"
+  },
+  {
+    "expect": "__frHeld(els.lbFav,true) && __frOrderKept()"
+  },
+  {
+    "eval": "__frReveal(\"#lb-fav\");"
+  },
+  {
+    "click": "#lb-fav"
+  },
+  {
+    "key": "f"
+  },
+  {
+    "expect": "__frWrites.length===__frStart+1 && __frHeld(els.lbFav,true) && setupComposerState()===__frComposer"
+  },
+  {
+    "shot": "favorite-hold-lightbox-new.png"
+  },
+  {
+    "eval": "__frReveal(\"#lb-close\");"
+  },
+  {
+    "click": "#lb-close"
+  },
+  {
+    "expect": "!els.lightbox.open && __frOrderKept()"
+  },
+  {
+    "eval": "__frReveal(\"#btn-sheet\");"
+  },
+  {
+    "click": "#btn-sheet"
+  },
+  {
+    "expect": "__until(()=>sheetMode && !galleryPending && document.querySelectorAll('#sheet-grid .sheet-cell[data-id]').length===3)"
+  },
+  {
+    "eval": "__frTag();"
+  },
+  {
+    "expect": "__frHeld(document.querySelector('#sheet-grid .sheet-cell[data-fr-write=\"a\"] .star'),true) && document.querySelector('#sheet-grid .sheet-cell[data-fr-write=\"b\"] .star').getAttribute('aria-disabled')!=='true' && __frOrderKept()"
+  },
+  {
+    "log": "'The new sheet legitimately reads committed true from the server before the delayed favorite reply. Its hold preserves that independently confirmed state.'"
+  },
+  {
+    "eval": "__frReveal(\"#sheet-grid .sheet-cell[data-fr-write=\\\"a\\\"] .star\");"
+  },
+  {
+    "hover": "#sheet-grid .sheet-cell[data-fr-write=\"a\"] .star"
+  },
+  {
+    "click": "#sheet-grid .sheet-cell[data-fr-write=\"a\"] .star"
+  },
+  {
+    "eval": "window.__frSheetCapture=__frCapture('#sheet-grid .sheet-cell[data-fr-write=\"a\"] .star');document.querySelector('#sheet-grid .sheet-cell[data-fr-write=\"a\"] > img').focus({preventScroll:true});window.__frSheetFocus=document.activeElement;"
+  },
+  {
+    "key": "f"
+  },
+  {
+    "expect": "__frWrites.length===__frStart+1 && document.activeElement===__frSheetFocus && __frUnchanged(__frSheetCapture) && __frHeld(__frSheetCapture.el,true)"
+  },
+  {
+    "viewport": [
+      400,
+      650
+    ]
+  },
+  {
+    "expect": "__until(()=>sheetMode && !galleryPending && document.documentElement.scrollWidth<=document.documentElement.clientWidth+1)"
+  },
+  {
+    "eval": "__frReveal('#sheet-grid .sheet-cell[data-fr-write=\"a\"] .star');"
+  },
+  {
+    "expect": "__frHeld(document.querySelector('#sheet-grid .sheet-cell[data-fr-write=\"a\"] .star'),true) && __frHit('#sheet-grid .sheet-cell[data-fr-write=\"a\"] .star').usable && setupComposerState()===__frComposer"
+  },
+  {
+    "shot": "favorite-hold-sheet-narrow.png"
+  },
+  {
+    "viewport": [
+      1400,
+      600
+    ]
+  },
+  {
+    "expect": "__until(()=>sheetMode && !galleryPending && document.documentElement.scrollWidth<=document.documentElement.clientWidth+1)"
+  },
+  {
+    "eval": "__frReveal('#sheet-grid .sheet-cell[data-fr-write=\"a\"] .star');"
+  },
+  {
+    "shot": "favorite-hold-sheet-short.png"
+  },
+  {
+    "expect": "__frHeld(document.querySelector('#sheet-grid .sheet-cell[data-fr-write=\"a\"] .star'),true) && __frOrderKept() && __frWrites.length===__frStart+1"
+  },
+  {
+    "eval": "__frGate.release();"
+  },
+  {
+    "expect": "__until(()=>__frGate.entry.finished && favoriteWriteIds.size===0)"
+  },
+  {
+    "expect": "document.querySelector('#sheet-grid .sheet-cell[data-fr-write=\"a\"] .star').getAttribute('aria-disabled')==='false' && document.querySelector('#sheet-grid .sheet-cell[data-fr-write=\"a\"] .star').getAttribute('aria-pressed')==='true' && [...els.viewer.querySelectorAll('.result[data-fr-write=\"a\"] .star')].every(button=>button.getAttribute('aria-disabled')==='false'&&button.getAttribute('aria-pressed')==='true') && __frOrderKept()"
+  },
+  {
+    "viewport": [
+      1400,
+      900
+    ]
+  },
+  {
+    "eval": "window.__frGate=null;"
+  },
+  {
+    "eval": "__frReveal(\"#btn-sheet\");"
+  },
+  {
+    "click": "#btn-sheet"
+  },
+  {
+    "expect": "__until(()=>!sheetMode && !galleryPending && galleryRecords.length===3)"
+  },
+  {
+    "eval": "__frTag();"
+  },
+  {
+    "log": "'A favorite write started in an already open lightbox changes only hold attributes while pending: keep the view, focused Star, facts nodes and rectangle; an explicit later command remains possible after success.'"
+  },
+  {
+    "eval": "__frReveal('#gallery .card[data-fr-write=\"a\"] > img');document.querySelector('#gallery .card[data-fr-write=\"a\"] > img').focus();"
+  },
+  {
+    "key": "Enter"
+  },
+  {
+    "expect": "__until(()=>els.lightbox.open && lbList[lbIndex]?.id===__frIds[0] && !lbLadderAsking && lbLadderFlights.size===0)"
+  },
+  {
+    "eval": "els.lbFav.focus();window.__frLbCapture=__frCapture('#lb-fav');window.__frLbView=JSON.stringify(lbView);window.__frLbFacts=els.lbSettings.firstChild;window.__frRenderBase=renderLightbox;window.__frRenderCalls=0;renderLightbox=(...args)=>{__frRenderCalls++;return __frRenderBase(...args);};"
+  },
+  {
+    "eval": "window.__frStart=__frWrites.length;window.__frGate={kind:\"single\",value:false,id:__frIds[0],mode:\"hold\"};"
+  },
+  {
+    "eval": "__frReveal(\"#lb-fav\");"
+  },
+  {
+    "click": "#lb-fav"
+  },
+  {
+    "expect": "__until(()=>__frGate.captured && typeof __frGate.release==='function')"
+  },
+  {
+    "eval": "if(!__frGate?.captured||typeof __frGate.release!=='function')throw Error('The intended native favorite request was not captured; stop this case.');"
+  },
+  {
+    "expect": "__frGate.confirmed && __frGate.entry.storage[0].favorite===false && __frHeld(els.lbFav,true) && __frRenderCalls===0 && __frUnchanged(__frLbCapture) && document.activeElement===els.lbFav && JSON.stringify(lbView)===__frLbView && els.lbSettings.firstChild===__frLbFacts"
+  },
+  {
+    "key": "f"
+  },
+  {
+    "eval": "__frReveal(\"#lb-fav\");"
+  },
+  {
+    "click": "#lb-fav"
+  },
+  {
+    "expect": "__frWrites.length===__frStart+1 && __frRenderCalls===0 && __frUnchanged(__frLbCapture) && document.activeElement===els.lbFav && __frOrderKept()"
+  },
+  {
+    "eval": "__frGate.release();"
+  },
+  {
+    "expect": "__until(()=>__frGate.entry.finished && favoriteWriteIds.size===0)"
+  },
+  {
+    "expect": "els.lbFav.getAttribute('aria-disabled')==='false' && els.lbFav.getAttribute('aria-pressed')==='false' && document.activeElement===els.lbFav && JSON.stringify(lbView)===__frLbView && els.lbSettings.firstChild===__frLbFacts && __frOrderKept()"
+  },
+  {
+    "eval": "renderLightbox=__frRenderBase;window.__frGate=null;"
+  },
+  {
+    "eval": "__frReveal(\"#lb-close\");"
+  },
+  {
+    "click": "#lb-close"
+  },
+  {
+    "expect": "!els.lightbox.open && setupComposerState()===__frComposer"
+  },
+  {
+    "log": "'Known 422 before dispatch: retain confirmed values and release both batch and single claims. This controlled refusal says nothing about a lost or uncertain server write.'"
+  },
+  {
+    "eval": "window.__frStart=__frWrites.length;window.__frGate={kind:\"batch\",value:true,id:null,mode:\"reject\"};"
+  },
+  {
+    "eval": "__frReveal(\"#btn-picked\");"
+  },
+  {
+    "click": "#btn-picked"
+  },
+  {
+    "click": "#picked-menu [data-picked=\"star\"]"
+  },
+  {
+    "expect": "__until(()=>__frGate.captured && typeof __frGate.release==='function')"
+  },
+  {
+    "eval": "if(!__frGate?.captured||typeof __frGate.release!=='function')throw Error('The intended native favorite request was not captured; stop this case.');"
+  },
+  {
+    "expect": "!__frGate.entry.sent && favoriteWriteIds.size===2 && __frPickedHeld(true) && __frOrderKept()"
+  },
+  {
+    "eval": "__frReveal(\"#btn-picked\");"
+  },
+  {
+    "click": "#btn-picked"
+  },
+  {
+    "click": "#picked-menu [data-picked=\"unstar\"]"
+  },
+  {
+    "expect": "__frWrites.length===__frStart+1 && !__frGate.entry.sent && favoriteWriteIds.size===2 && __frOrderKept()"
+  },
+  {
+    "eval": "__frGate.release();"
+  },
+  {
+    "expect": "__until(()=>__frGate.entry.finished && favoriteWriteIds.size===0)"
+  },
+  {
+    "expect": "!__frGate.entry.delivered && !__frGate.entry.sent && __frGate.entry.status===422 && els.galleryError.textContent.includes('Owned scratch validation refusal') && __frPickedHeld(false) && __frOtherPickedUsable()"
+  },
+  {
+    "expect": "(async()=>{const rows=await __frServer(__frPair);return rows.every(rec=>rec.favorite===false);})()"
+  },
+  {
+    "eval": "window.__frGate=null;window.__frStart=__frWrites.length;"
+  },
+  {
+    "eval": "__frReveal(\"#btn-picked\");"
+  },
+  {
+    "click": "#btn-picked"
+  },
+  {
+    "click": "#picked-menu [data-picked=\"star\"]"
+  },
+  {
+    "expect": "__until(()=>__frWrites.length===__frStart+1 && __frWrites.at(-1).finished && !favoriteWriteIds.size && __frUiIs(__frPair,true))"
+  },
+  {
+    "eval": "window.__frStart=__frWrites.length;"
+  },
+  {
+    "eval": "__frReveal(\"#btn-picked\");"
+  },
+  {
+    "click": "#btn-picked"
+  },
+  {
+    "click": "#picked-menu [data-picked=\"unstar\"]"
+  },
+  {
+    "expect": "__until(()=>__frWrites.length===__frStart+1 && __frWrites.at(-1).finished && !favoriteWriteIds.size && __frUiIs(__frPair,false))"
+  },
+  {
+    "eval": "window.__frStart=__frWrites.length;window.__frGate={kind:\"single\",value:false,id:__frIds[2],mode:\"reject\"};"
+  },
+  {
+    "eval": "__frReveal(\"#gallery .card[data-fr-write=\\\"c\\\"] .star\");"
+  },
+  {
+    "hover": "#gallery .card[data-fr-write=\"c\"] .star"
+  },
+  {
+    "click": "#gallery .card[data-fr-write=\"c\"] .star"
+  },
+  {
+    "expect": "__until(()=>__frGate.captured && typeof __frGate.release==='function')"
+  },
+  {
+    "eval": "if(!__frGate?.captured||typeof __frGate.release!=='function')throw Error('The intended native favorite request was not captured; stop this case.');"
+  },
+  {
+    "expect": "favoriteWriteIds.size===1 && __frHeld(__frCardStar('c'),true) && !__frGate.entry.sent"
+  },
+  {
+    "eval": "__frGate.release();"
+  },
+  {
+    "expect": "__until(()=>__frGate.entry.finished && favoriteWriteIds.size===0)"
+  },
+  {
+    "expect": "!__frGate.entry.sent && __frGate.entry.status===422 && __frCardStar('c').getAttribute('aria-disabled')==='false' && __frUiIs([__frIds[2]],true) && __frOrderKept()"
+  },
+  {
+    "eval": "window.__frGate=null;window.__frStart=__frWrites.length;"
+  },
+  {
+    "eval": "__frReveal(\"#gallery .card[data-fr-write=\\\"c\\\"] .star\");"
+  },
+  {
+    "hover": "#gallery .card[data-fr-write=\"c\"] .star"
+  },
+  {
+    "click": "#gallery .card[data-fr-write=\"c\"] .star"
+  },
+  {
+    "expect": "__until(()=>__frWrites.length===__frStart+1 && __frWrites.at(-1).finished && !favoriteWriteIds.size && __frUiIs([__frIds[2]],false))"
+  },
+  {
+    "expect": "setupComposerState()===__frComposer && __frGenerationWrites===0 && __frErrors.length===0"
+  },
+  {
+    "log": "'Known server 404 cleanup: stage C into the owned scratch bin behind its cached live card, then use the native star. It must be forgotten and its ID claim released; A/B picks stay intact.'"
+  },
+  {
+    "eval": "(async()=>{await __frBaseApi('/api/images/bin',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({ids:[__frIds[2]]})});window.__frStart=__frWrites.length;})()"
+  },
+  {
+    "eval": "__frReveal(\"#gallery .card[data-fr-write=\\\"c\\\"] .star\");"
+  },
+  {
+    "hover": "#gallery .card[data-fr-write=\"c\"] .star"
+  },
+  {
+    "click": "#gallery .card[data-fr-write=\"c\"] .star"
+  },
+  {
+    "expect": "__until(()=>__frWrites.length===__frStart+1 && __frWrites.at(-1).finished && favoriteWriteIds.size===0 && !galleryRecords.some(rec=>rec.id===__frIds[2]))"
+  },
+  {
+    "expect": "__frWrites.at(-1).error.includes('unknown image') && els.galleryError.textContent.includes('already deleted') && __frOrderKept() && setupComposerState()===__frComposer && __frGenerationWrites===0 && __frErrors.length===0"
+  },
+  {
+    "log": "JSON.stringify({label:'confirmed current-page overlap and cleanup',writes:__frWrites.map(({kind,ids,value,sent,delivered,status,error})=>({kind,ids,value,sent,delivered,status,error})),picked:selectedIds(),generationWrites:__frGenerationWrites,composerUnchanged:setupComposerState()===__frComposer})"
+  },
+  {
+    "eval": "api=__frBaseApi;"
+  },
+  {
+    "log": "'Fresh navigation excludes viewer/lightbox aliases before the stashed-pick test. A held confirmed A/B reply may arrive while independent C is picked in the bin.'"
+  },
+  {
+    "navigate": "http://127.0.0.1:7940/"
+  },
+  {
+    "eval": "window.__until=async(fn,ms=20000)=>{const end=Date.now()+ms;while(Date.now()<end){try{if(await fn())return true;}catch{}await new Promise(resolve=>setTimeout(resolve,40));}return false;};\nwindow.__frBaseApi=api;window.__frErrors=[];window.__frWrites=[];window.__frConfirmed=0;window.__frGate=null;\naddEventListener('error',event=>__frErrors.push(event.message));addEventListener('unhandledrejection',event=>__frErrors.push(String(event.reason)));\nwindow.__frKnown=()=>JSON.parse(sessionStorage.getItem('auradream.smoke.favorite-write-order'));\nwindow.__frServer=(ids=__frKnown().ids)=>Promise.all(ids.map(id=>__frBaseApi('/api/images/'+id)));\nwindow.__frUi=()=>__frKnown().ids.map(id=>{const record=galleryRecords.find(rec=>rec.id===id);const card=document.querySelector('#gallery .card[data-id=\"'+id+'\"]');return {id,record:record?.favorite,pressed:card?.querySelector('.star')?.getAttribute('aria-pressed'),picked:selection.get(id)?.favorite};});\nwindow.__frUiIs=(ids,value)=>ids.every(id=>{const row=__frUi().find(rec=>rec.id===id);return row?.record===value&&row.pressed===String(value);});\nwindow.__frSpec=(path,options)=>{if(options?.method!=='POST')return null;const single=path.match(/^\\/api\\/images\\/([0-9]+)\\/favorite\\?value=(true|false)$/);if(single)return {kind:'single',ids:[Number(single[1])],value:single[2]==='true'};if(path==='/api/images/favorite'){const body=JSON.parse(options.body);return {kind:'batch',ids:body.ids,value:body.value};}return null;};\nwindow.__frFrames=()=>new Promise(resolve=>requestAnimationFrame(()=>requestAnimationFrame(resolve)));\nwindow.__frHit=(selector)=>{const el=document.querySelector(selector);if(!el)return null;const r=el.getBoundingClientRect();const hit=document.elementFromPoint(r.left+r.width/2,r.top+r.height/2);return {rect:{left:r.left,top:r.top,width:r.width,height:r.height},topbar:document.querySelector('.topbar').getBoundingClientRect().bottom,hit:hit?.id||hit?.className,usable:!!hit&&(hit===el||el.contains(hit))};};\nwindow.__frRevealGallery=()=>{const head=document.querySelector('.gallery-head');const top=document.querySelector('.topbar').getBoundingClientRect().bottom+16;scrollBy(0,head.getBoundingClientRect().top-top);};\nwindow.__frReport=async(label)=>({label,ui:__frUi(),server:(await __frServer()).map(({id,favorite})=>({id,favorite})),writes:__frWrites.map(({issued,kind,ids,value,sent,confirmedOrder,delivered,storage})=>({issued,kind,ids,value,sent,confirmedOrder,delivered,storage})),picked:selectedIds(),composerUnchanged:setupComposerState()===window.__frComposer});\napi=async(path,options)=>{const spec=__frSpec(path,options);if(!spec)return __frBaseApi(path,options);const entry={...spec,issued:__frWrites.length+1,sent:false,delivered:false};__frWrites.push(entry);const gate=__frGate;const owned=gate&&!gate.captured&&gate.kind===entry.kind&&gate.value===entry.value&&(!gate.id||entry.ids.includes(gate.id));if(owned){gate.captured=true;gate.entry=entry;}if(owned&&gate.phase==='before'){gate.waitingBefore=true;await new Promise(resolve=>{gate.release=resolve;});}entry.sent=true;const result=await __frBaseApi(path,options);entry.storage=(await __frServer(entry.ids)).map(({id,favorite})=>({id,favorite}));entry.confirmedOrder=++__frConfirmed;if(owned){gate.confirmed=true;if(gate.phase==='after')await new Promise(resolve=>{gate.release=resolve;});}entry.delivered=true;return result;};"
+  },
+  {
+    "expect": "__until(()=>document.getElementById('status-dot').className.includes('ready') && !galleryPending && !jobListing && galleryRecords.length===2)"
+  },
+  {
+    "eval": "window.__frComposer=setupComposerState();window.__frIds=__frKnown().ids;window.__frPair=__frIds.slice(0,2);"
+  },
+  {
+    "expect": "__frComposer===sessionStorage.getItem('auradream.smoke.favorite-write-order.composer') && !selectMode && window.__frNotAliased===undefined"
+  },
+  {
+    "eval": "window.__frWaitReason='Wait for the current star change to finish';\nwindow.__frExpectedOrder=__frPair.slice();window.__frExpectedAnchor=selectAnchor;window.__frGenerationWrites=0;\nsessionStorage.setItem('auradream.smoke.favorite-write-order.composer',__frComposer);\nwindow.__frTag=()=>{for(const[index,id]of __frIds.entries())for(const el of document.querySelectorAll('.card[data-id=\"'+id+'\"],.sheet-cell[data-id=\"'+id+'\"],.result[data-id=\"'+id+'\"]'))el.dataset.frWrite=['a','b','c'][index];};\nwindow.__frReveal=(selector)=>{const el=document.querySelector(selector);if(!el)throw Error('Missing native target '+selector);const r=el.getBoundingClientRect(),top=document.querySelector('.topbar').getBoundingClientRect().bottom+12;if(r.top<top)scrollBy(0,r.top-top);else if(r.bottom>innerHeight-12)scrollBy(0,r.bottom-innerHeight+12);const p=__frHit(selector);if(!p?.usable)throw Error('Native target is covered/offscreen: '+selector+' '+JSON.stringify(p));};\nwindow.__frRect=(el)=>{const r=el.getBoundingClientRect();return [r.left,r.top,r.width,r.height];};\nwindow.__frSameRect=(el,rect)=>__frRect(el).every((value,index)=>Math.abs(value-rect[index])<1);\nwindow.__frCapture=(selector)=>{const el=document.querySelector(selector);if(!el)throw Error('Missing state capture '+selector);return {el,rect:__frRect(el),text:el.textContent,pressed:el.getAttribute('aria-pressed'),name:el.getAttribute('aria-label')};};\nwindow.__frHeld=(button,on)=>!!button&&button.getAttribute('aria-disabled')==='true'&&!button.disabled&&button.title===__frWaitReason&&button.getAttribute('aria-pressed')===String(on)&&button.getAttribute('aria-label')==='Star';\nwindow.__frUnchanged=(capture)=>capture.el.isConnected&&__frSameRect(capture.el,capture.rect)&&capture.el.textContent===capture.text&&capture.el.getAttribute('aria-pressed')===capture.pressed&&capture.el.getAttribute('aria-label')===capture.name;\nwindow.__frCardStar=(letter)=>document.querySelector('#gallery .card[data-fr-write=\"'+letter+'\"] .star');\nwindow.__frPickedHeld=(held)=>['star','unstar'].every(action=>document.querySelector('#picked-menu [data-picked=\"'+action+'\"]').getAttribute('aria-disabled')===String(held));\nwindow.__frOtherPickedUsable=()=>els.pickedBtn.getAttribute('aria-disabled')==='false'&&['compare','bin','seeds'].every(action=>document.querySelector('#picked-menu [data-picked=\"'+action+'\"]').getAttribute('aria-disabled')==='false');\nwindow.__frNotAliased=(ids)=>[viewerRecords,sessionRecords,lbList].every(rows=>rows.every(rec=>!ids.includes(rec.id)));\nwindow.__frOrderKept=()=>selectedIds().join()===__frExpectedOrder.join()&&selectAnchor===__frExpectedAnchor;\napi=async(path,options)=>{if(options?.method==='POST'&&/^\\/api\\/(generate|grid|rerender|refine|inpaint|outpaint|more-seeds|swap|instruction-edit)(?:\\/|$)/.test(path))__frGenerationWrites++;\nconst spec=__frSpec(path,options);if(!spec)return __frBaseApi(path,options);const entry={...spec,issued:__frWrites.length+1,sent:false,delivered:false,finished:false};__frWrites.push(entry);const own=__frGate&&!__frGate.captured&&__frGate.kind===entry.kind&&__frGate.value===entry.value&&(!__frGate.id||entry.ids.includes(__frGate.id));const gate=own?__frGate:null;if(gate){gate.captured=true;gate.entry=entry;}\ntry{if(gate?.mode==='reject'){await new Promise(resolve=>{gate.release=resolve;});const err=new Error('Owned scratch validation refusal before dispatch');err.status=422;throw err;}entry.sent=true;const result=await __frBaseApi(path,options);entry.storage=(await __frServer(entry.ids)).map(({id,favorite})=>({id,favorite}));entry.confirmedOrder=++__frConfirmed;if(gate){gate.confirmed=true;await new Promise(resolve=>{gate.release=resolve;});}entry.delivered=true;return result;}catch(err){entry.error=err.message;entry.status=err.status;throw err;}finally{entry.finished=true;}};\n__frTag();"
+  },
+  {
+    "eval": "if(!__frHit('#btn-select')?.usable)throw Error('Fresh fixture Select button is covered/offscreen.');"
+  },
+  {
+    "eval": "__frReveal(\"#btn-select\");"
+  },
+  {
+    "click": "#btn-select"
+  },
+  {
+    "eval": "if(!selectMode||document.querySelector('dialog[open]'))throw Error('Fresh fixture native Select press failed.');"
+  },
+  {
+    "eval": "__frReveal(\"#gallery .card[data-fr-write=\\\"a\\\"] > img\");"
+  },
+  {
+    "click": "#gallery .card[data-fr-write=\"a\"] > img"
+  },
+  {
+    "eval": "__frReveal(\"#gallery .card[data-fr-write=\\\"b\\\"] > img\");"
+  },
+  {
+    "click": "#gallery .card[data-fr-write=\"b\"] > img"
+  },
+  {
+    "eval": "window.__frExpectedOrder=__frPair.slice();window.__frExpectedAnchor=selectAnchor;if(selectedIds().join()!==__frPair.join()||!__frNotAliased(__frPair))throw Error('Fresh native hidden-pick fixture failed.');els.search.value='id:'+__frIds[2];els.search.dispatchEvent(new Event('input',{bubbles:true}));"
+  },
+  {
+    "expect": "__until(()=>!galleryPending && galleryRecords.length===0 && __frOrderKept())"
+  },
+  {
+    "expect": "__frNotAliased(__frPair) && __frPair.every(id=>selection.get(id).favorite===false)"
+  },
+  {
+    "eval": "window.__frStart=__frWrites.length;window.__frGate={kind:\"batch\",value:true,id:null,mode:\"hold\"};"
+  },
+  {
+    "eval": "__frReveal(\"#btn-picked\");"
+  },
+  {
+    "click": "#btn-picked"
+  },
+  {
+    "click": "#picked-menu [data-picked=\"star\"]"
+  },
+  {
+    "expect": "__until(()=>__frGate.captured && typeof __frGate.release==='function')"
+  },
+  {
+    "eval": "if(!__frGate?.captured||typeof __frGate.release!=='function')throw Error('The intended native favorite request was not captured; stop this case.');"
+  },
+  {
+    "expect": "__frGate.confirmed && __frGate.entry.storage.every(rec=>rec.favorite===true) && __frPair.every(id=>selection.get(id).favorite===false) && __frPickedHeld(true)"
+  },
+  {
+    "eval": "__frReveal(\"#btn-bin\");"
+  },
+  {
+    "click": "#btn-bin"
+  },
+  {
+    "expect": "__until(()=>binMode && !galleryPending && galleryRecords.length===1 && galleryRecords[0].id===__frIds[2] && stashedSelection?.picks.size===2)"
+  },
+  {
+    "eval": "__frTag();"
+  },
+  {
+    "eval": "__frReveal(\"#gallery .card[data-fr-write=\\\"c\\\"] > img\");"
+  },
+  {
+    "click": "#gallery .card[data-fr-write=\"c\"] > img"
+  },
+  {
+    "expect": "selectedIds().join()===String(__frIds[2]) && __frPair.every(id=>stashedSelection.picks.get(id).favorite===false) && __frNotAliased(__frPair) && favoriteWriteIds.size===2"
+  },
+  {
+    "eval": "__frGate.release();"
+  },
+  {
+    "expect": "__until(()=>__frGate.entry.finished && favoriteWriteIds.size===0)"
+  },
+  {
+    "expect": "__frPair.every(id=>stashedSelection.picks.get(id).favorite===true) && selectedIds().join()===String(__frIds[2]) && selection.get(__frIds[2]).favorite===false && setupComposerState()===__frComposer"
+  },
+  {
+    "eval": "__frReveal(\"#btn-bin\");"
+  },
+  {
+    "click": "#btn-bin"
+  },
+  {
+    "expect": "__until(()=>!binMode && !galleryPending && galleryRecords.length===0 && stashedSelection===null && selectedIds().join()===__frPair.join())"
+  },
+  {
+    "expect": "__frOrderKept() && __frPair.every(id=>selection.get(id).favorite===true) && favoriteWriteIds.size===0 && __frPickedHeld(false)"
+  },
+  {
+    "eval": "__frReveal(\"#btn-picked\");"
+  },
+  {
+    "click": "#btn-picked"
+  },
+  {
+    "click": "#picked-menu [data-picked=\"compare\"]"
+  },
+  {
+    "expect": "__until(()=>els.lightbox.open && lbCompare.kind==='picked' && lbList[lbIndex]?.id===__frIds[0])"
+  },
+  {
+    "expect": "els.lbFav.getAttribute('aria-pressed')==='true' && els.lbFav.getAttribute('aria-disabled')==='false' && __frOrderKept()"
+  },
+  {
+    "key": "ArrowRight"
+  },
+  {
+    "expect": "lbList[lbIndex]?.id===__frIds[1] && els.lbFav.getAttribute('aria-pressed')==='true' && els.lbFav.getAttribute('aria-disabled')==='false'"
+  },
+  {
+    "eval": "__frReveal(\"#lb-close\");"
+  },
+  {
+    "click": "#lb-close"
+  },
+  {
+    "expect": "!els.lightbox.open && __frOrderKept() && favoriteWriteIds.size===0 && __frErrors.length===0 && __frGenerationWrites===0 && setupComposerState()===__frComposer"
+  },
+  {
+    "eval": "api=__frBaseApi;"
+  },
+  {
+    "log": "'Isolated cached-source constructor/state coverage, not refine workflow qualification: fresh navigation clears all aliases. Use actual owned A/B records with only client-side B-as-pass metadata to render a leading cached source A. Native source Star/F uses the real A favorite endpoint; no new image/refine job is created.'"
+  },
+  {
+    "navigate": "http://127.0.0.1:7940/"
+  },
+  {
+    "eval": "window.__until=async(fn,ms=20000)=>{const end=Date.now()+ms;while(Date.now()<end){try{if(await fn())return true;}catch{}await new Promise(resolve=>setTimeout(resolve,40));}return false;};\nwindow.__frBaseApi=api;window.__frErrors=[];window.__frWrites=[];window.__frConfirmed=0;window.__frGate=null;\naddEventListener('error',event=>__frErrors.push(event.message));addEventListener('unhandledrejection',event=>__frErrors.push(String(event.reason)));\nwindow.__frKnown=()=>JSON.parse(sessionStorage.getItem('auradream.smoke.favorite-write-order'));\nwindow.__frServer=(ids=__frKnown().ids)=>Promise.all(ids.map(id=>__frBaseApi('/api/images/'+id)));\nwindow.__frUi=()=>__frKnown().ids.map(id=>{const record=galleryRecords.find(rec=>rec.id===id);const card=document.querySelector('#gallery .card[data-id=\"'+id+'\"]');return {id,record:record?.favorite,pressed:card?.querySelector('.star')?.getAttribute('aria-pressed'),picked:selection.get(id)?.favorite};});\nwindow.__frUiIs=(ids,value)=>ids.every(id=>{const row=__frUi().find(rec=>rec.id===id);return row?.record===value&&row.pressed===String(value);});\nwindow.__frSpec=(path,options)=>{if(options?.method!=='POST')return null;const single=path.match(/^\\/api\\/images\\/([0-9]+)\\/favorite\\?value=(true|false)$/);if(single)return {kind:'single',ids:[Number(single[1])],value:single[2]==='true'};if(path==='/api/images/favorite'){const body=JSON.parse(options.body);return {kind:'batch',ids:body.ids,value:body.value};}return null;};\nwindow.__frFrames=()=>new Promise(resolve=>requestAnimationFrame(()=>requestAnimationFrame(resolve)));\nwindow.__frHit=(selector)=>{const el=document.querySelector(selector);if(!el)return null;const r=el.getBoundingClientRect();const hit=document.elementFromPoint(r.left+r.width/2,r.top+r.height/2);return {rect:{left:r.left,top:r.top,width:r.width,height:r.height},topbar:document.querySelector('.topbar').getBoundingClientRect().bottom,hit:hit?.id||hit?.className,usable:!!hit&&(hit===el||el.contains(hit))};};\nwindow.__frRevealGallery=()=>{const head=document.querySelector('.gallery-head');const top=document.querySelector('.topbar').getBoundingClientRect().bottom+16;scrollBy(0,head.getBoundingClientRect().top-top);};\nwindow.__frReport=async(label)=>({label,ui:__frUi(),server:(await __frServer()).map(({id,favorite})=>({id,favorite})),writes:__frWrites.map(({issued,kind,ids,value,sent,confirmedOrder,delivered,storage})=>({issued,kind,ids,value,sent,confirmedOrder,delivered,storage})),picked:selectedIds(),composerUnchanged:setupComposerState()===window.__frComposer});\napi=async(path,options)=>{const spec=__frSpec(path,options);if(!spec)return __frBaseApi(path,options);const entry={...spec,issued:__frWrites.length+1,sent:false,delivered:false};__frWrites.push(entry);const gate=__frGate;const owned=gate&&!gate.captured&&gate.kind===entry.kind&&gate.value===entry.value&&(!gate.id||entry.ids.includes(gate.id));if(owned){gate.captured=true;gate.entry=entry;}if(owned&&gate.phase==='before'){gate.waitingBefore=true;await new Promise(resolve=>{gate.release=resolve;});}entry.sent=true;const result=await __frBaseApi(path,options);entry.storage=(await __frServer(entry.ids)).map(({id,favorite})=>({id,favorite}));entry.confirmedOrder=++__frConfirmed;if(owned){gate.confirmed=true;if(gate.phase==='after')await new Promise(resolve=>{gate.release=resolve;});}entry.delivered=true;return result;};"
+  },
+  {
+    "expect": "__until(()=>document.getElementById('status-dot').className.includes('ready') && !galleryPending && !jobListing && galleryRecords.length===2)"
+  },
+  {
+    "eval": "window.__frComposer=setupComposerState();window.__frIds=__frKnown().ids;window.__frPair=__frIds.slice(0,2);"
+  },
+  {
+    "expect": "__frComposer===sessionStorage.getItem('auradream.smoke.favorite-write-order.composer') && selectedIds().length===0 && viewerRecords.length===0 && sessionRecords.length===0 && lbList.length===0"
+  },
+  {
+    "eval": "window.__frWaitReason='Wait for the current star change to finish';\nwindow.__frExpectedOrder=__frPair.slice();window.__frExpectedAnchor=selectAnchor;window.__frGenerationWrites=0;\nsessionStorage.setItem('auradream.smoke.favorite-write-order.composer',__frComposer);\nwindow.__frTag=()=>{for(const[index,id]of __frIds.entries())for(const el of document.querySelectorAll('.card[data-id=\"'+id+'\"],.sheet-cell[data-id=\"'+id+'\"],.result[data-id=\"'+id+'\"]'))el.dataset.frWrite=['a','b','c'][index];};\nwindow.__frReveal=(selector)=>{const el=document.querySelector(selector);if(!el)throw Error('Missing native target '+selector);const r=el.getBoundingClientRect(),top=document.querySelector('.topbar').getBoundingClientRect().bottom+12;if(r.top<top)scrollBy(0,r.top-top);else if(r.bottom>innerHeight-12)scrollBy(0,r.bottom-innerHeight+12);const p=__frHit(selector);if(!p?.usable)throw Error('Native target is covered/offscreen: '+selector+' '+JSON.stringify(p));};\nwindow.__frRect=(el)=>{const r=el.getBoundingClientRect();return [r.left,r.top,r.width,r.height];};\nwindow.__frSameRect=(el,rect)=>__frRect(el).every((value,index)=>Math.abs(value-rect[index])<1);\nwindow.__frCapture=(selector)=>{const el=document.querySelector(selector);if(!el)throw Error('Missing state capture '+selector);return {el,rect:__frRect(el),text:el.textContent,pressed:el.getAttribute('aria-pressed'),name:el.getAttribute('aria-label')};};\nwindow.__frHeld=(button,on)=>!!button&&button.getAttribute('aria-disabled')==='true'&&!button.disabled&&button.title===__frWaitReason&&button.getAttribute('aria-pressed')===String(on)&&button.getAttribute('aria-label')==='Star';\nwindow.__frUnchanged=(capture)=>capture.el.isConnected&&__frSameRect(capture.el,capture.rect)&&capture.el.textContent===capture.text&&capture.el.getAttribute('aria-pressed')===capture.pressed&&capture.el.getAttribute('aria-label')===capture.name;\nwindow.__frCardStar=(letter)=>document.querySelector('#gallery .card[data-fr-write=\"'+letter+'\"] .star');\nwindow.__frPickedHeld=(held)=>['star','unstar'].every(action=>document.querySelector('#picked-menu [data-picked=\"'+action+'\"]').getAttribute('aria-disabled')===String(held));\nwindow.__frOtherPickedUsable=()=>els.pickedBtn.getAttribute('aria-disabled')==='false'&&['compare','bin','seeds'].every(action=>document.querySelector('#picked-menu [data-picked=\"'+action+'\"]').getAttribute('aria-disabled')==='false');\nwindow.__frNotAliased=(ids)=>[viewerRecords,sessionRecords,lbList].every(rows=>rows.every(rec=>!ids.includes(rec.id)));\nwindow.__frOrderKept=()=>selectedIds().join()===__frExpectedOrder.join()&&selectAnchor===__frExpectedAnchor;\napi=async(path,options)=>{if(options?.method==='POST'&&/^\\/api\\/(generate|grid|rerender|refine|inpaint|outpaint|more-seeds|swap|instruction-edit)(?:\\/|$)/.test(path))__frGenerationWrites++;\nconst spec=__frSpec(path,options);if(!spec)return __frBaseApi(path,options);const entry={...spec,issued:__frWrites.length+1,sent:false,delivered:false,finished:false};__frWrites.push(entry);const own=__frGate&&!__frGate.captured&&__frGate.kind===entry.kind&&__frGate.value===entry.value&&(!__frGate.id||entry.ids.includes(__frGate.id));const gate=own?__frGate:null;if(gate){gate.captured=true;gate.entry=entry;}\ntry{if(gate?.mode==='reject'){await new Promise(resolve=>{gate.release=resolve;});const err=new Error('Owned scratch validation refusal before dispatch');err.status=422;throw err;}entry.sent=true;const result=await __frBaseApi(path,options);entry.storage=(await __frServer(entry.ids)).map(({id,favorite})=>({id,favorite}));entry.confirmedOrder=++__frConfirmed;if(gate){gate.confirmed=true;await new Promise(resolve=>{gate.release=resolve;});}entry.delivered=true;return result;}catch(err){entry.error=err.message;entry.status=err.status;throw err;}finally{entry.finished=true;}};\n__frTag();"
+  },
+  {
+    "eval": "(async()=>{const rows=await __frServer(__frPair);window.__frSource=structuredClone(rows[0]);window.__frClientPass={...structuredClone(rows[1]),refine:__frSource.id,refine_missing:false,strength:0.5};if(!__frSource.favorite||__frClientPass.refine===__frClientPass.id)throw Error('Cached source fixture needs two distinct, initially starred owned rows.');galleryRecords=[__frClientPass];total=1;sheetSources.set(__frSource.id,__frSource);await setSheet(true,{reload:false});renderSheet();__frTag();})()"
+  },
+  {
+    "expect": "sheetMode && sheetLayout.source===__frSource && sheetSources.get(__frIds[0])===__frSource && sheetRecords.length===1 && sheetRecords[0]===__frClientPass && recordsWithId(__frIds[0]).length===0 && document.querySelectorAll('#sheet-grid .sheet-cell.source').length===1 && document.querySelector('#sheet-grid .sheet-cell.source').dataset.id===String(__frIds[0]) && __frSource.favorite===true"
+  },
+  {
+    "eval": "__frReveal('#sheet-grid .sheet-cell.source .star');window.__frSourceStar=__frCapture('#sheet-grid .sheet-cell.source .star');window.__frSourceCell=document.querySelector('#sheet-grid .sheet-cell.source');"
+  },
+  {
+    "eval": "window.__frStart=__frWrites.length;window.__frGate={kind:\"single\",value:false,id:__frIds[0],mode:\"hold\"};"
+  },
+  {
+    "eval": "__frReveal(\"#sheet-grid .sheet-cell.source .star\");"
+  },
+  {
+    "hover": "#sheet-grid .sheet-cell.source .star"
+  },
+  {
+    "click": "#sheet-grid .sheet-cell.source .star"
+  },
+  {
+    "expect": "__until(()=>__frGate.captured && typeof __frGate.release==='function')"
+  },
+  {
+    "eval": "if(!__frGate?.captured||typeof __frGate.release!=='function')throw Error('The intended native favorite request was not captured; stop this case.');"
+  },
+  {
+    "expect": "__frGate.confirmed && __frGate.entry.storage[0].favorite===false && __frSource.favorite===true && recordsWithId(__frIds[0]).length===0 && __frHeld(__frSourceStar.el,true) && __frUnchanged(__frSourceStar) && document.activeElement===__frSourceStar.el"
+  },
+  {
+    "eval": "__frSourceCell.querySelector('img').focus({preventScroll:true});window.__frSourceFocus=document.activeElement;"
+  },
+  {
+    "key": "f"
+  },
+  {
+    "expect": "__frWrites.length===__frStart+1 && recordsWithId(__frIds[0]).length===0 && __frHeld(__frSourceStar.el,true) && __frSource.favorite===true && document.activeElement===__frSourceFocus"
+  },
+  {
+    "eval": "__frGate.release();"
+  },
+  {
+    "expect": "__until(()=>__frGate.entry.finished && favoriteWriteIds.size===0)"
+  },
+  {
+    "expect": "__until(()=>__frSource.favorite===false && !__frSourceCell.classList.contains('fav'))"
+  },
+  {
+    "expect": "recordsWithId(__frIds[0]).length===0 && sheetSources.get(__frIds[0]).favorite===false && __frSourceStar.el.getAttribute('aria-pressed')==='false' && __frSourceStar.el.getAttribute('aria-disabled')==='false' && __frSameRect(__frSourceStar.el,__frSourceStar.rect) && document.activeElement===__frSourceFocus && !els.lightbox.open && setupComposerState()===__frComposer"
+  },
+  {
+    "eval": "window.__frGate=null;window.__frStart=__frWrites.length;"
+  },
+  {
+    "eval": "__frReveal(\"#sheet-grid .sheet-cell.source .star\");"
+  },
+  {
+    "hover": "#sheet-grid .sheet-cell.source .star"
+  },
+  {
+    "click": "#sheet-grid .sheet-cell.source .star"
+  },
+  {
+    "expect": "__until(()=>__frWrites.length===__frStart+1 && __frWrites.at(-1).finished && favoriteWriteIds.size===0 && __frSource.favorite===true && __frSourceCell.classList.contains('fav'))"
+  },
+  {
+    "expect": "sheetSources.get(__frIds[0]).favorite===true && __frSourceStar.el.getAttribute('aria-pressed')==='true' && __frSourceStar.el.getAttribute('aria-disabled')==='false' && recordsWithId(__frIds[0]).length===0 && __frGenerationWrites===0 && __frErrors.length===0 && setupComposerState()===__frComposer"
+  },
+  {
+    "expect": "(async()=>{const rows=await __frServer(__frPair);return rows[0].favorite===true&&rows[1].refine===null;})()"
+  },
+  {
+    "log": "'Cached-source seam: held native source write releases with the DOM favorite applied, starCell adopts that value into its separately cached source, and a later explicit native toggle succeeds. Synthetic pass metadata was never written to storage.'"
+  },
+  {
+    "eval": "api=__frBaseApi;"
+  }
+]

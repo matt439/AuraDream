@@ -9,9 +9,9 @@ The port table in `AGENTS.md` is the one source: its row gives the port, the
 `--model` (a short name resolved through the line under the table), any
 `--step`, and which smokes share one fake, in the order the row lists them.
 Every fake started here gets a gallery of its own in a new temporary
-directory, so a row's "fresh scratch `--data`" and `--fresh` hold always and
-no fake sees another's planted images. A smoke named alone runs alone on its
-row's fake; `--all` runs every row with its smokes in order.
+directory passed through `--data`, so each row starts with fresh scratch data
+without `--fresh` and no fake sees another's planted images. A smoke named
+alone runs alone on its row's fake; `--all` runs every row with its smokes in order.
 
 `--offset N` moves every port by N (the fake's and, through
 `AURADREAM_PORT_OFFSET`, the smoke's), so a run can sit beside fakes
@@ -21,7 +21,8 @@ Every smoke retains screenshots, browser.log and result.json in its reported
 artifact directory; failures retain fake-server.log too. The run's summary.json
 lists all results. `--artifacts PATH` puts this run below a chosen root.
 Exit 0 when every smoke passed, 1 when one failed, 2 when the command or a
-smoke file was refused (as `browser.mjs` refuses one).
+smoke file was refused (as `browser.mjs` refuses one). An invalid effective
+port or overlapping worker bands refuse before artifacts or processes start.
 """
 from __future__ import annotations
 
@@ -94,6 +95,28 @@ def parse_table(text: str) -> list[Row]:
             names.append("smoke" + stem if stem.startswith("-") else stem)
         rows.append(Row(int(port), model, step, names, "run separately" in setup))
     return rows
+
+
+def _port_plan_error(plan: list[tuple[Row, list[str]]], bands: list[int]) -> str | None:
+    """Every selected row can take any free worker band; validate them cold."""
+    used: dict[int, int] = {}
+    for row, _smokes in plan:
+        for band in bands:
+            port = row.port + band
+            if not 1 <= port <= 65535:
+                return (
+                    f"port {port} is outside 1..65535 "
+                    f"(row {row.port}, offset {band}); choose another --offset or --jobs"
+                )
+            if port in used and used[port] != band:
+                return (
+                    f"worker bands overlap on port {port}; "
+                    "use --jobs 1 or select fewer rows"
+                )
+            # Rows sharing a base port are safe in one band: only one row
+            # owns that band at a time. Different bands must never overlap.
+            used[port] = band
+    return None
 
 
 def _port_free(port: int) -> bool:
@@ -294,6 +317,10 @@ def main() -> int:
                 plan.append((row, mine))
 
     jobs = max(1, min(args.jobs, len(plan)))
+    bands = [args.offset + WORKER_SPAN * n for n in range(jobs)]
+    if error := _port_plan_error(plan, bands):
+        print(error)
+        return 2
     if args.artifacts is not None:
         args.artifacts.mkdir(parents=True, exist_ok=True)
     artifacts = Path(tempfile.mkdtemp(prefix="auradream-smoke-artifacts-", dir=args.artifacts)).resolve()
@@ -304,8 +331,7 @@ def main() -> int:
         for row, smokes in plan:
             results.update(run_row(row, smokes, args.offset, stream=True, artifacts=artifacts))
     else:
-        # A worker per offset band, so two rows on one port never collide.
-        bands = [args.offset + WORKER_SPAN * n for n in range(jobs)]
+        # One owner per band; preflight also excludes cross-band port overlap.
         free = list(bands)
         band_lock = threading.Lock()
 

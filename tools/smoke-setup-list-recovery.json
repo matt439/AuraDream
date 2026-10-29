@@ -1,0 +1,270 @@
+[
+  {
+    "log": "'Saved setup list recovery on a fresh scratch FLUX.1 fake: held collection reads, trusted native selections, preserved validation cancellation, late GETs and explicit single-item revision adoption. No Restore, generation, real gallery or model.'"
+  },
+  {
+    "navigate": "http://127.0.0.1:7938/"
+  },
+  {
+    "eval": "window.__until=async(fn,ms=20000)=>{const end=Date.now()+ms;while(Date.now()<end){try{if(await fn())return true;}catch{}await new Promise(resolve=>setTimeout(resolve,40));}return false;};\nwindow.__slBaseApi=api;window.__slReadGate=null;window.__slValidationGate=null;window.__slCalls=[];window.__slChanges=[];window.__slKeys=[];window.__slClicks=[];window.__slErrors=[];\naddEventListener('error',event=>__slErrors.push(event.message));addEventListener('unhandledrejection',event=>__slErrors.push(String(event.reason)));\nels.setupsList.addEventListener('change',event=>__slChanges.push({trusted:event.isTrusted,value:els.setupsList.value,pending:setupsPending,ready:setupsReady,ticket:setupsTicket}),{capture:true});\nels.setupsList.addEventListener('click',event=>__slClicks.push({trusted:event.isTrusted,target:event.target.tagName,value:els.setupsList.value}),{capture:true});\nels.setupsList.addEventListener('keydown',event=>__slKeys.push({trusted:event.isTrusted,key:event.key,value:els.setupsList.value}),{capture:true});\nwindow.__slReadCount=()=>__slCalls.filter(call=>call.path==='/api/presets'&&call.method==='GET').length;\nwindow.__slFrames=()=>new Promise(resolve=>requestAnimationFrame(()=>requestAnimationFrame(resolve)));\napi=async(path,options)=>{const method=options?.method||'GET';__slCalls.push({path,method});const read=__slReadGate;if(path==='/api/presets'&&method==='GET'&&read&&!read.captured){read.captured=true;read.snapshot=await __slBaseApi(path,options);read.ticket=setupsTicket;await new Promise(resolve=>{read.release=resolve;});read.returned=true;return read.snapshot;}const validation=__slValidationGate;if(path===validation?.path&&method==='POST'&&!validation.captured){validation.captured=true;validation.snapshot=await __slBaseApi(path,options);validation.ticket=setupsTicket;await new Promise(resolve=>{validation.release=resolve;});validation.returned=true;return validation.snapshot;}return __slBaseApi(path,options);};\nwindow.__slCreate=async(name,prompt)=>__slBaseApi('/api/presets',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({name,model_id:loadedModel,payload:{...captureSetup(),prompt},model_revision:modelRevision,step_cache:null})});\nwindow.__slUpdate=async(item,name)=>__slBaseApi('/api/presets/'+item.id,{method:'PUT',headers:{'Content-Type':'application/json'},body:JSON.stringify({name,model_id:loadedModel,payload:item.payload,revision:item.revision,model_revision:modelRevision,step_cache:null})});"
+  },
+  {
+    "expect": "__until(()=>loadedModel==='black-forest-labs/FLUX.1-Krea-dev' && Number.isInteger(modelRevision) && !busy && !galleryPending && !jobListing)"
+  },
+  {
+    "viewport": [
+      1400,
+      900
+    ]
+  },
+  {
+    "eval": "(async()=>{const initial=await __slBaseApi('/api/presets');if(!Array.isArray(initial.items)||initial.items.length!==0)throw Error('Use fresh scratch preset storage; existing definitions were left untouched.');resetPanel();writeBox(els.prompt,'Unrelated composer retained through all setup list operations');promptReplaced();els.seed.value='6381';els.seed.dispatchEvent(new Event('input',{bubbles:true}));persistPanel();window.__slComposer=setupComposerState();await __slCreate('Alpha saved setup','Alpha stored prompt');const result=await __slCreate('Beta saved setup','Beta stored prompt');window.__slAlpha=result.items[0];window.__slBeta=result.items[1];})();"
+  },
+  {
+    "click": "#btn-examples"
+  },
+  {
+    "click": "#setups-menu-item"
+  },
+  {
+    "expect": "__until(()=>els.setupsDialog.open && setupsReady && !setupsPending && setupsItems.length===2 && !els.setupsList.disabled)"
+  },
+  {
+    "expect": "els.setupsList.options.length===2 && els.setupsList.selectedIndex===-1"
+  },
+  {
+    "click": "#setups-list option:first-child"
+  },
+  {
+    "expect": "__until(()=>setupsReady && !setupsPending && setupsSelected?.id===__slAlpha.id && setupsCheck?.item_id===__slAlpha.id)"
+  },
+  {
+    "expect": "__slChanges.some(event=>event.trusted&&event.value===__slAlpha.id) && els.setupsList.selectedIndex===0 && setupComposerState()===__slComposer"
+  },
+  {
+    "log": "'A collection GET holds native selection and keeps ownership of its read ticket. Clicking Beta and pressing ArrowDown cannot cancel it; its original response restores readiness without another GET.'"
+  },
+  {
+    "eval": "window.__slReadGate={};window.__slBeforeReadCount=__slReadCount();window.__slChanges=[];window.__slClicks=[];window.__slKeys=[];"
+  },
+  {
+    "click": "#setups-reload"
+  },
+  {
+    "expect": "__until(()=>setupsPending==='read' && !setupsReady && els.setupsList.disabled && typeof __slReadGate.release==='function')"
+  },
+  {
+    "expect": "__slReadGate.snapshot.items.length===2 && __slReadCount()===__slBeforeReadCount+1 && setupsSelected.id===__slAlpha.id"
+  },
+  {
+    "click": "#setups-list option:last-child"
+  },
+  {
+    "key": "ArrowDown",
+    "native": true
+  },
+  {
+    "expect": "setupsPending==='read' && !setupsReady && setupsTicket===__slReadGate.ticket && setupsSelected.id===__slAlpha.id && __slChanges.length===0 && __slReadCount()===__slBeforeReadCount+1"
+  },
+  {
+    "eval": "__slReadGate.release();"
+  },
+  {
+    "expect": "__until(()=>__slReadGate.returned && setupsReady && !setupsPending && !els.setupsList.disabled)"
+  },
+  {
+    "expect": "__slReadCount()===__slBeforeReadCount+1 && setupsSelected.id===__slAlpha.id && els.setupsList.selectedIndex===-1 && setupComposerState()===__slComposer"
+  },
+  {
+    "click": "#setups-list option:last-child"
+  },
+  {
+    "expect": "__until(()=>setupsReady && !setupsPending && setupsSelected?.id===__slBeta.id && setupsCheck?.item_id===__slBeta.id)"
+  },
+  {
+    "expect": "__slChanges.some(event=>event.trusted&&event.value===__slBeta.id&&event.ready) && setupComposerState()===__slComposer"
+  },
+  {
+    "log": "'The collection-read hold must not disable changing selection during validation. A native Beta choice supersedes a held Alpha validation; Alpha cannot overwrite the newer checked summary.'"
+  },
+  {
+    "eval": "window.__slValidationGate={path:'/api/presets/'+__slAlpha.id+'/validate'};window.__slChanges=[];"
+  },
+  {
+    "click": "#setups-list option:first-child"
+  },
+  {
+    "expect": "__until(()=>setupsPending==='validate' && setupsSelected?.id===__slAlpha.id && typeof __slValidationGate.release==='function')"
+  },
+  {
+    "expect": "setupsReady && !els.setupsList.disabled"
+  },
+  {
+    "click": "#setups-list option:last-child"
+  },
+  {
+    "expect": "__until(()=>setupsSelected?.id===__slBeta.id && !setupsPending && setupsCheck?.item_id===__slBeta.id)"
+  },
+  {
+    "expect": "__slChanges.some(event=>event.trusted&&event.value===__slBeta.id&&event.pending==='validate') && setupsTicket>__slValidationGate.ticket"
+  },
+  {
+    "eval": "window.__slBetaCheckedSummary=els.setupsSummary.textContent;__slValidationGate.release();"
+  },
+  {
+    "expect": "__until(()=>__slValidationGate.returned)"
+  },
+  {
+    "eval": "__slFrames();"
+  },
+  {
+    "expect": "setupsReady && !setupsPending && setupsSelected.id===__slBeta.id && setupsCheck.item_id===__slBeta.id && els.setupsSummary.textContent===__slBetaCheckedSummary && els.setupsSummary.textContent.includes('Beta stored prompt') && setupComposerState()===__slComposer"
+  },
+  {
+    "log": "'A held GET from a closed dialog must not replace a newer reopening snapshot. Reloading keeps the old editor until a deliberate native selection adopts the changed item.'"
+  },
+  {
+    "eval": "window.__slReadGate={};"
+  },
+  {
+    "click": "#setups-reload"
+  },
+  {
+    "expect": "__until(()=>setupsPending==='read' && typeof __slReadGate.release==='function')"
+  },
+  {
+    "eval": "(async()=>{const result=await __slUpdate(__slBeta,'Beta changed during old read');window.__slBetaAfterClose=result.items.find(item=>item.id===__slBeta.id);})();"
+  },
+  {
+    "click": "#setups-close"
+  },
+  {
+    "expect": "__until(()=>!els.setupsDialog.open && document.activeElement===els.examplesBtn)"
+  },
+  {
+    "click": "#btn-examples"
+  },
+  {
+    "click": "#setups-menu-item"
+  },
+  {
+    "expect": "__until(()=>setupsReady && !setupsPending && setupsItems.find(item=>item.id===__slBeta.id)?.revision===__slBetaAfterClose.revision)"
+  },
+  {
+    "expect": "setupsSelected.id===__slBeta.id && setupsSelected.revision===__slBeta.revision && els.setupsList.selectedIndex===-1"
+  },
+  {
+    "eval": "__slReadGate.release();"
+  },
+  {
+    "expect": "__until(()=>__slReadGate.returned)"
+  },
+  {
+    "eval": "__slFrames();"
+  },
+  {
+    "expect": "setupsReady && !setupsPending && setupsItems.find(item=>item.id===__slBeta.id).revision===__slBetaAfterClose.revision && els.setupsList.selectedIndex===-1"
+  },
+  {
+    "click": "#setups-list option:last-child"
+  },
+  {
+    "expect": "__until(()=>setupsSelected?.id===__slBeta.id && setupsSelected.revision===__slBetaAfterClose.revision && !setupsPending)"
+  },
+  {
+    "log": "'An ordinary Reload with one item preserves dirty name and old editor revision, but leaves native selection empty. Show-other-checkpoints toggles must preserve that explicit deselection.'"
+  },
+  {
+    "eval": "(async()=>{await __slBaseApi('/api/presets/'+__slAlpha.id+'?revision='+__slAlpha.revision,{method:'DELETE'});})();"
+  },
+  {
+    "click": "#setups-reload"
+  },
+  {
+    "expect": "__until(()=>setupsReady && !setupsPending && setupsItems.length===1 && els.setupsList.options.length===1 && els.setupsList.selectedIndex===-1)"
+  },
+  {
+    "click": "#setups-name"
+  },
+  {
+    "keycombo": [
+      "Control",
+      "a"
+    ]
+  },
+  {
+    "type": "Unsaved name kept until native reselect"
+  },
+  {
+    "expect": "setupsDirty && els.setupsName.value==='Unsaved name kept until native reselect'"
+  },
+  {
+    "eval": "(async()=>{const result=await __slUpdate(__slBetaAfterClose,'Beta newest single item');window.__slFreshBeta=result.items.find(item=>item.id===__slBeta.id);})();"
+  },
+  {
+    "click": "#setups-reload"
+  },
+  {
+    "expect": "__until(()=>setupsReady && !setupsPending && setupsItems[0]?.revision===__slFreshBeta.revision)"
+  },
+  {
+    "expect": "setupsSelected.id===__slBeta.id && setupsSelected.revision===__slBetaAfterClose.revision && __slFreshBeta.revision===__slBetaAfterClose.revision+1 && els.setupsName.value==='Unsaved name kept until native reselect' && els.setupsList.selectedIndex===-1 && els.setupsList.value===''"
+  },
+  {
+    "click": "#setups-all"
+  },
+  {
+    "expect": "els.setupsAll.checked && els.setupsList.options.length===1 && els.setupsList.selectedIndex===-1 && els.setupsList.value==='' && els.setupsName.value==='Unsaved name kept until native reselect' && setupsSelected.revision===__slBetaAfterClose.revision"
+  },
+  {
+    "click": "#setups-all"
+  },
+  {
+    "expect": "!els.setupsAll.checked && els.setupsList.options.length===1 && els.setupsList.selectedIndex===-1 && els.setupsList.value==='' && setupComposerState()===__slComposer"
+  },
+  {
+    "eval": "window.__slChanges=[];"
+  },
+  {
+    "click": "#setups-list option:first-child"
+  },
+  {
+    "expect": "__until(()=>setupsSelected?.id===__slBeta.id && setupsSelected.revision===__slFreshBeta.revision && !setupsPending && setupsCheck?.item_id===__slBeta.id)"
+  },
+  {
+    "expect": "__slChanges.some(event=>event.trusted&&event.value===__slBeta.id) && els.setupsName.value==='Beta newest single item' && !setupsDirty && els.setupsList.selectedIndex===0 && setupComposerState()===__slComposer"
+  },
+  {
+    "log": "'After explicit adoption, toggling the view keeps that actual visible selection instead of clearing it indiscriminately.'"
+  },
+  {
+    "click": "#setups-all"
+  },
+  {
+    "expect": "els.setupsAll.checked && els.setupsList.value===__slBeta.id && els.setupsList.selectedIndex===0 && setupsSelected.revision===__slFreshBeta.revision"
+  },
+  {
+    "click": "#setups-all"
+  },
+  {
+    "expect": "!els.setupsAll.checked && els.setupsList.value===__slBeta.id && els.setupsList.selectedIndex===0 && els.setupsName.value==='Beta newest single item'"
+  },
+  {
+    "keycombo": [
+      "Control",
+      "Enter"
+    ]
+  },
+  {
+    "expect": "els.setupsDialog.open && !busy && setupComposerState()===__slComposer && !__slCalls.some(call=>call.method==='POST'&&['/api/generate','/api/grid','/api/refine'].includes(call.path)) && __slErrors.length===0"
+  },
+  {
+    "click": "#setups-close"
+  },
+  {
+    "expect": "__until(()=>!els.setupsDialog.open && document.activeElement===els.examplesBtn)"
+  },
+  {
+    "eval": "api=__slBaseApi;"
+  }
+]

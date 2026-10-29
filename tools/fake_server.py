@@ -2,7 +2,7 @@
 
     uv run python tools/fake_server.py                 # http://127.0.0.1:7861
     uv run python tools/fake_server.py --step 0.3      # 0.3 s per denoising step
-    uv run python tools/fake_server.py --fresh         # wipe the throwaway gallery first
+    uv run python tools/fake_server.py --fresh         # new retained scratch gallery
     uv run python tools/fake_server.py --critic-delay 2   # a slower prompt critic
     uv run python tools/fake_server.py --no-critic     # as a platform with no critic build
 
@@ -33,51 +33,105 @@ alone - there an edit is the source proved and prepared, tinted and
 stamped, and two more sources (3:2 and a refused 2:1) are planted. The
 prompt check reads the tests' word tokenizers - a token per word or mark, at
 each encoder's real budget - and the critic is the tests' FakeCritic, whose
-answer is built from the prompt. The gallery lives under the system temp directory (or --data),
-never in the checkout, so nothing here can reach the real auradream.db.
+answer is built from the prompt. The default gallery lives under the system
+temp directory. --fresh creates a new scratch directory, prints its path
+and retains it after shutdown. Explicit --data selects and may reuse the
+supplied directory, including its saved settings; use genuinely new scratch
+data for isolated runs. Before importing the application, the fake installs
+a fixed refusal for Windows backup credential access. Cached credential
+metadata and platform facts remain unchanged; this does not isolate reused
+data from other filesystem or backup operations.
 Everything else - the job queue, SSE, resume, the runs summary, pause, the
 budget, the analyser's rules - is the real code, which is the point:
 `tools/browser.mjs` drives a headless browser against this to check the UI.
 
-Port 7861, so it can run beside the real server on 7860.
+Port 7861, so it can run beside the real server on 7860. Invalid ports and
+negative/nonfinite CLI delays refuse before data or application preparation.
+Port zero remains accepted.
 """
 from __future__ import annotations
 
 import argparse
+import math
 import os
-import shutil
 import sys
 import tempfile
 import threading
 from pathlib import Path
+from typing import NoReturn
 
 ROOT = Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(ROOT))
 
 
-def main() -> int:
+def _port_argument(value: str) -> int:
+    try:
+        port = int(value)
+    except ValueError:
+        raise argparse.ArgumentTypeError("must be an integer from 0 to 65535") from None
+    if not 0 <= port <= 65535:
+        raise argparse.ArgumentTypeError("must be an integer from 0 to 65535")
+    return port
+
+
+def _seconds_argument(value: str) -> float:
+    try:
+        seconds = float(value)
+    except ValueError:
+        raise argparse.ArgumentTypeError("must be finite seconds at least zero") from None
+    if not math.isfinite(seconds) or seconds < 0:
+        raise argparse.ArgumentTypeError("must be finite seconds at least zero")
+    return seconds
+
+
+def _parse_args(argv: list[str] | None = None) -> argparse.Namespace:
     parser = argparse.ArgumentParser(description=__doc__.split("\n\n")[1] if __doc__ else "Serve an isolated fake backend.")
-    parser.add_argument("--port", type=int, default=7861)
-    parser.add_argument("--step", type=float, default=0.0, help="seconds per denoising step")
-    parser.add_argument(
-        "--data", default=str(Path(tempfile.gettempdir()) / "auradream-fake"),
-        help="where the throwaway gallery lives (default: <temp>/auradream-fake)",
+    parser.add_argument("--port", type=_port_argument, default=7861, help="listen port, 0..65535 (default 7861)")
+    parser.add_argument("--step", type=_seconds_argument, default=0.0, help="finite seconds per denoising step, at least zero")
+    data_args = parser.add_mutually_exclusive_group()
+    data_args.add_argument(
+        "--data", default=None,
+        help="use this gallery directory, preserving existing data (default: <temp>/auradream-fake)",
     )
-    parser.add_argument("--fresh", action="store_true", help="delete the throwaway gallery first")
+    data_args.add_argument(
+        "--fresh", action="store_true",
+        help="create a new temporary gallery and retain its reported directory after shutdown",
+    )
     parser.add_argument("--model", default="krea/Krea-2-Turbo", help="the checkpoint id to claim")
     parser.add_argument(
-        "--critic-delay", type=float, default=0.4,
-        help="seconds each prompt critique takes, so its in-flight state can be seen (default 0.4)",
+        "--critic-delay", type=_seconds_argument, default=0.4,
+        help="finite seconds each prompt critique takes, at least zero (default 0.4)",
     )
     parser.add_argument(
         "--no-critic", action="store_true",
         help="answer as a server with no prompt critic: the page hides its section",
     )
-    args = parser.parse_args()
+    return parser.parse_args(argv)
 
-    data = Path(args.data)
-    if args.fresh and data.exists():
-        shutil.rmtree(data)
+
+def _data_directory(args: argparse.Namespace) -> Path:
+    """Select existing data or allocate one new, retained fresh directory."""
+    if args.fresh:
+        return Path(tempfile.mkdtemp(prefix="auradream-fake-"))
+    return Path(args.data) if args.data is not None else Path(tempfile.gettempdir()) / "auradream-fake"
+
+
+def _refuse_credential_api() -> NoReturn:
+    raise RuntimeError("Windows backup credentials are unavailable in the fake server.")
+
+
+def _install_credential_refusal() -> None:
+    """Keep the fake's credential factory refused for all later workers."""
+    from backend import backup_credentials
+
+    backup_credentials._credential_api = _refuse_credential_api
+
+
+def main() -> int:
+    args = _parse_args()
+    data = _data_directory(args)
+    if args.fresh:
+        print(f"fresh fake gallery retained: {data}", flush=True)
     data.mkdir(parents=True, exist_ok=True)
     # Before backend.config is imported: its settings freeze at import.
     os.environ["AURADREAM_DB_PATH"] = str(data / "auradream.db")
@@ -103,6 +157,8 @@ def main() -> int:
 
     from PIL import Image, ImageDraw
 
+    # Match the tests' factory boundary before app startup can create workers.
+    _install_credential_refusal()
     from backend import main as app_main
     from backend import prompt_encoding
     from backend.jobs import JobManager

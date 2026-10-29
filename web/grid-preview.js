@@ -179,6 +179,7 @@ function previewShown() {
 async function previewGrid() {
   if (modelChangeHold()) { ++previewEpoch; return; }
   if (!els.gridSection.open) {
+    ++previewEpoch;  // A close retires pending success and error replies.
     gridRevealPending = false;
     if (gridMaxCfg !== null) { gridMaxCfg = null; syncCfg(); }
     return;

@@ -1,8 +1,9 @@
 # Named generation and grid setups
 
 `GEN#27`. Requested for the backlog on **2026-10-28**, after the TODO audit.
-**Status: planned, not built.** This plan defines a CPU/browser implementation
-slice; it does not commission a model load, download or card trial.
+**Status: stages 1-3 built and locally qualified, 2026-10-28.**
+This plan defines CPU/browser implementation slices; it does not
+commission a model load, download or card trial.
 
 ## Purpose and boundary
 
@@ -133,6 +134,124 @@ reason as title and an in-dialog response on a press.
 3. **Browser acceptance and documentation.** Add a scratch fake-server smoke
    and its AGENTS table row. Update usage, module maps and design notes with
    the final behavior; remove the TODO row only when these checks pass.
+
+### Stage 1 implementation, 2026-10-28
+
+`schemas_presets.py` separates the strict raw draft from capture transport.
+`presets.py` stores the version-1 collection at `auradream.presets.json` beside
+the database, with a separate process reservation, atomic replace and optimistic
+item revisions. First reads create nothing. All items are type-checked on read;
+unknown versions/fields, duplicate JSON keys/ids, malformed Unicode and oversized
+files refuse without replacing the file. This new feature has no legacy filename.
+
+The cold routes are `GET/POST /api/presets`, `GET/PUT/DELETE
+/api/presets/{id}` and `POST /api/presets/{id}/validate`. Create/update captures
+require `model_id` and `model_revision`; validation requires the saved item
+revision and model revision. The existing model-request middleware holds the
+selection through validation and saving. Reads/deletes remain available across
+a checkpoint switch; all these routes bypass gallery bundle admission and the
+generation gate. Updating a setup keeps its original checkpoint.
+
+`preset_validation.py` uses the existing Generate/Grid request types, grid
+helpers and `applied()` for an explanation separate from the stored draft.
+The API supplies the backend's pure `applied` reader for live capability answers,
+without calling `describe()` or CUDA. Null overrides follow the exact checkpoint's
+profile; zero remains explicit. The nullable draft seed stays null. Random-grid
+examples use a disposable seed of zero without drawing or returning a new base
+seed. Grid Repeat becomes 1 only in the effective request, and Resume is false.
+Validation checks the item revision again after calculation. It never submits
+work or writes the draft back.
+
+The answer keeps `saved` beside an `effective` base Generate request. `values`
+are the ordinary requested grid axes; `effective_values` separately shows
+normalized negative/Mu/True CFG values and `inactive` names inputs unused by
+at least one cell. Grid definitions remain under `saved.grid`, rather than
+becoming an expanded or resumable run.
+
+The selected loader must be valid Eager/native and submitted Step cache intent
+must be Off for capture/validation. Nonempty, invalid or unknown performance
+intent refuses before a write; saved payloads cannot carry execution fields or
+conditioning. Stage 1 added no browser entry or automatic restoration; stage 2
+below owns explicit composer capture/Restore and whole-draft Undo.
+
+Stage 1 validation passed **410 focused/regression tests** across the three
+new files, existing grid/model-switch/snippet routes, execution admission and
+resolution, and the classic-script guard. Repository Ruff and the pinned
+Pyright gate passed (138 files, zero diagnostics). The installed environment's
+Python ran these commands directly because `uv run` stopped before execution
+with `uv trampoline failed to canonicalize script path`; dependencies and the
+lockfile were unchanged. A fresh-process validation check imports no Torch,
+Diffusers, Transformers or Hub client. No browser restoration, model load or
+card trial was performed.
+
+### Composer integration, 2026-10-28
+
+`web/generation-presets.js` declares the setup dialog, with `initSetups()`
+called only by `app.js`; `styles/setups.css` follows the snippet sheet.
+**Examples > Saved setups…** opens it before Personal snippets, without a new
+persistent caption control or startup read. The list shows this checkpoint
+first, with **Show other checkpoints** to reveal the rest. **New** starts a
+name, **Save current** creates an item, **Update from current** replaces its
+payload, **Rename** keeps the saved payload and **Delete** removes only that
+item. Failed/stale writes preserve the unsaved name. **Reload list** rereads
+without replacing the editor; explicitly selecting again adopts the newest
+item/revision. The [dated setup recovery review](review-2026-10-28-setup-list-recovery.md)
+records the native read/selection and sole-item reselection fixes, with their
+separate reproduction and qualification evidence.
+
+Capture reads exact text and raw overrides directly rather than through
+`collect()` or `gridPayload()`, which trim and suppress inactive inputs.
+Unowned/blank sampling remains null, explicit zero remains zero, and the
+nullable seed stays null. Save names active LoRA, references, LoRA weight axis
+and Then refine as omitted-input holds. Current and unsaved picker performance
+intent must both be valid Eager/native with Step cache Off.
+
+Selecting checks saved/effective values for the summary. **Restore** performs
+a fresh cold validation and binds the reply to the item/revision, model/revision,
+server, complete composer/performance fingerprint and edit epoch. A change
+while awaiting it asks for another deliberate Restore, leaving newer state
+intact. Foreign checkpoints hold Restore and offer **Open Models**, which
+opens the existing picker without switching or loading.
+
+Restore closes the modal before `rewriteBox` writes Negative then Prompt,
+restores ownership and raw inactive inputs, clears conditioning through
+`setReferences` and the adapter controls, turns Then refine off and leaves
+Resume off. The summary names these changes first. Existing size, capability,
+tags/analysis, preview, submission and persistence synchronization then runs.
+The restored grid remains unexpanded; ordinary preview and Run grid own its
+effective axes, seed draws and request Repeat=1.
+
+One Undo keeps the whole previous in-memory draft, raw sampling and ownership,
+size selection, conditioning, grid, translation and Then refine controls/scale.
+It uses the stable prompt-note overlay and existing Reset/Reuse retirement
+rules. Panel, Then refine and performance edits retire it; deleted/binned
+references leave its snapshot too. Both boxes retain native undo-aware writes.
+Restore and Undo avoid Reuse's reveal/scroll path and queue no work.
+
+Focused validation passed **243 tests** across the preset storage/validation/API,
+grid API and classic-script guard. Repository Ruff and pinned Pyright passed
+(138 files, zero diagnostics). The environment's Python again ran directly
+because `uv run` failed before execution with the trampoline error recorded
+above; no dependency or lockfile change was made.
+
+### Browser acceptance, 2026-10-28
+
+The new **172-step** `smoke-generation-presets.json` passed on Windows against
+its fresh scratch FLUX.1 Krea [dev] fake. It checked two saved Generate/Grid
+setups through reload, exact text and null/zero ownership, explicit Restore,
+whole-draft Undo and native Ctrl+Z, conditioning/Then refine clear and Undo,
+Resume off, held/invalid performance, stale item revisions and late draft/model
+validation replies. A real switch of the fake checkpoint while the dialog was
+open exercised the foreign-checkpoint hold and Models opener. Ordinary grid
+preview/submission, modal keys/focus, page errors, and 1400x900/400x650 geometry
+and scroll checks passed.
+
+Five existing browser regressions also passed: `smoke-snippets`, `smoke-grid`,
+`smoke-png-settings`, `smoke-execution-reuse` and `smoke-compact-setup`.
+The six documentation-map tests passed with the updated script/style and smoke
+maps. This completes the planned local storage/browser acceptance. No real
+model load, card run, fit, quality or speed measurement was performed; these
+checks establish interaction behavior against the fake.
 
 ## Completion evidence
 

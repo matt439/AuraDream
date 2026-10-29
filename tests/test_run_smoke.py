@@ -346,3 +346,136 @@ def test_main_writes_a_collectable_summary_and_keeps_failure_status(monkeypatch,
     assert summary["results"] == [{
         "smoke": "smoke-flux", "exit_code": 42, "artifact_dir": "smoke-flux-fixture",
     }]
+
+
+class _MainOutput(io.StringIO):
+    def reconfigure(self, **kwargs):
+        pass
+
+
+def _port_plan_main(monkeypatch, tmp_path, ports, wanted, offset, jobs):
+    runner = _runner()
+    output = _MainOutput()
+    rows = [runner.Row(port, "owner/model", None, [f"smoke-{index}"]) for index, port in enumerate(ports)]
+    monkeypatch.setattr(runner, "parse_table", lambda _text: rows)
+    monkeypatch.setattr(runner.sys, "stdout", output)
+    monkeypatch.setattr(runner.sys, "argv", [
+        "run_smoke.py", *[f"smoke-{index}" for index in wanted],
+        "--offset", str(offset), "--jobs", str(jobs), "--artifacts", str(tmp_path / "chosen-artifacts"),
+    ])
+    return runner, output, rows
+
+
+@pytest.mark.parametrize(("ports", "wanted", "offset", "jobs", "message"), [
+    ([7862], [0], -7862, 1, "port 0 is outside 1..65535"),
+    ([7862], [0], -7863, 1, "port -1 is outside 1..65535"),
+    ([7862], [0], 65536 - 7862, 1, "port 65536 is outside 1..65535"),
+    ([7862], [0], 10**100, 1, "is outside 1..65535"),
+    ([7862, 7863], [0, 1], 65535 - 7863 - 99, 2, "port 65536 is outside 1..65535"),
+    ([7862, 7962], [0, 1], 0, 2, "worker bands overlap on port 7962"),
+    ([7862, 8062, 7863], [0, 1, 2], 0, 3, "worker bands overlap on port 8062"),
+])
+def test_invalid_effective_port_plan_refuses_before_any_startup_effect(
+    monkeypatch, tmp_path, ports, wanted, offset, jobs, message,
+):
+    runner, output, _rows_unused = _port_plan_main(monkeypatch, tmp_path, ports, wanted, offset, jobs)
+    attempts = []
+
+    def forbidden(*_args, **_kwargs):
+        attempts.append("startup-effect")
+        pytest.fail("invalid port plan reached artifact, socket, process or worker startup")
+
+    monkeypatch.setattr(Path, "mkdir", forbidden)
+    monkeypatch.setattr(runner.tempfile, "mkdtemp", forbidden)
+    monkeypatch.setattr(runner.socket, "socket", forbidden)
+    monkeypatch.setattr(runner.subprocess, "Popen", forbidden)
+    monkeypatch.setattr(runner.subprocess, "run", forbidden)
+    monkeypatch.setattr(runner, "_port_free", forbidden)
+    monkeypatch.setattr(runner, "_run_browser", forbidden)
+    monkeypatch.setattr(runner, "run_row", forbidden)
+    monkeypatch.setattr(runner, "ThreadPoolExecutor", forbidden)
+    assert runner.main() == 2
+    assert message in output.getvalue()
+    assert "artifacts:" not in output.getvalue()
+    assert attempts == []
+    assert not (tmp_path / "chosen-artifacts").exists()
+
+
+@pytest.mark.parametrize(("ports", "wanted", "offset", "jobs", "effective_jobs"), [
+    ([7861, 7862], [1], -7861, 4, 1),  # Unselected row would use port zero.
+    ([7862, 7863], [0], 65535 - 7862, 4, 1),  # Only the selected row and clamped band matter.
+    ([7862, 7863], [0, 1], -7861, 2, 2),
+    ([7862, 7863], [0, 1], 65535 - 100 - 7863, 2, 2),
+    ([7867, 7867], [0, 1], 0, 2, 2),  # The same band cannot run these rows simultaneously.
+    ([7862, 7962], [0, 1], 0, 1, 1),  # Serial rows may use ports a worker span apart.
+    ([7862, 7963], [0, 1], 0, 2, 2),  # A wide row range need not contain a collision.
+    ([7862, 7962], [0], 0, 2, 1),  # An unselected collision partner is irrelevant.
+    ([7862], [0], 0, 0, 1),  # Preserve the existing jobs clamp.
+])
+def test_valid_selected_port_bands_keep_launch_arguments_and_summary(
+    monkeypatch, tmp_path, ports, wanted, offset, jobs, effective_jobs,
+):
+    runner, output, rows = _port_plan_main(monkeypatch, tmp_path, ports, wanted, offset, jobs)
+    calls = []
+    pools = []
+    allowed_bands = [offset + runner.WORKER_SPAN * index for index in range(effective_jobs)]
+
+    class InlinePool:
+        def __init__(self, workers):
+            pools.append(workers)
+
+        def __enter__(self):
+            return self
+
+        def __exit__(self, *_args):
+            return False
+
+        def map(self, function, items):
+            return map(function, items)
+
+    def run(row, smokes, band, stream, artifacts):
+        assert band in allowed_bands
+        assert 1 <= row.port + band <= 65535
+        assert stream == (effective_jobs == 1)
+        calls.append((row, smokes, band))
+        destination = artifacts / smokes[0]
+        destination.mkdir()
+        (destination / "result.json").write_text(json.dumps({"smoke": smokes[0], "exit_code": 0}))
+        return {smoke: 0 for smoke in smokes}
+
+    def forbidden(*_args, **_kwargs):
+        pytest.fail("mocked launch plan reached an actual socket or process")
+
+    monkeypatch.setattr(runner.socket, "socket", forbidden)
+    monkeypatch.setattr(runner.subprocess, "Popen", forbidden)
+    monkeypatch.setattr(runner.subprocess, "run", forbidden)
+    monkeypatch.setattr(runner, "ThreadPoolExecutor", InlinePool)
+    monkeypatch.setattr(runner, "run_row", run)
+    assert runner.main() == 0
+    assert [(row, smokes) for row, smokes, _band in calls] == [
+        (row, row.smokes) for index, row in enumerate(rows) if index in wanted
+    ]
+    assert pools == ([effective_jobs] if effective_jobs > 1 else [])
+    assert len(calls) == len(wanted)
+    assert "of " + str(len(wanted)) + " passed" in output.getvalue()
+    summaries = list((tmp_path / "chosen-artifacts").glob("*/summary.json"))
+    assert len(summaries) == 1
+    receipts = json.loads(summaries[0].read_text(encoding="utf-8"))["results"]
+    assert {item["smoke"] for item in receipts} == {f"smoke-{index}" for index in wanted}
+    assert all(item["exit_code"] == 0 for item in receipts)
+
+
+def test_list_remains_read_only_even_with_an_unusable_execution_offset(monkeypatch, tmp_path):
+    runner, output, _rows_unused = _port_plan_main(monkeypatch, tmp_path, [7862], [], 10**100, 3)
+    monkeypatch.setattr(runner.sys, "argv", ["run_smoke.py", "--list", "--offset", str(10**100)])
+
+    def forbidden(*_args, **_kwargs):
+        pytest.fail("list attempted execution-plan validation or startup")
+
+    monkeypatch.setattr(runner, "_port_plan_error", forbidden)
+    monkeypatch.setattr(Path, "mkdir", forbidden)
+    monkeypatch.setattr(runner.tempfile, "mkdtemp", forbidden)
+    monkeypatch.setattr(runner, "run_row", forbidden)
+    monkeypatch.setattr(runner, "ThreadPoolExecutor", forbidden)
+    assert runner.main() == 0
+    assert output.getvalue() == "7862  owner/model  smoke-0\n"

@@ -7,8 +7,11 @@ let snippetsSelected = null;
 let snippetsReady = false;
 let snippetsPending = null;
 let snippetsReadTicket = 0;
+let snippetsDialogEpoch = 0;
 let snippetsOrigin = null;
 let snippetsDirty = false;
+let snippetsEditEpoch = 0;
+let snippetsWriteRecovery = null;
 
 function snippetSay(text, error = false) {
   els.snippetsStatus.textContent = text;
@@ -22,11 +25,27 @@ function snippetFields() {
   };
 }
 
+function snippetWriteRecoveryReason() {
+  if (!snippetsWriteRecovery) return '';
+  return snippetsWriteRecovery.needsReload
+    ? 'The last snippet write is uncertain. Reload the saved list before choosing how to continue.'
+    : 'Saved list reloaded. Select a saved snippet or choose New before saving or deleting.';
+}
+
+function snippetDeleteReason() {
+  if (snippetsPending) return 'Wait for the current snippets request.';
+  return snippetWriteRecoveryReason() || (!snippetsReady ? 'Reload the saved list before changing it.'
+    : !snippetsSelected ? 'Select a saved snippet to delete.' : snippetSelectedReason());
+}
+
 function snippetSaveReason() {
   if (snippetsPending) return snippetsPending === 'read' ? 'Wait for the saved list to arrive.' : 'Wait for the snippet to finish saving.';
-  if (!snippetsReady) return 'Reopen Snippets to read the saved list before saving.';
+  if (snippetWriteRecoveryReason()) return snippetWriteRecoveryReason();
+  if (!snippetsReady) return 'Reload the saved list before saving.';
+  if (snippetSelectedReason()) return snippetSelectedReason();
   const { name, text } = snippetFields();
   if (!name) return 'Give the snippet a name.';
+  if ([...name].length > 80) return 'Keep the snippet name within 80 characters.';
   if (!text.trim()) return 'Give the snippet some text.';
   if (!els.snippetsName.validity.valid || !els.snippetsText.validity.valid) return 'The name or text is longer than its limit.';
   return '';
@@ -51,16 +70,16 @@ function syncSnippets() {
     button.title = reason || title;
   };
   held(els.snippetsSave, snippetSaveReason(), snippetsSelected ? 'Save changes to this snippet' : 'Save a new snippet');
-  const deleteReason = snippetsPending ? 'Wait for the current snippets request.'
-    : !snippetsReady ? 'Reopen Snippets to read the saved list.'
-      : !snippetsSelected ? 'Select a saved snippet to delete.' : '';
-  held(els.snippetsDelete, deleteReason, 'Delete only the selected saved snippet');
+  held(els.snippetsDelete, snippetDeleteReason(), 'Delete only the selected saved snippet');
+  held(els.snippetsReload, snippetsPending ? 'Wait for the current snippets request.' : '',
+    'Reread the saved list without replacing the editor; select an item to read its latest version');
   held(els.snippetsInsert, snippetInsertReason(), 'Insert the text into the chosen prompt; Ctrl+Z restores it');
   held(els.snippetsNew, snippetsPending === 'write' ? 'Wait for the snippet to finish saving.' : '', 'Start a new snippet');
   held(els.snippetsClose, snippetsPending === 'write' ? 'Wait for the snippet to finish saving.' : '', 'Close Snippets');
   for (const field of [els.snippetsList, els.snippetsName, els.snippetsText, els.snippetsTarget, els.snippetsPlacement]) {
     field.disabled = snippetsPending === 'write';
   }
+  syncSnippetPortability();
 }
 
 function renderSnippets() {
@@ -79,43 +98,56 @@ function renderSnippets() {
     list.append(option);
   }
   list.value = snippetsSelected?.id || '';
+  if (snippetSelectedReason() || snippetsWriteRecovery) list.selectedIndex = -1;
   syncSnippets();
 }
 
-function selectSnippet(id) {
+function selectSnippet(id, userChoice = true) {
+  if (snippetsPending === 'write') { snippetSay('Wait for the snippet to finish saving.'); return; }
   const item = snippetsItems.find((entry) => entry.id === id);
   if (!item) return;
+  ++snippetsEditEpoch;
+  if (userChoice && snippetsReady && !snippetsPending && snippetsWriteRecovery && !snippetsWriteRecovery.needsReload) {
+    snippetsWriteRecovery = null;
+  }
   snippetsSelected = { ...item };
   els.snippetsList.value = item.id;
   els.snippetsName.value = item.name;
   els.snippetsText.value = item.text;
   els.snippetsTarget.value = item.target;
   snippetsDirty = false;
-  snippetSay('');
+  snippetSay(snippetWriteRecoveryReason());
   syncSnippets();
 }
 
-function newSnippet() {
+function newSnippet(userChoice = true) {
   if (snippetsPending === 'write') { snippetSay('Wait for the snippet to finish saving.'); return; }
+  ++snippetsEditEpoch;
+  if (userChoice && snippetsReady && !snippetsPending && snippetsWriteRecovery && !snippetsWriteRecovery.needsReload) {
+    snippetsWriteRecovery = null;
+  }
   snippetsSelected = null;
   snippetsDirty = false;
   els.snippetsList.value = '';
   els.snippetsName.value = '';
   els.snippetsText.value = '';
   els.snippetsTarget.value = 'prompt';
-  snippetSay('New snippet.');
+  snippetSay(['New snippet.', snippetWriteRecoveryReason()].filter(Boolean).join(' '));
   syncSnippets();
   els.snippetsName.focus({ preventScroll: true });
 }
 
-async function openSnippets() {
-  if (els.snippetsDialog.open) return;
-  snippetsOrigin = document.activeElement;
-  snippetsReady = false;
-  snippetsPending = 'read';
+async function readSnippets({ opening = false } = {}) {
+  if (!els.snippetsDialog.open) return;
+  if (snippetsPending === 'write' || (!opening && snippetsPending)) {
+    snippetSay('Wait for the current snippets request.'); return;
+  }
+  const epoch = snippetsEditEpoch;
   const ticket = ++snippetsReadTicket;
+  snippetsReady = false;
+  if (snippetsWriteRecovery) snippetsWriteRecovery.needsReload = true;
+  snippetsPending = 'read';
   snippetSay('Reading saved snippets.');
-  els.snippetsDialog.showModal();
   syncSnippets();
   try {
     const result = await api('/api/snippets');
@@ -123,23 +155,38 @@ async function openSnippets() {
     snippetsItems = result.items;
     snippetsReady = true;
     snippetsPending = null;
+    if (snippetsWriteRecovery) snippetsWriteRecovery.needsReload = false;
     renderSnippets();
-    // A reopened dialog keeps an unsaved editor. Explicitly selecting an
-    // item reads its newest revision; a stale draft can never overwrite it.
-    if (snippetsDirty) els.snippetsList.selectedIndex = -1;
-    else {
+    // Reading a list never acknowledges an uncertain write. Only an explicit
+    // selection or New after this read may authorize the next write.
+    if (opening && !snippetsDirty && epoch === snippetsEditEpoch && !snippetsWriteRecovery) {
       const selected = snippetsItems.find((item) => item.id === snippetsSelected?.id);
-      if (selected) selectSnippet(selected.id);
-      else if (snippetsItems.length) selectSnippet(snippetsItems[0].id);
-      else newSnippet();
-    }
-    snippetSay(snippetsItems.length ? '' : 'Save your own tags, prefixes or negative prompts here.');
+      if (selected) selectSnippet(selected.id, false);
+      else if (snippetsItems.length) selectSnippet(snippetsItems[0].id, false);
+      else newSnippet(false);
+    } else if (snippetsDirty || snippetsWriteRecovery) els.snippetsList.selectedIndex = -1;
+    snippetSay(snippetWriteRecoveryReason() || (!opening
+      ? 'Saved list reloaded. Your editor is unchanged; select a snippet to read its latest version.'
+      : snippetsItems.length ? '' : 'Save your own tags, prefixes or negative prompts here.'));
+    syncSnippets();
   } catch (err) {
     if (ticket !== snippetsReadTicket || !els.snippetsDialog.open) return;
     snippetsPending = null;
     snippetSay(`Snippets could not be read: ${err.message}`, true);
     syncSnippets();
   }
+}
+
+async function reloadSnippets() {
+  await readSnippets();
+}
+
+async function openSnippets() {
+  if (els.snippetsDialog.open) return;
+  snippetsOrigin = document.activeElement;
+  ++snippetsDialogEpoch;
+  els.snippetsDialog.showModal();
+  await readSnippets({ opening: true });
 }
 
 async function saveSnippet() {
@@ -160,24 +207,28 @@ async function saveSnippet() {
     renderSnippets();
     const saved = selected ? snippetsItems.find((item) => item.id === selected.id) : snippetsItems.at(-1);
     if (saved) {
-      selectSnippet(saved.id);
+      selectSnippet(saved.id, false);
       els.snippetsList.value = saved.id;
     }
     snippetSay('Snippet saved.');
   } catch (err) {
     snippetsPending = null;
-    if (err.status === 409 || err.status === 404) snippetsReady = false;
-    snippetSay(`Snippet was not saved: ${err.message}`, true);
+    if (!err.status || err.status >= 500) {
+      snippetsReady = false;
+      snippetsWriteRecovery = { needsReload: true };
+      snippetSay('Snippet save result is uncertain. Reload the list, then select a saved snippet or choose New. Your editor is unchanged.', true);
+    } else {
+      if (err.status === 409 || err.status === 404) snippetsReady = false;
+      snippetSay(`Snippet was not saved: ${err.message}`, true);
+    }
     syncSnippets();
   }
 }
 
 async function deleteSnippet() {
+  const reason = snippetDeleteReason();
+  if (reason) { snippetSay(reason, true); return; }
   const selected = snippetsSelected;
-  if (snippetsPending || !snippetsReady || !selected) {
-    snippetSay(els.snippetsDelete.title || 'Select a saved snippet first.', true);
-    return;
-  }
   snippetsPending = 'write';
   snippetSay('Deleting snippet.');
   syncSnippets();
@@ -188,14 +239,20 @@ async function deleteSnippet() {
     snippetsSelected = null;
     renderSnippets();
     if (snippetsItems.length) {
-      selectSnippet(snippetsItems[0].id);
+      selectSnippet(snippetsItems[0].id, false);
       els.snippetsList.value = snippetsItems[0].id;
-    } else newSnippet();
+    } else newSnippet(false);
     snippetSay('Snippet deleted. Text already inserted in a prompt is kept.');
   } catch (err) {
     snippetsPending = null;
-    if (err.status === 409 || err.status === 404) snippetsReady = false;
-    snippetSay(`Snippet was not deleted: ${err.message}`, true);
+    if (!err.status || err.status >= 500) {
+      snippetsReady = false;
+      snippetsWriteRecovery = { needsReload: true };
+      snippetSay('Snippet delete result is uncertain. Reload the list, then select a saved snippet or choose New. Your editor is unchanged.', true);
+    } else {
+      if (err.status === 409 || err.status === 404) snippetsReady = false;
+      snippetSay(`Snippet was not deleted: ${err.message}`, true);
+    }
     syncSnippets();
   }
 }
@@ -209,6 +266,7 @@ function snippetsClosed() {
   // close fires asynchronously: an earlier close must not invalidate a
   // read started by a dialog that has already opened again.
   if (els.snippetsDialog.open) return;
+  ++snippetsDialogEpoch;
   ++snippetsReadTicket;
   snippetsPending = null;
   const origin = snippetsOrigin;
@@ -271,12 +329,13 @@ function initSnippets() {
     if (snippetsPending === 'write') { event.preventDefault(); snippetSay('Wait for the snippet to finish saving.'); }
   });
   els.snippetsList.onchange = () => selectSnippet(els.snippetsList.value);
-  els.snippetsNew.onclick = newSnippet;
+  els.snippetsNew.onclick = () => newSnippet();
+  els.snippetsReload.onclick = () => { void reloadSnippets(); };
   els.snippetsSave.onclick = () => { void saveSnippet(); };
   els.snippetsDelete.onclick = () => { void deleteSnippet(); };
   els.snippetsInsert.onclick = insertSnippet;
   for (const field of [els.snippetsName, els.snippetsText, els.snippetsTarget]) {
-    field.addEventListener('input', () => { snippetsDirty = true; syncSnippets(); });
-    field.addEventListener('change', () => { snippetsDirty = true; syncSnippets(); });
+    field.addEventListener('input', () => { ++snippetsEditEpoch; snippetsDirty = true; syncSnippets(); });
+    field.addEventListener('change', () => { ++snippetsEditEpoch; snippetsDirty = true; syncSnippets(); });
   }
 }

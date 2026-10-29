@@ -1,0 +1,1399 @@
+[
+  {
+    "log": "'GAL10: confirmed same-page targeted Bin/Restore/single permanent/picked purge coordination on six owned fake PNGs. Broad deletion routes are blocked; actual native confirmation dialogs are retained. No unknown-outcome/cross-tab/bulk ordering claim.'"
+  },
+  {
+    "navigate": "http://127.0.0.1:7941/"
+  },
+  {
+    "eval": "window.__lrUntil=async(fn,ms=20000)=>{const end=Date.now()+ms;while(Date.now()<end){try{if(await fn())return true;}catch{}await new Promise(resolve=>setTimeout(resolve,40));}return false;};\nwindow.__lrBaseApi=api;window.__lrBaseFetch=fetch;window.__lrErrors=[];window.__lrWrites=[];window.__lrGate=null;window.__lrLookupGate=null;window.__lrJobs=0;window.__lrBlocked=[];window.__lrApproved=null;window.__lrConfirms=[];\naddEventListener('error',event=>__lrErrors.push(event.message));addEventListener('unhandledrejection',event=>__lrErrors.push(String(event.reason)));\nwindow.__lrAsk=askConfirm;askConfirm=(message,options)=>{__lrConfirms.push({message,label:options?.okLabel??'Delete'});return __lrAsk(message,options);};\nwindow.__lrKnown=()=>JSON.parse(sessionStorage.getItem('auradream.smoke.bin-restore-targeted'));\nwindow.__lrStored=async(id)=>{try{const row=await __lrBaseApi('/api/images/'+id+'?binned=true');return {id,exists:true,binned:!!row.binned_at,row};}catch(err){if(err.status===404)return {id,exists:false,binned:null};throw err;}};\nwindow.__lrTag=()=>{for(const[index,id]of __lrKnown().ids.entries())for(const el of document.querySelectorAll('.card[data-id=\"'+id+'\"],.result[data-id=\"'+id+'\"]'))el.dataset.lr='abcdef'[index];};\nwindow.__lrDescribe=(el)=>el?{tag:el.tagName,id:el.id,classes:String(el.className),role:el.getAttribute('role')}:null;\nwindow.__lrBox=(el)=>{const r=el.getBoundingClientRect();return {left:r.left,top:r.top,right:r.right,bottom:r.bottom,width:r.width,height:r.height};};\nwindow.__lrRevealAndReport=(selector)=>{const el=document.querySelector(selector);const report={selector,ok:false,scrollBefore:[scrollX,scrollY],viewport:[innerWidth,innerHeight],topbar:document.querySelector('.topbar')?.getBoundingClientRect().bottom,modal:document.querySelector('dialog[open]')?.id,claims:[...binWriteIds],target:__lrDescribe(el)};if(!el){window.__lrLastReveal=report;return report;}report.before=__lrBox(el);el.scrollIntoView({block:'nearest',inline:'nearest',behavior:'instant'});const r=el.getBoundingClientRect(),top=(report.topbar??0)+12;if(r.top<top)scrollBy(0,r.top-top);else if(r.bottom>innerHeight-12)scrollBy(0,r.bottom-innerHeight+12);const b=el.getBoundingClientRect(),x=b.left+b.width/2,y=b.top+b.height/2,hit=document.elementFromPoint(x,y);report.after=__lrBox(el);report.center=[x,y];report.hit=__lrDescribe(hit);report.stack=document.elementsFromPoint(x,y).slice(0,6).map(__lrDescribe);report.scrollAfter=[scrollX,scrollY];report.parents=[];for(let parent=el.parentElement;parent&&report.parents.length<6;parent=parent.parentElement){const css=getComputedStyle(parent);report.parents.push({...__lrDescribe(parent),rect:__lrBox(parent),overflow:[css.overflowX,css.overflowY],scroll:[parent.scrollLeft,parent.scrollTop],client:[parent.clientWidth,parent.clientHeight],extent:[parent.scrollWidth,parent.scrollHeight],hidden:parent.hidden,visibility:css.visibility});}report.ok=!!hit&&(hit===el||el.contains(hit))&&b.width>0&&b.height>0;window.__lrLastReveal=report;if(!report.ok)return report;const brief={selector,ok:true};const delta=[scrollX-report.scrollBefore[0],scrollY-report.scrollBefore[1]],moved=[report.after.left-report.before.left,report.after.top-report.before.top];if(delta.some(value=>Math.abs(value)>0.1))brief.scrollDelta=delta;if(moved.some(value=>Math.abs(value)>0.1))brief.targetDelta=moved;return brief;};\nwindow.__lrReveal=(selector)=>__lrRevealAndReport(selector).ok;\nwindow.__lrReason='Wait for the current recycle bin change to finish';\nwindow.__lrNorm=(ids)=>[...ids].sort((a,b)=>a-b).join();\nwindow.__lrHeld=(button,ids,annotated=true)=>!!button&&button.getAttribute('aria-disabled')==='true'&&!button.disabled&&button.title===__lrReason&&(!annotated||__lrNorm((button.dataset.binWriteIds||'').split(',').filter(Boolean).map(Number))===__lrNorm(ids));\nwindow.__lrLive=(id)=>galleryRecords.some(row=>row.id===id&&!row.binned_at)&&!!document.querySelector('#gallery .card[data-id=\"'+id+'\"]:not(.binned)');\nwindow.__lrGone=(id)=>!galleryRecords.some(row=>row.id===id)&&!document.querySelector('#gallery .card[data-id=\"'+id+'\"]');\nwindow.__lrRect=(el)=>{const r=el.getBoundingClientRect();return [r.left,r.top,r.width,r.height];};\nwindow.__lrSameRect=(el,rect)=>__lrRect(el).every((n,i)=>Math.abs(n-rect[i])<1);\nwindow.__lrNoteNodes=(slot)=>{const walker=document.createTreeWalker(slot,NodeFilter.SHOW_ALL),nodes=[];for(let node=walker.nextNode();node;node=walker.nextNode())nodes.push(node);return nodes;};\nwindow.__lrSnapshotNote=(slot)=>({slot,rect:__lrRect(slot),nodes:__lrNoteNodes(slot),text:slot.textContent});\nwindow.__lrNoteUnchanged=(snapshot)=>{const nodes=__lrNoteNodes(snapshot.slot);return snapshot.slot.isConnected&&__lrSameRect(snapshot.slot,snapshot.rect)&&snapshot.slot.textContent===snapshot.text&&nodes.length===snapshot.nodes.length&&snapshot.nodes.every((node,index)=>nodes[index]===node);};\nwindow.__lrCardDel=(letter)=>document.querySelector('#gallery .card[data-lr=\"'+letter+'\"] .del');\nwindow.__lrNote=()=>document.querySelector('#gallery-error [data-bin-restore]');\nwindow.__lrClaimed=(ids)=>binWriteIds.size===ids.length&&ids.every(id=>binWriteIds.has(id));\nwindow.__lrSpec=(path,options)=>{if(options?.method==='POST'&&['/api/images/bin','/api/images/restore','/api/images/purge'].includes(path)){const body=JSON.parse(options.body);return {kind:path.split('/').at(-1),ids:body.ids,body};}const one=path.match(/^\\/api\\/images\\/([0-9]+)$/);if(options?.method==='DELETE'&&one)return {kind:'delete',ids:[Number(one[1])]};return null;};\napi=async(path,options)=>{const spec=__lrSpec(path,options);if((options?.method==='DELETE'&&!spec)||(options?.method==='POST'&&/^\\/api\\/gallery\\/bundles(?:[/?]|$)/.test(path))){__lrBlocked.push(path);throw Error('Broad destructive operation is outside this targeted scratch fixture.');}if(options?.method==='POST'&&(['/api/generate','/api/grid','/api/refine','/api/refine/batch','/api/rerender','/api/inpaint','/api/outpaint','/api/more-seeds','/api/instruction-edit','/api/swap-tags'].includes(path.split('?')[0])||/^\\/api\\/runs\\/[^/?]+\\/finish(?:\\?|$)/.test(path))){__lrJobs++;throw Error('Unexpected image job refused before dispatch by targeted fixture.');}if(!spec){const lookup=__lrLookupGate;const [base,query='']=path.split('?');if(lookup&&!lookup.captured&&(!options?.method||options.method==='GET')&&base==='/api/gallery'&&new URLSearchParams(query).get('search')==='refine:'+lookup.id){const result=await __lrBaseApi(path,options);lookup.captured=true;await new Promise(resolve=>{lookup.release=resolve;});return result;}return __lrBaseApi(path,options);}\nconst known=__lrKnown().ids;if(!spec.ids.length||spec.ids.some(id=>!known.includes(id)))throw Error('Unowned lifecycle id refused by fixture.');if(['delete','purge'].includes(spec.kind)){const expected=spec.kind==='delete'?[known[3]]:known.slice(4,6);if(__lrNorm(spec.ids)!==__lrNorm(expected)||!__lrApproved||__lrApproved.kind!==spec.kind||__lrNorm(__lrApproved.ids)!==__lrNorm(spec.ids))throw Error('Unapproved exact fake permanent request refused.');__lrApproved=null;}\nconst entry={...spec,issued:__lrWrites.length+1,sent:false,delivered:false,finished:false};__lrWrites.push(entry);const gate=__lrGate&&!__lrGate.captured&&__lrGate.kind===spec.kind&&__lrNorm(__lrGate.ids)===__lrNorm(spec.ids)?__lrGate:null;if(gate){gate.captured=true;gate.entry=entry;}\ntry{if(gate?.mode==='reject'){await new Promise(resolve=>{gate.release=resolve;});const err=new Error('Owned targeted validation refusal before dispatch');err.status=422;throw err;}entry.sent=true;entry.result=await __lrBaseApi(path,options);entry.stored=await Promise.all(entry.ids.map(__lrStored));if(gate){gate.confirmed=true;await new Promise(resolve=>{gate.release=resolve;});}entry.delivered=true;return entry.result;}catch(err){entry.error=err.message;entry.status=err.status;throw err;}finally{entry.finished=true;}};"
+  },
+  {
+    "expect": "__lrUntil(()=>loadedModel==='black-forest-labs/FLUX.1-Krea-dev' && Number.isInteger(modelRevision) && !busy && !galleryPending && !jobListing)",
+    "fatal": true
+  },
+  {
+    "expect": "(async()=>{if((await __lrBaseApi('/api/gallery')).total!==0)return false;const job=await __lrBaseApi('/api/generate',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({prompt:'owned targeted recycle fixture',width:256,height:256,steps:1,seed:10100,num_images:6})});if(!await __lrUntil(async()=>{const row=await __lrBaseApi('/api/jobs/'+job.job_id);return row.status==='done';}))return false;const rows=(await __lrBaseApi('/api/gallery?limit=100')).items.sort((a,b)=>a.id-b.id);if(rows.length!==6||rows.some(row=>row.binned_at))return false;sessionStorage.setItem('auradream.smoke.bin-restore-targeted',JSON.stringify({ids:rows.map(row=>row.id),urls:rows.map(row=>row.url)}));return true;})()",
+    "fatal": true
+  },
+  {
+    "navigate": "http://127.0.0.1:7941/"
+  },
+  {
+    "eval": "window.__lrUntil=async(fn,ms=20000)=>{const end=Date.now()+ms;while(Date.now()<end){try{if(await fn())return true;}catch{}await new Promise(resolve=>setTimeout(resolve,40));}return false;};\nwindow.__lrBaseApi=api;window.__lrBaseFetch=fetch;window.__lrErrors=[];window.__lrWrites=[];window.__lrGate=null;window.__lrLookupGate=null;window.__lrJobs=0;window.__lrBlocked=[];window.__lrApproved=null;window.__lrConfirms=[];\naddEventListener('error',event=>__lrErrors.push(event.message));addEventListener('unhandledrejection',event=>__lrErrors.push(String(event.reason)));\nwindow.__lrAsk=askConfirm;askConfirm=(message,options)=>{__lrConfirms.push({message,label:options?.okLabel??'Delete'});return __lrAsk(message,options);};\nwindow.__lrKnown=()=>JSON.parse(sessionStorage.getItem('auradream.smoke.bin-restore-targeted'));\nwindow.__lrStored=async(id)=>{try{const row=await __lrBaseApi('/api/images/'+id+'?binned=true');return {id,exists:true,binned:!!row.binned_at,row};}catch(err){if(err.status===404)return {id,exists:false,binned:null};throw err;}};\nwindow.__lrTag=()=>{for(const[index,id]of __lrKnown().ids.entries())for(const el of document.querySelectorAll('.card[data-id=\"'+id+'\"],.result[data-id=\"'+id+'\"]'))el.dataset.lr='abcdef'[index];};\nwindow.__lrDescribe=(el)=>el?{tag:el.tagName,id:el.id,classes:String(el.className),role:el.getAttribute('role')}:null;\nwindow.__lrBox=(el)=>{const r=el.getBoundingClientRect();return {left:r.left,top:r.top,right:r.right,bottom:r.bottom,width:r.width,height:r.height};};\nwindow.__lrRevealAndReport=(selector)=>{const el=document.querySelector(selector);const report={selector,ok:false,scrollBefore:[scrollX,scrollY],viewport:[innerWidth,innerHeight],topbar:document.querySelector('.topbar')?.getBoundingClientRect().bottom,modal:document.querySelector('dialog[open]')?.id,claims:[...binWriteIds],target:__lrDescribe(el)};if(!el){window.__lrLastReveal=report;return report;}report.before=__lrBox(el);el.scrollIntoView({block:'nearest',inline:'nearest',behavior:'instant'});const r=el.getBoundingClientRect(),top=(report.topbar??0)+12;if(r.top<top)scrollBy(0,r.top-top);else if(r.bottom>innerHeight-12)scrollBy(0,r.bottom-innerHeight+12);const b=el.getBoundingClientRect(),x=b.left+b.width/2,y=b.top+b.height/2,hit=document.elementFromPoint(x,y);report.after=__lrBox(el);report.center=[x,y];report.hit=__lrDescribe(hit);report.stack=document.elementsFromPoint(x,y).slice(0,6).map(__lrDescribe);report.scrollAfter=[scrollX,scrollY];report.parents=[];for(let parent=el.parentElement;parent&&report.parents.length<6;parent=parent.parentElement){const css=getComputedStyle(parent);report.parents.push({...__lrDescribe(parent),rect:__lrBox(parent),overflow:[css.overflowX,css.overflowY],scroll:[parent.scrollLeft,parent.scrollTop],client:[parent.clientWidth,parent.clientHeight],extent:[parent.scrollWidth,parent.scrollHeight],hidden:parent.hidden,visibility:css.visibility});}report.ok=!!hit&&(hit===el||el.contains(hit))&&b.width>0&&b.height>0;window.__lrLastReveal=report;if(!report.ok)return report;const brief={selector,ok:true};const delta=[scrollX-report.scrollBefore[0],scrollY-report.scrollBefore[1]],moved=[report.after.left-report.before.left,report.after.top-report.before.top];if(delta.some(value=>Math.abs(value)>0.1))brief.scrollDelta=delta;if(moved.some(value=>Math.abs(value)>0.1))brief.targetDelta=moved;return brief;};\nwindow.__lrReveal=(selector)=>__lrRevealAndReport(selector).ok;\nwindow.__lrReason='Wait for the current recycle bin change to finish';\nwindow.__lrNorm=(ids)=>[...ids].sort((a,b)=>a-b).join();\nwindow.__lrHeld=(button,ids,annotated=true)=>!!button&&button.getAttribute('aria-disabled')==='true'&&!button.disabled&&button.title===__lrReason&&(!annotated||__lrNorm((button.dataset.binWriteIds||'').split(',').filter(Boolean).map(Number))===__lrNorm(ids));\nwindow.__lrLive=(id)=>galleryRecords.some(row=>row.id===id&&!row.binned_at)&&!!document.querySelector('#gallery .card[data-id=\"'+id+'\"]:not(.binned)');\nwindow.__lrGone=(id)=>!galleryRecords.some(row=>row.id===id)&&!document.querySelector('#gallery .card[data-id=\"'+id+'\"]');\nwindow.__lrRect=(el)=>{const r=el.getBoundingClientRect();return [r.left,r.top,r.width,r.height];};\nwindow.__lrSameRect=(el,rect)=>__lrRect(el).every((n,i)=>Math.abs(n-rect[i])<1);\nwindow.__lrNoteNodes=(slot)=>{const walker=document.createTreeWalker(slot,NodeFilter.SHOW_ALL),nodes=[];for(let node=walker.nextNode();node;node=walker.nextNode())nodes.push(node);return nodes;};\nwindow.__lrSnapshotNote=(slot)=>({slot,rect:__lrRect(slot),nodes:__lrNoteNodes(slot),text:slot.textContent});\nwindow.__lrNoteUnchanged=(snapshot)=>{const nodes=__lrNoteNodes(snapshot.slot);return snapshot.slot.isConnected&&__lrSameRect(snapshot.slot,snapshot.rect)&&snapshot.slot.textContent===snapshot.text&&nodes.length===snapshot.nodes.length&&snapshot.nodes.every((node,index)=>nodes[index]===node);};\nwindow.__lrCardDel=(letter)=>document.querySelector('#gallery .card[data-lr=\"'+letter+'\"] .del');\nwindow.__lrNote=()=>document.querySelector('#gallery-error [data-bin-restore]');\nwindow.__lrClaimed=(ids)=>binWriteIds.size===ids.length&&ids.every(id=>binWriteIds.has(id));\nwindow.__lrSpec=(path,options)=>{if(options?.method==='POST'&&['/api/images/bin','/api/images/restore','/api/images/purge'].includes(path)){const body=JSON.parse(options.body);return {kind:path.split('/').at(-1),ids:body.ids,body};}const one=path.match(/^\\/api\\/images\\/([0-9]+)$/);if(options?.method==='DELETE'&&one)return {kind:'delete',ids:[Number(one[1])]};return null;};\napi=async(path,options)=>{const spec=__lrSpec(path,options);if((options?.method==='DELETE'&&!spec)||(options?.method==='POST'&&/^\\/api\\/gallery\\/bundles(?:[/?]|$)/.test(path))){__lrBlocked.push(path);throw Error('Broad destructive operation is outside this targeted scratch fixture.');}if(options?.method==='POST'&&(['/api/generate','/api/grid','/api/refine','/api/refine/batch','/api/rerender','/api/inpaint','/api/outpaint','/api/more-seeds','/api/instruction-edit','/api/swap-tags'].includes(path.split('?')[0])||/^\\/api\\/runs\\/[^/?]+\\/finish(?:\\?|$)/.test(path))){__lrJobs++;throw Error('Unexpected image job refused before dispatch by targeted fixture.');}if(!spec){const lookup=__lrLookupGate;const [base,query='']=path.split('?');if(lookup&&!lookup.captured&&(!options?.method||options.method==='GET')&&base==='/api/gallery'&&new URLSearchParams(query).get('search')==='refine:'+lookup.id){const result=await __lrBaseApi(path,options);lookup.captured=true;await new Promise(resolve=>{lookup.release=resolve;});return result;}return __lrBaseApi(path,options);}\nconst known=__lrKnown().ids;if(!spec.ids.length||spec.ids.some(id=>!known.includes(id)))throw Error('Unowned lifecycle id refused by fixture.');if(['delete','purge'].includes(spec.kind)){const expected=spec.kind==='delete'?[known[3]]:known.slice(4,6);if(__lrNorm(spec.ids)!==__lrNorm(expected)||!__lrApproved||__lrApproved.kind!==spec.kind||__lrNorm(__lrApproved.ids)!==__lrNorm(spec.ids))throw Error('Unapproved exact fake permanent request refused.');__lrApproved=null;}\nconst entry={...spec,issued:__lrWrites.length+1,sent:false,delivered:false,finished:false};__lrWrites.push(entry);const gate=__lrGate&&!__lrGate.captured&&__lrGate.kind===spec.kind&&__lrNorm(__lrGate.ids)===__lrNorm(spec.ids)?__lrGate:null;if(gate){gate.captured=true;gate.entry=entry;}\ntry{if(gate?.mode==='reject'){await new Promise(resolve=>{gate.release=resolve;});const err=new Error('Owned targeted validation refusal before dispatch');err.status=422;throw err;}entry.sent=true;entry.result=await __lrBaseApi(path,options);entry.stored=await Promise.all(entry.ids.map(__lrStored));if(gate){gate.confirmed=true;await new Promise(resolve=>{gate.release=resolve;});}entry.delivered=true;return entry.result;}catch(err){entry.error=err.message;entry.status=err.status;throw err;}finally{entry.finished=true;}};"
+  },
+  {
+    "expect": "__lrUntil(()=>loadedModel==='black-forest-labs/FLUX.1-Krea-dev' && Number.isInteger(modelRevision) && !busy && !galleryPending && !jobListing && galleryRecords.length===6)",
+    "fatal": true
+  },
+  {
+    "eval": "resetPanel();writeBox(els.prompt,'Unsent composer retained through targeted recycle actions');promptReplaced();persistPanel();"
+  },
+  {
+    "eval": "window.__lrIds=__lrKnown().ids;window.__lrA=__lrIds[0];window.__lrPair=__lrIds.slice(0,2);window.__lrComposer=setupComposerState();__lrTag();"
+  },
+  {
+    "expect": "!binMode && !els.lightbox.open && !selectMode && selectedIds().length===0 && binWriteIds.size===0",
+    "fatal": true
+  },
+  {
+    "eval": "sessionStorage.setItem('auradream.smoke.bin-restore-targeted.composer',__lrComposer);"
+  },
+  {
+    "log": "'Known pre-dispatch Bin refusal releases its exact claim and leaves the live card intact; an explicit later Bin remains usable.'"
+  },
+  {
+    "eval": "window.__lrStart=__lrWrites.length;window.__lrGate={kind:\"bin\",ids:[__lrA],mode:\"reject\"};"
+  },
+  {
+    "log": "__lrRevealAndReport(\"#gallery .card[data-lr=\\\"a\\\"] .tools .del\")"
+  },
+  {
+    "expect": "__lrLastReveal?.selector===\"#gallery .card[data-lr=\\\"a\\\"] .tools .del\" && __lrLastReveal.ok",
+    "fatal": true
+  },
+  {
+    "hover": "#gallery .card[data-lr=\"a\"] .tools .del"
+  },
+  {
+    "click": "#gallery .card[data-lr=\"a\"] .tools .del"
+  },
+  {
+    "expect": "__lrUntil(()=>__lrGate.captured && typeof __lrGate.release==='function')",
+    "fatal": true
+  },
+  {
+    "expect": "__lrClaimed([__lrA]) && __lrHeld(__lrCardDel('a'),[__lrA]) && !__lrGate.entry.sent && __lrLive(__lrA)"
+  },
+  {
+    "eval": "__lrGate.release();"
+  },
+  {
+    "expect": "__lrUntil(()=>__lrGate.entry.finished && binWriteIds.size===0)",
+    "fatal": true
+  },
+  {
+    "expect": "__lrGate.entry.status===422 && !__lrGate.entry.sent && __lrLive(__lrA) && __lrCardDel('a').getAttribute('aria-disabled')==='false' && els.galleryError.textContent.includes('Owned targeted validation refusal')"
+  },
+  {
+    "eval": "window.__lrGate=null;window.__lrStart=__lrWrites.length;"
+  },
+  {
+    "log": "__lrRevealAndReport(\"#gallery .card[data-lr=\\\"a\\\"] .tools .del\")"
+  },
+  {
+    "expect": "__lrLastReveal?.selector===\"#gallery .card[data-lr=\\\"a\\\"] .tools .del\" && __lrLastReveal.ok",
+    "fatal": true
+  },
+  {
+    "hover": "#gallery .card[data-lr=\"a\"] .tools .del"
+  },
+  {
+    "click": "#gallery .card[data-lr=\"a\"] .tools .del"
+  },
+  {
+    "expect": "__lrUntil(()=>__lrWrites.length===__lrStart+1 && __lrWrites.at(-1).finished && binWriteIds.size===0)",
+    "fatal": true
+  },
+  {
+    "expect": "__lrGone(__lrA) && binnedIds.has(__lrA) && __lrNote()",
+    "fatal": true
+  },
+  {
+    "log": "'Known pre-dispatch Restore refusal releases its note hold without reviving the cached record.'"
+  },
+  {
+    "eval": "window.__lrStart=__lrWrites.length;window.__lrGate={kind:\"restore\",ids:[__lrA],mode:\"reject\"};"
+  },
+  {
+    "log": "__lrRevealAndReport(\"#gallery-error [data-bin-restore]\")"
+  },
+  {
+    "expect": "__lrLastReveal?.selector===\"#gallery-error [data-bin-restore]\" && __lrLastReveal.ok",
+    "fatal": true
+  },
+  {
+    "click": "#gallery-error [data-bin-restore]"
+  },
+  {
+    "expect": "__lrUntil(()=>__lrGate.captured && typeof __lrGate.release==='function')",
+    "fatal": true
+  },
+  {
+    "expect": "__lrClaimed([__lrA]) && __lrHeld(__lrNote(),[__lrA]) && !__lrGate.entry.sent"
+  },
+  {
+    "eval": "__lrGate.release();"
+  },
+  {
+    "expect": "__lrUntil(()=>__lrGate.entry.finished && binWriteIds.size===0)",
+    "fatal": true
+  },
+  {
+    "expect": "__lrGate.entry.status===422 && !__lrGate.entry.sent && __lrGone(__lrA) && binnedIds.has(__lrA) && els.galleryError.textContent.includes('Owned targeted validation refusal')"
+  },
+  {
+    "log": "'Recreate the ordinary note through the unchanged retained cache for the next native Restore; this is note-constructor fixture setup only.'"
+  },
+  {
+    "eval": "noteBinned([binnedRecs.get(__lrA).gallery]);"
+  },
+  {
+    "eval": "window.__lrStart=__lrWrites.length;window.__lrGate={kind:\"restore\",ids:[__lrA],mode:\"hold\"};"
+  },
+  {
+    "log": "__lrRevealAndReport(\"#gallery-error [data-bin-restore]\")"
+  },
+  {
+    "expect": "__lrLastReveal?.selector===\"#gallery-error [data-bin-restore]\" && __lrLastReveal.ok",
+    "fatal": true
+  },
+  {
+    "click": "#gallery-error [data-bin-restore]"
+  },
+  {
+    "expect": "__lrUntil(()=>__lrGate.captured && typeof __lrGate.release==='function')",
+    "fatal": true
+  },
+  {
+    "expect": "__lrGate.confirmed && __lrGate.entry.stored[0].exists && !__lrGate.entry.stored[0].binned && __lrGone(__lrA) && binnedIds.has(__lrA) && __lrClaimed([__lrA]) && __lrHeld(__lrNote(),[__lrA])"
+  },
+  {
+    "eval": "window.__lrHeldNote=__lrNote();window.__lrHeldNoteRect=__lrRect(__lrHeldNote);window.__lrHeldNoteText=els.galleryError.textContent;window.__lrHeldBinNote=binNote;window.__lrPageSnapshot=__lrSnapshotNote(els.galleryError);"
+  },
+  {
+    "log": "__lrRevealAndReport(\"#gallery-error [data-bin-restore]\")"
+  },
+  {
+    "expect": "__lrLastReveal?.selector===\"#gallery-error [data-bin-restore]\" && __lrLastReveal.ok",
+    "fatal": true
+  },
+  {
+    "click": "#gallery-error [data-bin-restore]"
+  },
+  {
+    "expect": "__lrUntil(()=>els.starSaid.textContent===__lrReason+'.')",
+    "fatal": true
+  },
+  {
+    "expect": "__lrWrites.length===__lrStart+1 && __lrClaimed([__lrA]) && __lrNote()===__lrHeldNote && __lrSameRect(__lrHeldNote,__lrHeldNoteRect) && document.activeElement===__lrHeldNote && els.galleryError.textContent===__lrHeldNoteText && binNote===__lrHeldBinNote && __lrNoteUnchanged(__lrPageSnapshot)"
+  },
+  {
+    "log": "'Disjoint C Bin and its Restore finish while A remains claimed. They do not replace A ownership or mutate the composer.'"
+  },
+  {
+    "eval": "window.__lrHeldRestore=__lrGate;window.__lrHeldStart=__lrStart;window.__lrStart=__lrWrites.length;showError('',false,{slot:els.galleryError});"
+  },
+  {
+    "log": "__lrRevealAndReport(\"#gallery .card[data-lr=\\\"c\\\"] .tools .del\")"
+  },
+  {
+    "expect": "__lrLastReveal?.selector===\"#gallery .card[data-lr=\\\"c\\\"] .tools .del\" && __lrLastReveal.ok",
+    "fatal": true
+  },
+  {
+    "hover": "#gallery .card[data-lr=\"c\"] .tools .del"
+  },
+  {
+    "click": "#gallery .card[data-lr=\"c\"] .tools .del"
+  },
+  {
+    "expect": "__lrUntil(()=>__lrWrites.length===__lrStart+1 && __lrWrites.at(-1).finished && __lrGone(__lrIds[2]) && __lrClaimed([__lrA]))",
+    "fatal": true
+  },
+  {
+    "log": "__lrRevealAndReport(\"#gallery-error [data-bin-restore]\")"
+  },
+  {
+    "expect": "__lrLastReveal?.selector===\"#gallery-error [data-bin-restore]\" && __lrLastReveal.ok",
+    "fatal": true
+  },
+  {
+    "click": "#gallery-error [data-bin-restore]"
+  },
+  {
+    "expect": "__lrUntil(()=>__lrWrites.length===__lrStart+2 && __lrWrites.at(-1).finished && __lrLive(__lrIds[2]) && __lrClaimed([__lrA]))",
+    "fatal": true
+  },
+  {
+    "eval": "__lrTag();window.__lrStart=__lrHeldStart;"
+  },
+  {
+    "expect": "!__lrHeldRestore.entry.delivered && setupComposerState()===__lrComposer"
+  },
+  {
+    "log": "'A normal native search exposes already-restored A before its reply returns. New cards and both cached result Delete controls inherit the same id hold. A mixed picked batch is refused wholly.'"
+  },
+  {
+    "log": "__lrRevealAndReport(\"#search\")"
+  },
+  {
+    "expect": "__lrLastReveal?.selector===\"#search\" && __lrLastReveal.ok",
+    "fatal": true
+  },
+  {
+    "click": "#search"
+  },
+  {
+    "type": "owned targeted recycle fixture"
+  },
+  {
+    "expect": "__lrUntil(()=>!galleryPending && galleryRecords.length===6 && __lrLive(__lrA))",
+    "fatal": true
+  },
+  {
+    "eval": "__lrTag();appendResult(structuredClone(galleryRecords.find(row=>row.id===__lrA)));__lrTag();"
+  },
+  {
+    "expect": "__lrHeld(__lrCardDel('a'),[__lrA]) && [...els.viewer.querySelectorAll('.result[data-lr=\"a\"] .del')].length===2 && [...els.viewer.querySelectorAll('.result[data-lr=\"a\"] .del')].every(button=>__lrHeld(button,[__lrA])) && __lrClaimed([__lrA])"
+  },
+  {
+    "eval": "window.__lrNoOverlap=__lrWrites.length;__lrReveal('#gallery .card[data-lr=\"a\"] .tools .del');window.__lrDelRect=__lrRect(__lrCardDel('a'));"
+  },
+  {
+    "log": "__lrRevealAndReport(\"#gallery .card[data-lr=\\\"a\\\"] .tools .del\")"
+  },
+  {
+    "expect": "__lrLastReveal?.selector===\"#gallery .card[data-lr=\\\"a\\\"] .tools .del\" && __lrLastReveal.ok",
+    "fatal": true
+  },
+  {
+    "hover": "#gallery .card[data-lr=\"a\"] .tools .del"
+  },
+  {
+    "click": "#gallery .card[data-lr=\"a\"] .tools .del"
+  },
+  {
+    "expect": "__lrWrites.length===__lrNoOverlap && __lrSameRect(__lrCardDel('a'),__lrDelRect) && document.activeElement===__lrCardDel('a')"
+  },
+  {
+    "log": "__lrRevealAndReport(\"#viewer .result[data-lr=\\\"a\\\"] .tools .del\")"
+  },
+  {
+    "expect": "__lrLastReveal?.selector===\"#viewer .result[data-lr=\\\"a\\\"] .tools .del\" && __lrLastReveal.ok",
+    "fatal": true
+  },
+  {
+    "hover": "#viewer .result[data-lr=\"a\"] .tools .del"
+  },
+  {
+    "click": "#viewer .result[data-lr=\"a\"] .tools .del"
+  },
+  {
+    "expect": "__lrWrites.length===__lrNoOverlap && __lrClaimed([__lrA])"
+  },
+  {
+    "log": "__lrRevealAndReport(\"#btn-select\")"
+  },
+  {
+    "expect": "__lrLastReveal?.selector===\"#btn-select\" && __lrLastReveal.ok",
+    "fatal": true
+  },
+  {
+    "click": "#btn-select"
+  },
+  {
+    "expect": "selectMode && !els.lightbox.open",
+    "fatal": true
+  },
+  {
+    "log": "__lrRevealAndReport(\"#gallery .card[data-lr=\\\"a\\\"] > img\")"
+  },
+  {
+    "expect": "__lrLastReveal?.selector===\"#gallery .card[data-lr=\\\"a\\\"] > img\" && __lrLastReveal.ok",
+    "fatal": true
+  },
+  {
+    "click": "#gallery .card[data-lr=\"a\"] > img"
+  },
+  {
+    "log": "__lrRevealAndReport(\"#gallery .card[data-lr=\\\"b\\\"] > img\")"
+  },
+  {
+    "expect": "__lrLastReveal?.selector===\"#gallery .card[data-lr=\\\"b\\\"] > img\" && __lrLastReveal.ok",
+    "fatal": true
+  },
+  {
+    "click": "#gallery .card[data-lr=\"b\"] > img"
+  },
+  {
+    "expect": "selectedIds().join()===__lrPair.join() && __lrHeld(document.querySelector('#picked-menu [data-picked=\"bin\"]'),__lrPair,false) && ['star','unstar','compare','seeds'].every(action=>document.querySelector('#picked-menu [data-picked=\"'+action+'\"]').getAttribute('aria-disabled')==='false') && els.pickedBtn.getAttribute('aria-disabled')==='false'",
+    "fatal": true
+  },
+  {
+    "log": "__lrRevealAndReport(\"#btn-picked\")"
+  },
+  {
+    "expect": "__lrLastReveal?.selector===\"#btn-picked\" && __lrLastReveal.ok",
+    "fatal": true
+  },
+  {
+    "click": "#btn-picked"
+  },
+  {
+    "log": "__lrRevealAndReport(\"#picked-menu [data-picked=\\\"bin\\\"]\")"
+  },
+  {
+    "expect": "__lrLastReveal?.selector===\"#picked-menu [data-picked=\\\"bin\\\"]\" && __lrLastReveal.ok",
+    "fatal": true
+  },
+  {
+    "click": "#picked-menu [data-picked=\"bin\"]"
+  },
+  {
+    "expect": "__lrWrites.length===__lrNoOverlap && selectedIds().join()===__lrPair.join() && __lrLive(__lrIds[1]) && setupComposerState()===__lrComposer"
+  },
+  {
+    "shot": "bin-restore-pending-new-controls.png"
+  },
+  {
+    "eval": "__lrGate.release();"
+  },
+  {
+    "expect": "__lrUntil(()=>__lrGate.entry.finished && binWriteIds.size===0)",
+    "fatal": true
+  },
+  {
+    "expect": "__lrLive(__lrA) && !binnedIds.has(__lrA) && !binnedRecs.has(__lrA) && __lrCardDel('a').getAttribute('aria-disabled')==='false' && selectedIds().join()===__lrPair.join()"
+  },
+  {
+    "log": "'A deliberate later opposite picked Bin is allowed; the gathered Restore note owns its full two-ID set, and a duplicate note press dispatches nothing.'"
+  },
+  {
+    "eval": "window.__lrGate=null;window.__lrStart=__lrWrites.length;"
+  },
+  {
+    "log": "__lrRevealAndReport(\"#btn-picked\")"
+  },
+  {
+    "expect": "__lrLastReveal?.selector===\"#btn-picked\" && __lrLastReveal.ok",
+    "fatal": true
+  },
+  {
+    "click": "#btn-picked"
+  },
+  {
+    "log": "__lrRevealAndReport(\"#picked-menu [data-picked=\\\"bin\\\"]\")"
+  },
+  {
+    "expect": "__lrLastReveal?.selector===\"#picked-menu [data-picked=\\\"bin\\\"]\" && __lrLastReveal.ok",
+    "fatal": true
+  },
+  {
+    "click": "#picked-menu [data-picked=\"bin\"]"
+  },
+  {
+    "expect": "__lrUntil(()=>__lrWrites.length===__lrStart+1 && __lrWrites.at(-1).finished && !binWriteIds.size && __lrPair.every(__lrGone))",
+    "fatal": true
+  },
+  {
+    "expect": "selectedIds().length===0 && __lrNorm((__lrNote().dataset.binWriteIds||'').split(',').map(Number))===__lrNorm(__lrPair)",
+    "fatal": true
+  },
+  {
+    "eval": "window.__lrStart=__lrWrites.length;window.__lrGate={kind:\"restore\",ids:__lrPair,mode:\"hold\"};"
+  },
+  {
+    "log": "__lrRevealAndReport(\"#gallery-error [data-bin-restore]\")"
+  },
+  {
+    "expect": "__lrLastReveal?.selector===\"#gallery-error [data-bin-restore]\" && __lrLastReveal.ok",
+    "fatal": true
+  },
+  {
+    "click": "#gallery-error [data-bin-restore]"
+  },
+  {
+    "expect": "__lrUntil(()=>__lrGate.captured && typeof __lrGate.release==='function')",
+    "fatal": true
+  },
+  {
+    "expect": "__lrClaimed(__lrPair) && __lrHeld(__lrNote(),__lrPair) && __lrGate.entry.stored.every(row=>row.exists&&!row.binned)"
+  },
+  {
+    "eval": "window.__lrHeldNote=__lrNote();window.__lrHeldNoteRect=__lrRect(__lrHeldNote);window.__lrHeldNoteText=els.galleryError.textContent;window.__lrHeldBinNote=binNote;window.__lrPageSnapshot=__lrSnapshotNote(els.galleryError);"
+  },
+  {
+    "log": "__lrRevealAndReport(\"#gallery-error [data-bin-restore]\")"
+  },
+  {
+    "expect": "__lrLastReveal?.selector===\"#gallery-error [data-bin-restore]\" && __lrLastReveal.ok",
+    "fatal": true
+  },
+  {
+    "click": "#gallery-error [data-bin-restore]"
+  },
+  {
+    "expect": "__lrUntil(()=>els.starSaid.textContent===__lrReason+'.')",
+    "fatal": true
+  },
+  {
+    "expect": "__lrWrites.length===__lrStart+1 && __lrClaimed(__lrPair) && __lrNote()===__lrHeldNote && __lrSameRect(__lrHeldNote,__lrHeldNoteRect) && document.activeElement===__lrHeldNote && els.galleryError.textContent===__lrHeldNoteText && binNote===__lrHeldBinNote && __lrNoteUnchanged(__lrPageSnapshot)"
+  },
+  {
+    "eval": "__lrGate.release();"
+  },
+  {
+    "expect": "__lrUntil(()=>__lrGate.entry.finished && binWriteIds.size===0)",
+    "fatal": true
+  },
+  {
+    "eval": "__lrTag();"
+  },
+  {
+    "expect": "__lrPair.every(__lrLive) && __lrPair.every(id=>!binnedIds.has(id)) && !binWriteIds.size && setupComposerState()===__lrComposer"
+  },
+  {
+    "log": "'Restore picked and newly read bin-card/lightbox controls share targeted ownership. A cached permanent Delete entry is refused before confirmation while Restore is pending.'"
+  },
+  {
+    "log": "__lrRevealAndReport(\"#gallery .card[data-lr=\\\"a\\\"] > img\")"
+  },
+  {
+    "expect": "__lrLastReveal?.selector===\"#gallery .card[data-lr=\\\"a\\\"] > img\" && __lrLastReveal.ok",
+    "fatal": true
+  },
+  {
+    "click": "#gallery .card[data-lr=\"a\"] > img"
+  },
+  {
+    "log": "__lrRevealAndReport(\"#gallery .card[data-lr=\\\"b\\\"] > img\")"
+  },
+  {
+    "expect": "__lrLastReveal?.selector===\"#gallery .card[data-lr=\\\"b\\\"] > img\" && __lrLastReveal.ok",
+    "fatal": true
+  },
+  {
+    "click": "#gallery .card[data-lr=\"b\"] > img"
+  },
+  {
+    "eval": "window.__lrGate=null;window.__lrStart=__lrWrites.length;"
+  },
+  {
+    "log": "__lrRevealAndReport(\"#btn-picked\")"
+  },
+  {
+    "expect": "__lrLastReveal?.selector===\"#btn-picked\" && __lrLastReveal.ok",
+    "fatal": true
+  },
+  {
+    "click": "#btn-picked"
+  },
+  {
+    "log": "__lrRevealAndReport(\"#picked-menu [data-picked=\\\"bin\\\"]\")"
+  },
+  {
+    "expect": "__lrLastReveal?.selector===\"#picked-menu [data-picked=\\\"bin\\\"]\" && __lrLastReveal.ok",
+    "fatal": true
+  },
+  {
+    "click": "#picked-menu [data-picked=\"bin\"]"
+  },
+  {
+    "expect": "__lrUntil(()=>__lrWrites.length===__lrStart+1 && __lrWrites.at(-1).finished && __lrPair.every(__lrGone) && !binWriteIds.size)",
+    "fatal": true
+  },
+  {
+    "log": "__lrRevealAndReport(\"#btn-bin\")"
+  },
+  {
+    "expect": "__lrLastReveal?.selector===\"#btn-bin\" && __lrLastReveal.ok",
+    "fatal": true
+  },
+  {
+    "click": "#btn-bin"
+  },
+  {
+    "expect": "__lrUntil(()=>binMode && !galleryPending && galleryRecords.length===2)",
+    "fatal": true
+  },
+  {
+    "eval": "__lrTag();"
+  },
+  {
+    "log": "__lrRevealAndReport(\"#gallery .card[data-lr=\\\"a\\\"] > img\")"
+  },
+  {
+    "expect": "__lrLastReveal?.selector===\"#gallery .card[data-lr=\\\"a\\\"] > img\" && __lrLastReveal.ok",
+    "fatal": true
+  },
+  {
+    "click": "#gallery .card[data-lr=\"a\"] > img"
+  },
+  {
+    "log": "__lrRevealAndReport(\"#gallery .card[data-lr=\\\"b\\\"] > img\")"
+  },
+  {
+    "expect": "__lrLastReveal?.selector===\"#gallery .card[data-lr=\\\"b\\\"] > img\" && __lrLastReveal.ok",
+    "fatal": true
+  },
+  {
+    "click": "#gallery .card[data-lr=\"b\"] > img"
+  },
+  {
+    "expect": "selectedIds().join()===__lrPair.join()",
+    "fatal": true
+  },
+  {
+    "eval": "window.__lrStart=__lrWrites.length;window.__lrGate={kind:\"restore\",ids:__lrPair,mode:\"hold\"};"
+  },
+  {
+    "log": "__lrRevealAndReport(\"#btn-restore-picked\")"
+  },
+  {
+    "expect": "__lrLastReveal?.selector===\"#btn-restore-picked\" && __lrLastReveal.ok",
+    "fatal": true
+  },
+  {
+    "click": "#btn-restore-picked"
+  },
+  {
+    "expect": "__lrUntil(()=>__lrGate.captured && typeof __lrGate.release==='function')",
+    "fatal": true
+  },
+  {
+    "expect": "__lrClaimed(__lrPair) && __lrHeld(els.restorePicked,__lrPair,false) && __lrHeld(document.querySelector('#gallery .card[data-lr=\"a\"] .restore'),[__lrA]) && __lrHeld(__lrCardDel('a'),[__lrA])"
+  },
+  {
+    "log": "__lrRevealAndReport(\"#btn-restore-picked\")"
+  },
+  {
+    "expect": "__lrLastReveal?.selector===\"#btn-restore-picked\" && __lrLastReveal.ok",
+    "fatal": true
+  },
+  {
+    "click": "#btn-restore-picked"
+  },
+  {
+    "log": "__lrRevealAndReport(\"#gallery .card[data-lr=\\\"a\\\"] .restore\")"
+  },
+  {
+    "expect": "__lrLastReveal?.selector===\"#gallery .card[data-lr=\\\"a\\\"] .restore\" && __lrLastReveal.ok",
+    "fatal": true
+  },
+  {
+    "hover": "#gallery .card[data-lr=\"a\"] .restore"
+  },
+  {
+    "click": "#gallery .card[data-lr=\"a\"] .restore"
+  },
+  {
+    "log": "__lrRevealAndReport(\"#gallery .card[data-lr=\\\"a\\\"] .del\")"
+  },
+  {
+    "expect": "__lrLastReveal?.selector===\"#gallery .card[data-lr=\\\"a\\\"] .del\" && __lrLastReveal.ok",
+    "fatal": true
+  },
+  {
+    "hover": "#gallery .card[data-lr=\"a\"] .del"
+  },
+  {
+    "click": "#gallery .card[data-lr=\"a\"] .del"
+  },
+  {
+    "expect": "__lrWrites.length===__lrStart+1 && !els.confirmDialog.open && __lrConfirms.length===0 && selectedIds().join()===__lrPair.join()"
+  },
+  {
+    "eval": "__lrReveal('#gallery .card[data-lr=\"a\"] > img');document.querySelector('#gallery .card[data-lr=\"a\"] > img').focus();"
+  },
+  {
+    "key": "Enter"
+  },
+  {
+    "expect": "__lrUntil(()=>els.lightbox.open && lbList[lbIndex]?.id===__lrA)",
+    "fatal": true
+  },
+  {
+    "expect": "__lrHeld(els.lbRestore,[__lrA]) && __lrHeld(els.lbDelete,[__lrA]) && !els.lbRestore.hidden"
+  },
+  {
+    "log": "__lrRevealAndReport(\"#lb-restore\")"
+  },
+  {
+    "expect": "__lrLastReveal?.selector===\"#lb-restore\" && __lrLastReveal.ok",
+    "fatal": true
+  },
+  {
+    "click": "#lb-restore"
+  },
+  {
+    "key": "Delete"
+  },
+  {
+    "expect": "__lrWrites.length===__lrStart+1 && !els.confirmDialog.open && __lrConfirms.length===0 && __lrClaimed(__lrPair)"
+  },
+  {
+    "shot": "bin-restore-pending-lightbox.png"
+  },
+  {
+    "eval": "__lrGate.release();"
+  },
+  {
+    "expect": "__lrUntil(()=>__lrGate.entry.finished && binWriteIds.size===0)",
+    "fatal": true
+  },
+  {
+    "expect": "__lrUntil(()=>!els.lightbox.open && galleryRecords.length===0 && selectedIds().length===0)",
+    "fatal": true
+  },
+  {
+    "expect": "__lrPair.every(id=>!binnedIds.has(id)) && !binWriteIds.size && setupComposerState()===__lrComposer"
+  },
+  {
+    "log": "__lrRevealAndReport(\"#btn-bin\")"
+  },
+  {
+    "expect": "__lrLastReveal?.selector===\"#btn-bin\" && __lrLastReveal.ok",
+    "fatal": true
+  },
+  {
+    "click": "#btn-bin"
+  },
+  {
+    "expect": "__lrUntil(()=>!binMode && !galleryPending && galleryRecords.length===6)",
+    "fatal": true
+  },
+  {
+    "eval": "__lrTag();"
+  },
+  {
+    "log": "'Lineage constructor/state seam only: a cached synthetic pass B displays actual source A in the bin. Native facts Restore owns A, while displayed B stays unclaimed. No refine/edit job or stored lineage is created.'"
+  },
+  {
+    "eval": "window.__lrGate=null;window.__lrStart=__lrWrites.length;"
+  },
+  {
+    "log": "__lrRevealAndReport(\"#gallery .card[data-lr=\\\"a\\\"] .tools .del\")"
+  },
+  {
+    "expect": "__lrLastReveal?.selector===\"#gallery .card[data-lr=\\\"a\\\"] .tools .del\" && __lrLastReveal.ok",
+    "fatal": true
+  },
+  {
+    "hover": "#gallery .card[data-lr=\"a\"] .tools .del"
+  },
+  {
+    "click": "#gallery .card[data-lr=\"a\"] .tools .del"
+  },
+  {
+    "expect": "__lrUntil(()=>__lrWrites.length===__lrStart+1 && __lrWrites.at(-1).finished && binWriteIds.size===0)",
+    "fatal": true
+  },
+  {
+    "eval": "window.__lrSynthetic={...structuredClone(galleryRecords.find(row=>row.id===__lrIds[1])),refine:__lrA,refine_missing:true,refine_binned:true,strength:0.5};openLightbox(__lrSynthetic,[__lrSynthetic]);const source=els.lbSettings.querySelector('[data-bin-write-ids=\"'+__lrA+'\"]');if(source)source.dataset.lrSource='a';"
+  },
+  {
+    "expect": "els.lightbox.open && lbList[lbIndex]===__lrSynthetic && document.querySelector('#lb-settings [data-lr-source=\"a\"]') && !binWriteIds.size",
+    "fatal": true
+  },
+  {
+    "eval": "window.__lrStart=__lrWrites.length;window.__lrGate={kind:\"restore\",ids:[__lrA],mode:\"hold\"};"
+  },
+  {
+    "log": "__lrRevealAndReport(\"#lb-settings [data-lr-source=\\\"a\\\"]\")"
+  },
+  {
+    "expect": "__lrLastReveal?.selector===\"#lb-settings [data-lr-source=\\\"a\\\"]\" && __lrLastReveal.ok",
+    "fatal": true
+  },
+  {
+    "click": "#lb-settings [data-lr-source=\"a\"]"
+  },
+  {
+    "expect": "__lrUntil(()=>__lrGate.captured && typeof __lrGate.release==='function')",
+    "fatal": true
+  },
+  {
+    "eval": "window.__lrNewSource=sourceRestoreButton(__lrA);__lrNewSource.dataset.lrSource='new';els.lbSettings.append(__lrNewSource);"
+  },
+  {
+    "expect": "__lrClaimed([__lrA]) && __lrHeld(document.querySelector('#lb-settings [data-lr-source=\"a\"]'),[__lrA]) && __lrHeld(__lrNewSource,[__lrA]) && !binWriteIds.has(__lrIds[1]) && els.lbDelete.getAttribute('aria-disabled')==='false'"
+  },
+  {
+    "log": "__lrRevealAndReport(\"#lb-settings [data-lr-source=\\\"new\\\"]\")"
+  },
+  {
+    "expect": "__lrLastReveal?.selector===\"#lb-settings [data-lr-source=\\\"new\\\"]\" && __lrLastReveal.ok",
+    "fatal": true
+  },
+  {
+    "click": "#lb-settings [data-lr-source=\"new\"]"
+  },
+  {
+    "expect": "__lrWrites.length===__lrStart+1 && __lrSynthetic.refine_missing && __lrSynthetic.refine_binned && setupComposerState()===__lrComposer"
+  },
+  {
+    "eval": "__lrGate.release();"
+  },
+  {
+    "expect": "__lrUntil(()=>__lrGate.entry.finished && binWriteIds.size===0)",
+    "fatal": true
+  },
+  {
+    "expect": "!__lrSynthetic.refine_missing && !__lrSynthetic.refine_binned && !binnedIds.has(__lrA) && !els.lbSettings.querySelector('[data-bin-write-ids=\"'+__lrA+'\"]') && !binWriteIds.size && setupComposerState()===__lrComposer"
+  },
+  {
+    "log": "__lrRevealAndReport(\"#lb-close\")"
+  },
+  {
+    "expect": "__lrLastReveal?.selector===\"#lb-close\" && __lrLastReveal.ok",
+    "fatal": true
+  },
+  {
+    "click": "#lb-close"
+  },
+  {
+    "expect": "!els.lightbox.open && __lrJobs===0 && __lrBlocked.length===0 && __lrErrors.length===0 && __lrConfirms.length===0"
+  },
+  {
+    "log": "'Mirrored held Restore notes preserve both original nodes, text, controller identities and rectangles. A duplicate native lightbox-note Restore announces its wait in the lightbox polite channel without replacing the focused button.'"
+  },
+  {
+    "eval": "__lrTag();__lrReveal('#gallery .card[data-lr=\"a\"] > img');document.querySelector('#gallery .card[data-lr=\"a\"] > img').focus();"
+  },
+  {
+    "key": "Enter"
+  },
+  {
+    "expect": "__lrUntil(()=>els.lightbox.open && lbList[lbIndex]?.id===__lrA)",
+    "fatal": true
+  },
+  {
+    "eval": "window.__lrGate=null;window.__lrStart=__lrWrites.length;"
+  },
+  {
+    "log": "__lrRevealAndReport(\"#lb-delete\")"
+  },
+  {
+    "expect": "__lrLastReveal?.selector===\"#lb-delete\" && __lrLastReveal.ok",
+    "fatal": true
+  },
+  {
+    "click": "#lb-delete"
+  },
+  {
+    "expect": "__lrUntil(()=>__lrWrites.length===__lrStart+1 && __lrWrites.at(-1).finished && !binWriteIds.size && els.lightbox.open && lbList[lbIndex]?.id!==__lrA && els.lbError.querySelector('[data-bin-restore]') && __lrNote())",
+    "fatal": true
+  },
+  {
+    "eval": "window.__lrStart=__lrWrites.length;window.__lrGate={kind:\"restore\",ids:[__lrA],mode:\"hold\"};"
+  },
+  {
+    "log": "__lrRevealAndReport(\"#lb-error [data-bin-restore]\")"
+  },
+  {
+    "expect": "__lrLastReveal?.selector===\"#lb-error [data-bin-restore]\" && __lrLastReveal.ok",
+    "fatal": true
+  },
+  {
+    "click": "#lb-error [data-bin-restore]"
+  },
+  {
+    "expect": "__lrUntil(()=>__lrGate.captured && typeof __lrGate.release==='function')",
+    "fatal": true
+  },
+  {
+    "eval": "window.__lrPageNote=__lrNote();window.__lrMirrorNote=els.lbError.querySelector('[data-bin-restore]');window.__lrPageNoteRect=__lrRect(__lrPageNote);window.__lrMirrorRect=__lrRect(__lrMirrorNote);window.__lrPageNoteText=els.galleryError.textContent;window.__lrMirrorText=els.lbError.textContent;window.__lrHeldBinNote=binNote;window.__lrHeldController=lightboxDeleteNote;window.__lrStayedImage=lbList[lbIndex].id;window.__lrPageSnapshot=__lrSnapshotNote(els.galleryError);window.__lrMirrorSnapshot=__lrSnapshotNote(els.lbError);"
+  },
+  {
+    "log": "__lrRevealAndReport(\"#lb-error [data-bin-restore]\")"
+  },
+  {
+    "expect": "__lrLastReveal?.selector===\"#lb-error [data-bin-restore]\" && __lrLastReveal.ok",
+    "fatal": true
+  },
+  {
+    "click": "#lb-error [data-bin-restore]"
+  },
+  {
+    "expect": "__lrUntil(()=>els.lbStarSaid.textContent===__lrReason+'.')",
+    "fatal": true
+  },
+  {
+    "expect": "__lrWrites.length===__lrStart+1 && __lrClaimed([__lrA]) && __lrNote()===__lrPageNote && els.lbError.querySelector('[data-bin-restore]')===__lrMirrorNote && __lrSameRect(__lrPageNote,__lrPageNoteRect) && __lrSameRect(__lrMirrorNote,__lrMirrorRect) && document.activeElement===__lrMirrorNote && els.galleryError.textContent===__lrPageNoteText && els.lbError.textContent===__lrMirrorText && binNote===__lrHeldBinNote && lightboxDeleteNote===__lrHeldController && __lrNoteUnchanged(__lrPageSnapshot) && __lrNoteUnchanged(__lrMirrorSnapshot)"
+  },
+  {
+    "eval": "__lrGate.release();"
+  },
+  {
+    "expect": "__lrUntil(()=>__lrGate.entry.finished && binWriteIds.size===0)",
+    "fatal": true
+  },
+  {
+    "expect": "els.lightbox.open && lbList[lbIndex].id===__lrStayedImage && __lrLive(__lrA) && !binnedIds.has(__lrA) && setupComposerState()===__lrComposer"
+  },
+  {
+    "log": "__lrRevealAndReport(\"#lb-close\")"
+  },
+  {
+    "expect": "__lrLastReveal?.selector===\"#lb-close\" && __lrLastReveal.ok",
+    "fatal": true
+  },
+  {
+    "click": "#lb-close"
+  },
+  {
+    "expect": "!els.lightbox.open && __lrJobs===0 && __lrBlocked.length===0 && __lrErrors.length===0 && __lrConfirms.length===0"
+  },
+  {
+    "eval": "api=__lrBaseApi;askConfirm=__lrAsk;"
+  },
+  {
+    "log": "'Fresh page before exact permanent qualification. Only owned fake D may be singly deleted; only owned fake E/F may be purged. The actual original confirmation dialog must be cancelled/confirmed natively; a matching one-use fixture approval additionally gates each network write.'"
+  },
+  {
+    "navigate": "http://127.0.0.1:7941/"
+  },
+  {
+    "eval": "window.__lrUntil=async(fn,ms=20000)=>{const end=Date.now()+ms;while(Date.now()<end){try{if(await fn())return true;}catch{}await new Promise(resolve=>setTimeout(resolve,40));}return false;};\nwindow.__lrBaseApi=api;window.__lrBaseFetch=fetch;window.__lrErrors=[];window.__lrWrites=[];window.__lrGate=null;window.__lrLookupGate=null;window.__lrJobs=0;window.__lrBlocked=[];window.__lrApproved=null;window.__lrConfirms=[];\naddEventListener('error',event=>__lrErrors.push(event.message));addEventListener('unhandledrejection',event=>__lrErrors.push(String(event.reason)));\nwindow.__lrAsk=askConfirm;askConfirm=(message,options)=>{__lrConfirms.push({message,label:options?.okLabel??'Delete'});return __lrAsk(message,options);};\nwindow.__lrKnown=()=>JSON.parse(sessionStorage.getItem('auradream.smoke.bin-restore-targeted'));\nwindow.__lrStored=async(id)=>{try{const row=await __lrBaseApi('/api/images/'+id+'?binned=true');return {id,exists:true,binned:!!row.binned_at,row};}catch(err){if(err.status===404)return {id,exists:false,binned:null};throw err;}};\nwindow.__lrTag=()=>{for(const[index,id]of __lrKnown().ids.entries())for(const el of document.querySelectorAll('.card[data-id=\"'+id+'\"],.result[data-id=\"'+id+'\"]'))el.dataset.lr='abcdef'[index];};\nwindow.__lrDescribe=(el)=>el?{tag:el.tagName,id:el.id,classes:String(el.className),role:el.getAttribute('role')}:null;\nwindow.__lrBox=(el)=>{const r=el.getBoundingClientRect();return {left:r.left,top:r.top,right:r.right,bottom:r.bottom,width:r.width,height:r.height};};\nwindow.__lrRevealAndReport=(selector)=>{const el=document.querySelector(selector);const report={selector,ok:false,scrollBefore:[scrollX,scrollY],viewport:[innerWidth,innerHeight],topbar:document.querySelector('.topbar')?.getBoundingClientRect().bottom,modal:document.querySelector('dialog[open]')?.id,claims:[...binWriteIds],target:__lrDescribe(el)};if(!el){window.__lrLastReveal=report;return report;}report.before=__lrBox(el);el.scrollIntoView({block:'nearest',inline:'nearest',behavior:'instant'});const r=el.getBoundingClientRect(),top=(report.topbar??0)+12;if(r.top<top)scrollBy(0,r.top-top);else if(r.bottom>innerHeight-12)scrollBy(0,r.bottom-innerHeight+12);const b=el.getBoundingClientRect(),x=b.left+b.width/2,y=b.top+b.height/2,hit=document.elementFromPoint(x,y);report.after=__lrBox(el);report.center=[x,y];report.hit=__lrDescribe(hit);report.stack=document.elementsFromPoint(x,y).slice(0,6).map(__lrDescribe);report.scrollAfter=[scrollX,scrollY];report.parents=[];for(let parent=el.parentElement;parent&&report.parents.length<6;parent=parent.parentElement){const css=getComputedStyle(parent);report.parents.push({...__lrDescribe(parent),rect:__lrBox(parent),overflow:[css.overflowX,css.overflowY],scroll:[parent.scrollLeft,parent.scrollTop],client:[parent.clientWidth,parent.clientHeight],extent:[parent.scrollWidth,parent.scrollHeight],hidden:parent.hidden,visibility:css.visibility});}report.ok=!!hit&&(hit===el||el.contains(hit))&&b.width>0&&b.height>0;window.__lrLastReveal=report;if(!report.ok)return report;const brief={selector,ok:true};const delta=[scrollX-report.scrollBefore[0],scrollY-report.scrollBefore[1]],moved=[report.after.left-report.before.left,report.after.top-report.before.top];if(delta.some(value=>Math.abs(value)>0.1))brief.scrollDelta=delta;if(moved.some(value=>Math.abs(value)>0.1))brief.targetDelta=moved;return brief;};\nwindow.__lrReveal=(selector)=>__lrRevealAndReport(selector).ok;\nwindow.__lrReason='Wait for the current recycle bin change to finish';\nwindow.__lrNorm=(ids)=>[...ids].sort((a,b)=>a-b).join();\nwindow.__lrHeld=(button,ids,annotated=true)=>!!button&&button.getAttribute('aria-disabled')==='true'&&!button.disabled&&button.title===__lrReason&&(!annotated||__lrNorm((button.dataset.binWriteIds||'').split(',').filter(Boolean).map(Number))===__lrNorm(ids));\nwindow.__lrLive=(id)=>galleryRecords.some(row=>row.id===id&&!row.binned_at)&&!!document.querySelector('#gallery .card[data-id=\"'+id+'\"]:not(.binned)');\nwindow.__lrGone=(id)=>!galleryRecords.some(row=>row.id===id)&&!document.querySelector('#gallery .card[data-id=\"'+id+'\"]');\nwindow.__lrRect=(el)=>{const r=el.getBoundingClientRect();return [r.left,r.top,r.width,r.height];};\nwindow.__lrSameRect=(el,rect)=>__lrRect(el).every((n,i)=>Math.abs(n-rect[i])<1);\nwindow.__lrNoteNodes=(slot)=>{const walker=document.createTreeWalker(slot,NodeFilter.SHOW_ALL),nodes=[];for(let node=walker.nextNode();node;node=walker.nextNode())nodes.push(node);return nodes;};\nwindow.__lrSnapshotNote=(slot)=>({slot,rect:__lrRect(slot),nodes:__lrNoteNodes(slot),text:slot.textContent});\nwindow.__lrNoteUnchanged=(snapshot)=>{const nodes=__lrNoteNodes(snapshot.slot);return snapshot.slot.isConnected&&__lrSameRect(snapshot.slot,snapshot.rect)&&snapshot.slot.textContent===snapshot.text&&nodes.length===snapshot.nodes.length&&snapshot.nodes.every((node,index)=>nodes[index]===node);};\nwindow.__lrCardDel=(letter)=>document.querySelector('#gallery .card[data-lr=\"'+letter+'\"] .del');\nwindow.__lrNote=()=>document.querySelector('#gallery-error [data-bin-restore]');\nwindow.__lrClaimed=(ids)=>binWriteIds.size===ids.length&&ids.every(id=>binWriteIds.has(id));\nwindow.__lrSpec=(path,options)=>{if(options?.method==='POST'&&['/api/images/bin','/api/images/restore','/api/images/purge'].includes(path)){const body=JSON.parse(options.body);return {kind:path.split('/').at(-1),ids:body.ids,body};}const one=path.match(/^\\/api\\/images\\/([0-9]+)$/);if(options?.method==='DELETE'&&one)return {kind:'delete',ids:[Number(one[1])]};return null;};\napi=async(path,options)=>{const spec=__lrSpec(path,options);if((options?.method==='DELETE'&&!spec)||(options?.method==='POST'&&/^\\/api\\/gallery\\/bundles(?:[/?]|$)/.test(path))){__lrBlocked.push(path);throw Error('Broad destructive operation is outside this targeted scratch fixture.');}if(options?.method==='POST'&&(['/api/generate','/api/grid','/api/refine','/api/refine/batch','/api/rerender','/api/inpaint','/api/outpaint','/api/more-seeds','/api/instruction-edit','/api/swap-tags'].includes(path.split('?')[0])||/^\\/api\\/runs\\/[^/?]+\\/finish(?:\\?|$)/.test(path))){__lrJobs++;throw Error('Unexpected image job refused before dispatch by targeted fixture.');}if(!spec){const lookup=__lrLookupGate;const [base,query='']=path.split('?');if(lookup&&!lookup.captured&&(!options?.method||options.method==='GET')&&base==='/api/gallery'&&new URLSearchParams(query).get('search')==='refine:'+lookup.id){const result=await __lrBaseApi(path,options);lookup.captured=true;await new Promise(resolve=>{lookup.release=resolve;});return result;}return __lrBaseApi(path,options);}\nconst known=__lrKnown().ids;if(!spec.ids.length||spec.ids.some(id=>!known.includes(id)))throw Error('Unowned lifecycle id refused by fixture.');if(['delete','purge'].includes(spec.kind)){const expected=spec.kind==='delete'?[known[3]]:known.slice(4,6);if(__lrNorm(spec.ids)!==__lrNorm(expected)||!__lrApproved||__lrApproved.kind!==spec.kind||__lrNorm(__lrApproved.ids)!==__lrNorm(spec.ids))throw Error('Unapproved exact fake permanent request refused.');__lrApproved=null;}\nconst entry={...spec,issued:__lrWrites.length+1,sent:false,delivered:false,finished:false};__lrWrites.push(entry);const gate=__lrGate&&!__lrGate.captured&&__lrGate.kind===spec.kind&&__lrNorm(__lrGate.ids)===__lrNorm(spec.ids)?__lrGate:null;if(gate){gate.captured=true;gate.entry=entry;}\ntry{if(gate?.mode==='reject'){await new Promise(resolve=>{gate.release=resolve;});const err=new Error('Owned targeted validation refusal before dispatch');err.status=422;throw err;}entry.sent=true;entry.result=await __lrBaseApi(path,options);entry.stored=await Promise.all(entry.ids.map(__lrStored));if(gate){gate.confirmed=true;await new Promise(resolve=>{gate.release=resolve;});}entry.delivered=true;return entry.result;}catch(err){entry.error=err.message;entry.status=err.status;throw err;}finally{entry.finished=true;}};"
+  },
+  {
+    "expect": "__lrUntil(()=>loadedModel==='black-forest-labs/FLUX.1-Krea-dev' && Number.isInteger(modelRevision) && !busy && !galleryPending && !jobListing && galleryRecords.length===6)",
+    "fatal": true
+  },
+  {
+    "eval": "window.__lrIds=__lrKnown().ids;window.__lrA=__lrIds[0];window.__lrPair=__lrIds.slice(0,2);window.__lrComposer=setupComposerState();__lrTag();"
+  },
+  {
+    "expect": "!binMode && !els.lightbox.open && !selectMode && selectedIds().length===0 && binWriteIds.size===0",
+    "fatal": true
+  },
+  {
+    "expect": "__lrComposer===sessionStorage.getItem('auradream.smoke.bin-restore-targeted.composer')",
+    "fatal": true
+  },
+  {
+    "eval": "window.__lrGate=null;window.__lrStart=__lrWrites.length;"
+  },
+  {
+    "log": "__lrRevealAndReport(\"#gallery .card[data-lr=\\\"d\\\"] .tools .del\")"
+  },
+  {
+    "expect": "__lrLastReveal?.selector===\"#gallery .card[data-lr=\\\"d\\\"] .tools .del\" && __lrLastReveal.ok",
+    "fatal": true
+  },
+  {
+    "hover": "#gallery .card[data-lr=\"d\"] .tools .del"
+  },
+  {
+    "click": "#gallery .card[data-lr=\"d\"] .tools .del"
+  },
+  {
+    "expect": "__lrUntil(()=>__lrWrites.length===__lrStart+1 && __lrWrites.at(-1).finished && binWriteIds.size===0)",
+    "fatal": true
+  },
+  {
+    "eval": "window.__lrGate=null;window.__lrStart=__lrWrites.length;"
+  },
+  {
+    "log": "__lrRevealAndReport(\"#gallery .card[data-lr=\\\"e\\\"] .tools .del\")"
+  },
+  {
+    "expect": "__lrLastReveal?.selector===\"#gallery .card[data-lr=\\\"e\\\"] .tools .del\" && __lrLastReveal.ok",
+    "fatal": true
+  },
+  {
+    "hover": "#gallery .card[data-lr=\"e\"] .tools .del"
+  },
+  {
+    "click": "#gallery .card[data-lr=\"e\"] .tools .del"
+  },
+  {
+    "expect": "__lrUntil(()=>__lrWrites.length===__lrStart+1 && __lrWrites.at(-1).finished && binWriteIds.size===0)",
+    "fatal": true
+  },
+  {
+    "eval": "window.__lrGate=null;window.__lrStart=__lrWrites.length;"
+  },
+  {
+    "log": "__lrRevealAndReport(\"#gallery .card[data-lr=\\\"f\\\"] .tools .del\")"
+  },
+  {
+    "expect": "__lrLastReveal?.selector===\"#gallery .card[data-lr=\\\"f\\\"] .tools .del\" && __lrLastReveal.ok",
+    "fatal": true
+  },
+  {
+    "hover": "#gallery .card[data-lr=\"f\"] .tools .del"
+  },
+  {
+    "click": "#gallery .card[data-lr=\"f\"] .tools .del"
+  },
+  {
+    "expect": "__lrUntil(()=>__lrWrites.length===__lrStart+1 && __lrWrites.at(-1).finished && binWriteIds.size===0)",
+    "fatal": true
+  },
+  {
+    "log": "__lrRevealAndReport(\"#btn-bin\")"
+  },
+  {
+    "expect": "__lrLastReveal?.selector===\"#btn-bin\" && __lrLastReveal.ok",
+    "fatal": true
+  },
+  {
+    "click": "#btn-bin"
+  },
+  {
+    "expect": "__lrUntil(()=>binMode && !galleryPending && galleryRecords.length===3)",
+    "fatal": true
+  },
+  {
+    "eval": "__lrTag();"
+  },
+  {
+    "eval": "window.__lrGate=null;window.__lrStart=__lrWrites.length;"
+  },
+  {
+    "eval": "window.__lrLookupGate={id:__lrIds[3]};"
+  },
+  {
+    "log": "__lrRevealAndReport(\"#gallery .card[data-lr=\\\"d\\\"] .del\")"
+  },
+  {
+    "expect": "__lrLastReveal?.selector===\"#gallery .card[data-lr=\\\"d\\\"] .del\" && __lrLastReveal.ok",
+    "fatal": true
+  },
+  {
+    "hover": "#gallery .card[data-lr=\"d\"] .del"
+  },
+  {
+    "click": "#gallery .card[data-lr=\"d\"] .del"
+  },
+  {
+    "expect": "__lrUntil(()=>__lrLookupGate.captured && typeof __lrLookupGate.release==='function' && !els.confirmDialog.open)",
+    "fatal": true
+  },
+  {
+    "log": "'Explicit direct-funnel boundary check while native D permanent-delete lookup is pending: the background native control has not reached confirmation, and Restore must refuse before dispatch.'"
+  },
+  {
+    "eval": "(async()=>{await restoreImages([__lrIds[3]]);})()"
+  },
+  {
+    "expect": "__lrClaimed([__lrIds[3]]) && __lrWrites.length===__lrStart && !els.confirmDialog.open && els.galleryError.textContent.includes(__lrReason)"
+  },
+  {
+    "eval": "__lrLookupGate.release();window.__lrLookupGate=null;"
+  },
+  {
+    "expect": "__lrUntil(()=>els.confirmDialog.open)",
+    "fatal": true
+  },
+  {
+    "expect": "els.confirmTitle.textContent.startsWith('Delete permanently #'+__lrIds[3]) && els.confirmOk.textContent==='Delete' && els.confirmCountField.hidden",
+    "fatal": true
+  },
+  {
+    "expect": "__lrClaimed([__lrIds[3]]) && __lrHeld(document.querySelector('#gallery .card[data-lr=\"d\"] .restore'),[__lrIds[3]]) && __lrWrites.length===__lrStart"
+  },
+  {
+    "log": "'Explicit direct-funnel boundary check while native D confirmation is open: modal background controls are inert, so this tests the function guard without pretending to be native background input.'"
+  },
+  {
+    "eval": "(async()=>{await restoreImages([__lrIds[3]]);})()"
+  },
+  {
+    "expect": "els.confirmDialog.open && __lrClaimed([__lrIds[3]]) && __lrWrites.length===__lrStart && __lrConfirms.length===1"
+  },
+  {
+    "log": "__lrRevealAndReport(\"#confirm-cancel\")"
+  },
+  {
+    "expect": "__lrLastReveal?.selector===\"#confirm-cancel\" && __lrLastReveal.ok",
+    "fatal": true
+  },
+  {
+    "click": "#confirm-cancel"
+  },
+  {
+    "expect": "__lrUntil(()=>!els.confirmDialog.open && binWriteIds.size===0 && !deleting.has(__lrIds[3]))",
+    "fatal": true
+  },
+  {
+    "expect": "__lrWrites.length===__lrStart && __lrCardDel('d').getAttribute('aria-disabled')==='false' && document.querySelector('#gallery .card[data-lr=\"d\"] .restore').getAttribute('aria-disabled')==='false'"
+  },
+  {
+    "eval": "window.__lrStart=__lrWrites.length;window.__lrGate={kind:\"delete\",ids:[__lrIds[3]],mode:\"hold\"};"
+  },
+  {
+    "log": "__lrRevealAndReport(\"#gallery .card[data-lr=\\\"d\\\"] .del\")"
+  },
+  {
+    "expect": "__lrLastReveal?.selector===\"#gallery .card[data-lr=\\\"d\\\"] .del\" && __lrLastReveal.ok",
+    "fatal": true
+  },
+  {
+    "hover": "#gallery .card[data-lr=\"d\"] .del"
+  },
+  {
+    "click": "#gallery .card[data-lr=\"d\"] .del"
+  },
+  {
+    "expect": "__lrUntil(()=>els.confirmDialog.open)",
+    "fatal": true
+  },
+  {
+    "expect": "els.confirmTitle.textContent.startsWith('Delete permanently #'+__lrIds[3]) && els.confirmOk.textContent==='Delete' && els.confirmCountField.hidden",
+    "fatal": true
+  },
+  {
+    "eval": "window.__lrApproved={kind:\"delete\",ids:[__lrIds[3]]};"
+  },
+  {
+    "log": "__lrRevealAndReport(\"#confirm-ok\")"
+  },
+  {
+    "expect": "__lrLastReveal?.selector===\"#confirm-ok\" && __lrLastReveal.ok",
+    "fatal": true
+  },
+  {
+    "click": "#confirm-ok"
+  },
+  {
+    "expect": "__lrUntil(()=>!els.confirmDialog.open)",
+    "fatal": true
+  },
+  {
+    "expect": "__lrUntil(()=>__lrGate.captured && typeof __lrGate.release==='function')",
+    "fatal": true
+  },
+  {
+    "expect": "__lrGate.confirmed && !__lrGate.entry.stored[0].exists && __lrClaimed([__lrIds[3]]) && __lrHeld(document.querySelector('#gallery .card[data-lr=\"d\"] .restore'),[__lrIds[3]])"
+  },
+  {
+    "log": "__lrRevealAndReport(\"#gallery .card[data-lr=\\\"d\\\"] .restore\")"
+  },
+  {
+    "expect": "__lrLastReveal?.selector===\"#gallery .card[data-lr=\\\"d\\\"] .restore\" && __lrLastReveal.ok",
+    "fatal": true
+  },
+  {
+    "hover": "#gallery .card[data-lr=\"d\"] .restore"
+  },
+  {
+    "click": "#gallery .card[data-lr=\"d\"] .restore"
+  },
+  {
+    "log": "__lrRevealAndReport(\"#gallery .card[data-lr=\\\"d\\\"] .del\")"
+  },
+  {
+    "expect": "__lrLastReveal?.selector===\"#gallery .card[data-lr=\\\"d\\\"] .del\" && __lrLastReveal.ok",
+    "fatal": true
+  },
+  {
+    "hover": "#gallery .card[data-lr=\"d\"] .del"
+  },
+  {
+    "click": "#gallery .card[data-lr=\"d\"] .del"
+  },
+  {
+    "expect": "__lrWrites.length===__lrStart+1 && !els.confirmDialog.open && __lrConfirms.length===2 && __lrClaimed([__lrIds[3]])"
+  },
+  {
+    "eval": "__lrGate.release();"
+  },
+  {
+    "expect": "__lrUntil(()=>__lrGate.entry.finished && binWriteIds.size===0)",
+    "fatal": true
+  },
+  {
+    "expect": "__lrGone(__lrIds[3]) && deletedIds.has(__lrIds[3]) && !binnedIds.has(__lrIds[3]) && !deleting.has(__lrIds[3]) && !binWriteIds.size"
+  },
+  {
+    "log": "'Picked permanent purge retains exact selections and confirmation. Cancel writes nothing; a known pre-dispatch 422 releases all claims and permits a new explicit confirmation. The later real purge cannot overlap Restore/Delete for E or F.'"
+  },
+  {
+    "log": "__lrRevealAndReport(\"#btn-select\")"
+  },
+  {
+    "expect": "__lrLastReveal?.selector===\"#btn-select\" && __lrLastReveal.ok",
+    "fatal": true
+  },
+  {
+    "click": "#btn-select"
+  },
+  {
+    "expect": "selectMode",
+    "fatal": true
+  },
+  {
+    "log": "__lrRevealAndReport(\"#gallery .card[data-lr=\\\"e\\\"] > img\")"
+  },
+  {
+    "expect": "__lrLastReveal?.selector===\"#gallery .card[data-lr=\\\"e\\\"] > img\" && __lrLastReveal.ok",
+    "fatal": true
+  },
+  {
+    "click": "#gallery .card[data-lr=\"e\"] > img"
+  },
+  {
+    "log": "__lrRevealAndReport(\"#gallery .card[data-lr=\\\"f\\\"] > img\")"
+  },
+  {
+    "expect": "__lrLastReveal?.selector===\"#gallery .card[data-lr=\\\"f\\\"] > img\" && __lrLastReveal.ok",
+    "fatal": true
+  },
+  {
+    "click": "#gallery .card[data-lr=\"f\"] > img"
+  },
+  {
+    "expect": "selectedIds().join()===__lrIds.slice(4,6).join()",
+    "fatal": true
+  },
+  {
+    "eval": "window.__lrGate=null;window.__lrStart=__lrWrites.length;"
+  },
+  {
+    "log": "__lrRevealAndReport(\"#btn-purge-picked\")"
+  },
+  {
+    "expect": "__lrLastReveal?.selector===\"#btn-purge-picked\" && __lrLastReveal.ok",
+    "fatal": true
+  },
+  {
+    "click": "#btn-purge-picked"
+  },
+  {
+    "expect": "__lrUntil(()=>els.confirmDialog.open)",
+    "fatal": true
+  },
+  {
+    "expect": "els.confirmTitle.textContent==='Permanently delete the 2 picked images from the recycle bin?' && els.confirmOk.textContent==='Delete permanently' && els.confirmCountField.hidden",
+    "fatal": true
+  },
+  {
+    "expect": "__lrClaimed(__lrIds.slice(4,6)) && __lrWrites.length===__lrStart"
+  },
+  {
+    "log": "'Explicit direct-funnel boundary check during native E/F purge confirmation: overlapping Restore must not dispatch or change the captured picks.'"
+  },
+  {
+    "eval": "(async()=>{await restoreImages(__lrIds.slice(4,6));})()"
+  },
+  {
+    "expect": "els.confirmDialog.open && __lrClaimed(__lrIds.slice(4,6)) && __lrWrites.length===__lrStart && selectedIds().join()===__lrIds.slice(4,6).join() && __lrConfirms.length===3"
+  },
+  {
+    "log": "__lrRevealAndReport(\"#confirm-cancel\")"
+  },
+  {
+    "expect": "__lrLastReveal?.selector===\"#confirm-cancel\" && __lrLastReveal.ok",
+    "fatal": true
+  },
+  {
+    "click": "#confirm-cancel"
+  },
+  {
+    "expect": "__lrUntil(()=>!els.confirmDialog.open && !binWriteIds.size && !purgingPicked)",
+    "fatal": true
+  },
+  {
+    "expect": "__lrWrites.length===__lrStart && selectedIds().join()===__lrIds.slice(4,6).join() && els.restorePicked.getAttribute('aria-disabled')==='false'"
+  },
+  {
+    "eval": "window.__lrStart=__lrWrites.length;window.__lrGate={kind:\"purge\",ids:__lrIds.slice(4,6),mode:\"reject\"};"
+  },
+  {
+    "log": "__lrRevealAndReport(\"#btn-purge-picked\")"
+  },
+  {
+    "expect": "__lrLastReveal?.selector===\"#btn-purge-picked\" && __lrLastReveal.ok",
+    "fatal": true
+  },
+  {
+    "click": "#btn-purge-picked"
+  },
+  {
+    "expect": "__lrUntil(()=>els.confirmDialog.open)",
+    "fatal": true
+  },
+  {
+    "expect": "els.confirmTitle.textContent==='Permanently delete the 2 picked images from the recycle bin?' && els.confirmOk.textContent==='Delete permanently' && els.confirmCountField.hidden",
+    "fatal": true
+  },
+  {
+    "eval": "window.__lrApproved={kind:\"purge\",ids:__lrIds.slice(4,6)};"
+  },
+  {
+    "log": "__lrRevealAndReport(\"#confirm-ok\")"
+  },
+  {
+    "expect": "__lrLastReveal?.selector===\"#confirm-ok\" && __lrLastReveal.ok",
+    "fatal": true
+  },
+  {
+    "click": "#confirm-ok"
+  },
+  {
+    "expect": "__lrUntil(()=>!els.confirmDialog.open)",
+    "fatal": true
+  },
+  {
+    "expect": "__lrUntil(()=>__lrGate.captured && typeof __lrGate.release==='function')",
+    "fatal": true
+  },
+  {
+    "expect": "!__lrGate.entry.sent && __lrClaimed(__lrIds.slice(4,6)) && __lrHeld(els.restorePicked,__lrIds.slice(4,6),false)"
+  },
+  {
+    "eval": "__lrReveal('#gallery .card[data-lr=\"e\"] > img');document.querySelector('#gallery .card[data-lr=\"e\"] > img').focus();"
+  },
+  {
+    "key": "Enter"
+  },
+  {
+    "expect": "__lrUntil(()=>els.lightbox.open && lbList[lbIndex]?.id===__lrIds[4])",
+    "fatal": true
+  },
+  {
+    "expect": "__lrHeld(els.lbRestore,[__lrIds[4]]) && __lrHeld(els.lbDelete,[__lrIds[4]])"
+  },
+  {
+    "log": "__lrRevealAndReport(\"#lb-restore\")"
+  },
+  {
+    "expect": "__lrLastReveal?.selector===\"#lb-restore\" && __lrLastReveal.ok",
+    "fatal": true
+  },
+  {
+    "click": "#lb-restore"
+  },
+  {
+    "key": "Delete"
+  },
+  {
+    "expect": "__lrWrites.length===__lrStart+1 && __lrConfirms.length===4 && !els.confirmDialog.open && !__lrGate.entry.sent"
+  },
+  {
+    "log": "__lrRevealAndReport(\"#lb-close\")"
+  },
+  {
+    "expect": "__lrLastReveal?.selector===\"#lb-close\" && __lrLastReveal.ok",
+    "fatal": true
+  },
+  {
+    "click": "#lb-close"
+  },
+  {
+    "expect": "!els.lightbox.open && selectedIds().join()===__lrIds.slice(4,6).join()"
+  },
+  {
+    "eval": "__lrGate.release();"
+  },
+  {
+    "expect": "__lrUntil(()=>__lrGate.entry.finished && binWriteIds.size===0)",
+    "fatal": true
+  },
+  {
+    "expect": "__lrGate.entry.status===422 && !__lrGate.entry.sent && selectedIds().join()===__lrIds.slice(4,6).join() && !purgingPicked && els.restorePicked.getAttribute('aria-disabled')==='false' && els.galleryError.textContent.includes('Owned targeted validation refusal')"
+  },
+  {
+    "eval": "window.__lrStart=__lrWrites.length;window.__lrGate={kind:\"purge\",ids:__lrIds.slice(4,6),mode:\"hold\"};"
+  },
+  {
+    "log": "__lrRevealAndReport(\"#btn-purge-picked\")"
+  },
+  {
+    "expect": "__lrLastReveal?.selector===\"#btn-purge-picked\" && __lrLastReveal.ok",
+    "fatal": true
+  },
+  {
+    "click": "#btn-purge-picked"
+  },
+  {
+    "expect": "__lrUntil(()=>els.confirmDialog.open)",
+    "fatal": true
+  },
+  {
+    "expect": "els.confirmTitle.textContent==='Permanently delete the 2 picked images from the recycle bin?' && els.confirmOk.textContent==='Delete permanently' && els.confirmCountField.hidden",
+    "fatal": true
+  },
+  {
+    "eval": "window.__lrApproved={kind:\"purge\",ids:__lrIds.slice(4,6)};"
+  },
+  {
+    "log": "__lrRevealAndReport(\"#confirm-ok\")"
+  },
+  {
+    "expect": "__lrLastReveal?.selector===\"#confirm-ok\" && __lrLastReveal.ok",
+    "fatal": true
+  },
+  {
+    "click": "#confirm-ok"
+  },
+  {
+    "expect": "__lrUntil(()=>!els.confirmDialog.open)",
+    "fatal": true
+  },
+  {
+    "expect": "__lrUntil(()=>__lrGate.captured && typeof __lrGate.release==='function')",
+    "fatal": true
+  },
+  {
+    "expect": "__lrGate.confirmed && __lrGate.entry.stored.every(row=>!row.exists) && __lrClaimed(__lrIds.slice(4,6)) && __lrHeld(els.restorePicked,__lrIds.slice(4,6),false)"
+  },
+  {
+    "log": "__lrRevealAndReport(\"#btn-restore-picked\")"
+  },
+  {
+    "expect": "__lrLastReveal?.selector===\"#btn-restore-picked\" && __lrLastReveal.ok",
+    "fatal": true
+  },
+  {
+    "click": "#btn-restore-picked"
+  },
+  {
+    "log": "__lrRevealAndReport(\"#gallery .card[data-lr=\\\"e\\\"] .restore\")"
+  },
+  {
+    "expect": "__lrLastReveal?.selector===\"#gallery .card[data-lr=\\\"e\\\"] .restore\" && __lrLastReveal.ok",
+    "fatal": true
+  },
+  {
+    "hover": "#gallery .card[data-lr=\"e\"] .restore"
+  },
+  {
+    "click": "#gallery .card[data-lr=\"e\"] .restore"
+  },
+  {
+    "log": "__lrRevealAndReport(\"#gallery .card[data-lr=\\\"f\\\"] .del\")"
+  },
+  {
+    "expect": "__lrLastReveal?.selector===\"#gallery .card[data-lr=\\\"f\\\"] .del\" && __lrLastReveal.ok",
+    "fatal": true
+  },
+  {
+    "hover": "#gallery .card[data-lr=\"f\"] .del"
+  },
+  {
+    "click": "#gallery .card[data-lr=\"f\"] .del"
+  },
+  {
+    "expect": "__lrWrites.length===__lrStart+1 && __lrConfirms.length===5 && !els.confirmDialog.open && selectedIds().join()===__lrIds.slice(4,6).join()"
+  },
+  {
+    "shot": "bin-restore-purge-pending.png"
+  },
+  {
+    "eval": "__lrGate.release();"
+  },
+  {
+    "expect": "__lrUntil(()=>__lrGate.entry.finished && binWriteIds.size===0)",
+    "fatal": true
+  },
+  {
+    "expect": "__lrUntil(()=>!els.lightbox.open && galleryRecords.length===0 && selectedIds().length===0 && !purgingPicked)",
+    "fatal": true
+  },
+  {
+    "expect": "__lrIds.slice(3).every(id=>deletedIds.has(id)&&!binnedIds.has(id)) && !binWriteIds.size && __lrConfirms.length===5 && __lrBlocked.length===0 && __lrJobs===0 && __lrErrors.length===0 && setupComposerState()===__lrComposer"
+  },
+  {
+    "expect": "(async()=>{const all=await Promise.all(__lrIds.map(__lrStored));if(!all.slice(0,3).every(row=>row.exists&&!row.binned)||!all.slice(3).every(row=>!row.exists))return false;const statuses=await Promise.all(__lrKnown().urls.slice(3).map(url=>__lrBaseFetch(url).then(response=>response.status)));return statuses.every(status=>status===404);})()"
+  },
+  {
+    "log": "JSON.stringify({targetedWrites:__lrWrites.map(({kind,ids,sent,delivered,status})=>({kind,ids,sent,delivered,status})),confirmations:__lrConfirms.map(({label})=>label),remainingClaims:[...binWriteIds],unexpectedJobs:__lrJobs,blockedBroadAttempts:__lrBlocked.length,composerUnchanged:setupComposerState()===__lrComposer})"
+  },
+  {
+    "eval": "api=__lrBaseApi;askConfirm=__lrAsk;"
+  }
+]

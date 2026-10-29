@@ -1,0 +1,638 @@
+[
+  {
+    "log": "'Saved-name Unicode parity on a fresh scratch FLUX.1 fake: native 80-codepoint astral create/edit, native mixed-name 81st-codepoint holds, programmatic overlimit guard, BMP boundary and persisted reload. No generated images, real gallery or models.'"
+  },
+  {
+    "navigate": "http://127.0.0.1:7936/"
+  },
+  {
+    "eval": "window.__until=async(fn,ms=20000)=>{const end=Date.now()+ms;while(Date.now()<end){try{if(await fn())return true;}catch{}await new Promise(resolve=>setTimeout(resolve,40));}return false;};window.__nameErrors=[];addEventListener('error',event=>__nameErrors.push(event.message));addEventListener('unhandledrejection',event=>__nameErrors.push(String(event.reason)));window.__astral='🎨'.repeat(80);window.__renamed='🧭'.repeat(80);window.__bmp='B'.repeat(80);window.__nameBaseApi=api;window.__nameCalls=[];api=async(path,options)=>{__nameCalls.push({path,method:options?.method||'GET'});return __nameBaseApi(path,options);};window.__nameWrites=()=>__nameCalls.filter(call=>['POST','PUT','DELETE'].includes(call.method)&&!call.path.endsWith('/validate')&&call.path!=='/api/prompt/measure').length;window.__nameState=()=>JSON.stringify({composer:setupComposerState(),search:els.search.value,favorites:els.favOnly.checked,allModels:els.allModels.checked,picks:selectedIds()});window.__setName=(field,value)=>{field.value=value;field.dispatchEvent(new Event('input',{bubbles:true}));};"
+  },
+  {
+    "expect": "__until(()=>document.getElementById('status-dot').className.includes('ready')&&Number.isInteger(modelRevision)&&!galleryPending&&!jobListing)"
+  },
+  {
+    "eval": "(async()=>{resetPanel();rewriteBox(els.prompt,'Saved names Unicode fixture');promptReplaced();persistPanel();window.__nameBefore=__nameState();window.__nameGallery=JSON.stringify(await api('/api/gallery'));const collections=await Promise.all(['/api/snippets','/api/presets','/api/gallery/saved-searches'].map(path=>api(path)));if(!collections.every(result=>result.items.length===0))throw Error('Use a fresh scratch --data directory for this smoke');})();"
+  },
+  {
+    "expect": "['snippets-name','setups-name','saved-searches-name'].every(id=>document.getElementById(id).maxLength===160)&&els.snippetsText.maxLength===16000&&els.savedSearchQuery.maxLength===4000"
+  },
+  {
+    "log": "\"Personal snippets: 80 astral characters occupy 160 UTF-16 code units; native mixed 81-character text fits the HTML capacity but must be held by the codepoint guard.\""
+  },
+  {
+    "click": "#btn-examples"
+  },
+  {
+    "click": "#snippets-menu-item"
+  },
+  {
+    "expect": "__until(()=>els.snippetsDialog.open&&snippetsReady&&!snippetsPending)"
+  },
+  {
+    "click": "#snippets-new"
+  },
+  {
+    "click": "#snippets-text"
+  },
+  {
+    "type": "Exact Unicode snippet text\nsecond line"
+  },
+  {
+    "click": "#snippets-name"
+  },
+  {
+    "keycombo": [
+      "Control",
+      "a"
+    ]
+  },
+  {
+    "type": "🎨🎨🎨🎨🎨🎨🎨🎨🎨🎨🎨🎨🎨🎨🎨🎨🎨🎨🎨🎨🎨🎨🎨🎨🎨🎨🎨🎨🎨🎨🎨🎨🎨🎨🎨🎨🎨🎨🎨🎨🎨🎨🎨🎨🎨🎨🎨🎨🎨🎨🎨🎨🎨🎨🎨🎨🎨🎨🎨🎨🎨🎨🎨🎨🎨🎨🎨🎨🎨🎨🎨🎨🎨🎨🎨🎨🎨🎨🎨🎨"
+  },
+  {
+    "expect": "els.snippetsName.value===__astral&&els.snippetsName.value.length===160&&[...els.snippetsName.value].length===80&&els.snippetsName.validity.valid&&document.getElementById('snippets-save').getAttribute('aria-disabled')==='false'"
+  },
+  {
+    "click": "#snippets-save"
+  },
+  {
+    "expect": "__until(()=>!snippetsPending&&snippetsItems.length===1&&snippetsSelected?.revision===1&&snippetsSelected.name===__astral)"
+  },
+  {
+    "eval": "window.__nameId=snippetsSelected.id;"
+  },
+  {
+    "click": "#snippets-name"
+  },
+  {
+    "keycombo": [
+      "Control",
+      "a"
+    ]
+  },
+  {
+    "type": "🧭🧭🧭🧭🧭🧭🧭🧭🧭🧭🧭🧭🧭🧭🧭🧭🧭🧭🧭🧭🧭🧭🧭🧭🧭🧭🧭🧭🧭🧭🧭🧭🧭🧭🧭🧭🧭🧭🧭🧭🧭🧭🧭🧭🧭🧭🧭🧭🧭🧭🧭🧭🧭🧭🧭🧭🧭🧭🧭🧭🧭🧭🧭🧭🧭🧭🧭🧭🧭🧭🧭🧭🧭🧭🧭🧭🧭🧭🧭🧭"
+  },
+  {
+    "click": "#snippets-save"
+  },
+  {
+    "expect": "__until(()=>!snippetsPending&&snippetsSelected?.id===__nameId&&snippetsSelected.revision===2&&snippetsSelected.name===__renamed)"
+  },
+  {
+    "click": "#snippets-reload"
+  },
+  {
+    "expect": "__until(()=>snippetsReady&&!snippetsPending)"
+  },
+  {
+    "eval": "els.snippetsList.value=__nameId;els.snippetsList.dispatchEvent(new Event('change',{bubbles:true}));"
+  },
+  {
+    "expect": "__until(()=>!snippetsPending&&els.snippetsName.value===__renamed&&snippetsSelected?.revision===2)"
+  },
+  {
+    "click": "#snippets-name"
+  },
+  {
+    "keycombo": [
+      "Control",
+      "a"
+    ]
+  },
+  {
+    "type": "🎨🎨🎨🎨🎨🎨🎨🎨🎨🎨🎨🎨🎨🎨🎨🎨🎨🎨🎨🎨🎨🎨🎨🎨🎨🎨🎨🎨🎨🎨🎨🎨🎨🎨🎨🎨🎨🎨🎨🎨🎨🎨🎨🎨🎨🎨🎨🎨🎨🎨🎨🎨🎨🎨🎨🎨🎨🎨🎨🎨🎨🎨🎨🎨🎨🎨🎨🎨🎨🎨🎨🎨🎨🎨🎨🎨🎨🎨🎨A"
+  },
+  {
+    "expect": "[...els.snippetsName.value].length===80&&els.snippetsName.value.length===159&&document.getElementById('snippets-save').getAttribute('aria-disabled')==='false'"
+  },
+  {
+    "type": "B"
+  },
+  {
+    "expect": "[...els.snippetsName.value].length===81&&els.snippetsName.value.length===160&&els.snippetsName.value.endsWith('AB')&&document.getElementById('snippets-save').getAttribute('aria-disabled')==='true'&&!document.getElementById('snippets-save').disabled&&document.getElementById('snippets-save').title.includes('80')"
+  },
+  {
+    "eval": "window.__nameWriteCount=__nameWrites();"
+  },
+  {
+    "click": "#snippets-save"
+  },
+  {
+    "expect": "!snippetsPending&&__nameWrites()===__nameWriteCount&&snippetsSelected.revision===2&&els.snippetsStatus.textContent.includes('80')"
+  },
+  {
+    "eval": "__setName(els.snippetsName,__astral+'🎨');"
+  },
+  {
+    "expect": "[...els.snippetsName.value].length===81&&document.getElementById('snippets-save').getAttribute('aria-disabled')==='true'"
+  },
+  {
+    "click": "#snippets-save"
+  },
+  {
+    "expect": "__nameWrites()===__nameWriteCount&&!snippetsPending"
+  },
+  {
+    "click": "#snippets-new"
+  },
+  {
+    "click": "#snippets-text"
+  },
+  {
+    "type": "BMP snippet text"
+  },
+  {
+    "click": "#snippets-name"
+  },
+  {
+    "keycombo": [
+      "Control",
+      "a"
+    ]
+  },
+  {
+    "type": "BBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBB"
+  },
+  {
+    "expect": "els.snippetsName.value===__bmp&&document.getElementById('snippets-save').getAttribute('aria-disabled')==='false'"
+  },
+  {
+    "click": "#snippets-save"
+  },
+  {
+    "expect": "__until(()=>!snippetsPending&&snippetsItems.length===2&&snippetsSelected?.revision===1&&snippetsSelected.name===__bmp)"
+  },
+  {
+    "click": "#snippets-name"
+  },
+  {
+    "eval": "els.snippetsName.setSelectionRange(els.snippetsName.value.length,els.snippetsName.value.length);"
+  },
+  {
+    "type": "C"
+  },
+  {
+    "expect": "els.snippetsName.value===__bmp+'C'&&[...els.snippetsName.value].length===81&&document.getElementById('snippets-save').getAttribute('aria-disabled')==='true'"
+  },
+  {
+    "eval": "window.__nameWriteCount=__nameWrites();"
+  },
+  {
+    "click": "#snippets-save"
+  },
+  {
+    "keycombo": [
+      "Control",
+      "Enter"
+    ]
+  },
+  {
+    "expect": "els.snippetsDialog.open&&__nameWrites()===__nameWriteCount&&!busy&&!submitting&&__nameState()===__nameBefore"
+  },
+  {
+    "key": "Escape"
+  },
+  {
+    "expect": "__until(()=>!els.snippetsDialog.open&&document.activeElement===els.examplesBtn)"
+  },
+  {
+    "log": "\"Saved setups: 80 astral characters occupy 160 UTF-16 code units; native mixed 81-character text fits the HTML capacity but must be held by the codepoint guard.\""
+  },
+  {
+    "click": "#btn-examples"
+  },
+  {
+    "click": "#setups-menu-item"
+  },
+  {
+    "expect": "__until(()=>els.setupsDialog.open&&setupsReady&&!setupsPending)"
+  },
+  {
+    "click": "#setups-new"
+  },
+  {
+    "click": "#setups-name"
+  },
+  {
+    "keycombo": [
+      "Control",
+      "a"
+    ]
+  },
+  {
+    "type": "🎨🎨🎨🎨🎨🎨🎨🎨🎨🎨🎨🎨🎨🎨🎨🎨🎨🎨🎨🎨🎨🎨🎨🎨🎨🎨🎨🎨🎨🎨🎨🎨🎨🎨🎨🎨🎨🎨🎨🎨🎨🎨🎨🎨🎨🎨🎨🎨🎨🎨🎨🎨🎨🎨🎨🎨🎨🎨🎨🎨🎨🎨🎨🎨🎨🎨🎨🎨🎨🎨🎨🎨🎨🎨🎨🎨🎨🎨🎨🎨"
+  },
+  {
+    "expect": "els.setupsName.value===__astral&&els.setupsName.value.length===160&&[...els.setupsName.value].length===80&&els.setupsName.validity.valid&&document.getElementById('setups-save').getAttribute('aria-disabled')==='false'"
+  },
+  {
+    "click": "#setups-save"
+  },
+  {
+    "expect": "__until(()=>!setupsPending&&setupsItems.length===1&&setupsSelected?.revision===1&&setupsSelected.name===__astral)"
+  },
+  {
+    "eval": "window.__nameId=setupsSelected.id;window.__nameSetupPayload=JSON.stringify(setupsSelected.payload);"
+  },
+  {
+    "click": "#setups-name"
+  },
+  {
+    "keycombo": [
+      "Control",
+      "a"
+    ]
+  },
+  {
+    "type": "🧭🧭🧭🧭🧭🧭🧭🧭🧭🧭🧭🧭🧭🧭🧭🧭🧭🧭🧭🧭🧭🧭🧭🧭🧭🧭🧭🧭🧭🧭🧭🧭🧭🧭🧭🧭🧭🧭🧭🧭🧭🧭🧭🧭🧭🧭🧭🧭🧭🧭🧭🧭🧭🧭🧭🧭🧭🧭🧭🧭🧭🧭🧭🧭🧭🧭🧭🧭🧭🧭🧭🧭🧭🧭🧭🧭🧭🧭🧭🧭"
+  },
+  {
+    "click": "#setups-rename"
+  },
+  {
+    "expect": "__until(()=>!setupsPending&&setupsSelected?.id===__nameId&&setupsSelected.revision===2&&setupsSelected.name===__renamed)"
+  },
+  {
+    "expect": "JSON.stringify(setupsSelected.payload)===__nameSetupPayload"
+  },
+  {
+    "click": "#setups-reload"
+  },
+  {
+    "expect": "__until(()=>setupsReady&&!setupsPending)"
+  },
+  {
+    "eval": "els.setupsList.value=__nameId;els.setupsList.dispatchEvent(new Event('change',{bubbles:true}));"
+  },
+  {
+    "expect": "__until(()=>!setupsPending&&els.setupsName.value===__renamed&&setupsSelected?.revision===2)"
+  },
+  {
+    "click": "#setups-name"
+  },
+  {
+    "keycombo": [
+      "Control",
+      "a"
+    ]
+  },
+  {
+    "type": "🎨🎨🎨🎨🎨🎨🎨🎨🎨🎨🎨🎨🎨🎨🎨🎨🎨🎨🎨🎨🎨🎨🎨🎨🎨🎨🎨🎨🎨🎨🎨🎨🎨🎨🎨🎨🎨🎨🎨🎨🎨🎨🎨🎨🎨🎨🎨🎨🎨🎨🎨🎨🎨🎨🎨🎨🎨🎨🎨🎨🎨🎨🎨🎨🎨🎨🎨🎨🎨🎨🎨🎨🎨🎨🎨🎨🎨🎨🎨A"
+  },
+  {
+    "expect": "[...els.setupsName.value].length===80&&els.setupsName.value.length===159&&document.getElementById('setups-rename').getAttribute('aria-disabled')==='false'"
+  },
+  {
+    "type": "B"
+  },
+  {
+    "expect": "[...els.setupsName.value].length===81&&els.setupsName.value.length===160&&els.setupsName.value.endsWith('AB')&&document.getElementById('setups-rename').getAttribute('aria-disabled')==='true'&&!document.getElementById('setups-rename').disabled&&document.getElementById('setups-rename').title.includes('80')"
+  },
+  {
+    "expect": "[els.setupsSave,els.setupsUpdate,els.setupsRename].every(button=>button.getAttribute('aria-disabled')==='true')"
+  },
+  {
+    "eval": "window.__nameWriteCount=__nameWrites();"
+  },
+  {
+    "click": "#setups-rename"
+  },
+  {
+    "expect": "!setupsPending&&__nameWrites()===__nameWriteCount&&setupsSelected.revision===2&&els.setupsStatus.textContent.includes('80')"
+  },
+  {
+    "eval": "__setName(els.setupsName,__astral+'🎨');"
+  },
+  {
+    "expect": "[...els.setupsName.value].length===81&&document.getElementById('setups-rename').getAttribute('aria-disabled')==='true'"
+  },
+  {
+    "click": "#setups-rename"
+  },
+  {
+    "expect": "__nameWrites()===__nameWriteCount&&!setupsPending"
+  },
+  {
+    "click": "#setups-new"
+  },
+  {
+    "click": "#setups-name"
+  },
+  {
+    "keycombo": [
+      "Control",
+      "a"
+    ]
+  },
+  {
+    "type": "BBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBB"
+  },
+  {
+    "expect": "els.setupsName.value===__bmp&&document.getElementById('setups-save').getAttribute('aria-disabled')==='false'"
+  },
+  {
+    "click": "#setups-save"
+  },
+  {
+    "expect": "__until(()=>!setupsPending&&setupsItems.length===2&&setupsSelected?.revision===1&&setupsSelected.name===__bmp)"
+  },
+  {
+    "click": "#setups-name"
+  },
+  {
+    "eval": "els.setupsName.setSelectionRange(els.setupsName.value.length,els.setupsName.value.length);"
+  },
+  {
+    "type": "C"
+  },
+  {
+    "expect": "els.setupsName.value===__bmp+'C'&&[...els.setupsName.value].length===81&&document.getElementById('setups-rename').getAttribute('aria-disabled')==='true'"
+  },
+  {
+    "eval": "window.__nameWriteCount=__nameWrites();"
+  },
+  {
+    "click": "#setups-rename"
+  },
+  {
+    "keycombo": [
+      "Control",
+      "Enter"
+    ]
+  },
+  {
+    "expect": "els.setupsDialog.open&&__nameWrites()===__nameWriteCount&&!busy&&!submitting&&__nameState()===__nameBefore"
+  },
+  {
+    "key": "Escape"
+  },
+  {
+    "expect": "__until(()=>!els.setupsDialog.open&&document.activeElement===els.examplesBtn)"
+  },
+  {
+    "log": "\"Saved searches: 80 astral characters occupy 160 UTF-16 code units; native mixed 81-character text fits the HTML capacity but must be held by the codepoint guard.\""
+  },
+  {
+    "click": "#btn-saved-searches"
+  },
+  {
+    "expect": "__until(()=>els.savedSearchDialog.open&&savedSearchReady&&!savedSearchPending)"
+  },
+  {
+    "click": "#saved-searches-new"
+  },
+  {
+    "click": "#saved-searches-query"
+  },
+  {
+    "type": "Saved-name query"
+  },
+  {
+    "click": "#saved-searches-name"
+  },
+  {
+    "keycombo": [
+      "Control",
+      "a"
+    ]
+  },
+  {
+    "type": "🎨🎨🎨🎨🎨🎨🎨🎨🎨🎨🎨🎨🎨🎨🎨🎨🎨🎨🎨🎨🎨🎨🎨🎨🎨🎨🎨🎨🎨🎨🎨🎨🎨🎨🎨🎨🎨🎨🎨🎨🎨🎨🎨🎨🎨🎨🎨🎨🎨🎨🎨🎨🎨🎨🎨🎨🎨🎨🎨🎨🎨🎨🎨🎨🎨🎨🎨🎨🎨🎨🎨🎨🎨🎨🎨🎨🎨🎨🎨🎨"
+  },
+  {
+    "expect": "els.savedSearchName.value===__astral&&els.savedSearchName.value.length===160&&[...els.savedSearchName.value].length===80&&els.savedSearchName.validity.valid&&document.getElementById('saved-searches-save').getAttribute('aria-disabled')==='false'"
+  },
+  {
+    "click": "#saved-searches-save"
+  },
+  {
+    "expect": "__until(()=>!savedSearchPending&&savedSearchItems.length===1&&savedSearchSelected?.revision===1&&savedSearchSelected.name===__astral)"
+  },
+  {
+    "eval": "window.__nameId=savedSearchSelected.id;"
+  },
+  {
+    "click": "#saved-searches-name"
+  },
+  {
+    "keycombo": [
+      "Control",
+      "a"
+    ]
+  },
+  {
+    "type": "🧭🧭🧭🧭🧭🧭🧭🧭🧭🧭🧭🧭🧭🧭🧭🧭🧭🧭🧭🧭🧭🧭🧭🧭🧭🧭🧭🧭🧭🧭🧭🧭🧭🧭🧭🧭🧭🧭🧭🧭🧭🧭🧭🧭🧭🧭🧭🧭🧭🧭🧭🧭🧭🧭🧭🧭🧭🧭🧭🧭🧭🧭🧭🧭🧭🧭🧭🧭🧭🧭🧭🧭🧭🧭🧭🧭🧭🧭🧭🧭"
+  },
+  {
+    "click": "#saved-searches-save"
+  },
+  {
+    "expect": "__until(()=>!savedSearchPending&&savedSearchSelected?.id===__nameId&&savedSearchSelected.revision===2&&savedSearchSelected.name===__renamed)"
+  },
+  {
+    "click": "#saved-searches-reload"
+  },
+  {
+    "expect": "__until(()=>savedSearchReady&&!savedSearchPending)"
+  },
+  {
+    "eval": "els.savedSearchList.value=__nameId;els.savedSearchList.dispatchEvent(new Event('change',{bubbles:true}));"
+  },
+  {
+    "expect": "__until(()=>!savedSearchPending&&els.savedSearchName.value===__renamed&&savedSearchSelected?.revision===2)"
+  },
+  {
+    "click": "#saved-searches-name"
+  },
+  {
+    "keycombo": [
+      "Control",
+      "a"
+    ]
+  },
+  {
+    "type": "🎨🎨🎨🎨🎨🎨🎨🎨🎨🎨🎨🎨🎨🎨🎨🎨🎨🎨🎨🎨🎨🎨🎨🎨🎨🎨🎨🎨🎨🎨🎨🎨🎨🎨🎨🎨🎨🎨🎨🎨🎨🎨🎨🎨🎨🎨🎨🎨🎨🎨🎨🎨🎨🎨🎨🎨🎨🎨🎨🎨🎨🎨🎨🎨🎨🎨🎨🎨🎨🎨🎨🎨🎨🎨🎨🎨🎨🎨🎨A"
+  },
+  {
+    "expect": "[...els.savedSearchName.value].length===80&&els.savedSearchName.value.length===159&&document.getElementById('saved-searches-save').getAttribute('aria-disabled')==='false'"
+  },
+  {
+    "type": "B"
+  },
+  {
+    "expect": "[...els.savedSearchName.value].length===81&&els.savedSearchName.value.length===160&&els.savedSearchName.value.endsWith('AB')&&document.getElementById('saved-searches-save').getAttribute('aria-disabled')==='true'&&!document.getElementById('saved-searches-save').disabled&&document.getElementById('saved-searches-save').title.includes('80')"
+  },
+  {
+    "eval": "window.__nameWriteCount=__nameWrites();"
+  },
+  {
+    "click": "#saved-searches-save"
+  },
+  {
+    "expect": "!savedSearchPending&&__nameWrites()===__nameWriteCount&&savedSearchSelected.revision===2&&els.savedSearchStatus.textContent.includes('80')"
+  },
+  {
+    "eval": "__setName(els.savedSearchName,__astral+'🎨');"
+  },
+  {
+    "expect": "[...els.savedSearchName.value].length===81&&document.getElementById('saved-searches-save').getAttribute('aria-disabled')==='true'"
+  },
+  {
+    "click": "#saved-searches-save"
+  },
+  {
+    "expect": "__nameWrites()===__nameWriteCount&&!savedSearchPending"
+  },
+  {
+    "click": "#saved-searches-new"
+  },
+  {
+    "click": "#saved-searches-query"
+  },
+  {
+    "type": "BMP query"
+  },
+  {
+    "click": "#saved-searches-name"
+  },
+  {
+    "keycombo": [
+      "Control",
+      "a"
+    ]
+  },
+  {
+    "type": "BBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBB"
+  },
+  {
+    "expect": "els.savedSearchName.value===__bmp&&document.getElementById('saved-searches-save').getAttribute('aria-disabled')==='false'"
+  },
+  {
+    "click": "#saved-searches-save"
+  },
+  {
+    "expect": "__until(()=>!savedSearchPending&&savedSearchItems.length===2&&savedSearchSelected?.revision===1&&savedSearchSelected.name===__bmp)"
+  },
+  {
+    "click": "#saved-searches-name"
+  },
+  {
+    "eval": "els.savedSearchName.setSelectionRange(els.savedSearchName.value.length,els.savedSearchName.value.length);"
+  },
+  {
+    "type": "C"
+  },
+  {
+    "expect": "els.savedSearchName.value===__bmp+'C'&&[...els.savedSearchName.value].length===81&&document.getElementById('saved-searches-save').getAttribute('aria-disabled')==='true'"
+  },
+  {
+    "eval": "window.__nameWriteCount=__nameWrites();"
+  },
+  {
+    "click": "#saved-searches-save"
+  },
+  {
+    "keycombo": [
+      "Control",
+      "Enter"
+    ]
+  },
+  {
+    "expect": "els.savedSearchDialog.open&&__nameWrites()===__nameWriteCount&&!busy&&!submitting&&__nameState()===__nameBefore"
+  },
+  {
+    "key": "Escape"
+  },
+  {
+    "expect": "__until(()=>!els.savedSearchDialog.open&&document.activeElement===els.savedSearches)"
+  },
+  {
+    "expect": "__nameErrors.length===0&&__nameState()===__nameBefore"
+  },
+  {
+    "expect": "(async()=>JSON.stringify(await api('/api/gallery'))===__nameGallery)()"
+  },
+  {
+    "log": "JSON.stringify({encoderOnlyMeasurementCalls:__nameCalls.filter(call=>call.method==='POST'&&call.path==='/api/prompt/measure')})"
+  },
+  {
+    "expect": "__nameCalls.filter(call=>['POST','PUT','DELETE'].includes(call.method)).every(call=>/^\\/api\\/(snippets(?:\\/[a-f0-9]{32})?|presets(?:\\/[a-f0-9]{32}(?:\\/validate)?)?|gallery\\/saved-searches(?:\\/[a-f0-9]{32})?)$/.test(call.path)||(call.method==='POST'&&call.path==='/api/prompt/measure'))"
+  },
+  {
+    "log": "'Full page reload reads the exact saved names and revisions again, with no truncation or image job.'"
+  },
+  {
+    "navigate": "http://127.0.0.1:7936/"
+  },
+  {
+    "eval": "window.__until=async(fn,ms=20000)=>{const end=Date.now()+ms;while(Date.now()<end){try{if(await fn())return true;}catch{}await new Promise(resolve=>setTimeout(resolve,40));}return false;};window.__nameErrors=[];addEventListener('error',event=>__nameErrors.push(event.message));addEventListener('unhandledrejection',event=>__nameErrors.push(String(event.reason)));window.__renamed='🧭'.repeat(80);window.__bmp='B'.repeat(80);"
+  },
+  {
+    "expect": "__until(()=>document.getElementById('status-dot').className.includes('ready')&&Number.isInteger(modelRevision)&&!galleryPending&&!jobListing)"
+  },
+  {
+    "expect": "(async()=>{const [snippets,setups,searches,gallery]=await Promise.all(['/api/snippets','/api/presets','/api/gallery/saved-searches','/api/gallery'].map(path=>api(path)));return [snippets,setups,searches].every(result=>result.items.length===2&&result.items[0].name===__renamed&&result.items[0].revision===2&&result.items[1].name===__bmp&&result.items[1].revision===1)&&snippets.items[0].text==='Exact Unicode snippet text\\nsecond line'&&snippets.items[1].text==='BMP snippet text'&&setups.items.every(item=>item.payload.prompt==='Saved names Unicode fixture')&&searches.items[0].query==='Saved-name query'&&searches.items[1].query==='BMP query'&&gallery.total===0&&els.prompt.value==='Saved names Unicode fixture'&&!busy&&!submitting;})()"
+  },
+  {
+    "click": "#btn-examples"
+  },
+  {
+    "click": "#snippets-menu-item"
+  },
+  {
+    "expect": "__until(()=>els.snippetsDialog.open&&snippetsReady&&!snippetsPending)"
+  },
+  {
+    "expect": "els.snippetsName.value===__renamed&&els.snippetsName.value.length===160&&[...els.snippetsName.value].length===80"
+  },
+  {
+    "key": "Escape"
+  },
+  {
+    "expect": "__until(()=>!els.snippetsDialog.open&&document.activeElement===els.examplesBtn)"
+  },
+  {
+    "click": "#btn-examples"
+  },
+  {
+    "click": "#setups-menu-item"
+  },
+  {
+    "expect": "__until(()=>els.setupsDialog.open&&setupsReady&&!setupsPending)"
+  },
+  {
+    "eval": "els.setupsList.value=setupsItems[0].id;els.setupsList.dispatchEvent(new Event('change',{bubbles:true}));"
+  },
+  {
+    "expect": "__until(()=>!setupsPending&&els.setupsName.value===__renamed)"
+  },
+  {
+    "key": "Escape"
+  },
+  {
+    "expect": "__until(()=>!els.setupsDialog.open&&document.activeElement===els.examplesBtn)"
+  },
+  {
+    "click": "#btn-saved-searches"
+  },
+  {
+    "expect": "__until(()=>els.savedSearchDialog.open&&savedSearchReady&&!savedSearchPending)"
+  },
+  {
+    "expect": "els.savedSearchName.value===__renamed&&els.savedSearchName.value.length===160&&[...els.savedSearchName.value].length===80"
+  },
+  {
+    "key": "Escape"
+  },
+  {
+    "expect": "__until(()=>!els.savedSearchDialog.open&&document.activeElement===els.savedSearches)"
+  },
+  {
+    "expect": "__nameErrors.length===0&&els.prompt.value==='Saved names Unicode fixture'&&!busy&&!submitting"
+  },
+  {
+    "log": "'Unicode saved-name smoke complete: all three libraries preserve 80-codepoint astral and BMP names, hold 81 codepoints without a write, and retain the composer and empty scratch gallery.'"
+  }
+]

@@ -1,0 +1,261 @@
+[
+  {
+    "log": "'Hidden picked favorites on a fresh FLUX.1 scratch fake: seed before navigation, isolate retained snapshots, then exercise active/stashed picks without real models or data.'"
+  },
+  {
+    "navigate": "http://127.0.0.1:7937/"
+  },
+  {
+    "eval": "window.__pfUntil=async(fn,ms=20000)=>{const end=Date.now()+ms;while(Date.now()<end){try{if(await fn())return true;}catch{}await new Promise(resolve=>setTimeout(resolve,40));}return false;};\nwindow.__pfBaseApi=api;window.__pfErrors=[];window.__pfRecordReads=0;\naddEventListener('error',event=>__pfErrors.push(event.message));addEventListener('unhandledrejection',event=>__pfErrors.push(String(event.reason)));\nwindow.__pfPost=(path,body)=>__pfBaseApi(path,{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify(body)});\nwindow.__pfCards=()=>[...document.querySelectorAll('#gallery .card[data-id]')];\nwindow.__pfKnown=()=>JSON.parse(sessionStorage.getItem('auradream.smoke.picked-favorites'));\nwindow.__pfNotAliased=(ids)=>[viewerRecords,sessionRecords,lbList].every(list=>list.every(rec=>!ids.includes(rec.id)));\nwindow.__pfTagPicks=()=>{const known=__pfKnown();for(const[index,id]of known.picks.entries()){const card=document.querySelector('#gallery .card[data-id=\"'+id+'\"]');if(!card)throw Error('Missing owned fixture card #'+id);card.dataset.pfPick=index===0?'first':'second';}};\nwindow.__pfPromptState=()=>JSON.stringify({prompt:els.prompt.value,negative:els.negative.value});\nwindow.__pfServer=async(ids)=>Promise.all(ids.map(id=>__pfBaseApi('/api/images/'+id)));\napi=async(path,options)=>{if(new RegExp('^/api/images/[0-9]+$').test(path.split('?')[0]))__pfRecordReads++;return __pfBaseApi(path,options);};"
+  },
+  {
+    "expect": "__pfUntil(()=>document.getElementById('status-dot').className.includes('ready')&&Number.isInteger(modelRevision)&&!galleryPending&&!jobListing)"
+  },
+  {
+    "expect": "(async()=>{\nif((await __pfBaseApi('/api/gallery')).total!==0)throw Error('This smoke requires fresh scratch --data for the selected FLUX.1 model.');\nconst wait=async(job)=>{const done=await __pfUntil(async()=>{const state=await __pfBaseApi('/api/jobs/'+job);return !['queued','running'].includes(state.status);});if(!done)throw Error('Owned fake fixture did not finish.');};\nconst first=await __pfPost('/api/generate',{prompt:'owned older picked favorite fixture',width:256,height:256,steps:1,seed:7100,num_images:2});await wait(first.job_id);\nconst second=await __pfPost('/api/generate',{prompt:'owned newer gallery decoy',width:256,height:256,steps:1,seed:7200,num_images:1});await wait(second.job_id);\nconst rows=(await __pfBaseApi('/api/gallery?limit=100')).items.sort((a,b)=>a.id-b.id);\nif(rows.length!==3)throw Error('Expected exactly three owned fake images.');\nsessionStorage.setItem('auradream.smoke.picked-favorites',JSON.stringify({picks:rows.slice(0,2).map(rec=>rec.id),decoy:rows[2].id}));\nreturn true;\n})()",
+    "fatal": true
+  },
+  {
+    "log": "'Navigate after fixture creation so older picks are not also held by the viewer, session or lightbox; otherwise aliases would mask this defect.'"
+  },
+  {
+    "navigate": "http://127.0.0.1:7937/"
+  },
+  {
+    "eval": "window.__pfUntil=async(fn,ms=20000)=>{const end=Date.now()+ms;while(Date.now()<end){try{if(await fn())return true;}catch{}await new Promise(resolve=>setTimeout(resolve,40));}return false;};\nwindow.__pfBaseApi=api;window.__pfErrors=[];window.__pfRecordReads=0;\naddEventListener('error',event=>__pfErrors.push(event.message));addEventListener('unhandledrejection',event=>__pfErrors.push(String(event.reason)));\nwindow.__pfPost=(path,body)=>__pfBaseApi(path,{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify(body)});\nwindow.__pfCards=()=>[...document.querySelectorAll('#gallery .card[data-id]')];\nwindow.__pfKnown=()=>JSON.parse(sessionStorage.getItem('auradream.smoke.picked-favorites'));\nwindow.__pfNotAliased=(ids)=>[viewerRecords,sessionRecords,lbList].every(list=>list.every(rec=>!ids.includes(rec.id)));\nwindow.__pfTagPicks=()=>{const known=__pfKnown();for(const[index,id]of known.picks.entries()){const card=document.querySelector('#gallery .card[data-id=\"'+id+'\"]');if(!card)throw Error('Missing owned fixture card #'+id);card.dataset.pfPick=index===0?'first':'second';}};\nwindow.__pfPromptState=()=>JSON.stringify({prompt:els.prompt.value,negative:els.negative.value});\nwindow.__pfServer=async(ids)=>Promise.all(ids.map(id=>__pfBaseApi('/api/images/'+id)));\napi=async(path,options)=>{if(new RegExp('^/api/images/[0-9]+$').test(path.split('?')[0]))__pfRecordReads++;return __pfBaseApi(path,options);};"
+  },
+  {
+    "expect": "__pfUntil(()=>document.getElementById('status-dot').className.includes('ready')&&!galleryPending&&!jobListing&&galleryRecords.length===3)"
+  },
+  {
+    "eval": "resetPanel();rewriteBox(els.prompt,'Unsent composer text retained through picked favorites');promptReplaced();persistPanel();window.__pfDraft=__pfPromptState();window.__pfPicks=__pfKnown().picks;__pfTagPicks();"
+  },
+  {
+    "expect": "!selectMode&&!els.lightbox.open&&__pfNotAliased(__pfPicks)&&__pfPicks.every(id=>!selection.has(id))"
+  },
+  {
+    "click": "#btn-select"
+  },
+  {
+    "click": "#gallery .card[data-pf-pick=\"first\"] > img"
+  },
+  {
+    "click": "#gallery .card[data-pf-pick=\"second\"] > img"
+  },
+  {
+    "expect": "selectedIds().join()===__pfPicks.join()&&selectedRecords().every(rec=>rec.favorite===false)&&__pfNotAliased(__pfPicks)"
+  },
+  {
+    "eval": "els.search.value='id:'+__pfKnown().decoy;els.search.dispatchEvent(new Event('input',{bubbles:true}));"
+  },
+  {
+    "expect": "__pfUntil(()=>!galleryPending&&galleryRecords.length===1&&galleryRecords[0].id===__pfKnown().decoy&&selectedIds().join()===__pfPicks.join()&&els.selectCount.textContent.includes(\"2 not shown\"))"
+  },
+  {
+    "expect": "__pfNotAliased(__pfPicks)&&galleryRecords.every(rec=>!__pfPicks.includes(rec.id))&&__pfPicks.every(id=>selection.get(id).favorite===false)&&__pfPromptState()===__pfDraft"
+  },
+  {
+    "log": "'Star picked must update hidden fallback records as well as storage. Log both here, then inspect the lightbox before the intended baseline failure.'"
+  },
+  {
+    "click": "#btn-picked"
+  },
+  {
+    "click": "#picked-menu [data-picked=\"star\"]"
+  },
+  {
+    "expect": "__pfUntil(()=>els.galleryError.textContent.startsWith(\"Starred \"))"
+  },
+  {
+    "eval": "(async()=>{window.__pfServerRows=await __pfServer(__pfPicks);})()"
+  },
+  {
+    "log": "({server:__pfServerRows.map(rec=>({id:rec.id,favorite:rec.favorite})),hidden:__pfPicks.map(id=>({id,favorite:selection.get(id).favorite})),otherAliases:!__pfNotAliased(__pfPicks),pickedOrder:selectedIds(),promptUnchanged:__pfPromptState()===__pfDraft})"
+  },
+  {
+    "expect": "__pfServerRows.every(rec=>rec.favorite===true)&&selectedIds().join()===__pfPicks.join()&&__pfPromptState()===__pfDraft"
+  },
+  {
+    "eval": "window.__pfRecordReads=0;"
+  },
+  {
+    "click": "#btn-picked"
+  },
+  {
+    "click": "#picked-menu [data-picked=\"compare\"]"
+  },
+  {
+    "expect": "__pfUntil(()=>els.lightbox.open&&lbCompare.kind===\"picked\"&&lbList[lbIndex]?.id===__pfPicks[0])"
+  },
+  {
+    "log": "({hidden:__pfPicks.map(id=>({id,favorite:selection.get(id).favorite})),lightboxPressed:els.lbFav.getAttribute(\"aria-pressed\"),recordReads:__pfRecordReads})"
+  },
+  {
+    "shot": "picked-favorites-baseline-or-confirmed.png"
+  },
+  {
+    "expect": "__pfPicks.every(id=>selection.get(id).favorite===true)&&selectedRecords().every(rec=>rec.favorite===true)&&els.lbFav.getAttribute(\"aria-pressed\")===\"true\"&&__pfRecordReads===0"
+  },
+  {
+    "key": "ArrowRight"
+  },
+  {
+    "expect": "lbList[lbIndex].id===__pfPicks[1]&&els.lbFav.getAttribute(\"aria-pressed\")===\"true\"&&__pfRecordReads===0&&__pfPromptState()===__pfDraft"
+  },
+  {
+    "shot": "picked-favorites-hidden-compare.png"
+  },
+  {
+    "key": "Escape"
+  },
+  {
+    "expect": "!els.lightbox.open&&selectedIds().join()===__pfPicks.join()"
+  },
+  {
+    "log": "'Unstar picked updates those same retained objects; a later already-starred server answer must repair stale cached false values too.'"
+  },
+  {
+    "click": "#btn-picked"
+  },
+  {
+    "click": "#picked-menu [data-picked=\"unstar\"]"
+  },
+  {
+    "expect": "__pfUntil(()=>els.galleryError.textContent.startsWith(\"Unstarred \")&&selectedRecords().every(rec=>rec.favorite===false))"
+  },
+  {
+    "expect": "(async()=>{const rows=await __pfServer(__pfPicks);return rows.every(rec=>rec.favorite===false)&&selectedIds().join()===__pfPicks.join()&&__pfPromptState()===__pfDraft;})()"
+  },
+  {
+    "eval": "(async()=>{await __pfPost(\"/api/images/favorite\",{ids:__pfPicks,value:true});})()"
+  },
+  {
+    "expect": "selectedRecords().every(rec=>rec.favorite===false)"
+  },
+  {
+    "click": "#btn-picked"
+  },
+  {
+    "click": "#picked-menu [data-picked=\"star\"]"
+  },
+  {
+    "expect": "__pfUntil(()=>els.galleryError.textContent.includes(\"already starred\")&&selectedRecords().every(rec=>rec.favorite===true)&&selectedIds().join()===__pfPicks.join())"
+  },
+  {
+    "eval": "(async()=>{await __pfPost(\"/api/images/favorite\",{ids:__pfPicks,value:false});await __pfPost(\"/api/images/bin\",{ids:[__pfKnown().decoy]});})()"
+  },
+  {
+    "log": "'Use another fresh navigation before stashed-pick coverage. The prior comparison retained aliases in lbList that would otherwise hide a missing stash update.'"
+  },
+  {
+    "navigate": "http://127.0.0.1:7937/"
+  },
+  {
+    "eval": "window.__pfUntil=async(fn,ms=20000)=>{const end=Date.now()+ms;while(Date.now()<end){try{if(await fn())return true;}catch{}await new Promise(resolve=>setTimeout(resolve,40));}return false;};\nwindow.__pfBaseApi=api;window.__pfErrors=[];window.__pfRecordReads=0;\naddEventListener('error',event=>__pfErrors.push(event.message));addEventListener('unhandledrejection',event=>__pfErrors.push(String(event.reason)));\nwindow.__pfPost=(path,body)=>__pfBaseApi(path,{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify(body)});\nwindow.__pfCards=()=>[...document.querySelectorAll('#gallery .card[data-id]')];\nwindow.__pfKnown=()=>JSON.parse(sessionStorage.getItem('auradream.smoke.picked-favorites'));\nwindow.__pfNotAliased=(ids)=>[viewerRecords,sessionRecords,lbList].every(list=>list.every(rec=>!ids.includes(rec.id)));\nwindow.__pfTagPicks=()=>{const known=__pfKnown();for(const[index,id]of known.picks.entries()){const card=document.querySelector('#gallery .card[data-id=\"'+id+'\"]');if(!card)throw Error('Missing owned fixture card #'+id);card.dataset.pfPick=index===0?'first':'second';}};\nwindow.__pfPromptState=()=>JSON.stringify({prompt:els.prompt.value,negative:els.negative.value});\nwindow.__pfServer=async(ids)=>Promise.all(ids.map(id=>__pfBaseApi('/api/images/'+id)));\napi=async(path,options)=>{if(new RegExp('^/api/images/[0-9]+$').test(path.split('?')[0]))__pfRecordReads++;return __pfBaseApi(path,options);};"
+  },
+  {
+    "expect": "__pfUntil(()=>document.getElementById(\"status-dot\").className.includes(\"ready\")&&!galleryPending&&!jobListing&&galleryRecords.length===2)"
+  },
+  {
+    "eval": "window.__pfPicks=__pfKnown().picks;window.__pfDraft=__pfPromptState();__pfTagPicks();"
+  },
+  {
+    "expect": "!selectMode&&!els.lightbox.open&&__pfNotAliased(__pfPicks)"
+  },
+  {
+    "click": "#btn-select"
+  },
+  {
+    "click": "#gallery .card[data-pf-pick=\"first\"] > img"
+  },
+  {
+    "click": "#gallery .card[data-pf-pick=\"second\"] > img"
+  },
+  {
+    "eval": "els.search.value='id:'+__pfKnown().decoy;els.search.dispatchEvent(new Event('input',{bubbles:true}));"
+  },
+  {
+    "expect": "__pfUntil(()=>!galleryPending&&galleryRecords.length===0&&selectedIds().join()===__pfPicks.join()&&selectedRecords().every(rec=>rec.favorite===false)&&__pfNotAliased(__pfPicks))"
+  },
+  {
+    "eval": "window.__pfGate={captured:false,release:null};\napi=async(path,options)=>{if(new RegExp('^/api/images/[0-9]+$').test(path.split('?')[0]))__pfRecordReads++;const result=await __pfBaseApi(path,options);if(path==='/api/images/favorite'&&options?.method==='POST'&&!__pfGate.captured){__pfGate.captured=true;__pfGate.result=result;await new Promise(resolve=>{__pfGate.release=resolve;});}return result;};"
+  },
+  {
+    "click": "#btn-picked"
+  },
+  {
+    "click": "#picked-menu [data-picked=\"star\"]"
+  },
+  {
+    "expect": "__pfUntil(()=>__pfGate.captured&&typeof __pfGate.release===\"function\")"
+  },
+  {
+    "expect": "(async()=>{const rows=await __pfServer(__pfPicks);return rows.every(rec=>rec.favorite===true)&&selectedRecords().every(rec=>rec.favorite===false);})()"
+  },
+  {
+    "click": "#btn-bin"
+  },
+  {
+    "expect": "__pfUntil(()=>binMode&&!galleryPending&&galleryRecords.length===1&&galleryRecords[0].id===__pfKnown().decoy&&stashedSelection?.picks.size===2&&selectedIds().length===0&&[...stashedSelection.picks.keys()].join()===__pfPicks.join())"
+  },
+  {
+    "expect": "__pfNotAliased(__pfPicks)&&__pfPicks.every(id=>stashedSelection.picks.get(id).favorite===false)"
+  },
+  {
+    "eval": "__pfCards()[0].dataset.pfBin=\"decoy\";"
+  },
+  {
+    "click": "#gallery .card[data-pf-bin=\"decoy\"] > img"
+  },
+  {
+    "expect": "selectedIds().join()===String(__pfKnown().decoy)&&selection.get(__pfKnown().decoy).favorite===false&&stashedSelection.picks.size===2"
+  },
+  {
+    "eval": "__pfGate.release();"
+  },
+  {
+    "expect": "__pfUntil(()=>els.galleryError.textContent.startsWith(\"Starred \"))"
+  },
+  {
+    "log": "({stashed:__pfPicks.map(id=>({id,favorite:stashedSelection.picks.get(id).favorite})),activeBinPicks:selectedIds(),binPickFavorite:selection.get(__pfKnown().decoy).favorite,otherAliases:!__pfNotAliased(__pfPicks)})"
+  },
+  {
+    "expect": "__pfPicks.every(id=>stashedSelection.picks.get(id).favorite===true)&&selectedIds().join()===String(__pfKnown().decoy)&&selection.get(__pfKnown().decoy).favorite===false&&__pfPromptState()===__pfDraft"
+  },
+  {
+    "click": "#btn-bin"
+  },
+  {
+    "expect": "__pfUntil(()=>!binMode&&!galleryPending&&galleryRecords.length===0&&stashedSelection===null&&selectedIds().join()===__pfPicks.join()&&selectedRecords().every(rec=>rec.favorite===true))"
+  },
+  {
+    "eval": "window.__pfRecordReads=0;"
+  },
+  {
+    "click": "#btn-picked"
+  },
+  {
+    "click": "#picked-menu [data-picked=\"compare\"]"
+  },
+  {
+    "expect": "__pfUntil(()=>els.lightbox.open&&lbCompare.kind===\"picked\"&&els.lbFav.getAttribute(\"aria-pressed\")===\"true\"&&__pfRecordReads===0)"
+  },
+  {
+    "key": "ArrowRight"
+  },
+  {
+    "expect": "lbList[lbIndex].id===__pfPicks[1]&&els.lbFav.getAttribute(\"aria-pressed\")===\"true\"&&__pfRecordReads===0&&selectedIds().join()===__pfPicks.join()&&__pfPromptState()===__pfDraft"
+  },
+  {
+    "shot": "picked-favorites-stashed-compare.png"
+  },
+  {
+    "key": "Escape"
+  },
+  {
+    "expect": "__pfErrors.length===0&&selectedIds().join()===__pfPicks.join()&&__pfPromptState()===__pfDraft"
+  },
+  {
+    "log": "'Active and stashed picked records retain confirmed favorite state, comparison renders it without record rereads, and independent bin picks/order/composer text remain intact.'"
+  }
+]

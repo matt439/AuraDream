@@ -389,6 +389,8 @@ function syncPickedButton() {
   els.pickedBtn.title = why || `Actions on ${them}: star, unstar, compare, bin or copy seeds to the grid`;
   const grid = pickedGridSeeds();
   const compare = pickedComparison();
+  const favorite = favoriteWriteReason(selectedIds());
+  const lifecycle = binWriteReason(selectedIds());
   const titles = {
     star: `Star ${them}`,
     unstar: `Unstar ${them}`,
@@ -397,7 +399,9 @@ function syncPickedButton() {
     compare: compare.why || `Compare #${compare.records[0].id} with #${compare.records[1].id}; the first picked image stays on the left`,
   };
   for (const item of els.pickedMenu.querySelectorAll('[data-picked]')) {
-    const held = why || (item.dataset.picked === 'seeds' ? grid.why : item.dataset.picked === 'compare' ? compare.why : '');
+    const held = why || (item.dataset.picked === 'star' || item.dataset.picked === 'unstar' ? favorite
+      : item.dataset.picked === 'bin' ? lifecycle
+        : item.dataset.picked === 'seeds' ? grid.why : item.dataset.picked === 'compare' ? compare.why : '');
     item.setAttribute('aria-disabled', String(!!held));
     item.title = held || titles[item.dataset.picked];
   }

@@ -169,6 +169,36 @@ per checkpoint. **Reset** restores defaults. Resume is never remembered as
 ticked. **Reuse** on an image restores its settings; check the warning when
 reusing one from another checkpoint. Prompt replacements support Ctrl+Z.
 
+### Save generation and grid setups
+
+Use **Examples > Saved setups…** to keep several named drafts for the selected
+checkpoint. **New** prepares a name; **Save current** saves the current composer
+as a new setup. Selecting an item shows its saved text and settings beside the
+effective sampling values. **Rename** keeps its saved settings, **Update from
+current** replaces them with the current composer, and **Delete** removes only
+that setup. **Show other checkpoints** reveals the rest of the library.
+
+Opening or selecting a setup keeps the current draft. **Restore** checks it
+again, then replaces the composer without queueing work. The note's **Undo**
+restores the previous whole draft, including conditioning, grid and Then refine;
+the first later edit retires it. Ctrl+Z still restores prompt text. A setup from
+another checkpoint holds Restore and offers **Open Models**; choosing and
+loading that checkpoint remain separate actions.
+
+Setups retain exact Prompt/Negative text, size, profile defaults or explicit
+sampling overrides, a random or fixed Seed, Batch/Repeat, and an unexpanded
+grid definition. A restored grid leaves Resume off and uses its seed axis;
+request Repeat is 1. Save holds when LoRA, references or Then refine would be
+omitted. Restore clears conditioning and turns Then refine off, as its preview
+says. Version 1 requires Eager, native attention and Step cache Off; a held or
+invalid performance choice stays intact when Save or Restore refuses it.
+
+Saved setups are shared by tabs on this server and stay through a gallery
+clear. They live in `auradream.presets.json` beside the gallery database,
+separate from gallery bundles; include the sidecar in a settings backup.
+If another tab changed an item, the dialog keeps your unsaved name: **Reload
+list**, then select that item again to read its latest saved revision.
+
 ### Load settings from a PNG
 
 Drop a PNG anywhere on the page, or press **Load settings from PNG…** under
@@ -203,7 +233,18 @@ your own named text for Prompt or Negative prompt. **New**, **Save** and
 **Delete** manage the saved list. **Insert** appends or prepends the editor's
 text; Ctrl+Z restores the prompt. Snippets are shared by tabs on this server
 and stay through a gallery clear. They are kept separately from gallery
-bundles, so include the snippets sidecar in a settings backup.
+bundles. **Export.** downloads the saved list as `auradream-snippets.json`;
+the file contains personal prompt text, and excludes an unsaved editor draft.
+**Import.** previews a file before saving. Choose Skip, Add as copy, or Replace
+one explicitly selected saved snippet, then **Preview** any changed choices
+before **Import**. Your prompt boxes and snippet editor stay unchanged.
+If another tab changes the list or a reply is lost, preview again and check
+what is already saved; uncertain copies need a fresh action choice.
+
+For an uncertain Save or Delete in either saved-library dialog, **Reload
+list** and inspect what is saved, then select an item or choose **New** before
+writing again. Your draft stays until that explicit choice; Reload does not
+retry the write. Snippet Reload also keeps text you enter while it is reading.
 
 **Examples** supplies the authors' prompts; templates select the first slot
 to fill. **Tags**, where available, supplies the checkpoint's own vocabulary
@@ -527,6 +568,10 @@ seeds** remains the separate action for that.
 The gallery initially shows the running checkpoint. Tick **All models** for
 the rest, or **Starred** for favorites. **Runs** opens a run and its sheet.
 `run:` includes all resumptions of a grid; `job:` selects one submission.
+Changing the checkpoint or **All models** rereads Runs; the old list is not
+offered while that new list loads. If it fails, choose **Retry loading runs**
+inside the picker. A failed background refresh keeps its current runs usable
+and offers the same deliberate retry. Retry leaves your search and sheet alone.
 Search combines these terms with free text matching the prompt:
 
 | Search | Matches |
@@ -534,6 +579,7 @@ Search combines these terms with free text matching the prompt:
 | `run:ab12cd`, `job:ab12cd` | Run or submission |
 | `id:412`, `id:400-420`, `seed:42` | Image ids or seed |
 | `steps:6-12`, `cfg:<=1`, `tcfg:1.5` | Sampling values; `tcfg:none` means no active negative guidance |
+| `cfg:1e-7`, `mu:1e-7` | Exact very small sampling values in scientific notation |
 | `mu:none`, `quant:fp8`, `model:flux` | Default shift, quantization, model substring |
 | `model:=circlestone-labs/Anima` | One checkpoint's whole id exactly (a leading `=` on any text key) |
 | `refine:412`, `refine:none`, `strength:0.3-0.5` | Passes from a source, direct renders, strength |
@@ -541,7 +587,35 @@ Search combines these terms with free text matching the prompt:
 | `lora:ink`, `lora:none` | LoRA name substring, or images made without one (`lora:=none` is an adapter named `none`) |
 | `hash:3f9a` | Identical pixels by hash prefix |
 | `size:1024x768` | Width and height exactly |
+| `size:portrait`, `size:landscape`, `size:square` | Taller, wider or equal stored dimensions across all resolutions |
+| `size:>=1.5mp`, `size:<2mp` | Actual pixel area, with 1 MP equal to 1,000,000 pixels |
 | `date:today`, `date:yesterday`, `date:2026-10-07` | A day in the server's local timezone |
+| `date:2026-10-26..2026-10-28` | October 26 through 28, including both dates in the server's local timezone |
+
+Orientation values compare the stored width and height. Combine them with
+prompt words or other filters, such as `size:portrait seed:42`.
+
+MP comparisons use the exact, unrounded stored pixel area. For example,
+`size:>1mp` includes 1024x1024 (1.048576 MP), while `size:>=1mp` excludes
+1536x640 (0.983040 MP); both dimensions belong to the nominal 1 MP preset
+tier. Use `<`, `<=`, `>` or `>=` and a nonnegative number followed by `mp`.
+Two terms such as `size:>=1mp size:<2mp` form an interval.
+
+A date range needs two absolute `YYYY-MM-DD` dates in order, with no spaces
+around `..`. Both dates are included; the following local midnight is excluded.
+Combine it with prompt words or other filters as usual. Two separate `date:`
+terms still intersect; they do not join different days into a range.
+
+**Saved searches** in the gallery footer keeps named filters. Use current
+filter copies the query, Starred and All models into its editor; Save keeps
+that definition. Selecting an entry fills the editor, and **Apply to gallery**
+uses its filter while retaining your picks. A name already in use offers an
+explicit **Update named search** action.
+
+If a saved-search write result is **uncertain**, your editor is kept. Use
+**Reload list**, then select a saved search or choose **New** before saving
+or deleting again. Reopening alone does not resolve it. You can still Apply
+the valid editor filter while checking whether its saved definition changed.
 
 **Re-render** renders the filtered images at the panel's size with their
 recorded settings and skips completed or already queued cells - or, with cards picked with
@@ -561,6 +635,10 @@ comparison versions take the rows; refine sweeps include their source.
 labels and settings, and **Export all** includes every pinned slice, splitting
 large exports. For a prompt comparison, use its `job:` scope so version labels
 retain their meaning. Star images directly on the sheet or in the lightbox.
+While a star change is waiting, that image's Star and overlapping **Star
+picked/Unstar picked** actions ask you to wait. Other images and the Picked
+menu's Compare, Bin and Seeds actions remain available. After the change
+finishes, you can deliberately star or unstar it again.
 
 In the lightbox, **Download** beside the zoom controls saves the full-size
 PNG with its settings intact, named by image id, short model name and seed.
@@ -992,6 +1070,15 @@ gallery are kept aside and picked again when you leave it.
 **Delete picked permanently** confirms and deletes only those bin picks.
 If a pick was restored, deleted elsewhere or changed while confirming,
 nothing in the requested set is deleted; review the picks and try again.
+While a single-image or picked Bin, Restore or permanent delete is underway
+on this page, another of those actions on the same images waits. Its tooltip
+says why; a held Restore note keeps its button and announces the wait. You can
+act on other images, and cancelled confirmations release the hold. Try the
+action again when the current operation finishes.
+Delete unstarred and Empty recycle bin wait while any of those image actions
+is pending. While either broad action is checking, confirming or refreshing
+its result, other Bin, Restore and permanent-delete actions on this page wait.
+The existing count and confirmation still apply; no action is queued for you.
 **Empty recycle bin** deletes
 every image in the bin from disk, whatever the search shows, after a
 confirmation that gives the count and size and says which of them a live

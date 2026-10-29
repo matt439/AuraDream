@@ -70,6 +70,7 @@ function persistPanel() {
   // A change since a Reuse or a Reset retires its Undo (reuse.js and below).
   syncReuseUndo();
   syncResetUndo();
+  syncSetupUndo();
   clearTimeout(panelTimer);
   panelTimer = setTimeout(writePanel, 300);
 }

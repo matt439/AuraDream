@@ -4,12 +4,41 @@
 // Declarations only; state.js has the shared-global load-order contract.
 'use strict';
 
+// An ordinary same-page favorite request owns these ids until its response is
+// applied. A refusal/error releases the hold; it proves no cross-tab ordering
+// or unknown-outcome recovery and never triggers an automatic retry.
+const favoriteWriteIds = new Set();
+
+function favoriteWriteReason(ids) {
+  return ids.some((id) => favoriteWriteIds.has(id))
+    ? 'Wait for the current star change to finish' : '';
+}
+
+function syncFavoriteWriteHolds(ids) {
+  for (const id of ids) {
+    const shown = `.card[data-id="${id}"], .sheet-cell[data-id="${id}"], .result[data-id="${id}"]`;
+    document.querySelectorAll(shown).forEach((element) => {
+      element.querySelectorAll('.star').forEach((star) => {
+        // Use the displayed confirmed value: a sheet source can be absent
+        // from recordsWithId until starCell resumes after setFavorite.
+        syncStar(star, star.getAttribute('aria-pressed') === 'true', id);
+      });
+    });
+  }
+  if (els.lightbox.open && ids.includes(lbList[lbIndex]?.id)) syncLightboxFavoriteHold();
+  syncPickedButton();
+}
+
 // The same image can be on the page more than once - in the viewer, in the
 // gallery grid, on the sheet, in the lightbox - as separate record objects
-// fetched at different times. So both actions apply by id: to every record
+// fetched at different times, or retained as a pick after its card leaves
+// the filter (also while the bin sets those picks aside). Apply by id: to every record
 // that carries it, and to every element tagged with it.
 function recordsWithId(id) {
-  return [...galleryRecords, ...viewerRecords, ...sessionRecords, ...lbList].filter((r) => r.id === id);
+  return [
+    ...galleryRecords, ...viewerRecords, ...sessionRecords, ...lbList,
+    ...selection.values(), ...(stashedSelection?.picks.values() ?? []),
+  ].filter((r) => r.id === id);
 }
 
 // `say` is F's: the key stars an image from wherever focus is in its card,
@@ -19,31 +48,42 @@ async function setFavorite(rec, value, { say = false } = {}) {
   // The server refuses a star in the recycle bin as an unknown image, which
   // below would forget the card; said instead (bin.js).
   if (refuseBinned(rec, 'star')) return;
+  const ids = [rec.id];
+  const held = favoriteWriteReason(ids);
+  if (held) { showError(held + '.', true, { slot: els.galleryError }); return; }
+  for (const id of ids) favoriteWriteIds.add(id);
   try {
-    await api(`/api/images/${rec.id}/favorite?value=${value}`, { method: 'POST' });
-  } catch (err) {
-    // A star is a gallery control, and says what went wrong where they do -
-    // not in the panel's line a column away (the lightbox's line mirrors it).
-    if (!/unknown image/.test(err.message)) {
-      showError(err.message, false, { slot: els.galleryError });
+    syncFavoriteWriteHolds(ids);
+    try {
+      await api(`/api/images/${rec.id}/favorite?value=${value}`, { method: 'POST' });
+    } catch (err) {
+      // A star is a gallery control, and says what went wrong where they do -
+      // not in the panel's line a column away (the lightbox's line mirrors it).
+      if (!/unknown image/.test(err.message)) {
+        showError(err.message, false, { slot: els.galleryError });
+        return;
+      }
+      // Deleted elsewhere - another tab - while this page still showed it: said
+      // as ⌦ says it in the same case, and forgotten everywhere (forgetImages)
+      // rather than left on the page to be starred again. "unknown image" in
+      // the panel's line said neither, and stayed on under the next image.
+      const fromLightbox = els.lightbox.open;
+      const said = `#${rec.id} was already deleted.${forgetImages([rec.id])}`;
+      if (fromLightbox && els.lightbox.open) noteLightboxDelete(said);
+      else showError(said, true, { slot: els.galleryError });
+      // The Runs picker counts images, as after ⌦.
+      loadRuns();
       return;
     }
-    // Deleted elsewhere - another tab - while this page still showed it: said
-    // as ⌦ says it in the same case, and forgotten everywhere (forgetImages)
-    // rather than left on the page to be starred again. "unknown image" in
-    // the panel's line said neither, and stayed on under the next image.
-    const fromLightbox = els.lightbox.open;
-    const said = `#${rec.id} was already deleted.${forgetImages([rec.id])}`;
-    if (fromLightbox && els.lightbox.open) noteLightboxDelete(said);
-    else showError(said, true, { slot: els.galleryError });
-    // The Runs picker counts images, as after ⌦.
-    loadRuns();
-    return;
+    markFavorite(rec.id, value);
+    // A star with focus says its own new state (aria-pressed); anywhere else
+    // F changed a button nobody was on, and nothing was heard.
+    if (say && !document.activeElement?.matches?.('.star, #lb-fav')) sayStar(rec, value);
+    void loadRuns();
+  } finally {
+    for (const id of ids) favoriteWriteIds.delete(id);
+    syncFavoriteWriteHolds(ids);
   }
-  markFavorite(rec.id, value);
-  // A star with focus says its own new state (aria-pressed); anywhere else
-  // F changed a button nobody was on, and nothing was heard.
-  if (say && !document.activeElement?.matches?.('.star, #lb-fav')) sayStar(rec, value);
 }
 
 // A star the server has taken, on every record that carries the id and every
@@ -56,7 +96,7 @@ function markFavorite(id, value) {
   const shown = `.card[data-id="${id}"], .sheet-cell[data-id="${id}"], .result[data-id="${id}"]`;
   document.querySelectorAll(shown).forEach((el) => {
     el.classList.toggle('fav', value);
-    el.querySelectorAll('.star').forEach((star) => syncStar(star, value));
+    el.querySelectorAll('.star').forEach((star) => syncStar(star, value, id));
   });
   if (els.lightbox.open && lbList[lbIndex]?.id === id) renderLightbox();
 }
@@ -77,27 +117,36 @@ async function starPicked(value) {
   const slot = { slot: els.galleryError };
   const ids = selectedIds();
   if (!ids.length) { showError(`${PICKED_NONE}.`, true, slot); return; }
-  let result;
+  const held = favoriteWriteReason(ids);
+  if (held) { showError(held + '.', true, slot); return; }
+  for (const id of ids) favoriteWriteIds.add(id);
   try {
-    result = await api('/api/images/favorite', {
-      method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ ids, value }),
-    });
-  } catch (err) {
-    showError(err.message, false, slot);
-    return;
+    syncFavoriteWriteHolds(ids);
+    let result;
+    try {
+      result = await api('/api/images/favorite', {
+        method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ ids, value }),
+      });
+    } catch (err) {
+      showError(err.message, false, slot);
+      return;
+    }
+    const { changed, already, binned, missing } = result;
+    for (const id of [...changed, ...already]) markFavorite(id, value);
+    const also = (binned.length ? forgetImages(binned, { binned: true }) : '')
+      + (missing.length ? forgetImages(missing) : '');
+    const said = [
+      changed.length ? `${value ? 'Starred' : 'Unstarred'} ${namesOrCount(changed)}.` : '',
+      already.length ? `${namesOrCount(already)} ${wasWere(already)} ${value ? 'already starred' : 'not starred'}.` : '',
+      binned.length ? `${namesOrCount(binned)} ${isAre(binned)} in the recycle bin.` : '',
+      missing.length ? `${namesOrCount(missing)} ${wasWere(missing)} already deleted.` : '',
+    ].filter(Boolean).join(' ') + also;
+    showError(said, true, slot);
+    void loadRuns();
+  } finally {
+    for (const id of ids) favoriteWriteIds.delete(id);
+    syncFavoriteWriteHolds(ids);
   }
-  const { changed, already, binned, missing } = result;
-  for (const id of [...changed, ...already]) markFavorite(id, value);
-  const also = (binned.length ? forgetImages(binned, { binned: true }) : '')
-    + (missing.length ? forgetImages(missing) : '');
-  const said = [
-    changed.length ? `${value ? 'Starred' : 'Unstarred'} ${namesOrCount(changed)}.` : '',
-    already.length ? `${namesOrCount(already)} ${wasWere(already)} ${value ? 'already starred' : 'not starred'}.` : '',
-    binned.length ? `${namesOrCount(binned)} ${isAre(binned)} in the recycle bin.` : '',
-    missing.length ? `${namesOrCount(missing)} ${wasWere(missing)} already deleted.` : '',
-  ].filter(Boolean).join(' ') + also;
-  showError(said, true, slot);
-  if (binned.length || missing.length) loadRuns();
 }
 
 // Bin picked (the Picked menu): the picked cards into the recycle bin at
@@ -110,30 +159,40 @@ async function binPicked() {
   const slot = { slot: els.galleryError };
   const recs = selectedRecords();
   if (!recs.length) { showError(`${PICKED_NONE}.`, true, slot); return; }
-  let result;
+  const ids = recs.map((r) => r.id);
+  const held = binWriteReason(ids);
+  if (held) { showError(held + '.', true, slot); return; }
+  for (const id of ids) binWriteIds.add(id);
   try {
-    result = await api('/api/images/bin', {
-      method: 'POST', headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ ids: recs.map((r) => r.id) }),
-    });
-  } catch (err) {
-    showError(err.message, false, slot);
-    return;
+    syncBinWriteHolds(ids);
+    let result;
+    try {
+      result = await api('/api/images/bin', {
+        method: 'POST', headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ ids }),
+      });
+    } catch (err) {
+      showError(err.message, false, slot);
+      return;
+    }
+    const { binned, already, missing } = result;
+    // Kept before they are forgotten, so a Restore can put their cards back.
+    const moved = recs.filter((r) => binned.includes(r.id)).sort((a, b) => a.id - b.id);
+    for (const rec of moved) keepBinned(rec);
+    let also = forgetImages([...binned, ...already], { binned: true })
+      + (missing.length ? forgetImages(missing) : '');
+    also += [
+      already.length ? ` ${namesOrCount(already)} ${wasWere(already)} already in the recycle bin.` : '',
+      missing.length ? ` ${namesOrCount(missing)} ${wasWere(missing)} already deleted.` : '',
+    ].join('');
+    if (moved.length) noteBinned(moved, { also });
+    else showError(also.trim(), true, slot);
+    loadRuns();
+    void syncBin();
+  } finally {
+    for (const id of ids) binWriteIds.delete(id);
+    syncBinWriteHolds(ids);
   }
-  const { binned, already, missing } = result;
-  // Kept before they are forgotten, so a Restore can put their cards back.
-  const moved = recs.filter((r) => binned.includes(r.id)).sort((a, b) => a.id - b.id);
-  for (const rec of moved) keepBinned(rec);
-  let also = forgetImages([...binned, ...already], { binned: true })
-    + (missing.length ? forgetImages(missing) : '');
-  also += [
-    already.length ? ` ${namesOrCount(already)} ${wasWere(already)} already in the recycle bin.` : '',
-    missing.length ? ` ${namesOrCount(missing)} ${wasWere(missing)} already deleted.` : '',
-  ].join('');
-  if (moved.length) noteBinned(moved, { also });
-  else showError(also.trim(), true, slot);
-  loadRuns();
-  void syncBin();
 }
 
 // What F did, for a screen reader: "Starred #12", "Unstarred #12", in a
@@ -142,14 +201,17 @@ async function binPicked() {
 // and written on the next frame, so the same words again are heard again,
 // and emptied after a while, so browse mode does not come on a stale one.
 let starSaidTimer = 0;
-function sayStar(rec, value) {
+function sayGalleryAction(text) {
   const line = els.lightbox.open ? els.lbStarSaid : els.starSaid;
-  const text = `${value ? 'Starred' : 'Unstarred'} #${rec.id}`;
   els.starSaid.textContent = '';
   els.lbStarSaid.textContent = '';
   clearTimeout(starSaidTimer);
   requestAnimationFrame(() => { line.textContent = text; });
   starSaidTimer = setTimeout(() => { if (line.textContent === text) line.textContent = ''; }, 5000);
+}
+
+function sayStar(rec, value) {
+  sayGalleryAction(`${value ? 'Starred' : 'Unstarred'} #${rec.id}`);
 }
 
 // Gallery ids as the page names images: "#8", "#8 and #4", "#8, #4 and #2".
@@ -295,12 +357,18 @@ function confirmDelete(rec, passes) {
 const deleting = new Set();
 
 async function deleteImage(rec) {
-  if (deleting.has(rec.id)) return;
+  const ids = [rec.id];
+  const held = binWriteReason(ids);
+  if (held) { showError(held + '.', true, { slot: els.galleryError }); return; }
+  for (const id of ids) binWriteIds.add(id);
   deleting.add(rec.id);
   try {
+    syncBinWriteHolds(ids);
     await deleteOne(rec);
   } finally {
     deleting.delete(rec.id);
+    for (const id of ids) binWriteIds.delete(id);
+    syncBinWriteHolds(ids);
   }
 }
 
@@ -576,6 +644,9 @@ function forgetImages(ids, { binned = false } = {}) {
     reuseNote.before.state.reference = reuseNote.before.state.reference.filter((id) => !gone.has(id));
     reuseNote.after.reference = reuseNote.after.reference.filter((id) => !gone.has(id));
   }
+  if (setupsUndo) {
+    setupsUndo.before.state.reference = setupsUndo.before.state.reference.filter((id) => !gone.has(id));
+  }
   // A reference that has gone would be refused at submit, naming an id the
   // chips never showed.
   const dropped = referenceIds.filter((id) => gone.has(id));
@@ -793,122 +864,139 @@ async function forgetIfGone(id) {
 // under the gallery's head, where the button is.
 async function deleteUnstarred() {
   const slot = { slot: els.galleryError };
-  const revision = modelRevision;
-  // The grid brought up to what the sweep would reach first: images another
-  // tab made since this page's last look were counted and deleted unseen -
-  // the newest ones, the likeliest still to be starred - and the count to
-  // type back was not the grid's. Under the same filters, as a finished job's
-  // are (prependFinished); not on a sheet, which is one run laid out whole.
-  const head = galleryRecords[0]?.id;
-  if (!sheetMode && head != null) await prependFinished(0, { now: true });
-  const search = els.search.value.trim();
-  const params = new URLSearchParams();
-  if (search) params.set('search', search);
-  if (els.allModels.checked) params.set('all_models', 'true');
-  // How many of the count are newer than the grid's head was is the
-  // server's to say: it keeps a starred image's sources the page cannot see.
-  const ask = new URLSearchParams(params);
-  if (!sheetMode && head != null) ask.set('newer_than', head);
-  let found;
+  const held = binBroadWriteReason();
+  if (held) { showError(held + '.', true, slot); return; }
+  const owner = {};
+  binBroadOwner = owner;
   try {
-    found = await api(`/api/gallery/unstarred?${ask}`);
-  } catch (err) {
-    showError(err.message, false, slot);
+    syncBinWriteHolds();
+    const revision = modelRevision;
+    const allModels = els.allModels.checked;
+    // The grid brought up to what the sweep would reach first: images another
+    // tab made since this page's last look were counted and deleted unseen -
+    // the newest ones, the likeliest still to be starred - and the count to
+    // type back was not the grid's. Under the same filters, as a finished job's
+    // are (prependFinished); not on a sheet, which is one run laid out whole.
+    const head = galleryRecords[0]?.id;
+    if (!sheetMode && head != null) await prependFinished(0, { now: true });
+    const search = els.search.value.trim();
+    const params = new URLSearchParams();
+    if (search) params.set('search', search);
+    if (allModels) params.set('all_models', 'true');
+    // How many of the count are newer than the grid's head was is the
+    // server's to say: it keeps a starred image's sources the page cannot see.
+    const ask = new URLSearchParams(params);
+    if (!sheetMode && head != null) ask.set('newer_than', head);
+    let found;
+    try {
+      found = await api(`/api/gallery/unstarred?${ask}`);
+    } catch (err) {
+      showError(err.message, false, slot);
+      keepUnstarredFocus();
+      return;
+    }
+    // The checkpoint scope is part of what is confirmed: with All models off
+    // the sweep stops at this checkpoint's images, and the dialog says so by
+    // the server's own name for it. With it on, the wider sweep names every
+    // checkpoint it reaches (the server lists six at most).
+    const named = (id) => (id || '').split('/').pop();
+    let scope = search ? `matching "${search}"` : 'in the gallery';
+    if (!allModels) {
+      const only = named(found.models[0] ?? loadedModel);
+      if (only) scope += ` (${only} only)`;
+    } else if (found.models.length) {
+      const many = found.models.length >= 6;
+      const count = many ? '6 or more' : found.models.length;
+      scope += ` across ${count} checkpoint${found.models.length === 1 ? '' : 's'} `
+        + `(${found.models.map(named).join(', ')}${many ? ', …' : ''})`;
+    }
+    const sources = found.sources_kept ?? 0;
+    if (!found.unstarred) {
+      // None left at all - another tab deleted them since this page looked -
+      // is not "every image is starred".
+      const kept = sources ? ' or one a starred image was made from' : '';
+      showError(found.records ? `Nothing to delete: every image ${scope} is starred${kept}.`
+        : `Nothing to delete: no image is left ${scope}.`, true, slot);
+      keepUnstarredFocus();
+      return;
+    }
+    const plural = found.unstarred === 1 ? '' : 's';
+    const sourceNames = found.sources.map((id) => `#${id}`).join(', ') + (sources > found.sources.length ? ', …' : '');
+    const keeping = `keeping ${found.favorites} starred`
+      + (sources === 1 ? ` and ${sourceNames}, which a starred image was made from`
+        : sources > 1 ? ` and ${sources} images starred ones were made from (${sourceNames})` : '');
+    // How much of the gallery's history goes: the sample prompts are the first
+    // three alphabetically and say nothing of how many runs that is, or when.
+    const from = found.first ? when(Date.parse(found.first)) : '';
+    const to = found.last ? when(Date.parse(found.last)) : '';
+    const span = [
+      found.runs ? `From ${found.runs} run${found.runs === 1 ? '' : 's'}` : '',
+      from && (from === to ? `made ${from}` : `made ${from} to ${to}`),
+    ].filter(Boolean).join(', ');
+    const prompts = found.prompts.slice(0, 3).map((p) => `  "${p.length > 60 ? `${p.slice(0, 57)}…` : p}"`);
+    if (found.prompts.length > 3) prompts.push('  …');
+    const message = [
+      `Delete ${found.unstarred} unstarred image${plural} ${scope}, ${keeping}?`,
+      ...(span ? [`${span}.`] : []),
+      ...freshLine(head, found.newer),
+      '',
+      ...prompts,
+      '',
+      // The count is pinned: an image a running job lands in scope before the
+      // answer refuses the whole sweep, and that is better known before typing.
+      // The server's answer, since the job may be another tab's.
+      ...(found.job_active ? ['A job is still running; if it adds an image here before you confirm, nothing is deleted.'] : []),
+      `They move to the recycle bin; Empty recycle bin removes them from disk. Type ${found.unstarred} to continue:`,
+    ].join('\n');
+    const typed = await askCount(message);
+    if (typed === null) return;
+    if (revision !== modelRevision) {
+      showError('Nothing moved: the checkpoint changed. Review the new gallery before deleting.', true, slot);
+      return;
+    }
+    if (typed.trim() !== String(found.unstarred)) {
+      showError(`Nothing moved: "${typed.trim()}" is not ${found.unstarred}.`, true, slot);
+      return;
+    }
+    if (binBroadOwner !== owner) {
+      showError('Nothing moved: the gallery action changed. Review the gallery before deleting.', true, slot);
+      return;
+    }
+    params.set('expected', found.unstarred);
+    let result;
+    try {
+      result = await api(`/api/gallery/unstarred?${params}`, {
+        method: 'DELETE',
+        headers: revision === null ? {} : { 'X-AuraDream-Model-Revision': String(revision) },
+      });
+    } catch (err) {
+      if (!/selection changed/i.test(err.message)) { showError(err.message, false, slot); return; }
+      // The server counts something else now - images a job landed in scope,
+      // most often. The page shows the server's count rather than the one the
+      // message has just called stale. Whether a job is still running is in
+      // the server's sentence: it may be another tab's.
+      await resetGallery();
+      keepUnstarredFocus();
+      loadRuns();
+      showError(err.message, false, slot);
+      return;
+    }
+    // Into the recycle bin; `deleted` is the same ids, from a server before it.
+    const moved = result.binned ?? result.deleted;
+    const also = forgetImages(moved, { binned: true });
+    // The page is now mostly holes; ask for it again from the top, which also
+    // brings the badge back to the server's count - and clears the slot, so
+    // the outcome is written after it.
+    await resetGallery();
     keepUnstarredFocus();
-    return;
-  }
-  // The checkpoint scope is part of what is confirmed: with All models off
-  // the sweep stops at this checkpoint's images, and the dialog says so by
-  // the server's own name for it. With it on, the wider sweep names every
-  // checkpoint it reaches (the server lists six at most).
-  const named = (id) => (id || '').split('/').pop();
-  let scope = search ? `matching "${search}"` : 'in the gallery';
-  if (!els.allModels.checked) {
-    const only = named(found.models[0] ?? loadedModel);
-    if (only) scope += ` (${only} only)`;
-  } else if (found.models.length) {
-    const many = found.models.length >= 6;
-    const count = many ? '6 or more' : found.models.length;
-    scope += ` across ${count} checkpoint${found.models.length === 1 ? '' : 's'} `
-      + `(${found.models.map(named).join(', ')}${many ? ', …' : ''})`;
-  }
-  const sources = found.sources_kept ?? 0;
-  if (!found.unstarred) {
-    // None left at all - another tab deleted them since this page looked -
-    // is not "every image is starred".
-    const kept = sources ? ' or one a starred image was made from' : '';
-    showError(found.records ? `Nothing to delete: every image ${scope} is starred${kept}.`
-      : `Nothing to delete: no image is left ${scope}.`, true, slot);
-    keepUnstarredFocus();
-    return;
-  }
-  const plural = found.unstarred === 1 ? '' : 's';
-  const sourceNames = found.sources.map((id) => `#${id}`).join(', ') + (sources > found.sources.length ? ', …' : '');
-  const keeping = `keeping ${found.favorites} starred`
-    + (sources === 1 ? ` and ${sourceNames}, which a starred image was made from`
-      : sources > 1 ? ` and ${sources} images starred ones were made from (${sourceNames})` : '');
-  // How much of the gallery's history goes: the sample prompts are the first
-  // three alphabetically and say nothing of how many runs that is, or when.
-  const from = found.first ? when(Date.parse(found.first)) : '';
-  const to = found.last ? when(Date.parse(found.last)) : '';
-  const span = [
-    found.runs ? `From ${found.runs} run${found.runs === 1 ? '' : 's'}` : '',
-    from && (from === to ? `made ${from}` : `made ${from} to ${to}`),
-  ].filter(Boolean).join(', ');
-  const prompts = found.prompts.slice(0, 3).map((p) => `  "${p.length > 60 ? `${p.slice(0, 57)}…` : p}"`);
-  if (found.prompts.length > 3) prompts.push('  …');
-  const message = [
-    `Delete ${found.unstarred} unstarred image${plural} ${scope}, ${keeping}?`,
-    ...(span ? [`${span}.`] : []),
-    ...freshLine(head, found.newer),
-    '',
-    ...prompts,
-    '',
-    // The count is pinned: an image a running job lands in scope before the
-    // answer refuses the whole sweep, and that is better known before typing.
-    // The server's answer, since the job may be another tab's.
-    ...(found.job_active ? ['A job is still running; if it adds an image here before you confirm, nothing is deleted.'] : []),
-    `They move to the recycle bin; Empty recycle bin removes them from disk. Type ${found.unstarred} to continue:`,
-  ].join('\n');
-  const typed = await askCount(message);
-  if (typed === null) return;
-  if (revision !== modelRevision) {
-    showError('Nothing moved: the checkpoint changed. Review the new gallery before deleting.', true, slot);
-    return;
-  }
-  if (typed.trim() !== String(found.unstarred)) {
-    showError(`Nothing moved: "${typed.trim()}" is not ${found.unstarred}.`, true, slot);
-    return;
-  }
-  params.set('expected', found.unstarred);
-  let result;
-  try {
-    result = await api(`/api/gallery/unstarred?${params}`, {
-      method: 'DELETE',
-      headers: revision === null ? {} : { 'X-AuraDream-Model-Revision': String(revision) },
-    });
-  } catch (err) {
-    if (!/selection changed/i.test(err.message)) { showError(err.message, false, slot); return; }
-    // The server counts something else now - images a job landed in scope,
-    // most often. The page shows the server's count rather than the one the
-    // message has just called stale. Whether a job is still running is in
-    // the server's sentence: it may be another tab's.
-    void resetGallery().then(keepUnstarredFocus);
     loadRuns();
-    showError(err.message, false, slot);
-    return;
+    const went = moved.length;
+    showError(`Moved ${went} image${went === 1 ? '' : 's'} to the recycle bin, ${keeping}.${also}`, true, slot);
+    void syncBin();
+  } finally {
+    if (binBroadOwner === owner) binBroadOwner = null;
+    syncBinWriteHolds();
   }
-  // Into the recycle bin; `deleted` is the same ids, from a server before it.
-  const moved = result.binned ?? result.deleted;
-  const also = forgetImages(moved, { binned: true });
-  // The page is now mostly holes; ask for it again from the top, which also
-  // brings the badge back to the server's count - and clears the slot, so
-  // the outcome is written after it.
-  void resetGallery().then(keepUnstarredFocus);
-  loadRuns();
-  const went = moved.length;
-  showError(`Moved ${went} image${went === 1 ? '' : 's'} to the recycle bin, ${keeping}.${also}`, true, slot);
-  void syncBin();
 }
 
 // A reload that leaves nothing in scope hides the button (syncDeleteUnstarred)
@@ -1008,6 +1096,16 @@ function releaseHead() {
 function syncDeleteUnstarred(now = false) {
   const givesWay = unstarredGivesWay && (selectedIds().length > 0 || unstarredHeld === viewFilter());
   showInHead(els.deleteUnstarred, !(binMode || els.favOnly.checked || total <= 0 || givesWay), now);
+  syncDeleteUnstarredHold();
+}
+
+// Ownership affects availability only: do not remeasure or move the head
+// merely because a lifecycle write starts or settles.
+function syncDeleteUnstarredHold() {
+  els.deleteUnstarred.dataset.binBroadTitle ??= els.deleteUnstarred.title;
+  const held = binBroadWriteReason();
+  els.deleteUnstarred.setAttribute('aria-disabled', String(!!held));
+  els.deleteUnstarred.title = held || els.deleteUnstarred.dataset.binBroadTitle;
 }
 
 // A change of the picks (onSelectionChange), with the pointer most often on

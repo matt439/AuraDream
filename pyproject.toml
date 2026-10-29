@@ -38,6 +38,12 @@ dependencies = [
 Repository = "https://github.com/matt439/AuraDream"
 Documentation = "https://github.com/matt439/AuraDream/blob/main/docs/usage.md"
 
+[project.optional-dependencies]
+# Optional Windows compiler candidate only; installation never grants runtime admission.
+regional-compiler = [
+    "triton-windows==3.7.1.post27; sys_platform == 'win32' and platform_machine == 'AMD64'",
+]
+
 [dependency-groups]
 # Nothing in the app imports these; `uv run --group dev pytest` gets them.
 dev = ["pytest>=8", "pytest-xdist>=3.8", "ruff>=0.17", "pyright==1.1.407"]

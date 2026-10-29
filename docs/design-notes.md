@@ -3465,6 +3465,15 @@ The first reply after the fold is opened by hand reveals Run grid again
 fold, where the panel holds still (`panelResized`), and its lines pushed
 Run grid back below the window the opening had just brought it into.
 
+**Closing Grid retires its pending preview** (`UI#29`, 2026-10-29).
+The native toggle's closed branch clears CFG reach immediately. It also
+advances the preview epoch before returning, so an older success cannot
+restore the grid-only negative affordance and an older error cannot replace
+preview text. A reopened grid owns its new request. The existing payload,
+debounce and rendering paths stay intact; this fixes presentation ownership,
+not model output. [The dated review](review-2026-10-28-grid-preview-close.md)
+records source evidence, controls and separate browser qualification.
+
 **The resolved prompts are a box of their own** (2026-10-05), between the axes
 line and the notes (`promptListing`, `#grid-preview .prompts`), at most eight
 lines tall and scrolling inside itself: a nested scroller, never overflow on
@@ -3585,6 +3594,21 @@ its height. It fetches the existing full-size PNG unchanged, captures the
 record at the press, and names it `<id>-<short-model>-<seed>.png`. A failed
 fetch stays in the lightbox, a retry clears its own error, and walking while
 it is pending never downloads another image under the captured name.
+
+**Copy feedback belongs to the inspection, 2026-10-29 (`UI#30`).** Copy prompt
+and Copy seed are reported Often (J1). Their captured payload was already
+correct, but a clipboard promise could finish after a walk or reopen and
+write into the shared lightbox stage's new message area. Even a completed
+copy note survived a walk. A copy now owns only its original host and the
+inspect session at the actual press; same-record background redraws retain
+it, while an image change, close or fresh open retires it. The latest copy
+press per host owns completion feedback. A saved text-node identity lets
+retirement clear its own note while preserving a newer unrelated message
+with even identical words. Card refusals remain local without mirroring
+into another modal image. Writes still start once in the original click,
+without retry, preflight await, payload changes or altered PNG promise
+handoff. The dated copy-feedback review separates synthetic ports/fake UI
+qualification from real clipboard permissions and integration.
 
 **The lightbox zooms, and the view carries across cells.** `lbView` in
 `web/lightbox.js` is a scale relative to fit plus a pan, never below fit or
@@ -4147,6 +4171,16 @@ does not take the viewer. Missing server history is not reconstructed.
 The isolated browser regression covers these transitions; no real GPU or
 device behavior is established by the fake.
 
+**Queued cancellation keeps its receipt until acknowledged.** A row's x and
+Cancel queued reserve their exact ids before sending. Decoded success or an
+explicit missing-job response settles an id; a refused, lost or unreadable
+reply leaves its accepted request tracked for the same once-only outcome
+recovery, with no automatic cancellation retry. Pending rows survive listing
+changes without becoming the watched job's own row. Listing/history replies and Move queue-order snapshots predating a
+cancellation transition cannot settle the newer queue state.
+[The cancellation recovery review](review-2026-10-28-queued-cancel-recovery.md)
+records the source repair and its separately qualified checks.
+
 The [queue controls plan](plan-queue-controls.md) implements `GEN#18`.
 The manager now owns an explicit admission list, rather than relying on the
 gate lock's waiter order. Move to front puts queued work next without
@@ -4165,6 +4199,16 @@ spill into another call. The call-ending status holds the button before a
 slow save. Pause, loading and the intervals between calls have no active call
 to skip. Dynamic Then refine passes are held explicitly because Finish can
 recover only their base cells; a standalone Refine remains an ordinary cell.
+
+**Watched actions own their replies (2026-10-28).** Cancel and Pause bind each
+request to the watched job, its request token and the server start identity
+known at the press. A reply for a predecessor job cannot rewrite its successor's
+progress, error or controls. A late Pause failure also cannot undo a newer
+Pause/Resume press on the same job; only the current token releases its pending
+state and redraws. New jobs remain independently actionable while old replies
+wait. Watched cancellation attribution is cleaned only by its exact per-id owner.
+These are page-local response guards, with no automatic retry, timeout or
+guarantee across reload; backend cooperative behavior is unchanged.
 
 **The browser can hold a queue.** `startJob` no longer refuses while busy:
 a submission during a job is POSTed and its id kept in `queuedIds`, the
@@ -5423,10 +5467,18 @@ said once on `#job-said` (A cell's failure is the cell's).
 ## date: is a local day
 
 `date:` in the search box is a **local** day (`today`, `yesterday`,
-`YYYY-MM-DD`) as a half-open range on `created_at`, converted to UTC and
-formatted the way the rows are so the string comparison is the time
-comparison. Not a LIKE prefix: that cannot use the index and would need the
-UTC date, which is the wrong one for anything made in the evening.
+`YYYY-MM-DD`) or an inclusive calendar range (`YYYY-MM-DD..YYYY-MM-DD`). Both
+range endpoints are absolute dates in order; the first local midnight and the
+midnight after the last date become a half-open range on `created_at`. Convert
+each midnight independently to UTC so a clock change does not add or drop an
+hour. Format the bounds the way the rows are so the string comparison is the
+time comparison. Not a LIKE prefix: that cannot use the index and would need
+the UTC date, which is the wrong one for anything made in the evening.
+
+The explicit range covers several nights with one term; two single-day terms
+still intersect. It adds no open end, relative range or new date comparator.
+Gallery reads, strict scopes and saved-query validation share this parser.
+[The range plan](plan-gallery-date-ranges.md) records the rationale and checks.
 
 ## Re-render
 
@@ -5944,8 +5996,10 @@ with the grid - a listed seed axis continues from its highest + 1, not
 from a list. Because that may not read as "more seed rows", the server
 writes the dialog's first words for a run: "2 more of each of 6 cells = 12
 images · seeds 8–9 · Starred ignored" (`run_headline`). The seed span is
-the queued cells' lowest first seed to their highest last; cells with
-different top seeds show the wider span.
+the numeric minimum through maximum of every new seed in the queued cells,
+including a batch that wraps through zero; different top seeds show the
+wider span. [GEN30's review](review-2026-10-28-more-seeds-headline.md) records
+the endpoint-only defect and its source/API qualification.
 
 **The count opens at the batch's own Batch** from a run surface (Q3): the
 server answers `count_default`, the Batch every batch that recorded one
@@ -6480,6 +6534,13 @@ label was cut mid-word. The open list is as wide as its labels need. A
 label's prompt is `promptGist`'s, one line with an XML prompt's tags dropped,
 before `clip` (The browser's queue).
 
+`GAL#18` gives the Runs list a current-context read owner and deliberate
+in-picker retry. New model/revision/All-models/known-server contexts remove
+old options and keyboard candidates before waiting; same-context useful
+options survive refresh failure. Retry is a marked Option, not a run-id
+sentinel. [The scope-recovery review](review-2026-10-28-runs-scope-recovery.md)
+owns the lifecycle contract and separate VM/native qualification.
+
 **Browsing the closed picker opens nothing** (2026-10-05). On Windows the
 arrows change a closed select at each press, and each change opened that
 run's sheet - a 1024-image gallery fetch and a scroll of the page - so reaching
@@ -6560,6 +6621,14 @@ exactly by fetching one row past the page. OFFSET over a table a sweep is
 inserting into repeated the tail of one page at the head of the next and
 skipped as many older rows for good; `offset` stays for scripts. The
 browser's anchor is the last record it holds, so a delete moves nothing.
+
+`GAL#20` bounds live/bin HTTP `offset` and `before` to SQLite's signed
+64-bit integer ceiling before storage. Unbounded Python integers had reached
+the binding operation as OverflowError rather than the routes' named
+validation path. The existing search integer constant supplies the engine
+limit; defaults, lower bounds, MAX itself and paging/scope semantics stay
+unchanged. [The page-bounds review](review-2026-10-29-gallery-page-bounds.md)
+owns the cold HTTP/SQLite checks; ordinary browser-generated IDs already fit.
 
 The grid pages itself: an `IntersectionObserver` on the "Load more" button
 (`moreWatcher`, made by `armMore` from `app.js`, and rooted on the gallery's
@@ -6737,6 +6806,28 @@ those words) and `aria-pressed` in `renderLightbox`, so the two say the same
 after a toggle from either, or from the sheet. A sheet cell has the card's
 button too (`.sheet-cell .fav-badge`, tabindex -1; The contact sheet), and F
 stars a focused cell.
+
+**Overlapping star replies (2026-10-28, `GAL#9`).** A later opposite
+favorite can commit before an older successful reply reaches the page; applying
+both captured values then showed a starred image whose row was unstarred.
+Individual and picked stars now share a synchronous per-id in-flight hold,
+through confirmed propagation. Disjoint images and non-star Picked actions
+remain available. Hold-only changes do not rebuild the lightbox. The
+[dated review](review-2026-10-28-favorite-write-order.md) records controlled
+write/reply evidence, cache/control coverage and the explicit unknown-outcome
+and cross-tab limits. A latest-issued response token would not prove server
+commit order.
+
+**Runs counts after stars (2026-10-29, `GAL#19`).** Ordinary successful
+single and picked stars updated images without refreshing the Runs
+summary; only missing/binned outcomes asked again. Each confirmed action
+now starts one independent server aggregate read after propagation,
+including already/partial bulk results. `markFavorite` stays network-free,
+and pending or ordinary failed writes add no read. A slow Runs read does not extend
+the favorite hold. The existing Runs context/epoch owner preserves current
+choices and rejects obsolete replies; no local count arithmetic or broader
+favorite-ordering claim is added. [The count review](review-2026-10-29-runs-favorite-counts.md)
+separates actual-module checks from native owned-fake qualification.
 
 **A card is a group named by its id** (2026-10-05 area review). The card was
 an unnamed div, so of its seven controls only the image ("Open #12: …") and
@@ -6925,6 +7016,15 @@ last real toggle put it, so a range never starts from an unpicked card. On a
 sheet Select is held, so it does not read as pressed and the count does not
 invite picks.
 
+**Confirmed stars reach hidden picks (2026-10-28, `GAL#8`).** A picked
+record is still a retained image copy after its card leaves the filter, and
+while Bin sets that selection aside. `recordsWithId` now includes both maps,
+so a confirmed individual/batch star updates these fallback records as well
+as gallery/viewer/session/lightbox copies. Otherwise Compare picked showed an
+unstarred keeper even after the server confirmed Star picked. Selection ids,
+order and anchors stay unchanged. The [dated review](review-2026-10-28-picked-favorites.md)
+records the actual before/after, isolated fake browser regression and limits.
+
 **Where it sits, and what it must not move.** The head's control rows are
 full at 1400 px, so Select, its count and Clear share the footer row with
 Bundles…, styled as Bundles… is so the row keeps its 18 px line (a small
@@ -7008,7 +7108,7 @@ were the setting.
 
 The gallery search box is `key:value` terms plus free text: the terms become
 SQL predicates (`seed:42`, `cfg:<=0.5`, `steps:8-12`, `mu:none`, `model:flux`,
-`run:ab12cd`, `job:ab12cd`, `id:12`) and only what is left goes to the FTS index, so a prompt that
+`run:ab12cd`, `job:ab12cd`, `id:12`, `date:2026-10-26..2026-10-28`) and only what is left goes to the FTS index, so a prompt that
 happens to contain a colon still searches for itself. `mu:none` is `IS NULL` -
 no shift at all is a different image from `mu:0`, and SQL matches NULL with
 neither. `model:` is a substring by design, for the family; the running
@@ -7024,6 +7124,54 @@ unquantised load stores the mode `none`. An integer past SQLite's 64 bits
 (`seed:99999999999999999999`) is refused as "out of range" with the other
 bad values: sqlite3 raised OverflowError at the query, which no route
 caught, and the gallery said "Internal Server Error".
+
+`GAL#16` reads a whole floating scalar before dash-range parsing, so a
+Sampling facts term such as `cfg:1e-7` or `mu:1e-7` keeps its exponent sign.
+Integer, NULL, comparison and existing range/error behavior stay unchanged.
+[The scalar-search review](review-2026-10-28-numeric-search-scalars.md) owns
+the source evidence and CPU/storage/HTTP qualification.
+
+`GAL#15` adds `size:portrait`, `size:landscape` and `size:square` across
+resolution tiers through direct stored width/height comparisons. The existing
+`size:` key keeps frontend classification and facts merging unchanged; facts
+still supply exact dimensions, and saved queries retain their raw spelling.
+[The orientation plan](plan-gallery-orientation.md) records the use evidence,
+official comparison source, shared strict-scope contract and qualification.
+
+`GAL#17` adds comparison-only actual-area queries such as `size:>=1.5mp`.
+The unit follows the existing Size calculation: 1,000,000 pixels per MP,
+independent of nominal preset tiers and rounded labels. Exact Decimal
+boundaries and integer division preserve inclusive/exclusive pixel limits
+without overflowing stored width/height products. [The area-search plan](plan-gallery-area-search.md)
+owns the contract, context isolation, guarded legacy types and qualification.
+
+## Named gallery searches
+
+`GAL#7`'s [plan](plan-saved-searches.md) keeps saved filters separate from
+gallery rows: each definition has a name, the exact query text, Starred and
+All models, plus a server id and optimistic revision. The database filename
+is part of its new AuraDream sidecar name so two galleries in one directory
+do not share definitions. Bounded strict reads, an independent cross-process
+lock and atomic replacement protect the file. Unknown or unreadable files
+are refused without overwriting them. CRUD works cold and during bundle
+maintenance; it never reserves the gallery or loads a model.
+
+**Saved searches…** opens from the gallery footer. Opening is the first
+list read; choosing an entry only fills the editor. Use current filter copies
+the live query and ticks without saving, and is held with a reason in the
+bin. Save/Delete change definitions only. A duplicate normalized name offers
+an explicit revisioned update; stale writes preserve the unsaved editor.
+List reads and writes carry dialog/edit epochs so an answer after Close or a
+new edit cannot replace newer work.
+
+Apply to gallery leaves the bin and sheet, clears the sheet's return filter
+and pending search debounce, writes all three controls and reloads gallery
+and Runs once. Gallery epochs reject old pages. Picks retain their ordinary
+selection semantics and outside-view count, and the apply status says they
+remain selected. The operation does not submit generation or mutate images.
+All models off means the checkpoint selected at apply time; relative dates
+also keep the existing grammar's local-day meaning. An explicit `model:=`
+term remains as written even when that makes the current scope empty.
 
 ## The contact sheet
 
@@ -7752,6 +7900,59 @@ Delete wraps to a second row at 2048x1040 at 125% with or without Gallery beside
 (348 against 346 px of column) - the column's own, not this layout's.
 `smoke-stage.json` checks all of it at 2560x1305 and 2048x1040 at 125%.
 
+## Named generation and grid setups
+
+`GEN#27`'s [plan](plan-generation-presets.md) has cold storage/API and explicit
+composer integration built and locally browser-qualified (2026-10-28).
+A setup is a raw checkpoint-scoped draft, kept in a bounded atomic
+sidecar beside the database, outside gallery rows and bundles. Sampling nulls
+retain profile ownership and raw prompt/grid text is never replaced with an
+applied request. Validation uses the ordinary schemas, grid helpers and backend
+`applied()` without describing/loading the model, reserving the gallery or
+entering the generation gate. Temporary random-grid examples never become a
+saved seed. Item/model revisions protect capture and validation; invalid or
+held performance intent refuses.
+
+**Examples > Saved setups…** sits before Personal snippets in the existing
+menu, keeping the prompt caption's size and first author example's position.
+`generation-presets.js` declares the dialog behavior and `app.js` wires it;
+opening is the first sidecar read. The library starts with the selected
+checkpoint and can reveal the others. New/Save current creates an item,
+Update from current replaces its payload, Rename keeps it, and Delete touches
+only the saved item. Errors and Reload list retain the unsaved name; choosing
+an item again is the deliberate adoption of its newest revision.
+
+Reading or selecting never changes the composer. Selection checks the saved
+settings for an inspectable raw/effective summary, but Restore always validates
+again. The answer must match its item and model revisions, the captured whole
+draft/performance state and edit epoch. A late answer asks for another press;
+it never writes over newer work. A checkpoint mismatch names it and offers the
+existing Models surface without selecting or loading anything. Unsupported
+active axes and held performance choices remain visible refusals.
+
+Restore closes the native modal before writing both boxes through `rewriteBox`.
+It keeps raw negative text even while inactive, restores sampling ownership,
+clears references through `setReferences`, clears LoRA and its grid axis, and
+turns Then refine off. The summary names those changes before the press.
+Grid restores its unexpanded variable/axis text and mode, leaves Resume off,
+and lets the ordinary preview/submission apply request Repeat=1. No seed is
+drawn and no work is queued by Restore.
+
+The previous whole draft is held only in memory for Undo, including displayed
+sampling values and ownership, size, conditioning, grid, translation and Then
+refine settings. Its note uses the prompt box's stable overlay rather than
+adding panel height. The first later edit retires it, as Reset/Reuse do; Then
+refine and performance controls participate too. Deleted or binned references
+are pruned from the snapshot so Undo cannot reintroduce them. Restore and Undo
+keep page scroll, and native Ctrl+Z still walks prompt history. No saved setup
+contains that broad Undo snapshot, performance intent, sources or gallery ids.
+
+The scratch Windows smoke passed saving/reload, Restore/Undo, native Ctrl+Z,
+conditioning and Then refine, held execution, stale replies/revisions, a fake
+checkpoint switch, grid preview/submission, modal focus and narrow geometry.
+Five existing grid/Reuse/snippet regressions passed too. This is local browser
+acceptance against the fake, with no card fit, image-quality or speed claim.
+
 ## Personal prompt snippets
 
 The [snippet plan](plan-prompt-snippets.md) implements `UI#11`. **Examples >
@@ -7773,6 +7974,17 @@ Pending writes hold Close; a queued close event cannot invalidate a reopened
 dialog. Insertion uses `rewriteBox` to preserve page scroll and native Undo;
 the browser harness sends Ctrl+Z's physical key code to exercise that native
 history rather than an application key handler.
+
+Portable snippet files extend that separate sidecar, through explicit
+Export/Import inside the existing dialog (`snippet-import.js`). Files omit
+local identity and settings. The client retains raw JSON so duplicate keys
+reach the bounded server parser. A preview pins the whole saved collection,
+and commit recomputes the selected file-index choices under the existing
+snippet lock before one atomic write. Imports keep prompt boxes and dirty
+editor drafts intact; changed editor revisions need explicit reselection.
+Uncertain responses reload for a new preview and require renewed Copy intent
+instead of silently resending. The [portability owner](plan-snippet-portability.md#stage-3-implementation-and-browser-evidence-2026-10-28)
+records passing CPU/browser checks and the final screenshot-read limitation.
 
 ## Keyboard shortcut help
 
@@ -11616,7 +11828,20 @@ re-enabled in a `finally`; a check replaced anyway says the critic was not
 asked, while one a Reset or another checkpoint clears says nothing, since
 the cleared panel shows nothing pending. Close pressed meanwhile hands focus
 to the prompt: the disabled Check would drop it to `<body>`. A checkpoint
-change clears the panel. Apply is offered on rule findings only - a rule's
+change clears the panel.
+
+`UI#31` separates dismissal from computation ownership. Close/Escape keep
+findings, but a pending ordinary Check used to unhide the panel when its
+accepted reply arrived and main Check could focus the heading again. A
+separate dismissal counter suppresses only that reply's reveal/focus; it
+still updates the retained result and normal stale/button/critic state.
+The critic pre-check continues to its existing inert/real route ownership,
+including errors in `#error` while the block is hidden. A later explicit
+Check reopens the panel, including the same prompt; Reset/model/supersession
+still retire computations as before. [The dismissal review](review-2026-10-29-check-dismissal.md)
+owns the source/fake qualification and its no-service boundary.
+
+Apply is offered on rule findings only - a rule's
 `suggestion` is the field rewritten - while an encoder's suggestion (for
 `((masterpiece:1.2))`, `Write "masterpiece" plainly; ...`) is advice and
 shows as text. Use and Apply write through `replaceBoxText`, which selects
@@ -12320,12 +12545,19 @@ Hosted execution remains unverified until this workflow is pushed and run.
 
 ## uv.lock's hand-pinned torch hashes
 
-**`uv.lock` carries hashes for the PyTorch wheels by hand.** The
-`download.pytorch.org` index publishes none for torch 2.13's three wheels or
-the Windows torchvision wheel, so `uv lock` cannot add them; the four were
+**Historical evidence, 2026-09-08:** the four PyTorch wheel hashes were
 downloaded, hashed and checked file-for-file (`RECORD`) against the Windows
-and WSL venvs on 2026-09-08. `uv lock --check` and `--dry-run` accept the
-edited entries; a `uv lock --upgrade` that moves torch will drop them.
+and WSL venvs, then added to the lock by hand because the index did not
+publish them. `uv lock --check` and `--dry-run` accepted those edited entries;
+a lock regeneration can drop them.
+
+**Current check, 2026-10-28:** the lock's three torch 2.13.0+cu130 wheel
+entries and Windows torchvision 0.28.0+cu130 entry have no `hash` field.
+The two Linux torchvision entries do have hashes. No artifact was downloaded
+or rehashed to reconstruct the missing values. Preserve the current lock and
+resolve that discrepancy during the [optional compiler proposal's isolated
+lock review](plan-regional-compilation.md#dependency-proposal-and-remaining-artifact-check-2026-10-28);
+the historical measurement is not proof that the present lock retains it.
 
 ## Verified on the card, 2026-09-08
 

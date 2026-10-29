@@ -1,0 +1,53 @@
+/* Saved filters have no startup read and keep the gallery's header intact. */
+#btn-saved-searches .short { display: none; }
+@container gallery-footer (max-width: 799px) {
+  #btn-saved-searches .full { display: none; }
+  #btn-saved-searches .short { display: inline; }
+  .gallery-footer #btn-saved-searches { min-width: 24px; padding-inline: 3px; }
+}
+@media (max-width: 700px) {
+  .gallery-footer { gap: var(--sp-2); }
+  .gallery-footer .select-count:has(+ #btn-select-clear:not([hidden])),
+  .gallery-footer .picked, .gallery-footer #btn-select-clear:not([hidden]) {
+    margin-right: calc(var(--sp-1) - var(--sp-2));
+  }
+}
+/* The beside column has the wide tier's larger type but only half a stage.
+   Keep every action in view while giving the pick count its own space. */
+@media (min-width: 1800px) {
+  .stage.beside .gallery-footer { gap: var(--sp-1); }
+  .stage.beside .gallery-footer .select-count:has(+ #btn-select-clear:not([hidden])),
+  .stage.beside .gallery-footer .picked,
+  .stage.beside .gallery-footer #btn-select-clear:not([hidden]) { margin-right: 0; }
+}
+.saved-searches-dialog {
+  width: min(820px, calc(100vw - 2 * var(--gutter)));
+  max-height: calc(100dvh - 2 * var(--gutter));
+  padding: var(--panel-pad); border: 1px solid var(--line-strong);
+  border-radius: var(--r-lg); background: var(--panel); color: var(--text);
+  box-shadow: var(--shadow-pop); overflow: hidden;
+}
+.saved-searches-dialog[open] { display: flex; flex-direction: column; gap: var(--sp-3); }
+.saved-searches-dialog::backdrop { background: rgba(0, 0, 0, 0.6); }
+.saved-searches-head { display: flex; justify-content: space-between; align-items: center; gap: var(--sp-3); flex: none; }
+.saved-searches-head h2 { margin: 0; font-size: var(--fs-lg); }
+#saved-searches-intro { margin: 0; flex: none; }
+.saved-searches-body { min-height: 0; overflow-y: auto; overscroll-behavior: contain; }
+.saved-searches-layout {
+  display: grid; grid-template-columns: minmax(170px, 2fr) minmax(0, 3fr); gap: var(--sp-4);
+}
+.saved-searches-library, .saved-searches-editor, .saved-searches-library > label, .saved-searches-editor > label {
+  display: flex; flex-direction: column; gap: var(--sp-2); min-width: 0;
+}
+.saved-searches-library > label, .saved-searches-editor > label { font-size: var(--fs-label); color: var(--text-2); }
+#saved-searches-list { width: 100%; min-height: 9lh; }
+#saved-searches-list option { overflow: hidden; text-overflow: ellipsis; }
+.saved-searches-ticks { display: flex; gap: var(--sp-4); }
+.saved-searches-actions { display: flex; gap: var(--sp-2); flex: none; flex-wrap: wrap; }
+#saved-searches-apply { margin-left: auto; }
+.saved-searches-feedback { height: 5lh; overflow-y: auto; flex: none; }
+#saved-searches-status { margin: 0; font-size: var(--fs-body-sm); white-space: pre-wrap; overflow-wrap: anywhere; }
+@media (max-width: 640px) {
+  .saved-searches-layout { grid-template-columns: minmax(0, 1fr); }
+  #saved-searches-list { min-height: 4lh; height: 5lh; }
+}

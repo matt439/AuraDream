@@ -23,7 +23,7 @@ from .schemas import (
     RunSummary,
     UnstarredPreview,
 )
-from .search import strict_scope
+from .search import SQLITE_INT, strict_scope
 
 
 def _unstarred_scope(search: str | None) -> str | None:
@@ -92,11 +92,11 @@ def create_router(
         # The ceiling follows AURADREAM_MAX_GRID_IMAGES, which /api/status publishes, so
         # the sheet's one-page request cannot be refused by the server that sized it.
         limit: int = Query(48, ge=1, le=max(1024, max_grid_images)),
-        offset: int = Query(0, ge=0),
+        offset: int = Query(0, ge=0, le=SQLITE_INT[1]),
         # Keyset paging: rows older than this id. What the browser sends, because
         # an offset over a gallery a sweep is writing into repeats the tail of one
         # page at the head of the next and skips as many older rows for good.
-        before: int | None = Query(None, ge=1),
+        before: int | None = Query(None, ge=1, le=SQLITE_INT[1]),
         search: str | None = None,
         favorites: bool = False,
         # The running checkpoint's images unless asked for every checkpoint's:
@@ -211,8 +211,8 @@ def create_router(
     @router.get("/api/gallery/bin", response_model=GalleryPage)
     async def recycle_bin(
         limit: int = Query(48, ge=1, le=max(1024, max_grid_images)),
-        offset: int = Query(0, ge=0),
-        before: int | None = Query(None, ge=1),
+        offset: int = Query(0, ge=0, le=SQLITE_INT[1]),
+        before: int | None = Query(None, ge=1, le=SQLITE_INT[1]),
         search: str | None = None,
     ) -> GalleryPage:
         """The recycle bin, paged as the gallery is, newest id first.

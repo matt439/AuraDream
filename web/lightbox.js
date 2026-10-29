@@ -439,9 +439,28 @@ function onPicture(e) {
   return hit === els.lbImg || hit === els.lbSrcImg;
 }
 
+// A request hold changes only this control, not the view, ladder or focus.
+// The bin's reason remains authoritative if the image is binned meanwhile.
+function syncLightboxFavoriteHold(rec = lbList[lbIndex]) {
+  if (!rec) return;
+  const held = rec.binned_at ? 'In the recycle bin: restore it to star it'
+    : favoriteWriteReason([rec.id]);
+  els.lbFav.setAttribute('aria-disabled', String(!!held));
+  els.lbFav.title = held || starTitle(!!rec.favorite, els.lbFav);
+}
+
+// Claim/release changes only these controls, without rebuilding the image,
+// comparison, facts, focus or geometry merely to show a targeted write hold.
+function syncLightboxBinWriteHold(rec = lbList[lbIndex]) {
+  if (!rec) return;
+  syncBinWriteButton(els.lbRestore, [rec.id], 'Move this image back to the gallery');
+  syncBinWriteButton(els.lbDelete, [rec.id], rec.binned_at ? 'Delete permanently (Del)' : 'Move to the recycle bin (Del)');
+}
+
 function renderLightbox() {
   const rec = lbList[lbIndex];
   if (!rec) { closeLightbox(); return; }
+  syncLightboxCopyScope(rec, !els.lightbox.open);
   const focused = document.activeElement;
   const keepFocus = els.lightbox.open && focused?.closest?.('dialog[open]') === els.lightbox;
   // Another image ends a comparison: it was that pass's with its source.
@@ -499,8 +518,8 @@ function renderLightbox() {
   els.lbRestore.hidden = !binned;
   els.lbDelete.textContent = binned ? '⌦ Delete permanently' : '⌦ Delete';
   els.lbDelete.title = binned ? 'Delete permanently (Del)' : 'Move to the recycle bin (Del)';
-  els.lbFav.setAttribute('aria-disabled', String(binned));
-  if (binned) els.lbFav.title = 'In the recycle bin: restore it to star it';
+  syncLightboxFavoriteHold(rec);
+  syncLightboxBinWriteHold(rec);
   // Kept facts keep their buttons, whose state follows the checkpoint's.
   for (const use of els.lbSettings.querySelectorAll('.lb-use-refs')) syncUseReferences(use);
   // The record, not its model id: a pass's Reuse names the Refine dialog.
@@ -639,6 +658,7 @@ async function stepLightbox(delta) {
 }
 
 function closeLightbox({ keepPicker = false } = {}) {
+  syncLightboxCopyScope();
   // Opened from the Models picker's strip, which stays open under it.
   const fromModels = lbOrigin === 'models';
   // The dialog's `close` event is queued, not fired by close(), and app.js

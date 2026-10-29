@@ -314,8 +314,16 @@ function setStep(show, fraction = 0, text = '') {
 // time instead of withdrawing it, and the job stayed paused (`pauseAsking`:
 // the job and the `pause_requested` asked for, until the server answers).
 let pauseAsking = null;
+
+// A response belongs to the watched job and the known server it was sent to.
+// Learning the first server identity is allowed; a confirmed restart is not.
+function watchedActionCurrent(asking) {
+  return busy && currentJob === asking.jobId
+    && (asking.startedAt == null || serverStartedAt == null || asking.startedAt === serverStartedAt);
+}
+
 async function togglePause() {
-  if (!currentJob) return;
+  if (!busy || !currentJob) return;
   if (els.pause.getAttribute('aria-disabled') === 'true') {
     if (busy) showJobNote(`${els.pause.title}.`);
     return;
@@ -326,18 +334,26 @@ async function togglePause() {
   els.pause.textContent = pausing ? 'Pausing…' : 'Pause';
   if (cellArgs) showCell(...cellArgs);
   mirrorJob();
-  const asking = { jobId, value: pausing };
+  const asking = { jobId, value: pausing, startedAt: serverStartedAt };
   pauseAsking = asking;
   try {
     await api(`/api/jobs/${jobId}/pause?value=${pausing}`, { method: 'POST' });
   } catch (err) {
-    els.pause.textContent = was;
-    showError(err.message);
+    // A later press can withdraw this pause before its reply arrives. Only
+    // the latest press for this watched context may restore the old label.
+    if (pauseAsking === asking && watchedActionCurrent(asking)) {
+      els.pause.textContent = was;
+      showError(err.message);
+    }
   } finally {
-    if (pauseAsking === asking) pauseAsking = null;
+    if (pauseAsking === asking) {
+      pauseAsking = null;
+      if (watchedActionCurrent(asking)) {
+        if (cellArgs) showCell(...cellArgs);
+        mirrorJob();
+      }
+    }
   }
-  if (cellArgs) showCell(...cellArgs);
-  mirrorJob();
 }
 
 // The label from the worker's own account, every status frame - so a page
@@ -348,7 +364,8 @@ async function togglePause() {
 // that agrees with it - the worker's `paused` landing first - is taken.
 function syncPause(job) {
   const unit = unitWord(job);
-  const stale = pauseAsking?.jobId === job.job_id && !!job.pause_requested !== pauseAsking.value;
+  const stale = pauseAsking?.jobId === job.job_id && watchedActionCurrent(pauseAsking)
+    && !!job.pause_requested !== pauseAsking.value;
   if (!stale) {
     els.pause.textContent = job.paused ? 'Resume' : job.pause_requested ? 'Pausing…' : 'Pause';
   }

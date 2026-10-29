@@ -25,6 +25,8 @@
 <link rel="stylesheet" href="/static/styles/context-menu.css">
 <link rel="stylesheet" href="/static/styles/shortcuts.css">
 <link rel="stylesheet" href="/static/styles/snippets.css">
+<link rel="stylesheet" href="/static/styles/setups.css">
+<link rel="stylesheet" href="/static/styles/saved-searches.css">
 </head>
 <body>
 <header class="topbar">
@@ -132,7 +134,7 @@
           the server answers.</span></span>
         <span class="examples" id="examples">
           <button type="button" class="ghost tiny" id="btn-examples" aria-haspopup="menu"
-                  aria-expanded="false" title="Example prompts from the authors, and your personal snippets">Examples</button>
+                  aria-expanded="false" title="Example prompts from the authors, saved setups and your personal snippets">Examples</button>
           <ul class="menu" id="examples-menu" role="menu" aria-labelledby="btn-examples" hidden></ul>
         </span>
         <span class="tag-helper" id="tag-helper" hidden>
@@ -945,6 +947,8 @@
                pressed again, the gallery. Its count is the bin's, every
                checkpoint's. Short, so the row never wraps. -->
           <button type="button" class="ghost small foot-btn" id="btn-bin" aria-pressed="false">Bin<span class="count"></span></button>
+          <button type="button" class="ghost small foot-btn" id="btn-saved-searches" aria-haspopup="dialog"
+            aria-controls="saved-searches-dialog" aria-label="Saved searches…" title="Save, manage and apply named gallery filters"><span class="full">Saved searches…</span><span class="short" aria-hidden="true">⌕</span></button>
           <button type="button" class="ghost small" id="btn-bundles" aria-haspopup="dialog"
             title="Back up the gallery, the picked or the starred images, bundle the entire gallery and clear it, or merge images from a saved bundle">Bundles…</button>
         </div>
@@ -1890,18 +1894,61 @@
   <div id="shortcuts-body"></div>
 </dialog>
 
+<dialog class="saved-searches-dialog" id="saved-searches-dialog" aria-labelledby="saved-searches-title" aria-describedby="saved-searches-intro">
+  <div class="saved-searches-head">
+    <h2 id="saved-searches-title">Saved searches</h2>
+    <button type="button" class="ghost" id="saved-searches-close">Close</button>
+  </div>
+  <p class="hint" id="saved-searches-intro">Save query text, Starred and All models. With All models off, the search uses the checkpoint selected when you apply it. Relative dates use that day's local date. Picks stay selected.</p>
+  <div class="saved-searches-body">
+    <div class="saved-searches-layout">
+      <div class="saved-searches-library">
+        <label>Saved searches<select id="saved-searches-list" size="6" aria-label="Saved searches"></select></label>
+        <div class="saved-searches-actions"><button type="button" class="ghost" id="saved-searches-reload">Reload list</button><button type="button" class="ghost" id="saved-searches-new">New</button></div>
+      </div>
+      <div class="saved-searches-editor">
+        <!-- Name limits are code points; native maxlength counts UTF-16 units. -->
+        <label>Name<input type="text" id="saved-searches-name" maxlength="160" aria-description="Up to 80 characters." autocomplete="off" autofocus></label>
+        <label>Query<textarea id="saved-searches-query" rows="4" maxlength="4000" spellcheck="false"></textarea></label>
+        <div class="saved-searches-ticks">
+          <label class="check"><input type="checkbox" id="saved-searches-favorites">Starred</label>
+          <label class="check"><input type="checkbox" id="saved-searches-all-models">All models</label>
+        </div>
+        <button type="button" class="ghost" id="saved-searches-current">Use current filter</button>
+      </div>
+    </div>
+  </div>
+  <div class="saved-searches-actions">
+    <button type="button" class="ghost" id="saved-searches-save" aria-disabled="true">Save</button>
+    <button type="button" class="ghost danger" id="saved-searches-delete" aria-disabled="true">Delete</button>
+    <button type="button" class="primary" id="saved-searches-apply">Apply to gallery</button>
+  </div>
+  <div class="saved-searches-feedback">
+    <p id="saved-searches-status" role="status" aria-live="polite"></p>
+    <button type="button" class="ghost" id="saved-searches-replace" hidden>Update named search</button>
+  </div>
+</dialog>
+
 <dialog class="snippets-dialog" id="snippets-dialog" aria-labelledby="snippets-title" aria-describedby="snippets-intro">
   <div class="snippets-head">
     <h2 id="snippets-title">Prompt snippets</h2>
     <button type="button" class="ghost" id="snippets-close">Close</button>
   </div>
   <p class="hint" id="snippets-intro">Save your own reusable prompt text. Append or prepend it to a prompt; Ctrl+Z restores the box.</p>
+<div class="snippets-portability">
+  <button type="button" class="ghost" id="snippets-export">Export.</button>
+  <button type="button" class="ghost" id="snippets-import" aria-haspopup="dialog" aria-controls="snippet-import-dialog">Import.</button>
+  <span class="hint">Export files contain personal prompt text.</span>
+  <input type="file" id="snippets-import-file" accept="application/json,.json" hidden>
+</div>
   <div class="snippets-layout">
-    <label class="snippets-library">Saved snippets
+    <div class="snippets-library">
+      <label for="snippets-list">Saved snippets</label>
       <select id="snippets-list" size="6" aria-label="Saved snippets"></select>
-    </label>
+      <button type="button" class="ghost" id="snippets-reload">Reload list</button>
+    </div>
     <div class="snippets-editor">
-      <label>Name<input type="text" id="snippets-name" maxlength="80" autocomplete="off" autofocus></label>
+      <label>Name<input type="text" id="snippets-name" maxlength="160" aria-description="Up to 80 characters." autocomplete="off" autofocus></label>
       <label>Text<textarea id="snippets-text" rows="5" maxlength="16000" spellcheck="false"></textarea></label>
       <div class="row">
         <label class="sub grow"><i>Insert into</i><select id="snippets-target"><option value="prompt">Prompt</option><option value="negative">Negative prompt</option></select></label>
@@ -1916,6 +1963,49 @@
     <button type="button" class="primary" id="snippets-insert" aria-disabled="true">Insert</button>
   </div>
   <p id="snippets-status" role="status" aria-live="polite"></p>
+</dialog>
+
+<dialog class="snippet-import-dialog" id="snippet-import-dialog" aria-labelledby="snippet-import-title" aria-describedby="snippet-import-intro">
+  <div class="snippets-head">
+    <h2 id="snippet-import-title">Import prompt snippets</h2>
+    <button type="button" class="ghost" id="snippet-import-close">Cancel</button>
+  </div>
+  <p class="hint" id="snippet-import-intro">Choose Add, Replace or Skip for each file item. Nothing is saved until Import; your prompt boxes and snippet editor stay unchanged.</p>
+  <p id="snippet-import-filename" aria-label="Selected file"></p>
+  <p id="snippet-import-summary" role="status" aria-live="polite">Nothing has been imported.</p>
+  <div id="snippet-import-rows" tabindex="-1" aria-label="Snippet merge choices"></div>
+  <p id="snippet-import-status" role="status" aria-live="polite"></p>
+  <div class="snippet-import-actions">
+    <button type="button" class="ghost" id="snippet-import-preview">Preview</button>
+    <button type="button" class="primary" id="snippet-import-run" aria-disabled="true">Import</button>
+  </div>
+</dialog>
+
+<dialog class="setups-dialog" id="setups-dialog" aria-labelledby="setups-title" aria-describedby="setups-intro">
+  <div class="setups-head"><h2 id="setups-title">Saved setups</h2><button type="button" class="ghost" id="setups-close">Close</button></div>
+  <p class="hint" id="setups-intro">Save a generation or grid draft for this checkpoint. Restore replaces the composer with Undo; it queues no work.</p>
+  <div class="setups-body">
+    <div class="setups-layout">
+      <div class="setups-library">
+        <label>Saved setups<select id="setups-list" size="6" aria-label="Saved setups"></select></label>
+        <label class="check"><input type="checkbox" id="setups-all">Show other checkpoints</label>
+        <div class="setups-actions"><button type="button" class="ghost" id="setups-reload">Reload list</button><button type="button" class="ghost" id="setups-new">New</button></div>
+      </div>
+      <div class="setups-editor">
+        <label>Name<input type="text" id="setups-name" maxlength="160" aria-description="Up to 80 characters." autocomplete="off" autofocus></label>
+        <pre id="setups-summary" aria-label="Saved and effective settings"></pre>
+        <button type="button" class="ghost" id="setups-models" hidden>Open Models</button>
+      </div>
+    </div>
+  </div>
+  <div class="setups-actions">
+    <button type="button" class="ghost" id="setups-save">Save current</button>
+    <button type="button" class="ghost" id="setups-update">Update from current</button>
+    <button type="button" class="ghost" id="setups-rename">Rename</button>
+    <button type="button" class="ghost danger" id="setups-delete">Delete</button>
+    <button type="button" class="primary" id="setups-restore">Restore</button>
+  </div>
+  <p id="setups-status" role="status" aria-live="polite"></p>
 </dialog>
 
 <script src="/static/state.js"></script>
@@ -1943,6 +2033,7 @@
 <script src="/static/sheet-render.js"></script>
 <script src="/static/sheet-export.js"></script>
 <script src="/static/gallery-search.js"></script>
+<script src="/static/saved-searches.js"></script>
 <script src="/static/facts.js"></script>
 <script src="/static/lightbox.js"></script>
 <script src="/static/lightbox-compare.js"></script>
@@ -1971,6 +2062,8 @@
 <script src="/static/context-menu.js"></script>
 <script src="/static/shortcuts.js"></script>
 <script src="/static/prompt-snippets.js"></script>
+<script src="/static/snippet-import.js"></script>
+<script src="/static/generation-presets.js"></script>
 <script src="/static/app.js"></script>
 </body>
 </html>

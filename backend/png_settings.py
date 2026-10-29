@@ -66,7 +66,7 @@ def record(chunks: Mapping[str, Any], name: str) -> dict | None:
         return None
     try:
         meta = json.loads(raw)
-    except ValueError:
+    except (ValueError, RecursionError):
         raise PngSettingsError(f"the AuraDream metadata in {name} is not JSON") from None
     if not isinstance(meta, dict):
         raise PngSettingsError(f"the AuraDream metadata in {name} is not a settings record")
