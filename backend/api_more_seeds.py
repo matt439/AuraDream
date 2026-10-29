@@ -120,7 +120,9 @@ async def more_seeds_plan(
                 first.edit)
         if spec != (None, (), None, None, None, None, None):
             if spec not in checked:
-                checked[spec] = await submission.unusable_input(services, first)
+                # An edit's batch queues here (the producer), its source
+                # proved against its recorded pixels and held to the envelope.
+                checked[spec] = await submission.unusable_input(services, first, producer="more_seeds")
             unusable = checked[spec]
             if unusable is not None:
                 kind, why = unusable

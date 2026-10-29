@@ -36,7 +36,9 @@ async def refuse_unusable_inputs(services: AppServices, request: GenerateRequest
         raise HTTPException(status_code=422, detail=unusable[1])
 
 
-async def unusable_input(services: AppServices, request: GenerateRequest) -> tuple[str, str] | None:
+async def unusable_input(
+    services: AppServices, request: GenerateRequest, producer: Literal["generate", "more_seeds"] = "generate",
+) -> tuple[str, str] | None:
     """`refuse_unusable_inputs`' finding without the refusal: (kind, why) or
     None. The kind - `refine`, `inpaint`, `source`, `mask_missing`, `mask`,
     `reference`, `references`, `lora` - is what Swap tags reports per image (a
@@ -49,18 +51,25 @@ async def unusable_input(services: AppServices, request: GenerateRequest) -> tup
     image-to-image class's, as `applied()` asks it. The mask file's checks
     run where there is a mask - an outpaint has none until its stamp - and
     an outpaint's own (`outpaint_unusable`, kind `outpaint`) where there is
-    one."""
+    one.
+
+    An edit (kind `edit`) is said by its `producer`. More seeds runs one:
+    the recorded proof against the source's pixels now (`bind_request`),
+    then the gate, the exact model and the loader envelope, then the
+    source's aspect - None only where all pass. Every other producer
+    (Generate, Swap tags, Finish) never queues one, whatever the gate: a
+    closed one says the editor is unavailable, an unmeasured loader says
+    so, else where edits are queued from (`replay_held_reason`)."""
     if request.edit is not None:
         try:
-            await asyncio.to_thread(instruction_edit_admission.bind_request, request, services.model_id())
+            bound = await asyncio.to_thread(instruction_edit_admission.bind_request, request, services.model_id())
         except ValueError as exc:
             return "edit", str(exc)
-        # Generate, Re-render and More seeds never queue an edit, whatever
-        # the gate: a closed one says the editor is unavailable, an
-        # unmeasured loader says so, else where edits are queued from
-        # (`POST /api/instruction-edit`).
         refusal = services.backend().instruction_edit_refusal(current_settings(services.settings()))
-        return "edit", instruction_edit.replay_held_reason(refusal)
+        if producer != "more_seeds":
+            return "edit", instruction_edit.replay_held_reason(refusal)
+        reason = refusal or instruction_edit.bound_geometry_refusal(bound.edit)
+        return None if reason is None else ("edit", reason)
     reason = unavailable_reason(request.execution)
     if reason is not None:
         return "execution", reason
@@ -268,6 +277,24 @@ def resized_inpaint_detail(
         f"{said}{more} - {rule}, so it cannot be re-rendered at "
         f"{width}x{height}.{tail}"
     )
+
+
+def edit_rerender_detail(records: list[ImageRecord], picked: bool, others: bool = True) -> str:
+    """Re-render's refusal of those instruction edits, each named with its
+    size, and the way out: an edit's size is frozen by its source's
+    geometry, so at its own size it is already rendered and at any other it
+    is not that edit. A selection with others is refused whole, as
+    `resized_inpaint_detail`'s, with the way to leave them out."""
+    sizes = "; ".join(f"{record.width}x{record.height} for #{record.id}" for record in records[:6])
+    more = f"; and {len(records) - 6} more" if len(records) > 6 else ""
+    rule = (
+        f"An instruction edit renders at its source's frozen size ({sizes}{more})" if len(records) == 1
+        else f"Instruction edits render at their sources' frozen sizes ({sizes}{more})"
+    )
+    names = ", ".join(f"#{record.id}" for record in records[:6]) + (" and the rest" if len(records) > 6 else "")
+    way = f"Unpick {names}" if picked else "Add edit:no to the search"
+    tail = f" {way} to re-render the others." if others else ""
+    return f"{rule}; use More seeds for new seeds, or Reuse to edit again.{tail}"
 
 
 def missing_mask_detail(ids: list[int]) -> str:

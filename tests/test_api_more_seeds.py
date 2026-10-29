@@ -318,3 +318,22 @@ def test_a_run_past_max_grid_images_is_queued_in_few_batches(client, fake, monke
     too_many = client.post("/api/more-seeds/preview", json={"run": run, "count": 2})
     assert too_many.status_code == 422
     assert too_many.json()["detail"] == "2 batches × 2 is 4 images; a press may queue 3. Ask for fewer."
+
+
+def test_an_edit_batch_replays_its_intent_receipt_without_fresh_seeds(client, fake, store, monkeypatch):
+    # More seeds of an instruction edit (stage 4): the same receipt answers a
+    # retried request, so a lost reply never edits the source twice over.
+    from tests.test_instruction_edit_queue import edited, open_gate, source
+
+    open_gate(fake, monkeypatch)
+    _, bound = source(store)
+    edit = edited(store, bound)
+    answer = preview(client, ids=[edit.id], count=2)
+    assert answer["queued"] == 2 and answer["intent"]
+    body = {"ids": [edit.id], "count": 2, "expected": answer["ids"], "intent": answer["intent"]}
+    accepted = queue(client, **body)
+    final = stream_job(client, accepted["job_id"])[-1]
+    assert [image["seed"] for image in final["images"]] == [8, 9]
+    assert queue(client, **body) == accepted
+    assert [call["seed"] for call in fake.edit_calls] == [8, 9]
+    assert {store.get_image(image["id"]).edit for image in final["images"]} == {bound}

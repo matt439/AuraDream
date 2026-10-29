@@ -2273,8 +2273,8 @@ Jobs:
   the gate. The critic's download and its rewrite's lint run outside the
   gate. Nothing that holds the gate awaits the load lock, which is why
   `wait_for_gate` cannot deadlock.
-- An instruction edit queues only through `POST /api/instruction-edit`
-  (`InstructionEditSubmission`). The submission is strict and refuses extra
+- An instruction edit queues through `POST /api/instruction-edit`
+  (`InstructionEditSubmission`) or More seeds (below). The submission is strict and refuses extra
   fields such as a negative prompt. It becomes one image and one run. Its
   admission order is fixed:
   1. the model-dependent middleware (409 for a switch or a stale revision);
@@ -2286,10 +2286,24 @@ Jobs:
   5. `check_budget`, `check_refine_steps` and `jobs.submit`.
 
   The route never asks `refuse_unusable_inputs`, whose text-to-image check
-  refuses everything on the editor. `submission.unusable_input` still binds
-  an edit, then answers `replay_held_reason`: UNAVAILABLE, an unmeasured
-  loader's words, or REPLAY_HELD where an edit could queue, so Generate,
-  Re-render and More seeds never queue one. `submit_cells` takes only a bound
+  refuses everything on the editor. `submission.unusable_input` binds an
+  edit first - the recorded proof against the source's pixels now - and then
+  answers by its `producer` (stage 4, slice 8). For `"more_seeds"` it is
+  `instruction_edit_refusal` (gate, exact model, loader envelope), then
+  `bound_geometry_refusal`, then None: More seeds of an edit queues new
+  seeds of the original source (never of the child), one image per call
+  (`more_seeds.plan`'s `fit = 1`), in the edit's run, through the intent
+  receipts like any batch. A changed or binned source, another checkpoint,
+  a non-square edit, a closed gate or an unmeasured loader is that batch's
+  status in words, with no job. Every other producer (Generate, Finish)
+  gets `replay_held_reason`: UNAVAILABLE, an unmeasured loader's words, or
+  REPLAY_HELD ("queued only from Edit by instruction… or More seeds") where
+  an edit could queue; Swap tags keeps its own refusal. Re-render refuses an
+  edit before any cell is built (`submission.edit_rerender_detail`, after
+  the foreign check): its size is its source's frozen geometry, so the
+  words name each id and size and point at More seeds and Reuse; a mixed
+  selection is refused whole, with Unpick or `edit:no` as the way out.
+  `submit_cells` takes only a bound
   edit inside the envelope (loader and aspect), and `_run` fails a retained
   edit job, with the reason, when the backend is not qualified or the
   selection has left the envelope.
@@ -5876,7 +5890,13 @@ Three files cover stage 2:
   holds them off the measured host; Qwen-Image-Edit stays refused.
 - `test_instruction_edit_queue.py` checks the route's admission order and
   refusals, a saved edit row and PNG, the per-cell recheck, cancel,
-  `planned_keys`, and the held producers on both gate states. Its envelope
+  `planned_keys`, and the replay producers: More seeds of an edit queues
+  new seeds of its original source in its run, and refuses a changed or
+  binned source, another checkpoint, a non-square edit, a closed gate or an
+  unmeasured loader in words with no job; Re-render is refused naming the
+  ids (a mixed selection whole); Generate and Finish stay held on both gate
+  states (`test_api_more_seeds.py` replays an edit batch's intent receipt
+  without fresh seeds). Its envelope
   tests hold an unmeasured aspect at the preview and the submit (and
   `submit_cells`) with no job, an unmeasured loader before any source is
   read, the fake host's platform and diffusers answers, the recheck of a
@@ -8651,6 +8671,11 @@ checks:
   Kontext id, 512×512, batch 1, and no refine, mask or negative. The viewer
   lineage, the "Edited from" fact and the `edited` badge show, and the
   pixels differ from the source. A cancel mid-run saves nothing.
+- **More seeds and Re-render of the edit (stage 4 slice 8):** More seeds x2
+  from the edit queues seeds 8 and 9, which save as two more edits of #1 in
+  its run, one image per call, with the same source proof; the source is
+  unchanged. Re-render of the picked edit says, in the gallery line, that
+  it renders at its source's frozen size (naming it) and queues nothing.
 - **Binning the source:** the edit's Reuse is held, and the facts say "in the
   recycle bin" with Restore. The source's own menu item is held with
   "restore it first", and Restore frees both.

@@ -313,9 +313,11 @@ Reproduction and storage:
   sources at 512x512. The editor load holds open only for the exact id inside
   the envelope (the pinned configs-then-weights loader); Qwen-Image-Edit is
   always refused. Kontext is an edit-only catalogue entry, listed last.
-  Edits queue through `POST /api/instruction-edit` only, which re-proves each
-  cell's source as it begins. Reuse opens the Edit by instruction dialog.
-  Generate, Re-render and More seeds of edits stay held. The plan and the
+  Edits queue through `POST /api/instruction-edit` and More seeds (new seeds
+  of the original source inside the envelope, its recorded proof checked
+  first), and each cell's source is re-proved as it begins. Reuse opens the
+  Edit by instruction dialog. Re-render refuses an edit with words naming
+  it; Generate and Finish stay held. The plan and the
   carry/bundle checklists own the remaining integration and the card step.
 
 Jobs:

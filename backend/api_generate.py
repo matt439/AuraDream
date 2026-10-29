@@ -207,7 +207,8 @@ async def finish_plan(services: AppServices, run_id: str) -> FinishPlan:
     ):
         # Imported/retained edits remain inspectable, but no applied() call
         # may erase their pass kind or turn an unavailable editor into a 500.
-        # There is no runnable remainder to pin while this release is held.
+        # Finish stays held for edits: More seeds is their replay, with
+        # each new seed's source proved again.
         from .instruction_edit import INSTRUCTION_EDIT_REPLAY_HELD, INSTRUCTION_EDIT_UNAVAILABLE, replay_held_reason
 
         # The same split as `submission.unusable_input`: a closed gate says
@@ -522,6 +523,15 @@ def create_router(services: AppServices) -> APIRouter:
             others = [r.id for r in records if r.model_id != services.model_id()]
             raise HTTPException(status_code=422, detail=foreign_refusal(
                 services, len(others), foreign, others if request.ids is not None else None,
+            ))
+        # An instruction edit's size is its source's frozen geometry: never
+        # re-rendered at another, and at its own already there. Named by id
+        # before any cell is built (an unresolved import would refuse in
+        # the request model's words); More seeds is its way to new seeds.
+        edits = [record for record in records if record.edit is not None]
+        if edits:
+            raise HTTPException(status_code=422, detail=submission.edit_rerender_detail(
+                edits, picked=request.ids is not None, others=len(edits) < len(records),
             ))
         # An inpaint whose mask this gallery lacks is named by its id, which
         # the per-combination check below could only say by the mask's hash.

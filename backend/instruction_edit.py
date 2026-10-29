@@ -48,10 +48,7 @@ INSTRUCTION_EDIT_TEXT_TO_IMAGE = (
     "FLUX.1 Kontext [dev] edits a gallery image; it does not generate from text. "
     "Use Edit by instruction… on an image."
 )
-INSTRUCTION_EDIT_REPLAY_HELD = (
-    "Instruction edits are queued from Edit by instruction…; "
-    "Generate, Re-render and More seeds do not run them yet."
-)
+INSTRUCTION_EDIT_REPLAY_HELD = "Instruction edits are queued only from Edit by instruction… or More seeds."
 INSTRUCTION_EDIT_COMMAND_LINE = (
     "FLUX.1 Kontext [dev] edits a gallery image; the command line generates from text "
     "and does not run instruction edits."
@@ -535,11 +532,13 @@ def edit_unavailable_reason(model_id: str, *, qualified: bool, loader: LoaderCho
 
 
 def replay_held_reason(reason: str | None) -> str:
-    """Generate, Re-render, More seeds and Finish's words for an edit.
+    """Generate, Swap tags and Finish's words for an edit.
 
     ``reason`` is ``edit_unavailable_reason``'s answer. They never queue an
     edit: where one could queue - or would, with the editor selected - they
-    point at Edit by instruction…; a closed gate or an unmeasured loader is
+    point at Edit by instruction… and More seeds (which runs one inside the
+    envelope; Re-render refuses by id, ``submission.edit_rerender_detail``);
+    a closed gate or an unmeasured loader is
     said as it is, so the pointer never leads to a server-wide refusal (a
     source's own aspect is still the dialog's to say).
     """

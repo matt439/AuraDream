@@ -717,7 +717,30 @@ use a closed stand-in for the gate's words and the real class for the
 envelope's. Nothing has run on the card in this slice; it stays local until
 the card acceptance step passes.
 
-The later slices release More seeds of edits and the page's holds.
+**Slice 8 (built): replay producers.** `submission.unusable_input` takes a
+`producer`. For `"more_seeds"` an edit is bound first (`bind_request`: the
+recorded proof against the source's pixels now, the model, the frozen size),
+then `instruction_edit_refusal` (gate, exact id, loader envelope), then
+`bound_geometry_refusal`, and None queues it: `api_more_seeds` passes the
+producer, so More seeds of a live, unchanged 1:1 edit queues one image per
+call (`more_seeds.plan`'s `fit = 1`, unchanged), seeds continuing past the
+batch's, in the edit's run, always of the original source. A changed or
+binned source, another checkpoint (`foreign`), a non-square imported edit, a
+closed gate or an unmeasured loader is that batch's status in words, with no
+job; `submit_cells` and `_recheck_edit` check again. Every other producer
+keeps `replay_held_reason`, whose REPLAY_HELD now reads "Instruction edits
+are queued only from Edit by instruction… or More seeds." Re-render refuses
+an edit before any cell is built (`submission.edit_rerender_detail`): its
+size is the source's frozen geometry, so at its own size it is already
+rendered and at another it is not that edit; the words name each id and
+size and point at More seeds and Reuse, and a mixed selection is refused
+whole (Unpick, or `edit:no`). Finish stays held; Swap tags keeps its own
+refusal; Then refine, grids and Mass refine are unchanged. Run ids, CellKeys
+and the verdict tuple keyed by `edit` are unchanged. The smoke runs More
+seeds x2 on an edit (two more edits of #1, seeds 8 and 9, same proof) and
+shows Re-render's reason.
+
+The later slices release the page's holds.
 
 ## Stages and completion criteria
 

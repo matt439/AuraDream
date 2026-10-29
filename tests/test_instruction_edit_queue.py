@@ -534,22 +534,120 @@ def test_planned_keys_hold_a_live_edit_and_skip_it_once_unqualified(client, fake
         stream_job(client, job_id)
 
 
-# What stays held
+# Replay: More seeds runs an edit inside the envelope; the rest stays held
+
+
+def edited(store, bound, *, width=512, height=512, seed=7, run_id="instruction-edit-run"):
+    """A saved edit of `bound`'s source, as the editor writes one."""
+    return store.save_image(
+        Image.new("RGB", (width, height), (50, 30, 10)),
+        GenerateRequest(prompt="make it night", edit=bound, width=width, height=height, seed=seed),
+        seed=seed, duration_ms=1, model_id=KONTEXT_V1.model_id, quantization="fp8",
+        run_id=run_id, batch=1,
+    )
+
+
+def test_more_seeds_of_an_edit_queues_new_seeds_of_the_original_source(client, fake, store, monkeypatch):
+    open_gate(fake, monkeypatch)
+    rec, bound = source(store)
+    edit = edited(store, bound)
+    answer = client.post("/api/more-seeds/preview", json={"ids": [edit.id], "count": 2}).json()
+    (row,) = answer["results"]
+    assert (row["status"], row["first"], row["last"], row["batch"]) == ("queued", 8, 9, 1), row
+    assert answer["queued"] == 2 and answer["intent"]
+    response = client.post("/api/more-seeds", json={
+        "ids": [edit.id], "count": 2, "expected": answer["ids"], "intent": answer["intent"],
+    })
+    assert response.status_code == 200, response.text
+    accepted = response.json()
+    assert accepted["run_id"] == "instruction-edit-run" and accepted["queued"] == 2
+    done = stream_job(client, accepted["job_id"])[-1]
+    assert done["status"] == "done" and len(done["images"]) == 2, done
+    # One image per call, each an edit of the original source - never of
+    # the child it was asked from - its proof unchanged.
+    assert [call["seed"] for call in fake.edit_calls] == [8, 9]
+    assert all(call["num_images_per_prompt"] == 1 and call["image_size"] == (512, 512) for call in fake.edit_calls)
+    made = [store.get_image(image["id"]) for image in done["images"]]
+    assert all(saved is not None for saved in made)
+    assert [(saved.seed, saved.edit, saved.run_id, saved.width, saved.height) for saved in made if saved] == [
+        (8, bound, "instruction-edit-run", 512, 512), (9, bound, "instruction-edit-run", 512, 512),
+    ]
+    assert store.get_image(rec.id) is not None
+    # Asked again, the seeds carry on past them.
+    again = client.post("/api/more-seeds/preview", json={"ids": [edit.id], "count": 2}).json()
+    assert (again["results"][0]["first"], again["results"][0]["last"]) == (10, 11)
+
+
+@pytest.mark.parametrize("case", ["changed", "binned", "foreign", "non-square", "closed", "loader"])
+def test_more_seeds_refuses_changed_source_or_unmeasured_envelope(client, fake, store, monkeypatch, case):
+    open_gate(fake, monkeypatch)
+    if case == "non-square":
+        # An imported or older 3:2 edit: it binds and inspects, never runs.
+        rec, bound = source(store, width=768, height=512)
+        edit = edited(store, bound, width=576, height=384)
+    else:
+        rec, bound = source(store)
+        edit = edited(store, bound)
+    if case == "changed":
+        Image.new("RGB", (256, 256), (1, 2, 3)).save(store.settings.outputs_dir / rec.filename)
+    elif case == "binned":
+        store.bin_images([rec.id])
+    elif case == "foreign":
+        select(monkeypatch, "black-forest-labs/FLUX.1-Krea-dev")
+    elif case == "closed":
+        fake.edit_qualified = False
+    elif case == "loader":
+        leave_envelope(monkeypatch)
+    expected = {
+        "changed": ("invalid", f"Instruction-edit source #{rec.id} no longer matches its recorded pixels or provenance."),
+        "binned": ("invalid", f"Instruction-edit source #{rec.id} is missing or in the recycle bin."),
+        "foreign": ("foreign", f"made on {KONTEXT_V1.model_id}; the server is running black-forest-labs/FLUX.1-Krea-dev"),
+        "non-square": ("invalid", THREE_TWO),
+        "closed": ("invalid", INSTRUCTION_EDIT_UNAVAILABLE),
+        "loader": ("invalid", INT8),
+    }[case]
+    answer = client.post("/api/more-seeds/preview", json={"ids": [edit.id], "count": 2}).json()
+    (row,) = answer["results"]
+    assert (row["status"], row["detail"]) == expected, row
+    assert answer["queued"] == 0 and answer["intent"] is None
+    response = client.post("/api/more-seeds", json={"ids": [edit.id], "count": 2})
+    assert response.status_code == 422, response.text
+    assert "no selected batch can have more seeds" in response.json()["detail"]
+    assert no_work(fake) and fake.loads == 0
+
+
+def test_rerender_of_an_edit_is_refused_naming_ids(client, fake, store, monkeypatch):
+    open_gate(fake, monkeypatch)
+    _, bound = source(store)
+    edit = edited(store, bound)
+    plain = store.save_image(
+        Image.new("RGB", (512, 512)), GenerateRequest(prompt="a lighthouse", width=512, height=512),
+        seed=3, duration_ms=1, model_id=KONTEXT_V1.model_id, quantization="fp8",
+    )
+    words = (
+        f"An instruction edit renders at its source's frozen size (512x512 for #{edit.id}); "
+        "use More seeds for new seeds, or Reuse to edit again."
+    )
+    # At its own size and at another, the same words.
+    for size in ((512, 512), (768, 768)):
+        response = client.post("/api/rerender", json={"ids": [edit.id], "width": size[0], "height": size[1]})
+        assert response.status_code == 422 and response.json()["detail"] == words, response.text
+    # A mixed selection is refused whole, with the way to leave the edit out.
+    response = client.post("/api/rerender", json={"ids": [plain.id, edit.id], "width": 512, "height": 512})
+    assert response.status_code == 422, response.text
+    assert response.json()["detail"] == f"{words} Unpick #{edit.id} to re-render the others."
+    response = client.post("/api/rerender", json={"search": "", "favorites": False, "width": 512, "height": 512})
+    assert response.status_code == 422, response.text
+    assert response.json()["detail"].endswith("Add edit:no to the search to re-render the others.")
+    assert no_work(fake) and fake.loads == 0
 
 
 @pytest.mark.parametrize("qualified", [False, True])
-def test_generate_rerender_more_seeds_swap_and_finish_never_queue_an_edit(
-    client, fake, store, monkeypatch, qualified,
-):
+def test_generate_and_finish_still_hold_an_edit(client, fake, store, monkeypatch, qualified):
     select(monkeypatch)
     fake.edit_qualified = qualified
     rec, bound = source(store)
-    edited = store.save_image(
-        Image.new("RGB", (512, 512), (50, 30, 10)),
-        GenerateRequest(prompt="make it night", edit=bound, width=512, height=512, seed=7),
-        seed=7, duration_ms=1, model_id=KONTEXT_V1.model_id, quantization="fp8",
-        run_id="instruction-edit-run", batch=1,
-    )
+    edit = edited(store, bound)
     held = INSTRUCTION_EDIT_REPLAY_HELD if qualified else INSTRUCTION_EDIT_UNAVAILABLE
     stored = GenerateRequest(prompt="make it night", edit=bound, width=512, height=512, seed=7)
     response = client.post("/api/generate", json=stored.model_dump(mode="json"))
@@ -558,16 +656,14 @@ def test_generate_rerender_more_seeds_swap_and_finish_never_queue_an_edit(
                "width": 512, "height": 512}
     response = client.post("/api/generate", json=unbound)
     assert response.status_code == 422 and "instruction-edit source" in response.text, response.text
-    response = client.post("/api/rerender", json={"ids": [edited.id], "width": 512, "height": 512})
-    assert response.status_code == 422 and response.json()["detail"] == held, response.text
-    for route, payload, rows in (
-        ("/api/more-seeds/preview", {"ids": [edited.id], "count": 2}, "results"),
-        ("/api/swap-tags/preview", {"ids": [edited.id], "swaps": [{"find": "night", "replace": "day"}]}, "images"),
-    ):
-        response = client.post(route, json=payload)
-        assert response.status_code == 200, response.text
-        answer = response.json()
-        assert answer["queued"] == 0 and answer[rows][0]["status"] == "invalid", answer
+    # Swap tags is unchanged: it never rewrites an edit, in its own words.
+    response = client.post("/api/swap-tags/preview", json={
+        "ids": [edit.id], "swaps": [{"find": "night", "replace": "day"}],
+    })
+    assert response.status_code == 200, response.text
+    answer = response.json()
+    assert answer["queued"] == 0 and answer["images"][0]["status"] == "invalid", answer
+    assert answer["images"][0]["detail"] == "Swap tags cannot rewrite an instruction edit; use its instruction workflow."
     store.retain_run_job({
         "job_id": "retained-edit", "run_id": "retained-edit-run", "created_at": time.time(),
         "origin": "generate", "model_id": KONTEXT_V1.model_id, "quantization": "fp8",

@@ -7,8 +7,9 @@ aspect (`geometry_refusal`): only what the card measured queues. The real
 diffusers backend answers True since its release, so a 1:1 source on the
 exact Kontext id, fp8 with model offload on Windows, queues; anything else
 gets the preview's reason and a submission refused before any file is read
-(an aspect, after binding). Generate, Re-render and More seeds never queue
-an edit (`submission.unusable_input`).
+(an aspect, after binding). More seeds of an edit queues new seeds of its
+original source inside the same envelope; Re-render refuses an edit by id,
+and Generate and Finish never queue one (`submission.unusable_input`).
 """
 from __future__ import annotations
 
