@@ -7,6 +7,7 @@ import logging
 import threading
 import time
 from contextlib import asynccontextmanager
+from dataclasses import replace
 from typing import Literal, NotRequired, TypedDict
 
 import uvicorn
@@ -48,7 +49,7 @@ from .critic import CriticError, prompt_critic  # noqa: E402
 from .jobs import JobManager, LoadFailed, MaskGone, OutpaintStampFailed, RunPersistenceFailed, short_error  # noqa: E402
 from .execution import canonical_loader_execution, require_configured_loader_available  # noqa: E402
 from .launch import CHECKPOINTS, warn_legacy_env  # noqa: E402
-from .instruction_edit import require_model_available  # noqa: E402
+from .instruction_edit import INSTRUCTION_EDIT_UNAVAILABLE, is_edit_only, require_model_available  # noqa: E402
 from . import api_instruction_edit  # noqa: E402
 from .model_defaults import defaults_for, guide_for, hints_for  # noqa: E402
 from .schemas import (  # noqa: E402
@@ -629,7 +630,11 @@ def _merged_defaults(info: dict) -> dict:
     profile guesses it, and the backend can answer it cold, because what decides
     it is peft and the quantization mode rather than the checkpoint.
     """
-    defaults = defaults_for(info["model_id"])
+    # The backend's own edit answer words the profile's holds from the start
+    # (`defaults_for`'s `edit_reason`), and replaces them below as before.
+    defaults = defaults_for(
+        info["model_id"], edit_reason=info.get("instruction_edit_reason", INSTRUCTION_EDIT_UNAVAILABLE),
+    )
     for key in (
         "cfg_threshold",
         "mu_supported",
@@ -782,11 +787,24 @@ async def list_models(
         ),
     }
     cache_revision = model_cache_revision()
+
+    def edit_reason(model_id: str) -> str | None:
+        # The editor's row says this instance's own answer for the loader
+        # being chosen, draft recipe included (gate, exact id, envelope);
+        # every other row keeps the closed gate's words.
+        if not is_edit_only(model_id):
+            return INSTRUCTION_EDIT_UNAVAILABLE
+        chosen = {} if draft is model_selection.UNSET_EXECUTION else {"loader_execution": draft}
+        return backend.instruction_edit_refusal(replace(
+            current, model_id=model_id, quantization=quantization or current.quantization,
+            offload=offload or current.offload, **chosen,
+        ))
+
     details = await _detached(lambda: {
         model["model_id"]: {
             **details_for(
                 model["model_id"], quantization=quantization or current.quantization,
-                offload=offload or current.offload,
+                offload=offload or current.offload, edit_reason=edit_reason(model["model_id"]),
             ),
             "execution_options": model_selection.execution_options(
                 current, execution=draft, model_id=model["model_id"],

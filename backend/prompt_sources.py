@@ -266,6 +266,42 @@ _FLUX2_NOTE = "written for FLUX.2 [pro] and [max]; klein by family"
 _FLUX2_UPSAMPLING_NOTE = (
     "BFL's FLUX.2 prompt-upsampling instruction, which the official CLI also runs for klein"
 )
+# BFL's FLUX.1 Kontext pages, verbatim. They are written around the [pro]
+# API; FLUX.1 Kontext [dev] is the overview's open-weights, "Editing mode
+# only" release, and the note says whose they are.
+_BFL_KONTEXT = "https://docs.bfl.ai/kontext/kontext_overview"
+_BFL_KONTEXT_EDITING = "https://docs.bfl.ai/kontext/kontext_image_editing"
+_KONTEXT_NOTE = "BFL's FLUX.1 Kontext pages, written for its [pro] API; [dev] edits by family"
+_KONTEXT = (
+    Excerpt(
+        "kontext.describe",
+        "Edit specific parts of images while keeping everything else untouched using "
+        "simple text prompts. Just describe what you want to change and get the results.",
+        _BFL_KONTEXT,
+        _KONTEXT_NOTE,
+    ),
+    Excerpt(
+        "kontext.objects",
+        "FLUX.1 Kontext is really good at straightforward object modification, for "
+        "example if we want to change the color of an object, we can prompt it.",
+        _BFL_KONTEXT_EDITING,
+        _KONTEXT_NOTE,
+    ),
+    Excerpt(
+        "kontext.consistency",
+        "FLUX.1 Kontext excels at character consistency, even after multiple edits.",
+        _BFL_KONTEXT_EDITING,
+        _KONTEXT_NOTE,
+    ),
+    Excerpt(
+        "kontext.text",
+        "The most effective way to edit text is using quotation marks around the "
+        "specific text you want to change: Prompt Structure: Replace '[original text]' "
+        "with '[new text]'",
+        _BFL_KONTEXT_EDITING,
+        _KONTEXT_NOTE,
+    ),
+)
 _KLEIN = (
     Excerpt(
         "flux2.framework",
@@ -1120,6 +1156,25 @@ GROUNDING: dict[str, Grounding] = {
         caveat=(
             "BFL's FLUX.2 prompting guide was written for FLUX.2 [pro] and [max]; it "
             "applies to klein by family. klein takes no negative prompt at all."
+        ),
+    ),
+    # The consistency sentence is the overview's; the measured drift is this
+    # card's (docs/verified.md), which no BFL page says.
+    "KONTEXT_GUIDE": Grounding(
+        _KONTEXT,
+        caveat=(
+            "FLUX.1 Kontext [dev] edits one source image from an instruction; it does "
+            "not generate from text. BFL's Kontext pages describe the [pro] API, whose "
+            "annotation boxes and aspect_ratio this app does not offer; BFL lists [dev] "
+            "as editing mode only. Judge the instruction, not a scene description."
+        ),
+        unsourced=(guides._KONTEXT_DRIFT,),
+        sentence_urls=(
+            (
+                "BFL writes that Kontext keeps everything else untouched and the "
+                "character consistent across multiple edits.",
+                _BFL_KONTEXT,
+            ),
         ),
     ),
     # The settings are the README's ("run with 8 steps and CFG disabled",

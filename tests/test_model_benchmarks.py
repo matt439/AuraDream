@@ -12,8 +12,11 @@ def windows_samples(monkeypatch):
 
 
 def test_timing_comparisons_use_the_checkpoints_normal_steps():
+    from backend.instruction_edit import KONTEXT_V1
+
+    # The editor's edit timing is kept by its exact id ahead of its listing.
     for model_id, samples in model_benchmarks._SAMPLES.items():
-        assert model_id in {entry.repo for entry in CHECKPOINTS}
+        assert model_id in {entry.repo for entry in CHECKPOINTS} | {KONTEXT_V1.model_id}
         assert all(sample.steps == defaults_for(model_id)["steps"] for sample in samples)
     detail = model_info.details_for("black-forest-labs/FLUX.1-Krea-dev")
     assert detail["speed_label"] == "Medium"

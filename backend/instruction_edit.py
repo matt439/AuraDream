@@ -549,7 +549,15 @@ def text_to_image_refusal(model_id: str, *, qualified: bool, loader: LoaderChoic
     Pointing at Edit by instruction… is right only where that can queue;
     otherwise the edit gate's own reason is said, never a dead end.
     """
-    reason = edit_unavailable_reason(model_id, qualified=qualified, loader=loader)
+    return text_to_image_words(edit_unavailable_reason(model_id, qualified=qualified, loader=loader))
+
+
+def text_to_image_words(reason: str | None) -> str:
+    """Generate's words on the editor, from ``edit_unavailable_reason``'s answer.
+
+    For a caller that already holds a backend's answer (``defaults_for``),
+    so the profile and the status never word the same hold two ways.
+    """
     if reason is None:
         return INSTRUCTION_EDIT_TEXT_TO_IMAGE
     return (

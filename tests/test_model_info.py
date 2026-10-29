@@ -9,7 +9,10 @@ from backend.model_defaults import defaults_for
 
 
 def test_every_catalogue_selection_has_explicit_compact_facts():
-    assert set(model_info._FACTS) == {entry.repo for entry in CHECKPOINTS}
+    from backend.instruction_edit import KONTEXT_V1
+
+    # The editor's facts are kept by its exact id ahead of its listing.
+    assert set(model_info._FACTS) == {entry.repo for entry in CHECKPOINTS} | {KONTEXT_V1.model_id}
     for entry in CHECKPOINTS:
         detail = model_info.details_for(entry.repo)
         assert 1 <= len(detail["style"].split()) <= 2
@@ -183,7 +186,7 @@ def test_instruction_edit_facts_on_catalogue_editor_and_other_custom_rows():
         detail = model_info.details_for(entry.repo)
         assert detail["instruction_edit"] == "No"
         assert "FLUX.1 Kontext [dev]" in detail["instruction_edit_note"]
-        assert "held until qualified" in detail["instruction_edit_note"]
+        assert "its row says whether it can run" in detail["instruction_edit_note"]
     editor = model_info.details_for(KONTEXT_V1.model_id)
     assert editor["instruction_edit"] == "Held"
     assert editor["instruction_edit_note"] == INSTRUCTION_EDIT_UNAVAILABLE

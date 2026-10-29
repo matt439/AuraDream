@@ -85,7 +85,7 @@ def test_catalogue_speed_uses_draft_loading_options_without_applying_them(client
     initial = client.get("/api/status").json()
     calls = []
 
-    def details(model_id, *, quantization, offload):
+    def details(model_id, *, quantization, offload, edit_reason):
         calls.append((model_id, quantization, offload))
         return {"speed_label": "Unmeasured"}
 
@@ -97,6 +97,42 @@ def test_catalogue_speed_uses_draft_loading_options_without_applying_them(client
     assert (current["quantization"], current["offload"], current["model_revision"]) == (
         initial["quantization"], initial["offload"], initial["model_revision"],
     )
+    assert fake.loads == 0
+
+
+def test_the_editors_row_carries_the_backends_answer_for_the_draft_loader(client, fake, monkeypatch):
+    # Ahead of its listing (slice 6), a listing that holds the editor gives
+    # its row this instance's own answer for the loader being chosen; every
+    # other row keeps the closed gate's words. Nothing is selected or loaded.
+    from backend.instruction_edit import INSTRUCTION_EDIT_UNAVAILABLE, KONTEXT_V1
+
+    listing = model_selection.available
+    monkeypatch.setattr(model_selection, "available", lambda *args, **kwargs: [
+        *listing(*args, **kwargs), {"model_id": KONTEXT_V1.model_id, "label": "FLUX.1 Kontext [dev]"},
+    ])
+    seen = {}
+
+    def details(model_id, *, quantization, offload, edit_reason):
+        seen[model_id] = edit_reason
+        return {}
+
+    monkeypatch.setattr(main, "details_for", details)
+    initial = client.get("/api/status").json()
+
+    def answer(query=""):
+        seen.clear()
+        assert client.get(f"/api/models{query}").status_code == 200
+        others = {reason for model_id, reason in seen.items() if model_id != KONTEXT_V1.model_id}
+        assert others == {INSTRUCTION_EDIT_UNAVAILABLE}
+        return seen[KONTEXT_V1.model_id]
+
+    assert answer() == INSTRUCTION_EDIT_UNAVAILABLE
+    fake.edit_qualified = True
+    assert answer("?quantization=fp8&offload=model") is None
+    assert "sequential offload" in answer("?quantization=fp8&offload=sequential")
+    assert "int8" in answer("?quantization=int8&offload=model")
+    current = client.get("/api/status").json()
+    assert (current["model_id"], current["model_revision"]) == (initial["model_id"], initial["model_revision"])
     assert fake.loads == 0
 
 

@@ -10284,7 +10284,19 @@ its tokenizer's 2048 is the config's, not a card statement
 report's own words are "we adopt Ministral-3(3B) ... as the text encoder";
 checked 2026-09-28). The undistilled ERNIE-Image:
 <https://huggingface.co/baidu/ERNIE-Image> (guidance 4.0, 50 steps; checked
-2026-09-28).
+2026-09-28). FLUX.1 Kontext [dev] (`KONTEXT_GUIDE`, kept by its exact id
+until it is catalogued; checked 2026-10-29): BFL's Kontext image-editing page
+(<https://docs.bfl.ai/kontext/kontext_image_editing>: "Change the car color
+to red", the iterative edits' captions, "The most effective way to edit text
+is using quotation marks around the specific text you want to change", "tries
+to match the input image dimensions as closely as possible (rounded to
+multiples of 32)", 3:7 to 7:3, "All outputs are ~1MP total") and its overview
+(<https://docs.bfl.ai/kontext/kontext_overview>: "keeping everything else
+untouched", "Replace 'joy' with 'BFL'", and [dev] as "Editing mode only").
+Both are written around the [pro] API. The guide's `pixels` are the span of
+those examples' output sizes; the 512x512 it runs at is this card's
+qualification (`docs/verified.md`), not BFL's, and the measured drift is the
+one sentence the critic is not given.
 
 **The guide is also data: `analysis`.** Each guide dict carries its
 checkable statements as an `analysis` entry for the prompt analyser's rule

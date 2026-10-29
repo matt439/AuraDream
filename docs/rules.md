@@ -102,7 +102,10 @@ before changing it.
   Only these exact shapes join `GalleryAdmission`'s exemption; they are not
   model-dependent
 - `backend/model_info.py` — cold catalogue details from existing sourced guides,
-  plus each entry's Hugging Face access from its catalogue gate word
+  plus each entry's Hugging Face access from its catalogue gate word;
+  FLUX.1 Kontext [dev]'s facts are kept by its exact id ahead of its listing,
+  and `details_for`'s `edit_reason` (the backend's live answer, which `main`'s
+  listing passes for the draft loader) decides the editor row's Held or Yes
 - `backend/hub_access.py` — the Hugging Face access check a switch asks before
   it releases the working checkpoint: cache first, then one HEAD per recipe
   source at its revision (or the repo's auth check); a `Refusal` only when the
@@ -949,7 +952,14 @@ Model and loader:
   refuses any request without `edit` (`text_to_image_refusal`); an edit's
   LoRA, references, refine, mask, outpaint and upscaler are already
   `validate_edit`'s. This closes Mass refine and Then refine at the backend.
-  Kontext stays out of `launch.py` `CHECKPOINTS` until stage 4's slice 6.
+  Kontext stays out of `launch.py` `CHECKPOINTS` until stage 4's slice 6;
+  slice 5 keeps its catalogue data by its exact id (`KONTEXT_GUIDE`, an
+  exact profile written out key by key rather than spread from `_FALLBACK`,
+  `encoder_table`'s `FluxKontextPipeline` rows at the pinned revision,
+  `model_info`, `model-downloads.json` at `KONTEXT_V1.revision`,
+  `model_benchmarks`). `defaults_for(model_id, edit_reason=...)` words the
+  profile's held reasons from a backend's answer; cold it is the closed
+  gate's, and a profile never grants an edit by itself.
 - The pinned editor load (stage 4 slice 4) is reached only where
   `instruction_edit_refusal(selected)` is None for an Eager load: the exact
   Kontext id, the instance's literal True and the measured envelope.
@@ -5891,6 +5901,21 @@ id, a case variant and Qwen still refused; and an offline Hub reaching
 `_load_failure`'s offline answer. `test_instruction_edit_call.py`'s
 `test_a_qualified_backend_loads_only_the_pinned_kontext` loads the explicit
 class inside the envelope and keeps the real backend refusing.
+
+`tests/test_instruction_edit_catalogue.py` checks slice 5's by-id catalogue
+data while Kontext is still unlisted: the exact profile (not `_FALLBACK`,
+every generation flag False, hints without "unavailable"), the status words
+following a passed `edit_reason`, the guide against the catalogue's guide
+checks with BFL's verbatim edit instructions drawing no finding and the
+critic never given the measured drift, the pinned `FluxKontextPipeline`
+encoder rows, `details_for`'s strings and live Held/Yes answer with the
+editor listed by a monkeypatch, the retained timing, and the download
+reference's commit equal to `KONTEXT_V1.revision` without the root single
+file. `test_api_model_switch.py`'s
+`test_the_editors_row_carries_the_backends_answer_for_the_draft_loader`
+holds `main`'s listing to the instance's answer; `test_prompt_encoding.py`
+holds the rows to the installed `pipeline_flux_kontext.py` and, where the
+pinned tokenizers are cached, to their real budgets.
 
 `tests/test_backup_credentials.py` and `tests/test_backup_credential_integration.py`
 check WinCred ABI declarations through API stubs, exact opaque references, bounds,

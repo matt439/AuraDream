@@ -45,6 +45,10 @@ _BFL_BASICS = "https://docs.bfl.ai/guides/prompting_unified_basics"
 _BFL_BUILDING = "https://docs.bfl.ai/guides/prompting_unified_building"
 _BFL_TECHNICAL = "https://docs.bfl.ai/guides/prompting_unified_technical"
 _BFL_FLUX2 = "https://docs.bfl.ai/guides/prompting_guide_flux2"
+# BFL's FLUX.1 Kontext pages, written around its [pro] API; the overview is
+# where [dev] is "Editing mode only".
+_BFL_KONTEXT = "https://docs.bfl.ai/kontext/kontext_overview"
+_BFL_KONTEXT_EDITING = "https://docs.bfl.ai/kontext/kontext_image_editing"
 
 _FLUX1_PROMPT = (
     "Plain descriptive sentences, not a tag list. Subject first, then setting, "
@@ -268,6 +272,51 @@ KLEIN_GUIDE = {
         "references": {
             "cite": "With reference images, say how each is used - 'the jacket from image 1'.",
         },
+    },
+}
+# FLUX.1 Kontext [dev] edits a gallery image from an instruction and does not
+# generate from text; until it is catalogued this guide is reached only by its
+# exact id. Every sentence but the measured drift is BFL's Kontext pages'; the
+# examples are BFL's own edit instructions, verbatim (the overview's straight
+# apostrophes). Its `pixels` are the span of those examples' output sizes
+# (1248x832 to 800x1328), which this app does not run: the size prose says
+# that only square sources are qualified here, at 512x512.
+_KONTEXT_DRIFT = (
+    "Measured on this card, the rest of the picture still drifts: a recoloured "
+    "ball also grew and moved."
+)
+KONTEXT_GUIDE = {
+    "prompt": (
+        "An instruction for the source image, not a description of a new one: say "
+        "what to change, as in 'Change the car color to red'. "
+        "BFL writes that Kontext keeps everything else untouched and the character "
+        "consistent across multiple edits. "
+        + _KONTEXT_DRIFT + "\n"
+        "To change text in the picture, put the text in quotation marks: Replace "
+        "'joy' with 'BFL'."
+    ),
+    "size": (
+        "BFL's API keeps an edit as close to the input image's size as it can, "
+        "rounded to multiples of 32, at about 1 MP and aspect ratios from 3:7 to "
+        "7:3. That is FLUX.1 Kontext [pro]'s endpoint. Here [dev] is qualified for "
+        "square sources only, which render at 512x512; other shapes are held "
+        "until they are measured."
+    ),
+    "pixels": (1.04, 1.06),
+    "pixels_word": "example",
+    "pixels_source": "BFL's edit examples",
+    "examples": [
+        "Change the car color to red",
+        "Remove the object from her face",
+        "She is now taking a selfie in the streets of Freiburg, it's a lovely day out.",
+        "It's now snowing, everything is covered in snow.",
+        "Replace 'joy' with 'BFL'",
+    ],
+    "analysis": {
+        "url": _BFL_KONTEXT_EDITING,
+        # "The most effective way to edit text is using quotation marks
+        # around the specific text you want to change".
+        "quote_text": {"cite": "put the text in quotation marks"},
     },
 }
 _KREA2_PROMPT = (

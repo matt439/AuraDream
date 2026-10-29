@@ -650,6 +650,32 @@ classes and Kontext's class under any other id keep the unchanged holds. A
 Hub failure in either pass maps through `_load_failure` as before. The real
 gate is still False, so nothing on the real server reaches it.
 
+**Slice 5 (built): the catalogue data, by id, not yet listed.** Kontext is
+still absent from `CHECKPOINTS`; everything its entry needs is kept by its
+exact id. `guides.KONTEXT_GUIDE` is BFL's FLUX.1 Kontext pages
+(`docs.bfl.ai/kontext/kontext_image_editing` and `kontext_overview`, fetched
+2026-10-29): an instruction, not a description; everything else kept; quote
+the text to change. Its examples are BFL's own edit instructions, verbatim,
+and its one checkable statement is `quote_text`. The measured drift is a
+sentence of its own that the critic is never given (`prompt_sources`
+`unsourced`). The exact profile is written out key by key, not spread from
+`_FALLBACK`: no text-to-image, Refine, inpaint, reference or upscaler, hints
+that name the recipe's start without "unavailable". `defaults_for` and
+`model_info.details_for` take the backend's live answer as `edit_reason`
+(cold, the closed gate's words), so the profile's held words and the
+editor's row ("Held" with the reason, or "Yes") follow the gate and the
+envelope rather than a hard-coded `qualified=False`; `main`'s model listing
+passes the instance's answer for the draft loader. `encoder_table` gives the
+id `FluxKontextPipeline`'s CLIP-L 77 and T5 512 rows at the pinned revision.
+`model_info` keeps its style, qualified size, the 14.5 GB fit and the cache
+check; `model-downloads.json` records the components at `24e9ded…` from the
+cache `FluxKontextPipeline.download` left (no root single file);
+`model_benchmarks` retains the trial's 26-29 s edit. Slice 6 lists it.
+
+Its `pixels` are the span of BFL's example outputs (1.04-1.06 MP, the word
+`example`), not 512x512: no BFL page names 512x512, and the size prose and
+the compact facts say that only square sources at 512x512 are qualified.
+
 The later slices add the catalogue entry, open the real gate, and release
 More seeds of edits.
 
