@@ -270,7 +270,9 @@ Built as designed, both stages in one commit.
   history, so their rows are now priced. Their exact-text checks of a row,
   the `Queued:` line and `#queue-text` now read past the figure. Their
   focus, order, cancel and live-ETA checks are unchanged, and both pass
-  (criteria 7 and 9).
+  (criteria 7 and 9). The review found `smoke-newbie` failing the same way
+  (its queued rows compared with their Cancel labels); its rows are read
+  past the figure too, and the whole smoke table passes.
 
 Choices the plan left open, taken while Matt was away (2026-10-29), revisit
 if wanted:
