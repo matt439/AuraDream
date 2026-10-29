@@ -776,7 +776,7 @@ switch, both 1400x700 fits) and smoke-model-switch (the option holds and the
 pointing). Run ids, CellKeys and `applied()` are unchanged. The wide-tier
 viewer Edit tool stays a recorded follow-up.
 
-**Slice 10 (built): the docs closed.** This plan's status and stage table,
+**Slice 10 (built): the docs closed.** This plan's status and its stages' closing paragraph,
 the [carry inventory](instruction-edit-carry.md) and
 [bundle contract](instruction-edit-bundles.md) states, the design notes'
 [instruction-editing section](design-notes.md#instruction-editing-starts-with-a-distinct-source-contract),
