@@ -578,6 +578,20 @@ def test_more_seeds_of_an_edit_queues_new_seeds_of_the_original_source(client, f
     assert (again["results"][0]["first"], again["results"][0]["last"]) == (10, 11)
 
 
+def test_more_seeds_of_an_edit_is_never_priced_by_direct_renders(client, fake, store, monkeypatch):
+    # A plain render at the edit's size on the same checkpoint (an import,
+    # say) has a step price; an edit's is not that, so the estimate is left out.
+    open_gate(fake, monkeypatch)
+    _, bound = source(store)
+    edit = edited(store, bound)
+    store.save_image(
+        Image.new("RGB", (512, 512)), GenerateRequest(prompt="a lighthouse", width=512, height=512, steps=28),
+        seed=3, duration_ms=28_000, model_id=KONTEXT_V1.model_id, quantization="fp8",
+    )
+    answer = client.post("/api/more-seeds/preview", json={"ids": [edit.id], "count": 2}).json()
+    assert answer["queued"] == 2 and answer["seconds"] is None and answer["unpriced_sizes"] == 1, answer
+
+
 @pytest.mark.parametrize("case", ["changed", "binned", "foreign", "non-square", "closed", "loader"])
 def test_more_seeds_refuses_changed_source_or_unmeasured_envelope(client, fake, store, monkeypatch, case):
     open_gate(fake, monkeypatch)

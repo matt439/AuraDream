@@ -949,6 +949,10 @@ def _cell_ms(
         # cannot price it; keep the estimate unknown until measured apart.
         if request.upscaler is not None:
             return None
+        # Nor can a direct render's step price an instruction edit (More
+        # seeds queues one): no edit history is qualified in this release.
+        if request.edit is not None:
+            return None
         if request.refine is None:
             if direct is None:
                 return None

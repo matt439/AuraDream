@@ -738,7 +738,9 @@ whole (Unpick, or `edit:no`). Finish stays held; Swap tags keeps its own
 refusal; Then refine, grids and Mass refine are unchanged. Run ids, CellKeys
 and the verdict tuple keyed by `edit` are unchanged. The smoke runs More
 seeds x2 on an edit (two more edits of #1, seeds 8 and 9, same proof) and
-shows Re-render's reason.
+shows Re-render's reason. Its review: More seeds' preview leaves an edit
+batch's time out (`grid._cell_ms` prices no edit cell), rather than price
+it from direct renders at that size.
 
 The later slices release the page's holds.
 
