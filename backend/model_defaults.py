@@ -1092,8 +1092,8 @@ _FALLBACK: dict[str, Any] = {
 # Exact edit-only intent cannot inherit ordinary FLUX generation capabilities,
 # so every key is written out rather than spread from `_FALLBACK`: no
 # text-to-image, Refine, inpaint, reference or upscaler (`upscaler_supported`
-# answers by id). It is reached only by its exact id until the load catalogue
-# lists it; whether an edit runs is never the profile's to say (`defaults_for`).
+# answers by id). It is keyed by its exact id, the catalogue's last,
+# edit-only entry; whether an edit runs is never the profile's to say (`defaults_for`).
 _EXACT_PROFILES["black-forest-labs/flux.1-kontext-dev"] = {
     "steps": 28,
     "guidance_scale": 2.5,

@@ -143,8 +143,8 @@ are owned by [the bundle checklist](instruction-edit-bundles.md).
 real-browser smoke for the backend/browser row. None of it qualifies a runtime
 or the card. Stage 2 adds the editing call against a Kontext-shaped stub, the
 dedicated queueing route, the fake server's edit and the dialog. On the real
-server the editor is not in the catalogue, its load is held and the backend's
-gate is a literal False. `PARTIAL` rows keep the requirements in the table
+server the editor is listed (stage 4 slice 6) but its load is held and the
+backend's gate is a literal False. `PARTIAL` rows keep the requirements in the table
 above. Reports have edit filters and grouping and give no estimate rather
 than a wrong one; facts now show an edit's lineage and recipe.
 

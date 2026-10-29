@@ -143,7 +143,7 @@ _FACTS: dict[str, tuple[str, tuple[str, str]]] = {
         "local renders have completed, but those do not establish a quality "
         "recommendation beyond the author's sizes.",
     )),
-    # By its exact id ahead of its catalogue entry. An edit renders at its
+    # By its exact id, the catalogue's last entry. An edit renders at its
     # source's frozen size, never a chosen one: the figure is the one
     # qualified size, docs/verified.md's 2026-10-27 trial.
     "black-forest-labs/FLUX.1-Kontext-dev": ("Instruction editor", (

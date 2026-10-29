@@ -105,7 +105,8 @@ before changing it.
   model-dependent
 - `backend/model_info.py` — cold catalogue details from existing sourced guides,
   plus each entry's Hugging Face access from its catalogue gate word;
-  FLUX.1 Kontext [dev]'s facts are kept by its exact id ahead of its listing,
+  FLUX.1 Kontext [dev]'s facts are kept by its exact id (the catalogue's last,
+  edit-only entry),
   and `details_for`'s `edit_reason` (the backend's live answer, which `main`'s
   listing passes for the draft loader) decides the editor row's Held or Yes
 - `backend/hub_access.py` — the Hugging Face access check a switch asks before
@@ -958,7 +959,8 @@ Model and loader:
   appended so no other menu number moves, with no Lite re-upload; listed is
   not loadable: with the real gate False, Switch & load and Apply & save
   answer 422 with the gate's words before the Hub, the save and the unload,
-  and a case variant is refused as an inexact id. Catalogued, a case variant
+  a case variant included (startup's explicit choice names it an inexact id
+  whatever the gate). Catalogued, a case variant
   passes `require_custom_pipeline_class` (it casefolds catalogue ids), so
   `require_model_available`'s exact id, asked first at every entry, is what
   refuses it. Slice 5 keeps its catalogue data by its exact id (`KONTEXT_GUIDE`, an

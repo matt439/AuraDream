@@ -40,6 +40,8 @@ def test_the_editor_is_listed_last_as_an_edit_only_entry():
     # The menu's summary says what it is, and no CFG it does not have.
     assert entry.summary() == f"edit only, {KONTEXT_V1.default_steps} steps"
     assert "edit only" not in launch.CHECKPOINTS[0].summary() and "CFG" in launch.CHECKPOINTS[0].summary()
+    # The menu's summary column (19 wide) still lines its gates up.
+    assert max(len(checkpoint.summary()) for checkpoint in launch.CHECKPOINTS) <= 19
 
 
 # --- the profile ------------------------------------------------------------

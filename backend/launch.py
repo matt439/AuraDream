@@ -546,7 +546,8 @@ def _prompt(ask: Callable[[str], str], out: TextIO, env: Mapping[str, str], linu
         if repo is None:
             continue
         gate = "not gated" if fmt else checkpoint.gate
-        entries.append((checkpoint.name, f"{checkpoint.summary():<18}  {gate:<18}  {repo}"))
+        # 19: the editor's "edit only, 28 steps", the longest summary.
+        entries.append((checkpoint.name, f"{checkpoint.summary():<19}  {gate:<18}  {repo}"))
         repos[checkpoint.name] = repo
     default = 0
     if current_checkpoint and current_checkpoint.name in repos:
@@ -559,7 +560,7 @@ def _prompt(ask: Callable[[str], str], out: TextIO, env: Mapping[str, str], linu
         name = "current AURADREAM_MODEL_ID"
         profile = defaults_for(current_model)
         summary = f"{profile['steps']} steps, CFG {profile['guidance_scale']:g}"
-        entries.append((name, f"{summary:<18}  {'unrecognised id':<18}  {current_model}"))
+        entries.append((name, f"{summary:<19}  {'unrecognised id':<18}  {current_model}"))
         repos[name] = current_model
         default = len(entries) - 1
     answer = _pick(

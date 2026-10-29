@@ -275,8 +275,8 @@ KLEIN_GUIDE = {
     },
 }
 # FLUX.1 Kontext [dev] edits a gallery image from an instruction and does not
-# generate from text; until it is catalogued this guide is reached only by its
-# exact id. Every sentence but the measured drift is BFL's Kontext pages'; the
+# generate from text; it is the catalogue's last, edit-only entry, and this
+# guide is keyed by its exact id. Every sentence but the measured drift is BFL's Kontext pages'; the
 # examples are BFL's own edit instructions, verbatim (the overview's straight
 # apostrophes). Its `pixels` are the span of those examples' output sizes
 # (1248x832 to 800x1328), which this app does not run: the size prose says

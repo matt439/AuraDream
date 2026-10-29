@@ -13,8 +13,8 @@ lifetime and v2 bundle/reindex recovery. Stage 2 is
 call branch, the queueing route, the per-cell recheck and the dialog. Its
 evidence is a Kontext-shaped stub, the fake server and a real-browser smoke.
 On the real server everything stays closed: `DiffusersBackend` answers the
-gate with a literal False, Kontext is not in the catalogue, and the editor
-load holds are unconditional. The
+gate with a literal False, Kontext is listed but held (stage 4 slice 6),
+and the editor load holds are unconditional. The
 [carry inventory](instruction-edit-carry.md) and [bundle contract](instruction-edit-bundles.md)
 separate what is built from what stage 4 must still check. After `GEN#22`,
 stage 3's approved [first card trial and bounded pair](verified.md#instruction-edit)

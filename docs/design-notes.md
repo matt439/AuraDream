@@ -1327,13 +1327,14 @@ words, not a render of different pixels under the old proof. `planned_keys`
 skips edit cells while the gate is closed for the same reason: a gate closing
 mid-job must not break every later rerun's planning.
 
-*Why no catalogue entry.* The first card trial used a harness with one bounded
+*Why no catalogue entry until stage 4.* The first card trial used a harness with one bounded
 configuration; the public loader and replay paths still await stage 4. Listing
-Kontext in `CHECKPOINTS` now would show a choice whose every action is held.
-The editor therefore stays a known, profiled id that the loader refuses.
+Kontext in `CHECKPOINTS` then would have shown a choice whose every action is held.
+The editor therefore stayed a known, profiled id that the loader refuses.
 Text-to-image on it is refused with its
-own sentence, and the page holds Generate in those words. The catalogue
-entry waits for stage 4's review of the measured results and public integration.
+own sentence, and the page holds Generate in those words. Stage 4's slice 6
+lists it, last and held: Switch & load and Apply & save refuse in the gate's
+words before the Hub, the save and the unload.
 
 *Cleanup in `finally`.* The call frees the offload hooks and closes the
 prepared source in `finally`, so a cancel, a decode error or a refused
@@ -10284,8 +10285,8 @@ its tokenizer's 2048 is the config's, not a card statement
 report's own words are "we adopt Ministral-3(3B) ... as the text encoder";
 checked 2026-09-28). The undistilled ERNIE-Image:
 <https://huggingface.co/baidu/ERNIE-Image> (guidance 4.0, 50 steps; checked
-2026-09-28). FLUX.1 Kontext [dev] (`KONTEXT_GUIDE`, kept by its exact id
-until it is catalogued; checked 2026-10-29): BFL's Kontext image-editing page
+2026-09-28). FLUX.1 Kontext [dev] (`KONTEXT_GUIDE`, kept by its exact id,
+the catalogue's last entry; checked 2026-10-29): BFL's Kontext image-editing page
 (<https://docs.bfl.ai/kontext/kontext_image_editing>: "Change the car color
 to red", the iterative edits' captions, "The most effective way to edit text
 is using quotation marks around the specific text you want to change", "tries
