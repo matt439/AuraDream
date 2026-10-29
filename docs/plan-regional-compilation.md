@@ -841,7 +841,9 @@ first-call latency, RAM, VRAM peaks or cache hits in the recipe or cell key.
 3. **Separately approved card qualification.** Complete `GEN#22` first,
    then run one shape at a time with no concurrent project/GPU workload.
    Use identical checkpoint/quantizer/steps/CFG/mu/prompt/seed and native
-   SDPA; change only compilation. Never pass the existing RAM/VRAM guard or
+   SDPA; change only compilation. The prompts, seeds and the two 1 MP
+   shapes are the [fixed comparison cases](plan-step-caching.md#fixed-comparison-cases)
+   (`PERF#6`). Never pass the existing RAM/VRAM guard or
    accept shared-memory spill as a fit result. Populate the table below in
    `verified.md` with versions, toolchain, driver, cache state and date.
    Keep `PERF#1` OPEN for implementation, then CARD while these runs remain.
@@ -869,10 +871,75 @@ every nonempty-render admission boundary remains closed. Package/toolchain
 installation and actual model/card execution remain separate actions.
 
 The implementation proposal above keeps defaults Eager and excludes LoRAs
-and sibling passes initially. Before shipping the opt-in, decide whether
-Matt finds that restricted experiment useful and whether its observed
-cold/warm trade-off justifies a Models choice. Also settle the optional
-compiler dependency/pin, cache location/size policy and whether a later
-recipe should use dynamic shapes. Supporting another quantizer/family,
+and sibling passes initially. Supporting another quantizer/family,
 LoRA hotswap or any edit pass is a bounded follow-up with its own evidence,
 not implied acceptance from the first checkpoint's result.
+
+### Matt's questions
+
+**Status, 2026-10-29: `PERF#7` DECISION** (TODO audit, approved by Matt).
+These are Matt's choices. No agent answers them, and nothing below changes
+a default. Questions 2 to 4 can be answered now. Question 1 waits for the
+`PERF#1` card table above, run on the
+[fixed comparison cases](plan-step-caching.md#fixed-comparison-cases).
+Preference context: K2 "Compare model guidance, timings or examples" and
+K8 "Configure automatic loading at startup" are rated Often. K4 "Change
+quantization" and K5 "Change offload mode" are rated Never
+(`docs/design/preferences.md:189-195`). A loader option Matt never touches
+is worth its place only if it pays off on its own once chosen.
+
+1. **Is the restricted experiment useful, and where is it offered?** The
+   first recipe covers only FLUX.1 Krea dev, fp8, model offload, CUDA,
+   Batch 1, with no LoRA and no refine/inpaint pass
+   ([initial slice](#initial-slice-and-refusal-matrix)). It pays a compile
+   on the first image of each process and shape
+   ([loader and first call](#loader-first-call-and-teardown)). Once the
+   card shows its cold and warm times, Matt chooses one of:
+   (a) admit the Models choice that already lists Regional v1, held today
+   ([unavailable performance configuration](#unavailable-performance-configuration)),
+   opt-in, with Eager as the default;
+   (b) admit it only through the launch/CLI flag and environment
+   (`--compilation regional-v1`, `backend/launch.py:227`;
+   `AURADREAM_COMPILATION`), keeping the Models row held or removing it;
+   (c) not shipped: every admission boundary stays closed.
+   An agent recommends only after the numbers exist. A warm gain that a
+   slower cold start, compiler RAM/commit or spill cancels out does not
+   count.
+2. **Compiler-cache location.** The built default is
+   `auradream.compile-cache` beside the gallery database, with a private
+   override ([startup compiler-cache ownership](#startup-compiler-cache-ownership)).
+   Keep that, or use another fixed place, such as a per-user cache folder
+   shared by every gallery. Beside the database means each gallery
+   compiles its own kernels again. A shared folder means one gallery's
+   files outlive it.
+3. **Compiler-cache size policy.** This slice never deletes cache files
+   and never exports them in bundles
+   ([shapes, cache and LoRA lifecycle](#shapes-cache-and-lora-lifecycle)).
+   Choose one of: (a) unbounded, with its size shown in Models and a
+   manual Clear; (b) a cap in GB, deleting oldest first when idle;
+   (c) cleared whenever torch, Triton or the driver changes. Either way,
+   gallery `clear` and Empty bin leave it alone.
+4. **Dynamic shapes.** `regional-v1` is static (`dynamic=False`). A new
+   resolution compiles again, and Batch > 1 is refused. Should a later
+   recipe (a new id, never a change to `regional-v1`) try dynamic shapes,
+   if the card's second-aspect row shows the recompile cost is high? Or do
+   static shapes stay, as in the size presets Matt uses?
+5. **Dependency pin: settled, no question left.** `DEV#8` closed on
+   2026-10-29 with `triton-windows==3.7.1.post27` behind the
+   `regional-compiler` extra, after the artifact was checked and the lock
+   re-resolved online
+   ([artifact check](#dependency-proposal-and-remaining-artifact-check-2026-10-28)).
+   Installing that extra on the workstation means accepting the bundled
+   NVIDIA (CUDA EULA) and TinyCC (LGPL 2.1) terms. It is `PERF#1`'s
+   toolchain step and needs Matt's OK at that time. It is not a separate
+   decision now.
+
+The [attention](plan-attention-backends.md#bounded-implementation-and-acceptance)
+and [step-caching](plan-step-caching.md#implementation-stages-and-finite-acceptance)
+plans ask question 1 again for cuDNN and FBC, each from its own card
+result. The cache questions 2 and 3 are compilation's alone.
+
+Recording: Matt's answers go here under each question, dated. A Models
+choice (1a) or a cache policy (3a/3b) then becomes an OPEN source row
+whose first stage is fake/browser checkable. Until then `PERF#7` stays
+DECISION.

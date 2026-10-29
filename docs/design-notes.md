@@ -420,6 +420,12 @@ launch id gets unknown/after-load facts rather than another model's guide.
 Each model card stays one link away; full prompting guidance stays beside the
 prompt controls.
 
+The Speed fact is the retained card samples' alone. `GEN#38` (2026-10-29)
+owns adding this gallery's own median timing to the Speed note, labelled
+as history and never setting the category; rows record neither offload nor
+a process's first image, so the note says so rather than filtering
+([review-2026-10-29-backlog.md](review-2026-10-29-backlog.md#gen38-gallery-timing-in-the-model-picker)).
+
 The checkpoint is chosen from a table that shows every model's facts at once
 (2026-10-08). With a dropdown and one facts block, comparing meant choosing
 each model in turn. The picker is opened rarely, mostly at launch, so a large
@@ -5615,6 +5621,12 @@ gallery (#library, head and grid both, as `libraryPointer`; the grid's own
 filter changes - when the head is laid out anew in any case. With the
 pointer elsewhere, an Escape from the keyboard, it comes back at once.
 
+**Open: a tier instead of one size** (2026-10-29). Every pick still renders
+at the panel's one width and height, so a mixed-aspect selection cannot go
+to 2 MP each in its own framing. `GEN#33` owns a tier mode that maps each
+record to its nearest `SIZES` entry and splits one job per size, as Swap
+tags does ([review-2026-10-29-backlog.md](review-2026-10-29-backlog.md#gen33-re-render-at-a-tier)).
+
 ## Swap tags
 
 **"Redo with tags swapped"** (2026-10-10): a night's keepers again with
@@ -5749,6 +5761,11 @@ nothing outside it. The request's own limits (16 rows, 1000 characters a
 box) are held on the page - + Add row aria-disabled with the reason,
 `maxLength` on the boxes - rather than met as pydantic's text.
 
+**Open: adding a tag** (2026-10-29). An empty Find is refused
+(`TagSwap.find` `min_length=1`, `parse_row`), so a swap cannot add a tag.
+`GEN#34` owns Add rows placed at the start or end, never at an invented
+order ([review-2026-10-29-backlog.md](review-2026-10-29-backlog.md#gen34-swap-tags-add-rows)).
+
 ## Mass refine
 
 **A pass of every keeper** (2026-10-10): the night's starred images at
@@ -5872,6 +5889,11 @@ says every image already has the pass is kept for the case where that is
 every image's status; mixed with images left out for a fixable reason
 (too big, a LoRA gone) the refusal is the 422 that counts them all, as the
 dialog's hold words it.
+
+**Open: versions** (2026-10-29). The single dialog's Versions has no batch
+counterpart. `GEN#36` owns `versions` as one cell per version at `seed + i`,
+so pruning stays per image and `versions=1` keeps every key
+([review-2026-10-29-backlog.md](review-2026-10-29-backlog.md#gen36-mass-refine-versions)).
 
 ## More seeds
 
@@ -8960,6 +8982,10 @@ later word's, so "hair" listed `hair ornament`, `hair ribbon`, `hairband`
 and never `short hair` or `medium hair` - no way to ask what hair there is.
 It is now asked for the query anywhere (`*hair*`, 20 by post count), and a
 later word ranks with the first.
+Only the prompt box has the list today; the negative box, a Danbooru tag
+list on these checkpoints, has none, and the ranking's demotion of the
+guide's negative tags would be backwards there. `PA#12` (2026-10-29) owns
+adding it ([review-2026-10-29-backlog.md](review-2026-10-29-backlog.md#pa12-tag-suggestions-in-the-negative-prompt)).
 **Find tag** (2026-10-22, user request): a cowlick on top of the head is
 `ahoge`, which no completion of "cowlick" reaches. Danbooru's wiki says
 what each tag shows, so the server searches page text (`body_matches`),

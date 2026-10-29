@@ -5,7 +5,10 @@
 atomic cold export/preview/import API) and stage 3 (the browser merge dialog,
 2026-10-29) are implemented and locally qualified; see
 [stage 3](#stage-3-implementation-and-browser-evidence-2026-10-29).
-`GAL#12` retains its own incomplete qualification boundary.
+When this plan was written, `GAL#12` retained its own incomplete qualification
+boundary; it has since closed (`084fbe4`, 2026-10-29). The snippet dialog's
+copies of stage 3's close-watcher defects are owned by `UI#35`
+([review](review-2026-10-29-close-watcher.md)).
 
 ## Ranked selection
 
@@ -167,11 +170,14 @@ Official context: ComfyUI documents saving/sharing workflow JSON independently
 of generated media: https://docs.comfy.org/basic-concepts/workflow . This is a
 portable-recipe precedent, not format compatibility or measured AuraDream demand.
 
-UI#20's older denied screenshot reinspection remains OPEN. This feature must
-not reread that target, regenerate its screenshots to bypass the denial, or
-claim its missing visual acceptance. New setup-feature evidence has its own
-owned artifacts and scope. All explicit deferrals and credential/card gates
-remain unchanged.
+Historical note: when this plan was written, UI#20's denied screenshot
+reinspection was still OPEN, so this feature did not reread that target,
+regenerate its screenshots to bypass the denial, or claim its visual
+acceptance. UI#20 has since closed after a fresh run's screenshots were
+inspected (`f0beee2`, 2026-10-29; see
+[plan-snippet-portability.md](plan-snippet-portability.md#final-screenshot-inspection-2026-10-29)).
+New setup-feature evidence has its own owned artifacts and scope. All explicit
+deferrals and credential/card gates remain unchanged.
 
 ## Stage 1 local qualification
 
@@ -319,7 +325,9 @@ checked to fail with only that fix reverted:
   ignored with "Choices changed. Preview again before importing."
 
 The snippet import dialog (`web/snippet-import.js`) shares the Escape and
-copy-row patterns; it is outside this stage and left unchanged.
+copy-row patterns; it is outside this stage and left unchanged. Porting the
+three fixes there is `UI#35`
+([review](review-2026-10-29-close-watcher.md#a-snippet-import-copies-of-the-three-setup-import-defects)).
 
 **Browser evidence.** `tools/smoke-setup-portability.json` (221 steps,
 99 expectations, 16 fatal prerequisites) runs on a fresh scratch FLUX.1 Krea

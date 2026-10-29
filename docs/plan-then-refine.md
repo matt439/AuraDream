@@ -1,13 +1,22 @@
 # Plan: generate, then refine, in one job
 
-**Status, 2026-10-25: phases 1 and 2 built; phase 3's card check half
+**Status, 2026-10-29: phases 1 and 2 built; phase 3's card check half
 done. Its WAI v17 night ran - no drift in the alternation's peak, the pair
 back to back no slower than apart, the same pixels either way
 (`verified.md`, Refine pass, "Peak per image and Then refine, WAI v17");
-its FLUX.1 Krea dev night is left (`GEN#16`), stopped at the RAM guard
-during its load. Phase 3's build items (several strengths per image,
-missing passes in Finish, More seeds carrying the follow-on) are not built
-and have no row: Matt's answers put them later, if wanted (Q2, Q4, Q5).**
+its FLUX.1 Krea dev night is left (`GEN#16`). That night stopped at the
+RAM guard during its load on 2026-10-25; `GEN#22`'s fixed loader has
+since met that prerequisite (a cold FLUX.1 Krea dev fp8 load peaked at
+27.9 GiB working set, neither guard tripping:
+[verified.md](verified.md#ram-at-the-load-the-fixed-loader-2026-10-27)),
+so the card run itself is the one remaining step, and it waits on Matt's
+OK. The build items once filed under phase 3 are now rows of their own,
+added 2026-10-29: [phase 4](#phase-4-finish-run-adds-missing-passes),
+missing passes in Finish run (`GEN#35`, OPEN: Q4's answer was "a later
+phase", not "if wanted"); [phase 5](#phase-5-more-seeds-carries-the-pass),
+More seeds carrying the pass (`GEN#37`, OPEN, Q5's "later"); and
+[several strengths per image](#decision-several-strengths-per-image)
+(`GEN#39`, DECISION: Q2's "if wanted" is Matt's yes or no).**
 Matt took every recommended answer to the open questions the same day ("i
 like recommended"). Built as below except: a pass's failures have a streak
 of their own, apart from the cells', since a base made between two failed
@@ -254,7 +263,8 @@ cells has no shared source.
   stages) is not missing to either. Phase 1's answer is Mass refine over
   `run:<base run>` at the same numbers: its `rendered` status skips every
   base whose pass exists, and the rows it makes have the same keys (under
-  Mass refine's run id). Phase 2 adds those passes to Finish's plan (Q4).
+  Mass refine's run id). [Phase 4](#phase-4-finish-run-adds-missing-passes)
+  adds those passes to Finish's plan (Q4, `GEN#35`).
 - **The pass run's own Finish.** It has no retained definition, so today's
   `finish_plan` would say "made before runs kept their cells: use the
   panel's Resume tick" (`backend/api_generate.py:179`), which is wrong.
@@ -265,14 +275,16 @@ cells has no shared source.
   run". More seeds on it keeps its current meaning for any pass batch.
 - **More seeds** of a base batch adds base images only: it builds cells
   from records (`backend/more_seeds.py:23-25`) and reads no retained
-  metadata. Q5 asks whether it should carry the follow-on.
+  metadata. Q5 answered: not yet; [phase 5](#phase-5-more-seeds-carries-the-pass)
+  carries it (`GEN#37`).
 - **Re-render** of a base re-renders the base; of a pass, the pass of the
   same source at the new size - both as today (`grid.cell_from_record`,
   `backend/grid.py:715-783`).
 - **Grids.** Every grid cell gets its passes. The grid's Strength axis stays
   what it is - an axis only beside a source, collapsing to one value
   otherwise (`backend/grid.py:512-518`) - so it never sweeps the follow-on's
-  strength. Several follow-on strengths per image is Q2.
+  strength. Several follow-on strengths per image is Q2, open as
+  [a decision](#decision-several-strengths-per-image) (`GEN#39`).
 - **Duplicates.** `duplicate_count` counts base cells; a duplicate base has
   a duplicate pass, and the preview's duplicate line says "(and their
   passes)" where it is non-zero.
@@ -385,13 +397,237 @@ Tests) and a "Generate, then refine" section in `docs/design-notes.md`.
 Done when the new smoke, `smoke-wide`, `smoke-narrow`,
 `smoke-refine-unavailable` and the existing refine smokes pass.
 
-**Phase 3 - with the answers (S).** Whatever Q2, Q4 and Q5 decide: several
-strengths per image, missing passes in Finish, More seeds carrying the
-follow-on. And the card's word on a then-refine night on WAI v17 and FLUX.1
-Krea dev at 1.5x (one checkpoint per session, stopping at the first that
-fills the card): peak memory of the alternation, which moves the VAE and
-the sibling class every cell, and whether the base and its pass back to
-back cost more than the two run apart.
+**Phase 3 - the card (S+card, `GEN#16`).** The card's word on a
+then-refine night on WAI v17 and FLUX.1 Krea dev at 1.5x (one checkpoint
+per session, stopping at the first that fills the card): peak memory of
+the alternation, which moves the VAE and the sibling class every cell, and
+whether the base and its pass back to back cost more than the two run
+apart. WAI v17 is done (`verified.md`, "Peak per image and Then refine, WAI
+v17"). FLUX.1 Krea dev is left: its 2026-10-25 attempt stopped at the RAM
+guard during the load, and the fixed loader's 27.9 GiB peak
+([verified.md](verified.md#ram-at-the-load-the-fixed-loader-2026-10-27))
+clears that, so only the run remains. It needs Matt's OK for the session,
+and RAM checked as well as the card (FLUX loads spike RAM; one load per
+session). Done when `docs/verified.md` records that night's peak of the
+alternation beside `nvidia-smi` and shared GPU memory, and the pair's time
+back to back against apart, or the guard that stopped it. The phases'
+earlier build items (several strengths, missing passes in Finish, More
+seeds carrying the pass) are no longer part of phase 3: they are phases 4
+and 5 and the decision below.
+
+### Phase 4: Finish run adds missing passes
+
+**Status: `GEN#35`, OPEN, added 2026-10-29 (M, CPU/fake/browser only).**
+Matt took Q4's recommendation on 2026-10-24 ("i like recommended"): a
+later phase adds the missing passes to Finish's plan, and Mass refine over
+`run:<id>` recovers them until then (Q4 below; the answers paragraph,
+"missing passes in Finish in a later phase"). The status line had filed
+it under "if wanted"; it is not conditional. Matt rates "Retry
+skipped cells or resume the remainder" (D9) and Mass refine (H5) both
+Often (`docs/design/preferences.md:88`, `:147`).
+
+**Today, read 2026-10-29.** `finish_plan` (`backend/api_generate.py:187`)
+counts a retained cell missing only where its own image keys are not all
+in the gallery (`:275-293`), so a base saved before a cancel or a failed
+pass is "rendered" and its pass is never looked for. A run whose every
+base is saved but some passes are not answers "nothing in this run is
+missing" (`:303`) and is held. The pass run's own Finish names its base
+("the refine passes of run X: finish that run, and its passes follow",
+`:257-267`), which then says nothing is missing: a dead end. The only
+recovery is Mass refine over `run:<base run>` at the same numbers
+(`docs/design-notes.md:12496-12499`), whose passes have the pass's
+`CellKey` but land under Mass refine's own run id, not the pass run. Finish
+passes back the first retained job's `then_refine` only
+(`api_generate.py:402-414`, `_retained_then_refine` at `:179-184`).
+
+**Design.**
+
+- **Which passes are missing.** For each retained job of the run whose
+  metadata carries `then_refine` (`backend/jobs.py:920-933`), its live base
+  records - the run's rows from `storage.lineage_images([run_id], [])`
+  (`api_generate.py:197`) with that `job_id`, `refine` None and
+  `binned_at` None (a binned base is Matt's discard; its pass would be
+  refused anyway as a binned source). Each base's pass is the one the
+  worker makes: `refine_batch.plan(record, running=, profile=, scale=,
+  strength=, steps=, include_foreign=False, skip_passes=False)`, the call in
+  `JobManager._passes` (`jobs.py:1400-1408`). It is missing where
+  `submission.not_yet_rendered` at the pass size says so
+  (`backend/submission.py:346`, Mass refine's own check,
+  `backend/api_refine_batch.py:89-113`) and `not_yet_planned` keeps it.
+  So a pass Mass refine already made of that base counts as made, and
+  nothing is made twice.
+- **One spec per run.** A Resume tick with other numbers continues the
+  same base run with another spec, and so another pass run. Where the
+  run's retained jobs disagree on the spec, Finish refuses in words, as it
+  refuses a run made on another checkpoint (`api_generate.py:268-271`):
+  "this run's passes were made at 1.5× at 0.4 and at 2× at 0.35; Mass
+  refine over run:X recovers either". Where they agree, that spec is what
+  Finish passes back, so the passes land under the same
+  `then_refine.pass_run_id(base_run, spec)` (`backend/then_refine.py:85-93`,
+  deterministic) as the passes already made.
+- **How the job runs them.** `Job` gains `pass_sources: list[int]`, the
+  base gallery ids whose pass is missing, and `submit_cells` the matching
+  keyword. The worker runs each as a unit of its own before the first
+  base cell, through `_passes` with the base re-read by id
+  (`storage.get_image`, `backend/storage.py:1826`) at its turn; a base
+  binned or deleted since the preview is a failed pass with that reason,
+  never a crash. Pause and the budget are checked before each such unit,
+  as before a base cell; cancel stops inside one; its failures count under
+  the pass streak and `_units` (`jobs.py:1379-1384`) adds them to the
+  share. Their pass cells are in `planned_keys` from submit (as
+  `pending_passes` are, `jobs.py:601`), so a second Finish or a Mass
+  refine meanwhile does not queue them again. A Finish with missing passes
+  and no missing base cell is a job with no cells: every reader of
+  `job.cells[0]` or `job.request` (the stand-in capability check at
+  `jobs.py:1210-1211`, the retained definition's size and batch at
+  `:920-925`, the snapshot) reads the first pass instead. The retained
+  definition keeps its cells' format (the missing base cells, possibly
+  none) and adds `pass_sources` to the metadata; the pass run still keeps
+  no definition of its own, so its Finish keeps naming its base.
+- **The preview.** `FinishRunPreview` (`backend/schemas_rerun.py:88-100`)
+  gains `passes`, the missing passes it would queue; `available` holds
+  where cells or passes remain; "nothing in this run is missing" only when
+  both are none, and "already queued" covers queued passes. The pin hashes
+  the pass keys beside the cells' (`api_generate.py:326-329`), so a pass
+  landing between preview and press is the existing 409. The page's words
+  (`finishRunWords`, `web/runs.js:25-31`) add "and N missing passes"; the
+  hold stays `finishRunHold`'s `aria-disabled` with its reason as the title
+  (`web/runs.js:33-40`; AGENTS.md, Frontend). The text sits on the existing
+  line: nothing moves under 1800 px.
+
+**Constraints that apply.** The server decides what is missing; the page
+only words it. Base rows, their `CellKey`, the base run id and `applied()`
+are untouched (AGENTS.md, Schedule and profiles; Reproduction and
+storage): a pass is still built only from a saved record through
+`grid.cell_from_record`, inside `refine_batch.plan`. Every terminal
+transition still goes through `_finish`; nothing new is queued from it.
+Binned rows are read for keys but never refined.
+
+**Non-goals.** The grid panel's Resume tick does not add missing passes (it
+submits the panel's cells, not the gallery's); passes for a plain job that
+continues the run; a pass of a binned base; reconciling two specs in one
+Finish; moving passes Mass refine already made into the pass run.
+
+**Completion criteria.** Done when, with `uv run --group dev pytest`
+passing: `tests/test_api_finish_run.py` covers a then-refine run cancelled
+during a pass (preview `passes` 1, `cells` 0, available; Finish queues one
+pass under the pass run id with Mass refine's key; a second preview says
+already queued), a binned base skipped, a pass Mass refine already made
+counted, two specs refused in words, the pin changing when a pass lands,
+and a source deleted between preview and its turn reported as a failed
+pass; `tests/test_then_refine.py` covers pass-only units under pause, the
+budget, cancel and the failure streak, and `planned_keys` including them;
+`smoke-then-refine` gains a step - cancel a batch on its pass (the
+`--step 0.3` fake), then the run's Finish run says one missing pass, and a
+press adds the pass to the strip and the pass run; `smoke-wide` and
+`smoke-narrow` pass unchanged. `docs/design-notes.md`'s "Generate, then
+refine" drops "Finish does not yet add a missing pass", and
+`docs/rules.md`'s Then refine entry names `pass_sources`. No card stage:
+the pass is the refine pass already measured.
+
+### Phase 5: More seeds carries the pass
+
+**Status: `GEN#37`, OPEN, added 2026-10-29 (M, CPU/fake/browser only).**
+Matt took Q5's recommendation on 2026-10-24: More seeds makes bases only
+for now; "Later, More seeds can read the retained spec." (Q5 below). Matt rates "Make more seeds of an
+entire run" (G6) Often (`docs/design/preferences.md:134`).
+
+**Today, read 2026-10-29.** More seeds builds each batch's cells from its
+records through `grid.cell_from_record` (`backend/more_seeds.py:1-26`) and
+queues one job per run and size with `submit_cells(cells,
+run_id=group[0].run_id, more_seeds=count)` (`backend/api_more_seeds.py:314-317`,
+grouping at `:162-170`), with no `then_refine`. So More seeds of a
+then-refine run adds bases to the base run and no passes; the night's
+new images need a Mass refine afterwards. A pass batch (its records'
+`refine` set) gets more passes of the same source at new seeds, an
+existing meaning this phase keeps.
+
+**Design.**
+
+- **Which batches carry it.** A queued base batch (its template's
+  `refine` None) carries the spec of its template's job where that job's
+  retained metadata has `then_refine` (`storage.retained_run_metadata`,
+  `backend/storage.py:1906-1926`, read as `_retained_then_refine` reads it,
+  `api_generate.py:179-184`, moved to a shared place). The template can be
+  a base an earlier More seeds job made, and that job carried no spec, so
+  the spec is read from the jobs of the batch's mates (`batch.mates`, every
+  image of its run at its settings) where they agree, and a batch whose
+  mates' jobs disagree is refused in words. A batch none of whose jobs
+  carried one is unchanged.
+- **Refusals in words, per batch.** `then_refine.refusal` on the batch's
+  cells (`backend/then_refine.py:44-82`: a pass past the guard, the pixel
+  budget at the Batch it runs at, a strength leaving no step) sets a batch
+  status of its own with that detail, as the other per-batch statuses are
+  set (`api_more_seeds.py:99-128`); the rest still queue.
+- **One spec per job.** `_more_seeds_jobs`' key gains the spec, so each job
+  carries one; `submit_cells(..., then_refine=spec)` derives
+  `pass_run_id(group run id, spec)` (`jobs.py:892-893`), the same id the
+  original passes used, so the new passes join the existing pass run.
+- **The request and its replay.** `MoreSeedsRequest`
+  (`backend/schemas_rerun.py:311-336`) gains `then_refine: bool = True`:
+  carry the run's pass where a batch has one. `_intent_payload`
+  (`api_more_seeds.py:184-198`) dumps every field, so a replayed intent
+  keeps the choice. The preview's row notes say "each then refined at 1.5×
+  at 0.4"; `queued` and `seconds` count the passes, priced at the pass size
+  as the grid preview prices them; the dialog's tick **Refine each new
+  image** shows where a resolved batch carries a spec, on by default
+  (the run's own choice), `aria-disabled` with the reason as its title
+  where the checkpoint has no pass. It sits in the More seeds dialog, not
+  the panel, so no panel row moves.
+- **The cap.** The `max_grid_images` refusal (`api_more_seeds.py:62-71`)
+  counts base images, as the press asks for them.
+
+**Constraints that apply.** The new base cells, their seeds (stepping over
+taken seeds, `seed + i`) and run id are exactly today's (AGENTS.md,
+Reproduction and storage; `seeds.py`); a pass is built only from a saved
+record by the worker, never planned as a cell; the server decides which
+batch carries a pass and the page only shows it.
+
+**Non-goals.** Carrying a pass for a plain run; a pass of a pass; changing
+the numbers in the More seeds dialog (they are the run's spec); a
+then-refine choice for Re-render or Swap tags.
+
+**Completion criteria.** Done when, with `uv run --group dev pytest`
+passing: `tests/test_api_more_seeds.py` covers More seeds over a
+then-refine run queueing bases and their passes under the original pass
+run id, `then_refine: false` making bases only, a plain run unchanged, a
+pass batch unchanged, a second More seeds (its template an earlier More
+seeds base) still carrying the pass, mates of two specs refused in words, a batch past the guard refused in words while the
+rest queue, and two specs in one press making two jobs;
+`tests/test_more_seeds_intents.py` that a replayed intent keeps the
+choice; `smoke-more-seeds` (or `smoke-then-refine`) gains a step - More
+seeds of a then-refine run shows the note and the tick, and the strip gets
+each new base followed by its pass. `docs/rules.md` and the design notes'
+"Generate, then refine" say More seeds carries the pass. No card stage.
+
+## Decision: several strengths per image
+
+**Status: `GEN#39`, DECISION, added 2026-10-29: Matt's yes or no.** Matt
+took Q2's recommendation on 2026-10-24: "one strength in phase 1, a list in
+phase 3 if wanted - it triples a night's time" (Q2 below). Matt
+rates "Try several strengths or versions" (H4) Often
+(`docs/design/preferences.md:146`). Nothing is built until he says yes.
+
+**What a yes means.** Then refine's Strength takes a list ("0.3,0.4,0.5")
+and every image gets one pass per strength, in order, right after its
+cell: a strength sheet of every base. **It multiplies a night's pass time
+by the list's length**: three strengths are three passes of every image
+where there is one today, and three times the passes' disk; a budget
+night completes correspondingly fewer seeds. Each strength's passes would
+keep the one-strength pass run id of that strength
+(`then_refine.pass_run_id` hashes the strength, `backend/then_refine.py:85-93`),
+so a list of one is today's run exactly and no existing run id changes.
+Mass refine keeps refusing a list ("One strength for a batch",
+`docs/design-notes.md:5809-5815`); this would be the follow-on's only
+strength sweep.
+
+**What a no means.** One strength stays one strength; a sweep stays one
+image's Refine dialog (its Compare) or a Then refine run per strength.
+
+**Completion criteria.** The decision closes when Matt answers. On a yes,
+it becomes an OPEN row of its own with its plan here (the list's
+validation and refusals, the worker's per-strength passes, the preview's
+price, the opener's words), checked on the fake like phases 4 and 5.
 
 ## Risks
 
@@ -412,14 +648,18 @@ Answered 2026-10-24: every recommendation taken - the numbers remembered
 and the tick off on reload; one strength; pass failures under the cells'
 failure rule; missing passes in Finish in a later phase, Mass refine over
 `run:<id>` until then; More seeds makes bases only; steps but no prompt of
-the pass's own; Lanczos only.
+the pass's own; Lanczos only. 2026-10-29: Q4's later phase is
+[phase 4](#phase-4-finish-run-adds-missing-passes) (`GEN#35`), Q5's is
+[phase 5](#phase-5-more-seeds-carries-the-pass) (`GEN#37`), and Q2's "if
+wanted" is [the open decision](#decision-several-strengths-per-image)
+(`GEN#39`).
 
 1. **Remembered or per session?** Is the tick saved with the panel, or off
    on every reload? Recommended: the numbers remembered (shared with the
    Refine dialog's), the tick off on reload, so a fresh page never doubles
    a press unasked.
 2. **One strength or several per image?** Mass refine refuses a list
-   ("One strength for a batch", `docs/design-notes.md:5345-5349`); a
+   ("One strength for a batch", `docs/design-notes.md:5809-5815`); a
    follow-on could run "0.3,0.4,0.5" as three passes per image, a strength
    sheet per base (H4, "Often"). Recommended: one strength in phase 1, a
    list in phase 3 if wanted - it triples a night's time.

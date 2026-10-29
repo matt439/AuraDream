@@ -3,8 +3,9 @@
 **Status:** `GAL#19` implemented, functionally qualified and visually inspected; closed 2026-10-29.
 Independent source/VM/native reviews, measured controls, positive actual-
 module/native checks and three related browser regressions are complete.
-New screenshot inspection remains open after the result artifact read was
-denied. This does not claim complete visual acceptance.
+The screenshot inspection that was open after the earlier artifact read was
+denied is done: see [Screenshot inspection, 2026-10-29](#screenshot-inspection-2026-10-29).
+Nothing about this item remains open.
 
 ## Source finding and selected scope
 
@@ -160,8 +161,8 @@ semantics were expanded.
 
 ## Remaining visual qualification and access boundary
 
-The runner reports the new screenshots written under
-`C:\Users\matsi\AppData\Local\Temp\auradream-smoke-artifacts-u67ch_a4\smoke-runs-favorite-counts-9fb6bxdk`.
+The runner reports the new screenshots written under its temporary
+`auradream-smoke-artifacts-*` directory (`smoke-runs-favorite-counts-*`).
 The subsequent exact `result.json` read there returned **Access denied**,
 followed by the shell's secondary not-found message. No artifact contents
 were returned. Reads of this whole new artifact directory are stopped:
@@ -169,7 +170,8 @@ no screenshot read, alternate reader, copied artifact, elevated read or
 duplicate focused run was attempted. This is an actual filesystem denial,
 not an uncertain browser outcome: the completed runner independently reports
 all steps passing and normal browser exit. Wide/narrow screenshot inspection
-remains incomplete, so `GAL#19` remains in TODO for that exact action.
+was then incomplete, so `GAL#19` stayed in TODO for that action until the
+fresh run in [Screenshot inspection, 2026-10-29](#screenshot-inspection-2026-10-29).
 
 The bounded source implementation has actual-module and native functional
 qualification; retaining this separate visual item does not qualify a layout

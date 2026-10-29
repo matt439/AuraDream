@@ -855,6 +855,7 @@ words (b396e2e) and the page's sizes labelled in binary units, "about 4.5 GiB"
 2b89ed5 (above) on the real server with FLUX.1 Krea [dev] stopped at the RAM guard during its one
 load (Checkpoints, "RAM at the load"), so they are still unchecked on the
 card; 81781bf's sentence was checked there (the load failures row above).
+The step files for that recheck are planned as checked-in packs (`DEV#23`, [CARD#10 step packs](plan-card-harness.md#card10-step-packs)).
 
 Not verified: `AURADREAM_DEVICE=cuda:1` (one card here); ERNIE-Image
 Turbo's fp8 reproduction across two processes, and its 4 MP batch of two

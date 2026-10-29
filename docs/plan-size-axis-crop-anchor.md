@@ -181,3 +181,133 @@ hashes while asserting the new comparison keys.
 The existing pinned legacy grid test keeps its original run-id assertion;
 its comparison-key expectation now includes the size/center extension. This
 updates the new key contract without changing the legacy hash expectation.
+
+## Compare scales in the Refine dialog
+
+**Status:** OPEN as UI#34, added 2026-10-29 from that day's TODO audit
+(item 10). CPU, fake-server and browser stages are ready; the quality
+judgement at 2x is a card stage that needs Matt's OK. Nothing is built.
+
+### Why scales cannot be compared today
+
+`docs/design/preferences.md` rates H2 (enlarge an image using Refine) and H4
+(try several strengths or versions) as Often. The dialog sweeps only one of
+the two. A strength list becomes a grid's `strength_axis`
+(`web/refine.js:757`,
+`{ ...base, num_images: 1, seeds: versions, strength_axis: strength }`),
+while the scale is a single choice: the buttons built in `syncRefine`
+(`web/refine.js:475` onwards, from `REFINE_SCALES = [1, 1.25, 1.5, 2]` in
+`web/state.js:534`) write one width and height into the boxes
+(`applyRefineScale`). To see 1x beside 1.5x and 2x of one keeper, the user
+runs the dialog once per scale and compares the results by hand.
+
+The server side already exists. GEN#19 (this plan) added
+`GridRequest.size_axis` (`backend/schemas_generate.py:826`), parsed by
+`grid.parse_sizes` (`backend/grid.py:125`) into ordered `WIDTHxHEIGHT` pairs.
+Each pair becomes a validated `GenerateRequest` under the refine guard
+(`refine_max_side`/`refine_max_pixels`), has its own `shape_key` element in
+`CellKey`, is priced per size, and appears as Size on the contact sheet.
+`/api/grid` and `/api/grid/preview` both expand through `expand_grid`, which
+hands it to `grid.expand` and `grid.axis_values`
+(`backend/api_generate.py:88`, `:97`), then holds each size's group to its
+inputs with `submission.refuse_unusable_inputs`. In `web/`, only `grid-preview.js`,
+`generation-presets.js` and `setup-import.js` mention `size_axis` today; `refine.js` does not.
+
+### Design
+
+- **One button, no new row.** Add a "Compare scales" ghost button to the
+  existing scale group's row (`#refine-scales`, `web/index.html:1161`), in
+  the same style as Compare 3 (`#refine-compare`, `:1202`). A press marks
+  the dialog as comparing. It writes nothing into Width, Height or Strength.
+  The dialog's height must not change at 1400x900, and nothing under 1800 px
+  may move beyond what `docs/rules.md` already allows. If the row has no
+  room, the button goes inside the existing size-line caption. It never
+  becomes a new line.
+- **Sizes come from `refine.scaled`.** The compared factors are 1, 1.5 and 2,
+  each turned into a size by `refineScaled` (`web/refine.js:93`), the page's
+  copy of `backend/refine.py:466` `scaled`. Each pair is written as
+  canonical `WIDTHxHEIGHT`, in ascending order. The page never invents a
+  size that the scale buttons could not produce.
+- **Only factors that pass the guard, and none past the tight line.** A
+  factor is left out when `refineFits` (`web/refine.js:98`) refuses its size.
+  It is also left out when `refineTight` says the size may run tight on the
+  card, which matches how `openingRefineSize` (`:119`) never opens the
+  dialog past that line. Each left-out factor and its reason go in the
+  button's title, as `compareSweep`'s `dropped` does for Compare 3. With
+  fewer than two factors left, the button is held: `aria-disabled`, with the
+  reason as its title, and a press repeats it. This is the Compare 3
+  pattern, not `disabled`; the scale buttons past the guard remain the
+  documented `disabled` exception (`docs/rules.md`, the held-button and
+  size-strip paragraphs).
+- **The request.** While comparing, `refineRequest` (`:726`) returns the
+  grid shape: `path: '/api/grid'`, `num_images: 1`, `seeds: versions`,
+  `size_axis` set to the pairs, and `strength_axis` only when Strength holds
+  a list. A strength sweep and a scale comparison may cross. The server
+  expands, prices and refuses the cross; the page adds presentation only
+  ("the server decides"). The base `width`/`height` stay at the boxes' size,
+  so the request is valid on its own. `crop_anchor` is the dialog's single
+  anchor for every size; it is never an axis.
+- **Preview, run and sheet.** `previewRefine` (`:771`) posts the same body
+  to `/api/grid/preview`. The preview line reads the sizes from the server's
+  `values.size`, and its counts and estimate from the reply. An estimate
+  stays unknown when any size lacks matching history (this plan's per-size
+  pricing rule). The run uses the existing sweep path, `sheet: true`
+  (`web/refine.js:891`), so the result opens as a contact sheet with Size as
+  an axis, next to the source thumbnails the sheet already shows.
+- **Leaving the comparison.** Pressing a scale button, editing Width or
+  Height, or Reuse returns the dialog to a single size and clears the mark.
+  The size line names the compared sizes while the mark is set. The kept
+  frame continues to follow the boxes' size, since a uniform scale keeps the
+  whole source apart from 16-pixel rounding.
+- **Never remembered as the scale.** `rememberRefine` (`:983`) stores
+  `prefs.scale` only from a single size the user chose. A compared list is
+  not stored in `REFINE_KEY` or anywhere else, the same as a strength sweep
+  ("A sweep is not remembered", `web/refine.js:24`, `:701-702`). Reusing a
+  compared cell opens the dialog at that cell's own single size.
+
+Rules that apply: identity and normalisation are the server's, through
+`applied()` on each concrete cell. `CellKey` and `run_id` are those GEN#19
+already defines (the `shape_key` extension); there is no new key element,
+and no existing run id changes. A held button is `aria-disabled` with its
+reason. No layout moves under 1800 px. All `localStorage` access stays in
+the existing try/catch helpers. The dialog writes no prompt or negative, so
+no `writeBox` path is involved.
+
+### Non-goals
+
+- No arbitrary scale entry and no factors beyond `REFINE_SCALES`. A custom
+  size list is already available as the grid fold's Size box.
+- No upscaler comparison (with versus without Anime6B) and no crop-anchor
+  comparison. Each would be a separate axis decision.
+- No change to Mass refine, Then refine or the inpaint and outpaint dialogs.
+  A mask or outpaint stays bound to its source's size, and the server keeps
+  refusing it.
+- No claims about pixels, VRAM or timing from CPU or browser checks.
+
+### Stages and completion criteria
+
+1. **Page and CPU checks.** Add the button, the comparing mark, the factor
+   filter with its held state, and the request shape. A pytest in the style
+   of `tests/test_profiles.py`'s source-string checks holds the dialog's
+   size list to `refineScaled`/`refine.scaled` and to the 1, 1.5, 2 factors.
+   A `tests/test_api_refine.py` case sends `size_axis` pairs from
+   `refine.scaled` with an ordinary refine source to `/api/grid/preview` and
+   `/api/grid`. It checks one cell per size and seed, distinct `CellKey`s,
+   the budget, and a refusal when the request also carries a `mask` or an
+   `outpaint`. Ruff, the type
+   gate and the full suite must pass.
+2. **Browser.** Extend `smoke-refine` (port 7875, FLUX.1-Krea-dev fake) and,
+   where SDXL sizes differ, `smoke-refine-sdxl`. Steps: the button's title
+   names any left-out factor; on a source where fewer than two factors fit,
+   the button is held, a press says why and focus stays; the preview lists
+   the server's sizes; the run opens a sheet with a Size axis; reopening the
+   dialog keeps the last single scale, not the list; a scale button press
+   leaves the comparison; the dialog is the same height with and without the
+   button. `smoke-button-states` must still pass. Close UI#34 when stages 1
+   and 2 pass and this section records them.
+3. **Card (needs Matt's OK).** On one FLUX.1 Krea dev keeper and one SDXL
+   keeper, compare 1x, 1.5x and 2x at the profile strength. Record in
+   `docs/verified.md` whether 2x keeps the composition, and the peak memory
+   at each size. Use the existing RAM and VRAM guards, with one load per
+   session. This stage does not hold UI#34's closure; if wanted, it becomes
+   a CARD row of its own.

@@ -328,7 +328,9 @@ so the key is widened once with named recipe fields.
    docs maps and ruff; the browser remains an independent check.
 3. **Separately approved card comparison.** After `GEN#22`, run one shape
    at a time with identical model, quantizer, prompt/negative, seed, steps,
-   CFG/mu and no LoRA/compilation/cache. Use the existing guards and stop on
+   CFG/mu and no LoRA/compilation/cache. The prompts, seeds and both shapes
+   are the [fixed comparison cases](plan-step-caching.md#fixed-comparison-cases)
+   (`PERF#6`): shapes A and B, then A again. Use the existing guards and stop on
    shared-memory spill. Record driver/CUDA/cuDNN/torch/diffusers versions,
    dispatcher checks and determinism flags with retained PNGs.
 
