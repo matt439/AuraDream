@@ -1,5 +1,9 @@
 # Plan: edit a gallery image by instruction
 
+**2026-10-29:** Matt reviewed stage 3's numbers and asked to keep going:
+stage 4 is open. The drift beyond the instruction is accepted as recorded,
+not fixed. A real-server load or edit still needs his OK as a card run.
+
 **Status, 2026-10-28:** Matt commissioned continuing `INP#11` without the
 card. Stages 0-2 are built. Stage 0's six pinned configs were fetched at the
 revision and qualified (below). Stage 1's CPU persistence and admission are

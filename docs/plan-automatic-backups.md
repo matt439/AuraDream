@@ -811,6 +811,12 @@ these choices or enable automatic exports/retention to demonstrate progress.
 
 ### Matt's choices for unattended backups
 
+**Decided 2026-10-29: Matt does not want unattended backups.** Automatic
+backup stays disabled, its built default, and `GAL#22` and `GAL#6` (the
+credential qualification that only this feature uses) left TODO. The code
+stays default-off; the eight choices below are kept for reference, and none
+is open. Manual whole-gallery and password-protected bundles are unchanged.
+
 Each choice names what is built today, so an answer changes only that
 input. Choices 1 to 5 are entered in Bundles' automatic startup backup
 settings (`web/index.html`, `#automatic-backup-settings`) when Matt
