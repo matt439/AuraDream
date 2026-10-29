@@ -5711,11 +5711,19 @@ gallery (#library, head and grid both, as `libraryPointer`; the grid's own
 filter changes - when the head is laid out anew in any case. With the
 pointer elsewhere, an Escape from the keyboard, it comes back at once.
 
-**Open: a tier instead of one size** (2026-10-29). Every pick still renders
-at the panel's one width and height, so a mixed-aspect selection cannot go
-to 2 MP each in its own framing. `GEN#33` owns a tier mode that maps each
-record to its nearest `SIZES` entry and splits one job per size, as Swap
-tags does ([review-2026-10-29-backlog.md](review-2026-10-29-backlog.md#gen33-re-render-at-a-tier)).
+**A tier instead of one size** (`GEN#33`, 2026-10-30). The head's
+Re-render renders every pick at the panel's one width and height, so a
+mixed-aspect selection could not go to 2 MP each in its own framing. The
+Picked menu's **Re-render picked at N MP…** does: N is the panel's tier,
+each pick goes to its own aspect's entry at it (`sizes.nearest_preset`,
+against the aspect's named ratio - entry to entry, the 16-grid rounding sent
+a 1 MP 9:16 to 4:7), and one job per size, as Swap tags splits. A pick
+whose size is no preset's aspect is named and left out, never guessed. The
+press asks first: the server's preview is the question ("1 at 1440×1440, 1
+at 1776×1184 - 2 jobs, one per size"), and OK sends the ids it showed as
+`expected`, so a selection changed meanwhile is refused rather than queued
+unseen. It is a menu item, not a head control: the head holds still
+([review-2026-10-29-backlog.md](review-2026-10-29-backlog.md#gen33-re-render-at-a-tier)).
 
 ## Swap tags
 

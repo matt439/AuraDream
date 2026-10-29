@@ -229,10 +229,12 @@ function imageNames(ids) {
 // confirmDialog answers true for Delete and false for Cancel, Escape or a
 // press outside it; countDialog the typed text, or null. `okLabel` is the
 // OK button's words, "Delete" unless the question names its own (Empty
-// recycle bin's "Empty bin"). The smokes stand in for them through
+// recycle bin's "Empty bin"); `destroy` false paints it as an ordinary
+// primary, for a question whose OK queues work rather than deletes (Re-render
+// picked at a tier). The smokes stand in for them through
 // `askConfirm` and `askCount`, and put these back.
 let askAnswer = null;
-function openAsk(message, { count = false, okLabel = 'Delete' } = {}) {
+function openAsk(message, { count = false, okLabel = 'Delete', destroy = true } = {}) {
   // One question at a time: an earlier one still up is answered Cancel.
   if (els.confirmDialog.open) {
     const earlier = askAnswer;
@@ -252,6 +254,7 @@ function openAsk(message, { count = false, okLabel = 'Delete' } = {}) {
   els.confirmCountLabel.textContent = label;
   els.confirmCount.value = '';
   els.confirmOk.textContent = okLabel;
+  els.confirmOk.classList.toggle('destroy', destroy);
   const anchor = document.activeElement !== document.body ? document.activeElement : null;
   return new Promise((resolve) => {
     askAnswer = resolve;
@@ -262,8 +265,8 @@ function openAsk(message, { count = false, okLabel = 'Delete' } = {}) {
   });
 }
 
-function confirmDialog(message, { okLabel } = {}) {
-  return openAsk(message, { okLabel }).then((answer) => answer === 'ok');
+function confirmDialog(message, { okLabel, destroy } = {}) {
+  return openAsk(message, { okLabel, destroy }).then((answer) => answer === 'ok');
 }
 
 function countDialog(message) {

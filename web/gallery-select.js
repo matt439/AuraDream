@@ -428,7 +428,7 @@ function syncPickedButton() {
   const why = binMode ? BIN_HELD : n ? '' : PICKED_NONE;
   els.pickedBtn.setAttribute('aria-disabled', String(!!why));
   const them = n === 1 ? 'the picked image' : `the ${n} picked images`;
-  els.pickedBtn.title = why || `Actions on ${them}: star, unstar, compare, bin or copy seeds to the grid`;
+  els.pickedBtn.title = why || `Actions on ${them}: star, unstar, compare, bin, copy seeds to the grid or re-render at a tier`;
   const grid = pickedGridSeeds();
   const compare = pickedComparison();
   const favorite = favoriteWriteReason(selectedIds());
@@ -440,14 +440,41 @@ function syncPickedButton() {
     seeds: grid.why || `Fill Seed list with ${plural(grid.seeds.length, 'distinct picked seed')} in picked order; other grid settings are kept`,
     compare: compare.why || `Compare #${compare.records[0].id} with #${compare.records[1].id}; the first picked image stays on the left`,
   };
-  for (const item of els.pickedMenu.querySelectorAll('[data-picked]')) {
+  for (const item of els.pickedMenu.querySelectorAll('[data-picked]:not([data-picked="tier"])')) {
     const held = why || (item.dataset.picked === 'star' || item.dataset.picked === 'unstar' ? favorite
       : item.dataset.picked === 'bin' ? lifecycle
         : item.dataset.picked === 'seeds' ? grid.why : item.dataset.picked === 'compare' ? compare.why : '');
     item.setAttribute('aria-disabled', String(!!held));
     item.title = held || titles[item.dataset.picked];
   }
+  syncPickedTier();
   if (why && !els.pickedMenu.hidden) showPickedMenu(false);
+}
+
+// Re-render picked at N MP…: N is the panel's tier (`pickedTier`), each pick
+// rendered at its own aspect's entry there - the server maps them and says
+// which match none. Held where the panel's size is no preset: then it has
+// no tier to name. The label follows the size strip (syncSize).
+function pickedTierTarget() {
+  if (!sizePresetMatch()) {
+    return { why: `The panel's size, ${+els.width.value}×${+els.height.value}, is no preset; choose a megapixel tier in the size strip first` };
+  }
+  return { tier: pickedTier };
+}
+
+// Its own sync, apart from the rest of the menu's, for syncSize to call
+// where only the size moved; the Picked button's hold holds it too.
+function syncPickedTier() {
+  const item = els.pickedMenu.querySelector('[data-picked="tier"]');
+  const label = `Re-render picked at ${pickedTier} MP…`;
+  if (item.textContent !== label) item.textContent = label;
+  const parent = els.pickedBtn.getAttribute('aria-disabled') === 'true' ? els.pickedBtn.title : '';
+  const tier = pickedTierTarget();
+  const n = selection.size;
+  const them = n === 1 ? 'the picked image' : `the ${n} picked images`;
+  item.setAttribute('aria-disabled', String(!!(parent || tier.why)));
+  item.title = parent || tier.why
+    || `Render ${them} again at ${tier.tier} MP, each at its own aspect's size - same prompt, settings and seed; asks first, with the sizes`;
 }
 
 // Over the button where the window has no room for it under the footer -
@@ -514,6 +541,7 @@ function pickedChoose(item) {
   if (act === 'bin') void binPicked();
   else if (act === 'seeds') seedsToGrid();
   else if (act === 'compare') comparePicked();
+  else if (act === 'tier') void rerenderAtTier();
   else void starPicked(act === 'star');
 }
 

@@ -13,15 +13,20 @@ from .api_more_seeds import more_seeds_plan
 from .app_context import AppServices
 from .execution import require_configured_loader_available, resolve_execution
 from .model_selection import current_settings
+from .sizes import nearest_preset
 from .schemas import (
     GenerateRequest,
     GenerateSubmission,
+    ImageRecord,
     GridPreview,
     GridRequest,
     JobAccepted,
     RerenderAccepted,
     RerenderGone,
+    RerenderPreview,
     RerenderRequest,
+    RerenderSize,
+    RerenderUnmatched,
     MoreSeedsRequest,
     ThenRefine,
     error_detail,
@@ -155,6 +160,28 @@ class FinishPlan:
     records: list
     sizes: list[tuple[int, int]]
     refusal_code: int = 409
+
+
+@dataclass
+class _RerenderGroup:
+    """One size of a re-render: its cells, those it would queue now, and
+    the run id of the job it makes."""
+
+    width: int
+    height: int
+    cells: list[grid.Cell]
+    kept: list[grid.Cell]
+    run_id: str
+
+
+@dataclass
+class _RerenderPlan:
+    ids: list[int]
+    deleted: list[RerenderGone]
+    groups: list[_RerenderGroup]
+    unmatched: list[RerenderUnmatched]
+    pruned: int
+    planned: int
 
 
 def _finish_key(services: AppServices, cell: grid.Cell) -> tuple:
@@ -483,6 +510,29 @@ def create_router(services: AppServices) -> APIRouter:
         })
 
 
+    @router.post("/api/rerender/preview", response_model=RerenderPreview)
+    async def preview_rerender(request: RerenderRequest) -> RerenderPreview:
+        """What Re-render would queue, size by size, without queueing it.
+
+        No side effects, so it is not a model-dependent request in the
+        middleware's sense, as Swap tags' preview is not: the queueing
+        request is, and carries the revision. A selection Re-render would
+        refuse is refused here in the same words.
+        """
+        plan = await rerender_plan(request)
+        return RerenderPreview(
+            ids=plan.ids,
+            sizes=[
+                RerenderSize(width=group.width, height=group.height, images=len(group.cells), queued=len(group.kept))
+                for group in plan.groups
+            ],
+            unmatched=plan.unmatched, deleted=plan.deleted,
+            queued=sum(len(group.kept) for group in plan.groups),
+            jobs=sum(1 for group in plan.groups if group.kept),
+            pruned=plan.pruned, planned=plan.planned,
+        )
+
+
     @router.post("/api/rerender", response_model=RerenderAccepted)
     async def rerender(request: RerenderRequest) -> RerenderAccepted:
         """Re-render the selection, leaving out gallery and live-job cells."""
@@ -490,25 +540,24 @@ def create_router(services: AppServices) -> APIRouter:
             return await rerender_selection(request)
 
 
-    async def rerender_selection(request: RerenderRequest) -> RerenderAccepted:
-        """Queue the gallery's current selection again at another size, as one job.
+    async def rerender_plan(request: RerenderRequest) -> _RerenderPlan:
+        """The selection as cells, one group per size, each with what it would
+        queue now - or the refusal, in the words the queueing request says it.
 
-        The documented workflow ends at "star the winners"; getting them at full
-        size then meant Reuse, retype the size, Generate, twenty times over - and
-        the clicking is where a seed gets mistyped. Here every selected record is
-        a cell with its own settings and seed, deduplicated against what the
-        gallery already holds at the target size, so a re-render can itself be
-        resumed. A sibling of `run_grid`, and it shares the run-id and resume
-        machinery with it. The selection is the picked cards where `ids` names
-        them, else the filter (`submission.resolve_selection`); a picked image
-        gone since is left out and named in `deleted`, and with none left the
-        answer is 404 naming them all.
+        At one size (`width`/`height`) every record is one group at it; at a
+        `tier`, each record goes to its own aspect's entry at that tier
+        (`sizes.nearest_preset`), and a record whose size is no preset's
+        aspect is answered in `unmatched`, never guessed or queued. Every
+        refusal below holds per size: an inpaint is refused at any size but
+        its own, a budget at the size that passes it.
         """
-        probe = GenerateRequest(prompt="x", width=request.width, height=request.height)
-        try:
-            probe.check_budget()
-        except ValueError as exc:
-            raise HTTPException(status_code=422, detail=str(exc)) from exc
+        if request.tier is None:
+            assert request.width is not None and request.height is not None, "the request model holds a size"
+            probe = GenerateRequest(prompt="x", width=request.width, height=request.height)
+            try:
+                probe.check_budget()
+            except ValueError as exc:
+                raise HTTPException(status_code=422, detail=str(exc)) from exc
         records, gone, binned = await submission.resolve_selection(
             services, ids=request.ids, search=request.search, favorites=request.favorites,
             all_models=request.all_models,
@@ -538,73 +587,149 @@ def create_router(services: AppServices) -> APIRouter:
             raise HTTPException(status_code=422, detail=submission.edit_rerender_detail(
                 edits, picked=request.ids is not None, others=len(edits) < len(records),
             ))
+        # The records by the size each renders at, in the resolver's order.
+        sized: dict[tuple[int, int], list[ImageRecord]] = {}
+        unmatched: list[RerenderUnmatched] = []
+        if request.tier is None:
+            assert request.width is not None and request.height is not None
+            sized[(request.width, request.height)] = records
+        else:
+            for record in records:
+                size = nearest_preset(record.width, record.height, request.tier)
+                if size is None:
+                    unmatched.append(RerenderUnmatched(id=record.id, width=record.width, height=record.height))
+                else:
+                    sized.setdefault(size, []).append(record)
+            if not sized:
+                said = "; ".join(f"#{item.id} is {item.width}x{item.height}" for item in unmatched[:6])
+                more = f"; and {len(unmatched) - 6} more" if len(unmatched) > 6 else ""
+                raise HTTPException(status_code=422, detail=(
+                    f"none of the picked images is a preset's aspect, so none has a {request.tier:g} MP size: "
+                    f"{said}{more}"
+                ))
+            # Each size its own budget: the one that passes it is refused
+            # by name, and nothing is queued.
+            for width, height in sized:
+                try:
+                    GenerateRequest(prompt="x", width=width, height=height).check_budget()
+                except ValueError as exc:
+                    raise HTTPException(status_code=422, detail=str(exc)) from exc
+        matched = [record for group in sized.values() for record in group]
         # An inpaint whose mask this gallery lacks is named by its id, which
         # the per-combination check below could only say by the mask's hash.
-        lost = await asyncio.to_thread(submission.missing_masks, records)
+        lost = await asyncio.to_thread(submission.missing_masks, matched)
         if lost:
             raise HTTPException(status_code=422, detail=submission.missing_mask_detail(lost))
         # And an outpaint whose spec does not build its own row's mask: run
         # again it would paint under another mask under the same key.
-        mismatched = await asyncio.to_thread(submission.mismatched_outpaints, records)
+        mismatched = await asyncio.to_thread(submission.mismatched_outpaints, matched)
         if mismatched:
             raise HTTPException(status_code=422, detail=submission.mismatched_outpaint_detail(mismatched))
         # So is an inpaint at another size than its own - its source's, which
         # its mask covers - where the per-combination check would name the
         # source the user never picked.
-        resized = submission.resized_inpaints(records, request.width, request.height)
-        if resized:
-            raise HTTPException(status_code=422, detail=submission.resized_inpaint_detail(
-                resized, request.width, request.height, picked=request.ids is not None,
-                others=len(resized) < len(records),
-            ))
-        # Oldest first (the resolver's order), so the re-render lands in the
-        # order the originals did; every record's reproduction set but its size.
-        # A row the request models refuse (a spec another build or an import
-        # let through) is a worded refusal, never a 500.
-        try:
-            cells = grid.cells_from_records(records, width=request.width, height=request.height)
-        except ValueError as exc:
-            raise HTTPException(status_code=422, detail=error_detail(exc)) from exc
-        # One check per distinct combination rather than per cell: a selection of
-        # 400 images carries at most a handful of adapters and sources between them.
-        # Every cell is at the one size asked for, so an inpaint's mask is held
-        # to it here: re-rendered elsewhere, its mask no longer covers it. An
-        # outpaint (frozen, so it keys) is checked at that size per padding,
-        # never sharing a plain refine's verdict over the same source.
-        for spec in {
-            (c.request.lora, tuple(c.request.reference), c.request.refine, c.request.mask, c.request.outpaint,
-             c.request.upscaler, c.request.edit)
-            for c in cells
-        }:
-            if spec != (None, (), None, None, None, None, None):
-                await submission.refuse_unusable_inputs(services, cells[0].request.model_copy(
-                    update={"lora": spec[0], "reference": list(spec[1]), "refine": spec[2], "mask": spec[3],
-                            "outpaint": spec[4], "upscaler": spec[5], "edit": spec[6]}
+        for (width, height), group in sized.items():
+            resized = submission.resized_inpaints(group, width, height)
+            if resized:
+                raise HTTPException(status_code=422, detail=submission.resized_inpaint_detail(
+                    resized, width, height, picked=request.ids is not None,
+                    others=len(resized) < len(records),
                 ))
-        try:
-            for cell in cells:
-                cell.request.check_refine_steps()
-        except ValueError as exc:
-            raise HTTPException(status_code=422, detail=str(exc)) from exc
-        run_id = grid.run_id(cells, services.model_id(), services.quantization())
+        model, quantization = services.model_id(), services.quantization()
+        groups: list[_RerenderGroup] = []
+        for (width, height), group in sized.items():
+            # Oldest first (the resolver's order), so the re-render lands in the
+            # order the originals did; every record's reproduction set but its
+            # size. A row the request models refuse (a spec another build or an
+            # import let through) is a worded refusal, never a 500.
+            try:
+                cells = grid.cells_from_records(group, width=width, height=height)
+            except ValueError as exc:
+                raise HTTPException(status_code=422, detail=error_detail(exc)) from exc
+            # One check per distinct combination rather than per cell: a selection of
+            # 400 images carries at most a handful of adapters and sources between them.
+            # Every cell is at its group's one size, so an inpaint's mask is held
+            # to it here: re-rendered elsewhere, its mask no longer covers it. An
+            # outpaint (frozen, so it keys) is checked at that size per padding,
+            # never sharing a plain refine's verdict over the same source.
+            for spec in {
+                (c.request.lora, tuple(c.request.reference), c.request.refine, c.request.mask, c.request.outpaint,
+                 c.request.upscaler, c.request.edit)
+                for c in cells
+            }:
+                if spec != (None, (), None, None, None, None, None):
+                    await submission.refuse_unusable_inputs(services, cells[0].request.model_copy(
+                        update={"lora": spec[0], "reference": list(spec[1]), "refine": spec[2], "mask": spec[3],
+                                "outpaint": spec[4], "upscaler": spec[5], "edit": spec[6]}
+                    ))
+            try:
+                for cell in cells:
+                    cell.request.check_refine_steps()
+            except ValueError as exc:
+                raise HTTPException(status_code=422, detail=str(exc)) from exc
+            # One run id per size, each the shape every other run's has; at
+            # one size, the whole selection's, as it always was.
+            groups.append(_RerenderGroup(width, height, cells, cells, grid.run_id(cells, model, quantization)))
         # The queue first, then the gallery: a live cell can finish while
         # the scan runs. Admission stays held until submit_cells has added
-        # this job, including its awaited mask writes.
+        # these jobs, including their awaited mask writes.
         planned = services.jobs().planned_keys()
-        unheld = await submission.not_yet_rendered(services, cells, request.width, request.height)
-        kept = submission.not_yet_planned(services, unheld, planned)
-        pruned, already_planned = len(cells) - len(unheld), len(unheld) - len(kept)
-        if not kept:
-            state = "rendered or queued" if already_planned and pruned else "queued" if already_planned else "rendered"
+        pruned = already_planned = 0
+        for group in groups:
+            unheld = await submission.not_yet_rendered(services, group.cells, group.width, group.height)
+            group.kept = submission.not_yet_planned(services, unheld, planned)
+            pruned += len(group.cells) - len(unheld)
+            already_planned += len(unheld) - len(group.kept)
+        return _RerenderPlan(
+            ids=[record.id for record in records], deleted=deleted, groups=groups, unmatched=unmatched,
+            pruned=pruned, planned=already_planned,
+        )
+
+
+    async def rerender_selection(request: RerenderRequest) -> RerenderAccepted:
+        """Queue the gallery's current selection again at another size: one
+        job at one size, or one per size at a tier.
+
+        The documented workflow ends at "star the winners"; getting them at full
+        size then meant Reuse, retype the size, Generate, twenty times over - and
+        the clicking is where a seed gets mistyped. Here every selected record is
+        a cell with its own settings and seed, deduplicated against what the
+        gallery already holds at the target size, so a re-render can itself be
+        resumed. A sibling of `run_grid`, and it shares the run-id and resume
+        machinery with it. The selection is the picked cards where `ids` names
+        them, else the filter (`submission.resolve_selection`); a picked image
+        gone since is left out and named in `deleted`, and with none left the
+        answer is 404 naming them all. `expected` is the ids the preview
+        resolved: a selection that changed since is refused (409). At a tier,
+        one job per size, the first at the top level and the rest in `more`,
+        as Swap tags answers.
+        """
+        plan = await rerender_plan(request)
+        if request.expected is not None and sorted(set(request.expected)) != sorted(plan.ids):
             raise HTTPException(
-                status_code=409,
-                detail=f"every selected image is already {state} at {request.width}x{request.height}",
+                status_code=409, detail="the selection changed since the check; check Re-render again",
             )
-        job = await services.jobs().submit_cells(kept, run_id=run_id)
+        groups = [group for group in plan.groups if group.kept]
+        if not groups:
+            pruned, already_planned = plan.pruned, plan.planned
+            state = "rendered or queued" if already_planned and pruned else "queued" if already_planned else "rendered"
+            where = (
+                f"at {request.width}x{request.height}" if request.tier is None
+                else f"at its {request.tier:g} MP size"
+            )
+            raise HTTPException(status_code=409, detail=f"every selected image is already {state} {where}")
+        accepted = []
+        for group in groups:
+            job = await services.jobs().submit_cells(group.kept, run_id=group.run_id)
+            accepted.append(JobAccepted.model_validate({
+                "job_id": job.id, "seed": job.seed, "run_id": job.run_id, "estimate_seconds": job.estimate_seconds,
+            }))
+        first = accepted[0]
         return RerenderAccepted.model_validate({
-            "job_id": job.id, "seed": job.seed, "run_id": job.run_id, "estimate_seconds": job.estimate_seconds,
-            "deleted": deleted,
-            "pruned": pruned, "planned": already_planned,
+            **first.model_dump(),
+            "deleted": plan.deleted,
+            "pruned": plan.pruned, "planned": plan.planned,
+            "more": accepted[1:], "unmatched": plan.unmatched,
         })
 
 

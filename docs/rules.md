@@ -236,7 +236,9 @@ before changing it.
   `max_side`/`max_pixels` and a refine pass's `refine_max_side`/
   `refine_max_pixels` (any 2 MP preset at 2x), `web/state.js`'s copy,
   `web/refine.js`'s two refine bounds, `index.html`'s `max=` and the README
-  table are all held to it by `tests/test_profiles.py`
+  table are all held to it by `tests/test_profiles.py`; `nearest_preset`
+  maps a size to its aspect's entry at another tier for Re-render at a tier
+  (`tests/test_sizes.py`)
 - `backend/backends/base.py` — the `GenerationBackend` ABC
 - `backend/backends/diffusers_backend.py` — in-process diffusers implementation
 - `backend/backends/regional_compile.py` - exact-region discovery, private lazy
@@ -360,7 +362,7 @@ before changing it.
 - `backend/submission.py` — what every cell producer checks before it
   queues (`refuse_unusable_inputs`, `unusable_input`, `refine_unavailable`,
   `inpaint_unavailable`, `mask_unusable`, `not_yet_rendered`) and the gallery selection (`resolve_selection`);
-  `backend/api_generate.py` Generate, Run grid, its preview and Re-render;
+  `backend/api_generate.py` Generate, Run grid, its preview, Re-render and its preview;
   `api_swap.py`, `api_refine_batch.py`, `api_more_seeds.py` the Swap tags,
   Mass refine and More seeds plans, previews and submissions
 - `backend/api_png.py` — Load settings from PNG (`POST /api/png/settings`):
@@ -4933,6 +4935,28 @@ Frontend and CLI:
   names) for ▾ and ✕, 3 px padding, 4 px from a shown Clear and from
   Select: the row has no room for more. There is no sheet of the picks
   (design-notes, The gallery selection).
+- **Re-render picked at N MP…** (`GEN#33`, Picked's item between Compare
+  picked and Seeds to grid, so on a picked card's menu too) renders each pick
+  at its own aspect's entry at the panel's tier (`pickedTier`): its label
+  follows the size strip (`syncPickedTier`, from `syncPickedButton` and
+  `syncSize`), and it is aria-disabled with the reason where the panel's size
+  is no preset (`pickedTierTarget`). A press asks `POST
+  /api/rerender/preview` with `{ids, tier}` (no side effects, not a
+  model-dependent request, as Swap tags' preview is not) and shows its plan
+  in the `askConfirm` question - each size's count, the picks no preset
+  matches by id and size, those already rendered or queued - with a
+  "Re-render" OK not painted as a delete (`openAsk`'s `destroy: false`).
+  OK sends `POST /api/rerender` with `expected`, the preview's `ids`; a
+  selection changed since is 409. The server maps (`sizes.nearest_preset`:
+  the aspect whose *named* ratio is nearest in log terms, within
+  `sizes.ASPECT_TOLERANCE`, else unmatched - never a guess), refuses per
+  size (foreign, edits, missing masks, mismatched outpaints, an inpaint off
+  its own size, a size's pixel budget, unusable inputs, refine steps: any
+  one refuses the press), and queues one job per size with
+  `grid.run_id(group, ...)`, the first at the top level and the rest in
+  `more`, with `unmatched` beside them (`startJob` registers `more`). All
+  unmatched is a 422 naming each. Tier mode takes picks only (`ids`); a
+  request without `tier` is the one-size Re-render, its run id unchanged.
 - Swap tags (`POST /api/swap-tags/preview`, `POST /api/swap-tags`,
   `tag_swap.py`, `tag-swap.js`, `styles/swap.css`) is the fourth producer of
   cells. The server rewrites, the page shows: rows of `find` (comma items)
@@ -8458,7 +8482,11 @@ Then the lightbox's X (`UI#33`): the cap refused in the lightbox's line,
 the gallery's untouched; Compare picked, then X on its shown member ending
 the pair and its comparison with the image kept; over a sheet whose cell
 opened it, X said and the menu item held with `SELECT_ON_SHEET`; in the
-bin, with `BIN_HELD`; and the help's Lightbox group listing X:
+bin, with `BIN_HELD`; and the help's Lightbox group listing X. Last,
+Re-render picked at N MP… (`GEN#33`): its label the panel tier, held with
+its reason on a custom size there and on a picked card's menu, the question
+listing each size and the unmatched pick with a non-red Re-render OK, OK
+queueing one job per size, and Delete permanently's OK red again after it:
 
 ```powershell
 uv run python tools/fake_server.py --port 7898 --data <new-scratch-directory>

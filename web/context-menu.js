@@ -213,7 +213,7 @@ function pickedItems() {
   };
   return [
     { heading: n === 1 ? '1 picked' : `${n} picked` },
-    pick('star'), pick('unstar'), pick('compare'), pick('seeds'), pick('bin'),
+    pick('star'), pick('unstar'), pick('compare'), pick('tier'), pick('seeds'), pick('bin'),
     null,
     buttonItem('Swap tags…', els.swap),
     buttonItem('Refine…', els.refineBatch),

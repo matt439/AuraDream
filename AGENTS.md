@@ -147,7 +147,7 @@ Backend (`backend/`):
   refine's stand-in pass, refusals and pass run id; `more_seeds.py` More
   seeds' batches and their next seeds; `more_seeds_intents.py` bounded
   preview-issued submission receipts and safe retries;
-  `seeds.py`; `sizes.py` presets and size guards; `loras.py` adapter names to
+  `seeds.py`; `sizes.py` presets, size guards and tier mapping; `loras.py` adapter names to
   paths; `instruction_edit.py` the frozen Kontext recipe, strict source types,
   geometry, bound keys and held reasons; `instruction_edit_preflight.py` cold
   supplied-config checks and the qualified config pin (`require_pinned`);

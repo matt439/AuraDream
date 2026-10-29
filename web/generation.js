@@ -201,7 +201,7 @@ function submissionLabel(path, payload) {
   if (finish) return `Finish run ${finish[1]}`;
   if (path === '/api/rerender') {
     const what = payload.ids ? plural(payload.ids.length, 'selected image') : "the gallery's selection";
-    return `re-render of ${what} at ${payload.width}×${payload.height}`;
+    return `re-render of ${what} at ${payload.tier ? `${payload.tier} MP` : `${payload.width}×${payload.height}`}`;
   }
   if (path === '/api/swap-tags') {
     return describeJob({ grid: true, swap: swapSummary(payload) });
@@ -607,17 +607,79 @@ function rerenderSelection() {
   if (!target.scope) { showError(target.why, true, slot); return; }
   return startJob('/api/rerender', {
     ...target.scope, width: +els.width.value, height: +els.height.value,
-  }, { slot: els.galleryError, onAccepted: (_, answer) => {
-    sayRerenderGone(answer.deleted ?? []);
-    const skipped = [
-      answer.pruned ? `${answer.pruned} already rendered` : '',
-      answer.planned ? `${answer.planned} already queued` : '',
-    ].filter(Boolean).join(', ');
-    if (skipped) {
-      const gone = els.galleryError.textContent;
-      showError([gone, `Re-render skipped ${skipped}.`].filter(Boolean).join(' '), true, { slot: els.galleryError });
-    }
-  } });
+  }, { slot: els.galleryError, onAccepted: (_, answer) => sayRerenderAnswer(answer) });
+}
+
+// What a Re-render's answer left out, in the gallery's line: the picks
+// gone since, those already rendered or queued, and - at a tier - those
+// whose size is no preset's aspect.
+function sayRerenderAnswer(answer) {
+  sayRerenderGone(answer.deleted ?? []);
+  const unmatched = answer.unmatched ?? [];
+  const skipped = [
+    answer.pruned ? `${answer.pruned} already rendered` : '',
+    answer.planned ? `${answer.planned} already queued` : '',
+    unmatched.length ? `${imageNames(unmatched.map((item) => item.id))}, which ${unmatched.length === 1 ? 'matches' : 'match'} no preset` : '',
+  ].filter(Boolean).join(', ');
+  if (skipped) {
+    const gone = els.galleryError.textContent;
+    showError([gone, `Re-render skipped ${skipped}.`].filter(Boolean).join(' '), true, { slot: els.galleryError });
+  }
+}
+
+// Re-render picked at N MP… (the Picked menu, gallery-select.js): every pick
+// at its own aspect's entry at the panel's tier, one job per size. The server
+// maps the sizes and the page only shows them: its preview is the question,
+// "3 at 1440×1440, 2 at 1264×1632", with the picks no preset matches named
+// as left out; OK queues what it showed, `expected` holding the server to
+// those ids, so a selection changed meanwhile is refused, not queued unseen.
+let rerenderTierAsking = false;
+async function rerenderAtTier() {
+  const slot = { slot: els.galleryError };
+  const target = pickedTierTarget();
+  if (target.why) { showError(`${target.why}.`, true, slot); return; }
+  if (binMode || !selection.size || rerenderTierAsking) return;
+  const body = { ids: selectedIds(), tier: target.tier };
+  rerenderTierAsking = true;
+  let plan;
+  try {
+    plan = await api('/api/rerender/preview', {
+      method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(body),
+    });
+  } catch (err) {
+    showError(err.message, true, slot);
+    return;
+  } finally {
+    rerenderTierAsking = false;
+  }
+  const size = (item) => `${item.width}×${item.height}`;
+  const bySize = plan.sizes.filter((item) => item.queued)
+    .map((item) => `${item.queued} at ${size(item)}`).join(', ');
+  const held = [
+    plan.pruned ? `${plan.pruned} already rendered` : '',
+    plan.planned ? `${plan.planned} already queued` : '',
+  ].filter(Boolean).join(', ');
+  const unmatched = plan.unmatched.map((item) => `#${item.id} (${size(item)})`);
+  const one = unmatched.length === 1;
+  const unmatchedLine = !unmatched.length ? ''
+    : `${unmatched.slice(0, 6).join(', ')}${unmatched.length > 6 ? ` and ${unmatched.length - 6} more` : ''} `
+      + `${one ? 'matches' : 'match'} no preset and ${one ? 'is' : 'are'} left out.`;
+  if (!plan.queued) {
+    showError([`Nothing to re-render at ${target.tier} MP${held ? `: ${held}` : ''}.`, unmatchedLine].filter(Boolean).join(' '), true, slot);
+    return;
+  }
+  const lines = [
+    `Re-render ${plural(plan.queued, 'picked image')} at ${target.tier} MP?`,
+    `${bySize}${plan.jobs > 1 ? ` - ${plan.jobs} jobs, one per size` : ''}.`,
+    held ? `Skipped: ${held}.` : '',
+    unmatchedLine,
+    plan.deleted.length ? `Left out: ${plan.deleted.map((item) => `#${item.id} is ${item.detail}`).join('; ')}.` : '',
+    'Each keeps its prompt, settings and seed; the same seed at another size is a new sample.',
+  ];
+  if (!await askConfirm(lines.join('\n'), { okLabel: 'Re-render', destroy: false })) return;
+  return startJob('/api/rerender', { ...body, expected: plan.ids }, {
+    slot: els.galleryError, onAccepted: (_, answer) => sayRerenderAnswer(answer),
+  });
 }
 
 // The picks Re-render left out: "#7 is in the recycle bin", "#9 is no longer

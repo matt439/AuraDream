@@ -2,8 +2,8 @@
 
 **Status:** written 2026-10-29 for the TODO audit's additions that need no
 plan of their own: `PA#12`, `UI#32`, `UI#33`, `GEN#33`, `GEN#34`, `GAL#23`,
-`GEN#36`, `GEN#38` and `UI#38`. `PA#12`, `UI#32` and `UI#33` are built
-(2026-10-30, below); the other six are OPEN. Matt
+`GEN#36`, `GEN#38` and `UI#38`. `PA#12`, `UI#32`, `UI#33` and `GEN#33` are
+built (2026-10-30, below); the other five are OPEN. Matt
 approved adding every audit item on 2026-10-29. Each section below covers
 one row: what is missing (preference ids from `docs/design/preferences.md`,
 file:line checked against the source on 2026-10-29), the design and the
@@ -387,6 +387,44 @@ So judging keepers at full size means closing the lightbox to pick each one.
    - the help dialog lists the key.
 
 ## GEN#33 Re-render at a tier
+
+**Status:** done 2026-10-30, all three stages, on
+`feat/todo-backlog-2026-10-29`. The file:line claims below were re-checked:
+each held in substance, though rows built earlier in the run had moved the
+page's Re-render call and `api_generate.py`'s refusals down by some 20-25
+lines. Built as designed, with these choices taken while Matt was away
+(2026-10-29), revisit if wanted:
+
+- `sizes.nearest_preset` measures a size against each aspect's *named*
+  ratio (16/9 for "16:9"), in log terms, not against the tier's entries:
+  rounded to the 16 grid, 9:16 at 1.5 MP (928x1664) sits farther from 9:16 at
+  1 MP (768x1360) than 4:7 at 1.5 MP does, so entry to entry sent a 1 MP 9:16
+  to 4:7. `sizes.ASPECT_TOLERANCE` is 0.02, about twice the table's own
+  worst rounding (0.96%, 2:3 and 3:2 at 4 MP); 1000x700 is 4.9% off 3:2.
+  `tests/test_sizes.py` holds both, and every preset mapping to its own
+  aspect at every tier.
+- Any refusal in any size group refuses the whole press, budget included
+  (the size past it named, as Re-render always said it): nothing is queued
+  in part. All unmatched is a 422 naming each id and size.
+- Tier mode takes picked cards only (`ids`); a filter with a tier is a 422,
+  as the non-goal says.
+- `expected` is accepted beside `width`/`height` too and checked when sent;
+  the page sends it only from the tier question.
+- The Picked item sits between Compare picked and Seeds to grid. The
+  question is `askConfirm` with a "Re-render" OK; `openAsk` gained
+  `destroy` (default true) so that OK is not painted red as Delete's is.
+- As in Swap tags, the jobs are submitted one after another under
+  `rerun_admission`. A later submit failing after an earlier one was admitted
+  is answered as an error, without More seeds' partial receipt: every
+  refusal that can be checked ahead is checked before the first submit.
+
+Tests: `tests/test_sizes.py` (stage 1) and `tests/test_api_rerender_tier.py`
+(stage 2: two aspects in two jobs and `more`, one size's budget, unmatched
+and all unmatched, the preview queueing nothing, `expected`, the request's
+either/or, an inpaint off its size, and the run id without `tier` equal to
+the one-size formula). Stage 3: `smoke-select`'s last steps; the existing
+head-layout steps pass, with the menu's order and the Picked title updated
+for the new item.
 
 **Evidence.** G7 (re-render at another size), A3 (aspect presets) and A4
 (resolution tiers) are Often (`preferences.md:135`, `:28-29`). Today

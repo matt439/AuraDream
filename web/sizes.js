@@ -144,6 +144,8 @@ function syncSize() {
   const match = sizePresetMatch(w, h);
   if (match) [pickedAspect, pickedTier] = match;
   syncOrientation();
+  // The Picked menu's Re-render picked at N MP… names this tier.
+  syncPickedTier();
 
   [...els.presets.querySelectorAll('button')].forEach((b, i) => {
     const aspect = ASPECTS[i];
