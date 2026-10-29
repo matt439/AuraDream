@@ -309,6 +309,8 @@ function syncCfg() {
   // reference chips under it use. Its text is kept for one that does.
   els.negField.classList.toggle('unsupported', !negativeSupported);
   els.negative.disabled = off;
+  // A box greyed with its suggestion list up closes the list (tags.js).
+  if (off) hideNegativeSuggestions();
   // What the negative costs is the knob's to say. True CFG's uncond pass runs
   // for the negative text alone (FLUX.1 runs none without one), so there it
   // is the price of the field. Where CFG is the knob the pass runs above the

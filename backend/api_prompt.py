@@ -13,7 +13,7 @@ import threading
 import time
 import uuid
 from dataclasses import dataclass, field
-from typing import TYPE_CHECKING
+from typing import TYPE_CHECKING, Literal
 
 from fastapi import APIRouter, HTTPException, Path, Query
 
@@ -197,7 +197,10 @@ def create_router(services: AppServices) -> APIRouter:
         return {"stopped": True, "running": current is not None}
 
     @router.get("/api/tags/suggest", response_model=TagSuggestionResponse)
-    async def suggest_tags(q: str = Query(min_length=1, max_length=100)) -> TagSuggestionResponse:
+    async def suggest_tags(
+        q: str = Query(min_length=1, max_length=100),
+        box: Literal["prompt", "negative"] = Query("prompt", alias="field"),
+    ) -> TagSuggestionResponse:
         helper = tag_helper_config(services.model_id())
         prefix = helper.get("artist_prefix") or ""
         artist_only = bool(prefix and q.lower().startswith(prefix.lower()))
@@ -205,7 +208,11 @@ def create_router(services: AppServices) -> APIRouter:
         if not query:
             return TagSuggestionResponse(available=True)
         local = [] if artist_only else tag_lookup.model_tag_suggestions(helper, query)
-        avoid = tag_lookup.negative_tags(helper)
+        # The guide's negative tags are kept from the top of the prompt's
+        # list; in the negative box (`field=negative`) they are the ones
+        # wanted, so nothing is demoted there - and nothing promoted, which
+        # no author sentence asks for.
+        avoid = set() if box == "negative" else tag_lookup.negative_tags(helper)
         try:
             remote = await asyncio.to_thread(
                 tag_lookup.tag_vocabulary.suggest, query, helper["vocabulary_cutoff"]

@@ -32,7 +32,8 @@ const els = {
   promptExpandStop: $('prompt-expand-stop'),
   tagHelper: $('tag-helper'), tagsBtn: $('btn-tags'), tagsMenu: $('tags-menu'),
   tagFinderMenu: $('tag-finder'),
-  tagSuggestions: $('tag-suggestions'), tagValidation: $('tag-validation'),
+  tagSuggestions: $('tag-suggestions'), negativeTagSuggestions: $('negative-tag-suggestions'),
+  tagValidation: $('tag-validation'),
   tagValidationHome: $('tag-validation-home'), tagValidationWide: $('tag-validation-wide'),
   tagChipsWide: $('tag-chips-wide'),
   tagTip: $('tag-tip'), tagSummary: $('tag-summary'), promptTokens: $('prompt-tokens'),
@@ -591,9 +592,10 @@ let draggedTagIndex = null;
 // replacing the item at `tagEditAt`.
 let tagInsertAt = null;
 let tagEditAt = null;
-// The pending lookup of the editor's suggestion list - the chip editor's, or
-// the Refine dialog's prompt's, which share it (tags.js,
-// scheduleEditorSuggestions): never both at once, the dialog being modal.
+// The pending lookup of the editor's suggestion list - the chip editor's, the
+// Refine dialog's prompt's or the panel's negative box's, which share it
+// (tags.js, scheduleEditorSuggestions): never two at once, each asking only
+// for the box with the focus, and the dialog being modal.
 let tagEditorSuggestionTimer = null;
 let tagEditorSuggestionEpoch = 0;
 // A remembered adapter name waiting for the list it belongs to.

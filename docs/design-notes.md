@@ -9089,10 +9089,14 @@ later word's, so "hair" listed `hair ornament`, `hair ribbon`, `hairband`
 and never `short hair` or `medium hair` - no way to ask what hair there is.
 It is now asked for the query anywhere (`*hair*`, 20 by post count), and a
 later word ranks with the first.
-Only the prompt box has the list today; the negative box, a Danbooru tag
-list on these checkpoints, has none, and the ranking's demotion of the
-guide's negative tags would be backwards there. `PA#12` (2026-10-29) owns
-adding it ([review-2026-10-29-backlog.md](review-2026-10-29-backlog.md#pa12-tag-suggestions-in-the-negative-prompt)).
+The negative box, a Danbooru tag list on these checkpoints, had no list,
+and the ranking's demotion of the guide's negative tags would be backwards
+there. Since `PA#12` (2026-10-30) it has its own, floating under the box as
+the Refine dialog's prompt's does, asked with `field=negative`, where the
+server demotes nothing (and promotes nothing: no author sentence asks for
+it); no Find tag row, since the finder writes into the prompt, and none
+while the box is greyed
+([review-2026-10-29-backlog.md](review-2026-10-29-backlog.md#pa12-tag-suggestions-in-the-negative-prompt)).
 **Find tag** (2026-10-22, user request): a cowlick on top of the head is
 `ahoge`, which no completion of "cowlick" reaches. Danbooru's wiki says
 what each tag shows, so the server searches page text (`body_matches`),

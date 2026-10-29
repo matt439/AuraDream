@@ -108,8 +108,10 @@
    carried over from another checkpoint can be read while it is off. */
 #negative-field.disabled textarea { opacity: 0.45; }
 /* Nor any box where the checkpoint takes no negative prompt at all (klein):
-   the caption says so, and the box is back, with its text, on one that does. */
-#negative-field.unsupported textarea { display: none; }
+   the caption says so, and the box is back, with its text, on one that does.
+   The box's editor goes whole, its suggestion list with it: an empty one
+   would still take the field's gap. */
+#negative-field.unsupported .neg-editor, #negative-field.unsupported textarea { display: none; }
 /* The True CFG box on a checkpoint where CFG is real CFG already: the badge
    beside it says why, so it stays where it is rather than vanishing. */
 .sub.disabled input { opacity: 0.45; }

@@ -428,8 +428,8 @@ textarea:focus, input:where(:not([type="checkbox"], [type="radio"])):focus { out
 /* Live Danbooru assistance for tag-caption checkpoints. The suggestions float
    over the next field; validation stays in flow as one compact chip per comma
    item, so an unknown term is attributable without rewriting the prompt. */
-.prompt-editor { position: relative; }
-.prompt-editor textarea { display: block; }
+.prompt-editor, .neg-editor { position: relative; }
+.prompt-editor textarea, .neg-editor textarea { display: block; }
 .tag-suggestions, .tag-editor-suggestions {
   max-height: 250px; overflow-y: auto;
   margin: 0; padding: var(--sp-1); list-style: none;

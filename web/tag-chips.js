@@ -566,7 +566,7 @@ function scheduleTagValidation(delay = 320) {
 function syncTagVocabulary() {
   tagVocabularyEnabled = tagHelper?.vocabulary === 'danbooru';
   els.prompt.spellcheck = !tagVocabularyEnabled || Boolean(tagHelper?.hybrid_prompt);
-  if (!tagVocabularyEnabled) hideTagSuggestions();
+  if (!tagVocabularyEnabled) { hideTagSuggestions(); hideNegativeSuggestions(); }
   syncTagFinder();
   scheduleTagValidation(0);
 }

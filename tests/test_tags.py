@@ -216,6 +216,17 @@ def test_the_recommended_negative_is_never_first_unless_typed_whole():
     assert ranked("low q", [guide("low_quality")], [], negative) == ["low_quality"]
 
 
+def test_the_negative_box_ranks_the_recommended_negative_as_any_other_tag():
+    # In the negative box (the route's `field=negative`) nothing is avoided:
+    # the guide's negative tags are the ones wanted there, in the index's
+    # order, so "lo" can lead with `lowres`. Not promoted
+    # either: the guide tag `low quality` still waits for half of it typed.
+    remote = [suggestion("lowres", 900_000), suggestion("long_hair", 4_000_000)]
+    local = [guide("low_quality"), guide("low_score")]
+    assert ranked("lo", local, remote) == ["lowres", "long_hair", "low_quality", "low_score"]
+    assert ranked("lo", local, remote, {"low_quality", "low_score", "lowres"})[0] == "long_hair"
+
+
 def test_numeric_year_is_only_special_for_profiles_that_document_it():
     calls = []
 

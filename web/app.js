@@ -121,7 +121,13 @@ els.prompt.addEventListener('input', (event) => {
   scheduleTagValidation();
 });
 // The check read the negative prompt too; editing it dims the check as well.
-els.negative.addEventListener('input', () => syncAnalysisStale());
+// On a tag checkpoint it has its own suggestion list (tags.js), asked as the
+// Refine dialog's prompt asks, and gone when the box loses focus.
+els.negative.addEventListener('input', (event) => { syncAnalysisStale(); suggestNegativeTags(event); });
+els.negative.addEventListener('click', suggestNegativeTags);
+els.negative.addEventListener('keyup', negativeCaret);
+els.negative.addEventListener('keydown', (event) => editorListKeydown(event, els.negativeTagSuggestions, hideNegativeSuggestions));
+els.negative.addEventListener('blur', hideNegativeSuggestions);
 // The caret moved: suggestions for the item it is in now, the item typed
 // before it checked, and the Tags helper's note on where a tag goes.
 els.prompt.addEventListener('click', () => { scheduleTagSuggestions(0); followTagCaret(); syncTagSelection(); });

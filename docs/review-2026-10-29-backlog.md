@@ -2,7 +2,8 @@
 
 **Status:** written 2026-10-29 for the TODO audit's additions that need no
 plan of their own: `PA#12`, `UI#32`, `UI#33`, `GEN#33`, `GEN#34`, `GAL#23`,
-`GEN#36`, `GEN#38` and `UI#38`. All nine are OPEN; none is built. Matt
+`GEN#36`, `GEN#38` and `UI#38`. `PA#12` is built (2026-10-30, below); the
+other eight are OPEN. Matt
 approved adding every audit item on 2026-10-29. Each section below covers
 one row: what is missing (preference ids from `docs/design/preferences.md`,
 file:line checked against the source on 2026-10-29), the design and the
@@ -23,6 +24,40 @@ claims were corrected here:
   image was a process's first, so neither can be filtered out row by row.
 
 ## PA#12 Tag suggestions in the negative prompt
+
+**Status:** done 2026-10-30, both stages, on `feat/todo-backlog-2026-10-29`.
+Built as designed, through the Refine dialog's editor list rather than the
+prompt box's own functions:
+
+- Server: `GET /api/tags/suggest` takes `field` (`prompt`, the default, or
+  `negative`; anything else is a 422). With `negative`, `rank_suggestions`
+  gets an empty `avoid`; no `field` gives today's answer byte for byte.
+  Tests: `test_the_negative_box_ranks_the_recommended_negative_as_any_other_tag`
+  (`tests/test_tags.py`) and
+  `test_the_negative_box_asks_for_suggestions_without_the_demotion`
+  (`tests/test_api_analysis_tags.py`).
+- Page: `#negative` sits in a `.neg-editor` with
+  `#negative-tag-suggestions`, named "Negative prompt tag suggestions" so it
+  is told apart from the prompt's in the same panel. The design's
+  "parameterised by the box rather than copied" was met by the editor list
+  the Refine dialog's prompt already uses (`scheduleEditorSuggestions` with
+  a new `field` option, `renderEditorSuggestions`, `currentTagRange(el)`,
+  `preselects`), rather than by parameterising `requestTagSuggestions` and
+  `applyTagSuggestion`, which carry the prompt's chips, typing state, prose
+  guard and Find tag row, none of which the negative takes. The Refine
+  dialog's keydown became the shared `editorListKeydown`. An accept is
+  `applyNegativeSuggestion`'s `insertText` (fallback `setRangeText` with an
+  `input`), whose `input` runs the box's own listeners (`syncAnalysisStale`,
+  the preview, `persistPanel`). `syncCfg` closes a list up as the box greys;
+  `writeBox` closes it on a whole-box write; a model switch and a non-Danbooru
+  checkpoint close it. The shared lookup timer is touched only while the
+  negative's list is up (`hideNegativeSuggestions`), so a blur or a greyed
+  box never drops the chip editor's or the Refine dialog's lookup. Taken
+  while Matt was away (2026-10-29), revisit if wanted: this route over
+  parameterising the prompt box's functions, and the list's own name.
+- Checks: `smoke-tags` (7878) gained the steps listed in stage 2, all
+  passing, with the layout probe (negative field and Generate unmoved with
+  the list open and after Tab).
 
 **Evidence.** A2 (use a negative prompt) and B3 (use tag autocomplete) are
 both Often (`preferences.md:27`, `:47`). On the tag checkpoints, the

@@ -186,7 +186,9 @@ before changing it.
   (`rank_suggestions`: exact match, the query at the start of any word -
   "hair" finds `short hair` - then inside a word or by alias; post count
   within each, 20 at most, the index asked for `*query*`; a guide tag ahead once half of it is typed;
-  a tag of the recommended negative never first unless typed whole), Find
+  a tag of the recommended negative never first unless typed whole - except
+  asked with `field=negative`, the negative box's, where `avoid` is empty and
+  nothing else changes; no `field` is today's answer), Find
   tag's wiki search (`describe`, `wiki_definition`) and exact
   validation with a reason `code` for tag-caption checkpoints; remote failure
   means unchecked, never invalid - except an item longer than any tag
@@ -3346,7 +3348,8 @@ Frontend and CLI:
   selects the first suggestion only from three typed characters it starts
   with (Tab otherwise moves on). Every suggestion list
   (the prompt box's, a chip editor's, the Refine dialog's) is a listbox
-  named "Tag suggestions"; its options have ids, and the box's
+  named "Tag suggestions" - the negative box's "Negative prompt tag
+  suggestions", being in the panel beside the prompt's; its options have ids, and the box's
   `aria-activedescendant` names the selected one and is dropped when none
   is selected. Validation asks about
   the first 64 items (`TAG_LOOKUP_CAP`, the request's ceiling; the order
@@ -3385,10 +3388,19 @@ Frontend and CLI:
   key asks, nothing in it selected until the answer
   (`deselectEditorSuggestions`), and a click or a caret key that stays in
   the item the list answers (`menu._query`) asks nothing. It never touches
-  `els.prompt`, `#tag-suggestions`, the chips or `tagTyping`. The chip
-  editor and the dialog share `tagEditorSuggestionTimer` and
-  `tagEditorSuggestionEpoch`, which is safe only because the dialog is
-  modal. Find tag: from three typed characters the prompt box's list (not
+  `els.prompt`, `#tag-suggestions`, the chips or `tagTyping`. The panel's
+  negative box (`PA#12`) takes the same editor list, its own
+  `#negative-tag-suggestions` floating under the box over the fields below
+  (`.neg-editor`; nothing moves), asked with `field: 'negative'`
+  (`suggestNegativeTags`, `applyNegativeSuggestion`); its keys, as the
+  dialog's, are `editorListKeydown`'s, Escape closing the list alone. No
+  Find tag row, chips, typing state or prose guard; never while the box is
+  greyed (`disabled`: `syncCfg` closes a list up as it greys), on a
+  whole-box write (`replacingBox`; `writeBox` closes it) or off a Danbooru
+  checkpoint. The chip editor, the dialog and the negative box share
+  `tagEditorSuggestionTimer` and `tagEditorSuggestionEpoch`, which is safe
+  only because each asks for the focused box alone and the dialog is modal;
+  `hideNegativeSuggestions` touches them only while its list is up. Find tag: from three typed characters the prompt box's list (not
   a chip editor's or the dialog's) ends with a `find` row, "Tags described
   as “…”…", there too when no name matches and never preselected
   (`renderTagSuggestions`, `TAG_FIND_MIN`). Choosing it
@@ -7340,6 +7352,10 @@ axis quoting the Mu tip beside the live LoRA weight axis, and the grid
 examples 21,28,35 / 4,5,6.
 `smoke-tags.json` uses an Animagine-claiming fake on 7878 for the chips'
 verdict cache, typing state and live summary, an accepted suggestion's undo,
+the negative box's own list (`field=negative`, the prompt's list closed, no
+Find tag row, Tab on the preselected item one Ctrl+Z from what was typed,
+Escape closing the list alone, closed and unfocusable while CFG greys the
+box, the field and Generate unmoved with it open),
 a qualified suggestion written with bare parentheses (an escaped copy typed
 by hand valid with no "canonical:" note, an underscored one noted and
 marked repeated),
