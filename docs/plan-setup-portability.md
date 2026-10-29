@@ -1,9 +1,10 @@
 # Portable generation and grid setups
 
 **Status:** `UI#25` selected for independent source implementation on
-2026-10-28. Stage 1 is a cold codec and explicit merge planner; API and browser
-integration follow separately. No transfer route or user-visible action is
-active yet. `GAL#12` retains its own incomplete qualification boundary.
+2026-10-28. Stage 1 (cold codec and explicit merge planner) and stage 2 (the
+atomic cold export/preview/import API, 2026-10-29) are implemented; stage 3,
+the browser merge dialog, remains. No user-visible action is active yet.
+`GAL#12` retains its own incomplete qualification boundary.
 
 ## Ranked selection
 
@@ -191,3 +192,51 @@ TestClient/httpx deprecation warning remains separate. No transfer route/UI,
 model/backend loading, credential access, real gallery or card qualification
 is established by these checks. Stage 2 adds atomic persistence/HTTP; stage 3
 adds the explicit merge UI and its own browser acceptance.
+
+## Stage 2 local qualification
+
+Routes in `backend/api_presets.py`, mirroring the snippet transfer routes:
+
+- `GET /api/presets/export`, registered before `GET /api/presets/{item_id}`:
+  one `presets.read` snapshot of every checkpoint's setups through
+  `preset_portability.export_portable`, as `application/json` with
+  `Content-Disposition: attachment; filename="auradream-generation-setups.json"`
+  and `Cache-Control: no-store`. It never writes or creates the sidecar.
+- `POST /api/presets/import/preview` (`PresetImportRequest` to
+  `PresetImportPreview`): read-only plan with safe defaults.
+- `POST /api/presets/import` (`PresetImportCommit` to `PresetCollection`):
+  `presets.import_collection` holds the existing preset-path reservation,
+  rereads the sidecar, rechecks the library digest (409), file digest (422),
+  complete distinct choices (422) and, through
+  `plan_merge(require_complete=True)`, replacement revisions (409), final count
+  and exact encoded size, then assigns UUIDs and calls the existing `_write`
+  once. No partial merge, retry or capture validation.
+
+Both import routes stream at most `MAX_PORTABLE_BYTES + 64 KiB` raw bytes before
+the strict UTF-8 reader, ignoring Content-Length (413 "The setup import request
+is too large."); the portable payload keeps its own 8-MiB bound. Parser and
+schema refusals are fixed texts ("The setup import fields are invalid.", the
+codec's messages) and never echo the file. `GalleryAdmission` exempts exactly
+`/api/presets/export` and `/api/presets/import(/preview)`; `depends_on_model`
+stays capture/validation-only, so a switch or maintenance never holds transfer.
+
+`tests/test_api_preset_portability.py` (72 tests) covers export headers,
+contents and coherent snapshot, route order, cold missing-file preview,
+candidates/exact ids/file-index collisions, explicit Replace/Copy/Add order,
+one writer call without capture validation, stale whole-list/target/file
+digests, replay, incomplete/duplicate/extra/all-Skip choices, cross-checkpoint
+and double replacement, no-op holds, raw parser refusals, stream and payload
+byte bounds, malformed destinations (including duplicate keys) preserved,
+shared sidecar path, scratch round trip, concurrent imports and import-vs-CRUD,
+write/fsync/replace cleanup, lock contention, count/byte rechecks under the
+lock, foreign checkpoints stored raw, origin refusal and
+model/switch/Hub/queue/selection/gallery-maintenance sentinels.
+
+On 2026-10-29 on Windows: the new file plus `test_preset_portability.py`,
+`test_presets.py`, `test_api_presets.py`, `test_preset_validation.py`,
+`test_api_snippet_portability.py` and `test_strict_json.py` passed
+**421 tests in 24.67 seconds**; the full suite (`-n auto`, excluding the
+environment-only `test_browser_startup_wait.py`) passed **7667, 8 skipped**.
+No-cache Ruff passed; the pinned Pyright gate analyzed 146 files with zero
+errors or warnings. No browser UI, model loading, card or real-gallery
+qualification is established by these checks; stage 3 owns the UI.

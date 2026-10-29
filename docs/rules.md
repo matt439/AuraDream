@@ -90,7 +90,17 @@ before changing it.
   random-grid examples never supply saved seeds
 - `backend/api_presets.py` - setup CRUD and explicit validation, separate from
   submission; capture/validation holds model selection, while reads/deletes
-  ignore it and every route bypasses gallery maintenance
+  ignore it and every route bypasses gallery maintenance. Static
+  `GET /api/presets/export` (registered before `/{item_id}`) and bounded
+  `POST /api/presets/import/preview` / `POST /api/presets/import` mirror the
+  snippet transfer routes: raw request bytes are streamed and bounded before
+  JSON parsing, refusals are fixed text, export is one attachment/no-store
+  snapshot of every checkpoint, and `presets.import_collection` rechecks the
+  library/file digests, replacement revisions and bounds under the existing
+  preset-path reservation before one atomic write. Import stores raw drafts
+  only; it never runs capture validation, model selection, the Hub or the queue.
+  Only these exact shapes join `GalleryAdmission`'s exemption; they are not
+  model-dependent
 - `backend/model_info.py` — cold catalogue details from existing sourced guides,
   plus each entry's Hugging Face access from its catalogue gate word
 - `backend/hub_access.py` — the Hugging Face access check a switch asks before
@@ -6175,8 +6185,17 @@ test denies application/model/grid/store/vault/heavy imports and exercises the
 public cold codec and planner; separate UUID/store sentinels prove planning
 does not allocate or persist. UTF-16/32 scratch sidecar read/edit and malformed
 file preservation remain compatible because existing readers are unchanged.
-This foundation activates no transfer API, browser action or model capability;
-`docs/plan-setup-portability.md` owns the remaining stages.
+This foundation activates no browser action or model capability;
+`docs/plan-setup-portability.md` owns the remaining stage.
+`tests/test_api_preset_portability.py` adds the stage-2 transfer routes:
+attachment/no-store export of every checkpoint from one snapshot, route order
+before `/{item_id}`, cold missing-file preview, scratch atomic import through
+the existing writer, stale whole-list/target/file digests, complete choices,
+same-checkpoint-only replacement, concurrent commits and CRUD, lock contention,
+malformed-destination preservation, write/fsync/replace cleanup, combined
+count/byte rechecks, raw-body and payload bounds that ignore Content-Length,
+fixed non-echoing refusals, foreign checkpoints stored raw, and
+model/switch/Hub/queue/capture-validation/gallery-maintenance sentinels.
 
 `tests/test_presets.py`, `test_preset_validation.py` and `test_api_presets.py`
 cover strict saved drafts, bounded atomic failure/corruption preservation,

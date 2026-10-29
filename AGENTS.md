@@ -118,7 +118,9 @@ Backend (`backend/`):
 - `preset_portability.py` - cold raw setup export/digests and explicit file-index
   merge plans; `schemas_preset_portability.py` owns the native document and
   choice/preview models; `strict_json.py` bounds only the new UTF-8 document
-  syntax, without changing existing sidecar or snippet readers
+  syntax, without changing existing sidecar or snippet readers; `api_presets.py`
+  exposes bounded export/preview/import, with atomic commit under `presets.py`'s
+  reservation (raw drafts only: no capture validation, model, queue or Hub)
 - `snippet_portability.py` - cold portable snippet codec, collection/input
   digests and pure merge plans; `schemas_snippet_portability.py` owns strict
   portable documents and file-index choices; `api_snippets.py` exposes bounded
