@@ -8,11 +8,11 @@ The maintainer's working backlog for this personal project: it records what is p
 
 **Aim (2026-10-29):** keep useful work ready for Matt's common workstation tasks. [Reported use](docs/design/preferences.md) guides priority; it does not approve the candidate redesign.
 
-**Ready backlog (updated 2026-10-29):** 28 `OPEN` rows. Matt chose `INP#11` stage 4 next ([plan](docs/plan-instruction-editing.md#stages-and-completion-criteria)). The [2026-10-29 audit](docs/review-2026-10-29-todo.md)'s rows follow; start with the defects and Often-feature rows: search exclusion (`GAL#21`), close-watcher holds (`UI#35`), queue estimates (`GEN#32`), negative-box tag suggestions (`PA#12`), sheet-cell menu (`UI#32`), picks from the lightbox (`UI#33`), Re-render at a tier (`GEN#33`), Swap tags Add (`GEN#34`), Finish run's missing passes (`GEN#35`), Compare scales (`UI#34`). The card-session tools (`DEV#20`, `DEV#22`, `DEV#23`, `PERF#6`) shorten later card runs; they don't replace them.
+**Ready backlog (updated 2026-10-30):** 27 `OPEN` rows. `INP#11` stage 4's code is built on `feat/inp11-stage4`; its [card acceptance step](docs/plan-instruction-editing.md#card-acceptance-step) waits on Matt's OK. The [2026-10-29 audit](docs/review-2026-10-29-todo.md)'s rows follow; start with the defects and Often-feature rows: search exclusion (`GAL#21`), close-watcher holds (`UI#35`), queue estimates (`GEN#32`), negative-box tag suggestions (`PA#12`), sheet-cell menu (`UI#32`), picks from the lightbox (`UI#33`), Re-render at a tier (`GEN#33`), Swap tags Add (`GEN#34`), Finish run's missing passes (`GEN#35`), Compare scales (`UI#34`). The card-session tools (`DEV#20`, `DEV#22`, `DEV#23`, `PERF#6`) shorten later card runs; they don't replace them.
 
 **Decisions for Matt:** none open. On 2026-10-29 Matt took the recommended answers for `PERF#7` (cache beside the gallery, cleared on a torch/Triton/driver change, static shapes; shipping waits on `PERF#1`), `PERF#5`, `GAL#21` and `UI#34`; declined `GEN#39` and unattended backups (`GAL#22`, `GAL#6`); kept `GEN#6`, `INP#9` and `INP#10` deferred.
 
-**Needs Matt's hands or card:** workbench task trials (`DEV#1`), hands-on accessibility/desktop checks (`UI#7`), and every `CARD` row, including the speed qualifications `PERF#1`, `PERF#3` and `PERF#4`. `PERF#2`'s card measurement waits on `PERF#1`'s.
+**Needs Matt's hands or card:** workbench task trials (`DEV#1`), hands-on accessibility/desktop checks (`UI#7`), and every `CARD` row, including the speed qualifications `PERF#1`, `PERF#3` and `PERF#4`, and `INP#11`'s acceptance step (one load). `PERF#2`'s card measurement waits on `PERF#1`'s.
 
 **GPU runs are Matt's to run or OK, never past the 16 GB card** (every `CARD` row). Check the checkpoint's measured peaks in `docs/verified.md` first; a run that spills into shared memory proves only that it doesn't fit.
 
@@ -54,7 +54,7 @@ The maintainer's working backlog for this personal project: it records what is p
 
 | id | status | sev | size | item |
 |---|---|---|---|---|
-| `INP#11` | OPEN | LOW | XL+card | Stages 0-3 done; Matt accepted stage 3's Kontext numbers 2026-10-29 (fits at 14.5 GB, replays, cancels, unloads; edits drift beyond the instruction). Stage 4 (on `feat/inp11-stage4`): slices 1-7 built (envelope, load refusals, pinned loader, catalogue data, the listed entry and the real gate opened inside the envelope); remaining: replay producers, page holds, docs, then the card step. Real-server load stays +card. [Plan](docs/plan-instruction-editing.md#stages-and-completion-criteria). |
+| `INP#11` | CARD | LOW | XL+card | Stages 0-3 done; stage 4's ten slices built on local `feat/inp11-stage4` (Kontext listed, the real gate open inside the measured envelope: fp8, model offload, Windows, 1:1 at 512x512). Left: the card acceptance step, one load on the real server and page; the branch stays local until it passes. [Card step](docs/plan-instruction-editing.md#card-acceptance-step). |
 | `INP#5` | DEFERRED | LOW | M+card | Phase 4, klein: one reference beside the source, its mu recipe, memory with the sequence doubled, `smoke-inpaint-klein`. Matt doesn't run klein. |
 | `INP#6` | DEFERRED | LOW | M+card | Phase 5, Qwen-Image under Nunchaku (WSL), only if the inpaint class runs over the Nunchaku transformer at all. |
 | `INP#9` | DEFERRED | LOW | M | Phase 6, the masked area only (`padding_mask_crop` at a working size, a recorded `mask_crop`); not on Z-Image, whose class lacks it. Also for large SDXL outpaint canvases. |

@@ -1708,7 +1708,10 @@ picture alone.
 
 Not measured: any other size or aspect, a batch, int8, sequential or no
 offload, a real photograph as the source, replay across two processes, the
-real server's route and page (still held by the gate), and WSL. Evidence:
+real server's route and page (held by the gate at the time; stage 4 opens
+them inside this run's configuration, on a local branch, and its
+[card acceptance step](plan-instruction-editing.md#card-acceptance-step) is
+what would measure them), and WSL. Evidence:
 `events.jsonl`, `samples.jsonl`, the PNGs, `sheet.png` (source and the four
 edits) and the scratch gallery in `%TEMP%/auradream-inp11-stage3/`.
 

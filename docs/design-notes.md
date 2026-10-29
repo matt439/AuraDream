@@ -1263,12 +1263,15 @@ server keeps closed. The
 owns the frozen recipe and sizes; the [carry inventory](instruction-edit-carry.md)
 and [bundle contract](instruction-edit-bundles.md) own integration acceptance.
 
-**Current status, 2026-10-28:** stage 3's approved [first card trial and bounded
+**Current status, 2026-10-30:** stage 3's approved [first card trial and bounded
 pair](verified.md#instruction-edit) ran on 2026-10-27 at 512x512, fp8 and model
 offload. That slice fits, replays, cancels and unloads, with drift beyond the
-instruction. Matt reviewed those results and approved stage 4 on 2026-10-29;
-its release (slice 7) opens the real server's gate, and the measured envelope
-holds everything the card did not measure. Other sizes and configurations
+instruction. Matt reviewed those results and approved stage 4 on 2026-10-29.
+Stage 4's ten slices are built on a local branch: its release (slice 7) opens
+the real server's gate, and the measured envelope holds everything the card
+did not measure. The real server's route and page await the plan's
+[card acceptance step](plan-instruction-editing.md#card-acceptance-step);
+until it passes the branch stays local. Other sizes and configurations
 remain unqualified.
 
 An editor's `image` argument is a source for an instruction, rather than a
@@ -1329,7 +1332,8 @@ not qualify. The route also fixes the order in one place: the gate answers
 before any file is read, then the source is bound before `check_budget`. So
 the job carries the complete identity it is keyed and saved by. Generate,
 Re-render, More seeds, Swap tags, Then refine and Finish are unchanged and
-keep refusing in words.
+keep refusing in words. (Stage 4's slice 8 later opened More seeds of an edit
+through its own `producer` branch; see below.)
 
 *Why the per-cell recheck.* A queued edit can wait behind other work while
 its source is binned, deleted or rewritten, or while the stand-in's gate
@@ -1337,7 +1341,10 @@ closes. `_recheck_edit` asks the gate again and re-proves the source as each
 cell begins, before the backend is called. The failure is then one cell's
 words, not a render of different pixels under the old proof. `planned_keys`
 skips edit cells while the gate is closed for the same reason: a gate closing
-mid-job must not break every later rerun's planning.
+mid-job must not break every later rerun's planning. Since stage 4 the
+recheck and `planned_keys` also ask the measured envelope: a selection that
+leaves it mid-job fails the cell in the envelope's words, and planning skips
+the cell rather than break.
 
 *Why no catalogue entry until stage 4.* The first card trial used a harness with one bounded
 configuration; the public loader and replay paths still await stage 4. Listing
@@ -1346,7 +1353,8 @@ The editor therefore stayed a known, profiled id that the loader refuses.
 Text-to-image on it is refused with its
 own sentence, and the page holds Generate in those words. Stage 4's slice 6
 lists it, last and held: Switch & load and Apply & save refuse in the gate's
-words before the Hub, the save and the unload.
+words before the Hub, the save and the unload. Since slice 7's release that
+refusal is the envelope's, for a choice outside it only.
 
 *Cleanup in `finally`.* The call frees the offload hooks and closes the
 prepared source in `finally`, so a cancel, a decode error or a refused
@@ -1357,11 +1365,62 @@ never `assert`ed, so `python -O` cannot skip them.
 *The entry point on the real server.* "Edit by instruction…" is shown
 everywhere, rather than hidden until an editor can run, as the
 [plan's lifecycle](plan-instruction-editing.md#lifecycle-and-interaction) asks.
-The dialog says why it is held and offers Open Models…. Reuse on a resolved
-edit opens the dialog, never Generate, because the instruction only means
-something against its source. The wide viewer gets no Edit tool yet, which
-keeps `smoke-wide` untouched; the context menu reaches the dialog at every
-width.
+The dialog says why it is held and offers Open Models…, which since stage 4's
+slice 9 opens the picker on the editor's row without switching. Reuse on a
+resolved edit opens the dialog, never Generate, because the instruction only
+means something against its source. The wide viewer gets no Edit tool yet,
+which keeps `smoke-wide` untouched; the context menu reaches the dialog at
+every width.
+
+**Stage 4 (2026-10-29/30): released inside the measured envelope, local
+until the card step.** The [plan](plan-instruction-editing.md#stage-4-the-qualified-first-slice-2026-10-29)
+records the ten slices; the reasons that are not obvious from the code:
+
+*Why an envelope, not wider defaults.* Stage 3 measured one configuration.
+Every unmeasured choice is refused in words naming it, never silently moved
+to the measured one, because a quiet substitution would put a different
+loader under the user's selection. Aspect, not source size, is the measured
+dimension: every 1:1 source renders at 512x512, so only the Lanczos input
+differs.
+
+*Why refuse in `validate`, before the Hub, the save and the unload.* A switch
+used to unload the working model and only then let the load refuse; for an
+editor held outside the envelope that cost a reload of the working model for
+nothing. The switch now refuses first, so the working model stays loaded.
+
+*Why More seeds but not Re-render.* More seeds of an edit asks for new seeds
+of the same instruction against the same proven source, at the frozen
+geometry: exactly the recorded intent, re-proved against the source's pixels
+before it queues. Re-render's only lever is a new width and height, and an
+edit's size is its source's frozen geometry, so at its own size it is
+already rendered and at another it is not that edit. A worded refusal that
+points at More seeds and Reuse says that; a quiet "already rendered" did
+not. Generate keeps the held words because the editor has no text-to-image
+call; Finish stays held by stage 4's defaults, its replay of an edit
+unqualified.
+
+*Why an edit is never priced.* No edit history exists to price one from,
+and a plain render at the same size and checkpoint is a different call
+(Kontext carries the source's image tokens beside the output's). So More seeds'
+preview and the reports give no estimate rather than a borrowed one.
+
+*Why the server words the page's holds.* The per-option holds in Models
+(`loader_holds`) and the source's aspect (`source_reason`) come from the
+same envelope the server refuses with, so the page never decides a hold
+itself and never says something the server would not.
+
+*Why a draft survives a switch to the editor only.* Open Models… exists to
+get the user to the editor, so losing the typed instruction on the way was
+the dialog working against itself. The instruction and seed carry; steps and
+guidance come from the recipe's preview, because the old checkpoint's
+values mean nothing to the editor. Any other switch still clears the
+drafts, which were written for the model they were typed against.
+
+*Why the card step is one load.* A FLUX load here spikes host RAM by
+40-50 GB, so the acceptance step starts the server on the editor directly
+and never switches from Krea; matching stage 3's pixels from another
+process is its cross-process replay check. The Krea-to-editor switch is
+another RAM path, left to a separate optional session.
 
 ## LoRA adapters are the environment's and are hot-swapped
 

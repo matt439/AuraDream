@@ -4,8 +4,19 @@
 compatibility contract for the first `kontext-v1` instruction-edit recipe.
 The [feature plan](plan-instruction-editing.md) owns implementation order.
 The policies below are implemented with synthetic storage/bundle/reindex
-fixtures; public editor execution remains unavailable. No live gallery,
-credential store, model or GPU was used. Validation belongs to the feature plan.
+fixtures. No live gallery, credential store, model or GPU was used.
+Validation belongs to the feature plan.
+
+**Stage 4, 2026-10-30.** Stage 4 changed no bundle, archive or reindex
+code, and this contract is unchanged. Its release (local on
+`feat/inp11-stage4`, until the plan's
+[card acceptance step](plan-instruction-editing.md#card-acceptance-step)
+passes) opens editor execution on the real server only inside the measured
+envelope. An imported edit replays only through More seeds, and only once
+its source is proven and live here, the source is 1:1 and the loader is
+inside that envelope; a `source: null` edit stays unreplayable. The v1/v2
+rule, the omission counts and the merge proofs below still decide
+portability, and none of them grants runtime availability.
 
 ## Two source representations
 
@@ -190,4 +201,5 @@ Extend the existing execution-metadata presence/conflict cases, provenance
 reindex cases, selected bundle cases, password/managed export cases and
 repeat-import tests. Update the bundle rules and their owner notes when
 those changes land. The CPU implementation now uses this archive gate;
-public editor execution and browser/card acceptance remain separate.
+editor execution (stage 4's envelope) and its card acceptance are the
+feature plan's, separate from this contract.

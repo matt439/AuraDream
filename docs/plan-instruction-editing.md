@@ -1,31 +1,37 @@
 # Plan: edit a gallery image by instruction
 
-**2026-10-29:** Matt reviewed stage 3's numbers and asked to keep going:
-stage 4 is open. The drift beyond the instruction is accepted as recorded,
-not fixed. A real-server load or edit still needs his OK as a card run.
+**Status, 2026-10-30:** stage 4's code is built, as ten local slices on
+`feat/inp11-stage4` ([Stage 4](#stage-4-the-qualified-first-slice-2026-10-29)).
+Its one remaining step is the [card acceptance step](#card-acceptance-step),
+which needs Matt's OK: one load on the real server and page, never run so
+far. The branch stays local until it passes.
 
-**Status, 2026-10-28:** Matt commissioned continuing `INP#11` without the
-card. Stages 0-2 are built. Stage 0's six pinned configs were fetched at the
-revision and qualified (below). Stage 1's CPU persistence and admission are
-built: request identity, SQL/PNG, cold source preview, replay holds, source
-lifetime and v2 bundle/reindex recovery. Stage 2 is
-[built on a stand-in](#stage-2-backend-and-dialog-2026-10-27): the editing
-call branch, the queueing route, the per-cell recheck and the dialog. Its
-evidence is a Kontext-shaped stub, the fake server and a real-browser smoke.
-On the real server the gate is open since stage 4's release (slice 7,
-2026-10-30): `DiffusersBackend` answers the literal True, and the measured
-envelope (`QUALIFIED_ENVELOPE`: the exact Kontext id, fp8, model offload,
-Windows, Eager, diffusers 0.40.0, 1:1 sources at 512x512) holds everything
-else in words. It stays on the local branch until the card acceptance step
-passes. The
-[carry inventory](instruction-edit-carry.md) and [bundle contract](instruction-edit-bundles.md)
-separate what is built from what stage 4 must still check. After `GEN#22`,
-stage 3's approved [first card trial and bounded pair](verified.md#instruction-edit)
-ran on 2026-10-27 at 512x512, fp8 and model offload. That slice fits, replays,
-cancels and unloads, but its edits drift beyond the instruction. Stage 4 waits
-on Matt's review of those numbers before the catalogue, loading gate and replay
-producers are released. Other sizes and configurations remain unqualified.
-No live gallery was read or changed. Kontext is the first engineering candidate;
+What the branch does on the real server: `DiffusersBackend`'s gate is the
+literal True (slice 7), and the measured envelope (`QUALIFIED_ENVELOPE`: the
+exact Kontext id, fp8, model offload, Windows, Eager, diffusers 0.40.0, 1:1
+sources at 512x512) holds everything else in words. FLUX.1 Kontext [dev] is
+the catalogue's last entry. Inside the envelope it switches, loads through
+the pinned configs-then-weights loader, and queues an edit from Edit by
+instruction… or More seeds of an edit. Re-render of an edit is refused in
+words; Generate (text-to-image on the editor) and Finish stay held. An
+unmeasured loader choice is refused before the Hub, any save, unload or
+download, and an unmeasured source aspect before a job; the page says each
+on the editor's row (by option for quantization and offload) or in the
+preview's line.
+
+How it got here: Matt commissioned `INP#11` without the card (2026-10-27).
+Stage 0 pinned and qualified the six configs; stage 1 built the CPU
+persistence and admission (request identity, SQL/PNG, the cold source
+preview, replay holds, source lifetime, v2 bundle/reindex recovery); stage 2
+[built the call, the route, the per-cell recheck and the dialog on a stand-in](#stage-2-backend-and-dialog-2026-10-27).
+After `GEN#22`, stage 3's approved [first card trial and bounded pair](verified.md#instruction-edit)
+ran on 2026-10-27 at 512x512, fp8 and model offload: it fits, replays, cancels
+and unloads, but its edits drift beyond the instruction. On 2026-10-29 Matt
+accepted those numbers, drift included (recorded, not fixed), and approved
+stage 4 with its defaults. The [carry inventory](instruction-edit-carry.md)
+and [bundle contract](instruction-edit-bundles.md) give each carry site's
+state. Other sizes, aspects and configurations remain unqualified. No live
+gallery was read or changed. Kontext is the first engineering candidate;
 Qwen-Image-Edit comes in a later stage.
 [Origin](review-2026-10-25.md#r9-edit-an-image-by-instruction).
 
@@ -770,6 +776,60 @@ switch, both 1400x700 fits) and smoke-model-switch (the option holds and the
 pointing). Run ids, CellKeys and `applied()` are unchanged. The wide-tier
 viewer Edit tool stays a recorded follow-up.
 
+**Slice 10 (built): the docs closed.** This plan's status and stage table,
+the [carry inventory](instruction-edit-carry.md) and
+[bundle contract](instruction-edit-bundles.md) states, the design notes'
+[instruction-editing section](design-notes.md#instruction-editing-starts-with-a-distinct-source-contract),
+`docs/verified.md`'s not-measured line and the `TODO.md` `INP#11` row now
+say what the branch does and point at the card step below. No code changed.
+
+Stage 4's evidence, all CPU and browser, none of it the card's: the envelope
+and its refusal matrix (`test_instruction_edit_envelope.py`); every load
+entry's order and the pinned loader against a stubbed Hub
+(`test_instruction_edit_loader.py`); the editor load with a True stand-in
+(`test_instruction_edit_call.py`);
+the catalogue data and entry (`test_instruction_edit_catalogue.py`,
+`test_model_info.py`, `test_api_model_switch.py`); the real class with only
+the card's host reported (`test_instruction_edit_release.py`); the gate's
+source scan (`test_instruction_edit_gate.py`); the replay producers
+(`test_instruction_edit_queue.py`, `test_api_more_seeds.py`); the page
+(`test_instruction_edit_ui.py`, smoke-instruction-edit, smoke-model-switch).
+The pinned edit run id `a83cde9e6cb2` and every existing run id and CellKey
+are unchanged.
+
+### Card acceptance step
+
+Proposed, not run; it needs Matt's OK and is one load. Stage 3's harness
+measured the backend call, not the real server's route and page, so this
+step checks those inside the envelope, and replay across two processes.
+
+- **Before:** at least 45 GiB free RAM with the server idle (stage 3 began
+  from 42.5 GiB free and fell to 15.2 GiB at its lowest).
+- **Start:** the real server at the branch tip, a scratch `--data`, port
+  7990, no critic, started on the editor
+  (`--model black-forest-labs/FLUX.1-Kontext-dev --quant fp8 --offload model`)
+  so no Krea load comes first. Sample every 0.25 s.
+- **Guards:** stop at 4 GiB free RAM, a 1 GiB rise in shared GPU memory or
+  15.5 GB whole-card.
+
+1. Plant stage 3's synthetic source (pixels `289dada6…`).
+2. Load through the page; record the load time, peak working set, private
+   and commit, and card and shared memory.
+3. Through the dialog: "Change the red ball to a blue ball.", seed 12345,
+   28 steps, guidance 2.5. **Pass:** pixels `68b864f6…`, stage 3's from
+   another process, which is also the cross-process replay check.
+4. More seeds x2 on the result.
+5. Cancel one edit mid-run; the next edit runs normally.
+6. Held paths: a 3:2 source is held with its reason and queues nothing;
+   Generate is held; Re-render is refused in words.
+7. Unload with the Unload button. No second load.
+
+Record it in `docs/verified.md` under "Instruction edit", with the date.
+The page switch from Krea to the editor is another RAM path and a separate
+optional session. Wider aspects (a 3:2 and a 16:9 under 512² area) may join
+the same session; each opens only by a one-line change to
+`QUALIFIED_ENVELOPE` after it passes, and no key changes.
+
 ## Stages and completion criteria
 
 | Stage | Bounded work | Completion evidence |
@@ -800,9 +860,11 @@ This remains an **XL plus card** feature estimate from the originating review,
 not a measured delivery time. Starting it is commissioned; that does not
 authorize stage 3's model/card runs. Stages 0-2 are built, and the pinned
 configs are qualified. Stage 3's first trial and bounded pair ran on the card
-2026-10-27 (`docs/verified.md`, "Instruction edit"); stage 4 waits on review
-of those numbers.
-Stage 4 still has to finish the replay producers (Re-render and More seeds)
-and the catalogue entry before the feature can be called portable and
-replayable on the real server. Detector work belongs to the [detailer plan](plan-detailer.md),
+2026-10-27 (`docs/verified.md`, "Instruction edit"), and Matt accepted them
+2026-10-29. Stage 4's ten slices are built (2026-10-30): the catalogue entry,
+the released gate inside the measured envelope, More seeds of an edit and
+Re-render's refusal, and the page holds. Its completion evidence still lacks
+the [card acceptance step](#card-acceptance-step), the real server's route
+and page on the card; until it passes, stage 4 is not complete and the
+branch stays local. Detector work belongs to the [detailer plan](plan-detailer.md),
 and importing outside images stays in its existing deferred owner.
