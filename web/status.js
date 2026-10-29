@@ -574,7 +574,7 @@ function receiveStatus(s, asked = Date.now()) {
     const wasSwitching = modelSwitching;
     modelSwitching = !!s.switching;
     modelRevision = revision;
-    if (changed) checkpointChanged(previousModel);
+    if (changed) checkpointChanged(previousModel, s.model_id ?? loadedModel);
     loadedModel = s.model_id ?? loadedModel;
     if (s.model_id) checkpointLabel = s.model_label ?? null;
     receiveExecutionStatus(s, asked);

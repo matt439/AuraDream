@@ -207,8 +207,11 @@ before changing it.
   `loader_refusal`/`geometry_refusal` words, `LoaderChoice` (the loader facts
   a backend gathers) and `replay_held_reason` (stage 4: the edit routes,
   jobs and every load entry consult them, `require_model_available` with
-  its `loader`), `is_edit_only` and `command_line_refusal`; this module
-  does not enable an editing checkpoint.
+  its `loader`), `is_edit_only` and `command_line_refusal`, and
+  `option_refusals` (the editor's unmeasured quantization and offload
+  choices, each in `loader_refusal`'s words for it alone, which `/api/models`
+  gives as the row's `loader_holds`); this module does not enable an editing
+  checkpoint.
 - `backend/instruction_edit_admission.py` — prove live gallery source pixels,
   descriptor and exact recipe geometry before key/admission work
   (`bind_source`, `bind_request`); `load_bound_source` proves and decodes
@@ -880,6 +883,22 @@ Model and loader:
   not hold Switch & load: sequential offload is not refused. FP8 with it
   stopped at the RAM guard during the load (2026-10-25, a 64 GB machine,
   transformer shard 6 of 9); BF16 with it is untried.
+- The editor's row (FLUX.1 Kontext [dev]) has `loader_holds`
+  (`instruction_edit.option_refusals`, every other row `{}`): each
+  quantization and offload the card trial never measured, in the envelope's
+  words, whatever the gate or the draft. While that row is chosen,
+  `syncModelOptionHolds` makes each such `<option>` `aria-disabled` with the
+  words as its title (dimmed, still choosable; the select's title follows the
+  chosen option), and `modelOptionHold` holds Apply & save and Switch & load
+  with them (`modelSwitchHold`, after the choice check), so a press says
+  them in the note and sends nothing. The server still refuses the same
+  choices itself (`model_selection.validate`).
+- `showModelPickerAt(id)` (Edit by instruction…'s Open Models…) opens the
+  picker and, once its catalogue has answered (`pointModelPicker`, from
+  `refreshModelCatalogue`'s end), chooses that row as an unsaved choice,
+  focuses its radio and scrolls it into the body's view. It never switches;
+  an unlisted row leaves the choice as it was, and any other opening clears
+  the request.
 - Quantization and offload descriptions live in `loader_choices.py` and are
   shared by the menu and the picker; only figures true of every catalogue
   checkpoint go there, and no unmeasured quality claim (INT8 is "the same
@@ -4174,15 +4193,23 @@ Frontend and CLI:
     Escape gives it back where it was. Focus goes to `#edit-instruction`
     with `preventScroll`.
   - **Contents.** The source line is the server's "#N · W×H → w×h". The held
-    reason `#edit-unavailable` (`defaults.instruction_edit_reason`) comes with
-    **Open Models…**, which opens the picker and never switches or queues.
-    Then the instruction, the checkpoint line, seed with its random button,
-    steps and guidance from the preview, and one fixed-height line shared by
-    the preview and the error. There is no Strength control and no canvas.
+    reason `#edit-unavailable` (`defaults.instruction_edit_reason`, else the
+    preview's `reason` when it is not the source's own) comes with
+    **Open Models…**, which opens the picker on the editor's row
+    (`showModelPickerAt`) and never switches or queues. Then the instruction,
+    the checkpoint line, the fixed one-line drift note `#edit-drift` (the card
+    trial's measured fact, `guides._KONTEXT_DRIFT` verbatim, held equal by
+    `test_instruction_edit_ui.py`), seed with its random button, steps and
+    guidance from the preview, and one fixed-height line shared by the
+    preview and the error. A source whose aspect the card never measured
+    (the preview's `source_reason`, said whatever the gate says) shows those
+    words in that line, `warn`, never in the Models note: no Models choice
+    changes it. There is no Strength control and no canvas.
   - **Run.** Edit (`#edit-run`) is `aria-disabled` with its reason as the
     title. The reason is, in order (`editHold`): `submitHold()`, a submit
     in flight (`EDIT_IN_FLIGHT`), the capability reason, the preview's
-    refusal (shown in place), "Wait for the preview of the source", a bad
+    refusal (shown in place), "Wait for the preview of the source", the
+    source's unmeasured aspect (`editSourceReason`, shown in place), a bad
     seed, steps or guidance (`editNumberProblem`), or "Write an instruction
     first." (`EDIT_NO_INSTRUCTION`). A held press writes the reason in place, with
     no scroll and no job. Run asks the preview again when it is stale, then
@@ -4190,7 +4217,12 @@ Frontend and CLI:
     Enter in a number box, run it.
   - **Drafts.** Close keeps an unsent draft, which comes back only for the
     same source and checkpoint. A checkpoint change clears the drafts and
-    asks the preview again.
+    asks the preview again, except a change to the editor
+    (`editCheckpointChanged(nextModel)`, from `checkpointChanged`, before
+    `loadedModel` takes it): each draft's instruction and seed are kept
+    (`carried`) and its steps and guidance dropped, so the recipe's come from
+    the next preview; the draft line says "carried to FLUX.1 Kontext [dev]".
+    A draft with neither an instruction nor a seed is dropped.
   - **Never written:** `els.prompt`, `els.negative` and the references.
   - **On Kontext.** Generate and Run grid are held with
     `defaults.text_to_image_reason`, and pressing Generate says it and sends
@@ -5859,7 +5891,15 @@ class refusal before weights. `test_instruction_edit_ui.py` uses Node VM and
 an inert DOM. It checks that Reuse on a resolved edit routes to `reuseEdit`
 and leaves the composer untouched. It checks that unresolved, deleted and
 binned sources are held with words, and it covers the facts and viewer
-lineage branches.
+lineage branches. Stage 4 slice 9 adds the dialog alone
+(`test_instruction_survives_switch_to_the_editor`: Open Models… points the
+picker at the editor; a switch to it carries the instruction and seed, not
+the numbers; a switch away, or a draft of numbers only, keeps nothing), the
+held aspect said as the source's and never in the Models note, and the drift
+line equal to the guide's sentence. `test_instruction_edit_envelope.py`
+holds `option_refusals`, `test_api_model_switch.py` the editor row's
+`loader_holds` (every gate and draft; `{}` elsewhere), and
+`test_instruction_edit_queue.py` the preview's `source_reason`.
 
 Three files cover stage 2:
 
@@ -7391,7 +7431,13 @@ dropped; Qwen-Image's row and note say its torchao builds are larger than
 the card, and no other row does (the editor's names its one qualified size,
 512×512 only). The listed editor's row (last, "Instruction editor", Held)
 answers Switch & load with the closed gate's words in the note and the error
-line, FLUX still loaded and selected at the same revision. It ends with
+line, FLUX still loaded and selected at the same revision. Chosen, its
+unmeasured quantization and offload options are `aria-disabled` with the
+server's `loader_holds` words as their titles; sequential offload chosen
+holds both actions with those words and a press says them and sends no
+switch; FLUX's row has no holds. `showModelPickerAt` reopens the picker on
+the editor's row, chosen unsaved, focused and in view, switching nothing,
+and Revert puts FLUX back. It ends with
 Animagine loaded, as smoke-model-startup expects.
 For the checkpoint table it checks every catalogue model's row and facts
 (style, refine with its note, size with its label, speed with its sample
@@ -8648,7 +8694,8 @@ checks:
   it and sends nothing, and the composer is unchanged.
 - **Gate closed:** the menu item stays live and opens the dialog, which shows
   the reason with Edit held in those words. A press writes it in place and
-  queues nothing. Open Models… opens the picker and switches nothing.
+  queues nothing. Open Models… opens the picker on the editor's row, chosen
+  and focused, and switches nothing.
 - **Gate open:**
   - opened from the lightbox, which closes, with focus in the instruction;
   - the recipe's 512×512, 28 steps and guidance 2.5, with no strength;
@@ -8658,8 +8705,9 @@ checks:
   - Escape giving the lightbox back;
   - the 2:1 source's aspect refusal shown in place;
   - the 3:2 source held as unmeasured: its 576x384 said, the envelope's
-    reason in the dialog's note and on Edit, a press saying it, and a raw
-    submit answering 422 with no job;
+    reason in the preview's place (`source_reason`; no Models note) and on
+    Edit, a press saying it, and a raw submit answering 422 with no job;
+  - the fixed drift line, one line;
   - a stale revision getting 409;
   - a stale preview (the gate closed behind the page) asked again when Edit
     is pressed, its refusal said in place and no edit sent;
@@ -8681,9 +8729,14 @@ checks:
   "restore it first", and Restore frees both.
 - **Reuse:** reopens the dialog on the source with the instruction and seed,
   and the composer is untouched.
+- **The draft across the switch (stage 4 slice 9):** a draft written with
+  FLUX.1 Krea [dev] selected and closed comes back after FLUX.1 Kontext
+  [dev] is selected again with its instruction and seed, the recipe's 28
+  steps and guidance 2.5 in place of the typed ones, and the "carried" line.
 - **Layout:** the page neither scrolls nor moves. At 800x900, 1400x700 and
-  1900x1000 the dialog fits with Edit in view (1400x700 on a 1:1 source:
-  with a held note the dialog scrolls its own content there). No page
+  1900x1000 the dialog fits with Edit in view (1400x700 on the 1:1 source
+  and the held 3:2 one, whose words take the preview's line; with the
+  server's held note the dialog scrolls its own content there). No page
   errors.
 
 ```powershell

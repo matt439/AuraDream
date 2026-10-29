@@ -49,7 +49,9 @@ from .critic import CriticError, prompt_critic  # noqa: E402
 from .jobs import JobManager, LoadFailed, MaskGone, OutpaintStampFailed, RunPersistenceFailed, short_error  # noqa: E402
 from .execution import canonical_loader_execution, require_configured_loader_available  # noqa: E402
 from .launch import CHECKPOINTS, warn_legacy_env  # noqa: E402
-from .instruction_edit import INSTRUCTION_EDIT_UNAVAILABLE, is_edit_only, require_model_available  # noqa: E402
+from .instruction_edit import (  # noqa: E402
+    INSTRUCTION_EDIT_UNAVAILABLE, is_edit_only, option_refusals, require_model_available,
+)
 from . import api_instruction_edit  # noqa: E402
 from .model_defaults import defaults_for, guide_for, hints_for  # noqa: E402
 from .schemas import (  # noqa: E402
@@ -813,6 +815,12 @@ async def list_models(
             "execution_configuration_reason": model_selection.execution_configuration_reason(
                 current, execution=draft, model_id=model["model_id"],
                 quantization=quantization, offload=offload,
+            ),
+            # The editor's unmeasured quantization and offload choices, each
+            # in its own words, which the picker holds by option; none elsewhere.
+            "loader_holds": option_refusals(
+                model["model_id"], quantizations=[o["value"] for o in options["quantizations"]],
+                offloads=[o["value"] for o in options["offloads"]],
             ),
         } for model in models
     })

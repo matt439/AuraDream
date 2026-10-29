@@ -136,6 +136,32 @@ def test_the_editors_row_carries_the_backends_answer_for_the_draft_loader(client
     assert fake.loads == 0
 
 
+def test_the_editors_row_holds_its_unmeasured_loader_options_by_name(client, fake):
+    # The picker holds each quantization and offload the editor never
+    # measured, in the envelope's words for that choice alone, whatever the
+    # draft or the gate; every other row has none. Nothing selected or loaded.
+    from backend.instruction_edit import INSTRUCTION_EDIT_LOADER_UNQUALIFIED, KONTEXT_V1
+
+    initial = client.get("/api/status").json()
+    for query, qualified in [("", False), ("?quantization=int8&offload=none", False), ("?quantization=fp8", True)]:
+        fake.edit_qualified = qualified
+        body = client.get(f"/api/models{query}").json()
+        quantizations = {o["value"] for o in body["quantizations"]}
+        offloads = {o["value"] for o in body["offloads"]}
+        holds = body["details"][KONTEXT_V1.model_id]["loader_holds"]
+        assert set(holds["quantization"]) == quantizations - {"fp8"}
+        assert set(holds["offload"]) == offloads - {"model"}
+        assert holds["quantization"]["int8"] == INSTRUCTION_EDIT_LOADER_UNQUALIFIED.format(choice="int8 quantization")
+        assert holds["quantization"]["none"] == INSTRUCTION_EDIT_LOADER_UNQUALIFIED.format(choice="BF16 (no quantization)")
+        assert holds["offload"]["sequential"] == INSTRUCTION_EDIT_LOADER_UNQUALIFIED.format(choice="sequential offload")
+        assert holds["offload"]["none"] == INSTRUCTION_EDIT_LOADER_UNQUALIFIED.format(choice="no offload")
+        others = {model_id: info["loader_holds"] for model_id, info in body["details"].items() if model_id != KONTEXT_V1.model_id}
+        assert others and all(value == {} for value in others.values())
+    current = client.get("/api/status").json()
+    assert (current["model_id"], current["model_revision"]) == (initial["model_id"], initial["model_revision"])
+    assert fake.loads == 0
+
+
 @pytest.mark.parametrize("query", ["quantization=garbage", "format=garbage", "offload=unknown"])
 def test_catalogue_refuses_unknown_loading_options(client, fake, monkeypatch, query):
     calls = []

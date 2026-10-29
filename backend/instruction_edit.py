@@ -18,6 +18,7 @@ from __future__ import annotations
 
 import hashlib
 import json
+from collections.abc import Iterable
 from dataclasses import dataclass
 from importlib import metadata
 from math import gcd
@@ -413,6 +414,37 @@ class LoaderChoice:
             platform=self.platform, loader_execution=self.loader_execution,
             diffusers_version=self.diffusers_version,
         )
+
+
+def option_refusals(
+    model_id: str, *, quantizations: Iterable[str], offloads: Iterable[str],
+) -> dict[str, dict[str, str]]:
+    """The editor's quantization and offload choices the card never measured.
+
+    Each named in ``loader_refusal``'s words for that choice alone, the rest
+    of the loader taken as measured, for the Models picker to hold by its
+    option; every other checkpoint, and a measured choice, has none. Pure,
+    and no answer about the gate or this host: those stay the backend's.
+    """
+    envelope = QUALIFIED_ENVELOPE
+    if model_id != envelope.model_id:
+        return {}
+    def words(quantization: str, offload: str) -> str | None:
+        return loader_refusal(
+            model_id, quantization=quantization, offload=offload, device=envelope.devices[0],
+            platform=envelope.platform, loader_execution=None, diffusers_version=envelope.diffusers_version,
+        )
+
+    return {
+        "quantization": {
+            value: reason for value in quantizations
+            if (reason := words(value, envelope.offload)) is not None
+        },
+        "offload": {
+            value: reason for value in offloads
+            if (reason := words(envelope.quantization, value)) is not None
+        },
+    }
 
 
 def geometry_refusal(resolved: InstructionEditGeometry) -> str | None:

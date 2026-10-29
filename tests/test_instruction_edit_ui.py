@@ -320,3 +320,149 @@ run(`
   has(factsList(edited({ edit: { source: null, recipe: 'kontext-v1' } })).textContent, 'Edited froman unresolved source');
 `);
 """, harness=LINEAGE)
+
+
+# The dialog's draft across a checkpoint switch: instruction-edit.js alone
+# against elements that keep what is written, the page's other parts inert.
+SWITCH = r"""
+const assert = require('node:assert/strict');
+const fs = require('node:fs');
+const vm = require('node:vm');
+const context = vm.createContext({ assert });
+const load = (name) => vm.runInContext(fs.readFileSync(`web/${name}`, 'utf8'), context, { filename: name });
+const run = (source) => vm.runInContext(source, context);
+run(`
+  class InertElement {
+    constructor() {
+      this.value = ''; this.hidden = false; this.textContent = ''; this.title = ''; this.alt = '';
+      this.placeholder = ''; this.attributes = new Map(); this.open = false; this.scrollTop = 0;
+      this.style = { setProperty: () => {} };
+      this.classList = { add: () => {}, remove: () => {} };
+    }
+    setAttribute(key, value) { this.attributes.set(key, String(value)); }
+    getAttribute(key) { return this.attributes.get(key) ?? null; }
+    removeAttribute(key) { this.attributes.delete(key); }
+    focus() {}
+    showModal() { this.open = true; }
+    close() { this.open = false; editClosed(); }
+  }
+  const els = new Proxy({}, { get: (made, key) => (made[key] ??= new InertElement()) });
+  els.lightbox.open = false;
+  const document = { querySelectorAll: () => [], activeElement: null, body: null };
+  let loadedModel = 'black-forest-labs/FLUX.1-Krea-dev';
+  let submitting = false; let busy = false; let serverOffline = false;
+  const binnedIds = new Set();
+  const pointedAt = [];
+  function refuseBinned() { return false; }
+  function lightboxPlace() { return null; }
+  function closeLightbox() {}
+  function showError() {}
+  function submitHold() { return ''; }
+  function syncSubmitButtons() {}
+  function checkpointName(id) { return (id ?? '').split('/').pop(); }
+  function replaceBoxText(box, text) { box.value = text; }
+  function showModelPickerAt(id) { pointedAt.push(id); }
+  function showModelPicker() { throw new Error('Open Models… must point the picker at the editor'); }
+  function setTimeout() { return 0; }
+  function clearTimeout() {}
+  const source = { id: 2, width: 256, height: 256, seed: 5, model_id: 'black-forest-labs/FLUX.1-Krea-dev', url: '/i/2.png' };
+`);
+load('instruction-edit.js');
+"""
+
+
+def test_instruction_survives_switch_to_the_editor():
+    _node(r"""
+run(`
+  // Written on another checkpoint, with every box typed in, then Open Models….
+  openEdit(source);
+  assert.equal(els.editDialog.open, true);
+  assert.equal(els.editDraft.hidden, true);
+  els.editInstruction.value = 'make it autumn';
+  els.editSeed.value = '11'; els.editSteps.value = '30'; els.editGuidance.value = '3';
+  editOpenModels();
+  assert.equal(els.editDialog.open, false);
+  assert.deepEqual(pointedAt, [EDIT_MODEL_ID]);
+  assert.equal(editKept.get(2).model, 'black-forest-labs/FLUX.1-Krea-dev');
+
+  // A switch to the editor carries the instruction and seed, not the numbers.
+  editCheckpointChanged(EDIT_MODEL_ID);
+  loadedModel = EDIT_MODEL_ID;
+  assert.deepEqual(JSON.parse(JSON.stringify(editKept.get(2))), { model: EDIT_MODEL_ID, carried: true,
+    values: { instruction: 'make it autumn', seed: '11', steps: '', guidance: '' } });
+  openEdit(source);
+  assert.equal(els.editInstruction.value, 'make it autumn');
+  assert.equal(els.editSeed.value, '11');
+  assert.equal(els.editSteps.value, '');
+  assert.equal(els.editGuidance.value, '');
+  assert.equal(els.editDraft.hidden, false);
+  assert.equal(els.editDraft.textContent, 'Your unsent instruction and seed for #2, carried to FLUX.1 Kontext [dev].');
+  assert.equal(editKept.has(2), false);
+
+  // Closed again on the editor, then a switch away: nothing is offered there.
+  els.editDialog.close();
+  assert.equal(editKept.get(2).model, EDIT_MODEL_ID);
+  editCheckpointChanged('black-forest-labs/FLUX.1-Krea-dev');
+  assert.equal(editKept.size, 0);
+
+  // Only numbers typed: no instruction or seed to carry, so nothing comes back.
+  loadedModel = 'black-forest-labs/FLUX.1-Krea-dev';
+  openEdit(source);
+  els.editSteps.value = '30';
+  els.editDialog.close();
+  assert.equal(editKept.has(2), true);
+  editCheckpointChanged(EDIT_MODEL_ID);
+  assert.equal(editKept.size, 0);
+`);
+""", harness=SWITCH)
+
+
+def test_the_held_aspect_is_the_sources_and_never_the_models_note():
+    _node(r"""
+run(`
+  loadedModel = EDIT_MODEL_ID;
+  openEdit({ ...source, id: 3, width: 768, height: 512 });
+  const words = 'Only square sources are qualified for instruction editing (512x512); this 3:2 source would render at 576x384, which is not measured.';
+  editPreview = { available: false, reason: words, source_reason: words, width: 576, height: 384, steps: 28, guidance_scale: 2.5 };
+  syncEditDialog();
+  assert.equal(editCapabilityReason(), '');
+  assert.equal(els.editUnavailable.hidden, true);
+  assert.equal(els.editPreview.textContent, words);
+  assert.equal(els.editRun.getAttribute('aria-disabled'), 'true');
+  assert.equal(els.editRun.title, words);
+  // The server's own reason first, in the Models note; the source's still said.
+  editPreview = { ...editPreview, reason: 'Instruction editing is not available on this backend.' };
+  syncEditDialog();
+  assert.equal(els.editUnavailable.hidden, false);
+  assert.equal(els.editUnavailableText.textContent, 'Instruction editing is not available on this backend.');
+  assert.equal(els.editPreview.textContent, words);
+  assert.equal(els.editRun.title, 'Instruction editing is not available on this backend.');
+`);
+""", harness=SWITCH)
+
+
+def test_the_drift_line_is_the_guides_measured_sentence():
+    from html.parser import HTMLParser
+
+    from backend.guides import _KONTEXT_DRIFT
+
+    class Drift(HTMLParser):
+        def __init__(self):
+            super().__init__()
+            self.inside = False
+            self.text = []
+
+        def handle_starttag(self, tag, attrs):
+            self.inside = self.inside or dict(attrs).get("id") == "edit-drift"
+
+        def handle_endtag(self, tag):
+            if tag == "p":
+                self.inside = False
+
+        def handle_data(self, data):
+            if self.inside:
+                self.text.append(data)
+
+    parser = Drift()
+    parser.feed((ROOT / "web" / "index.html").read_text(encoding="utf-8"))
+    assert "".join(parser.text) == _KONTEXT_DRIFT

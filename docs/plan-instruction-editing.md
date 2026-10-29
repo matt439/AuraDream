@@ -616,7 +616,8 @@ sources; the 3:2 one is held and queues nothing.
 
 At 1400x700 a dialog showing a held note scrolls its own content, so Edit is
 below the fold there (the smoke checks that height on a 1:1 source). Slice 9
-owns the page holds.
+owns the page holds; it moved the aspect's words out of the note into the
+preview's line, so a held 3:2 source fits at that height too.
 
 **Slice 3 (built): every load entry refuses an unmeasured Kontext choice.**
 The real gate is still False. `require_model_available` takes the
@@ -742,7 +743,32 @@ shows Re-render's reason. Its review: More seeds' preview leaves an edit
 batch's time out (`grid._cell_ms` prices no edit cell), rather than price
 it from direct renders at that size.
 
-The later slices release the page's holds.
+**Slice 9 (built): page holds and the draft across the switch.** The server
+still decides every hold; the page says them where they apply.
+`instruction_edit.option_refusals` gives the editor's unmeasured quantization
+and offload choices, each in `loader_refusal`'s words for that choice alone,
+and `/api/models` lists them as the row's `loader_holds` (`{}` on every other
+row, whatever the gate or the draft). With the editor's row chosen,
+model-switch.js makes each such option `aria-disabled` with its words as the
+title, and one chosen holds Apply & save and Switch & load with them: a press
+says them and sends nothing (the server's own refusal before the Hub, the
+save and the unload is unchanged). The preview answers the source's
+unmeasured aspect apart (`source_reason`, said whatever the gate says), and
+the dialog shows it in the preview's line, never in the Models note, whose
+Open Models… no longer fits it. The dialog has a fixed one-line drift note,
+the guide's measured sentence verbatim (`_KONTEXT_DRIFT`, held equal by a
+test). Open Models… opens the picker on the editor's row
+(`showModelPickerAt`): chosen as an unsaved choice, focused and in view,
+switching nothing. A checkpoint change to the editor keeps each unsent
+draft's instruction and seed, not its steps or guidance, which come from the
+recipe's preview; the draft line says it was carried. Every other change
+still clears the drafts. `test_instruction_edit_ui.py`,
+`test_instruction_edit_envelope.py`, `test_api_model_switch.py` and
+`test_instruction_edit_queue.py` hold it, with smoke-instruction-edit (the
+3:2 hold in place, the drift line, the draft carried across a Krea and back
+switch, both 1400x700 fits) and smoke-model-switch (the option holds and the
+pointing). Run ids, CellKeys and `applied()` are unchanged. The wide-tier
+viewer Edit tool stays a recorded follow-up.
 
 ## Stages and completion criteria
 

@@ -41,13 +41,16 @@ def create_router(services: AppServices) -> APIRouter:
             raise HTTPException(status_code=422, detail=str(exc)) from exc
         recipe = edit.recipe_for(bound.recipe)
         # The server's reason first; then whether this source's aspect was
-        # measured. The size is still said, so a held 3:2 shows what it is.
-        reason = _unavailable_reason(services) or edit.geometry_refusal(resolved)
+        # measured. The size is still said, so a held 3:2 shows what it is,
+        # and the aspect's words come apart too (`source_reason`), whatever
+        # the server says: the page says them as the source's, not Models'.
+        source_reason = edit.geometry_refusal(resolved)
+        reason = _unavailable_reason(services) or source_reason
         return {
             "edit": bound.model_dump(mode="json"), "model_id": recipe.model_id,
             "selected_model_id": services.model_id(), "width": resolved.width, "height": resolved.height,
             "steps": recipe.default_steps, "guidance_scale": recipe.default_guidance_scale,
-            "available": reason is None, "reason": reason,
+            "available": reason is None, "reason": reason, "source_reason": source_reason,
         }
 
     @router.post("/api/instruction-edit", response_model=JobAccepted)

@@ -390,9 +390,19 @@ def test_preview_and_submit_hold_an_unmeasured_aspect_without_a_job(client, fake
     assert defaults["instruction_edit_supported"] is True and defaults["instruction_edit_reason"] is None
     answer = client.post("/api/instruction-edit/preview", json={"source": square.id, "recipe": "kontext-v1"}).json()
     assert (answer["available"], answer["reason"], answer["width"], answer["height"]) == (True, None, 512, 512)
-    # A 3:2 source is said at its size and held in words.
+    assert answer["source_reason"] is None
+    # A 3:2 source is said at its size and held in words, which also come
+    # apart as the source's own (the page says them in the preview's place).
     answer = client.post("/api/instruction-edit/preview", json={"source": wide.id, "recipe": "kontext-v1"}).json()
     assert (answer["available"], answer["reason"], answer["width"], answer["height"]) == (False, THREE_TWO, 576, 384)
+    assert answer["source_reason"] == THREE_TWO
+    # The server's own reason comes first, and the source's is still said.
+    fake.edit_qualified = False
+    answer = client.post("/api/instruction-edit/preview", json={"source": wide.id, "recipe": "kontext-v1"}).json()
+    assert (answer["available"], answer["reason"], answer["source_reason"]) == (False, INSTRUCTION_EDIT_UNAVAILABLE, THREE_TWO)
+    answer = client.post("/api/instruction-edit/preview", json={"source": square.id, "recipe": "kontext-v1"}).json()
+    assert (answer["reason"], answer["source_reason"]) == (INSTRUCTION_EDIT_UNAVAILABLE, None)
+    fake.edit_qualified = True
     # And its submission, at the size the frozen table gives it, queues nothing.
     response = client.post("/api/instruction-edit", json=body(wide, width=576, height=384))
     assert response.status_code == 422, response.text

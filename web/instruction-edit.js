@@ -14,9 +14,10 @@
 // run here at all (the running backend's own gate, then the selected
 // checkpoint), the output size, the recipe's steps and guidance, and the
 // source's proof - and the page shows its answers. The dialog opens wherever
-// the editor is held as well, and says why, with a way to Models: on the real
-// server Edit stays held with the gate's words. It never writes the panel's
-// prompt, negative or references, and Generate never runs an edit.
+// the editor is held as well, and says why, with a way to Models; a source
+// whose aspect the card never measured says so in the preview's place. It
+// never writes the panel's prompt, negative or references, and Generate never
+// runs an edit.
 
 const EDIT_RECIPE = 'kontext-v1';
 const EDIT_MODEL_ID = 'black-forest-labs/FLUX.1-Kontext-dev';
@@ -58,7 +59,8 @@ let editFilled = { steps: '', guidance: '' };
 
 // What a close that ran nothing left - the instruction and the numbers - in
 // page memory only, for the next open of that image on the same checkpoint,
-// as the Inpaint and Outpaint dialogs keep theirs.
+// as the Inpaint and Outpaint dialogs keep theirs. A switch to the editor
+// carries the instruction and seed (`carried`), not the numbers.
 const editKept = new Map();
 
 // The editor's name where the page names a checkpoint: off the catalogue,
@@ -179,7 +181,9 @@ async function openEdit(rec, from = null) {
   // Shown or not only as the dialog opens, as the other dialogs' draft lines:
   // hiding it on input would move every control below it under the pointer.
   els.editDraft.hidden = !draft;
-  els.editDraft.textContent = draft ? `Your unsent instruction for #${rec.id}, as you left it.` : '';
+  els.editDraft.textContent = !draft ? ''
+    : draft.carried ? `Your unsent instruction and seed for #${rec.id}, carried to ${EDIT_MODEL_NAME}.`
+      : `Your unsent instruction for #${rec.id}, as you left it.`;
   syncEditDialog();
   scheduleEditPreview(0);
   return true;
@@ -256,10 +260,20 @@ async function previewEdit() {
 
 // ------------------------------------------------------------- the dialog's state
 
-// Why no edit can queue here now: the status's words, else the preview's.
+// Why no edit can queue here now: the status's words, else the preview's -
+// not its source's own (`editSourceReason`), which no Models choice changes.
 function editCapabilityReason() {
   if (instructionEditReason) return instructionEditReason;
-  return editPreview && !editPreview.available ? (editPreview.reason || 'Instruction editing is not available on this server.') : '';
+  if (!editPreview || editPreview.available) return '';
+  const reason = editPreview.reason || 'Instruction editing is not available on this server.';
+  return reason === editPreview.source_reason ? '' : reason;
+}
+
+// Why this source cannot be edited here though the server could edit
+// another: an aspect the card never measured, in the server's words. Said in
+// the preview's place, at its size, so nothing moves under the pointer.
+function editSourceReason() {
+  return (editPreview && typeof editPreview.source_reason === 'string' && editPreview.source_reason) || '';
 }
 
 // The numbers as the server takes them, or what is wrong with one.
@@ -287,6 +301,7 @@ function editHold() {
     || editCapabilityReason()
     || editProblem
     || (!editPreview ? 'Wait for the preview of the source' : '')
+    || editSourceReason()
     || editNumberProblem()?.text
     || (!els.editInstruction.value.trim() ? EDIT_NO_INSTRUCTION : '');
 }
@@ -308,9 +323,10 @@ function syncEditDialog() {
   els.editCheckpoint.textContent = `Runs on ${EDIT_MODEL_NAME} (${EDIT_RECIPE})`
     + (selected && selected !== EDIT_MODEL_ID ? ` · the server has ${editModelName(selected)} selected` : '');
   els.editCheckpoint.title = EDIT_MODEL_ID;
-  if (editProblem) {
+  const sourceReason = editSourceReason();
+  if (editProblem || sourceReason) {
     els.editPreview.classList.add('warn');
-    els.editPreview.textContent = editProblem;
+    els.editPreview.textContent = editProblem || sourceReason;
   } else if (editPreview) {
     els.editPreview.classList.remove('warn');
     const seed = els.editSeed.value.trim();
@@ -445,7 +461,7 @@ function editCancelEvent(event) {
 }
 
 // Open Models…: the picker opens once the dialog has closed - its draft kept
-// - and switches nothing by itself.
+// - on the editor's row, chosen and in view, and switches nothing by itself.
 function editOpenModels() {
   if (editSending) return;
   editToModels = true;
@@ -481,7 +497,7 @@ function editClosed() {
   editReturn = null;
   if (editToModels) {
     editToModels = false;
-    showModelPicker(true);
+    showModelPickerAt(EDIT_MODEL_ID);
     return;
   }
   if (!back || els.lightbox.open) return;
@@ -505,9 +521,16 @@ function editSourcesMoved(ids, { deleted = false } = {}) {
 }
 
 // A checkpoint switch: what was kept for one checkpoint is not offered on
-// another, and an open dialog asks again whether an edit can run now.
-function editCheckpointChanged() {
-  editKept.clear();
+// another - except onto the editor, which an instruction is written for: a
+// switch to it (Open Models… then Switch & load) keeps each unsent
+// instruction and seed, and the recipe's steps and guidance come from the
+// next preview. An open dialog asks again whether an edit can run now.
+function editCheckpointChanged(model = loadedModel) {
+  for (const [id, kept] of editKept) {
+    const { instruction, seed } = kept.values;
+    if (model !== EDIT_MODEL_ID || (!instruction.trim() && !seed.trim())) editKept.delete(id);
+    else editKept.set(id, { model, carried: true, values: { instruction, seed, steps: '', guidance: '' } });
+  }
   if (!editSource) return;
   editPreviewStale = true;
   scheduleEditPreview(0);

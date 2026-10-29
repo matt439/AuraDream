@@ -168,3 +168,24 @@ assert not {'torch', 'diffusers', 'huggingface_hub'} & set(sys.modules)
         capture_output=True, text=True, timeout=30,
     )
     assert result.returncode == 0, result.stdout + result.stderr
+
+
+def test_option_refusals_name_each_unmeasured_choice_alone():
+    # The Models picker holds the editor's quantization and offload options by
+    # these words: each the envelope's refusal of that one choice, the rest of
+    # the loader taken as measured; a measured choice and any other checkpoint
+    # have none.
+    holds = edit.option_refusals(
+        KONTEXT, quantizations=["fp8", "int8", "none", "nunchaku"], offloads=["model", "sequential", "none"],
+    )
+    assert holds == {
+        "quantization": {
+            "int8": refusal(quantization="int8"), "none": refusal(quantization="none"),
+            "nunchaku": refusal(quantization="nunchaku"),
+        },
+        "offload": {"sequential": refusal(offload="sequential"), "none": refusal(offload="none")},
+    }
+    assert holds["quantization"]["int8"] == edit.INSTRUCTION_EDIT_LOADER_UNQUALIFIED.format(choice="int8 quantization")
+    assert edit.option_refusals(KONTEXT, quantizations=["fp8"], offloads=["model"]) == {"quantization": {}, "offload": {}}
+    for other in (KONTEXT.lower(), "black-forest-labs/FLUX.1-Krea-dev", "Qwen/Qwen-Image-Edit"):
+        assert edit.option_refusals(other, quantizations=["int8"], offloads=["none"]) == {}
