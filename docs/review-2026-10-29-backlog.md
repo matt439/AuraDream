@@ -523,6 +523,17 @@ same (`api_more_seeds.py:90`).
 
 ## GEN#34 Swap tags Add rows
 
+**Status (2026-10-30): built, both stages.** `tag_swap._place` and
+`TagSwap.add` (stage 1, `tests/test_tag_swap.py`, `tests/test_api_swap.py`),
+the dialog's at end / at start toggle (stage 2, `web/tag-swap.js`, the
+Add-row step at the end of `smoke-swap`). Choices the design left open,
+taken while Matt was away (2026-10-29), revisit if wanted: the control is a
+small toggle button in the arrow's fixed-width slot, shown while Find is
+empty, defaulting to the end; a tag two Add rows add is refused like a
+find two rows share; the start's style is read from the first item even
+where later items use underscores; a prose add says "needs editing by hand
+- tags added to prose: + night (end)", the phrase wording unchanged.
+
 **Evidence.** G8 (swap or remove tags and rerun images) is Often
 (`preferences.md:136`). Swap tags can replace and remove tags but cannot
 add one:

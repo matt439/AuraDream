@@ -268,3 +268,64 @@ def test_a_picked_image_binned_since_says_it_is_in_the_bin(client, fake, store):
     assert images[passed.id]["status"] == "source_deleted"
     assert "recycle bin" in images[passed.id]["detail"]
     assert images[a.id]["status"] == "queued"
+
+
+def test_an_add_row_is_checked_by_the_schema(client):
+    def refused(*swaps):
+        response = client.post("/api/swap-tags/preview", json={"swaps": list(swaps), "ids": [1]})
+        assert response.status_code == 422, response.text
+        return response.text
+
+    assert "an Add row has an empty Find" in refused({"find": "smile", "replace": "night", "add": "end"})
+    assert "an Add row needs a tag to add" in refused({"find": "", "replace": " ", "add": "start"})
+    assert "a row needs a tag to find" in refused({"find": "", "replace": "night"})
+    assert refused({"find": "", "replace": "night", "add": "middle"})
+    assert "night is both added and in a row's Find" in refused(
+        {"find": "night", "replace": "day"}, {"replace": "night", "add": "end"},
+    )
+
+
+def test_an_add_row_queues_its_images_and_names_itself(client, fake, store):
+    a = plant(store, "1girl, red hair, long hair", seed=1)
+    b = plant(store, "1girl, night, smile", seed=2)
+    c = plant(store, "a girl with red hair standing in the rain.", seed=3)
+    swaps = [{"find": "", "replace": "night", "add": "end"}]
+    answer = client.post("/api/swap-tags/preview", json={"swaps": swaps, "ids": [a.id, b.id, c.id]}).json()
+    images = by_id(answer)
+    assert (images[a.id]["status"], images[a.id]["text"]) == ("queued", "1girl, red hair, long hair, night")
+    start, end = images[a.id]["spans"][0]
+    assert images[a.id]["text"][start:end] == "night"
+    assert (images[b.id]["status"], images[b.id]["notes"]) == ("unchanged", ["already had night"])
+    assert images[c.id]["status"] == "by_hand"
+    assert images[c.id]["detail"] == "needs editing by hand - tags added to prose: + night (end)"
+    response = client.post("/api/swap-tags", json={"swaps": swaps, "ids": [a.id, b.id, c.id], "expected": answer["ids"]})
+    assert response.status_code == 200, response.text
+    done = stream_job(client, response.json()["job_id"])[-1]
+    assert done["swap"] == "+ night (end)"
+    assert [(r.prompt, r.seed) for r in fake.requests] == [("1girl, red hair, long hair, night", 1)]
+
+
+def test_an_add_to_an_empty_negative_prompt(client, fake, store):
+    a = plant(store, "1girl, smile", seed=1)
+    swaps = [{"find": "", "replace": "blurry, lowres", "add": "end"}]
+    images = by_id(client.post("/api/swap-tags/preview", json={
+        "swaps": swaps, "ids": [a.id], "field": "negative_prompt",
+    }).json())
+    assert (images[a.id]["status"], images[a.id]["text"]) == ("queued", "blurry, lowres")
+    response = client.post("/api/swap-tags", json={"swaps": swaps, "ids": [a.id], "field": "negative_prompt"})
+    assert response.status_code == 200, response.text
+    assert stream_job(client, response.json()["job_id"])[-1]["swap"] == "negative: + blurry, lowres (end)"
+    assert (fake.requests[-1].prompt, fake.requests[-1].negative_prompt) == ("1girl, smile", "blurry, lowres")
+
+
+def test_a_request_without_add_keeps_its_answer(client, fake, store):
+    a = plant(store, "1girl, red hair, long hair, smile", seed=1)
+    answer = preview(client, ids=[a.id])
+    assert by_id(answer)[a.id] == {
+        "id": a.id, "thumb_url": a.thumb_url, "width": 256, "height": 256, "seed": 1, "status": "queued",
+        "detail": None, "text": "1girl, silver hair, smile", "spans": [[7, 18]],
+        "removed": ["red hair", "long hair"], "notes": [],
+    }
+    # An empty Find without `add` is still refused, as before, in parse_row's words.
+    response = client.post("/api/swap-tags/preview", json={"swaps": [{"find": "", "replace": "x"}]})
+    assert response.status_code == 422 and "a row needs a tag to find" in response.text

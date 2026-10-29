@@ -195,11 +195,25 @@ class FinishRunAccepted(JobAccepted):
 
 
 class TagSwap(BaseModel):
-    """One row of Swap tags: the comma items to find, what goes in their place."""
+    """One row of Swap tags: the comma items to find, what goes in their place.
 
-    find: str = Field(min_length=1, max_length=1000)
+    An Add row (`add`, the start or the end) has an empty `find` and the tags
+    to add in `replace`; any other combination is refused."""
+
+    find: str = Field(default="", max_length=1000)
     # Empty removes what was found.
     replace: str = Field(default="", max_length=1000)
+    add: Literal["start", "end"] | None = None
+
+    @model_validator(mode="after")
+    def _shape(self) -> "TagSwap":
+        if self.add is None and not self.find:
+            raise ValueError("a row needs a tag to find")
+        if self.add is not None and self.find.strip():
+            raise ValueError("an Add row has an empty Find")
+        if self.add is not None and not self.replace.strip():
+            raise ValueError("an Add row needs a tag to add")
+        return self
 
 
 class SwapTagsRequest(BaseModel):
@@ -233,7 +247,7 @@ class SwapTagsRequest(BaseModel):
     def _rows_parse(self) -> "SwapTagsRequest":
         from .tag_swap import parse_rows
 
-        parse_rows([(row.find, row.replace) for row in self.swaps])
+        parse_rows([(row.find, row.replace, row.add) for row in self.swaps])
         return self
 
 

@@ -4975,7 +4975,20 @@ Frontend and CLI:
   row left with none of its own is `missing`; a find with Han or kana is a
   plain substring; a
   many-to-one row that would need a phrase is `by_hand`; XML and JSON
-  prompts are `structured`. All rows match the original at once; strict -
+  prompts are `structured`. An Add row (`TagSwap.add`, `start` or `end`,
+  with an empty `find` and its tags in `replace`; any other combination is
+  refused by the schema, and `parse_rows` refuses a tag an Add row adds that
+  any row finds or another Add row adds) places its tags after the other
+  rows have run, as comma items before the first item or after the last,
+  with the separator between that end's two items (one item: `_separator`)
+  and that item's underscores and escapes, never its weight
+  (`tag_swap._place`); an empty text takes them whole, joined by `, `; a
+  tag the text has is not written again ("already had X"), so an image
+  where nothing else changes is `unchanged`; a text `detect_style` reads as
+  prose is `by_hand` (`Outcome.prose`, "tags added to prose: …"); a
+  variable's value is never added to. `Row.describe` names it ("+ night
+  (end)"). No documented order is applied: only start or end. All rows
+  match the original at once; strict -
   an image missing any find of any row is `missing` and not queued. Many to
   one lands at the first matched item in the prompt's order, the others
   removed with the separator before each; a replacement already in the
@@ -8516,7 +8529,11 @@ Escape; the page never scrolled; then a search for one image, and a second
 matching image landing while the dialog is open, checked again on its own
 with Queue and the scope line saying two; and Enter pressed straight after
 typing a row, before its check, queueing it without ever saying "Checking
-the swaps…":
+the swaps…"; and an Add row over two picked images (comma and `,\n`
+layouts): the empty Find's at end / at start toggle in the arrow's slot,
+the server's placed tag marked at the end and then the start, a second
+row's Find bringing the arrow back with no box, row height or Queue edge
+moving, and one job named "+ night (start); add smoke → add test":
 
 ```powershell
 uv run python tools/fake_server.py --port 7900 --model cagliostrolab/animagine-xl-4.0 --data <new-scratch-directory>

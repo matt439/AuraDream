@@ -5859,10 +5859,24 @@ nothing outside it. The request's own limits (16 rows, 1000 characters a
 box) are held on the page - + Add row aria-disabled with the reason,
 `maxLength` on the boxes - rather than met as pydantic's text.
 
-**Open: adding a tag** (2026-10-29). An empty Find is refused
-(`TagSwap.find` `min_length=1`, `parse_row`), so a swap cannot add a tag.
-`GEN#34` owns Add rows placed at the start or end, never at an invented
-order ([review-2026-10-29-backlog.md](review-2026-10-29-backlog.md#gen34-swap-tags-add-rows)).
+**Adding a tag** (2026-10-30, `GEN#34`). "These keepers again with
+`night` added" was Reuse, edit and Generate per image: an empty Find was
+refused. A row with an empty Find is now an Add row (`TagSwap.add`, start
+or end), placed after the other rows have run as comma items in the
+prompt's own style - the separator between its first or last two items, so
+a `,\n` layout keeps its line breaks, and the underscores and escapes of
+the item it is placed beside (never its weight). Only the start or the end,
+as the user chooses: a place "after hair colour" would be an order, and no
+checkpoint's documented order is invented for it; Check's Use reordered
+stays the way to reorder. A tag already there is not written twice
+("already had X"), a prose text is `by_hand` (where a tag goes in a
+sentence is an edit), an XML or JSON one `structured`, and an empty
+negative takes the tags whole. A tag both added and found is refused, so
+every row still reads the original at once. In the dialog the Add row's
+at end / at start toggle takes the arrow's slot, one fixed width
+(`--narrow-w`), so neither box nor the row's height moves as Find empties
+or fills, and Queue keeps its place
+([review-2026-10-29-backlog.md](review-2026-10-29-backlog.md#gen34-swap-tags-add-rows)).
 
 ## Mass refine
 

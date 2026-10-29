@@ -35,6 +35,11 @@
 .swap-row { flex-shrink: 0; }
 .swap-row input { width: 100%; min-width: 0; }
 .swap-arrow { color: var(--muted); }
+/* The arrow, or an Add row's start/end toggle in its place: one width, so
+   neither box moves as Find empties or fills (tag-swap.js, syncSwapRowMode). */
+.swap-mid { display: inline-flex; justify-content: center; width: var(--narrow-w); }
+.swap-mid > [hidden] { display: none; }
+.swap-at { width: 100%; white-space: nowrap; }
 .swap-options { display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: var(--sp-3); }
 .swap-field {
   display: flex; align-items: center; gap: var(--sp-3); margin: 0; padding: 0; border: 0;
