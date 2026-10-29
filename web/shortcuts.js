@@ -66,6 +66,7 @@ const SHORTCUT_GROUPS = [
       [['Enter', 'Space'], 'Open the focused image in the lightbox.'],
       [['F'], 'Star or unstar the focused cell.'],
       [['M'], 'Open More seeds for the focused cell\'s batch; review and Queue separately.'],
+      [['Delete'], 'Move the focused cell\'s image to the recycle bin at once; the note has Restore. Holding the key does not repeat.'],
       [['+', '-'], 'Zoom the sheet in or out.'],
       [['0', '1'], 'Reset the sheet zoom; show one image pixel per screen pixel.'],
     ],
@@ -147,7 +148,7 @@ const SHORTCUT_GROUPS = [
     id: 'menus',
     title: 'Menus and settings groups',
     rows: [
-      [['Menu', 'Shift+F10'], 'Open actions for a focused gallery card, result image or lightbox image. Contact-sheet cells keep the browser\'s menu.'],
+      [['Menu', 'Shift+F10'], 'Open actions for a focused gallery card, result image, contact-sheet cell or lightbox image.'],
       [['Up', 'Down', 'Home', 'End'], 'Move through an open menu.'],
       [['Enter', 'Space'], 'Choose the focused menu item or setting button.'],
       [['Escape'], 'Close the menu and return focus.'],

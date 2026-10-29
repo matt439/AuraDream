@@ -73,7 +73,7 @@
   {"expect":"__until(()=>sheetMode && !galleryPending && !!els.sheetGrid.querySelector('.sheet-cell img'))"},
   {"eval":"els.sheetGrid.querySelector('.sheet-cell img').focus({preventScroll:true});"},
   {"key":"?"},
-  {"expect":"els.shortcutsDialog.open && __helpGroups()[0]==='sheet' && __helpComplete() && __helpContext().startsWith('Contact sheet shortcuts first.') && __helpBody().includes('Contact-sheet cells keep the browser')"},
+  {"expect":"els.shortcutsDialog.open && __helpGroups()[0]==='sheet' && __helpComplete() && __helpContext().startsWith('Contact sheet shortcuts first.') && __helpBody().includes('contact-sheet cell or lightbox image') && __helpBody().includes('Move the focused cell')"},
   {"key":"Escape"},
   {"eval":"els.presets.querySelector('button').focus({preventScroll:true});"},
   {"key":"?"},

@@ -323,21 +323,22 @@
    gist - the gallery's line has the sentence - and the row's names stay down
    meanwhile: a note that wrapped grew up into the pressed tool's name and the
    two were drawn over each other. */
-.card > .card-note, .viewer .tile > .card-note {
+.card > .card-note, .viewer .tile > .card-note, .sheet-cell > .card-note {
   position: absolute; inset: auto 6px 6px 6px; z-index: 2;
   padding: 3px var(--sp-2); border-radius: var(--r-sm);
   background: var(--accent-strong); color: #fff; text-align: center;
   font-size: var(--fs-label); pointer-events: none;
   white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
 }
-.card > .card-note:empty, .viewer .tile > .card-note:empty { display: none; }
+.card > .card-note:empty, .viewer .tile > .card-note:empty, .sheet-cell > .card-note:empty { display: none; }
 .card:has(> .card-note) .tools button::after { content: none; }
 /* And the card's #N · size · seed over the row, which would sit just above
    the note: a pointer moved from a refused tool to the image drew the two
    on top of each other. */
 .card:has(> .card-note) .tools::before { content: none; }
 /* A refusal is not the accent's: dark, as the tools are. */
-.card > .card-note.refused, .viewer .tile > .card-note.refused { background: rgba(0, 0, 0, 0.85); }
+.card > .card-note.refused, .viewer .tile > .card-note.refused,
+.sheet-cell > .card-note.refused { background: rgba(0, 0, 0, 0.85); }
 /* A deleted card keeps its slot as a tombstone until the gallery reloads:
    dashed and darker rather than faded, so its line keeps the muted text's
    contrast, and out of the pointer's way. */

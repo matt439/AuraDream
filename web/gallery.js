@@ -438,12 +438,7 @@ function card(rec) {
   star.onclick = () => setFavorite(rec, !rec.favorite);
   syncStar(star, !!rec.favorite, rec.id);
 
-  const refine = tool('⤢', '', () => {
-    // Said here rather than in openRefine, so the card can say it where it
-    // was pressed as well.
-    if (!refineSupported) { refuseInCard(div, REFINE_NONE, 'No refine pass here'); return; }
-    openRefine(rec);
-  });
+  const refine = tool('⤢', '', () => refineFromCard(rec, div));
   refine.classList.add('refine-tool');
   syncRefineTool(refine);
   // Inpaint (inpaint.js): held with the reason where the checkpoint has none.
@@ -480,6 +475,14 @@ function card(rec) {
   // Picked, or in select mode, as the selection says (gallery-select.js).
   syncCardSelected(div);
   return div;
+}
+
+// The card's ⤢, and the right-click menu's Refine… on a sheet cell: said
+// here rather than in openRefine, so the card can say it where it was
+// pressed as well.
+function refineFromCard(rec, div) {
+  if (!refineSupported) { refuseInCard(div, REFINE_NONE, 'No refine pass here'); return; }
+  openRefine(rec);
 }
 
 // The card's ⊞, and the right-click menu's Show run as sheet wherever the

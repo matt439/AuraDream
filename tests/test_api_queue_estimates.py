@@ -163,7 +163,10 @@ def test_the_snapshot_reports_the_stored_figure_without_reading_the_gallery(clie
 def test_the_estimate_is_no_reproduction_field(client, store):
     body = {**BASE, "num_images": 2, "seed": 11}
     unpriced = accepted(client, "/api/generate", body)
-    plant(store)
+    # Three timed rows: the unpriced job's two can carry a few ms of the
+    # fake's own time, and the median must still be the planted rows'.
+    for seed in (1, 2, 3):
+        plant(store, seed=seed)
     priced = accepted(client, "/api/generate", body)
     assert (unpriced["estimate_seconds"], priced["estimate_seconds"]) == (None, 8.0)
     assert unpriced["run_id"] == priced["run_id"]

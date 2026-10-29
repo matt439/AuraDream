@@ -2,8 +2,8 @@
 
 **Status:** written 2026-10-29 for the TODO audit's additions that need no
 plan of their own: `PA#12`, `UI#32`, `UI#33`, `GEN#33`, `GEN#34`, `GAL#23`,
-`GEN#36`, `GEN#38` and `UI#38`. `PA#12` is built (2026-10-30, below); the
-other eight are OPEN. Matt
+`GEN#36`, `GEN#38` and `UI#38`. `PA#12` and `UI#32` are built (2026-10-30,
+below); the other seven are OPEN. Matt
 approved adding every audit item on 2026-10-29. Each section below covers
 one row: what is missing (preference ids from `docs/design/preferences.md`,
 file:line checked against the source on 2026-10-29), the design and the
@@ -158,6 +158,41 @@ Only tag names reach Danbooru (design-notes, Animagine).
    coordinates with the list open and closed.
 
 ## UI#32 Contact-sheet cell menu and Delete
+
+**Status:** done 2026-10-30, both stages, on `feat/todo-backlog-2026-10-29`.
+The file:line claims below still held; built as designed:
+
+- `contextTarget` gained the `sheet` kind (`#sheet-grid .sheet-cell[data-id]`,
+  live records only), its record from the new `sheetCellRecord(cell)` in
+  `sheet-render.js`, which `sheetKey` and `openMoreSeedsFromKey` now share.
+  `imageItems` takes the cell as its own place: Star is the cell's `.star`;
+  Reuse settings, Refine…, Inpaint… and Move to recycle bin are `syncedItem`s
+  over `syncReuseButton`, `syncRefineTool`, `syncInpaintTool` and
+  `syncBinWriteButton`, running `reuse`, the new `refineFromCard` (the card's
+  ⤢ closure moved into `gallery.js` so both run it), `inpaintFromCard` and
+  `deleteImage`. Open clicks the cell's image, so the lightbox walks the
+  sheet as a cell click does. Show run as sheet is held with
+  `SHEET_SHOWS_RUN` ("The sheet shows this run already") where
+  `sheetShownRun()` is the record's run, and chosen says it under the
+  gallery's head and on the cell ("Shown already"). The bin item carries
+  Del, since the cell now has the key.
+- Delete in `sheetKey` (no Ctrl or Shift, a repeat ignored) runs
+  `deleteImage`; `forgetImages`' existing `sheetFocusPlace` and
+  `restoreSheetFocus` put focus on the cell now in that place, or the last.
+  The cell image's `aria-keyshortcuts` and the help's Contact sheet group
+  list Delete; the Menu/Shift+F10 help row names the contact-sheet cell in
+  place of "Contact-sheet cells keep the browser's menu".
+- `cardNote` on a cell had no styling (More seeds' refusal already put one
+  there): `.sheet-cell > .card-note` joins the card's and the tile's rules.
+- Checks: `smoke-context-menu` (7908) and `smoke-sheet` (7880) gained the
+  stage steps below, all passing; `smoke-shortcuts` follows the new help
+  words. `smoke-sheet-zoom`, `smoke-gallery`, `smoke-refine`,
+  `smoke-refine-unavailable`, `smoke-more-seeds-tabs`,
+  `smoke-shortcut-dispatch` and `smoke-copy-feedback-ownership` still pass.
+  The `.empty` case is checked on a hole the smoke adds, since the 3-seed
+  run it opens is wrapped and has none. Taken while Matt was away
+  (2026-10-29), revisit if wanted: the held item's words and its
+  "Shown already" gist.
 
 **Evidence.** F9 (view a run or search as a contact sheet), L7 (right-click
 menus) and J4 (bin individual images) are all Often (`preferences.md:120`,

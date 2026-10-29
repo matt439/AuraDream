@@ -1,7 +1,7 @@
 'use strict';
 
 // The right-click menu on an image: a gallery card, a result tile in the
-// viewer, the lightbox's picture. Its items are the image's own buttons -
+// viewer, a contact sheet's cell, the lightbox's picture. Its items are the image's own buttons -
 // pressed for you, held and titled as they are, so a held item still says
 // why when chosen - plus what no button does: copy the prompt, the seed or
 // the picture, and open the PNG in a tab. A picked card - in select mode or
@@ -13,8 +13,9 @@
 const ctxMenu = { host: null, opener: null, keyAt: -Infinity };
 
 // What a right-click or the Menu key at `target` is over: the lightbox's
-// stage, a live gallery card, a viewer result. Null for anything else, the
-// recycle bin's cards and tombstones included.
+// stage, a live gallery card, a viewer result, a sheet's populated cell.
+// Null for anything else, the recycle bin's cards and tombstones and a
+// sheet's holes included.
 function contextTarget(target) {
   if (!target?.closest) return null;
   if (els.lightbox.open) {
@@ -32,6 +33,11 @@ function contextTarget(target) {
     const rec = viewerRecords.find((r) => r.id === +figure.dataset.id);
     const tile = figure.querySelector('.tile');
     return rec && tile?.querySelector('img') ? { kind: 'result', rec, host: tile } : null;
+  }
+  const cell = target.closest('#sheet-grid .sheet-cell[data-id]');
+  if (cell) {
+    const rec = sheetCellRecord(cell);
+    return rec && !rec.binned_at ? { kind: 'sheet', rec, host: cell } : null;
   }
   return null;
 }
@@ -123,23 +129,33 @@ function copyImage(rec) {
   return navigator.clipboard.write([new ClipboardItem({ 'image/png': png })]);
 }
 
+// The sheet shows this run already: its Show run as sheet is held.
+const SHEET_SHOWS_RUN = 'The sheet shows this run already';
+
 function imageItems({ kind, rec, host }) {
   const lightbox = kind === 'lightbox';
   const card = kind === 'card' ? host : null;
+  // A sheet cell has its image and its star, nothing else: the card's other
+  // buttons are syncedItems over the card's own sync functions.
+  const sheet = kind === 'sheet' ? host : null;
   // A result's buttons are its figure's: the tile's row, and the column
   // beside it from 1800 px.
-  const own = lightbox ? null : (card ?? host.closest('figure'));
+  const own = lightbox ? null : (card ?? sheet ?? host.closest('figure'));
   const find = (selector) => own?.querySelector(selector);
   const starred = !!rec.favorite;
   const at = referenceAt(rec.id);
+  const shown = sheet && rec.run_id && sheetShownRun() === rec.run_id;
   return [
     !lightbox && {
       label: 'Open', title: `Open #${rec.id} in the lightbox`,
-      run: () => (card ? openLightbox(rec, galleryRecords) : openViewerImage(rec)),
+      // A cell's own open: the lightbox walking the sheet, as its click does.
+      run: () => (card ? openLightbox(rec, galleryRecords) : sheet ? sheet.querySelector('img')?.click()
+        : openViewerImage(rec)),
     },
     null,
     buttonItem(starred ? '★ Unstar' : '☆ Star', lightbox ? els.lbFav : find('.star'), kind === 'result' ? '' : 'F'),
-    buttonItem('↻ Reuse settings', lightbox ? els.lbReuse : find('.reuse-settings')),
+    sheet ? syncedItem('↻ Reuse settings', (b) => syncReuseButton(b, rec, true), () => reuse(rec))
+      : buttonItem('↻ Reuse settings', lightbox ? els.lbReuse : find('.reuse-settings')),
     {
       label: 'Use seed', title: `Put ${rec.seed} in the Seed box`,
       run: () => { useSeed(rec.seed); cardNote(host, lightbox ? `Seed ${rec.seed} is in the Seed box.` : 'Seed set'); },
@@ -148,15 +164,20 @@ function imageItems({ kind, rec, host }) {
     lightbox ? buttonItem('More seeds of this batch…', els.lbMoreSeeds, 'M')
       : syncedItem('More seeds of this batch…', (b) => syncMoreSeedsFor(b, rec), () => moreSeedsOfImage(rec, host), 'M'),
     null,
-    buttonItem('⤢ Refine…', lightbox ? els.lbRefine : find('.refine-tool')),
-    buttonItem('✎ Inpaint…', lightbox ? els.lbInpaint : find('.inpaint-tool')),
+    sheet ? syncedItem('⤢ Refine…', syncRefineTool, () => refineFromCard(rec, host))
+      : buttonItem('⤢ Refine…', lightbox ? els.lbRefine : find('.refine-tool')),
+    sheet ? syncedItem('✎ Inpaint…', syncInpaintTool, () => inpaintFromCard(rec, host))
+      : buttonItem('✎ Inpaint…', lightbox ? els.lbInpaint : find('.inpaint-tool')),
     lightbox ? buttonItem('⬚ Outpaint…', els.lbOutpaint)
       : syncedItem('⬚ Outpaint…', syncOutpaintTool, () => outpaintFromCard(rec, host)),
     // Live wherever the image is: the dialog says what holds the editor.
     syncedItem('✎ Edit by instruction…', (b) => syncEditTool(b, rec), () => editFromCard(rec)),
     syncedItem(at >= 0 ? `❐ Remove reference ${at + 1}` : '❐ Use as reference',
       (b) => syncReferenceTool(b, rec.id), () => toggleReference(host, rec)),
-    { label: '⊞ Show run as sheet', title: 'Show the run that made this as a sheet', run: () => showRecordRun(rec) },
+    shown ? {
+      label: '⊞ Show run as sheet', held: true, title: SHEET_SHOWS_RUN,
+      run: () => refuseInCard(host, `${SHEET_SHOWS_RUN}.`, 'Shown already'),
+    } : { label: '⊞ Show run as sheet', title: 'Show the run that made this as a sheet', run: () => showRecordRun(rec) },
     null,
     copyItem('Copy prompt', 'Copy the prompt as text', () => navigator.clipboard.writeText(rec.prompt), host, 'Prompt copied', rec),
     copyItem('Copy seed', `Copy ${rec.seed}`, () => navigator.clipboard.writeText(String(rec.seed)), host, 'Seed copied', rec),
@@ -168,7 +189,9 @@ function imageItems({ kind, rec, host }) {
     null,
     lightbox && buttonItem('↶ Restore', els.lbRestore),
     lightbox ? buttonItem(rec.binned_at ? '⌦ Delete permanently' : '⌦ Move to recycle bin', els.lbDelete, 'Del')
-      : buttonItem('⌦ Move to recycle bin', find('.del')),
+      : sheet ? syncedItem('⌦ Move to recycle bin',
+        (b) => syncBinWriteButton(b, [rec.id], `Move #${rec.id} to the recycle bin`), () => deleteImage(rec), 'Del')
+        : buttonItem('⌦ Move to recycle bin', find('.del')),
   ];
 }
 

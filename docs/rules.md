@@ -5757,17 +5757,21 @@ Frontend and CLI:
   "unknown image".
 - The right-click menu on an image (`context-menu.js`,
   `styles/context-menu.css`; `smoke-context-menu.json`): a live gallery
-  card, a viewer result's tile and the lightbox's stage open it; the
-  recycle bin's cards, tombstones and everything else keep the browser's
-  menu, as do Shift with the right button and every text field. The Menu
+  card, a viewer result's tile, a contact sheet's populated cell and the
+  lightbox's stage open it; the recycle bin's cards, tombstones, a sheet's
+  holes and everything else keep the browser's menu, as do Shift with the right button and every text field. The Menu
   key or Shift+F10 opens it on the image focus is in (in the lightbox, from
   any control but a field), on its first item. Its items press the image's
   own buttons (`buttonItem`): the hold and the title are the button's as
   they are now, and a held item, chosen, says why as the button does - never
   a copy of a button's logic. Where the place has no such button (Outpaint…
-  and ❐ on a card or a result, ❐ in the lightbox) the item is held by that
-  button's sync function on a scratch button (`syncedItem`) and runs the
-  same function. Beyond the buttons: Use seed, More seeds of this batch…
+  and ❐ on a card or a result, ❐ in the lightbox; on a sheet cell, which
+  has only its image and star, Reuse settings, Refine…, Inpaint… and Move
+  to recycle bin too) the item is held by that button's sync function on a
+  scratch button (`syncedItem`) and runs the same function. A sheet cell's
+  Open is its image's own click (the lightbox walking the sheet), and its
+  Show run as sheet is held ("The sheet shows this run already") where
+  `sheetShownRun()` is the record's run; a cell never gets the picks' items. Beyond the buttons: Use seed, More seeds of this batch…
   (the lightbox's `#lb-more-seeds` there, elsewhere `syncedItem` over
   `syncMoreSeedsFor` running `moreSeedsOfImage`), Show run as sheet
   (`showRecordRun`, the card's ⊞), Copy prompt, Copy seed, Copy image (the
@@ -7956,7 +7960,10 @@ from the viewer's ⤢ each handing focus to the first cell, with Tab then not
 moving the page; and at 1400x900 the sheet's focus kept through F on a
 cell another tab deleted (onto the cell now in its place), a changed
 Columns select, and another tab's job ending under it, the sheet left as
-it was. `smoke-sheet-klein.json` uses a FLUX.2
+it was; and Delete on a focused cell (`UI#32`) binning it with Restore in
+the note, focus on the cell now in its place or on the last, Restore
+bringing both back, a held key binning one image, and the help's Contact
+sheet group listing the key. `smoke-sheet-klein.json` uses a FLUX.2
 [klein] fake on 7886 for the References axis, the Size row and its pin, and the
 adapter named in LoRA heads, the Fixed line and the export:
 
@@ -8729,7 +8736,12 @@ Escape closing the menu only, Use seed saying so in the lightbox's line,
 and Show run as sheet closing the lightbox for the sheet; More seeds of this
 batch… after Use seed on a card (unheld, titled with its batch) and a
 result tile, and in the lightbox mirroring its More seeds… button, chosen
-there opening the dialog over the lightbox, which Escape leaves open. `browser.mjs`'s
+there opening the dialog over the lightbox, which Escape leaves open. On
+that sheet (`UI#32`), a cell's menu by right-click and by Shift+F10: the
+card's single-image items in order with F and Del, the holds as the card's
+buttons would have them, Show run as sheet held and saying why, Copy seed
+reported on the cell, Open walking the sheet, Move to recycle bin and the
+note's Restore, and a hole keeping the browser's menu. `browser.mjs`'s
 `{"rightclick": ...}` presses the right button (`"shift": true` holds
 Shift):
 
