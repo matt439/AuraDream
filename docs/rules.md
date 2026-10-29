@@ -5852,7 +5852,12 @@ absence and diagnostic early exit, including actual cleanup. Profile tests
 enable the existing bounded startup diagnostics. Its Node side is the file
 `tests/browser_startup_fixture.mjs`, never `node -e` source: Defender flagged
 the inline script, which patches `child_process`, as
-`Trojan:Win32/SuspExec.SE` and blocked it (WinError 5). The publication repair and
+`Trojan:Win32/SuspExec.SE` and blocked it (WinError 5). Every other cold
+harness test that patches `child_process` (`test_browser_capabilities`,
+`_diagnostics`, `_input_refusals`, `_keycombo_preflight`, `_port_preflight`,
+`_startup_viewport`, `_step_containers`, `_viewport_preflight`) likewise runs
+its own `tests/browser_*_fixture.mjs` as `node <file> <json>`; a new one does
+the same. The publication repair and
 its original/positive evidence are owned by
 `docs/review-2026-10-29-ci-browser-startup.md`.
 
