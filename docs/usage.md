@@ -199,6 +199,18 @@ separate from gallery bundles; include the sidecar in a settings backup.
 If another tab changed an item, the dialog keeps your unsaved name: **Reload
 list**, then select that item again to read its latest saved revision.
 
+**Export…** downloads every checkpoint's saved setups as
+`auradream-generation-setups.json`; the file contains prompt text and excludes
+the unsaved name. **Import…** previews a file before saving: each item shows
+its checkpoint, Generate or Grid, and its saved settings. Choose Skip, Add,
+Add as copy (with an editable name) or Replace one explicitly selected saved
+setup on the same checkpoint, then **Preview** any changed choices before
+**Import**. Your composer, setup name and Undo stay unchanged, and nothing is
+queued or loaded; an imported setup from another checkpoint is stored as is.
+If the selected setup was replaced, select it again before changing it. If
+another tab changed the list or a reply was lost, preview again and check what
+is already saved; uncertain copies need a fresh action choice.
+
 ### Load settings from a PNG
 
 Drop a PNG anywhere on the page, or press **Load settings from PNG…** under

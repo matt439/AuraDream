@@ -1,9 +1,10 @@
 # Portable generation and grid setups
 
 **Status:** `UI#25` selected for independent source implementation on
-2026-10-28. Stage 1 (cold codec and explicit merge planner) and stage 2 (the
-atomic cold export/preview/import API, 2026-10-29) are implemented; stage 3,
-the browser merge dialog, remains. No user-visible action is active yet.
+2026-10-28. Stage 1 (cold codec and explicit merge planner), stage 2 (the
+atomic cold export/preview/import API) and stage 3 (the browser merge dialog,
+2026-10-29) are implemented and locally qualified; see
+[stage 3](#stage-3-implementation-and-browser-evidence-2026-10-29).
 `GAL#12` retains its own incomplete qualification boundary.
 
 ## Ranked selection
@@ -240,3 +241,116 @@ environment-only `test_browser_startup_wait.py`) passed **7667, 8 skipped**.
 No-cache Ruff passed; the pinned Pyright gate analyzed 146 files with zero
 errors or warnings. No browser UI, model loading, card or real-gallery
 qualification is established by these checks; stage 3 owns the UI.
+
+## Stage 3 implementation and browser evidence, 2026-10-29
+
+**Export…** and **Import…** sit in the Saved setups dialog's library column,
+under Reload list/New; the generation panel gains no height. The new
+`web/setup-import.js` owns them and a separate native `#setup-import-dialog`
+(styles appended to `styles/setups.css`, so the stylesheet link order is
+unchanged). The Snippet UI is untouched.
+
+- **Export** fetches `GET /api/presets/export` (every checkpoint, one server
+  snapshot) and downloads the response Blob as
+  `auradream-generation-setups.json`. Its lifetime is the Saved setups dialog
+  session (`setupPortabilitySession`), not Reload's `setupsTicket`: Reload
+  during a pending export still downloads; closing the dialog retires it and
+  a late reply never downloads.
+- **Import** reads the chosen File as strict UTF-8 (8 MiB client bound) and
+  sends the original text as `payload`, so duplicate keys reach the server's
+  raw parser. Each row is rendered through `textContent` only: `#n name`,
+  Generate/Grid kind, the checkpoint label with its exact id and whether it is
+  the selected one, and the raw payload essentials (size, seed, Batch/Repeat,
+  saved-or-profile-default sampling, Prompt/Negative, grid variables, axes,
+  seeds and budget). Local matches are listed as row-local `Saved match #k`
+  with their revision and payload. `setupSummary` is never called, so the
+  editor summary and composer are not read or written.
+- Choices are Skip / Add / Add as copy (editable name, 1-80 code points) /
+  Replace (explicit local candidate; matches share the exact checkpoint id),
+  defaulting from the server preview. Add is unavailable on a matched row and
+  Replace on an unmatched one. Any file, name or choice change retires the
+  preview; Import is held until a fresh Preview of exactly those choices.
+  File and preview tickets reject late reads and late previews.
+- **Success** replaces only `setupsItems` and re-renders the list. The editor
+  name, `setupsSelected` (old revision), dirty flag, composer and Undo stay.
+  A new `setupSelectedReason()` holds Update/Rename/Delete/Restore on a
+  selection whose saved revision was replaced or removed and clears the
+  visible list selection, so only an explicit reselect or New adopts the
+  newer revision.
+- **Commit failures.** A transport/body-read/5xx failure is uncertain: no
+  resend, `setupsWriteRecovery` holds ordinary writes, and Preview first
+  rereads the list and default rows. Retained Replace choices whose revision
+  is stale show an empty target for explicit review; earlier Add as copy rows
+  show "Choose action again". A fresh read, Preview, Reload or a later
+  successful import never acknowledges recovery; only explicit selection/New
+  does, and New is held while a list read is pending. A known 422 stays
+  correctable without a reload; a 409 requires the refreshing Preview.
+- A pending commit holds Cancel/Escape, the parent dialog's Close (as an
+  ordinary write) and Export/Import; Import is held during any setup request.
+  Closing the import dialog returns focus to Import…; the parent's modal key
+  ownership keeps Ctrl+Enter from submitting underneath.
+
+**Review fixes, 2026-10-29.** Three confirmed defects in the first stage-3
+change were fixed in `web/setup-import.js`, each with a smoke step that was
+checked to fail with only that fix reverted:
+
+- *Escape during a commit.* Chrome's close-watcher rule lets a second Escape
+  with no user activation in between close the dialog despite the held
+  `cancel`; the old `close` handler then retired the commit's ticket, so its
+  reply was dropped and the parent stayed held at `setupsPending = 'write'`.
+  The `close` handler now leaves a pending commit's ticket and busy state
+  alone: its reply still replaces the list and clears the parent hold, or
+  records the uncertain/refused result, reported in the Saved setups status
+  when the import dialog is already shut. The smoke presses Escape twice
+  during a held commit (the real second Escape closed the dialog in the Windows
+  run) and asserts the commit is still pending, then that its reply lands.
+- *A previewed Add as copy row.* The server matches a copy under its edited
+  name, so the redrawn row lost its saved matches, offered Add and hid
+  Replace (the server then refused with 422). The page now keeps, per file
+  index, the latest row previewed under the file item's own name
+  (`setupImportIncoming`; every non-copy row, and the default preview has no
+  copies) and draws the heading, saved matches, Add/Replace availability,
+  replacement targets and the client hold from it; only the incoming-collision
+  note and the counts come from the copy preview.
+- *Refreshing Preview after a 409 or uncertain commit.* The rows redrawn from
+  the default preview were enabled while the final preview was in flight, and
+  its reply overwrote any edit made meanwhile. They are now held again at once,
+  and a reply whose request body no longer matches the current choices is
+  ignored with "Choices changed. Preview again before importing."
+
+The snippet import dialog (`web/snippet-import.js`) shares the Escape and
+copy-row patterns; it is outside this stage and left unchanged.
+
+**Browser evidence.** `tools/smoke-setup-portability.json` (221 steps,
+99 expectations, 16 fatal prerequisites) runs on a fresh scratch FLUX.1 Krea
+[dev] fake on port 7953. After the review fixes its Windows runs passed (14 s
+each).
+It seeds five owned setups across FLUX.1 Krea [dev] and Animagine XL 4.0,
+Generate and Grid, including two legal "Harbour" duplicates; checks the
+actual export Blob's bytes, order and omitted identity/dirty name; re-imports
+those exact bytes as all-Skip; then covers explicit Replace/Copy/Add/Skip with
+row-local candidates, cross-checkpoint name separation, incoming collisions,
+a hostile `<img onerror>` file and item name rendered as text, exact raw
+payload round trip of replacements and additions, held actions on the
+replaced selection until reselection, duplicate-key/oversized/unknown-version
+files, preview and commit 422s, a 409 stale list, a committed import with a
+lost reply (no resend, Replace review, Copy reconfirmation, held ordinary
+writes), a commit outliving a forced Escape close, a previewed copy row keeping
+its file name's matches, held rows during a refreshing Preview, New during a held Reload, Restore's whole-draft Undo surviving an
+import, late previews after Cancel and export session lifetime. A fetch
+sentinel saw no generate, grid, refine, queue or model call; no page error
+occurred. Containment and a stationary Import button are asserted at
+1400x900, 400x650 and 1400x600, and the three new screenshots
+(`setup-portability-wide.png`, `-narrow.png`, `-short.png`) were inspected:
+names render as text, rows scroll inside the dialog and the footer stays in
+view.
+
+After the review fixes, `smoke-generation-presets` (11 s) passed again
+alongside it (twice), as did `pytest -n auto` (7667 passed, 8 skipped;
+`tests/test_browser_startup_wait.py` deselected) and `ruff check --no-cache`.
+Before them, the existing `smoke-generation-presets` (12 s), `smoke-setup-list-recovery`
+(8 s), `smoke-saved-name-unicode` (20 s), `smoke-library-write-recovery`
+(22 s) and `smoke-snippet-portability` (13 s) passed serially afterwards.
+Browser fixtures use synthetic File/DataTransfer selection and intercept the
+export Blob before an OS Downloads write; native OS chooser/download
+behaviour, real user data and the card were not involved.

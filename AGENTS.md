@@ -189,6 +189,9 @@ it never writes the composer's prompt, negative or references.
 
 `snippet-import.js` owns explicit personal-snippet export and the native
 merge dialog; it preserves the editor and prompt boxes, with no automatic retry.
+`setup-import.js` owns Saved setups Export…/Import… and its separate merge
+dialog; it never calls `setupSummary`, keeps the editor, composer and Undo,
+and never resends an uncertain import.
 
 Also: `tools/` (fake server, headless-browser smokes), `tests/`, `wsl/`,
 `docs/`.
@@ -507,6 +510,7 @@ uses the driver's graceful close/cleanup. See the full Tests rules.
 | 7950 | FLUX.1-Krea-dev, fresh scratch `--data` | `smoke-copy-feedback-ownership` |
 | 7951 | FLUX.1-Krea-dev, fresh scratch `--data`, `--step 0.3` | `smoke-split-extra-queue` |
 | 7952 | FLUX.1-Krea-dev, fresh scratch `--data` | `smoke-check-dismissal` |
+| 7953 | FLUX.1-Krea-dev, fresh scratch `--data` | `smoke-setup-portability` |
 
 FLUX.1-Krea-dev is `black-forest-labs/FLUX.1-Krea-dev`; animagine is
 `cagliostrolab/animagine-xl-4.0`.

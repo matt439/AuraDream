@@ -106,6 +106,7 @@ function setupRestoreReason() {
   if (setupsPending) return 'Wait for the saved setup request.';
   if (setupWriteRecoveryReason()) return setupWriteRecoveryReason();
   if (!setupsReady || !setupsSelected) return 'Select a saved setup from the current list.';
+  if (setupSelectedReason()) return setupSelectedReason();
   if (setupsSelected.model_id !== loadedModel) return `This setup belongs to ${checkpointName(setupsSelected.model_id)}. Select that checkpoint in Models first.`;
   return setupPerformanceReason() || setupsCheckReason;
 }
@@ -121,7 +122,7 @@ function syncSetups() {
   const name = !nameValue ? 'Give the setup a name.'
     : [...nameValue].length > 80 || !els.setupsName.validity.valid ? 'The setup name is longer than 80 characters.' : '';
   const ready = setupWriteRecoveryReason() || (!setupsReady ? 'Reload the saved list before changing it.' : '');
-  const selection = !setupsSelected ? 'Select a saved setup first.' : '';
+  const selection = !setupsSelected ? 'Select a saved setup first.' : setupSelectedReason();
   const mismatch = setupsSelected && setupsSelected.model_id !== loadedModel
     ? `Select ${checkpointName(setupsSelected.model_id)} in Models first.` : '';
   hold(els.setupsNew, pending || (setupsWriteRecovery?.needsReload ? setupWriteRecoveryReason() : ''), 'Prepare to save the current composer as a new setup');
@@ -136,6 +137,7 @@ function syncSetups() {
   for (const field of [els.setupsName, els.setupsAll]) field.disabled = setupsPending === 'write';
   els.setupsList.disabled = setupsPending === 'write' || setupsPending === 'read';
   els.setupsModels.hidden = !mismatch;
+  syncSetupPortability();
 }
 
 function renderSetups() {
@@ -150,7 +152,8 @@ function renderSetups() {
   }
   if (!items.length) els.setupsList.append(new Option('No saved setups in this view', ''));
   els.setupsList.value = visibleSelection;
-  if (setupsWriteRecovery) els.setupsList.selectedIndex = -1;
+  // A replaced/removed selection is chosen again from the list, never adopted.
+  if (setupsWriteRecovery || setupSelectedReason()) els.setupsList.selectedIndex = -1;
   syncSetups();
 }
 

@@ -365,7 +365,7 @@ before changing it.
   per version
 - `backend/reindex.py` — rows rebuilt from the PNGs' `auradream` chunk, in place or
   copied in from another gallery; idempotent on the UNIQUE filename
-- `web/` - served as-is from `/static`; `index.html` loads 57 classic
+- `web/` - served as-is from `/static`; `index.html` loads 58 classic
   scripts in order, sharing one global scope; only `app.js`, the last, runs
   the wiring and boot. `state.js` owns shared state; `generation.js`,
   `grid-preview.js`, `job-stream.js` and `job-results.js` handle submission,
@@ -407,7 +407,9 @@ before changing it.
   help dialog; `prompt-snippets.js` the personal snippet dialog and insertion;
   `snippet-import.js` the explicit portable export and file-index merge dialog;
   `generation-presets.js` the named generation/grid setup dialog, raw capture,
-  explicit validated Restore and whole-draft Undo.
+  explicit validated Restore and whole-draft Undo;
+  `setup-import.js` saved-setup Export…/Import… and the separate
+  file-index merge dialog (styles in `setups.css`).
   `saved-searches.js` owns named gallery filters, their native dialog and the
   single explicit filter transition out of sheets and the bin.
   The stylesheet is
@@ -6238,6 +6240,18 @@ files, dirty-editor preservation, modal keys/focus and contained stationary
 controls at desktop/narrow/short sizes. The 183-step Windows workflow passes;
 final screenshot reinspection remains blocked by an artifact-directory read
 denial. Exact evidence and limits live in `docs/plan-snippet-portability.md`.
+
+`smoke-setup-portability.json` uses a fresh FLUX.1 Krea [dev] fake on 7953
+for saved-setup export/merge. It seeds owned mixed-checkpoint Generate/Grid
+setups, checks the actual export-response bytes and an all-Skip re-import,
+explicit Skip/Add/Copy/Replace with row-local candidates, a hostile file and
+item name rendered as text, raw payload round trips, held actions on a
+replaced selection, invalid files, correctable 422s, 409 and lost-reply
+uncertain commits (no resend, Replace review, Copy reconfirmation, held
+ordinary writes), held-read/New/close races, export session lifetime, an
+unchanged composer and Undo, no model/queue/generate calls, modal keys/focus
+and wide/narrow/short containment. Evidence lives in
+`docs/plan-setup-portability.md`.
 
 `smoke-library-write-recovery.json` uses a fresh FLUX.1 Krea [dev] fake on
 7935. Its 221-step Windows pass exercises actual committed snippet/setup

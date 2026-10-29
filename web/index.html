@@ -1990,6 +1990,7 @@
         <label>Saved setups<select id="setups-list" size="6" aria-label="Saved setups"></select></label>
         <label class="check"><input type="checkbox" id="setups-all">Show other checkpoints</label>
         <div class="setups-actions"><button type="button" class="ghost" id="setups-reload">Reload list</button><button type="button" class="ghost" id="setups-new">New</button></div>
+        <div class="setups-actions setups-portability"><button type="button" class="ghost" id="setups-export">Export…</button><button type="button" class="ghost" id="setups-import" aria-haspopup="dialog" aria-controls="setup-import-dialog">Import…</button><input type="file" id="setups-import-file" accept="application/json,.json" hidden></div>
       </div>
       <div class="setups-editor">
         <label>Name<input type="text" id="setups-name" maxlength="160" aria-description="Up to 80 characters." autocomplete="off" autofocus></label>
@@ -2006,6 +2007,19 @@
     <button type="button" class="primary" id="setups-restore">Restore</button>
   </div>
   <p id="setups-status" role="status" aria-live="polite"></p>
+</dialog>
+
+<dialog class="setup-import-dialog" id="setup-import-dialog" aria-labelledby="setup-import-title" aria-describedby="setup-import-intro">
+  <div class="setups-head"><h2 id="setup-import-title">Import saved setups</h2><button type="button" class="ghost" id="setup-import-close">Cancel</button></div>
+  <p class="hint" id="setup-import-intro">Choose Skip, Add, Add as copy or Replace for each file item. Nothing is saved until Import; your composer, setup name and Undo stay unchanged, and no work is queued.</p>
+  <p id="setup-import-filename" aria-label="Selected file"></p>
+  <p id="setup-import-summary" role="status" aria-live="polite">Nothing has been imported.</p>
+  <div id="setup-import-rows" tabindex="-1" aria-label="Setup merge choices"></div>
+  <p id="setup-import-status" role="status" aria-live="polite"></p>
+  <div class="setup-import-actions">
+    <button type="button" class="ghost" id="setup-import-preview">Preview</button>
+    <button type="button" class="primary" id="setup-import-run" aria-disabled="true">Import</button>
+  </div>
 </dialog>
 
 <script src="/static/state.js"></script>
@@ -2064,6 +2078,7 @@
 <script src="/static/prompt-snippets.js"></script>
 <script src="/static/snippet-import.js"></script>
 <script src="/static/generation-presets.js"></script>
+<script src="/static/setup-import.js"></script>
 <script src="/static/app.js"></script>
 </body>
 </html>

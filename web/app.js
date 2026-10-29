@@ -14,6 +14,7 @@ initQueueControls();
 initSnippets();
 initSnippetImport();
 initSetups();
+initSetupImport();
 initSavedSearches();
 els.notifyDone.onchange = () => { void toggleJobNotifications(); };
 document.addEventListener('visibilitychange', () => syncJobNotifications());
