@@ -6479,9 +6479,15 @@ model/queue/vault work is blocked. Browser workflow qualification remains.
 for portable export/merge. It checks the actual export-response
 bytes, file-index conflict choices, stale/uncertain commit recovery, invalid
 files, dirty-editor preservation, modal keys/focus and contained stationary
-controls at desktop/narrow/short sizes. The 183-step Windows workflow passes;
-final screenshot reinspection remains blocked by an artifact-directory read
-denial. Exact evidence and limits live in `docs/plan-snippet-portability.md`.
+controls at desktop/narrow/short sizes. Its close-watcher steps (`UI#35`)
+press Escape twice during a held commit, with a fallback `dialog.close()`.
+The commit and the parent's write hold must survive, and a lost reply must
+be reported in Snippets. The steps also check that a previewed Add-as-copy
+row keeps its saved match and Replace, and that a refreshing Preview holds
+its rows and never overwrites a changed choice. The 245-step Windows
+workflow passes. Exact evidence and limits live in
+`docs/plan-snippet-portability.md` and
+`docs/review-2026-10-29-close-watcher.md`.
 
 `smoke-setup-portability.json` uses a fresh FLUX.1 Krea [dev] fake on 7953
 for saved-setup export/merge. It seeds owned mixed-checkpoint Generate/Grid
@@ -6501,7 +6507,13 @@ writes with lost replies,
 held retries, fresh-read/explicit-choice recovery, retained drafts, known
 validation/stale refusals, New during delayed snippet reads, pending close,
 modal keys and standard/narrow/short containment. The dated review owner
-`docs/review-2026-10-28-library-recovery.md` records actual acceptance.
+`docs/review-2026-10-28-library-recovery.md` records actual acceptance. Its
+close-watcher steps (`UI#35`, 288 steps in all) force-close Snippets and
+Saved setups during a gated Create with a repeated Escape. The reopened
+dialog must keep Save held, and the server must end with exactly one new
+item. A Save current reply that lands while Saved setups is closed must not
+validate, and Reload must work after the reopen
+(`docs/review-2026-10-29-close-watcher.md`).
 
 `smoke-saved-name-unicode.json` uses a fresh FLUX.1 Krea [dev] fake on 7936
 for saved-name parity. Native text insertion creates/edits 80 astral-code-point

@@ -7,7 +7,8 @@ atomic cold export/preview/import API) and stage 3 (the browser merge dialog,
 [stage 3](#stage-3-implementation-and-browser-evidence-2026-10-29).
 When this plan was written, `GAL#12` retained its own incomplete qualification
 boundary; it has since closed (`084fbe4`, 2026-10-29). The snippet dialog's
-copies of stage 3's close-watcher defects are owned by `UI#35`
+copies of stage 3's close-watcher defects, and the parent dialogs' forced-close
+write holds, were fixed by `UI#35` on 2026-10-30
 ([review](review-2026-10-29-close-watcher.md)).
 
 ## Ranked selection
@@ -325,8 +326,8 @@ checked to fail with only that fix reverted:
   ignored with "Choices changed. Preview again before importing."
 
 The snippet import dialog (`web/snippet-import.js`) shares the Escape and
-copy-row patterns; it is outside this stage and left unchanged. Porting the
-three fixes there is `UI#35`
+copy-row patterns. It was outside this stage; `UI#35` ported the three fixes
+there on 2026-10-30
 ([review](review-2026-10-29-close-watcher.md#a-snippet-import-copies-of-the-three-setup-import-defects)).
 
 **Browser evidence.** `tools/smoke-setup-portability.json` (221 steps,

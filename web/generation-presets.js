@@ -195,6 +195,9 @@ function setupValidationBody(item) {
 }
 
 async function checkSetup(item, restore = false) {
+  // A write reply that lands after a forced close selects without validating;
+  // Restore checks again on its next press.
+  if (!els.setupsDialog.open) return;
   const ticket = ++setupsTicket;
   const fingerprint = setupComposerState();
   const epoch = setupsComposerEpoch;
@@ -275,7 +278,7 @@ function newSetup(userChoice = true) {
 }
 
 async function reloadSetups() {
-  if (setupsPending) { setupSay('Wait for the saved setup request.'); return; }
+  if (setupsPending) { setupSay('Wait for the saved setup request.'); syncSetups(); return; }
   const ticket = ++setupsTicket;
   setupsPending = 'read';
   setupsReady = false;
@@ -511,7 +514,9 @@ function initSetups() {
   els.setupsDialog.addEventListener('close', () => {
     if (els.setupsDialog.open) return;
     ++setupsTicket;
-    setupsPending = null;
+    // A forced close (repeated Escape) keeps a pending write held: only its
+    // reply, which answers the whole list, clears it.
+    if (setupsPending !== 'write') setupsPending = null;
     const origin = setupsOrigin;
     setupsOrigin = null;
     if (origin?.isConnected && isShown(origin)) origin.focus({ preventScroll: true });

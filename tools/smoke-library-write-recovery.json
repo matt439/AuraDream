@@ -684,6 +684,215 @@
     "expect": "__until(()=>!els.setupsDialog.open && document.activeElement===els.examplesBtn)"
   },
   {
+    "log": "'A repeated Escape may close Snippets during a Create (Chrome close-watcher rule). The reopened dialog keeps Save held until the one reply lands, so no second POST duplicates the snippet.'"
+  },
+  {
+    "click": "#btn-examples"
+  },
+  {
+    "click": "#snippets-menu-item"
+  },
+  {
+    "expect": "__until(()=>els.snippetsDialog.open && snippetsReady && !snippetsPending && snippetsItems.length===3)",
+    "fatal": true
+  },
+  {
+    "click": "#snippets-new"
+  },
+  {
+    "eval": "__wrSnip('Forced close create','created exactly once');window.__wrForcedSnipBefore=__wrCount('POST','/api/snippets');window.__wrWriteGate={method:'POST',path:'/api/snippets'};"
+  },
+  {
+    "click": "#snippets-save"
+  },
+  {
+    "expect": "__until(()=>snippetsPending==='write' && typeof __wrWriteGate.release==='function')",
+    "fatal": true
+  },
+  {
+    "key": "Escape"
+  },
+  {
+    "expect": "els.snippetsDialog.open && snippetsPending==='write'"
+  },
+  {
+    "key": "Escape"
+  },
+  {
+    "log": "els.snippetsDialog.open ? 'second Escape held; closing directly' : 'second Escape closed Snippets'"
+  },
+  {
+    "eval": "if(els.snippetsDialog.open)els.snippetsDialog.close();"
+  },
+  {
+    "expect": "__until(()=>!els.snippetsDialog.open && snippetsPending==='write')"
+  },
+  {
+    "click": "#btn-examples"
+  },
+  {
+    "click": "#snippets-menu-item"
+  },
+  {
+    "expect": "__until(()=>els.snippetsDialog.open)",
+    "fatal": true
+  },
+  {
+    "expect": "snippetsPending==='write' && els.snippetsSave.getAttribute('aria-disabled')==='true' && els.snippetsSave.title==='Wait for the snippet to finish saving.' && els.snippetsNew.getAttribute('aria-disabled')==='true' && els.snippetsClose.getAttribute('aria-disabled')==='true' && els.snippetsName.value==='Forced close create'"
+  },
+  {
+    "click": "#snippets-save"
+  },
+  {
+    "expect": "__wrCount('POST','/api/snippets')===__wrForcedSnipBefore+1 && snippetsPending==='write'"
+  },
+  {
+    "eval": "__wrWriteGate.release();"
+  },
+  {
+    "expect": "__until(()=>!snippetsPending && snippetsItems.length===4 && snippetsSelected?.name==='Forced close create' && els.snippetsName.value==='Forced close create' && !snippetsDirty)"
+  },
+  {
+    "expect": "__until(async()=>{const saved=await __wrBaseApi('/api/snippets');return saved.items.filter(item=>item.name==='Forced close create').length===1&&saved.items.length===4&&__wrCount('POST','/api/snippets')===__wrForcedSnipBefore+1&&els.snippetsSave.getAttribute('aria-disabled')==='false';})"
+  },
+  {
+    "click": "#snippets-close"
+  },
+  {
+    "expect": "__until(()=>!els.snippetsDialog.open && document.activeElement===els.examplesBtn)"
+  },
+  {
+    "log": "'The same forced close during a Saved setups Save current keeps its hold through the reopen: exactly one setup is created and the editor adopts it.'"
+  },
+  {
+    "click": "#btn-examples"
+  },
+  {
+    "click": "#setups-menu-item"
+  },
+  {
+    "expect": "__until(()=>els.setupsDialog.open && setupsReady && !setupsPending && setupsItems.length===2)",
+    "fatal": true
+  },
+  {
+    "click": "#setups-new"
+  },
+  {
+    "eval": "__wrName('Forced close setup');window.__wrForcedSetupBefore=__wrCount('POST','/api/presets');window.__wrWriteGate={method:'POST',path:'/api/presets'};"
+  },
+  {
+    "click": "#setups-save"
+  },
+  {
+    "expect": "__until(()=>setupsPending==='write' && typeof __wrWriteGate.release==='function')",
+    "fatal": true
+  },
+  {
+    "key": "Escape"
+  },
+  {
+    "expect": "els.setupsDialog.open && setupsPending==='write'"
+  },
+  {
+    "key": "Escape"
+  },
+  {
+    "log": "els.setupsDialog.open ? 'second Escape held; closing directly' : 'second Escape closed Saved setups'"
+  },
+  {
+    "eval": "if(els.setupsDialog.open)els.setupsDialog.close();"
+  },
+  {
+    "expect": "__until(()=>!els.setupsDialog.open && setupsPending==='write')"
+  },
+  {
+    "click": "#btn-examples"
+  },
+  {
+    "click": "#setups-menu-item"
+  },
+  {
+    "expect": "__until(()=>els.setupsDialog.open)",
+    "fatal": true
+  },
+  {
+    "expect": "setupsPending==='write' && els.setupsSave.getAttribute('aria-disabled')==='true' && els.setupsSave.title==='Wait for the saved setup request.' && els.setupsReload.getAttribute('aria-disabled')==='true' && els.setupsNew.getAttribute('aria-disabled')==='true' && els.setupsName.value==='Forced close setup'"
+  },
+  {
+    "click": "#setups-save"
+  },
+  {
+    "expect": "__wrCount('POST','/api/presets')===__wrForcedSetupBefore+1 && setupsPending==='write'"
+  },
+  {
+    "eval": "__wrWriteGate.release();"
+  },
+  {
+    "expect": "__until(()=>!setupsPending && setupsItems.length===3 && setupsSelected?.name==='Forced close setup' && els.setupsName.value==='Forced close setup')"
+  },
+  {
+    "expect": "__until(async()=>{const saved=await __wrBaseApi('/api/presets');return saved.items.filter(item=>item.name==='Forced close setup').length===1&&saved.items.length===3&&__wrCount('POST','/api/presets')===__wrForcedSetupBefore+1&&setupComposerState()===__wrComposer;})"
+  },
+  {
+    "log": "'A Save current reply that lands while Saved setups is closed selects the new setup without starting a validation, so the reopened dialog can Reload.'"
+  },
+  {
+    "click": "#setups-new"
+  },
+  {
+    "eval": "__wrName('Late reply setup');window.__wrLateSetupBefore=__wrCount('POST','/api/presets');window.__wrValidatesBefore=__wrCalls.filter(call=>call.method==='POST'&&call.path.endsWith('/validate')).length;window.__wrWriteGate={method:'POST',path:'/api/presets'};"
+  },
+  {
+    "click": "#setups-save"
+  },
+  {
+    "expect": "__until(()=>setupsPending==='write' && typeof __wrWriteGate.release==='function')",
+    "fatal": true
+  },
+  {
+    "key": "Escape"
+  },
+  {
+    "key": "Escape"
+  },
+  {
+    "eval": "if(els.setupsDialog.open)els.setupsDialog.close();"
+  },
+  {
+    "expect": "__until(()=>!els.setupsDialog.open && setupsPending==='write')"
+  },
+  {
+    "eval": "__wrWriteGate.release();"
+  },
+  {
+    "expect": "__until(()=>setupsItems.length===4 && setupsSelected?.name==='Late reply setup' && !setupsPending)"
+  },
+  {
+    "expect": "!els.setupsDialog.open && __wrCalls.filter(call=>call.method==='POST'&&call.path.endsWith('/validate')).length===__wrValidatesBefore"
+  },
+  {
+    "click": "#btn-examples"
+  },
+  {
+    "click": "#setups-menu-item"
+  },
+  {
+    "expect": "__until(()=>els.setupsDialog.open && setupsReady && !setupsPending)",
+    "fatal": true
+  },
+  {
+    "expect": "els.setupsReload.getAttribute('aria-disabled')==='false' && !els.setupsStatus.textContent.includes('Wait for') && __wrCount('POST','/api/presets')===__wrLateSetupBefore+1"
+  },
+  {
+    "expect": "__until(async()=>{const saved=await __wrBaseApi('/api/presets');return saved.items.filter(item=>item.name==='Late reply setup').length===1&&saved.items.length===4;})"
+  },
+  {
+    "click": "#setups-close"
+  },
+  {
+    "expect": "__until(()=>!els.setupsDialog.open && document.activeElement===els.examplesBtn)"
+  },
+  {
     "expect": "__wrErrors.length===0 && setupComposerState()===__wrComposer"
   },
   {

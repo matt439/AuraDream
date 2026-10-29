@@ -62,7 +62,7 @@ real defects first among equals.
 | `PA#12`, `UI#32`, `UI#33`, `GEN#33`, `GEN#34`, `GAL#23`, `GEN#36`, `GEN#38`, `UI#38` | OPEN | [review-2026-10-29-backlog.md](review-2026-10-29-backlog.md) |
 | `GEN#35`, `GEN#37` Then refine follow-ons | OPEN | [plan-then-refine.md](plan-then-refine.md) |
 | `UI#34` Compare scales | OPEN | [plan-size-axis-crop-anchor.md](plan-size-axis-crop-anchor.md#compare-scales-in-the-refine-dialog) |
-| `UI#35` close-watcher holds | OPEN | [review-2026-10-29-close-watcher.md](review-2026-10-29-close-watcher.md) |
+| `UI#35` close-watcher holds | Done 2026-10-30 | [review-2026-10-29-close-watcher.md](review-2026-10-29-close-watcher.md) |
 | `UI#36` prompt route key | OPEN | [plan-shortcut-workflow.md](plan-shortcut-workflow.md#stage-4-prompt-route) |
 | `UI#37` Pick this run, `GAL#24` bin age | OPEN | [review-2026-10-12.md](review-2026-10-12.md) F19 and F5 follow-ups |
 | `DEV#20`, `DEV#22`, `DEV#23` card-session tools | OPEN | [plan-card-harness.md](plan-card-harness.md) |

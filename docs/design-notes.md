@@ -8078,7 +8078,10 @@ revisions refuse stale edits or deletes, and malformed/newer files stay
 untouched. The API bypasses gallery maintenance admission, so bundling does
 not take away prompt snippets. Only opening the dialog reads the list.
 Pending writes hold Close; a queued close event cannot invalidate a reopened
-dialog. Insertion uses `rewriteBox` to preserve page scroll and native Undo;
+dialog. Chrome lets a repeated Escape close a held dialog anyway, so a close
+retires reads but keeps a pending write's hold. Only the write's own reply
+clears it, so a reopened dialog cannot send the write a second time (`UI#35`,
+which applies the same rule to Saved setups). Insertion uses `rewriteBox` to preserve page scroll and native Undo;
 the browser harness sends Ctrl+Z's physical key code to exercise that native
 history rather than an application key handler.
 

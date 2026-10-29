@@ -1,10 +1,11 @@
 # Review: close-watcher holds in the saved-library dialogs
 
-**Status:** `UI#35` OPEN, recorded 2026-10-29 from the TODO audit of that
-date. Nothing here is built. Every defect below was traced in the current
-source with a concrete failure sequence; none has yet been reproduced in a
-browser. Stage 1 starts each fix by reproducing its defect on the original
-source.
+**Status:** `UI#35` built and browser-checked on 2026-10-30; complete.
+Recorded 2026-10-29 from the TODO audit of that date. All three stages are
+done: the six fixes, their smoke steps and pytest scenarios, and the
+documents. The evidence is in
+[Qualification, 2026-10-30](#qualification-2026-10-30). The file:line
+references below describe the source before the fixes.
 
 ## Background: the second Escape
 
@@ -295,3 +296,60 @@ row.
 
 No stage needs the card, the real gallery or downloads. This is
 browser-only UI state, checked on the fake server.
+
+## Qualification, 2026-10-30
+
+Built on the fake server and in headless Chrome on Windows; no card, real
+gallery or download was used.
+
+**What changed.**
+
+- `web/snippet-import.js` takes setup-import.js's three fixes. A1: the
+  import dialog's `close` handler leaves a pending commit's ticket and busy
+  state alone. A refused or uncertain reply that lands after the dialog has
+  shut is also reported in the Snippets status. A2: `snippetImportIncoming`
+  keeps, per file index, the latest row previewed under the file item's own
+  name. The heading, saved matches, Add/Replace, replacement targets and the
+  client hold are drawn from it. A3: the rows redrawn by a refreshing Preview
+  are held at once. A reply whose request body no longer matches the current
+  choices is ignored with "Choices changed. Preview again before importing."
+- `web/prompt-snippets.js` (`snippetsClosed`) and the Saved setups `close`
+  handler in `web/generation-presets.js` retire reads and validations but
+  leave a pending `'write'` in place. `checkSetup` does nothing while Saved
+  setups is closed, so a write reply that lands then selects the new item
+  without starting a validation (B3).
+- When a reopened dialog's opening read is refused, the refusal now calls
+  `syncSnippets()` / `syncSetups()` once, so the held buttons show the
+  existing reasons. No control, text or height was added.
+
+**Smokes.** `smoke-snippet-portability` grew from 183 steps to 245 (110
+expectations, 8 fatal prerequisites). The existing held-commit section now
+presses Escape twice and checks the commit and the parent's hold. New
+sections at the end cover a forced close with a lost reply (A1), a
+previewed Add-as-copy row (A2) and a refreshing Preview gated in flight
+(A3). `smoke-library-write-recovery` grew from 221 steps to 288 (125
+expectations, 8 fatal). New sections force-close Snippets and then Saved
+setups during a gated Create, and reopen each one. Save stays held with its
+reason, and exactly one item exists on the server after the reply. A third
+section lets a Save current reply land while Saved setups is closed, and
+then checks that no validation was sent and that Reload is available after
+the reopen (B3). Both smokes passed on Windows in 17 s and 31 s. In both,
+the real second Escape closed the dialog, so the `dialog.close()` fallback
+was not needed.
+
+**Reproduction.** Taken while Matt was away (2026-10-29), revisit if
+wanted: the stages asked for each defect to be reproduced on the original
+source before its fix. Instead, every fix was reverted alone, with the other
+five in place, and the smoke and pytest were run against that tree. Each
+reversal failed its own steps: A1 at the forced-close expectation (and every
+later commit check), A2 at the copy-row heading/Replace check, A3 at the
+held-rows check and the "Choices changed" reply, B1 and B2 at the reopened
+Save hold and the single-POST count, and B3 at `!setupsPending` after the
+closed-dialog reply. The new scenarios in
+`tests/test_close_watcher_holds.py` (9 scenarios, run in Node `vm` over the
+actual modules) failed the same way.
+
+**Also passed:** `smoke-snippets`, `smoke-saved-name-unicode`,
+`smoke-generation-presets`, `smoke-setup-list-recovery` and
+`smoke-setup-portability`, plus ruff, the pinned type gate and the full
+`pytest -n auto`.

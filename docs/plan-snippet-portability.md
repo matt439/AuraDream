@@ -4,6 +4,10 @@
 from the [TODO audit](review-2026-10-28-todo.md). This extends the completed
 [personal snippet feature](plan-prompt-snippets.md); its implementation and
 acceptance are CPU/browser work, without a model or GPU run.
+On 2026-10-30, `UI#35` fixed the import dialog's close-watcher defects
+(forced close during a commit, Add-as-copy rows, refreshing Preview) and
+the Snippets dialog's forced-close write hold. The smoke now has 245 steps;
+see [the close-watcher review](review-2026-10-29-close-watcher.md#qualification-2026-10-30).
 
 ## Purpose and current boundary
 

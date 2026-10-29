@@ -8,6 +8,11 @@ let snippetImportFile = null;
 let snippetImportRaw = null;
 let snippetImportChoices = [];
 let snippetImportRows = [];
+// Per file index, the latest server row that describes the file item under its
+// own name. A previewed Add as copy row is matched under its copy name, so it
+// never replaces this: Add/Replace, saved matches and the heading keep the
+// file item's real collision.
+let snippetImportIncoming = new Map();
 let snippetImportShown = null;
 let snippetImportBusy = null;
 let snippetImportTicket = 0;
@@ -38,7 +43,7 @@ function snippetImportChoiceReason() {
   for (const choice of snippetImportChoices) {
     if (snippetImportCopyConfirm.has(choice.index)) return `Choose the action again for file item #${choice.index + 1}; its previous Add as copy may already have been saved.`;
     if (!['add', 'copy', 'replace', 'skip'].includes(choice.action)) return `Choose an action for file item #${choice.index + 1}.`;
-    const row = snippetImportRows.find((entry) => entry.index === choice.index);
+    const row = snippetImportIncomingRow(choice.index);
     if (choice.action === 'add' && row?.matches.length) return `Snippet #${choice.index + 1} now has a saved name match. Choose Skip, Add as copy or Replace.`;
     if (choice.action === 'replace' && !row?.matches.some((item) => item.id === choice.item_id && item.revision === choice.revision)) {
       return `Choose the saved snippet to replace for file item #${choice.index + 1}.`;
@@ -46,6 +51,10 @@ function snippetImportChoiceReason() {
     if (choice.action === 'copy' && (!choice.name?.trim() || Array.from(choice.name).length > 80)) return `Give copy #${choice.index + 1} a name of 1-80 characters.`;
   }
   return '';
+}
+
+function snippetImportIncomingRow(index) {
+  return snippetImportIncoming.get(index) ?? snippetImportRows.find((entry) => entry.index === index);
 }
 
 function snippetImportReason() {
@@ -89,13 +98,16 @@ function snippetImportNode(tag, text, className = '') {
 
 function renderSnippetImport(shown, keepChoices = false) {
   snippetImportRows = shown.rows;
+  for (const row of shown.rows) if (row.action !== 'copy' || !snippetImportIncoming.has(row.index)) snippetImportIncoming.set(row.index, row);
   if (!keepChoices) snippetImportChoices = shown.rows.map((row) => ({
     index: row.index, action: row.action,
     ...(row.action === 'copy' ? { name: row.snippet.name } : {}),
     ...(row.action === 'replace' ? { item_id: row.item_id, revision: row.revision } : {}),
   }));
   snippetImportEls.rows.replaceChildren();
-  for (const row of shown.rows) {
+  for (const shownRow of shown.rows) {
+    // Same index, text and target; only the copy name may differ.
+    const row = { ...snippetImportIncomingRow(shownRow.index), incoming_collisions: shownRow.incoming_collisions };
     const choice = snippetImportChoices.find((entry) => entry.index === row.index);
     const section = snippetImportNode('section', undefined, 'snippet-import-row');
     section.dataset.index = String(row.index);
@@ -181,13 +193,17 @@ async function previewSnippetImport() {
         body: '{"payload":' + snippetImportRaw + ',"decisions":[]}',
       });
       if (!current()) return;
-      renderSnippetImport(defaults, true); snippetImportNeedsReload = false;
+      // The redrawn rows start enabled: hold them again until the reply.
+      renderSnippetImport(defaults, true); snippetImportNeedsReload = false; syncSnippetPortability();
       if (snippetImportChoiceReason()) { snippetImportSay(snippetImportChoiceReason(), true); return; }
     }
+    const body = snippetImportEnvelope();
     const shown = await api('/api/snippets/import/preview', {
-      method: 'POST', headers: { 'Content-Type': 'application/json' }, body: snippetImportEnvelope(),
+      method: 'POST', headers: { 'Content-Type': 'application/json' }, body,
     });
     if (!current()) return;
+    // Never let a reply overwrite choices made after its request was sent.
+    if (snippetImportEnvelope() !== body) { snippetImportSay('Choices changed. Preview again before importing.', true); return; }
     snippetImportShown = shown; renderSnippetImport(shown);
     snippetImportSay(shown.can_import ? 'Review every choice. Import saves this merge; your prompt boxes stay unchanged.' : shown.reason);
   } catch (err) {
@@ -202,7 +218,7 @@ async function previewSnippetImport() {
 async function openSnippetImport(file) {
   if (snippetImportBusy === 'commit' || !file || !els.snippetsDialog.open) return;
   const ticket = ++snippetImportTicket;
-  snippetImportFile = file; snippetImportRaw = null; snippetImportChoices = []; snippetImportRows = [];
+  snippetImportFile = file; snippetImportRaw = null; snippetImportChoices = []; snippetImportRows = []; snippetImportIncoming = new Map();
   snippetImportCopyConfirm.clear();
   snippetImportShown = null; snippetImportNeedsReload = false; snippetImportBusy = 'file';
   snippetImportEls.filename.textContent = file.name;
@@ -256,8 +272,14 @@ async function commitSnippetImport() {
     if (!err.status || err.status >= 500) {
       for (const choice of snippetImportChoices) if (choice.action === 'copy') snippetImportCopyConfirm.add(choice.index);
     }
-    snippetImportSay(err.status && err.status < 500 ? `Import was refused: ${err.message} Preview again before importing.`
+    const refused = err.status && err.status < 500;
+    snippetImportSay(refused ? `Import was refused: ${err.message} Preview again before importing.`
       : 'Import result is uncertain. Preview again to reload the saved list and inspect what was saved; do not resend this import.', true);
+    // A forced close leaves the commit running; its answer goes to Snippets.
+    if (!snippetImportEls.dialog.open) {
+      snippetSay(refused ? `Import was refused: ${err.message} Nothing was imported.`
+        : 'Import result is uncertain. Reload the list to inspect what was saved; do not resend that import.', true);
+    }
   } finally {
     if (ticket === snippetImportTicket) { snippetImportBusy = null; snippetsPending = null; syncSnippets(); syncSnippetPortability(); }
   }
@@ -306,7 +328,10 @@ function initSnippetImport() {
   });
   snippetImportEls.dialog.addEventListener('close', () => {
     if (snippetImportEls.dialog.open) return;
-    ++snippetImportTicket; snippetImportBusy = null;
+    // A repeated Escape may close the dialog despite the held cancel (Chrome's
+    // close-watcher rule). A pending commit keeps its ticket: its reply still
+    // updates the list, clears the parent's write hold or records uncertainty.
+    if (snippetImportBusy !== 'commit') { ++snippetImportTicket; snippetImportBusy = null; }
     if (els.snippetsDialog.open) snippetImportEls.open.focus({ preventScroll: true });
     syncSnippetPortability();
   });
