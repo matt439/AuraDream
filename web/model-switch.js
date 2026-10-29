@@ -727,6 +727,9 @@ function revertModelPicker() {
 }
 
 function modelPickerEdited(key, { catalogue = false } = {}) {
+  // A choice made in the picker outranks an Open Models… still waiting on
+  // its catalogue, which would otherwise choose its row over this one.
+  modelPickerPointAt = null;
   modelPickerEditedKeys.add(key);
   if (key === 'compilation' || key === 'attention') {
     acceptLoaderChoice(key);
@@ -1031,6 +1034,9 @@ async function refreshModelCatalogue({ current = false } = {}) {
     if (epoch !== modelCatalogueEpoch) return;
     modelSwitchError = err.message;
     modelCatalogueLoaded = false;
+    // The opening's catalogue did not answer: a later retry never moves the
+    // choice, or the picker's body, by itself.
+    modelPickerPointAt = null;
     modelCatalogueFailedAt = Date.now();
   } finally {
     if (epoch === modelCatalogueEpoch) {

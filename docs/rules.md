@@ -897,8 +897,9 @@ Model and loader:
   picker and, once its catalogue has answered (`pointModelPicker`, from
   `refreshModelCatalogue`'s end), chooses that row as an unsaved choice,
   focuses its radio and scrolls it into the body's view. It never switches;
-  an unlisted row leaves the choice as it was, and any other opening clears
-  the request.
+  an unlisted row leaves the choice as it was, and any other opening, a
+  choice made in the picker meanwhile (`modelPickerEdited`) or a catalogue
+  that fails clears the request, so a later answer never moves the choice.
 - Quantization and offload descriptions live in `loader_choices.py` and are
   shared by the menu and the picker; only figures true of every catalogue
   checkpoint go there, and no unmeasured quality claim (INT8 is "the same

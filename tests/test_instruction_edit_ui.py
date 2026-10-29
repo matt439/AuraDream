@@ -8,6 +8,7 @@ from __future__ import annotations
 
 import shutil
 import subprocess
+import tempfile
 from pathlib import Path
 
 
@@ -159,12 +160,17 @@ load('instruction-edit.js');
 
 
 def _node(source: str, harness: str = HARNESS) -> None:
+    # Run from a script file, never a long inline `node -e`, which Defender
+    # has blocked before (ee976f2); the file goes in a fresh temporary folder.
     node = shutil.which("node")
     assert node is not None, "Node is required for classic-script source checks"
-    done = subprocess.run(
-        [node, "-e", harness + source], cwd=ROOT, capture_output=True,
-        text=True, encoding="utf-8", timeout=20,
-    )
+    with tempfile.TemporaryDirectory() as folder:
+        script = Path(folder) / "instruction_edit_ui.cjs"
+        script.write_text(harness + source, encoding="utf-8")
+        done = subprocess.run(
+            [node, str(script)], cwd=ROOT, capture_output=True,
+            text=True, encoding="utf-8", timeout=20,
+        )
     assert done.returncode == 0, done.stdout + done.stderr
 
 
