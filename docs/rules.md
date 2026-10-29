@@ -5386,7 +5386,15 @@ Frontend and CLI:
   Enter or on the picker's blur (`commitRunList`); Escape puts back the run
   shown. Closed, it is `--runs-w` wide (190 px; `clamp(240px, 14vw, 360px)`
   from 1800 px), cut with an ellipsis, and `syncRunList` puts the picked
-  run's whole label in its title ("Recent runs" otherwise). A label's
+  run's whole label in its title ("Recent runs" otherwise). A new model,
+  revision, All-models or known-server context clears old Runs options and
+  keyboard candidates while `Loading runs…`; a current failure offers
+  `Runs unavailable` with `Retry loading runs` inside the same select.
+  Same-context useful options survive a failed refresh. Retry commits only
+  through deliberate selection/Enter/blur, never focus or an automatic loop;
+  bin holds and latest-response guards apply to both run and retry choices.
+  [The Runs recovery review](review-2026-10-28-runs-scope-recovery.md) owns
+  actual-handler and fresh native qualification. A label's
   prompt is `promptGist`'s, one line with an XML prompt's tags dropped,
   before `clip`.
 - Search terms are `key:value` predicates plus FTS text; `date:` is a local
@@ -7225,6 +7233,15 @@ Check's no-order note without "its guide states none"), CLIP budget, saved ident
 uv run python tools/fake_server.py --port 7891 --model Laxhar/noobai-XL-Vpred-1.0
 node tools/browser.mjs tools/smoke-noobai.json
 ```
+
+`smoke-runs-scope-recovery.json` uses a fresh FLUX.1 Krea [dev] fake on
+7947 and its two actual other-model planted images. GET-only actual Runs
+responses, held success and declared HTTP500 refusals check scope waiting,
+deliberate native retry, keyboard candidates, obsolete responses and bin
+holds. It creates no jobs or model/data mutations; new wide/narrow shots
+need inspection. `tests/test_runs_scope_recovery.py` checks actual Runs
+handlers with inert presentation/deferred-read ports. The dated review owns
+the exact evidence boundary and clearly labeled programmatic supplements.
 
 `smoke-refine.json` checks the Refine dialog on a FLUX.1 Krea [dev] fake on
 7875, whose refine cells are the source image under a stamp: no refine

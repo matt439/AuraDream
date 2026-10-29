@@ -6510,6 +6510,13 @@ label was cut mid-word. The open list is as wide as its labels need. A
 label's prompt is `promptGist`'s, one line with an XML prompt's tags dropped,
 before `clip` (The browser's queue).
 
+`GAL#18` gives the Runs list a current-context read owner and deliberate
+in-picker retry. New model/revision/All-models/known-server contexts remove
+old options and keyboard candidates before waiting; same-context useful
+options survive refresh failure. Retry is a marked Option, not a run-id
+sentinel. [The scope-recovery review](review-2026-10-28-runs-scope-recovery.md)
+owns the lifecycle contract and separate VM/native qualification.
+
 **Browsing the closed picker opens nothing** (2026-10-05). On Windows the
 arrows change a closed select at each press, and each change opened that
 run's sheet - a 1024-image gallery fetch and a scroll of the page - so reaching

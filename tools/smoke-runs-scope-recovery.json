@@ -1,0 +1,301 @@
+[
+  {
+    "log": "\"Runs scope recovery: new fresh FLUX fake on 7947. Its two actual other-model rows form the real run 'planted'. This fixture submits no jobs and performs no data/model mutation: actual Runs GET responses are held or replaced by explicitly declared controlled 500 read refusals. Original native All models handler supplies the negative control.\""
+  },
+  {
+    "navigate": "http://127.0.0.1:7947/"
+  },
+  {
+    "viewport": [
+      1400,
+      1000
+    ]
+  },
+  {
+    "expect": "(async () => {\n  const until = async (fn, ms = 20000) => {\n    const end = Date.now() + ms;\n    while (Date.now() < end) {\n      if (await fn()) return true;\n      await new Promise(resolve => setTimeout(resolve, 40));\n    }\n    return false;\n  };\n  if (!await until(() => loadedModel === 'black-forest-labs/FLUX.1-Krea-dev'\n      && !els.allModels.checked && !galleryPending && !jobListing && !submitting\n      && els.runList.disabled && els.runList.options[0]?.textContent === 'No runs yet')) {\n    throw Error('fresh current-scope Runs list did not finish its ordinary empty response');\n  }\n  const q = window.__runsScope = {\n    until, gates: [], loads: [], calls: [], changes: [], errors: [], forbidden: [],\n    runRequests: [], reads: [], activeChange: null,\n  };\n  q.assert = (value, why) => { if (!value) throw Error(why); };\n  q.native = window.fetch.bind(window);\n  q.read = async path => {\n    q.assert(typeof path === 'string' && path.startsWith('/api/'), 'fixture read escaped the API');\n    q.reads.push(path);\n    const response = await q.native(path);\n    q.assert(response.ok, 'actual fixture GET failed: ' + path + ' ' + response.status);\n    return response.json();\n  };\n  q.visible = element => {\n    const rect = element.getBoundingClientRect();\n    return rect.width > 0 && rect.height > 0 && rect.top >= 0 && rect.bottom <= innerHeight;\n  };\n  q.reveal = element => element.scrollIntoView({ block: 'center', inline: 'nearest' });\n  q.focusRuns = () => {\n    q.reveal(els.runList);\n    els.runList.focus({ preventScroll: true });\n    q.assert(document.activeElement === els.runList && q.visible(els.runList), 'native Runs focus prerequisite failed');\n  };\n  q.retry = () => [...els.runList.options].find(option => option.textContent === 'Retry loading runs');\n  q.selected = () => els.runList.selectedOptions[0]?.textContent ?? '';\n  q.list = () => JSON.stringify({\n    disabled: els.runList.disabled, value: els.runList.value, title: els.runList.title,\n    options: [...els.runList.options].map(option => ({\n      value: option.value, text: option.textContent, disabled: option.disabled, hidden: option.hidden,\n    })),\n  });\n  q.view = () => JSON.stringify({\n    composer: setupComposerState(), search: els.search.value, sheet: sheetMode,\n    picks: selectedIds(),\n  });\n  q.note = () => JSON.stringify({ text: els.galleryError.textContent, hidden: els.galleryError.hidden });\n  q.arm = (name, allModels, mode) => {\n    q.assert(!q.gates.some(gate => gate.name === name), 'duplicate response gate');\n    q.assert(['hold-pass', 'hold-500', 'pass'].includes(mode), 'unknown response gate mode');\n    const gate = { name, allModels, mode, seen: 0, ready: false, delivered: false,\n      released: mode === 'pass', detail: 'Declared Runs read refusal: ' + name };\n    gate.wait = new Promise(resolve => { gate.release = () => { gate.released = true; resolve(); }; });\n    q.gates.push(gate);\n    return gate;\n  };\n  q.gate = name => {\n    const gate = q.gates.find(item => item.name === name);\n    q.assert(!!gate, 'response gate does not exist: ' + name);\n    return gate;\n  };\n  q.ready = async name => {\n    const gate = q.gate(name);\n    q.assert(await until(() => gate.ready || gate.error), 'Runs GET did not reach its response boundary: ' + name);\n    q.assert(!gate.error && gate.seen === 1 && gate.actualStatus === 200, 'actual Runs GET setup failed: ' + name);\n    q.assert(gate.load && gate.load.allModels === gate.allModels, 'gate was not reached through actual loadRuns');\n    const ids = gate.actual.map(run => run.run_id);\n    q.assert(gate.allModels ? ids.length === 1 && ids[0] === q.foreignRun : ids.length === 0,\n      'gate body is not the actual isolated server scope: ' + name);\n    return gate;\n  };\n  q.done = async name => {\n    const gate = q.gate(name);\n    q.assert(await until(() => gate.delivered && gate.load?.done), 'original Runs handler did not settle: ' + name);\n    q.assert(!gate.error && !gate.load.error, 'unexpected Runs failure escaped normal recovery');\n  };\n  q.releaseDone = async name => {\n    const gate = await q.ready(name);\n    gate.release();\n    await q.done(name);\n  };\n  q.gatesClear = () => q.gates.every(gate => gate.seen === 1 && gate.ready && gate.delivered\n    && gate.released && gate.load?.done && !gate.error && !gate.load.error);\n  addEventListener('error', event => q.errors.push(String(event.error?.stack ?? event.message)));\n  addEventListener('unhandledrejection', event => q.errors.push(String(event.reason?.stack ?? event.reason)));\n  const originalLoad = loadRuns;\n  loadRuns = function (...args) {\n    const entry = { allModels: els.allModels.checked, model: loadedModel, revision: modelRevision,\n      change: q.activeChange, done: false };\n    q.loads.push(entry);\n    const prior = q.dispatchLoad;\n    q.dispatchLoad = entry;\n    let promise;\n    try { promise = originalLoad.apply(this, args); }\n    finally { q.dispatchLoad = prior; }\n    Promise.resolve(promise).then(() => { entry.done = true; }, error => {\n      entry.error = String(error?.stack ?? error); entry.done = true;\n    });\n    return promise;\n  };\n  const originalShow = showRun;\n  showRun = function (...args) { q.calls.push(args[0]); return originalShow.apply(this, args); };\n  const originalChange = els.allModels.onchange;\n  els.allModels.onchange = function (...args) {\n    const record = { allModels: this.checked, trusted: args[0]?.isTrusted === true };\n    q.changes.push(record);\n    const prior = q.activeChange;\n    q.activeChange = record;\n    try { return originalChange.apply(this, args); }\n    finally { q.activeChange = prior; }\n  };\n  window.fetch = async (input, options) => {\n    const url = new URL(typeof input === 'string' ? input : input.url, location.href);\n    const method = String(options?.method ?? (typeof input === 'string' ? 'GET' : input.method) ?? 'GET').toUpperCase();\n    if (url.origin !== location.origin || method !== 'GET') {\n      q.forbidden.push({ method, url: url.href });\n      return new Response(JSON.stringify({ detail: 'This read-only Runs fixture refuses mutations or foreign requests' }),\n        { status: 409, headers: { 'Content-Type': 'application/json' } });\n    }\n    if (url.pathname !== '/api/runs') return q.native(input, options);\n    const allModels = url.searchParams.get('all_models') === 'true';\n    q.runRequests.push({ allModels, url: url.pathname + url.search });\n    const gate = q.gates.find(item => !item.seen && item.allModels === allModels);\n    if (!gate) return q.native(input, options);\n    gate.seen++;\n    gate.load = q.dispatchLoad;\n    try {\n      const response = await q.native(input, options);\n      gate.actualStatus = response.status;\n      gate.actual = await response.clone().json();\n      gate.ready = true;\n      if (!gate.released) await gate.wait;\n      gate.delivered = true;\n      return gate.mode === 'hold-500' ? new Response(JSON.stringify({ detail: gate.detail }),\n        { status: 500, headers: { 'Content-Type': 'application/json' } }) : response;\n    } catch (error) {\n      gate.error = String(error?.stack ?? error);\n      throw error;\n    }\n  };\n  const gallery = await q.read('/api/gallery?all_models=true&limit=20');\n  const runs = await q.read('/api/runs?all_models=true&limit=200');\n  const active = await q.read('/api/jobs');\n  const history = await q.read('/api/jobs?include_finished=true');\n  const backup = await q.read('/api/gallery/automatic-backup');\n  q.assert(gallery.total === 2 && gallery.items.length === 2\n    && gallery.items.every(row => row.job_id === 'planted' && row.run_id === 'planted'\n      && row.model_id !== loadedModel), 'fresh fixture is not the two actual other-model planted rows');\n  q.assert(runs.length === 1 && runs[0].run_id === 'planted' && runs[0].images === 2\n    && runs[0].favorites === 1 && runs[0].model_id !== loadedModel, 'actual planted run summary is missing');\n  q.assert(active.length === 0 && history.length === 0 && !busy && !submitting\n    && !currentJob && queuedIds.length === 0 && submissions.size === 0, 'read-only fixture started with work');\n  q.assert(backup.enabled === false && backup.credential_configured === false\n    && backup.credential_state === 'not_configured', 'fresh backup metadata is not cold');\n  q.foreignRun = runs[0].run_id;\n  q.planted = JSON.stringify(gallery.items);\n  q.before = q.view();\n  q.noteBefore = q.note();\n  q.reveal(els.allModels);\n  return true;\n})()",
+    "fatal": true
+  },
+  {
+    "log": "\"Use native All models twice. The initial true response is the real planted run; the second current-scope GET is held. The first fatal negative control uses only existing public DOM state, before any future retry helper is needed.\""
+  },
+  {
+    "expect": "__runsScope.arm('show-all-initial', true, 'pass') && true",
+    "fatal": true
+  },
+  {
+    "click": "#all-models-label"
+  },
+  {
+    "expect": "(async () => {\n  const q = __runsScope;\n  await q.ready('show-all-initial'); await q.done('show-all-initial');\n  q.assert(els.allModels.checked && !els.runList.disabled\n    && [...els.runList.options].some(option => option.value === q.foreignRun), 'actual foreign run did not appear under All models');\n  q.assert(q.gate('show-all-initial').load.change?.trusted === true, 'setup did not use the native All models change');\n  q.assert(q.calls.length === 0 && q.view() === q.before, 'scope setup changed the composer/search/sheet/picks');\n  q.arm('new-current-failure', false, 'hold-500'); q.reveal(els.allModels);\n  return true;\n})()",
+    "fatal": true
+  },
+  {
+    "click": "#all-models-label"
+  },
+  {
+    "expect": "(async () => {\n  const q = __runsScope;\n  await q.ready('new-current-failure');\n  q.assert(q.gate('new-current-failure').load.change?.trusted === true && !els.allModels.checked,\n    'scope transition did not use the native All models change');\n  q.assert(![...els.runList.options].some(option => option.value === q.foreignRun),\n    'new scope still offers the old foreign run while its actual GET is pending');\n  q.assert(els.runList.disabled && q.selected() === 'Loading runs…' && runPending === null,\n    'new scope is not visibly unavailable while loading');\n  q.assert(q.calls.length === 0 && q.view() === q.before && q.note() === q.noteBefore,\n    'pending Runs scope changed another user context');\n  return true;\n})()",
+    "fatal": true
+  },
+  {
+    "expect": "(async () => {\n  const q = __runsScope; await q.releaseDone('new-current-failure');\n  q.assert(!els.runList.disabled && q.selected() === 'Runs unavailable' && q.retry()\n    && ![...els.runList.options].some(option => option.value === q.foreignRun), 'current failure did not offer a deliberate retry without stale options');\n  q.assert(q.view() === q.before && q.note() === q.noteBefore && q.calls.length === 0, 'current refusal rewrote another context');\n  q.focusRuns(); q.beforeRetryRequests = q.runRequests.length;\n  return true;\n})()",
+    "fatal": true
+  },
+  {
+    "shot": "runs-scope-unavailable-wide.png"
+  },
+  {
+    "wait": 180
+  },
+  {
+    "expect": "__runsScope.runRequests.length === __runsScope.beforeRetryRequests",
+    "fatal": true
+  },
+  {
+    "key": "ArrowDown",
+    "native": true
+  },
+  {
+    "expect": "__runsScope.selected() === 'Retry loading runs' && __runsScope.runRequests.length === __runsScope.beforeRetryRequests && __runsScope.calls.length === 0",
+    "fatal": true
+  },
+  {
+    "key": "Escape"
+  },
+  {
+    "expect": "__runsScope.selected() === 'Runs unavailable' && __runsScope.runRequests.length === __runsScope.beforeRetryRequests && __runsScope.calls.length === 0",
+    "fatal": true
+  },
+  {
+    "expect": "__runsScope.arm('retry-current-enter', false, 'hold-pass') && true",
+    "fatal": true
+  },
+  {
+    "key": "ArrowDown",
+    "native": true
+  },
+  {
+    "expect": "__runsScope.selected() === 'Retry loading runs' && __runsScope.runRequests.length === __runsScope.beforeRetryRequests",
+    "fatal": true
+  },
+  {
+    "key": "Enter",
+    "native": true
+  },
+  {
+    "expect": "(async () => {\n  const q = __runsScope; await q.ready('retry-current-enter');\n  q.assert(q.runRequests.length === q.beforeRetryRequests + 1 && els.runList.disabled\n    && q.selected() === 'Loading runs…' && !q.retry(), 'one Enter did not start exactly one current read');\n  q.assert(q.calls.length === 0 && q.view() === q.before, 'Retry was routed as a run or changed the draft');\n  return true;\n})()",
+    "fatal": true
+  },
+  {
+    "key": "Enter",
+    "native": true,
+    "repeat": true
+  },
+  {
+    "expect": "__runsScope.runRequests.length === __runsScope.beforeRetryRequests + 1 && __runsScope.calls.length === 0",
+    "fatal": true
+  },
+  {
+    "expect": "(async () => {\n  const q = __runsScope; await q.releaseDone('retry-current-enter');\n  q.assert(els.runList.disabled && q.selected() === 'No runs yet' && !q.retry(), 'successful empty-scope retry was not an ordinary empty list');\n  q.assert(q.view() === q.before && q.note() === q.noteBefore, 'successful retry changed another context');\n  q.arm('show-all-keyboard', true, 'pass'); q.reveal(els.allModels); return true;\n})()",
+    "fatal": true
+  },
+  {
+    "click": "#all-models-label"
+  },
+  {
+    "expect": "(async () => {\n  const q = __runsScope; await q.ready('show-all-keyboard'); await q.done('show-all-keyboard');\n  q.assert(els.allModels.checked && [...els.runList.options].some(option => option.value === q.foreignRun), 'foreign run did not return in its valid global scope');\n  q.focusRuns(); return true;\n})()",
+    "fatal": true
+  },
+  {
+    "key": "ArrowDown",
+    "native": true
+  },
+  {
+    "expect": "(() => {\n  const q = __runsScope;\n  q.assert(els.runList.value === q.foreignRun && runPending === q.foreignRun && q.calls.length === 0, 'native browse did not leave the run pending without opening it');\n  q.pendingOption = [...els.runList.options].find(option => option.value === q.foreignRun);\n  q.arm('same-scope-success', true, 'hold-pass'); void loadRuns(); return true;\n})()",
+    "fatal": true
+  },
+  {
+    "expect": "(async () => {\n  const q = __runsScope; await q.ready('same-scope-success');\n  q.assert(!els.runList.disabled && els.runList.value === q.foreignRun && runPending === q.foreignRun,\n    'same-scope loading discarded useful options or keyboard pending run');\n  await q.releaseDone('same-scope-success');\n  q.assert(els.runList.value === q.foreignRun && runPending === q.foreignRun && q.calls.length === 0,\n    'same-scope success opened or lost the pending run');\n  q.pendingOption = [...els.runList.options].find(option => option.value === q.foreignRun);\n  q.arm('same-scope-failure', true, 'hold-500'); void loadRuns(); return true;\n})()",
+    "fatal": true
+  },
+  {
+    "expect": "(async () => {\n  const q = __runsScope; await q.ready('same-scope-failure'); await q.releaseDone('same-scope-failure');\n  q.assert(!els.runList.disabled && q.retry() && runPending === q.foreignRun && els.runList.value === q.foreignRun\n    && [...els.runList.options].includes(q.pendingOption), 'same-scope refusal rebuilt or lost useful native options/pending choice');\n  q.assert(/retry|failed|could not|unavailable/i.test(els.runList.title), 'retained list title does not disclose failed refresh');\n  q.beforeBlurRequests = q.runRequests.length;\n  return true;\n})()",
+    "fatal": true
+  },
+  {
+    "key": "Escape"
+  },
+  {
+    "expect": "runPending === null && __runsScope.calls.length === 0 && __runsScope.runRequests.length === __runsScope.beforeBlurRequests",
+    "fatal": true
+  },
+  {
+    "key": "ArrowDown",
+    "native": true
+  },
+  {
+    "expect": "els.runList.value === __runsScope.foreignRun && runPending === __runsScope.foreignRun && __runsScope.runRequests.length === __runsScope.beforeBlurRequests",
+    "fatal": true
+  },
+  {
+    "key": "ArrowDown",
+    "native": true
+  },
+  {
+    "expect": "__runsScope.selected() === 'Retry loading runs' && __runsScope.runRequests.length === __runsScope.beforeBlurRequests && __runsScope.calls.length === 0",
+    "fatal": true
+  },
+  {
+    "expect": "__runsScope.arm('retry-all-blur', true, 'hold-pass') && true",
+    "fatal": true
+  },
+  {
+    "click": "#search"
+  },
+  {
+    "expect": "(async () => {\n  const q = __runsScope; await q.ready('retry-all-blur');\n  q.assert(q.runRequests.length === q.beforeBlurRequests + 1 && q.calls.length === 0\n    && !q.retry() && q.view() === q.before, 'native blur did not commit exactly one deliberate retry');\n  await q.releaseDone('retry-all-blur');\n  q.assert(!els.runList.disabled && !q.retry() && runPending === null\n    && [...els.runList.options].some(option => option.value === q.foreignRun), 'retry did not restore the ordinary grouped Runs list');\n  return true;\n})()",
+    "fatal": true
+  },
+  {
+    "log": "\"Two read-only races: an older global success, then an older controlled global failure, settle after newer actual empty current-scope results. They must not replace that current list or add a retry action.\""
+  },
+  {
+    "expect": "__runsScope.arm('old-global-success', true, 'hold-pass') && (void loadRuns(), true)",
+    "fatal": true
+  },
+  {
+    "expect": "__runsScope.ready('old-global-success').then(() => { __runsScope.arm('new-current-success', false, 'hold-pass'); __runsScope.reveal(els.allModels); return true; })",
+    "fatal": true
+  },
+  {
+    "click": "#all-models-label"
+  },
+  {
+    "expect": "(async () => {\n  const q = __runsScope; await q.ready('new-current-success'); await q.releaseDone('new-current-success');\n  q.assert(!els.allModels.checked && els.runList.disabled && q.selected() === 'No runs yet', 'new current success did not win');\n  const before = q.list(); await q.releaseDone('old-global-success');\n  q.assert(q.list() === before && !q.retry(), 'obsolete global success replaced current-scope options');\n  q.arm('old-global-failure', true, 'hold-500'); q.reveal(els.allModels); return true;\n})()",
+    "fatal": true
+  },
+  {
+    "click": "#all-models-label"
+  },
+  {
+    "expect": "__runsScope.ready('old-global-failure').then(() => { __runsScope.arm('new-current-before-old-error', false, 'hold-pass'); __runsScope.reveal(els.allModels); return true; })",
+    "fatal": true
+  },
+  {
+    "click": "#all-models-label"
+  },
+  {
+    "expect": "(async () => {\n  const q = __runsScope; await q.ready('new-current-before-old-error'); await q.releaseDone('new-current-before-old-error');\n  const before = q.list(); await q.releaseDone('old-global-failure');\n  q.assert(q.list() === before && els.runList.disabled && q.selected() === 'No runs yet' && !q.retry(),\n    'obsolete global refusal changed the new current list');\n  q.assert(q.calls.length === 0 && q.view() === q.before && q.note() === q.noteBefore, 'late replies changed another context');\n  q.arm('show-all-before-external-change', true, 'pass'); q.reveal(els.allModels); return true;\n})()",
+    "fatal": true
+  },
+  {
+    "click": "#all-models-label"
+  },
+  {
+    "expect": "__runsScope.done('show-all-before-external-change').then(() => { __runsScope.focusRuns(); return true; })",
+    "fatal": true
+  },
+  {
+    "key": "ArrowDown",
+    "native": true
+  },
+  {
+    "expect": "els.runList.value === __runsScope.foreignRun && runPending === __runsScope.foreignRun && __runsScope.calls.length === 0",
+    "fatal": true
+  },
+  {
+    "log": "\"Declared event-order probe, separate from the native checkbox negative: programmatic checkbox click invokes the original onchange without first focusing that checkbox. The scope changes while the native Runs keyboard choice is pending; disabling the select may itself blur it. A following native click on Search must never commit that now-obsolete run. No native-checkbox claim is made for this probe.\""
+  },
+  {
+    "expect": "(() => {\n  const q = __runsScope;\n  q.assert(document.activeElement === els.runList && runPending === q.foreignRun && els.allModels.checked,\n    'external-scope probe lost its actual pending native run');\n  q.arm('external-scope-before-blur', false, 'hold-500');\n  els.allModels.click();\n  q.assert(!els.allModels.checked && runPending === null && q.calls.length === 0\n    && ![...els.runList.options].some(option => option.value === q.foreignRun),\n    'scope change did not retire the pending keyboard run before any real blur');\n  return true;\n})()",
+    "fatal": true
+  },
+  {
+    "click": "#search"
+  },
+  {
+    "expect": "(async () => {\n  const q = __runsScope; await q.ready('external-scope-before-blur');\n  q.assert(q.calls.length === 0 && q.view() === q.before && runPending === null, 'blur opened the obsolete run after its scope changed');\n  await q.releaseDone('external-scope-before-blur');\n  q.assert(!els.runList.disabled && q.selected() === 'Runs unavailable' && q.retry(), 'external-scope current error did not expose retry');\n  return true;\n})()",
+    "fatal": true
+  },
+  {
+    "viewport": [
+      600,
+      1000
+    ]
+  },
+  {
+    "expect": "(__runsScope.reveal(els.runList), __runsScope.visible(els.runList) && __runsScope.selected() === 'Runs unavailable')",
+    "fatal": true
+  },
+  {
+    "shot": "runs-scope-unavailable-narrow.png"
+  },
+  {
+    "log": "\"The recycle bin retains its existing hold. Native key capture and separately declared direct change/blur calls must not route the retry or a stale run through that hold.\""
+  },
+  {
+    "expect": "(__runsScope.beforeBinRequests = __runsScope.runRequests.length, __runsScope.reveal(els.bin), true)",
+    "fatal": true
+  },
+  {
+    "click": "#btn-bin"
+  },
+  {
+    "expect": "__runsScope.until(() => binMode && !galleryPending && els.runList.getAttribute('aria-disabled') === 'true').then(ok => { __runsScope.assert(ok, 'bin hold did not settle'); __runsScope.focusRuns(); return true; })",
+    "fatal": true
+  },
+  {
+    "key": "ArrowDown",
+    "native": true
+  },
+  {
+    "key": "Enter",
+    "native": true
+  },
+  {
+    "expect": "(() => {\n  const q = __runsScope;\n  q.assert(binMode && q.runRequests.length === q.beforeBinRequests && q.calls.length === 0,\n    'native bin-held Runs interaction issued a read/action');\n  const retry = q.retry(); q.assert(retry, 'retry action was lost while bin held');\n  // Explicit direct-handler supplement, not a native click claim.\n  retry.selected = true; runListChange(); commitRunList();\n  q.assert(binMode && q.runRequests.length === q.beforeBinRequests && q.calls.length === 0,\n    'direct Runs handler bypassed the bin hold');\n  q.reveal(els.bin); return true;\n})()",
+    "fatal": true
+  },
+  {
+    "click": "#btn-bin"
+  },
+  {
+    "expect": "__runsScope.until(() => !binMode && !galleryPending && els.runList.getAttribute('aria-disabled') !== 'true').then(ok => { __runsScope.assert(ok, 'leaving bin did not settle'); __runsScope.focusRuns(); __runsScope.beforeFinalRetry = __runsScope.runRequests.length; __runsScope.arm('final-current-retry', false, 'hold-pass'); return true; })",
+    "fatal": true
+  },
+  {
+    "key": "ArrowDown",
+    "native": true
+  },
+  {
+    "expect": "__runsScope.selected() === 'Retry loading runs' && __runsScope.runRequests.length === __runsScope.beforeFinalRetry",
+    "fatal": true
+  },
+  {
+    "key": "Enter",
+    "native": true
+  },
+  {
+    "expect": "(async () => {\n  const q = __runsScope; await q.ready('final-current-retry');\n  q.assert(q.runRequests.length === q.beforeFinalRetry + 1 && q.calls.length === 0, 'post-bin retry was not deliberate and once-only');\n  await q.releaseDone('final-current-retry');\n  q.assert(els.runList.disabled && q.selected() === 'No runs yet' && !q.retry() && runPending === null,\n    'final current list did not recover normally');\n  q.assert(q.view() === q.before, 'final recovery changed composer/search/sheet/picks');\n  return true;\n})()",
+    "fatal": true
+  },
+  {
+    "viewport": [
+      1400,
+      1000
+    ]
+  },
+  {
+    "expect": "(__runsScope.reveal(els.runList), __runsScope.visible(els.runList) && __runsScope.selected() === 'No runs yet')",
+    "fatal": true
+  },
+  {
+    "shot": "runs-scope-recovered-wide.png"
+  },
+  {
+    "expect": "(async () => {\n  const q = __runsScope;\n  q.assert(await q.until(() => q.loads.every(load => load.done)), 'an observed Runs handler is still pending');\n  const gallery = await q.read('/api/gallery?all_models=true&limit=20');\n  const active = await q.read('/api/jobs');\n  const history = await q.read('/api/jobs?include_finished=true');\n  const backup = await q.read('/api/gallery/automatic-backup');\n  q.assert(JSON.stringify(gallery.items) === q.planted && gallery.total === 2, 'actual planted gallery changed');\n  q.assert(active.length === 0 && history.length === 0 && !busy && !submitting && !currentJob\n    && queuedIds.length === 0 && submissions.size === 0, 'read-only Runs fixture retained work');\n  q.assert(backup.enabled === false && backup.credential_configured === false\n    && backup.credential_state === 'not_configured', 'backup state became active');\n  q.assert(q.gatesClear() && q.forbidden.length === 0 && q.errors.length === 0 && q.calls.length === 0,\n    'unused/pending response gates, forbidden operations, JS errors or unintended run opens remain');\n  q.assert(!els.allModels.checked && !binMode && q.view() === q.before, 'final intended context is wrong');\n  return true;\n})()",
+    "fatal": true
+  },
+  {
+    "log": "JSON.stringify({runsGates:__runsScope.gates.length,observedRunsCalls:__runsScope.loads.length,mutations:__runsScope.forbidden.length,jsErrors:__runsScope.errors.length,unintendedRunOpens:__runsScope.calls.length})"
+  }
+]

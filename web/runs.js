@@ -346,16 +346,89 @@ function runAxes(run) {
 }
 
 let runsEpoch = 0;
+let runsShownScope = null;
+let runsHaveList = false;
+let runsLoading = false;
+let runsFailed = false;
+
+function runsScope() {
+  return { model: loadedModel, revision: modelRevision, allModels: els.allModels.checked, server: serverStartedAt };
+}
+
+// A known identity is directional: it must still match. An unknown initial
+// identity can learn the first matching observation, then stops being a wildcard.
+function currentRunsScope(scope) {
+  if (!scope || scope.model !== loadedModel || scope.revision !== modelRevision
+      || scope.allModels !== els.allModels.checked
+      || (scope.server !== null && scope.server !== serverStartedAt)) return false;
+  if (scope.server === null && serverStartedAt !== null) scope.server = serverStartedAt;
+  return true;
+}
+
+const runsRetryOption = () => [...els.runList.options].find((option) => option.dataset.runsRetry === 'true');
+const realRunOption = (option) => !!option && [...els.runList.options].includes(option)
+  && !option.disabled && !!option.value && option.dataset.runsRetry !== 'true';
+const readyRunList = () => runsHaveList && currentRunsScope(runsShownScope);
+const readyRunsRetry = () => runsFailed && !runsLoading && currentRunsScope(runsShownScope) && !!runsRetryOption();
+
+function runListHead(label) {
+  els.runList.innerHTML = '';
+  const head = new Option(label, '');
+  head.disabled = head.hidden = true;
+  els.runList.append(head);
+}
+
+function removeRunsRetry() {
+  for (const option of [...els.runList.options]) if (option.dataset.runsRetry === 'true') option.remove();
+}
+
+function addRunsRetry() {
+  if (runsRetryOption()) return;
+  // The marker and selected option own this action. A real imported run may
+  // have this same value, so a value string alone must never mean Retry.
+  const option = new Option('Retry loading runs', '__runs_retry__');
+  option.dataset.runsRetry = 'true';
+  els.runList.append(option);
+}
+
 async function loadRuns() {
   const epoch = ++runsEpoch;
-  const model = loadedModel, revision = modelRevision, allModels = els.allModels.checked;
+  const scope = runsScope();
+  const keep = readyRunList();
+  runsLoading = true;
+  runsFailed = false;
+  runRetryPending = false;
+  removeRunsRetry();
+  if (!keep) {
+    runsHaveList = false;
+    runsShownScope = scope;
+    runPending = null;
+    runKeyed = false;
+    runListHead('Loading runs…');
+  }
+  syncRunList();
+  const current = () => epoch === runsEpoch && currentRunsScope(scope);
   let runs;
   // Under the gallery's scope: a run picked here opens as a sheet, and a run
   // the grid would not show is an empty one.
   const params = new URLSearchParams({ limit: 200 });
-  if (els.allModels.checked) params.set('all_models', 'true');
-  try { runs = await api(`/api/runs?${params}`); } catch { return; }
-  if (epoch !== runsEpoch || revision !== modelRevision || model !== loadedModel || allModels !== els.allModels.checked) return;
+  if (scope.allModels) params.set('all_models', 'true');
+  try { runs = await api(`/api/runs?${params}`); } catch {
+    if (!current()) return;
+    runsLoading = false;
+    runsFailed = true;
+    if (!keep) runListHead('Runs unavailable');
+    addRunsRetry();
+    syncRunList();
+    return;
+  }
+  if (!current()) return;
+  runsLoading = false;
+  runsFailed = false;
+  runsShownScope = scope;
+  runsHaveList = !!runs.length;
+  // An independently completed refresh retires a browsed Retry choice.
+  runRetryPending = false;
   const several = (run) => run.images !== 1 || run.jobs > 1;
   const singles = runs.filter((run) => !several(run));
   els.runList.innerHTML = '';
@@ -401,35 +474,59 @@ const shownRun = () => /^run:(\S+)$/.exec(els.search.value.trim())?.[1] ?? null;
 // to "Runs…" the moment a run was picked, leaving a hex id in the box as the
 // only label of what was on screen.
 function syncRunList() {
-  // A run browsed to from the keyboard and not yet opened (runListKey) stays
-  // where the arrows left it through a rebuilt list.
-  const shown = runPending ?? shownRun();
-  els.runList.value = shown && [...els.runList.options].some((o) => o.value === shown) ? shown : '';
-  // The closed picker is narrower than its labels (style.css, --runs-w): the
-  // picked run's is whole in the title.
-  els.runList.title = binMode ? BIN_HELD : els.runList.value ? els.runList.selectedOptions[0].text : 'Recent runs';
+  const current = currentRunsScope(runsShownScope);
+  if (binMode || !current) {
+    runPending = null;
+    runRetryPending = false;
+    runKeyed = false;
+  }
+  const retry = runsRetryOption();
+  if (!readyRunsRetry()) runRetryPending = false;
+  if (runPending !== null && ![...els.runList.options].some((option) => realRunOption(option) && option.value === runPending)) {
+    runPending = null;
+  }
+  if (runRetryPending && retry) {
+    // Selecting by index preserves the action even if a real run's value
+    // happens to collide with its value or the hidden head is empty.
+    els.runList.selectedIndex = [...els.runList.options].indexOf(retry);
+  } else {
+    const shown = runPending ?? shownRun();
+    els.runList.value = current && shown && [...els.runList.options].some((option) => realRunOption(option) && option.value === shown)
+      ? shown : '';
+  }
+  els.runList.disabled = !current || (!runsHaveList && !readyRunsRetry());
+  const selected = els.runList.selectedOptions[0];
+  els.runList.title = binMode ? BIN_HELD
+    : !current || (runsLoading && !runsHaveList) ? 'Loading runs…'
+    : runsFailed ? `${runsHaveList ? 'Could not refresh recent runs.' : 'Recent runs unavailable.'} Choose Retry loading runs.`
+    : realRunOption(selected) ? selected.text : 'Recent runs';
 }
-// A pick opens its run at once: a click in the open list, or Alt+Down and
-// Enter, which change the picker with no key on it first. Browsed from the
-// keyboard while closed - the arrows, Home and End, Page Up and Down, a
-// letter's type-ahead - the picker changes at every key, and each change
-// opened that run's sheet, asking the server for the whole run and
-// scrolling the page: reaching the tenth run opened nine. A change one of
-// those keys made is noted (`runPending`) and opened by Enter or by leaving
-// the picker; Escape puts back the run the gallery shows. The key marks the
-// change it causes alone - the change comes inside the key's own default -
-// and the mark is gone by the next task.
+
+// Closed-picker navigation is only a candidate. Enter or blur commits it;
+// Escape cancels it. Retry has its own candidate, never a synthetic run id.
 let runKeyed = false;
 let runPending = null;
+let runRetryPending = false;
 const RUN_BROWSE_KEYS = new Set(['ArrowUp', 'ArrowDown', 'ArrowLeft', 'ArrowRight', 'Home', 'End', 'PageUp', 'PageDown']);
 function runListKey(e) {
   if (keyboardEventHeld(e) || keyboardCommandModifier(e) || e.shiftKey) return;
   if (e.key === 'Enter') {
-    if (runPending !== null) { e.preventDefault(); if (!e.repeat) commitRunList(); }
+    const selected = els.runList.selectedOptions[0];
+    const retry = selected?.dataset.runsRetry === 'true' && readyRunsRetry();
+    if (runPending !== null || runRetryPending || retry) {
+      e.preventDefault();
+      if (!e.repeat) {
+        if (retry) { runRetryPending = true; runPending = null; }
+        commitRunList();
+      }
+    }
     return;
   }
   if (e.key === 'Escape') {
-    if (runPending !== null) { e.preventDefault(); if (!e.repeat) { runPending = null; syncRunList(); } }
+    if (runPending !== null || runRetryPending) {
+      e.preventDefault();
+      if (!e.repeat) { runPending = null; runRetryPending = false; syncRunList(); }
+    }
     return;
   }
   if (RUN_BROWSE_KEYS.has(e.key) || (e.key.length === 1 && e.key !== ' ')) {
@@ -439,20 +536,44 @@ function runListKey(e) {
 }
 
 function runListChange() {
+  const option = els.runList.selectedOptions[0];
+  if (binMode || !currentRunsScope(runsShownScope) || !option || ![...els.runList.options].includes(option)) {
+    runPending = null;
+    runRetryPending = false;
+    syncRunList();
+    return;
+  }
+  if (option.dataset.runsRetry === 'true') {
+    if (!readyRunsRetry()) { syncRunList(); return; }
+    runPending = null;
+    runRetryPending = true;
+    if (runKeyed) syncRunList(); else commitRunList();
+    return;
+  }
+  runRetryPending = false;
+  if (!readyRunList() || !realRunOption(option)) { runPending = null; syncRunList(); return; }
   if (runKeyed) {
-    runPending = els.runList.value;
+    runPending = option.value;
     syncRunList();
     return;
   }
   runPending = null;
-  void showRun(els.runList.value);
+  void showRun(option.value);
 }
 
 function commitRunList() {
   const run = runPending;
+  const retry = runRetryPending;
+  const option = els.runList.selectedOptions[0];
   runPending = null;
-  if (run && run !== shownRun()) void showRun(run);
-  else syncRunList();
+  runRetryPending = false;
+  if (binMode || !currentRunsScope(runsShownScope)) { syncRunList(); return; }
+  if (retry) {
+    if (readyRunsRetry() && option === runsRetryOption()) void loadRuns();
+    else syncRunList();
+  } else if (run && readyRunList() && realRunOption(option) && option.value === run && run !== shownRun()) {
+    void showRun(run);
+  } else syncRunList();
 }
 
 // `fresh` is a comparison this page has just made: nothing in it is

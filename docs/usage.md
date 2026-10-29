@@ -568,6 +568,10 @@ seeds** remains the separate action for that.
 The gallery initially shows the running checkpoint. Tick **All models** for
 the rest, or **Starred** for favorites. **Runs** opens a run and its sheet.
 `run:` includes all resumptions of a grid; `job:` selects one submission.
+Changing the checkpoint or **All models** rereads Runs; the old list is not
+offered while that new list loads. If it fails, choose **Retry loading runs**
+inside the picker. A failed background refresh keeps its current runs usable
+and offers the same deliberate retry. Retry leaves your search and sheet alone.
 Search combines these terms with free text matching the prompt:
 
 | Search | Matches |

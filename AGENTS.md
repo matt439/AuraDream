@@ -497,6 +497,7 @@ uses the driver's graceful close/cleanup. See the full Tests rules.
 | 7942 | FLUX.1-Krea-dev, fresh scratch `--data` | `smoke-broad-bin-order` |
 | 7944 | FLUX.1-Krea-dev, fresh scratch `--data`, `--step 0.3` | `smoke-queue-cancel-recovery` |
 | 7945 | FLUX.1-Krea-dev, fresh scratch `--data`, `--step 0.3` | `smoke-watched-action-replies` |
+| 7947 | FLUX.1-Krea-dev, fresh scratch `--data` | `smoke-runs-scope-recovery` |
 
 FLUX.1-Krea-dev is `black-forest-labs/FLUX.1-Krea-dev`; animagine is
 `cagliostrolab/animagine-xl-4.0`.
