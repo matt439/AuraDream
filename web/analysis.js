@@ -13,6 +13,9 @@
 // go dead, and a finding's words are selected only while they are still there.
 let analysisResult = null;  // { source, negative, effectiveNegative, reference, body: PromptAnalysis }
 let analysisEpoch = 0;
+// Dismissal retires reveal/focus only: accepted background findings and a
+// critic pre-check keep their existing result and computation ownership.
+let analysisDismissal = 0;
 let analysisStale = false;
 // The critic's answer is always about the checked text: asking checks the box
 // again first when it has moved on, and a check of other text drops the answer.
@@ -90,6 +93,7 @@ async function checkPrompt(payload = collect()) {
   if (modelChangeHold()) { sayModelChangeHold(); return null; }
   if (!payload.prompt) { showError('Enter a prompt first.'); els.prompt.focus(); return null; }
   const epoch = ++analysisEpoch;
+  const dismissal = analysisDismissal;
   const effectiveNegative = analysisNegative(payload);
   // Instant once the tokenizers are cached; a first use fetches them.
   els.analyze.textContent = 'Checking…';
@@ -110,7 +114,7 @@ async function checkPrompt(payload = collect()) {
     };
     showError('');
     analysisMessage('');
-    renderAnalysis();
+    renderAnalysis(dismissal === analysisDismissal);
     return analysisResult;
   } catch (err) {
     if (epoch === analysisEpoch) showError(err.message);
@@ -131,8 +135,10 @@ function resetCheckButton() {
 // focus is still on the button. Under 901 px the panel is three stops away,
 // and focus stays where it is.
 async function checkFromButton() {
+  const dismissal = analysisDismissal;
   const result = await checkPrompt();
-  if (result && document.activeElement === els.analyze
+  if (result && dismissal === analysisDismissal && !els.promptAnalysis.hidden
+      && document.activeElement === els.analyze
       && els.promptAnalysis.parentElement === els.tagValidationWide) focusAnalysisHeading();
 }
 
@@ -146,10 +152,11 @@ function focusAnalysisHeading() {
   els.promptAnalysis.querySelector('.analysis-head h2').focus();
 }
 
-function renderAnalysis() {
+function renderAnalysis(reveal = true) {
   const { body } = analysisResult;
+  // Keep a dismissed view hidden while accepting its background result.
   // First: the comparison's preview is only fetched for a panel on show.
-  els.promptAnalysis.hidden = false;
+  if (reveal) els.promptAnalysis.hidden = false;
   els.analysisModel.textContent = checkpointName(body.model_id);
   els.analysisModel.title = body.model_id;
   const warns = body.findings.filter((f) => f.severity === 'warn').length;
@@ -243,7 +250,7 @@ function syncAnalysisStale(force = false) {
   els.analysisStale.hidden = !stale;
   // Check again hides once the check is current again; a keyboard user who
   // pressed it would be left on <body>, so the panel's heading takes focus.
-  if (!stale && document.activeElement === els.analysisAgain) focusAnalysisHeading();
+  if (!stale && !els.promptAnalysis.hidden && document.activeElement === els.analysisAgain) focusAnalysisHeading();
   els.analysisAgain.hidden = !stale;
   for (const button of els.promptAnalysis.querySelectorAll('[data-writes]')) syncWriteButton(button);
   syncCompareRun();
@@ -291,6 +298,7 @@ function syncWriteButton(button) {
 // button waits out the critic's own check, since a disabled one takes no focus
 // and it would fall to <body>.
 function closeAnalysis() {
+  analysisDismissal += 1;
   els.promptAnalysis.hidden = true;
   (els.analyze.disabled ? els.prompt : els.analyze).focus();
 }
@@ -302,7 +310,10 @@ function closeAnalysis() {
 function escapeAnalysis() {
   const focused = document.activeElement;
   if (!focused || focused === document.body || els.promptAnalysis.contains(focused)) closeAnalysis();
-  else els.promptAnalysis.hidden = true;
+  else {
+    analysisDismissal += 1;
+    els.promptAnalysis.hidden = true;
+  }
 }
 
 // Forget the check: another checkpoint's tokenizers and guide, or a Reset. An

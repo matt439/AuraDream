@@ -1,0 +1,176 @@
+[
+  {
+    "log": "\"UI31: normal fresh FLUX fake7952. Real CPU analyze responses are forwarded once and held after receipt. fake_server installs fake_tokenizer and FakeCritic; four exact trusted-edit measure responses also pass unchanged; every critique request and unrelated mutation is refused BEFORE forwarding. No --no-critic assumption, harness flags, real tokenizer/critic/model/service or gallery writes. Physical prompt edits/Check/Close/Escape; labeled response gates and state assertions.\""
+  },
+  {
+    "navigate": "http://127.0.0.1:7952/"
+  },
+  {
+    "viewport": [
+      1400,
+      1000
+    ]
+  },
+  {
+    "expect": "(async()=>{\n const until=async(fn,ms=20000)=>{const end=Date.now()+ms;while(Date.now()<end){if(await fn())return true;await new Promise(r=>setTimeout(r,40));}return false;};\n const assert=(value,why)=>{if(!value)throw Error(why);};\n assert(await until(()=>loadedModel==='black-forest-labs/FLUX.1-Krea-dev'&&!galleryPending&&!jobListing&&!busy&&!submitting),'fresh FLUX fake did not settle');\n const q=window.__checkDismissal={until,assert,native:window.fetch.bind(window),grants:[],measurements:[],forbidden:[],errors:[],clicks:[],edits:[],criticAttempts:0};\n q.deny=(method,url,why)=>{q.forbidden.push({method,path:url.pathname,why});throw Error('UI31 fixture refused '+why);};\n q.read=async path=>{const url=new URL(path,location.href);assert(url.origin===location.origin&&url.pathname.startsWith('/api/'),'fixture GET escaped API');const response=await q.native(url.href,{method:'GET'});assert(response.ok,'fixture GET failed '+url.pathname);return response.json();};\n q.arm=name=>{\n   assert(!q.grants.some(g=>g.name===name),'duplicate analyze grant');\n   let release;const wait=new Promise(resolve=>{release=resolve;});\n   q.grants.push({name,body:JSON.stringify(collect()),wait,release,seen:0,ready:false,released:false,delivered:false});\n };\n q.grant=name=>{const grant=q.grants.find(g=>g.name===name);assert(grant,'missing analyze grant '+name);return grant;};\n q.ready=async name=>{const grant=q.grant(name);assert(await until(()=>grant.ready||grant.error),'actual analyze response did not arrive '+name);assert(!grant.error&&grant.seen===1&&grant.status===200&&!grant.delivered,'analyze gate is not one held real response');assert(grant.actual.model_id===loadedModel&&Array.isArray(grant.actual.findings)&&Array.isArray(grant.actual.encoders),'held body is not actual current-checkpoint analysis');return grant;};\n q.release=name=>{const grant=q.grant(name);assert(grant.ready&&!grant.released,'invalid duplicate analyze release');grant.released=true;grant.release();};\n q.done=async name=>{const grant=q.grant(name);assert(await until(()=>grant.delivered&&els.analyze.textContent==='Check'&&els.analyze.getAttribute('aria-busy')===null),'Check finally did not settle '+name);assert(analysisResult?.source===JSON.parse(grant.body).prompt,'accepted actual analysis was not retained '+name);};\n q.nonPrompt=()=>{const {prompt,...rest}=collect();return JSON.stringify(rest);};\n q.heading=()=>els.promptAnalysis.querySelector('.analysis-head h2');\n // Labeled disposable-page setup: untick optional comparison versions so\n // this focused fixture admits only exact analyze/typing-measure POSTs.\n compareChoice.reordered=compareChoice.rewrite=compareChoice.yours=false;\n els.compareOwn.value='';\n q.choiceBefore=JSON.stringify(compareChoice);\n document.addEventListener('click',event=>{const button=event.target.closest('button');if(button)q.clicks.push({id:button.id,trusted:event.isTrusted});},true);\n els.prompt.addEventListener('input',event=>{\n   q.edits.push({value:els.prompt.value,trusted:event.isTrusted});\n   if(event.isTrusted)q.measurements.push({body:JSON.stringify({prompt:els.prompt.value.trim()}),seen:0,delivered:false});\n });\n addEventListener('error',event=>q.errors.push(event.message));\n addEventListener('unhandledrejection',event=>q.errors.push(String(event.reason)));\n window.fetch=async(input,options)=>{\n   const url=new URL(typeof input==='string'?input:input.url,location.href);\n   const method=String(options?.method??(typeof input==='string'?'GET':input.method)??'GET').toUpperCase();\n   if(url.origin!==location.origin)return q.deny(method,url,'foreign origin');\n   if(url.pathname==='/api/prompt/critique'){q.criticAttempts++;return q.deny(method,url,'critic/service activation');}\n   if(method==='GET')return q.native(input,options);\n   // Native typing invokes the actual cold fake-tokenizer measurement route.\n   // Each trusted edit grants exactly its prompt-only body once; no broad POST allowance.\n   if(method==='POST'&&url.pathname==='/api/prompt/measure'&&!url.search){\n     const grant=q.measurements.find(g=>g.seen===0&&g.body===options?.body);\n     if(!grant)return q.deny(method,url,'no exact one-use trusted-edit measure grant');\n     grant.seen++;\n     try{\n       const response=await q.native(input,options);grant.status=response.status;grant.actual=await response.clone().json();\n       grant.delivered=true;return response; // Return the real unchanged Response.\n     }catch(error){grant.error=String(error?.stack??error);throw error;}\n   }\n   if(method!=='POST'||url.pathname!=='/api/prompt/analyze'||url.search)return q.deny(method,url,'ungranted mutation');\n   const grant=q.grants.find(g=>g.seen===0&&g.body===options?.body);\n   if(!grant)return q.deny(method,url,'no exact one-use analyze body grant');\n   grant.seen++;grant.epoch=analysisEpoch;grant.critiqueEpoch=critiqueEpoch;\n   try{\n     const response=await q.native(input,options);grant.status=response.status;grant.actual=await response.clone().json();grant.ready=true;\n     await grant.wait;grant.delivered=true;return response; // Return the real unchanged Response.\n   }catch(error){grant.error=String(error?.stack??error);throw error;}\n };\n const rows=await q.read('/api/gallery?all_models=true&limit=20');\n q.rows=[...rows.items].sort((a,b)=>a.id-b.id);\n assert(rows.total===2&&q.rows.length===2&&q.rows.every(row=>row.job_id==='planted'&&row.run_id==='planted'&&row.model_id==='krea/Krea-2-Turbo'),'not exactly the actual two planted rows');\n q.rowBefore=JSON.stringify(q.rows);\n q.pngs=async()=>Promise.all(q.rows.map(async row=>{const url=new URL(row.url,location.href);assert(url.origin===location.origin,'owned PNG URL escaped origin');const response=await q.native(url.href,{method:'GET',cache:'no-store'});assert(response.ok&&response.headers.get('Content-Type')?.includes('image/png'),'owned PNG unavailable');const bytes=await response.arrayBuffer();const hash=[...new Uint8Array(await crypto.subtle.digest('SHA-256',bytes))].map(n=>n.toString(16).padStart(2,'0')).join('');return{id:row.id,size:bytes.byteLength,hash};}));\n q.pngBefore=JSON.stringify(await q.pngs());\n assert((await q.read('/api/jobs?include_finished=true')).length===0&&queuedIds.length===0&&submissions.size===0&&!currentJob&&!critiquing&&!promptCritiqueReady,'fixture did not start idle with critic unprepared');\n assert(els.promptAnalysis.hidden&&els.promptAnalysis.parentElement===els.tagValidationWide,'initial panel/desktop host incorrect');\n return true;\n})()",
+    "fatal": true
+  },
+  {
+    "click": "#prompt"
+  },
+  {
+    "keycombo": [
+      "Control",
+      "a"
+    ]
+  },
+  {
+    "type": "A quiet harbor with a red sailboat"
+  },
+  {
+    "expect": "(async()=>{const q=__checkDismissal;\nq.nonPromptBefore=q.nonPrompt(); q.arm('initial');\nreturn true;})()",
+    "fatal": true
+  },
+  {
+    "click": "#btn-analyze"
+  },
+  {
+    "expect": "(async()=>{const q=__checkDismissal;\nawait q.ready('initial'); q.assert(els.promptAnalysis.hidden,'initial actual response rendered before release'); q.release('initial'); await q.done('initial'); q.assert(!els.promptAnalysis.hidden&&document.activeElement===q.heading(),'ordinary main Check did not open/focus desktop heading');\nreturn true;})()",
+    "fatal": true
+  },
+  {
+    "click": "#prompt"
+  },
+  {
+    "keycombo": [
+      "Control",
+      "a"
+    ]
+  },
+  {
+    "type": "A quiet harbor with a blue sailboat"
+  },
+  {
+    "expect": "(async()=>{const q=__checkDismissal;\nq.arm(\"close-pending\");\nreturn true;})()",
+    "fatal": true
+  },
+  {
+    "click": "#btn-analyze"
+  },
+  {
+    "expect": "(async()=>{const q=__checkDismissal;\nawait q.ready('close-pending'); q.assert(!els.promptAnalysis.hidden&&!els.analysisClose.disabled&&els.analyze.getAttribute('aria-busy')==='true','ordinary pending Check removed current Close path'); q.closeEpoch=analysisEpoch; q.closeCritiqueEpoch=critiqueEpoch;\nreturn true;})()",
+    "fatal": true
+  },
+  {
+    "click": "#analysis-close"
+  },
+  {
+    "expect": "(async()=>{const q=__checkDismissal;\nq.assert(els.promptAnalysis.hidden&&document.activeElement===els.analyze,'native Close did not hide/return focus'); q.assert(analysisEpoch===q.closeEpoch&&critiqueEpoch===q.closeCritiqueEpoch,'Close retired computation instead of presentation'); q.release('close-pending'); await q.done('close-pending'); q.assert(els.promptAnalysis.hidden&&document.activeElement===els.analyze,'late accepted main Check reopened/refocused dismissed panel'); q.assert(q.nonPrompt()===q.nonPromptBefore,'Check changed non-prompt composer values');\nreturn true;})()",
+    "fatal": true
+  },
+  {
+    "shot": "ui31-close-after-real-reply.png"
+  },
+  {
+    "expect": "(async()=>{const q=__checkDismissal;\nq.arm(\"reopen-same-blue\");\nreturn true;})()",
+    "fatal": true
+  },
+  {
+    "click": "#btn-analyze"
+  },
+  {
+    "expect": "(async()=>{const q=__checkDismissal;\nawait q.ready('reopen-same-blue'); q.release('reopen-same-blue'); await q.done('reopen-same-blue'); q.assert(!els.promptAnalysis.hidden&&document.activeElement===q.heading(),'later explicit same-prompt Check failed to reopen');\nreturn true;})()",
+    "fatal": true
+  },
+  {
+    "click": "#prompt"
+  },
+  {
+    "keycombo": [
+      "Control",
+      "a"
+    ]
+  },
+  {
+    "type": "A quiet harbor with a green sailboat"
+  },
+  {
+    "expect": "(async()=>{const q=__checkDismissal;\nq.arm(\"escape-pending\");\nreturn true;})()",
+    "fatal": true
+  },
+  {
+    "click": "#analysis-again"
+  },
+  {
+    "expect": "(async()=>{const q=__checkDismissal;\nawait q.ready('escape-pending'); q.assert(!els.promptAnalysis.hidden,'pending Check again hid current findings');\nreturn true;})()",
+    "fatal": true
+  },
+  {
+    "click": "#prompt"
+  },
+  {
+    "keycombo": [
+      "Control",
+      "a"
+    ]
+  },
+  {
+    "expect": "(async()=>{const q=__checkDismissal;\nq.caret=[els.prompt.value,els.prompt.selectionStart,els.prompt.selectionEnd]; q.assert(document.activeElement===els.prompt&&q.caret[1]===0&&q.caret[2]===els.prompt.value.length,'native editor selection setup failed'); q.escapeEpoch=analysisEpoch;\nreturn true;})()",
+    "fatal": true
+  },
+  {
+    "key": "Escape",
+    "native": true
+  },
+  {
+    "expect": "(async()=>{const q=__checkDismissal;\nq.assert(els.promptAnalysis.hidden&&document.activeElement===els.prompt&&JSON.stringify([els.prompt.value,els.prompt.selectionStart,els.prompt.selectionEnd])===JSON.stringify(q.caret),'native Escape did not preserve editor/caret'); q.assert(analysisEpoch===q.escapeEpoch,'Escape cancelled computation'); q.release('escape-pending'); await q.done('escape-pending'); q.assert(els.promptAnalysis.hidden&&document.activeElement===els.prompt&&JSON.stringify([els.prompt.value,els.prompt.selectionStart,els.prompt.selectionEnd])===JSON.stringify(q.caret),'late Check-again reply reopened or moved editor selection');\nreturn true;})()",
+    "fatal": true
+  },
+  {
+    "shot": "ui31-escape-after-real-reply.png"
+  },
+  {
+    "expect": "(async()=>{const q=__checkDismissal;\nq.arm(\"reopen-same-green\");\nreturn true;})()",
+    "fatal": true
+  },
+  {
+    "click": "#btn-analyze"
+  },
+  {
+    "expect": "(async()=>{const q=__checkDismissal;\nawait q.ready('reopen-same-green'); q.release('reopen-same-green'); await q.done('reopen-same-green'); q.assert(!els.promptAnalysis.hidden,'second deliberate reopen failed');\nreturn true;})()",
+    "fatal": true
+  },
+  {
+    "click": "#prompt"
+  },
+  {
+    "keycombo": [
+      "Control",
+      "a"
+    ]
+  },
+  {
+    "type": "A quiet harbor with a gold sailboat"
+  },
+  {
+    "expect": "(async()=>{const q=__checkDismissal;\nq.arm(\"normal-again\");\nreturn true;})()",
+    "fatal": true
+  },
+  {
+    "click": "#analysis-again"
+  },
+  {
+    "expect": "(async()=>{const q=__checkDismissal;\nawait q.ready('normal-again'); q.release('normal-again'); await q.done('normal-again'); q.assert(!els.promptAnalysis.hidden&&els.analysisAgain.hidden&&document.activeElement===q.heading(),'ordinary visible Check-again focus behavior changed');\nreturn true;})()",
+    "fatal": true
+  },
+  {
+    "shot": "ui31-current-explicit-check.png"
+  },
+  {
+    "click": "#analysis-close"
+  },
+  {
+    "expect": "(async()=>{const q=__checkDismissal;\nq.assert(els.promptAnalysis.hidden&&analysisResult?.source==='A quiet harbor with a gold sailboat','final Close discarded accepted cache');\n const rows=await q.read('/api/gallery?all_models=true&limit=20');\n q.assert(rows.total===2&&JSON.stringify([...rows.items].sort((a,b)=>a.id-b.id))===q.rowBefore&&JSON.stringify(await q.pngs())===q.pngBefore,'analysis changed actual rows/PNGs');\n q.assert((await q.read('/api/jobs?include_finished=true')).length===0&&!busy&&!submitting&&!critiquing&&!promptCritiqueReady&&queuedIds.length===0&&submissions.size===0&&!currentJob,'fixture activated critic/model/queue');\n q.assert(q.grants.length===6&&q.grants.every(g=>g.seen===1&&g.ready&&g.released&&g.delivered&&g.status===200&&!g.error),'analyze calls were skipped/duplicated/unsettled');\n q.assert(q.clicks.filter(click=>click.id==='btn-analyze'&&click.trusted).length===4&&q.clicks.filter(click=>click.id==='analysis-again'&&click.trusted).length===2,'public Check entries were not physical choices');\n q.assert(q.edits.length===4&&q.edits.every(edit=>edit.trusted)&&q.nonPrompt()===q.nonPromptBefore&&JSON.stringify(compareChoice)===q.choiceBefore,'owned prompt edits were not physical or changed other composer/comparison state');\n q.assert(await q.until(()=>q.measurements.length===4&&q.measurements.every(g=>g.delivered||g.error)),'typing measurements did not settle');\n q.assert(q.measurements.every(g=>g.seen===1&&g.delivered&&g.status===200&&!g.error&&g.actual.model_id===loadedModel&&Array.isArray(g.actual.encoders)),'actual typing measurement was skipped/duplicated/failed or changed checkpoint');\n q.assert(q.criticAttempts===0&&q.forbidden.length===0&&q.errors.length===0,'critic/side-effect guard or browser errors occurred: '+JSON.stringify({criticAttempts:q.criticAttempts,forbidden:q.forbidden,errors:q.errors}));\nreturn true;})()",
+    "fatal": true
+  }
+]

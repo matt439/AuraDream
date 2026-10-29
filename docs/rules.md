@@ -3090,7 +3090,12 @@ Frontend and CLI:
   (`offerModelPicker` on a status answer) stays, and the Escape is the
   dialog's cancel. Focus inside the check
   (or on `<body>`) goes to Check (to the prompt while Check is held), focus
-  elsewhere stays.
+  elsewhere stays. Close/Escape retire only the current Check's reveal/focus:
+  accepted background findings remain cached and the critic pre-check chain
+  keeps its existing routing. A late ordinary Check cannot unhide or focus
+  a dismissed panel; a later explicit Check can reopen it (`UI#31`, dated
+  Check-dismissal review). Reset/model/supersession still use computation
+  epochs, not this dismissal counter.
 - The prompt check describes one text: the prompt and negative prompt as
   `collect()` sent them, whether CFG or True CFG applies that negative, and
   the reference images it counted
@@ -5667,6 +5672,18 @@ Frontend and CLI:
   MAX itself remains valid (`GAL#20`; dated gallery-page-bounds review).
 
 ## Tests
+
+`tests/test_check_dismissal.py` exercises actual Check/Close/Escape/render,
+stale-write, clear/supersession and critic-precheck handlers on inert DOM/API
+ports. Accepted results remain cached while dismissed, with existing button
+cleanup/error routing and deliberate reopening. `smoke-check-dismissal.json`
+uses fresh FLUX fake 7952, its installed fake tokenizer and actual forwarded
+CPU analyze responses held after receipt. Four exact trusted-edit typing
+measurements pass through the fake tokenizer once and settle before the final
+guards; unrelated writes remain refused. Physical prompt edits, Check/Check
+again, Close/Escape and later reopening are qualified without critic calls:
+the fixture refuses every critique request before dispatch. No real tokenizer,
+critic service/model/card or real-gallery acceptance follows.
 
 `tests/test_gallery_page_bounds.py` checks actual live/bin HTTP query
 validation before storage for SQLite-overflow and existing lower bounds,

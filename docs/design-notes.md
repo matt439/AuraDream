@@ -11828,7 +11828,20 @@ re-enabled in a `finally`; a check replaced anyway says the critic was not
 asked, while one a Reset or another checkpoint clears says nothing, since
 the cleared panel shows nothing pending. Close pressed meanwhile hands focus
 to the prompt: the disabled Check would drop it to `<body>`. A checkpoint
-change clears the panel. Apply is offered on rule findings only - a rule's
+change clears the panel.
+
+`UI#31` separates dismissal from computation ownership. Close/Escape keep
+findings, but a pending ordinary Check used to unhide the panel when its
+accepted reply arrived and main Check could focus the heading again. A
+separate dismissal counter suppresses only that reply's reveal/focus; it
+still updates the retained result and normal stale/button/critic state.
+The critic pre-check continues to its existing inert/real route ownership,
+including errors in `#error` while the block is hidden. A later explicit
+Check reopens the panel, including the same prompt; Reset/model/supersession
+still retire computations as before. [The dismissal review](review-2026-10-29-check-dismissal.md)
+owns the source/fake qualification and its no-service boundary.
+
+Apply is offered on rule findings only - a rule's
 `suggestion` is the field rewritten - while an encoder's suggestion (for
 `((masterpiece:1.2))`, `Write "masterpiece" plainly; ...`) is advice and
 shows as text. Use and Apply write through `replaceBoxText`, which selects
