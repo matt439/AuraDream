@@ -4597,7 +4597,13 @@ Frontend and CLI:
   is attached. Only Picked's Star/Unstar items share this hold, and the
   lightbox changes only its star's hold attributes, with the bin reason first.
   Error cleanup releases the hold without claiming an unknown write failed or
-  providing cross-tab ordering. F passes `{ say: true }` (`galleryKey`,
+  providing cross-tab ordering. Each confirmed single or bulk star action
+  asks Runs once after propagation (`void loadRuns()`), including bulk
+  already/partial results; never once per `markFavorite` id. Held or
+  ordinary failed writes add no read, and an aggregate read does not
+  extend the favorite hold. Runs publication/retry keeps its current
+  context owner. [The count review](review-2026-10-29-runs-favorite-counts.md)
+  owns the caller and actual-fake qualification. F passes `{ say: true }` (`galleryKey`,
   `sheetKey` through `starCell`, and the lightbox's keydown in app.js):
   where focus is not on a `.star` or `#lb-fav`, `sayStar` writes "Starred
   #N" / "Unstarred #N" into a visually hidden polite line - `#star-said`
@@ -7255,6 +7261,16 @@ holds. It creates no jobs or model/data mutations; new wide/narrow shots
 need inspection. `tests/test_runs_scope_recovery.py` checks actual Runs
 handlers with inert presentation/deferred-read ports. The dated review owns
 the exact evidence boundary and clearly labeled programmatic supplements.
+
+`smoke-runs-favorite-counts.json` uses a fresh FLUX.1 Krea [dev] fake
+on 7949 and its two actual other-model planted rows. Native single and
+picked stars, held successful replies and an explicitly nonforwarded
+disjoint failure check one actual Runs read after each confirmed action,
+the server's favorite totals, and retained select focus/pending run id.
+Only exact owned favorite POSTs are admitted; no jobs or model activation.
+`tests/test_runs_favorite_counts.py` observes the complete actual favorite
+module's caller counts, admission, propagation and cleanup using inert
+API/presentation ports. The dated count review owns actual results and limits.
 
 `smoke-refine.json` checks the Refine dialog on a FLUX.1 Krea [dev] fake on
 7875, whose refine cells are the source image under a stamp: no refine

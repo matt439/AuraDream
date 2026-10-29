@@ -6795,6 +6795,17 @@ write/reply evidence, cache/control coverage and the explicit unknown-outcome
 and cross-tab limits. A latest-issued response token would not prove server
 commit order.
 
+**Runs counts after stars (2026-10-29, `GAL#19`).** Ordinary successful
+single and picked stars updated images without refreshing the Runs
+summary; only missing/binned outcomes asked again. Each confirmed action
+now starts one independent server aggregate read after propagation,
+including already/partial bulk results. `markFavorite` stays network-free,
+and pending or ordinary failed writes add no read. A slow Runs read does not extend
+the favorite hold. The existing Runs context/epoch owner preserves current
+choices and rejects obsolete replies; no local count arithmetic or broader
+favorite-ordering claim is added. [The count review](review-2026-10-29-runs-favorite-counts.md)
+separates actual-module checks from native owned-fake qualification.
+
 **A card is a group named by its id** (2026-10-05 area review). The card was
 an unnamed div, so of its seven controls only the image ("Open #12: …") and
 Delete named the image: the star and the Reuse, Refine, Reference and Sheet

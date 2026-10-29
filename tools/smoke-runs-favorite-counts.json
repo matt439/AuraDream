@@ -1,0 +1,155 @@
+[
+  {
+    "log": "\"GAL19: fresh FLUX fake 7949. Only the actual two planted other-model rows may be starred, through exact one-use POST grants. Real confirmed responses are held; a separate delayed 500 is explicitly refused before dispatch. No generation, activation, bin, delete, backup or credential writes.\""
+  },
+  {
+    "navigate": "http://127.0.0.1:7949/"
+  },
+  {
+    "viewport": [
+      1400,
+      1000
+    ]
+  },
+  {
+    "expect": "(async () => {\n  const until = async (fn, ms = 20000) => {\n    const end = Date.now() + ms;\n    while (Date.now() < end) {\n      if (await fn()) return true;\n      await new Promise(resolve => setTimeout(resolve, 40));\n    }\n    return false;\n  };\n  const assert = (value, why) => { if (!value) throw Error(why); };\n  assert(await until(() => loadedModel === 'black-forest-labs/FLUX.1-Krea-dev'\n    && !els.allModels.checked && !galleryPending && !jobListing && !busy && !submitting\n    && els.runList.disabled && els.runList.options[0]?.textContent === 'No runs yet'),\n    'fresh FLUX current scope did not settle empty');\n  const q = window.__runStars = {\n    until, assert, posts: [], loads: [], runReads: [], reads: [], errors: [], forbidden: [],\n    openRuns: [], changes: [], native: window.fetch.bind(window), dispatchLoad: null,\n  };\n  q.read = async path => {\n    const url = new URL(path, location.href);\n    assert(url.origin === location.origin && url.pathname.startsWith('/api/'), 'fixture GET escaped same-origin API');\n    q.reads.push(url.pathname + url.search);\n    const response = await q.native(url.href, { method: 'GET' });\n    assert(response.ok, 'actual fixture GET failed: ' + url.pathname + ' ' + response.status);\n    return response.json();\n  };\n  q.panel = () => JSON.stringify({\n    composer: setupComposerState(), search: els.search.value, sheet: sheetMode,\n  });\n  q.option = () => [...els.runList.options].find(option => option.value === q.run);\n  q.countIs = value => {\n    const option = q.option();\n    if (!option) return false;\n    const stars = String.fromCodePoint(0x2605);\n    return value ? option.textContent.includes(' ' + value + stars) : !option.textContent.includes(stars);\n  };\n  q.uiIs = (ids, value) => ids.every(id => {\n    const rec = galleryRecords.find(row => row.id === id);\n    const card = document.querySelector('#gallery .card[data-id=\"' + id + '\"]');\n    return rec?.favorite === value && card?.classList.contains('fav') === value\n      && card.querySelector('.star')?.getAttribute('aria-pressed') === String(value);\n  });\n  q.reveal = target => {\n    const element = typeof target === 'string' ? document.querySelector(target) : target;\n    assert(!!element, 'native fixture target is missing');\n    const top = document.querySelector('.topbar').getBoundingClientRect().bottom + 16;\n    const rect = element.getBoundingClientRect();\n    if (rect.top < top) scrollBy(0, rect.top - top);\n    else if (rect.bottom > innerHeight - 16) scrollBy(0, rect.bottom - innerHeight + 16);\n    const box = element.getBoundingClientRect();\n    const hit = document.elementFromPoint(box.left + box.width / 2, box.top + box.height / 2);\n    assert(box.width > 0 && box.height > 0 && box.top >= top && box.bottom <= innerHeight\n      && !!hit && (hit === element || element.contains(hit)), 'native fixture target is clipped or covered');\n    return element;\n  };\n  q.focusRuns = () => {\n    q.reveal(els.runList);\n    els.runList.focus({ preventScroll: true });\n    assert(document.activeElement === els.runList && !els.runList.disabled, 'closed native Runs focus failed');\n    q.selectNode = els.runList;\n  };\n  q.sameCandidate = () => els.runList === q.selectNode && document.activeElement === q.selectNode\n    && runPending === q.run && els.runList.value === q.run && !sheetMode && q.openRuns.length === 0;\n  q.arm = (name, kind, ids, value, mode) => {\n    assert(!q.posts.some(post => post.name === name) && ['held-real', 'held-unforwarded-500'].includes(mode),\n      'invalid or duplicate favorite grant');\n    const post = { name, kind, ids: [...ids].sort((a,b) => a-b), value, mode,\n      seen: 0, forwarded: false, ready: false, released: false, delivered: false };\n    post.wait = new Promise(resolve => { post.release = () => { post.released = true; resolve(); }; });\n    q.posts.push(post);\n    return post;\n  };\n  q.post = name => {\n    const post = q.posts.find(item => item.name === name);\n    assert(!!post, 'favorite grant not declared: ' + name);\n    return post;\n  };\n  q.ready = async name => {\n    const post = q.post(name);\n    assert(await until(() => post.ready || post.error), 'favorite response boundary was not reached: ' + name);\n    assert(!post.error && post.seen === 1 && !post.delivered, 'favorite response gate failed: ' + name);\n    if (post.mode === 'held-real') {\n      assert(post.forwarded && post.actualStatus === 200, 'owned actual favorite POST did not succeed');\n      if (post.kind === 'single') assert(post.actual.id === post.ids[0] && post.actual.favorite === post.value,\n        'actual single favorite body is wrong');\n      else assert(JSON.stringify([...post.actual.changed].sort((a,b)=>a-b)) === JSON.stringify(post.ids)\n        && post.actual.already.length === 0 && post.actual.binned.length === 0 && post.actual.missing.length === 0,\n        'actual picked favorite body is not exactly the owned two changed rows');\n    } else assert(!post.forwarded && post.actual === undefined, 'controlled failure accidentally reached storage');\n    return post;\n  };\n  q.finished = () => q.posts.every(post => post.seen === 1 && post.ready && post.released && post.delivered && !post.error)\n    && q.loads.every(load => load.done && !load.error)\n    && q.runReads.every(read => read.done && !read.error);\n  q.pngs = async rows => Promise.all(rows.map(async row => {\n    const url = new URL(row.url, location.href);\n    assert(url.origin === location.origin && q.pngURLs.includes(url.href), 'PNG check escaped the exact owned URL list');\n    const response = await q.native(url.href, { method: 'GET', cache: 'no-store' });\n    assert(response.ok && response.headers.get('Content-Type')?.includes('image/png'), 'owned PNG GET failed');\n    const bytes = await response.arrayBuffer();\n    const hash = [...new Uint8Array(await crypto.subtle.digest('SHA-256', bytes))]\n      .map(value => value.toString(16).padStart(2, '0')).join('');\n    return { id: row.id, size: bytes.byteLength, hash };\n  }));\n  q.rowWithoutFavorite = row => {\n    const { favorite, ...rest } = row;\n    return rest;\n  };\n  addEventListener('error', event => q.errors.push(event.message));\n  addEventListener('unhandledrejection', event => q.errors.push(String(event.reason)));\n  const originalLoad = loadRuns;\n  loadRuns = function (...args) {\n    const entry = { allModels: els.allModels.checked, done: false };\n    q.loads.push(entry);\n    const prior = q.dispatchLoad;\n    q.dispatchLoad = entry;\n    let promise;\n    try { promise = originalLoad.apply(this, args); } finally { q.dispatchLoad = prior; }\n    Promise.resolve(promise).then(() => { entry.done = true; }, error => {\n      entry.error = String(error?.stack ?? error); entry.done = true;\n    });\n    return promise;\n  };\n  const originalShow = showRun;\n  showRun = function (...args) { q.openRuns.push(args[0]); return originalShow.apply(this, args); };\n  const originalChange = els.allModels.onchange;\n  els.allModels.onchange = function (...args) {\n    q.changes.push({ checked: this.checked, trusted: args[0]?.isTrusted === true });\n    return originalChange.apply(this, args);\n  };\n  const refuse = (method, url, why) => {\n    q.forbidden.push({ method, path: url.pathname + url.search, why });\n    return new Response(JSON.stringify({ detail: 'Favorite-count fixture refused an ungranted operation' }),\n      { status: 409, headers: { 'Content-Type': 'application/json' } });\n  };\n  window.fetch = async (input, options) => {\n    const url = new URL(typeof input === 'string' ? input : input.url, location.href);\n    const method = String(options?.method ?? (typeof input === 'string' ? 'GET' : input.method) ?? 'GET').toUpperCase();\n    if (url.origin !== location.origin) return refuse(method, url, 'foreign origin');\n    if (method === 'GET') {\n      if (url.pathname !== '/api/runs') return q.native(input, options);\n      const read = { path: url.pathname + url.search, allModels: url.searchParams.get('all_models') === 'true',\n        load: q.dispatchLoad, done: false };\n      q.runReads.push(read);\n      try {\n        const response = await q.native(input, options);\n        read.status = response.status;\n        read.actual = await response.clone().json();\n        read.done = true;\n        return response;\n      } catch (error) { read.error = String(error); read.done = true; throw error; }\n    }\n    if (method !== 'POST') return refuse(method, url, 'mutating verb outside exact POST grants');\n    let spec = null;\n    const single = /^\\/api\\/images\\/([1-9][0-9]*)\\/favorite$/.exec(url.pathname);\n    if (single && (options?.body == null || options.body === '') && url.searchParams.size === 1\n        && ['true','false'].includes(url.searchParams.get('value'))) {\n      spec = { kind: 'single', ids: [+single[1]], value: url.searchParams.get('value') === 'true' };\n    } else if (url.pathname === '/api/images/favorite' && !url.search) {\n      try {\n        const body = JSON.parse(options?.body ?? '');\n        if (body && Object.keys(body).sort().join() === 'ids,value' && Array.isArray(body.ids)\n            && body.ids.every(Number.isSafeInteger) && new Set(body.ids).size === body.ids.length\n            && typeof body.value === 'boolean') {\n          spec = { kind: 'bulk', ids: [...body.ids].sort((a,b) => a-b), value: body.value };\n        }\n      } catch {}\n    }\n    const post = spec && q.posts.find(item => item.seen === 0 && item.kind === spec.kind && item.value === spec.value\n      && JSON.stringify(item.ids) === JSON.stringify(spec.ids));\n    if (!post) return refuse(method, url, 'no unused exact favorite ID/value/body grant');\n    post.seen++;\n    post.path = url.pathname + url.search;\n    post.runsBefore = q.runReads.length;\n    try {\n      let response;\n      if (post.mode === 'held-real') {\n        post.forwarded = true;\n        response = await q.native(input, options);\n        post.actualStatus = response.status;\n        post.actual = await response.clone().json();\n      }\n      post.ready = true;\n      await post.wait;\n      post.delivered = true;\n      return post.mode === 'held-real' ? response\n        : new Response(JSON.stringify({ detail: 'Controlled favorite refusal before dispatch' }),\n          { status: 500, headers: { 'Content-Type': 'application/json' } });\n    } catch (error) { post.error = String(error?.stack ?? error); throw error; }\n  };\n  const gallery = await q.read('/api/gallery?all_models=true&limit=20');\n  const runs = await q.read('/api/runs?all_models=true&limit=200');\n  const active = await q.read('/api/jobs');\n  const history = await q.read('/api/jobs?include_finished=true');\n  const backup = await q.read('/api/gallery/automatic-backup');\n  assert(gallery.total === 2 && gallery.items.length === 2\n    && gallery.items.every(row => row.job_id === 'planted' && row.run_id === 'planted'\n      && row.model_id === 'krea/Krea-2-Turbo'), 'fresh fake is not exactly the two actual planted other-model rows');\n  assert(runs.length === 1 && runs[0].run_id === 'planted' && runs[0].images === 2 && runs[0].favorites === 1,\n    'actual planted Runs summary does not start with one favorite');\n  assert(gallery.items.filter(row => row.favorite).length === 1, 'actual planted stars are not one true/one false');\n  assert(active.length === 0 && history.length === 0 && !currentJob && queuedIds.length === 0\n    && submissions.size === 0 && !binMode && !sheetMode, 'fixture did not start cold');\n  assert(backup.enabled === false && backup.credential_configured === false\n    && backup.credential_state === 'not_configured', 'automatic backup metadata is not cold/default-off');\n  q.rows = [...gallery.items].sort((a,b)=>a.id-b.id);\n  q.ids = q.rows.map(row => row.id);\n  q.run = runs[0].run_id;\n  q.starred = q.rows.find(row => row.favorite).id;\n  q.unstarred = q.rows.find(row => !row.favorite).id;\n  q.pngURLs = q.rows.map(row => new URL(row.url, location.href).href);\n  q.pngBefore = await q.pngs(q.rows);\n  q.recordBefore = JSON.stringify(q.rows.map(q.rowWithoutFavorite));\n  q.before = q.panel();\n  q.reveal(els.allModels);\n  return true;\n})()",
+    "fatal": true
+  },
+  {
+    "click": "#all-models-label"
+  },
+  {
+    "expect": "(async () => {\n  const q = __runStars;\n  q.assert(await q.until(() => els.allModels.checked && !galleryPending && galleryRecords.length === 2\n    && q.countIs(1) && !els.runList.disabled && q.loads.every(load => load.done)\n    && q.runReads.every(read => read.done)), 'native All models setup did not show actual planted gallery/run');\n  q.assert(q.changes.length === 1 && q.changes[0].trusted && q.changes[0].checked, 'setup did not use native All models change');\n  q.assert(q.runReads.length === 1 && q.runReads[0].allModels && q.runReads[0].actual.length === 1\n    && q.runReads[0].actual[0].favorites === 1 && q.runReads[0].load, 'initial app Runs body is not actual one-favorite server response');\n  for (const row of q.rows) {\n    const card = document.querySelector('#gallery .card[data-id=\"' + row.id + '\"]');\n    q.assert(!!card, 'owned planted card did not appear');\n    card.dataset.runStar = row.favorite ? 'original-star' : 'new-star';\n  }\n  q.base = q.runReads.length;\n  q.assert(q.panel() === q.before && selectedIds().length === 0 && !selectMode && favoriteWriteIds.size === 0,\n    'setup changed composer/search/sheet/picks or left writes pending');\n  q.arm('single-confirmed', 'single', [q.unstarred], true, 'held-real');\n  q.reveal('#gallery .card[data-run-star=\"new-star\"] .star');\n  return true;\n})()",
+    "fatal": true
+  },
+  {
+    "hover": "#gallery .card[data-run-star=\"new-star\"] .star"
+  },
+  {
+    "click": "#gallery .card[data-run-star=\"new-star\"] .star"
+  },
+  {
+    "expect": "(async () => {\n  const q = __runStars; await q.ready('single-confirmed');\n  const actual = await q.read('/api/runs?all_models=true&limit=200');\n  q.assert(actual.length === 1 && actual[0].run_id === q.run && actual[0].favorites === 2,\n    'held real successful single POST did not actually commit the second favorite');\n  q.assert(q.runReads.length === q.base && q.countIs(1) && q.uiIs([q.unstarred], false)\n    && q.uiIs([q.starred], true) && favoriteWriteIds.has(q.unstarred), 'single star read or propagated before confirmation');\n  q.arm('disjoint-late-failure', 'single', [q.starred], false, 'held-unforwarded-500');\n  q.reveal('#gallery .card[data-run-star=\"original-star\"] .star');\n  return true;\n})()",
+    "fatal": true
+  },
+  {
+    "click": "#gallery .card[data-run-star=\"original-star\"] .star"
+  },
+  {
+    "expect": "(async () => {\n  const q = __runStars; await q.ready('disjoint-late-failure');\n  q.assert(q.runReads.length === q.base && q.countIs(1) && favoriteWriteIds.size === 2,\n    'delayed disjoint refusal changed Runs before either reply');\n  q.reveal('#gallery .card[data-run-star=\"new-star\"] .star');\n  return true;\n})()",
+    "fatal": true
+  },
+  {
+    "click": "#gallery .card[data-run-star=\"new-star\"] .star"
+  },
+  {
+    "expect": "(() => {\n  const q = __runStars;\n  q.assert(q.posts.every(post => post.seen === 1) && q.forbidden.length === 0 && q.runReads.length === q.base\n    && q.countIs(1) && favoriteWriteIds.size === 2, 'same-ID held native press dispatched or refreshed Runs');\n  q.assert(els.galleryError.textContent.includes('Wait for the current star change to finish'), 'held press did not say its normal reason');\n  q.focusRuns();\n  return true;\n})()",
+    "fatal": true
+  },
+  {
+    "key": "ArrowDown",
+    "native": true
+  },
+  {
+    "expect": "(() => {\n  const q = __runStars;\n  q.assert(q.sameCandidate() && q.countIs(1) && q.runReads.length === q.base, 'native closed-picker key did not leave real run pending');\n  q.post('single-confirmed').release();\n  return true;\n})()",
+    "fatal": true
+  },
+  {
+    "expect": "(async () => {\n  const q = __runStars;\n  q.assert(await q.until(() => !favoriteWriteIds.has(q.unstarred)\n    && q.runReads.length === q.base + 1 && q.runReads.at(-1).done && q.runReads.at(-1).load?.done && q.countIs(2)),\n    'confirmed single favorite did not refresh actual Runs once and replace its stale one-star label');\n  const read = q.runReads.at(-1);\n  q.assert(read.status === 200 && read.allModels && read.actual.length === 1\n    && read.actual[0].run_id === q.run && read.actual[0].images === 2 && read.actual[0].favorites === 2,\n    'confirmed refresh did not consume the actual two-favorite server summary');\n  q.assert(q.sameCandidate() && q.uiIs(q.ids, true) && q.panel() === q.before\n    && selectedIds().length === 0 && favoriteWriteIds.size === 1 && favoriteWriteIds.has(q.starred),\n    'confirmed single refresh replaced select/focus/pending or changed unrelated state');\n  q.singleRead = read;\n  q.post('disjoint-late-failure').release();\n  return true;\n})()",
+    "fatal": true
+  },
+  {
+    "expect": "(async () => {\n  const q = __runStars;\n  q.assert(await q.until(() => favoriteWriteIds.size === 0 && q.post('disjoint-late-failure').delivered),\n    'delayed controlled failure did not settle its independent hold');\n  await new Promise(resolve => requestAnimationFrame(() => requestAnimationFrame(resolve)));\n  const actual = await q.read('/api/runs?all_models=true&limit=200');\n  q.assert(q.runReads.length === q.base + 1 && q.runReads.at(-1) === q.singleRead\n    && q.countIs(2) && q.uiIs(q.ids, true) && q.sameCandidate(),\n    'late nonforwarded failure added a Runs read or regressed confirmed count/pending/native focus');\n  q.assert(actual.length === 1 && actual[0].favorites === 2\n    && els.galleryError.textContent.includes('Controlled favorite refusal before dispatch')\n    && !q.post('disjoint-late-failure').forwarded && q.forbidden.length === 0,\n    'controlled nonforwarded failure was not explicit or changed storage');\n  return true;\n})()",
+    "fatal": true
+  },
+  {
+    "shot": "runs-favorites-single-two-wide.png"
+  },
+  {
+    "key": "Escape"
+  },
+  {
+    "expect": "(() => {\n  const q = __runStars;\n  q.assert(runPending === null && q.openRuns.length === 0 && !sheetMode && q.panel() === q.before,\n    'Escape did not cancel the native pending run before deliberate blur');\n  q.reveal('#btn-select');\n  return true;\n})()",
+    "fatal": true
+  },
+  {
+    "click": "#btn-select"
+  },
+  {
+    "expect": "selectMode && !document.querySelector('dialog[open]') && (__runStars.reveal('#gallery .card[data-run-star=\"original-star\"] > img'), true)",
+    "fatal": true
+  },
+  {
+    "click": "#gallery .card[data-run-star=\"original-star\"] > img"
+  },
+  {
+    "expect": "selectedIds().join() === String(__runStars.starred) && (__runStars.reveal('#gallery .card[data-run-star=\"new-star\"] > img'), true)",
+    "fatal": true
+  },
+  {
+    "click": "#gallery .card[data-run-star=\"new-star\"] > img"
+  },
+  {
+    "expect": "(() => {\n  const q = __runStars;\n  q.picked = [q.starred, q.unstarred];\n  q.anchor = selectAnchor;\n  q.assert(JSON.stringify(selectedIds()) === JSON.stringify(q.picked) && selectedRecords().every(row => row.favorite === true)\n    && q.panel() === q.before && q.runReads.length === q.base + 1, 'native two-card pick prerequisites failed');\n  q.arm('bulk-confirmed', 'bulk', q.ids, false, 'held-real');\n  q.reveal('#btn-picked');\n  return true;\n})()",
+    "fatal": true
+  },
+  {
+    "click": "#btn-picked"
+  },
+  {
+    "expect": "!els.pickedMenu.hidden && els.pickedMenu.querySelector('[data-picked=\"unstar\"]').getAttribute('aria-disabled') === 'false' && (__runStars.reveal('#picked-menu [data-picked=\"unstar\"]'), true)",
+    "fatal": true
+  },
+  {
+    "click": "#picked-menu [data-picked=\"unstar\"]"
+  },
+  {
+    "expect": "(async () => {\n  const q = __runStars; await q.ready('bulk-confirmed');\n  const actual = await q.read('/api/runs?all_models=true&limit=200');\n  q.assert(actual.length === 1 && actual[0].run_id === q.run && actual[0].images === 2 && actual[0].favorites === 0,\n    'held real bulk POST did not actually commit both unstars');\n  q.assert(q.runReads.length === q.base + 1 && q.countIs(2) && q.uiIs(q.ids, true)\n    && favoriteWriteIds.size === 2 && q.ids.every(id => favoriteWriteIds.has(id))\n    && JSON.stringify(selectedIds()) === JSON.stringify(q.picked) && selectAnchor === q.anchor,\n    'bulk star propagated, refreshed or changed picks before confirmation');\n  q.focusRuns();\n  return true;\n})()",
+    "fatal": true
+  },
+  {
+    "key": "ArrowDown",
+    "native": true
+  },
+  {
+    "expect": "(() => {\n  const q = __runStars;\n  q.assert(q.sameCandidate() && q.countIs(2), 'bulk native keyboard candidate was not established');\n  q.post('bulk-confirmed').release();\n  return true;\n})()",
+    "fatal": true
+  },
+  {
+    "expect": "(async () => {\n  const q = __runStars;\n  q.assert(await q.until(() => favoriteWriteIds.size === 0 && q.runReads.length === q.base + 2\n    && q.runReads.at(-1).done && q.runReads.at(-1).load?.done && q.countIs(0)),\n    'confirmed bulk unstar did not refresh actual Runs exactly once and remove its stale two-star label');\n  const read = q.runReads.at(-1);\n  q.assert(read.status === 200 && read.allModels && read.actual.length === 1 && read.actual[0].run_id === q.run\n    && read.actual[0].images === 2 && read.actual[0].favorites === 0, 'bulk refresh body is not the actual zero-favorite summary');\n  q.assert(q.sameCandidate() && q.uiIs(q.ids, false) && q.panel() === q.before\n    && JSON.stringify(selectedIds()) === JSON.stringify(q.picked) && selectAnchor === q.anchor\n    && selectedRecords().every(row => row.favorite === false), 'bulk refresh lost native select/focus/pending, picks or unrelated state');\n  q.assert(els.galleryError.textContent.includes('Unstarred'), 'bulk confirmation did not keep its normal outcome note');\n  return true;\n})()",
+    "fatal": true
+  },
+  {
+    "shot": "runs-favorites-bulk-zero-wide.png"
+  },
+  {
+    "viewport": [
+      600,
+      900
+    ]
+  },
+  {
+    "expect": "(__runStars.reveal(els.runList), __runStars.countIs(0) && __runStars.sameCandidate())",
+    "fatal": true
+  },
+  {
+    "shot": "runs-favorites-bulk-zero-narrow.png"
+  },
+  {
+    "key": "Escape"
+  },
+  {
+    "expect": "(() => {\n  const q = __runStars;\n  q.assert(runPending === null && q.openRuns.length === 0 && q.panel() === q.before, 'bulk Escape unexpectedly opened the sheet');\n  q.reveal(els.search);\n  return true;\n})()",
+    "fatal": true
+  },
+  {
+    "click": "#search"
+  },
+  {
+    "expect": "(async () => {\n  const q = __runStars;\n  q.assert(await q.until(q.finished), 'owned POST responses or actual Runs observers remain unsettled');\n  const gallery = await q.read('/api/gallery?all_models=true&limit=20');\n  const rows = [...gallery.items].sort((a,b)=>a.id-b.id);\n  const runs = await q.read('/api/runs?all_models=true&limit=200');\n  const active = await q.read('/api/jobs');\n  const history = await q.read('/api/jobs?include_finished=true');\n  const backup = await q.read('/api/gallery/automatic-backup');\n  q.assert(gallery.total === 2 && rows.length === 2 && rows.every(row => row.favorite === false)\n    && JSON.stringify(rows.map(q.rowWithoutFavorite)) === q.recordBefore,\n    'actual owned gallery changed beyond the two authorized favorite flags');\n  q.assert(JSON.stringify(await q.pngs(rows)) === JSON.stringify(q.pngBefore), 'actual owned PNG bytes changed');\n  q.assert(runs.length === 1 && runs[0].run_id === q.run && runs[0].images === 2 && runs[0].favorites === 0\n    && q.countIs(0) && q.runReads.length === q.base + 2 && q.loads.length === 3,\n    'final actual/native Runs summary or exact refresh total is wrong');\n  q.assert(q.posts.length === 3 && q.posts.filter(post => post.forwarded).length === 2\n    && q.posts.filter(post => !post.forwarded).length === 1 && q.forbidden.length === 0\n    && q.errors.length === 0 && q.openRuns.length === 0 && favoriteWriteIds.size === 0,\n    'unused grants, forbidden mutation, script errors, unintended sheets or write holds remain');\n  q.assert(active.length === 0 && history.length === 0 && !busy && !submitting && !currentJob\n    && queuedIds.length === 0 && submissions.size === 0, 'fixture activated or retained job work');\n  q.assert(backup.enabled === false && backup.credential_configured === false\n    && backup.credential_state === 'not_configured', 'backup became active');\n  q.assert(els.allModels.checked && !binMode && !sheetMode && selectMode && q.panel() === q.before\n    && JSON.stringify(selectedIds()) === JSON.stringify(q.picked) && selectAnchor === q.anchor\n    && runPending === null, 'final intended scope/picks/composer/search/sheet changed');\n  return true;\n})()",
+    "fatal": true
+  },
+  {
+    "log": "JSON.stringify({appRunsBodies:__runStars.runReads.map(read=>({scope:read.allModels,actual:read.actual})),posts:__runStars.posts.map(({name,path,mode,forwarded,actualStatus,actual,delivered})=>({name,path,mode,forwarded,actualStatus,actual,delivered})),pngBytesUnchanged:true,forbidden:__runStars.forbidden,errors:__runStars.errors,unintendedRunOpens:__runStars.openRuns})"
+  }
+]

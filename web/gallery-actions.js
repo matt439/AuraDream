@@ -79,6 +79,7 @@ async function setFavorite(rec, value, { say = false } = {}) {
     // A star with focus says its own new state (aria-pressed); anywhere else
     // F changed a button nobody was on, and nothing was heard.
     if (say && !document.activeElement?.matches?.('.star, #lb-fav')) sayStar(rec, value);
+    void loadRuns();
   } finally {
     for (const id of ids) favoriteWriteIds.delete(id);
     syncFavoriteWriteHolds(ids);
@@ -141,7 +142,7 @@ async function starPicked(value) {
       missing.length ? `${namesOrCount(missing)} ${wasWere(missing)} already deleted.` : '',
     ].filter(Boolean).join(' ') + also;
     showError(said, true, slot);
-    if (binned.length || missing.length) loadRuns();
+    void loadRuns();
   } finally {
     for (const id of ids) favoriteWriteIds.delete(id);
     syncFavoriteWriteHolds(ids);
