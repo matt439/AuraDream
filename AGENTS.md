@@ -495,12 +495,15 @@ uses the driver's graceful close/cleanup. See the full Tests rules.
 | 7940 | FLUX.1-Krea-dev, fresh scratch `--data` | `smoke-favorite-write-order` |
 | 7941 | FLUX.1-Krea-dev, fresh scratch `--data` | `smoke-bin-restore-order` |
 | 7942 | FLUX.1-Krea-dev, fresh scratch `--data` | `smoke-broad-bin-order` |
+| 7943 | FLUX.1-Krea-dev, fresh scratch `--data` | `smoke-bundle-clear-order` |
 | 7944 | FLUX.1-Krea-dev, fresh scratch `--data`, `--step 0.3` | `smoke-queue-cancel-recovery` |
 | 7945 | FLUX.1-Krea-dev, fresh scratch `--data`, `--step 0.3` | `smoke-watched-action-replies` |
+| 7946 | FLUX.1-Krea-dev, fresh scratch `--data`, `--step 0.3` | `smoke-reuse-pass-opening` |
 | 7947 | FLUX.1-Krea-dev, fresh scratch `--data` | `smoke-runs-scope-recovery` |
 | 7948 | default, fresh scratch `--data` | `smoke-grid-preview-close` |
 | 7949 | FLUX.1-Krea-dev, fresh scratch `--data` | `smoke-runs-favorite-counts` |
 | 7950 | FLUX.1-Krea-dev, fresh scratch `--data` | `smoke-copy-feedback-ownership` |
+| 7951 | FLUX.1-Krea-dev, fresh scratch `--data`, `--step 0.3` | `smoke-split-extra-queue` |
 | 7952 | FLUX.1-Krea-dev, fresh scratch `--data` | `smoke-check-dismissal` |
 
 FLUX.1-Krea-dev is `black-forest-labs/FLUX.1-Krea-dev`; animagine is

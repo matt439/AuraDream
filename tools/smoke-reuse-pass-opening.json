@@ -1,0 +1,258 @@
+[
+  {
+    "log": "\"Reuse-pass opening race on7946: fresh FLUX fake step0.3/new runner scratch data. Three real owned jobs/four records; only the first declared late-success source GET ignores its AbortSignal to prove owner guards. Controlled404/500 never mutate or remove images.\""
+  },
+  {
+    "navigate": "http://127.0.0.1:7946/"
+  },
+  {
+    "expect": "(() => {\n  const q = window.__rp = { origin:location.origin, realFetch:window.fetch.bind(window),\n    owned:new Set(), images:new Set(), runs:new Set(), ids:{}, records:{}, permits:[], mutations:[],\n    reads:new Map(), readEvents:[], actions:new Map(), runActions:new Map(), opens:[], shown:[],\n    violations:[], jsErrors:[], failures:[], finishes:[], streams:new Map(),\n    pendingReuse:null, lookupTag:null, pendingRun:null };\n  q.assert = (condition, message) => { if (!condition) throw Error(message); };\n  q.until = async (predicate, milliseconds=45000) => {\n    const end=Date.now()+milliseconds;\n    while (Date.now()<end) { if (predicate()) return true; await new Promise(resolve=>setTimeout(resolve,40)); }\n    return false;\n  };\n  q.read = async path => {\n    const url=new URL(path,location.href); q.assert(url.origin===q.origin,'read left owned origin');\n    const response=await q.realFetch(url.href); q.assert(response.ok,'owned read refused: '+url.pathname+' '+response.status);\n    return response.json();\n  };\n  q.panel = () => JSON.stringify(reuseFields());\n  q.dialog = () => JSON.stringify({open:els.refineDialog.open, source:refineSource?.id??null,\n    values:refineValues(), title:els.refineTitle.textContent, reused:els.refineReused.textContent});\n  q.safe = () => location.origin===q.origin && !q.violations.length && !q.jsErrors.length\n    && !q.failures.length && !q.permits.length && !q.pendingReuse && !q.pendingRun;\n  q.allow = (body, label) => {\n    q.assert(!q.permits.length && !q.ids[label], 'another mutation is pending or label reused');\n    if (body.refine!=null) q.assert(q.images.has(body.refine),'pass mutation source is not owned');\n    const grant={path:'/api/generate',body:JSON.stringify(body),label,seen:false,ready:false};\n    q.permits.push(grant); return grant;\n  };\n  q.mark = () => {\n    for (const [name,record] of Object.entries(q.records)) {\n      const card=els.gallery.querySelector('.card[data-id=\"'+record.id+'\"]');\n      q.assert(card,'owned record has no actual gallery card: '+name); card.dataset.smokeImage=name;\n    }\n  };\n  q.arm = (name,tag,mode='hold-pass') => {\n    const rec=q.records[name]; q.assert(rec && q.images.has(rec.id) && q.images.has(rec.refine),'reuse source/pass is not owned');\n    q.assert(!q.pendingReuse && !q.reads.has(tag),'reuse intent already armed');\n    q.assert(['pass','hold-pass','404','hold-404','500','hold-500'].includes(mode),'unknown read mode');\n    const grant={tag,name,path:'/api/images/'+rec.refine,mode,seen:false,ready:false,released:!mode.startsWith('hold-')};\n    if (!grant.released) grant.wait=new Promise(resolve=>{grant.release=resolve;});\n    q.reads.set(tag,grant); q.pendingReuse=tag; q.mark();\n  };\n  q.ready = async tag => {\n    q.assert(await q.until(()=>{ const a=q.actions.get(tag); q.assert(!a?.error,'Reuse handler rejected: '+a?.error); return q.reads.get(tag)?.ready; }), 'source lookup did not answer: '+tag);\n  };\n  q.done = async tag => {\n    q.assert(await q.until(()=>{const a=q.actions.get(tag); q.assert(a&&!a.error,'Reuse handler rejected: '+(a?.error||tag)); return a.done;}),'Reuse handler did not settle: '+tag);\n  };\n  q.releaseDone = async tag => {\n    const grant=q.reads.get(tag); q.assert(grant?.seen && grant.ready && !grant.released,'read is not held: '+tag);\n    grant.released=true; grant.release(); await q.done(tag);\n  };\n  const realReusePass=reusePass;\n  reusePass=function(rec) {\n    const tag=q.pendingReuse, grant=q.reads.get(tag);\n    q.assert(grant && grant.name && rec.id===q.records[grant.name].id,'unarmed pass Reuse');\n    q.pendingReuse=null; const action={done:false}; q.actions.set(tag,action);\n    q.lookupTag=tag;\n    let promise;\n    try { promise=realReusePass(rec); } finally { q.lookupTag=null; }\n    q.assert(promise&&typeof promise.then==='function','Reuse helper returned no Promise');\n    void promise.then(()=>{action.done=true;},error=>{action.error=String(error);q.failures.push(action.error);action.done=true;});\n    return promise;\n  };\n  const realOpen=openRefine;\n  openRefine=function(rec,pass=null) { q.opens.push({source:rec.id,pass:pass?.id??null}); return realOpen(rec,pass); };\n  const realShowError=showError;\n  showError=(...args)=>{q.shown.push(String(args[0]??''));return realShowError(...args);};\n  const realFinish=finishJob;\n  finishJob=(id,data,options)=>{q.finishes.push({id,status:data.status,count:data.image_count});return realFinish(id,data,options);};\n  const realRun=runRefine;\n  runRefine=function() {\n    const label=q.pendingRun; q.assert(label,'unarmed Refine run'); q.pendingRun=null;\n    const action={done:false}; q.runActions.set(label,action); const promise=realRun();\n    void promise.then(()=>{action.done=true;},error=>{action.error=String(error);q.failures.push(action.error);action.done=true;});\n    return promise;\n  };\n  const RealEventSource=window.EventSource;\n  window.EventSource=class extends RealEventSource {\n    constructor(url,options) {\n      const address=new URL(url,location.href), match=/^\\/api\\/jobs\\/([^/]+)\\/stream$/.exec(address.pathname);\n      if (address.origin!==q.origin || !match || !q.owned.has(match[1])) {q.violations.push('unowned stream');throw Error('unowned stream');}\n      q.streams.set(match[1],(q.streams.get(match[1])||0)+1);super(url,options);\n    }\n  };\n  window.addEventListener('error',event=>q.jsErrors.push(String(event.message||'window error')));\n  window.addEventListener('unhandledrejection',event=>q.jsErrors.push(String(event.reason)));\n  window.fetch=async(input,options)=>{\n    const url=new URL(typeof input==='string'||input instanceof URL?input:input.url,location.href);\n    const method=String(options?.method??(input instanceof Request?input.method:'GET')).toUpperCase();\n    const path=url.pathname+url.search;\n    if(url.origin!==q.origin){q.violations.push('off-origin '+method);throw Error('off-origin request');}\n    if(method==='GET' || method==='HEAD') {\n      const grant=q.lookupTag&&q.reads.get(q.lookupTag);\n      if(method!=='GET'||!grant||grant.path!==path)return q.realFetch(input,options);\n      q.assert(!grant.seen,'source read grant reused');grant.seen=true;\n      const mode=grant.mode.replace(/^hold-/,''),event={tag:grant.tag,path,forwarded:false,ignoredAbort:grant.tag==='old-success'&&!!options?.signal};q.readEvents.push(event);\n      let response;\n      if(mode==='pass') {\n        // Only the first declared late-success gate simulates abort-insensitive delivery.\n        const {signal,...unaborted}=options??{};\n        event.forwarded=true;response=await q.realFetch(input,grant.tag==='old-success'?unaborted:options);\n        const actual=await response.clone().json();\n        q.assert(response.ok&&actual.id===q.records[grant.name].refine&&q.images.has(actual.id),'held source body is not the actual owned record');\n      } else {\n        response=new Response(JSON.stringify({detail:mode==='404'?'unknown image':'Controlled current source read failure'}),\n          {status:Number(mode),headers:{'Content-Type':'application/json'}});\n      }\n      grant.ready=true;if(!grant.released)await grant.wait;return response;\n    }\n    const finish=/^\\/api\\/runs\\/([^/]+)\\/finish\\/preview$/.exec(url.pathname);\n    if(method==='POST'&&!url.search&&(['/api/grid/preview','/api/prompt/analyze','/api/prompt/measure'].includes(url.pathname)\n      ||(finish&&q.runs.has(decodeURIComponent(finish[1])))))return q.realFetch(input,options);\n    const body=options?.body??null;\n    const at=q.permits.findIndex(grant=>grant.path===path&&grant.body===String(body));\n    if(method!=='POST'||at<0){q.violations.push(method+' '+path);throw Error('unapproved mutation: '+method+' '+path);}\n    const grant=q.permits.splice(at,1)[0];grant.seen=true;q.mutations.push({label:grant.label,path});\n    const response=await q.realFetch(input,options);grant.status=response.status;\n    if(response.ok){\n      const accepted=await response.clone().json();q.assert(/^[a-f0-9]{12}$/.test(accepted.job_id)&&!q.owned.has(accepted.job_id)&&!(accepted.more?.length),'invalid actual job receipt');\n      q.owned.add(accepted.job_id);q.ids[grant.label]=accepted.job_id;grant.acceptedId=accepted.job_id;\n      if(typeof accepted.run_id==='string')q.runs.add(accepted.run_id);\n    }\n    grant.ready=true;return response;\n  };\n  q.jobDone=async label=>{\n    q.assert(await q.until(()=>{\n      const id=q.ids[label];q.assert(!q.failures.length,'owned submission rejected: '+q.failures.join('; '));\n      return !!id&&!busy&&!submitting&&!jobListing&&submissions.size===0&&q.finishes.some(x=>x.id===id);\n    }),'owned job did not finish: '+label);\n    const job=await q.read('/api/jobs/'+q.ids[label]);q.assert(job.status==='done','owned job did not succeed: '+label);\n  };\n  q.sourceJob=async()=>{\n    const body={prompt:'reuse opening source',width:256,height:256,steps:2,num_images:2,runs:1,seed:19460};\n    const grant=q.allow(body,'sources');let refused='',completed=false;\n    void startJob('/api/generate',body,{onRefused:error=>{refused=String(error?.message??error);}})\n      .catch(error=>{refused=String(error);q.failures.push(refused);}).finally(()=>{completed=true;});\n    q.assert(await q.until(()=>{q.assert(!refused&&!(grant.ready&&grant.status>=400),'source submission refused: '+refused+' '+grant.status);q.assert(!(completed&&!grant.acceptedId),'source submission returned without real receipt');return !!grant.acceptedId;}),'source receipt timed out');\n    await q.jobDone('sources');const rows=(await q.read('/api/gallery?all_models=true')).items.filter(x=>x.job_id===q.ids.sources).sort((a,b)=>a.id-b.id);\n    q.assert(rows.length===2&&rows.every(x=>x.refine==null),'source job did not produce two real direct records');\n    [q.records.sourceA,q.records.sourceB]=rows;rows.forEach(x=>q.images.add(x.id));\n    resetGallery();q.assert(await q.until(()=>!galleryPending&&rows.every(x=>galleryRecords.some(y=>y.id===x.id))),'source cards not loaded');q.mark();\n  };\n  q.preparePass=async(label,seed)=>{\n    q.assert(els.refineDialog.open&&q.images.has(refineSource?.id),'no owned Refine source');\n    els.refineWidth.value='256';els.refineHeight.value='256';els.refineStrength.value='0.5';els.refineSteps.value='4';\n    els.refineVersions.value='1';els.refineSeed.value=String(seed);writeRefineBox(els.refinePrompt,'reuse opening '+label);refineChanged();\n    q.assert(await q.until(()=>refinePreviewed===JSON.stringify(refineRequest().preview)&&els.refineRun.getAttribute('aria-disabled')==='false'),'actual pass preview did not allow exact request');\n    const request=refineRequest();q.assert(request.path==='/api/generate'&&request.body.refine===refineSource.id&&!request.sweep,'unexpected pass request');\n    q.allow(request.body,label);q.pendingRun=label;\n  };\n  q.passDone=async(label)=>{\n    await q.jobDone(label);q.assert(await q.until(()=>q.runActions.get(label)?.done&&refineSource===null&&!els.refineDialog.open),'Refine handler/close did not settle');\n    const rows=(await q.read('/api/gallery?all_models=true')).items.filter(x=>x.job_id===q.ids[label]);\n    q.assert(rows.length===1&&q.images.has(rows[0].refine),'pass job did not produce an owned real pass');\n    q.records[label]=rows[0];q.images.add(rows[0].id);resetGallery();\n    q.assert(await q.until(()=>!galleryPending&&Object.values(q.records).every(x=>galleryRecords.some(y=>y.id===x.id))),'owned pass cards not loaded');q.mark();\n  };\n  q.close=async()=>{q.assert(els.refineDialog.open&&!refineSending,'Refine cannot close');els.refineCancel.click();q.assert(await q.until(()=>!els.refineDialog.open&&refineSource===null),'Refine close event did not settle');};\n  return true;\n})()",
+    "fatal": true
+  },
+  {
+    "expect": "__rp.until(()=>modelState===\"ready\"&&!jobListing&&!galleryPending&&!submitting)",
+    "fatal": true
+  },
+  {
+    "expect": "(async()=>{const q=__rp;const backup=await q.read('/api/gallery/automatic-backup'),active=await q.read('/api/jobs'),history=await q.read('/api/jobs?include_finished=true'),gallery=await q.read('/api/gallery?all_models=true');q.assert(backup.enabled===false&&backup.credential_configured===false&&backup.credential_state==='not_configured','backup is not cold');q.assert(!active.length&&!history.length&&!busy&&!submissions.size&&!queuedIds.length,'fresh page already owns jobs');q.assert(gallery.total===2&&gallery.items.every(x=>x.job_id==='planted'),'not fresh planted gallery');q.planted=gallery.items.map(x=>({id:x.id,filename:x.filename,prompt:x.prompt,seed:x.seed,favorite:x.favorite,binned_at:x.binned_at,job_id:x.job_id,model_id:x.model_id}));q.initialPanel=q.panel();await q.sourceJob();return true;})()",
+    "fatal": true
+  },
+  {
+    "expect": "(async()=>{const q=__rp;q.mark();q.assert(!els.refineDialog.open&&refineSupported,\"Refine opening prerequisites failed\");return true;})()",
+    "fatal": true
+  },
+  {
+    "expect": "(async()=>{const q=__rp;const button=document.querySelector(\"#gallery .card[data-smoke-image=\\\"sourceA\\\"] .refine-tool\");q.assert(button&&!button.disabled&&button.getAttribute(\"aria-disabled\")!==\"true\",\"native click prerequisite failed\");button.scrollIntoView({block:\"center\",inline:\"nearest\"});button.focus({preventScroll:true});q.assert(button.getClientRects().length>0,\"native click target has no box\");return true;})()",
+    "fatal": true
+  },
+  {
+    "click": "#gallery .card[data-smoke-image=\"sourceA\"] .refine-tool"
+  },
+  {
+    "expect": "(async()=>{const q=__rp;q.assert(els.refineDialog.open&&refineSource.id===q.records.sourceA.id,\"physical Refine opened wrong source\");await q.preparePass(\"passA\",19461);return true;})()",
+    "fatal": true
+  },
+  {
+    "expect": "(async()=>{const q=__rp;const button=document.querySelector(\"#refine-run\");q.assert(button&&!button.disabled&&button.getAttribute(\"aria-disabled\")!==\"true\",\"native click prerequisite failed\");button.scrollIntoView({block:\"center\",inline:\"nearest\"});button.focus({preventScroll:true});q.assert(button.getClientRects().length>0,\"native click target has no box\");return true;})()",
+    "fatal": true
+  },
+  {
+    "click": "#refine-run"
+  },
+  {
+    "expect": "(async()=>{const q=__rp;await q.passDone(\"passA\");return true;})()",
+    "fatal": true
+  },
+  {
+    "expect": "(async()=>{const q=__rp;q.mark();q.assert(!els.refineDialog.open&&refineSupported,\"Refine opening prerequisites failed\");return true;})()",
+    "fatal": true
+  },
+  {
+    "expect": "(async()=>{const q=__rp;const button=document.querySelector(\"#gallery .card[data-smoke-image=\\\"sourceB\\\"] .refine-tool\");q.assert(button&&!button.disabled&&button.getAttribute(\"aria-disabled\")!==\"true\",\"native click prerequisite failed\");button.scrollIntoView({block:\"center\",inline:\"nearest\"});button.focus({preventScroll:true});q.assert(button.getClientRects().length>0,\"native click target has no box\");return true;})()",
+    "fatal": true
+  },
+  {
+    "click": "#gallery .card[data-smoke-image=\"sourceB\"] .refine-tool"
+  },
+  {
+    "expect": "(async()=>{const q=__rp;q.assert(els.refineDialog.open&&refineSource.id===q.records.sourceB.id,\"physical Refine opened wrong source\");await q.preparePass(\"passB\",19462);return true;})()",
+    "fatal": true
+  },
+  {
+    "expect": "(async()=>{const q=__rp;const button=document.querySelector(\"#refine-run\");q.assert(button&&!button.disabled&&button.getAttribute(\"aria-disabled\")!==\"true\",\"native click prerequisite failed\");button.scrollIntoView({block:\"center\",inline:\"nearest\"});button.focus({preventScroll:true});q.assert(button.getClientRects().length>0,\"native click target has no box\");return true;})()",
+    "fatal": true
+  },
+  {
+    "click": "#refine-run"
+  },
+  {
+    "expect": "(async()=>{const q=__rp;await q.passDone(\"passB\");return true;})()",
+    "fatal": true
+  },
+  {
+    "expect": "(async()=>{const q=__rp;q.assert(q.owned.size===3&&q.images.size===4&&q.panel()===q.initialPanel&&q.safe(),'owned setup/composer gate failed');q.arm('passA','old-success');return true;})()",
+    "fatal": true
+  },
+  {
+    "expect": "(async()=>{const q=__rp;const button=document.querySelector(\"#gallery .card[data-smoke-image=\\\"passA\\\"] .reuse-settings\");q.assert(button&&!button.disabled&&button.getAttribute(\"aria-disabled\")!==\"true\",\"native click prerequisite failed\");button.scrollIntoView({block:\"center\",inline:\"nearest\"});button.focus({preventScroll:true});q.assert(button.getClientRects().length>0,\"native click target has no box\");return true;})()",
+    "fatal": true
+  },
+  {
+    "click": "#gallery .card[data-smoke-image=\"passA\"] .reuse-settings"
+  },
+  {
+    "expect": "(async()=>{const q=__rp;await q.ready('old-success');q.assert(!els.refineDialog.open&&!q.actions.get('old-success').done,'old read was not held');return true;})()",
+    "fatal": true
+  },
+  {
+    "expect": "(async()=>{const q=__rp;const button=document.querySelector(\"#gallery .card[data-smoke-image=\\\"sourceB\\\"] .refine-tool\");q.assert(button&&!button.disabled&&button.getAttribute(\"aria-disabled\")!==\"true\",\"native click prerequisite failed\");button.scrollIntoView({block:\"center\",inline:\"nearest\"});button.focus({preventScroll:true});q.assert(button.getClientRects().length>0,\"native click target has no box\");return true;})()",
+    "fatal": true
+  },
+  {
+    "click": "#gallery .card[data-smoke-image=\"sourceB\"] .refine-tool"
+  },
+  {
+    "expect": "(async()=>{const q=__rp;q.assert(els.refineDialog.open&&refineSource.id===q.records.sourceB.id,'newer physical Refine did not open B');els.refineMore.open=true;return true;})()",
+    "fatal": true
+  },
+  {
+    "expect": "(async()=>{const q=__rp;els.refinePrompt.focus({preventScroll:true});els.refinePrompt.select();q.assert(document.activeElement===els.refinePrompt,\"draft field has no focus\");return true;})()",
+    "fatal": true
+  },
+  {
+    "type": "newer B draft stays here"
+  },
+  {
+    "expect": "(async()=>{const q=__rp;q.assert(els.refinePrompt.value===\"newer B draft stays here\",\"native draft text did not land\");return true;})()",
+    "fatal": true
+  },
+  {
+    "expect": "(async()=>{const q=__rp;q.beforeDialog=q.dialog();q.beforePanel=q.panel();q.focus=document.activeElement;q.openAt=q.opens.length;q.shownAt=q.shown.length;return true;})()",
+    "fatal": true
+  },
+  {
+    "fullshot": "reuse-pass-newer-draft-wide.png"
+  },
+  {
+    "expect": "(async()=>{const q=__rp;await q.releaseDone('old-success');q.assert(q.dialog()===q.beforeDialog&&q.panel()===q.beforePanel&&document.activeElement===q.focus,'obsolete Reuse success replaced newer Refine source/draft/focus');q.assert(q.opens.length===q.openAt,'obsolete Reuse success called openRefine');await q.close();return true;})()",
+    "fatal": true
+  },
+  {
+    "log": "\"Declared unforwarded404 against a still-live owned source: typing and Reset each supersede pending Reuse, including its composer fallback. No source deletion is performed.\""
+  },
+  {
+    "expect": "(async()=>{const q=__rp;q.arm('passA','typed-404','hold-404');return true;})()",
+    "fatal": true
+  },
+  {
+    "expect": "(async()=>{const q=__rp;const button=document.querySelector(\"#gallery .card[data-smoke-image=\\\"passA\\\"] .reuse-settings\");q.assert(button&&!button.disabled&&button.getAttribute(\"aria-disabled\")!==\"true\",\"native click prerequisite failed\");button.scrollIntoView({block:\"center\",inline:\"nearest\"});button.focus({preventScroll:true});q.assert(button.getClientRects().length>0,\"native click target has no box\");return true;})()",
+    "fatal": true
+  },
+  {
+    "click": "#gallery .card[data-smoke-image=\"passA\"] .reuse-settings"
+  },
+  {
+    "expect": "(async()=>{const q=__rp;await q.ready('typed-404');q.assert(!els.refineDialog.open,'unexpected dialog before composer typing');return true;})()",
+    "fatal": true
+  },
+  {
+    "expect": "(async()=>{const q=__rp;els.prompt.focus({preventScroll:true});els.prompt.select();q.assert(document.activeElement===els.prompt,\"draft field has no focus\");return true;})()",
+    "fatal": true
+  },
+  {
+    "type": "newer composer draft remains"
+  },
+  {
+    "expect": "(async()=>{const q=__rp;q.assert(els.prompt.value===\"newer composer draft remains\",\"native draft text did not land\");return true;})()",
+    "fatal": true
+  },
+  {
+    "expect": "(async()=>{const q=__rp;q.beforePanel=q.panel();q.focus=document.activeElement;q.noteBefore=reuseNote;q.shownAt=q.shown.length;await q.releaseDone('typed-404');q.assert(q.panel()===q.beforePanel&&document.activeElement===q.focus&&reuseNote===q.noteBefore&&!els.refineDialog.open,'stale404 replaced composer or Undo/focus');q.assert(q.shown.length===q.shownAt,'stale404 surfaced a fallback note');q.arm('passA','reset-404','hold-404');return true;})()",
+    "fatal": true
+  },
+  {
+    "expect": "(async()=>{const q=__rp;const button=document.querySelector(\"#gallery .card[data-smoke-image=\\\"passA\\\"] .reuse-settings\");q.assert(button&&!button.disabled&&button.getAttribute(\"aria-disabled\")!==\"true\",\"native click prerequisite failed\");button.scrollIntoView({block:\"center\",inline:\"nearest\"});button.focus({preventScroll:true});q.assert(button.getClientRects().length>0,\"native click target has no box\");return true;})()",
+    "fatal": true
+  },
+  {
+    "click": "#gallery .card[data-smoke-image=\"passA\"] .reuse-settings"
+  },
+  {
+    "expect": "(async()=>{const q=__rp;await q.ready('reset-404');q.assert(!els.refineDialog.open,'Reset prerequisites failed');return true;})()",
+    "fatal": true
+  },
+  {
+    "expect": "(async()=>{const q=__rp;const button=document.querySelector(\"#btn-reset\");q.assert(button&&!button.disabled&&button.getAttribute(\"aria-disabled\")!==\"true\",\"native click prerequisite failed\");button.scrollIntoView({block:\"center\",inline:\"nearest\"});button.focus({preventScroll:true});q.assert(button.getClientRects().length>0,\"native click target has no box\");return true;})()",
+    "fatal": true
+  },
+  {
+    "click": "#btn-reset"
+  },
+  {
+    "expect": "(async()=>{const q=__rp;q.beforePanel=q.panel();q.focus=document.activeElement;q.noteBefore=reuseNote;q.shownAt=q.shown.length;await q.releaseDone('reset-404');q.assert(q.panel()===q.beforePanel&&document.activeElement===q.focus&&reuseNote===q.noteBefore&&!els.refineDialog.open,'stale404 replaced Reset composer');q.assert(q.shown.length===q.shownAt,'stale404 surfaced after Reset');q.arm('passA','older-500','hold-500');return true;})()",
+    "fatal": true
+  },
+  {
+    "expect": "(async()=>{const q=__rp;const button=document.querySelector(\"#gallery .card[data-smoke-image=\\\"passA\\\"] .reuse-settings\");q.assert(button&&!button.disabled&&button.getAttribute(\"aria-disabled\")!==\"true\",\"native click prerequisite failed\");button.scrollIntoView({block:\"center\",inline:\"nearest\"});button.focus({preventScroll:true});q.assert(button.getClientRects().length>0,\"native click target has no box\");return true;})()",
+    "fatal": true
+  },
+  {
+    "click": "#gallery .card[data-smoke-image=\"passA\"] .reuse-settings"
+  },
+  {
+    "expect": "(async()=>{const q=__rp;await q.ready('older-500');q.arm('passB','newer-success','pass');return true;})()",
+    "fatal": true
+  },
+  {
+    "expect": "(async()=>{const q=__rp;const button=document.querySelector(\"#gallery .card[data-smoke-image=\\\"passB\\\"] .reuse-settings\");q.assert(button&&!button.disabled&&button.getAttribute(\"aria-disabled\")!==\"true\",\"native click prerequisite failed\");button.scrollIntoView({block:\"center\",inline:\"nearest\"});button.focus({preventScroll:true});q.assert(button.getClientRects().length>0,\"native click target has no box\");return true;})()",
+    "fatal": true
+  },
+  {
+    "click": "#gallery .card[data-smoke-image=\"passB\"] .reuse-settings"
+  },
+  {
+    "expect": "(async()=>{const q=__rp;await q.ready('newer-success');await q.done('newer-success');q.assert(els.refineDialog.open&&refineSource.id===q.records.sourceB.id&&els.refinePrompt.value===q.records.passB.prompt,'newer Reuse did not open actual passB');q.beforeDialog=q.dialog();q.beforePanel=q.panel();q.focus=document.activeElement;q.shownAt=q.shown.length;q.openAt=q.opens.length;await q.releaseDone('older-500');q.assert(q.dialog()===q.beforeDialog&&q.panel()===q.beforePanel&&document.activeElement===q.focus&&q.opens.length===q.openAt,'obsolete lookup error altered newer Reuse');q.assert(q.shown.length===q.shownAt,'obsolete source error surfaced');await q.close();q.arm('passA','current-404','404');q.sizeBefore=[els.width.value,els.height.value];return true;})()",
+    "fatal": true
+  },
+  {
+    "log": "\"Current controlled404 still offers existing Reuse-settings fallback with composer size preserved; current500 still says why and permits a fresh actual successful retry. Both real source records stay present.\""
+  },
+  {
+    "expect": "(async()=>{const q=__rp;const button=document.querySelector(\"#gallery .card[data-smoke-image=\\\"passA\\\"] .reuse-settings\");q.assert(button&&!button.disabled&&button.getAttribute(\"aria-disabled\")!==\"true\",\"native click prerequisite failed\");button.scrollIntoView({block:\"center\",inline:\"nearest\"});button.focus({preventScroll:true});q.assert(button.getClientRects().length>0,\"native click target has no box\");return true;})()",
+    "fatal": true
+  },
+  {
+    "click": "#gallery .card[data-smoke-image=\"passA\"] .reuse-settings"
+  },
+  {
+    "expect": "(async()=>{const q=__rp;await q.ready('current-404');await q.done('current-404');q.assert(!els.refineDialog.open&&els.prompt.value===q.records.passA.prompt&&els.seed.value===String(q.records.passA.seed)&&els.width.value===q.sizeBefore[0]&&els.height.value===q.sizeBefore[1]&&els.error.textContent.includes('no longer in the gallery')&&reuseNote,'current404 fallback contract changed');q.arm('passA','current-500','500');q.beforePanel=q.panel();q.noteBefore=reuseNote;return true;})()",
+    "fatal": true
+  },
+  {
+    "expect": "(async()=>{const q=__rp;const button=document.querySelector(\"#gallery .card[data-smoke-image=\\\"passA\\\"] .reuse-settings\");q.assert(button&&!button.disabled&&button.getAttribute(\"aria-disabled\")!==\"true\",\"native click prerequisite failed\");button.scrollIntoView({block:\"center\",inline:\"nearest\"});button.focus({preventScroll:true});q.assert(button.getClientRects().length>0,\"native click target has no box\");return true;})()",
+    "fatal": true
+  },
+  {
+    "click": "#gallery .card[data-smoke-image=\"passA\"] .reuse-settings"
+  },
+  {
+    "expect": "(async()=>{const q=__rp;await q.ready('current-500');await q.done('current-500');q.assert(!els.refineDialog.open&&q.panel()===q.beforePanel&&reuseNote===q.noteBefore&&els.error.textContent.includes('Controlled current source read failure'),'current source error was swallowed or changed composer');q.arm('passA','retry-success','pass');return true;})()",
+    "fatal": true
+  },
+  {
+    "expect": "(async()=>{const q=__rp;const button=document.querySelector(\"#gallery .card[data-smoke-image=\\\"passA\\\"] .reuse-settings\");q.assert(button&&!button.disabled&&button.getAttribute(\"aria-disabled\")!==\"true\",\"native click prerequisite failed\");button.scrollIntoView({block:\"center\",inline:\"nearest\"});button.focus({preventScroll:true});q.assert(button.getClientRects().length>0,\"native click target has no box\");return true;})()",
+    "fatal": true
+  },
+  {
+    "click": "#gallery .card[data-smoke-image=\"passA\"] .reuse-settings"
+  },
+  {
+    "expect": "(async()=>{const q=__rp;await q.ready('retry-success');await q.done('retry-success');q.assert(els.refineDialog.open&&refineSource.id===q.records.sourceA.id&&els.refinePrompt.value===q.records.passA.prompt&&els.refineStrength.value===String(q.records.passA.strength)&&document.activeElement===els.refineStrength,'actual current retry did not open passA correctly');return true;})()",
+    "fatal": true
+  },
+  {
+    "viewport": [
+      600,
+      1000
+    ]
+  },
+  {
+    "fullshot": "reuse-pass-current-retry-narrow.png"
+  },
+  {
+    "viewport": [
+      1400,
+      900
+    ]
+  },
+  {
+    "fullshot": "reuse-pass-current-retry-wide.png"
+  },
+  {
+    "expect": "(async()=>{const q=__rp;await q.close();const active=await q.read('/api/jobs'),history=await q.read('/api/jobs?include_finished=true'),gallery=await q.read('/api/gallery?all_models=true'),bin=await q.read('/api/gallery/bin?all_models=true'),backup=await q.read('/api/gallery/automatic-backup');q.assert(!active.length&&history.length===3&&history.every(x=>q.owned.has(x.job_id))&&!busy&&!submitting&&!jobListing&&!submissions.size&&!queuedIds.length,'final job/page holds');q.assert(q.mutations.length===3&&q.mutations.every(x=>x.path==='/api/generate')&&q.owned.size===3&&[...q.owned].every(id=>q.streams.get(id)===1&&q.finishes.filter(x=>x.id===id&&x.status==='done').length===1),'exact owned mutation/stream/outcome count failed');q.assert(q.readEvents.length===8&&q.readEvents.filter(x=>x.forwarded).length===3&&[...q.reads.values()].every(x=>x.seen&&x.ready&&x.released)&&[...q.actions.values()].every(x=>x.done&&!x.error)&&[...q.runActions.values()].every(x=>x.done&&!x.error)&&q.safe(),'final read/handler/grant/error gate failed');q.assert(gallery.total===6&&gallery.items.length===6&&gallery.items.every(x=>x.job_id==='planted'||q.owned.has(x.job_id))&&bin.total===0,'gallery/bin population changed');for(const planted of q.planted){const row=gallery.items.find(x=>x.id===planted.id);q.assert(row&&Object.keys(planted).every(key=>row[key]===planted[key]),'planted image changed');}for(const record of Object.values(q.records)){const actual=await q.read('/api/images/'+record.id);q.assert(actual.id===record.id&&actual.job_id===record.job_id&&actual.refine===record.refine,'owned source/pass changed');}q.assert(backup.enabled===false&&backup.credential_configured===false&&backup.credential_state==='not_configured','backup no longer cold');q.assert(typeof reusePassOpening==='undefined'||reusePassOpening===null,'new source lookup owner did not release');return true;})()",
+    "fatal": true
+  },
+  {
+    "log": "\"Pass-only final gate: three actual owned jobs terminal, four owned source/pass records plus two unchanged planted records; exact3 mutation grants/eight source lookups, no pending read/handler/job/grant or JS errors. Controlled missing/error replies preserved all images. No GPU/device or broad context qualification.\""
+  }
+]

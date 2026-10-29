@@ -2715,6 +2715,17 @@ Now neither `collect()` nor `gridPayload` sends a greyed Mu box or axis, as
 with the LoRA weight, and the note asks to check "the steps and CFG boxes"
 there, not a Mu that is not on offer.
 
+**A pass's Reuse lookup owns its opening (2026-10-28).** Looking up a pass's
+source can answer after another Refine dialog was opened or the composer was
+edited. The lookup keeps one page-local request owner, its raw composer and
+model/server/view context, and an abort signal. A newer Reuse, direct Refine open or
+Reset retires it; meaningful composer edits retire it through the existing Undo
+sync. Obsolete success, missing-source fallback and errors do not overwrite the
+newer work. A still-current missing source retains the existing panel fallback,
+including its Undo and unchanged size. The request releases its own token before
+the deliberate open/fallback, so normal actions do not cancel themselves.
+[The dated review](review-2026-10-28-reuse-pass-opening.md) owns qualification.
+
 **Reuse can be taken back.** It replaces the prompt, the negative, the seed,
 the size, steps/CFG/mu and the references and adapter in one click, and it
 used to do so over a half-written prompt with no word: the boxes were

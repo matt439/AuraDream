@@ -5557,8 +5557,19 @@ Frontend and CLI:
   `syncDeleteUnstarredHold` changes attrs without remeasuring/hiding the head.
   New controls inherit the reason. Server keeper/count/revision, Empty pin/
   fixed-before and confirmation semantics remain intact; All models is captured
-  once for sweep request and wording. Bundle clear remains a subsequent source
-  slice in the dated broad-bin review. `gallery_delete.bin_images` looks up and
+  once for sweep request and wording. Bundle & clear has a separate
+  `bundleClearOwner`, consulted first by exact/broad reasons. Local clear
+  admission refuses raw exact/broad owners; observed exports hold new writes
+  while prior owners drain. Same-id settling excludes duplicate POST/poll
+  application; handled/release follows critical refresh and identity/phase
+  checks. First-page old terminal history remains past. Only direct unaccepted
+  POST409/422 releases; unknown/malformed/replaced receipts or application
+  errors keep authoritative unresolved guidance. `bundleHold` stays unchanged
+  so terminal counts can refresh; new bundle reservations/settings wait under
+  the clear-specific action hold. Ordinary no-clear flows stay intact. No
+  automatic retry/navigation, draft discard or generic cross-client protocol
+  is added. The dated Bundle-clear review owns scope/acceptance.
+  `gallery_delete.bin_images` looks up and
   writes under `storage._write_lock`, so a second bin answers `already`, and
   `gallery_delete.delete_image` does the same, so a second permanent delete is
   "unknown image".
@@ -6267,6 +6278,23 @@ previews beyond the tested lifecycle requests; actual Finish remains blocked.
 Composer, picks/stashes and notes stay intact. The dated broad-bin review
 records the earlier reversible diagnostic proof and remaining Bundle/unknown/
 cross-client boundaries.
+
+`smoke-bundle-clear-order.json` uses a NEW fresh FLUX.1 Krea [dev] fake on
+7943 for the Bundle & clear source slice. The earlier 63-step diagnostic owns
+the complete four-row scratch gallery, holds an actual committed Restore reply
+and compares a completed native clear's 404/deleted-id receipts with late page
+bookkeeping. The reviewed 465-step final fixture instead targets action
+admission, known/unknown receipts, raw-owner draining, worker/terminal-refresh
+lifetime and duplicate receivers across eight page lifetimes. It distinguishes
+two actual owned clears from controlled metadata/transport probes. API/fetch
+same-origin one-use guards refuse unrelated writes and fatal zero-counter
+checks precede navigation. Three steps inject another operation's poll while a
+received clear result drains; the result must stay draining, not unresolved.
+An `eval` must not end on a gated promise, because the driver awaits it. Default-disabled automatic-backup status is a source-audited cold
+cached read; settings writes/activation and credential APIs stay outside it.
+Diagnostic success means reproduced defect, not repair acceptance. The dated
+Bundle-clear review owns final qualification and remaining protocol limits.
+
 
 
 `tests/test_snippets.py` covers CRUD, exact text, bounds, malformed-file
@@ -7314,6 +7342,18 @@ Only exact owned favorite POSTs are admitted; no jobs or model activation.
 module's caller counts, admission, propagation and cleanup using inert
 API/presentation ports. The dated count review owns actual results and limits.
 
+`smoke-reuse-pass-opening.json` uses a fresh FLUX.1 Krea [dev] fake on
+7946 with 0.3 s steps. Three actual owned jobs create two source/pass pairs.
+Held unmodified source GETs and declared unforwarded 404/500 replies check
+newer Refine drafts/focus, composer typing/Reset, newer Reuse ordering and
+current fallback/error/retry behavior. Only the first declared late-success
+source-read gate ignores its AbortSignal to exercise stale-owner guards. Raw draft snapshots,
+one-use same-origin mutation grants, cold backup state and final zero active
+jobs/pending reads/unused grants/JavaScript errors bound the fixture. No image
+is deleted or cleared; planted facts stay unchanged. The page's advisory
+`/api/prompt/measure` and `/api/prompt/analyze` POSTs pass through
+unguarded. No real model, GPU, credentials or user gallery is exercised.
+
 `smoke-refine.json` checks the Refine dialog on a FLUX.1 Krea [dev] fake on
 7875, whose refine cells are the source image under a stamp: no refine
 control in the panel, the card's and the lightbox's Refine opening the
@@ -7665,14 +7705,13 @@ uv run python tools/fake_server.py --port 7881 --model black-forest-labs/FLUX.1-
 node tools/browser.mjs tools/smoke-delete.json
 ```
 
-`smoke-split-extra-queue.json` is a fresh owned-FLUX-fake diagnostic on
-7951 for a delayed mixed-size Swap receipt after an extra job is adopted.
-Its actual receipt/list gates and queue-write observations are intended to
-check that current job's own Next row. Original run 22364 has an unknown
-outcome after transport loss; its owned fake-server log read was denied.
-No acceptance or cleanup is confirmed, the source proposal remains
-unapplied, and that operation is not repeated. Its unchanged fixture and
-registration remain pending while the outcome cannot be reconciled.
+`smoke-split-extra-queue.json` runs on a fresh owned FLUX fake on 7951 at
+`--step 0.3`. It covers a delayed mixed-size Swap receipt that lands after the
+page's listing has adopted the split's extra job B. B must stay the watched
+current job and never become its own "Next:" row; the terminal primary A may.
+It uses real owned jobs, a paused predecessor and a held, unmodified receipt.
+It fails at the defect check without `startJob`'s `watchedJobs` filter
+([`GEN#31`](review-2026-10-29-split-extra-queue.md)).
 
 `smoke-jobs.json` runs against the default Turbo fake on 7882 at
 `--step 0.3` (it passes at `--step 0.15` too): the tab title and topbar mirror; the one-line Now row, count

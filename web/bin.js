@@ -3,17 +3,21 @@
 'use strict';
 
 // Same-page lifecycle requests own either explicit ids or the broad scope of
-// Delete unstarred/Empty bin through response application. Bundle maintenance,
-// other clients and uncertain outcomes remain outside this hold; no retry.
+// Delete unstarred/Empty bin through response application. Bundle & clear has
+// separate ownership; other clients and uncertain outcomes have no retry.
 const binWriteIds = new Set();
 let binBroadOwner = null;
 
 function binBroadWriteReason() {
+  const clear = bundleClearHold();
+  if (clear) return clear;
   return (binBroadOwner || binWriteIds.size)
     ? 'Wait for the current recycle bin change to finish' : '';
 }
 
 function binWriteReason(ids) {
+  const clear = bundleClearHold();
+  if (clear) return clear;
   if (binBroadOwner) return binBroadWriteReason();
   return ids.some((id) => binWriteIds.has(id))
     ? 'Wait for the current recycle bin change to finish' : '';
@@ -47,6 +51,7 @@ function syncBinWriteHolds(ids = null) {
   syncEmptyBin();
   syncRestorePicked();
   syncPickedButton();
+  syncBundleControls();
 }
 
 // The page's delete - a card's ⌦, the viewer's, the lightbox's Delete and

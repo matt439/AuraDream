@@ -970,6 +970,12 @@ then saved as an encrypted `.ldbundle` file that only AuraDream can
 open (file names included). The password is not saved anywhere and cannot be
 recovered, and the gallery is cleared after export, so keep it safe. Finish or cancel generation first; loading and other gallery work
 must also finish before this operation can start.
+Bin, Restore and delete actions on this page wait until the clear's result
+has finished updating the page, even if you close the dialog. If its outcome
+cannot be confirmed, those actions and new bundle starts stay held. Let any
+server operation finish, inspect the gallery and saved bundles, keep any
+unsent draft, then manually reload the page. Reloading does not cancel the
+server operation or prove the clear never ran; avoid repeating it as a check.
 
 The server saves the bundle (a ZIP, or with a password an encrypted
 `.ldbundle`) in `bundles/` beside its gallery database (or in

@@ -1,0 +1,1579 @@
+[
+  {
+    "log": "'GAL12 requires a genuinely NEW --data directory BEFORE fake-server startup. A browser stub cannot protect reused encrypted startup settings. Fresh disabled automatic-backup GET is cached/cold; no vault, credential/settings write, activation or GPU work is part of this fixture.'"
+  },
+  {
+    "navigate": "http://127.0.0.1:7943/"
+  },
+  {
+    "eval": "window.__clUntil=async(fn,ms=25000)=>{const end=Date.now()+ms;while(Date.now()<end){try{if(await fn())return true;}catch{}await new Promise(resolve=>setTimeout(resolve,40));}return false;};\nwindow.__clBaseApi=api;window.__clRawFetch=fetch.bind(window);window.__clPermits=[];window.__clErrors=[];window.__clForbidden=[];window.__clJobs=0;window.__clRequests=[];window.__clRawWrites=[];window.__clReadOnly=[];window.__clPostMode=null;window.__clClearApproval=null;window.__clSeedApproval=null;window.__clExactApproval=null;window.__clExactGate=null;window.__clBroadGate=null;window.__clResetGate=null;window.__clDialogGate=null;window.__clStatusReadGate=null;window.__clStatusMode={kind:'server'};window.__clPollErrors=0;window.__clStatusReads=0;window.__clRenderCounts={};window.__clForgetCalls=[];\naddEventListener('error',event=>__clErrors.push(event.message));addEventListener('unhandledrejection',event=>__clErrors.push(String(event.reason)));\nwindow.__clKnown=()=>JSON.parse(sessionStorage.getItem('auradream.smoke.bundle-clear'));\nwindow.__clSave=(value)=>sessionStorage.setItem('auradream.smoke.bundle-clear',JSON.stringify(value));\nwindow.__clNorm=(ids)=>[...ids].sort((a,b)=>a-b).join();\nwindow.__clPreviewPaths=()=>{const known=__clKnown();return known?(known.runIds??[]).map(run=>'/api/runs/'+encodeURIComponent(run)+'/finish/preview'):[];};\nwindow.__clReadOnlyPost=(path)=>path==='/api/prompt/measure'||__clPreviewPaths().includes(path);\nwindow.__clJobPath=(path)=>['/api/generate','/api/grid','/api/refine','/api/refine/batch','/api/rerender','/api/inpaint','/api/outpaint','/api/more-seeds','/api/instruction-edit','/api/swap-tags'].includes(path.split('?')[0])||/^\\/api\\/runs\\/[^/]+\\/finish(?:\\?|$)/.test(path);\nwindow.__clRefuse=(method,path,reason,layer='api',origin=location.origin)=>{if(__clJobPath(path))__clJobs++;__clForbidden.push({method,path,origin,layer,reason});throw Error(reason);};\nwindow.__clMutationBody=(path,options)=>{let body;try{body=JSON.parse(options?.body);}catch{return __clRefuse('POST',path,'Invalid mutation JSON refused');}if(!body||typeof body!=='object'||Array.isArray(body))return __clRefuse('POST',path,'Invalid mutation body refused');return body;};\nfetch=async(input,options={})=>{const raw=typeof input==='string'?input:input?.url??String(input),method=(options.method??input?.method??'GET').toUpperCase();let url;try{url=new URL(raw,location.href);}catch{return __clRefuse(method,String(raw),'Invalid raw URL refused','fetch',null);}const path=url.pathname+url.search;if(method==='GET'||method==='HEAD')return __clRawFetch(input,options);if(url.origin!==location.origin)return __clRefuse(method,path,'Foreign-origin mutation refused','fetch',url.origin);if(method==='POST'&&__clReadOnlyPost(path)){__clReadOnly.push(path);return __clRawFetch(input,options);}const body=options.body??null,index=__clPermits.findIndex(permit=>permit.origin===url.origin&&permit.method===method&&permit.path===path&&permit.body===body);if(index<0)return __clRefuse(method,path,'Unapproved raw mutation refused by clear fixture','fetch',url.origin);__clPermits.splice(index,1);const response=await __clRawFetch(input,options);__clRawWrites.push({method,path,status:response.status});return response;};\nwindow.__clSend=async(path,options)=>{const url=new URL(path,location.href),method=(options?.method??'GET').toUpperCase();if(url.origin!==location.origin)return __clRefuse(method,url.pathname+url.search,'Foreign-origin send refused','send',url.origin);const permit={origin:url.origin,path:url.pathname+url.search,method,body:options?.body??null};__clPermits.push(permit);try{return await __clBaseApi(path,options);}finally{const index=__clPermits.indexOf(permit);if(index>=0)__clPermits.splice(index,1);}};\nwindow.__clInventory=async()=>{const [live,bin]=await Promise.all([__clBaseApi('/api/gallery?all_models=true&limit=100'),__clBaseApi('/api/gallery/bin?limit=100')]);const rows=[...live.items,...bin.items].sort((a,b)=>a.id-b.id);return {rows,ids:rows.map(row=>row.id),live:live.total,bin:bin.total};};\nwindow.__clStored=async(id)=>{try{const row=await __clBaseApi('/api/images/'+id+'?binned=true');return {id,exists:true,row};}catch(err){if(err.status===404)return {id,exists:false};throw err;}};\nwindow.__clSeed=async(approval)=>{if(!approval||approval.used)throw Error('Missing one-use seed');const before=await __clInventory();if(before.rows.length!==approval.before)throw Error('Seed requires the exact empty/initial inventory');approval.used=true;const body={prompt:approval.prompt,width:256,height:256,steps:1,seed:approval.seed,num_images:approval.count};const job=await __clSend('/api/generate',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify(body)});if(!await __clUntil(async()=>{const found=await __clBaseApi('/api/jobs/'+job.job_id);return found.status==='done';}))throw Error('Owned fake seed did not complete');return __clInventory();};\nwindow.__clTag=()=>{const known=__clKnown();for(const[index,id]of (known?.currentIds??[]).entries())for(const card of document.querySelectorAll('#gallery .card[data-id=\"'+id+'\"]'))card.dataset.cl='abcdef'[index];};\nwindow.__clHeld=(button)=>button?.getAttribute('aria-disabled')==='true'&&!button.disabled;\nwindow.__clRunning=(id)=>({id,operation:'export',state:'running',progress:{phase:'verifying',done:1,total:2},result:null,error:null});\nwindow.__clTerminal=(id)=>({id,operation:'export',state:'done',progress:null,error:null,result:{name:'controlled-metadata-only.zip',images:0,records:0,cleared:false,deleted_ids:[],retained:['controlled-retained.png']}});\nwindow.__clRender=renderBundleResult;renderBundleResult=(status,...rest)=>{if(status?.id)__clRenderCounts[status.id]=(__clRenderCounts[status.id]??0)+1;return __clRender(status,...rest);};\nwindow.__clForget=forgetImages;forgetImages=(ids,...rest)=>{__clForgetCalls.push([...ids]);return __clForget(ids,...rest);};\nwindow.__clGuardProbe=async()=>{if(!bundleClearOwner)return false;const owner=bundleClearOwner,count=__clRequests.length,raw=__clRawWrites.length,forbidden=__clForbidden.length,jobs=__clJobs,errors=__clErrors.length;await restoreImages([__clKnown().currentIds[0]??__clKnown().firstIds[0]]);await deleteImage(__clKnown().cached);await binPicked();await purgePicked();await deleteUnstarred();await emptyBin();return bundleClearOwner===owner&&__clRequests.length===count&&__clRawWrites.length===raw&&__clForbidden.length===forbidden&&__clJobs===jobs&&__clErrors.length===errors;};\napi=async(path,options)=>{const method=(options?.method??'GET').toUpperCase(),base=path.split('?')[0];if(method==='GET'){if(base==='/api/gallery/bundles/status'){__clStatusReads++;const readEpoch=bundleRequestEpoch;if(__clPollErrors>0){__clPollErrors--;throw Error('Controlled transient bundle status read failure');}if(__clStatusMode.kind==='fixed')return structuredClone(__clStatusMode.status);const result=await __clBaseApi(path,options);__clLastServer=result;const gate=__clStatusReadGate;if(gate&&!gate.captured&&gate.epoch===readEpoch){gate.captured=true;gate.result=result;await new Promise(resolve=>{gate.release=resolve;});}if(__clStatusMode.kind==='maskRunning'&&result.id===__clStatusMode.id&&result.state!=='running'){__clActualDone=result;return structuredClone(__clStatusMode.running);}return result;}const result=await __clBaseApi(path,options);const reset=__clResetGate;if(reset&&!reset.captured&&base==='/api/gallery'&&galleryEpoch>reset.epoch&&bundleClearOwner===reset.owner&&reset.owner.phase==='settling'){reset.captured=true;reset.result=result;await new Promise(resolve=>{reset.release=resolve;});}const dialog=__clDialogGate;if(dialog?.armed&&!dialog.captured&&base==='/api/gallery/bundles/preview'&&bundleClearOwner===dialog.owner&&dialog.owner.phase==='settling'){dialog.captured=true;dialog.result=result;await new Promise(resolve=>{dialog.release=resolve;});}const broad=__clBroadGate;if(broad&&!broad.captured&&base==='/api/gallery/unstarred'&&binBroadOwner){broad.captured=true;await new Promise(resolve=>{broad.release=resolve;});}return result;}\nif(method==='POST'&&__clReadOnlyPost(path))return __clBaseApi(path,options);\nif(method==='POST'&&['/api/images/bin','/api/images/restore'].includes(base)){const approval=__clExactApproval;__clExactApproval=null;const body=__clMutationBody(path,options),kind=base.endsWith('/restore')?'restore':'bin';if(!Array.isArray(body.ids)||!body.ids.length||Object.keys(body).length!==1||body.ids.some(id=>!Number.isSafeInteger(id)||!(__clKnown()?.fullIds??[]).includes(id)))return __clRefuse(method,path,'Unowned or malformed exact mutation refused');if(!approval||approval.kind!==kind||!Array.isArray(approval.ids)||__clNorm(body.ids)!==__clNorm(approval.ids))return __clRefuse(method,path,'Missing or mismatched one-use exact approval');const entry={kind,ids:body.ids,sent:true};__clRequests.push(entry);const result=await __clSend(path,options);const gate=__clExactGate;if(gate&&!gate.captured&&entry.kind===gate.kind&&__clNorm(entry.ids)===__clNorm(gate.ids)){gate.captured=true;await new Promise(resolve=>{gate.release=resolve;});}entry.finished=true;return result;}\nif(method==='POST'&&base==='/api/gallery/bundles/export'){const body=__clMutationBody(path,options),mode=__clPostMode;if(!mode||mode.captured)return __clRefuse(method,path,'No one-use controlled/actual export mode');mode.captured=true;mode.body=body;const entry={kind:body.keep_gallery?'backup':'clear',controlled:!mode.name.startsWith('actual'),mode:mode.name,sent:false};__clRequests.push(entry);if(body.keep_gallery){if(!['backupProbe','backupHeld'].includes(mode.name)||body.keep_gallery!==true||body.scope!=='all'||body.password!=='owned-backup-payload'||Object.keys(body).some(key=>!['keep_gallery','scope','password'].includes(key)))return __clRefuse(method,path,'Unexpected backup scope/payload');if(mode.name==='backupHeld')await new Promise(resolve=>{mode.release=resolve;});const err=new Error('Controlled backup payload probe; no worker started');err.status=422;throw err;}const approval=__clClearApproval;__clClearApproval=null;if(!approval||body.expected!==approval.expected||body.ids!==undefined||body.scope!==undefined||body.keep_gallery!==undefined||Object.keys(body).some(key=>!['expected','password'].includes(key)))return __clRefuse(method,path,'Missing exact clear approval/payload');if(mode.name.startsWith('actual')){const found=await __clInventory();if(!approval.actual||__clNorm(found.ids)!==__clNorm(approval.ids)||__clNorm(found.ids)!==__clNorm(__clKnown().fullIds)||found.rows.length!==body.expected||body.password!==undefined)return __clRefuse(method,path,'Actual clear must own the complete current gallery');entry.sent=true;const status=await __clSend(path,options);mode.accepted=status;await new Promise(resolve=>{mode.release=resolve;});if(mode.name==='actualUnknown')throw Error('Controlled loss after actual export HTTP202');return status;}if(mode.name==='known409'||mode.name==='known422'){const err=new Error('Controlled pre-reservation refusal');err.status=mode.name==='known409'?409:422;throw err;}if(mode.name==='fiveXX'){const err=new Error('Controlled 503 before dispatch');err.status=503;throw err;}if(mode.name==='malformed')return {id:'controlled-malformed',operation:'export',state:'done',result:{name:42,deleted_ids:'invalid'}};if(mode.name==='terminal'){const result=__clTerminal(mode.id);await new Promise(resolve=>{mode.release=resolve;});return result;}if(['running','apply409'].includes(mode.name))return __clRunning(mode.id);return __clRefuse(method,path,'Unknown controlled mode');}\nreturn __clRefuse(method,path,'Unapproved settings/credential/bundle/job mutation refused before dispatch');};\nwindow.__clArchive=async(status,ids)=>{const response=await __clRawFetch(bundleFileURL(status.result.name));if(response.status!==200)throw Error('Actual archive not available');const bytes=new Uint8Array(await response.arrayBuffer());if(bytes.length<1000||bytes.slice(0,4).join()!=='80,75,3,4'||status.result.records!==ids.length||status.result.images!==ids.length)throw Error('Actual saved archive/header/receipt mismatch');return {name:status.result.name,httpStatus:response.status,bytes:bytes.length,records:status.result.records,images:status.result.images,verification:'server-reported verified; download presence and ZIP header checked, not independent format verification'};};\nwindow.__clDescribe=(el)=>el?{tag:el.tagName,id:el.id,classes:String(el.className),role:el.getAttribute('role')}:null;\nwindow.__clBox=(el)=>{const r=el.getBoundingClientRect();return {left:r.left,top:r.top,right:r.right,bottom:r.bottom,width:r.width,height:r.height};};\nwindow.__clRevealAndReport=(selector)=>{const el=document.querySelector(selector);const report={selector,ok:false,scrollBefore:[scrollX,scrollY],viewport:[innerWidth,innerHeight],topbar:document.querySelector('.topbar')?.getBoundingClientRect().bottom,modal:document.querySelector('dialog[open]')?.id,claims:[...binWriteIds],broad:!!binBroadOwner,target:__clDescribe(el)};if(!el){window.__clLastReveal=report;return report;}report.before=__clBox(el);el.scrollIntoView({block:'nearest',inline:'nearest',behavior:'instant'});const r=el.getBoundingClientRect(),top=(report.topbar??0)+12;if(r.top<top)scrollBy(0,r.top-top);else if(r.bottom>innerHeight-12)scrollBy(0,r.bottom-innerHeight+12);const b=el.getBoundingClientRect(),x=b.left+b.width/2,y=b.top+b.height/2,hit=document.elementFromPoint(x,y);report.after=__clBox(el);report.center=[x,y];report.hit=__clDescribe(hit);report.stack=document.elementsFromPoint(x,y).slice(0,6).map(__clDescribe);report.scrollAfter=[scrollX,scrollY];report.parents=[];for(let parent=el.parentElement;parent&&report.parents.length<6;parent=parent.parentElement){const css=getComputedStyle(parent);report.parents.push({...__clDescribe(parent),rect:__clBox(parent),overflow:[css.overflowX,css.overflowY],scroll:[parent.scrollLeft,parent.scrollTop],client:[parent.clientWidth,parent.clientHeight],extent:[parent.scrollWidth,parent.scrollHeight],hidden:parent.hidden,visibility:css.visibility});}report.ok=!!hit&&(hit===el||el.contains(hit))&&b.width>0&&b.height>0;window.__clLastReveal=report;if(!report.ok)return report;const brief={selector,ok:true};const delta=[scrollX-report.scrollBefore[0],scrollY-report.scrollBefore[1]],moved=[report.after.left-report.before.left,report.after.top-report.before.top];if(delta.some(value=>Math.abs(value)>0.1))brief.scrollDelta=delta;if(moved.some(value=>Math.abs(value)>0.1))brief.targetDelta=moved;return brief;};\nwindow.__clRect=(el)=>{const r=el.getBoundingClientRect();return [r.left,r.top,r.width,r.height];};\nwindow.__clSameRect=(el,rect)=>__clRect(el).every((n,i)=>Math.abs(n-rect[i])<1);\nwindow.__clNoteNodes=(slot)=>{const walker=document.createTreeWalker(slot,NodeFilter.SHOW_ALL),nodes=[];for(let node=walker.nextNode();node;node=walker.nextNode())nodes.push(node);return nodes;};\nwindow.__clSnapshotNote=(slot)=>({slot,rect:__clRect(slot),nodes:__clNoteNodes(slot),text:slot.textContent});\nwindow.__clNoteUnchanged=(snapshot)=>{const nodes=__clNoteNodes(snapshot.slot);return snapshot.slot.isConnected&&__clSameRect(snapshot.slot,snapshot.rect)&&snapshot.slot.textContent===snapshot.text&&nodes.length===snapshot.nodes.length&&snapshot.nodes.every((node,index)=>nodes[index]===node);};"
+  },
+  {
+    "expect": "__clUntil(()=>loadedModel==='black-forest-labs/FLUX.1-Krea-dev' && !busy && !galleryPending && !jobListing)",
+    "fatal": true
+  },
+  {
+    "expect": "(async()=>{const before=await __clInventory(),backup=await __clBaseApi('/api/gallery/automatic-backup');if(before.live!==2||before.bin!==0||before.rows.length!==2||before.rows.some(row=>row.model_id===loadedModel||row.run_id!=='planted')||backup.enabled!==false)return false;const seeded=await __clSeed({before:2,prompt:'owned first clear receipt fixture',seed:14100,count:4});const current=seeded.rows.filter(row=>row.model_id===loadedModel);if(seeded.rows.length!==6||current.length!==4)return false;__clSave({fullIds:seeded.ids,firstIds:seeded.ids,currentIds:current.map(row=>row.id),rows:seeded.rows,cached:current[0],runIds:[...new Set(current.map(row=>row.run_id))],receipts:[]});return true;})()",
+    "fatal": true
+  },
+  {
+    "log": "JSON.stringify({evidence:'before explicit fixture navigation; guard counters must not be erased',forbidden:__clForbidden,unexpectedJobs:__clJobs,errors:__clErrors,unusedExactApproval:__clExactApproval})"
+  },
+  {
+    "expect": "__clForbidden.length===0 && __clJobs===0 && __clErrors.length===0 && __clExactApproval===null",
+    "fatal": true
+  },
+  {
+    "log": "\"Explicit fixture reload for initial complete-gallery ownership. This discards page-local state; a new composer marker is established. No claim that an unsent draft survives manual reload.\""
+  },
+  {
+    "navigate": "http://127.0.0.1:7943/"
+  },
+  {
+    "eval": "window.__clUntil=async(fn,ms=25000)=>{const end=Date.now()+ms;while(Date.now()<end){try{if(await fn())return true;}catch{}await new Promise(resolve=>setTimeout(resolve,40));}return false;};\nwindow.__clBaseApi=api;window.__clRawFetch=fetch.bind(window);window.__clPermits=[];window.__clErrors=[];window.__clForbidden=[];window.__clJobs=0;window.__clRequests=[];window.__clRawWrites=[];window.__clReadOnly=[];window.__clPostMode=null;window.__clClearApproval=null;window.__clSeedApproval=null;window.__clExactApproval=null;window.__clExactGate=null;window.__clBroadGate=null;window.__clResetGate=null;window.__clDialogGate=null;window.__clStatusReadGate=null;window.__clStatusMode={kind:'server'};window.__clPollErrors=0;window.__clStatusReads=0;window.__clRenderCounts={};window.__clForgetCalls=[];\naddEventListener('error',event=>__clErrors.push(event.message));addEventListener('unhandledrejection',event=>__clErrors.push(String(event.reason)));\nwindow.__clKnown=()=>JSON.parse(sessionStorage.getItem('auradream.smoke.bundle-clear'));\nwindow.__clSave=(value)=>sessionStorage.setItem('auradream.smoke.bundle-clear',JSON.stringify(value));\nwindow.__clNorm=(ids)=>[...ids].sort((a,b)=>a-b).join();\nwindow.__clPreviewPaths=()=>{const known=__clKnown();return known?(known.runIds??[]).map(run=>'/api/runs/'+encodeURIComponent(run)+'/finish/preview'):[];};\nwindow.__clReadOnlyPost=(path)=>path==='/api/prompt/measure'||__clPreviewPaths().includes(path);\nwindow.__clJobPath=(path)=>['/api/generate','/api/grid','/api/refine','/api/refine/batch','/api/rerender','/api/inpaint','/api/outpaint','/api/more-seeds','/api/instruction-edit','/api/swap-tags'].includes(path.split('?')[0])||/^\\/api\\/runs\\/[^/]+\\/finish(?:\\?|$)/.test(path);\nwindow.__clRefuse=(method,path,reason,layer='api',origin=location.origin)=>{if(__clJobPath(path))__clJobs++;__clForbidden.push({method,path,origin,layer,reason});throw Error(reason);};\nwindow.__clMutationBody=(path,options)=>{let body;try{body=JSON.parse(options?.body);}catch{return __clRefuse('POST',path,'Invalid mutation JSON refused');}if(!body||typeof body!=='object'||Array.isArray(body))return __clRefuse('POST',path,'Invalid mutation body refused');return body;};\nfetch=async(input,options={})=>{const raw=typeof input==='string'?input:input?.url??String(input),method=(options.method??input?.method??'GET').toUpperCase();let url;try{url=new URL(raw,location.href);}catch{return __clRefuse(method,String(raw),'Invalid raw URL refused','fetch',null);}const path=url.pathname+url.search;if(method==='GET'||method==='HEAD')return __clRawFetch(input,options);if(url.origin!==location.origin)return __clRefuse(method,path,'Foreign-origin mutation refused','fetch',url.origin);if(method==='POST'&&__clReadOnlyPost(path)){__clReadOnly.push(path);return __clRawFetch(input,options);}const body=options.body??null,index=__clPermits.findIndex(permit=>permit.origin===url.origin&&permit.method===method&&permit.path===path&&permit.body===body);if(index<0)return __clRefuse(method,path,'Unapproved raw mutation refused by clear fixture','fetch',url.origin);__clPermits.splice(index,1);const response=await __clRawFetch(input,options);__clRawWrites.push({method,path,status:response.status});return response;};\nwindow.__clSend=async(path,options)=>{const url=new URL(path,location.href),method=(options?.method??'GET').toUpperCase();if(url.origin!==location.origin)return __clRefuse(method,url.pathname+url.search,'Foreign-origin send refused','send',url.origin);const permit={origin:url.origin,path:url.pathname+url.search,method,body:options?.body??null};__clPermits.push(permit);try{return await __clBaseApi(path,options);}finally{const index=__clPermits.indexOf(permit);if(index>=0)__clPermits.splice(index,1);}};\nwindow.__clInventory=async()=>{const [live,bin]=await Promise.all([__clBaseApi('/api/gallery?all_models=true&limit=100'),__clBaseApi('/api/gallery/bin?limit=100')]);const rows=[...live.items,...bin.items].sort((a,b)=>a.id-b.id);return {rows,ids:rows.map(row=>row.id),live:live.total,bin:bin.total};};\nwindow.__clStored=async(id)=>{try{const row=await __clBaseApi('/api/images/'+id+'?binned=true');return {id,exists:true,row};}catch(err){if(err.status===404)return {id,exists:false};throw err;}};\nwindow.__clSeed=async(approval)=>{if(!approval||approval.used)throw Error('Missing one-use seed');const before=await __clInventory();if(before.rows.length!==approval.before)throw Error('Seed requires the exact empty/initial inventory');approval.used=true;const body={prompt:approval.prompt,width:256,height:256,steps:1,seed:approval.seed,num_images:approval.count};const job=await __clSend('/api/generate',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify(body)});if(!await __clUntil(async()=>{const found=await __clBaseApi('/api/jobs/'+job.job_id);return found.status==='done';}))throw Error('Owned fake seed did not complete');return __clInventory();};\nwindow.__clTag=()=>{const known=__clKnown();for(const[index,id]of (known?.currentIds??[]).entries())for(const card of document.querySelectorAll('#gallery .card[data-id=\"'+id+'\"]'))card.dataset.cl='abcdef'[index];};\nwindow.__clHeld=(button)=>button?.getAttribute('aria-disabled')==='true'&&!button.disabled;\nwindow.__clRunning=(id)=>({id,operation:'export',state:'running',progress:{phase:'verifying',done:1,total:2},result:null,error:null});\nwindow.__clTerminal=(id)=>({id,operation:'export',state:'done',progress:null,error:null,result:{name:'controlled-metadata-only.zip',images:0,records:0,cleared:false,deleted_ids:[],retained:['controlled-retained.png']}});\nwindow.__clRender=renderBundleResult;renderBundleResult=(status,...rest)=>{if(status?.id)__clRenderCounts[status.id]=(__clRenderCounts[status.id]??0)+1;return __clRender(status,...rest);};\nwindow.__clForget=forgetImages;forgetImages=(ids,...rest)=>{__clForgetCalls.push([...ids]);return __clForget(ids,...rest);};\nwindow.__clGuardProbe=async()=>{if(!bundleClearOwner)return false;const owner=bundleClearOwner,count=__clRequests.length,raw=__clRawWrites.length,forbidden=__clForbidden.length,jobs=__clJobs,errors=__clErrors.length;await restoreImages([__clKnown().currentIds[0]??__clKnown().firstIds[0]]);await deleteImage(__clKnown().cached);await binPicked();await purgePicked();await deleteUnstarred();await emptyBin();return bundleClearOwner===owner&&__clRequests.length===count&&__clRawWrites.length===raw&&__clForbidden.length===forbidden&&__clJobs===jobs&&__clErrors.length===errors;};\napi=async(path,options)=>{const method=(options?.method??'GET').toUpperCase(),base=path.split('?')[0];if(method==='GET'){if(base==='/api/gallery/bundles/status'){__clStatusReads++;const readEpoch=bundleRequestEpoch;if(__clPollErrors>0){__clPollErrors--;throw Error('Controlled transient bundle status read failure');}if(__clStatusMode.kind==='fixed')return structuredClone(__clStatusMode.status);const result=await __clBaseApi(path,options);__clLastServer=result;const gate=__clStatusReadGate;if(gate&&!gate.captured&&gate.epoch===readEpoch){gate.captured=true;gate.result=result;await new Promise(resolve=>{gate.release=resolve;});}if(__clStatusMode.kind==='maskRunning'&&result.id===__clStatusMode.id&&result.state!=='running'){__clActualDone=result;return structuredClone(__clStatusMode.running);}return result;}const result=await __clBaseApi(path,options);const reset=__clResetGate;if(reset&&!reset.captured&&base==='/api/gallery'&&galleryEpoch>reset.epoch&&bundleClearOwner===reset.owner&&reset.owner.phase==='settling'){reset.captured=true;reset.result=result;await new Promise(resolve=>{reset.release=resolve;});}const dialog=__clDialogGate;if(dialog?.armed&&!dialog.captured&&base==='/api/gallery/bundles/preview'&&bundleClearOwner===dialog.owner&&dialog.owner.phase==='settling'){dialog.captured=true;dialog.result=result;await new Promise(resolve=>{dialog.release=resolve;});}const broad=__clBroadGate;if(broad&&!broad.captured&&base==='/api/gallery/unstarred'&&binBroadOwner){broad.captured=true;await new Promise(resolve=>{broad.release=resolve;});}return result;}\nif(method==='POST'&&__clReadOnlyPost(path))return __clBaseApi(path,options);\nif(method==='POST'&&['/api/images/bin','/api/images/restore'].includes(base)){const approval=__clExactApproval;__clExactApproval=null;const body=__clMutationBody(path,options),kind=base.endsWith('/restore')?'restore':'bin';if(!Array.isArray(body.ids)||!body.ids.length||Object.keys(body).length!==1||body.ids.some(id=>!Number.isSafeInteger(id)||!(__clKnown()?.fullIds??[]).includes(id)))return __clRefuse(method,path,'Unowned or malformed exact mutation refused');if(!approval||approval.kind!==kind||!Array.isArray(approval.ids)||__clNorm(body.ids)!==__clNorm(approval.ids))return __clRefuse(method,path,'Missing or mismatched one-use exact approval');const entry={kind,ids:body.ids,sent:true};__clRequests.push(entry);const result=await __clSend(path,options);const gate=__clExactGate;if(gate&&!gate.captured&&entry.kind===gate.kind&&__clNorm(entry.ids)===__clNorm(gate.ids)){gate.captured=true;await new Promise(resolve=>{gate.release=resolve;});}entry.finished=true;return result;}\nif(method==='POST'&&base==='/api/gallery/bundles/export'){const body=__clMutationBody(path,options),mode=__clPostMode;if(!mode||mode.captured)return __clRefuse(method,path,'No one-use controlled/actual export mode');mode.captured=true;mode.body=body;const entry={kind:body.keep_gallery?'backup':'clear',controlled:!mode.name.startsWith('actual'),mode:mode.name,sent:false};__clRequests.push(entry);if(body.keep_gallery){if(!['backupProbe','backupHeld'].includes(mode.name)||body.keep_gallery!==true||body.scope!=='all'||body.password!=='owned-backup-payload'||Object.keys(body).some(key=>!['keep_gallery','scope','password'].includes(key)))return __clRefuse(method,path,'Unexpected backup scope/payload');if(mode.name==='backupHeld')await new Promise(resolve=>{mode.release=resolve;});const err=new Error('Controlled backup payload probe; no worker started');err.status=422;throw err;}const approval=__clClearApproval;__clClearApproval=null;if(!approval||body.expected!==approval.expected||body.ids!==undefined||body.scope!==undefined||body.keep_gallery!==undefined||Object.keys(body).some(key=>!['expected','password'].includes(key)))return __clRefuse(method,path,'Missing exact clear approval/payload');if(mode.name.startsWith('actual')){const found=await __clInventory();if(!approval.actual||__clNorm(found.ids)!==__clNorm(approval.ids)||__clNorm(found.ids)!==__clNorm(__clKnown().fullIds)||found.rows.length!==body.expected||body.password!==undefined)return __clRefuse(method,path,'Actual clear must own the complete current gallery');entry.sent=true;const status=await __clSend(path,options);mode.accepted=status;await new Promise(resolve=>{mode.release=resolve;});if(mode.name==='actualUnknown')throw Error('Controlled loss after actual export HTTP202');return status;}if(mode.name==='known409'||mode.name==='known422'){const err=new Error('Controlled pre-reservation refusal');err.status=mode.name==='known409'?409:422;throw err;}if(mode.name==='fiveXX'){const err=new Error('Controlled 503 before dispatch');err.status=503;throw err;}if(mode.name==='malformed')return {id:'controlled-malformed',operation:'export',state:'done',result:{name:42,deleted_ids:'invalid'}};if(mode.name==='terminal'){const result=__clTerminal(mode.id);await new Promise(resolve=>{mode.release=resolve;});return result;}if(['running','apply409'].includes(mode.name))return __clRunning(mode.id);return __clRefuse(method,path,'Unknown controlled mode');}\nreturn __clRefuse(method,path,'Unapproved settings/credential/bundle/job mutation refused before dispatch');};\nwindow.__clArchive=async(status,ids)=>{const response=await __clRawFetch(bundleFileURL(status.result.name));if(response.status!==200)throw Error('Actual archive not available');const bytes=new Uint8Array(await response.arrayBuffer());if(bytes.length<1000||bytes.slice(0,4).join()!=='80,75,3,4'||status.result.records!==ids.length||status.result.images!==ids.length)throw Error('Actual saved archive/header/receipt mismatch');return {name:status.result.name,httpStatus:response.status,bytes:bytes.length,records:status.result.records,images:status.result.images,verification:'server-reported verified; download presence and ZIP header checked, not independent format verification'};};\nwindow.__clDescribe=(el)=>el?{tag:el.tagName,id:el.id,classes:String(el.className),role:el.getAttribute('role')}:null;\nwindow.__clBox=(el)=>{const r=el.getBoundingClientRect();return {left:r.left,top:r.top,right:r.right,bottom:r.bottom,width:r.width,height:r.height};};\nwindow.__clRevealAndReport=(selector)=>{const el=document.querySelector(selector);const report={selector,ok:false,scrollBefore:[scrollX,scrollY],viewport:[innerWidth,innerHeight],topbar:document.querySelector('.topbar')?.getBoundingClientRect().bottom,modal:document.querySelector('dialog[open]')?.id,claims:[...binWriteIds],broad:!!binBroadOwner,target:__clDescribe(el)};if(!el){window.__clLastReveal=report;return report;}report.before=__clBox(el);el.scrollIntoView({block:'nearest',inline:'nearest',behavior:'instant'});const r=el.getBoundingClientRect(),top=(report.topbar??0)+12;if(r.top<top)scrollBy(0,r.top-top);else if(r.bottom>innerHeight-12)scrollBy(0,r.bottom-innerHeight+12);const b=el.getBoundingClientRect(),x=b.left+b.width/2,y=b.top+b.height/2,hit=document.elementFromPoint(x,y);report.after=__clBox(el);report.center=[x,y];report.hit=__clDescribe(hit);report.stack=document.elementsFromPoint(x,y).slice(0,6).map(__clDescribe);report.scrollAfter=[scrollX,scrollY];report.parents=[];for(let parent=el.parentElement;parent&&report.parents.length<6;parent=parent.parentElement){const css=getComputedStyle(parent);report.parents.push({...__clDescribe(parent),rect:__clBox(parent),overflow:[css.overflowX,css.overflowY],scroll:[parent.scrollLeft,parent.scrollTop],client:[parent.clientWidth,parent.clientHeight],extent:[parent.scrollWidth,parent.scrollHeight],hidden:parent.hidden,visibility:css.visibility});}report.ok=!!hit&&(hit===el||el.contains(hit))&&b.width>0&&b.height>0;window.__clLastReveal=report;if(!report.ok)return report;const brief={selector,ok:true};const delta=[scrollX-report.scrollBefore[0],scrollY-report.scrollBefore[1]],moved=[report.after.left-report.before.left,report.after.top-report.before.top];if(delta.some(value=>Math.abs(value)>0.1))brief.scrollDelta=delta;if(moved.some(value=>Math.abs(value)>0.1))brief.targetDelta=moved;return brief;};\nwindow.__clRect=(el)=>{const r=el.getBoundingClientRect();return [r.left,r.top,r.width,r.height];};\nwindow.__clSameRect=(el,rect)=>__clRect(el).every((n,i)=>Math.abs(n-rect[i])<1);\nwindow.__clNoteNodes=(slot)=>{const walker=document.createTreeWalker(slot,NodeFilter.SHOW_ALL),nodes=[];for(let node=walker.nextNode();node;node=walker.nextNode())nodes.push(node);return nodes;};\nwindow.__clSnapshotNote=(slot)=>({slot,rect:__clRect(slot),nodes:__clNoteNodes(slot),text:slot.textContent});\nwindow.__clNoteUnchanged=(snapshot)=>{const nodes=__clNoteNodes(snapshot.slot);return snapshot.slot.isConnected&&__clSameRect(snapshot.slot,snapshot.rect)&&snapshot.slot.textContent===snapshot.text&&nodes.length===snapshot.nodes.length&&snapshot.nodes.every((node,index)=>nodes[index]===node);};"
+  },
+  {
+    "expect": "__clUntil(()=>document.getElementById('status-dot').className.includes('ready') && !galleryPending && !jobListing && !busy && galleryRecords.length===4)",
+    "fatal": true
+  },
+  {
+    "expect": "(async()=>{const status=await __clBaseApi('/api/gallery/automatic-backup');window.__clColdBackup={enabled:status.enabled,credential_configured:status.credential_configured,credential_state:status.credential_state,state:status.state};return status.enabled===false&&status.credential_configured===false&&status.credential_state==='not_configured';})()",
+    "fatal": true
+  },
+  {
+    "eval": "resetPanel();writeBox(els.prompt,\"Owned unsent composer for initial complete-gallery ownership\");promptReplaced();persistPanel();window.__clComposer=setupComposerState();__clTag();"
+  },
+  {
+    "expect": "(async()=>{const found=await __clInventory();return found.rows.length===6&&__clNorm(found.ids)===__clNorm(__clKnown().fullIds);})()",
+    "fatal": true
+  },
+  {
+    "log": "'Admission order1: an actual earlier Restore reply remains held. Native Bundle & clear refuses before POST/password clearing; the normal backup button remains available under the existing no-clear policy.'"
+  },
+  {
+    "eval": "window.__clExactApproval={kind:\"bin\",ids:[__clKnown().currentIds[0]]};"
+  },
+  {
+    "log": "__clRevealAndReport(\"#gallery .card[data-cl=\\\"a\\\"] .tools .del\")"
+  },
+  {
+    "expect": "__clLastReveal?.selector===\"#gallery .card[data-cl=\\\"a\\\"] .tools .del\" && __clLastReveal.ok",
+    "fatal": true
+  },
+  {
+    "hover": "#gallery .card[data-cl=\"a\"] .tools .del"
+  },
+  {
+    "click": "#gallery .card[data-cl=\"a\"] .tools .del"
+  },
+  {
+    "expect": "__clUntil(()=>!binWriteIds.size && document.querySelector('#gallery-error [data-bin-restore]'))",
+    "fatal": true
+  },
+  {
+    "eval": "window.__clExactGate={kind:'restore',ids:[__clKnown().currentIds[0]]};"
+  },
+  {
+    "eval": "window.__clExactApproval={kind:\"restore\",ids:[__clKnown().currentIds[0]]};"
+  },
+  {
+    "log": "__clRevealAndReport(\"#gallery-error [data-bin-restore]\")"
+  },
+  {
+    "expect": "__clLastReveal?.selector===\"#gallery-error [data-bin-restore]\" && __clLastReveal.ok",
+    "fatal": true
+  },
+  {
+    "click": "#gallery-error [data-bin-restore]"
+  },
+  {
+    "expect": "__clUntil(()=>__clExactGate.captured && typeof __clExactGate.release==='function')",
+    "fatal": true
+  },
+  {
+    "log": "__clRevealAndReport(\"#btn-bundles\")"
+  },
+  {
+    "expect": "__clLastReveal?.selector===\"#btn-bundles\" && __clLastReveal.ok",
+    "fatal": true
+  },
+  {
+    "click": "#btn-bundles"
+  },
+  {
+    "expect": "__clUntil(()=>els.bundlesDialog.open && !bundleReading && !bundleSending && bundlePreview?.records===6)",
+    "fatal": true
+  },
+  {
+    "expect": "automaticBackupStatus?.enabled===false",
+    "fatal": true
+  },
+  {
+    "eval": "els.bundleCount.value=\"6\";els.bundleCount.dispatchEvent(new Event('input',{bubbles:true}));"
+  },
+  {
+    "eval": "els.bundlePassword.value=els.bundlePasswordAgain.value='owned-admission-marker';els.bundlePassword.dispatchEvent(new Event('input',{bubbles:true}));window.__clBeforeRequests=__clRequests.length;"
+  },
+  {
+    "log": "__clRevealAndReport(\"#bundle-export\")"
+  },
+  {
+    "expect": "__clLastReveal?.selector===\"#bundle-export\" && __clLastReveal.ok",
+    "fatal": true
+  },
+  {
+    "click": "#bundle-export"
+  },
+  {
+    "expect": "!bundleClearOwner && binWriteIds.has(__clKnown().currentIds[0]) && __clRequests.length===__clBeforeRequests && els.bundlePassword.value==='owned-admission-marker' && els.bundlePasswordAgain.value==='owned-admission-marker' && els.bundleBackup.getAttribute('aria-disabled')==='false'"
+  },
+  {
+    "eval": "__clExactGate.release();"
+  },
+  {
+    "expect": "__clUntil(()=>!binWriteIds.size && !bundleClearOwner)",
+    "fatal": true
+  },
+  {
+    "log": "__clRevealAndReport(\"#bundles-close\")"
+  },
+  {
+    "expect": "__clLastReveal?.selector===\"#bundles-close\" && __clLastReveal.ok",
+    "fatal": true
+  },
+  {
+    "click": "#bundles-close"
+  },
+  {
+    "expect": "els.bundlePassword.value==='' && els.bundlePasswordAgain.value==='' && setupComposerState()===__clComposer"
+  },
+  {
+    "log": "'A raw broad owner also refuses native local clear admission without replacing that owner. The pending native count dialog is cancelled after Bundles closes; no broad mutation is dispatched.'"
+  },
+  {
+    "eval": "window.__clBroadGate={};"
+  },
+  {
+    "log": "__clRevealAndReport(\"#btn-delete-unstarred\")"
+  },
+  {
+    "expect": "__clLastReveal?.selector===\"#btn-delete-unstarred\" && __clLastReveal.ok",
+    "fatal": true
+  },
+  {
+    "click": "#btn-delete-unstarred"
+  },
+  {
+    "expect": "__clUntil(()=>__clBroadGate.captured && typeof __clBroadGate.release==='function' && !!binBroadOwner)",
+    "fatal": true
+  },
+  {
+    "eval": "window.__clRawBroad=binBroadOwner;"
+  },
+  {
+    "log": "__clRevealAndReport(\"#btn-bundles\")"
+  },
+  {
+    "expect": "__clLastReveal?.selector===\"#btn-bundles\" && __clLastReveal.ok",
+    "fatal": true
+  },
+  {
+    "click": "#btn-bundles"
+  },
+  {
+    "expect": "__clUntil(()=>els.bundlesDialog.open && !bundleReading && !bundleSending && bundlePreview?.records===6)",
+    "fatal": true
+  },
+  {
+    "expect": "automaticBackupStatus?.enabled===false",
+    "fatal": true
+  },
+  {
+    "eval": "els.bundleCount.value=\"6\";els.bundleCount.dispatchEvent(new Event('input',{bubbles:true}));"
+  },
+  {
+    "eval": "window.__clBeforeRequests=__clRequests.length;"
+  },
+  {
+    "log": "__clRevealAndReport(\"#bundle-export\")"
+  },
+  {
+    "expect": "__clLastReveal?.selector===\"#bundle-export\" && __clLastReveal.ok",
+    "fatal": true
+  },
+  {
+    "click": "#bundle-export"
+  },
+  {
+    "expect": "!bundleClearOwner && binBroadOwner===__clRawBroad && __clRequests.length===__clBeforeRequests"
+  },
+  {
+    "log": "__clRevealAndReport(\"#bundles-close\")"
+  },
+  {
+    "expect": "__clLastReveal?.selector===\"#bundles-close\" && __clLastReveal.ok",
+    "fatal": true
+  },
+  {
+    "click": "#bundles-close"
+  },
+  {
+    "eval": "__clBroadGate.release();"
+  },
+  {
+    "expect": "__clUntil(()=>els.confirmDialog.open)",
+    "fatal": true
+  },
+  {
+    "log": "__clRevealAndReport(\"#confirm-cancel\")"
+  },
+  {
+    "expect": "__clLastReveal?.selector===\"#confirm-cancel\" && __clLastReveal.ok",
+    "fatal": true
+  },
+  {
+    "click": "#confirm-cancel"
+  },
+  {
+    "expect": "__clUntil(()=>!els.confirmDialog.open && !binBroadOwner)",
+    "fatal": true
+  },
+  {
+    "log": "'CONTROLLED source metadata only, no worker acceptance: simultaneous raw exact/broad tokens cannot normally be admitted together. Inject both to prove observed running adoption drains each independently, preserves token identity and postpones handled bookkeeping.'"
+  },
+  {
+    "log": "__clRevealAndReport(\"#btn-bundles\")"
+  },
+  {
+    "expect": "__clLastReveal?.selector===\"#btn-bundles\" && __clLastReveal.ok",
+    "fatal": true
+  },
+  {
+    "click": "#btn-bundles"
+  },
+  {
+    "expect": "__clUntil(()=>els.bundlesDialog.open && !bundleReading && !bundleSending && bundlePreview?.records===6)",
+    "fatal": true
+  },
+  {
+    "expect": "automaticBackupStatus?.enabled===false",
+    "fatal": true
+  },
+  {
+    "eval": "__clTag();window.__clOldDel=document.querySelector('#gallery .card[data-cl=\"a\"] .del');"
+  },
+  {
+    "expect": "!!__clOldDel && __clOldDel.getAttribute('aria-disabled')==='false'",
+    "fatal": true
+  },
+  {
+    "eval": "window.__clOldDelSnapshot={rect:__clRect(__clOldDel),text:__clOldDel.textContent,label:__clOldDel.getAttribute('aria-label')};"
+  },
+  {
+    "eval": "window.__clFakeId='controlled-observed-drain';window.__clRun=__clRunning(__clFakeId);window.__clEnd=__clTerminal(__clFakeId);window.__clStatusMode={kind:'fixed',status:__clRun};window.__clRawBroad={fixture:true};window.__clBeforeMatrixForgets=__clForgetCalls.length;binWriteIds.add(__clKnown().currentIds[0]);binBroadOwner=__clRawBroad;syncBinWriteHolds();"
+  },
+  {
+    "eval": "(async()=>{await receiveBundleStatus(__clRun);await receiveBundleStatus(__clEnd);})()"
+  },
+  {
+    "expect": "bundleClearOwner?.origin==='observed' && bundleClearOwner.phase==='draining' && binBroadOwner===__clRawBroad && binWriteIds.has(__clKnown().currentIds[0]) && bundleHandled!==__clFakeId && __clRenderCounts[__clFakeId]===undefined"
+  },
+  {
+    "log": "'CONTROLLED constructor/state seam, with real owned PNGs still present: current card and detached new card/viewer/lineage controls adopt the clear hold without renaming or moving the current button. This does not claim a new browser workflow or archive acceptance.'"
+  },
+  {
+    "expect": "(()=>{const rec=structuredClone(__clKnown().cached),fresh=card(rec),figure=resultFigure(rec),lineage=sourceRestoreButton(rec.id),buttons=[__clOldDel,fresh.querySelector('.del'),figure.querySelector('.del'),lineage];return __clOldDel===document.querySelector('#gallery .card[data-cl=\"a\"] .del')&&__clSameRect(__clOldDel,__clOldDelSnapshot.rect)&&__clOldDel.textContent===__clOldDelSnapshot.text&&__clOldDel.getAttribute('aria-label')===__clOldDelSnapshot.label&&buttons.every(button=>__clHeld(button)&&button.title===bundleClearHold()&&button.dataset.binWriteIds===String(rec.id));})()"
+  },
+  {
+    "eval": "binWriteIds.delete(__clKnown().currentIds[0]);syncBinWriteHolds();"
+  },
+  {
+    "eval": "(async()=>{await receiveBundleStatus(__clEnd);})()"
+  },
+  {
+    "expect": "bundleClearOwner.phase==='draining' && binBroadOwner===__clRawBroad && bundleHandled!==__clFakeId"
+  },
+  {
+    "log": "'CONTROLLED status observation: another client operation replaces the latest server status while this received clear result drains. The received terminal result stays this clear result to apply; it is not made unconfirmed.'"
+  },
+  {
+    "eval": "(async()=>{window.__clDrainOwner=bundleClearOwner;await receiveBundleStatus({id:'other-client-operation',operation:'export',state:'running',progress:null,result:null});return true;})()"
+  },
+  {
+    "expect": "bundleClearOwner===__clDrainOwner && __clDrainOwner.phase==='draining' && __clDrainOwner.terminal?.id===__clDrainOwner.id && binBroadOwner===__clRawBroad && bundleHandled!==__clFakeId",
+    "fatal": true
+  },
+  {
+    "eval": "window.__clOwner=bundleClearOwner;window.__clResetGate={owner:__clOwner,epoch:galleryEpoch};window.__clDialogGate={owner:__clOwner,armed:false};__clStatusMode.status=__clEnd;binBroadOwner=null;syncBinWriteHolds();window.__clReceive=receiveBundleStatus(__clEnd);true;"
+  },
+  {
+    "expect": "__clUntil(()=>__clResetGate.captured && typeof __clResetGate.release==='function' && bundleClearOwner===__clOwner && __clOwner.phase==='settling')",
+    "fatal": true
+  },
+  {
+    "eval": "(async()=>{await receiveBundleStatus(__clEnd);await receiveBundleStatus(__clEnd);await receiveBundleStatus(__clRun);})()"
+  },
+  {
+    "expect": "__clRenderCounts[__clFakeId]===1 && bundleHandled!==__clFakeId && bundleClearOwner===__clOwner && bundleSettling && __clForgetCalls.slice(__clBeforeMatrixForgets).every(ids=>ids.length===0)"
+  },
+  {
+    "eval": "__clDialogGate.armed=true;__clResetGate.release();"
+  },
+  {
+    "expect": "__clUntil(()=>__clDialogGate.captured && typeof __clDialogGate.release==='function' && bundleClearOwner===__clOwner)",
+    "fatal": true
+  },
+  {
+    "expect": "bundleHandled!==__clFakeId && !bundleHold() && bundleActionHold()"
+  },
+  {
+    "expect": "__clGuardProbe()"
+  },
+  {
+    "log": "__clRevealAndReport(\"#bundles-close\")"
+  },
+  {
+    "expect": "__clLastReveal?.selector===\"#bundles-close\" && __clLastReveal.ok",
+    "fatal": true
+  },
+  {
+    "click": "#bundles-close"
+  },
+  {
+    "expect": "bundleClearOwner===__clOwner && !els.bundlesDialog.open"
+  },
+  {
+    "eval": "__clDialogGate.release();"
+  },
+  {
+    "expect": "__clUntil(()=>!bundleClearOwner && !bundleSettling && bundleHandled===__clFakeId)",
+    "fatal": true
+  },
+  {
+    "expect": "validBundleClearStatus(__clEnd) && validBundleClearStatus({id:'controlled-failed-without-archive',operation:'export',state:'failed'}) && setupComposerState()===__clComposer"
+  },
+  {
+    "eval": "window.__clStatusMode={kind:'server'};"
+  },
+  {
+    "log": "__clRevealAndReport(\"#btn-select\")"
+  },
+  {
+    "expect": "__clLastReveal?.selector===\"#btn-select\" && __clLastReveal.ok",
+    "fatal": true
+  },
+  {
+    "click": "#btn-select"
+  },
+  {
+    "expect": "selectMode && !els.lightbox.open",
+    "fatal": true
+  },
+  {
+    "eval": "__clTag();"
+  },
+  {
+    "log": "__clRevealAndReport(\"#gallery .card[data-cl=\\\"a\\\"] > img\")"
+  },
+  {
+    "expect": "__clLastReveal?.selector===\"#gallery .card[data-cl=\\\"a\\\"] > img\" && __clLastReveal.ok",
+    "fatal": true
+  },
+  {
+    "click": "#gallery .card[data-cl=\"a\"] > img"
+  },
+  {
+    "log": "__clRevealAndReport(\"#gallery .card[data-cl=\\\"b\\\"] > img\")"
+  },
+  {
+    "expect": "__clLastReveal?.selector===\"#gallery .card[data-cl=\\\"b\\\"] > img\" && __clLastReveal.ok",
+    "fatal": true
+  },
+  {
+    "click": "#gallery .card[data-cl=\"b\"] > img"
+  },
+  {
+    "expect": "selectedIds().length===2",
+    "fatal": true
+  },
+  {
+    "log": "'ACTUAL clear1: own all six rows including the planted pair. The real export returns HTTP202, verifies its archive and commits deletion; only delivery of that real response is lost. This demonstrates unknown does not mean no mutation.'"
+  },
+  {
+    "log": "__clRevealAndReport(\"#btn-bundles\")"
+  },
+  {
+    "expect": "__clLastReveal?.selector===\"#btn-bundles\" && __clLastReveal.ok",
+    "fatal": true
+  },
+  {
+    "click": "#btn-bundles"
+  },
+  {
+    "expect": "__clUntil(()=>els.bundlesDialog.open && !bundleReading && !bundleSending && bundlePreview?.records===6)",
+    "fatal": true
+  },
+  {
+    "expect": "automaticBackupStatus?.enabled===false",
+    "fatal": true
+  },
+  {
+    "eval": "els.bundleCount.value=\"6\";els.bundleCount.dispatchEvent(new Event('input',{bubbles:true}));"
+  },
+  {
+    "expect": "__clUntil(()=>!bundlePollPending)",
+    "fatal": true
+  },
+  {
+    "eval": "clearTimeout(bundlePollTimer);window.__clOldPollEpoch=bundleRequestEpoch;window.__clStatusReadGate={epoch:bundleRequestEpoch};void pollBundleStatus();"
+  },
+  {
+    "expect": "__clUntil(()=>__clStatusReadGate.captured && typeof __clStatusReadGate.release==='function' && bundlePollPending)",
+    "fatal": true
+  },
+  {
+    "eval": "window.__clPostMode={name:\"actualUnknown\",captured:false};window.__clClearApproval={expected:6,ids:__clKnown().fullIds.slice(),actual:true};"
+  },
+  {
+    "log": "__clRevealAndReport(\"#bundle-export\")"
+  },
+  {
+    "expect": "__clLastReveal?.selector===\"#bundle-export\" && __clLastReveal.ok",
+    "fatal": true
+  },
+  {
+    "click": "#bundle-export"
+  },
+  {
+    "expect": "__clUntil(()=>__clPostMode.captured && __clPostMode.accepted && typeof __clPostMode.release==='function')",
+    "fatal": true
+  },
+  {
+    "expect": "bundleClearOwner?.phase==='sending' && bundleClearOwner.id===null && bundleSending && __clRawWrites.some(row=>row.path==='/api/gallery/bundles/export'&&row.status===202)"
+  },
+  {
+    "log": "'CONTROLLED poll delivery timing around the actual POST: awaiting an already-pending poll returns without a new request. Its pre-POST epoch is stale and cannot acknowledge this clear.'"
+  },
+  {
+    "eval": "window.__clReadsBeforeShortReturn=__clStatusReads;window.__clSendingOwner=bundleClearOwner;"
+  },
+  {
+    "eval": "(async()=>{await pollBundleStatus();})()"
+  },
+  {
+    "expect": "bundlePollPending && __clStatusReads===__clReadsBeforeShortReturn && bundleClearOwner===__clSendingOwner && bundleClearOwner.phase==='sending' && bundleClearOwner.id===null && bundleRequestEpoch>__clOldPollEpoch"
+  },
+  {
+    "eval": "__clStatusReadGate.release();"
+  },
+  {
+    "expect": "__clUntil(()=>!bundlePollPending)",
+    "fatal": true
+  },
+  {
+    "expect": "bundleClearOwner===__clSendingOwner && bundleClearOwner.phase==='sending' && bundleClearOwner.id===null"
+  },
+  {
+    "log": "__clRevealAndReport(\"#bundles-close\")"
+  },
+  {
+    "expect": "__clLastReveal?.selector===\"#bundles-close\" && __clLastReveal.ok",
+    "fatal": true
+  },
+  {
+    "click": "#bundles-close"
+  },
+  {
+    "expect": "!els.bundlesDialog.open && !!bundleClearOwner && setupComposerState()===__clComposer"
+  },
+  {
+    "expect": "(async()=>{if(!await __clUntil(async()=>{const found=await __clBaseApi('/api/gallery/bundles/status');if(found.id===__clPostMode.accepted.id&&found.state==='done'){window.__clReal1=found;return true;}return false;}))return false;const known=__clKnown();if(!__clReal1.result.cleared||__clNorm(__clReal1.result.deleted_ids)!==__clNorm(known.fullIds))return false;window.__clProof1=await __clArchive(__clReal1,known.fullIds);const remaining=await __clInventory();if(remaining.rows.length!==0)return false;const rows=await Promise.all(known.fullIds.map(__clStored));if(rows.some(row=>row.exists))return false;known.receipts.push({id:__clReal1.id,deleted:__clReal1.result.deleted_ids,proof:__clProof1});__clSave(known);return true;})()",
+    "fatal": true
+  },
+  {
+    "eval": "__clPostMode.release();"
+  },
+  {
+    "expect": "__clUntil(()=>bundleClearOwner?.phase==='unresolved' && !bundleSending)",
+    "fatal": true
+  },
+  {
+    "eval": "window.__clUnknown=bundleClearOwner;"
+  },
+  {
+    "expect": "__clUntil(()=>!bundlePollPending)",
+    "fatal": true
+  },
+  {
+    "eval": "void pollBundleStatus();"
+  },
+  {
+    "expect": "__clUntil(()=>bundleStatus?.id===__clReal1.id && bundleStatus.state==='done')",
+    "fatal": true
+  },
+  {
+    "expect": "bundleClearOwner===__clUnknown && __clUnknown.id===null && bundleHandled!==__clReal1.id && deletedIds.size===0 && els.bundleStatus.textContent.includes(BUNDLE_CLEAR_GUIDANCE) && setupComposerState()===__clComposer"
+  },
+  {
+    "log": "__clRevealAndReport(\"#btn-bundles\")"
+  },
+  {
+    "expect": "__clLastReveal?.selector===\"#btn-bundles\" && __clLastReveal.ok",
+    "fatal": true
+  },
+  {
+    "click": "#btn-bundles"
+  },
+  {
+    "expect": "__clUntil(()=>els.bundlesDialog.open && !bundleReading && !bundleSending && bundlePreview?.records===0)",
+    "fatal": true
+  },
+  {
+    "expect": "automaticBackupStatus?.enabled===false",
+    "fatal": true
+  },
+  {
+    "expect": "__clGuardProbe()"
+  },
+  {
+    "eval": "window.__clBeforeRequests=__clRequests.length;window.__clPollErrors=1;"
+  },
+  {
+    "log": "__clRevealAndReport(\"#bundle-backup\")"
+  },
+  {
+    "expect": "__clLastReveal?.selector===\"#bundle-backup\" && __clLastReveal.ok",
+    "fatal": true
+  },
+  {
+    "click": "#bundle-backup"
+  },
+  {
+    "log": "__clRevealAndReport(\"#bundle-export\")"
+  },
+  {
+    "expect": "__clLastReveal?.selector===\"#bundle-export\" && __clLastReveal.ok",
+    "fatal": true
+  },
+  {
+    "click": "#bundle-export"
+  },
+  {
+    "expect": "__clUntil(()=>!bundlePollPending)",
+    "fatal": true
+  },
+  {
+    "eval": "void pollBundleStatus();"
+  },
+  {
+    "expect": "__clUntil(()=>!bundlePollPending)",
+    "fatal": true
+  },
+  {
+    "expect": "bundleClearOwner===__clUnknown && __clRequests.length===__clBeforeRequests && els.bundleStatus.textContent.includes(BUNDLE_CLEAR_GUIDANCE) && __clHeld(els.bundleBackup) && __clHeld(document.getElementById('automatic-backup-save')) && setupComposerState()===__clComposer"
+  },
+  {
+    "shot": "bundle-clear-actual-unknown-held.png"
+  },
+  {
+    "viewport": [
+      400,
+      700
+    ]
+  },
+  {
+    "expect": "els.bundlesDialog.open && bundleClearOwner===__clUnknown && els.bundleStatus.textContent.includes(BUNDLE_CLEAR_GUIDANCE) && setupComposerState()===__clComposer",
+    "fatal": true
+  },
+  {
+    "shot": "bundle-clear-actual-unknown-narrow.png"
+  },
+  {
+    "viewport": [
+      1400,
+      900
+    ]
+  },
+  {
+    "expect": "bundleClearOwner===__clUnknown && setupComposerState()===__clComposer",
+    "fatal": true
+  },
+  {
+    "log": "JSON.stringify({evidence:'actual worker1 plus lost response',receipt:__clReal1,archive:__clProof1,uiOwnerPhase:bundleClearOwner.phase,uiOwnerId:bundleClearOwner.id,forbidden:__clForbidden,errors:__clErrors})"
+  },
+  {
+    "log": "JSON.stringify({evidence:'before explicit fixture navigation; guard counters must not be erased',forbidden:__clForbidden,unexpectedJobs:__clJobs,errors:__clErrors,unusedExactApproval:__clExactApproval})"
+  },
+  {
+    "expect": "__clForbidden.length===0 && __clJobs===0 && __clErrors.length===0 && __clExactApproval===null",
+    "fatal": true
+  },
+  {
+    "log": "\"Explicit fixture reload for past receipt after actual uncertain clear. This discards page-local state; a new composer marker is established. No claim that an unsent draft survives manual reload.\""
+  },
+  {
+    "navigate": "http://127.0.0.1:7943/"
+  },
+  {
+    "eval": "window.__clUntil=async(fn,ms=25000)=>{const end=Date.now()+ms;while(Date.now()<end){try{if(await fn())return true;}catch{}await new Promise(resolve=>setTimeout(resolve,40));}return false;};\nwindow.__clBaseApi=api;window.__clRawFetch=fetch.bind(window);window.__clPermits=[];window.__clErrors=[];window.__clForbidden=[];window.__clJobs=0;window.__clRequests=[];window.__clRawWrites=[];window.__clReadOnly=[];window.__clPostMode=null;window.__clClearApproval=null;window.__clSeedApproval=null;window.__clExactApproval=null;window.__clExactGate=null;window.__clBroadGate=null;window.__clResetGate=null;window.__clDialogGate=null;window.__clStatusReadGate=null;window.__clStatusMode={kind:'server'};window.__clPollErrors=0;window.__clStatusReads=0;window.__clRenderCounts={};window.__clForgetCalls=[];\naddEventListener('error',event=>__clErrors.push(event.message));addEventListener('unhandledrejection',event=>__clErrors.push(String(event.reason)));\nwindow.__clKnown=()=>JSON.parse(sessionStorage.getItem('auradream.smoke.bundle-clear'));\nwindow.__clSave=(value)=>sessionStorage.setItem('auradream.smoke.bundle-clear',JSON.stringify(value));\nwindow.__clNorm=(ids)=>[...ids].sort((a,b)=>a-b).join();\nwindow.__clPreviewPaths=()=>{const known=__clKnown();return known?(known.runIds??[]).map(run=>'/api/runs/'+encodeURIComponent(run)+'/finish/preview'):[];};\nwindow.__clReadOnlyPost=(path)=>path==='/api/prompt/measure'||__clPreviewPaths().includes(path);\nwindow.__clJobPath=(path)=>['/api/generate','/api/grid','/api/refine','/api/refine/batch','/api/rerender','/api/inpaint','/api/outpaint','/api/more-seeds','/api/instruction-edit','/api/swap-tags'].includes(path.split('?')[0])||/^\\/api\\/runs\\/[^/]+\\/finish(?:\\?|$)/.test(path);\nwindow.__clRefuse=(method,path,reason,layer='api',origin=location.origin)=>{if(__clJobPath(path))__clJobs++;__clForbidden.push({method,path,origin,layer,reason});throw Error(reason);};\nwindow.__clMutationBody=(path,options)=>{let body;try{body=JSON.parse(options?.body);}catch{return __clRefuse('POST',path,'Invalid mutation JSON refused');}if(!body||typeof body!=='object'||Array.isArray(body))return __clRefuse('POST',path,'Invalid mutation body refused');return body;};\nfetch=async(input,options={})=>{const raw=typeof input==='string'?input:input?.url??String(input),method=(options.method??input?.method??'GET').toUpperCase();let url;try{url=new URL(raw,location.href);}catch{return __clRefuse(method,String(raw),'Invalid raw URL refused','fetch',null);}const path=url.pathname+url.search;if(method==='GET'||method==='HEAD')return __clRawFetch(input,options);if(url.origin!==location.origin)return __clRefuse(method,path,'Foreign-origin mutation refused','fetch',url.origin);if(method==='POST'&&__clReadOnlyPost(path)){__clReadOnly.push(path);return __clRawFetch(input,options);}const body=options.body??null,index=__clPermits.findIndex(permit=>permit.origin===url.origin&&permit.method===method&&permit.path===path&&permit.body===body);if(index<0)return __clRefuse(method,path,'Unapproved raw mutation refused by clear fixture','fetch',url.origin);__clPermits.splice(index,1);const response=await __clRawFetch(input,options);__clRawWrites.push({method,path,status:response.status});return response;};\nwindow.__clSend=async(path,options)=>{const url=new URL(path,location.href),method=(options?.method??'GET').toUpperCase();if(url.origin!==location.origin)return __clRefuse(method,url.pathname+url.search,'Foreign-origin send refused','send',url.origin);const permit={origin:url.origin,path:url.pathname+url.search,method,body:options?.body??null};__clPermits.push(permit);try{return await __clBaseApi(path,options);}finally{const index=__clPermits.indexOf(permit);if(index>=0)__clPermits.splice(index,1);}};\nwindow.__clInventory=async()=>{const [live,bin]=await Promise.all([__clBaseApi('/api/gallery?all_models=true&limit=100'),__clBaseApi('/api/gallery/bin?limit=100')]);const rows=[...live.items,...bin.items].sort((a,b)=>a.id-b.id);return {rows,ids:rows.map(row=>row.id),live:live.total,bin:bin.total};};\nwindow.__clStored=async(id)=>{try{const row=await __clBaseApi('/api/images/'+id+'?binned=true');return {id,exists:true,row};}catch(err){if(err.status===404)return {id,exists:false};throw err;}};\nwindow.__clSeed=async(approval)=>{if(!approval||approval.used)throw Error('Missing one-use seed');const before=await __clInventory();if(before.rows.length!==approval.before)throw Error('Seed requires the exact empty/initial inventory');approval.used=true;const body={prompt:approval.prompt,width:256,height:256,steps:1,seed:approval.seed,num_images:approval.count};const job=await __clSend('/api/generate',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify(body)});if(!await __clUntil(async()=>{const found=await __clBaseApi('/api/jobs/'+job.job_id);return found.status==='done';}))throw Error('Owned fake seed did not complete');return __clInventory();};\nwindow.__clTag=()=>{const known=__clKnown();for(const[index,id]of (known?.currentIds??[]).entries())for(const card of document.querySelectorAll('#gallery .card[data-id=\"'+id+'\"]'))card.dataset.cl='abcdef'[index];};\nwindow.__clHeld=(button)=>button?.getAttribute('aria-disabled')==='true'&&!button.disabled;\nwindow.__clRunning=(id)=>({id,operation:'export',state:'running',progress:{phase:'verifying',done:1,total:2},result:null,error:null});\nwindow.__clTerminal=(id)=>({id,operation:'export',state:'done',progress:null,error:null,result:{name:'controlled-metadata-only.zip',images:0,records:0,cleared:false,deleted_ids:[],retained:['controlled-retained.png']}});\nwindow.__clRender=renderBundleResult;renderBundleResult=(status,...rest)=>{if(status?.id)__clRenderCounts[status.id]=(__clRenderCounts[status.id]??0)+1;return __clRender(status,...rest);};\nwindow.__clForget=forgetImages;forgetImages=(ids,...rest)=>{__clForgetCalls.push([...ids]);return __clForget(ids,...rest);};\nwindow.__clGuardProbe=async()=>{if(!bundleClearOwner)return false;const owner=bundleClearOwner,count=__clRequests.length,raw=__clRawWrites.length,forbidden=__clForbidden.length,jobs=__clJobs,errors=__clErrors.length;await restoreImages([__clKnown().currentIds[0]??__clKnown().firstIds[0]]);await deleteImage(__clKnown().cached);await binPicked();await purgePicked();await deleteUnstarred();await emptyBin();return bundleClearOwner===owner&&__clRequests.length===count&&__clRawWrites.length===raw&&__clForbidden.length===forbidden&&__clJobs===jobs&&__clErrors.length===errors;};\napi=async(path,options)=>{const method=(options?.method??'GET').toUpperCase(),base=path.split('?')[0];if(method==='GET'){if(base==='/api/gallery/bundles/status'){__clStatusReads++;const readEpoch=bundleRequestEpoch;if(__clPollErrors>0){__clPollErrors--;throw Error('Controlled transient bundle status read failure');}if(__clStatusMode.kind==='fixed')return structuredClone(__clStatusMode.status);const result=await __clBaseApi(path,options);__clLastServer=result;const gate=__clStatusReadGate;if(gate&&!gate.captured&&gate.epoch===readEpoch){gate.captured=true;gate.result=result;await new Promise(resolve=>{gate.release=resolve;});}if(__clStatusMode.kind==='maskRunning'&&result.id===__clStatusMode.id&&result.state!=='running'){__clActualDone=result;return structuredClone(__clStatusMode.running);}return result;}const result=await __clBaseApi(path,options);const reset=__clResetGate;if(reset&&!reset.captured&&base==='/api/gallery'&&galleryEpoch>reset.epoch&&bundleClearOwner===reset.owner&&reset.owner.phase==='settling'){reset.captured=true;reset.result=result;await new Promise(resolve=>{reset.release=resolve;});}const dialog=__clDialogGate;if(dialog?.armed&&!dialog.captured&&base==='/api/gallery/bundles/preview'&&bundleClearOwner===dialog.owner&&dialog.owner.phase==='settling'){dialog.captured=true;dialog.result=result;await new Promise(resolve=>{dialog.release=resolve;});}const broad=__clBroadGate;if(broad&&!broad.captured&&base==='/api/gallery/unstarred'&&binBroadOwner){broad.captured=true;await new Promise(resolve=>{broad.release=resolve;});}return result;}\nif(method==='POST'&&__clReadOnlyPost(path))return __clBaseApi(path,options);\nif(method==='POST'&&['/api/images/bin','/api/images/restore'].includes(base)){const approval=__clExactApproval;__clExactApproval=null;const body=__clMutationBody(path,options),kind=base.endsWith('/restore')?'restore':'bin';if(!Array.isArray(body.ids)||!body.ids.length||Object.keys(body).length!==1||body.ids.some(id=>!Number.isSafeInteger(id)||!(__clKnown()?.fullIds??[]).includes(id)))return __clRefuse(method,path,'Unowned or malformed exact mutation refused');if(!approval||approval.kind!==kind||!Array.isArray(approval.ids)||__clNorm(body.ids)!==__clNorm(approval.ids))return __clRefuse(method,path,'Missing or mismatched one-use exact approval');const entry={kind,ids:body.ids,sent:true};__clRequests.push(entry);const result=await __clSend(path,options);const gate=__clExactGate;if(gate&&!gate.captured&&entry.kind===gate.kind&&__clNorm(entry.ids)===__clNorm(gate.ids)){gate.captured=true;await new Promise(resolve=>{gate.release=resolve;});}entry.finished=true;return result;}\nif(method==='POST'&&base==='/api/gallery/bundles/export'){const body=__clMutationBody(path,options),mode=__clPostMode;if(!mode||mode.captured)return __clRefuse(method,path,'No one-use controlled/actual export mode');mode.captured=true;mode.body=body;const entry={kind:body.keep_gallery?'backup':'clear',controlled:!mode.name.startsWith('actual'),mode:mode.name,sent:false};__clRequests.push(entry);if(body.keep_gallery){if(!['backupProbe','backupHeld'].includes(mode.name)||body.keep_gallery!==true||body.scope!=='all'||body.password!=='owned-backup-payload'||Object.keys(body).some(key=>!['keep_gallery','scope','password'].includes(key)))return __clRefuse(method,path,'Unexpected backup scope/payload');if(mode.name==='backupHeld')await new Promise(resolve=>{mode.release=resolve;});const err=new Error('Controlled backup payload probe; no worker started');err.status=422;throw err;}const approval=__clClearApproval;__clClearApproval=null;if(!approval||body.expected!==approval.expected||body.ids!==undefined||body.scope!==undefined||body.keep_gallery!==undefined||Object.keys(body).some(key=>!['expected','password'].includes(key)))return __clRefuse(method,path,'Missing exact clear approval/payload');if(mode.name.startsWith('actual')){const found=await __clInventory();if(!approval.actual||__clNorm(found.ids)!==__clNorm(approval.ids)||__clNorm(found.ids)!==__clNorm(__clKnown().fullIds)||found.rows.length!==body.expected||body.password!==undefined)return __clRefuse(method,path,'Actual clear must own the complete current gallery');entry.sent=true;const status=await __clSend(path,options);mode.accepted=status;await new Promise(resolve=>{mode.release=resolve;});if(mode.name==='actualUnknown')throw Error('Controlled loss after actual export HTTP202');return status;}if(mode.name==='known409'||mode.name==='known422'){const err=new Error('Controlled pre-reservation refusal');err.status=mode.name==='known409'?409:422;throw err;}if(mode.name==='fiveXX'){const err=new Error('Controlled 503 before dispatch');err.status=503;throw err;}if(mode.name==='malformed')return {id:'controlled-malformed',operation:'export',state:'done',result:{name:42,deleted_ids:'invalid'}};if(mode.name==='terminal'){const result=__clTerminal(mode.id);await new Promise(resolve=>{mode.release=resolve;});return result;}if(['running','apply409'].includes(mode.name))return __clRunning(mode.id);return __clRefuse(method,path,'Unknown controlled mode');}\nreturn __clRefuse(method,path,'Unapproved settings/credential/bundle/job mutation refused before dispatch');};\nwindow.__clArchive=async(status,ids)=>{const response=await __clRawFetch(bundleFileURL(status.result.name));if(response.status!==200)throw Error('Actual archive not available');const bytes=new Uint8Array(await response.arrayBuffer());if(bytes.length<1000||bytes.slice(0,4).join()!=='80,75,3,4'||status.result.records!==ids.length||status.result.images!==ids.length)throw Error('Actual saved archive/header/receipt mismatch');return {name:status.result.name,httpStatus:response.status,bytes:bytes.length,records:status.result.records,images:status.result.images,verification:'server-reported verified; download presence and ZIP header checked, not independent format verification'};};\nwindow.__clDescribe=(el)=>el?{tag:el.tagName,id:el.id,classes:String(el.className),role:el.getAttribute('role')}:null;\nwindow.__clBox=(el)=>{const r=el.getBoundingClientRect();return {left:r.left,top:r.top,right:r.right,bottom:r.bottom,width:r.width,height:r.height};};\nwindow.__clRevealAndReport=(selector)=>{const el=document.querySelector(selector);const report={selector,ok:false,scrollBefore:[scrollX,scrollY],viewport:[innerWidth,innerHeight],topbar:document.querySelector('.topbar')?.getBoundingClientRect().bottom,modal:document.querySelector('dialog[open]')?.id,claims:[...binWriteIds],broad:!!binBroadOwner,target:__clDescribe(el)};if(!el){window.__clLastReveal=report;return report;}report.before=__clBox(el);el.scrollIntoView({block:'nearest',inline:'nearest',behavior:'instant'});const r=el.getBoundingClientRect(),top=(report.topbar??0)+12;if(r.top<top)scrollBy(0,r.top-top);else if(r.bottom>innerHeight-12)scrollBy(0,r.bottom-innerHeight+12);const b=el.getBoundingClientRect(),x=b.left+b.width/2,y=b.top+b.height/2,hit=document.elementFromPoint(x,y);report.after=__clBox(el);report.center=[x,y];report.hit=__clDescribe(hit);report.stack=document.elementsFromPoint(x,y).slice(0,6).map(__clDescribe);report.scrollAfter=[scrollX,scrollY];report.parents=[];for(let parent=el.parentElement;parent&&report.parents.length<6;parent=parent.parentElement){const css=getComputedStyle(parent);report.parents.push({...__clDescribe(parent),rect:__clBox(parent),overflow:[css.overflowX,css.overflowY],scroll:[parent.scrollLeft,parent.scrollTop],client:[parent.clientWidth,parent.clientHeight],extent:[parent.scrollWidth,parent.scrollHeight],hidden:parent.hidden,visibility:css.visibility});}report.ok=!!hit&&(hit===el||el.contains(hit))&&b.width>0&&b.height>0;window.__clLastReveal=report;if(!report.ok)return report;const brief={selector,ok:true};const delta=[scrollX-report.scrollBefore[0],scrollY-report.scrollBefore[1]],moved=[report.after.left-report.before.left,report.after.top-report.before.top];if(delta.some(value=>Math.abs(value)>0.1))brief.scrollDelta=delta;if(moved.some(value=>Math.abs(value)>0.1))brief.targetDelta=moved;return brief;};\nwindow.__clRect=(el)=>{const r=el.getBoundingClientRect();return [r.left,r.top,r.width,r.height];};\nwindow.__clSameRect=(el,rect)=>__clRect(el).every((n,i)=>Math.abs(n-rect[i])<1);\nwindow.__clNoteNodes=(slot)=>{const walker=document.createTreeWalker(slot,NodeFilter.SHOW_ALL),nodes=[];for(let node=walker.nextNode();node;node=walker.nextNode())nodes.push(node);return nodes;};\nwindow.__clSnapshotNote=(slot)=>({slot,rect:__clRect(slot),nodes:__clNoteNodes(slot),text:slot.textContent});\nwindow.__clNoteUnchanged=(snapshot)=>{const nodes=__clNoteNodes(snapshot.slot);return snapshot.slot.isConnected&&__clSameRect(snapshot.slot,snapshot.rect)&&snapshot.slot.textContent===snapshot.text&&nodes.length===snapshot.nodes.length&&snapshot.nodes.every((node,index)=>nodes[index]===node);};"
+  },
+  {
+    "expect": "__clUntil(()=>document.getElementById('status-dot').className.includes('ready') && !galleryPending && !jobListing && !busy && galleryRecords.length===0)",
+    "fatal": true
+  },
+  {
+    "expect": "(async()=>{const status=await __clBaseApi('/api/gallery/automatic-backup');window.__clColdBackup={enabled:status.enabled,credential_configured:status.credential_configured,credential_state:status.credential_state,state:status.state};return status.enabled===false&&status.credential_configured===false&&status.credential_state==='not_configured';})()",
+    "fatal": true
+  },
+  {
+    "eval": "resetPanel();writeBox(els.prompt,\"Owned unsent composer for past receipt after actual uncertain clear\");promptReplaced();persistPanel();window.__clComposer=setupComposerState();__clTag();"
+  },
+  {
+    "expect": "__clUntil(()=>bundleStatus?.id===__clKnown().receipts[0].id && bundleStatus.state==='done' && !bundleClearOwner)",
+    "fatal": true
+  },
+  {
+    "expect": "deletedIds.size===0 && bundleHandled===bundleStatus.id && !bundleSeenRunning",
+    "fatal": true
+  },
+  {
+    "log": "__clRevealAndReport(\"#btn-bundles\")"
+  },
+  {
+    "expect": "__clLastReveal?.selector===\"#btn-bundles\" && __clLastReveal.ok",
+    "fatal": true
+  },
+  {
+    "click": "#btn-bundles"
+  },
+  {
+    "expect": "__clUntil(()=>els.bundlesDialog.open && !bundleReading && !bundleSending && bundlePreview?.records===0)",
+    "fatal": true
+  },
+  {
+    "expect": "automaticBackupStatus?.enabled===false",
+    "fatal": true
+  },
+  {
+    "expect": "els.bundleStatus.textContent.startsWith('Last bundle operation:') && !bundleClearOwner && els.bundleBackup.getAttribute('aria-disabled')==='false'"
+  },
+  {
+    "log": "__clRevealAndReport(\"#bundles-close\")"
+  },
+  {
+    "expect": "__clLastReveal?.selector===\"#bundles-close\" && __clLastReveal.ok",
+    "fatal": true
+  },
+  {
+    "click": "#bundles-close"
+  },
+  {
+    "log": "'Explicit second owned seed only after the complete gallery is verified empty. The deleted planted pair is not recreated by browser reload; the next actual clear owns only these three new fake rows.'"
+  },
+  {
+    "expect": "(async()=>{const seeded=await __clSeed({before:0,prompt:'owned second clear receipt fixture',seed:14200,count:3});if(seeded.rows.length!==3||seeded.rows.some(row=>row.model_id!==loadedModel)||seeded.ids.some(id=>__clKnown().firstIds.includes(id)))return false;const known=__clKnown();known.fullIds=seeded.ids;known.currentIds=seeded.ids;known.rows=seeded.rows;known.cached=seeded.rows[0];known.runIds=[...new Set(seeded.rows.map(row=>row.run_id))];__clSave(known);await resetGallery();__clTag();return true;})()",
+    "fatal": true
+  },
+  {
+    "expect": "__clUntil(()=>galleryRecords.length===3 && !galleryPending)",
+    "fatal": true
+  },
+  {
+    "log": "'ACTUAL clear2: keep the real202 running receipt after POST completes and the dialog closes, then independently read actual verified deletion/archive while terminal delivery is held. Duplicate same-ID receiver calls and final gallery/dialog refresh must settle once.'"
+  },
+  {
+    "log": "__clRevealAndReport(\"#btn-bundles\")"
+  },
+  {
+    "expect": "__clLastReveal?.selector===\"#btn-bundles\" && __clLastReveal.ok",
+    "fatal": true
+  },
+  {
+    "click": "#btn-bundles"
+  },
+  {
+    "expect": "__clUntil(()=>els.bundlesDialog.open && !bundleReading && !bundleSending && bundlePreview?.records===3)",
+    "fatal": true
+  },
+  {
+    "expect": "automaticBackupStatus?.enabled===false",
+    "fatal": true
+  },
+  {
+    "eval": "els.bundleCount.value=\"3\";els.bundleCount.dispatchEvent(new Event('input',{bubbles:true}));"
+  },
+  {
+    "eval": "window.__clPostMode={name:\"actualNormal\",captured:false};window.__clClearApproval={expected:3,ids:__clKnown().fullIds.slice(),actual:true};"
+  },
+  {
+    "log": "__clRevealAndReport(\"#bundle-export\")"
+  },
+  {
+    "expect": "__clLastReveal?.selector===\"#bundle-export\" && __clLastReveal.ok",
+    "fatal": true
+  },
+  {
+    "click": "#bundle-export"
+  },
+  {
+    "expect": "__clUntil(()=>__clPostMode.accepted && typeof __clPostMode.release==='function')",
+    "fatal": true
+  },
+  {
+    "eval": "window.__clStatusMode={kind:'maskRunning',id:__clPostMode.accepted.id,running:structuredClone(__clPostMode.accepted)};"
+  },
+  {
+    "log": "__clRevealAndReport(\"#bundles-close\")"
+  },
+  {
+    "expect": "__clLastReveal?.selector===\"#bundles-close\" && __clLastReveal.ok",
+    "fatal": true
+  },
+  {
+    "click": "#bundles-close"
+  },
+  {
+    "eval": "__clPostMode.release();"
+  },
+  {
+    "expect": "__clUntil(()=>bundleClearOwner?.phase==='running' && bundleClearOwner.id===__clPostMode.accepted.id && !bundleSending && !els.bundlesDialog.open)",
+    "fatal": true
+  },
+  {
+    "expect": "__clGuardProbe()"
+  },
+  {
+    "eval": "window.__clRunningOwner=bundleClearOwner;window.__clPollErrors=1;"
+  },
+  {
+    "expect": "__clUntil(()=>!bundlePollPending)",
+    "fatal": true
+  },
+  {
+    "eval": "void pollBundleStatus();"
+  },
+  {
+    "expect": "__clUntil(()=>!bundlePollPending)",
+    "fatal": true
+  },
+  {
+    "expect": "bundleClearOwner===__clRunningOwner && bundleClearOwner.phase==='running' && bundleClearOwner.id===__clPostMode.accepted.id"
+  },
+  {
+    "expect": "(async()=>{if(!await __clUntil(async()=>{const found=await __clBaseApi('/api/gallery/bundles/status');if(found.id===__clPostMode.accepted.id&&found.state==='done'){window.__clReal2=found;return true;}return false;}))return false;const known=__clKnown();if(!__clReal2.result.cleared||__clNorm(__clReal2.result.deleted_ids)!==__clNorm(known.fullIds))return false;window.__clProof2=await __clArchive(__clReal2,known.fullIds);if((await __clInventory()).rows.length!==0)return false;known.receipts.push({id:__clReal2.id,deleted:__clReal2.result.deleted_ids,proof:__clProof2});__clSave(known);return true;})()",
+    "fatal": true
+  },
+  {
+    "log": "__clRevealAndReport(\"#btn-bundles\")"
+  },
+  {
+    "expect": "__clLastReveal?.selector===\"#btn-bundles\" && __clLastReveal.ok",
+    "fatal": true
+  },
+  {
+    "click": "#btn-bundles"
+  },
+  {
+    "expect": "__clUntil(()=>els.bundlesDialog.open && !bundleReading && !bundleSending && bundlePreview?.records===3)",
+    "fatal": true
+  },
+  {
+    "expect": "automaticBackupStatus?.enabled===false",
+    "fatal": true
+  },
+  {
+    "eval": "window.__clOwner=bundleClearOwner;window.__clResetGate={owner:__clOwner,epoch:galleryEpoch};window.__clDialogGate={owner:__clOwner,armed:false};window.__clStatusMode={kind:'server'};"
+  },
+  {
+    "expect": "__clUntil(()=>!bundlePollPending)",
+    "fatal": true
+  },
+  {
+    "eval": "void pollBundleStatus();"
+  },
+  {
+    "expect": "__clUntil(()=>__clResetGate.captured && typeof __clResetGate.release==='function' && bundleClearOwner===__clOwner && __clOwner.phase==='settling')",
+    "fatal": true
+  },
+  {
+    "eval": "(async()=>{await receiveBundleStatus(__clReal2);await receiveBundleStatus(__clReal2);await receiveBundleStatus(__clPostMode.accepted);})()"
+  },
+  {
+    "expect": "__clRenderCounts[__clReal2.id]===1 && __clForgetCalls.filter(ids=>__clNorm(ids)===__clNorm(__clKnown().fullIds)).length===1 && bundleHandled!==__clReal2.id && bundleClearOwner===__clOwner"
+  },
+  {
+    "eval": "__clDialogGate.armed=true;__clResetGate.release();"
+  },
+  {
+    "expect": "__clUntil(()=>__clDialogGate.captured && bundleClearOwner===__clOwner)",
+    "fatal": true
+  },
+  {
+    "expect": "__clGuardProbe()"
+  },
+  {
+    "eval": "__clDialogGate.release();"
+  },
+  {
+    "expect": "__clUntil(()=>!bundleClearOwner && !bundleSettling && bundleHandled===__clReal2.id && bundlePreview?.records===0)",
+    "fatal": true
+  },
+  {
+    "expect": "__clKnown().fullIds.every(id=>deletedIds.has(id)) && galleryRecords.length===0 && setupComposerState()===__clComposer && els.bundleBackup.getAttribute('aria-disabled')==='false'"
+  },
+  {
+    "log": "JSON.stringify({evidence:'actual worker2 normal receipt',receipt:__clReal2,archive:__clProof2,applied:bundleHandled,renderCount:__clRenderCounts[__clReal2.id],rawWrites:__clRawWrites,forbidden:__clForbidden,errors:__clErrors})"
+  },
+  {
+    "log": "'CONTROLLED predispatch409 and ordinary-backup payload/epoch probe: hold the refused clear follow-up status read, then start a newer controlled keep-gallery backup. Old clear cleanup must not clear the newer sending flag. No worker starts in this probe.'"
+  },
+  {
+    "eval": "els.bundleCount.value=\"0\";els.bundleCount.dispatchEvent(new Event('input',{bubbles:true}));"
+  },
+  {
+    "expect": "__clUntil(()=>!bundlePollPending)",
+    "fatal": true
+  },
+  {
+    "eval": "clearTimeout(bundlePollTimer);window.__clStatusReadGate={epoch:bundleRequestEpoch+1};"
+  },
+  {
+    "eval": "window.__clPostMode={name:\"known409\",captured:false};window.__clClearApproval={expected:0,ids:__clKnown().fullIds.slice(),actual:false};"
+  },
+  {
+    "log": "__clRevealAndReport(\"#bundle-export\")"
+  },
+  {
+    "expect": "__clLastReveal?.selector===\"#bundle-export\" && __clLastReveal.ok",
+    "fatal": true
+  },
+  {
+    "click": "#bundle-export"
+  },
+  {
+    "expect": "__clUntil(()=>__clStatusReadGate.captured && bundlePollPending && !bundleClearOwner && !bundleSending)",
+    "fatal": true
+  },
+  {
+    "eval": "window.__clRefusedEpoch=bundleRequestEpoch;els.bundlePassword.value=els.bundlePasswordAgain.value='owned-backup-payload';els.bundlePassword.dispatchEvent(new Event('input',{bubbles:true}));window.__clPostMode={name:'backupHeld'};"
+  },
+  {
+    "log": "__clRevealAndReport(\"#bundle-backup\")"
+  },
+  {
+    "expect": "__clLastReveal?.selector===\"#bundle-backup\" && __clLastReveal.ok",
+    "fatal": true
+  },
+  {
+    "click": "#bundle-backup"
+  },
+  {
+    "expect": "__clUntil(()=>__clPostMode.captured && typeof __clPostMode.release==='function' && bundleSending)",
+    "fatal": true
+  },
+  {
+    "expect": "__clPostMode.body.keep_gallery===true && __clPostMode.body.scope==='all' && __clPostMode.body.password==='owned-backup-payload' && !bundleClearOwner && bundleRequestEpoch===__clRefusedEpoch+1 && els.bundlePassword.value==='' && els.bundlePasswordAgain.value===''"
+  },
+  {
+    "eval": "__clStatusReadGate.release();"
+  },
+  {
+    "expect": "__clUntil(()=>!bundlePollPending)",
+    "fatal": true
+  },
+  {
+    "expect": "bundleSending && !bundleClearOwner && bundleRequestEpoch===__clRefusedEpoch+1"
+  },
+  {
+    "eval": "__clPostMode.release();"
+  },
+  {
+    "expect": "__clUntil(()=>!bundleSending && !bundleClearOwner && !bundleReading)",
+    "fatal": true
+  },
+  {
+    "expect": "setupComposerState()===__clComposer"
+  },
+  {
+    "log": "'CONTROLLED pre-dispatch422: only a direct POST refusal releases this local attempt; no worker or archive acceptance is claimed.'"
+  },
+  {
+    "eval": "els.bundleCount.value=\"0\";els.bundleCount.dispatchEvent(new Event('input',{bubbles:true}));"
+  },
+  {
+    "eval": "window.__clPostMode={name:\"known422\",captured:false};window.__clClearApproval={expected:0,ids:__clKnown().fullIds.slice(),actual:false};"
+  },
+  {
+    "log": "__clRevealAndReport(\"#bundle-export\")"
+  },
+  {
+    "expect": "__clLastReveal?.selector===\"#bundle-export\" && __clLastReveal.ok",
+    "fatal": true
+  },
+  {
+    "click": "#bundle-export"
+  },
+  {
+    "expect": "__clUntil(()=>__clPostMode.captured && !bundleSending && !bundleClearOwner && !bundleReading)",
+    "fatal": true
+  },
+  {
+    "expect": "!binWriteIds.size && !binBroadOwner && els.bundleBackup.getAttribute('aria-disabled')==='false' && setupComposerState()===__clComposer"
+  },
+  {
+    "expect": "__clForbidden.length===0 && __clJobs===0 && __clErrors.length===0",
+    "fatal": true
+  },
+  {
+    "log": "JSON.stringify({evidence:'before explicit fixture navigation; guard counters must not be erased',forbidden:__clForbidden,unexpectedJobs:__clJobs,errors:__clErrors,unusedExactApproval:__clExactApproval})"
+  },
+  {
+    "expect": "__clForbidden.length===0 && __clJobs===0 && __clErrors.length===0 && __clExactApproval===null",
+    "fatal": true
+  },
+  {
+    "log": "\"Explicit fixture reload for controlled immediate terminal local POST receipt. This discards page-local state; a new composer marker is established. No claim that an unsent draft survives manual reload.\""
+  },
+  {
+    "navigate": "http://127.0.0.1:7943/"
+  },
+  {
+    "eval": "window.__clUntil=async(fn,ms=25000)=>{const end=Date.now()+ms;while(Date.now()<end){try{if(await fn())return true;}catch{}await new Promise(resolve=>setTimeout(resolve,40));}return false;};\nwindow.__clBaseApi=api;window.__clRawFetch=fetch.bind(window);window.__clPermits=[];window.__clErrors=[];window.__clForbidden=[];window.__clJobs=0;window.__clRequests=[];window.__clRawWrites=[];window.__clReadOnly=[];window.__clPostMode=null;window.__clClearApproval=null;window.__clSeedApproval=null;window.__clExactApproval=null;window.__clExactGate=null;window.__clBroadGate=null;window.__clResetGate=null;window.__clDialogGate=null;window.__clStatusReadGate=null;window.__clStatusMode={kind:'server'};window.__clPollErrors=0;window.__clStatusReads=0;window.__clRenderCounts={};window.__clForgetCalls=[];\naddEventListener('error',event=>__clErrors.push(event.message));addEventListener('unhandledrejection',event=>__clErrors.push(String(event.reason)));\nwindow.__clKnown=()=>JSON.parse(sessionStorage.getItem('auradream.smoke.bundle-clear'));\nwindow.__clSave=(value)=>sessionStorage.setItem('auradream.smoke.bundle-clear',JSON.stringify(value));\nwindow.__clNorm=(ids)=>[...ids].sort((a,b)=>a-b).join();\nwindow.__clPreviewPaths=()=>{const known=__clKnown();return known?(known.runIds??[]).map(run=>'/api/runs/'+encodeURIComponent(run)+'/finish/preview'):[];};\nwindow.__clReadOnlyPost=(path)=>path==='/api/prompt/measure'||__clPreviewPaths().includes(path);\nwindow.__clJobPath=(path)=>['/api/generate','/api/grid','/api/refine','/api/refine/batch','/api/rerender','/api/inpaint','/api/outpaint','/api/more-seeds','/api/instruction-edit','/api/swap-tags'].includes(path.split('?')[0])||/^\\/api\\/runs\\/[^/]+\\/finish(?:\\?|$)/.test(path);\nwindow.__clRefuse=(method,path,reason,layer='api',origin=location.origin)=>{if(__clJobPath(path))__clJobs++;__clForbidden.push({method,path,origin,layer,reason});throw Error(reason);};\nwindow.__clMutationBody=(path,options)=>{let body;try{body=JSON.parse(options?.body);}catch{return __clRefuse('POST',path,'Invalid mutation JSON refused');}if(!body||typeof body!=='object'||Array.isArray(body))return __clRefuse('POST',path,'Invalid mutation body refused');return body;};\nfetch=async(input,options={})=>{const raw=typeof input==='string'?input:input?.url??String(input),method=(options.method??input?.method??'GET').toUpperCase();let url;try{url=new URL(raw,location.href);}catch{return __clRefuse(method,String(raw),'Invalid raw URL refused','fetch',null);}const path=url.pathname+url.search;if(method==='GET'||method==='HEAD')return __clRawFetch(input,options);if(url.origin!==location.origin)return __clRefuse(method,path,'Foreign-origin mutation refused','fetch',url.origin);if(method==='POST'&&__clReadOnlyPost(path)){__clReadOnly.push(path);return __clRawFetch(input,options);}const body=options.body??null,index=__clPermits.findIndex(permit=>permit.origin===url.origin&&permit.method===method&&permit.path===path&&permit.body===body);if(index<0)return __clRefuse(method,path,'Unapproved raw mutation refused by clear fixture','fetch',url.origin);__clPermits.splice(index,1);const response=await __clRawFetch(input,options);__clRawWrites.push({method,path,status:response.status});return response;};\nwindow.__clSend=async(path,options)=>{const url=new URL(path,location.href),method=(options?.method??'GET').toUpperCase();if(url.origin!==location.origin)return __clRefuse(method,url.pathname+url.search,'Foreign-origin send refused','send',url.origin);const permit={origin:url.origin,path:url.pathname+url.search,method,body:options?.body??null};__clPermits.push(permit);try{return await __clBaseApi(path,options);}finally{const index=__clPermits.indexOf(permit);if(index>=0)__clPermits.splice(index,1);}};\nwindow.__clInventory=async()=>{const [live,bin]=await Promise.all([__clBaseApi('/api/gallery?all_models=true&limit=100'),__clBaseApi('/api/gallery/bin?limit=100')]);const rows=[...live.items,...bin.items].sort((a,b)=>a.id-b.id);return {rows,ids:rows.map(row=>row.id),live:live.total,bin:bin.total};};\nwindow.__clStored=async(id)=>{try{const row=await __clBaseApi('/api/images/'+id+'?binned=true');return {id,exists:true,row};}catch(err){if(err.status===404)return {id,exists:false};throw err;}};\nwindow.__clSeed=async(approval)=>{if(!approval||approval.used)throw Error('Missing one-use seed');const before=await __clInventory();if(before.rows.length!==approval.before)throw Error('Seed requires the exact empty/initial inventory');approval.used=true;const body={prompt:approval.prompt,width:256,height:256,steps:1,seed:approval.seed,num_images:approval.count};const job=await __clSend('/api/generate',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify(body)});if(!await __clUntil(async()=>{const found=await __clBaseApi('/api/jobs/'+job.job_id);return found.status==='done';}))throw Error('Owned fake seed did not complete');return __clInventory();};\nwindow.__clTag=()=>{const known=__clKnown();for(const[index,id]of (known?.currentIds??[]).entries())for(const card of document.querySelectorAll('#gallery .card[data-id=\"'+id+'\"]'))card.dataset.cl='abcdef'[index];};\nwindow.__clHeld=(button)=>button?.getAttribute('aria-disabled')==='true'&&!button.disabled;\nwindow.__clRunning=(id)=>({id,operation:'export',state:'running',progress:{phase:'verifying',done:1,total:2},result:null,error:null});\nwindow.__clTerminal=(id)=>({id,operation:'export',state:'done',progress:null,error:null,result:{name:'controlled-metadata-only.zip',images:0,records:0,cleared:false,deleted_ids:[],retained:['controlled-retained.png']}});\nwindow.__clRender=renderBundleResult;renderBundleResult=(status,...rest)=>{if(status?.id)__clRenderCounts[status.id]=(__clRenderCounts[status.id]??0)+1;return __clRender(status,...rest);};\nwindow.__clForget=forgetImages;forgetImages=(ids,...rest)=>{__clForgetCalls.push([...ids]);return __clForget(ids,...rest);};\nwindow.__clGuardProbe=async()=>{if(!bundleClearOwner)return false;const owner=bundleClearOwner,count=__clRequests.length,raw=__clRawWrites.length,forbidden=__clForbidden.length,jobs=__clJobs,errors=__clErrors.length;await restoreImages([__clKnown().currentIds[0]??__clKnown().firstIds[0]]);await deleteImage(__clKnown().cached);await binPicked();await purgePicked();await deleteUnstarred();await emptyBin();return bundleClearOwner===owner&&__clRequests.length===count&&__clRawWrites.length===raw&&__clForbidden.length===forbidden&&__clJobs===jobs&&__clErrors.length===errors;};\napi=async(path,options)=>{const method=(options?.method??'GET').toUpperCase(),base=path.split('?')[0];if(method==='GET'){if(base==='/api/gallery/bundles/status'){__clStatusReads++;const readEpoch=bundleRequestEpoch;if(__clPollErrors>0){__clPollErrors--;throw Error('Controlled transient bundle status read failure');}if(__clStatusMode.kind==='fixed')return structuredClone(__clStatusMode.status);const result=await __clBaseApi(path,options);__clLastServer=result;const gate=__clStatusReadGate;if(gate&&!gate.captured&&gate.epoch===readEpoch){gate.captured=true;gate.result=result;await new Promise(resolve=>{gate.release=resolve;});}if(__clStatusMode.kind==='maskRunning'&&result.id===__clStatusMode.id&&result.state!=='running'){__clActualDone=result;return structuredClone(__clStatusMode.running);}return result;}const result=await __clBaseApi(path,options);const reset=__clResetGate;if(reset&&!reset.captured&&base==='/api/gallery'&&galleryEpoch>reset.epoch&&bundleClearOwner===reset.owner&&reset.owner.phase==='settling'){reset.captured=true;reset.result=result;await new Promise(resolve=>{reset.release=resolve;});}const dialog=__clDialogGate;if(dialog?.armed&&!dialog.captured&&base==='/api/gallery/bundles/preview'&&bundleClearOwner===dialog.owner&&dialog.owner.phase==='settling'){dialog.captured=true;dialog.result=result;await new Promise(resolve=>{dialog.release=resolve;});}const broad=__clBroadGate;if(broad&&!broad.captured&&base==='/api/gallery/unstarred'&&binBroadOwner){broad.captured=true;await new Promise(resolve=>{broad.release=resolve;});}return result;}\nif(method==='POST'&&__clReadOnlyPost(path))return __clBaseApi(path,options);\nif(method==='POST'&&['/api/images/bin','/api/images/restore'].includes(base)){const approval=__clExactApproval;__clExactApproval=null;const body=__clMutationBody(path,options),kind=base.endsWith('/restore')?'restore':'bin';if(!Array.isArray(body.ids)||!body.ids.length||Object.keys(body).length!==1||body.ids.some(id=>!Number.isSafeInteger(id)||!(__clKnown()?.fullIds??[]).includes(id)))return __clRefuse(method,path,'Unowned or malformed exact mutation refused');if(!approval||approval.kind!==kind||!Array.isArray(approval.ids)||__clNorm(body.ids)!==__clNorm(approval.ids))return __clRefuse(method,path,'Missing or mismatched one-use exact approval');const entry={kind,ids:body.ids,sent:true};__clRequests.push(entry);const result=await __clSend(path,options);const gate=__clExactGate;if(gate&&!gate.captured&&entry.kind===gate.kind&&__clNorm(entry.ids)===__clNorm(gate.ids)){gate.captured=true;await new Promise(resolve=>{gate.release=resolve;});}entry.finished=true;return result;}\nif(method==='POST'&&base==='/api/gallery/bundles/export'){const body=__clMutationBody(path,options),mode=__clPostMode;if(!mode||mode.captured)return __clRefuse(method,path,'No one-use controlled/actual export mode');mode.captured=true;mode.body=body;const entry={kind:body.keep_gallery?'backup':'clear',controlled:!mode.name.startsWith('actual'),mode:mode.name,sent:false};__clRequests.push(entry);if(body.keep_gallery){if(!['backupProbe','backupHeld'].includes(mode.name)||body.keep_gallery!==true||body.scope!=='all'||body.password!=='owned-backup-payload'||Object.keys(body).some(key=>!['keep_gallery','scope','password'].includes(key)))return __clRefuse(method,path,'Unexpected backup scope/payload');if(mode.name==='backupHeld')await new Promise(resolve=>{mode.release=resolve;});const err=new Error('Controlled backup payload probe; no worker started');err.status=422;throw err;}const approval=__clClearApproval;__clClearApproval=null;if(!approval||body.expected!==approval.expected||body.ids!==undefined||body.scope!==undefined||body.keep_gallery!==undefined||Object.keys(body).some(key=>!['expected','password'].includes(key)))return __clRefuse(method,path,'Missing exact clear approval/payload');if(mode.name.startsWith('actual')){const found=await __clInventory();if(!approval.actual||__clNorm(found.ids)!==__clNorm(approval.ids)||__clNorm(found.ids)!==__clNorm(__clKnown().fullIds)||found.rows.length!==body.expected||body.password!==undefined)return __clRefuse(method,path,'Actual clear must own the complete current gallery');entry.sent=true;const status=await __clSend(path,options);mode.accepted=status;await new Promise(resolve=>{mode.release=resolve;});if(mode.name==='actualUnknown')throw Error('Controlled loss after actual export HTTP202');return status;}if(mode.name==='known409'||mode.name==='known422'){const err=new Error('Controlled pre-reservation refusal');err.status=mode.name==='known409'?409:422;throw err;}if(mode.name==='fiveXX'){const err=new Error('Controlled 503 before dispatch');err.status=503;throw err;}if(mode.name==='malformed')return {id:'controlled-malformed',operation:'export',state:'done',result:{name:42,deleted_ids:'invalid'}};if(mode.name==='terminal'){const result=__clTerminal(mode.id);await new Promise(resolve=>{mode.release=resolve;});return result;}if(['running','apply409'].includes(mode.name))return __clRunning(mode.id);return __clRefuse(method,path,'Unknown controlled mode');}\nreturn __clRefuse(method,path,'Unapproved settings/credential/bundle/job mutation refused before dispatch');};\nwindow.__clArchive=async(status,ids)=>{const response=await __clRawFetch(bundleFileURL(status.result.name));if(response.status!==200)throw Error('Actual archive not available');const bytes=new Uint8Array(await response.arrayBuffer());if(bytes.length<1000||bytes.slice(0,4).join()!=='80,75,3,4'||status.result.records!==ids.length||status.result.images!==ids.length)throw Error('Actual saved archive/header/receipt mismatch');return {name:status.result.name,httpStatus:response.status,bytes:bytes.length,records:status.result.records,images:status.result.images,verification:'server-reported verified; download presence and ZIP header checked, not independent format verification'};};\nwindow.__clDescribe=(el)=>el?{tag:el.tagName,id:el.id,classes:String(el.className),role:el.getAttribute('role')}:null;\nwindow.__clBox=(el)=>{const r=el.getBoundingClientRect();return {left:r.left,top:r.top,right:r.right,bottom:r.bottom,width:r.width,height:r.height};};\nwindow.__clRevealAndReport=(selector)=>{const el=document.querySelector(selector);const report={selector,ok:false,scrollBefore:[scrollX,scrollY],viewport:[innerWidth,innerHeight],topbar:document.querySelector('.topbar')?.getBoundingClientRect().bottom,modal:document.querySelector('dialog[open]')?.id,claims:[...binWriteIds],broad:!!binBroadOwner,target:__clDescribe(el)};if(!el){window.__clLastReveal=report;return report;}report.before=__clBox(el);el.scrollIntoView({block:'nearest',inline:'nearest',behavior:'instant'});const r=el.getBoundingClientRect(),top=(report.topbar??0)+12;if(r.top<top)scrollBy(0,r.top-top);else if(r.bottom>innerHeight-12)scrollBy(0,r.bottom-innerHeight+12);const b=el.getBoundingClientRect(),x=b.left+b.width/2,y=b.top+b.height/2,hit=document.elementFromPoint(x,y);report.after=__clBox(el);report.center=[x,y];report.hit=__clDescribe(hit);report.stack=document.elementsFromPoint(x,y).slice(0,6).map(__clDescribe);report.scrollAfter=[scrollX,scrollY];report.parents=[];for(let parent=el.parentElement;parent&&report.parents.length<6;parent=parent.parentElement){const css=getComputedStyle(parent);report.parents.push({...__clDescribe(parent),rect:__clBox(parent),overflow:[css.overflowX,css.overflowY],scroll:[parent.scrollLeft,parent.scrollTop],client:[parent.clientWidth,parent.clientHeight],extent:[parent.scrollWidth,parent.scrollHeight],hidden:parent.hidden,visibility:css.visibility});}report.ok=!!hit&&(hit===el||el.contains(hit))&&b.width>0&&b.height>0;window.__clLastReveal=report;if(!report.ok)return report;const brief={selector,ok:true};const delta=[scrollX-report.scrollBefore[0],scrollY-report.scrollBefore[1]],moved=[report.after.left-report.before.left,report.after.top-report.before.top];if(delta.some(value=>Math.abs(value)>0.1))brief.scrollDelta=delta;if(moved.some(value=>Math.abs(value)>0.1))brief.targetDelta=moved;return brief;};\nwindow.__clRect=(el)=>{const r=el.getBoundingClientRect();return [r.left,r.top,r.width,r.height];};\nwindow.__clSameRect=(el,rect)=>__clRect(el).every((n,i)=>Math.abs(n-rect[i])<1);\nwindow.__clNoteNodes=(slot)=>{const walker=document.createTreeWalker(slot,NodeFilter.SHOW_ALL),nodes=[];for(let node=walker.nextNode();node;node=walker.nextNode())nodes.push(node);return nodes;};\nwindow.__clSnapshotNote=(slot)=>({slot,rect:__clRect(slot),nodes:__clNoteNodes(slot),text:slot.textContent});\nwindow.__clNoteUnchanged=(snapshot)=>{const nodes=__clNoteNodes(snapshot.slot);return snapshot.slot.isConnected&&__clSameRect(snapshot.slot,snapshot.rect)&&snapshot.slot.textContent===snapshot.text&&nodes.length===snapshot.nodes.length&&snapshot.nodes.every((node,index)=>nodes[index]===node);};"
+  },
+  {
+    "expect": "__clUntil(()=>document.getElementById('status-dot').className.includes('ready') && !galleryPending && !jobListing && !busy && galleryRecords.length===0)",
+    "fatal": true
+  },
+  {
+    "expect": "(async()=>{const status=await __clBaseApi('/api/gallery/automatic-backup');window.__clColdBackup={enabled:status.enabled,credential_configured:status.credential_configured,credential_state:status.credential_state,state:status.state};return status.enabled===false&&status.credential_configured===false&&status.credential_state==='not_configured';})()",
+    "fatal": true
+  },
+  {
+    "eval": "resetPanel();writeBox(els.prompt,\"Owned unsent composer for controlled immediate terminal local POST receipt\");promptReplaced();persistPanel();window.__clComposer=setupComposerState();__clTag();"
+  },
+  {
+    "log": "__clRevealAndReport(\"#btn-bundles\")"
+  },
+  {
+    "expect": "__clLastReveal?.selector===\"#btn-bundles\" && __clLastReveal.ok",
+    "fatal": true
+  },
+  {
+    "click": "#btn-bundles"
+  },
+  {
+    "expect": "__clUntil(()=>els.bundlesDialog.open && !bundleReading && !bundleSending && bundlePreview?.records===0)",
+    "fatal": true
+  },
+  {
+    "expect": "automaticBackupStatus?.enabled===false",
+    "fatal": true
+  },
+  {
+    "eval": "els.bundleCount.value=\"0\";els.bundleCount.dispatchEvent(new Event('input',{bubbles:true}));"
+  },
+  {
+    "expect": "__clUntil(()=>!bundlePollPending)",
+    "fatal": true
+  },
+  {
+    "eval": "clearTimeout(bundlePollTimer);"
+  },
+  {
+    "eval": "window.__clPostMode={name:\"terminal\",captured:false};window.__clClearApproval={expected:0,ids:__clKnown().fullIds.slice(),actual:false};"
+  },
+  {
+    "eval": "__clPostMode.id='controlled-immediate-terminal';window.__clStatusMode={kind:'fixed',status:__clTerminal(__clPostMode.id)};"
+  },
+  {
+    "log": "'CONTROLLED valid immediate terminal POST receipt; no request reaches a worker and no archive is downloaded. Reset first-status metadata while the local POST is pending to prove local ownership overrides the past-result heuristic.'"
+  },
+  {
+    "log": "__clRevealAndReport(\"#bundle-export\")"
+  },
+  {
+    "expect": "__clLastReveal?.selector===\"#bundle-export\" && __clLastReveal.ok",
+    "fatal": true
+  },
+  {
+    "click": "#bundle-export"
+  },
+  {
+    "expect": "__clUntil(()=>__clPostMode.captured && typeof __clPostMode.release==='function' && bundleClearOwner?.phase==='sending')",
+    "fatal": true
+  },
+  {
+    "eval": "window.__clImmediateOwner=bundleClearOwner;window.__clResetGate={owner:__clImmediateOwner,epoch:galleryEpoch};bundleStatusSeen=false;bundleSeenRunning=false;__clPostMode.release();"
+  },
+  {
+    "expect": "__clUntil(()=>__clResetGate.captured && typeof __clResetGate.release==='function' && bundleClearOwner===__clImmediateOwner && __clImmediateOwner.phase==='settling')",
+    "fatal": true
+  },
+  {
+    "expect": "bundleStatusSeen && __clImmediateOwner.origin==='local' && __clImmediateOwner.id==='controlled-immediate-terminal' && __clRenderCounts[__clImmediateOwner.id]===1 && bundleHandled!==__clImmediateOwner.id && !els.bundleStatus.textContent.startsWith('Last bundle operation:') && setupComposerState()===__clComposer"
+  },
+  {
+    "expect": "__clGuardProbe()"
+  },
+  {
+    "eval": "__clResetGate.release();"
+  },
+  {
+    "expect": "__clUntil(()=>!bundleClearOwner && !bundleSettling && bundleHandled==='controlled-immediate-terminal' && bundlePreview?.records===0)",
+    "fatal": true
+  },
+  {
+    "expect": "__clRenderCounts['controlled-immediate-terminal']===1 && __clRequests.every(row=>!row.sent) && setupComposerState()===__clComposer && __clForbidden.length===0 && __clJobs===0 && __clErrors.length===0",
+    "fatal": true
+  },
+  {
+    "log": "JSON.stringify({evidence:'controlled immediate terminal POST metadata only; no worker or archive acceptance',renderCount:__clRenderCounts['controlled-immediate-terminal'],handled:bundleHandled,coldBackup:__clColdBackup,forbidden:__clForbidden,errors:__clErrors})"
+  },
+  {
+    "log": "JSON.stringify({evidence:'before explicit fixture navigation; guard counters must not be erased',forbidden:__clForbidden,unexpectedJobs:__clJobs,errors:__clErrors,unusedExactApproval:__clExactApproval})"
+  },
+  {
+    "expect": "__clForbidden.length===0 && __clJobs===0 && __clErrors.length===0 && __clExactApproval===null",
+    "fatal": true
+  },
+  {
+    "log": "\"Explicit fixture reload for controlled fiveXX metadata/error probe. This discards page-local state; a new composer marker is established. No claim that an unsent draft survives manual reload.\""
+  },
+  {
+    "navigate": "http://127.0.0.1:7943/"
+  },
+  {
+    "eval": "window.__clUntil=async(fn,ms=25000)=>{const end=Date.now()+ms;while(Date.now()<end){try{if(await fn())return true;}catch{}await new Promise(resolve=>setTimeout(resolve,40));}return false;};\nwindow.__clBaseApi=api;window.__clRawFetch=fetch.bind(window);window.__clPermits=[];window.__clErrors=[];window.__clForbidden=[];window.__clJobs=0;window.__clRequests=[];window.__clRawWrites=[];window.__clReadOnly=[];window.__clPostMode=null;window.__clClearApproval=null;window.__clSeedApproval=null;window.__clExactApproval=null;window.__clExactGate=null;window.__clBroadGate=null;window.__clResetGate=null;window.__clDialogGate=null;window.__clStatusReadGate=null;window.__clStatusMode={kind:'server'};window.__clPollErrors=0;window.__clStatusReads=0;window.__clRenderCounts={};window.__clForgetCalls=[];\naddEventListener('error',event=>__clErrors.push(event.message));addEventListener('unhandledrejection',event=>__clErrors.push(String(event.reason)));\nwindow.__clKnown=()=>JSON.parse(sessionStorage.getItem('auradream.smoke.bundle-clear'));\nwindow.__clSave=(value)=>sessionStorage.setItem('auradream.smoke.bundle-clear',JSON.stringify(value));\nwindow.__clNorm=(ids)=>[...ids].sort((a,b)=>a-b).join();\nwindow.__clPreviewPaths=()=>{const known=__clKnown();return known?(known.runIds??[]).map(run=>'/api/runs/'+encodeURIComponent(run)+'/finish/preview'):[];};\nwindow.__clReadOnlyPost=(path)=>path==='/api/prompt/measure'||__clPreviewPaths().includes(path);\nwindow.__clJobPath=(path)=>['/api/generate','/api/grid','/api/refine','/api/refine/batch','/api/rerender','/api/inpaint','/api/outpaint','/api/more-seeds','/api/instruction-edit','/api/swap-tags'].includes(path.split('?')[0])||/^\\/api\\/runs\\/[^/]+\\/finish(?:\\?|$)/.test(path);\nwindow.__clRefuse=(method,path,reason,layer='api',origin=location.origin)=>{if(__clJobPath(path))__clJobs++;__clForbidden.push({method,path,origin,layer,reason});throw Error(reason);};\nwindow.__clMutationBody=(path,options)=>{let body;try{body=JSON.parse(options?.body);}catch{return __clRefuse('POST',path,'Invalid mutation JSON refused');}if(!body||typeof body!=='object'||Array.isArray(body))return __clRefuse('POST',path,'Invalid mutation body refused');return body;};\nfetch=async(input,options={})=>{const raw=typeof input==='string'?input:input?.url??String(input),method=(options.method??input?.method??'GET').toUpperCase();let url;try{url=new URL(raw,location.href);}catch{return __clRefuse(method,String(raw),'Invalid raw URL refused','fetch',null);}const path=url.pathname+url.search;if(method==='GET'||method==='HEAD')return __clRawFetch(input,options);if(url.origin!==location.origin)return __clRefuse(method,path,'Foreign-origin mutation refused','fetch',url.origin);if(method==='POST'&&__clReadOnlyPost(path)){__clReadOnly.push(path);return __clRawFetch(input,options);}const body=options.body??null,index=__clPermits.findIndex(permit=>permit.origin===url.origin&&permit.method===method&&permit.path===path&&permit.body===body);if(index<0)return __clRefuse(method,path,'Unapproved raw mutation refused by clear fixture','fetch',url.origin);__clPermits.splice(index,1);const response=await __clRawFetch(input,options);__clRawWrites.push({method,path,status:response.status});return response;};\nwindow.__clSend=async(path,options)=>{const url=new URL(path,location.href),method=(options?.method??'GET').toUpperCase();if(url.origin!==location.origin)return __clRefuse(method,url.pathname+url.search,'Foreign-origin send refused','send',url.origin);const permit={origin:url.origin,path:url.pathname+url.search,method,body:options?.body??null};__clPermits.push(permit);try{return await __clBaseApi(path,options);}finally{const index=__clPermits.indexOf(permit);if(index>=0)__clPermits.splice(index,1);}};\nwindow.__clInventory=async()=>{const [live,bin]=await Promise.all([__clBaseApi('/api/gallery?all_models=true&limit=100'),__clBaseApi('/api/gallery/bin?limit=100')]);const rows=[...live.items,...bin.items].sort((a,b)=>a.id-b.id);return {rows,ids:rows.map(row=>row.id),live:live.total,bin:bin.total};};\nwindow.__clStored=async(id)=>{try{const row=await __clBaseApi('/api/images/'+id+'?binned=true');return {id,exists:true,row};}catch(err){if(err.status===404)return {id,exists:false};throw err;}};\nwindow.__clSeed=async(approval)=>{if(!approval||approval.used)throw Error('Missing one-use seed');const before=await __clInventory();if(before.rows.length!==approval.before)throw Error('Seed requires the exact empty/initial inventory');approval.used=true;const body={prompt:approval.prompt,width:256,height:256,steps:1,seed:approval.seed,num_images:approval.count};const job=await __clSend('/api/generate',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify(body)});if(!await __clUntil(async()=>{const found=await __clBaseApi('/api/jobs/'+job.job_id);return found.status==='done';}))throw Error('Owned fake seed did not complete');return __clInventory();};\nwindow.__clTag=()=>{const known=__clKnown();for(const[index,id]of (known?.currentIds??[]).entries())for(const card of document.querySelectorAll('#gallery .card[data-id=\"'+id+'\"]'))card.dataset.cl='abcdef'[index];};\nwindow.__clHeld=(button)=>button?.getAttribute('aria-disabled')==='true'&&!button.disabled;\nwindow.__clRunning=(id)=>({id,operation:'export',state:'running',progress:{phase:'verifying',done:1,total:2},result:null,error:null});\nwindow.__clTerminal=(id)=>({id,operation:'export',state:'done',progress:null,error:null,result:{name:'controlled-metadata-only.zip',images:0,records:0,cleared:false,deleted_ids:[],retained:['controlled-retained.png']}});\nwindow.__clRender=renderBundleResult;renderBundleResult=(status,...rest)=>{if(status?.id)__clRenderCounts[status.id]=(__clRenderCounts[status.id]??0)+1;return __clRender(status,...rest);};\nwindow.__clForget=forgetImages;forgetImages=(ids,...rest)=>{__clForgetCalls.push([...ids]);return __clForget(ids,...rest);};\nwindow.__clGuardProbe=async()=>{if(!bundleClearOwner)return false;const owner=bundleClearOwner,count=__clRequests.length,raw=__clRawWrites.length,forbidden=__clForbidden.length,jobs=__clJobs,errors=__clErrors.length;await restoreImages([__clKnown().currentIds[0]??__clKnown().firstIds[0]]);await deleteImage(__clKnown().cached);await binPicked();await purgePicked();await deleteUnstarred();await emptyBin();return bundleClearOwner===owner&&__clRequests.length===count&&__clRawWrites.length===raw&&__clForbidden.length===forbidden&&__clJobs===jobs&&__clErrors.length===errors;};\napi=async(path,options)=>{const method=(options?.method??'GET').toUpperCase(),base=path.split('?')[0];if(method==='GET'){if(base==='/api/gallery/bundles/status'){__clStatusReads++;const readEpoch=bundleRequestEpoch;if(__clPollErrors>0){__clPollErrors--;throw Error('Controlled transient bundle status read failure');}if(__clStatusMode.kind==='fixed')return structuredClone(__clStatusMode.status);const result=await __clBaseApi(path,options);__clLastServer=result;const gate=__clStatusReadGate;if(gate&&!gate.captured&&gate.epoch===readEpoch){gate.captured=true;gate.result=result;await new Promise(resolve=>{gate.release=resolve;});}if(__clStatusMode.kind==='maskRunning'&&result.id===__clStatusMode.id&&result.state!=='running'){__clActualDone=result;return structuredClone(__clStatusMode.running);}return result;}const result=await __clBaseApi(path,options);const reset=__clResetGate;if(reset&&!reset.captured&&base==='/api/gallery'&&galleryEpoch>reset.epoch&&bundleClearOwner===reset.owner&&reset.owner.phase==='settling'){reset.captured=true;reset.result=result;await new Promise(resolve=>{reset.release=resolve;});}const dialog=__clDialogGate;if(dialog?.armed&&!dialog.captured&&base==='/api/gallery/bundles/preview'&&bundleClearOwner===dialog.owner&&dialog.owner.phase==='settling'){dialog.captured=true;dialog.result=result;await new Promise(resolve=>{dialog.release=resolve;});}const broad=__clBroadGate;if(broad&&!broad.captured&&base==='/api/gallery/unstarred'&&binBroadOwner){broad.captured=true;await new Promise(resolve=>{broad.release=resolve;});}return result;}\nif(method==='POST'&&__clReadOnlyPost(path))return __clBaseApi(path,options);\nif(method==='POST'&&['/api/images/bin','/api/images/restore'].includes(base)){const approval=__clExactApproval;__clExactApproval=null;const body=__clMutationBody(path,options),kind=base.endsWith('/restore')?'restore':'bin';if(!Array.isArray(body.ids)||!body.ids.length||Object.keys(body).length!==1||body.ids.some(id=>!Number.isSafeInteger(id)||!(__clKnown()?.fullIds??[]).includes(id)))return __clRefuse(method,path,'Unowned or malformed exact mutation refused');if(!approval||approval.kind!==kind||!Array.isArray(approval.ids)||__clNorm(body.ids)!==__clNorm(approval.ids))return __clRefuse(method,path,'Missing or mismatched one-use exact approval');const entry={kind,ids:body.ids,sent:true};__clRequests.push(entry);const result=await __clSend(path,options);const gate=__clExactGate;if(gate&&!gate.captured&&entry.kind===gate.kind&&__clNorm(entry.ids)===__clNorm(gate.ids)){gate.captured=true;await new Promise(resolve=>{gate.release=resolve;});}entry.finished=true;return result;}\nif(method==='POST'&&base==='/api/gallery/bundles/export'){const body=__clMutationBody(path,options),mode=__clPostMode;if(!mode||mode.captured)return __clRefuse(method,path,'No one-use controlled/actual export mode');mode.captured=true;mode.body=body;const entry={kind:body.keep_gallery?'backup':'clear',controlled:!mode.name.startsWith('actual'),mode:mode.name,sent:false};__clRequests.push(entry);if(body.keep_gallery){if(!['backupProbe','backupHeld'].includes(mode.name)||body.keep_gallery!==true||body.scope!=='all'||body.password!=='owned-backup-payload'||Object.keys(body).some(key=>!['keep_gallery','scope','password'].includes(key)))return __clRefuse(method,path,'Unexpected backup scope/payload');if(mode.name==='backupHeld')await new Promise(resolve=>{mode.release=resolve;});const err=new Error('Controlled backup payload probe; no worker started');err.status=422;throw err;}const approval=__clClearApproval;__clClearApproval=null;if(!approval||body.expected!==approval.expected||body.ids!==undefined||body.scope!==undefined||body.keep_gallery!==undefined||Object.keys(body).some(key=>!['expected','password'].includes(key)))return __clRefuse(method,path,'Missing exact clear approval/payload');if(mode.name.startsWith('actual')){const found=await __clInventory();if(!approval.actual||__clNorm(found.ids)!==__clNorm(approval.ids)||__clNorm(found.ids)!==__clNorm(__clKnown().fullIds)||found.rows.length!==body.expected||body.password!==undefined)return __clRefuse(method,path,'Actual clear must own the complete current gallery');entry.sent=true;const status=await __clSend(path,options);mode.accepted=status;await new Promise(resolve=>{mode.release=resolve;});if(mode.name==='actualUnknown')throw Error('Controlled loss after actual export HTTP202');return status;}if(mode.name==='known409'||mode.name==='known422'){const err=new Error('Controlled pre-reservation refusal');err.status=mode.name==='known409'?409:422;throw err;}if(mode.name==='fiveXX'){const err=new Error('Controlled 503 before dispatch');err.status=503;throw err;}if(mode.name==='malformed')return {id:'controlled-malformed',operation:'export',state:'done',result:{name:42,deleted_ids:'invalid'}};if(mode.name==='terminal'){const result=__clTerminal(mode.id);await new Promise(resolve=>{mode.release=resolve;});return result;}if(['running','apply409'].includes(mode.name))return __clRunning(mode.id);return __clRefuse(method,path,'Unknown controlled mode');}\nreturn __clRefuse(method,path,'Unapproved settings/credential/bundle/job mutation refused before dispatch');};\nwindow.__clArchive=async(status,ids)=>{const response=await __clRawFetch(bundleFileURL(status.result.name));if(response.status!==200)throw Error('Actual archive not available');const bytes=new Uint8Array(await response.arrayBuffer());if(bytes.length<1000||bytes.slice(0,4).join()!=='80,75,3,4'||status.result.records!==ids.length||status.result.images!==ids.length)throw Error('Actual saved archive/header/receipt mismatch');return {name:status.result.name,httpStatus:response.status,bytes:bytes.length,records:status.result.records,images:status.result.images,verification:'server-reported verified; download presence and ZIP header checked, not independent format verification'};};\nwindow.__clDescribe=(el)=>el?{tag:el.tagName,id:el.id,classes:String(el.className),role:el.getAttribute('role')}:null;\nwindow.__clBox=(el)=>{const r=el.getBoundingClientRect();return {left:r.left,top:r.top,right:r.right,bottom:r.bottom,width:r.width,height:r.height};};\nwindow.__clRevealAndReport=(selector)=>{const el=document.querySelector(selector);const report={selector,ok:false,scrollBefore:[scrollX,scrollY],viewport:[innerWidth,innerHeight],topbar:document.querySelector('.topbar')?.getBoundingClientRect().bottom,modal:document.querySelector('dialog[open]')?.id,claims:[...binWriteIds],broad:!!binBroadOwner,target:__clDescribe(el)};if(!el){window.__clLastReveal=report;return report;}report.before=__clBox(el);el.scrollIntoView({block:'nearest',inline:'nearest',behavior:'instant'});const r=el.getBoundingClientRect(),top=(report.topbar??0)+12;if(r.top<top)scrollBy(0,r.top-top);else if(r.bottom>innerHeight-12)scrollBy(0,r.bottom-innerHeight+12);const b=el.getBoundingClientRect(),x=b.left+b.width/2,y=b.top+b.height/2,hit=document.elementFromPoint(x,y);report.after=__clBox(el);report.center=[x,y];report.hit=__clDescribe(hit);report.stack=document.elementsFromPoint(x,y).slice(0,6).map(__clDescribe);report.scrollAfter=[scrollX,scrollY];report.parents=[];for(let parent=el.parentElement;parent&&report.parents.length<6;parent=parent.parentElement){const css=getComputedStyle(parent);report.parents.push({...__clDescribe(parent),rect:__clBox(parent),overflow:[css.overflowX,css.overflowY],scroll:[parent.scrollLeft,parent.scrollTop],client:[parent.clientWidth,parent.clientHeight],extent:[parent.scrollWidth,parent.scrollHeight],hidden:parent.hidden,visibility:css.visibility});}report.ok=!!hit&&(hit===el||el.contains(hit))&&b.width>0&&b.height>0;window.__clLastReveal=report;if(!report.ok)return report;const brief={selector,ok:true};const delta=[scrollX-report.scrollBefore[0],scrollY-report.scrollBefore[1]],moved=[report.after.left-report.before.left,report.after.top-report.before.top];if(delta.some(value=>Math.abs(value)>0.1))brief.scrollDelta=delta;if(moved.some(value=>Math.abs(value)>0.1))brief.targetDelta=moved;return brief;};\nwindow.__clRect=(el)=>{const r=el.getBoundingClientRect();return [r.left,r.top,r.width,r.height];};\nwindow.__clSameRect=(el,rect)=>__clRect(el).every((n,i)=>Math.abs(n-rect[i])<1);\nwindow.__clNoteNodes=(slot)=>{const walker=document.createTreeWalker(slot,NodeFilter.SHOW_ALL),nodes=[];for(let node=walker.nextNode();node;node=walker.nextNode())nodes.push(node);return nodes;};\nwindow.__clSnapshotNote=(slot)=>({slot,rect:__clRect(slot),nodes:__clNoteNodes(slot),text:slot.textContent});\nwindow.__clNoteUnchanged=(snapshot)=>{const nodes=__clNoteNodes(snapshot.slot);return snapshot.slot.isConnected&&__clSameRect(snapshot.slot,snapshot.rect)&&snapshot.slot.textContent===snapshot.text&&nodes.length===snapshot.nodes.length&&snapshot.nodes.every((node,index)=>nodes[index]===node);};"
+  },
+  {
+    "expect": "__clUntil(()=>document.getElementById('status-dot').className.includes('ready') && !galleryPending && !jobListing && !busy && galleryRecords.length===0)",
+    "fatal": true
+  },
+  {
+    "expect": "(async()=>{const status=await __clBaseApi('/api/gallery/automatic-backup');window.__clColdBackup={enabled:status.enabled,credential_configured:status.credential_configured,credential_state:status.credential_state,state:status.state};return status.enabled===false&&status.credential_configured===false&&status.credential_state==='not_configured';})()",
+    "fatal": true
+  },
+  {
+    "eval": "resetPanel();writeBox(els.prompt,\"Owned unsent composer for controlled fiveXX metadata/error probe\");promptReplaced();persistPanel();window.__clComposer=setupComposerState();__clTag();"
+  },
+  {
+    "log": "__clRevealAndReport(\"#btn-bundles\")"
+  },
+  {
+    "expect": "__clLastReveal?.selector===\"#btn-bundles\" && __clLastReveal.ok",
+    "fatal": true
+  },
+  {
+    "click": "#btn-bundles"
+  },
+  {
+    "expect": "__clUntil(()=>els.bundlesDialog.open && !bundleReading && !bundleSending && bundlePreview?.records===0)",
+    "fatal": true
+  },
+  {
+    "expect": "automaticBackupStatus?.enabled===false",
+    "fatal": true
+  },
+  {
+    "eval": "els.bundleCount.value=\"0\";els.bundleCount.dispatchEvent(new Event('input',{bubbles:true}));"
+  },
+  {
+    "eval": "window.__clPostMode={name:\"fiveXX\",captured:false};window.__clClearApproval={expected:0,ids:__clKnown().fullIds.slice(),actual:false};"
+  },
+  {
+    "log": "__clRevealAndReport(\"#bundle-export\")"
+  },
+  {
+    "expect": "__clLastReveal?.selector===\"#bundle-export\" && __clLastReveal.ok",
+    "fatal": true
+  },
+  {
+    "click": "#bundle-export"
+  },
+  {
+    "expect": "__clUntil(()=>bundleClearOwner?.phase==='unresolved' && !bundleSending)",
+    "fatal": true
+  },
+  {
+    "eval": "window.__clSticky=bundleClearOwner;window.__clBeforeRequests=__clRequests.length;"
+  },
+  {
+    "eval": "(async()=>{await receiveBundleStatus({id:'controlled-different',operation:'export',state:'running'});await receiveBundleStatus(__clTerminal('controlled-later-terminal'));})()"
+  },
+  {
+    "expect": "bundleClearOwner===__clSticky && __clSticky.phase==='unresolved' && els.bundleStatus.textContent.includes(BUNDLE_CLEAR_GUIDANCE)"
+  },
+  {
+    "expect": "__clGuardProbe()"
+  },
+  {
+    "log": "__clRevealAndReport(\"#bundles-close\")"
+  },
+  {
+    "expect": "__clLastReveal?.selector===\"#bundles-close\" && __clLastReveal.ok",
+    "fatal": true
+  },
+  {
+    "click": "#bundles-close"
+  },
+  {
+    "log": "__clRevealAndReport(\"#btn-bundles\")"
+  },
+  {
+    "expect": "__clLastReveal?.selector===\"#btn-bundles\" && __clLastReveal.ok",
+    "fatal": true
+  },
+  {
+    "click": "#btn-bundles"
+  },
+  {
+    "expect": "__clUntil(()=>els.bundlesDialog.open && !bundleReading)",
+    "fatal": true
+  },
+  {
+    "log": "__clRevealAndReport(\"#bundle-backup\")"
+  },
+  {
+    "expect": "__clLastReveal?.selector===\"#bundle-backup\" && __clLastReveal.ok",
+    "fatal": true
+  },
+  {
+    "click": "#bundle-backup"
+  },
+  {
+    "log": "__clRevealAndReport(\"#bundle-export\")"
+  },
+  {
+    "expect": "__clLastReveal?.selector===\"#bundle-export\" && __clLastReveal.ok",
+    "fatal": true
+  },
+  {
+    "click": "#bundle-export"
+  },
+  {
+    "expect": "bundleClearOwner===__clSticky && __clRequests.length===__clBeforeRequests && els.bundleStatus.textContent.includes('Reloading does not cancel') && els.bundleStatus.textContent.includes('Do not repeat the request') && setupComposerState()===__clComposer && __clForbidden.length===0 && __clJobs===0 && __clErrors.length===0"
+  },
+  {
+    "log": "JSON.stringify({evidence:'controlled predispatch metadata/error probe',mode:__clPostMode.name,ownerPhase:bundleClearOwner.phase,ownerId:bundleClearOwner.id,requests:__clRequests.map(({kind,controlled,mode,sent})=>({kind,controlled,mode,sent})),forbidden:__clForbidden,errors:__clErrors,composerUnchanged:setupComposerState()===__clComposer})"
+  },
+  {
+    "log": "JSON.stringify({evidence:'before explicit fixture navigation; guard counters must not be erased',forbidden:__clForbidden,unexpectedJobs:__clJobs,errors:__clErrors,unusedExactApproval:__clExactApproval})"
+  },
+  {
+    "expect": "__clForbidden.length===0 && __clJobs===0 && __clErrors.length===0 && __clExactApproval===null",
+    "fatal": true
+  },
+  {
+    "log": "\"Explicit fixture reload for controlled malformed metadata/error probe. This discards page-local state; a new composer marker is established. No claim that an unsent draft survives manual reload.\""
+  },
+  {
+    "navigate": "http://127.0.0.1:7943/"
+  },
+  {
+    "eval": "window.__clUntil=async(fn,ms=25000)=>{const end=Date.now()+ms;while(Date.now()<end){try{if(await fn())return true;}catch{}await new Promise(resolve=>setTimeout(resolve,40));}return false;};\nwindow.__clBaseApi=api;window.__clRawFetch=fetch.bind(window);window.__clPermits=[];window.__clErrors=[];window.__clForbidden=[];window.__clJobs=0;window.__clRequests=[];window.__clRawWrites=[];window.__clReadOnly=[];window.__clPostMode=null;window.__clClearApproval=null;window.__clSeedApproval=null;window.__clExactApproval=null;window.__clExactGate=null;window.__clBroadGate=null;window.__clResetGate=null;window.__clDialogGate=null;window.__clStatusReadGate=null;window.__clStatusMode={kind:'server'};window.__clPollErrors=0;window.__clStatusReads=0;window.__clRenderCounts={};window.__clForgetCalls=[];\naddEventListener('error',event=>__clErrors.push(event.message));addEventListener('unhandledrejection',event=>__clErrors.push(String(event.reason)));\nwindow.__clKnown=()=>JSON.parse(sessionStorage.getItem('auradream.smoke.bundle-clear'));\nwindow.__clSave=(value)=>sessionStorage.setItem('auradream.smoke.bundle-clear',JSON.stringify(value));\nwindow.__clNorm=(ids)=>[...ids].sort((a,b)=>a-b).join();\nwindow.__clPreviewPaths=()=>{const known=__clKnown();return known?(known.runIds??[]).map(run=>'/api/runs/'+encodeURIComponent(run)+'/finish/preview'):[];};\nwindow.__clReadOnlyPost=(path)=>path==='/api/prompt/measure'||__clPreviewPaths().includes(path);\nwindow.__clJobPath=(path)=>['/api/generate','/api/grid','/api/refine','/api/refine/batch','/api/rerender','/api/inpaint','/api/outpaint','/api/more-seeds','/api/instruction-edit','/api/swap-tags'].includes(path.split('?')[0])||/^\\/api\\/runs\\/[^/]+\\/finish(?:\\?|$)/.test(path);\nwindow.__clRefuse=(method,path,reason,layer='api',origin=location.origin)=>{if(__clJobPath(path))__clJobs++;__clForbidden.push({method,path,origin,layer,reason});throw Error(reason);};\nwindow.__clMutationBody=(path,options)=>{let body;try{body=JSON.parse(options?.body);}catch{return __clRefuse('POST',path,'Invalid mutation JSON refused');}if(!body||typeof body!=='object'||Array.isArray(body))return __clRefuse('POST',path,'Invalid mutation body refused');return body;};\nfetch=async(input,options={})=>{const raw=typeof input==='string'?input:input?.url??String(input),method=(options.method??input?.method??'GET').toUpperCase();let url;try{url=new URL(raw,location.href);}catch{return __clRefuse(method,String(raw),'Invalid raw URL refused','fetch',null);}const path=url.pathname+url.search;if(method==='GET'||method==='HEAD')return __clRawFetch(input,options);if(url.origin!==location.origin)return __clRefuse(method,path,'Foreign-origin mutation refused','fetch',url.origin);if(method==='POST'&&__clReadOnlyPost(path)){__clReadOnly.push(path);return __clRawFetch(input,options);}const body=options.body??null,index=__clPermits.findIndex(permit=>permit.origin===url.origin&&permit.method===method&&permit.path===path&&permit.body===body);if(index<0)return __clRefuse(method,path,'Unapproved raw mutation refused by clear fixture','fetch',url.origin);__clPermits.splice(index,1);const response=await __clRawFetch(input,options);__clRawWrites.push({method,path,status:response.status});return response;};\nwindow.__clSend=async(path,options)=>{const url=new URL(path,location.href),method=(options?.method??'GET').toUpperCase();if(url.origin!==location.origin)return __clRefuse(method,url.pathname+url.search,'Foreign-origin send refused','send',url.origin);const permit={origin:url.origin,path:url.pathname+url.search,method,body:options?.body??null};__clPermits.push(permit);try{return await __clBaseApi(path,options);}finally{const index=__clPermits.indexOf(permit);if(index>=0)__clPermits.splice(index,1);}};\nwindow.__clInventory=async()=>{const [live,bin]=await Promise.all([__clBaseApi('/api/gallery?all_models=true&limit=100'),__clBaseApi('/api/gallery/bin?limit=100')]);const rows=[...live.items,...bin.items].sort((a,b)=>a.id-b.id);return {rows,ids:rows.map(row=>row.id),live:live.total,bin:bin.total};};\nwindow.__clStored=async(id)=>{try{const row=await __clBaseApi('/api/images/'+id+'?binned=true');return {id,exists:true,row};}catch(err){if(err.status===404)return {id,exists:false};throw err;}};\nwindow.__clSeed=async(approval)=>{if(!approval||approval.used)throw Error('Missing one-use seed');const before=await __clInventory();if(before.rows.length!==approval.before)throw Error('Seed requires the exact empty/initial inventory');approval.used=true;const body={prompt:approval.prompt,width:256,height:256,steps:1,seed:approval.seed,num_images:approval.count};const job=await __clSend('/api/generate',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify(body)});if(!await __clUntil(async()=>{const found=await __clBaseApi('/api/jobs/'+job.job_id);return found.status==='done';}))throw Error('Owned fake seed did not complete');return __clInventory();};\nwindow.__clTag=()=>{const known=__clKnown();for(const[index,id]of (known?.currentIds??[]).entries())for(const card of document.querySelectorAll('#gallery .card[data-id=\"'+id+'\"]'))card.dataset.cl='abcdef'[index];};\nwindow.__clHeld=(button)=>button?.getAttribute('aria-disabled')==='true'&&!button.disabled;\nwindow.__clRunning=(id)=>({id,operation:'export',state:'running',progress:{phase:'verifying',done:1,total:2},result:null,error:null});\nwindow.__clTerminal=(id)=>({id,operation:'export',state:'done',progress:null,error:null,result:{name:'controlled-metadata-only.zip',images:0,records:0,cleared:false,deleted_ids:[],retained:['controlled-retained.png']}});\nwindow.__clRender=renderBundleResult;renderBundleResult=(status,...rest)=>{if(status?.id)__clRenderCounts[status.id]=(__clRenderCounts[status.id]??0)+1;return __clRender(status,...rest);};\nwindow.__clForget=forgetImages;forgetImages=(ids,...rest)=>{__clForgetCalls.push([...ids]);return __clForget(ids,...rest);};\nwindow.__clGuardProbe=async()=>{if(!bundleClearOwner)return false;const owner=bundleClearOwner,count=__clRequests.length,raw=__clRawWrites.length,forbidden=__clForbidden.length,jobs=__clJobs,errors=__clErrors.length;await restoreImages([__clKnown().currentIds[0]??__clKnown().firstIds[0]]);await deleteImage(__clKnown().cached);await binPicked();await purgePicked();await deleteUnstarred();await emptyBin();return bundleClearOwner===owner&&__clRequests.length===count&&__clRawWrites.length===raw&&__clForbidden.length===forbidden&&__clJobs===jobs&&__clErrors.length===errors;};\napi=async(path,options)=>{const method=(options?.method??'GET').toUpperCase(),base=path.split('?')[0];if(method==='GET'){if(base==='/api/gallery/bundles/status'){__clStatusReads++;const readEpoch=bundleRequestEpoch;if(__clPollErrors>0){__clPollErrors--;throw Error('Controlled transient bundle status read failure');}if(__clStatusMode.kind==='fixed')return structuredClone(__clStatusMode.status);const result=await __clBaseApi(path,options);__clLastServer=result;const gate=__clStatusReadGate;if(gate&&!gate.captured&&gate.epoch===readEpoch){gate.captured=true;gate.result=result;await new Promise(resolve=>{gate.release=resolve;});}if(__clStatusMode.kind==='maskRunning'&&result.id===__clStatusMode.id&&result.state!=='running'){__clActualDone=result;return structuredClone(__clStatusMode.running);}return result;}const result=await __clBaseApi(path,options);const reset=__clResetGate;if(reset&&!reset.captured&&base==='/api/gallery'&&galleryEpoch>reset.epoch&&bundleClearOwner===reset.owner&&reset.owner.phase==='settling'){reset.captured=true;reset.result=result;await new Promise(resolve=>{reset.release=resolve;});}const dialog=__clDialogGate;if(dialog?.armed&&!dialog.captured&&base==='/api/gallery/bundles/preview'&&bundleClearOwner===dialog.owner&&dialog.owner.phase==='settling'){dialog.captured=true;dialog.result=result;await new Promise(resolve=>{dialog.release=resolve;});}const broad=__clBroadGate;if(broad&&!broad.captured&&base==='/api/gallery/unstarred'&&binBroadOwner){broad.captured=true;await new Promise(resolve=>{broad.release=resolve;});}return result;}\nif(method==='POST'&&__clReadOnlyPost(path))return __clBaseApi(path,options);\nif(method==='POST'&&['/api/images/bin','/api/images/restore'].includes(base)){const approval=__clExactApproval;__clExactApproval=null;const body=__clMutationBody(path,options),kind=base.endsWith('/restore')?'restore':'bin';if(!Array.isArray(body.ids)||!body.ids.length||Object.keys(body).length!==1||body.ids.some(id=>!Number.isSafeInteger(id)||!(__clKnown()?.fullIds??[]).includes(id)))return __clRefuse(method,path,'Unowned or malformed exact mutation refused');if(!approval||approval.kind!==kind||!Array.isArray(approval.ids)||__clNorm(body.ids)!==__clNorm(approval.ids))return __clRefuse(method,path,'Missing or mismatched one-use exact approval');const entry={kind,ids:body.ids,sent:true};__clRequests.push(entry);const result=await __clSend(path,options);const gate=__clExactGate;if(gate&&!gate.captured&&entry.kind===gate.kind&&__clNorm(entry.ids)===__clNorm(gate.ids)){gate.captured=true;await new Promise(resolve=>{gate.release=resolve;});}entry.finished=true;return result;}\nif(method==='POST'&&base==='/api/gallery/bundles/export'){const body=__clMutationBody(path,options),mode=__clPostMode;if(!mode||mode.captured)return __clRefuse(method,path,'No one-use controlled/actual export mode');mode.captured=true;mode.body=body;const entry={kind:body.keep_gallery?'backup':'clear',controlled:!mode.name.startsWith('actual'),mode:mode.name,sent:false};__clRequests.push(entry);if(body.keep_gallery){if(!['backupProbe','backupHeld'].includes(mode.name)||body.keep_gallery!==true||body.scope!=='all'||body.password!=='owned-backup-payload'||Object.keys(body).some(key=>!['keep_gallery','scope','password'].includes(key)))return __clRefuse(method,path,'Unexpected backup scope/payload');if(mode.name==='backupHeld')await new Promise(resolve=>{mode.release=resolve;});const err=new Error('Controlled backup payload probe; no worker started');err.status=422;throw err;}const approval=__clClearApproval;__clClearApproval=null;if(!approval||body.expected!==approval.expected||body.ids!==undefined||body.scope!==undefined||body.keep_gallery!==undefined||Object.keys(body).some(key=>!['expected','password'].includes(key)))return __clRefuse(method,path,'Missing exact clear approval/payload');if(mode.name.startsWith('actual')){const found=await __clInventory();if(!approval.actual||__clNorm(found.ids)!==__clNorm(approval.ids)||__clNorm(found.ids)!==__clNorm(__clKnown().fullIds)||found.rows.length!==body.expected||body.password!==undefined)return __clRefuse(method,path,'Actual clear must own the complete current gallery');entry.sent=true;const status=await __clSend(path,options);mode.accepted=status;await new Promise(resolve=>{mode.release=resolve;});if(mode.name==='actualUnknown')throw Error('Controlled loss after actual export HTTP202');return status;}if(mode.name==='known409'||mode.name==='known422'){const err=new Error('Controlled pre-reservation refusal');err.status=mode.name==='known409'?409:422;throw err;}if(mode.name==='fiveXX'){const err=new Error('Controlled 503 before dispatch');err.status=503;throw err;}if(mode.name==='malformed')return {id:'controlled-malformed',operation:'export',state:'done',result:{name:42,deleted_ids:'invalid'}};if(mode.name==='terminal'){const result=__clTerminal(mode.id);await new Promise(resolve=>{mode.release=resolve;});return result;}if(['running','apply409'].includes(mode.name))return __clRunning(mode.id);return __clRefuse(method,path,'Unknown controlled mode');}\nreturn __clRefuse(method,path,'Unapproved settings/credential/bundle/job mutation refused before dispatch');};\nwindow.__clArchive=async(status,ids)=>{const response=await __clRawFetch(bundleFileURL(status.result.name));if(response.status!==200)throw Error('Actual archive not available');const bytes=new Uint8Array(await response.arrayBuffer());if(bytes.length<1000||bytes.slice(0,4).join()!=='80,75,3,4'||status.result.records!==ids.length||status.result.images!==ids.length)throw Error('Actual saved archive/header/receipt mismatch');return {name:status.result.name,httpStatus:response.status,bytes:bytes.length,records:status.result.records,images:status.result.images,verification:'server-reported verified; download presence and ZIP header checked, not independent format verification'};};\nwindow.__clDescribe=(el)=>el?{tag:el.tagName,id:el.id,classes:String(el.className),role:el.getAttribute('role')}:null;\nwindow.__clBox=(el)=>{const r=el.getBoundingClientRect();return {left:r.left,top:r.top,right:r.right,bottom:r.bottom,width:r.width,height:r.height};};\nwindow.__clRevealAndReport=(selector)=>{const el=document.querySelector(selector);const report={selector,ok:false,scrollBefore:[scrollX,scrollY],viewport:[innerWidth,innerHeight],topbar:document.querySelector('.topbar')?.getBoundingClientRect().bottom,modal:document.querySelector('dialog[open]')?.id,claims:[...binWriteIds],broad:!!binBroadOwner,target:__clDescribe(el)};if(!el){window.__clLastReveal=report;return report;}report.before=__clBox(el);el.scrollIntoView({block:'nearest',inline:'nearest',behavior:'instant'});const r=el.getBoundingClientRect(),top=(report.topbar??0)+12;if(r.top<top)scrollBy(0,r.top-top);else if(r.bottom>innerHeight-12)scrollBy(0,r.bottom-innerHeight+12);const b=el.getBoundingClientRect(),x=b.left+b.width/2,y=b.top+b.height/2,hit=document.elementFromPoint(x,y);report.after=__clBox(el);report.center=[x,y];report.hit=__clDescribe(hit);report.stack=document.elementsFromPoint(x,y).slice(0,6).map(__clDescribe);report.scrollAfter=[scrollX,scrollY];report.parents=[];for(let parent=el.parentElement;parent&&report.parents.length<6;parent=parent.parentElement){const css=getComputedStyle(parent);report.parents.push({...__clDescribe(parent),rect:__clBox(parent),overflow:[css.overflowX,css.overflowY],scroll:[parent.scrollLeft,parent.scrollTop],client:[parent.clientWidth,parent.clientHeight],extent:[parent.scrollWidth,parent.scrollHeight],hidden:parent.hidden,visibility:css.visibility});}report.ok=!!hit&&(hit===el||el.contains(hit))&&b.width>0&&b.height>0;window.__clLastReveal=report;if(!report.ok)return report;const brief={selector,ok:true};const delta=[scrollX-report.scrollBefore[0],scrollY-report.scrollBefore[1]],moved=[report.after.left-report.before.left,report.after.top-report.before.top];if(delta.some(value=>Math.abs(value)>0.1))brief.scrollDelta=delta;if(moved.some(value=>Math.abs(value)>0.1))brief.targetDelta=moved;return brief;};\nwindow.__clRect=(el)=>{const r=el.getBoundingClientRect();return [r.left,r.top,r.width,r.height];};\nwindow.__clSameRect=(el,rect)=>__clRect(el).every((n,i)=>Math.abs(n-rect[i])<1);\nwindow.__clNoteNodes=(slot)=>{const walker=document.createTreeWalker(slot,NodeFilter.SHOW_ALL),nodes=[];for(let node=walker.nextNode();node;node=walker.nextNode())nodes.push(node);return nodes;};\nwindow.__clSnapshotNote=(slot)=>({slot,rect:__clRect(slot),nodes:__clNoteNodes(slot),text:slot.textContent});\nwindow.__clNoteUnchanged=(snapshot)=>{const nodes=__clNoteNodes(snapshot.slot);return snapshot.slot.isConnected&&__clSameRect(snapshot.slot,snapshot.rect)&&snapshot.slot.textContent===snapshot.text&&nodes.length===snapshot.nodes.length&&snapshot.nodes.every((node,index)=>nodes[index]===node);};"
+  },
+  {
+    "expect": "__clUntil(()=>document.getElementById('status-dot').className.includes('ready') && !galleryPending && !jobListing && !busy && galleryRecords.length===0)",
+    "fatal": true
+  },
+  {
+    "expect": "(async()=>{const status=await __clBaseApi('/api/gallery/automatic-backup');window.__clColdBackup={enabled:status.enabled,credential_configured:status.credential_configured,credential_state:status.credential_state,state:status.state};return status.enabled===false&&status.credential_configured===false&&status.credential_state==='not_configured';})()",
+    "fatal": true
+  },
+  {
+    "eval": "resetPanel();writeBox(els.prompt,\"Owned unsent composer for controlled malformed metadata/error probe\");promptReplaced();persistPanel();window.__clComposer=setupComposerState();__clTag();"
+  },
+  {
+    "log": "__clRevealAndReport(\"#btn-bundles\")"
+  },
+  {
+    "expect": "__clLastReveal?.selector===\"#btn-bundles\" && __clLastReveal.ok",
+    "fatal": true
+  },
+  {
+    "click": "#btn-bundles"
+  },
+  {
+    "expect": "__clUntil(()=>els.bundlesDialog.open && !bundleReading && !bundleSending && bundlePreview?.records===0)",
+    "fatal": true
+  },
+  {
+    "expect": "automaticBackupStatus?.enabled===false",
+    "fatal": true
+  },
+  {
+    "eval": "els.bundleCount.value=\"0\";els.bundleCount.dispatchEvent(new Event('input',{bubbles:true}));"
+  },
+  {
+    "eval": "window.__clPostMode={name:\"malformed\",captured:false};window.__clClearApproval={expected:0,ids:__clKnown().fullIds.slice(),actual:false};"
+  },
+  {
+    "log": "__clRevealAndReport(\"#bundle-export\")"
+  },
+  {
+    "expect": "__clLastReveal?.selector===\"#bundle-export\" && __clLastReveal.ok",
+    "fatal": true
+  },
+  {
+    "click": "#bundle-export"
+  },
+  {
+    "expect": "__clUntil(()=>bundleClearOwner?.phase==='unresolved' && !bundleSending)",
+    "fatal": true
+  },
+  {
+    "eval": "window.__clSticky=bundleClearOwner;window.__clBeforeRequests=__clRequests.length;"
+  },
+  {
+    "eval": "(async()=>{await receiveBundleStatus({id:'controlled-different',operation:'export',state:'running'});await receiveBundleStatus(__clTerminal('controlled-later-terminal'));})()"
+  },
+  {
+    "expect": "bundleClearOwner===__clSticky && __clSticky.phase==='unresolved' && els.bundleStatus.textContent.includes(BUNDLE_CLEAR_GUIDANCE)"
+  },
+  {
+    "expect": "__clGuardProbe()"
+  },
+  {
+    "log": "__clRevealAndReport(\"#bundles-close\")"
+  },
+  {
+    "expect": "__clLastReveal?.selector===\"#bundles-close\" && __clLastReveal.ok",
+    "fatal": true
+  },
+  {
+    "click": "#bundles-close"
+  },
+  {
+    "log": "__clRevealAndReport(\"#btn-bundles\")"
+  },
+  {
+    "expect": "__clLastReveal?.selector===\"#btn-bundles\" && __clLastReveal.ok",
+    "fatal": true
+  },
+  {
+    "click": "#btn-bundles"
+  },
+  {
+    "expect": "__clUntil(()=>els.bundlesDialog.open && !bundleReading)",
+    "fatal": true
+  },
+  {
+    "log": "__clRevealAndReport(\"#bundle-backup\")"
+  },
+  {
+    "expect": "__clLastReveal?.selector===\"#bundle-backup\" && __clLastReveal.ok",
+    "fatal": true
+  },
+  {
+    "click": "#bundle-backup"
+  },
+  {
+    "log": "__clRevealAndReport(\"#bundle-export\")"
+  },
+  {
+    "expect": "__clLastReveal?.selector===\"#bundle-export\" && __clLastReveal.ok",
+    "fatal": true
+  },
+  {
+    "click": "#bundle-export"
+  },
+  {
+    "expect": "bundleClearOwner===__clSticky && __clRequests.length===__clBeforeRequests && els.bundleStatus.textContent.includes('Reloading does not cancel') && els.bundleStatus.textContent.includes('Do not repeat the request') && setupComposerState()===__clComposer && __clForbidden.length===0 && __clJobs===0 && __clErrors.length===0"
+  },
+  {
+    "log": "JSON.stringify({evidence:'controlled predispatch metadata/error probe',mode:__clPostMode.name,ownerPhase:bundleClearOwner.phase,ownerId:bundleClearOwner.id,requests:__clRequests.map(({kind,controlled,mode,sent})=>({kind,controlled,mode,sent})),forbidden:__clForbidden,errors:__clErrors,composerUnchanged:setupComposerState()===__clComposer})"
+  },
+  {
+    "log": "JSON.stringify({evidence:'before explicit fixture navigation; guard counters must not be erased',forbidden:__clForbidden,unexpectedJobs:__clJobs,errors:__clErrors,unusedExactApproval:__clExactApproval})"
+  },
+  {
+    "expect": "__clForbidden.length===0 && __clJobs===0 && __clErrors.length===0 && __clExactApproval===null",
+    "fatal": true
+  },
+  {
+    "log": "\"Explicit fixture reload for controlled running metadata/error probe. This discards page-local state; a new composer marker is established. No claim that an unsent draft survives manual reload.\""
+  },
+  {
+    "navigate": "http://127.0.0.1:7943/"
+  },
+  {
+    "eval": "window.__clUntil=async(fn,ms=25000)=>{const end=Date.now()+ms;while(Date.now()<end){try{if(await fn())return true;}catch{}await new Promise(resolve=>setTimeout(resolve,40));}return false;};\nwindow.__clBaseApi=api;window.__clRawFetch=fetch.bind(window);window.__clPermits=[];window.__clErrors=[];window.__clForbidden=[];window.__clJobs=0;window.__clRequests=[];window.__clRawWrites=[];window.__clReadOnly=[];window.__clPostMode=null;window.__clClearApproval=null;window.__clSeedApproval=null;window.__clExactApproval=null;window.__clExactGate=null;window.__clBroadGate=null;window.__clResetGate=null;window.__clDialogGate=null;window.__clStatusReadGate=null;window.__clStatusMode={kind:'server'};window.__clPollErrors=0;window.__clStatusReads=0;window.__clRenderCounts={};window.__clForgetCalls=[];\naddEventListener('error',event=>__clErrors.push(event.message));addEventListener('unhandledrejection',event=>__clErrors.push(String(event.reason)));\nwindow.__clKnown=()=>JSON.parse(sessionStorage.getItem('auradream.smoke.bundle-clear'));\nwindow.__clSave=(value)=>sessionStorage.setItem('auradream.smoke.bundle-clear',JSON.stringify(value));\nwindow.__clNorm=(ids)=>[...ids].sort((a,b)=>a-b).join();\nwindow.__clPreviewPaths=()=>{const known=__clKnown();return known?(known.runIds??[]).map(run=>'/api/runs/'+encodeURIComponent(run)+'/finish/preview'):[];};\nwindow.__clReadOnlyPost=(path)=>path==='/api/prompt/measure'||__clPreviewPaths().includes(path);\nwindow.__clJobPath=(path)=>['/api/generate','/api/grid','/api/refine','/api/refine/batch','/api/rerender','/api/inpaint','/api/outpaint','/api/more-seeds','/api/instruction-edit','/api/swap-tags'].includes(path.split('?')[0])||/^\\/api\\/runs\\/[^/]+\\/finish(?:\\?|$)/.test(path);\nwindow.__clRefuse=(method,path,reason,layer='api',origin=location.origin)=>{if(__clJobPath(path))__clJobs++;__clForbidden.push({method,path,origin,layer,reason});throw Error(reason);};\nwindow.__clMutationBody=(path,options)=>{let body;try{body=JSON.parse(options?.body);}catch{return __clRefuse('POST',path,'Invalid mutation JSON refused');}if(!body||typeof body!=='object'||Array.isArray(body))return __clRefuse('POST',path,'Invalid mutation body refused');return body;};\nfetch=async(input,options={})=>{const raw=typeof input==='string'?input:input?.url??String(input),method=(options.method??input?.method??'GET').toUpperCase();let url;try{url=new URL(raw,location.href);}catch{return __clRefuse(method,String(raw),'Invalid raw URL refused','fetch',null);}const path=url.pathname+url.search;if(method==='GET'||method==='HEAD')return __clRawFetch(input,options);if(url.origin!==location.origin)return __clRefuse(method,path,'Foreign-origin mutation refused','fetch',url.origin);if(method==='POST'&&__clReadOnlyPost(path)){__clReadOnly.push(path);return __clRawFetch(input,options);}const body=options.body??null,index=__clPermits.findIndex(permit=>permit.origin===url.origin&&permit.method===method&&permit.path===path&&permit.body===body);if(index<0)return __clRefuse(method,path,'Unapproved raw mutation refused by clear fixture','fetch',url.origin);__clPermits.splice(index,1);const response=await __clRawFetch(input,options);__clRawWrites.push({method,path,status:response.status});return response;};\nwindow.__clSend=async(path,options)=>{const url=new URL(path,location.href),method=(options?.method??'GET').toUpperCase();if(url.origin!==location.origin)return __clRefuse(method,url.pathname+url.search,'Foreign-origin send refused','send',url.origin);const permit={origin:url.origin,path:url.pathname+url.search,method,body:options?.body??null};__clPermits.push(permit);try{return await __clBaseApi(path,options);}finally{const index=__clPermits.indexOf(permit);if(index>=0)__clPermits.splice(index,1);}};\nwindow.__clInventory=async()=>{const [live,bin]=await Promise.all([__clBaseApi('/api/gallery?all_models=true&limit=100'),__clBaseApi('/api/gallery/bin?limit=100')]);const rows=[...live.items,...bin.items].sort((a,b)=>a.id-b.id);return {rows,ids:rows.map(row=>row.id),live:live.total,bin:bin.total};};\nwindow.__clStored=async(id)=>{try{const row=await __clBaseApi('/api/images/'+id+'?binned=true');return {id,exists:true,row};}catch(err){if(err.status===404)return {id,exists:false};throw err;}};\nwindow.__clSeed=async(approval)=>{if(!approval||approval.used)throw Error('Missing one-use seed');const before=await __clInventory();if(before.rows.length!==approval.before)throw Error('Seed requires the exact empty/initial inventory');approval.used=true;const body={prompt:approval.prompt,width:256,height:256,steps:1,seed:approval.seed,num_images:approval.count};const job=await __clSend('/api/generate',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify(body)});if(!await __clUntil(async()=>{const found=await __clBaseApi('/api/jobs/'+job.job_id);return found.status==='done';}))throw Error('Owned fake seed did not complete');return __clInventory();};\nwindow.__clTag=()=>{const known=__clKnown();for(const[index,id]of (known?.currentIds??[]).entries())for(const card of document.querySelectorAll('#gallery .card[data-id=\"'+id+'\"]'))card.dataset.cl='abcdef'[index];};\nwindow.__clHeld=(button)=>button?.getAttribute('aria-disabled')==='true'&&!button.disabled;\nwindow.__clRunning=(id)=>({id,operation:'export',state:'running',progress:{phase:'verifying',done:1,total:2},result:null,error:null});\nwindow.__clTerminal=(id)=>({id,operation:'export',state:'done',progress:null,error:null,result:{name:'controlled-metadata-only.zip',images:0,records:0,cleared:false,deleted_ids:[],retained:['controlled-retained.png']}});\nwindow.__clRender=renderBundleResult;renderBundleResult=(status,...rest)=>{if(status?.id)__clRenderCounts[status.id]=(__clRenderCounts[status.id]??0)+1;return __clRender(status,...rest);};\nwindow.__clForget=forgetImages;forgetImages=(ids,...rest)=>{__clForgetCalls.push([...ids]);return __clForget(ids,...rest);};\nwindow.__clGuardProbe=async()=>{if(!bundleClearOwner)return false;const owner=bundleClearOwner,count=__clRequests.length,raw=__clRawWrites.length,forbidden=__clForbidden.length,jobs=__clJobs,errors=__clErrors.length;await restoreImages([__clKnown().currentIds[0]??__clKnown().firstIds[0]]);await deleteImage(__clKnown().cached);await binPicked();await purgePicked();await deleteUnstarred();await emptyBin();return bundleClearOwner===owner&&__clRequests.length===count&&__clRawWrites.length===raw&&__clForbidden.length===forbidden&&__clJobs===jobs&&__clErrors.length===errors;};\napi=async(path,options)=>{const method=(options?.method??'GET').toUpperCase(),base=path.split('?')[0];if(method==='GET'){if(base==='/api/gallery/bundles/status'){__clStatusReads++;const readEpoch=bundleRequestEpoch;if(__clPollErrors>0){__clPollErrors--;throw Error('Controlled transient bundle status read failure');}if(__clStatusMode.kind==='fixed')return structuredClone(__clStatusMode.status);const result=await __clBaseApi(path,options);__clLastServer=result;const gate=__clStatusReadGate;if(gate&&!gate.captured&&gate.epoch===readEpoch){gate.captured=true;gate.result=result;await new Promise(resolve=>{gate.release=resolve;});}if(__clStatusMode.kind==='maskRunning'&&result.id===__clStatusMode.id&&result.state!=='running'){__clActualDone=result;return structuredClone(__clStatusMode.running);}return result;}const result=await __clBaseApi(path,options);const reset=__clResetGate;if(reset&&!reset.captured&&base==='/api/gallery'&&galleryEpoch>reset.epoch&&bundleClearOwner===reset.owner&&reset.owner.phase==='settling'){reset.captured=true;reset.result=result;await new Promise(resolve=>{reset.release=resolve;});}const dialog=__clDialogGate;if(dialog?.armed&&!dialog.captured&&base==='/api/gallery/bundles/preview'&&bundleClearOwner===dialog.owner&&dialog.owner.phase==='settling'){dialog.captured=true;dialog.result=result;await new Promise(resolve=>{dialog.release=resolve;});}const broad=__clBroadGate;if(broad&&!broad.captured&&base==='/api/gallery/unstarred'&&binBroadOwner){broad.captured=true;await new Promise(resolve=>{broad.release=resolve;});}return result;}\nif(method==='POST'&&__clReadOnlyPost(path))return __clBaseApi(path,options);\nif(method==='POST'&&['/api/images/bin','/api/images/restore'].includes(base)){const approval=__clExactApproval;__clExactApproval=null;const body=__clMutationBody(path,options),kind=base.endsWith('/restore')?'restore':'bin';if(!Array.isArray(body.ids)||!body.ids.length||Object.keys(body).length!==1||body.ids.some(id=>!Number.isSafeInteger(id)||!(__clKnown()?.fullIds??[]).includes(id)))return __clRefuse(method,path,'Unowned or malformed exact mutation refused');if(!approval||approval.kind!==kind||!Array.isArray(approval.ids)||__clNorm(body.ids)!==__clNorm(approval.ids))return __clRefuse(method,path,'Missing or mismatched one-use exact approval');const entry={kind,ids:body.ids,sent:true};__clRequests.push(entry);const result=await __clSend(path,options);const gate=__clExactGate;if(gate&&!gate.captured&&entry.kind===gate.kind&&__clNorm(entry.ids)===__clNorm(gate.ids)){gate.captured=true;await new Promise(resolve=>{gate.release=resolve;});}entry.finished=true;return result;}\nif(method==='POST'&&base==='/api/gallery/bundles/export'){const body=__clMutationBody(path,options),mode=__clPostMode;if(!mode||mode.captured)return __clRefuse(method,path,'No one-use controlled/actual export mode');mode.captured=true;mode.body=body;const entry={kind:body.keep_gallery?'backup':'clear',controlled:!mode.name.startsWith('actual'),mode:mode.name,sent:false};__clRequests.push(entry);if(body.keep_gallery){if(!['backupProbe','backupHeld'].includes(mode.name)||body.keep_gallery!==true||body.scope!=='all'||body.password!=='owned-backup-payload'||Object.keys(body).some(key=>!['keep_gallery','scope','password'].includes(key)))return __clRefuse(method,path,'Unexpected backup scope/payload');if(mode.name==='backupHeld')await new Promise(resolve=>{mode.release=resolve;});const err=new Error('Controlled backup payload probe; no worker started');err.status=422;throw err;}const approval=__clClearApproval;__clClearApproval=null;if(!approval||body.expected!==approval.expected||body.ids!==undefined||body.scope!==undefined||body.keep_gallery!==undefined||Object.keys(body).some(key=>!['expected','password'].includes(key)))return __clRefuse(method,path,'Missing exact clear approval/payload');if(mode.name.startsWith('actual')){const found=await __clInventory();if(!approval.actual||__clNorm(found.ids)!==__clNorm(approval.ids)||__clNorm(found.ids)!==__clNorm(__clKnown().fullIds)||found.rows.length!==body.expected||body.password!==undefined)return __clRefuse(method,path,'Actual clear must own the complete current gallery');entry.sent=true;const status=await __clSend(path,options);mode.accepted=status;await new Promise(resolve=>{mode.release=resolve;});if(mode.name==='actualUnknown')throw Error('Controlled loss after actual export HTTP202');return status;}if(mode.name==='known409'||mode.name==='known422'){const err=new Error('Controlled pre-reservation refusal');err.status=mode.name==='known409'?409:422;throw err;}if(mode.name==='fiveXX'){const err=new Error('Controlled 503 before dispatch');err.status=503;throw err;}if(mode.name==='malformed')return {id:'controlled-malformed',operation:'export',state:'done',result:{name:42,deleted_ids:'invalid'}};if(mode.name==='terminal'){const result=__clTerminal(mode.id);await new Promise(resolve=>{mode.release=resolve;});return result;}if(['running','apply409'].includes(mode.name))return __clRunning(mode.id);return __clRefuse(method,path,'Unknown controlled mode');}\nreturn __clRefuse(method,path,'Unapproved settings/credential/bundle/job mutation refused before dispatch');};\nwindow.__clArchive=async(status,ids)=>{const response=await __clRawFetch(bundleFileURL(status.result.name));if(response.status!==200)throw Error('Actual archive not available');const bytes=new Uint8Array(await response.arrayBuffer());if(bytes.length<1000||bytes.slice(0,4).join()!=='80,75,3,4'||status.result.records!==ids.length||status.result.images!==ids.length)throw Error('Actual saved archive/header/receipt mismatch');return {name:status.result.name,httpStatus:response.status,bytes:bytes.length,records:status.result.records,images:status.result.images,verification:'server-reported verified; download presence and ZIP header checked, not independent format verification'};};\nwindow.__clDescribe=(el)=>el?{tag:el.tagName,id:el.id,classes:String(el.className),role:el.getAttribute('role')}:null;\nwindow.__clBox=(el)=>{const r=el.getBoundingClientRect();return {left:r.left,top:r.top,right:r.right,bottom:r.bottom,width:r.width,height:r.height};};\nwindow.__clRevealAndReport=(selector)=>{const el=document.querySelector(selector);const report={selector,ok:false,scrollBefore:[scrollX,scrollY],viewport:[innerWidth,innerHeight],topbar:document.querySelector('.topbar')?.getBoundingClientRect().bottom,modal:document.querySelector('dialog[open]')?.id,claims:[...binWriteIds],broad:!!binBroadOwner,target:__clDescribe(el)};if(!el){window.__clLastReveal=report;return report;}report.before=__clBox(el);el.scrollIntoView({block:'nearest',inline:'nearest',behavior:'instant'});const r=el.getBoundingClientRect(),top=(report.topbar??0)+12;if(r.top<top)scrollBy(0,r.top-top);else if(r.bottom>innerHeight-12)scrollBy(0,r.bottom-innerHeight+12);const b=el.getBoundingClientRect(),x=b.left+b.width/2,y=b.top+b.height/2,hit=document.elementFromPoint(x,y);report.after=__clBox(el);report.center=[x,y];report.hit=__clDescribe(hit);report.stack=document.elementsFromPoint(x,y).slice(0,6).map(__clDescribe);report.scrollAfter=[scrollX,scrollY];report.parents=[];for(let parent=el.parentElement;parent&&report.parents.length<6;parent=parent.parentElement){const css=getComputedStyle(parent);report.parents.push({...__clDescribe(parent),rect:__clBox(parent),overflow:[css.overflowX,css.overflowY],scroll:[parent.scrollLeft,parent.scrollTop],client:[parent.clientWidth,parent.clientHeight],extent:[parent.scrollWidth,parent.scrollHeight],hidden:parent.hidden,visibility:css.visibility});}report.ok=!!hit&&(hit===el||el.contains(hit))&&b.width>0&&b.height>0;window.__clLastReveal=report;if(!report.ok)return report;const brief={selector,ok:true};const delta=[scrollX-report.scrollBefore[0],scrollY-report.scrollBefore[1]],moved=[report.after.left-report.before.left,report.after.top-report.before.top];if(delta.some(value=>Math.abs(value)>0.1))brief.scrollDelta=delta;if(moved.some(value=>Math.abs(value)>0.1))brief.targetDelta=moved;return brief;};\nwindow.__clRect=(el)=>{const r=el.getBoundingClientRect();return [r.left,r.top,r.width,r.height];};\nwindow.__clSameRect=(el,rect)=>__clRect(el).every((n,i)=>Math.abs(n-rect[i])<1);\nwindow.__clNoteNodes=(slot)=>{const walker=document.createTreeWalker(slot,NodeFilter.SHOW_ALL),nodes=[];for(let node=walker.nextNode();node;node=walker.nextNode())nodes.push(node);return nodes;};\nwindow.__clSnapshotNote=(slot)=>({slot,rect:__clRect(slot),nodes:__clNoteNodes(slot),text:slot.textContent});\nwindow.__clNoteUnchanged=(snapshot)=>{const nodes=__clNoteNodes(snapshot.slot);return snapshot.slot.isConnected&&__clSameRect(snapshot.slot,snapshot.rect)&&snapshot.slot.textContent===snapshot.text&&nodes.length===snapshot.nodes.length&&snapshot.nodes.every((node,index)=>nodes[index]===node);};"
+  },
+  {
+    "expect": "__clUntil(()=>document.getElementById('status-dot').className.includes('ready') && !galleryPending && !jobListing && !busy && galleryRecords.length===0)",
+    "fatal": true
+  },
+  {
+    "expect": "(async()=>{const status=await __clBaseApi('/api/gallery/automatic-backup');window.__clColdBackup={enabled:status.enabled,credential_configured:status.credential_configured,credential_state:status.credential_state,state:status.state};return status.enabled===false&&status.credential_configured===false&&status.credential_state==='not_configured';})()",
+    "fatal": true
+  },
+  {
+    "eval": "resetPanel();writeBox(els.prompt,\"Owned unsent composer for controlled running metadata/error probe\");promptReplaced();persistPanel();window.__clComposer=setupComposerState();__clTag();"
+  },
+  {
+    "log": "__clRevealAndReport(\"#btn-bundles\")"
+  },
+  {
+    "expect": "__clLastReveal?.selector===\"#btn-bundles\" && __clLastReveal.ok",
+    "fatal": true
+  },
+  {
+    "click": "#btn-bundles"
+  },
+  {
+    "expect": "__clUntil(()=>els.bundlesDialog.open && !bundleReading && !bundleSending && bundlePreview?.records===0)",
+    "fatal": true
+  },
+  {
+    "expect": "automaticBackupStatus?.enabled===false",
+    "fatal": true
+  },
+  {
+    "eval": "els.bundleCount.value=\"0\";els.bundleCount.dispatchEvent(new Event('input',{bubbles:true}));"
+  },
+  {
+    "eval": "window.__clPostMode={name:\"running\",captured:false};window.__clClearApproval={expected:0,ids:__clKnown().fullIds.slice(),actual:false};"
+  },
+  {
+    "eval": "__clPostMode.id='controlled-tracked-id';window.__clStatusMode={kind:'fixed',status:__clRunning(__clPostMode.id)};"
+  },
+  {
+    "log": "__clRevealAndReport(\"#bundle-export\")"
+  },
+  {
+    "expect": "__clLastReveal?.selector===\"#bundle-export\" && __clLastReveal.ok",
+    "fatal": true
+  },
+  {
+    "click": "#bundle-export"
+  },
+  {
+    "expect": "__clUntil(()=>bundleClearOwner?.id==='controlled-tracked-id' && bundleClearOwner.phase==='running')",
+    "fatal": true
+  },
+  {
+    "log": "'CONTROLLED replacement of tracked evidence: no worker was started. A different/idle status makes the local result unresolved; later valid-looking receipts cannot silently release it.'"
+  },
+  {
+    "eval": "window.__clStatusMode={kind:'fixed',status:{id:null,state:'idle',operation:null,result:null}};"
+  },
+  {
+    "expect": "__clUntil(()=>!bundlePollPending)",
+    "fatal": true
+  },
+  {
+    "eval": "void pollBundleStatus();"
+  },
+  {
+    "expect": "__clUntil(()=>bundleClearOwner?.phase==='unresolved' && !bundleSending)",
+    "fatal": true
+  },
+  {
+    "eval": "window.__clSticky=bundleClearOwner;window.__clBeforeRequests=__clRequests.length;"
+  },
+  {
+    "eval": "(async()=>{await receiveBundleStatus({id:'controlled-different',operation:'export',state:'running'});await receiveBundleStatus(__clTerminal('controlled-later-terminal'));})()"
+  },
+  {
+    "expect": "bundleClearOwner===__clSticky && __clSticky.phase==='unresolved' && els.bundleStatus.textContent.includes(BUNDLE_CLEAR_GUIDANCE)"
+  },
+  {
+    "expect": "__clGuardProbe()"
+  },
+  {
+    "log": "__clRevealAndReport(\"#bundles-close\")"
+  },
+  {
+    "expect": "__clLastReveal?.selector===\"#bundles-close\" && __clLastReveal.ok",
+    "fatal": true
+  },
+  {
+    "click": "#bundles-close"
+  },
+  {
+    "log": "__clRevealAndReport(\"#btn-bundles\")"
+  },
+  {
+    "expect": "__clLastReveal?.selector===\"#btn-bundles\" && __clLastReveal.ok",
+    "fatal": true
+  },
+  {
+    "click": "#btn-bundles"
+  },
+  {
+    "expect": "__clUntil(()=>els.bundlesDialog.open && !bundleReading)",
+    "fatal": true
+  },
+  {
+    "log": "__clRevealAndReport(\"#bundle-backup\")"
+  },
+  {
+    "expect": "__clLastReveal?.selector===\"#bundle-backup\" && __clLastReveal.ok",
+    "fatal": true
+  },
+  {
+    "click": "#bundle-backup"
+  },
+  {
+    "log": "__clRevealAndReport(\"#bundle-export\")"
+  },
+  {
+    "expect": "__clLastReveal?.selector===\"#bundle-export\" && __clLastReveal.ok",
+    "fatal": true
+  },
+  {
+    "click": "#bundle-export"
+  },
+  {
+    "expect": "bundleClearOwner===__clSticky && __clRequests.length===__clBeforeRequests && els.bundleStatus.textContent.includes('Reloading does not cancel') && els.bundleStatus.textContent.includes('Do not repeat the request') && setupComposerState()===__clComposer && __clForbidden.length===0 && __clJobs===0 && __clErrors.length===0"
+  },
+  {
+    "log": "JSON.stringify({evidence:'controlled predispatch metadata/error probe',mode:__clPostMode.name,ownerPhase:bundleClearOwner.phase,ownerId:bundleClearOwner.id,requests:__clRequests.map(({kind,controlled,mode,sent})=>({kind,controlled,mode,sent})),forbidden:__clForbidden,errors:__clErrors,composerUnchanged:setupComposerState()===__clComposer})"
+  },
+  {
+    "log": "JSON.stringify({evidence:'before explicit fixture navigation; guard counters must not be erased',forbidden:__clForbidden,unexpectedJobs:__clJobs,errors:__clErrors,unusedExactApproval:__clExactApproval})"
+  },
+  {
+    "expect": "__clForbidden.length===0 && __clJobs===0 && __clErrors.length===0 && __clExactApproval===null",
+    "fatal": true
+  },
+  {
+    "log": "\"Explicit fixture reload for controlled apply409 metadata/error probe. This discards page-local state; a new composer marker is established. No claim that an unsent draft survives manual reload.\""
+  },
+  {
+    "navigate": "http://127.0.0.1:7943/"
+  },
+  {
+    "eval": "window.__clUntil=async(fn,ms=25000)=>{const end=Date.now()+ms;while(Date.now()<end){try{if(await fn())return true;}catch{}await new Promise(resolve=>setTimeout(resolve,40));}return false;};\nwindow.__clBaseApi=api;window.__clRawFetch=fetch.bind(window);window.__clPermits=[];window.__clErrors=[];window.__clForbidden=[];window.__clJobs=0;window.__clRequests=[];window.__clRawWrites=[];window.__clReadOnly=[];window.__clPostMode=null;window.__clClearApproval=null;window.__clSeedApproval=null;window.__clExactApproval=null;window.__clExactGate=null;window.__clBroadGate=null;window.__clResetGate=null;window.__clDialogGate=null;window.__clStatusReadGate=null;window.__clStatusMode={kind:'server'};window.__clPollErrors=0;window.__clStatusReads=0;window.__clRenderCounts={};window.__clForgetCalls=[];\naddEventListener('error',event=>__clErrors.push(event.message));addEventListener('unhandledrejection',event=>__clErrors.push(String(event.reason)));\nwindow.__clKnown=()=>JSON.parse(sessionStorage.getItem('auradream.smoke.bundle-clear'));\nwindow.__clSave=(value)=>sessionStorage.setItem('auradream.smoke.bundle-clear',JSON.stringify(value));\nwindow.__clNorm=(ids)=>[...ids].sort((a,b)=>a-b).join();\nwindow.__clPreviewPaths=()=>{const known=__clKnown();return known?(known.runIds??[]).map(run=>'/api/runs/'+encodeURIComponent(run)+'/finish/preview'):[];};\nwindow.__clReadOnlyPost=(path)=>path==='/api/prompt/measure'||__clPreviewPaths().includes(path);\nwindow.__clJobPath=(path)=>['/api/generate','/api/grid','/api/refine','/api/refine/batch','/api/rerender','/api/inpaint','/api/outpaint','/api/more-seeds','/api/instruction-edit','/api/swap-tags'].includes(path.split('?')[0])||/^\\/api\\/runs\\/[^/]+\\/finish(?:\\?|$)/.test(path);\nwindow.__clRefuse=(method,path,reason,layer='api',origin=location.origin)=>{if(__clJobPath(path))__clJobs++;__clForbidden.push({method,path,origin,layer,reason});throw Error(reason);};\nwindow.__clMutationBody=(path,options)=>{let body;try{body=JSON.parse(options?.body);}catch{return __clRefuse('POST',path,'Invalid mutation JSON refused');}if(!body||typeof body!=='object'||Array.isArray(body))return __clRefuse('POST',path,'Invalid mutation body refused');return body;};\nfetch=async(input,options={})=>{const raw=typeof input==='string'?input:input?.url??String(input),method=(options.method??input?.method??'GET').toUpperCase();let url;try{url=new URL(raw,location.href);}catch{return __clRefuse(method,String(raw),'Invalid raw URL refused','fetch',null);}const path=url.pathname+url.search;if(method==='GET'||method==='HEAD')return __clRawFetch(input,options);if(url.origin!==location.origin)return __clRefuse(method,path,'Foreign-origin mutation refused','fetch',url.origin);if(method==='POST'&&__clReadOnlyPost(path)){__clReadOnly.push(path);return __clRawFetch(input,options);}const body=options.body??null,index=__clPermits.findIndex(permit=>permit.origin===url.origin&&permit.method===method&&permit.path===path&&permit.body===body);if(index<0)return __clRefuse(method,path,'Unapproved raw mutation refused by clear fixture','fetch',url.origin);__clPermits.splice(index,1);const response=await __clRawFetch(input,options);__clRawWrites.push({method,path,status:response.status});return response;};\nwindow.__clSend=async(path,options)=>{const url=new URL(path,location.href),method=(options?.method??'GET').toUpperCase();if(url.origin!==location.origin)return __clRefuse(method,url.pathname+url.search,'Foreign-origin send refused','send',url.origin);const permit={origin:url.origin,path:url.pathname+url.search,method,body:options?.body??null};__clPermits.push(permit);try{return await __clBaseApi(path,options);}finally{const index=__clPermits.indexOf(permit);if(index>=0)__clPermits.splice(index,1);}};\nwindow.__clInventory=async()=>{const [live,bin]=await Promise.all([__clBaseApi('/api/gallery?all_models=true&limit=100'),__clBaseApi('/api/gallery/bin?limit=100')]);const rows=[...live.items,...bin.items].sort((a,b)=>a.id-b.id);return {rows,ids:rows.map(row=>row.id),live:live.total,bin:bin.total};};\nwindow.__clStored=async(id)=>{try{const row=await __clBaseApi('/api/images/'+id+'?binned=true');return {id,exists:true,row};}catch(err){if(err.status===404)return {id,exists:false};throw err;}};\nwindow.__clSeed=async(approval)=>{if(!approval||approval.used)throw Error('Missing one-use seed');const before=await __clInventory();if(before.rows.length!==approval.before)throw Error('Seed requires the exact empty/initial inventory');approval.used=true;const body={prompt:approval.prompt,width:256,height:256,steps:1,seed:approval.seed,num_images:approval.count};const job=await __clSend('/api/generate',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify(body)});if(!await __clUntil(async()=>{const found=await __clBaseApi('/api/jobs/'+job.job_id);return found.status==='done';}))throw Error('Owned fake seed did not complete');return __clInventory();};\nwindow.__clTag=()=>{const known=__clKnown();for(const[index,id]of (known?.currentIds??[]).entries())for(const card of document.querySelectorAll('#gallery .card[data-id=\"'+id+'\"]'))card.dataset.cl='abcdef'[index];};\nwindow.__clHeld=(button)=>button?.getAttribute('aria-disabled')==='true'&&!button.disabled;\nwindow.__clRunning=(id)=>({id,operation:'export',state:'running',progress:{phase:'verifying',done:1,total:2},result:null,error:null});\nwindow.__clTerminal=(id)=>({id,operation:'export',state:'done',progress:null,error:null,result:{name:'controlled-metadata-only.zip',images:0,records:0,cleared:false,deleted_ids:[],retained:['controlled-retained.png']}});\nwindow.__clRender=renderBundleResult;renderBundleResult=(status,...rest)=>{if(status?.id)__clRenderCounts[status.id]=(__clRenderCounts[status.id]??0)+1;return __clRender(status,...rest);};\nwindow.__clForget=forgetImages;forgetImages=(ids,...rest)=>{__clForgetCalls.push([...ids]);return __clForget(ids,...rest);};\nwindow.__clGuardProbe=async()=>{if(!bundleClearOwner)return false;const owner=bundleClearOwner,count=__clRequests.length,raw=__clRawWrites.length,forbidden=__clForbidden.length,jobs=__clJobs,errors=__clErrors.length;await restoreImages([__clKnown().currentIds[0]??__clKnown().firstIds[0]]);await deleteImage(__clKnown().cached);await binPicked();await purgePicked();await deleteUnstarred();await emptyBin();return bundleClearOwner===owner&&__clRequests.length===count&&__clRawWrites.length===raw&&__clForbidden.length===forbidden&&__clJobs===jobs&&__clErrors.length===errors;};\napi=async(path,options)=>{const method=(options?.method??'GET').toUpperCase(),base=path.split('?')[0];if(method==='GET'){if(base==='/api/gallery/bundles/status'){__clStatusReads++;const readEpoch=bundleRequestEpoch;if(__clPollErrors>0){__clPollErrors--;throw Error('Controlled transient bundle status read failure');}if(__clStatusMode.kind==='fixed')return structuredClone(__clStatusMode.status);const result=await __clBaseApi(path,options);__clLastServer=result;const gate=__clStatusReadGate;if(gate&&!gate.captured&&gate.epoch===readEpoch){gate.captured=true;gate.result=result;await new Promise(resolve=>{gate.release=resolve;});}if(__clStatusMode.kind==='maskRunning'&&result.id===__clStatusMode.id&&result.state!=='running'){__clActualDone=result;return structuredClone(__clStatusMode.running);}return result;}const result=await __clBaseApi(path,options);const reset=__clResetGate;if(reset&&!reset.captured&&base==='/api/gallery'&&galleryEpoch>reset.epoch&&bundleClearOwner===reset.owner&&reset.owner.phase==='settling'){reset.captured=true;reset.result=result;await new Promise(resolve=>{reset.release=resolve;});}const dialog=__clDialogGate;if(dialog?.armed&&!dialog.captured&&base==='/api/gallery/bundles/preview'&&bundleClearOwner===dialog.owner&&dialog.owner.phase==='settling'){dialog.captured=true;dialog.result=result;await new Promise(resolve=>{dialog.release=resolve;});}const broad=__clBroadGate;if(broad&&!broad.captured&&base==='/api/gallery/unstarred'&&binBroadOwner){broad.captured=true;await new Promise(resolve=>{broad.release=resolve;});}return result;}\nif(method==='POST'&&__clReadOnlyPost(path))return __clBaseApi(path,options);\nif(method==='POST'&&['/api/images/bin','/api/images/restore'].includes(base)){const approval=__clExactApproval;__clExactApproval=null;const body=__clMutationBody(path,options),kind=base.endsWith('/restore')?'restore':'bin';if(!Array.isArray(body.ids)||!body.ids.length||Object.keys(body).length!==1||body.ids.some(id=>!Number.isSafeInteger(id)||!(__clKnown()?.fullIds??[]).includes(id)))return __clRefuse(method,path,'Unowned or malformed exact mutation refused');if(!approval||approval.kind!==kind||!Array.isArray(approval.ids)||__clNorm(body.ids)!==__clNorm(approval.ids))return __clRefuse(method,path,'Missing or mismatched one-use exact approval');const entry={kind,ids:body.ids,sent:true};__clRequests.push(entry);const result=await __clSend(path,options);const gate=__clExactGate;if(gate&&!gate.captured&&entry.kind===gate.kind&&__clNorm(entry.ids)===__clNorm(gate.ids)){gate.captured=true;await new Promise(resolve=>{gate.release=resolve;});}entry.finished=true;return result;}\nif(method==='POST'&&base==='/api/gallery/bundles/export'){const body=__clMutationBody(path,options),mode=__clPostMode;if(!mode||mode.captured)return __clRefuse(method,path,'No one-use controlled/actual export mode');mode.captured=true;mode.body=body;const entry={kind:body.keep_gallery?'backup':'clear',controlled:!mode.name.startsWith('actual'),mode:mode.name,sent:false};__clRequests.push(entry);if(body.keep_gallery){if(!['backupProbe','backupHeld'].includes(mode.name)||body.keep_gallery!==true||body.scope!=='all'||body.password!=='owned-backup-payload'||Object.keys(body).some(key=>!['keep_gallery','scope','password'].includes(key)))return __clRefuse(method,path,'Unexpected backup scope/payload');if(mode.name==='backupHeld')await new Promise(resolve=>{mode.release=resolve;});const err=new Error('Controlled backup payload probe; no worker started');err.status=422;throw err;}const approval=__clClearApproval;__clClearApproval=null;if(!approval||body.expected!==approval.expected||body.ids!==undefined||body.scope!==undefined||body.keep_gallery!==undefined||Object.keys(body).some(key=>!['expected','password'].includes(key)))return __clRefuse(method,path,'Missing exact clear approval/payload');if(mode.name.startsWith('actual')){const found=await __clInventory();if(!approval.actual||__clNorm(found.ids)!==__clNorm(approval.ids)||__clNorm(found.ids)!==__clNorm(__clKnown().fullIds)||found.rows.length!==body.expected||body.password!==undefined)return __clRefuse(method,path,'Actual clear must own the complete current gallery');entry.sent=true;const status=await __clSend(path,options);mode.accepted=status;await new Promise(resolve=>{mode.release=resolve;});if(mode.name==='actualUnknown')throw Error('Controlled loss after actual export HTTP202');return status;}if(mode.name==='known409'||mode.name==='known422'){const err=new Error('Controlled pre-reservation refusal');err.status=mode.name==='known409'?409:422;throw err;}if(mode.name==='fiveXX'){const err=new Error('Controlled 503 before dispatch');err.status=503;throw err;}if(mode.name==='malformed')return {id:'controlled-malformed',operation:'export',state:'done',result:{name:42,deleted_ids:'invalid'}};if(mode.name==='terminal'){const result=__clTerminal(mode.id);await new Promise(resolve=>{mode.release=resolve;});return result;}if(['running','apply409'].includes(mode.name))return __clRunning(mode.id);return __clRefuse(method,path,'Unknown controlled mode');}\nreturn __clRefuse(method,path,'Unapproved settings/credential/bundle/job mutation refused before dispatch');};\nwindow.__clArchive=async(status,ids)=>{const response=await __clRawFetch(bundleFileURL(status.result.name));if(response.status!==200)throw Error('Actual archive not available');const bytes=new Uint8Array(await response.arrayBuffer());if(bytes.length<1000||bytes.slice(0,4).join()!=='80,75,3,4'||status.result.records!==ids.length||status.result.images!==ids.length)throw Error('Actual saved archive/header/receipt mismatch');return {name:status.result.name,httpStatus:response.status,bytes:bytes.length,records:status.result.records,images:status.result.images,verification:'server-reported verified; download presence and ZIP header checked, not independent format verification'};};\nwindow.__clDescribe=(el)=>el?{tag:el.tagName,id:el.id,classes:String(el.className),role:el.getAttribute('role')}:null;\nwindow.__clBox=(el)=>{const r=el.getBoundingClientRect();return {left:r.left,top:r.top,right:r.right,bottom:r.bottom,width:r.width,height:r.height};};\nwindow.__clRevealAndReport=(selector)=>{const el=document.querySelector(selector);const report={selector,ok:false,scrollBefore:[scrollX,scrollY],viewport:[innerWidth,innerHeight],topbar:document.querySelector('.topbar')?.getBoundingClientRect().bottom,modal:document.querySelector('dialog[open]')?.id,claims:[...binWriteIds],broad:!!binBroadOwner,target:__clDescribe(el)};if(!el){window.__clLastReveal=report;return report;}report.before=__clBox(el);el.scrollIntoView({block:'nearest',inline:'nearest',behavior:'instant'});const r=el.getBoundingClientRect(),top=(report.topbar??0)+12;if(r.top<top)scrollBy(0,r.top-top);else if(r.bottom>innerHeight-12)scrollBy(0,r.bottom-innerHeight+12);const b=el.getBoundingClientRect(),x=b.left+b.width/2,y=b.top+b.height/2,hit=document.elementFromPoint(x,y);report.after=__clBox(el);report.center=[x,y];report.hit=__clDescribe(hit);report.stack=document.elementsFromPoint(x,y).slice(0,6).map(__clDescribe);report.scrollAfter=[scrollX,scrollY];report.parents=[];for(let parent=el.parentElement;parent&&report.parents.length<6;parent=parent.parentElement){const css=getComputedStyle(parent);report.parents.push({...__clDescribe(parent),rect:__clBox(parent),overflow:[css.overflowX,css.overflowY],scroll:[parent.scrollLeft,parent.scrollTop],client:[parent.clientWidth,parent.clientHeight],extent:[parent.scrollWidth,parent.scrollHeight],hidden:parent.hidden,visibility:css.visibility});}report.ok=!!hit&&(hit===el||el.contains(hit))&&b.width>0&&b.height>0;window.__clLastReveal=report;if(!report.ok)return report;const brief={selector,ok:true};const delta=[scrollX-report.scrollBefore[0],scrollY-report.scrollBefore[1]],moved=[report.after.left-report.before.left,report.after.top-report.before.top];if(delta.some(value=>Math.abs(value)>0.1))brief.scrollDelta=delta;if(moved.some(value=>Math.abs(value)>0.1))brief.targetDelta=moved;return brief;};\nwindow.__clRect=(el)=>{const r=el.getBoundingClientRect();return [r.left,r.top,r.width,r.height];};\nwindow.__clSameRect=(el,rect)=>__clRect(el).every((n,i)=>Math.abs(n-rect[i])<1);\nwindow.__clNoteNodes=(slot)=>{const walker=document.createTreeWalker(slot,NodeFilter.SHOW_ALL),nodes=[];for(let node=walker.nextNode();node;node=walker.nextNode())nodes.push(node);return nodes;};\nwindow.__clSnapshotNote=(slot)=>({slot,rect:__clRect(slot),nodes:__clNoteNodes(slot),text:slot.textContent});\nwindow.__clNoteUnchanged=(snapshot)=>{const nodes=__clNoteNodes(snapshot.slot);return snapshot.slot.isConnected&&__clSameRect(snapshot.slot,snapshot.rect)&&snapshot.slot.textContent===snapshot.text&&nodes.length===snapshot.nodes.length&&snapshot.nodes.every((node,index)=>nodes[index]===node);};"
+  },
+  {
+    "expect": "__clUntil(()=>document.getElementById('status-dot').className.includes('ready') && !galleryPending && !jobListing && !busy && galleryRecords.length===0)",
+    "fatal": true
+  },
+  {
+    "expect": "(async()=>{const status=await __clBaseApi('/api/gallery/automatic-backup');window.__clColdBackup={enabled:status.enabled,credential_configured:status.credential_configured,credential_state:status.credential_state,state:status.state};return status.enabled===false&&status.credential_configured===false&&status.credential_state==='not_configured';})()",
+    "fatal": true
+  },
+  {
+    "eval": "resetPanel();writeBox(els.prompt,\"Owned unsent composer for controlled apply409 metadata/error probe\");promptReplaced();persistPanel();window.__clComposer=setupComposerState();__clTag();"
+  },
+  {
+    "log": "__clRevealAndReport(\"#btn-bundles\")"
+  },
+  {
+    "expect": "__clLastReveal?.selector===\"#btn-bundles\" && __clLastReveal.ok",
+    "fatal": true
+  },
+  {
+    "click": "#btn-bundles"
+  },
+  {
+    "expect": "__clUntil(()=>els.bundlesDialog.open && !bundleReading && !bundleSending && bundlePreview?.records===0)",
+    "fatal": true
+  },
+  {
+    "expect": "automaticBackupStatus?.enabled===false",
+    "fatal": true
+  },
+  {
+    "eval": "els.bundleCount.value=\"0\";els.bundleCount.dispatchEvent(new Event('input',{bubbles:true}));"
+  },
+  {
+    "eval": "window.__clPostMode={name:\"apply409\",captured:false};window.__clClearApproval={expected:0,ids:__clKnown().fullIds.slice(),actual:false};"
+  },
+  {
+    "eval": "__clPostMode.id='controlled-tracked-id';window.__clStatusMode={kind:'fixed',status:__clRunning(__clPostMode.id)};"
+  },
+  {
+    "log": "__clRevealAndReport(\"#bundle-export\")"
+  },
+  {
+    "expect": "__clLastReveal?.selector===\"#bundle-export\" && __clLastReveal.ok",
+    "fatal": true
+  },
+  {
+    "click": "#bundle-export"
+  },
+  {
+    "expect": "__clUntil(()=>bundleClearOwner?.id==='controlled-tracked-id' && bundleClearOwner.phase==='running')",
+    "fatal": true
+  },
+  {
+    "log": "'CONTROLLED accepted-result application failure with status409: this is not a POST refusal, so accepted ownership must remain unresolved.'"
+  },
+  {
+    "eval": "(async()=>{const original=renderBundleResult;renderBundleResult=(status,...rest)=>{if(status.id==='controlled-tracked-id'){const err=new Error('Controlled local application failure');err.status=409;throw err;}return original(status,...rest);};try{await receiveBundleStatus(__clTerminal('controlled-tracked-id'));}finally{renderBundleResult=original;}})()"
+  },
+  {
+    "expect": "__clUntil(()=>bundleClearOwner?.phase==='unresolved' && !bundleSending)",
+    "fatal": true
+  },
+  {
+    "eval": "window.__clSticky=bundleClearOwner;window.__clBeforeRequests=__clRequests.length;"
+  },
+  {
+    "eval": "(async()=>{await receiveBundleStatus({id:'controlled-different',operation:'export',state:'running'});await receiveBundleStatus(__clTerminal('controlled-later-terminal'));})()"
+  },
+  {
+    "expect": "bundleClearOwner===__clSticky && __clSticky.phase==='unresolved' && els.bundleStatus.textContent.includes(BUNDLE_CLEAR_GUIDANCE)"
+  },
+  {
+    "expect": "__clGuardProbe()"
+  },
+  {
+    "log": "__clRevealAndReport(\"#bundles-close\")"
+  },
+  {
+    "expect": "__clLastReveal?.selector===\"#bundles-close\" && __clLastReveal.ok",
+    "fatal": true
+  },
+  {
+    "click": "#bundles-close"
+  },
+  {
+    "log": "__clRevealAndReport(\"#btn-bundles\")"
+  },
+  {
+    "expect": "__clLastReveal?.selector===\"#btn-bundles\" && __clLastReveal.ok",
+    "fatal": true
+  },
+  {
+    "click": "#btn-bundles"
+  },
+  {
+    "expect": "__clUntil(()=>els.bundlesDialog.open && !bundleReading)",
+    "fatal": true
+  },
+  {
+    "log": "__clRevealAndReport(\"#bundle-backup\")"
+  },
+  {
+    "expect": "__clLastReveal?.selector===\"#bundle-backup\" && __clLastReveal.ok",
+    "fatal": true
+  },
+  {
+    "click": "#bundle-backup"
+  },
+  {
+    "log": "__clRevealAndReport(\"#bundle-export\")"
+  },
+  {
+    "expect": "__clLastReveal?.selector===\"#bundle-export\" && __clLastReveal.ok",
+    "fatal": true
+  },
+  {
+    "click": "#bundle-export"
+  },
+  {
+    "expect": "bundleClearOwner===__clSticky && __clRequests.length===__clBeforeRequests && els.bundleStatus.textContent.includes('Reloading does not cancel') && els.bundleStatus.textContent.includes('Do not repeat the request') && setupComposerState()===__clComposer && __clForbidden.length===0 && __clJobs===0 && __clErrors.length===0"
+  },
+  {
+    "log": "JSON.stringify({evidence:'controlled predispatch metadata/error probe',mode:__clPostMode.name,ownerPhase:bundleClearOwner.phase,ownerId:bundleClearOwner.id,requests:__clRequests.map(({kind,controlled,mode,sent})=>({kind,controlled,mode,sent})),forbidden:__clForbidden,errors:__clErrors,composerUnchanged:setupComposerState()===__clComposer})"
+  },
+  {
+    "log": "JSON.stringify({actualServerVerifiedReceipts:__clKnown().receipts,finalProbe:'controlled sticky metadata only',unexpectedJobs:__clJobs,forbidden:__clForbidden,errors:__clErrors,remainingHold:bundleClearOwner?.phase,composerUnchanged:setupComposerState()===__clComposer})"
+  },
+  {
+    "expect": "__clKnown().receipts.length===2 && __clKnown().receipts.every(row=>row.proof.records===row.deleted.length&&row.proof.images===row.deleted.length) && bundleClearOwner?.phase==='unresolved' && __clJobs===0 && __clForbidden.length===0 && __clErrors.length===0"
+  }
+]

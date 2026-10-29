@@ -416,8 +416,10 @@ async function startJob(path, payload, {
       jobLabels.set(extra.job_id, submissionLabel(path, payload));
       void nameJob(extra.job_id);
     }
-    // Read when they join the queue, which may have changed by then.
-    const extras = () => more.map((extra) => extra.job_id).filter((id) => !queuedIds.includes(id));
+    // Read when they join the queue, which may have changed by then. One a
+    // listing out before this answer already made the watched job is the
+    // page's current job, not a "Next:" row whose × would cancel it.
+    const extras = () => more.map((extra) => extra.job_id).filter((id) => !queuedIds.includes(id) && !watchedJobs.has(id));
     if (placeholder) jobPlaceholders.set(job_id, placeholder);
     if (sheet) jobsToShow.add(job_id);
     onAccepted?.(job_id, answer);
@@ -428,7 +430,7 @@ async function startJob(path, payload, {
     // Not for a listed seed axis: the list is the record, and the first seed
     // of it written into the box would only mislead the next plain Generate.
     if (panel && path === '/api/grid' && !payload.seed_axis && els.seed.value.trim() === '' && seed != null) {
-      els.seed.value = seed;
+      keepReusePassDraft(() => { els.seed.value = seed; });
       pageSeed = els.seed.value;
       syncRuns();
       persistPanel();
