@@ -5783,7 +5783,9 @@ Frontend and CLI:
   Open is its image's own click (the lightbox walking the sheet), and its
   Show run as sheet is held ("The sheet shows this run already") where
   `sheetShownRun()` is the record's run; a cell never gets the picks'
-  items. Beyond the buttons: Use seed, More seeds of this batch…
+  items. Beyond the buttons: the lightbox's Pick #N / Unpick #N after Star
+  (`pickFromLightbox`, held by `lightboxPickHeld`, `UI#33`; a card's pick
+  stays its click and Space), Use seed, More seeds of this batch…
   (the lightbox's `#lb-more-seeds` there, elsewhere `syncedItem` over
   `syncMoreSeedsFor` running `moreSeedsOfImage`), Show run as sheet
   (`showRecordRun`, the card's ⊞), Copy prompt, Copy seed, Copy image (the
