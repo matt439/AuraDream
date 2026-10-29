@@ -131,6 +131,10 @@ def test_the_editors_row_carries_the_backends_answer_for_the_draft_loader(client
     assert answer("?quantization=fp8&offload=model") is None
     assert "sequential offload" in answer("?quantization=fp8&offload=sequential")
     assert "int8" in answer("?quantization=int8&offload=model")
+    # A draft recipe is the loader being chosen too, and is held by name.
+    assert "regional-v1 compilation" in answer("?quantization=fp8&offload=model&compilation=regional-v1")
+    assert "cudnn-v1 attention" in answer("?quantization=fp8&offload=model&attention=cudnn-v1")
+    assert answer("?quantization=fp8&offload=model&compilation=eager&attention=native") is None
     current = client.get("/api/status").json()
     assert (current["model_id"], current["model_revision"]) == (initial["model_id"], initial["model_revision"])
     assert fake.loads == 0
