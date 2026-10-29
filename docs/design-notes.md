@@ -3465,6 +3465,15 @@ The first reply after the fold is opened by hand reveals Run grid again
 fold, where the panel holds still (`panelResized`), and its lines pushed
 Run grid back below the window the opening had just brought it into.
 
+**Closing Grid retires its pending preview** (`UI#29`, 2026-10-29).
+The native toggle's closed branch clears CFG reach immediately. It also
+advances the preview epoch before returning, so an older success cannot
+restore the grid-only negative affordance and an older error cannot replace
+preview text. A reopened grid owns its new request. The existing payload,
+debounce and rendering paths stay intact; this fixes presentation ownership,
+not model output. [The dated review](review-2026-10-28-grid-preview-close.md)
+records source evidence, controls and separate browser qualification.
+
 **The resolved prompts are a box of their own** (2026-10-05), between the axes
 line and the notes (`promptListing`, `#grid-preview .prompts`), at most eight
 lines tall and scrolling inside itself: a nested scroller, never overflow on

@@ -3425,7 +3425,12 @@ Frontend and CLI:
   when their owned control disappears or becomes hidden/disabled, Close receives
   focus without scrolling, unless another dialog is open. Comparison controls and S retain their existing behavior.
 - The grid preview is the server's expansion; the page adds only
-  presentation and advice. It trims factors of one other than the seeds
+  presentation and advice. Closing Grid advances `previewEpoch` before its
+  synchronous CFG-reach clear and return, so older success/error replies
+  cannot restore a grid-only negative caption or obsolete preview text.
+  Reopening takes its own epoch; payloads and the input debounce are unchanged.
+  [The close-ownership review](review-2026-10-28-grid-preview-close.md) owns
+  the source evidence and separate CPU/native-browser qualification. It trims factors of one other than the seeds
   from the totals and writes ×, since `grid.describe` keeps its ASCII x and
   its ones for the CLI's log. It lists the resolved prompt whenever the
   variables box has text, one included, in a `.prompts` box of its own
@@ -5923,6 +5928,14 @@ pending while off and disabling without destination access. Desktop/narrow
 screenshots check containment and stationary Save. No policy, shared-mode install,
 restart, export or deletion is executed; native lifecycle evidence is CPU scratch.
 
+`tests/test_grid_preview_close.py` loads the actual declaration-only
+`sizes.js` and `grid-preview.js` in a Node VM and captures the exact boot
+toggle registration without page boot. Deferred API responses exercise close,
+repeated close, reopen/current ownership, existing model/blank-prompt holds
+and real CFG/negative presentation on inert DOM ports. It does not qualify
+native events, focus, layout or actual requests. The separate focused smoke
+supplies specific UI and fake-request evidence; neither qualifies model pixels.
+
 `tests/test_classic_scripts.py` invokes `tools/check_classic_scripts.py`
 and its Node helper to parse every local classic script in HTML order,
 including `app.js`, and instantiate declarations without executing source
@@ -7430,6 +7443,16 @@ panel's gap 10 px there, 14 px back at 1400x900):
 uv run python tools/fake_server.py --port 7889 --model black-forest-labs/FLUX.1-Krea-dev --step 0.3
 node tools/browser.mjs tools/smoke-narrow.json
 ```
+
+`smoke-grid-preview-close.json` uses a fresh default Krea 2 Turbo fake
+on 7948, with only GET/HEAD and existing read-only preview/analysis POSTs.
+Native summary clicks and a transparent observer of the original toggle
+handler hold an actual preview success through close, then require the
+closed negative state/caption/draft to remain intact. Reopening uses real
+current counts/variables; a separately declared, nonforwarded HTTP500 checks
+late error suppression. Planted rows, empty jobs/bin, fixed draft/geometry
+and new wide/narrow screenshots bound the check. No generation, model load,
+real gallery mutation, old artifact read or hardware qualification occurs.
 
 `smoke-grid.json` checks the grid fold on a FLUX.1 Krea [dev] fake on 7879:
 two direct renders back to back, each awaited to its end with one stream and

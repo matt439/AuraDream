@@ -1,0 +1,137 @@
+[
+  {
+    "log": "\"Closed Grid preview ownership: new default Krea 2 Turbo fake on7948, fresh runner data, no generation/mutation. Actual read-only preview success and declared nonforwarded500 replies; native summary clicks, exact original handler completion.\""
+  },
+  {
+    "navigate": "http://127.0.0.1:7948/"
+  },
+  {
+    "expect": "(() => {\n  const q = window.__gc = { origin: location.origin, fetch: window.fetch.bind(window),\n    next: null, gates: new Map(), previews: [], toggles: [], mutations: [], errors: [] };\n  q.assert = (yes, message) => { if (!yes) throw Error(message); };\n  q.until = async (predicate, milliseconds = 20000) => {\n    const end = Date.now() + milliseconds;\n    while (Date.now() < end) { if (predicate()) return true; await new Promise(resolve => setTimeout(resolve, 40)); }\n    return false;\n  };\n  q.frame = () => new Promise(resolve => requestAnimationFrame(() => requestAnimationFrame(resolve)));\n  q.read = async path => {\n    const url = new URL(path, location.href);\n    q.assert(url.origin === q.origin, 'off-origin owned read');\n    const response = await q.fetch(url.href);\n    q.assert(response.ok, 'owned read failed: ' + url.pathname);\n    return response.json();\n  };\n  q.arm = (tag, mode = 'pass') => {\n    q.assert(!q.next && !q.gates.has(tag) && ['pass', 'error'].includes(mode), 'invalid/reused preview gate');\n    const gate = { tag, mode, ready: false, released: false };\n    gate.wait = new Promise(resolve => { gate.release = resolve; });\n    q.gates.set(tag, gate); q.next = gate;\n  };\n  q.ready = async tag => {\n    const gate = q.gates.get(tag);\n    q.assert(gate && await q.until(() => gate.ready), 'preview gate never answered: ' + tag);\n    q.assert(q.errors.length === 0 && q.mutations.length === 0, 'fixture has an error or forbidden mutation');\n    if (gate.mode === 'pass') {\n      q.assert(gate.body.values.guidance_scale.includes(1) && gate.body.images === 4,\n        'actual owned preview has unexpected CFG reach/count');\n    }\n  };\n  q.release = async tag => {\n    const gate = q.gates.get(tag);\n    q.assert(gate?.ready && !gate.released, 'preview gate not held: ' + tag);\n    gate.released = true; gate.release();\n    q.assert(await q.until(() => q.toggles[gate.toggle]?.done), 'original opening handler never settled');\n    q.assert(!q.toggles[gate.toggle].error, 'original handler rejected');\n    await q.frame();\n  };\n  q.closed = () => !els.gridSection.open && gridMaxCfg === null && els.negative.disabled\n    && !els.negNote.textContent.includes('for grid cells');\n  q.inputs = () => JSON.stringify([els.prompt.value, els.negative.value, els.cfg.value, els.batch.value, els.runs.value,\n    els.gridPrompt.value, els.gridPromptMode.value, els.gridCfg.value, els.gridSteps.value, els.seed.value]);\n  q.view = () => JSON.stringify({ reach: gridMaxCfg, negative: els.negative.disabled,\n    note: els.negNote.textContent, text: els.gridPreview.textContent,\n    warning: els.gridPreview.classList.contains('warn'), inputs: q.inputs() });\n  q.box = element => { const box = element.getBoundingClientRect(); return [box.x, box.y, box.width, box.height]; };\n  // Observe completion of the exact original native-toggle handler body.\n  // This wrapper adds no selection/preview logic; the summary and real event remain native.\n  const originalToggle = previewGrid;\n  els.gridSection.removeEventListener('toggle', originalToggle);\n  els.gridSection.addEventListener('toggle', function(event) {\n    const call = { open: this.open, done: false };\n    q.toggles.push(call);\n    const promise = originalToggle.call(this, event);\n    void Promise.resolve(promise).then(() => { call.done = true; }, error => {\n      call.done = true; call.error = String(error); q.errors.push(call.error);\n    });\n  });\n  window.addEventListener('error', event => q.errors.push(String(event.message || 'window error')));\n  window.addEventListener('unhandledrejection', event => q.errors.push(String(event.reason)));\n  window.fetch = async (input, options) => {\n    const url = new URL(typeof input === 'string' || input instanceof URL ? input : input.url, location.href);\n    const method = String(options?.method ?? (input instanceof Request ? input.method : 'GET')).toUpperCase();\n    if (url.origin !== q.origin) { q.mutations.push('off-origin ' + method); throw Error('off-origin request refused'); }\n    if (method === 'GET' || method === 'HEAD') return q.fetch(input, options);\n    if (method !== 'POST' || !['/api/grid/preview', '/api/prompt/analyze'].includes(url.pathname) || url.search) {\n      q.mutations.push(method + ' ' + url.pathname); throw Error('non-preview mutation refused');\n    }\n    if (url.pathname !== '/api/grid/preview') return q.fetch(input, options);\n    const gate = q.next; q.next = null;\n    const preview = { forwarded: !gate || gate.mode === 'pass' };\n    q.previews.push(preview);\n    const response = preview.forwarded ? await q.fetch(input, options)\n      : new Response(JSON.stringify({ detail: 'controlled obsolete grid refusal' }),\n        { status: 500, headers: { 'Content-Type': 'application/json' } });\n    if (gate) {\n      q.assert(q.toggles.length && q.toggles.at(-1).open, 'gate did not arise from an actual open toggle');\n      gate.toggle = q.toggles.length - 1;\n      gate.body = await response.clone().json(); gate.ready = true;\n      await gate.wait;\n    }\n    return response;\n  };\n  return true;\n})()\n",
+    "fatal": true
+  },
+  {
+    "expect": "__gc.until(() => modelState === 'ready' && !jobListing && !galleryPending && !submitting && !els.gridSection.open && negativeSupported && !trueCfgSupported && cfgThreshold === 0)",
+    "fatal": true
+  },
+  {
+    "wait": 400
+  },
+  {
+    "expect": "(async () => { const q = __gc; q.assert((await q.read('/api/jobs?include_finished=true')).length === 0 && !busy, 'fresh fake has jobs'); const g = await q.read('/api/gallery?all_models=true'); q.assert(g.total === 2 && g.items.every(row => row.job_id === 'planted'), 'fresh fake rows are not the owned planted gallery'); q.planted = JSON.stringify(g.items); q.assert((await q.read('/api/gallery/bin/summary')).records === 0, 'fresh bin not empty'); els.prompt.value = 'a {coat} fox'; els.negative.value = '  retained grid-close negative  '; els.cfg.value = '0'; els.batch.value = '1'; els.runs.value = '1'; els.seed.value = '19480'; els.gridPrompt.value = 'coat = red | blue'; els.gridPromptMode.value = 'cross'; els.gridCfg.value = '0,1'; els.gridSteps.value = ''; els.gridSeeds.value = '1'; els.gridSeedList.value = ''; els.gridResume.checked = false; els.gridBudget.value = ''; syncCfg(); q.raw = q.inputs(); q.assert(q.closed(), 'closed initial composer still has grid reach'); q.arm('old-success'); return true; })()",
+    "fatal": true
+  },
+  {
+    "eval": "els.gridSection.querySelector('summary').scrollIntoView({block:'center'});"
+  },
+  {
+    "click": "#grid-section > summary"
+  },
+  {
+    "expect": "(async () => { await __gc.ready('old-success'); __gc.assert(els.gridSection.open && !__gc.toggles[0].done && __gc.previews.length === 1, 'actual opening preview not held'); return true; })()",
+    "fatal": true
+  },
+  {
+    "eval": "els.gridSection.querySelector('summary').scrollIntoView({block:'center'});"
+  },
+  {
+    "click": "#grid-section > summary"
+  },
+  {
+    "expect": "(async () => { const q = __gc; q.assert(await q.until(() => q.toggles.length === 2 && q.toggles[1].done), 'physical close handler not processed'); await q.frame(); q.assert(q.closed() && !q.toggles[1].open, 'close failed to clear CFG reach'); q.before = q.view(); q.summary = q.box(els.gridSection.querySelector('summary')); q.assert(document.activeElement === els.gridSection.querySelector('summary'), 'native summary lost focus'); await q.release('old-success'); q.assert(q.closed() && q.view() === q.before, 'old success restored closed grid reach/caption/preview/draft'); q.assert(JSON.stringify(q.box(els.gridSection.querySelector('summary'))) === JSON.stringify(q.summary), 'late success moved summary geometry'); q.assert(q.inputs() === q.raw, 'late success replaced raw drafts'); return true; })()",
+    "fatal": true
+  },
+  {
+    "eval": "els.negField.scrollIntoView({block:'center'});"
+  },
+  {
+    "shot": "grid-preview-closed-wide.png"
+  },
+  {
+    "log": "\"A real current reopen still publishes server counts/variables and the grid-only negative affordance.\""
+  },
+  {
+    "eval": "els.gridSection.querySelector('summary').scrollIntoView({block:'center'});"
+  },
+  {
+    "click": "#grid-section > summary"
+  },
+  {
+    "expect": "(async () => { const q = __gc; q.assert(await q.until(() => q.toggles.length === 3 && q.toggles[2].done), 'real current reopen did not settle'); q.assert(els.gridSection.open && gridMaxCfg === 1 && !els.negative.disabled && els.negNote.textContent === '(for grid cells above CFG 0)', 'current CFG reach missing'); q.assert(els.gridPreview.querySelector('.totals')?.textContent.startsWith('4 images') && els.gridPreview.textContent.includes('a red fox') && els.gridPreview.textContent.includes('a blue fox'), 'actual variable/count preview missing'); q.assert(q.inputs() === q.raw && q.previews.length === 2, 'current preview changed raw draft or duplicated request'); return true; })()",
+    "fatal": true
+  },
+  {
+    "eval": "els.negField.scrollIntoView({block:'center'});"
+  },
+  {
+    "shot": "grid-preview-current-wide.png"
+  },
+  {
+    "eval": "els.gridSection.querySelector('summary').scrollIntoView({block:'center'});"
+  },
+  {
+    "click": "#grid-section > summary"
+  },
+  {
+    "expect": "(async () => { const q = __gc; q.assert(await q.until(() => q.toggles.length === 4 && q.toggles[3].done) && q.closed(), 'current preview did not clear on close'); q.arm('old-error', 'error'); return true; })()",
+    "fatal": true
+  },
+  {
+    "log": "\"The obsolete refusal is an explicitly controlled HTTP500, never forwarded to the fake. Original close handler must retire it too.\""
+  },
+  {
+    "eval": "els.gridSection.querySelector('summary').scrollIntoView({block:'center'});"
+  },
+  {
+    "click": "#grid-section > summary"
+  },
+  {
+    "expect": "(async () => { await __gc.ready('old-error'); __gc.assert(__gc.previews.length === 3 && !__gc.previews[2].forwarded, 'controlled refusal was forwarded'); return true; })()",
+    "fatal": true
+  },
+  {
+    "eval": "els.gridSection.querySelector('summary').scrollIntoView({block:'center'});"
+  },
+  {
+    "click": "#grid-section > summary"
+  },
+  {
+    "expect": "(async () => { const q = __gc; q.assert(await q.until(() => q.toggles.length === 6 && q.toggles[5].done) && q.closed(), 'error-case close handler missing'); await q.frame(); q.before = q.view(); await q.release('old-error'); q.assert(q.closed() && q.view() === q.before, 'obsolete error replaced closed preview/draft'); q.assert(!els.gridPreview.textContent.includes('controlled obsolete'), 'obsolete error text published'); return true; })()",
+    "fatal": true
+  },
+  {
+    "eval": "els.gridSection.querySelector('summary').scrollIntoView({block:'center'});"
+  },
+  {
+    "click": "#grid-section > summary"
+  },
+  {
+    "expect": "(async () => { const q = __gc; q.assert(await q.until(() => q.toggles.length === 7 && q.toggles[6].done), 'post-error current reopen did not settle'); q.assert(gridMaxCfg === 1 && !els.negative.disabled && !els.gridPreview.classList.contains('warn'), 'current success failed after ignored error'); return true; })()",
+    "fatal": true
+  },
+  {
+    "eval": "els.gridSection.querySelector('summary').scrollIntoView({block:'center'});"
+  },
+  {
+    "click": "#grid-section > summary"
+  },
+  {
+    "expect": "(async () => { const q = __gc; q.assert(await q.until(() => q.toggles.length === 8 && q.toggles[7].done) && q.closed(), 'final close failed'); q.assert(q.previews.length === 4 && q.previews.filter(item => item.forwarded).length === 3 && [...q.gates.values()].every(gate => gate.released), 'preview request/gate accounting differs'); q.assert(q.inputs() === q.raw && q.errors.length === 0 && q.mutations.length === 0 && !q.next, 'draft/guard error'); q.assert((await q.read('/api/jobs?include_finished=true')).length === 0 && (await q.read('/api/gallery/bin/summary')).records === 0, 'read-only fixture created jobs/bin work'); q.assert(JSON.stringify((await q.read('/api/gallery?all_models=true')).items) === q.planted, 'planted records changed'); return true; })()",
+    "fatal": true
+  },
+  {
+    "viewport": [
+      400,
+      650
+    ]
+  },
+  {
+    "eval": "els.negField.scrollIntoView({block:'center'});"
+  },
+  {
+    "expect": "__gc.closed() && __gc.inputs() === __gc.raw && __gc.errors.length === 0 && __gc.mutations.length === 0",
+    "fatal": true
+  },
+  {
+    "shot": "grid-preview-closed-narrow.png"
+  }
+]
