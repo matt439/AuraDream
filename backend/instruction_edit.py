@@ -497,7 +497,8 @@ def replay_held_reason(reason: str | None) -> str:
     ``reason`` is ``edit_unavailable_reason``'s answer. They never queue an
     edit: where one could queue - or would, with the editor selected - they
     point at Edit by instruction…; a closed gate or an unmeasured loader is
-    said as it is, so the pointer never leads to another refusal.
+    said as it is, so the pointer never leads to a server-wide refusal (a
+    source's own aspect is still the dialog's to say).
     """
     if reason is None or reason == INSTRUCTION_EDIT_NEEDS_MODEL:
         return INSTRUCTION_EDIT_REPLAY_HELD

@@ -2221,9 +2221,11 @@ Jobs:
 
   Each edit cell runs `_recheck_edit` as it begins, after `begin_call` and
   before `generate`. It asks the gate and the loader envelope again,
-  re-proves the source with `bind_source`, and refuses an unmeasured aspect. A source that is missing, in the recycle bin or rewritten
+  re-proves the source with `bind_source`, and refuses an unmeasured
+  aspect. A source that is missing, in the recycle bin or rewritten
   since the submit fails that cell in words, with no backend call and no
-  row. `planned_keys` skips edit cells while the gate is closed.
+  row. `planned_keys` skips edit cells while the gate is closed or the
+  selection is outside the loader envelope.
 
 Prompt analyser:
 
