@@ -835,7 +835,7 @@ narrower it is in the right-click menu instead.
 **⌕** beside a setting (model, size, sampling, LoRA, source, seed, day, run)
 adds it to the gallery search; a value of the same kind replaces the old
 one. **⌕ Search for this prompt** replaces the search's text with the
-prompt's words and keeps its filters; it finds prompts containing all of
+prompt's words and keeps its filters and exclusions; it finds prompts containing all of
 those words in any order.
 
 **Compare CFG** in the lightbox sets the image beside another that differs

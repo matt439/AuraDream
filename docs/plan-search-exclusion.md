@@ -294,3 +294,10 @@ if wanted:
 - The smoke block runs last in `smoke-gallery` rather than beside the
   `id:` steps, because the images it plants would become the head the
   later card steps read.
+
+Review (2026-10-30): no defect in the grammar, storage or page helpers. The
+keeper-rates test now gives its binned and other-checkpoint rows a LoRA, so
+`-lora:none` alone could not be what leaves them out; a route test serves an
+old `-seed:abc` sidecar through `GET /api/gallery/saved-searches`; and
+"Search for this prompt"'s title and `docs/usage.md` say it keeps the
+exclusions as well as the filters.

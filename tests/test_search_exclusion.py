@@ -156,6 +156,17 @@ def test_an_old_saved_query_that_is_now_invalid_still_reads(tmp_path):
     assert json.loads(path.read_text(encoding="utf-8"))["items"][0]["query"] == "-seed:abc"
 
 
+def test_the_saved_list_route_serves_an_old_query_that_is_now_invalid(client, store):
+    old = {"id": "b" * 32, "revision": 1, "name": "Old", "query": "-seed:abc", "favorites": False,
+           "all_models": False}
+    saved_searches.path_for(store.settings.db_path).write_text(json.dumps({"version": 1, "items": [old]}), encoding="utf-8")
+    listed = client.get("/api/gallery/saved-searches")
+    assert listed.status_code == 200 and [item["query"] for item in listed.json()["items"]] == ["-seed:abc"]
+    # Its Apply is the gallery's own refusal, in the grammar's words.
+    refused = client.get("/api/gallery", params={"search": "-seed:abc"})
+    assert refused.status_code == 422 and "not a number" in refused.json()["detail"]
+
+
 def test_strict_scopes_take_excluded_terms_and_refuse_excluded_words():
     assert search.strict_scope("-seed:1 run:x") == (
         ["COALESCE((seed = ?), 0) = 0", r"run_id LIKE ? ESCAPE '\'"], [1, "%x%"],
@@ -202,12 +213,16 @@ def test_the_unstarred_route_takes_an_exclusion_and_refuses_an_excluded_word(cli
 def test_keep_rates_under_an_exclusion_leave_the_bin_and_other_models_out(store):
     plain = keep(store, seed=1)
     keep(store, seed=2, lora="ink.safetensors")
-    binned = keep(store, seed=3)
-    keep(store, seed=4, model_id="other/model")
+    # Both carry a LoRA, so `-lora:none` alone would keep them: what leaves
+    # them out is the bin and the model term.
+    binned = keep(store, seed=3, lora="ink.safetensors")
+    keep(store, seed=4, lora="ink.safetensors", model_id="other/model")
     store.set_favorite(plain.id, True)
     store.bin_images([binned.id])
     rows = gallery_reports.keep_rates("-lora:none model:krea", by=("lora",))
     assert [(row["lora"], row["made"], row["starred"]) for row in rows] == [("ink.safetensors", 1, 0)]
+    rows = gallery_reports.keep_rates("-lora:none", by=("lora",))
+    assert [(row["lora"], row["made"], row["starred"]) for row in rows] == [("ink.safetensors", 2, 0)]
     with pytest.raises(ValueError, match="free text"):
         gallery_reports.keep_rates("-blonde")
 

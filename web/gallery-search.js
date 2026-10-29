@@ -154,7 +154,7 @@ function promptSearchLine(rec) {
   line.hidden = !words.length;
   if (words.length) {
     const b = searchButton(words, '⌕ Search for this prompt', mergePromptSearch);
-    b.title = 'Search the gallery for the prompt\'s words in place of the search\'s text, its filters kept: images whose prompt has every one of them';
+    b.title = 'Search the gallery for the prompt\'s words in place of the search\'s text, its filters and exclusions kept: images whose prompt has every one of them';
     line.append(b);
   }
   return line;
