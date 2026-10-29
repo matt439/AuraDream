@@ -4248,6 +4248,22 @@ meaning of run.
 
 ## The browser's queue
 
+**A queued job says what it should take (2026-10-30, `GEN#32`).** A queued
+row used to say what the job was and nothing of how long it would take, and
+the only estimate on the page was the running job's own pace. Now
+`JobManager.submit_cells` prices every job once, off the loop and without
+a PNG stat. It uses the execution units the worker will run, Then refine's
+stand-in passes included, from the same history and rules as the grid
+preview. The price is stored on the job: `snapshot()` only reports it, and
+a failed pricing is `None`, never a refused job. It is presentation, not a
+reproduction field, so it never touches a run id, a key, `applied()`, a row
+or a PNG. The page writes the figure into each row in the same text write
+as its label, because a figure arriving later would move a row under the
+pointer. `#queue-text` gives a total only when every row is priced: "all
+done in" with the live ETA, "of queued work" while there is none (a pause
+holds the gate). History stands in for the cell line's own-pace figure only
+until that figure exists. [Plan](plan-queue-estimates.md).
+
 **An accepted job still owes its outcome (2026-10-26, `GEN#25`).** An actual
 browser review queued a successful image and an immediately failing image
 behind a paused job. Both finished before the next active-job listing; the

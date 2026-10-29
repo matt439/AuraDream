@@ -11,6 +11,7 @@ from __future__ import annotations
 import hashlib
 import json
 
+from .grid import Cell
 from .refine import scaled
 from .refine_batch import too_big
 from .config import settings
@@ -39,6 +40,20 @@ def stand_in(request: GenerateRequest, spec: ThenRefine) -> GenerateRequest:
         "refine": 1, "strength": spec.strength, "steps": spec.steps or request.steps,
         "reference": [], "mask": None, "outpaint": None, "upscaler": None, "crop_anchor": "center",
     })
+
+
+def execution_units(cells: list[Cell], spec: ThenRefine | None) -> list[Cell]:
+    """The calls a job of `cells` makes, in run order: each cell and, with
+    Then refine, a stand-in pass per image after it. What the grid preview,
+    the CLI and the queue's stored estimate price, so the expansion is
+    written once."""
+    if spec is None:
+        return list(cells)
+    return [
+        unit
+        for cell in cells
+        for unit in [cell, *[Cell(request=stand_in(cell.request, spec), seed=cell.seed)] * cell.request.num_images]
+    ]
 
 
 def refusal(requests: list[GenerateRequest], spec: ThenRefine, unavailable: str | None) -> str | None:

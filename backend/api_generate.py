@@ -417,7 +417,8 @@ def create_router(services: AppServices) -> APIRouter:
                 then_refine=_retained_then_refine(metadata),
             )
             return FinishRunAccepted.model_validate({
-                "job_id": job.id, "seed": job.seed, "run_id": run_id, "cells": preview.cells, "images": preview.images,
+                "job_id": job.id, "seed": job.seed, "run_id": run_id, "estimate_seconds": job.estimate_seconds,
+                "cells": preview.cells, "images": preview.images,
                 "pruned": preview.rendered, "planned": preview.queued, "redrawn": preview.redrawn,
                 "budget_minutes": preview.budget_minutes,
             })
@@ -441,7 +442,9 @@ def create_router(services: AppServices) -> APIRouter:
         # granted repo access.
         spec = await then_refine_spec(services, submitted.then_refine, [request])
         job = await services.jobs().submit(request, then_refine=spec)
-        return JobAccepted.model_validate({"job_id": job.id, "seed": job.seed, "run_id": job.run_id})
+        return JobAccepted.model_validate({
+            "job_id": job.id, "seed": job.seed, "run_id": job.run_id, "estimate_seconds": job.estimate_seconds,
+        })
 
 
     @router.post("/api/grid", response_model=JobAccepted)
@@ -475,7 +478,9 @@ def create_router(services: AppServices) -> APIRouter:
             comparison=bool(request.prompt_variants),
             then_refine=spec,
         )
-        return JobAccepted.model_validate({"job_id": job.id, "seed": job.seed, "run_id": job.run_id})
+        return JobAccepted.model_validate({
+            "job_id": job.id, "seed": job.seed, "run_id": job.run_id, "estimate_seconds": job.estimate_seconds,
+        })
 
 
     @router.post("/api/rerender", response_model=RerenderAccepted)
@@ -597,7 +602,8 @@ def create_router(services: AppServices) -> APIRouter:
             )
         job = await services.jobs().submit_cells(kept, run_id=run_id)
         return RerenderAccepted.model_validate({
-            "job_id": job.id, "seed": job.seed, "run_id": job.run_id, "deleted": deleted,
+            "job_id": job.id, "seed": job.seed, "run_id": job.run_id, "estimate_seconds": job.estimate_seconds,
+            "deleted": deleted,
             "pruned": pruned, "planned": already_planned,
         })
 
@@ -623,16 +629,12 @@ def create_router(services: AppServices) -> APIRouter:
         images = sum(cell.request.num_images for cell in cells)
         listed = len(values.get("seed", []))
         spec = await then_refine_spec(services, request.then_refine, [cell.request for cell in cells])
-        priced = cells
+        priced = then_refine.execution_units(cells, spec)
         pass_sizes = []
         if spec is not None and cells:
-            stand_ins = [then_refine.stand_in(cell.request, spec) for cell in cells]
-            pass_sizes = sorted({(probe.width, probe.height) for probe in stand_ins})
-            priced = [
-                unit
-                for cell, probe in zip(cells, stand_ins)
-                for unit in [cell, *[grid.Cell(request=probe, seed=cell.seed)] * cell.request.num_images]
-            ]
+            pass_sizes = sorted({
+                (probe.width, probe.height) for probe in (then_refine.stand_in(cell.request, spec) for cell in cells)
+            })
         prices, disk_bytes = await asyncio.to_thread(
             gallery_reports.execution_estimates, priced, services.model_id(),
         )

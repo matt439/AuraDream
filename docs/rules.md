@@ -6609,6 +6609,16 @@ CRUD. `smoke-saved-searches.json` uses a fresh FLUX.1 Krea [dev] fake on 7933
 for the dialog, explicit filter application, saved scope, retained picks,
 stale/late replies, modal keys/focus and responsive footer/dialog geometry.
 
+`smoke-queue-estimates.json` uses a fresh FLUX.1 Krea [dev] fake on 7954
+with 0.3 s steps. One render gives 256×256 history. Jobs queued behind a
+running one check each priced row's `~N` against `GET /api/jobs`, the
+unpriced (320×256) row's missing figure and title, and the "no estimate"
+total. After that row is cancelled, it checks the "of queued work" total
+while paused and "all done in" after Resume. The total stays one line (the
+longest figure too), and no row moves within the queue note. It also checks
+`#job-said` for a priced and an unpriced press, and the cell line's
+`~N expected` before the own-pace `~N left`, which it never follows.
+
 `smoke-queue-controls.json` uses a fresh FLUX.1 Krea [dev] fake on 7914 with
 0.3 s steps. It checks authoritative Move order and focus through reload,
 delayed-response/new-submission races, a watched queued job's Move control,

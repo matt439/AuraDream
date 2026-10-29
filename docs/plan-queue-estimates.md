@@ -1,8 +1,9 @@
 # Queue time estimates
 
-**Status:** `GEN#32` OPEN, 2026-10-29. Planned from the 2026-10-29 TODO audit
-(its item 3); no code has changed. Stage 1 is CPU, fake-server and browser
-work. Stage 2 adds a run hint after a Generate press. No stage needs the card.
+**Status:** `GEN#32` done, 2026-10-30: stages 1 and 2 built together (see
+[Result](#result-2026-10-30)). Planned from the 2026-10-29 TODO audit (its
+item 3). Both stages are CPU, fake-server and browser work; neither needs the
+card, and nothing here claims the history figure's accuracy on it.
 
 ## The ask and the evidence
 
@@ -236,3 +237,68 @@ Frontend (`web/job-queue.js`, `web/generation.js`):
 Neither stage needs the card or Matt's OK to run. How accurate the history
 figure is on the card is a later observation, and this work does not
 establish it.
+
+## Result (2026-10-30)
+
+Built as designed, both stages in one commit.
+
+- Backend: `gallery_reports.execution_estimates(..., disk=False)` skips the
+  PNG sample, and `gallery_reports.job_seconds` prices execution units with
+  it through `grid.estimate_seconds`. `then_refine.execution_units` is the
+  one Then refine expansion (base cell, then a stand-in pass per image), now
+  used by the grid preview, the CLI's estimate line and the queue.
+  `JobManager._price` runs in `asyncio.to_thread` after outpaints are
+  stamped and before masks are held or the run is retained. Any exception
+  is logged, gives `None` and still queues the job. `Job.estimate_seconds`
+  is reported by `snapshot()` and copied into every accepting answer
+  (`JobAccepted` and its subclasses, plus the top level and `more` of Swap
+  tags', Mass refine's and More seeds' answers).
+- Page: `jobEstimates` (state.js) holds each job's `{seconds, budget}` from
+  the reply or the naming snapshot. `queueRow` writes `~N · <label>` in its
+  one text write, and `syncQueueTotal` writes `#queue-text`. `queuedHint`
+  adds the figure and the work ahead to `#job-said`, and `showCell` shows
+  `~N expected` until the own-pace ETA exists.
+- Tests: `tests/test_api_queue_estimates.py` covers criteria 1-4 (Generate
+  with Batch and Repeat, a grid, Then refine, a refine pass, an inpaint, an
+  outpaint, Mass refine, More seeds, Swap tags; the unpriced cases; a
+  raising pricer; the snapshot with every gallery reader refused; run id,
+  cell keys, `applied()`, row columns and the PNG chunk unchanged).
+  `smoke-queue-estimates` (7954) covers criteria 6 and 8.
+  `smoke-queue-controls`, `smoke-queue-cancel-recovery`,
+  `smoke-split-extra-queue` and `smoke-results` pass unchanged. `smoke-jobs`
+  and `smoke-preview` failed at first, because their fakes have 1024×1024
+  history, so their rows are now priced. Their exact-text checks of a row,
+  the `Queued:` line and `#queue-text` now read past the figure. Their
+  focus, order, cancel and live-ETA checks are unchanged, and both pass
+  (criteria 7 and 9).
+
+Choices the plan left open, taken while Matt was away (2026-10-29), revisit
+if wanted:
+
+- **A queued budgeted grid's cap** is the budget's whole length
+  (`deadline - created_at` from a snapshot, or the submitted
+  `budget_minutes`), not the time left: a queued job has no start time yet,
+  and a cap that shrank while it waited would rewrite the row on a clock.
+- **The total follows the live ETA** at the watched job's own progress
+  redraws (`showCell` calls `syncQueueTotal`), not only at queue redraws.
+  The ETA it adds to changes there. The text is still written only when
+  its words change, and never on a timer.
+- **The longest total fits.** At 1400×900 both `… · all done in ~1h 05m:`
+  and `… · ~1h 05m of queued work:` stay one line, so "behind this one"
+  is kept. The smoke checks both strings.
+- **`#job-said` when the work ahead is not fully priced** (an unpriced row
+  ahead, or no live ETA yet) says `Queued: <label> · ~N`, without the
+  "after" clause, rather than a partial sum.
+- **The history figure does not return** for a job once its own-pace
+  `~N left` has shown, including at the last cell, where nothing is left to
+  extrapolate (`paceShown`).
+- **The unpriced titles:** the row's is the plan's ("No time estimate:
+  nothing has run at this size on this checkpoint here"). The total's
+  counts them ("1 queued job has no time estimate: nothing like it has run
+  on this checkpoint here"), because an upscaler pass or an edit is
+  unpriced at any size.
+- **Mass refine's and More seeds' previews** sum per-size figures that are
+  rounded separately. A job is one size (Mass refine) or one run (More
+  seeds), so each job's stored figure equals its preview's for a
+  single-job selection. A multi-job preview's total can differ from the
+  rows' sum by a rounding tenth.

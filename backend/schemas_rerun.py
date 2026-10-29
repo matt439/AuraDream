@@ -426,6 +426,8 @@ class SwapTagsAccepted(BaseModel):
     job_id: str
     seed: int
     run_id: str
+    # The first job's stored price, as `JobAccepted`'s; each in `more` has its own.
+    estimate_seconds: float | None = None
     more: list[JobAccepted] = Field(default_factory=list)
     queued: int
     # Images whose cell the gallery holds at queue time, left out without a
@@ -448,6 +450,7 @@ class MoreSeedsAccepted(BaseModel):
     job_id: str
     seed: int
     run_id: str
+    estimate_seconds: float | None = None
     more: list[JobAccepted] = Field(default_factory=list)
     queued: int
     batches: int

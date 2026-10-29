@@ -377,6 +377,11 @@ let submitting = false;
 // what the viewer shows of a pass until its first frame (refine.js).
 const submissions = new Map();
 const jobLabels = new Map();
+// Each job's stored price ({seconds, budget}), from the reply that accepted
+// it or the snapshot that named it: the server's, set once at submission
+// (`Job.estimate_seconds`), with `seconds` null where nothing like it has
+// run here. `budget` is a time budget's seconds, or null. job-queue.js reads it.
+const jobEstimates = new Map();
 const jobPlaceholders = new Map();
 // Browser storage from before the rename to AuraDream, kept under
 // 'local-diffusion.*': each key moved once to its 'auradream.*' name, in both

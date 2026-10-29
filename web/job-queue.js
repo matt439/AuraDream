@@ -3,8 +3,81 @@
 'use strict';
 
 async function nameJob(jobId) {
-  try { jobLabels.set(jobId, describeJob(await api(`/api/jobs/${jobId}`))); } catch { return; }
+  try {
+    const job = await api(`/api/jobs/${jobId}`);
+    jobLabels.set(jobId, describeJob(job));
+    noteEstimate(job);
+  } catch { return; }
   syncQueueNote();
+}
+
+// A job's price as the server stored it when it was accepted - the reply's
+// `estimate_seconds` or a snapshot's - and a budget's length, which stops a
+// grid sooner: a snapshot's deadline less its creation, both the server's.
+// The page sums and formats it; it never prices anything itself.
+function noteEstimate(job, budget = undefined) {
+  if (!job?.job_id || !('estimate_seconds' in job)) return;
+  const own = budget !== undefined ? budget
+    : typeof job.deadline === 'number' && typeof job.created_at === 'number' ? job.deadline - job.created_at : null;
+  jobEstimates.set(job.job_id, { seconds: job.estimate_seconds ?? null, budget: own });
+}
+
+// A queued job's figure: `~3 min`, `~2 min (budget)` where its budget comes
+// sooner, or null with no estimate (or none known for it yet).
+function queueFigure(jobId) {
+  const estimate = jobEstimates.get(jobId);
+  if (typeof estimate?.seconds !== 'number') return null;
+  const capped = typeof estimate.budget === 'number' && estimate.budget < estimate.seconds;
+  const seconds = capped ? Math.max(0, estimate.budget) : estimate.seconds;
+  return { seconds, text: `~${humanTime(seconds)}${capped ? ' (budget)' : ''}` };
+}
+
+const NO_ESTIMATE_TITLE = 'No time estimate: nothing has run at this size on this checkpoint here';
+
+// The queued work of `ids`: the sum of their figures, and how many have none.
+function queueWork(ids) {
+  let seconds = 0;
+  let missing = 0;
+  for (const id of ids) {
+    const figure = queueFigure(id);
+    if (figure) seconds += figure.seconds;
+    else missing += 1;
+  }
+  return { seconds, missing };
+}
+
+// The live ETA the watched job's own pace gives, in seconds, or null: none
+// yet, a pause (which holds the gate for as long as it lasts), or the watched
+// job itself queued. What "all done in" adds the rows' sum to.
+function watchedEtaSeconds() {
+  if (jobEtaSeconds === null || queueStates.get(currentJob) !== 'running') return null;
+  return cellArgs?.[1].job?.paused ? null : jobEtaSeconds;
+}
+
+// `#queue-text`: how many wait and, where every row is priced, their total -
+// "all done in" with the watched job's live ETA, "of queued work" without.
+// Written only when its words change, at the redraws that already write it
+// and at the watched job's progress (showCell), never on a timer of its own.
+function syncQueueTotal() {
+  const n = queuedIds.length;
+  let text = '';
+  let title = '';
+  if (n > 1) {
+    const waiting = queueStates.get(currentJob) === 'queued';
+    const { seconds, missing } = queueWork(queuedIds);
+    const live = watchedEtaSeconds();
+    const total = missing ? ' · no estimate'
+      : live !== null ? ` · all done in ~${humanTime(live + seconds)}`
+      : ` · ~${humanTime(seconds)} of queued work`;
+    text = `${n} jobs queued${waiting ? '' : ' behind this one'}${total}:`;
+    if (missing) {
+      title = `${missing === 1 ? '1 queued job has' : `${missing} queued jobs have`} no time estimate: `
+        + 'nothing like it has run on this checkpoint here';
+    }
+  }
+  if (els.queueText.textContent !== text) els.queueText.textContent = text;
+  if (els.queueText.title !== title) els.queueText.title = title;
+  els.queueText.hidden = n < 2;
 }
 
 // The jobs waiting behind the watched one, from the ids their submissions
@@ -114,9 +187,7 @@ function syncQueueNote() {
   syncQueueFront();
   const n = queuedIds.length;
   els.queueNote.hidden = !(busy && n > 0);
-  const waiting = queueStates.get(currentJob) === 'queued';
-  els.queueText.textContent = n > 1 ? `${n} jobs queued${waiting ? '' : ' behind this one'}:` : '';
-  els.queueText.hidden = n < 2;
+  syncQueueTotal();
   // Its × is the whole choice for one job; Cancel queued is for several.
   els.cancelQueued.hidden = n < 2;
   // A row of another tab's is that tab's work: Cancel queued says it takes
@@ -144,8 +215,13 @@ function queueRow(jobId, alone) {
   li.dataset.id = jobId;
   const text = document.createElement('span');
   const next = jobId === (queueFirstId ?? queuedIds[0]);
-  text.textContent = foreign ? `${alone && next ? "Next, another tab's job" : ANOTHER_TABS_JOB}: ${label}`
-    : alone ? `${next ? 'Next' : 'Queued'}: ${label}` : label;
+  // Its price first, in the same write as its name: an estimate arriving
+  // later as a second change would move a row the pointer may be over.
+  const figure = queueFigure(jobId);
+  const priced = figure ? `${figure.text} · ${label}` : label;
+  text.textContent = foreign ? `${alone && next ? "Next, another tab's job" : ANOTHER_TABS_JOB}: ${priced}`
+    : alone ? `${next ? 'Next' : 'Queued'}: ${priced}` : priced;
+  if (!figure && jobEstimates.has(jobId)) text.title = NO_ESTIMATE_TITLE;
   const cancel = document.createElement('button');
   cancel.type = 'button';
   cancel.dataset.queueAction = 'cancel';
@@ -356,6 +432,7 @@ function learnJobs(listed) {
   for (const job of listed) {
     rememberQueueState(job);
     if (!jobLabels.has(job.job_id)) jobLabels.set(job.job_id, describeJob(job));
+    if (!jobEstimates.has(job.job_id)) noteEstimate(job);
   }
   queueFirstId = listed.find((job) => job.status === 'queued')?.job_id ?? null;
   syncQueueFront();

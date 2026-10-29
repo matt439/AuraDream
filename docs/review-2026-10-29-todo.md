@@ -58,7 +58,7 @@ real defects first among equals.
 | Row | Status | Owner |
 |---|---|---|
 | `GAL#21` search exclusion | Done 2026-10-30 | [plan-search-exclusion.md](plan-search-exclusion.md) |
-| `GEN#32` queue estimates | OPEN | [plan-queue-estimates.md](plan-queue-estimates.md) |
+| `GEN#32` queue estimates | Done 2026-10-30 | [plan-queue-estimates.md](plan-queue-estimates.md) |
 | `PA#12`, `UI#32`, `UI#33`, `GEN#33`, `GEN#34`, `GAL#23`, `GEN#36`, `GEN#38`, `UI#38` | OPEN | [review-2026-10-29-backlog.md](review-2026-10-29-backlog.md) |
 | `GEN#35`, `GEN#37` Then refine follow-ons | OPEN | [plan-then-refine.md](plan-then-refine.md) |
 | `UI#34` Compare scales | OPEN | [plan-size-axis-crop-anchor.md](plan-size-axis-crop-anchor.md#compare-scales-in-the-refine-dialog) |

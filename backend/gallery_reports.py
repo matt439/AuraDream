@@ -18,7 +18,7 @@ from typing import Any
 from . import storage
 # VARIANT is the variable a comparison's versions are recorded under, which
 # `keep_rates` groups by.
-from .grid import VARIANT
+from .grid import VARIANT, estimate_seconds
 from .refine import start_index
 from .schemas import RunSummary
 from .search import TRUE_CFG_SQL, strict_scope
@@ -132,21 +132,24 @@ def image_bytes(width: int, height: int, model_id: str | None = None, sample: in
     return sizes[len(sizes) // 2]
 
 
-def execution_estimates(cells: Sequence[Any], model_id: str) -> tuple[dict, int | None]:
+def execution_estimates(
+    cells: Sequence[Any], model_id: str, *, disk: bool = True,
+) -> tuple[dict, int | None]:
     """Matching history per concrete canvas, and the sum of its PNG samples.
 
     Callers pass execution units in their real order, including Then refine's
     stand-ins. Missing history for one size never borrows another's sample.
+    `disk=False` is time only: no PNG is stat()ed and the sum is None.
     """
     groups: dict[tuple[int, int], list[Any]] = {}
     for cell in cells:
         groups.setdefault((cell.request.width, cell.request.height), []).append(cell)
     prices = {}
-    disk: int | None = 0 if cells else None
+    need: int | None = 0 if cells and disk else None
     for size, group in groups.items():
         if any(cell.request.edit is not None for cell in group):
             # There is no qualified edit history/estimator in this release.
-            prices[size], disk = (None, {}, {}), None
+            prices[size], need = (None, {}, {}), None
             continue
         prices[size] = (
             step_cost_ms(*size, model_id),
@@ -154,12 +157,22 @@ def execution_estimates(cells: Sequence[Any], model_id: str) -> tuple[dict, int 
             refine_cost_ms(*size, model_id, inpaint=True)
             if any(cell.request.inpainting for cell in group) else {},
         )
+        if need is None:
+            continue
         sample = image_bytes(*size, model_id)
         if sample is None:
-            disk = None
-        elif disk is not None:
-            disk += sample * sum(cell.request.num_images for cell in group)
-    return prices, disk
+            need = None
+        else:
+            need += sample * sum(cell.request.num_images for cell in group)
+    return prices, need
+
+
+def job_seconds(cells: Sequence[Any], model_id: str) -> float | None:
+    """A queued job's time from matching history, or None: the preview's
+    figure for the same execution units, without its disk sample, so the
+    queue's price reads no PNG (`jobs.JobManager.submit_cells`)."""
+    prices, _ = execution_estimates(cells, model_id, disk=False)
+    return estimate_seconds(list(cells), None, by_size=prices)
 
 
 # The columns `keep_rates` can group by, as SQL. CFG and mu are rounded to the

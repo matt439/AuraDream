@@ -40,6 +40,9 @@ function progressShown() {
 // last showed them, for the mirrors: the tab's title and the topbar.
 let jobFraction = 0;
 let jobEta = '';
+// The same estimate in seconds (the budget's where it comes sooner), or null:
+// what the queue's "all done in" adds its rows to (syncQueueTotal).
+let jobEtaSeconds = null;
 
 function setProgress(fraction) {
   jobFraction = fraction;
@@ -145,6 +148,10 @@ let cellArgs = null;
 // end; a one-step cell's next event is the next cell's, whose own encode
 // every later cell will carry too. A one-step job has nothing to estimate.
 let etaFrom = null;
+// The job whose own-pace estimate the cell line has shown: from then on the
+// history figure (`~N expected`) does not come back for it, not between
+// cells nor at the last one, where there is nothing left to extrapolate.
+let paceShown = null;
 // How long a pause has held the gate, from the worker's `paused_at` (the
 // server's Unix seconds, read against the server's clock as the last status
 // gave it - a WSL server's drifts from the host's): "3 min", or
@@ -199,6 +206,7 @@ function showCell(data, { job = null, budget = null, note = '', jobId = null } =
   if (said) parts.push(said);
   if (data.label) parts.push(`cell ${data.run}/${data.total_runs} · ${data.label}`);
   jobEta = '';
+  jobEtaSeconds = null;
   const runs = data.total_runs || 1;
   const within = data.total_steps ? (data.step || 0) / data.total_steps : 0;
   const fraction = (((data.run || 1) - 1) + within) / runs;
@@ -212,10 +220,16 @@ function showCell(data, { job = null, budget = null, note = '', jobId = null } =
       const eta = (data.elapsed - from.elapsed) * (1 - fraction) / (fraction - from.fraction);
       const left = budget === null ? Infinity : Math.max(0, budget - data.elapsed);
       jobEta = left < eta ? `~${humanTime(left)} left (budget)` : `~${humanTime(eta)} left`;
+      jobEtaSeconds = Math.min(left, eta);
+      paceShown = jobId;
       timing += ` · ${jobEta}`;
     }
     parts.push(timing);
   }
+  // Until the job's own pace can be measured, the gallery's history for the
+  // whole job, labelled as that - never mixed into the own-pace figure.
+  const expected = !jobEta && data.step && jobId !== null && paceShown !== jobId ? queueFigure(jobId) : null;
+  if (expected) parts.push(`${expected.text} expected`);
   els.cellNote.textContent = parts.join(' · ');
   // A grid's skipped cells as they happen, in the failure colour: the line
   // used to go from cell 4 to cell 6 with no mark.
@@ -226,6 +240,8 @@ function showCell(data, { job = null, budget = null, note = '', jobId = null } =
     span.textContent = `${parts.length ? ' · ' : ''}${skipped} skipped`;
     els.cellNote.append(span);
   }
+  // The queue's total follows the live ETA it adds to.
+  syncQueueTotal();
 }
 
 // Skip names the exact active call, not the job's next cell. Keep the token

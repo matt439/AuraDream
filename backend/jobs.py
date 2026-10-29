@@ -19,7 +19,7 @@ from dataclasses import asdict, dataclass, field, replace
 from types import MethodType
 from typing import Any
 
-from . import gallery_lock, storage
+from . import gallery_lock, gallery_reports, storage
 from .backends import Cancelled, GenerationBackend
 from .backends.base import ExecutionDiagnosticsReader
 from .backends.regional_compile import RegionalDiagnosticOwner, RegionalDiagnostics
@@ -31,7 +31,7 @@ from .latent_preview import data_url
 from .more_seeds_intents import IntentLedger
 from .schemas import GenerateRequest, ThenRefine
 from .seeds import random_seed, wrap_seed
-from .then_refine import pass_run_id, stand_in
+from .then_refine import execution_units, pass_run_id, stand_in
 
 log = logging.getLogger(__name__)
 
@@ -218,6 +218,12 @@ class Job:
     # session - and the field tells the UI which kind of stop it was.
     deadline: float | None = None
     stopped_by: str | None = None
+    # Seconds the job's cells would take by the gallery's matching history,
+    # priced once at submission (`JobManager._price`), or None where any cell
+    # has none. Presentation only: never repriced, never a reproduction field
+    # - not in `CellKey`, `run_id`, `applied()`, a row, a PNG or a bundle -
+    # and not retained, so a restarted server has none.
+    estimate_seconds: float | None = None
     # Whether `storage.hold_masks` holds masks for this job, which `_finish`
     # then releases.
     holds_masks: bool = False
@@ -424,6 +430,9 @@ class Job:
             "last_progress_at": self.last_progress_at,
             "deadline": self.deadline,
             "stopped_by": self.stopped_by,
+            # The stored price, read and never computed here: the snapshot
+            # runs on the loop for every listing and status frame.
+            "estimate_seconds": self.estimate_seconds,
         }
         if images:
             frame["images"] = [image for image in self.images if image["id"] not in self.deleted]
@@ -782,6 +791,22 @@ class JobManager:
         self.stop_all("shutdown")
         await asyncio.to_thread(self._pool.shutdown, True)
 
+    @staticmethod
+    async def _price(
+        job_id: str, cells: list[Cell], then_refine: ThenRefine | None, model_id: str,
+    ) -> float | None:
+        """The job's time from matching history, off the loop and without a
+        PNG stat: the cells as the worker runs them, each followed by Then
+        refine's stand-in passes, as the grid preview prices them. Never a
+        reason to refuse the job - a busy gallery or any error is None."""
+        try:
+            return await asyncio.to_thread(
+                gallery_reports.job_seconds, execution_units(cells, then_refine), model_id,
+            )
+        except Exception as exc:
+            log.warning("job %s: no time estimate (%s)", job_id, exc)
+            return None
+
     async def submit(self, request: GenerateRequest, then_refine: ThenRefine | None = None) -> Job:
         """An ordinary request: `runs` passes of one setting, seed stepped.
 
@@ -896,6 +921,7 @@ class JobManager:
         )
         if then_refine is not None:
             job.pass_run_id = pass_run_id(resolved_run_id, then_refine)
+        job.estimate_seconds = await self._price(job.id, cells, then_refine, selected.model_id)
         # Held where every process's mask sweep looks, before the job is
         # queued: a CLI `clear --bin` an hour on must not take the mask of a
         # cell still waiting its turn (`storage.hold_masks`).

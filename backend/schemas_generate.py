@@ -954,6 +954,9 @@ class JobAccepted(BaseModel):
     # needs the base.
     seed: int
     run_id: str
+    # The job's stored price from matching history (`Job.estimate_seconds`),
+    # or None: the queue row's figure from its first render. Additive.
+    estimate_seconds: float | None = None
 
 
 class MaskStored(BaseModel):

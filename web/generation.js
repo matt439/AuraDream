@@ -106,6 +106,7 @@ function setBusy(on) {
   els.progressNow.textContent = '';
   els.progressNow.title = '';
   jobEta = '';
+  jobEtaSeconds = null;
   cellArgs = null;
   syncSkip(null);
   // The finished job's line stays - only the next job's end replaces it -
@@ -227,6 +228,7 @@ function submissionLabel(path, payload) {
 function forgetJob(jobId) {
   submissions.delete(jobId);
   jobLabels.delete(jobId);
+  jobEstimates.delete(jobId);
   jobPlaceholders.delete(jobId);
   jobsToShow.delete(jobId);
   foreignJobs.delete(jobId);
@@ -249,6 +251,20 @@ function isForeign(jobId) {
   if (!viewerRecords.some((rec) => ownJobs.has(rec.job_id))) return false;
   foreignJobs.add(jobId);
   return true;
+}
+
+// A priced job accepted behind other work: ` · ~3 min`, and
+// `, after ~11 min of work ahead` where everything ahead of it is priced -
+// the watched job by its own live ETA, the rows before it by their stored
+// figures. Unpriced, nothing, and the line says `Queued: <label>` as before.
+function queuedHint(jobId) {
+  const figure = queueFigure(jobId);
+  if (!figure) return '';
+  const before = queuedIds.slice(0, Math.max(0, queuedIds.indexOf(jobId)));
+  const live = watchedEtaSeconds();
+  const { seconds, missing } = queueWork(before);
+  return live === null || missing ? ` · ${figure.text}`
+    : ` · ${figure.text}, after ~${humanTime(live + seconds)} of work ahead`;
 }
 
 // The hidden line a screen reader hears a job's end on (#job-said), and a
@@ -410,10 +426,15 @@ async function startJob(path, payload, {
     const split = more.length ? [job_id, ...more.map((extra) => extra.job_id)] : null;
     submissions.set(job_id, { path, payload, seed, run_id: answer.run_id, sheet, asker, model, revision, split, at: Date.now() });
     jobLabels.set(job_id, submissionLabel(path, payload));
+    // The server's price for each, in the reply, so a row has it from its
+    // first render. A budget is the grid's (or Finish run's) own minutes.
+    const budgetMinutes = answer.budget_minutes ?? payload?.budget_minutes;
+    noteEstimate(answer, budgetMinutes ? budgetMinutes * 60 : null);
     for (const extra of more) {
       ownJobs.add(extra.job_id);
       submissions.set(extra.job_id, { path, payload, seed: extra.seed, run_id: extra.run_id, sheet: false, asker, model, revision, split, at: Date.now() });
       jobLabels.set(extra.job_id, submissionLabel(path, payload));
+      noteEstimate(extra, null);
       void nameJob(extra.job_id);
     }
     // Read when they join the queue, which may have changed by then. One a
@@ -466,8 +487,9 @@ async function startJob(path, payload, {
           syncQueueNote();
         }
         // The queue's rows are no live region: a screen reader hears that
-        // the press queued something, and what.
-        sayJob(`Queued: ${jobLabels.get(job_id)}`);
+        // the press queued something, and what - and, priced, how long it
+        // and the work ahead of it should take (queuedHint).
+        sayJob(`Queued: ${jobLabels.get(job_id)}${queuedHint(job_id)}`);
         return;
       }
       setBusy(true);
