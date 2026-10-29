@@ -21,6 +21,7 @@ from collections.abc import Callable, Mapping
 from dataclasses import dataclass
 from typing import TextIO
 
+from backend.instruction_edit import KONTEXT_V1, is_edit_only
 from backend.loader_choices import FORMATS, OFFLOADS, QUANTIZATIONS
 from backend.model_defaults import DEFAULT_MODEL_ID, DEFAULT_OFFLOAD, DEFAULT_QUANT, defaults_for
 from backend.startup_preferences import (
@@ -45,6 +46,9 @@ class Checkpoint:
 
     def summary(self) -> str:
         profile = defaults_for(self.repo)
+        # An editor's guidance is not CFG, and it never generates from text.
+        if is_edit_only(self.repo):
+            return f"edit only, {profile['steps']} steps"
         return f"{profile['steps']} steps, CFG {profile['guidance_scale']:g}"
 
 
@@ -180,6 +184,11 @@ CHECKPOINTS: tuple[Checkpoint, ...] = (
         "open",
         "lite-infer/ERNIE-Image-Turbo-nunchaku-lite-{fmt}-bnb4-text-encoder",
     ),
+    # 12B instruction editor: it edits a gallery image and never generates
+    # from text. Last, so the menu's numbers do not move. Listed is not
+    # loadable: its loads are held by the backend's gate and the measured
+    # envelope (`instruction_edit.QUALIFIED_ENVELOPE`). No Lite re-upload.
+    Checkpoint("FLUX.1 Kontext [dev]", KONTEXT_V1.model_id, "click-through gate"),
 )
 
 # What config.py falls back to, from the one module both may import - importing
@@ -260,9 +269,7 @@ def edit_checkpoint_refusal(env: Mapping[str, str] | None = None) -> str | None:
     instance's, answered when it loads; nothing here opens it.
     """
     from backend.execution import loader_execution_from_choices
-    from backend.instruction_edit import (
-        INSTRUCTION_EDIT_EXACT_ID, INSTRUCTION_EDITOR_UNSUPPORTED, KONTEXT_V1, is_edit_only, loader_refusal,
-    )
+    from backend.instruction_edit import INSTRUCTION_EDIT_EXACT_ID, INSTRUCTION_EDITOR_UNSUPPORTED, loader_refusal
 
     env = os.environ if env is None else env
     model_id = env.get("AURADREAM_MODEL_ID") or _DEFAULT_MODEL

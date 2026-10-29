@@ -101,15 +101,11 @@ def test_catalogue_speed_uses_draft_loading_options_without_applying_them(client
 
 
 def test_the_editors_row_carries_the_backends_answer_for_the_draft_loader(client, fake, monkeypatch):
-    # Ahead of its listing (slice 6), a listing that holds the editor gives
-    # its row this instance's own answer for the loader being chosen; every
-    # other row keeps the closed gate's words. Nothing is selected or loaded.
+    # The listed editor's row gets this instance's own answer for the loader
+    # being chosen; every other row keeps the closed gate's words. Nothing
+    # is selected or loaded.
     from backend.instruction_edit import INSTRUCTION_EDIT_UNAVAILABLE, KONTEXT_V1
 
-    listing = model_selection.available
-    monkeypatch.setattr(model_selection, "available", lambda *args, **kwargs: [
-        *listing(*args, **kwargs), {"model_id": KONTEXT_V1.model_id, "label": "FLUX.1 Kontext [dev]"},
-    ])
     seen = {}
 
     def details(model_id, *, quantization, offload, edit_reason):
@@ -882,6 +878,10 @@ def test_switch_to_kontext_refused_while_gated_before_hub_save_or_unload(client,
     asked = _forbid_hub(monkeypatch)
     loads = fake.loads
     before = _saved_bytes()
+    # Listed, last, as any catalogue entry; listed is not loadable.
+    assert client.get("/api/models").json()["models"][-1] == {
+        "model_id": KONTEXT_V1.model_id, "label": "FLUX.1 Kontext [dev]",
+    }
     # The real backend's gate is closed: Switch & load and Apply & save
     # alike, by the exact id or a case variant, before anything is touched.
     for model_id in (KONTEXT_V1.model_id, KONTEXT_V1.model_id.upper()):
@@ -933,8 +933,7 @@ def test_switch_to_kontext_envelope_asks_the_hub(client, fake, monkeypatch):
     from backend import hub_access
     from backend.instruction_edit import KONTEXT_V1
 
-    # Kontext is not catalogued: reachable here only as this start's own
-    # explicit checkpoint, with Krea 2 Turbo selected since.
+    # Started on the editor, with Krea 2 Turbo selected since.
     monkeypatch.setattr(main, "settings", dataclasses.replace(main.settings, model_id=KONTEXT_V1.model_id))
     monkeypatch.setattr(model_selection, "_selection", (TURBO, 1))
     fake.edit_qualified = True

@@ -5,8 +5,9 @@ frontend, no build step. The default checkpoint is **FLUX.1 Krea [dev]**
 (`black-forest-labs/FLUX.1-Krea-dev`), which is click-through gated; **Krea 2
 Turbo** (`krea/Krea-2-Turbo`) needs manual approval on HuggingFace and is what
 the sizing notes in `docs/design-notes.md` are written around. The catalogue
-in `backend/launch.py` lists the rest; any of them runs unchanged - set
-`AURADREAM_MODEL_ID`, or choose in the browser's Models panel.
+in `backend/launch.py` lists the rest; any text-to-image one runs unchanged -
+set `AURADREAM_MODEL_ID`, or choose in the browser's Models panel. The last,
+FLUX.1 Kontext [dev], only edits, and its loads are held (the edit gate below).
 
 This file is the short version. Before changing an area, read its part of
 **`docs/rules.md`** (every rule in full, the module map, what each smoke
@@ -308,7 +309,8 @@ Reproduction and storage:
   (literal `True` only), never a setting; `DiffusersBackend` returns a literal
   False, its editor load holds open only for the exact Kontext id inside the
   measured envelope with a literal True (the pinned configs-then-weights
-  loader) and Kontext stays out of `CHECKPOINTS`. So real-server editor
+  loader). Kontext is an edit-only catalogue entry, listed last; its loads
+  are held by the gate and the envelope. So real-server editor
   loading and execution remain unavailable until card qualification. The fake and the stub can queue,
   through `POST /api/instruction-edit` only, which re-proves each cell's
   source as it begins. Reuse opens the Edit by instruction dialog. Generate,

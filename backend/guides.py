@@ -280,7 +280,8 @@ KLEIN_GUIDE = {
 # examples are BFL's own edit instructions, verbatim (the overview's straight
 # apostrophes). Its `pixels` are the span of those examples' output sizes
 # (1248x832 to 800x1328), which this app does not run: the size prose says
-# that only square sources are qualified here, at 512x512.
+# that only square sources are qualified here, at 512x512, and that those
+# sizes are no published maximum (`pixels_source` names them in its words).
 _KONTEXT_DRIFT = (
     "Measured on this card, the rest of the picture still drifts: a recoloured "
     "ball also grew and moved."
@@ -298,13 +299,15 @@ KONTEXT_GUIDE = {
     "size": (
         "BFL's API keeps an edit as close to the input image's size as it can, "
         "rounded to multiples of 32, at about 1 MP and aspect ratios from 3:7 to "
-        "7:3. That is FLUX.1 Kontext [pro]'s endpoint. Here [dev] is qualified for "
-        "square sources only, which render at 512x512; other shapes are held "
-        "until they are measured."
+        "7:3. That is FLUX.1 Kontext [pro]'s endpoint. The size highlights follow "
+        "the output sizes of the authors' edit examples, about 1.04-1.06 MP; no "
+        "published maximum is given for [dev]. Here [dev] is qualified for square "
+        "sources only, which render at 512x512; other shapes are held until they "
+        "are measured."
     ),
     "pixels": (1.04, 1.06),
     "pixels_word": "example",
-    "pixels_source": "BFL's edit examples",
+    "pixels_source": "the authors' edit examples",
     "examples": [
         "Change the car color to red",
         "Remove the object from her face",

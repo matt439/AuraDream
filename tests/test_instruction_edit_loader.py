@@ -370,6 +370,43 @@ def test_kontext_class_under_another_id_and_qwen_stay_refused(kontext_hub, monke
     assert not backend.is_ready()
 
 
+@pytest.mark.parametrize("case", ["upper", "lower"])
+def test_exact_id_refusal_runs_before_custom_class_check_on_every_entry(kontext_hub, monkeypatch, case):
+    # Listed (slice 6), the editor is a catalogue id, which
+    # `require_custom_pipeline_class` casefolds and passes without reading an
+    # index. What refuses a case variant is `require_model_available`'s exact
+    # id, which every entry asks first, even with the gate open and the
+    # measured loader.
+    from backend import launch, model_selection
+
+    backend, _, events, hub = kontext_hub
+    variant = getattr(instruction_edit.KONTEXT_V1.model_id, case)()
+    assert loading.require_custom_pipeline_class(variant) is None
+    asked = []
+    monkeypatch.setattr(loading, "require_custom_pipeline_class", lambda model_id: asked.append(model_id))
+    selected = replace(module.settings, model_id=variant, device="cpu", offload="none", quantization="fp8")
+    monkeypatch.setattr(module, "current_settings", lambda startup: selected)
+    monkeypatch.setattr(model_selection, "current_settings", lambda startup: selected)
+    entries = {
+        "load": backend.load,
+        "load_prepared": functools.partial(backend._load_prepared, None),
+        "switch": functools.partial(model_selection.validate, module.settings, variant, backend=backend),
+        "apply": functools.partial(model_selection.validate, module.settings, variant, load=False, backend=backend),
+    }
+    for name, entry in entries.items():
+        with pytest.raises(ValueError) as caught:
+            entry()
+        assert str(caught.value) == instruction_edit.INSTRUCTION_EDIT_EXACT_ID, name
+    # Startup's explicit choice, in the same words, inside the envelope.
+    monkeypatch.setattr(launch, "_edit_host", lambda: (
+        instruction_edit.QUALIFIED_ENVELOPE.platform, instruction_edit.QUALIFIED_ENVELOPE.diffusers_version,
+    ))
+    assert launch.edit_checkpoint_refusal({
+        "AURADREAM_MODEL_ID": variant, "AURADREAM_QUANT": "fp8", "AURADREAM_OFFLOAD": "model",
+    }) == instruction_edit.INSTRUCTION_EDIT_EXACT_ID
+    assert asked == [] and hub.calls == [] and events == [] and not backend.is_ready()
+
+
 @pytest.mark.parametrize("stage", ["configs", "weights"])
 def test_offline_maps_to_load_failure(kontext_hub, monkeypatch, stage):
     import huggingface_hub
@@ -391,5 +428,6 @@ def test_offline_maps_to_load_failure(kontext_hub, monkeypatch, stage):
     monkeypatch.setattr(main, "current_model_id", lambda startup: instruction_edit.KONTEXT_V1.model_id)
     message, kind, page = main._load_failure(caught.value)
     assert kind == "offline" and page is None
-    assert message.startswith(f"{instruction_edit.KONTEXT_V1.model_id} is not all downloaded yet")
+    # Listed now, so the words name the catalogue entry, as for any other.
+    assert message.startswith("FLUX.1 Kontext [dev] is not all downloaded yet")
     assert "pretrained" not in events and not backend.is_ready()

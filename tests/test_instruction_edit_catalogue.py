@@ -1,9 +1,10 @@
-"""INP#11 stage 4 slice 5: FLUX.1 Kontext [dev]'s catalogue data, by id.
+"""INP#11 stage 4 slices 5-6: FLUX.1 Kontext [dev]'s catalogue entry.
 
-Everything a catalogue entry needs - the sourced guide, the explicit
-profile, the encoder rows, the compact facts, the download reference and
-the timing - while the editor is still absent from `launch.CHECKPOINTS`.
-Nothing here loads, downloads or opens the edit gate.
+Everything the entry carries - the sourced guide, the explicit profile, the
+encoder rows, the compact facts, the download reference and the timing -
+kept by its exact id (slice 5), and the entry itself, listed last as an
+edit-only checkpoint (slice 6). Nothing here loads, downloads or opens the
+edit gate.
 """
 from __future__ import annotations
 
@@ -27,12 +28,18 @@ from backend.model_defaults import _FALLBACK, _profile_for, defaults_for, guide_
 from tests.prompt_rules_helpers import run
 
 KONTEXT = KONTEXT_V1.model_id
-_ENTRY = launch.Checkpoint("FLUX.1 Kontext [dev]", KONTEXT, "click-through gate")
 
 
-def test_the_editor_is_still_not_catalogued():
-    # Slice 6 lists it; until then every fact is reached by its exact id.
-    assert KONTEXT not in {entry.repo for entry in launch.CHECKPOINTS}
+def test_the_editor_is_listed_last_as_an_edit_only_entry():
+    # Last, so the terminal menu's numbers for every other entry stay put;
+    # no Lite re-upload, so the Nunchaku menu leaves it out.
+    entry = launch.CHECKPOINTS[-1]
+    assert entry == launch.Checkpoint("FLUX.1 Kontext [dev]", KONTEXT, "click-through gate")
+    assert [checkpoint.repo for checkpoint in launch.CHECKPOINTS].count(KONTEXT) == 1
+    assert entry.lite is None and entry.lite_repo("nvfp4") is None
+    # The menu's summary says what it is, and no CFG it does not have.
+    assert entry.summary() == f"edit only, {KONTEXT_V1.default_steps} steps"
+    assert "edit only" not in launch.CHECKPOINTS[0].summary() and "CFG" in launch.CHECKPOINTS[0].summary()
 
 
 # --- the profile ------------------------------------------------------------
@@ -91,14 +98,14 @@ def test_the_status_words_follow_the_backends_answer():
 
 
 def test_the_guide_passes_the_catalogues_guide_checks():
-    # What test_every_catalogue_entry_has_a_prompting_guide holds a listed
-    # checkpoint to, ahead of the listing.
+    # What test_every_catalogue_entry_has_a_prompting_guide holds every
+    # listed checkpoint to, the editor's own values named.
     guide = guide_for(KONTEXT)
     assert guide["examples"] and guide["slots"] == []
     assert set(guide["example_notes"]) <= set(guide["examples"])
     low, high = guide["pixels"]
     assert 0 < low <= high and guide["pixels_word"] == "example"
-    assert guide["pixels_source"] == "BFL's edit examples"
+    assert guide["pixels_source"] == "the authors' edit examples"
     hints = hints_for(KONTEXT)
     assert "Unrecognised" not in hints["prompt"] and "Unrecognised" not in hints["size"]
     assert guides.KONTEXT_GUIDE["analysis"]["url"].startswith("https://docs.bfl.ai/kontext/")
@@ -162,14 +169,7 @@ def test_the_encoders_are_flux_kontexts_at_the_pinned_revision():
 # --- the compact facts, as a catalogue row will show them -------------------------
 
 
-@pytest.fixture
-def listed(monkeypatch):
-    """The editor as slice 6 will list it, for `details_for` only."""
-    for module in (model_info, model_benchmarks):
-        monkeypatch.setattr(module, "CHECKPOINTS", (*launch.CHECKPOINTS, _ENTRY))
-
-
-def test_details_for_gives_the_editors_strings(listed):
+def test_details_for_gives_the_editors_strings():
     detail = model_info.details_for(KONTEXT, "fp8", "model")
     assert detail["style"] == "Instruction editor"
     assert (detail["megapixels"], detail["megapixels_label"]) == ("0.26 MP", "Qualified size")
@@ -189,7 +189,7 @@ def test_details_for_gives_the_editors_strings(listed):
     assert model_info.details_for(KONTEXT, "fp8", "sequential")["speed_label"] == "Unmeasured"
 
 
-def test_the_editors_row_says_the_live_answer(listed):
+def test_the_editors_row_says_the_live_answer():
     cold = model_info.details_for(KONTEXT)
     assert (cold["instruction_edit"], cold["instruction_edit_note"]) == ("Held", INSTRUCTION_EDIT_UNAVAILABLE)
     held = model_info.details_for(KONTEXT, edit_reason="sequential offload is not measured")

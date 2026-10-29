@@ -562,7 +562,7 @@ def test_the_example_word_is_exactly_where_the_prose_says_no_bound():
         repo for repo in _catalogue_repos() if guide_for(repo)["pixels_word"] == "example"
     } == {
         "duongve/NetaYume-Lumina-Image-2.0", "NewBie-AI/NewBie-image-Exp0.1",
-        "LyliaEngine/waiIllustriousSDXL_v170",
+        "LyliaEngine/waiIllustriousSDXL_v170", "black-forest-labs/FLUX.1-Kontext-dev",
     }
     # Whose sizes the line names them as, exactly where the word is
     # "example": what the size prose calls them, and one author's ("the

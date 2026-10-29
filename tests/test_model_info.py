@@ -9,10 +9,10 @@ from backend.model_defaults import defaults_for
 
 
 def test_every_catalogue_selection_has_explicit_compact_facts():
-    from backend.instruction_edit import KONTEXT_V1
+    from backend.instruction_edit import KONTEXT_V1, is_edit_only
 
-    # The editor's facts are kept by its exact id ahead of its listing.
-    assert set(model_info._FACTS) == {entry.repo for entry in CHECKPOINTS} | {KONTEXT_V1.model_id}
+    assert KONTEXT_V1.model_id in {entry.repo for entry in CHECKPOINTS}
+    assert set(model_info._FACTS) == {entry.repo for entry in CHECKPOINTS}
     for entry in CHECKPOINTS:
         detail = model_info.details_for(entry.repo)
         assert 1 <= len(detail["style"].split()) <= 2
@@ -21,12 +21,17 @@ def test_every_catalogue_selection_has_explicit_compact_facts():
         assert float(detail["megapixels"].removesuffix(" MP")) > 0
         assert detail["refine"] == ("Yes" if defaults_for(entry.repo)["refine_supported"] else "No")
         assert detail["refine_note"]
+        assert detail["favourite_id"] == entry.repo
+        # An editor never generates directly: its size is the one measured.
+        if is_edit_only(entry.repo):
+            assert "Direct generation" not in detail["megapixels_note"]
+            assert detail["megapixels_label"] == "Qualified size"
+            continue
         assert "Direct generation, not Refine" in detail["megapixels_note"]
         assert detail["megapixels_label"] in {
             "Max recommended", "Documented max", "Trained max", "Native max",
             "Reference size", "Largest example",
         }
-        assert detail["favourite_id"] == entry.repo
 
 
 @pytest.mark.parametrize("fmt", [value for value, _ in FORMATS])
@@ -181,8 +186,9 @@ def test_instruction_edit_facts_on_catalogue_editor_and_other_custom_rows():
     from backend.instruction_edit import INSTRUCTION_EDIT_UNAVAILABLE, KONTEXT_V1
     from backend.launch import CHECKPOINTS
 
-    assert KONTEXT_V1.model_id not in {entry.repo for entry in CHECKPOINTS}
-    for entry in CHECKPOINTS:
+    # Listed last, and the one row that can say anything but No.
+    assert CHECKPOINTS[-1].repo == KONTEXT_V1.model_id
+    for entry in CHECKPOINTS[:-1]:
         detail = model_info.details_for(entry.repo)
         assert detail["instruction_edit"] == "No"
         assert "FLUX.1 Kontext [dev]" in detail["instruction_edit_note"]

@@ -108,6 +108,9 @@ def test_status_never_loads_a_tokenizer(client, fake, monkeypatch):
 
     fake.loaded = False
     poll()
+    # The catalogue ends on the editor, whose load the gate holds: load a
+    # checkpoint that can.
+    claim(monkeypatch, fake, FLUX)
     client.post("/api/model/load")
     deadline = time.time() + 5
     while client.get("/api/status").json()["state"] != "ready":

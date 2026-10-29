@@ -676,8 +676,27 @@ Its `pixels` are the span of BFL's example outputs (1.04-1.06 MP, the word
 `example`), not 512x512: no BFL page names 512x512, and the size prose and
 the compact facts say that only square sources at 512x512 are qualified.
 
-The later slices add the catalogue entry, open the real gate, and release
-More seeds of edits.
+**Slice 6 (built): the catalogue entry, shown as held.** `launch.CHECKPOINTS`
+ends on `Checkpoint("FLUX.1 Kontext [dev]", KONTEXT_V1.model_id,
+"click-through gate")`, appended so no menu number moves, with no Lite
+re-upload (the Nunchaku menu leaves it out); its menu summary says "edit
+only" and its step count, not a CFG it does not have. With the real gate
+still False the row says Held with the gate's words; Switch & load and Apply
+& save answer 422 before the Hub, the save and the unload, and FLUX stays
+loaded (smoke-model-switch). Catalogued, a case variant passes
+`require_custom_pipeline_class`, so the exact-id check that every entry asks
+first is what refuses it
+(`test_exact_id_refusal_runs_before_custom_class_check_on_every_entry`).
+The catalogue-wide suites now take the entry: its compact facts have no
+"Direct generation" note and a "Qualified size" label, its timing and
+download reference no longer need a by-id exception, and its guide passes
+the example-word checks (`pixels_source` "the authors' edit examples", a
+size prose saying no maximum is published for [dev]). The inpaint suite
+counts it as an editor rather than a deferred family: diffusers has
+`FluxKontextInpaintPipeline`, but an editor never paints a mask, so the page
+never says "deferred".
+
+The later slices open the real gate and release More seeds of edits.
 
 ## Stages and completion criteria
 

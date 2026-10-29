@@ -15,7 +15,9 @@ before changing it.
   `HF_HOME` folders resolve to an existing `local-diffusion` one while no
   `auradream` one exists; it renames nothing
 - `backend/launch.py` — the start-up menu and the `--model/--quant/--offload`
-  flags, run before `config` is imported; the checkpoint catalogue lives here;
+  flags, run before `config` is imported; the checkpoint catalogue lives here,
+  ending on FLUX.1 Kontext [dev], the edit-only entry (its menu summary says
+  "edit only");
   `warn_legacy_env` names any `LOCAL_DIFFUSION_*` still set, which is not read
 - `backend/loader_choices.py` — quantization, offload and Nunchaku format
   choices, worded once for the `--menu` and the browser picker
@@ -952,8 +954,14 @@ Model and loader:
   refuses any request without `edit` (`text_to_image_refusal`); an edit's
   LoRA, references, refine, mask, outpaint and upscaler are already
   `validate_edit`'s. This closes Mass refine and Then refine at the backend.
-  Kontext stays out of `launch.py` `CHECKPOINTS` until stage 4's slice 6;
-  slice 5 keeps its catalogue data by its exact id (`KONTEXT_GUIDE`, an
+  Kontext is `launch.py` `CHECKPOINTS`' last entry since stage 4's slice 6,
+  appended so no other menu number moves, with no Lite re-upload; listed is
+  not loadable: with the real gate False, Switch & load and Apply & save
+  answer 422 with the gate's words before the Hub, the save and the unload,
+  and a case variant is refused as an inexact id. Catalogued, a case variant
+  passes `require_custom_pipeline_class` (it casefolds catalogue ids), so
+  `require_model_available`'s exact id, asked first at every entry, is what
+  refuses it. Slice 5 keeps its catalogue data by its exact id (`KONTEXT_GUIDE`, an
   exact profile written out key by key rather than spread from `_FALLBACK`,
   `encoder_table`'s `FluxKontextPipeline` rows at the pinned revision,
   `model_info`, `model-downloads.json` at `KONTEXT_V1.revision`,
@@ -5902,18 +5910,25 @@ id, a case variant and Qwen still refused; and an offline Hub reaching
 `test_a_qualified_backend_loads_only_the_pinned_kontext` loads the explicit
 class inside the envelope and keeps the real backend refusing.
 
-`tests/test_instruction_edit_catalogue.py` checks slice 5's by-id catalogue
-data while Kontext is still unlisted: the exact profile (not `_FALLBACK`,
+`tests/test_instruction_edit_catalogue.py` checks the entry (slice 6: last,
+its menu summary "edit only", no Lite re-upload) and slice 5's by-id catalogue
+data: the exact profile (not `_FALLBACK`,
 every generation flag False, hints without "unavailable"), the status words
 following a passed `edit_reason`, the guide against the catalogue's guide
 checks with BFL's verbatim edit instructions drawing no finding and the
 critic never given the measured drift, the pinned `FluxKontextPipeline`
-encoder rows, `details_for`'s strings and live Held/Yes answer with the
-editor listed by a monkeypatch, the retained timing, and the download
+encoder rows, `details_for`'s strings and live Held/Yes answer, the
+retained timing, and the download
 reference's commit equal to `KONTEXT_V1.revision` without the root single
 file. `test_api_model_switch.py`'s
 `test_the_editors_row_carries_the_backends_answer_for_the_draft_loader`
-holds `main`'s listing to the instance's answer; `test_prompt_encoding.py`
+holds `main`'s listing to the instance's answer, and
+`test_switch_to_kontext_refused_while_gated_before_hub_save_or_unload`
+finds the editor listed last; `test_instruction_edit_loader.py`'s
+`test_exact_id_refusal_runs_before_custom_class_check_on_every_entry` holds
+an upper- and a lower-case variant to the exact-id words at the load, the
+prepared load, both switches and startup, with the custom-class check never
+asked; `test_prompt_encoding.py`
 holds the rows to the installed `pipeline_flux_kontext.py` and, where the
 pinned tokenizers are cached, to their real budgets.
 
@@ -6242,7 +6257,8 @@ It measures prompt/footer targets and primary emphasis at 1400x900, 600x900,
 1536x864 and 2048x1040 (the latter two at DPR 1.25), checks actual hit targets,
 focus rings, held/selected geometry, fixed-seed/panel widths and a crowded
 footer with picks and a nonempty bin. Every cold catalogue caption combination
-is checked for fit, with no model load.
+is checked for fit, with no model load; the held editor, which a switch
+refuses, is left out.
 
 `smoke-numeric-inputs.json` uses a fresh FLUX.1 Krea [dev] fake on 7921.
 Native typing checks incomplete Steps/CFG/Seed/size/True CFG before a POST,
@@ -7331,8 +7347,11 @@ Through a switch's load Generate is not held and Check answers, and a
 Generate pressed while the switch is being sent says so as a note that goes
 once the change ends; another tab's switch names the unsaved choice it
 dropped; Qwen-Image's row and note say its torchao builds are larger than
-the card, and no other row does. It ends with Animagine loaded, as
-smoke-model-startup expects.
+the card, and no other row does (the editor's names its one qualified size,
+512×512 only). The listed editor's row (last, "Instruction editor", Held)
+answers Switch & load with the closed gate's words in the note and the error
+line, FLUX still loaded and selected at the same revision. It ends with
+Animagine loaded, as smoke-model-startup expects.
 For the checkpoint table it checks every catalogue model's row and facts
 (style, refine with its note, size with its label, speed with its sample
 and basis) without choosing any, focus on the chosen radio at the first
@@ -7346,7 +7365,8 @@ another setup, the Size header and its titles, the Models section name, the
 new-tab link label, the Favourite prefix following the grouping, one row's
 star and link as tab stops (Tab from the radio reaches its link, then the
 startup checkbox) and the sticky heading row, with a focused row scrolled
-in below it. With the bottom row's model loaded it checks that the first and a
+in below it. With the bottom loadable row's model loaded (the editor, below
+it, cannot load) it checks that the first and a
 later opening focus its checked radio inside the picker body, the page
 unscrolled; that an unsubmitted offload edit survives another tab's
 checkbox-only save, which still lands; and that a list lacking the chosen
