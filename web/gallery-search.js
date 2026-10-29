@@ -21,19 +21,30 @@ function focusGallerySearch() {
   }
 }
 
+// The operand of an exclusion, by `search.exclusion`'s reading: one leading
+// `-` and more after it that is not a `-` (`-blonde`, `-seed:1`), else null -
+// a lone `-` and `--ar` stay free text.
+function searchExclusion(word) {
+  return word.length > 1 && word[0] === '-' && word[1] !== '-' ? word.slice(1) : null;
+}
+
 // The filter a search word is, by `split_search`'s reading: `key:value` with
-// a known key and a value, else null (free text, `portrait:` included).
+// a known key and a value, else null (free text, `portrait:` included). It
+// reads through one leading `-`: `-seed:1` is the seed filter, negated.
 function searchKey(word) {
-  const at = word.indexOf(':');
-  if (at < 1 || at === word.length - 1) return null;
-  const key = word.slice(0, at).toLowerCase();
+  const term = searchExclusion(word) ?? word;
+  const at = term.indexOf(':');
+  if (at < 1 || at === term.length - 1) return null;
+  const key = term.slice(0, at).toLowerCase();
   return SEARCH_KEYS.has(key) ? key : null;
 }
 
 // `terms` added to the box's words. A filter replaces the box's terms with its
-// key, where the first of them stood: two seeds AND to nothing, so a second
-// seed pressed is a change of seed. A word already there (any case) is not
-// added again; everything else the box held is kept, in its order.
+// key, negated or not, where the first of them stood: two seeds AND to
+// nothing, so a second seed pressed is a change of seed, and `-seed:1` with
+// seed:5 pressed is seed:5. A word already there (any case) is not added
+// again, and a word pressed takes its own exclusion's place (`-fox` with fox
+// pressed is fox); everything else the box held is kept, in its order.
 function mergeSearch(current, terms) {
   const words = current.trim().split(/\s+/).filter(Boolean);
   for (const term of terms) {
@@ -43,19 +54,26 @@ function mergeSearch(current, terms) {
       if (first < 0) { words.push(term); continue; }
       words[first] = term;
       for (let i = words.length - 1; i > first; i--) if (searchKey(words[i]) === key) words.splice(i, 1);
-    } else if (!words.some((w) => w.toLowerCase() === term.toLowerCase())) {
-      words.push(term);
+      continue;
     }
+    const lower = term.toLowerCase();
+    const negated = (w) => (searchExclusion(w) ?? '').toLowerCase() === lower;
+    const there = words.some((w) => w.toLowerCase() === lower);
+    const at = words.findIndex(negated);
+    if (at >= 0 && !there) words[at] = term;
+    for (let i = words.length - 1; i >= 0; i--) if (negated(words[i])) words.splice(i, 1);
+    if (at < 0 && !there) words.push(term);
   }
   return words.join(' ');
 }
 
-// A prompt's words as the box's whole text: the box's filters kept, in their
-// order, and every free word it held replaced - the prompt is one fact, as a
-// seed is, so a second prompt pressed is a change of prompt, not both
-// prompts' words ANDed to nothing. A word repeated in the prompt goes in once.
+// A prompt's words as the box's whole text: the box's filters and exclusions
+// (`-key:value` and `-word`) kept, in their order, and every free word it held
+// replaced - the prompt is one fact, as a seed is, so a second prompt pressed
+// is a change of prompt, not both prompts' words ANDed to nothing. A word
+// repeated in the prompt goes in once.
 function mergePromptSearch(current, words) {
-  const kept = current.trim().split(/\s+/).filter((w) => w && searchKey(w));
+  const kept = current.trim().split(/\s+/).filter((w) => w && (searchKey(w) || searchExclusion(w) !== null));
   const seen = new Set();
   for (const word of words) {
     const lower = word.toLowerCase();
@@ -67,9 +85,12 @@ function mergePromptSearch(current, words) {
 // A prompt as the box's free text: its words, each a term the full-text index
 // matches in any order. A word with no letter or digit (a lone comma, a "-")
 // matches nothing of its own, and one that would read as a filter (`seed:3`
-// in a prompt) is left out rather than turned into one.
+// in a prompt) is left out rather than turned into one. Leading hyphens are
+// dropped, so `-style` is not written in as an exclusion; the index drops
+// them anyway, so the word matches the rows the hyphenated one did.
 function promptSearchWords(prompt) {
-  return (prompt ?? '').split(/\s+/).filter((w) => w && /[\p{L}\p{N}]/u.test(w) && !searchKey(w));
+  return (prompt ?? '').split(/\s+/).map((w) => w.replace(/^-+/, ''))
+    .filter((w) => w && /[\p{L}\p{N}]/u.test(w) && !searchKey(w));
 }
 
 // The image's local day as `date:` takes it - the day on this clock, as the

@@ -843,6 +843,7 @@
           submission of it. <b>date:</b> takes <b>today</b>, <b>yesterday</b> or
           <b>2026-09-07</b> — a day on your clock, not UTC.<br>
           Numbers also take a comparison or a range: <b>cfg:&gt;=1</b> · <b>steps:8-12</b>.<br>
+          <b>-word</b> or <b>-key:value</b> leaves those images out.<br>
           <b>model:=</b> takes one checkpoint&#39;s whole id.
           <b>mu:none</b> (the pipeline&#39;s own shift, none of ours) is not <b>mu:0</b>.<br>
           In the full view, ⌕ beside a setting adds it here.</span></span>
@@ -872,7 +873,7 @@
              rest of what the filter matches to the recycle bin in one
              confirmed gesture. Last in the bar, away from the view toggle. -->
         <button class="ghost small danger" id="btn-delete-unstarred" hidden
-          title="Move every image the filter matches that is not starred to the recycle bin, after a confirmation that shows the count. Takes key:value terms or an empty search; Empty recycle bin removes them from disk">⌦ Delete unstarred</button>
+          title="Move every image the filter matches that is not starred to the recycle bin, after a confirmation that shows the count. Takes key:value terms, their exclusions (-key:value) or an empty search; Empty recycle bin removes them from disk">⌦ Delete unstarred</button>
         <!-- In the recycle bin (bin.js), in Delete unstarred's place: the
              picked cards back to the gallery, and the bin deleted from disk,
              last, after a confirmation that says how much. Each held with

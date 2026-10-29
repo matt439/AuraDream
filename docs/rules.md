@@ -331,7 +331,11 @@ before changing it.
 - `backend/search.py` — the search box's grammar: `key:value` terms as SQL
   predicates (`size:WxH` both sides exact, orientation or MP comparisons; `lora:none` is IS NULL, every
   other text key a substring; an integer past SQLite's 64 bits a
-  ValueError, so the routes' 422), the LIKE escape, `strict_scope`
+  ValueError, so the routes' 422), exclusions (`parse_search`: `-key:value`
+  the complement `COALESCE((clause), 0) = 0`, keeping NULL rows; any other
+  `-word` an excluded word; a lone `-`, `--x` and a quoted token stay free
+  text), the LIKE escape, `strict_scope` (`key:value` terms and their
+  exclusions; free text and `-word` refused)
 - `backend/main.py` — app lifecycle and model ownership: load state and
   lock, `ensure_loaded`, the load-failure wording, model switching, status,
   the model and adapter routes, the middlewares, and the `services`
@@ -1364,8 +1368,9 @@ Reproduction:
   `images/*` and `images/thumbnails/*`, and a Restore is one UPDATE. A binned
   image is gone for every live-facing read and present for every read about
   what exists or was made. `storage._LIVE` (`binned_at IS NULL`) is added by
-  `list_images` (before the search predicate, which the LIKE fallback swaps
-  as the last; `binned=True` lists the bin alone), `get_image`/`get_images`
+  `list_images` (before the text predicates - the words' MATCH and the
+  excluded words' NOT IN - which the LIKE fallback swaps together as the
+  last, to `prompt LIKE` and `prompt NOT LIKE`; `binned=True` lists the bin alone), `get_image`/`get_images`
   (unless `include_binned`), `reference_paths` (a binned id is refused,
   "is in the recycle bin; restore it to use it", before the file check - so a
   submission, a queued cell and `generate.py` alike), `set_favorite` (404
@@ -4658,10 +4663,13 @@ Frontend and CLI:
   prompt's words, less any with no letter or digit or that would read as a
   filter. A press goes through `showGallerySearch` (the passes link's too):
   the lightbox closed, `mergeSearch` into the box - a filter replaces the
-  box's terms with its key, a word already there (any case) is not added
-  again, the rest is kept in order; the prompt's line goes through
-  `mergePromptSearch` instead, the box's filters kept and its free text
-  replaced by the prompt's words, so a second prompt is a change of prompt
+  box's terms with its key, negated or not (`searchKey` reads through one
+  leading `-`, `searchExclusion` as `search.exclusion` does), a word
+  already there (any case) is not added again and a word pressed takes its
+  own `-word`'s place, the rest is kept in order; the prompt's line goes through
+  `mergePromptSearch` instead, the box's filters and exclusions kept and its free text
+  replaced by the prompt's words (leading hyphens dropped, so none reads
+  as an exclusion), so a second prompt is a change of prompt
   as a second seed is - the gallery asked again only where the
   box changed, the head brought into view and the box focused. Only keys
   `search.FILTERS` has; `SEARCH_KEYS` is held equal to it by
@@ -8317,7 +8325,11 @@ and two more polls (counted, not waited out) adding nothing; another tab's
 two jobs in a row, the first one's image in while the second still runs;
 and sixty images between two polls (the page's statuses held meanwhile),
 more than one page reaches back over, joining the head with the old head's
-card the same node and the paged-in tail kept, no reset:
+card the same node and the paged-in tail kept, no reset; and last, as it
+plants two blonde foxes, an exclusion: `fox -blonde` loading only fox cards
+without "blonde", its total the server's, the tip's `-word` line, Delete
+unstarred's count dialog for `seed:>=100 -seed:100` and its refusal of
+`-blonde` in `#gallery-error`, with no panel control's rectangle moved:
 
 ```powershell
 uv run python tools/fake_server.py --port 7885

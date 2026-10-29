@@ -251,8 +251,9 @@ def main(argv: list[str] | None = None) -> int:
         "--where",
         metavar="TERMS",
         help="delete only the rows these key:value terms select - `job:ab12cd`, "
-        "`run:ab12cd seed:42`, `date:yesterday` - and their files; no orphan sweep, "
-        "and free text is refused",
+        "`run:ab12cd seed:42`, `date:yesterday`, `-seed:42` to leave one out (write "
+        "`--where=-seed:42` when it comes first) - and their files; no orphan sweep, "
+        "and free text is refused, `-word` included",
     )
     parser.add_argument(
         "--bin", action="store_true",

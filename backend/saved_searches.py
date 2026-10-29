@@ -50,7 +50,7 @@ def _read(path: Path) -> list[SavedSearch]:
         raw_items = payload["items"]
         if not isinstance(raw_items, list) or len(raw_items) > MAX_SAVED_SEARCHES:
             raise ValueError("invalid collection size")
-        items = [SavedSearch.model_validate(item) for item in raw_items]
+        items = [SavedSearch.model_validate(item, context={"stored": True}) for item in raw_items]
         if len({item.id for item in items}) != len(items):
             raise ValueError("duplicate ids")
         if len({name_key(item.name) for item in items}) != len(items):

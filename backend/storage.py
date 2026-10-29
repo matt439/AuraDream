@@ -37,7 +37,7 @@ from .grid import lora_key, mask_key, reference_key, refine_key, shape_key
 from .instruction_edit import InstructionEditSource, descriptor_from_image, edit_key
 from .metadata import PNG_MASK_KEY, PNG_METADATA_KEY, canonical_edit, edit_chunk, edit_from_json, validate_edit_record
 from .png_settings import crop_anchor as _crop_anchor
-from .search import like_escape, split_search
+from .search import like_escape, parse_search
 from .schemas import ImageRecord, OutpaintSpec, effective_true_cfg
 
 if TYPE_CHECKING:
@@ -1009,26 +1009,37 @@ def list_images(
     own view, under the same search and paging.
     """
     # The scope stays out of `where`: the fallback below swaps the *last*
-    # predicate, and the count of what the scope hides needs the rest alone.
+    # predicates, the text ones, and the count of what the scope hides needs
+    # the rest alone.
     scope = "model_id = ?" if model_id else ""
     where: list[str] = []
     params: list = []
     if favorites_only:
         where.append("favorite = 1")
-    # Before the search predicate, which the LIKE fallback swaps as the last.
+    # Before the text predicates, which the LIKE fallback swaps as the last.
     where.append("binned_at IS NOT NULL" if binned else _LIVE)
-    text = ""
+    words: list[str] = []
+    excluded: list[str] = []
     if search:
-        # `seed:42 cfg:<=0.5 fox` - the terms that name a column become real
-        # predicates, and only what is left goes to the full-text index.
-        filters, filter_params, text = split_search(search)
+        # `seed:42 cfg:<=0.5 fox -blonde` - the terms that name a column (or
+        # exclude one) become real predicates, and only the words left go to
+        # the full-text index.
+        filters, filter_params, words, excluded = parse_search(search)
         where.extend(filters)
         params.extend(filter_params)
-    if text:
-        # Match the FTS index, falling back to LIKE for punctuation-heavy input.
-        # The search predicate is appended last; the fallback relies on that.
+    # Match the FTS index, falling back to LIKE for punctuation-heavy input.
+    # The text predicates are appended last, `text_at` on; the fallback
+    # replaces them together, so a word and an excluded word are never
+    # matched two different ways.
+    text_at, text_params_at = len(where), len(params)
+    if words:
         where.append("id IN (SELECT rowid FROM images_fts WHERE images_fts MATCH ?)")
-        params.append(" ".join(f'"{t}"' for t in text.split()))
+        params.append(" ".join(f'"{t}"' for t in words))
+    if excluded:
+        # One NOT IN for every excluded word: `prompt` is NOT NULL, so no row
+        # is lost to a NULL here, and an exclusion-only search needs no MATCH.
+        where.append("id NOT IN (SELECT rowid FROM images_fts WHERE images_fts MATCH ?)")
+        params.append(" OR ".join(f'"{t}"' for t in excluded))
 
     def clause_for(head: str) -> tuple[str, list]:
         parts = [head, *where] if head else where
@@ -1040,16 +1051,18 @@ def list_images(
         try:
             total, rows = _page(conn, *clause_for(scope), limit, offset, before)
         except sqlite3.OperationalError:
-            if not text:
+            if not words and not excluded:
                 raise
             # A token carrying an odd number of double quotes - 26", a 6" figure
-            # - quotes into a malformed MATCH. Swap *only* the search predicate
+            # - quotes into a malformed MATCH. Swap *only* the text predicates
             # so favorites and anything added later still applies, and AND one
-            # LIKE per token: FTS matches tokens in any order, where a single
+            # LIKE per word: FTS matches tokens in any order, where a single
             # LIKE over the raw string would demand them contiguous.
-            terms = text.split()
-            where[-1:] = [r"prompt LIKE ? ESCAPE '\'"] * len(terms)
-            params[-1:] = [f"%{like_escape(t)}%" for t in terms]
+            where[text_at:] = (
+                [r"prompt LIKE ? ESCAPE '\'"] * len(words)
+                + [r"prompt NOT LIKE ? ESCAPE '\'"] * len(excluded)
+            )
+            params[text_params_at:] = [f"%{like_escape(t)}%" for t in (*words, *excluded)]
             total, rows = _page(conn, *clause_for(scope), limit, offset, before)
         others = 0
         if model_id:

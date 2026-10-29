@@ -7252,6 +7252,20 @@ boundaries and integer division preserve inclusive/exclusive pixel limits
 without overflowing stored width/height products. [The area-search plan](plan-gallery-area-search.md)
 owns the contract, context isolation, guarded legacy types and qualification.
 
+`GAL#21` (2026-10-30) adds exclusion. Before it, `-blonde` reached FTS as the
+phrase "blonde" (the tokenizer drops the `-`) and returned exactly the images
+meant to go, and `-seed:1` was a phrase that matched nothing. Now a token
+with one leading `-` excludes its operand: `-key:value` is the complement of
+the same `filter_clause`, `COALESCE((clause), 0) = 0`, so a row whose clause
+is NULL (no LoRA, no mu, no true CFG) stays in and `X` plus `-X` count every
+row once; any other `-word` is `id NOT IN` the index's matches, and the LIKE
+fallback swaps both text predicates together. Strict scopes take
+`-key:value`, exact SQL, and refuse `-word` (Matt's option A, 2026-10-29).
+A saved query read back from its sidecar skips the grammar check, so one
+saved before exclusions (`-seed:abc`) does not lock out the rest; its Apply
+answers the gallery's 422. [The exclusion plan](plan-search-exclusion.md)
+owns the contract and its tests.
+
 ## Named gallery searches
 
 `GAL#7`'s [plan](plan-saved-searches.md) keeps saved filters separate from

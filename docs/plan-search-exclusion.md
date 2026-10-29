@@ -1,9 +1,9 @@
 # Plan: gallery search exclusion
 
-**Status:** `GAL#21` open, 2026-10-29 (added by the 2026-10-29 TODO audit).
-Nothing is built. Stages 1 and 2 are ready CPU/fake/browser work. Stage 3
-waits on Matt's answer to [the strict-scope decision](#decision-strict-scopes);
-until then, strict scopes keep refusing every exclusion, as they do today.
+**Status:** `GAL#21` done, 2026-10-30: stages 1-3 built together, with
+[option A](#decision-strict-scopes) for strict scopes, so behaviour B never
+shipped. See [Result](#result-2026-10-30). The sections below are the plan
+as written; their `file:line` references are from 2026-10-29.
 
 ## The defect
 
@@ -240,3 +240,57 @@ term and sees the count dialog. If Matt chooses B, this stage closes with no
 code change and the decision recorded here.
 
 No stage needs the card, a model load or a download.
+
+## Result (2026-10-30)
+
+Built in one commit, all three stages:
+
+- `backend/search.py`: `exclusion(token)` reads the contract's leading `-`,
+  and `parse_search` returns `SearchTerms(clauses, params, words,
+  excluded)`. `split_search` keeps its three-value shape (predicates,
+  params, the positive words) for its existing callers and tests;
+  `list_images` and `strict_scope` read `parse_search`. `strict_scope`
+  takes `-key:value` and refuses `-word` with
+  "'-blonde' is free text; strict scopes take key:value terms and their
+  exclusions". Delete unstarred's 422 reads "takes key:value terms, their
+  exclusions or an empty search - ...".
+- `backend/storage.py`: the words' MATCH and the excluded words' `NOT IN`
+  are appended last, from `text_at`; the fallback replaces both with
+  `prompt LIKE` / `prompt NOT LIKE`, one per word.
+- Saved searches: `SavedSearchFields.valid_query` skips the grammar check
+  when validated with the context `{"stored": True}`, which
+  `saved_searches._read` passes; writes still check it.
+- `web/gallery-search.js`: `searchExclusion` mirrors `search.exclusion`,
+  `searchKey` reads through it, and `mergeSearch`, `mergePromptSearch` and
+  `promptSearchWords` follow [Frontend](#frontend). The search tip has the
+  `-word` line, and Delete unstarred's title names exclusions.
+- `clear --where`'s help names `-seed:42` and `--where=-seed:42`.
+
+Tests: `tests/test_search_exclusion.py` covers the stage 1 list (every
+key family's `X`/`-X` partition, the NULL rows, exclusion-only queries, the
+`26"` fallback with an excluded word on either side, favorites/bin/scope
+and `others`, the unchanged spellings, `-seed:abc` as a 422, an old
+sidecar holding `-seed:abc`), the stage 3 counts (`matching_preview`,
+`delete_matching`'s 409, `keep_rates`, `clear --where=-seed:1`, the
+unstarred route) and the Node check of the page helpers.
+`tests/test_search_orientation.py` now pins `-size:portrait` as the
+complement. `smoke-gallery`'s last block plants two blonde foxes and checks
+`fox -blonde`, the total against the server's, the tip line, Delete
+unstarred's count dialog for `seed:>=100 -seed:100` and its refusal of
+`-blonde`, with no panel control moved at 1400x900.
+
+Choices the plan left open, taken while Matt was away (2026-10-29), revisit
+if wanted:
+
+- A plain word pressed with its own exclusion in the box takes that
+  exclusion's place (`cat -Fox run:x` plus fox gives `cat fox run:x`),
+  as a filter takes the first of its key's places; where the word is
+  already there, the exclusion is only removed.
+- `split_search` keeps its old shape rather than gaining a fourth value;
+  the excluded words come from `parse_search`.
+- argparse reads `--where -seed:1` as an unknown option. Rather than change
+  the CLI's parsing, the help and `docs/usage.md` say to write
+  `--where=-seed:1`; the test uses that form.
+- The smoke block runs last in `smoke-gallery` rather than beside the
+  `id:` steps, because the images it plants would become the head the
+  later card steps read.

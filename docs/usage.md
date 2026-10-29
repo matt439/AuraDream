@@ -603,9 +603,17 @@ Search combines these terms with free text matching the prompt:
 | `size:>=1.5mp`, `size:<2mp` | Actual pixel area, with 1 MP equal to 1,000,000 pixels |
 | `date:today`, `date:yesterday`, `date:2026-10-07` | A day in the server's local timezone |
 | `date:2026-10-26..2026-10-28` | October 26 through 28, including both dates in the server's local timezone |
+| `-blonde`, `-seed:42`, `-lora:ink` | Leaves those images out; images without the value (no LoRA, no mu) stay in, so `-lora:ink` keeps the ones without a LoRA |
 
 Orientation values compare the stored width and height. Combine them with
 prompt words or other filters, such as `size:portrait seed:42`.
+
+A leading `-` leaves images out: `fox -blonde` is the foxes whose prompt does
+not have "blonde", and `seed:>10 -seed:12` every seed above 10 but 12. A lone
+`-`, a word starting `--` (`--ar`) and a quoted `"-x"` are still prompt text.
+Delete unstarred and `clear --where` take `-key:value` but refuse `-word`,
+which goes through the fuzzy prompt index; on the command line write
+`--where=-seed:42` when the exclusion comes first.
 
 MP comparisons use the exact, unrounded stored pixel area. For example,
 `size:>1mp` includes 1024x1024 (1.048576 MP), while `size:>=1mp` excludes
