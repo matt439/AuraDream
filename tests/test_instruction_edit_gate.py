@@ -155,7 +155,8 @@ def test_model_gate_always_refuses_qwen_and_opens_kontext_only_when_qualified():
 
 
 def test_editor_classes_are_refused_in_their_own_words():
-    assert edit.editor_class_refusal("FluxKontextPipeline") == edit.INSTRUCTION_EDIT_UNAVAILABLE
+    # Its callers are the released backend: Kontext's class elsewhere is the id's fault.
+    assert edit.editor_class_refusal("FluxKontextPipeline") == edit.INSTRUCTION_EDIT_EXACT_ID
     for class_name in ("QwenImageEditPipeline", "QwenImageEditPlusPipeline"):
         refusal = edit.editor_class_refusal(class_name)
         assert refusal == edit.INSTRUCTION_EDITOR_UNSUPPORTED and "measured" not in refusal

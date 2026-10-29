@@ -1,7 +1,8 @@
 """`POST /api/instruction-edit`: one edit queued behind the backend's gate.
 
 Driven over HTTP with the fake backend, whose gate (`edit_qualified`) a test
-opens; the real backend's stays the literal False. The fake's edit branch
+opens (the real backend's literal True is test_instruction_edit_release's).
+The fake's edit branch
 proves and prepares the source as the real one does and draws nothing.
 No weights, downloads or GPU.
 """

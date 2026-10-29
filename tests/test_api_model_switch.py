@@ -882,7 +882,8 @@ def test_switch_to_kontext_refused_while_gated_before_hub_save_or_unload(client,
     assert client.get("/api/models").json()["models"][-1] == {
         "model_id": KONTEXT_V1.model_id, "label": "FLUX.1 Kontext [dev]",
     }
-    # The real backend's gate is closed: Switch & load and Apply & save
+    # The fake's gate is closed (the real backend's envelope is
+    # test_instruction_edit_release's): Switch & load and Apply & save
     # alike, by the exact id or a case variant, before anything is touched.
     for model_id in (KONTEXT_V1.model_id, KONTEXT_V1.model_id.upper()):
         for load in (True, False):
@@ -899,7 +900,7 @@ def test_switch_to_kontext_refused_while_gated_before_hub_save_or_unload(client,
 def test_switch_to_kontext_refuses_unmeasured_loader_before_hub(client, fake, monkeypatch):
     from backend.instruction_edit import INSTRUCTION_EDIT_EXACT_ID, INSTRUCTION_EDIT_LOADER_UNQUALIFIED, KONTEXT_V1
 
-    fake.edit_qualified = True  # a stand-in gate; the real one stays closed
+    fake.edit_qualified = True  # a stand-in gate, open as the real one is
     assert client.post("/api/model/load").status_code == 200
     ready = _settled(client, main.settings.model_id)
     asked = _forbid_hub(monkeypatch)

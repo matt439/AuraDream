@@ -41,7 +41,8 @@ def test_custom_editor_class_refuses_before_any_pipeline_weight_preparation(synt
     # The existing optional optimization is deliberately inconclusive; a
     # separate strict decision must refuse before reaching this fallback.
     monkeypatch.setattr(loading, "unused_components", lambda model_id: (None, {}))
-    with pytest.raises(ValueError, match="Instruction editing is not available"):
+    words = instruction_edit.editor_class_refusal(class_name)
+    with pytest.raises(ValueError, match=re.escape(words)):
         backend.load()
     assert reads == [(selected.model_id, "model_index.json")]
     assert not backend.is_ready() and backend._call_params == set()
@@ -363,7 +364,6 @@ def test_kontext_class_under_another_id_and_qwen_stay_refused(kontext_hub, monke
     index.write_text(json.dumps({"_class_name": instruction_edit.KONTEXT_V1.pipeline_class}), encoding="utf-8")
     monkeypatch.setattr(loading, "hub_file", lambda model_id, filename: str(index))
     expected = {
-        "owned/custom-kontext-alias": instruction_edit.INSTRUCTION_EDIT_UNAVAILABLE,
         "Qwen/Qwen-Image-Edit": instruction_edit.INSTRUCTION_EDITOR_UNSUPPORTED,
     }.get(model_id, instruction_edit.INSTRUCTION_EDIT_EXACT_ID)
     with pytest.raises(ValueError) as caught:

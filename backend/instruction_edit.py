@@ -506,8 +506,13 @@ def command_line_refusal(model_id: str) -> str | None:
 
 
 def editor_class_refusal(class_name: str) -> str:
-    """The words for a refused instruction-editor pipeline class."""
-    return INSTRUCTION_EDIT_UNAVAILABLE if class_name == KONTEXT_V1.pipeline_class else INSTRUCTION_EDITOR_UNSUPPORTED
+    """The words for a refused instruction-editor pipeline class.
+
+    Every caller is the released diffusers backend, whose gate is open, so
+    Kontext's class under another id (a mirror, a local copy) is refused for
+    its id, not with a closed gate's words.
+    """
+    return INSTRUCTION_EDIT_EXACT_ID if class_name == KONTEXT_V1.pipeline_class else INSTRUCTION_EDITOR_UNSUPPORTED
 
 
 def edit_unavailable_reason(model_id: str, *, qualified: bool, loader: LoaderChoice | None = None) -> str | None:

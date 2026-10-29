@@ -995,8 +995,11 @@ Model and loader:
   refusals and `require_custom_pipeline_class` refuse Qwen's classes and
   Kontext's class under any other id, and a case variant is refused at the
   entry. A Hub failure in either pass reaches `_load_failure` unchanged
-  (offline, gated). The real backend's gate is still False, so it never
-  reaches this path.
+  (offline, gated). Since stage 4's release (slice 7) the real backend's
+  gate is the literal True, so it reaches this path only inside the
+  envelope. Kontext's class under another id is refused for its id
+  (`editor_class_refusal` answers `INSTRUCTION_EDIT_EXACT_ID`: its callers
+  are the released backend), not in a closed gate's words.
 - The edit call (`DiffusersBackend._edit_images`) branches off
   `_generate_images_prepared` right after the generator list. It never
   reaches the text-to-image kwargs, sigmas or the step that drops

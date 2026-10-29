@@ -20,7 +20,8 @@ from backend.backends import Cancelled
 from backend.backends import diffusers_backend as module
 from backend.backends.diffusers_backend import _EDIT_PARAMS, DiffusersBackend
 from backend.instruction_edit import (
-    INSTRUCTION_EDIT_LOADER_UNQUALIFIED, INSTRUCTION_EDIT_NEEDS_MODEL, INSTRUCTION_EDIT_UNAVAILABLE, KONTEXT_V1,
+    INSTRUCTION_EDIT_EXACT_ID, INSTRUCTION_EDIT_LOADER_UNQUALIFIED, INSTRUCTION_EDIT_NEEDS_MODEL,
+    INSTRUCTION_EDIT_UNAVAILABLE, KONTEXT_V1,
     QUALIFIED_ENVELOPE, LoaderChoice, StoredInstructionEdit,
 )
 from backend.schemas import GenerateRequest
@@ -469,8 +470,10 @@ def test_a_qualified_backend_still_refuses_an_editor_class_index(synthetic_loade
     monkeypatch.setattr(loading, "hub_file", lambda model_id, filename: str(path))
     monkeypatch.setattr(loading, "unused_components", lambda model_id: (None, {}))
     backend = Qualified()
-    with pytest.raises(ValueError, match="Instruction editing is not available"):
+    # Refused for its id, on an open gate, never with a closed gate's words.
+    with pytest.raises(ValueError) as caught:
         backend.load()
+    assert str(caught.value) == INSTRUCTION_EDIT_EXACT_ID
     assert not backend.is_ready() and not {"overrides", "pretrained", "place"} & set(events)
 
 
