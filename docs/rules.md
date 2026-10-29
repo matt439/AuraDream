@@ -5542,7 +5542,7 @@ Frontend and CLI:
   a Mu where it takes none
   (`test_a_mu_the_checkpoint_cannot_take_is_reported_as_ignored`).
 - The gallery is the running checkpoint's: `GET /api/gallery`, `/api/runs`,
-  `GET`/`DELETE /api/gallery/unstarred`, `POST /api/rerender` and
+  `GET`/`DELETE /api/gallery/unstarred`, `POST /api/rerender[/preview]` and
   `POST /api/swap-tags[/preview]`, `POST /api/refine/batch[/preview]` and
   `POST /api/more-seeds[/preview]` without `ids` scope to
   `current_model_id(settings)` (`AppServices.model_scope`, an exact predicate, never the
