@@ -612,9 +612,27 @@ At 1400x700 a dialog showing a held note scrolls its own content, so Edit is
 below the fold there (the smoke checks that height on a 1:1 source). Slice 9
 owns the page holds.
 
-The later slices refuse
-unmeasured Kontext choices at every load entry, add the pinned loader and the
-catalogue entry, open the real gate, and release More seeds of edits.
+**Slice 3 (built): every load entry refuses an unmeasured Kontext choice.**
+The real gate is still False. `require_model_available` takes the
+instance's `qualified` and a `LoaderChoice` and, after the exact-id check,
+refuses with `loader_refusal`'s words; an open gate without loader facts is
+refused. `DiffusersBackend.load`, `_load_prepared` (neither passed
+`qualified` before) and `_require_execution`, `main.ensure_loaded`,
+`/api/model/load` and the fake pass both; an AST scan holds every caller to
+it. `model_selection.validate` takes the running backend and refuses a gated
+or unmeasured edit-only target before the catalogue check, so a switch (or
+Apply & save) to Kontext never reaches the Hub, the save or the unload of the
+working model. In `ensure_loaded` the refusal is a failed load in its own
+words, so a saved Kontext choice with Load automatically on startup shows as
+an error and its file stays as it was. `launch.configure` refuses explicit
+flags or a menu choice outside the envelope in the same words, leaving the
+gate to the backend's load; `generate.py` refuses an edit-only checkpoint
+before the project or the backend is imported. `_require_execution` refuses
+plain text-to-image on an edit-only profile, which closes the command line,
+Mass refine and Then refine at the backend.
+
+The later slices add the pinned loader and the catalogue entry, open the
+real gate, and release More seeds of edits.
 
 ## Stages and completion criteria
 

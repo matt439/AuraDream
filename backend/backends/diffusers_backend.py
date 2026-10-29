@@ -411,7 +411,10 @@ class DiffusersBackend(GenerationBackend):
         selected = current_settings(settings)
         from ..instruction_edit import require_model_available
 
-        require_model_available(selected.model_id)
+        require_model_available(
+            selected.model_id, qualified=self.instruction_edit_qualified(),
+            loader=self.instruction_edit_loader(selected),
+        )
         require_configured_loader_available(selected)
         self._load_prepared(canonical_loader_execution(getattr(selected, "loader_execution", None)))
 
@@ -423,7 +426,11 @@ class DiffusersBackend(GenerationBackend):
         """
         from ..instruction_edit import require_model_available
 
-        require_model_available(current_model_id(settings))
+        selected = current_settings(settings)
+        require_model_available(
+            selected.model_id, qualified=self.instruction_edit_qualified(),
+            loader=self.instruction_edit_loader(selected),
+        )
         execution = canonical_execution(execution)
         if execution is not None:
             attention_selection.require_native_environment()
@@ -882,14 +889,21 @@ class DiffusersBackend(GenerationBackend):
         return False
 
     def _require_execution(self, request: GenerateRequest) -> GenerateRequest:
-        from ..instruction_edit import require_execution_available, require_model_available
+        from ..instruction_edit import require_execution_available, require_model_available, text_to_image_refusal
 
         qualified = self.instruction_edit_qualified()
         if getattr(request, "edit", None) is not None:
+            # validate_edit also refuses an edit's LoRA, references, refine,
+            # mask, outpaint and upscaler.
             require_execution_available(request.validate_edit(), qualified=qualified)
-        require_model_available(current_model_id(settings), qualified=qualified)
-        require_default_execution(request.execution)
         selected = current_settings(settings)
+        loader = self.instruction_edit_loader(selected)
+        require_model_available(selected.model_id, qualified=qualified, loader=loader)
+        if getattr(request, "edit", None) is None and not defaults_for(selected.model_id)["text_to_image_supported"]:
+            # Here as well as at submit (`submission.unusable_input`): the
+            # command line, Mass refine and Then refine reach this call too.
+            raise ValueError(text_to_image_refusal(selected.model_id, qualified=qualified is True, loader=loader))
+        require_default_execution(request.execution)
         require_configured_loader_available(selected)
         # Private prepared state cannot make an ordinary Eager request run
         # compiled code, even if it bypassed the closed selection surface.

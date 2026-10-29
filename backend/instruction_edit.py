@@ -11,8 +11,8 @@ execution stay closed; only test and fake stand-ins can open the seam.
 ``QUALIFIED_ENVELOPE`` records what the card measured (stage 4): pure data
 and refusal words. Where the gate is open, the edit routes and the queue also
 hold an unmeasured loader (``edit_unavailable_reason`` with a
-``LoaderChoice``) or source aspect (``geometry_refusal``); loading does not
-consult it yet.
+``LoaderChoice``) or source aspect (``geometry_refusal``), and every load
+entry refuses an unmeasured loader (``require_model_available``).
 """
 from __future__ import annotations
 
@@ -52,6 +52,10 @@ INSTRUCTION_EDIT_REPLAY_HELD = (
     "Instruction edits are queued from Edit by instruction…; "
     "Generate, Re-render and More seeds do not run them yet."
 )
+INSTRUCTION_EDIT_COMMAND_LINE = (
+    "FLUX.1 Kontext [dev] edits a gallery image; the command line generates from text "
+    "and does not run instruction edits."
+)
 UNRESOLVED_SOURCE = "The recorded instruction-edit source has not been resolved to a gallery image."
 
 
@@ -77,6 +81,7 @@ KONTEXT_V1 = Recipe(
     default_steps=28,
     default_guidance_scale=2.5,
 )
+INSTRUCTION_EDIT_EXACT_ID = f"Instruction editing needs {KONTEXT_V1.model_id} exactly; select it in Models."
 
 
 def recipe_for(name: str) -> Recipe:
@@ -395,10 +400,14 @@ class LoaderChoice:
 
     @classmethod
     def of(cls, selected: Any, *, platform: str, diffusers_version: str | None) -> LoaderChoice:
-        """From a settings snapshot (``current_settings``), read by attribute."""
+        """From a settings snapshot (``current_settings``), read by attribute.
+
+        A snapshot without ``loader_execution`` is Eager, as the loader reads it.
+        """
         return cls(
             quantization=selected.quantization, offload=selected.offload, device=selected.device,
-            platform=platform, loader_execution=selected.loader_execution, diffusers_version=diffusers_version,
+            platform=platform, loader_execution=getattr(selected, "loader_execution", None),
+            diffusers_version=diffusers_version,
         )
 
     def refusal(self, model_id: str) -> str | None:
@@ -447,13 +456,19 @@ def require_execution_available(spec: object, *, qualified: bool = False) -> Non
         raise ValueError(INSTRUCTION_EDIT_UNAVAILABLE)
 
 
-def require_model_available(model_id: str, *, qualified: bool = False) -> None:
+def require_model_available(
+    model_id: str, *, qualified: bool = False, loader: LoaderChoice | None = None,
+) -> None:
     """Refuse the known edit-only checkpoints before any public load path.
 
     A hand-entered id must not bypass the closed release boundary merely
     because it is absent from the catalogue or accepts an image argument.
     Qwen-Image-Edit has no recipe and is always refused; Kontext only
-    where the backend answered the literal True.
+    where the backend answered the literal True, by its exact id, and then
+    only inside the measured loader envelope (``loader``, the backend's
+    ``instruction_edit_loader`` for the selection being loaded). An open
+    gate without its loader facts is never inside the envelope. Every
+    caller passes both (``test_instruction_edit_loader``'s scan).
     """
     folded = model_id.casefold()
     if folded == "qwen/qwen-image-edit":
@@ -464,7 +479,30 @@ def require_model_available(model_id: str, *, qualified: bool = False) -> None:
         # The recipe's identity is exact (bind_request compares it so); a
         # case variant would load and then refuse every edit it was for.
         if model_id != KONTEXT_V1.model_id:
-            raise ValueError(f"Instruction editing needs {KONTEXT_V1.model_id} exactly; select it in Models.")
+            raise ValueError(INSTRUCTION_EDIT_EXACT_ID)
+        if not isinstance(loader, LoaderChoice):
+            raise ValueError(INSTRUCTION_EDIT_LOADER_UNQUALIFIED.format(choice="an unknown loader"))
+        reason = loader.refusal(model_id)
+        if reason is not None:
+            raise ValueError(reason)
+
+
+def is_edit_only(model_id: str) -> bool:
+    """Whether ``model_id`` names a known edit-only checkpoint, in any case."""
+    return model_id.casefold() in {"qwen/qwen-image-edit", KONTEXT_V1.model_id.casefold()}
+
+
+def command_line_refusal(model_id: str) -> str | None:
+    """The command line's words for an edit-only checkpoint, or None.
+
+    ``generate.py`` renders from text and never runs an instruction edit,
+    whatever any backend's gate answers, so this needs no instance.
+    """
+    if model_id.casefold() == "qwen/qwen-image-edit":
+        return INSTRUCTION_EDITOR_UNSUPPORTED
+    if is_edit_only(model_id):
+        return INSTRUCTION_EDIT_COMMAND_LINE
+    return None
 
 
 def editor_class_refusal(class_name: str) -> str:

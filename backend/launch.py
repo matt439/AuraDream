@@ -243,6 +243,50 @@ def apply_env(args: argparse.Namespace) -> None:
             os.environ[name] = value
 
 
+def _edit_host() -> tuple[str, str | None]:
+    """The platform and installed diffusers version, as the backend reads them."""
+    from backend.instruction_edit import installed_diffusers_version
+
+    return sys.platform, installed_diffusers_version()
+
+
+def edit_checkpoint_refusal(env: Mapping[str, str] | None = None) -> str | None:
+    """Why the settled AURADREAM_* choice is an edit-only checkpoint this
+    start cannot load, in the server's own words, or None.
+
+    The words `instruction_edit.require_model_available` gives at every load:
+    Qwen-Image-Edit has no recipe, Kontext loads only by its exact id and
+    inside the measured loader envelope. The gate itself is the backend
+    instance's, answered when it loads; nothing here opens it.
+    """
+    from backend.execution import loader_execution_from_choices
+    from backend.instruction_edit import (
+        INSTRUCTION_EDIT_EXACT_ID, INSTRUCTION_EDITOR_UNSUPPORTED, KONTEXT_V1, is_edit_only, loader_refusal,
+    )
+
+    env = os.environ if env is None else env
+    model_id = env.get("AURADREAM_MODEL_ID") or _DEFAULT_MODEL
+    if not is_edit_only(model_id):
+        return None
+    if model_id.casefold() != KONTEXT_V1.model_id.casefold():
+        return INSTRUCTION_EDITOR_UNSUPPORTED
+    if model_id != KONTEXT_V1.model_id:
+        return INSTRUCTION_EDIT_EXACT_ID
+    try:
+        execution: object = loader_execution_from_choices(
+            env.get("AURADREAM_COMPILATION") or "eager", env.get("AURADREAM_ATTENTION") or "native",
+        )
+    except (TypeError, ValueError):
+        execution = {"unreadable": True}  # loader_refusal names it unreadable
+    platform, diffusers_version = _edit_host()
+    return loader_refusal(
+        model_id, quantization=env.get("AURADREAM_QUANT") or _DEFAULT_QUANT,
+        offload=env.get("AURADREAM_OFFLOAD") or _DEFAULT_OFFLOAD,
+        device=env.get("AURADREAM_DEVICE") or "cuda", platform=platform,
+        loader_execution=execution, diffusers_version=diffusers_version,
+    )
+
+
 # The project was Local Diffusion. Its LOCAL_DIFFUSION_* variables are not read
 # at all since the rename (a clean break), so one left in a shell profile is
 # named at start rather than going quietly unused.
@@ -348,6 +392,15 @@ def configure(
                         overrides[key] = "--menu"
     else:
         choice = None
+    # An explicit flag or the menu naming an edit-only checkpoint this start
+    # cannot load stops here, in the load's own words. A saved choice is not
+    # refused here: its load fails as any load does, and the file stays.
+    if args.menu or any(value is not None for value in (
+        args.model, args.quant, args.offload, args.compilation, args.attention,
+    )):
+        reason = edit_checkpoint_refusal()
+        if reason is not None:
+            parser.error(reason)
     os.environ[OVERRIDES_VARIABLE] = json.dumps(overrides)
     return choice
 

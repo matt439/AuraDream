@@ -20,7 +20,7 @@ from backend.backends import diffusers_backend as module
 from backend.backends.diffusers_backend import _EDIT_PARAMS, DiffusersBackend
 from backend.instruction_edit import (
     INSTRUCTION_EDIT_LOADER_UNQUALIFIED, INSTRUCTION_EDIT_NEEDS_MODEL, INSTRUCTION_EDIT_UNAVAILABLE, KONTEXT_V1,
-    LoaderChoice, StoredInstructionEdit,
+    QUALIFIED_ENVELOPE, LoaderChoice, StoredInstructionEdit,
 )
 from backend.schemas import GenerateRequest
 from backend.seeds import wrap_seed
@@ -88,6 +88,11 @@ class Qualified(DiffusersBackend):
 
     def instruction_edit_qualified(self) -> bool:
         return True
+
+    def instruction_edit_host(self) -> tuple[str, str | None]:
+        # The measured host, as the fake reports it, so the loader envelope
+        # every load and call now asks answers the same on any test machine.
+        return QUALIFIED_ENVELOPE.platform, QUALIFIED_ENVELOPE.diffusers_version
 
 
 def _loaded(pipe, cls=Qualified) -> DiffusersBackend:
@@ -373,10 +378,18 @@ def test_a_qualified_backend_still_refuses_to_load_kontext(synthetic_loader, mon
     selected = replace(module.settings, model_id=KONTEXT_V1.model_id, device="cpu", offload="none", quantization="none")
     monkeypatch.setattr(module, "current_settings", lambda startup: selected)
     backend = Qualified()
-    with pytest.raises(ValueError, match="not available"):
-        backend.load()
-    with pytest.raises(ValueError, match="not available"):
-        backend._load_prepared(None)
+    # Both entries now ask the instance's gate and the selection's loader
+    # facts: outside the envelope (no offload here), its words come first.
+    unmeasured = INSTRUCTION_EDIT_LOADER_UNQUALIFIED.format(choice="BF16 (no quantization)")
+    for call in (backend.load, lambda: backend._load_prepared(None)):
+        with pytest.raises(ValueError) as caught:
+            call()
+        assert str(caught.value) == unmeasured
+    # The closed real backend still says the gate, whatever the loader.
+    for call in (DiffusersBackend().load, lambda: DiffusersBackend()._load_prepared(None)):
+        with pytest.raises(ValueError) as caught:
+            call()
+        assert str(caught.value) == INSTRUCTION_EDIT_UNAVAILABLE
     assert not backend.is_ready() and events == []
 
 
@@ -462,3 +475,32 @@ def test_load_bound_source_refuses_an_aspect_outside_the_recipe(store):
     # A 2:1 source cannot even be bound; its proof alone carries no geometry.
     with pytest.raises(ValueError, match="exact source aspect"):
         instruction_edit_admission.bind_source({"source": source.id, "recipe": "kontext-v1"})
+
+
+def test_edit_only_checkpoint_refuses_plain_generate_at_the_backend(store, monkeypatch):
+    # Inside the envelope with the gate open, the backend itself still runs
+    # nothing but an edit on Kontext: the command line, Mass refine and Then
+    # refine reach this call without the submit check.
+    from backend.instruction_edit import INSTRUCTION_EDIT_TEXT_TO_IMAGE
+
+    select_editor(monkeypatch)
+    source = _source(store, size=(320, 320))
+    pipe = KontextStub()
+    backend = _loaded(pipe)
+    plain = GenerateRequest(prompt="a lighthouse", width=512, height=512, mu=None)
+    refine = plain.model_copy(update={"refine": source.id})
+    for request in (plain, refine):
+        for call, args in ((backend.applied, ()), (backend.generate, (1,))):
+            with pytest.raises(ValueError) as caught:
+                call(request, *args)
+            assert str(caught.value) == INSTRUCTION_EDIT_TEXT_TO_IMAGE
+    # An edit carrying anything else is refused by its own validation first.
+    bound = stored_edit(source)
+    with pytest.raises(ValueError, match="cannot include"):
+        backend.generate(_request(bound, width=512, height=512).model_copy(update={"lora": "style"}), seed=1)
+    assert pipe.kwargs == []
+    # And the closed real backend says its gate, never the pointer.
+    closed = _loaded(KontextStub(), cls=DiffusersBackend)
+    with pytest.raises(ValueError) as caught:
+        closed.generate(plain, seed=1)
+    assert str(caught.value) == INSTRUCTION_EDIT_UNAVAILABLE

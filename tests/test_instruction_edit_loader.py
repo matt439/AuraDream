@@ -80,3 +80,31 @@ def test_catalogue_and_enumerated_nunchaku_ids_keep_their_existing_index_behavio
 def test_named_edit_only_checkpoints_refuse_without_any_index_or_framework_access(model_id):
     with pytest.raises(ValueError, match="not available"):
         instruction_edit.require_model_available(model_id)
+
+
+def test_every_require_model_available_caller_passes_qualified_and_selection():
+    # Every load entry asks the instance's gate and the selection's loader
+    # facts (slice 3); a call that left either out would treat the gate as
+    # closed, or an open gate as outside any envelope, without saying why.
+    import ast
+    from pathlib import Path
+
+    root = Path(__file__).resolve().parents[1]
+    sources = [*sorted((root / "backend").rglob("*.py")), *sorted((root / "tools").rglob("*.py")),
+               root / "tests" / "fakes.py"]
+    calls = []
+    for path in sources:
+        for node in ast.walk(ast.parse(path.read_text(encoding="utf-8"), filename=str(path))):
+            if not isinstance(node, ast.Call):
+                continue
+            name = node.func.attr if isinstance(node.func, ast.Attribute) else getattr(node.func, "id", None)
+            if name != "require_model_available":
+                continue
+            keywords = {keyword.arg for keyword in node.keywords}
+            calls.append((path.relative_to(root).as_posix(), node.lineno, {"qualified", "loader"} <= keywords))
+    callers = {path for path, _, _ in calls}
+    # The load entries the plan names, and the stand-in's own copies.
+    assert {
+        "backend/backends/diffusers_backend.py", "backend/main.py", "backend/model_selection.py", "tests/fakes.py",
+    } <= callers, calls
+    assert [call for call in calls if not call[2]] == []

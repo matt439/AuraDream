@@ -202,8 +202,21 @@ async def ensure_loaded() -> None:
     of requests waits on a single attempt instead of each starting its own.
     """
     async with _load_lock:
-        require_model_available(current_model_id(settings), qualified=backend.instruction_edit_qualified())
-        require_configured_loader_available(current_settings(settings))
+        selected = current_settings(settings)
+        try:
+            require_model_available(
+                selected.model_id, qualified=backend.instruction_edit_qualified(),
+                loader=backend.instruction_edit_loader(selected),
+            )
+        except ValueError as exc:
+            # An edit-only checkpoint this backend may not load - a saved
+            # choice with Load automatically on startup among them - is a
+            # failed load, in its own words (not the Hub's, nor an exception
+            # name), and its saved choice is never rewritten.
+            detail = str(exc)
+            _load_state.update(state="error", detail=detail, detail_kind=None, detail_url=None)
+            raise LoadFailed(detail) from exc
+        require_configured_loader_available(selected)
         if backend.is_ready():
             _load_state.update(state="ready", detail=None)
             return
@@ -713,8 +726,12 @@ def _disk_free_mb() -> int | None:
 async def load_model() -> ModelStatus:
     global _switch_error
     try:
-        require_model_available(current_model_id(settings), qualified=backend.instruction_edit_qualified())
-        require_configured_loader_available(current_settings(settings))
+        selected = current_settings(settings)
+        require_model_available(
+            selected.model_id, qualified=backend.instruction_edit_qualified(),
+            loader=backend.instruction_edit_loader(selected),
+        )
+        require_configured_loader_available(selected)
     except ValueError as exc:
         raise HTTPException(status_code=422, detail=str(exc)) from exc
     _switch_error = None
@@ -910,6 +927,7 @@ async def switch_model(request: ModelSwitchRequest, http_request: Request) -> Mo
             settings, request.model_id, quantization=request.quantization,
             offload=request.offload, format=request.format, load=request.load,
             execution=request.execution if "execution" in request.model_fields_set else model_selection.UNSET_EXECUTION,
+            backend=backend,
         )
     except ValueError as exc:
         raise HTTPException(status_code=422, detail=str(exc)) from exc

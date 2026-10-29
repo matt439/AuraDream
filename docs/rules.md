@@ -199,9 +199,10 @@ before changing it.
   the execution holds that open only for `qualified=True`
   (`edit_unavailable_reason`), and `QUALIFIED_ENVELOPE` with its pure
   `loader_refusal`/`geometry_refusal` words, `LoaderChoice` (the loader facts
-  a backend gathers) and `replay_held_reason` (stage 4: the edit routes and
-  jobs consult them, loading not yet); this module does not enable an
-  editing checkpoint.
+  a backend gathers) and `replay_held_reason` (stage 4: the edit routes,
+  jobs and every load entry consult them, `require_model_available` with
+  its `loader`), `is_edit_only` and `command_line_refusal`; this module
+  does not enable an editing checkpoint.
 - `backend/instruction_edit_admission.py` — prove live gallery source pixels,
   descriptor and exact recipe geometry before key/admission work
   (`bind_source`, `bind_request`); `load_bound_source` proves and decodes
@@ -919,8 +920,34 @@ Model and loader:
   stored 3:2 edits still bind and inspect. The tests' `FakeBackend` reports
   the envelope's own host (`edit_host`), so its answers follow the selection
   on any machine.
-  The diffusers editor load holds take no `qualified` argument and stay
-  unconditional: `load`, `_load_prepared`, both editor-class refusals and
+- Every load entry refuses an unmeasured Kontext choice before the Hub is
+  asked and before anything is saved, unloaded or downloaded.
+  `require_model_available(model_id, qualified=, loader=)` answers, in order:
+  Qwen-Image-Edit has no recipe; Kontext needs the literal True, its exact
+  id, then `loader_refusal` over the `LoaderChoice`; an open gate without
+  one is refused. Its callers pass the instance's gate and
+  `instruction_edit_loader(selected)`: `DiffusersBackend.load`,
+  `_load_prepared` and `_require_execution`, `main.ensure_loaded`,
+  `/api/model/load`, `model_selection.validate` and the tests' fake
+  (`test_every_require_model_available_caller_passes_qualified_and_selection`
+  scans `backend/`, `tools/` and `tests/fakes.py`). `validate` takes the
+  running `backend` and refuses an edit-only target before the catalogue
+  check, so Switch & load and Apply & save both refuse a gated or
+  unmeasured Kontext before `_refuse_hub_access`, `startup_preferences.save`
+  and `_switch_model`'s unload. `ensure_loaded` turns the refusal into a
+  failed load in its own words (`state: error`, no Hub kind) and
+  `LoadFailed`: a saved Kontext choice with Load automatically on startup
+  fails that way, and its file is never rewritten. `launch.configure`
+  refuses an explicit `--model/--quant/--offload/--compilation/--attention`
+  or menu choice outside the envelope (`edit_checkpoint_refusal`, in the
+  same words; the gate itself is left to the backend's load). The command
+  line never renders on an edit-only checkpoint
+  (`instruction_edit.command_line_refusal`, before `_project()`). On a
+  profile with `text_to_image_supported` False, `_require_execution`
+  refuses any request without `edit` (`text_to_image_refusal`); an edit's
+  LoRA, references, refine, mask, outpaint and upscaler are already
+  `validate_edit`'s. This closes Mass refine and Then refine at the backend.
+  The editor-class holds stay unconditional: both editor-class refusals and
   `require_custom_pipeline_class`. Kontext stays out of `launch.py`
   `CHECKPOINTS` until stage 4. A future editor load runs
   `require_pinned(validate_configs(...))` on the six `CONFIG_PATHS` fetched
@@ -5821,7 +5848,17 @@ outside the repository and not committed; their hashes are
 inspection, unreadable/malformed/editor aliases, case-insensitive named-editor
 refusal and unchanged catalogue/Nunchaku paths. Synthetic backend loads prove
 that refused aliases never reach weight overrides, `from_pretrained` or
-placement; no Hub/network or actual weights are used.
+placement; no Hub/network or actual weights are used. Its
+`test_every_require_model_available_caller_passes_qualified_and_selection`
+scans every call for both `qualified` and `loader`. Slice 3's load-entry
+refusals are also checked in `test_api_model_switch.py` (a gated, an
+unmeasured and an envelope Kontext switch: the Hub unasked, or asked and
+refusing, with the saved file byte-identical and the current model still
+ready), `test_loader_startup.py` (explicit flags refused in the load's
+words; a saved unmeasured choice restored as it is and failing as a load),
+`test_instruction_edit_call.py`
+(`test_edit_only_checkpoint_refuses_plain_generate_at_the_backend`) and
+`test_cli.py` (`test_cli_refuses_kontext_before_backend_import`).
 
 `tests/test_backup_credentials.py` and `tests/test_backup_credential_integration.py`
 check WinCred ABI declarations through API stubs, exact opaque references, bounds,

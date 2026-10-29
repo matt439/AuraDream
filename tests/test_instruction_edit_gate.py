@@ -117,10 +117,25 @@ def test_model_gate_always_refuses_qwen_and_opens_kontext_only_when_qualified():
             with pytest.raises(ValueError) as caught:
                 edit.require_model_available(model_id, qualified=closed)  # type: ignore[arg-type]
             assert str(caught.value) == edit.INSTRUCTION_EDIT_UNAVAILABLE
-    # Open, only the recipe's exact id loads, as `bind_request` compares it.
-    assert edit.require_model_available(edit.KONTEXT_V1.model_id, qualified=True) is None
-    with pytest.raises(ValueError, match="exactly"):
-        edit.require_model_available(edit.KONTEXT_V1.model_id.lower(), qualified=True)
+    # Open, only the recipe's exact id loads, as `bind_request` compares it,
+    # and only inside the measured loader envelope.
+    measured = edit.LoaderChoice(
+        quantization="fp8", offload="model", device="cuda", platform="win32",
+        loader_execution=None, diffusers_version="0.40.0",
+    )
+    assert edit.require_model_available(edit.KONTEXT_V1.model_id, qualified=True, loader=measured) is None
+    with pytest.raises(ValueError) as caught:
+        edit.require_model_available(edit.KONTEXT_V1.model_id, qualified=True)
+    assert str(caught.value) == edit.INSTRUCTION_EDIT_LOADER_UNQUALIFIED.format(choice="an unknown loader")
+    with pytest.raises(ValueError) as caught:
+        edit.require_model_available(
+            edit.KONTEXT_V1.model_id, qualified=True, loader=dataclasses.replace(measured, offload="sequential"),
+        )
+    assert str(caught.value) == edit.INSTRUCTION_EDIT_LOADER_UNQUALIFIED.format(choice="sequential offload")
+    for loader in (None, measured):
+        with pytest.raises(ValueError) as caught:
+            edit.require_model_available(edit.KONTEXT_V1.model_id.lower(), qualified=True, loader=loader)
+        assert str(caught.value) == edit.INSTRUCTION_EDIT_EXACT_ID
     assert edit.require_model_available("black-forest-labs/FLUX.1-Krea-dev") is None
 
 

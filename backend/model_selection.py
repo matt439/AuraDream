@@ -11,6 +11,7 @@ import sys
 import time
 from dataclasses import replace
 from sys import modules as imported_modules
+from typing import Any
 
 from .launch import CHECKPOINTS, FORMATS
 from .execution import (
@@ -202,9 +203,14 @@ def available(settings, quantization: str | None = None, format: str | None = No
 def validate(
     settings, model_id: str, *, quantization: str | None = None,
     offload: str | None = None, format: str | None = None,
-    execution: object = UNSET_EXECUTION, load: bool = True,
+    execution: object = UNSET_EXECUTION, load: bool = True, backend: Any = None,
 ):
-    """Resolve browser options and refuse incompatible choices before unload."""
+    """Resolve browser options and refuse incompatible choices before unload.
+
+    ``backend`` is the running instance whose gate and host decide an
+    edit-only target (``instruction_edit.require_model_available``); without
+    one the gate counts as closed.
+    """
     # Explicit unsupported load attempts stop before even resolving options.
     # An omitted recipe preserves the selected intent, including a diagnostic.
     checked = canonical_loader_execution(execution) if execution is not UNSET_EXECUTION else UNSET_EXECUTION
@@ -223,6 +229,19 @@ def validate(
         raise ValueError(f"Quantization must be one of: {', '.join(QUANT_MODES)}")
     if offload not in OFFLOAD_MODES:
         raise ValueError(f"Offload must be one of: {', '.join(OFFLOAD_MODES)}")
+    # Before the catalogue, the Hub, the save and the unload, for Apply &
+    # save as for Switch & load: an edit-only checkpoint is selected only
+    # where the backend answered the literal True, by its exact id, and
+    # inside the measured loader envelope.
+    from .instruction_edit import is_edit_only, require_model_available
+
+    if is_edit_only(model_id):
+        target = replace(selected, model_id=model_id, quantization=quantization, offload=offload,
+                         loader_execution=checked, loader_execution_error=None)
+        require_model_available(
+            model_id, qualified=False if backend is None else backend.instruction_edit_qualified(),
+            loader=None if backend is None else backend.instruction_edit_loader(target),
+        )
     reason = loader_configuration_reason(
         checked, model_id=model_id, quantization=quantization, offload=offload,
         device=selected.device,

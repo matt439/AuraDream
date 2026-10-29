@@ -211,7 +211,9 @@ Model and loader:
 - Loading happens only in `main.ensure_loaded()` under its asyncio lock, after
   `jobs.wait_for_gate`. `generate()` raises on a missing pipeline; unload is
   409 while a job or load is live. Load failures go through
-  `main._load_failure`.
+  `main._load_failure`; an edit-only checkpoint's refusal there
+  (`require_model_available`, given the instance's `qualified` and
+  `loader` at every load entry) is an error in its own words.
 - Switching reserves the idle server through cleanup and `select()`; its load
   is then an ordinary `ensure_loaded` (Check, tags and LoRAs answer, Generate
   queues, a second switch is refused).

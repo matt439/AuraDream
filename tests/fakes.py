@@ -154,9 +154,11 @@ class FakeBackend(GenerationBackend):
         qualified = self.instruction_edit_qualified()
         if request.edit is not None:
             require_execution_available(request.validate_edit(), qualified=qualified)
-        require_model_available(current_model_id(settings), qualified=qualified)
-        require_default_execution(request.execution)
         selected = current_settings(settings)
+        require_model_available(
+            selected.model_id, qualified=qualified, loader=self.instruction_edit_loader(selected),
+        )
+        require_default_execution(request.execution)
         require_configured_loader_available(selected)
         request = request.with_execution(selected.loader_execution)
         require_default_execution(request.execution)
@@ -207,8 +209,12 @@ class FakeBackend(GenerationBackend):
         from backend.execution import require_configured_loader_available
         from backend.instruction_edit import require_model_available
 
-        require_model_available(current_model_id(settings), qualified=self.instruction_edit_qualified())
-        require_configured_loader_available(current_settings(settings))
+        selected = current_settings(settings)
+        require_model_available(
+            selected.model_id, qualified=self.instruction_edit_qualified(),
+            loader=self.instruction_edit_loader(selected),
+        )
+        require_configured_loader_available(selected)
         self._sync_model_profile()
         self.loads += 1
         self.loaded = True
@@ -228,9 +234,11 @@ class FakeBackend(GenerationBackend):
         qualified = self.instruction_edit_qualified()
         if request.edit is not None:
             require_execution_available(request.validate_edit(), qualified=qualified)
-        require_model_available(current_model_id(settings), qualified=qualified)
-        require_default_execution(request.execution)
         selected = current_settings(settings)
+        require_model_available(
+            selected.model_id, qualified=qualified, loader=self.instruction_edit_loader(selected),
+        )
+        require_default_execution(request.execution)
         require_configured_loader_available(selected)
         request = request.with_execution(selected.loader_execution)
         require_default_execution(request.execution)
