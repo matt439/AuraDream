@@ -232,6 +232,20 @@ function toggleBin() {
   if (binMode) { leaveBin(); void resetGallery(); } else enterBin();
 }
 
+// "binned today", "binned 1 day ago", "binned N days ago": whole days,
+// rounded down, from binned_at (ISO UTC, gallery_delete._now) to the page's
+// clock now, so a card saying 7 days is older than Older than 7 days' cutoff.
+// Presentation only, never sent back: the server fixes what a scoped Empty
+// takes. A future stamp (another machine's clock) is today; one that does
+// not parse is '' - a scoped Empty keeps it too. Worked out as the card
+// renders, not kept up to date while the bin stays open.
+function binnedAge(rec, now = Date.now()) {
+  const at = Date.parse(rec.binned_at);
+  if (!Number.isFinite(at)) return '';
+  const days = Math.max(0, Math.floor((now - at) / 86400000));
+  return days === 0 ? 'binned today' : `binned ${plural(days, 'day')} ago`;
+}
+
 // The bin's card: its picture opens or is picked as a gallery card's is
 // (cardPress), and two tools - ↶ Restore, and ⌦ Delete permanently, last,
 // which asks first. No star, Reuse, ❐ or ⊞: the image is gone from all
@@ -248,6 +262,15 @@ function binCard(div, img, rec) {
   const tools = document.createElement('div');
   tools.className = 'tools';
   Object.assign(tools.dataset, { n: rec.id, size: `${rec.width}×${rec.height}`, seed: rec.seed });
+  // How long ago it was binned, after the seed in the hover/focus caption
+  // (styles/bin.css) and in the image's name, which the caption is hidden
+  // from. Nothing where binned_at does not parse. A narrow card's caption
+  // breaks before the words, never inside them.
+  const age = binnedAge(rec);
+  if (age) {
+    tools.dataset.binned = age.replaceAll(' ', ' ');
+    img.setAttribute('aria-label', `Open #${rec.id}, ${age}: ${rec.prompt}`);
+  }
   tools.append(restore, del);
   div.append(img, tools);
   cardStops(div, rec.id === galleryCurrent);

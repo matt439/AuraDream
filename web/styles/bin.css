@@ -11,6 +11,14 @@
    with focus, where it is being looked at. */
 #gallery .card.binned > img { opacity: 0.8; transition: opacity 0.15s; }
 #gallery .card.binned:hover > img, #gallery .card.binned:focus-within > img { opacity: 1; }
+/* And its hover/focus caption (sheet.css's .card .tools::before) says how
+   long ago it was binned after the seed (binnedAge, bin.js): the caption is
+   absolute, so the card, the grid and the tools keep their places. A card
+   with a note still shows none. */
+.card.binned .tools[data-binned]::before {
+  content: "#" attr(data-n) "\00a0· " attr(data-size) "\00a0· seed\00a0" attr(data-seed) "\00a0· " attr(data-binned) / "";
+}
+.card.binned:has(> .card-note) .tools[data-binned]::before { content: none; }
 
 /* The held controls that are no .ghost button - Starred and Gallery beside,
    the Runs picker - dimmed as a held button is (generation.css). */

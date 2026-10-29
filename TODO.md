@@ -8,7 +8,7 @@ The maintainer's working backlog for this personal project: it records what is p
 
 **Aim (2026-10-29):** keep useful work ready for Matt's common workstation tasks. [Reported use](docs/design/preferences.md) guides priority; it does not approve the candidate redesign.
 
-**Ready backlog (updated 2026-10-30):** 19 `OPEN` rows. `INP#11` stage 4's code is built on `feat/inp11-stage4`; its [card acceptance step](docs/plan-instruction-editing.md#card-acceptance-step) waits on Matt's OK. The [2026-10-29 audit](docs/review-2026-10-29-todo.md)'s rows follow; start with the defects and Often-feature rows: Finish run's missing passes (`GEN#35`), Compare scales (`UI#34`). The card-session tools (`DEV#20`, `DEV#22`, `DEV#23`, `PERF#6`) shorten later card runs; they don't replace them.
+**Ready backlog (updated 2026-10-30):** 18 `OPEN` rows. `INP#11` stage 4's code is built on `feat/inp11-stage4`; its [card acceptance step](docs/plan-instruction-editing.md#card-acceptance-step) waits on Matt's OK. The [2026-10-29 audit](docs/review-2026-10-29-todo.md)'s rows follow; start with the defects and Often-feature rows: Finish run's missing passes (`GEN#35`), Compare scales (`UI#34`). The card-session tools (`DEV#20`, `DEV#22`, `DEV#23`, `PERF#6`) shorten later card runs; they don't replace them.
 
 **Decisions for Matt:** none open. On 2026-10-29 Matt took the recommended answers for `PERF#7` (cache beside the gallery, cleared on a torch/Triton/driver change, static shapes; shipping waits on `PERF#1`), `PERF#5`, `GAL#21` and `UI#34`; declined `GEN#39` and unattended backups (`GAL#22`, `GAL#6`); kept `GEN#6`, `INP#9` and `INP#10` deferred.
 
@@ -98,7 +98,6 @@ The maintainer's working backlog for this personal project: it records what is p
 | id | status | sev | size | item |
 |---|---|---|---|---|
 | `GAL#23` | OPEN | LOW | S | A search that finds nothing does not say that a mistyped key such as `sed:42` was searched as prompt words (E5/E9 Often). syncGalleryEmpty names a near SEARCH_KEYS match and offers 'Search seed:42' (no scroll), in the bin too. No change to head height. [Owner](docs/review-2026-10-29-backlog.md#gal23-mistyped-search-keys) |
-| `GAL#24` | OPEN | LOW | S | Bin cards do not show their age, although binned_at drives the age-scoped Empty (F5 follow-up). Add 'binned N days ago' (whole days, rounded down) to the card's hover/focus caption and its accessible name, with no new line and no layout change. [F5 follow-up](docs/review-2026-10-12.md#f5-follow-up-bin-card-age-gal24) |
 
 ## Prompt analyser
 

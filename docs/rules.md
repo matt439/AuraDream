@@ -5875,7 +5875,14 @@ Frontend and CLI:
   Select stays, with **Restore picked** before Empty, held while nothing is
   picked. A bin card's tools are ↶ Restore (`.restore`) and ⌦ Delete
   permanently (`.del`, confirmed, last); its picture opens the lightbox; no
-  ⤢ (Refine everywhere else), star, ❐, Reuse or ⊞. Restore
+  ⤢ (Refine everywhere else), star, ❐, Reuse or ⊞. Its hover/focus
+  caption adds "· binned N days ago" ("binned today", "binned 1 day ago")
+  after the seed (`binnedAge`: whole days rounded down from `binned_at` to
+  the page's clock at render, a future stamp today, an unparseable one
+  nothing; the tools row's `data-binned`, its spaces non-breaking, read by
+  `styles/bin.css`), and its image's name reads "Open #N, binned N days
+  ago: <prompt>"; the caption is absolute, so nothing moves, and the age is
+  presentation only, never sent to the server (`GAL#24`). Restore
   says "Restored #N." (its other clauses "… were not in the recycle bin."
   and "… already deleted.", each naming up to six ids and counting past
   that, as `noteBinned` does) and tombstones the card "Restored · #N" (out
@@ -8646,7 +8653,11 @@ permanently; and Empty's age scope (`#bin-age`, rows backdated through
 image with "N images binned since stay" and its OK "Delete older", an image
 backdated past the fixed cutoff while asked refusing it (409), Older than 7
 days deleting only the two old ones as "Deleted" tombstones, and nothing
-old enough said without a question. Re-run
+old enough said without a question; and a bin card's age (`GAL#24`):
+one backdated 8 days and one not reading "binned 8 days ago" and "binned
+today" in caption and name, the Older than 7 days summary counting one,
+and the cards and their tools in the same places with and without the
+words, at 1400 and 600 px. Re-run
 `smoke-select.json` at 600 and 1400 px wide after a footer change, so the
 row with Bin does not wrap:
 
