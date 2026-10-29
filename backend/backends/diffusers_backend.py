@@ -75,7 +75,6 @@ _EDIT_PARAMS = frozenset({
 })
 
 
-
 def _pinned_editor_refusal(pipe: Any, params: set[str]) -> str | None:
     """Why a loaded pipeline is not the pinned Kontext editor, or None.
 

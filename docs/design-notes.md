@@ -1305,7 +1305,9 @@ real server being able to. A source scan holds every definition to the
 literal. Only `True` itself opens the gate, so a truthy leftover cannot.
 The editor load holds stay unconditional and do not consult the gate. Even
 a mistaken `True` therefore reaches no weights until stage 4 changes the
-loader on purpose.
+loader on purpose. (Stage 4 slice 4 did: the holds open only for the exact
+Kontext id inside the measured envelope, through the pinned
+configs-then-weights loader; `docs/rules.md`, Model and loader.)
 
 *Why a dedicated route.* `POST /api/instruction-edit` exists because
 `/api/generate`'s `refuse_unusable_inputs` refuses everything on an editor

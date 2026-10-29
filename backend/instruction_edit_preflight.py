@@ -98,8 +98,8 @@ def validate_configs(model_id: str, revision: str, supplied: Mapping[str, object
     Required paths are fixed. Identity arguments must be the frozen public id
     and complete revision, not a branch/tag. Hashes describe canonical config
     JSON; they do not authenticate that a caller fetched the claimed revision.
-    The future loader owns that binding and must keep execution unavailable
-    until independent model/card qualification has completed.
+    The pinned loader (``loading.require_kontext_pin``) owns that binding,
+    and execution stays unavailable until the backend's own gate opens.
     """
     if model_id != KONTEXT_V1.model_id or revision != KONTEXT_V1.revision:
         raise _refuse("recipe identity")

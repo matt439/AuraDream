@@ -308,8 +308,8 @@ Reproduction and storage:
   (literal `True` only), never a setting; `DiffusersBackend` returns a literal
   False, its editor load holds open only for the exact Kontext id inside the
   measured envelope with a literal True (the pinned configs-then-weights
-  loader) and Kontext stays out of `CHECKPOINTS`. So real-server editor loading and execution remain
-  unavailable until card qualification. The fake and the stub can queue,
+  loader) and Kontext stays out of `CHECKPOINTS`. So real-server editor
+  loading and execution remain unavailable until card qualification. The fake and the stub can queue,
   through `POST /api/instruction-edit` only, which re-proves each cell's
   source as it begins. Reuse opens the Edit by instruction dialog. Generate,
   Re-render and More seeds of edits stay held. The plan and the carry/bundle

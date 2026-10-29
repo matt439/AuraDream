@@ -421,7 +421,10 @@ variable or flag reads into it. These all ask the same instance:
 diffusers load holds take no `qualified` argument and stay unconditional:
 `load`, `_load_prepared`, both editor-class refusals and
 `loading.require_custom_pipeline_class`. So even a stand-in that answers True
-cannot load the editor on this backend.
+cannot load the editor on this backend. (Stage 4 changed this on purpose:
+slice 3 passes the gate and the loader facts to `load` and `_load_prepared`,
+and slice 4 opens the holds for the exact Kontext id inside the measured
+envelope only; see stage 4 below.)
 
 The held reasons are five sentences in `instruction_edit.py`.
 `INSTRUCTION_EDIT_UNAVAILABLE` covers a closed gate and the Kontext pipeline
