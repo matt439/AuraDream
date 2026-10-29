@@ -1,6 +1,6 @@
 # Review: Runs favorite counts after confirmed stars, 2026-10-29
 
-**Status:** `GAL#19` implemented and functionally qualified, 2026-10-29 UTC.
+**Status:** `GAL#19` implemented, functionally qualified and visually inspected; closed 2026-10-29.
 Independent source/VM/native reviews, measured controls, positive actual-
 module/native checks and three related browser regressions are complete.
 New screenshot inspection remains open after the result artifact read was
@@ -175,3 +175,21 @@ The bounded source implementation has actual-module and native functional
 qualification; retaining this separate visual item does not qualify a layout
 or actual OS/device acceptance. The earlier GAL12/UI28 unknown runs and all
 previous denied artifacts remain untouched.
+
+## Screenshot inspection, 2026-10-29
+
+A fresh run of `smoke-runs-favorite-counts` passes (6 s), and its three new
+screenshots were inspected:
+
+- `runs-favorites-single-two-wide.png`: both cards starred, and the
+  controlled refusal stated under the gallery head without moving the
+  controls.
+- `runs-favorites-bulk-zero-wide.png`: "Unstarred #1 and #2." with both
+  picks kept and the stars cleared.
+- `runs-favorites-bulk-zero-narrow.png` (600 px): the gallery head wraps
+  below the panel without overlap.
+
+The closed Runs picker truncates its label, so the refreshed star count is
+not legible in the shots themselves. The fixture's option-text assertions
+establish the count, and the picker's width is its existing layout, not part
+of this change.
