@@ -12,9 +12,12 @@ lifetime and v2 bundle/reindex recovery. Stage 2 is
 [built on a stand-in](#stage-2-backend-and-dialog-2026-10-27): the editing
 call branch, the queueing route, the per-cell recheck and the dialog. Its
 evidence is a Kontext-shaped stub, the fake server and a real-browser smoke.
-On the real server everything stays closed: `DiffusersBackend` answers the
-gate with a literal False, Kontext is listed but held (stage 4 slice 6),
-and the editor load holds are unconditional. The
+On the real server the gate is open since stage 4's release (slice 7,
+2026-10-30): `DiffusersBackend` answers the literal True, and the measured
+envelope (`QUALIFIED_ENVELOPE`: the exact Kontext id, fp8, model offload,
+Windows, Eager, diffusers 0.40.0, 1:1 sources at 512x512) holds everything
+else in words. It stays on the local branch until the card acceptance step
+passes. The
 [carry inventory](instruction-edit-carry.md) and [bundle contract](instruction-edit-bundles.md)
 separate what is built from what stage 4 must still check. After `GEN#22`,
 stage 3's approved [first card trial and bounded pair](verified.md#instruction-edit)
@@ -696,7 +699,25 @@ counts it as an editor rather than a deferred family: diffusers has
 `FluxKontextInpaintPipeline`, but an editor never paints a mask, so the page
 never says "deferred".
 
-The later slices open the real gate and release More seeds of edits.
+**Slice 7 (built): the release.** `DiffusersBackend.instruction_edit_qualified`
+is a body of only `return True`; the base class and every other backend stay
+`return False`, and no setting or environment variable reads either
+(`test_instruction_edit_gate.py`). `INSTRUCTION_EDIT_UNAVAILABLE` now says
+"not available on this backend" (a closed stand-in's words), not that the
+release is awaited. `describe()` already reported an edit supported only
+where `instruction_edit_refusal` is None; on the loaded editor its refine,
+inpaint and reference flags stay False. So on Windows with fp8 and model
+offload the editor switches, loads through the pinned loader, previews and
+queues a 1:1 source at 512x512; int8, BF16, sequential or no offload, WSL,
+another diffusers and every loader recipe are refused before `resolve_model`
+in their own words, and a 3:2 source is held. `test_instruction_edit_release.py`
+drives the real class with only the host (or the synthetic load's loader
+facts) reported as the card's. The tests that assumed the real gate False now
+use a closed stand-in for the gate's words and the real class for the
+envelope's. Nothing has run on the card in this slice; it stays local until
+the card acceptance step passes.
+
+The later slices release More seeds of edits and the page's holds.
 
 ## Stages and completion criteria
 

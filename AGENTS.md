@@ -306,16 +306,17 @@ Reproduction and storage:
   their intent and refuse replay. Edit bundles use v2; edit-free bundles stay
   v1.
 - The one edit gate is the backend instance's `instruction_edit_qualified()`
-  (literal `True` only), never a setting; `DiffusersBackend` returns a literal
-  False, its editor load holds open only for the exact Kontext id inside the
-  measured envelope with a literal True (the pinned configs-then-weights
-  loader). Kontext is an edit-only catalogue entry, listed last; its loads
-  are held by the gate and the envelope. So real-server editor
-  loading and execution remain unavailable until card qualification. The fake and the stub can queue,
-  through `POST /api/instruction-edit` only, which re-proves each cell's
-  source as it begins. Reuse opens the Edit by instruction dialog. Generate,
-  Re-render and More seeds of edits stay held. The plan and the carry/bundle
-  checklists own the remaining integration and qualification.
+  (literal `True` only), never a setting; `DiffusersBackend` returns the
+  literal True (stage 4's release), every other gate the literal False.
+  `QUALIFIED_ENVELOPE` then decides loads and edits: the exact Kontext id,
+  fp8, model offload, CUDA, Windows, Eager, diffusers 0.40.0, and 1:1
+  sources at 512x512. The editor load holds open only for the exact id inside
+  the envelope (the pinned configs-then-weights loader); Qwen-Image-Edit is
+  always refused. Kontext is an edit-only catalogue entry, listed last.
+  Edits queue through `POST /api/instruction-edit` only, which re-proves each
+  cell's source as it begins. Reuse opens the Edit by instruction dialog.
+  Generate, Re-render and More seeds of edits stay held. The plan and the
+  carry/bundle checklists own the remaining integration and the card step.
 
 Jobs:
 

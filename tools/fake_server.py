@@ -365,8 +365,8 @@ def main() -> int:
     }
     # Instruction editing: qualified on a fake claiming FLUX.1 Kontext [dev]
     # alone, so the edit route, queue and dialog run end to end there while
-    # every other fake - and the real server, whose backend answers the
-    # literal False - holds them with the reason. `POST
+    # every other fake holds them with the reason (the real backend answers
+    # the literal True; its envelope holds the rest). `POST
     # /api/fake/instruction-edit` closes and reopens the gate.
     from backend.instruction_edit import KONTEXT_V1
 

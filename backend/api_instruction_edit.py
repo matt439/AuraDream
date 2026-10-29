@@ -4,10 +4,11 @@ Both answer behind the running backend's `instruction_edit_qualified()` -
 an instance answer, never a setting - then the selected checkpoint and the
 measured loader envelope (`instruction_edit_refusal`), then the source's
 aspect (`geometry_refusal`): only what the card measured queues. The real
-diffusers backend answers False, so on the real server the preview says why
-and the submission refuses before any file is read; only a qualified
-stand-in queues. Generate, Re-render and More seeds never queue an edit
-(`submission.unusable_input`).
+diffusers backend answers True since its release, so a 1:1 source on the
+exact Kontext id, fp8 with model offload on Windows, queues; anything else
+gets the preview's reason and a submission refused before any file is read
+(an aspect, after binding). Generate, Re-render and More seeds never queue
+an edit (`submission.unusable_input`).
 """
 from __future__ import annotations
 

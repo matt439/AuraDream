@@ -54,7 +54,7 @@ The maintainer's working backlog for this personal project: it records what is p
 
 | id | status | sev | size | item |
 |---|---|---|---|---|
-| `INP#11` | OPEN | LOW | XL+card | Stages 0-3 done; Matt accepted stage 3's Kontext numbers 2026-10-29 (fits at 14.5 GB, replays, cancels, unloads; edits drift beyond the instruction). Stage 4 (on `feat/inp11-stage4`): slices 1-6 built (envelope, load refusals, pinned loader, catalogue data and the listed entry, held); remaining: open the real gate, replay producers, page holds, docs, then the card step. Real-server load stays +card. [Plan](docs/plan-instruction-editing.md#stages-and-completion-criteria). |
+| `INP#11` | OPEN | LOW | XL+card | Stages 0-3 done; Matt accepted stage 3's Kontext numbers 2026-10-29 (fits at 14.5 GB, replays, cancels, unloads; edits drift beyond the instruction). Stage 4 (on `feat/inp11-stage4`): slices 1-7 built (envelope, load refusals, pinned loader, catalogue data, the listed entry and the real gate opened inside the envelope); remaining: replay producers, page holds, docs, then the card step. Real-server load stays +card. [Plan](docs/plan-instruction-editing.md#stages-and-completion-criteria). |
 | `INP#5` | DEFERRED | LOW | M+card | Phase 4, klein: one reference beside the source, its mu recipe, memory with the sequence doubled, `smoke-inpaint-klein`. Matt doesn't run klein. |
 | `INP#6` | DEFERRED | LOW | M+card | Phase 5, Qwen-Image under Nunchaku (WSL), only if the inpaint class runs over the Nunchaku transformer at all. |
 | `INP#9` | DEFERRED | LOW | M | Phase 6, the masked area only (`padding_mask_crop` at a working size, a recorded `mask_crop`); not on Z-Image, whose class lacks it. Also for large SDXL outpaint canvases. |

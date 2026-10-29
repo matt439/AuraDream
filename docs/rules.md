@@ -903,10 +903,12 @@ Model and loader:
 - Instruction editing has one gate: the running backend instance's
   `instruction_edit_qualified()`, and only the literal `True` opens it.
   It is never a setting, environment variable or flag. The base class
-  answers False, and `DiffusersBackend` overrides it with a body of only
-  `return False` until stage-3 card qualification
-  (`test_instruction_edit_gate.py` scans every definition under `backend/`
-  for that literal). Every edit check takes `qualified=` from that instance:
+  answers False, and since stage 4's release (slice 7) `DiffusersBackend`
+  overrides it with a body of only `return True`
+  (`test_instruction_edit_gate.py` scans every definition under `backend/`:
+  `DiffusersBackend`'s is the literal True, every other the literal False).
+  The open gate grants nothing by itself: the measured envelope below
+  decides every load and edit. Every edit check takes `qualified=` from that instance:
   `require_execution_available`, `require_model_available`,
   `edit_unavailable_reason`, `applied()`, `check_refine_supported()`,
   `ensure_loaded`, `/api/model/load`, `jobs.submit_cells` and `_run`, and
@@ -957,10 +959,12 @@ Model and loader:
   `validate_edit`'s. This closes Mass refine and Then refine at the backend.
   Kontext is `launch.py` `CHECKPOINTS`' last entry since stage 4's slice 6,
   appended so no other menu number moves, with no Lite re-upload; listed is
-  not loadable: with the real gate False, Switch & load and Apply & save
-  answer 422 with the gate's words before the Hub, the save and the unload,
-  a case variant included (startup's explicit choice names it an inexact id
-  whatever the gate). Catalogued, a case variant
+  not loadable outside the envelope: Switch & load and Apply & save answer
+  422 with the loader's words (or a closed gate's, on a stand-in) before the
+  Hub, the save and the unload, and a case variant with the exact-id words
+  (startup's explicit choice names it an inexact id whatever the gate).
+  Inside it (fp8, model offload, Windows) the switch goes on to the Hub
+  check and an ordinary load. Catalogued, a case variant
   passes `require_custom_pipeline_class` (it casefolds catalogue ids), so
   `require_model_available`'s exact id, asked first at every entry, is what
   refuses it. Slice 5 keeps its catalogue data by its exact id (`KONTEXT_GUIDE`, an
@@ -5842,10 +5846,11 @@ lineage branches.
 
 Three files cover stage 2:
 
-- `test_instruction_edit_gate.py` checks the gate. The base and real
-  backends answer False even with every `AURADREAM_*` set, and a source scan
-  holds every `instruction_edit_qualified` under `backend/` to a literal
-  False. `qualified=1` stays closed. It also checks the wording constants,
+- `test_instruction_edit_gate.py` checks the gate. The base answers False
+  and the real backend True, either way with every `AURADREAM_*` set to
+  true or to false, and a source scan holds every `instruction_edit_qualified`
+  under `backend/` to one literal return: True for `DiffusersBackend`, False
+  for every other. `qualified=1` stays closed. It also checks the wording constants,
   `_merged_defaults` and the config pin: synthetic configs fail
   `require_pinned`, pass with a monkeypatched pin, and fail again with one
   path changed.
@@ -5853,8 +5858,19 @@ Three files cover stage 2:
   Kontext-shaped stub whose call reports the installed signature. It checks
   the exact kwargs, the one seeded generator, grad and inference mode off,
   progress, the preview, cancel and failure cleanup (hooks freed and the
-  source closed), and the refusals. It also checks that a plain backend and
-  editor loads still refuse.
+  source closed), and the refusals. It also checks that a closed gate and
+  the real class on an unmeasured host (Linux, another diffusers) refuse
+  before any call or load.
+- `test_instruction_edit_release.py` (stage 4 slice 7) drives the real
+  `DiffusersBackend` class, only its host (or, for the synthetic CPU load,
+  its loader facts) reported as the card's: the pinned editor loads on fp8
+  with model offload; int8, BF16 and sequential offload are refused before
+  `resolve_model`; a 3:2 preview is held in the aspect's words (and its
+  submit refused with no job) while a 1:1 one is available; a 1:1 edit's
+  `applied()` keys as the pinned fixture (run id `a83cde9e6cb2`) and runs at
+  512x512; plain Generate and refine on the loaded editor raise before the
+  pipe; `describe()` offers edits and no refine, inpaint or references, and
+  holds them off the measured host; Qwen-Image-Edit stays refused.
 - `test_instruction_edit_queue.py` checks the route's admission order and
   refusals, a saved edit row and PNG, the per-cell recheck, cancel,
   `planned_keys`, and the held producers on both gate states. Its envelope

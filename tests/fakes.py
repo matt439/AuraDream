@@ -75,8 +75,9 @@ class FakeBackend(GenerationBackend):
         self.peak: tuple[int, int] | None = None
         self._last_peak: tuple[int, int] | None = None
         self.after_generate = None
-        # The instruction-edit gate, closed as on the real backend. Only the
-        # literal True opens it (`instruction_edit_qualified`).
+        # The instruction-edit gate, closed by default (the real backend's
+        # is open since its release). Only the literal True opens it
+        # (`instruction_edit_qualified`).
         self.edit_qualified = False
         # The host the envelope's loader check is told this fake runs on
         # (`instruction_edit_host`): the measured one, so an open gate's

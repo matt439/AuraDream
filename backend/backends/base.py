@@ -127,9 +127,10 @@ class GenerationBackend(abc.ABC):
         """Whether this backend instance may load and run an instruction edit.
 
         The one gate: an instance answer, never a setting, an environment
-        variable or a flag. The default, and the real diffusers backend until
-        its card qualification, answers the literal False; only a test or
-        fake stand-in opens it. Callers compare with ``is True``.
+        variable or a flag. The default answers the literal False; the real
+        diffusers backend (released after its card trial) and the test and
+        fake stand-ins answer True, and the measured envelope still decides
+        (``instruction_edit_refusal``). Callers compare with ``is True``.
         """
         return False
 

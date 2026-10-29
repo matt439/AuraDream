@@ -1266,9 +1266,10 @@ and [bundle contract](instruction-edit-bundles.md) own integration acceptance.
 **Current status, 2026-10-28:** stage 3's approved [first card trial and bounded
 pair](verified.md#instruction-edit) ran on 2026-10-27 at 512x512, fp8 and model
 offload. That slice fits, replays, cancels and unloads, with drift beyond the
-instruction. The real server's gate and loader holds stay closed while stage 4
-waits for review of those results and public integration. Other sizes and
-configurations remain unqualified.
+instruction. Matt reviewed those results and approved stage 4 on 2026-10-29;
+its release (slice 7) opens the real server's gate, and the measured envelope
+holds everything the card did not measure. Other sizes and configurations
+remain unqualified.
 
 An editor's `image` argument is a source for an instruction, rather than a
 klein reference list or a Refine strength. It must get explicit capabilities
@@ -1308,6 +1309,17 @@ a mistaken `True` therefore reaches no weights until stage 4 changes the
 loader on purpose. (Stage 4 slice 4 did: the holds open only for the exact
 Kontext id inside the measured envelope, through the pinned
 configs-then-weights loader; `docs/rules.md`, Model and loader.)
+
+*Why the release is a literal, not a setting (stage 4 slice 7).* Opening the
+real gate is one changed literal, `return True` in `DiffusersBackend`, held by
+the same source scan, rather than a flag that could open the editor on a
+machine nobody measured. What the literal opens is narrow on purpose:
+`QUALIFIED_ENVELOPE` is the stage 3 run's configuration (the exact id, fp8,
+model offload, Windows, Eager, diffusers 0.40.0, 1:1 sources at 512x512), and
+every load entry and queue answer asks it first. A choice outside it is
+refused in words naming that choice, never silently changed to the measured
+one. Widening the envelope is a one-line follow-up to the data after a card
+run, not a code path.
 
 *Why a dedicated route.* `POST /api/instruction-edit` exists because
 `/api/generate`'s `refuse_unusable_inputs` refuses everything on an editor

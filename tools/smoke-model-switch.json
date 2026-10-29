@@ -765,7 +765,7 @@
   {"expect": "__rows().at(-1).dataset.model === __editor && modelLabel(__editor) === 'FLUX.1 Kontext [dev]' && modelCatalogueDetails[__editor]?.style === 'Instruction editor' && modelCatalogueDetails[__editor]?.instruction_edit === 'Held'"},
   {"eval": "window.__editRevision = modelRevision; __radio(__editor).click()"},
   {"click": "#btn-model-switch"},
-  {"expect": "__until(() => !modelSwitchSending && __note().startsWith('Instruction editing is not available in this build: ') && els.error.textContent.startsWith('Instruction editing is not available in this build: ') && !els.error.hidden)"},
+  {"expect": "__until(() => !modelSwitchSending && __note().startsWith('Instruction editing is not available on this backend: ') && els.error.textContent.startsWith('Instruction editing is not available on this backend: ') && !els.error.hidden)"},
   {"expect": "__until(async () => { await refreshStatus(); return loadedModel === __flux && modelState === 'ready' && !modelSwitching && modelRevision === window.__editRevision && modelRuntimeSettings.model_id === __flux; })"},
   {"eval": "(() => { showError(''); __radio(__flux).click(); })()"},
   {"log": "'A checkpoint list that could not be fetched says so in the held titles and stays, dimmed, while it retries'"},

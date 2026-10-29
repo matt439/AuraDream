@@ -924,8 +924,12 @@ class DiffusersBackend(GenerationBackend):
         return value if registration is self._regional_registration else None
 
     def instruction_edit_qualified(self) -> bool:
-        """Public release review and integration remain pending; reads nothing."""
-        return False
+        """Released after the card trial (stage 4); reads nothing.
+
+        The literal True opens the seam only: `QUALIFIED_ENVELOPE` still
+        decides every load and edit (`instruction_edit_refusal`).
+        """
+        return True
 
     def _require_execution(self, request: GenerateRequest) -> GenerateRequest:
         from ..instruction_edit import require_execution_available, require_model_available, text_to_image_refusal
@@ -1746,8 +1750,8 @@ class DiffusersBackend(GenerationBackend):
         """Run one instruction edit through the loaded Kontext pipeline.
 
         Reached only after `_require_execution` and `applied()` admitted the
-        edit, which on this backend cannot happen until release review and
-        integration finish (`instruction_edit_qualified`). Every refusal comes before the call
+        edit: the gate (`instruction_edit_qualified`) and the measured envelope
+        (`instruction_edit_refusal`), then the source's aspect. Every refusal comes before the call
         except the result's own checks. The source is reproved from the
         gallery, its proof and pixels read through one open handle
         (`instruction_edit_admission.load_bound_source`). The offload hooks
@@ -1938,8 +1942,8 @@ class DiffusersBackend(GenerationBackend):
             # both are known before a single weight is downloaded.
             "lora_supported": self.lora_supported(),
         }
-        # The one gate, never a profile or a setting. Closed on this backend
-        # pending release review and integration, so the held reason always stands here.
+        # The one gate, never a profile or a setting. Open on this backend;
+        # the envelope below still holds every loader the card never measured.
         qualified = self.instruction_edit_qualified() is True
         # The gate, the exact id (as bind_request compares the recipe's
         # identity) and the measured loader envelope, in that order.

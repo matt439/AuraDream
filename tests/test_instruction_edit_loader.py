@@ -332,18 +332,22 @@ def test_loaded_class_and_vae_scale_factor_are_required(kontext_hub, miss):
     assert control.pipe_ref() is None
 
 
-def test_closed_gate_still_refuses_kontext_load(kontext_hub, synthetic_loader):
+def test_a_closed_gate_or_the_selections_own_loader_refuses_kontext_load(kontext_hub, synthetic_loader):
     _, _, events, hub = kontext_hub
 
     class Closed(Measured):
         def instruction_edit_qualified(self) -> bool:
             return False
 
-    for backend in (Closed(), module.DiffusersBackend()):
+    # The real class's gate is open, but the fixture's own selection (no
+    # offload, on the CPU) is outside the envelope.
+    unmeasured = instruction_edit.INSTRUCTION_EDIT_LOADER_UNQUALIFIED.format(choice="no offload")
+    for backend, words in ((Closed(), instruction_edit.INSTRUCTION_EDIT_UNAVAILABLE),
+                           (module.DiffusersBackend(), unmeasured)):
         for call in (backend.load, functools.partial(backend._load_prepared, None)):
             with pytest.raises(ValueError) as caught:
                 call()
-            assert str(caught.value) == instruction_edit.INSTRUCTION_EDIT_UNAVAILABLE
+            assert str(caught.value) == words
     assert hub.calls == [] and events == []
 
 

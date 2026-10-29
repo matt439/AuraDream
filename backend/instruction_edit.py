@@ -6,8 +6,8 @@ model capability. Its first 512x512 card trial is recorded; other shapes remain
 unqualified. Execution opens only where a caller passes
 ``qualified=True``, which comes from the running backend instance's
 ``instruction_edit_qualified()`` - never a setting. The real diffusers
-backend answers False pending release review and integration, so its load and
-execution stay closed; only test and fake stand-ins can open the seam.
+backend answers the literal True since its release (stage 4), as the test and
+fake stand-ins do; every other backend answers False.
 ``QUALIFIED_ENVELOPE`` records what the card measured (stage 4): pure data
 and refusal words. Where the gate is open, the edit routes and the queue also
 hold an unmeasured loader (``edit_unavailable_reason`` with a
@@ -36,8 +36,8 @@ PositiveDimension = Annotated[int, Field(strict=True, gt=0)]
 MAX_AREA = 512 * 512
 MAX_SEQUENCE_LENGTH = 512
 INSTRUCTION_EDIT_UNAVAILABLE = (
-    "Instruction editing is not available in this build: "
-    "FLUX.1 Kontext [dev] is awaiting release review after its first card trial."
+    "Instruction editing is not available on this backend: "
+    "FLUX.1 Kontext [dev] runs only on the backend its card trial qualified."
 )
 INSTRUCTION_EDITOR_UNSUPPORTED = (
     "Instruction editing is not available for this checkpoint: it has no recipe "

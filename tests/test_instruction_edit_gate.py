@@ -1,8 +1,10 @@
 """The one instruction-edit gate: a backend instance's literal answer.
 
-The real backend stays closed whatever the environment says; the seam opens
-only for the literal True a stand-in answers. The config pin compares bytes
-and never grants execution. No weights, downloads or GPU.
+Since the release only the real diffusers backend's body is the literal
+True; every other gate is the literal False, and no environment variable
+moves either. The seam opens only for the literal True, and the measured
+envelope still decides. The config pin compares bytes and never grants
+execution. No weights, downloads or GPU.
 """
 from __future__ import annotations
 
@@ -44,9 +46,9 @@ def _real_backend():
     return DiffusersBackend()
 
 
-def test_base_and_real_backends_answer_the_literal_false():
+def test_the_base_answers_false_and_the_real_backend_the_literal_true():
     assert _Bare().instruction_edit_qualified() is False
-    assert _real_backend().instruction_edit_qualified() is False
+    assert _real_backend().instruction_edit_qualified() is True
 
 
 def test_no_environment_variable_opens_the_real_backend(monkeypatch):
@@ -60,14 +62,23 @@ def test_no_environment_variable_opens_the_real_backend(monkeypatch):
     })
     for name in names:
         monkeypatch.setenv(name, "true")
-    assert _real_backend().instruction_edit_qualified() is False
+    # Nothing opens the base, and the real backend's answer is its literal,
+    # neither widened nor closed by a setting: the envelope decides there.
+    assert _real_backend().instruction_edit_qualified() is True
+    assert _Bare().instruction_edit_qualified() is False
+    for name in names:
+        monkeypatch.setenv(name, "false")
+    assert _real_backend().instruction_edit_qualified() is True
     assert _Bare().instruction_edit_qualified() is False
 
 
-def test_every_backend_definition_of_the_gate_returns_the_literal_false():
+def test_only_the_diffusers_backend_gate_returns_the_literal_true():
     found = []
     for path in BACKEND.rglob("*.py"):
         tree = ast.parse(path.read_text(encoding="utf-8"), filename=str(path))
+        owners = {
+            id(item): node.name for node in ast.walk(tree) if isinstance(node, ast.ClassDef) for item in node.body
+        }
         for node in ast.walk(tree):
             if isinstance(node, (ast.FunctionDef, ast.AsyncFunctionDef)) and node.name == "instruction_edit_qualified":
                 body = [
@@ -75,11 +86,14 @@ def test_every_backend_definition_of_the_gate_returns_the_literal_false():
                     if not (isinstance(statement, ast.Expr) and isinstance(statement.value, ast.Constant)
                             and isinstance(statement.value.value, str))
                 ]
+                # One literal return: no setting, environment or call is read.
                 assert len(body) == 1 and isinstance(body[0], ast.Return), path
                 value = body[0].value
-                assert isinstance(value, ast.Constant) and value.value is False, path
+                owner = (path.name, owners.get(id(node)))
+                released = owner == ("diffusers_backend.py", "DiffusersBackend")
+                assert isinstance(value, ast.Constant) and value.value is released, path
                 assert not node.decorator_list, path
-                found.append(path.name)
+                found.append(owner)
             # Nothing may rebind it: no assignment, lambda or setattr by name.
             if isinstance(node, (ast.Assign, ast.AnnAssign, ast.AugAssign)):
                 targets = node.targets if isinstance(node, ast.Assign) else [node.target]
@@ -88,7 +102,8 @@ def test_every_backend_definition_of_the_gate_returns_the_literal_false():
                     assert name != "instruction_edit_qualified", path
             if isinstance(node, ast.Constant) and node.value == "instruction_edit_qualified":
                 pytest.fail(f"{path} names the gate as a string (setattr/getattr rebinding)")
-    assert "base.py" in found
+    assert ("base.py", "GenerationBackend") in found
+    assert ("diffusers_backend.py", "DiffusersBackend") in found
 
 
 def test_execution_opens_only_for_the_literal_true():
@@ -232,8 +247,9 @@ def test_a_backend_reports_its_host_and_builds_its_loader_from_the_selection():
 
 
 def test_wording_keeps_the_phrases_its_callers_match():
-    assert "not available" in edit.INSTRUCTION_EDIT_UNAVAILABLE
+    assert "not available on this backend" in edit.INSTRUCTION_EDIT_UNAVAILABLE
     assert "Kontext" in edit.INSTRUCTION_EDIT_UNAVAILABLE and "card" in edit.INSTRUCTION_EDIT_UNAVAILABLE
+    assert "awaiting" not in edit.INSTRUCTION_EDIT_UNAVAILABLE and "build" not in edit.INSTRUCTION_EDIT_UNAVAILABLE
     assert "not available" in edit.INSTRUCTION_EDITOR_UNSUPPORTED and "no recipe" in edit.INSTRUCTION_EDITOR_UNSUPPORTED
     for text in (edit.INSTRUCTION_EDIT_NEEDS_MODEL, edit.INSTRUCTION_EDIT_TEXT_TO_IMAGE, edit.INSTRUCTION_EDIT_REPLAY_HELD):
         assert "Kontext" in text or "Edit by instruction" in text
