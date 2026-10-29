@@ -647,17 +647,47 @@ driver and ext4 cache ownership remain separately unverified; keep
 it removes Inductor's C compiler requirement. The Nunchaku default is also
 outside the first fp8/model-offload regional candidate.
 
-**Remaining blocker.** `Invoke-WebRequest` of the exact
+**Artifact and resolution check (2026-10-29), closing `DEV#8`.** The exact
 [published Windows wheel](https://files.pythonhosted.org/packages/ec/28/f0b2801c2cfd79be5878bf429e82b5da00fb78f046a9c21ba946681cc467/triton_windows-3.7.1.post27-cp313-cp313-win_amd64.whl)
-to an isolated task workspace was denied by socket permissions before a
-file was created. No retry/alternate route, install or uncertain package
-operation followed. Actual wheel hash/metadata/RECORD/notices and isolated
-resolution remain unverified. Only the reviewed optional pyproject/lock
-metadata was added; NOTICE/LICENSES and all execution guards are unchanged.
-`DEV#8` remains OPEN. Cold execution,
-candidate, regional-helper and cache tests still pass with no installed
-triton-windows; this proves Eager's existing cold behavior, not a compiler,
-toolchain, cache, GPU or release qualification.
+was downloaded into its own empty scratch directory and read as untrusted
+data with `python -I` and `zipfile`. Nothing was installed, imported,
+extracted or executed. Its 49,684,257 bytes hash to SHA-256
+`e8ed215c02afc85a81f0097196f8bebdf6f68085f1bc0fe8771b9a74783f15ab`, matching
+PyPI and `uv.lock`.
+
+- **Metadata.** `METADATA` declares `Requires-Python >=3.10,<3.15`, MIT, and
+  one runtime dependency inactive on 3.13. Its `build`/`tests`/`tutorials`
+  extras are not needed. `WHEEL` is `cp313-cp313-win_amd64`, not purelib.
+  All 286 `RECORD` rows are hashed except `RECORD` itself.
+- **Bundled toolchain.** `triton/_C/libtriton.pyd` (111 MB). One NVIDIA
+  `ptxas.exe`, whose embedded string is "Cuda compilation tools, release
+  12.8, V12.8.93", plus `include/cuda.h`, `lib/libdevice.10.bc` and
+  `lib/x64/cuda.lib`. The manifest's separate Blackwell ptxas 13.1.80,
+  cuobjdump, nvdisasm, cudart and cupti are **not** in the wheel. TinyCC
+  (`tcc.exe`, `libtcc.dll`) and its 113 header/lib files are also bundled.
+- **Notices.** The only notice file is Triton's MIT
+  `dist-info/licenses/LICENSE`. The NVIDIA components (CUDA EULA) and TinyCC
+  (LGPL 2.1) ship without their own notices, so the wheel must not be
+  described as MIT-only. AuraDream does not redistribute this wheel: the
+  opt-in extra installs it from PyPI onto the user's machine. The repository
+  NOTICE/LICENSES therefore stay unchanged, and this paragraph records the
+  third-party terms the user accepts by opting in.
+
+**Fresh online resolution.** In an isolated copy of `pyproject.toml` and
+`uv.lock`, with a scratch uv cache and no environment, `uv lock --refresh`
+re-resolved all 112 packages online. It reproduced the lock exactly except
+one cosmetic line: the hand-built compiler record's `upload-time` was written
+with microseconds (`…24.901003Z`), where uv writes `…24.901Z`. The repository
+lock now carries uv's own form, and `uv lock --refresh --check` passes
+online. The hand-added torch/torchvision hashes are untouched. A locked
+`--extra regional-compiler` dry run plans 74 packages, adding only
+`triton-windows==3.7.1.post27`.
+
+**Cold Eager.** With triton-windows not installed, the 18 execution,
+compiler-cache, regional and diagnostics test files pass (850 tests). This
+covers cold behaviour only. Installing the compiler, the toolchain, the
+cache, the card and release admission remain `PERF#1`. WSL remains its own
+separate, unverified account.
 
 ## Loader, first call and teardown
 
