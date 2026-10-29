@@ -268,7 +268,7 @@ function binCard(div, img, rec) {
   // breaks before the words, never inside them.
   const age = binnedAge(rec);
   if (age) {
-    tools.dataset.binned = age.replaceAll(' ', ' ');
+    tools.dataset.binned = age.replaceAll(' ', '\u00a0');
     img.setAttribute('aria-label', `Open #${rec.id}, ${age}: ${rec.prompt}`);
   }
   tools.append(restore, del);
