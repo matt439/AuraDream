@@ -5699,7 +5699,10 @@ Frontend and CLI:
 `tests/test_browser_startup_wait.py` drives actual harness startup with inert
 filesystem/process ports and virtual sleeps: delayed readiness, bounded
 absence and diagnostic early exit, including actual cleanup. Profile tests
-enable the existing bounded startup diagnostics. The publication repair and
+enable the existing bounded startup diagnostics. Its Node side is the file
+`tests/browser_startup_fixture.mjs`, never `node -e` source: Defender flagged
+the inline script, which patches `child_process`, as
+`Trojan:Win32/SuspExec.SE` and blocked it (WinError 5). The publication repair and
 its original/positive evidence are owned by
 `docs/review-2026-10-29-ci-browser-startup.md`.
 
