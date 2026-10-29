@@ -197,7 +197,9 @@ before changing it.
   request/stored-source contracts, original-RGB provenance and exact-aspect
   Lanczos geometry, canonical bound identity, the held-reason sentences and
   the execution holds that open only for `qualified=True`
-  (`edit_unavailable_reason`); this module does not enable an editing checkpoint.
+  (`edit_unavailable_reason`), and `QUALIFIED_ENVELOPE` with its pure
+  `loader_refusal`/`geometry_refusal` words (stage 4, no callers yet); this
+  module does not enable an editing checkpoint.
 - `backend/instruction_edit_admission.py` — prove live gallery source pixels,
   descriptor and exact recipe geometry before key/admission work
   (`bind_source`, `bind_request`); `load_bound_source` proves and decodes
@@ -5764,6 +5766,13 @@ Three files cover stage 2:
   `planned_keys`, and the held producers on both gate states.
 
 None of these enables the real server's editor or qualifies a model or the card.
+
+`tests/test_instruction_edit_envelope.py` checks stage 4's measured envelope
+as pure data: the loader refusal matrix (each unmeasured quantization, offload,
+device, platform, loader recipe, diffusers version and inexact id named in
+words), only 1:1 geometry unrefused, the unchanged frozen geometry table, the
+pinned edit `CellKey` and run ids, and a cold import. Nothing calls the
+envelope yet; it qualifies nothing.
 
 `tests/test_instruction_edit_preflight.py` checks the supplied-config refusal
 boundary with synthetic JSON and the installed complete PIL-to-normalized-CPU-
