@@ -37,6 +37,7 @@ from ..execution import (
     canonical_execution, canonical_loader_execution, compiler_metadata, regional_candidate_reason,
     require_configured_loader_available, require_default_execution, resolve_execution,
 )
+from ..instruction_edit import KONTEXT_V1
 from ..model_defaults import INPAINT_DEFERRED, defaults_for, inpaint_family, inpaint_start
 from ..seeds import wrap_seed
 from . import anima_loading, attention_selection, fbc_cache, loading, netayume_loading, newbie_loading, regional_compile, schedule, single_file
@@ -72,6 +73,26 @@ _EDIT_PARAMS = frozenset({
     "image", "prompt", "width", "height", "max_area", "_auto_resize", "num_images_per_prompt",
     "max_sequence_length", "num_inference_steps", "guidance_scale", "generator", "callback_on_step_end",
 })
+
+
+
+def _pinned_editor_refusal(pipe: Any, params: set[str]) -> str | None:
+    """Why a loaded pipeline is not the pinned Kontext editor, or None.
+
+    What stage 3 measured once the weights were in: the class itself, the
+    VAE's 8x latent scale the frozen geometry assumes, and every name an edit
+    hands the call (`_EDIT_PARAMS`).
+    """
+    name = type(pipe).__name__
+    if name != KONTEXT_V1.pipeline_class:
+        return f"The pinned FLUX.1 Kontext [dev] load resolved {name}, not {KONTEXT_V1.pipeline_class}; it was not kept."
+    if getattr(pipe, "vae_scale_factor", None) != 8:
+        return "The pinned FLUX.1 Kontext [dev] load has no VAE scale factor of 8; it was not kept."
+    missing = sorted(_EDIT_PARAMS - params)
+    if missing:
+        return f"{name}.__call__ takes no {', '.join(missing)}; the pinned FLUX.1 Kontext [dev] load was not kept."
+    return None
+
 
 # One adapter slot. diffusers can hold several and blend them, but every extra
 # name has to reach `CellKey`, the embedded metadata and Reuse to be reproducible,
@@ -449,6 +470,10 @@ class DiffusersBackend(GenerationBackend):
                 return
             selected = current_settings(settings)
             checkpoint_id = selected.model_id
+            # The pinned editor: the exact Kontext id, this instance's literal
+            # True and the measured envelope, Eager only. Every other editor
+            # class or id keeps the holds below.
+            editor = execution is None and self.instruction_edit_refusal(selected) is None
             if execution is not None:
                 if ATTENTION_ENVIRONMENT_WARNING is not None:
                     raise ValueError("Private execution preparation requires native attention without a nonnative external override.")
@@ -499,7 +524,10 @@ class DiffusersBackend(GenerationBackend):
             quant = loading.quantization_config(load_settings)
             if quant is not None:
                 kwargs["quantization_config"] = quant
-            loading.require_custom_pipeline_class(checkpoint_id)
+            if not editor:
+                # The pinned editor's identity is its configs pass's pin, not
+                # an unpinned index read at the Hub's head.
+                loading.require_custom_pipeline_class(checkpoint_id)
             # What the pipeline lists but this backend never runs stays on the
             # Hub: `pe=None` is how diffusers is told, and the concrete class
             # prunes the folder from the download as well as from the load -
@@ -512,8 +540,15 @@ class DiffusersBackend(GenerationBackend):
                 from .newbie_pipeline import NewbiePipeline
 
                 loader = NewbiePipeline
+            elif editor:
+                # The explicit class stage 3 loaded, never one resolved again.
+                import diffusers
+
+                loader = getattr(diffusers, KONTEXT_V1.pipeline_class)
             class_name, unused = loading.unused_components(model_id)
-            if class_name in loading.INSTRUCTION_EDITOR_CLASSES:
+            if class_name in loading.INSTRUCTION_EDITOR_CLASSES and not (
+                editor and class_name == KONTEXT_V1.pipeline_class
+            ):
                 from ..instruction_edit import editor_class_refusal
 
                 raise ValueError(editor_class_refusal(class_name))
@@ -558,7 +593,12 @@ class DiffusersBackend(GenerationBackend):
                     fn = None  # no bound-method reference in a failed load frame
 
             params = set(inspect.signature(candidate.pipe.__call__).parameters)
-            if type(candidate.pipe).__name__ in loading.INSTRUCTION_EDITOR_CLASSES:
+            if editor:
+                # The candidate is released, unpublished, on any miss.
+                refusal = _pinned_editor_refusal(candidate.pipe, params)
+                if refusal is not None:
+                    raise RuntimeError(refusal)
+            elif type(candidate.pipe).__name__ in loading.INSTRUCTION_EDITOR_CLASSES:
                 from ..instruction_edit import editor_class_refusal
 
                 raise ValueError(editor_class_refusal(type(candidate.pipe).__name__))

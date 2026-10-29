@@ -631,8 +631,24 @@ before the project or the backend is imported. `_require_execution` refuses
 plain text-to-image on an edit-only profile, which closes the command line,
 Mass refine and Then refine at the backend.
 
-The later slices add the pinned loader and the catalogue entry, open the
-real gate, and release More seeds of edits.
+**Slice 4 (built): the pinned Kontext loader, reachable only with a True
+stand-in.** `loading.resolve_model` gives the exact Kontext id a configs pass
+(`snapshot_download` of the six `CONFIG_PATHS` at `KONTEXT_V1.revision`,
+each read bounded, then `require_pinned(validate_configs(...))`) and a weights
+pass (`FluxKontextPipeline.download(model_id, revision=...)`, the call that
+produced stage 3's cache, with no hand-written patterns), and the pin runs
+again over the weights tree. `_load_prepared` takes the editor path only where
+the instance's `instruction_edit_refusal(selected)` is None for an Eager load:
+it skips the unpinned custom-class index read, loads the explicit
+`FluxKontextPipeline` inside `checkpoint_files_released`, and refuses, releasing
+the candidate, a loaded pipeline that is not that class, whose
+`vae_scale_factor` is not 8 or whose call lacks an `_EDIT_PARAMS` name. Qwen's
+classes and Kontext's class under any other id keep the unchanged holds. A
+Hub failure in either pass maps through `_load_failure` as before. The real
+gate is still False, so nothing on the real server reaches it.
+
+The later slices add the catalogue entry, open the real gate, and release
+More seeds of edits.
 
 ## Stages and completion criteria
 

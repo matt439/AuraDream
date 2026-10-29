@@ -187,6 +187,12 @@ def resolve_model(model_id: str, *, weights: bool = False, quantization: str | N
     Pin both passes to one revision so configs cannot race a weight update.
     Other Hub ids and explicit local directories pass through unchanged.
     """
+    from ..instruction_edit import KONTEXT_V1
+
+    # Exact, as the load entry compares it: a case variant never reaches the
+    # pinned editor tree (`require_model_available` refused it already).
+    if model_id == KONTEXT_V1.model_id:
+        return _resolve_kontext(weights=weights)
     if model_id.lower() == NOOB_MODEL_ID.lower():
         if quantization == NUNCHAKU:
             raise RuntimeError(
@@ -222,6 +228,58 @@ def resolve_model(model_id: str, *, weights: bool = False, quantization: str | N
     )
     snapshot = snapshot_download(model_id, revision=revision, allow_patterns=patterns, **options)
     return str(Path(snapshot) / folder)
+
+
+def _resolve_kontext(*, weights: bool) -> str:
+    """FLUX.1 Kontext [dev] at its pinned revision: configs, then weights.
+
+    The configs pass fetches only the six files the config pin covers and
+    refuses any that differ (`require_pinned(validate_configs(...))`) before
+    a weight is asked for. The weights pass is the call stage 3 measured,
+    `FluxKontextPipeline.download` at the same revision - it leaves the
+    repository's root single file on the Hub - and the pin is checked again
+    over the tree it returned. Reaching here is no permission: the load entry
+    has already asked the gate and the measured envelope.
+    """
+    from huggingface_hub import snapshot_download
+
+    from ..instruction_edit import KONTEXT_V1
+    from ..instruction_edit_preflight import CONFIG_PATHS
+
+    if not weights:
+        log.info("resolving %s (configs)", KONTEXT_V1.model_id)
+        snapshot = snapshot_download(KONTEXT_V1.model_id, revision=KONTEXT_V1.revision, allow_patterns=list(CONFIG_PATHS))
+        return require_kontext_pin(str(snapshot))
+    import diffusers
+
+    log.info("resolving %s (weights)", KONTEXT_V1.model_id)
+    editor = getattr(diffusers, KONTEXT_V1.pipeline_class)
+    snapshot = editor.download(KONTEXT_V1.model_id, revision=KONTEXT_V1.revision)
+    return require_kontext_pin(str(snapshot))
+
+
+def require_kontext_pin(snapshot: str) -> str:
+    """Read the six pinned configs from `snapshot`, bounded, and require the pin.
+
+    A file that cannot be read, is over the preflight's size bound or is not
+    JSON is refused in the preflight's own words: the path only, never its
+    content or a hash.
+    """
+    from ..instruction_edit import KONTEXT_V1
+    from ..instruction_edit_preflight import CONFIG_PATHS, MAX_CONFIG_BYTES, require_pinned, validate_configs
+
+    supplied: dict[str, object] = {}
+    for path in CONFIG_PATHS:
+        try:
+            with open(Path(snapshot, *path.split("/")), "rb") as stream:
+                raw = stream.read(MAX_CONFIG_BYTES + 1)
+            if len(raw) > MAX_CONFIG_BYTES:
+                raise ValueError("over the config bound")
+            supplied[path] = json.loads(raw.decode("utf-8"))
+        except (OSError, ValueError, RecursionError) as exc:
+            raise ValueError(f"kontext-v1 config preflight refused {path}") from exc
+    require_pinned(validate_configs(KONTEXT_V1.model_id, KONTEXT_V1.revision, supplied))
+    return snapshot
 
 
 def component_overrides(model_id: str, quant: Any, *, resolved_model_id: str | None = None) -> dict[str, Any]:

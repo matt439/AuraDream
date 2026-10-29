@@ -306,8 +306,9 @@ Reproduction and storage:
   v1.
 - The one edit gate is the backend instance's `instruction_edit_qualified()`
   (literal `True` only), never a setting; `DiffusersBackend` returns a literal
-  False, its editor load holds stay unconditional and Kontext stays out of
-  `CHECKPOINTS`. So real-server editor loading and execution remain
+  False, its editor load holds open only for the exact Kontext id inside the
+  measured envelope with a literal True (the pinned configs-then-weights
+  loader) and Kontext stays out of `CHECKPOINTS`. So real-server editor loading and execution remain
   unavailable until card qualification. The fake and the stub can queue,
   through `POST /api/instruction-edit` only, which re-proves each cell's
   source as it begins. Reuse opens the Edit by instruction dialog. Generate,

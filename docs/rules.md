@@ -244,7 +244,9 @@ before changing it.
   device placement, and the guard that keeps the adapter fit's meta-device
   build apart from a load (`weights_loading`, `empty_weights`), and the
   release of a quantizing load's bf16 files (`checkpoint_files_released`,
-  `own_tensors`); takes `settings` as a parameter
+  `own_tensors`), and FLUX.1 Kontext [dev]'s pinned tree (`resolve_model`'s
+  configs-then-weights passes at `KONTEXT_V1.revision`, `require_kontext_pin`);
+  takes `settings` as a parameter
 - `backend/backends/single_file.py` — pinned, CPU-only first-load conversion
   for Illustrious XL v2.0-STABLE, WAI v17 and RouWei 0.8 epsilon; atomic cached
   trees feed the normal loader; `sweep_work`, which every converter calls first under its
@@ -947,11 +949,30 @@ Model and loader:
   refuses any request without `edit` (`text_to_image_refusal`); an edit's
   LoRA, references, refine, mask, outpaint and upscaler are already
   `validate_edit`'s. This closes Mass refine and Then refine at the backend.
-  The editor-class holds stay unconditional: both editor-class refusals and
-  `require_custom_pipeline_class`. Kontext stays out of `launch.py`
-  `CHECKPOINTS` until stage 4. A future editor load runs
-  `require_pinned(validate_configs(...))` on the six `CONFIG_PATHS` fetched
-  at the revision before any weights move.
+  Kontext stays out of `launch.py` `CHECKPOINTS` until stage 4's slice 6.
+- The pinned editor load (stage 4 slice 4) is reached only where
+  `instruction_edit_refusal(selected)` is None for an Eager load: the exact
+  Kontext id, the instance's literal True and the measured envelope.
+  `loading.resolve_model` gives that id its own tree at
+  `KONTEXT_V1.revision`: the configs pass fetches only the six
+  `CONFIG_PATHS` (`snapshot_download(..., allow_patterns=CONFIG_PATHS)`) and
+  runs `require_kontext_pin` - each file read bounded by
+  `MAX_CONFIG_BYTES`, then `require_pinned(validate_configs(...))` - before
+  any weights; the weights pass is the call stage 3 measured,
+  `FluxKontextPipeline.download(model_id, revision=...)` (no hand-written
+  weight patterns; it leaves the root single file on the Hub), and the pin
+  runs again over what it returned. A differing or unreadable config is
+  refused by its path only, never its content or a hash. `_load_prepared`
+  skips `require_custom_pipeline_class` for it (the pin is its identity),
+  loads the explicit `FluxKontextPipeline` inside `checkpoint_files_released`,
+  and refuses, releasing the candidate unpublished, a loaded pipeline that is
+  not that class, has no `vae_scale_factor` of 8 or lacks any `_EDIT_PARAMS`
+  name. The editor-class holds stay for everything else: both editor-class
+  refusals and `require_custom_pipeline_class` refuse Qwen's classes and
+  Kontext's class under any other id, and a case variant is refused at the
+  entry. A Hub failure in either pass reaches `_load_failure` unchanged
+  (offline, gated). The real backend's gate is still False, so it never
+  reaches this path.
 - The edit call (`DiffusersBackend._edit_images`) branches off
   `_generate_images_prepared` right after the generator list. It never
   reaches the text-to-image kwargs, sigmas or the step that drops
@@ -5859,6 +5880,17 @@ words; a saved unmeasured choice restored as it is and failing as a load),
 `test_instruction_edit_call.py`
 (`test_edit_only_checkpoint_refuses_plain_generate_at_the_backend`) and
 `test_cli.py` (`test_cli_refuses_kontext_before_backend_import`).
+Slice 4's pinned loader is checked there too, with `snapshot_download`,
+`FluxKontextPipeline.download` and `from_pretrained` stubbed and the pin
+monkeypatched to synthetic configs: configs before weights, both at the
+revision; a changed config in either pass refused by its path before
+`from_pretrained`; an unreadable, oversized or non-JSON config; an
+unmeasured loader before any download; the loaded class, VAE scale factor
+and edit names required (the candidate released); a closed gate, an alias
+id, a case variant and Qwen still refused; and an offline Hub reaching
+`_load_failure`'s offline answer. `test_instruction_edit_call.py`'s
+`test_a_qualified_backend_loads_only_the_pinned_kontext` loads the explicit
+class inside the envelope and keeps the real backend refusing.
 
 `tests/test_backup_credentials.py` and `tests/test_backup_credential_integration.py`
 check WinCred ABI declarations through API stubs, exact opaque references, bounds,

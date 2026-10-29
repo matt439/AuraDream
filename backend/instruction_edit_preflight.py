@@ -4,8 +4,10 @@ This validator checks a caller-supplied, pinned snapshot against the
 integration's required component/geometry boundary, and ``require_pinned``
 compares its canonical hashes with the six verified at the recipe's revision.
 Matching the pin proves only the config bytes, never weights or a card
-qualification; a future loader must obtain every config at the pin and pass
-``require_pinned(validate_configs(...))`` before any weights.
+qualification. The pinned loader (``loading.resolve_model`` and
+``require_kontext_pin``) obtains every config at the pin and passes
+``require_pinned(validate_configs(...))`` before any weights, and again over
+the weights tree.
 """
 from __future__ import annotations
 

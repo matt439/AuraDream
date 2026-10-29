@@ -370,8 +370,8 @@ def test_describe_follows_the_gate_and_the_selection(store, monkeypatch):
     assert still["instruction_edit_reason"] == INSTRUCTION_EDIT_UNAVAILABLE
 
 
-def test_a_qualified_backend_still_refuses_to_load_kontext(synthetic_loader, monkeypatch, tmp_path):  # noqa: F811
-    import json
+def test_a_qualified_backend_loads_only_the_pinned_kontext(synthetic_loader, monkeypatch):  # noqa: F811
+    import sys
     from dataclasses import replace
 
     _, _, events = synthetic_loader
@@ -393,10 +393,10 @@ def test_a_qualified_backend_still_refuses_to_load_kontext(synthetic_loader, mon
         assert str(caught.value) == INSTRUCTION_EDIT_UNAVAILABLE
     assert not backend.is_ready() and events == []
     # Inside the envelope (loader facts reported as measured, though this
-    # synthetic load runs on the CPU), the unconditional editor-class hold
-    # still refuses before any override, weights or placement.
-    from backend.backends import loading
-
+    # synthetic load runs on the CPU), the pinned editor loads: the explicit
+    # class, never the index's at the Hub's head (the conftest's `hub_file`
+    # refuses), and the loaded call keeps every edit name. The configs and
+    # weights passes are test_instruction_edit_loader's.
     measured = LoaderChoice(
         quantization=QUALIFIED_ENVELOPE.quantization, offload=QUALIFIED_ENVELOPE.offload, device="cuda",
         platform=QUALIFIED_ENVELOPE.platform, loader_execution=None,
@@ -404,16 +404,31 @@ def test_a_qualified_backend_still_refuses_to_load_kontext(synthetic_loader, mon
     )
     assert measured.refusal(KONTEXT_V1.model_id) is None
     monkeypatch.setattr(backend, "instruction_edit_loader", lambda selected: measured)
-    path = tmp_path / "model_index.json"
-    path.write_text(json.dumps({"_class_name": KONTEXT_V1.pipeline_class}), encoding="utf-8")
-    monkeypatch.setattr(loading, "hub_file", lambda model_id, filename: str(path))
-    monkeypatch.setattr(loading, "unused_components", lambda model_id: (None, {}))
+    monkeypatch.setattr(backend, "_release", synthetic_loader[0]._release)
+    loaded = []
+
+    class Explicit:
+        @staticmethod
+        def from_pretrained(model_id, **kwargs):
+            assert model_id == KONTEXT_V1.model_id  # the fixture's resolve_model is the identity
+            kwargs.clear()
+            events.append("pretrained")
+            pipe = KontextStub()
+            pipe.vae_scale_factor = 8
+            loaded.append(pipe)
+            return pipe
+
+    monkeypatch.setattr(sys.modules["diffusers"], "FluxKontextPipeline", Explicit, raising=False)
+    backend.load()
+    assert backend.is_ready() and backend._pipe is loaded[0]
+    assert _EDIT_PARAMS <= backend._call_params
+    assert events[:3] == ["weights-enter", "overrides", "shards-enter"] and events.count("pretrained") == 1
+    # The real backend, the same selection and facts: still the gate's words.
+    real = DiffusersBackend()
+    monkeypatch.setattr(real, "instruction_edit_loader", lambda selected: measured)
     with pytest.raises(ValueError) as caught:
-        backend.load()
-    assert str(caught.value) == INSTRUCTION_EDIT_UNAVAILABLE
-    # Past the load entry, into the weights hold, and no further.
-    assert "weights-enter" in events and not {"overrides", "pretrained", "place"} & set(events)
-    assert not backend.is_ready()
+        real.load()
+    assert str(caught.value) == INSTRUCTION_EDIT_UNAVAILABLE and not real.is_ready()
 
 
 def test_a_qualified_backend_still_refuses_an_editor_class_index(synthetic_loader, monkeypatch, tmp_path):  # noqa: F811
