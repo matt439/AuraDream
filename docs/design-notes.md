@@ -6622,6 +6622,14 @@ inserting into repeated the tail of one page at the head of the next and
 skipped as many older rows for good; `offset` stays for scripts. The
 browser's anchor is the last record it holds, so a delete moves nothing.
 
+`GAL#20` bounds live/bin HTTP `offset` and `before` to SQLite's signed
+64-bit integer ceiling before storage. Unbounded Python integers had reached
+the binding operation as OverflowError rather than the routes' named
+validation path. The existing search integer constant supplies the engine
+limit; defaults, lower bounds, MAX itself and paging/scope semantics stay
+unchanged. [The page-bounds review](review-2026-10-29-gallery-page-bounds.md)
+owns the cold HTTP/SQLite checks; ordinary browser-generated IDs already fit.
+
 The grid pages itself: an `IntersectionObserver` on the "Load more" button
 (`moreWatcher`, made by `armMore` from `app.js`, and rooted on the gallery's
 own column with Gallery beside - The gallery beside the viewer) calls

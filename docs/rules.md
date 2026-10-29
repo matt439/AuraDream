@@ -5661,9 +5661,18 @@ Frontend and CLI:
   `#library-scroll` - and made again when that changes; re-armed by
   `watchMore` after each page that lands, never after one that failed - the
   button is the retry - and `moreArmed` keeps a trigger made again
-  meanwhile from fetching).
+  meanwhile from fetching). The live/bin HTTP paging queries bound `offset`
+  to 0..SQLite signed-64-bit MAX and `before` to 1..MAX, reusing
+  `search.SQLITE_INT`; an oversized value is 422 before gallery storage.
+  MAX itself remains valid (`GAL#20`; dated gallery-page-bounds review).
 
 ## Tests
+
+`tests/test_gallery_page_bounds.py` checks actual live/bin HTTP query
+validation before storage for SQLite-overflow and existing lower bounds,
+actual-SQL MAX acceptance and ordinary cursor/offset/scope behavior. Owned
+scratch rows/PNG bytes stay unchanged, with model/queue entry points poisoned.
+No browser, real-gallery or runtime activation is qualified.
 
 `tests/test_instruction_edit.py` checks the standalone frozen Kontext recipe,
 strict request/stored source types, full original-RGB provenance, unresolved
@@ -7631,6 +7640,15 @@ models and Delete unstarred unmoved, the search narrower (`.held`). Every wait i
 uv run python tools/fake_server.py --port 7881 --model black-forest-labs/FLUX.1-Krea-dev
 node tools/browser.mjs tools/smoke-delete.json
 ```
+
+`smoke-split-extra-queue.json` is a fresh owned-FLUX-fake diagnostic on
+7951 for a delayed mixed-size Swap receipt after an extra job is adopted.
+Its actual receipt/list gates and queue-write observations are intended to
+check that current job's own Next row. Original run 22364 has an unknown
+outcome after transport loss; its owned fake-server log read was denied.
+No acceptance or cleanup is confirmed, the source proposal remains
+unapplied, and that operation is not repeated. Its unchanged fixture and
+registration remain pending while the outcome cannot be reconciled.
 
 `smoke-jobs.json` runs against the default Turbo fake on 7882 at
 `--step 0.3` (it passes at `--step 0.15` too): the tab title and topbar mirror; the one-line Now row, count
