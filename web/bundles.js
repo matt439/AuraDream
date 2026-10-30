@@ -692,6 +692,27 @@ function clearBundlePasswords() {
   for (const input of [els.bundlePassword, els.bundlePasswordAgain, els.bundleUnlock]) input.value = '';
 }
 
+// Caps Lock as the last key event in a password field reported it. Only the
+// modifier state is kept, in memory; focus has no modifier state of its own.
+let bundleCapsLock = false;
+
+function sayBundleCapsLock(input, on) {
+  const note = input.closest('.bundle-password').querySelector('.caps-lock-note');
+  const text = on ? 'Caps Lock is on' : '';
+  if (note.textContent !== text) note.textContent = text;
+}
+
+function watchBundleCapsLock(input) {
+  const read = (event) => {
+    if (typeof event.getModifierState === 'function') bundleCapsLock = event.getModifierState('CapsLock');
+    sayBundleCapsLock(input, bundleCapsLock);
+  };
+  input.addEventListener('keydown', read);
+  input.addEventListener('keyup', read);
+  input.addEventListener('focus', () => sayBundleCapsLock(input, bundleCapsLock));
+  input.addEventListener('blur', () => sayBundleCapsLock(input, false));
+}
+
 function exportGalleryBundle() {
   if (bundleRefused(els.bundleExport)) return;
   // Admission is synchronous, before passwords leave the editor or POST starts.
@@ -802,6 +823,7 @@ function initBundles() {
   els.bundlesDialog.addEventListener('close', clearBundlePasswords);
   els.bundleCount.oninput = syncBundleControls;
   for (const input of [els.bundlePassword, els.bundlePasswordAgain, els.bundleUnlock]) input.oninput = syncBundleControls;
+  for (const input of [els.bundlePassword, els.bundlePasswordAgain, els.bundleUnlock]) watchBundleCapsLock(input);
   els.bundleFile.onchange = () => { void readBundleFile(); };
   els.bundleExport.onclick = exportGalleryBundle;
   els.bundleBackup.onclick = backupGallery;

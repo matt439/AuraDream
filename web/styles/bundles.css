@@ -41,9 +41,20 @@
 .bundle-password { display: grid; grid-template-columns: max-content minmax(0, 260px); align-items: center; gap: var(--sp-2) var(--sp-3); }
 .bundle-password label { font-size: var(--fs-label); color: var(--text-3); }
 .bundle-password .optional { color: var(--muted); }
+/* The Caps Lock notice (bundles.js) is out of the flow in the space after the
+   inputs' column, so its coming and going moves nothing; it holds no pointer.
+   Left in the tree while empty, so its live region announces each change. */
+.bundle-password { position: relative; }
+.caps-lock-note {
+  position: absolute; grid-column-start: 3; top: 0; bottom: 0; left: var(--sp-3); right: 0;
+  display: flex; align-items: center; margin: 0;
+  font-size: var(--fs-label); color: var(--warn); pointer-events: none;
+}
 .bundle-tag { font-size: var(--fs-label); color: var(--accent-2); border: 1px solid var(--line); border-radius: var(--r-sm); padding: 0 var(--sp-1); }
 @media (max-width: 520px) {
   .bundle-password { grid-template-columns: minmax(0, 1fr); }
+  /* One column: the notice sits at the right of the first label's row. */
+  .caps-lock-note { grid-column-start: auto; bottom: auto; left: auto; }
 }
 #bundle-preview { min-height: 2lh; font-variant-numeric: tabular-nums; }
 .bundle-upload-row { display: flex; flex-wrap: wrap; align-items: center; gap: var(--sp-2); }

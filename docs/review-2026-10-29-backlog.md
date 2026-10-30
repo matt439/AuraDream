@@ -2,8 +2,9 @@
 
 **Status:** written 2026-10-29 for the TODO audit's additions that need no
 plan of their own: `PA#12`, `UI#32`, `UI#33`, `GEN#33`, `GEN#34`, `GAL#23`,
-`GEN#36`, `GEN#38` and `UI#38`. `PA#12`, `UI#32`, `UI#33` and `GEN#33` are
-built (2026-10-30, below); the other five are OPEN. Matt
+`GEN#36`, `GEN#38` and `UI#38`. `PA#12`, `UI#32`, `UI#33`, `GEN#33`,
+`GEN#34` and `UI#38` are built (2026-10-30, below); the other three are
+OPEN. Matt
 approved adding every audit item on 2026-10-29. Each section below covers
 one row: what is missing (preference ids from `docs/design/preferences.md`,
 file:line checked against the source on 2026-10-29), the design and the
@@ -802,6 +803,30 @@ whether an image was a process's first (`backend/storage.py:144-183`). So
    the fake after images are planted, and no row moves.
 
 ## UI#38 Caps Lock notice on bundle passwords
+
+**Status:** done 2026-10-30, stage 1, on `feat/todo-backlog-2026-10-29`.
+The file:line claims below were re-checked: the three inputs now sit at
+`web/index.html:1803-1829` and the `.bundle-password` rules at
+`web/styles/bundles.css:41-47`; nothing read `getModifierState` before.
+Built as designed: each `.bundle-password` grid holds one
+`p.caps-lock-note` (`aria-live="polite"`, empty while off, so it stays in
+the accessibility tree), and `bundles.js`'s `watchBundleCapsLock` sets its
+text on `keydown`/`keyup` and clears it on blur. Choices taken while Matt
+was away (2026-10-29), revisit if wanted:
+
+- A `focus` event carries no modifier state, so focus repeats the state the
+  last key event in any of the three fields reported (held in memory only,
+  `bundleCapsLock`); before any key it shows nothing.
+- One notice per grid, not per field: the new-password pair shares one,
+  centred beside both inputs, in the space after the input column
+  (absolutely placed from grid line 3 to the grid's right edge, wrapping
+  there if narrow). Under 520 px it sits at the right of the first label's
+  row.
+- The colour is `--warn`; the notice holds no pointer.
+
+`tests/test_bundle_caps_lock.py` holds the markup, the out-of-flow rules
+and the watcher's reads; `smoke-bundles` checks the behaviour at 1400x900
+and 360x800.
 
 **Evidence.** J11 (password-protect a bundle) and J12 (bundle and clear the
 working gallery) are Often (`preferences.md:179-180`). The three password
