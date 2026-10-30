@@ -2,7 +2,8 @@
 
 **Status:** `DEV#20` (card guard), `DEV#22` (image metrics) and `DEV#23`
 (`CARD#10` step packs) opened 2026-10-29 from that day's TODO audit, which
-Matt approved in full. Nothing is built. Each item's first stage is CPU,
+Matt approved in full. `DEV#22` is built (2026-10-30, below); `DEV#20` and
+`DEV#23` are not. Each item's first stage is CPU,
 fake-server or browser work; `DEV#20` and `DEV#23` each have a second stage
 that needs the card and Matt's OK. None of them closes a `CARD`, `PERF` or
 `GEN` row: the harness only makes those runs shorter and the same each time.
@@ -250,7 +251,7 @@ reports; judging by eye, which the tables keep as their own column.
 
 ### Image metrics stages and completion criteria
 
-1. **CPU (OPEN), the only stage.** `tests/test_image_compare.py` on small
+1. **CPU (done 2026-10-30), the only stage.** `tests/test_image_compare.py` on small
    synthetic PNGs made in the test, each with a known answer: identical
    images (MSE 0, PSNR `null`, 0 differing pixels); a single pixel off by 17
    on one channel (1 pixel over 16, max 17, the expected mean and PSNR to
@@ -261,6 +262,21 @@ reports; judging by eye, which the tables keep as their own column.
    refused with exit 2; and the hash equal to `storage.content_hash`. The
    CLI's `--row` output matches the expected string. ruff, the Pyright gate
    and the full pytest suite pass.
+
+**Built (2026-10-30).** `tools/image_compare.py` takes one PNG (its hash),
+two (A against B, with `--threshold` and `--mask`), or `--seam --mask m.png
+source [round trip] result`; every picture's path, hash and size head the
+JSON. The seam step and soft gradient are `seam_insert.py`'s measure as
+that script wrote it: the gradient's forward differences count 0 past the
+last column or row, and both are rounded to 2 places in JSON. Choices the
+plan left open, taken while Matt was away (2026-10-29), revisit if wanted:
+a mask that is not mode `L`, a seam mask with no 0 / above-0 edge, three
+images without `--seam` and a negative threshold are refused with exit 2
+like a size mismatch; `--row` writes an identical pair's PSNR as
+`identical`, a seam row without a round trip as `-` in that place, and the
+gradient column as `-` when the mask has no soft pixels, joined to the step
+by ` | `. `tests/test_image_compare.py` holds every case above; the pictures
+and their numbers in verified.md remain the card's.
 
 ## CARD#10 step packs
 

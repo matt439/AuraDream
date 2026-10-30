@@ -468,7 +468,11 @@ before changing it.
   locally bundled Pyright checker over the configured scope;
   `perf_cases.py` holds the fixed speed comparison cases the card runs
   share and prints their `backend.generate` lines, running none
-  (`docs/plan-step-caching.md`, Fixed comparison cases); see Tests
+  (`docs/plan-step-caching.md`, Fixed comparison cases);
+  `image_compare.py` measures PNGs a card session already made (the
+  gallery hash, the difference, outside-mask and seam numbers verified.md
+  reports), CPU only and importing nothing from `backend`
+  (`docs/plan-card-harness.md`, Image metrics); see Tests
 - `tests/` — the pytest suite, no GPU and no weights: `conftest.py`,
   `fakes.py` and `api_helpers.py` (the fake backend and its fixtures),
   `test_api*.py` (the HTTP routes, one file per area), and a file per module

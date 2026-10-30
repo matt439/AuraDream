@@ -71,7 +71,8 @@ real defects first among equals.
 | `UI#36` prompt route key | Done 2026-10-30 | [plan-shortcut-workflow.md](plan-shortcut-workflow.md#stage-4-prompt-route) |
 | `UI#37` Pick this run | Done 2026-10-30 | [review-2026-10-12.md](review-2026-10-12.md#f19-follow-up-pick-this-run-ui37) |
 | `GAL#24` bin card age | Done 2026-10-30 | [review-2026-10-12.md](review-2026-10-12.md#f5-follow-up-bin-card-age-gal24) |
-| `DEV#20`, `DEV#22`, `DEV#23` card-session tools | OPEN | [plan-card-harness.md](plan-card-harness.md) |
+| `DEV#20`, `DEV#23` card-session tools | OPEN | [plan-card-harness.md](plan-card-harness.md) |
+| `DEV#22` image metrics | Done 2026-10-30 | [plan-card-harness.md](plan-card-harness.md#image-metrics) |
 | `PERF#5` fp8-activation plan | Done 2026-10-30 | [plan-fp8-activations.md](plan-fp8-activations.md) |
 | `PERF#6` fixed comparison cases | Done 2026-10-30 | [plan-step-caching.md](plan-step-caching.md#fixed-comparison-cases) |
 | `DEV#21` trial kit refresh | OPEN | [trials README](design/trials/README.md#refresh-for-the-current-app-dev21) |
