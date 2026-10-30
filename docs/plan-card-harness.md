@@ -3,8 +3,9 @@
 **Status:** `DEV#20` (card guard), `DEV#22` (image metrics) and `DEV#23`
 (`CARD#10` step packs) opened 2026-10-29 from that day's TODO audit, which
 Matt approved in full. `DEV#22` is built (2026-10-30, below); `DEV#20`'s
-stage 1 is built (2026-10-30, below) and its card stage is open; `DEV#23` is
-not built. Each item's first stage is CPU,
+stage 1 is built (2026-10-30, below) and its card stage is open; so is
+`DEV#23`'s first stage but for its hand-typed Ctrl-C runs on the fake
+(2026-10-30, below). Each item's first stage is CPU,
 fake-server or browser work; `DEV#20` and `DEV#23` each have a second stage
 that needs the card and Matt's OK. None of them closes a `CARD`, `PERF` or
 `GEN` row: the harness only makes those runs shorter and the same each time.
@@ -398,7 +399,8 @@ to `web/` or `backend/`; the critic's clock and size labels (b396e2e,
 
 ### Step pack stages and completion criteria
 
-1. **CPU and fake (OPEN).** The eight packs and `tests/test_card_packs.py`.
+1. **CPU and fake (built 2026-10-30 but for the typed Ctrl-C on the fake,
+   which is Matt's).** The eight packs and `tests/test_card_packs.py`.
    The test checks that every step is valid JSON of a kind `browser.mjs`
    accepts; that no step mentions `/api/fake/`; that no step assigns
    `els.prompt.value` or `els.negative.value` or calls `startJob(`; that
@@ -419,3 +421,111 @@ to `web/` or `backend/`; the critic's clock and size labels (b396e2e,
    a time with `DEV#20`'s guard watching the server. Each result becomes a
    verified.md Behaviour row, and `CARD#10` closes in TODO.md only when every
    pack has run.
+
+**Built (2026-10-30), stage 1 but for the typed Ctrl-C.** `tools/card/`
+holds `card10-9377de1.json`, `card10-7733f81.json`, `card10-6a7570d.json`,
+`card10-ad01fdc.json`, `card10-2a4d2cc.json`, `card10-2b89ed5.json`,
+`card10-1744dc3.json` and `card10-ctrl-c-idle.json`. Each navigates to
+`http://127.0.0.1:7860/` (the real server's port; `AURADREAM_PORT_OFFSET`
+moves it to a fake's), waits for the page's first `GET /api/loras` in its
+resource timing, then presses Escape over the Models picker, which a
+server with nothing loaded opens over the panel at its first status, and
+checks it closed. Fields are filled by a click, Ctrl+A and `type` (W and H
+sit inside the closed Custom dimensions disclosure, opened by its summary
+first); the page is wheeled to a gallery card or the Bin button, never
+scrolled from an eval. Sizes were chosen for the card: the two batch packs
+render four 512x512 images (1 MP at once), 2a4d2cc one 1024x1024 image at
+12 steps, the budget pack 768x768 (a size no other pack renders, so the
+batch packs' per-image times, which the gallery's per-step median would
+otherwise take, do not price it: on the first dry run they did, and the
+preview said 12 of 12), the refine packs a 768x768 source at 28 steps. What
+each checks, from the smoke that covers its commit today:
+
+- 9377de1 (smoke-results): at 2560x1305, a MutationObserver on the strip
+  holds the live preview's left edge at the first image's slot and every
+  tile's left edge still while the four land, `--cols` 4, the page
+  unscrolled and Generate unmoved under the pointer.
+- 7733f81 (smoke-results): the same batch; `--tile-h` and the gallery head
+  unchanged through the end and 1 s after it. It logs `barsSeen`: the case
+  the fix is for (a scrollbar that comes with the progress block and goes
+  at the end) needs a gallery too short to scroll the page, so the pack
+  says to run it first on a fresh scratch gallery. The pack does not force
+  the scrollbar as the smoke does (`overflowY` on `html` and `fitViewer()`),
+  since its evals only observe.
+- 6a7570d (smoke-grid, `tests/test_api_grid.py`): three images priced, then
+  Steps 8,16 x 12 seeds with a 1 min budget; a fatal check that the
+  preview says some seeds and not all (else the budget does not fit the
+  machine's pace), then Run grid, and the seeds the stop left complete
+  (kept cells over two) equal to the number the preview said.
+- ad01fdc (smoke-refine): a six-cell sweep at 1x, strengths 0.3-0.8; once
+  the first cell has landed the source is deleted from its gallery card's
+  ⌦ and the recycle bin emptied through its dialog; the stop names "no
+  gallery image with id N", and Finish run (`.finish-run-tool`, Resume's
+  place since) pressed twice holds as aria-disabled with that reason as its
+  title, keeps the focus, and sends nothing (`submissions` unchanged).
+- 2a4d2cc (smoke-jobs): the step counter and the cell line observed; no
+  "left" at step 1, some estimate later, and every estimate at most twice
+  the time the job then had left plus 5 s. On the fake every step takes the
+  same time, so the check only bites on the card, whose first step carries
+  the transformer's move onto the card.
+- 2b89ed5 (smoke-refine): a pass at strength 0.9; once its first step has
+  landed the source is deleted and the bin emptied (fatal: the pass still
+  running); the pass lands with `refine_missing`, "(deleted)" in its title
+  and the note under the strip, and its Reuse saying the source has been
+  deleted.
+- 1744dc3 and the idle Ctrl-C: fatal unless nothing is loaded (1744dc3) or
+  the image just made left the model loaded and the server idle; then a
+  `>>> NOW` line asks for one typed Ctrl-C, and two eval waits of 4 min
+  each (an eval does not fail) give the person 8 min before the checks:
+  the title "Server stopped …" and "Stopped: the server is shutting down —
+  nothing had finished." (1744dc3), the topbar's "server not answering —
+  retrying" and its dot `error` (both). The pack logs every change of the
+  title, the line under Generate and the topbar, timed from the ask; the
+  server's side (rc, no second Ctrl-C, no Traceback) is read off its
+  console. Both ad01fdc and 2b89ed5 empty the whole recycle bin, so they
+  say to run on a scratch gallery.
+
+`tests/test_card_packs.py` holds the eight names (none a smoke, none in
+AGENTS.md), every step one of the kinds `browser.mjs`'s step loop
+dispatches on with only that kind's modifiers, no `/api/fake/`, no
+`els.prompt.value =`/`els.negative.value =`, no `startJob(` and no
+`fetch(`/`api(` of a pack's own, no `.click(`, `.focus(`, scroll call or
+`.value =` from an eval, no wait or `__until` past 4 min, each
+commit's sha in verified.md's Behaviour paragraph (or R50's row) and at the
+head of its first `log`, a fatal wait on the listing before the first press
+of Load, Generate, Run grid, Refine or Switch & load, and in the Ctrl-C
+packs one ask and no Ctrl-C sent. `docs/rules.md`'s Layout has the
+`tools/card/` entry.
+
+Dry run, 2026-10-30, on a fresh FLUX.1-Krea-dev fake (`--step 0.3`, a new
+scratch `--data`, port 8138 with `AURADREAM_PORT_OFFSET=278`), at the
+packs' own viewports, in the order 7733f81, 9377de1, 2a4d2cc, 6a7570d,
+2b89ed5, ad01fdc: every page pack exited 0. 9377de1: the preview at the
+first slot and four tiles still, `--cols` 4. 7733f81: `--tile-h` 491px and
+the head at 727.5 throughout, but the scrollbar (15 px) came with the first
+frame and stayed, the four new cards scrolling the page, so the
+comes-and-goes case was not exercised on the fake. 2a4d2cc: no estimate
+until step 4 (the fake's elapsed reaches 1 s there), then "~2s left" with
+2.7 s left down to "~0s" with 0.4 s. 6a7570d: "about 88s … budget 1 min ≈ 8
+of 12 seeds complete", stopped after 16/24 cells, 8 seeds. 2b89ed5: the
+pass #32 "refine of #31 (deleted)". ad01fdc: "Stopped at cell 5 of 6 after
+3 cells failed; 2 images kept", Finish run held on "no gallery image with
+id N" at both presses. The two Ctrl-C packs were run up to their `>>> NOW`
+line only, without a signal: the idle one after its image, the dot ready;
+1744dc3 on that fake after `POST /api/model/unload` and `POST
+/api/fake/load {"seconds": 30}` sent by hand (the fake starts loaded and
+loads at once, and a pack sends neither), "loading weights" and the dot
+`loading` 5 s on. A review the same day had 2b89ed5 check the card it deletes is
+the source's and 2a4d2cc that the size is 1024x1024, and ran the six page
+packs again on a fresh fake (port 8150): all exited 0 with the same
+readings (8 of 12 seeds, 16/24 cells; #32 "refine of #31 (deleted)"; cell
+5 of 6 after 3 failed).
+
+**Left, Matt's:** the two Ctrl-C packs on the fake with Ctrl-C typed in the
+fake's console, and their result recorded here. For 1744dc3 the fake must
+first be unloaded and its load slowed by hand, as above (for example
+`curl -X POST -H "Content-Type: application/json" -d "{\"seconds\": 120}"
+http://127.0.0.1:7861/api/fake/load` and `curl -X POST
+http://127.0.0.1:7861/api/model/unload` against a fake on 7861, then
+`AURADREAM_PORT_OFFSET=1 node tools/browser.mjs
+tools/card/card10-1744dc3.json`). Stage 2 is unchanged.

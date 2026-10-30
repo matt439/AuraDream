@@ -482,6 +482,12 @@ before changing it.
   `GetPerformanceInfo`, writes JSONL rows and on a trip kills the watched
   process tree, never calling the app's API (`docs/plan-card-harness.md`,
   Card guard);
+  `card/card10-*.json` the `CARD#10` step packs, one `browser.mjs` step
+  file per fix commit plus `card10-ctrl-c-idle.json`, for the real server
+  on 7860 driven by real presses: not smokes, so not in `AGENTS.md`'s port
+  table, never run by `run_smoke.py` or CI's browser job, and their typed
+  Ctrl-C left to a person; `tests/test_card_packs.py` holds them to their
+  rules (`docs/plan-card-harness.md`, CARD#10 step packs);
   `smoke_timings.py` reads a run's `summary.json` and prints the slowest
   smokes, each row's total and the wall clock, writing nothing
   (`docs/plan-tooling.md`, Suite and smoke timings); see Tests
