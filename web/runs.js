@@ -134,6 +134,11 @@ async function readFinishRun(run, { force = false } = {}) {
   return state.pending;
 }
 
+// The Finish run reads still in flight; each settles without rejecting.
+function finishRunReads() {
+  return Promise.all([...finishRuns.values()].map((state) => state.pending).filter(Boolean));
+}
+
 function refreshFinishRuns(force = false) {
   const runs = new Set(finishTools().filter((button) => !button.closest('[hidden]')).map((button) => button.dataset.run));
   for (const run of runs) void readFinishRun(run, { force });
