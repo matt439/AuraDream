@@ -15,7 +15,7 @@ from PIL import Image
 
 from backend import main, model_selection, startup_preferences, submission
 from backend.model_defaults import defaults_for, guide_for
-from backend.schemas import PromptGuide
+from backend.schemas import GenerateRequest, PromptGuide
 from tests.api_helpers import ORIGIN, run_one, stream_job, wait_for
 
 
@@ -98,6 +98,68 @@ def test_catalogue_speed_uses_draft_loading_options_without_applying_them(client
         initial["quantization"], initial["offload"], initial["model_revision"],
     )
     assert fake.loads == 0
+
+
+def test_catalogue_adds_this_gallerys_timing_per_model_without_changing_the_speed(client, fake, store):
+    quantization = client.get("/api/status").json()["quantization"]
+    before = client.get("/api/models").json()["details"]
+    assert all(detail["gallery_timing"] is None for detail in before.values())
+    model_id = client.get("/api/status").json()["model_id"]
+    for duration in (4_000, 9_000, 5_000):
+        store.save_image(
+            Image.new("RGB", (256, 256)), GenerateRequest(**PAYLOAD), seed=1,
+            duration_ms=duration, model_id=model_id, quantization=quantization,
+        )
+    after = client.get("/api/models").json()["details"]
+    assert set(after) == set(before)
+    assert after[model_id]["gallery_timing"] == {
+        "median_ms": 5_000, "width": 256, "height": 256,
+        "steps": GenerateRequest(**PAYLOAD).steps, "images": 3,
+    }
+    assert all(after[other]["gallery_timing"] is None for other in after if other != model_id)
+    # History never sets the category or its words.
+    for key in ("speed_label", "speed_summary", "speed_basis", "speed_note"):
+        assert {m: d.get(key) for m, d in after.items()} == {m: d.get(key) for m, d in before.items()}
+    # Another quantization's catalogue reads none of it.
+    other = next(q for q in ("int8", "none", "fp8") if q != quantization)
+    drafted = client.get(f"/api/models?quantization={other}").json()["details"]
+    assert drafted[model_id]["gallery_timing"] is None
+    assert fake.loads == 0
+
+
+def test_a_busy_gallery_leaves_the_timing_out_of_the_catalogue(client, fake, monkeypatch):
+    def busy(quantization):
+        raise main.gallery_lock.GalleryBusy("busy")
+
+    monkeypatch.setattr(main.gallery_reports, "gallery_timing", busy)
+    reply = client.get("/api/models")
+    assert reply.status_code == 200, reply.text
+    assert all(detail["gallery_timing"] is None for detail in reply.json()["details"].values())
+
+
+def test_a_reserved_gallery_leaves_the_timing_out_without_stalling_the_catalogue(client, fake, store):
+    # The real reservation, held by another process as a bundle or a clear
+    # holds it: the catalogue answers at once, without the line.
+    import time
+
+    from tests.bundle_helpers import _holding_child
+
+    status = client.get("/api/status").json()
+    store.save_image(
+        Image.new("RGB", (256, 256)), GenerateRequest(**PAYLOAD), seed=1,
+        duration_ms=4_000, model_id=status["model_id"], quantization=status["quantization"],
+    )
+    child = _holding_child(store.settings.db_path)
+    try:
+        started = time.monotonic()
+        reply = client.get("/api/models")
+        assert time.monotonic() - started < main.gallery_reports.TIMING_WAIT + 5
+    finally:
+        child.stdin.close()
+        child.wait(timeout=15)
+    assert reply.status_code == 200, reply.text
+    assert all(detail["gallery_timing"] is None for detail in reply.json()["details"].values())
+    assert client.get("/api/models").json()["details"][status["model_id"]]["gallery_timing"]["images"] == 1
 
 
 def test_the_editors_row_carries_the_backends_answer_for_the_draft_loader(client, fake, monkeypatch):

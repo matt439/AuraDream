@@ -316,7 +316,8 @@ before changing it.
   (`parse_parameters`, A1111's own reading of it); pure, no config, Pillow
   only where a file is opened
 - `backend/gallery_reports.py` — read-only aggregate queries: the preview's
-  cost and size estimates, keep rates, runs (reads `storage` at call time)
+  cost and size estimates, keep rates, runs, the picker's gallery timing
+  (reads `storage` at call time)
 - `backend/gallery_delete.py` — taking images out: the keep-favourites
   predicates, scoped delete and its preview, per-image delete, recycle bin,
   clear and VACUUM (under `storage._write_lock`, read at call time)
@@ -889,6 +890,19 @@ Model and loader:
   exact quantization/format, then 4-bit or torchao family, then platform,
   then offload. Unmeasured variants never inherit a family timing. These are
   not ETAs or new GPU evidence.
+- Beside them, `/api/models` gives each model's `gallery_timing`
+  (`gallery_reports.gallery_timing`, inside the route's existing `_detached`
+  call; None with no rows, a missing database or a gallery reserved past
+  `gallery_reports.TIMING_WAIT`, 0.2 s, never the session's 30 s): over each
+  checkpoint's latest 50 direct renders under the chosen quantization (no
+  `refine`, no `edit`, Eager `execution`, `duration_ms > 0`), the size used
+  most, the step count used most there, and the median seconds per image
+  and its count. `model_info` stays cold. The page says it only in the Speed
+  note (`modelSpeedNote`: the cell's title and the radio's description) as
+  "This gallery: ~N s at W×H, S steps (median of n)", labelled as history,
+  not a measurement, with offload not recorded per image. It never sets
+  `speed_label` or the category; it is left out of the table's rebuild key
+  and written in place (`syncModelDownloadFacts`).
 - Picker access (`details_for`'s `access`/`access_note`) comes from
   `Checkpoint.gate`: click-through is Accept licence, manual is Needs approval,
   anything else and every lite-infer build Open, a custom id Unknown. Nothing
@@ -7776,7 +7790,10 @@ Unload, and focus/caret preservation.
 `smoke-model-hover.json` hovers a table row and checks that its hover, every
 row's position and the focus survive status polls, a catalogue reply and
 another tab's favourites, with only the star's glyph (and, for a server
-change, the current row's badge word) changing. For the
+change, the current row's badge word) changing. Images made on the loaded
+checkpoint add the gallery timing line to its Speed note and description in
+place, with the hovered row, every row's position and the cell's words
+unchanged. For the
 base-select loader lists it checks that a revision or checkbox-only change
 waits for an open list to close, that keys in an open list leave the prompt
 check open and start no job, and that Escape closes only the list. It covers
@@ -7793,7 +7810,13 @@ revisions, refusals and inconclusive answers and the route keeping the
 running model; `POST /api/fake/model` sets the fake's `overrides`, a
 `stuck_critic` and an `access` refusal ("gated"/"not_found") for page checks;
 `test_model_benchmarks.py` covers speed categories, exact sample matching and
-no category for an unmatched setup or a first run on a busy PC; `test_model_info.py` covers compact facts
+no category for an unmatched setup or a first run on a busy PC;
+`test_gallery_timing.py` covers the picker's gallery timing (refine, edit,
+non-Eager and other-quantization rows left out, the most-used size then step
+count, the median and its count, the latest rows only, nothing for an empty
+history or a missing database, a reserved gallery refused after the short
+wait) and `test_api_model_switch.py` the field per model with the speed facts
+unchanged and a reserved gallery leaving it out without stalling the reply; `test_model_info.py` covers compact facts
 for every catalogue entry, favourite ids shared by Lite/Nunchaku variants,
 access, Qwen-Image's fit, size labels that never claim an unsourced maximum and the shared
 loader descriptions:

@@ -541,6 +541,15 @@ speed from those steps. The tooltip preserves settings, date and warm/cold
 caveats, without file paths. These are single prior runs, not a controlled
 comparison, live ETA or measurements at the maximum MP shown beside them.
 
+Since 2026-10-30 (GEN#38) the Speed note also gives this gallery's own
+history of the checkpoint under the chosen quantization: the median seconds
+per image at its most-used size and step count, over its latest direct Eager
+renders. It is labelled as history, never a category: rows record neither
+the offload mode nor whether an image was a process's first, so neither can
+be filtered out, and the median is what keeps one slow first image from
+moving the figure. It goes in the note and the description only, written in
+place, so no row grows or is rebuilt under the pointer after a render.
+
 The catalogue also reports Hugging Face access (2026-10-09). The `--menu`
 printed each entry's gate, but the browser picker that replaced it did not, so
 Krea 2 Turbo's manual approval surfaced only as a failed load, after the
