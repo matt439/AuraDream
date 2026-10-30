@@ -564,6 +564,25 @@ def test_a_parallel_failure_that_passes_alone_still_exits_one(monkeypatch, tmp_p
     assert "passed-alone: smoke-2" in output.getvalue()
 
 
+def test_an_interrupted_rerun_keeps_the_first_pass_summary(monkeypatch, tmp_path):
+    runner, _output, _calls = _rerun_main(
+        monkeypatch, tmp_path, ["smoke-2", "--rerun-failed-alone"], first={"smoke-2": 1}, alone={},
+    )
+    first_pass = runner.run_row
+
+    def interrupted(row, smokes, band, stream, artifacts):
+        if artifacts.name == runner.RERUN_DIR:
+            raise KeyboardInterrupt
+        return first_pass(row, smokes, band, stream, artifacts)
+
+    monkeypatch.setattr(runner, "run_row", interrupted)
+    with pytest.raises(KeyboardInterrupt):
+        runner.main()
+    summary = _only_summary(tmp_path)
+    assert set(summary) == {"duration_seconds", "results", "jobs", "offset"}
+    assert [(item["smoke"], item["exit_code"]) for item in summary["results"]] == [("smoke-2", 1)]
+
+
 def test_without_the_flag_or_a_failure_no_rerun_keys_are_written(monkeypatch, tmp_path):
     runner, _output, calls = _rerun_main(
         monkeypatch, tmp_path, ["smoke-2"], first={"smoke-2": 1}, alone={},

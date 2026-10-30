@@ -31,7 +31,8 @@ own, below `rerun/` in the same run root; `--from-summary PATH` does the
 same for the exit-1 receipts of an earlier run's summary.json, in a new run
 root. summary.json records `jobs` and `offset`, and after a rerun `rerun`
 (receipts shaped like `results`) and `verdicts` (`passed-alone` or
-`failed-alone` per first-pass failure); `results` keeps its shape. The exit
+`failed-alone` per first-pass failure); `results` and `duration_seconds`
+keep the first pass's, written before any rerun starts. The exit
 stays the first pass's: a smoke that passes alone is reported, not believed.
 Exit 2 is never rerun.
 """
@@ -424,20 +425,23 @@ def main() -> int:
                 results.update(done)
 
     failed = [smoke for smoke, code in results.items() if code != 0]
+    took = time.monotonic() - started
+    # The first pass's summary is written before any rerun, so an interrupted
+    # rerun still leaves it; `duration_seconds` stays the first pass's.
+    summary: dict = {
+        "duration_seconds": round(took, 6),
+        "results": _receipts(artifacts, "*/result.json"),
+        "jobs": jobs, "offset": args.offset,
+    }
+    (artifacts / "summary.json").write_text(json.dumps(summary, indent=2) + "\n", encoding="utf-8")
     # Only exit 1 reruns: exit 2 is a refusal no rerun could explain.
     verdicts = None
     if args.rerun_failed_alone and (again := [smoke for smoke, code in results.items() if code == 1]):
         verdicts = _rerun_alone(again, known, args.offset, artifacts)
-    summary: dict = {
-        "duration_seconds": round(time.monotonic() - started, 6),
-        "results": _receipts(artifacts, "*/result.json"),
-        "jobs": jobs, "offset": args.offset,
-    }
-    if verdicts is not None:
         summary["rerun"] = _receipts(artifacts, f"{RERUN_DIR}/*/result.json")
         summary["verdicts"] = verdicts
-    (artifacts / "summary.json").write_text(json.dumps(summary, indent=2) + "\n", encoding="utf-8")
-    print(f"\n{len(results) - len(failed)} of {len(results)} passed in {time.monotonic() - started:.0f} s")
+        (artifacts / "summary.json").write_text(json.dumps(summary, indent=2) + "\n", encoding="utf-8")
+    print(f"\n{len(results) - len(failed)} of {len(results)} passed in {took:.0f} s")
     if failed:
         print("failed: " + " ".join(failed))
     if verdicts is not None:

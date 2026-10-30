@@ -7259,7 +7259,9 @@ refusing with exit 2 before any start a missing or malformed file, a smoke
 no longer in the table, or smoke names/`--all` beside it. `summary.json`
 records `jobs` and `offset`, and after a rerun `rerun` (receipts shaped
 like `results`) and `verdicts` (`passed-alone` or `failed-alone`); the
-console prints the verdicts after `failed:`. `results` keeps its shape and
+console prints the verdicts after `failed:`. The first pass's summary is
+written before any rerun, so an interrupted rerun keeps it; `results` and
+`duration_seconds` stay the first pass's, and
 the exit stays the first pass's: a smoke that passes alone is reported,
 not believed.
 

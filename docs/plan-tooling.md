@@ -485,6 +485,11 @@ sees them. A rerun that ends in any exit other than 0 (including a port
 refusal) is `failed-alone`; its receipt keeps the exact code. Duplicate
 names in a source summary rerun once.
 
+Review fix (2026-10-30): the first pass's `summary.json` is now written
+before any rerun and rewritten after it, so a Ctrl-C during the reruns no
+longer loses the completed first pass's receipts; `duration_seconds` and the
+console's "passed in" time stay the first pass's, not the reruns' too.
+
 ### Evidence
 
 `docs/rules.md` (Tests, the sentence after "`tests/test_run_smoke.py`
