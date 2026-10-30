@@ -7827,8 +7827,9 @@ Steps that would give a sweep at 2 steps, writing nothing), Compare 2 at
 12 steps, Compare scales (its title naming 2x left out past the measured
 line, the Size field and dialog the same height with the button hidden, a
 press writing no box, the size line and the server's sizes in the preview,
-a strength list crossed with it, the run's sheet with a Size axis, the next
-open at the last single scale, a scale button, a typed W and a second press
+a strength list crossed with it, the run's sheet with a Size axis, a
+remembered 1.25x that differs from the boxes' 1.5x left standing by the
+run and the next open at it, a scale button, a typed W and a second press
 leaving it, Reuse of a compared cell at its own size, and held with both
 factors named on a 1.5 MP source, a press saying so with focus kept), Mu's "auto", the preview's "starts at N% noise" from an injected
 `start_sigma` (the fake reads none), none for a sweep, and the reading
