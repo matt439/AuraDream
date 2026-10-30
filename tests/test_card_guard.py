@@ -315,6 +315,45 @@ def test_a_missing_pid_or_card_reading_is_refused() -> None:
     assert _watch(StubHost([Sample(available_gib=30.0)]))[0] == 2
 
 
+def _unread() -> Sample:
+    return dataclasses.replace(_sample(), card_mib=None, card_total_mib=None)
+
+
+def test_the_card_unread_in_a_row_trips_kills_the_tree_and_exits_3() -> None:
+    assert LIMITS.card_unread_samples == 3.0
+    host = StubHost([_sample(), _sample(), _unread(), _unread(), _unread(), _sample()], tree=[100])
+    code, rows = _watch(host, watch_pid=100, duration=60.0)
+    assert code == 3 and host.killed == [100]
+    events = [r["event"] for r in rows]
+    # One card_unread row, at the first unread sample; the third trips.
+    assert events.count("card_unread") == 1
+    assert events[events.index("card_unread"):] == ["card_unread", "TRIP", "summary"]
+    trip = next(r for r in rows if r["event"] == "TRIP")
+    assert (trip["why"], trip["reading"], trip["limit"], trip["card_mib"]) == ("card_unread", 3, 3.0, None)
+    assert rows[-1]["exit"] == 3 and rows[-1]["stopped"] == "card_unread"
+
+
+def test_a_card_reading_back_resets_the_unread_count() -> None:
+    # Two unread, a reading, two unread, a reading: never three in a row.
+    host = StubHost([_sample(), _unread(), _unread(), _sample(), _unread(), _unread(), _sample()], tree=[100])
+    code, rows = _watch(host, watch_pid=100, duration=10.0)
+    assert code == 0 and host.killed == []
+    assert [r["event"] for r in rows].count("card_unread") == 2
+    assert rows[-1]["stopped"] == "duration"
+
+
+def test_the_unread_count_is_a_limit_a_session_can_change() -> None:
+    host = StubHost([_sample(), _unread()], tree=[100])
+    limits = card_guard.resolve_limits(None, {"card_unread_samples": 1.0})
+    code, rows = _watch(host, limits, watch_pid=100, duration=60.0)
+    assert code == 3 and host.killed == [100]
+    assert [r["event"] for r in rows] == ["baseline", "card_unread", "TRIP", "summary"]
+    # A RAM trip in the same sample still wins: it is the decision's.
+    host = StubHost([_sample(), dataclasses.replace(_unread(), available_gib=3.7)], tree=[100])
+    code, rows = _watch(host, watch_pid=100, duration=60.0)
+    assert code == 4 and [r["event"] for r in rows][1] == "ram_guard"
+
+
 # --- The command line -------------------------------------------------------------
 
 

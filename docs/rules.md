@@ -486,8 +486,10 @@ before changing it.
   file per fix commit plus `card10-ctrl-c-idle.json`, for the real server
   on 7860 driven by real presses: not smokes, so not in `AGENTS.md`'s port
   table, never run by `run_smoke.py` or CI's browser job, and their typed
-  Ctrl-C left to a person; `tests/test_card_packs.py` holds them to their
-  rules (`docs/plan-card-harness.md`, CARD#10 step packs);
+  Ctrl-C left to a person; the two that press Empty bin stop first unless
+  the page opened on a scratch gallery and, before the press, unless the
+  bin holds their own source alone; `tests/test_card_packs.py` holds them
+  to their rules (`docs/plan-card-harness.md`, CARD#10 step packs);
   `smoke_timings.py` reads a run's `summary.json` and prints the slowest
   smokes, each row's total and the wall clock, writing nothing
   (`docs/plan-tooling.md`, Suite and smoke timings);
@@ -7344,7 +7346,9 @@ recorded readings (the 2026-10-25 RAM stops, the fixed loader's lowest free
 RAM, ERNIE's projection gates, the shared rises that never spilled, the
 card's strict 15,500 boundary), that block as the only source of the
 defaults, and the watcher on a stub host with an injected sleep and clock,
-so no test reads a counter or races one.
+so no test reads a counter or races one (its trip after
+`card_unread_samples` samples in a row without a whole-card reading
+among them).
 
 `uv run python tools/run_smoke.py <smoke> [<smoke> ...]` runs smokes without
 a second terminal: it reads `AGENTS.md`'s port table (the port, the
