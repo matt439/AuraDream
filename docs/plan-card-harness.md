@@ -2,8 +2,9 @@
 
 **Status:** `DEV#20` (card guard), `DEV#22` (image metrics) and `DEV#23`
 (`CARD#10` step packs) opened 2026-10-29 from that day's TODO audit, which
-Matt approved in full. `DEV#22` is built (2026-10-30, below); `DEV#20` and
-`DEV#23` are not. Each item's first stage is CPU,
+Matt approved in full. `DEV#22` is built (2026-10-30, below); `DEV#20`'s
+stage 1 is built (2026-10-30, below) and its card stage is open; `DEV#23` is
+not built. Each item's first stage is CPU,
 fake-server or browser work; `DEV#20` and `DEV#23` each have a second stage
 that needs the card and Matt's OK. None of them closes a `CARD`, `PERF` or
 `GEN` row: the harness only makes those runs shorter and the same each time.
@@ -150,7 +151,7 @@ a CI job that touches a GPU.
 
 ### Card guard stages and completion criteria
 
-1. **CPU (OPEN).** `tools/card_guard.py` and `tests/test_card_guard.py`,
+1. **CPU (done 2026-10-30).** `tools/card_guard.py` and `tests/test_card_guard.py`,
    with the subprocess and counter readers stubbed. Fixtures copied from the
    recorded rows:
    - The 2026-10-25 RAM stops each trip on free RAM: 3.83, 3.93, 3.7, 3.8,
@@ -193,6 +194,56 @@ a CI job that touches a GPU.
    sample period, nothing trips, and nothing is pushed toward a spill or the
    RAM floor on purpose. verified.md's row for that session names the guard
    and its limits.
+
+**Stage 1 built (2026-10-30).** `tools/card_guard.py watch [--watch-pid
+PID] [--out rows.jsonl] [--period 1] [--row-every 5] [--duration S]` and
+`plan --points JSON (--x X | --size WxH [--batch N]) [--tripped]`, each with
+the limit flags (`--card-mib`, `--project-mib`, `--refuse-at-mib`,
+`--adapter-shared-mib`, `--process-shared-mib`, `--ram-floor-gib`,
+`--commit-floor-gib`, `--need-ram-gib`, `--busy-card-mib`, `--limits
+FILE.json`). `decide`, `plan_rung` and `rung_x` are the pure decision;
+`LocalHost` is the real sampler (the adapter with the largest dedicated use,
+as ERNIE's guard chose it; the tree's GPU Process Memory shared counters on
+that adapter, summed over its pids). `tests/test_card_guard.py` holds every
+fixture above: the six RAM stops trip on RAM (the Qwen-Image one with
+commit headroom 10.0), 14.2 GiB is `ok`, ERNIE's two gates answer 11,145
+`ok` and `"projected 17354 MiB > 15200"` with the recorded `measured` list,
+82-86, +8/+82 and +172-180 MiB do not trip and +1,100 does, 15,501 trips
+and 15,500 does not, overrides from a flag and a file change the answer,
+and every flag defaults to None so `LIMITS` is the only source. The watcher
+runs there on a stub host with an injected sleep and clock.
+
+Checked: the targeted tests (41), the full suite, ruff and the Pyright
+gate. The dry run against `tools/fake_server.py` (port 8100, a fresh
+`--data`, the venv's launcher with its two children as the watched tree)
+read the counters only. With the defaults it tripped three times, each on
+**commit headroom** (3.61, 3.16 and, with `--commit-floor-gib 1`, 0.51 GiB),
+writing `ram_guard`, killing the fake's tree and exiting 4: other sessions'
+test runs had the machine's commit near its limit that night (the OS's
+own `\Memory\Commit Limit - Committed Bytes` read the same within about
+0.3 GiB). So the quiet run was made with `--commit-floor-gib 0` for that
+session only: 180 s, `baseline`, 30 `sample` rows and `summary`, exit 0,
+the fake left running. Then `--ram-floor-gib 1000` against that fake
+tripped at once (`ram_guard` with `available_gib` 15.91), left no fake
+process and no listener on the port, and exited 4. None of these readings
+is a card measurement.
+
+Choices the plan left open, taken while Matt was away (2026-10-30),
+revisit if wanted: the decision checks RAM, then commit, then the card,
+then the adapter and process rises, so one sample answers one trip; a
+rung refused after a trip or an earlier peak is also `refuse-projected`,
+its `reason` saying which; the last two points at the same x refuse the
+input (exit 2) rather than guess; preflight and the busy card write a
+`rung_refused` row (exit 5 / 7) and kill nothing; "busy" is a whole-card
+reading at the start above `--busy-card-mib`, which like `--need-ram-gib`
+has no default; the watcher refuses (exit 2) a missing `--watch-pid` or a
+missing nvidia-smi reading rather than watch blind; a `sample` row is
+written every `--row-every` seconds and at every sample within 500 MiB of
+a card or shared limit or 1 GiB of a RAM or commit floor (the margins sit
+in the same block); the watched tree exiting ends the watch with exit 0.
+Left: stage 2 (the card, with Matt's OK). The commit floor's trips on a
+busy machine are worth Matt's look before that session: 4 GiB of commit
+headroom was not there with several sessions' test runs resident.
 
 ## Image metrics
 
