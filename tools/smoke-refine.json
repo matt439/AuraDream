@@ -2,7 +2,7 @@
   {"log": "'the Refine dialog, against a fake server claiming FLUX.1 Krea [dev] on 7875'"},
   {"navigate": "http://127.0.0.1:7875/"},
   {"wait": 1200},
-  {"expect": "document.getElementById('status-dot').className.includes('ready')"},
+  {"expect": "(async () => { const end = Date.now() + 20000; while (Date.now() < end) { if (document.getElementById('status-dot').className.includes('ready') && !!lastHints) return true; await new Promise((r) => setTimeout(r, 50)); } return false; })()"},
   {"eval": "resetPanel(); showError('');"},
 
   {"log": "'the panel has no refine controls: Generate and the grid never send a source or a strength'"},

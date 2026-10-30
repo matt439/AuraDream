@@ -1,7 +1,7 @@
 [
   {"navigate": "http://127.0.0.1:7866/"},
   {"wait": 1200},
-  {"expect": "document.getElementById('status-dot').className.includes('ready')"},
+  {"expect": "(async () => { const end = Date.now() + 20000; while (Date.now() < end) { if (document.getElementById('status-dot').className.includes('ready') && !!lastHints) return true; await new Promise((r) => setTimeout(r, 50)); } return false; })()"},
   {"expect": "els.steps.value === '28' && els.cfg.value === '5'"},
   {"expect": "tagVocabularyEnabled && els.tagValidation.hidden"},
   {"eval": "els.prompt.value = '1girl, green h'; els.prompt.focus(); els.prompt.setSelectionRange(els.prompt.value.length, els.prompt.value.length); els.prompt.dispatchEvent(new Event('input', {bubbles: true}));"},

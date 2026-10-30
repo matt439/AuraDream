@@ -486,7 +486,7 @@
     "expect": "__until(() => !modelSwitchSending && modelState === 'unloaded' && modelRuntimeSettings.quantization === 'int8' && modelRuntimeSettings.offload === 'sequential' && !modelRuntimeSettings.load_on_startup)"
   },
   {
-    "expect": "modelRevision > __loaderRevision && els.modelSwitch.getAttribute('aria-disabled') === 'false' && !els.load.hidden && els.prompt.value === '1girl, blue eyes, outdoors' && els.steps.value === '31' && els.cfg.value === '4' && modelChoice() === __flux"
+    "expect": "__until(() => modelRevision > __loaderRevision && els.modelSwitch.getAttribute('aria-disabled') === 'false' && !els.load.hidden && els.prompt.value === '1girl, blue eyes, outdoors' && els.steps.value === '31' && els.cfg.value === '4' && modelChoice() === __flux)"
   },
   {
     "click": "#btn-model-switch"

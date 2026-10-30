@@ -2,7 +2,7 @@
   {"log": "'the Refine dialog on an SDXL tag checkpoint, against a fake server claiming Animagine XL 4.0 on 7877: the pass prompts own check and tag line, the size line inside Animagine\\'s measured run, and, on a status stubbed to an unmeasured profile, the generic line'"},
   {"navigate": "http://127.0.0.1:7877/"},
   {"wait": 1200},
-  {"expect": "document.getElementById('status-dot').className.includes('ready')"},
+  {"expect": "(async () => { const end = Date.now() + 20000; while (Date.now() < end) { if (document.getElementById('status-dot').className.includes('ready') && !!lastHints) return true; await new Promise((r) => setTimeout(r, 50)); } return false; })()"},
   {"eval": "resetPanel(); showError('');"},
 
   {"log": "'a 42-tag source at 2:3, longer than the 77 tokens SDXLs CLIP reads'"},
