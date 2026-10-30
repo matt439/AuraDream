@@ -8,10 +8,10 @@ fixtures. No live gallery, credential store, model or GPU was used.
 Validation belongs to the feature plan.
 
 **Stage 4, 2026-10-30.** Stage 4 changed no bundle, archive or reindex
-code, and this contract is unchanged. Its release (local on
-`feat/inp11-stage4`, until the plan's
+code, and this contract is unchanged. Its release (on main
+since PR #17, 2026-10-30; the plan's
 [card acceptance step](plan-instruction-editing.md#card-acceptance-step)
-passes) opens editor execution on the real server only inside the measured
+is still to run) opens editor execution on the real server only inside the measured
 envelope. An imported edit replays only through More seeds, and only once
 its source is proven and live here, the source is 1:1 and the loader is
 inside that envelope; a `source: null` edit stays unreplayable. The v1/v2
