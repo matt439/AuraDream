@@ -55,7 +55,9 @@ def startup_ports(done):
     ]
     assert launch["options"] == {"stdio": ["ignore", "ignore", "pipe"], "detached": os.name != "nt"}
     assert ports["removals"] == [{"path": launch["profile"], "options": {
-        "recursive": True, "force": True, "maxRetries": 20, "retryDelay": 250,
+        # Retried by browser.mjs against a deadline: rmSync's own retries skip
+        # Windows' EPERM. A removal that succeeds is one call and one check.
+        "recursive": True, "force": True,
     }}]
     return ports
 

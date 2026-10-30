@@ -318,18 +318,64 @@ function killBrowser() {
     else if (!exited) spawnSync('taskkill', ['/pid', String(proc.pid), '/T', '/F'], { stdio: 'ignore', windowsHide: true });
   } catch { /* already gone */ }
 }
+// On Windows the tree does not stop at once. With every core busy (the test
+// suite under -n auto) the browser was still closing when the wait at the end
+// ran out; taskkill /T then found children already shutting down ("no running
+// instance of the task") that went on holding profile files - background
+// renderers run at low priority, and starved, a dying one took over a minute
+// to go. So when the first removal fails, wait for every process whose command
+// line names this run's profile (each of the browser's carries
+// --user-data-dir, and the name is this run's alone, so no other Edge or
+// Chrome ever matches), raising each to High priority so it can finish dying
+// and stopping it, for up to a minute. A synchronous PowerShell call, as
+// cleanup() must be.
+function awaitProfileProcesses() {
+  const name = PROFILE.slice(PROFILE.lastIndexOf('/') + 1);
+  const script = `$deadline = (Get-Date).AddSeconds(60)
+while ($true) {
+  $held = @(Get-CimInstance Win32_Process -Filter "CommandLine LIKE '%${name}%' AND ProcessId <> $PID" -ErrorAction SilentlyContinue)
+  if ($held.Count -eq 0) { exit 0 }
+  if ((Get-Date) -gt $deadline) { exit 1 }
+  foreach ($p in $held) {
+    try { (Get-Process -Id $p.ProcessId -ErrorAction Stop).PriorityClass = 'High' } catch { }
+    Stop-Process -Id $p.ProcessId -Force -ErrorAction SilentlyContinue
+  }
+  Start-Sleep -Milliseconds 250
+}`;
+  try {
+    spawnSync('powershell', ['-NoProfile', '-NonInteractive', '-EncodedCommand', Buffer.from(script, 'utf16le').toString('base64')],
+      { stdio: 'ignore', windowsHide: true, timeout: 90000 });
+  } catch { /* the removal below reports what is left */ }
+}
+// Retried here, against a deadline: rmSync's own maxRetries does not retry
+// the EPERM a held file gives on Windows (Node 24 fails at once), so the
+// 5 s of retries this once relied on never waited at all.
+const pause = (ms) => Atomics.wait(new Int32Array(new SharedArrayBuffer(4)), 0, 0, ms);
+function removeProfile(ms) {
+  const deadline = Date.now() + ms;
+  for (;;) {
+    try { rmSync(PROFILE, { recursive: true, force: true }); } catch { /* held: retried, then reported */ }
+    if (!existsSync(PROFILE)) return true;
+    if (Date.now() >= deadline) return false;
+    pause(250);
+  }
+}
 // Synchronous, so it runs from the 'exit' handler: every way out - the end of
 // the steps, a failed expect, an abandoned call, a throw, Ctrl-C - ends here.
 // Windows lets a killed process's handles go a moment after it has exited;
-// the retries wait that out (5 s at most), and a profile still there after
-// them is named, not dropped in silence.
+// the retries wait that out (2 s, then 10 s more once the processes are
+// gone), and a profile still there after them is named, not dropped in silence.
 let cleaned = false;
 function cleanup() {
   if (cleaned) return;
   cleaned = true;
   killBrowser();
-  try { rmSync(PROFILE, { recursive: true, force: true, maxRetries: 20, retryDelay: 250 }); } catch { /* reported below */ }
-  if (existsSync(PROFILE)) console.error(`  ! the browser profile ${PROFILE} could not be removed; a later run sweeps it after six hours`);
+  let removed = removeProfile(2000);
+  if (!removed) {
+    if (WINDOWS) awaitProfileProcesses();
+    removed = removeProfile(10000);
+  }
+  if (!removed) console.error(`  ! the browser profile ${PROFILE} could not be removed; a later run sweeps it after six hours`);
 }
 process.on('exit', cleanup);
 for (const signal of ['SIGINT', 'SIGTERM', 'SIGHUP', 'SIGBREAK']) {
@@ -562,10 +608,11 @@ for (const [n, step] of steps.entries()) {
 }
 
 // Asked to close, the browser shuts every process down and lets go of the
-// profile itself; cleanup() then kills only what is still there after 5 s.
+// profile itself; cleanup() then kills only what is still there after 10 s
+// (5 s was too few while the test suite loaded every core).
 pending.clear();
 try { ws.send(JSON.stringify({ id: ++id, method: 'Browser.close' })); } catch { /* connection gone */ }
-for (let i = 0; i < 50 && !exited; i++) await sleep(100);
+for (let i = 0; i < 100 && !exited; i++) await sleep(100);
 try { ws.close(); } catch { /* already closed */ }
 cleanup();
 if (failures) console.log(`${failures} expectation(s) failed`);
