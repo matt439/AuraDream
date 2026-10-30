@@ -134,15 +134,18 @@ function galleryEndpoint() {
 // that nothing matches; either way what the All models tick would add. Not
 // over the tombstones of a gallery deleted down to none - they say it - nor
 // in sheet mode, whose note does. From every page that lands and every count
-// a delete or a finished job moves.
+// a delete or a finished job moves. A search that found nothing says which of
+// its words look like a mistyped key, with the mended search a press away
+// (mistypedSearchHints); a search with results says nothing of them.
 let galleryOthers = 0;
 function syncGalleryEmpty() {
   const empty = !sheetMode && total <= 0 && !galleryRecords.length && !els.gallery.querySelector('.card');
   els.galleryEmpty.hidden = !empty;
   if (!empty) return;
   const search = els.search.value.trim();
+  const hints = search ? mistypedSearchHints(search) : [];
   if (binMode) {
-    els.galleryEmpty.replaceChildren(search ? 'No image in the recycle bin matches this search.' : 'The recycle bin is empty.');
+    els.galleryEmpty.replaceChildren(search ? 'No image in the recycle bin matches this search.' : 'The recycle bin is empty.', ...hints);
     return;
   }
   const others = galleryOthers && !els.allModels.checked
@@ -150,7 +153,7 @@ function syncGalleryEmpty() {
   if (search || els.favOnly.checked) {
     els.galleryEmpty.replaceChildren(
       `${search ? 'No image matches this search' : 'No starred image here yet'}`
-      + `${search && els.favOnly.checked ? ' among the starred' : ''}.${others}`);
+      + `${search && els.favOnly.checked ? ' among the starred' : ''}.${others}`, ...hints);
     return;
   }
   const examples = document.createElement('button');

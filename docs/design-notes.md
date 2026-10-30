@@ -6854,7 +6854,13 @@ yet": nothing said it fills as images are made. A page with total 0 now says,
 under the head, what fills it and offers the authors' Examples (the first
 run's own button's handler), or under a filter that nothing matches it, and
 either way what the All models tick would add (`syncGalleryEmpty`; never
-over tombstones, which say it, nor in sheet mode). And a comparison's or a
+over tombstones, which say it, nor in sheet mode). A search that finds
+nothing names a mistyped key too (GAL#23, 2026-10-30): any token the
+grammar does not know is prompt text, so `sed:42` searched the prompts for
+"sed:42" and the empty line gave no clue that no filter ran. A word near
+exactly one key now gets "did you mean seed:42?" and a Search seed:42 button;
+the grammar is unchanged, and `masterpiece:1.2`, near no key, says nothing
+more. And a comparison's or a
 sweep's sheet keeps the gallery scoped to its `job:` after it opens: a plain
 Generate afterwards saved its image where the sheet could not show it, the
 count unchanged and the search box still reading `job:…`, as though nothing

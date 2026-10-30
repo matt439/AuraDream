@@ -402,7 +402,7 @@ before changing it.
   the cards and their actions; `png-settings.js` Load settings from PNG
   (a dropped or picked PNG's text chunks read, sent and filled in through
   Reuse); `gallery-search.js` the lightbox's search
-  buttons; `sheet.js`, `sheet-render.js` and
+  buttons and an empty search's mistyped-key hint; `sheet.js`, `sheet-render.js` and
   `sheet-export.js` the contact sheet; `facts.js` a record's settings line
   and facts list (`settingsLine`, `factsList`), shared by the lightbox and
   the viewer; `lightbox.js` the lightbox's view, layout, walk and gestures,
@@ -4442,7 +4442,14 @@ Frontend and CLI:
   only for a viewer holding something. A gallery with nothing to show says
   so under its head (`syncGalleryEmpty`, `#gallery-empty`: what fills it and
   the authors' Examples, or that nothing matches the filter, and what All
-  models would add), never over tombstones or in sheet mode. A finished
+  models would add), never over tombstones or in sheet mode. A search that
+  finds nothing, in the gallery or the bin, names each `word:value` whose
+  word is near exactly one of `SEARCH_KEYS` (two edits at most, a
+  transposition one, fewer than the key's letters) with a "Search seed:42"
+  ghost button (`mistypedSearchHints`), which mends that word in the box and
+  asks again without scrolling; a word near no key, or with more than
+  letters and digits before its colon (`"seed:42"`, `--seed:1`), adds
+  nothing, results say nothing, and the grammar stays the server's. A finished
   job's images the gallery's filter leaves out - a sheet's `job:` scope, a
   search, Starred - are counted in the gallery's line with Show all
   (`noteOutsideView`, per filter; `showAllImages` empties the search,
@@ -8599,7 +8606,13 @@ card the same node and the paged-in tail kept, no reset; and last, as it
 plants two blonde foxes, an exclusion: `fox -blonde` loading only fox cards
 without "blonde", its total the server's, the tip's `-word` line, Delete
 unstarred's count dialog for `seed:>=100 -seed:100` and its refusal of
-`-blonde` in `#gallery-error`, with no panel control's rectangle moved:
+`-blonde` in `#gallery-error`, with no panel control's rectangle moved; and
+after it a mistyped key (GAL#23): `sed:42` adding "sed:42 was searched as
+prompt words; did you mean seed:42?" and its Search seed:42 button to the
+empty line, the head's height that of a plain empty search, the press
+searching `seed:42` with the box focused and the page unscrolled,
+`masterpiece:1.2` and a quoted `"sed:42"` the plain line with no button,
+and the bin's empty line the same hint and press:
 
 ```powershell
 uv run python tools/fake_server.py --port 7885
