@@ -94,7 +94,9 @@ scroll-to-target steps do not establish human reachability.
   W/H fills missed the hidden fields: the survivor job rendered at
   1024×1024 instead of 256×256, and no expectation looked. The repaired
   driver checks each fill's focus and each press's target, and task 4's
-  rerender size.
+  rerender size. On review the same day it also checks task 2's survivor
+  image is 256×256; a fresh A fixture (port 8187) then passed 206 of 206
+  again with that check.
 
 ### Diagnostic history
 

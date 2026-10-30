@@ -157,7 +157,8 @@ manifest. Its steps run tasks 1-5 and then the optional 6-8; the import in
 task 5 renumbers gallery ids, so 6-8 read sidecar ids and runtime job ids.
 Every press first checks that its target is what lies under the pointer, and
 every fill that focus landed in its field: a missed press fails the step
-instead of typing into whatever kept focus. Its reported counts are
+instead of typing into whatever kept focus. Task 2's survivor must render at
+the typed 256×256 and task 4's rerenders at 512×512. Its reported counts are
 trusted automation input events, not Matt's presses. Scroll-to-target helper
 steps do not establish human reachability or scrolling effort. FLUX also
 needs a real True CFG adjustment to enable the negative box; the WAI concept

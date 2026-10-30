@@ -97,6 +97,14 @@ def test_size_fields_are_reached_through_their_disclosure():
     assert summary < pressed.index("#width") and summary < pressed.index("#height")
 
 
+def test_the_survivor_is_checked_at_the_typed_size():
+    """The version 1 driver passed while its W/H fills missed: the survivor
+    made 1024x1024. The job's own image is now held to the typed 256x256."""
+    steps = trial_walkthrough.steps_for(_manifest())
+    survivor = [str(step.get("expect", "")) for step in steps if "'/api/jobs/'+__survivor" in str(step.get("expect", ""))]
+    assert survivor and "width===256" in survivor[-1] and "height===256" in survivor[-1]
+
+
 def test_every_fill_checks_its_press_landed():
     steps = trial_walkthrough.steps_for(_manifest())
     checked = 0

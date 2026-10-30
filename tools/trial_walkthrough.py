@@ -188,7 +188,9 @@ def steps_for(manifest: dict) -> list[dict]:
     add("log", "JSON.stringify({task:'2 reload',draft:els.prompt.value,watchedJob:currentJob,focus:document.activeElement?.id,customSizeOpen:els.customSize.open,width:els.width.value,liveServerReopenOnly:true})")
     add("eval", "__post('/api/fake/step',{seconds:0})")
     until("!busy && !submitting")
-    expect("api('/api/jobs/'+__survivor).then(s=>s.status==='done' && s.images.length===1)")
+    # The survivor renders at the 256x256 typed through the disclosure: the
+    # version 1 driver's fills missed the hidden fields and it made 1024x1024.
+    expect("api('/api/jobs/'+__survivor).then(s=>s.status==='done' && s.images.length===1 && s.images[0].width===256 && s.images[0].height===256)")
 
     task("3 inspect / source compare / sheet")
     search("id:" + str(roles["child"]))
