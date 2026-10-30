@@ -291,7 +291,7 @@
     "expect": "setupComposerState() === __heldBefore && performanceChoiceInvalid(els.stepCache) && setupsUndo === __undoBefore"
   },
   {
-    "eval": "setStepCache(''); window.__loaderBefore=selectedExecution; selectedExecution={compilation:'regional-v1'}; window.__availableBefore=selectedExecutionAvailable; selectedExecutionAvailable=false; syncSetups(); window.__heldBefore=setupComposerState();"
+    "eval": "setStepCache(''); window.__receiveBefore=receiveExecutionStatus; receiveExecutionStatus=()=>{}; window.__loaderBefore=selectedExecution; selectedExecution={compilation:'regional-v1'}; window.__availableBefore=selectedExecutionAvailable; selectedExecutionAvailable=false; syncSetups(); window.__heldBefore=setupComposerState();"
   },
   {
     "click": "#setups-restore"
@@ -300,7 +300,7 @@
     "expect": "setupComposerState() === __heldBefore && selectedExecution.compilation === 'regional-v1' && setupsUndo === __undoBefore"
   },
   {
-    "eval": "selectedExecution=__loaderBefore; selectedExecutionAvailable=__availableBefore; syncSetups();"
+    "eval": "receiveExecutionStatus=__receiveBefore; selectedExecution=__loaderBefore; selectedExecutionAvailable=__availableBefore; syncSetups();"
   },
   {
     "log": "\"Stale item writes/deletes keep the local name and demand a deliberate reread before the newest revision can be used.\""
