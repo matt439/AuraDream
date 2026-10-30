@@ -245,10 +245,28 @@ function modelNameCell(entry, info, favourite) {
   return name;
 }
 
+// This gallery's own history of the checkpoint (`gallery_reports.gallery_timing`),
+// said in the Speed note only: never a category, a cell's word or a row of
+// its own, and labelled as history rather than a measurement.
+function modelGalleryTiming(info) {
+  const timing = info.gallery_timing;
+  if (!timing) return '';
+  const seconds = timing.median_ms / 1000;
+  const figure = seconds < 10 ? seconds.toFixed(1) : String(Math.round(seconds));
+  const steps = `${timing.steps} step${timing.steps === 1 ? '' : 's'}`;
+  return `This gallery: ~${figure} s at ${timing.width}×${timing.height}, ${steps} (median of ${timing.images}). `
+    + "That is this gallery's history, not a measurement: offload is not recorded per image, "
+    + 'and the median keeps a single slow first image from moving the figure.';
+}
+
+function modelSpeedNote(info) {
+  return [info.speed_note, modelGalleryTiming(info)].filter(Boolean).join(' ');
+}
+
 function modelNotes(info) {
   return [['Access', info.access_note], ['Memory', info.fit_note], ['Download', info.download_note],
     ['Cache', info.cache_note], ['Refine', info.refine_note], ['Edit', info.instruction_edit_note],
-    ['Size', info.megapixels_note], ['Speed', info.speed_note]]
+    ['Size', info.megapixels_note], ['Speed', modelSpeedNote(info)]]
     .filter(([, note]) => note).map(([label, note]) => `${label}: ${note}`).join(' ');
 }
 
@@ -257,8 +275,9 @@ function modelDownloadWord(info) {
     : info.cache_state !== 'unknown' && info.download && info.download !== 'Unknown' ? info.download : 'Unknown';
 }
 
-// Disk facts change after a load, including one that fetched only some files.
-// Write in place so a refresh never replaces a row under a resting pointer.
+// Disk facts change after a load, including one that fetched only some files,
+// and the gallery's timing after a render. Write in place so a refresh never
+// replaces a row under a resting pointer.
 function syncModelDownloadFacts() {
   for (const row of els.modelTable.querySelectorAll('.model-row[data-model]')) {
     const info = modelCatalogueDetails[row.dataset.model] ?? {};
@@ -268,6 +287,12 @@ function syncModelDownloadFacts() {
     if (badge.textContent !== word) badge.textContent = word;
     setModelAttribute(badge, 'title', [info.download_note, info.cache_note].filter(Boolean).join(' '));
     setModelAttribute(badge, 'data-cache', info.cache_state || 'unknown');
+    const speed = row.querySelector('.model-fact[data-fact="speed"]');
+    const speedNote = modelSpeedNote(info);
+    if (speed && (speed.title || '') !== speedNote) {
+      if (speedNote) speed.title = speedNote;
+      else speed.removeAttribute('title');
+    }
     const noteId = row.querySelector('input')?.getAttribute('aria-describedby');
     const notes = noteId ? document.getElementById(noteId) : null;
     const text = modelNotes(info);
@@ -289,6 +314,10 @@ function modelTableRow(entry, { favourite = false, index = 0 } = {}) {
   choice.className = 'model-row-choice';
   const name = modelNameCell(entry, info, favourite);
   const speedDetail = [info.speed_summary, info.speed_basis].filter(Boolean).join(' · ');
+  // Only a category timed with these options reads at full strength.
+  const speed = modelFactCell('Speed', info.speed_label || 'Unmeasured', speedDetail, modelSpeedNote(info),
+    { muted: !['Fast', 'Medium', 'Slow'].includes(info.speed_label) });
+  speed.dataset.fact = 'speed';
   // Refine's Yes/No carries a mark the column can be scanned by.
   const refine = modelFactCell('Refine', info.refine, '', info.refine_note);
   if (info.refine === 'Yes' || info.refine === 'No') refine.dataset.refine = info.refine.toLowerCase();
@@ -297,9 +326,7 @@ function modelTableRow(entry, { favourite = false, index = 0 } = {}) {
     modelFactCell('Style', info.style),
     refine,
     modelFactCell('Size', info.megapixels, info.megapixels_label, info.megapixels_note),
-    // Only a category timed with these options reads at full strength.
-    modelFactCell('Speed', info.speed_label || 'Unmeasured', speedDetail, info.speed_note,
-      { muted: !['Fast', 'Medium', 'Slow'].includes(info.speed_label) }),
+    speed,
   );
   row.append(star, choice);
   if (info.url) {
@@ -376,7 +403,8 @@ function renderModelOptions(wanted) {
   const key = JSON.stringify([
     favourites.map((entry) => entry.model_id), modelCatalogueEntries,
     modelCatalogueEntries.map((entry) => Object.fromEntries(Object.entries(modelCatalogueDetails[entry.model_id] ?? {})
-      .filter(([name]) => !name.startsWith('cache') && !name.startsWith('download')))),
+      // Gallery timing changes after a render; it is written in place too.
+      .filter(([name]) => !name.startsWith('cache') && !name.startsWith('download') && name !== 'gallery_timing'))),
   ]);
   if (modelOptionKeys.get(els.modelTable) !== key) {
     // A rebuild (new loading options, a regrouped opening) keeps the keyboard

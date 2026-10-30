@@ -736,6 +736,44 @@ picked or filtered images) are Often (`preferences.md:146-147`).
 
 ## GEN#38 Gallery timing in the model picker
 
+**Status:** done 2026-10-30, both stages, on `wip/gen38-gallery-timing`.
+Built as designed:
+
+- Server: `gallery_reports.gallery_timing(quantization, sample=50)` is one
+  grouped query (a `ROW_NUMBER()` window over each checkpoint's latest 50
+  rows with no `refine`, no `edit`, a NULL `execution` and `duration_ms > 0`
+  under that quantization, grouped by size and steps). It picks the size
+  used most, then the step count used most at it (a tie goes to the newer),
+  and answers `{median_ms, width, height, steps, images}` per checkpoint.
+  The median is the upper one, as `step_cost_ms`'s. A missing database
+  answers `{}` without creating one. `/api/models` calls it once inside its
+  existing `_detached` call (`main._gallery_timing`, which answers nothing
+  for a busy or unreadable gallery) and adds `gallery_timing` (None with no
+  rows) to every model's details. `model_info` is untouched.
+  Tests: `tests/test_gallery_timing.py` (six: empty history, a missing
+  database not created, refine/edit/non-Eager/zero-duration/other
+  quantization rows left out, the most-used size before its steps, the step
+  count at the chosen size, the median and n with one slow image, the latest
+  rows only and the newer tie) and two in `tests/test_api_model_switch.py`
+  (the field per model, only the rendered checkpoint's, none under another
+  quantization, every `speed_*` fact unchanged; a busy gallery leaves it
+  out).
+- Page: `modelSpeedNote` appends "This gallery: ~N s at W×H, S steps
+  (median of n)." and the history caveat (not a measurement, offload not
+  recorded per image, the median against a slow first image) to
+  `speed_note`, as the Speed cell's title and in `modelNotes`' description.
+  `gallery_timing` is left out of the table's rebuild key, and
+  `syncModelDownloadFacts` writes the cell's title (`data-fact="speed"`) and
+  the description in place. `smoke-model-hover` gained the step: three
+  images made on the loaded FLUX.1 Krea [dev] fake add the line to its Speed
+  note and description while Kohaku's row stays hovered. No row moves, and
+  only that row's hidden description is rewritten; the label, cell text and
+  muting are unchanged. `smoke-model-switch`'s and `smoke-model-hover`'s
+  fact checks now compare the title with `modelSpeedNote`, so a gallery
+  that already has renders still passes. Checked with `run_smoke.py
+  smoke-model-switch smoke-model-startup smoke-model-hover` (3 of 3, on one
+  shared fake) and `smoke-model-hover` alone.
+
 **Evidence.** K2 (compare model guidance, timings or examples) is Often
 (`preferences.md:189`). The picker's Speed fact comes only from the
 retained card samples in `model_benchmarks._SAMPLES`, through `speed_for`
