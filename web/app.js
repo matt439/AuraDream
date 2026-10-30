@@ -503,8 +503,13 @@ els.refineDialog.addEventListener('close', refineClosed);
 els.refineDialog.addEventListener('keydown', refineKeydown);
 els.refineWidth.addEventListener('input', refineSideTyped);
 els.refineHeight.addEventListener('input', refineSideTyped);
+// Typing a size leaves a scale comparison for that one size, before the
+// box's refineChanged reads it.
+els.refineWidth.addEventListener('input', leaveRefineScaleCompare);
+els.refineHeight.addEventListener('input', leaveRefineScaleCompare);
 els.refineDice.onclick = () => { els.refineSeed.value = ''; refineChanged(); };
 els.refineCompare.onclick = fillRefineCompare;
+els.refineCompareScales.onclick = toggleRefineScaleCompare;
 els.refineStartOver.onclick = startRefineOver;
 els.refineMore.addEventListener('toggle', sizeRefinePrompt);
 REFINE_WIDE.addEventListener('change', showRefineSource);

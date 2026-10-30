@@ -2958,7 +2958,7 @@ Frontend and CLI:
   for every star; ❐'s "Reference image N - click to remove" or its reason,
   also its `aria-description`). A button held
   for a reason (Generate, Run grid, and Run comparison under the same
-  `submitHold`, Unload, Pause, Refine, the Refine dialog's Compare 3 and From panel, Ask
+  `submitHold`, Unload, Pause, Refine, the Refine dialog's Compare 3, Compare scales and From panel, Ask
   the critic, Expand, a card's ⤢ and ❐, a pass's Compare with source in the
   result column, the sheet's Fill width on a wrapped row and its export
   buttons while one runs, a negative-prompt finding's Show) is
@@ -3778,6 +3778,18 @@ Frontend and CLI:
   steps), Compare 3 is aria-disabled, its title naming the Steps that would
   give a sweep (`compareStepsNeeded`), a press says so and writes nothing,
   the placeholder is the start alone and the sweep line names no values.
+  Compare scales (floated at the end of the Size caption, its block margins
+  holding the caption's height, so the dialog is the same height with or
+  without it) marks the dialog as comparing 1x, 1.5x and 2x
+  (`REFINE_COMPARE_SCALES`, each `refineScaled`'s size, ascending), less any
+  past the guard (`refineFits`) or the tight line (`refineTight`), each named
+  in its title (`compareScales`); under two left it is aria-disabled with the
+  reason and a press says so. It writes no box: `refineRequest` sends the
+  grid with `size_axis` (and `strength_axis` where Strength is a list) over
+  the boxes' valid base size and the one crop anchor, the preview names the
+  server's `values.size`, and the run opens as a sheet with a Size axis. A
+  scale button, a typed W or H, a second press, an open and Reuse leave it;
+  `rememberRefine` never stores a scale from a comparison.
   From 1600 px the dialog is two panes (the source's PNG, the kept
   region of a reshaped size framed with `refine.fitted`'s arithmetic,
   `refineKept`), with the same DOM and tab order as the one column; Keep
@@ -7841,7 +7853,14 @@ in the preview and a refusal moved to the error line at Strength or W with
 Refine not moving, a strength typed and entered at once refused in the
 dialog, a strength past 1 refused as a fraction, Compare 3 (held with the
 Steps that would give a sweep at 2 steps, writing nothing), Compare 2 at
-12 steps, Mu's "auto", the preview's "starts at N% noise" from an injected
+12 steps, Compare scales (its title naming 2x left out past the measured
+line, the Size field and dialog the same height with the button hidden, a
+press writing no box, the size line and the server's sizes in the preview,
+a strength list crossed with it, the run's sheet with a Size axis, a
+remembered 1.25x that differs from the boxes' 1.5x left standing by the
+run and the next open at it, a scale button, a typed W and a second press
+leaving it, Reuse of a compared cell at its own size, and held with both
+factors named on a 1.5 MP source, a press saying so with focus kept), Mu's "auto", the preview's "starts at N% noise" from an injected
 `start_sigma` (the fake reads none), none for a sweep, and the reading
 taken away by an unload and put back by a load with the dialog open and no
 box touched, Refine held while the server does not answer, arrow-key
@@ -7901,7 +7920,9 @@ a fake of its own while others are up.
 
 `smoke-refine-sdxl.json` checks the Refine dialog on an Animagine fake on
 7877: Animagine's measured tight line (2896x2896, 2x inside it unwarned) and,
-on a status stubbed to an unmeasured profile, the generic one, SDXL's strength
+on a status stubbed to an unmeasured profile, the generic one, Compare scales
+taking all three of 1x, 1.5x and 2x inside that line (and held on the generic
+line, both factors named), SDXL's strength
 sweep, the pass prompt's own check (the 77-token cut outside the fold, Show,
 the checking line during a slow first use, Apply into the dialog's box with
 Ctrl+Z, dead while stale and dimmed by the shared 0.8 / `--text-3` rule, the

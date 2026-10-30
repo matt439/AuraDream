@@ -191,7 +191,7 @@ const els = {
   refineStartOver: $('refine-start-over'), refinePasses: $('refine-passes'),
   refinePassesHead: $('refine-passes-head'), refinePassList: $('refine-pass-list'),
   refinePromptLine: $('refine-prompt-line'), refineUnavailable: $('refine-unavailable'),
-  refineScales: $('refine-scales'), refineWidth: $('refine-width'), refineHeight: $('refine-height'), refineCropAnchor: $('refine-crop-anchor'),
+  refineScales: $('refine-scales'), refineCompareScales: $('refine-compare-scales'), refineWidth: $('refine-width'), refineHeight: $('refine-height'), refineCropAnchor: $('refine-crop-anchor'),
   refineLock: $('refine-lock'),
   refineSizeHint: $('refine-size-hint'), refineStrength: $('refine-strength'),
   refineUpscalerField: $('refine-upscaler-field'), refineUpscaler: $('refine-upscaler'),

@@ -1881,6 +1881,24 @@ equal to 1" in the dialog), and a single strength of 0.9 or more says in the
 preview that the pass keeps (almost) nothing of the source: description, not
 a refusal.
 
+**Compare scales is the grid's size axis, not a new list** (UI#34,
+2026-10-30). Enlarging a keeper and trying several versions are both rated
+Often (`docs/design/preferences.md` H2, H4), and the dialog swept only the
+strength. Compare scales marks the dialog as comparing 1x, 1.5x and 2x and
+sends GEN#19's `size_axis`, each pair the scale button's own size
+(`refineScaled`, the copy of `refine.scaled`), so keys, pricing, the refine
+guard and the sheet's Size axis are the server's and no run id changes. A
+factor past the guard or the tight line is left out, not offered with a
+warning (Matt's choice, 2026-10-29), as `openingRefineSize` never opens
+past that line; the title names each one left out. It writes no box, so a
+scale button or a typed size is the way back to one size, and a comparison
+is never remembered as the scale. The scale row had no room for a fifth
+button (each shows its size under the factor), and a line of its own would
+have grown the dialog, so it is floated in the Size caption with block
+margins that hold the caption to its own height. Whether 2x keeps the
+composition on the card is a card stage (the plan's stage 3), not a page
+claim.
+
 **Where a pass starts, read off the schedule** (2026-10-05). The preview
 says how much noise a pass of one strength starts at ("· starts at 47%
 noise", `GridPreview.start_sigma`), since on FLUX.1 one strength means

@@ -28,6 +28,15 @@
   {"expect": "els.refineStrength.value === '0.2,0.4,0.6'"},
   {"eval": "els.refineStrength.value = '0.4'; refineChanged();"},
 
+  {"log": "'Compare scales on SDXL: Animagine\\'s measured run holds 2x, so all three of 1x, 1.5x and 2x are compared and none is named left out; the preview lists the three'"},
+  {"eval": "window.__cmpSizes = [1, 1.5, 2].map((f) => refineScaled(window.__src.width, window.__src.height, f)); window.__cmpText = window.__cmpSizes.map(([w, h]) => w + '×' + h).join(', ');"},
+  {"expect": "els.refineCompareScales.getAttribute('aria-disabled') === 'false' && els.refineCompareScales.title === 'Run ' + window.__cmpText + ' side by side as one sheet' && window.__cmpSizes[2][0] * window.__cmpSizes[2][1] > 4e6"},
+  {"eval": "els.refineCompareScales.click();"},
+  {"expect": "els.refineCompareScales.getAttribute('aria-pressed') === 'true' && refineRequest().body.size_axis === window.__cmpSizes.map(([w, h]) => w + 'x' + h).join(',') && els.refineSizeHint.textContent === 'Comparing ' + window.__cmpSizes.map(([w, h], i) => [1, 1.5, 2][i] + '× ' + w + '×' + h).join(', ')"},
+  {"expect": "(async () => { const seen = () => els.refinePreview.textContent.startsWith('3 images · strength 0.4 · sizes ' + window.__cmpText) && els.refinePreview.textContent.includes('Opens as a sheet'); for (let i = 0; i < 200 && !seen(); i++) await new Promise((r) => setTimeout(r, 50)); return seen(); })()"},
+  {"eval": "els.refineScales.children[2].click();"},
+  {"expect": "els.refineCompareScales.getAttribute('aria-pressed') === 'false' && els.refineScales.children[2].getAttribute('aria-pressed') === 'true' && refineRequest().path === '/api/generate'"},
+
   {"log": "'the cut is said above the preview with the fold closed, and never holds Refine; the source prompt is captioned'"},
   {"wait": 600},
   {"expect": "document.querySelector('#refine-dialog .rf-caption').textContent === 'Source prompt' && els.refinePromptLine.textContent === window.__long"},
@@ -198,6 +207,9 @@
   {"expect": "__until(() => els.refineDialog.open && refineSource?.id === window.__src.id)"},
   {"expect": "+els.refineWidth.value === 1280 && +els.refineHeight.value === 1920 && els.refineScales.children[1].getAttribute('aria-pressed') === 'true' && els.refineScales.children[2].title === '1536 × 2304 (the usual opening size)'"},
   {"expect": "els.refineSizeHint.textContent === '2.5 MP — 1.25× the source — 1.5× and larger may run tight on 16GB VRAM' && !els.refineSizeHint.classList.contains('warn')"},
+  {"log": "'and Compare scales, past the panels generic line at 1.5x and 2x, is held with both named; a press says why and keeps focus'"},
+  {"eval": "els.refineCompareScales.focus(); els.refineCompareScales.click();"},
+  {"expect": "els.refineCompareScales.getAttribute('aria-disabled') === 'true' && els.refineCompareScales.title === 'No scales to compare: fewer than two of 1×, 1.5×, 2× fit - 1.5× (1536×2304) may run tight on 16GB VRAM, and 2× (2048×3072) may run tight on 16GB VRAM' && els.refineError.textContent === els.refineCompareScales.title + '.' && document.activeElement === els.refineCompareScales && refineRequest().path === '/api/generate'"},
   {"key": "Escape"},
   {"expect": "__until(() => !els.refineDialog.open && refineSource === null)"},
   {"eval": "api = window.__api;"}
