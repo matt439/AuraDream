@@ -135,7 +135,8 @@ extension:
   read at `:424`). The PNG's `auradream` chunk and its A1111 line carry it
   (`storage.py:582`, `:639`). Jobs record it in their definition
   (`backend/jobs.py:953`).
-- Resume/completed-cell lookups are already scoped by exact quantization
+- Resume/completed-cell lookups are already scoped by exact quantization,
+  or a legacy row with none
   (`storage.py:1179-1180`). Re-render/Resume says "made under …; every cell
   would render again under …" (`backend/api_generate.py:302`), and More
   seeds notes the mismatch (`backend/api_more_seeds.py:116-117`). These
@@ -149,7 +150,7 @@ Places that list quantization values and must learn the name:
 `schemas_model.py:143` `Literal`, `loader_choices.QUANTIZATION_CHOICES`
 (`backend/loader_choices.py:13-18`; the menu and picker wording),
 `loading.QUANT_BACKENDS` and the mapping builder (`loading.py:28`,
-`:437-476`), and the vocabulary check in `config.py:206` (through
+`:437-479`), and the vocabulary check in `config.py:206` (through
 `QUANT_MODES`). `startup_preferences.py:48` and `model_selection.py:179`,
 `:228` validate through `QUANT_MODES`. `model_benchmarks.py:26`, `:171`
 default to `fp8`: a new name has no retained timing, so the picker labels
