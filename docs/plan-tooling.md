@@ -650,8 +650,10 @@ workers): 8,023 passed and 8 skipped in 176.96 s. Slowest five:
 16.60 s, and
 `test_browser_step_containers.py::test_repository_smoke_records_reach_the_same_cold_lookup_boundary`
 8.40 s. Everything else was under 8 s, and from about the 15th on under 4 s.
-This item sets no budget, so none of these becomes a row on its own
-(Non-goals).
+Non-goals file a slow one found here as its own row, but set no budget
+to call one slow. Taken while Matt was away (2026-10-29), revisit if
+wanted: no row is filed from this Windows run; that waits for the Linux
+CI table, where the CI time goes.
 
 **Left (stage 2):** the Linux CI baseline: the `Test` step's top 25 and the
 `Smoke timings` table, from the first CI run after Matt next pushes. A
