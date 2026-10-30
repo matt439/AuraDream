@@ -64,6 +64,20 @@ def test_one_pixel_off_by_17_on_one_channel(tmp_path: Path, capsys: pytest.Captu
     assert out[1] == "0.4 / 40.3 / 6.2"
 
 
+def test_row_rounds_the_measured_value_not_the_json(tmp_path: Path, capsys: pytest.CaptureFixture[str]) -> None:
+    pixels = _flat(100, 64, 32)
+    other = pixels.copy()
+    other[5, 9, 1] = 117
+    _, out, _ = _cli(capsys, _png(tmp_path, "a.png", pixels), _png(tmp_path, "b.png", other), "--row")
+    result = json.loads(out[0])
+    # 1 of 2,048 pixels is 0.0488%: 0.05 to the JSON's two places, but 0.0
+    # to one, not the 0.1 that rounding 0.05 again would give.
+    assert result["pct_over_threshold"] == 0.05
+    assert result["mean"] == 0.003  # 17 / 6,144
+    assert result["psnr"] == 61.41  # 10 log10(65025 x 6144 / 289)
+    assert out[1] == "0.0 / 61.4 / 0.0"
+
+
 def test_uniform_offset_of_8_against_two_thresholds(tmp_path: Path, capsys: pytest.CaptureFixture[str]) -> None:
     a = _png(tmp_path, "a.png", _flat(100))
     b = _png(tmp_path, "b.png", _flat(108))
@@ -154,11 +168,13 @@ def test_other_inputs_are_refused(tmp_path: Path, capsys: pytest.CaptureFixture[
     a = _png(tmp_path, "a.png", _flat(0))
     b = _png(tmp_path, "b.png", _flat(1))
     rgb_mask = _png(tmp_path, "m.png", _flat(255))
+    l_mask = _png(tmp_path, "l.png", np.zeros((4, 4), dtype=np.uint8))
     cases = [
         ([a, b, "--mask", rgb_mask], "not L"),
         (["--seam", a, b], "needs --mask"),
         ([a, b, a], "need --seam"),
         ([a, "--row"], "--row needs"),
+        ([a, "--mask", l_mask], "--mask needs"),
         ([a, str(tmp_path / "missing.png")], "cannot read"),
         ([a, b, "--threshold", "-1"], "--threshold"),
     ]

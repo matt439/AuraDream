@@ -268,7 +268,10 @@ two (A against B, with `--threshold` and `--mask`), or `--seam --mask m.png
 source [round trip] result`; every picture's path, hash and size head the
 JSON. The seam step and soft gradient are `seam_insert.py`'s measure as
 that script wrote it: the gradient's forward differences count 0 past the
-last column or row, and both are rounded to 2 places in JSON. Choices the
+last column or row, and both are rounded to 2 places in JSON. `--row`
+rounds the measured value to one place, never the JSON's rounded one (a
+review fix: 0.0488% is 0.05 in JSON but 0.0 in the row, not 0.1). An image
+and `--mask` without a second image is refused too. Choices the
 plan left open, taken while Matt was away (2026-10-29), revisit if wanted:
 a mask that is not mode `L`, a seam mask with no 0 / above-0 edge, three
 images without `--seam` and a negative threshold are refused with exit 2
