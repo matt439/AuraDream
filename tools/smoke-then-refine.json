@@ -98,5 +98,24 @@
   {"log": "'that pass permanently deleted is one Finish run says it will redraw'"},
   {"eval": "(async () => { window.__redraw = null; await fetch(`/api/images/${__pass.id}`, {method: 'DELETE'}); window.__redraw = await (await fetch(`/api/runs/${__run}/finish/preview`, {method: 'POST'})).json(); })()"},
   {"expect": "__until(() => window.__redraw)"},
-  {"expect": "__redraw.available && __redraw.passes === 1 && __redraw.redrawn_passes === 1 && finishRunWords(__run, __redraw) === `Finish 1 missing pass of run ${__run}; 1 permanently deleted pass will be redrawn`"}
+  {"expect": "__redraw.available && __redraw.passes === 1 && __redraw.redrawn_passes === 1 && finishRunWords(__run, __redraw) === `Finish 1 missing pass of run ${__run}; 1 permanently deleted pass will be redrawn`"},
+
+  {"log": "'More seeds of the batch of two carries its run\\'s pass: the tick beside the count, on, the row\\'s note and the passes in the count line and Queue; off, the images alone; queued, each new base followed by its pass in the strip, the passes in the run\\'s own pass run'"},
+  {"eval": "(async () => { window.__msBase = null; const made = (await (await fetch('/api/gallery?limit=40')).json()).items; window.__msBase = made.find((r) => r.refine === null && r.prompt === 'a lighthouse on a cliff' && r.width === 512); window.__msPassRun = made.find((r) => r.refine === __msBase.id).run_id; window.__msBefore = made.map((r) => r.id); })()"},
+  {"expect": "__until(() => window.__msBase && window.__msPassRun)", "fatal": true},
+  {"expect": "els.moreSeedsThenRefineLabel.hidden"},
+  {"eval": "void openMoreSeeds(moreSeedsImageTarget(__msBase), {count: 2});"},
+  {"expect": "__until(() => els.moreSeedsDialog.open && !els.moreSeedsThenRefineLabel.hidden && els.moreSeedsRun.getAttribute('aria-disabled') === 'false')", "fatal": true},
+  {"expect": "els.moreSeedsThenRefine.checked && els.moreSeedsThenRefineLabel.getAttribute('aria-disabled') === 'false' && els.moreSeedsResults.querySelector('.ms-notes')?.textContent === 'each then refined at 1.5× at 0.4' && els.moreSeedsLine.textContent.startsWith('2 additional images + 2 refine passes') && els.moreSeedsRun.textContent === 'Queue 2 images + 2 refine passes' && els.moreSeedsRun.title.includes('each then refined (2 refine passes)')"},
+  {"eval": "window.__msTick = JSON.stringify(els.moreSeedsThenRefineLabel.getBoundingClientRect()); window.__msCount = JSON.stringify(els.moreSeedsCount.getBoundingClientRect()); window.__msRunAt = JSON.stringify(els.moreSeedsRun.getBoundingClientRect()); window.__msList = JSON.stringify(els.moreSeedsResults.getBoundingClientRect());"},
+  {"shot": "then-refine-more-seeds.png"},
+  {"click": "#more-seeds-then-refine"},
+  {"expect": "__until(() => !els.moreSeedsThenRefine.checked && els.moreSeedsRun.textContent === 'Queue 2 images' && !els.moreSeedsLine.textContent.includes('refine pass') && !els.moreSeedsResults.querySelector('.ms-notes'))"},
+  {"click": "#more-seeds-then-refine"},
+  {"expect": "__until(() => els.moreSeedsThenRefine.checked && els.moreSeedsRun.textContent === 'Queue 2 images + 2 refine passes')"},
+  {"expect": "JSON.stringify(els.moreSeedsThenRefineLabel.getBoundingClientRect()) === __msTick && JSON.stringify(els.moreSeedsCount.getBoundingClientRect()) === __msCount && JSON.stringify(els.moreSeedsRun.getBoundingClientRect()) === __msRunAt && JSON.stringify(els.moreSeedsResults.getBoundingClientRect()) === __msList"},
+  {"click": "#more-seeds-run"},
+  {"expect": "__until(() => !els.moreSeedsDialog.open)"},
+  {"expect": "__until(() => !busy && viewerRecords.filter((r) => !__msBefore.includes(r.id)).length === 4, 60000)", "fatal": true},
+  {"expect": "(() => { const shown = [...document.querySelectorAll('#viewer figure[data-id]')].map((f) => viewerRecords.find((r) => r.id === +f.dataset.id)).filter((r) => r && !__msBefore.includes(r.id)); const bases = shown.filter((r) => r.refine === null); const passes = shown.filter((r) => r.refine !== null); return bases.length === 2 && passes.length === 2 && passes.every((p) => { const base = bases.find((b) => b.id === p.refine); return base && base.seed === p.seed && p.width === 768 && p.run_id === __msPassRun && base.run_id === __msBase.run_id && shown.indexOf(p) > shown.indexOf(base); }); })()"}
 ]

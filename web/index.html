@@ -1773,6 +1773,12 @@
       <input type="text" id="more-seeds-count" autocomplete="off" inputmode="numeric"
              title="How many additional images to make. ↑ and ↓ step it">
     </div>
+    <!-- Where a batch's run refined each image (Then refine): its new images
+         carry that pass, on at every opening; shown only where the server
+         says a batch's run has one, held with the reason where this
+         checkpoint has no pass. Beside the count, so nothing moves. -->
+    <label class="check ms-then-refine" id="more-seeds-then-refine-label" hidden><input type="checkbox"
+           id="more-seeds-then-refine" checked> Refine each new image</label>
   </div>
   <p class="ms-hint">Same prompt, size and settings. New seeds. The images join the original run.</p>
   <p class="ms-count-line" id="more-seeds-line" role="status"></p>

@@ -148,6 +148,7 @@ const els = {
   moreSeedsCancel: $('more-seeds-cancel'), moreSeedsRun: $('more-seeds-run'),
   moreSeedsCountLabel: $('more-seeds-count-label'), moreSeedsHold: $('more-seeds-hold'),
   moreSeedsDetails: $('more-seeds-details'), moreSeedsNotes: $('more-seeds-notes'),
+  moreSeedsThenRefine: $('more-seeds-then-refine'), moreSeedsThenRefineLabel: $('more-seeds-then-refine-label'),
   viewerSeeds: $('viewer-seeds'), viewerMoreSeeds: $('viewer-more-seeds'),
   viewerMoreSeedsTarget: $('viewer-more-seeds-target'), viewerNoteText: $('viewer-note-text'),
   bin: $('btn-bin'), emptyBin: $('btn-empty-bin'), restorePicked: $('btn-restore-picked'), purgePicked: $('btn-purge-picked'),

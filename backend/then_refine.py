@@ -118,6 +118,21 @@ def plan_passes(records: list, spec: ThenRefine) -> list:
     ]
 
 
+def retained(metadata: dict) -> ThenRefine | None:
+    """A retained job's Then refine (`storage.retained_run_metadata`), without
+    the pass run id beside it, or None for a job that carried none: what
+    Finish run and More seeds read a run's spec from."""
+    saved = metadata.get("then_refine")
+    if not isinstance(saved, dict):
+        return None
+    return ThenRefine.model_validate({k: v for k, v in saved.items() if k != "pass_run_id"})
+
+
+def spec_key(spec: ThenRefine | None) -> tuple | None:
+    """`spec` as a hashable key: More seeds' jobs keep one spec each."""
+    return None if spec is None else tuple(sorted(spec.model_dump().items()))
+
+
 def words(spec: ThenRefine) -> str:
     """The spec as the page says it: "1.5× at 0.4", its steps where set."""
     steps = f", {spec.steps} steps" if spec.steps else ""

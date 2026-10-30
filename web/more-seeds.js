@@ -26,6 +26,13 @@
 // passes, else the server's `count_default` - the batch's own Batch - and
 // never at the footer's remembered count, which only the footer reads and
 // writes.
+//
+// A batch whose run refined each image (Then refine, its jobs' retained
+// spec) carries that pass: each new image is followed by it, in the run's
+// own pass run. The server says which batches carry one
+// (`then_refine_batches`), the note on each row and the passes in the count;
+// the tick, Refine each new image, shows only then, on at every opening,
+// and is held with the server's reason where this checkpoint has no pass.
 
 const MS_CHECK_DELAY = 250;
 const MORE_SEEDS_KEY = 'auradream.more-seeds.v1';
@@ -34,12 +41,13 @@ const MORE_SEEDS_COUNT = 4;
 const MS_STATUS_WORDS = {
   foreign: 'from other checkpoints', source_deleted: 'with their refine source deleted',
   lora_missing: 'with their LoRA missing', mask_missing: 'with their mask missing',
-  outpaint: 'with an outpaint that cannot run', invalid: 'invalid', deleted: 'deleted',
+  outpaint: 'with an outpaint that cannot run', then_refine: 'whose refine pass cannot run',
+  invalid: 'invalid', deleted: 'deleted',
 };
 const MS_CHIP = {
   queued: 'Ready', foreign: 'other checkpoint', source_deleted: 'source deleted',
-  lora_missing: 'LoRA missing', mask_missing: 'mask missing', outpaint: 'outpaint refused', invalid: 'invalid',
-  deleted: 'deleted',
+  lora_missing: 'LoRA missing', mask_missing: 'mask missing', outpaint: 'outpaint refused',
+  then_refine: 'pass refused', invalid: 'invalid', deleted: 'deleted',
 };
 
 // What the dialog acts on, fixed when it opens: `{ids}`, `{run}` or the
@@ -139,7 +147,47 @@ function msFallbackBatch() {
 // carries its own.
 function msPayload() {
   const starred = msScope.run ? { favorites: msFavorites } : {};
-  return { ...msScope, ...starred, count: +msCountText(), batch: msBatch };
+  return { ...msScope, ...starred, count: +msCountText(), batch: msBatch, then_refine: els.moreSeedsThenRefine.checked };
+}
+
+const msPasses = (n) => `${n} refine pass${n === 1 ? '' : 'es'}`;
+
+// The last answer's `then_refine_hold`: why no pass can run on this
+// checkpoint, or ''.
+let msThenRefineServerHold = '';
+
+// The tick as the answer says: shown where a batch's run carries a pass,
+// held (aria-disabled, the reason its title, off) where this checkpoint has
+// none. It keeps its place beside the count, so showing it moves nothing.
+function syncMoreSeedsThenRefine(answer) {
+  const hold = answer?.then_refine_hold || '';
+  msThenRefineServerHold = hold;
+  els.moreSeedsThenRefineLabel.hidden = !(answer?.then_refine_batches || hold);
+  if (hold && els.moreSeedsThenRefine.checked) {
+    // Off is what the server ran anyway; asked again, so the answer is the
+    // answer to what the dialog now says.
+    els.moreSeedsThenRefine.checked = false;
+    scheduleMoreSeedsCheck(0);
+  }
+  syncMoreSeedsThenRefineHold();
+}
+
+// Why the tick cannot change now, or '': no pass here, or a request sent.
+function msThenRefineHold() {
+  if (msThenRefineServerHold) return msThenRefineServerHold;
+  if (msSending || msSubmission) return 'This request has been sent with its choice; close More seeds to make another';
+  return '';
+}
+
+// The tick held (aria-disabled, the reason its title) while it cannot
+// change: from each answer and from every Queue sync, so a sent request
+// holds it as it holds the count.
+function syncMoreSeedsThenRefineHold() {
+  const held = msThenRefineHold();
+  els.moreSeedsThenRefineLabel.setAttribute('aria-disabled', String(Boolean(held)));
+  els.moreSeedsThenRefine.setAttribute('aria-disabled', String(Boolean(held)));
+  els.moreSeedsThenRefineLabel.title = held
+    || "Follow each new image with its run's refine pass, in the run's own pass run; off makes the images alone";
 }
 
 async function askMoreSeeds(payload, signal) {
@@ -201,6 +249,9 @@ async function openMoreSeeds(target = null, { count = null, opener = null, host 
   els.moreSeedsDetails.open = false;
   els.moreSeedsCountLabel.textContent = 'Additional images';
   els.moreSeedsNotes.textContent = '';
+  // On at every opening: the run's own choice, which the answer shows or hides.
+  els.moreSeedsThenRefine.checked = true;
+  syncMoreSeedsThenRefine(null);
   const kept = footer ? +remembered(MORE_SEEDS_KEY) : count;
   els.moreSeedsCount.value = String(msCountFits(kept) ? kept : MORE_SEEDS_COUNT);
   const controller = new AbortController();
@@ -361,9 +412,11 @@ function renderMoreSeeds(answer) {
       : '';
   // A run's first words are the server's headline: "2 more of each of 6
   // cells = 12 images · seeds 8–9 · Starred ignored".
+  // Then refine's passes beside the images they follow.
+  const passes = answer.passes ? ` + ${msPasses(answer.passes)}` : '';
   const parts = [multiple
-    ? `${msCountText()} per settings group × ${answer.batches} ready = ${plural(answer.queued, 'additional image')}`
-    : `${plural(answer.queued, 'additional image')}`, time];
+    ? `${msCountText()} per settings group × ${answer.batches} ready = ${plural(answer.queued, 'additional image')}${passes}`
+    : `${plural(answer.queued, 'additional image')}${passes}`, time];
   if (answer.unrecorded) parts.push(`${msBatches(answer.unrecorded)} use panel Batch ${msBatch}`);
   for (const [status, words] of Object.entries(MS_STATUS_WORDS)) {
     if (answer.counts[status]) parts.push(`${answer.counts[status]} ${words}`);
@@ -373,6 +426,7 @@ function renderMoreSeeds(answer) {
   msSay(parts.filter(Boolean).join(' · '));
   els.moreSeedsNotes.textContent = answer.headline || '';
   els.moreSeedsResults.replaceChildren(...answer.results.map(moreSeedsRow));
+  syncMoreSeedsThenRefine(answer);
 }
 
 const msSeeds = (low, high) => (low === high ? `seed ${low}` : `seeds ${low}–${high}`);
@@ -440,6 +494,7 @@ function moreSeedsHold() {
 function syncMoreSeedsRun() {
   if (!els.moreSeedsDialog.open) return;
   els.moreSeedsCount.readOnly = msSending || !!msSubmission;
+  syncMoreSeedsThenRefineHold();
   if (msSending) {
     els.moreSeedsRun.textContent = 'Sending…';
     els.moreSeedsRun.setAttribute('aria-disabled', 'true');
@@ -449,11 +504,11 @@ function syncMoreSeedsRun() {
   }
   const hold = moreSeedsHold();
   els.moreSeedsRun.textContent = msUncertain ? 'Retry same request'
-    : !hold && msAnswer ? `Queue ${plural(msAnswer.queued, 'image')}${msAnswer.jobs > 1 ? ` (${msAnswer.jobs} jobs)` : ''}` : 'Queue';
+    : !hold && msAnswer ? `Queue ${plural(msAnswer.queued, 'image')}${msAnswer.passes ? ` + ${msPasses(msAnswer.passes)}` : ''}${msAnswer.jobs > 1 ? ` (${msAnswer.jobs} jobs)` : ''}` : 'Queue';
   els.moreSeedsRun.setAttribute('aria-disabled', String(Boolean(hold)));
   els.moreSeedsRun.title = hold
     || (msUncertain ? 'Retry the original request and recover its original jobs; no extra extension is added'
-      : `Queue ${plural(msAnswer.queued, 'more image')} in ${msBatches(msAnswer.batches)} (Ctrl+Enter)`);
+      : `Queue ${plural(msAnswer.queued, 'more image')}${msAnswer.passes ? `, each then refined (${msPasses(msAnswer.passes)})` : ''} in ${msBatches(msAnswer.batches)} (Ctrl+Enter)`);
   els.moreSeedsHold.textContent = hold || (msUncertain
     ? 'The reply was lost. Retry keeps this count and the same request. Closing abandons the reply; the jobs may already be queued.'
     : busy ? 'These images will queue after the current work.' : 'Ready to queue.');
@@ -602,6 +657,14 @@ function setupMoreSeeds() {
   els.moreSeedsDialog.addEventListener('keydown', moreSeedsKeydown);
   els.moreSeedsDialog.addEventListener('cancel', (e) => { if (msSending) e.preventDefault(); });
   els.moreSeedsCount.addEventListener('input', () => moreSeedsEdited());
+  // A held tick says why on a press, and stays as it is.
+  els.moreSeedsThenRefine.addEventListener('click', (event) => {
+    const held = msThenRefineHold();
+    if (!held) return;
+    event.preventDefault();
+    showError(held, false, { slot: els.moreSeedsError });
+  });
+  els.moreSeedsThenRefine.addEventListener('change', () => moreSeedsEdited(0));
   els.moreSeedsDialog.addEventListener('close', () => {
     clearTimeout(msTimer);
     msAsking?.abort();

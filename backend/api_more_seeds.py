@@ -5,7 +5,7 @@ import asyncio
 
 from fastapi import APIRouter, HTTPException
 
-from . import gallery_reports, grid, model_selection, more_seeds, storage, submission
+from . import gallery_reports, grid, model_selection, more_seeds, storage, submission, then_refine
 from .app_context import AppServices
 from .more_seeds_intents import IntentProblem
 from .schemas import (
@@ -15,6 +15,7 @@ from .schemas import (
     MoreSeedsPreview,
     MoreSeedsRequest,
     MoreSeedsResult,
+    ThenRefine,
 )
 from .seeds import MAX_SEED
 
@@ -128,12 +129,66 @@ async def more_seeds_plan(
                 kind, why = unusable
                 batch.status = submission.UNUSABLE_STATUS.get(kind, "invalid")
                 batch.detail = submission.unusable_detail(kind, why, batch.template.id)
+    await _carry_then_refine(services, [batch for batch in mine if batch.status == more_seeds.QUEUED],
+                             carry=request.then_refine)
     results = [
         MoreSeedsResult(id=image_id, status="deleted", detail=submission.gone_detail(image_id, binned))
         for image_id in gone
     ] + [_more_seeds_result(batch) for batch in batches]
     results.sort(key=lambda result: result.id)
     return [record.id for record in records], results, batches
+
+
+async def _carry_then_refine(services: AppServices, queued: list[more_seeds.Batch], *, carry: bool) -> None:
+    """Each queued base batch's Then refine: the spec the jobs of its images
+    retained (`then_refine.retained`), where they agree, so its new bases
+    are each followed by the pass the run's own bases had. Every mate's job
+    is read, not the template's alone: the template can be a base an
+    earlier More seeds made before it carried a pass. A batch none of whose
+    jobs carried one is unchanged; a pass batch, an inpaint or an edit
+    never carries one (a pass of a pass is no Then refine). With `carry`
+    off, or no refine pass on this checkpoint, the batches make bases only;
+    else mates of two specs, or a pass `then_refine.refusal` refuses at
+    this batch's size and steps, is a `then_refine` status in words, and
+    the rest still queue."""
+    bases = [batch for batch in queued if batch.template.refine is None and batch.template.edit is None]
+    job_ids = sorted({record.job_id for batch in bases for record in batch.held if record.job_id})
+    retained = await asyncio.to_thread(storage.retained_run_metadata, job_ids) if job_ids else {}
+    unavailable: str | None = None
+    asked = False
+    for batch in bases:
+        specs: list[ThenRefine] = []
+        for job_id in dict.fromkeys(record.job_id for record in batch.held if record.job_id):
+            if job_id not in retained:
+                continue
+            spec = then_refine.retained(retained[job_id][1])
+            if spec is not None and spec not in specs:
+                specs.append(spec)
+        if not specs:
+            continue
+        batch.run_then_refine = True
+        if not carry:
+            continue
+        if not asked:
+            unavailable, asked = await submission.refine_unavailable(services), True
+        if unavailable is not None:
+            batch.notes.append("bases only: this checkpoint has no refine pass")
+            continue
+        if len(specs) > 1:
+            made = [then_refine.words(each) for each in specs]
+            batch.status = "then_refine"
+            batch.detail = (
+                f"its images were refined at {', '.join(made[:-1])} and at {made[-1]}; untick "
+                "Refine each new image for bases only, and Mass refine them at the numbers wanted"
+            )
+            continue
+        spec = then_refine.resolved(specs[0])
+        reason = then_refine.refusal([cell.request for cell in batch.cells], spec, None)
+        if reason is not None:
+            batch.status, batch.detail = "then_refine", f"its run's pass: {reason}"
+            continue
+        batch.then_refine = spec
+        batch.notes.append(f"each then refined at {then_refine.words(spec)}")
 
 
 def _more_seeds_result(batch: more_seeds.Batch) -> MoreSeedsResult:
@@ -163,13 +218,22 @@ def _batches_by_size(batches: list[more_seeds.Batch]) -> dict[tuple[int, int], l
 
 def _more_seeds_jobs(batches: list[more_seeds.Batch]) -> dict[tuple, list[more_seeds.Batch]]:
     """The queued batches by the job they go in: one per run (else job, else
-    image) and size, so each job's images join the one run they extend and
-    the job keeps one size, as every job does."""
+    image), size and Then refine spec, so each job's images join the one run
+    they extend, the job keeps one size, as every job does, and carries one
+    pass (`submit_cells(then_refine=)`), whose pass run id it derives from
+    the run's - the run's own pass run."""
     jobs_of: dict[tuple, list[more_seeds.Batch]] = {}
     for batch in batches:
         template = batch.template
-        jobs_of.setdefault((batch.key[0], template.width, template.height), []).append(batch)
+        jobs_of.setdefault(
+            (batch.key[0], template.width, template.height, then_refine.spec_key(batch.then_refine)), [],
+        ).append(batch)
     return jobs_of
+
+
+def _passes(batches: list[more_seeds.Batch]) -> int:
+    """The Then refine passes following these batches' new bases."""
+    return sum(len(batch.seeds) for batch in batches if batch.then_refine is not None)
 
 
 def _more_seeds_counts(results: list[MoreSeedsResult]) -> dict[str, int]:
@@ -221,8 +285,13 @@ def create_router(services: AppServices) -> APIRouter:
         # leaves the whole estimate out, and how many have none is said.
         seconds = 0.0
         unpriced = 0
-        for (width, height), group in _batches_by_size(queued).items():
-            cells = [cell for batch in group for cell in batch.cells]
+        # Each carried pass priced at its own size, as the grid preview
+        # prices Then refine's stand-ins (`then_refine.execution_units`).
+        units: dict[tuple[int, int], list[grid.Cell]] = {}
+        for batch in queued:
+            for unit in then_refine.execution_units(batch.cells, batch.then_refine):
+                units.setdefault((unit.request.width, unit.request.height), []).append(unit)
+        for (width, height), cells in units.items():
             per_step_ms = await asyncio.to_thread(gallery_reports.step_cost_ms, width, height, model)
             refine_costs = await asyncio.to_thread(gallery_reports.refine_cost_ms, width, height, model)
             inpaint_costs = (
@@ -236,6 +305,8 @@ def create_router(services: AppServices) -> APIRouter:
                 unpriced += 1
             else:
                 seconds += priced
+        carrying = sum(batch.run_then_refine for batch in batches)
+        hold = await submission.refine_unavailable(services) if carrying else None
         if context != _intent_context(services) or manager is not services.jobs():
             raise HTTPException(409, "the checkpoint or server changed while checking; review the batches again")
         try:
@@ -248,6 +319,9 @@ def create_router(services: AppServices) -> APIRouter:
             queued=sum(len(batch.seeds) for batch in queued),
             batches=len(queued),
             jobs=len(_more_seeds_jobs(queued)),
+            passes=_passes(queued),
+            then_refine_batches=carrying,
+            then_refine_hold=hold,
             results=results[:MORE_SEEDS_PREVIEW_ROWS],
             total=len(results),
             unrecorded=sum(not batch.recorded for batch in queued),
@@ -315,7 +389,7 @@ def create_router(services: AppServices) -> APIRouter:
             try:
                 job = await services.jobs().submit_cells(
                     [cell for batch in group for cell in batch.cells],
-                    run_id=group[0].run_id, more_seeds=request.count,
+                    run_id=group[0].run_id, more_seeds=request.count, then_refine=group[0].then_refine,
                 )
             except Exception as exc:
                 if not accepted:
@@ -349,6 +423,7 @@ def create_router(services: AppServices) -> APIRouter:
             job_id=first.job_id, seed=first.seed, run_id=first.run_id, estimate_seconds=first.estimate_seconds,
             more=accepted[1:],
             queued=sum(len(batch.seeds) for batch in accepted_batches), batches=len(accepted_batches),
+            passes=_passes(accepted_batches),
             warning=warning, not_queued=sum(len(batch.seeds) for batch in remaining),
             not_queued_batches=len(remaining),
         )
