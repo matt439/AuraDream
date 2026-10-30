@@ -513,8 +513,9 @@ database from `tests/conftest.py`):
 and `--seed-list 4471,8823`, plus one flag per recipe field
 (`--compilation`, `--attention`, `--step-cache`). Run as a script it prints
 the six `backend.generate` command lines for an arm (`--shape`, `--quant`
-and the recipe flags narrow it); it runs none. `tests/test_perf_cases.py`
-(42 cases) checks every bullet above: `applied()` with the krea-dev
+and the recipe flags narrow it), quoted for PowerShell on Windows and POSIX
+elsewhere (`--shell`), so the text case's quoted sign stays one argument;
+it runs none. `tests/test_perf_cases.py` (44 cases) checks every bullet above: `applied()` with the krea-dev
 profile's flags leaves all six cases as written, each plan's two arms
 (`PERF#1`/`#3`/`#4`) differ only in `cell_key`'s execution element, the
 empty-recipe arm's `run_id` equals the legacy one (shape A's scene case is

@@ -16,6 +16,8 @@ starts nothing. It prints commands; it never runs one.
 from __future__ import annotations
 
 import argparse
+import os
+import re
 import shlex
 import sys
 
@@ -87,10 +89,21 @@ def cases() -> list[tuple[str, str]]:
     return [(prompt, shape) for shape in SHAPES for prompt in PROMPTS]
 
 
+def powershell_join(command: list[str]) -> str:
+    """`shlex.join` for PowerShell, where the card runs are typed: POSIX's
+    `'"'"'` splits the text case's quoted sign into five arguments there."""
+    return " ".join(
+        word if re.fullmatch(r"[\w%+=:,./-]+", word) else "'" + word.replace("'", "''") + "'"
+        for word in command
+    )
+
+
 def main(argv: list[str] | None = None) -> int:
     parser = argparse.ArgumentParser(description="Print the fixed speed comparison cases' command lines.")
     parser.add_argument("--shape", choices=sorted(SHAPES), help="one shape only (default: both)")
     parser.add_argument("--quant", default=QUANTIZATION, help=f"quantization (default {QUANTIZATION})")
+    parser.add_argument("--shell", choices=("powershell", "posix"), default="powershell" if os.name == "nt" else "posix",
+                        help="quote the lines for this shell (default: PowerShell on Windows)")
     for field, flag in RECIPE_FLAGS.items():
         parser.add_argument(flag, dest=field, help=f"the arm's {field.replace('_', ' ')} recipe")
     args = parser.parse_args(argv)
@@ -99,7 +112,7 @@ def main(argv: list[str] | None = None) -> int:
         if args.shape in (None, shape):
             command = ["uv", "run", "python", "-m", "backend.generate",
                        *generate_args(prompt, shape, recipe=recipe, quantization=args.quant)]
-            print(shlex.join(command))
+            print(powershell_join(command) if args.shell == "powershell" else shlex.join(command))
     return 0
 
 

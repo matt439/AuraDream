@@ -159,8 +159,19 @@ def test_a_nonempty_recipe_arm_is_refused_before_any_work(krea_cli, store, capsy
     assert krea_cli.loads == 0 and store.list_images()[1] == 0
 
 
-def test_the_printed_commands_name_every_case_once(capsys):
-    assert perf_cases.main(["--step-cache", "fbc-005-v1"]) == 0
+def test_the_powershell_lines_keep_the_text_prompt_one_argument():
+    # PowerShell doubles a quote inside '...'; POSIX's '"'"' splits it there.
+    line = perf_cases.powershell_join(["uv", *perf_cases.generate_args("text", "A")])
+    assert line.startswith(
+        "uv 'Moody night photography, a small store with an orange glowing sign that says "
+        "''Black Forest Labs''' --model black-forest-labs/FLUX.1-Krea-dev --quant fp8 "
+    )
+    assert line.endswith(" --seed-list 4471,8823")
+
+
+@pytest.mark.parametrize("shell", ["powershell", "posix"])
+def test_the_printed_commands_name_every_case_once(capsys, shell):
+    assert perf_cases.main(["--step-cache", "fbc-005-v1", "--shell", shell]) == 0
     lines = capsys.readouterr().out.splitlines()
     assert len(lines) == 6 and all("--step-cache fbc-005-v1" in line for line in lines)
     assert all("--seed-list 4471,8823" in line for line in lines)
