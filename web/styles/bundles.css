@@ -48,12 +48,14 @@
 .caps-lock-note {
   position: absolute; grid-column-start: 3; top: 0; bottom: 0; left: var(--sp-3); right: 0;
   display: flex; align-items: center; margin: 0;
-  font-size: var(--fs-label); color: var(--warn); pointer-events: none;
+  font-size: var(--fs-label); color: var(--warn); white-space: nowrap; pointer-events: none;
 }
 .bundle-tag { font-size: var(--fs-label); color: var(--accent-2); border: 1px solid var(--line); border-radius: var(--r-sm); padding: 0 var(--sp-1); }
-@media (max-width: 520px) {
+/* Two columns leave the notice room (about 500 px of grid) only above a
+   620 px viewport; below it the grid is one column and the notice sits at
+   the right of the first label's row. */
+@media (max-width: 620px) {
   .bundle-password { grid-template-columns: minmax(0, 1fr); }
-  /* One column: the notice sits at the right of the first label's row. */
   .caps-lock-note { grid-column-start: auto; bottom: auto; left: auto; }
 }
 #bundle-preview { min-height: 2lh; font-variant-numeric: tabular-nums; }

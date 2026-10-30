@@ -6895,10 +6895,11 @@ and leading-zero count entries, a synthetic preview whose record/file/bin
 counts differ, unchanged creation/import password lifetimes, and 360/390 px
 layouts plus forced colours. Scope changes compare dialog-content positions,
 so explicit test scrolling does not masquerade as a moving control. The
-password fields' Caps Lock notice (UI#38) is checked at 1400x900 and
-360x800: a synthetic key event's true state shows the polite line beside
-the inputs, a false state and blur hide it, focus repeats the last state,
-and no input or Back up moves and nothing is stored.
+password fields' Caps Lock notice (UI#38) is checked at 1400x900, 560,
+600 and 360x800: a synthetic key event's true state shows the polite line
+beside the inputs on one line inside its grid, a false state and blur hide
+it, focus repeats the last state, and no input or Back up moves and nothing
+is stored.
 
 ```powershell
 uv run python tools/fake_server.py --port 7897 --data <new-scratch-directory>

@@ -820,9 +820,20 @@ was away (2026-10-29), revisit if wanted:
 - One notice per grid, not per field: the new-password pair shares one,
   centred beside both inputs, in the space after the input column
   (absolutely placed from grid line 3 to the grid's right edge, wrapping
-  there if narrow). Under 520 px it sits at the right of the first label's
-  row.
+  there if narrow). In the one-column layout it sits at the right of the
+  first label's row (see the review fixes below).
 - The colour is `--warn`; the notice holds no pointer.
+
+Review fixes (2026-10-30): between 521 and about 600 px the two-column grid
+left the notice too little room, so it wrapped word by word and, near
+521 px, ran past the grid's edge. The grids now go one column below 620 px
+(was 520 px), and the notice stays on one line (`white-space: nowrap`), at
+the right of the first label's row there rather than "under the field's
+label" as the design said, since an out-of-flow line under the label would
+cover the input (taken while Matt was away (2026-10-29), revisit if
+wanted). `smoke-bundles` also checks the notice at 560 and 600 px and that
+it neither wraps nor overflows its grid; that check fails on the first
+build's CSS.
 
 `tests/test_bundle_caps_lock.py` holds the markup, the out-of-flow rules
 and the watcher's reads; `smoke-bundles` checks the behaviour at 1400x900
