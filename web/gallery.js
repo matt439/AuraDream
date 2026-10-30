@@ -490,7 +490,7 @@ function refineFromCard(rec, div) {
 // facts' ⊞ Show this run closes it.
 function showRecordRun(rec) {
   if (!rec.run_id && !rec.job_id) {
-    showError('That image predates runs being grouped, so it belongs to no run.', true, { slot: els.galleryError });
+    showError(`${RUN_NONE}.`, true, { slot: els.galleryError });
     return;
   }
   if (els.lightbox.open) closeLightbox();

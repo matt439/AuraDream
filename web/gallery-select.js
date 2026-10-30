@@ -46,8 +46,13 @@ function selectedRecords() {
 function isSelected(id) { return selection.has(id); }
 function onSelectionChange(fn) { selectionListeners.push(fn); }
 
+// Counts the clears (Clear, Escape, a click between the cards, the bin's
+// stash): a Pick this run reply that lands after one is dropped (pickRun).
+let selectionClears = 0;
+
 function clearSelection() {
   selectAnchor = null;
+  selectionClears++;
   if (!selection.size) return;
   selection.clear();
   syncSelection();
@@ -343,6 +348,49 @@ function pickLoadedCards() {
     showError(`Added ${plural(added.length, 'loaded image')}; ${plural(selection.size, 'image')} selected.${galleryMore ? ' Unloaded images were not picked.' : ''}`,
       true, { slot: els.galleryError });
   }
+}
+
+// A run's scope as Show run as sheet opens it (showRecordRun): the run id,
+// else the job id of a row from before runs; null for a row with neither.
+function recordRunScope(rec) {
+  return rec.run_id ? `run:${rec.run_id}` : rec.job_id ? `job:${rec.job_id}` : null;
+}
+
+const RUN_NONE = 'That image predates runs being grouped, so it belongs to no run';
+
+// The card menu's Pick this run (UI#37, context-menu.js): the run's live ids
+// as the server lists them - every checkpoint's, whatever the search,
+// Starred and the model scope show - added to the picks in its order up to
+// the cap, as Ctrl+A adds the loaded cards. Picks from other filters stay;
+// Select and the anchor do not move. A reply landing after the bin was
+// entered or the selection cleared is dropped, with no retry, and an id the
+// page has forgotten since (forgetImages) is not picked.
+async function pickRun(rec) {
+  const scope = recordRunScope(rec);
+  if (!scope) { showError(`${RUN_NONE}.`, true, { slot: els.galleryError }); return; }
+  const clears = selectionClears;
+  const late = () => binMode || clears !== selectionClears;
+  const params = new URLSearchParams({ search: scope, all_models: 'true', limit: String(selectionCap()) });
+  let page;
+  try {
+    page = await api(`/api/gallery?${params}`);
+  } catch (err) {
+    if (!late()) showError(`Could not pick the run: ${err.message}`, false, { slot: els.galleryError });
+    return;
+  }
+  if (late()) return;
+  const fresh = page.items.filter((r) => !r.binned_at && !binnedIds.has(r.id) && !deletedIds.has(r.id)
+    && !selection.has(r.id));
+  const room = Math.max(0, selectionCap() - selection.size);
+  const capped = refuseOverCap(fresh.length);
+  const added = fresh.slice(0, room);
+  for (const r of added) selection.set(r.id, r);
+  syncSelection();
+  if (capped) return;
+  const partly = page.total > page.items.length
+    ? ` ${selectionCap()} images is the most one action takes, so the rest of the run was not picked.` : '';
+  showError(`Added ${added.length} of the run's ${plural(page.total, 'image')}; ${plural(selection.size, 'image')} selected.${partly}`,
+    true, { slot: els.galleryError });
 }
 
 // From forgetImages, the one place the page drops deleted ids: out of the

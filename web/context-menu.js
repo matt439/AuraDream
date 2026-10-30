@@ -184,6 +184,12 @@ function imageItems({ kind, rec, host }) {
       label: '⊞ Show run as sheet', held: true, title: SHEET_SHOWS_RUN,
       run: () => refuseInCard(host, `${SHEET_SHOWS_RUN}.`, 'Shown already'),
     } : { label: '⊞ Show run as sheet', title: 'Show the run that made this as a sheet', run: () => showRecordRun(rec) },
+    // A live card's only (UI#37): held, saying why, on a row of no run.
+    ...(card ? [{
+      label: 'Pick this run', held: !recordRunScope(rec),
+      title: recordRunScope(rec) ? 'Add the images of the run that made this to the picks' : RUN_NONE,
+      run: () => pickRun(rec),
+    }] : []),
     null,
     copyItem('Copy prompt', 'Copy the prompt as text', () => navigator.clipboard.writeText(rec.prompt), host, 'Prompt copied', rec),
     copyItem('Copy seed', `Copy ${rec.seed}`, () => navigator.clipboard.writeText(String(rec.seed)), host, 'Seed copied', rec),

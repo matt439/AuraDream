@@ -5829,7 +5829,10 @@ Frontend and CLI:
   stays its click and Space), Use seed, More seeds of this batch…
   (the lightbox's `#lb-more-seeds` there, elsewhere `syncedItem` over
   `syncMoreSeedsFor` running `moreSeedsOfImage`), Show run as sheet
-  (`showRecordRun`, the card's ⊞), Copy prompt, Copy seed, Copy image (the
+  (`showRecordRun`, the card's ⊞), on a live card Pick this run after it
+  (`pickRun`, `UI#37`: the run's live ids from the server added to the
+  picks up to the cap; held with `RUN_NONE` on a row of no run or job; not
+  on a result, a sheet cell or the lightbox), Copy prompt, Copy seed, Copy image (the
   full PNG through `ClipboardItem`, the fetch handed over as a promise) and
   Open PNG in new tab; the copy items are held where the page is no secure
   context. Copy feedback belongs to the latest press on its original host.
@@ -8516,7 +8519,14 @@ bin, with `BIN_HELD`; and the help's Lightbox group listing X. Last,
 Re-render picked at N MP… (`GEN#33`): its label the panel tier, held with
 its reason on a custom size there and on a picked card's menu, the question
 listing each size and the unmatched pick with a non-red Re-render OK, OK
-queueing one job per size, and Delete permanently's OK red again after it:
+queueing one job per size, and Delete permanently's OK red again after it.
+Then Pick this run (`UI#37`): one `run:` read across checkpoints at the cap,
+the run added in the server's order beside a pick from another search, the
+run's cards outside the search counted as not shown, Select and the anchor
+unchanged; the cap's refusal in `refuseOverCap`'s words and a run past the
+cap said to be partly picked; a reply after entering the bin or a Clear
+dropped (the stashed pick back unchanged), an id forgotten meanwhile left
+out, and a failure said with nothing picked:
 
 ```powershell
 uv run python tools/fake_server.py --port 7898 --data <new-scratch-directory>
@@ -8829,7 +8839,11 @@ that sheet (`UI#32`), a cell's menu by right-click and by Shift+F10: the
 card's single-image items in order with F and Del, the holds as the card's
 buttons would have them, Show run as sheet held and saying why, Copy seed
 reported on the cell, Open walking the sheet, Move to recycle bin and the
-note's Restore, and a hole keeping the browser's menu. `browser.mjs`'s
+note's Restore, and a hole keeping the browser's menu. Pick this run
+(`UI#37`) follows Show run as sheet on a live card with no count, held
+with its reason on a row of no run or job (saying it when chosen, picking
+nothing), and absent from a result tile, the lightbox, a sheet cell and a
+binned card (no menu there). `browser.mjs`'s
 `{"rightclick": ...}` presses the right button (`"shift": true` holds
 Shift):
 

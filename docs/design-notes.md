@@ -7099,6 +7099,19 @@ and other focus contexts native, keeps the range anchor, and applies only
 to the bin's own picks while the gallery selection is stashed. Its active
 tooltip and `aria-keyshortcuts` advertise the same scope.
 
+**Pick this run (2026-10-30, `UI#37`).** A live card's menu has Pick this
+run after Show run as sheet; it asks the server, not the loaded cards, for
+the run (`pickRun`: one `GET /api/gallery` of `run:`/`job:` as Show run as
+sheet scopes it, every checkpoint, limited to the cap) and adds the ids not
+yet picked in the server's order, beside picks from other filters, with
+Ctrl+A's cap refusal. It says how many of the run's total it added, and
+that a run past the cap was only partly picked. The label carries no count:
+the menu is built before the server is asked. A reply that lands after the
+bin was entered or the selection cleared (`selectionClears`) is dropped, and
+an id the page forgot meanwhile is not picked - left out rather than
+dropping the whole reply, since the rest of the run is still live (taken
+while Matt was away, 2026-10-29; revisit if wanted).
+
 **Picked cards, for actions on several images** (2026-10-10). Swap tags and
 Mass refine act on many images at once, and their only scope was the filter,
 as Re-render's and Delete unstarred's is: a search that matched exactly the
