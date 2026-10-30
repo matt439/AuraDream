@@ -574,7 +574,7 @@ function receiveStatus(s, asked = Date.now()) {
     const wasSwitching = modelSwitching;
     modelSwitching = !!s.switching;
     modelRevision = revision;
-    if (changed) checkpointChanged(previousModel);
+    if (changed) checkpointChanged(previousModel, s.model_id ?? loadedModel);
     loadedModel = s.model_id ?? loadedModel;
     if (s.model_id) checkpointLabel = s.model_label ?? null;
     receiveExecutionStatus(s, asked);
@@ -818,21 +818,24 @@ async function refreshLoras() {
     // remembered name is a value the select has no option for yet - assigning
     // it silently does nothing. `pendingLora` carries it across the gap.
     const chosen = els.lora.value || pendingLora;
-    els.lora.textContent = '';
-    const none = document.createElement('option');
-    none.value = '';
-    none.textContent = 'none';
-    els.lora.append(none);
     const hidden = [];
-    for (const entry of body.loras ?? []) {
-      if (entry.detail) { hidden.push(entry); continue; }
-      const option = document.createElement('option');
-      option.value = entry.name;
-      option.textContent = `${entry.name} (${humanBytes(entry.bytes)})`;
-      els.lora.append(option);
-    }
-    els.lora.value = [...els.lora.options].some((o) => o.value === chosen) ? chosen : '';
-    pendingLora = '';
+    // The page's own write: a pending Reuse-pass opening keeps its intent.
+    keepReusePassDraft(() => {
+      els.lora.textContent = '';
+      const none = document.createElement('option');
+      none.value = '';
+      none.textContent = 'none';
+      els.lora.append(none);
+      for (const entry of body.loras ?? []) {
+        if (entry.detail) { hidden.push(entry); continue; }
+        const option = document.createElement('option');
+        option.value = entry.name;
+        option.textContent = `${entry.name} (${humanBytes(entry.bytes)})`;
+        els.lora.append(option);
+      }
+      els.lora.value = [...els.lora.options].some((o) => o.value === chosen) ? chosen : '';
+      pendingLora = '';
+    });
     loraRefusal = body.supported === false && body.detail ? body.detail : null;
     // What an adapter is and where they come from, always; the files not
     // offered and why after it, in a wider tip, rather than in its place. A

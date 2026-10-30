@@ -140,7 +140,8 @@ function newSnippet(userChoice = true) {
 async function readSnippets({ opening = false } = {}) {
   if (!els.snippetsDialog.open) return;
   if (snippetsPending === 'write' || (!opening && snippetsPending)) {
-    snippetSay('Wait for the current snippets request.'); return;
+    // A reopened dialog shows a write left pending by a forced close as held.
+    snippetSay('Wait for the current snippets request.'); syncSnippets(); return;
   }
   const epoch = snippetsEditEpoch;
   const ticket = ++snippetsReadTicket;
@@ -268,7 +269,10 @@ function snippetsClosed() {
   if (els.snippetsDialog.open) return;
   ++snippetsDialogEpoch;
   ++snippetsReadTicket;
-  snippetsPending = null;
+  // A repeated Escape may close the dialog during a write (Chrome's
+  // close-watcher rule). The write's reply has no ticket and clears its own
+  // hold, so a reopened dialog still holds Save instead of sending another.
+  if (snippetsPending !== 'write') snippetsPending = null;
   const origin = snippetsOrigin;
   snippetsOrigin = null;
   if (origin?.isConnected) origin.focus({ preventScroll: true });

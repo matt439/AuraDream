@@ -589,7 +589,178 @@
     "expect": "document.activeElement===sheetCells().at(-1).querySelector('img')"
   },
   {
+    "log": "'P goes back to the prompt box from a sheet cell: caret at the end, no text, Undo, pick, query, sheet or scroll change.'"
+  },
+  {
+    "eval": "window.__pWrites=0;window.__savedWriters={writeBox,rewriteBox,replaceBoxText};writeBox=(...a)=>{__pWrites++;return __savedWriters.writeBox(...a);};rewriteBox=(...a)=>{__pWrites++;return __savedWriters.rewriteBox(...a);};replaceBoxText=(...a)=>{__pWrites++;return __savedWriters.replaceBoxText(...a);};window.__pState=()=>JSON.stringify({v:els.prompt.value,picks:selectedIds().join(),select:selectMode,q:els.search.value,sheet:sheetMode,y:scrollY,check:els.promptAnalysis.hidden,suggest:els.tagSuggestions.hidden,posts:__posts.length,stars:__stars.length});window.__pArm=target=>{__savedWriters.writeBox(els.prompt,'p route keeps this text');els.prompt.setSelectionRange(0,0);target.focus({preventScroll:true});window.__pFrom=target;window.__pWrites=0;window.__pBefore=__pState();};window.__pLanded=()=>document.activeElement===els.prompt&&els.prompt.selectionStart===els.prompt.value.length&&els.prompt.selectionEnd===els.prompt.value.length&&__pState()===__pBefore&&__pWrites===0;window.__pStayed=()=>document.activeElement===__pFrom&&els.prompt.value==='p route keeps this text'&&__pWrites===0;clearSelection();__pArm(sheetCells()[1].querySelector('img'));"
+  },
+  {
+    "key": "p"
+  },
+  {
+    "expect": "__pLanded()&&sheetMode"
+  },
+  {
     "eval": "(async()=>{await setSheet(false);els.search.value='';await resetGallery();runRefine=__savedPasses.runRefine;runInpaint=__savedPasses.runInpaint;runOutpaint=__savedPasses.runOutpaint;runRefineBatch=__savedPasses.runRefineBatch;queueSwap=__savedPasses.queueSwap;runMoreSeeds=__savedPasses.runMoreSeeds;})()"
+  },
+  {
+    "log": "'P from a gallery card (either case), and from the card the lightbox returns focus to; the lightbox itself keeps P.'"
+  },
+  {
+    "expect": "__until(()=>!sheetMode&&__cards().length>=3)"
+  },
+  {
+    "eval": "clearSelection();toggleSelected(galleryRecords[2]);__pArm(__img(0));"
+  },
+  {
+    "key": "P"
+  },
+  {
+    "expect": "__pLanded()&&selectedIds().join()===String(galleryRecords[2].id)"
+  },
+  {
+    "eval": "clearSelection();__pArm(__img(1));"
+  },
+  {
+    "key": "Enter"
+  },
+  {
+    "expect": "__until(()=>els.lightbox.open)"
+  },
+  {
+    "eval": "window.__pLightboxAt=document.activeElement;"
+  },
+  {
+    "key": "p"
+  },
+  {
+    "expect": "els.lightbox.open&&document.activeElement===__pLightboxAt&&document.activeElement!==els.prompt&&els.prompt.value==='p route keeps this text'&&__pWrites===0"
+  },
+  {
+    "key": "Escape"
+  },
+  {
+    "expect": "__until(()=>!els.lightbox.open&&__cards().some(c=>c.contains(document.activeElement)))"
+  },
+  {
+    "eval": "window.__pBack=document.activeElement;__savedWriters.writeBox(els.prompt,'p route keeps this text');els.prompt.setSelectionRange(0,0);window.__pWrites=0;__pBack.focus({preventScroll:true});window.__pBefore=__pState();"
+  },
+  {
+    "key": "p"
+  },
+  {
+    "expect": "__pLanded()"
+  },
+  {
+    "log": "'Modified, repeated, composing and already-handled P do nothing on a card.'"
+  },
+  {
+    "eval": "__pArm(__img(0));window.__pCardGuards=[{shiftKey:true},{ctrlKey:true},{altKey:true},{metaKey:true},{repeat:true},{isComposing:true},{prevented:true}].map(flags=>{__probe(__img(0),flags.shiftKey?'P':'p',flags);return document.activeElement===__img(0);});"
+  },
+  {
+    "expect": "__pCardGuards.every(Boolean)&&__pStayed()"
+  },
+  {
+    "keycombo": [
+      "Shift",
+      "P"
+    ]
+  },
+  {
+    "expect": "__pStayed()"
+  },
+  {
+    "log": "'Fields, an editable region, menus, the model picker, help and a settings dialog keep P.'"
+  },
+  {
+    "eval": "window.__pEditable=document.createElement('div');__pEditable.contentEditable='true';__pEditable.textContent='editable';document.body.append(__pEditable);window.__pFieldGuards=[els.search,els.negative,document.querySelector('.panel select'),__pEditable].map(el=>{const shut=[];if(el.disabled){el.disabled=false;shut.push(()=>{el.disabled=true;});}for(let d=el;d;d=d.parentElement){if(d.hidden){d.hidden=false;shut.push(()=>{d.hidden=true;});}if(d.tagName==='DETAILS'&&!d.open){d.open=true;shut.push(()=>{d.open=false;});}}__pArm(el);const e=__probe(el,'p');const kept=!e.defaultPrevented&&__pStayed();for(const undo of shut)undo();return kept;});__pEditable.remove();"
+  },
+  {
+    "expect": "__pFieldGuards.length===4&&__pFieldGuards.every(Boolean)"
+  },
+  {
+    "eval": "clearSelection();toggleSelected(galleryRecords[1]);__pArm(els.pickedBtn);"
+  },
+  {
+    "key": "ArrowDown"
+  },
+  {
+    "expect": "!els.pickedMenu.hidden&&els.pickedMenu.contains(document.activeElement)"
+  },
+  {
+    "eval": "window.__pFrom=document.activeElement;"
+  },
+  {
+    "key": "p"
+  },
+  {
+    "expect": "!els.pickedMenu.hidden&&__pStayed()"
+  },
+  {
+    "key": "Escape"
+  },
+  {
+    "expect": "__until(()=>els.pickedMenu.hidden)"
+  },
+  {
+    "eval": "clearSelection();__pArm(__img(0));showModelPicker(true);"
+  },
+  {
+    "expect": "__until(()=>!els.modelPicker.hidden&&modelCatalogueLoaded&&!modelCataloguePending&&els.modelPicker.contains(document.activeElement))"
+  },
+  {
+    "eval": "window.__pFrom=document.activeElement;"
+  },
+  {
+    "key": "p"
+  },
+  {
+    "expect": "!els.modelPicker.hidden&&__pStayed()"
+  },
+  {
+    "eval": "showModelPicker(false);__pArm(__img(0));"
+  },
+  {
+    "key": "?"
+  },
+  {
+    "expect": "els.shortcutsDialog.open"
+  },
+  {
+    "eval": "window.__pFrom=document.activeElement;"
+  },
+  {
+    "key": "p"
+  },
+  {
+    "expect": "els.shortcutsDialog.open&&__pStayed()"
+  },
+  {
+    "key": "Escape"
+  },
+  {
+    "expect": "__until(()=>!els.shortcutsDialog.open)"
+  },
+  {
+    "eval": "els.thenRefineOpen.click();els.thenRefineClose.focus({preventScroll:true});window.__pFrom=document.activeElement;"
+  },
+  {
+    "expect": "els.thenRefineDialog.open"
+  },
+  {
+    "key": "p"
+  },
+  {
+    "expect": "els.thenRefineDialog.open&&__pStayed()"
+  },
+  {
+    "key": "Escape"
+  },
+  {
+    "expect": "__until(()=>!els.thenRefineDialog.open)"
+  },
+  {
+    "eval": "writeBox=__savedWriters.writeBox;rewriteBox=__savedWriters.rewriteBox;replaceBoxText=__savedWriters.replaceBoxText;__savedWriters.writeBox(els.prompt,'');clearSelection();"
   },
   {
     "log": "'Focused Generate/Grid buttons reject native extra-modifier Enter, while plain Enter and exact Ctrl/Cmd+Enter still activate once. Spies isolate native button defaults from jobs.'"

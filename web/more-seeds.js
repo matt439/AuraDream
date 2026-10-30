@@ -736,8 +736,7 @@ function openMoreSeedsFromKey(target) {
     if (card) { rec = galleryRecords.find((r) => r.id === +card.dataset.id); host = card; }
     else if (result) { rec = viewerRecords.find((r) => r.id === +result.dataset.id); host = result.querySelector('.tile'); }
     else if (cell) {
-      rec = sheetRecords.find((r) => r.id === +cell.dataset.id)
-        ?? (sheetLayout?.source?.id === +cell.dataset.id ? sheetLayout.source : null);
+      rec = sheetCellRecord(cell);
       host = cell;
     } else if (recent) rec = sessionRecords.find((r) => r.id === +recent.dataset.id);
   }

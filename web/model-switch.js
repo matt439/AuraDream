@@ -42,6 +42,9 @@ const modelPickerEditedKeys = new Set();
 // switch) and its canonical id. A catalogue for other loading options that
 // lacks it chooses it again, or the same checkpoint's build, when it can.
 let modelChoiceIntent = null;
+// The row a dialog's Open Models… asked the picker to open on
+// (showModelPickerAt), until its catalogue answers.
+let modelPickerPointAt = null;
 let modelPickerStartupSeen = false;
 let modelRuntimeSettings = null;
 let modelExecutionOptions = null;
@@ -516,6 +519,36 @@ function modelCatalogueFailed() {
   return !modelCatalogueLoaded && modelCatalogueFailedAt > 0;
 }
 
+// The chosen checkpoint's loader options its card trial never measured (the
+// server's `loader_holds`, which only the editor's row has), by list and value.
+function modelLoaderHolds() {
+  return modelCatalogueDetails[modelChoice()]?.loader_holds ?? {};
+}
+
+// Why the quantization or offload chosen is held for the chosen checkpoint,
+// in the server's words, or ''.
+function modelOptionHold() {
+  const holds = modelLoaderHolds();
+  const why = holds.quantization?.[els.modelQuantization.value] || holds.offload?.[els.modelOffload.value] || '';
+  return why.replace(/\.$/, '');
+}
+
+// Each held option is `aria-disabled` with its reason as its title, so the
+// list says it before a pick; the pick is still made, and the actions hold
+// with the same words (`modelSwitchHold`). Written in place, every sync.
+function syncModelOptionHolds() {
+  const holds = modelLoaderHolds();
+  for (const [select, key] of [[els.modelQuantization, 'quantization'], [els.modelOffload, 'offload']]) {
+    for (const option of select.options) {
+      const why = holds[key]?.[option.value] || '';
+      if (why) setModelAttribute(option, 'aria-disabled', 'true');
+      else if (option.hasAttribute('aria-disabled')) option.removeAttribute('aria-disabled');
+      const title = why || option.dataset.description || option.textContent;
+      if (option.title !== title) option.title = title;
+    }
+  }
+}
+
 function modelSwitchHold({ load = true } = {}) {
   return serverOffline ? 'The server is not answering'
     : modelWorkHold()
@@ -523,6 +556,7 @@ function modelSwitchHold({ load = true } = {}) {
     || (modelCatalogueFailed() ? 'The checkpoint list could not be loaded; retrying' : '')
     || (!modelCatalogueLoaded || modelCataloguePending ? 'The checkpoint list is still loading' : '')
     || (!modelChoice() ? 'Choose a checkpoint compatible with these settings' : '')
+    || modelOptionHold()
     || executionConfigurationHold()
     || (load ? executionPickerUnavailable() : '')
     || (load && !modelLoaderChanged() && modelState === 'ready' ? 'These model settings are already loaded; use Apply & save to remember them' : '');
@@ -655,9 +689,10 @@ function syncModelSwitch() {
   setModelAttribute(els.modelTable, 'aria-busy', String(stale));
   const formatHidden = els.modelQuantization.value !== 'nunchaku';
   if (els.modelFormatField.hidden !== formatHidden) els.modelFormatField.hidden = formatHidden;
+  syncModelOptionHolds();
   for (const select of [els.modelQuantization, els.modelOffload, els.modelFormat]) {
     const option = select.selectedOptions[0];
-    setModelAttribute(select, 'title', option?.dataset.description || option?.textContent || '');
+    setModelAttribute(select, 'title', option?.title || option?.dataset.description || option?.textContent || '');
   }
   for (const [select, help] of [[els.modelQuantization, els.modelQuantizationHelp], [els.modelOffload, els.modelOffloadHelp]]) {
     const text = select.selectedOptions[0]?.dataset.description || '';
@@ -692,6 +727,9 @@ function revertModelPicker() {
 }
 
 function modelPickerEdited(key, { catalogue = false } = {}) {
+  // A choice made in the picker outranks an Open Models… still waiting on
+  // its catalogue, which would otherwise choose its row over this one.
+  modelPickerPointAt = null;
   modelPickerEditedKeys.add(key);
   if (key === 'compilation' || key === 'attention') {
     acceptLoaderChoice(key);
@@ -835,6 +873,7 @@ function offerModelPicker(status) {
 
 function showModelPicker(on, { focus = true } = {}) {
   modelPickerStartupSeen = true;
+  modelPickerPointAt = null;
   els.modelPicker.hidden = !on;
   els.models.setAttribute('aria-expanded', String(on));
   if (on) {
@@ -858,6 +897,31 @@ function showModelPicker(on, { focus = true } = {}) {
     stopModelShots();
     if (focus && els.modelPicker.contains(document.activeElement)) els.models.focus({ preventScroll: true });
   }
+}
+
+// A dialog's Open Models… for the one checkpoint it needs: the picker opens
+// with that row chosen, focused and in view - an unsaved choice, as a click
+// on it is - and switches nothing. Once the opening's catalogue has answered;
+// a list without the row leaves the choice as it was.
+function showModelPickerAt(modelId) {
+  showModelPicker(true);
+  modelPickerPointAt = modelId;
+  pointModelPicker();
+}
+
+function pointModelPicker() {
+  const id = modelPickerPointAt;
+  if (!id || !modelCatalogueLoaded || modelCataloguePending) return;
+  modelPickerPointAt = null;
+  if (els.modelPicker.hidden) return;
+  const radio = modelRadios().find((r) => r.value === id);
+  if (!radio) return;
+  if (!radio.checked) {
+    chooseModel(id);
+    modelPickerEdited('model_id');
+  }
+  radio.focus({ preventScroll: true });
+  revealModelControl(radio);
 }
 
 // A completed load changes disk facts, not the available checkpoints. Refresh
@@ -970,11 +1034,15 @@ async function refreshModelCatalogue({ current = false } = {}) {
     if (epoch !== modelCatalogueEpoch) return;
     modelSwitchError = err.message;
     modelCatalogueLoaded = false;
+    // The opening's catalogue did not answer: a later retry never moves the
+    // choice, or the picker's body, by itself.
+    modelPickerPointAt = null;
     modelCatalogueFailedAt = Date.now();
   } finally {
     if (epoch === modelCatalogueEpoch) {
       modelCataloguePending = false;
       syncModelSwitch();
+      pointModelPicker();
     }
   }
 }
@@ -1038,7 +1106,9 @@ async function switchModel({ load = true } = {}) {
 
 // Also used for a switch made in another tab, including A -> B -> A between
 // polls. Epochs retire CPU answers and adapter lists that began before it.
-function checkpointChanged(previousModel) {
+// `nextModel` is the checkpoint the status brought, before `loadedModel`
+// takes it.
+function checkpointChanged(previousModel, nextModel = loadedModel) {
   modelSwitchError = null;
   if (previousModel) {
     if (els.confirmDialog.open) els.confirmDialog.close('');
@@ -1059,7 +1129,7 @@ function checkpointChanged(previousModel) {
     }
     inpaintCheckpointChanged();
     outpaintCheckpointChanged();
-    editCheckpointChanged();
+    editCheckpointChanged(nextModel);
     els.gridResume.checked = false;
     pendingLora = '';
     els.lora.replaceChildren(new Option('none', ''));
@@ -1074,6 +1144,7 @@ function checkpointChanged(previousModel) {
   ++tagSuggestionEpoch;
   ++tagEditorSuggestionEpoch;
   hideTagSuggestions();
+  hideNegativeSuggestions();
   ++refineEpoch;
   ++refineCheckEpoch;
   ++refineTagEpoch;

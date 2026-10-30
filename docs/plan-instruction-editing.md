@@ -1,24 +1,37 @@
 # Plan: edit a gallery image by instruction
 
-**Status, 2026-10-28:** Matt commissioned continuing `INP#11` without the
-card. Stages 0-2 are built. Stage 0's six pinned configs were fetched at the
-revision and qualified (below). Stage 1's CPU persistence and admission are
-built: request identity, SQL/PNG, cold source preview, replay holds, source
-lifetime and v2 bundle/reindex recovery. Stage 2 is
-[built on a stand-in](#stage-2-backend-and-dialog-2026-10-27): the editing
-call branch, the queueing route, the per-cell recheck and the dialog. Its
-evidence is a Kontext-shaped stub, the fake server and a real-browser smoke.
-On the real server everything stays closed: `DiffusersBackend` answers the
-gate with a literal False, Kontext is not in the catalogue, and the editor
-load holds are unconditional. The
-[carry inventory](instruction-edit-carry.md) and [bundle contract](instruction-edit-bundles.md)
-separate what is built from what stage 4 must still check. After `GEN#22`,
-stage 3's approved [first card trial and bounded pair](verified.md#instruction-edit)
-ran on 2026-10-27 at 512x512, fp8 and model offload. That slice fits, replays,
-cancels and unloads, but its edits drift beyond the instruction. Stage 4 waits
-on Matt's review of those numbers before the catalogue, loading gate and replay
-producers are released. Other sizes and configurations remain unqualified.
-No live gallery was read or changed. Kontext is the first engineering candidate;
+**Status, 2026-10-30:** stage 4's code is built, as ten local slices on
+`feat/inp11-stage4` ([Stage 4](#stage-4-the-qualified-first-slice-2026-10-29)).
+Its one remaining step is the [card acceptance step](#card-acceptance-step),
+which needs Matt's OK: one load on the real server and page, never run so
+far. The branch stays local until it passes.
+
+What the branch does on the real server: `DiffusersBackend`'s gate is the
+literal True (slice 7), and the measured envelope (`QUALIFIED_ENVELOPE`: the
+exact Kontext id, fp8, model offload, Windows, Eager, diffusers 0.40.0, 1:1
+sources at 512x512) holds everything else in words. FLUX.1 Kontext [dev] is
+the catalogue's last entry. Inside the envelope it switches, loads through
+the pinned configs-then-weights loader, and queues an edit from Edit by
+instruction… or More seeds of an edit. Re-render of an edit is refused in
+words; Generate (text-to-image on the editor) and Finish stay held. An
+unmeasured loader choice is refused before the Hub, any save, unload or
+download, and an unmeasured source aspect before a job; the page says each
+on the editor's row (by option for quantization and offload) or in the
+preview's line.
+
+How it got here: Matt commissioned `INP#11` without the card (2026-10-27).
+Stage 0 pinned and qualified the six configs; stage 1 built the CPU
+persistence and admission (request identity, SQL/PNG, the cold source
+preview, replay holds, source lifetime, v2 bundle/reindex recovery); stage 2
+[built the call, the route, the per-cell recheck and the dialog on a stand-in](#stage-2-backend-and-dialog-2026-10-27).
+After `GEN#22`, stage 3's approved [first card trial and bounded pair](verified.md#instruction-edit)
+ran on 2026-10-27 at 512x512, fp8 and model offload: it fits, replays, cancels
+and unloads, but its edits drift beyond the instruction. On 2026-10-29 Matt
+accepted those numbers, drift included (recorded, not fixed), and approved
+stage 4 with its defaults. The [carry inventory](instruction-edit-carry.md)
+and [bundle contract](instruction-edit-bundles.md) give each carry site's
+state. Other sizes, aspects and configurations remain unqualified. No live
+gallery was read or changed. Kontext is the first engineering candidate;
 Qwen-Image-Edit comes in a later stage.
 [Origin](review-2026-10-25.md#r9-edit-an-image-by-instruction).
 
@@ -417,7 +430,10 @@ variable or flag reads into it. These all ask the same instance:
 diffusers load holds take no `qualified` argument and stay unconditional:
 `load`, `_load_prepared`, both editor-class refusals and
 `loading.require_custom_pipeline_class`. So even a stand-in that answers True
-cannot load the editor on this backend.
+cannot load the editor on this backend. (Stage 4 changed this on purpose:
+slice 3 passes the gate and the loader facts to `load` and `_load_prepared`,
+and slice 4 opens the holds for the exact Kontext id inside the measured
+envelope only; see stage 4 below.)
 
 The held reasons are five sentences in `instruction_edit.py`.
 `INSTRUCTION_EDIT_UNAVAILABLE` covers a closed gate and the Kontext pipeline
@@ -552,6 +568,268 @@ acceptance on 2026-10-27:
 
 Nothing here measures a model, its pixels, its fit or its timing.
 
+## Stage 4: the qualified first slice, 2026-10-29
+
+Matt approved stage 4 with its defaults: release for 1:1 sources only, at
+512x512, on Windows with fp8, model offload and Eager. Everything else stays
+refused with words. It lands as local slices, each with ruff, the type gate
+and the full suite green.
+
+**The envelope.** `instruction_edit.QUALIFIED_ENVELOPE` records what stage 3
+measured, and nothing wider:
+
+- the exact id `black-forest-labs/FLUX.1-Kontext-dev` at `KONTEXT_V1.revision`,
+  recipe `kontext-v1`;
+- fp8, model offload, a CUDA device, `sys.platform == "win32"`, Eager (no
+  loader recipe, attention or cache override) and diffusers 0.40.0;
+- a 1:1 source aspect, rendering at 512x512. Aspect, not source size, is the
+  qualified dimension: a 256x256 and a 1024x1024 source both render at 512x512.
+
+Batch 1, no LoRA and no references are already the edit request's schema rules.
+
+**Slice 1 (built): the envelope as pure data.** `loader_refusal(...)` names
+the first unmeasured choice (`INSTRUCTION_EDIT_LOADER_UNQUALIFIED`), and
+`geometry_refusal(...)` the unmeasured aspect and its size
+(`INSTRUCTION_EDIT_ASPECT_UNQUALIFIED`). Every fact is passed in;
+`installed_diffusers_version()` reads `importlib.metadata` without importing
+diffusers. Nothing calls them yet, and `instruction_edit_qualified()` stays a
+literal. `geometry()`, its frozen table, `applied()`, `CellKey`, run ids and
+the PNG chunk are unchanged, so a stored 3:2 edit still binds and inspects.
+The tests are in `test_instruction_edit_envelope.py`: the refusal matrix, the
+seven aspects, the unchanged table, the pinned edit key and run id, and a cold
+import.
+
+**Slice 2 (built): the envelope in the edit routes.** The real gate is still
+False; where a stand-in's is open, an unmeasured loader or aspect is held in
+words. `GenerationBackend.instruction_edit_refusal(selected)` answers the
+gate, the exact id and `loader_refusal` over the backend's `LoaderChoice`
+(the selection plus `instruction_edit_host()`); the preview adds
+`geometry_refusal` and answers `available: false` at the source's size; the
+submit route refuses an unmeasured aspect after `bind_request`, before a
+job. `jobs.submit_cells`, `_run`, `_recheck_edit` and `planned_keys`,
+`describe()`, `submission.unusable_input` and Finish (`replay_held_reason`)
+ask the same. The tests' fake reports the envelope's host, so its answers
+follow the selection on any machine. The smoke's runs moved to the 1:1
+sources; the 3:2 one is held and queues nothing.
+
+| Gate | Selection | Source | Answer |
+|---|---|---|---|
+| closed | any | any | UNAVAILABLE |
+| open | another model | any | NEEDS_MODEL |
+| open | Kontext, outside the loader envelope | any | LOADER_UNQUALIFIED |
+| open | the envelope | not 1:1 | ASPECT_UNQUALIFIED, no job |
+| open | the envelope | 1:1 | queues |
+
+At 1400x700 a dialog showing a held note scrolls its own content, so Edit is
+below the fold there (the smoke checks that height on a 1:1 source). Slice 9
+owns the page holds; it moved the aspect's words out of the note into the
+preview's line, so a held 3:2 source fits at that height too.
+
+**Slice 3 (built): every load entry refuses an unmeasured Kontext choice.**
+The real gate is still False. `require_model_available` takes the
+instance's `qualified` and a `LoaderChoice` and, after the exact-id check,
+refuses with `loader_refusal`'s words; an open gate without loader facts is
+refused. `DiffusersBackend.load`, `_load_prepared` (neither passed
+`qualified` before) and `_require_execution`, `main.ensure_loaded`,
+`/api/model/load` and the fake pass both; an AST scan holds every caller to
+it. `model_selection.validate` takes the running backend and refuses a gated
+or unmeasured edit-only target before the catalogue check, so a switch (or
+Apply & save) to Kontext never reaches the Hub, the save or the unload of the
+working model. In `ensure_loaded` the refusal is a failed load in its own
+words, so a saved Kontext choice with Load automatically on startup shows as
+an error and its file stays as it was. `launch.configure` refuses explicit
+flags or a menu choice outside the envelope in the same words, leaving the
+gate to the backend's load; `generate.py` refuses an edit-only checkpoint
+before the project or the backend is imported. `_require_execution` refuses
+plain text-to-image on an edit-only profile, which closes the command line,
+Mass refine and Then refine at the backend.
+
+**Slice 4 (built): the pinned Kontext loader, reachable only with a True
+stand-in.** `loading.resolve_model` gives the exact Kontext id a configs pass
+(`snapshot_download` of the six `CONFIG_PATHS` at `KONTEXT_V1.revision`,
+each read bounded, then `require_pinned(validate_configs(...))`) and a weights
+pass (`FluxKontextPipeline.download(model_id, revision=...)`, the call that
+produced stage 3's cache, with no hand-written patterns), and the pin runs
+again over the weights tree. `_load_prepared` takes the editor path only where
+the instance's `instruction_edit_refusal(selected)` is None for an Eager load:
+it skips the unpinned custom-class index read, loads the explicit
+`FluxKontextPipeline` inside `checkpoint_files_released`, and refuses, releasing
+the candidate, a loaded pipeline that is not that class, whose
+`vae_scale_factor` is not 8 or whose call lacks an `_EDIT_PARAMS` name. Qwen's
+classes and Kontext's class under any other id keep the unchanged holds. A
+Hub failure in either pass maps through `_load_failure` as before. The real
+gate is still False, so nothing on the real server reaches it.
+
+**Slice 5 (built): the catalogue data, by id, not yet listed.** Kontext is
+still absent from `CHECKPOINTS`; everything its entry needs is kept by its
+exact id. `guides.KONTEXT_GUIDE` is BFL's FLUX.1 Kontext pages
+(`docs.bfl.ai/kontext/kontext_image_editing` and `kontext_overview`, fetched
+2026-10-29): an instruction, not a description; everything else kept; quote
+the text to change. Its examples are BFL's own edit instructions, verbatim,
+and its one checkable statement is `quote_text`. The measured drift is a
+sentence of its own that the critic is never given (`prompt_sources`
+`unsourced`). The exact profile is written out key by key, not spread from
+`_FALLBACK`: no text-to-image, Refine, inpaint, reference or upscaler, hints
+that name the recipe's start without "unavailable". `defaults_for` and
+`model_info.details_for` take the backend's live answer as `edit_reason`
+(cold, the closed gate's words), so the profile's held words and the
+editor's row ("Held" with the reason, or "Yes") follow the gate and the
+envelope rather than a hard-coded `qualified=False`; `main`'s model listing
+passes the instance's answer for the draft loader. `encoder_table` gives the
+id `FluxKontextPipeline`'s CLIP-L 77 and T5 512 rows at the pinned revision.
+`model_info` keeps its style, qualified size, the 14.5 GB fit and the cache
+check; `model-downloads.json` records the components at `24e9ded…` from the
+cache `FluxKontextPipeline.download` left (no root single file);
+`model_benchmarks` retains the trial's 26-29 s edit. Slice 6 lists it.
+
+Its `pixels` are the span of BFL's example outputs (1.04-1.06 MP, the word
+`example`), not 512x512: no BFL page names 512x512, and the size prose and
+the compact facts say that only square sources at 512x512 are qualified.
+
+**Slice 6 (built): the catalogue entry, shown as held.** `launch.CHECKPOINTS`
+ends on `Checkpoint("FLUX.1 Kontext [dev]", KONTEXT_V1.model_id,
+"click-through gate")`, appended so no menu number moves, with no Lite
+re-upload (the Nunchaku menu leaves it out); its menu summary says "edit
+only" and its step count, not a CFG it does not have. With the real gate
+still False the row says Held with the gate's words; Switch & load and Apply
+& save answer 422 before the Hub, the save and the unload, and FLUX stays
+loaded (smoke-model-switch). Catalogued, a case variant passes
+`require_custom_pipeline_class`, so the exact-id check that every entry asks
+first is what refuses it
+(`test_exact_id_refusal_runs_before_custom_class_check_on_every_entry`).
+The catalogue-wide suites now take the entry: its compact facts have no
+"Direct generation" note and a "Qualified size" label, its timing and
+download reference no longer need a by-id exception, and its guide passes
+the example-word checks (`pixels_source` "the authors' edit examples", a
+size prose saying no maximum is published for [dev]). The inpaint suite
+counts it as an editor rather than a deferred family: diffusers has
+`FluxKontextInpaintPipeline`, but an editor never paints a mask, so the page
+never says "deferred".
+
+**Slice 7 (built): the release.** `DiffusersBackend.instruction_edit_qualified`
+is a body of only `return True`; the base class and every other backend stay
+`return False`, and no setting or environment variable reads either
+(`test_instruction_edit_gate.py`). `INSTRUCTION_EDIT_UNAVAILABLE` now says
+"not available on this backend" (a closed stand-in's words), not that the
+release is awaited. `describe()` already reported an edit supported only
+where `instruction_edit_refusal` is None; on the loaded editor its refine,
+inpaint and reference flags stay False. So on Windows with fp8 and model
+offload the editor switches, loads through the pinned loader, previews and
+queues a 1:1 source at 512x512; int8, BF16, sequential or no offload, WSL,
+another diffusers and every loader recipe are refused before `resolve_model`
+in their own words, and a 3:2 source is held. `test_instruction_edit_release.py`
+drives the real class with only the host (or the synthetic load's loader
+facts) reported as the card's. The tests that assumed the real gate False now
+use a closed stand-in for the gate's words and the real class for the
+envelope's. Nothing has run on the card in this slice; it stays local until
+the card acceptance step passes.
+
+**Slice 8 (built): replay producers.** `submission.unusable_input` takes a
+`producer`. For `"more_seeds"` an edit is bound first (`bind_request`: the
+recorded proof against the source's pixels now, the model, the frozen size),
+then `instruction_edit_refusal` (gate, exact id, loader envelope), then
+`bound_geometry_refusal`, and None queues it: `api_more_seeds` passes the
+producer, so More seeds of a live, unchanged 1:1 edit queues one image per
+call (`more_seeds.plan`'s `fit = 1`, unchanged), seeds continuing past the
+batch's, in the edit's run, always of the original source. A changed or
+binned source, another checkpoint (`foreign`), a non-square imported edit, a
+closed gate or an unmeasured loader is that batch's status in words, with no
+job; `submit_cells` and `_recheck_edit` check again. Every other producer
+keeps `replay_held_reason`, whose REPLAY_HELD now reads "Instruction edits
+are queued only from Edit by instruction… or More seeds." Re-render refuses
+an edit before any cell is built (`submission.edit_rerender_detail`): its
+size is the source's frozen geometry, so at its own size it is already
+rendered and at another it is not that edit; the words name each id and
+size and point at More seeds and Reuse, and a mixed selection is refused
+whole (Unpick, or `edit:no`). Finish stays held; Swap tags keeps its own
+refusal; Then refine, grids and Mass refine are unchanged. Run ids, CellKeys
+and the verdict tuple keyed by `edit` are unchanged. The smoke runs More
+seeds x2 on an edit (two more edits of #1, seeds 8 and 9, same proof) and
+shows Re-render's reason. Its review: More seeds' preview leaves an edit
+batch's time out (`grid._cell_ms` prices no edit cell), rather than price
+it from direct renders at that size.
+
+**Slice 9 (built): page holds and the draft across the switch.** The server
+still decides every hold; the page says them where they apply.
+`instruction_edit.option_refusals` gives the editor's unmeasured quantization
+and offload choices, each in `loader_refusal`'s words for that choice alone,
+and `/api/models` lists them as the row's `loader_holds` (`{}` on every other
+row, whatever the gate or the draft). With the editor's row chosen,
+model-switch.js makes each such option `aria-disabled` with its words as the
+title, and one chosen holds Apply & save and Switch & load with them: a press
+says them and sends nothing (the server's own refusal before the Hub, the
+save and the unload is unchanged). The preview answers the source's
+unmeasured aspect apart (`source_reason`, said whatever the gate says), and
+the dialog shows it in the preview's line, never in the Models note, whose
+Open Models… no longer fits it. The dialog has a fixed one-line drift note,
+the guide's measured sentence verbatim (`_KONTEXT_DRIFT`, held equal by a
+test). Open Models… opens the picker on the editor's row
+(`showModelPickerAt`): chosen as an unsaved choice, focused and in view,
+switching nothing. A checkpoint change to the editor keeps each unsent
+draft's instruction and seed, not its steps or guidance, which come from the
+recipe's preview; the draft line says it was carried. Every other change
+still clears the drafts. `test_instruction_edit_ui.py`,
+`test_instruction_edit_envelope.py`, `test_api_model_switch.py` and
+`test_instruction_edit_queue.py` hold it, with smoke-instruction-edit (the
+3:2 hold in place, the drift line, the draft carried across a Krea and back
+switch, both 1400x700 fits) and smoke-model-switch (the option holds and the
+pointing). Run ids, CellKeys and `applied()` are unchanged. The wide-tier
+viewer Edit tool stays a recorded follow-up.
+
+**Slice 10 (built): the docs closed.** This plan's status and its stages' closing paragraph,
+the [carry inventory](instruction-edit-carry.md) and
+[bundle contract](instruction-edit-bundles.md) states, the design notes'
+[instruction-editing section](design-notes.md#instruction-editing-starts-with-a-distinct-source-contract),
+`docs/verified.md`'s not-measured line and the `TODO.md` `INP#11` row now
+say what the branch does and point at the card step below. No code changed.
+
+Stage 4's evidence, all CPU and browser, none of it the card's: the envelope
+and its refusal matrix (`test_instruction_edit_envelope.py`); every load
+entry's order and the pinned loader against a stubbed Hub
+(`test_instruction_edit_loader.py`); the editor load with a True stand-in
+(`test_instruction_edit_call.py`);
+the catalogue data and entry (`test_instruction_edit_catalogue.py`,
+`test_model_info.py`, `test_api_model_switch.py`); the real class with only
+the card's host reported (`test_instruction_edit_release.py`); the gate's
+source scan (`test_instruction_edit_gate.py`); the replay producers
+(`test_instruction_edit_queue.py`, `test_api_more_seeds.py`); the page
+(`test_instruction_edit_ui.py`, smoke-instruction-edit, smoke-model-switch).
+The pinned edit run id `a83cde9e6cb2` and every existing run id and CellKey
+are unchanged.
+
+### Card acceptance step
+
+Proposed, not run; it needs Matt's OK and is one load. Stage 3's harness
+measured the backend call, not the real server's route and page, so this
+step checks those inside the envelope, and replay across two processes.
+
+- **Before:** at least 45 GiB free RAM with the server idle (stage 3 began
+  from 42.5 GiB free and fell to 15.2 GiB at its lowest).
+- **Start:** the real server at the branch tip, a scratch `--data`, port
+  7990, no critic, started on the editor
+  (`--model black-forest-labs/FLUX.1-Kontext-dev --quant fp8 --offload model`)
+  so no Krea load comes first. Sample every 0.25 s.
+- **Guards:** stop at 4 GiB free RAM, a 1 GiB rise in shared GPU memory or
+  15.5 GB whole-card.
+
+1. Plant stage 3's synthetic source (pixels `289dada6…`).
+2. Load through the page; record the load time, peak working set, private
+   and commit, and card and shared memory.
+3. Through the dialog: "Change the red ball to a blue ball.", seed 12345,
+   28 steps, guidance 2.5. **Pass:** pixels `68b864f6…`, stage 3's from
+   another process, which is also the cross-process replay check.
+4. More seeds x2 on the result.
+5. Cancel one edit mid-run; the next edit runs normally.
+6. Held paths: a 3:2 source is held with its reason and queues nothing;
+   Generate is held; Re-render is refused in words.
+7. Unload with the Unload button. No second load.
+
+Record it in `docs/verified.md` under "Instruction edit", with the date.
+The page switch from Krea to the editor is another RAM path and a separate
+optional session. Wider aspects (a 3:2 and a 16:9 under 512² area) may join
+the same session; each opens only by a one-line change to
+`QUALIFIED_ENVELOPE` after it passes, and no key changes.
+
 ## Stages and completion criteria
 
 | Stage | Bounded work | Completion evidence |
@@ -582,9 +860,11 @@ This remains an **XL plus card** feature estimate from the originating review,
 not a measured delivery time. Starting it is commissioned; that does not
 authorize stage 3's model/card runs. Stages 0-2 are built, and the pinned
 configs are qualified. Stage 3's first trial and bounded pair ran on the card
-2026-10-27 (`docs/verified.md`, "Instruction edit"); stage 4 waits on review
-of those numbers.
-Stage 4 still has to finish the replay producers (Re-render and More seeds)
-and the catalogue entry before the feature can be called portable and
-replayable on the real server. Detector work belongs to the [detailer plan](plan-detailer.md),
+2026-10-27 (`docs/verified.md`, "Instruction edit"), and Matt accepted them
+2026-10-29. Stage 4's ten slices are built (2026-10-30): the catalogue entry,
+the released gate inside the measured envelope, More seeds of an edit and
+Re-render's refusal, and the page holds. Its completion evidence still lacks
+the [card acceptance step](#card-acceptance-step), the real server's route
+and page on the card; until it passes, stage 4 is not complete and the
+branch stays local. Detector work belongs to the [detailer plan](plan-detailer.md),
 and importing outside images stays in its existing deferred owner.

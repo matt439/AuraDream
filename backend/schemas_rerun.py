@@ -8,6 +8,7 @@ from typing import Literal
 
 from pydantic import BaseModel, Field, field_validator, model_validator
 
+from . import sizes
 from .config import settings
 from .seeds import MAX_BATCH
 from .schemas_generate import GenerateRequest, JobAccepted
@@ -42,16 +43,45 @@ class RerenderRequest(BaseModel):
     # this checkpoint's. Picked cards are not scoped by it: another
     # checkpoint's among them are refused all the same.
     all_models: bool = False
-    width: int = Field(ge=256, le=settings.max_side)
-    height: int = Field(ge=256, le=settings.max_side)
-
-    _multiple_of_16 = GenerateRequest._multiple_of_16
+    # One size for every record, or `tier`: each picked record at its own
+    # aspect's entry at that megapixel tier (`sizes.nearest_preset`), one job
+    # per size. Exactly one of the two; a request without `tier` is the
+    # one-size Re-render it always was, with the same run ids.
+    width: int | None = Field(default=None, ge=256, le=settings.max_side)
+    height: int | None = Field(default=None, ge=256, le=settings.max_side)
+    tier: float | None = None
+    # The ids the preview resolved (`RerenderPreview.ids`): a selection that
+    # changed since it is refused rather than queued unseen.
+    expected: list[int] | None = Field(default=None, max_length=settings.max_grid_images)
 
     # Written out: a validator assigned from another model is not run.
+    @field_validator("width", "height")
+    @classmethod
+    def _multiple_of_16(cls, value: int | None) -> int | None:
+        return value if value is None else GenerateRequest._multiple_of_16.__func__(cls, value)
+
     @field_validator("ids")
     @classmethod
     def _positive_ids(cls, value: list[int] | None) -> list[int] | None:
         return SwapTagsRequest._positive_ids.__func__(cls, value)
+
+    @model_validator(mode="after")
+    def _one_size(self) -> RerenderRequest:
+        if self.tier is None:
+            if self.width is None or self.height is None:
+                raise ValueError("a re-render needs a width and a height, or a tier")
+            return self
+        if self.width is not None or self.height is not None:
+            raise ValueError("a re-render takes a tier or a width and a height, not both")
+        if self.tier not in sizes.TIERS:
+            raise ValueError(
+                f"{self.tier:g} MP is not a tier; the tiers are {', '.join(f'{t:g}' for t in sizes.TIERS)} MP"
+            )
+        # The page's picked cards only: a filter of mixed aspects is a
+        # selection nobody has looked at size by size.
+        if self.ids is None:
+            raise ValueError("a re-render at a tier takes picked images (ids), not a filter")
+        return self
 
 
 class RerenderGone(BaseModel):
@@ -62,13 +92,52 @@ class RerenderGone(BaseModel):
     detail: str
 
 
+class RerenderUnmatched(BaseModel):
+    """A picked image a tier re-render left out: its size is no preset's
+    aspect (`sizes.nearest_preset`), and none is guessed for it."""
+
+    id: int
+    width: int
+    height: int
+
+
+class RerenderSize(BaseModel):
+    """One size of a tier re-render's plan: one job's worth."""
+
+    width: int
+    height: int
+    # The images mapped to it, and of them those it would queue now.
+    images: int
+    queued: int
+
+
+class RerenderPreview(BaseModel):
+    """What a Re-render would queue, size by size, without queueing it."""
+
+    # Every image the selection resolved to, oldest first, unmatched ones
+    # included: what the queueing request sends back as `expected`.
+    ids: list[int]
+    sizes: list[RerenderSize]
+    unmatched: list[RerenderUnmatched] = Field(default_factory=list)
+    deleted: list[RerenderGone] = Field(default_factory=list)
+    queued: int
+    # How many jobs it makes: one per size with anything to queue.
+    jobs: int
+    pruned: int = 0
+    planned: int = 0
+
+
 class RerenderAccepted(JobAccepted):
-    """Re-render's job, and the picked images it could not take."""
+    """Re-render's job, and the picked images it could not take. A tier
+    re-render makes one job per size: the first at the top level, as every
+    other submission answers, the rest in `more`."""
 
     deleted: list[RerenderGone] = Field(default_factory=list)
     # Held by the gallery and by live jobs respectively, never combined.
     pruned: int = 0
     planned: int = 0
+    more: list[JobAccepted] = Field(default_factory=list)
+    unmatched: list[RerenderUnmatched] = Field(default_factory=list)
 
 
 class RunAction(BaseModel):
@@ -126,11 +195,25 @@ class FinishRunAccepted(JobAccepted):
 
 
 class TagSwap(BaseModel):
-    """One row of Swap tags: the comma items to find, what goes in their place."""
+    """One row of Swap tags: the comma items to find, what goes in their place.
 
-    find: str = Field(min_length=1, max_length=1000)
+    An Add row (`add`, the start or the end) has an empty `find` and the tags
+    to add in `replace`; any other combination is refused."""
+
+    find: str = Field(default="", max_length=1000)
     # Empty removes what was found.
     replace: str = Field(default="", max_length=1000)
+    add: Literal["start", "end"] | None = None
+
+    @model_validator(mode="after")
+    def _shape(self) -> "TagSwap":
+        if self.add is None and not self.find:
+            raise ValueError("a row needs a tag to find")
+        if self.add is not None and self.find.strip():
+            raise ValueError("an Add row has an empty Find")
+        if self.add is not None and not self.replace.strip():
+            raise ValueError("an Add row needs a tag to add")
+        return self
 
 
 class SwapTagsRequest(BaseModel):
@@ -164,7 +247,7 @@ class SwapTagsRequest(BaseModel):
     def _rows_parse(self) -> "SwapTagsRequest":
         from .tag_swap import parse_rows
 
-        parse_rows([(row.find, row.replace) for row in self.swaps])
+        parse_rows([(row.find, row.replace, row.add) for row in self.swaps])
         return self
 
 
@@ -426,6 +509,8 @@ class SwapTagsAccepted(BaseModel):
     job_id: str
     seed: int
     run_id: str
+    # The first job's stored price, as `JobAccepted`'s; each in `more` has its own.
+    estimate_seconds: float | None = None
     more: list[JobAccepted] = Field(default_factory=list)
     queued: int
     # Images whose cell the gallery holds at queue time, left out without a
@@ -448,6 +533,7 @@ class MoreSeedsAccepted(BaseModel):
     job_id: str
     seed: int
     run_id: str
+    estimate_seconds: float | None = None
     more: list[JobAccepted] = Field(default_factory=list)
     queued: int
     batches: int

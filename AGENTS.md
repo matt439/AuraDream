@@ -5,8 +5,9 @@ frontend, no build step. The default checkpoint is **FLUX.1 Krea [dev]**
 (`black-forest-labs/FLUX.1-Krea-dev`), which is click-through gated; **Krea 2
 Turbo** (`krea/Krea-2-Turbo`) needs manual approval on HuggingFace and is what
 the sizing notes in `docs/design-notes.md` are written around. The catalogue
-in `backend/launch.py` lists the rest; any of them runs unchanged - set
-`AURADREAM_MODEL_ID`, or choose in the browser's Models panel.
+in `backend/launch.py` lists the rest; any text-to-image one runs unchanged -
+set `AURADREAM_MODEL_ID`, or choose in the browser's Models panel. The last,
+FLUX.1 Kontext [dev], only edits, and its loads are held (the edit gate below).
 
 This file is the short version. Before changing an area, read its part of
 **`docs/rules.md`** (every rule in full, the module map, what each smoke
@@ -118,7 +119,9 @@ Backend (`backend/`):
 - `preset_portability.py` - cold raw setup export/digests and explicit file-index
   merge plans; `schemas_preset_portability.py` owns the native document and
   choice/preview models; `strict_json.py` bounds only the new UTF-8 document
-  syntax, without changing existing sidecar or snippet readers
+  syntax, without changing existing sidecar or snippet readers; `api_presets.py`
+  exposes bounded export/preview/import, with atomic commit under `presets.py`'s
+  reservation (raw drafts only: no capture validation, model, queue or Hub)
 - `snippet_portability.py` - cold portable snippet codec, collection/input
   digests and pure merge plans; `schemas_snippet_portability.py` owns strict
   portable documents and file-index choices; `api_snippets.py` exposes bounded
@@ -144,7 +147,7 @@ Backend (`backend/`):
   refine's stand-in pass, refusals and pass run id; `more_seeds.py` More
   seeds' batches and their next seeds; `more_seeds_intents.py` bounded
   preview-issued submission receipts and safe retries;
-  `seeds.py`; `sizes.py` presets and size guards; `loras.py` adapter names to
+  `seeds.py`; `sizes.py` presets, size guards and tier mapping; `loras.py` adapter names to
   paths; `instruction_edit.py` the frozen Kontext recipe, strict source types,
   geometry, bound keys and held reasons; `instruction_edit_preflight.py` cold
   supplied-config checks and the qualified config pin (`require_pinned`);
@@ -187,6 +190,9 @@ it never writes the composer's prompt, negative or references.
 
 `snippet-import.js` owns explicit personal-snippet export and the native
 merge dialog; it preserves the editor and prompt boxes, with no automatic retry.
+`setup-import.js` owns Saved setups Export…/Import… and its separate merge
+dialog; it never calls `setupSummary`, keeps the editor, composer and Undo,
+and never resends an uncertain import.
 
 Also: `tools/` (fake server, headless-browser smokes), `tests/`, `wsl/`,
 `docs/`.
@@ -206,7 +212,9 @@ Model and loader:
 - Loading happens only in `main.ensure_loaded()` under its asyncio lock, after
   `jobs.wait_for_gate`. `generate()` raises on a missing pipeline; unload is
   409 while a job or load is live. Load failures go through
-  `main._load_failure`.
+  `main._load_failure`; an edit-only checkpoint's refusal there
+  (`require_model_available`, given the instance's `qualified` and
+  `loader` at every load entry) is an error in its own words.
 - Switching reserves the idle server through cleanup and `select()`; its load
   is then an ordinary `ensure_loaded` (Check, tags and LoRAs answer, Generate
   queues, a second switch is refused).
@@ -298,14 +306,19 @@ Reproduction and storage:
   their intent and refuse replay. Edit bundles use v2; edit-free bundles stay
   v1.
 - The one edit gate is the backend instance's `instruction_edit_qualified()`
-  (literal `True` only), never a setting; `DiffusersBackend` returns a literal
-  False, its editor load holds stay unconditional and Kontext stays out of
-  `CHECKPOINTS`. So real-server editor loading and execution remain
-  unavailable until card qualification. The fake and the stub can queue,
-  through `POST /api/instruction-edit` only, which re-proves each cell's
-  source as it begins. Reuse opens the Edit by instruction dialog. Generate,
-  Re-render and More seeds of edits stay held. The plan and the carry/bundle
-  checklists own the remaining integration and qualification.
+  (literal `True` only), never a setting; `DiffusersBackend` returns the
+  literal True (stage 4's release), every other gate the literal False.
+  `QUALIFIED_ENVELOPE` then decides loads and edits: the exact Kontext id,
+  fp8, model offload, CUDA, Windows, Eager, diffusers 0.40.0, and 1:1
+  sources at 512x512. The editor load holds open only for the exact id inside
+  the envelope (the pinned configs-then-weights loader); Qwen-Image-Edit is
+  always refused. Kontext is an edit-only catalogue entry, listed last.
+  Edits queue through `POST /api/instruction-edit` and More seeds (new seeds
+  of the original source inside the envelope, its recorded proof checked
+  first), and each cell's source is re-proved as it begins. Reuse opens the
+  Edit by instruction dialog. Re-render refuses an edit with words naming
+  it; Generate and Finish stay held. The plan and the
+  carry/bundle checklists own the remaining integration and the card step.
 
 Jobs:
 
@@ -385,10 +398,11 @@ CI (`.github/workflows/ci.yml`, detail in `docs/rules.md` under Tests): ruff
 on Linux for every push and pull request. Documentation-only changes run
 just lint, without app/tokenizer installs; executable files under `docs/`
 still get tests. Other changes and manual runs get the pinned type gate
-and `pytest -n auto` on Linux,
+and `pytest -n auto --durations=25` (the 25 slowest tests) on Linux,
 and on Windows too for main (pushes and by hand; about 12 minutes); a separate
 `browser` job runs the smoke table on Linux Chrome (fonts from
-`tools/smoke_fonts.py`), uploading diagnostics on failure. Its runners are
+`tools/smoke_fonts.py`), printing its timings (`tools/smoke_timings.py`)
+and uploading diagnostics on failure. Its runners are
 slow and have no GPU driver: a test that races a clock (a time budget, a
 cell to skip or pause mid-run) needs seconds of margin, not milliseconds.
 `tools/fetch_tokenizers.py` fetches the real-tokenizer tests' files first,
@@ -400,6 +414,7 @@ What each smoke covers is listed in `docs/rules.md` under Tests.
 ```powershell
 uv run python tools/run_smoke.py <smoke> [...]   # starts the row's fake, runs, stops it
 uv run python tools/run_smoke.py --all --jobs 4  # every row; --offset N moves ports
+uv run python tools/run_smoke.py --all --jobs 4 --rerun-failed-alone  # or --from-summary <summary.json>
 uv run python tools/fake_server.py --port <port> [--model <id>] [--step 0.3]   # by hand
 node tools/browser.mjs tools/<smoke>.json
 ```
@@ -495,13 +510,18 @@ uses the driver's graceful close/cleanup. See the full Tests rules.
 | 7940 | FLUX.1-Krea-dev, fresh scratch `--data` | `smoke-favorite-write-order` |
 | 7941 | FLUX.1-Krea-dev, fresh scratch `--data` | `smoke-bin-restore-order` |
 | 7942 | FLUX.1-Krea-dev, fresh scratch `--data` | `smoke-broad-bin-order` |
+| 7943 | FLUX.1-Krea-dev, fresh scratch `--data` | `smoke-bundle-clear-order` |
 | 7944 | FLUX.1-Krea-dev, fresh scratch `--data`, `--step 0.3` | `smoke-queue-cancel-recovery` |
 | 7945 | FLUX.1-Krea-dev, fresh scratch `--data`, `--step 0.3` | `smoke-watched-action-replies` |
+| 7946 | FLUX.1-Krea-dev, fresh scratch `--data`, `--step 0.3` | `smoke-reuse-pass-opening` |
 | 7947 | FLUX.1-Krea-dev, fresh scratch `--data` | `smoke-runs-scope-recovery` |
 | 7948 | default, fresh scratch `--data` | `smoke-grid-preview-close` |
 | 7949 | FLUX.1-Krea-dev, fresh scratch `--data` | `smoke-runs-favorite-counts` |
 | 7950 | FLUX.1-Krea-dev, fresh scratch `--data` | `smoke-copy-feedback-ownership` |
+| 7951 | FLUX.1-Krea-dev, fresh scratch `--data`, `--step 0.3` | `smoke-split-extra-queue` |
 | 7952 | FLUX.1-Krea-dev, fresh scratch `--data` | `smoke-check-dismissal` |
+| 7953 | FLUX.1-Krea-dev, fresh scratch `--data` | `smoke-setup-portability` |
+| 7954 | FLUX.1-Krea-dev, fresh scratch `--data`, `--step 0.3` | `smoke-queue-estimates` |
 
 FLUX.1-Krea-dev is `black-forest-labs/FLUX.1-Krea-dev`; animagine is
 `cagliostrolab/animagine-xl-4.0`.

@@ -85,7 +85,7 @@ def test_catalogue_speed_uses_draft_loading_options_without_applying_them(client
     initial = client.get("/api/status").json()
     calls = []
 
-    def details(model_id, *, quantization, offload):
+    def details(model_id, *, quantization, offload, edit_reason):
         calls.append((model_id, quantization, offload))
         return {"speed_label": "Unmeasured"}
 
@@ -97,6 +97,68 @@ def test_catalogue_speed_uses_draft_loading_options_without_applying_them(client
     assert (current["quantization"], current["offload"], current["model_revision"]) == (
         initial["quantization"], initial["offload"], initial["model_revision"],
     )
+    assert fake.loads == 0
+
+
+def test_the_editors_row_carries_the_backends_answer_for_the_draft_loader(client, fake, monkeypatch):
+    # The listed editor's row gets this instance's own answer for the loader
+    # being chosen; every other row keeps the closed gate's words. Nothing
+    # is selected or loaded.
+    from backend.instruction_edit import INSTRUCTION_EDIT_UNAVAILABLE, KONTEXT_V1
+
+    seen = {}
+
+    def details(model_id, *, quantization, offload, edit_reason):
+        seen[model_id] = edit_reason
+        return {}
+
+    monkeypatch.setattr(main, "details_for", details)
+    initial = client.get("/api/status").json()
+
+    def answer(query=""):
+        seen.clear()
+        assert client.get(f"/api/models{query}").status_code == 200
+        others = {reason for model_id, reason in seen.items() if model_id != KONTEXT_V1.model_id}
+        assert others == {INSTRUCTION_EDIT_UNAVAILABLE}
+        return seen[KONTEXT_V1.model_id]
+
+    assert answer() == INSTRUCTION_EDIT_UNAVAILABLE
+    fake.edit_qualified = True
+    assert answer("?quantization=fp8&offload=model") is None
+    assert "sequential offload" in answer("?quantization=fp8&offload=sequential")
+    assert "int8" in answer("?quantization=int8&offload=model")
+    # A draft recipe is the loader being chosen too, and is held by name.
+    assert "regional-v1 compilation" in answer("?quantization=fp8&offload=model&compilation=regional-v1")
+    assert "cudnn-v1 attention" in answer("?quantization=fp8&offload=model&attention=cudnn-v1")
+    assert answer("?quantization=fp8&offload=model&compilation=eager&attention=native") is None
+    current = client.get("/api/status").json()
+    assert (current["model_id"], current["model_revision"]) == (initial["model_id"], initial["model_revision"])
+    assert fake.loads == 0
+
+
+def test_the_editors_row_holds_its_unmeasured_loader_options_by_name(client, fake):
+    # The picker holds each quantization and offload the editor never
+    # measured, in the envelope's words for that choice alone, whatever the
+    # draft or the gate; every other row has none. Nothing selected or loaded.
+    from backend.instruction_edit import INSTRUCTION_EDIT_LOADER_UNQUALIFIED, KONTEXT_V1
+
+    initial = client.get("/api/status").json()
+    for query, qualified in [("", False), ("?quantization=int8&offload=none", False), ("?quantization=fp8", True)]:
+        fake.edit_qualified = qualified
+        body = client.get(f"/api/models{query}").json()
+        quantizations = {o["value"] for o in body["quantizations"]}
+        offloads = {o["value"] for o in body["offloads"]}
+        holds = body["details"][KONTEXT_V1.model_id]["loader_holds"]
+        assert set(holds["quantization"]) == quantizations - {"fp8"}
+        assert set(holds["offload"]) == offloads - {"model"}
+        assert holds["quantization"]["int8"] == INSTRUCTION_EDIT_LOADER_UNQUALIFIED.format(choice="int8 quantization")
+        assert holds["quantization"]["none"] == INSTRUCTION_EDIT_LOADER_UNQUALIFIED.format(choice="BF16 (no quantization)")
+        assert holds["offload"]["sequential"] == INSTRUCTION_EDIT_LOADER_UNQUALIFIED.format(choice="sequential offload")
+        assert holds["offload"]["none"] == INSTRUCTION_EDIT_LOADER_UNQUALIFIED.format(choice="no offload")
+        others = {model_id: info["loader_holds"] for model_id, info in body["details"].items() if model_id != KONTEXT_V1.model_id}
+        assert others and all(value == {} for value in others.values())
+    current = client.get("/api/status").json()
+    assert (current["model_id"], current["model_revision"]) == (initial["model_id"], initial["model_revision"])
     assert fake.loads == 0
 
 
@@ -819,3 +881,102 @@ def test_real_backend_rechecks_lora_fit_after_model_selection_changes(monkeypatc
     model_selection.select(ANIMAGINE)
     assert backend.lora_mismatch("style.safetensors") == "this adapter does not fit the selected UNet"
     assert seen == [flux, flux, sdxl]
+
+
+def _forbid_hub(monkeypatch):
+    from backend import hub_access
+
+    asked = []
+    monkeypatch.setattr(hub_access, "check", lambda model_id: asked.append(model_id))
+    return asked
+
+
+def _saved_bytes():
+    path = startup_preferences.path_for(main.settings.db_path)
+    return path.read_bytes() if path.exists() else None
+
+
+def test_switch_to_kontext_refused_while_gated_before_hub_save_or_unload(client, fake, monkeypatch):
+    from backend.instruction_edit import INSTRUCTION_EDIT_UNAVAILABLE, KONTEXT_V1
+
+    assert client.post("/api/model/load").status_code == 200
+    ready = _settled(client, main.settings.model_id)
+    asked = _forbid_hub(monkeypatch)
+    loads = fake.loads
+    before = _saved_bytes()
+    # Listed, last, as any catalogue entry; listed is not loadable.
+    assert client.get("/api/models").json()["models"][-1] == {
+        "model_id": KONTEXT_V1.model_id, "label": "FLUX.1 Kontext [dev]",
+    }
+    # The fake's gate is closed (the real backend's envelope is
+    # test_instruction_edit_release's): Switch & load and Apply & save
+    # alike, by the exact id or a case variant, before anything is touched.
+    for model_id in (KONTEXT_V1.model_id, KONTEXT_V1.model_id.upper()):
+        for load in (True, False):
+            reply = client.post("/api/model/switch", json={"model_id": model_id, "load": load})
+            assert reply.status_code == 422, reply.text
+            assert reply.json()["detail"] == INSTRUCTION_EDIT_UNAVAILABLE
+    after = client.get("/api/status").json()
+    assert (after["model_id"], after["state"], after["model_revision"]) == (
+        ready["model_id"], "ready", ready["model_revision"],
+    )
+    assert asked == [] and _saved_bytes() == before and fake.loads == loads and fake.is_ready()
+
+
+def test_switch_to_kontext_refuses_unmeasured_loader_before_hub(client, fake, monkeypatch):
+    from backend.instruction_edit import INSTRUCTION_EDIT_EXACT_ID, INSTRUCTION_EDIT_LOADER_UNQUALIFIED, KONTEXT_V1
+
+    fake.edit_qualified = True  # a stand-in gate, open as the real one is
+    assert client.post("/api/model/load").status_code == 200
+    ready = _settled(client, main.settings.model_id)
+    asked = _forbid_hub(monkeypatch)
+    loads = fake.loads
+    before = _saved_bytes()
+    for options, detail in (
+        ({"offload": "sequential"}, INSTRUCTION_EDIT_LOADER_UNQUALIFIED.format(choice="sequential offload")),
+        ({"quantization": "int8"}, INSTRUCTION_EDIT_LOADER_UNQUALIFIED.format(choice="int8 quantization")),
+        ({"quantization": "none", "offload": "none"},
+         INSTRUCTION_EDIT_LOADER_UNQUALIFIED.format(choice="BF16 (no quantization)")),
+    ):
+        for load in (True, False):
+            reply = client.post("/api/model/switch", json={"model_id": KONTEXT_V1.model_id, "load": load, **options})
+            assert reply.status_code == 422, reply.text
+            assert reply.json()["detail"] == detail
+    # The host as well as the selection: off Windows nothing was measured.
+    fake.edit_host = ("linux", "0.40.0")
+    reply = client.post("/api/model/switch", json={"model_id": KONTEXT_V1.model_id})
+    assert reply.status_code == 422
+    assert reply.json()["detail"] == INSTRUCTION_EDIT_LOADER_UNQUALIFIED.format(choice="Linux (WSL)")
+    reply = client.post("/api/model/switch", json={"model_id": KONTEXT_V1.model_id.lower()})
+    assert reply.status_code == 422 and reply.json()["detail"] == INSTRUCTION_EDIT_EXACT_ID
+    after = client.get("/api/status").json()
+    assert (after["model_id"], after["state"], after["model_revision"]) == (
+        ready["model_id"], "ready", ready["model_revision"],
+    )
+    assert asked == [] and _saved_bytes() == before and fake.loads == loads
+
+
+def test_switch_to_kontext_envelope_asks_the_hub(client, fake, monkeypatch):
+    from backend import hub_access
+    from backend.instruction_edit import KONTEXT_V1
+
+    # Started on the editor, with Krea 2 Turbo selected since.
+    monkeypatch.setattr(main, "settings", dataclasses.replace(main.settings, model_id=KONTEXT_V1.model_id))
+    monkeypatch.setattr(model_selection, "_selection", (TURBO, 1))
+    fake.edit_qualified = True
+    assert client.post("/api/model/load").status_code == 200
+    ready = _settled(client, TURBO)
+    asked = []
+
+    def refused(model_id):
+        asked.append(model_id)
+        return hub_access.Refusal("gated", "Request access on the model page.", f"https://huggingface.co/{model_id}")
+
+    monkeypatch.setattr(hub_access, "check", refused)
+    before, loads = _saved_bytes(), fake.loads
+    reply = client.post("/api/model/switch", json={"model_id": KONTEXT_V1.model_id})
+    assert reply.status_code == 403, reply.text
+    assert reply.json()["detail"].startswith("Request access on the model page.")
+    after = client.get("/api/status").json()
+    assert (after["model_id"], after["state"], after["model_revision"]) == (TURBO, "ready", ready["model_revision"])
+    assert asked == [KONTEXT_V1.model_id] and _saved_bytes() == before and fake.loads == loads

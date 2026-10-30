@@ -180,7 +180,7 @@ answers and exceptions.
 
 ### UX#12 — Curate a set across searches without losing it · P1 · Proposed
 
-- **Basis:** E1–E5, E9–E10, E12 and G9 Often supports browsing, Stars, All models, Runs, prompt/from-setting search, card sizing/Fit/Crop, retained picks and bulk starring. Persistent picks/hidden counts, Ctrl+A and Pick this run are built (`UI#6`); their placement and clarity remain part of task trials.
+- **Basis:** E1–E5, E9–E10, E12 and G9 Often supports browsing, Stars, All models, Runs, prompt/from-setting search, card sizing/Fit/Crop, retained picks and bulk starring. Persistent picks/hidden counts and Ctrl+A are built (`UI#6`), and Pick this run on a card's menu since 2026-10-30 (`UI#37`, [F19 follow-up](../review-2026-10-12.md#f19-follow-up-pick-this-run-ui37)). Their placement and clarity remain part of task trials.
 - **Story:** I can gather keepers across my runs, inspect them and apply an action to exactly that set.
 - **Acceptance:** design trials retain picks and anchor across search/paging and a bin visit; hidden-pick counts remain understandable and Clear is deliberate.
 - **Acceptance:** existing pick-all/run controls state their loaded/run scope and cap before action; they do not quietly select an unlimited gallery.

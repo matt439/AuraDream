@@ -92,7 +92,76 @@ function refuseExecutionReuse(rec) {
   return true;
 }
 
+// A pass's source lookup is an opening intent, not permission to replace
+// whatever the user opens or writes while its answer is out. It owns no job.
+let reusePassOpening = null;
+
+function reusePassDraftKey() {
+  // The existing raw UI snapshot includes transient Resume/Then refine and
+  // unsupported performance intent too. Context has its own rules below.
+  const draft = JSON.parse(setupComposerState());
+  delete draft.model;
+  delete draft.revision;
+  delete draft.server;
+  // A number box can display an unfinished edit while exposing the same
+  // empty value as before it. Preserve that intent without parsing a payload.
+  draft.badInput = [...panelNumberInputs(), [els.gridSeeds], [els.gridBudget]]
+    .map(([el]) => el.validity.badInput);
+  return JSON.stringify(draft);
+}
+const reusePassScopeKey = () => JSON.stringify([
+  els.search.value.trim(), els.favOnly.checked, els.allModels.checked, binMode, sheetMode,
+]);
+
+// A write the page makes itself (a grid's drawn seed, a LoRA the server no
+// longer offers) is not a newer draft: an opening that still matched the
+// panel before it keeps its intent, on the panel as written.
+function keepReusePassDraft(write) {
+  const opening = reusePassOpening;
+  const matched = opening && reusePassDraftKey() === opening.draft;
+  write();
+  if (matched && reusePassOpening === opening) opening.draft = reusePassDraftKey();
+}
+
+function cancelReusePassOpening() {
+  const opening = reusePassOpening;
+  if (!opening) return;
+  reusePassOpening = null;
+  opening.controller.abort();
+}
+
+function beginReusePassOpening(rec) {
+  cancelReusePassOpening();
+  const controller = new AbortController();
+  const draft = reusePassDraftKey();
+  const scope = reusePassScopeKey();
+  const revision = modelRevision;
+  const model = loadedModel;
+  const startedAt = serverStartedAt;
+  // A menu proxy or a just-closed lightbox can leave focus elsewhere. Only
+  // bind a host that actually carries this image; body/menu items are not hosts.
+  const focused = document.activeElement?.closest?.('#gallery .card[data-id], #viewer figure[data-id]');
+  const host = focused && +focused.dataset.id === rec.id ? focused : null;
+  const fromViewer = !!host?.closest?.('#viewer');
+  const viewerContext = viewerRecords[0]?.job_id ?? viewerRecords[0]?.id ?? null;
+  const lightboxId = els.lightbox.open ? lbList[lbIndex]?.id ?? null : null;
+  const dialogs = [...document.querySelectorAll('dialog[open]')];
+  const opening = { controller, draft, valid: () => {
+    if (reusePassOpening !== opening || controller.signal.aborted) return false;
+    if (modelRevision !== revision || loadedModel !== model) return false;
+    if (startedAt != null && serverStartedAt != null && startedAt !== serverStartedAt) return false;
+    if (reusePassDraftKey() !== opening.draft || reusePassScopeKey() !== scope) return false;
+    if (host && (!host.isConnected || !isShown(host))) return false;
+    if (fromViewer && (viewerRecords[0]?.job_id ?? viewerRecords[0]?.id ?? null) !== viewerContext) return false;
+    if (lightboxId != null && (!els.lightbox.open || lbList[lbIndex]?.id !== lightboxId)) return false;
+    return ![...document.querySelectorAll('dialog[open]')].some((dialog) => !dialogs.includes(dialog));
+  } };
+  reusePassOpening = opening;
+  return opening;
+}
+
 function reuse(rec) {
+  cancelReusePassOpening();
   if (refuseExecutionReuse(rec)) return;
   // An edit's is Edit by instructionâ€¦'s, on its source with its instruction.
   if (rec.edit != null) { void reuseEdit(rec); return; }
@@ -130,6 +199,7 @@ function reuseFields() {
 // reaches - typing, a preset, the dice, an Example (whose own Undo then
 // stands alone).
 function syncReuseUndo() {
+  if (reusePassOpening && reusePassDraftKey() !== reusePassOpening.draft) cancelReusePassOpening();
   const note = reuseNote;
   if (!note || JSON.stringify(reuseFields()) === JSON.stringify(note.after)) return;
   reuseNote = null;
@@ -146,6 +216,7 @@ const EDIT_NOT_PANEL = 'An instruction edit is reopened in Edit by instructionâ€
   + 'its source-dependent instruction never goes into the generation panel.';
 
 function reuseIntoPanel(rec, withSize, note = '', { name = `#${rec.id}`, sampling = true } = {}) {
+  cancelReusePassOpening();
   if (refuseExecutionReuse(rec)) return;
   if (rec.edit != null) { showError(EDIT_NOT_PANEL, false, { slot: els.galleryError }); return; }
   // One Undo on offer at a time: an Example's, for the text this replaces,
@@ -239,6 +310,8 @@ function showReuseNote() {
 // from #15 loaded - your prompt was replaced" stood over the emptied panel.
 let reuseSaid = null;
 function clearReuseNote() {
+  // Reset reaches this even when its empty draft already matches the panel.
+  cancelReusePassOpening();
   if (reuseSaid !== null && els.error.textContent.startsWith(reuseSaid)) showError('');
   reuseSaid = null;
 }
@@ -373,15 +446,28 @@ function undoReuse(note) {
 // the panel, at the panel's own size, since the pass's may be past what a
 // direct render takes.
 async function reusePass(rec) {
-  let source;
+  const opening = beginReusePassOpening(rec);
   try {
-    source = await api(`/api/images/${rec.refine}`);
-  } catch (err) {
-    if (!/unknown image/.test(err.message)) { showError(err.message); return; }
-    reuseIntoPanel(rec, false,
-      `#${rec.refine}, the source this was refined from, is no longer in the gallery, `
-      + 'so the pass cannot be made again. The size is left as it was.');
-    return;
+    let source;
+    try {
+      source = await api(`/api/images/${rec.refine}`, { signal: opening.controller.signal });
+    } catch (err) {
+      if (!opening.valid() || err.name === 'AbortError') return;
+      // Release before the current fallback: it is this intent's deliberate
+      // panel replacement, whose own entry retires any older opening.
+      reusePassOpening = null;
+      if (!/unknown image/.test(err.message)) { showError(err.message); return; }
+      reuseIntoPanel(rec, false,
+        `#${rec.refine}, the source this was refined from, is no longer in the gallery, `
+        + 'so the pass cannot be made again. The size is left as it was.');
+      return;
+    }
+    if (!opening.valid()) return;
+    // openRefine also retires pending lookups. This one has settled and must
+    // not cancel its own deliberate open or clear a newer request's token.
+    reusePassOpening = null;
+    openRefine(source, rec);
+  } finally {
+    if (reusePassOpening === opening) reusePassOpening = null;
   }
-  openRefine(source, rec);
 }

@@ -123,7 +123,7 @@ from copy import deepcopy
 from typing import Any, NamedTuple
 
 from . import guides
-from .instruction_edit import INSTRUCTION_EDIT_UNAVAILABLE, text_to_image_refusal
+from .instruction_edit import INSTRUCTION_EDIT_UNAVAILABLE, text_to_image_words
 from .refine import DEFAULT_STRENGTH, leaves_a_step, upscaler_supported
 
 # What the server runs when nothing says otherwise. Here rather than in
@@ -1089,19 +1089,41 @@ _FALLBACK: dict[str, Any] = {
 }
 
 
-# Exact edit-only intent cannot inherit ordinary FLUX generation capabilities.
-# It is intentionally absent from the load catalogue until pinned configs and
-# the editor's separate load/card qualification are complete.
+# Exact edit-only intent cannot inherit ordinary FLUX generation capabilities,
+# so every key is written out rather than spread from `_FALLBACK`: no
+# text-to-image, Refine, inpaint, reference or upscaler (`upscaler_supported`
+# answers by id). It is keyed by its exact id, the catalogue's last,
+# edit-only entry; whether an edit runs is never the profile's to say (`defaults_for`).
 _EXACT_PROFILES["black-forest-labs/flux.1-kontext-dev"] = {
-    **_FALLBACK,
-    "steps": 28, "guidance_scale": 2.5, "mu_supported": False,
-    "negative_prompt_supported": False, "true_cfg_supported": False,
-    "text_to_image_supported": False, "instruction_edit_supported": False,
+    "steps": 28,
+    "guidance_scale": 2.5,
+    "mu": None,
+    "mu_supported": False,
+    "cfg_threshold": 1.0,
+    "negative_prompt_supported": False,
+    "reference_supported": False,
+    "refine_supported": False,
+    "inpaint_supported": False,
+    "refine_strength": None,
+    "true_cfg_supported": False,
+    "text_to_image_supported": False,
+    "instruction_edit_supported": False,
     "instruction_edit_candidate": True,
+    "guide": guides.KONTEXT_GUIDE,
     "hints": {
-        "steps": "Instruction editing is unavailable; 28 is the frozen recipe's unmeasured starting value.",
-        "guidance_scale": "Instruction editing is unavailable; 2.5 is the frozen recipe's starting guidance.",
-        "mu": "Unavailable: the first instruction-edit recipe leaves the scheduler's shift automatic.",
+        "steps": (
+            "Denoising steps. {steps} is the kontext-v1 recipe's start, the installed "
+            "FluxKontextPipeline's own default; this card's edits ran at {steps}."
+        ),
+        "guidance_scale": (
+            "Distilled guidance, not classifier-free: there is no negative prompt. "
+            "{guidance_scale:g} is the recipe's start, from diffusers' FluxKontextPipeline "
+            "example; this card's edits ran at {guidance_scale:g}."
+        ),
+        "mu": (
+            "Not an instruction edit's to set: the kontext-v1 recipe leaves the "
+            "scheduler's own shift."
+        ),
     },
 }
 
@@ -1190,8 +1212,12 @@ def inpaint_start(model_id: str) -> float | None:
     return profile.get("inpaint_start") if profile["inpaint_supported"] else None
 
 
-def defaults_for(model_id: str) -> dict[str, Any]:
+def defaults_for(model_id: str, *, edit_reason: str | None = INSTRUCTION_EDIT_UNAVAILABLE) -> dict[str, Any]:
     """The numbers only - callers put these straight into a request or a field.
+
+    `edit_reason` is a backend's own answer (`instruction_edit_refusal`, None
+    where an edit can queue), for a caller that has one; cold, it is the
+    closed gate's words. The profile never grants an edit by itself.
 
     `refine_tight_pixels` is the measured pass's pixels where a pass was
     measured; every other profile answers None for it, which the page reads
@@ -1210,12 +1236,13 @@ def defaults_for(model_id: str) -> dict[str, Any]:
         # until the loaded backend's own answer replaces them in the status.
         "text_to_image_reason": (
             None if profile.get("text_to_image_supported", True)
-            else text_to_image_refusal(model_id, qualified=False)
+            else text_to_image_words(edit_reason)
         ),
-        # Never a profile's to grant: only the loaded backend's own gate
-        # (`instruction_edit_qualified`) replaces these in the status.
-        "instruction_edit_supported": False,
-        "instruction_edit_reason": INSTRUCTION_EDIT_UNAVAILABLE,
+        # Never a profile's to grant: only a backend's own gate
+        # (`instruction_edit_qualified`) and envelope open these, passed in
+        # as `edit_reason` or replacing them in the status.
+        "instruction_edit_supported": bool(profile.get("instruction_edit_candidate")) and edit_reason is None,
+        "instruction_edit_reason": edit_reason,
         # Every status says both: None where the shift is not a fixed number,
         # False where the CFG box reaches the model.
         "mu_static": profile.get("mu_static"),

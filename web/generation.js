@@ -106,6 +106,7 @@ function setBusy(on) {
   els.progressNow.textContent = '';
   els.progressNow.title = '';
   jobEta = '';
+  jobEtaSeconds = null;
   cellArgs = null;
   syncSkip(null);
   // The finished job's line stays - only the next job's end replaces it -
@@ -200,7 +201,7 @@ function submissionLabel(path, payload) {
   if (finish) return `Finish run ${finish[1]}`;
   if (path === '/api/rerender') {
     const what = payload.ids ? plural(payload.ids.length, 'selected image') : "the gallery's selection";
-    return `re-render of ${what} at ${payload.width}×${payload.height}`;
+    return `re-render of ${what} at ${payload.tier ? `${payload.tier} MP` : `${payload.width}×${payload.height}`}`;
   }
   if (path === '/api/swap-tags') {
     return describeJob({ grid: true, swap: swapSummary(payload) });
@@ -227,6 +228,7 @@ function submissionLabel(path, payload) {
 function forgetJob(jobId) {
   submissions.delete(jobId);
   jobLabels.delete(jobId);
+  jobEstimates.delete(jobId);
   jobPlaceholders.delete(jobId);
   jobsToShow.delete(jobId);
   foreignJobs.delete(jobId);
@@ -249,6 +251,20 @@ function isForeign(jobId) {
   if (!viewerRecords.some((rec) => ownJobs.has(rec.job_id))) return false;
   foreignJobs.add(jobId);
   return true;
+}
+
+// A priced job accepted behind other work: ` · ~3 min`, and
+// `, after ~11 min of work ahead` where everything ahead of it is priced -
+// the watched job by its own live ETA, the rows before it by their stored
+// figures. Unpriced, nothing, and the line says `Queued: <label>` as before.
+function queuedHint(jobId) {
+  const figure = queueFigure(jobId);
+  if (!figure) return '';
+  const before = queuedIds.slice(0, Math.max(0, queuedIds.indexOf(jobId)));
+  const live = watchedEtaSeconds();
+  const { seconds, missing } = queueWork(before);
+  return live === null || missing ? ` · ${figure.text}`
+    : ` · ${figure.text}, after ~${humanTime(live + seconds)} of work ahead`;
 }
 
 // The hidden line a screen reader hears a job's end on (#job-said), and a
@@ -410,14 +426,21 @@ async function startJob(path, payload, {
     const split = more.length ? [job_id, ...more.map((extra) => extra.job_id)] : null;
     submissions.set(job_id, { path, payload, seed, run_id: answer.run_id, sheet, asker, model, revision, split, at: Date.now() });
     jobLabels.set(job_id, submissionLabel(path, payload));
+    // The server's price for each, in the reply, so a row has it from its
+    // first render. A budget is the grid's (or Finish run's) own minutes.
+    const budgetMinutes = answer.budget_minutes ?? payload?.budget_minutes;
+    noteEstimate(answer, budgetMinutes ? budgetMinutes * 60 : null);
     for (const extra of more) {
       ownJobs.add(extra.job_id);
       submissions.set(extra.job_id, { path, payload, seed: extra.seed, run_id: extra.run_id, sheet: false, asker, model, revision, split, at: Date.now() });
       jobLabels.set(extra.job_id, submissionLabel(path, payload));
+      noteEstimate(extra, null);
       void nameJob(extra.job_id);
     }
-    // Read when they join the queue, which may have changed by then.
-    const extras = () => more.map((extra) => extra.job_id).filter((id) => !queuedIds.includes(id));
+    // Read when they join the queue, which may have changed by then. One a
+    // listing out before this answer already made the watched job is the
+    // page's current job, not a "Next:" row whose × would cancel it.
+    const extras = () => more.map((extra) => extra.job_id).filter((id) => !queuedIds.includes(id) && !watchedJobs.has(id));
     if (placeholder) jobPlaceholders.set(job_id, placeholder);
     if (sheet) jobsToShow.add(job_id);
     onAccepted?.(job_id, answer);
@@ -428,7 +451,7 @@ async function startJob(path, payload, {
     // Not for a listed seed axis: the list is the record, and the first seed
     // of it written into the box would only mislead the next plain Generate.
     if (panel && path === '/api/grid' && !payload.seed_axis && els.seed.value.trim() === '' && seed != null) {
-      els.seed.value = seed;
+      keepReusePassDraft(() => { els.seed.value = seed; });
       pageSeed = els.seed.value;
       syncRuns();
       persistPanel();
@@ -464,8 +487,9 @@ async function startJob(path, payload, {
           syncQueueNote();
         }
         // The queue's rows are no live region: a screen reader hears that
-        // the press queued something, and what.
-        sayJob(`Queued: ${jobLabels.get(job_id)}`);
+        // the press queued something, and what - and, priced, how long it
+        // and the work ahead of it should take (queuedHint).
+        sayJob(`Queued: ${jobLabels.get(job_id)}${queuedHint(job_id)}`);
         return;
       }
       setBusy(true);
@@ -583,17 +607,79 @@ function rerenderSelection() {
   if (!target.scope) { showError(target.why, true, slot); return; }
   return startJob('/api/rerender', {
     ...target.scope, width: +els.width.value, height: +els.height.value,
-  }, { slot: els.galleryError, onAccepted: (_, answer) => {
-    sayRerenderGone(answer.deleted ?? []);
-    const skipped = [
-      answer.pruned ? `${answer.pruned} already rendered` : '',
-      answer.planned ? `${answer.planned} already queued` : '',
-    ].filter(Boolean).join(', ');
-    if (skipped) {
-      const gone = els.galleryError.textContent;
-      showError([gone, `Re-render skipped ${skipped}.`].filter(Boolean).join(' '), true, { slot: els.galleryError });
-    }
-  } });
+  }, { slot: els.galleryError, onAccepted: (_, answer) => sayRerenderAnswer(answer) });
+}
+
+// What a Re-render's answer left out, in the gallery's line: the picks
+// gone since, those already rendered or queued, and - at a tier - those
+// whose size is no preset's aspect.
+function sayRerenderAnswer(answer) {
+  sayRerenderGone(answer.deleted ?? []);
+  const unmatched = answer.unmatched ?? [];
+  const skipped = [
+    answer.pruned ? `${answer.pruned} already rendered` : '',
+    answer.planned ? `${answer.planned} already queued` : '',
+    unmatched.length ? `${imageNames(unmatched.map((item) => item.id))}, which ${unmatched.length === 1 ? 'matches' : 'match'} no preset` : '',
+  ].filter(Boolean).join(', ');
+  if (skipped) {
+    const gone = els.galleryError.textContent;
+    showError([gone, `Re-render skipped ${skipped}.`].filter(Boolean).join(' '), true, { slot: els.galleryError });
+  }
+}
+
+// Re-render picked at N MP… (the Picked menu, gallery-select.js): every pick
+// at its own aspect's entry at the panel's tier, one job per size. The server
+// maps the sizes and the page only shows them: its preview is the question,
+// "3 at 1440×1440, 2 at 1264×1632", with the picks no preset matches named
+// as left out; OK queues what it showed, `expected` holding the server to
+// those ids, so a selection changed meanwhile is refused, not queued unseen.
+let rerenderTierAsking = false;
+async function rerenderAtTier() {
+  const slot = { slot: els.galleryError };
+  const target = pickedTierTarget();
+  if (target.why) { showError(`${target.why}.`, true, slot); return; }
+  if (binMode || !selection.size || rerenderTierAsking) return;
+  const body = { ids: selectedIds(), tier: target.tier };
+  rerenderTierAsking = true;
+  let plan;
+  try {
+    plan = await api('/api/rerender/preview', {
+      method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(body),
+    });
+  } catch (err) {
+    showError(err.message, true, slot);
+    return;
+  } finally {
+    rerenderTierAsking = false;
+  }
+  const size = (item) => `${item.width}×${item.height}`;
+  const bySize = plan.sizes.filter((item) => item.queued)
+    .map((item) => `${item.queued} at ${size(item)}`).join(', ');
+  const held = [
+    plan.pruned ? `${plan.pruned} already rendered` : '',
+    plan.planned ? `${plan.planned} already queued` : '',
+  ].filter(Boolean).join(', ');
+  const unmatched = plan.unmatched.map((item) => `#${item.id} (${size(item)})`);
+  const one = unmatched.length === 1;
+  const unmatchedLine = !unmatched.length ? ''
+    : `${unmatched.slice(0, 6).join(', ')}${unmatched.length > 6 ? ` and ${unmatched.length - 6} more` : ''} `
+      + `${one ? 'matches' : 'match'} no preset and ${one ? 'is' : 'are'} left out.`;
+  if (!plan.queued) {
+    showError([`Nothing to re-render at ${target.tier} MP${held ? `: ${held}` : ''}.`, unmatchedLine].filter(Boolean).join(' '), true, slot);
+    return;
+  }
+  const lines = [
+    `Re-render ${plural(plan.queued, 'picked image')} at ${target.tier} MP?`,
+    `${bySize}${plan.jobs > 1 ? ` - ${plan.jobs} jobs, one per size` : ''}.`,
+    held ? `Skipped: ${held}.` : '',
+    unmatchedLine,
+    plan.deleted.length ? `Left out: ${plan.deleted.map((item) => `#${item.id} is ${item.detail}`).join('; ')}.` : '',
+    'Each keeps its prompt, settings and seed; the same seed at another size is a new sample.',
+  ];
+  if (!await askConfirm(lines.join('\n'), { okLabel: 'Re-render', destroy: false })) return;
+  return startJob('/api/rerender', { ...body, expected: plan.ids }, {
+    slot: els.galleryError, onAccepted: (_, answer) => sayRerenderAnswer(answer),
+  });
 }
 
 // The picks Re-render left out: "#7 is in the recycle bin", "#9 is no longer

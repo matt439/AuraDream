@@ -1,9 +1,10 @@
 """The diffusers instruction-edit branch, against a Kontext-shaped stub.
 
-The real backend's gate stays the literal False; a local subclass opens it so
-the call it would make can be inspected: the exact kwargs, the reproved and
-prepared source, one generator, progress, preview, cancel and cleanup. No
-weights, downloads or GPU - and the real backend still refuses before a call.
+The real backend's gate is the literal True since the release; a local
+subclass also reports the measured host, so the call it makes can be
+inspected on any machine: the exact kwargs, the reproved and prepared source,
+one generator, progress, preview, cancel and cleanup. No weights, downloads or
+GPU - and a closed gate or an unmeasured host still refuses before a call.
 """
 from __future__ import annotations
 
@@ -19,7 +20,9 @@ from backend.backends import Cancelled
 from backend.backends import diffusers_backend as module
 from backend.backends.diffusers_backend import _EDIT_PARAMS, DiffusersBackend
 from backend.instruction_edit import (
-    INSTRUCTION_EDIT_NEEDS_MODEL, INSTRUCTION_EDIT_UNAVAILABLE, KONTEXT_V1, StoredInstructionEdit,
+    INSTRUCTION_EDIT_EXACT_ID, INSTRUCTION_EDIT_LOADER_UNQUALIFIED, INSTRUCTION_EDIT_NEEDS_MODEL,
+    INSTRUCTION_EDIT_UNAVAILABLE, KONTEXT_V1,
+    QUALIFIED_ENVELOPE, LoaderChoice, StoredInstructionEdit,
 )
 from backend.schemas import GenerateRequest
 from backend.seeds import wrap_seed
@@ -83,10 +86,19 @@ class NotKontext(FluxKontextPipeline):
 
 
 class Qualified(DiffusersBackend):
-    """A stand-in whose gate is open; the real class's answer is untouched."""
+    """The real class's open gate on the measured host, whatever runs the tests."""
+
+    def instruction_edit_host(self) -> tuple[str, str | None]:
+        # The measured host, as the fake reports it, so the loader envelope
+        # every load and call now asks answers the same on any test machine.
+        return QUALIFIED_ENVELOPE.platform, QUALIFIED_ENVELOPE.diffusers_version
+
+
+class Closed(Qualified):
+    """A closed gate on the measured host: the gate's own words."""
 
     def instruction_edit_qualified(self) -> bool:
-        return True
+        return False
 
 
 def _loaded(pipe, cls=Qualified) -> DiffusersBackend:
@@ -314,18 +326,26 @@ def test_an_unbound_edit_never_reaches_the_branch(editor):
     assert pipe.kwargs == []
 
 
-def test_the_real_backend_refuses_before_any_call(editor):
+@pytest.mark.parametrize(("cls", "host", "words"), [
+    ("closed", None, INSTRUCTION_EDIT_UNAVAILABLE),
+    ("real", ("linux", "0.40.0"), INSTRUCTION_EDIT_LOADER_UNQUALIFIED.format(choice="Linux (WSL)")),
+    ("real", ("win32", "0.41.0"), INSTRUCTION_EDIT_LOADER_UNQUALIFIED.format(choice="diffusers 0.41.0")),
+])
+def test_a_closed_gate_or_an_unmeasured_host_refuses_before_any_call(editor, monkeypatch, cls, host, words):
     _, bound, prepared = editor
     pipe = KontextStub()
-    backend = _loaded(pipe, cls=DiffusersBackend)
-    assert backend.instruction_edit_qualified() is False
-    with pytest.raises(ValueError, match="not available") as caught:
+    backend = _loaded(pipe, cls=Closed if cls == "closed" else DiffusersBackend)
+    if host is not None:
+        # The real class itself: its open gate, this host, the envelope's words.
+        assert backend.instruction_edit_qualified() is True
+        monkeypatch.setattr(backend, "instruction_edit_host", lambda: host)
+    with pytest.raises(ValueError) as caught:
         backend.generate(_request(bound), seed=1)
-    assert str(caught.value) == INSTRUCTION_EDIT_UNAVAILABLE
-    with pytest.raises(ValueError, match="not available"):
-        backend.applied(_request(bound))
-    with pytest.raises(ValueError, match="not available"):
-        backend._require_execution(_request(bound))
+    assert str(caught.value) == words
+    for call in (backend.applied, backend._require_execution):
+        with pytest.raises(ValueError) as caught:
+            call(_request(bound))
+        assert str(caught.value) == words
     assert pipe.kwargs == [] and prepared == [] and pipe.freed == 0
 
 
@@ -335,21 +355,42 @@ def test_describe_follows_the_gate_and_the_selection(store, monkeypatch):
     # Off the card: describe() reads device memory where the settings say CUDA.
     real = module.current_settings
     monkeypatch.setattr(module, "current_settings", lambda startup: replace(real(startup), device="cpu", offload="none"))
-    held = DiffusersBackend().describe()
+    held = Closed().describe()
     assert held["instruction_edit_supported"] is False
     assert held["instruction_edit_reason"] == INSTRUCTION_EDIT_UNAVAILABLE
-    needs = Qualified().describe()
-    assert needs["instruction_edit_supported"] is False
-    assert needs["instruction_edit_reason"] == INSTRUCTION_EDIT_NEEDS_MODEL
+    for backend in (Qualified(), DiffusersBackend()):
+        needs = backend.describe()
+        assert needs["instruction_edit_supported"] is False
+        assert needs["instruction_edit_reason"] == INSTRUCTION_EDIT_NEEDS_MODEL
     select_editor(monkeypatch)
-    opened = Qualified().describe()
+    # Off the card, the selection's own loader is outside the envelope, and
+    # describe says the first unmeasured choice (offload none, before cpu).
+    unmeasured = Qualified().describe()
+    assert unmeasured["instruction_edit_supported"] is False
+    assert unmeasured["instruction_edit_reason"] == INSTRUCTION_EDIT_LOADER_UNQUALIFIED.format(choice="no offload")
+
+    class Measured(Qualified):
+        """The loader facts the card measured, whatever this machine is."""
+
+        def instruction_edit_loader(self, selected):
+            return LoaderChoice(
+                quantization="fp8", offload="model", device="cuda", platform="win32",
+                loader_execution=None, diffusers_version="0.40.0",
+            )
+
+    opened = Measured().describe()
     assert opened["instruction_edit_supported"] is True and opened["instruction_edit_reason"] is None
-    still = DiffusersBackend().describe()
+    still = Closed().describe()
     assert still["instruction_edit_supported"] is False
     assert still["instruction_edit_reason"] == INSTRUCTION_EDIT_UNAVAILABLE
+    # The real class on this selection: open, and the loader's words.
+    real_answer = DiffusersBackend().describe()
+    assert real_answer["instruction_edit_supported"] is False
+    assert real_answer["instruction_edit_reason"] == unmeasured["instruction_edit_reason"]
 
 
-def test_a_qualified_backend_still_refuses_to_load_kontext(synthetic_loader, monkeypatch):  # noqa: F811
+def test_a_qualified_backend_loads_only_the_pinned_kontext(synthetic_loader, monkeypatch):  # noqa: F811
+    import sys
     from dataclasses import replace
 
     _, _, events = synthetic_loader
@@ -357,11 +398,61 @@ def test_a_qualified_backend_still_refuses_to_load_kontext(synthetic_loader, mon
     selected = replace(module.settings, model_id=KONTEXT_V1.model_id, device="cpu", offload="none", quantization="none")
     monkeypatch.setattr(module, "current_settings", lambda startup: selected)
     backend = Qualified()
-    with pytest.raises(ValueError, match="not available"):
-        backend.load()
-    with pytest.raises(ValueError, match="not available"):
-        backend._load_prepared(None)
+    # Both entries now ask the instance's gate and the selection's loader
+    # facts: outside the envelope (no offload here), its words come first.
+    unmeasured = INSTRUCTION_EDIT_LOADER_UNQUALIFIED.format(choice="BF16 (no quantization)")
+    for call in (backend.load, lambda: backend._load_prepared(None)):
+        with pytest.raises(ValueError) as caught:
+            call()
+        assert str(caught.value) == unmeasured
+    # The real class asks the same envelope; a closed gate says the gate,
+    # whatever the loader.
+    for call in (DiffusersBackend().load, lambda: DiffusersBackend()._load_prepared(None)):
+        with pytest.raises(ValueError) as caught:
+            call()
+        assert str(caught.value) == unmeasured
+    for call in (Closed().load, lambda: Closed()._load_prepared(None)):
+        with pytest.raises(ValueError) as caught:
+            call()
+        assert str(caught.value) == INSTRUCTION_EDIT_UNAVAILABLE
     assert not backend.is_ready() and events == []
+    # Inside the envelope (loader facts reported as measured, though this
+    # synthetic load runs on the CPU), the pinned editor loads: the explicit
+    # class, never the index's at the Hub's head (the conftest's `hub_file`
+    # refuses), and the loaded call keeps every edit name. The configs and
+    # weights passes are test_instruction_edit_loader's.
+    measured = LoaderChoice(
+        quantization=QUALIFIED_ENVELOPE.quantization, offload=QUALIFIED_ENVELOPE.offload, device="cuda",
+        platform=QUALIFIED_ENVELOPE.platform, loader_execution=None,
+        diffusers_version=QUALIFIED_ENVELOPE.diffusers_version,
+    )
+    assert measured.refusal(KONTEXT_V1.model_id) is None
+    monkeypatch.setattr(backend, "instruction_edit_loader", lambda selected: measured)
+    monkeypatch.setattr(backend, "_release", synthetic_loader[0]._release)
+    loaded = []
+
+    class Explicit:
+        @staticmethod
+        def from_pretrained(model_id, **kwargs):
+            assert model_id == KONTEXT_V1.model_id  # the fixture's resolve_model is the identity
+            kwargs.clear()
+            events.append("pretrained")
+            pipe = KontextStub()
+            pipe.vae_scale_factor = 8
+            loaded.append(pipe)
+            return pipe
+
+    monkeypatch.setattr(sys.modules["diffusers"], "FluxKontextPipeline", Explicit, raising=False)
+    backend.load()
+    assert backend.is_ready() and backend._pipe is loaded[0]
+    assert _EDIT_PARAMS <= backend._call_params
+    assert events[:3] == ["weights-enter", "overrides", "shards-enter"] and events.count("pretrained") == 1
+    # A closed gate, the same selection and facts: still the gate's words.
+    closed = Closed()
+    monkeypatch.setattr(closed, "instruction_edit_loader", lambda selected: measured)
+    with pytest.raises(ValueError) as caught:
+        closed.load()
+    assert str(caught.value) == INSTRUCTION_EDIT_UNAVAILABLE and not closed.is_ready()
 
 
 def test_a_qualified_backend_still_refuses_an_editor_class_index(synthetic_loader, monkeypatch, tmp_path):  # noqa: F811
@@ -379,8 +470,10 @@ def test_a_qualified_backend_still_refuses_an_editor_class_index(synthetic_loade
     monkeypatch.setattr(loading, "hub_file", lambda model_id, filename: str(path))
     monkeypatch.setattr(loading, "unused_components", lambda model_id: (None, {}))
     backend = Qualified()
-    with pytest.raises(ValueError, match="Instruction editing is not available"):
+    # Refused for its id, on an open gate, never with a closed gate's words.
+    with pytest.raises(ValueError) as caught:
         backend.load()
+    assert str(caught.value) == INSTRUCTION_EDIT_EXACT_ID
     assert not backend.is_ready() and not {"overrides", "pretrained", "place"} & set(events)
 
 
@@ -446,3 +539,32 @@ def test_load_bound_source_refuses_an_aspect_outside_the_recipe(store):
     # A 2:1 source cannot even be bound; its proof alone carries no geometry.
     with pytest.raises(ValueError, match="exact source aspect"):
         instruction_edit_admission.bind_source({"source": source.id, "recipe": "kontext-v1"})
+
+
+def test_edit_only_checkpoint_refuses_plain_generate_at_the_backend(store, monkeypatch):
+    # Inside the envelope with the gate open, the backend itself still runs
+    # nothing but an edit on Kontext: the command line, Mass refine and Then
+    # refine reach this call without the submit check.
+    from backend.instruction_edit import INSTRUCTION_EDIT_TEXT_TO_IMAGE
+
+    select_editor(monkeypatch)
+    source = _source(store, size=(320, 320))
+    pipe = KontextStub()
+    backend = _loaded(pipe)
+    plain = GenerateRequest(prompt="a lighthouse", width=512, height=512, mu=None)
+    refine = plain.model_copy(update={"refine": source.id})
+    for request in (plain, refine):
+        for call, args in ((backend.applied, ()), (backend.generate, (1,))):
+            with pytest.raises(ValueError) as caught:
+                call(request, *args)
+            assert str(caught.value) == INSTRUCTION_EDIT_TEXT_TO_IMAGE
+    # An edit carrying anything else is refused by its own validation first.
+    bound = stored_edit(source)
+    with pytest.raises(ValueError, match="cannot include"):
+        backend.generate(_request(bound, width=512, height=512).model_copy(update={"lora": "style"}), seed=1)
+    assert pipe.kwargs == []
+    # And a closed gate says itself, never the pointer.
+    closed = _loaded(KontextStub(), cls=Closed)
+    with pytest.raises(ValueError) as caught:
+        closed.generate(plain, seed=1)
+    assert str(caught.value) == INSTRUCTION_EDIT_UNAVAILABLE

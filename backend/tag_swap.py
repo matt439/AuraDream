@@ -33,34 +33,75 @@ make another tag. What the user sees in the preview is what runs:
   A replacement already in the prompt (as an item no row matched) is not
   written twice; an empty replacement removes the matched items.
 - An XML or JSON prompt (NewBie's) is `structured` and never rewritten.
+- An Add row (`add`: "start" or "end", an empty find) places its tags as
+  comma items at the text's start or end, after the other rows have run:
+  with the separator the text already uses between its items, in the
+  spelling of the item it is placed beside (`_styled`, no weight carried).
+  An empty text takes them as its whole text, joined by `, `; a tag the text
+  already has is not written again ("already had X"). Where a tag goes in a
+  sentence is an edit, not a rule, so a text that reads as all prose is
+  `by_hand`. Only start or end: no checkpoint's documented order is applied.
 """
 from __future__ import annotations
 
 import re
 from dataclasses import dataclass, field
-from typing import Literal
+from typing import Any, Iterable, Literal
 
-from .prompt_text import _CJK, Item, _is_prose, _norm, comma_items, detect_style, rendered_spans
+from .prompt_text import _CJK, Item, _is_prose, _norm, _separator, comma_items, detect_style, rendered_spans
 
 # Per row: a guard rail, not a style rule. A row is meant to be a handful of
 # tags read as one thing ("red hair, long hair").
 MAX_FINDS = 20
 
 
+AddAt = Literal["start", "end"]
+
+
 @dataclass(frozen=True)
 class Row:
-    """One swap: the finds as typed, their comparable keys, the replacement."""
+    """One swap: the finds as typed, their comparable keys, the replacement.
+
+    An Add row (`add` set) has no finds: `added` are its tags as typed and
+    `adds` their keys; `replace` is the box they were typed in."""
 
     finds: tuple[str, ...]
     keys: tuple[str, ...]
     replace: str
+    add: AddAt | None = None
+    added: tuple[str, ...] = ()
+    adds: tuple[str, ...] = ()
 
     def describe(self) -> str:
+        if self.add:
+            return f"+ {', '.join(self.added)} ({self.add})"
         return f"{', '.join(self.finds)} → {self.replace or '(removed)'}"
 
 
-def parse_row(find: str, replace: str = "") -> Row:
-    """A row from the dialog's two boxes. Raises ValueError with the reason."""
+def _parse_add(find: str, replace: str, add: str) -> Row:
+    if add not in ("start", "end"):
+        raise ValueError("an Add row adds at the start or the end")
+    if any(_norm(_unwrap(item.text)[0]) for item in comma_items(find)):
+        raise ValueError("an Add row has an empty Find")
+    added: list[str] = []
+    adds: list[str] = []
+    for item in comma_items(replace):
+        key = _norm(_unwrap(item.text)[0])
+        if key and key not in adds:
+            added.append(item.text)
+            adds.append(key)
+    if not adds:
+        raise ValueError("an Add row needs a tag to add")
+    if len(adds) > MAX_FINDS:
+        raise ValueError(f"a row adds at most {MAX_FINDS} tags; this one has {len(adds)}")
+    return Row((), (), replace.strip(), "start" if add == "start" else "end", tuple(added), tuple(adds))
+
+
+def parse_row(find: str, replace: str = "", add: str | None = None) -> Row:
+    """A row from the dialog's two boxes and, for an Add row, where it adds.
+    Raises ValueError with the reason."""
+    if add is not None:
+        return _parse_add(find, replace, add)
     finds: list[str] = []
     keys: list[str] = []
     for item in comma_items(find):
@@ -75,16 +116,27 @@ def parse_row(find: str, replace: str = "") -> Row:
     return Row(tuple(finds), tuple(keys), replace.strip())
 
 
-def parse_rows(pairs: list[tuple[str, str]]) -> list[Row]:
-    """Every row, refusing a tag that two rows both find: matched at the same
-    time, the two replacements would fight over one item."""
-    rows = [parse_row(find, replace) for find, replace in pairs]
+def parse_rows(pairs: Iterable[tuple[Any, ...]]) -> list[Row]:
+    """Every row - `(find, replace)` or `(find, replace, add)` - refusing a
+    tag that two rows both find: matched at the same time, the two
+    replacements would fight over one item. So is a tag an Add row adds that
+    any row finds, so every row still reads the original text, and a tag two
+    Add rows add."""
+    rows = [parse_row(*pair) for pair in pairs]
     seen: dict[str, str] = {}
     for row in rows:
         for find, key in zip(row.finds, row.keys):
             if key in seen:
                 raise ValueError(f"{seen[key]} is in two rows' Find")
             seen[key] = find
+    added: set[str] = set()
+    for row in rows:
+        for tag, key in zip(row.added, row.adds):
+            if key in seen:
+                raise ValueError(f"{tag} is both added and in a row's Find")
+            if key in added:
+                raise ValueError(f"{tag} is in two Add rows")
+            added.add(key)
     return rows
 
 
@@ -167,7 +219,8 @@ class Outcome:
     - which the new text alone cannot show; an item whose tag the new text
     still has (an identity or a reorder row) is not taken out. `missing` names the
     finds a row needed and the text lacks; `by_hand`, the rows that would
-    have had to rewrite a phrase many-to-one.
+    have had to rewrite a phrase many-to-one; `prose`, the Add rows a text
+    that reads as all prose cannot take (status `by_hand` too).
     """
 
     text: str
@@ -177,6 +230,7 @@ class Outcome:
     missing: list[str] = field(default_factory=list)
     by_hand: list[str] = field(default_factory=list)
     notes: list[str] = field(default_factory=list)
+    prose: list[str] = field(default_factory=list)
 
 
 @dataclass
@@ -192,8 +246,22 @@ class _Read:
 def swap(text: str | None, rows: list[Row]) -> Outcome:
     """`rows` applied to `text` at once, strictly (see the module's notes)."""
     text = text or ""
-    if text.strip() and detect_style(text) in ("xml", "json"):
+    style = detect_style(text) if text.strip() else None
+    if style in ("xml", "json"):
         return Outcome(text, "structured")
+    adds = [row for row in rows if row.add]
+    outcome = _rewrite(text, [row for row in rows if not row.add])
+    if not adds or outcome.status == "missing":
+        return outcome
+    if style == "prose":
+        return Outcome(text, "by_hand", by_hand=outcome.by_hand, prose=[row.describe() for row in adds])
+    if outcome.status == "by_hand":
+        return outcome
+    return _place(text, outcome, adds)
+
+
+def _rewrite(text: str, rows: list[Row]) -> Outcome:
+    """`swap`'s find rows, on a text that is not XML or JSON."""
     reads = []
     for item in comma_items(text):
         prose = _is_prose(item.text)
@@ -331,6 +399,65 @@ def swap(text: str | None, rows: list[Row]) -> Outcome:
     return Outcome(new, "changed", spans=spans, removed=gone, notes=notes)
 
 
+def _place(original: str, outcome: Outcome, adds: list[Row]) -> Outcome:
+    """`adds` placed in the text the other rows made of `original`.
+
+    At the start, before the first item, or at the end, after the last: each
+    tag a comma item in the spelling of that item (underscores, escapes; not
+    its weight), with the separator the text has between its first or last
+    two items - with one item, its comma style (`_separator`). An empty text
+    becomes the added tags, joined by `, `.
+    """
+    text = outcome.text
+    items = comma_items(text)
+    have = {_norm(_unwrap(item.text)[0]) for item in items}
+    notes = list(outcome.notes)
+    placed: dict[str, list[str]] = {"start": [], "end": []}
+    for row in adds:
+        for tag, key in zip(row.added, row.adds):
+            if key in have:
+                notes.append(f"already had {tag}")
+                continue
+            have.add(key)
+            placed[row.add or "end"].append(tag)
+    spans = list(outcome.spans)
+    if not items:
+        if placed["start"] or placed["end"]:
+            text, spans = _joined(placed["start"] + placed["end"], ", ", 0)
+    else:
+        # The end first: past every span, it shifts none; the start shifts all.
+        last = items[-1]
+        if placed["end"]:
+            gap = text[items[-2].end: last.start] if len(items) > 1 else _separator(text)
+            core = _unwrap(last.text)[0]
+            piece, marks = _joined([_styled(tag, core, "", "") for tag in placed["end"]], gap, last.end + len(gap))
+            text = text[: last.end] + gap + piece + text[last.end:]
+            spans += marks
+        first = items[0]
+        if placed["start"]:
+            gap = text[first.end: items[1].start] if len(items) > 1 else _separator(text)
+            core = _unwrap(first.text)[0]
+            piece, marks = _joined([_styled(tag, core, "", "") for tag in placed["start"]], gap, first.start)
+            shift = len(piece) + len(gap)
+            text = text[: first.start] + piece + gap + text[first.start:]
+            spans = marks + [(a + shift, b + shift) for a, b in spans]
+    status: Status = "unchanged" if text == original else "changed"
+    removed = outcome.removed if status == "changed" else []
+    return Outcome(text, status, spans=sorted(spans), removed=removed, notes=notes)
+
+
+def _joined(tags: list[str], gap: str, at: int) -> tuple[str, list[tuple[int, int]]]:
+    """`tags` joined by `gap`, and each one's offsets, the first at `at`."""
+    spans = []
+    position = at
+    for i, tag in enumerate(tags):
+        if i:
+            position += len(gap)
+        spans.append((position, position + len(tag)))
+        position += len(tag)
+    return gap.join(tags), spans
+
+
 def _applied_phrases(phrases: list[list[tuple[int, int, int]]]) -> set[int]:
     """The rows at least one of whose phrase matches `_put_phrases` applies:
     per item, by position, an overlapping match losing to the earlier one
@@ -404,11 +531,13 @@ def swap_record(
     original = prompt if field_name == "prompt" else (negative_prompt or "")
     outcome = swap(original, rows)
     new_vars = dict(variables) if variables else None
-    if outcome.status == "changed" and new_vars:
+    # An Add row adds to the text, not to a value inside it.
+    finds = [row for row in rows if not row.add]
+    if outcome.status == "changed" and new_vars and finds:
         for name, value in new_vars.items():
             if name == "variant" or not isinstance(value, str) or not value or value not in original:
                 continue
-            rewritten = swap(value, rows)
+            rewritten = swap(value, finds)
             if rewritten.status == "changed":
                 new_vars[name] = rewritten.text
     if field_name == "prompt":

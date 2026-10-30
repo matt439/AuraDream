@@ -7,7 +7,8 @@ import tempfile
 import uuid
 from pathlib import Path
 
-from . import gallery_lock
+from . import gallery_lock, preset_portability
+from .schemas_preset_portability import PresetImportCommit
 from .schemas_presets import MAX_PRESETS, Preset, PresetFields, PresetUpdate
 
 MAX_FILE_BYTES = 8 * 1024 * 1024
@@ -122,6 +123,41 @@ def change(
                     items[at] = Preset(**fields, id=item_id, revision=items[at].revision + 1)
             _write(path, items)
             return items
+    except gallery_lock.GalleryBusy as exc:
+        raise PresetsError("Another AuraDream process is saving setups; try again.", 409) from exc
+    except OSError as exc:
+        raise PresetsError("The setups could not be saved. The previous saved list has been kept.") from exc
+
+
+def import_collection(database: Path, body: PresetImportCommit) -> list[Preset]:
+    """Re-prove a complete preview under the existing preset-path reservation.
+
+    Stores raw drafts only: no capture validation, model, queue or Hub access.
+    Either every chosen row is published by one atomic write or nothing is.
+    """
+    path = path_for(database)
+    try:
+        with gallery_lock.hold(path):
+            try:
+                body = PresetImportCommit.model_validate(body.model_dump())
+            except (ValueError, TypeError, RecursionError) as exc:
+                raise preset_portability.PortabilityError("The setup import request is invalid.") from exc
+            items = _read(path)
+            if preset_portability.collection_revision(items) != body.collection_revision:
+                raise PresetsError("The saved setups changed. Reload the list and preview again.", 409)
+            if preset_portability.payload_digest(body.payload) != body.payload_digest:
+                raise preset_portability.PortabilityError("The selected file changed. Preview it again.")
+            if len(body.decisions) != len(body.payload.items) or {
+                choice.index for choice in body.decisions
+            } != set(range(len(body.payload.items))):
+                raise preset_portability.PortabilityError("Preview a complete choice for every incoming setup.")
+            # Recomputes replacement revisions, final count and encoded size.
+            plan = preset_portability.plan_merge(items, body.payload, body.decisions, require_complete=True)
+            result = plan.items + [Preset(
+                **item.model_dump(), id=uuid.uuid4().hex, revision=1,
+            ) for item in plan.additions]
+            _write(path, result)
+            return result
     except gallery_lock.GalleryBusy as exc:
         raise PresetsError("Another AuraDream process is saving setups; try again.", 409) from exc
     except OSError as exc:

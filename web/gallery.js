@@ -438,12 +438,7 @@ function card(rec) {
   star.onclick = () => setFavorite(rec, !rec.favorite);
   syncStar(star, !!rec.favorite, rec.id);
 
-  const refine = tool('⤢', '', () => {
-    // Said here rather than in openRefine, so the card can say it where it
-    // was pressed as well.
-    if (!refineSupported) { refuseInCard(div, REFINE_NONE, 'No refine pass here'); return; }
-    openRefine(rec);
-  });
+  const refine = tool('⤢', '', () => refineFromCard(rec, div));
   refine.classList.add('refine-tool');
   syncRefineTool(refine);
   // Inpaint (inpaint.js): held with the reason where the checkpoint has none.
@@ -482,12 +477,20 @@ function card(rec) {
   return div;
 }
 
+// The card's ⤢, and the right-click menu's Refine… on a sheet cell: said
+// here rather than in openRefine, so the card can say it where it was
+// pressed as well.
+function refineFromCard(rec, div) {
+  if (!refineSupported) { refuseInCard(div, REFINE_NONE, 'No refine pass here'); return; }
+  openRefine(rec);
+}
+
 // The card's ⊞, and the right-click menu's Show run as sheet wherever the
 // image is (context-menu.js): the lightbox closes for the sheet, as the
 // facts' ⊞ Show this run closes it.
 function showRecordRun(rec) {
   if (!rec.run_id && !rec.job_id) {
-    showError('That image predates runs being grouped, so it belongs to no run.', true, { slot: els.galleryError });
+    showError(`${RUN_NONE}.`, true, { slot: els.galleryError });
     return;
   }
   if (els.lightbox.open) closeLightbox();

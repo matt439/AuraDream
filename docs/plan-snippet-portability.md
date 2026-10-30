@@ -1,9 +1,13 @@
 # Plan: export and merge personal snippets
 
-**Status, 2026-10-28: stages 1-3 built and CPU/browser-checked; final screenshot reinspection blocked.** `UI#20` came
+**Status, 2026-10-29: stages 1-3 built, CPU/browser-checked and visually inspected; complete.** `UI#20` came
 from the [TODO audit](review-2026-10-28-todo.md). This extends the completed
 [personal snippet feature](plan-prompt-snippets.md); its implementation and
 acceptance are CPU/browser work, without a model or GPU run.
+On 2026-10-30, `UI#35` fixed the import dialog's close-watcher defects
+(forced close during a commit, Add-as-copy rows, refreshing Preview) and
+the Snippets dialog's forced-close write hold. The smoke now has 245 steps;
+see [the close-watcher review](review-2026-10-29-close-watcher.md#qualification-2026-10-30).
 
 ## Purpose and current boundary
 
@@ -251,3 +255,21 @@ use synthetic File/DataTransfer selection and intercept the real export Blob
 before an OS Downloads write; native OS chooser/download behavior and real
 user-data recovery were not tested. No real gallery, snippet sidecar,
 credential, model, GPU operation or release admission was involved.
+
+## Final screenshot inspection, 2026-10-29
+
+A fresh run of `smoke-snippet-portability` passes (12 s), and its three new
+screenshots were inspected:
+
+- `snippet-portability-wide.png` (1400x900): the hostile
+  `<img src=x onerror=…>` file name and item name render as text. The row
+  list scrolls inside the dialog with its own scrollbar. Action and
+  Copy-name/Replace selectors use the field tokens, and the Preview/Import
+  footer stays in view.
+- `snippet-portability-narrow.png` (400x650): fields stack one per line, and
+  the footer and its note stay visible without page scroll.
+- `snippet-portability-short.png` (1400x600): the list shrinks to keep the
+  footer in view.
+
+No clipping or overlap is observed. Each item's preserved leading space
+(" exact") is the snippet's own text, shown verbatim. `UI#20` is closed.

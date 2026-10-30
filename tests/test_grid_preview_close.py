@@ -55,6 +55,7 @@ function fixture() {
       width: 256, height: 256, steps: 8, guidance_scale: +els.cfg.value, seed: 42 }),
     thenRefinePayload: () => null, modelChangeHold: () => sandbox.held,
     syncAnalysisStale: () => { calls.analysis++; }, revealGridRun: () => { calls.reveals++; },
+    hideNegativeSuggestions: () => {},
     muStatic: () => null, humanBytes: value => String(value),
     api: (url, options) => { const request = { ...deferred(), url, options }; calls.requests.push(request); return request.promise; },
   });

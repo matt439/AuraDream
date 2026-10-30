@@ -38,6 +38,8 @@ imported, and `config` reads it to size its guard rails.
 """
 from __future__ import annotations
 
+import math
+
 SIZES: dict[str, dict[float, tuple[int, int]]] = {
     "1:1": {1: (1024, 1024), 1.5: (1248, 1248), 2: (1440, 1440), 4: (2048, 2048)},
     "7:9": {1: (896, 1152), 1.5: (1120, 1440), 2: (1264, 1632), 4: (1808, 2320)},
@@ -54,6 +56,38 @@ SIZES: dict[str, dict[float, tuple[int, int]]] = {
     "12:5": {1: (1536, 640), 1.5: (1920, 800), 2: (2224, 928), 4: (3168, 1328)},
 }
 TIERS: tuple[float, ...] = (1, 1.5, 2, 4)
+
+# How far, as a natural-log ratio of width to height, a size may sit from an
+# aspect's own ratio and still be that aspect at another tier (Re-render at a
+# tier, `nearest_preset`). The table's own entries sit at most 0.96% from
+# theirs (2:3 and 3:2 at 4 MP); this is twice that, rounded up, and a
+# hand-typed 1000x700 (4.9% off 3:2, 6.9% off 4:3) is still none of them.
+ASPECT_TOLERANCE = 0.02
+
+
+def aspect_ratio(aspect: str) -> float:
+    """The ratio an aspect's name says - 16/9 for "16:9" - not any entry's."""
+    wide, high = aspect.split(":")
+    return int(wide) / int(high)
+
+
+def nearest_preset(width: int, height: int, tier: float) -> tuple[int, int] | None:
+    """The `tier` entry of the aspect whose ratio `width`x`height` is nearest,
+    or None where none is within `ASPECT_TOLERANCE` - a size is never guessed.
+
+    Measured against each aspect's own ratio rather than its entries at that
+    tier: rounded to the 16 grid, 9:16 at 1.5 MP (928x1664) sits farther from
+    9:16 at 1 MP (768x1360) than 4:7 at 1.5 MP does, so entry to entry would
+    send a 1 MP 9:16 to 4:7. The names are exact, and each entry is within
+    1% of its own.
+    """
+    if tier not in TIERS:
+        raise ValueError(f"{tier} MP is not a tier; the tiers are {', '.join(f'{t:g}' for t in TIERS)} MP")
+    ratio = math.log(width / height)
+    aspect = min(SIZES, key=lambda name: abs(math.log(aspect_ratio(name)) - ratio))
+    if abs(math.log(aspect_ratio(aspect)) - ratio) > ASPECT_TOLERANCE:
+        return None
+    return SIZES[aspect][tier]
 
 
 def every_size() -> list[tuple[int, int]]:

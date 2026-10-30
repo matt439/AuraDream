@@ -3,7 +3,7 @@ from __future__ import annotations
 
 import unicodedata
 
-from pydantic import BaseModel, ConfigDict, Field, field_validator
+from pydantic import BaseModel, ConfigDict, Field, ValidationInfo, field_validator
 
 from . import search
 
@@ -48,7 +48,13 @@ class SavedSearchFields(BaseModel):
 
     @field_validator("query")
     @classmethod
-    def valid_query(cls, value: str) -> str:
+    def valid_query(cls, value: str, info: ValidationInfo) -> str:
+        # A query read back from the sidecar keeps the length and Unicode
+        # checks but not the grammar's: one saved before a term gained a
+        # meaning (`-seed:abc` was free text until exclusions) must not make
+        # every saved search unreadable. Its Apply answers the gallery's 422.
+        if isinstance(info.context, dict) and info.context.get("stored"):
+            return value
         try:
             search.split_search(value)
         except (ValueError, OverflowError):

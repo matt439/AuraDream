@@ -12,7 +12,9 @@
 // nothing of its own. Queue is held, with its reason, until the answer is the
 // answer to what is typed, and the queueing request pins the ids the check
 // resolved (`expected`), so a selection that changed in between is refused
-// rather than queued unseen.
+// rather than queued unseen. A row with an empty Find is an Add row: its
+// tags go in at the start or the end, as its toggle says, and the server
+// places them in each prompt's own style (tag_swap.py, `_place`).
 
 const SWAP_CHECK_DELAY = 400;
 // The request's own limits (schemas.SwapTagsRequest, TagSwap): held on the
@@ -65,8 +67,16 @@ let swapWaiting = false;
 // The rows as the server's summary words them ("red hair, long hair → silver
 // hair"), for the queue row until the server's own name lands.
 function swapSummary(payload) {
-  const rows = payload.swaps.map((row) => `${row.find} → ${row.replace || '(removed)'}`).join('; ');
+  const rows = payload.swaps.map((row) => (row.add
+    ? `+ ${swapTags(row.replace).join(', ')} (${row.add})`
+    : `${row.find} → ${row.replace || '(removed)'}`)).join('; ');
   return payload.field === 'negative_prompt' ? `negative: ${rows}` : rows;
+}
+
+// An Add row's tags as `tag_swap.Row.describe` lists them: comma items,
+// a tag typed twice once (by its text, near enough for a placeholder name).
+function swapTags(text) {
+  return [...new Set(text.split(',').map((tag) => tag.trim()).filter(Boolean))];
 }
 
 // What Swap tags would act on now (galleryActionTarget).
@@ -139,14 +149,17 @@ function swapFieldInput(value) {
 }
 
 // One row: Find, Replace with, and × - which on the last row left empties
-// it rather than leaving no row to type in.
+// it rather than leaving no row to type in. Between the boxes, the arrow,
+// or with Find empty the Add row's start/end toggle in its place: one
+// fixed-width slot, so neither box moves as Find empties or fills.
 function swapRow(find = '', replace = '') {
   const row = document.createElement('div');
   row.className = 'swap-row';
+  row.dataset.add = 'end';
   const findBox = document.createElement('input');
   findBox.type = 'text';
   findBox.className = 'swap-find';
-  findBox.placeholder = 'Find: red hair, long hair';
+  findBox.placeholder = 'Find: red hair (empty adds)';
   findBox.value = find;
   findBox.spellcheck = false;
   findBox.autocomplete = 'off';
@@ -155,6 +168,16 @@ function swapRow(find = '', replace = '') {
   arrow.className = 'swap-arrow';
   arrow.setAttribute('aria-hidden', 'true');
   arrow.textContent = '→';
+  const at = document.createElement('button');
+  at.type = 'button';
+  at.className = 'ghost tiny swap-at';
+  at.onclick = () => {
+    row.dataset.add = row.dataset.add === 'end' ? 'start' : 'end';
+    syncSwapRowMode(row);
+    swapEdited(0);
+  };
+  const mid = Object.assign(document.createElement('span'), { className: 'swap-mid' });
+  mid.append(arrow, at);
   const replaceBox = document.createElement('input');
   replaceBox.type = 'text';
   replaceBox.className = 'swap-replace';
@@ -168,8 +191,23 @@ function swapRow(find = '', replace = '') {
   remove.className = 'ghost tiny swap-remove';
   remove.textContent = '×';
   remove.onclick = () => removeSwapRow(row);
-  row.append(findBox, arrow, replaceBox, remove);
+  row.append(findBox, mid, replaceBox, remove);
+  syncSwapRowMode(row);
   return row;
+}
+
+// A row's Find empty or not: the arrow or the Add toggle, and what Replace
+// with is for.
+function syncSwapRowMode(row) {
+  const adding = !row.querySelector('.swap-find').value.trim();
+  const at = row.querySelector('.swap-at');
+  row.querySelector('.swap-arrow').hidden = adding;
+  at.hidden = !adding;
+  const start = row.dataset.add === 'start';
+  const words = start ? 'at start' : 'at end';
+  if (at.textContent !== words) at.textContent = words;
+  at.title = `Adds its tags at the ${start ? 'start' : 'end'} of each prompt; press to add at the ${start ? 'end' : 'start'}`;
+  row.querySelector('.swap-replace').placeholder = adding ? 'Tags to add: night, rain' : 'Replace with (empty removes)';
 }
 
 // The rows that count: a removed row keeps its slot, empty and hidden
@@ -190,6 +228,7 @@ function syncSwapRowNames() {
     const n = i + 1;
     row.querySelector('.swap-find').setAttribute('aria-label', `Find, row ${n}: comma-separated tags`);
     row.querySelector('.swap-replace').setAttribute('aria-label', `Replace with, row ${n}`);
+    row.querySelector('.swap-at').setAttribute('aria-label', `Where row ${n} adds its tags`);
     const remove = row.querySelector('.swap-remove');
     const last = rows.length === 1;
     remove.setAttribute('aria-label', last ? 'Empty this row' : `Remove row ${n}`);
@@ -221,6 +260,8 @@ function removeSwapRow(row) {
   if (!rows.includes(row)) return;
   if (rows.length === 1) {
     row.querySelectorAll('input').forEach((box) => { box.value = ''; });
+    row.dataset.add = 'end';
+    syncSwapRowMode(row);
     row.querySelector('.swap-find').focus();
   } else {
     const at = rows.indexOf(row);
@@ -245,8 +286,13 @@ function swapEdited(delay = SWAP_CHECK_DELAY) {
 
 function swapPayload() {
   const swaps = swapLiveRows()
-    .map((row) => ({ find: row.querySelector('.swap-find').value.trim(), replace: row.querySelector('.swap-replace').value.trim() }))
-    .filter((row) => row.find);
+    .map((row) => {
+      const find = row.querySelector('.swap-find').value.trim();
+      const replace = row.querySelector('.swap-replace').value.trim();
+      if (find) return { find, replace };
+      return replace ? { find: '', replace, add: row.dataset.add === 'start' ? 'start' : 'end' } : null;
+    })
+    .filter(Boolean);
   const field = els.swapDialog.querySelector('input[name="swap-field"]:checked')?.value ?? 'prompt';
   return { ...swapScope, swaps, field };
 }
@@ -269,7 +315,7 @@ async function runSwapCheck() {
     swapAnswer = null;
     swapAnswerKey = key;
     swapProblem = '';
-    swapSay('Type the tags to find, comma-separated, and what to put in their place.');
+    swapSay('Type the tags to find, comma-separated, and what to put in their place - or leave Find empty to add tags.');
     els.swapResults.replaceChildren();
     syncSwapQueue();
     return;
@@ -465,7 +511,11 @@ function setupSwap() {
   els.swapCancel.onclick = () => els.swapDialog.close();
   els.swapQueue.onclick = () => { void queueSwap(); };
   els.swapDialog.addEventListener('click', swapBackdrop);
-  els.swapRows.addEventListener('input', () => swapEdited());
+  els.swapRows.addEventListener('input', (e) => {
+    const row = e.target.closest('.swap-row');
+    if (row && e.target.matches('.swap-find')) syncSwapRowMode(row);
+    swapEdited();
+  });
   // Out of the rows, the slots removed rows kept can go: nothing in there is
   // under the pointer, and the rows' fixed height moves nothing outside.
   els.swapRows.addEventListener('pointerleave', collapseSwapRows);

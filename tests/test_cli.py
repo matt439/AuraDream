@@ -1815,3 +1815,21 @@ def test_gan_via_server_carries_the_choice_and_refuses_before_mask_upload(via_se
     assert generate.main([*argv, "--mask", str(mask)]) == 2
     assert "ordinary Refine" in capsys.readouterr().err
     assert not any(call[1].startswith("/api/masks") or call[1] == "/api/generate" for call in via_server.calls[calls:])
+
+
+@pytest.mark.parametrize("model_id,words", [
+    ("black-forest-labs/FLUX.1-Kontext-dev", "does not run instruction edits"),
+    ("BLACK-FOREST-LABS/flux.1-kontext-dev", "does not run instruction edits"),
+    ("Qwen/Qwen-Image-Edit", "it has no recipe"),
+])
+def test_cli_refuses_kontext_before_backend_import(monkeypatch, capsys, model_id, words):
+    # The command line renders from text: an edit-only checkpoint is refused
+    # before the project, the backend or a gallery file is touched.
+    def forbidden(*_args, **_kwargs):
+        pytest.fail("an edit-only checkpoint reached the project or the backend")
+
+    monkeypatch.setenv("AURADREAM_MODEL_ID", os.environ.get("AURADREAM_MODEL_ID", ""))
+    monkeypatch.setattr(generate, "_project", forbidden)
+    monkeypatch.setattr(backends, "get_backend", forbidden)
+    assert generate.main(["a fox", "--model", model_id, *SIZE]) == 2
+    assert words in capsys.readouterr().err

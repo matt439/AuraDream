@@ -153,6 +153,21 @@
     "expect": "__sp('dialog').open && snippetImportBusy==='commit'"
   },
   {
+    "log": "\"A repeated Escape may close the import dialog anyway (Chrome's close-watcher rule); the pending commit keeps its ticket and the parent's write hold until its reply.\""
+  },
+  {
+    "key": "Escape"
+  },
+  {
+    "log": "__sp('dialog').open ? 'second Escape held; closing directly' : 'second Escape closed the dialog'"
+  },
+  {
+    "eval": "if(__sp('dialog').open)__sp('dialog').close();"
+  },
+  {
+    "expect": "!__sp('dialog').open && snippetImportBusy==='commit' && snippetsPending==='write' && els.snippetsDialog.open && els.snippetsSave.getAttribute('aria-disabled')==='true' && snippetsItems.length===3"
+  },
+  {
     "eval": "__spReleaseCommit();"
   },
   {
@@ -562,6 +577,185 @@
   },
   {
     "expect": "__until(()=>!els.snippetsDialog.open && document.activeElement===els.examplesBtn)"
+  },
+  {
+    "log": "'A forced close during a commit whose reply is lost: the uncertainty is reported in Snippets, the parent hold clears and nothing is resent.'"
+  },
+  {
+    "click": "#btn-examples"
+  },
+  {
+    "click": "#snippets-menu-item"
+  },
+  {
+    "expect": "__until(()=>els.snippetsDialog.open && snippetsReady && !snippetsPending && snippetsItems.length===11)",
+    "fatal": true
+  },
+  {
+    "eval": "__spFile(JSON.stringify(__spDocument([__spFields('Forced close lost','committed once while closed')])));"
+  },
+  {
+    "expect": "__until(()=>!snippetImportBusy && snippetImportShown?.can_import)",
+    "fatal": true
+  },
+  {
+    "eval": "window.__spReleaseLost=null;api=async(path,options)=>{if(path==='/api/snippets/import'&&options?.method==='POST'){__spImportPosts++;await new Promise(resolve=>{window.__spReleaseLost=resolve;});await __spBaseApi(path,options);throw new TypeError('Synthetic lost commit reply');}return __spTrackedApi(path,options);};window.__spForcedPosts=__spImportPosts;"
+  },
+  {
+    "click": "#snippet-import-run"
+  },
+  {
+    "expect": "__until(()=>snippetImportBusy==='commit' && typeof __spReleaseLost==='function')",
+    "fatal": true
+  },
+  {
+    "key": "Escape"
+  },
+  {
+    "key": "Escape"
+  },
+  {
+    "eval": "if(__sp('dialog').open)__sp('dialog').close();"
+  },
+  {
+    "expect": "!__sp('dialog').open && snippetImportBusy==='commit' && snippetsPending==='write' && els.snippetsSave.getAttribute('aria-disabled')==='true'"
+  },
+  {
+    "eval": "__spReleaseLost();"
+  },
+  {
+    "expect": "__until(()=>!snippetsPending && !snippetImportBusy && els.snippetsStatus.textContent.includes('uncertain') && els.snippetsStatus.classList.contains('error'))"
+  },
+  {
+    "eval": "api=__spTrackedApi;"
+  },
+  {
+    "expect": "__spImportPosts===__spForcedPosts+1 && !__sp('dialog').open && els.snippetsDialog.open && els.snippetsReload.getAttribute('aria-disabled')==='false'"
+  },
+  {
+    "expect": "__until(async()=>{const saved=await __spRead();return saved.items.filter(item=>item.name==='Forced close lost').length===1&&saved.items.length===12;})"
+  },
+  {
+    "click": "#snippets-reload"
+  },
+  {
+    "expect": "__until(()=>snippetsReady && !snippetsPending && snippetsItems.length===12)"
+  },
+  {
+    "log": "'A previewed Add as copy row keeps the file item own saved match: Replace stays offered, Add stays held and no 422 preview is sent.'"
+  },
+  {
+    "eval": "window.__spNegativeLocal=snippetsItems.find(item=>item.name==='Negative local');__spFile(JSON.stringify(__spDocument([__spFields('Negative local','different incoming negative','negative')])));"
+  },
+  {
+    "expect": "__until(()=>!snippetImportBusy && snippetImportShown?.rows[0]?.matches.length===1 && snippetImportShown.rows[0].action==='skip')",
+    "fatal": true
+  },
+  {
+    "eval": "__spChange(0,'action','copy');__spChange(0,'copy-name','Negative local 2');"
+  },
+  {
+    "click": "#snippet-import-preview"
+  },
+  {
+    "expect": "__until(()=>!snippetImportBusy && snippetImportShown?.rows[0]?.action==='copy' && snippetImportShown.rows[0].snippet.name==='Negative local 2' && snippetImportShown.can_import)",
+    "fatal": true
+  },
+  {
+    "expect": "__spRow(0).querySelector('h3').textContent==='#1 Negative local (Negative)' && __spRow(0).querySelectorAll('[data-role=local-text]').length===1 && !__spRow(0).querySelector('[data-role=action] option[value=replace]').disabled && __spRow(0).querySelector('[data-role=action] option[value=add]').disabled && __spRow(0).querySelectorAll('[data-role=replacement] option').length===2 && __spRow(0).querySelector('[data-role=action]').value==='copy'"
+  },
+  {
+    "eval": "window.__spCopyPreviews=__spPreviewPosts;__spChange(0,'action','add');"
+  },
+  {
+    "expect": "__sp('preview').getAttribute('aria-disabled')==='true' && __sp('run').getAttribute('aria-disabled')==='true' && __sp('preview').title.includes('saved name match')"
+  },
+  {
+    "click": "#snippet-import-preview"
+  },
+  {
+    "expect": "__spPreviewPosts===__spCopyPreviews && __sp('status').textContent.includes('saved name match')"
+  },
+  {
+    "eval": "__spChange(0,'action','replace');__spChange(0,'replacement',__spNegativeLocal.id);"
+  },
+  {
+    "click": "#snippet-import-preview"
+  },
+  {
+    "expect": "__until(()=>!snippetImportBusy && snippetImportShown?.can_import && snippetImportShown.replace_count===1 && __spPreviewPosts===__spCopyPreviews+1)"
+  },
+  {
+    "click": "#snippet-import-close"
+  },
+  {
+    "expect": "__until(()=>!__sp('dialog').open)"
+  },
+  {
+    "log": "'A refreshing Preview after a 409 holds the redrawn rows, and its late reply never overwrites a choice changed meanwhile.'"
+  },
+  {
+    "eval": "window.__spRefreshRaw=JSON.stringify(__spDocument([__spFields('Refresh candidate','incoming after a refreshed preview')]));__spFile(__spRefreshRaw);"
+  },
+  {
+    "expect": "__until(()=>!snippetImportBusy && snippetImportShown?.can_import && snippetImportChoices[0]?.action==='add')",
+    "fatal": true
+  },
+  {
+    "eval": "(async()=>{await __spPost('/api/snippets',__spFields('Another tab again','unrelated external edit'));return true;})()"
+  },
+  {
+    "click": "#snippet-import-run"
+  },
+  {
+    "expect": "__until(()=>!snippetImportBusy && !snippetImportShown && snippetImportNeedsReload && __sp('status').textContent.includes('refused'))",
+    "fatal": true
+  },
+  {
+    "eval": "window.__spHeldRefresh=false;window.__spReleaseRefresh=null;api=async(path,options)=>{if(path==='/api/snippets/import/preview'&&!String(options?.body).endsWith('\"decisions\":[]}')&&!__spHeldRefresh){window.__spHeldRefresh=true;await new Promise(resolve=>{window.__spReleaseRefresh=resolve;});}return __spTrackedApi(path,options);};"
+  },
+  {
+    "click": "#snippet-import-preview"
+  },
+  {
+    "expect": "__until(()=>typeof __spReleaseRefresh==='function' && snippetImportBusy==='preview' && __spRow(0)?.querySelector('[data-role=action]'))",
+    "fatal": true
+  },
+  {
+    "expect": "[...__sp('rows').querySelectorAll('input, select')].every(field=>field.disabled)"
+  },
+  {
+    "eval": "__spChange(0,'action','skip');__spReleaseRefresh();api=__spTrackedApi;"
+  },
+  {
+    "expect": "__until(()=>!snippetImportBusy && __sp('status').textContent==='Choices changed. Preview again before importing.')"
+  },
+  {
+    "expect": "snippetImportShown===null && snippetImportChoices[0].action==='skip' && __spRow(0).querySelector('[data-role=action]').value==='skip' && __sp('run').getAttribute('aria-disabled')==='true' && [...__sp('rows').querySelectorAll('input, select')].every(field=>!field.disabled)"
+  },
+  {
+    "click": "#snippet-import-preview"
+  },
+  {
+    "expect": "__until(()=>!snippetImportBusy && snippetImportShown?.skip_count===1 && !snippetImportShown.can_import)"
+  },
+  {
+    "click": "#snippet-import-close"
+  },
+  {
+    "expect": "__until(()=>!__sp('dialog').open && document.activeElement===document.getElementById('snippets-import'))"
+  },
+  {
+    "expect": "__until(async()=>{const saved=await __spRead();return saved.items.length===13&&!saved.items.some(item=>['Negative local 2','Refresh candidate'].includes(item.name));})"
+  },
+  {
+    "click": "#snippets-close"
+  },
+  {
+    "expect": "__until(()=>!els.snippetsDialog.open)"
+  },
+  {
+    "expect": "__spGenerationCalls.length===0 && els.prompt.value===__spPrompt && els.negative.value===__spNegative && __spErrors.length===0"
   },
   {
     "eval": "api=__spBaseApi;"

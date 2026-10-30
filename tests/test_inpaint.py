@@ -109,6 +109,7 @@ def test_every_catalogue_checkpoint_is_one_of_the_cases():
     # So the two tests above speak for the whole catalogue: each entry (and
     # each Nunchaku repo) resolves to a profile some case resolves to, or is
     # one of this repo's own pipelines, beside which diffusers has nothing.
+    from backend.instruction_edit import is_edit_only
     from backend.model_defaults import _OWN_PIPELINES
 
     profiles = {id(_profile_for(model_id)) for model_id, _ in CASES}
@@ -118,6 +119,13 @@ def test_every_catalogue_checkpoint_is_one_of_the_cases():
     for repo in repos:
         if repo.lower() in _OWN_PIPELINES:
             assert not defaults_for(repo)["inpaint_supported"], repo
+            continue
+        # An editor is no deferred inpaint family (FluxKontextInpaintPipeline
+        # exists): it never paints a mask, and the page never says "deferred".
+        if is_edit_only(repo):
+            defaults = defaults_for(repo)
+            assert not defaults["inpaint_supported"] and not defaults["inpaint_deferred"], repo
+            assert defaults["inpaint_settled"] and not defaults["refine_supported"], repo
             continue
         assert id(_profile_for(repo)) in profiles, repo
     # The deferred list names real pipeline classes with real inpaint classes.

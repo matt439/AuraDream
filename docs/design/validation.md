@@ -129,6 +129,16 @@ command, current-app/concept launch and reset instructions,
 separate [agent expert baseline](trials/expert-baseline-2026-10-18.md).
 Preparation and agent checks do not complete `DEV#1` or supply human outcomes.
 
+**Kit refresh, 2026-10-29 (`DEV#21`, OPEN).** The 2026-10-18 kit predates
+keyboard routes and compact setup (`UI#17`-`UI#19`), Then refine, saved
+setups (`GEN#27`), saved searches (`GAL#7`) and snippet/setup portability
+(`UI#20`, `UI#25`). Its driver also types into the size fields that compact
+setup moved into a closed disclosure. The stale parts, the version 2 fixture,
+the optional second task set and the completion checks are in the kit's
+[refresh section](trials/README.md#refresh-for-the-current-app-dev21). Refresh
+the kit before Matt's session so `DEV#1` runs against the current app; the
+refresh itself is agent work on the fake and supplies no human outcome.
+
 ## One-user formative protocol
 
 Use Matt's own task language and his actual desktop setup. The purpose is to

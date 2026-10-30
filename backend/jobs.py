@@ -19,7 +19,7 @@ from dataclasses import asdict, dataclass, field, replace
 from types import MethodType
 from typing import Any
 
-from . import gallery_lock, storage
+from . import gallery_lock, gallery_reports, storage
 from .backends import Cancelled, GenerationBackend
 from .backends.base import ExecutionDiagnosticsReader
 from .backends.regional_compile import RegionalDiagnosticOwner, RegionalDiagnostics
@@ -31,7 +31,7 @@ from .latent_preview import data_url
 from .more_seeds_intents import IntentLedger
 from .schemas import GenerateRequest, ThenRefine
 from .seeds import random_seed, wrap_seed
-from .then_refine import pass_run_id, stand_in
+from .then_refine import execution_units, pass_run_id, stand_in
 
 log = logging.getLogger(__name__)
 
@@ -218,6 +218,12 @@ class Job:
     # session - and the field tells the UI which kind of stop it was.
     deadline: float | None = None
     stopped_by: str | None = None
+    # Seconds the job's cells would take by the gallery's matching history,
+    # priced once at submission (`JobManager._price`), or None where any cell
+    # has none. Presentation only: never repriced, never a reproduction field
+    # - not in `CellKey`, `run_id`, `applied()`, a row, a PNG or a bundle -
+    # and not retained, so a restarted server has none.
+    estimate_seconds: float | None = None
     # Whether `storage.hold_masks` holds masks for this job, which `_finish`
     # then releases.
     holds_masks: bool = False
@@ -424,6 +430,9 @@ class Job:
             "last_progress_at": self.last_progress_at,
             "deadline": self.deadline,
             "stopped_by": self.stopped_by,
+            # The stored price, read and never computed here: the snapshot
+            # runs on the loop for every listing and status frame.
+            "estimate_seconds": self.estimate_seconds,
         }
         if images:
             frame["images"] = [image for image in self.images if image["id"] not in self.deleted]
@@ -596,12 +605,13 @@ class JobManager:
         rather than rendering the same seeds again. Event-loop thread; a
         job's cells are fixed when it is made."""
         planned: dict[tuple[int, int], set[CellKey]] = {}
-        qualified = self.backend.instruction_edit_qualified() is True
+        editable = self.backend.instruction_edit_refusal(current_settings(settings)) is None
         for job in self.active():
             for cell in [*job.cells, *list(job.pending_passes)]:
-                if cell.request.edit is not None and not qualified:
-                    # Its backend has closed the gate since: the cell fails
-                    # as it begins (`_recheck_edit`) and writes nothing.
+                if cell.request.edit is not None and not editable:
+                    # Its backend has closed the gate since, or the selection
+                    # left the measured envelope: the cell fails as it begins
+                    # (`_recheck_edit`) and writes nothing.
                     continue
                 ran = Cell(request=self.backend.applied(cell.request), seed=cell.seed)
                 planned.setdefault((cell.request.width, cell.request.height), set()).update(cell_keys(ran))
@@ -781,6 +791,22 @@ class JobManager:
         self.stop_all("shutdown")
         await asyncio.to_thread(self._pool.shutdown, True)
 
+    @staticmethod
+    async def _price(
+        job_id: str, cells: list[Cell], then_refine: ThenRefine | None, model_id: str,
+    ) -> float | None:
+        """The job's time from matching history, off the loop and without a
+        PNG stat: the cells as the worker runs them, each followed by Then
+        refine's stand-in passes, as the grid preview prices them. Never a
+        reason to refuse the job - a busy gallery or any error is None."""
+        try:
+            return await asyncio.to_thread(
+                gallery_reports.job_seconds, execution_units(cells, then_refine), model_id,
+            )
+        except Exception as exc:
+            log.warning("job %s: no time estimate (%s)", job_id, exc)
+            return None
+
     async def submit(self, request: GenerateRequest, then_refine: ThenRefine | None = None) -> Job:
         """An ordinary request: `runs` passes of one setting, seed stepped.
 
@@ -836,14 +862,18 @@ class JobManager:
         # deliberately cannot go through whole-request validation again.
         for cell in cells:
             if cell.request.edit is not None:
-                from .instruction_edit import require_execution_available
+                from .instruction_edit import bound_geometry_refusal, require_execution_available
 
                 # Only a bound edit (proved by `bind_request`) queues, and
-                # only behind the backend instance's own gate.
-                require_execution_available(
-                    cell.request.validate_edit(require_bound=True),
-                    qualified=self.backend.instruction_edit_qualified(),
+                # only behind the backend instance's own gate, inside the
+                # measured envelope: its loader and its source's aspect.
+                bound = cell.request.validate_edit(require_bound=True)
+                require_execution_available(bound, qualified=self.backend.instruction_edit_qualified())
+                reason = self.backend.instruction_edit_refusal(current_settings(settings)) or (
+                    bound_geometry_refusal(bound)
                 )
+                if reason is not None:
+                    raise ValueError(reason)
             require_default_execution(cell.request.execution)
             if "step_cache" in cell.request.model_fields_set:
                 raise ValueError("Resolve composer step cache before submitting expanded cells.")
@@ -891,6 +921,7 @@ class JobManager:
         )
         if then_refine is not None:
             job.pass_run_id = pass_run_id(resolved_run_id, then_refine)
+        job.estimate_seconds = await self._price(job.id, cells, then_refine, selected.model_id)
         # Held where every process's mask sweep looks, before the job is
         # queued: a CLI `clear --bin` an hour on must not take the mask of a
         # cell still waiting its turn (`storage.hold_masks`).
@@ -1057,15 +1088,13 @@ class JobManager:
     async def _run(self, job: Job) -> None:
         loop = asyncio.get_running_loop()
         # Retained/internal jobs cannot bypass the public unavailable boundary:
-        # an edit job runs only while the backend still answers qualified.
-        if (
-            any(cell.request.edit is not None for cell in job.cells)
-            and self.backend.instruction_edit_qualified() is not True
-        ):
-            from .instruction_edit import INSTRUCTION_EDIT_UNAVAILABLE
-
-            self._finish(loop, job, "error", INSTRUCTION_EDIT_UNAVAILABLE)
-            return
+        # an edit job runs only while the backend still answers qualified and
+        # the selection is still inside the measured envelope.
+        if any(cell.request.edit is not None for cell in job.cells):
+            reason = self.backend.instruction_edit_refusal(current_settings(settings))
+            if reason is not None:
+                self._finish(loop, job, "error", reason)
+                return
         # Wait for the shared load rather than letting the worker thread start a
         # second one. Failing here keeps the error to a single report.
         if self._ensure_loaded is not None:
@@ -1170,24 +1199,31 @@ class JobManager:
     def _recheck_edit(self, request: GenerateRequest) -> None:
         """An edit cell's checks as it begins, before the backend is called.
 
-        The gate is the backend's answer now, not at submit; the source is
-        proved again against the identity the cell carries. Raises a
-        ValueError in words that fails this cell alone.
+        The gate and the measured envelope are the backend's answer and the
+        selection now, not at submit; the source is proved again against the
+        identity the cell carries, and its aspect must be a measured one.
+        Raises a ValueError in words that fails this cell alone.
         """
         from . import instruction_edit_admission
-        from .instruction_edit import StoredInstructionEdit, require_execution_available
+        from .instruction_edit import StoredInstructionEdit, geometry_refusal, require_execution_available
 
         spec = request.validate_edit(require_bound=True)
         if not isinstance(spec, StoredInstructionEdit):
             raise ValueError("Bind and verify the instruction-edit source before running it.")
         require_execution_available(spec, qualified=self.backend.instruction_edit_qualified())
+        reason = self.backend.instruction_edit_refusal(current_settings(settings))
+        if reason is not None:
+            raise ValueError(reason)
         try:
-            instruction_edit_admission.bind_source(spec)
+            _, resolved = instruction_edit_admission.bind_source(spec)
         except ValueError as exc:
             raise ValueError(
                 f"the edit's source #{spec.source} is missing, in the recycle bin or "
                 "changed since it was queued; submit the edit again"
             ) from exc
+        reason = geometry_refusal(resolved)
+        if reason is not None:
+            raise ValueError(reason)
 
     def _generate(self, job: Job, loop: asyncio.AbstractEventLoop) -> bool:
         """Run the job's cells back to back, publishing images as they land.

@@ -50,7 +50,7 @@ async def swap_plan(
                 status_code=422,
                 detail=f"{info['model_id']} takes no negative prompt; swap tags in the prompt",
             )
-    rows = tag_swap.parse_rows([(row.find, row.replace) for row in request.swaps])
+    rows = tag_swap.parse_rows([(row.find, row.replace, row.add) for row in request.swaps])
     records, gone, binned = await submission.resolve_selection(
         services, ids=request.ids, search=request.search, favorites=request.favorites,
         all_models=request.all_models,
@@ -93,7 +93,13 @@ async def swap_plan(
             continue
         if outcome.status == "by_hand":
             result.status = "by_hand"
-            result.detail = f"needs editing by hand - a phrase in prose: {'; '.join(outcome.by_hand)}"
+            said = []
+            if outcome.by_hand:
+                said.append(f"a phrase in prose: {'; '.join(outcome.by_hand)}")
+            if outcome.prose:
+                # Where a tag goes in a sentence is an edit, not a rule.
+                said.append(f"tags added to prose: {'; '.join(outcome.prose)}")
+            result.detail = f"needs editing by hand - {'; '.join(said)}"
             continue
         if outcome.status != "changed":
             result.status, result.detail = outcome.status, _SWAP_SAYS[outcome.status]
@@ -236,7 +242,7 @@ def create_router(services: AppServices) -> APIRouter:
                 )
             said = ", ".join(f"{n} {status.replace('_', ' ')}" for status, n in counts.items())
             raise HTTPException(status_code=422, detail=f"no selected image would change ({said})")
-        rows = tag_swap.parse_rows([(row.find, row.replace) for row in request.swaps])
+        rows = tag_swap.parse_rows([(row.find, row.replace, row.add) for row in request.swaps])
         summary = "; ".join(row.describe() for row in rows)
         if request.field == "negative_prompt":
             summary = f"negative: {summary}"
@@ -247,10 +253,13 @@ def create_router(services: AppServices) -> APIRouter:
         accepted = []
         for group in sizes.values():
             job = await services.jobs().submit_cells(group, run_id=grid.run_id(group, model, quantization), swap=summary)
-            accepted.append(JobAccepted.model_validate({"job_id": job.id, "seed": job.seed, "run_id": job.run_id}))
+            accepted.append(JobAccepted.model_validate({
+                "job_id": job.id, "seed": job.seed, "run_id": job.run_id, "estimate_seconds": job.estimate_seconds,
+            }))
         first = accepted[0]
         return SwapTagsAccepted(
-            job_id=first.job_id, seed=first.seed, run_id=first.run_id, more=accepted[1:],
+            job_id=first.job_id, seed=first.seed, run_id=first.run_id, estimate_seconds=first.estimate_seconds,
+            more=accepted[1:],
             queued=len(cells), pruned=counts.get("rendered", 0), planned=counts.get("planned", 0),
         )
 

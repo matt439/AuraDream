@@ -47,6 +47,9 @@
 .model-picker option { padding: var(--sp-1) var(--sp-2); border-radius: var(--r-xs); }
 .model-picker option:hover, .model-picker option:focus-visible { background: var(--accent-soft); outline: none; }
 .model-picker option:checked { font-weight: 600; }
+/* An option the chosen checkpoint never measured (model-switch.js's
+   syncModelOptionHolds): dimmed, still choosable, its reason as its title. */
+.model-picker option[aria-disabled="true"] { color: var(--text-3); }
 /* The checkpoint table: every model's facts side by side. Rows share one
    column template, so the cells line up without a <table>; the label is
    display: contents, so its cells are the row's grid items and a press on

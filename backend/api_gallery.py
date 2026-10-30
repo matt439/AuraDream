@@ -38,7 +38,7 @@ def _unstarred_scope(search: str | None) -> str | None:
     except ValueError as exc:
         raise HTTPException(
             status_code=422,
-            detail=f"Delete unstarred takes key:value terms or an empty search - {exc}",
+            detail=f"Delete unstarred takes key:value terms, their exclusions or an empty search - {exc}",
         ) from exc
     return search or None
 

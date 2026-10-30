@@ -6,7 +6,15 @@ recorded pair is the allocator's, equal to `verified.md`'s refine table,
 and agrees across the record, the API and the PNG; `verified.md`, Refine
 pass, "Peak per image and Then refine, WAI v17"); its FLUX.1 Krea [dev]
 half is not, the session having stopped at the RAM guard during its
-load.** Matt decided the feature the same day and took every
+load.** 2026-10-29: that RAM-guard prerequisite is met: `GEN#22`'s fixed
+loader brought the cold fp8 FLUX.1 Krea [dev] load to a 27.9 GiB working set,
+down from 46+ (`docs/verified.md`, "RAM at the load, the fixed loader
+(2026-10-27)"), so the one remaining step of `GEN#15` is phase 3's FLUX.1
+Krea [dev] render on the card, which needs Matt's OK (one load per session,
+GPU and RAM watched). That `GEN#22` session's own render read 12.00 GiB
+allocated and 12.63 reserved with 14,947 MiB by `nvidia-smi`, a reference
+for the comparison; its section does not record the pair read back from the
+record, the API and the PNG, so it does not close phase 3. Matt decided the feature on 2026-10-24 and took every
 proposed answer to the open questions at the end ("i like recommended").
 Built as written, except: the body of `generate()` moved to
 `_generate_images` under the name, the wrapper keeping the signature;

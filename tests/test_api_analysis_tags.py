@@ -5,7 +5,7 @@ from pathlib import Path
 from urllib.error import HTTPError, URLError
 import re
 
-from backend import main, prompt_check, prompt_rules, tag_lookup, tags
+from backend import api_prompt, main, prompt_check, prompt_rules, tag_lookup, tags
 from backend.critic import build_context
 from backend.model_defaults import guide_for
 from backend.schemas import (
@@ -537,3 +537,42 @@ def test_the_page_and_the_critic_read_partial_placement_alike(client, fake, monk
                 context = build_context(model_id, request, request, analysis)
                 assert context.placed_partly == (analysis.order_detail is not None), prompt
                 assert analysis.order_detail is None or analysis.order_checked, prompt
+
+
+def test_the_negative_box_asks_for_suggestions_without_the_demotion(client, monkeypatch):
+    # `field=negative` reaches rank_suggestions as an empty `avoid`; no field,
+    # or `field=prompt`, gives today's answer byte for byte; another is refused.
+    helper = {
+        "vocabulary": "danbooru",
+        "vocabulary_cutoff": "2025-01-07",
+        "groups": [{"tags": ["low quality"]}],
+        "recommended_suffix": [],
+        "negative_prompt": "lowres, low quality",
+    }
+
+    class LowVocabulary:
+        def suggest(self, query, cutoff):
+            return [
+                {"text": name.replace("_", " "), "canonical": name, "category": "general",
+                 "post_count": count}
+                for name, count in [("lowres", 900_000), ("long_hair", 4_000_000)]
+            ]
+
+    avoided = []
+    real = api_prompt.rank_suggestions
+
+    def spy(query, local, remote, avoid, *args, **kwargs):
+        avoided.append(set(avoid))
+        return real(query, local, remote, avoid, *args, **kwargs)
+
+    monkeypatch.setattr(api_prompt, "tag_helper_config", lambda model_id: helper)
+    monkeypatch.setattr(api_prompt, "rank_suggestions", spy)
+    monkeypatch.setattr(tag_lookup, "tag_vocabulary", LowVocabulary())
+    plain = client.get("/api/tags/suggest?q=lo")
+    prompt = client.get("/api/tags/suggest?q=lo&field=prompt")
+    negative = client.get("/api/tags/suggest?q=lo&field=negative")
+    assert avoided == [{"lowres", "low_quality"}, {"lowres", "low_quality"}, set()]
+    assert plain.content == prompt.content
+    assert [item["text"] for item in plain.json()["suggestions"]][0] == "long hair"
+    assert [item["text"] for item in negative.json()["suggestions"]] == ["lowres", "long hair", "low quality"]
+    assert client.get("/api/tags/suggest?q=lo&field=refine").status_code == 422

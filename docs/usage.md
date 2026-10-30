@@ -199,6 +199,18 @@ separate from gallery bundles; include the sidecar in a settings backup.
 If another tab changed an item, the dialog keeps your unsaved name: **Reload
 list**, then select that item again to read its latest saved revision.
 
+**Export…** downloads every checkpoint's saved setups as
+`auradream-generation-setups.json`; the file contains prompt text and excludes
+the unsaved name. **Import…** previews a file before saving: each item shows
+its checkpoint, Generate or Grid, and its saved settings. Choose Skip, Add,
+Add as copy (with an editable name) or Replace one explicitly selected saved
+setup on the same checkpoint, then **Preview** any changed choices before
+**Import**. Your composer, setup name and Undo stay unchanged, and nothing is
+queued or loaded; an imported setup from another checkpoint is stored as is.
+If the selected setup was replaced, select it again before changing it. If
+another tab changed the list or a reply was lost, preview again and check what
+is already saved; uncertain copies need a fresh action choice.
+
 ### Load settings from a PNG
 
 Drop a PNG anywhere on the page, or press **Load settings from PNG…** under
@@ -591,9 +603,17 @@ Search combines these terms with free text matching the prompt:
 | `size:>=1.5mp`, `size:<2mp` | Actual pixel area, with 1 MP equal to 1,000,000 pixels |
 | `date:today`, `date:yesterday`, `date:2026-10-07` | A day in the server's local timezone |
 | `date:2026-10-26..2026-10-28` | October 26 through 28, including both dates in the server's local timezone |
+| `-blonde`, `-seed:42`, `-lora:ink` | Leaves those images out; images without the value (no LoRA, no mu) stay in, so `-lora:ink` keeps the ones without a LoRA |
 
 Orientation values compare the stored width and height. Combine them with
 prompt words or other filters, such as `size:portrait seed:42`.
+
+A leading `-` leaves images out: `fox -blonde` is the foxes whose prompt does
+not have "blonde", and `seed:>10 -seed:12` every seed above 10 but 12. A lone
+`-`, a word starting `--` (`--ar`) and a quoted `"-x"` are still prompt text.
+Delete unstarred and `clear --where` take `-key:value` but refuse `-word`,
+which goes through the fuzzy prompt index; on the command line write
+`--where=-seed:42` when the exclusion comes first.
 
 MP comparisons use the exact, unrounded stored pixel area. For example,
 `size:>1mp` includes 1024x1024 (1.048576 MP), while `size:>=1mp` excludes
@@ -676,6 +696,14 @@ images moved to the recycle bin, leave the selection on their own.
 In Select mode, **Ctrl/Cmd+A** from a card or the Select button adds every
 loaded card up to the selection cap. Picks hidden by another filter stay
 picked; unloaded results are not fetched. In the bin it adds only bin cards.
+
+**Pick this run** on a live card's right-click menu adds the images of the
+run that made it - every checkpoint's, whatever the search or Starred shows -
+to the picks, up to the selection cap; the note says how many it added of the
+run's total. Picks made under other filters stay. It is held, with the
+reason, on an image from before runs were grouped. If the picks are cleared
+or replaced, or the recycle bin opened, before the server answers, nothing is
+added.
 
 **Picked ▾** (between **Clear** and **Select**; just ▾, with Clear a ✕,
 where the row is narrow) is a menu for the picked cards: **Star picked**
@@ -787,11 +815,11 @@ it, or the visible opener of a menu that closed. Help can be opened above a ligh
 
 | Where | Keys |
 | --- | --- |
-| Main workspace | Ctrl/Cmd+Enter generates; inside an open Grid field runs the grid; in Refine runs the pass; in Refine… (Mass refine) runs the batch; in Swap tags queues; in More seeds… queues the batches |
+| Main workspace | Ctrl/Cmd+Enter generates; inside an open Grid field runs the grid; in Refine runs the pass; in Refine… (Mass refine) runs the batch; in Swap tags queues; in More seeds… queues the batches. P, outside fields, menus and dialogs, goes back to the prompt box with the caret at the end, changing no text |
 | Gallery | `/` focuses search outside fields, menus and dialogs. M opens More seeds for the focused image's batch without queuing. Tab enters the cards; arrows/Home/End navigate, Enter opens, F stars; in select mode Space picks, Shift+Space picks a range, Esc clears |
 | Lightbox | Left/Right browse, F stars, R opens Refine, M opens More seeds without queuing, S toggles the picked pair, or otherwise compares a pass with its source or an image with its CFG neighbour, Delete moves the image to the recycle bin (in the bin: asks to delete it permanently), Esc closes |
 | Lightbox zoom | Wheel or +/− zoom, drag pans, 0 fits, 1 or double-click shows actual pixels |
-| Right-click an image | A menu of its actions: Star, Reuse settings, Use seed, More seeds of this batch…, Refine…, Inpaint…, Outpaint…, reference, Show run as sheet, Copy prompt / seed / image, Open PNG in new tab, Move to recycle bin. On a picked card: the picks' actions. The Menu key or Shift+F10 opens it from the keyboard; Shift+right-click gives the browser's own menu |
+| Right-click an image | A menu of its actions: Star, Reuse settings, Use seed, More seeds of this batch…, Refine…, Inpaint…, Outpaint…, reference, Show run as sheet, Pick this run (a live card), Copy prompt / seed / image, Open PNG in new tab, Move to recycle bin. On a picked card: the picks' actions. The Menu key or Shift+F10 opens it from the keyboard; Shift+right-click gives the browser's own menu |
 | Contact sheet | Arrows move between populated cells; Home/End use row ends, Ctrl+Home/End the corners. Tab reaches the current cell's star; Enter/Space opens its lightbox, F stars |
 | Prompt/tag chips | Tab/Enter accepts a suggestion after three matching characters; Alt+Left/Right reorders chips, Delete removes, Enter edits |
 | Prompt replacements | Ctrl+Z restores text after Apply, Reuse (or a loaded PNG), Expand, Examples or a chip edit |
@@ -815,7 +843,7 @@ narrower it is in the right-click menu instead.
 **⌕** beside a setting (model, size, sampling, LoRA, source, seed, day, run)
 adds it to the gallery search; a value of the same kind replaces the old
 one. **⌕ Search for this prompt** replaces the search's text with the
-prompt's words and keeps its filters; it finds prompts containing all of
+prompt's words and keeps its filters and exclusions; it finds prompts containing all of
 those words in any order.
 
 **Compare CFG** in the lightbox sets the image beside another that differs
@@ -970,6 +998,12 @@ then saved as an encrypted `.ldbundle` file that only AuraDream can
 open (file names included). The password is not saved anywhere and cannot be
 recovered, and the gallery is cleared after export, so keep it safe. Finish or cancel generation first; loading and other gallery work
 must also finish before this operation can start.
+Bin, Restore and delete actions on this page wait until the clear's result
+has finished updating the page, even if you close the dialog. If its outcome
+cannot be confirmed, those actions and new bundle starts stay held. Let any
+server operation finish, inspect the gallery and saved bundles, keep any
+unsent draft, then manually reload the page. Reloading does not cancel the
+server operation or prove the clear never ran; avoid repeating it as a check.
 
 The server saves the bundle (a ZIP, or with a password an encrypted
 `.ldbundle`) in `bundles/` beside its gallery database (or in

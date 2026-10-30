@@ -170,5 +170,16 @@
   {"expect": "getComputedStyle(document.querySelector('.panel')).rowGap === '14px'"},
   {"eval": "els.cancel.click();"},
   {"expect": "__until(() => !busy, 30000)"},
-  {"eval": "resetPanel(); showError('');"}
+  {"eval": "resetPanel(); showError('');"},
+  {"log":"'P at 600 px, the gallery scrolled past the static panel: the prompt box is brought into view once, focused with the caret at its end and its text unchanged, and the page keeps its width; with the box already on screen P moves nothing'"},
+  {"viewport":[600,900]},
+  {"eval":"(() => { writeBox(els.prompt, 'a heron on one leg'); els.prompt.setSelectionRange(0, 0); window.__pScrolls = 0; els.prompt.scrollIntoView = function (...a) { __pScrolls += 1; return HTMLElement.prototype.scrollIntoView.apply(this, a); }; const card = els.gallery.querySelectorAll('.card[data-id] > img')[20]; card.scrollIntoView({block: 'center'}); card.focus({preventScroll: true}); window.__pY = scrollY; })()"},
+  {"expect":"__pY > 1000 && els.prompt.getBoundingClientRect().bottom < 0"},
+  {"key":"p"},
+  {"expect":"document.activeElement === els.prompt && __pScrolls === 1 && scrollY < __pY && (() => { const r = els.prompt.getBoundingClientRect(); return r.top >= Math.max(0, document.querySelector('.topbar').getBoundingClientRect().bottom) && r.bottom <= innerHeight; })() && els.prompt.selectionStart === els.prompt.value.length && els.prompt.selectionEnd === els.prompt.value.length && els.prompt.value === 'a heron on one leg' && document.documentElement.scrollWidth <= innerWidth"},
+  {"eval":"els.generate.focus({preventScroll: true}); els.prompt.setSelectionRange(0, 0); window.__pY = scrollY;"},
+  {"key":"p"},
+  {"expect":"document.activeElement === els.prompt && scrollY === __pY && __pScrolls === 1 && els.prompt.selectionStart === els.prompt.value.length && els.prompt.value === 'a heron on one leg'"},
+  {"eval":"delete els.prompt.scrollIntoView; writeBox(els.prompt, '');"},
+  {"viewport":[1400,900]}
 ]

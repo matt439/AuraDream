@@ -206,6 +206,11 @@ def test_lumina_flux_ernie_and_sdxl_lengths_match_the_installed_pipelines():
     assert _call_default(flux, "FluxPipeline") == pe.FLUX_T5_SEQUENCE
     lengths = [kw.get("max_length") for kw in _keywords(flux, "tokenizer")]
     assert "self.tokenizer_max_length" in lengths
+    # FLUX.1 Kontext [dev]'s own class builds the same two strings.
+    kontext = _diffusers("pipelines/flux/pipeline_flux_kontext.py")
+    assert _call_default(kontext, "FluxKontextPipeline") == pe.FLUX_T5_SEQUENCE
+    assert "self.tokenizer_max_length" in [kw.get("max_length") for kw in _keywords(kontext, "tokenizer")]
+    assert "max_sequence_length" in [kw.get("max_length") for kw in _keywords(kontext, "tokenizer_2")]
     # ERNIE truncates with no max_length: the tokenizer's model_max_length.
     ernie = _diffusers("pipelines/ernie_image/pipeline_ernie_image.py")
     (call,) = [kw for kw in _keywords(ernie, "tokenizer") if "truncation" in kw]
@@ -278,6 +283,7 @@ def _cached(source: pe.TokenizerSource) -> Path | None:
 # tokens and the space after "<Prompt Start>" joins the first word.
 REAL = [
     ("black-forest-labs/FLUX.1-Krea-dev", {"CLIP-L": 75, "T5-XXL": 511}),
+    ("black-forest-labs/FLUX.1-Kontext-dev", {"CLIP-L": 75, "T5-XXL": 511}),
     ("krea/Krea-2-Turbo", {"Qwen3-VL-4B": 507}),
     ("black-forest-labs/FLUX.2-klein-4B", {"Qwen3-4B": 509}),
     ("SeeSee21/Z-Anime", {"Qwen3-4B": 509}),

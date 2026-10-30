@@ -37,6 +37,7 @@ from ..execution import (
     canonical_execution, canonical_loader_execution, compiler_metadata, regional_candidate_reason,
     require_configured_loader_available, require_default_execution, resolve_execution,
 )
+from ..instruction_edit import KONTEXT_V1
 from ..model_defaults import INPAINT_DEFERRED, defaults_for, inpaint_family, inpaint_start
 from ..seeds import wrap_seed
 from . import anima_loading, attention_selection, fbc_cache, loading, netayume_loading, newbie_loading, regional_compile, schedule, single_file
@@ -72,6 +73,25 @@ _EDIT_PARAMS = frozenset({
     "image", "prompt", "width", "height", "max_area", "_auto_resize", "num_images_per_prompt",
     "max_sequence_length", "num_inference_steps", "guidance_scale", "generator", "callback_on_step_end",
 })
+
+
+def _pinned_editor_refusal(pipe: Any, params: set[str]) -> str | None:
+    """Why a loaded pipeline is not the pinned Kontext editor, or None.
+
+    What stage 3 measured once the weights were in: the class itself, the
+    VAE's 8x latent scale the frozen geometry assumes, and every name an edit
+    hands the call (`_EDIT_PARAMS`).
+    """
+    name = type(pipe).__name__
+    if name != KONTEXT_V1.pipeline_class:
+        return f"The pinned FLUX.1 Kontext [dev] load resolved {name}, not {KONTEXT_V1.pipeline_class}; it was not kept."
+    if getattr(pipe, "vae_scale_factor", None) != 8:
+        return "The pinned FLUX.1 Kontext [dev] load has no VAE scale factor of 8; it was not kept."
+    missing = sorted(_EDIT_PARAMS - params)
+    if missing:
+        return f"{name}.__call__ takes no {', '.join(missing)}; the pinned FLUX.1 Kontext [dev] load was not kept."
+    return None
+
 
 # One adapter slot. diffusers can hold several and blend them, but every extra
 # name has to reach `CellKey`, the embedded metadata and Reuse to be reproducible,
@@ -411,7 +431,10 @@ class DiffusersBackend(GenerationBackend):
         selected = current_settings(settings)
         from ..instruction_edit import require_model_available
 
-        require_model_available(selected.model_id)
+        require_model_available(
+            selected.model_id, qualified=self.instruction_edit_qualified(),
+            loader=self.instruction_edit_loader(selected),
+        )
         require_configured_loader_available(selected)
         self._load_prepared(canonical_loader_execution(getattr(selected, "loader_execution", None)))
 
@@ -423,7 +446,11 @@ class DiffusersBackend(GenerationBackend):
         """
         from ..instruction_edit import require_model_available
 
-        require_model_available(current_model_id(settings))
+        selected = current_settings(settings)
+        require_model_available(
+            selected.model_id, qualified=self.instruction_edit_qualified(),
+            loader=self.instruction_edit_loader(selected),
+        )
         execution = canonical_execution(execution)
         if execution is not None:
             attention_selection.require_native_environment()
@@ -442,6 +469,10 @@ class DiffusersBackend(GenerationBackend):
                 return
             selected = current_settings(settings)
             checkpoint_id = selected.model_id
+            # The pinned editor: the exact Kontext id, this instance's literal
+            # True and the measured envelope, Eager only. Every other editor
+            # class or id keeps the holds below.
+            editor = execution is None and self.instruction_edit_refusal(selected) is None
             if execution is not None:
                 if ATTENTION_ENVIRONMENT_WARNING is not None:
                     raise ValueError("Private execution preparation requires native attention without a nonnative external override.")
@@ -492,7 +523,10 @@ class DiffusersBackend(GenerationBackend):
             quant = loading.quantization_config(load_settings)
             if quant is not None:
                 kwargs["quantization_config"] = quant
-            loading.require_custom_pipeline_class(checkpoint_id)
+            if not editor:
+                # The pinned editor's identity is its configs pass's pin, not
+                # an unpinned index read at the Hub's head.
+                loading.require_custom_pipeline_class(checkpoint_id)
             # What the pipeline lists but this backend never runs stays on the
             # Hub: `pe=None` is how diffusers is told, and the concrete class
             # prunes the folder from the download as well as from the load -
@@ -505,8 +539,15 @@ class DiffusersBackend(GenerationBackend):
                 from .newbie_pipeline import NewbiePipeline
 
                 loader = NewbiePipeline
+            elif editor:
+                # The explicit class stage 3 loaded, never one resolved again.
+                import diffusers
+
+                loader = getattr(diffusers, KONTEXT_V1.pipeline_class)
             class_name, unused = loading.unused_components(model_id)
-            if class_name in loading.INSTRUCTION_EDITOR_CLASSES:
+            if class_name in loading.INSTRUCTION_EDITOR_CLASSES and not (
+                editor and class_name == KONTEXT_V1.pipeline_class
+            ):
                 from ..instruction_edit import editor_class_refusal
 
                 raise ValueError(editor_class_refusal(class_name))
@@ -551,7 +592,12 @@ class DiffusersBackend(GenerationBackend):
                     fn = None  # no bound-method reference in a failed load frame
 
             params = set(inspect.signature(candidate.pipe.__call__).parameters)
-            if type(candidate.pipe).__name__ in loading.INSTRUCTION_EDITOR_CLASSES:
+            if editor:
+                # The candidate is released, unpublished, on any miss.
+                refusal = _pinned_editor_refusal(candidate.pipe, params)
+                if refusal is not None:
+                    raise RuntimeError(refusal)
+            elif type(candidate.pipe).__name__ in loading.INSTRUCTION_EDITOR_CLASSES:
                 from ..instruction_edit import editor_class_refusal
 
                 raise ValueError(editor_class_refusal(type(candidate.pipe).__name__))
@@ -878,18 +924,29 @@ class DiffusersBackend(GenerationBackend):
         return value if registration is self._regional_registration else None
 
     def instruction_edit_qualified(self) -> bool:
-        """Public release review and integration remain pending; reads nothing."""
-        return False
+        """Released after the card trial (stage 4); reads nothing.
+
+        The literal True opens the seam only: `QUALIFIED_ENVELOPE` still
+        decides every load and edit (`instruction_edit_refusal`).
+        """
+        return True
 
     def _require_execution(self, request: GenerateRequest) -> GenerateRequest:
-        from ..instruction_edit import require_execution_available, require_model_available
+        from ..instruction_edit import require_execution_available, require_model_available, text_to_image_refusal
 
         qualified = self.instruction_edit_qualified()
         if getattr(request, "edit", None) is not None:
+            # validate_edit also refuses an edit's LoRA, references, refine,
+            # mask, outpaint and upscaler.
             require_execution_available(request.validate_edit(), qualified=qualified)
-        require_model_available(current_model_id(settings), qualified=qualified)
-        require_default_execution(request.execution)
         selected = current_settings(settings)
+        loader = self.instruction_edit_loader(selected)
+        require_model_available(selected.model_id, qualified=qualified, loader=loader)
+        if getattr(request, "edit", None) is None and not defaults_for(selected.model_id)["text_to_image_supported"]:
+            # Here as well as at submit (`submission.unusable_input`): the
+            # command line, Mass refine and Then refine reach this call too.
+            raise ValueError(text_to_image_refusal(selected.model_id, qualified=qualified is True, loader=loader))
+        require_default_execution(request.execution)
         require_configured_loader_available(selected)
         # Private prepared state cannot make an ordinary Eager request run
         # compiled code, even if it bypassed the closed selection surface.
@@ -1693,8 +1750,8 @@ class DiffusersBackend(GenerationBackend):
         """Run one instruction edit through the loaded Kontext pipeline.
 
         Reached only after `_require_execution` and `applied()` admitted the
-        edit, which on this backend cannot happen until release review and
-        integration finish (`instruction_edit_qualified`). Every refusal comes before the call
+        edit: the gate (`instruction_edit_qualified`) and the measured envelope
+        (`instruction_edit_refusal`), then the source's aspect. Every refusal comes before the call
         except the result's own checks. The source is reproved from the
         gallery, its proof and pixels read through one open handle
         (`instruction_edit_admission.load_bound_source`). The offload hooks
@@ -1885,19 +1942,21 @@ class DiffusersBackend(GenerationBackend):
             # both are known before a single weight is downloaded.
             "lora_supported": self.lora_supported(),
         }
-        # The one gate, never a profile or a setting. Closed on this backend
-        # pending release review and integration, so the held reason always stands here.
-        from ..instruction_edit import KONTEXT_V1, edit_unavailable_reason
-
+        # The one gate, never a profile or a setting. Open on this backend;
+        # the envelope below still holds every loader the card never measured.
         qualified = self.instruction_edit_qualified() is True
-        # Exact, as bind_request compares the recipe's identity.
-        info["instruction_edit_supported"] = qualified and selected.model_id == KONTEXT_V1.model_id
-        info["instruction_edit_reason"] = edit_unavailable_reason(selected.model_id, qualified=qualified)
+        # The gate, the exact id (as bind_request compares the recipe's
+        # identity) and the measured loader envelope, in that order.
+        reason = self.instruction_edit_refusal(selected)
+        info["instruction_edit_supported"] = reason is None
+        info["instruction_edit_reason"] = reason
         if not defaults_for(selected.model_id)["text_to_image_supported"]:
             from ..instruction_edit import text_to_image_refusal
 
             # The gate's words, not the profile's pointer at a held editor.
-            info["text_to_image_reason"] = text_to_image_refusal(selected.model_id, qualified=qualified)
+            info["text_to_image_reason"] = text_to_image_refusal(
+                selected.model_id, qualified=qualified, loader=self.instruction_edit_loader(selected),
+            )
         try:
             import torch
 

@@ -1,9 +1,10 @@
 # Review and plan: Bundle & clear ordering, 2026-10-28
 
-**Status:** `GAL#12`'s actual complete-clear/late-Restore defect is reproduced.
-The reviewed bounded repair is applied but uncommitted. Its focused
-qualification outcome remains unknown after a desktop disconnect; see the
-interrupted record below. This follows
+**Status:** closed 2026-10-29. `GAL#12`'s actual complete-clear/late-Restore
+defect is reproduced and repaired; the focused fixture passes after a fixture
+deadlock fix, and an independent review's draining finding is fixed with its own
+negative control (see [final qualification](#final-qualification-2026-10-29)).
+This follows
 [broad operations](review-2026-10-28-broad-bin-order.md).
 
 ## Ranked next work
@@ -177,3 +178,37 @@ when the fake had no global factory refusal. The later independent
 factory before app startup, with source/stub checks. It does not retry or
 qualify this interrupted browser run, its artifacts or visual acceptance;
 `GAL#12` remains OPEN with unknown final outcome and uncommitted source.
+
+## Final qualification (2026-10-29)
+
+The earlier interrupted run's unknown outcome is explained by the fixture
+itself. Step 89's `eval` ended with
+`window.__clReceive=receiveBundleStatus(__clEnd);`, so its completion value
+was that promise. `browser.mjs` evaluates with `awaitPromise: true`, and the
+promise waits on the reset gate that only step 90 releases. The step therefore
+deadlocked until the driver's 300-second limit, which reproduced on a rerun.
+The step now ends with `true;`; no other eval ends with a gated promise.
+
+An independent review then found an ordering defect in the repair:
+`receiveBundleClearStatus` ran its identity check before its
+settling/draining guard. A clear whose terminal result had arrived while an
+earlier Restore or Empty bin still held the bin writes stayed `draining`.
+The next 750 ms poll could return another client's operation, because the
+server keeps only the latest status. That poll then marked the received clear
+result unresolved, so its deleted ids were never applied and every clear-held
+action stayed held until a reload. The owner now keeps the received terminal
+status (`owner.terminal`), and a draining owner applies that status instead of
+the newer poll. A `settling` owner returns before the identity check. Three
+new fixture steps inject that other-operation poll while draining. With only
+the `draining` line removed, the fixture fails fatally at step 91; with it,
+the fixture passes (22 s). The review's settling half was largely refuted:
+`bundlePollPending` keeps a second poll out during settling. The early return
+is kept as defence.
+
+The focused fixture passes on a fresh fake. So do the existing `smoke-bundles`,
+`smoke-bin` and related regressions, serially, on the final source (results in
+the final run below). The two new screenshots show the Bundles dialog at
+1400 and 400 px wide with no clipping or overlap. The held unconfirmed message
+sits below their visible fold, so the fixture's assertions, not the shots,
+establish it.
+Nothing touched a real gallery, credentials, model or GPU.

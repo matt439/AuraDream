@@ -30,7 +30,11 @@ by `days`, for Empty recycle bin's age scope; `POST /api/fake/peak` sets the
 `POST /api/fake/instruction-edit` closes or reopens the instruction-edit
 gate (`available`), which is open on a fake claiming FLUX.1 Kontext [dev]
 alone - there an edit is the source proved and prepared, tinted and
-stamped, and two more sources (3:2 and a refused 2:1) are planted. The
+stamped, and two more sources are planted: a 3:2 one, which the recipe
+takes but the measured envelope holds (only 1:1 is qualified), and a 2:1
+one the recipe refuses. The fake reports the envelope's own host
+(`FakeBackend.edit_host`), so its loader answers follow the selection
+alone, on any machine. The
 prompt check reads the tests' word tokenizers - a token per word or mark, at
 each encoder's real budget - and the critic is the tests' FakeCritic, whose
 answer is built from the prompt. The default gallery lives under the system
@@ -361,8 +365,8 @@ def main() -> int:
     }
     # Instruction editing: qualified on a fake claiming FLUX.1 Kontext [dev]
     # alone, so the edit route, queue and dialog run end to end there while
-    # every other fake - and the real server, whose backend answers the
-    # literal False - holds them with the reason. `POST
+    # every other fake holds them with the reason (the real backend answers
+    # the literal True; its envelope holds the rest). `POST
     # /api/fake/instruction-edit` closes and reopens the gate.
     from backend.instruction_edit import KONTEXT_V1
 
@@ -531,9 +535,10 @@ def main() -> int:
         ]
         storage.set_favorite(planted[0].id, True)
     # And on a Kontext fake, two more sources for Edit by instruction…, under
-    # the same other id: a 3:2 one (768x512, edited at 576x384) and a 2:1 one
-    # (512x256), whose aspect the recipe refuses. The 256x256 pair above are
-    # the 1:1 sources (edited at 512x512). Planted once, binned rows counted.
+    # the same other id: a 3:2 one (768x512, which would edit at 576x384 but
+    # is held, unmeasured) and a 2:1 one (512x256), whose aspect the recipe
+    # refuses. The 256x256 pair above are the 1:1 sources (edited at
+    # 512x512, the one qualified size). Planted once, binned rows counted.
     if fake.edit_qualified:
         with storage._session() as conn:
             edit_sources = conn.execute("SELECT 1 FROM images WHERE job_id = 'planted-edit' LIMIT 1").fetchone()

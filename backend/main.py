@@ -7,6 +7,7 @@ import logging
 import threading
 import time
 from contextlib import asynccontextmanager
+from dataclasses import replace
 from typing import Literal, NotRequired, TypedDict
 
 import uvicorn
@@ -48,7 +49,9 @@ from .critic import CriticError, prompt_critic  # noqa: E402
 from .jobs import JobManager, LoadFailed, MaskGone, OutpaintStampFailed, RunPersistenceFailed, short_error  # noqa: E402
 from .execution import canonical_loader_execution, require_configured_loader_available  # noqa: E402
 from .launch import CHECKPOINTS, warn_legacy_env  # noqa: E402
-from .instruction_edit import require_model_available  # noqa: E402
+from .instruction_edit import (  # noqa: E402
+    INSTRUCTION_EDIT_UNAVAILABLE, is_edit_only, option_refusals, require_model_available,
+)
 from . import api_instruction_edit  # noqa: E402
 from .model_defaults import defaults_for, guide_for, hints_for  # noqa: E402
 from .schemas import (  # noqa: E402
@@ -202,8 +205,21 @@ async def ensure_loaded() -> None:
     of requests waits on a single attempt instead of each starting its own.
     """
     async with _load_lock:
-        require_model_available(current_model_id(settings), qualified=backend.instruction_edit_qualified())
-        require_configured_loader_available(current_settings(settings))
+        selected = current_settings(settings)
+        try:
+            require_model_available(
+                selected.model_id, qualified=backend.instruction_edit_qualified(),
+                loader=backend.instruction_edit_loader(selected),
+            )
+        except ValueError as exc:
+            # An edit-only checkpoint this backend may not load - a saved
+            # choice with Load automatically on startup among them - is a
+            # failed load, in its own words (not the Hub's, nor an exception
+            # name), and its saved choice is never rewritten.
+            detail = str(exc)
+            _load_state.update(state="error", detail=detail, detail_kind=None, detail_url=None)
+            raise LoadFailed(detail) from exc
+        require_configured_loader_available(selected)
         if backend.is_ready():
             _load_state.update(state="ready", detail=None)
             return
@@ -616,7 +632,11 @@ def _merged_defaults(info: dict) -> dict:
     profile guesses it, and the backend can answer it cold, because what decides
     it is peft and the quantization mode rather than the checkpoint.
     """
-    defaults = defaults_for(info["model_id"])
+    # The backend's own edit answer words the profile's holds from the start
+    # (`defaults_for`'s `edit_reason`), and replaces them below as before.
+    defaults = defaults_for(
+        info["model_id"], edit_reason=info.get("instruction_edit_reason", INSTRUCTION_EDIT_UNAVAILABLE),
+    )
     for key in (
         "cfg_threshold",
         "mu_supported",
@@ -713,8 +733,12 @@ def _disk_free_mb() -> int | None:
 async def load_model() -> ModelStatus:
     global _switch_error
     try:
-        require_model_available(current_model_id(settings), qualified=backend.instruction_edit_qualified())
-        require_configured_loader_available(current_settings(settings))
+        selected = current_settings(settings)
+        require_model_available(
+            selected.model_id, qualified=backend.instruction_edit_qualified(),
+            loader=backend.instruction_edit_loader(selected),
+        )
+        require_configured_loader_available(selected)
     except ValueError as exc:
         raise HTTPException(status_code=422, detail=str(exc)) from exc
     _switch_error = None
@@ -765,11 +789,24 @@ async def list_models(
         ),
     }
     cache_revision = model_cache_revision()
+
+    def edit_reason(model_id: str) -> str | None:
+        # The editor's row says this instance's own answer for the loader
+        # being chosen, draft recipe included (gate, exact id, envelope);
+        # every other row keeps the closed gate's words.
+        if not is_edit_only(model_id):
+            return INSTRUCTION_EDIT_UNAVAILABLE
+        chosen = {} if draft is model_selection.UNSET_EXECUTION else {"loader_execution": draft}
+        return backend.instruction_edit_refusal(replace(
+            current, model_id=model_id, quantization=quantization or current.quantization,
+            offload=offload or current.offload, **chosen,
+        ))
+
     details = await _detached(lambda: {
         model["model_id"]: {
             **details_for(
                 model["model_id"], quantization=quantization or current.quantization,
-                offload=offload or current.offload,
+                offload=offload or current.offload, edit_reason=edit_reason(model["model_id"]),
             ),
             "execution_options": model_selection.execution_options(
                 current, execution=draft, model_id=model["model_id"],
@@ -778,6 +815,12 @@ async def list_models(
             "execution_configuration_reason": model_selection.execution_configuration_reason(
                 current, execution=draft, model_id=model["model_id"],
                 quantization=quantization, offload=offload,
+            ),
+            # The editor's unmeasured quantization and offload choices, each
+            # in its own words, which the picker holds by option; none elsewhere.
+            "loader_holds": option_refusals(
+                model["model_id"], quantizations=[o["value"] for o in options["quantizations"]],
+                offloads=[o["value"] for o in options["offloads"]],
             ),
         } for model in models
     })
@@ -910,6 +953,7 @@ async def switch_model(request: ModelSwitchRequest, http_request: Request) -> Mo
             settings, request.model_id, quantization=request.quantization,
             offload=request.offload, format=request.format, load=request.load,
             execution=request.execution if "execution" in request.model_fields_set else model_selection.UNSET_EXECUTION,
+            backend=backend,
         )
     except ValueError as exc:
         raise HTTPException(status_code=422, detail=str(exc)) from exc

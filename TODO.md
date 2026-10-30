@@ -6,26 +6,27 @@ The maintainer's working backlog for this personal project: it records what is p
 
 **The only ordering in this file.** Keep every `DECISION` and `USER` row here. Keep this block to the current aim and the next few actions; results go in their owners (`docs/verified.md` for what the card measured, the plan or design notes for what was built).
 
-**Aim (2026-10-18):** keep useful work ready for Matt's common workstation tasks. [Reported use](docs/design/preferences.md) guides priority; it does not approve the candidate redesign.
+**Aim (2026-10-29):** keep useful work ready for Matt's common workstation tasks. [Reported use](docs/design/preferences.md) guides priority; it does not approve the candidate redesign.
 
-**Ready backlog (updated 2026-10-28):** five `OPEN` rows remain; Runs favorite counts (`GAL#19`) are implemented and functionally qualified; new screenshot inspection remains open after the artifact read denial. `UI#25`'s [cold setup codec/planner](docs/plan-setup-portability.md) is locally qualified; its API and merge UI proposals remain unapplied. `GAL#12`'s [Bundle & clear source](docs/review-2026-10-28-bundle-clear-order.md#interrupted-final-qualification-and-access-boundary) is applied but uncommitted; the interrupted focused run outcome is unknown and artifact access is denied. `UI#20`'s [older final screenshot reinspection](docs/plan-snippet-portability.md#stage-3-implementation-and-browser-evidence-2026-10-28) remains blocked by an artifact directory read denial. `DEV#8`'s [prepared compiler extra/lock](docs/plan-regional-compilation.md#cpu-dependency-preparation) still lacks actual wheel inspection/notices and fresh online resolution after the denied download. User/card gates and explicit feature deferrals remain separate.
+**Ready backlog (updated 2026-10-30):** 11 `OPEN` rows. `INP#11` stage 4's code is built on `feat/inp11-stage4`; its [card acceptance step](docs/plan-instruction-editing.md#card-acceptance-step) waits on Matt's OK. The [2026-10-29 audit](docs/review-2026-10-29-todo.md)'s rows follow; start with the defects and Often-feature rows: Finish run's missing passes (`GEN#35`), Compare scales (`UI#34`). The card-session tools (`DEV#20`, `DEV#23`; `DEV#22`'s image metrics are built) shorten later card runs; they don't replace them.
 
-**Performance stages:** CPU dependency preparation is `DEV#8`, then `PERF#1` ([compilation](docs/plan-regional-compilation.md)), `PERF#3` ([attention](docs/plan-attention-backends.md)) and `PERF#4` ([caching](docs/plan-step-caching.md)). Performance source, bounded diagnostics and Windows browser checks are complete with Eager defaults and closed execution guards; real toolchain/card qualification and nonempty release admission remain. Default-off backups, explicit shared mode/retention and credential source/stubs are built; actual credential/recovery qualification remains. No real gallery was activated. `PERF#2` still waits on `PERF#1`; source implementation is separate from the remaining layout trials.
+**Decisions for Matt:** none open. On 2026-10-29 Matt took the recommended answers for `PERF#7` (cache beside the gallery, cleared on a torch/Triton/driver change, static shapes; shipping waits on `PERF#1`), `PERF#5`, `GAL#21` and `UI#34`; declined `GEN#39` and unattended backups (`GAL#22`, `GAL#6`); kept `GEN#6`, `INP#9` and `INP#10` deferred.
 
-**Needs Matt:** a review of `INP#11` stage 3's Kontext numbers before stage 4 opens the gate; workbench task trials (`DEV#1`), hands-on accessibility/desktop checks (`UI#7`) and intended-user Windows credential/recovery qualification (`GAL#6`, source/stubs built; no real vault accessed). The four decisions were answered 2026-10-27: SDXL weighting is deferred because Matt does not write weighted prompts (`GEN#20`); the requested instruction-editing and detailer plans are written, with `INP#11` now started and `INP#12` implementation unscheduled; critic rewrites stay available with the omission warning (`PA#11`, closed in its owner). Whole-app layout implementation waits for its trials; it remains a design hypothesis.
-
-**Card prerequisite:** done 2026-10-27 (`GEN#22`): the fixed loader's cold fp8 FLUX.1 Krea dev load peaked at 27.9 GiB working set, down from 46+ ([verified](docs/verified.md#ram-at-the-load-the-fixed-loader-2026-10-27)). Each other checkpoint still needs its own measured load and render.
+**Needs Matt's hands or card:** workbench task trials (`DEV#1`), hands-on accessibility/desktop checks (`UI#7`), and every `CARD` row, including the speed qualifications `PERF#1`, `PERF#3` and `PERF#4`, and `INP#11`'s acceptance step (one load). `PERF#2`'s card measurement waits on `PERF#1`'s.
 
 **GPU runs are Matt's to run or OK, never past the 16 GB card** (every `CARD` row). Check the checkpoint's measured peaks in `docs/verified.md` first; a run that spills into shared memory proves only that it doesn't fit.
 
-Matt's approved [shortcut and compact-setup stages](docs/plan-shortcut-workflow.md) and earlier workflow/Bundles fixes remain complete. Speed defaults and unattended backup policy remain unsettled in their owners. `INP#11` stages 0-3 are done; stage 4 waits on Matt's review of stage 3's numbers. The detailer plan does not commission implementation. Other deferred features remain deferred.
-
 ## Product design
 
-**Owner:** [docs/design/README.md](docs/design/README.md); [validation](docs/design/validation.md) owns the remaining task trials and evidence.
+**Owner:** [docs/design/README.md](docs/design/README.md); [validation](docs/design/validation.md) owns the remaining task trials and evidence. Tooling rows (`DEV#20`-`DEV#26`): [card harness](docs/plan-card-harness.md) and [tooling](docs/plan-tooling.md).
 
 | id | status | sev | size | item |
 |---|---|---|---|---|
+| `DEV#20` | OPEN | MED | M+card | Check in `tools/card_guard.py`: a pure ok/trip/refuse-projected decision (card, shared rise, free RAM/commit, the ERNIE line projection), defaults in one block, JSONL rows, `--watch-pid` tree kill; fixture tests from the 2026-10-25 stops. Stage 2 +card with Matt's OK. [Card guard](docs/plan-card-harness.md#card-guard). |
+| `DEV#21` | OPEN | LOW | M | The 2026-10-18 trial kit is stale. The driver types into W/H, which now sit in the closed Custom dimensions disclosure. The fixture (v1) has no saved setup, saved search, snippet or Then refine roles, and no keyboard routes are used. Next: fixture v2, driver repair, cards and a new dated agent baseline; Matt's trial stays `DEV#1`. [Refresh](docs/design/trials/README.md#refresh-for-the-current-app-dev21) |
+| `DEV#23` | OPEN | LOW | M+card | Check in `tools/card/card10-*.json`: one real-input pack per `CARD#10` fix commit plus the idle Ctrl-C, with no `/api/fake/*` step and a wait for the adapter listing; a structure test and a fake dry run. Stage 2 +card. [CARD#10 step packs](docs/plan-card-harness.md#card10-step-packs). |
+| `DEV#25` | OPEN | LOW | S | `--durations=25`, tools/smoke_timings.py and its CI step are built; the Windows local baseline is recorded. Left: the Linux CI baseline (the Test step's top 25 and the Smoke timings table, with commit and runner) from the first CI run after Matt's next push; a Windows CI figure when main next runs. [Plan](docs/plan-tooling.md#results) |
+| `DEV#26` | OPEN | LOW | S | AGENTS.md's fake-knob list omits /api/fake/model. Add a cold test_docs_maps test that holds all 8 /api/fake routes and 7 fake_server flags to AGENTS.md and docs/rules.md: it fails before the one AGENTS.md line and passes after. [Plan](docs/plan-tooling.md#fake-server-knob-map-2026-10-29-dev26) |
 | `DEV#1` | USER | LOW | M | Run common-task trials with Matt, comparing the current app and candidate layouts before choosing redesign slices. [Protocol](docs/design/validation.md#one-user-formative-protocol). |
 
 ## Measurements on the card
@@ -51,11 +52,11 @@ Matt's approved [shortcut and compact-setup stages](docs/plan-shortcut-workflow.
 
 | id | status | sev | size | item |
 |---|---|---|---|---|
+| `INP#11` | CARD | LOW | XL+card | Stages 0-3 done; stage 4's ten slices built on local `feat/inp11-stage4` (Kontext listed, the real gate open inside the measured envelope: fp8, model offload, Windows, 1:1 at 512x512). Left: the card acceptance step, one load on the real server and page; the branch stays local until it passes. [Card step](docs/plan-instruction-editing.md#card-acceptance-step). |
 | `INP#5` | DEFERRED | LOW | M+card | Phase 4, klein: one reference beside the source, its mu recipe, memory with the sequence doubled, `smoke-inpaint-klein`. Matt doesn't run klein. |
 | `INP#6` | DEFERRED | LOW | M+card | Phase 5, Qwen-Image under Nunchaku (WSL), only if the inpaint class runs over the Nunchaku transformer at all. |
 | `INP#9` | DEFERRED | LOW | M | Phase 6, the masked area only (`padding_mask_crop` at a working size, a recorded `mask_crop`); not on Z-Image, whose class lacks it. Also for large SDXL outpaint canvases. |
 | `INP#10` | DEFERRED | LOW | M | Outpaint, later if wanted: the server's fill shown in the frame (kept for later, 2026-10-17), an outpaint over a painted mask, a second fill. |
-| `INP#11` | DECISION | LOW | XL+card | Stages 0-3 done; stage 3's Kontext trial (fp8, model offload, 512x512) fits at 14.5 GB, replays, cancels and unloads, but its edits drift beyond the instruction ([verified](docs/verified.md#instruction-edit)). Next: Matt reviews those numbers, then stage 4's gate, catalogue entry and Re-render/More seeds of edits. [Plan](docs/plan-instruction-editing.md#stages-and-completion-criteria). |
 | `INP#12` | DEFERRED | LOW | L+card | Face/hand detailer plan written at Matt's request 2026-10-27; implementation unscheduled. First stage qualifies detector code/weight terms, packaging and detection usefulness. [Plan](docs/plan-detailer.md#stages-and-completion-criteria). |
 
 ## Generation, jobs and models
@@ -64,10 +65,14 @@ Matt's approved [shortcut and compact-setup stages](docs/plan-shortcut-workflow.
 
 | id | status | sev | size | item |
 |---|---|---|---|---|
-| `GEN#6` | DEFERRED | LOW | M+card | Live-preview maps for the four-channel SDXL VAE and FLUX.2's VAE (ERNIE; klein also lacks an unpack hook); previews switch themselves off there. [Behaviour](docs/verified.md#behaviour). |
-| `GEN#8` | DEFERRED | LOW | L | U61 part B: one's own photo or sketch as a reference (import route, a source marker through storage, reindex and reruns; add, drop and paste). Matt deferred it 2026-10-05; only when he raises it. [References](docs/design-notes.md#reference-images-by-gallery-id). |
+| `GEN#35` | OPEN | MED | M | Then refine: Finish run counts only base cells, so a base saved before a cancelled or failed pass gets no pass, and a run missing only passes says "nothing in this run is missing". Add those passes (pass_sources, one spec per run, preview `passes`). [Plan](docs/plan-then-refine.md#phase-4-finish-run-adds-missing-passes). |
+| `GEN#36` | OPEN | LOW | S | Mass refine has no Versions (H4/H5 Often). Add `versions` (1/2/4) as one cell per version at seed+i, the seeds the single dialog's Versions take, so pruning stays per image. versions=1 keeps every key, run id and status. Budget counts images x versions. One strength stays one strength. [Owner](docs/review-2026-10-29-backlog.md#gen36-mass-refine-versions) |
+| `GEN#37` | OPEN | LOW | M | Then refine: More seeds of a then-refine run makes bases only. Read the run's retained spec (from the batch's mates' jobs) and queue each new base with its pass under the same pass run id. Add an opt-out tick in the More seeds dialog and a refusal in words for each batch. [Plan](docs/plan-then-refine.md#phase-5-more-seeds-carries-the-pass). |
+| `GEN#38` | OPEN | LOW | M | The model picker's Speed shows only retained card samples (K2 Often). Add 'This gallery: ~N s at WxH, S steps (median of n)' to the Speed note. It comes from direct Eager renders, read in the /api/models route (model_info stays cold). Labelled as history, offload noted as unrecorded, never sets the category. [Owner](docs/review-2026-10-29-backlog.md#gen38-gallery-timing-in-the-model-picker) |
 | `GEN#15` | CARD | LOW | S+card | Peak memory per image: phase 3's FLUX.1 Krea [dev] render, the recorded peak beside `nvidia-smi` and shared memory. [Plan](docs/plan-peak-vram.md). |
 | `GEN#16` | CARD | LOW | S+card | Generate then refine: phase 3's FLUX.1 Krea dev night at 1.5x, peak of the alternation and the pair's time. [Plan](docs/plan-then-refine.md). |
+| `GEN#6` | DEFERRED | LOW | M+card | Live-preview maps for the four-channel SDXL VAE and FLUX.2's VAE (ERNIE; klein also lacks an unpack hook); previews switch themselves off there. [Behaviour](docs/verified.md#behaviour). |
+| `GEN#8` | DEFERRED | LOW | L | U61 part B: one's own photo or sketch as a reference (import route, a source marker through storage, reindex and reruns; add, drop and paste). Matt deferred it 2026-10-05; only when he raises it. [References](docs/design-notes.md#reference-images-by-gallery-id). |
 | `GEN#20` | DEFERRED | LOW | L+card | Opt-in A1111 weighting and 77-token chunking on SDXL, deferred by Matt 2026-10-27 because he does not write weighted prompts; revisit on request. [10-24 G10](docs/review-2026-10-24.md#g10-a1111-style-weighting-and-long-prompts-on-sdxl). |
 
 ## Speed
@@ -77,9 +82,10 @@ Matt's approved [shortcut and compact-setup stages](docs/plan-shortcut-workflow.
 | id | status | sev | size | item |
 |---|---|---|---|---|
 | `PERF#1` | CARD | MED | L+card | Qualify toolchain/cache and the card; source, bounded diagnostics presentation and Windows browser smokes are done. Public nonempty admission stays closed. [Plan](docs/plan-regional-compilation.md). |
-| `PERF#2` | BLOCKED | LOW | M+card | A quantization choice with fp8 activations (torchao `Float8DynamicActivationFloat8WeightConfig`) on the card's fp8 tensor cores; waits on `PERF#1`. [10-25 R2](docs/review-2026-10-25.md#r2-fp8-with-fp8-activations). |
 | `PERF#3` | CARD | LOW | M+card | Qualify Native/cuDNN speed, fit and repeatability. Public nonempty admission remains closed. [Plan](docs/plan-attention-backends.md). |
 | `PERF#4` | CARD | LOW | L+card | Run the fixed off/on quality, time and memory comparisons, then judge the pairs. Public caching remains closed. [Plan](docs/plan-step-caching.md). |
+| `PERF#2` | BLOCKED | LOW | M+card | The card measurement of a quantization choice with fp8 activations (torchao `Float8DynamicActivationFloat8WeightConfig`); waits on `PERF#1`'s card qualification. Its CPU plan is done (`fp8-dynamic`, PerTensor, compared against fp8 only); the CPU source slice and card run are its stages 2-3. [Plan](docs/plan-fp8-activations.md); [10-25 R2](docs/review-2026-10-25.md#r2-fp8-with-fp8-activations). |
+| `PERF#7` | BLOCKED | LOW | — | Whether the compiled mode ships waits on `PERF#1`'s card table; Matt leans to an opt-in Models choice with Eager the default if it pays off. Cache location, size policy and static shapes are decided. [Questions](docs/plan-regional-compilation.md#matts-questions). |
 
 ## Gallery and storage
 
@@ -87,9 +93,7 @@ Matt's approved [shortcut and compact-setup stages](docs/plan-shortcut-workflow.
 
 | id | status | sev | size | item |
 |---|---|---|---|---|
-| `GAL#6` | USER | LOW | S | Qualify intended-user Windows credential setup/session and independent-password recovery. OS APIs were stub-tested; no real vault access or gallery activation was performed. [Plan](docs/plan-automatic-backups.md). |
-| `GAL#12` | OPEN | LOW | M | Coordinate Bundle & clear worker/terminal application with lifecycle owners and conservative unresolved-outcome recovery. [Plan](docs/review-2026-10-28-bundle-clear-order.md). |
-| `GAL#19` | OPEN | LOW | S | Inspect the new wide/narrow screenshots of implemented Runs favorite-count refreshes; source and native functional checks pass, but the exact result-artifact read was denied. [Evidence and access boundary](docs/review-2026-10-29-runs-favorite-counts.md#remaining-visual-qualification-and-access-boundary). |
+| `GAL#23` | OPEN | LOW | S | A search that finds nothing does not say that a mistyped key such as `sed:42` was searched as prompt words (E5/E9 Often). syncGalleryEmpty names a near SEARCH_KEYS match and offers 'Search seed:42' (no scroll), in the bin too. No change to head height. [Owner](docs/review-2026-10-29-backlog.md#gal23-mistyped-search-keys) |
 
 ## Prompt analyser
 
@@ -105,17 +109,8 @@ Matt's approved [shortcut and compact-setup stages](docs/plan-shortcut-workflow.
 
 | id | status | sev | size | item |
 |---|---|---|---|---|
+| `UI#34` | OPEN | MED | M | The Refine dialog cannot compare scales of one keeper. Add Compare scales: size_axis pairs from refine.scaled (1x, 1.5x, 2x), only factors that pass the guard and the tight line, a server preview, a sheet with a Size axis, and the list never remembered as the scale. Quality at 2x is a card stage. [Owner](docs/plan-size-axis-crop-anchor.md#compare-scales-in-the-refine-dialog) |
 | `UI#7` | USER | LOW | M | Hands-on NVDA/Narrator, touch, native notification delivery and actual Windows scaling checks; browser emulation and accessibility-tree inspection do not complete them. [Manual checks](docs/design/validation.md#accessibility-and-desktop-checks). |
-| `UI#20` | OPEN | LOW | S | Export/import implementation and CPU/browser workflow pass; final screenshot reinspection remains after an artifact-directory read denial. [Evidence](docs/plan-snippet-portability.md#stage-3-implementation-and-browser-evidence-2026-10-28). |
-| `UI#25` | OPEN | LOW | M | Export/import raw named Generate/Grid drafts with explicit bounded merge and preserved composer intent. [Plan](docs/plan-setup-portability.md). |
-
-## Development tooling
-
-**Owner:** [regional compilation's CPU dependency preparation](docs/plan-regional-compilation.md#cpu-dependency-preparation).
-
-| id | status | sev | size | item |
-|---|---|---|---|---|
-| `DEV#8` | OPEN | LOW | S | Optional extra/lock metadata and offline default/opt-in/Linux plans checked; finish actual wheel hash/contents/notices and fresh resolution after the denied download. [Scope and acceptance](docs/plan-regional-compilation.md#cpu-dependency-preparation). |
 
 ## Review coverage
 
@@ -139,15 +134,20 @@ Each review's remaining work is indexed above; closed findings stay in their own
 | 2026-10-27 decisions | Matt deferred `GEN#20`; the requested [instruction-editing](docs/plan-instruction-editing.md) and [detailer](docs/plan-detailer.md) plans are written. Matt then commissioned starting `INP#11` without the card; `INP#12` remains deferred. `PA#11` closed by keeping critic rewrites available with the existing [omission warning](docs/design-notes.md#open-questions-from-the-analyser). |
 | 2026-10-28 TODO audit | [Reconciliation and new work](docs/review-2026-10-28-todo.md): corrected stale edit/design status and `CARD#4` scope; added the requested named setups, saved searches, snippet portability and separate compiler preparation. Named setups (`GEN#27`, [plan](docs/plan-generation-presets.md#browser-acceptance-2026-10-28)) and saved gallery searches (`GAL#7`, [plan](docs/plan-saved-searches.md#browser-acceptance)) are built and locally qualified. |
 | 2026-10-28 PNG | Named [JSON decoder refusals (`UI#26`)](docs/review-2026-10-28-png-json-refusals.md) and [unreadable-size fallback (`UI#27`)](docs/review-2026-10-28-png-size-refusals.md). |
-| 2026-10-28 library | Recovery owners: [snippet/setup libraries and remaining owner audit](docs/review-2026-10-28-library-recovery.md), [saved searches (`UI#24`)](docs/review-2026-10-28-saved-search-recovery.md). |
-| 2026-10-28 gallery | Owners: [favorites (`GAL#9`)](docs/review-2026-10-28-favorite-write-order.md), [exact lifecycle actions (`GAL#10`)](docs/review-2026-10-28-bin-restore-order.md), [Delete unstarred/Empty (`GAL#11`)](docs/review-2026-10-28-broad-bin-order.md), [local date bounds (`GAL#13`)](docs/review-2026-10-28-local-date-bounds.md), [explicit date ranges (`GAL#14`)](docs/plan-gallery-date-ranges.md), [orientation values (`GAL#15`)](docs/plan-gallery-orientation.md), [scientific scalars (`GAL#16`)](docs/review-2026-10-28-numeric-search-scalars.md), [actual area (`GAL#17`)](docs/plan-gallery-area-search.md). |
+| 2026-10-28 library | Recovery owners: [snippet/setup libraries and remaining owner audit](docs/review-2026-10-28-library-recovery.md), [setup list recovery (`UI#23`)](docs/review-2026-10-28-setup-list-recovery.md), [saved searches (`UI#24`)](docs/review-2026-10-28-saved-search-recovery.md). |
+| 2026-10-28 gallery | Owners: [picked favorites (`GAL#8`)](docs/review-2026-10-28-picked-favorites.md), [favorites (`GAL#9`)](docs/review-2026-10-28-favorite-write-order.md), [exact lifecycle actions (`GAL#10`)](docs/review-2026-10-28-bin-restore-order.md), [Delete unstarred/Empty (`GAL#11`)](docs/review-2026-10-28-broad-bin-order.md), [local date bounds (`GAL#13`)](docs/review-2026-10-28-local-date-bounds.md), [explicit date ranges (`GAL#14`)](docs/plan-gallery-date-ranges.md), [orientation values (`GAL#15`)](docs/plan-gallery-orientation.md), [scientific scalars (`GAL#16`)](docs/review-2026-10-28-numeric-search-scalars.md), [actual area (`GAL#17`)](docs/plan-gallery-area-search.md). |
+| 2026-10-28 jobs | Owners: [queued cancellation receipts (`GEN#28`)](docs/review-2026-10-28-queued-cancel-recovery.md), [watched action replies (`GEN#29`)](docs/review-2026-10-28-watched-action-replies.md), [wrapped seed headlines (`GEN#30`)](docs/review-2026-10-28-more-seeds-headline.md). |
+| 2026-10-28 tooling | Owners: [fatal fixture prerequisites (`DEV#9`)](docs/review-2026-10-28-fatal-prerequisites.md), [fresh fake directories (`DEV#10`)](docs/review-2026-10-28-fake-fresh.md), [fake credential refusal (`DEV#11`)](docs/review-2026-10-28-fake-credentials.md), [port preflight (`DEV#12`)](docs/review-2026-10-28-smoke-port-plan.md), [fake CLI numbers (`DEV#13`)](docs/review-2026-10-28-fake-cli-numbers.md), [viewport preflight (`DEV#14`)](docs/review-2026-10-28-viewport-preflight.md), [direct port preflight (`DEV#15`)](docs/review-2026-10-28-browser-port-preflight.md), [step containers (`DEV#16`)](docs/review-2026-10-28-browser-step-containers.md), [preparation order (`DEV#17`)](docs/review-2026-10-28-browser-preparation-order.md), [startup geometry (`DEV#18`)](docs/review-2026-10-28-startup-viewport.md), [input refusals (`DEV#19`)](docs/review-2026-10-28-browser-input-refusals.md). |
 | 2026-10-29 gallery | [Runs scope and deliberate retry (`GAL#18`)](docs/review-2026-10-28-runs-scope-recovery.md), including actual-handler/native controls and new screenshot inspection. |
 | 2026-10-29 grid | [Closed preview ownership (`UI#29`)](docs/review-2026-10-28-grid-preview-close.md), with actual-module/native controls and scoped screenshot inspection. |
 | 2026-10-29 copy feedback | [Original image and inspect-session ownership (`UI#30`)](docs/review-2026-10-29-copy-feedback-ownership.md), with synthetic-clipboard native controls and two inspected new screenshots. |
 | 2026-10-29 API paging | [SQLite-bound gallery/bin queries (`GAL#20`)](docs/review-2026-10-29-gallery-page-bounds.md), with real overflow controls, legal-MAX binding and existing paging/scope regressions. |
 | 2026-10-29 Check dismissal | [Retained findings and dismissed-panel focus (`UI#31`)](docs/review-2026-10-29-check-dismissal.md), with actual-module/original controls, strict fake native checks and three inspected screenshots. |
-| 2026-10-28 jobs | Owners: [queued cancellation receipts (`GEN#28`)](docs/review-2026-10-28-queued-cancel-recovery.md), [watched action replies (`GEN#29`)](docs/review-2026-10-28-watched-action-replies.md), [wrapped seed headlines (`GEN#30`)](docs/review-2026-10-28-more-seeds-headline.md). |
-| 2026-10-28 tooling | Owners: [fatal fixture prerequisites (`DEV#9`)](docs/review-2026-10-28-fatal-prerequisites.md), [fresh fake directories (`DEV#10`)](docs/review-2026-10-28-fake-fresh.md), [fake credential refusal (`DEV#11`)](docs/review-2026-10-28-fake-credentials.md), [port preflight (`DEV#12`)](docs/review-2026-10-28-smoke-port-plan.md), [fake CLI numbers (`DEV#13`)](docs/review-2026-10-28-fake-cli-numbers.md), [viewport preflight (`DEV#14`)](docs/review-2026-10-28-viewport-preflight.md), [direct port preflight (`DEV#15`)](docs/review-2026-10-28-browser-port-preflight.md), [step containers (`DEV#16`)](docs/review-2026-10-28-browser-step-containers.md), [preparation order (`DEV#17`)](docs/review-2026-10-28-browser-preparation-order.md), [startup geometry (`DEV#18`)](docs/review-2026-10-28-startup-viewport.md), [input refusals (`DEV#19`)](docs/review-2026-10-28-browser-input-refusals.md). |
+| 2026-10-29 pending slices | [Bundle & clear ordering (`GAL#12`)](docs/review-2026-10-28-bundle-clear-order.md#final-qualification-2026-10-29), [Reuse-pass opening ownership (`UI#28`)](docs/review-2026-10-28-reuse-pass-opening.md#final-qualification-2026-10-29) and [a split receipt's watched extra (`GEN#31`)](docs/review-2026-10-29-split-extra-queue.md), each with original-source negative controls, an independent review whose confirmed findings are fixed, and inspected new screenshots. Screenshot inspection then closed [Runs favorite counts (`GAL#19`)](docs/review-2026-10-29-runs-favorite-counts.md#screenshot-inspection-2026-10-29) and [snippet portability (`UI#20`)](docs/plan-snippet-portability.md#final-screenshot-inspection-2026-10-29). |
+| 2026-10-29 setup portability | [Saved-setup export/import (`UI#25`)](docs/plan-setup-portability.md#stage-3-implementation-and-browser-evidence-2026-10-29): cold codec, atomic API and the browser merge dialog, with an owned-scratch smoke and three inspected new screenshots. |
+| 2026-10-29 compiler dependency | `DEV#8` closed: the exact triton-windows wheel's hash, metadata, RECORD and bundled NVIDIA/TinyCC notices were inspected, and a fresh online resolution reproduces the lock. [Results](docs/plan-regional-compilation.md#cpu-dependency-preparation). |
+| 2026-10-29 CI browser startup | [Bounded browser startup](docs/review-2026-10-29-ci-browser-startup.md): hosted qualification passed on e687fcd and on main after PR #16. |
+| 2026-10-29 TODO audit | [Reconciliation and new work](docs/review-2026-10-29-todo.md): stale owner text fixed; 27 OPEN rows and four new DECISION rows added at Matt's request. The 2026-10-29 closures above are on a local branch, not yet on main or hosted CI. |
 
 ---
 

@@ -52,9 +52,12 @@ the recorded dimensions.
 Terms retain their existing AND behavior: repeated terms intersect, and
 `size:portrait size:512x768` narrows to that exact size. Prompt text remains FTS
 text for gallery reads and is refused by strict scopes. Quotes and negation
-gain no new meaning: `size:"portrait"` and `size:!portrait` remain invalid
-values; `-size:portrait`, `"size:portrait"` and `orientation:portrait` remain
+gain no new meaning inside a value: `size:"portrait"` and `size:!portrait`
+remain invalid values; `"size:portrait"` and `orientation:portrait` remain
 unknown-key free text. Saved searches keep the raw query and ticks.
+Since `GAL#21` (2026-10-30), a leading `-` excludes: `-size:portrait` is the
+complement of `size:portrait`, strict scopes included
+([the exclusion plan](plan-search-exclusion.md#contract)).
 
 ## Existing frontend and shared scopes
 

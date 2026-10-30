@@ -61,8 +61,9 @@ def test_every_catalogue_checkpoint_resolves_to_its_sources(model_id):
 
 
 def _every_guide() -> dict[str, str]:
-    """A checkpoint for each guide constant: the catalogue's, the two
-    undistilled ones outside it, and an unknown id for the fallback."""
+    """A checkpoint for each guide constant: the catalogue's (the editor's
+    among them), the two undistilled ones and an unknown id for the
+    fallback."""
     ids = [*_catalogue_repos(), "Tongyi-MAI/Z-Image", "baidu/ERNIE-Image", "nobody/whatever"]
     found = {prompt_sources.sources_for(model_id).guide_name: model_id for model_id in ids}
     assert set(found) == set(prompt_sources.GROUNDING)

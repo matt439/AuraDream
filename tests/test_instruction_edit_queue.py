@@ -1,7 +1,8 @@
 """`POST /api/instruction-edit`: one edit queued behind the backend's gate.
 
 Driven over HTTP with the fake backend, whose gate (`edit_qualified`) a test
-opens; the real backend's stays the literal False. The fake's edit branch
+opens (the real backend's literal True is test_instruction_edit_release's).
+The fake's edit branch
 proves and prepares the source as the real one does and draws nothing.
 No weights, downloads or GPU.
 """
@@ -16,6 +17,8 @@ from PIL import Image
 
 from backend import grid, instruction_edit_admission, main, model_selection
 from backend.instruction_edit import (
+    INSTRUCTION_EDIT_ASPECT_UNQUALIFIED,
+    INSTRUCTION_EDIT_LOADER_UNQUALIFIED,
     INSTRUCTION_EDIT_NEEDS_MODEL,
     INSTRUCTION_EDIT_REPLAY_HELD,
     INSTRUCTION_EDIT_TEXT_TO_IMAGE,
@@ -191,8 +194,9 @@ def test_submission_request_is_one_unbound_image_with_recipe_defaults():
 
 def test_an_admitted_edit_runs_once_and_is_saved_with_its_identity(client, fake, store, monkeypatch):
     open_gate(fake, monkeypatch)
-    rec, bound = source(store, width=768, height=512)
-    response = client.post("/api/instruction-edit", json=body(rec, width=576, height=384))
+    # A 1:1 source of another size: the qualified 512x512 from its own pixels.
+    rec, bound = source(store, width=320, height=320)
+    response = client.post("/api/instruction-edit", json=body(rec))
     assert response.status_code == 200, response.text
     accepted = response.json()
     assert accepted["seed"] == 7
@@ -200,19 +204,19 @@ def test_an_admitted_edit_runs_once_and_is_saved_with_its_identity(client, fake,
     assert done["status"] == "done", done
     assert len(done["images"]) == 1
     assert fake.edit_calls == [{
-        "width": 576, "height": 384, "max_area": 576 * 384, "_auto_resize": False,
-        "num_images_per_prompt": 1, "max_sequence_length": 512, "image_size": (576, 384),
+        "width": 512, "height": 512, "max_area": 512 * 512, "_auto_resize": False,
+        "num_images_per_prompt": 1, "max_sequence_length": 512, "image_size": (512, 512),
         "seed": 7, "steps": KONTEXT_V1.default_steps, "guidance_scale": KONTEXT_V1.default_guidance_scale,
     }]
     assert len(fake.requests) == 1 and fake.requests[0].edit == bound
     saved = store.get_image(done["images"][0]["id"])
     assert saved is not None
     assert saved.edit == bound and saved.model_id == KONTEXT_V1.model_id
-    assert (saved.width, saved.height, saved.batch, saved.seed) == (576, 384, 1, 7)
+    assert (saved.width, saved.height, saved.batch, saved.seed) == (512, 512, 1, 7)
     assert saved.negative_prompt is None and saved.refine is None and saved.mask is None
     assert saved.prompt == "make it night" and saved.run_id == accepted["run_id"]
     with Image.open(store.settings.outputs_dir / saved.filename) as image:
-        assert image.size == (576, 384)
+        assert image.size == (512, 512)
         chunk = json.loads(image.info[PNG_METADATA_KEY])
     assert chunk["edit"] == bound.model_dump(mode="json") and chunk["model"] == KONTEXT_V1.model_id
     # The run id is the cell's as `applied()` runs it, the edit's key in it.
@@ -366,6 +370,145 @@ def test_submit_cells_refuses_an_unbound_or_ungated_edit(fake, store, monkeypatc
     assert no_work(fake)
 
 
+# The measured envelope (stage 4): an open gate holds what the card has not measured.
+
+INT8 = INSTRUCTION_EDIT_LOADER_UNQUALIFIED.format(choice="int8 quantization")
+THREE_TWO = INSTRUCTION_EDIT_ASPECT_UNQUALIFIED.format(a=3, b=2, w=576, h=384)
+
+
+def leave_envelope(monkeypatch):
+    # The editor still selected, at a quantization the card never measured.
+    monkeypatch.setattr(model_selection, "_selection", (KONTEXT_V1.model_id, 1, "int8", "model"))
+
+
+def test_preview_and_submit_hold_an_unmeasured_aspect_without_a_job(client, fake, store, monkeypatch):
+    open_gate(fake, monkeypatch)
+    square, _ = source(store)
+    wide, _ = source(store, width=768, height=512)
+    # The server can edit: its status says so, and a 1:1 preview is available.
+    defaults = client.get("/api/status").json()["defaults"]
+    assert defaults["instruction_edit_supported"] is True and defaults["instruction_edit_reason"] is None
+    answer = client.post("/api/instruction-edit/preview", json={"source": square.id, "recipe": "kontext-v1"}).json()
+    assert (answer["available"], answer["reason"], answer["width"], answer["height"]) == (True, None, 512, 512)
+    assert answer["source_reason"] is None
+    # A 3:2 source is said at its size and held in words, which also come
+    # apart as the source's own (the page says them in the preview's place).
+    answer = client.post("/api/instruction-edit/preview", json={"source": wide.id, "recipe": "kontext-v1"}).json()
+    assert (answer["available"], answer["reason"], answer["width"], answer["height"]) == (False, THREE_TWO, 576, 384)
+    assert answer["source_reason"] == THREE_TWO
+    # The server's own reason comes first, and the source's is still said.
+    fake.edit_qualified = False
+    answer = client.post("/api/instruction-edit/preview", json={"source": wide.id, "recipe": "kontext-v1"}).json()
+    assert (answer["available"], answer["reason"], answer["source_reason"]) == (False, INSTRUCTION_EDIT_UNAVAILABLE, THREE_TWO)
+    answer = client.post("/api/instruction-edit/preview", json={"source": square.id, "recipe": "kontext-v1"}).json()
+    assert (answer["reason"], answer["source_reason"]) == (INSTRUCTION_EDIT_UNAVAILABLE, None)
+    fake.edit_qualified = True
+    # And its submission, at the size the frozen table gives it, queues nothing.
+    response = client.post("/api/instruction-edit", json=body(wide, width=576, height=384))
+    assert response.status_code == 422, response.text
+    assert response.json()["detail"] == THREE_TWO
+    assert fake.loads == 0 and no_work(fake) and images(store) == 2
+    # An internal caller with a bound 3:2 cell is refused whole, too.
+    bound = instruction_edit_admission.bind_request(
+        InstructionEditSubmission.model_validate(body(wide, width=576, height=384)).request(), KONTEXT_V1.model_id,
+    )
+
+    async def scenario():
+        manager = JobManager(fake, None)
+        try:
+            with pytest.raises(ValueError) as caught:
+                await manager.submit(bound)
+            return str(caught.value)
+        finally:
+            await manager.shutdown()
+
+    assert asyncio.run(scenario()) == THREE_TWO
+    assert no_work(fake)
+
+
+def test_an_unmeasured_loader_is_held_in_words_before_any_source_is_read(client, fake, store, monkeypatch):
+    fake.edit_qualified = True
+    leave_envelope(monkeypatch)
+    rec, _ = source(store)
+    answer = client.post("/api/instruction-edit/preview", json={"source": rec.id, "recipe": "kontext-v1"}).json()
+    assert (answer["available"], answer["reason"]) == (False, INT8)
+    defaults = client.get("/api/status").json()["defaults"]
+    assert defaults["instruction_edit_supported"] is False and defaults["instruction_edit_reason"] == INT8
+    # Generate on the editor says the loader's words, not a pointer at the dialog.
+    assert INT8 in defaults["text_to_image_reason"] and "Use Edit by instruction" not in defaults["text_to_image_reason"]
+
+    def forbidden(*args, **kwargs):
+        pytest.fail("an unmeasured loader reached source decoding")
+
+    monkeypatch.setattr(instruction_edit_admission, "bind_request", forbidden)
+    response = client.post("/api/instruction-edit", json=body(rec))
+    assert response.status_code == 422, response.text
+    assert response.json()["detail"] == INT8
+    assert fake.loads == 0 and no_work(fake)
+
+
+def test_the_fake_host_decides_the_platform_and_diffusers_answers(client, fake, store, monkeypatch):
+    open_gate(fake, monkeypatch)
+    rec, _ = source(store)
+    fake.edit_host = ("linux", "0.40.0")
+    answer = client.post("/api/instruction-edit/preview", json={"source": rec.id, "recipe": "kontext-v1"}).json()
+    assert answer["reason"] == INSTRUCTION_EDIT_LOADER_UNQUALIFIED.format(choice="Linux (WSL)")
+    fake.edit_host = ("win32", None)
+    answer = client.post("/api/instruction-edit/preview", json={"source": rec.id, "recipe": "kontext-v1"}).json()
+    assert answer["reason"] == INSTRUCTION_EDIT_LOADER_UNQUALIFIED.format(choice="a missing diffusers")
+    assert no_work(fake)
+
+
+def test_recheck_refuses_a_cell_whose_selection_left_the_envelope(fake, store, monkeypatch):
+    open_gate(fake, monkeypatch)
+    rec, _ = source(store)
+    bound = instruction_edit_admission.bind_request(
+        InstructionEditSubmission.model_validate(body(rec)).request(), KONTEXT_V1.model_id,
+    )
+    manager = JobManager(fake, None)
+    assert manager._recheck_edit(bound) is None
+    leave_envelope(monkeypatch)
+    with pytest.raises(ValueError) as caught:
+        manager._recheck_edit(bound)
+    assert str(caught.value) == INT8
+    open_gate(fake, monkeypatch)
+    # A bound 3:2 cell (an internal caller's) fails its recheck in words too.
+    wide, _ = source(store, width=768, height=512)
+    wide_bound = instruction_edit_admission.bind_request(
+        InstructionEditSubmission.model_validate(body(wide, width=576, height=384)).request(), KONTEXT_V1.model_id,
+    )
+    with pytest.raises(ValueError) as caught:
+        manager._recheck_edit(wide_bound)
+    assert str(caught.value) == THREE_TWO
+    assert no_work(fake)
+
+
+def test_a_queued_edit_job_errors_once_its_selection_leaves_the_envelope(fake, store, monkeypatch):
+    open_gate(fake, monkeypatch)
+    rec, _ = source(store)
+    bound = instruction_edit_admission.bind_request(
+        InstructionEditSubmission.model_validate(body(rec)).request(), KONTEXT_V1.model_id,
+    )
+
+    async def scenario():
+        loads: list[int] = []
+
+        async def ensure_loaded():
+            loads.append(1)
+
+        manager = JobManager(fake, ensure_loaded)
+        job = await manager.submit(bound)
+        leave_envelope(monkeypatch)  # before the job's task has taken a step
+        while job.status not in {"done", "error", "cancelled"}:
+            await asyncio.sleep(0.01)
+        await manager.shutdown()
+        return job, loads
+
+    job, loads = asyncio.run(scenario())
+    assert (job.status, job.error) == ("error", INT8)
+    assert loads == [] and no_work(fake)
+
+
 def test_cancel_mid_edit_keeps_nothing(client, fake, store, monkeypatch):
     open_gate(fake, monkeypatch)
     rec, _ = source(store)
@@ -401,22 +544,134 @@ def test_planned_keys_hold_a_live_edit_and_skip_it_once_unqualified(client, fake
         stream_job(client, job_id)
 
 
-# What stays held
+# Replay: More seeds runs an edit inside the envelope; the rest stays held
+
+
+def edited(store, bound, *, width=512, height=512, seed=7, run_id="instruction-edit-run"):
+    """A saved edit of `bound`'s source, as the editor writes one."""
+    return store.save_image(
+        Image.new("RGB", (width, height), (50, 30, 10)),
+        GenerateRequest(prompt="make it night", edit=bound, width=width, height=height, seed=seed),
+        seed=seed, duration_ms=1, model_id=KONTEXT_V1.model_id, quantization="fp8",
+        run_id=run_id, batch=1,
+    )
+
+
+def test_more_seeds_of_an_edit_queues_new_seeds_of_the_original_source(client, fake, store, monkeypatch):
+    open_gate(fake, monkeypatch)
+    rec, bound = source(store)
+    edit = edited(store, bound)
+    answer = client.post("/api/more-seeds/preview", json={"ids": [edit.id], "count": 2}).json()
+    (row,) = answer["results"]
+    assert (row["status"], row["first"], row["last"], row["batch"]) == ("queued", 8, 9, 1), row
+    assert answer["queued"] == 2 and answer["intent"]
+    response = client.post("/api/more-seeds", json={
+        "ids": [edit.id], "count": 2, "expected": answer["ids"], "intent": answer["intent"],
+    })
+    assert response.status_code == 200, response.text
+    accepted = response.json()
+    assert accepted["run_id"] == "instruction-edit-run" and accepted["queued"] == 2
+    done = stream_job(client, accepted["job_id"])[-1]
+    assert done["status"] == "done" and len(done["images"]) == 2, done
+    # One image per call, each an edit of the original source - never of
+    # the child it was asked from - its proof unchanged.
+    assert [call["seed"] for call in fake.edit_calls] == [8, 9]
+    assert all(call["num_images_per_prompt"] == 1 and call["image_size"] == (512, 512) for call in fake.edit_calls)
+    made = [store.get_image(image["id"]) for image in done["images"]]
+    assert all(saved is not None for saved in made)
+    assert [(saved.seed, saved.edit, saved.run_id, saved.width, saved.height) for saved in made if saved] == [
+        (8, bound, "instruction-edit-run", 512, 512), (9, bound, "instruction-edit-run", 512, 512),
+    ]
+    assert store.get_image(rec.id) is not None
+    # Asked again, the seeds carry on past them.
+    again = client.post("/api/more-seeds/preview", json={"ids": [edit.id], "count": 2}).json()
+    assert (again["results"][0]["first"], again["results"][0]["last"]) == (10, 11)
+
+
+def test_more_seeds_of_an_edit_is_never_priced_by_direct_renders(client, fake, store, monkeypatch):
+    # A plain render at the edit's size on the same checkpoint (an import,
+    # say) has a step price; an edit's is not that, so the estimate is left out.
+    open_gate(fake, monkeypatch)
+    _, bound = source(store)
+    edit = edited(store, bound)
+    store.save_image(
+        Image.new("RGB", (512, 512)), GenerateRequest(prompt="a lighthouse", width=512, height=512, steps=28),
+        seed=3, duration_ms=28_000, model_id=KONTEXT_V1.model_id, quantization="fp8",
+    )
+    answer = client.post("/api/more-seeds/preview", json={"ids": [edit.id], "count": 2}).json()
+    assert answer["queued"] == 2 and answer["seconds"] is None and answer["unpriced_sizes"] == 1, answer
+
+
+@pytest.mark.parametrize("case", ["changed", "binned", "foreign", "non-square", "closed", "loader"])
+def test_more_seeds_refuses_changed_source_or_unmeasured_envelope(client, fake, store, monkeypatch, case):
+    open_gate(fake, monkeypatch)
+    if case == "non-square":
+        # An imported or older 3:2 edit: it binds and inspects, never runs.
+        rec, bound = source(store, width=768, height=512)
+        edit = edited(store, bound, width=576, height=384)
+    else:
+        rec, bound = source(store)
+        edit = edited(store, bound)
+    if case == "changed":
+        Image.new("RGB", (256, 256), (1, 2, 3)).save(store.settings.outputs_dir / rec.filename)
+    elif case == "binned":
+        store.bin_images([rec.id])
+    elif case == "foreign":
+        select(monkeypatch, "black-forest-labs/FLUX.1-Krea-dev")
+    elif case == "closed":
+        fake.edit_qualified = False
+    elif case == "loader":
+        leave_envelope(monkeypatch)
+    expected = {
+        "changed": ("invalid", f"Instruction-edit source #{rec.id} no longer matches its recorded pixels or provenance."),
+        "binned": ("invalid", f"Instruction-edit source #{rec.id} is missing or in the recycle bin."),
+        "foreign": ("foreign", f"made on {KONTEXT_V1.model_id}; the server is running black-forest-labs/FLUX.1-Krea-dev"),
+        "non-square": ("invalid", THREE_TWO),
+        "closed": ("invalid", INSTRUCTION_EDIT_UNAVAILABLE),
+        "loader": ("invalid", INT8),
+    }[case]
+    answer = client.post("/api/more-seeds/preview", json={"ids": [edit.id], "count": 2}).json()
+    (row,) = answer["results"]
+    assert (row["status"], row["detail"]) == expected, row
+    assert answer["queued"] == 0 and answer["intent"] is None
+    response = client.post("/api/more-seeds", json={"ids": [edit.id], "count": 2})
+    assert response.status_code == 422, response.text
+    assert "no selected batch can have more seeds" in response.json()["detail"]
+    assert no_work(fake) and fake.loads == 0
+
+
+def test_rerender_of_an_edit_is_refused_naming_ids(client, fake, store, monkeypatch):
+    open_gate(fake, monkeypatch)
+    _, bound = source(store)
+    edit = edited(store, bound)
+    plain = store.save_image(
+        Image.new("RGB", (512, 512)), GenerateRequest(prompt="a lighthouse", width=512, height=512),
+        seed=3, duration_ms=1, model_id=KONTEXT_V1.model_id, quantization="fp8",
+    )
+    words = (
+        f"An instruction edit renders at its source's frozen size (512x512 for #{edit.id}); "
+        "use More seeds for new seeds, or Reuse to edit again."
+    )
+    # At its own size and at another, the same words.
+    for size in ((512, 512), (768, 768)):
+        response = client.post("/api/rerender", json={"ids": [edit.id], "width": size[0], "height": size[1]})
+        assert response.status_code == 422 and response.json()["detail"] == words, response.text
+    # A mixed selection is refused whole, with the way to leave the edit out.
+    response = client.post("/api/rerender", json={"ids": [plain.id, edit.id], "width": 512, "height": 512})
+    assert response.status_code == 422, response.text
+    assert response.json()["detail"] == f"{words} Unpick #{edit.id} to re-render the others."
+    response = client.post("/api/rerender", json={"search": "", "favorites": False, "width": 512, "height": 512})
+    assert response.status_code == 422, response.text
+    assert response.json()["detail"].endswith("Add edit:no to the search to re-render the others.")
+    assert no_work(fake) and fake.loads == 0
 
 
 @pytest.mark.parametrize("qualified", [False, True])
-def test_generate_rerender_more_seeds_swap_and_finish_never_queue_an_edit(
-    client, fake, store, monkeypatch, qualified,
-):
+def test_generate_and_finish_still_hold_an_edit(client, fake, store, monkeypatch, qualified):
     select(monkeypatch)
     fake.edit_qualified = qualified
     rec, bound = source(store)
-    edited = store.save_image(
-        Image.new("RGB", (512, 512), (50, 30, 10)),
-        GenerateRequest(prompt="make it night", edit=bound, width=512, height=512, seed=7),
-        seed=7, duration_ms=1, model_id=KONTEXT_V1.model_id, quantization="fp8",
-        run_id="instruction-edit-run", batch=1,
-    )
+    edit = edited(store, bound)
     held = INSTRUCTION_EDIT_REPLAY_HELD if qualified else INSTRUCTION_EDIT_UNAVAILABLE
     stored = GenerateRequest(prompt="make it night", edit=bound, width=512, height=512, seed=7)
     response = client.post("/api/generate", json=stored.model_dump(mode="json"))
@@ -425,16 +680,14 @@ def test_generate_rerender_more_seeds_swap_and_finish_never_queue_an_edit(
                "width": 512, "height": 512}
     response = client.post("/api/generate", json=unbound)
     assert response.status_code == 422 and "instruction-edit source" in response.text, response.text
-    response = client.post("/api/rerender", json={"ids": [edited.id], "width": 512, "height": 512})
-    assert response.status_code == 422 and response.json()["detail"] == held, response.text
-    for route, payload, rows in (
-        ("/api/more-seeds/preview", {"ids": [edited.id], "count": 2}, "results"),
-        ("/api/swap-tags/preview", {"ids": [edited.id], "swaps": [{"find": "night", "replace": "day"}]}, "images"),
-    ):
-        response = client.post(route, json=payload)
-        assert response.status_code == 200, response.text
-        answer = response.json()
-        assert answer["queued"] == 0 and answer[rows][0]["status"] == "invalid", answer
+    # Swap tags is unchanged: it never rewrites an edit, in its own words.
+    response = client.post("/api/swap-tags/preview", json={
+        "ids": [edit.id], "swaps": [{"find": "night", "replace": "day"}],
+    })
+    assert response.status_code == 200, response.text
+    answer = response.json()
+    assert answer["queued"] == 0 and answer["images"][0]["status"] == "invalid", answer
+    assert answer["images"][0]["detail"] == "Swap tags cannot rewrite an instruction edit; use its instruction workflow."
     store.retain_run_job({
         "job_id": "retained-edit", "run_id": "retained-edit-run", "created_at": time.time(),
         "origin": "generate", "model_id": KONTEXT_V1.model_id, "quantization": "fp8",
@@ -485,7 +738,10 @@ def test_preview_and_status_follow_the_gate_and_the_selected_model(
     response = client.post("/api/instruction-edit/preview", json={"source": rec.id, "recipe": "kontext-v1"})
     assert response.status_code == 200, response.text
     answer = response.json()
-    assert (answer["available"], answer["reason"]) == (reason is None, reason)
+    # The server's reason first; where it has none, this 3:2 source's own:
+    # its size is said, but only 1:1 was measured.
+    held = reason or INSTRUCTION_EDIT_ASPECT_UNQUALIFIED.format(a=3, b=2, w=576, h=384)
+    assert (answer["available"], answer["reason"]) == (False, held)
     assert (answer["width"], answer["height"]) == (576, 384)
     assert (answer["steps"], answer["guidance_scale"]) == (28, 2.5)
     assert answer["edit"] == bound.model_dump(mode="json")

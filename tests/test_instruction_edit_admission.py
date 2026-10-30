@@ -148,7 +148,8 @@ def test_gallery_replay_actions_never_turn_edit_instruction_into_a_prompt(client
     edited = child(store, bound)
     select_editor(monkeypatch)
     response = client.post("/api/rerender", json={"ids": [edited.id], "width": 512, "height": 512})
-    assert response.status_code == 422 and "not available" in response.text, response.text
+    # Re-render refuses an edit by its id whatever the gate (stage 4 slice 8).
+    assert response.status_code == 422 and f"frozen size (512x512 for #{edited.id})" in response.text, response.text
     for route, payload, rows in (
         ("/api/more-seeds/preview", {"ids": [edited.id], "count": 2}, "results"),
         ("/api/swap-tags/preview", {"ids": [edited.id], "swaps": [{"find": "night", "replace": "day"}]}, "images"),

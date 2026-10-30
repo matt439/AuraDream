@@ -161,7 +161,7 @@
       </span>
       <div class="prompt-editor">
         <textarea id="prompt" rows="5" placeholder="a fox walking in the snow, overcast light"
-                  aria-describedby="prompt-tip" aria-autocomplete="list"
+                  aria-describedby="prompt-tip" aria-autocomplete="list" aria-keyshortcuts="P"
                   aria-controls="tag-suggestions" aria-expanded="false"></textarea>
         <!-- What the encoders read of the prompt, where no chips show it: the
              count after a pause in typing, from three quarters of the budget,
@@ -334,11 +334,18 @@
          negative's own text. Where the note wraps (330 px) it costs nothing,
          on a wide panel a line. The note is the box's description too: greyed,
          the box was read as "unavailable" with no why (sizes.js, syncCfg,
-         rewrites the note, and the description follows it). -->
+         rewrites the note, and the description follows it). On a tag
+         checkpoint the box suggests tags as the prompt does, from its own
+         list, which floats over the fields below (tags.js,
+         suggestNegativeTags). -->
     <div class="field" id="negative-field">
       <span><label for="negative">Negative prompt</label> <em id="neg-note"></em>
         <button type="button" class="ghost tiny" id="neg-enable" hidden></button></span>
-      <textarea id="negative" rows="2" placeholder="blurry, watermark" aria-describedby="neg-note"></textarea>
+      <div class="neg-editor">
+        <textarea id="negative" rows="2" placeholder="blurry, watermark" aria-describedby="neg-note"
+                  aria-autocomplete="list" aria-controls="negative-tag-suggestions" aria-expanded="false"></textarea>
+        <ul class="tag-suggestions" id="negative-tag-suggestions" role="listbox" aria-label="Negative prompt tag suggestions" hidden></ul>
+      </div>
     </div>
 
     <div class="field">
@@ -843,6 +850,7 @@
           submission of it. <b>date:</b> takes <b>today</b>, <b>yesterday</b> or
           <b>2026-09-07</b> — a day on your clock, not UTC.<br>
           Numbers also take a comparison or a range: <b>cfg:&gt;=1</b> · <b>steps:8-12</b>.<br>
+          <b>-word</b> or <b>-key:value</b> leaves those images out.<br>
           <b>model:=</b> takes one checkpoint&#39;s whole id.
           <b>mu:none</b> (the pipeline&#39;s own shift, none of ours) is not <b>mu:0</b>.<br>
           In the full view, ⌕ beside a setting adds it here.</span></span>
@@ -872,7 +880,7 @@
              rest of what the filter matches to the recycle bin in one
              confirmed gesture. Last in the bar, away from the view toggle. -->
         <button class="ghost small danger" id="btn-delete-unstarred" hidden
-          title="Move every image the filter matches that is not starred to the recycle bin, after a confirmation that shows the count. Takes key:value terms or an empty search; Empty recycle bin removes them from disk">⌦ Delete unstarred</button>
+          title="Move every image the filter matches that is not starred to the recycle bin, after a confirmation that shows the count. Takes key:value terms, their exclusions (-key:value) or an empty search; Empty recycle bin removes them from disk">⌦ Delete unstarred</button>
         <!-- In the recycle bin (bin.js), in Delete unstarred's place: the
              picked cards back to the gallery, and the bin deleted from disk,
              last, after a confirmation that says how much. Each held with
@@ -917,6 +925,7 @@
               <li role="menuitem" tabindex="-1" data-picked="star">★ Star picked</li>
               <li role="menuitem" tabindex="-1" data-picked="unstar">☆ Unstar picked</li>
               <li role="menuitem" tabindex="-1" data-picked="compare" aria-disabled="true">Compare picked</li>
+              <li role="menuitem" tabindex="-1" data-picked="tier">Re-render picked at 1 MP…</li>
               <li role="menuitem" tabindex="-1" data-picked="seeds" aria-disabled="true">Seeds to grid</li>
               <li role="menuitem" tabindex="-1" data-picked="bin">⌦ Bin picked</li>
             </ul>
@@ -1572,6 +1581,9 @@
                 placeholder="What to change - &quot;make it night, keep the composition&quot;"></textarea>
     </label>
     <p class="rf-source-line" id="edit-checkpoint"></p>
+    <!-- What the card trial measured, always said (guides.py's _KONTEXT_DRIFT,
+         held equal by tests/test_instruction_edit_ui.py): one fixed line. -->
+    <p class="hint" id="edit-drift">Measured on this card, the rest of the picture still drifts: a recoloured ball also grew and moved.</p>
     <div class="field">
       <div class="row">
         <div class="sub grow">
@@ -1641,7 +1653,8 @@
   </div>
   <p class="swap-hint" id="swap-hint">Whole comma items match, whatever their case, spacing or underscores; a weight round
     the whole item is kept, and one typed in Find is ignored. Inside prose a single tag also matches as a phrase. Every row has to find all
-    of its tags or the image is left out. Each image keeps its own seed, size and settings.</p>
+    of its tags or the image is left out. An empty Find adds its tags at the start or the end, in the prompt's own
+    style. Each image keeps its own seed, size and settings.</p>
   <p class="swap-count" id="swap-count" role="status"></p>
   <ol class="swap-results" id="swap-results" aria-label="What happens to each image"></ol>
   <p class="error one-line" id="swap-error" role="alert"></p>
@@ -1792,6 +1805,7 @@
       <input id="bundle-password" type="password" autocomplete="new-password" maxlength="1024" aria-describedby="bundle-password-hint">
       <label for="bundle-password-again">Repeat password</label>
       <input id="bundle-password-again" type="password" autocomplete="new-password" maxlength="1024" aria-describedby="bundle-password-hint">
+      <p class="caps-lock-note" id="bundle-password-caps" aria-live="polite"></p>
     </div>
     <p class="hint" id="bundle-password-hint">Applies to both Back up and Bundle &amp; clear. A password encrypts the new bundle as a .ldbundle file that only AuraDream can open. It is not saved and cannot be recovered; without it the bundle cannot be opened, and a cleared gallery is lost.</p>
     <div class="bundle-backup-row">
@@ -1813,6 +1827,7 @@
     <div class="bundle-password bundle-unlock">
       <label for="bundle-unlock">Import password</label>
       <input id="bundle-unlock" type="password" autocomplete="current-password" maxlength="1024" aria-describedby="bundle-unlock-hint">
+      <p class="caps-lock-note" id="bundle-unlock-caps" aria-live="polite"></p>
     </div>
     <p class="hint" id="bundle-unlock-hint">One shared password for Import selected file and the saved bundles marked Protected below. Plain ZIP files do not need it.</p>
     <div class="bundle-upload-row">
@@ -1990,6 +2005,7 @@
         <label>Saved setups<select id="setups-list" size="6" aria-label="Saved setups"></select></label>
         <label class="check"><input type="checkbox" id="setups-all">Show other checkpoints</label>
         <div class="setups-actions"><button type="button" class="ghost" id="setups-reload">Reload list</button><button type="button" class="ghost" id="setups-new">New</button></div>
+        <div class="setups-actions setups-portability"><button type="button" class="ghost" id="setups-export">Export…</button><button type="button" class="ghost" id="setups-import" aria-haspopup="dialog" aria-controls="setup-import-dialog">Import…</button><input type="file" id="setups-import-file" accept="application/json,.json" hidden></div>
       </div>
       <div class="setups-editor">
         <label>Name<input type="text" id="setups-name" maxlength="160" aria-description="Up to 80 characters." autocomplete="off" autofocus></label>
@@ -2006,6 +2022,19 @@
     <button type="button" class="primary" id="setups-restore">Restore</button>
   </div>
   <p id="setups-status" role="status" aria-live="polite"></p>
+</dialog>
+
+<dialog class="setup-import-dialog" id="setup-import-dialog" aria-labelledby="setup-import-title" aria-describedby="setup-import-intro">
+  <div class="setups-head"><h2 id="setup-import-title">Import saved setups</h2><button type="button" class="ghost" id="setup-import-close">Cancel</button></div>
+  <p class="hint" id="setup-import-intro">Choose Skip, Add, Add as copy or Replace for each file item. Nothing is saved until Import; your composer, setup name and Undo stay unchanged, and no work is queued.</p>
+  <p id="setup-import-filename" aria-label="Selected file"></p>
+  <p id="setup-import-summary" role="status" aria-live="polite">Nothing has been imported.</p>
+  <div id="setup-import-rows" tabindex="-1" aria-label="Setup merge choices"></div>
+  <p id="setup-import-status" role="status" aria-live="polite"></p>
+  <div class="setup-import-actions">
+    <button type="button" class="ghost" id="setup-import-preview">Preview</button>
+    <button type="button" class="primary" id="setup-import-run" aria-disabled="true">Import</button>
+  </div>
 </dialog>
 
 <script src="/static/state.js"></script>
@@ -2064,6 +2093,7 @@
 <script src="/static/prompt-snippets.js"></script>
 <script src="/static/snippet-import.js"></script>
 <script src="/static/generation-presets.js"></script>
+<script src="/static/setup-import.js"></script>
 <script src="/static/app.js"></script>
 </body>
 </html>

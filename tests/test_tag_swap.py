@@ -170,3 +170,96 @@ def test_a_weight_in_find_is_looked_through_in_prose_as_in_items():
     assert outcome.text == "1girl, gold hair, smile"
     outcome, marked = run("a girl with red hair standing in a field, masterpiece", ("(red hair:1.2)", "gold hair"))
     assert outcome.status == "changed" and marked == ["gold hair"]
+
+
+# ------------------------------------------------------------------ Add rows
+
+
+def test_an_add_row_places_its_tags_at_the_start_or_the_end():
+    outcome, marked = run("1girl, red hair, smile", ("", "night", "end"))
+    assert (outcome.status, outcome.text, marked) == ("changed", "1girl, red hair, smile, night", ["night"])
+    outcome, marked = run("1girl, red hair, smile", ("", "night, rain", "start"))
+    assert (outcome.text, marked) == ("night, rain, 1girl, red hair, smile", ["night", "rain"])
+    assert outcome.removed == []
+
+
+def test_an_add_row_takes_the_texts_separator_and_spelling():
+    # A `,\n` layout keeps its line breaks; a bare comma stays bare.
+    outcome, marked = run("1girl,\nred hair,\nsmile", ("", "night", "end"), ("", "dusk", "start"))
+    assert (outcome.text, marked) == ("dusk,\n1girl,\nred hair,\nsmile,\nnight", ["dusk", "night"])
+    assert run("1girl,smile", ("", "night", "end"))[0].text == "1girl,smile,night"
+    # One item: the comma style a prompt with none has.
+    assert run("1girl", ("", "night", "end"))[0].text == "1girl, night"
+    # The spelling of the item placed beside, never its weight.
+    outcome, marked = run("1girl, red_hair, (long_hair:1.2)", ("", "night sky", "end"))
+    assert (outcome.text, marked) == ("1girl, red_hair, (long_hair:1.2), night_sky", ["night_sky"])
+    outcome, _ = run(r"red hair \(cosplay\), smile", ("", "maid (costume)", "start"))
+    assert outcome.text == r"maid \(costume\), red hair \(cosplay\), smile"
+
+
+def test_a_tag_already_there_is_not_added_and_says_so():
+    outcome, marked = run("1girl, Night, smile", ("", "night", "end"))
+    assert (outcome.status, outcome.text, marked, outcome.notes) == (
+        "unchanged", "1girl, Night, smile", [], ["already had night"],
+    )
+    outcome, marked = run("1girl, night", ("", "night, rain", "end"))
+    assert (outcome.status, outcome.text, marked, outcome.notes) == (
+        "changed", "1girl, night, rain", ["rain"], ["already had night"],
+    )
+
+
+def test_an_add_into_prose_is_by_hand_and_into_xml_structured():
+    outcome, _ = run("a girl with red hair standing in the rain at night.", ("", "night", "end"))
+    assert (outcome.status, outcome.prose, outcome.by_hand) == ("by_hand", ["+ night (end)"], [])
+    outcome, _ = run("<character_1><n>miku</n></character_1>", ("", "night", "end"))
+    assert outcome.status == "structured"
+    # Missing is still the news before by hand.
+    outcome, _ = run("a girl with red hair standing in the rain.", ("blue eyes", "x"), ("", "night", "end"))
+    assert outcome.status == "missing"
+
+
+def test_an_add_beside_a_replace_row():
+    outcome, marked = run("1girl, red hair, smile", ("red hair", "silver hair"), ("", "night", "start"))
+    assert (outcome.text, marked, outcome.removed) == (
+        "night, 1girl, silver hair, smile", ["night", "silver hair"], ["red hair"],
+    )
+    # What a replace row wrote counts as there.
+    outcome, _ = run("1girl, red hair", ("red hair", "night"), ("", "night", "end"))
+    assert (outcome.text, outcome.notes) == ("1girl, night", ["already had night"])
+    # A text the other rows emptied takes the added tags whole.
+    outcome, marked = run("red hair", ("red hair", ""), ("", "night", "end"))
+    assert (outcome.status, outcome.text, marked) == ("changed", "night", ["night"])
+
+
+def test_an_add_to_the_negative_empty_or_not():
+    rows = parse_rows([("", "blurry, lowres", "end")])
+    swapped = swap_record("1girl, smile", None, None, rows, "negative_prompt")
+    assert (swapped.outcome.status, swapped.prompt, swapped.negative_prompt) == (
+        "changed", "1girl, smile", "blurry, lowres",
+    )
+    assert [swapped.outcome.text[a:b] for a, b in swapped.outcome.spans] == ["blurry", "lowres"]
+    swapped = swap_record("1girl", "worst quality", None, rows, "negative_prompt")
+    assert swapped.negative_prompt == "worst quality, blurry, lowres"
+    # Without an Add row an empty text stays unchanged.
+    assert swap("", parse_rows([("red hair", "x")])).status == "missing"
+    assert swap("", []).status == "unchanged"
+
+
+def test_an_add_row_leaves_a_grid_variable_alone():
+    rows = parse_rows([("", "night", "end")])
+    swapped = swap_record("1girl, red hair", None, {"hair": "red hair"}, rows)
+    assert (swapped.prompt, swapped.variables) == ("1girl, red hair, night", {"hair": "red hair"})
+
+
+def test_add_rows_are_refused_where_they_would_clash():
+    with pytest.raises(ValueError, match="Night is both added and in a row's Find"):
+        parse_rows([("night", "day"), ("", "Night", "end")])
+    with pytest.raises(ValueError, match="rain is in two Add rows"):
+        parse_rows([("", "night, rain", "end"), ("", "rain", "start")])
+    with pytest.raises(ValueError, match="empty Find"):
+        parse_rows([("smile", "night", "end")])
+    with pytest.raises(ValueError, match="a tag to add"):
+        parse_rows([("", " , ", "end")])
+    with pytest.raises(ValueError, match="start or the end"):
+        parse_rows([("", "night", "middle")])
+    assert parse_rows([("", "night, rain", "end")])[0].describe() == "+ night, rain (end)"

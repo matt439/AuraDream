@@ -380,5 +380,20 @@
   {"expect": "__poppies.length === 60"},
   {"expect": "__until(() => __poppies.every((id) => galleryRecords.some((r) => r.id === id)), 12000)"},
   {"expect": "__oldHeadCard.isConnected && galleryRecords.length === __lenBefore + 60 && galleryRecords[galleryRecords.length - 1].id === __oldTail && total === __totalBefore2 + 60 && els.gallery.querySelectorAll('.card[data-id]').length === galleryRecords.length"},
-  {"eval": "receiveStatus = __receiveStatus;"}
+  {"eval": "receiveStatus = __receiveStatus;"},
+
+  {"log": "'an exclusion (GAL#21): fox -blonde leaves the blonde foxes out, the page counts what the server does, and nothing in the panel moves; Delete unstarred takes -seed:100 and refuses -blonde. Last, as it plants images'"},
+  {"expect": "(async () => { window.__panelRects = () => [...document.querySelectorAll('.panel button, .panel input, .panel select, .panel textarea')].filter((e) => e.getClientRects().length).map((e) => JSON.stringify(e.getBoundingClientRect())).join('|'); window.__panelBefore = __panelRects(); window.__blonde = []; for (const seed of [50, 51]) __blonde.push(...(await __wait((await __post('/api/generate', {prompt: 'a blonde fox by the river', width: 256, height: 256, seed})).job_id)).images.map((r) => r.id)); window.__excluded = (await api('/api/gallery?limit=1&search=' + encodeURIComponent('fox -blonde'))).total; window.__unstarred = (await api('/api/gallery/unstarred?search=' + encodeURIComponent('seed:>=100 -seed:100'))).unstarred; return __blonde.length === 2 && __excluded >= 10 && __unstarred >= 9 && await __until(() => newestImageSeen === Math.max(...__blonde) && galleryPending === null && !elsewhereBusy); })()", "fatal": true},
+  {"eval": "els.search.value = 'fox -blonde'; els.search.oninput();"},
+  {"expect": "__until(() => galleryPending === null && total === __excluded && galleryRecords.length > 0 && galleryRecords.every((r) => /fox/i.test(r.prompt) && !/blonde/i.test(r.prompt)) && [...document.querySelectorAll('#gallery .card[data-id]')].every((c) => !__blonde.includes(+c.dataset.id)) && els.galleryError.textContent === '')"},
+  {"expect": "__panelRects() === __panelBefore && document.getElementById('search-tip').textContent.replace(/\\s+/g, ' ').includes('-word or -key:value leaves those images out')"},
+  {"eval": "els.search.value = 'seed:>=100 -seed:100'; els.search.oninput();"},
+  {"expect": "__until(() => galleryPending === null && total >= __unstarred && galleryRecords.every((r) => r.seed > 100) && !els.deleteUnstarred.hidden)"},
+  {"eval": "window.__asked = []; askCount = (m) => { __asked.push(m); return null; }; deleteUnstarred()"},
+  {"expect": "__until(() => __asked.length === 1 && __asked[0].startsWith('Delete ' + __unstarred + ' unstarred images matching \"seed:>=100 -seed:100\"') && __asked[0].includes('Type ' + __unstarred + ' to continue'))"},
+  {"eval": "els.search.value = 'seed:>0 -blonde'; els.search.oninput();"},
+  {"expect": "__until(() => galleryPending === null && total > 0 && !els.deleteUnstarred.hidden)"},
+  {"eval": "deleteUnstarred()"},
+  {"expect": "__until(() => __asked.length === 1 && els.galleryError.textContent.includes(\"'-blonde' is free text; strict scopes take key:value terms and their exclusions\"))"},
+  {"expect": "__panelRects() === __panelBefore"}
 ]

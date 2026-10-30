@@ -66,6 +66,7 @@ const SHORTCUT_GROUPS = [
       [['Enter', 'Space'], 'Open the focused image in the lightbox.'],
       [['F'], 'Star or unstar the focused cell.'],
       [['M'], 'Open More seeds for the focused cell\'s batch; review and Queue separately.'],
+      [['Delete'], 'Move the focused cell\'s image to the recycle bin at once; the note has Restore. Holding the key does not repeat.'],
       [['+', '-'], 'Zoom the sheet in or out.'],
       [['0', '1'], 'Reset the sheet zoom; show one image pixel per screen pixel.'],
     ],
@@ -77,6 +78,7 @@ const SHORTCUT_GROUPS = [
     rows: [
       [['Left', 'Right'], 'Browse images, or step through the current picked pair, source passes or comparison values.'],
       [['F', 'R', 'S'], 'Star the image; open Refine; toggle the current comparison.'],
+      [['X'], 'Pick or unpick this image for the gallery\'s actions. Not in the recycle bin or over a contact sheet.'],
       [['M'], 'Open More seeds for this image\'s batch. Opening does not queue images.'],
       [['Delete'], 'Move this image to the recycle bin. In the bin, ask to delete it permanently. Holding the key does not repeat.'],
       [['+', '-'], 'Zoom in or out.'],
@@ -91,6 +93,7 @@ const SHORTCUT_GROUPS = [
     title: 'Prompts and tag chips',
     scope: 'Suggestions and chip editors take Escape before the helper or prompt check beneath them.',
     rows: [
+      [['P'], 'Focus the prompt box from the workspace, with the caret at the end. Fields, menus and dialogs keep their keys.'],
       [['Ctrl/Cmd+Z'], 'Undo text inserted or replaced by Apply, Reuse, PNG settings, Expand, Examples, Snippets or a chip edit.'],
       [['Tab', 'Enter'], 'Accept a matching tag suggestion when its list offers one.'],
       [['Up', 'Down'], 'Move through the open suggestion list.'],
@@ -147,7 +150,7 @@ const SHORTCUT_GROUPS = [
     id: 'menus',
     title: 'Menus and settings groups',
     rows: [
-      [['Menu', 'Shift+F10'], 'Open actions for a focused gallery card, result image or lightbox image. Contact-sheet cells keep the browser\'s menu.'],
+      [['Menu', 'Shift+F10'], 'Open actions for a focused gallery card, result image, contact-sheet cell or lightbox image.'],
       [['Up', 'Down', 'Home', 'End'], 'Move through an open menu.'],
       [['Enter', 'Space'], 'Choose the focused menu item or setting button.'],
       [['Escape'], 'Close the menu and return focus.'],

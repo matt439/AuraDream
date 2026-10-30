@@ -459,7 +459,7 @@ function drawSheet() {
     // What a zoomed sheet shows instead (sizeSheetImages).
     img.dataset.full = rec.url;
     img.setAttribute('aria-keyshortcuts',
-      'ArrowLeft ArrowRight ArrowUp ArrowDown Home End Control+Home Control+End F M Plus - 0 1');
+      'ArrowLeft ArrowRight ArrowUp ArrowDown Home End Control+Home Control+End F M Delete Plus - 0 1');
     const star = document.createElement('button');
     star.type = 'button';
     star.className = 'star fav-badge';
@@ -696,6 +696,13 @@ function refitSheet() {
   }, 150);
 }
 
+// A populated cell's record: the sheet's, or a strength sweep's source,
+// which is no gallery record of the sheet's.
+function sheetCellRecord(cell) {
+  const id = Number(cell.dataset.id);
+  return sheetRecords.find((r) => r.id === id) ?? (sheetLayout?.source?.id === id ? sheetLayout.source : null);
+}
+
 // F stars the focused cell from its image or tools; navigation is image-only.
 async function sheetKey(e) {
   if (keyboardEventHeld(e) || keyboardEditingTarget(e.target) || e.metaKey || e.altKey || els.lightbox.open) return;
@@ -704,10 +711,19 @@ async function sheetKey(e) {
   if (!e.ctrlKey && !e.shiftKey && (e.key === 'f' || e.key === 'F')) {
     e.preventDefault();
     if (e.repeat) return;
-    const id = Number(cell.dataset.id);
-    const rec = sheetRecords.find((r) => r.id === id) ?? (sheetLayout?.source?.id === id ? sheetLayout.source : null);
+    const rec = sheetCellRecord(cell);
     if (!rec) return;
     await starCell(cell, rec, { say: true });
+    return;
+  }
+  // Delete bins the cell's image, as its card's ⌦ does: at once, asking
+  // nothing, with Restore in the note. forgetImages takes the focus's place
+  // before the cell goes, and the redraw puts it on the cell now there.
+  if (!e.ctrlKey && !e.shiftKey && e.key === 'Delete') {
+    e.preventDefault();
+    if (e.repeat) return;
+    const rec = sheetCellRecord(cell);
+    if (rec && !rec.binned_at) await deleteImage(rec);
     return;
   }
   // The zoom keys, the lightbox's; Ctrl with them is the browser's page zoom.

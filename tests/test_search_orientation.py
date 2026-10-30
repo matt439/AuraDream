@@ -117,12 +117,18 @@ def test_exact_size_spelling_and_integer_bounds_are_preserved(raw, expected):
         connection.close()
 
 
-@pytest.mark.parametrize("query", ["-size:portrait", '"size:portrait"', "orientation:portrait"])
+@pytest.mark.parametrize("query", ['"size:portrait"', "orientation:portrait"])
 def test_unknown_or_prefixed_keys_still_remain_prompt_text(query):
     clauses, values, text = search.split_search(query)
     assert clauses == [] and values == [] and text == query
     with pytest.raises(ValueError, match="free text"):
         search.strict_scope(query)
+
+
+def test_an_excluded_orientation_is_the_complement_in_strict_scopes_too():
+    # Until GAL#21, `-size:portrait` was unknown-key prompt text; it is now the
+    # orientation filter negated (docs/plan-search-exclusion.md).
+    assert search.strict_scope("-size:portrait") == (["COALESCE((width < height), 0) = 0"], [])
 
 
 def test_orientation_keeps_prompt_text_out_of_strict_scopes():

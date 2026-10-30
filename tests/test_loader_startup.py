@@ -285,3 +285,67 @@ print(json.dumps({'execution': settings.loader_execution.model_dump(exclude_none
     assert result.returncode == 0, result.stderr
     assert json.loads(result.stdout) == {"execution": {"compilation": "regional-v1"}, "error": None}
     assert list(tmp_path.iterdir()) == []
+
+
+KONTEXT = "black-forest-labs/FLUX.1-Kontext-dev"
+
+
+@pytest.mark.parametrize("flags,words", [
+    (["--model", KONTEXT, "--offload", "sequential"], "sequential offload is not measured"),
+    (["--model", KONTEXT, "--quant", "int8"], "int8 quantization is not measured"),
+    (["--model", KONTEXT, "--compilation", "regional-v1"], "regional-v1 compilation is not measured"),
+    (["--model", KONTEXT.lower()], f"needs {KONTEXT} exactly"),
+    (["--model", "Qwen/Qwen-Image-Edit"], "it has no recipe"),
+], ids=["sequential", "int8", "compiled", "case-variant", "qwen"])
+def test_explicit_unmeasured_edit_checkpoint_is_refused_in_the_loads_words(monkeypatch, capsys, flags, words):
+    monkeypatch.setattr(launch, "_edit_host", lambda: ("win32", "0.40.0"))
+    with pytest.raises(SystemExit) as stopped:
+        launch.configure(flags, ask=lambda _p: pytest.fail("asked terminal question"))
+    assert stopped.value.code == 2 and words in capsys.readouterr().err
+    assert not preferences.path_for(database()).exists()
+
+
+def test_explicit_measured_kontext_starts_and_leaves_the_gate_to_the_backend(monkeypatch):
+    monkeypatch.setattr(launch, "_edit_host", lambda: ("win32", "0.40.0"))
+    launch.configure(["--model", KONTEXT], ask=lambda _p: pytest.fail("asked terminal question"))
+    assert os.environ["AURADREAM_MODEL_ID"] == KONTEXT
+    # Off the measured host the same flags are refused, by name.
+    monkeypatch.setattr(launch, "_edit_host", lambda: ("linux", "0.40.0"))
+    with pytest.raises(SystemExit):
+        launch.configure(["--model", KONTEXT])
+
+
+def test_saved_unmeasured_kontext_fails_through_load_failure(fake, monkeypatch):
+    import asyncio
+    import dataclasses
+
+    from backend import main
+    from backend.instruction_edit import INSTRUCTION_EDIT_LOADER_UNQUALIFIED, INSTRUCTION_EDIT_UNAVAILABLE
+    from backend.jobs import LoadFailed
+
+    monkeypatch.setattr(launch, "_edit_host", pytest.fail)
+    saved = preferences.StartupPreferences(KONTEXT, "fp8", "sequential", True, None)
+    preferences.save(database(), saved)
+    path = preferences.path_for(database())
+    before = path.read_bytes()
+    # A saved choice is restored as it was, never refused or rewritten here.
+    launch.configure([], ask=lambda _p: pytest.fail("asked terminal question"))
+    assert (os.environ["AURADREAM_MODEL_ID"], os.environ["AURADREAM_OFFLOAD"]) == (KONTEXT, "sequential")
+    assert os.environ["AURADREAM_PRELOAD"] == "true"
+    # Its load - the startup preload's - fails as a failed load does.
+    monkeypatch.setattr(main, "settings", dataclasses.replace(
+        main.settings, model_id=KONTEXT, offload="sequential", db_path=database(),
+    ))
+    for qualified, detail in (
+        (False, INSTRUCTION_EDIT_UNAVAILABLE),
+        (True, INSTRUCTION_EDIT_LOADER_UNQUALIFIED.format(choice="sequential offload")),
+    ):
+        fake.edit_qualified = qualified
+        main._load_state.update(state="unloaded", detail=None)
+        with pytest.raises(LoadFailed) as caught:
+            asyncio.run(main.ensure_loaded())
+        assert caught.value.detail == detail
+        assert (main._load_state["state"], main._load_state["detail"]) == ("error", detail)
+    asyncio.run(main._load_in_background())
+    assert main._load_state["state"] == "error"
+    assert fake.loads == 0 and path.read_bytes() == before

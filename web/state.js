@@ -32,7 +32,8 @@ const els = {
   promptExpandStop: $('prompt-expand-stop'),
   tagHelper: $('tag-helper'), tagsBtn: $('btn-tags'), tagsMenu: $('tags-menu'),
   tagFinderMenu: $('tag-finder'),
-  tagSuggestions: $('tag-suggestions'), tagValidation: $('tag-validation'),
+  tagSuggestions: $('tag-suggestions'), negativeTagSuggestions: $('negative-tag-suggestions'),
+  tagValidation: $('tag-validation'),
   tagValidationHome: $('tag-validation-home'), tagValidationWide: $('tag-validation-wide'),
   tagChipsWide: $('tag-chips-wide'),
   tagTip: $('tag-tip'), tagSummary: $('tag-summary'), promptTokens: $('prompt-tokens'),
@@ -377,6 +378,11 @@ let submitting = false;
 // what the viewer shows of a pass until its first frame (refine.js).
 const submissions = new Map();
 const jobLabels = new Map();
+// Each job's stored price ({seconds, budget}), from the reply that accepted
+// it or the snapshot that named it: the server's, set once at submission
+// (`Job.estimate_seconds`), with `seconds` null where nothing like it has
+// run here. `budget` is a time budget's seconds, or null. job-queue.js reads it.
+const jobEstimates = new Map();
 const jobPlaceholders = new Map();
 // Browser storage from before the rename to AuraDream, kept under
 // 'local-diffusion.*': each key moved once to its 'auradream.*' name, in both
@@ -586,9 +592,10 @@ let draggedTagIndex = null;
 // replacing the item at `tagEditAt`.
 let tagInsertAt = null;
 let tagEditAt = null;
-// The pending lookup of the editor's suggestion list - the chip editor's, or
-// the Refine dialog's prompt's, which share it (tags.js,
-// scheduleEditorSuggestions): never both at once, the dialog being modal.
+// The pending lookup of the editor's suggestion list - the chip editor's, the
+// Refine dialog's prompt's or the panel's negative box's, which share it
+// (tags.js, scheduleEditorSuggestions): never two at once, each asking only
+// for the box with the focus, and the dialog being modal.
 let tagEditorSuggestionTimer = null;
 let tagEditorSuggestionEpoch = 0;
 // A remembered adapter name waiting for the list it belongs to.

@@ -15,6 +15,7 @@ from dataclasses import dataclass
 from typing import Literal
 
 from .backends import anima_loading, loading, netayume_loading, newbie_loading, single_file
+from .instruction_edit import KONTEXT_V1
 
 Field = Literal["prompt", "negative_prompt"]
 
@@ -188,6 +189,37 @@ def _flux1(model_id: str) -> list[EncoderSpec]:
     ]
 
 
+def _kontext(model_id: str) -> list[EncoderSpec]:
+    # FluxKontextPipeline builds FluxPipeline's two strings (its own copy of
+    # _get_clip_prompt_embeds and _get_t5_prompt_embeds), from the tokenizers
+    # at the recipe's pinned revision, which the loader checks before weights.
+    file = _PIPELINES + "flux/pipeline_flux_kontext.py"
+
+    def pinned(subfolder: str) -> TokenizerSource:
+        return TokenizerSource(KONTEXT_V1.model_id, subfolder, KONTEXT_V1.revision)
+
+    return [
+        EncoderSpec(
+            "CLIP-L",
+            pinned("tokenizer"),
+            None,
+            "FluxKontextPipeline truncates CLIP to its tokenizer's 77 tokens and keeps "
+            "only the pooled output",
+            file,
+            role="one pooled vector, not the token sequence - T5-XXL carries the words",
+            pooled_only=True,
+        ),
+        EncoderSpec(
+            "T5-XXL",
+            pinned("tokenizer_2"),
+            FLUX_T5_SEQUENCE,
+            f"FluxKontextPipeline truncates T5 at max_sequence_length={FLUX_T5_SEQUENCE}, "
+            "</s> included",
+            file,
+        ),
+    ]
+
+
 def _krea2(model_id: str) -> list[EncoderSpec]:
     length = KREA2_SEQUENCE + KREA2_PREFIX_TOKENS - KREA2_SUFFIX_TOKENS
     return [
@@ -353,6 +385,8 @@ _EXACT: dict[str, Callable[[str], list[EncoderSpec]]] = {
     _key(anima_loading.PREVIEW_MODEL_ID): _anima,
     _key(netayume_loading.MODEL_ID): _netayume,
     _key(newbie_loading.MODEL_ID): _newbie,
+    # Ahead of the "flux.1" family, whose FluxPipeline it is not.
+    _key(KONTEXT_V1.model_id): _kontext,
 }
 # Then first-match on a token, as in model_defaults._PROFILES. The tokens are
 # narrower than the profiles': "flux.1" rather than "flux", so FLUX.2 klein

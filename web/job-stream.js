@@ -399,7 +399,9 @@ function streamJob(jobId, { reattached = 0 } = {}) {
         setProgressText(`${LOST_PHRASE} (${failures})`);
         setStep(false);
         jobEta = '';
+        jobEtaSeconds = null;
         els.cellNote.textContent = '';
+        syncQueueTotal();
         if (failures === 1) {
           els.viewerNoteText.replaceChildren(`${LOST_PHRASE[0].toUpperCase()}${LOST_PHRASE.slice(1)}…`);
           void refreshStatus();

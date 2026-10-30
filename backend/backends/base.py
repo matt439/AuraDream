@@ -6,10 +6,13 @@ the in-process diffusers one without the HTTP layer or the UI noticing.
 from __future__ import annotations
 
 import abc
-from typing import TYPE_CHECKING, Callable
+import sys
+from typing import TYPE_CHECKING, Any, Callable
 
 from ..execution import require_default_execution
-from ..instruction_edit import require_execution_available
+from ..instruction_edit import (
+    LoaderChoice, edit_unavailable_reason, installed_diffusers_version, require_execution_available,
+)
 
 if TYPE_CHECKING:
     from PIL.Image import Image
@@ -124,11 +127,36 @@ class GenerationBackend(abc.ABC):
         """Whether this backend instance may load and run an instruction edit.
 
         The one gate: an instance answer, never a setting, an environment
-        variable or a flag. The default, and the real diffusers backend until
-        its card qualification, answers the literal False; only a test or
-        fake stand-in opens it. Callers compare with ``is True``.
+        variable or a flag. The default answers the literal False; the real
+        diffusers backend (released after its card trial) and the test and
+        fake stand-ins answer True, and the measured envelope still decides
+        (``instruction_edit_refusal``). Callers compare with ``is True``.
         """
         return False
+
+    def instruction_edit_host(self) -> tuple[str, str | None]:
+        """The platform and installed diffusers version an edit would run on.
+
+        Facts, never permission: they feed the measured envelope's check
+        (``instruction_edit.loader_refusal``), which only narrows an open gate.
+        """
+        return sys.platform, installed_diffusers_version()
+
+    def instruction_edit_loader(self, selected: Any) -> LoaderChoice:
+        """This instance's loading facts for ``selected`` (``current_settings``)."""
+        platform, diffusers_version = self.instruction_edit_host()
+        return LoaderChoice.of(selected, platform=platform, diffusers_version=diffusers_version)
+
+    def instruction_edit_refusal(self, selected: Any) -> str | None:
+        """Why no instruction edit can queue here with ``selected``, or None.
+
+        The gate, the selected checkpoint and the loader envelope, in that
+        order (``edit_unavailable_reason``); a source's aspect is the caller's.
+        """
+        return edit_unavailable_reason(
+            selected.model_id, qualified=self.instruction_edit_qualified(),
+            loader=self.instruction_edit_loader(selected),
+        )
 
     def execution_diagnostics_reader(self) -> ExecutionDiagnosticsReader | None:
         """Optional pure regional-state reader, with no model/backend reference.

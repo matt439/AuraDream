@@ -19,7 +19,7 @@ from backend.backends.base import Cancelled, GenerationBackend
 from backend.config import settings
 from backend.critic import CriticError, CriticUnavailable
 from backend.grid import progress_steps
-from backend.instruction_edit import edit_unavailable_reason, text_to_image_refusal
+from backend.instruction_edit import QUALIFIED_ENVELOPE, text_to_image_refusal
 from backend.model_defaults import defaults_for
 from backend.model_selection import current_model_id, current_settings
 from backend.schemas import CriticStatus, GenerateRequest, PromptCritique, default_strength
@@ -75,15 +75,25 @@ class FakeBackend(GenerationBackend):
         self.peak: tuple[int, int] | None = None
         self._last_peak: tuple[int, int] | None = None
         self.after_generate = None
-        # The instruction-edit gate, closed as on the real backend. Only the
-        # literal True opens it (`instruction_edit_qualified`).
+        # The instruction-edit gate, closed by default (the real backend's
+        # is open since its release). Only the literal True opens it
+        # (`instruction_edit_qualified`).
         self.edit_qualified = False
+        # The host the envelope's loader check is told this fake runs on
+        # (`instruction_edit_host`): the measured one, so an open gate's
+        # answers never depend on the machine the tests run on.
+        self.edit_host: tuple[str, str | None] = (
+            QUALIFIED_ENVELOPE.platform, QUALIFIED_ENVELOPE.diffusers_version,
+        )
         # What each instruction edit the fake ran was handed: the recipe's
         # pipeline geometry, the prepared source's size, the seed and steps.
         self.edit_calls: list[dict] = []
 
     def instruction_edit_qualified(self) -> bool:
         return self.edit_qualified is True
+
+    def instruction_edit_host(self) -> tuple[str, str | None]:
+        return self.edit_host
 
     def _sync_model_profile(self) -> None:
         """Switch the fake's capabilities with the server's selected model.
@@ -145,9 +155,11 @@ class FakeBackend(GenerationBackend):
         qualified = self.instruction_edit_qualified()
         if request.edit is not None:
             require_execution_available(request.validate_edit(), qualified=qualified)
-        require_model_available(current_model_id(settings), qualified=qualified)
-        require_default_execution(request.execution)
         selected = current_settings(settings)
+        require_model_available(
+            selected.model_id, qualified=qualified, loader=self.instruction_edit_loader(selected),
+        )
+        require_default_execution(request.execution)
         require_configured_loader_available(selected)
         request = request.with_execution(selected.loader_execution)
         require_default_execution(request.execution)
@@ -198,8 +210,12 @@ class FakeBackend(GenerationBackend):
         from backend.execution import require_configured_loader_available
         from backend.instruction_edit import require_model_available
 
-        require_model_available(current_model_id(settings), qualified=self.instruction_edit_qualified())
-        require_configured_loader_available(current_settings(settings))
+        selected = current_settings(settings)
+        require_model_available(
+            selected.model_id, qualified=self.instruction_edit_qualified(),
+            loader=self.instruction_edit_loader(selected),
+        )
+        require_configured_loader_available(selected)
         self._sync_model_profile()
         self.loads += 1
         self.loaded = True
@@ -219,9 +235,11 @@ class FakeBackend(GenerationBackend):
         qualified = self.instruction_edit_qualified()
         if request.edit is not None:
             require_execution_available(request.validate_edit(), qualified=qualified)
-        require_model_available(current_model_id(settings), qualified=qualified)
-        require_default_execution(request.execution)
         selected = current_settings(settings)
+        require_model_available(
+            selected.model_id, qualified=qualified, loader=self.instruction_edit_loader(selected),
+        )
+        require_default_execution(request.execution)
         require_configured_loader_available(selected)
         request = request.with_execution(selected.loader_execution)
         require_default_execution(request.execution)
@@ -313,10 +331,12 @@ class FakeBackend(GenerationBackend):
         self._sync_model_profile()
         selected = current_settings(settings)
         qualified = self.instruction_edit_qualified()
-        edit_reason = edit_unavailable_reason(selected.model_id, qualified=qualified)
+        edit_reason = self.instruction_edit_refusal(selected)
         extra: dict = {}
         if not defaults_for(selected.model_id)["text_to_image_supported"]:
-            extra["text_to_image_reason"] = text_to_image_refusal(selected.model_id, qualified=qualified)
+            extra["text_to_image_reason"] = text_to_image_refusal(
+                selected.model_id, qualified=qualified, loader=self.instruction_edit_loader(selected),
+            )
         return {
             **extra,
             "model_id": selected.model_id,
@@ -327,8 +347,8 @@ class FakeBackend(GenerationBackend):
             "refine_supported": self.refine_supported,
             "inpaint_supported": self.inpaint_supported,
             "lora_supported": self.lora_supported(),
-            # As the real backend answers them: the instance's gate and the
-            # selected checkpoint.
+            # As the real backend answers them: the instance's gate, the
+            # selected checkpoint and the measured loader envelope.
             "instruction_edit_supported": edit_reason is None,
             "instruction_edit_reason": edit_reason,
         }

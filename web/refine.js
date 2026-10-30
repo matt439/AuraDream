@@ -214,6 +214,7 @@ function refineSizeProblem(w, h) {
 // says. Focus lands on Strength, its value selected: what the dialog is
 // opened to set. Answers whether it opened.
 function openRefine(rec, pass = null) {
+  cancelReusePassOpening();
   // The lightbox's Refine on a checkpoint with no pass explains itself in the
   // panel's line, which showError mirrors into the lightbox, and opens
   // nothing. A card's ⤢ never gets here: card() says it under the gallery's

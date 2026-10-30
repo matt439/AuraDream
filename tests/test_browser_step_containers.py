@@ -10,6 +10,7 @@ import subprocess
 import pytest
 
 ROOT = Path(__file__).resolve().parent.parent
+FIXTURE = Path(__file__).resolve().parent / "browser_containers_fixture.mjs"
 pytestmark = pytest.mark.skipif(shutil.which("node") is None, reason="needs Node")
 
 ROOT_MESSAGE = "browser steps must be a JSON array"
@@ -24,51 +25,13 @@ def run_container_cold(tmp_path, value, *, probe: str | None = None):
     output = tmp_path / "must-not-create-output"
     temporary = tmp_path / "owned-temp"
     temporary.mkdir()
-    bootstrap = r'''
-import fs from 'node:fs';
-import childProcess from 'node:child_process';
-import { syncBuiltinESMExports } from 'node:module';
-const input = JSON.parse(process.argv[1]);
-const asModule = source => 'data:text/javascript;base64,' + Buffer.from(source).toString('base64');
-const realRead = fs.readFileSync;
-const outputModule = asModule(realRead(new URL('./browser-output.mjs', input.url), 'utf8'));
-const source = realRead(input.harness, 'utf8');
-const dependency = "'./browser-output.mjs'";
-if (source.split(dependency).length !== 2) throw Error('expected one browser-output dependency');
-const harnessModule = asModule(source.replace(dependency, JSON.stringify(outputModule)));
-function forbidden() { console.error('UNEXPECTED_CONTAINER_PREFLIGHT_EFFECT'); process.exit(99); }
-let reads = 0;
-fs.readFileSync = (path, ...args) => String(path) === input.script && reads++ === 0
-  ? realRead(path, ...args) : forbidden();
-for (const name of ['existsSync', 'readdirSync', 'statSync', 'mkdirSync', 'mkdtempSync', 'rmSync', 'writeFileSync']) {
-  fs[name] = forbidden;
-}
-childProcess.spawn = childProcess.spawnSync = forbidden;
-syncBuiltinESMExports();
-globalThis.fetch = forbidden;
-globalThis.WebSocket = forbidden;
-process.argv = [process.execPath, input.harness, input.script];
-process.on('exit', () => console.error('FIXTURE_READS:' + reads));
-const probes = {
-  source_read: () => fs.readFileSync(input.harness),
-  browser_lookup: () => fs.existsSync('must-not-discover-browser'),
-  output_write: () => fs.writeFileSync(input.output, 'must-not-write'),
-  output_mkdir: () => fs.mkdirSync(input.output),
-  profile_scan: () => fs.readdirSync(input.temporary),
-  spawn: () => childProcess.spawn('must-not-run'),
-  fetch: () => globalThis.fetch('http://must-not-connect.invalid'),
-  websocket: () => new globalThis.WebSocket('ws://must-not-connect.invalid'),
-};
-if (input.probe) probes[input.probe]();
-await import(harnessModule);
-'''
     request = dict(harness=str(ROOT / "tools" / "browser.mjs"), script=str(script),
                    url=(ROOT / "tools" / "browser.mjs").as_uri(), output=str(output),
                    temporary=str(temporary), probe=probe)
     environment = {**os.environ, "AURADREAM_BROWSER": "owned-synthetic-browser",
                    "AURADREAM_SCREENSHOT_DIR": str(output), "AURADREAM_PORT_OFFSET": "0",
                    "TMPDIR": str(temporary), "TEMP": str(temporary), "TMP": str(temporary)}
-    done = subprocess.run(["node", "--input-type=module", "-e", bootstrap, json.dumps(request)],
+    done = subprocess.run(["node", str(FIXTURE), json.dumps(request)],
                           cwd=tmp_path, env=environment, capture_output=True, text=True, timeout=15)
     assert script.read_text(encoding="utf-8") == text
     assert not output.exists() and list(temporary.iterdir()) == []

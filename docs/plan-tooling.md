@@ -4,6 +4,8 @@ Owner for `DEV#4`-`DEV#7`. The first three came from the
 [2026-10-25 review](review-2026-10-25.md#tooling); `DEV#7` was found while
 auditing the queue on 2026-10-26. The audit established this plan; dated
 implementation and qualification results below record the later work.
+The dated sections at the end own later tooling rows: `DEV#9` (2026-10-28)
+and `DEV#24`-`DEV#26` (2026-10-29 TODO audit).
 Work in the order below. All stages use CPU, synthetic images and scratch
 galleries; they need no model weights or real gallery contents.
 
@@ -460,3 +462,247 @@ fatal expectation, cold metadata checks and actual ordinary-driver cleanup
 qualification. This is a bounded step-control improvement; it changes no
 browser discovery, launch flags, profile or security path and retries no older
 denied operation. Ordinary eval/nonfatal aggregate behavior stays compatible.
+
+## Smoke reruns alone (2026-10-29, DEV#24)
+
+**Status:** `DEV#24` done 2026-10-30: both stages built in one commit.
+`tools/run_smoke.py` takes `--rerun-failed-alone` and `--from-summary PATH`
+as designed below; `tests/test_run_smoke.py` gains the stage 1 cases (only
+exit 1 reruns, serially at the base offset; `passed-alone` with exit 1;
+each bad `--from-summary` input refused with exit 2 before `run_row`;
+nothing to rerun exits 0), and the existing runner tests pass unchanged.
+A real `--from-summary` over a hand-written summary naming `smoke-flux`
+reran it alone on a fresh fake (`passed-alone`, exit 1).
+
+Taken while Matt was away (2026-10-29), revisit if wanted: the design left
+open what a `--from-summary` run writes and exits. Its summary has
+`results: []` (this run had no first pass), `jobs: 1`, its `offset`,
+`from_summary` (the path as given), `rerun` and `verdicts`; it exits 1
+whenever anything was rerun, since the source run's failures stand, and 0
+only when nothing was. Rerun receipts' `artifact_dir` is relative to the
+run root (`rerun/<dir>`), so the `results` glob (`*/result.json`) never
+sees them. A rerun that ends in any exit other than 0 (including a port
+refusal) is `failed-alone`; its receipt keeps the exact code. Duplicate
+names in a source summary rerun once.
+
+Review fix (2026-10-30): the first pass's `summary.json` is now written
+before any rerun and rewritten after it, so a Ctrl-C during the reruns no
+longer loses the completed first pass's receipts; `duration_seconds` and the
+console's "passed in" time stay the first pass's, not the reruns' too.
+
+### Evidence
+
+`docs/rules.md` (Tests, the sentence after "`tests/test_run_smoke.py`
+holds every smoke to one parsed row") says a timing-sensitive smoke can run slower under parallel rows, and "a failure
+seen only under `--jobs` is rerun alone before it is believed". Today that
+rerun is by hand: read the failed names from the console's `failed:` line
+or `summary.json`, then run `tools/run_smoke.py <names>` again.
+`tools/run_smoke.py` already runs only the named smokes, each row on a
+fresh fake with its own new `--data` (`run_row`, `tools/run_smoke.py:184`;
+the fake's arguments at `:65`), so the missing part is only
+choosing the names and recording both answers side by side.
+
+`summary.json` (`tools/run_smoke.py:356-358`) holds `duration_seconds` and
+`results`, one receipt per smoke from its `result.json` (`smoke`, `model`,
+`port`, `phase`, `result`, `exit_code`, `duration_seconds`, `artifact_dir`).
+It does not record the `--jobs` or `--offset` the run used, so a later
+reader cannot tell a parallel failure from a serial one.
+
+### Design
+
+- `--rerun-failed-alone`: after the planned run, each smoke whose exit was
+  1 runs again alone, serially (one worker, the run's `--offset`), on a new
+  fake and a new artifact directory below the same run root. Exit 2
+  (a refused smoke file or command) is never rerun; neither is an
+  interrupted run, which writes no summary.
+- `--from-summary PATH`: read an earlier `summary.json`, take the receipts
+  whose `exit_code` is 1, and run those smokes alone as above, in a new run
+  root. It refuses with exit 2, before any process starts, when PATH is
+  missing or malformed, names a smoke no longer in the port table, or is
+  combined with smoke names or `--all`. With nothing to rerun it says so and
+  exits 0.
+- `summary.json` gains top-level keys only: `jobs`, `offset`, and, when a
+  rerun happened, `rerun` (its receipts, in the same shape) and `verdicts`,
+  one per first-pass failure: `failed-alone` or `passed-alone`.
+  `--from-summary` also records the source path. `results` keeps its
+  current shape exactly; `test_main_writes_a_collectable_summary_and_keeps_failure_status`
+  (`tests/test_run_smoke.py:323`) still passes unchanged.
+- The exit code is the first pass's. A smoke that passes alone is reported,
+  not believed: the run still exits 1. The console prints the verdicts after
+  the existing `failed:` line.
+- Each rerun keeps the existing guarantees: fresh `--data`, its own
+  screenshots, `result.json`, `browser.log` and, on failure,
+  `fake-server.log`; port refusal before any start
+  (`_port_plan_error`); cleanup on interruption.
+
+### Non-goals
+
+- No flag that turns a `passed-alone` result into a pass, in CI or locally.
+- No retry of the same smoke under `--jobs`, and no automatic retry count.
+- No change to the port table, the smoke files or `browser.mjs`.
+- The CI `Smokes` step keeps its command; whether CI uses
+  `--rerun-failed-alone` is decided after `DEV#25` gives Linux timings
+  against the job's 45-minute timeout.
+
+### Stages and completion criteria
+
+1. **Runner.** Add both flags and the summary keys. Closes when new
+   `tests/test_run_smoke.py` cases with `run_row` monkeypatched (as the
+   existing summary test does) show: only exit 1 reruns, serially at the
+   base offset; a parallel failure that passes alone gives `passed-alone`
+   and exit 1; `--from-summary` refuses each bad input with exit 2 before
+   `run_row` is called; `results` is unchanged; and the existing runner
+   tests pass.
+2. **Docs.** The `run_smoke.py` paragraph in `docs/rules.md` Tests and the
+   runner's docstring name both flags and the verdicts; the AGENTS.md
+   command block gains one line. Closes when the docs-map tests and ruff
+   pass.
+
+## Suite and smoke timings (2026-10-29, DEV#25)
+
+**Status:** `DEV#25` OPEN, recorded 2026-10-29 from the TODO audit. Stage 1
+built 2026-10-30; stage 2 has its Windows local baseline, and the Linux CI
+baseline waits on the next push Matt makes (see Results).
+
+### Evidence
+
+The CI `Test` step runs `uv run --group dev pytest -q -n auto`
+(`.github/workflows/ci.yml:84-85`) and prints no per-test durations, so a
+slow test is found only by its job's total. The browser job's comment
+(`.github/workflows/ci.yml:87-92`) says the table "took about 15 minutes at
+that width on four cores", and `summary.json` already holds each smoke's
+`duration_seconds`, but it is uploaded only on failure
+(`.github/workflows/ci.yml:123-125`) and nothing reads it. The last recorded
+local suite time is in this plan's
+[Backend type checking](#backend-type-checking) section (3,950 tests in
+186.90 s, two workers, Windows/Python 3.13.15); AGENTS.md gives about 12
+minutes for the Windows CI job. No Linux suite or smoke baseline is
+written down.
+
+### Design
+
+- Add `--durations=25` to the CI `Test` step. pytest-xdist reports the
+  slowest tests across workers; the step's exit is unchanged.
+- `tools/smoke_timings.py <run-root-or-summary.json> [--top N]` reads one
+  `summary.json` (given directly, or the single one below a run root; more
+  than one is refused) and prints: the slowest N smokes with port, model,
+  result and seconds; each row's total; the sum of smoke times beside the
+  run's wall clock. Read-only, standard library, no server. A missing or
+  malformed summary exits 2 with a message.
+- The browser job gets a step after `Smokes` that runs the tool on the
+  run root with `if: ${{ success() || failure() }}`, so a timing table is
+  in the log whether or not a smoke failed. It cannot change the job's
+  result beyond its own missing-summary exit.
+- Baselines go in a dated results paragraph in this section: Linux from a
+  CI run (suite top 25 and the smoke table), Windows from a local
+  `pytest -n auto --durations=25` and, when main next runs it, the Windows
+  CI job. Each names the commit, runner or machine and worker count.
+
+### Non-goals
+
+- No time budget or failure threshold on a test or smoke.
+- No change to test or smoke content to make them faster in this item; a
+  slow one found here becomes its own row.
+- No success-path upload of the full artifact directory.
+
+### Stages and completion criteria
+
+1. **Tool and CI lines.** Closes when a new `tests/test_smoke_timings.py`
+   checks ordering, `--top`, per-row totals and the missing, malformed and
+   ambiguous summary refusals on synthetic summaries; `tests/test_ci_changes.py`
+   and ruff pass; and the workflow keeps its existing steps and
+   conditions apart from the two additions.
+2. **Baselines.** Closes when the Linux CI log's duration and smoke tables
+   and a Windows local run are recorded here with commit and worker count.
+   A Windows CI figure is added when main next runs; this stage does not
+   push to get one (pushes stay Matt's call).
+
+### Results
+
+**Stage 1, 2026-10-30.** The CI `Test` step runs
+`pytest -q -n auto --durations=25`. `tools/smoke_timings.py` reads a
+`summary.json`, or the only one below a directory (the CI step hands it the
+`--artifacts` root, one level above the run root). It prints the slowest N
+smokes with the port each ran on (worker band included), its model, result
+and seconds; then each row's total, slowest first. A row is the `AGENTS.md`
+row that lists the smoke, read through `run_smoke.parse_table`, so the two
+7896 rows on one port stay apart. A smoke no longer in the table is its own
+row, by its receipt's port and model, and is marked as such. Last comes the
+sum of smoke times beside the run's wall clock (`jobs`/`offset` when the
+summary has them). Only the first pass's `results` count; rerun receipts get
+one line of their own. It refuses with exit 2 a missing path, a directory
+with no summary or with more than one, unreadable JSON, a summary without
+`results` or a numeric `duration_seconds`, and a receipt without a smoke
+name and numeric duration. `--top` below 1 is refused too. The browser job's
+`Smoke timings` step runs it after `Smokes` with
+`if: ${{ success() || failure() }}`; the other steps and conditions are
+unchanged. `tests/test_smoke_timings.py` covers it on synthetic summaries.
+A real local run of smoke-flux, smoke-analysis and smoke-rewrite at
+`--jobs 2` printed 105.7 s wall clock against 113.0 s of smoke time, with
+smoke-analysis at 90.2 s the slowest.
+
+**Windows local baseline, 2026-10-30** (parent 5e9c591 plus this change,
+Windows 11, Python 3.13.15, AMD 16 cores / 32 threads, `-n auto` = 16
+workers): 8,023 passed and 8 skipped in 176.96 s. Slowest five:
+`test_fbc_runtime.py::test_actual_fbc_computes_then_reuses_and_recomputes_changed_residual`
+38.07 s (setup), `test_storage_scale.py` plain 25.02 s and password
+16.88 s, `test_gallery_purge.py::test_every_chunk_is_validated_before_any_requested_row_is_deleted`
+16.60 s, and
+`test_browser_step_containers.py::test_repository_smoke_records_reach_the_same_cold_lookup_boundary`
+8.40 s. Everything else was under 8 s, and from about the 15th on under 4 s.
+Non-goals file a slow one found here as its own row, but set no budget
+to call one slow. Taken while Matt was away (2026-10-29), revisit if
+wanted: no row is filed from this Windows run; that waits for the Linux
+CI table, where the CI time goes.
+
+**Left (stage 2):** the Linux CI baseline: the `Test` step's top 25 and the
+`Smoke timings` table, from the first CI run after Matt next pushes. A
+Windows CI figure follows when main next runs. Nothing was pushed to get
+either. Taken while Matt was away (2026-10-29), revisit if wanted: the
+local smoke table was not run in full for a Windows smoke baseline. The
+plan asks only for the Windows suite, and the smokes are written on Windows
+but timed in CI on Linux.
+
+## Fake-server knob map (2026-10-29, DEV#26)
+
+**Status:** `DEV#26` OPEN, recorded 2026-10-29 from the TODO audit. Not built.
+
+### Evidence
+
+`tools/fake_server.py` registers eight fake-only routes:
+`/api/fake/load` (`:555`), `/step` (`:564`), `/expand` (`:580`), `/model`
+(`:627`), `/lora` (`:640`), `/instruction-edit` (`:654`), `/peak` (`:661`)
+and `/bin-age` (`:669`). Its parser (`:89-108`) has `--port`, `--step`,
+`--data`, `--fresh`, `--model`, `--critic-delay` and `--no-critic`.
+AGENTS.md's "Fake-server knobs" gotcha lists seven of the routes and omits
+`/api/fake/model` (checked 2026-10-29: no occurrence in AGENTS.md).
+`docs/rules.md` describes `/api/fake/model` in the model-switching tests
+paragraph (`docs/rules.md:7262`) and every other route and flag somewhere
+in Tests. `tests/test_docs_maps.py` holds the module layout and the smoke
+table to their files but not the fake's routes or flags.
+
+### Design
+
+- Add `/api/fake/model` (`overrides`, `stuck_critic`, `access`) to the
+  AGENTS.md knob line. Edit AGENTS.md only; CLAUDE.md just imports it.
+- A new `tests/test_docs_maps.py` test reads `tools/fake_server.py` as
+  text: routes from `@app_main.app.post("/api/fake/...")` and flags from
+  `add_argument("--...")`. It never imports the fake, so it stays cold. It
+  asserts each route and flag appears in both AGENTS.md and `docs/rules.md`,
+  and that at least one route and one flag were found, so a renamed
+  decorator cannot pass silently.
+- The failure message names the missing item and the file it is missing
+  from.
+
+### Non-goals
+
+- No change to the fake's routes, flags or behaviour.
+- Not holding the fake's docstring, or `tests/fakes.py`, to the docs.
+- Not a full description check: presence of the name only.
+
+### Stages and completion criteria
+
+1. **Test then line.** Closes when the new test fails on the current
+   AGENTS.md naming `/api/fake/model` as missing, passes after the
+   one-line AGENTS.md addition, and the rest of `tests/test_docs_maps.py`
+   and ruff pass.

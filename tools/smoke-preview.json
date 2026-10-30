@@ -41,7 +41,7 @@
   {"eval": "window.__previewQueued = queuedIds[0]; els.queueList.querySelector('button').focus();"},
   {"keycombo": ["Shift", "Tab"]},
   {"key": "Tab"},
-  {"expect": "document.activeElement === els.queueList.querySelector('button') && __previewRing(document.activeElement) && document.activeElement.getAttribute('aria-label').startsWith('Cancel queued job: 1 image') && document.activeElement.getAttribute('aria-label').includes('a queued owl under high contrast') && els.queueList.textContent.startsWith('Next: 1 image') && !els.queueNote.hidden && els.cancelQueued.hidden && __previewComposer() === __previewKept"},
+  {"expect": "document.activeElement === els.queueList.querySelector('button') && __previewRing(document.activeElement) && document.activeElement.getAttribute('aria-label').startsWith('Cancel queued job: 1 image') && document.activeElement.getAttribute('aria-label').includes('a queued owl under high contrast') && els.queueList.textContent.replace(/~[^·]+ · /, '').startsWith('Next: 1 image') && !els.queueNote.hidden && els.cancelQueued.hidden && __previewComposer() === __previewKept"},
   {"key": " "},
   {"expect": "__previewUntil(() => busy && currentJob === __previewRunning && queuedIds.length === 0 && els.queueNote.hidden && document.activeElement === els.cancel)"},
   {"expect": "__previewRing(els.cancel) && __previewComposer() === __previewKept"},

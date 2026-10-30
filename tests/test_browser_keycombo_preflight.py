@@ -10,6 +10,7 @@ import subprocess
 import pytest
 
 ROOT = Path(__file__).resolve().parent.parent
+FIXTURE = Path(__file__).resolve().parent / "browser_keycombo_fixture.mjs"
 pytestmark = pytest.mark.skipif(shutil.which("node") is None, reason="needs Node")
 
 NEEDS_KEY = "keycombo needs modifiers followed by a key"
@@ -25,55 +26,6 @@ def run_keycombo_cold(tmp_path, steps: list[dict], *, allow_lookup: bool = False
     output = tmp_path / "must-not-create-output"
     temporary = tmp_path / "owned-temp"
     temporary.mkdir()
-    bootstrap = r'''
-import fs from 'node:fs';
-import childProcess from 'node:child_process';
-import { syncBuiltinESMExports } from 'node:module';
-const input = JSON.parse(process.argv[1]);
-const asModule = source => 'data:text/javascript;base64,' + Buffer.from(source).toString('base64');
-const realRead = fs.readFileSync;
-const outputModule = asModule(realRead(new URL('./browser-output.mjs', input.url), 'utf8'));
-const source = realRead(input.harness, 'utf8');
-const dependency = "'./browser-output.mjs'";
-if (source.split(dependency).length !== 2) throw Error('expected one browser-output dependency');
-const harnessModule = asModule(source.replace(dependency, JSON.stringify(outputModule)));
-const ports = { reads: 0, lookups: 0, mkdir: 0 };
-const forbidden = name => function () {
-  console.error('UNEXPECTED_KEYCOMBO_PREFLIGHT_EFFECT:' + name);
-  process.exit(99);
-};
-fs.readFileSync = (path, ...args) => String(path) === input.script && ports.reads++ === 0
-  ? realRead(path, ...args) : forbidden('source_read')();
-for (const [name, label] of Object.entries({
-  readdirSync: 'profile_scan', statSync: 'profile_stat', mkdtempSync: 'profile_create',
-  rmSync: 'profile_remove', writeFileSync: 'output_write',
-})) fs[name] = forbidden(label);
-fs.existsSync = () => {
-  ports.lookups++;
-  // This is an inert existing-browser result, not an executable/file lookup.
-  // It exposes the old screenshotRoot ordering while all real effects stay poisoned.
-  return input.allow_lookup ? true : forbidden('browser_lookup')();
-};
-fs.mkdirSync = () => { ports.mkdir++; return forbidden('output_mkdir')(); };
-childProcess.spawn = childProcess.spawnSync = forbidden('spawn');
-syncBuiltinESMExports();
-globalThis.fetch = forbidden('fetch');
-globalThis.WebSocket = forbidden('websocket');
-process.argv = [process.execPath, input.harness, input.script];
-process.on('exit', () => console.error('PORTS:' + JSON.stringify(ports)));
-const probes = {
-  source_read: () => fs.readFileSync(input.harness),
-  browser_lookup: () => fs.existsSync('must-not-discover-browser'),
-  output_write: () => fs.writeFileSync(input.output, 'must-not-write'),
-  output_mkdir: () => fs.mkdirSync(input.output),
-  profile_scan: () => fs.readdirSync(input.temporary),
-  spawn: () => childProcess.spawn('must-not-run'),
-  fetch: () => globalThis.fetch('http://must-not-connect.invalid'),
-  websocket: () => new globalThis.WebSocket('ws://must-not-connect.invalid'),
-};
-if (input.probe) probes[input.probe]();
-await import(harnessModule);
-'''
     request = dict(harness=str(ROOT / "tools" / "browser.mjs"), script=str(script),
                    url=(ROOT / "tools" / "browser.mjs").as_uri(), output=str(output),
                    temporary=str(temporary), allow_lookup=allow_lookup, probe=probe)
@@ -82,7 +34,7 @@ await import(harnessModule);
                    "AURADREAM_VIEWPORT": "1400x900", "AURADREAM_DPR": "1",
                    "TMPDIR": str(temporary), "TEMP": str(temporary), "TMP": str(temporary)}
     environment.update(environment_updates or {})
-    done = subprocess.run(["node", "--input-type=module", "-e", bootstrap, json.dumps(request)],
+    done = subprocess.run(["node", str(FIXTURE), json.dumps(request)],
                           cwd=tmp_path, env=environment, capture_output=True, text=True, timeout=15)
     assert script.read_text(encoding="utf-8") == text
     assert not output.exists() and list(temporary.iterdir()) == []

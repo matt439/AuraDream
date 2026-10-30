@@ -1,0 +1,696 @@
+[
+  {
+    "log": "\"Portable saved setups on a fresh scratch FLUX.1 fake: actual export bytes, raw file preflight, explicit file-index merge, stale/uncertain recovery, held selections and an unchanged composer; no real gallery, model or queue.\""
+  },
+  {
+    "navigate": "http://127.0.0.1:7953/"
+  },
+  {
+    "eval": "window.__until=async(fn,ms=20000)=>{const end=Date.now()+ms;while(Date.now()<end){try{if(await fn())return true;}catch{}await new Promise(r=>setTimeout(r,40));}return false;};\nwindow.__suFLUX='black-forest-labs/FLUX.1-Krea-dev';window.__suANI='cagliostrolab/animagine-xl-4.0';\nwindow.__su=(name)=>document.getElementById('setup-import-'+name);\nwindow.__suRow=(index)=>__su('rows').querySelector('[data-index=\"'+index+'\"]');\nwindow.__suChange=(index,role,value)=>{const field=__suRow(index).querySelector('[data-role=\"'+role+'\"]');if(!field)throw Error('Missing row control '+index+'/'+role);field.value=value;field.dispatchEvent(new Event(field.tagName==='SELECT'?'change':'input',{bubbles:true}));};\nwindow.__suPayload=(prompt,extra={})=>({mode:'generate',prompt,negative_prompt:'',width:1024,height:1024,steps:null,guidance_scale:null,mu:null,true_cfg:null,seed:null,num_images:1,runs:1,grid:null,...extra});\nwindow.__suGrid=(extra={})=>({prompt_axis:'place = river | woods',prompt_mode:'cross',steps_axis:'',cfg_axis:'',mu_axis:'',size_axis:'',seeds:1,seed_axis:'',budget_minutes:null,...extra});\nwindow.__suItem=(name,model_id,payload)=>({name,model_id,payload});\nwindow.__suDoc=(items)=>({format:'auradream.generation-presets',version:1,items});\nwindow.__suErrors=[];addEventListener('error',e=>__suErrors.push(e.message));addEventListener('unhandledrejection',e=>__suErrors.push(String(e.reason)));\nwindow.__suForbidden=[];window.__suBaseFetch=window.fetch;window.__suHoldExport=false;\nwindow.fetch=async(input,init)=>{const path=new URL(String(input?.url??input),location.href).pathname;const method=String(init?.method||input?.method||'GET').toUpperCase();if(method!=='GET'&&(/^\\/api\\/(generate|grid|refine|inpaint|outpaint|more-seeds|swap-tags|instruction-edit|refine\\/batch|jobs.*)$/.test(path)||path.startsWith('/api/model')))__suForbidden.push(method+' '+path);if(path==='/api/presets/export'&&__suHoldExport){__suHoldExport=false;await new Promise(r=>{window.__suReleaseExport=r;});}return __suBaseFetch(input,init);};\nwindow.__suBaseApi=api;window.__suImportPosts=0;window.__suPreviewPosts=0;window.__suListReads=0;window.__suItemWrites=0;\napi=async(path,options)=>{const method=options?.method||'GET';if(path==='/api/presets/import'&&method==='POST')__suImportPosts++;if(path==='/api/presets/import/preview')__suPreviewPosts++;if(path==='/api/presets'&&method==='GET')__suListReads++;if(/^\\/api\\/presets\\/[a-f0-9]{32}/.test(path)&&['PUT','DELETE'].includes(method))__suItemWrites++;return __suBaseApi(path,options);};window.__suTrackedApi=api;\nwindow.__suPost=(path,body)=>__suBaseApi(path,{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify(body)});\nwindow.__suRead=()=>__suBaseApi('/api/presets');\nwindow.__suSeed=async(doc)=>{const shown=await __suPost('/api/presets/import/preview',{payload:doc,decisions:[]});return __suPost('/api/presets/import',{payload:doc,decisions:shown.rows.map(row=>({index:row.index,action:row.action})),collection_revision:shown.collection_revision,payload_digest:shown.payload_digest});};\nwindow.__suFile=async(raw,name='auradream-generation-setups.json')=>{if(__su('dialog').open){closeSetupImport();if(!await __until(()=>!__su('dialog').open))throw Error('Import did not close');await new Promise(r=>setTimeout(r,50));}const input=document.getElementById('setups-import-file');const transfer=new DataTransfer();transfer.items.add(new File([raw],name,{type:'application/json'}));input.files=transfer.files;input.dispatchEvent(new Event('change',{bubbles:true}));return true;};\nwindow.__suFits=()=>{const e=__su('dialog'),r=e.getBoundingClientRect();return r.left>=0&&r.top>=0&&r.right<=innerWidth+1&&r.bottom<=innerHeight+1&&e.scrollWidth<=e.clientWidth+1&&document.documentElement.scrollWidth<=innerWidth+1;};\nwindow.__suHeld=(id)=>document.getElementById(id).getAttribute('aria-disabled')==='true'&&document.getElementById(id).title.length>0;\nwindow.__suSame=(a,b)=>JSON.stringify(a)===JSON.stringify(b);"
+  },
+  {
+    "expect": "__until(()=>loadedModel===__suFLUX && Number.isInteger(modelRevision) && !!lastDefaults && !busy && !galleryPending && !jobListing)",
+    "fatal": true
+  },
+  {
+    "viewport": [
+      1400,
+      900
+    ]
+  },
+  {
+    "eval": "(async()=>{resetPanel();writeBox(els.prompt,'Composer prompt must stay');writeBox(els.negative,'Composer negative must stay');promptReplaced();persistPanel();window.__suGenerateY=els.generate.getBoundingClientRect().top;\nconst seeded=await __suSeed(__suDoc([\n __suItem('Harbour',__suFLUX,__suPayload('a harbour at dawn',{guidance_scale:0,seed:41})),\n __suItem('Fox grid',__suFLUX,__suPayload('a {place} fox',{mode:'grid',grid:__suGrid({prompt_mode:'random',steps_axis:'2,3',seeds:2,seed_axis:'41, 43'})})),\n __suItem('Harbour',__suFLUX,__suPayload('a second harbour with the same legal name',{num_images:2})),\n __suItem('Harbour',__suANI,__suPayload('1girl, harbour, anime',{negative_prompt:'lowres'})),\n __suItem('Anime grid',__suANI,__suPayload('1girl, {place}',{mode:'grid',runs:2,grid:__suGrid({size_axis:'832x1216, 1216x832'})})),\n]));window.__suLocals=seeded.items;return true;})()"
+  },
+  {
+    "expect": "__suLocals.length===5 && new Set(__suLocals.map(item=>item.model_id)).size===2 && __suLocals.filter(item=>item.payload.mode==='grid').length===2",
+    "fatal": true
+  },
+  {
+    "click": "#btn-examples"
+  },
+  {
+    "click": "#setups-menu-item"
+  },
+  {
+    "expect": "__until(()=>els.setupsDialog.open && setupsReady && !setupsPending && setupsItems.length===5)",
+    "fatal": true
+  },
+  {
+    "expect": "__suHeld('setups-export')===false && __suHeld('setups-import')===false && els.generate.getBoundingClientRect().top===__suGenerateY && document.getElementById('setups-import').getAttribute('aria-controls')==='setup-import-dialog'"
+  },
+  {
+    "eval": "els.setupsList.value=__suLocals[2].id;els.setupsList.dispatchEvent(new Event('change',{bubbles:true}));"
+  },
+  {
+    "expect": "__until(()=>setupsSelected?.id===__suLocals[2].id && !setupsPending)",
+    "fatal": true
+  },
+  {
+    "eval": "els.setupsName.value='Dirty name kept';els.setupsName.dispatchEvent(new Event('input',{bubbles:true}));window.__suEditor={name:els.setupsName.value,id:setupsSelected.id,revision:setupsSelected.revision};window.__suComposer=setupComposerState();window.__suPrompt=els.prompt.value;window.__suNegative=els.negative.value;window.__suSummary=els.setupsSummary.textContent;"
+  },
+  {
+    "log": "\"Export downloads the actual response Blob for every checkpoint in saved order, with only name/model_id/payload and no dirty editor or local identity. The synthetic download is intercepted before any OS Downloads write.\""
+  },
+  {
+    "eval": "window.__suCreateURL=URL.createObjectURL;window.__suAnchorClick=HTMLAnchorElement.prototype.click;window.__suExportBlobs=[];URL.createObjectURL=(blob)=>{__suExportBlobs.push(blob);return __suCreateURL.call(URL,blob);};HTMLAnchorElement.prototype.click=function(){if(this.download==='auradream-generation-setups.json'){window.__suDownload=this.download;return;}return __suAnchorClick.call(this);};"
+  },
+  {
+    "click": "#setups-export"
+  },
+  {
+    "expect": "__until(()=>__suExportBlobs.length===1 && __suDownload==='auradream-generation-setups.json' && !setupExportPending)",
+    "fatal": true
+  },
+  {
+    "eval": "(async()=>{window.__suExportRaw=await __suExportBlobs[0].text();window.__suExport=JSON.parse(__suExportRaw);return true;})()"
+  },
+  {
+    "expect": "__suExport.format==='auradream.generation-presets' && __suExport.version===1 && __suSame(Object.keys(__suExport).sort(),['format','items','version']) && __suExport.items.length===5 && __suExport.items.every((item,i)=>__suSame(Object.keys(item).sort(),['model_id','name','payload'])&&item.name===__suLocals[i].name&&item.model_id===__suLocals[i].model_id&&__suSame(item.payload,__suLocals[i].payload))"
+  },
+  {
+    "expect": "!__suExportRaw.includes('Dirty name kept') && !__suLocals.some(item=>__suExportRaw.includes(item.id)) && !__suExportRaw.includes('revision') && __suExport.items[0].payload.guidance_scale===0 && __suExport.items[0].payload.steps===null && __suExport.items[1].payload.grid.seed_axis==='41, 43' && __suExport.items[4].payload.grid.size_axis==='832x1216, 1216x832' && els.setupsStatus.textContent.includes('downloaded')"
+  },
+  {
+    "log": "\"Re-importing the exact exported bytes defaults every row to Skip with its exact local match; nothing can commit. Escape closes the import and returns focus to Import.\""
+  },
+  {
+    "eval": "__suFile(__suExportRaw);"
+  },
+  {
+    "expect": "__until(()=>__su('dialog').open && !setupImportBusy && setupImportShown?.rows.length===5)",
+    "fatal": true
+  },
+  {
+    "expect": "setupImportShown.rows.every(row=>row.action==='skip'&&row.exact_ids.length===1) && setupImportShown.rows[0].matches.length===2 && !setupImportShown.can_import && __suHeld('setup-import-run') && document.activeElement===__su('close')"
+  },
+  {
+    "eval": "window.__suBefore=__suImportPosts;"
+  },
+  {
+    "click": "#setup-import-run"
+  },
+  {
+    "expect": "__suImportPosts===__suBefore && __su('dialog').open"
+  },
+  {
+    "key": "Escape"
+  },
+  {
+    "expect": "__until(()=>!__su('dialog').open && document.activeElement===document.getElementById('setups-import'))"
+  },
+  {
+    "log": "\"Mixed checkpoints, Generate/Grid, legal duplicate names, incoming collisions and a hostile name: every row is labeled and rendered as text, with row-local candidates and server defaults.\""
+  },
+  {
+    "eval": "window.__suHostile='New <img src=x onerror=window.__suXss=1>';window.__suIncoming=__suDoc([\n __suItem('harbour',__suFLUX,__suPayload('replacement harbour from file',{steps:7,true_cfg:null})),\n __suItem('Harbour',__suFLUX,__suLocals[0].payload),\n __suItem(__suHostile,__suFLUX,__suPayload('  multiline'+String.fromCharCode(10)+'unbroken-token'.repeat(80)+String.fromCharCode(10)+'end  ',{negative_prompt:'  kept  ',seed:0})),\n __suItem('Twin',__suANI,__suPayload('1girl, {place}, twin',{mode:'grid',grid:__suGrid({prompt_mode:'random',budget_minutes:2.5})})),\n __suItem('TWIN',__suANI,__suPayload('1girl, twin generate')),\n __suItem('Harbour',__suANI,__suLocals[3].payload),\n __suItem('Fox grid',__suFLUX,__suPayload('a {place} fox, file variant',{mode:'grid',grid:__suGrid({mu_axis:'0.5, 1'})})),\n]);window.__suRaw=JSON.stringify(__suIncoming);__suFile(__suRaw,'<img src=x onerror=window.__suXss=1>.json');"
+  },
+  {
+    "expect": "__until(()=>__su('dialog').open && !setupImportBusy && setupImportShown?.rows.length===7)",
+    "fatal": true
+  },
+  {
+    "expect": "__suSame(setupImportShown.rows.map(row=>row.action),['skip','skip','add','add','add','skip','skip']) && setupImportShown.add_count===3 && setupImportShown.skip_count===4 && __suSame(setupImportShown.rows[0].matches.map(item=>item.id),[__suLocals[0].id,__suLocals[2].id]) && setupImportShown.rows[0].exact_ids.length===0 && __suSame(setupImportShown.rows[5].matches.map(item=>item.id),[__suLocals[3].id]) && setupImportShown.rows[3].incoming_collisions.includes(4) && setupImportShown.rows[4].incoming_collisions.includes(3)"
+  },
+  {
+    "expect": "__suRow(2).querySelector('h3').textContent==='#3 '+__suHostile && __suRow(2).querySelector('[data-role=incoming-payload]').textContent.includes(__suIncoming.items[2].payload.prompt) && __su('filename').textContent.includes('<img') && __su('dialog').querySelectorAll('img').length===0 && !window.__suXss"
+  },
+  {
+    "expect": "__suRow(0).querySelector('[data-role=meta]').textContent.startsWith('Generate') && __suRow(0).querySelector('[data-role=meta]').textContent.includes('selected checkpoint') && __suRow(3).querySelector('[data-role=meta]').textContent.startsWith('Grid') && __suRow(3).querySelector('[data-role=meta]').textContent.includes(__suANI) && __suRow(3).querySelector('[data-role=meta]').textContent.includes('another checkpoint') && __suRow(3).querySelector('[data-role=incoming-payload]').textContent.includes('Variables (random)')"
+  },
+  {
+    "expect": "__suRow(0).querySelectorAll('[data-role=local-payload]').length===2 && __suRow(0).querySelector('[data-role=replacement]').options.length===3 && __suRow(0).querySelector('[data-role=replacement]').options[2].textContent.startsWith('Saved match #2') && __suRow(0).querySelector('[data-role=action] option[value=add]').disabled && __suRow(2).querySelector('[data-role=action] option[value=replace]').disabled && els.setupsSummary.textContent===__suSummary && setupComposerState()===__suComposer"
+  },
+  {
+    "eval": "window.__suFooterTop=__su('run').getBoundingClientRect().top;window.__suBefore=__suImportPosts;__suChange(0,'action','replace');__suChange(1,'action','copy');__suChange(1,'copy-name','Harbour copy');"
+  },
+  {
+    "expect": "setupImportShown===null && __suHeld('setup-import-run') && __suRow(0).querySelector('[data-role=replacement]').value==='' && __su('summary').textContent.includes('Preview again')"
+  },
+  {
+    "click": "#setup-import-run"
+  },
+  {
+    "expect": "__suImportPosts===__suBefore && __su('dialog').open && __su('status').textContent.length>0"
+  },
+  {
+    "eval": "__suChange(0,'replacement',__suLocals[2].id);"
+  },
+  {
+    "click": "#setup-import-preview"
+  },
+  {
+    "expect": "__until(()=>!setupImportBusy && setupImportShown?.add_count===4 && setupImportShown.replace_count===1 && setupImportShown.skip_count===2)",
+    "fatal": true
+  },
+  {
+    "expect": "__su('run').getAttribute('aria-disabled')==='false' && Math.abs(__su('run').getBoundingClientRect().top-__suFooterTop)<1 && __suFits() && setupComposerState()===__suComposer && els.prompt.value===__suPrompt"
+  },
+  {
+    "expect": "[...__su('rows').querySelectorAll('[data-role=action], [data-role=replacement], [data-role=copy-name]')].filter(field=>field.getClientRects().length).every(field=>field.getBoundingClientRect().height>=37) && Math.abs(__suRow(1).querySelector('[data-role=action]').getBoundingClientRect().height-__suRow(1).querySelector('[data-role=copy-name]').getBoundingClientRect().height)<1"
+  },
+  {
+    "expect": "setupImportShown.rows[1].action==='copy' && setupImportShown.rows[1].preset.name==='Harbour copy' && __suRow(1).querySelector('h3').textContent==='#2 Harbour' && __suRow(1).querySelectorAll('[data-role=local-payload]').length===2 && __suRow(1).querySelector('[data-role=replacement]').options.length===3 && __suRow(1).querySelector('[data-role=action] option[value=add]').disabled && !__suRow(1).querySelector('[data-role=action] option[value=replace]').disabled && __suRow(1).querySelector('[data-role=copy-name]').value==='Harbour copy'"
+  },
+  {
+    "shot": "setup-portability-wide.png"
+  },
+  {
+    "keycombo": [
+      "Control",
+      "Enter"
+    ]
+  },
+  {
+    "expect": "__su('dialog').open && !busy && __suForbidden.length===0 && __suImportPosts===__suBefore"
+  },
+  {
+    "viewport": [
+      400,
+      650
+    ]
+  },
+  {
+    "expect": "__suFits() && __su('run').getBoundingClientRect().bottom<=innerHeight && __su('close').getBoundingClientRect().bottom<=innerHeight"
+  },
+  {
+    "shot": "setup-portability-narrow.png"
+  },
+  {
+    "viewport": [
+      1400,
+      600
+    ]
+  },
+  {
+    "expect": "__suFits() && __su('run').getBoundingClientRect().bottom<=innerHeight && __su('close').getBoundingClientRect().top>=0"
+  },
+  {
+    "shot": "setup-portability-short.png"
+  },
+  {
+    "viewport": [
+      1400,
+      900
+    ]
+  },
+  {
+    "log": "\"A pending commit holds Cancel/Escape. Its one atomic reply refreshes only the list: the dirty name, the old selected revision and the composer stay, and actions on the replaced selection are held.\""
+  },
+  {
+    "eval": "api=async(path,options)=>{if(path==='/api/presets/import'&&options?.method==='POST')await new Promise(resolve=>{window.__suReleaseCommit=resolve;});return __suTrackedApi(path,options);};"
+  },
+  {
+    "click": "#setup-import-run"
+  },
+  {
+    "expect": "__until(()=>setupImportBusy==='commit' && typeof __suReleaseCommit==='function')",
+    "fatal": true
+  },
+  {
+    "expect": "__suHeld('setup-import-close') && __suHeld('setup-import-run') && __suHeld('setups-export') && __suHeld('setups-import') && setupsPending==='write'"
+  },
+  {
+    "key": "Escape"
+  },
+  {
+    "expect": "__su('dialog').open && setupImportBusy==='commit'"
+  },
+  {
+    "log": "\"A repeated Escape may close the import dialog anyway (Chrome's close-watcher rule); the pending commit keeps its ticket and the parent's write hold until its reply.\""
+  },
+  {
+    "key": "Escape"
+  },
+  {
+    "log": "__su('dialog').open ? 'second Escape held; closing directly' : 'second Escape closed the dialog'"
+  },
+  {
+    "eval": "if(__su('dialog').open)__su('dialog').close();"
+  },
+  {
+    "expect": "!__su('dialog').open && setupImportBusy==='commit' && setupsPending==='write' && __suHeld('setups-import')"
+  },
+  {
+    "eval": "__suReleaseCommit();"
+  },
+  {
+    "expect": "__until(()=>!__su('dialog').open && !setupsPending && setupsItems.length===9)",
+    "fatal": true
+  },
+  {
+    "eval": "api=__suTrackedApi;window.__suSaved=setupsItems.map(item=>({...item}));"
+  },
+  {
+    "expect": "document.activeElement===document.getElementById('setups-import') && els.setupsDialog.open && els.setupsName.value===__suEditor.name && setupsSelected.id===__suEditor.id && setupsSelected.revision===__suEditor.revision && setupsDirty && setupComposerState()===__suComposer && els.prompt.value===__suPrompt && els.negative.value===__suNegative && els.setupsStatus.textContent.includes('Imported')"
+  },
+  {
+    "expect": "[0,1,3,4].every(i=>__suSaved[i].id===__suLocals[i].id&&__suSaved[i].revision===1&&__suSame(__suSaved[i].payload,__suLocals[i].payload)) && __suSaved[2].id===__suLocals[2].id && __suSaved[2].revision===2 && __suSaved[2].name==='harbour' && __suSaved[2].model_id===__suFLUX && __suSame(__suSaved[2].payload,__suIncoming.items[0].payload)"
+  },
+  {
+    "expect": "__suSame(__suSaved.slice(5).map(item=>item.name),['Harbour copy',__suHostile,'Twin','TWIN']) && __suSame(__suSaved.slice(5).map(item=>item.model_id),[__suFLUX,__suFLUX,__suANI,__suANI]) && [1,2,3,4].every(i=>__suSame(__suSaved[4+i].payload,__suIncoming.items[i].payload)) && __suSaved.slice(5).every(item=>item.revision===1&&!__suLocals.some(local=>local.id===item.id)) && new Set(__suSaved.map(item=>item.id)).size===9"
+  },
+  {
+    "expect": "['setups-update','setups-rename','setups-delete','setups-restore'].every(__suHeld) && els.setupsUpdate.title.includes('changed') && els.setupsList.selectedIndex===-1"
+  },
+  {
+    "eval": "window.__suWritesBefore=__suItemWrites;"
+  },
+  {
+    "click": "#setups-update"
+  },
+  {
+    "expect": "__suItemWrites===__suWritesBefore && els.setupsName.value===__suEditor.name && setupsSelected.revision===1"
+  },
+  {
+    "eval": "els.setupsList.value=__suLocals[2].id;els.setupsList.dispatchEvent(new Event('change',{bubbles:true}));"
+  },
+  {
+    "expect": "__until(()=>setupsSelected?.revision===2 && !setupsPending && els.setupsName.value==='harbour' && !setupsDirty && __suHeld('setups-delete')===false)"
+  },
+  {
+    "log": "\"The same file again: every row now has an exact or differing saved match and defaults to Skip; nothing can commit.\""
+  },
+  {
+    "eval": "__suFile(__suRaw);"
+  },
+  {
+    "expect": "__until(()=>!setupImportBusy && setupImportShown?.rows.length===7 && setupImportShown.skip_count===7 && !setupImportShown.can_import)"
+  },
+  {
+    "click": "#setup-import-close"
+  },
+  {
+    "expect": "__until(()=>!__su('dialog').open && document.activeElement===document.getElementById('setups-import'))"
+  },
+  {
+    "log": "\"Duplicate-key, oversized and unknown-version files are refused before any preview or write; the raw duplicate-key text reaches the server parser unchanged.\""
+  },
+  {
+    "eval": "__suFile('{\"format\":\"auradream.generation-presets\",\"version\":1,\"items\":[],\"items\":[]}');"
+  },
+  {
+    "expect": "__until(()=>__su('dialog').open && !setupImportBusy && !setupImportShown && __su('status').textContent.includes('duplicate'))"
+  },
+  {
+    "expect": "__suHeld('setup-import-run')"
+  },
+  {
+    "eval": "window.__suBeforePreviews=__suPreviewPosts;__suFile(new Uint8Array(8*1024*1024+1),'oversized.json');"
+  },
+  {
+    "expect": "__until(()=>__su('dialog').open && !setupImportBusy && !setupImportShown && __su('status').textContent.includes('8 MiB'))"
+  },
+  {
+    "expect": "__suPreviewPosts===__suBeforePreviews && __suHeld('setup-import-run')"
+  },
+  {
+    "eval": "__suFile(JSON.stringify({format:'auradream.generation-presets',version:2,items:[]}));"
+  },
+  {
+    "expect": "__until(()=>__su('dialog').open && !setupImportBusy && !setupImportShown && __su('status').textContent.length>0)"
+  },
+  {
+    "expect": "__until(async()=>(await __suRead()).items.length===9)"
+  },
+  {
+    "log": "\"Known 422 refusals stay correctable without a list reload or uncertain-write hold.\""
+  },
+  {
+    "eval": "__suFile(JSON.stringify(__suDoc([__suItem('Harbour',__suFLUX,__suLocals[0].payload)])));"
+  },
+  {
+    "expect": "__until(()=>!setupImportBusy && setupImportShown?.skip_count===1)"
+  },
+  {
+    "eval": "__suChange(0,'action','copy');__suChange(0,'copy-name','Bell'+String.fromCharCode(7));"
+  },
+  {
+    "click": "#setup-import-preview"
+  },
+  {
+    "expect": "__until(()=>!setupImportBusy && !setupImportShown && __su('status').textContent.includes('Preview could not be made'))"
+  },
+  {
+    "expect": "!setupImportNeedsReload && !setupsWriteRecovery && __suHeld('setup-import-run')"
+  },
+  {
+    "eval": "__suChange(0,'copy-name','Harbour 422 fixed');"
+  },
+  {
+    "click": "#setup-import-preview"
+  },
+  {
+    "expect": "__until(()=>!setupImportBusy && setupImportShown?.can_import)"
+  },
+  {
+    "eval": "window.__suReadsBefore=__suListReads;window.__suRefused=false;api=async(path,options)=>{if(path==='/api/presets/import'&&options?.method==='POST'&&!__suRefused){window.__suRefused=true;throw Object.assign(new Error('The setup merge choices are invalid. Preview them again.'),{status:422});}return __suTrackedApi(path,options);};"
+  },
+  {
+    "click": "#setup-import-run"
+  },
+  {
+    "expect": "__until(()=>__suRefused && !setupImportBusy && __su('status').textContent.includes('Correct the choices'))"
+  },
+  {
+    "expect": "!setupImportNeedsReload && !setupsWriteRecovery && setupsReady && !setupImportShown && __suHeld('setup-import-run') && __suHeld('setup-import-preview')===false"
+  },
+  {
+    "eval": "api=__suTrackedApi;"
+  },
+  {
+    "click": "#setup-import-preview"
+  },
+  {
+    "expect": "__until(()=>!setupImportBusy && setupImportShown?.can_import && __suListReads===__suReadsBefore)"
+  },
+  {
+    "click": "#setup-import-run"
+  },
+  {
+    "expect": "__until(()=>!__su('dialog').open && setupsItems.length===10 && setupsItems.at(-1).name==='Harbour 422 fixed')"
+  },
+  {
+    "log": "\"A stale collection returns 409: the raw file and choices are kept, Import never resends, and a fresh Preview rereads the list before an explicit commit.\""
+  },
+  {
+    "eval": "window.__suStaleRaw=JSON.stringify(__suDoc([__suItem('Stale candidate',__suFLUX,__suPayload('incoming after a stale preview'))]));__suFile(__suStaleRaw);"
+  },
+  {
+    "expect": "__until(()=>!setupImportBusy && setupImportShown?.can_import)"
+  },
+  {
+    "eval": "(async()=>{window.__suStaleChoices=JSON.stringify(setupImportChoices);await __suSeed(__suDoc([__suItem('Other tab',__suANI,__suPayload('unrelated external change'))]));return true;})()"
+  },
+  {
+    "click": "#setup-import-run"
+  },
+  {
+    "expect": "__until(()=>!setupImportBusy && !setupImportShown && __su('status').textContent.includes('refused'))"
+  },
+  {
+    "expect": "setupImportRaw===__suStaleRaw && JSON.stringify(setupImportChoices)===__suStaleChoices && setupImportNeedsReload && !setupsWriteRecovery && __suHeld('setup-import-run')"
+  },
+  {
+    "eval": "window.__suBefore=__suImportPosts;window.__suReadsBefore=__suListReads;"
+  },
+  {
+    "click": "#setup-import-run"
+  },
+  {
+    "expect": "__suImportPosts===__suBefore"
+  },
+  {
+    "eval": "window.__suHeldPreview=false;api=async(path,options)=>{if(path==='/api/presets/import/preview'&&!String(options?.body).endsWith('\"decisions\":[]}')&&!__suHeldPreview){window.__suHeldPreview=true;await new Promise(resolve=>{window.__suReleaseRefresh=resolve;});}return __suTrackedApi(path,options);};"
+  },
+  {
+    "click": "#setup-import-preview"
+  },
+  {
+    "expect": "__until(()=>typeof __suReleaseRefresh==='function' && setupImportBusy==='preview' && __suRow(0)?.querySelector('[data-role=action]'))",
+    "fatal": true
+  },
+  {
+    "expect": "[...__su('rows').querySelectorAll('input, select')].every(field=>field.disabled)"
+  },
+  {
+    "eval": "__suReleaseRefresh();api=__suTrackedApi;"
+  },
+  {
+    "expect": "__until(()=>!setupImportBusy && setupImportShown?.can_import && __suListReads===__suReadsBefore+1 && setupsItems.length===11)"
+  },
+  {
+    "click": "#setup-import-run"
+  },
+  {
+    "expect": "__until(()=>!__su('dialog').open && !setupsPending && setupsItems.length===12 && setupsItems.at(-1).name==='Stale candidate')"
+  },
+  {
+    "log": "\"A committed import whose reply is lost is uncertain: no resend, a fresh list and preview first, the stale Replace kept for explicit review and the old Add as copy chosen again. Ordinary writes stay held until an explicit selection or New.\""
+  },
+  {
+    "eval": "window.__suLostRaw=JSON.stringify(__suDoc([__suItem('Fox grid',__suFLUX,__suPayload('a {place} fox, uncertain replacement',{mode:'grid',grid:__suGrid()})),__suItem('Harbour',__suFLUX,__suLocals[0].payload)]));__suFile(__suLostRaw);"
+  },
+  {
+    "expect": "__until(()=>!setupImportBusy && setupImportShown?.skip_count===2)"
+  },
+  {
+    "eval": "__suChange(0,'action','replace');__suChange(0,'replacement',__suLocals[1].id);__suChange(1,'action','copy');__suChange(1,'copy-name','Uncertain copy');"
+  },
+  {
+    "click": "#setup-import-preview"
+  },
+  {
+    "expect": "__until(()=>!setupImportBusy && setupImportShown?.can_import && setupImportShown.replace_count===1 && setupImportShown.add_count===1)"
+  },
+  {
+    "eval": "window.__suLost=false;api=async(path,options)=>{if(path==='/api/presets/import'&&options?.method==='POST'&&!__suLost){await __suTrackedApi(path,options);window.__suLost=true;throw new TypeError('Synthetic lost import reply');}return __suTrackedApi(path,options);};window.__suLostChoices=JSON.stringify(setupImportChoices);window.__suNameBefore=els.setupsName.value;"
+  },
+  {
+    "click": "#setup-import-run"
+  },
+  {
+    "expect": "__until(()=>__suLost && !setupImportBusy && !setupImportShown && __su('status').textContent.includes('uncertain'))",
+    "fatal": true
+  },
+  {
+    "eval": "api=__suTrackedApi;window.__suBefore=__suImportPosts;"
+  },
+  {
+    "expect": "setupImportRaw===__suLostRaw && JSON.stringify(setupImportChoices)===__suLostChoices && setupsWriteRecovery?.needsReload && !setupsReady && __suHeld('setup-import-run') && setupImportCopyConfirm.has(1)"
+  },
+  {
+    "click": "#setup-import-run"
+  },
+  {
+    "expect": "__suImportPosts===__suBefore"
+  },
+  {
+    "expect": "__until(async()=>{const saved=(await __suRead()).items;return saved.filter(item=>item.name==='Uncertain copy').length===1&&saved.find(item=>item.id===__suLocals[1].id).revision===2;})"
+  },
+  {
+    "click": "#setup-import-preview"
+  },
+  {
+    "expect": "__until(()=>!setupImportBusy && setupImportRows[0]?.exact_ids.length===1 && setupsReady && !setupsWriteRecovery.needsReload)"
+  },
+  {
+    "expect": "setupImportChoices[0].action==='replace' && __suRow(0).querySelector('[data-role=action]').value==='replace' && __suRow(0).querySelector('[data-role=replacement]').value==='' && __suRow(1).querySelector('[data-role=action]').value==='' && __suHeld('setup-import-run') && __suImportPosts===__suBefore"
+  },
+  {
+    "click": "#setup-import-run"
+  },
+  {
+    "expect": "__suImportPosts===__suBefore"
+  },
+  {
+    "eval": "__suChange(0,'action','skip');__suChange(1,'action','skip');"
+  },
+  {
+    "click": "#setup-import-preview"
+  },
+  {
+    "expect": "__until(()=>!setupImportBusy && setupImportShown?.skip_count===2 && !setupImportShown.can_import)"
+  },
+  {
+    "click": "#setup-import-close"
+  },
+  {
+    "expect": "__until(()=>!__su('dialog').open && document.activeElement===document.getElementById('setups-import'))"
+  },
+  {
+    "expect": "!!setupsWriteRecovery && !setupsWriteRecovery.needsReload && __suHeld('setups-save') && els.setupsSave.title.includes('uncertain') && els.setupsName.value===__suNameBefore"
+  },
+  {
+    "log": "\"Reload held at transport: New waits and cannot acknowledge the uncertain write; the late list leaves the name and recovery alone until an explicit New.\""
+  },
+  {
+    "eval": "window.__suHoldList=true;api=async(path,options)=>{if(path==='/api/presets'&&!options?.method&&__suHoldList){__suHoldList=false;await new Promise(resolve=>{window.__suReleaseList=resolve;});}return __suTrackedApi(path,options);};"
+  },
+  {
+    "click": "#setups-reload"
+  },
+  {
+    "expect": "__until(()=>setupsPending==='read' && typeof __suReleaseList==='function')",
+    "fatal": true
+  },
+  {
+    "click": "#setups-new"
+  },
+  {
+    "expect": "setupsPending==='read' && !!setupsWriteRecovery && els.setupsName.value===__suNameBefore && __suHeld('setups-import')"
+  },
+  {
+    "eval": "__suReleaseList();"
+  },
+  {
+    "expect": "__until(()=>!setupsPending && setupsReady)"
+  },
+  {
+    "expect": "!!setupsWriteRecovery && els.setupsName.value===__suNameBefore && els.setupsList.selectedIndex===-1"
+  },
+  {
+    "eval": "api=__suTrackedApi;"
+  },
+  {
+    "click": "#setups-new"
+  },
+  {
+    "expect": "__until(()=>!setupsWriteRecovery && els.setupsName.value==='' && !setupsSelected)"
+  },
+  {
+    "log": "\"A whole-draft Restore's Undo and the composer survive a later import, which queues no work.\""
+  },
+  {
+    "eval": "els.setupsList.value=__suLocals[0].id;els.setupsList.dispatchEvent(new Event('change',{bubbles:true}));"
+  },
+  {
+    "expect": "__until(()=>setupsSelected?.id===__suLocals[0].id && !setupsPending && __suHeld('setups-restore')===false)"
+  },
+  {
+    "click": "#setups-restore"
+  },
+  {
+    "expect": "__until(()=>!els.setupsDialog.open && !!setupsUndo && els.prompt.value==='a harbour at dawn')",
+    "fatal": true
+  },
+  {
+    "eval": "window.__suUndo=setupsUndo;window.__suUndoEntry=promptUndo;window.__suComposer=setupComposerState();window.__suPrompt=els.prompt.value;window.__suNegative=els.negative.value;"
+  },
+  {
+    "click": "#btn-examples"
+  },
+  {
+    "click": "#setups-menu-item"
+  },
+  {
+    "expect": "__until(()=>els.setupsDialog.open && setupsReady && !setupsPending)"
+  },
+  {
+    "eval": "__suFile(JSON.stringify(__suDoc([__suItem('Undo kept',__suFLUX,__suPayload('after a restore'))])));"
+  },
+  {
+    "expect": "__until(()=>!setupImportBusy && setupImportShown?.can_import)"
+  },
+  {
+    "click": "#setup-import-run"
+  },
+  {
+    "expect": "__until(()=>!__su('dialog').open && !setupsPending && setupsItems.some(item=>item.name==='Undo kept'))"
+  },
+  {
+    "expect": "setupsUndo===__suUndo && promptUndo===__suUndoEntry && setupComposerState()===__suComposer && els.prompt.value===__suPrompt && els.negative.value===__suNegative && __suForbidden.length===0"
+  },
+  {
+    "log": "\"Closing a delayed preview and choosing another file ignores the old reply, keeping the current filename and rows.\""
+  },
+  {
+    "eval": "window.__suDelayed=false;api=async(path,options)=>{if(path==='/api/presets/import/preview'&&!__suDelayed){window.__suDelayed=true;const result=await __suTrackedApi(path,options);await new Promise(resolve=>{window.__suReleasePreview=resolve;});return result;}return __suTrackedApi(path,options);};__suFile(JSON.stringify(__suDoc([__suItem('Old late preview',__suFLUX,__suPayload('must not replace current'))])),'old-late.json');"
+  },
+  {
+    "expect": "__until(()=>setupImportBusy==='preview' && typeof __suReleasePreview==='function')",
+    "fatal": true
+  },
+  {
+    "click": "#setup-import-close"
+  },
+  {
+    "expect": "__until(()=>!__su('dialog').open)"
+  },
+  {
+    "eval": "__suFile(JSON.stringify(__suDoc([__suItem('Current preview',__suANI,__suPayload('this file stays'))])),'current.json');"
+  },
+  {
+    "expect": "__until(()=>!setupImportBusy && setupImportShown?.rows[0]?.preset.name==='Current preview')"
+  },
+  {
+    "eval": "__suReleasePreview();"
+  },
+  {
+    "expect": "__until(()=>!setupImportBusy && setupImportShown?.rows[0]?.preset.name==='Current preview' && __su('filename').textContent==='current.json' && __suRow(0).querySelector('h3').textContent==='#1 Current preview')"
+  },
+  {
+    "eval": "api=__suTrackedApi;"
+  },
+  {
+    "click": "#setup-import-close"
+  },
+  {
+    "expect": "__until(()=>!__su('dialog').open && document.activeElement===document.getElementById('setups-import'))"
+  },
+  {
+    "log": "\"Export's lifetime is the dialog session: Reload's list ticket does not retire it, but closing the dialog does, and a late reply never downloads.\""
+  },
+  {
+    "eval": "window.__suHoldExport=true;"
+  },
+  {
+    "click": "#setups-export"
+  },
+  {
+    "expect": "__until(()=>setupExportPending && typeof __suReleaseExport==='function' && __suHeld('setups-export') && __suHeld('setups-import'))",
+    "fatal": true
+  },
+  {
+    "click": "#setups-reload"
+  },
+  {
+    "expect": "__until(()=>!setupsPending && setupsReady)"
+  },
+  {
+    "eval": "__suReleaseExport();window.__suReleaseExport=null;"
+  },
+  {
+    "expect": "__until(()=>__suExportBlobs.length===2 && !setupExportPending && __suHeld('setups-export')===false)"
+  },
+  {
+    "eval": "window.__suHoldExport=true;"
+  },
+  {
+    "click": "#setups-export"
+  },
+  {
+    "expect": "__until(()=>setupExportPending && typeof __suReleaseExport==='function')"
+  },
+  {
+    "key": "Escape"
+  },
+  {
+    "expect": "__until(()=>!els.setupsDialog.open && !setupExportPending)"
+  },
+  {
+    "click": "#btn-examples"
+  },
+  {
+    "click": "#setups-menu-item"
+  },
+  {
+    "expect": "__until(()=>els.setupsDialog.open && setupsReady && !setupsPending && __suHeld('setups-export')===false)"
+  },
+  {
+    "eval": "__suReleaseExport();"
+  },
+  {
+    "expect": "__until(async()=>{await new Promise(r=>setTimeout(r,300));return __suExportBlobs.length===2 && !setupExportPending && !els.setupsStatus.textContent.includes('downloaded');})"
+  },
+  {
+    "eval": "URL.createObjectURL=__suCreateURL;HTMLAnchorElement.prototype.click=__suAnchorClick;"
+  },
+  {
+    "log": "\"Final: no model, queue or generation call; no page error; the composer and Undo are unchanged; canceled files were never saved.\""
+  },
+  {
+    "expect": "__suForbidden.length===0 && __suErrors.length===0 && setupComposerState()===__suComposer && setupsUndo===__suUndo"
+  },
+  {
+    "expect": "__until(async()=>{const saved=(await __suRead()).items;return saved.length===14&&!saved.some(item=>['Old late preview','Current preview'].includes(item.name))&&saved.filter(item=>item.name==='Uncertain copy').length===1;})"
+  },
+  {
+    "key": "Escape"
+  },
+  {
+    "expect": "__until(()=>!els.setupsDialog.open)"
+  },
+  {
+    "eval": "api=__suBaseApi;window.fetch=__suBaseFetch;"
+  }
+]

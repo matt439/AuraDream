@@ -855,6 +855,7 @@ words (b396e2e) and the page's sizes labelled in binary units, "about 4.5 GiB"
 2b89ed5 (above) on the real server with FLUX.1 Krea [dev] stopped at the RAM guard during its one
 load (Checkpoints, "RAM at the load"), so they are still unchecked on the
 card; 81781bf's sentence was checked there (the load failures row above).
+The step files for that recheck are planned as checked-in packs (`DEV#23`, [CARD#10 step packs](plan-card-harness.md#card10-step-packs)).
 
 Not verified: `AURADREAM_DEVICE=cuda:1` (one card here); ERNIE-Image
 Turbo's fp8 reproduction across two processes, and its 4 MP batch of two
@@ -1707,7 +1708,10 @@ picture alone.
 
 Not measured: any other size or aspect, a batch, int8, sequential or no
 offload, a real photograph as the source, replay across two processes, the
-real server's route and page (still held by the gate), and WSL. Evidence:
+real server's route and page (held by the gate at the time; stage 4 opens
+them inside this run's configuration, on a local branch, and its
+[card acceptance step](plan-instruction-editing.md#card-acceptance-step) is
+what would measure them), and WSL. Evidence:
 `events.jsonl`, `samples.jsonl`, the PNGs, `sheet.png` (source and the four
 edits) and the scratch gallery in `%TEMP%/auradream-inp11-stage3/`.
 

@@ -14,6 +14,7 @@ initQueueControls();
 initSnippets();
 initSnippetImport();
 initSetups();
+initSetupImport();
 initSavedSearches();
 els.notifyDone.onchange = () => { void toggleJobNotifications(); };
 document.addEventListener('visibilitychange', () => syncJobNotifications());
@@ -120,7 +121,13 @@ els.prompt.addEventListener('input', (event) => {
   scheduleTagValidation();
 });
 // The check read the negative prompt too; editing it dims the check as well.
-els.negative.addEventListener('input', () => syncAnalysisStale());
+// On a tag checkpoint it has its own suggestion list (tags.js), asked as the
+// Refine dialog's prompt asks, and gone when the box loses focus.
+els.negative.addEventListener('input', (event) => { syncAnalysisStale(); suggestNegativeTags(event); });
+els.negative.addEventListener('click', suggestNegativeTags);
+els.negative.addEventListener('keyup', negativeCaret);
+els.negative.addEventListener('keydown', (event) => editorListKeydown(event, els.negativeTagSuggestions, hideNegativeSuggestions));
+els.negative.addEventListener('blur', hideNegativeSuggestions);
 // The caret moved: suggestions for the item it is in now, the item typed
 // before it checked, and the Tags helper's note on where a tag goes.
 els.prompt.addEventListener('click', () => { scheduleTagSuggestions(0); followTagCaret(); syncTagSelection(); });
@@ -650,6 +657,20 @@ document.addEventListener('keydown', (e) => {
   if (e.key === 'Escape' && !keyboardCommandModifier(e) && !e.shiftKey) e.preventDefault();
 }, true);
 
+// P's route back to the prompt: the caret at the end, the text, Undo, Check
+// and the suggestions as they were (those open on input, a click or caret
+// keys). Brought into view as `/` brings the search, only where the narrow
+// layout left the box under the topbar or below the window.
+function focusPromptBox() {
+  const box = els.prompt;
+  box.focus({ preventScroll: true });
+  box.setSelectionRange(box.value.length, box.value.length);
+  const rect = box.getBoundingClientRect();
+  if (rect.top < document.querySelector('.topbar').getBoundingClientRect().bottom || rect.bottom > innerHeight) {
+    box.scrollIntoView({ block: 'center', inline: 'nearest', behavior: 'auto' });
+  }
+}
+
 document.addEventListener('keydown', (e) => {
   if (keyboardEventHeld(e)) return;
   shortcutKey(e);
@@ -696,14 +717,17 @@ document.addEventListener('keydown', (e) => {
       return;
     }
   }
-  // Two small routes, scoped to the current work. A literal slash may need
-  // Shift on a localized keyboard; M is an unshifted image command.
+  // Three small routes, scoped to the current work. A literal slash may need
+  // Shift on a localized keyboard; M is an unshifted image command, and P
+  // (either case, so Caps Lock still works) an unshifted way back to the
+  // prompt - nothing in a modal, the lightbox included.
   const popup = e.target.closest?.('[role="dialog"], #model-picker')
     || (!modal && !els.modelPicker.hidden)
     || (!els.examplesMenu.hidden && e.target.closest?.('#examples'))
     || (!els.pickedMenu.hidden && e.target.closest?.('#picked'));
   if (!e.repeat && !inMenu && !popup && !keyboardEditingTarget(e.target) && !keyboardCommandModifier(e)) {
     if (e.key === '/' && !modal) { e.preventDefault(); focusGallerySearch(); return; }
+    if (!e.shiftKey && !modal && e.key.toLowerCase() === 'p') { e.preventDefault(); focusPromptBox(); return; }
     if (!e.shiftKey && e.key.toLowerCase() === 'm' && openMoreSeedsFromKey(e.target)) {
       e.preventDefault();
       return;
@@ -720,10 +744,11 @@ document.addEventListener('keydown', (e) => {
     return;
   }
   const key = e.key.toLowerCase();
-  if (['f', 'r', 's', 'delete'].includes(key)) {
+  if (['f', 'r', 's', 'x', 'delete'].includes(key)) {
     if (e.shiftKey || e.repeat) return;
     e.preventDefault();
     if (key === 'f') { const rec = lbList[lbIndex]; if (rec) void setFavorite(rec, !rec.favorite, { say: true }); }
+    else if (key === 'x') pickFromLightbox();
     else if (key === 'r') els.lbRefine.click();
     else if (key === 's') void toggleCompare();
     else els.lbDelete.click();

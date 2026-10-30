@@ -800,11 +800,79 @@ credential provider, recurring retry, UI or pruning is connected.
 
 ## Decisions before activation
 
+**Status:** `GAL#22`, DECISION, recorded 2026-10-29. None of these is
+answered; nothing below selects a value for Matt.
+
 Matt chooses unattended protection, age and N, destination/recovery policy,
 whether manual whole-gallery backups satisfy age, empty-gallery handling
 and whether deferred startup work should retry later. Implementation may
 prepare the default-off CPU contracts independently. It must not invent
 these choices or enable automatic exports/retention to demonstrate progress.
+
+### Matt's choices for unattended backups
+
+**Decided 2026-10-29: Matt does not want unattended backups.** Automatic
+backup stays disabled, its built default, and `GAL#22` and `GAL#6` (the
+credential qualification that only this feature uses) left TODO. The code
+stays default-off; the eight choices below are kept for reference, and none
+is open. Manual whole-gallery and password-protected bundles are unchanged.
+
+Each choice names what is built today, so an answer changes only that
+input. Choices 1 to 5 are entered in Bundles' automatic startup backup
+settings (`web/index.html`, `#automatic-backup-settings`) when Matt
+activates; the encrypted option first needs the offline
+`tools/backup_credential.py setup`, and cleanup the offline shared-mode
+installer, neither of which the page runs. Choices 6 to 8 are fixed by the
+built slice; changing one needs a source change of its own.
+
+1. **Protection.** Leave automatic backup disabled (today's default;
+   manual password-backed bundles stay available), explicitly allow
+   unencrypted ZIPs with the plaintext acknowledgement, or use the v4
+   Windows credential-store entry (encrypted `.ldbundle`). The credential
+   option is not qualified on a real vault until `GAL#6`
+   ([Password policy](#password-policy-matts-decision),
+   [V4](#v4-windows-credential-source-and-recovery)).
+2. **Recovery for encrypted copies.** An OS-stored secret is not a recovery
+   plan for losing this PC: if choice 1 is the credential store, how Matt
+   keeps an independent copy of the password. The page's recovery
+   checkbox and setup's `--confirm-independent-recovery` are his
+   attestation, not a machine check
+   ([V4](#v4-windows-credential-source-and-recovery)).
+3. **Minimum age.** How old the newest verified automatic copy must be
+   before a server start makes another: a whole number of hours from 1 to
+   876,000, no default
+   ([Activation, age and saved state](#activation-age-and-saved-state)).
+4. **Destination and N.** The destination is not picked in the page: it is
+   `AURADREAM_BUNDLES_DIR`, or `bundles` beside the database, shown for
+   Matt to confirm. N (1 to 10,000, required, no default) is the minimum
+   number of automatic copies cleanup keeps; without choice 5 it is not
+   enforced. A destination change starts a new managed set and never prunes
+   the old one ([Managed archives and retention](#managed-archives-and-retention)).
+5. **Automatic deletion.** Whether older verified automatic copies beyond N
+   may be deleted after a new success (v3: its own irreversible-deletion
+   acknowledgement and an installed Windows shared archive mode), or every
+   copy is kept, the default
+   ([Explicit v3 retention](#explicit-v3-retention-and-durable-uncertainty),
+   [shared-mode installation](#explicit-windows-shared-download-installation)).
+6. **Manual backups and age.** Whether a manual whole-gallery bundle may
+   count toward the age. Built today: no, only currently matching managed
+   copies count (`backup_coordinator.py`); selected or starred bundles never
+   count either way.
+7. **Empty gallery.** Built today: skipped (`backup_policy.backup_due`'s
+   `empty` reason), with no retention and no age advance, since a missing
+   or restored database may be why it is empty. Keep, or choose another
+   outcome.
+8. **Deferred start.** When other work or another process holds the
+   gallery, the attempt is reported deferred. Built today: no automatic
+   retry until the next server start. Keep, or ask for a bounded later
+   retry or a "Run backup now" control
+   ([Startup, preload and shutdown](#startup-preload-and-shutdown)).
+
+The row closes when Matt has answered all eight; answers 1 to 5 are then
+his own activation in the browser (and his own offline credential or
+shared-mode setup), never done by an agent on his gallery, and any changed
+6 to 8 becomes its own backlog item with CPU tests and a scratch-fake
+`smoke-automatic-backup` run.
 
 This is an activation boundary, not a block on writing configurable software.
 Age, count and destination can remain required inputs with no selected values;

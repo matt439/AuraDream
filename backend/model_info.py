@@ -143,6 +143,15 @@ _FACTS: dict[str, tuple[str, tuple[str, str]]] = {
         "local renders have completed, but those do not establish a quality "
         "recommendation beyond the author's sizes.",
     )),
+    # By its exact id, the catalogue's last entry. An edit renders at its
+    # source's frozen size, never a chosen one: the figure is the one
+    # qualified size, docs/verified.md's 2026-10-27 trial.
+    "black-forest-labs/FLUX.1-Kontext-dev": ("Instruction editor", (
+        "0.26 MP",
+        "Only square sources are qualified here, rendering at 512×512. BFL's "
+        "API keeps an edit near the input's size, rounded to multiples of 32, at "
+        "about 1 MP; that is FLUX.1 Kontext [pro]'s endpoint, unmeasured here.",
+    )),
 }
 
 
@@ -158,6 +167,7 @@ _SIZE_LABELS = {
     "Qwen/Qwen-Image": "Reference size",
     "duongve/NetaYume-Lumina-Image-2.0": "Largest example",
     "NewBie-AI/NewBie-image-Exp0.1": "Largest example",
+    "black-forest-labs/FLUX.1-Kontext-dev": "Qualified size",
 }
 
 
@@ -170,6 +180,12 @@ _FIT = {
         "alone is about 20 GB at one byte a weight). Only the 4-bit Nunchaku build (WSL) has run "
         "on this card, at about 12 GiB. FP8 with sequential offload stopped at a free-RAM "
         "guard during the load on a 64 GB machine; BF16 with sequential offload is untried."
+    )),
+    # The one measured edit setup (docs/verified.md, stage 3's first trial).
+    "black-forest-labs/FLUX.1-Kontext-dev": ("512×512 only", (
+        "14.5 GB at 512×512, fp8, model offload (2026-10-27): 14,500 MiB whole-card "
+        "by nvidia-smi, about 1.5 GB of headroom, with no spill into shared memory. "
+        "Other sizes, quantizations and offloads are unmeasured and held."
     )),
 }
 
@@ -365,22 +381,33 @@ def download_facts(model_id: str) -> dict[str, str]:
 
 
 _EDIT_CATALOGUE_NOTE = (
-    "Instruction editing uses FLUX.1 Kontext [dev], held until qualified on this card."
+    "Instruction editing runs only on FLUX.1 Kontext [dev]; its row says whether "
+    "it can run now."
 )
+_EDIT_READY_NOTE = "Edit by instruction… runs on this checkpoint with the loader chosen here."
 
 
-def _instruction_edit_facts(model_id: str, *, catalogued: bool) -> dict[str, str]:
+def _instruction_edit_facts(model_id: str, *, catalogued: bool, reason: str | None) -> dict[str, str]:
     """Whether Edit by instruction runs on `model_id`, as the Models notes say
-    it: never a catalogue checkpoint's; a custom id whose profile is the
-    editor's is held with the gate's words; any other custom id, no."""
-    if not catalogued and defaults_for(model_id).get("instruction_edit_candidate"):
-        return {"instruction_edit": "Held", "instruction_edit_note": INSTRUCTION_EDIT_UNAVAILABLE}
+    it. `reason` is the backend's live answer for the loader being chosen
+    (`instruction_edit_refusal`; the closed gate's words cold). The editor's
+    catalogue row says Yes only where that answer is None, else Held with
+    it; a custom id whose profile is the editor's (a case variant) is Held,
+    never Yes; any other row, No."""
+    if defaults_for(model_id).get("instruction_edit_candidate"):
+        if catalogued and reason is None:
+            return {"instruction_edit": "Yes", "instruction_edit_note": _EDIT_READY_NOTE}
+        return {"instruction_edit": "Held", "instruction_edit_note": reason or INSTRUCTION_EDIT_UNAVAILABLE}
     return {"instruction_edit": "No", "instruction_edit_note": _EDIT_CATALOGUE_NOTE if catalogued else ""}
 
 
 def details_for(
     model_id: str, quantization: str | None = None, offload: str = "model",
+    *, edit_reason: str | None = INSTRUCTION_EDIT_UNAVAILABLE,
 ) -> dict[str, str]:
+    """A row's compact facts. `edit_reason` is the backend's live answer
+    for an edit with the loader being chosen (`main`'s model listing passes
+    it); cold, the closed gate's words."""
     checkpoint = next((
         entry for entry in CHECKPOINTS
         if model_id == entry.repo or any(model_id == entry.lite_repo(fmt) for fmt, _ in FORMATS)
@@ -396,7 +423,7 @@ def details_for(
             "access": "Unknown",
             "access_note": "Not in the catalogue; its model page says whether it is gated.",
             "fit": "", "fit_note": "",
-            **_instruction_edit_facts(model_id, catalogued=False),
+            **_instruction_edit_facts(model_id, catalogued=False, reason=edit_reason),
             **download_facts(model_id),
             **speed_for(model_id, quantization, offload),
         }
@@ -417,7 +444,12 @@ def details_for(
         ),
         "megapixels": megapixels,
         "megapixels_label": _SIZE_LABELS.get(checkpoint.repo, "Max recommended"),
-        "megapixels_note": note + " Direct generation, not Refine; no GPU memory guarantee.",
+        # An editor renders at its source's frozen size, which no Size box sets.
+        "megapixels_note": note + (
+            " Direct generation, not Refine; no GPU memory guarantee."
+            if profile.get("text_to_image_supported", True) else
+            " An edit's size follows its source; no GPU memory guarantee."
+        ),
         # Lite builds share a favourite, but Anima's two releases stay distinct.
         "favourite_id": checkpoint.repo,
         "url": f"https://huggingface.co/{checkpoint.repo.split('@', 1)[0]}",
@@ -425,7 +457,7 @@ def details_for(
         "access_note": access_note,
         "fit": fit,
         "fit_note": fit_note,
-        **_instruction_edit_facts(model_id, catalogued=True),
+        **_instruction_edit_facts(model_id, catalogued=True, reason=edit_reason),
         **download_facts(model_id),
         **speed_for(model_id, quantization, offload),
     }

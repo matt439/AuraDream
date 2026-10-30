@@ -420,6 +420,12 @@ launch id gets unknown/after-load facts rather than another model's guide.
 Each model card stays one link away; full prompting guidance stays beside the
 prompt controls.
 
+The Speed fact is the retained card samples' alone. `GEN#38` (2026-10-29)
+owns adding this gallery's own median timing to the Speed note, labelled
+as history and never setting the category; rows record neither offload nor
+a process's first image, so the note says so rather than filtering
+([review-2026-10-29-backlog.md](review-2026-10-29-backlog.md#gen38-gallery-timing-in-the-model-picker)).
+
 The checkpoint is chosen from a table that shows every model's facts at once
 (2026-10-08). With a dropdown and one facts block, comparing meant choosing
 each model in turn. The picker is opened rarely, mostly at launch, so a large
@@ -1257,12 +1263,16 @@ server keeps closed. The
 owns the frozen recipe and sizes; the [carry inventory](instruction-edit-carry.md)
 and [bundle contract](instruction-edit-bundles.md) own integration acceptance.
 
-**Current status, 2026-10-28:** stage 3's approved [first card trial and bounded
+**Current status, 2026-10-30:** stage 3's approved [first card trial and bounded
 pair](verified.md#instruction-edit) ran on 2026-10-27 at 512x512, fp8 and model
 offload. That slice fits, replays, cancels and unloads, with drift beyond the
-instruction. The real server's gate and loader holds stay closed while stage 4
-waits for review of those results and public integration. Other sizes and
-configurations remain unqualified.
+instruction. Matt reviewed those results and approved stage 4 on 2026-10-29.
+Stage 4's ten slices are built on a local branch: its release (slice 7) opens
+the real server's gate, and the measured envelope holds everything the card
+did not measure. The real server's route and page await the plan's
+[card acceptance step](plan-instruction-editing.md#card-acceptance-step);
+until it passes the branch stays local. Other sizes and configurations
+remain unqualified.
 
 An editor's `image` argument is a source for an instruction, rather than a
 klein reference list or a Refine strength. It must get explicit capabilities
@@ -1299,7 +1309,20 @@ real server being able to. A source scan holds every definition to the
 literal. Only `True` itself opens the gate, so a truthy leftover cannot.
 The editor load holds stay unconditional and do not consult the gate. Even
 a mistaken `True` therefore reaches no weights until stage 4 changes the
-loader on purpose.
+loader on purpose. (Stage 4 slice 4 did: the holds open only for the exact
+Kontext id inside the measured envelope, through the pinned
+configs-then-weights loader; `docs/rules.md`, Model and loader.)
+
+*Why the release is a literal, not a setting (stage 4 slice 7).* Opening the
+real gate is one changed literal, `return True` in `DiffusersBackend`, held by
+the same source scan, rather than a flag that could open the editor on a
+machine nobody measured. What the literal opens is narrow on purpose:
+`QUALIFIED_ENVELOPE` is the stage 3 run's configuration (the exact id, fp8,
+model offload, Windows, Eager, diffusers 0.40.0, 1:1 sources at 512x512), and
+every load entry and queue answer asks it first. A choice outside it is
+refused in words naming that choice, never silently changed to the measured
+one. Widening the envelope is a one-line follow-up to the data after a card
+run, not a code path.
 
 *Why a dedicated route.* `POST /api/instruction-edit` exists because
 `/api/generate`'s `refuse_unusable_inputs` refuses everything on an editor
@@ -1309,7 +1332,8 @@ not qualify. The route also fixes the order in one place: the gate answers
 before any file is read, then the source is bound before `check_budget`. So
 the job carries the complete identity it is keyed and saved by. Generate,
 Re-render, More seeds, Swap tags, Then refine and Finish are unchanged and
-keep refusing in words.
+keep refusing in words. (Stage 4's slice 8 later opened More seeds of an edit
+through its own `producer` branch; see below.)
 
 *Why the per-cell recheck.* A queued edit can wait behind other work while
 its source is binned, deleted or rewritten, or while the stand-in's gate
@@ -1317,15 +1341,20 @@ closes. `_recheck_edit` asks the gate again and re-proves the source as each
 cell begins, before the backend is called. The failure is then one cell's
 words, not a render of different pixels under the old proof. `planned_keys`
 skips edit cells while the gate is closed for the same reason: a gate closing
-mid-job must not break every later rerun's planning.
+mid-job must not break every later rerun's planning. Since stage 4 the
+recheck and `planned_keys` also ask the measured envelope: a selection that
+leaves it mid-job fails the cell in the envelope's words, and planning skips
+the cell rather than break.
 
-*Why no catalogue entry.* The first card trial used a harness with one bounded
+*Why no catalogue entry until stage 4.* The first card trial used a harness with one bounded
 configuration; the public loader and replay paths still await stage 4. Listing
-Kontext in `CHECKPOINTS` now would show a choice whose every action is held.
-The editor therefore stays a known, profiled id that the loader refuses.
+Kontext in `CHECKPOINTS` then would have shown a choice whose every action is held.
+The editor therefore stayed a known, profiled id that the loader refuses.
 Text-to-image on it is refused with its
-own sentence, and the page holds Generate in those words. The catalogue
-entry waits for stage 4's review of the measured results and public integration.
+own sentence, and the page holds Generate in those words. Stage 4's slice 6
+lists it, last and held: Switch & load and Apply & save refuse in the gate's
+words before the Hub, the save and the unload. Since slice 7's release that
+refusal is the envelope's, for a choice outside it only.
 
 *Cleanup in `finally`.* The call frees the offload hooks and closes the
 prepared source in `finally`, so a cancel, a decode error or a refused
@@ -1336,11 +1365,62 @@ never `assert`ed, so `python -O` cannot skip them.
 *The entry point on the real server.* "Edit by instruction…" is shown
 everywhere, rather than hidden until an editor can run, as the
 [plan's lifecycle](plan-instruction-editing.md#lifecycle-and-interaction) asks.
-The dialog says why it is held and offers Open Models…. Reuse on a resolved
-edit opens the dialog, never Generate, because the instruction only means
-something against its source. The wide viewer gets no Edit tool yet, which
-keeps `smoke-wide` untouched; the context menu reaches the dialog at every
-width.
+The dialog says why it is held and offers Open Models…, which since stage 4's
+slice 9 opens the picker on the editor's row without switching. Reuse on a
+resolved edit opens the dialog, never Generate, because the instruction only
+means something against its source. The wide viewer gets no Edit tool yet,
+which keeps `smoke-wide` untouched; the context menu reaches the dialog at
+every width.
+
+**Stage 4 (2026-10-29/30): released inside the measured envelope, local
+until the card step.** The [plan](plan-instruction-editing.md#stage-4-the-qualified-first-slice-2026-10-29)
+records the ten slices; the reasons that are not obvious from the code:
+
+*Why an envelope, not wider defaults.* Stage 3 measured one configuration.
+Every unmeasured choice is refused in words naming it, never silently moved
+to the measured one, because a quiet substitution would put a different
+loader under the user's selection. Aspect, not source size, is the measured
+dimension: every 1:1 source renders at 512x512, so only the Lanczos input
+differs.
+
+*Why refuse in `validate`, before the Hub, the save and the unload.* A switch
+used to unload the working model and only then let the load refuse; for an
+editor held outside the envelope that cost a reload of the working model for
+nothing. The switch now refuses first, so the working model stays loaded.
+
+*Why More seeds but not Re-render.* More seeds of an edit asks for new seeds
+of the same instruction against the same proven source, at the frozen
+geometry: exactly the recorded intent, re-proved against the source's pixels
+before it queues. Re-render's only lever is a new width and height, and an
+edit's size is its source's frozen geometry, so at its own size it is
+already rendered and at another it is not that edit. A worded refusal that
+points at More seeds and Reuse says that; a quiet "already rendered" did
+not. Generate keeps the held words because the editor has no text-to-image
+call; Finish stays held by stage 4's defaults, its replay of an edit
+unqualified.
+
+*Why an edit is never priced.* No edit history exists to price one from,
+and a plain render at the same size and checkpoint is a different call
+(Kontext carries the source's image tokens beside the output's). So More seeds'
+preview and the reports give no estimate rather than a borrowed one.
+
+*Why the server words the page's holds.* The per-option holds in Models
+(`loader_holds`) and the source's aspect (`source_reason`) come from the
+same envelope the server refuses with, so the page never decides a hold
+itself and never says something the server would not.
+
+*Why a draft survives a switch to the editor only.* Open Models… exists to
+get the user to the editor, so losing the typed instruction on the way was
+the dialog working against itself. The instruction and seed carry; steps and
+guidance come from the recipe's preview, because the old checkpoint's
+values mean nothing to the editor. Any other switch still clears the
+drafts, which were written for the model they were typed against.
+
+*Why the card step is one load.* A FLUX load here spikes host RAM by
+40-50 GB, so the acceptance step starts the server on the editor directly
+and never switches from Krea; matching stage 3's pixels from another
+process is its cross-process replay check. The Krea-to-editor switch is
+another RAM path, left to a separate optional session.
 
 ## LoRA adapters are the environment's and are hot-swapped
 
@@ -2714,6 +2794,17 @@ remembered it; a Mu on the row then claimed a shift the schedule never took.
 Now neither `collect()` nor `gridPayload` sends a greyed Mu box or axis, as
 with the LoRA weight, and the note asks to check "the steps and CFG boxes"
 there, not a Mu that is not on offer.
+
+**A pass's Reuse lookup owns its opening (2026-10-28).** Looking up a pass's
+source can answer after another Refine dialog was opened or the composer was
+edited. The lookup keeps one page-local request owner, its raw composer and
+model/server/view context, and an abort signal. A newer Reuse, direct Refine open or
+Reset retires it; meaningful composer edits retire it through the existing Undo
+sync. Obsolete success, missing-source fallback and errors do not overwrite the
+newer work. A still-current missing source retains the existing panel fallback,
+including its Undo and unchanged size. The request releases its own token before
+the deliberate open/fallback, so normal actions do not cancel themselves.
+[The dated review](review-2026-10-28-reuse-pass-opening.md) owns qualification.
 
 **Reuse can be taken back.** It replaces the prompt, the negative, the seed,
 the size, steps/CFG/mu and the references and adapter in one click, and it
@@ -4156,6 +4247,22 @@ and `planned_images`): "cell" is a grid's word, and "run 2/3" was a fourth
 meaning of run.
 
 ## The browser's queue
+
+**A queued job says what it should take (2026-10-30, `GEN#32`).** A queued
+row used to say what the job was and nothing of how long it would take, and
+the only estimate on the page was the running job's own pace. Now
+`JobManager.submit_cells` prices every job once, off the loop and without
+a PNG stat. It uses the execution units the worker will run, Then refine's
+stand-in passes included, from the same history and rules as the grid
+preview. The price is stored on the job: `snapshot()` only reports it, and
+a failed pricing is `None`, never a refused job. It is presentation, not a
+reproduction field, so it never touches a run id, a key, `applied()`, a row
+or a PNG. The page writes the figure into each row in the same text write
+as its label, because a figure arriving later would move a row under the
+pointer. `#queue-text` gives a total only when every row is priced: "all
+done in" with the live ETA, "of queued work" while there is none (a pause
+holds the gate). History stands in for the cell line's own-pace figure only
+until that figure exists. [Plan](plan-queue-estimates.md).
 
 **An accepted job still owes its outcome (2026-10-26, `GEN#25`).** An actual
 browser review queued a successful image and an immediately failing image
@@ -5604,6 +5711,20 @@ gallery (#library, head and grid both, as `libraryPointer`; the grid's own
 filter changes - when the head is laid out anew in any case. With the
 pointer elsewhere, an Escape from the keyboard, it comes back at once.
 
+**A tier instead of one size** (`GEN#33`, 2026-10-30). The head's
+Re-render renders every pick at the panel's one width and height, so a
+mixed-aspect selection could not go to 2 MP each in its own framing. The
+Picked menu's **Re-render picked at N MP…** does: N is the panel's tier,
+each pick goes to its own aspect's entry at it (`sizes.nearest_preset`,
+against the aspect's named ratio - entry to entry, the 16-grid rounding sent
+a 1 MP 9:16 to 4:7), and one job per size, as Swap tags splits. A pick
+whose size is no preset's aspect is named and left out, never guessed. The
+press asks first: the server's preview is the question ("1 at 1440×1440, 1
+at 1776×1184 - 2 jobs, one per size"), and OK sends the ids it showed as
+`expected`, so a selection changed meanwhile is refused rather than queued
+unseen. It is a menu item, not a head control: the head holds still
+([review-2026-10-29-backlog.md](review-2026-10-29-backlog.md#gen33-re-render-at-a-tier)).
+
 ## Swap tags
 
 **"Redo with tags swapped"** (2026-10-10): a night's keepers again with
@@ -5738,6 +5859,25 @@ nothing outside it. The request's own limits (16 rows, 1000 characters a
 box) are held on the page - + Add row aria-disabled with the reason,
 `maxLength` on the boxes - rather than met as pydantic's text.
 
+**Adding a tag** (2026-10-30, `GEN#34`). "These keepers again with
+`night` added" was Reuse, edit and Generate per image: an empty Find was
+refused. A row with an empty Find is now an Add row (`TagSwap.add`, start
+or end), placed after the other rows have run as comma items in the
+prompt's own style - the separator between its first or last two items, so
+a `,\n` layout keeps its line breaks, and the underscores and escapes of
+the item it is placed beside (never its weight). Only the start or the end,
+as the user chooses: a place "after hair colour" would be an order, and no
+checkpoint's documented order is invented for it; Check's Use reordered
+stays the way to reorder. A tag already there is not written twice
+("already had X"), a prose text is `by_hand` (where a tag goes in a
+sentence is an edit), an XML or JSON one `structured`, and an empty
+negative takes the tags whole. A tag both added and found is refused, so
+every row still reads the original at once. In the dialog the Add row's
+at end / at start toggle takes the arrow's slot, one fixed width
+(`--narrow-w`), so neither box nor the row's height moves as Find empties
+or fills, and Queue keeps its place
+([review-2026-10-29-backlog.md](review-2026-10-29-backlog.md#gen34-swap-tags-add-rows)).
+
 ## Mass refine
 
 **A pass of every keeper** (2026-10-10): the night's starred images at
@@ -5861,6 +6001,11 @@ says every image already has the pass is kept for the case where that is
 every image's status; mixed with images left out for a fixable reason
 (too big, a LoRA gone) the refusal is the 422 that counts them all, as the
 dialog's hold words it.
+
+**Open: versions** (2026-10-29). The single dialog's Versions has no batch
+counterpart. `GEN#36` owns `versions` as one cell per version at `seed + i`,
+so pruning stays per image and `versions=1` keeps every key
+([review-2026-10-29-backlog.md](review-2026-10-29-backlog.md#gen36-mass-refine-versions)).
 
 ## More seeds
 
@@ -6954,6 +7099,20 @@ and other focus contexts native, keeps the range anchor, and applies only
 to the bin's own picks while the gallery selection is stashed. Its active
 tooltip and `aria-keyshortcuts` advertise the same scope.
 
+**Pick this run (2026-10-30, `UI#37`).** A live card's menu has Pick this
+run after Show run as sheet; it asks the server, not the loaded cards, for
+the run (`pickRun`: one `GET /api/gallery` of `run:`/`job:` as Show run as
+sheet scopes it, every checkpoint, limited to the cap) and adds the ids not
+yet picked in the server's order, beside picks from other filters, with
+Ctrl+A's cap refusal. It says how many of the run's total it added, and
+that a run past the cap was only partly picked. The label carries no count:
+the menu is built before the server is asked. A reply that lands after the
+bin was entered or the selection cleared or replaced by a plain Shift click
+(`selectionClears`) is dropped, and an id the page forgot meanwhile is not
+picked - left out rather than dropping the whole reply, since the rest of
+the run is still live (taken while Matt was away, 2026-10-29; revisit if
+wanted).
+
 **Picked cards, for actions on several images** (2026-10-10). Swap tags and
 Mass refine act on many images at once, and their only scope was the filter,
 as Re-render's and Delete unstarred's is: a search that matched exactly the
@@ -7144,6 +7303,20 @@ independent of nominal preset tiers and rounded labels. Exact Decimal
 boundaries and integer division preserve inclusive/exclusive pixel limits
 without overflowing stored width/height products. [The area-search plan](plan-gallery-area-search.md)
 owns the contract, context isolation, guarded legacy types and qualification.
+
+`GAL#21` (2026-10-30) adds exclusion. Before it, `-blonde` reached FTS as the
+phrase "blonde" (the tokenizer drops the `-`) and returned exactly the images
+meant to go, and `-seed:1` was a phrase that matched nothing. Now a token
+with one leading `-` excludes its operand: `-key:value` is the complement of
+the same `filter_clause`, `COALESCE((clause), 0) = 0`, so a row whose clause
+is NULL (no LoRA, no mu, no true CFG) stays in and `X` plus `-X` count every
+row once; any other `-word` is `id NOT IN` the index's matches, and the LIKE
+fallback swaps both text predicates together. Strict scopes take
+`-key:value`, exact SQL, and refuse `-word` (Matt's option A, 2026-10-29).
+A saved query read back from its sidecar skips the grammar check, so one
+saved before exclusions (`-seed:abc`) does not lock out the rest; its Apply
+answers the gallery's 422. [The exclusion plan](plan-search-exclusion.md)
+owns the contract and its tests.
 
 ## Named gallery searches
 
@@ -7971,7 +8144,10 @@ revisions refuse stale edits or deletes, and malformed/newer files stay
 untouched. The API bypasses gallery maintenance admission, so bundling does
 not take away prompt snippets. Only opening the dialog reads the list.
 Pending writes hold Close; a queued close event cannot invalidate a reopened
-dialog. Insertion uses `rewriteBox` to preserve page scroll and native Undo;
+dialog. Chrome lets a repeated Escape close a held dialog anyway, so a close
+retires reads but keeps a pending write's hold. Only the write's own reply
+clears it, so a reopened dialog cannot send the write a second time (`UI#35`,
+which applies the same rule to Saved setups). Insertion uses `rewriteBox` to preserve page scroll and native Undo;
 the browser harness sends Ctrl+Z's physical key code to exercise that native
 history rather than an application key handler.
 
@@ -8949,6 +9125,14 @@ later word's, so "hair" listed `hair ornament`, `hair ribbon`, `hairband`
 and never `short hair` or `medium hair` - no way to ask what hair there is.
 It is now asked for the query anywhere (`*hair*`, 20 by post count), and a
 later word ranks with the first.
+The negative box, a Danbooru tag list on these checkpoints, had no list,
+and the ranking's demotion of the guide's negative tags would be backwards
+there. Since `PA#12` (2026-10-30) it has its own, floating under the box as
+the Refine dialog's prompt's does, asked with `field=negative`, where the
+server demotes nothing (and promotes nothing: no author sentence asks for
+it); no Find tag row, since the finder writes into the prompt, and none
+while the box is greyed
+([review-2026-10-29-backlog.md](review-2026-10-29-backlog.md#pa12-tag-suggestions-in-the-negative-prompt)).
 **Find tag** (2026-10-22, user request): a cowlick on top of the head is
 `ahoge`, which no completion of "cowlick" reaches. Danbooru's wiki says
 what each tag shows, so the server searches page text (`body_matches`),
@@ -10245,7 +10429,19 @@ its tokenizer's 2048 is the config's, not a card statement
 report's own words are "we adopt Ministral-3(3B) ... as the text encoder";
 checked 2026-09-28). The undistilled ERNIE-Image:
 <https://huggingface.co/baidu/ERNIE-Image> (guidance 4.0, 50 steps; checked
-2026-09-28).
+2026-09-28). FLUX.1 Kontext [dev] (`KONTEXT_GUIDE`, kept by its exact id,
+the catalogue's last entry; checked 2026-10-29): BFL's Kontext image-editing page
+(<https://docs.bfl.ai/kontext/kontext_image_editing>: "Change the car color
+to red", the iterative edits' captions, "The most effective way to edit text
+is using quotation marks around the specific text you want to change", "tries
+to match the input image dimensions as closely as possible (rounded to
+multiples of 32)", 3:7 to 7:3, "All outputs are ~1MP total") and its overview
+(<https://docs.bfl.ai/kontext/kontext_overview>: "keeping everything else
+untouched", "Replace 'joy' with 'BFL'", and [dev] as "Editing mode only").
+Both are written around the [pro] API. The guide's `pixels` are the span of
+those examples' output sizes; the 512x512 it runs at is this card's
+qualification (`docs/verified.md`), not BFL's, and the measured drift is the
+one sentence the critic is not given.
 
 **The guide is also data: `analysis`.** Each guide dict carries its
 checkable statements as an `analysis` entry for the prompt analyser's rule

@@ -140,3 +140,111 @@ trusted automation input events, not Matt's presses. Scroll-to-target helper
 steps do not establish human reachability or scrolling effort. FLUX also
 needs a real True CFG adjustment to enable the negative box; the WAI concept
 does not, so record that checkpoint-specific detour separately.
+
+## Refresh for the current app (DEV#21)
+
+**Status:** `DEV#21` OPEN, recorded 2026-10-29 from the TODO audit. Nothing
+below has been built or run. Matt's hands-on trial stays `DEV#1` (USER); this
+item only makes the kit match the app he would be trialled on.
+
+### Why the kit is stale
+
+The kit was committed on 2026-10-18 (`9199031`); since then only the rename
+(`613ca30`) and a documentation alignment (`0604f5a`) touched
+`tools/trial_fixture.py`, `tools/trial_walkthrough.py` or this folder. The
+app has since gained keyboard routes and compact setup (`UI#17`-`UI#19`,
+[plan](../../plan-shortcut-workflow.md)), Then refine
+([plan](../../plan-then-refine.md)), named saved setups (`GEN#27`,
+[plan](../../plan-generation-presets.md)), saved gallery searches (`GAL#7`,
+[plan](../../plan-saved-searches.md)) and snippet/setup export and import
+(`UI#20`, [plan](../../plan-snippet-portability.md); `UI#25`,
+[plan](../../plan-setup-portability.md)). Matt rates
+keyboard shortcuts (`L6`) and Ctrl/Shift selection (`L8`) Often in
+[preferences](../preferences.md), as he does prompt-word search (`E5`),
+search from a setting (`E9`), refine at size (`H1`), enlarge by Refine
+(`H2`) and Reuse (`G1`). The kit exercises none of the routes built for
+them. `preferences.md` has no row for saved setups, saved searches or
+portability, so this refresh gives them no rating.
+
+The parts known stale from source reading on 2026-10-29 (the walkthrough was
+not run on this tree, so stage 1 may find more):
+
+| Part | Stale since | What is wrong |
+|---|---|---|
+| `trial_walkthrough.py:101-102`, `:176-177` | `UI#19` compact setup | They type into `#width`/`#height`, which now sit inside the closed `<details id="custom-size">` disclosure (`web/index.html:356-370`). The click is expected to miss a hidden input. A participant has the same extra press, so the driver must open the summary with real input and record it as a detour, not skip it. |
+| `trial_walkthrough.py:123` | Queue controls | It takes the first `button` in a queue row. Rows now hold cancel then the ↑ move-to-front button (`web/job-queue.js:149-175`). Cancel is still first, so this works by order alone; target `[data-queue-action="cancel"]` instead. |
+| `trial_walkthrough.py` tasks 1-5 | `UI#17`-`UI#19` | No step uses `/` (focus search), M (More seeds preview) or `?` (contextual help). Task 3's sheet and task 4's searches are pointer-only. |
+| `trial_fixture.py:153-156` (`roles`) | `GEN#27`, `GAL#7`, Then refine | The fixture plants no saved setup, no saved search, no personal snippet and no Then refine job (a base and its pass in one job). The manifest has no alias for any of them. |
+| `trial_fixture.py:161-174` (`refusals`) | 2026-10-18 | Only the foreign Re-render and the binned refine source are recorded. The list above also names More seeds of another checkpoint, which is never recorded as a refusal. |
+| `trial_fixture.py:80`, `trial_walkthrough.py:226` | - | `fixture_version` 1. New roles need version 2, and the walkthrough must refuse a version 1 manifest rather than read it with roles missing. |
+| [Task cards](task-cards.md) task 5 | `GEN#27`, `GAL#7`, `UI#20` | Setups, saved searches and snippets have their own sidecars, outside bundles and gallery maintenance (`backend/api_bundles.py:248-253`; [setups plan](../../plan-generation-presets.md) "Saved contract"). The card does not ask for a prediction of what archive-and-clear leaves behind. |
+| [Task cards](task-cards.md):41 | All of the above | The "do not require" list predates Then refine, saved setups and searches, and portability, so it neither includes nor excludes them. |
+| [Observation record](observation-template.md) | `UI#17`-`UI#19` | Input method is recorded once per session. There is no per-task field for the route taken (pointer, keyboard shortcut, context menu). |
+| [Agent baseline](expert-baseline-2026-10-18.md) | 2026-10-18 | Pinned to commit `17c7ef0` and the version 1 fixture. It is historical evidence and stays unchanged. |
+| This README, "Current app" | Fixture changes | The alias table and the "67 live + 1 binned = 68" count describe version 1 and must be updated from a version 2 manifest, never assumed. |
+
+### Design and constraints
+
+- Fixture data goes through the fake's real routes only, as now: setups via
+  `POST /api/presets`, saved searches via `POST /api/gallery/saved-searches`,
+  snippets via `POST /api/snippets`, Then refine via `POST /api/generate`
+  with `then_refine` (`backend/schemas_generate.py:709`). No direct SQLite
+  or sidecar writes. Keep the 1 GiB headroom check, the new-path-only rule,
+  the owned-runtime identity check and port 8312, away from the smoke ports
+  and their +400 runs.
+- Task mutations stay real browser input; `eval` only observes, scrolls,
+  counts events and sets fake pacing. Prompt text is typed, never written
+  through `.value`, so the page's `writeBox`/`replaceBoxText` undo paths are
+  what get exercised.
+- A held control is `aria-disabled` with its reason as the title
+  (`AGENTS.md`, Frontend). The driver records a press on a held control and
+  its stated reason; it never treats one as a success.
+- No application change to make the driver pass, as the 2026-10-18 baseline
+  recorded. A real defect found on the way becomes its own TODO row.
+- Smokes run at 1400×900, where nothing may move under 1800 px; the driver
+  uses the same viewport and DPR 1, and records any scroll it needs as a
+  helper step, not as human reachability.
+- New aliases (for example `setup`, `saved_search`, `snippet`,
+  `then_refine_base`, `then_refine_pass`) come from the manifest, never from
+  guessed ids or names.
+
+### Non-goals
+
+- Running or scoring Matt's trial (`DEV#1`), or filling the observation
+  record with agent results.
+- Choosing a redesign, or changing the first five tasks' outcomes. A new
+  task for Then refine, saved setups or searches is an optional second set
+  that the observer offers; Matt decides whether it is part of his trial.
+- Portability tasks (export/import of setups or snippets). They have no
+  preference rating; they enter the cards only if Matt asks.
+- Updating the concept prototype (`docs/design/prototype/`).
+- Screen-reader, touch or GPU pixel/timing/memory evidence.
+
+### Stages and completion criteria
+
+1. **Fixture version 2 and a working driver.** Add the roles above to
+   `trial_fixture.py`, bump `fixture_version`, record the More seeds
+   refusal, and repair `trial_walkthrough.py` (custom-size disclosure by real
+   input, the named cancel button, version 1 refused). Closes when: a cold
+   pytest builds `steps_for()` from a synthetic version 2 manifest and checks
+   that every `#id` it clicks or fills exists in `web/index.html` and that a
+   version 1 manifest is refused; on a fresh fake at a new scratch path the
+   fixture prepares without error and `fixture.json` names every new role;
+   `node tools/browser.mjs` runs the generated steps to exit 0 at 1400×900,
+   DPR 1. The alias table and counts above are updated from that manifest.
+2. **Cards and record.** Update task 5 to ask for a prediction of what
+   archive-and-clear leaves (sidecars versus gallery), widen the
+   "do not require" list, add a per-task route row to the observation
+   record, and write optional tasks 6-8 (restore a saved setup then Undo;
+   reopen a run through a saved search; Generate with Then refine and find
+   the pass beside its base), each with A/B values and walkthrough steps.
+   Closes when: the stage 1 checks still pass with the new steps, and the
+   cards name only aliases the version 2 manifest contains.
+3. **New agent baseline.** Record a new dated
+   `expert-baseline-<date>.md` from a full run on a fresh fixture: commit,
+   working-tree state, browser, viewport, DPR, the walkthrough log and the
+   detours it found, labelled as agent observations. The 2026-10-18 file is
+   left as it is. Closes when: the file exists and this README and the
+   [validation protocol](../validation.md#trial-preparation) link it.
+
+Matt's hands-on session then remains `DEV#1`, unchanged by this item.

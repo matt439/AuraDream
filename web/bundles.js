@@ -40,6 +40,172 @@ let automaticBackupSaving = false;
 let automaticBackupUnavailable = false;
 let automaticBackupEpoch = 0;
 
+// The clear has its own lifetime: POST completion is not terminal cleanup.
+// Never correlate an unanswered local POST with an arbitrary later GET id.
+let bundleClearOwner = null;
+const BUNDLE_CLEAR_GUIDANCE = 'Bin, Restore and delete actions stay held in this page. Let any server operation finish, inspect the gallery and saved bundles, and keep any unsent draft before manually reloading this page. Reloading does not cancel a server operation or prove the clear never ran. Do not repeat the request to test it.';
+
+function bundleClearHold() {
+  if (!bundleClearOwner) return '';
+  return bundleClearOwner.phase === 'unresolved'
+    ? 'The clear outcome is unconfirmed; inspect Bundles, then reload this page'
+    : 'Wait for Bundle & clear to finish';
+}
+
+// Raw owners only: the public bin reasons include this clear's own hold.
+function bundleClearBinReason() {
+  return (binWriteIds.size || binBroadOwner)
+    ? 'Wait for the current recycle bin change to finish' : '';
+}
+
+function bundleClearUnresolved(owner, reason) {
+  if (bundleClearOwner !== owner) return;
+  if (owner.phase !== 'unresolved') owner.unresolvedReason = reason;
+  owner.phase = 'unresolved';
+  bundleSay(owner.unresolvedReason + ' ' + BUNDLE_CLEAR_GUIDANCE, true);
+  bundleProgressSay('');
+  syncBinWriteHolds();
+}
+
+// Validate only the current export fields that rendering/forgetting consumes.
+// A failed worker can legitimately have no result; failure does not establish
+// which rows, if any, were deleted.
+function validBundleClearStatus(status) {
+  if (!status || typeof status !== 'object' || Array.isArray(status)
+      || typeof status.id !== 'string' || !status.id.trim() || status.operation !== 'export'
+      || !['running', 'done', 'failed'].includes(status.state)) return false;
+  const result = status.result;
+  if (result != null && (typeof result !== 'object' || Array.isArray(result))) return false;
+  if (result?.deleted_ids !== undefined && (!Array.isArray(result.deleted_ids)
+      || result.deleted_ids.some((id) => !Number.isSafeInteger(id) || id <= 0))) return false;
+  if (result?.name !== undefined && typeof result.name !== 'string') return false;
+  if (result?.retained !== undefined && (!Array.isArray(result.retained)
+      || result.retained.some((name) => typeof name !== 'string'))) return false;
+  return status.state !== 'done' || (!!result && typeof result.name === 'string'
+    && Number.isSafeInteger(result.images) && result.images >= 0
+    && Number.isSafeInteger(result.records) && result.records >= 0
+    && typeof result.cleared === 'boolean' && Array.isArray(result.deleted_ids));
+}
+
+// True means this clear owns the status path, including deferred/unresolved
+// observations. It must never fall through to generic terminal bookkeeping.
+async function receiveBundleClearStatus(status, first) {
+  let owner = bundleClearOwner;
+  if (!owner) {
+    if (status?.operation !== 'export' || (status.id && bundleHandled === status.id)) return false;
+    // Preserve the existing first-observation past-result heuristic. A local
+    // accepted receipt is already tracked and therefore never takes this path.
+    if (first && !bundleSeenRunning && ['done', 'failed'].includes(status.state)) return false;
+    owner = { phase: 'running', id: status.id, origin: 'observed',
+      requestEpoch: bundleRequestEpoch, previousStatusId: bundleStatus?.id ?? null };
+    bundleClearOwner = owner;
+    syncBinWriteHolds();
+  }
+  if (owner.phase === 'unresolved') {
+    bundleStatus = status;
+    bundleSay(owner.unresolvedReason + ' ' + BUNDLE_CLEAR_GUIDANCE, true);
+    return true;
+  }
+  // A status read while our POST is unacknowledged is inspection, not its receipt.
+  if (owner.phase === 'sending' && owner.id === null) return true;
+  // A terminal result already received is this clear's to apply: a concurrent
+  // poll cannot apply it twice, and a later poll - another client's operation
+  // replaces the server's latest status - cannot make it unconfirmed.
+  if (owner.phase === 'settling') return true;
+  if (owner.phase === 'draining') status = owner.terminal;
+  if (!validBundleClearStatus(status) || status.id !== owner.id) {
+    bundleStatus = status;
+    bundleClearUnresolved(owner, 'The tracked clear result is no longer available.');
+    return true;
+  }
+  bundleStatus = status;
+  if (status.state === 'running') {
+    owner.phase = 'running';
+    bundleSeenRunning = true;
+    bundleSay('Creating and verifying the bundle, then clearing the gallery. You can close this dialog; the server will finish the operation.');
+    bundleProgressSay(bundleProgressText(status.progress));
+    return true;
+  }
+  owner.phase = 'draining';
+  owner.terminal = status;
+  bundleProgressSay('');
+  if (binWriteIds.size || binBroadOwner) {
+    bundleSay('Waiting for earlier gallery changes before applying the clear result.');
+    return true;
+  }
+  owner.phase = 'settling';
+  bundleSettling = true;
+  syncBundleControls();
+  try {
+    renderBundleResult(status);
+    bundleResultShown = els.bundlesDialog.open;
+    if (status.result?.deleted_ids?.length) forgetImages(status.result.deleted_ids);
+    els.bundleCount.value = '';
+    await Promise.all([resetGallery(), loadRuns(), syncBin()]);
+    if (bundleClearOwner !== owner || owner.id !== status.id || owner.phase !== 'settling') return true;
+    void refreshLoras();
+    schedulePreview();
+    if (refineSource) scheduleRefinePreview();
+    if (inpaintSource) scheduleInpaintPreview();
+    if (outpaintSource) scheduleOutpaintPreview();
+    if (els.bundlesDialog.open) await Promise.all([refreshBundlePreview(), refreshBundleList()]);
+    if (bundleClearOwner !== owner || owner.id !== status.id || owner.phase !== 'settling') return true;
+    bundleHandled = status.id;
+    bundleSeenRunning = false;
+    bundleClearOwner = null;
+    syncBinWriteHolds();
+  } catch (err) {
+    bundleClearUnresolved(owner, 'The clear result could not finish updating this page.');
+  } finally {
+    bundleSettling = false;
+  }
+  return true;
+}
+
+async function startBundleClear(path, options, owner) {
+  owner.requestEpoch = ++bundleRequestEpoch;
+  bundleSending = true;
+  bundleSeenRunning = true;
+  bundleSay('Starting the gallery bundle.');
+  syncBundleControls(); syncSubmitButtons();
+  try {
+    let status;
+    try {
+      status = await api(path, options);
+    } catch (err) {
+      if (owner.requestEpoch === bundleRequestEpoch) bundleSending = false;
+      // Only this POST await can supply a pre-reservation refusal. An error
+      // in later result application can never release accepted ownership.
+      if (bundleClearOwner === owner && owner.id === null && [409, 422].includes(err.status)) {
+        bundleClearOwner = null;
+        bundleSeenRunning = owner.previousSeenRunning;
+        syncBinWriteHolds();
+        bundleSay(err.message, true);
+      } else bundleClearUnresolved(owner, "The clear request's outcome is unconfirmed.");
+      await pollBundleStatus();
+      if (!bundleHold()) await refreshBundlePreview();
+      return;
+    }
+    if (owner.requestEpoch === bundleRequestEpoch) bundleSending = false;
+    if (bundleClearOwner !== owner || owner.phase === 'unresolved') return;
+    if (!validBundleClearStatus(status)) {
+      bundleClearUnresolved(owner, "The clear request's response could not be confirmed.");
+      return;
+    }
+    owner.id = status.id;
+    owner.phase = 'running';
+    await receiveBundleStatus(status);
+  } catch (err) {
+    bundleClearUnresolved(owner, 'The clear result could not finish updating this page.');
+  } finally {
+    // A refused attempt may have awaited inspection after releasing its hold;
+    // its cleanup must not clear a newer operation's sending flag.
+    if (owner.requestEpoch === bundleRequestEpoch) bundleSending = false;
+    syncBundleControls(); syncSubmitButtons();
+    void pollBundleStatus();
+  }
+}
+
 // What a bundle holds: the entire gallery, which Bundle & clear alone can
 // clear, or the picked or the starred images, which are only ever backed up.
 // The server resolves both (`submission.resolve_selection`); the page sends
@@ -97,7 +263,7 @@ function bundleHold() {
 }
 
 function bundleActionHold() {
-  return bundleHold() || (bundleSettling ? 'Refreshing the gallery after the bundle operation' : '')
+  return bundleClearHold() || bundleHold() || (bundleSettling ? 'Refreshing the gallery after the bundle operation' : '')
     || (bundleReading ? 'Wait for the gallery counts' : '') || (serverOffline ? 'The server is not answering' : '')
     || (busy || queuedIds.length || elsewhereBusy || submitting ? 'Wait for all generation jobs to finish' : '')
     || (expandingPrompt || critiquing ? 'Wait for prompt expansion or the critic to finish' : '')
@@ -105,6 +271,11 @@ function bundleActionHold() {
 }
 
 function bundleSay(message, failed = false) {
+  // Polls, reopening and read failures cannot silently replace this guidance.
+  if (bundleClearOwner?.phase === 'unresolved') {
+    message = bundleClearOwner.unresolvedReason + ' ' + BUNDLE_CLEAR_GUIDANCE;
+    failed = true;
+  }
   if (els.bundleStatus.textContent !== message) els.bundleStatus.textContent = message;
   els.bundleStatus.classList.toggle('failed', failed);
 }
@@ -133,7 +304,7 @@ function syncBundleControls() {
   label(els.bundleScopeStarred, Number.isInteger(starred) ? `Starred (${starred})` : 'Starred');
   label(els.bundleScopeHint, BUNDLE_SCOPE_HINTS[scope]);
   const differ = password !== els.bundlePasswordAgain.value ? 'The two passwords differ' : '';
-  hold(els.bundleExport, why || (bundleReading ? 'Wait for the gallery counts' : '')
+  hold(els.bundleExport, why || bundleClearBinReason() || (bundleReading ? 'Wait for the gallery counts' : '')
     || (scope !== 'all' ? 'Only the entire gallery is cleared; Back up saves the picked or the starred images and keeps them' : '')
     || (!bundlePreview ? 'Refresh the gallery counts first' : '')
     || differ || (!confirmed ? `Type ${count} in the confirmation field to enable Bundle & clear` : ''),
@@ -162,7 +333,7 @@ function bundleRefused(button) {
   // The count is the clear's safety check. A press with only that missing
   // puts the caret beside the explanation, revealing it inside the dialog
   // only where a narrow wrapped row has put it out of view.
-  if (button === els.bundleExport && !bundleActionHold() && bundleScope() === 'all' && bundlePreview
+  if (button === els.bundleExport && !bundleActionHold() && !bundleClearBinReason() && bundleScope() === 'all' && bundlePreview
       && els.bundlePassword.value === els.bundlePasswordAgain.value
       && els.bundleCount.value.trim() !== String(bundlePreview.records)) {
     focusBundleField(els.bundleCount);
@@ -401,6 +572,17 @@ async function receiveBundleStatus(status) {
   const wasHeld = !!bundleHold();
   const first = !bundleStatusSeen;
   bundleStatusSeen = true;
+  // Keep the ordinary status path synchronous until its existing await. A
+  // needless await on a non-clear result could let a new clear overtake it.
+  const clearApplies = bundleClearOwner || (status?.operation === 'export'
+    && !(status.id && bundleHandled === status.id)
+    && !(first && !bundleSeenRunning && ['done', 'failed'].includes(status.state)));
+  if (clearApplies) {
+    await receiveBundleClearStatus(status, first);
+    syncBundleControls();
+    if (wasHeld !== !!bundleHold()) syncSubmitButtons();
+    return;
+  }
   bundleStatus = status;
   if (status.state === 'running') {
     bundleSeenRunning = true;
@@ -470,7 +652,8 @@ async function pollBundleStatus() {
     bundlePollPending = false;
     syncBundleControls();
     if (els.bundlesDialog.open) void refreshAutomaticBackup();
-    bundlePollTimer = setTimeout(pollBundleStatus, bundleHold() ? 750 : 3000);
+    const clearActive = bundleClearOwner && bundleClearOwner.phase !== 'unresolved';
+    bundlePollTimer = setTimeout(pollBundleStatus, bundleHold() || clearActive ? 750 : 3000);
   }
 }
 
@@ -509,16 +692,45 @@ function clearBundlePasswords() {
   for (const input of [els.bundlePassword, els.bundlePasswordAgain, els.bundleUnlock]) input.value = '';
 }
 
+// Caps Lock as the last key event in a password field reported it. Only the
+// modifier state is kept, in memory; focus has no modifier state of its own.
+let bundleCapsLock = false;
+
+function sayBundleCapsLock(input, on) {
+  const note = input.closest('.bundle-password').querySelector('.caps-lock-note');
+  const text = on ? 'Caps Lock is on' : '';
+  if (note.textContent !== text) note.textContent = text;
+}
+
+function watchBundleCapsLock(input) {
+  const read = (event) => {
+    if (typeof event.getModifierState === 'function') bundleCapsLock = event.getModifierState('CapsLock');
+    sayBundleCapsLock(input, bundleCapsLock);
+  };
+  input.addEventListener('keydown', read);
+  input.addEventListener('keyup', read);
+  input.addEventListener('focus', () => sayBundleCapsLock(input, bundleCapsLock));
+  input.addEventListener('blur', () => sayBundleCapsLock(input, false));
+}
+
 function exportGalleryBundle() {
   if (bundleRefused(els.bundleExport)) return;
+  // Admission is synchronous, before passwords leave the editor or POST starts.
+  const held = bundleClearHold() || bundleClearBinReason();
+  if (held) { bundleSay(held + '.', true); return; }
+  const owner = { phase: 'sending', id: null, origin: 'local',
+    requestEpoch: bundleRequestEpoch + 1, previousStatusId: bundleStatus?.id ?? null,
+    previousSeenRunning: bundleSeenRunning };
+  const expected = bundlePreview.records;
   const password = els.bundlePassword.value;
-  // The export password lives only in these fields and this one request;
-  // the unlock field is cleared when an import it opened is done.
+  bundleClearOwner = owner;
+  syncBinWriteHolds();
+  // The export password lives only in these fields and this one request.
   els.bundlePassword.value = els.bundlePasswordAgain.value = '';
-  void startBundleOperation('/api/gallery/bundles/export', {
+  void startBundleClear('/api/gallery/bundles/export', {
     method: 'POST', headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({ expected: bundlePreview.records, ...(password ? { password } : {}) }),
-  }, 'export');
+    body: JSON.stringify({ expected, ...(password ? { password } : {}) }),
+  }, owner);
 }
 
 // Back up: the same verified bundle, of the scope chosen, with nothing
@@ -611,6 +823,7 @@ function initBundles() {
   els.bundlesDialog.addEventListener('close', clearBundlePasswords);
   els.bundleCount.oninput = syncBundleControls;
   for (const input of [els.bundlePassword, els.bundlePasswordAgain, els.bundleUnlock]) input.oninput = syncBundleControls;
+  for (const input of [els.bundlePassword, els.bundlePasswordAgain, els.bundleUnlock]) watchBundleCapsLock(input);
   els.bundleFile.onchange = () => { void readBundleFile(); };
   els.bundleExport.onclick = exportGalleryBundle;
   els.bundleBackup.onclick = backupGallery;

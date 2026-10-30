@@ -10,7 +10,7 @@ from datetime import datetime, timezone
 from decimal import (
     MAX_EMAX, MIN_EMIN, ROUND_CEILING, ROUND_FLOOR, Context, Decimal, InvalidOperation,
 )
-from typing import Any
+from typing import Any, NamedTuple
 
 # `schemas_generate.effective_true_cfg` in SQL, for the filter and the
 # grouping that run in the database: the scale the negative prompt ran at,
@@ -279,24 +279,70 @@ def _in_range(key: str, raw: str, value: int) -> int:
     return value
 
 
-def split_search(search: str) -> tuple[list[str], list, str]:
-    """Split the box into SQL predicates and the words left over for FTS.
+class SearchTerms(NamedTuple):
+    """The box read whole: SQL predicates with their parameters, the words
+    left for the full-text index, and the words excluded from it."""
+
+    clauses: list[str]
+    params: list
+    words: list[str]
+    excluded: list[str]
+
+
+def exclusion(token: str) -> str | None:
+    """The operand of an exclusion (`-word`, `-key:value`), or None.
+
+    One leading `-` and at least one more character that is not a `-`: a lone
+    `-` and `--ar` stay free text, as a quoted `"-x"` does, and a `-` inside a
+    value (`cfg:0-1`, `seed:-5`) is the value grammar's.
+    """
+    if len(token) > 1 and token[0] == "-" and token[1] != "-":
+        return token[1:]
+    return None
+
+
+def _filter_term(token: str) -> tuple[str, list] | None:
+    key, sep, raw = token.partition(":")
+    if sep and raw and key.lower() in FILTERS:
+        return filter_clause(key.lower(), raw)
+    return None
+
+
+def parse_search(search: str) -> SearchTerms:
+    """Split the box into SQL predicates, free words and excluded words.
 
     Anything that is not a known `key:value` stays free text, so a prompt that
-    happens to contain a colon still searches for itself.
+    happens to contain a colon still searches for itself. `-key:value` is the
+    complement of `key:value`, read by the same `filter_clause` (so the same
+    values are refused): a row whose clause is NULL - `lora LIKE ?` on a row
+    without a LoRA - did not match the term, so it is kept, and under the same
+    other terms `X` and `-X` count every row exactly once. Any other `-word`
+    is an excluded word for the full-text index.
     """
     clauses: list[str] = []
     params: list = []
     words: list[str] = []
+    excluded: list[str] = []
     for token in search.split():
-        key, sep, raw = token.partition(":")
-        if sep and raw and key.lower() in FILTERS:
-            clause, values = filter_clause(key.lower(), raw)
-            clauses.append(clause)
+        operand = exclusion(token)
+        term = _filter_term(token if operand is None else operand)
+        if term is not None:
+            clause, values = term
+            clauses.append(clause if operand is None else f"COALESCE(({clause}), 0) = 0")
             params.extend(values)
-        else:
+        elif operand is None:
             words.append(token)
-    return clauses, params, " ".join(words)
+        else:
+            excluded.append(operand)
+    return SearchTerms(clauses, params, words, excluded)
+
+
+def split_search(search: str) -> tuple[list[str], list, str]:
+    """`parse_search`'s predicates and its free words as one string; the
+    excluded words are left out, so read the box through `parse_search`
+    wherever they matter."""
+    terms = parse_search(search)
+    return terms.clauses, terms.params, " ".join(terms.words)
 
 
 def like_escape(term: str) -> str:
@@ -305,16 +351,23 @@ def like_escape(term: str) -> str:
 
 
 def strict_scope(search: str | None) -> tuple[list[str], list]:
-    """The search box's `key:value` terms as predicates, and nothing else.
+    """The search box's `key:value` terms and their exclusions as predicates,
+    and nothing else.
 
     For the paths where a fuzzy match is a hazard - a delete, a statistic.
     `list_images`' LIKE fallback changes the predicate's semantics on any
     token with an odd quote, and a destructive filter resolved through a fuzzy
-    index should not be confirmed blind: free text is refused, not matched.
+    index should not be confirmed blind: free text is refused, not matched,
+    and so is an excluded word, which goes through the same index. A
+    `-key:value` is exact SQL and is taken (Matt, 2026-10-29: option A of
+    docs/plan-search-exclusion.md).
     """
     if not search or not search.strip():
         return [], []
-    filters, params, text = split_search(search)
-    if text:
-        raise ValueError(f"key:value terms only; {text!r} is free text")
-    return filters, params
+    terms = parse_search(search)
+    if terms.words:
+        raise ValueError(f"key:value terms only; {' '.join(terms.words)!r} is free text")
+    if terms.excluded:
+        said = " ".join(f"-{word}" for word in terms.excluded)
+        raise ValueError(f"{said!r} is free text; strict scopes take key:value terms and their exclusions")
+    return terms.clauses, terms.params

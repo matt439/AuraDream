@@ -279,6 +279,7 @@ def test_the_models_api_refreshes_facts_after_successful_and_failed_load_attempt
 def test_retained_references_cover_every_catalogue_and_lite_selection():
     # Source/selection integrity, independently of the tiny fake-cache fixtures.
     data = json.loads(Path(model_info.__file__).with_name("model-downloads.json").read_text(encoding="utf-8"))
+    # The editor's pin is tests/test_instruction_edit_catalogue.py's.
     expected = {entry.repo for entry in CHECKPOINTS} | {
         entry.lite_repo(fmt) for entry in CHECKPOINTS if entry.lite for fmt, _ in FORMATS}
     assert set(data["models"]) == expected

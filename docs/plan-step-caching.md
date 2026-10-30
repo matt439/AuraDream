@@ -377,6 +377,8 @@ RAM/VRAM peaks are results, never reproduction-key components.
 3. **Separately approved card pass.** Complete `GEN#22` first. Fix three
    representative prompts and two seeds each before running: ordinary
    scene, multiple interacting subjects, and fine texture/legible text.
+   These are the [fixed comparison cases](#fixed-comparison-cases)
+   (`PERF#6`), shared with `PERF#1` and `PERF#3`.
    Use identical 1 MP shape, 28 steps, CFG/mu and eager/native fp8/model
    settings with cache off versus `fbc-005-v1`, one image at a time. Keep
    the first-call cost separate from repeats; do not change the threshold
@@ -396,3 +398,142 @@ gain does not establish acceptable quality. Matt must judge the fixed
 pairs before the experiment is offered for routine use. Keep the feature
 off by default; other models, schedules, batches and compositions are
 separate slices. `PERF#4` remains CARD while the real comparison is outstanding.
+
+## Fixed comparison cases
+
+**Status, 2026-10-30: `PERF#6` done.** `tools/perf_cases.py` and
+`tests/test_perf_cases.py` are built as [below](#fixture-and-its-checks);
+the card runs stay `PERF#1`/`#2`/`#3`/`#4`.
+
+**Status, 2026-10-29: `PERF#6` OPEN** (TODO audit, approved by Matt). The
+three speed plans each said to fix their prompts, seeds and shapes before
+the card run, and none did. This section fixes them once for `PERF#1`
+([regional compilation](plan-regional-compilation.md#implementation-and-acceptance-stages)),
+`PERF#3` ([attention](plan-attention-backends.md#bounded-implementation-and-acceptance)),
+`PERF#4` (stage 3 above) and `PERF#2`
+([fp8 activations](plan-fp8-activations.md#stages-and-completion-criteria)).
+They are fixed now so no prompt or seed is picked after a bad pair is seen.
+Each card run changes only its recipe. The cases themselves stay as written
+here. Preference evidence: K2 "Compare model guidance, timings or
+examples" is rated Often (`docs/design/preferences.md:189`). These cases
+are where the speed claims shown beside the models will come from.
+
+**Settings held equal in every case.** Checkpoint
+`black-forest-labs/FLUX.1-Krea-dev`, `fp8`, model offload, CUDA, Batch 1.
+28 steps and CFG 3.5, the profile's own numbers
+(`backend/model_defaults.py:352-353`, inherited by `krea-dev` at `:793-799`;
+inside Krea's "28-32 steps and CFG 3.5-5", `backend/guides.py:128`). `mu`
+is omitted, so the schedule picks its own. No negative prompt (FLUX.1 has
+none without True CFG, `guides.py:123-124`). No LoRA, reference, refine,
+mask or Then refine.
+
+**Shapes.**
+
+| Shape | Size | Source |
+|---|---|---|
+| A, the 1 MP case every plan uses | 1024x1024 | `backend/sizes.py:42` (`1:1`, 1 MP); BFL's FLUX.1 reference size (`guides.py:60-61`) |
+| B, the second aspect for `PERF#1`/`PERF#3` | 1360x768 | `sizes.py:52` (`16:9`, 1 MP); BFL's other reference size (`guides.py:60-61`). Its short side is below Krea's 1024-1280 px recommendation (`guides.py:131-133`); it is chosen as BFL's documented reference |
+
+**Prompts.** Verbatim author examples from `backend/guides.py`, one per
+category in stage 3. `KREA_DEV_GUIDE` comes first; its four examples
+(`guides.py:139-146`) have no plain scene, so the scene comes from BFL's
+FLUX.1 examples (`guides.py:65-73`). Krea dev is FLUX.1 dev "to every
+control" (`model_defaults.py:788-790`).
+
+| Category | Prompt (verbatim) | Author | Where |
+|---|---|---|---|
+| Ordinary scene | `A tall sharp-featured man in an oversized charcoal wool coat, standing on a wet cobblestone street at night, fashion editorial, moody street lighting` | BFL (FLUX.1) | `guides.py:69-70` |
+| Multiple interacting subjects | `Photo of two people having a tea party in a lush garden` | Krea | `guides.py:144` |
+| Fine texture / legible text | `Moody night photography, a small store with an orange glowing sign that says 'Black Forest Labs'` | Krea | `guides.py:140-141` |
+
+Each is shorter than the guides' 30-80 words, which their `example_notes`
+already say (`guides.py:87-90`, `:147-156`). The prompts are not edited
+to lengthen them, so they stay the authors' words. If Matt wants a
+category these examples do not cover, or the Krea owl
+(`guides.py:142-143`) in place of the scene, he names it before the card
+run. The fixture then changes once, in its own commit.
+
+**Seeds.** `4471` and `8823`, fixed now (the values `--seed-list`'s help
+uses, `backend/generate.py:258`). Batch 1, so each cell is one image seeded
+exactly (AGENTS.md: one generator per image, `seed + i`).
+
+**Counts per recipe.** 3 prompts x 2 seeds = **6 cells per shape**.
+
+| Plan | Recipes compared | Shapes | Images before repeats |
+|---|---|---|---|
+| `PERF#4` | off vs `fbc-005-v1` | A | 12 (6 pairs) |
+| `PERF#1` | Eager vs `regional-v1` | A, B, then A again | 24, plus the return to A and the repeats in its table |
+| `PERF#3` | Native vs `cudnn-v1` | A, B, then A again | 24, plus repeats |
+| `PERF#2` | `fp8` vs `fp8-dynamic` (a quantization, not a recipe) | A | 12 |
+
+The repeat and new-process rows in each plan's table reuse these cells.
+They add no new prompt or seed.
+
+### Fixture and its checks
+
+Add `tools/perf_cases.py`: pure data (checkpoint, settings, shapes,
+prompts, seeds) and a helper that returns the `generate.py` arguments for
+one prompt and shape. It imports nothing heavy, and no card script hand-types
+a prompt. Add `tests/test_perf_cases.py` (CPU, no weights, the throwaway
+database from `tests/conftest.py`):
+
+- Each case built as a `GenerateRequest` comes out of `applied()`, called
+  with the Krea dev profile's flags (`negative_prompt_supported`,
+  `cfg_threshold`, `mu_supported`; `backend/schemas_generate.py:527-533`),
+  with the fixture's own values unchanged: steps, CFG, size, prompt, seed,
+  and no negative. `applied()` is the one normalisation (AGENTS.md,
+  Schedule and profiles).
+- The two arms of each recipe give the same `CellKey`s apart from the
+  execution extension. The Eager/Off/Native arm's `run_id` equals the one
+  computed with no execution field (legacy identity). The other arm's
+  differs (AGENTS.md: `CellKey`/`run_id` widen without changing existing
+  ids). `GenerateRequest` and `applied()` refuse a nonempty recipe today
+  (`schemas_generate.py:325-326`, `:560`), so the recipe arm is built with
+  `model_copy(update={"execution": ExecutionSpec(...)})` and keyed through
+  `grid.cell_key`/`grid.run_id` without `applied()`, as
+  `tests/test_execution.py:78` and `:224-233` already do. The `PERF#2`
+  pair differs by quantization, not recipe: its keys are equal and only
+  `run_id` differs.
+- Every prompt string equals its entry in its guide's `examples`, so an
+  edit to a guide fails the test instead of drifting the cases.
+- `generate.main([... , "--dry-run"])` with the fixture's arguments, as in
+  `tests/test_cli.py:187-194`, returns 0. It loads nothing, writes no row,
+  and for each prompt and shape (`--seed-list 4471,8823`) its `output` line
+  starts `2 image(s) - 2 run(s) x 1` (`backend/generate.py:1790-1793`), so 6
+  per shape. Nonempty recipes are refused before any work today
+  (`require_default_execution`, `generate.py:875`, raised through
+  `parser.error` at `:1148-1151`), so the test also asserts that
+  `--step-cache fbc-005-v1` raises `SystemExit` with code 2 and the
+  unavailable reason on stderr. That keeps the fixture from running an unqualified recipe. When
+  a recipe is admitted, that assertion becomes a dry-run count for its arm.
+
+**Built, 2026-10-30.** `tools/perf_cases.py` holds the data above and
+`generate_args(prompt, shape, recipe=..., quantization=...)`, which names
+`--model`/`--quant`/`--offload`, the size, `--steps 28 --cfg 3.5 --batch 1`
+and `--seed-list 4471,8823`, plus one flag per recipe field
+(`--compilation`, `--attention`, `--step-cache`). Run as a script it prints
+the six `backend.generate` command lines for an arm (`--shape`, `--quant`
+and the recipe flags narrow it), quoted for PowerShell on Windows and POSIX
+elsewhere (`--shell`), so the text case's quoted sign stays one argument;
+it runs none. `tests/test_perf_cases.py` (44 cases) checks every bullet above: `applied()` with the krea-dev
+profile's flags leaves all six cases as written, each plan's two arms
+(`PERF#1`/`#3`/`#4`) differ only in `cell_key`'s execution element, the
+empty-recipe arm's `run_id` equals the legacy one (shape A's scene case is
+pinned at `18602667a40f`), the `PERF#2` pair differs only by `run_id`, and
+`--dry-run` prints `2 image(s) - 2 run(s) x 1` per prompt (6 per shape),
+loads nothing and writes no row, while each nonempty recipe exits 2 with
+the unavailable reason. Two choices the plan left open were taken while
+Matt was away (2026-10-29), revisit if wanted: the argument list carries
+the checkpoint/quantization/offload flags and an explicit `--batch 1`, so a
+printed line is complete on its own; and the dry-run test points
+`config.settings` at the Krea dev fp8/model-offload profile, because the
+CLI tests' throwaway settings stand in for what `--model` would select.
+
+**Non-goals.** No new prompts are invented or reworded. No other
+checkpoint, step count or CFG. No grid or comparison UI. No card run. The
+cases do not decide any quality threshold: Matt judges the pairs.
+
+**Completion.** `PERF#6` closes when the fixture and its test pass in the
+ordinary `pytest` run, `ruff` passes, and the three speed plans link here.
+The card runs themselves stay `PERF#1`/`#2`/`#3`/`#4`, each needing Matt's
+OK.

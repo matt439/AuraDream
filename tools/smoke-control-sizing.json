@@ -150,7 +150,7 @@
     ]
   },
   {
-    "eval": "(async()=>{clearSelection();setSelectMode(false);rewriteBox(els.prompt,'');window.__sizingModels=(await api('/api/models')).models.map(m=>m.model_id);if(!__sizingModels.length||__sizingModels.length>40)throw new Error('Unexpected sizing model catalogue');})()"
+    "eval": "(async()=>{clearSelection();setSelectMode(false);rewriteBox(els.prompt,'');window.__sizingModels=(await api('/api/models')).models.map(m=>m.model_id).filter(id=>id!=='black-forest-labs/FLUX.1-Kontext-dev');if(!__sizingModels.length||__sizingModels.length>40)throw new Error('Unexpected sizing model catalogue');})()"
   },
   {
     "expect": "__walkCaptionModels(__sizingModels)"

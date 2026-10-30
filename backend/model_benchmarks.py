@@ -144,6 +144,15 @@ _SAMPLES: dict[str, tuple[Sample, ...]] = {
         Sample(10.2, "~10 s · 1 MP", 8, "2026-09-08", "9.6–10.2 s",
                caveat="Warm samples; first image of a process took 17–18 s. Loading took 22 s separately.", **_NVFP4),
     ),
+    # The catalogue's last entry, which `speed_for` needs to reach it:
+    # instruction edits of a 1:1 source, not text-to-image renders.
+    "black-forest-labs/FLUX.1-Kontext-dev": (
+        Sample(29.3, "~26–29 s · 512×512 edit", 28, "2026-10-27",
+               "29.3 s for the first edit after loading; 25.8–26.8 s after",
+               size="512×512 (0.26 MP)", guidance="guidance 2.5",
+               caveat="Instruction edits of a square source, one image each, through the "
+               "harness's stand-in gate. Loading took 38.1 s separately."),
+    ),
 }
 
 

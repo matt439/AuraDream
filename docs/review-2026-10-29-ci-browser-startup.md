@@ -1,9 +1,28 @@
 # CI: bounded browser startup qualification
 
 **Status:** narrow source/test repair independently reviewed and applied,
-2026-10-29 UTC. Local runtime qualification is unavailable after the denied
-Python-to-Node launch; hosted qualification on the new head is pending. This does not restart the
+2026-10-29 UTC, and qualified on hosted CI the same day (see
+[Hosted qualification, 2026-10-29](#hosted-qualification-2026-10-29)).
+Local runtime qualification stayed unavailable after the denied
+Python-to-Node launch and is not claimed. This does not restart the
 autonomous implementation loop or publish any unfinished work.
+
+## Hosted qualification, 2026-10-29
+
+Both runs were read with `gh run view` (read-only) on 2026-10-29:
+
+- [CI run 40819087355](https://github.com/matt439/AuraDream/actions/runs/40819087355),
+  push of `e687fcd` ("Stabilize browser startup and committed smoke
+  probes", branch `feat/saved-gallery-searches`), the commit that carries
+  the 150-attempt poll (`tools/browser.mjs:345`) and
+  `tests/test_browser_startup_wait.py`: `lint`, `test (ubuntu-latest)` and
+  `browser` all succeed.
+- [CI run 40826526429](https://github.com/matt439/AuraDream/actions/runs/40826526429),
+  push of `e5864fa` to `main` (merge of PR #16): `lint`,
+  `test (ubuntu-latest)`, `test (windows-latest)` and `browser` all succeed.
+
+These hosted passes are the qualification the sections below call for; the
+local Node launch remains unretried and unmeasured.
 
 ## Hosted evidence
 

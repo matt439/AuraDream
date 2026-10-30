@@ -1,16 +1,20 @@
-"""Cold saved-setup CRUD and explicit validation; no submission or restore."""
+"""Cold saved-setup CRUD, validation and raw transfer; no submission or restore."""
 from __future__ import annotations
 
 import re
 
 from fastapi import APIRouter, HTTPException, Path, Query
 from fastapi.exceptions import RequestValidationError
+from fastapi.responses import Response
 from fastapi.routing import APIRoute
 
-from . import model_selection, presets
+from . import model_selection, preset_portability, presets
 from .app_context import AppServices
 from .execution import require_configured_loader_available, require_default_execution, resolve_execution
 from .preset_validation import PresetValidation, validate_payload
+from .schemas_preset_portability import (
+    MAX_PORTABLE_BYTES, PORTABLE_FILENAME, PresetImportCommit, PresetImportPreview, PresetImportRequest,
+)
 from .schemas_generate import error_detail
 from .schemas_presets import (
     Preset, PresetCheck, PresetCollection, PresetCreate, PresetFields,
@@ -18,6 +22,8 @@ from .schemas_presets import (
 )
 
 _ITEM = r"/api/presets/[a-f0-9]{32}"
+MAX_IMPORT_REQUEST_BYTES = MAX_PORTABLE_BYTES + 64 * 1024
+_IMPORT_PATHS = {"/api/presets/import", "/api/presets/import/preview"}
 
 
 def depends_on_model(method: str, path: str) -> bool:
@@ -40,8 +46,24 @@ class _PresetRoute(APIRoute):
 
         async def validated(request):
             try:
+                if request.method == "POST" and request.url.path in _IMPORT_PATHS:
+                    # Consume bounded raw bytes before FastAPI's JSON parser can
+                    # discard duplicate object keys. Never trust Content-Length.
+                    raw = bytearray()
+                    async for chunk in request.stream():
+                        if len(raw) + len(chunk) > MAX_IMPORT_REQUEST_BYTES:
+                            raise HTTPException(status_code=413, detail="The setup import request is too large.")
+                        raw.extend(chunk)
+                    request._body = bytes(raw)
+                    request._json = preset_portability.parse_json(
+                        request._body, max_bytes=MAX_IMPORT_REQUEST_BYTES,
+                    )
                 return await handler(request)
+            except preset_portability.PortabilityError as exc:
+                raise HTTPException(status_code=exc.status, detail=str(exc)) from None
             except RequestValidationError as exc:
+                if request.url.path in _IMPORT_PATHS:
+                    raise HTTPException(status_code=422, detail="The setup import fields are invalid.") from None
                 # Never echo an invalid saved prompt or malformed Unicode.
                 detail = "; ".join(
                     f"{'.'.join(str(part) for part in error['loc'])}: {error['msg']}"
@@ -88,6 +110,26 @@ def create_router(services: AppServices) -> APIRouter:
     @router.get("/api/presets", response_model=PresetCollection)
     def list_presets():
         return PresetCollection(items=presets.read(services.settings().db_path))
+
+    # Static transfer routes precede the `{item_id}` routes. Import stores raw
+    # drafts only: never capture validation, the model selection or the Hub.
+    @router.get("/api/presets/export")
+    def export_presets():
+        # One coherent snapshot of every checkpoint's setups, not a filtered view.
+        data = preset_portability.export_portable(presets.read(services.settings().db_path))
+        return Response(
+            content=data, media_type="application/json",
+            headers={"Content-Disposition": f'attachment; filename="{PORTABLE_FILENAME}"',
+                     "Cache-Control": "no-store"},
+        )
+
+    @router.post("/api/presets/import/preview", response_model=PresetImportPreview)
+    def preview_presets(body: PresetImportRequest):
+        return preset_portability.preview(presets.read(services.settings().db_path), body.payload, body.decisions)
+
+    @router.post("/api/presets/import", response_model=PresetCollection)
+    def import_presets(body: PresetImportCommit):
+        return PresetCollection(items=presets.import_collection(services.settings().db_path, body))
 
     @router.get("/api/presets/{item_id}", response_model=Preset)
     def get_preset(item_id: str = Path(pattern=r"^[a-f0-9]{32}$")):

@@ -27,6 +27,7 @@ from __future__ import annotations
 import argparse
 import dataclasses
 import math
+import os
 import signal
 import sys
 import time
@@ -1226,6 +1227,15 @@ def main(argv: list[str] | None = None) -> int:
     apply_env(args)
     if args.via_server:
         return _via_server(args, parser, source, carried, mask_image, width, height, sized, outpaint_sides)
+    # Before the project, the backend or the gallery: this command renders
+    # from text, which an edit-only checkpoint never does, whatever its gate.
+    from backend.instruction_edit import command_line_refusal
+    from backend.model_defaults import DEFAULT_MODEL_ID
+
+    refusal = command_line_refusal(os.environ.get("AURADREAM_MODEL_ID") or DEFAULT_MODEL_ID)
+    if refusal is not None:
+        print(refusal, file=sys.stderr)
+        return 2
     p = _project()
     from backend.execution import require_configured_loader_available
 
@@ -1797,14 +1807,7 @@ def main(argv: list[str] | None = None) -> int:
         # lookup would otherwise write the schema into a new file, which a
         # --dry-run promises not to do.
         if p.settings.db_path.exists():
-            priced = cells
-            if spec is not None:
-                priced = [
-                    unit for cell in cells
-                    for unit in [cell, *[p.grid.Cell(
-                        request=then_refine.stand_in(cell.request, spec), seed=cell.seed,
-                    )] * cell.request.num_images]
-                ]
+            priced = cells if spec is None else then_refine.execution_units(cells, spec)
             prices, need = p.gallery_reports.execution_estimates(priced, p.settings.model_id)
             seconds = p.grid.estimate_seconds(priced, None, by_size=prices)
             if seconds is not None:

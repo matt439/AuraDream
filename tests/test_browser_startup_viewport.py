@@ -10,6 +10,7 @@ import subprocess
 import pytest
 
 ROOT = Path(__file__).resolve().parent.parent
+FIXTURE = Path(__file__).resolve().parent / "browser_startup_viewport_fixture.mjs"
 pytestmark = pytest.mark.skipif(shutil.which("node") is None, reason="needs Node")
 
 STARTUP_MESSAGE = ("AURADREAM_VIEWPORT needs WIDTHxHEIGHT with integer dimensions in 1..10000000; "
@@ -25,60 +26,6 @@ def run_startup_cold(tmp_path, viewport: str | None, dpr: str | None, *,
     output = tmp_path / "must-not-create-output"
     temporary = tmp_path / "owned-temp"
     temporary.mkdir()
-    bootstrap = r'''
-import fs from 'node:fs';
-import childProcess from 'node:child_process';
-import { syncBuiltinESMExports } from 'node:module';
-const input = JSON.parse(process.argv[1]);
-const asModule = source => 'data:text/javascript;base64,' + Buffer.from(source).toString('base64');
-const realRead = fs.readFileSync;
-const outputModule = asModule(realRead(new URL('./browser-output.mjs', input.url), 'utf8'));
-let source = realRead(input.harness, 'utf8');
-const dependency = "'./browser-output.mjs'";
-if (source.split(dependency).length !== 2) throw Error('expected one browser-output dependency');
-source = source.replace(dependency, JSON.stringify(outputModule));
-if (input.capture) {
-  // Observe actual parsed module locals after all preflight, before the first
-  // existing lookup. The predicates and parsed expressions are not replaced.
-  const boundary = 'const browser = CANDIDATES.find((p) => existsSync(p));';
-  if (source.split(boundary).length !== 2) throw Error('expected one discovery boundary');
-  source = source.replace(boundary, 'globalThis.__captureStartupMetrics(VW, VH, DPR);\n' + boundary);
-}
-const harnessModule = asModule(source);
-function forbidden(name) {
-  return function () { console.error('UNEXPECTED_STARTUP_VIEWPORT_EFFECT:' + name); process.exit(99); };
-}
-let reads = 0;
-fs.readFileSync = (path, ...args) => String(path) === input.script && reads++ === 0
-  ? realRead(path, ...args) : forbidden('source_read')();
-for (const [name, label] of Object.entries({
-  existsSync: 'browser_lookup', readdirSync: 'profile_scan', statSync: 'profile_stat',
-  mkdirSync: 'output_mkdir', mkdtempSync: 'profile_create', rmSync: 'profile_remove',
-  writeFileSync: 'output_write',
-})) fs[name] = forbidden(label);
-childProcess.spawn = childProcess.spawnSync = forbidden('spawn');
-syncBuiltinESMExports();
-globalThis.fetch = forbidden('fetch');
-globalThis.WebSocket = forbidden('websocket');
-globalThis.__captureStartupMetrics = (width, height, deviceScaleFactor) => {
-  console.error('STARTUP_METRICS:' + JSON.stringify({ width, height, deviceScaleFactor }));
-  process.exit(97);
-};
-process.argv = [process.execPath, input.harness, input.script];
-process.on('exit', () => console.error('FIXTURE_READS:' + reads));
-const probes = {
-  source_read: () => fs.readFileSync(input.harness),
-  browser_lookup: () => fs.existsSync('must-not-discover-browser'),
-  output_write: () => fs.writeFileSync(input.output, 'must-not-write'),
-  output_mkdir: () => fs.mkdirSync(input.output),
-  profile_scan: () => fs.readdirSync(input.temporary),
-  spawn: () => childProcess.spawn('must-not-run'),
-  fetch: () => globalThis.fetch('http://must-not-connect.invalid'),
-  websocket: () => new globalThis.WebSocket('ws://must-not-connect.invalid'),
-};
-if (input.probe) probes[input.probe]();
-await import(harnessModule);
-'''
     request = dict(harness=str(ROOT / "tools" / "browser.mjs"), script=str(script),
                    url=(ROOT / "tools" / "browser.mjs").as_uri(), output=str(output),
                    temporary=str(temporary), capture=capture, probe=probe)
@@ -90,7 +37,7 @@ await import(harnessModule);
             environment.pop(name, None)
         else:
             environment[name] = value
-    done = subprocess.run(["node", "--input-type=module", "-e", bootstrap, json.dumps(request)],
+    done = subprocess.run(["node", str(FIXTURE), json.dumps(request)],
                           cwd=tmp_path, env=environment, capture_output=True, text=True, timeout=15)
     assert script.read_text(encoding="utf-8") == text
     assert not output.exists() and list(temporary.iterdir()) == []
