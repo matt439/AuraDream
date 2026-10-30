@@ -464,7 +464,8 @@ before changing it.
   `run_smoke.py`, which starts each smoke's fake from `AGENTS.md`'s port
   table and runs it, with `smoke_fonts.py` its Linux Segoe UI stand-in;
   `ci_changes.py` classifies GitHub push/PR ranges for
-  the documentation-only lint path; `typecheck.py` runs the pinned,
+  the documentation-only lint path; `ci_duplicates.py` skips a run another
+  run of the workflow covers; `typecheck.py` runs the pinned,
   locally bundled Pyright checker over the configured scope;
   `perf_cases.py` holds the fixed speed comparison cases the card runs
   share and prints their `backend.generate` lines, running none
@@ -7175,8 +7176,9 @@ A docs-only tip on a code-changing PR does not bypass its tests.
 
 Other changes and manual runs get the CPU suite on Ubuntu
 (`uv sync --locked --group dev`, the pinned type gate, `pytest -n auto
---durations=25`, listing the 25 slowest tests across workers); on main
-(pushes and by hand) it runs on Windows too, about five times slower. A separate
+--durations=25`, listing the 25 slowest tests across workers); for main
+(pull requests into it, pushes and by hand) it runs on Windows too, about
+five times slower. A separate
 `browser` job (same condition, never holding up `test`) runs the whole smoke
 table on the runner's Linux Chrome (`run_smoke.py --all --jobs 3`), then,
 passed or failed, `tools/smoke_timings.py` over the run's `summary.json`
@@ -7202,6 +7204,25 @@ the real-tokenizer tests in `test_prompt_encoding.py` and
 `test_critic_tokens.py` read, so those tests run instead of skipping. The
 `HF_TOKEN` repository secret covers the gated FLUX.1-Krea-dev and Krea 2
 Turbo; without it, as on forks' pull requests, those two warn and skip.
+
+A commit runs once. Before installing anything, the lint job asks the
+GitHub API (`tools/ci_duplicates.py`, standard library, the read-only token
+with `pull-requests`/`actions` read) whether another run covers this one, and
+if so skips lint and every later job, naming the covering run in a notice.
+A push to a branch leaves the commit to an open pull request's run only
+once that pull request shows the pushed commit as its head and answers
+`mergeable: true` (five polls three seconds apart); a conflicted one runs no
+workflow, and a stale head or unknown mergeability runs the push. A push to
+main skips when a pull request associated with the commit has a head with
+the same tree that contains main's previous commit (the compare API answers
+`ahead` or `identical`), and a passed `pull_request` run of this workflow
+for that head, branch and this repository (not a fork's, which had no
+secrets; a merged pull request's runs list no pull requests) whose jobs
+passed: `lint`, `browser` and both `test` systems, or `lint` alone when this
+push is documentation-only. Pull requests, manual runs, tags, direct pushes
+to main without such a run, and any failure of the check run; the step has
+`continue-on-error`, and a crash leaves its output unset, which runs.
+`tests/test_ci_duplicates.py` holds those answers against canned API replies.
 
 `tests/test_ci_changes.py` exercises the path policy and real temporary
 Git histories: full pushed ranges, PR merge bases, deletions/renames and
