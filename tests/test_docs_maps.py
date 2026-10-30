@@ -4,7 +4,8 @@
 `AGENTS.md` (its first line is `@AGENTS.md`); the maps drifted by hand before
 (`backend/metadata.py` was in neither), so they are held here rather than by
 review. So is `AGENTS.md`'s smoke/port table: a smoke run against the port its row names
-finds the fake that row says to start.
+finds the fake that row says to start. And the fake server's knobs and flags:
+`AGENTS.md` once lacked `/api/fake/model`.
 """
 from __future__ import annotations
 
@@ -95,4 +96,27 @@ def test_every_smoke_is_described_under_tests():
     rules = (ROOT / "docs" / "rules.md").read_text(encoding="utf-8")
     tests = rules[rules.index("## Tests"):]
     missing = [p.name for p in (ROOT / "tools").glob("smoke*.json") if p.name not in tests]
+    assert missing == []
+
+
+def _fake_routes_and_flags() -> tuple[list[str], list[str]]:
+    """The fake server's `/api/fake/...` routes and command-line flags, read
+    from its source as text: importing it would import the app."""
+    text = (ROOT / "tools" / "fake_server.py").read_text(encoding="utf-8")
+    routes = re.findall(r'@app_main\.app\.post\("(/api/fake/[\w-]+)"', text)
+    flags = re.findall(r'add_argument\(\s*"(--[\w-]+)"', text)
+    return routes, flags
+
+
+def test_every_fake_route_and_flag_is_in_agents_and_rules():
+    routes, flags = _fake_routes_and_flags()
+    # A renamed decorator or parser call must not pass by finding nothing.
+    assert routes and flags
+    missing = [
+        f"{name} missing from {doc}"
+        for doc in ("AGENTS.md", "docs/rules.md")
+        for text in [(ROOT / doc).read_text(encoding="utf-8")]
+        for name in (*routes, *flags)
+        if not re.search(rf"(?<![\w/-]){re.escape(name)}(?![\w/-])", text)
+    ]
     assert missing == []
