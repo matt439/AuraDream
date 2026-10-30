@@ -438,7 +438,8 @@ each checks, from the smoke that covers its commit today:
 AGENTS.md), every step one of the kinds `browser.mjs`'s step loop
 dispatches on with only that kind's modifiers, no `/api/fake/`, no
 `els.prompt.value =`/`els.negative.value =`, no `startJob(` and no
-`fetch(`/`api(` of a pack's own, no wait or `__until` past 4 min, each
+`fetch(`/`api(` of a pack's own, no `.click(`, `.focus(`, scroll call or
+`.value =` from an eval, no wait or `__until` past 4 min, each
 commit's sha in verified.md's Behaviour paragraph (or R50's row) and at the
 head of its first `log`, a fatal wait on the listing before the first press
 of Load, Generate, Run grid, Refine or Switch & load, and in the Ctrl-C
@@ -463,7 +464,11 @@ line only, without a signal: the idle one after its image, the dot ready;
 1744dc3 on that fake after `POST /api/model/unload` and `POST
 /api/fake/load {"seconds": 30}` sent by hand (the fake starts loaded and
 loads at once, and a pack sends neither), "loading weights" and the dot
-`loading` 5 s on.
+`loading` 5 s on. A review the same day had 2b89ed5 check the card it deletes is
+the source's and 2a4d2cc that the size is 1024x1024, and ran the six page
+packs again on a fresh fake (port 8150): all exited 0 with the same
+readings (8 of 12 seeds, 16/24 cells; #32 "refine of #31 (deleted)"; cell
+5 of 6 after 3 failed).
 
 **Left, Matt's:** the two Ctrl-C packs on the fake with Ctrl-C typed in the
 fake's console, and their result recorded here. For 1744dc3 the fake must

@@ -110,6 +110,13 @@ def test_no_pack_reaches_round_the_page(name: str) -> None:
         # Evals observe: no request of the pack's own (the adapter listing is
         # read from the page's resource timing, never asked again).
         assert not re.search(r"(?<![\w.$])(?:fetch|api)\(", code), (name, n)
+        # Nor any press, scroll, focus or field write from an eval: the page
+        # is moved by `wheel` and filled by `type`.
+        assert not re.search(
+            r"\.(?:click|focus|scrollTo|scrollBy|scrollIntoView|dispatchEvent)\(|"
+            r"(?<![\w$])(?:scrollTo|scrollBy)\(|\.(?:value|scrollTop|checked|open)\s*=(?!=)",
+            code,
+        ), (name, n)
 
 
 @pytest.mark.parametrize("name", PACKS)

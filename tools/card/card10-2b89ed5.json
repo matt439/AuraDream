@@ -60,7 +60,7 @@
   {"log": "'the source deleted from its gallery card (to the recycle bin), the page wheeled down to it first as a person would, then up to the gallery head s Bin, and the bin emptied with its own dialog'"},
   {"wheel": [1280, 650, 600]},
   {"wait": 600},
-  {"expect": "(() => { const r = __box(document.querySelector('#gallery .card[data-id] .tools .del')); return r.top >= 0 && r.bottom <= innerHeight; })()", "fatal": true},
+  {"expect": "(() => { const card = document.querySelector('#gallery .card[data-id]'); const r = card && __box(card.querySelector('.tools .del')); return !!card && +card.dataset.id === __src && r.top >= 0 && r.bottom <= innerHeight; })()", "fatal": true},
   {"hover": "#gallery .card[data-id]"},
   {"click": "#gallery .card[data-id] .tools .del"},
   {"expect": "__until(() => binnedIds.has(__src))", "fatal": true},

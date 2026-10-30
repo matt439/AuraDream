@@ -22,7 +22,7 @@
   {"type": "12"},
   {"wait": 600},
   {"log": "({prompt: els.prompt.value, width: els.width.value, height: els.height.value, steps: els.steps.value, batch: els.batch.value, runs: els.runs.value})"},
-  {"expect": "els.prompt.value === 'a heron standing in reeds at dawn' && els.steps.value === '12' && els.batch.value === '1' && els.runs.value === '1'", "fatal": true},
+  {"expect": "els.prompt.value === 'a heron standing in reeds at dawn' && els.width.value === '1024' && els.height.value === '1024' && els.steps.value === '12' && els.batch.value === '1' && els.runs.value === '1'", "fatal": true},
 
   {"log": "'a MutationObserver on the step counter and the cell line takes each step s words and the time they were drawn'"},
   {"eval": "window.__lines = []; const read = () => { const step = els.stepText.textContent, note = els.cellNote.textContent; const last = __lines.at(-1); if (step && (!last || last.step !== step || last.note !== note)) __lines.push({t: performance.now(), step, note}); }; window.__mo = new MutationObserver(read); for (const el of [els.stepText, els.cellNote]) __mo.observe(el, {childList: true, subtree: true, characterData: true});"},
