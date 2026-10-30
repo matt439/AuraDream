@@ -93,6 +93,7 @@ const SHORTCUT_GROUPS = [
     title: 'Prompts and tag chips',
     scope: 'Suggestions and chip editors take Escape before the helper or prompt check beneath them.',
     rows: [
+      [['P'], 'Focus the prompt box from the workspace, with the caret at the end. Fields, menus and dialogs keep their keys.'],
       [['Ctrl/Cmd+Z'], 'Undo text inserted or replaced by Apply, Reuse, PNG settings, Expand, Examples, Snippets or a chip edit.'],
       [['Tab', 'Enter'], 'Accept a matching tag suggestion when its list offers one.'],
       [['Up', 'Down'], 'Move through the open suggestion list.'],

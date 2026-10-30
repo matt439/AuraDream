@@ -131,8 +131,24 @@ nothing was pushed or deployed.
 
 ## Stage 4 prompt route
 
-**Status:** OPEN as `UI#36`, added 2026-10-29 from the TODO audit. Matt
-approved adding it to the backlog; it is not yet built.
+**Status:** Done 2026-10-30 as `UI#36` (added 2026-10-29 from the TODO
+audit). `focusPromptBox` (`web/app.js`) is the third of the document
+keydown handler's small routes, inside the same guard as `/` and also
+`!modal`; the help's Prompts group has the P row and `#prompt` carries
+`aria-keyshortcuts="P"`. `smoke-shortcut-dispatch` covers a sheet cell, a
+gallery card (P and Caps Lock's P), the card the lightbox returns focus to,
+the lightbox itself, the modifier/repeat/composing/handled probes, the search,
+the negative, a select, a contenteditable, the Picked menu, the model picker,
+help and Then refine, with the prompt's text, picks, Select mode, query,
+sheet, Check, suggestions and `scrollY` unchanged and no box writer called;
+`smoke-shortcuts` the help row and the attribute; `smoke-narrow` at 600x900
+the box brought into view by one `scrollIntoView` from a card 1,000 px
+down, and nothing moved when it is already on screen. `tests/test_prompt_route.py`
+holds the wiring statically. Two choices the design left implicit were taken
+while Matt was away (2026-10-29), revisit if wanted: the negative and the
+select are probed with their hidden/disabled state lifted for the probe only
+(FLUX greys the negative), and the route shares `/`'s `!modal` rather than a
+wider guard.
 
 **Evidence.** `docs/design/preferences.md` rates L6 (keyboard shortcuts and
 navigation) and A1 (write or edit a prompt) Often. Stage 3 added `/` for

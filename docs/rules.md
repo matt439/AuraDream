@@ -3588,6 +3588,10 @@ Frontend and CLI:
   localized keyboard. Fields, menus, popups and modals own their keys;
   Ctrl/Meta/Alt, composition, handled events and repeats never take this route.
   Explicit navigation reveals a clipped search, without moving a visible one.
+  Unshifted P (either case) under the same guards, outside any modal,
+  focuses `#prompt` with the caret at the end (`focusPromptBox`): no text,
+  Undo, Check, suggestion, pick, search or sheet change, and the same one
+  reveal as `/` only where the narrow layout left the box off screen.
   Unshifted M opens More seeds for the focused gallery/result/sheet/session
   image or unobstructed lightbox image, using its one id and the existing holds
   and preview. It never queues or widens to hidden picks. Its actual visible
@@ -6725,14 +6729,17 @@ protection and responsive screenshots at 390/600/1400/2048 px.
 `smoke-shortcut-dispatch.json` uses a fresh fake on 7924. It checks modal and
 menu ownership, exact modifiers, handled/composing/repeated events, native
 button repeat, lightbox editing/select/browser navigation, ordinary Generate
-and Grid, and delayed More seeds/help Escape precedence.
+and Grid, delayed More seeds/help Escape precedence, and P back to the prompt
+from a card, a sheet cell and the card the lightbox returns to (never from
+fields, menus, the model picker, help, a settings dialog or the lightbox).
 
 `smoke-shortcuts.json` uses a fresh fake on 7913. It checks the complete
 shortcut list before any images exist, the top-bar and `?` openers, typing,
 composition/modifier/repeat guards, help above a lightbox and a Refine draft,
 no underlying submission or image action, native Escape, Close and actual
 backdrop focus restoration, context ordering with the full inventory, menu-opener
-fallbacks, accurate menu hints and a 390 px layout without horizontal overflow.
+fallbacks, accurate menu hints, the Prompts group's P row with `#prompt`'s
+`aria-keyshortcuts="P"`, and a 390 px layout without horizontal overflow.
 
 `uv run --group dev pytest`. They stub the pipeline (`tests/fakes.py`'s
 `FakeBackend`, wired by the `fake` and `client` fixtures in `tests/conftest.py`
@@ -7928,7 +7935,10 @@ after the finish line and kept past the job's end; and, at scroll 0, Batch
 then that batch running with its Now line, Pause, Cancel, both bars, the
 counters and the elapsed line (one line) in the window and the run hint
 under them, at 1400x900, 1920x947, 2048x1040@1.25 and 1536x864@1.25 (the
-panel's gap 10 px there, 14 px back at 1400x900):
+panel's gap 10 px there, 14 px back at 1400x900); and at 600x900 P from
+a card 1,000 px down bringing the prompt box into view with one
+`scrollIntoView`, the page its width, and moving nothing when the box is
+already on screen:
 
 ```powershell
 uv run python tools/fake_server.py --port 7889 --model black-forest-labs/FLUX.1-Krea-dev --step 0.3
