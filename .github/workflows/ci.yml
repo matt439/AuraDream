@@ -1,6 +1,10 @@
 # Lint every push/PR. Documentation-only changes skip the CPU test matrix
 # and its application/tokenizer downloads. Manual runs keep the full gate.
-# CPU tests use Linux and, on main, Windows. No GPU or model weights.
+# CPU tests use Linux and, for main and pull requests into it, Windows.
+# No GPU or model weights. A commit already covered runs once
+# (tools/ci_duplicates.py): a branch push with an open pull request leaves
+# it to the pull request's run, and the push merging a pull request whose
+# run passed the same tree skips.
 # Hosted runners cost nothing on a public repository.
 name: CI
 
@@ -10,9 +14,11 @@ on:
   workflow_dispatch:
 
 # Read-only token: the job checks out, lints and tests, and forks' pull
-# requests run it too.
+# requests run it too. The duplicate check reads pull requests and runs.
 permissions:
   contents: read
+  pull-requests: read
+  actions: read
 
 concurrency:
   group: ci-${{ github.ref }}
@@ -24,6 +30,7 @@ jobs:
     timeout-minutes: 10
     outputs:
       full_tests: ${{ steps.changes.outputs.full_tests }}
+      duplicate: ${{ steps.duplicate.outputs.duplicate }}
     steps:
       - uses: actions/checkout@v7
         with:
@@ -33,25 +40,36 @@ jobs:
         with:
           enable-cache: true
           python-version: "3.13"
-      - name: Install development tools only
-        run: uv sync --locked --only-group dev
       - name: Classify changed paths
         id: changes
-        run: uv run --no-sync python tools/ci_changes.py
+        run: uv run --no-project python tools/ci_changes.py
+      - name: Skip a commit another run covers
+        id: duplicate
+        # A crash leaves the output unset, so everything runs.
+        continue-on-error: true
+        run: uv run --no-project python tools/ci_duplicates.py
+        env:
+          GH_TOKEN: ${{ github.token }}
+          FULL_TESTS: ${{ steps.changes.outputs.full_tests }}
+      - name: Install development tools only
+        if: ${{ steps.duplicate.outputs.duplicate != 'true' }}
+        run: uv sync --locked --only-group dev
       - name: Lint
+        if: ${{ steps.duplicate.outputs.duplicate != 'true' }}
         run: uv run --no-sync ruff check .
 
   test:
     needs: lint
-    if: ${{ needs.lint.outputs.full_tests == 'true' }}
+    if: ${{ needs.lint.outputs.full_tests == 'true' && needs.lint.outputs.duplicate != 'true' }}
     strategy:
       # One system's failure never cancels the other's answer.
       fail-fast: false
       # Windows takes about five times as long as Linux for the suite, so it
-      # runs on main only (pushes and by hand); branches and pull requests
+      # runs for main only: pull requests into it, and pushes and manual runs
+      # on it, beside the longer browser job. Other branches
       # get Linux.
       matrix:
-        os: ${{ fromJSON(github.ref == 'refs/heads/main' && github.event_name != 'pull_request' && '["ubuntu-latest", "windows-latest"]' || '["ubuntu-latest"]') }}
+        os: ${{ fromJSON((github.event_name == 'pull_request' && github.base_ref == 'main' || github.event_name != 'pull_request' && github.ref == 'refs/heads/main') && '["ubuntu-latest", "windows-latest"]' || '["ubuntu-latest"]') }}
     runs-on: ${{ matrix.os }}
     timeout-minutes: 30
     steps:
@@ -93,7 +111,7 @@ jobs:
   # at that width on four cores.
   browser:
     needs: lint
-    if: ${{ needs.lint.outputs.full_tests == 'true' }}
+    if: ${{ needs.lint.outputs.full_tests == 'true' && needs.lint.outputs.duplicate != 'true' }}
     runs-on: ubuntu-latest
     timeout-minutes: 45
     steps:

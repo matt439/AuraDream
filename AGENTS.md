@@ -399,10 +399,14 @@ on Linux for every push and pull request. Documentation-only changes run
 just lint, without app/tokenizer installs; executable files under `docs/`
 still get tests. Other changes and manual runs get the pinned type gate
 and `pytest -n auto --durations=25` (the 25 slowest tests) on Linux,
-and on Windows too for main (pushes and by hand; about 12 minutes); a separate
+and on Windows too for main (pull requests into it, pushes and by hand;
+about 12 minutes); a separate
 `browser` job runs the smoke table on Linux Chrome (fonts from
 `tools/smoke_fonts.py`), printing its timings (`tools/smoke_timings.py`)
-and uploading diagnostics on failure. Its runners are
+and uploading diagnostics on failure. A commit runs once
+(`tools/ci_duplicates.py`): a branch push with an open pull request leaves
+it to that pull request's run, and main's merge push skips when a passed
+pull request run tested the same tree. Its runners are
 slow and have no GPU driver: a test that races a clock (a time budget, a
 cell to skip or pause mid-run) needs seconds of margin, not milliseconds.
 `tools/fetch_tokenizers.py` fetches the real-tokenizer tests' files first,

@@ -12776,6 +12776,37 @@ The rules' Tests section owns the exact path policy and commands;
 `tests/test_ci_changes.py` covers the classifier with temporary Git histories.
 Hosted execution remains unverified until this workflow is pushed and run.
 
+## CI runs a commit once
+
+Changed 2026-10-30 at Matt's request: pull request and merge runs tested
+the same work twice. `on: push` and `on: pull_request` both fired for every
+commit pushed to a branch with an open pull request (different refs, so
+`concurrency` kept both), and merging ran the whole table again on main.
+
+Narrowing `push` to main would have left branches without a pull request
+untested, and skipping same-repository `pull_request` runs would have tested
+the branch tip rather than the merge result. Instead the push run asks the
+API whether the branch has an open pull request and leaves the commit to it.
+GitHub runs no workflow on a conflicted pull request, so the push is left
+to it only when it shows the pushed commit as its head and answers
+mergeable: until GitHub has applied the push, the API can show the old head
+and its old answer, and mergeability is null while it computes. Either still
+unsettled after the polls runs the push: a duplicate run costs minutes, a
+commit with no run hides a failure.
+
+Main's merge push compares trees, not commits: a merge commit, squash or
+rebase has a new id but the same tree as the pull request's head when that
+head already contained main. The pull request run tested GitHub's merge of
+head and the base as it was then, which is the head's own tree only when
+that base is inside the head; main's previous commit being inside the head
+(the compare API) guarantees that for every earlier base. If main moved
+under it, main runs. A merged pull request's runs no longer list it, so the
+run is matched by head commit, branch and repository. Windows used to run on main alone; it now runs
+on pull requests into main as well, so the skipped main run loses nothing,
+and the covering run must show every job passed, so a run from before this
+change (no Windows job) never covers. A fork's run is never counted: it had
+no `HF_TOKEN`, so its gated tokenizer tests skipped.
+
 ## uv.lock's hand-pinned torch hashes
 
 **Historical evidence, 2026-09-08:** the four PyTorch wheel hashes were
