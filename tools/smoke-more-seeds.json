@@ -87,7 +87,7 @@
   {"expect": "__rows().map(__line).join(' | ') === 'Ready 4 images, seeds 7–10 → seeds 11–13 · Batch 1 | Ready 7 images, seeds 100–106 → seeds 107–109 · Batch 2'"},
   {"eval": "void deleteImage(galleryRecords.find((r) => r.id === __fox.id))"},
   {"expect": "__until(() => __rows().length === 2 && __rows().some((li) => li.dataset.status === 'deleted' && +li.dataset.id === __fox.id))"},
-  {"expect": "__until(() => els.moreSeedsLine.textContent === '3 per settings group × 1 ready = 3 additional images · 1 deleted' && els.moreSeedsRun.textContent === 'Queue 3 images')"},
+  {"expect": "__until(() => /^3 per settings group × 1 ready = 3 additional images( · about \\d+s)? · 1 deleted$/.test(els.moreSeedsLine.textContent) && els.moreSeedsRun.textContent === 'Queue 3 images')"},
 
   {"log": "'Escape closes it, and focus goes back to the footer button'"},
   {"key": "Escape"},
