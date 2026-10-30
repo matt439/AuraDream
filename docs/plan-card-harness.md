@@ -3,9 +3,9 @@
 **Status:** `DEV#20` (card guard), `DEV#22` (image metrics) and `DEV#23`
 (`CARD#10` step packs) opened 2026-10-29 from that day's TODO audit, which
 Matt approved in full. `DEV#22` is built (2026-10-30, below); `DEV#20`'s
-stage 1 is built (2026-10-30, below) and its card stage is open; so is
-`DEV#23`'s first stage but for its hand-typed Ctrl-C runs on the fake
-(2026-10-30, below). Each item's first stage is CPU,
+stage 1 is built (2026-10-30, below) and its card stage is open;
+`DEV#23`'s first stage is built too (2026-10-30, below), but for its
+hand-typed Ctrl-C runs on the fake. Each item's first stage is CPU,
 fake-server or browser work; `DEV#20` and `DEV#23` each have a second stage
 that needs the card and Matt's OK. None of them closes a `CARD`, `PERF` or
 `GEN` row: the harness only makes those runs shorter and the same each time.
