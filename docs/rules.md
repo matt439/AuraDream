@@ -7495,8 +7495,8 @@ instead: `uv run python tools/fake_server.py` serves the app on 7861 on the
 tests' fake backend (gradient images stamped with seed and steps, a throwaway
 gallery under the system temp dir, `--step 0.3` to make pause and queueing
 observable; a cell whose prompt holds `[fail]` fails,
-`POST /api/fake/load` (`{seconds, fail: "gated"}`) makes the loads after it
-slow or gated, `POST /api/fake/step` (`{seconds}`, answering the pace it
+`POST /api/fake/load` (`{seconds, fail: "gated", hold}`) makes the loads after it
+slow, held after their seconds until the next call (30 s at most) or gated, `POST /api/fake/step` (`{seconds}`, answering the pace it
 replaced) slows the jobs after it, for a step that needs a job to outlast its
 own round trips - a cancel, a stream attaching - and `POST /api/fake/expand`
 (`{seconds, fail, hold, fresh}`) does one of four things to ERNIE's Expand
