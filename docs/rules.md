@@ -7511,8 +7511,15 @@ file defines) to more with && or ||, which is never awaited: the whole
 condition goes inside the predicate. Each run's browser profile, under the
 system temp directory, is removed on every way out - the steps' end, a
 failure, a throw, Ctrl-C or SIGTERM - once the browser's whole process tree
-has stopped; one a killed run left behind is swept by a later run after six
-hours (`tests/test_browser_profile.py`, skipped without Node and a browser).
+has stopped. The browser gets 10 s to close itself before its tree is killed,
+and removal retries against a deadline of its own (Node's `rmSync` retries
+skip Windows' EPERM). On Windows, where with every core busy dying
+low-priority children held files for over a minute, a failed first removal
+waits up to a minute for every process whose command line names this run's
+own profile - never another browser - raising each to High priority and
+stopping it, then retries for 10 s. One a killed run left behind is swept by
+a later run after six hours (`tests/test_browser_profile.py`, skipped
+without Node and a browser).
 A `hover`, `click` or `dblclick` step takes a
 CSS selector in place of a point, aiming at the middle of that element's box
 as it is then. It opens the page at 1400x900,
