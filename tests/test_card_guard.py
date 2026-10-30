@@ -339,6 +339,10 @@ def test_cli_limits_from_a_file_and_refusals(tmp_path: Path) -> None:
     assert card_guard.main(["plan", "--points", points, "--x", "8.39", "--limits", str(limits)]) == 2
     assert card_guard.main(["plan", "--points", "{}", "--x", "8.39"]) == 2
     assert card_guard.main(["plan", "--points", "[]", "--size", "big"]) == 2
+    # A point or x that is not a finite number is refused, not a traceback.
+    assert card_guard.main(["plan", "--points", "[[null, 1], [2, 3]]", "--x", "3"]) == 2
+    assert card_guard.main(["plan", "--points", "[[1, true], [2, 3]]", "--x", "3"]) == 2
+    assert card_guard.main(["plan", "--points", "[[1, 9000], [2, 9500]]", "--x", "inf"]) == 2
 
 
 def test_watch_cli_on_a_stub_host(tmp_path: Path) -> None:

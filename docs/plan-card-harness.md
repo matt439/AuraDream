@@ -119,7 +119,7 @@ at 27.9 GiB working set; SDXL at fp8 needs about 9.5 GB) and the memory rule
 says to state that cost first. The guard never lowers a limit by itself.
 Part of this item: `docs/rules.md` gets a Layout entry for the new file
 (its `tools/` list) and a Tests sentence naming the block, so a later session
-changes the defaults there and nowhere else. Neither exists yet.
+changes the defaults there and nowhere else. Both exist (2026-10-30).
 
 **Rows.** JSONL, one object per line with wall time. Where the old
 `results.jsonl` and `harness.jsonl` files had an event name it is kept

@@ -585,10 +585,15 @@ def _limits_from(args: argparse.Namespace) -> Limits:
     return resolve_limits(file_values, {name: getattr(args, name) for name in _LIMIT_FLAGS})
 
 
+def _finite(value: object) -> bool:
+    return isinstance(value, (int, float)) and not isinstance(value, bool) and math.isfinite(value)
+
+
 def _plan(args: argparse.Namespace, limits: Limits, rows: Rows) -> int:
     points = json.loads(args.points)
-    if not isinstance(points, list) or not all(isinstance(p, list) and len(p) == 2 for p in points):
-        raise ValueError("--points must be a JSON list of [x, peak MiB] pairs")
+    if not isinstance(points, list) or not all(
+            isinstance(p, list) and len(p) == 2 and all(_finite(v) for v in p) for p in points):
+        raise ValueError("--points must be a JSON list of [x, peak MiB] pairs of finite numbers")
     if args.size:
         m = re.fullmatch(r"(\d+)x(\d+)", args.size)
         if not m:
@@ -596,6 +601,8 @@ def _plan(args: argparse.Namespace, limits: Limits, rows: Rows) -> int:
         x = rung_x(int(m.group(1)), int(m.group(2)), args.batch)
     else:
         x = args.x
+    if not _finite(x):
+        raise ValueError(f"--x {x!r} is not a finite number")
     answer = plan_rung(points, x, limits, args.tripped)
     if answer.verdict == "ok":
         print(json.dumps({"verdict": "ok", "x": x, "projected_mib": answer.projected_mib,
