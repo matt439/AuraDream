@@ -1,7 +1,12 @@
 # Plan: fp8 weights with fp8 activations on FLUX.1
 
-**Status, 2026-10-29: `PERF#5` OPEN, CPU planning slice split from
-`PERF#2`.** Matt approved every item of the 2026-10-29 TODO audit. This
+**Status, 2026-10-30: `PERF#5` done (stage 1, this plan); stages 2-3 are
+`PERF#2`'s.** The CPU planning slice was split from `PERF#2` on
+2026-10-29, and Matt answered its three questions the same day
+([below](#decisions-for-matt)). On 2026-10-30 every installed-source line
+below was checked again against torchao 0.18.0, diffusers 0.40.0 and torch
+2.13.0, and still holds; the repository lines were refreshed to the current
+code. Matt approved every item of the 2026-10-29 TODO audit. This
 plan records what the installed torchao 0.18.0 source says about
 `Float8DynamicActivationFloat8WeightConfig`. It also sets the quantization
 name, how that name is carried, and the refusal matrix that a later source
@@ -18,7 +23,7 @@ so this plan adds none.
 
 Today's `fp8` choice is weight-only. `quantization_config` builds
 `Float8WeightOnlyConfig()` for every quantizable component
-(`backend/backends/loading.py:402`, `:409-415`). In the installed torchao,
+(`backend/backends/loading.py:460`, `:466-473`). In the installed torchao,
 a weight-only `Float8Tensor` meeting an unquantized activation dequantizes
 the weight and runs an ordinary bf16 `torch.matmul`
 (`.venv/Lib/site-packages/torchao/quantization/quantize_/workflows/float8/float8_tensor.py:461-469`,
@@ -79,10 +84,10 @@ The new choice only changes which instance goes to which component:
 |---|---|---|
 | `transformer` | diffusers | `Float8DynamicActivationFloat8WeightConfig(<frozen recipe>)` |
 | `text_encoder` (CLIP), `text_encoder_2` (T5) | transformers | `Float8WeightOnlyConfig()`, unchanged from `fp8`. R2: "text encoders may stay weight-only" |
-| `vae`, scheduler, tokenizers | — | Not quantized; `QUANTIZABLE_PREFIXES` is transformer/unet/text_encoder (`loading.py:38`) |
+| `vae`, scheduler, tokenizers | — | Not quantized; `QUANTIZABLE_PREFIXES` is transformer/unet/text_encoder (`loading.py:37`) |
 
 `quantization_config` today applies one `make()` to every component
-(`loading.py:402`, `:415`). The source slice replaces that with a
+(`loading.py:460`, `:473`). The source slice replaces that with a
 per-component choice keyed by the quantization name. `fp8`'s and `int8`'s
 mappings must not change, so their pixels and identities stay as they are.
 The quantizing `from_pretrained` stays inside
@@ -105,13 +110,13 @@ then inherit. It does not change eager arithmetic. Leave `fp8`'s
 setting as it is: changing it is `PERF#1`'s business, not this slice's.
 PerRow or a different accumulation is a different recipe with a different
 name, like an outpaint `FILLS` entry (AGENTS.md: "a changed fill gets a new
-name"). Which granularity the card measures first is a decision
-([below](#decisions-for-matt)).
+name"). Matt chose PerTensor as the first granularity
+([below](#decisions-for-matt)), so `fp8-dynamic` is exactly the call above.
 
 **Inventory check.** Because of the silent skip, the loader counts
 transformer `Linear` weights after the load: how many are `Float8Tensor`
 with activation quantization, how many weight-only, how many still bf16.
-It logs the counts at load and reports them in `describe()` beside `quantization` (`backend/backends/diffusers_backend.py:1860-1866`); no such count exists today. Skips are not
+It logs the counts at load and reports them in `describe()` beside `quantization` (`backend/backends/diffusers_backend.py:1917-1923`); no such count exists today. Skips are not
 refused in this slice, because the rule against silent loss covers weights
 and scales and a skipped layer keeps its bf16 weight. They are shown,
 never hidden, and the card stage records them.
@@ -123,16 +128,16 @@ Quantization is already a free string through every reproduction path,
 so a new value needs no migration, no new column and no `CellKey`
 extension:
 
-- `run_id`'s definition hashes `"quant": quantization` (`backend/grid.py:1041-1048`).
+- `run_id`'s definition hashes `"quant": quantization` (`backend/grid.py:1045-1047`).
   A new name gives new run ids, and every existing `fp8`/`int8` id stays
   unchanged.
 - Rows keep the `quantization` column (`backend/storage.py:162`, `:237`,
   read at `:424`). The PNG's `auradream` chunk and its A1111 line carry it
   (`storage.py:582`, `:639`). Jobs record it in their definition
-  (`backend/jobs.py:922`).
+  (`backend/jobs.py:953`).
 - Resume/completed-cell lookups are already scoped by exact quantization
-  (`storage.py:1166-1167`). Re-render/Resume says "made under …; every cell
-  would render again under …" (`backend/api_generate.py:270-271`), and More
+  (`storage.py:1179-1180`). Re-render/Resume says "made under …; every cell
+  would render again under …" (`backend/api_generate.py:302`), and More
   seeds notes the mismatch (`backend/api_more_seeds.py:116-117`). These
   paths need tests, not new code.
 - The `applied()` normalisation and `CellKey` do not change: quantization is
@@ -143,18 +148,19 @@ Places that list quantization values and must learn the name:
 `model_defaults.QUANT_MODES` (`backend/model_defaults.py:142`), the
 `schemas_model.py:143` `Literal`, `loader_choices.QUANTIZATION_CHOICES`
 (`backend/loader_choices.py:13-18`; the menu and picker wording),
-`loading.QUANT_BACKENDS` and the mapping builder (`loading.py:29`,
-`:392-421`), and the vocabulary check in `config.py:206` (through
-`QUANT_MODES`). `startup_preferences.py:48` and `model_selection.py:178`,
-`:222` validate through `QUANT_MODES`. `model_benchmarks.py:26`, `:162`
+`loading.QUANT_BACKENDS` and the mapping builder (`loading.py:28`,
+`:437-476`), and the vocabulary check in `config.py:206` (through
+`QUANT_MODES`). `startup_preferences.py:48` and `model_selection.py:179`,
+`:228` validate through `QUANT_MODES`. `model_benchmarks.py:26`, `:171`
 default to `fp8`: a new name has no retained timing, so the picker labels
 any speed as a reference from another quantization and never claims one.
 
 **Search consequence.** `quant:` is a substring key
-(`backend/search.py:38`, `:233-244`), so `quant:fp8` would also match
+(`backend/search.py:38`, `:232-244`), so `quant:fp8` would also match
 `fp8-dynamic` once such images exist, and so would saved searches using it.
-`quant:=fp8` stays exact. This is a naming decision for Matt
-([below](#decisions-for-matt)).
+`quant:=fp8` stays exact. Matt kept the name with that widening
+([below](#decisions-for-matt)), so the source slice documents `quant:=fp8`
+as the way to find weight-only fp8 alone.
 
 ## Refusal matrix
 
@@ -173,7 +179,7 @@ The `AURADREAM_QUANT=nunchaku` preflight is the model (AGENTS.md: it
 | `device` not CUDA | Refused cold. torchao's own gate would fail at quantize time (`float8/inference.py:271-312`) |
 | GPU capability below 8.9 | Refused in the load, through `main._load_failure`, before weights move. Reading the capability initializes CUDA, so this cannot be a cold check |
 | Sequential or no offload | Refused at first; each needs its own placement measurement |
-| Nunchaku / WSL pairing | Refused: Nunchaku is pre-quantized (`loading.py:388-391`) |
+| Nunchaku / WSL pairing | Refused: Nunchaku is pre-quantized (`loading.py:446-448`) |
 | Regional compile, cuDNN attention or FBC with `fp8-dynamic` | Refused. `execution._configuration_placement_reason` already requires `fp8` exactly (`backend/execution.py:159-160`), and so does `_flux_candidate_reason` (`:300`), which the cuDNN and FBC candidate checks share. The source slice must reword that reason so it does not tell an `fp8-dynamic` user to "require fp8"; the combination stays its own later qualification |
 | LoRA, refine/inpaint/outpaint siblings | Refused at first, keeping the requested adapter or pass and saying to choose `fp8`. `refine.build` shares components, so a sibling would run dynamic activations unqualified |
 | Batch > 1 | Allowed by source (eager has no shape specialization). The card stage measures Batch 1 first, and a refusal is added only if the card shows a reason |
@@ -209,8 +215,10 @@ fp8 against `fp8-dynamic` on the `PERF#6` fixed cases, not bf16.
 
 ## Stages and completion criteria
 
-1. **This plan (`PERF#5`).** Done when this file exists with source lines
-   checked against the installed package. No code, no GPU.
+1. **This plan (`PERF#5`). Done 2026-10-30.** Done when this file exists
+   with source lines checked against the installed package. No code, no
+   GPU. Matt's three answers are recorded above; the installed-source lines
+   were rechecked and the repository lines refreshed on 2026-10-30.
 2. **Source slice, CPU only (`PERF#2`'s CPU part, after `PERF#1`
    qualification).** Add the name to every list above. Build the
    per-component mapping and the inventory count. Implement the refusal

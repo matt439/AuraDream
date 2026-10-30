@@ -72,7 +72,7 @@ real defects first among equals.
 | `UI#37` Pick this run | Done 2026-10-30 | [review-2026-10-12.md](review-2026-10-12.md#f19-follow-up-pick-this-run-ui37) |
 | `GAL#24` bin card age | Done 2026-10-30 | [review-2026-10-12.md](review-2026-10-12.md#f5-follow-up-bin-card-age-gal24) |
 | `DEV#20`, `DEV#22`, `DEV#23` card-session tools | OPEN | [plan-card-harness.md](plan-card-harness.md) |
-| `PERF#5` fp8-activation plan | OPEN | [plan-fp8-activations.md](plan-fp8-activations.md) |
+| `PERF#5` fp8-activation plan | Done 2026-10-30 | [plan-fp8-activations.md](plan-fp8-activations.md) |
 | `PERF#6` fixed comparison cases | OPEN | [plan-step-caching.md](plan-step-caching.md#fixed-comparison-cases) |
 | `DEV#21` trial kit refresh | OPEN | [trials README](design/trials/README.md#refresh-for-the-current-app-dev21) |
 | `DEV#24`-`DEV#26` smoke reruns, timings, fake-knob map | OPEN | [plan-tooling.md](plan-tooling.md) |
