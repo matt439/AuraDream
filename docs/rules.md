@@ -476,6 +476,12 @@ before changing it.
   gallery hash, the difference, outside-mask and seam numbers verified.md
   reports), CPU only and importing nothing from `backend`
   (`docs/plan-card-harness.md`, Image metrics);
+  `card_guard.py` is the card session's guard: a pure decision (whole card,
+  shared GPU memory, free RAM, commit headroom, a rung's projection) beside
+  a watcher that reads nvidia-smi, `typeperf`, psutil and
+  `GetPerformanceInfo`, writes JSONL rows and on a trip kills the watched
+  process tree, never calling the app's API (`docs/plan-card-harness.md`,
+  Card guard);
   `smoke_timings.py` reads a run's `summary.json` and prints the slowest
   smokes, each row's total and the wall clock, writing nothing
   (`docs/plan-tooling.md`, Suite and smoke timings); see Tests
@@ -7317,6 +7323,17 @@ analyzed files fail; checker diagnostics and nonzero status are preserved.
 `tests/test_typecheck.py` covers these refusal and success paths. The CPU
 CI job runs this same command after installation, before tokenizer fetches;
 documentation-only changes retain the lightweight lint-only path.
+
+The card guard's limits live in one block, the frozen `Limits` dataclass
+(`LIMITS`) at the top of `tools/card_guard.py`: change a default there and
+nowhere else, each commented with the verified.md section it came from; a
+session overrides one with a flag or `--limits FILE.json`, and every flag
+defaults to None. `tests/test_card_guard.py` holds the decision to the
+recorded readings (the 2026-10-25 RAM stops, the fixed loader's lowest free
+RAM, ERNIE's projection gates, the shared rises that never spilled, the
+card's strict 15,500 boundary), that block as the only source of the
+defaults, and the watcher on a stub host with an injected sleep and clock,
+so no test reads a counter or races one.
 
 `uv run python tools/run_smoke.py <smoke> [<smoke> ...]` runs smokes without
 a second terminal: it reads `AGENTS.md`'s port table (the port, the
