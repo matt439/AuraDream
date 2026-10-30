@@ -5270,7 +5270,8 @@ Frontend and CLI:
   `seeds a–b` label, `invalid` where that or `check_budget`/
   `check_refine_steps` refuses. The route then adds `source_deleted` and
   `lora_missing` (`submission.unusable_input` once per spec), a note where the batch
-  was made under another quantizer, and `deleted` (an id gone or binned); nothing is
+  was made under another quantizer, `then_refine` (its run's pass refused,
+  `_carry_then_refine`, above) and `deleted` (an id gone or binned); nothing is
   ever `rendered`. Past `max_grid_images` images in all (batches ×
   `count`) is a 422 for the whole, by count. The preview lists the first
   `api_more_seeds.MORE_SEEDS_PREVIEW_ROWS` (200) by id - each batch's newest picked image,

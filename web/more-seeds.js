@@ -152,29 +152,42 @@ function msPayload() {
 
 const msPasses = (n) => `${n} refine pass${n === 1 ? '' : 'es'}`;
 
+// The last answer's `then_refine_hold`: why no pass can run on this
+// checkpoint, or ''.
+let msThenRefineServerHold = '';
+
 // The tick as the answer says: shown where a batch's run carries a pass,
 // held (aria-disabled, the reason its title, off) where this checkpoint has
 // none. It keeps its place beside the count, so showing it moves nothing.
 function syncMoreSeedsThenRefine(answer) {
-  const label = els.moreSeedsThenRefineLabel;
   const hold = answer?.then_refine_hold || '';
-  label.hidden = !(answer?.then_refine_batches || hold);
+  msThenRefineServerHold = hold;
+  els.moreSeedsThenRefineLabel.hidden = !(answer?.then_refine_batches || hold);
   if (hold && els.moreSeedsThenRefine.checked) {
     // Off is what the server ran anyway; asked again, so the answer is the
     // answer to what the dialog now says.
     els.moreSeedsThenRefine.checked = false;
     scheduleMoreSeedsCheck(0);
   }
-  label.setAttribute('aria-disabled', String(Boolean(hold)));
-  els.moreSeedsThenRefine.setAttribute('aria-disabled', String(Boolean(hold)));
-  label.title = hold || "Follow each new image with its run's refine pass, in the run's own pass run; off makes the images alone";
+  syncMoreSeedsThenRefineHold();
 }
 
 // Why the tick cannot change now, or '': no pass here, or a request sent.
 function msThenRefineHold() {
-  if (els.moreSeedsThenRefineLabel.getAttribute('aria-disabled') === 'true') return els.moreSeedsThenRefineLabel.title;
+  if (msThenRefineServerHold) return msThenRefineServerHold;
   if (msSending || msSubmission) return 'This request has been sent with its choice; close More seeds to make another';
   return '';
+}
+
+// The tick held (aria-disabled, the reason its title) while it cannot
+// change: from each answer and from every Queue sync, so a sent request
+// holds it as it holds the count.
+function syncMoreSeedsThenRefineHold() {
+  const held = msThenRefineHold();
+  els.moreSeedsThenRefineLabel.setAttribute('aria-disabled', String(Boolean(held)));
+  els.moreSeedsThenRefine.setAttribute('aria-disabled', String(Boolean(held)));
+  els.moreSeedsThenRefineLabel.title = held
+    || "Follow each new image with its run's refine pass, in the run's own pass run; off makes the images alone";
 }
 
 async function askMoreSeeds(payload, signal) {
@@ -481,6 +494,7 @@ function moreSeedsHold() {
 function syncMoreSeedsRun() {
   if (!els.moreSeedsDialog.open) return;
   els.moreSeedsCount.readOnly = msSending || !!msSubmission;
+  syncMoreSeedsThenRefineHold();
   if (msSending) {
     els.moreSeedsRun.textContent = 'Sending…';
     els.moreSeedsRun.setAttribute('aria-disabled', 'true');
