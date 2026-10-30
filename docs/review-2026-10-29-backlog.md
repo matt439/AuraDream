@@ -2,10 +2,8 @@
 
 **Status:** written 2026-10-29 for the TODO audit's additions that need no
 plan of their own: `PA#12`, `UI#32`, `UI#33`, `GEN#33`, `GEN#34`, `GAL#23`,
-`GEN#36`, `GEN#38` and `UI#38`. `PA#12`, `UI#32`, `UI#33`, `GEN#33`,
-`GEN#34`, `GAL#23`, `GEN#36`, `GEN#38` and `UI#38` are built (2026-10-30,
-below). Matt
-approved adding every audit item on 2026-10-29. Each section below covers
+`GEN#36`, `GEN#38` and `UI#38`. All nine are built (2026-10-30, below).
+Matt approved adding every audit item on 2026-10-29. Each section below covers
 one row: what is missing (preference ids from `docs/design/preferences.md`,
 file:line checked against the source on 2026-10-29), the design and the
 rules it must keep, non-goals, and the stages with the checks that close

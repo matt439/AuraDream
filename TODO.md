@@ -8,7 +8,7 @@ The maintainer's working backlog for this personal project: it records what is p
 
 **Aim (2026-10-29):** keep useful work ready for Matt's common workstation tasks. [Reported use](docs/design/preferences.md) guides priority; it does not approve the candidate redesign.
 
-**Ready backlog (updated 2026-10-30):** 9 `OPEN` rows. `INP#11` stage 4's code is built on `feat/inp11-stage4`; its [card acceptance step](docs/plan-instruction-editing.md#card-acceptance-step) waits on Matt's OK. The [2026-10-29 audit](docs/review-2026-10-29-todo.md)'s rows follow; start with the Often-feature rows: Mass refine Versions (`GEN#36`), More seeds carrying the pass (`GEN#37`). The card-session tools (`DEV#20`, `DEV#23`; `DEV#22`'s image metrics are built) shorten later card runs; they don't replace them.
+**Ready backlog (updated 2026-10-30):** 4 `OPEN` rows, all tooling. `INP#11` stage 4's code is built on `feat/inp11-stage4`; its [card acceptance step](docs/plan-instruction-editing.md#card-acceptance-step) waits on Matt's OK. The 2026-10-29 audit's Often-feature rows (`GEN#36`-`GEN#38`, `GAL#23`) and `DEV#26` were built 2026-10-30 on local `feat/overnight-2026-10-30`. Next: the card-session tools (`DEV#20`, `DEV#23`; `DEV#22`'s image metrics are built) shorten later card runs; they don't replace them. Then the trial kit (`DEV#21`).
 
 **Decisions for Matt:** none open. On 2026-10-29 Matt took the recommended answers for `PERF#7` (cache beside the gallery, cleared on a torch/Triton/driver change, static shapes; shipping waits on `PERF#1`), `PERF#5`, `GAL#21` and `UI#34`; declined `GEN#39` and unattended backups (`GAL#22`, `GAL#6`); kept `GEN#6`, `INP#9` and `INP#10` deferred.
 
@@ -26,7 +26,6 @@ The maintainer's working backlog for this personal project: it records what is p
 | `DEV#21` | OPEN | LOW | M | The 2026-10-18 trial kit is stale. The driver types into W/H, which now sit in the closed Custom dimensions disclosure. The fixture (v1) has no saved setup, saved search, snippet or Then refine roles, and no keyboard routes are used. Next: fixture v2, driver repair, cards and a new dated agent baseline; Matt's trial stays `DEV#1`. [Refresh](docs/design/trials/README.md#refresh-for-the-current-app-dev21) |
 | `DEV#23` | OPEN | LOW | M+card | Check in `tools/card/card10-*.json`: one real-input pack per `CARD#10` fix commit plus the idle Ctrl-C, with no `/api/fake/*` step and a wait for the adapter listing; a structure test and a fake dry run. Stage 2 +card. [CARD#10 step packs](docs/plan-card-harness.md#card10-step-packs). |
 | `DEV#25` | OPEN | LOW | S | `--durations=25`, tools/smoke_timings.py and its CI step are built; the Windows local baseline is recorded. Left: the Linux CI baseline (the Test step's top 25 and the Smoke timings table, with commit and runner) from the first CI run after Matt's next push; a Windows CI figure when main next runs. [Plan](docs/plan-tooling.md#results) |
-| `DEV#26` | OPEN | LOW | S | AGENTS.md's fake-knob list omits /api/fake/model. Add a cold test_docs_maps test that holds all 8 /api/fake routes and 7 fake_server flags to AGENTS.md and docs/rules.md: it fails before the one AGENTS.md line and passes after. [Plan](docs/plan-tooling.md#fake-server-knob-map-2026-10-29-dev26) |
 | `DEV#1` | USER | LOW | M | Run common-task trials with Matt, comparing the current app and candidate layouts before choosing redesign slices. [Protocol](docs/design/validation.md#one-user-formative-protocol). |
 
 ## Measurements on the card
@@ -65,9 +64,6 @@ The maintainer's working backlog for this personal project: it records what is p
 
 | id | status | sev | size | item |
 |---|---|---|---|---|
-| `GEN#36` | OPEN | LOW | S | Mass refine has no Versions (H4/H5 Often). Add `versions` (1/2/4) as one cell per version at seed+i, the seeds the single dialog's Versions take, so pruning stays per image. versions=1 keeps every key, run id and status. Budget counts images x versions. One strength stays one strength. [Owner](docs/review-2026-10-29-backlog.md#gen36-mass-refine-versions) |
-| `GEN#37` | OPEN | LOW | M | Then refine: More seeds of a then-refine run makes bases only. Read the run's retained spec (from the batch's mates' jobs) and queue each new base with its pass under the same pass run id. Add an opt-out tick in the More seeds dialog and a refusal in words for each batch. [Plan](docs/plan-then-refine.md#phase-5-more-seeds-carries-the-pass). |
-| `GEN#38` | OPEN | LOW | M | The model picker's Speed shows only retained card samples (K2 Often). Add 'This gallery: ~N s at WxH, S steps (median of n)' to the Speed note. It comes from direct Eager renders, read in the /api/models route (model_info stays cold). Labelled as history, offload noted as unrecorded, never sets the category. [Owner](docs/review-2026-10-29-backlog.md#gen38-gallery-timing-in-the-model-picker) |
 | `GEN#15` | CARD | LOW | S+card | Peak memory per image: phase 3's FLUX.1 Krea [dev] render, the recorded peak beside `nvidia-smi` and shared memory. [Plan](docs/plan-peak-vram.md). |
 | `GEN#16` | CARD | LOW | S+card | Generate then refine: phase 3's FLUX.1 Krea dev night at 1.5x, peak of the alternation and the pair's time. [Plan](docs/plan-then-refine.md). |
 | `GEN#6` | DEFERRED | LOW | M+card | Live-preview maps for the four-channel SDXL VAE and FLUX.2's VAE (ERNIE; klein also lacks an unpack hook); previews switch themselves off there. [Behaviour](docs/verified.md#behaviour). |
@@ -85,14 +81,6 @@ The maintainer's working backlog for this personal project: it records what is p
 | `PERF#4` | CARD | LOW | L+card | Run the fixed off/on quality, time and memory comparisons, then judge the pairs. Public caching remains closed. [Plan](docs/plan-step-caching.md). |
 | `PERF#2` | BLOCKED | LOW | M+card | The card measurement of a quantization choice with fp8 activations (torchao `Float8DynamicActivationFloat8WeightConfig`); waits on `PERF#1`'s card qualification. Its CPU plan is done (`fp8-dynamic`, PerTensor, compared against fp8 only); the CPU source slice and card run are its stages 2-3. [Plan](docs/plan-fp8-activations.md); [10-25 R2](docs/review-2026-10-25.md#r2-fp8-with-fp8-activations). |
 | `PERF#7` | BLOCKED | LOW | — | Whether the compiled mode ships waits on `PERF#1`'s card table; Matt leans to an opt-in Models choice with Eager the default if it pays off. Cache location, size policy and static shapes are decided. [Questions](docs/plan-regional-compilation.md#matts-questions). |
-
-## Gallery and storage
-
-**Owner:** the [2026-10-25 review](docs/review-2026-10-25.md#gallery).
-
-| id | status | sev | size | item |
-|---|---|---|---|---|
-| `GAL#23` | OPEN | LOW | S | A search that finds nothing does not say that a mistyped key such as `sed:42` was searched as prompt words (E5/E9 Often). syncGalleryEmpty names a near SEARCH_KEYS match and offers 'Search seed:42' (no scroll), in the bin too. No change to head height. [Owner](docs/review-2026-10-29-backlog.md#gal23-mistyped-search-keys) |
 
 ## Prompt analyser
 
@@ -145,6 +133,7 @@ Each review's remaining work is indexed above; closed findings stay in their own
 | 2026-10-29 setup portability | [Saved-setup export/import (`UI#25`)](docs/plan-setup-portability.md#stage-3-implementation-and-browser-evidence-2026-10-29): cold codec, atomic API and the browser merge dialog, with an owned-scratch smoke and three inspected new screenshots. |
 | 2026-10-29 compiler dependency | `DEV#8` closed: the exact triton-windows wheel's hash, metadata, RECORD and bundled NVIDIA/TinyCC notices were inspected, and a fresh online resolution reproduces the lock. [Results](docs/plan-regional-compilation.md#cpu-dependency-preparation). |
 | 2026-10-29 CI browser startup | [Bounded browser startup](docs/review-2026-10-29-ci-browser-startup.md): hosted qualification passed on e687fcd and on main after PR #16. |
+| 2026-10-30 overnight | Built on local `feat/overnight-2026-10-30`: Mass refine Versions (`GEN#36`), More seeds carrying the pass (`GEN#37`), gallery timing in the picker (`GEN#38`), mistyped search keys (`GAL#23`; the Gallery section emptied), fake knob map (`DEV#26`). [Owners](docs/review-2026-10-29-backlog.md); [phase 5](docs/plan-then-refine.md#phase-5-more-seeds-carries-the-pass). |
 | 2026-10-29 TODO audit | [Reconciliation and new work](docs/review-2026-10-29-todo.md): stale owner text fixed; 27 OPEN rows and four new DECISION rows added at Matt's request. The 2026-10-29 closures above are on a local branch, not yet on main or hosted CI. |
 
 ---
