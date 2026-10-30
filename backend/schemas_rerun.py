@@ -312,8 +312,10 @@ class RefineBatchRequest(BaseModel):
     checkpoint's own; `steps` None keeps each image's own (the profile's for
     another checkpoint's). Another checkpoint's records are refused per
     image unless `include_foreign`, and a record that is itself a refine
-    pass is left out while `skip_passes`. `expected`, on the queueing
-    request, is the `ids` the preview answered.
+    pass is left out while `skip_passes`. `versions` is the single Refine
+    dialog's: that many passes of each image, at its seed and the seeds
+    counting up from it. `expected`, on the queueing request, is the `ids`
+    the preview answered.
     """
 
     ids: list[int] | None = Field(default=None, min_length=1, max_length=settings.max_grid_images)
@@ -325,6 +327,7 @@ class RefineBatchRequest(BaseModel):
     steps: int | None = Field(default=None, ge=1, le=100)
     include_foreign: bool = False
     skip_passes: bool = True
+    versions: Literal[1, 2, 4] = 1
     expected: list[int] | None = Field(default=None, max_length=settings.max_grid_images)
 
     # Written out: a validator assigned from another model is not run.
@@ -370,10 +373,15 @@ class RefineBatchPreview(BaseModel):
 
     ids: list[int]
     counts: dict[str, int]
+    # The passes queued: one per version of each image queued.
     queued: int
     jobs: int
     images: list[RefineBatchResult]
     total: int
+    # The images those passes are of (`counts["queued"]`), and the versions
+    # asked for: with none of them in the gallery, `queued` is the product.
+    queued_images: int = 0
+    versions: int = 1
     # The strength the passes run at: the request's, else the checkpoint's.
     strength: float
     # Records another checkpoint made, queued or not, and those checkpoints:

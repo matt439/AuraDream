@@ -19,12 +19,22 @@
 .rb-head h2 { margin: 0; font-size: var(--fs-lg); font-weight: 600; font-variant-numeric: tabular-nums; }
 #refine-batch-scope { color: var(--text-readout); font-size: var(--fs-body-sm); overflow-wrap: anywhere; }
 
-/* Strength, Scale and Steps on one row; each a label over its control. */
+/* Strength, Scale, Steps and Versions on one row; each a label over its control. */
 .rb-controls { display: flex; flex-wrap: wrap; align-items: flex-start; gap: var(--sp-3) var(--sp-4); }
 .rb-controls .field { display: flex; flex-direction: column; gap: var(--sp-1); margin: 0; }
 .rb-controls .field > i { font-style: normal; color: var(--text-3); font-size: var(--fs-label); }
 .rb-strength input { width: 7em; }
 .rb-steps input { width: 12em; }
+/* Drawn as the single dialog's Versions (`.refine-dialog select`): the
+   boxes' height, border and fill, not the UA's 19 px white control. */
+.rb-versions select {
+  width: 4.5em; padding: calc((var(--h-field) - var(--lh) * var(--fs-md) - 2px) / 2) 6px; font: inherit;
+  background: var(--panel-2); border: 1px solid var(--line-strong); border-radius: var(--r-md); color: var(--text);
+}
+.rb-versions select:focus { outline: none; border-color: var(--accent); box-shadow: 0 0 0 1px var(--accent); }
+@media (forced-colors: active) {
+  .rb-versions select:focus-visible { outline: 2px solid Highlight; outline-offset: 2px; }
+}
 /* The factors centred on the boxes' line, as tall as they are. */
 .rb-scale .presets { min-height: var(--h-field); align-items: center; }
 

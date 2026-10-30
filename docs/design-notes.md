@@ -5962,6 +5962,25 @@ dialog's `REFINE_KEY` - what was last run on this checkpoint is the same
 number whichever dialog ran it - and a capped opening scale run as it
 opened is not remembered as the user's choice, as `rememberRefine` has it.
 
+**Versions count up, one cell each** (2026-10-30, `GEN#36`). Several
+tries of one strength over many images were a Mass refine per seed,
+typed by hand. `versions` (1, 2 or 4, the single dialog's choices) gives
+each image's seed and the seeds counting up from it through `wrap_seed`,
+the seeds the single dialog's Versions give. Each version is a cell of
+one image, not one cell with `num_images > 1`: `prune_done` keeps a
+batch cell until every image of it is in the gallery and then renders it
+whole, so a half-made pair would be drawn again in full. One cell per
+version makes "with one version already there, only the other queues"
+fall out of the existing per-cell answer, and an image is `rendered` only
+where every version is. The audit's draft said to step over taken seeds
+as More seeds does; that would turn the same press twice into new seeds
+instead of the "already rendered" no-op Mass refine promises, so it was
+not used. The first version is the cell a press without versions makes,
+so `versions=1` keeps every key, run id and status. The price is passes:
+more than `max_grid_images` (the images that would queue × versions) is
+refused by count, as More seeds refuses a press. Versions is not
+remembered: a doubled batch opened by surprise costs a night's time.
+
 **The start sigma is a range.** On a shifted flow schedule one strength
 starts a larger pass at more noise (FLUX.1: 0.1 is 47% at 1.5x of 1 MP and
 75% at 2x), and a selection of several sizes has several. The preview
