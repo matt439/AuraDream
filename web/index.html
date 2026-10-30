@@ -1166,7 +1166,12 @@
       <!-- Both badges open upward: down, they cover the controls they explain. -->
       <span>Size
         <span class="help above" tabindex="0" role="note" aria-label="Refine size help" aria-describedby="refine-size-tip">?<span
-          class="tip wide" id="refine-size-tip">The source is scaled to cover this size and cropped to its shape, never stretched. A pass may go past the 4 MP a direct render takes, to any 2 MP preset at 2×, since it keeps the source's composition. What fits on the card is the checkpoint's.</span></span></span>
+          class="tip wide" id="refine-size-tip">The source is scaled to cover this size and cropped to its shape, never stretched. A pass may go past the 4 MP a direct render takes, to any 2 MP preset at 2×, since it keeps the source's composition. What fits on the card is the checkpoint's.</span></span>
+        <!-- 1×, 1.5× and 2× side by side as one sheet, less any past the
+             guard or the tight line (refine.js, compareScales). In the
+             caption, floated: the scale row has no room for a fifth button,
+             and a line of its own would grow the dialog. -->
+        <button type="button" class="ghost tiny" id="refine-compare-scales" aria-pressed="false">Compare scales</button></span>
       <div class="presets" id="refine-scales" role="group"
            aria-label="Size, as a multiple of the source image's"></div>
       <div class="row">

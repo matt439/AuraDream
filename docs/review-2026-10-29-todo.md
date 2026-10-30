@@ -66,7 +66,7 @@ real defects first among equals.
 | `GEN#34` Swap tags Add rows | Done 2026-10-30 | [review-2026-10-29-backlog.md](review-2026-10-29-backlog.md#gen34-swap-tags-add-rows) |
 | `GAL#23`, `GEN#36`, `GEN#38`, `UI#38` | OPEN | [review-2026-10-29-backlog.md](review-2026-10-29-backlog.md) |
 | `GEN#35`, `GEN#37` Then refine follow-ons | OPEN | [plan-then-refine.md](plan-then-refine.md) |
-| `UI#34` Compare scales | OPEN | [plan-size-axis-crop-anchor.md](plan-size-axis-crop-anchor.md#compare-scales-in-the-refine-dialog) |
+| `UI#34` Compare scales | Done 2026-10-30 | [plan-size-axis-crop-anchor.md](plan-size-axis-crop-anchor.md#compare-scales-in-the-refine-dialog) |
 | `UI#35` close-watcher holds | Done 2026-10-30 | [review-2026-10-29-close-watcher.md](review-2026-10-29-close-watcher.md) |
 | `UI#36` prompt route key | Done 2026-10-30 | [plan-shortcut-workflow.md](plan-shortcut-workflow.md#stage-4-prompt-route) |
 | `UI#37` Pick this run | Done 2026-10-30 | [review-2026-10-12.md](review-2026-10-12.md#f19-follow-up-pick-this-run-ui37) |
