@@ -1,12 +1,15 @@
 # Disposable formative-trial kit
 
-Prepared for `DEV#3`, 2026-10-18. No human trial has been conducted. This kit
+Prepared for `DEV#3`, 2026-10-18; refreshed for the current app by `DEV#21`,
+2026-10-30 (fixture version 2). No human trial has been conducted. This kit
 supports the [validation protocol](../validation.md) and Matt's
 [reported priorities](../preferences.md). It does not choose a redesign.
 
 Use [task cards](task-cards.md), a fresh copy of the
 [blank observation record](observation-template.md), and the separately labelled
-[agent expert baseline](expert-baseline-2026-10-18.md). Keep the participant's
+[agent expert baseline](expert-baseline-2026-10-30.md) (the
+[2026-10-18 one](expert-baseline-2026-10-18.md) is history, for the version 1
+fixture). Keep the participant's
 record blank until observed. An automated assertion is not Matt's prediction,
 press count, timing, quote or task outcome.
 
@@ -57,13 +60,26 @@ names:
 | `binned_reject`, `live_reject` | One recoverable reject in the bin and one live reject |
 | `foreign` | Two planted Krea 2 Turbo rows; one starred, no weights loaded |
 | `pick_in_order` | Keeper then child; a preparation instruction, not persisted server selection |
+| `then_refine_base`, `then_refine_pass` | One Then refine job: a base and its 1.5×, strength 0.5 pass, each in a run of its own (`jobs.then_refine`) |
+| `setup` | One saved setup (`/api/presets`): id, name, prompt, 512×768 and its seed |
+| `saved_search` | One saved gallery search (`/api/gallery/saved-searches`): `run:` the complete grid, Starred and All models off |
+| `snippet` | One personal prompt snippet (`/api/snippets`) |
+
+`refusals` records what the server answered to three requests it must
+refuse: `foreign_rerender` and `foreign_more_seeds` (another checkpoint's
+image) and `binned_refine_source`, each 422 with the server's words.
 
 Variant A uses amber paper lighthouse, places quay/ridge, base grid seed 4100;
 B uses cobalt ceramic observatory, shore/terrace, base 6100. Interrupted seeds
-start at base+100, source/child at base+200/+201 and rejects at base+300/+301.
-Run/job IDs are generated; image IDs must be read from the manifest. The
-usual initial count is 67 live + 1 binned = 68 records when interruption made
-two. Two current-model stars plus the foreign star are present.
+start at base+100, source/child at base+200/+201, rejects at base+300/+301,
+the Then refine base at base+400 and the saved setup at base+500. Setup,
+search and snippet names carry the variant (`Lighthouse setup A`,
+`Observatory grid B`, ...). Run/job IDs are generated; image IDs must be read
+from the manifest. Version 2 manifests prepared on 2026-10-30 (A and B)
+counted 69 live + 1 binned = 70 records with interruption making two, and
+one setup, one saved search and one snippet. Two current-model stars plus
+the foreign star are present. The setup, search and snippet are sidecars
+beside the database, outside bundles: archive-and-clear leaves them.
 
 **Observer setup, outside scored tasks:** press Reset once; clear search, turn
 off Starred and All models, and leave Sheet off. To prepare retained picks,
@@ -113,8 +129,9 @@ speed or production durability from the concept checks.
 
 ## Evidence and next boundary
 
-The [agent record](expert-baseline-2026-10-18.md) records exact fixture/build
-and bounded browser evidence. Prepare a fresh fixture for Matt; do not teach
+The [agent record](expert-baseline-2026-10-30.md) records exact fixture/build
+and bounded browser evidence for the version 2 fixture; the
+[2026-10-18 record](expert-baseline-2026-10-18.md) stays as version 1 history. Prepare a fresh fixture for Matt; do not teach
 the candidate before the current-app baseline. Alternate A/B values and
 candidate-layout order on repeats, recording exposure and assistance.
 `DEV#1` remains the hands-on human trial. Screen-reader/touch operation and
@@ -135,7 +152,13 @@ node tools/browser.mjs $trialSteps 2>&1 | Tee-Object -FilePath (Join-Path $trial
 
 The manifest already contains the actual port, so do not add a port offset.
 Use a new fixture for each full run; the driver verifies the scratch owner
-before acting and refuses archive count drift. Its reported counts are
+before acting and refuses archive count drift. It refuses a version 1
+manifest. Its steps run tasks 1-5 and then the optional 6-8; the import in
+task 5 renumbers gallery ids, so 6-8 read sidecar ids and runtime job ids.
+Every press first checks that its target is what lies under the pointer, and
+every fill that focus landed in its field: a missed press fails the step
+instead of typing into whatever kept focus. Task 2's survivor must render at
+the typed 256×256 and task 4's rerenders at 512×512. Its reported counts are
 trusted automation input events, not Matt's presses. Scroll-to-target helper
 steps do not establish human reachability or scrolling effort. FLUX also
 needs a real True CFG adjustment to enable the negative box; the WAI concept
@@ -143,9 +166,11 @@ does not, so record that checkpoint-specific detour separately.
 
 ## Refresh for the current app (DEV#21)
 
-**Status:** `DEV#21` OPEN, recorded 2026-10-29 from the TODO audit. Nothing
-below has been built or run. Matt's hands-on trial stays `DEV#1` (USER); this
-item only makes the kit match the app he would be trialled on.
+**Status:** stages 1-3 built and run on the fake, 2026-10-30 (branch
+`wip/dev21-trial-kit`); the [result](#result-2026-10-30) is below. Matt's
+hands-on trial stays `DEV#1` (USER) and is not part of this item, which only
+makes the kit match the app he would be trialled on. Recorded 2026-10-29
+from the TODO audit; the table below is that day's reading, kept as written.
 
 ### Why the kit is stale
 
@@ -248,3 +273,47 @@ not run on this tree, so stage 1 may find more):
    [validation protocol](../validation.md#trial-preparation) link it.
 
 Matt's hands-on session then remains `DEV#1`, unchanged by this item.
+
+### Result, 2026-10-30
+
+**Stage 1 (fixture version 2, driver).** `tools/trial_fixture.py` writes
+`fixture_version` 2: the roles above plus `then_refine_base`,
+`then_refine_pass`, `setup`, `saved_search` and `snippet`, each made through
+its own route (`/api/generate` with `then_refine`, `/api/presets`,
+`/api/gallery/saved-searches`, `/api/snippets`), and the `foreign_more_seeds`
+refusal (422, "no selected batch can have more seeds (1 foreign)"). A dead
+runtime pid no longer hides the real setup failure behind WinError 87.
+`tools/trial_walkthrough.py` refuses any other version; presses Custom
+dimensions' summary before W/H; cancels the waiting row by
+`[data-queue-action="cancel"]`; uses `/` (task 3's run search and task 4's
+searches), `?` (task 3) and M (task 4, the keeper's lightbox: the More seeds
+preview opens and nothing queues); records any press on an `aria-disabled`
+control with its title; reinstalls its request log after the reload; checks
+every press's target and every fill's focus; and checks task 4's rerenders
+are 512×512 and task 5 leaves the three sidecars. Checked:
+`tests/test_trial_kit.py` (cold: synthetic version 2 manifest, every pressed
+`#id` in `web/index.html` or made by a page script, versions 1/None/3
+refused, the disclosure and cancel targets, the key routes, roles the driver
+reads are ones the fixture writes); fresh fixtures A and B prepared without
+error at new scratch paths on ports 8159/8160, their manifests naming every
+new role; `node tools/browser.mjs` on each one's generated steps exited 0,
+206 of 206 expectations, at 1400×900, DPR 1. The alias table and counts in
+"Current app" above come from those manifests.
+
+**Stage 2 (cards and record).** Task 5 now asks for a prediction of what
+archive-and-clear leaves; the "do not require" list names Then refine,
+saved setups and searches, snippets and portability; the record has a
+per-task route row; optional tasks 6-8 (restore a setup then Undo, reopen a
+run through a saved search, Generate with Then refine and find the pass
+beside its base) have A/B values and walkthrough steps, which the same two
+runs exercised. The cards name only `setup`, `saved_search`, `snippet`,
+`then_refine_base`/`then_refine_pass` and the version 1 aliases.
+
+**Stage 3 (agent baseline).**
+[`expert-baseline-2026-10-30.md`](expert-baseline-2026-10-30.md), linked
+here and from the [validation protocol](../validation.md#trial-preparation).
+
+**Left:** Matt's own session (`DEV#1`), with his normal display, scaling
+and input, and any decision about offering tasks 6-8. No app source was
+changed; the detours the baseline found are observations, not defects
+filed.

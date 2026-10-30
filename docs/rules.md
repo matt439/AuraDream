@@ -490,7 +490,12 @@ before changing it.
   rules (`docs/plan-card-harness.md`, CARD#10 step packs);
   `smoke_timings.py` reads a run's `summary.json` and prints the slowest
   smokes, each row's total and the wall clock, writing nothing
-  (`docs/plan-tooling.md`, Suite and smoke timings); see Tests
+  (`docs/plan-tooling.md`, Suite and smoke timings);
+  `trial_fixture.py` prepares the formative-trial kit's disposable fake
+  gallery and sidecars through the fake's own routes, and
+  `trial_walkthrough.py` writes the agent walkthrough's real-input steps
+  for its version 2 manifest (`docs/design/trials/README.md`;
+  `tests/test_trial_kit.py` holds the steps to the page cold); see Tests
 - `tests/` — the pytest suite, no GPU and no weights: `conftest.py`,
   `fakes.py` and `api_helpers.py` (the fake backend and its fixtures),
   `test_api*.py` (the HTTP routes, one file per area), and a file per module

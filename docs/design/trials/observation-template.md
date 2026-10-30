@@ -15,11 +15,13 @@ values empty rather than estimating them. Copy the task table per attempt.
 | Input method / accessibility settings | |
 | Prior exposure / assistance agreed beforehand | |
 | Interface × A/B variant × task order | |
+| Optional tasks 6-8 offered / accepted | |
 
 | Task observation | Matt's record |
 |---|---|
 | Task / interface / variant / order | |
 | Starting draft, inspected image/run, filters and picks | |
+| Route taken per step (pointer, keyboard shortcut, context menu, dialog) | |
 | Predicted target, scope, count and retained/replaced context | |
 | Interaction time / processing wait / interruptions | |
 | Presses / surface changes / reversals | |
