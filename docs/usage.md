@@ -697,6 +697,14 @@ In Select mode, **Ctrl/Cmd+A** from a card or the Select button adds every
 loaded card up to the selection cap. Picks hidden by another filter stay
 picked; unloaded results are not fetched. In the bin it adds only bin cards.
 
+**Pick this run** on a live card's right-click menu adds the images of the
+run that made it - every checkpoint's, whatever the search or Starred shows -
+to the picks, up to the selection cap; the note says how many it added of the
+run's total. Picks made under other filters stay. It is held, with the
+reason, on an image from before runs were grouped. If the picks are cleared
+or replaced, or the recycle bin opened, before the server answers, nothing is
+added.
+
 **Picked ▾** (between **Clear** and **Select**; just ▾, with Clear a ✕,
 where the row is narrow) is a menu for the picked cards: **Star picked**
 and **Unstar picked** star or unstar all of them at once, and **Bin
@@ -811,7 +819,7 @@ it, or the visible opener of a menu that closed. Help can be opened above a ligh
 | Gallery | `/` focuses search outside fields, menus and dialogs. M opens More seeds for the focused image's batch without queuing. Tab enters the cards; arrows/Home/End navigate, Enter opens, F stars; in select mode Space picks, Shift+Space picks a range, Esc clears |
 | Lightbox | Left/Right browse, F stars, R opens Refine, M opens More seeds without queuing, S toggles the picked pair, or otherwise compares a pass with its source or an image with its CFG neighbour, Delete moves the image to the recycle bin (in the bin: asks to delete it permanently), Esc closes |
 | Lightbox zoom | Wheel or +/− zoom, drag pans, 0 fits, 1 or double-click shows actual pixels |
-| Right-click an image | A menu of its actions: Star, Reuse settings, Use seed, More seeds of this batch…, Refine…, Inpaint…, Outpaint…, reference, Show run as sheet, Copy prompt / seed / image, Open PNG in new tab, Move to recycle bin. On a picked card: the picks' actions. The Menu key or Shift+F10 opens it from the keyboard; Shift+right-click gives the browser's own menu |
+| Right-click an image | A menu of its actions: Star, Reuse settings, Use seed, More seeds of this batch…, Refine…, Inpaint…, Outpaint…, reference, Show run as sheet, Pick this run (a live card), Copy prompt / seed / image, Open PNG in new tab, Move to recycle bin. On a picked card: the picks' actions. The Menu key or Shift+F10 opens it from the keyboard; Shift+right-click gives the browser's own menu |
 | Contact sheet | Arrows move between populated cells; Home/End use row ends, Ctrl+Home/End the corners. Tab reaches the current cell's star; Enter/Space opens its lightbox, F stars |
 | Prompt/tag chips | Tab/Enter accepts a suggestion after three matching characters; Alt+Left/Right reorders chips, Delete removes, Enter edits |
 | Prompt replacements | Ctrl+Z restores text after Apply, Reuse (or a loaded PNG), Expand, Examples or a chip edit |

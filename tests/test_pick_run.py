@@ -44,10 +44,10 @@ def test_row_of_no_run_says_why_and_asks_nothing():
                    "said": ["That image predates runs being grouped, so it belongs to no run."]}
 
 
-@pytest.mark.parametrize("scenario", ["cleared", "bin"])
-def test_reply_after_a_clear_or_the_bin_is_dropped(scenario):
+@pytest.mark.parametrize("scenario", ["cleared", "bin", "replaced"])
+def test_reply_after_a_clear_a_replacement_or_the_bin_is_dropped(scenario):
     out = run(scenario)
-    assert out["picks"] == []
+    assert out["picks"] == ([2] if scenario == "replaced" else [])
     assert not any("of the run" in text for text in out["said"])
 
 

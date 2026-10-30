@@ -7107,10 +7107,11 @@ yet picked in the server's order, beside picks from other filters, with
 Ctrl+A's cap refusal. It says how many of the run's total it added, and
 that a run past the cap was only partly picked. The label carries no count:
 the menu is built before the server is asked. A reply that lands after the
-bin was entered or the selection cleared (`selectionClears`) is dropped, and
-an id the page forgot meanwhile is not picked - left out rather than
-dropping the whole reply, since the rest of the run is still live (taken
-while Matt was away, 2026-10-29; revisit if wanted).
+bin was entered or the selection cleared or replaced by a plain Shift click
+(`selectionClears`) is dropped, and an id the page forgot meanwhile is not
+picked - left out rather than dropping the whole reply, since the rest of
+the run is still live (taken while Matt was away, 2026-10-29; revisit if
+wanted).
 
 **Picked cards, for actions on several images** (2026-10-10). Swap tags and
 Mass refine act on many images at once, and their only scope was the filter,

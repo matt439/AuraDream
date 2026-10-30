@@ -47,7 +47,8 @@ function isSelected(id) { return selection.has(id); }
 function onSelectionChange(fn) { selectionListeners.push(fn); }
 
 // Counts the clears (Clear, Escape, a click between the cards, the bin's
-// stash): a Pick this run reply that lands after one is dropped (pickRun).
+// stash) and the plain Shift clicks that replace the picks: a Pick this run
+// reply that lands after one is dropped (pickRun).
 let selectionClears = 0;
 
 function clearSelection() {
@@ -197,6 +198,7 @@ function cardPress(div, rec, e) {
 
 // A Shift range with no loaded anchor starts by picking just this card.
 function selectOnly(rec) {
+  selectionClears++;
   selection.clear();
   selection.set(rec.id, rec);
   selectAnchor = rec.id;
@@ -278,7 +280,7 @@ function selectRange(div, { add = true } = {}) {
   const from = cards.findIndex((c) => +c.dataset.id === selectAnchor);
   const to = cards.indexOf(div);
   if (from < 0 || to < 0) return false;
-  if (!add) selection.clear();
+  if (!add) { selectionClears++; selection.clear(); }
   const span = cards.slice(Math.min(from, to), Math.max(from, to) + 1);
   // In the order the range runs, from the anchor out.
   if (to < from) span.reverse();
@@ -363,8 +365,8 @@ const RUN_NONE = 'That image predates runs being grouped, so it belongs to no ru
 // Starred and the model scope show - added to the picks in its order up to
 // the cap, as Ctrl+A adds the loaded cards. Picks from other filters stay;
 // Select and the anchor do not move. A reply landing after the bin was
-// entered or the selection cleared is dropped, with no retry, and an id the
-// page has forgotten since (forgetImages) is not picked.
+// entered or the selection cleared or replaced is dropped, with no retry,
+// and an id the page has forgotten since (forgetImages) is not picked.
 async function pickRun(rec) {
   const scope = recordRunScope(rec);
   if (!scope) { showError(`${RUN_NONE}.`, true, { slot: els.galleryError }); return; }

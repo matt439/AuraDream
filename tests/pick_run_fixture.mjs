@@ -35,9 +35,9 @@ const sandbox = vm.createContext({
 });
 const source = fs.readFileSync(path.join(root, 'web', 'gallery-select.js'), 'utf8');
 // The picks' marks, count and listeners are the browser's (smoke-select).
-new vm.Script(`${source}\n;syncSelection = () => {};\nglobalThis.__sel = { selection, pickRun, clearSelection, stashSelection, setCap: (n) => { selectionCap = () => n; } };`,
+new vm.Script(`${source}\n;syncSelection = () => {};\nglobalThis.__sel = { selection, pickRun, clearSelection, stashSelection, selectOnly, setCap: (n) => { selectionCap = () => n; } };`,
   { filename: 'gallery-select.js' }).runInContext(sandbox);
-const { selection, pickRun, clearSelection, stashSelection, setCap } = sandbox.__sel;
+const { selection, pickRun, clearSelection, stashSelection, selectOnly, setCap } = sandbox.__sel;
 selection.set(1, { id: 1 });
 let pending;
 if (scenario === 'none') pending = pickRun({ id: 5, run_id: null, job_id: null });
@@ -46,6 +46,7 @@ else {
   pending = pickRun({ id: 10, run_id: 'r1' });
   await Promise.resolve();
   if (scenario === 'cleared') clearSelection();
+  if (scenario === 'replaced') selectOnly({ id: 2 });
   if (scenario === 'bin') { stashSelection(); sandbox.binMode = true; }
   if (scenario === 'forgotten') sandbox.binnedIds.add(12);
   release();
