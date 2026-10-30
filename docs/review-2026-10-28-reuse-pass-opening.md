@@ -160,7 +160,7 @@ assertions and production facts/bin code remain unchanged.
 The positive browser command was started once as session 10479. At the next
 checkpoint, polling returned `Unknown process id 10479`. Reconciliation then
 attempted `Get-ChildItem -LiteralPath` on only that new run's reported root
-`C:\Users\matsi\AppData\Local\Temp\auradream-smoke-artifacts-33esgww9`
+`%TEMP%\auradream-smoke-artifacts-33esgww9`
 and its reported `smoke-reuse-pass-opening-7dizc15l` child. Both accesses returned
 `Access to the path is denied`; no result, log or screenshot was read.
 
