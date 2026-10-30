@@ -474,6 +474,12 @@ before changing it.
   gallery hash, the difference, outside-mask and seam numbers verified.md
   reports), CPU only and importing nothing from `backend`
   (`docs/plan-card-harness.md`, Image metrics);
+  `card/card10-*.json` the `CARD#10` step packs, one `browser.mjs` step
+  file per fix commit plus `card10-ctrl-c-idle.json`, for the real server
+  on 7860 driven by real presses: not smokes, so not in `AGENTS.md`'s port
+  table, never run by `run_smoke.py` or CI's browser job, and their typed
+  Ctrl-C left to a person; `tests/test_card_packs.py` holds them to their
+  rules (`docs/plan-card-harness.md`, CARD#10 step packs);
   `smoke_timings.py` reads a run's `summary.json` and prints the slowest
   smokes, each row's total and the wall clock, writing nothing
   (`docs/plan-tooling.md`, Suite and smoke timings); see Tests
