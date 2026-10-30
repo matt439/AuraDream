@@ -137,6 +137,31 @@ def test_a_busy_gallery_leaves_the_timing_out_of_the_catalogue(client, fake, mon
     assert all(detail["gallery_timing"] is None for detail in reply.json()["details"].values())
 
 
+def test_a_reserved_gallery_leaves_the_timing_out_without_stalling_the_catalogue(client, fake, store):
+    # The real reservation, held by another process as a bundle or a clear
+    # holds it: the catalogue answers at once, without the line.
+    import time
+
+    from tests.bundle_helpers import _holding_child
+
+    status = client.get("/api/status").json()
+    store.save_image(
+        Image.new("RGB", (256, 256)), GenerateRequest(**PAYLOAD), seed=1,
+        duration_ms=4_000, model_id=status["model_id"], quantization=status["quantization"],
+    )
+    child = _holding_child(store.settings.db_path)
+    try:
+        started = time.monotonic()
+        reply = client.get("/api/models")
+        assert time.monotonic() - started < main.gallery_reports.TIMING_WAIT + 5
+    finally:
+        child.stdin.close()
+        child.wait(timeout=15)
+    assert reply.status_code == 200, reply.text
+    assert all(detail["gallery_timing"] is None for detail in reply.json()["details"].values())
+    assert client.get("/api/models").json()["details"][status["model_id"]]["gallery_timing"]["images"] == 1
+
+
 def test_the_editors_row_carries_the_backends_answer_for_the_draft_loader(client, fake, monkeypatch):
     # The listed editor's row gets this instance's own answer for the loader
     # being chosen; every other row keeps the closed gate's words. Nothing

@@ -845,11 +845,12 @@ async def list_models(
 
 def _gallery_timing(quantization: str) -> dict:
     """`gallery_reports.gallery_timing`, or nothing while the gallery is
-    busy or unreadable: the picker's catalogue never waits on, or fails for,
-    a line it can leave out."""
+    busy or unreadable: the picker's catalogue waits no longer than
+    `gallery_reports.TIMING_WAIT` on, and never fails for, a line it can
+    leave out."""
     try:
         return gallery_reports.gallery_timing(quantization)
-    except (gallery_lock.GalleryBusy, sqlite3.Error):
+    except (gallery_lock.GalleryBusy, sqlite3.Error, OSError):
         log.warning("gallery timing for the model picker not read", exc_info=True)
         return {}
 

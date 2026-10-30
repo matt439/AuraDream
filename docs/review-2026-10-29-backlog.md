@@ -748,16 +748,20 @@ Built as designed:
   The median is the upper one, as `step_cost_ms`'s. A missing database
   answers `{}` without creating one. `/api/models` calls it once inside its
   existing `_detached` call (`main._gallery_timing`, which answers nothing
-  for a busy or unreadable gallery) and adds `gallery_timing` (None with no
+  for a busy or unreadable gallery; the reservation is waited for only
+  `gallery_reports.TIMING_WAIT`, 0.2 s, so a bundle or clear in progress
+  never stalls the catalogue for the session's 30 s) and adds `gallery_timing` (None with no
   rows) to every model's details. `model_info` is untouched.
   Tests: `tests/test_gallery_timing.py` (six: empty history, a missing
   database not created, refine/edit/non-Eager/zero-duration/other
   quantization rows left out, the most-used size before its steps, the step
   count at the chosen size, the median and n with one slow image, the latest
-  rows only and the newer tie) and two in `tests/test_api_model_switch.py`
+  rows only and the newer tie, plus a reserved gallery refused after the
+  short wait) and three in `tests/test_api_model_switch.py`
   (the field per model, only the rendered checkpoint's, none under another
   quantization, every `speed_*` fact unchanged; a busy gallery leaves it
-  out).
+  out; a real reservation held by another process leaves it out without
+  stalling the reply).
 - Page: `modelSpeedNote` appends "This gallery: ~N s at W×H, S steps
   (median of n)." and the history caveat (not a measurement, offload not
   recorded per image, the median against a slow first image) to

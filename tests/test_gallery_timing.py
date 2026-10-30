@@ -3,10 +3,13 @@ in this gallery's own history (`gallery_reports.gallery_timing`)."""
 from __future__ import annotations
 
 import dataclasses
+import time
+
+import pytest
 
 from PIL import Image
 
-from backend import gallery_reports, storage
+from backend import gallery_lock, gallery_reports, storage
 from backend.schemas import GenerateRequest
 
 
@@ -92,3 +95,22 @@ def test_only_the_latest_renders_count_and_a_tie_goes_to_the_newer(store):
         _plant(width=1024, height=1024, duration=9_000)
     timing = gallery_reports.gallery_timing("fp8", sample=2)
     assert timing[FLUX] == {"median_ms": 9_000, "width": 1024, "height": 1024, "steps": 28, "images": 2}
+
+
+def test_a_reserved_gallery_is_refused_after_a_short_wait_not_a_sessions(store):
+    # Maintenance (a bundle, a clear) holds the reservation for as long as it
+    # runs; the picker's catalogue must not stall behind it for SESSION_WAIT.
+    from tests.bundle_helpers import _holding_child
+
+    _plant()
+    child = _holding_child(store.settings.db_path)
+    try:
+        started = time.monotonic()
+        with pytest.raises(gallery_lock.GalleryBusy):
+            gallery_reports.gallery_timing("fp8")
+        assert time.monotonic() - started < gallery_reports.TIMING_WAIT + 2
+        assert gallery_reports.TIMING_WAIT + 2 < gallery_lock.SESSION_WAIT
+    finally:
+        child.stdin.close()
+        child.wait(timeout=15)
+    assert gallery_reports.gallery_timing("fp8")[FLUX]["images"] == 1

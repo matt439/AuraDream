@@ -15,7 +15,7 @@ from datetime import datetime, timezone
 from collections.abc import Sequence
 from typing import Any
 
-from . import storage
+from . import gallery_lock, storage
 # VARIANT is the variable a comparison's versions are recorded under, which
 # `keep_rates` groups by.
 from .grid import VARIANT, estimate_seconds
@@ -132,6 +132,13 @@ def image_bytes(width: int, height: int, model_id: str | None = None, sample: in
     return sizes[len(sizes) // 2]
 
 
+# How long the picker's gallery timing waits for the gallery reservation. A
+# save holds it for a moment, a bundle operation or a clear for as long as it
+# runs: the catalogue says nothing of the gallery then rather than stalling
+# behind it for `gallery_lock.SESSION_WAIT`.
+TIMING_WAIT = 0.2
+
+
 def gallery_timing(quantization: str, sample: int = 50) -> dict[str, dict[str, int]]:
     """Each checkpoint's typical direct render in this gallery, for the picker.
 
@@ -146,25 +153,30 @@ def gallery_timing(quantization: str, sample: int = 50) -> dict[str, dict[str, i
     the median keeps one slow first image from moving the figure. It never
     feeds a speed category (`model_benchmarks` owns those). A checkpoint
     with no matching rows is absent, and a missing database answers nothing
-    rather than creating one.
+    rather than creating one. A reserved gallery raises `GalleryBusy` after
+    `TIMING_WAIT`, never the ordinary session's wait.
     """
     if not storage.settings.db_path.is_file():
         return {}
-    with storage._session() as conn:
-        rows = conn.execute(
-            """WITH latest AS (
-                   SELECT id, model_id, width, height, steps, duration_ms,
-                          ROW_NUMBER() OVER (PARTITION BY model_id ORDER BY id DESC) AS recent
-                   FROM images
-                   WHERE quantization = ? AND refine IS NULL AND edit IS NULL
-                     AND execution IS NULL AND duration_ms > 0 AND steps > 0
-               )
-               SELECT model_id, width, height, steps, COUNT(*) AS made, MAX(id) AS newest,
-                      group_concat(duration_ms) AS durations
-               FROM latest WHERE recent <= ?
-               GROUP BY model_id, width, height, steps""",
-            (quantization, sample),
-        ).fetchall()
+    with gallery_lock.hold(storage.settings.db_path, wait=TIMING_WAIT):
+        conn = storage._connect()
+        try:
+            rows = conn.execute(
+                """WITH latest AS (
+                       SELECT id, model_id, width, height, steps, duration_ms,
+                              ROW_NUMBER() OVER (PARTITION BY model_id ORDER BY id DESC) AS recent
+                       FROM images
+                       WHERE quantization = ? AND refine IS NULL AND edit IS NULL
+                         AND execution IS NULL AND duration_ms > 0 AND steps > 0
+                   )
+                   SELECT model_id, width, height, steps, COUNT(*) AS made, MAX(id) AS newest,
+                          group_concat(duration_ms) AS durations
+                   FROM latest WHERE recent <= ?
+                   GROUP BY model_id, width, height, steps""",
+                (quantization, sample),
+            ).fetchall()
+        finally:
+            conn.close()
     by_model: dict[str, list[sqlite3.Row]] = {}
     for row in rows:
         by_model.setdefault(row["model_id"], []).append(row)

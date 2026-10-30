@@ -891,7 +891,8 @@ Model and loader:
   not ETAs or new GPU evidence.
 - Beside them, `/api/models` gives each model's `gallery_timing`
   (`gallery_reports.gallery_timing`, inside the route's existing `_detached`
-  call; None with no rows, a missing database or a busy gallery): over each
+  call; None with no rows, a missing database or a gallery reserved past
+  `gallery_reports.TIMING_WAIT`, 0.2 s, never the session's 30 s): over each
   checkpoint's latest 50 direct renders under the chosen quantization (no
   `refine`, no `edit`, Eager `execution`, `duration_ms > 0`), the size used
   most, the step count used most there, and the median seconds per image
@@ -7748,8 +7749,9 @@ no category for an unmatched setup or a first run on a busy PC;
 `test_gallery_timing.py` covers the picker's gallery timing (refine, edit,
 non-Eager and other-quantization rows left out, the most-used size then step
 count, the median and its count, the latest rows only, nothing for an empty
-history or a missing database) and `test_api_model_switch.py` the field per
-model with the speed facts unchanged; `test_model_info.py` covers compact facts
+history or a missing database, a reserved gallery refused after the short
+wait) and `test_api_model_switch.py` the field per model with the speed facts
+unchanged and a reserved gallery leaving it out without stalling the reply; `test_model_info.py` covers compact facts
 for every catalogue entry, favourite ids shared by Lite/Nunchaku variants,
 access, Qwen-Image's fit, size labels that never claim an unsourced maximum and the shared
 loader descriptions:
