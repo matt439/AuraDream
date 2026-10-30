@@ -1,7 +1,7 @@
 [
   {"navigate": "http://127.0.0.1:7867/"},
   {"wait": 1200},
-  {"expect": "document.getElementById('status-dot').className.includes('ready')"},
+  {"expect": "(async () => { const end = Date.now() + 20000; while (Date.now() < end) { if (document.getElementById('status-dot').className.includes('ready') && !!lastHints) return true; await new Promise((r) => setTimeout(r, 50)); } return false; })()"},
   {"expect": "els.steps.value === '28' && els.cfg.value === '5'"},
   {"expect": "els.promptTip.textContent.includes('untuned base') && els.promptTip.textContent.includes('no default style') && els.promptTip.textContent.includes('77 tokens') && els.promptTip.textContent.includes('masterpiece, newest') && els.promptTip.textContent.includes('worst quality, comic, multiple views') && !els.promptTip.textContent.includes('Start empty')"},
   {"expect": "els.sizeTip.textContent.includes('1-2.25 MP') && els.sizeTip.textContent.includes('2048x2048 v1.0') && els.sizeTip.textContent.includes('1824x1248')"},

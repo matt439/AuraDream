@@ -1,7 +1,7 @@
 [
   {"navigate": "http://127.0.0.1:7863/"},
   {"wait": 1200},
-  {"expect": "document.getElementById('status-dot').className.includes('ready')"},
+  {"expect": "(async () => { const end = Date.now() + 20000; while (Date.now() < end) { if (document.getElementById('status-dot').className.includes('ready') && !!lastHints) return true; await new Promise((r) => setTimeout(r, 50)); } return false; })()"},
 
   {"eval": "els.prompt.value = 'a fox'; els.steps.value = '6'; els.seed.value = '3'; void startJob('/api/generate', collect());"},
   {"wait": 1200},

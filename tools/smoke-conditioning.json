@@ -2,7 +2,7 @@
   {"log": "'reference images and LoRA, against a fake server claiming FLUX.2 klein on 7864'"},
   {"navigate": "http://127.0.0.1:7864/"},
   {"wait": 1200},
-  {"expect": "document.getElementById('status-dot').className.includes('ready')"},
+  {"expect": "(async () => { const end = Date.now() + 20000; while (Date.now() < end) { if (document.getElementById('status-dot').className.includes('ready') && !!lastHints) return true; await new Promise((r) => setTimeout(r, 50)); } return false; })()"},
 
   {"log": "'klein takes references, so the field is live and the adapter list is the directory'"},
   {"expect": "referenceSupported && !document.getElementById('reference-field').classList.contains('disabled')"},

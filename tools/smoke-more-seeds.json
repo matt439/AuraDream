@@ -65,11 +65,11 @@
   {"shot": "smoke-more-seeds.png"},
 
   {"log": "'Ctrl+Enter queues: the dialog closes, one job per run, named as more seeds of the first batch\\'s prompt; Cancel says what it stops'"},
-  {"eval": "(async () => { await __post('/api/fake/step', {seconds: 0.05}); return true; })()"},
+  {"eval": "window.__msRunningSeen = false; window.__msRunning = new MutationObserver(() => { if (els.progressNow.textContent.includes('more seeds · ') && els.cancel.title.startsWith('Stop these more seeds')) __msRunningSeen = true; }); __msRunning.observe(document.body, {subtree: true, childList: true, characterData: true, attributes: true});"},
   {"keycombo": ["Control", "Enter"]},
   {"expect": "__until(() => !els.moreSeedsDialog.open)"},
-  {"expect": "__until(() => els.progressNow.textContent.includes('more seeds · ') && els.cancel.title.startsWith('Stop these more seeds'))"},
-  {"eval": "(async () => { await __post('/api/fake/step', {seconds: 0}); return true; })()"},
+  {"expect": "__until(() => __msRunningSeen)"},
+  {"eval": "__msRunning.disconnect();"},
   {"expect": "__until(() => !busy && total === 12, 30000)"},
   {"expect": "els.finishNote.textContent.startsWith('Finished 3 images in ') && els.finishNote.textContent.includes(', seeds 8–10. Job 2 of 2 of these more seeds, at 256×384.')"},
 

@@ -2,7 +2,7 @@
   {"log": "'the gallery cards, the Runs picker and the search box, against a fake server claiming the default Krea 2 Turbo on 7885 - a checkpoint with no refine pass and no references, so both of those card tools are dead here; and each card\\'s #N, size and seed over its tools, and from 1800 px the S/M and Fit/Crop choice of how the cards are drawn'"},
   {"navigate": "http://127.0.0.1:7885/"},
   {"wait": 1200},
-  {"expect": "document.getElementById('status-dot').className.includes('ready')"},
+  {"expect": "(async () => { const end = Date.now() + 20000; while (Date.now() < end) { if (document.getElementById('status-dot').className.includes('ready') && !!lastHints) return true; await new Promise((r) => setTimeout(r, 50)); } return false; })()"},
   {"expect": "!refineSupported && !referenceSupported"},
   {"eval": "resetPanel(); showError(''); window.__post = (path, body) => fetch(path, {method: 'POST', headers: {'Content-Type': 'application/json'}, body: JSON.stringify(body)}).then((r) => r.json()); window.__wait = async (id) => { for (let i = 0; i < 600; i++) { const s = await (await fetch('/api/jobs/' + id)).json(); if (s.status !== 'queued' && s.status !== 'running') return s; await new Promise((r) => setTimeout(r, 100)); } }; window.__cards = () => [...document.querySelectorAll('#gallery .card[data-id]')]; window.__rec = (id) => galleryRecords.find((r) => r.id === id);"},
   {"eval": "window.__until = async (fn, ms = 20000) => { const end = Date.now() + ms; while (Date.now() < end) { try { if (fn()) return true; } catch { /* not yet */ } await new Promise((r) => setTimeout(r, 50)); } return false; };"},
