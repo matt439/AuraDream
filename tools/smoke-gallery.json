@@ -395,5 +395,26 @@
   {"expect": "__until(() => galleryPending === null && total > 0 && !els.deleteUnstarred.hidden)"},
   {"eval": "deleteUnstarred()"},
   {"expect": "__until(() => __asked.length === 1 && els.galleryError.textContent.includes(\"'-blonde' is free text; strict scopes take key:value terms and their exclusions\"))"},
-  {"expect": "__panelRects() === __panelBefore"}
+  {"expect": "__panelRects() === __panelBefore"},
+
+  {"log": "'a mistyped key (GAL#23): sed:42 finds nothing as prompt words, and the empty line says so with seed:42 a press away - the press searches it in place without scrolling the page; masterpiece:1.2, near no key, gets the plain line; the empty line of the bin the same hint; and the height of the head never moves'"},
+  {"eval": "showError('', false, {slot: els.galleryError}); window.__head = () => document.querySelector('.gallery-head').getBoundingClientRect().height; els.search.value = 'zzqxv'; els.search.oninput();"},
+  {"expect": "__until(() => galleryPending === null && total === 0 && !els.galleryEmpty.hidden && els.galleryEmpty.textContent.startsWith('No image matches this search.') && !els.galleryEmpty.querySelector('button'))"},
+  {"eval": "window.__headBefore = __head(); els.search.value = 'sed:42'; els.search.oninput();"},
+  {"expect": "__until(() => galleryPending === null && total === 0 && !els.galleryEmpty.hidden && els.galleryEmpty.textContent.startsWith('No image matches this search.') && els.galleryEmpty.textContent.includes('sed:42 was searched as prompt words; did you mean seed:42?') && els.galleryEmpty.querySelector('button')?.textContent === 'Search seed:42')"},
+  {"expect": "__head() === __headBefore && els.galleryEmpty.querySelectorAll('button').length === 1"},
+  {"shot":"smoke-gallery-mistyped-key.png"},
+  {"eval": "window.__scrollAt = scrollY; els.galleryEmpty.querySelector('button').click();"},
+  {"expect": "els.search.value === 'seed:42' && document.activeElement === els.search"},
+  {"expect": "__until(() => galleryPending === null && (galleryRecords.length > 0 || !els.galleryEmpty.hidden) && galleryRecords.every((r) => r.seed === 42) && !els.galleryEmpty.textContent.includes('did you mean'))"},
+  {"expect": "scrollY === __scrollAt"},
+  {"eval": "els.search.value = 'masterpiece:1.2'; els.search.oninput();"},
+  {"expect": "__until(() => galleryPending === null && total === 0 && !els.galleryEmpty.hidden && els.galleryEmpty.textContent.startsWith('No image matches this search.') && !els.galleryEmpty.textContent.includes('did you mean') && !els.galleryEmpty.querySelector('button'))"},
+  {"expect": "__head() === __headBefore"},
+  {"eval": "els.search.value = 'sed:42'; enterBin();"},
+  {"expect": "__until(() => binMode && galleryPending === null && !els.galleryEmpty.hidden && els.galleryEmpty.textContent.startsWith('No image in the recycle bin matches this search.') && els.galleryEmpty.textContent.includes('did you mean seed:42?') && els.galleryEmpty.querySelector('button')?.textContent === 'Search seed:42')"},
+  {"eval": "window.__binHead = __head(); els.galleryEmpty.querySelector('button').click();"},
+  {"expect": "__until(() => binMode && els.search.value === 'seed:42' && galleryPending === null && !els.galleryEmpty.textContent.includes('did you mean') && __head() === __binHead)"},
+  {"eval": "leaveBin(); els.search.value = ''; resetGallery();"},
+  {"expect": "__until(() => !binMode && galleryPending === null && galleryRecords.length > 0)"}
 ]

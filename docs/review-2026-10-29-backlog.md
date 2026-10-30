@@ -3,8 +3,8 @@
 **Status:** written 2026-10-29 for the TODO audit's additions that need no
 plan of their own: `PA#12`, `UI#32`, `UI#33`, `GEN#33`, `GEN#34`, `GAL#23`,
 `GEN#36`, `GEN#38` and `UI#38`. `PA#12`, `UI#32`, `UI#33`, `GEN#33`,
-`GEN#34` and `UI#38` are built (2026-10-30, below); the other three are
-OPEN. Matt
+`GEN#34`, `GAL#23` and `UI#38` are built (2026-10-30, below); the other two
+are OPEN. Matt
 approved adding every audit item on 2026-10-29. Each section below covers
 one row: what is missing (preference ids from `docs/design/preferences.md`,
 file:line checked against the source on 2026-10-29), the design and the
@@ -616,6 +616,21 @@ Generate per image, which is the work Swap tags was built to remove
    while rows are added.
 
 ## GAL#23 Mistyped search keys
+
+**Status (2026-10-30): built.** `mistypedSearchKeys` and
+`mistypedSearchHints` (`web/gallery-search.js`) read each rejected
+`word:value` (through one leading `-`, which the mended word keeps) against
+`SEARCH_KEYS` by optimal-string-alignment distance; `syncGalleryEmpty`
+(`web/gallery.js`) appends the hint to the gallery's and the bin's empty
+line. The step at the end of `smoke-gallery` (7885) checks: `sed:42` shows
+the hint and its "Search seed:42" button, with the head's height that of a
+plain empty search (`zzqxv`); the press writes `seed:42`, focuses the box,
+asks again without moving `scrollY`, and the hint is gone; `masterpiece:1.2`
+gives the plain line with no button and the same head height; and in the
+bin the same hint and press. Choices the design left open, taken while Matt
+was away: a word near two keys gets no hint (the design's "exactly one");
+several mistyped words each get their own sentence and button; the press
+focuses the search box (with `preventScroll`), as `showGallerySearch` does.
 
 **Evidence.** E5 (search by prompt words) and E9 (search from an image
 setting or prompt) are Often (`preferences.md:99`, `:103`). `split_search`
