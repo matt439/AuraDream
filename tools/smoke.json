@@ -34,10 +34,10 @@
 
   {"eval": "fetch('/api/grid', {method: 'POST', headers: {'Content-Type': 'application/json'}, body: JSON.stringify({prompt: 'a {size} fox in the snow', prompt_axis: 'size = big | small', steps_axis: '6,8,10', cfg_axis: '0,1', width: 1152, height: 896, seed: 42})}).then(r => r.json()).then(j => { window.__run = j.run_id; })"},
   {"wait": 2500},
+  {"eval": "window.__until = async (fn, ms = 20000) => { const end = Date.now() + ms; while (Date.now() < end) { if (await fn()) return true; await new Promise((r) => setTimeout(r, 50)); } return false; };"},
   {"eval": "resetGallery(); loadRuns();"},
-  {"wait": 1000},
-  {"expect": "document.querySelectorAll('.card').length >= 12"},
-  {"expect": "document.getElementById('run-list').options.length >= 2"},
+  {"expect": "__until(() => document.querySelectorAll('.card').length >= 12)"},
+  {"expect": "__until(() => document.getElementById('run-list').options.length >= 2)"},
 
   {"eval": "document.querySelector('.card img').click()"},
   {"wait": 500},
@@ -54,8 +54,7 @@
   {"wheel": [700, 450, -300]},
   {"expect": "lbView.scale > oneToOneScale(lbList[lbIndex])"},
   {"key": "ArrowRight"},
-  {"wait": 300},
-  {"expect": "lbIndex === 1 && lbView.scale > 1"},
+  {"expect": "__until(() => lbIndex === 1 && lbView.scale > 1)"},
   {"key": "0"},
   {"eval": "window.__walked = lbList[lbIndex].id"},
   {"click": [30, 30]},
