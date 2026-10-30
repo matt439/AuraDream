@@ -512,7 +512,10 @@ function syncMoreSeedsRun() {
   els.moreSeedsHold.textContent = hold || (msUncertain
     ? 'The reply was lost. Retry keeps this count and the same request. Closing abandons the reply; the jobs may already be queued.'
     : busy ? 'These images will queue after the current work.' : 'Ready to queue.');
-  if (!hold && !msRefused && !msUncertain && els.moreSeedsError.textContent) showError('', false, { slot: els.moreSeedsError });
+  // Queue's own refusal goes once Queue may go; a held tick's press keeps
+  // its words while the tick is still held for them.
+  const said = els.moreSeedsError.textContent;
+  if (!hold && !msRefused && !msUncertain && said && said !== msThenRefineHold()) showError('', false, { slot: els.moreSeedsError });
 }
 
 // Queue: waits for the check of what the dialog says, then queues. Held,

@@ -146,9 +146,9 @@ async def _carry_then_refine(services: AppServices, queued: list[more_seeds.Batc
     is read, not the template's alone: the template can be a base an
     earlier More seeds made before it carried a pass. A batch none of whose
     jobs carried one is unchanged; a pass batch, an inpaint or an edit
-    never carries one (a pass of a pass is no Then refine). With `carry`
-    off, or no refine pass on this checkpoint, the batches make bases only;
-    else mates of two specs, or a pass `then_refine.refusal` refuses at
+    never carries one (a pass of a pass is no Then refine). With no
+    refine pass on this checkpoint the batches make bases only, each noted
+    so whatever `carry` says; with `carry` off they make bases only; else mates of two specs, or a pass `then_refine.refusal` refuses at
     this batch's size and steps, is a `then_refine` status in words, and
     the rest still queue."""
     bases = [batch for batch in queued if batch.template.refine is None and batch.template.edit is None]
@@ -167,12 +167,15 @@ async def _carry_then_refine(services: AppServices, queued: list[more_seeds.Batc
         if not specs:
             continue
         batch.run_then_refine = True
-        if not carry:
-            continue
+        # Where this checkpoint has no pass the note says so whatever the
+        # tick: the page unticks its held tick and asks again with `carry`
+        # off, and the row still says in words why its run's pass is left.
         if not asked:
             unavailable, asked = await submission.refine_unavailable(services), True
         if unavailable is not None:
             batch.notes.append("bases only: this checkpoint has no refine pass")
+            continue
+        if not carry:
             continue
         if len(specs) > 1:
             made = [then_refine.words(each) for each in specs]

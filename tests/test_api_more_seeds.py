@@ -443,6 +443,10 @@ def test_no_refine_pass_on_the_checkpoint_holds_the_tick_and_makes_bases(client,
     assert answer["then_refine_hold"] == "this checkpoint has no refine pass in this app"
     assert (answer["then_refine_batches"], answer["queued"], answer["passes"]) == (1, 1, 0)
     assert answer["results"][0]["notes"] == ["bases only: this checkpoint has no refine pass"]
+    # The page unticks its held tick and asks again: the row keeps its words.
+    off = preview(client, ids=[base.id], count=1, then_refine=False)
+    assert (off["then_refine_hold"], off["then_refine_batches"], off["passes"]) == (answer["then_refine_hold"], 1, 0)
+    assert off["results"][0]["notes"] == ["bases only: this checkpoint has no refine pass"]
     final = stream_job(client, queue(client, ids=[base.id], count=1)["job_id"])[-1]
     assert final["status"] == "done" and final["then_refine"] is None
 

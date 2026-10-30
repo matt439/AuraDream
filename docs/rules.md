@@ -7418,7 +7418,18 @@ batch of two with the tick shown beside the count and on, the row's note
 "each then refined at 1.5× at 0.4", "+ 2 refine passes" in the count line
 and Queue, unticking dropping them with nothing in the dialog moving, and
 the queued job putting each new base and then its pass in the strip, the
-passes in the run's own pass run:
+passes in the run's own pass run; then a press held on its POST (`api`
+wrapped), during which Refine each new image is `aria-disabled` (never
+`disabled`), "This request has been sent with its choice; close More
+seeds to make another" its title and, pressed, in the dialog's error line
+with the tick left on, the base and its pass landing once released; and,
+with the pass taken away by `POST /api/fake/refine` (`supported` false,
+given back after), More seeds of the same batch showing the tick held and
+off with the server's `then_refine_hold` as its title, the row's note
+"bases only: this checkpoint has no refine pass" kept after the page's
+unticked re-check, no pass in the count line or Queue, and a press saying
+the reason in the error line (kept by later Queue syncs) with nothing in
+the dialog moving:
 
 ```powershell
 uv run python tools/fake_server.py --port 7912 --model black-forest-labs/FLUX.1-Krea-dev --step 0.3 --data <new-scratch-directory>
@@ -7492,7 +7503,10 @@ translator back off disk so a first use shows again on a server already
 used; `POST /api/fake/lora` (`{name, present}`) moves an adapter out of the
 fake's directory and back, as a rename by hand would; `POST
 /api/fake/bin-age` (`{ids, days}`) backdates binned rows' `binned_at` by
-`days` for Empty's age scope, leaving live rows live; the fake's rewriter and translator count as downloaded from their
+`days` for Empty's age scope, leaving live rows live; `POST
+/api/fake/refine` (`{supported}`, answering what it replaced) takes the
+claimed checkpoint's refine pass away and gives it back, as a loaded
+pipeline with no image-to-image sibling answers; the fake's rewriter and translator count as downloaded from their
 first use), and `node tools/browser.mjs tools/smoke.json` drives headless
 Edge or Chrome over the DevTools protocol with Node's own WebSocket - no npm
 install - through the lightbox zoom and the focus its close leaves on the
