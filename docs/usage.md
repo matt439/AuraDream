@@ -807,7 +807,7 @@ it, or the visible opener of a menu that closed. Help can be opened above a ligh
 
 | Where | Keys |
 | --- | --- |
-| Main workspace | Ctrl/Cmd+Enter generates; inside an open Grid field runs the grid; in Refine runs the pass; in Refine… (Mass refine) runs the batch; in Swap tags queues; in More seeds… queues the batches |
+| Main workspace | Ctrl/Cmd+Enter generates; inside an open Grid field runs the grid; in Refine runs the pass; in Refine… (Mass refine) runs the batch; in Swap tags queues; in More seeds… queues the batches. P, outside fields, menus and dialogs, goes back to the prompt box with the caret at the end, changing no text |
 | Gallery | `/` focuses search outside fields, menus and dialogs. M opens More seeds for the focused image's batch without queuing. Tab enters the cards; arrows/Home/End navigate, Enter opens, F stars; in select mode Space picks, Shift+Space picks a range, Esc clears |
 | Lightbox | Left/Right browse, F stars, R opens Refine, M opens More seeds without queuing, S toggles the picked pair, or otherwise compares a pass with its source or an image with its CFG neighbour, Delete moves the image to the recycle bin (in the bin: asks to delete it permanently), Esc closes |
 | Lightbox zoom | Wheel or +/− zoom, drag pans, 0 fits, 1 or double-click shows actual pixels |

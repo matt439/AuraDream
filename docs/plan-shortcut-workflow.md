@@ -148,7 +148,8 @@ holds the wiring statically. Two choices the design left implicit were taken
 while Matt was away (2026-10-29), revisit if wanted: the negative and the
 select are probed with their hidden/disabled state lifted for the probe only
 (FLUX greys the negative), and the route shares `/`'s `!modal` rather than a
-wider guard.
+wider guard. The review the same day added P to `docs/usage.md`'s keyboard
+table, which had been left out.
 
 **Evidence.** `docs/design/preferences.md` rates L6 (keyboard shortcuts and
 navigation) and A1 (write or edit a prompt) Often. Stage 3 added `/` for
