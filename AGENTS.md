@@ -546,6 +546,7 @@ Gotchas:
 - Fake-server knobs: `POST /api/fake/load`, `/api/fake/step`,
   `/api/fake/expand`, `/api/fake/model` (`overrides`, `stuck_critic`,
   `access`), `/api/fake/lora`, `/api/fake/bin-age`, `/api/fake/peak`,
+  `/api/fake/refine` (`supported`: the claimed checkpoint's refine pass),
   `/api/fake/instruction-edit` (the edit gate, open by default only on a
   Kontext fake); a prompt containing `[fail]` fails its cell;
   `--critic-delay`, `--no-critic`.

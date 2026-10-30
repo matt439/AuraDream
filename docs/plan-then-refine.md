@@ -702,6 +702,30 @@ the tick, count, Queue and list unmoved, and the job putting each new base
 then its pass in the strip, the passes in the original pass run), its
 screenshot looked at; `smoke-more-seeds` passing unchanged.
 
+**Follow-up, 2026-10-31 (review).** Two gaps the review left are closed.
+The bases-only note is the per-batch refusal in words this design asks
+for, so it must show; it did not, since the page unticks its held tick
+and asks again with `then_refine: false`, and `_carry_then_refine`
+returned on `carry` off before noting it. The server now asks
+`refine_unavailable` first and notes "bases only: this checkpoint has no
+refine pass" whatever the tick says (the page's re-check answers it too;
+`then_refine_hold` unchanged). A held tick's press also lost its words at
+the next Queue sync (`syncMoreSeedsRun` cleared the error line whenever
+Queue could go); it now keeps them while the tick is still held for that
+reason. The fake gains `POST /api/fake/refine` (`supported`), which takes
+the claimed checkpoint's pass away, so the no-pass case runs through the
+real preview rather than a stubbed answer. Evidence:
+`tests/test_api_more_seeds.py`'s no-pass test also asks with
+`then_refine: false` and gets the note; `smoke-then-refine` gains two
+steps - a press held on its POST, the tick `aria-disabled` (not
+`disabled`) with "This request has been sent with its choice; close More
+seeds to make another" as its title and, pressed, in the error line; and
+the pass taken away, the tick shown held and off with the server's reason
+as its title, the row's note, no pass counted, a press saying the reason,
+nothing moving. Before the fixes the note and the press's words failed
+there (the two expectations), the rest passed; after, the smoke passes,
+its new screenshot looked at, and `smoke-more-seeds` passes.
+
 ## Decision: several strengths per image
 
 **Decided 2026-10-29: no.** Matt declined a strength list; one strength stays one strength, and a sweep stays Refine's Compare or one Then refine run per strength. Kept for the record (`GEN#39` retired).

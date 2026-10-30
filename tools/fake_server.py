@@ -27,6 +27,9 @@ this sign-in cannot download; the fake never asks the Hub); `POST
 (`present`); `POST /api/fake/bin-age` backdates binned images' `binned_at`
 by `days`, for Empty recycle bin's age scope; `POST /api/fake/peak` sets the
 (`allocated`, `reserved`) bytes the jobs after it save as their peak;
+`POST /api/fake/refine` takes the claimed checkpoint's refine pass away
+(`supported` false) and gives it back, as a loaded pipeline with no
+image-to-image sibling answers;
 `POST /api/fake/instruction-edit` closes or reopens the instruction-edit
 gate (`available`), which is open on a fake claiming FLUX.1 Kontext [dev]
 alone - there an edit is the source proved and prepared, tinted and
@@ -660,6 +663,16 @@ def main() -> int:
     async def fake_instruction_edit(available: bool = Body(..., embed=True)) -> dict:
         previous, fake.edit_qualified = fake.edit_qualified is True, available is True
         return {"available": fake.edit_qualified, "previous": previous}
+
+    # A refine pass the claimed checkpoint lacks, as a loaded pipeline with
+    # no image-to-image sibling answers: `supported` false makes status and
+    # every route that asks `submission.refine_unavailable` say this
+    # checkpoint has no pass (More seeds' held tick and its bases-only
+    # note); true gives it back. Answers what it set and what it replaced.
+    @app_main.app.post("/api/fake/refine", include_in_schema=False)
+    async def fake_refine(supported: bool = Body(..., embed=True)) -> dict:
+        previous, fake.refine_supported = fake.refine_supported, supported is True
+        return {"supported": fake.refine_supported, "previous": previous}
 
     # A measured peak, which a fake never has: the (allocated, reserved)
     # bytes the jobs after it save, or null for none again. Answers it.
