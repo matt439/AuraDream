@@ -8,7 +8,7 @@ The maintainer's working backlog for this personal project: it records what is p
 
 **Aim (2026-10-29):** keep useful work ready for Matt's common workstation tasks. [Reported use](docs/design/preferences.md) guides priority; it does not approve the candidate redesign.
 
-**Ready backlog (updated 2026-10-30):** 11 `OPEN` rows. `INP#11` stage 4's code is built on `feat/inp11-stage4`; its [card acceptance step](docs/plan-instruction-editing.md#card-acceptance-step) waits on Matt's OK. The [2026-10-29 audit](docs/review-2026-10-29-todo.md)'s rows follow; start with the defects and Often-feature rows: Finish run's missing passes (`GEN#35`), Compare scales (`UI#34`). The card-session tools (`DEV#20`, `DEV#23`; `DEV#22`'s image metrics are built) shorten later card runs; they don't replace them.
+**Ready backlog (updated 2026-10-30):** 10 `OPEN` rows. `INP#11` stage 4's code is built on `feat/inp11-stage4`; its [card acceptance step](docs/plan-instruction-editing.md#card-acceptance-step) waits on Matt's OK. The [2026-10-29 audit](docs/review-2026-10-29-todo.md)'s rows follow; start with the defects and Often-feature rows: Compare scales (`UI#34`). The card-session tools (`DEV#20`, `DEV#23`; `DEV#22`'s image metrics are built) shorten later card runs; they don't replace them.
 
 **Decisions for Matt:** none open. On 2026-10-29 Matt took the recommended answers for `PERF#7` (cache beside the gallery, cleared on a torch/Triton/driver change, static shapes; shipping waits on `PERF#1`), `PERF#5`, `GAL#21` and `UI#34`; declined `GEN#39` and unattended backups (`GAL#22`, `GAL#6`); kept `GEN#6`, `INP#9` and `INP#10` deferred.
 
@@ -65,7 +65,6 @@ The maintainer's working backlog for this personal project: it records what is p
 
 | id | status | sev | size | item |
 |---|---|---|---|---|
-| `GEN#35` | OPEN | MED | M | Then refine: Finish run counts only base cells, so a base saved before a cancelled or failed pass gets no pass, and a run missing only passes says "nothing in this run is missing". Add those passes (pass_sources, one spec per run, preview `passes`). [Plan](docs/plan-then-refine.md#phase-4-finish-run-adds-missing-passes). |
 | `GEN#36` | OPEN | LOW | S | Mass refine has no Versions (H4/H5 Often). Add `versions` (1/2/4) as one cell per version at seed+i, the seeds the single dialog's Versions take, so pruning stays per image. versions=1 keeps every key, run id and status. Budget counts images x versions. One strength stays one strength. [Owner](docs/review-2026-10-29-backlog.md#gen36-mass-refine-versions) |
 | `GEN#37` | OPEN | LOW | M | Then refine: More seeds of a then-refine run makes bases only. Read the run's retained spec (from the batch's mates' jobs) and queue each new base with its pass under the same pass run id. Add an opt-out tick in the More seeds dialog and a refusal in words for each batch. [Plan](docs/plan-then-refine.md#phase-5-more-seeds-carries-the-pass). |
 | `GEN#38` | OPEN | LOW | M | The model picker's Speed shows only retained card samples (K2 Often). Add 'This gallery: ~N s at WxH, S steps (median of n)' to the Speed note. It comes from direct Eager renders, read in the /api/models route (model_info stays cold). Labelled as history, offload noted as unrecorded, never sets the category. [Owner](docs/review-2026-10-29-backlog.md#gen38-gallery-timing-in-the-model-picker) |

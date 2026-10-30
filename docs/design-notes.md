@@ -12679,9 +12679,21 @@ pass of every image right after its cell, in the same job.
 - **Built differently from the plan:** passes' failures have their own
   streak (the plan's shared count never reached three when bases
   succeeded between them); the fold's tight-line warning is the guard's
-  only (past what a pass renders), not the measured tight line; and Finish
-  does not yet add a missing pass beside a finished base (Mass refine over
-  the run does).
+  only (past what a pass renders), not the measured tight line.
+- **Finish run adds a missing pass (`GEN#35`, 2026-10-30).** A base saved
+  before a cancel or a failed pass is a finished cell, so Finish used to
+  say "nothing in this run is missing" and the pass run's own Finish named
+  its base: a dead end, with Mass refine over the run the only way back
+  (and its passes under Mass refine's run). Finish now builds each live
+  base's pass as the worker does (`then_refine.plan_passes`) and keeps
+  those the gallery and the queue do not hold - Mass refine's own check,
+  so a pass it made counts. They queue as `pass_sources`, units run before
+  the first cell, each base re-read at its turn (gone since is a failed
+  pass, in words); a run missing only passes is a job with no cells, read
+  through its first pass. Two specs in one run (a Resume tick with other
+  numbers) are refused in words: one Finish continues one pass run, and
+  reconciling two is Mass refine's. A binned base is a discard, never
+  refined.
 
 ## Peak memory per image
 

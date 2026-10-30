@@ -487,3 +487,174 @@ def test_queue_snapshot_covers_completion_during_gallery_scan(client, store, fak
     finally:
         release_job.set()
     assert fake.seeds == [1, 2]
+
+
+# ------------------------------------------------- Then refine's missing passes
+
+SPEC = {"scale": 1.5, "strength": 0.5}
+
+
+def then_refine_run(client, fake, *, runs=1, failing=(), **body):
+    """A Then refine Generate whose `failing` calls (1-based, counted from
+    this run's first) raise: a failed pass leaves its base without one."""
+    fake.fail_on = {len(fake.requests) + call for call in failing}
+    response = client.post("/api/generate", json={
+        "prompt": "a fox at dusk", "width": 256, "height": 256, "steps": 8, "seed": 500,
+        "runs": runs, "then_refine": SPEC, **body,
+    })
+    assert response.status_code == 200, response.text
+    done = stream_job(client, response.json()["job_id"])[-1]
+    fake.fail_on = set()
+    return done
+
+
+def rows(store):
+    return sorted(store.list_images(limit=200)[0], key=lambda row: row.id)
+
+
+def mass_refine_key(record):
+    from backend import refine_batch
+    from backend.model_defaults import defaults_for
+    from backend.model_selection import current_model_id
+
+    running = current_model_id(settings)
+    planned = refine_batch.plan(
+        record, running=running, profile=defaults_for(running), scale=1.5, strength=0.5, steps=None,
+        include_foreign=False, skip_passes=False,
+    )
+    return grid.cell_key(planned.cell)
+
+
+def holding(fake):
+    """Hold the fake's next call at its end until released: a job kept live."""
+    release, started = threading.Event(), threading.Event()
+
+    def hold():
+        started.set()
+        assert release.wait(5)
+
+    fake.after_generate = hold
+    return release, started
+
+
+def test_a_pass_a_cancel_left_missing_is_finished_under_the_pass_run(client, store, fake):
+    fake.step_seconds = 0.05
+    response = client.post("/api/generate", json={
+        "prompt": "a fox at dusk", "width": 256, "height": 256, "steps": 20, "seed": 700, "then_refine": SPEC,
+    })
+    job = response.json()["job_id"]
+    wait_for(client, job, lambda state: state["stage"] == "pass", timeout=20)
+    client.post(f"/api/jobs/{job}/cancel")
+    stopped = wait_for(client, job, lambda state: state["status"] == "cancelled", timeout=20)
+    fake.step_seconds = 0
+    run, pass_run = stopped["run_id"], stopped["pass_run_id"]
+    (base,) = rows(store)
+    assert base.refine is None
+    answer = preview(client, run)
+    assert answer["available"] and (answer["cells"], answer["passes"], answer["rendered"]) == (0, 1, 1), answer
+    assert client.get(f"/api/runs/{run}").json()["actions"]["finish"]["available"]
+
+    # Held inside its pass, so the second preview meets the live job.
+    release, started = holding(fake)
+    try:
+        accepted = client.post(f"/api/runs/{run}/finish", json={"expected": answer["pin"]})
+        assert accepted.status_code == 200, accepted.text
+        assert (accepted.json()["cells"], accepted.json()["passes"]) == (0, 1)
+        assert started.wait(5)
+        again = preview(client, run)
+        assert not again["available"] and "queued" in again["reason"]
+    finally:
+        release.set()
+    done = stream_job(client, accepted.json()["job_id"])[-1]
+    fake.after_generate = None
+    assert done["status"] == "done" and done["pass_run_id"] == pass_run and done["pass_sources"] == [base.id]
+    made = [row for row in rows(store) if row.refine == base.id]
+    assert len(made) == 1 and made[0].run_id == pass_run and made[0].seed == base.seed
+    assert grid.cell_key(grid.cell_from_record(made[0])) == mass_refine_key(base)
+    # Nothing left: the run says so, and the pass run still names its base.
+    final = preview(client, run)
+    assert not final["available"] and final["reason"] == "nothing in this run is missing"
+    assert preview(client, pass_run)["reason"].startswith(f"the refine passes of run {run}")
+
+
+def test_a_binned_base_gets_no_pass(client, store, fake):
+    done = then_refine_run(client, fake, runs=2, failing=(2, 4))
+    assert done["failures"] == 2
+    first, second = rows(store)
+    store.bin_images([first.id])
+    answer = preview(client, done["run_id"])
+    assert answer["available"] and (answer["cells"], answer["passes"]) == (0, 1)
+    finish(client, done["run_id"], answer)
+    assert [row.refine for row in rows(store) if row.refine is not None] == [second.id]
+
+
+def test_a_pass_mass_refine_made_counts_as_made_and_a_queued_one_as_queued(client, store, fake):
+    done = then_refine_run(client, fake, runs=2, failing=(2, 4))
+    first, second = rows(store)
+    made = client.post("/api/refine/batch", json={"ids": [first.id], "scale": 1.5, "strength": 0.5})
+    assert made.status_code == 200, made.text
+    stream_job(client, made.json()["job_id"])
+    answer = preview(client, done["run_id"])
+    assert answer["available"] and answer["passes"] == 1
+    # A Mass refine of the other, still running: its pass is planned, not missing.
+    release, started = holding(fake)
+    try:
+        queued = client.post("/api/refine/batch", json={"ids": [second.id], "scale": 1.5, "strength": 0.5})
+        assert queued.status_code == 200, queued.text
+        assert started.wait(5)
+        held = preview(client, done["run_id"])
+        assert not held["available"] and held["reason"] == "the missing passes are already queued"
+    finally:
+        release.set()
+    stream_job(client, queued.json()["job_id"])
+    fake.after_generate = None
+    assert preview(client, done["run_id"])["reason"] == "nothing in this run is missing"
+
+
+def test_two_specs_in_one_run_are_refused_in_words(client, store, fake):
+    retain(store, [cell(1)], metadata={"then_refine": {"scale": 1.5, "strength": 0.4, "steps": None,
+                                                       "pass_run_id": "a"}})
+    run = retain(store, [cell(2)], metadata={"then_refine": {"scale": 2.0, "strength": 0.35, "steps": None,
+                                                             "pass_run_id": "b"}})
+    answer = preview(client, run)
+    assert not answer["available"]
+    assert answer["reason"] == (
+        f"this run's passes were made at 1.5× at 0.4 and at 2× at 0.35; Mass refine over run:{run} recovers either"
+    )
+    refused = client.post(f"/api/runs/{run}/finish", json={})
+    assert refused.status_code == 409 and refused.json()["detail"] == answer["reason"]
+    assert not fake.seeds
+
+
+def test_the_pin_changes_when_a_missing_pass_lands(client, store, fake):
+    done = then_refine_run(client, fake, runs=2, failing=(2, 4))
+    first, _ = rows(store)
+    answer = preview(client, done["run_id"])
+    assert answer["passes"] == 2
+    made = client.post("/api/refine/batch", json={"ids": [first.id], "scale": 1.5, "strength": 0.5})
+    stream_job(client, made.json()["job_id"])
+    refused = client.post(f"/api/runs/{done['run_id']}/finish", json={"expected": answer["pin"]})
+    assert refused.status_code == 409 and "changed" in refused.json()["detail"]
+    fresh = preview(client, done["run_id"])
+    assert fresh["passes"] == 1 and fresh["pin"] != answer["pin"]
+    finish(client, done["run_id"], fresh)
+
+
+def test_a_source_deleted_before_its_turn_is_a_failed_pass(client, store, fake):
+    done = then_refine_run(client, fake, runs=2, failing=(2, 4))
+    first, second = rows(store)
+    answer = preview(client, done["run_id"])
+    assert answer["passes"] == 2
+
+    def delete_second():
+        fake.after_generate = None
+        store.delete_image(second.id)
+
+    fake.after_generate = delete_second
+    accepted, finished = finish(client, done["run_id"], answer)
+    assert finished["failures"] == 1
+    (failed,) = finished["failed_cells"]
+    assert failed["label"] == f"pass of #{second.id}" and "deleted" in failed["error"]
+    assert [row.refine for row in rows(store) if row.refine is not None] == [first.id]
+    job = main.jobs.get(accepted["job_id"])
+    assert job.failed_indices == [] and job.cells == []

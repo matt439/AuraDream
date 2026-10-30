@@ -12,8 +12,7 @@ since met that prerequisite (a cold FLUX.1 Krea dev fp8 load peaked at
 so the card run itself is the one remaining step, and it waits on Matt's
 OK. The build items once filed under phase 3 are now rows of their own,
 added 2026-10-29: [phase 4](#phase-4-finish-run-adds-missing-passes),
-missing passes in Finish run (`GEN#35`, OPEN: Q4's answer was "a later
-phase", not "if wanted"); [phase 5](#phase-5-more-seeds-carries-the-pass),
+missing passes in Finish run (`GEN#35`, built 2026-10-30); [phase 5](#phase-5-more-seeds-carries-the-pass),
 More seeds carrying the pass (`GEN#37`, OPEN, Q5's "later"); and
 [several strengths per image](#decision-several-strengths-per-image)
 (`GEN#39`, DECISION: Q2's "if wanted" is Matt's yes or no).**
@@ -264,7 +263,7 @@ cells has no shared source.
   `run:<base run>` at the same numbers: its `rendered` status skips every
   base whose pass exists, and the rows it makes have the same keys (under
   Mass refine's run id). [Phase 4](#phase-4-finish-run-adds-missing-passes)
-  adds those passes to Finish's plan (Q4, `GEN#35`).
+  adds those passes to Finish's plan (Q4, `GEN#35`, built 2026-10-30).
 - **The pass run's own Finish.** It has no retained definition, so today's
   `finish_plan` would say "made before runs kept their cells: use the
   panel's Resume tick" (`backend/api_generate.py:179`), which is wrong.
@@ -417,7 +416,9 @@ and 5 and the decision below.
 
 ### Phase 4: Finish run adds missing passes
 
-**Status: `GEN#35`, OPEN, added 2026-10-29 (M, CPU/fake/browser only).**
+**Status: `GEN#35`, built 2026-10-30 (M, CPU/fake/browser only); added
+2026-10-29.** Built as designed below; what differs and the evidence are
+in [Phase 4 built](#phase-4-built) at the section's end.
 Matt took Q4's recommendation on 2026-10-24 ("i like recommended"): a
 later phase adds the missing passes to Finish's plan, and Mass refine over
 `run:<id>` recovers them until then (Q4 below; the answers paragraph,
@@ -524,6 +525,47 @@ press adds the pass to the strip and the pass run; `smoke-wide` and
 refine" drops "Finish does not yet add a missing pass", and
 `docs/rules.md`'s Then refine entry names `pass_sources`. No card stage:
 the pass is the refine pass already measured.
+
+#### Phase 4 built
+
+**Built, 2026-10-30.** `finish_plan`
+(`backend/api_generate.py`) reads the spec of every retained job carrying
+one, refuses two in words ("this run's passes were made at 1.5× at 0.4 and
+at 2× at 0.35; Mass refine over run:X recovers either"), builds each live
+base's pass with `then_refine.plan_passes` (now the one builder, which
+`JobManager._passes` calls too) and keeps those `not_yet_rendered` and
+`not_yet_planned` leave; the checks every kept cell gets (budget, steps,
+`unusable_input`) run on them, and `refine_unavailable` where a spec is
+carried. `FinishRunPreview` and `FinishRunAccepted` gain `passes`; the pin
+hashes the pass keys; the held words gain "the missing passes are already
+queued" and "the missing cells and passes are already queued". The route
+passes `then_refine=plan.spec, pass_sources=[...]` to `submit_cells`, which
+plans the sources' passes at submit (`Job.source_passes`, in `planned_keys`
+until each unit has run) and retains `pass_sources` in the metadata. The
+worker runs each source as a unit before the first cell
+(`_stops_before` is the one boundary check for both kinds of unit;
+`_source_pass` re-reads the base with `include_binned` so the failure says
+"deleted" or "moved to the recycle bin"; `_pass_failed` is the one pass
+failure path). `job.run`/`total_runs` count the pass units first; a job
+of passes alone takes its request, seed, sizes and estimate from its first
+pass and its `one_source` is none. The snapshot adds `pass_sources` and
+counts them in `planned_images`; the page's `unitWord` takes them off
+before deciding batch or image, and `finishRunWords` and the sheet's run
+line add "N missing passes". Deviations: none in behaviour. Two wording
+changes outside the plan: the Skip hold during a pass now reads "Then
+refine passes cannot be skipped: Finish run adds a pass a stop left
+missing" (it said Finish recovered base cells only), with
+`smoke-queue-controls` and `docs/plan-queue-controls.md` following; and
+the agreed spec is what Finish passes back even where the run's first
+retained job was a plain one (the plan's "where they agree, that spec").
+Evidence: `tests/test_api_finish_run.py` (six tests: cancel on a pass,
+binned base, Mass refine made and queued, two specs, the pin, a source
+deleted before its turn) and `tests/test_then_refine.py` (four: pause with
+`planned_keys`, budget, cancel, three failures in a row); the new
+`smoke-then-refine` step (a Generate cancelled on its pass, "Finish 1
+missing pass of run …", the pass in the strip and the pass run), with
+`smoke-wide`, `smoke-narrow`, `smoke-jobs`, `smoke-results` and
+`smoke-queue-controls` passing unchanged in their layout.
 
 ### Phase 5: More seeds carries the pass
 

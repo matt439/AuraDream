@@ -22,9 +22,16 @@ const finishIdentity = () => JSON.stringify([serverStartedAt, modelRevision, loa
 const finishContext = () => JSON.stringify([finishIdentity(), finishServerStamp]);
 const finishTools = () => [...document.querySelectorAll('button.finish-run-tool[data-run]')];
 
+// A Then refine run's bases saved without their pass (a stop between the
+// stages) are missing passes the server adds before its cells.
+const missingPasses = (n) => `${n} missing pass${n === 1 ? '' : 'es'}`;
+
 function finishRunWords(run, preview) {
   if (!preview?.available) return preview?.reason || 'Checking Finish run.';
-  const count = `${plural(preview.images, 'image')} in ${plural(preview.cells, 'missing cell')}`;
+  const count = [
+    preview.cells ? `${plural(preview.images, 'image')} in ${plural(preview.cells, 'missing cell')}` : '',
+    preview.passes ? missingPasses(preview.passes) : '',
+  ].filter(Boolean).join(' and ');
   const redraw = preview.redrawn ? `; ${plural(preview.redrawn, 'permanently deleted cell')} will be redrawn` : '';
   const budget = preview.budget_minutes ? `; original ${preview.budget_minutes}-minute budget` : '';
   return `Finish ${count} of run ${run}${redraw}${budget}`;
@@ -63,7 +70,8 @@ function syncFinishRunButtons() {
     const state = finishRuns.get(line.dataset.run);
     const preview = state?.preview;
     const extra = preview?.available
-      ? `${plural(preview.cells, 'missing cell')}${preview.redrawn ? `; ${preview.redrawn} deleted to redraw` : ''}`
+      ? [preview.cells ? plural(preview.cells, 'missing cell') : '', preview.passes ? missingPasses(preview.passes) : '']
+        .filter(Boolean).join(' and ') + (preview.redrawn ? `; ${preview.redrawn} deleted to redraw` : '')
       : state?.pending ? 'checking Finish run' : preview?.reason || state?.error || '';
     line.dataset.base = sheetRunStatus(line.dataset.run);
     line.textContent = `${line.dataset.base}${extra ? ` · ${extra}` : ''}`;

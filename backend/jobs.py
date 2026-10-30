@@ -31,7 +31,7 @@ from .latent_preview import data_url
 from .more_seeds_intents import IntentLedger
 from .schemas import GenerateRequest, ThenRefine
 from .seeds import random_seed, wrap_seed
-from .then_refine import execution_units, pass_run_id, stand_in
+from .then_refine import execution_units, pass_run_id, plan_passes, stand_in
 
 log = logging.getLogger(__name__)
 
@@ -178,6 +178,13 @@ class Job:
     pass_run_id: str | None = None
     stage: str | None = None
     pending_passes: list[Cell] = field(default_factory=list)
+    # Finish run's missing passes: the gallery ids of bases saved without
+    # their pass (a cancel or a failure between the stages). Each is a unit
+    # of its own, run before the first base cell; `source_passes` are their
+    # pass cells as planned at submit, so `planned_keys` counts them from the
+    # start, and each leaves the list once its unit has run.
+    pass_sources: list[int] = field(default_factory=list)
+    source_passes: list[Cell] = field(default_factory=list)
     # One queue per attached stream. A single shared queue is destructive: a
     # reconnecting client that overlaps the stream it replaces splits the events
     # between the two readers, and only one of them ever sees `done`.
@@ -295,7 +302,7 @@ class Job:
             else "This job is stopping" if self.cancel_requested
             else "No cell is running while this job is queued" if self.status == "queued"
             else "Resume this job before skipping a cell" if self.paused
-            else "Then refine passes cannot be skipped: Finish run recovers base cells only"
+            else "Then refine passes cannot be skipped: Finish run adds a pass a stop left missing"
             if self.stage == "pass"
             else "No cell is running between calls" if call is None
             else "Skipping this cell after the current step" if skipping
@@ -308,8 +315,9 @@ class Job:
         """The refine source, mask and outpaint every cell shares, else
         (None, None, None): what names the job "refine of #N", "inpaint of
         #N" or "outpaint of #N". A job's cells are fixed when it is made; a
-        batch refine is named by its scale."""
-        if self.refine_batch is not None:
+        batch refine is named by its scale, and a job of Finish run's
+        missing passes alone by its Then refine."""
+        if self.refine_batch is not None or not self.cells:
             return None, None, None
         shared = {(cell.request.refine, cell.request.mask, cell.request.outpaint) for cell in self.cells} or {
             (self.request.refine, self.request.mask, self.request.outpaint)
@@ -324,14 +332,15 @@ class Job:
         failing images said "after 3 cells failed"."""
         if self.grid:
             return "cell"
-        if sum(cell.request.num_images for cell in self.cells) > self.total_runs:
+        if sum(cell.request.num_images for cell in self.cells) > len(self.cells):
             return "batch"
         return "image"
 
     @functools.cached_property
     def canvas_sizes(self) -> list[tuple[int, int]]:
-        """Concrete canvases, fixed with the retained cells rather than their header."""
-        return sorted({(cell.request.width, cell.request.height) for cell in self.cells})
+        """Concrete canvases, fixed with the retained cells rather than their
+        header; a job of missing passes alone, its passes'."""
+        return sorted({(cell.request.width, cell.request.height) for cell in self.cells or self.source_passes})
 
     def units(self, count: int) -> str:
         """`count` of the job's units: "1 image", "3 batches"."""
@@ -384,9 +393,11 @@ class Job:
             "height": self.request.height,
             "sizes": self.canvas_sizes,
             "size_count": len(self.canvas_sizes),
-            # With Then refine every image has its pass after it.
+            # With Then refine every image has its pass after it, and Finish
+            # run's missing passes come first, one image each.
             "planned_images": sum(cell.request.num_images for cell in self.cells)
-            * (2 if self.then_refine is not None else 1),
+            * (2 if self.then_refine is not None else 1) + len(self.pass_sources),
+            "pass_sources": list(self.pass_sources),
             "then_refine": None if self.then_refine is None else self.then_refine.model_dump(),
             "pass_run_id": self.pass_run_id,
             "stage": self.stage,
@@ -607,7 +618,7 @@ class JobManager:
         planned: dict[tuple[int, int], set[CellKey]] = {}
         editable = self.backend.instruction_edit_refusal(current_settings(settings)) is None
         for job in self.active():
-            for cell in [*job.cells, *list(job.pending_passes)]:
+            for cell in [*job.cells, *list(job.pending_passes), *list(job.source_passes)]:
                 if cell.request.edit is not None and not editable:
                     # Its backend has closed the gate since, or the selection
                     # left the measured envelope: the cell fails as it begins
@@ -794,14 +805,17 @@ class JobManager:
     @staticmethod
     async def _price(
         job_id: str, cells: list[Cell], then_refine: ThenRefine | None, model_id: str,
+        source_passes: list[Cell] | None = None,
     ) -> float | None:
         """The job's time from matching history, off the loop and without a
-        PNG stat: the cells as the worker runs them, each followed by Then
-        refine's stand-in passes, as the grid preview prices them. Never a
-        reason to refuse the job - a busy gallery or any error is None."""
+        PNG stat: Finish run's missing passes, then the cells as the worker
+        runs them, each followed by Then refine's stand-in passes, as the
+        grid preview prices them. Never a reason to refuse the job - a busy
+        gallery or any error is None."""
         try:
             return await asyncio.to_thread(
-                gallery_reports.job_seconds, execution_units(cells, then_refine), model_id,
+                gallery_reports.job_seconds, [*(source_passes or []), *execution_units(cells, then_refine)],
+                model_id,
             )
         except Exception as exc:
             log.warning("job %s: no time estimate (%s)", job_id, exc)
@@ -841,6 +855,7 @@ class JobManager:
         refine_batch: float | None = None,
         more_seeds: int | None = None,
         then_refine: ThenRefine | None = None,
+        pass_sources: list[int] | None = None,
     ) -> Job:
         """Queue an already-expanded list of pipeline calls - a grid, usually.
 
@@ -855,7 +870,22 @@ class JobManager:
         Swap tags' rows (`swap`), Mass refine's scale (`refine_batch`),
         More seeds' count (`more_seeds`) and Then refine's pass of every image
         (`then_refine`, its strength resolved by the route).
+
+        `pass_sources` are Finish run's missing passes: the gallery ids of
+        bases of this run saved without their Then refine pass, each run as
+        a unit of its own before the first cell. They need `then_refine` and
+        `run_id`, and `cells` may then be empty - a run missing only passes -
+        where the job's request is its first pass's.
         """
+        sources = list(dict.fromkeys(pass_sources or []))
+        if sources and (then_refine is None or run_id is None):
+            raise ValueError("missing passes need their run's Then refine and run id")
+        source_passes = (
+            await asyncio.to_thread(self._plan_source_passes, sources, then_refine)
+            if sources and then_refine is not None else []
+        )
+        if not cells and not source_passes:
+            raise ValueError("nothing to queue: every base whose pass was missing has gone since the check")
         # Internal model_copy cells bypass request validation. Refuse the
         # whole batch before stamping masks, retaining work or starting a load,
         # including callers that supply their own run id. Stamped outpaints
@@ -902,14 +932,19 @@ class JobManager:
                     f"the outpaint's mask could not be written: {exc.strerror or exc}"
                 ) from exc
         resolved_run_id = run_id or _run_id(cells, selected.model_id, selected.quantization)
+        # A job of missing passes alone reads its first pass where a job
+        # reads its first cell: its request, seed, size and batch.
+        first = (cells or source_passes)[0]
         job = Job(
             id=uuid.uuid4().hex[:12],
-            request=cells[0].request,
+            request=first.request,
             cells=cells,
-            seed=cells[0].seed,
+            seed=first.seed,
             run_id=resolved_run_id,
-            total_steps=progress_steps(cells[0].request),
-            total_runs=len(cells),
+            total_steps=progress_steps(first.request),
+            total_runs=len(sources) + len(cells),
+            pass_sources=sources,
+            source_passes=source_passes,
             deadline=time.time() + budget_minutes * 60 if budget_minutes else None,
             grid=grid,
             prompt_template=prompt_template,
@@ -921,7 +956,7 @@ class JobManager:
         )
         if then_refine is not None:
             job.pass_run_id = pass_run_id(resolved_run_id, then_refine)
-        job.estimate_seconds = await self._price(job.id, cells, then_refine, selected.model_id)
+        job.estimate_seconds = await self._price(job.id, cells, then_refine, selected.model_id, source_passes)
         # Held where every process's mask sweep looks, before the job is
         # queued: a CLI `clear --bin` an hour on must not take the mask of a
         # cell still waiting its turn (`storage.hold_masks`).
@@ -960,6 +995,7 @@ class JobManager:
                 "then_refine": None if then_refine is None else {
                     **then_refine.model_dump(), "pass_run_id": job.pass_run_id,
                 },
+                **({"pass_sources": sources} if sources else {}),
             },
         }
         try:
@@ -985,9 +1021,9 @@ class JobManager:
         # grid started from the browser used to leave nothing in the log unless
         # it broke, where the CLI writes one line per cell when redirected.
         log.info(
-            "job %s queued: %d cell(s), run %s, seed %s, %dx%d",
-            job.id, len(cells), job.run_id, job.seed,
-            cells[0].request.width, cells[0].request.height,
+            "job %s queued: %d cell(s)%s, run %s, seed %s, %dx%d",
+            job.id, len(cells), f" and {len(sources)} missing pass(es)" if sources else "",
+            job.run_id, job.seed, job.request.width, job.request.height,
         )
         # Keep the dict from growing without bound over a long session.
         if len(self._jobs) > 200:
@@ -1239,11 +1275,12 @@ class JobManager:
         # The live class may disagree with the profile used at submit. Check
         # the entire job before it saves anything, rather than fail each cell
         # or quietly normalize its source away.
-        for cell in job.cells:
+        for cell in [*job.cells, *job.source_passes]:
             self.backend.check_refine_supported(cell.request)
         # And a stand-in of the passes Then refine will run: a profile's guess
-        # a load contradicts fails here, before the first base image.
-        if job.then_refine is not None:
+        # a load contradicts fails here, before the first base image. A job
+        # of missing passes alone has checked its passes themselves above.
+        if job.then_refine is not None and job.cells:
             self.backend.check_refine_supported(stand_in(job.cells[0].request, job.then_refine))
 
         def should_cancel() -> bool:
@@ -1300,20 +1337,24 @@ class JobManager:
         # Then refine's passes in a row that failed, apart from the cells':
         # a base made between them does not say the pass size will work.
         pass_streak = 0
-        for index, cell in enumerate(job.cells):
-            if job.cancel_requested:
+        # Finish run's missing passes first, each a unit of its own: pause,
+        # the budget and cancel act at its boundary as at a cell's, and its
+        # failures count under the pass streak.
+        for position, source in enumerate(job.pass_sources):
+            if self._stops_before(job, loop, position):
                 return True
-            if job.pause_requested:
-                self._hold(job, loop, index)
-                if job.cancel_requested:
-                    return True
-            # The budget means "start no cell after": a cell in flight runs to
-            # its end, and what was not reached is a resume, not a loss.
-            if job.deadline is not None and time.time() > job.deadline:
-                job.stopped_by = "budget"
-                log.info(
-                    "job %s: time budget reached before cell %d/%d", job.id, index + 1, len(job.cells)
+            job.run, job.step, job.label = position + 1, 0, f"pass of #{source}"
+            try:
+                cancelled, pass_streak = self._source_pass(
+                    job, loop, source, pass_streak, on_progress, should_cancel, on_preview,
                 )
+            finally:
+                job.source_passes = [c for c in job.source_passes if c.request.refine != source]
+            if cancelled:
+                return True
+        offset = len(job.pass_sources)
+        for index, cell in enumerate(job.cells):
+            if self._stops_before(job, loop, offset + index):
                 return True
             req, seed = cell.request, cell.seed
             # A grid varies the step count between cells, so the totals the
@@ -1321,12 +1362,12 @@ class JobManager:
             # refine cell the part of the schedule its strength leaves, until
             # the first callback says what the pipeline made of that. Without
             # the images: they were each delivered as their own event already.
-            job.run, job.step, job.label = index + 1, 0, cell.label
+            job.run, job.step, job.label = offset + index + 1, 0, cell.label
             job.total_steps = progress_steps(req)
             call = job.begin_call()
             log.info(
                 "job %s: cell %d/%d seed %d%s",
-                job.id, index + 1, len(job.cells), seed, f"  {cell.label}" if cell.label else "",
+                job.id, offset + index + 1, job.total_runs, seed, f"  {cell.label}" if cell.label else "",
             )
             self._emit(loop, job, {"type": "status", **job.snapshot(images=False)})
 
@@ -1413,11 +1454,73 @@ class JobManager:
 
     @staticmethod
     def _units(job: Job) -> int:
-        """What the failure rule's share is of: the cells, and under Then
-        refine every image's pass beside them."""
+        """What the failure rule's share is of: the cells, under Then refine
+        every image's pass beside them, and Finish run's missing passes."""
         if job.then_refine is None:
             return len(job.cells)
-        return len(job.cells) + sum(cell.request.num_images for cell in job.cells)
+        return len(job.cells) + sum(cell.request.num_images for cell in job.cells) + len(job.pass_sources)
+
+    def _stops_before(self, job: Job, loop: asyncio.AbstractEventLoop, position: int) -> bool:
+        """A unit's boundary, `position` its zero-based place in the job:
+        True where the job ends here - a cancel, or the budget - after any
+        pause has held."""
+        if job.cancel_requested:
+            return True
+        if job.pause_requested:
+            self._hold(job, loop, position)
+            if job.cancel_requested:
+                return True
+        # The budget means "start no cell after": a cell in flight runs to
+        # its end, and what was not reached is a resume, not a loss.
+        if job.deadline is not None and time.time() > job.deadline:
+            job.stopped_by = "budget"
+            log.info("job %s: time budget reached before unit %d/%d", job.id, position + 1, job.total_runs)
+            return True
+        return False
+
+    def _pass_failed(self, job: Job, label: str, seed: int | None, exc: Exception, streak: int) -> int:
+        """A Then refine pass's failure: reported as `label`, counted in
+        `failures` and the pass streak, never in `failed_indices` (they index
+        the cells). Raises `exc` where the failure rule ends the job; else
+        the streak."""
+        streak += 1
+        job.failures += 1
+        job.error = short_error(exc)
+        job.failed_cells.append({"label": label, "seed": seed, "error": job.error})
+        log.error("job %s: %s failed: %s", job.id, label, exc)
+        log.debug("pass traceback", exc_info=exc)
+        if self._too_many_failures(streak, job.failures, self._units(job)):
+            job.stopped_by = "failures"
+            raise exc
+        return streak
+
+    def _source_pass(self, job, loop, source, streak, on_progress, should_cancel, on_preview):
+        """One of Finish run's missing passes: its base re-read by id at its
+        turn and passed through the stage every base's passes run through.
+        A base binned or deleted since the check is a failed pass in those
+        words, never a crash. (cancelled, streak)."""
+        label = f"pass of #{source}"
+        record = storage.get_image(source, include_binned=True)
+        if record is None or record.binned_at is not None:
+            where = "deleted" if record is None else "moved to the recycle bin"
+            planned = next((c for c in job.source_passes if c.request.refine == source), None)
+            streak = self._pass_failed(
+                job, label, planned.seed if planned is not None else None,
+                ValueError(f"#{source} was {where} after Finish run was checked; its pass was not made"), streak,
+            )
+            self._emit(loop, job, {"type": "status", **job.snapshot(images=False)})
+            return False, streak
+        return self._passes(job, loop, [record], streak, on_progress, should_cancel, on_preview)
+
+    @staticmethod
+    def _plan_source_passes(sources: list[int], spec: ThenRefine) -> list[Cell]:
+        """Finish run's missing passes as cells, read from the gallery at
+        submit: what `planned_keys` counts until each unit runs. A source
+        gone since the check plans nothing here; its unit reports it."""
+        from .refine_batch import QUEUED
+
+        records = storage.get_images(sources)
+        return [p.cell for p in plan_passes(records, spec) if p.status == QUEUED]
 
     def _passes(self, job, loop, records, streak, on_progress, should_cancel, on_preview):
         """Then refine's stage: a pass of each record a cell just saved, run
@@ -1429,19 +1532,9 @@ class JobManager:
         which a base made between them does not reset) or the share - but is
         no failed cell: the base cell did complete, and Finish reads
         `failed_indices` as cells. (cancelled, streak)."""
-        from .model_defaults import defaults_for
-        from .model_selection import current_model_id
-        from .refine_batch import QUEUED, plan
+        from .refine_batch import QUEUED
 
-        spec = job.then_refine
-        running = current_model_id(settings)
-        planned = [
-            plan(
-                record, running=running, profile=defaults_for(running), scale=spec.scale,
-                strength=spec.strength, steps=spec.steps, include_foreign=False, skip_passes=False,
-            )
-            for record in records
-        ]
+        planned = plan_passes(records, job.then_refine)
         job.pending_passes = [p.cell for p in planned if p.status == QUEUED]
         try:
             for outcome in planned:
@@ -1468,15 +1561,7 @@ class JobManager:
                     log.info("job %s cancelled during %s", job.id, label)
                     return True, streak
                 except Exception as exc:  # noqa: BLE001 - a pass's failure, not the night's
-                    streak += 1
-                    job.failures += 1
-                    job.error = short_error(exc)
-                    job.failed_cells.append({"label": label, "seed": outcome.record.seed, "error": job.error})
-                    log.error("job %s: %s failed: %s", job.id, label, exc)
-                    log.debug("pass traceback", exc_info=True)
-                    if self._too_many_failures(streak, job.failures, self._units(job)):
-                        job.stopped_by = "failures"
-                        raise
+                    streak = self._pass_failed(job, label, outcome.record.seed, exc, streak)
                     continue
                 finally:
                     if outcome.cell in job.pending_passes:
@@ -1505,7 +1590,7 @@ class JobManager:
             self.backend.free_cache()
         except Exception:  # noqa: BLE001 - a pause must not fail the night
             log.debug("free_cache failed", exc_info=True)
-        log.info("job %s paused before cell %d/%d", job.id, index + 1, len(job.cells))
+        log.info("job %s paused before unit %d/%d", job.id, index + 1, job.total_runs)
         self._emit(loop, job, {"type": "status", **job.snapshot(images=False)})
         loop.call_soon_threadsafe(self._relabel_queued, loop)
         held_from = time.monotonic()
@@ -1521,7 +1606,7 @@ class JobManager:
         job.paused = False
         job.paused_at = None
         if not job.cancel_requested:
-            log.info("job %s resumed at cell %d/%d", job.id, index + 1, len(job.cells))
+            log.info("job %s resumed at unit %d/%d", job.id, index + 1, job.total_runs)
             self._emit(loop, job, {"type": "status", **job.snapshot(images=False)})
         loop.call_soon_threadsafe(self._relabel_queued, loop)
 

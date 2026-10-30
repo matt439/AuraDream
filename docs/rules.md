@@ -5182,7 +5182,21 @@ Frontend and CLI:
   carries `then_refine`, `pass_run_id`, `stage` ("pass") and
   `planned_images` doubled; the retained metadata `then_refine` with its
   `pass_run_id`, which Finish passes back, and a pass run's Finish names
-  its base run (`storage.retained_run_metadata`). The grid preview gives
+  its base run (`storage.retained_run_metadata`). Finish adds the passes a
+  stop left missing: where the run's retained jobs agree on one spec (two
+  are refused in words), each live, unbinned base those jobs saved whose
+  pass (`then_refine.plan_passes`, Mass refine's cell) neither the gallery
+  (`not_yet_rendered`) nor the queue (`not_yet_planned`) holds is queued
+  as `submit_cells(pass_sources=...)`: `Job.pass_sources`, a unit each
+  before the first cell (pause, the budget and cancel at its boundary, its
+  failures under the pass streak and in `_units`), its base re-read by id
+  at its turn (binned or deleted since is a failed pass in words), its
+  planned pass in `job.source_passes` and so in `planned_keys` from submit.
+  A run missing only passes is a job with no cells, whose request is its
+  first pass's; the retained metadata adds `pass_sources`. The preview's
+  `passes` counts them, its pin hashes their keys, and "the missing passes
+  are already queued" or "nothing in this run is missing" hold it; the
+  page's words add "and N missing passes" (`finishRunWords`). The grid preview gives
   `passes`, `pass_width`/`pass_height`, the passes' time at the pass size
   and disk, budget seeds pricing each cell with its passes, and the pass's
   start sigma. The page's opener, `#then-refine-open`, ends the Notify
@@ -7232,7 +7246,13 @@ equal to Mass refine's and reported `rendered`, the base rows a plain
 Generate's, every refusal in words, a failed pass kept off
 `failed_indices`, three in a row ending the job, a cancel inside a pass
 keeping the base, a grid's passes and retained spec, a pass run's Finish
-naming its base, Finish carrying the spec, and the preview's passes;
+naming its base, Finish carrying the spec, the preview's passes, and
+Finish run's missing passes as units under pause, the budget, cancel and
+the failure streak, planned from submit; `tests/test_api_finish_run.py`
+the missing passes themselves (a cancel on a pass finished under the pass
+run with Mass refine's key, a binned base skipped, a pass Mass refine made
+or has queued counted, two specs refused in words, the pin moving when a
+pass lands, a base deleted before its turn a failed pass);
 `tests/test_cli.py` the CLI's passes equal to the server's and its flag
 refusals. `smoke-then-refine.json` uses a fresh FLUX.1 Krea [dev] fake on
 7912 with `--step 0.3`: the opener ending the Notify row at its height,
@@ -7241,8 +7261,10 @@ words and titles, the hint's pass size, Generate and the grid fold not
 moving, Escape closing it, a batch of two making its bases then their passes with the pass
 in the cell line, the pass rows' size, strength, seeds and run, the grid
 preview's passes, the tick off after a reload with the strength
-remembered, and the tick held with `REFINE_NONE` on a status stubbed to no
-pass:
+remembered, the tick held with `REFINE_NONE` on a status stubbed to no
+pass, and a Generate cancelled on its pass whose finish line's Finish run
+says "Finish 1 missing pass of run …" and, pressed, puts the pass in the
+strip and the pass run:
 
 ```powershell
 uv run python tools/fake_server.py --port 7912 --model black-forest-labs/FLUX.1-Krea-dev --step 0.3 --data <new-scratch-directory>

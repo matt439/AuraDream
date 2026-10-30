@@ -123,9 +123,11 @@ function holdTitle(text) {
 // "run 2/3" a fourth meaning of run.
 function unitWord(job) {
   if (job?.grid) return 'cell';
-  // Then refine's passes are no part of a batch: half the planned images.
-  const made = (job?.planned_images ?? 0) / (job?.then_refine ? 2 : 1);
-  return made > (job?.total_runs || 1) ? 'batch' : 'image';
+  // Then refine's passes are no part of a batch: half the planned images,
+  // after Finish run's missing passes (one image each) are taken off.
+  const sources = job?.pass_sources?.length ?? 0;
+  const made = ((job?.planned_images ?? 0) - sources) / (job?.then_refine ? 2 : 1);
+  return made > ((job?.total_runs || 1) - sources || 1) ? 'batch' : 'image';
 }
 
 // The cell line, under the bars: a pause on its way or taken, which cell of a

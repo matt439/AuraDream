@@ -97,6 +97,33 @@ def refusal(requests: list[GenerateRequest], spec: ThenRefine, unavailable: str 
     return None
 
 
+def plan_passes(records: list, spec: ThenRefine) -> list:
+    """Each record's pass, as Mass refine plans it (`refine_batch.plan`) on
+    the running checkpoint, a `Planned` each: the one place a Then refine
+    pass is built - by the worker after a base's save, and by Finish run for
+    a base saved without its pass."""
+    from .model_defaults import defaults_for
+    from .model_selection import current_model_id
+    from .refine_batch import plan
+
+    strength = resolved(spec).strength
+    assert strength is not None, "a resolved spec names its strength"
+    running = current_model_id(settings)
+    return [
+        plan(
+            record, running=running, profile=defaults_for(running), scale=spec.scale,
+            strength=strength, steps=spec.steps, include_foreign=False, skip_passes=False,
+        )
+        for record in records
+    ]
+
+
+def words(spec: ThenRefine) -> str:
+    """The spec as the page says it: "1.5× at 0.4", its steps where set."""
+    steps = f", {spec.steps} steps" if spec.steps else ""
+    return f"{spec.scale:g}× at {spec.strength:g}{steps}"
+
+
 def pass_run_id(base_run_id: str, spec: ThenRefine) -> str:
     """The run the passes are saved under, separate from their bases and
     the same for every job that continues the base run, so a

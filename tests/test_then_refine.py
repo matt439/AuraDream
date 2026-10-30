@@ -170,6 +170,102 @@ def test_the_preview_counts_the_passes(client, fake, store):
     assert plain["passes"] == 0 and plain["pass_width"] is None
 
 
+def _missing_passes(client, fake, runs):
+    """A run of `runs` bases whose every pass failed: Finish run's missing
+    passes, `runs` of them. The fake counts calls across the test."""
+    first = len(fake.requests)
+    fake.fail_on = {first + 2 * n for n in range(1, runs + 1)}
+    _, events = run_one(client, runs=runs, seed=130, steps=8, then_refine=SPEC)
+    fake.fail_on = set()
+    run_id = events[-1]["run_id"]
+    preview = client.post(f"/api/runs/{run_id}/finish/preview", json={}).json()
+    assert preview["available"] and (preview["cells"], preview["passes"]) == (0, runs), preview
+    return run_id, preview
+
+
+def _finish(client, run_id, preview):
+    response = client.post(f"/api/runs/{run_id}/finish", json={"expected": preview["pin"]})
+    assert response.status_code == 200, response.text
+    return response.json()["job_id"]
+
+
+def test_missing_passes_run_as_units_that_pause_between_them(client, fake, store):
+    from backend import main
+
+    run_id, preview = _missing_passes(client, fake, 2)
+    bases = [r for r in _rows(store) if r.refine is None]
+    spec = then_refine.resolved(ThenRefine(**SPEC))
+    second = then_refine.plan_passes([bases[1]], spec)[0].cell
+
+    def pause_after_the_first():
+        fake.after_generate = None
+        for job in main.jobs.active():
+            main.jobs.pause(job.id, True)
+
+    fake.after_generate = pause_after_the_first
+    job_id = _finish(client, run_id, preview)
+    paused = wait_for(client, job_id, lambda s: s["paused"], timeout=20)
+    assert paused["image_count"] == 1 and paused["run"] == 1 and paused["total_runs"] == 2
+    assert paused["planned_images"] == 2 and paused["pass_sources"] == [b.id for b in bases]
+    # The pass still to run is planned, so a Mass refine or a Finish meanwhile
+    # does not queue it again; the one made has left the plan.
+    planned = main.jobs.planned_keys()
+    ran = grid.Cell(request=fake.applied(second.request), seed=second.seed)
+    assert set(grid.cell_keys(ran)) <= planned[(384, 384)]
+    again = client.post(f"/api/runs/{run_id}/finish/preview", json={}).json()
+    assert not again["available"] and "queued" in again["reason"]
+    client.post(f"/api/jobs/{job_id}/pause", params={"value": "false"})
+    done = stream_job(client, job_id)[-1]
+    assert done["status"] == "done" and len(done["images"]) == 2
+    assert {r.refine for r in _rows(store) if r.refine is not None} == {b.id for b in bases}
+    assert main.jobs.planned_keys() == {}
+
+
+def test_a_budget_stops_missing_passes_between_units(client, fake, store, monkeypatch):
+    from backend import main
+
+    run_id, preview = _missing_passes(client, fake, 2)
+    # The budget is the retained job's: 3 s, and each pass takes 4 s.
+    real = storage.retained_run_jobs
+
+    def budgeted(run=None):
+        found = real(run)
+        for saved in found:
+            saved["metadata"]["budget_minutes"] = 0.05
+        return found
+
+    monkeypatch.setattr(storage, "retained_run_jobs", budgeted)
+    preview = client.post(f"/api/runs/{run_id}/finish/preview", json={}).json()
+    fake.step_seconds = 1.0
+    done = stream_job(client, _finish(client, run_id, preview))[-1]
+    assert done["stopped_by"] == "budget" and len(done["images"]) == 1
+    assert main.jobs.get(done["job_id"]).failures == 0
+
+
+def test_a_cancel_stops_inside_a_missing_pass(client, fake, store):
+    run_id, preview = _missing_passes(client, fake, 2)
+    fake.step_seconds = 0.05
+    job_id = _finish(client, run_id, preview)
+    wait_for(client, job_id, lambda s: s["stage"] == "pass", timeout=20)
+    client.post(f"/api/jobs/{job_id}/cancel")
+    done = stream_job(client, job_id)[-1]
+    assert done["status"] == "cancelled" and done["images"] == []
+    assert not [r for r in _rows(store) if r.refine is not None]
+
+
+def test_missing_passes_failing_three_in_a_row_end_the_job(client, fake, store):
+    from backend import main
+
+    run_id, preview = _missing_passes(client, fake, 3)
+    bases = [r for r in _rows(store) if r.refine is None]
+    fake.fail_on = {len(fake.requests) + n for n in (1, 2, 3)}
+    done = stream_job(client, _finish(client, run_id, preview))[-1]
+    assert done["status"] == "error" and done["stopped_by"] == "failures"
+    assert [c["label"] for c in done["failed_cells"]] == [f"pass of #{b.id}" for b in bases]
+    job = main.jobs.get(done["job_id"])
+    assert job.failed_indices == [] and job.cells == [] and job.failures == 3
+
+
 def test_finish_run_carries_then_refine(client, fake, store):
     fake.fail_on = {1}
     _, events = run_grid(client, seed=120, steps_axis="6,8", then_refine=SPEC)

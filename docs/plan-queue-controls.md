@@ -27,10 +27,10 @@ Owner: [2026-10-24 review, G7](review-2026-10-24.md#g7-queue-move-to-front-and-s
   cannot discard a completed image or carry into the next call. Pause remains
   cooperative at the next cell boundary. Skip is held while queued, loading,
   paused, saving or otherwise between calls; there is no running cell there.
-- Dynamic Then refine passes are not retained cells: Finish currently only
-  compares the base cells. Skip is therefore held during that stage with a
-  clear reason. Standalone Refine/inpaint/outpaint jobs remain ordinary cells
-  and support Skip. Extending pass-only recovery is separate work.
+- Dynamic Then refine passes are not retained cells. Skip is held during
+  that stage with a clear reason; since `GEN#35` (2026-10-30) Finish run
+  adds a pass a stop left missing, which the reason names. Standalone
+  Refine/inpaint/outpaint jobs remain ordinary cells and support Skip.
 
 ## Implementation
 

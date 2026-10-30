@@ -165,6 +165,9 @@ class FinishRunPreview(BaseModel):
     queued: int = 0
     # Previously completed cells now missing, redrawn by this submission.
     redrawn: int = 0
+    # Then refine passes of bases saved without them (a cancel or a failure
+    # between the stages), which this submission adds before its cells.
+    passes: int = 0
     budget_minutes: float | None = None
     pin: str
 
@@ -191,6 +194,7 @@ class FinishRunAccepted(JobAccepted):
     pruned: int = 0
     planned: int = 0
     redrawn: int = 0
+    passes: int = 0
     budget_minutes: float | None = None
 
 
