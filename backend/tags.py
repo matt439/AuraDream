@@ -18,7 +18,9 @@ from urllib.error import HTTPError, URLError
 from urllib.parse import urlencode
 from urllib.request import Request, urlopen
 
-_API_BASE = "https://safebooru.donmai.us"
+# Safebooru's Cloudflare answers every non-browser client with a 403 challenge
+# page (checked 2026-10-30); the main host still serves the tag API.
+_API_BASE = "https://danbooru.donmai.us"
 _CATEGORIES = {0: "general", 1: "artist", 3: "copyright", 4: "character", 5: "meta"}
 _YEAR_TAG = re.compile(r"year \d{4}", re.IGNORECASE)
 
