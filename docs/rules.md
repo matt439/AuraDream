@@ -6801,7 +6801,10 @@ HTTP guards. `tests/test_docs_maps.py` holds `CLAUDE.md` to the one
 named in the Layout above (the stylesheets in `index.html`'s link order, and
 its count of classic scripts); and every `tools/smoke*.json` in `AGENTS.md`'s
 port table, on the row whose port its first `navigate` uses, and named
-below - so a new file is added to the maps with it.
+below; and every `/api/fake/...` route and command-line flag
+`tools/fake_server.py` registers (read as text, never imported), named in
+both `AGENTS.md` and this file - so a new file, knob or flag is added to the
+maps with it.
 
 `tests/test_search_area.py` checks comparison-only actual MP filters through
 actual SQLite: inclusive/exclusive and one-pixel boundaries, zero/tiny values,

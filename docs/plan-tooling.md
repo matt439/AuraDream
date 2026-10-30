@@ -665,7 +665,8 @@ but timed in CI on Linux.
 
 ## Fake-server knob map (2026-10-29, DEV#26)
 
-**Status:** `DEV#26` OPEN, recorded 2026-10-29 from the TODO audit. Not built.
+**Status:** `DEV#26` built and checked 2026-10-30 (see Results); recorded
+2026-10-29 from the TODO audit.
 
 ### Evidence
 
@@ -706,3 +707,19 @@ table to their files but not the fake's routes or flags.
    AGENTS.md naming `/api/fake/model` as missing, passes after the
    one-line AGENTS.md addition, and the rest of `tests/test_docs_maps.py`
    and ruff pass.
+
+### Results
+
+**Stage 1, 2026-10-30.** Recounted from `tools/fake_server.py`: the same
+eight `/api/fake/...` routes and seven flags as the Evidence lists.
+`tests/test_docs_maps.py::test_every_fake_route_and_flag_is_in_agents_and_rules`
+reads the fake as text (routes from `@app_main.app.post("/api/fake/...")`,
+flags from `add_argument("--...")`, a call split over lines included),
+asserts both lists are nonempty, and matches each name as a whole token in
+`AGENTS.md` and `docs/rules.md`, failing with `<name> missing from <file>`.
+Written first, it failed with exactly `/api/fake/model missing from
+AGENTS.md`; the AGENTS.md knob line now names `/api/fake/model`
+(`overrides`, `stuck_critic`, `access`), and `docs/rules.md` Tests says what
+the docs-map test holds. The docs-map file (7 tests), ruff, the pinned
+Pyright gate (0 errors) and the full `pytest -n auto` (8063 passed,
+19 skipped) passed. No smoke: no `web/` change.
