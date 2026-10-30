@@ -658,3 +658,71 @@ def test_a_source_deleted_before_its_turn_is_a_failed_pass(client, store, fake):
     assert [row.refine for row in rows(store) if row.refine is not None] == [first.id]
     job = main.jobs.get(accepted["job_id"])
     assert job.failed_indices == [] and job.cells == []
+
+
+def retained_outcome(store, run, job_id):
+    """The retained job's outcome, written by a daemon after `done`."""
+    deadline = time.time() + 5
+    while time.time() < deadline:
+        saved = next(saved for saved in store.retained_run_jobs(run) if saved["job_id"] == job_id)
+        if saved["outcome"] is not None:
+            return saved["outcome"]
+        time.sleep(0.02)
+    raise AssertionError("the job's outcome was never retained")
+
+
+def test_a_permanently_deleted_pass_is_redrawn_and_says_so(client, store, fake):
+    done = then_refine_run(client, fake)
+    assert done["status"] == "done" and done["failures"] == 0
+    base, made = rows(store)
+    assert made.refine == base.id
+    assert retained_outcome(store, done["run_id"], done["job_id"])["completed_passes"] == [base.id]
+    assert preview(client, done["run_id"])["reason"] == "nothing in this run is missing"
+    # Binned, the pass still counts as made; permanently deleted, Finish
+    # draws it again and counts it apart from a pass a stop left missing.
+    store.bin_images([made.id])
+    assert preview(client, done["run_id"])["reason"] == "nothing in this run is missing"
+    store.delete_image(made.id)
+    answer = preview(client, done["run_id"])
+    assert answer["available"] and (answer["passes"], answer["redrawn_passes"], answer["redrawn"]) == (1, 1, 0)
+    accepted, _ = finish(client, done["run_id"], answer)
+    assert (accepted["passes"], accepted["redrawn_passes"]) == (1, 1)
+    again = [row for row in rows(store) if row.refine == base.id]
+    assert len(again) == 1 and again[0].run_id == done["pass_run_id"]
+
+
+def test_a_pass_a_stop_left_missing_is_not_counted_as_redrawn(client, store, fake):
+    done = then_refine_run(client, fake, runs=2, failing=(2,))
+    assert done["failures"] == 1
+    first, second, made = rows(store)
+    assert made.refine == second.id
+    assert retained_outcome(store, done["run_id"], done["job_id"])["completed_passes"] == [second.id]
+    answer = preview(client, done["run_id"])
+    assert (answer["passes"], answer["redrawn_passes"]) == (1, 0)
+
+
+def test_a_plain_first_job_does_not_hide_a_later_jobs_spec(client, store, fake):
+    from backend import then_refine
+    from backend.schemas import ThenRefine
+
+    run = "mixed-night"
+    spec = ThenRefine(scale=1.5, strength=0.5)
+    pass_run = then_refine.pass_run_id(run, spec)
+    retain(store, [cell(1, steps=8)], run=run, completed=(0,))
+    retain(store, [cell(2, steps=8)], run=run, completed=(0,),
+           metadata={"then_refine": {**spec.model_dump(), "pass_run_id": pass_run}})
+    plain, refined = store.retained_run_jobs(run)
+    assert "then_refine" not in plain["metadata"]
+    for item, saved in ((cell(1, steps=8), plain), (cell(2, steps=8), refined)):
+        store.save_image(
+            Image.new("RGB", (256, 256)), main.backend.applied(item.request), seed=item.seed, duration_ms=1,
+            model_id=settings.model_id, quantization=settings.quantization, run_id=run,
+            job_id=saved["job_id"], batch=1, variables=item.variables,
+        )
+    answer = preview(client, run)
+    # Only the Then refine job's base has a pass to miss.
+    assert answer["available"] and (answer["cells"], answer["passes"]) == (0, 1), answer
+    accepted, done = finish(client, run, answer)
+    assert accepted["passes"] == 1 and done["pass_run_id"] == pass_run
+    (made,) = [row for row in rows(store) if row.refine is not None]
+    assert made.run_id == pass_run and made.seed == 2

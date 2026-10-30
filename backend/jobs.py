@@ -185,6 +185,10 @@ class Job:
     # start, and each leaves the list once its unit has run.
     pass_sources: list[int] = field(default_factory=list)
     source_passes: list[Cell] = field(default_factory=list)
+    # The bases whose Then refine pass this job saved, inline or as one of
+    # `pass_sources`: in the retained outcome, so a pass permanently
+    # deleted later is one Finish run says it will redraw.
+    completed_passes: list[int] = field(default_factory=list)
     # One queue per attached stream. A single shared queue is destructive: a
     # reconnecting client that overlaps the stream it replaces splits the events
     # between the two readers, and only one of them ever sees `done`.
@@ -1107,6 +1111,7 @@ class JobManager:
             "status": status, "reached": job.run, "failed_indices": list(job.failed_indices),
             "completed_indices": list(job.completed_indices),
             "skipped_indices": list(job.skipped_indices),
+            **({"completed_passes": list(job.completed_passes)} if job.completed_passes else {}),
             "stopped_by": job.stopped_by, "finished_at": job.finished_at,
         }
         threading.Thread(
@@ -1557,6 +1562,7 @@ class JobManager:
                     self._save(
                         job, loop, cell, images, elapsed_ms, self.backend.last_peak(), run_id=job.pass_run_id,
                     )
+                    job.completed_passes.append(outcome.record.id)
                 except Cancelled:
                     log.info("job %s cancelled during %s", job.id, label)
                     return True, streak

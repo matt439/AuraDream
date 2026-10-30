@@ -5196,7 +5196,11 @@ Frontend and CLI:
   first pass's; the retained metadata adds `pass_sources`. The preview's
   `passes` counts them, its pin hashes their keys, and "the missing passes
   are already queued" or "nothing in this run is missing" hold it; the
-  page's words add "and N missing passes" (`finishRunWords`). The grid preview gives
+  page's words add "and N missing passes" (`finishRunWords`). Each job's
+  retained outcome adds `completed_passes`, the bases whose pass it saved;
+  of the missing passes, those a retained job had made (permanently
+  deleted since) are the preview's `redrawn_passes`, and the page adds
+  "N permanently deleted passes will be redrawn", as for cells. The grid preview gives
   `passes`, `pass_width`/`pass_height`, the passes' time at the pass size
   and disk, budget seeds pricing each cell with its passes, and the pass's
   start sigma. The page's opener, `#then-refine-open`, ends the Notify
@@ -7252,7 +7256,9 @@ the failure streak, planned from submit; `tests/test_api_finish_run.py`
 the missing passes themselves (a cancel on a pass finished under the pass
 run with Mass refine's key, a binned base skipped, a pass Mass refine made
 or has queued counted, two specs refused in words, the pin moving when a
-pass lands, a base deleted before its turn a failed pass);
+pass lands, a base deleted before its turn a failed pass, a permanently
+deleted pass counted in `redrawn_passes` and a stop's not, a plain first
+job not hiding a later job's spec);
 `tests/test_cli.py` the CLI's passes equal to the server's and its flag
 refusals. `smoke-then-refine.json` uses a fresh FLUX.1 Krea [dev] fake on
 7912 with `--step 0.3`: the opener ending the Notify row at its height,
@@ -7264,7 +7270,8 @@ preview's passes, the tick off after a reload with the strength
 remembered, the tick held with `REFINE_NONE` on a status stubbed to no
 pass, and a Generate cancelled on its pass whose finish line's Finish run
 says "Finish 1 missing pass of run …" and, pressed, puts the pass in the
-strip and the pass run:
+strip and the pass run, then that pass permanently deleted and the words
+adding "1 permanently deleted pass will be redrawn":
 
 ```powershell
 uv run python tools/fake_server.py --port 7912 --model black-forest-labs/FLUX.1-Krea-dev --step 0.3 --data <new-scratch-directory>

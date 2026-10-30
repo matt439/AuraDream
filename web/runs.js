@@ -32,7 +32,13 @@ function finishRunWords(run, preview) {
     preview.cells ? `${plural(preview.images, 'image')} in ${plural(preview.cells, 'missing cell')}` : '',
     preview.passes ? missingPasses(preview.passes) : '',
   ].filter(Boolean).join(' and ');
-  const redraw = preview.redrawn ? `; ${plural(preview.redrawn, 'permanently deleted cell')} will be redrawn` : '';
+  // A cell or a pass this run made, permanently deleted since: Finish draws
+  // it again, and says so.
+  const deleted = [
+    preview.redrawn ? plural(preview.redrawn, 'permanently deleted cell') : '',
+    preview.redrawn_passes ? `${preview.redrawn_passes} permanently deleted pass${preview.redrawn_passes === 1 ? '' : 'es'}` : '',
+  ].filter(Boolean).join(' and ');
+  const redraw = deleted ? `; ${deleted} will be redrawn` : '';
   const budget = preview.budget_minutes ? `; original ${preview.budget_minutes}-minute budget` : '';
   return `Finish ${count} of run ${run}${redraw}${budget}`;
 }
@@ -71,7 +77,8 @@ function syncFinishRunButtons() {
     const preview = state?.preview;
     const extra = preview?.available
       ? [preview.cells ? plural(preview.cells, 'missing cell') : '', preview.passes ? missingPasses(preview.passes) : '']
-        .filter(Boolean).join(' and ') + (preview.redrawn ? `; ${preview.redrawn} deleted to redraw` : '')
+        .filter(Boolean).join(' and ') + ((preview.redrawn || 0) + (preview.redrawn_passes || 0)
+          ? `; ${(preview.redrawn || 0) + (preview.redrawn_passes || 0)} deleted to redraw` : '')
       : state?.pending ? 'checking Finish run' : preview?.reason || state?.error || '';
     line.dataset.base = sheetRunStatus(line.dataset.run);
     line.textContent = `${line.dataset.base}${extra ? ` · ${extra}` : ''}`;

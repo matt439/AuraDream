@@ -558,12 +558,23 @@ missing" (it said Finish recovered base cells only), with
 `smoke-queue-controls` and `docs/plan-queue-controls.md` following; and
 the agreed spec is what Finish passes back even where the run's first
 retained job was a plain one (the plan's "where they agree, that spec").
-Evidence: `tests/test_api_finish_run.py` (six tests: cancel on a pass,
+After review, one addition: a pass the run made and then permanently
+deleted is redrawn as a deleted cell is, with words. Each job retains
+`completed_passes` (the bases whose pass it saved) in its outcome; the
+preview and the accepted answer gain `redrawn_passes`, and the page says
+"N permanently deleted passes will be redrawn" (`finishRunWords`; the
+sheet's run line counts them in "N deleted to redraw"). A binned pass
+still counts as made; a job retained before this build has no list, so a
+pass of its deleted is redrawn as a plain missing pass.
+Evidence: `tests/test_api_finish_run.py` (nine tests: cancel on a pass,
 binned base, Mass refine made and queued, two specs, the pin, a source
-deleted before its turn) and `tests/test_then_refine.py` (four: pause with
+deleted before its turn, a permanently deleted pass redrawn with its
+count, a stop's missing pass not counted as redrawn, and a plain first
+job not hiding a later job's spec) and `tests/test_then_refine.py` (four: pause with
 `planned_keys`, budget, cancel, three failures in a row); the new
 `smoke-then-refine` step (a Generate cancelled on its pass, "Finish 1
-missing pass of run …", the pass in the strip and the pass run), with
+missing pass of run …", the pass in the strip and the pass run, then that
+pass permanently deleted and the words saying it will be redrawn), with
 `smoke-wide`, `smoke-narrow`, `smoke-jobs`, `smoke-results` and
 `smoke-queue-controls` passing unchanged in their layout.
 

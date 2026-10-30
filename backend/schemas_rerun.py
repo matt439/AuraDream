@@ -168,6 +168,8 @@ class FinishRunPreview(BaseModel):
     # Then refine passes of bases saved without them (a cancel or a failure
     # between the stages), which this submission adds before its cells.
     passes: int = 0
+    # Of those, passes a retained job saved that are now permanently deleted.
+    redrawn_passes: int = 0
     budget_minutes: float | None = None
     pin: str
 
@@ -195,6 +197,7 @@ class FinishRunAccepted(JobAccepted):
     planned: int = 0
     redrawn: int = 0
     passes: int = 0
+    redrawn_passes: int = 0
     budget_minutes: float | None = None
 
 

@@ -311,12 +311,18 @@ async def finish_plan(services: AppServices, run_id: str) -> FinishPlan:
     # another pass run, which no single Finish can continue both of.
     specs: list[ThenRefine] = []
     spec_jobs: set[str] = set()
+    # Bases whose pass a retained job saved: one missing now was
+    # permanently deleted, and Finish says it redraws it, as for a cell.
+    passes_made: set[int] = set()
     for saved in definitions:
         retained = _retained_then_refine(saved["metadata"])
         if retained is not None:
             spec_jobs.add(saved["job_id"])
             if retained not in specs:
                 specs.append(retained)
+            made = (saved.get("outcome") or {}).get("completed_passes", [])
+            if isinstance(made, list):
+                passes_made.update(base for base in made if type(base) is int)
     spec = specs[0] if specs else None
     if not reason and len(specs) > 1:
         made = [then_refine.words(each) for each in specs]
@@ -412,7 +418,9 @@ async def finish_plan(services: AppServices, run_id: str) -> FinishPlan:
         total=len(cells), cells=len(kept), images=sum(cell.request.num_images for cell in kept),
         rendered=rendered, queued=queued,
         redrawn=sum(_finish_key(services, cell) in succeeded for cell in kept),
-        passes=len(kept_passes), budget_minutes=budget, pin=pin,
+        passes=len(kept_passes),
+        redrawn_passes=sum(cell.request.refine in passes_made for cell in kept_passes),
+        budget_minutes=budget, pin=pin,
     )
     sizes = sorted({(cell.request.width, cell.request.height) for cell in cells}) if definitions else sorted(
         {(record.width, record.height) for record in records}
@@ -504,7 +512,7 @@ def create_router(services: AppServices) -> APIRouter:
                 "job_id": job.id, "seed": job.seed, "run_id": run_id, "estimate_seconds": job.estimate_seconds,
                 "cells": preview.cells, "images": preview.images,
                 "pruned": preview.rendered, "planned": preview.queued, "redrawn": preview.redrawn,
-                "passes": preview.passes, "budget_minutes": preview.budget_minutes,
+                "passes": preview.passes, "redrawn_passes": preview.redrawn_passes, "budget_minutes": preview.budget_minutes,
             })
 
     @router.post("/api/generate", response_model=JobAccepted)

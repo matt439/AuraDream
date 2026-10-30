@@ -12693,7 +12693,14 @@ pass of every image right after its cell, in the same job.
   through its first pass. Two specs in one run (a Resume tick with other
   numbers) are refused in words: one Finish continues one pass run, and
   reconciling two is Mass refine's. A binned base is a discard, never
-  refined.
+  refined. A pass the run made and Matt then permanently deleted (Empty
+  bin, `DELETE /api/images/{id}`) is missing again, as a deleted cell is:
+  each job retains `completed_passes` (the bases whose pass it saved) in
+  its outcome, so Finish counts such a pass in `redrawn_passes` and the
+  page says "N permanently deleted passes will be redrawn" rather than
+  redrawing it unannounced. A binned pass still counts as made. Jobs
+  retained before this build carry no such list, so a pass of theirs
+  deleted is redrawn as a plain missing pass.
 
 ## Peak memory per image
 
