@@ -126,10 +126,12 @@ The prepared [trial kit](trials/README.md) contains the disposable fixture
 command, current-app/concept launch and reset instructions,
 [alternate task cards](trials/task-cards.md), a
 [blank human observation record](trials/observation-template.md) and a
-separate [agent expert baseline](trials/expert-baseline-2026-10-18.md).
-Preparation and agent checks do not complete `DEV#1` or supply human outcomes.
+separate [agent expert baseline](trials/expert-baseline-2026-10-30.md)
+(the [2026-10-18 baseline](trials/expert-baseline-2026-10-18.md) is the
+version 1 history). Preparation and agent checks do not complete `DEV#1` or
+supply human outcomes.
 
-**Kit refresh, 2026-10-29 (`DEV#21`, OPEN).** The 2026-10-18 kit predates
+**Kit refresh, 2026-10-29 (`DEV#21`); built 2026-10-30.** The 2026-10-18 kit predates
 keyboard routes and compact setup (`UI#17`-`UI#19`), Then refine, saved
 setups (`GEN#27`), saved searches (`GAL#7`) and snippet/setup portability
 (`UI#20`, `UI#25`). Its driver also types into the size fields that compact
@@ -138,6 +140,12 @@ the optional second task set and the completion checks are in the kit's
 [refresh section](trials/README.md#refresh-for-the-current-app-dev21). Refresh
 the kit before Matt's session so `DEV#1` runs against the current app; the
 refresh itself is agent work on the fake and supplies no human outcome.
+Stages 1-3 were built and run on 2026-10-30: fixture version 2 (setup,
+saved search, snippet and Then refine roles, and the More seeds refusal),
+the repaired driver with its `/`, `?` and M routes, the widened cards with
+optional tasks 6-8, and a new
+[agent baseline](trials/expert-baseline-2026-10-30.md) (A and B, 206 of 206
+expectations each). Matt's session stays `DEV#1`.
 
 ## One-user formative protocol
 
@@ -216,7 +224,7 @@ being available when the accepted rules require it to refuse.
 ## Baseline and provisional targets
 
 **No human baseline has been collected for this design.** The separately
-labelled [agent walkthrough](trials/expert-baseline-2026-10-18.md) is technical
+labelled [agent walkthrough](trials/expert-baseline-2026-10-30.md) is technical
 preparation. In Matt's session, record task completion,
 wrong-scope attempts, accidental submissions, lost context, surface changes,
 navigation reversals, presses and assistance. Time supports these observations;

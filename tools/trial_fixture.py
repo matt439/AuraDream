@@ -4,6 +4,10 @@
 
 Never deletes or resets a directory. The owned fake server stops after setup;
 the printed command reopens the fixture for a trial. No model is downloaded.
+
+Fixture version 2 (DEV#21) adds a saved setup, a saved gallery search, a
+personal snippet and a Then refine job (a base and its pass), each through
+its real route, and records the More seeds refusal for another checkpoint.
 """
 from __future__ import annotations
 
@@ -25,6 +29,7 @@ from pathlib import Path
 
 ROOT = Path(__file__).resolve().parents[1]
 MODEL = "black-forest-labs/FLUX.1-Krea-dev"
+FIXTURE_VERSION = 2
 
 
 def prepare(data: Path, port: int, variant: str) -> dict:
@@ -77,7 +82,7 @@ def prepare(data: Path, port: int, variant: str) -> dict:
                 or not Path(identity["executable"]).samefile(sys.executable)):
             raise RuntimeError("Fake runtime identity did not match the owned launcher")
         return identity["pid"]
-    manifest = {"fixture_version": 1, "variant": variant, "data": str(data), "port": port,
+    manifest = {"fixture_version": FIXTURE_VERSION, "variant": variant, "data": str(data), "port": port,
                 "model": MODEL, "prepared_utc": datetime.now(timezone.utc).isoformat(),
                 "free_bytes_before": free, "roles": {}, "jobs": {}}
     with (data / "fixture-server.log").open("w", encoding="utf-8") as log:
@@ -141,6 +146,42 @@ def prepare(data: Path, port: int, variant: str) -> dict:
             child = generate({"prompt": f"{subject}, refined study", "seed": seed + 201,
                               "refine": source["id"], "strength": 0.6})[0]
             rejects = generate({"prompt": f"{subject}, reject study", "seed": seed + 300, "num_images": 2})
+            # Then refine: one base and its pass in one job, the pass in a
+            # run of its own (backend/then_refine.py). Through /api/generate.
+            then_request = {"prompt": f"{subject}, then refine study", "seed": seed + 400,
+                            "then_refine": {"scale": 1.5, "strength": 0.5}}
+            then_made = generate(then_request)
+            then_job = then_made[0]["job_id"]
+            then_rows = api(f"/api/gallery?limit=16&search=job:{then_job}")["items"]
+            then_bases = [row for row in then_rows if row["refine"] is None]
+            then_passes = [row for row in then_rows if row["refine"] is not None]
+            if (len(then_bases) != 1 or len(then_passes) != 1
+                    or then_passes[0]["refine"] != then_bases[0]["id"]
+                    or then_passes[0]["run_id"] == then_bases[0]["run_id"]):
+                raise RuntimeError("Then refine fixture did not make one base and its pass in their own runs")
+            then_base, then_pass = then_bases[0], then_passes[0]
+            manifest["jobs"]["then_refine"] = {"job_id": then_job, "base_run_id": then_base["run_id"],
+                "pass_run_id": then_pass["run_id"], "planned": 2, "made": 2,
+                "request": {"width": 256, "height": 256, "steps": 8, "guidance_scale": 3, **then_request}}
+            # Sidecars outside the gallery: their own routes, never the files.
+            status = api("/api/status")
+            setup_name = "Lighthouse setup A" if variant == "A" else "Observatory setup B"
+            setup_payload = {"mode": "generate", "prompt": f"{subject}, saved setup study",
+                             "negative_prompt": "", "width": 512, "height": 768, "steps": 8,
+                             "seed": seed + 500, "num_images": 1, "runs": 1}
+            setups = api("/api/presets", {"name": setup_name, "model_id": MODEL, "payload": setup_payload,
+                                          "model_revision": status["model_revision"], "step_cache": None})
+            setup = next(item for item in setups["items"] if item["name"] == setup_name)
+            search_name = "Lighthouse grid A" if variant == "A" else "Observatory grid B"
+            searches = api("/api/gallery/saved-searches", {"name": search_name,
+                "query": "run:" + complete["images"][0]["run_id"], "favorites": False, "all_models": False})
+            saved_search = next(item for item in searches["items"] if item["name"] == search_name)
+            snippet_name = "Harbor light A" if variant == "A" else "Terrace light B"
+            snippet_text = "soft harbor light, long shadows" if variant == "A" else "cool terrace light, thin haze"
+            snippets = api("/api/snippets", {"name": snippet_name, "text": snippet_text, "target": "prompt"})
+            snippet = next(item for item in snippets["items"] if item["name"] == snippet_name)
+            if len(setups["items"]) != 1 or len(searches["items"]) != 1 or len(snippets["items"]) != 1:
+                raise RuntimeError("A fresh fixture should hold exactly one setup, saved search and snippet")
             keeper = complete["images"][0]
             for record in (keeper, child):
                 api(f"/api/images/{record['id']}/favorite?value=true", {})
@@ -153,15 +194,24 @@ def prepare(data: Path, port: int, variant: str) -> dict:
             manifest["roles"] = {"keeper": keeper["id"], "complete_last": complete["images"][-1]["id"],
                 "source": source["id"], "child": child["id"], "binned_reject": rejects[0]["id"],
                 "live_reject": rejects[1]["id"], "foreign": [row["id"] for row in foreign],
-                "pick_in_order": [keeper["id"], child["id"]]}
+                "pick_in_order": [keeper["id"], child["id"]],
+                "then_refine_base": then_base["id"], "then_refine_pass": then_pass["id"],
+                "setup": {"id": setup["id"], "name": setup["name"], "prompt": setup_payload["prompt"],
+                          "width": setup_payload["width"], "height": setup_payload["height"],
+                          "seed": setup_payload["seed"]},
+                "saved_search": {"id": saved_search["id"], "name": saved_search["name"],
+                                 "query": saved_search["query"]},
+                "snippet": {"id": snippet["id"], "name": snippet["name"], "text": snippet["text"]}}
             manifest["counts"] = {"live": gallery["total"], "binned": binned["total"],
                                    "all_rows": gallery["total"] + binned["total"],
-                                   "complete_run": 60, "interrupted_made": len(interrupted["images"])}
+                                   "complete_run": 60, "interrupted_made": len(interrupted["images"]),
+                                   "then_refine_made": 2, "setups": 1, "saved_searches": 1, "snippets": 1}
             refusals = {}
             for name, path, body in (
                 ("foreign_rerender", "/api/rerender", {"ids": [foreign[0]["id"]], "width": 512, "height": 512}),
                 ("binned_refine_source", "/api/generate", {"prompt": "refused fixture request", "steps": 8,
                  "width": 256, "height": 256, "refine": rejects[0]["id"], "strength": 0.6}),
+                ("foreign_more_seeds", "/api/more-seeds", {"ids": [foreign[0]["id"]], "count": 2}),
             ):
                 try:
                     api(path, body)
@@ -174,6 +224,7 @@ def prepare(data: Path, port: int, variant: str) -> dict:
             manifest["refusals"] = refusals
             manifest["limitations"] = ["Synthetic pixels and processing time; no model/GPU evidence.",
                 "Picks are browser-only; observer prepares pick_in_order with real input after launch.",
+                "Setup, saved search and snippet are sidecars beside the database, outside bundles.",
                 "Process exits after setup. This is fixture preparation, not a restart-recovery test."]
             (data / "fixture.json").write_text(json.dumps(manifest, indent=2) + "\n", encoding="utf-8")
             return manifest
@@ -184,7 +235,9 @@ def prepare(data: Path, port: int, variant: str) -> dict:
             if runtime_pid is not None:
                 try:
                     os.kill(runtime_pid, signal.SIGTERM)
-                except ProcessLookupError:
+                except OSError:
+                    # Already gone (Windows answers a vanished pid with
+                    # WinError 87): the real failure is the one to report.
                     pass
             if process.poll() is None:
                 process.terminate()
