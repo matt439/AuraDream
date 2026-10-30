@@ -631,6 +631,10 @@ bin the same hint and press. Choices the design left open, taken while Matt
 was away: a word near two keys gets no hint (the design's "exactly one");
 several mistyped words each get their own sentence and button; the press
 focuses the search box (with `preventScroll`), as `showGallerySearch` does.
+Review (2026-10-30): a word with more than letters and digits before its
+colon is not a mistyped key - a quoted `"seed:42"` was offered `seed:42"`,
+and `--seed:1` was offered `seed:1` - so the step also checks `"sed:42"`
+gives the plain line.
 
 **Evidence.** E5 (search by prompt words) and E9 (search from an image
 setting or prompt) are Often (`preferences.md:99`, `:103`). `split_search`

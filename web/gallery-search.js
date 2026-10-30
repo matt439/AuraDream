@@ -56,7 +56,7 @@ function searchKeyDistance(a, b) {
 
 // What a mistyped key was meant to be (GAL#23): each `word:value` the box
 // holds that `searchKey` rejects - so the server searched it as prompt text -
-// whose word is near exactly one of SEARCH_KEYS (two edits at most, fewer than
+// whose word, letters and digits only, is near exactly one of SEARCH_KEYS (two edits at most, fewer than
 // the key's letters), as { word, meant } with `meant` the word mended in place,
 // its `-` kept. A word near no key (`masterpiece:1.2`), or near two, is none:
 // a prompt with a colon in it still searches for itself, and the grammar is
@@ -70,6 +70,9 @@ function mistypedSearchKeys(search) {
     const at = term.indexOf(':');
     if (at < 1 || at === term.length - 1) continue;
     const typed = term.slice(0, at).toLowerCase();
+    // Letters and digits only: a quoted `"seed:42"` or a `--seed:1` is free
+    // text on purpose, and mending it would drop the quote or the dashes.
+    if (!/^[a-z0-9]+$/.test(typed)) continue;
     const near = [...SEARCH_KEYS].filter((key) => {
       const apart = searchKeyDistance(typed, key);
       return apart <= 2 && apart < key.length;

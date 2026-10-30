@@ -4446,8 +4446,9 @@ Frontend and CLI:
   word is near exactly one of `SEARCH_KEYS` (two edits at most, a
   transposition one, fewer than the key's letters) with a "Search seed:42"
   ghost button (`mistypedSearchHints`), which mends that word in the box and
-  asks again without scrolling; a word near no key adds nothing, results
-  say nothing, and the grammar stays the server's. A finished
+  asks again without scrolling; a word near no key, or with more than
+  letters and digits before its colon (`"seed:42"`, `--seed:1`), adds
+  nothing, results say nothing, and the grammar stays the server's. A finished
   job's images the gallery's filter leaves out - a sheet's `job:` scope, a
   search, Starred - are counted in the gallery's line with Show all
   (`noteOutsideView`, per filter; `showAllImages` empties the search,
@@ -8552,8 +8553,8 @@ after it a mistyped key (GAL#23): `sed:42` adding "sed:42 was searched as
 prompt words; did you mean seed:42?" and its Search seed:42 button to the
 empty line, the head's height that of a plain empty search, the press
 searching `seed:42` with the box focused and the page unscrolled,
-`masterpiece:1.2` the plain line with no button, and the bin's empty line
-the same hint and press:
+`masterpiece:1.2` and a quoted `"sed:42"` the plain line with no button,
+and the bin's empty line the same hint and press:
 
 ```powershell
 uv run python tools/fake_server.py --port 7885
