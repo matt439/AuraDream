@@ -1,10 +1,10 @@
 # Plan: edit a gallery image by instruction
 
-**Status, 2026-10-30:** stage 4's code is built, as ten local slices on
-`feat/inp11-stage4` ([Stage 4](#stage-4-the-qualified-first-slice-2026-10-29)).
-Its one remaining step is the [card acceptance step](#card-acceptance-step),
-which needs Matt's OK: one load on the real server and page, never run so
-far. The branch stays local until it passes.
+**Status, 2026-10-30:** stage 4's code is built, as ten slices
+([Stage 4](#stage-4-the-qualified-first-slice-2026-10-29)), and is on main
+(PR #17, merged 2026-10-30). Its one remaining step is the
+[card acceptance step](#card-acceptance-step), which needs Matt's OK: one
+load on the real server and page, never run so far.
 
 What the branch does on the real server: `DiffusersBackend`'s gate is the
 literal True (slice 7), and the measured envelope (`QUALIFIED_ENVELOPE`: the
@@ -865,6 +865,6 @@ configs are qualified. Stage 3's first trial and bounded pair ran on the card
 the released gate inside the measured envelope, More seeds of an edit and
 Re-render's refusal, and the page holds. Its completion evidence still lacks
 the [card acceptance step](#card-acceptance-step), the real server's route
-and page on the card; until it passes, stage 4 is not complete and the
-branch stays local. Detector work belongs to the [detailer plan](plan-detailer.md),
+and page on the card; until it passes, stage 4 is not complete. The code
+is on main (PR #17, 2026-10-30). Detector work belongs to the [detailer plan](plan-detailer.md),
 and importing outside images stays in its existing deferred owner.

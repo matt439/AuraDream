@@ -5,8 +5,8 @@ stage 4's ten slices are built; the state column records remaining
 boundaries. The [feature plan](plan-instruction-editing.md) owns release
 acceptance, and its one open step is the
 [card acceptance step](plan-instruction-editing.md#card-acceptance-step):
-the real server's route and page, not yet run on the card. Until it passes
-the branch (`feat/inp11-stage4`) stays local. The six pinned configs were
+the real server's route and page, not yet run on the card. The code is on
+main (PR #17, merged 2026-10-30). The six pinned configs were
 fetched at the revision and qualified, and their hashes are pinned. The
 editing call, the queueing route, the per-cell recheck and the dialog were
 [built on a stand-in](plan-instruction-editing.md#stage-2-backend-and-dialog-2026-10-27):
