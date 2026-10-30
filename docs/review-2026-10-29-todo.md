@@ -76,7 +76,8 @@ real defects first among equals.
 | `PERF#5` fp8-activation plan | Done 2026-10-30 | [plan-fp8-activations.md](plan-fp8-activations.md) |
 | `PERF#6` fixed comparison cases | Done 2026-10-30 | [plan-step-caching.md](plan-step-caching.md#fixed-comparison-cases) |
 | `DEV#21` trial kit refresh | OPEN | [trials README](design/trials/README.md#refresh-for-the-current-app-dev21) |
-| `DEV#24`-`DEV#26` smoke reruns, timings, fake-knob map | OPEN | [plan-tooling.md](plan-tooling.md) |
+| `DEV#24` smoke reruns alone | Done 2026-10-30 | [plan-tooling.md](plan-tooling.md#smoke-reruns-alone-2026-10-29-dev24) |
+| `DEV#25`, `DEV#26` timings, fake-knob map | OPEN | [plan-tooling.md](plan-tooling.md) |
 | `GAL#22`, `PERF#7`, `GEN#39` | DECISION | backups, compilation, [Then refine](plan-then-refine.md#decision-several-strengths-per-image) |
 
 `GEN#6`, `INP#9` and `INP#10` changed from DEFERRED to DECISION: each has a

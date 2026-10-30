@@ -23,6 +23,17 @@ lists all results. `--artifacts PATH` puts this run below a chosen root.
 Exit 0 when every smoke passed, 1 when one failed, 2 when the command or a
 smoke file was refused (as `browser.mjs` refuses one). An invalid effective
 port or overlapping worker bands refuse before artifacts or processes start.
+
+A failure seen under `--jobs` is rerun alone before it is believed:
+`--rerun-failed-alone` runs each smoke whose exit was 1 again after the
+planned run, serially at the run's `--offset`, each on a fresh fake of its
+own, below `rerun/` in the same run root; `--from-summary PATH` does the
+same for the exit-1 receipts of an earlier run's summary.json, in a new run
+root. summary.json records `jobs` and `offset`, and after a rerun `rerun`
+(receipts shaped like `results`) and `verdicts` (`passed-alone` or
+`failed-alone` per first-pass failure); `results` keeps its shape. The exit
+stays the first pass's: a smoke that passes alone is reported, not believed.
+Exit 2 is never rerun.
 """
 from __future__ import annotations
 
@@ -282,6 +293,64 @@ def run_row(row: Row, smokes: list[str], offset: int, stream: bool, artifacts: P
     return results
 
 
+RERUN_DIR = "rerun"
+
+
+def _receipts(artifacts: Path, pattern: str) -> list[dict]:
+    """Each smoke's result.json under `artifacts`, with its directory relative to it."""
+    return [
+        {**json.loads(path.read_text(encoding="utf-8")),
+         "artifact_dir": path.parent.relative_to(artifacts).as_posix()}
+        for path in sorted(artifacts.glob(pattern))
+    ]
+
+
+def _summary_failures(path: Path, known: dict[str, Row]) -> tuple[list[str], str | None]:
+    """The smokes an earlier summary.json records as exit 1, in its order,
+    or why that file cannot be read as one."""
+    try:
+        summary = json.loads(path.read_text(encoding="utf-8"))
+    except FileNotFoundError:
+        return [], f"--from-summary: {path} does not exist"
+    except (OSError, UnicodeDecodeError, ValueError) as exc:
+        return [], f"--from-summary: {path} is not a readable summary.json ({exc})"
+    receipts = summary.get("results") if isinstance(summary, dict) else None
+    if not isinstance(receipts, list):
+        return [], f"--from-summary: {path} has no results list"
+    failed: list[str] = []
+    for receipt in receipts:
+        smoke = receipt.get("smoke") if isinstance(receipt, dict) else None
+        code = receipt.get("exit_code") if isinstance(receipt, dict) else None
+        if not isinstance(smoke, str) or type(code) is not int:
+            return [], f"--from-summary: {path} has a receipt without a smoke name and exit_code"
+        if code == 1 and smoke not in failed:
+            failed.append(smoke)
+    unknown = [smoke for smoke in failed if smoke not in known]
+    if unknown:
+        return [], f"--from-summary: no longer in the port table: {', '.join(unknown)}"
+    return failed, None
+
+
+def _rerun_alone(names: list[str], known: dict[str, Row], offset: int, artifacts: Path) -> dict[str, str]:
+    """Run each named smoke again, one at a time, on a fresh fake of its own;
+    answer each one's verdict."""
+    rerun_root = artifacts / RERUN_DIR
+    rerun_root.mkdir(exist_ok=True)
+    _say("", f"rerunning alone: {' '.join(names)}")
+    verdicts: dict[str, str] = {}
+    for smoke in names:
+        code = run_row(known[smoke], [smoke], offset, stream=True, artifacts=rerun_root).get(smoke, 1)
+        verdicts[smoke] = "passed-alone" if code == 0 else "failed-alone"
+    return verdicts
+
+
+def _print_verdicts(verdicts: dict[str, str]) -> None:
+    for verdict in ("passed-alone", "failed-alone"):
+        names = [smoke for smoke, said in verdicts.items() if said == verdict]
+        if names:
+            print(f"{verdict}: " + " ".join(names))
+
+
 def main() -> int:
     reconfigure = getattr(sys.stdout, "reconfigure", None)
     if callable(reconfigure):
@@ -293,6 +362,10 @@ def main() -> int:
     parser.add_argument("--offset", type=int, default=0, help="add N to every port (default 0)")
     parser.add_argument("--jobs", type=int, default=1, help="rows run in parallel (default 1)")
     parser.add_argument("--artifacts", type=Path, help="retain each run's screenshot directories below PATH")
+    parser.add_argument("--rerun-failed-alone", action="store_true",
+                        help="after the run, rerun each exit-1 smoke alone, serially")
+    parser.add_argument("--from-summary", type=Path, metavar="PATH",
+                        help="rerun alone the exit-1 smokes of an earlier summary.json")
     args = parser.parse_args()
 
     rows = parse_table((ROOT / "AGENTS.md").read_text(encoding="utf-8"))
@@ -302,6 +375,8 @@ def main() -> int:
             print(f"{row.port}  {row.model}{step}  {' '.join(row.smokes)}")
         return 0
     known = {smoke: row for row in rows for smoke in row.smokes}
+    if args.from_summary is not None:
+        return _main_from_summary(args, known)
     wanted = [Path(name).name.removesuffix(".json") for name in args.smokes]
     unknown = [name for name in wanted if name not in known]
     if unknown or not (wanted or args.all):
@@ -349,19 +424,58 @@ def main() -> int:
                 results.update(done)
 
     failed = [smoke for smoke, code in results.items() if code != 0]
-    receipts = [
-        {**json.loads(path.read_text(encoding="utf-8")), "artifact_dir": path.parent.name}
-        for path in sorted(artifacts.glob("*/result.json"))
-    ]
-    (artifacts / "summary.json").write_text(json.dumps({
-        "duration_seconds": round(time.monotonic() - started, 6), "results": receipts,
-    }, indent=2) + "\n", encoding="utf-8")
+    # Only exit 1 reruns: exit 2 is a refusal no rerun could explain.
+    verdicts = None
+    if args.rerun_failed_alone and (again := [smoke for smoke, code in results.items() if code == 1]):
+        verdicts = _rerun_alone(again, known, args.offset, artifacts)
+    summary: dict = {
+        "duration_seconds": round(time.monotonic() - started, 6),
+        "results": _receipts(artifacts, "*/result.json"),
+        "jobs": jobs, "offset": args.offset,
+    }
+    if verdicts is not None:
+        summary["rerun"] = _receipts(artifacts, f"{RERUN_DIR}/*/result.json")
+        summary["verdicts"] = verdicts
+    (artifacts / "summary.json").write_text(json.dumps(summary, indent=2) + "\n", encoding="utf-8")
     print(f"\n{len(results) - len(failed)} of {len(results)} passed in {time.monotonic() - started:.0f} s")
     if failed:
         print("failed: " + " ".join(failed))
+    if verdicts is not None:
+        _print_verdicts(verdicts)
     if any(code == 2 for code in results.values()):
         return 2
     return 1 if failed else 0
+
+
+def _main_from_summary(args: argparse.Namespace, known: dict[str, Row]) -> int:
+    """Rerun alone, in a new run root, the exit-1 smokes an earlier run recorded.
+    Those failures stand: the exit is 1 whenever anything was rerun."""
+    if args.smokes or args.all:
+        print("--from-summary takes no smoke names and no --all")
+        return 2
+    again, error = _summary_failures(args.from_summary, known)
+    if error is None:
+        error = _port_plan_error([(known[smoke], [smoke]) for smoke in again], [args.offset])
+    if error:
+        print(error)
+        return 2
+    if not again:
+        print(f"nothing to rerun: {args.from_summary} records no exit-1 smoke")
+        return 0
+    if args.artifacts is not None:
+        args.artifacts.mkdir(parents=True, exist_ok=True)
+    artifacts = Path(tempfile.mkdtemp(prefix="auradream-smoke-artifacts-", dir=args.artifacts)).resolve()
+    print(f"artifacts: {artifacts}", flush=True)
+    started = time.monotonic()
+    verdicts = _rerun_alone(again, known, args.offset, artifacts)
+    (artifacts / "summary.json").write_text(json.dumps({
+        "duration_seconds": round(time.monotonic() - started, 6), "results": [],
+        "jobs": 1, "offset": args.offset, "from_summary": str(args.from_summary),
+        "rerun": _receipts(artifacts, f"{RERUN_DIR}/*/result.json"), "verdicts": verdicts,
+    }, indent=2) + "\n", encoding="utf-8")
+    print(f"\nfailed in {args.from_summary}: " + " ".join(again))
+    _print_verdicts(verdicts)
+    return 1
 
 
 if __name__ == "__main__":

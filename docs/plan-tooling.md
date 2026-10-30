@@ -465,7 +465,25 @@ denied operation. Ordinary eval/nonfatal aggregate behavior stays compatible.
 
 ## Smoke reruns alone (2026-10-29, DEV#24)
 
-**Status:** `DEV#24` OPEN, recorded 2026-10-29 from the TODO audit. Not built.
+**Status:** `DEV#24` done 2026-10-30: both stages built in one commit.
+`tools/run_smoke.py` takes `--rerun-failed-alone` and `--from-summary PATH`
+as designed below; `tests/test_run_smoke.py` gains the stage 1 cases (only
+exit 1 reruns, serially at the base offset; `passed-alone` with exit 1;
+each bad `--from-summary` input refused with exit 2 before `run_row`;
+nothing to rerun exits 0), and the existing runner tests pass unchanged.
+A real `--from-summary` over a hand-written summary naming `smoke-flux`
+reran it alone on a fresh fake (`passed-alone`, exit 1).
+
+Taken while Matt was away (2026-10-29), revisit if wanted: the design left
+open what a `--from-summary` run writes and exits. Its summary has
+`results: []` (this run had no first pass), `jobs: 1`, its `offset`,
+`from_summary` (the path as given), `rerun` and `verdicts`; it exits 1
+whenever anything was rerun, since the source run's failures stand, and 0
+only when nothing was. Rerun receipts' `artifact_dir` is relative to the
+run root (`rerun/<dir>`), so the `results` glob (`*/result.json`) never
+sees them. A rerun that ends in any exit other than 0 (including a port
+refusal) is `failed-alone`; its receipt keeps the exact code. Duplicate
+names in a source summary rerun once.
 
 ### Evidence
 

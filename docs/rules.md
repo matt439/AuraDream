@@ -7250,7 +7250,18 @@ no CUDA device; `tests/test_cli.py` the CLI saving it.
 `tests/test_run_smoke.py` holds every smoke to one parsed row with a full
 checkpoint id. Under load from parallel rows a timing-sensitive smoke can
 run slower than alone; a failure seen only under `--jobs` is rerun alone
-before it is believed.
+before it is believed. `run_smoke.py --rerun-failed-alone` does that after
+the planned run: each smoke whose exit was 1 runs again, serially at the
+run's `--offset`, each on a fresh fake of its own below `rerun/` in the
+same run root (exit 2 is never rerun). `--from-summary PATH` reruns an
+earlier `summary.json`'s exit-1 receipts the same way in a new run root,
+refusing with exit 2 before any start a missing or malformed file, a smoke
+no longer in the table, or smoke names/`--all` beside it. `summary.json`
+records `jobs` and `offset`, and after a rerun `rerun` (receipts shaped
+like `results`) and `verdicts` (`passed-alone` or `failed-alone`); the
+console prints the verdicts after `failed:`. `results` keeps its shape and
+the exit stays the first pass's: a smoke that passes alone is reported,
+not believed.
 
 Manual `tools/fake_server.py --fresh` creates a new temporary gallery, prints
 its path before application imports, and retains it after shutdown. It never

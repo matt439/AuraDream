@@ -479,3 +479,166 @@ def test_list_remains_read_only_even_with_an_unusable_execution_offset(monkeypat
     monkeypatch.setattr(runner, "ThreadPoolExecutor", forbidden)
     assert runner.main() == 0
     assert output.getvalue() == "7862  owner/model  smoke-0\n"
+
+
+def _rerun_main(monkeypatch, tmp_path, argv, first, alone):
+    """main() on a fixture table with two rows, `smoke-0`/`smoke-1` sharing
+    the first and `smoke-2` on the second. `first` answers the planned run's
+    exit per smoke; `alone` a rerun's (one smoke per call)."""
+    runner = _runner()
+    output = _MainOutput()
+    rows = [
+        runner.Row(7862, "owner/model", None, ["smoke-0", "smoke-1"]),
+        runner.Row(7863, "owner/model", None, ["smoke-2"]),
+    ]
+    calls = []
+
+    class InlinePool:
+        def __init__(self, workers):
+            pass
+
+        def __enter__(self):
+            return self
+
+        def __exit__(self, *_args):
+            return False
+
+        def map(self, function, items):
+            return map(function, items)
+
+    def run(row, smokes, band, stream, artifacts):
+        rerun = artifacts.name == runner.RERUN_DIR
+        calls.append((rerun, list(smokes), band, stream))
+        codes = {smoke: (alone if rerun else first)[smoke] for smoke in smokes}
+        for smoke, code in codes.items():
+            destination = Path(runner.tempfile.mkdtemp(prefix=f"{smoke}-", dir=artifacts))
+            (destination / "result.json").write_text(json.dumps({"smoke": smoke, "exit_code": code}))
+        return codes
+
+    monkeypatch.setattr(runner, "parse_table", lambda _text: rows)
+    monkeypatch.setattr(runner.sys, "stdout", output)
+    monkeypatch.setattr(runner.sys, "argv", ["run_smoke.py", *argv, "--artifacts", str(tmp_path / "runs")])
+    monkeypatch.setattr(runner, "ThreadPoolExecutor", InlinePool)
+    monkeypatch.setattr(runner, "run_row", run)
+    return runner, output, calls
+
+
+def _only_summary(tmp_path):
+    summaries = list((tmp_path / "runs").glob("*/summary.json"))
+    assert len(summaries) == 1
+    return json.loads(summaries[0].read_text(encoding="utf-8"))
+
+
+def test_rerun_failed_alone_reruns_only_exit_one_serially_at_the_base_offset(monkeypatch, tmp_path):
+    runner, output, calls = _rerun_main(
+        monkeypatch, tmp_path, ["--all", "--jobs", "2", "--offset", "5", "--rerun-failed-alone"],
+        first={"smoke-0": 1, "smoke-1": 1, "smoke-2": 2},
+        alone={"smoke-0": 0, "smoke-1": 1},
+    )
+    assert runner.main() == 2  # The first pass's exit: its refusal stands.
+    reruns = [call for call in calls if call[0]]
+    # Each exit-1 smoke alone, in order, on the run's own offset, streamed;
+    # the exit-2 smoke is never rerun.
+    assert reruns == [(True, ["smoke-0"], 5, True), (True, ["smoke-1"], 5, True)]
+    summary = _only_summary(tmp_path)
+    assert summary["jobs"] == 2 and summary["offset"] == 5
+    assert summary["verdicts"] == {"smoke-0": "passed-alone", "smoke-1": "failed-alone"}
+    assert sorted((item["smoke"], item["exit_code"]) for item in summary["results"]) == [
+        ("smoke-0", 1), ("smoke-1", 1), ("smoke-2", 2),
+    ]
+    assert all("/" not in item["artifact_dir"] for item in summary["results"])
+    assert [(item["smoke"], item["exit_code"]) for item in summary["rerun"]] == [("smoke-0", 0), ("smoke-1", 1)]
+    assert all(item["artifact_dir"].startswith("rerun/") for item in summary["rerun"])
+    text = output.getvalue()
+    assert text.index("failed: ") < text.index("passed-alone: smoke-0") < text.index("failed-alone: smoke-1")
+
+
+def test_a_parallel_failure_that_passes_alone_still_exits_one(monkeypatch, tmp_path):
+    runner, output, _calls = _rerun_main(
+        monkeypatch, tmp_path, ["smoke-0", "smoke-2", "--jobs", "2", "--rerun-failed-alone"],
+        first={"smoke-0": 0, "smoke-2": 1}, alone={"smoke-2": 0},
+    )
+    assert runner.main() == 1
+    summary = _only_summary(tmp_path)
+    assert summary["verdicts"] == {"smoke-2": "passed-alone"}
+    assert "passed-alone: smoke-2" in output.getvalue()
+
+
+def test_without_the_flag_or_a_failure_no_rerun_keys_are_written(monkeypatch, tmp_path):
+    runner, _output, calls = _rerun_main(
+        monkeypatch, tmp_path, ["smoke-2"], first={"smoke-2": 1}, alone={},
+    )
+    assert runner.main() == 1
+    assert not any(call[0] for call in calls)
+    summary = _only_summary(tmp_path)
+    assert set(summary) == {"duration_seconds", "results", "jobs", "offset"}
+    assert summary["jobs"] == 1 and summary["offset"] == 0
+    for path in (tmp_path / "runs").glob("*/summary.json"):
+        path.unlink()
+    runner, _output, calls = _rerun_main(
+        monkeypatch, tmp_path, ["smoke-2", "--rerun-failed-alone"], first={"smoke-2": 0}, alone={},
+    )
+    assert runner.main() == 0
+    assert not any(call[0] for call in calls)
+    assert "verdicts" not in _only_summary(tmp_path)
+
+
+def test_from_summary_reruns_its_exit_one_receipts_in_a_new_run_root(monkeypatch, tmp_path):
+    source = tmp_path / "earlier.json"
+    source.write_text(json.dumps({"duration_seconds": 3, "results": [
+        {"smoke": "smoke-2", "exit_code": 1}, {"smoke": "smoke-0", "exit_code": 0},
+        {"smoke": "smoke-1", "exit_code": 2}, {"smoke": "smoke-0", "exit_code": 1},
+    ]}))
+    runner, output, calls = _rerun_main(
+        monkeypatch, tmp_path, ["--from-summary", str(source), "--offset", "3"],
+        first={}, alone={"smoke-2": 1, "smoke-0": 0},
+    )
+    assert runner.main() == 1
+    assert calls == [(True, ["smoke-2"], 3, True), (True, ["smoke-0"], 3, True)]
+    summary = _only_summary(tmp_path)
+    assert summary["results"] == [] and summary["from_summary"] == str(source)
+    assert summary["jobs"] == 1 and summary["offset"] == 3
+    assert summary["verdicts"] == {"smoke-2": "failed-alone", "smoke-0": "passed-alone"}
+    assert [item["smoke"] for item in summary["rerun"]] == ["smoke-0", "smoke-2"]
+    assert "failed-alone: smoke-2" in output.getvalue()
+
+
+def test_from_summary_with_nothing_to_rerun_says_so_and_exits_zero(monkeypatch, tmp_path):
+    source = tmp_path / "earlier.json"
+    source.write_text(json.dumps({"results": [{"smoke": "smoke-0", "exit_code": 0}]}))
+    runner, output, calls = _rerun_main(monkeypatch, tmp_path, ["--from-summary", str(source)], {}, {})
+    assert runner.main() == 0
+    assert calls == [] and "nothing to rerun" in output.getvalue()
+    assert not (tmp_path / "runs").exists()
+
+
+@pytest.mark.parametrize(("content", "extra", "message"), [
+    (None, [], "does not exist"),
+    ("{not json", [], "not a readable summary.json"),
+    ("[]", [], "has no results list"),
+    (json.dumps({"results": {}}), [], "has no results list"),
+    (json.dumps({"results": [{"smoke": "smoke-0"}]}), [], "without a smoke name and exit_code"),
+    (json.dumps({"results": [{"smoke": "smoke-0", "exit_code": True}]}), [], "without a smoke name"),
+    (json.dumps({"results": [7]}), [], "without a smoke name"),
+    (json.dumps({"results": [{"smoke": "smoke-gone", "exit_code": 1}]}), [],
+     "no longer in the port table: smoke-gone"),
+    (json.dumps({"results": [{"smoke": "smoke-0", "exit_code": 1}]}), ["smoke-0"], "takes no smoke names"),
+    (json.dumps({"results": [{"smoke": "smoke-0", "exit_code": 1}]}), ["--all"], "takes no smoke names"),
+    (json.dumps({"results": [{"smoke": "smoke-0", "exit_code": 1}]}), ["--offset", "-7862"],
+     "is outside 1..65535"),
+])
+def test_from_summary_refuses_bad_input_before_any_startup_effect(monkeypatch, tmp_path, content, extra, message):
+    source = tmp_path / "earlier.json"
+    if content is not None:
+        source.write_text(content, encoding="utf-8")
+    runner, output, _calls = _rerun_main(monkeypatch, tmp_path, ["--from-summary", str(source), *extra], {}, {})
+
+    def forbidden(*_args, **_kwargs):
+        pytest.fail("a refused --from-summary reached startup")
+
+    monkeypatch.setattr(runner, "run_row", forbidden)
+    monkeypatch.setattr(runner.tempfile, "mkdtemp", forbidden)
+    monkeypatch.setattr(runner.subprocess, "Popen", forbidden)
+    assert runner.main() == 2
+    assert message in output.getvalue()
+    assert not (tmp_path / "runs").exists()
