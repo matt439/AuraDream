@@ -8194,7 +8194,11 @@ The sidecar lives beside loader settings, outside gallery rows and bundles.
 An independent lock and atomic replace protect concurrent processes; item
 revisions refuse stale edits or deletes, and malformed/newer files stay
 untouched. The API bypasses gallery maintenance admission, so bundling does
-not take away prompt snippets. Only opening the dialog reads the list.
+not take away prompt snippets. A write waits `SESSION_WAIT` for another
+process's write to the same sidecar, as the gallery's single-record writes do
+(setups and saved searches too): with only maintenance's 0.25 s grace, two
+processes saving at once refused the second as busy whenever the first's
+fsync and replace ran long under load. Only opening the dialog reads the list.
 Pending writes hold Close; a queued close event cannot invalidate a reopened
 dialog. Chrome lets a repeated Escape close a held dialog anyway, so a close
 retires reads but keeps a pending write's hold. Only the write's own reply

@@ -2320,7 +2320,10 @@ Jobs:
   across processes. SQLite sessions and per-record writers (`save_image`,
   `thumbnail_for`, `import_file`, `index_file`, `set_favorite`,
   `set_favorites`, `delete_image`, `bin_images`, `restore_images`, `init_db`) wait up to
-  `gallery_lock.SESSION_WAIT` for another process's reservation; whole
+  `gallery_lock.SESSION_WAIT` for another process's reservation, as do the
+  snippet, setup and saved-search sidecar writes and imports under their own
+  path's lock (with only the grace, a second process saving the same sidecar
+  was refused 409 whenever the first's fsync and replace ran long); whole
   maintenance operations (bundles, `delete_matching`, `empty_bin`,
   `clear_history`, `vacuum`, reindex/merge) refuse with `GalleryBusy`
   after `MAINTENANCE_GRACE` (0.25 s) of polling for the file lock, long
