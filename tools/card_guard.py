@@ -73,6 +73,11 @@ class Limits:
     # No default: the whole-card reading at the start above which the card
     # counts as busy with something else (exit 7).
     busy_card_mib: float | None = None
+    # Not from a verified.md row: after the first sample, how many samples in
+    # a row may come back without a whole-card reading (nvidia-smi failing
+    # or timing out) before the guard trips (exit 3). Watching blind under
+    # pressure is when a spill is likely; one reading back resets the count.
+    card_unread_samples: float = 3.0
     # Not limits: how near one a sample is written as a row whatever the
     # row period (MiB for the card and shared rises, GiB for RAM and commit).
     margin_mib: float = 500.0
@@ -114,7 +119,7 @@ class Baseline:
 
 
 Verdict = Literal["ok", "trip", "refuse-projected"]
-Why = Literal["card", "adapter_shared", "process_shared", "ram", "commit"]
+Why = Literal["card", "card_unread", "adapter_shared", "process_shared", "ram", "commit"]
 
 
 @dataclass(frozen=True)
@@ -506,6 +511,7 @@ def watch(host: Host, limits: Limits, rows: Rows, *, sleep: Callable[[float], No
                                           f"{_number(limits.need_ram_gib)} needed", measured=[])
         return finish(EXIT_PREFLIGHT, "preflight")
     last_row = start
+    unread = 0
     try:
         while True:
             if duration is not None and clock() - start >= duration:
@@ -521,6 +527,14 @@ def watch(host: Host, limits: Limits, rows: Rows, *, sleep: Callable[[float], No
             answer = decide(sample, baseline, limits)
             if answer.verdict == "trip":
                 return trip(answer, sample)
+            if sample.card_mib is None:
+                unread += 1
+                if unread == 1:
+                    rows.write("card_unread", **sample_fields(sample, baseline))
+                if unread >= limits.card_unread_samples:
+                    return trip(Answer("trip", "card_unread", unread, limits.card_unread_samples), sample)
+            else:
+                unread = 0
             now = clock()
             if now - last_row >= row_every or near(sample, baseline, limits):
                 rows.write("sample", **sample_fields(sample, baseline))
@@ -537,6 +551,7 @@ _LIMIT_FLAGS = {
     "adapter_shared_rise_mib": "--adapter-shared-mib", "process_shared_rise_mib": "--process-shared-mib",
     "ram_floor_gib": "--ram-floor-gib", "commit_floor_gib": "--commit-floor-gib",
     "need_ram_gib": "--need-ram-gib", "busy_card_mib": "--busy-card-mib",
+    "card_unread_samples": "--card-unread-samples",
     "margin_mib": "--margin-mib", "margin_gib": "--margin-gib",
 }
 

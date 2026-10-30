@@ -172,6 +172,52 @@ def test_each_pack_waits_for_the_adapter_listing_before_it_can_load(name: str) -
     assert waits, name
 
 
+def _clicks(steps: list[dict], target: str) -> list[int]:
+    return [n for n, step in enumerate(steps) if step.get("click") == target]
+
+
+# Empty bin deletes every image in the recycle bin from disk, so a pack that
+# presses it proves first, from the page's own state, that the bin holds its
+# own source alone, and before its first press that could load, that the
+# page opened on a scratch gallery.
+EMPTIES = [name for name in PACKS if _clicks(_steps(name), "#btn-empty-bin")]
+BIN_ONLY_SOURCE = ("binMode", "binCount === 1", "galleryRecords.length === 1", "galleryRecords[0].id === __src",
+                   "querySelectorAll('#gallery .card[data-id]').length === 1")
+SCRATCH = ("total === 0", "!galleryRecords.length", "binCount === 0", "galleryReadHead === null",
+           "!els.allModels.checked")
+
+
+def test_the_packs_that_empty_the_bin_are_the_two_refine_packs() -> None:
+    assert EMPTIES == ["card10-2b89ed5.json", "card10-ad01fdc.json"]
+
+
+@pytest.mark.parametrize("name", EMPTIES)
+def test_a_pack_empties_the_bin_only_when_it_holds_its_source_alone(name: str) -> None:
+    steps = _steps(name)
+    for press in _clicks(steps, "#btn-empty-bin"):
+        opened = max(n for n in _clicks(steps, "#btn-bin") if n < press)
+        checks = [
+            step for step in steps[opened + 1 : press]
+            if step.get("fatal") is True and all(term in step["expect"] for term in BIN_ONLY_SOURCE)
+        ]
+        assert checks, (name, press)
+
+
+@pytest.mark.parametrize("name", EMPTIES)
+def test_a_pack_that_empties_the_bin_starts_on_a_scratch_gallery(name: str) -> None:
+    steps = _steps(name)
+    press = next(
+        n for n, step in enumerate(steps)
+        if any(isinstance(step.get(k), str) and PRESS.search(step[k]) for k in ("click", "dblclick", "key"))
+        or (step.get("keycombo") or [None])[-1] == "Enter"
+    )
+    checks = [
+        step for step in steps[:press]
+        if step.get("fatal") is True and all(term in step["expect"] for term in SCRATCH)
+    ]
+    assert checks, name
+
+
 @pytest.mark.parametrize("sha", ["1744dc3", "ctrl-c-idle"])
 def test_the_ctrl_c_packs_leave_the_signal_to_a_person(sha: str) -> None:
     steps = _steps(f"card10-{sha}.json")

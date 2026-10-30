@@ -246,6 +246,22 @@ Left: stage 2 (the card, with Matt's OK). The commit floor's trips on a
 busy machine are worth Matt's look before that session: 4 GiB of commit
 headroom was not there with several sessions' test runs resident.
 
+**Hardened after review (2026-10-31): the card unread mid-watch.** The
+watcher refused to start without a whole-card reading, but after the
+first sample a sample with no card reading (nvidia-smi failing or timing
+out) only skipped the card check, so it could watch blind for the rest of
+the session. Now it counts such samples in a row: the first writes a
+`card_unread` row (the other counters' fields), and the
+`card_unread_samples`-th in a row (3 by default, in the `Limits` block,
+`--card-unread-samples` for one session) trips: a `TRIP` row with `why`
+`"card_unread"`, `reading` the count and `limit` the setting, the watched
+tree killed and exit 3, as for the card. A reading back resets the count.
+RAM and commit are still decided first, so a sample that trips both
+writes `ram_guard` and exits 4. `tests/test_card_guard.py` holds it on the
+stub host (three unread in a row trip; two, a reading, two do not, and
+write a `card_unread` row each run; a limit of 1 trips on the first), with
+no clock raced. No card or counter was read for it.
+
 ## Image metrics
 
 `DEV#22`. A new file, `tools/image_compare.py`, and
@@ -520,6 +536,34 @@ the source's and 2a4d2cc that the size is 1024x1024, and ran the six page
 packs again on a fresh fake (port 8150): all exited 0 with the same
 readings (8 of 12 seeds, 16/24 cells; #32 "refine of #31 (deleted)"; cell
 5 of 6 after 3 failed).
+
+**Hardened after review (2026-10-31): the bin packs refuse a real
+gallery.** ad01fdc and 2b89ed5 navigate to 7860 and empty the whole
+recycle bin; nothing checked what it held, so a run against Matt's
+gallery, or a dry run without `AURADREAM_PORT_OFFSET` while the real
+server is up, would have deleted every binned image for good. Each now
+stops (fatal) at two points, reading only the page's own state. Before
+its first press, unless the page opened on a scratch gallery: once the
+gallery's first page and the bin summary have answered, no image under
+the checkpoint (`total` 0, no card, no search, Starred or All models), the
+bin empty (`binCount` 0), and no row on any checkpoint past #2
+(`galleryReadHead`, the page's newest id over every row: null on a fresh
+real scratch gallery, 2 on a fresh fake, which plants two under another
+checkpoint). And between opening the bin and pressing Empty bin, unless
+the bin holds the source alone (`binCount` 1, one record and one card,
+each the source's id, no further page). So each bin pack runs on its own
+fresh scratch gallery: the second on the same fake now stops. The test
+finds every pack that presses `#btn-empty-bin` (these two), and requires a
+fatal check of the bin's contents between the last `#btn-bin` press and
+each Empty bin press, and a fatal scratch check before the first press
+that could load; both failed on the packs as they were and pass now.
+Dry run (port 8150, `AURADREAM_PORT_OFFSET=290`, `--step 0.3`, a fresh
+scratch `--data` per pack): ad01fdc exited 0 (opened on total 0, bin 0,
+newest #2; the bin held `[3]` alone; "Stopped at cell 5 of 6 after 3 cells
+failed; 2 images kept", Finish run held); 2b89ed5 on that same fake
+afterwards exited 1 at its scratch check (total 2, newest #5) with nothing
+typed or pressed; on a second fresh fake it exited 0 (bin `[3]` alone; #4
+"refine of #3 (deleted)").
 
 **Left, Matt's:** the two Ctrl-C packs on the fake with Ctrl-C typed in the
 fake's console, and their result recorded here. For 1744dc3 the fake must
