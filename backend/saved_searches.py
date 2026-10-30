@@ -105,7 +105,7 @@ def change(
     try:
         # This sidecar has its own reservation; no gallery maintenance or GPU
         # admission is acquired, even when both files share a directory.
-        with gallery_lock.hold(path):
+        with gallery_lock.hold(path, wait=gallery_lock.SESSION_WAIT):
             items = _read(path)
             if item_id is None:
                 assert values is not None

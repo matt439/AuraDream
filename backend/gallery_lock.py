@@ -17,9 +17,12 @@ class GalleryBusy(RuntimeError):
 # How long an ordinary SQLite session or a single-record write waits for
 # another process's reservation before refusing. A CLI query or one save holds
 # it briefly; SQLite's own busy timeout absorbed that overlap before the
-# reservation existed. Whole maintenance operations (bundles, clear, reindex)
-# pass no wait: a long operation is refused (after MAINTENANCE_GRACE) rather
-# than queued.
+# reservation existed. The snippet, setup and saved-search sidecars' writes
+# (each under its own path's lock) are single-record writes too: with only the
+# grace, two processes saving at once refused the second whenever the first's
+# read-validate-fsync-replace outlasted it under load. Whole maintenance
+# operations (bundles, clear, reindex) pass no wait: a long operation is
+# refused (after MAINTENANCE_GRACE) rather than queued.
 SESSION_WAIT = 30.0
 # And how long one of those maintenance operations still polls for the file
 # lock: a reader holds it for a millisecond or two (a gallery page, the status

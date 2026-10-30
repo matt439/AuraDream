@@ -223,8 +223,10 @@ def test_concurrent_edits_accept_one_revision(tmp_path):
     assert saved[0][0].revision == 2
 
 
-def test_another_process_sees_setup_lock_but_not_gallery_lock(tmp_path):
+def test_another_process_sees_setup_lock_but_not_gallery_lock(tmp_path, monkeypatch):
     database = tmp_path / "gallery.db"
+    # A held setup lock refuses only after the writer's wait, read per call.
+    monkeypatch.setattr(gallery_lock, "SESSION_WAIT", 0.3)
     child = _holding_child(presets.path_for(database))
     try:
         with pytest.raises(presets.PresetsError, match="Another AuraDream process") as error:
