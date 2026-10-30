@@ -5313,6 +5313,17 @@ re-reads the adapter list (`lorasLive`) and the previews once, and
 `GalleryAdmission` refused those. The bundle's settle re-reads both, as it
 already re-read the gallery.
 
+Those re-reads must end before the settle does (2026-10-31). The settle
+dropped `bundleSettling` while its unawaited adapter list read and the
+Finish run detail read (`GET /api/runs/{id}`) were still in flight, so a
+bundle press right after it looked idle on the page and the server refused
+it ("Another gallery request is still finishing"), which smoke-bundles hit
+under load. Both settle paths now await `bundleRepairReads()` (the adapter
+list, `finishRunReads()`, and the open dialog's counts and list) first. A
+debounced 250 ms preview (grid, refine, inpaint, outpaint) is only
+scheduled at that point, so a press in that window with one of those
+panels open can still meet the same refusal.
+
 **Windows credential source (2026-10-26, `GAL#6`).** V4 now stores only an opaque
 scoped credential reference and inactive pending/ready state. Explicit hidden-input
 setup writes pending metadata before a new generic WinCred target; uncertain
