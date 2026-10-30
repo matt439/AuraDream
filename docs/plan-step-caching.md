@@ -401,6 +401,10 @@ separate slices. `PERF#4` remains CARD while the real comparison is outstanding.
 
 ## Fixed comparison cases
 
+**Status, 2026-10-30: `PERF#6` done.** `tools/perf_cases.py` and
+`tests/test_perf_cases.py` are built as [below](#fixture-and-its-checks);
+the card runs stay `PERF#1`/`#2`/`#3`/`#4`.
+
 **Status, 2026-10-29: `PERF#6` OPEN** (TODO audit, approved by Matt). The
 three speed plans each said to fix their prompts, seeds and shapes before
 the card run, and none did. This section fixes them once for `PERF#1`
@@ -502,6 +506,27 @@ database from `tests/conftest.py`):
   `--step-cache fbc-005-v1` raises `SystemExit` with code 2 and the
   unavailable reason on stderr. That keeps the fixture from running an unqualified recipe. When
   a recipe is admitted, that assertion becomes a dry-run count for its arm.
+
+**Built, 2026-10-30.** `tools/perf_cases.py` holds the data above and
+`generate_args(prompt, shape, recipe=..., quantization=...)`, which names
+`--model`/`--quant`/`--offload`, the size, `--steps 28 --cfg 3.5 --batch 1`
+and `--seed-list 4471,8823`, plus one flag per recipe field
+(`--compilation`, `--attention`, `--step-cache`). Run as a script it prints
+the six `backend.generate` command lines for an arm (`--shape`, `--quant`
+and the recipe flags narrow it); it runs none. `tests/test_perf_cases.py`
+(42 cases) checks every bullet above: `applied()` with the krea-dev
+profile's flags leaves all six cases as written, each plan's two arms
+(`PERF#1`/`#3`/`#4`) differ only in `cell_key`'s execution element, the
+empty-recipe arm's `run_id` equals the legacy one (shape A's scene case is
+pinned at `18602667a40f`), the `PERF#2` pair differs only by `run_id`, and
+`--dry-run` prints `2 image(s) - 2 run(s) x 1` per prompt (6 per shape),
+loads nothing and writes no row, while each nonempty recipe exits 2 with
+the unavailable reason. Two choices the plan left open were taken while
+Matt was away (2026-10-29), revisit if wanted: the argument list carries
+the checkpoint/quantization/offload flags and an explicit `--batch 1`, so a
+printed line is complete on its own; and the dry-run test points
+`config.settings` at the Krea dev fp8/model-offload profile, because the
+CLI tests' throwaway settings stand in for what `--model` would select.
 
 **Non-goals.** No new prompts are invented or reworded. No other
 checkpoint, step count or CFG. No grid or comparison UI. No card run. The

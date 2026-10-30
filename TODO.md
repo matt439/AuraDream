@@ -8,7 +8,7 @@ The maintainer's working backlog for this personal project: it records what is p
 
 **Aim (2026-10-29):** keep useful work ready for Matt's common workstation tasks. [Reported use](docs/design/preferences.md) guides priority; it does not approve the candidate redesign.
 
-**Ready backlog (updated 2026-10-30):** 14 `OPEN` rows. `INP#11` stage 4's code is built on `feat/inp11-stage4`; its [card acceptance step](docs/plan-instruction-editing.md#card-acceptance-step) waits on Matt's OK. The [2026-10-29 audit](docs/review-2026-10-29-todo.md)'s rows follow; start with the defects and Often-feature rows: Finish run's missing passes (`GEN#35`), Compare scales (`UI#34`). The card-session tools (`DEV#20`, `DEV#22`, `DEV#23`, `PERF#6`) shorten later card runs; they don't replace them.
+**Ready backlog (updated 2026-10-30):** 13 `OPEN` rows. `INP#11` stage 4's code is built on `feat/inp11-stage4`; its [card acceptance step](docs/plan-instruction-editing.md#card-acceptance-step) waits on Matt's OK. The [2026-10-29 audit](docs/review-2026-10-29-todo.md)'s rows follow; start with the defects and Often-feature rows: Finish run's missing passes (`GEN#35`), Compare scales (`UI#34`). The card-session tools (`DEV#20`, `DEV#22`, `DEV#23`) shorten later card runs; they don't replace them.
 
 **Decisions for Matt:** none open. On 2026-10-29 Matt took the recommended answers for `PERF#7` (cache beside the gallery, cleared on a torch/Triton/driver change, static shapes; shipping waits on `PERF#1`), `PERF#5`, `GAL#21` and `UI#34`; declined `GEN#39` and unattended backups (`GAL#22`, `GAL#6`); kept `GEN#6`, `INP#9` and `INP#10` deferred.
 
@@ -83,7 +83,6 @@ The maintainer's working backlog for this personal project: it records what is p
 
 | id | status | sev | size | item |
 |---|---|---|---|---|
-| `PERF#6` | OPEN | LOW | S | Fix the shared speed comparison cases before any card run: `tools/perf_cases.py` (Krea dev fp8, 28 steps, CFG 3.5, 1024x1024 and 1360x768, three verbatim author prompts x seeds 4471/8823) plus `tests/test_perf_cases.py` (`applied()` unchanged, recipe-only key difference, `--dry-run` counts, nonempty recipe refused). [Cases](docs/plan-step-caching.md#fixed-comparison-cases). |
 | `PERF#1` | CARD | MED | L+card | Qualify toolchain/cache and the card; source, bounded diagnostics presentation and Windows browser smokes are done. Public nonempty admission stays closed. [Plan](docs/plan-regional-compilation.md). |
 | `PERF#3` | CARD | LOW | M+card | Qualify Native/cuDNN speed, fit and repeatability. Public nonempty admission remains closed. [Plan](docs/plan-attention-backends.md). |
 | `PERF#4` | CARD | LOW | L+card | Run the fixed off/on quality, time and memory comparisons, then judge the pairs. Public caching remains closed. [Plan](docs/plan-step-caching.md). |

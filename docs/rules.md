@@ -465,7 +465,10 @@ before changing it.
   table and runs it, with `smoke_fonts.py` its Linux Segoe UI stand-in;
   `ci_changes.py` classifies GitHub push/PR ranges for
   the documentation-only lint path; `typecheck.py` runs the pinned,
-  locally bundled Pyright checker over the configured scope; see Tests
+  locally bundled Pyright checker over the configured scope;
+  `perf_cases.py` holds the fixed speed comparison cases the card runs
+  share and prints their `backend.generate` lines, running none
+  (`docs/plan-step-caching.md`, Fixed comparison cases); see Tests
 - `tests/` — the pytest suite, no GPU and no weights: `conftest.py`,
   `fakes.py` and `api_helpers.py` (the fake backend and its fixtures),
   `test_api*.py` (the HTTP routes, one file per area), and a file per module
