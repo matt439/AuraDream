@@ -383,6 +383,12 @@ but uses the running checkpoint's sampling defaults.
 **Versions** makes one, two or four passes on consecutive seeds, one image at
 a time. Enter `0.05,0.1,0.2` or `0.05-0.2x0.05` in Strength for a sweep;
 **Compare 3** supplies nearby values that leave enough denoising steps.
+**Compare scales** (in the Size caption) runs 1×, 1.5× and 2× of the source
+side by side as one contact sheet with a Size axis, leaving out any factor
+past the pass's limit or the card's measured line (the button's tooltip
+names them); it is held when fewer than two fit. A scale button or a typed
+size goes back to one size, and a comparison is never remembered as the
+scale.
 Changing aspect ratio crops the source instead of stretching it. The size
 guard permits up to any 2 MP preset at 2× (about 8.4 MP), but the dialog's
 measured-size warning is the better guide to VRAM use.

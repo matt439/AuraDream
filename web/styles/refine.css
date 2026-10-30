@@ -121,6 +121,15 @@
    white, quieter by its size alone: at 0.85 opacity it fell under 4.5:1. */
 .refine-dialog .presets button.active::after { color: inherit; }
 .refine-dialog .presets button:disabled { opacity: 0.45; cursor: not-allowed; }
+/* Compare scales at the far end of the Size caption, as Compare 3 is at the
+   end of Strength's: floated, its block margins taking it to the caption's
+   own line, so the caption - and the dialog - keep their height. Pressed, it
+   is lit as a chosen scale is. */
+#refine-compare-scales {
+  float: right; margin-block: calc((var(--lh) * var(--fs-label) - var(--h-xs)) / 2);
+  letter-spacing: 0; text-transform: none; font-weight: 400;
+}
+#refine-compare-scales[aria-pressed="true"] { border-color: var(--accent-strong); color: var(--text); }
 .rf-lock { flex: none; align-self: center; margin-top: var(--sp-3); font-size: var(--fs-label); }
 .refine-dialog .sub i .ghost.tiny { margin-left: auto; }
 #refine-negative-field.disabled textarea { opacity: 0.45; }

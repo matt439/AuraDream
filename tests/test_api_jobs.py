@@ -119,7 +119,7 @@ def test_skip_is_held_while_paused_and_during_then_refine(client, fake):
         "then_refine": {"scale": 1.5, "strength": 0.5},
     }).json()["job_id"]
     stage = wait_for(client, job_id, lambda s: s["stage"] == "pass")
-    assert "base cells only" in stage["skip_reason"]
+    assert "Finish run adds a pass a stop left missing" in stage["skip_reason"]
     assert client.post(f"/api/jobs/{job_id}/skip", params={"call": 1}).status_code == 409
     assert stream_job(client, job_id)[-1]["status"] == "done"
 

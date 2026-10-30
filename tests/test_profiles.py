@@ -11,6 +11,7 @@ model_index.json).
 from __future__ import annotations
 
 import inspect
+import math
 import re
 from pathlib import Path
 
@@ -979,6 +980,38 @@ def test_the_strength_sweep_is_the_dialogs_compare_3():
     assert "sigma 0.75" in hints_for("black-forest-labs/FLUX.1-Krea-dev")["refine_large"]
     assert "refine_large" not in hints_for("black-forest-labs/FLUX.1-Krea-dev", refine_supported=False)
     assert "refine_large" not in hints_for("cagliostrolab/animagine-xl-4.0")
+
+
+def test_compare_scales_sends_the_scale_buttons_own_sizes():
+    # The Refine dialog's Compare scales: 1x, 1.5x and 2x of the source, each
+    # the size its scale button lands on - the page's refineScaled, which is
+    # backend/refine.py's `scaled` written out the same way - sent as the
+    # grid's paired `size_axis`, which `grid.parse_sizes` reads back in order.
+    from backend import grid, refine
+
+    state = (ROOT / "web" / "state.js").read_text(encoding="utf-8")
+    src = (ROOT / "web" / "refine.js").read_text(encoding="utf-8")
+    scales = [float(v) for v in re.search(r"const REFINE_SCALES = \[([^\]]*)\];", state).group(1).split(",")]
+    factors = [float(v) for v in re.search(r"const REFINE_COMPARE_SCALES = \[([^\]]*)\];", src).group(1).split(",")]
+    assert factors == [1, 1.5, 2] and all(f in scales for f in factors) and factors == sorted(factors)
+    # One arithmetic: half up on the 16-pixel grid, never under 16.
+    assert "Math.max(16, Math.floor(side * factor / 16 + 0.5) * 16)" in src
+    body = src.split("function compareScales(", 1)[1].split("\n}\n", 1)[0]
+    assert "refineScaled(src.width, src.height, factor)" in body
+    assert "for (const factor of REFINE_COMPARE_SCALES)" in body
+    # Past the guard and past the tight line are left out, each named.
+    assert "!refineFits(size)" in body and "refineTight(...size)" in body
+    assert "body.size_axis = compared.map(([w, h]) => `${w}x${h}`).join(',')" in src
+
+    def page(side: int, factor: float) -> int:
+        # The page's expression, evaluated as JS would (floats, floor).
+        return max(16, math.floor(side * factor / 16 + 0.5) * 16)
+
+    for width, height in ((896, 1152), (1024, 1024), (1344, 1728), (832, 1216), (1000, 776)):
+        pairs = [refine.scaled(width, height, f) for f in factors]
+        assert pairs == [(page(width, f), page(height, f)) for f in factors]
+        text = ",".join(f"{w}x{h}" for w, h in pairs)
+        assert grid.parse_sizes(text) == pairs
 
 
 def test_the_inpaint_strength_note_names_only_what_verified_md_measured():

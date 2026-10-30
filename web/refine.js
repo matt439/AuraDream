@@ -124,6 +124,40 @@ function openingRefineSize(rec, scale) {
   return { size: refineScaled(rec.width, rec.height, 1), factor: 1 };
 }
 
+// Compare scales: 1×, 1.5× and 2× of the source side by side, as one grid
+// whose size axis is those sizes (`size_axis`) - each the scale button's own
+// size (`refineScaled`, backend/refine.py's `scaled`), ascending. A factor
+// past the pass's guard is left out, and so is one past the tight line, as
+// openingRefineSize never opens there; `dropped` names each and why, for the
+// button's title. Under two left, there is nothing to compare and the button
+// is held. tests/test_profiles.py holds the factors to the scale buttons'.
+const REFINE_COMPARE_SCALES = [1, 1.5, 2];
+// Pressed: the dialog stands for the comparison, not the boxes' one size. A
+// scale button, a typed W or H, an open and Reuse each leave it; never
+// remembered (rememberRefine), as no sweep is.
+let refineComparing = false;
+
+function compareScales(src = refineSource) {
+  const sizes = [];
+  const factors = [];
+  const dropped = [];
+  if (!src) return { sizes, factors, dropped };
+  const run = typeof lastDefaults?.refine_tight_pixels === 'number' ? lastHints?.refine_tight : null;
+  for (const factor of REFINE_COMPARE_SCALES) {
+    const size = refineScaled(src.width, src.height, factor);
+    const named = `${factor}× (${size[0]}×${size[1]})`;
+    if (!refineFits(size)) dropped.push(`${named} is past what a refine pass renders`);
+    else if (refineTight(...size)) dropped.push(run ? `${named} goes ${run}` : `${named} may run tight on 16GB VRAM`);
+    else if (!sizes.some(([w, h]) => w === size[0] && h === size[1])) {
+      sizes.push(size);
+      factors.push(factor);
+    }
+  }
+  return { sizes, factors, dropped };
+}
+
+const refineSizesText = (sizes) => sizes.map(([w, h]) => `${w}×${h}`).join(', ');
+
 // Compare 3: half the checkpoint's strength, it, and half as much again, on
 // the 0.05 grid, less any that leaves no step of the Steps box or passes 1.
 // model_defaults.strength_sweep is the same arithmetic in the same order, so
@@ -257,6 +291,7 @@ function openRefine(rec, pass = null) {
   els.refinePromptLine.textContent = rec.prompt;
   // Rebuilt by syncRefine for this source's size.
   els.refineScales.textContent = '';
+  refineComparing = false;
   refineSkipped = null;
   refineCapped = false;
   if (pass) {
@@ -479,6 +514,22 @@ function syncRefine() {
   if (!refineUpscalerAvailable()) els.refineUpscaler.value = '';
   const w = +els.refineWidth.value;
   const h = +els.refineHeight.value;
+  // Compare scales: held, saying why, where fewer than two factors are left -
+  // and a comparison the source or the checkpoint's line no longer allows
+  // (a load moved it) is left for the boxes' one size.
+  const compared = compareScales(src);
+  const comparable = compared.sizes.length >= 2;
+  if (!comparable) refineComparing = false;
+  const comparing = refineComparing;
+  els.refineCompareScales.setAttribute('aria-disabled', String(!comparable));
+  els.refineCompareScales.setAttribute('aria-pressed', String(comparing));
+  const left = compared.dropped.length ? ` - ${compared.dropped.join(', and ')}` : '';
+  const compareTitle = !comparable
+    ? `No scales to compare: fewer than two of ${REFINE_COMPARE_SCALES.map((f) => `${f}×`).join(', ')} fit${left}`
+    : comparing ? `Comparing ${refineSizesText(compared.sizes)}; press again for one size${left}`
+      : `Run ${refineSizesText(compared.sizes)} side by side as one sheet${left}`;
+  // Written only when it changes, as Compare 3's label is: the poll runs this.
+  if (els.refineCompareScales.title !== compareTitle) els.refineCompareScales.title = compareTitle;
   if (!els.refineScales.children.length) {
     for (const scale of REFINE_SCALES) {
       const button = document.createElement('button');
@@ -493,7 +544,7 @@ function syncRefine() {
   [...els.refineScales.children].forEach((button, i) => {
     const size = refineScaled(src.width, src.height, REFINE_SCALES[i]);
     const fits = refineFits(size);
-    const chosen = fits && w === size[0] && h === size[1];
+    const chosen = !comparing && fits && w === size[0] && h === size[1];
     button.disabled = !fits;
     button.classList.toggle('active', chosen);
     button.setAttribute('aria-pressed', String(chosen));
@@ -512,7 +563,7 @@ function syncRefine() {
   // how much of the source it keeps, and frames it on the large source.
   const problem = refineSizeProblem(w, h);
   const run = typeof lastDefaults?.refine_tight_pixels === 'number' ? lastHints?.refine_tight : null;
-  const tight = !problem && refineTight(w, h);
+  const tight = !problem && !comparing && refineTight(w, h);
   const notes = problem ? [problem] : tight
     ? [run ? `may run tight on 16GB VRAM, ${run}` : 'may run tight on 16GB VRAM']
     : [];
@@ -527,10 +578,12 @@ function syncRefine() {
     : `the source cropped to this shape, keeping the ${anchor === 'center' ? 'middle' : anchor.replaceAll('-', ' ')} ${percent(kept.w)} × ${percent(kept.h)}`;
   // At the size it opened at in place of the scale asked for, why: the next
   // scale up is past the line (or the guard), and so is every larger one.
-  const capped = !notes.length && refineSkipped && w === refineSkipped.size[0] && h === refineSkipped.size[1]
-    ? refineCapNote(src, run) : '';
-  els.refineSizeHint.textContent = [sized ? `${(w * h / 1e6).toFixed(1)} MP` : '', shape, ...notes, capped]
-    .filter(Boolean).join(' — ');
+  const capped = !notes.length && !comparing && refineSkipped
+    && w === refineSkipped.size[0] && h === refineSkipped.size[1] ? refineCapNote(src, run) : '';
+  // Comparing, the sizes the sheet will lay out, each by its factor.
+  els.refineSizeHint.textContent = comparing && !problem
+    ? `Comparing ${compared.sizes.map(([cw, ch], i) => `${compared.factors[i]}× ${cw}×${ch}`).join(', ')}`
+    : [sized ? `${(w * h / 1e6).toFixed(1)} MP` : '', shape, ...notes, capped].filter(Boolean).join(' — ');
   els.refineSizeHint.classList.toggle('warn', notes.length > 0);
   els.refineKept.hidden = !cropped;
   if (cropped) {
@@ -582,8 +635,9 @@ function syncRefine() {
   const seeds = seed === null
     ? (versions > 1 ? `${versions} seeds counting up from a random one` : 'a random seed')
     : versions > 1 ? `seeds ${seed}-${seed + versions - 1}` : `seed ${seed}`;
+  const every = [sweep ? 'strength' : '', comparing ? 'size' : ''].filter(Boolean).join(' and ');
   els.refineSeedHint.textContent = `${seeds}${seed === src.seed ? ", from the source's" : ''}`
-    + (sweep ? ', at every strength' : '');
+    + (every ? `, at every ${every}` : '');
 
   // The negative prompt, Mu and True CFG by the panel's rules (syncCfg,
   // syncMu): greyed where they cannot apply, so nothing unused is sent.
@@ -644,6 +698,7 @@ function syncRefineRun() {
 
 function applyRefineScale(scale) {
   if (!refineSource) return;
+  refineComparing = false;
   [els.refineWidth.value, els.refineHeight.value] = refineScaled(refineSource.width, refineSource.height, scale);
   unmarkRefineFields();
   refineFailed('');
@@ -713,6 +768,26 @@ function fillRefineCompare() {
   els.refineStrength.focus();
 }
 
+// Compare scales pressed: the dialog stands for every size compareScales
+// leaves, which the preview prices and Refine runs as one sheet; pressed
+// again, for the boxes' one size. Held where fewer than two are left: the
+// press says why, and focus stays on it. Nothing is written into a box.
+function toggleRefineScaleCompare() {
+  if (!refineSource) return;
+  if (!refineComparing && (els.refineCompareScales.getAttribute('aria-disabled') === 'true'
+    || compareScales().sizes.length < 2)) {
+    refineFailed(`${els.refineCompareScales.title}.`);
+    return;
+  }
+  refineComparing = !refineComparing;
+  refineChanged();
+}
+
+// W or H typed: the size typed, alone.
+function leaveRefineScaleCompare() {
+  refineComparing = false;
+}
+
 function refineFailed(message) {
   els.refineError.hidden = !message;
   els.refineError.textContent = message || '';
@@ -750,11 +825,17 @@ function refineRequest() {
     seed: seed === '' ? null : +seed,
     runs: 1,
   };
-  if (single) {
+  // Compare scales: the sizes as the grid's size axis, crossed with a
+  // strength sweep where Strength holds one. The base keeps the boxes' size,
+  // a valid request of its own; the server expands, prices and refuses.
+  const compared = refineComparing ? compareScales().sizes : [];
+  if (single && compared.length < 2) {
     const body = { ...base, num_images: versions };
     return { path: '/api/generate', body, preview: { ...body, seeds: 1 }, sweep: false };
   }
-  const body = { ...base, num_images: 1, seeds: versions, strength_axis: strength };
+  const body = { ...base, num_images: 1, seeds: versions };
+  if (!single) body.strength_axis = strength;
+  if (compared.length >= 2) body.size_axis = compared.map(([w, h]) => `${w}x${h}`).join(',');
   return { path: '/api/grid', body, preview: body, sweep: true };
 }
 
@@ -815,8 +896,11 @@ async function previewRefine() {
     const noise = single !== null && typeof p.start_sigma === 'number'
       ? ` · starts at ${Math.round(p.start_sigma * 100)}% noise` : '';
     els.refinePreview.classList.toggle('warn', !!p.duplicates);
+    // The sizes as the server expanded them, where the pass compares scales.
+    const sizes = preview.size_axis ? (p.values.size ?? []).map((v) => v.replace('x', '×')) : [];
     els.refinePreview.textContent = plural(p.images, 'image')
-      + ` · strength ${axisText(strengths)}${noise}${run}${keeps}`
+      + ` · strength ${axisText(strengths)}${sizes.length ? ` · sizes ${sizes.join(', ')}` : ''}`
+      + `${noise}${run}${keeps}`
       + (p.seconds ? ` · about ${humanTime(p.seconds)}` : '')
       + (p.duplicates ? ` · ${p.duplicates} would be identical to another` : '')
       + (sweep ? '\nOpens as a sheet when it is done.' : '');
@@ -895,7 +979,9 @@ async function runRefine() {
       src: source.url ?? source.thumb_url,
       width: body.width,
       height: body.height,
-      label: `Refining #${source.id} → ${body.width}×${body.height} · strength ${strength}`,
+      label: `Refining #${source.id} → ${body.size_axis
+        ? body.size_axis.split(',').map((v) => v.replace('x', '×')).join(', ')
+        : `${body.width}×${body.height}`} · strength ${strength}`,
     },
     onAccepted: () => {
       accepted = true;
@@ -993,7 +1079,8 @@ function rememberRefine() {
   // was asked for, that size run as it opened is the dialog's choice:
   // remembered, one Enter on a large source opened every later one at 1x.
   const chosen = !refineCapped || w !== +refineFilled?.width || h !== +refineFilled?.height;
-  if (scale && chosen) prefs.scale = scale;
+  // A comparison ran a list of sizes, none of them the scale chosen.
+  if (scale && chosen && !refineComparing) prefs.scale = scale;
   prefs.versions = +els.refineVersions.value || 1;
   prefs.cropAnchor = els.refineCropAnchor.value;
   const strengths = prefs.strength && typeof prefs.strength === 'object' ? prefs.strength : {};

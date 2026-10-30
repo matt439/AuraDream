@@ -2958,7 +2958,7 @@ Frontend and CLI:
   for every star; ❐'s "Reference image N - click to remove" or its reason,
   also its `aria-description`). A button held
   for a reason (Generate, Run grid, and Run comparison under the same
-  `submitHold`, Unload, Pause, Refine, the Refine dialog's Compare 3 and From panel, Ask
+  `submitHold`, Unload, Pause, Refine, the Refine dialog's Compare 3, Compare scales and From panel, Ask
   the critic, Expand, a card's ⤢ and ❐, a pass's Compare with source in the
   result column, the sheet's Fill width on a wrapped row and its export
   buttons while one runs, a negative-prompt finding's Show) is
@@ -3778,6 +3778,18 @@ Frontend and CLI:
   steps), Compare 3 is aria-disabled, its title naming the Steps that would
   give a sweep (`compareStepsNeeded`), a press says so and writes nothing,
   the placeholder is the start alone and the sweep line names no values.
+  Compare scales (floated at the end of the Size caption, its block margins
+  holding the caption's height, so the dialog is the same height with or
+  without it) marks the dialog as comparing 1x, 1.5x and 2x
+  (`REFINE_COMPARE_SCALES`, each `refineScaled`'s size, ascending), less any
+  past the guard (`refineFits`) or the tight line (`refineTight`), each named
+  in its title (`compareScales`); under two left it is aria-disabled with the
+  reason and a press says so. It writes no box: `refineRequest` sends the
+  grid with `size_axis` (and `strength_axis` where Strength is a list) over
+  the boxes' valid base size and the one crop anchor, the preview names the
+  server's `values.size`, and the run opens as a sheet with a Size axis. A
+  scale button, a typed W or H, a second press, an open and Reuse leave it;
+  `rememberRefine` never stores a scale from a comparison.
   From 1600 px the dialog is two panes (the source's PNG, the kept
   region of a reshaped size framed with `refine.fitted`'s arithmetic,
   `refineKept`), with the same DOM and tab order as the one column; Keep
@@ -5182,7 +5194,25 @@ Frontend and CLI:
   carries `then_refine`, `pass_run_id`, `stage` ("pass") and
   `planned_images` doubled; the retained metadata `then_refine` with its
   `pass_run_id`, which Finish passes back, and a pass run's Finish names
-  its base run (`storage.retained_run_metadata`). The grid preview gives
+  its base run (`storage.retained_run_metadata`). Finish adds the passes a
+  stop left missing: where the run's retained jobs agree on one spec (two
+  are refused in words), each live, unbinned base those jobs saved whose
+  pass (`then_refine.plan_passes`, Mass refine's cell) neither the gallery
+  (`not_yet_rendered`) nor the queue (`not_yet_planned`) holds is queued
+  as `submit_cells(pass_sources=...)`: `Job.pass_sources`, a unit each
+  before the first cell (pause, the budget and cancel at its boundary, its
+  failures under the pass streak and in `_units`), its base re-read by id
+  at its turn (binned or deleted since is a failed pass in words), its
+  planned pass in `job.source_passes` and so in `planned_keys` from submit.
+  A run missing only passes is a job with no cells, whose request is its
+  first pass's; the retained metadata adds `pass_sources`. The preview's
+  `passes` counts them, its pin hashes their keys, and "the missing passes
+  are already queued" or "nothing in this run is missing" hold it; the
+  page's words add "and N missing passes" (`finishRunWords`). Each job's
+  retained outcome adds `completed_passes`, the bases whose pass it saved;
+  of the missing passes, those a retained job had made (permanently
+  deleted since) are the preview's `redrawn_passes`, and the page adds
+  "N permanently deleted passes will be redrawn", as for cells. The grid preview gives
   `passes`, `pass_width`/`pass_height`, the passes' time at the pass size
   and disk, budget seeds pricing each cell with its passes, and the pass's
   start sigma. The page's opener, `#then-refine-open`, ends the Notify
@@ -7232,7 +7262,15 @@ equal to Mass refine's and reported `rendered`, the base rows a plain
 Generate's, every refusal in words, a failed pass kept off
 `failed_indices`, three in a row ending the job, a cancel inside a pass
 keeping the base, a grid's passes and retained spec, a pass run's Finish
-naming its base, Finish carrying the spec, and the preview's passes;
+naming its base, Finish carrying the spec, the preview's passes, and
+Finish run's missing passes as units under pause, the budget, cancel and
+the failure streak, planned from submit; `tests/test_api_finish_run.py`
+the missing passes themselves (a cancel on a pass finished under the pass
+run with Mass refine's key, a binned base skipped, a pass Mass refine made
+or has queued counted, two specs refused in words, the pin moving when a
+pass lands, a base deleted before its turn a failed pass, a permanently
+deleted pass counted in `redrawn_passes` and a stop's not, a plain first
+job not hiding a later job's spec);
 `tests/test_cli.py` the CLI's passes equal to the server's and its flag
 refusals. `smoke-then-refine.json` uses a fresh FLUX.1 Krea [dev] fake on
 7912 with `--step 0.3`: the opener ending the Notify row at its height,
@@ -7241,8 +7279,11 @@ words and titles, the hint's pass size, Generate and the grid fold not
 moving, Escape closing it, a batch of two making its bases then their passes with the pass
 in the cell line, the pass rows' size, strength, seeds and run, the grid
 preview's passes, the tick off after a reload with the strength
-remembered, and the tick held with `REFINE_NONE` on a status stubbed to no
-pass:
+remembered, the tick held with `REFINE_NONE` on a status stubbed to no
+pass, and a Generate cancelled on its pass whose finish line's Finish run
+says "Finish 1 missing pass of run …" and, pressed, puts the pass in the
+strip and the pass run, then that pass permanently deleted and the words
+adding "1 permanently deleted pass will be redrawn":
 
 ```powershell
 uv run python tools/fake_server.py --port 7912 --model black-forest-labs/FLUX.1-Krea-dev --step 0.3 --data <new-scratch-directory>
@@ -7812,7 +7853,14 @@ in the preview and a refusal moved to the error line at Strength or W with
 Refine not moving, a strength typed and entered at once refused in the
 dialog, a strength past 1 refused as a fraction, Compare 3 (held with the
 Steps that would give a sweep at 2 steps, writing nothing), Compare 2 at
-12 steps, Mu's "auto", the preview's "starts at N% noise" from an injected
+12 steps, Compare scales (its title naming 2x left out past the measured
+line, the Size field and dialog the same height with the button hidden, a
+press writing no box, the size line and the server's sizes in the preview,
+a strength list crossed with it, the run's sheet with a Size axis, a
+remembered 1.25x that differs from the boxes' 1.5x left standing by the
+run and the next open at it, a scale button, a typed W and a second press
+leaving it, Reuse of a compared cell at its own size, and held with both
+factors named on a 1.5 MP source, a press saying so with focus kept), Mu's "auto", the preview's "starts at N% noise" from an injected
 `start_sigma` (the fake reads none), none for a sweep, and the reading
 taken away by an unload and put back by a load with the dialog open and no
 box touched, Refine held while the server does not answer, arrow-key
@@ -7872,7 +7920,9 @@ a fake of its own while others are up.
 
 `smoke-refine-sdxl.json` checks the Refine dialog on an Animagine fake on
 7877: Animagine's measured tight line (2896x2896, 2x inside it unwarned) and,
-on a status stubbed to an unmeasured profile, the generic one, SDXL's strength
+on a status stubbed to an unmeasured profile, the generic one, Compare scales
+taking all three of 1x, 1.5x and 2x inside that line (and held on the generic
+line, both factors named), SDXL's strength
 sweep, the pass prompt's own check (the 77-token cut outside the fold, Show,
 the checking line during a slow first use, Apply into the dialog's box with
 Ctrl+Z, dead while stale and dimmed by the shared 0.8 / `--text-3` rule, the

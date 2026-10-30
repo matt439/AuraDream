@@ -503,3 +503,73 @@ def test_a_binned_source_is_refused_until_it_is_restored(client, fake, store):
     response = client.post("/api/generate", json=body)
     assert response.status_code == 200, response.text
     stream_job(client, response.json()["job_id"])
+
+
+def test_compare_scales_is_a_grid_over_the_scale_buttons_sizes(client, fake, store):
+    # The Refine dialog's Compare scales: 1x, 1.5x and 2x of an ordinary
+    # source, each `refine.scaled`'s size, as the grid's paired size axis -
+    # one cell per size and seed, each its own key, priced and resumed per
+    # size, under the pass's own pixel budget rather than a render's.
+    from PIL import Image
+
+    from backend import grid, refine
+    from backend.schemas import GenerateRequest
+
+    first = _first(client)
+    pairs = [refine.scaled(first["width"], first["height"], factor) for factor in (1, 1.5, 2)]
+    assert pairs == [(256, 256), (384, 384), (512, 512)]
+    payload = {
+        "prompt": "a fox", "width": 256, "height": 256, "steps": 10, "seed": 1, "num_images": 1,
+        "refine": first["id"], "strength": 0.4, "seeds": 2,
+        "size_axis": ",".join(f"{w}x{h}" for w, h in pairs),
+    }
+    preview = client.post("/api/grid/preview", json=payload)
+    assert preview.status_code == 200, preview.text
+    preview = preview.json()
+    assert (preview["cells"], preview["images"]) == (6, 6)
+    assert preview["values"]["size"] == ["256x256", "384x384", "512x512"]
+    assert preview["values"]["strength"] == [0.4]
+    # Nothing measured at these sizes: the estimate stays unknown.
+    assert preview["seconds"] is None
+
+    base = GenerateRequest(**{k: v for k, v in payload.items() if k not in ("seeds", "size_axis")})
+    cells = grid.expand(base, seeds=2, size=payload["size_axis"])
+    keys = [grid.cell_key(cell) for cell in cells]
+    assert len(set(keys)) == 6
+    assert {(c.request.width, c.request.height) for c in cells} == set(pairs)
+
+    job_id, _ = run_grid(client, **payload)
+    made = fake.requests[-6:]
+    assert {(r.width, r.height) for r in made} == set(pairs)
+    assert {r.refine for r in made} == {first["id"]} and {r.strength for r in made} == {0.4}
+    assert len({(r.width, r.height, r.seed) for r in made}) == 6
+    rows = client.get("/api/gallery", params={"search": f"job:{job_id}"}).json()["items"]
+    assert len(rows) == 6 and len({row["run_id"] for row in rows}) == 1
+    # Each size and seed is its own cell: a resume finds all six done.
+    again = client.post("/api/grid/preview", json={**payload, "resume": True}).json()
+    assert (again["cells"], again["skipped"]) == (0, 6)
+
+    # A pass's own budget: past the 4 MP a render takes, refused only past
+    # the pass's, by size.
+    big = {**payload, "seeds": 1, "size_axis": "256x256,2896x2896"}
+    assert client.post("/api/grid/preview", json=big).status_code == 200
+    plain = {k: v for k, v in big.items() if k not in ("refine", "strength")}
+    assert client.post("/api/grid/preview", json=plain).status_code == 422
+    over = client.post("/api/grid/preview", json={**big, "size_axis": "256x256,2912x2912"})
+    assert over.status_code == 422 and "2912x2912" in over.json()["detail"]
+    assert "pixel budget of a refine pass" in over.json()["detail"]
+
+    # A mask or an outpaint stays at its source's size: the comparison is refused.
+    source = store.save_image(
+        Image.new("RGB", (256, 256)), GenerateRequest(prompt="a fox", width=256, height=256),
+        seed=1, duration_ms=10, model_id=store.settings.model_id,
+    )
+    mask, _ = store.store_mask(Image.new("L", (256, 256), 255))
+    masked = {**payload, "seeds": 1, "refine": source.id, "mask": mask}
+    for route in ("/api/grid/preview", "/api/grid"):
+        answer = client.post(route, json=masked)
+        assert answer.status_code == 422 and "source's size" in answer.json()["detail"], answer.text
+    padded = {**payload, "seeds": 1, "refine": source.id, "outpaint": {"left": 32, "right": 16, "band": 16}}
+    for route in ("/api/grid/preview", "/api/grid"):
+        answer = client.post(route, json=padded)
+        assert answer.status_code == 422 and "is 304x256, not the" in answer.json()["detail"], answer.text

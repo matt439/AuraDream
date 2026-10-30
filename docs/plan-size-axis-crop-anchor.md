@@ -184,9 +184,50 @@ updates the new key contract without changing the legacy hash expectation.
 
 ## Compare scales in the Refine dialog
 
-**Status:** OPEN as UI#34, added 2026-10-29 from that day's TODO audit
-(item 10). CPU, fake-server and browser stages are ready; the quality
-judgement at 2x is a card stage that needs Matt's OK. Nothing is built.
+**Status:** Done 2026-10-30 (UI#34, added 2026-10-29 from that day's TODO
+audit, item 10): stages 1 and 2 are built and pass; stage 3, the card's
+quality judgement at 2x, is not run and does not hold closure (below).
+
+**What was built.** `web/refine.js`: `REFINE_COMPARE_SCALES = [1, 1.5, 2]`,
+`compareScales` (each factor's `refineScaled` size, ascending, less any
+`refineFits` refuses or `refineTight` puts past the line, each named),
+the `refineComparing` mark, `toggleRefineScaleCompare` (held with the reason
+under two factors, a press saying it with focus kept) and
+`leaveRefineScaleCompare`; `refineRequest` sends `/api/grid` with
+`size_axis` (and `strength_axis` for a list) over the boxes' base size;
+`previewRefine` names the server's `values.size`; the run's placeholder
+names the sizes; `rememberRefine` stores no scale from a comparison;
+`openRefine` and `applyRefineScale` clear the mark, and `web/app.js` clears it
+on a typed W or H. While comparing, the size line reads "Comparing 1×
+1024×1024, 1.5× 1536×1536", no scale button is pressed and the seed line
+says "at every size". The button is `#refine-compare-scales` in
+`web/index.html`.
+
+**Deviation.** The button sits in the Size field's caption, floated right
+(`web/styles/refine.css`), not in the scale row: the four factor buttons
+fill the row with their size lines, and a fifth would wrap it. Its block
+margins hold the caption to its own line height, so the field and the
+dialog keep their height (smoke-checked by hiding it); nothing under
+1800 px moves. A second press also leaves the comparison (the button is
+`aria-pressed`).
+
+**Evidence.** `tests/test_profiles.py::test_compare_scales_sends_the_scale_buttons_own_sizes`
+holds the factors to `REFINE_SCALES`, the page's arithmetic to
+`refine.scaled` and the pairs to `grid.parse_sizes`;
+`tests/test_api_refine.py::test_compare_scales_is_a_grid_over_the_scale_buttons_sizes`
+sends `refine.scaled` pairs over an ordinary source to `/api/grid/preview`
+and `/api/grid` (one cell per size and seed, six distinct `CellKey`s, a
+resume finding all six, an unknown estimate, the pass's own pixel budget
+past a render's) and is refused with a `mask` or an `outpaint` on both
+routes. `smoke-refine` (FLUX.1 Krea dev fake: 2x named as past the measured
+line, the same heights with the button hidden, the preview's sizes, a
+strength list crossed, the sheet's Size axis, the last single scale on
+reopen, a scale button, a typed W and a second press leaving it, Reuse of a
+compared cell, held on a 1.5 MP source) and `smoke-refine-sdxl` (all three
+inside Animagine's line; held on the generic line) pass, with
+`smoke-button-states`, `smoke-grid` and `smoke-sheet`. Ruff, the type gate
+and the full suite pass. No model was loaded: nothing here says how 2x
+looks or what it costs on the card.
 
 ### Why scales cannot be compared today
 

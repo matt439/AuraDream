@@ -1881,6 +1881,24 @@ equal to 1" in the dialog), and a single strength of 0.9 or more says in the
 preview that the pass keeps (almost) nothing of the source: description, not
 a refusal.
 
+**Compare scales is the grid's size axis, not a new list** (UI#34,
+2026-10-30). Enlarging a keeper and trying several versions are both rated
+Often (`docs/design/preferences.md` H2, H4), and the dialog swept only the
+strength. Compare scales marks the dialog as comparing 1x, 1.5x and 2x and
+sends GEN#19's `size_axis`, each pair the scale button's own size
+(`refineScaled`, the copy of `refine.scaled`), so keys, pricing, the refine
+guard and the sheet's Size axis are the server's and no run id changes. A
+factor past the guard or the tight line is left out, not offered with a
+warning (Matt's choice, 2026-10-29), as `openingRefineSize` never opens
+past that line; the title names each one left out. It writes no box, so a
+scale button or a typed size is the way back to one size, and a comparison
+is never remembered as the scale. The scale row had no room for a fifth
+button (each shows its size under the factor), and a line of its own would
+have grown the dialog, so it is floated in the Size caption with block
+margins that hold the caption to its own height. Whether 2x keeps the
+composition on the card is a card stage (the plan's stage 3), not a page
+claim.
+
 **Where a pass starts, read off the schedule** (2026-10-05). The preview
 says how much noise a pass of one strength starts at ("· starts at 47%
 noise", `GridPreview.start_sigma`), since on FLUX.1 one strength means
@@ -12679,9 +12697,28 @@ pass of every image right after its cell, in the same job.
 - **Built differently from the plan:** passes' failures have their own
   streak (the plan's shared count never reached three when bases
   succeeded between them); the fold's tight-line warning is the guard's
-  only (past what a pass renders), not the measured tight line; and Finish
-  does not yet add a missing pass beside a finished base (Mass refine over
-  the run does).
+  only (past what a pass renders), not the measured tight line.
+- **Finish run adds a missing pass (`GEN#35`, 2026-10-30).** A base saved
+  before a cancel or a failed pass is a finished cell, so Finish used to
+  say "nothing in this run is missing" and the pass run's own Finish named
+  its base: a dead end, with Mass refine over the run the only way back
+  (and its passes under Mass refine's run). Finish now builds each live
+  base's pass as the worker does (`then_refine.plan_passes`) and keeps
+  those the gallery and the queue do not hold - Mass refine's own check,
+  so a pass it made counts. They queue as `pass_sources`, units run before
+  the first cell, each base re-read at its turn (gone since is a failed
+  pass, in words); a run missing only passes is a job with no cells, read
+  through its first pass. Two specs in one run (a Resume tick with other
+  numbers) are refused in words: one Finish continues one pass run, and
+  reconciling two is Mass refine's. A binned base is a discard, never
+  refined. A pass the run made and Matt then permanently deleted (Empty
+  bin, `DELETE /api/images/{id}`) is missing again, as a deleted cell is:
+  each job retains `completed_passes` (the bases whose pass it saved) in
+  its outcome, so Finish counts such a pass in `redrawn_passes` and the
+  page says "N permanently deleted passes will be redrawn" rather than
+  redrawing it unannounced. A binned pass still counts as made. Jobs
+  retained before this build carry no such list, so a pass of theirs
+  deleted is redrawn as a plain missing pass.
 
 ## Peak memory per image
 
