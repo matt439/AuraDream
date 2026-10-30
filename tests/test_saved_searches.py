@@ -227,8 +227,10 @@ def test_lock_refusal_is_reported_with_fixed_message(tmp_path, monkeypatch):
     assert error.value.status == 409 and error.value.__cause__ is None
 
 
-def test_cross_process_reservation_serializes_create_update_delete_and_stays_independent(tmp_path):
+def test_cross_process_reservation_serializes_create_update_delete_and_stays_independent(tmp_path, monkeypatch):
     database = tmp_path / "gallery.db"
+    # A held sidecar lock refuses only after the writer's wait, read per call.
+    monkeypatch.setattr(gallery_lock, "SESSION_WAIT", 0.3)
     original = saved_searches.change(database, fields())[0]
     path = saved_searches.path_for(database)
     before = path.read_bytes()

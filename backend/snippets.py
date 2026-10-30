@@ -98,7 +98,7 @@ def change(
 ) -> list[Snippet]:
     path = path_for(database)
     try:
-        with gallery_lock.hold(path):
+        with gallery_lock.hold(path, wait=gallery_lock.SESSION_WAIT):
             items = _read(path)
             if item_id is None:
                 if len(items) >= MAX_SNIPPETS:
@@ -131,7 +131,7 @@ def import_collection(database: Path, body: SnippetImportCommit) -> list[Snippet
     """Re-prove the complete preview under the existing snippet reservation."""
     path = path_for(database)
     try:
-        with gallery_lock.hold(path):
+        with gallery_lock.hold(path, wait=gallery_lock.SESSION_WAIT):
             try:
                 body = SnippetImportCommit.model_validate(body.model_dump())
             except (ValueError, TypeError, RecursionError) as exc:

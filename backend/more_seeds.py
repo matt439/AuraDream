@@ -34,11 +34,12 @@ from . import grid
 from .config import settings
 from .execution import execution_key
 from .instruction_edit import edit_key
-from .schemas import GenerateRequest, ImageRecord, error_detail
+from .schemas import GenerateRequest, ImageRecord, ThenRefine, error_detail
 from .seeds import wrap_seed
 
 # The statuses this module decides; the routes add `foreign`,
-# `source_deleted`, `lora_missing`, `mask_missing` and `deleted`.
+# `source_deleted`, `lora_missing`, `mask_missing`, `outpaint`,
+# `then_refine` and `deleted`.
 QUEUED = "queued"
 
 
@@ -101,6 +102,12 @@ class Batch:
     recorded: bool = False
     seeds: list[int] = field(default_factory=list)
     cells: list[grid.Cell] = field(default_factory=list)
+    # The Then refine pass its new bases carry: its run's retained spec,
+    # read off the jobs of its mates by the routes; None makes bases only.
+    then_refine: ThenRefine | None = None
+    # Whether its run carried one at all, carried now or not: where the
+    # dialog shows its tick.
+    run_then_refine: bool = False
 
     @property
     def template(self) -> ImageRecord:

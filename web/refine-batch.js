@@ -15,9 +15,11 @@
 // that answer resolved (`expected`). One job per distinct size, as Swap tags.
 //
 // The single Refine dialog (refine.js) is one image's, with its prompt, size
-// and versions; this one has none of those - the images differ in all of
-// them - and shares only what is the checkpoint's: the remembered scale and
-// strength (REFINE_KEY), the scale buttons' factors and the opening cap.
+// and seed; this one has none of those - the images differ in all of them -
+// and shares only what is the checkpoint's: the remembered scale and
+// strength (REFINE_KEY), the scale buttons' factors and the opening cap. Its
+// Versions are the single dialog's choices, each image's seed counting up
+// (`refine_batch.plan`), opening at 1 each time and never remembered.
 
 const RB_CHECK_DELAY = 250;
 const RB_ONE_STRENGTH = "One strength for a batch. A sweep is one image's Refine.";
@@ -140,6 +142,7 @@ function rbPayload() {
     scale: rbScale,
     strength: strength === '' ? null : +strength,
     steps: steps === '' ? null : +steps,
+    versions: +els.refineBatchVersions.value || 1,
     skip_passes: els.refineBatchSkip.checked,
     include_foreign: els.refineBatchForeign.checked,
   };
@@ -172,6 +175,7 @@ async function openRefineBatch() {
   els.refineBatchStrength.value = typeof kept === 'string' && SINGLE_STRENGTH.test(kept)
     ? kept : String(refineDefaultStrength());
   els.refineBatchSteps.value = '';
+  els.refineBatchVersions.value = '1';
   els.refineBatchSkip.checked = true;
   els.refineBatchForeign.checked = false;
   const asked = REFINE_SCALES.includes(+prefs.scale) ? +prefs.scale : REFINE_SCALE;
@@ -319,9 +323,24 @@ function rbSay(text, failed = false) {
   els.refineBatchCount.classList.toggle('failed', failed);
 }
 
+// The passes queued, in words: "6 passes" ("pass" is no plural's stem).
+function rbPasses(n) { return `${n} pass${n === 1 ? '' : 'es'}`; }
+
+// What the answer queues: its images at one version, else its passes and
+// the product they are of ("6 passes (3 images × 2 versions)"), with the
+// versions the gallery or a live job holds said where they make it less.
+function rbQueuedWords(answer, tail = '') {
+  if ((answer.versions ?? 1) === 1) return `${answer.queued}${tail}`;
+  const images = answer.queued_images ?? answer.queued;
+  const held = images * answer.versions - answer.queued;
+  return `${rbPasses(answer.queued)}${tail} (${plural(images, 'image')} × ${answer.versions} versions`
+    + `${held > 0 ? `, ${held} already made or queued` : ''})`;
+}
+
 function renderRefineBatch(answer) {
   rbSayScope(answer);
-  els.refineBatchTitle.textContent = answer.queued ? `Refine ${plural(answer.queued, 'image')}` : 'Refine';
+  const images = answer.queued_images ?? answer.queued;
+  els.refineBatchTitle.textContent = images ? `Refine ${plural(images, 'image')}` : 'Refine';
   syncRefineBatchScales(answer.largest);
   // Offered only where the selection holds another checkpoint's images, and
   // kept while ticked.
@@ -340,7 +359,7 @@ function renderRefineBatch(answer) {
   const time = answer.seconds ? `about ${humanTime(answer.seconds)}`
     : answer.unpriced_sizes ? `no estimate: ${plural(answer.unpriced_sizes, 'size')} ${answer.unpriced_sizes === 1 ? 'has' : 'have'} no refine history`
       : '';
-  const parts = [`${answer.queued} will be refined`, `strength ${answer.strength}`, noise, time];
+  const parts = [rbQueuedWords(answer, ' will be refined'), `strength ${answer.strength}`, noise, time];
   for (const [status, words] of Object.entries(RB_STATUS_WORDS)) {
     if (answer.counts[status]) parts.push(`${answer.counts[status]} ${words}`);
   }
@@ -419,12 +438,16 @@ function syncRefineBatchRun() {
   }
   const hold = refineBatchHold();
   const queue = busy ? ' (queue)' : '';
+  // One version, the images; more, the passes (each image's are counted in
+  // the line above it).
+  const what = !rbAnswer ? '' : (rbAnswer.versions ?? 1) === 1 ? plural(rbAnswer.queued, 'image')
+    : rbPasses(rbAnswer.queued);
   els.refineBatchRun.textContent = !hold && rbAnswer
-    ? `Refine ${plural(rbAnswer.queued, 'image')}${rbAnswer.jobs > 1 ? ` (${rbAnswer.jobs} jobs)` : ''}${queue}`
+    ? `Refine ${what}${rbAnswer.jobs > 1 ? ` (${rbAnswer.jobs} jobs)` : ''}${queue}`
     : `Refine${queue}`;
   els.refineBatchRun.setAttribute('aria-disabled', String(Boolean(hold)));
   els.refineBatchRun.title = hold
-    || `Refine ${plural(rbAnswer.queued, 'image')} at strength ${rbAnswer.strength} and ${rbScale}× (Ctrl+Enter)`;
+    || `Refine ${what} at strength ${rbAnswer.strength} and ${rbScale}× (Ctrl+Enter)`;
   if (!hold && !rbRefused && els.refineBatchError.textContent) showError('', false, { slot: els.refineBatchError });
 }
 
@@ -546,6 +569,7 @@ function setupRefineBatch() {
   els.refineBatchSteps.addEventListener('input', () => refineBatchEdited());
   els.refineBatchSkip.addEventListener('change', () => refineBatchEdited(0));
   els.refineBatchForeign.addEventListener('change', () => refineBatchEdited(0));
+  els.refineBatchVersions.addEventListener('change', () => refineBatchEdited(0));
   els.refineBatchDialog.addEventListener('close', () => {
     clearTimeout(rbTimer);
     rbAsking?.abort();

@@ -1,5 +1,5 @@
 """Mass refine over HTTP: the preview's per-image statuses, the jobs it
-queues - one cell per image, a pass of itself, one job per size - the
+queues - one cell per image and version, a pass of itself, one job per size - the
 selection it pins, and what it prices and reads off the schedule."""
 from __future__ import annotations
 
@@ -310,6 +310,92 @@ def test_the_queue_is_a_model_dependent_request_and_the_preview_is_not(client, f
     refused = client.post("/api/refine/batch", json=body, headers=stale)
     assert refused.status_code == 409 and "checkpoint changed" in refused.json()["detail"]
     assert client.post("/api/refine/batch/preview", json=body, headers=stale).status_code == 200
+
+
+def test_versions_queue_a_pass_per_seed_counting_up(client, fake, store):
+    a = plant(store, "a fox", seed=11)
+    b = plant(store, "a hare", seed=20, width=384, height=256)
+    body = {"ids": [a.id, b.id], "strength": 0.5, "scale": 1.5, "versions": 2}
+    answer = preview(client, **body)
+    assert (answer["queued"], answer["queued_images"], answer["versions"], answer["jobs"]) == (4, 2, 2, 2)
+    assert answer["counts"] == {"queued": 2}
+    response = client.post("/api/refine/batch", json={**body, "expected": answer["ids"]})
+    assert response.status_code == 200, response.text
+    accepted = response.json()
+    assert (accepted["queued"], accepted["pruned"], len(accepted["more"])) == (4, 0, 1)
+    first = stream_job(client, accepted["job_id"])[-1]
+    second = stream_job(client, accepted["more"][0]["job_id"])[-1]
+    assert first["status"] == second["status"] == "done"
+    assert first["planned_images"] == second["planned_images"] == 2
+    assert [(r.refine, r.seed, r.num_images) for r in fake.requests] == [
+        (a.id, 11, 1), (a.id, 12, 1), (b.id, 20, 1), (b.id, 21, 1),
+    ]
+    saved = sorted((image["refine"], image["seed"]) for job in (first, second) for image in job["images"])
+    assert saved == [(a.id, 11), (a.id, 12), (b.id, 20), (b.id, 21)]
+    # Asked again, every version is in the gallery: rendered, as one press
+    # twice is - never new seeds.
+    again = preview(client, **body)
+    assert again["counts"] == {"rendered": 2} and again["queued"] == 0
+    assert client.post("/api/refine/batch", json=body).status_code == 409
+
+
+def test_with_one_version_in_the_gallery_only_the_other_queues(client, fake, store):
+    a = plant(store, "a fox", seed=5)
+    one = {"ids": [a.id], "strength": 0.5, "scale": 1.25}
+    stream_job(client, client.post("/api/refine/batch", json=one).json()["job_id"])
+    fake.requests.clear()
+    answer = preview(client, **one, versions=2)
+    assert (answer["queued"], answer["queued_images"], answer["counts"]) == (1, 1, {"queued": 1})
+    assert by_id(answer)[a.id]["notes"] == ["1 of 2 versions already in the gallery or queued"]
+    response = client.post("/api/refine/batch", json={**one, "versions": 2, "expected": answer["ids"]})
+    assert (response.json()["queued"], response.json()["pruned"]) == (1, 0)
+    stream_job(client, response.json()["job_id"])
+    assert [(r.refine, r.seed) for r in fake.requests] == [(a.id, 6)]
+    # Four asks for the two after: those two queue.
+    answer = preview(client, **one, versions=4)
+    assert answer["queued"] == 2 and by_id(answer)[a.id]["notes"] == [
+        "2 of 4 versions already in the gallery or queued",
+    ]
+
+
+def test_one_version_keeps_the_run_id_and_statuses_of_a_press_without_versions(client, fake, store):
+    from backend import grid
+
+    a = plant(store, "a fox", seed=5)
+    b = plant(store, "a hare", seed=6)
+    body = {"ids": [a.id, b.id], "strength": 0.5, "scale": 1.25}
+    assert preview(client, **body) == preview(client, **body, versions=1) | {"versions": 1}
+    running = current_model_id(settings)
+    cells = [
+        refine_batch.plan(
+            record, running=running, profile=defaults_for(running), scale=1.25, strength=0.5,
+            steps=None, include_foreign=False, skip_passes=True,
+        ).cell
+        for record in store.get_images([a.id, b.id])
+    ]
+    accepted = client.post("/api/refine/batch", json={**body, "versions": 1}).json()
+    assert accepted["run_id"] == grid.run_id(cells, running, settings.quantization)
+    stream_job(client, accepted["job_id"])
+    # And a press without versions after it finds every pass rendered.
+    assert preview(client, **body)["counts"] == {"rendered": 2}
+    assert client.post("/api/refine/batch/preview", json={**body, "versions": 3}).status_code == 422
+
+
+def test_the_budget_counts_images_times_versions(client, fake, store, monkeypatch):
+    from backend import main
+
+    a = plant(store, "a fox", seed=1)
+    b = plant(store, "a hare", seed=2)
+    monkeypatch.setattr(main, "settings", dataclasses.replace(main.settings, max_grid_images=3))
+    body = {"ids": [a.id, b.id], "strength": 0.5}
+    assert preview(client, **body)["queued"] == 2
+    refused = client.post("/api/refine/batch/preview", json={**body, "versions": 2})
+    assert refused.status_code == 422
+    assert refused.json()["detail"] == (
+        "2 images × 2 versions is 4 passes; a press may queue 3. Ask for fewer versions, or pick fewer images."
+    )
+    assert client.post("/api/refine/batch", json={**body, "versions": 2}).status_code == 422
+    assert not fake.requests
 
 
 def test_a_picked_image_binned_since_says_it_is_in_the_bin(client, fake, store):

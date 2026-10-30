@@ -312,8 +312,10 @@ class RefineBatchRequest(BaseModel):
     checkpoint's own; `steps` None keeps each image's own (the profile's for
     another checkpoint's). Another checkpoint's records are refused per
     image unless `include_foreign`, and a record that is itself a refine
-    pass is left out while `skip_passes`. `expected`, on the queueing
-    request, is the `ids` the preview answered.
+    pass is left out while `skip_passes`. `versions` is the single Refine
+    dialog's: that many passes of each image, at its seed and the seeds
+    counting up from it. `expected`, on the queueing request, is the `ids`
+    the preview answered.
     """
 
     ids: list[int] | None = Field(default=None, min_length=1, max_length=settings.max_grid_images)
@@ -325,6 +327,7 @@ class RefineBatchRequest(BaseModel):
     steps: int | None = Field(default=None, ge=1, le=100)
     include_foreign: bool = False
     skip_passes: bool = True
+    versions: Literal[1, 2, 4] = 1
     expected: list[int] | None = Field(default=None, max_length=settings.max_grid_images)
 
     # Written out: a validator assigned from another model is not run.
@@ -370,10 +373,15 @@ class RefineBatchPreview(BaseModel):
 
     ids: list[int]
     counts: dict[str, int]
+    # The passes queued: one per version of each image queued.
     queued: int
     jobs: int
     images: list[RefineBatchResult]
     total: int
+    # The images those passes are of (`counts["queued"]`), and the versions
+    # asked for: with none of them in the gallery, `queued` is the product.
+    queued_images: int = 0
+    versions: int = 1
     # The strength the passes run at: the request's, else the checkpoint's.
     strength: float
     # Records another checkpoint made, queued or not, and those checkpoints:
@@ -423,6 +431,9 @@ class MoreSeedsRequest(BaseModel):
     count: int = Field(default=4, ge=1, le=settings.max_grid_images)
     batch: int = Field(default=1, ge=1, le=MAX_BATCH)
     expected: list[int] | None = None
+    # Carry the run's Then refine pass where a batch has one: each new base
+    # followed by its pass, under the run's own pass run. False makes bases only.
+    then_refine: bool = True
     # A preview-issued token makes an uncertain submit safely replayable.
     # Legacy callers without one retain deliberate fresh-extension semantics.
     intent: str | None = Field(default=None, min_length=1, max_length=128)
@@ -443,7 +454,8 @@ class MoreSeedsRequest(BaseModel):
 
 
 MoreSeedsStatus = Literal[
-    "queued", "foreign", "invalid", "source_deleted", "lora_missing", "mask_missing", "outpaint", "deleted",
+    "queued", "foreign", "invalid", "source_deleted", "lora_missing", "mask_missing", "outpaint", "then_refine",
+    "deleted",
 ]
 
 
@@ -487,10 +499,20 @@ class MoreSeedsPreview(BaseModel):
     # request sends back as `expected`.
     ids: list[int]
     counts: dict[str, int]
-    # Images queued, and the batches and jobs they make: one job per run.
+    # Images queued, and the batches and jobs they make: one job per run
+    # (and Then refine spec). `queued` counts the new bases; `passes` the
+    # Then refine passes that follow them, one per base of a carrying batch.
     queued: int
     batches: int
     jobs: int
+    passes: int = 0
+    # Batches whose run carries a Then refine spec, queued or refused for
+    # it, whether or not the request carries it: where the page shows its
+    # tick. `then_refine_hold` is why no pass can run on this checkpoint
+    # (`submission.refine_unavailable`), the tick then held and the
+    # batches making bases only.
+    then_refine_batches: int = 0
+    then_refine_hold: str | None = None
     results: list[MoreSeedsResult]
     total: int
     # Queued batches running at the page's Batch, theirs not recorded.
@@ -544,6 +566,8 @@ class MoreSeedsAccepted(BaseModel):
     more: list[JobAccepted] = Field(default_factory=list)
     queued: int
     batches: int
+    # Then refine passes following the queued bases.
+    passes: int = 0
     # A later group can fail after earlier groups were admitted. Those jobs
     # are acknowledged, with a terminal warning; replay never adds the rest.
     warning: str | None = None

@@ -2,10 +2,8 @@
 
 **Status:** written 2026-10-29 for the TODO audit's additions that need no
 plan of their own: `PA#12`, `UI#32`, `UI#33`, `GEN#33`, `GEN#34`, `GAL#23`,
-`GEN#36`, `GEN#38` and `UI#38`. `PA#12`, `UI#32`, `UI#33`, `GEN#33`,
-`GEN#34` and `UI#38` are built (2026-10-30, below); the other three are
-OPEN. Matt
-approved adding every audit item on 2026-10-29. Each section below covers
+`GEN#36`, `GEN#38` and `UI#38`. All nine are built (2026-10-30, below).
+Matt approved adding every audit item on 2026-10-29. Each section below covers
 one row: what is missing (preference ids from `docs/design/preferences.md`,
 file:line checked against the source on 2026-10-29), the design and the
 rules it must keep, non-goals, and the stages with the checks that close
@@ -617,6 +615,29 @@ Generate per image, which is the work Swap tags was built to remove
 
 ## GAL#23 Mistyped search keys
 
+**Status (2026-10-30): built.** `mistypedSearchKeys` and
+`mistypedSearchHints` (`web/gallery-search.js`) read each rejected
+`word:value` (through one leading `-`, which the mended word keeps) against
+`SEARCH_KEYS` by optimal-string-alignment distance; `syncGalleryEmpty`
+(`web/gallery.js`) appends the hint to the gallery's and the bin's empty
+line. The step at the end of `smoke-gallery` (7885) checks: `sed:42` shows
+the hint and its "Search seed:42" button, with the head's height that of a
+plain empty search (`zzqxv`); the press writes `seed:42`, focuses the box,
+asks again without moving `scrollY`, and the hint is gone; `masterpiece:1.2`
+gives the plain line with no button and the same head height; and in the
+bin the same hint and press. Choices the design left open, taken while Matt
+was away: a word near two keys gets no hint (the design's "exactly one");
+several mistyped words each get their own sentence and button; the press
+focuses the search box (with `preventScroll`), as `showGallerySearch` does.
+Review (2026-10-30): a word with more than letters and digits before its
+colon is not a mistyped key - a quoted `"seed:42"` was offered `seed:42"`,
+and `--seed:1` was offered `seed:1` - so the step also checks `"sed:42"`
+gives the plain line. Integration review (2026-10-31): "exactly one" left
+the likeliest typos silent - `step` is one edit from `steps` and two from
+`seed`, `seeds` one from `seed` and two from `steps` - so the word is now
+mended to its single nearest key, and only a tie at the nearest distance
+says nothing; the step checks `step:30` and `seeds:42` too.
+
 **Evidence.** E5 (search by prompt words) and E9 (search from an image
 setting or prompt) are Often (`preferences.md:99`, `:103`). `split_search`
 treats any token whose key is not in `FILTERS` as prompt text
@@ -666,6 +687,31 @@ by `tests/test_storage.py`).
    - the head's height is the same before and after.
 
 ## GEN#36 Mass refine versions
+
+**Status (2026-10-30): built, both stages.** `RefineBatchRequest.versions`,
+`refine_batch.plan(versions=)` with `Planned.more`/`cells`/`drop`, the
+route's per-version pruning, budget refusal and the preview's
+`queued_images`/`versions` (stage 1: `tests/test_refine_batch.py` -
+seeds counting up one cell each, the first version's key unchanged, wrap
+at `2**63 - 1`; `tests/test_api_refine_batch.py` - two cells per record
+at `seed` and `seed + 1` across two size jobs, one version in the gallery
+queuing only the other (and 4 the two it lacks), `versions=1` the same
+preview and the run id `grid.run_id` gives the plan's cell, the
+images × versions refusal by count). The dialog's Versions select
+(stage 2, `web/refine-batch.js`, two steps of `smoke-refine-batch`: the
+doubled count, Refine and Cancel unmoved and the select on the controls'
+one row at the boxes' height; a picked image queued at 2, held rendered
+at 2 again and 4 queuing the two it lacks). Choices the design left open,
+taken while Matt was away (2026-10-30), revisit if wanted: the select is
+the row's last field, after Steps, so Strength and Scale keep their
+places; Versions opens at 1 every time and is not remembered; the count
+reads "6 passes will be refined (3 images × 2 versions)", with ", k
+already made or queued" inside the brackets where some are held, the
+button "Refine 6 passes" and the dialog's title still the images; later
+versions' labels are `#<id> v2` and so on; the budget counts the images
+the plan would queue (before the gallery is asked) × versions; a
+partly held image's row note is "k of V versions already in the gallery
+or queued".
 
 **Evidence.** H4 (try several strengths or versions) and H5 (mass-refine
 picked or filtered images) are Often (`preferences.md:146-147`).
@@ -735,6 +781,48 @@ picked or filtered images) are Often (`preferences.md:146-147`).
    same with the select present.
 
 ## GEN#38 Gallery timing in the model picker
+
+**Status:** done 2026-10-30, both stages, on `wip/gen38-gallery-timing`.
+Built as designed:
+
+- Server: `gallery_reports.gallery_timing(quantization, sample=50)` is one
+  grouped query (a `ROW_NUMBER()` window over each checkpoint's latest 50
+  rows with no `refine`, no `edit`, a NULL `execution` and `duration_ms > 0`
+  under that quantization, grouped by size and steps). It picks the size
+  used most, then the step count used most at it (a tie goes to the newer),
+  and answers `{median_ms, width, height, steps, images}` per checkpoint.
+  The median is the upper one, as `step_cost_ms`'s. A missing database
+  answers `{}` without creating one. `/api/models` calls it once inside its
+  existing `_detached` call (`main._gallery_timing`, which answers nothing
+  for a busy or unreadable gallery; the reservation is waited for only
+  `gallery_reports.TIMING_WAIT`, 0.2 s, so a bundle or clear in progress
+  never stalls the catalogue for the session's 30 s) and adds `gallery_timing` (None with no
+  rows) to every model's details. `model_info` is untouched.
+  Tests: `tests/test_gallery_timing.py` (six: empty history, a missing
+  database not created, refine/edit/non-Eager/zero-duration/other
+  quantization rows left out, the most-used size before its steps, the step
+  count at the chosen size, the median and n with one slow image, the latest
+  rows only and the newer tie, plus a reserved gallery refused after the
+  short wait) and three in `tests/test_api_model_switch.py`
+  (the field per model, only the rendered checkpoint's, none under another
+  quantization, every `speed_*` fact unchanged; a busy gallery leaves it
+  out; a real reservation held by another process leaves it out without
+  stalling the reply).
+- Page: `modelSpeedNote` appends "This gallery: ~N s at W×H, S steps
+  (median of n)." and the history caveat (not a measurement, offload not
+  recorded per image, the median against a slow first image) to
+  `speed_note`, as the Speed cell's title and in `modelNotes`' description.
+  `gallery_timing` is left out of the table's rebuild key, and
+  `syncModelDownloadFacts` writes the cell's title (`data-fact="speed"`) and
+  the description in place. `smoke-model-hover` gained the step: three
+  images made on the loaded FLUX.1 Krea [dev] fake add the line to its Speed
+  note and description while Kohaku's row stays hovered. No row moves, and
+  only that row's hidden description is rewritten; the label, cell text and
+  muting are unchanged. `smoke-model-switch`'s and `smoke-model-hover`'s
+  fact checks now compare the title with `modelSpeedNote`, so a gallery
+  that already has renders still passes. Checked with `run_smoke.py
+  smoke-model-switch smoke-model-startup smoke-model-hover` (3 of 3, on one
+  shared fake) and `smoke-model-hover` alone.
 
 **Evidence.** K2 (compare model guidance, timings or examples) is Often
 (`preferences.md:189`). The picker's Speed fact comes only from the

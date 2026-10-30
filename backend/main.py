@@ -4,6 +4,7 @@ from __future__ import annotations
 import asyncio
 import ipaddress
 import logging
+import sqlite3
 import threading
 import time
 from contextlib import asynccontextmanager
@@ -38,7 +39,7 @@ if __name__ == "__main__":
 else:
     compiler_cache._seal_startup()
 
-from . import api_backup, api_bundles, api_gallery, api_generate, api_jobs, api_masks, api_more_seeds, api_png, api_presets, api_prompt, api_refine_batch, api_saved_searches, api_snippets, api_swap, app_context, bundle_common, bundles, gallery_lock, hub_access, loras, model_selection, prompt_encoding, startup_preferences, storage  # noqa: E402
+from . import api_backup, api_bundles, api_gallery, api_generate, api_jobs, api_masks, api_more_seeds, api_png, api_presets, api_prompt, api_refine_batch, api_saved_searches, api_snippets, api_swap, app_context, bundle_common, bundles, gallery_lock, gallery_reports, hub_access, loras, model_selection, prompt_encoding, startup_preferences, storage  # noqa: E402
 from .backup_service import BackupService  # noqa: E402
 from .backends import get_backend  # noqa: E402
 from .detached import detached as _detached  # noqa: E402
@@ -802,8 +803,9 @@ async def list_models(
             offload=offload or current.offload, **chosen,
         ))
 
-    details = await _detached(lambda: {
-        model["model_id"]: {
+    def catalogue_details() -> dict:
+        timing = _gallery_timing(quantization or current.quantization)
+        return {model["model_id"]: {
             **details_for(
                 model["model_id"], quantization=quantization or current.quantization,
                 offload=offload or current.offload, edit_reason=edit_reason(model["model_id"]),
@@ -822,8 +824,13 @@ async def list_models(
                 model["model_id"], quantizations=[o["value"] for o in options["quantizations"]],
                 offloads=[o["value"] for o in options["offloads"]],
             ),
-        } for model in models
-    })
+            # This gallery's own history of the checkpoint, beside the
+            # catalogue's facts and never one of them: `model_info` stays
+            # cold, and the Speed category is the card's alone.
+            "gallery_timing": timing.get(model["model_id"]),
+        } for model in models}
+
+    details = await _detached(catalogue_details)
     return {
         "models": models,
         "details": details,
@@ -834,6 +841,18 @@ async def list_models(
         **selected,
         **options,
     }
+
+
+def _gallery_timing(quantization: str) -> dict:
+    """`gallery_reports.gallery_timing`, or nothing while the gallery is
+    busy or unreadable: the picker's catalogue waits no longer than
+    `gallery_reports.TIMING_WAIT` on, and never fails for, a line it can
+    leave out."""
+    try:
+        return gallery_reports.gallery_timing(quantization)
+    except (gallery_lock.GalleryBusy, sqlite3.Error, OSError):
+        log.warning("gallery timing for the model picker not read", exc_info=True)
+        return {}
 
 
 def _load_on_startup() -> bool:

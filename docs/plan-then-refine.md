@@ -13,7 +13,7 @@ so the card run itself is the one remaining step, and it waits on Matt's
 OK. The build items once filed under phase 3 are now rows of their own,
 added 2026-10-29: [phase 4](#phase-4-finish-run-adds-missing-passes),
 missing passes in Finish run (`GEN#35`, built 2026-10-30); [phase 5](#phase-5-more-seeds-carries-the-pass),
-More seeds carrying the pass (`GEN#37`, OPEN, Q5's "later"); and
+More seeds carrying the pass (`GEN#37`, built 2026-10-30); and
 [several strengths per image](#decision-several-strengths-per-image)
 (`GEN#39`, DECISION: Q2's "if wanted" is Matt's yes or no).**
 Matt took every recommended answer to the open questions the same day ("i
@@ -275,7 +275,7 @@ cells has no shared source.
 - **More seeds** of a base batch adds base images only: it builds cells
   from records (`backend/more_seeds.py:23-25`) and reads no retained
   metadata. Q5 answered: not yet; [phase 5](#phase-5-more-seeds-carries-the-pass)
-  carries it (`GEN#37`).
+  carries it (`GEN#37`, built 2026-10-30).
 - **Re-render** of a base re-renders the base; of a pass, the pass of the
   same source at the new size - both as today (`grid.cell_from_record`,
   `backend/grid.py:715-783`).
@@ -580,7 +580,9 @@ pass permanently deleted and the words saying it will be redrawn), with
 
 ### Phase 5: More seeds carries the pass
 
-**Status: `GEN#37`, OPEN, added 2026-10-29 (M, CPU/fake/browser only).**
+**Status: `GEN#37`, built 2026-10-30 (M, CPU/fake/browser only); added 2026-10-29.**
+Built as designed below; what differs and the evidence are in
+[Phase 5 built](#phase-5-built) at the section's end.
 Matt took Q5's recommendation on 2026-10-24: More seeds makes bases only
 for now; "Later, More seeds can read the retained spec." (Q5 below). Matt rates "Make more seeds of an
 entire run" (G6) Often (`docs/design/preferences.md:134`).
@@ -652,6 +654,77 @@ choice; `smoke-more-seeds` (or `smoke-then-refine`) gains a step - More
 seeds of a then-refine run shows the note and the tick, and the strip gets
 each new base followed by its pass. `docs/rules.md` and the design notes'
 "Generate, then refine" say More seeds carries the pass. No card stage.
+
+#### Phase 5 built
+
+**Built, 2026-10-30.** `api_more_seeds._carry_then_refine` runs after
+the per-batch statuses, over the queued base batches (template `refine`
+and `edit` None): it reads `storage.retained_run_metadata` for every held
+image's `job_id` and each job's spec through `then_refine.retained` (the
+Finish reader, moved out of `api_generate.py`), so a template from an
+earlier bases-only More seeds still finds the run's. With one spec and
+`then_refine.refusal` passing on the batch's cells, `Batch.then_refine`
+is set and the row notes "each then refined at 1.5× at 0.4"; two specs, or
+a refusal, set status `then_refine` with the words ("its images were
+refined at 1.5× at 0.4 and at 2× at 0.35; untick Refine each new image for
+bases only, and Mass refine them at the numbers wanted", or "its run's
+pass: " and the refusal), and the rest queue. `_more_seeds_jobs` keys by
+`then_refine.spec_key` too, and each job is `submit_cells(...,
+then_refine=spec)`, so its `pass_run_id` is the original pass run's.
+`MoreSeedsRequest.then_refine` (default True) rides in the intent payload.
+The preview prices the carried passes at their size
+(`then_refine.execution_units`). Deviations: `queued` keeps counting the
+new bases - the cap and the page's "N additional images" read it - and the
+preview and the accepted answer gain `passes` beside it, as Finish's
+preview did, rather than folding passes into `queued`; the preview also
+answers `then_refine_batches` (batches whose run carries a spec, carried
+or not: where the tick shows) and `then_refine_hold` (no refine pass on
+the checkpoint: the tick held and unticked, those batches making bases
+with the note "bases only: this checkpoint has no refine pass", rather
+than each refused); and the run's `seeds` action (`RunDetails`) asks bases
+only, since a batch refused for its pass can still have more with the
+tick off. The dialog's tick sits beside the count on the same row, so
+neither its showing nor a toggle moves anything; the count line and Queue
+add "+ N refine passes".
+Evidence: `tests/test_api_more_seeds.py` (seven tests: bases and passes
+under the original pass run with the passes priced at the pass size;
+`then_refine: false` making bases only and a press from that bases-only
+template still carrying it; a plain run and a pass batch unchanged; no
+pass on the checkpoint held with bases only; mates of two specs refused in
+words, the run's More seeds action still available and `false` queueing;
+a batch past a stubbed guard refused while the other queues; two specs in
+one press making two jobs, each in its pass run) and
+`tests/test_more_seeds_intents.py` (a replayed intent keeps the choice and
+a body that would now carry the pass is refused); `smoke-then-refine`'s new
+step (More seeds of the batch of two: the tick shown and on, the note, "+ 2
+refine passes" in the count line and Queue, unticking dropping them with
+the tick, count, Queue and list unmoved, and the job putting each new base
+then its pass in the strip, the passes in the original pass run), its
+screenshot looked at; `smoke-more-seeds` passing unchanged.
+
+**Follow-up, 2026-10-31 (review).** Two gaps the review left are closed.
+The bases-only note is the per-batch refusal in words this design asks
+for, so it must show; it did not, since the page unticks its held tick
+and asks again with `then_refine: false`, and `_carry_then_refine`
+returned on `carry` off before noting it. The server now asks
+`refine_unavailable` first and notes "bases only: this checkpoint has no
+refine pass" whatever the tick says (the page's re-check answers it too;
+`then_refine_hold` unchanged). A held tick's press also lost its words at
+the next Queue sync (`syncMoreSeedsRun` cleared the error line whenever
+Queue could go); it now keeps them while the tick is still held for that
+reason. The fake gains `POST /api/fake/refine` (`supported`), which takes
+the claimed checkpoint's pass away, so the no-pass case runs through the
+real preview rather than a stubbed answer. Evidence:
+`tests/test_api_more_seeds.py`'s no-pass test also asks with
+`then_refine: false` and gets the note; `smoke-then-refine` gains two
+steps - a press held on its POST, the tick `aria-disabled` (not
+`disabled`) with "This request has been sent with its choice; close More
+seeds to make another" as its title and, pressed, in the error line; and
+the pass taken away, the tick shown held and off with the server's reason
+as its title, the row's note, no pass counted, a press saying the reason,
+nothing moving. Before the fixes the note and the press's words failed
+there (the two expectations), the rest passed; after, the smoke passes,
+its new screenshot looked at, and `smoke-more-seeds` passes.
 
 ## Decision: several strengths per image
 

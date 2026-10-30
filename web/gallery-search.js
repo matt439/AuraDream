@@ -39,6 +39,78 @@ function searchKey(word) {
   return SEARCH_KEYS.has(key) ? key : null;
 }
 
+// Edits between two words: a letter in, out or changed, or two neighbours
+// swapped, each one (`sed` to `seed` 1, `sede` to `seed` 1).
+function searchKeyDistance(a, b) {
+  const d = Array.from({ length: a.length + 1 }, (_, i) => [i, ...Array(b.length).fill(0)]);
+  for (let j = 1; j <= b.length; j++) d[0][j] = j;
+  for (let i = 1; i <= a.length; i++) {
+    for (let j = 1; j <= b.length; j++) {
+      const cost = a[i - 1] === b[j - 1] ? 0 : 1;
+      d[i][j] = Math.min(d[i - 1][j] + 1, d[i][j - 1] + 1, d[i - 1][j - 1] + cost);
+      if (i > 1 && j > 1 && a[i - 1] === b[j - 2] && a[i - 2] === b[j - 1]) d[i][j] = Math.min(d[i][j], d[i - 2][j - 2] + 1);
+    }
+  }
+  return d[a.length][b.length];
+}
+
+// What a mistyped key was meant to be (GAL#23): each `word:value` the box
+// holds that `searchKey` rejects - so the server searched it as prompt text -
+// whose word, letters and digits only, is nearest to exactly one of SEARCH_KEYS (two edits at most, fewer
+// than the key's letters), as { word, meant } with `meant` the word mended in place,
+// its `-` kept. A word near no key (`masterpiece:1.2`), or as near two, is none:
+// a prompt with a colon in it still searches for itself, and the grammar is
+// the server's - this only reads the page's mirror of the key list.
+function mistypedSearchKeys(search) {
+  const found = [];
+  for (const word of search.trim().split(/\s+/).filter(Boolean)) {
+    if (searchKey(word)) continue;
+    const operand = searchExclusion(word);
+    const term = operand ?? word;
+    const at = term.indexOf(':');
+    if (at < 1 || at === term.length - 1) continue;
+    const typed = term.slice(0, at).toLowerCase();
+    // Letters and digits only: a quoted `"seed:42"` or a `--seed:1` is free
+    // text on purpose, and mending it would drop the quote or the dashes.
+    if (!/^[a-z0-9]+$/.test(typed)) continue;
+    // The nearest key wins (`step` is steps, though seed is two away); a tie
+    // at the nearest distance is ambiguous and says nothing.
+    const near = [...SEARCH_KEYS]
+      .map((key) => ({ key, apart: searchKeyDistance(typed, key) }))
+      .filter(({ key, apart }) => apart <= 2 && apart < key.length);
+    const nearest = Math.min(...near.map((n) => n.apart));
+    const best = near.filter((n) => n.apart === nearest).map((n) => n.key);
+    if (best.length !== 1) continue;
+    const meant = `${operand === null ? '' : '-'}${best[0]}${term.slice(at)}`;
+    if (!found.some((f) => f.word === word)) found.push({ word, meant });
+  }
+  return found;
+}
+
+// The empty line's hint for each mistyped key, with its ghost button: the
+// word mended in the box and the gallery (or the bin) asked again, as
+// showGallerySearch writes the box but without its scroll - the empty line
+// sits under the head, already in view.
+function mistypedSearchHints(search) {
+  const parts = [];
+  for (const { word, meant } of mistypedSearchKeys(search)) {
+    const b = document.createElement('button');
+    b.type = 'button';
+    b.className = 'ghost tiny';
+    b.textContent = `Search ${meant}`;
+    b.title = `Search with ${meant} in place of ${word}`;
+    b.onclick = () => {
+      const words = els.search.value.trim().split(/\s+/).filter(Boolean);
+      els.search.value = words.map((w) => (w === word ? meant : w)).join(' ');
+      clearTimeout(searchTimer);
+      resetGallery();
+      els.search.focus({ preventScroll: true });
+    };
+    parts.push(` ${word} was searched as prompt words; did you mean ${meant}? `, b);
+  }
+  return parts;
+}
+
 // `terms` added to the box's words. A filter replaces the box's terms with its
 // key, negated or not, where the first of them stood: two seeds AND to
 // nothing, so a second seed pressed is a change of seed, and `-seed:1` with

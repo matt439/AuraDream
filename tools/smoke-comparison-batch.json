@@ -12,7 +12,7 @@
   {"expect": "els.batch.value === '12' && els.runs.value === '7' && els.prompt.value === 'a crimson otter'"},
   {"log": "'Select values are read at preview and run time even without change events'"},
   {"eval": "els.compareSeeds.value = '4'; els.compareBatch.value = '2'; previewComparison()"},
-  {"expect": "els.comparePreview.textContent.startsWith('8 images · 2 versions × 4 seeds · batch 2') && comparePayload(comparedVariants()).num_images === 2 && comparePayload(comparedVariants()).seeds === 2"},
+  {"expect": "(async () => { await window.__batchWait(() => els.comparePreview.textContent.startsWith('8 images · 2 versions × 4 seeds · batch 2') && comparePayload(comparedVariants()).num_images === 2 && comparePayload(comparedVariants()).seeds === 2); return true; })()"},
   {"log": "'A stale prompt still prevents a batched comparison'"},
   {"eval": "els.prompt.value += ', swimming'; els.prompt.dispatchEvent(new Event('input', {bubbles: true}));"},
   {"expect": "analysisStale && els.compareRun.disabled && runComparison() === undefined"}

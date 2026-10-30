@@ -427,3 +427,37 @@ def test_close_drains_work_refuses_fresh_operations_and_keeps_accepted_replay():
             await ledger.close()
 
     asyncio.run(scenario())
+
+
+def test_a_replayed_intent_keeps_the_then_refine_choice():
+    # The tick is one of the dumped fields: an intent issued for bases only
+    # replays bases only, and a body that would now carry the pass is refused.
+    from backend.api_more_seeds import _intent_payload
+    from backend.schemas import MoreSeedsRequest
+
+    async def scenario():
+        ledger = IntentLedger()
+        off = MoreSeedsRequest(run="night", count=2, then_refine=False)
+        assert _intent_payload(off, [3, 1])["then_refine"] is False
+        assert _intent_payload(MoreSeedsRequest(run="night", count=2), [3, 1])["then_refine"] is True
+        token = ledger.issue(_intent_payload(off, [3, 1]), CONTEXT)
+        calls = 0
+
+        async def operation():
+            nonlocal calls
+            calls += 1
+            return {"job_id": "bases-only", "passes": 0}
+
+        try:
+            carried = MoreSeedsRequest(run="night", count=2, expected=[1, 3], intent=token)
+            with pytest.raises(IntentProblem) as refused:
+                await ledger.execute(token, _intent_payload(carried), CONTEXT, operation)
+            assert refused.value.status_code == 409 and calls == 0
+            sent = off.model_copy(update={"expected": [1, 3], "intent": token})
+            first = await ledger.execute(token, _intent_payload(sent), CONTEXT, operation)
+            assert first == await ledger.execute(token, _intent_payload(sent), CONTEXT, operation)
+            assert first == {"job_id": "bases-only", "passes": 0} and calls == 1
+        finally:
+            await ledger.close()
+
+    asyncio.run(scenario())

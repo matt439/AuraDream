@@ -291,7 +291,8 @@ before changing it.
 - `backend/tag_swap.py` — Swap tags' rewrite of a record's prompt or
   negative prompt (pure; the routes are `api_swap.py`'s)
 - `backend/refine_batch.py` — Mass refine's plan of one record: the pass
-  it becomes or why not (pure; the routes are `api_refine_batch.py`'s)
+  it becomes, one cell per version, or why not (pure; the routes are
+  `api_refine_batch.py`'s)
 - `backend/then_refine.py` — Then refine's pure parts: the strength
   resolved, a cell's stand-in pass for the submit's checks and prices, its
   refusals in words and the pass run id (the passes themselves are
@@ -315,7 +316,8 @@ before changing it.
   (`parse_parameters`, A1111's own reading of it); pure, no config, Pillow
   only where a file is opened
 - `backend/gallery_reports.py` — read-only aggregate queries: the preview's
-  cost and size estimates, keep rates, runs (reads `storage` at call time)
+  cost and size estimates, keep rates, runs, the picker's gallery timing
+  (reads `storage` at call time)
 - `backend/gallery_delete.py` — taking images out: the keep-favourites
   predicates, scoped delete and its preview, per-image delete, recycle bin,
   clear and VACUUM (under `storage._write_lock`, read at call time)
@@ -401,7 +403,7 @@ before changing it.
   the cards and their actions; `png-settings.js` Load settings from PNG
   (a dropped or picked PNG's text chunks read, sent and filled in through
   Reuse); `gallery-search.js` the lightbox's search
-  buttons; `sheet.js`, `sheet-render.js` and
+  buttons and an empty search's mistyped-key hint; `sheet.js`, `sheet-render.js` and
   `sheet-export.js` the contact sheet; `facts.js` a record's settings line
   and facts list (`settingsLine`, `factsList`), shared by the lightbox and
   the viewer; `lightbox.js` the lightbox's view, layout, walk and gestures,
@@ -474,9 +476,28 @@ before changing it.
   gallery hash, the difference, outside-mask and seam numbers verified.md
   reports), CPU only and importing nothing from `backend`
   (`docs/plan-card-harness.md`, Image metrics);
+  `card_guard.py` is the card session's guard: a pure decision (whole card,
+  shared GPU memory, free RAM, commit headroom, a rung's projection) beside
+  a watcher that reads nvidia-smi, `typeperf`, psutil and
+  `GetPerformanceInfo`, writes JSONL rows and on a trip kills the watched
+  process tree, never calling the app's API (`docs/plan-card-harness.md`,
+  Card guard);
+  `card/card10-*.json` the `CARD#10` step packs, one `browser.mjs` step
+  file per fix commit plus `card10-ctrl-c-idle.json`, for the real server
+  on 7860 driven by real presses: not smokes, so not in `AGENTS.md`'s port
+  table, never run by `run_smoke.py` or CI's browser job, and their typed
+  Ctrl-C left to a person; the two that press Empty bin stop first unless
+  the page opened on a scratch gallery and, before the press, unless the
+  bin holds their own source alone; `tests/test_card_packs.py` holds them
+  to their rules (`docs/plan-card-harness.md`, CARD#10 step packs);
   `smoke_timings.py` reads a run's `summary.json` and prints the slowest
   smokes, each row's total and the wall clock, writing nothing
-  (`docs/plan-tooling.md`, Suite and smoke timings); see Tests
+  (`docs/plan-tooling.md`, Suite and smoke timings);
+  `trial_fixture.py` prepares the formative-trial kit's disposable fake
+  gallery and sidecars through the fake's own routes, and
+  `trial_walkthrough.py` writes the agent walkthrough's real-input steps
+  for its version 2 manifest (`docs/design/trials/README.md`;
+  `tests/test_trial_kit.py` holds the steps to the page cold); see Tests
 - `tests/` — the pytest suite, no GPU and no weights: `conftest.py`,
   `fakes.py` and `api_helpers.py` (the fake backend and its fixtures),
   `test_api*.py` (the HTTP routes, one file per area), and a file per module
@@ -888,6 +909,19 @@ Model and loader:
   exact quantization/format, then 4-bit or torchao family, then platform,
   then offload. Unmeasured variants never inherit a family timing. These are
   not ETAs or new GPU evidence.
+- Beside them, `/api/models` gives each model's `gallery_timing`
+  (`gallery_reports.gallery_timing`, inside the route's existing `_detached`
+  call; None with no rows, a missing database or a gallery reserved past
+  `gallery_reports.TIMING_WAIT`, 0.2 s, never the session's 30 s): over each
+  checkpoint's latest 50 direct renders under the chosen quantization (no
+  `refine`, no `edit`, Eager `execution`, `duration_ms > 0`), the size used
+  most, the step count used most there, and the median seconds per image
+  and its count. `model_info` stays cold. The page says it only in the Speed
+  note (`modelSpeedNote`: the cell's title and the radio's description) as
+  "This gallery: ~N s at W×H, S steps (median of n)", labelled as history,
+  not a measurement, with offload not recorded per image. It never sets
+  `speed_label` or the category; it is left out of the table's rebuild key
+  and written in place (`syncModelDownloadFacts`).
 - Picker access (`details_for`'s `access`/`access_note`) comes from
   `Checkpoint.gate`: click-through is Accept licence, manual is Needs approval,
   anything else and every lite-infer build Open, a custom id Unknown. Nothing
@@ -2286,7 +2320,10 @@ Jobs:
   across processes. SQLite sessions and per-record writers (`save_image`,
   `thumbnail_for`, `import_file`, `index_file`, `set_favorite`,
   `set_favorites`, `delete_image`, `bin_images`, `restore_images`, `init_db`) wait up to
-  `gallery_lock.SESSION_WAIT` for another process's reservation; whole
+  `gallery_lock.SESSION_WAIT` for another process's reservation, as do the
+  snippet, setup and saved-search sidecar writes and imports under their own
+  path's lock (with only the grace, a second process saving the same sidecar
+  was refused 409 whenever the first's fsync and replace ran long); whole
   maintenance operations (bundles, `delete_matching`, `empty_bin`,
   `clear_history`, `vacuum`, reindex/merge) refuse with `GalleryBusy`
   after `MAINTENANCE_GRACE` (0.25 s) of polling for the file lock, long
@@ -4441,7 +4478,14 @@ Frontend and CLI:
   only for a viewer holding something. A gallery with nothing to show says
   so under its head (`syncGalleryEmpty`, `#gallery-empty`: what fills it and
   the authors' Examples, or that nothing matches the filter, and what All
-  models would add), never over tombstones or in sheet mode. A finished
+  models would add), never over tombstones or in sheet mode. A search that
+  finds nothing, in the gallery or the bin, names each `word:value` whose
+  word is nearest to exactly one of `SEARCH_KEYS` (two edits at most, a
+  transposition one, fewer than the key's letters; a tie says nothing) with a "Search seed:42"
+  ghost button (`mistypedSearchHints`), which mends that word in the box and
+  asks again without scrolling; a word near no key, or with more than
+  letters and digits before its colon (`"seed:42"`, `--seed:1`), adds
+  nothing, results say nothing, and the grammar stays the server's. A finished
   job's images the gallery's filter leaves out - a sheet's `job:` scope, a
   search, Starred - are counted in the gallery's line with Show all
   (`noteOutsideView`, per filter; `showAllImages` empties the search,
@@ -5102,13 +5146,26 @@ Frontend and CLI:
   `refine_max_pixels`, checked before the request is built), `invalid`
   (pydantic), `no_step` (`check_refine_steps`), else a cell through
   `grid.cell_from_record` with `reference=[]` and `label="#<id>"` - one
-  record, one cell, in the resolver's order (oldest first), never a loop
-  over axes, so `grid.expand()` stays the one cell loop. The route adds
+  record, one cell per version, in the resolver's order (oldest first), never a loop
+  over axes, so `grid.expand()` stays the one cell loop. `versions`
+  (`Literal[1, 2, 4]`, default 1, the single dialog's choices) makes each
+  queued record that many cells of one image (`Planned.cells`: `cell`,
+  the first, at the record's seed and unchanged, so `versions=1` keeps
+  every key, run id and status; `more` at `wrap_seed(seed + n)`, labelled
+  `#<id> v<n+1>`), so `prune_done` answers per version - the single
+  dialog's seeds counting up, never More seeds' stepping over taken ones,
+  so a second press is "already rendered". The route adds
   `file_missing` (`storage.missing_files`), `lora_missing` (a same
   checkpoint's adapter, `submission.unusable_input` once per name), `rendered`
-  (`submission.not_yet_rendered` per size) and `deleted` (an id gone or binned). Only a
+  (`submission.not_yet_rendered` per size; only where every version is
+  held, else the versions it lacks queue and the row's `notes` say
+  "k of V versions already in the gallery or queued") and `deleted` (an id gone or binned). Only a
   checkpoint with no pass refuses the whole of it (422,
-  `submission.refine_unavailable`, the single pass's words). The preview lists the
+  `submission.refine_unavailable`, the single pass's words), and more
+  passes than `max_grid_images` (the images that would queue × `versions`,
+  before the gallery is asked) refuse it by count (422). The preview's
+  `queued` counts passes, `queued_images` the images they are of and
+  `versions` echoes the request's. The preview lists the
   first `api_refine_batch.REFINE_BATCH_PREVIEW_ROWS` (200) with each source's size and the
   pass's, counts all, and answers the resolved `ids`, the strength, the
   `foreign` count and `models`, `passes`, `largest` (the largest source the
@@ -5167,7 +5224,14 @@ Frontend and CLI:
   in `REFINE_KEY` (`rememberRefineBatch`); refused, it stays open with the
   reason and checks again. ↑/↓ step Strength by 0.05, 0.01 with Shift. The
   results list has a fixed height and scrolls, the count keeps two lines
-  and `#refine-batch-error` one, so nothing below moves.
+  and `#refine-batch-error` one, so nothing below moves. Versions
+  (`#refine-batch-versions`, 1/2/4) is the controls row's last field, a
+  select at the boxes' height, opening at 1 every time and never
+  remembered; a change is checked at once. Above 1 the count line says
+  "N passes will be refined (M images × V versions)", with ", k already
+  made or queued" inside the brackets where the gallery or a live job
+  holds some (`rbQueuedWords`), Refine says "Refine N passes" and the
+  title still the images; at 1 every wording is the one before Versions.
 - Then refine (`docs/plan-then-refine.md`; `then_refine.py`,
   `JobManager._passes`, `then-refine.js`) is a submission field, never a
   request field: `GenerateSubmission.then_refine` (`/api/generate`) and
@@ -5225,7 +5289,20 @@ Frontend and CLI:
   pass. The opener's words ("Refine 1.5× · 0.4"), Generate's and Run
   grid's words and titles say the setting while it is on; scale and
   strength are `REFINE_KEY`'s. The CLI's
-  `--then-refine-*` run the same plan (`_then_refine_passes`).
+  `--then-refine-*` run the same plan (`_then_refine_passes`). More seeds
+  carries the pass (`api_more_seeds._carry_then_refine`): a queued base
+  batch (template `refine` and `edit` None) takes the spec its images'
+  jobs retained (`then_refine.retained` over `storage.retained_run_metadata`
+  of every held image's `job_id`, so a template from an earlier bases-only
+  More seeds still finds it) and queues with `submit_cells(then_refine=)`,
+  whose `pass_run_id` is the run's own pass run; `_more_seeds_jobs` keys by
+  the spec too (`then_refine.spec_key`), one spec per job. Mates of two
+  specs, or `then_refine.refusal` at the batch's cells, is status
+  `then_refine` in words, the rest queuing; `MoreSeedsRequest.then_refine`
+  False (the dialog's tick off) makes bases only, and is in the intent
+  payload, so a replay keeps it; no refine pass on the checkpoint is
+  `then_refine_hold`, bases only with a note. A pass batch and a plain run
+  are unchanged; the run's `seeds` action asks bases only.
 - More seeds (`POST /api/more-seeds/preview`, `POST /api/more-seeds`,
   `more_seeds.py`, `more-seeds.js`, `styles/more-seeds.css`) is the sixth
   producer of cells: `count` more images of each batch the selection
@@ -5257,15 +5334,19 @@ Frontend and CLI:
   `seeds a–b` label, `invalid` where that or `check_budget`/
   `check_refine_steps` refuses. The route then adds `source_deleted` and
   `lora_missing` (`submission.unusable_input` once per spec), a note where the batch
-  was made under another quantizer, and `deleted` (an id gone or binned); nothing is
+  was made under another quantizer, `then_refine` (its run's pass refused,
+  `_carry_then_refine`, above) and `deleted` (an id gone or binned); nothing is
   ever `rendered`. Past `max_grid_images` images in all (batches ×
   `count`) is a 422 for the whole, by count. The preview lists the first
   `api_more_seeds.MORE_SEEDS_PREVIEW_ROWS` (200) by id - each batch's newest picked image,
   its picked `ids`, the prompt (300 characters), the images and seed range
   it holds, `first`/`last` new seed, `skipped`, `batch` and `recorded` -
   counts all, and answers the resolved `ids`, `queued` (images),
-  `batches`, `jobs`, `unrecorded`, `seconds` (per size from
-  `step_cost_ms`/`refine_cost_ms`, None with `unpriced_sizes` where any
+  `batches`, `jobs`, `unrecorded`, `passes` (Then refine passes following
+  carrying batches' bases), `then_refine_batches` (batches whose run carries
+  a spec, carried or not) and `then_refine_hold`, `seconds` (per size from
+  `step_cost_ms`/`refine_cost_ms`, carried passes at their own size through
+  `then_refine.execution_units`, None with `unpriced_sizes` where any
   size has none), `count_default` (`more_seeds.count_default`: the Batch
   every batch that recorded one agrees on, else None - what a run surface
   opens the count at) and, for a `run` scope with something queued,
@@ -5314,7 +5395,14 @@ Frontend and CLI:
   remembered; refused, it stays open with the reason and checks again. The
   results list has a fixed height per opening and scrolls, the count line
   keeps two lines and the feedback three, so nothing below moves; Queue and
-  Cancel keep fixed action columns.
+  Cancel keep fixed action columns. Then refine's tick,
+  `#more-seeds-then-refine` ("Refine each new image"), sits beside the count
+  on the same row, shown only where `then_refine_batches` or
+  `then_refine_hold` is set, on at every opening, sent as `then_refine`
+  (a change checks again at once); held (`aria-disabled`, the hold its
+  title, off, a press saying it in `#more-seeds-error`) without a pass or
+  once a request is sent (`syncMoreSeedsThenRefine`, `msThenRefineHold`).
+  The count line and Queue add "+ N refine passes".
 - The direct results action (`#viewer-more-seeds`) stays outside the strip,
   on the same element as images arrive. It takes only settings groups already
   represented by completed results, and says that scope. `#viewer-note-text`
@@ -6801,7 +6889,10 @@ HTTP guards. `tests/test_docs_maps.py` holds `CLAUDE.md` to the one
 named in the Layout above (the stylesheets in `index.html`'s link order, and
 its count of classic scripts); and every `tools/smoke*.json` in `AGENTS.md`'s
 port table, on the row whose port its first `navigate` uses, and named
-below - so a new file is added to the maps with it.
+below; and every `/api/fake/...` route and command-line flag
+`tools/fake_server.py` registers (read as text, never imported), named in
+both `AGENTS.md` and this file - so a new file, knob or flag is added to the
+maps with it.
 
 `tests/test_search_area.py` checks comparison-only actual MP filters through
 actual SQLite: inclusive/exclusive and one-pixel boundaries, zero/tiny values,
@@ -7096,7 +7187,15 @@ the whole refusals, the filter scope, `batch` through a reindex, and the
 batch and a binned top seed still held, its refusals beside `ids` or
 `search`, 404 unknown or wholly binned, 409 `expected`, per-batch
 `foreign`, `count_default` agreeing or not, the headline, and a run past
-`max_grid_images` images queued in few batches).
+`max_grid_images` images queued in few batches; and Then refine carried:
+bases and their passes under the original pass run with the passes priced
+at their size, `then_refine: false` making bases only and a later press
+from that bases-only template still carrying it, a plain run and a pass
+batch unchanged, no pass on the checkpoint held with bases only, mates of
+two specs refused in words, a batch past the guard refused while the rest
+queue, and two specs in one press making two jobs);
+`tests/test_more_seeds_intents.py` also holds that a replayed intent keeps
+the `then_refine` choice.
 Load settings from PNG is `tests/test_api_png.py` (a gallery PNG's whole
 record back, an explicit null Mu, the legacy key, a reference carried only
 where this gallery holds the same picture, one on a checkpoint that takes
@@ -7241,6 +7340,19 @@ analyzed files fail; checker diagnostics and nonzero status are preserved.
 CI job runs this same command after installation, before tokenizer fetches;
 documentation-only changes retain the lightweight lint-only path.
 
+The card guard's limits live in one block, the frozen `Limits` dataclass
+(`LIMITS`) at the top of `tools/card_guard.py`: change a default there and
+nowhere else, each commented with the verified.md section it came from; a
+session overrides one with a flag or `--limits FILE.json`, and every flag
+defaults to None. `tests/test_card_guard.py` holds the decision to the
+recorded readings (the 2026-10-25 RAM stops, the fixed loader's lowest free
+RAM, ERNIE's projection gates, the shared rises that never spilled, the
+card's strict 15,500 boundary), that block as the only source of the
+defaults, and the watcher on a stub host with an injected sleep and clock,
+so no test reads a counter or races one (its trip after
+`card_unread_samples` samples in a row without a whole-card reading
+among them).
+
 `uv run python tools/run_smoke.py <smoke> [<smoke> ...]` runs smokes without
 a second terminal: it reads `AGENTS.md`'s port table (the port, the
 `--model`, short names resolved through the line under the table, and
@@ -7304,7 +7416,23 @@ remembered, the tick held with `REFINE_NONE` on a status stubbed to no
 pass, and a Generate cancelled on its pass whose finish line's Finish run
 says "Finish 1 missing pass of run …" and, pressed, puts the pass in the
 strip and the pass run, then that pass permanently deleted and the words
-adding "1 permanently deleted pass will be redrawn":
+adding "1 permanently deleted pass will be redrawn"; then More seeds of the
+batch of two with the tick shown beside the count and on, the row's note
+"each then refined at 1.5× at 0.4", "+ 2 refine passes" in the count line
+and Queue, unticking dropping them with nothing in the dialog moving, and
+the queued job putting each new base and then its pass in the strip, the
+passes in the run's own pass run; then a press held on its POST (`api`
+wrapped), during which Refine each new image is `aria-disabled` (never
+`disabled`), "This request has been sent with its choice; close More
+seeds to make another" its title and, pressed, in the dialog's error line
+with the tick left on, the base and its pass landing once released; and,
+with the pass taken away by `POST /api/fake/refine` (`supported` false,
+given back after), More seeds of the same batch showing the tick held and
+off with the server's `then_refine_hold` as its title, the row's note
+"bases only: this checkpoint has no refine pass" kept after the page's
+unticked re-check, no pass in the count line or Queue, and a press saying
+the reason in the error line (kept by later Queue syncs) with nothing in
+the dialog moving:
 
 ```powershell
 uv run python tools/fake_server.py --port 7912 --model black-forest-labs/FLUX.1-Krea-dev --step 0.3 --data <new-scratch-directory>
@@ -7367,8 +7495,8 @@ instead: `uv run python tools/fake_server.py` serves the app on 7861 on the
 tests' fake backend (gradient images stamped with seed and steps, a throwaway
 gallery under the system temp dir, `--step 0.3` to make pause and queueing
 observable; a cell whose prompt holds `[fail]` fails,
-`POST /api/fake/load` (`{seconds, fail: "gated"}`) makes the loads after it
-slow or gated, `POST /api/fake/step` (`{seconds}`, answering the pace it
+`POST /api/fake/load` (`{seconds, fail: "gated", hold}`) makes the loads after it
+slow, held after their seconds until the next call (30 s at most) or gated, `POST /api/fake/step` (`{seconds}`, answering the pace it
 replaced) slows the jobs after it, for a step that needs a job to outlast its
 own round trips - a cancel, a stream attaching - and `POST /api/fake/expand`
 (`{seconds, fail, hold, fresh}`) does one of four things to ERNIE's Expand
@@ -7378,7 +7506,10 @@ translator back off disk so a first use shows again on a server already
 used; `POST /api/fake/lora` (`{name, present}`) moves an adapter out of the
 fake's directory and back, as a rename by hand would; `POST
 /api/fake/bin-age` (`{ids, days}`) backdates binned rows' `binned_at` by
-`days` for Empty's age scope, leaving live rows live; the fake's rewriter and translator count as downloaded from their
+`days` for Empty's age scope, leaving live rows live; `POST
+/api/fake/refine` (`{supported}`, answering what it replaced) takes the
+claimed checkpoint's refine pass away and gives it back, as a loaded
+pipeline with no image-to-image sibling answers; the fake's rewriter and translator count as downloaded from their
 first use), and `node tools/browser.mjs tools/smoke.json` drives headless
 Edge or Chrome over the DevTools protocol with Node's own WebSocket - no npm
 install - through the lightbox zoom and the focus its close leaves on the
@@ -7397,8 +7528,15 @@ file defines) to more with && or ||, which is never awaited: the whole
 condition goes inside the predicate. Each run's browser profile, under the
 system temp directory, is removed on every way out - the steps' end, a
 failure, a throw, Ctrl-C or SIGTERM - once the browser's whole process tree
-has stopped; one a killed run left behind is swept by a later run after six
-hours (`tests/test_browser_profile.py`, skipped without Node and a browser).
+has stopped. The browser gets 10 s to close itself before its tree is killed,
+and removal retries against a deadline of its own (Node's `rmSync` retries
+skip Windows' EPERM). On Windows, where with every core busy dying
+low-priority children held files for over a minute, a failed first removal
+waits up to a minute for every process whose command line names this run's
+own profile - never another browser - raising each to High priority and
+stopping it, then retries for 10 s. One a killed run left behind is swept by
+a later run after six hours (`tests/test_browser_profile.py`, skipped
+without Node and a browser).
 A `hover`, `click` or `dblclick` step takes a
 CSS selector in place of a point, aiming at the middle of that element's box
 as it is then. It opens the page at 1400x900,
@@ -7711,7 +7849,10 @@ Unload, and focus/caret preservation.
 `smoke-model-hover.json` hovers a table row and checks that its hover, every
 row's position and the focus survive status polls, a catalogue reply and
 another tab's favourites, with only the star's glyph (and, for a server
-change, the current row's badge word) changing. For the
+change, the current row's badge word) changing. Images made on the loaded
+checkpoint add the gallery timing line to its Speed note and description in
+place, with the hovered row, every row's position and the cell's words
+unchanged. For the
 base-select loader lists it checks that a revision or checkbox-only change
 waits for an open list to close, that keys in an open list leave the prompt
 check open and start no job, and that Escape closes only the list. It covers
@@ -7728,7 +7869,13 @@ revisions, refusals and inconclusive answers and the route keeping the
 running model; `POST /api/fake/model` sets the fake's `overrides`, a
 `stuck_critic` and an `access` refusal ("gated"/"not_found") for page checks;
 `test_model_benchmarks.py` covers speed categories, exact sample matching and
-no category for an unmatched setup or a first run on a busy PC; `test_model_info.py` covers compact facts
+no category for an unmatched setup or a first run on a busy PC;
+`test_gallery_timing.py` covers the picker's gallery timing (refine, edit,
+non-Eager and other-quantization rows left out, the most-used size then step
+count, the median and its count, the latest rows only, nothing for an empty
+history or a missing database, a reserved gallery refused after the short
+wait) and `test_api_model_switch.py` the field per model with the speed facts
+unchanged and a reserved gallery leaving it out without stalling the reply; `test_model_info.py` covers compact facts
 for every catalogue entry, favourite ids shared by Lite/Nunchaku variants,
 access, Qwen-Image's fit, size labels that never claim an unsourced maximum and the shared
 loader descriptions:
@@ -8541,7 +8688,13 @@ card the same node and the paged-in tail kept, no reset; and last, as it
 plants two blonde foxes, an exclusion: `fox -blonde` loading only fox cards
 without "blonde", its total the server's, the tip's `-word` line, Delete
 unstarred's count dialog for `seed:>=100 -seed:100` and its refusal of
-`-blonde` in `#gallery-error`, with no panel control's rectangle moved:
+`-blonde` in `#gallery-error`, with no panel control's rectangle moved; and
+after it a mistyped key (GAL#23): `sed:42` adding "sed:42 was searched as
+prompt words; did you mean seed:42?" and its Search seed:42 button to the
+empty line, the head's height that of a plain empty search, the press
+searching `seed:42` with the box focused and the page unscrolled,
+`masterpiece:1.2` and a quoted `"sed:42"` the plain line with no button,
+and the bin's empty line the same hint and press:
 
 ```powershell
 uv run python tools/fake_server.py --port 7885
@@ -8697,7 +8850,13 @@ deleted; Steps "1e" refused rather than read as blank; Refine held with
 when it answers; a starred image landing while open checked again on its
 own, title, scope line and Refine saying four, then three; with the model
 picker opened under the dialog, Escape closing the dialog and not the
-picker; the page never scrolled:
+picker; the page never scrolled; Versions 2 doubling the count ("6
+passes will be refined (3 images × 2 versions)", "Refine 6 passes (2
+jobs)") on the controls' one row at the boxes' height, Refine and Cancel
+unmoved, and 1 again the images; a picked image queued at Versions 2,
+its passes at its seed and the next, opened again at 1 and held as
+already refined at 2, and 4 queuing only the two it lacks with its row's
+note:
 
 ```powershell
 uv run python tools/fake_server.py --port 7901 --model black-forest-labs/FLUX.1-Krea-dev --data <new-scratch-directory>

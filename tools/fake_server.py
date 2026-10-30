@@ -11,7 +11,8 @@ top, so every "image" is a gradient stamped with its seed and steps and the
 cells of a grid can be told apart on a sheet. A cell whose prompt holds
 `[fail]` raises, as an out-of-memory cell would, so a grid's skipped cells
 and the failure rule can be driven from the page; and `POST /api/fake/load`
-(the fake's alone) makes the loads after it slow (`seconds`) or gated
+(the fake's alone) makes the loads after it slow (`seconds`), held until
+the next call (`hold`) or gated
 (`fail=gated`, raised as huggingface_hub raises it), for the load's wait and
 a failed load's card; `POST /api/fake/step` sets the seconds per step for
 the jobs after it and answers the pace it replaced; `POST /api/fake/expand`
@@ -27,6 +28,9 @@ this sign-in cannot download; the fake never asks the Hub); `POST
 (`present`); `POST /api/fake/bin-age` backdates binned images' `binned_at`
 by `days`, for Empty recycle bin's age scope; `POST /api/fake/peak` sets the
 (`allocated`, `reserved`) bytes the jobs after it save as their peak;
+`POST /api/fake/refine` takes the claimed checkpoint's refine pass away
+(`supported` false) and gives it back, as a loaded pipeline with no
+image-to-image sibling answers;
 `POST /api/fake/instruction-edit` closes or reopens the instruction-edit
 gate (`available`), which is open on a fake claiming FLUX.1 Kontext [dev]
 alone - there an edit is the source proved and prepared, tinted and
@@ -173,12 +177,18 @@ def main() -> int:
 
         load_seconds = 0.0
         load_failure: str | None = None
+        # Held (`hold`), a load waits after its seconds until the next
+        # `POST /api/fake/load` lets it go, or 30 s, so a smoke's steps during
+        # the load's wait never race its end however slow the machine.
+        load_gate: threading.Event | None = None
 
         def load(self) -> None:
             # On the load's own daemon thread (detached.detached), as the real one.
             import time
 
             time.sleep(self.load_seconds)
+            if self.load_gate is not None:
+                self.load_gate.wait(timeout=30)
             if self.load_failure == "gated":
                 from huggingface_hub.errors import GatedRepoError
 
@@ -554,13 +564,24 @@ def main() -> int:
 
     # The fake's own knob for the load, which no flag can reach once the
     # smokes' runner has started the server: how long the loads after it take,
-    # and whether they fail as a gated repo does.
+    # and whether they fail as a gated repo does, or are held until the next
+    # call.
     from fastapi import Body
 
+    load_gate = threading.Event()
+    fake.load_gate = load_gate
+    load_gate.set()
+
     @app_main.app.post("/api/fake/load", include_in_schema=False)
-    async def fake_load(seconds: float = Body(0.0), fail: str | None = Body(None)) -> dict:
+    async def fake_load(
+        seconds: float = Body(0.0), fail: str | None = Body(None), hold: bool = Body(False)
+    ) -> dict:
         fake.load_seconds, fake.load_failure = seconds, fail
-        return {"seconds": seconds, "fail": fail}
+        if hold:
+            load_gate.clear()
+        else:
+            load_gate.set()
+        return {"seconds": seconds, "fail": fail, "hold": hold}
 
     # And the steps' pace, for a smoke step that needs a job to outlast its
     # own round trips - a cancel landing before the grid ends, a stream
@@ -660,6 +681,16 @@ def main() -> int:
     async def fake_instruction_edit(available: bool = Body(..., embed=True)) -> dict:
         previous, fake.edit_qualified = fake.edit_qualified is True, available is True
         return {"available": fake.edit_qualified, "previous": previous}
+
+    # A refine pass the claimed checkpoint lacks, as a loaded pipeline with
+    # no image-to-image sibling answers: `supported` false makes status and
+    # every route that asks `submission.refine_unavailable` say this
+    # checkpoint has no pass (More seeds' held tick and its bases-only
+    # note); true gives it back. Answers what it set and what it replaced.
+    @app_main.app.post("/api/fake/refine", include_in_schema=False)
+    async def fake_refine(supported: bool = Body(..., embed=True)) -> dict:
+        previous, fake.refine_supported = fake.refine_supported, supported is True
+        return {"supported": fake.refine_supported, "previous": previous}
 
     # A measured peak, which a fake never has: the (allocated, reserved)
     # bytes the jobs after it save, or null for none again. Answers it.

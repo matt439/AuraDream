@@ -87,6 +87,17 @@ function validBundleClearStatus(status) {
     && typeof result.cleared === 'boolean' && Array.isArray(result.deleted_ids));
 }
 
+// The reads a settled operation starts besides the gallery's own, awaited
+// while bundleSettling holds the next press. The server refuses a bundle
+// operation while any gallery read is in flight ("Another gallery request is
+// still finishing"), so the adapter list and the Finish run reads loadRuns
+// leaves running must end before the hold lifts, or the page's own repair
+// gets the press it has just offered refused.
+function bundleRepairReads() {
+  return Promise.all([refreshLoras(), finishRunReads(),
+    ...(els.bundlesDialog.open ? [refreshBundlePreview(), refreshBundleList()] : [])]);
+}
+
 // True means this clear owns the status path, including deferred/unresolved
 // observations. It must never fall through to generic terminal bookkeeping.
 async function receiveBundleClearStatus(status, first) {
@@ -143,12 +154,11 @@ async function receiveBundleClearStatus(status, first) {
     els.bundleCount.value = '';
     await Promise.all([resetGallery(), loadRuns(), syncBin()]);
     if (bundleClearOwner !== owner || owner.id !== status.id || owner.phase !== 'settling') return true;
-    void refreshLoras();
     schedulePreview();
     if (refineSource) scheduleRefinePreview();
     if (inpaintSource) scheduleInpaintPreview();
     if (outpaintSource) scheduleOutpaintPreview();
-    if (els.bundlesDialog.open) await Promise.all([refreshBundlePreview(), refreshBundleList()]);
+    await bundleRepairReads();
     if (bundleClearOwner !== owner || owner.id !== status.id || owner.phase !== 'settling') return true;
     bundleHandled = status.id;
     bundleSeenRunning = false;
@@ -619,12 +629,11 @@ async function receiveBundleStatus(status) {
         // Even a settings save briefly reserves admission, so reads made while
         // it ran may need repair. Keep its manual count/message, but recover
         // refused gallery, adapter and preview reads as for an ordinary backup.
-        void refreshLoras();
         schedulePreview();
         if (refineSource) scheduleRefinePreview();
         if (inpaintSource) scheduleInpaintPreview();
         if (outpaintSource) scheduleOutpaintPreview();
-        if (els.bundlesDialog.open) await Promise.all([refreshBundlePreview(), refreshBundleList()]);
+        await bundleRepairReads();
       } finally { bundleSettling = false; }
     }
   }

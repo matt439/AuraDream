@@ -541,6 +541,15 @@ speed from those steps. The tooltip preserves settings, date and warm/cold
 caveats, without file paths. These are single prior runs, not a controlled
 comparison, live ETA or measurements at the maximum MP shown beside them.
 
+Since 2026-10-30 (GEN#38) the Speed note also gives this gallery's own
+history of the checkpoint under the chosen quantization: the median seconds
+per image at its most-used size and step count, over its latest direct Eager
+renders. It is labelled as history, never a category: rows record neither
+the offload mode nor whether an image was a process's first, so neither can
+be filtered out, and the median is what keeps one slow first image from
+moving the figure. It goes in the note and the description only, written in
+place, so no row grows or is rebuilt under the pointer after a render.
+
 The catalogue also reports Hugging Face access (2026-10-09). The `--menu`
 printed each entry's gate, but the browser picker that replaced it did not, so
 Krea 2 Turbo's manual approval surfaced only as a failed load, after the
@@ -5304,6 +5313,17 @@ re-reads the adapter list (`lorasLive`) and the previews once, and
 `GalleryAdmission` refused those. The bundle's settle re-reads both, as it
 already re-read the gallery.
 
+Those re-reads must end before the settle does (2026-10-31). The settle
+dropped `bundleSettling` while its unawaited adapter list read and the
+Finish run detail read (`GET /api/runs/{id}`) were still in flight, so a
+bundle press right after it looked idle on the page and the server refused
+it ("Another gallery request is still finishing"), which smoke-bundles hit
+under load. Both settle paths now await `bundleRepairReads()` (the adapter
+list, `finishRunReads()`, and the open dialog's counts and list) first. A
+debounced 250 ms preview (grid, refine, inpaint, outpaint) is only
+scheduled at that point, so a press in that window with one of those
+panels open can still meet the same refusal.
+
 **Windows credential source (2026-10-26, `GAL#6`).** V4 now stores only an opaque
 scoped credential reference and inactive pending/ready state. Explicit hidden-input
 setup writes pending metadata before a new generic WinCred target; uncertain
@@ -5961,6 +5981,25 @@ Refine."). The strength and the scale are remembered in the single
 dialog's `REFINE_KEY` - what was last run on this checkpoint is the same
 number whichever dialog ran it - and a capped opening scale run as it
 opened is not remembered as the user's choice, as `rememberRefine` has it.
+
+**Versions count up, one cell each** (2026-10-30, `GEN#36`). Several
+tries of one strength over many images were a Mass refine per seed,
+typed by hand. `versions` (1, 2 or 4, the single dialog's choices) gives
+each image's seed and the seeds counting up from it through `wrap_seed`,
+the seeds the single dialog's Versions give. Each version is a cell of
+one image, not one cell with `num_images > 1`: `prune_done` keeps a
+batch cell until every image of it is in the gallery and then renders it
+whole, so a half-made pair would be drawn again in full. One cell per
+version makes "with one version already there, only the other queues"
+fall out of the existing per-cell answer, and an image is `rendered` only
+where every version is. The audit's draft said to step over taken seeds
+as More seeds does; that would turn the same press twice into new seeds
+instead of the "already rendered" no-op Mass refine promises, so it was
+not used. The first version is the cell a press without versions makes,
+so `versions=1` keeps every key, run id and status. The price is passes:
+more than `max_grid_images` (the images that would queue × versions) is
+refused by count, as More seeds refuses a press. Versions is not
+remembered: a doubled batch opened by surprise costs a night's time.
 
 **The start sigma is a range.** On a shifted flow schedule one strength
 starts a larger pass at more noise (FLUX.1: 0.1 is 47% at 1.5x of 1 MP and
@@ -6835,7 +6874,13 @@ yet": nothing said it fills as images are made. A page with total 0 now says,
 under the head, what fills it and offers the authors' Examples (the first
 run's own button's handler), or under a filter that nothing matches it, and
 either way what the All models tick would add (`syncGalleryEmpty`; never
-over tombstones, which say it, nor in sheet mode). And a comparison's or a
+over tombstones, which say it, nor in sheet mode). A search that finds
+nothing names a mistyped key too (GAL#23, 2026-10-30): any token the
+grammar does not know is prompt text, so `sed:42` searched the prompts for
+"sed:42" and the empty line gave no clue that no filter ran. A word near
+exactly one key now gets "did you mean seed:42?" and a Search seed:42 button;
+the grammar is unchanged, and `masterpiece:1.2`, near no key, says nothing
+more. And a comparison's or a
 sweep's sheet keeps the gallery scoped to its `job:` after it opens: a plain
 Generate afterwards saved its image where the sheet could not show it, the
 count unchanged and the search box still reading `job:…`, as though nothing
@@ -8160,7 +8205,11 @@ The sidecar lives beside loader settings, outside gallery rows and bundles.
 An independent lock and atomic replace protect concurrent processes; item
 revisions refuse stale edits or deletes, and malformed/newer files stay
 untouched. The API bypasses gallery maintenance admission, so bundling does
-not take away prompt snippets. Only opening the dialog reads the list.
+not take away prompt snippets. A write waits `SESSION_WAIT` for another
+process's write to the same sidecar, as the gallery's single-record writes do
+(setups and saved searches too): with only maintenance's 0.25 s grace, two
+processes saving at once refused the second as busy whenever the first's
+fsync and replace ran long under load. Only opening the dialog reads the list.
 Pending writes hold Close; a queued close event cannot invalidate a reopened
 dialog. Chrome lets a repeated Escape close a held dialog anyway, so a close
 retires reads but keeps a pending write's hold. Only the write's own reply
@@ -12719,6 +12768,24 @@ pass of every image right after its cell, in the same job.
   redrawing it unannounced. A binned pass still counts as made. Jobs
   retained before this build carry no such list, so a pass of theirs
   deleted is redrawn as a plain missing pass.
+- **More seeds carries the pass (`GEN#37`, 2026-10-30).** More seeds of a
+  then-refine run used to add bases only, and the night's new images
+  needed a Mass refine afterwards. A base batch now carries the spec the
+  jobs of its images retained, so each new base is followed by its pass in
+  the run's own pass run (`pass_run_id` is deterministic, so the job
+  derives the same id). The spec is read from every mate's job, not the
+  template's alone: the template can be a base an earlier More seeds made
+  with the tick off, whose job carried none. Mates of two specs (a Resume
+  tick with other numbers) and a pass `then_refine.refusal` refuses at the
+  batch's size are a `then_refine` status in words, per batch, the rest
+  still queuing; the run's More seeds action counts bases, since unticking
+  frees such a batch. A pass batch keeps its meaning (more passes of its
+  source), and a plain run is untouched. The tick, Refine each new image,
+  sits beside the count - shown only where a batch's run has a spec, on at
+  every opening as the run's own choice, held where the checkpoint has no
+  pass - so nothing in the dialog moves. `queued` stays the images the
+  press asks for (the cap counts them); `passes` is beside it, rather than
+  folded into `queued` as the plan's sentence could be read.
 
 ## Peak memory per image
 

@@ -15,7 +15,7 @@ from datetime import datetime, timezone
 from collections.abc import Sequence
 from typing import Any
 
-from . import storage
+from . import gallery_lock, storage
 # VARIANT is the variable a comparison's versions are recorded under, which
 # `keep_rates` groups by.
 from .grid import VARIANT, estimate_seconds
@@ -130,6 +130,73 @@ def image_bytes(width: int, height: int, model_id: str | None = None, sample: in
         return None
     sizes.sort()
     return sizes[len(sizes) // 2]
+
+
+# How long the picker's gallery timing waits for the gallery reservation. A
+# save holds it for a moment, a bundle operation or a clear for as long as it
+# runs: the catalogue says nothing of the gallery then rather than stalling
+# behind it for `gallery_lock.SESSION_WAIT`.
+TIMING_WAIT = 0.2
+
+
+def gallery_timing(quantization: str, sample: int = 50) -> dict[str, dict[str, int]]:
+    """Each checkpoint's typical direct render in this gallery, for the picker.
+
+    One grouped query over each checkpoint's latest `sample` direct renders
+    under `quantization`: no refine pass, no edit, Eager execution (a NULL
+    column) and a recorded duration. Of those, the size used most, the step
+    count used most at that size, and the median seconds per image there
+    with how many images it is of. A tie goes to the more recent setting.
+
+    History, not a measurement: rows record neither the offload mode nor
+    whether an image was its process's first, so neither is filtered out -
+    the median keeps one slow first image from moving the figure. It never
+    feeds a speed category (`model_benchmarks` owns those). A checkpoint
+    with no matching rows is absent, and a missing database answers nothing
+    rather than creating one. A reserved gallery raises `GalleryBusy` after
+    `TIMING_WAIT`, never the ordinary session's wait.
+    """
+    if not storage.settings.db_path.is_file():
+        return {}
+    with gallery_lock.hold(storage.settings.db_path, wait=TIMING_WAIT):
+        conn = storage._connect()
+        try:
+            rows = conn.execute(
+                """WITH latest AS (
+                       SELECT id, model_id, width, height, steps, duration_ms,
+                              ROW_NUMBER() OVER (PARTITION BY model_id ORDER BY id DESC) AS recent
+                       FROM images
+                       WHERE quantization = ? AND refine IS NULL AND edit IS NULL
+                         AND execution IS NULL AND duration_ms > 0 AND steps > 0
+                   )
+                   SELECT model_id, width, height, steps, COUNT(*) AS made, MAX(id) AS newest,
+                          group_concat(duration_ms) AS durations
+                   FROM latest WHERE recent <= ?
+                   GROUP BY model_id, width, height, steps""",
+                (quantization, sample),
+            ).fetchall()
+        finally:
+            conn.close()
+    by_model: dict[str, list[sqlite3.Row]] = {}
+    for row in rows:
+        by_model.setdefault(row["model_id"], []).append(row)
+    answers = {}
+    for model_id, groups in by_model.items():
+        sizes: dict[tuple[int, int], tuple[int, int]] = {}
+        for row in groups:
+            made, newest = sizes.get((row["width"], row["height"]), (0, 0))
+            sizes[(row["width"], row["height"])] = (made + row["made"], max(newest, row["newest"]))
+        size = max(sizes, key=lambda key: sizes[key])
+        best = max(
+            (row for row in groups if (row["width"], row["height"]) == size),
+            key=lambda row: (row["made"], row["newest"]),
+        )
+        durations = sorted(int(value) for value in best["durations"].split(","))
+        answers[model_id] = {
+            "median_ms": durations[len(durations) // 2], "width": size[0], "height": size[1],
+            "steps": best["steps"], "images": len(durations),
+        }
+    return answers
 
 
 def execution_estimates(
