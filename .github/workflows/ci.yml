@@ -81,8 +81,9 @@ jobs:
           HF_TOKEN: ${{ secrets.HF_TOKEN }}
           HF_HUB_DISABLE_PROGRESS_BARS: "1"
       # One worker per runner core (pytest-xdist): about half the serial time.
+      # The 25 slowest tests across workers are listed after the result (DEV#25).
       - name: Test
-        run: uv run --group dev pytest -q -n auto
+        run: uv run --group dev pytest -q -n auto --durations=25
 
   # The browser smokes (DEV#4): every row of AGENTS.md's port table on the
   # runner's Chrome against fake servers, no GPU or weights. Its own job so
@@ -119,6 +120,11 @@ jobs:
         env:
           AURADREAM_BROWSER: /usr/bin/google-chrome
           AURADREAM_BROWSER_DIAGNOSTICS: "1"
+      # Where the table's time went, from summary.json, passed or failed
+      # (DEV#25); read-only, so it adds no failure beyond a missing summary.
+      - name: Smoke timings
+        if: ${{ success() || failure() }}
+        run: uv run --no-sync python tools/smoke_timings.py "$RUNNER_TEMP/smoke-artifacts"
       # Each smoke's result, browser output, screenshots and a failed fake's log.
       - name: Keep the diagnostics
         if: ${{ failure() }}

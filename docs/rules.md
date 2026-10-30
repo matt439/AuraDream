@@ -472,7 +472,10 @@ before changing it.
   `image_compare.py` measures PNGs a card session already made (the
   gallery hash, the difference, outside-mask and seam numbers verified.md
   reports), CPU only and importing nothing from `backend`
-  (`docs/plan-card-harness.md`, Image metrics); see Tests
+  (`docs/plan-card-harness.md`, Image metrics);
+  `smoke_timings.py` reads a run's `summary.json` and prints the slowest
+  smokes, each row's total and the wall clock, writing nothing
+  (`docs/plan-tooling.md`, Suite and smoke timings); see Tests
 - `tests/` — the pytest suite, no GPU and no weights: `conftest.py`,
   `fakes.py` and `api_helpers.py` (the fake backend and its fixtures),
   `test_api*.py` (the HTTP routes, one file per area), and a file per module
@@ -7141,12 +7144,18 @@ history, unknown/empty comparisons and manual dispatch keep the full gate.
 A docs-only tip on a code-changing PR does not bypass its tests.
 
 Other changes and manual runs get the CPU suite on Ubuntu
-(`uv sync --locked --group dev`, the pinned type gate, `pytest -n auto`); on main (pushes and by
-hand) it runs on Windows too, about five times slower. A separate
+(`uv sync --locked --group dev`, the pinned type gate, `pytest -n auto
+--durations=25`, listing the 25 slowest tests across workers); on main
+(pushes and by hand) it runs on Windows too, about five times slower. A separate
 `browser` job (same condition, never holding up `test`) runs the whole smoke
-table on the runner's Linux Chrome (`run_smoke.py --all --jobs 3`) and
-uploads each smoke's result, browser log, screenshots and failed fake's log
-as `smoke-artifacts` when it fails. Before it, `tools/smoke_fonts.py`
+table on the runner's Linux Chrome (`run_smoke.py --all --jobs 3`), then,
+passed or failed, `tools/smoke_timings.py` over the run's `summary.json`
+(the slowest 25 smokes, each row's total, smoke time beside wall clock),
+and uploads each smoke's result, browser log, screenshots and failed fake's log
+as `smoke-artifacts` when it fails. `tests/test_smoke_timings.py` holds the
+timing tool's order, `--top`, row totals (a row is the port table's, so two
+rows on one port stay apart) and its exit-2 refusals of a missing,
+malformed or ambiguous summary. Before it, `tools/smoke_fonts.py`
 installs Selawik as Segoe UI with Windows line metrics, beside copies of
 DejaVu Sans and Noto Color Emoji for the symbols Segoe UI lacks, hiding
 Inter and the system's own copies of those two (`FONTCONFIG_FILE`); other

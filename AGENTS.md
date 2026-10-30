@@ -401,7 +401,9 @@ still get tests. Other changes and manual runs get the pinned type gate
 and `pytest -n auto` on Linux,
 and on Windows too for main (pushes and by hand; about 12 minutes); a separate
 `browser` job runs the smoke table on Linux Chrome (fonts from
-`tools/smoke_fonts.py`), uploading diagnostics on failure. Its runners are
+`tools/smoke_fonts.py`), printing its timings (`tools/smoke_timings.py`,
+the suite's slowest 25 come from `--durations=25`) and uploading
+diagnostics on failure. Its runners are
 slow and have no GPU driver: a test that races a clock (a time budget, a
 cell to skip or pause mid-run) needs seconds of margin, not milliseconds.
 `tools/fetch_tokenizers.py` fetches the real-tokenizer tests' files first,

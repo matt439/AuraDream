@@ -560,7 +560,9 @@ reader cannot tell a parallel failure from a serial one.
 
 ## Suite and smoke timings (2026-10-29, DEV#25)
 
-**Status:** `DEV#25` OPEN, recorded 2026-10-29 from the TODO audit. Not built.
+**Status:** `DEV#25` OPEN, recorded 2026-10-29 from the TODO audit. Stage 1
+built 2026-10-30; stage 2 has its Windows local baseline, and the Linux CI
+baseline waits on the next push Matt makes (see Results).
 
 ### Evidence
 
@@ -614,6 +616,50 @@ written down.
    and a Windows local run are recorded here with commit and worker count.
    A Windows CI figure is added when main next runs; this stage does not
    push to get one (pushes stay Matt's call).
+
+### Results
+
+**Stage 1, 2026-10-30.** The CI `Test` step runs
+`pytest -q -n auto --durations=25`. `tools/smoke_timings.py` reads a
+`summary.json`, or the only one below a directory (the CI step hands it the
+`--artifacts` root, one level above the run root). It prints the slowest N
+smokes with the port each ran on (worker band included), its model, result
+and seconds; then each row's total, slowest first. A row is the `AGENTS.md`
+row that lists the smoke, read through `run_smoke.parse_table`, so the two
+7896 rows on one port stay apart. A smoke no longer in the table is its own
+row, by its receipt's port and model, and is marked as such. Last comes the
+sum of smoke times beside the run's wall clock (`jobs`/`offset` when the
+summary has them). Only the first pass's `results` count; rerun receipts get
+one line of their own. It refuses with exit 2 a missing path, a directory
+with no summary or with more than one, unreadable JSON, a summary without
+`results` or a numeric `duration_seconds`, and a receipt without a smoke
+name and numeric duration. `--top` below 1 is refused too. The browser job's
+`Smoke timings` step runs it after `Smokes` with
+`if: ${{ success() || failure() }}`; the other steps and conditions are
+unchanged. `tests/test_smoke_timings.py` covers it on synthetic summaries.
+A real local run of smoke-flux, smoke-analysis and smoke-rewrite at
+`--jobs 2` printed 105.7 s wall clock against 113.0 s of smoke time, with
+smoke-analysis at 90.2 s the slowest.
+
+**Windows local baseline, 2026-10-30** (parent 5e9c591 plus this change,
+Windows 11, Python 3.13.15, AMD 16 cores / 32 threads, `-n auto` = 16
+workers): 8,023 passed and 8 skipped in 176.96 s. Slowest five:
+`test_fbc_runtime.py::test_actual_fbc_computes_then_reuses_and_recomputes_changed_residual`
+38.07 s (setup), `test_storage_scale.py` plain 25.02 s and password
+16.88 s, `test_gallery_purge.py::test_every_chunk_is_validated_before_any_requested_row_is_deleted`
+16.60 s, and
+`test_browser_step_containers.py::test_repository_smoke_records_reach_the_same_cold_lookup_boundary`
+8.40 s. Everything else was under 8 s, and from about the 15th on under 4 s.
+This item sets no budget, so none of these becomes a row on its own
+(Non-goals).
+
+**Left (stage 2):** the Linux CI baseline: the `Test` step's top 25 and the
+`Smoke timings` table, from the first CI run after Matt next pushes. A
+Windows CI figure follows when main next runs. Nothing was pushed to get
+either. Taken while Matt was away (2026-10-29), revisit if wanted: the
+local smoke table was not run in full for a Windows smoke baseline. The
+plan asks only for the Windows suite, and the smokes are written on Windows
+but timed in CI on Linux.
 
 ## Fake-server knob map (2026-10-29, DEV#26)
 
