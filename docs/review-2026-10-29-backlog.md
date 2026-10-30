@@ -632,7 +632,11 @@ focuses the search box (with `preventScroll`), as `showGallerySearch` does.
 Review (2026-10-30): a word with more than letters and digits before its
 colon is not a mistyped key - a quoted `"seed:42"` was offered `seed:42"`,
 and `--seed:1` was offered `seed:1` - so the step also checks `"sed:42"`
-gives the plain line.
+gives the plain line. Integration review (2026-10-31): "exactly one" left
+the likeliest typos silent - `step` is one edit from `steps` and two from
+`seed`, `seeds` one from `seed` and two from `steps` - so the word is now
+mended to its single nearest key, and only a tie at the nearest distance
+says nothing; the step checks `step:30` and `seeds:42` too.
 
 **Evidence.** E5 (search by prompt words) and E9 (search from an image
 setting or prompt) are Often (`preferences.md:99`, `:103`). `split_search`

@@ -4475,8 +4475,8 @@ Frontend and CLI:
   the authors' Examples, or that nothing matches the filter, and what All
   models would add), never over tombstones or in sheet mode. A search that
   finds nothing, in the gallery or the bin, names each `word:value` whose
-  word is near exactly one of `SEARCH_KEYS` (two edits at most, a
-  transposition one, fewer than the key's letters) with a "Search seed:42"
+  word is nearest to exactly one of `SEARCH_KEYS` (two edits at most, a
+  transposition one, fewer than the key's letters; a tie says nothing) with a "Search seed:42"
   ghost button (`mistypedSearchHints`), which mends that word in the box and
   asks again without scrolling; a word near no key, or with more than
   letters and digits before its colon (`"seed:42"`, `--seed:1`), adds

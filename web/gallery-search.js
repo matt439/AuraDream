@@ -56,9 +56,9 @@ function searchKeyDistance(a, b) {
 
 // What a mistyped key was meant to be (GAL#23): each `word:value` the box
 // holds that `searchKey` rejects - so the server searched it as prompt text -
-// whose word, letters and digits only, is near exactly one of SEARCH_KEYS (two edits at most, fewer than
-// the key's letters), as { word, meant } with `meant` the word mended in place,
-// its `-` kept. A word near no key (`masterpiece:1.2`), or near two, is none:
+// whose word, letters and digits only, is nearest to exactly one of SEARCH_KEYS (two edits at most, fewer
+// than the key's letters), as { word, meant } with `meant` the word mended in place,
+// its `-` kept. A word near no key (`masterpiece:1.2`), or as near two, is none:
 // a prompt with a colon in it still searches for itself, and the grammar is
 // the server's - this only reads the page's mirror of the key list.
 function mistypedSearchKeys(search) {
@@ -73,12 +73,15 @@ function mistypedSearchKeys(search) {
     // Letters and digits only: a quoted `"seed:42"` or a `--seed:1` is free
     // text on purpose, and mending it would drop the quote or the dashes.
     if (!/^[a-z0-9]+$/.test(typed)) continue;
-    const near = [...SEARCH_KEYS].filter((key) => {
-      const apart = searchKeyDistance(typed, key);
-      return apart <= 2 && apart < key.length;
-    });
-    if (near.length !== 1) continue;
-    const meant = `${operand === null ? '' : '-'}${near[0]}${term.slice(at)}`;
+    // The nearest key wins (`step` is steps, though seed is two away); a tie
+    // at the nearest distance is ambiguous and says nothing.
+    const near = [...SEARCH_KEYS]
+      .map((key) => ({ key, apart: searchKeyDistance(typed, key) }))
+      .filter(({ key, apart }) => apart <= 2 && apart < key.length);
+    const nearest = Math.min(...near.map((n) => n.apart));
+    const best = near.filter((n) => n.apart === nearest).map((n) => n.key);
+    if (best.length !== 1) continue;
+    const meant = `${operand === null ? '' : '-'}${best[0]}${term.slice(at)}`;
     if (!found.some((f) => f.word === word)) found.push({ word, meant });
   }
   return found;
