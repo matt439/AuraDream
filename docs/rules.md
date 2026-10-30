@@ -291,7 +291,8 @@ before changing it.
 - `backend/tag_swap.py` — Swap tags' rewrite of a record's prompt or
   negative prompt (pure; the routes are `api_swap.py`'s)
 - `backend/refine_batch.py` — Mass refine's plan of one record: the pass
-  it becomes or why not (pure; the routes are `api_refine_batch.py`'s)
+  it becomes, one cell per version, or why not (pure; the routes are
+  `api_refine_batch.py`'s)
 - `backend/then_refine.py` — Then refine's pure parts: the strength
   resolved, a cell's stand-in pass for the submit's checks and prices, its
   refusals in words and the pass run id (the passes themselves are
@@ -5102,13 +5103,26 @@ Frontend and CLI:
   `refine_max_pixels`, checked before the request is built), `invalid`
   (pydantic), `no_step` (`check_refine_steps`), else a cell through
   `grid.cell_from_record` with `reference=[]` and `label="#<id>"` - one
-  record, one cell, in the resolver's order (oldest first), never a loop
-  over axes, so `grid.expand()` stays the one cell loop. The route adds
+  record, one cell per version, in the resolver's order (oldest first), never a loop
+  over axes, so `grid.expand()` stays the one cell loop. `versions`
+  (`Literal[1, 2, 4]`, default 1, the single dialog's choices) makes each
+  queued record that many cells of one image (`Planned.cells`: `cell`,
+  the first, at the record's seed and unchanged, so `versions=1` keeps
+  every key, run id and status; `more` at `wrap_seed(seed + n)`, labelled
+  `#<id> v<n+1>`), so `prune_done` answers per version - the single
+  dialog's seeds counting up, never More seeds' stepping over taken ones,
+  so a second press is "already rendered". The route adds
   `file_missing` (`storage.missing_files`), `lora_missing` (a same
   checkpoint's adapter, `submission.unusable_input` once per name), `rendered`
-  (`submission.not_yet_rendered` per size) and `deleted` (an id gone or binned). Only a
+  (`submission.not_yet_rendered` per size; only where every version is
+  held, else the versions it lacks queue and the row's `notes` say
+  "k of V versions already in the gallery or queued") and `deleted` (an id gone or binned). Only a
   checkpoint with no pass refuses the whole of it (422,
-  `submission.refine_unavailable`, the single pass's words). The preview lists the
+  `submission.refine_unavailable`, the single pass's words), and more
+  passes than `max_grid_images` (the images that would queue × `versions`,
+  before the gallery is asked) refuse it by count (422). The preview's
+  `queued` counts passes, `queued_images` the images they are of and
+  `versions` echoes the request's. The preview lists the
   first `api_refine_batch.REFINE_BATCH_PREVIEW_ROWS` (200) with each source's size and the
   pass's, counts all, and answers the resolved `ids`, the strength, the
   `foreign` count and `models`, `passes`, `largest` (the largest source the
@@ -5167,7 +5181,14 @@ Frontend and CLI:
   in `REFINE_KEY` (`rememberRefineBatch`); refused, it stays open with the
   reason and checks again. ↑/↓ step Strength by 0.05, 0.01 with Shift. The
   results list has a fixed height and scrolls, the count keeps two lines
-  and `#refine-batch-error` one, so nothing below moves.
+  and `#refine-batch-error` one, so nothing below moves. Versions
+  (`#refine-batch-versions`, 1/2/4) is the controls row's last field, a
+  select at the boxes' height, opening at 1 every time and never
+  remembered; a change is checked at once. Above 1 the count line says
+  "N passes will be refined (M images × V versions)", with ", k already
+  made or queued" inside the brackets where the gallery or a live job
+  holds some (`rbQueuedWords`), Refine says "Refine N passes" and the
+  title still the images; at 1 every wording is the one before Versions.
 - Then refine (`docs/plan-then-refine.md`; `then_refine.py`,
   `JobManager._passes`, `then-refine.js`) is a submission field, never a
   request field: `GenerateSubmission.then_refine` (`/api/generate`) and
@@ -8697,7 +8718,13 @@ deleted; Steps "1e" refused rather than read as blank; Refine held with
 when it answers; a starred image landing while open checked again on its
 own, title, scope line and Refine saying four, then three; with the model
 picker opened under the dialog, Escape closing the dialog and not the
-picker; the page never scrolled:
+picker; the page never scrolled; Versions 2 doubling the count ("6
+passes will be refined (3 images × 2 versions)", "Refine 6 passes (2
+jobs)") on the controls' one row at the boxes' height, Refine and Cancel
+unmoved, and 1 again the images; a picked image queued at Versions 2,
+its passes at its seed and the next, opened again at 1 and held as
+already refined at 2, and 4 queuing only the two it lacks with its row's
+note:
 
 ```powershell
 uv run python tools/fake_server.py --port 7901 --model black-forest-labs/FLUX.1-Krea-dev --data <new-scratch-directory>

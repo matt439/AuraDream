@@ -136,6 +136,7 @@ const els = {
   refineBatchTitle: $('refine-batch-title'), refineBatchScope: $('refine-batch-scope'),
   refineBatchStrength: $('refine-batch-strength'),
   refineBatchScales: $('refine-batch-scales'), refineBatchSteps: $('refine-batch-steps'),
+  refineBatchVersions: $('refine-batch-versions'),
   refineBatchSkip: $('refine-batch-skip'), refineBatchForeign: $('refine-batch-foreign'),
   refineBatchForeignLabel: $('refine-batch-foreign-label'), refineBatchCount: $('refine-batch-count'),
   refineBatchResults: $('refine-batch-results'), refineBatchError: $('refine-batch-error'),

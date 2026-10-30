@@ -75,3 +75,25 @@ def test_cell_from_record_takes_only_request_fields():
     with pytest.raises(ValueError):
         grid.cell_from_record(record(), strength=2.0, refine=5)
     assert dataclasses.asdict(grid.cell_from_record(record()))["label"] is None
+
+
+def test_versions_count_seeds_up_from_the_records_one_cell_each():
+    one = plan(record())
+    out = plan(record(), versions=2)
+    assert [(c.seed, c.request.seed, c.request.num_images) for c in out.cells] == [(42, 42, 1), (43, 43, 1)]
+    assert [c.label for c in out.cells] == ["#5", "#5 v2"]
+    # The first version is the cell a press without versions makes.
+    assert grid.cell_key(out.cell) == grid.cell_key(one.cell) and not one.more
+    assert [c.seed for c in plan(record(), versions=4).cells] == [42, 43, 44, 45]
+    # Only the seed differs.
+    first, second = (c.request.model_dump(exclude={"seed"}) for c in out.cells)
+    assert first == second
+    # A record not queued makes no version, and dropping one drops them all.
+    assert plan(record(steps=2), versions=4).cells == []
+    out.drop("file_missing", "gone")
+    assert (out.cells, out.more, out.status) == ([], [], "file_missing")
+
+
+def test_versions_wrap_at_the_seed_ceiling():
+    top = 2**63 - 1
+    assert [c.seed for c in plan(record(seed=top - 1), versions=4).cells] == [top - 1, top, 0, 1]

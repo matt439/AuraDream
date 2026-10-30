@@ -3,8 +3,8 @@
 **Status:** written 2026-10-29 for the TODO audit's additions that need no
 plan of their own: `PA#12`, `UI#32`, `UI#33`, `GEN#33`, `GEN#34`, `GAL#23`,
 `GEN#36`, `GEN#38` and `UI#38`. `PA#12`, `UI#32`, `UI#33`, `GEN#33`,
-`GEN#34` and `UI#38` are built (2026-10-30, below); the other three are
-OPEN. Matt
+`GEN#34`, `GEN#36` and `UI#38` are built (2026-10-30, below); the other
+two are OPEN. Matt
 approved adding every audit item on 2026-10-29. Each section below covers
 one row: what is missing (preference ids from `docs/design/preferences.md`,
 file:line checked against the source on 2026-10-29), the design and the
@@ -666,6 +666,31 @@ by `tests/test_storage.py`).
    - the head's height is the same before and after.
 
 ## GEN#36 Mass refine versions
+
+**Status (2026-10-30): built, both stages.** `RefineBatchRequest.versions`,
+`refine_batch.plan(versions=)` with `Planned.more`/`cells`/`drop`, the
+route's per-version pruning, budget refusal and the preview's
+`queued_images`/`versions` (stage 1: `tests/test_refine_batch.py` -
+seeds counting up one cell each, the first version's key unchanged, wrap
+at `2**63 - 1`; `tests/test_api_refine_batch.py` - two cells per record
+at `seed` and `seed + 1` across two size jobs, one version in the gallery
+queuing only the other (and 4 the two it lacks), `versions=1` the same
+preview and the run id `grid.run_id` gives the plan's cell, the
+images × versions refusal by count). The dialog's Versions select
+(stage 2, `web/refine-batch.js`, two steps of `smoke-refine-batch`: the
+doubled count, Refine and Cancel unmoved and the select on the controls'
+one row at the boxes' height; a picked image queued at 2, held rendered
+at 2 again and 4 queuing the two it lacks). Choices the design left open,
+taken while Matt was away (2026-10-30), revisit if wanted: the select is
+the row's last field, after Steps, so Strength and Scale keep their
+places; Versions opens at 1 every time and is not remembered; the count
+reads "6 passes will be refined (3 images × 2 versions)", with ", k
+already made or queued" inside the brackets where some are held, the
+button "Refine 6 passes" and the dialog's title still the images; later
+versions' labels are `#<id> v2` and so on; the budget counts the images
+the plan would queue (before the gallery is asked) × versions; a
+partly held image's row note is "k of V versions already in the gallery
+or queued".
 
 **Evidence.** H4 (try several strengths or versions) and H5 (mass-refine
 picked or filtered images) are Often (`preferences.md:146-147`).

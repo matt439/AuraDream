@@ -1727,6 +1727,17 @@
            ("1e", "-") as blank, which here means each image's own. -->
       <input type="text" id="refine-batch-steps" autocomplete="off" inputmode="numeric" placeholder="each image's own">
     </div>
+    <div class="field rb-versions">
+      <i><label for="refine-batch-versions">Versions</label></i>
+      <!-- The single dialog's choices: each image's seed and the seeds
+           counting up from it, one pass each. -->
+      <select id="refine-batch-versions" autocomplete="off"
+              title="Passes of each image: its own seed, then the seeds counting up from it">
+        <option value="1" selected>1</option>
+        <option value="2">2</option>
+        <option value="4">4</option>
+      </select>
+    </div>
   </div>
   <div class="rb-ticks">
     <label class="check"><input type="checkbox" id="refine-batch-skip" checked> Skip refine passes</label>

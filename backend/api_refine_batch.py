@@ -40,7 +40,11 @@ async def refine_batch_plan(
     LoRA is not here, or whose pass the gallery already holds is reported as
     such and left out, and the rest are queued, oldest first. Only a server
     with no refine pass at all refuses the whole of it (422), as a single
-    pass is refused. Returns the ids the selection resolved (what `expected`
+    pass is refused, and so do more passes than `max_grid_images` (the
+    images that would queue × `versions`), by count, as More seeds refuses
+    a press. With versions each is a cell the gallery answers for itself:
+    an image is `rendered` only where every version is, and otherwise
+    queues the versions it lacks. Returns the ids the selection resolved (what `expected`
     pins), every result in id order, the cells to queue in the same order,
     and every record's plan.
     """
@@ -58,10 +62,21 @@ async def refine_batch_plan(
         refine_batch.plan(
             record, running=running, profile=profile, scale=request.scale, strength=strength,
             steps=request.steps, include_foreign=request.include_foreign,
-            skip_passes=request.skip_passes,
+            skip_passes=request.skip_passes, versions=request.versions,
         )
         for record in records
     ]
+    passes = sum(len(p.cells) for p in plans)
+    limit = services.settings().max_grid_images
+    if passes > limit:
+        images = sum(p.cell is not None for p in plans)
+        raise HTTPException(
+            status_code=422,
+            detail=(
+                f"{images} image{'' if images == 1 else 's'} × {request.versions} versions is {passes} passes; "
+                f"a press may queue {limit}. Ask for fewer versions, or pick fewer images."
+            ),
+        )
     # The record's own file, which the pass starts from: one look per image,
     # off the loop.
     missing = await asyncio.to_thread(
@@ -72,9 +87,7 @@ async def refine_batch_plan(
         if p.cell is None:
             continue
         if p.record.id in missing:
-            p.status = "file_missing"
-            p.detail = f"the file for #{p.record.id} is missing from the gallery directory"
-            p.cell = None
+            p.drop("file_missing", f"the file for #{p.record.id} is missing from the gallery directory")
             continue
         # Another checkpoint's adapter was dropped by the plan; this one's
         # has to be here, and fit, or the pass would run without it.
@@ -84,13 +97,12 @@ async def refine_batch_plan(
                 checked[lora] = await submission.unusable_input(services, GenerateRequest(prompt="x", lora=lora))
             unusable = checked[lora]
             if unusable is not None:
-                p.status, p.detail = "lora_missing", unusable[1]
-                p.cell = None
+                p.drop("lora_missing", unusable[1])
     # The gallery's own answer, per size: `completed_cells` is scoped to one.
     sizes: dict[tuple[int, int], list[grid.Cell]] = {}
     for p in plans:
-        if p.cell is not None:
-            sizes.setdefault((p.width, p.height), []).append(p.cell)
+        if p.cells:
+            sizes.setdefault((p.width, p.height), []).extend(p.cells)
     # Snapshot before any size's awaited scan: a live cell can finish
     # during it. Submission holds rerun admission until every job is added.
     planned = services.jobs().planned_keys()
@@ -104,14 +116,20 @@ async def refine_batch_plan(
     for p in plans:
         if p.cell is None:
             continue
-        if id(p.cell) in kept:
-            cells.append(p.cell)
-        elif id(p.cell) in unheld:
-            p.status, p.detail = "planned", "this pass is already queued or running"
-            p.cell = None
+        mine = p.cells
+        queued = [cell for cell in mine if id(cell) in kept]
+        if queued:
+            cells.extend(queued)
+            if len(queued) < len(mine):
+                # The versions the gallery or a live job holds are left out;
+                # the rest queue.
+                p.notes.append(
+                    f"{len(mine) - len(queued)} of {len(mine)} versions already in the gallery or queued"
+                )
+        elif any(id(cell) in unheld for cell in mine):
+            p.drop("planned", "this pass is already queued or running")
         else:
-            p.status, p.detail = "rendered", "already has this pass in the gallery"
-            p.cell = None
+            p.drop("rendered", "already has this pass in the gallery")
     results = [
         RefineBatchResult(id=image_id, status="deleted", detail=submission.gone_detail(image_id, binned))
         for image_id in gone
@@ -185,6 +203,8 @@ def create_router(services: AppServices) -> APIRouter:
             jobs=len(sizes),
             images=results[:REFINE_BATCH_PREVIEW_ROWS],
             total=len(results),
+            queued_images=sum(p.cell is not None for p in plans),
+            versions=request.versions,
             strength=request.strength if request.strength is not None else default_strength(),
             foreign=len(foreign),
             models=sorted({p.record.model_id for p in foreign}),
@@ -207,7 +227,7 @@ def create_router(services: AppServices) -> APIRouter:
     async def submit_refine_batch(request: RefineBatchRequest) -> RefineBatchAccepted:
         """Queue a refine pass of every selected image at one strength and scale.
 
-        The fifth producer of cells: each image a cell of its own
+        The fifth producer of cells: each image a cell of its own per version
         (`refine_batch.plan` through `grid.cell_from_record`) with its own
         prompt pair, seed, CFG, mu and LoRA, a pass of itself. One job per
         distinct size, as Swap tags queues, so each job keeps one size and the
