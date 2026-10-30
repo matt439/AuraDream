@@ -706,7 +706,7 @@
     "eval": "clearSelection();__pArm(__img(0));showModelPicker(true);"
   },
   {
-    "expect": "__until(()=>!els.modelPicker.hidden&&els.modelPicker.contains(document.activeElement))"
+    "expect": "__until(()=>!els.modelPicker.hidden&&modelCatalogueLoaded&&!modelCataloguePending&&els.modelPicker.contains(document.activeElement))"
   },
   {
     "eval": "window.__pFrom=document.activeElement;"

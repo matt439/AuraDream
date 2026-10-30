@@ -171,7 +171,9 @@ def test_the_encoders_are_flux_kontexts_at_the_pinned_revision():
 # --- the compact facts, as a catalogue row will show them -------------------------
 
 
-def test_details_for_gives_the_editors_strings():
+def test_details_for_gives_the_editors_strings(monkeypatch):
+    # The measured sample is a Windows one; Linux would see only a reference.
+    monkeypatch.setattr(model_benchmarks.sys, "platform", "win32")
     detail = model_info.details_for(KONTEXT, "fp8", "model")
     assert detail["style"] == "Instruction editor"
     assert (detail["megapixels"], detail["megapixels_label"]) == ("0.26 MP", "Qualified size")
