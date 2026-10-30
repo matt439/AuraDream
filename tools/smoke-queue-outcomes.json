@@ -93,7 +93,7 @@
     "eval": "(async()=>{ await startJob('/api/generate',{prompt:'settlement cancelled elsewhere',width:256,height:256,steps:1,seed:5700}); window.__elsewhere=queuedIds.find(id=>submissions.get(id)?.payload.prompt==='settlement cancelled elsewhere'); await __post('/api/jobs/'+__elsewhere+'/cancel',{}); const ids=(await (await fetch('/api/jobs')).json()).map(j=>j.job_id); queuePointer=false; await resyncQueue(ids,Date.now()); })()"
   },
   {
-    "expect": "!queuedIds.includes(__elsewhere) && submissions.has(__elsewhere) && !watchedJobs.has(__elsewhere) && !cancelledHere.has(__elsewhere)"
+    "expect": "__until(() => !queuedIds.includes(__elsewhere) && submissions.has(__elsewhere) && !watchedJobs.has(__elsewhere) && !cancelledHere.has(__elsewhere), 5000)"
   },
   {
     "eval": "(async()=>{ await __post('/api/fake/step',{seconds:0}); els.pause.click(); })()"

@@ -1,7 +1,7 @@
 [
   {"navigate": "http://127.0.0.1:7909/"},
   {"wait": 1500},
-  {"expect": "document.getElementById('status-dot').className.includes('ready') && tagVocabularyEnabled"},
+  {"expect": "(async () => { const end = Date.now() + 20000; while (Date.now() < end) { if (document.getElementById('status-dot').className.includes('ready') && !!lastHints && tagVocabularyEnabled) return true; await new Promise((r) => setTimeout(r, 50)); } return false; })()"},
   {"eval": "window.__until = async (fn, ms = 20000) => { const end = Date.now() + ms; while (Date.now() < end) { if (fn()) return true; await new Promise((r) => setTimeout(r, 50)); } return false; }; window.__find = (text) => { const input = els.tagFinderMenu.querySelector('.tag-finder-input'); input.value = text; input.form.requestSubmit(); }; window.__row = () => els.tagSuggestions.querySelector('li.tag-find');"},
 
   {"log": "'No finder button: the Prompt caption keeps one line and the Tags helper holds no finder'"},

@@ -2,7 +2,7 @@
   {"log": "'the page at the sizes it is used at - 2560x1305, 2048x1040 at 125% and 1400x900 - against a fake server claiming FLUX.1 Krea [dev] on 7876: the wide tier\\'s scale and today\\'s at 1400, Generate on screen, Run grid reachable with the grid fold open wherever the page is scrolled, the panel following the user back up, focus never left out of sight, Generate still under the pointer that pressed it, a whole 16-digit seed at every size, the Output caption where the window has the height for it, and the panel unpinned in one column'"},
   {"navigate": "http://127.0.0.1:7876/"},
   {"wait": 1200},
-  {"expect": "document.getElementById('status-dot').className.includes('ready')"},
+  {"expect": "(async () => { const end = Date.now() + 20000; while (Date.now() < end) { if (document.getElementById('status-dot').className.includes('ready') && !!lastHints) return true; await new Promise((r) => setTimeout(r, 50)); } return false; })()"},
   {"eval": "resetPanel(); showError('');"},
 
   {"log": "'a gallery longer than the panel at every size: 160 images, in one grid'"},

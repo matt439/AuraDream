@@ -1,7 +1,7 @@
 [
   {"navigate": "http://127.0.0.1:7868/"},
   {"wait": 1200},
-  {"expect": "document.getElementById('status-dot').className.includes('ready')"},
+  {"expect": "(async () => { const end = Date.now() + 20000; while (Date.now() < end) { if (document.getElementById('status-dot').className.includes('ready') && !!lastHints) return true; await new Promise((r) => setTimeout(r, 50)); } return false; })()"},
   {"eval": "window.__until = async (fn, ms = 20000) => { const end = Date.now() + ms; while (Date.now() < end) { if (fn()) return true; await new Promise((r) => setTimeout(r, 50)); } return false; };"},
   {"expect": "els.steps.value === '40' && els.cfg.value === '4' && els.mu.value === ''"},
   {"expect": "!els.negative.disabled && !els.mu.disabled && !els.gridMu.disabled && els.trueCfg.disabled"},

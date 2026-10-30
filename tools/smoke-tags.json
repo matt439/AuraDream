@@ -1,7 +1,7 @@
 [
   {"navigate": "http://127.0.0.1:7878/"},
   {"wait": 1500},
-  {"expect": "document.getElementById('status-dot').className.includes('ready') && tagVocabularyEnabled"},
+  {"expect": "(async () => { const end = Date.now() + 20000; while (Date.now() < end) { if (document.getElementById('status-dot').className.includes('ready') && !!lastHints && tagVocabularyEnabled) return true; await new Promise((r) => setTimeout(r, 50)); } return false; })()"},
   {"log": "'The spoken summary counts one tag as one: 1 prompt tag, never 1 prompt tags - checked or not'"},
   {"eval": "window.__until = async (fn, ms = 20000) => { const end = Date.now() + ms; while (Date.now() < end) { if (fn()) return true; await new Promise((r) => setTimeout(r, 50)); } return false; }; els.prompt.value = '1girl'; els.prompt.dispatchEvent(new Event('input', {bubbles: true}));"},
   {"expect": "__until(() => els.tagSummary.textContent === '1 prompt tag: 1 known')"},

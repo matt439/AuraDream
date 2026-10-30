@@ -1,7 +1,7 @@
 [
   {"navigate": "http://127.0.0.1:7862/"},
   {"wait": 1200},
-  {"expect": "document.getElementById('status-dot').className.includes('ready')"},
+  {"expect": "(async () => { const end = Date.now() + 20000; while (Date.now() < end) { if (document.getElementById('status-dot').className.includes('ready') && !!lastHints) return true; await new Promise((r) => setTimeout(r, 50)); } return false; })()"},
 
   {"log": "'Krea dev is the flux profile to the controls and its own to the guide: 2 MP is past what Krea recommends'"},
   {"expect": "els.tagHelper.hidden"},
