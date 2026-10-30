@@ -27,6 +27,11 @@
 .ms-controls .field { display: flex; flex-direction: column; gap: var(--sp-1); margin: 0; }
 .ms-controls .field > i { font-style: normal; color: var(--text-3); font-size: var(--fs-label); }
 .ms-count input { width: 7em; }
+/* Then refine's tick: level with the count's box, on the same row, so its
+   showing never moves the hint, the list or Queue. */
+.ms-then-refine { align-self: stretch; align-items: flex-end; margin: 0; padding-bottom: var(--sp-1); color: var(--text); }
+.ms-then-refine[hidden] { display: none; }
+.ms-then-refine[aria-disabled="true"] { color: var(--text-3); }
 
 .ms-hint { color: var(--text-readout); font-size: var(--fs-body-sm); }
 /* Two lines, always; what does not fit is in its title. */

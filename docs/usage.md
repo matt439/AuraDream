@@ -429,9 +429,10 @@ passes as two runs. A grid refines every cell, and its preview counts the
 passes and adds their time and disk. Pause and the time budget wait for an
 image's pass; Cancel during a pass keeps the image. A pass that fails keeps
 its image and counts towards the job's failure rule. Finish run makes the
-missing images and their passes; to add a pass that is missing beside an
-image already made, run Mass refine over the run at the same numbers. It
-is held, with the reason, on checkpoints without a refine pass. From the
+missing images and their passes, and a pass missing beside an image already
+made. **More seeds…** of such a run refines each new image too, under the
+same run of passes: its dialog's **Refine each new image** tick, on when it
+opens, makes the images alone when unticked. Then refine is held, with the reason, on checkpoints without a refine pass. From the
 terminal: `--then-refine-scale 1.5 [--then-refine-strength S]
 [--then-refine-steps N]`.
 

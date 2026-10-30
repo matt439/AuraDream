@@ -12719,6 +12719,24 @@ pass of every image right after its cell, in the same job.
   redrawing it unannounced. A binned pass still counts as made. Jobs
   retained before this build carry no such list, so a pass of theirs
   deleted is redrawn as a plain missing pass.
+- **More seeds carries the pass (`GEN#37`, 2026-10-30).** More seeds of a
+  then-refine run used to add bases only, and the night's new images
+  needed a Mass refine afterwards. A base batch now carries the spec the
+  jobs of its images retained, so each new base is followed by its pass in
+  the run's own pass run (`pass_run_id` is deterministic, so the job
+  derives the same id). The spec is read from every mate's job, not the
+  template's alone: the template can be a base an earlier More seeds made
+  with the tick off, whose job carried none. Mates of two specs (a Resume
+  tick with other numbers) and a pass `then_refine.refusal` refuses at the
+  batch's size are a `then_refine` status in words, per batch, the rest
+  still queuing; the run's More seeds action counts bases, since unticking
+  frees such a batch. A pass batch keeps its meaning (more passes of its
+  source), and a plain run is untouched. The tick, Refine each new image,
+  sits beside the count - shown only where a batch's run has a spec, on at
+  every opening as the run's own choice, held where the checkpoint has no
+  pass - so nothing in the dialog moves. `queued` stays the images the
+  press asks for (the cap counts them); `passes` is beside it, rather than
+  folded into `queued` as the plan's sentence could be read.
 
 ## Peak memory per image
 

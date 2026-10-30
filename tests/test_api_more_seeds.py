@@ -9,7 +9,7 @@ import threading
 
 from PIL import Image
 
-from backend import more_seeds
+from backend import gallery_reports, more_seeds
 from backend.config import settings
 from backend.model_selection import current_settings
 from backend.schemas import GenerateRequest
@@ -337,3 +337,180 @@ def test_an_edit_batch_replays_its_intent_receipt_without_fresh_seeds(client, fa
     assert queue(client, **body) == accepted
     assert [call["seed"] for call in fake.edit_calls] == [8, 9]
     assert {store.get_image(image["id"]).edit for image in final["images"]} == {bound}
+
+
+# ------------------------------------------------- Then refine's pass carried
+
+SPEC = {"scale": 1.5, "strength": 0.5}
+
+
+def then_refine_batch(client, *, seed=500, prompt="a fox at dusk", width=256, spec=SPEC, num_images=2):
+    """A Then refine Generate of `num_images` at `seed`: its final snapshot."""
+    response = client.post("/api/generate", json={
+        "prompt": prompt, "width": width, "height": width, "steps": 8, "seed": seed,
+        "num_images": num_images, "then_refine": spec,
+    })
+    assert response.status_code == 200, response.text
+    final = stream_job(client, response.json()["job_id"])[-1]
+    assert final["status"] == "done", final
+    return final
+
+
+def rows(store):
+    return sorted(store.list_images(limit=200)[0], key=lambda row: row.id)
+
+
+def test_more_seeds_of_a_then_refine_run_queues_each_base_with_its_pass(client, fake, store, monkeypatch):
+    made = then_refine_batch(client)
+    run, pass_run = made["run_id"], made["pass_run_id"]
+    bases = [row for row in rows(store) if row.refine is None]
+    assert len(bases) == 2
+    answer = preview(client, ids=[bases[0].id], count=2)
+    (row,) = answer["results"]
+    assert (answer["queued"], answer["passes"], answer["jobs"]) == (2, 2, 1)
+    assert (answer["then_refine_batches"], answer["then_refine_hold"]) == (1, None)
+    assert row["status"] == "queued" and row["notes"] == ["each then refined at 1.5× at 0.5"]
+    # Priced with its passes, each at the pass size: 2 images x 8 steps x 1 s,
+    # and two 384 passes of 4 denoised steps at 3 s each.
+    monkeypatch.setattr(gallery_reports, "step_cost_ms", lambda w, h, *a: {256: 1000}.get(w))
+    monkeypatch.setattr(gallery_reports, "refine_cost_ms", lambda w, h, *a, **kw: {4: 3000} if w == 384 else {})
+    priced = preview(client, ids=[bases[0].id], count=2)
+    bases_only = preview(client, ids=[bases[0].id], count=2, then_refine=False)
+    assert (priced["seconds"], bases_only["seconds"]) == (22.0, 16.0)
+
+    before = {row.id for row in rows(store)}
+    accepted = queue(client, ids=[bases[0].id], count=2, expected=answer["ids"])
+    assert (accepted["queued"], accepted["passes"], accepted["run_id"]) == (2, 2, run)
+    final = stream_job(client, accepted["job_id"])[-1]
+    assert final["status"] == "done" and final["pass_run_id"] == pass_run
+    new = [row for row in rows(store) if row.id not in before]
+    # Each new base in the base run, then its pass in the run's own pass run.
+    assert [(row.refine is None, row.seed) for row in new] == [(True, 502), (True, 503), (False, 502), (False, 503)]
+    assert {row.run_id for row in new[:2]} == {run}
+    assert [row.refine for row in new[2:]] == [new[0].id, new[1].id]
+    assert {(row.run_id, row.width, row.strength) for row in new[2:]} == {(pass_run, 384, 0.5)}
+
+
+def test_then_refine_off_makes_bases_only_and_a_later_press_still_carries_it(client, fake, store):
+    made = then_refine_batch(client, seed=600)
+    bases = [row for row in rows(store) if row.refine is None]
+    off = preview(client, ids=[bases[0].id], count=2, then_refine=False)
+    # The tick still shows: the run carries a pass, which this press leaves out.
+    assert (off["passes"], off["then_refine_batches"], off["results"][0]["notes"]) == (0, 1, [])
+    before = {row.id for row in rows(store)}
+    final = stream_job(client, queue(client, ids=[bases[0].id], count=2, then_refine=False)["job_id"])[-1]
+    assert final["then_refine"] is None
+    new = [row for row in rows(store) if row.id not in before]
+    assert [row.refine for row in new] == [None, None]
+    # Its template now a base of that job, which carried no spec: the
+    # batch's mates' jobs still give the run's.
+    again = preview(client, ids=[new[-1].id], count=2)
+    assert again["passes"] == 2 and again["results"][0]["notes"] == ["each then refined at 1.5× at 0.5"]
+    final = stream_job(client, queue(client, ids=[new[-1].id], count=2)["job_id"])[-1]
+    assert final["pass_run_id"] == made["pass_run_id"]
+    passes = [row for row in rows(store) if row.refine is not None and row.seed in (604, 605)]
+    assert {row.run_id for row in passes} == {made["pass_run_id"]} and len(passes) == 2
+
+
+def test_a_plain_run_and_a_pass_batch_are_unchanged(client, fake, store):
+    plain = batch_of(client, seed=100, num_images=1, runs=1)
+    answer = preview(client, ids=[plain[0]["id"]], count=1)
+    assert (answer["passes"], answer["then_refine_batches"], answer["then_refine_hold"]) == (0, 0, None)
+    assert answer["results"][0]["notes"] == []
+    then_refine_batch(client, seed=700, num_images=1)
+    (pass_row,) = [row for row in rows(store) if row.refine is not None]
+    # A pass batch: more passes of its source at new seeds, as before; its
+    # job's spec is no Then refine of a pass.
+    answer = preview(client, ids=[pass_row.id], count=1)
+    assert (answer["queued"], answer["passes"], answer["then_refine_batches"]) == (1, 0, 0)
+    final = stream_job(client, queue(client, ids=[pass_row.id], count=1)["job_id"])[-1]
+    assert final["then_refine"] is None
+    (made,) = [row for row in rows(store) if row.seed == 701]
+    assert made.refine == pass_row.refine and made.run_id == pass_row.run_id
+
+
+def test_no_refine_pass_on_the_checkpoint_holds_the_tick_and_makes_bases(client, fake, store, monkeypatch):
+    from backend import submission
+
+    then_refine_batch(client, seed=750, num_images=1)
+    (base,) = [row for row in rows(store) if row.refine is None]
+
+    async def none(services):
+        return "this checkpoint has no refine pass in this app"
+
+    monkeypatch.setattr(submission, "refine_unavailable", none)
+    answer = preview(client, ids=[base.id], count=1)
+    assert answer["then_refine_hold"] == "this checkpoint has no refine pass in this app"
+    assert (answer["then_refine_batches"], answer["queued"], answer["passes"]) == (1, 1, 0)
+    assert answer["results"][0]["notes"] == ["bases only: this checkpoint has no refine pass"]
+    final = stream_job(client, queue(client, ids=[base.id], count=1)["job_id"])[-1]
+    assert final["status"] == "done" and final["then_refine"] is None
+
+
+def test_mates_of_two_specs_are_refused_in_words_and_off_still_queues(client, fake, store):
+    from tests.test_api_finish_run import cell, retain
+
+    quantization = current_settings(settings).quantization
+    for seed, (scale, strength) in ((1, (1.5, 0.4)), (2, (2.0, 0.35))):
+        item = cell(seed, steps=8)
+        retain(store, [item], run="two-specs", metadata={"then_refine": {
+            "scale": scale, "strength": strength, "steps": None, "pass_run_id": f"pass-{seed}",
+        }})
+        job_id = store.retained_run_jobs("two-specs")[-1]["job_id"]
+        store.save_image(Image.new("RGB", (256, 256)), item.request, seed=seed, duration_ms=1,
+                         model_id=settings.model_id, quantization=quantization, run_id="two-specs",
+                         job_id=job_id, batch=1)
+    answer = preview(client, run="two-specs", count=1)
+    (row,) = answer["results"]
+    assert row["status"] == "then_refine" and answer["counts"] == {"then_refine": 1}
+    assert row["detail"] == (
+        "its images were refined at 1.5× at 0.4 and at 2× at 0.35; untick Refine each new image for bases only, "
+        "and Mass refine them at the numbers wanted"
+    )
+    assert answer["then_refine_batches"] == 1 and answer["queued"] == 0
+    refused = client.post("/api/more-seeds", json={"run": "two-specs", "count": 1})
+    assert refused.status_code == 422 and refused.json()["detail"].endswith("(1 then refine)")
+    # The run's More seeds action is the bases': the dialog can untick it.
+    assert client.get("/api/runs/two-specs").json()["actions"]["seeds"]["available"]
+    off = preview(client, run="two-specs", count=1, then_refine=False)
+    assert (off["queued"], off["passes"], off["results"][0]["status"]) == (1, 0, "queued")
+
+
+def test_a_batch_whose_pass_is_past_the_guard_is_refused_while_the_rest_queue(client, fake, store, monkeypatch):
+    from backend import then_refine
+
+    small = then_refine_batch(client, seed=800, num_images=1)
+    large = then_refine_batch(client, seed=900, num_images=1, prompt="a harbour at dawn", width=384)
+    picks = [row.id for row in rows(store) if row.refine is None]
+    # A 384 base's 1.5x pass is 576: past a guard of 500 pixels a side.
+    monkeypatch.setattr(then_refine, "too_big", lambda width, height: max(width, height) > 500)
+    answer = preview(client, ids=picks, count=1)
+    statuses = {row["id"]: (row["status"], row["detail"]) for row in answer["results"]}
+    assert statuses[picks[0]] == ("queued", None)
+    status, detail = statuses[picks[1]]
+    assert status == "then_refine" and detail.startswith("its run's pass: 384×384 at 1.5× is 576×576, past the ")
+    assert (answer["queued"], answer["passes"], answer["jobs"]) == (1, 1, 1)
+    final = stream_job(client, queue(client, ids=picks, count=1)["job_id"])[-1]
+    assert final["run_id"] == small["run_id"] and final["pass_run_id"] == small["pass_run_id"]
+    assert large["run_id"] != small["run_id"]
+
+
+def test_two_specs_in_one_press_make_two_jobs_each_in_its_pass_run(client, fake, store):
+    first = then_refine_batch(client, seed=1000, num_images=1)
+    second = then_refine_batch(client, seed=1100, num_images=1, prompt="a harbour at dawn",
+                               spec={"scale": 1.25, "strength": 0.4})
+    picks = [row.id for row in rows(store) if row.refine is None]
+    answer = preview(client, ids=picks, count=1)
+    assert (answer["queued"], answer["passes"], answer["jobs"]) == (2, 2, 2)
+    notes = {row["id"]: row["notes"] for row in answer["results"]}
+    assert notes == {picks[0]: ["each then refined at 1.5× at 0.5"], picks[1]: ["each then refined at 1.25× at 0.4"]}
+    accepted = queue(client, ids=picks, count=1, expected=answer["ids"])
+    assert accepted["passes"] == 2 and len(accepted["more"]) == 1
+    finals = [stream_job(client, job["job_id"])[-1] for job in (accepted, *accepted["more"])]
+    assert [(f["run_id"], f["pass_run_id"]) for f in finals] == [
+        (first["run_id"], first["pass_run_id"]), (second["run_id"], second["pass_run_id"]),
+    ]
+    made = sorted(
+        (row.width, row.run_id) for row in rows(store) if row.refine is not None and row.seed in (1001, 1101)
+    )
+    assert made == sorted([(384, first["pass_run_id"]), (320, second["pass_run_id"])])

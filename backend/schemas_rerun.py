@@ -423,6 +423,9 @@ class MoreSeedsRequest(BaseModel):
     count: int = Field(default=4, ge=1, le=settings.max_grid_images)
     batch: int = Field(default=1, ge=1, le=MAX_BATCH)
     expected: list[int] | None = None
+    # Carry the run's Then refine pass where a batch has one: each new base
+    # followed by its pass, under the run's own pass run. False makes bases only.
+    then_refine: bool = True
     # A preview-issued token makes an uncertain submit safely replayable.
     # Legacy callers without one retain deliberate fresh-extension semantics.
     intent: str | None = Field(default=None, min_length=1, max_length=128)
@@ -443,7 +446,8 @@ class MoreSeedsRequest(BaseModel):
 
 
 MoreSeedsStatus = Literal[
-    "queued", "foreign", "invalid", "source_deleted", "lora_missing", "mask_missing", "outpaint", "deleted",
+    "queued", "foreign", "invalid", "source_deleted", "lora_missing", "mask_missing", "outpaint", "then_refine",
+    "deleted",
 ]
 
 
@@ -487,10 +491,20 @@ class MoreSeedsPreview(BaseModel):
     # request sends back as `expected`.
     ids: list[int]
     counts: dict[str, int]
-    # Images queued, and the batches and jobs they make: one job per run.
+    # Images queued, and the batches and jobs they make: one job per run
+    # (and Then refine spec). `queued` counts the new bases; `passes` the
+    # Then refine passes that follow them, one per base of a carrying batch.
     queued: int
     batches: int
     jobs: int
+    passes: int = 0
+    # Batches whose run carries a Then refine spec, queued or refused for
+    # it, whether or not the request carries it: where the page shows its
+    # tick. `then_refine_hold` is why no pass can run on this checkpoint
+    # (`submission.refine_unavailable`), the tick then held and the
+    # batches making bases only.
+    then_refine_batches: int = 0
+    then_refine_hold: str | None = None
     results: list[MoreSeedsResult]
     total: int
     # Queued batches running at the page's Batch, theirs not recorded.
@@ -544,6 +558,8 @@ class MoreSeedsAccepted(BaseModel):
     more: list[JobAccepted] = Field(default_factory=list)
     queued: int
     batches: int
+    # Then refine passes following the queued bases.
+    passes: int = 0
     # A later group can fail after earlier groups were admitted. Those jobs
     # are acknowledged, with a terminal warning; replay never adds the rest.
     warning: str | None = None

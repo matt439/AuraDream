@@ -5225,7 +5225,20 @@ Frontend and CLI:
   pass. The opener's words ("Refine 1.5× · 0.4"), Generate's and Run
   grid's words and titles say the setting while it is on; scale and
   strength are `REFINE_KEY`'s. The CLI's
-  `--then-refine-*` run the same plan (`_then_refine_passes`).
+  `--then-refine-*` run the same plan (`_then_refine_passes`). More seeds
+  carries the pass (`api_more_seeds._carry_then_refine`): a queued base
+  batch (template `refine` and `edit` None) takes the spec its images'
+  jobs retained (`then_refine.retained` over `storage.retained_run_metadata`
+  of every held image's `job_id`, so a template from an earlier bases-only
+  More seeds still finds it) and queues with `submit_cells(then_refine=)`,
+  whose `pass_run_id` is the run's own pass run; `_more_seeds_jobs` keys by
+  the spec too (`then_refine.spec_key`), one spec per job. Mates of two
+  specs, or `then_refine.refusal` at the batch's cells, is status
+  `then_refine` in words, the rest queuing; `MoreSeedsRequest.then_refine`
+  False (the dialog's tick off) makes bases only, and is in the intent
+  payload, so a replay keeps it; no refine pass on the checkpoint is
+  `then_refine_hold`, bases only with a note. A pass batch and a plain run
+  are unchanged; the run's `seeds` action asks bases only.
 - More seeds (`POST /api/more-seeds/preview`, `POST /api/more-seeds`,
   `more_seeds.py`, `more-seeds.js`, `styles/more-seeds.css`) is the sixth
   producer of cells: `count` more images of each batch the selection
@@ -5264,8 +5277,11 @@ Frontend and CLI:
   its picked `ids`, the prompt (300 characters), the images and seed range
   it holds, `first`/`last` new seed, `skipped`, `batch` and `recorded` -
   counts all, and answers the resolved `ids`, `queued` (images),
-  `batches`, `jobs`, `unrecorded`, `seconds` (per size from
-  `step_cost_ms`/`refine_cost_ms`, None with `unpriced_sizes` where any
+  `batches`, `jobs`, `unrecorded`, `passes` (Then refine passes following
+  carrying batches' bases), `then_refine_batches` (batches whose run carries
+  a spec, carried or not) and `then_refine_hold`, `seconds` (per size from
+  `step_cost_ms`/`refine_cost_ms`, carried passes at their own size through
+  `then_refine.execution_units`, None with `unpriced_sizes` where any
   size has none), `count_default` (`more_seeds.count_default`: the Batch
   every batch that recorded one agrees on, else None - what a run surface
   opens the count at) and, for a `run` scope with something queued,
@@ -5314,7 +5330,14 @@ Frontend and CLI:
   remembered; refused, it stays open with the reason and checks again. The
   results list has a fixed height per opening and scrolls, the count line
   keeps two lines and the feedback three, so nothing below moves; Queue and
-  Cancel keep fixed action columns.
+  Cancel keep fixed action columns. Then refine's tick,
+  `#more-seeds-then-refine` ("Refine each new image"), sits beside the count
+  on the same row, shown only where `then_refine_batches` or
+  `then_refine_hold` is set, on at every opening, sent as `then_refine`
+  (a change checks again at once); held (`aria-disabled`, the hold its
+  title, off, a press saying it in `#more-seeds-error`) without a pass or
+  once a request is sent (`syncMoreSeedsThenRefine`, `msThenRefineHold`).
+  The count line and Queue add "+ N refine passes".
 - The direct results action (`#viewer-more-seeds`) stays outside the strip,
   on the same element as images arrive. It takes only settings groups already
   represented by completed results, and says that scope. `#viewer-note-text`
@@ -7096,7 +7119,15 @@ the whole refusals, the filter scope, `batch` through a reindex, and the
 batch and a binned top seed still held, its refusals beside `ids` or
 `search`, 404 unknown or wholly binned, 409 `expected`, per-batch
 `foreign`, `count_default` agreeing or not, the headline, and a run past
-`max_grid_images` images queued in few batches).
+`max_grid_images` images queued in few batches; and Then refine carried:
+bases and their passes under the original pass run with the passes priced
+at their size, `then_refine: false` making bases only and a later press
+from that bases-only template still carrying it, a plain run and a pass
+batch unchanged, no pass on the checkpoint held with bases only, mates of
+two specs refused in words, a batch past the guard refused while the rest
+queue, and two specs in one press making two jobs);
+`tests/test_more_seeds_intents.py` also holds that a replayed intent keeps
+the `then_refine` choice.
 Load settings from PNG is `tests/test_api_png.py` (a gallery PNG's whole
 record back, an explicit null Mu, the legacy key, a reference carried only
 where this gallery holds the same picture, one on a checkpoint that takes
@@ -7304,7 +7335,12 @@ remembered, the tick held with `REFINE_NONE` on a status stubbed to no
 pass, and a Generate cancelled on its pass whose finish line's Finish run
 says "Finish 1 missing pass of run …" and, pressed, puts the pass in the
 strip and the pass run, then that pass permanently deleted and the words
-adding "1 permanently deleted pass will be redrawn":
+adding "1 permanently deleted pass will be redrawn"; then More seeds of the
+batch of two with the tick shown beside the count and on, the row's note
+"each then refined at 1.5× at 0.4", "+ 2 refine passes" in the count line
+and Queue, unticking dropping them with nothing in the dialog moving, and
+the queued job putting each new base and then its pass in the strip, the
+passes in the run's own pass run:
 
 ```powershell
 uv run python tools/fake_server.py --port 7912 --model black-forest-labs/FLUX.1-Krea-dev --step 0.3 --data <new-scratch-directory>

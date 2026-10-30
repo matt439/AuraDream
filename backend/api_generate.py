@@ -207,14 +207,6 @@ async def then_refine_spec(
     return spec
 
 
-def _retained_then_refine(metadata: dict) -> ThenRefine | None:
-    """A retained job's Then refine, without the pass run id beside it."""
-    saved = metadata.get("then_refine")
-    if not isinstance(saved, dict):
-        return None
-    return ThenRefine.model_validate({k: v for k, v in saved.items() if k != "pass_run_id"})
-
-
 async def finish_plan(services: AppServices, run_id: str) -> FinishPlan:
     """Resolve retained cells without the composer, preserving stored order.
 
@@ -315,7 +307,7 @@ async def finish_plan(services: AppServices, run_id: str) -> FinishPlan:
     # permanently deleted, and Finish says it redraws it, as for a cell.
     passes_made: set[int] = set()
     for saved in definitions:
-        retained = _retained_then_refine(saved["metadata"])
+        retained = then_refine.retained(saved["metadata"])
         if retained is not None:
             spec_jobs.add(saved["job_id"])
             if retained not in specs:
@@ -456,7 +448,11 @@ def create_router(services: AppServices) -> APIRouter:
         seed_count = 0
         if not seed_reason:
             try:
-                _, results, batches = await more_seeds_plan(services, MoreSeedsRequest(run=run_id, count=1))
+                # Bases only: a batch whose pass is refused still makes
+                # bases with the dialog's tick off, so it can have more.
+                _, results, batches = await more_seeds_plan(
+                    services, MoreSeedsRequest(run=run_id, count=1, then_refine=False),
+                )
                 seed_count = sum(batch.status == "queued" for batch in batches)
                 if not seed_count:
                     seed_reason = next((result.detail for result in results if result.detail), "no batch can add more seeds")
