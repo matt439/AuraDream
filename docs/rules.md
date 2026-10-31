@@ -45,11 +45,13 @@ before changing it.
   local profile inspection and independent-password archive recovery verification
 - `backend/backup_preferences.py` - strict bounded, atomic database-scoped
   backup policy sidecars; no lifecycle activation or credential fields
-- `backend/backup_settings.py` - explicit v2 plaintext activation and durable
-  gallery/destination scope; older draft policies never activate implicitly
+- `backend/backup_settings.py` - explicit versioned activation (v2 plaintext,
+  v3 the retention permission, v4 encrypted profiles and their credential
+  reference) and durable gallery/destination scope; older draft policies never
+  activate implicitly
 - `backend/backup_receipts.py` - internal managed-export marker, outer-byte
   proof, strict atomic ownership journal and current-file identity checks;
-  no startup, age advancement or pruning callers
+  its callers are the coordinator and `backup_retention`
 - `backend/backup_coordinator.py` - explicitly invoked one-attempt
   due/export worker under bundle admission and gallery reservation; supplied
   policy, identities, clock and transient protection
@@ -119,9 +121,12 @@ before changing it.
   `settings` there is a binding for readers, so runtime patches target
   `schemas_generate`
 - `backend/schemas_generate.py` — the generation request and its one
-  normalisation `applied()`, grids and their preview, `JobAccepted`,
-  `default_strength`, `effective_true_cfg`, `error_detail`; the leaf the
-  other schema modules build on
+  normalisation `applied()`, the outpaint spec (`OutpaintSpec`, `Outpaint`),
+  `GenerateSubmission`/`ThenRefine`, `InstructionEditSubmission`, grids and
+  their preview, `JobAccepted`, the mask and outpaint-preset answers, Load
+  settings from PNG's `Png*` models, `default_strength`,
+  `default_inpaint_strength`, `effective_true_cfg`, `error_detail`; the leaf
+  the other schema modules build on
 - `backend/schemas_prompt.py` — Expand, Check (analysis, findings, orders),
   the chip count, the critic's critique, Danbooru tag suggestion/validation
 - `backend/schemas_gallery.py` — `ImageRecord`, run summaries, gallery pages,
@@ -364,7 +369,8 @@ before changing it.
 - `backend/submission.py` — what every cell producer checks before it
   queues (`refuse_unusable_inputs`, `unusable_input`, `refine_unavailable`,
   `inpaint_unavailable`, `mask_unusable`, `not_yet_rendered`) and the gallery selection (`resolve_selection`);
-  `backend/api_generate.py` Generate, Run grid, its preview, Re-render and its preview;
+  `backend/api_generate.py` Generate, Run grid, its preview, Re-render and its preview,
+  run details and Finish run (`/api/runs/{id}`, `finish_plan`);
   `api_swap.py`, `api_refine_batch.py`, `api_more_seeds.py` the Swap tags,
   Mass refine and More seeds plans, previews and submissions
 - `backend/api_png.py` — Load settings from PNG (`POST /api/png/settings`):
@@ -1306,7 +1312,8 @@ Reproduction:
   double cannot send exactly; the CLI takes the schema's whole range.
 - `grid.expand()` is the one cell loop for the CLI and `/api/grid`;
   `jobs.submit()` keeps its inline copy of the seed loop deliberately, asserted
-  equal to the CLI's in `tests/test_cli.py`.
+  equal to `grid.expand`'s in `tests/test_jobs.py`, and the CLI's seeds in
+  `tests/test_cli.py`.
 - Grid prompt variables default to `prompt_mode="cross"`. In `random` mode,
   each variable is drawn from the image seed and variable name by the frozen
   `grid.random_assignment` hash recipe. Numeric axes share that draw; Batch N
@@ -3636,7 +3643,7 @@ Frontend and CLI:
   hint through one `::after` rule (empty alt text, smaller and lighter, never
   opacity, since `setBusy` rewrites the buttons' text) plus
   `aria-keyshortcuts`; the lightbox's Compare with source shares that rule,
-  its content S (style.css's lightbox section).
+  its content S (styles/lightbox.css).
 - `/` focuses and selects gallery search on the workspace, preserving its
   query, filters, bin/run and picks. A literal slash may carry Shift on a
   localized keyboard. Fields, menus, popups and modals own their keys;
@@ -4503,7 +4510,7 @@ Frontend and CLI:
   lineage and the facts read "#N (deleted)"); `recordsWithId` includes
   `sessionRecords`, and `syncCardTools` also syncs the viewer's
   `.refine-tool`s and `.ref-tool`s.
-- Gallery beside (`syncBeside`, gallery.js; style.css's "gallery beside"
+- Gallery beside (`syncBeside`, gallery.js; styles/gallery.css's "gallery beside"
   section; `tools/smoke-stage.json`). The tick: from 2000 px, "Gallery
   beside" in the gallery head (`#gallery-beside` in
   `label.check#beside-label`, after Sheet and before Delete unstarred,

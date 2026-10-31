@@ -273,7 +273,8 @@ def test_a_dry_run_with_resume_does_not_move_existing_thumbnails(cli, store, cap
 
 def test_a_cli_sweep_writes_the_seeds_the_server_would(cli, store):
     # --runs 3 --batch 2 --seed 7: cells at 7, 9, 11 and images 7..12 - the
-    # same six the HTTP path's test asserts for the same request.
+    # cells `jobs.submit` makes for the same request
+    # (test_submit_steps_the_seeds_exactly_as_grid_expand_does).
     assert generate.main(["a fox", "--seed", "7", "--runs", "3", "--batch", "2", *SIZE, "-q"]) == 0
     assert cli.seeds == [7, 9, 11]
     items, total, _ = store.list_images()

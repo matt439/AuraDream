@@ -17,8 +17,10 @@ The 2026-10-28 saved gallery search addition follows the same boundary:
 `saved_searches.py`, `schemas_saved_searches.py` and `api_saved_searches.py`
 own definitions and cold CRUD outside gallery SQL readers; `saved-searches.js`
 and `styles/saved-searches.css` own the dialog. Its explicit filter transition
-uses the existing gallery epoch, sheet and bin paths; declarations stay outside
-`app.js` and event wiring stays inside it.
+uses the existing gallery epoch, sheet and bin paths. `saved-searches.js` owns
+the dialog's declarations and its wiring (`initSavedSearches`), and `app.js`
+calls that init once at boot - the convention every feature file with an
+init function follows.
 
 ## Implemented boundaries
 

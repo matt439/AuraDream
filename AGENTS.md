@@ -86,7 +86,8 @@ Backend (`backend/`):
   `detached.py` daemon-thread calls; `api_prompt.py` tag helper and prompt
   routes, `prompt_check.py` Check's layer 1, `tag_lookup.py` the Danbooru
   lookup (`tag_vocabulary`); `submission.py` submit checks and the gallery
-  selection; `api_generate.py` generate/grid/Re-render, `api_swap.py`,
+  selection; `api_generate.py` generate/grid/Re-render, run details and Finish run,
+  `api_swap.py`,
   `api_refine_batch.py`, `api_more_seeds.py` the gallery actions' routes;
   `api_png.py` Load settings from PNG (a PNG's text chunks as the panel's
   settings, after `applied()`); `api_masks.py` an inpaint's mask stored
@@ -255,8 +256,9 @@ Reproduction and storage:
 
 - Seeds are drawn from `2**53 - 1` and wrapped at `2**63 - 1` (`seeds.py`);
   one generator per image, seeded `seed + i`.
-- `grid.expand()` is the one cell loop; `jobs.submit()` and `generate.py`
-  keep deliberate copies, held equal by `tests/test_cli.py`. Gallery records
+- `grid.expand()` is the one cell loop, the CLI's too; `jobs.submit()` keeps
+  a deliberate copy of its seed loop, held equal by `tests/test_jobs.py`
+  (and the CLI's seeds by `tests/test_cli.py`). Gallery records
   run again (Re-render, Swap tags, Mass refine, More seeds) become cells only
   through `grid.cell_from_record`, their images through
   `submission.resolve_selection`.
@@ -410,7 +412,8 @@ pull request run tested the same tree. Its runners are
 slow and have no GPU driver: a test that races a clock (a time budget, a
 cell to skip or pause mid-run) needs seconds of margin, not milliseconds.
 `tools/fetch_tokenizers.py` fetches the real-tokenizer tests' files first,
-with the `HF_TOKEN` repository secret for the two gated repos.
+with the `HF_TOKEN` repository secret for the gated repos its list names
+(FLUX.1-Krea-dev, FLUX.1-Kontext-dev, Krea 2 Turbo).
 
 The UI is checked with smokes: start a fake server, then run the smoke.
 What each smoke covers is listed in `docs/rules.md` under Tests.
