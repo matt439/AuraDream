@@ -297,16 +297,7 @@ def _metadata(row: dict, by_id: dict[int, dict]) -> dict:
         **({"upscaler": row["upscaler"]} if row.get("upscaler") is not None else {}),
         **execution_chunk(execution_from_json(row.get("execution"))),
         **edit_chunk(edit_from_json(row.get("edit"))),
-        **_peak_chunk(row),
-    }
-
-
-def _peak_chunk(row: dict) -> dict:
-    """The peak keys as `save_image` writes them: absent where unmeasured."""
-    return {
-        key: storage._peak(row.get(key))
-        for key in ("vram_peak_allocated", "vram_peak_reserved")
-        if storage._peak(row.get(key)) is not None
+        **storage.peak_chunk(row),
     }
 
 

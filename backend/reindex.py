@@ -492,11 +492,7 @@ def _database_meta(
         **({"upscaler": upscaler} if upscaler is not None else {}),
         **execution_chunk(execution_from_json(row.get("execution"))),
         **edit_chunk(edit_from_json(row.get("edit"))),
-        **{
-            key: storage._peak(row.get(key))
-            for key in ("vram_peak_allocated", "vram_peak_reserved")
-            if storage._peak(row.get(key)) is not None
-        },
+        **storage.peak_chunk(row),
     }
 
 

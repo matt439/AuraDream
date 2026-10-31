@@ -138,6 +138,8 @@ Backend (`backend/`):
   deletion mechanism; `bundle_capacity.py` managed-export logical-byte budgets
 - `jobs.py` single-worker queue and SSE; `storage.py` SQLite + PNGs;
   `metadata.py` the PNG chunk's key and codec, legacy `krea` reader and file-placement guard;
+  `record_fields.py` the pure row/chunk field codecs (mask hash, outpaint
+  chunk, peaks), imported back into storage by name;
   `png_settings.py` a PNG's record and A1111 'parameters' block read back
   (`--from-image` and `api_png.py` share it);
   `gallery_reports.py` estimates, keep rates, runs; `gallery_delete.py`

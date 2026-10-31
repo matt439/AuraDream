@@ -312,6 +312,12 @@ before changing it.
   draws with, one per VAE, fitted on the card
 - `backend/jobs.py` — single-worker queue, SSE progress
 - `backend/storage.py` — SQLite index + PNGs with embedded metadata
+- `backend/record_fields.py` — the pure field codecs rows and PNG chunks
+  share: the chunk's mask, upscaler, batch and peak sanitisers and
+  `peak_chunk`, `mask_hash` and `mask_provenance`, and the outpaint's chunk,
+  A1111 line, recovery and rebuilt mask; no settings, session or lock.
+  storage imports every name back, so `storage.<name>` still answers; the
+  mask writers, holds and `mask_path` stay in storage, where tests patch them
 - `backend/metadata.py` — the PNG chunk's key (`auradream`) and
   `embedded_metadata`, which still reads the legacy `local-diffusion` and
   `krea` keys (and `auradream-mask`'s legacy `local-diffusion-mask`); the
