@@ -82,6 +82,17 @@ from .critic_validation import (
 log = logging.getLogger(__name__)
 
 
+def _content(response: Any) -> tuple[str, str | None]:
+    try:
+        choice = response["choices"][0]
+        content = choice["message"]["content"]
+    except (KeyError, IndexError, TypeError) as exc:
+        raise critic_runtime.CriticError("llama-server returned no answer") from exc
+    if not isinstance(content, str):
+        raise critic_runtime.CriticError("llama-server returned no answer text")
+    return content, choice.get("finish_reason")
+
+
 # --- The critic --------------------------------------------------------------
 
 
@@ -210,7 +221,7 @@ class PromptCritic:
                 seconds, timings.get("prompt_n"), timings.get("predicted_n"),
                 timings.get("predicted_per_second") or 0.0,
             )
-        content, finish = critic_validation._content(response)
+        content, finish = _content(response)
         try:
             return critic_validation.validate(
                 content, context, request.prompt, model=self._label(model), seconds=seconds

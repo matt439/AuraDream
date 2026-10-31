@@ -734,14 +734,3 @@ def validate(
         dropped=dropped,
         set_aside=set_aside,
     )
-
-
-def _content(response: Any) -> tuple[str, str | None]:
-    try:
-        choice = response["choices"][0]
-        content = choice["message"]["content"]
-    except (KeyError, IndexError, TypeError) as exc:
-        raise critic_runtime.CriticError("llama-server returned no answer") from exc
-    if not isinstance(content, str):
-        raise critic_runtime.CriticError("llama-server returned no answer text")
-    return content, choice.get("finish_reason")
