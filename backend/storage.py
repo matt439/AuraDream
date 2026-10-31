@@ -1778,7 +1778,7 @@ def _tracked_masks() -> set[str]:
 # The names `gallery_reports`, `gallery_delete` and `run_jobs` took out of
 # this module, still reachable as `storage.<name>` for the tests and tools that
 # use them. Only `run_jobs`' are called through it by backend modules (jobs,
-# api_generate, api_more_seeds, gallery_reports), so a test's
+# api_runs, api_more_seeds, gallery_reports), so a test's
 # `monkeypatch.setattr(storage, "retain_run_job", ...)` still intercepts them.
 # PEP 562 rather than an import at the bottom: both modules import this one at
 # their top, so a caller that imported one of them first would find it half

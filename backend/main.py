@@ -39,7 +39,7 @@ if __name__ == "__main__":
 else:
     compiler_cache._seal_startup()
 
-from . import api_backup, api_bundles, api_gallery, api_generate, api_jobs, api_masks, api_more_seeds, api_png, api_presets, api_prompt, api_refine_batch, api_saved_searches, api_snippets, api_swap, app_context, bundle_common, bundles, gallery_lock, gallery_reports, hub_access, loras, model_selection, prompt_encoding, startup_preferences, storage  # noqa: E402
+from . import api_backup, api_bundles, api_gallery, api_generate, api_jobs, api_masks, api_more_seeds, api_png, api_presets, api_prompt, api_refine_batch, api_rerender, api_runs, api_saved_searches, api_snippets, api_swap, app_context, bundle_common, bundles, gallery_lock, gallery_reports, hub_access, loras, model_selection, prompt_encoding, startup_preferences, storage  # noqa: E402
 from .backup_service import BackupService  # noqa: E402
 from .backends import get_backend  # noqa: E402
 from .detached import detached as _detached  # noqa: E402
@@ -1097,7 +1097,9 @@ app.include_router(api_prompt.create_router(services))
 app.include_router(api_snippets.create_router(services))
 app.include_router(api_saved_searches.create_router(services))
 app.include_router(api_presets.create_router(services))
+app.include_router(api_runs.create_router(services))
 app.include_router(api_generate.create_router(services))
+app.include_router(api_rerender.create_router(services))
 app.include_router(api_instruction_edit.create_router(services))
 app.include_router(api_swap.create_router(services))
 app.include_router(api_refine_batch.create_router(services))

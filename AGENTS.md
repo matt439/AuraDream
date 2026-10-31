@@ -87,7 +87,8 @@ Backend (`backend/`):
   routes, `prompt_check.py` Check's layer 1, `tag_lookup.py` the Danbooru
   lookup (`tag_vocabulary`); `submission.py` submit checks and the gallery
   selection, its service-free checks and wording in `submission_rules.py`
-  (what the CLI imports); `api_generate.py` generate/grid/Re-render, run details and Finish run,
+  (what the CLI imports); `api_generate.py` generate and grid,
+  `api_rerender.py` Re-render, `api_runs.py` run details and Finish run,
   `api_swap.py`,
   `api_refine_batch.py`, `api_more_seeds.py` the gallery actions' routes;
   `api_png.py` Load settings from PNG (a PNG's text chunks as the panel's

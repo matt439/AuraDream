@@ -395,8 +395,10 @@ before changing it.
   services (`mask_unusable`, `outpaint_unusable`, `missing_masks`, the
   `*_detail` sentences, `cells_by_size`), re-exported by `submission` and
   imported by the CLI, which so never imports FastAPI;
-  `backend/api_generate.py` Generate, Run grid, its preview, Re-render and its preview,
-  run details and Finish run (`/api/runs/{id}`, `finish_plan`);
+  `backend/api_generate.py` Generate, Run grid and its preview;
+  `backend/api_rerender.py` Re-render and its preview (`foreign_refusal`,
+  the nested `rerender_plan`); `backend/api_runs.py` run details and Finish
+  run (`/api/runs/{id}`, `finish_plan`);
   `api_swap.py`, `api_refine_batch.py`, `api_more_seeds.py` the Swap tags,
   Mass refine and More seeds plans, previews and submissions
 - `backend/api_png.py` — Load settings from PNG (`POST /api/png/settings`):
@@ -1393,7 +1395,7 @@ Reproduction:
   refusal; without, the gallery's filter (search, Starred, `AppServices.model_scope`),
   404 for none, 422 past `max_grid_images` by count. What to do with
   another checkpoint's records is the caller's (Re-render refuses the
-  selection, `api_generate.foreign_refusal`, naming picked ones to unpick;
+  selection, `api_rerender.foreign_refusal`, naming picked ones to unpick;
   Swap tags reports each image `foreign`;
   Mass refine reports it `foreign` unless `include_foreign`, then
   substitutes the running profile; More seeds reports each batch
@@ -5765,7 +5767,7 @@ Frontend and CLI:
   confirmation, is written at once in the width its box had (inline, an
   ellipsis inside), both put right by `releaseHead`.
   Re-render's refusal of another
-  checkpoint's images (`api_generate.foreign_refusal`) advises unticking All
+  checkpoint's images (`api_rerender.foreign_refusal`) advises unticking All
   models; it offers `model:<the whole running id>` only where that id is
   contained in none of the foreign ids selected (`model:Anima` is
   Animagine too), and its verb agrees with the count. For picked cards,
