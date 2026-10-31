@@ -512,8 +512,10 @@ before changing it.
   explicit validated Restore and whole-draft Undo;
   `setup-import.js` saved-setup Export…/Import… and the separate
   file-index merge dialog (styles in `setups.css`).
-  `saved-searches.js` owns named gallery filters, their native dialog and the
-  single explicit filter transition out of sheets and the bin.
+  `saved-searches.js` owns named gallery filters and their native dialog;
+  `gallery.js` the single explicit filter transition out of sheets and the
+  bin (`applyGalleryFilter`), which Apply, Show all, the Models picker's
+  See all and a bundle's Show share.
   The stylesheet is
   `style.css` (tokens and base layout), followed by `styles/*.css` in the
   explicit link order: `model-picker.css` the Models picker (first, at its

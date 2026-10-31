@@ -417,19 +417,8 @@ function showBundleMissing(id, binned) {
 // bin has its own view; a binned-only import never opens an empty live one.
 function showBundleImages(search, binned) {
   els.bundlesDialog.close();
-  outsideView = null;
-  if (!binned) leaveBin();
-  els.search.value = search;
-  els.favOnly.checked = false;
-  els.allModels.checked = true;
-  sheetReturn = null;
-  if (binned && !binMode) enterBin();
-  else if (sheetMode) void setSheet(false);
-  else void resetGallery();
-  if (!binned) loadRuns();
-  const reduce = window.matchMedia('(prefers-reduced-motion: reduce)').matches;
-  document.querySelector('.gallery-head').scrollIntoView({ block: 'start', behavior: reduce ? 'auto' : 'smooth' });
-  els.search.focus({ preventScroll: true });
+  void applyGalleryFilter({ query: search, favorites: false, all_models: true, bin: binned });
+  revealGallerySearch();
 }
 
 function bundleImportActions(result) {

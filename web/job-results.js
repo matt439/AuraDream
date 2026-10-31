@@ -295,14 +295,7 @@ function noteOutsideView(images, coming) {
 // The gallery unfiltered: the search box emptied, Starred off, the sheet
 // closed, the recycle bin left - the escape the scope note offers.
 function showAllImages() {
-  outsideView = null;
-  leaveBin();
-  els.search.value = '';
-  els.favOnly.checked = false;
-  sheetReturn = null;
-  if (sheetMode) setSheet(false);
-  else resetGallery();
-  loadRuns();
+  void applyGalleryFilter({ query: '', favorites: false });
 }
 
 // Intentional skips are missing work even when the job ended without an

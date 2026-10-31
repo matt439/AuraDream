@@ -33,6 +33,38 @@ function resetGallery() {
   return pending ? pending.then(loadGallery) : loadGallery();
 }
 
+// One transition owns all three controls, including the sheet/bin escape:
+// saved searches' Apply, the scope note's Show all, the Models picker's See
+// all and a bundle's Show. Close the old view without reading it, then
+// replace its epoch once. A sheet never gets to put back the search it
+// replaced after this explicit apply, a debounced read of the box it replaced
+// never resets the gallery again, and a finished job's images outside the old
+// view start their count afresh. `all_models` left out keeps the box as it is;
+// `bin` shows the recycle bin in the gallery's place, whose own view has no
+// Runs list to load.
+function applyGalleryFilter({ query, favorites, all_models, bin = false }) {
+  clearTimeout(searchTimer);
+  outsideView = null;
+  if (!bin) leaveBin();
+  sheetReturn = null;
+  if (sheetMode) void setSheet(false, { reload: false });
+  els.search.value = query;
+  els.favOnly.checked = favorites;
+  if (all_models !== undefined) els.allModels.checked = all_models;
+  if (bin && !binMode) { enterBin(); return Promise.resolve(); }
+  const opened = resetGallery();
+  if (!bin) void loadRuns();
+  return opened;
+}
+
+// After a navigation from a dialog or picker: the gallery's head brought up
+// and the search box given the focus, where the results are.
+function revealGallerySearch() {
+  const reduce = window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+  document.querySelector('.gallery-head').scrollIntoView({ block: 'start', behavior: reduce ? 'auto' : 'smooth' });
+  els.search.focus({ preventScroll: true });
+}
+
 function loadGallery() {
   // One page at a time. Nothing else serialises this - a double-clicked "Load
   // more", or an arrow key held down in the lightbox - and two calls reading

@@ -137,7 +137,8 @@ Backend (`backend/`):
 - `saved_searches.py` bounded atomic database-scoped gallery filters,
   `schemas_saved_searches.py` their strict fields and revisions, and
   `api_saved_searches.py` model-free CRUD independent of gallery maintenance;
-  `web/saved-searches.js` owns their explicit dialog and filter transition
+  `web/saved-searches.js` owns their explicit dialog; its Apply is
+  `web/gallery.js`'s one filter transition (`applyGalleryFilter`)
 - `bundle_leases.py` archive reader/exclusive leases, complete download/import
   lifetimes and uncertain-input quarantine, with opt-in shared companion locks in
   `bundle_file_lock.py`; `bundle_mode.py` explicit Windows/NTFS mode installation
