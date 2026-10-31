@@ -1067,6 +1067,42 @@ _EXACT_PROFILES: dict[str, dict[str, Any]] = {
             ),
         },
     },
+    # Exact edit-only intent cannot inherit ordinary FLUX generation capabilities,
+    # so every key is written out rather than spread from `_FALLBACK`: no
+    # text-to-image, Refine, inpaint, reference or upscaler (`upscaler_supported`
+    # answers by id). It is keyed by its exact id, the catalogue's last,
+    # edit-only entry; whether an edit runs is never the profile's to say (`defaults_for`).
+    "black-forest-labs/flux.1-kontext-dev": {
+        "steps": 28,
+        "guidance_scale": 2.5,
+        "mu": None,
+        "mu_supported": False,
+        "cfg_threshold": 1.0,
+        "negative_prompt_supported": False,
+        "reference_supported": False,
+        "refine_supported": False,
+        "inpaint_supported": False,
+        "refine_strength": None,
+        "true_cfg_supported": False,
+        "text_to_image_supported": False,
+        "instruction_edit_candidate": True,
+        "guide": guides.KONTEXT_GUIDE,
+        "hints": {
+            "steps": (
+                "Denoising steps. {steps} is the kontext-v1 recipe's start, the installed "
+                "FluxKontextPipeline's own default; this card's edits ran at {steps}."
+            ),
+            "guidance_scale": (
+                "Distilled guidance, not classifier-free: there is no negative prompt. "
+                "{guidance_scale:g} is the recipe's start, from diffusers' FluxKontextPipeline "
+                "example; this card's edits ran at {guidance_scale:g}."
+            ),
+            "mu": (
+                "Not an instruction edit's to set: the kontext-v1 recipe leaves the "
+                "scheduler's own shift."
+            ),
+        },
+    },
 }
 
 _FALLBACK: dict[str, Any] = {
@@ -1100,46 +1136,13 @@ _FALLBACK: dict[str, Any] = {
 }
 
 
-# Exact edit-only intent cannot inherit ordinary FLUX generation capabilities,
-# so every key is written out rather than spread from `_FALLBACK`: no
-# text-to-image, Refine, inpaint, reference or upscaler (`upscaler_supported`
-# answers by id). It is keyed by its exact id, the catalogue's last,
-# edit-only entry; whether an edit runs is never the profile's to say (`defaults_for`).
-_EXACT_PROFILES["black-forest-labs/flux.1-kontext-dev"] = {
-    "steps": 28,
-    "guidance_scale": 2.5,
-    "mu": None,
-    "mu_supported": False,
-    "cfg_threshold": 1.0,
-    "negative_prompt_supported": False,
-    "reference_supported": False,
-    "refine_supported": False,
-    "inpaint_supported": False,
-    "refine_strength": None,
-    "true_cfg_supported": False,
-    "text_to_image_supported": False,
-    "instruction_edit_candidate": True,
-    "guide": guides.KONTEXT_GUIDE,
-    "hints": {
-        "steps": (
-            "Denoising steps. {steps} is the kontext-v1 recipe's start, the installed "
-            "FluxKontextPipeline's own default; this card's edits ran at {steps}."
-        ),
-        "guidance_scale": (
-            "Distilled guidance, not classifier-free: there is no negative prompt. "
-            "{guidance_scale:g} is the recipe's start, from diffusers' FluxKontextPipeline "
-            "example; this card's edits ran at {guidance_scale:g}."
-        ),
-        "mu": (
-            "Not an instruction edit's to set: the kontext-v1 recipe leaves the "
-            "scheduler's own shift."
-        ),
-    },
-}
+def _profile_key(model_id: str) -> str:
+    """An id as the profile tables key it: lowercased, `_` read as `-`."""
+    return model_id.lower().replace("_", "-")
 
 
 def _profile_for(model_id: str) -> dict[str, Any]:
-    key = model_id.lower().replace("_", "-")
+    key = _profile_key(model_id)
     if key in _EXACT_PROFILES:
         return _EXACT_PROFILES[key]
     for token, profile in _PROFILES:
@@ -1258,7 +1261,7 @@ def defaults_for(model_id: str, *, edit_reason: str | None = INSTRUCTION_EDIT_UN
         "mu_static": profile.get("mu_static"),
         "cfg_ignored": bool(profile.get("cfg_ignored", False)),
         "refine_tight_pixels": measured.width * measured.height if measured else None,
-        "refine_settled": model_id.lower().replace("_", "-") in _OWN_PIPELINES,
+        "refine_settled": _profile_key(model_id) in _OWN_PIPELINES,
         # Opt-in GAN preparation is limited to the two guides that cite it.
         "upscaler_supported": upscaler_supported(model_id),
         # A load can only take an inpaint away (the backend needs the profile's
@@ -1440,6 +1443,13 @@ _LORA_HINTS = {
 }
 
 
+def _runs_named(runs: list[str]) -> tuple[str, str]:
+    """The checkpoints a strength was measured on, joined as a sentence
+    names them, and the verb that agrees with them."""
+    names = runs[0] if len(runs) == 1 else f"{', '.join(runs[:-1])} and {runs[-1]}"
+    return names, "runs" if len(runs) == 1 else "run"
+
+
 def _inpaint_strength_hint(profile: dict[str, Any]) -> str:
     own = profile.get("inpaint_strength_measured")
     if profile.get("inpaint_start") is not None:
@@ -1449,9 +1459,7 @@ def _inpaint_strength_hint(profile: dict[str, Any]) -> str:
         when = f"measured on the card ({INPAINT_START_MEASURED_ON})"
         if own:
             return f"{when} as the right strength to start at on {own}, where {kept}"
-        runs = _inpaint_strength_runs(profile.get("inpaint_family"))
-        names = runs[0] if len(runs) == 1 else f"{', '.join(runs[:-1])} and {runs[-1]}"
-        verb = "runs" if len(runs) == 1 else "run"
+        names, verb = _runs_named(_inpaint_strength_runs(profile.get("inpaint_family")))
         return (
             f"{when} on {names}, which {verb} the same inpaint class, not on this "
             f"checkpoint; there {kept}"
@@ -1462,8 +1470,7 @@ def _inpaint_strength_hint(profile: dict[str, Any]) -> str:
     runs = _inpaint_strength_runs(profile.get("inpaint_family"))
     if not runs:
         return "the library's number, not one measured on the card for this checkpoint"
-    names = runs[0] if len(runs) == 1 else f"{', '.join(runs[:-1])} and {runs[-1]}"
-    verb = "runs" if len(runs) == 1 else "run"
+    names, verb = _runs_named(runs)
     return (
         f"the library's number, {when} on {names}, which {verb} the same inpaint class, "
         "not on this checkpoint"
