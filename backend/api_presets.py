@@ -6,10 +6,10 @@ import re
 from fastapi import APIRouter, HTTPException, Path, Query
 from fastapi.exceptions import RequestValidationError
 from fastapi.responses import Response
-from fastapi.routing import APIRoute
 
 from . import model_selection, preset_portability, presets
 from .app_context import AppServices
+from .bounded_route import bounded_json_route
 from .execution import require_configured_loader_available, require_default_execution, resolve_execution
 from .preset_validation import PresetValidation, validate_payload
 from .schemas_preset_portability import (
@@ -40,40 +40,30 @@ class PresetChecked(PresetValidation):
     model_revision: int
 
 
-class _PresetRoute(APIRoute):
-    def get_route_handler(self):
-        handler = super().get_route_handler()
+def _translate(request, exc: Exception) -> None:
+    """Portability and saved-setup errors in their own words; a validation
+    error as each field's place and message."""
+    if isinstance(exc, preset_portability.PortabilityError):
+        raise HTTPException(status_code=exc.status, detail=str(exc)) from None
+    if isinstance(exc, RequestValidationError):
+        if request.url.path in _IMPORT_PATHS:
+            raise HTTPException(status_code=422, detail="The setup import fields are invalid.") from None
+        # Never echo an invalid saved prompt or malformed Unicode.
+        detail = "; ".join(
+            f"{'.'.join(str(part) for part in error['loc'])}: {error['msg']}"
+            for error in exc.errors()
+        )
+        raise HTTPException(status_code=422, detail=detail) from exc
+    if isinstance(exc, presets.PresetsError):
+        raise HTTPException(status_code=exc.status, detail=str(exc)) from exc
 
-        async def validated(request):
-            try:
-                if request.method == "POST" and request.url.path in _IMPORT_PATHS:
-                    # Consume bounded raw bytes before FastAPI's JSON parser can
-                    # discard duplicate object keys. Never trust Content-Length.
-                    raw = bytearray()
-                    async for chunk in request.stream():
-                        if len(raw) + len(chunk) > MAX_IMPORT_REQUEST_BYTES:
-                            raise HTTPException(status_code=413, detail="The setup import request is too large.")
-                        raw.extend(chunk)
-                    request._body = bytes(raw)
-                    request._json = preset_portability.parse_json(
-                        request._body, max_bytes=MAX_IMPORT_REQUEST_BYTES,
-                    )
-                return await handler(request)
-            except preset_portability.PortabilityError as exc:
-                raise HTTPException(status_code=exc.status, detail=str(exc)) from None
-            except RequestValidationError as exc:
-                if request.url.path in _IMPORT_PATHS:
-                    raise HTTPException(status_code=422, detail="The setup import fields are invalid.") from None
-                # Never echo an invalid saved prompt or malformed Unicode.
-                detail = "; ".join(
-                    f"{'.'.join(str(part) for part in error['loc'])}: {error['msg']}"
-                    for error in exc.errors()
-                )
-                raise HTTPException(status_code=422, detail=detail) from exc
-            except presets.PresetsError as exc:
-                raise HTTPException(status_code=exc.status, detail=str(exc)) from exc
 
-        return validated
+_PresetRoute = bounded_json_route(
+    import_paths=_IMPORT_PATHS, max_bytes=lambda: MAX_IMPORT_REQUEST_BYTES,
+    too_large="The setup import request is too large.",
+    parse=lambda body, max_bytes: preset_portability.parse_json(body, max_bytes=max_bytes),
+    translate=_translate,
+)
 
 
 def create_router(services: AppServices) -> APIRouter:

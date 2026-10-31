@@ -91,6 +91,11 @@ before changing it.
   file-index merge plans; `backend/schemas_preset_portability.py` owns the native
   format and choices; `backend/strict_json.py` supplies bounded UTF-8 syntax for
   that new document, without rerouting existing sidecar or snippet readers
+- `backend/bounded_route.py` - `bounded_json_route`, the `APIRoute` class
+  `api_presets` and `api_snippets` build: their import POSTs read as bounded
+  raw bytes (never trusting Content-Length) and parsed by the router's own
+  strict parser before FastAPI's; each router passes its bound (read per
+  request), its too-large words and its own error mapping
 - `backend/preset_validation.py` - cold Generate/Grid validation and effective
   summaries through ordinary schemas, grid helpers and `applied`; disposable
   random-grid examples never supply saved seeds

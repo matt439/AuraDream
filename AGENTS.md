@@ -131,7 +131,9 @@ Backend (`backend/`):
 - `snippet_portability.py` - cold portable snippet codec, collection/input
   digests and pure merge plans; `schemas_snippet_portability.py` owns strict
   portable documents and file-index choices; `api_snippets.py` exposes bounded
-  export/preview/import, with atomic commit under `snippets.py`'s reservation
+  export/preview/import, with atomic commit under `snippets.py`'s reservation;
+  `bounded_route.py` the route class both import routers read their bounded
+  bodies through, each keeping its own words and error mapping
 - `saved_searches.py` bounded atomic database-scoped gallery filters,
   `schemas_saved_searches.py` their strict fields and revisions, and
   `api_saved_searches.py` model-free CRUD independent of gallery maintenance;
