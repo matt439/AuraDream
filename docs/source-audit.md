@@ -256,7 +256,9 @@ What the pass did, by package (each split is a 2026-10-31 row in
   `run_jobs.py` (162) and the pure field codecs to `record_fields.py` (207),
   taking `storage.py` from 2,112 to 1,808. The migration list is hoisted to
   `storage._ADDED_COLUMNS`, from which a bundle merge takes its column
-  types. Six call sites stopped reaching through `storage._crop_anchor`.
+  types (held to `_SCHEMA` by `tests/test_storage_columns.py`), and
+  `tests/test_chunk_builders.py` holds the three PNG chunk builders to one
+  key set. Six call sites stopped reaching through `storage._crop_anchor`.
 - **The CLI.** `generate.py` went from 2,084 to 1,262: `generate_args.py`
   (591) the parser, `--from-image` settings and the flag-only checks,
   `generate_remote.py` (284) the `--via-server` client, and
@@ -289,8 +291,10 @@ What the pass did, by package (each split is a 2026-10-31 row in
   `test_api_model_switch.py` (1,044) split, with their node-id counts equal
   before and after; shared helpers moved to `cli_helpers.py`,
   `backend_helpers.py`, `gallery_helpers.py`, `browser_helpers.py` and
-  `model_switch_helpers.py`, imported by name; and the three converter
-  caches' copied tests became one parametrized file.
+  `model_switch_helpers.py`, imported by name; the version-1 backup policy
+  writer, which no app code called, to `backup_helpers.py`; and the three
+  converter caches' copied tests became one parametrized file,
+  `test_converter_cache.py`.
 
 ### Long files retained, 2026-10-31
 
