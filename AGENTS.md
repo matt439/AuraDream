@@ -90,7 +90,8 @@ Backend (`backend/`):
   (what the CLI imports); `api_generate.py` generate and grid,
   `api_rerender.py` Re-render, `api_runs.py` run details and Finish run,
   `api_swap.py`,
-  `api_refine_batch.py`, `api_more_seeds.py` the gallery actions' routes;
+  `api_refine_batch.py`, `api_more_seeds.py` the gallery actions' routes
+  (More seeds' plan in `more_seeds_planner.py`, which run details share);
   `api_png.py` Load settings from PNG (a PNG's text chunks as the panel's
   settings, after `applied()`); `api_masks.py` an inpaint's mask stored
   and served by its hash, and an outpaint's presets

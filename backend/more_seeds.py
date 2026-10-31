@@ -1,6 +1,6 @@
 """More seeds: more images of each selected batch, its seeds continuing.
 
-Pure, like `tag_swap` and `refine_batch`: the routes (`api_more_seeds.more_seeds_plan`)
+Pure, like `tag_swap` and `refine_batch`: the routes (`more_seeds_planner.more_seeds_plan`)
 resolve the selection, read every image of each batch and what the gallery
 and the live jobs already hold, check what needs the backend, and queue.
 Here the selection is grouped into batches, and each batch's next seeds, the

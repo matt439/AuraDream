@@ -9,7 +9,7 @@ from dataclasses import dataclass, field, replace
 from fastapi import APIRouter, HTTPException
 
 from . import grid, storage, submission, then_refine
-from .api_more_seeds import more_seeds_plan
+from .more_seeds_planner import more_seeds_plan
 from .app_context import AppServices
 from .execution import require_configured_loader_available, resolve_execution
 from .model_selection import current_settings

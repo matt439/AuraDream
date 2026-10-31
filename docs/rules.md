@@ -306,6 +306,10 @@ before changing it.
   `refine_batch.plan`'s, built in the worker, `JobManager._passes`)
 - `backend/more_seeds.py` — More seeds' batches of a selection, each one's
   next seeds, Batch and cells (pure; the routes are `api_more_seeds.py`'s)
+- `backend/more_seeds_planner.py` — More seeds' plan over the app's services
+  (`more_seeds_plan`, which carries Then refine through `_carry_then_refine`),
+  called by its routes and by `api_runs.py`'s run details, so no router
+  imports another
 - `backend/more_seeds_intents.py` - bounded preview-issued More seeds tokens,
   one owned admission per intent, replay receipts, expiry and shutdown drain
 - `backend/latent_preview.py` — the latent-to-RGB maps the live preview
@@ -5344,7 +5348,7 @@ Frontend and CLI:
   grid's words and titles say the setting while it is on; scale and
   strength are `REFINE_KEY`'s. The CLI's
   `--then-refine-*` run the same plan (`_then_refine_passes`). More seeds
-  carries the pass (`api_more_seeds._carry_then_refine`): a queued base
+  carries the pass (`more_seeds_planner._carry_then_refine`): a queued base
   batch (template `refine` and `edit` None) takes the spec its images'
   jobs retained (`then_refine.retained` over `storage.retained_run_metadata`
   of every held image's `job_id`, so a template from an earlier bases-only
