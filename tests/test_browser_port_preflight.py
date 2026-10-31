@@ -2,13 +2,12 @@
 from __future__ import annotations
 
 import json
-import os
 from pathlib import Path
-import subprocess
 
 import pytest
 
-ROOT = Path(__file__).resolve().parent.parent
+from tests.browser_helpers import run_harness_cold
+
 FIXTURE = Path(__file__).resolve().parent / "browser_port_fixture.mjs"
 pytestmark = pytest.mark.usefixtures("node")
 
@@ -18,29 +17,10 @@ PORT_MESSAGE = "effective local ports must be integers in 1..65535 after AURADRE
 
 def run_port_cold(tmp_path, steps: list[dict], offset: str | None, *, probe: str | None = None):
     """Load captured real modules with fixture I/O allowed and all effects inert."""
-    script = tmp_path / "port-steps.json"
-    text = json.dumps(steps)
-    script.write_text(text, encoding="utf-8")
-    output = tmp_path / "must-not-create-output"
-    temporary = tmp_path / "owned-temp"
-    temporary.mkdir()
-    request = dict(harness=str(ROOT / "tools" / "browser.mjs"), script=str(script),
-                   url=(ROOT / "tools" / "browser.mjs").as_uri(), output=str(output),
-                   temporary=str(temporary), probe=probe)
-    environment = {**os.environ, "AURADREAM_BROWSER": "owned-synthetic-browser",
-                   "AURADREAM_SCREENSHOT_DIR": str(output),
-                   "TMPDIR": str(temporary), "TEMP": str(temporary), "TMP": str(temporary)}
-    if offset is None:
-        environment.pop("AURADREAM_PORT_OFFSET", None)
-    else:
-        environment["AURADREAM_PORT_OFFSET"] = offset
-    done = subprocess.run(["node", str(FIXTURE), json.dumps(request)],
-                          cwd=tmp_path, env=environment, capture_output=True, text=True, timeout=15)
-    assert script.read_text(encoding="utf-8") == text
-    assert not output.exists() and list(temporary.iterdir()) == []
-    assert sorted(path.name for path in tmp_path.iterdir()) == ["owned-temp", "port-steps.json"]
-    assert "private-offset-fixture-value" not in done.stdout + done.stderr
-    return done
+    return run_harness_cold(
+        tmp_path, FIXTURE, "port-steps.json", json.dumps(steps), request=dict(probe=probe),
+        environment={"AURADREAM_PORT_OFFSET": offset}, secrets=("private-offset-fixture-value",),
+    )
 
 
 @pytest.mark.parametrize("offset", [

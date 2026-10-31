@@ -2,13 +2,12 @@
 from __future__ import annotations
 
 import json
-import os
 from pathlib import Path
-import subprocess
 
 import pytest
 
-ROOT = Path(__file__).resolve().parent.parent
+from tests.browser_helpers import run_harness_cold
+
 FIXTURE = Path(__file__).resolve().parent / "browser_startup_viewport_fixture.mjs"
 pytestmark = pytest.mark.usefixtures("node")
 
@@ -19,30 +18,12 @@ STARTUP_MESSAGE = ("AURADREAM_VIEWPORT needs WIDTHxHEIGHT with integer dimension
 def run_startup_cold(tmp_path, viewport: str | None, dpr: str | None, *,
                      capture: bool = True, probe: str | None = None):
     """Run real preflight with one read and an observation before discovery."""
-    script = tmp_path / "startup-steps.json"
-    text = '[{"shot":"must-not-create.png"},{"expect":"true"}]'
-    script.write_text(text, encoding="utf-8")
-    output = tmp_path / "must-not-create-output"
-    temporary = tmp_path / "owned-temp"
-    temporary.mkdir()
-    request = dict(harness=str(ROOT / "tools" / "browser.mjs"), script=str(script),
-                   url=(ROOT / "tools" / "browser.mjs").as_uri(), output=str(output),
-                   temporary=str(temporary), capture=capture, probe=probe)
-    environment = {**os.environ, "AURADREAM_BROWSER": "owned-synthetic-browser",
-                   "AURADREAM_SCREENSHOT_DIR": str(output), "AURADREAM_PORT_OFFSET": "0",
-                   "TMPDIR": str(temporary), "TEMP": str(temporary), "TMP": str(temporary)}
-    for name, value in (("AURADREAM_VIEWPORT", viewport), ("AURADREAM_DPR", dpr)):
-        if value is None:
-            environment.pop(name, None)
-        else:
-            environment[name] = value
-    done = subprocess.run(["node", str(FIXTURE), json.dumps(request)],
-                          cwd=tmp_path, env=environment, capture_output=True, text=True, timeout=15)
-    assert script.read_text(encoding="utf-8") == text
-    assert not output.exists() and list(temporary.iterdir()) == []
-    assert sorted(path.name for path in tmp_path.iterdir()) == ["owned-temp", "startup-steps.json"]
-    assert "private-startup-fixture-value" not in done.stdout + done.stderr
-    return done
+    return run_harness_cold(
+        tmp_path, FIXTURE, "startup-steps.json", '[{"shot":"must-not-create.png"},{"expect":"true"}]',
+        request=dict(capture=capture, probe=probe),
+        environment={"AURADREAM_PORT_OFFSET": "0", "AURADREAM_VIEWPORT": viewport, "AURADREAM_DPR": dpr},
+        secrets=("private-startup-fixture-value",),
+    )
 
 
 @pytest.mark.parametrize("viewport", [

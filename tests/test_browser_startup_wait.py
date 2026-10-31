@@ -4,36 +4,22 @@ from __future__ import annotations
 import json
 import os
 from pathlib import Path
-import subprocess
 
 import pytest
 
-ROOT = Path(__file__).resolve().parent.parent
+from tests.browser_helpers import SYNTHETIC_BROWSER, run_harness_cold
+
 FIXTURE = Path(__file__).resolve().parent / "browser_startup_fixture.mjs"
 pytestmark = pytest.mark.usefixtures("node")
 
 
 def run_startup_cold(tmp_path, mode, *, probe=None):
-    script = tmp_path / "startup-steps.json"
-    script.write_text("[]", encoding="utf-8")
-    temporary = tmp_path / "owned-temp"
-    temporary.mkdir()
-    output = tmp_path / "must-not-create-output"
-    harness = ROOT / "tools" / "browser.mjs"
-    request = dict(harness=str(harness), url=harness.as_uri(), script=str(script),
-                   temporary=str(temporary), output=str(output),
-                   browser="owned-synthetic-browser", mode=mode, probe=probe)
-    environment = {**os.environ, "AURADREAM_BROWSER": request["browser"],
-                   "AURADREAM_SCREENSHOT_DIR": str(output), "AURADREAM_PORT_OFFSET": "0",
-                   "AURADREAM_VIEWPORT": "1400x900", "AURADREAM_DPR": "1",
-                   "AURADREAM_BROWSER_DIAGNOSTICS": "1",
-                   "TMPDIR": str(temporary), "TEMP": str(temporary), "TMP": str(temporary)}
-    done = subprocess.run(["node", str(FIXTURE), json.dumps(request)],
-                          cwd=tmp_path, env=environment, capture_output=True, text=True, timeout=15)
-    assert script.read_text(encoding="utf-8") == "[]"
-    assert not output.exists() and list(temporary.iterdir()) == []
-    assert sorted(path.name for path in tmp_path.iterdir()) == ["owned-temp", "startup-steps.json"]
-    return done
+    return run_harness_cold(
+        tmp_path, FIXTURE, "startup-steps.json", "[]",
+        request=dict(browser=SYNTHETIC_BROWSER, mode=mode, probe=probe),
+        environment={"AURADREAM_PORT_OFFSET": "0", "AURADREAM_VIEWPORT": "1400x900", "AURADREAM_DPR": "1",
+                     "AURADREAM_BROWSER_DIAGNOSTICS": "1"},
+    )
 
 
 def startup_ports(done):

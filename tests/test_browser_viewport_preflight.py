@@ -2,13 +2,12 @@
 from __future__ import annotations
 
 import json
-import os
 from pathlib import Path
-import subprocess
 
 import pytest
 
-ROOT = Path(__file__).resolve().parent.parent
+from tests.browser_helpers import run_harness_cold
+
 FIXTURE = Path(__file__).resolve().parent / "browser_viewport_fixture.mjs"
 pytestmark = pytest.mark.usefixtures("node")
 
@@ -18,24 +17,10 @@ MESSAGE = ("viewport needs [width, height] or [width, height, dpr] "
 
 def run_viewport_cold(tmp_path, text: str, *, probe: str | None = None):
     """Execute the real harness module with exactly one fixture read permitted."""
-    script = tmp_path / "viewport-steps.json"
-    script.write_text(text, encoding="utf-8")
-    output = tmp_path / "must-not-create-output"
-    temporary = tmp_path / "owned-temp"
-    temporary.mkdir()
-    request = dict(harness=str(ROOT / "tools" / "browser.mjs"), script=str(script),
-                   url=(ROOT / "tools" / "browser.mjs").as_uri(), output=str(output),
-                   temporary=str(temporary), probe=probe)
-    environment = {**os.environ, "AURADREAM_BROWSER": "owned-synthetic-browser",
-                   "AURADREAM_SCREENSHOT_DIR": str(output), "AURADREAM_PORT_OFFSET": "0",
-                   "TMPDIR": str(temporary), "TEMP": str(temporary), "TMP": str(temporary)}
-    done = subprocess.run(["node", str(FIXTURE), json.dumps(request)],
-                          cwd=tmp_path, env=environment, capture_output=True, text=True, timeout=15)
-    assert script.read_text(encoding="utf-8") == text
-    assert not output.exists() and list(temporary.iterdir()) == []
-    assert sorted(path.name for path in tmp_path.iterdir()) == ["owned-temp", "viewport-steps.json"]
-    assert "private-viewport-fixture-value" not in done.stdout + done.stderr
-    return done
+    return run_harness_cold(
+        tmp_path, FIXTURE, "viewport-steps.json", text, request=dict(probe=probe),
+        environment={"AURADREAM_PORT_OFFSET": "0"}, secrets=("private-viewport-fixture-value",),
+    )
 
 
 @pytest.mark.parametrize("value", [
