@@ -3,7 +3,6 @@ once, including awaited mask/outpaint writes before a job is registered."""
 from __future__ import annotations
 
 import threading
-import time
 from concurrent.futures import ThreadPoolExecutor
 
 import pytest
@@ -12,7 +11,7 @@ from PIL import Image
 from backend import grid, main, storage
 from backend.config import settings
 from backend.schemas import GenerateRequest, Outpaint
-from tests.api_helpers import stream_job, wait_for
+from tests.api_helpers import stream_job, until, wait_for
 
 
 ROUTES = ("/api/rerender", "/api/swap-tags", "/api/refine/batch")
@@ -54,10 +53,7 @@ def finish(client, answer):
 
 
 def wait_until(predicate):
-    deadline = time.monotonic() + 5
-    while not predicate() and time.monotonic() < deadline:
-        time.sleep(0.005)
-    assert predicate(), "timed out waiting for concurrent request"
+    until(predicate, interval=0.005, message="timed out waiting for concurrent request")
 
 
 @pytest.mark.parametrize("route", ROUTES)

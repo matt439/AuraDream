@@ -16,7 +16,7 @@ from PIL import Image
 from backend import main, model_selection, startup_preferences, submission
 from backend.model_defaults import defaults_for, guide_for
 from backend.schemas import PromptGuide
-from tests.api_helpers import ORIGIN, run_one, stream_job, wait_for
+from tests.api_helpers import ORIGIN, run_one, stream_job, until, wait_for
 from tests.model_switch_helpers import (  # noqa: F401  (fixtures by name)
     ANIMAGINE,
     PAYLOAD,
@@ -476,15 +476,6 @@ def _held_measure(monkeypatch):
     return measuring, release
 
 
-def _until(predicate, timeout=5.0):
-    deadline = time.monotonic() + timeout
-    while time.monotonic() < deadline:
-        if predicate():
-            return
-        time.sleep(0.01)
-    raise AssertionError("timed out")
-
-
 def test_switch_waits_out_a_model_request_already_in_flight(client, fake, monkeypatch):
     # The page's own cold reads (adapter list, token count, tag check) go out
     # as a load lands; a switch pressed then must not be refused for them.
@@ -495,7 +486,7 @@ def test_switch_waits_out_a_model_request_already_in_flight(client, fake, monkey
             pending = pool.submit(client.post, "/api/prompt/measure", json={"prompt": "a lighthouse"})
             assert measuring.wait(5)
             switching = pool.submit(client.post, "/api/model/switch", json={"model_id": ANIMAGINE})
-            _until(lambda: main._switch_draining)
+            until(lambda: main._switch_draining)
             # New readers are refused meanwhile, so the wait ends.
             refused = client.get("/api/loras")
             assert refused.status_code == 409, refused.text

@@ -38,14 +38,37 @@ def run_one(client, **payload):
     return job_id, stream_job(client, job_id)
 
 
+def until(predicate, timeout=5.0, *, interval=0.01, message="timed out"):
+    """Poll `predicate` until it answers something truthy, and return that.
+
+    The timeout is in seconds, not milliseconds: CI's runners are slow, and a
+    test racing a clock needs the margin (AGENTS.md, Tests).
+    """
+    deadline = time.monotonic() + timeout
+    while True:
+        value = predicate()
+        if value:
+            return value
+        if time.monotonic() >= deadline:
+            raise AssertionError(message)
+        time.sleep(interval)
+
+
 def wait_for(client, job_id, predicate, timeout=5.0):
-    deadline = time.time() + timeout
-    while time.time() < deadline:
+    def matched():
         snapshot = client.get(f"/api/jobs/{job_id}").json()
-        if predicate(snapshot):
-            return snapshot
-        time.sleep(0.01)
-    raise AssertionError("timed out waiting for the job")
+        return snapshot if predicate(snapshot) else None
+
+    return until(matched, timeout, message="timed out waiting for the job")
+
+
+def wait_for_status(client, timeout=5.0, **expected):
+    """Poll /api/status until every given field has its value; return the body."""
+    def matched():
+        body = client.get("/api/status").json()
+        return body if all(body.get(key) == value for key, value in expected.items()) else None
+
+    return until(matched, timeout, message=f"status never reached {expected}")
 
 
 def run_grid(client, **payload):
