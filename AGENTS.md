@@ -178,7 +178,8 @@ Backend (`backend/`):
   per-checkpoint converters and pipelines (`single_file`,
   `anima_*`, `netayume_loading`, `newbie_*`)
 - CLIs: `generate.py` (its arguments and the checks that need only the
-  flags in `generate_args.py`), `clear.py`, `stats.py`, `reindex.py`
+  flags in `generate_args.py`, the `--via-server` client in
+  `generate_remote.py`), `clear.py`, `stats.py`, `reindex.py`
 
 Frontend (`web/`, served from `/static`): `index.html` loads classic scripts
 in order, sharing one global scope; only `app.js`, the last, runs anything.

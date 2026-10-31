@@ -15,7 +15,7 @@ import sys
 import pytest
 
 import backend.backends as backends
-from backend import config, gallery_lock, generate, storage
+from backend import config, gallery_lock, generate, generate_remote, storage
 
 from tests.fakes import FakeBackend
 
@@ -56,8 +56,9 @@ SIZE = ["--width", "256", "--height", "256"]
 def test_unavailable_cli_recipe_refuses_before_files_project_or_network(monkeypatch, capsys, flags, remote):
     def forbidden(*_args, **_kwargs):
         pytest.fail("unavailable execution reached source, project or network work")
-    for name in ("_image_settings", "_mask_file", "_project", "_server_json"):
-        monkeypatch.setattr(generate, name, forbidden)
+    for module, name in ((generate, "_image_settings"), (generate, "_mask_file"), (generate, "_project"),
+                         (generate_remote, "_server_json")):
+        monkeypatch.setattr(module, name, forbidden)
     with pytest.raises(SystemExit) as stopped:
         generate.main(["a fox", "--from-image", "must-not-read.png", *flags, *( ["--via-server"] if remote else [])])
     assert stopped.value.code == 2
@@ -177,7 +178,7 @@ def test_grid_seeds_below_one_is_refused_locally_as_through_the_server(cli, monk
     # silently ran the plain render locally.
     def forbidden(*_args, **_kwargs):
         pytest.fail("--grid-seeds 0 reached the network")
-    monkeypatch.setattr(generate, "_server_json", forbidden)
+    monkeypatch.setattr(generate_remote, "_server_json", forbidden)
     for remote in ([], ["--via-server"]):
         with pytest.raises(SystemExit) as stopped:
             generate.main(["a fox", *SIZE, "--grid-seeds", "0", *remote])
@@ -1417,14 +1418,14 @@ def via_server(client, fake, monkeypatch):
         calls.append((method, path, body, headers or {}))
         response = client.request(method, path, json=body, content=data, headers=headers)
         if response.status_code >= 400:
-            raise generate._ServerError(str(response.json()["detail"]), response.status_code)
+            raise generate_remote._ServerError(str(response.json()["detail"]), response.status_code)
         return response.json()
 
     def no_local_backend(*args):
         pytest.fail("--via-server tried to construct/probe a local generation backend")
 
-    monkeypatch.setattr(generate, "_server_json", request)
-    monkeypatch.setattr(generate, "_SERVER_POLL_SECONDS", 0.01)
+    monkeypatch.setattr(generate_remote, "_server_json", request)
+    monkeypatch.setattr(generate_remote, "_SERVER_POLL_SECONDS", 0.01)
     monkeypatch.setattr(generate, "_project", no_local_backend)
     monkeypatch.setattr(generate, "_server_holds_gpu", no_local_backend)
     return SimpleNamespace(client=client, backend=fake, calls=calls, request=request)
@@ -1684,7 +1685,7 @@ def test_via_server_ctrl_c_cancels_only_its_owned_job(via_server, monkeypatch, c
             raise KeyboardInterrupt
         return request(base, path, **kwargs)
 
-    monkeypatch.setattr(generate, "_server_json", ctrl_c)
+    monkeypatch.setattr(generate_remote, "_server_json", ctrl_c)
     assert generate.main(["a fox", "--via-server", *SIZE, "--steps", "30", "--runs", "3", "-q"]) == 130
     cancels = [call for call in via_server.calls if call[1].endswith("/cancel")]
     assert len(cancels) == 1 and "Cancelling job" in capsys.readouterr().err
@@ -1697,10 +1698,10 @@ def test_via_server_does_not_retry_or_fall_back_after_an_unconfirmed_submission(
     def dropped_answer(base, path, **kwargs):
         if path == "/api/generate":
             attempted.append(path)
-            raise generate._ServerError("connection closed")
+            raise generate_remote._ServerError("connection closed")
         return request(base, path, **kwargs)
 
-    monkeypatch.setattr(generate, "_server_json", dropped_answer)
+    monkeypatch.setattr(generate_remote, "_server_json", dropped_answer)
     assert generate.main(["a fox", "--via-server", *SIZE, "-q"]) == 1
     assert attempted == ["/api/generate"]
     assert "Submission was not confirmed" in capsys.readouterr().err
@@ -1711,10 +1712,10 @@ def test_via_server_a_lost_owned_job_is_a_runtime_failure_and_is_never_resubmitt
 
     def restarted(base, path, **kwargs):
         if path.startswith("/api/jobs/"):
-            raise generate._ServerError("unknown job", 404)
+            raise generate_remote._ServerError("unknown job", 404)
         return request(base, path, **kwargs)
 
-    monkeypatch.setattr(generate, "_server_json", restarted)
+    monkeypatch.setattr(generate_remote, "_server_json", restarted)
     assert generate.main(["a fox", "--via-server", *SIZE, "-q"]) == 1
     assert "unknown job (job " in capsys.readouterr().err
     assert len([call for call in via_server.calls if call[1] == "/api/generate"]) == 1
@@ -1730,7 +1731,7 @@ def test_via_server_refuses_a_stale_model_revision_before_generation(via_server,
             main.model_selection.select("cagliostrolab/animagine-xl-4.0")
         return request(base, path, **kwargs)
 
-    monkeypatch.setattr(generate, "_server_json", switched)
+    monkeypatch.setattr(generate_remote, "_server_json", switched)
     assert generate.main(["a fox", "--via-server", *SIZE, "-q"]) == 2
     assert "checkpoint changed" in capsys.readouterr().err
     assert via_server.backend.requests == []
@@ -1747,7 +1748,7 @@ def test_server_json_sends_json_and_revision_without_retrying_the_transport(monk
         return io.BytesIO(b'{"job_id":"one"}')
 
     monkeypatch.setattr(urllib.request, "urlopen", respond)
-    assert generate._server_json("http://127.0.0.1:9999", "/api/generate", body={"prompt": "狐狸 🦊"},
+    assert generate_remote._server_json("http://127.0.0.1:9999", "/api/generate", body={"prompt": "狐狸 🦊"},
                                  headers={"X-AuraDream-Model-Revision": "9"}) == {"job_id": "one"}
     [(request, timeout)] = calls
     assert request.get_method() == "POST" and json.loads(request.data) == {"prompt": "狐狸 🦊"}
@@ -1765,16 +1766,16 @@ def test_server_json_reports_http_validation_and_network_errors_without_tracebac
                                      io.BytesIO(json.dumps({"detail": [{"loc": ["body", "width"], "msg": "invalid size"}]}).encode()))
 
     monkeypatch.setattr(urllib.request, "urlopen", invalid)
-    with pytest.raises(generate._ServerError, match="width: invalid size") as error:
-        generate._server_json("http://127.0.0.1:9999", "/api/generate", body={"width": 5})
+    with pytest.raises(generate_remote._ServerError, match="width: invalid size") as error:
+        generate_remote._server_json("http://127.0.0.1:9999", "/api/generate", body={"width": 5})
     assert error.value.status == 422
 
     def offline(request, timeout):
         raise urllib.error.URLError(ConnectionRefusedError("no listener"))
 
     monkeypatch.setattr(urllib.request, "urlopen", offline)
-    with pytest.raises(generate._ServerError, match="no usable answer") as error:
-        generate._server_json("http://127.0.0.1:9999", "/api/status")
+    with pytest.raises(generate_remote._ServerError, match="no usable answer") as error:
+        generate_remote._server_json("http://127.0.0.1:9999", "/api/status")
     assert error.value.status == 0
 
 

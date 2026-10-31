@@ -404,12 +404,17 @@ before changing it.
   card only while the default is the width it judged) and bound and
   `min_kept`; a binned source a 404 that says it is in the recycle bin);
   model-free
-- `backend/generate.py` — headless CLI; drives the backend directly, no server
+- `backend/generate.py` — headless CLI; drives the backend directly, no
+  server, unless `--via-server` hands the run to `generate_remote`
 - `backend/generate_args.py` — the CLI's parser, a `--from-image` PNG's
   settings filled into its arguments, `--outpaint`/`--mask`/size reads and
   the checks that need only the flags (`_grid_flags`, shared by the local
   run and `--via-server`); no `config` import, so all of it runs before
   `apply_env`. Name-imported back into `generate`
+- `backend/generate_remote.py` — the CLI's `--via-server` client: the same
+  flags queued on the configured running server through its public API
+  (`_server_json`, one HTTP call, never retried) and polled to the end;
+  `generate.main` passes in the three helpers it shares with the local run
 - `backend/clear.py` — deletes rows, their PNGs and any orphans, the recycle
   bin's with the rest; `--bin` empties the bin alone, `--bin --older-than
   DAYS` only what was binned more than DAYS days ago
