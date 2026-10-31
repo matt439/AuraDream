@@ -461,7 +461,7 @@ before changing it.
   per version
 - `backend/reindex.py` — rows rebuilt from the PNGs' `auradream` chunk, in place or
   copied in from another gallery; idempotent on the UNIQUE filename
-- `web/` - served as-is from `/static`; `index.html` loads 64 classic
+- `web/` - served as-is from `/static`; `index.html` loads 65 classic
   scripts in order, sharing one global scope; only `app.js`, the last, runs
   the wiring and boot. `state.js` owns shared state; `generation.js`,
   `grid-preview.js`, `job-stream.js` and `job-results.js` handle submission,
@@ -469,7 +469,8 @@ before changing it.
   mirrors and Pause, and `job-queue.js` the queue and which job the page
   watches; `panel.js`, `runs.js` and `viewer.js` the settings,
   run history and results; `gallery.js`, `gallery-actions.js` and `reuse.js`
-  the cards and their actions; `png-settings.js` Load settings from PNG
+  the cards and their actions, `gallery-head.js` the gallery head's
+  pointer-stable layout (`pointHead`, `showInHead`, `syncHeadForPicks`); `png-settings.js` Load settings from PNG
   (a dropped or picked PNG's text chunks read, sent and filled in through
   Reuse); `gallery-search.js` the lightbox's search
   buttons and an empty search's mistyped-key hint; `sheet.js`, `sheet-render.js` and
