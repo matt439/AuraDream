@@ -461,7 +461,7 @@ before changing it.
   per version
 - `backend/reindex.py` — rows rebuilt from the PNGs' `auradream` chunk, in place or
   copied in from another gallery; idempotent on the UNIQUE filename
-- `web/` - served as-is from `/static`; `index.html` loads 59 classic
+- `web/` - served as-is from `/static`; `index.html` loads 60 classic
   scripts in order, sharing one global scope; only `app.js`, the last, runs
   the wiring and boot. `state.js` owns shared state; `generation.js`,
   `grid-preview.js`, `job-stream.js` and `job-results.js` handle submission,
@@ -473,7 +473,7 @@ before changing it.
   (a dropped or picked PNG's text chunks read, sent and filled in through
   Reuse); `gallery-search.js` the lightbox's search
   buttons and an empty search's mistyped-key hint; `sheet.js`, `sheet-render.js` and
-  `sheet-export.js` the contact sheet; `facts.js` a record's settings line
+  `sheet-export.js` the contact sheet, `sheet-zoom.js` its zoom and pan; `facts.js` a record's settings line
   and facts list (`settingsLine`, `factsList`), shared by the lightbox and
   the viewer; `lightbox.js` the lightbox's view, layout, walk and gestures,
   `lightbox-compare.js` its comparison's controls, divider and pass
@@ -5671,7 +5671,7 @@ Frontend and CLI:
   toggle keeps one name, with its state in `aria-pressed` and its title; it
   is remembered under `auradream.sheet.v1` through
   `remembered`/`remember`, is not forgotten by Reset, and is aria-disabled
-  with its reason on a wrapped row. A matrix zooms (sheet.js:
+  with its reason on a wrapped row. A matrix zooms (sheet-zoom.js:
   `sheetZoom` times `sheetZoomBase`, the cells' width at zoom 1 that
   `fitSheet` measures with the zoom off, set on the grid as `--cell-min`
   and `--cell-w`, the box's scroll restored), from 1 to `SHEET_ZOOM_MAX`

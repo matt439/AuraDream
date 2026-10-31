@@ -84,6 +84,10 @@ function renderSheet(place = sheetFocusPlace()) {
   restoreSheetFocus(place);
 }
 
+// What drawSheet drew (with the `shown` and `cells` it fills in): the
+// export, Fill and the zoom read it.
+let sheetLayout = null;
+
 // One image is the sheet's way in from Tab. Its tools remain reachable from
 // it; other cells are reached with arrows or the pointer. Keep the id across
 // redraws, and the old reading-order place when a pin or delete removes it.

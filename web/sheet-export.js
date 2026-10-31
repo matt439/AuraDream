@@ -14,7 +14,6 @@
 // drawn at the larger of the device pixels its cells take on screen and the
 // thumbnail's width - never smaller than the fitted export - from the PNG
 // where that is wider than the thumbnail, as the sheet's own srcset is.
-let sheetLayout = null;
 const EXPORT_MAX_EDGE = 8000;
 // Export all past the edge sends one file per slice, up to this many: the
 // browser asks before a page downloads several, and a hundred files was
