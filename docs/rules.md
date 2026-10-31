@@ -405,6 +405,11 @@ before changing it.
   `min_kept`; a binned source a 404 that says it is in the recycle bin);
   model-free
 - `backend/generate.py` — headless CLI; drives the backend directly, no server
+- `backend/generate_args.py` — the CLI's parser, a `--from-image` PNG's
+  settings filled into its arguments, `--outpaint`/`--mask`/size reads and
+  the checks that need only the flags (`_grid_flags`, shared by the local
+  run and `--via-server`); no `config` import, so all of it runs before
+  `apply_env`. Name-imported back into `generate`
 - `backend/clear.py` — deletes rows, their PNGs and any orphans, the recycle
   bin's with the rest; `--bin` empties the bin alone, `--bin --older-than
   DAYS` only what was binned more than DAYS days ago
@@ -5712,7 +5717,8 @@ Frontend and CLI:
 - `generate.py` duplicates `jobs._generate`'s loop deliberately. It applies
   `--model/--quant/--offload` to `os.environ` before importing
   `backend.config`, as `launch.configure()` does for the server; both take the
-  flags from `launch.add_model_arguments`.
+  flags from `launch.add_model_arguments` (the CLI's parser is
+  `generate_args._build_parser`).
 - `generate.py`'s header shows what `applied()` will run: a negative
   prompt, `--true-cfg` or Mu the checkpoint drops is printed with
   `[ignored: ...]` (a `--grid-mu` axis too), and the duplicate warning names

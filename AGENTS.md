@@ -177,7 +177,8 @@ Backend (`backend/`):
   (private per-call cache ownership, cleanup and deferred disposal),
   per-checkpoint converters and pipelines (`single_file`,
   `anima_*`, `netayume_loading`, `newbie_*`)
-- CLIs: `generate.py`, `clear.py`, `stats.py`, `reindex.py`
+- CLIs: `generate.py` (its arguments and the checks that need only the
+  flags in `generate_args.py`), `clear.py`, `stats.py`, `reindex.py`
 
 Frontend (`web/`, served from `/static`): `index.html` loads classic scripts
 in order, sharing one global scope; only `app.js`, the last, runs anything.

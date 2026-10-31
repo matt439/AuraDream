@@ -22,7 +22,7 @@ from pathlib import Path
 import diffusers
 import pytest
 
-from backend import generate, launch, sizes
+from backend import generate, generate_args, launch, sizes
 from backend.backends import diffusers_backend as module
 from backend.backends.diffusers_backend import DiffusersBackend
 from backend.model_defaults import (
@@ -719,7 +719,7 @@ def test_the_size_table_is_the_same_in_the_browser_and_the_cli():
         }
     assert found == sizes.SIZES
     assert list(found) == list(sizes.SIZES), "the preset strip is Object.keys of this copy"
-    assert generate.SIZES is sizes.SIZES
+    assert generate_args.SIZES is sizes.SIZES
 
 
 def test_the_readme_size_table_matches_the_code():
