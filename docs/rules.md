@@ -123,12 +123,16 @@ before changing it.
   `settings` there is a binding for readers, so runtime patches target
   `schemas_generate`
 - `backend/schemas_generate.py` — the generation request and its one
-  normalisation `applied()`, the outpaint spec (`OutpaintSpec`, `Outpaint`),
-  `GenerateSubmission`/`ThenRefine`, `InstructionEditSubmission`, grids and
-  their preview, `JobAccepted`, the mask and outpaint-preset answers, Load
+  normalisation `applied()`, `GenerateSubmission`/`ThenRefine`,
+  `InstructionEditSubmission`, grids and their preview, `JobAccepted`, Load
   settings from PNG's `Png*` models, `default_strength`,
   `default_inpaint_strength`, `effective_true_cfg`, `error_detail`; the leaf
   the other schema modules build on
+- `backend/schemas_outpaint.py` — the outpaint spec as a row stores it
+  (`OutpaintSpec`, its grid checks and `key()`) and as a request asks for it
+  (`Outpaint`), the stored mask's answer (`MaskStored`) and the presets'
+  (`OutpaintPreset(s)`); a leaf over `outpaint`'s constants, no settings.
+  `schemas_generate` imports `Outpaint` for the request
 - `backend/schemas_prompt.py` — Expand, Check (analysis, findings, orders),
   the chip count, the critic's critique, Danbooru tag suggestion/validation
 - `backend/schemas_gallery.py` — `ImageRecord`, run summaries, gallery pages,

@@ -14,7 +14,8 @@ from .instruction_edit import StoredInstructionEdit
 from .refine import Upscaler
 from .png_settings import crop_anchor
 from .metadata import validate_edit_record
-from .schemas_generate import CropAnchor, OutpaintSpec
+from .schemas_generate import CropAnchor
+from .schemas_outpaint import OutpaintSpec
 
 class ImageRecord(BaseModel):
     id: int

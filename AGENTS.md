@@ -76,7 +76,8 @@ Backend (`backend/`):
   directories; Eager stays cold and no public recipe is activated
 - `schemas.py` re-exports the request/response models, each defined in
   `schemas_generate.py` (the generation request and `applied()`, grids, job
-  answers, Load settings from PNG's), `schemas_prompt.py` (Expand, Check, critic, tag lookup),
+  answers, Load settings from PNG's), `schemas_outpaint.py` (an outpaint's
+  spec, the mask and preset answers), `schemas_prompt.py` (Expand, Check, critic, tag lookup),
   `schemas_gallery.py` (records, runs, bin), `schemas_rerun.py` (Re-render,
   Swap tags, Mass refine, More seeds) or `schemas_model.py` (model status,
   guide, switch); `model_defaults.py` per-checkpoint profiles; `guides.py` each checkpoint's sourced prompting guide and its
