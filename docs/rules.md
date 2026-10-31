@@ -43,8 +43,10 @@ before changing it.
   snapshots; process-lifetime quarantine never stores caller exceptions
 - `tools/backup_credential.py` - explicit inactive/pending credential setup,
   local profile inspection and independent-password archive recovery verification
-- `backend/backup_preferences.py` - strict bounded, atomic database-scoped
-  backup policy sidecars; no lifecycle activation or credential fields
+- `backend/backup_preferences.py` - names a database's backup settings
+  sidecar (`path_for`); `backup_settings` reads and writes it. Its version-1
+  policy format is legacy, read as inactive; only `tests/backup_helpers.py`
+  still writes one
 - `backend/backup_settings.py` - explicit versioned activation (v2 plaintext,
   v3 the retention permission, v4 encrypted profiles and their credential
   reference) and durable gallery/destination scope; older draft policies never
@@ -6402,11 +6404,10 @@ explicit age, retention and protection. It covers UTC age boundaries and
 repeated-hour ordering, unavailable or untrusted copies, exact scope,
 conflicting identities, new-success retention and download leases. These
 checks perform no archive I/O and confer no deletion or activation authority.
-`tests/test_backup_preferences.py` checks bounded strict schema reads,
-database isolation, exact integer-microsecond durations, fixed failure
-warnings and atomic saves preserving prior bytes on write/fsync/replace
-failure. The shared 10,000-copy validation ceiling is an engineering limit,
-not a selected retention policy. Neither module is connected to startup.
+`tests/test_backup_preferences.py` checks the sidecar's name: one per
+database name in a directory, and a pre-rename file used in place. The shared
+10,000-copy validation ceiling is an engineering limit, not a selected
+retention policy; the policy module is not connected to startup.
 `tests/test_backup_activation_settings.py` and `tests/test_api_automatic_backup.py`
 cover explicit v2 activation, inactive legacy
 policies, stable gallery/destination namespaces and scratch startup/configuration

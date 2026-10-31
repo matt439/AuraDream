@@ -9,6 +9,7 @@ import pytest
 
 from backend import backup_preferences, backup_receipts, backup_settings
 from backend.backup_policy import BackupPolicy
+from tests.backup_helpers import save_v1_policy
 
 
 def enable(database, directory, **changes):
@@ -34,8 +35,7 @@ def test_missing_and_disabled_loads_create_nothing_and_generate_no_identifiers(t
 @pytest.mark.parametrize("enabled", [False, True])
 def test_every_legacy_file_is_preserved_and_inactive_until_new_explicit_consent(tmp_path, enabled):
     db = tmp_path / "gallery.db"
-    backup_preferences.save(db, BackupPolicy(enabled, timedelta(hours=1), 2, "unencrypted"))
-    path = backup_preferences.path_for(db)
+    path = save_v1_policy(db, BackupPolicy(enabled, timedelta(hours=1), 2, "unencrypted"))
     before = path.read_bytes()
     loaded = backup_settings.load(db)
     assert not loaded.settings.enabled and loaded.requires_confirmation

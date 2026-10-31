@@ -17,6 +17,7 @@ from backend.backup_policy import BackupPolicy
 from backend.jobs import JobManager
 from backend.schemas import GenerateRequest
 from tests.api_helpers import ORIGIN
+from tests.backup_helpers import save_v1_policy
 from tests.bundle_helpers import _destination, _save, _snapshot
 
 PREFIX = api_backup.PREFIX
@@ -74,8 +75,7 @@ def test_missing_settings_startup_is_unchanged_and_status_is_cached(client, stor
 
 @pytest.mark.parametrize("enabled", [False, True])
 def test_legacy_settings_never_export_or_rewrite_on_app_start(fake, store, enabled, monkeypatch):
-    backup_preferences.save(store.settings.db_path, BackupPolicy(enabled, timedelta(hours=1), 2, "unencrypted"))
-    path = backup_preferences.path_for(store.settings.db_path)
+    path = save_v1_policy(store.settings.db_path, BackupPolicy(enabled, timedelta(hours=1), 2, "unencrypted"))
     before = path.read_bytes()
     monkeypatch.setattr(bundles, "export_bundle", lambda **_kwargs: pytest.fail("legacy settings never activate"))
     with TestClient(main.app, base_url=ORIGIN) as client:

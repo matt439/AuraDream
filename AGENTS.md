@@ -101,7 +101,7 @@ Backend (`backend/`):
   rewrite, `bundle_common.py` their errors and database reads,
   `bundle_crypto.py` its optional password layer;
   `backup_policy.py` pure default-off backup age and retention planning;
-  `backup_preferences.py` atomic database-scoped backup policy sidecars;
+  `backup_preferences.py` the backup settings sidecar's path (its v1 format legacy);
   `backup_settings.py` explicit versioned activation and durable backup scope;
   `backup_credentials.py` cold Windows credential references, explicit setup and
   admitted-worker secret lookup; `failure_state.py` traceback-free quarantine snapshots;
