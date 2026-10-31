@@ -17,6 +17,7 @@ from backend.backends import diffusers_backend as module
 from backend.backends.diffusers_backend import DiffusersBackend
 from backend.model_defaults import defaults_for, hints_for
 from backend.schemas import GenerateRequest
+from tests.backend_helpers import loaded_backend
 
 KLEIN = "black-forest-labs/FLUX.2-klein-4B"
 KLEIN_BASE = "black-forest-labs/FLUX.2-klein-base-4B"
@@ -113,13 +114,6 @@ class Krea2Pipeline(SD3LikePipeline):
     """Same signature; the one family that guides from 0."""
 
 
-def _loaded(pipe):
-    backend = DiffusersBackend()
-    backend._pipe = pipe
-    backend._call_params = set(inspect.signature(pipe.__call__).parameters)
-    return backend
-
-
 class FluxLikePipeline(KleinLikePipeline):
     """`guidance_scale` is a distilled input and `true_cfg_scale` the real CFG -
     FluxPipeline's shape, the one place the two are separate knobs."""
@@ -140,7 +134,7 @@ def test_real_cfg_is_its_own_knob_where_the_pipeline_keeps_it_apart():
     # FLUX.1 were (3.5, off) and (g, g): a negative prompt typed at the
     # recommended 3.5 stacked guidance twice at double the cost, and the usual
     # "embedding at 3.5, mild real CFG of 1.5" could not be asked for.
-    backend = _loaded(FluxLikePipeline())
+    backend = loaded_backend(FluxLikePipeline())
     pipe = backend._pipe
     assert backend.describe()["true_cfg_supported"] is True
     assert backend.cfg_threshold() == 1.0
@@ -170,7 +164,7 @@ def test_a_lone_space_is_a_negative_where_true_cfg_is_the_knob():
     # " " (sizes.js, negativeSent; PA#6), as Qwen-Image's guide asks: the
     # server must keep it, record it and hand it to the pipeline, which runs
     # its uncond pass for any negative that is not None.
-    backend = _loaded(FluxLikePipeline())
+    backend = loaded_backend(FluxLikePipeline())
     pipe = backend._pipe
     base = dict(prompt="a lighthouse", negative_prompt=" ", width=256, height=256, steps=4)
     ran = backend.applied(GenerateRequest(**base, guidance_scale=3.5, true_cfg=1.5))
@@ -187,7 +181,7 @@ def test_where_cfg_is_real_already_the_record_says_which_scale_ran():
     # column then carries that scale whenever the negative prompt applied, so
     # it means one thing on every checkpoint - and a `true_cfg` typed at a
     # pipeline that cannot take one is not recorded as if it had.
-    backend = _loaded(Krea2Pipeline())
+    backend = loaded_backend(Krea2Pipeline())
     assert backend.describe()["true_cfg_supported"] is False
     base = dict(prompt="a lighthouse", negative_prompt="blurry", width=256, height=256, steps=4)
     ran = backend.applied(GenerateRequest(**base, guidance_scale=2.0, true_cfg=5.0))
@@ -200,8 +194,8 @@ def test_having_a_negative_prompt_does_not_mean_guiding_from_zero():
     # "Has negative_prompt -> 0.0" was a Krea2-only rule applied to every
     # pipeline: SD3 answered 0.0 while its own gate is > 1, so loading it made
     # /api/status less accurate than the profile's guess.
-    assert _loaded(SD3LikePipeline()).cfg_threshold() == 1.0
-    assert _loaded(Krea2Pipeline()).cfg_threshold() == 0.0
+    assert loaded_backend(SD3LikePipeline()).cfg_threshold() == 1.0
+    assert loaded_backend(Krea2Pipeline()).cfg_threshold() == 0.0
 
 
 def test_the_cfg_hint_follows_the_pipelines_negative_prompt_answer():

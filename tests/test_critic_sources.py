@@ -11,9 +11,9 @@ from backend.model_defaults import _profile_for
 
 from tests.critic_helpers import (
     KLEIN,
-    _catalogue_repos,
     _context,
 )
+from tests.backend_helpers import catalogue_repos
 
 
 # --- The grounding -----------------------------------------------------------
@@ -46,7 +46,7 @@ def test_aesthetic_critic_gets_its_quality_advice_instead_of_the_family_score_pr
     }
 
 
-@pytest.mark.parametrize("model_id", _catalogue_repos())
+@pytest.mark.parametrize("model_id", catalogue_repos())
 def test_every_catalogue_checkpoint_resolves_to_its_sources(model_id):
     sources = prompt_sources.sources_for(model_id)
     assert sources.guide is _profile_for(model_id)["guide"]
@@ -64,7 +64,7 @@ def _every_guide() -> dict[str, str]:
     """A checkpoint for each guide constant: the catalogue's (the editor's
     among them), the two undistilled ones and an unknown id for the
     fallback."""
-    ids = [*_catalogue_repos(), "Tongyi-MAI/Z-Image", "baidu/ERNIE-Image", "nobody/whatever"]
+    ids = [*catalogue_repos(), "Tongyi-MAI/Z-Image", "baidu/ERNIE-Image", "nobody/whatever"]
     found = {prompt_sources.sources_for(model_id).guide_name: model_id for model_id in ids}
     assert set(found) == set(prompt_sources.GROUNDING)
     return found

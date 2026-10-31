@@ -8,7 +8,6 @@ something gets past it, and the resume key that has to tell the two apart.
 from __future__ import annotations
 
 import dataclasses
-import inspect
 import json
 
 import pytest
@@ -21,6 +20,7 @@ from backend.schemas import GenerateRequest
 
 # `tests/` has no __init__.py; pytest puts this directory on sys.path.
 from test_klein import KleinLikePipeline
+from tests.backend_helpers import loaded_backend
 
 
 class ReferencePipeline(KleinLikePipeline):
@@ -32,13 +32,6 @@ class ReferencePipeline(KleinLikePipeline):
         self.calls.append(dict(prompt=prompt, image=image))
         out = Image.new("RGB", (width, height))
         return type("Result", (), {"images": [out] * num_images_per_prompt})()
-
-
-def _loaded(pipe) -> DiffusersBackend:
-    backend = DiffusersBackend()
-    backend._pipe = pipe
-    backend._call_params = set(inspect.signature(pipe.__call__).parameters)
-    return backend
 
 
 @pytest.fixture
@@ -60,7 +53,7 @@ def test_references_are_dropped_where_the_pipeline_takes_none():
     # The record has to describe the image that was made. A pipeline with no
     # `image` parameter renders the prompt alone, so a row claiming two
     # references would misdirect Reuse and split the resume key forever.
-    backend = _loaded(KleinLikePipeline())
+    backend = loaded_backend(KleinLikePipeline())
     assert backend.describe()["reference_supported"] is False
     assert backend.applied(GenerateRequest(prompt="a fox", reference=[3, 4])).reference == []
 
@@ -72,7 +65,7 @@ def test_references_reach_a_pipeline_that_takes_them(store, monkeypatch):
         seed=1, duration_ms=10, model_id="test/model",
     )
     pipe = ReferencePipeline()
-    backend = _loaded(pipe)
+    backend = loaded_backend(pipe)
     assert backend.describe()["reference_supported"] is True
 
     request = GenerateRequest(
@@ -100,9 +93,9 @@ def test_a_missing_reference_is_named_rather_than_guessed(store):
 def test_an_adapter_is_refused_where_it_cannot_be_applied(lora_dir, monkeypatch):
     # A pipeline with no LoRA mixin says so by name; all three families here
     # have one, but the loader is model-agnostic and an arbitrary repo may not.
-    assert "no LoRA loader" in _loaded(KleinLikePipeline()).lora_unavailable_reason()
+    assert "no LoRA loader" in loaded_backend(KleinLikePipeline()).lora_unavailable_reason()
 
-    backend = _loaded(SwapPipeline())
+    backend = loaded_backend(SwapPipeline())
     assert backend.lora_unavailable_reason() is None
     # Nunchaku's linears are 4-bit SVDQuant, not the layers PEFT wraps: refused
     # by name, up front, the way the Nunchaku preflight refuses.
@@ -142,7 +135,7 @@ def test_the_integrations_that_take_no_adapter_are_refused_by_their_id(monkeypat
         assert loading.lora_refusal(other) is None, other
     # The backend asks it first: ahead of peft and the loaded pipeline, and
     # with the pipeline loaded too, since an id's refusal is the integration's.
-    backend = _loaded(SwapPipeline())
+    backend = loaded_backend(SwapPipeline())
     for model_id, reason in (
         (anima_loading.MODEL_ID, anima),
         ("circlestone-labs/Anima@aesthetic-v1.1", aesthetic),
@@ -347,7 +340,7 @@ class SwapPipeline(KleinLikePipeline):
 
 
 def test_a_weight_change_costs_a_reweighting_not_a_reload(lora_dir):
-    backend = _loaded(SwapPipeline())
+    backend = loaded_backend(SwapPipeline())
     pipe = backend._pipe
     for weight in (0.25, 0.5, 0.5, 1.0):
         backend._apply_lora(
@@ -363,7 +356,7 @@ def test_a_weight_change_costs_a_reweighting_not_a_reload(lora_dir):
 
 
 def test_a_failed_injection_leaves_no_half_applied_adapter(lora_dir):
-    backend = _loaded(SwapPipeline(fail=True))
+    backend = loaded_backend(SwapPipeline(fail=True))
     with pytest.raises(RuntimeError):
         backend._apply_lora(backend._pipe, GenerateRequest(prompt="x", lora="style.safetensors"))
     # The cell fails either way; what must not happen is every cell after it
@@ -376,7 +369,7 @@ def test_a_failed_reweighting_forgets_the_adapter_it_had(lora_dir):
     # it off. The next cell asking for 0.5 again must load it afresh - were
     # the record left at 0.5 it would match, skip, and render with no adapter
     # under a row that names one.
-    backend = _loaded(SwapPipeline(fail_set_on=2))
+    backend = loaded_backend(SwapPipeline(fail_set_on=2))
     pipe = backend._pipe
 
     def ask(weight):
@@ -552,7 +545,7 @@ class FitPipeline(SwapPipeline):
 def test_the_live_denoiser_answers_once_there_is_one(lora_dir):
     import torch
 
-    backend = _loaded(FitPipeline())
+    backend = loaded_backend(FitPipeline())
     _adapter(lora_dir / "style.safetensors", {"transformer_blocks.0.attn.to_q": (16, 16)})
     assert backend.lora_mismatch("style.safetensors") is None
     _adapter(lora_dir / "other.safetensors", {"transformer_blocks.7.attn.to_q": (16, 16)})

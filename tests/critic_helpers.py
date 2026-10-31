@@ -20,7 +20,6 @@ from backend import (
     critic_runtime,
     critic_server,
     critic_validation,
-    launch,
 )
 from backend.schemas import DocumentedOrder, GenerateRequest, PromptAnalysis
 
@@ -32,12 +31,6 @@ PROMPT = (
     "neon city at night, a woman with a red umbrella walking past a shop with a sign "
     "saying open late, shot on film"
 )
-
-
-def _catalogue_repos() -> list[str]:
-    return [c.repo for c in launch.CHECKPOINTS] + [
-        c.lite_repo(fmt) for c in launch.CHECKPOINTS for fmt, _ in launch.FORMATS if c.lite
-    ]
 
 
 def _configure(monkeypatch, **changes) -> None:

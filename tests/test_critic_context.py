@@ -13,10 +13,10 @@ from tests.critic_helpers import (
     PROMPT,
     Server,
     _analysis,
-    _catalogue_repos,
     _context,
     prepared,
 )
+from tests.backend_helpers import catalogue_repos
 
 
 ANIMA = "circlestone-labs/Anima"
@@ -157,7 +157,7 @@ def test_krea_dev_is_told_its_sources_are_bfls():
     assert "(as A1)" in context.system
 
 
-@pytest.mark.parametrize("model_id", sorted(set(_catalogue_repos())))
+@pytest.mark.parametrize("model_id", sorted(set(catalogue_repos())))
 @pytest.mark.parametrize("style", ["prose", "tags"])
 def test_the_system_message_fits_its_budget(model_id, style):
     findings = [

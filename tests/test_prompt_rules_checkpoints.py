@@ -17,12 +17,12 @@ from tests.prompt_rules_helpers import (
     NEWBIE,
     WAI,
     _all_guides,
-    _catalogue_repos,
     only,
     run,
     silent,
     spanned,
 )
+from tests.backend_helpers import catalogue_repos
 
 
 # ------------------------------------------------------------------ tag checkpoints' specifics
@@ -169,7 +169,7 @@ def test_prose_is_looked_up_only_where_the_rules_read_artists():
     # a prose prompt's lookup must have asked about every one: the
     # categories the order places with are None, or cover every item a
     # category could place - never only the tag-shaped ones.
-    for repo in _catalogue_repos():
+    for repo in catalogue_repos():
         items = prompt_rules.category_items(repo, prose)
         asked = prompt_rules.lookup_items(repo, prose)
         if prompt_rules.wants_artist_categories(repo) and prompt_order.places_by_category(repo):

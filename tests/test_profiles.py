@@ -33,6 +33,7 @@ from backend.model_defaults import (
     guide_for,
     hints_for,
 )
+from tests.backend_helpers import catalogue_repos
 
 ROOT = Path(__file__).resolve().parents[1]
 
@@ -463,17 +464,11 @@ def test_every_catalogue_entry_has_a_profile():
         assert isinstance(profile["mu_supported"], bool), repo
 
 
-def _catalogue_repos() -> list[str]:
-    return [c.repo for c in launch.CHECKPOINTS] + [
-        c.lite_repo(fmt) for c in launch.CHECKPOINTS for fmt, _ in launch.FORMATS if c.lite
-    ]
-
-
 def test_every_catalogue_entry_has_a_prompting_guide():
     # The guide is the model card's, not the fallback's: an entry that reached
     # the fallback would show "Unrecognised checkpoint" under a ? badge beside
     # a checkpoint the menu offers by name, with an empty Examples menu.
-    for repo in _catalogue_repos():
+    for repo in catalogue_repos():
         guide = guide_for(repo)
         assert guide["examples"], repo
         # A quality recipe or a collection of templates alone is not an
@@ -540,7 +535,7 @@ def test_a_guides_aspects_are_presets_and_its_sizes_their_framings():
         aspect = min(gaps, key=gaps.get)
         return aspect if gaps[aspect] < math.log(1.03) else None
 
-    for repo in _catalogue_repos():
+    for repo in catalogue_repos():
         guide = guide_for(repo)
         if guide["aspects"] is None:
             assert guide["resolutions"] is None, repo
@@ -559,12 +554,12 @@ def test_the_example_word_is_exactly_where_the_prose_says_no_bound():
     # the checkpoint is "for". Each such guide's tip says it is no maximum,
     # and no guide whose tip says so claims a stronger word.
     disclaims = ("not a supported maximum", "no published maximum")
-    for repo in _catalogue_repos():
+    for repo in catalogue_repos():
         word = guide_for(repo)["pixels_word"]
         size = hints_for(repo)["size"]
         assert (word == "example") == any(phrase in size for phrase in disclaims), (repo, word)
     assert {
-        repo for repo in _catalogue_repos() if guide_for(repo)["pixels_word"] == "example"
+        repo for repo in catalogue_repos() if guide_for(repo)["pixels_word"] == "example"
     } == {
         "duongve/NetaYume-Lumina-Image-2.0", "NewBie-AI/NewBie-image-Exp0.1",
         "LyliaEngine/waiIllustriousSDXL_v170", "black-forest-labs/FLUX.1-Kontext-dev",
@@ -572,7 +567,7 @@ def test_the_example_word_is_exactly_where_the_prose_says_no_bound():
     # Whose sizes the line names them as, exactly where the word is
     # "example": what the size prose calls them, and one author's ("the
     # author's") exactly where that prose names one author's sizes.
-    for repo in _catalogue_repos():
+    for repo in catalogue_repos():
         guide = guide_for(repo)
         source = guide["pixels_source"]
         assert (source is not None) == (guide["pixels_word"] == "example"), repo
@@ -597,7 +592,7 @@ def test_a_fixed_shift_is_the_profiles_mu_static():
 
     from backend.backends import netayume_loading, newbie_loading
 
-    fixed = {repo: defaults_for(repo)["mu_static"] for repo in _catalogue_repos()}
+    fixed = {repo: defaults_for(repo)["mu_static"] for repo in catalogue_repos()}
     assert fixed["duongve/NetaYume-Lumina-Image-2.0"] == math.log(netayume_loading.RECIPE["shift"])
     assert fixed["NewBie-AI/NewBie-image-Exp0.1"] == math.log(newbie_loading.RECIPE["shift"])
     assert fixed["SeeSee21/Z-Anime"] == math.log(6)
@@ -622,7 +617,7 @@ def test_cfg_ignored_is_exactly_where_the_cfg_tip_says_ignored():
     # The grid's CFG axis offers no example where the box never reaches the
     # model - a sweep there is one image at every value, and on klein a walk
     # into the pipeline's warning above 1. The flag and the tip say the same.
-    repos = [*_catalogue_repos(), "nobody/whatever"]
+    repos = [*catalogue_repos(), "nobody/whatever"]
     for repo in repos:
         ignored = defaults_for(repo)["cfg_ignored"]
         assert isinstance(ignored, bool), repo
@@ -640,7 +635,7 @@ def test_every_guide_admits_the_1_mp_presets():
     # on a 1 MP preset; the size line warns a tenth outside the range, so every
     # 1 MP preset (1360x768 is 1.04 MP, 896x1200 is 1.08) has to sit inside
     # that tolerance or a fresh page would open with a warning on it.
-    for repo in _catalogue_repos():
+    for repo in catalogue_repos():
         low, high = guide_for(repo)["pixels"]
         for aspect, tiers in sizes.SIZES.items():
             width, height = tiers[1]
@@ -675,7 +670,7 @@ def test_flux1_names_its_cfg_box_distilled_and_no_other_profile_does():
     # klein's is baked in, and the rest run real CFG in that box.
     distilled = {id(dict(_PROFILES)["flux"]), id(dict(_PROFILES)["krea-dev"])}
     named = set()
-    for repo in _catalogue_repos():
+    for repo in catalogue_repos():
         label = hints_for(repo).get("cfg_label")
         if id(_profile_for(repo)) in distilled:
             assert label == "CFG (distilled)", repo

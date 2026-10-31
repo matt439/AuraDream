@@ -1,7 +1,7 @@
 """Shared fixtures and request helpers for the prompt rules tests."""
 from __future__ import annotations
 
-from backend import guides, launch, prompt_rules
+from backend import guides, prompt_rules
 from backend.model_defaults import defaults_for
 from backend.schemas import GenerateRequest
 
@@ -52,12 +52,6 @@ NETAYUME = "duongve/NetaYume-Lumina-Image-2.0"
 
 
 NEWBIE = "NewBie-AI/NewBie-image-Exp0.1"
-
-
-def _catalogue_repos() -> list[str]:
-    return [c.repo for c in launch.CHECKPOINTS] + [
-        c.lite_repo(fmt) for c in launch.CHECKPOINTS for fmt, _ in launch.FORMATS if c.lite
-    ]
 
 
 def _all_guides() -> dict[str, dict]:

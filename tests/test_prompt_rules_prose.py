@@ -26,12 +26,12 @@ from tests.prompt_rules_helpers import (
     SCHNELL,
     Z_ANIME,
     _all_guides,
-    _catalogue_repos,
     only,
     run,
     silent,
     spanned,
 )
+from tests.backend_helpers import catalogue_repos
 
 
 # ------------------------------------------------------------------ prose rules
@@ -479,7 +479,7 @@ def test_each_slot_cites_the_authors_own_words(name):
     guide = _all_guides()[name]
     if not guide["analysis"].get("placeholders"):
         return
-    model_id = next(repo for repo in _catalogue_repos() if _profile_for(repo)["guide"] is guide)
+    model_id = next(repo for repo in catalogue_repos() if _profile_for(repo)["guide"] is guide)
     for example in guide["examples"]:
         request = GenerateRequest(prompt=example)
         for finding in only(prompt_rules.check(model_id, request, request), "author.placeholder"):
@@ -493,7 +493,7 @@ def test_the_page_reads_each_slot_pattern_as_the_rules_do():
     # classes, non-capturing groups and alternation - with no inline flags,
     # lookbehind or named groups, case left to each side's flag.
     seen = 0
-    for repo in _catalogue_repos():
+    for repo in catalogue_repos():
         analysis = _profile_for(repo)["guide"]["analysis"]
         patterns = [entry["pattern"] for entry in analysis.get("placeholders", [])]
         assert guide_for(repo)["slots"] == patterns, repo

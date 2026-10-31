@@ -31,6 +31,7 @@ from backend.schemas import GenerateRequest, default_strength
 from test_klein import KleinLikePipeline
 from test_profiles import CASES
 from test_schedule import STEPS, StubPipeline
+from tests.backend_helpers import loaded_backend
 
 # The four families diffusers 0.40 ships an image-to-image class for, of the
 # pipelines this app's catalogue loads.
@@ -540,18 +541,11 @@ class Img2ImgStub:
         return type("Result", (), {"images": [Image.new("RGB", image.size)]})()
 
 
-def _loaded(pipe) -> DiffusersBackend:
-    backend = DiffusersBackend()
-    backend._pipe = pipe
-    backend._call_params = set(inspect.signature(pipe.__call__).parameters)
-    return backend
-
-
 @pytest.fixture
 def refinable(store, monkeypatch):
     """A loaded backend whose pipeline has a sibling, and a source to refine."""
     monkeypatch.setattr(refine, "sibling", lambda cls, kind="Img2Img": Img2ImgStub if cls is RefinableMain and kind == "Img2Img" else None)
-    backend = _loaded(RefinableMain())
+    backend = loaded_backend(RefinableMain())
     source = store.save_image(
         Image.new("RGB", (64, 96)), GenerateRequest(prompt="a fox", width=256, height=384),
         seed=1, duration_ms=10, model_id="test/model",
@@ -652,7 +646,7 @@ def test_a_cancelled_refine_still_hands_the_card_back(refinable):
 
 
 def test_no_refine_pass_without_a_sibling(store):
-    backend = _loaded(RefinableMain())  # nothing in diffusers beside this class
+    backend = loaded_backend(RefinableMain())  # nothing in diffusers beside this class
     assert backend.describe()["refine_supported"] is False
     request = GenerateRequest(prompt="a fox", width=256, height=256, steps=10, refine=3, strength=0.5)
     ran = backend.applied(request)
@@ -718,7 +712,7 @@ def test_a_requested_mu_is_the_whole_shift_on_a_refine_pass_too(store, monkeypat
     # text-to-image call.
     monkeypatch.setattr(refine, "sibling", lambda cls, kind="Img2Img": MuSibling if cls is MuMain and kind == "Img2Img" else None)
     scheduler = FlowMatchEulerDiscreteScheduler(use_dynamic_shifting=dynamic, shift=1.0 if dynamic else 3.0)
-    backend = _loaded(MuMain(scheduler))
+    backend = loaded_backend(MuMain(scheduler))
     source = store.save_image(
         Image.new("RGB", (64, 64)), GenerateRequest(prompt="x", width=256, height=256),
         seed=1, duration_ms=10, model_id="test/model",

@@ -24,12 +24,12 @@ from tests.prompt_rules_helpers import (
     WAI,
     Z_ANIME,
     _all_guides,
-    _catalogue_repos,
     only,
     run,
     silent,
     spanned,
 )
+from tests.backend_helpers import catalogue_repos
 
 
 def _entries(analysis: dict):
@@ -59,7 +59,7 @@ def _strings(value):
 def test_every_catalogue_checkpoint_has_an_analysis():
     # Resolved the way every other guide lookup is, official and lite-infer
     # ids alike; the fallback's app-written prose has nothing to cite.
-    for repo in _catalogue_repos():
+    for repo in catalogue_repos():
         analysis = _profile_for(repo)["guide"].get("analysis")
         assert analysis, repo
     assert _FALLBACK["guide"]["analysis"] == {}
@@ -100,7 +100,7 @@ def test_the_analysis_stays_out_of_the_status_payload():
     # would leak into ModelStatus.defaults and fail its validation.
     from backend.schemas import PromptGuide
 
-    for repo in _catalogue_repos():
+    for repo in catalogue_repos():
         assert "analysis" not in guide_for(repo), repo
         assert "analysis" not in defaults_for(repo), repo
         assert "analysis" not in PromptGuide(**guide_for(repo)).model_dump()
@@ -157,7 +157,7 @@ def test_documented_orders_are_the_guides():
 
 def _examples():
     seen = set()
-    for repo in _catalogue_repos():
+    for repo in catalogue_repos():
         for example in guide_for(repo)["examples"]:
             if (repo.split("/")[0] != "lite-infer") and (repo, example) not in seen:
                 seen.add((repo, example))
