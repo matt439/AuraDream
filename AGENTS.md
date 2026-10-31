@@ -141,7 +141,8 @@ Backend (`backend/`):
   `png_settings.py` a PNG's record and A1111 'parameters' block read back
   (`--from-image` and `api_png.py` share it);
   `gallery_reports.py` estimates, keep rates, runs; `gallery_delete.py`
-  scoped delete, recycle bin, clear;
+  scoped delete, recycle bin, clear; `run_jobs.py` retained run jobs (Finish
+  run's cells and outcomes, reached as `storage.<name>`);
   `search.py` search grammar; `grid.py` axes, variables, variants, cells,
   records as cells (`cell_from_record`); `tag_swap.py` Swap tags' rewrite;
   `refine_batch.py` Mass refine's per-image plan; `then_refine.py` Then

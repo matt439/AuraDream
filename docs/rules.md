@@ -330,6 +330,11 @@ before changing it.
 - `backend/gallery_delete.py` — taking images out: the keep-favourites
   predicates, scoped delete and its preview, per-image delete, recycle bin,
   clear and VACUUM (under `storage._write_lock`, read at call time)
+- `backend/run_jobs.py` — retained run jobs: each admitted job's resolved
+  cells and definition in the `run_jobs` table (whose schema stays in
+  storage) and its terminal outcome, for Finish run; reads storage's
+  settings, lock and session at call time, and every caller (and test
+  patch) reaches it as `storage.<name>` through `_MOVED`
 - `backend/gallery_lock.py` — reentrant reservation of complete gallery
   operations across threads and cooperating server/CLI processes
 - `backend/bundles.py` — verified ZIP snapshots (of the whole gallery, or
