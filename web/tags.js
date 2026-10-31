@@ -1,4 +1,5 @@
-// AuraDream's page script: prompt writes, tag autocomplete and editing.
+// AuraDream's page script: prompt writes, tag autocomplete and editing; the
+// note under the prompt is prompt-note.js's.
 // Declarations only; state.js has the shared-global load-order contract.
 'use strict';
 
@@ -57,11 +58,6 @@ let tagHoverFrame = 0;
 // a lookup or a count landing - rebuilds the chips and with them the bar, which
 // a pointer resting in the gap brought back only by moving again.
 let tagHoverPoint = null;
-// What the note under the prompt holds (showPromptNote, below): an Example's
-// or an expansion's write with its Undo, Reset's Undo, Expand's running line
-// or a held expansion - or null.
-let promptUndo = null;
-let promptUndoTimer = null;
 
 // A tag's comparable form: what the index answers the same for. Case and
 // spacing, not underscores - the guide's own tags match as typed, spaces and
@@ -88,118 +84,6 @@ function writeBox(el, text) {
   hideTagSuggestions();
   clearTimeout(tagTypingTimer);
   tagTyping = null;
-}
-
-// The note under the prompt (#prompt-note), one at a time, said where the
-// press was: over the next field's caption on a two-column page - out of the
-// panel's flow, so its coming and going moves nothing, Generate least - and
-// in the flow in one column, while the negative box is greyed, and for the
-// kinds with no timer, 'running' and 'held' (`data-kind`, styles/fields.css), which
-// would otherwise cover a live negative box for minutes.
-// What it holds is `promptUndo`, {kind, after, undo, discard, onDrop, again}:
-//   'write' - a write the user did not type over their own words, an Example
-//     picked over a prompt in progress or an expansion (prompt-examples.js,
-//     prompt-expand.js), with an Undo
-//     that puts it back. It goes once the box holds anything else, `undo`
-//     being about the text it replaced (syncPromptUndo); Ctrl+Z in the box
-//     does the same for longer. 'info' goes the same way, with no button.
-//   'reset' - Reset's Undo (panel.js), retired by Reset's own rule, the first
-//     change of the panel (syncResetUndo), and after 20 s. It lies in the
-//     emptied box itself (`at: 'box'`), as does the note its Undo leaves.
-//   'running', 'held' - ERNIE's Expand while it runs, and an expansion the
-//     user typed over meanwhile (Use it, Discard): typing takes neither.
-// Each goes after `ms` (none for 0) unless focus is on its buttons. One Undo
-// on offer at a time: the write that brings this one takes a Reuse's
-// (reuse.js's syncReuseUndo), and a Reuse takes this. `onDrop` runs when the
-// note goes, whatever takes it. `host` puts it at the end of another box for
-// the time it is shown - an expansion's, in its English at the head of the
-// results from 1800 px (prompt-expand.js), where the panel would have pushed Generate
-// below the window - and the next note brings it back under the prompt.
-// Moved with `moveBefore` where the browser has it, which keeps the node's
-// state: a live region removed and inserted again just before its words are
-// written is often not read out. `again()` shows the same note anew - Expand
-// offers back the one its running line took, where it fails.
-const PROMPT_NOTE_HOME = els.promptNote.parentElement;
-function showPromptNote(message, options = {}) {
-  const {
-    kind = 'write', undo = null, label = 'Undo', title = '', discard = null, ms = 15000, onDrop = null,
-    host = PROMPT_NOTE_HOME, at = 'field',
-  } = options;
-  dropPromptUndo();
-  if (els.promptNote.parentElement !== host) {
-    let moved = false;
-    if (typeof host.moveBefore === 'function') {
-      try { host.moveBefore(els.promptNote, null); moved = true; } catch { /* inserted below */ }
-    }
-    if (!moved) host.append(els.promptNote);
-  }
-  const note = {
-    kind, after: els.prompt.value, undo, discard, onDrop, again: () => showPromptNote(message, options),
-  };
-  promptUndo = note;
-  // The kind is the stylesheet's too: Expand's running line and a held
-  // expansion, which stay for minutes, take a line of the panel's flow
-  // rather than lying over the next field.
-  els.promptNote.dataset.kind = kind;
-  // Where it lies (styles/fields.css): over the next field's caption, or in the
-  // flow where that would cover something ('field'); in the box itself
-  // ('box') for Reset's, whose box is empty while it shows - never in the
-  // flow, which moved Generate as it came and went.
-  els.promptNote.dataset.at = at;
-  // Shown before it is written: it is a live region, and words written into
-  // a hidden one are never read out.
-  els.promptNote.hidden = false;
-  els.promptNoteText.textContent = message;
-  els.promptNoteUndo.hidden = !undo;
-  els.promptNoteUndo.textContent = label;
-  els.promptNoteUndo.title = title;
-  els.promptNoteDiscard.hidden = !discard;
-  els.promptExpandStop.hidden = !expandingPrompt;
-  if (ms) {
-    promptUndoTimer = setTimeout(() => {
-      if (promptUndo === note && !els.promptNote.contains(document.activeElement)) dropPromptUndo();
-    }, ms);
-  }
-  return note;
-}
-
-function offerPromptUndo(message, undo, options = {}) {
-  return showPromptNote(message, { ...options, undo });
-}
-
-function dropPromptUndo() {
-  clearTimeout(promptUndoTimer);
-  const note = promptUndo;
-  promptUndo = null;
-  // Focus on its button goes back to the box the note is about, not <body>.
-  if (els.promptNote.contains(document.activeElement)) els.prompt.focus({ preventScroll: true });
-  els.promptNote.hidden = true;
-  note?.onDrop?.();
-  // Expand's Stop remains reachable after a Reset/Reuse or an expired note.
-  // Wait until the current write has installed its own note before deciding
-  // whether a plain running line is needed; never replace that write's Undo.
-  queueMicrotask(syncExpandStop);
-}
-
-function syncPromptUndo() {
-  if (promptUndo && ['write', 'info'].includes(promptUndo.kind) && els.prompt.value !== promptUndo.after) {
-    dropPromptUndo();
-  }
-}
-
-// The note's Undo (or Use it): a write's undo only while the box holds what
-// the write left; Reset's and a held expansion's whatever the box holds.
-function undoPromptWrite() {
-  const pending = promptUndo;
-  if (!pending?.undo) return;
-  dropPromptUndo();
-  if (pending.kind !== 'write' || els.prompt.value === pending.after) pending.undo();
-}
-
-function discardPromptNote() {
-  const pending = promptUndo;
-  dropPromptUndo();
-  pending?.discard?.();
 }
 
 // ------------------------------------------------------------ prompt tag helper

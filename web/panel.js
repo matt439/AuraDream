@@ -267,7 +267,7 @@ function resetPanel() {
 }
 
 // The note a Reset leaves, with its Undo, where Reset was pressed: in the top
-// right of the prompt box it emptied, under Reset (tags.js, showPromptNote,
+// right of the prompt box it emptied, under Reset (prompt-note.js, showPromptNote,
 // `at: 'box'`). In the panel's line under Generate it was below the window at
 // 1400x900 and in one column, and gone after 20 seconds unseen; in the
 // panel's flow under the prompt it moved Generate down a line, and back up

@@ -190,7 +190,7 @@ function reuseFields() {
   };
 }
 
-// The Examples' rule (tags.js's `syncPromptUndo`) for the whole of what the
+// The Examples' rule (prompt-note.js's `syncPromptUndo`) for the whole of what the
 // Undo restores: it is on offer only while the panel holds what the Reuse
 // left there. It used to stay through any later edit, and pressing it then
 // threw away the typing, the seed or the Example picked since, and said the
