@@ -461,9 +461,12 @@ before changing it.
   per version
 - `backend/reindex.py` — rows rebuilt from the PNGs' `auradream` chunk, in place or
   copied in from another gallery; idempotent on the UNIQUE filename
-- `web/` - served as-is from `/static`; `index.html` loads 65 classic
+- `web/` - served as-is from `/static`; `index.html` loads 66 classic
   scripts in order, sharing one global scope; only `app.js`, the last, runs
-  the wiring and boot. `state.js` owns shared state; `generation.js`,
+  the wiring and boot. `state.js` owns shared state; `page-helpers.js`, right
+  after it, the page-wide pure helpers (`plural`, `excerpt`, `units`,
+  `humanTime`, `keyboardEventHeld`, `keyboardEditingTarget`,
+  `keyboardCommandModifier`); `generation.js`,
   `grid-preview.js`, `job-stream.js` and `job-results.js` handle submission,
   previews and progress, with `job-progress.js` the watched job's progress,
   mirrors and Pause, and `job-queue.js` the queue and which job the page

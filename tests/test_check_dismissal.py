@@ -74,7 +74,7 @@ function fixture() {
     setTimeout:()=>1,clearTimeout:()=>{},setInterval:()=>1,clearInterval:()=>{},performance:{now:()=>0},
     OFFLINE_MESSAGE:'offline',KEEPS_PROMPT:'',INLINE_CITE:100,
   });
-  for (const name of ['analysis.js','analysis-critic.js']) {
+  for (const name of ['page-helpers.js','analysis.js','analysis-critic.js']) {
     new vm.Script(fs.readFileSync(path.join(root,'web',name),'utf8'),{filename:name}).runInContext(sandbox);
   }
   // Preserve real request/cache/stale/close/escape/focus/critic-chain handlers.

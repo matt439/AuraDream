@@ -3,20 +3,6 @@
 // Native field editing and browser shortcuts keep their own meaning.
 'use strict';
 
-// Shared by local handlers and the document dispatcher. A key already owned
-// by an editor/menu, or still composing, must never become a second command.
-function keyboardEventHeld(event) {
-  return event.defaultPrevented || event.isComposing || event.keyCode === 229;
-}
-
-function keyboardEditingTarget(target) {
-  return !!target?.closest?.('input, textarea, select') || !!target?.isContentEditable;
-}
-
-function keyboardCommandModifier(event) {
-  return event.ctrlKey || event.metaKey || event.altKey;
-}
-
 function keyboardSubmit(event) {
   return event.key === 'Enter' && event.ctrlKey !== event.metaKey
     && !event.altKey && !event.shiftKey;
