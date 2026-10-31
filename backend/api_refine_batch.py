@@ -250,9 +250,7 @@ def create_router(services: AppServices) -> APIRouter:
             job = await services.jobs().submit_cells(
                 group, run_id=grid.run_id(group, model, quantization), refine_batch=request.scale,
             )
-            accepted.append(JobAccepted.model_validate({
-                "job_id": job.id, "seed": job.seed, "run_id": job.run_id, "estimate_seconds": job.estimate_seconds,
-            }))
+            accepted.append(JobAccepted.of(job))
         first = accepted[0]
         return RefineBatchAccepted(
             job_id=first.job_id, seed=first.seed, run_id=first.run_id, estimate_seconds=first.estimate_seconds,

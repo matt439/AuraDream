@@ -213,9 +213,7 @@ def create_router(services: AppServices) -> APIRouter:
                        "Review the remaining batches before requesting more; another request adds new seeds.")
                 )
                 break
-            accepted.append(JobAccepted.model_validate({
-                "job_id": job.id, "seed": job.seed, "run_id": job.run_id, "estimate_seconds": job.estimate_seconds,
-            }))
+            accepted.append(JobAccepted.of(job))
             accepted_batches.extend(group)
         first = accepted[0]
         return MoreSeedsAccepted(

@@ -291,9 +291,7 @@ def create_router(services: AppServices) -> APIRouter:
         accepted = []
         for group in groups:
             job = await services.jobs().submit_cells(group.kept, run_id=group.run_id)
-            accepted.append(JobAccepted.model_validate({
-                "job_id": job.id, "seed": job.seed, "run_id": job.run_id, "estimate_seconds": job.estimate_seconds,
-            }))
+            accepted.append(JobAccepted.of(job))
         first = accepted[0]
         return RerenderAccepted.model_validate({
             **first.model_dump(),

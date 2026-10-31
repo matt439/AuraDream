@@ -90,8 +90,6 @@ def create_router(services: AppServices) -> APIRouter:
             # The gate or the loader changed under the request: refused whole,
             # before a job exists.
             raise HTTPException(status_code=422, detail=error_detail(exc)) from exc
-        return JobAccepted.model_validate({
-            "job_id": job.id, "seed": job.seed, "run_id": job.run_id, "estimate_seconds": job.estimate_seconds,
-        })
+        return JobAccepted.of(job)
 
     return router

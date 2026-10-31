@@ -16,7 +16,7 @@ the running checkpoint through `settings` patches it here.
 from __future__ import annotations
 
 from collections.abc import Iterable
-from typing import Any, Literal, Protocol, TypedDict
+from typing import TYPE_CHECKING, Any, Literal, Protocol, TypedDict
 
 from pydantic import BaseModel, ConfigDict, Field, field_validator, model_validator
 from pydantic_core import PydanticCustomError
@@ -33,6 +33,9 @@ from .model_defaults import defaults_for, inpaint_family, inpaint_start
 from .refine import DEFAULT_STRENGTH, Upscaler, leaves_a_step, upscaler_supported
 from .schemas_outpaint import Outpaint
 from .seeds import MAX_BATCH, MAX_GRID_SEEDS, MAX_RUNS, MAX_SEED
+
+if TYPE_CHECKING:
+    from .job_state import Job
 
 # How many reference images one request may carry. klein concatenates each one
 # onto the latent sequence, and attention is quadratic in that length: four 1 MP
@@ -863,6 +866,14 @@ class JobAccepted(BaseModel):
     # The job's stored price from matching history (`Job.estimate_seconds`),
     # or None: the queue row's figure from its first render. Additive.
     estimate_seconds: float | None = None
+
+    @classmethod
+    def of(cls, job: Job) -> JobAccepted:
+        """The answer for a queued job, so a field added here is filled at
+        every route that queues one."""
+        return cls.model_validate({
+            "job_id": job.id, "seed": job.seed, "run_id": job.run_id, "estimate_seconds": job.estimate_seconds,
+        })
 
 
 # Load settings from PNG's body (`api_png.py`): what the page read out of a

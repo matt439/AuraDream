@@ -140,9 +140,7 @@ def create_router(services: AppServices) -> APIRouter:
         # granted repo access.
         spec = await then_refine_spec(services, submitted.then_refine, [request])
         job = await services.jobs().submit(request, then_refine=spec)
-        return JobAccepted.model_validate({
-            "job_id": job.id, "seed": job.seed, "run_id": job.run_id, "estimate_seconds": job.estimate_seconds,
-        })
+        return JobAccepted.of(job)
 
 
     @router.post("/api/grid", response_model=JobAccepted)
@@ -176,9 +174,7 @@ def create_router(services: AppServices) -> APIRouter:
             comparison=bool(request.prompt_variants),
             then_refine=spec,
         )
-        return JobAccepted.model_validate({
-            "job_id": job.id, "seed": job.seed, "run_id": job.run_id, "estimate_seconds": job.estimate_seconds,
-        })
+        return JobAccepted.of(job)
 
 
     @router.post("/api/grid/preview", response_model=GridPreview)
