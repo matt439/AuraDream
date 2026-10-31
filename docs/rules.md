@@ -384,6 +384,10 @@ before changing it.
 - `backend/submission.py` — what every cell producer checks before it
   queues (`refuse_unusable_inputs`, `unusable_input`, `refine_unavailable`,
   `inpaint_unavailable`, `mask_unusable`, `not_yet_rendered`) and the gallery selection (`resolve_selection`);
+  `backend/submission_rules.py` its checks and refusal wording that need no
+  services (`mask_unusable`, `outpaint_unusable`, `missing_masks`, the
+  `*_detail` sentences, `cells_by_size`), re-exported by `submission` and
+  imported by the CLI, which so never imports FastAPI;
   `backend/api_generate.py` Generate, Run grid, its preview, Re-render and its preview,
   run details and Finish run (`/api/runs/{id}`, `finish_plan`);
   `api_swap.py`, `api_refine_batch.py`, `api_more_seeds.py` the Swap tags,

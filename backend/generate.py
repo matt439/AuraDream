@@ -243,7 +243,7 @@ def _then_refine_passes(p, backend, records, spec, pass_run, job_id, on_progress
 def _project() -> SimpleNamespace:
     """Import the project, reporting the wrong interpreter clearly."""
     try:
-        from backend import gallery_lock, gallery_reports, grid, loras, outpaint, refine, storage, submission
+        from backend import gallery_lock, gallery_reports, grid, loras, outpaint, refine, storage, submission_rules
         from backend.backends import Cancelled, get_backend
         from backend.config import settings
         from backend.model_defaults import defaults_for
@@ -265,7 +265,7 @@ def _project() -> SimpleNamespace:
         outpaint=outpaint,
         refine=refine,
         storage=storage,
-        submission=submission,
+        submission_rules=submission_rules,
         Cancelled=Cancelled,
         get_backend=get_backend,
         settings=settings,
@@ -279,7 +279,7 @@ def _project() -> SimpleNamespace:
 
 def _mask_unusable(p: SimpleNamespace, request, mask_image, *, store: bool) -> str | None:
     """Why the inpaint's mask cannot run over its source, or None - the
-    server's submit check (`submission.mask_unusable`), after keeping the
+    server's submit check (`submission_rules.mask_unusable`), after keeping the
     mask where this run has its picture (--mask, or the PNG's own copy) and
     is no dry run. A dry run holds the picture's size to the source and the
     request instead, and writes nothing."""
@@ -305,7 +305,7 @@ def _mask_unusable(p: SimpleNamespace, request, mask_image, *, store: bool) -> s
         except ValueError as exc:
             return str(exc)
         return None
-    from backend.submission import mask_unusable
+    from backend.submission_rules import mask_unusable
 
     return mask_unusable(request)
 
@@ -704,7 +704,7 @@ def main(argv: list[str] | None = None) -> int:
                 print(str(exc), file=sys.stderr)
                 return 2
     if mask is not None:
-        for group in p.submission.cells_by_size(cells).values():
+        for group in p.submission_rules.cells_by_size(cells).values():
             reason = _mask_unusable(p, group[0].request, mask_image, store=not args.dry_run)
             if reason is not None:
                 print(reason, file=sys.stderr)
@@ -712,9 +712,9 @@ def main(argv: list[str] | None = None) -> int:
     if request.outpaint is not None:
         # The server's submit check, and - for one --from-image carried - the
         # mask this build builds held to the one the image was made under.
-        from backend.submission import outpaint_unusable
+        from backend.submission_rules import outpaint_unusable
 
-        for group in p.submission.cells_by_size(cells).values():
+        for group in p.submission_rules.cells_by_size(cells).values():
             reason = outpaint_unusable(group[0].request)
             if reason is not None:
                 print(reason, file=sys.stderr)
@@ -777,7 +777,7 @@ def main(argv: list[str] | None = None) -> int:
         # thumbnail migration to init_db() below, after the dry-run guard.
         try:
             done = set()
-            for (actual_width, actual_height), group in p.submission.cells_by_size(cells).items():
+            for (actual_width, actual_height), group in p.submission_rules.cells_by_size(cells).items():
                 done.update(p.storage.completed_cells(
                     p.grid.prompts_of(group), actual_width, actual_height,
                     p.settings.model_id, p.settings.quantization,
@@ -862,7 +862,7 @@ def main(argv: list[str] | None = None) -> int:
                 f"true cfg : {args.true_cfg:g}  [ignored: on this checkpoint --cfg is real "
                 "CFG already]"
             )
-        actual_sizes = list(p.submission.cells_by_size(axis_cells))
+        actual_sizes = list(p.submission_rules.cells_by_size(axis_cells))
         print("size     : " + ", ".join(f"{w}x{h}" for w, h in actual_sizes))
         # A Mu this checkpoint cannot take is dropped by `applied()` and the
         # row records none, so the report says so rather than show it as run.
