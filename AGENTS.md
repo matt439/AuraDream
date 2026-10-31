@@ -137,7 +137,8 @@ Backend (`backend/`):
   `bundle_file_lock.py`; `bundle_mode.py` explicit Windows/NTFS mode installation
   and destination discovery; `bundle_delete.py` same-handle managed
   deletion mechanism; `bundle_capacity.py` managed-export logical-byte budgets
-- `jobs.py` single-worker queue and SSE; `error_text.py` `short_error`,
+- `jobs.py` single-worker queue and SSE; `job_state.py` the `Job` record and
+  its status snapshot (`jobs` re-exports it); `error_text.py` `short_error`,
   stdlib only (`jobs` re-exports it); `storage.py` SQLite + PNGs;
   `metadata.py` the PNG chunk's key and codec, legacy `krea` reader and file-placement guard;
   `record_fields.py` the pure row/chunk field codecs (mask hash, outpaint

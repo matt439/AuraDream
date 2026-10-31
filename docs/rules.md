@@ -311,6 +311,10 @@ before changing it.
 - `backend/latent_preview.py` — the latent-to-RGB maps the live preview
   draws with, one per VAE, fitted on the card
 - `backend/jobs.py` — single-worker queue, SSE progress
+- `backend/job_state.py` — a queued job's state: the `Job` dataclass (its
+  fields, call/skip tokens, execution-diagnostics binding and `snapshot`) and
+  `_TERMINAL`; reads no gallery, settings or backend, and `jobs` imports both
+  names back, so `from backend.jobs import Job` still answers
 - `backend/error_text.py` — `short_error`, an exception as one UI-presentable
   paragraph; standard library only, so `prompt_check` and `tag_lookup` need
   not import the queue for it (`jobs` re-exports it for every other caller)
