@@ -161,12 +161,6 @@
 .rf-check .ghost.tiny { margin-left: var(--sp-2); vertical-align: 1px; }
 /* Why a negative-prompt Apply is dead: the box is greyed. */
 .rf-off { color: var(--text-3); }
-/* The check's text for a screen reader, said when it changes. Out of the
-   flex column's flow, so it adds no gap. */
-.rf-said {
-  position: absolute; width: 1px; height: 1px; margin: 0; overflow: hidden;
-  clip: rect(0 0 0 0); white-space: nowrap;
-}
 /* What the pass will do, in the dialog's own voice rather than a hint's. */
 #refine-preview { font-size: var(--fs-body-sm); color: var(--text); }
 #refine-preview.warn { color: var(--warn); }

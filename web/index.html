@@ -977,10 +977,10 @@
         <!-- What a sheet is, said as it opens ("Sheet: 6 images, Steps ×
              Seed"; sheet.js's saySheet), outside the sheet, which is hidden
              until then. -->
-        <p class="sheet-said" id="sheet-said" aria-live="polite"></p>
+        <p class="sr-only" id="sheet-said" aria-live="polite"></p>
         <!-- The sheet's zoom for a screen reader (sheet-zoom.js, writeSheetZoom):
              the readout's words, said once a wheel's burst is over. -->
-        <p class="sheet-said" id="sheet-zoom-said" aria-live="polite"></p>
+        <p class="sr-only" id="sheet-zoom-said" aria-live="polite"></p>
         <div class="grid" id="gallery"></div>
         <!-- The contact sheet: one run laid out as the grid that produced it. -->
         <div class="sheet" id="sheet" hidden>
@@ -1087,7 +1087,7 @@
            written once a wheel's burst is over (lightbox.js, writeZoom). The
            readout's title is the stage's mouse help, kept off the picture. -->
       <span class="lb-zoom" id="lb-zoom" aria-hidden="true" title="Scroll to zoom, drag to pan, double-click for 1:1"></span>
-      <span class="lb-said" id="lb-zoom-said" aria-live="polite"></span>
+      <span class="sr-only" id="lb-zoom-said" aria-live="polite"></span>
       <button class="ghost small" id="lb-download" title="Download the full-size PNG with its saved settings">Download</button>
     </div>
     <div class="lb-actions">
@@ -1292,7 +1292,7 @@
          a live region itself: the line under it says its text to a screen
          reader when that text changes. -->
     <div class="rf-check" id="refine-check" hidden></div>
-    <p class="rf-said" id="refine-check-said" aria-live="polite"></p>
+    <p class="sr-only" id="refine-check-said" aria-live="polite"></p>
     <p class="hint pre" id="refine-preview" aria-live="polite"></p>
     <p class="error" id="refine-error" role="alert" hidden></p>
     <div class="rf-actions">
@@ -1355,7 +1355,7 @@
     </div>
     <!-- What the mask is now and where its upload is: one line, never more. -->
     <p class="ip-status" id="inpaint-status" role="status"></p>
-    <p class="ip-said" id="inpaint-keys">With the picture focused: B brush, E eraser, [ and ] size, I invert,
+    <p class="sr-only" id="inpaint-keys">With the picture focused: B brush, E eraser, [ and ] size, I invert,
       Ctrl+Z undo, Ctrl+Shift+Z or Ctrl+Y redo; the arrow keys move the brush and Space paints.</p>
   </div>
   <div class="ip-controls">
@@ -1419,7 +1419,7 @@
     <!-- The prompt check on the inpaint's own prompt, as the Refine dialog's:
          what the encoders never read, and a rule's whole-field fix. -->
     <div class="rf-check" id="inpaint-check" hidden></div>
-    <p class="rf-said" id="inpaint-check-said" aria-live="polite"></p>
+    <p class="sr-only" id="inpaint-check-said" aria-live="polite"></p>
     <p class="hint pre" id="inpaint-preview" aria-live="polite"></p>
     <p class="error" id="inpaint-error" role="alert" hidden></p>
     <div class="rf-actions">
@@ -1544,7 +1544,7 @@
       <p class="hint" id="outpaint-carried"></p>
     </details>
     <div class="rf-check" id="outpaint-check" hidden></div>
-    <p class="rf-said" id="outpaint-check-said" aria-live="polite"></p>
+    <p class="sr-only" id="outpaint-check-said" aria-live="polite"></p>
     <p class="hint pre" id="outpaint-preview" aria-live="polite"></p>
     <p class="error" id="outpaint-error" role="alert" hidden></p>
     <div class="rf-actions">

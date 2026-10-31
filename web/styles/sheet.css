@@ -72,11 +72,6 @@
    box of their own, so the heads and cells are still the grid's items and
    the heads stick as they did. */
 .sheet-row { display: contents; }
-/* What a sheet is, said as it opens (sheet.js, saySheet). */
-.sheet-said {
-  position: absolute; width: 1px; height: 1px; margin: 0; overflow: hidden;
-  clip: rect(0 0 0 0); white-space: nowrap;
-}
 /* The heads at the text's size and colour - 11 px grey over cells 500 px and
    more across - and stuck to the box's top and left edges, each over its
    whole row or column and the gap beside it on the page's own background, so
