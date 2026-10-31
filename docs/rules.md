@@ -311,6 +311,9 @@ before changing it.
 - `backend/latent_preview.py` — the latent-to-RGB maps the live preview
   draws with, one per VAE, fitted on the card
 - `backend/jobs.py` — single-worker queue, SSE progress
+- `backend/error_text.py` — `short_error`, an exception as one UI-presentable
+  paragraph; standard library only, so `prompt_check` and `tag_lookup` need
+  not import the queue for it (`jobs` re-exports it for every other caller)
 - `backend/storage.py` — SQLite index + PNGs with embedded metadata
 - `backend/record_fields.py` — the pure field codecs rows and PNG chunks
   share: the chunk's mask, upscaler, batch and peak sanitisers and

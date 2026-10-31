@@ -25,6 +25,7 @@ from .backends.base import ExecutionDiagnosticsReader
 from .backends.regional_compile import RegionalDiagnosticOwner, RegionalDiagnostics
 from .model_selection import current_settings
 from .config import settings
+from .error_text import short_error
 from .execution import require_configured_loader_available, require_default_execution, resolve_execution
 from .grid import Cell, CellKey, cell_keys, progress_steps, run_id as _run_id
 from .latent_preview import data_url
@@ -66,28 +67,6 @@ class LoadFailed(RuntimeError):
     def __init__(self, detail: str) -> None:
         super().__init__(detail)
         self.detail = detail
-
-
-def short_error(exc: BaseException, limit: int = 320) -> str:
-    """A one-paragraph, UI-presentable form of an exception.
-
-    HuggingFace errors in particular carry a request id and a stack of URLs that
-    are noise in the browser; keep the actionable sentences and drop the rest.
-    """
-    lines = [
-        line.strip()
-        for line in str(exc).splitlines()
-        if line.strip() and "Request ID" not in line
-    ]
-    message = " ".join(lines) or exc.__class__.__name__
-    if len(message) > limit:
-        # Cut from the middle: PyTorch's OOM message puts the diagnosis first
-        # and the remedy (`PYTORCH_CUDA_ALLOC_CONF=expandable_segments:True`)
-        # last, and a cut from the end landed inside that variable's name.
-        head = limit * 2 // 3
-        tail = limit - head - 3
-        message = message[:head].rstrip() + " … " + message[-tail:].lstrip()
-    return f"{type(exc).__name__}: {message}"
 
 
 @dataclass

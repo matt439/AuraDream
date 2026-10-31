@@ -16,7 +16,7 @@ from __future__ import annotations
 import logging
 
 from . import prompt_rules, prompt_text
-from .jobs import short_error
+from .error_text import short_error
 from .model_defaults import guide_for
 from .schemas import TagValidationRequest
 from .tags import (
