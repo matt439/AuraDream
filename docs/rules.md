@@ -314,9 +314,11 @@ before changing it.
 - `backend/storage.py` — SQLite index + PNGs with embedded metadata
 - `backend/metadata.py` — the PNG chunk's key (`auradream`) and
   `embedded_metadata`, which still reads the legacy `local-diffusion` and
-  `krea` keys (and `auradream-mask`'s legacy `local-diffusion-mask`); shared
-  by storage, `png_settings.py` (so `generate.py` and `api_png.py`) and
-  `reindex.py`
+  `krea` keys (and `auradream-mask`'s legacy `local-diffusion-mask`); the
+  PNG chunk codec (`PNG_SIGNATURE`, `text_keyword`, `metadata_chunk`) and
+  the SQL/PNG edit and execution reconciliation; shared by storage,
+  `png_settings.py` (so `generate.py` and `api_png.py`), `reindex.py` and
+  the bundle layer, which never imports the `reindex` CLI at module level
 - `backend/png_settings.py` — settings read back from a PNG's text chunks:
   this app's record (`record`, and `image_settings` for a file on disk,
   which `--from-image` reads through) and A1111's 'parameters' block
@@ -2224,7 +2226,7 @@ Jobs:
   known row keeps this gallery's state, as it keeps its star, and
   `binned_at` is not in the identity comparison. The import result's
   `binned` counts new rows arriving binned. A bundle from before the column
-  imports live; `binned_at` is not in `reindex._DB_REQUIRED` and the
+  imports live; `binned_at` is not in `bundle_common._DB_REQUIRED` and the
   manifest stays `version: 1`. Bin state is SQLite's alone, never the PNG
   chunk's: a PNG-only reindex, and an older build importing a newer bundle,
   bring binned images back live, as a PNG-only reindex loses a star;

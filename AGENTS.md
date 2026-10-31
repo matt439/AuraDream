@@ -137,7 +137,7 @@ Backend (`backend/`):
   and destination discovery; `bundle_delete.py` same-handle managed
   deletion mechanism; `bundle_capacity.py` managed-export logical-byte budgets
 - `jobs.py` single-worker queue and SSE; `storage.py` SQLite + PNGs;
-  `metadata.py` the PNG chunk's key, legacy `krea` reader and file-placement guard;
+  `metadata.py` the PNG chunk's key and codec, legacy `krea` reader and file-placement guard;
   `png_settings.py` a PNG's record and A1111 'parameters' block read back
   (`--from-image` and `api_png.py` share it);
   `gallery_reports.py` estimates, keep rates, runs; `gallery_delete.py`

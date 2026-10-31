@@ -48,7 +48,6 @@ import re
 import sqlite3
 import sys
 import time
-import zlib
 from datetime import datetime, timezone
 from pathlib import Path
 
@@ -59,13 +58,15 @@ try:
     from PIL import Image
 
     from backend import gallery_lock, storage
+    from backend.bundle_common import _DB_REQUIRED
     from backend.config import settings
-    from backend.execution import ExecutionSpec, canonical_execution, execution_chunk, execution_from_json, execution_key
+    from backend.execution import canonical_execution, execution_chunk, execution_from_json, execution_key
     from backend.instruction_edit import StoredInstructionEdit, descriptor_from_image, edit_key
     from backend.metadata import (
-        PNG_METADATA_KEY, PNG_METADATA_KEYS, canonical_edit, edit_chunk, edit_from_info,
-        edit_from_json, edit_from_sources, embedded_mask, embedded_metadata, require_header_metadata,
-        validate_edit_record,
+        PNG_METADATA_KEY,  # noqa: F401 - re-exported; tests read reindex.PNG_METADATA_KEY
+        PNG_METADATA_KEYS, PNG_SIGNATURE, canonical_edit, edit_chunk, edit_from_info,
+        edit_from_json, edit_from_sources, embedded_mask, embedded_metadata, execution_from_info,
+        execution_from_sources, metadata_chunk, require_header_metadata, text_keyword, validate_edit_record,
     )
 except ModuleNotFoundError as exc:  # pragma: no cover - startup guard
     sys.exit(
@@ -81,15 +82,14 @@ _NAME = re.compile(r"^(\d{8})-(\d{6})-")
 # The keys an embedded metadata block must carry to make a row at all.
 _REQUIRED = ("prompt", "steps", "guidance_scale", "seed", "model")
 
-# The original schema's required columns. Newer reproduction columns are read
-# when present and become NULL when importing an older gallery.
-_DB_REQUIRED = {
-    "id", "filename", "prompt", "negative_prompt", "width", "height",
-    "steps", "guidance_scale", "mu", "seed", "model_id", "duration_ms",
-    "favorite", "created_at",
-}
-
-_PNG_SIGNATURE = b"\x89PNG\r\n\x1a\n"
+# The PNG chunk codec and the recipe reconciliation live in `metadata`, and
+# the required columns in `bundle_common`, where the bundle layer reads them
+# without importing this CLI; the old private names stay for this module and
+# its tests.
+_PNG_SIGNATURE = PNG_SIGNATURE
+_text_keyword = text_keyword
+_execution_from_sources = execution_from_sources
+_execution_from_info = execution_from_info
 
 
 def _created_at(path: Path) -> datetime:
@@ -124,30 +124,6 @@ def _read(path: Path, *, require_metadata: bool = True) -> tuple[dict | None, tu
             if not isinstance(meta, dict) or (require_metadata and any(meta.get(key) is None for key in _REQUIRED)):
                 return None, size, image.copy()
             return meta, size, image.copy()
-
-
-def _execution_from_sources(row: dict, meta: dict | None) -> ExecutionSpec | None:
-    """Read stored recipes without granting generation availability.
-
-    An older SQL schema or PNG may omit execution entirely: recover the
-    other source's recipe then. Explicit NULL/empty is an Eager statement,
-    so two present fields must agree, including Eager versus a recipe.
-    Validate both values even when one is absent or empty.
-    """
-    database = execution_from_json(row.get("execution"))
-    embedded = canonical_execution(meta.get("execution") if meta is not None else None)
-    if "execution" in row and meta is not None and "execution" in meta and database != embedded:
-        raise ValueError("execution recipes disagree between the database and PNG")
-    return database if "execution" in row else embedded
-
-
-def _execution_from_info(row: dict, info: dict | None) -> ExecutionSpec | None:
-    """Strict recipe reconciliation from PNG header metadata, without decoding pixels."""
-    raw = embedded_metadata(info) if info is not None else None
-    metadata = json.loads(raw) if raw else None
-    if raw is not None and not isinstance(metadata, dict):
-        raise ValueError("PNG metadata must be a JSON object")
-    return _execution_from_sources(row, metadata)
 
 
 def _edit_metadata(path: Path) -> dict | None:
@@ -196,10 +172,7 @@ def _preflight_retained_edits(filenames, existing: dict[str, int], outputs: Path
         # A missing ordinary destination retains its normal conflict behavior;
         # an edit cannot claim its durable PNG representation is still present.
         if path.is_file() or known.edit is not None:
-            edit_from_sources({
-                "edit": edit_key(known.edit), "model_id": known.model_id,
-                "width": known.width, "height": known.height, "prompt": known.prompt,
-            }, _edit_metadata(path) or {})
+            edit_from_sources(_known_edit_row(known), _edit_metadata(path) or {})
 
 
 def _proves_edit(path: Path, stored: StoredInstructionEdit) -> bool:
@@ -226,6 +199,14 @@ def _same_edit(left: StoredInstructionEdit | None, right: StoredInstructionEdit 
     if left is None or right is None:
         return left is right
     return (left.recipe, left.edit_source) == (right.recipe, right.edit_source)
+
+
+def _known_edit_row(known) -> dict:
+    """The fields an existing row's edit is checked against its PNG with."""
+    return {
+        "edit": edit_key(known.edit), "model_id": known.model_id,
+        "width": known.width, "height": known.height, "prompt": known.prompt,
+    }
 
 
 def _dependency_order(rows: list[dict], cycles: set[int]) -> list[dict]:
@@ -262,24 +243,11 @@ def _dependency_order(rows: list[dict], cycles: set[int]) -> list[dict]:
     return ordered
 
 
-def _text_keyword(kind: bytes, data: bytes) -> bytes | None:
-    """The keyword from a PNG text chunk, without decompressing its value."""
-    if kind not in {b"tEXt", b"zTXt", b"iTXt"} or b"\0" not in data:
-        return None
-    return data.split(b"\0", 1)[0]
-
-
 def _with_auradream_metadata(data: bytes, meta: dict) -> bytes:
     """Replace app metadata without recompressing or changing pixels."""
     if not data.startswith(_PNG_SIGNATURE):
         raise OSError("not a PNG")
-    payload = PNG_METADATA_KEY.encode("ascii") + b"\0" + json.dumps(meta).encode("ascii")
-    replacement = (
-        len(payload).to_bytes(4, "big")
-        + b"tEXt"
-        + payload
-        + zlib.crc32(b"tEXt" + payload).to_bytes(4, "big")
-    )
+    replacement = metadata_chunk(meta)
     out = bytearray(_PNG_SIGNATURE)
     offset = len(_PNG_SIGNATURE)
     inserted = False
@@ -638,10 +606,9 @@ def merge_database(
                         if kept.format != "PNG":
                             raise ValueError("the retained image is not a PNG")
                         retained = _execution_from_info({"execution": execution_key(known.execution)}, kept.info)
-                        retained_edit = edit_from_info({
-                            "edit": edit_key(known.edit), "model_id": known.model_id,
-                            "width": known.width, "height": known.height, "prompt": known.prompt,
-                        }, {key: kept.info.get(key) for key in PNG_METADATA_KEYS})
+                        retained_edit = edit_from_info(
+                            _known_edit_row(known), {key: kept.info.get(key) for key in PNG_METADATA_KEYS},
+                        )
                 if retained != execution:
                     raise ValueError("different execution already uses that filename")
                 if not _same_edit(retained_edit, stored_edit) or (
@@ -875,10 +842,7 @@ def reindex(
                 if known is None:
                     raise ValueError("the retained row disappeared")
                 target_meta = _edit_metadata(outputs / path.name)
-                retained = edit_from_sources({
-                    "edit": edit_key(known.edit), "model_id": known.model_id,
-                    "width": known.width, "height": known.height, "prompt": known.prompt,
-                }, target_meta or {})
+                retained = edit_from_sources(_known_edit_row(known), target_meta or {})
                 if not _same_edit(incoming, retained) or (
                     incoming is not None and known.prompt != (_edit_metadata(path) or {}).get("prompt")
                 ):

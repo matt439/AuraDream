@@ -19,10 +19,10 @@ from concurrent.futures import ThreadPoolExecutor
 from contextlib import contextmanager
 from pathlib import Path, PurePosixPath
 
-from . import backup_receipts, bundle_crypto, bundle_leases, reindex
+from . import backup_receipts, bundle_crypto, bundle_leases
 from .bundle_common import _CHUNK, _WORKERS, MASK_HASH, BundleError, Progress, _basename, _mask_rows, _quiet, _rows
 from .bundle_images import _inspect_mask, _inspect_source
-from .metadata import edit_from_json
+from .metadata import PNG_SIGNATURE, edit_from_json
 
 
 _FORMAT = "auradream-gallery"
@@ -69,7 +69,7 @@ def _mask_member(name: str) -> bool:
 
 def _png_weight(data: bytes) -> int:
     """Bytes held while decoding: the file plus the decoded pixels its header announces."""
-    if data[:8] == reindex._PNG_SIGNATURE and data[12:16] == b"IHDR" and len(data) >= 24:
+    if data[:8] == PNG_SIGNATURE and data[12:16] == b"IHDR" and len(data) >= 24:
         width, height = struct.unpack(">II", data[16:24])
         return len(data) + 8 * width * height
     return len(data)

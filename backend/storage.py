@@ -30,6 +30,7 @@ from PIL import Image, PngImagePlugin
 from .config import settings
 from .execution import canonical_execution, execution_chunk, execution_from_json, execution_key
 from . import gallery_lock, refine
+from .bundle_common import BundleError
 # The key elements that are built from columns here and from a request
 # in `grid`: one spelling of each, or a resume compares strings that only look
 # alike. `grid` imports neither this module nor anything that does.
@@ -778,10 +779,6 @@ _BUNDLE_WORK = re.compile(r"\.bundle-(?:import-|merge-|upload-)?[a-z0-9_]{8}(?:\
 
 def bundle_directory() -> Path:
     """The saved archives' directory, shared by reads, writes and cleanup."""
-    # bundle_common imports reindex, which imports storage: defer the error
-    # import until this module is ready rather than introducing a cycle.
-    from .bundle_common import BundleError
-
     directory = settings.bundles_dir
     if directory is None:
         directory = settings.db_path.parent.resolve() / "bundles"
