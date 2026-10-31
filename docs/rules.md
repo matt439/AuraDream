@@ -41,8 +41,6 @@ before changing it.
   opaque scope references and fixed provider errors; vault APIs are lazy
 - `backend/failure_state.py` - traceback/cause/context-free ownership failure
   snapshots; process-lifetime quarantine never stores caller exceptions
-- `tools/backup_credential.py` - explicit inactive/pending credential setup,
-  local profile inspection and independent-password archive recovery verification
 - `backend/backup_preferences.py` - names a database's backup settings
   sidecar (`path_for`); `backup_settings` reads and writes it. Its version-1
   policy format is legacy, read as inactive; only `tests/backup_helpers.py`
@@ -581,7 +579,21 @@ before changing it.
   gallery and sidecars through the fake's own routes, and
   `trial_walkthrough.py` writes the agent walkthrough's real-input steps
   for its version 2 manifest (`docs/design/trials/README.md`;
-  `tests/test_trial_kit.py` holds the steps to the page cold); see Tests
+  `tests/test_trial_kit.py` holds the steps to the page cold);
+  `check_classic_scripts.py` with `check_classic_scripts.mjs` checks the
+  page's ordered classic scripts in Node without running their bodies
+  (`tests/test_classic_scripts.py`); `fetch_tokenizers.py` caches the
+  real-tokenizer tests' files before CI's pytest; `segoe-widths.json` the
+  advance widths `smoke_fonts.py` gives its Segoe UI stand-in, measured
+  with `font-widths.json`; `check_run_continue.py` a by-hand Finish run
+  check in fresh pages and across a fake-server restart (port 7999);
+  `storage_interrupt.py` and `storage_scale.py` the storage interruption
+  and bundle/bin scale checks `tests/test_storage_interruptions.py` and
+  `tests/test_storage_scale.py` run in a disposable process;
+  `install_bundle_mode.py` the explicit offline Windows/NTFS shared-download
+  installation (`bundle_mode.py`); `backup_credential.py` explicit
+  inactive/pending credential setup, local profile inspection and
+  independent-password archive recovery verification; see Tests
 - `tests/` — the pytest suite, no GPU and no weights: `conftest.py`,
   `fakes.py` and `api_helpers.py` (the fake backend and its fixtures),
   `test_api*.py` (the HTTP routes, one file per area), and a file per module

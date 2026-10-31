@@ -79,8 +79,9 @@ Backend (`backend/`):
   answers, Load settings from PNG's), `schemas_outpaint.py` (an outpaint's
   spec, the mask and preset answers), `schemas_prompt.py` (Expand, Check, critic, tag lookup),
   `schemas_gallery.py` (records, runs, bin), `schemas_rerun.py` (Re-render,
-  Swap tags, Mass refine, More seeds) or `schemas_model.py` (model status,
-  guide, switch); `model_defaults.py` per-checkpoint profiles; `guides.py` each checkpoint's sourced prompting guide and its
+  Swap tags, Mass refine, More seeds), `schemas_model.py` (model status,
+  guide, switch) or `schemas_snippets.py` (personal prompt snippets), with
+  the instruction edit's spec from `instruction_edit.py`; `model_defaults.py` per-checkpoint profiles; `guides.py` each checkpoint's sourced prompting guide and its
   `analysis` data
 - `main.py` lifecycle, model state, switching and the model routes;
   `app_context.py` the `AppServices` getters routers read main through;
@@ -128,6 +129,8 @@ Backend (`backend/`):
   syntax, without changing existing sidecar or snippet readers; `api_presets.py`
   exposes bounded export/preview/import, with atomic commit under `presets.py`'s
   reservation (raw drafts only: no capture validation, model, queue or Hub)
+- `snippets.py` bounded atomic personal prompt snippets beside the startup
+  preferences, under their own cross-process reservation
 - `snippet_portability.py` - cold portable snippet codec, collection/input
   digests and pure merge plans; `schemas_snippet_portability.py` owns strict
   portable documents and file-index choices; `api_snippets.py` exposes bounded
@@ -174,7 +177,8 @@ Backend (`backend/`):
 - Prompt analyser: `prompt_encoding.py` (tokenizers), `encoder_table.py`
   (each checkpoint's encoders and copied pipeline templates),
   `prompt_weighting.py` (literal weighting syntax), `prompt_text.py`,
-  `prompt_order.py`, `prompt_rules.py` (rule checks), `prompt_sources.py`
+  `prompt_parts.py` (a hybrid prompt's tag and prose passages, read in
+  context), `prompt_order.py`, `prompt_rules.py` (rule checks), `prompt_sources.py`
   (what the critic may cite), `critic.py` + `critic_runtime.py`,
   `critic_server.py`, `critic_context.py`, `critic_reorder.py`,
   `critic_validation.py`, `critic_issues.py` (what an issue restates or
