@@ -345,19 +345,12 @@ function refineSourceGone(message, source = refineSource) {
 // that waited on the preview which found it gone runs nothing (runRefine):
 // the pass it would run is not the one the press was for.
 let refineLoraDrops = 0;
-async function dropRefineLora(message, source = refineSource) {
-  const name = refineLora?.name;
-  if (!name || !message?.includes(name)) return false;
-  const body = await refreshLoras();
-  if (!body || refineSource !== source || refineLora?.name !== name) return false;
-  const entry = (body.loras ?? []).find((e) => e.name === name);
-  if (entry && !entry.detail) return false;
-  refineLora = null;
-  refineLoraDrops++;
-  els.refineCarried.textContent = `LoRA ${name} is not applied: it is not in the adapter list now.`;
-  refineFailed(`${name} ${entry ? 'no longer fits this checkpoint' : 'is no longer in the LoRA folder'}, `
-    + 'so it was taken out of this pass; Refine runs it without the adapter.');
-  return true;
+function dropRefineLora(message, source = refineSource) {
+  return dropPassLora(message, source, {
+    lora: () => refineLora, source: () => refineSource,
+    drop: () => { refineLora = null; refineLoraDrops++; },
+    carried: els.refineCarried, failed: refineFailed, noun: 'pass', run: 'Refine',
+  });
 }
 
 // Every box openRefine fills, by name: what a close compares with what it
@@ -600,7 +593,7 @@ function syncRefine() {
 // anyway, but the button said nothing of it before the press - then no
 // refine pass, a size past the guard, or the preview's refusal.
 function syncRefineRun() {
-  const problem = submitHold()
+  const problem = submitHold() || (submitting ? PASS_IN_FLIGHT : '')
     || (!refineSupported ? 'This checkpoint has no refine pass'
       : refineSizeProblem(+els.refineWidth.value, +els.refineHeight.value) || refineProblem);
   els.refineRun.setAttribute('aria-disabled', String(!!problem));
@@ -655,12 +648,7 @@ function refineKeydown(event) {
     return;
   }
   if ((event.key === 'ArrowUp' || event.key === 'ArrowDown') && event.target === els.refineStrength) {
-    const text = els.refineStrength.value.trim();
-    if (!SINGLE_STRENGTH.test(text)) return;
-    event.preventDefault();
-    const step = (event.shiftKey ? 0.01 : 0.05) * (event.key === 'ArrowUp' ? 1 : -1);
-    els.refineStrength.value = String(Math.min(1, Math.max(0.01, +(+text + step).toFixed(2))));
-    refineChanged();
+    if (stepStrength(event, els.refineStrength)) refineChanged();
   }
 }
 
@@ -833,7 +821,10 @@ async function previewRefine() {
 // closes once the server has taken it. A sweep opens as its sheet when done.
 // Never the panel's Seed box: the dialog's seed is its own.
 async function runRefine() {
-  if (!refineSource || !els.refineDialog.open || submitting || refineWaiting) return;
+  if (!refineSource || !els.refineDialog.open || refineWaiting) return;
+  // A submit in flight - this dialog's or the panel's - holds Refine; a
+  // press says so rather than doing nothing.
+  if (submitting) { refineFailed(`${PASS_IN_FLIGHT}.`); return; }
   // The preview is what refuses a strength past 1 or one that leaves no step,
   // and it waits out the typing: Enter straight after "1.5" ran ahead of it,
   // closed the dialog and put the server's refusal in the panel, the typed

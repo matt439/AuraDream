@@ -617,7 +617,7 @@ function syncPassSampling(f) {
 // then the preview's refusal.
 function syncInpaintRun() {
   if (!els.inpaintRun) return;
-  const problem = submitHold()
+  const problem = submitHold() || (submitting ? PASS_IN_FLIGHT : '')
     || (!inpaintSupported ? inpaintNone().replace(/\.$/, '').split('. ')[0]
       : inpaintMaskProblem() || inpaintProblem);
   els.inpaintRun.setAttribute('aria-disabled', String(!!problem));
@@ -644,12 +644,7 @@ function inpaintKeydown(event) {
     return;
   }
   if ((event.key === 'ArrowUp' || event.key === 'ArrowDown') && event.target === els.inpaintStrength) {
-    const text = els.inpaintStrength.value.trim();
-    if (!SINGLE_STRENGTH.test(text)) return;
-    event.preventDefault();
-    const step = (event.shiftKey ? 0.01 : 0.05) * (event.key === 'ArrowUp' ? 1 : -1);
-    els.inpaintStrength.value = String(Math.min(1, Math.max(0.01, +(+text + step).toFixed(2))));
-    inpaintChanged();
+    if (stepStrength(event, els.inpaintStrength)) inpaintChanged();
   }
 }
 
@@ -764,27 +759,23 @@ async function previewInpaint() {
 }
 
 // An adapter removed or renamed since the dialog opened, named by a refusal:
-// taken out of this inpaint, said, as Refine's dropRefineLora does. Answers
-// whether it went.
-async function dropInpaintLora(message, source = inpaintSource) {
-  const name = inpaintLora?.name;
-  if (!name || !message?.includes(name)) return false;
-  const body = await refreshLoras();
-  if (!body || inpaintSource !== source || inpaintLora?.name !== name) return false;
-  const entry = (body.loras ?? []).find((e) => e.name === name);
-  if (entry && !entry.detail) return false;
-  inpaintLora = null;
-  inpaintLoraDrops++;
-  els.inpaintCarried.textContent = `LoRA ${name} is not applied: it is not in the adapter list now.`;
-  inpaintFailed(`${name} ${entry ? 'no longer fits this checkpoint' : 'is no longer in the LoRA folder'}, `
-    + 'so it was taken out of this inpaint; Inpaint runs it without the adapter.');
-  return true;
+// taken out of this inpaint and said (refine-rules.js's dropPassLora, as
+// Refine's). Answers whether it went.
+function dropInpaintLora(message, source = inpaintSource) {
+  return dropPassLora(message, source, {
+    lora: () => inpaintLora, source: () => inpaintSource,
+    drop: () => { inpaintLora = null; inpaintLoraDrops++; },
+    carried: els.inpaintCarried, failed: inpaintFailed, noun: 'inpaint', run: 'Inpaint',
+  });
 }
 
 // Inpaint: the job queues like Refine's, and the dialog closes once the
 // server has taken it. A sweep opens as its sheet when done.
 async function runInpaint() {
-  if (!inpaintSource || !els.inpaintDialog.open || submitting || inpaintWaiting) return;
+  if (!inpaintSource || !els.inpaintDialog.open || inpaintWaiting) return;
+  // A submit in flight - this dialog's or the panel's - holds Inpaint; a
+  // press says so rather than doing nothing.
+  if (submitting) { inpaintFailed(`${PASS_IN_FLIGHT}.`); return; }
   // A mask stored long ago is kept first (or sent again, where it has gone):
   // a sweep would otherwise refuse it at submit.
   if (inpaintMaskState === 'stored' && Date.now() - inpaintMaskKeptAt > INPAINT_KEEP_MS) {

@@ -541,12 +541,7 @@ function refineBatchKeydown(event) {
     return;
   }
   if ((event.key === 'ArrowUp' || event.key === 'ArrowDown') && event.target === els.refineBatchStrength) {
-    const text = rbStrengthText();
-    if (!SINGLE_STRENGTH.test(text)) return;
-    event.preventDefault();
-    const step = (event.shiftKey ? 0.01 : 0.05) * (event.key === 'ArrowUp' ? 1 : -1);
-    els.refineBatchStrength.value = String(Math.min(1, Math.max(0.01, +(+text + step).toFixed(2))));
-    refineBatchEdited();
+    if (stepStrength(event, els.refineBatchStrength, rbStrengthText())) refineBatchEdited();
   }
 }
 

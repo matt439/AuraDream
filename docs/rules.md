@@ -481,7 +481,7 @@ before changing it.
   and facts list (`settingsLine`, `factsList`), shared by the lightbox and
   the viewer; `lightbox.js` the lightbox's view, layout, walk and gestures,
   `lightbox-compare.js` its comparison's controls, divider and pass
-  stepping, `lightbox-cfg.js` its comparison across CFG and across steps; `refine-rules.js` the refine pass's shared rules (its bounds and sizes, `refinePrefs`, `SINGLE_STRENGTH`, `refineDefaultStrength`, `refineKept`, and `sourceGoneKind`/`sourceGoneWords`, a gone source's words), which every pass dialog, Mass refine, Then refine, the lightbox and the panel read; `refine.js` and `refine-prompt.js` the Refine dialog, `refine-prompt.js` also the check lines the Inpaint and Outpaint dialogs share (`renderPassCheck`, `syncPassCheck`, `selectPassFrom`); `inpaint.js` the Inpaint dialog (its mask's
+  stepping, `lightbox-cfg.js` its comparison across CFG and across steps; `refine-rules.js` the refine pass's shared rules (its bounds and sizes, `refinePrefs`, `SINGLE_STRENGTH`, `refineDefaultStrength`, `refineKept`, `sourceGoneKind`/`sourceGoneWords`, a gone source's words, and what the pass dialogs share: `stepStrength`, `dropPassLora` and `PASS_IN_FLIGHT`), which every pass dialog, Mass refine, Then refine, the lightbox and the panel read; `refine.js` and `refine-prompt.js` the Refine dialog, `refine-prompt.js` also the check lines the Inpaint and Outpaint dialogs share (`renderPassCheck`, `syncPassCheck`, `selectPassFrom`); `inpaint.js` the Inpaint dialog (its mask's
   upload, preview, submit and Reuse) and `inpaint-mask.js` its canvas, tools, strokes and export
   (`styles/inpaint.css`); `outpaint.js` the Outpaint dialog (the side, band and preset
   controls, the frame, the preview, submit, close and Reuse; `styles/outpaint.css`);
@@ -3881,9 +3881,10 @@ Frontend and CLI:
   `handJobFocus`; any other run whose close leaves focus on
   `<body>` (an open from script, Reuse of a pass) puts it on Generate, or New
   image where that is shown, on the next frame. Every change asks `/api/grid/preview` with
-  the grid-shaped request; its refusal, a size past the guard or no
-  capability makes Refine aria-disabled with the reason as its title, and a
-  press says it in the dialog. Every way of running a pass first waits for
+  the grid-shaped request; its refusal, a size past the guard, no
+  capability or a submit in flight ("Wait for the last submit to be
+  taken", `PASS_IN_FLIGHT`) makes Refine aria-disabled with the reason as
+  its title, and a press says it in the dialog. Every way of running a pass first waits for
   the preview of what the boxes hold (`refinePreviewed`, the request the last
   preview answered), since the debounced preview is what refuses a strength
   past 1, one that leaves no step and a source deleted meanwhile; a refused
@@ -3961,8 +3962,9 @@ Frontend and CLI:
   strokes where it has gone (a keep's 404, or a preview or submit refusal
   naming it). An adapter gone meanwhile is taken out as Refine's is
   (`dropInpaintLora`). Inpaint is `aria-disabled` with its reason
-  while nothing is painted, while the mask uploads or loads, and while an
-  upload or the preview refuses, and a press says why; "wait for the mask"
+  while nothing is painted, while the mask uploads or loads, while an
+  upload or the preview refuses, and while a submit is in flight
+  (`PASS_IN_FLIGHT`, as Refine and Outpaint), and a press says why; "wait for the mask"
   clears once it lands. Every fill of the dialog (Start over included)
   ends what the last one had in flight (`inpaintOpenEpoch`), and only a
   first open scrolls it to the top. The tools row and
@@ -8115,7 +8117,8 @@ named on its button and a run at the capped size not remembered as the
 scale, the crop's kept percentage and Keep shape - Versions and their
 seeds, the rows and the lightbox's settings line (`refine of #N`), the
 facts' Refined from link and S comparing a pass with its source, a pass past
-4 MP and one past the guard refused in place, Escape on a dialog opened from
+4 MP and one past the guard refused in place, Refine held while a submit
+is in flight and a press saying so, Escape on a dialog opened from
 the lightbox giving the lightbox back on the same image, a strength sweep's
 preview, its sheet axis and `refine:` in the search box, the passes strip
 opening the lightbox beside the source, compared, a sweep that leaves no step refused
@@ -9095,7 +9098,8 @@ own default, said as the library's number and as measured on Animagine XL
 4.0 (`hints.inpaint_strength`); a stubbed `start_sigma` adding "starts at
 51% noise" to the preview, the SDXL fake's none adding nothing; Inpaint
 held with "Paint the part
-of #N to repaint first" and a press saying it; a brush drag, the eraser (E),
+of #N to repaint first" and a press saying it, and held while a submit is
+in flight, a press saying that too; a brush drag, the eraser (E),
 [ and ], a plain wheel scrolling and Alt+wheel sizing, the feather giving
 another hash and 0 the same one again (`created: false`), Invert (I), Ctrl+Z,
 Ctrl+Y and Ctrl+Shift+Z, I in the Seed box painting nothing, the keyboard

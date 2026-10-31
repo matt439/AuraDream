@@ -17,7 +17,11 @@
 // It is a dialog of its own rather than a mode of the Inpaint dialog, whose
 // stage and tools are all about painting; what is the same is inpaint.js's
 // (the start strength and its note, the unavailable words, the sampling
-// boxes' rules, the prompt check's lines), called rather than copied.
+// boxes' rules) or refine-rules.js's and refine-prompt.js's (a gone source's
+// words, a dropped adapter, the strength's arrow keys, the prompt check's
+// lines), called rather than copied. The dialog's own lifecycle - open,
+// preview, run, close and Reuse - is this file's, written after the Inpaint
+// dialog's but not shared with it.
 
 // The record the dialog is open on, null while it is closed; the outpainted
 // record a Reuse opened on, whose sides, band, strength and seed it starts
@@ -41,8 +45,6 @@ let outpaintReturnKeep = null;
 let outpaintLora = null;
 let outpaintRan = false;
 let outpaintSending = false;
-// What holds Outpaint while a submit is in flight.
-const OUTPAINT_IN_FLIGHT = 'Wait for the last submit to be taken';
 let outpaintWaiting = false;
 let outpaintFilled = null;
 let outpaintStrengthStandIn = null;
@@ -615,7 +617,7 @@ function outpaintSampling() {
 // preview's refusal (its words, an unknown fill's included).
 function syncOutpaintRun() {
   if (!els.outpaintRun || !outpaintSource) return;
-  const problem = submitHold() || (submitting ? OUTPAINT_IN_FLIGHT : '')
+  const problem = submitHold() || (submitting ? PASS_IN_FLIGHT : '')
     || (!inpaintSupported ? inpaintNone(true).replace(/\.$/, '').split('. ')[0]
       : outpaintExtendProblem() || outpaintProblem);
   els.outpaintRun.setAttribute('aria-disabled', String(!!problem));
@@ -654,12 +656,7 @@ function outpaintKeydown(event) {
     return;
   }
   if ((event.key === 'ArrowUp' || event.key === 'ArrowDown') && event.target === els.outpaintStrength) {
-    const text = els.outpaintStrength.value.trim();
-    if (!SINGLE_STRENGTH.test(text)) return;
-    event.preventDefault();
-    const step = (event.shiftKey ? 0.01 : 0.05) * (event.key === 'ArrowUp' ? 1 : -1);
-    els.outpaintStrength.value = String(Math.min(1, Math.max(0.01, +(+text + step).toFixed(2))));
-    outpaintChanged();
+    if (stepStrength(event, els.outpaintStrength)) outpaintChanged();
   }
 }
 
@@ -771,21 +768,14 @@ async function previewOutpaint() {
 }
 
 // An adapter removed or renamed since the dialog opened, named by a refusal:
-// taken out of this outpaint and said, as the Inpaint dialog's. Answers
-// whether it went.
-async function dropOutpaintLora(message, source = outpaintSource) {
-  const name = outpaintLora?.name;
-  if (!name || !message?.includes(name)) return false;
-  const body = await refreshLoras();
-  if (!body || outpaintSource !== source || outpaintLora?.name !== name) return false;
-  const entry = (body.loras ?? []).find((e) => e.name === name);
-  if (entry && !entry.detail) return false;
-  outpaintLora = null;
-  outpaintLoraDrops++;
-  els.outpaintCarried.textContent = `LoRA ${name} is not applied: it is not in the adapter list now.`;
-  outpaintFailed(`${name} ${entry ? 'no longer fits this checkpoint' : 'is no longer in the LoRA folder'}, `
-    + 'so it was taken out of this outpaint; Outpaint runs it without the adapter.');
-  return true;
+// taken out of this outpaint and said (refine-rules.js's dropPassLora, as
+// the Inpaint dialog's). Answers whether it went.
+function dropOutpaintLora(message, source = outpaintSource) {
+  return dropPassLora(message, source, {
+    lora: () => outpaintLora, source: () => outpaintSource,
+    drop: () => { outpaintLora = null; outpaintLoraDrops++; },
+    carried: els.outpaintCarried, failed: outpaintFailed, noun: 'outpaint', run: 'Outpaint',
+  });
 }
 
 // Outpaint: the job queues like the Inpaint dialog's, and the dialog closes
@@ -794,7 +784,7 @@ async function runOutpaint() {
   if (!outpaintSource || !els.outpaintDialog.open || outpaintWaiting) return;
   // A submit in flight - this dialog's or the panel's - holds Outpaint; a
   // press says so rather than doing nothing.
-  if (submitting) { outpaintFailed(`${OUTPAINT_IN_FLIGHT}.`); return; }
+  if (submitting) { outpaintFailed(`${PASS_IN_FLIGHT}.`); return; }
   commitOutpaintBoxes();
   const drops = outpaintLoraDrops;
   while (outpaintPreviewed !== JSON.stringify(outpaintRequest().preview)) {

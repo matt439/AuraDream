@@ -23,6 +23,21 @@ const REFINE_KEY = 'auradream.refine.v1';
 // with a strength axis.
 const SINGLE_STRENGTH = /^(\d+(\.\d*)?|\.\d+)$/;
 
+// ArrowUp and ArrowDown in a pass dialog's Strength: a single strength
+// (`text`, the box's) stepped by 0.05, 0.01 with Shift, held to 0.01-1; a
+// sweep is left to the caret. Answers whether it stepped.
+function stepStrength(event, box, text = box.value.trim()) {
+  if (!SINGLE_STRENGTH.test(text)) return false;
+  event.preventDefault();
+  const step = (event.shiftKey ? 0.01 : 0.05) * (event.key === 'ArrowUp' ? 1 : -1);
+  box.value = String(Math.min(1, Math.max(0.01, +(+text + step).toFixed(2))));
+  return true;
+}
+
+// What holds a pass dialog's run while a submit is in flight - its own or
+// the panel's: the title, and the words a press says.
+const PASS_IN_FLIGHT = 'Wait for the last submit to be taken';
+
 function refinePrefs() {
   try {
     const prefs = JSON.parse(remembered(REFINE_KEY) || 'null');
@@ -90,6 +105,26 @@ function refineSizeProblem(w, h) {
     return `past the ${REFINE_MAX_SIDE}-pixel side and ${(REFINE_MAX_PIXELS / 1e6).toFixed(1)} MP a refine pass takes`;
   }
   return null;
+}
+
+// An adapter removed or renamed since a pass dialog opened, named by a
+// refusal: taken out of the pass and said. `pass` is the dialog's own -
+// `lora()`/`source()` read its lets as they are now, `drop()` clears the one
+// and counts the drop, `carried` the line naming it, `failed` the error line,
+// `noun` what the words call the pass and `run` its button. Answers whether
+// it went.
+async function dropPassLora(message, source, pass) {
+  const name = pass.lora()?.name;
+  if (!name || !message?.includes(name)) return false;
+  const body = await refreshLoras();
+  if (!body || pass.source() !== source || pass.lora()?.name !== name) return false;
+  const entry = (body.loras ?? []).find((e) => e.name === name);
+  if (entry && !entry.detail) return false;
+  pass.drop();
+  pass.carried.textContent = `LoRA ${name} is not applied: it is not in the adapter list now.`;
+  pass.failed(`${name} ${entry ? 'no longer fits this checkpoint' : 'is no longer in the LoRA folder'}, `
+    + `so it was taken out of this ${pass.noun}; ${pass.run} runs it without the adapter.`);
+  return true;
 }
 
 // Whether a refusal says `source` has gone: 'deleted', 'binned' or null.
