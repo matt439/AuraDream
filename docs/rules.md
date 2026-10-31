@@ -461,7 +461,7 @@ before changing it.
   per version
 - `backend/reindex.py` — rows rebuilt from the PNGs' `auradream` chunk, in place or
   copied in from another gallery; idempotent on the UNIQUE filename
-- `web/` - served as-is from `/static`; `index.html` loads 63 classic
+- `web/` - served as-is from `/static`; `index.html` loads 64 classic
   scripts in order, sharing one global scope; only `app.js`, the last, runs
   the wiring and boot. `state.js` owns shared state; `generation.js`,
   `grid-preview.js`, `job-stream.js` and `job-results.js` handle submission,
@@ -483,7 +483,7 @@ before changing it.
   controls, the frame, the preview, submit, close and Reuse; `styles/outpaint.css`);
   `instruction-edit.js` Edit by instruction… (the capability, the menu item, the
   dialog's preview, submit, close and Reuse, and an edit's lineage; `styles/instruction-edit.css`);
-  `prompt-note.js` the note under the prompt and its Undo (`showPromptNote`, `promptUndo`); `tags.js`, `tag-tokens.js` and `tag-chips.js` the prompt helper, `tag-helper.js` its Tags menu (the toggles, Start with, Finish with and the caret line), `tag-finder.js` its Find
+  `prompt-note.js` the note under the prompt and its Undo (`showPromptNote`, `promptUndo`); `tags.js`, `tag-tokens.js` and `tag-chips.js` the prompt helper, `tag-lists.js` the editors' suggestion lists and the negative box's, `tag-helper.js` its Tags menu (the toggles, Start with, Finish with and the caret line), `tag-finder.js` its Find
   tag dropdown; `prompt-examples.js` the
   Examples menu, `prompt-expand.js` ERNIE's Expand; `analysis.js`,
   `analysis-critic.js` and `comparison.js` the check and critic. `sizes.js`
@@ -3507,7 +3507,7 @@ Frontend and CLI:
   for under its Prompt box, each once, only where `tagVocabularyEnabled`,
   excluding its exact matching contextual prose parts and silent when the
   lookup is unavailable; it has no chips and never calls
-  `writePromptTags`. Its Prompt box suggests tags there too, from tags.js's
+  `writePromptTags`. Its Prompt box suggests tags there too, from tag-lists.js's
   editor list: `scheduleEditorSuggestions` and `renderEditorSuggestions`
   with `query` set to the comma item at the caret
   (`currentTagRange(els.refinePrompt)`), `pick` to `applyRefineSuggestion`,

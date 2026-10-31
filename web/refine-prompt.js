@@ -374,7 +374,7 @@ function copyRefineFromPanel() {
 // ------------------------------------------------- the pass's tag suggestions
 
 // On a tag checkpoint the Prompt box suggests tags as the panel's does, for
-// the comma item at the caret: tags.js's editor list (`scheduleEditorSuggestions`)
+// the comma item at the caret: tag-lists.js's editor list (`scheduleEditorSuggestions`)
 // under the box, picked by a click, or Enter or Tab on the selected one - the
 // first selected only from three typed characters it starts with (`preselects`).
 // None of the panel's state: not its list, the chips' typing state or the
@@ -443,7 +443,7 @@ function applyRefineSuggestion(suggestion) {
   scheduleRefineTags(0);
 }
 
-// The list's keys (tags.js, editorListKeydown): an Escape the list takes
+// The list's keys (tag-lists.js, editorListKeydown): an Escape the list takes
 // closes the list alone, and the next one closes the dialog.
 function refinePromptKeydown(event) {
   editorListKeydown(event, els.refineTagSuggestions, hideRefineSuggestions);

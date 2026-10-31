@@ -596,7 +596,7 @@ let tagInsertAt = null;
 let tagEditAt = null;
 // The pending lookup of the editor's suggestion list - the chip editor's, the
 // Refine dialog's prompt's or the panel's negative box's, which share it
-// (tags.js, scheduleEditorSuggestions): never two at once, each asking only
+// (tag-lists.js, scheduleEditorSuggestions): never two at once, each asking only
 // for the box with the focus, and the dialog being modal.
 let tagEditorSuggestionTimer = null;
 let tagEditorSuggestionEpoch = 0;

@@ -123,7 +123,7 @@ els.prompt.addEventListener('input', (event) => {
   scheduleTagValidation();
 });
 // The check read the negative prompt too; editing it dims the check as well.
-// On a tag checkpoint it has its own suggestion list (tags.js), asked as the
+// On a tag checkpoint it has its own suggestion list (tag-lists.js), asked as the
 // Refine dialog's prompt asks, and gone when the box loses focus.
 els.negative.addEventListener('input', (event) => { syncAnalysisStale(); suggestNegativeTags(event); });
 els.negative.addEventListener('click', suggestNegativeTags);
