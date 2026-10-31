@@ -7052,6 +7052,26 @@ resume, budgets, `--from-image`, conditioning, Then refine),
 run locally) and `tests/test_cli_via_server.py` (`--via-server` through the
 test client's routes, and `_server_json`'s transport).
 
+Helpers shared across test files live in `tests/*_helpers.py` and are
+imported by name, fixtures too (with `# noqa: F401  (fixtures by name)`);
+names imported elsewhere carry no leading underscore. Besides the per-area
+ones (bundle, backup, critic, CLI, prompt encoding and rules, instruction
+edit): `api_helpers.py` drives the app (`stream_job`, `run_one`,
+`run_grid`, `wait_for`, `wait_for_status` and the generic `until`, whose
+timeouts are seconds; the prompt-variant `VARIANTS`),
+`backend_helpers.py` gives `catalogue_repos()` and a weightless
+`loaded_backend(pipe)` (diffusers imported only when called),
+`gallery_helpers.py` the `cold_queries_only` guard and the
+`gallery_state` row-and-PNG snapshot, `model_switch_helpers.py` the
+switch and catalogue tests' autouse `fresh_selection`, and
+`browser_helpers.py` the browser preflight tests' `run_harness_cold`
+(each keeps its own `.mjs` fixture). The anima, NetaYume and NewBie
+converter caches are held to one contract in
+`tests/test_converter_cache.py`, parametrized over the three loaders; each
+loader's own tests stay in its `test_<name>_loading.py`. The model
+catalogue's routes are `tests/test_api_model_catalogue.py`, switching
+`tests/test_api_model_switch.py`.
+
 The bundle tests share helpers from `tests/bundle_helpers.py`.
 `tests/test_bundles.py` covers export and cleanup: archive/merge round trips,
 preserved favourites and timings, remapped image links, WAL snapshots,
