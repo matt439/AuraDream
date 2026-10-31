@@ -7,7 +7,7 @@ by a path. It is no gallery image: no row in `images`, no card, never a
 reference or a source, and what is stored can only ever be used as a mask
 over the image it was sized to, so the upload is not a way to import a
 picture. Model-free: nothing here reads the checkpoint, so the switch never
-waits on it; `api_bundles.GalleryAdmission` counts it as a gallery reader.
+waits on it; `bundle_manager.GalleryAdmission` counts it as a gallery reader.
 
 An outpaint's mask is never uploaded - the server builds it at submit
 (`storage.stamp_outpaints`) - but its presets are answered here

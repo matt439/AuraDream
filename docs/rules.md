@@ -372,8 +372,12 @@ before changing it.
   bundle errors, progress type and read-only database reads every layer
   shares; `bundle_crypto.py` the optional password layer
   (streamed chunked AES-256-GCM, scrypt); `api_bundles.py` owns browser routes
-  (the export's scope resolved through `submission.resolve_selection`)
-  and exclusive maintenance admission through background completion
+  (the export's scope resolved through `submission.resolve_selection`);
+  `bundle_manager.py` exclusive maintenance admission through background
+  completion (`BundleManager`, the ASGI `GalleryAdmission`, the bundle and
+  backup route prefixes), which the automatic backup imports instead of a
+  router; `schemas_bundles.py` the export, import and password-check bodies.
+  `api_bundles` re-exports the manager, the admission and the bodies
 - `backend/search.py` — the search box's grammar: `key:value` terms as SQL
   predicates (`size:WxH` both sides exact, orientation or MP comparisons; `lora:none` is IS NULL, every
   other text key a substring; an integer past SQLite's 64 bits a

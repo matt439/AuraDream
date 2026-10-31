@@ -9,11 +9,11 @@ from fastapi.exceptions import RequestValidationError
 from fastapi.responses import JSONResponse
 from fastapi.routing import APIRoute
 
-from . import api_bundles, backup_settings, gallery_lock
+from . import backup_settings, bundle_manager, gallery_lock
 from .backup_service import BackupService
 from .schemas_backup import BackupSettingsRequest, BackupStatus
 
-PREFIX = api_bundles.BACKUP_PREFIX
+PREFIX = bundle_manager.BACKUP_PREFIX
 
 
 class FixedValidationRoute(APIRoute):

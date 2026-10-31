@@ -5001,7 +5001,7 @@ alone is not the bound: `ZipExtFile.read()` fetches the whole
 stream allocated gigabytes before the CRC passed. A member stored larger than
 deflate could make it (`file_size` + 0.1% + 1 KiB) is refused up front.
 
-`api_bundles.BundleManager` reserves the idle server synchronously. ASGI
+`bundle_manager.BundleManager` reserves the idle server synchronously. ASGI
 admission counts existing gallery requests through the end of image streams,
 and blocks new generation and gallery operations while maintenance runs.
 Normal status, job inspection and bundle download continue to answer. The

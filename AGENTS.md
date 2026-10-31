@@ -99,7 +99,8 @@ Backend (`backend/`):
   (`GET /api/images/{id}/outpaint-presets`); `outpaint.py` an outpaint's
   pure parts (the padded source and its fills, the built mask, the presets);
   `api_gallery.py`, `api_jobs.py` the gallery and job routes; `api_bundles.py` browser bundle
-  routes and maintenance admission; `bundles.py` verified export/merge,
+  routes, re-exporting `bundle_manager.py` (maintenance admission,
+  `BundleManager`/`GalleryAdmission`) and `schemas_bundles.py` (its bodies); `bundles.py` verified export/merge,
   `bundle_archive.py` the archive format and its verifying read,
   `bundle_images.py` a tracked PNG's identity, row checks and metadata
   rewrite, `bundle_common.py` their errors and database reads,

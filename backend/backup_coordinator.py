@@ -21,7 +21,7 @@ from typing import Literal
 from fastapi import HTTPException
 
 from . import backup_credentials, backup_receipts, bundles, gallery_lock, storage
-from .api_bundles import BundleManager
+from .bundle_manager import BundleManager
 from .backup_policy import BackupPolicy, CopyFacts, backup_due
 from .backup_retention import RetentionOutcome, prune_after_success
 from .backup_settings import RetentionPermission

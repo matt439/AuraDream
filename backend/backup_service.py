@@ -15,7 +15,7 @@ from pathlib import Path
 from uuid import uuid4
 
 from . import backup_receipts, backup_settings, bundle_mode, gallery_lock, storage
-from .api_bundles import BundleManager
+from .bundle_manager import BundleManager
 from .backup_coordinator import BackupCoordinator
 from .bundle_leases import LeaseRegistry
 from .schemas_backup import BackupSettingsRequest, BackupStatus
