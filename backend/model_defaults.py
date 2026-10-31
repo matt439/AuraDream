@@ -68,8 +68,9 @@ where the checkpoint has no pass.
 pass at the source's own size with a painted mask - through the inpaint class
 diffusers ships beside its pipeline (`refine.sibling(..., "Inpaint")`). It is
 a decision as well as a guess: diffusers 0.40 ships one for FLUX.1, SDXL,
-Z-Image, Qwen-Image and FLUX.2 [klein], and SDXL, Z-Image and FLUX.1 (from
-2026-10-19) are enabled. The rest are deferred (`INPAINT_DEFERRED`, docs/plan-inpainting.md's
+Z-Image, Qwen-Image and FLUX.2 [klein], and SDXL, Z-Image and FLUX.1 are
+enabled (FLUX.1's history: docs/design-notes.md, Inpainting, "FLUX.1
+enabled"). The rest are deferred (`INPAINT_DEFERRED`, docs/plan-inpainting.md's
 phases) and answer False even loaded, so a False here is final;
 `tests/test_inpaint.py` holds every True to an installed class and every
 class left off to that list. Their profiles also carry `inpaint_deferred`,
@@ -81,8 +82,8 @@ own default does before anything is loaded (`inpaint_family`, the function;
 `tests/test_inpaint.py` holds it to the installed class). That default is
 the Strength box's start everywhere, unless the profile carries
 `inpaint_start`: its own measured start, where the card found the class's
-default the wrong one. FLUX.1 is the first (0.95, measured on Krea dev
-2026-10-19, where the library's 0.6 kept the old colour under the mask);
+default the wrong one. FLUX.1 is the first (0.95; `INPAINT_START_MEASURED_ON`
+below says where and why);
 `inpaint_start` (the function) is what every place deciding an inpaint's
 start asks first. `inpaint_strength_measured` names the checkpoint where
 `docs/verified.md` measured the start as the right one (WAI v17, Animagine
@@ -1197,9 +1198,8 @@ _OWN_PIPELINES = frozenset({
 # one reference its class takes beside the source, Qwen-Image for the
 # Nunchaku transformer it needs here. Each is a later phase of
 # docs/plan-inpainting.md. Their profiles say `inpaint_supported: False`, and
-# the backend refuses an inpaint on them whatever the class says. FLUX.1 left
-# the list 2026-10-19, once measured on Krea dev (INP#3), with a start of its
-# own (`inpaint_start`).
+# the backend refuses an inpaint on them whatever the class says. How FLUX.1
+# left the list: docs/design-notes.md, Inpainting, "FLUX.1 enabled".
 INPAINT_DEFERRED = frozenset({"Flux2KleinPipeline", "QwenImagePipeline"})
 
 

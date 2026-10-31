@@ -6,24 +6,22 @@
 
 // The head's buttons that come and go with the filter - Re-render, Delete
 // unstarred - stand after the search, Starred and All models, which the free
-// space before the search keeps to the row's right: one going moved every
-// control before it along the row, Starred 137 px at 1400, and a second
-// click on Starred landed in the search box. While the pointer rests on the
-// head's controls (`headPointer`, from the head's pointerover and leave in
+// space before the search keeps to the row's right, so one going would move
+// every control before it along the row (the measurements:
+// docs/design-notes.md, Re-render). While the pointer rests on the head's
+// controls (`headPointer`, from the head's pointerover and leave in
 // app.js, as `galleryPointer` is, never `:hover`) one that goes keeps its
 // place, empty (`.kept`: hidden, its box kept), and one that comes waits;
 // both are put right once the pointer leaves them (releaseHead). The footer
 // row under them is not theirs: Bin there changes the head as a whole, and
 // its way in and out of the bin is `now`. All models' count of the filter's
-// matches elsewhere, " (+3)", is that tick's width, before them too: a
-// search that left none moved the search box and Starred 24 px, so its
+// matches elsewhere, " (+3)", is that tick's width, before them too, so its
 // change waits with them (`headOthers`). What still changes there - the
 // gallery's count, Re-render's label (syncRerender) - must not break the
-// row either: with both buttons shown the controls fill it at 1400, and
-// "(3)" to "(24)" wrapped Delete unstarred onto a row of its own and slid
-// Starred 130 px. So while the pointer rests on a head whose controls are
-// one row, the search gives way to them (`.held`: its basis and floor
-// gone, so the row it is on never breaks), its right edge where it was.
+// row either, and with both buttons shown the controls fill it at 1400. So
+// while the pointer rests on a head whose controls are one row, the search
+// gives way to them (`.held`: its basis and floor gone, so the row it is on
+// never breaks), its right edge where it was.
 let headPointer = false;
 let headOthers = null;
 function pointHead(on) {
@@ -91,21 +89,17 @@ function syncDeleteUnstarredHold() {
 // A change of the picks (onSelectionChange), with the pointer most often on
 // the card just picked: Re-render takes the picks, shown whatever the filter
 // and its label longer ("Re-render 8 selected at…"), and the head's controls
-// keep the rows they had. At 1400 px Re-render and Delete unstarred side by
-// side take two rows where either alone takes one: a first pick that brought
-// Re-render in beside it wrapped the row and moved the grid 38 px under the
-// pointer, and on a filter that showed both on one row the longer label
-// wrapped it alike. So Delete unstarred stays where the head keeps its
-// height with it, and gives Re-render its place where it does not - measured
-// within the one task, so nothing is painted between: what fits is the
-// widths' (the labels, the search, the window, Gallery beside), as `.held`'s
-// one row is (pointHead). Where neither keeps it, Delete unstarred stays as
+// keep the rows they had (docs/design-notes.md, Re-render, "A pick keeps the
+// head's rows"): Re-render and Delete unstarred side by side can take two
+// rows where either alone takes one. So Delete unstarred stays where the
+// head keeps its height with it, and gives Re-render its place where it does
+// not - measured within the one task, so nothing is painted between: what
+// fits is the widths' (the labels, the search, the window, Gallery beside),
+// as `.held`'s one row is (pointHead). Where neither keeps it, Delete unstarred stays as
 // it was. Only for a change of the picks: a filter typed, a tick or a job
 // landing lays the head out as it always has, and the sweep is back the
 // moment nothing is picked - where that keeps the rows. A filter typed while
-// cards were picked keeps Delete unstarred given way, and its own Re-render
-// beside it took two rows at 1400 where the picks' one took one: Clear then
-// moved Select and the grid 38 px under the pointer on it. So emptying the
+// cards were picked keeps Delete unstarred given way, so emptying the
 // picks is measured too, and where bringing Delete unstarred back would
 // change the head's height it stays given way (`unstarredHeld`, the filter it
 // was held on) until the pointer leaves the gallery - head, footer and grid,

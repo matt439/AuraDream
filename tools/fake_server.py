@@ -10,36 +10,16 @@ No GPU, no weights: the backend is the tests' FakeBackend with a drawing on
 top, so every "image" is a gradient stamped with its seed and steps and the
 cells of a grid can be told apart on a sheet. A cell whose prompt holds
 `[fail]` raises, as an out-of-memory cell would, so a grid's skipped cells
-and the failure rule can be driven from the page; and `POST /api/fake/load`
-(the fake's alone) makes the loads after it slow (`seconds`), held until
-the next call (`hold`) or gated
-(`fail=gated`, raised as huggingface_hub raises it), for the load's wait and
-a failed load's card; `POST /api/fake/step` sets the seconds per step for
-the jobs after it and answers the pace it replaced; `POST /api/fake/expand`
-slows ERNIE's Expand on the server (`seconds`), holds it until the next call
-(`hold`), makes it fail (`fail`, the message of a RuntimeError) or puts its
-rewriter and translator back off disk (`fresh`); `POST /api/fake/model`
-sets the startup overrides the status reports (`overrides`), a critic
-that will not stop, failing a switch's teardown (`stuck_critic`), and the
-Hub's answer to a switch's access check (`access`: "gated" or "not_found"
-refuses every switch to another checkpoint, as the real check refuses one
-this sign-in cannot download; the fake never asks the Hub); `POST
-/api/fake/lora` moves an adapter out of the directory and back
-(`present`); `POST /api/fake/bin-age` backdates binned images' `binned_at`
-by `days`, for Empty recycle bin's age scope; `POST /api/fake/peak` sets the
-(`allocated`, `reserved`) bytes the jobs after it save as their peak;
-`POST /api/fake/refine` takes the claimed checkpoint's refine pass away
-(`supported` false) and gives it back, as a loaded pipeline with no
-image-to-image sibling answers;
-`POST /api/fake/instruction-edit` closes or reopens the instruction-edit
-gate (`available`), which is open on a fake claiming FLUX.1 Kontext [dev]
-alone - there an edit is the source proved and prepared, tinted and
-stamped, and two more sources are planted: a 3:2 one, which the recipe
-takes but the measured envelope holds (only 1:1 is qualified), and a 2:1
-one the recipe refuses. The fake reports the envelope's own host
-(`FakeBackend.edit_host`), so its loader answers follow the selection
-alone, on any machine. The
-prompt check reads the tests' word tokenizers - a token per word or mark, at
+and the failure rule can be driven from the page. The fake's own test-only
+knobs, never on the real server, are POSTs under `/api/fake/`: load, step,
+expand, model, lora, bin-age, peak, refine and instruction-edit; the comment
+above each route states its body and its answer. The instruction-edit gate
+is open on a fake claiming FLUX.1 Kontext [dev] alone - there an edit is
+the source proved and prepared, tinted and stamped, and two more sources
+are planted: a 3:2 one, which the recipe takes but the measured envelope
+holds (only 1:1 is qualified), and a 2:1 one the recipe refuses. The fake
+reports the envelope's own host (`FakeBackend.edit_host`), so its loader
+answers follow the selection alone, on any machine. The prompt check reads the tests' word tokenizers - a token per word or mark, at
 each encoder's real budget - and the critic is the tests' FakeCritic, whose
 answer is built from the prompt. The default gallery lives under the system
 temp directory. --fresh creates a new scratch directory, prints its path
