@@ -830,7 +830,7 @@ function toggleSheet() {
 // (focusSheet). Every sheet opened is said (saySheet).
 function setSheet(on, { land = false, asker = null, reload = true } = {}) {
   sheetMode = on;
-  // Every sheet opens at its own size (sheet.js's zoom), said afresh.
+  // Every sheet opens at its own size (sheet-zoom.js's zoom), said afresh.
   sheetZoom = 1;
   sheetZoomBase = 0;
   applySheetZoom();

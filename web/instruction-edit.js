@@ -564,7 +564,7 @@ async function reuseEdit(rec) {
 
 // An edit's source as the page names it: a press opens it in the lightbox
 // with the edit after it, unless it has gone - "(deleted)", or "(in the
-// recycle bin)" where a Restore brings it back (gallery.js's editGoneWord).
+// recycle bin)" where a Restore brings it back (facts.js's editGoneWord).
 function editSourceLink(rec) {
   const id = rec.edit?.source;
   if (id == null) return 'an unresolved source';

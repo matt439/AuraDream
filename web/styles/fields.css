@@ -389,7 +389,7 @@ textarea:focus, input:where(:not([type="checkbox"], [type="radio"])):focus { out
 }
 .tag-order { margin: 0 0 6px; color: var(--text-2); }
 .tag-insert { margin: 0 0 10px; color: var(--text); }
-/* The steps the caret line names (tag-chips.js, syncTagSelection): in the
+/* The steps the caret line names (tag-helper.js, syncTagSelection): in the
    order line, and on the groups whose tags go there. */
 .tag-author-order { color: var(--text); }
 .tag-step.fits { color: var(--text); font-weight: 600; text-decoration: underline 2px var(--accent); text-underline-offset: 3px; }

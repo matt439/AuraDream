@@ -586,7 +586,7 @@ function renderOrder(body) {
     // they wrote some, are shown as theirs.
     // "Its guide states none" only where no author order follows: NoobAI's and
     // RouWei's ? text quotes the orders listed below, which the sentence then
-    // contradicted. The Tags menu says the same (tag-chips.js, tagOrderLines).
+    // contradicted. The Tags menu says the same (tag-helper.js, tagOrderLines).
     box.appendChild(note(body.author_orders?.length
       ? 'This app checks no word order for this checkpoint.'
       : 'This app checks no word order for this checkpoint: its guide states none.'));
