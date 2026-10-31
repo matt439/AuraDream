@@ -27,6 +27,10 @@ from .jobs import JobManager
 
 log = logging.getLogger(__name__)
 PREFIX = "/api/gallery/bundles"
+# The automatic-backup routes' prefix, defined here because `api_backup`
+# imports this module (through `backup_service`), never the reverse:
+# `GalleryAdmission` exempts those routes from its reader count.
+BACKUP_PREFIX = "/api/gallery/automatic-backup"
 PASSWORD_HEADER = "X-Bundle-Password"
 _UPLOAD_BUFFER = 8 * 1024 * 1024
 UPLOAD_STOPPED = "The upload stopped before the whole file arrived; nothing was imported."
@@ -242,7 +246,7 @@ class GalleryAdmission:
         if scope["type"] != "http":
             return await self.app(scope, receive, send)
         path = scope["path"]
-        control = path in {"/api/gallery/automatic-backup", "/api/gallery/automatic-backup/reload", PREFIX, PREFIX + "/status", PREFIX + "/export", PREFIX + "/import",
+        control = path in {BACKUP_PREFIX, BACKUP_PREFIX + "/reload", PREFIX, PREFIX + "/status", PREFIX + "/export", PREFIX + "/import",
                            PREFIX + "/upload", PREFIX + "/password"} or path.startswith(PREFIX + "/files/")
         status = path == "/api/status" or path == "/api/jobs" or path.startswith("/api/jobs/")
         # Personal snippets, setups and searches have their own sidecars and reservations. Their

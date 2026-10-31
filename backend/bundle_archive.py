@@ -31,6 +31,9 @@ _FORMAT = "auradream-gallery"
 _LEGACY_FORMATS = frozenset({"local-diffusion-gallery"})
 _DATABASE = "database.sqlite3"
 _MANIFEST = "manifest.json"
+# The largest manifest the verified read accepts; the managed export's
+# capacity preflight budgets the same bound.
+_MANIFEST_MAX = 32 * 1024 * 1024
 _DECODE_BUDGET = 1024 * 1024 * 1024
 # A tracked PNG is held in memory to be decoded, and a hostile bundle can
 # declare (and deflate to) any size; this is far above any generated image.
@@ -169,7 +172,7 @@ def _verify_archive(path: Path, destination: Path | None = None, *, password: st
             names = [info.filename for info in infos]
             if len(names) != len(set(n.casefold() for n in names)):
                 raise BundleError("the bundle contains duplicate filenames")
-            if _MANIFEST not in names or archive.getinfo(_MANIFEST).file_size > 32 * 1024 * 1024:
+            if _MANIFEST not in names or archive.getinfo(_MANIFEST).file_size > _MANIFEST_MAX:
                 raise BundleError("the bundle manifest is missing or too large")
             for info in infos:
                 mode = info.external_attr >> 16

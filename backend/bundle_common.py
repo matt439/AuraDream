@@ -12,6 +12,8 @@ import sqlite3
 from collections.abc import Callable
 from pathlib import Path
 
+from .bundle_file_lock import safe_basename
+
 
 class BundleError(ValueError):
     pass
@@ -44,15 +46,7 @@ def _quiet(phase: str, done: int, total: int) -> None:
 
 
 def _basename(name: str) -> bool:
-    return (
-        isinstance(name, str) and bool(name) and name not in {".", ".."}
-        and not any(c in name for c in '/\\:\x00<>"|?*')
-        and not any(ord(c) < 32 for c in name) and not name.endswith((".", " "))
-        and name.split(".")[0].upper() not in {
-            "CON", "PRN", "AUX", "NUL", *(f"COM{i}" for i in range(1, 10)),
-            *(f"LPT{i}" for i in range(1, 10)),
-        }
-    )
+    return safe_basename(name)
 
 
 # The original schema's required columns. Newer reproduction columns are read
