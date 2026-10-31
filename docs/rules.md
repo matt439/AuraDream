@@ -1904,22 +1904,22 @@ Jobs:
   a job, `stopped_by` is "failures" (status still `error`, through
   `_finish`) and its error reads "Stopped at cell X of Y after N cells
   failed; K images kept. Last: <short_error>" (a plain job's in images or
-  batches, `Job.units`). The page's Retry ("Retry the
-  N skipped cells") and Resume ("Resume the remaining N cells", for a grid
-  `stopped_by` "failures" or "budget": N is `total_runs - (run - failures)`,
-  since the budget is checked before a cell starts; a budget stop's title
-  ends "under the same N-minute budget", the payload's `budget_minutes`
-  sent again with it) send the
-  job's own submitted payload (`submissions`) again with `resume: true` and
-  `payload.seed ?? JobAccepted.seed` (none beside a seed list) - never the
-  POST's seed over the payload's own, never the panel - each once ("Retry
-  sent", "Resume sent", `aria-disabled`, focus kept). A sweep whose refine
-  source has gone cannot run again: the press holds the button
-  (`aria-disabled`, the sentence as its title, a press saying it again) and
-  says "#N, this sweep's source, was deleted: the run cannot resume."
-  (Retry: "its skipped cells cannot run again") - before sending where the
-  page saw the delete (`deletedIds`), else on the server's refusal of that
-  id (`startJob`'s `onRefused`).
+  batches, `Job.units`). Skipped cells and a grid's `stopped_by`
+  "failures" or "budget" are recovered by the finish line's Finish run
+  (`finishRunButton`, `web/runs.js`), which reads the server's retained run
+  (`POST /api/runs/{id}/finish/preview`, `finish_plan`) - never the panel,
+  never this tab's submitted payload. Its title is the server's count,
+  "Finish N images in M missing cells of run X", with the permanently
+  deleted cells it redraws and "; original N-minute budget" where the run
+  had one (Finish queues under the retained `budget_minutes`). A press
+  checks again and sends only the preview's `pin` (`{expected}` to
+  `POST /api/runs/{id}/finish`; a run changed since answers 409, "check
+  Finish run again"), once: accepted, it reads "Finish sent",
+  `aria-disabled`, focus kept. A hold - nothing missing, another
+  checkpoint, the rest already queued, a sweep whose refine source has gone
+  ("no gallery image with id N") - is the server's reason: the button's
+  title (`aria-disabled`), said in the press's slot with nothing sent, and
+  the server refuses the POST in the same words.
 - Each SSE stream has its own queue; `events()` opens with `done` for a job
   that has finished; the per-cell event and `/api/jobs` send
   `snapshot(images=False)`. Progress events carry `elapsed`; the page's
@@ -4021,7 +4021,7 @@ Frontend and CLI:
   its bar, nor anything between the bars and Generate but the Now line;
   queue rows read the same, and a single queued job is one "Next:" row. A
   finished job's outcome and actions (Use seed, More seeds…, Show sheet,
-  More seeds of this run…, Retry/Resume) are the finish line, `#finish-note`, outside `#progress` (`setFinish`): only
+  More seeds of this run…, Finish run) are the finish line, `#finish-note`, outside `#progress` (`setFinish`): only
   the next job's end replaces it, never a queued job's start; it is led by
   "Previous job:" while another runs or after a lost stream (`finishStale`).
   Its sentence, without buttons, is said once on the visually hidden polite
@@ -4176,7 +4176,7 @@ Frontend and CLI:
   ⊞ and ⤢ refusals and a pass's Compare with source refusal, deletes and
   the recycle bin's note with its Restore (`noteBinned`), Empty recycle bin, a
   star's failure (a card's, a viewer result's, a sheet cell's or the
-  lightbox's), the sheet's Resume this run refusals, Fill width pressed on
+  lightbox's), the sheet's Finish run refusals, Fill width pressed on
   a wrapped row, an export pressed while one runs, Export all's outcome and
   refusals, and its export failure - is said in `#gallery-error` (`els.galleryError`), which
   `resetGallery` clears; Reuse's notes stay in the panel's `#error`.
@@ -5487,7 +5487,7 @@ Frontend and CLI:
   footer passes its own); a menu item, its menu gone, has none.
   `moreSeedsGalleryChanged` skips a run scope as it skips `ids`; the count
   technical details retain the server's `headline` where there is one. The sheet's
-  run bar is More seeds of this run… after Resume this run, on
+  run bar is Finish run then More seeds of this run…, on
   `sheetShownRun` (one run opened on `run:<id>`, a refine sweep's and a
   comparison's too, held - not hidden - on another checkpoint), then its
   status line (`sheetRunStatus`, "Run X · N images · checkpoint quant",
@@ -5668,24 +5668,24 @@ Frontend and CLI:
   and a coarse pointer, and always when starred; drawn by `syncStar`. That
   button and F on a focused cell both star through `starCell` →
   `setFavorite` (F said in `#star-said`). A `.sheet-cell` is `isolation:
-  isolate`, so its badges stay under the stuck heads. "Resume this run" (one run of the running
-  checkpoint opened on `run:<id>`, not a comparison or refine sweep) fills
-  the run's seed and size and never persists Resume. `resumeRun(runId,
-  known)` always reads the base seed from `/api/runs` (the run's oldest
-  image); `known` gives only the size, for a page with no sheet. The
-  last-run banner appends ", N since deleted" or ", all since deleted" from
-  `deleted_count`, hiding Show run when all are gone, and offers Resume
-  (`resumeLastRun` → `resumeRun(run_id, { width, height })`) for a grid that
-  stopped short - cancelled, its budget, or `stopped_by` failures - with an
-  image of its own left; never for a re-render, a refine sweep or a prompt
-  comparison (the snapshot's `comparison`). For a `done` job with a run id
-  and an image left it shows More seeds… (`#last-run-more`,
-  `moreSeedsLastRun`) beside Show run, on the run scope. When Resume this
-  run's preview renders no cell but skips or queues some, `resumeRun`
-  appends "Nothing in run X is missing. More seeds of this run… adds
-  seeds." to it. The snapshot's `seed` is a job's
-  first remaining cell, past the base after a Resume, and is never used as
-  the base.
+  isolate`, so its badges stay under the stuck heads. Finish run is one
+  retained-run action wherever a run ends (`web/runs.js`): the finish line,
+  the lost-run card, the sheet's run bar and the last-run banner
+  (`#last-run-resume`, `configureFinishRun`; `resumeLastRun` →
+  `pressFinishRun`). Its availability, counts and holds are the server's
+  (`GET /api/runs/{id}`'s `actions.finish`, then
+  `/api/runs/{id}/finish/preview`), each answer kept to the server,
+  checkpoint and revision it was asked under (`finishContext`), and it never
+  reads or writes the composer: a hand-built grid and its Resume tick stay
+  as they were. A run made before runs kept their cells is held with "use
+  the panel's Resume tick". The last-run banner appends ", N since deleted"
+  or ", all since deleted" from `deleted_count`, hiding Show run when all
+  are gone, and shows Finish run for any job with a run id, a comparison's
+  and Repeat's too, held with the server's reason where nothing is missing.
+  For a `done` job with a run id and an image left it shows More seeds…
+  (`#last-run-more`, `moreSeedsLastRun`) beside Show run, on the run scope.
+  The sheet's status line adds the preview's missing cells and passes
+  ("· N missing cells", "; N deleted to redraw") after the run's own words.
 - `generate`, `clear`, `stats` and `reindex` reconfigure stdout to UTF-8 at
   the top of `main()`: on Windows always, elsewhere when it is not a
   terminal, and never on a stream without `reconfigure` (a StringIO,
@@ -8083,9 +8083,10 @@ as the panel's, with the greyed negative's caption "(needs True CFG > 1 —
 ~2× slower)"; a pass whose source is deleted while it runs (`/api/fake/step`
 slowing it) landing with "(deleted)" in its title and the note and its
 Reuse saying so, `markGoneSource` marking an arriving pass, and a sweep
-stopped by failures when its source went: Resume held, in words, with focus
-kept and nothing sent, and the server's refusal of the resume in the words
-the button reads.
+stopped by failures when its source went: Finish run held with the
+server's reason ("no gallery image with id N") as its title and said at
+every press, focus kept and nothing sent, and the server refusing the POST
+in the same words.
 `smoke-conditioning.json` has the other side
 on its klein fake: the card's, the viewer's and the lightbox's Refine
 answering with the reason and opening nothing.
@@ -8276,13 +8277,13 @@ search on Sheet off, the Sheet button's newest run, pins taking the
 commonest value, F starring a focused cell (said in `#star-said`), the lightbox opened from the
 sheet starring the cell (its star "★ Star", `aria-label` Star, its title
 and `aria-pressed`) and F on the cell it hands focus back to, the Fixed line
-under Starred, the run bar (More seeds of this run… right after Resume
-this run, the run's line "Run … · N images · checkpoint quantization" last,
-on a row of its own under the buttons), Resume this run filling the seed and
-size (its warning keeping the preview's `.totals`), the dead-end pointer
-"Nothing in run … is missing. More seeds of this run… adds seeds." on a run
-with every cell done and not on another grid's mismatch, its mismatch
-warning and its absence on another checkpoint's run, whose More seeds of
+under Starred, the run bar (Finish run, More seeds of this run… right
+after it, the run's line "Run … · N images · checkpoint quantization" last,
+on a row of its own under the buttons), Finish run held with "nothing in
+this run is missing" on a complete run, a press saying it in
+`#gallery-error` and leaving an unrelated composer (its grid, size, seed
+and Resume tick) as it was, offered on a seeds-only run too, and held with
+the server's reason on another checkpoint's run, whose More seeds of
 this run… stays, held with "Made on …", and says it under the gallery's head, the version rows with their edits and titles (a
 reorder as "same words, moved"), a strength sweep's source column and
 lightbox walk, the refined badge, two passes alike on every axis but
@@ -8413,17 +8414,18 @@ its clock ("for 2 min" in the cell line, "⏸ Paused 2 min" in the title, its
 `paused_at` set back past a minute, at the next poll),
 its note gone with its job; the finish line's seed with Use seed and the
 fixed-seed hint; a grid named by its own prompt, skipping a `[fail]` cell
-live, with Show sheet and a Retry that sends its own payload with Resume and
-the base seed, once, keeping focus; the failure rule's "Stopped at cell" and
-Resume, kept as the previous job's while a queued job runs; a plain job
+live, with Show sheet and Finish run sending only its `expected` pin, once,
+with the composer changed since left alone, "Finish sent" keeping focus as
+the previous job's; the failure rule's "Stopped at cell" and Finish run,
+kept as the previous job's while a queued job runs; a plain job
 whose every image failed, said in images ("1 of 1 image was skipped",
 "Stopped at image 3 of 3") and titled "Nothing made"; a cancelled
 job's outcome led by "Previous job:" while the next runs and gone at its
 end; focus after Cancel (Generate) and after Pause held to the end (Use
-seed); a time budget's held ETA and count, and its finish line's Resume
-the remaining N cells (N from the cells the budget reached, "under the same
-0.06-minute budget" in its title) sending the grid once with Resume and its
-budget, then "Resume sent"; the finish line's Use seed then More seeds…, and
+seed); a time budget's held ETA and count, "Time budget reached after
+N/20 cells … Finish run checks the rest.", and its finish line's Finish run
+(its title counting the missing cells from the cells the budget reached and
+naming the "original 0.06-minute budget") sent once, then "Finish sent"; the finish line's Use seed then More seeds…, and
 a done grid's Show sheet then More seeds of this run…; the gallery kept where it was
 scrolled with New image; the offline state through a stubbed fetch and a
 restart through a changed start time; the load's ticker with its
@@ -8521,9 +8523,10 @@ the page at its end (down at its end, up at its top) and the strip while it
 can scroll; 28 at QHD with no padding-only
 scrollbar and the gallery head unmoved from its first frame (`reserveStrip`),
 the wheel over it scrolling the page; the banner's
-"2 since deleted" / "all since deleted"; the banner's Resume after a
-resumed-and-cancelled grid putting the run's base seed in Seed; no Resume
-for a cancelled comparison; a batch of four at QHD followed from its first
+"2 since deleted" / "all since deleted"; the banner's Finish run on a
+cancelled grid that was itself a Resume, finishing the stored run with an
+unrelated composer left as it was; Finish run offered on a cancelled
+comparison; a batch of four at QHD followed from its first
 frame to its end - the preview in the first image's column, no tile moving
 within the strip, the tile size and the gallery head where the first frame
 put them - and the strip fitted alike with the page's scrollbar forced on
