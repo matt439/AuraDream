@@ -26,6 +26,7 @@ from backend.instruction_edit import (
     KONTEXT_V1,
     StoredInstructionEdit,
     descriptor_from_image,
+    text_to_image_refusal,
 )
 from backend.jobs import JobManager
 from backend.metadata import PNG_METADATA_KEY
@@ -714,6 +715,8 @@ def test_text_to_image_on_the_editor_says_to_edit_an_image(client, fake, monkeyp
         assert detail == INSTRUCTION_EDIT_TEXT_TO_IMAGE
     else:
         assert detail.endswith(INSTRUCTION_EDIT_UNAVAILABLE) and "Use Edit by instruction" not in detail
+        # The closed gate's words exactly, not a pointer at it.
+        assert detail == text_to_image_refusal(KONTEXT_V1.model_id, qualified=False)
     defaults = client.get("/api/status").json()["defaults"]
     assert defaults["text_to_image_supported"] is False and defaults["text_to_image_reason"] == detail
     assert no_work(fake)

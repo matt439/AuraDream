@@ -287,16 +287,6 @@ def test_status_serves_the_held_reason_as_a_default(client):
     assert defaults["instruction_edit_reason"] == edit.INSTRUCTION_EDIT_UNAVAILABLE
 
 
-def test_text_to_image_on_the_editor_says_to_edit_an_image(client, monkeypatch):
-    from backend import model_selection
-
-    monkeypatch.setattr(model_selection, "_selection", (edit.KONTEXT_V1.model_id, 1))
-    response = client.post("/api/generate", json={"prompt": "a lighthouse", "width": 512, "height": 512})
-    assert response.status_code == 422
-    # The client's backend is closed: the gate's words, not a pointer at it.
-    assert response.json()["detail"] == edit.text_to_image_refusal(edit.KONTEXT_V1.model_id, qualified=False)
-
-
 # Config pin
 
 
