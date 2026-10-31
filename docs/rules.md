@@ -7453,6 +7453,17 @@ uv run python tools/fake_server.py --port 7912 --model black-forest-labs/FLUX.1-
 node tools/browser.mjs tools/smoke-then-refine.json
 ```
 
+`tools/check_run_continue.py` is a by-hand check of Finish run outside the
+smoke table, not run by CI: it starts its own FLUX.1 Krea [dev] fake on a
+new scratch gallery (`--port`, default 7999, off the table's ports; it
+refuses a port already in use), stops a budgeted grid and a repeat, presses
+Finish run in fresh browser pages, then kills and restarts that fake and
+finishes the interrupted runs, printing where it left its steps and logs:
+
+```powershell
+uv run python tools/check_run_continue.py
+```
+
 `tests/test_peak.py` covers the peak pair: the row and the chunk, an older
 database, a PNG-only reindex and a malformed chunk value, no change to a
 cell's key, run id or Resume, a batch sharing its call's peak and a raised
