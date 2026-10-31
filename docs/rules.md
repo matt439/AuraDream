@@ -6219,7 +6219,7 @@ picker at the editor; a switch to it carries the instruction and seed, not
 the numbers; a switch away, or a draft of numbers only, keeps nothing), the
 held aspect said as the source's and never in the Models note, and the drift
 line equal to the guide's sentence. `test_instruction_edit_envelope.py`
-holds `option_refusals`, `test_api_model_switch.py` the editor row's
+holds `option_refusals`, `test_api_model_catalogue.py` the editor row's
 `loader_holds` (every gate and draft; `{}` elsewhere), and
 `test_instruction_edit_queue.py` the preview's `source_reason`.
 
@@ -6323,9 +6323,9 @@ critic never given the measured drift, the pinned `FluxKontextPipeline`
 encoder rows, `details_for`'s strings and live Held/Yes answer, the
 retained timing, and the download
 reference's commit equal to `KONTEXT_V1.revision` without the root single
-file. `test_api_model_switch.py`'s
+file. `test_api_model_catalogue.py`'s
 `test_the_editors_row_carries_the_backends_answer_for_the_draft_loader`
-holds `main`'s listing to the instance's answer, and
+holds `main`'s listing to the instance's answer, and `test_api_model_switch.py`'s
 `test_switch_to_kontext_refused_while_gated_before_hub_save_or_unload`
 finds the editor listed last; `test_instruction_edit_loader.py`'s
 `test_exact_id_refusal_runs_before_custom_class_check_on_every_entry` holds
@@ -7993,7 +7993,7 @@ no category for an unmatched setup or a first run on a busy PC;
 non-Eager and other-quantization rows left out, the most-used size then step
 count, the median and its count, the latest rows only, nothing for an empty
 history or a missing database, a reserved gallery refused after the short
-wait) and `test_api_model_switch.py` the field per model with the speed facts
+wait) and `test_api_model_catalogue.py` the field per model with the speed facts
 unchanged and a reserved gallery leaving it out without stalling the reply; `test_model_info.py` covers compact facts
 for every catalogue entry, favourite ids shared by Lite/Nunchaku variants,
 access, Qwen-Image's fit, size labels that never claim an unsourced maximum and the shared
