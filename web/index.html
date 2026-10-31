@@ -1585,7 +1585,7 @@
          Models (opening the picker only: it switches nothing). -->
     <p class="hint warn rf-draft" id="edit-unavailable" hidden><span id="edit-unavailable-text"></span>
       <button type="button" class="ghost tiny" id="edit-open-models">Open Models…</button></p>
-    <label class="field" id="edit-instruction-field">
+    <label class="field">
       <span>Instruction</span>
       <textarea id="edit-instruction" rows="3" spellcheck="true" autocomplete="off"
                 placeholder="What to change - &quot;make it night, keep the composition&quot;"></textarea>
@@ -1830,7 +1830,7 @@
       <input id="bundle-password" type="password" autocomplete="new-password" maxlength="1024" aria-describedby="bundle-password-hint">
       <label for="bundle-password-again">Repeat password</label>
       <input id="bundle-password-again" type="password" autocomplete="new-password" maxlength="1024" aria-describedby="bundle-password-hint">
-      <p class="caps-lock-note" id="bundle-password-caps" aria-live="polite"></p>
+      <p class="caps-lock-note" aria-live="polite"></p>
     </div>
     <p class="hint" id="bundle-password-hint">Applies to both Back up and Bundle &amp; clear. A password encrypts the new bundle as a .ldbundle file that only AuraDream can open. It is not saved and cannot be recovered; without it the bundle cannot be opened, and a cleared gallery is lost.</p>
     <div class="bundle-backup-row">
@@ -1852,7 +1852,7 @@
     <div class="bundle-password bundle-unlock">
       <label for="bundle-unlock">Import password</label>
       <input id="bundle-unlock" type="password" autocomplete="current-password" maxlength="1024" aria-describedby="bundle-unlock-hint">
-      <p class="caps-lock-note" id="bundle-unlock-caps" aria-live="polite"></p>
+      <p class="caps-lock-note" aria-live="polite"></p>
     </div>
     <p class="hint" id="bundle-unlock-hint">One shared password for Import selected file and the saved bundles marked Protected below. Plain ZIP files do not need it.</p>
     <div class="bundle-upload-row">
@@ -1894,7 +1894,7 @@
       </div>
       <p class="hint" id="automatic-backup-age-hint">Enter a whole number of hours. Only a currently verified automatic copy counts toward this age; manual bundles do not.</p>
       <p class="hint" id="automatic-backup-retention-hint">Without separate cleanup permission, all existing copies are kept and this count is not enforced. Cleanup keeps the newest confirmed automatic copies, the new backup and any copy in use, so more than this count may remain.</p>
-      <label class="bundle-automatic-check" id="automatic-backup-consent-label"><input type="checkbox" id="automatic-backup-consent" aria-describedby="automatic-backup-protection-hint automatic-backup-destination"> For unencrypted ZIPs, I allow unattended backups including images and prompts at the destination shown below.</label>
+      <label class="bundle-automatic-check"><input type="checkbox" id="automatic-backup-consent" aria-describedby="automatic-backup-protection-hint automatic-backup-destination"> For unencrypted ZIPs, I allow unattended backups including images and prompts at the destination shown below.</label>
       <label class="bundle-automatic-check"><input type="checkbox" id="automatic-backup-encrypted-consent" aria-describedby="automatic-backup-protection-hint automatic-backup-credential-status automatic-backup-destination"> For encrypted archives, I allow unattended backups using the configured Windows credential reference at the destination shown below.</label>
       <label class="bundle-automatic-check"><input type="checkbox" id="automatic-backup-recovery-consent" aria-describedby="automatic-backup-protection-hint"> I have an independent password recovery record outside this Windows account and PC. I understand that losing the password can make encrypted archives unrecoverable.</label>
       <p class="hint" id="automatic-backup-protection-hint">Encryption protects only the output archive. The live gallery, SQLite snapshot and any decrypted import staging remain plaintext on disk. A Windows credential reference is not independent password recovery and does not by itself protect against losing this PC. Manual bundle password fields are never used for automatic backups.</p>

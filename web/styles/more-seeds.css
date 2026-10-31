@@ -99,7 +99,3 @@
 .result-seeds button { flex: none; min-width: 8em; border-color: var(--accent); color: var(--text); background: var(--accent-soft); }
 .result-seeds > span { min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; color: var(--text-readout); }
 #btn-more-seeds { color: var(--text); border-color: var(--line-strong); }
-
-@media (min-width: 1800px) {
-  .result-seeds { height: var(--h-sm); }
-}

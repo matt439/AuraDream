@@ -4611,8 +4611,8 @@ Frontend and CLI:
 - The comparison across CFG (`web/lightbox-cfg.js`; across steps, the same
   machinery, after this item). `lbCompare.kind` is `'source'` (a pass and
   its source, above), `'cfg'` or `'steps'`; `lbCompare.source` is the
-  partner either way. An image's CFG ladder (`ladderOf(LADDER_AXES.cfg, …)`,
-  `cfgLadder`) is the images
+  partner either way. An image's CFG ladder (`ladderOf(LADDER_AXES.cfg, …)`)
+  is the images
   that agree with it on every sheet axis but CFG and True CFG and on size,
   checkpoint, quantization and refine source (`sameExcept(a, b, ['cfg',
   'tcfg'])`, beside `sameSettings` in sheet.js, which is
@@ -5526,7 +5526,7 @@ Frontend and CLI:
   cell the keyboard was last on in the sheet (`sheetSwipeFrom`, a focusin in
   app.js) where it has a CFG neighbour, else the first shown cell in
   reading order with a lower CFG beside it, walking that cell's own ladder
-  from the shown cells (`cfgLadder(rec, sheetLayout.cells)`, ascending -
+  from the shown cells (`ladderOf(axis, rec, sheetLayout.cells)`, ascending -
   its row or column, never the pinned-out cells), with the CFG comparison
   on in swipe (`toggleCompare('swipe', 'cfg')` after the open). Swipe
   steps (`sheetSwipeButton('steps')`, `SHEET_SWIPES`) is the same along

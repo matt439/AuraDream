@@ -100,7 +100,6 @@ function ladderOf(axis, rec, pool = ladderPool(rec), keep = []) {
   }
   return [...byValue.values()].sort((a, b) => axis.of(a) - axis.of(b));
 }
-const cfgLadder = (rec, pool, keep) => ladderOf(LADDER_AXES.cfg, rec, pool, keep);
 
 // The partner a comparison starts with: the value directly below, or the one
 // above where this is the lowest.

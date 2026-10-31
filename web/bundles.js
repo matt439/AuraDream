@@ -913,8 +913,6 @@ function automaticBackupOutcomeText(status) {
     destination_identity_mismatch: 'Automatic startup backup failed because its saved destination identity did not match. Earlier copies are kept.',
     invalid_policy: 'Automatic startup backup failed because its saved policy is invalid. Earlier copies are kept.',
     invalid_identity_or_protection: 'Automatic startup backup failed because its identity or protection settings are invalid. Earlier copies are kept.',
-    credential_pending: 'Automatic startup backup is inactive because offline credential setup is pending. Inspect the local setup outcome before enabling it.',
-    credential_unavailable: 'Automatic encrypted backup could not obtain its configured credential. No plaintext fallback was used.',
     credential_missing: 'The configured encrypted-backup credential is missing. Inspect the local profile and repair its offline setup using the intended Windows account. No plaintext fallback was used.',
     credential_session_unavailable: 'This Windows session cannot read the configured backup credential. Use the intended Windows account and an available sign-in session before the next start. No plaintext fallback was used.',
     credential_access_denied: 'Windows refused access to the configured backup credential. Review credential-store access for the intended account before the next start. No plaintext fallback was used.',

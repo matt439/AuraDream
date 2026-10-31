@@ -159,11 +159,6 @@ function loaderExecution(compilation = '', attention = '') {
   return Object.keys(spec).length ? spec : null;
 }
 
-function executionSame(a, b) {
-  return JSON.stringify(loaderExecution(a?.compilation, a?.attention_backend))
-    === JSON.stringify(loaderExecution(b?.compilation, b?.attention_backend));
-}
-
 function executionLoadHold() {
   return invalidLoaderDraftReason() || (!selectedExecutionAvailable ? (selectedExecutionReason || EXECUTION_UNAVAILABLE) : '');
 }

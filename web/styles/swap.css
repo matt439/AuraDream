@@ -30,9 +30,8 @@
 .swap-row.gone { visibility: hidden; }
 .swap-row {
   display: grid; grid-template-columns: minmax(0, 1fr) auto minmax(0, 1fr) auto;
-  align-items: center; gap: var(--sp-2);
+  align-items: center; gap: var(--sp-2); flex-shrink: 0;
 }
-.swap-row { flex-shrink: 0; }
 .swap-row input { width: 100%; min-width: 0; }
 .swap-arrow { color: var(--muted); }
 /* The arrow, or an Add row's start/end toggle in its place: one width, so
