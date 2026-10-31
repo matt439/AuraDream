@@ -461,7 +461,7 @@ before changing it.
   per version
 - `backend/reindex.py` — rows rebuilt from the PNGs' `auradream` chunk, in place or
   copied in from another gallery; idempotent on the UNIQUE filename
-- `web/` - served as-is from `/static`; `index.html` loads 58 classic
+- `web/` - served as-is from `/static`; `index.html` loads 59 classic
   scripts in order, sharing one global scope; only `app.js`, the last, runs
   the wiring and boot. `state.js` owns shared state; `generation.js`,
   `grid-preview.js`, `job-stream.js` and `job-results.js` handle submission,
@@ -493,7 +493,9 @@ before changing it.
   cache intent and shared execution holds;
   `model-shots.js` the picker's strip of the chosen checkpoint's images;
   `bundles.js` owns the gallery bundle dialog (Back up and its scope
-  included) and background-operation polling;
+  included) and background-operation polling, and `automatic-backup.js`
+  its automatic startup backup settings (protection, consent, retention
+  cleanup and credential status, read only while the dialog is open);
   `gallery-select.js` the picked cards and the Picked menu, `gallery-batch.js` a
   card's batch outlined on hover, `tag-swap.js` Swap tags,
   `refine-batch.js` Mass refine, `then-refine.js` Then refine's opener
