@@ -267,7 +267,8 @@ def apply_saved_environment(
 ) -> StartupPreferences | None:
     """Fill absent startup variables, without importing config or changing disk.
 
-    The four values are one choice made for one checkpoint. When the model is
+    The saved values (checkpoint, quantization, offload, auto-load and loader
+    execution) are one choice made for one checkpoint. When the model is
     explicit (`model`, the --model flag applied afterwards, or the
     environment) and is not the saved one, none of them applies: a saved
     BF16/no offload/auto-load for a small model must not load a large one so.

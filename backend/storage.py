@@ -54,7 +54,7 @@ _mask_lock = threading.Lock()
 # 160 px squares under 1800 px and 200-260 CSS px from there (--thumb-min's
 # clamp: 245 at 2560, 217 at 2048, 271 device px at 125%), each showing the
 # whole frame on its long side, so 384 covers a card at any shape. A sheet
-# cell larger than this takes the PNG instead (sheet.js's srcset). A
+# cell larger than this takes the PNG instead (sheet-render.js's srcset). A
 # 2048x2048 PNG is 5 MB on disk and 17 MB decoded, and a page of 48 of them
 # was 400 MB of bitmap to paint 48 squares.
 THUMB_SIDE = 384

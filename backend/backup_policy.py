@@ -1,8 +1,9 @@
 """Pure automatic-backup decisions; no filesystem, app state or activation.
 
 Copy facts are supplied by a verifier, not reconstructed from archive names.
-These decisions authorize no deletion: a future coordinator must revalidate
-ownership, identity, containment and leases under the gallery reservation.
+These decisions authorize no deletion: `BackupCoordinator` and
+`backup_retention` revalidate ownership, identity, containment and leases
+under the gallery reservation.
 """
 from __future__ import annotations
 

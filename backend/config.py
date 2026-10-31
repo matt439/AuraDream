@@ -73,10 +73,8 @@ _STARTUP_LOADER_EXECUTION, _STARTUP_LOADER_EXECUTION_ERROR = _loader_execution_e
 
 @dataclass(frozen=True)
 class Settings:
-    # Which checkpoint to serve. Krea 2 Turbo is the 8-step distilled variant.
-
-    # krea/Krea-2-Turbo
-    # black-forest-labs/FLUX.1-Krea-dev
+    # Which checkpoint to serve: default `model_defaults.DEFAULT_MODEL_ID`; the
+    # catalogue is `launch.CHECKPOINTS`.
     model_id: str = os.getenv("AURADREAM_MODEL_ID", DEFAULT_MODEL_ID)
 
     # "fp8"  - torchao float8 weight-only on the transformer (~12GB, fits 16GB cards)

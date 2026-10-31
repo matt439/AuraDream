@@ -1,6 +1,6 @@
 """App startup/configuration boundary for explicitly enabled gallery backups.
 
-Cleanup requires a separate explicit v3 permission. Encrypted backups pass a
+Cleanup requires the separately saved retention permission (settings v3+). Encrypted backups pass a
 saved credential reference to the admitted worker; setup remains explicit.
 Status is an in-memory snapshot:
 it remains readable during maintenance without taking the gallery reservation.

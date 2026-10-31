@@ -1,10 +1,15 @@
 """The generation request and its one normalisation, `applied()`.
 
 The request contract (fields, profile defaults, size and budget guards,
-validators), the grid sweep request and its preview, the helpers that read
-recorded or raised values (`effective_true_cfg`, `error_detail`) and the
-answer every submission returns. The leaf the other `schemas_*` modules build
-on; `schemas.py` re-exports all of it. `default_strength` and the profile
+validators), an outpaint's spec (`OutpaintSpec`, `Outpaint`), the submission
+and its Then refine pass (`GenerateSubmission`, `ThenRefine`), an instruction
+edit's submission (`InstructionEditSubmission`), the grid sweep request and
+its preview, the helpers that read recorded or raised values
+(`effective_true_cfg`, `error_detail`), the answer every submission returns
+(`JobAccepted`), a stored mask's and the outpaint presets' answers
+(`MaskStored`, `OutpaintPreset(s)`) and Load settings from PNG's models
+(`Png*`). The leaf the other `schemas_*` modules build on; `schemas.py`
+re-exports its public request and response models. `default_strength` and the profile
 defaults read this module's `settings` at call time, so a test that changes
 the running checkpoint through `settings` patches it here.
 """

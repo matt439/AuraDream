@@ -3,10 +3,14 @@
 `cfg_threshold()` and `negative_prompt_supported` are derived from the loaded
 pipeline's `__call__` signature, and `model_defaults` hard-codes the same two
 answers per checkpoint for the unloaded case - so the profile's guess and the
-pipeline's answer have to agree, and until now only a human kept them in step.
-The classes import without weights or a GPU; the id -> class mapping is the
-one assumption this cannot verify offline (the loader reads it from the repo's
-model_index.json).
+pipeline's answer have to agree. The classes import without weights or a
+GPU; the id -> class mapping is the one assumption this cannot verify offline
+(the loader reads it from the repo's model_index.json).
+
+The file also holds the rest of what the page and the CLI copy from the
+profiles: each checkpoint's sourced guide, the size tables in the page, the
+CLI and the README, and the refine/inpaint bounds and notes against
+web/refine.js and docs/verified.md.
 """
 from __future__ import annotations
 

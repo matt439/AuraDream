@@ -5,7 +5,8 @@ an ownership-trust fact. No settings, credentials or defaults are selected here.
 Only currently matching, nonempty managed copies cover age. Missing ownership
 must not be reconstructed from archive names; a new namespace's trust must be
 supplied explicitly. There is no retry loop or independent age-state sidecar.
-Cleanup additionally requires the v3 permission and installed native protocol.
+Cleanup additionally requires the saved retention permission (settings v3+)
+and the installed native protocol.
 """
 from __future__ import annotations
 

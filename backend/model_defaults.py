@@ -60,6 +60,9 @@ generic 1600x1600 line - and `hints_for` the words naming the run
 repos quote Krea dev's fp8 run, and say so (Qwen-Image's is NVFP4, the
 only way it fits the card). A figure, never a VRAM model:
 each one is a row of that file, and `tests/test_profiles.py` holds it there.
+Beside it, the hint `refine_large` (FLUX.1's) says under Strength why one
+strength redraws more of a pass past the measured one; `hints_for` drops it
+where the checkpoint has no pass.
 
 `inpaint_supported` says whether the checkpoint can run an inpaint - a refine
 pass at the source's own size with a painted mask - through the inpaint class
@@ -87,6 +90,14 @@ XL 4.0 and Z-Anime at the library's default, FLUX.1 Krea dev at its own),
 and `hints_for` words the Strength note from it (`inpaint_strength`):
 measured here, or measured on the checkpoints that run the same inpaint
 class and not on this one. A label, not a default.
+
+`text_to_image_supported` (default True) says whether the checkpoint renders
+from a prompt alone; an edit-only one (FLUX.1 Kontext [dev]) says False, and
+`defaults_for` gives the held Generate's words as `text_to_image_reason`.
+`instruction_edit_candidate` is a profile's only edit key: it names a
+checkpoint an instruction edit could run on. `defaults_for` derives
+`instruction_edit_supported` from it and the backend's own `edit_reason`,
+never from the profile.
 
 `mu_supported` says whether the checkpoint uses a flow-matching scheduler whose
 sigmas can be shifted. Modern SDXL exposes a custom `sigmas` argument too, but
@@ -1107,7 +1118,6 @@ _EXACT_PROFILES["black-forest-labs/flux.1-kontext-dev"] = {
     "refine_strength": None,
     "true_cfg_supported": False,
     "text_to_image_supported": False,
-    "instruction_edit_supported": False,
     "instruction_edit_candidate": True,
     "guide": guides.KONTEXT_GUIDE,
     "hints": {
@@ -1320,7 +1330,7 @@ def _served_tag_helper(model_id: str, guide: dict[str, Any]) -> dict[str, Any] |
 
 
 # What the CFG tooltip says when the loaded pipeline disagrees with the profile
-# about the negative prompt: three of the five profiles' CFG hints assert
+# about the negative prompt: many profiles' CFG hints assert
 # something about it, and a checkpoint the id table does not recognise but
 # whose pipeline takes none would otherwise be greyed out "because this
 # checkpoint takes no negative prompt" under a badge saying it applies above 1.

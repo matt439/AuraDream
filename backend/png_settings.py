@@ -4,8 +4,8 @@ the page's Load settings from PNG (`api_png.py`).
 Two blocks are read: this app's own JSON record (`metadata.embedded_metadata`,
 the whole reproduction set) and the A1111 'parameters' text that A1111,
 Forge, Civitai and this app's own PNGs carry. Pure, like `metadata`: nothing
-here imports config, so the CLI can call it before `apply_env`, and Pillow
-only where a file is opened.
+here imports config, so the CLI can call it before `apply_env`. (Pillow does
+load at import, through `metadata` and `instruction_edit`.)
 """
 from __future__ import annotations
 

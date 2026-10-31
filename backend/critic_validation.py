@@ -16,7 +16,7 @@ from .schemas import CritiqueIssue, PromptCritique, PromptFinding
 # A letter or digit of a script that spaces its words. A quote that starts or
 # ends in one must start or end a word of the text as well: "man" is not the
 # end of "woman", nor "pen" the middle of "OPEN". Han, kana and Hangul run
-# on without spaces (`prompt_rules._WORD_NOT_CJK`, which `QUOTED` reads too,
+# on without spaces (`prompt_text._WORD_NOT_CJK`, which `QUOTED` reads too,
 # so the two cannot drift apart), and so do Thai, Lao, Myanmar and Khmer: a
 # quote of them may begin and end anywhere. An underscore is a tag's space:
 # "hair" is a word of "long_hair".

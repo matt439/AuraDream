@@ -537,8 +537,9 @@ def complete_deletion(db_path: Path, intent: PendingDeletion) -> None:
 def matches_current(receipt: Receipt, directory: Path) -> bool:
     """Check current raw identity without a password; never delete or adopt.
 
-    A later coordinator must still hold admission/reservation and account for
-    download leases. A true result is a snapshot, not deletion authorization.
+    The caller (`BackupCoordinator._work`) holds admission/reservation and
+    accounts for download leases. A true result is a snapshot, not deletion
+    authorization.
     """
     # Keep lease errors outside the False-return catch. Otherwise a broken
     # installed mode could masquerade as a missing copy and trigger an export.
@@ -556,7 +557,8 @@ def matches_current(receipt: Receipt, directory: Path) -> bool:
 
 
 def _matches_current(receipt: Receipt, directory: Path, read_owner=None) -> bool:
-    """Unleased fact check, not an exclusive/handle-bound mutation authority."""
+    """Fact check under the caller's read lease (`read_owner`), not an
+    exclusive/handle-bound mutation authority."""
     try:
         if directory.is_symlink() or directory.is_junction() or not directory.is_dir():
             return False

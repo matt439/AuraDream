@@ -1,4 +1,5 @@
-"""Single and grid submission: Generate, Run grid, its preview, and Re-render."""
+"""Single and grid submission: Generate, Run grid, its preview, Re-render, and
+run details and Finish run (`/api/runs/{id}`, `finish_plan`)."""
 from __future__ import annotations
 
 import asyncio
