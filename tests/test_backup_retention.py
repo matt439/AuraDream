@@ -19,7 +19,7 @@ from backend.backup_policy import BackupPolicy, CopyFacts
 from backend.backup_service import BackupService
 from backend.bundle_leases import LeaseRegistry, downloads
 from backend.schemas_backup import BackupSettingsRequest
-from tests.bundle_helpers import _save, _snapshot
+from tests.bundle_helpers import save_source, bundle_snapshot
 
 WINDOWS = pytest.mark.skipif(os.name != "nt", reason="Owned Windows fixed-local-NTFS scratch qualification")
 
@@ -264,12 +264,12 @@ def test_disabling_preserves_pending_visibility_without_destination_access(cohor
 @WINDOWS
 def test_real_coordinator_backup_success_survives_retention_warning(store, monkeypatch):
     async def scenario():
-        _save()
+        save_source()
         directory = store.bundle_directory()
         directory.mkdir()
         installed = bundle_mode.install(directory, other_servers_stopped=True).mode
         chosen = enable(store.settings.db_path, directory, installed)
-        before = _snapshot(store)
+        before = bundle_snapshot(store)
         manager = api_bundles.BundleManager(lambda: main.jobs, lambda: False)
         worker = BackupCoordinator(manager, db_path=store.settings.db_path, directory=directory, leases=LeaseRegistry())
         identity = receipts.ManagedIdentity(chosen.settings.gallery_id, chosen.settings.destination_id, str(uuid4()))
@@ -284,7 +284,7 @@ def test_real_coordinator_backup_success_survives_retention_warning(store, monke
         service = BackupService(manager, store.settings.db_path)
         monkeypatch.setattr(receipts, "load", lambda *_a: pytest.fail("known success time reread a damaged journal"))
         assert service._verification_time(worker, identity.gallery_id) == outcome.verified_at
-        assert _snapshot(store) == before
+        assert bundle_snapshot(store) == before
 
     asyncio.run(scenario())
 
@@ -293,7 +293,7 @@ def test_real_coordinator_backup_success_survives_retention_warning(store, monke
 def test_no_cleanup_after_failed_unmanaged_empty_or_young_attempt(store, monkeypatch, failure):
     async def scenario():
         if failure != "empty":
-            _save()
+            save_source()
         identity = receipts.ManagedIdentity(*(str(uuid4()) for _ in range(3)))
         directory = store.bundle_directory()
         policy = BackupPolicy(True, timedelta(hours=1), 1, "unencrypted")
@@ -319,7 +319,7 @@ def test_no_cleanup_after_failed_unmanaged_empty_or_young_attempt(store, monkeyp
 @WINDOWS
 def test_actual_startup_export_then_cleanup_and_retired_retry_keeps_gallery(store, monkeypatch):
     async def scenario():
-        _save(prompt="scratch lifecycle", seed=18)
+        save_source(prompt="scratch lifecycle", seed=18)
         directory = store.bundle_directory()
         directory.mkdir(exist_ok=True)
         installed = bundle_mode.install(directory, other_servers_stopped=True).mode
@@ -330,7 +330,7 @@ def test_actual_startup_export_then_cleanup_and_retired_retry_keeps_gallery(stor
         payload = json.loads(journal_path.read_text())
         payload["receipts"][0]["verified_at"] = (datetime.now(timezone.utc) - timedelta(days=2)).isoformat()
         journal_path.write_text(json.dumps(payload))  # Owned synthetic age fixture only.
-        before = _snapshot(store)
+        before = bundle_snapshot(store)
         manager = api_bundles.BundleManager(lambda: main.jobs, lambda: False)
         service = BackupService(manager, store.settings.db_path)
         service.prepare()
@@ -342,7 +342,7 @@ def test_actual_startup_export_then_cleanup_and_retired_retry_keeps_gallery(stor
         state = receipts.load_state(store.settings.db_path, old_identity.gallery_id)
         assert len(state.receipts) == 1 and len(state.retired) == 1 and state.pending is None
         assert not (directory / old["name"]).exists()
-        assert _snapshot(store) == before
+        assert bundle_snapshot(store) == before
         # A later coordinator cannot re-export a retired operation ID.
         monkeypatch.setattr(bundles, "export_bundle", lambda **_k: pytest.fail("retired operation was exported again"))
         worker = BackupCoordinator(manager, db_path=store.settings.db_path, directory=directory, leases=LeaseRegistry())

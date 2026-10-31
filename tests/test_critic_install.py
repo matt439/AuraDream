@@ -17,9 +17,9 @@ from backend import critic, critic_runtime, main
 
 from tests.critic_helpers import (
     Release,
-    _configure,
-    _link_directory,
-    _zip,
+    configure_critic,
+    link_directory,
+    zip_bytes,
     root,
     windows_release,
 )
@@ -95,7 +95,7 @@ def test_an_archive_already_in_downloads_is_held_to_its_pin(root, windows_releas
 
 @pytest.mark.parametrize("member", ["../evil.dll", "/evil.dll", "C:/evil.dll", "a/../../evil.dll"])
 def test_a_zip_member_escaping_the_target_is_refused(root, monkeypatch, member):
-    Release(monkeypatch, {"llama-test.zip": _zip({"llama-server.exe": b"s", member: b"evil"})})
+    Release(monkeypatch, {"llama-test.zip": zip_bytes({"llama-server.exe": b"s", member: b"evil"})})
     with pytest.raises(critic_runtime.CriticError, match="outside the install directory"):
         critic_runtime.install_server("test-x64")
     assert critic_runtime.installed_server("test-x64") is None
@@ -147,7 +147,7 @@ def test_tarballs_are_flattened_into_one_directory(root, monkeypatch):
 
 
 def test_an_archive_without_the_server_is_not_installed(root, monkeypatch):
-    Release(monkeypatch, {"llama-test.zip": _zip({"llama-cli.exe": b"cli"})})
+    Release(monkeypatch, {"llama-test.zip": zip_bytes({"llama-cli.exe": b"cli"})})
     with pytest.raises(critic_runtime.CriticError, match="llama-server.exe"):
         critic_runtime.install_server("test-x64")
     assert critic_runtime.installed_server("test-x64") is None
@@ -173,7 +173,7 @@ def test_an_undecodable_marker_is_no_install(root, windows_release, monkeypatch,
 
     # Not ready, and the status poll that asks still answers.
     monkeypatch.setattr(critic_runtime, "platform_key", lambda: "test-x64")
-    _configure(monkeypatch, critic=True, critic_server=None, critic_model=None)
+    configure_critic(monkeypatch, critic=True, critic_server=None, critic_model=None)
     gguf = tmp_path / "Qwen3-4B-Q8_0.gguf"
     gguf.write_bytes(b"gguf")
     monkeypatch.setattr(huggingface_hub, "try_to_load_from_cache", lambda *a, **k: str(gguf))
@@ -268,7 +268,7 @@ def test_the_sweep_never_takes_a_link_named_like_work(root, windows_release, tmp
     (elsewhere / "tree" / "keep.txt").write_text("mine")
     root.mkdir(parents=True)
     link = root / f"{target.name}-linked01"
-    _link_directory(link, elsewhere)
+    link_directory(link, elsewhere)
     assert not critic_runtime._is_work(link, target)
     with caplog.at_level("WARNING", logger=critic_runtime.log.name):
         critic_runtime.install_server("test-x64")

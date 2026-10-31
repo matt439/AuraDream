@@ -263,22 +263,6 @@ async function deleteSavedSearch() {
   }
 }
 
-// One transition owns all three controls, including the sheet/bin escape.
-// Close the old view without reading it, then replace its epoch once. A sheet
-// never gets to put back the search it replaced after this explicit apply.
-function applyGalleryFilter({ query, favorites, all_models }) {
-  clearTimeout(searchTimer);
-  leaveBin();
-  sheetReturn = null;
-  if (sheetMode) void setSheet(false, { reload: false });
-  els.search.value = query;
-  els.favOnly.checked = favorites;
-  els.allModels.checked = all_models;
-  const opened = resetGallery();
-  void loadRuns();
-  return opened;
-}
-
 function applySavedSearch() {
   const reason = savedSearchPending ? 'Wait for the saved searches request to finish.' : savedSearchQueryReason();
   if (reason) { savedSearchSay(reason, true); return; }

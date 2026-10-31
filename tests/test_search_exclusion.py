@@ -4,7 +4,6 @@ from __future__ import annotations
 
 import json
 from pathlib import Path
-import shutil
 import subprocess
 
 import pytest
@@ -243,7 +242,7 @@ def test_clear_where_previews_an_exclusion_and_refuses_unconfirmed(store, capsys
     assert store.list_images()[1] == 3
 
 
-@pytest.mark.skipif(shutil.which("node") is None, reason="needs Node")
+@pytest.mark.usefixtures("node")
 def test_the_page_reads_exclusions_as_the_server_does():
     script = r'''
 const assert = require('node:assert/strict');

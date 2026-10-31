@@ -14,7 +14,7 @@ from backend import prompt_encoding as pe
 from backend import prompt_weighting
 from tests.prompt_encoding_helpers import (  # noqa: F401  (fixtures by name)
     FAILURES,
-    _kind,
+    error_kind,
     clip,
     fresh_cache,
     rules,
@@ -129,7 +129,7 @@ def test_a_deeply_nested_prompt_is_measured_not_raised(tokenizers, model_id, pro
         assert reports and detail is None
 
 
-@pytest.mark.parametrize("error", [RuntimeError("boom"), *FAILURES], ids=_kind)
+@pytest.mark.parametrize("error", [RuntimeError("boom"), *FAILURES], ids=error_kind)
 def test_a_failing_syntax_pass_costs_its_findings_not_the_analysis(
     tokenizers, monkeypatch, error
 ):
@@ -141,11 +141,11 @@ def test_a_failing_syntax_pass_costs_its_findings_not_the_analysis(
     reports, findings, detail = pe.measure("KBlueLeaf/Kohaku-XL-Zeta", "(a:1.2), cat", None)
     assert [r.name for r in reports] == ["CLIP-L", "CLIP-G"]
     assert rules(findings, "encoder.weighting") == []
-    assert detail == f"Weighting syntax unchecked: {_kind(error)}"
+    assert detail == f"Weighting syntax unchecked: {error_kind(error)}"
     _, _, detail = pe.measure("someone/unknown-model", "(a:1.2), cat", None)
     assert detail == (
         "Token budgets unchecked: no encoder table entry for this checkpoint; "
-        f"Weighting syntax unchecked: {_kind(error)}."
+        f"Weighting syntax unchecked: {error_kind(error)}."
     )
 
 

@@ -1,5 +1,7 @@
 # Tooling work ready for implementation
 
+**Status: done 2026-10-31** (`DEV#4`-`DEV#7`, `DEV#9`, `DEV#24`-`DEV#26`).
+
 Owner for `DEV#4`-`DEV#7`. The first three came from the
 [2026-10-25 review](review-2026-10-25.md#tooling); `DEV#7` was found while
 auditing the queue on 2026-10-26. The audit established this plan; dated
@@ -560,9 +562,10 @@ reader cannot tell a parallel failure from a serial one.
 
 ## Suite and smoke timings (2026-10-29, DEV#25)
 
-**Status:** `DEV#25` OPEN, recorded 2026-10-29 from the TODO audit. Stage 1
-built 2026-10-30; stage 2 has its Windows local baseline, and the Linux CI
-baseline waits on the next push Matt makes (see Results).
+**Status: done 2026-10-31** (`DEV#25`, recorded 2026-10-29 from the TODO
+audit). Stage 1 built 2026-10-30; stage 2's Windows local baseline was taken
+the same day, and the Linux and Windows CI baselines come from pull_request
+run 41159120243 (see Results).
 
 ### Evidence
 
@@ -655,13 +658,39 @@ to call one slow. Taken while Matt was away (2026-10-29), revisit if
 wanted: no row is filed from this Windows run; that waits for the Linux
 CI table, where the CI time goes.
 
-**Left (stage 2):** the Linux CI baseline: the `Test` step's top 25 and the
-`Smoke timings` table, from the first CI run after Matt next pushes. A
-Windows CI figure follows when main next runs. Nothing was pushed to get
-either. Taken while Matt was away (2026-10-29), revisit if wanted: the
-local smoke table was not run in full for a Windows smoke baseline. The
-plan asks only for the Windows suite, and the smokes are written on Windows
-but timed in CI on Linux.
+**CI baselines, 2026-10-31** (pull_request run 41159120243, PR #24 into
+main, head 13b803e, started 2026-10-31T02:15Z). The main-branch runs either
+side of it (41144800338, 41160887436) were skipped as duplicates by
+`tools/ci_duplicates.py` and carry no timings, so this run is the record.
+
+- **Linux suite** (`test (ubuntu-latest)`, image ubuntu-24.04
+  20261025.353.1, CPython 3.13.18, `-n auto`): 8,133 passed and 83 skipped
+  in 257.75 s; the job took 5 min 19 s. Slowest five:
+  `test_storage_scale.py` password 12.13 s,
+  `test_api_grid.py::test_a_pause_stops_the_time_budgets_clock` 9.21 s,
+  `test_browser_profile.py::test_a_passing_run_removes_its_profile` 8.13 s,
+  `test_storage_scale.py` plain 7.46 s and
+  `test_gallery_purge.py::test_every_chunk_is_validated_before_any_requested_row_is_deleted`
+  4.53 s; everything from the 10th on was under 3.5 s. The rest of the 25 are storage interruption and sidecar-lock
+  cases, FBC/regional-compile runtime checks and the real tokenizers.
+- **Linux smokes** (`browser`, same image, `run_smoke.py --all --jobs 3`):
+  100 smokes, 2,181.1 s of smoke time in 861.4 s of wall clock; the job took
+  14 min 53 s of its 45-minute timeout. Slowest five: smoke-jobs 211.0 s,
+  smoke-sheet 112.0 s, smoke-results 98.8 s, smoke-narrow 88.8 s and
+  smoke-analysis 85.9 s (its row of four, 110.3 s). Every other smoke took
+  under 80 s, and from the 13th on under 40 s. The `Smokes` step keeps its
+  command; this is the figure the `--rerun-failed-alone` question in
+  [Smoke reruns alone](#smoke-reruns-alone-2026-10-29-dev24) waited on.
+- **Windows suite** (`test (windows-latest)`, image windows-2025-vs2026
+  20261030.294.1, CPython 3.13.17, `-n auto`): 8,209 passed and 7 skipped in
+  1,245.09 s; the job took 22 min 32 s. Slowest three:
+  `test_gallery_purge.py::test_every_chunk_is_validated_before_any_requested_row_is_deleted`
+  68.40 s and `test_storage_scale.py` password 28.70 s and plain 28.34 s.
+
+No row is filed from these figures: the non-goals set no budget, and
+nothing here is slow enough on its own to need one. The local smoke table
+was not run in full for a Windows smoke baseline; the smokes are timed in
+CI on Linux.
 
 ## Fake-server knob map (2026-10-29, DEV#26)
 

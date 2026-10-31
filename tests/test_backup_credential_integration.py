@@ -17,7 +17,7 @@ from backend.backup_coordinator import BackupCoordinator
 from backend.backup_service import BackupService
 from backend.bundle_leases import LeaseRegistry
 from backend.failure_state import retained_failure
-from tests.bundle_helpers import _destination, _save, _snapshot
+from tests.bundle_helpers import use_destination, save_source, bundle_snapshot
 
 
 def profile(db, directory):
@@ -75,7 +75,7 @@ def test_switch_to_plaintext_starts_new_set_and_does_not_revive_old_reference(tm
 @pytest.mark.parametrize("invalid", [None, "", "\ud800", "x" * 1025, 123])
 def test_fake_provider_invalid_values_never_reach_plaintext_export(store, monkeypatch, invalid):
     async def scenario():
-        _save()
+        save_source()
         _reference, _ready = profile(store.settings.db_path, store.bundle_directory())
         enable(store.settings.db_path, store.bundle_directory())
 
@@ -97,8 +97,8 @@ def test_fake_provider_invalid_values_never_reach_plaintext_export(store, monkey
 
 def test_due_worker_fake_secret_exports_once_and_independent_password_restores(store, monkeypatch, tmp_path):
     async def scenario():
-        _save(prompt="owned encrypted fixture", seed=62)
-        before = _snapshot(store)
+        save_source(prompt="owned encrypted fixture", seed=62)
+        before = bundle_snapshot(store)
         reference, _ready = profile(store.settings.db_path, store.bundle_directory())
         chosen = enable(store.settings.db_path, store.bundle_directory())
         events, verifications = [], []
@@ -133,11 +133,11 @@ def test_due_worker_fake_secret_exports_once_and_independent_password_restores(s
         assert status.state == "succeeded" and status.protection == "encrypted"
         assert events == ["read", "released"] and verifications == [True]
         assert secret not in repr(manager.status()) and secret not in repr(status)
-        assert _snapshot(store) == before
+        assert bundle_snapshot(store) == before
         archive = store.bundle_directory() / status.archive_name
         assert archive.suffix == ".ldbundle" and bundle_crypto.is_encrypted(archive)
         # Recovery uses only an independently supplied user password, not the provider.
-        _destination(store, monkeypatch, tmp_path)
+        use_destination(store, monkeypatch, tmp_path)
         result = bundles.import_bundle(archive, password=secret)
         assert result["imported"] == 1
         assert events == ["read", "released"]
@@ -152,7 +152,7 @@ def test_not_due_never_resolves_even_a_missing_named_credential(store, monkeypat
         reference, _ready = profile(store.settings.db_path, store.bundle_directory())
         chosen = enable(store.settings.db_path, store.bundle_directory())
         if young:
-            _save()
+            save_source()
             bundles.export_bundle(keep_gallery=True, password="synthetic old password", managed=backup_receipts.ManagedIdentity(
                 reference.gallery_id, reference.destination_id, str(uuid4())))
         monkeypatch.setattr(credentials, "read_secret", lambda *_a: pytest.fail("not-due worker looked up a vault reference"))
@@ -210,7 +210,7 @@ def test_malformed_pending_profile_preserves_its_bytes_for_explicit_repair(tmp_p
 @pytest.mark.parametrize("reason", ["credential_missing", "credential_session_unavailable", "credential_access_denied"])
 def test_provider_repair_failures_are_fixed_outcomes_without_manager_logging(store, monkeypatch, caplog, reason):
     async def scenario():
-        _save()
+        save_source()
         _reference, _ready = profile(store.settings.db_path, store.bundle_directory())
         enable(store.settings.db_path, store.bundle_directory())
         marker = "synthetic provider secret must not escape"

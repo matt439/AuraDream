@@ -45,10 +45,9 @@ def test_round_trip_preserves_only_known_preferences(remembered):
     assert list(db_path.parent.iterdir()) == [preferences.path_for(db_path)]
 
 
-@pytest.mark.parametrize("interactive", [False, True])
-def test_bare_start_restores_preferences_even_without_a_terminal(remembered, interactive):
+def test_bare_start_restores_preferences(remembered):
     _, choice = remembered
-    assert launch.configure([], ask=never_ask, interactive=interactive) is None
+    assert launch.configure([], ask=never_ask) is None
     assert {name: os.environ[name] for name in choice.environ()} == choice.environ()
 
 
@@ -165,7 +164,7 @@ def test_invalid_preferences_never_block_startup(remembered, change, caplog):
     db_path, choice = remembered
     path = preferences.path_for(db_path)
     path.write_text(json.dumps({"version": 2, **asdict(choice), **change}), encoding="utf-8")
-    launch.configure([], ask=never_ask, interactive=True)
+    launch.configure([], ask=never_ask)
     assert "Ignoring saved startup settings" in caplog.text
     assert all(name not in os.environ for name in choice.environ())
 

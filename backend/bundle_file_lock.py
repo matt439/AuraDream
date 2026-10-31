@@ -47,17 +47,27 @@ def _regular(value: os.stat_result, path: Path) -> tuple[int, int]:
     return _identity(value)
 
 
+def safe_basename(name: object) -> bool:
+    """A Windows-safe leaf name: no separator, reserved or control character,
+    no trailing dot or space, and no reserved device stem. Archive leases and
+    every bundle filename (`bundle_common._basename`) share this one rule."""
+    return (
+        isinstance(name, str) and bool(name) and name not in {".", ".."}
+        and not name.endswith((".", " "))
+        and not any(character in name for character in '/\\:\x00<>"|?*')
+        and not any(ord(character) < 32 for character in name)
+        and name.split(".", 1)[0].upper() not in {
+            "CON", "PRN", "AUX", "NUL", *(f"COM{i}" for i in range(1, 10)),
+            *(f"LPT{i}" for i in range(1, 10)),
+        }
+    )
+
+
 def archive_path(path: Path) -> Path:
     """Canonical parent plus safe leaf; never resolve through an archive link."""
     path = Path(path)
     name = path.name
-    if (not name or name in {".", ".."} or name.endswith((".", " "))
-            or any(character in name for character in '/\\:\x00<>"|?*')
-            or any(ord(character) < 32 for character in name)
-            or name.split(".", 1)[0].upper() in {
-                "CON", "PRN", "AUX", "NUL", *(f"COM{i}" for i in range(1, 10)),
-                *(f"LPT{i}" for i in range(1, 10)),
-            }):
+    if not safe_basename(name):
         raise LockSafetyError(f"Unsafe archive lease basename: {path}")
     # A configured bundle directory is checked by storage before its callers
     # arrive here. Check the direct names too, before resolve hides a link.

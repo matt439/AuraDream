@@ -14,8 +14,8 @@ import pytest
 from backend import critic, critic_runtime, main
 
 from tests.critic_helpers import (
-    _configure,
-    _link_directory,
+    configure_critic,
+    link_directory,
     root,
     windows_release,
 )
@@ -64,19 +64,19 @@ def test_platform_key(monkeypatch, system, machine, key):
 
 
 def test_supported_follows_the_switch_and_the_platform(monkeypatch, tmp_path):
-    _configure(monkeypatch, critic=False, critic_server=None, critic_model=None)
+    configure_critic(monkeypatch, critic=False, critic_server=None, critic_model=None)
     assert not critic.prompt_critic.supported()
     assert not critic.prompt_critic.ready()
     with pytest.raises(critic_runtime.CriticUnavailable, match="switched off"):
         critic.prompt_critic.prepare()
 
-    _configure(monkeypatch, critic=True)
+    configure_critic(monkeypatch, critic=True)
     monkeypatch.setattr(critic_runtime, "platform_key", lambda: "win-cuda-13.4-x64")
     assert critic.prompt_critic.supported()
     monkeypatch.setattr(critic_runtime, "platform_key", lambda: None)
     assert not critic.prompt_critic.supported()
     # A server of the user's own makes any platform supported.
-    _configure(monkeypatch, critic_server=tmp_path / "llama-server")
+    configure_critic(monkeypatch, critic_server=tmp_path / "llama-server")
     assert critic.prompt_critic.supported()
 
 
@@ -90,7 +90,7 @@ def _no_downloads(monkeypatch) -> None:
 
 def test_the_linux_build_is_offered_only_on_a_glibc_that_runs_it(monkeypatch, tmp_path):
     # The probes are this test's: nothing depends on the host being Linux.
-    _configure(monkeypatch, critic=True, critic_server=None, critic_model=None)
+    configure_critic(monkeypatch, critic=True, critic_server=None, critic_model=None)
     monkeypatch.setattr(critic_runtime, "platform_key", lambda: UBUNTU)
     monkeypatch.setattr(critic_runtime, "missing_libraries", lambda names: pytest.fail("probed"))
     _no_downloads(monkeypatch)
@@ -107,7 +107,7 @@ def test_the_linux_build_is_offered_only_on_a_glibc_that_runs_it(monkeypatch, tm
         assert critic_runtime.pinned_build_refusal() is None
     # A server of one's own is not held to the pinned build's needs.
     monkeypatch.setattr(critic_runtime, "glibc_version", lambda: (2, 35))
-    _configure(monkeypatch, critic_server=tmp_path / "llama-server")
+    configure_critic(monkeypatch, critic_server=tmp_path / "llama-server")
     assert critic.prompt_critic.supported()
     # Windows' build asks nothing of the system.
     monkeypatch.setattr(critic_runtime, "glibc_version", lambda: pytest.fail("asked"))
@@ -117,7 +117,7 @@ def test_the_linux_build_is_offered_only_on_a_glibc_that_runs_it(monkeypatch, tm
 def test_the_critique_route_says_the_glibc_is_too_old(client, monkeypatch):
     # Ubuntu 22.04 under WSL: a build is published for the platform, and this
     # system cannot run it - not that there is none.
-    _configure(monkeypatch, critic=True, critic_server=None, critic_model=None)
+    configure_critic(monkeypatch, critic=True, critic_server=None, critic_model=None)
     monkeypatch.setattr(main, "settings", dataclasses.replace(main.settings, critic=True))
     monkeypatch.setattr(critic_runtime, "platform_key", lambda: UBUNTU)
     monkeypatch.setattr(critic_runtime, "glibc_version", lambda: (2, 35))
@@ -154,7 +154,7 @@ def test_glibc_version_reads_the_c_librarys_own_answer(monkeypatch):
 def test_a_missing_library_is_named_with_its_package_before_any_download(
     monkeypatch, tmp_path
 ):
-    _configure(monkeypatch, critic=True, critic_server=None, critic_model=None)
+    configure_critic(monkeypatch, critic=True, critic_server=None, critic_model=None)
     monkeypatch.setattr(critic_runtime, "platform_key", lambda: UBUNTU)
     monkeypatch.setattr(critic_runtime, "glibc_version", lambda: (2, 39))
     missing: list[str] = ["libgomp.so.1"]
@@ -181,7 +181,7 @@ def test_a_missing_library_is_named_with_its_package_before_any_download(
     assert target._prepared == (server, gguf)
     # A server of one's own is not probed for the pinned build's libraries.
     monkeypatch.setattr(critic_runtime, "missing_libraries", lambda names: pytest.fail("probed"))
-    _configure(monkeypatch, critic_server=server)
+    configure_critic(monkeypatch, critic_server=server)
     target.prepare()
 
 
@@ -217,7 +217,7 @@ def test_the_library_probe_prints_what_the_loader_cannot_find(monkeypatch, capsy
 
 def test_ready_is_what_is_on_disk(monkeypatch, tmp_path, root, windows_release):
     monkeypatch.setattr(critic_runtime, "platform_key", lambda: "test-x64")
-    _configure(monkeypatch, critic=True, critic_server=None, critic_model=None)
+    configure_critic(monkeypatch, critic=True, critic_server=None, critic_model=None)
     cached: list[str | None] = [None]
     monkeypatch.setattr(
         huggingface_hub, "try_to_load_from_cache", lambda *args, **kwargs: cached[0]
@@ -233,11 +233,11 @@ def test_ready_is_what_is_on_disk(monkeypatch, tmp_path, root, windows_release):
     assert windows_release.fetched == ["llama-test.zip", "cudart-test.zip"]
 
     own = tmp_path / "own-server"
-    _configure(monkeypatch, critic_server=own, critic_model=tmp_path / "missing.gguf")
+    configure_critic(monkeypatch, critic_server=own, critic_model=tmp_path / "missing.gguf")
     assert not critic.prompt_critic.ready()
     own.write_bytes(b"s")
     assert not critic.prompt_critic.ready()
-    _configure(monkeypatch, critic_model=gguf)
+    configure_critic(monkeypatch, critic_model=gguf)
     assert critic.prompt_critic.ready()
 
 
@@ -248,7 +248,7 @@ def test_describe_names_the_model_and_only_what_a_first_use_fetches(
     # names it, whether it is the pinned pair the page's time was measured
     # on, and what a first use would download - an override's file never.
     monkeypatch.setattr(critic_runtime, "platform_key", lambda: "test-x64")
-    _configure(monkeypatch, critic=True, critic_server=None, critic_model=None)
+    configure_critic(monkeypatch, critic=True, critic_server=None, critic_model=None)
     cached: list[str | None] = [None]
     monkeypatch.setattr(
         huggingface_hub, "try_to_load_from_cache", lambda *args, **kwargs: cached[0]
@@ -273,18 +273,18 @@ def test_describe_names_the_model_and_only_what_a_first_use_fetches(
 
     # A GGUF of one's own beside the pinned server: its name, no time.
     own_model = tmp_path / "gemma-3-12b-Q4.gguf"
-    _configure(monkeypatch, critic_model=own_model)
+    configure_critic(monkeypatch, critic_model=own_model)
     mine = target.describe()
     assert (mine.label, mine.pinned, mine.fetch) == ("gemma-3-12b-Q4", False, [])
     assert mine.label == target._label(own_model)  # the footer's name
     # A server of one's own, the pinned model not cached: no llama.cpp.
     cached[0] = None
-    _configure(monkeypatch, critic_server=tmp_path / "llama-server", critic_model=None)
+    configure_critic(monkeypatch, critic_server=tmp_path / "llama-server", critic_model=None)
     theirs = target.describe()
     assert (theirs.label, theirs.pinned) == (critic_runtime.MODEL_LABEL, False)
     assert (theirs.fetch, theirs.fetch_bytes) == ([critic_runtime.MODEL_LABEL], critic_runtime.MODEL_SIZE)
     # Both of one's own, neither there: never a download - prepare() says why.
-    _configure(monkeypatch, critic_model=own_model)
+    configure_critic(monkeypatch, critic_model=own_model)
     assert target.describe().fetch == [] and not target.ready()
     assert windows_release.fetched == fetched
 
@@ -293,14 +293,14 @@ def test_prepare_uses_configured_files_without_downloading(monkeypatch, tmp_path
     server, model = tmp_path / "llama-server", tmp_path / "mine.gguf"
     server.write_bytes(b"s")
     model.write_bytes(b"m")
-    _configure(monkeypatch, critic=True, critic_server=server, critic_model=model)
+    configure_critic(monkeypatch, critic=True, critic_server=server, critic_model=model)
     monkeypatch.setattr(critic_runtime, "install_server", lambda key: pytest.fail("installed"))
     target = critic.PromptCritic()
     target.prepare()
     assert target._prepared == (server, model)
     assert target._label(model) == "mine"
 
-    _configure(monkeypatch, critic_model=tmp_path / "missing.gguf")
+    configure_critic(monkeypatch, critic_model=tmp_path / "missing.gguf")
     with pytest.raises(critic_runtime.CriticUnavailable, match="AURADREAM_CRITIC_MODEL"):
         target.prepare()
 
@@ -323,7 +323,7 @@ def test_prepare_downloads_the_pinned_model_and_hashes_it_once(monkeypatch, tmp_
     monkeypatch.setattr(critic_runtime, "_sha256", lambda path: hashes.append(path) or real(path))
     server = tmp_path / "llama-server"
     server.write_bytes(b"s")
-    _configure(monkeypatch, critic=True, critic_server=server, critic_model=None)
+    configure_critic(monkeypatch, critic=True, critic_server=server, critic_model=None)
 
     target = critic.PromptCritic()
     target.prepare()
@@ -420,7 +420,7 @@ def test_a_model_still_off_its_pin_names_the_file_holding_it(monkeypatch, tmp_pa
     held.write_bytes(bytes(len(GOOD_WEIGHTS)))
     # The path handed out goes through a link, as a Hub snapshot's entry does:
     # the file that holds the bytes is the one it resolves to.
-    _link_directory(tmp_path / "hub" / "snapshot", blobs)
+    link_directory(tmp_path / "hub" / "snapshot", blobs)
     entry = tmp_path / "hub" / "snapshot" / "Qwen3-4B-Q8_0.gguf"
     forced: list[bool] = []
 

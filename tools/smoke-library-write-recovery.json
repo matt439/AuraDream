@@ -405,7 +405,7 @@
     ]
   },
   {
-    "expect": "els.snippetsDialog.open && !busy && !__wrCalls.some(call=>['/api/generate','/api/grid','/api/refine'].includes(call.path)&&call.method==='POST')"
+    "expect": "els.snippetsDialog.open && !busy && !__wrCalls.some(call=>['/api/generate','/api/grid'].includes(call.path)&&call.method==='POST')"
   },
   {
     "click": "#snippets-close"
@@ -675,7 +675,7 @@
     ]
   },
   {
-    "expect": "els.setupsDialog.open && !busy && !__wrCalls.some(call=>['/api/generate','/api/grid','/api/refine'].includes(call.path)&&call.method==='POST')"
+    "expect": "els.setupsDialog.open && !busy && !__wrCalls.some(call=>['/api/generate','/api/grid'].includes(call.path)&&call.method==='POST')"
   },
   {
     "click": "#setups-close"

@@ -73,28 +73,19 @@ _STARTUP_LOADER_EXECUTION, _STARTUP_LOADER_EXECUTION_ERROR = _loader_execution_e
 
 @dataclass(frozen=True)
 class Settings:
-    # Which checkpoint to serve. Krea 2 Turbo is the 8-step distilled variant.
-
-    # krea/Krea-2-Turbo
-    # black-forest-labs/FLUX.1-Krea-dev
+    # Which checkpoint to serve: default `model_defaults.DEFAULT_MODEL_ID`; the
+    # catalogue is `launch.CHECKPOINTS`.
     model_id: str = os.getenv("AURADREAM_MODEL_ID", DEFAULT_MODEL_ID)
 
-    # "fp8"  - torchao float8 weight-only on the transformer (~12GB, fits 16GB cards)
-    # "int8" - torchao int8 weight-only, the same size as fp8; on the sixteen
-    #          checkpoints compared on the card (not FLUX.1, Krea 2, klein 9B
-    #          or Qwen-Image), 3-10% faster a step and nearer bf16 on 14
-    #          (docs/verified.md)
-    # "none" - full bfloat16, needs ~25GB VRAM
-    # "nunchaku" - a checkpoint that is already quantized (Nunchaku Lite, SVDQuant
-    #          4-bit, e.g. lite-infer/krea-2-turbo-nunchaku-lite-nvfp4_r32-bnb4-
-    #          text-encoder). Nothing is quantized here: the repo's own configs
-    #          name the quantizer. Its CUDA kernels ship for Linux only, so on a
-    #          Windows machine this means WSL 2 - see wsl/ and the README.
+    # The values and what each means are worded once, in
+    # `loader_choices.QUANTIZATION_CHOICES`; memory and timing per checkpoint
+    # are in docs/verified.md. "nunchaku" is a checkpoint that is already
+    # quantized: nothing is quantized here, the repo's own configs name the
+    # quantizer. Its CUDA kernels ship for Linux only, so on a Windows
+    # machine it means WSL 2 - see wsl/ and the trusted-kernels flag below.
     quantization: str = os.getenv("AURADREAM_QUANT", DEFAULT_QUANT)
 
-    # "model"      - one component on the GPU at a time (recommended for <=16GB)
-    # "sequential" - per-submodule offload, lowest VRAM, much slower
-    # "none"       - keep everything resident
+    # Worded in `loader_choices.OFFLOAD_CHOICES`.
     offload: str = os.getenv("AURADREAM_OFFLOAD", DEFAULT_OFFLOAD)
 
     device: str = os.getenv("AURADREAM_DEVICE", "cuda")
@@ -196,8 +187,8 @@ def _check_vocabulary(name: str, value: str, allowed: tuple[str, ...]) -> None:
     """Refuse a AURADREAM_* value outside its vocabulary, at import, by name.
 
     The menu and the argparse `choices` are safe; the environment variables are
-    the documented interface and three start paths skip the menu. An unknown
-    value used to pick the heaviest branch silently and fail at the first image.
+    the documented interface and three start paths skip the menu. Why an
+    unknown value is refused: `model_defaults`, beside the vocabularies.
     """
     if value not in allowed:
         raise SystemExit(f"{name}={value!r} is not one of: {', '.join(allowed)}")

@@ -23,13 +23,13 @@ from tests.prompt_rules_helpers import (
     SCHNELL,
     WAI,
     Z_ANIME,
-    _all_guides,
-    _catalogue_repos,
+    all_guides,
     only,
     run,
     silent,
     spanned,
 )
+from tests.backend_helpers import catalogue_repos
 
 
 def _entries(analysis: dict):
@@ -59,7 +59,7 @@ def _strings(value):
 def test_every_catalogue_checkpoint_has_an_analysis():
     # Resolved the way every other guide lookup is, official and lite-infer
     # ids alike; the fallback's app-written prose has nothing to cite.
-    for repo in _catalogue_repos():
+    for repo in catalogue_repos():
         analysis = _profile_for(repo)["guide"].get("analysis")
         assert analysis, repo
     assert _FALLBACK["guide"]["analysis"] == {}
@@ -68,12 +68,12 @@ def test_every_catalogue_checkpoint_has_an_analysis():
     assert findings and all(finding.source == "heuristic" for finding in findings)
 
 
-@pytest.mark.parametrize("name", sorted(_all_guides()))
+@pytest.mark.parametrize("name", sorted(all_guides()))
 def test_every_cite_is_the_guides_own_words(name):
     # An entry is a claim the prose already makes. A cite that is not a
     # verbatim piece of the prompt hint - or, for an author placeholder, of
     # an example - is an invented rule wearing a quotation.
-    guide = _all_guides()[name]
+    guide = all_guides()[name]
     analysis = guide["analysis"]
     for key, entry in _entries(analysis):
         if key == "url":
@@ -88,11 +88,11 @@ def test_every_cite_is_the_guides_own_words(name):
         assert url and url.startswith("https://"), (name, key)
 
 
-@pytest.mark.parametrize("name", sorted(_all_guides()))
+@pytest.mark.parametrize("name", sorted(all_guides()))
 def test_the_analysis_holds_no_braces(name):
     # The same rule as the prose it cites: a brace in a cite that ever
     # reaches a format string fails the way a brace in a hint does.
-    assert not any("{" in text or "}" in text for text in _strings(_all_guides()[name]["analysis"]))
+    assert not any("{" in text or "}" in text for text in _strings(all_guides()[name]["analysis"]))
 
 
 def test_the_analysis_stays_out_of_the_status_payload():
@@ -100,7 +100,7 @@ def test_the_analysis_stays_out_of_the_status_payload():
     # would leak into ModelStatus.defaults and fail its validation.
     from backend.schemas import PromptGuide
 
-    for repo in _catalogue_repos():
+    for repo in catalogue_repos():
         assert "analysis" not in guide_for(repo), repo
         assert "analysis" not in defaults_for(repo), repo
         assert "analysis" not in PromptGuide(**guide_for(repo)).model_dump()
@@ -109,7 +109,7 @@ def test_the_analysis_stays_out_of_the_status_payload():
 def test_tag_order_slots_are_the_helpers_own():
     # Every slot a group, category, suffix or year form places an item in is a
     # step of `tag_helper.order`, and every group named is one the helper has.
-    for name, guide in _all_guides().items():
+    for name, guide in all_guides().items():
         order = guide["analysis"].get("order") or {}
         if "general" not in order:
             continue
@@ -157,7 +157,7 @@ def test_documented_orders_are_the_guides():
 
 def _examples():
     seen = set()
-    for repo in _catalogue_repos():
+    for repo in catalogue_repos():
         for example in guide_for(repo)["examples"]:
             if (repo.split("/")[0] != "lite-infer") and (repo, example) not in seen:
                 seen.add((repo, example))

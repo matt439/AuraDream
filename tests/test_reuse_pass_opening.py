@@ -170,7 +170,7 @@ function fixture() {
     'hideRefineSuggestions', 'sizeRefinePrompt', 'scheduleRefineCheck', 'scheduleRefineTags'];
   for (const name of noEffects) sandbox[name] = () => {};
   // Same order as the actual HTML. No source extraction or copied action logic.
-  for (const name of ['generation.js', 'panel.js', 'reuse.js', 'refine.js', 'generation-presets.js']) {
+  for (const name of ['generation.js', 'panel.js', 'reuse.js', 'refine-rules.js', 'refine.js', 'generation-presets.js']) {
     new vm.Script(fs.readFileSync(path.join(root, 'web', name), 'utf8'), { filename: name }).runInContext(sandbox);
   }
   // Loading declaration-only collaborators can define the presentation ports

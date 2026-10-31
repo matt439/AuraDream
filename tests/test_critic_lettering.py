@@ -7,8 +7,8 @@ from tests.critic_helpers import (
     ANIMAGINE,
     KLEIN,
     KREA_DEV,
-    _answer,
-    _validate,
+    critic_answer,
+    validate_answer,
 )
 
 
@@ -16,7 +16,7 @@ def test_the_rewrites_quotation_marks_are_held_to_the_prompts_lettering():
     prompt = "A quiet street after the rain, a small shop with a wooden sign that says Open Late."
 
     def check(rewrite, prompt=prompt, model_id=KLEIN):
-        return _validate(_answer(rewrite=rewrite, parts={}), prompt=prompt, model_id=model_id)
+        return validate_answer(critic_answer(rewrite=rewrite, parts={}), prompt=prompt, model_id=model_id)
 
     # Wrapped whole: unwrapped, and said so.
     wrapped = check(f'"{prompt[:-1]}, empty and glistening."')
@@ -76,8 +76,8 @@ def test_the_rewrites_quotation_marks_are_held_to_the_prompts_lettering():
     # own rewriter writes it: '营业中' becomes '欢迎光临'.
     shop = "一家小店门口，一块木招牌上写着'营业中'，傍晚的街道"
     changed = shop.replace("写着'营业中'", "写着'欢迎光临'")
-    ernie = _validate(
-        _answer(parts={"text_to_render": "营业中"}, rewrite=changed),
+    ernie = validate_answer(
+        critic_answer(parts={"text_to_render": "营业中"}, rewrite=changed),
         prompt=shop, model_id="baidu/ERNIE-Image-Turbo", ordered=False,
     )
     assert ernie.parts["text_to_render"] == "营业中" and ernie.rewrite is None
@@ -122,8 +122,8 @@ def test_words_placing_the_lettering_are_no_lettering_to_the_critic():
         ("A neon sign with the words flickering softly", "flickering softly"),
     ):
         rewrite = prompt.replace(words, f'"{words}"')
-        result = _validate(
-            _answer(rewrite=rewrite, parts={"text_to_render": words}), prompt=prompt
+        result = validate_answer(
+            critic_answer(rewrite=rewrite, parts={"text_to_render": words}), prompt=prompt
         )
         assert result.parts["text_to_render"] is None, prompt
         assert result.rewrite == rewrite
@@ -133,8 +133,8 @@ def test_words_placing_the_lettering_are_no_lettering_to_the_critic():
     # Words in capitals there are the lettering.
     prompt = "A t-shirt with the words GOOD VIBES across the chest"
     rewrite = prompt.replace("GOOD VIBES", '"GOOD VIBES"')
-    result = _validate(
-        _answer(rewrite=rewrite, parts={"text_to_render": "GOOD VIBES"}), prompt=prompt
+    result = validate_answer(
+        critic_answer(rewrite=rewrite, parts={"text_to_render": "GOOD VIBES"}), prompt=prompt
     )
     assert result.parts["text_to_render"] == "GOOD VIBES" and result.rewrite_findings == []
 
@@ -158,8 +158,8 @@ def test_lettering_holding_a_negation_is_lettering_to_the_critic_whole():
         ("A diner sign reading no shoes no shirt no service", "no shoes no shirt no service"),
     ):
         rewrite = prompt.replace(words, f'"{words}"')
-        result = _validate(
-            _answer(rewrite=rewrite, parts={"text_to_render": words}), prompt=prompt
+        result = validate_answer(
+            critic_answer(rewrite=rewrite, parts={"text_to_render": words}), prompt=prompt
         )
         assert result.parts["text_to_render"] == words, prompt
         assert result.rewrite == rewrite and result.rewrite_findings == [], prompt
@@ -179,12 +179,12 @@ def test_description_past_lettering_holding_a_negation_is_no_lettering_to_the_cr
          "books without pictures in the attic"),
     ):
         rewrite = prompt.replace(words, f'"{words}"')
-        kept = _validate(_answer(rewrite=rewrite, parts={"text_to_render": words}), prompt=prompt)
+        kept = validate_answer(critic_answer(rewrite=rewrite, parts={"text_to_render": words}), prompt=prompt)
         assert kept.parts["text_to_render"] == words, prompt
         assert kept.rewrite == rewrite and kept.rewrite_findings == [], prompt
         rewrite = prompt.replace(described, f'"{described}"')
-        result = _validate(
-            _answer(rewrite=rewrite, parts={"text_to_render": described}), prompt=prompt
+        result = validate_answer(
+            critic_answer(rewrite=rewrite, parts={"text_to_render": described}), prompt=prompt
         )
         assert result.parts["text_to_render"] is None, prompt
         assert result.rewrite == rewrite, prompt
@@ -210,8 +210,8 @@ def test_a_negation_the_rules_read_is_no_lettering_on_its_own():
     ):
         for piece in pieces:
             rewrite = prompt.replace(piece, f'"{piece}"', 1)
-            result = _validate(
-                _answer(rewrite=rewrite, parts={"text_to_render": piece}),
+            result = validate_answer(
+                critic_answer(rewrite=rewrite, parts={"text_to_render": piece}),
                 prompt=prompt, model_id=KREA_DEV,
             )
             assert result.parts["text_to_render"] is None, (prompt, piece)
@@ -221,8 +221,8 @@ def test_a_negation_the_rules_read_is_no_lettering_on_its_own():
             assert rewrite[flag.start:flag.end] == f'"{piece}"', (prompt, piece)
         for piece in kept:
             rewrite = prompt.replace(piece, f'"{piece}"', 1)
-            result = _validate(
-                _answer(rewrite=rewrite, parts={"text_to_render": piece}),
+            result = validate_answer(
+                critic_answer(rewrite=rewrite, parts={"text_to_render": piece}),
                 prompt=prompt, model_id=KREA_DEV,
             )
             assert result.parts["text_to_render"] == piece, (prompt, piece)
@@ -237,25 +237,25 @@ def test_a_rewrite_that_adds_content_says_so():
         "Photo of two people having a tea party in a lush garden, wide-angle lens, shallow "
         "depth of field, soft natural lighting, cinematic composition, vibrant greenery"
     )
-    (adds,) = _validate(_answer(rewrite=padded), prompt=prompt).rewrite_findings
+    (adds,) = validate_answer(critic_answer(rewrite=padded), prompt=prompt).rewrite_findings
     assert adds.rule == "heuristic.rewrite_adds" and adds.severity == "info"
     assert adds.source == "heuristic" and adds.start is None
     assert "adds 12 words the prompt does not have (wide-angle, lens, shallow, depth" in adds.message
     # Rewording is not new content: "no people" -> "empty", an inflection, a
     # quotation mark closing on a word.
     reworded = "A photo of two people who have a tea party in a lush, empty garden"
-    assert _validate(_answer(rewrite=reworded), prompt=prompt).rewrite_findings == []
+    assert validate_answer(critic_answer(rewrite=reworded), prompt=prompt).rewrite_findings == []
     sign = "A quiet street, no people, a sign that says Open Late."
     quoted = "A quiet street, empty, a sign that says 'Open Late'."
-    assert _validate(_answer(rewrite=quoted), prompt=sign).rewrite_findings == []
+    assert validate_answer(critic_answer(rewrite=quoted), prompt=sign).rewrite_findings == []
     # Words run together in Chinese; nothing is counted there.
     chinese = "一只猫在沙发上"
     longer = "一只橘色的猫在阳光下的旧沙发上睡觉，背景是木地板和绿植，电影感光线"
-    assert _validate(_answer(rewrite=longer), prompt=chinese).rewrite_findings == []
+    assert validate_answer(critic_answer(rewrite=longer), prompt=chinese).rewrite_findings == []
 
 
 def _dropping(rewrite, prompt, style="tags", model_id=ANIMAGINE):
-    found = _validate(_answer(rewrite=rewrite), prompt=prompt, model_id=model_id, style=style)
+    found = validate_answer(critic_answer(rewrite=rewrite), prompt=prompt, model_id=model_id, style=style)
     return [flag for flag in found.rewrite_findings if flag.rule == "heuristic.rewrite_drops"]
 
 
@@ -295,7 +295,7 @@ def test_a_rewrite_that_drops_the_users_tags_says_so():
         "1girl, zzkx (series), safe, green hair, smile, outdoors, masterpiece, high score, "
         "great score, absurdres"
     )
-    result = _validate(_answer(rewrite=rewrite), prompt=settled, model_id=ANIMAGINE, style="tags")
+    result = validate_answer(critic_answer(rewrite=rewrite), prompt=settled, model_id=ANIMAGINE, style="tags")
     assert [flag.rule for flag in result.rewrite_findings if flag.rule.endswith("drops")] == [
         "heuristic.rewrite_drops"
     ]

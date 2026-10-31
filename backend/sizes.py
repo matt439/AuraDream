@@ -2,7 +2,7 @@
 
 One table, read by the CLI (`--aspect/--mp`) and by the settings that bound a
 request (`max_side`, `max_pixels`), and asserted equal to the browser's copy in
-`web/app.js` and the README's by `tests/test_profiles.py`. It used to live in
+`web/state.js` and the README's by `tests/test_profiles.py`. It used to live in
 four places by hand; `completed_cells` keys on width and height, so a preset
 that differed between two of them made `--resume` unable to continue a browser
 grid.

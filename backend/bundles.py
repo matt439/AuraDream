@@ -22,7 +22,7 @@ from pathlib import Path, PurePosixPath
 
 from PIL import Image
 
-from . import backup_receipts, bundle_capacity, bundle_crypto, bundle_images, bundle_leases, gallery_lock, storage
+from . import backup_receipts, bundle_capacity, bundle_crypto, bundle_images, bundle_leases, gallery_lock, png_settings, storage
 from .bundle_archive import _DATABASE, _FORMAT, _MANIFEST, _READ_AHEAD_MAX, _check_space, _verify_archive
 from .bundle_common import (
     _CHUNK,
@@ -761,8 +761,9 @@ def export_bundle(expected: int | None = None, password: str | None = None, prog
                         result["managed"] = True
                     except (OSError, ValueError, TypeError):
                         # Publication already succeeded. Never remove the copy
-                        # or advance ownership on an uncertain journal update.
-                        result["managed_warning"] = backup_receipts.JOURNAL_WARNING
+                        # or advance ownership on an uncertain journal update:
+                        # `managed` stays False, which the coordinator records.
+                        pass
                 # A backup ends at the verified read-back: nothing is cleared,
                 # so there is nothing for the second inventory to protect.
                 return result
@@ -942,9 +943,10 @@ def _import_bundle(path: Path, password: str | None, progress: Progress,
                 # Build all new rows against a private database; no live change
                 # precedes complete PNG, reference, conflict and metadata checks.
                 columns = {r["name"] for r in conn.execute("PRAGMA table_info(images)")}
+                kinds = {column: kind for column, kind, _ in storage._ADDED_COLUMNS}
                 for column in storage._COLUMNS:
                     if column not in columns:
-                        kind = "REAL" if column in {"true_cfg", "lora_scale", "strength"} else "INTEGER" if column in {"refine", "batch", "vram_peak_allocated", "vram_peak_reserved"} else "TEXT"
+                        kind = kinds.get(column, "TEXT")
                         conn.execute(f"ALTER TABLE images ADD COLUMN {column} {kind}")
                 seq = conn.execute("SELECT seq FROM sqlite_sequence WHERE name='images'").fetchone()
                 next_id = max([r["id"] for r in current] + [seq[0] if seq else 0])
@@ -1046,7 +1048,7 @@ def _import_bundle(path: Path, password: str | None, progress: Progress,
                         # Its mask covered that source's pixels, and a mask is
                         # never kept without the source it covers.
                         values["mask"] = None
-                    values["crop_anchor"] = storage._crop_anchor(
+                    values["crop_anchor"] = png_settings.crop_anchor(
                         values.get("crop_anchor"), source=values.get("refine"),
                         mask=values.get("mask"), outpaint=values.get("outpaint"),
                     )

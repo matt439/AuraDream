@@ -1,11 +1,15 @@
 # Plan: automatic whole-gallery backups
 
+**Status: done 2026-10-29** (built default-off; unattended backups declined, `GAL#22` and `GAL#6` closed).
+
 **Status, 2026-10-26: explicit default-off plaintext startup backups,
 configuration/status UI and owned preload/shutdown sequencing are implemented.
 Managed receipts, capacity budgets, Windows shared mode, archive reader leases
 and separately consented v3 retention are built. V4 adds Windows credential
-source/setup/recovery with stub qualification; actual OS-store/user recovery
-qualification remains `GAL#6`.** This expands
+source/setup/recovery with stub qualification. On 2026-10-29 Matt declined
+unattended backups ([below](#matts-choices-for-unattended-backups)), so the
+code stays default-off and the OS-store/user recovery qualification
+(`GAL#6`) left TODO with `GAL#22`.** This expands
 [R8](review-2026-10-25.md#r8-automatic-whole-gallery-backup). Tests export and
 restore scratch galleries only; no real gallery or credential store was touched.
 Automatic backups and deletion default off. No real gallery was activated. The implemented
@@ -800,8 +804,9 @@ credential provider, recurring retry, UI or pruning is connected.
 
 ## Decisions before activation
 
-**Status:** `GAL#22`, DECISION, recorded 2026-10-29. None of these is
-answered; nothing below selects a value for Matt.
+**Status:** decided 2026-10-29: no unattended backups
+([below](#matts-choices-for-unattended-backups)); `GAL#22` closed. Recorded
+as a decision the same day; nothing below selects a value for Matt.
 
 Matt chooses unattended protection, age and N, destination/recovery policy,
 whether manual whole-gallery backups satisfy age, empty-gallery handling

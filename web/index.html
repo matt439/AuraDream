@@ -186,7 +186,7 @@
         <div class="tag-menu tag-finder" id="tag-finder" role="dialog"
              aria-label="Find a tag by what it shows" hidden></div>
         <!-- What a press in the Prompt caption did to the box, said under
-             it (tags.js, showPromptNote): an Example or an expansion written
+             it (prompt-note.js, showPromptNote): an Example or an expansion written
              over a prompt in progress, Reset, each with an Undo; Expand while
              it runs, and an expansion typed over meanwhile (Use it,
              Discard). Over the field below for a while, rather than in the
@@ -341,7 +341,7 @@
          the box was read as "unavailable" with no why (sizes.js, syncCfg,
          rewrites the note, and the description follows it). On a tag
          checkpoint the box suggests tags as the prompt does, from its own
-         list, which floats over the fields below (tags.js,
+         list, which floats over the fields below (tag-lists.js,
          suggestNegativeTags). -->
     <div class="field" id="negative-field">
       <span><label for="negative">Negative prompt</label> <em id="neg-note"></em>
@@ -383,7 +383,7 @@
       <p class="hint" id="size-hint"></p>
     </div>
 
-    <!-- Placeholders only: app.js seeds all three from /api/status, which
+    <!-- Placeholders only: status.js (applyDefaults) seeds all three from /api/status, which
          answers with the loaded checkpoint's profile. They are the fallback
          profile rather than Turbo's numbers, so a page acted on before the
          first status lands is at worst generic, never wrong for the model.
@@ -439,12 +439,12 @@
     <!-- What a press makes, under a caption of its own as Sampling's (shown
          in one column and from 1800 px on a window taller than 1150 px;
          elsewhere only the group's name, so Generate keeps its place:
-         style.css): the seed it starts from, how many at once and how many times. Repeat is
+         styles/fields.css): the seed it starts from, how many at once and how many times. Repeat is
          the request's `runs`: batches one after another. Named apart from a
          run, which is a submission - the gallery's Runs picker, the run:
          search, the last-run banner. A seed is 16 digits, and the box has
          the row's width less the counters' for them: the dice that clears it
-         sits in its name's line, as the ? badges do (style.css, #btn-dice),
+         sits in its name's line, as the ? badges do (styles/fields.css, #btn-dice),
          where in the row it took the room of six digits. A <div> with
          <label for>, not a <label> round it all: a button inside a label
          becomes the label's control. What Batch and Repeat add up to is
@@ -528,7 +528,7 @@
     <p class="job-said" id="job-said" aria-live="polite"></p>
     <!-- A result that landed in a viewer out of sight - above the window, or
          below it in one column: said here (under 901 px a pill centred under
-         the topbar, style.css), and a press goes to it, its arrow and label
+         the topbar, styles/generation.css), and a press goes to it, its arrow and label
          written by syncNewImage. Never a scroll of the page's own. Outside
          #progress, which a finished job hides. -->
     <button class="ghost small" id="btn-new-image" hidden
@@ -555,7 +555,7 @@
       <input type="file" id="png-file" accept="image/png,.png" hidden>
     </div>
     <!-- role=alert: a failure written here has to be announced, not just
-         painted. app.js unhides it *before* writing the text, since a node
+         painted. state.js's showError unhides it *before* writing the text, since a node
          still display:none announces nothing. -->
     <p class="error" id="error" role="alert" hidden></p>
     <!-- The morning after: the newest finished job, while the server still
@@ -764,7 +764,7 @@
          host each (placeTagValidation), in that order, both no box of their
          own (display: contents). Apart, the docked grid's reading order
          takes Tab from the chips to the image and its note to the check, as
-         they are drawn (style.css): a host is ordered as one item, and in one
+         they are drawn (styles/analysis.css): a host is ordered as one item, and in one
          host the check came before the image. The check's keeps the id both
          once shared. -->
     <div class="tag-validation-host tag-validation-wide" id="tag-chips-wide"></div>
@@ -775,7 +775,7 @@
          checkpoint's examples a press away. A region named Results rather
          than a heading: idle, the viewer is that one line, which a seen
          heading would double, and an unseen one is out of the flow - which
-         the docked grid's reading-flow (style.css) reads after its items,
+         the docked grid's reading-flow (styles/analysis.css) reads after its items,
          so "Results" was read after the gallery. The name moves with the
          viewer in any order; the cards a failed load or a lost run put in
          it have headings of their own. -->
@@ -804,7 +804,7 @@
 
     <!-- The gallery: its head, then what it shows. From 2000 px with Gallery
          beside ticked, a column of its own beside the viewer, the head over a
-         box that scrolls by itself (style.css, `.stage.beside`). Otherwise
+         box that scrolls by itself (styles/gallery.css, `.stage.beside`). Otherwise
          both wrappers are no boxes at all (display: contents): the head, the
          grid, the sheet and Load more are the stage's own blocks under the
          viewer, in its column or across its grid, as they always were. -->
@@ -978,7 +978,7 @@
              Seed"; sheet.js's saySheet), outside the sheet, which is hidden
              until then. -->
         <p class="sheet-said" id="sheet-said" aria-live="polite"></p>
-        <!-- The sheet's zoom for a screen reader (sheet.js, writeSheetZoom):
+        <!-- The sheet's zoom for a screen reader (sheet-zoom.js, writeSheetZoom):
              the readout's words, said once a wheel's burst is over. -->
         <p class="sheet-said" id="sheet-zoom-said" aria-live="polite"></p>
         <div class="grid" id="gallery"></div>
@@ -1087,7 +1087,7 @@
            written once a wheel's burst is over (lightbox.js, writeZoom). The
            readout's title is the stage's mouse help, kept off the picture. -->
       <span class="lb-zoom" id="lb-zoom" aria-hidden="true" title="Scroll to zoom, drag to pan, double-click for 1:1"></span>
-      <span class="lb-said" id="lb-zoom-said" aria-live="polite"></span>
+      <span class="sr-only" id="lb-zoom-said" aria-live="polite"></span>
       <button class="ghost small" id="lb-download" title="Download the full-size PNG with its saved settings">Download</button>
     </div>
     <div class="lb-actions">
@@ -1292,7 +1292,7 @@
          a live region itself: the line under it says its text to a screen
          reader when that text changes. -->
     <div class="rf-check" id="refine-check" hidden></div>
-    <p class="rf-said" id="refine-check-said" aria-live="polite"></p>
+    <p class="sr-only" id="refine-check-said" aria-live="polite"></p>
     <p class="hint pre" id="refine-preview" aria-live="polite"></p>
     <p class="error" id="refine-error" role="alert" hidden></p>
     <div class="rf-actions">
@@ -1355,7 +1355,7 @@
     </div>
     <!-- What the mask is now and where its upload is: one line, never more. -->
     <p class="ip-status" id="inpaint-status" role="status"></p>
-    <p class="ip-said" id="inpaint-keys">With the picture focused: B brush, E eraser, [ and ] size, I invert,
+    <p class="sr-only" id="inpaint-keys">With the picture focused: B brush, E eraser, [ and ] size, I invert,
       Ctrl+Z undo, Ctrl+Shift+Z or Ctrl+Y redo; the arrow keys move the brush and Space paints.</p>
   </div>
   <div class="ip-controls">
@@ -1419,7 +1419,7 @@
     <!-- The prompt check on the inpaint's own prompt, as the Refine dialog's:
          what the encoders never read, and a rule's whole-field fix. -->
     <div class="rf-check" id="inpaint-check" hidden></div>
-    <p class="rf-said" id="inpaint-check-said" aria-live="polite"></p>
+    <p class="sr-only" id="inpaint-check-said" aria-live="polite"></p>
     <p class="hint pre" id="inpaint-preview" aria-live="polite"></p>
     <p class="error" id="inpaint-error" role="alert" hidden></p>
     <div class="rf-actions">
@@ -1544,7 +1544,7 @@
       <p class="hint" id="outpaint-carried"></p>
     </details>
     <div class="rf-check" id="outpaint-check" hidden></div>
-    <p class="rf-said" id="outpaint-check-said" aria-live="polite"></p>
+    <p class="sr-only" id="outpaint-check-said" aria-live="polite"></p>
     <p class="hint pre" id="outpaint-preview" aria-live="polite"></p>
     <p class="error" id="outpaint-error" role="alert" hidden></p>
     <div class="rf-actions">
@@ -1585,7 +1585,7 @@
          Models (opening the picker only: it switches nothing). -->
     <p class="hint warn rf-draft" id="edit-unavailable" hidden><span id="edit-unavailable-text"></span>
       <button type="button" class="ghost tiny" id="edit-open-models">Open Models…</button></p>
-    <label class="field" id="edit-instruction-field">
+    <label class="field">
       <span>Instruction</span>
       <textarea id="edit-instruction" rows="3" spellcheck="true" autocomplete="off"
                 placeholder="What to change - &quot;make it night, keep the composition&quot;"></textarea>
@@ -1805,8 +1805,6 @@
   </details>
 </dialog>
 
-<!-- Classic scripts sharing one global scope; app.js, the last, is the
-     only one that runs anything at load. Order matters: see state.js. -->
 <dialog class="bundles-dialog" id="bundles-dialog" aria-labelledby="bundles-title" aria-describedby="bundles-intro">
   <header class="bundles-head">
     <h2 id="bundles-title">Gallery bundles</h2>
@@ -1832,7 +1830,7 @@
       <input id="bundle-password" type="password" autocomplete="new-password" maxlength="1024" aria-describedby="bundle-password-hint">
       <label for="bundle-password-again">Repeat password</label>
       <input id="bundle-password-again" type="password" autocomplete="new-password" maxlength="1024" aria-describedby="bundle-password-hint">
-      <p class="caps-lock-note" id="bundle-password-caps" aria-live="polite"></p>
+      <p class="caps-lock-note" aria-live="polite"></p>
     </div>
     <p class="hint" id="bundle-password-hint">Applies to both Back up and Bundle &amp; clear. A password encrypts the new bundle as a .ldbundle file that only AuraDream can open. It is not saved and cannot be recovered; without it the bundle cannot be opened, and a cleared gallery is lost.</p>
     <div class="bundle-backup-row">
@@ -1854,7 +1852,7 @@
     <div class="bundle-password bundle-unlock">
       <label for="bundle-unlock">Import password</label>
       <input id="bundle-unlock" type="password" autocomplete="current-password" maxlength="1024" aria-describedby="bundle-unlock-hint">
-      <p class="caps-lock-note" id="bundle-unlock-caps" aria-live="polite"></p>
+      <p class="caps-lock-note" aria-live="polite"></p>
     </div>
     <p class="hint" id="bundle-unlock-hint">One shared password for Import selected file and the saved bundles marked Protected below. Plain ZIP files do not need it.</p>
     <div class="bundle-upload-row">
@@ -1896,7 +1894,7 @@
       </div>
       <p class="hint" id="automatic-backup-age-hint">Enter a whole number of hours. Only a currently verified automatic copy counts toward this age; manual bundles do not.</p>
       <p class="hint" id="automatic-backup-retention-hint">Without separate cleanup permission, all existing copies are kept and this count is not enforced. Cleanup keeps the newest confirmed automatic copies, the new backup and any copy in use, so more than this count may remain.</p>
-      <label class="bundle-automatic-check" id="automatic-backup-consent-label"><input type="checkbox" id="automatic-backup-consent" aria-describedby="automatic-backup-protection-hint automatic-backup-destination"> For unencrypted ZIPs, I allow unattended backups including images and prompts at the destination shown below.</label>
+      <label class="bundle-automatic-check"><input type="checkbox" id="automatic-backup-consent" aria-describedby="automatic-backup-protection-hint automatic-backup-destination"> For unencrypted ZIPs, I allow unattended backups including images and prompts at the destination shown below.</label>
       <label class="bundle-automatic-check"><input type="checkbox" id="automatic-backup-encrypted-consent" aria-describedby="automatic-backup-protection-hint automatic-backup-credential-status automatic-backup-destination"> For encrypted archives, I allow unattended backups using the configured Windows credential reference at the destination shown below.</label>
       <label class="bundle-automatic-check"><input type="checkbox" id="automatic-backup-recovery-consent" aria-describedby="automatic-backup-protection-hint"> I have an independent password recovery record outside this Windows account and PC. I understand that losing the password can make encrypted archives unrecoverable.</label>
       <p class="hint" id="automatic-backup-protection-hint">Encryption protects only the output archive. The live gallery, SQLite snapshot and any decrypted import staging remain plaintext on disk. A Windows credential reference is not independent password recovery and does not by itself protect against losing this PC. Manual bundle password fields are never used for automatic backups.</p>
@@ -2064,7 +2062,10 @@
   </div>
 </dialog>
 
+<!-- Classic scripts sharing one global scope; app.js, the last, is the
+     only one that runs anything at load. Order matters: see state.js. -->
 <script src="/static/state.js"></script>
+<script src="/static/page-helpers.js"></script>
 <script src="/static/execution.js"></script>
 <script src="/static/sizes.js"></script>
 <script src="/static/status.js"></script>
@@ -2081,11 +2082,13 @@
 <script src="/static/viewer.js"></script>
 <script src="/static/gallery.js"></script>
 <script src="/static/gallery-actions.js"></script>
+<script src="/static/gallery-head.js"></script>
 <script src="/static/gallery-select.js"></script>
 <script src="/static/gallery-batch.js"></script>
 <script src="/static/reuse.js"></script>
 <script src="/static/png-settings.js"></script>
 <script src="/static/sheet.js"></script>
+<script src="/static/sheet-zoom.js"></script>
 <script src="/static/sheet-render.js"></script>
 <script src="/static/sheet-export.js"></script>
 <script src="/static/gallery-search.js"></script>
@@ -2094,15 +2097,19 @@
 <script src="/static/lightbox.js"></script>
 <script src="/static/lightbox-compare.js"></script>
 <script src="/static/lightbox-cfg.js"></script>
+<script src="/static/refine-rules.js"></script>
 <script src="/static/refine.js"></script>
 <script src="/static/refine-prompt.js"></script>
 <script src="/static/inpaint-mask.js"></script>
 <script src="/static/inpaint.js"></script>
 <script src="/static/outpaint.js"></script>
 <script src="/static/instruction-edit.js"></script>
+<script src="/static/prompt-note.js"></script>
 <script src="/static/tags.js"></script>
+<script src="/static/tag-lists.js"></script>
 <script src="/static/tag-tokens.js"></script>
 <script src="/static/tag-chips.js"></script>
+<script src="/static/tag-helper.js"></script>
 <script src="/static/tag-finder.js"></script>
 <script src="/static/prompt-examples.js"></script>
 <script src="/static/prompt-expand.js"></script>
@@ -2110,6 +2117,7 @@
 <script src="/static/analysis-critic.js"></script>
 <script src="/static/comparison.js"></script>
 <script src="/static/bundles.js"></script>
+<script src="/static/automatic-backup.js"></script>
 <script src="/static/tag-swap.js"></script>
 <script src="/static/refine-batch.js"></script>
 <script src="/static/then-refine.js"></script>
@@ -2118,6 +2126,7 @@
 <script src="/static/context-menu.js"></script>
 <script src="/static/shortcuts.js"></script>
 <script src="/static/prompt-snippets.js"></script>
+<script src="/static/import-merge.js"></script>
 <script src="/static/snippet-import.js"></script>
 <script src="/static/generation-presets.js"></script>
 <script src="/static/setup-import.js"></script>

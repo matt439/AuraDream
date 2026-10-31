@@ -1,9 +1,12 @@
 """Names and compatibility reads for metadata embedded in gallery PNGs."""
 from __future__ import annotations
 
+import json
+import zlib
 from collections.abc import Mapping
 from typing import Any, IO
 
+from .execution import ExecutionSpec, canonical_execution, execution_from_json
 from .instruction_edit import StoredInstructionEdit, geometry, recipe_for, stored_from_json
 
 PNG_METADATA_KEY = "auradream"
@@ -25,6 +28,8 @@ PNG_MASK_KEY = "auradream-mask"
 LEGACY_PNG_MASK_KEYS = ("local-diffusion-mask",)
 PNG_MASK_KEYS = (PNG_MASK_KEY, *LEGACY_PNG_MASK_KEYS)
 
+PNG_SIGNATURE = b"\x89PNG\r\n\x1a\n"
+
 
 def require_header_metadata(stream: IO[bytes]) -> None:
     """Refuse app text after IDAT, which header-only readers cannot see.
@@ -39,7 +44,7 @@ def require_header_metadata(stream: IO[bytes]) -> None:
     image_data = False
     try:
         stream.seek(0)
-        if stream.read(8) != b"\x89PNG\r\n\x1a\n":
+        if stream.read(8) != PNG_SIGNATURE:
             raise ValueError("not a PNG image")
         while header := stream.read(8):
             if len(header) != 8:
@@ -57,6 +62,28 @@ def require_header_metadata(stream: IO[bytes]) -> None:
         raise ValueError("PNG has no IEND chunk")
     finally:
         stream.seek(position)
+
+
+def text_keyword(kind: bytes, data: bytes) -> bytes | None:
+    """The keyword from a PNG text chunk, without decompressing its value."""
+    if kind not in {b"tEXt", b"zTXt", b"iTXt"} or b"\0" not in data:
+        return None
+    return data.split(b"\0", 1)[0]
+
+
+def metadata_chunk(meta: dict) -> bytes:
+    """The whole `auradream` tEXt chunk for ``meta``: length, type, payload and CRC.
+
+    The one encoding the reindex's copy-in and a bundle import's streaming
+    rewrite both insert in place of the app's earlier metadata chunks.
+    """
+    payload = PNG_METADATA_KEY.encode("ascii") + b"\0" + json.dumps(meta).encode("ascii")
+    return (
+        len(payload).to_bytes(4, "big")
+        + b"tEXt"
+        + payload
+        + zlib.crc32(b"tEXt" + payload).to_bytes(4, "big")
+    )
 
 
 def embedded_metadata(info: Mapping[str, Any]) -> str | None:
@@ -134,10 +161,32 @@ def validate_edit_record(edit: StoredInstructionEdit | None, record: Mapping[str
 
 
 def edit_from_info(row: Mapping[str, Any], info: Mapping[str, Any] | None) -> StoredInstructionEdit | None:
-    import json
-
     raw = embedded_metadata(info) if info is not None else None
     meta = json.loads(raw) if raw is not None else {}
     if not isinstance(meta, dict):
         raise ValueError("PNG metadata must be a JSON object")
     return edit_from_sources(row, meta)
+
+
+def execution_from_sources(row: dict, meta: dict | None) -> ExecutionSpec | None:
+    """Read stored recipes without granting generation availability.
+
+    An older SQL schema or PNG may omit execution entirely: recover the
+    other source's recipe then. Explicit NULL/empty is an Eager statement,
+    so two present fields must agree, including Eager versus a recipe.
+    Validate both values even when one is absent or empty.
+    """
+    database = execution_from_json(row.get("execution"))
+    embedded = canonical_execution(meta.get("execution") if meta is not None else None)
+    if "execution" in row and meta is not None and "execution" in meta and database != embedded:
+        raise ValueError("execution recipes disagree between the database and PNG")
+    return database if "execution" in row else embedded
+
+
+def execution_from_info(row: dict, info: dict | None) -> ExecutionSpec | None:
+    """Strict recipe reconciliation from PNG header metadata, without decoding pixels."""
+    raw = embedded_metadata(info) if info is not None else None
+    metadata = json.loads(raw) if raw else None
+    if raw is not None and not isinstance(metadata, dict):
+        raise ValueError("PNG metadata must be a JSON object")
+    return execution_from_sources(row, metadata)

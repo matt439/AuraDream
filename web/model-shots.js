@@ -262,16 +262,6 @@ function showModelShotsGallery() {
   const search = modelShotsSearch(modelShots.id);
   if (!search || modelShots.state !== 'ready' || !modelShots.total) return;
   showModelPicker(false, { focus: false });
-  outsideView = null;
-  leaveBin();
-  els.search.value = search;
-  els.favOnly.checked = false;
-  els.allModels.checked = true;
-  sheetReturn = null;
-  if (sheetMode) setSheet(false);
-  else resetGallery();
-  loadRuns();
-  const reduce = window.matchMedia('(prefers-reduced-motion: reduce)').matches;
-  document.querySelector('.gallery-head').scrollIntoView({ block: 'start', behavior: reduce ? 'auto' : 'smooth' });
-  els.search.focus({ preventScroll: true });
+  void applyGalleryFilter({ query: search, favorites: false, all_models: true });
+  revealGallerySearch();
 }

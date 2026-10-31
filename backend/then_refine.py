@@ -13,7 +13,7 @@ import json
 
 from .grid import Cell
 from .refine import scaled
-from .refine_batch import too_big
+from .refine_batch import plan, too_big
 from .config import settings
 from .schemas_generate import GenerateRequest, ThenRefine, default_strength
 
@@ -104,7 +104,6 @@ def plan_passes(records: list, spec: ThenRefine) -> list:
     a base saved without its pass."""
     from .model_defaults import defaults_for
     from .model_selection import current_model_id
-    from .refine_batch import plan
 
     strength = resolved(spec).strength
     assert strength is not None, "a resolved spec names its strength"

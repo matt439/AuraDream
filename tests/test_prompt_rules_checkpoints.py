@@ -16,13 +16,13 @@ from tests.prompt_rules_helpers import (
     KOHAKU,
     NEWBIE,
     WAI,
-    _all_guides,
-    _catalogue_repos,
+    all_guides,
     only,
     run,
     silent,
     spanned,
 )
+from tests.backend_helpers import catalogue_repos
 
 
 # ------------------------------------------------------------------ tag checkpoints' specifics
@@ -169,7 +169,7 @@ def test_prose_is_looked_up_only_where_the_rules_read_artists():
     # a prose prompt's lookup must have asked about every one: the
     # categories the order places with are None, or cover every item a
     # category could place - never only the tag-shaped ones.
-    for repo in _catalogue_repos():
+    for repo in catalogue_repos():
         items = prompt_rules.category_items(repo, prose)
         asked = prompt_rules.lookup_items(repo, prose)
         if prompt_rules.wants_artist_categories(repo) and prompt_order.places_by_category(repo):
@@ -259,7 +259,7 @@ def test_anima_checks_its_cards_order_with_sentences_anywhere():
     assert late.suggestion == f"{sentence}, masterpiece"
     assert not prompt_order.holds_grid_variable(KOHAKU, kohaku)
     switched = sorted(
-        name for name, guide in _all_guides().items()
+        name for name, guide in all_guides().items()
         if (guide["analysis"].get("order") or {}).get("free_sentences")
     )
     assert switched == ["ANIMA_AESTHETIC_GUIDE", "ANIMA_TURBO_GUIDE"]

@@ -11,13 +11,13 @@ from pathlib import Path
 import pytest
 
 from backend import bundles
-from tests.bundle_helpers import _save, _export, _destination
+from tests.bundle_helpers import save_source, export_all, use_destination
 
 
 def test_default_directory_follows_the_current_database(store, monkeypatch, tmp_path):
     assert store.settings.bundles_dir is None
     assert store.bundle_directory() == store.settings.db_path.parent / "bundles"
-    dest = _destination(store, monkeypatch, tmp_path / "another-gallery")
+    dest = use_destination(store, monkeypatch, tmp_path / "another-gallery")
     assert store.bundle_directory() == dest.db_path.parent / "bundles"
     assert not store.bundle_directory().exists()  # Looking never creates it.
 
@@ -28,8 +28,8 @@ def test_configured_directory_exports_lists_and_imports_independently(store, mon
     monkeypatch.setattr(store, "settings", dataclasses.replace(store.settings, bundles_dir=directory))
     assert bundles.list_bundles() == []
     assert not directory.exists()
-    row = _save()
-    archive = _export()
+    row = save_source()
+    archive = export_all()
     path = Path(archive["path"])
     assert path.parent == directory
     assert store.settings.db_path == database and store.settings.outputs_dir == outputs

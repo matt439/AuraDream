@@ -176,5 +176,5 @@ FAILURES = [
 ]
 
 
-def _kind(error):
+def error_kind(error):
     return type(error).__name__

@@ -10,7 +10,6 @@ import hashlib
 import io
 import json
 import os
-import zlib
 from concurrent.futures import ThreadPoolExecutor
 from contextlib import nullcontext
 from pathlib import Path, PurePosixPath
@@ -18,11 +17,14 @@ from typing import IO, NamedTuple
 
 from PIL import Image, ImageFile
 
-from . import reindex, storage
+from . import png_settings, storage
 from .bundle_common import _CHUNK, _WORKERS, MASK_HASH, BundleError
 from .execution import execution_chunk, execution_from_json, execution_key
 from .instruction_edit import edit_key
-from .metadata import edit_chunk, edit_from_info, edit_from_json, require_header_metadata, validate_edit_record
+from .metadata import (
+    PNG_METADATA_KEYS, PNG_SIGNATURE, edit_chunk, edit_from_info, edit_from_json, execution_from_info,
+    metadata_chunk, require_header_metadata, text_keyword, validate_edit_record,
+)
 
 
 class _Pixels(NamedTuple):
@@ -99,7 +101,7 @@ def _critical_digest(source) -> str | None:
     Equal digests mean equal decoded pixels; metadata chunks are ignored.
     """
     try:
-        if source.read(8) != reindex._PNG_SIGNATURE:
+        if source.read(8) != PNG_SIGNATURE:
             return None
         digest = hashlib.sha256()
         while header := source.read(8):
@@ -175,7 +177,7 @@ def _validate_row(row: dict, width: int, height: int, content_hash: str) -> None
     ) is None:
         raise BundleError(f"invalid upscaler on image {row['id']}")
     try:
-        storage._crop_anchor(row.get("crop_anchor"), source=refine, mask=mask, outpaint=outpaint)
+        png_settings.crop_anchor(row.get("crop_anchor"), source=refine, mask=mask, outpaint=outpaint)
     except ValueError as exc:
         raise BundleError(f"invalid crop anchor on image {row['id']}: {exc}") from exc
     values = {key: row.get(key) for key in storage._COLUMNS}
@@ -197,7 +199,7 @@ def _execution(row: dict, info: dict | None = None) -> str | None:
     changes the export's source snapshot before its cleanup comparison.
     """
     try:
-        return execution_key(reindex._execution_from_info(row, info))
+        return execution_key(execution_from_info(row, info))
     except (TypeError, ValueError) as exc:
         raise BundleError(f"invalid execution metadata for {row['filename']}: {exc}") from exc
 
@@ -267,7 +269,7 @@ def _metadata(row: dict, by_id: dict[int, dict]) -> dict:
     outpaint = (
         storage.OutpaintSpec.parse_key(row["outpaint"]) if row.get("outpaint") and row.get("mask") else None
     )
-    crop_anchor = storage._crop_anchor(
+    crop_anchor = png_settings.crop_anchor(
         row.get("crop_anchor"), source=row.get("refine"), mask=row.get("mask"), outpaint=row.get("outpaint"),
     )
     return {
@@ -295,29 +297,18 @@ def _metadata(row: dict, by_id: dict[int, dict]) -> dict:
         **({"upscaler": row["upscaler"]} if row.get("upscaler") is not None else {}),
         **execution_chunk(execution_from_json(row.get("execution"))),
         **edit_chunk(edit_from_json(row.get("edit"))),
-        **_peak_chunk(row),
-    }
-
-
-def _peak_chunk(row: dict) -> dict:
-    """The peak keys as `save_image` writes them: absent where unmeasured."""
-    return {
-        key: storage._peak(row.get(key))
-        for key in ("vram_peak_allocated", "vram_peak_reserved")
-        if storage._peak(row.get(key)) is not None
+        **storage.peak_chunk(row),
     }
 
 
 def _rewrite_metadata(path: Path, metadata: dict) -> None:
     """Replace one PNG text chunk while streaming the untouched image data."""
-    payload = reindex.PNG_METADATA_KEY.encode("ascii") + b"\0" + json.dumps(metadata).encode("ascii")
-    chunk = len(payload).to_bytes(4, "big") + b"tEXt" + payload
-    chunk += zlib.crc32(b"tEXt" + payload).to_bytes(4, "big")
+    chunk = metadata_chunk(metadata)
     temp = path.with_suffix(".metadata.part")
     inserted = False
     with path.open("rb") as source, temp.open("xb") as target:
         signature = source.read(8)
-        if signature != reindex._PNG_SIGNATURE:
+        if signature != PNG_SIGNATURE:
             raise BundleError(f"not a PNG image: {path.name}")
         target.write(signature)
         while header := source.read(8):
@@ -325,9 +316,9 @@ def _rewrite_metadata(path: Path, metadata: dict) -> None:
                 raise BundleError(f"truncated PNG: {path.name}")
             length, kind = int.from_bytes(header[:4], "big"), header[4:]
             start = source.tell()
-            keyword = reindex._text_keyword(kind, source.read(min(length, 80)))
+            keyword = text_keyword(kind, source.read(min(length, 80)))
             source.seek(start)
-            if keyword in {key.encode("ascii") for key in reindex.PNG_METADATA_KEYS}:
+            if keyword in {key.encode("ascii") for key in PNG_METADATA_KEYS}:
                 source.seek(length + 4, 1)
                 continue
             if kind in {b"IDAT", b"IEND"} and not inserted:

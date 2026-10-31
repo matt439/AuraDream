@@ -2,8 +2,8 @@
 
 The caller must supply a receipt validated against its journal, exact intended
 scope and a policy-approved candidate under the gallery reservation BEFORE
-binding. This module chooses no retention count and writes no journal; the v3
-orchestrator owns activation. A receipt or installed lease mode alone is not consent.
+binding. This module chooses no retention count and writes no journal;
+`backup_retention.prune_after_success` owns activation. A receipt or installed lease mode alone is not consent.
 """
 from __future__ import annotations
 

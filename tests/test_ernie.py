@@ -15,7 +15,6 @@ are FLUX.2's, for which no preview map has been fitted.
 from __future__ import annotations
 
 import dataclasses
-import inspect
 import json
 
 import numpy as np
@@ -28,6 +27,7 @@ from backend.backends import diffusers_backend as module
 from backend.backends import loading
 from backend.backends.diffusers_backend import DiffusersBackend
 from backend.schemas import GenerateRequest
+from tests.backend_helpers import loaded_backend
 
 STEPS = 4
 
@@ -96,13 +96,6 @@ def _index(monkeypatch, tmp_path, index: dict) -> None:
     path = tmp_path / "model_index.json"
     path.write_text(json.dumps(index), encoding="utf-8")
     monkeypatch.setattr(loading, "hub_file", lambda model_id, filename: str(path))
-
-
-def _backend(pipe) -> DiffusersBackend:
-    backend = DiffusersBackend()
-    backend._pipe = pipe
-    backend._call_params = set(inspect.signature(pipe.__call__).parameters)
-    return backend
 
 
 def _request(**kwargs) -> GenerateRequest:
@@ -196,7 +189,7 @@ def test_prompt_expander_components_follow_the_manifest(monkeypatch, tmp_path):
 
 def test_expand_loads_once_then_returns_visible_size_specific_text(monkeypatch):
     pipe = ErnieLikePipeline()
-    backend = _backend(pipe)
+    backend = loaded_backend(pipe)
     loads = 0
 
     def components(model_id):
@@ -221,7 +214,7 @@ def test_expansion_stops_at_the_boundary_after_an_opaque_stage(monkeypatch, stag
     from backend.backends import Cancelled
 
     pipe = ErnieLikePipeline()
-    backend = _backend(pipe)
+    backend = loaded_backend(pipe)
     stopped = False
 
     def components(model_id):
@@ -251,7 +244,7 @@ def test_the_status_names_the_rewriters_download_until_it_is_loaded(monkeypatch)
     # off disk, the rewriter is what a first use fetches; registered on the
     # pipeline, an Expand waits for nothing but itself.
     pipe = ErnieLikePipeline()
-    backend = _backend(pipe)
+    backend = loaded_backend(pipe)
     cached = {"value": False}
     monkeypatch.setattr(loading, "prompt_expander_cached", lambda model_id: cached["value"])
     assert backend.prompt_expander_status() == {
@@ -309,7 +302,7 @@ def test_cold_prompt_expansion_support_follows_the_model_id(monkeypatch):
 
 def test_generate_turns_the_rewriter_off_where_the_switch_exists():
     pipe = ErnieLikePipeline()
-    backend = _backend(pipe)
+    backend = loaded_backend(pipe)
     backend.generate(_request(), seed=1)
     assert pipe.calls[-1]["use_pe"] is False
 
@@ -324,13 +317,13 @@ def test_a_pipeline_without_the_switch_is_not_handed_one():
                                     num_images_per_prompt, generator, callback_on_step_end)
 
     pipe = Switchless()
-    backend = _backend(pipe)
+    backend = loaded_backend(pipe)
     assert len(backend.generate(_request(), seed=1)) == 1
 
 
 def test_a_requested_mu_has_no_way_in_and_is_recorded_as_dropped():
     pipe = ErnieLikePipeline(shift=4.0)
-    backend = _backend(pipe)
+    backend = loaded_backend(pipe)
     assert backend.applied(_request(mu=1.15)).mu is None
     backend.generate(_request(mu=1.15), seed=1)
     # What lands is the pipeline's own linspace under the shipped static shift
@@ -342,7 +335,7 @@ def test_a_requested_mu_has_no_way_in_and_is_recorded_as_dropped():
 
 def test_the_negative_prompt_applies_above_one():
     pipe = ErnieLikePipeline()
-    backend = _backend(pipe)
+    backend = loaded_backend(pipe)
     assert backend.cfg_threshold() == 1.0
     backend.generate(_request(negative_prompt="rain", guidance_scale=1.0), seed=1)
     assert pipe.calls[-1]["negative_prompt"] == "", "dropped at the distilled 1.0"
@@ -355,7 +348,7 @@ def test_no_preview_without_a_map_for_the_flux2_vae_and_the_cell_completes(monke
 
     monkeypatch.setattr(latent_preview, "INTERVAL_SECONDS", 0.0)
     pipe = ErnieLikePipeline()
-    backend = _backend(pipe)
+    backend = loaded_backend(pipe)
     frames: list = []
     images = backend.generate(_request(), seed=1, on_preview=lambda *a: frames.append(a))
     assert frames == [] and len(images) == 1 and pipe.steps_run == STEPS

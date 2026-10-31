@@ -1,5 +1,7 @@
 # Gallery area comparisons
 
+**Status: done 2026-10-28** (`GAL#17`).
+
 **Status:** `GAL#17` implemented and locally qualified, 2026-10-28 UTC.
 Comparison-only actual MP filters use the existing size key. Independent
 source review and targeted CPU/storage/API qualification are complete.

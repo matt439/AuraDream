@@ -1,5 +1,7 @@
 # Queue controls — GEN#18
 
+**Status: done 2026-10-26** (`GEN#18`).
+
 Owner: [2026-10-24 review, G7](review-2026-10-24.md#g7-queue-move-to-front-and-skip-one-cell).
 
 ## Contract

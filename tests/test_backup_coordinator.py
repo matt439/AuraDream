@@ -16,7 +16,7 @@ from backend import api_bundles, backup_receipts, bundles, gallery_lock, main
 from backend.backup_coordinator import BackupCoordinator
 from backend.backup_policy import BackupPolicy
 from backend.bundle_leases import LeaseRegistry, LeasedFileResponse
-from tests.bundle_helpers import _save, _snapshot
+from tests.bundle_helpers import save_source, bundle_snapshot
 
 
 @pytest.fixture
@@ -78,8 +78,8 @@ def test_untrusted_inventory_is_skipped_without_admission(store, policy, identit
 @pytest.mark.parametrize("encrypted", [False, True])
 def test_explicit_attempt_succeeds_without_rehashing_new_archive(store, policy, identity, monkeypatch, encrypted):
     async def scenario():
-        _save()
-        before = _snapshot(store)
+        save_source()
+        before = bundle_snapshot(store)
         worker = coordinator(store)
         checked = []
         verified = []
@@ -107,7 +107,7 @@ def test_explicit_attempt_succeeds_without_rehashing_new_archive(store, policy, 
         outcome = await worker.finish()
         assert outcome.state == "succeeded" and outcome.archive_name
         assert checked == [] and verified == [True]
-        assert _snapshot(store) == before
+        assert bundle_snapshot(store) == before
         assert worker.manager.state["state"] == "done"
         assert worker.manager.state["result"]["state"] == "succeeded"
         assert "test secret" not in repr(worker.manager.status())
@@ -119,7 +119,7 @@ def test_explicit_attempt_succeeds_without_rehashing_new_archive(store, policy, 
 
 def test_due_rechecks_current_receipt_and_exact_clock_boundaries(store, policy, identity):
     async def scenario():
-        _save()
+        save_source()
         worker = coordinator(store)
         launch(worker, policy, identity)
         assert (await worker.finish()).state == "succeeded"
@@ -144,7 +144,7 @@ def test_due_rechecks_current_receipt_and_exact_clock_boundaries(store, policy, 
 @pytest.mark.parametrize("fresh_coordinator", [False, True])
 def test_receipted_operation_is_not_exported_again_even_after_minimum_age(store, policy, identity, monkeypatch, fresh_coordinator):
     async def scenario():
-        _save()
+        save_source()
         worker = coordinator(store)
         launch(worker, policy, identity)
         assert (await worker.finish()).state == "succeeded"
@@ -170,7 +170,7 @@ def test_receipted_operation_is_not_exported_again_even_after_minimum_age(store,
 
 def test_refused_start_cannot_replace_terminal_outcome_before_admission_ends(store, policy, identity, monkeypatch):
     async def scenario():
-        _save()
+        save_source()
         worker = coordinator(store)
         computed, release = threading.Event(), threading.Event()
         real_complete = worker._complete
@@ -262,7 +262,7 @@ def test_gallery_lock_contention_is_bounded_deferred_and_does_not_retry(store, p
 @pytest.mark.parametrize("cancel", ["supervisor", "finish_waiter"])
 def test_duplicate_start_and_cancellation_keep_admission_until_worker_finishes(store, policy, identity, monkeypatch, cancel):
     async def scenario():
-        _save()
+        save_source()
         entered, release = threading.Event(), threading.Event()
         real = bundles.export_bundle
         calls = []
@@ -302,8 +302,8 @@ def test_duplicate_start_and_cancellation_keep_admission_until_worker_finishes(s
 
 def test_immediate_supervisor_cancellation_fails_without_starting_a_writer(store, policy, identity, monkeypatch):
     async def scenario():
-        _save()
-        before = _snapshot(store)
+        save_source()
+        before = bundle_snapshot(store)
         worker = coordinator(store)
         real = bundles.export_bundle
         calls = []
@@ -318,7 +318,7 @@ def test_immediate_supervisor_cancellation_fails_without_starting_a_writer(store
         outcome = await worker.finish()
         assert outcome.state == "failed" and outcome.reason == "worker_cancelled_before_start"
         assert worker.manager.state["state"] == "failed" and not worker.manager.running
-        assert calls == [] and _snapshot(store) == before
+        assert calls == [] and bundle_snapshot(store) == before
         assert not backup_receipts.path_for(store.settings.db_path).exists()
         assert launch(worker, policy, identity).state == "running"
         assert (await worker.finish()).state == "succeeded" and calls == [True]
@@ -362,8 +362,8 @@ def test_executor_submission_failure_cannot_leave_an_unowned_writer_or_running_s
 ):
     with ThreadPoolExecutor(1) as executor:
         async def scenario():
-            _save()
-            before = _snapshot(store)
+            save_source()
+            before = bundle_snapshot(store)
             worker = coordinator(store)
             calls = []
             submitted = []
@@ -387,7 +387,7 @@ def test_executor_submission_failure_cannot_leave_an_unowned_writer_or_running_s
             assert outcome.state == "failed" and outcome.reason == "worker_start_failed"
             assert worker.manager.state["state"] == "failed" and not worker.manager.running
             assert worker.manager.state["error"] == "The gallery bundle worker could not start."
-            assert calls == [] and _snapshot(store) == before
+            assert calls == [] and bundle_snapshot(store) == before
             assert not backup_receipts.path_for(store.settings.db_path).exists()
             assert bundles.list_bundles() == []
             assert "secret executor details" not in repr(worker.manager.status()) + caplog.text
@@ -417,7 +417,7 @@ def test_manual_manager_submission_failure_cleans_owned_upload(store, tmp_path, 
 
 def test_failed_receipt_keeps_old_success_and_new_publication_is_unmanaged(store, policy, identity, monkeypatch):
     async def scenario():
-        _save()
+        save_source()
         worker = coordinator(store)
         launch(worker, policy, identity)
         await worker.finish()
@@ -442,8 +442,8 @@ def test_failed_receipt_keeps_old_success_and_new_publication_is_unmanaged(store
 @pytest.mark.parametrize("failure", ["journal", "export", "clock", "source", "destination"])
 def test_failures_are_reported_without_secret_details_or_new_receipts(store, policy, identity, monkeypatch, tmp_path, failure):
     async def scenario():
-        _save()
-        before = _snapshot(store)
+        save_source()
+        before = bundle_snapshot(store)
         worker = coordinator(store, database=tmp_path / "wrong" / "gallery.db" if failure == "source" else None,
                              directory=tmp_path / "wrong" if failure == "destination" else None)
         journal = backup_receipts.path_for(store.settings.db_path)
@@ -457,7 +457,7 @@ def test_failures_are_reported_without_secret_details_or_new_receipts(store, pol
         outcome = await worker.finish()
         assert outcome.state == "failed"
         assert "secret" not in repr(worker.manager.status())
-        assert _snapshot(store) == before and bundles.list_bundles() == []
+        assert bundle_snapshot(store) == before and bundles.list_bundles() == []
         assert not (tmp_path / "wrong").exists()
         if failure == "journal":
             assert journal.read_bytes() == b"malformed secret bytes"
@@ -469,7 +469,7 @@ def test_failures_are_reported_without_secret_details_or_new_receipts(store, pol
 
 def test_replaced_old_archive_never_covers_age_or_gets_removed(store, policy, identity):
     async def scenario():
-        _save()
+        save_source()
         worker = coordinator(store)
         launch(worker, policy, identity)
         await worker.finish()
@@ -484,7 +484,7 @@ def test_replaced_old_archive_never_covers_age_or_gets_removed(store, policy, id
 
 
 def test_download_is_leased_and_available_during_ordinary_maintenance(client, store, monkeypatch):
-    _save()
+    save_source()
     archive = bundles.export_bundle(keep_gallery=True)
     registry = LeaseRegistry()
     monkeypatch.setattr(LeasedFileResponse, "registry", registry)

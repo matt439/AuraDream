@@ -370,39 +370,17 @@ function renderRefineBatch(answer) {
 }
 
 function refineBatchRow(image) {
-  const li = document.createElement('li');
-  li.className = 'rb-result';
-  li.dataset.id = image.id;
-  li.dataset.status = image.status;
-  if (image.thumb_url) {
-    const img = document.createElement('img');
-    img.src = image.thumb_url;
-    img.alt = '';
-    img.loading = 'lazy';
-    li.append(img);
-  } else {
-    li.append(Object.assign(document.createElement('span'), { className: 'rb-thumb-gone' }));
-  }
-  const body = document.createElement('div');
-  body.className = 'rb-body';
-  const head = document.createElement('p');
-  head.className = 'rb-line';
-  const chip = Object.assign(document.createElement('span'), { className: 'rb-chip', textContent: RB_CHIP[image.status] ?? image.status });
-  head.append(`#${image.id} `, chip);
+  const { li, body, head } = resultRow(image, 'rb', RB_CHIP);
   if (image.width && image.height) {
     head.append(` ${image.width}×${image.height}`);
     if (image.target_width && image.status !== 'pass' && image.status !== 'foreign') {
       head.append(` → ${image.target_width}×${image.target_height}`);
     }
   }
-  body.append(head);
   if (image.detail && image.status !== 'queued') {
-    body.append(Object.assign(document.createElement('p'), { className: 'rb-detail', textContent: image.detail }));
+    body.append(Object.assign(document.createElement('p'), { className: 'rb-detail batch-detail', textContent: image.detail }));
   }
-  if (image.notes?.length) {
-    body.append(Object.assign(document.createElement('p'), { className: 'rb-notes', textContent: image.notes.join(' · ') }));
-  }
-  li.append(body);
+  resultNotes(body, image, 'rb');
   return li;
 }
 
@@ -541,12 +519,7 @@ function refineBatchKeydown(event) {
     return;
   }
   if ((event.key === 'ArrowUp' || event.key === 'ArrowDown') && event.target === els.refineBatchStrength) {
-    const text = rbStrengthText();
-    if (!SINGLE_STRENGTH.test(text)) return;
-    event.preventDefault();
-    const step = (event.shiftKey ? 0.01 : 0.05) * (event.key === 'ArrowUp' ? 1 : -1);
-    els.refineBatchStrength.value = String(Math.min(1, Math.max(0.01, +(+text + step).toFixed(2))));
-    refineBatchEdited();
+    if (stepStrength(event, els.refineBatchStrength, rbStrengthText())) refineBatchEdited();
   }
 }
 

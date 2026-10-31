@@ -346,14 +346,14 @@ def cache_candidate_reason(
     spec: ExecutionSpec, facts: CompilerMetadata, *, model_id: str, quantization: str,
     offload: str, device: str, num_images: int = 1, lora: str | None = None,
     refine: int | None = None, mask: str | None = None, outpaint: bool = False,
-    then_refine: bool = False, true_cfg: float | None = None, cache_present: bool = False,
+    then_refine: bool = False, true_cfg: float | None = None,
     external_attention_backend: str | None = None,
 ) -> str | None:
     """Pure FBC matrix; no framework/cache import, setup or availability grant.
 
     True CFG is the separate FLUX unconditioned pass, not distilled guidance.
-    The cache observation is supplied by a future owner; this does not inspect
-    a loaded model or assume that absent app settings prove native attention.
+    This does not inspect a loaded model or assume that absent app settings
+    prove native attention.
     """
     checked = canonical_execution(spec)
     if checked is None or checked.step_cache != "fbc-005-v1":
@@ -362,8 +362,6 @@ def cache_candidate_reason(
         return "Step caching combinations with compilation or nonnative attention need separate qualification."
     if true_cfg is not None and true_cfg != 1.0:
         return "The first step-cache candidate needs ordinary guidance without true CFG."
-    if cache_present:
-        return "The step-cache candidate cannot share an already enabled cache."
     return _flux_candidate_reason(
         facts, model_id=model_id, quantization=quantization, offload=offload,
         device=device, num_images=num_images, lora=lora, refine=refine, mask=mask,

@@ -3,10 +3,14 @@
 `cfg_threshold()` and `negative_prompt_supported` are derived from the loaded
 pipeline's `__call__` signature, and `model_defaults` hard-codes the same two
 answers per checkpoint for the unloaded case - so the profile's guess and the
-pipeline's answer have to agree, and until now only a human kept them in step.
-The classes import without weights or a GPU; the id -> class mapping is the
-one assumption this cannot verify offline (the loader reads it from the repo's
-model_index.json).
+pipeline's answer have to agree. The classes import without weights or a
+GPU; the id -> class mapping is the one assumption this cannot verify offline
+(the loader reads it from the repo's model_index.json).
+
+The file also holds the rest of what the page and the CLI copy from the
+profiles: each checkpoint's sourced guide, the size tables in the page, the
+CLI and the README, and the refine/inpaint bounds and notes against
+web/refine-rules.js, web/refine.js and docs/verified.md.
 """
 from __future__ import annotations
 
@@ -18,7 +22,7 @@ from pathlib import Path
 import diffusers
 import pytest
 
-from backend import generate, launch, sizes
+from backend import generate, generate_args, launch, sizes
 from backend.backends import diffusers_backend as module
 from backend.backends.diffusers_backend import DiffusersBackend
 from backend.model_defaults import (
@@ -29,6 +33,7 @@ from backend.model_defaults import (
     guide_for,
     hints_for,
 )
+from tests.backend_helpers import catalogue_repos
 
 ROOT = Path(__file__).resolve().parents[1]
 
@@ -459,17 +464,11 @@ def test_every_catalogue_entry_has_a_profile():
         assert isinstance(profile["mu_supported"], bool), repo
 
 
-def _catalogue_repos() -> list[str]:
-    return [c.repo for c in launch.CHECKPOINTS] + [
-        c.lite_repo(fmt) for c in launch.CHECKPOINTS for fmt, _ in launch.FORMATS if c.lite
-    ]
-
-
 def test_every_catalogue_entry_has_a_prompting_guide():
     # The guide is the model card's, not the fallback's: an entry that reached
     # the fallback would show "Unrecognised checkpoint" under a ? badge beside
     # a checkpoint the menu offers by name, with an empty Examples menu.
-    for repo in _catalogue_repos():
+    for repo in catalogue_repos():
         guide = guide_for(repo)
         assert guide["examples"], repo
         # A quality recipe or a collection of templates alone is not an
@@ -536,7 +535,7 @@ def test_a_guides_aspects_are_presets_and_its_sizes_their_framings():
         aspect = min(gaps, key=gaps.get)
         return aspect if gaps[aspect] < math.log(1.03) else None
 
-    for repo in _catalogue_repos():
+    for repo in catalogue_repos():
         guide = guide_for(repo)
         if guide["aspects"] is None:
             assert guide["resolutions"] is None, repo
@@ -555,12 +554,12 @@ def test_the_example_word_is_exactly_where_the_prose_says_no_bound():
     # the checkpoint is "for". Each such guide's tip says it is no maximum,
     # and no guide whose tip says so claims a stronger word.
     disclaims = ("not a supported maximum", "no published maximum")
-    for repo in _catalogue_repos():
+    for repo in catalogue_repos():
         word = guide_for(repo)["pixels_word"]
         size = hints_for(repo)["size"]
         assert (word == "example") == any(phrase in size for phrase in disclaims), (repo, word)
     assert {
-        repo for repo in _catalogue_repos() if guide_for(repo)["pixels_word"] == "example"
+        repo for repo in catalogue_repos() if guide_for(repo)["pixels_word"] == "example"
     } == {
         "duongve/NetaYume-Lumina-Image-2.0", "NewBie-AI/NewBie-image-Exp0.1",
         "LyliaEngine/waiIllustriousSDXL_v170", "black-forest-labs/FLUX.1-Kontext-dev",
@@ -568,7 +567,7 @@ def test_the_example_word_is_exactly_where_the_prose_says_no_bound():
     # Whose sizes the line names them as, exactly where the word is
     # "example": what the size prose calls them, and one author's ("the
     # author's") exactly where that prose names one author's sizes.
-    for repo in _catalogue_repos():
+    for repo in catalogue_repos():
         guide = guide_for(repo)
         source = guide["pixels_source"]
         assert (source is not None) == (guide["pixels_word"] == "example"), repo
@@ -593,7 +592,7 @@ def test_a_fixed_shift_is_the_profiles_mu_static():
 
     from backend.backends import netayume_loading, newbie_loading
 
-    fixed = {repo: defaults_for(repo)["mu_static"] for repo in _catalogue_repos()}
+    fixed = {repo: defaults_for(repo)["mu_static"] for repo in catalogue_repos()}
     assert fixed["duongve/NetaYume-Lumina-Image-2.0"] == math.log(netayume_loading.RECIPE["shift"])
     assert fixed["NewBie-AI/NewBie-image-Exp0.1"] == math.log(newbie_loading.RECIPE["shift"])
     assert fixed["SeeSee21/Z-Anime"] == math.log(6)
@@ -618,7 +617,7 @@ def test_cfg_ignored_is_exactly_where_the_cfg_tip_says_ignored():
     # The grid's CFG axis offers no example where the box never reaches the
     # model - a sweep there is one image at every value, and on klein a walk
     # into the pipeline's warning above 1. The flag and the tip say the same.
-    repos = [*_catalogue_repos(), "nobody/whatever"]
+    repos = [*catalogue_repos(), "nobody/whatever"]
     for repo in repos:
         ignored = defaults_for(repo)["cfg_ignored"]
         assert isinstance(ignored, bool), repo
@@ -636,7 +635,7 @@ def test_every_guide_admits_the_1_mp_presets():
     # on a 1 MP preset; the size line warns a tenth outside the range, so every
     # 1 MP preset (1360x768 is 1.04 MP, 896x1200 is 1.08) has to sit inside
     # that tolerance or a fresh page would open with a warning on it.
-    for repo in _catalogue_repos():
+    for repo in catalogue_repos():
         low, high = guide_for(repo)["pixels"]
         for aspect, tiers in sizes.SIZES.items():
             width, height = tiers[1]
@@ -671,7 +670,7 @@ def test_flux1_names_its_cfg_box_distilled_and_no_other_profile_does():
     # klein's is baked in, and the rest run real CFG in that box.
     distilled = {id(dict(_PROFILES)["flux"]), id(dict(_PROFILES)["krea-dev"])}
     named = set()
-    for repo in _catalogue_repos():
+    for repo in catalogue_repos():
         label = hints_for(repo).get("cfg_label")
         if id(_profile_for(repo)) in distilled:
             assert label == "CFG (distilled)", repo
@@ -715,7 +714,7 @@ def test_the_size_table_is_the_same_in_the_browser_and_the_cli():
         }
     assert found == sizes.SIZES
     assert list(found) == list(sizes.SIZES), "the preset strip is Object.keys of this copy"
-    assert generate.SIZES is sizes.SIZES
+    assert generate_args.SIZES is sizes.SIZES
 
 
 def test_the_readme_size_table_matches_the_code():
@@ -869,7 +868,7 @@ def test_the_batch_budget_names_what_to_use_instead():
 def test_a_refine_pass_reaches_every_2_mp_preset_at_2x():
     # A pass's own guard: past the 4 MP presets, since it takes its
     # composition from the source. The page's Refine dialog derives the same
-    # two numbers from its copy of the table (web/refine.js).
+    # two numbers from its copy of the table (web/refine-rules.js).
     from backend.config import settings
     from backend.schemas import GenerateRequest
     from backend.seeds import MAX_BATCH
@@ -882,7 +881,7 @@ def test_a_refine_pass_reaches_every_2_mp_preset_at_2x():
             GenerateRequest(
                 prompt="x", width=width, height=height, refine=1, num_images=MAX_BATCH
             ).check_budget()
-    src = (ROOT / "web" / "refine.js").read_text(encoding="utf-8")
+    src = (ROOT / "web" / "refine-rules.js").read_text(encoding="utf-8")
     assert "const REFINE_MAX_SIDE = 2 * Math.max(...ASPECTS.flatMap((a) => SIZES[a][2]));" in src
     assert (
         "const REFINE_MAX_PIXELS = 4 * Math.max(...ASPECTS.map((a) => SIZES[a][2][0] * SIZES[a][2][1]));"
@@ -991,11 +990,12 @@ def test_compare_scales_sends_the_scale_buttons_own_sizes():
 
     state = (ROOT / "web" / "state.js").read_text(encoding="utf-8")
     src = (ROOT / "web" / "refine.js").read_text(encoding="utf-8")
+    rules = (ROOT / "web" / "refine-rules.js").read_text(encoding="utf-8")
     scales = [float(v) for v in re.search(r"const REFINE_SCALES = \[([^\]]*)\];", state).group(1).split(",")]
     factors = [float(v) for v in re.search(r"const REFINE_COMPARE_SCALES = \[([^\]]*)\];", src).group(1).split(",")]
     assert factors == [1, 1.5, 2] and all(f in scales for f in factors) and factors == sorted(factors)
     # One arithmetic: half up on the 16-pixel grid, never under 16.
-    assert "Math.max(16, Math.floor(side * factor / 16 + 0.5) * 16)" in src
+    assert "Math.max(16, Math.floor(side * factor / 16 + 0.5) * 16)" in rules
     body = src.split("function compareScales(", 1)[1].split("\n}\n", 1)[0]
     assert "refineScaled(src.width, src.height, factor)" in body
     assert "for (const factor of REFINE_COMPARE_SCALES)" in body

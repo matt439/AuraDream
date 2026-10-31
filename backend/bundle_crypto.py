@@ -2,9 +2,11 @@
 
 The plaintext is an ordinary bundle ZIP. It is never written to disk: export
 streams the ZIP through `EncryptingWriter`, and verification and import read
-it back through the seekable `DecryptingReader`, so every chunk is
+it back through the seekable `_DecryptingReader` (and test it with
+`_is_encrypted`) under the caller's borrowed `ArchiveRead`, so every chunk is
 authenticated with the user's password in the one pass that already checks the
-archive.
+archive. `DecryptingReader` and `is_encrypted` are the self-leasing wrappers
+kept for standalone readers and tests.
 
 Layout: a 56-byte header, then chunks of `chunk` plaintext bytes plus a 16-byte
 tag. The last chunk may be shorter or empty and is the only one marked final.
@@ -36,6 +38,8 @@ from cryptography.exceptions import InvalidTag
 from cryptography.hazmat.primitives.ciphers.aead import AESGCM
 from cryptography.hazmat.primitives.kdf.scrypt import Scrypt
 
+# Frozen pre-rename literals (Local Diffusion): existing .ldbundle files carry
+# them, and web/bundles.js's BUNDLE_MAGIC must stay equal to MAGIC.
 MAGIC = b"LDBUNDLE"
 SUFFIX = ".ldbundle"
 _VERSION = 1

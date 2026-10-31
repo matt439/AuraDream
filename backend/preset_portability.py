@@ -1,7 +1,8 @@
 """Cold raw-setup portability; no store, UUID, model or execution access.
 
-Plans preserve local identities and row positions. Additions remain identity-free
-until a later persistence layer assigns ids under the existing preset-path lock.
+Plans preserve local identities and row positions. Additions remain identity-free;
+only `presets.import_collection` assigns ids and persists a plan, under the
+preset-path reservation.
 """
 from __future__ import annotations
 

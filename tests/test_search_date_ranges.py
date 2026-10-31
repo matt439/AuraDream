@@ -7,8 +7,9 @@ from datetime import date, datetime, timedelta, timezone
 import pytest
 from PIL import Image
 
-from backend import main, saved_searches, search
+from backend import saved_searches, search
 from backend.schemas import GenerateRequest
+from tests.gallery_helpers import cold_queries_only  # noqa: F401  (fixtures by name)
 
 _RANGE = "created_at >= ? AND created_at < ?"
 _EXPLICIT = "2026-10-26..2026-10-28"
@@ -165,24 +166,6 @@ def test_a_space_before_range_punctuation_keeps_existing_day_plus_text_parsing(m
     assert text == "..2026-10-28"
     with pytest.raises(ValueError, match="free text"):
         search.strict_scope(query)
-
-
-@pytest.fixture
-def cold_queries_only(client, monkeypatch):
-    attempts = []
-
-    def forbidden(*_args, **_kwargs):
-        attempts.append("model-or-queue")
-        pytest.fail("a calendar filter entered model loading, generation or queue submission")
-
-    monkeypatch.setattr(main, "ensure_loaded", forbidden)
-    monkeypatch.setattr(main.backend, "load", forbidden)
-    monkeypatch.setattr(main.backend, "generate", forbidden)
-    monkeypatch.setattr(main.jobs, "wait_for_gate", forbidden)
-    monkeypatch.setattr(main.jobs, "submit", forbidden)
-    yield attempts
-    assert attempts == []
-    assert client.get("/api/jobs").json() == []
 
 
 def _owned_rows(store):

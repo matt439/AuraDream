@@ -30,49 +30,7 @@
 
 /* Saved-setup export/import: the merge rows scroll; its actions stay still. */
 .setups-portability { flex: none; }
-.setup-import-dialog {
-  width: min(900px, calc(100vw - 2 * var(--gutter)));
-  max-height: calc(100dvh - 2 * var(--gutter));
-  padding: var(--panel-pad); border: 1px solid var(--line-strong);
-  border-radius: var(--r-lg); background: var(--panel); color: var(--text);
-  box-shadow: var(--shadow-pop); overflow: hidden;
-}
-.setup-import-dialog[open] { display: flex; flex-direction: column; gap: var(--sp-3); }
-.setup-import-dialog::backdrop { background: rgba(0, 0, 0, 0.6); }
-.setup-import-dialog > :not(#setup-import-rows) { flex: none; }
-.setup-import-dialog p { margin: 0; }
-#setup-import-filename {
-  max-height: 2lh; overflow: auto; overflow-wrap: anywhere; font-size: var(--fs-body-sm);
-}
-#setup-import-summary { min-height: 2lh; max-height: 2lh; overflow: auto; font-size: var(--fs-body-sm); }
-#setup-import-status {
-  min-height: 3lh; max-height: 3lh; overflow-y: auto;
-  font-size: var(--fs-body-sm); white-space: pre-wrap; overflow-wrap: anywhere;
-}
-#setup-import-rows {
-  min-height: 0; overflow: auto; overscroll-behavior: contain;
-  display: flex; flex-direction: column; gap: var(--sp-3);
-}
-.setup-import-row {
-  border: 1px solid var(--line); border-radius: var(--r-sm); padding: var(--sp-3);
-  display: flex; flex-direction: column; gap: var(--sp-2); flex: none; min-width: 0;
-}
-.setup-import-row h3 { margin: 0; font-size: var(--fs-body-sm); overflow-wrap: anywhere; }
+/* The rest is snippets.css's shared merge-dialog rules. */
+.setup-import-dialog { width: min(900px, calc(100vw - 2 * var(--gutter))); }
 .setup-import-meta { color: var(--text-2); font-size: var(--fs-label); overflow-wrap: anywhere; }
-.setup-import-row pre {
-  margin: 0; max-height: 8lh; overflow: auto; white-space: pre-wrap; overflow-wrap: anywhere;
-  font: inherit; font-size: var(--fs-body-sm); color: var(--text-2);
-}
-.setup-import-row summary { overflow-wrap: anywhere; font-size: var(--fs-label); }
-.setup-import-choice { display: flex; gap: var(--sp-2); flex-wrap: wrap; }
-.setup-import-choice label { display: flex; flex: 1 1 200px; flex-direction: column; gap: var(--sp-1); min-width: 0; font-size: var(--fs-label); }
-.setup-import-choice label[hidden] { display: none; }
-.setup-import-choice input, .setup-import-choice select { width: 100%; min-width: 0; height: var(--h-field); }
-.setup-import-choice select {
-  padding: 0 var(--sp-2); font: inherit; color: var(--text); background: var(--panel-2);
-  border: 1px solid var(--line-strong); border-radius: var(--r-md);
-}
-.setup-import-actions { display: flex; justify-content: flex-end; gap: var(--sp-2); }
-@media (max-width: 640px) {
-  .setup-import-choice label { flex-basis: 100%; }
-}
+.setup-import-row pre { max-height: 8lh; }

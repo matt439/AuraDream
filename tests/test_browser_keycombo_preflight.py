@@ -2,16 +2,14 @@
 from __future__ import annotations
 
 import json
-import os
 from pathlib import Path
-import shutil
-import subprocess
 
 import pytest
 
-ROOT = Path(__file__).resolve().parent.parent
+from tests.browser_helpers import run_harness_cold
+
 FIXTURE = Path(__file__).resolve().parent / "browser_keycombo_fixture.mjs"
-pytestmark = pytest.mark.skipif(shutil.which("node") is None, reason="needs Node")
+pytestmark = pytest.mark.usefixtures("node")
 
 NEEDS_KEY = "keycombo needs modifiers followed by a key"
 NEEDS_MODIFIERS = "keycombo modifiers must be known and unique"
@@ -20,28 +18,13 @@ NEEDS_MODIFIERS = "keycombo modifiers must be known and unique"
 def run_keycombo_cold(tmp_path, steps: list[dict], *, allow_lookup: bool = False,
                       probe: str | None = None, environment_updates: dict | None = None):
     """Capture real modules, allow one fixture read, poison every later effect."""
-    script = tmp_path / "keycombo-steps.json"
-    text = json.dumps(steps)
-    script.write_text(text, encoding="utf-8")
-    output = tmp_path / "must-not-create-output"
-    temporary = tmp_path / "owned-temp"
-    temporary.mkdir()
-    request = dict(harness=str(ROOT / "tools" / "browser.mjs"), script=str(script),
-                   url=(ROOT / "tools" / "browser.mjs").as_uri(), output=str(output),
-                   temporary=str(temporary), allow_lookup=allow_lookup, probe=probe)
-    environment = {**os.environ, "AURADREAM_BROWSER": "owned-synthetic-browser",
-                   "AURADREAM_SCREENSHOT_DIR": str(output), "AURADREAM_PORT_OFFSET": "0",
-                   "AURADREAM_VIEWPORT": "1400x900", "AURADREAM_DPR": "1",
-                   "TMPDIR": str(temporary), "TEMP": str(temporary), "TMP": str(temporary)}
-    environment.update(environment_updates or {})
-    done = subprocess.run(["node", str(FIXTURE), json.dumps(request)],
-                          cwd=tmp_path, env=environment, capture_output=True, text=True, timeout=15)
-    assert script.read_text(encoding="utf-8") == text
-    assert not output.exists() and list(temporary.iterdir()) == []
-    assert sorted(path.name for path in tmp_path.iterdir()) == ["keycombo-steps.json", "owned-temp"]
-    assert "private-keycombo-fixture-value" not in done.stdout + done.stderr
-    assert "private-startup-fixture-value" not in done.stdout + done.stderr
-    return done
+    return run_harness_cold(
+        tmp_path, FIXTURE, "keycombo-steps.json", json.dumps(steps),
+        request=dict(allow_lookup=allow_lookup, probe=probe),
+        environment={"AURADREAM_PORT_OFFSET": "0", "AURADREAM_VIEWPORT": "1400x900", "AURADREAM_DPR": "1",
+                     **(environment_updates or {})},
+        secrets=("private-keycombo-fixture-value", "private-startup-fixture-value"),
+    )
 
 
 @pytest.mark.parametrize(("combo", "message"), [

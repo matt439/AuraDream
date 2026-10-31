@@ -306,12 +306,12 @@ function syncCfg() {
   const knob = trueCfgSupported ? 'True CFG' : 'CFG';
   const off = !negativeSupported || reach <= cfgThreshold;
   els.negField.classList.toggle('disabled', off);
-  // A checkpoint that takes none at all is its caption alone (style.css):
+  // A checkpoint that takes none at all is its caption alone (styles/generation.css):
   // a greyed two-line box that nothing could wake took the room the
   // reference chips under it use. Its text is kept for one that does.
   els.negField.classList.toggle('unsupported', !negativeSupported);
   els.negative.disabled = off;
-  // A box greyed with its suggestion list up closes the list (tags.js).
+  // A box greyed with its suggestion list up closes the list (tag-lists.js).
   if (off) hideNegativeSuggestions();
   // What the negative costs is the knob's to say. True CFG's uncond pass runs
   // for the negative text alone (FLUX.1 runs none without one), so there it

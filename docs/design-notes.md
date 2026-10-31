@@ -3250,45 +3250,15 @@ was skipped. `Job.snapshot(images=False)` is what the per-cell status event
 and `/api/jobs` send: the per-cell event used to carry every record so far,
 258 MiB over a 1000-cell grid.
 
-**Skipped-cell recovery before phase 2 (historical).** The Retry/Resume
-route below depended on page memory. The 2026-10-18
-[phase 2 build](#more-seeds-where-the-run-ends) replaced those actions with
-server-backed Finish run, retaining the skipped-cell explanation and focus
-behavior.
-
-A skipped cell used to show only as the cell line jumping a number and, at
-the end, "1
-cell(s) failed" - which cell, no one said - and the obvious retry, Run grid,
-rendered the whole grid again. `Job.failed_cells` keeps each one's label, seed
-and error, sent with the records (the full snapshot: attach and `done`), never
-on the per-cell events; the cell line counts "· N skipped" from the status
-frames' `failures` as they happen, and the done line names them. A grid's
-done line then offers "Retry the N skipped cells", which sends the payload the
-page submitted (`submissions`, by job id) again with `resume: true` and the
-base seed its POST returned - never the panel, which may have changed since -
-so only the missing cells run. When the failure rule itself ends the job,
-`stopped_by` is `"failures"` (still status `error`, through `_finish`) and the
-error leads with where and why - "Stopped at cell 4 of 5 after 3 cells failed;
-1 image kept. Last: <the exception>" - since three in a row or a third of the
-grid read as one bad cell when only the last exception was shown; the page
-offers "Resume the remaining N cells" (the total less the cells that rendered).
-A plain job says both in its own units (`Job.unit`, the page's `unitWord` on
-the server): "Stopped at image 3 of 3 after 3 images failed", "1 image failed
-and was skipped", and the page's "1 of 1 image was skipped" - "cell" was a
-grid's word in a plain job's error. One that made nothing at all holds the
-title "Nothing made", never "✓ Finished 0 images".
-Both live in the finish line, `#finish-note`, apart from the cell line: when
-they shared `#cell-note`, the next queued job's start cleared it the moment the
-grid ended, and the Retry with it - in the overnight queue the button exists
-for. The finish line stays until the next job's end replaces it, led by
-"Previous job:" while another runs (or after one whose stream gave up). A
-Retry or Resume is sent once: accepted, it reads "Retry sent", `aria-disabled`,
-and keeps focus where the press left it; when the line is replaced with focus
-in it, focus moves to the new line's first button, else Generate. A job that
-ends with focus on Pause or Cancel (or a queued row's ×), which hide with
-`#progress`, hands it to Generate (`setBusy(false)`), and the finish line
-then takes it on to its first button (`finishTakesFocus`): a keyboard user
-who pressed Cancel and let the queue run out was left on `<body>`.
+**Skipped-cell recovery before phase 2** - the finish line's Retry and
+Resume, which resent the page's own payload - is recorded in
+[`plan-continue-run.md`](plan-continue-run.md#phase-1-as-built-superseded-by-phase-2);
+Finish run took their place. What that work built still holds: `Job.failed_cells` (label, seed and
+error, on the full snapshot only), the failure rule's `stopped_by`
+"failures" and its "Stopped at cell 4 of 5 after 3 cells failed" lead,
+a plain job's own units, and the finish line, `#finish-note`, kept apart
+from the cell line until the next job's end, focus handed on to its first
+button (`finishTakesFocus`).
 
 What the job's end says in the panel's line, `#error` - cancelled, a time
 budget, an error, the skipped cells, the failure rule's stop - is that job's
@@ -5031,7 +5001,7 @@ alone is not the bound: `ZipExtFile.read()` fetches the whole
 stream allocated gigabytes before the CRC passed. A member stored larger than
 deflate could make it (`file_size` + 0.1% + 1 KiB) is refused up front.
 
-`api_bundles.BundleManager` reserves the idle server synchronously. ASGI
+`bundle_manager.BundleManager` reserves the idle server synchronously. ASGI
 admission counts existing gallery requests through the end of image streams,
 and blocks new generation and gallery operations while maintenance runs.
 Normal status, job inspection and bundle download continue to answer. The
@@ -5667,7 +5637,7 @@ one.
 another checkpoint's records, it said "add model:Anima to the search", the
 id's tail. `model:` is a substring LIKE, so Animagine stayed in the selection
 and following the advice gave the same refusal - the trap the profiles avoid
-with exact ids. `api_generate.foreign_refusal` offers `model:<the whole running id>`
+with exact ids. `api_rerender.foreign_refusal` offers `model:<the whole running id>`
 only where that id, lowercased, is contained in none of the foreign ids the
 selection reached and has no whitespace, which would split the term; then
 adding it leaves every one of them out. Otherwise it says only "Untick All
@@ -6178,11 +6148,12 @@ never the single verb: one label hid "finish 27 cells" and "make 120 new
 images", and its holds were known only after a press. Matt took every
 recommended answer to the plan's questions the same day.
 
-**Phase 1 implementation record (historical).** The label, budget Resume
-and run-bar details below describe that first stage. Phase 2 is built now,
-as the dated update below records: missing-cell actions use Finish run and
-stored cells rather than the old payload or panel. The queued-rerun gap
-described at the end of this record was also closed by `GEN#12` below.
+**Phase 1's Resume details** - the budget stop's Resume and the run bar's
+Resume this run - are recorded in
+[`plan-continue-run.md`](plan-continue-run.md#phase-1-as-built-superseded-by-phase-2);
+phase 2, below, replaced them with Finish run. The More seeds design that
+follows is phase 1's and current; the queued-rerun gap at its end was
+closed by `GEN#12` below.
 
 **The scope is in the label.** More seeds of this batch… (the menu; the
 lightbox's and the result column's More seeds… beside Reuse and Use
@@ -6235,21 +6206,6 @@ modal lightbox, the gallery's line is covered, so the lightbox's own line
 says it; the dialog opens over the lightbox, which stays, and Escape
 closes the dialog first. No lightbox key (Q10).
 
-**The budget stop's Resume** reuses the failure stop's button: the budget
-is checked before a cell starts, so the job's `run` is the cells reached,
-and the button re-sends the night's own payload, its `budget_minutes` with
-it (Q6), the budget named in its title.
-
-**The run bar** on the sheet puts More seeds of this run… after Resume
-this run and the run's line ("Run abc · 70 images · WAI fp8") last on a
-row of its own: its count changes while a job writes to the run, and text
-before the buttons would move them under the pointer. The plan's "70/96
-cells" needs a cell total no row stores; phase 1 shows the images the
-gallery holds under the filter. The bar's gate is looser than Resume's - a
-refine sweep's and a comparison's run too, held on another checkpoint -
-and where Resume this run's preview renders nothing, it points the way on:
-"Nothing in run X is missing. More seeds of this run… adds seeds."
-
 **The double render** (phase 1a, `GEN#9`). Grid Resume subtracted what the
 gallery held (`not_yet_rendered`) but never what a live job planned, so a
 Resume pressed while the run's cells were still queued - the grid tick,
@@ -6292,7 +6248,8 @@ submission queues only cells neither the gallery nor a live job holds.
 This is independent of persisted runs and the proposed workstation layout.
 
 They use `submission.not_yet_planned` after the gallery subtraction in
-`api_generate.py`, `api_swap.py` and `api_refine_batch.py`. Snapshot
+`api_generate.py`, `api_rerender.py` and `api_runs.py`, and through
+`submission.prune_held` in `api_swap.py` and `api_refine_batch.py`. Snapshot
 `jobs.planned_keys()` on the event loop **before** the awaited gallery
 reads, as grid Resume does: taking it afterwards misses a cell that moved
 from the queue into the gallery during the scan. Keep each cell's applied
@@ -6662,7 +6619,8 @@ same call from the terminal, previewed with the same summary.
 made no image. Banner and sheet recovery use server-backed Finish run,
 including comparisons and Repeat, without changing the composer; see
 [More seeds where the run ends](#more-seeds-where-the-run-ends). The
-panel-driven Resume passage below preserves the earlier recovery rationale.
+panel-driven Resume it replaced is recorded in
+[`plan-continue-run.md`](plan-continue-run.md#phase-1-as-built-superseded-by-phase-2).
 
 **The morning after has two sources.** `GET /api/runs` groups the gallery
 by `run_id` (`gallery_reports.runs`: images, favourites, distinct prompts, jobs,
@@ -6690,24 +6648,6 @@ It says what is left of the job, from the snapshot's `deleted_count`: "6
 images (6/6 cells), 4 since deleted", or "all since deleted" with Show run
 hidden - it had counted and offered deleted images, and Show run opened a
 sheet of one.
-
-**Historical panel-driven recovery, before phase 2.** A grid the night
-did not finish (cancelled, out of time, stopped by its failures) offers
-Resume: the sheet's Resume this run
-(`resumeRun`) with the job's size, the panel's grid made ready, Resume ticked
-for this session, and the preview saying what is left - or, where it would
-skip nothing, that the panel holds another grid. The base seed is the run's,
-from /api/runs (its oldest image's), as the sheet's is: the snapshot's
-`seed` is the first cell the job had left, and a job that was itself a
-Resume, its first seeds done, carried one past the base - the panel then held
-another grid, with another run id, and Run grid rendered cells the night
-never had. The finish line's Retry and Resume send their payload's own seed
-for the same reason, and the POST's answer only where the payload gave none.
-Not for a re-render, a refine sweep or a prompt comparison (the snapshot's
-`comparison`, set from `prompt_variants`), none of which the panel's grid
-makes - the sheet's Resume this run refuses a comparison too - and not for a
-job with no image of its own left, which leaves the preview nothing to skip
-and so saying the panel's grid was another.
 
 **The picker is grouped, and follows the search box.** Every plain Generate
 is a run of its own (`run_id` comes from the cell keys), so in an afternoon
@@ -7674,22 +7614,10 @@ carry under the pins already held (`reconcileAxes`): the first value is
 of them, so not one cell filled. Over a full run the counts tie and the first
 value still wins.
 
-**Historical sheet recovery, before phase 2.** The panel-filling route
-below was replaced by server-backed Finish run; the current behavior is in
-[More seeds where the run ends](#more-seeds-where-the-run-ends).
-
-A sheet of one run opened on `run:<id>` offers Resume this
-run: the run's base seed from `/api/runs` into the Seed box and its size into
-Width and Height, Resume ticked for this session only, the grid fold opened
-and Run grid brought into view. Resume is scoped by the size, the checkpoint
-and the quantization: filling only the seed, the panel's size after any other
-render made the preview skip nothing and blame the grid, so the size is
-filled too, and a run of another checkpoint (All models) offers no button.
-The axes are not stored per run, so whether the panel still holds that grid
-is the preview's to say, and a preview that would skip nothing says the grid
-- its prompt, axes or other settings, or the server's quantization - is a
-different one. Not on a comparison or a refine sweep, which the panel's grid
-did not make.
+**Historical sheet recovery, before phase 2.** The sheet's Resume this run,
+which filled the panel, is recorded in
+[`plan-continue-run.md`](plan-continue-run.md#phase-1-as-built-superseded-by-phase-2);
+Finish run on the run bar replaced it - see [More seeds where the run ends](#more-seeds-where-the-run-ends).
 
 ## The CLI's loop, and jobs.submit's
 
@@ -12898,15 +12826,3 @@ or rehashed to reconstruct the missing values. Preserve the current lock and
 resolve that discrepancy during the [optional compiler proposal's isolated
 lock review](plan-regional-compilation.md#dependency-proposal-and-remaining-artifact-check-2026-10-28);
 the historical measurement is not proof that the present lock retains it.
-
-## Verified on the card, 2026-09-08
-
-Verified on the card 2026-09-08 beyond the above: a real Ctrl-C (SIGINT to
-uvicorn's handler) 12 s into a load exits in 3 s with the lifespan run;
-mid-sweep with a stream attached, `done` (cancelled) reaches the stream
-0.2 s after the signal and the process is gone 3 s later; Pause is
-acknowledged at the cell boundary, where a paused 512x512 grid held
-2,046 MiB of the card (whole card, desktop included; a 1 MP fp8 denoise
-reads 14,950 MiB); `reindex --from` over the real gallery
-reproduces every hash and true CFG. Not verified: `AURADREAM_DEVICE=cuda:1` (one
-card here).

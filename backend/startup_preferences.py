@@ -155,7 +155,8 @@ def load_result(db_path: Path) -> PreferenceLoad:
 
 
 def load(db_path: Path) -> StartupPreferences | None:
-    """Compatibility read; load_result also exposes fail-closed diagnostics."""
+    """The saved preferences alone, a convenience for tests; nothing in the app
+    calls it. `load_result` also gives the fail-closed diagnostics."""
     return load_result(db_path).preferences
 
 
@@ -267,7 +268,8 @@ def apply_saved_environment(
 ) -> StartupPreferences | None:
     """Fill absent startup variables, without importing config or changing disk.
 
-    The four values are one choice made for one checkpoint. When the model is
+    The saved values (checkpoint, quantization, offload, auto-load and loader
+    execution) are one choice made for one checkpoint. When the model is
     explicit (`model`, the --model flag applied afterwards, or the
     environment) and is not the saved one, none of them applies: a saved
     BF16/no offload/auto-load for a small model must not load a large one so.

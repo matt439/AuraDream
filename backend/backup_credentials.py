@@ -287,7 +287,8 @@ def read_secret(reference: CredentialReference):
 
 
 def create_credential(reference: CredentialReference, password: str) -> None:
-    """Explicit future setup under caller reservation; no atomic-create claim.
+    """Explicit setup (`tools/backup_credential.py`) under caller reservation;
+    no atomic-create claim.
 
     An inactive durable profile intent must exist BEFORE calling. No previous
     entry is overwritten intentionally, deleted, enumerated or repaired here.

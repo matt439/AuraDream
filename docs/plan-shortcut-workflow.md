@@ -1,5 +1,7 @@
 # Keyboard ownership, help and compact setup
 
+**Status: done 2026-10-26** (`UI#17`-`UI#19`).
+
 Approved 2026-10-26 after the browser shortcut and decluttering audits. Matt
 approved all three stages: fix existing conflicts, make help contextual and
 visible, then add a small set of fast routes and group secondary setup.

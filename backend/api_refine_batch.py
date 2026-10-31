@@ -98,20 +98,7 @@ async def refine_batch_plan(
             unusable = checked[lora]
             if unusable is not None:
                 p.drop("lora_missing", unusable[1])
-    # The gallery's own answer, per size: `completed_cells` is scoped to one.
-    sizes: dict[tuple[int, int], list[grid.Cell]] = {}
-    for p in plans:
-        if p.cells:
-            sizes.setdefault((p.width, p.height), []).extend(p.cells)
-    # Snapshot before any size's awaited scan: a live cell can finish
-    # during it. Submission holds rerun admission until every job is added.
-    planned = services.jobs().planned_keys()
-    unheld: set[int] = set()
-    kept: set[int] = set()
-    for (width, height), group in sizes.items():
-        missing = await submission.not_yet_rendered(services, group, width, height)
-        unheld.update(id(cell) for cell in missing)
-        kept.update(id(cell) for cell in submission.not_yet_planned(services, missing, planned))
+    unheld, kept = await submission.prune_held(services, [cell for p in plans for cell in p.cells])
     cells: list[grid.Cell] = []
     for p in plans:
         if p.cell is None:
@@ -143,13 +130,6 @@ async def refine_batch_plan(
     ]
     results.sort(key=lambda result: result.id)
     return [record.id for record in records], results, cells, plans
-
-
-def _refine_batch_counts(results: list[RefineBatchResult]) -> dict[str, int]:
-    counts: dict[str, int] = {}
-    for result in results:
-        counts[result.status] = counts.get(result.status, 0) + 1
-    return counts
 
 
 def create_router(services: AppServices) -> APIRouter:
@@ -198,7 +178,7 @@ def create_router(services: AppServices) -> APIRouter:
         foreign = [p for p in plans if p.foreign]
         return RefineBatchPreview(
             ids=ids,
-            counts=_refine_batch_counts(results),
+            counts=submission.status_counts(results),
             queued=len(cells),
             jobs=len(sizes),
             images=results[:REFINE_BATCH_PREVIEW_ROWS],
@@ -243,7 +223,7 @@ def create_router(services: AppServices) -> APIRouter:
                 status_code=409,
                 detail="the selection changed since the check; review the refine again",
             )
-        counts = _refine_batch_counts(results)
+        counts = submission.status_counts(results)
         if not cells:
             # As the dialog's hold words it (`refineBatchHold`): "already has the
             # pass" only where that is every image's status.
@@ -270,9 +250,7 @@ def create_router(services: AppServices) -> APIRouter:
             job = await services.jobs().submit_cells(
                 group, run_id=grid.run_id(group, model, quantization), refine_batch=request.scale,
             )
-            accepted.append(JobAccepted.model_validate({
-                "job_id": job.id, "seed": job.seed, "run_id": job.run_id, "estimate_seconds": job.estimate_seconds,
-            }))
+            accepted.append(JobAccepted.of(job))
         first = accepted[0]
         return RefineBatchAccepted(
             job_id=first.job_id, seed=first.seed, run_id=first.run_id, estimate_seconds=first.estimate_seconds,

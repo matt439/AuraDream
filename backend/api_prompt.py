@@ -20,7 +20,7 @@ from fastapi import APIRouter, HTTPException, Path, Query
 from . import prompt_check, prompt_encoding, prompt_parts, prompt_text, tag_lookup
 from .app_context import AppServices
 from .backends.base import Cancelled
-from .critic import CriticError, CriticUnavailable
+from .critic import CriticError, CriticUnavailable, pinned_build_refusal
 from .detached import detached
 from .jobs import BackendBusy, LoadFailed, short_error
 from .model_defaults import guide_for
@@ -141,8 +141,6 @@ def prompt_failure(exc: Exception, doing: str) -> HTTPException:
 
 
 def critic_unsupported(settings: Settings) -> str:
-    from .critic import pinned_build_refusal
-
     if not settings.critic:
         return "the prompt critic is switched off (AURADREAM_CRITIC)"
     # A build published for the platform that this system cannot run (glibc

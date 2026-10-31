@@ -20,7 +20,6 @@ from backend import (
     critic_runtime,
     critic_server,
     critic_validation,
-    launch,
 )
 from backend.schemas import DocumentedOrder, GenerateRequest, PromptAnalysis
 
@@ -34,18 +33,12 @@ PROMPT = (
 )
 
 
-def _catalogue_repos() -> list[str]:
-    return [c.repo for c in launch.CHECKPOINTS] + [
-        c.lite_repo(fmt) for c in launch.CHECKPOINTS for fmt, _ in launch.FORMATS if c.lite
-    ]
-
-
-def _configure(monkeypatch, **changes) -> None:
+def configure_critic(monkeypatch, **changes) -> None:
     # `settings` is frozen, so point the module at a copy rather than mutating it.
     monkeypatch.setattr(critic, "settings", dataclasses.replace(critic.settings, **changes))
 
 
-def _link_directory(link: Path, target: Path) -> None:
+def link_directory(link: Path, target: Path) -> None:
     """A directory link, as the Hub cache's snapshots are: a symlink where
     this user may make one, else (Windows without Developer Mode) a junction,
     which a resolve follows the same way."""
@@ -69,7 +62,7 @@ def root(tmp_path, monkeypatch):
 # --- Installing --------------------------------------------------------------
 
 
-def _zip(members: dict[str, bytes]) -> bytes:
+def zip_bytes(members: dict[str, bytes]) -> bytes:
     buffer = io.BytesIO()
     with zipfile.ZipFile(buffer, "w") as bundle:
         for name, data in members.items():
@@ -101,8 +94,8 @@ def windows_release(monkeypatch):
     return Release(
         monkeypatch,
         {
-            "llama-test.zip": _zip({"llama-server.exe": b"server", "ggml-cuda.dll": b"ggml"}),
-            "cudart-test.zip": _zip({"cudart64_13.dll": b"cudart"}),
+            "llama-test.zip": zip_bytes({"llama-server.exe": b"server", "ggml-cuda.dll": b"ggml"}),
+            "cudart-test.zip": zip_bytes({"cudart64_13.dll": b"cudart"}),
         },
     )
 
@@ -110,7 +103,7 @@ def windows_release(monkeypatch):
 # --- The server --------------------------------------------------------------
 
 
-def _flag(command: list[str], name: str) -> str:
+def flag_value(command: list[str], name: str) -> str:
     return command[command.index(name) + 1]
 
 
@@ -158,7 +151,7 @@ class FakeProcess:
         return self.returncode
 
 
-def _answer(**changes) -> dict:
+def critic_answer(**changes) -> dict:
     answer = {
         "parts": {
             "subject": "a woman with a red umbrella",
@@ -188,7 +181,7 @@ def _answer(**changes) -> dict:
     return answer
 
 
-def _words(text: str, known: dict[str, int] | None = None) -> int:
+def count_words(text: str, known: dict[str, int] | None = None) -> int:
     """A tokenizer for the fake server: a token per word or mark, as
     `fakes.fake_tokenizer` counts, but `known` texts at their given count."""
     total = 0
@@ -212,12 +205,12 @@ class Server:
         self.commands: list[list[str]] = []
         self.keys: list[str] = []
         self.calls: list[tuple[str, str, str | None, object]] = []
-        self.answer = _answer() if answer is None else answer
+        self.answer = critic_answer() if answer is None else answer
         self.health = 200
         self.open_without_key = False
         self.post_error: BaseException | None = None
         self.output = output
-        self.count = _words
+        self.count = count_words
         self.counts = True
         self.owned: bool | None = True
         # How many exchanges had happened at each listener check.
@@ -245,7 +238,7 @@ class Server:
         return self.process
 
     def listener(self, port, pids):
-        assert port == int(_flag(self.commands[-1], "--port"))
+        assert port == int(flag_value(self.commands[-1], "--port"))
         assert pids == self.process.pids()
         self.checked_after.append(len(self.calls))
         return self.owned
@@ -284,13 +277,13 @@ def prepared(monkeypatch, tmp_path):
     server, model = tmp_path / "llama-server.exe", tmp_path / "model.gguf"
     server.write_bytes(b"s")
     model.write_bytes(b"m")
-    _configure(monkeypatch, critic=True, critic_server=server, critic_model=None)
+    configure_critic(monkeypatch, critic=True, critic_server=server, critic_model=None)
     target = critic.PromptCritic()
     target._prepared = (server, model)
     return target
 
 
-def _analysis(model_id: str = KLEIN, *, ordered: bool = True, findings=()) -> PromptAnalysis:
+def prompt_analysis(model_id: str = KLEIN, *, ordered: bool = True, findings=()) -> PromptAnalysis:
     order = (
         DocumentedOrder(
             steps=["subject", "action", "style", "context"],
@@ -304,28 +297,28 @@ def _analysis(model_id: str = KLEIN, *, ordered: bool = True, findings=()) -> Pr
     )
 
 
-def _critique(target, model_id=KLEIN, prompt=PROMPT, *, negative=None, **kwargs):
+def critique_with(target, model_id=KLEIN, prompt=PROMPT, *, negative=None, **kwargs):
     request = GenerateRequest(prompt=prompt, negative_prompt=negative)
-    return target.critique(model_id, request, request, _analysis(model_id, **kwargs))
+    return target.critique(model_id, request, request, prompt_analysis(model_id, **kwargs))
 
 
 # --- Reading the answer ------------------------------------------------------
 
 
-def _context(
+def context_for(
     model_id: str = KLEIN, prompt: str = PROMPT, *, ordered: bool = True, negative=None,
     style: str = "prose",
 ):
     request = GenerateRequest(prompt=prompt, negative_prompt=negative)
-    analysis = _analysis(model_id, ordered=ordered).model_copy(update={"style": style})
+    analysis = prompt_analysis(model_id, ordered=ordered).model_copy(update={"style": style})
     return critic_context.build_context(model_id, request, request, analysis)
 
 
-def _validate(
+def validate_answer(
     answer, *, prompt=PROMPT, ordered=True, model_id=KLEIN, style="prose", findings=()
 ):
     request = GenerateRequest(prompt=prompt)
-    analysis = _analysis(model_id, ordered=ordered, findings=findings).model_copy(
+    analysis = prompt_analysis(model_id, ordered=ordered, findings=findings).model_copy(
         update={"style": style}
     )
     context = critic_context.build_context(model_id, request, request, analysis)

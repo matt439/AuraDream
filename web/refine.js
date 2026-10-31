@@ -12,27 +12,10 @@
 // its own size, strength, versions and seed, and submits itself. The panel's
 // requests never carry a source (`collect()`).
 
-// The largest pass the server takes: config's `refine_max_side` and
-// `refine_max_pixels`, any 2 MP preset at 2x, read off the same table as the
-// presets. tests/test_profiles.py holds these two lines to the server's.
-const REFINE_MAX_SIDE = 2 * Math.max(...ASPECTS.flatMap((a) => SIZES[a][2]));
-const REFINE_MAX_PIXELS = 4 * Math.max(...ASPECTS.map((a) => SIZES[a][2][0] * SIZES[a][2][1]));
-
-// What the dialog remembers between opens, per browser: the scale it last
-// ran at, the number of versions, and per checkpoint a single strength the
-// user ran instead of the profile's - 0.4 means one thing on SDXL and another
-// on a shifted flow schedule. A sweep is not remembered, or the next open
-// would start one unasked. Reset forgets all of it with the panel.
-const REFINE_KEY = 'auradream.refine.v1';
 const REFINE_ANIME6B = 'realesrgan-x4plus-anime6b';
 const refineUpscalerAvailable = () => refineSupported && !!lastDefaults?.upscaler_supported;
 
-// One number, or a sweep in the grid's syntax (`0.3,0.4,0.5`, `0.2-0.5x0.1`)
-// that the server parses: one strength is an ordinary request, several a grid
-// with a strength axis.
-const SINGLE_STRENGTH = /^(\d+(\.\d*)?|\.\d+)$/;
-
-// Two panes from here (style.css has the layout): the source as large as the
+// Two panes from here (styles/refine.css has the layout): the source as large as the
 // dialog allows, so the picture is the PNG itself. Under it the source is a
 // 72 px thumbnail, which the PNG would only cost a decode for.
 const REFINE_WIDE = window.matchMedia('(min-width: 1600px)');
@@ -79,50 +62,6 @@ let refineChecked = null;  // { prompt, negative, negativeOff, body: PromptAnaly
 let refineTagTimer;
 let refineTagEpoch = 0;
 let refinePassesEpoch = 0;
-
-function refinePrefs() {
-  try {
-    const prefs = JSON.parse(remembered(REFINE_KEY) || 'null');
-    return prefs && typeof prefs === 'object' ? prefs : {};
-  } catch { return {}; }
-}
-
-// A source's size times a factor, each side on the 16-pixel grid, half
-// rounding up: backend/refine.py's `scaled`, so this dialog and the CLI's
-// --scale land on the same size for the same image.
-function refineScaled(width, height, factor) {
-  const snap = (side) => Math.max(16, Math.floor(side * factor / 16 + 0.5) * 16);
-  return [snap(width), snap(height)];
-}
-
-const refineFits = ([w, h]) =>
-  w >= 256 && h >= 256 && w <= REFINE_MAX_SIDE && h <= REFINE_MAX_SIDE && w * h <= REFINE_MAX_PIXELS;
-
-const refineDefaultStrength = () => lastDefaults?.refine_strength ?? REFINE_STRENGTH;
-
-// Where a pass may run tight on the card: the profile's measured line where
-// docs/verified.md has one (`defaults.refine_tight_pixels` - FLUX.1 fills
-// the card at 2.4 MP, WAI ran 8.6), else the panel's. Past it the size line
-// warns, naming the run it quotes (`hints.refine_tight`), and the dialog does
-// not open there.
-function refineTight(w, h) {
-  const measured = lastDefaults?.refine_tight_pixels;
-  return typeof measured === 'number' ? w * h > measured : sizeIsTight(w, h);
-}
-
-// The size the dialog opens at: the source's times `scale`, or the largest
-// smaller factor the pass takes that is not past the tight line, else the
-// source's own. Past the guard Refine would only refuse; past the line a
-// 1.5 MP FLUX.1 source at 1.5x is 3.5 MP, where the card spills and the
-// checkpoint's own strength, its shift grown with the size, repaints the
-// subject. The buttons still go there in one click.
-function openingRefineSize(rec, scale) {
-  for (const factor of [scale, ...REFINE_SCALES.filter((s) => s < scale).reverse()]) {
-    const size = refineScaled(rec.width, rec.height, factor);
-    if (refineFits(size) && !refineTight(...size)) return { size, factor };
-  }
-  return { size: refineScaled(rec.width, rec.height, 1), factor: 1 };
-}
 
 // Compare scales: 1×, 1.5× and 2× of the source side by side, as one grid
 // whose size axis is those sizes (`size_axis`) - each the scale button's own
@@ -200,22 +139,6 @@ function compareStepsNeeded() {
   return null;
 }
 
-// What a pass at w x h keeps of a sw x sh source, as fractions of it:
-// refine.fitted's arithmetic - scaled to cover, each side rounded as Python
-// rounds (half to even), then the middle cropped out - so the frame drawn on
-// the source and the size line's numbers are the pass's own.
-function refineKept(sw, sh, w, h, anchor = 'center') {
-  if (sw === w && sh === h) return { x: 0, y: 0, w: 1, h: 1 };
-  const even = (v) => { const r = Math.round(v); return r - v === 0.5 && r % 2 ? r - 1 : r; };
-  const cover = Math.max(w / sw, h / sh);
-  const rw = Math.max(w, even(sw * cover));
-  const rh = Math.max(h, even(sh * cover));
-  anchor ||= 'center';
-  const x = anchor.includes('left') ? 0 : anchor.includes('right') ? rw - w : Math.floor((rw - w) / 2);
-  const y = anchor.includes('top') ? 0 : anchor.includes('bottom') ? rh - h : Math.floor((rh - h) / 2);
-  return { x: x / rw, y: y / rh, w: w / rw, h: h / rh };
-}
-
 // Why the dialog opened below the scale it was asked for, named by the first
 // scale above the one it opened at: "1.25× and larger go past the 1536×1536
 // (2.36 MP) measured on Z-Anime at fp8". Pixels grow with the factor, so what
@@ -227,15 +150,6 @@ function refineCapNote(src, run) {
   const why = !refineFits(size) ? 'are past what a refine pass renders'
     : run ? `go ${run}` : 'may run tight on 16GB VRAM';
   return `${next}× and larger ${why}`;
-}
-
-function refineSizeProblem(w, h) {
-  if (!(w >= 256 && h >= 256)) return 'each side needs at least 256 pixels';
-  if (w % 16 || h % 16) return 'sides must be multiples of 16';
-  if (!refineFits([w, h])) {
-    return `past the ${REFINE_MAX_SIDE}-pixel side and ${(REFINE_MAX_PIXELS / 1e6).toFixed(1)} MP a refine pass takes`;
-  }
-  return null;
 }
 
 // Opens the dialog on `rec`, the image to refine: a card's ⤢ or the
@@ -415,13 +329,10 @@ function writeRefineSourceLine(rec, gone = null) {
 // dialog stays open with its edits, as for any refusal. Any other message is
 // returned as it is.
 function refineSourceGone(message, source = refineSource) {
-  const deleted = /^no gallery image with id (\d+)$/.exec(message ?? '');
-  const binned = /^source image (\d+) is in the recycle bin; /.exec(message ?? '');
-  const match = deleted ?? binned;
-  if (!source || !match || +match[1] !== source.id) return message;
-  if (refineSource === source) writeRefineSourceLine(source, binned ? 'binned' : 'deleted');
-  return binned ? `#${source.id} is in the recycle bin; restore it to refine it.`
-    : `#${source.id} has been deleted, so it cannot be refined.`;
+  const gone = sourceGoneKind(message, source);
+  if (!gone) return message;
+  if (refineSource === source) writeRefineSourceLine(source, gone);
+  return sourceGoneWords(source, gone, 'refine');
 }
 
 // The dialog's adapter, refused as gone - renamed or removed while the page
@@ -434,19 +345,12 @@ function refineSourceGone(message, source = refineSource) {
 // that waited on the preview which found it gone runs nothing (runRefine):
 // the pass it would run is not the one the press was for.
 let refineLoraDrops = 0;
-async function dropRefineLora(message, source = refineSource) {
-  const name = refineLora?.name;
-  if (!name || !message?.includes(name)) return false;
-  const body = await refreshLoras();
-  if (!body || refineSource !== source || refineLora?.name !== name) return false;
-  const entry = (body.loras ?? []).find((e) => e.name === name);
-  if (entry && !entry.detail) return false;
-  refineLora = null;
-  refineLoraDrops++;
-  els.refineCarried.textContent = `LoRA ${name} is not applied: it is not in the adapter list now.`;
-  refineFailed(`${name} ${entry ? 'no longer fits this checkpoint' : 'is no longer in the LoRA folder'}, `
-    + 'so it was taken out of this pass; Refine runs it without the adapter.');
-  return true;
+function dropRefineLora(message, source = refineSource) {
+  return dropPassLora(message, source, {
+    lora: () => refineLora, source: () => refineSource,
+    drop: () => { refineLora = null; refineLoraDrops++; },
+    carried: els.refineCarried, failed: refineFailed, noun: 'pass', run: 'Refine',
+  });
 }
 
 // Every box openRefine fills, by name: what a close compares with what it
@@ -554,7 +458,7 @@ function syncRefine() {
     button.title = (fits ? `${size[0]} × ${size[1]}` : `${size[0]} × ${size[1]} is past what a refine pass renders`)
       + skipped;
     button.setAttribute('aria-label', `${REFINE_SCALES[i]} times the source's size, ${button.title}`);
-    // Shown under the factor (style.css), so its text stays the factor.
+    // Shown under the factor (styles/refine.css), so its text stays the factor.
     button.dataset.size = `${size[0]}×${size[1]}`;
   });
 
@@ -689,7 +593,7 @@ function syncRefine() {
 // anyway, but the button said nothing of it before the press - then no
 // refine pass, a size past the guard, or the preview's refusal.
 function syncRefineRun() {
-  const problem = submitHold()
+  const problem = submitHold() || (submitting ? PASS_IN_FLIGHT : '')
     || (!refineSupported ? 'This checkpoint has no refine pass'
       : refineSizeProblem(+els.refineWidth.value, +els.refineHeight.value) || refineProblem);
   els.refineRun.setAttribute('aria-disabled', String(!!problem));
@@ -744,12 +648,7 @@ function refineKeydown(event) {
     return;
   }
   if ((event.key === 'ArrowUp' || event.key === 'ArrowDown') && event.target === els.refineStrength) {
-    const text = els.refineStrength.value.trim();
-    if (!SINGLE_STRENGTH.test(text)) return;
-    event.preventDefault();
-    const step = (event.shiftKey ? 0.01 : 0.05) * (event.key === 'ArrowUp' ? 1 : -1);
-    els.refineStrength.value = String(Math.min(1, Math.max(0.01, +(+text + step).toFixed(2))));
-    refineChanged();
+    if (stepStrength(event, els.refineStrength)) refineChanged();
   }
 }
 
@@ -922,7 +821,10 @@ async function previewRefine() {
 // closes once the server has taken it. A sweep opens as its sheet when done.
 // Never the panel's Seed box: the dialog's seed is its own.
 async function runRefine() {
-  if (!refineSource || !els.refineDialog.open || submitting || refineWaiting) return;
+  if (!refineSource || !els.refineDialog.open || refineWaiting) return;
+  // A submit in flight - this dialog's or the panel's - holds Refine; a
+  // press says so rather than doing nothing.
+  if (submitting) { refineFailed(`${PASS_IN_FLIGHT}.`); return; }
   // The preview is what refuses a strength past 1 or one that leaves no step,
   // and it waits out the typing: Enter straight after "1.5" ran ahead of it,
   // closed the dialog and put the server's refusal in the panel, the typed
@@ -1037,7 +939,7 @@ function refineCancelEvent(event) {
 // A press on a refused Refine says why in the dialog, once, and points at the
 // field. The preview's own refusal moves to the error line - the same sentence
 // twice, amber and red, read as two problems - in the preview's place, which
-// it leaves hidden, and at its size (style.css), so Refine does not move under
+// it leaves hidden, and at its size (styles/refine.css), so Refine does not move under
 // the pointer; Strength is focused and marked where the sentence is about it,
 // and the next change brings the preview back. A size past the guard keeps
 // the size line beside W and H, says it again by the button, and focuses W.

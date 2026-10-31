@@ -1,5 +1,7 @@
 # Keyboard shortcut overlay
 
+**Status: done 2026-10-25** (`UI#12`).
+
 `UI#12`, from the [2026-10-24 review](review-2026-10-24.md#g9-keyboard-shortcut-overlay).
 
 ## Scope

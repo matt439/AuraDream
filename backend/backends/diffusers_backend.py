@@ -741,6 +741,9 @@ class DiffusersBackend(GenerationBackend):
         """Private structural refusal before adapter/input/hook preparation."""
         attention_selection.require_native_environment()
         selected = current_settings(settings)
+        # Open: neither this check nor the load-time one passes `then_refine`,
+        # which the pure matrix refuses. Whether a Then refine pass must reach
+        # that refusal here is the execution owner's decision, not settled.
         reason = cache_candidate_reason(
             execution, compiler_metadata(), model_id=selected.model_id,
             quantization=selected.quantization, offload=selected.offload, device=selected.device,
@@ -1457,7 +1460,10 @@ class DiffusersBackend(GenerationBackend):
         return self._peak
 
     def _peak_device(self) -> int | None:
-        """The CUDA index the weights run on, by `describe()`'s rule, or None."""
+        """The CUDA index the weights run on, or None: `AURADREAM_DEVICE`'s
+        card, or card 0 where an offloaded load names no CUDA device. The one
+        rule, so the peak measurement and `describe()`'s status line name the
+        same card."""
         try:
             import torch
 
@@ -1616,17 +1622,13 @@ class DiffusersBackend(GenerationBackend):
             "callback_on_step_end": _step_end,
         }
         # Where guidance switches on is a property of the pipeline, not a
-        # constant. On FLUX `guidance_scale` is a distilled conditioning value
-        # baked into the model, and a negative prompt is ignored until
-        # `true_cfg_scale` rises above 1.0 - costing a second forward pass per
-        # step. Krea 2 has no such parameter and guides from 0 up, where the
-        # old `> 1.0` gate dropped the negative prompt and the pipeline then ran
-        # the uncond pass against an empty string anyway. Below the threshold
-        # neither pipeline encodes a negative prompt at all, so nothing is saved
-        # by dropping it early - `applied()` drops it so that the recorded
-        # settings are honest about what ran, and it has already decided by
-        # this line - including what `true_cfg` is: on FLUX the request's own
-        # separate scale, which the distilled `guidance_scale` no longer sets.
+        # constant (docs/design-notes.md, "Where guidance switches on, and
+        # applied()"). Below the threshold neither pipeline encodes a negative
+        # prompt at all, so nothing is saved by dropping it early - `applied()`
+        # drops it so that the recorded settings are honest about what ran,
+        # and it has already decided by this line - including what `true_cfg`
+        # is: on FLUX the request's own separate scale, which the distilled
+        # `guidance_scale` no longer sets.
         # FLUX.2 klein takes no negative prompt at all (`negative_prompt_embeds`
         # only, and the base model's uncond pass runs against ""), so there the
         # question of a threshold never arises.
@@ -1958,14 +1960,13 @@ class DiffusersBackend(GenerationBackend):
                 selected.model_id, qualified=qualified, loader=self.instruction_edit_loader(selected),
             )
         try:
-            import torch
-
             # The card the weights are on, not GPU 0: with offload the
             # components live on `AURADREAM_DEVICE` between moves, and a status
             # line reporting another card's memory hides a dropped setting.
-            device = torch.device(selected.device)
-            if torch.cuda.is_available() and (device.type == "cuda" or selected.offload != "none"):
-                index = device.index if device.type == "cuda" and device.index is not None else 0
+            index = self._peak_device()
+            if index is not None:
+                import torch
+
                 free, total = torch.cuda.mem_get_info(index)
                 info["device_name"] = torch.cuda.get_device_name(index)
                 info["vram_total_mb"] = total // (1024 * 1024)

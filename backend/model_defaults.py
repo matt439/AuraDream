@@ -60,13 +60,17 @@ generic 1600x1600 line - and `hints_for` the words naming the run
 repos quote Krea dev's fp8 run, and say so (Qwen-Image's is NVFP4, the
 only way it fits the card). A figure, never a VRAM model:
 each one is a row of that file, and `tests/test_profiles.py` holds it there.
+Beside it, the hint `refine_large` (FLUX.1's) says under Strength why one
+strength redraws more of a pass past the measured one; `hints_for` drops it
+where the checkpoint has no pass.
 
 `inpaint_supported` says whether the checkpoint can run an inpaint - a refine
 pass at the source's own size with a painted mask - through the inpaint class
 diffusers ships beside its pipeline (`refine.sibling(..., "Inpaint")`). It is
 a decision as well as a guess: diffusers 0.40 ships one for FLUX.1, SDXL,
-Z-Image, Qwen-Image and FLUX.2 [klein], and SDXL, Z-Image and FLUX.1 (from
-2026-10-19) are enabled. The rest are deferred (`INPAINT_DEFERRED`, docs/plan-inpainting.md's
+Z-Image, Qwen-Image and FLUX.2 [klein], and SDXL, Z-Image and FLUX.1 are
+enabled (FLUX.1's history: docs/design-notes.md, Inpainting, "FLUX.1
+enabled"). The rest are deferred (`INPAINT_DEFERRED`, docs/plan-inpainting.md's
 phases) and answer False even loaded, so a False here is final;
 `tests/test_inpaint.py` holds every True to an installed class and every
 class left off to that list. Their profiles also carry `inpaint_deferred`,
@@ -78,8 +82,8 @@ own default does before anything is loaded (`inpaint_family`, the function;
 `tests/test_inpaint.py` holds it to the installed class). That default is
 the Strength box's start everywhere, unless the profile carries
 `inpaint_start`: its own measured start, where the card found the class's
-default the wrong one. FLUX.1 is the first (0.95, measured on Krea dev
-2026-10-19, where the library's 0.6 kept the old colour under the mask);
+default the wrong one. FLUX.1 is the first (0.95; `INPAINT_START_MEASURED_ON`
+below says where and why);
 `inpaint_start` (the function) is what every place deciding an inpaint's
 start asks first. `inpaint_strength_measured` names the checkpoint where
 `docs/verified.md` measured the start as the right one (WAI v17, Animagine
@@ -87,6 +91,14 @@ XL 4.0 and Z-Anime at the library's default, FLUX.1 Krea dev at its own),
 and `hints_for` words the Strength note from it (`inpaint_strength`):
 measured here, or measured on the checkpoints that run the same inpaint
 class and not on this one. A label, not a default.
+
+`text_to_image_supported` (default True) says whether the checkpoint renders
+from a prompt alone; an edit-only one (FLUX.1 Kontext [dev]) says False, and
+`defaults_for` gives the held Generate's words as `text_to_image_reason`.
+`instruction_edit_candidate` is a profile's only edit key: it names a
+checkpoint an instruction edit could run on. `defaults_for` derives
+`instruction_edit_supported` from it and the backend's own `edit_reason`,
+never from the profile.
 
 `mu_supported` says whether the checkpoint uses a flow-matching scheduler whose
 sigmas can be shifted. Modern SDXL exposes a custom `sigmas` argument too, but
@@ -1056,6 +1068,42 @@ _EXACT_PROFILES: dict[str, dict[str, Any]] = {
             ),
         },
     },
+    # Exact edit-only intent cannot inherit ordinary FLUX generation capabilities,
+    # so every key is written out rather than spread from `_FALLBACK`: no
+    # text-to-image, Refine, inpaint, reference or upscaler (`upscaler_supported`
+    # answers by id). It is keyed by its exact id, the catalogue's last,
+    # edit-only entry; whether an edit runs is never the profile's to say (`defaults_for`).
+    "black-forest-labs/flux.1-kontext-dev": {
+        "steps": 28,
+        "guidance_scale": 2.5,
+        "mu": None,
+        "mu_supported": False,
+        "cfg_threshold": 1.0,
+        "negative_prompt_supported": False,
+        "reference_supported": False,
+        "refine_supported": False,
+        "inpaint_supported": False,
+        "refine_strength": None,
+        "true_cfg_supported": False,
+        "text_to_image_supported": False,
+        "instruction_edit_candidate": True,
+        "guide": guides.KONTEXT_GUIDE,
+        "hints": {
+            "steps": (
+                "Denoising steps. {steps} is the kontext-v1 recipe's start, the installed "
+                "FluxKontextPipeline's own default; this card's edits ran at {steps}."
+            ),
+            "guidance_scale": (
+                "Distilled guidance, not classifier-free: there is no negative prompt. "
+                "{guidance_scale:g} is the recipe's start, from diffusers' FluxKontextPipeline "
+                "example; this card's edits ran at {guidance_scale:g}."
+            ),
+            "mu": (
+                "Not an instruction edit's to set: the kontext-v1 recipe leaves the "
+                "scheduler's own shift."
+            ),
+        },
+    },
 }
 
 _FALLBACK: dict[str, Any] = {
@@ -1089,47 +1137,13 @@ _FALLBACK: dict[str, Any] = {
 }
 
 
-# Exact edit-only intent cannot inherit ordinary FLUX generation capabilities,
-# so every key is written out rather than spread from `_FALLBACK`: no
-# text-to-image, Refine, inpaint, reference or upscaler (`upscaler_supported`
-# answers by id). It is keyed by its exact id, the catalogue's last,
-# edit-only entry; whether an edit runs is never the profile's to say (`defaults_for`).
-_EXACT_PROFILES["black-forest-labs/flux.1-kontext-dev"] = {
-    "steps": 28,
-    "guidance_scale": 2.5,
-    "mu": None,
-    "mu_supported": False,
-    "cfg_threshold": 1.0,
-    "negative_prompt_supported": False,
-    "reference_supported": False,
-    "refine_supported": False,
-    "inpaint_supported": False,
-    "refine_strength": None,
-    "true_cfg_supported": False,
-    "text_to_image_supported": False,
-    "instruction_edit_supported": False,
-    "instruction_edit_candidate": True,
-    "guide": guides.KONTEXT_GUIDE,
-    "hints": {
-        "steps": (
-            "Denoising steps. {steps} is the kontext-v1 recipe's start, the installed "
-            "FluxKontextPipeline's own default; this card's edits ran at {steps}."
-        ),
-        "guidance_scale": (
-            "Distilled guidance, not classifier-free: there is no negative prompt. "
-            "{guidance_scale:g} is the recipe's start, from diffusers' FluxKontextPipeline "
-            "example; this card's edits ran at {guidance_scale:g}."
-        ),
-        "mu": (
-            "Not an instruction edit's to set: the kontext-v1 recipe leaves the "
-            "scheduler's own shift."
-        ),
-    },
-}
+def _profile_key(model_id: str) -> str:
+    """An id as the profile tables key it: lowercased, `_` read as `-`."""
+    return model_id.lower().replace("_", "-")
 
 
 def _profile_for(model_id: str) -> dict[str, Any]:
-    key = model_id.lower().replace("_", "-")
+    key = _profile_key(model_id)
     if key in _EXACT_PROFILES:
         return _EXACT_PROFILES[key]
     for token, profile in _PROFILES:
@@ -1184,9 +1198,8 @@ _OWN_PIPELINES = frozenset({
 # one reference its class takes beside the source, Qwen-Image for the
 # Nunchaku transformer it needs here. Each is a later phase of
 # docs/plan-inpainting.md. Their profiles say `inpaint_supported: False`, and
-# the backend refuses an inpaint on them whatever the class says. FLUX.1 left
-# the list 2026-10-19, once measured on Krea dev (INP#3), with a start of its
-# own (`inpaint_start`).
+# the backend refuses an inpaint on them whatever the class says. How FLUX.1
+# left the list: docs/design-notes.md, Inpainting, "FLUX.1 enabled".
 INPAINT_DEFERRED = frozenset({"Flux2KleinPipeline", "QwenImagePipeline"})
 
 
@@ -1248,7 +1261,7 @@ def defaults_for(model_id: str, *, edit_reason: str | None = INSTRUCTION_EDIT_UN
         "mu_static": profile.get("mu_static"),
         "cfg_ignored": bool(profile.get("cfg_ignored", False)),
         "refine_tight_pixels": measured.width * measured.height if measured else None,
-        "refine_settled": model_id.lower().replace("_", "-") in _OWN_PIPELINES,
+        "refine_settled": _profile_key(model_id) in _OWN_PIPELINES,
         # Opt-in GAN preparation is limited to the two guides that cite it.
         "upscaler_supported": upscaler_supported(model_id),
         # A load can only take an inpaint away (the backend needs the profile's
@@ -1320,7 +1333,7 @@ def _served_tag_helper(model_id: str, guide: dict[str, Any]) -> dict[str, Any] |
 
 
 # What the CFG tooltip says when the loaded pipeline disagrees with the profile
-# about the negative prompt: three of the five profiles' CFG hints assert
+# about the negative prompt: many profiles' CFG hints assert
 # something about it, and a checkpoint the id table does not recognise but
 # whose pipeline takes none would otherwise be greyed out "because this
 # checkpoint takes no negative prompt" under a badge saying it applies above 1.
@@ -1430,6 +1443,13 @@ _LORA_HINTS = {
 }
 
 
+def _runs_named(runs: list[str]) -> tuple[str, str]:
+    """The checkpoints a strength was measured on, joined as a sentence
+    names them, and the verb that agrees with them."""
+    names = runs[0] if len(runs) == 1 else f"{', '.join(runs[:-1])} and {runs[-1]}"
+    return names, "runs" if len(runs) == 1 else "run"
+
+
 def _inpaint_strength_hint(profile: dict[str, Any]) -> str:
     own = profile.get("inpaint_strength_measured")
     if profile.get("inpaint_start") is not None:
@@ -1439,9 +1459,7 @@ def _inpaint_strength_hint(profile: dict[str, Any]) -> str:
         when = f"measured on the card ({INPAINT_START_MEASURED_ON})"
         if own:
             return f"{when} as the right strength to start at on {own}, where {kept}"
-        runs = _inpaint_strength_runs(profile.get("inpaint_family"))
-        names = runs[0] if len(runs) == 1 else f"{', '.join(runs[:-1])} and {runs[-1]}"
-        verb = "runs" if len(runs) == 1 else "run"
+        names, verb = _runs_named(_inpaint_strength_runs(profile.get("inpaint_family")))
         return (
             f"{when} on {names}, which {verb} the same inpaint class, not on this "
             f"checkpoint; there {kept}"
@@ -1452,8 +1470,7 @@ def _inpaint_strength_hint(profile: dict[str, Any]) -> str:
     runs = _inpaint_strength_runs(profile.get("inpaint_family"))
     if not runs:
         return "the library's number, not one measured on the card for this checkpoint"
-    names = runs[0] if len(runs) == 1 else f"{', '.join(runs[:-1])} and {runs[-1]}"
-    verb = "runs" if len(runs) == 1 else "run"
+    names, verb = _runs_named(runs)
     return (
         f"the library's number, {when} on {names}, which {verb} the same inpaint class, "
         "not on this checkpoint"

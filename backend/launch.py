@@ -21,8 +21,13 @@ from collections.abc import Callable, Mapping
 from dataclasses import dataclass
 from typing import TextIO
 
-from backend.instruction_edit import KONTEXT_V1, is_edit_only
+from backend.instruction_edit import (
+    INSTRUCTION_EDIT_EXACT_ID, INSTRUCTION_EDITOR_UNSUPPORTED, KONTEXT_V1, installed_diffusers_version,
+    is_edit_only, loader_refusal,
+)
 from backend.loader_choices import FORMATS, OFFLOADS, QUANTIZATIONS
+# What config.py falls back to, from the one module both may import - importing
+# config itself is the one thing this module must not do.
 from backend.model_defaults import DEFAULT_MODEL_ID, DEFAULT_OFFLOAD, DEFAULT_QUANT, defaults_for
 from backend.startup_preferences import (
     OVERRIDES_VARIABLE,
@@ -191,12 +196,6 @@ CHECKPOINTS: tuple[Checkpoint, ...] = (
     Checkpoint("FLUX.1 Kontext [dev]", KONTEXT_V1.model_id, "click-through gate"),
 )
 
-# What config.py falls back to, from the one module both may import - importing
-# config itself is the one thing this module must not do.
-_DEFAULT_MODEL = DEFAULT_MODEL_ID
-_DEFAULT_QUANT = DEFAULT_QUANT
-_DEFAULT_OFFLOAD = DEFAULT_OFFLOAD
-
 
 @dataclass(frozen=True)
 class Choice:
@@ -254,8 +253,6 @@ def apply_env(args: argparse.Namespace) -> None:
 
 def _edit_host() -> tuple[str, str | None]:
     """The platform and installed diffusers version, as the backend reads them."""
-    from backend.instruction_edit import installed_diffusers_version
-
     return sys.platform, installed_diffusers_version()
 
 
@@ -269,10 +266,9 @@ def edit_checkpoint_refusal(env: Mapping[str, str] | None = None) -> str | None:
     instance's, answered when it loads; nothing here opens it.
     """
     from backend.execution import loader_execution_from_choices
-    from backend.instruction_edit import INSTRUCTION_EDIT_EXACT_ID, INSTRUCTION_EDITOR_UNSUPPORTED, loader_refusal
 
     env = os.environ if env is None else env
-    model_id = env.get("AURADREAM_MODEL_ID") or _DEFAULT_MODEL
+    model_id = env.get("AURADREAM_MODEL_ID") or DEFAULT_MODEL_ID
     if not is_edit_only(model_id):
         return None
     if model_id.casefold() != KONTEXT_V1.model_id.casefold():
@@ -287,8 +283,8 @@ def edit_checkpoint_refusal(env: Mapping[str, str] | None = None) -> str | None:
         execution = {"unreadable": True}  # loader_refusal names it unreadable
     platform, diffusers_version = _edit_host()
     return loader_refusal(
-        model_id, quantization=env.get("AURADREAM_QUANT") or _DEFAULT_QUANT,
-        offload=env.get("AURADREAM_OFFLOAD") or _DEFAULT_OFFLOAD,
+        model_id, quantization=env.get("AURADREAM_QUANT") or DEFAULT_QUANT,
+        offload=env.get("AURADREAM_OFFLOAD") or DEFAULT_OFFLOAD,
         device=env.get("AURADREAM_DEVICE") or "cuda", platform=platform,
         loader_execution=execution, diffusers_version=diffusers_version,
     )
@@ -331,12 +327,11 @@ def configure(
     *,
     ask: Callable[[str], str] = input,
     out: TextIO | None = None,
-    interactive: bool | None = None,
 ) -> Choice | None:
     """Settle the AURADREAM_* model variables for a server start.
 
-    Returns the optional menu's choice, else None. `interactive` remains an
-    accepted compatibility argument; only an explicit --menu can ask questions.
+    Returns the optional menu's choice, else None; only an explicit --menu can
+    ask questions.
     """
     if argv is None:
         argv = sys.argv[1:]
@@ -506,7 +501,7 @@ def prompt(
 
 
 def _prompt(ask: Callable[[str], str], out: TextIO, env: Mapping[str, str], linux: bool) -> Choice:
-    current_model = env.get("AURADREAM_MODEL_ID", _DEFAULT_MODEL)
+    current_model = env.get("AURADREAM_MODEL_ID", DEFAULT_MODEL_ID)
     current_checkpoint, current_fmt = _match(current_model)
 
     out.write(
@@ -521,7 +516,7 @@ def _prompt(ask: Callable[[str], str], out: TextIO, env: Mapping[str, str], linu
     quant = _pick(
         "Quantization",
         quants,
-        _index(quants, env.get("AURADREAM_QUANT"), _DEFAULT_QUANT),
+        _index(quants, env.get("AURADREAM_QUANT"), DEFAULT_QUANT),
         ask=ask,
         out=out,
     )
@@ -577,7 +572,7 @@ def _prompt(ask: Callable[[str], str], out: TextIO, env: Mapping[str, str], linu
     offload = _pick(
         "Offload",
         offloads,
-        _index(offloads, env.get("AURADREAM_OFFLOAD"), _DEFAULT_OFFLOAD),
+        _index(offloads, env.get("AURADREAM_OFFLOAD"), DEFAULT_OFFLOAD),
         ask=ask,
         out=out,
     )

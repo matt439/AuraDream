@@ -54,24 +54,6 @@
   height: min(34vh, 300px); overflow-y: auto;
   border: 1px solid var(--line); border-radius: var(--r-sm); background: var(--panel-2);
 }
-.rb-result {
-  display: flex; gap: var(--sp-3); align-items: flex-start;
-  padding: var(--sp-2); border-bottom: 1px solid var(--line);
-}
-.rb-result:last-child { border-bottom: 0; }
-.rb-result > img, .rb-thumb-gone {
-  flex: none; width: 48px; height: 48px; object-fit: contain;
-  border: 1px solid var(--line); border-radius: var(--r-xs); background: var(--bg);
-}
-.rb-body { display: flex; flex-direction: column; gap: 2px; min-width: 0; font-size: var(--fs-body-sm); }
-.rb-line { color: var(--text-2); font-variant-numeric: tabular-nums; }
-.rb-chip {
-  display: inline-block; padding: 0 var(--sp-1); border: 1px solid var(--line-strong);
-  border-radius: var(--r-xs); font-size: var(--fs-label); color: var(--text-3);
-}
-.rb-result[data-status="queued"] .rb-chip { border-color: var(--accent); color: var(--text); background: var(--accent-soft); }
-.rb-detail { color: var(--text-3); overflow-wrap: anywhere; }
-.rb-notes { color: var(--text-3); font-size: var(--fs-label); }
 
 #refine-batch-error {
   min-height: calc(var(--fs-body-sm) * var(--lh)); margin: 0;

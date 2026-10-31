@@ -1,15 +1,15 @@
 """Exact actual-MP comparison scopes, without floating products or ambient state."""
 from __future__ import annotations
 
-import hashlib
 import sqlite3
 from decimal import FloatOperation, Inexact, InvalidOperation, Rounded, localcontext
 
 import pytest
 from PIL import Image
 
-from backend import gallery_reports, main, saved_searches, search
+from backend import gallery_reports, saved_searches, search
 from backend.schemas import GenerateRequest
+from tests.gallery_helpers import cold_queries_only, gallery_state  # noqa: F401  (fixtures by name)
 
 MAXIMUM = 2**63 - 1
 MAXIMUM_MP = "9223372036854.775807"
@@ -164,24 +164,6 @@ def test_area_terms_intersect_with_each_other_orientation_and_prompt_text():
         search.strict_scope("harbor size:>=1mp")
 
 
-@pytest.fixture
-def cold_queries_only(client, monkeypatch):
-    attempts = []
-
-    def forbidden(*_args, **_kwargs):
-        attempts.append("model-or-queue")
-        pytest.fail("an area query entered model loading, generation or queue submission")
-
-    monkeypatch.setattr(main, "ensure_loaded", forbidden)
-    monkeypatch.setattr(main.backend, "load", forbidden)
-    monkeypatch.setattr(main.backend, "generate", forbidden)
-    monkeypatch.setattr(main.jobs, "wait_for_gate", forbidden)
-    monkeypatch.setattr(main.jobs, "submit", forbidden)
-    yield attempts
-    assert attempts == []
-    assert client.get("/api/jobs").json() == []
-
-
 def _save(store, label, width, height, seed, *, model=None, favorite=False, binned=False):
     with Image.new("RGB", (width, height), (seed * 20, 40, 90)) as image:
         record = store.save_image(
@@ -209,17 +191,10 @@ def owned_rows(store):
     }
 
 
-def _state(store):
-    with store._session() as connection:
-        rows = [tuple(row) for row in connection.execute("SELECT * FROM images ORDER BY id").fetchall()]
-    pngs = {path.name: hashlib.sha256(path.read_bytes()).hexdigest() for path in store.settings.outputs_dir.glob("*.png")}
-    return rows, pngs
-
-
 def test_gallery_area_scopes_favorites_and_paging_preserve_all_rows_and_pngs(
     client, store, owned_rows, cold_queries_only,
 ):
-    before = _state(store)
+    before = gallery_state(store)
     current = client.get("/api/gallery", params={"search": "size:>=1mp"})
     assert current.status_code == 200, current.text
     assert current.json()["total"] == 3 and current.json()["other_models"] == 1
@@ -238,13 +213,13 @@ def test_gallery_area_scopes_favorites_and_paging_preserve_all_rows_and_pngs(
     })
     assert tail.status_code == 200, tail.text
     assert {row["id"] for row in tail.json()["items"]} == {owned_rows[key].id for key in ("over", "portrait", "landscape")}
-    assert _state(store) == before and cold_queries_only == []
+    assert gallery_state(store) == before and cold_queries_only == []
 
 
 def test_bin_and_strict_preview_share_exact_area_with_existing_scope_rules(
     client, store, owned_rows, cold_queries_only,
 ):
-    before = _state(store)
+    before = gallery_state(store)
     binned = client.get("/api/gallery/bin", params={"search": "size:>=1mp", "favorites": True})
     assert binned.status_code == 200, binned.text
     assert binned.json()["total"] == 1
@@ -254,7 +229,7 @@ def test_bin_and_strict_preview_share_exact_area_with_existing_scope_rules(
     answer = preview.json()
     assert (answer["records"], answer["favorites"], answer["sources_kept"], answer["unstarred"]) == (3, 1, 0, 2)
     assert answer["job_active"] is False
-    assert _state(store) == before and cold_queries_only == []
+    assert gallery_state(store) == before and cold_queries_only == []
 
 
 @pytest.mark.parametrize("route", ["/api/gallery", "/api/gallery/bin", "/api/gallery/unstarred"])
@@ -293,9 +268,9 @@ def test_saved_area_interval_retains_raw_query_ticks_and_redacted_invalid_write(
 def test_keeper_rates_use_area_scope_and_preserve_binned_and_other_model_exclusions(
     store, owned_rows, cold_queries_only,
 ):
-    before = _state(store)
+    before = gallery_state(store)
     rows = gallery_reports.keep_rates(search="size:>=1mp model:=" + store.settings.model_id)
     assert sum(row["made"] for row in rows) == 3
     assert sum(row["starred"] for row in rows) == 1
     assert {row["size"] for row in rows} == {"1024x1024", "1056x1584", "1584x1056"}
-    assert _state(store) == before and cold_queries_only == []
+    assert gallery_state(store) == before and cold_queries_only == []

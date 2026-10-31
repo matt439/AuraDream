@@ -9,7 +9,7 @@ from __future__ import annotations
 import logging
 
 from . import prompt_encoding, prompt_rules, tag_lookup
-from .jobs import short_error
+from .error_text import short_error
 from .prompt_sources import author_orders
 from .schemas import (
     AuthorOrder,

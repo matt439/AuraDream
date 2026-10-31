@@ -8,7 +8,7 @@ import pytest
 from PIL import Image
 
 from backend import clear, gallery_delete, gallery_lock, storage
-from tests.bundle_helpers import _holding_child, _save
+from tests.bundle_helpers import holding_child, save_source
 
 
 def _age(store, ids, days, *, stamp=None):
@@ -30,7 +30,7 @@ def test_the_cutoff_is_iso_utc_and_parses_back():
 
 
 def test_the_scoped_summary_counts_only_what_is_older_than_the_cutoff(store):
-    old, older, fresh, live = (_save(seed=seed) for seed in (1, 2, 3, 4))
+    old, older, fresh, live = (save_source(seed=seed) for seed in (1, 2, 3, 4))
     store.bin_images([old.id, older.id, fresh.id])
     _age(store, [old.id], 8)
     _age(store, [older.id], 40)
@@ -48,7 +48,7 @@ def test_the_scoped_summary_counts_only_what_is_older_than_the_cutoff(store):
 
 def test_an_age_scoped_empty_deletes_only_rows_binned_before_the_cutoff(store):
     outputs = store.settings.outputs_dir
-    old, fresh, live = (_save(seed=seed) for seed in (1, 2, 3))
+    old, fresh, live = (save_source(seed=seed) for seed in (1, 2, 3))
     store.bin_images([old.id, fresh.id])
     _age(store, [old.id], 10)
     before = gallery_delete.bin_cutoff(7)
@@ -64,7 +64,7 @@ def test_an_age_scoped_empty_deletes_only_rows_binned_before_the_cutoff(store):
 
 def test_the_scoped_empty_is_pinned_to_its_count_and_its_ids(store):
     outputs = store.settings.outputs_dir
-    first, second, third = (_save(seed=seed) for seed in (1, 2, 3))
+    first, second, third = (save_source(seed=seed) for seed in (1, 2, 3))
     store.bin_images([first.id, second.id, third.id])
     _age(store, [first.id, second.id], 10)
     before = gallery_delete.bin_cutoff(7)
@@ -88,7 +88,7 @@ def test_the_scoped_empty_is_pinned_to_its_count_and_its_ids(store):
 def test_an_image_ageing_past_the_threshold_while_asked_is_not_taken(store):
     # The cutoff is the summary's, sent back unchanged: an image binned just
     # after it is never in the set, however long the dialog stays open.
-    early, late = _save(seed=1), _save(seed=2)
+    early, late = save_source(seed=1), save_source(seed=2)
     store.bin_images([early.id, late.id])
     now = datetime.now(timezone.utc)
     _age(store, [early.id], 0, stamp=(now - timedelta(days=7, minutes=5)).isoformat())
@@ -102,7 +102,7 @@ def test_an_image_ageing_past_the_threshold_while_asked_is_not_taken(store):
 
 
 def test_an_undatable_stamp_is_kept_by_a_scoped_empty_and_taken_by_the_whole(store):
-    odd, old = _save(seed=1), _save(seed=2)
+    odd, old = save_source(seed=1), save_source(seed=2)
     store.bin_images([odd.id, old.id])
     _age(store, [odd.id], 0, stamp="not a date")
     _age(store, [old.id], 30)
@@ -112,7 +112,7 @@ def test_an_undatable_stamp_is_kept_by_a_scoped_empty_and_taken_by_the_whole(sto
 
 
 def test_a_malformed_cutoff_deletes_nothing(store):
-    row = _save()
+    row = save_source()
     store.bin_images([row.id])
     _age(store, [row.id], 30)
     with pytest.raises(ValueError):
@@ -121,15 +121,15 @@ def test_a_malformed_cutoff_deletes_nothing(store):
 
 
 def test_the_scoped_empty_keeps_masks_a_kept_row_names(store):
-    source = _save(seed=1)
+    source = save_source(seed=1)
     shared, own = (store.store_mask(Image.new("L", (256, 256), level))[0] for level in (64, 192))
     with store._session() as conn:
         conn.execute("UPDATE masks SET created_at = ?", (
             (datetime.now(timezone.utc) - timedelta(days=2)).isoformat(),
         ))
-    kept = _save("kept, binned today", 2, refine=source.id, strength=0.6, mask=shared)
-    old_shared = _save("old, shared mask", 3, refine=source.id, strength=0.6, mask=shared)
-    old_own = _save("old, own mask", 4, refine=source.id, strength=0.6, mask=own)
+    kept = save_source("kept, binned today", 2, refine=source.id, strength=0.6, mask=shared)
+    old_shared = save_source("old, shared mask", 3, refine=source.id, strength=0.6, mask=shared)
+    old_own = save_source("old, own mask", 4, refine=source.id, strength=0.6, mask=own)
     store.bin_images([kept.id, old_shared.id, old_own.id])
     _age(store, [old_shared.id, old_own.id], 10)
     result = gallery_delete.empty_bin(expected=2, before=gallery_delete.bin_cutoff(7))
@@ -140,10 +140,10 @@ def test_the_scoped_empty_keeps_masks_a_kept_row_names(store):
 
 
 def test_the_scoped_empty_fails_fast_when_another_process_has_reserved_the_gallery(store):
-    row = _save()
+    row = save_source()
     store.bin_images([row.id])
     _age(store, [row.id], 30)
-    child = _holding_child(store.settings.db_path)
+    child = holding_child(store.settings.db_path)
     try:
         with pytest.raises(gallery_lock.GalleryBusy):
             gallery_delete.empty_bin(expected=1, before=gallery_delete.bin_cutoff(7))
@@ -155,7 +155,7 @@ def test_the_scoped_empty_fails_fast_when_another_process_has_reserved_the_galle
 
 def test_clear_bin_older_than_previews_and_empties_only_the_old(store, capsys, monkeypatch):
     monkeypatch.setattr(clear, "settings", store.settings)
-    old, fresh = _save(seed=1), _save(seed=2)
+    old, fresh = save_source(seed=1), save_source(seed=2)
     store.bin_images([old.id, fresh.id])
     _age(store, [old.id], 40)
 

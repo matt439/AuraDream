@@ -267,7 +267,7 @@ function resetPanel() {
 }
 
 // The note a Reset leaves, with its Undo, where Reset was pressed: in the top
-// right of the prompt box it emptied, under Reset (tags.js, showPromptNote,
+// right of the prompt box it emptied, under Reset (prompt-note.js, showPromptNote,
 // `at: 'box'`). In the panel's line under Generate it was below the window at
 // 1400x900 and in one column, and gone after 20 seconds unseen; in the
 // panel's flow under the prompt it moved Generate down a line, and back up
@@ -580,7 +580,7 @@ function tipClipper(help) {
   return null;
 }
 
-// A tip fixed to the window by its badge (`.tip.floating`, style.css): under
+// A tip fixed to the window by its badge (`.tip.floating`, styles/fields.css): under
 // the badge where it fits, over it where there is more room there - neither
 // past the topbar nor the window's foot - and moved in from either side as
 // placeTip moves one. Kept with its badge while that box scrolls (app.js's

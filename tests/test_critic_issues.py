@@ -3,15 +3,15 @@ from __future__ import annotations
 
 import pytest
 
-from backend import critic_context, critic_validation, prompt_rules
+from backend import critic_context, critic_issues, critic_validation, prompt_rules
 from backend.schemas import GenerateRequest, PromptAnalysis, PromptFinding
 
 from tests.critic_helpers import (
     ANIMAGINE,
     KLEIN,
     KREA_DEV,
-    _answer,
-    _validate,
+    critic_answer,
+    validate_answer,
 )
 
 
@@ -29,20 +29,20 @@ def test_issues_restating_a_rule_finding_are_left_out_and_said_so():
     ]
     # A length claim restates the count the rules measured; the negation is
     # repeated only once it was reported. Neither is a dropped issue.
-    unreported = _validate(_answer(issues=issues), findings=[words])
+    unreported = validate_answer(critic_answer(issues=issues), findings=[words])
     assert [i.problem for i in unreported.issues] == [
         "Uses negation", "The sign text is not in quotation marks",
     ]
     assert unreported.set_aside == ["1 issue left out: it repeated the rule findings above (word count)."]
     assert unreported.dropped == 0
-    reported = _validate(_answer(issues=issues), findings=[words, finding])
+    reported = validate_answer(critic_answer(issues=issues), findings=[words, finding])
     assert [i.problem for i in reported.issues] == ["The sign text is not in quotation marks"]
     assert reported.set_aside == [
         "2 issues left out: they repeated the rule findings above (word count, negation)."
     ]
     assert reported.dropped == 0
     # Krea 2 states no word range: its critic may speak to length.
-    krea2 = _validate(_answer(issues=issues[:1]), model_id="krea/Krea-2-Turbo", ordered=False)
+    krea2 = validate_answer(critic_answer(issues=issues[:1]), model_id="krea/Krea-2-Turbo", ordered=False)
     assert len(krea2.issues) == 1 and krea2.set_aside == []
     # An issue quoting the very words a finding points at restates it, in
     # whatever words it puts it ("no people" / "Replace with 'empty'").
@@ -58,8 +58,8 @@ def test_issues_restating_a_rule_finding_are_left_out_and_said_so():
         {"kind": "vague", "problem": "The shop is not described", "quote": "a shop sign",
          "cite_id": "A1", "fix": "Say what the shop sells"},
     ]
-    result = _validate(
-        _answer(issues=quoting, rewrite=None, parts={}), prompt=prompt, findings=[negation, cut]
+    result = validate_answer(
+        critic_answer(issues=quoting, rewrite=None, parts={}), prompt=prompt, findings=[negation, cut]
     )
     assert [i.problem for i in result.issues] == ["The shop is not described"]
     assert result.set_aside == ["1 issue left out: it repeated the rule findings above (negation)."]
@@ -80,7 +80,7 @@ def _checked(model_id, prompt, issues, *, findings=(), words=None, negative=None
         order=prompt_rules.documented_order(model_id),
     )
     context = critic_context.build_context(model_id, request, request, analysis)
-    answer = _answer(issues=issues, rewrite=None, parts={})
+    answer = critic_answer(issues=issues, rewrite=None, parts={})
     return critic_validation.validate(answer, context, prompt, model="test", seconds=0)
 
 
@@ -733,9 +733,9 @@ def test_order_issues_that_ask_for_different_things_first_are_left_out():
     both = [
         order("Subject not first", "Move subject to the beginning"),
         order("Style not front-loaded", "Place style description first"),
-        {**_answer()["issues"][0]},
+        {**critic_answer()["issues"][0]},
     ]
-    result = _validate(_answer(issues=both), ordered=False)
+    result = validate_answer(critic_answer(issues=both), ordered=False)
     assert [i.kind for i in result.issues] == ["missing"]
     assert result.set_aside == [
         "2 order issues left out: they asked for orders that cannot both hold "
@@ -744,7 +744,7 @@ def test_order_issues_that_ask_for_different_things_first_are_left_out():
     assert result.dropped == 0
     # Under one - klein's subject, action, style, context - the style first
     # is what it reverses, and the subject first stands.
-    result = _validate(_answer(issues=both))
+    result = validate_answer(critic_answer(issues=both))
     assert [i.fix for i in result.issues] == ["Move subject to the beginning", both[2]["fix"]]
     assert result.set_aside == [
         "1 order issue left out: it asked for style first, against the documented order."
@@ -758,7 +758,7 @@ def test_order_issues_that_ask_for_different_things_first_are_left_out():
          "lighting before camera, camera before lighting"),
     ):
         pair = [order("Out of order", fix) for fix in fixes]
-        result = _validate(_answer(issues=pair), ordered=False)
+        result = validate_answer(critic_answer(issues=pair), ordered=False)
         assert result.issues == [] and result.set_aside == [
             f"2 order issues left out: they asked for orders that cannot both hold ({wants})."
         ], fixes
@@ -776,7 +776,7 @@ def test_order_issues_that_ask_for_different_things_first_are_left_out():
         # BFL's first step is "the image type and subject".
         order("Out of order", "Start with the image type and subject, then add the rest"),
     ]
-    kept = _validate(_answer(issues=agreeing))
+    kept = validate_answer(critic_answer(issues=agreeing))
     assert len(kept.issues) == 6 and kept.set_aside == []
 
 
@@ -802,7 +802,7 @@ def test_one_part_before_another_is_held_to_the_documented_order_not_read_as_fir
         "1 order issue left out: it asked for lighting before camera, against the documented order."
     ]
     klein = [order("Move subject to first position"), order("Place style description before subject")]
-    result = _validate(_answer(issues=klein))
+    result = validate_answer(critic_answer(issues=klein))
     assert [i.fix for i in result.issues] == ["Move subject to first position"]
     assert result.set_aside == [
         "1 order issue left out: it asked for style before subject, against the documented order."
@@ -888,3 +888,9 @@ def test_each_issue_left_out_is_counted_once():
         "2 order issues left out: they asked for orders that cannot both hold "
         "(lighting before camera, camera before lighting).",
     ]
+
+
+def test_the_order_issues_clause_break_is_the_lettering_clause_end():
+    # Two copies, one beside each reader; a third clause mark added to one
+    # would split clauses one way for lettering and another for negation.
+    assert critic_issues._CLAUSE_BREAK.pattern == critic_validation._CLAUSE_END.pattern

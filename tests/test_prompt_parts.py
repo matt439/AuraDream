@@ -7,7 +7,7 @@ from backend import critic_context, critic_validation, prompt_parts, prompt_rule
 from backend.model_defaults import guide_for
 from backend.schemas import GenerateRequest, PromptAnalysis
 from tests.api_analysis_helpers import analyse, claim
-from tests.critic_helpers import _answer
+from tests.critic_helpers import critic_answer
 from tests.prompt_rules_helpers import only, run
 
 
@@ -212,7 +212,7 @@ def test_critic_cannot_restore_a_reorder_that_splits_the_same_prose_passage():
         categories={}, reordered=None,
     )
     context = critic_context.build_context(KOHAKU, request, request, analysis)
-    answer = _answer(
+    answer = critic_answer(
         issues=[], parts={}, rewrite=None,
         reordered="1boy, a man wearing a red, masterpiece, old hat",
     )

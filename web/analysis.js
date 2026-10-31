@@ -47,8 +47,6 @@ const PART_LABELS = [
   ['lighting', 'Lighting'], ['camera', 'Camera'], ['text_to_render', 'Text to render'],
 ];
 
-const plural = (n, word) => `${n} ${word}${n === 1 ? '' : 's'}`;
-
 // The rules' word count in a reader's words. Each Han or kana character
 // counts as one word there (`prompt_rules.word_count`: Chinese and Japanese
 // space no words), and "300 words" read as a miscount of a 300-character
@@ -74,17 +72,6 @@ function note(text, className = 'analysis-note') {
   p.className = className;
   p.textContent = text;
   return p;
-}
-
-// A few words from the start of `text`, cut at a word boundary: enough to say
-// where an encoder stops without printing the rest of the prompt again.
-// Counted in code points, as `units()` counts: CJK has no space to cut at, and
-// a cut by UTF-16 units through an emoji left half of it, a broken glyph.
-function excerpt(text, max = 36) {
-  const flat = [...text.trim().replace(/\s+/g, ' ')];
-  if (flat.length <= max) return flat.join('');
-  const at = flat.lastIndexOf(' ', max);
-  return `${flat.slice(0, at > max / 2 ? at : max).join('')}…`;
 }
 
 // Sends what Generate would send: the negative prompt, the CFG and True CFG
@@ -360,12 +347,6 @@ function analysisMessage(text) {
 const analysedText = (field) =>
   (field === 'negative_prompt' ? analysisResult?.negative : analysisResult?.source) ?? '';
 
-// Every offset from the server counts code points, as Python indexes a str;
-// the page's strings count UTF-16 units, where each character past the BMP -
-// an emoji, a rare CJK ideograph - takes two. One offset into `text`, in the
-// page's units.
-const units = (text, points) => [...text].slice(0, points).join('').length;
-
 function selectAnalysed(field, start, end) {
   return selectIn(field === 'negative_prompt' ? els.negative : els.prompt, analysedText(field), start, end);
 }
@@ -605,7 +586,7 @@ function renderOrder(body) {
     // they wrote some, are shown as theirs.
     // "Its guide states none" only where no author order follows: NoobAI's and
     // RouWei's ? text quotes the orders listed below, which the sentence then
-    // contradicted. The Tags menu says the same (tag-chips.js, tagOrderLines).
+    // contradicted. The Tags menu says the same (tag-helper.js, tagOrderLines).
     box.appendChild(note(body.author_orders?.length
       ? 'This app checks no word order for this checkpoint.'
       : 'This app checks no word order for this checkpoint: its guide states none.'));

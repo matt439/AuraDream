@@ -2,6 +2,8 @@
 // server has checked duplicate keys; parsing and reserializing here would
 // erase them. Import rows render file text through textContent only and never
 // call setupSummary, which writes the editor's summary and reads the composer.
+// The merge rows, reasons and holds are import-merge.js's; this file keeps the
+// dialog's state, preview, commit and uncertain-import flow.
 'use strict';
 
 const SETUP_FILE_LIMIT = 8 * 1024 * 1024;
@@ -11,9 +13,7 @@ let setupImportRaw = null;
 let setupImportChoices = [];
 let setupImportRows = [];
 // Per file index, the latest server row that describes the file item under its
-// own name. A previewed Add as copy row is matched under its copy name, so it
-// never replaces this: Add/Replace, saved matches and the heading keep the
-// file item's real collision.
+// own name (import-merge.js's noteImportIncoming).
 let setupImportIncoming = new Map();
 let setupImportShown = null;
 let setupImportBusy = null;
@@ -46,18 +46,7 @@ function setupPortabilityReason() {
 }
 
 function setupImportChoiceReason() {
-  for (const choice of setupImportChoices) {
-    const item = `file item #${choice.index + 1}`;
-    if (setupImportCopyConfirm.has(choice.index)) return `Choose the action again for ${item}; its previous Add as copy may already have been saved.`;
-    if (!['add', 'copy', 'replace', 'skip'].includes(choice.action)) return `Choose an action for ${item}.`;
-    const row = setupImportIncomingRow(choice.index);
-    if (choice.action === 'add' && row?.matches.length) return `Setup #${choice.index + 1} now has a saved name match on its checkpoint. Choose Skip, Add as copy or Replace.`;
-    if (choice.action === 'replace' && !row?.matches.some((local) => local.id === choice.item_id && local.revision === choice.revision)) {
-      return `Choose the saved setup to replace for ${item}.`;
-    }
-    if (choice.action === 'copy' && (!choice.name?.trim() || Array.from(choice.name).length > 80)) return `Give copy #${choice.index + 1} a name of 1-80 characters.`;
-  }
-  return '';
+  return importChoiceReason(SETUP_IMPORT_KIND, setupImportChoices, setupImportCopyConfirm, setupImportIncomingRow);
 }
 
 function setupImportIncomingRow(index) {
@@ -65,23 +54,17 @@ function setupImportIncomingRow(index) {
 }
 
 function setupImportReason() {
-  if (setupImportBusy) return setupImportBusy === 'commit' ? 'Wait for the import to finish.' : 'Wait for the file preview.';
-  if (setupImportRaw === null) return 'Choose a valid setup file first.';
-  return setupImportChoiceReason() || (!setupImportShown ? 'Preview these choices before importing.'
-    : !setupImportShown.can_import ? setupImportShown.reason || 'The selected import changes nothing.' : '');
+  return importReason(SETUP_IMPORT_KIND, setupImportBusy, setupImportRaw, setupImportShown, setupImportChoiceReason);
 }
 
 function syncSetupPortability() {
   if (!setupImportEls) return;
-  const hold = (button, reason, title) => { button.setAttribute('aria-disabled', String(!!reason)); button.title = reason || title; };
-  hold(setupImportEls.export, setupPortabilityReason(), 'Download every checkpoint\'s saved setups; the file contains prompt text');
-  hold(setupImportEls.open, setupPortabilityReason(), 'Choose a setup file to preview; nothing is saved yet');
-  hold(setupImportEls.run, setupImportReason(), 'Commit exactly the previewed merge');
-  hold(setupImportEls.preview, setupImportBusy ? 'Wait for the current import request.'
-    : setupImportRaw === null ? 'Choose a valid setup file first.'
-      : setupImportNeedsReload ? '' : setupImportChoiceReason(), 'Preview the chosen merge against the saved list');
-  hold(setupImportEls.close, setupImportBusy === 'commit' ? 'Wait for the import to finish.' : '', 'Cancel without importing');
-  for (const control of setupImportEls.rows.querySelectorAll('input, select')) control.disabled = !!setupImportBusy;
+  importHold(setupImportEls.export, setupPortabilityReason(), 'Download every checkpoint\'s saved setups; the file contains prompt text');
+  importHold(setupImportEls.open, setupPortabilityReason(), 'Choose a setup file to preview; nothing is saved yet');
+  syncImportHolds(SETUP_IMPORT_KIND, setupImportEls, {
+    busy: setupImportBusy, raw: setupImportRaw, needsReload: setupImportNeedsReload,
+    reason: setupImportReason(), choiceReason: setupImportChoiceReason,
+  });
 }
 
 function invalidateSetupImport() {
@@ -92,15 +75,7 @@ function invalidateSetupImport() {
 }
 
 function setupImportEnvelope(extra = {}) {
-  return '{"payload":' + setupImportRaw + ',"decisions":' + JSON.stringify(setupImportChoices)
-    + Object.entries(extra).map(([key, value]) => ',' + JSON.stringify(key) + ':' + JSON.stringify(value)).join('') + '}';
-}
-
-function setupImportNode(tag, text, className = '') {
-  const node = document.createElement(tag);
-  if (text !== undefined) node.textContent = text;
-  if (className) node.className = className;
-  return node;
+  return importEnvelope(setupImportRaw, setupImportChoices, extra);
 }
 
 function setupImportKind(payload) {
@@ -131,90 +106,30 @@ function setupImportCheckpoint(modelId) {
   return `${name === modelId ? modelId : `${name} (${modelId})`} · ${where}`;
 }
 
+// How the merge rows show a setup, and the words that name one: the raw
+// saved draft only (setupImportEssentials), never setupSummary.
+const SETUP_IMPORT_KIND = {
+  prefix: 'setup', noun: 'setup', sameAs: 'checkpoint',
+  // Matches share the incoming exact checkpoint id by construction.
+  targetLabel: 'Saved setup to replace (same checkpoint)',
+  item: (row) => row.preset,
+  collides: (n) => `Setup #${n} now has a saved name match on its checkpoint. Choose Skip, Add as copy or Replace.`,
+  heading: (row) => `#${row.index + 1} ${row.preset.name}`,
+  meta: (row) => `${setupImportKind(row.preset.payload)} · ${setupImportCheckpoint(row.preset.model_id)}`,
+  incoming: (row) => ({ text: setupImportEssentials(row.preset.payload), role: 'incoming-payload', label: `Incoming setup ${row.index + 1}` }),
+  matchSummary: (local, i) => `Saved match #${i + 1}: ${local.name} · ${setupImportKind(local.payload)} · revision ${local.revision}`,
+  local: (local) => ({ text: setupImportEssentials(local.payload), role: 'local-payload' }),
+  matchOption: (local, i) => `Saved match #${i + 1}: ${local.name} (revision ${local.revision})`,
+};
+
 function renderSetupImport(shown, keepChoices = false) {
   setupImportRows = shown.rows;
-  for (const row of shown.rows) if (row.action !== 'copy' || !setupImportIncoming.has(row.index)) setupImportIncoming.set(row.index, row);
-  if (!keepChoices) setupImportChoices = shown.rows.map((row) => ({
-    index: row.index, action: row.action,
-    ...(row.action === 'copy' ? { name: row.preset.name } : {}),
-    ...(row.action === 'replace' ? { item_id: row.item_id, revision: row.revision } : {}),
-  }));
-  setupImportEls.rows.replaceChildren();
-  for (const shownRow of shown.rows) {
-    // Same index, payload and checkpoint; only the copy name may differ.
-    const row = { ...setupImportIncomingRow(shownRow.index), incoming_collisions: shownRow.incoming_collisions };
-    const choice = setupImportChoices.find((entry) => entry.index === row.index);
-    const section = setupImportNode('section', undefined, 'setup-import-row');
-    section.dataset.index = String(row.index);
-    const heading = setupImportNode('h3', `#${row.index + 1} ${row.preset.name}`);
-    heading.id = `setup-import-row-${row.index}`;
-    section.setAttribute('aria-labelledby', heading.id);
-    section.append(heading);
-    const meta = setupImportNode('p', `${setupImportKind(row.preset.payload)} · ${setupImportCheckpoint(row.preset.model_id)}`, 'setup-import-meta');
-    meta.dataset.role = 'meta';
-    section.append(meta);
-    if (row.exact_ids.length) section.append(setupImportNode('p', `Exact saved match: ${row.exact_ids.map((id) => '#' + (row.matches.findIndex((local) => local.id === id) + 1)).join(', ')}`, 'hint'));
-    if (row.incoming_collisions.length) section.append(setupImportNode('p', `Same incoming name and checkpoint at ${row.incoming_collisions.map((index) => '#' + (index + 1)).join(', ')}. Each file item has its own choice.`, 'hint'));
-    const payload = setupImportNode('pre', setupImportEssentials(row.preset.payload));
-    payload.dataset.role = 'incoming-payload';
-    payload.setAttribute('aria-label', `Incoming setup ${row.index + 1}`);
-    section.append(payload);
-    for (const [candidateIndex, local] of row.matches.entries()) {
-      const details = document.createElement('details');
-      details.open = !row.exact_ids.includes(local.id);
-      details.append(setupImportNode('summary', `Saved match #${candidateIndex + 1}: ${local.name} · ${setupImportKind(local.payload)} · revision ${local.revision}`));
-      const localPayload = setupImportNode('pre', setupImportEssentials(local.payload));
-      localPayload.dataset.role = 'local-payload'; localPayload.dataset.itemId = local.id;
-      details.append(localPayload); section.append(details);
-    }
-    const controls = setupImportNode('div', undefined, 'setup-import-choice');
-    const actionLabel = setupImportNode('label', 'Action');
-    const action = document.createElement('select'); action.dataset.role = 'action';
-    if (setupImportCopyConfirm.has(row.index)) {
-      const confirm = setupImportNode('option', 'Choose action again (previous Add as copy)');
-      confirm.value = ''; confirm.disabled = true; action.append(confirm);
-    }
-    for (const [value, label] of [['skip', 'Skip'], ['add', row.matches.length ? 'Add (name now collides)' : 'Add'],
-      ['copy', 'Add as copy'], ['replace', 'Replace a saved setup']]) {
-      const option = setupImportNode('option', label); option.value = value;
-      option.disabled = value === 'add' && row.matches.length > 0 || value === 'replace' && !row.matches.length;
-      action.append(option);
-    }
-    action.value = setupImportCopyConfirm.has(row.index) ? '' : choice.action;
-    actionLabel.append(action); controls.append(actionLabel);
-    const copyLabel = setupImportNode('label', 'Copy name');
-    const name = document.createElement('input'); name.type = 'text'; name.maxLength = 160; name.autocomplete = 'off';
-    name.dataset.role = 'copy-name'; name.value = choice.name ?? row.preset.name;
-    copyLabel.hidden = choice.action !== 'copy'; copyLabel.append(name); controls.append(copyLabel);
-    // Matches share the incoming exact checkpoint id by construction.
-    const targetLabel = setupImportNode('label', 'Saved setup to replace (same checkpoint)');
-    const target = document.createElement('select'); target.dataset.role = 'replacement';
-    const blank = setupImportNode('option', 'Choose a saved setup'); blank.value = ''; target.append(blank);
-    for (const [candidateIndex, local] of row.matches.entries()) {
-      const option = setupImportNode('option', `Saved match #${candidateIndex + 1}: ${local.name} (revision ${local.revision})`);
-      option.value = local.id; target.append(option);
-    }
-    target.value = row.matches.some((local) => local.id === choice.item_id && local.revision === choice.revision) ? choice.item_id : '';
-    targetLabel.hidden = choice.action !== 'replace'; targetLabel.append(target); controls.append(targetLabel);
-    action.onchange = () => {
-      setupImportCopyConfirm.delete(row.index);
-      choice.action = action.value; delete choice.item_id; delete choice.revision; delete choice.name;
-      if (choice.action === 'copy') choice.name = name.value;
-      target.value = ''; copyLabel.hidden = choice.action !== 'copy'; targetLabel.hidden = choice.action !== 'replace';
-      invalidateSetupImport();
-    };
-    name.oninput = () => { choice.name = name.value; invalidateSetupImport(); };
-    target.onchange = () => {
-      const local = row.matches.find((entry) => entry.id === target.value);
-      delete choice.item_id; delete choice.revision;
-      if (local) { choice.item_id = local.id; choice.revision = local.revision; }
-      invalidateSetupImport();
-    };
-    section.append(controls); setupImportEls.rows.append(section);
-  }
-  if (!shown.rows.length) setupImportEls.rows.append(setupImportNode('p', 'This file contains no setups. Nothing will be changed.', 'hint'));
-  setupImportEls.summary.textContent = keepChoices ? 'Saved list refreshed. Check your choices, then Preview.'
-    : `${shown.add_count} added; ${shown.replace_count} replaced; ${shown.skip_count} skipped`;
+  noteImportIncoming(setupImportIncoming, shown.rows);
+  if (!keepChoices) setupImportChoices = importChoices(SETUP_IMPORT_KIND, shown.rows);
+  renderImportRows(SETUP_IMPORT_KIND, shown, keepChoices, {
+    els: setupImportEls, choices: setupImportChoices, copyConfirm: setupImportCopyConfirm,
+    incomingRow: setupImportIncomingRow, invalidate: invalidateSetupImport,
+  });
 }
 
 async function previewSetupImport() {
@@ -272,8 +187,7 @@ async function openSetupImport(file) {
   if (!setupImportEls.dialog.open) setupImportEls.dialog.showModal();
   syncSetupPortability(); setupImportEls.close.focus({ preventScroll: true });
   try {
-    if (file.size > SETUP_FILE_LIMIT) throw new Error('The setup file exceeds 8 MiB.');
-    const raw = new TextDecoder('utf-8', { fatal: true, ignoreBOM: true }).decode(await file.arrayBuffer());
+    const raw = await readImportFile(file, SETUP_FILE_LIMIT, 'setup');
     if (ticket !== setupImportTicket || !setupImportEls.dialog.open) return;
     setupImportRaw = raw; setupImportBusy = null;
     await previewSetupImport();

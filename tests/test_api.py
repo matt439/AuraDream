@@ -14,7 +14,7 @@ from backend import api_prompt, main, tag_lookup
 from backend.config import settings
 from backend.model_defaults import defaults_for, hints_for
 from backend.tags import TagLookupUnavailable
-from tests.api_helpers import ORIGIN, run_one, stream_job
+from tests.api_helpers import ORIGIN, run_one, stream_job, wait_for_status
 
 
 # ------------------------------------------------------------------ defaults
@@ -160,15 +160,6 @@ def _gated():
     return error
 
 
-def _wait_for_state(client, state):
-    for _ in range(200):
-        body = client.get("/api/status").json()
-        if body["state"] == state:
-            return body
-        time.sleep(0.01)
-    raise AssertionError(f"status never reached {state}")
-
-
 @pytest.mark.parametrize("wrapped", [False, True])
 def test_a_gated_load_says_what_to_do(client, fake, monkeypatch, wrapped):
     # The default checkpoints are gated, so this is the likeliest first
@@ -188,7 +179,7 @@ def test_a_gated_load_says_what_to_do(client, fake, monkeypatch, wrapped):
     # The catalogue's entry for the id the status names - a click-through gate.
     monkeypatch.setattr(main, "settings", dataclasses.replace(main.settings, model_id="black-forest-labs/FLUX.1-Krea-dev"))
     client.post("/api/model/load")
-    body = _wait_for_state(client, "error")
+    body = wait_for_status(client, state="error")
     assert body["detail"] == (
         "FLUX.1 Krea [dev] is gated on Hugging Face: accept its terms on the model page "
         "(a click-through), run `uv run hf auth login` once with a read token, then press Retry load."
@@ -202,7 +193,7 @@ def test_a_gated_load_says_what_to_do(client, fake, monkeypatch, wrapped):
     # And a load that then succeeds clears the kind and the page with the detail.
     monkeypatch.setattr(fake, "load", lambda: setattr(fake, "loaded", True))
     client.post("/api/model/load")
-    ready = _wait_for_state(client, "ready")
+    ready = wait_for_status(client, state="ready")
     assert (ready["detail"], ready["detail_kind"], ready["detail_url"]) == (None, None, None)
 
 
@@ -245,7 +236,7 @@ def test_an_offline_load_names_the_variable_not_the_network(client, fake, monkey
     monkeypatch.setattr(fake, "load", load)
     monkeypatch.setattr(main, "settings", dataclasses.replace(main.settings, model_id="black-forest-labs/FLUX.1-Krea-dev"))
     client.post("/api/model/load")
-    body = _wait_for_state(client, "error")
+    body = wait_for_status(client, state="error")
     assert body["detail"] == (
         "FLUX.1 Krea [dev] is not all downloaded yet, and HF_HUB_OFFLINE is set: unset it for "
         "one load, then press Retry load."
@@ -264,7 +255,7 @@ def test_any_other_load_failure_keeps_its_own_words(client, fake, monkeypatch):
     fake.loaded = False
     monkeypatch.setattr(fake, "load", load)
     client.post("/api/model/load")
-    body = _wait_for_state(client, "error")
+    body = wait_for_status(client, state="error")
     assert (body["detail"], body["detail_kind"], body["detail_url"]) == (
         "RuntimeError: CUDA out of memory", None, None,
     )

@@ -11,6 +11,7 @@ from collections.abc import Mapping, Sequence
 from dataclasses import dataclass
 
 from .backup_receipts import _MAX_BYTES as JOURNAL_TEMP_BYTES
+from .bundle_archive import _MANIFEST_MAX as _MANIFEST_LIMIT
 from .bundle_crypto import HEADER_SIZE, _CHUNK as _CIPHER_CHUNK, _TAG as _CIPHER_TAG
 
 
@@ -19,7 +20,6 @@ from .bundle_crypto import HEADER_SIZE, _CHUNK as _CIPHER_CHUNK, _TAG as _CIPHER
 # + maximal central ZIP64 extra28. Names occur in both headers.
 _ENTRY_OVERHEAD = 30 + 20 + 24 + 46 + 28
 _END_OVERHEAD = 22 + 56 + 20  # EOCD plus maximal ZIP64 EOCD and locator.
-_MANIFEST_LIMIT = 32 * 1024 * 1024  # Existing verified archive reader's limit.
 _UINT64_MAX = (1 << 64) - 1
 
 

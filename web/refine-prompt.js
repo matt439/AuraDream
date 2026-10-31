@@ -1,4 +1,5 @@
-// AuraDream's page script: the Refine dialog prompt check and tag suggestions.
+// AuraDream's page script: the Refine dialog prompt check and tag suggestions,
+// and the check lines the Inpaint and Outpaint dialogs share.
 // Declarations only; state.js has the shared-global load-order contract.
 'use strict';
 
@@ -167,6 +168,61 @@ function refineCutLine(field, text, cut, reports, select = selectRefineFrom) {
   return line;
 }
 
+// The lines themselves, in an inpaint class's dialog (the Inpaint dialog's
+// and the Outpaint dialog's): `checked` is {prompt, negative, body} or null.
+function renderPassCheck({ box, said: saidEl, checked, select, apply }) {
+  box.replaceChildren();
+  const said = [];
+  if (checked) {
+    for (const [field, text] of [['prompt', checked.prompt], ['negative_prompt', checked.negative]]) {
+      const cuts = new Map();
+      for (const report of checked.body.encoders) {
+        if (report.field !== field || report.cut == null || report.pooled_only) continue;
+        cuts.set(report.cut, [...(cuts.get(report.cut) ?? []), report]);
+      }
+      for (const [cut, reports] of cuts) {
+        const line = refineCutLine(field, text, cut, reports, select);
+        said.push(line.firstChild.textContent.trim());
+        box.append(line);
+      }
+    }
+    for (const finding of checked.body.findings) {
+      if (finding.source === 'encoder' || !finding.suggestion) continue;
+      const negative = finding.field === 'negative_prompt';
+      const line = refineCheckLine(`${finding.message} `, finding.severity === 'warn');
+      line.append(refineCheckButton('Apply', `Rewrite the ${negative ? 'negative prompt' : 'prompt'} `
+        + 'as the check suggests (Ctrl+Z undoes it)', finding.field, () => apply(finding)));
+      said.push(finding.message);
+      box.append(line);
+    }
+  }
+  box.hidden = !box.children.length;
+  const text = said.join(' ');
+  if (saidEl.textContent !== text) saidEl.textContent = text;
+}
+
+function syncPassCheck(box, checked, asked, greyed) {
+  const stale = !checked || ['prompt', 'negative', 'negativeOff'].some((key) => asked[key] !== checked[key]);
+  box.classList.toggle('stale', stale);
+  for (const button of box.querySelectorAll('button')) {
+    const dead = greyed && button.dataset.field === 'negative_prompt';
+    button.disabled = stale || dead;
+    button.title = dead ? 'The negative prompt is greyed at these settings, so nothing written there would run'
+      : button.dataset.title;
+  }
+}
+
+// Show: the rest of the box past where an encoder stops, the fold opened.
+function selectPassFrom(promptEl, negativeEl, more, field, text, cut) {
+  const el = field === 'negative_prompt' ? negativeEl : promptEl;
+  const raw = el.value;
+  const lead = raw.length - raw.trimStart().length;
+  if (el.disabled || raw.slice(lead, lead + text.length) !== text) return;
+  more.open = true;
+  el.focus({ preventScroll: true });
+  el.setSelectionRange(lead + units(text, cut), lead + text.length);
+}
+
 // Show and Apply act on the text the check read: dead, and the line dimmed,
 // while either box holds other text or the negative's activation moved - the
 // next check is on its way. One on the negative prompt is dead too while that
@@ -318,7 +374,7 @@ function copyRefineFromPanel() {
 // ------------------------------------------------- the pass's tag suggestions
 
 // On a tag checkpoint the Prompt box suggests tags as the panel's does, for
-// the comma item at the caret: tags.js's editor list (`scheduleEditorSuggestions`)
+// the comma item at the caret: tag-lists.js's editor list (`scheduleEditorSuggestions`)
 // under the box, picked by a click, or Enter or Tab on the selected one - the
 // first selected only from three typed characters it starts with (`preselects`).
 // None of the panel's state: not its list, the chips' typing state or the
@@ -387,7 +443,7 @@ function applyRefineSuggestion(suggestion) {
   scheduleRefineTags(0);
 }
 
-// The list's keys (tags.js, editorListKeydown): an Escape the list takes
+// The list's keys (tag-lists.js, editorListKeydown): an Escape the list takes
 // closes the list alone, and the next one closes the dialog.
 function refinePromptKeydown(event) {
   editorListKeydown(event, els.refineTagSuggestions, hideRefineSuggestions);

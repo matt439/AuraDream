@@ -41,15 +41,17 @@ before changing it.
   opaque scope references and fixed provider errors; vault APIs are lazy
 - `backend/failure_state.py` - traceback/cause/context-free ownership failure
   snapshots; process-lifetime quarantine never stores caller exceptions
-- `tools/backup_credential.py` - explicit inactive/pending credential setup,
-  local profile inspection and independent-password archive recovery verification
-- `backend/backup_preferences.py` - strict bounded, atomic database-scoped
-  backup policy sidecars; no lifecycle activation or credential fields
-- `backend/backup_settings.py` - explicit v2 plaintext activation and durable
-  gallery/destination scope; older draft policies never activate implicitly
+- `backend/backup_preferences.py` - names a database's backup settings
+  sidecar (`path_for`); `backup_settings` reads and writes it. Its version-1
+  policy format is legacy, read as inactive; only `tests/backup_helpers.py`
+  still writes one
+- `backend/backup_settings.py` - explicit versioned activation (v2 plaintext,
+  v3 the retention permission, v4 encrypted profiles and their credential
+  reference) and durable gallery/destination scope; older draft policies never
+  activate implicitly
 - `backend/backup_receipts.py` - internal managed-export marker, outer-byte
   proof, strict atomic ownership journal and current-file identity checks;
-  no startup, age advancement or pruning callers
+  its callers are the coordinator and `backup_retention`
 - `backend/backup_coordinator.py` - explicitly invoked one-attempt
   due/export worker under bundle admission and gallery reservation; supplied
   policy, identities, clock and transient protection
@@ -87,6 +89,11 @@ before changing it.
   file-index merge plans; `backend/schemas_preset_portability.py` owns the native
   format and choices; `backend/strict_json.py` supplies bounded UTF-8 syntax for
   that new document, without rerouting existing sidecar or snippet readers
+- `backend/bounded_route.py` - `bounded_json_route`, the `APIRoute` class
+  `api_presets` and `api_snippets` build: their import POSTs read as bounded
+  raw bytes (never trusting Content-Length) and parsed by the router's own
+  strict parser before FastAPI's; each router passes its bound (read per
+  request), its too-large words and its own error mapping
 - `backend/preset_validation.py` - cold Generate/Grid validation and effective
   summaries through ordinary schemas, grid helpers and `applied`; disposable
   random-grid examples never supply saved seeds
@@ -119,9 +126,16 @@ before changing it.
   `settings` there is a binding for readers, so runtime patches target
   `schemas_generate`
 - `backend/schemas_generate.py` — the generation request and its one
-  normalisation `applied()`, grids and their preview, `JobAccepted`,
-  `default_strength`, `effective_true_cfg`, `error_detail`; the leaf the
-  other schema modules build on
+  normalisation `applied()`, `GenerateSubmission`/`ThenRefine`,
+  `InstructionEditSubmission`, grids and their preview, `JobAccepted`, Load
+  settings from PNG's `Png*` models, `default_strength`,
+  `default_inpaint_strength`, `effective_true_cfg`, `error_detail`; the leaf
+  the other schema modules build on
+- `backend/schemas_outpaint.py` — the outpaint spec as a row stores it
+  (`OutpaintSpec`, its grid checks and `key()`) and as a request asks for it
+  (`Outpaint`), the stored mask's answer (`MaskStored`) and the presets'
+  (`OutpaintPreset(s)`); a leaf over `outpaint`'s constants, no settings.
+  `schemas_generate` imports `Outpaint` for the request
 - `backend/schemas_prompt.py` — Expand, Check (analysis, findings, orders),
   the chip count, the critic's critique, Danbooru tag suggestion/validation
 - `backend/schemas_gallery.py` — `ImageRecord`, run summaries, gallery pages,
@@ -173,6 +187,11 @@ before changing it.
   tree and loopback requests, `critic_context.py` the question and token budget,
   `critic_reorder.py` pure prompt permutations, and `critic_validation.py`
   answer grounding and rewrite validation
+- `backend/critic_issues.py` — what a critic issue says, for
+  `critic_validation.validate`: the restated-finding vocabulary (`_says`,
+  `_restated`, `_MEASURED`, `_PART_COUNT` and the patterns it builds on) and
+  an order issue's wants (`_order_wants`, `_reversed`, `_clash`,
+  `_described`); pure, and never imports `critic_validation`
 - `backend/translation.py` — lazy CPU-only Marian translation of ERNIE's
   expanded Chinese prompt for the UI; the Chinese prompt remains canonical.
   One sentence per sequence (`_chunks`), never packed: Marian drops most of
@@ -235,7 +254,7 @@ before changing it.
 - `backend/sizes.py` — the preset table; the CLI's `--aspect/--mp`, config's
   `max_side`/`max_pixels` and a refine pass's `refine_max_side`/
   `refine_max_pixels` (any 2 MP preset at 2x), `web/state.js`'s copy,
-  `web/refine.js`'s two refine bounds, `index.html`'s `max=` and the README
+  `web/refine-rules.js`'s two refine bounds, `index.html`'s `max=` and the README
   table are all held to it by `tests/test_profiles.py`; `nearest_preset`
   maps a size to its aspect's entry at another tier for Re-render at a tier
   (`tests/test_sizes.py`)
@@ -299,17 +318,36 @@ before changing it.
   `refine_batch.plan`'s, built in the worker, `JobManager._passes`)
 - `backend/more_seeds.py` — More seeds' batches of a selection, each one's
   next seeds, Batch and cells (pure; the routes are `api_more_seeds.py`'s)
+- `backend/more_seeds_planner.py` — More seeds' plan over the app's services
+  (`more_seeds_plan`, which carries Then refine through `_carry_then_refine`),
+  called by its routes and by `api_runs.py`'s run details, so no router
+  imports another
 - `backend/more_seeds_intents.py` - bounded preview-issued More seeds tokens,
   one owned admission per intent, replay receipts, expiry and shutdown drain
 - `backend/latent_preview.py` — the latent-to-RGB maps the live preview
   draws with, one per VAE, fitted on the card
 - `backend/jobs.py` — single-worker queue, SSE progress
+- `backend/job_state.py` — a queued job's state: the `Job` dataclass (its
+  fields, call/skip tokens, execution-diagnostics binding and `snapshot`) and
+  `_TERMINAL`; reads no gallery, settings or backend, and `jobs` imports both
+  names back, so `from backend.jobs import Job` still answers
+- `backend/error_text.py` — `short_error`, an exception as one UI-presentable
+  paragraph; standard library only, so `prompt_check` and `tag_lookup` need
+  not import the queue for it (`jobs` re-exports it for every other caller)
 - `backend/storage.py` — SQLite index + PNGs with embedded metadata
+- `backend/record_fields.py` — the pure field codecs rows and PNG chunks
+  share: the chunk's mask, upscaler, batch and peak sanitisers and
+  `peak_chunk`, `mask_hash` and `mask_provenance`, and the outpaint's chunk,
+  A1111 line, recovery and rebuilt mask; no settings, session or lock.
+  storage imports every name back, so `storage.<name>` still answers; the
+  mask writers, holds and `mask_path` stay in storage, where tests patch them
 - `backend/metadata.py` — the PNG chunk's key (`auradream`) and
   `embedded_metadata`, which still reads the legacy `local-diffusion` and
-  `krea` keys (and `auradream-mask`'s legacy `local-diffusion-mask`); shared
-  by storage, `png_settings.py` (so `generate.py` and `api_png.py`) and
-  `reindex.py`
+  `krea` keys (and `auradream-mask`'s legacy `local-diffusion-mask`); the
+  PNG chunk codec (`PNG_SIGNATURE`, `text_keyword`, `metadata_chunk`) and
+  the SQL/PNG edit and execution reconciliation; shared by storage,
+  `png_settings.py` (so `generate.py` and `api_png.py`), `reindex.py` and
+  the bundle layer, which never imports the `reindex` CLI at module level
 - `backend/png_settings.py` — settings read back from a PNG's text chunks:
   this app's record (`record`, and `image_settings` for a file on disk,
   which `--from-image` reads through) and A1111's 'parameters' block
@@ -321,6 +359,11 @@ before changing it.
 - `backend/gallery_delete.py` — taking images out: the keep-favourites
   predicates, scoped delete and its preview, per-image delete, recycle bin,
   clear and VACUUM (under `storage._write_lock`, read at call time)
+- `backend/run_jobs.py` — retained run jobs: each admitted job's resolved
+  cells and definition in the `run_jobs` table (whose schema stays in
+  storage) and its terminal outcome, for Finish run; reads storage's
+  settings, lock and session at call time, and every caller (and test
+  patch) reaches it as `storage.<name>` through `_MOVED`
 - `backend/gallery_lock.py` — reentrant reservation of complete gallery
   operations across threads and cooperating server/CLI processes
 - `backend/bundles.py` — verified ZIP snapshots (of the whole gallery, or
@@ -332,8 +375,12 @@ before changing it.
   bundle errors, progress type and read-only database reads every layer
   shares; `bundle_crypto.py` the optional password layer
   (streamed chunked AES-256-GCM, scrypt); `api_bundles.py` owns browser routes
-  (the export's scope resolved through `submission.resolve_selection`)
-  and exclusive maintenance admission through background completion
+  (the export's scope resolved through `submission.resolve_selection`);
+  `bundle_manager.py` exclusive maintenance admission through background
+  completion (`BundleManager`, the ASGI `GalleryAdmission`, the bundle and
+  backup route prefixes), which the automatic backup imports instead of a
+  router; `schemas_bundles.py` the export, import and password-check bodies.
+  `api_bundles` re-exports the manager, the admission and the bodies
 - `backend/search.py` — the search box's grammar: `key:value` terms as SQL
   predicates (`size:WxH` both sides exact, orientation or MP comparisons; `lora:none` is IS NULL, every
   other text key a substring; an integer past SQLite's 64 bits a
@@ -363,8 +410,18 @@ before changing it.
   chips and Check share, and owner of the patchable `tag_vocabulary`
 - `backend/submission.py` — what every cell producer checks before it
   queues (`refuse_unusable_inputs`, `unusable_input`, `refine_unavailable`,
-  `inpaint_unavailable`, `mask_unusable`, `not_yet_rendered`) and the gallery selection (`resolve_selection`);
-  `backend/api_generate.py` Generate, Run grid, its preview, Re-render and its preview;
+  `inpaint_unavailable`, `mask_unusable`, `not_yet_rendered`) and the gallery selection (`resolve_selection`),
+  with the rerun planners' shared parts: `prune_held` (the per-size gallery
+  and queue subtraction, its queue snapshot first), `input_spec`/`NO_INPUTS`
+  (the one key a producer checks inputs by) and `status_counts`;
+  `backend/submission_rules.py` its checks and refusal wording that need no
+  services (`mask_unusable`, `outpaint_unusable`, `missing_masks`, the
+  `*_detail` sentences, `cells_by_size`), re-exported by `submission` and
+  imported by the CLI, which so never imports FastAPI;
+  `backend/api_generate.py` Generate, Run grid and its preview;
+  `backend/api_rerender.py` Re-render and its preview (`foreign_refusal`,
+  the nested `rerender_plan`); `backend/api_runs.py` run details and Finish
+  run (`/api/runs/{id}`, `finish_plan`);
   `api_swap.py`, `api_refine_batch.py`, `api_more_seeds.py` the Swap tags,
   Mass refine and More seeds plans, previews and submissions
 - `backend/api_png.py` — Load settings from PNG (`POST /api/png/settings`):
@@ -383,7 +440,17 @@ before changing it.
   card only while the default is the width it judged) and bound and
   `min_kept`; a binned source a 404 that says it is in the recycle bin);
   model-free
-- `backend/generate.py` — headless CLI; drives the backend directly, no server
+- `backend/generate.py` — headless CLI; drives the backend directly, no
+  server, unless `--via-server` hands the run to `generate_remote`
+- `backend/generate_args.py` — the CLI's parser, a `--from-image` PNG's
+  settings filled into its arguments, `--outpaint`/`--mask`/size reads and
+  the checks that need only the flags (`_grid_flags`, shared by the local
+  run and `--via-server`); no `config` import, so all of it runs before
+  `apply_env`. Name-imported back into `generate`
+- `backend/generate_remote.py` — the CLI's `--via-server` client: the same
+  flags queued on the configured running server through its public API
+  (`_server_json`, one HTTP call, never retried) and polled to the end;
+  `generate.main` passes in the three helpers it shares with the local run
 - `backend/clear.py` — deletes rows, their PNGs and any orphans, the recycle
   bin's with the rest; `--bin` empties the bin alone, `--bin --older-than
   DAYS` only what was binned more than DAYS days ago
@@ -392,29 +459,34 @@ before changing it.
   per version
 - `backend/reindex.py` — rows rebuilt from the PNGs' `auradream` chunk, in place or
   copied in from another gallery; idempotent on the UNIQUE filename
-- `web/` - served as-is from `/static`; `index.html` loads 58 classic
+- `web/` - served as-is from `/static`; `index.html` loads 67 classic
   scripts in order, sharing one global scope; only `app.js`, the last, runs
-  the wiring and boot. `state.js` owns shared state; `generation.js`,
+  the wiring and boot. `state.js` owns shared state; `page-helpers.js`, right
+  after it, the page-wide pure helpers (`plural`, `excerpt`, `units`,
+  `humanTime`, `keyboardEventHeld`, `keyboardEditingTarget`,
+  `keyboardCommandModifier`), and the result row Swap tags, Mass refine
+  and More seeds share (`resultRow`, `resultNotes`); `generation.js`,
   `grid-preview.js`, `job-stream.js` and `job-results.js` handle submission,
   previews and progress, with `job-progress.js` the watched job's progress,
   mirrors and Pause, and `job-queue.js` the queue and which job the page
   watches; `panel.js`, `runs.js` and `viewer.js` the settings,
   run history and results; `gallery.js`, `gallery-actions.js` and `reuse.js`
-  the cards and their actions; `png-settings.js` Load settings from PNG
+  the cards and their actions, `gallery-head.js` the gallery head's
+  pointer-stable layout (`pointHead`, `showInHead`, `syncHeadForPicks`); `png-settings.js` Load settings from PNG
   (a dropped or picked PNG's text chunks read, sent and filled in through
   Reuse); `gallery-search.js` the lightbox's search
   buttons and an empty search's mistyped-key hint; `sheet.js`, `sheet-render.js` and
-  `sheet-export.js` the contact sheet; `facts.js` a record's settings line
+  `sheet-export.js` the contact sheet, `sheet-zoom.js` its zoom and pan; `facts.js` a record's settings line
   and facts list (`settingsLine`, `factsList`), shared by the lightbox and
   the viewer; `lightbox.js` the lightbox's view, layout, walk and gestures,
   `lightbox-compare.js` its comparison's controls, divider and pass
-  stepping, `lightbox-cfg.js` its comparison across CFG and across steps; `refine.js` and `refine-prompt.js` the Refine dialog; `inpaint.js` the Inpaint dialog (its mask's
+  stepping, `lightbox-cfg.js` its comparison across CFG and across steps; `refine-rules.js` the refine pass's shared rules (its bounds and sizes, `refinePrefs`, `SINGLE_STRENGTH`, `refineDefaultStrength`, `refineKept`, `sourceGoneKind`/`sourceGoneWords`, a gone source's words, and what the pass dialogs share: `stepStrength`, `dropPassLora` and `PASS_IN_FLIGHT`), which every pass dialog, Mass refine, Then refine, the lightbox and the panel read; `refine.js` and `refine-prompt.js` the Refine dialog, `refine-prompt.js` also the check lines the Inpaint and Outpaint dialogs share (`renderPassCheck`, `syncPassCheck`, `selectPassFrom`); `inpaint.js` the Inpaint dialog (its mask's
   upload, preview, submit and Reuse) and `inpaint-mask.js` its canvas, tools, strokes and export
   (`styles/inpaint.css`); `outpaint.js` the Outpaint dialog (the side, band and preset
   controls, the frame, the preview, submit, close and Reuse; `styles/outpaint.css`);
   `instruction-edit.js` Edit by instruction… (the capability, the menu item, the
   dialog's preview, submit, close and Reuse, and an edit's lineage; `styles/instruction-edit.css`);
-  `tags.js`, `tag-tokens.js` and `tag-chips.js` the prompt helper, `tag-finder.js` its Find
+  `prompt-note.js` the note under the prompt and its Undo (`showPromptNote`, `promptUndo`); `tags.js`, `tag-tokens.js` and `tag-chips.js` the prompt helper, `tag-lists.js` the editors' suggestion lists and the negative box's, `tag-helper.js` its Tags menu (the toggles, Start with, Finish with and the caret line), `tag-finder.js` its Find
   tag dropdown; `prompt-examples.js` the
   Examples menu, `prompt-expand.js` ERNIE's Expand; `analysis.js`,
   `analysis-critic.js` and `comparison.js` the check and critic. `sizes.js`
@@ -424,7 +496,9 @@ before changing it.
   cache intent and shared execution holds;
   `model-shots.js` the picker's strip of the chosen checkpoint's images;
   `bundles.js` owns the gallery bundle dialog (Back up and its scope
-  included) and background-operation polling;
+  included) and background-operation polling, and `automatic-backup.js`
+  its automatic startup backup settings (protection, consent, retention
+  cleanup and credential status, read only while the dialog is open);
   `gallery-select.js` the picked cards and the Picked menu, `gallery-batch.js` a
   card's batch outlined on hover, `tag-swap.js` Swap tags,
   `refine-batch.js` Mass refine, `then-refine.js` Then refine's opener
@@ -436,9 +510,15 @@ before changing it.
   `generation-presets.js` the named generation/grid setup dialog, raw capture,
   explicit validated Restore and whole-draft Undo;
   `setup-import.js` saved-setup Export…/Import… and the separate
-  file-index merge dialog (styles in `setups.css`).
-  `saved-searches.js` owns named gallery filters, their native dialog and the
-  single explicit filter transition out of sheets and the bin.
+  file-index merge dialog (styles in `setups.css`); `import-merge.js`, loaded
+  before both, what the two merge dialogs share - the file read, the
+  envelope, the choice reasons and holds and the rows drawn from a preview
+  (`renderImportRows`) - stateless, each file keeping its own state,
+  preview, commit and uncertain-import flow.
+  `saved-searches.js` owns named gallery filters and their native dialog;
+  `gallery.js` the single explicit filter transition out of sheets and the
+  bin (`applyGalleryFilter`), which Apply, Show all, the Models picker's
+  See all and a bundle's Show share.
   The stylesheet is
   `style.css` (tokens and base layout), followed by `styles/*.css` in the
   explicit link order: `model-picker.css` the Models picker (first, at its
@@ -449,10 +529,12 @@ before changing it.
   lightbox, `refine.css` the Refine dialog and motion, `inpaint.css` and
   `outpaint.css` their dialogs, `instruction-edit.css` the Edit by
   instruction dialog and an edit's badge, `bundles.css` the bundle dialog,
-  `swap.css`, `refine-batch.css` and `more-seeds.css` those dialogs,
+  `swap.css`, `refine-batch.css` and `more-seeds.css` those dialogs
+  (`swap.css` also the `batch-*` result rows all three share),
   `bin.css` the recycle bin, `context-menu.css` the right-click menu and
   `shortcuts.css` the keyboard help dialog, `snippets.css` the snippet dialog
-  and `setups.css` the named setup dialog, followed by `saved-searches.css`
+  (and the rules both merge dialogs share) and `setups.css` the named setup
+  dialog, followed by `saved-searches.css`
   for the saved gallery search dialog and its footer opener;
   preserve that cascade (`tests/test_docs_maps.py` holds this list to
   `index.html`'s links, in order). `docs/source-audit.md` records the
@@ -497,7 +579,21 @@ before changing it.
   gallery and sidecars through the fake's own routes, and
   `trial_walkthrough.py` writes the agent walkthrough's real-input steps
   for its version 2 manifest (`docs/design/trials/README.md`;
-  `tests/test_trial_kit.py` holds the steps to the page cold); see Tests
+  `tests/test_trial_kit.py` holds the steps to the page cold);
+  `check_classic_scripts.py` with `check_classic_scripts.mjs` checks the
+  page's ordered classic scripts in Node without running their bodies
+  (`tests/test_classic_scripts.py`); `fetch_tokenizers.py` caches the
+  real-tokenizer tests' files before CI's pytest; `segoe-widths.json` the
+  advance widths `smoke_fonts.py` gives its Segoe UI stand-in, measured
+  with `font-widths.json`; `check_run_continue.py` a by-hand Finish run
+  check in fresh pages and across a fake-server restart (port 7999);
+  `storage_interrupt.py` and `storage_scale.py` the storage interruption
+  and bundle/bin scale checks `tests/test_storage_interruptions.py` and
+  `tests/test_storage_scale.py` run in a disposable process;
+  `install_bundle_mode.py` the explicit offline Windows/NTFS shared-download
+  installation (`bundle_mode.py`); `backup_credential.py` explicit
+  inactive/pending credential setup, local profile inspection and
+  independent-password archive recovery verification; see Tests
 - `tests/` — the pytest suite, no GPU and no weights: `conftest.py`,
   `fakes.py` and `api_helpers.py` (the fake backend and its fixtures),
   `test_api*.py` (the HTTP routes, one file per area), and a file per module
@@ -523,7 +619,7 @@ in `docs/design-notes.md` under a heading of the same subject; read that
 section before changing the area. `docs/verified.md` lists what has been
 measured on the card and when.
 
-Model and loader:
+### Model and loader
 
 - `KBlueLeaf/Kohaku-XL-Zeta` uses its ordinary Diffusers SDXL tree and
   supplied epsilon/Euler scheduler. Start at 28 steps/CFG 5 and disable Mu.
@@ -1128,7 +1224,7 @@ Model and loader:
   still sets `use_pe=False` wherever the switch exists. The tests'
   conftest refuses `loading.hub_file` for every test; one that needs an index stubs it.
 
-Schedule and guidance:
+### Schedule and guidance
 
 - A requested `mu` is the whole shift. `schedule.forced_mu` overrides the value
   on its way into a dynamically shifting scheduler; a static one gets
@@ -1211,7 +1307,7 @@ Schedule and guidance:
   prose rides in `hints` as
   `prompt` and `size`, its data in `ModelStatus.guide`.
 
-Reproduction:
+### Reproduction
 
 - The reserved `execution` request field uses `execution.ExecutionSpec`:
   frozen named compilation, attention and step-cache recipes, with unknown
@@ -1306,7 +1402,8 @@ Reproduction:
   double cannot send exactly; the CLI takes the schema's whole range.
 - `grid.expand()` is the one cell loop for the CLI and `/api/grid`;
   `jobs.submit()` keeps its inline copy of the seed loop deliberately, asserted
-  equal to the CLI's in `tests/test_cli.py`.
+  equal to `grid.expand`'s in `tests/test_jobs.py`, and the CLI's seeds in
+  `tests/test_cli.py`.
 - Grid prompt variables default to `prompt_mode="cross"`. In `random` mode,
   each variable is drawn from the image seed and variable name by the frozen
   `grid.random_assignment` hash recipe. Numeric axes share that draw; Batch N
@@ -1350,7 +1447,7 @@ Reproduction:
   refusal; without, the gallery's filter (search, Starred, `AppServices.model_scope`),
   404 for none, 422 past `max_grid_images` by count. What to do with
   another checkpoint's records is the caller's (Re-render refuses the
-  selection, `api_generate.foreign_refusal`, naming picked ones to unpick;
+  selection, `api_rerender.foreign_refusal`, naming picked ones to unpick;
   Swap tags reports each image `foreign`;
   Mass refine reports it `foreign` unless `include_foreign`, then
   substitutes the running profile; More seeds reports each batch
@@ -1409,10 +1506,13 @@ Reproduction:
 - `_connect` runs `_migrate` on every connection (`PRAGMA table_info`, no
   once-per-process flag): an older file restored over the same path under a
   running server gains its columns at its next connection.
-- A new column needs a `_migrate` entry, not a `"x" in row.keys()` read guard:
-  `_row_to_record` reads every column unguarded. `save_image` and
-  `storage.index_file` (`reindex`'s writer) share `_insert_row` over `_COLUMNS`, and both build
-  their dict explicitly, so a new column goes in both (`binned_at: None`).
+- A new column needs a `_migrate` entry (`_ADDED_COLUMNS`, which a bundle
+  merge's ALTER on its staged copy takes its types from; `tests/test_storage_columns.py`
+  holds it to `_SCHEMA` and `_COLUMNS`), not a `"x" in row.keys()` read guard:
+  `_row_to_record` reads every column unguarded. `save_image`,
+  `storage.index_file` and `storage.import_file` (`reindex`'s writers) and a
+  bundle's merge share `_insert_row` over `_COLUMNS`, and each builds its
+  dict explicitly, so a new column goes in each (`binned_at: None`).
 - The recycle bin is the `binned_at` column (ISO UTC text like `created_at`,
   NULL while live, never NOT NULL: an older database or bundle reads None and
   is live). Every page-side delete bins (`POST /api/images/bin`,
@@ -1433,8 +1533,8 @@ Reproduction:
   as it was), `runs`, `keep_rates`, `_STARRED_SOURCE` (only a live star
   protects) and `_UNKEPT` (a binned star is unkept), and by
   `matching_preview(live_only=True)` / `delete_matching(to_bin=True)` for
-  Delete unstarred. `_tracked_files`, `existing_filenames`,
-  `existing_file_ids`, bundles, `clear`, `completed_cells`, `lineage_images`,
+  Delete unstarred. `_tracked_files`, `existing_file_ids`,
+  bundles, `clear`, `completed_cells`, `lineage_images`,
   `image_provenance`, `newest_image_id` and the cost/size samples read every
   row: filtered to live rows, the orphan sweep would delete binned PNGs and a
   reindex would add them back as new rows, and the status's newest id would
@@ -1831,7 +1931,7 @@ Reproduction:
   grid's variables declare (`compareUnfilled`, `declaredGridVariables`), as
   `generate()` refuses one; undeclared braces pass.
 
-Jobs:
+### Jobs
 
 - The manager owns queued admission order. `active()` and both HTTP listings
   show running work first, then that order. Move to front changes only queued
@@ -1895,22 +1995,22 @@ Jobs:
   a job, `stopped_by` is "failures" (status still `error`, through
   `_finish`) and its error reads "Stopped at cell X of Y after N cells
   failed; K images kept. Last: <short_error>" (a plain job's in images or
-  batches, `Job.units`). The page's Retry ("Retry the
-  N skipped cells") and Resume ("Resume the remaining N cells", for a grid
-  `stopped_by` "failures" or "budget": N is `total_runs - (run - failures)`,
-  since the budget is checked before a cell starts; a budget stop's title
-  ends "under the same N-minute budget", the payload's `budget_minutes`
-  sent again with it) send the
-  job's own submitted payload (`submissions`) again with `resume: true` and
-  `payload.seed ?? JobAccepted.seed` (none beside a seed list) - never the
-  POST's seed over the payload's own, never the panel - each once ("Retry
-  sent", "Resume sent", `aria-disabled`, focus kept). A sweep whose refine
-  source has gone cannot run again: the press holds the button
-  (`aria-disabled`, the sentence as its title, a press saying it again) and
-  says "#N, this sweep's source, was deleted: the run cannot resume."
-  (Retry: "its skipped cells cannot run again") - before sending where the
-  page saw the delete (`deletedIds`), else on the server's refusal of that
-  id (`startJob`'s `onRefused`).
+  batches, `Job.units`). Skipped cells and a grid's `stopped_by`
+  "failures" or "budget" are recovered by the finish line's Finish run
+  (`finishRunButton`, `web/runs.js`), which reads the server's retained run
+  (`POST /api/runs/{id}/finish/preview`, `finish_plan`) - never the panel,
+  never this tab's submitted payload. Its title is the server's count,
+  "Finish N images in M missing cells of run X", with the permanently
+  deleted cells it redraws and "; original N-minute budget" where the run
+  had one (Finish queues under the retained `budget_minutes`). A press
+  checks again and sends only the preview's `pin` (`{expected}` to
+  `POST /api/runs/{id}/finish`; a run changed since answers 409, "check
+  Finish run again"), once: accepted, it reads "Finish sent",
+  `aria-disabled`, focus kept. A hold - nothing missing, another
+  checkpoint, the rest already queued, a sweep whose refine source has gone
+  ("no gallery image with id N") - is the server's reason: the button's
+  title (`aria-disabled`), said in the press's slot with nothing sent, and
+  the server refuses the POST in the same words.
 - Each SSE stream has its own queue; `events()` opens with `done` for a job
   that has finished; the per-cell event and `/api/jobs` send
   `snapshot(images=False)`. Progress events carry `elapsed`; the page's
@@ -2215,7 +2315,7 @@ Jobs:
   known row keeps this gallery's state, as it keeps its star, and
   `binned_at` is not in the identity comparison. The import result's
   `binned` counts new rows arriving binned. A bundle from before the column
-  imports live; `binned_at` is not in `reindex._DB_REQUIRED` and the
+  imports live; `binned_at` is not in `bundle_common._DB_REQUIRED` and the
   manifest stays `version: 1`. Bin state is SQLite's alone, never the PNG
   chunk's: a PNG-only reindex, and an older build importing a newer bundle,
   bring binned images back live, as a PNG-only reindex loses a star;
@@ -2399,7 +2499,7 @@ Jobs:
   row. `planned_keys` skips edit cells while the gate is closed or the
   selection is outside the loader envelope.
 
-Prompt analyser:
+### Prompt analyser
 
 - Three layers over the body Generate sends (`PromptAnalysisRequest`): Check
   (`POST /api/prompt/analyze`), the critic (`POST /api/prompt/critique`) and
@@ -2731,7 +2831,7 @@ Prompt analyser:
   recommended, not when it moves a word there; `guide.quality` by its
   finish, tier, year modifier or the recipes' tags); so are issues
   speaking to a length the rules measured in range (`measured_length`, not
-  XML or JSON; `_says` reads a sentence at a time and skips lettering and a
+  XML or JSON; `critic_issues._says` reads a sentence at a time and skips lettering and a
   count worded as some part's - "at least 5 words for the lighting", "only
   3 words of the prompt are about the lighting", "describe the umbrella in
   under 5 words", "the lighting has only 3 words", "keep the lighting
@@ -2814,7 +2914,7 @@ Prompt analyser:
   it is, to the critic and on the page (`Citation.note` ->
   `CritiqueIssue.note`, under the issue and in its tooltip).
 
-Frontend and CLI:
+### Frontend and CLI
 
 - Saved gallery searches store only Name, Query, Starred and All models in a
   versioned database-scoped sidecar, never image ids or picks. Names are unique
@@ -3432,7 +3532,7 @@ Frontend and CLI:
   for under its Prompt box, each once, only where `tagVocabularyEnabled`,
   excluding its exact matching contextual prose parts and silent when the
   lookup is unavailable; it has no chips and never calls
-  `writePromptTags`. Its Prompt box suggests tags there too, from tags.js's
+  `writePromptTags`. Its Prompt box suggests tags there too, from tag-lists.js's
   editor list: `scheduleEditorSuggestions` and `renderEditorSuggestions`
   with `query` set to the comma item at the caret
   (`currentTagRange(els.refinePrompt)`), `pick` to `applyRefineSuggestion`,
@@ -3636,7 +3736,7 @@ Frontend and CLI:
   hint through one `::after` rule (empty alt text, smaller and lighter, never
   opacity, since `setBusy` rewrites the buttons' text) plus
   `aria-keyshortcuts`; the lightbox's Compare with source shares that rule,
-  its content S (style.css's lightbox section).
+  its content S (styles/lightbox.css).
 - `/` focuses and selects gallery search on the workspace, preserving its
   query, filters, bin/run and picks. A literal slash may carry Shift on a
   localized keyboard. Fields, menus, popups and modals own their keys;
@@ -3800,9 +3900,10 @@ Frontend and CLI:
   `handJobFocus`; any other run whose close leaves focus on
   `<body>` (an open from script, Reuse of a pass) puts it on Generate, or New
   image where that is shown, on the next frame. Every change asks `/api/grid/preview` with
-  the grid-shaped request; its refusal, a size past the guard or no
-  capability makes Refine aria-disabled with the reason as its title, and a
-  press says it in the dialog. Every way of running a pass first waits for
+  the grid-shaped request; its refusal, a size past the guard, no
+  capability or a submit in flight ("Wait for the last submit to be
+  taken", `PASS_IN_FLIGHT`) makes Refine aria-disabled with the reason as
+  its title, and a press says it in the dialog. Every way of running a pass first waits for
   the preview of what the boxes hold (`refinePreviewed`, the request the last
   preview answered), since the debounced preview is what refuses a strength
   past 1, one that leaves no step and a source deleted meanwhile; a refused
@@ -3880,8 +3981,9 @@ Frontend and CLI:
   strokes where it has gone (a keep's 404, or a preview or submit refusal
   naming it). An adapter gone meanwhile is taken out as Refine's is
   (`dropInpaintLora`). Inpaint is `aria-disabled` with its reason
-  while nothing is painted, while the mask uploads or loads, and while an
-  upload or the preview refuses, and a press says why; "wait for the mask"
+  while nothing is painted, while the mask uploads or loads, while an
+  upload or the preview refuses, and while a submit is in flight
+  (`PASS_IN_FLIGHT`, as Refine and Outpaint), and a press says why; "wait for the mask"
   clears once it lands. Every fill of the dialog (Start over included)
   ends what the last one had in flight (`inpaintOpenEpoch`), and only a
   first open scrolls it to the top. The tools row and
@@ -3948,8 +4050,13 @@ Frontend and CLI:
   pointer. A close that ran nothing keeps the sides, band and boxes in page
   memory (`outpaintKept`) for that image on the same checkpoint. Its
   shared helpers are inpaint.js's (`inpaintStartStrength`,
-  `libraryStrengthInto`, `syncPassSampling`, `renderPassCheck`,
-  `syncPassCheck`, `selectPassFrom`, `sourceGoneWords`). Cards, the
+  `inpaintLibraryStrength`, `inpaintStrengthNote`, `libraryStrengthInto`,
+  `syncPassSampling`, and the capability it shares with the Inpaint
+  dialog: `inpaintSupported`, `syncInpaintCapability`, `inpaintNone`,
+  `inpaintUnavailableText`), refine-prompt.js's (`renderPassCheck`,
+  `syncPassCheck`, `selectPassFrom`) and refine-rules.js's
+  (`sourceGoneKind`, `sourceGoneWords`, `dropPassLora`, `stepStrength`,
+  `PASS_IN_FLIGHT`). Cards, the
   settings line and job labels read "outpaint of #N +L/+T/+R/+B @ S", the
   facts "Outpainted from" and an Outpaint row, an outpainted card a ⬚
   badge; Against source draws the source at (left, top) at the result's
@@ -4012,7 +4119,7 @@ Frontend and CLI:
   its bar, nor anything between the bars and Generate but the Now line;
   queue rows read the same, and a single queued job is one "Next:" row. A
   finished job's outcome and actions (Use seed, More seeds…, Show sheet,
-  More seeds of this run…, Retry/Resume) are the finish line, `#finish-note`, outside `#progress` (`setFinish`): only
+  More seeds of this run…, Finish run) are the finish line, `#finish-note`, outside `#progress` (`setFinish`): only
   the next job's end replaces it, never a queued job's start; it is led by
   "Previous job:" while another runs or after a lost stream (`finishStale`).
   Its sentence, without buttons, is said once on the visually hidden polite
@@ -4167,7 +4274,7 @@ Frontend and CLI:
   ⊞ and ⤢ refusals and a pass's Compare with source refusal, deletes and
   the recycle bin's note with its Restore (`noteBinned`), Empty recycle bin, a
   star's failure (a card's, a viewer result's, a sheet cell's or the
-  lightbox's), the sheet's Resume this run refusals, Fill width pressed on
+  lightbox's), the sheet's Finish run refusals, Fill width pressed on
   a wrapped row, an export pressed while one runs, Export all's outcome and
   refusals, and its export failure - is said in `#gallery-error` (`els.galleryError`), which
   `resetGallery` clears; Reuse's notes stay in the panel's `#error`.
@@ -4503,7 +4610,7 @@ Frontend and CLI:
   lineage and the facts read "#N (deleted)"); `recordsWithId` includes
   `sessionRecords`, and `syncCardTools` also syncs the viewer's
   `.refine-tool`s and `.ref-tool`s.
-- Gallery beside (`syncBeside`, gallery.js; style.css's "gallery beside"
+- Gallery beside (`syncBeside`, gallery.js; styles/gallery.css's "gallery beside"
   section; `tools/smoke-stage.json`). The tick: from 2000 px, "Gallery
   beside" in the gallery head (`#gallery-beside` in
   `label.check#beside-label`, after Sheet and before Delete unstarred,
@@ -4604,8 +4711,8 @@ Frontend and CLI:
 - The comparison across CFG (`web/lightbox-cfg.js`; across steps, the same
   machinery, after this item). `lbCompare.kind` is `'source'` (a pass and
   its source, above), `'cfg'` or `'steps'`; `lbCompare.source` is the
-  partner either way. An image's CFG ladder (`ladderOf(LADDER_AXES.cfg, …)`,
-  `cfgLadder`) is the images
+  partner either way. An image's CFG ladder (`ladderOf(LADDER_AXES.cfg, …)`)
+  is the images
   that agree with it on every sheet axis but CFG and True CFG and on size,
   checkpoint, quantization and refine source (`sameExcept(a, b, ['cfg',
   'tcfg'])`, beside `sameSettings` in sheet.js, which is
@@ -5296,7 +5403,7 @@ Frontend and CLI:
   grid's words and titles say the setting while it is on; scale and
   strength are `REFINE_KEY`'s. The CLI's
   `--then-refine-*` run the same plan (`_then_refine_passes`). More seeds
-  carries the pass (`api_more_seeds._carry_then_refine`): a queued base
+  carries the pass (`more_seeds_planner._carry_then_refine`): a queued base
   batch (template `refine` and `edit` None) takes the spec its images'
   jobs retained (`then_refine.retained` over `storage.retained_run_metadata`
   of every held image's `job_id`, so a template from an earlier bases-only
@@ -5478,7 +5585,7 @@ Frontend and CLI:
   footer passes its own); a menu item, its menu gone, has none.
   `moreSeedsGalleryChanged` skips a run scope as it skips `ids`; the count
   technical details retain the server's `headline` where there is one. The sheet's
-  run bar is More seeds of this run… after Resume this run, on
+  run bar is Finish run then More seeds of this run…, on
   `sheetShownRun` (one run opened on `run:<id>`, a refine sweep's and a
   comparison's too, held - not hidden - on another checkpoint), then its
   status line (`sheetRunStatus`, "Run X · N images · checkpoint quant",
@@ -5519,7 +5626,7 @@ Frontend and CLI:
   cell the keyboard was last on in the sheet (`sheetSwipeFrom`, a focusin in
   app.js) where it has a CFG neighbour, else the first shown cell in
   reading order with a lower CFG beside it, walking that cell's own ladder
-  from the shown cells (`cfgLadder(rec, sheetLayout.cells)`, ascending -
+  from the shown cells (`ladderOf(axis, rec, sheetLayout.cells)`, ascending -
   its row or column, never the pinned-out cells), with the CFG comparison
   on in swipe (`toggleCompare('swipe', 'cfg')` after the open). Swipe
   steps (`sheetSwipeButton('steps')`, `SHEET_SWIPES`) is the same along
@@ -5596,7 +5703,7 @@ Frontend and CLI:
   toggle keeps one name, with its state in `aria-pressed` and its title; it
   is remembered under `auradream.sheet.v1` through
   `remembered`/`remember`, is not forgotten by Reset, and is aria-disabled
-  with its reason on a wrapped row. A matrix zooms (sheet.js:
+  with its reason on a wrapped row. A matrix zooms (sheet-zoom.js:
   `sheetZoom` times `sheetZoomBase`, the cells' width at zoom 1 that
   `fitSheet` measures with the zoom off, set on the grid as `--cell-min`
   and `--cell-w`, the box's scroll restored), from 1 to `SHEET_ZOOM_MAX`
@@ -5659,24 +5766,24 @@ Frontend and CLI:
   and a coarse pointer, and always when starred; drawn by `syncStar`. That
   button and F on a focused cell both star through `starCell` →
   `setFavorite` (F said in `#star-said`). A `.sheet-cell` is `isolation:
-  isolate`, so its badges stay under the stuck heads. "Resume this run" (one run of the running
-  checkpoint opened on `run:<id>`, not a comparison or refine sweep) fills
-  the run's seed and size and never persists Resume. `resumeRun(runId,
-  known)` always reads the base seed from `/api/runs` (the run's oldest
-  image); `known` gives only the size, for a page with no sheet. The
-  last-run banner appends ", N since deleted" or ", all since deleted" from
-  `deleted_count`, hiding Show run when all are gone, and offers Resume
-  (`resumeLastRun` → `resumeRun(run_id, { width, height })`) for a grid that
-  stopped short - cancelled, its budget, or `stopped_by` failures - with an
-  image of its own left; never for a re-render, a refine sweep or a prompt
-  comparison (the snapshot's `comparison`). For a `done` job with a run id
-  and an image left it shows More seeds… (`#last-run-more`,
-  `moreSeedsLastRun`) beside Show run, on the run scope. When Resume this
-  run's preview renders no cell but skips or queues some, `resumeRun`
-  appends "Nothing in run X is missing. More seeds of this run… adds
-  seeds." to it. The snapshot's `seed` is a job's
-  first remaining cell, past the base after a Resume, and is never used as
-  the base.
+  isolate`, so its badges stay under the stuck heads. Finish run is one
+  retained-run action wherever a run ends (`web/runs.js`): the finish line,
+  the lost-run card, the sheet's run bar and the last-run banner
+  (`#last-run-resume`, `configureFinishRun`; `resumeLastRun` →
+  `pressFinishRun`). Its availability, counts and holds are the server's
+  (`GET /api/runs/{id}`'s `actions.finish`, then
+  `/api/runs/{id}/finish/preview`), each answer kept to the server,
+  checkpoint and revision it was asked under (`finishContext`), and it never
+  reads or writes the composer: a hand-built grid and its Resume tick stay
+  as they were. A run made before runs kept their cells is held with "use
+  the panel's Resume tick". The last-run banner appends ", N since deleted"
+  or ", all since deleted" from `deleted_count`, hiding Show run when all
+  are gone, and shows Finish run for any job with a run id, a comparison's
+  and Repeat's too, held with the server's reason where nothing is missing.
+  For a `done` job with a run id and an image left it shows More seeds…
+  (`#last-run-more`, `moreSeedsLastRun`) beside Show run, on the run scope.
+  The sheet's status line adds the preview's missing cells and passes
+  ("· N missing cells", "; N deleted to redraw") after the run's own words.
 - `generate`, `clear`, `stats` and `reindex` reconfigure stdout to UTF-8 at
   the top of `main()`: on Windows always, elsewhere when it is not a
   terminal, and never on a stream without `reconfigure` (a StringIO,
@@ -5687,7 +5794,8 @@ Frontend and CLI:
 - `generate.py` duplicates `jobs._generate`'s loop deliberately. It applies
   `--model/--quant/--offload` to `os.environ` before importing
   `backend.config`, as `launch.configure()` does for the server; both take the
-  flags from `launch.add_model_arguments`.
+  flags from `launch.add_model_arguments` (the CLI's parser is
+  `generate_args._build_parser`).
 - `generate.py`'s header shows what `applied()` will run: a negative
   prompt, `--true-cfg` or Mu the checkpoint drops is printed with
   `[ignored: ...]` (a `--grid-mu` axis too), and the duplicate warning names
@@ -5718,7 +5826,7 @@ Frontend and CLI:
   confirmation, is written at once in the width its box had (inline, an
   ellipsis inside), both put right by `releaseHead`.
   Re-render's refusal of another
-  checkpoint's images (`api_generate.foreign_refusal`) advises unticking All
+  checkpoint's images (`api_rerender.foreign_refusal`) advises unticking All
   models; it offers `model:<the whole running id>` only where that id is
   contained in none of the foreign ids selected (`model:Anima` is
   Animagine too), and its verb agrees with the count. For picked cards,
@@ -6127,7 +6235,7 @@ picker at the editor; a switch to it carries the instruction and seed, not
 the numbers; a switch away, or a draft of numbers only, keeps nothing), the
 held aspect said as the source's and never in the Models note, and the drift
 line equal to the guide's sentence. `test_instruction_edit_envelope.py`
-holds `option_refusals`, `test_api_model_switch.py` the editor row's
+holds `option_refusals`, `test_api_model_catalogue.py` the editor row's
 `loader_holds` (every gate and draft; `{}` elsewhere), and
 `test_instruction_edit_queue.py` the preview's `source_reason`.
 
@@ -6231,9 +6339,9 @@ critic never given the measured drift, the pinned `FluxKontextPipeline`
 encoder rows, `details_for`'s strings and live Held/Yes answer, the
 retained timing, and the download
 reference's commit equal to `KONTEXT_V1.revision` without the root single
-file. `test_api_model_switch.py`'s
+file. `test_api_model_catalogue.py`'s
 `test_the_editors_row_carries_the_backends_answer_for_the_draft_loader`
-holds `main`'s listing to the instance's answer, and
+holds `main`'s listing to the instance's answer, and `test_api_model_switch.py`'s
 `test_switch_to_kontext_refused_while_gated_before_hub_save_or_unload`
 finds the editor listed last; `test_instruction_edit_loader.py`'s
 `test_exact_id_refusal_runs_before_custom_class_check_on_every_entry` holds
@@ -6395,11 +6503,10 @@ explicit age, retention and protection. It covers UTC age boundaries and
 repeated-hour ordering, unavailable or untrusted copies, exact scope,
 conflicting identities, new-success retention and download leases. These
 checks perform no archive I/O and confer no deletion or activation authority.
-`tests/test_backup_preferences.py` checks bounded strict schema reads,
-database isolation, exact integer-microsecond durations, fixed failure
-warnings and atomic saves preserving prior bytes on write/fsync/replace
-failure. The shared 10,000-copy validation ceiling is an engineering limit,
-not a selected retention policy. Neither module is connected to startup.
+`tests/test_backup_preferences.py` checks the sidecar's name: one per
+database name in a directory, and a pre-rename file used in place. The shared
+10,000-copy validation ceiling is an engineering limit, not a selected
+retention policy; the policy module is not connected to startup.
 `tests/test_backup_activation_settings.py` and `tests/test_api_automatic_backup.py`
 cover explicit v2 activation, inactive legacy
 policies, stable gallery/destination namespaces and scratch startup/configuration
@@ -6478,7 +6585,11 @@ including `app.js`, and instantiate declarations without executing source
 bodies. It covers syntax, cross-file lexical collisions and permitted
 sharing, strict/sloppy block functions, unsupported script kinds, missing
 files and missing Node. Node is required locally and verified by CPU CI;
-this guard does not replace the independent browser smokes.
+this guard does not replace the independent browser smokes. Every other
+Node-driven test asks for `conftest.py`'s `node` fixture (or asserts Node
+itself), so a missing Node fails them too rather than skipping; only
+`tests/test_browser_profile.py` still skips, and only for a missing Edge or
+Chrome.
 
 `tests/test_browser_capabilities.py` captures the actual harness/helper module
 bodies before instrumentation and loads them as data URLs, so Node's own module
@@ -6949,6 +7060,34 @@ bundle live), `tests/test_api_bundles.py` (`binned` in the preview),
 and `--where` reaching the bin, `--where` pinned to its count) and `tests/test_reindex.py` (in place and
 `--database` keeping the state, PNG-only bringing it back live).
 
+The command-line tests are three files sharing `tests/cli_helpers.py` (the
+local `cli` fixture, its autouse execution-environment isolation and the
+passes' sources and masks): `tests/test_cli.py` (seeds and the loop equality,
+resume, budgets, `--from-image`, conditioning, Then refine),
+`tests/test_cli_passes.py` (refine, inpaint, outpaint and the GAN upscaler,
+run locally) and `tests/test_cli_via_server.py` (`--via-server` through the
+test client's routes, and `_server_json`'s transport).
+
+Helpers shared across test files live in `tests/*_helpers.py` and are
+imported by name, fixtures too (with `# noqa: F401  (fixtures by name)`);
+names imported elsewhere carry no leading underscore. Besides the per-area
+ones (bundle, backup, critic, CLI, prompt encoding and rules, instruction
+edit): `api_helpers.py` drives the app (`stream_job`, `run_one`,
+`run_grid`, `wait_for`, `wait_for_status` and the generic `until`, whose
+timeouts are seconds; the prompt-variant `VARIANTS`),
+`backend_helpers.py` gives `catalogue_repos()` and a weightless
+`loaded_backend(pipe)` (diffusers imported only when called),
+`gallery_helpers.py` the `cold_queries_only` guard and the
+`gallery_state` row-and-PNG snapshot, `model_switch_helpers.py` the
+switch and catalogue tests' autouse `fresh_selection`, and
+`browser_helpers.py` the browser preflight tests' `run_harness_cold`
+(each keeps its own `.mjs` fixture). The anima, NetaYume and NewBie
+converter caches are held to one contract in
+`tests/test_converter_cache.py`, parametrized over the three loaders; each
+loader's own tests stay in its `test_<name>_loading.py`. The model
+catalogue's routes are `tests/test_api_model_catalogue.py`, switching
+`tests/test_api_model_switch.py`.
+
 The bundle tests share helpers from `tests/bundle_helpers.py`.
 `tests/test_bundles.py` covers export and cleanup: archive/merge round trips,
 preserved favourites and timings, remapped image links, WAL snapshots,
@@ -7064,7 +7203,7 @@ the submit refusals, the strength axis with resume, the pass's own size
 guard and its lack of a batch budget, `GET /api/images/{id}`, Re-render,
 and the preview's `start_sigma`, asked with the applied pass, not for a
 sweep or a direct render, end to end over a real FLUX.1 schedule) and the
-CLI's flags in `tests/test_cli.py`. What a pass does to pixels, its time and its
+CLI's flags in `tests/test_cli_passes.py`. What a pass does to pixels, its time and its
 memory are the card's to say, in `docs/verified.md`.
 
 The inpaint is covered by `tests/test_inpaint.py` (the inpaint class per
@@ -7116,7 +7255,7 @@ id pins in `tests/test_conditioning.py`, the inpaint classes' prompt
 building held to their text-to-image classes' in
 `tests/test_prompt_encoding.py`, and the `--mask` (an RGBA, 16-bit or CMYK
 file; no strength) and `--from-image` (a source that is another picture
-here) cases in `tests/test_cli.py`.
+here) cases in `tests/test_cli_passes.py`.
 
 The outpaint is covered by `tests/test_outpaint.py` (both types' grid and
 bound checks, the fill name, the key round trip, the validator's refusals,
@@ -7152,14 +7291,14 @@ size refusal; an unstamped outpaint refused by `check_refine_supported` in
 the inpaint's words; an outpaint without a strength at the class's default),
 the outpaint key and run-id cases in `tests/test_conditioning.py`, the
 dialog's statuses in `tests/test_inpaint_ui.py`, and the `--outpaint`,
-`--band` and `--from-image` cases in `tests/test_cli.py` (a `--band` of its
+`--band` and `--from-image` cases in `tests/test_cli_passes.py` (a `--band` of its
 own beside a carried outpaint running, a rewritten mask hash refused).
 `tests/test_reindex_provenance.py` covers foreign PNG conditioning ids, lost
 databases, missing or mismatched source identities and safe in-place metadata
 remapping. API tests hold a fake before its first callback to check initial
 per-cell progress totals, and API/CLI tests cover axis replacements and the
 capability refusal both before and after loading. The job snapshot's
-`comparison` is asserted true for a prompt-variants grid (`test_api_grid`)
+`comparison` is asserted true for a prompt-variants grid (`test_api_grid_variants`)
 and false for plain and variable grids (`test_api_jobs`). Swap tags is
 `tests/test_tag_swap.py` (the rewrite as text: matching, weights and
 underscores, strictness, rows at once, phrases and lettering, Han, XML,
@@ -7167,7 +7306,7 @@ variables) and `tests/test_api_swap.py` (every per-image status, one job
 per size keeping seeds, sizes and settings, `expected`, `pruned`, the
 filter scope, the negative field, the revision header, the resolver, and
 Re-render over mixed sizes through `cells_from_records`); Re-render's
-picked cards are `tests/test_api_grid.py` (exactly the picks whatever the
+picked cards are `tests/test_api_rerender.py` (exactly the picks whatever the
 filter, oldest first, a binned and a deleted pick named in `deleted`, all
 gone a 404 naming each, `ids` validated, and another checkpoint's picks
 refused with or without All models, named to unpick). Mass refine
@@ -7443,6 +7582,17 @@ the dialog moving:
 ```powershell
 uv run python tools/fake_server.py --port 7912 --model black-forest-labs/FLUX.1-Krea-dev --step 0.3 --data <new-scratch-directory>
 node tools/browser.mjs tools/smoke-then-refine.json
+```
+
+`tools/check_run_continue.py` is a by-hand check of Finish run outside the
+smoke table, not run by CI: it starts its own FLUX.1 Krea [dev] fake on a
+new scratch gallery (`--port`, default 7999, off the table's ports; it
+refuses a port already in use), stops a budgeted grid and a repeat, presses
+Finish run in fresh browser pages, then kills and restarts that fake and
+finishes the interrupted runs, printing where it left its steps and logs:
+
+```powershell
+uv run python tools/check_run_continue.py
 ```
 
 `tests/test_peak.py` covers the peak pair: the row and the chunk, an older
@@ -7883,7 +8033,7 @@ no category for an unmatched setup or a first run on a busy PC;
 non-Eager and other-quantization rows left out, the most-used size then step
 count, the median and its count, the latest rows only, nothing for an empty
 history or a missing database, a reserved gallery refused after the short
-wait) and `test_api_model_switch.py` the field per model with the speed facts
+wait) and `test_api_model_catalogue.py` the field per model with the speed facts
 unchanged and a reserved gallery leaving it out without stalling the reply; `test_model_info.py` covers compact facts
 for every catalogue entry, favourite ids shared by Lite/Nunchaku variants,
 access, Qwen-Image's fit, size labels that never claim an unsourced maximum and the shared
@@ -8022,7 +8172,8 @@ named on its button and a run at the capped size not remembered as the
 scale, the crop's kept percentage and Keep shape - Versions and their
 seeds, the rows and the lightbox's settings line (`refine of #N`), the
 facts' Refined from link and S comparing a pass with its source, a pass past
-4 MP and one past the guard refused in place, Escape on a dialog opened from
+4 MP and one past the guard refused in place, Refine held while a submit
+is in flight and a press saying so, Escape on a dialog opened from
 the lightbox giving the lightbox back on the same image, a strength sweep's
 preview, its sheet axis and `refine:` in the search box, the passes strip
 opening the lightbox beside the source, compared, a sweep that leaves no step refused
@@ -8064,9 +8215,10 @@ as the panel's, with the greyed negative's caption "(needs True CFG > 1 —
 ~2× slower)"; a pass whose source is deleted while it runs (`/api/fake/step`
 slowing it) landing with "(deleted)" in its title and the note and its
 Reuse saying so, `markGoneSource` marking an arriving pass, and a sweep
-stopped by failures when its source went: Resume held, in words, with focus
-kept and nothing sent, and the server's refusal of the resume in the words
-the button reads.
+stopped by failures when its source went: Finish run held with the
+server's reason ("no gallery image with id N") as its title and said at
+every press, focus kept and nothing sent, and the server refusing the POST
+in the same words.
 `smoke-conditioning.json` has the other side
 on its klein fake: the card's, the viewer's and the lightbox's Refine
 answering with the reason and opening nothing.
@@ -8257,13 +8409,13 @@ search on Sheet off, the Sheet button's newest run, pins taking the
 commonest value, F starring a focused cell (said in `#star-said`), the lightbox opened from the
 sheet starring the cell (its star "★ Star", `aria-label` Star, its title
 and `aria-pressed`) and F on the cell it hands focus back to, the Fixed line
-under Starred, the run bar (More seeds of this run… right after Resume
-this run, the run's line "Run … · N images · checkpoint quantization" last,
-on a row of its own under the buttons), Resume this run filling the seed and
-size (its warning keeping the preview's `.totals`), the dead-end pointer
-"Nothing in run … is missing. More seeds of this run… adds seeds." on a run
-with every cell done and not on another grid's mismatch, its mismatch
-warning and its absence on another checkpoint's run, whose More seeds of
+under Starred, the run bar (Finish run, More seeds of this run… right
+after it, the run's line "Run … · N images · checkpoint quantization" last,
+on a row of its own under the buttons), Finish run held with "nothing in
+this run is missing" on a complete run, a press saying it in
+`#gallery-error` and leaving an unrelated composer (its grid, size, seed
+and Resume tick) as it was, offered on a seeds-only run too, and held with
+the server's reason on another checkpoint's run, whose More seeds of
 this run… stays, held with "Made on …", and says it under the gallery's head, the version rows with their edits and titles (a
 reorder as "same words, moved"), a strength sweep's source column and
 lightbox walk, the refined badge, two passes alike on every axis but
@@ -8394,17 +8546,18 @@ its clock ("for 2 min" in the cell line, "⏸ Paused 2 min" in the title, its
 `paused_at` set back past a minute, at the next poll),
 its note gone with its job; the finish line's seed with Use seed and the
 fixed-seed hint; a grid named by its own prompt, skipping a `[fail]` cell
-live, with Show sheet and a Retry that sends its own payload with Resume and
-the base seed, once, keeping focus; the failure rule's "Stopped at cell" and
-Resume, kept as the previous job's while a queued job runs; a plain job
+live, with Show sheet and Finish run sending only its `expected` pin, once,
+with the composer changed since left alone, "Finish sent" keeping focus as
+the previous job's; the failure rule's "Stopped at cell" and Finish run,
+kept as the previous job's while a queued job runs; a plain job
 whose every image failed, said in images ("1 of 1 image was skipped",
 "Stopped at image 3 of 3") and titled "Nothing made"; a cancelled
 job's outcome led by "Previous job:" while the next runs and gone at its
 end; focus after Cancel (Generate) and after Pause held to the end (Use
-seed); a time budget's held ETA and count, and its finish line's Resume
-the remaining N cells (N from the cells the budget reached, "under the same
-0.06-minute budget" in its title) sending the grid once with Resume and its
-budget, then "Resume sent"; the finish line's Use seed then More seeds…, and
+seed); a time budget's held ETA and count, "Time budget reached after
+N/20 cells … Finish run checks the rest.", and its finish line's Finish run
+(its title counting the missing cells from the cells the budget reached and
+naming the "original 0.06-minute budget") sent once, then "Finish sent"; the finish line's Use seed then More seeds…, and
 a done grid's Show sheet then More seeds of this run…; the gallery kept where it was
 scrolled with New image; the offline state through a stubbed fetch and a
 restart through a changed start time; the load's ticker with its
@@ -8502,9 +8655,10 @@ the page at its end (down at its end, up at its top) and the strip while it
 can scroll; 28 at QHD with no padding-only
 scrollbar and the gallery head unmoved from its first frame (`reserveStrip`),
 the wheel over it scrolling the page; the banner's
-"2 since deleted" / "all since deleted"; the banner's Resume after a
-resumed-and-cancelled grid putting the run's base seed in Seed; no Resume
-for a cancelled comparison; a batch of four at QHD followed from its first
+"2 since deleted" / "all since deleted"; the banner's Finish run on a
+cancelled grid that was itself a Resume, finishing the stored run with an
+unrelated composer left as it was; Finish run offered on a cancelled
+comparison; a batch of four at QHD followed from its first
 frame to its end - the preview in the first image's column, no tile moving
 within the strip, the tile size and the gallery head where the first frame
 put them - and the strip fitted alike with the page's scrollbar forced on
@@ -8999,7 +9153,8 @@ own default, said as the library's number and as measured on Animagine XL
 4.0 (`hints.inpaint_strength`); a stubbed `start_sigma` adding "starts at
 51% noise" to the preview, the SDXL fake's none adding nothing; Inpaint
 held with "Paint the part
-of #N to repaint first" and a press saying it; a brush drag, the eraser (E),
+of #N to repaint first" and a press saying it, and held while a submit is
+in flight, a press saying that too; a brush drag, the eraser (E),
 [ and ], a plain wheel scrolling and Alt+wheel sizing, the feather giving
 another hash and 0 the same one again (`created: false`), Invert (I), Ctrl+Z,
 Ctrl+Y and Ctrl+Shift+Z, I in the Seed box painting nothing, the keyboard

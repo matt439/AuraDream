@@ -192,7 +192,7 @@ def test_the_menu_prints_the_equivalent_command(clean_env):
 
 
 def test_menu_flag_asks_and_sets_the_environment(clean_env):
-    choice = launch.configure(["--menu"], ask=answers("", "2", ""), out=io.StringIO(), interactive=True)
+    choice = launch.configure(["--menu"], ask=answers("", "2", ""), out=io.StringIO())
     assert choice is not None
     import os
 
@@ -201,14 +201,14 @@ def test_menu_flag_asks_and_sets_the_environment(clean_env):
     assert os.environ["AURADREAM_OFFLOAD"] == "model"
 
 
-def test_no_arguments_on_a_terminal_never_asks(clean_env):
-    assert launch.configure([], ask=never_ask, interactive=True) is None
+def test_no_arguments_never_ask(clean_env):
+    assert launch.configure([], ask=never_ask) is None
 
 
 def test_any_argument_skips_the_menu(clean_env):
     import os
 
-    assert launch.configure(["--model", TURBO], ask=never_ask, interactive=True) is None
+    assert launch.configure(["--model", TURBO], ask=never_ask) is None
     assert os.environ["AURADREAM_MODEL_ID"] == TURBO
     assert "AURADREAM_QUANT" not in os.environ, "what the flags do not name is left to config.py"
 
@@ -216,17 +216,13 @@ def test_any_argument_skips_the_menu(clean_env):
 def test_defaults_flag_skips_the_menu_and_touches_nothing(clean_env):
     import os
 
-    assert launch.configure(["--defaults"], ask=never_ask, interactive=True) is None
+    assert launch.configure(["--defaults"], ask=never_ask) is None
     assert "AURADREAM_MODEL_ID" not in os.environ
-
-
-def test_without_a_terminal_there_is_no_menu(clean_env):
-    assert launch.configure([], ask=never_ask, interactive=False) is None
 
 
 def test_a_bad_quant_flag_is_rejected_by_argparse(clean_env):
     with pytest.raises(SystemExit) as exc:
-        launch.configure(["--quant", "fp4"], ask=never_ask, interactive=True)
+        launch.configure(["--quant", "fp4"], ask=never_ask)
     assert exc.value.code == 2
 
 

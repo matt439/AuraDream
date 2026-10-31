@@ -7,7 +7,7 @@
 // matches. A batch is one run's
 // images that agree on everything but the seed, so two picked images of one
 // batch ask for N more of it, not N of each. The server decides everything
-// (`more_seeds.py`, `api_more_seeds.more_seeds_plan`): the batches, their next seeds
+// (`more_seeds.py`, `more_seeds_planner.more_seeds_plan`): the batches, their next seeds
 // - one past the highest the gallery holds of each, stepping over any
 // already made or queued - the Batch they run at (the batch's own where its
 // images recorded it, else the panel's), and what cannot run: another
@@ -434,44 +434,22 @@ const msSeeds = (low, high) => (low === high ? `seed ${low}` : `seeds ${low}–$
 // A batch's row: its newest picked image, what the gallery holds of it, the
 // seeds it gets and the Batch they run at - or why it gets none.
 function moreSeedsRow(result) {
-  const li = document.createElement('li');
-  li.className = 'ms-result';
-  li.dataset.id = result.id;
-  li.dataset.status = result.status;
-  if (result.thumb_url) {
-    const img = document.createElement('img');
-    img.src = result.thumb_url;
-    img.alt = '';
-    img.loading = 'lazy';
-    li.append(img);
-  } else {
-    li.append(Object.assign(document.createElement('span'), { className: 'ms-thumb-gone' }));
-  }
-  const body = document.createElement('div');
-  body.className = 'ms-body';
-  const head = document.createElement('p');
-  head.className = 'ms-line';
-  const chip = Object.assign(document.createElement('span'), { className: 'ms-chip', textContent: MS_CHIP[result.status] ?? result.status });
-  head.append(`#${result.id} `, chip);
+  const { li, body, head } = resultRow(result, 'ms', MS_CHIP);
   if (result.status !== 'deleted') {
     head.append(` ${plural(result.images, 'image')}, ${msSeeds(result.seed_low, result.seed_high)}`);
     if (result.queued) {
       head.append(` → ${msSeeds(result.first, result.last)}${result.skipped ? ` (${result.skipped} already made, stepped over)` : ''} · Batch ${result.batch}`);
     }
   }
-  body.append(head);
   if (result.prompt) {
     body.append(Object.assign(document.createElement('p'), {
       className: 'ms-prompt', textContent: snippet(result.prompt, 140), title: result.prompt,
     }));
   }
   if (result.detail && result.status !== 'queued') {
-    body.append(Object.assign(document.createElement('p'), { className: 'ms-detail', textContent: result.detail }));
+    body.append(Object.assign(document.createElement('p'), { className: 'ms-detail batch-detail', textContent: result.detail }));
   }
-  if (result.notes?.length) {
-    body.append(Object.assign(document.createElement('p'), { className: 'ms-notes', textContent: result.notes.join(' · ') }));
-  }
-  li.append(body);
+  resultNotes(body, result, 'ms');
   return li;
 }
 

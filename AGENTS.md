@@ -76,31 +76,38 @@ Backend (`backend/`):
   directories; Eager stays cold and no public recipe is activated
 - `schemas.py` re-exports the request/response models, each defined in
   `schemas_generate.py` (the generation request and `applied()`, grids, job
-  answers, Load settings from PNG's), `schemas_prompt.py` (Expand, Check, critic, tag lookup),
+  answers, Load settings from PNG's), `schemas_outpaint.py` (an outpaint's
+  spec, the mask and preset answers), `schemas_prompt.py` (Expand, Check, critic, tag lookup),
   `schemas_gallery.py` (records, runs, bin), `schemas_rerun.py` (Re-render,
-  Swap tags, Mass refine, More seeds) or `schemas_model.py` (model status,
-  guide, switch); `model_defaults.py` per-checkpoint profiles; `guides.py` each checkpoint's sourced prompting guide and its
+  Swap tags, Mass refine, More seeds), `schemas_model.py` (model status,
+  guide, switch) or `schemas_snippets.py` (personal prompt snippets), with
+  the instruction edit's spec from `instruction_edit.py`; `model_defaults.py` per-checkpoint profiles; `guides.py` each checkpoint's sourced prompting guide and its
   `analysis` data
 - `main.py` lifecycle, model state, switching and the model routes;
   `app_context.py` the `AppServices` getters routers read main through;
   `detached.py` daemon-thread calls; `api_prompt.py` tag helper and prompt
   routes, `prompt_check.py` Check's layer 1, `tag_lookup.py` the Danbooru
   lookup (`tag_vocabulary`); `submission.py` submit checks and the gallery
-  selection; `api_generate.py` generate/grid/Re-render, `api_swap.py`,
-  `api_refine_batch.py`, `api_more_seeds.py` the gallery actions' routes;
+  selection, its service-free checks and wording in `submission_rules.py`
+  (what the CLI imports); `api_generate.py` generate and grid,
+  `api_rerender.py` Re-render, `api_runs.py` run details and Finish run,
+  `api_swap.py`,
+  `api_refine_batch.py`, `api_more_seeds.py` the gallery actions' routes
+  (More seeds' plan in `more_seeds_planner.py`, which run details share);
   `api_png.py` Load settings from PNG (a PNG's text chunks as the panel's
   settings, after `applied()`); `api_masks.py` an inpaint's mask stored
   and served by its hash, and an outpaint's presets
   (`GET /api/images/{id}/outpaint-presets`); `outpaint.py` an outpaint's
   pure parts (the padded source and its fills, the built mask, the presets);
   `api_gallery.py`, `api_jobs.py` the gallery and job routes; `api_bundles.py` browser bundle
-  routes and maintenance admission; `bundles.py` verified export/merge,
+  routes, re-exporting `bundle_manager.py` (maintenance admission,
+  `BundleManager`/`GalleryAdmission`) and `schemas_bundles.py` (its bodies); `bundles.py` verified export/merge,
   `bundle_archive.py` the archive format and its verifying read,
   `bundle_images.py` a tracked PNG's identity, row checks and metadata
   rewrite, `bundle_common.py` their errors and database reads,
   `bundle_crypto.py` its optional password layer;
   `backup_policy.py` pure default-off backup age and retention planning;
-  `backup_preferences.py` atomic database-scoped backup policy sidecars;
+  `backup_preferences.py` the backup settings sidecar's path (its v1 format legacy);
   `backup_settings.py` explicit versioned activation and durable backup scope;
   `backup_credentials.py` cold Windows credential references, explicit setup and
   admitted-worker secret lookup; `failure_state.py` traceback-free quarantine snapshots;
@@ -122,25 +129,35 @@ Backend (`backend/`):
   syntax, without changing existing sidecar or snippet readers; `api_presets.py`
   exposes bounded export/preview/import, with atomic commit under `presets.py`'s
   reservation (raw drafts only: no capture validation, model, queue or Hub)
+- `snippets.py` bounded atomic personal prompt snippets beside the startup
+  preferences, under their own cross-process reservation
 - `snippet_portability.py` - cold portable snippet codec, collection/input
   digests and pure merge plans; `schemas_snippet_portability.py` owns strict
   portable documents and file-index choices; `api_snippets.py` exposes bounded
-  export/preview/import, with atomic commit under `snippets.py`'s reservation
+  export/preview/import, with atomic commit under `snippets.py`'s reservation;
+  `bounded_route.py` the route class both import routers read their bounded
+  bodies through, each keeping its own words and error mapping
 - `saved_searches.py` bounded atomic database-scoped gallery filters,
   `schemas_saved_searches.py` their strict fields and revisions, and
   `api_saved_searches.py` model-free CRUD independent of gallery maintenance;
-  `web/saved-searches.js` owns their explicit dialog and filter transition
+  `web/saved-searches.js` owns their explicit dialog; its Apply is
+  `web/gallery.js`'s one filter transition (`applyGalleryFilter`)
 - `bundle_leases.py` archive reader/exclusive leases, complete download/import
   lifetimes and uncertain-input quarantine, with opt-in shared companion locks in
   `bundle_file_lock.py`; `bundle_mode.py` explicit Windows/NTFS mode installation
   and destination discovery; `bundle_delete.py` same-handle managed
   deletion mechanism; `bundle_capacity.py` managed-export logical-byte budgets
-- `jobs.py` single-worker queue and SSE; `storage.py` SQLite + PNGs;
-  `metadata.py` the PNG chunk's key, legacy `krea` reader and file-placement guard;
+- `jobs.py` single-worker queue and SSE; `job_state.py` the `Job` record and
+  its status snapshot (`jobs` re-exports it); `error_text.py` `short_error`,
+  stdlib only (`jobs` re-exports it); `storage.py` SQLite + PNGs;
+  `metadata.py` the PNG chunk's key and codec, legacy `krea` reader and file-placement guard;
+  `record_fields.py` the pure row/chunk field codecs (mask hash, outpaint
+  chunk, peaks), imported back into storage by name;
   `png_settings.py` a PNG's record and A1111 'parameters' block read back
   (`--from-image` and `api_png.py` share it);
   `gallery_reports.py` estimates, keep rates, runs; `gallery_delete.py`
-  scoped delete, recycle bin, clear;
+  scoped delete, recycle bin, clear; `run_jobs.py` retained run jobs (Finish
+  run's cells and outcomes, reached as `storage.<name>`);
   `search.py` search grammar; `grid.py` axes, variables, variants, cells,
   records as cells (`cell_from_record`); `tag_swap.py` Swap tags' rewrite;
   `refine_batch.py` Mass refine's per-image plan; `then_refine.py` Then
@@ -160,10 +177,12 @@ Backend (`backend/`):
 - Prompt analyser: `prompt_encoding.py` (tokenizers), `encoder_table.py`
   (each checkpoint's encoders and copied pipeline templates),
   `prompt_weighting.py` (literal weighting syntax), `prompt_text.py`,
-  `prompt_order.py`, `prompt_rules.py` (rule checks), `prompt_sources.py`
+  `prompt_parts.py` (a hybrid prompt's tag and prose passages, read in
+  context), `prompt_order.py`, `prompt_rules.py` (rule checks), `prompt_sources.py`
   (what the critic may cite), `critic.py` + `critic_runtime.py`,
   `critic_server.py`, `critic_context.py`, `critic_reorder.py`,
-  `critic_validation.py`; `tags.py` Danbooru lookup; `translation.py`
+  `critic_validation.py`, `critic_issues.py` (what an issue restates or
+  wants of the order); `tags.py` Danbooru lookup; `translation.py`
   ERNIE's Marian translation
 - `backends/`: `base.py` (the ABC), `diffusers_backend.py`, `loading.py`
   (everything decided before the weights move), `schedule.py` (mu, sigmas,
@@ -173,7 +192,9 @@ Backend (`backend/`):
   (private per-call cache ownership, cleanup and deferred disposal),
   per-checkpoint converters and pipelines (`single_file`,
   `anima_*`, `netayume_loading`, `newbie_*`)
-- CLIs: `generate.py`, `clear.py`, `stats.py`, `reindex.py`
+- CLIs: `generate.py` (its arguments and the checks that need only the
+  flags in `generate_args.py`, the `--via-server` client in
+  `generate_remote.py`), `clear.py`, `stats.py`, `reindex.py`
 
 Frontend (`web/`, served from `/static`): `index.html` loads classic scripts
 in order, sharing one global scope; only `app.js`, the last, runs anything.
@@ -192,7 +213,9 @@ it never writes the composer's prompt, negative or references.
 merge dialog; it preserves the editor and prompt boxes, with no automatic retry.
 `setup-import.js` owns Saved setups Export…/Import… and its separate merge
 dialog; it never calls `setupSummary`, keeps the editor, composer and Undo,
-and never resends an uncertain import.
+and never resends an uncertain import. `import-merge.js` holds what the two
+merge dialogs share (the rows, choice reasons and holds), stateless; each
+file keeps its own state, preview, commit and uncertain-import flow.
 
 Also: `tools/` (fake server, headless-browser smokes), `tests/`, `wsl/`,
 `docs/`.
@@ -255,8 +278,9 @@ Reproduction and storage:
 
 - Seeds are drawn from `2**53 - 1` and wrapped at `2**63 - 1` (`seeds.py`);
   one generator per image, seeded `seed + i`.
-- `grid.expand()` is the one cell loop; `jobs.submit()` and `generate.py`
-  keep deliberate copies, held equal by `tests/test_cli.py`. Gallery records
+- `grid.expand()` is the one cell loop, the CLI's too; `jobs.submit()` keeps
+  a deliberate copy of its seed loop, held equal by `tests/test_jobs.py`
+  (and the CLI's seeds by `tests/test_cli.py`). Gallery records
   run again (Re-render, Swap tags, Mass refine, More seeds) become cells only
   through `grid.cell_from_record`, their images through
   `submission.resolve_selection`.
@@ -264,7 +288,8 @@ Reproduction and storage:
   chunk; `CellKey`/`run_id` widen without changing existing ids. The peak
   GPU memory pair beside it is a result, never in `CellKey`, `run_id` or
   `applied()`.
-- A new column needs a `_migrate` entry; `_row_to_record` reads unguarded.
+- A new column needs a `_migrate` entry (`storage._ADDED_COLUMNS`, which a
+  bundle merge's types also come from); `_row_to_record` reads unguarded.
 - `save_image` writes `.png.part` and renames after the row commits.
 - Page deletes bin (`binned_at`); live reads exclude it,
   `_tracked_files`/`existing_*`/bundles/`clear`/`completed_cells`/`lineage_images`/
@@ -410,7 +435,8 @@ pull request run tested the same tree. Its runners are
 slow and have no GPU driver: a test that races a clock (a time budget, a
 cell to skip or pause mid-run) needs seconds of margin, not milliseconds.
 `tools/fetch_tokenizers.py` fetches the real-tokenizer tests' files first,
-with the `HF_TOKEN` repository secret for the two gated repos.
+with the `HF_TOKEN` repository secret for the gated repos its list names
+(FLUX.1-Krea-dev, FLUX.1-Kontext-dev, Krea 2 Turbo).
 
 The UI is checked with smokes: start a fake server, then run the smoke.
 What each smoke covers is listed in `docs/rules.md` under Tests.

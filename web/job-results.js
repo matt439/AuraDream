@@ -39,7 +39,7 @@ function syncFinishLead() {
 // A press on a held Pause or Unload says why (`jobNote`), which goes when the
 // job ends. A finished job's outcome - a cancel, its time budget, an error,
 // the cells it skipped (`jobOutcome`) - lasts as its finish line does: led by
-// "Previous job:" while another runs (#error.previous, style.css), and gone
+// "Previous job:" while another runs (#error.previous, styles/generation.css), and gone
 // once the next job's end is drawn. Both used to stay until the next press of
 // Generate, and under a queued job's own finish line "Cancelled before
 // anything finished." read as that job's outcome.
@@ -295,14 +295,7 @@ function noteOutsideView(images, coming) {
 // The gallery unfiltered: the search box emptied, Starred off, the sheet
 // closed, the recycle bin left - the escape the scope note offers.
 function showAllImages() {
-  outsideView = null;
-  leaveBin();
-  els.search.value = '';
-  els.favOnly.checked = false;
-  sheetReturn = null;
-  if (sheetMode) setSheet(false);
-  else resetGallery();
-  loadRuns();
+  void applyGalleryFilter({ query: '', favorites: false });
 }
 
 // Intentional skips are missing work even when the job ended without an
@@ -520,7 +513,7 @@ async function joinFinished(page, epoch, now = false) {
 // - is said with a press that goes to it: "New image ↑" or "↓". Never a
 // scroll of the page's own, which would take the gallery from under the
 // pointer. In one column the button is a pill fixed under the topbar
-// (style.css): in the static panel it was as far out of view as the viewer.
+// (styles/generation.css): in the static panel it was as far out of view as the viewer.
 // Gone once the viewer is in view, however it got there; its arrow follows a
 // scroll that jumps past the viewer without showing it (End, Home).
 let viewerWatch = null;

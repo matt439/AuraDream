@@ -1,6 +1,8 @@
 // AuraDream's last page script: the event wiring and the boot.
 // Everything called here is declared in the files index.html loads before
-// it; state.js has the load-order contract.
+// it, but for the few bindings only the wiring uses, declared here
+// (searchTimer, galleryHead, focusPromptBox, TOKENS_AIMED); state.js has the
+// load-order contract.
 'use strict';
 
 // --------------------------------------------------------------------- wire
@@ -121,7 +123,7 @@ els.prompt.addEventListener('input', (event) => {
   scheduleTagValidation();
 });
 // The check read the negative prompt too; editing it dims the check as well.
-// On a tag checkpoint it has its own suggestion list (tags.js), asked as the
+// On a tag checkpoint it has its own suggestion list (tag-lists.js), asked as the
 // Refine dialog's prompt asks, and gone when the box loses focus.
 els.negative.addEventListener('input', (event) => { syncAnalysisStale(); suggestNegativeTags(event); });
 els.negative.addEventListener('click', suggestNegativeTags);
@@ -341,7 +343,7 @@ els.rerender.onclick = rerenderSelection;
 els.deleteUnstarred.onclick = deleteUnstarred;
 // Re-render and Delete unstarred come and go once the pointer is off the
 // head's controls - the footer row under them is not (showInHead,
-// gallery-actions.js).
+// gallery-head.js).
 const galleryHead = els.library.querySelector('.gallery-head');
 galleryHead.addEventListener('pointerover', (e) => pointHead(!e.target.closest('.gallery-footer')));
 galleryHead.addEventListener('pointerleave', () => pointHead(false));
@@ -375,7 +377,7 @@ els.picked.addEventListener('focusout', (e) => {
   if (!els.pickedMenu.hidden && !els.picked.contains(e.relatedTarget)) showPickedMenu(false);
 });
 // Re-render takes the picked cards, and the head keeps its rows as they
-// change (syncHeadForPicks, gallery-actions.js).
+// change (syncHeadForPicks, gallery-head.js).
 onSelectionChange(syncHeadForPicks);
 // Swap tags in the gallery's footer row and its dialog (tag-swap.js).
 setupSwap();

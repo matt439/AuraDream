@@ -33,6 +33,38 @@ function resetGallery() {
   return pending ? pending.then(loadGallery) : loadGallery();
 }
 
+// One transition owns all three controls, including the sheet/bin escape:
+// saved searches' Apply, the scope note's Show all, the Models picker's See
+// all and a bundle's Show. Close the old view without reading it, then
+// replace its epoch once. A sheet never gets to put back the search it
+// replaced after this explicit apply, a debounced read of the box it replaced
+// never resets the gallery again, and a finished job's images outside the old
+// view start their count afresh. `all_models` left out keeps the box as it is;
+// `bin` shows the recycle bin in the gallery's place, whose own view has no
+// Runs list to load.
+function applyGalleryFilter({ query, favorites, all_models, bin = false }) {
+  clearTimeout(searchTimer);
+  outsideView = null;
+  if (!bin) leaveBin();
+  sheetReturn = null;
+  if (sheetMode) void setSheet(false, { reload: false });
+  els.search.value = query;
+  els.favOnly.checked = favorites;
+  if (all_models !== undefined) els.allModels.checked = all_models;
+  if (bin && !binMode) { enterBin(); return Promise.resolve(); }
+  const opened = resetGallery();
+  if (!bin) void loadRuns();
+  return opened;
+}
+
+// After a navigation from a dialog or picker: the gallery's head brought up
+// and the search box given the focus, where the results are.
+function revealGallerySearch() {
+  const reduce = window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+  document.querySelector('.gallery-head').scrollIntoView({ block: 'start', behavior: reduce ? 'auto' : 'smooth' });
+  els.search.focus({ preventScroll: true });
+}
+
 function loadGallery() {
   // One page at a time. Nothing else serialises this - a double-clicked "Load
   // more", or an arrow key held down in the lightbox - and two calls reading
@@ -179,7 +211,7 @@ function watchMore() {
   moreWatcher.observe(els.more);
 }
 
-// How the cards are drawn from 1800 px (style.css; the pairs in the head
+// How the cards are drawn from 1800 px (styles/gallery.css; the pairs in the head
 // are shown only there): `density` S, smaller cards and more to a row, or M,
 // the wide tier's own; `fit` the whole picture letterboxed (contain, the
 // default) or the card filled and the picture cut to its middle (cover).
@@ -244,14 +276,14 @@ function armMore() {
 // ------------------------------------------------------------ gallery beside
 
 // From 2000 px the gallery can stand in a column of its own at the window's
-// right (style.css, `.stage.beside`), scrolling by itself, so its cards stay
+// right (styles/gallery.css, `.stage.beside`), scrolling by itself, so its cards stay
 // in view however tall the viewer is: stacked under it, a single image left
 // one row of cards in view at QHD and a long run none. A tick in the gallery
 // head, off by default and remembered per browser - not part of the panel,
 // so Reset leaves it. In effect only while the window is that wide and the
 // contact sheet is closed: a sheet is laid out for the stage's whole width,
 // so the page goes back to one column for it and lands on it (setSheet).
-// The prompt check, open, takes the column's place (style.css).
+// The prompt check, open, takes the column's place (styles/analysis.css).
 const BESIDE_KEY = 'auradream.gallery-beside';
 const BESIDE_MEDIA = '(min-width: 2000px)';
 // Whether it is in effect, which the stage's class says to the stylesheet.
@@ -317,7 +349,7 @@ function releaseGallery() {
 
 // Cards put in ahead of the ones the gallery's own column shows while it is
 // scrolled down keep those where they were, as the page's anchoring keeps a
-// gallery it is scrolled into: the column has none of its own (style.css), so
+// gallery it is scrolled into: the column has none of its own (styles/gallery.css), so
 // the first card or line in its view is measured across the change and the
 // column scrolled by what it moved. At the column's top the new cards come
 // in at the top, in view.
@@ -458,7 +490,7 @@ function card(rec) {
   const tools = document.createElement('div');
   tools.className = 'tools';
   // What the card is, just over its tools on hover and keyboard focus -
-  // "#12 · 1024×1024 · seed 5" - which style.css draws from these, as it
+  // "#12 · 1024×1024 · seed 5" - which styles/sheet.css draws from these, as it
   // does the tools' names, with empty alt text: the image's label and title
   // say it already. A pseudo-element, so the row's children stay its tools.
   Object.assign(tools.dataset, { n: rec.id, size: `${rec.width}×${rec.height}`, seed: rec.seed });
@@ -503,7 +535,7 @@ function showRecordRun(rec) {
 }
 
 // `tip` is the short name the row shows on hover and keyboard focus
-// (style.css draws it from data-tip): the title is the long one, and a native
+// (styles/gallery.css draws it from data-tip): the title is the long one, and a native
 // title came a second late or not at all.
 function tool(label, title, onClick, tip = '') {
   const b = document.createElement('button');
@@ -796,187 +828,4 @@ function rowNeighbour(cards, at, down) {
     if (!best || off < best.off) best = { card: cards[i], off };
   }
   return best?.card;
-}
-
-function modelsDiffer(modelId) {
-  return !!loadedModel && !!modelId && modelId !== loadedModel;
-}
-
-// Warn before the click, not only after the panel has already been replaced.
-// Gallery cards use a compact glyph; the lightbox has room for the full label.
-// The data attributes let the first status response update buttons that were
-// rendered while the server was still answering. `rec` is the record, or as
-// much of it as the button keeps: its checkpoint, the source of a pass, its
-// references and adapter.
-function syncReuseButton(button, rec, compact = false) {
-  const modelId = rec.model_id;
-  const pass = rec.refine ?? null;
-  button.dataset.reuseModel = modelId || '';
-  button.dataset.reusePass = pass ?? '';
-  button.dataset.reuseMask = rec.mask ?? '';
-  // An outpaint's spec by its key (`fill:L,T,R,B@band`), so a status
-  // refresh rebuilds an outpaint's button rather than an inpaint's.
-  button.dataset.reuseOutpaint = rec.outpaint ? outpaintKey(rec.outpaint) : '';
-  button.dataset.reuseReference = (rec.reference ?? []).join(',');
-  button.dataset.reuseLora = rec.lora || '';
-  button.dataset.reuseExecution = JSON.stringify(rec.execution ?? null);
-  button.dataset.reuseEdit = String(rec.edit != null);
-  // An edit's source, and whether it has gone, for a refresh to rebuild an
-  // edit's button with its hold (`editReuseReason`).
-  button.dataset.reuseEditSource = rec.edit?.source ?? '';
-  button.dataset.reuseEditGone = String(!!rec.edit_missing);
-  button.dataset.reuseEditBinned = String(!!rec.edit_binned);
-  button.dataset.reuseCompact = String(compact);
-  button.classList.add('reuse-settings');
-  const executionReason = executionReuseReason(rec);
-  if (executionReason) {
-    button.textContent = compact ? '\u21b6' : rec.edit != null ? 'Reuse instruction edit' : 'Reuse settings';
-    button.setAttribute('aria-disabled', 'true');
-    button.setAttribute('aria-label', rec.edit != null ? 'Reuse instruction edit (unavailable)' : 'Reuse settings (unavailable execution recipe)');
-    button.title = executionReason;
-    button.dataset.tip = 'Reuse unavailable';
-    return;
-  }
-  button.removeAttribute('aria-disabled');
-  // An edit's opens Edit by instruction\u2026 on its source with its instruction,
-  // seed, steps and guidance (`reuseEdit`) - never the panel, so no
-  // checkpoint warning: the dialog says what runs it.
-  if (rec.edit != null) {
-    button.classList.remove('model-mismatch');
-    button.textContent = compact ? '\u21bb' : 'Reuse instruction edit\u2026';
-    button.title = `Open Edit by instruction\u2026 on #${rec.edit.source} with this edit's instruction, seed, steps and guidance`;
-    button.setAttribute('aria-label', 'Reuse instruction edit');
-    button.dataset.tip = 'Reuse edit\u2026';
-    return;
-  }
-  const mismatch = modelsDiffer(modelId);
-  // The running checkpoint by the name the topbar gives it (checkpointName):
-  // NetaYume v4's repository is named for its parent model.
-  const from = checkpointName(modelId);
-  const current = checkpointName(loadedModel);
-  const warning = `generated with ${from}; the current model is ${current}`;
-  button.classList.toggle('model-mismatch', mismatch);
-  // A refined record's Reuse opens the Refine dialog on its source with the
-  // pass as it ran (`reusePass`), where "Load these settings into the panel"
-  // promised the panel and a dialog opened on another image.
-  // A pass whose source has been deleted cannot be made again: its Reuse
-  // fills the panel (reusePass), and says so before the click rather than
-  // promising a dialog on an image that is gone.
-  const gone = pass != null && !!rec.refine_missing;
-  button.dataset.reusePassGone = String(gone);
-  button.dataset.reusePassBinned = String(gone && !!rec.refine_binned);
-  // An outpaint's opens the Outpaint dialog on its source with its sides,
-  // band and fill (`reuseOutpaint`) - first, since it has a mask as well.
-  if (pass != null && !gone && rec.outpaint) {
-    button.textContent = compact ? (mismatch ? '⚠' : '↻') : `${mismatch ? '⚠ ' : ''}Reuse outpaint…`;
-    button.title = mismatch ? `Warning: ${warning}`
-      : `Open the Outpaint dialog on #${pass} with this outpaint's sides, band, strength and seed`;
-    button.setAttribute('aria-label', `Reuse outpaint in the Outpaint dialog${mismatch ? ` (warning: ${warning})` : ''}`);
-    button.dataset.tip = 'Reuse outpaint…';
-    return;
-  }
-  // An inpaint's opens the Inpaint dialog on its source with its mask
-  // (`reuseInpaint`).
-  if (pass != null && !gone && rec.mask) {
-    button.textContent = compact ? (mismatch ? '⚠' : '↻') : `${mismatch ? '⚠ ' : ''}Reuse inpaint…`;
-    button.title = mismatch ? `Warning: ${warning}`
-      : `Open the Inpaint dialog on #${pass} with this inpaint's mask, strength and seed`;
-    button.setAttribute('aria-label', `Reuse inpaint in the Inpaint dialog${mismatch ? ` (warning: ${warning})` : ''}`);
-    button.dataset.tip = 'Reuse inpaint…';
-    return;
-  }
-  if (pass != null && !gone) {
-    button.textContent = compact ? (mismatch ? '⚠' : '↻') : `${mismatch ? '⚠ ' : ''}Reuse pass…`;
-    button.title = mismatch ? `Warning: ${warning}`
-      : `Open the Refine dialog on #${pass} with this pass's size, strength and seed`;
-    // Led by the words shown ("Reuse pass…"), so a voice command that says
-    // what it reads finds the button.
-    button.setAttribute('aria-label', `Reuse pass in the Refine dialog${mismatch ? ` (warning: ${warning})` : ''}`);
-    button.dataset.tip = 'Reuse pass…';
-    return;
-  }
-  const lost = mismatch ? notCarried(rec) : '';
-  const why = !gone ? '' : rec.refine_binned
-    ? `; #${pass}, its source, is in the recycle bin - restore it to make the pass again`
-    : `; #${pass}, its source, has been deleted, so the pass cannot be made again`;
-  button.textContent = compact ? (mismatch ? '⚠' : '↻') : `${mismatch ? '⚠ ' : ''}Reuse settings`;
-  button.title = mismatch ? `Warning: ${warning}${lost}${why}` : `Load these settings into the panel${why}`;
-  button.setAttribute('aria-label', mismatch ? `Reuse settings (warning: ${warning}${lost}${why})` : 'Reuse settings');
-  button.dataset.tip = mismatch ? 'Reuse - other model' : 'Reuse';
-}
-
-// A card's image title: the facts that tell it from the card beside it, a
-// pass's source and strength among them - "(deleted)" where the source has
-// gone, "(in the recycle bin)" where it waits there (goneWord), as the
-// lightbox's facts say it.
-function cardTitle(rec) {
-  const pass = rec.refine != null
-    ? ` · ${passWord(rec)} of #${rec.refine}${outpaintOf(rec)}${rec.refine_missing ? ` (${goneWord(rec)})` : ''} @ ${rec.strength}`
-    // An instruction edit says its source, gone or not, as a pass does.
-    : rec.edit != null
-      ? ` · edit of #${rec.edit.source ?? '?'}${rec.edit_missing ? ` (${editGoneWord(rec)})` : ''}` : '';
-  return `#${rec.id} · ${rec.width}×${rec.height} · seed ${rec.seed}${pass}\n${rec.prompt}`;
-}
-
-// What a pass is called - "outpaint", "inpaint" or "refine" - by what its
-// row carries: an outpaint has a mask as well, built by the server.
-function passWord(rec) {
-  return rec.outpaint ? 'outpaint' : rec.mask ? 'inpaint' : 'refine';
-}
-
-// An outpaint's padding after its source, " +400/+0/+400/+0", else ''.
-function outpaintOf(rec) {
-  return rec.outpaint ? ` ${outpaintSidesText(rec.outpaint)}` : '';
-}
-
-// Where a pass's gone source went (`refine_missing`): "deleted", or "in the
-// recycle bin" (`refine_binned`), from which a Restore brings it back.
-function goneWord(rec) {
-  return rec.refine_binned ? 'in the recycle bin' : 'deleted';
-}
-
-// The same for an instruction edit's source (`edit_missing`, `edit_binned`).
-function editGoneWord(rec) {
-  return rec.edit_binned ? 'in the recycle bin' : 'deleted';
-}
-
-// What a Reuse here leaves behind, as fillPanel decides it - references where
-// the checkpoint takes none, an adapter the LoRA box does not offer - for the
-// warning to name before the click; the note after it says so again.
-function notCarried(rec) {
-  const references = rec.reference?.length && !referenceSupported;
-  const adapter = rec.lora && !(loraSupported && [...els.lora.options].some((o) => o.value === rec.lora));
-  const what = [
-    references && `its reference image${rec.reference.length === 1 ? '' : 's'}`,
-    adapter && 'its adapter',
-  ].filter(Boolean);
-  return what.length ? `; ${what.join(' and ')} will not carry over` : '';
-}
-
-function reuseButton(rec, compact = false) {
-  const button = tool('', '', () => reuse(rec));
-  syncReuseButton(button, rec, compact);
-  return button;
-}
-
-function syncReuseButtons() {
-  document.querySelectorAll('.reuse-settings').forEach((button) => {
-    const kept = button.dataset;
-    syncReuseButton(button, {
-      model_id: kept.reuseModel,
-      refine: kept.reusePass ? +kept.reusePass : null,
-      mask: kept.reuseMask || null,
-      outpaint: parseOutpaintKey(kept.reuseOutpaint),
-      refine_missing: kept.reusePassGone === 'true',
-      refine_binned: kept.reusePassBinned === 'true',
-      reference: kept.reuseReference ? kept.reuseReference.split(',').map(Number) : [],
-      lora: kept.reuseLora || null,
-      execution: JSON.parse(kept.reuseExecution || 'null'),
-      edit: kept.reuseEdit === 'true' ? { source: kept.reuseEditSource ? +kept.reuseEditSource : null } : null,
-      edit_missing: kept.reuseEditGone === 'true',
-      edit_binned: kept.reuseEditBinned === 'true',
-    }, kept.reuseCompact === 'true');
-  });
-  // More seeds… is held on another checkpoint's images the same way.
-  syncMoreSeedsTools();
 }

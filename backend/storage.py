@@ -8,7 +8,6 @@ and their names still resolve here through `__getattr__` at the end.
 from __future__ import annotations
 
 import base64
-import gzip
 import hashlib
 import importlib
 import json
@@ -30,6 +29,7 @@ from PIL import Image, PngImagePlugin
 from .config import settings
 from .execution import canonical_execution, execution_chunk, execution_from_json, execution_key
 from . import gallery_lock, refine
+from .bundle_common import BundleError
 # The key elements that are built from columns here and from a request
 # in `grid`: one spelling of each, or a resume compares strings that only look
 # alike. `grid` imports neither this module nor anything that does.
@@ -37,11 +37,18 @@ from .grid import lora_key, mask_key, reference_key, refine_key, shape_key
 from .instruction_edit import InstructionEditSource, descriptor_from_image, edit_key
 from .metadata import PNG_MASK_KEY, PNG_METADATA_KEY, canonical_edit, edit_chunk, edit_from_json, validate_edit_record
 from .png_settings import crop_anchor as _crop_anchor
+# The pure codecs, imported back by name: storage uses most of them, and the
+# reindex, the bundle layer and the CLI reach all of them as `storage.<name>`.
+from .record_fields import (  # noqa: F401 - re-exported for storage.<name>
+    _MASK_HASH, _batch, _canonical_outpaint, _mask, _peak, _upscaler, chunk_outpaint, malformed_outpaint,
+    mask_hash, mask_provenance, outpaint_chunk, outpaint_mask_hash, outpaint_parameters, peak_chunk,
+    rebuilt_outpaint_mask, recovered_outpaint,
+)
 from .search import like_escape, parse_search
 from .schemas import ImageRecord, OutpaintSpec, effective_true_cfg
 
 if TYPE_CHECKING:
-    from .grid import Cell, CellKey
+    from .grid import CellKey
     from .schemas import GenerateRequest
 
 log = logging.getLogger(__name__)
@@ -54,7 +61,7 @@ _mask_lock = threading.Lock()
 # 160 px squares under 1800 px and 200-260 CSS px from there (--thumb-min's
 # clamp: 245 at 2560, 217 at 2048, 271 device px at 125%), each showing the
 # whole frame on its long side, so 384 covers a card at any shape. A sheet
-# cell larger than this takes the PNG instead (sheet.js's srcset). A
+# cell larger than this takes the PNG instead (sheet-render.js's srcset). A
 # 2048x2048 PNG is 5 MB on disk and 17 MB decoded, and a page of 48 of them
 # was 400 MB of bitmap to paint 48 squares.
 THUMB_SIDE = 384
@@ -246,6 +253,64 @@ CREATE TABLE IF NOT EXISTS run_jobs (
 """
 
 
+# The columns `_migrate` adds to a table an older build wrote: (name, SQL
+# type, index or None). A bundle import's staged copy takes its types from
+# here too (`bundles`), so a new column is listed once.
+_ADDED_COLUMNS = (
+    ("job_id", "TEXT", "idx_images_job"),
+    ("run_id", "TEXT", "idx_images_run"),
+    ("quantization", "TEXT", None),
+    # The prompt-variable assignment, as JSON.
+    ("variables", "TEXT", None),
+    # The scale the negative prompt ran at; NULL on older rows means
+    # "guidance_scale, if there was a negative prompt" - see
+    # `schemas_generate.effective_true_cfg`.
+    ("true_cfg", "REAL", None),
+    # sha256 of the pixels, 16 hex digits.
+    ("content_hash", "TEXT", None),
+    # The gallery ids this image was conditioned on, as JSON.
+    ("reference", "TEXT", None),
+    # The adapter that was applied and the weight it ran at.
+    ("lora", "TEXT", None),
+    ("lora_scale", "REAL", None),
+    # The gallery id a refine pass started from and its denoising
+    # strength; NULL together on a text-to-image row.
+    ("refine", "INTEGER", None),
+    ("strength", "REAL", None),
+    # NULL preserves the legacy centered crop; a choice belongs only to
+    # an ordinary Refine source.
+    ("crop_anchor", "TEXT", None),
+    # How many images the pipeline call that made this one held - the
+    # panel's Batch - which More seeds runs a batch's extra images at.
+    # NULL on rows from before it was recorded.
+    ("batch", "INTEGER", None),
+    # When the image was moved to the recycle bin, ISO UTC like
+    # `created_at`; NULL while it is live. TEXT rather than a flag, so a
+    # bundle merged into an older table gains it as it gains any text
+    # column, and never NOT NULL: a row from an older database or bundle
+    # reads None and is live.
+    ("binned_at", "TEXT", "idx_images_binned"),
+    # An inpaint's mask, the hash of a `masks` row; NULL on every row
+    # that is not one, and only ever set beside `refine`.
+    ("mask", "TEXT", "idx_images_mask"),
+    # An outpaint's spec, `OutpaintSpec.key()`: NULL on every row that
+    # is not one, and only ever set beside `refine` and `mask`.
+    ("outpaint", "TEXT", "idx_images_outpaint"),
+    # The optional GAN preparing an ordinary Refine source.
+    ("upscaler", "TEXT", None),
+    # Named arithmetic recipes as canonical JSON; NULL is legacy Eager.
+    ("execution", "TEXT", None),
+    # Complete instruction-edit intent, including unresolved source proof.
+    ("edit", "TEXT", None),
+    # The peak GPU memory PyTorch's allocator held during the call that
+    # made this image, in bytes, allocated and reserved: a result, as
+    # `duration_ms` is, never part of the reproduction set. NULL where
+    # nothing was measured (a CPU, the fake, rows from before it).
+    ("vram_peak_allocated", "INTEGER", None),
+    ("vram_peak_reserved", "INTEGER", None),
+)
+
+
 def _migrate(conn: sqlite3.Connection) -> None:
     """Add columns that a database written by an older build has not got.
 
@@ -261,60 +326,7 @@ def _migrate(conn: sqlite3.Connection) -> None:
     outcome we wanted anyway.
     """
     columns = {row["name"] for row in conn.execute("PRAGMA table_info(images)")}
-    added = (
-        ("job_id", "TEXT", "idx_images_job"),
-        ("run_id", "TEXT", "idx_images_run"),
-        ("quantization", "TEXT", None),
-        # The prompt-variable assignment, as JSON.
-        ("variables", "TEXT", None),
-        # The scale the negative prompt ran at; NULL on older rows means
-        # "guidance_scale, if there was a negative prompt" - see
-        # `schemas_generate.effective_true_cfg`.
-        ("true_cfg", "REAL", None),
-        # sha256 of the pixels, 16 hex digits.
-        ("content_hash", "TEXT", None),
-        # The gallery ids this image was conditioned on, as JSON.
-        ("reference", "TEXT", None),
-        # The adapter that was applied and the weight it ran at.
-        ("lora", "TEXT", None),
-        ("lora_scale", "REAL", None),
-        # The gallery id a refine pass started from and its denoising
-        # strength; NULL together on a text-to-image row.
-        ("refine", "INTEGER", None),
-        ("strength", "REAL", None),
-        # NULL preserves the legacy centered crop; a choice belongs only to
-        # an ordinary Refine source.
-        ("crop_anchor", "TEXT", None),
-        # How many images the pipeline call that made this one held - the
-        # panel's Batch - which More seeds runs a batch's extra images at.
-        # NULL on rows from before it was recorded.
-        ("batch", "INTEGER", None),
-        # When the image was moved to the recycle bin, ISO UTC like
-        # `created_at`; NULL while it is live. TEXT rather than a flag so a
-        # bundle merged into an older table gains it through the same
-        # fallback as any other unlisted column, and never NOT NULL: a row
-        # from an older database or bundle reads None and is live.
-        ("binned_at", "TEXT", "idx_images_binned"),
-        # An inpaint's mask, the hash of a `masks` row; NULL on every row
-        # that is not one, and only ever set beside `refine`.
-        ("mask", "TEXT", "idx_images_mask"),
-        # An outpaint's spec, `OutpaintSpec.key()`: NULL on every row that
-        # is not one, and only ever set beside `refine` and `mask`.
-        ("outpaint", "TEXT", "idx_images_outpaint"),
-        # The optional GAN preparing an ordinary Refine source.
-        ("upscaler", "TEXT", None),
-        # Named arithmetic recipes as canonical JSON; NULL is legacy Eager.
-        ("execution", "TEXT", None),
-        # Complete instruction-edit intent, including unresolved source proof.
-        ("edit", "TEXT", None),
-        # The peak GPU memory PyTorch's allocator held during the call that
-        # made this image, in bytes, allocated and reserved: a result, as
-        # `duration_ms` is, never part of the reproduction set. NULL where
-        # nothing was measured (a CPU, the fake, rows from before it).
-        ("vram_peak_allocated", "INTEGER", None),
-        ("vram_peak_reserved", "INTEGER", None),
-    )
-    for column, kind, index in added:
+    for column, kind, index in _ADDED_COLUMNS:
         if column in columns:
             continue
         try:
@@ -454,8 +466,10 @@ def _row_to_record(
     )
 
 
-# Every column a writer supplies, in one place: `save_image` and the reindex
-# both insert through `_insert_row`, so the list cannot drift between them.
+# Every column a writer supplies, in one place: `_insert_row` builds its INSERT
+# from it, and every writer goes through that - `save_image`, `index_file` (a
+# PNG-only reindex), `import_file` (`reindex --database`) and a bundle's merge
+# (`bundles`). Each still builds its own values dict with every key.
 _COLUMNS = (
     "filename", "prompt", "negative_prompt", "width", "height", "steps", "guidance_scale",
     "mu", "seed", "model_id", "duration_ms", "favorite", "created_at", "job_id", "run_id",
@@ -617,8 +631,7 @@ def save_image(
         **edit_chunk(edit),
         # Results, not settings, so absent rather than null when unmeasured:
         # a chunk from a CPU or before them reads the same.
-        **({"vram_peak_allocated": allocated} if allocated is not None else {}),
-        **({"vram_peak_reserved": reserved} if reserved is not None else {}),
+        **peak_chunk({"vram_peak_allocated": allocated, "vram_peak_reserved": reserved}),
     }
     info = PngImagePlugin.PngInfo()
     validate_edit_record(edit, meta)
@@ -778,10 +791,6 @@ _BUNDLE_WORK = re.compile(r"\.bundle-(?:import-|merge-|upload-)?[a-z0-9_]{8}(?:\
 
 def bundle_directory() -> Path:
     """The saved archives' directory, shared by reads, writes and cleanup."""
-    # bundle_common imports reindex, which imports storage: defer the error
-    # import until this module is ready rather than introducing a cycle.
-    from .bundle_common import BundleError
-
     directory = settings.bundles_dir
     if directory is None:
         directory = settings.db_path.parent.resolve() / "bundles"
@@ -1219,15 +1228,9 @@ def completed_cells(
     return keys
 
 
-# These two and `_tracked_files` read every row, the recycle bin's included:
+# This and `_tracked_files` read every row, the recycle bin's included:
 # filtered to live rows, the orphan sweep would delete binned PNGs as untracked
 # and a reindex would add them back as new rows.
-def existing_filenames() -> set[str]:
-    """Every filename the index knows - what a reindex skips."""
-    with _session() as conn:
-        return {row["filename"] for row in conn.execute("SELECT filename FROM images")}
-
-
 def existing_file_ids() -> dict[str, int]:
     """Every indexed filename and its gallery id, for an id-remapping import."""
     with _session() as conn:
@@ -1387,46 +1390,6 @@ def index_file(
     return _row_to_record(row, edit_missing=states[row["id"]][0], edit_binned=states[row["id"]][1])
 
 
-_MASK_HASH = re.compile(r"[0-9a-f]{64}")
-
-
-def _mask(value: Any) -> str | None:
-    """A PNG chunk's `mask`, where it is a mask hash: the same shape the
-    request's field takes, so a hand-written block cannot put a path, or
-    anything else `mask_path` was never meant to look up, on a row."""
-    return value if isinstance(value, str) and _MASK_HASH.fullmatch(value) else None
-
-
-def _upscaler(
-    value: Any, *, source: int | None, model_id: str | None,
-    mask: str | None = None, outpaint: Any = None,
-) -> str | None:
-    """A known GAN only beside an ordinary pass of a documented checkpoint.
-
-    PNG recovery accepts older records and handwritten metadata: an unknown
-    choice or one without its source cannot become an executable setting.
-    """
-    return (
-        refine.ANIME6B
-        if value == refine.ANIME6B and type(source) is int and source > 0 and mask is None and outpaint is None
-        and isinstance(model_id, str) and refine.upscaler_supported(model_id)
-        else None
-    )
-
-
-def _batch(value: Any) -> int | None:
-    """A PNG chunk's `batch`, where it is one: a block written by hand or by
-    another tool says what it likes, and a row is not refused for the one
-    field that is no part of the reproduction set."""
-    return value if type(value) is int and value >= 1 else None
-
-
-def _peak(value: Any) -> int | None:
-    """A peak's bytes, where it is a count of them; anything else - a block
-    written by hand, a string - is None, never a refused row, as `_batch`."""
-    return value if type(value) is int and value >= 0 else None
-
-
 def thumbnail_for(image: Image.Image, filename: str) -> None:
     """Write the WEBP in thumbnails/ for an existing PNG, if it has none."""
     png = settings.outputs_dir / filename
@@ -1500,33 +1463,6 @@ MASKS_DIR = "masks"
 
 def masks_dir() -> Path:
     return settings.outputs_dir / MASKS_DIR
-
-
-def mask_hash(mask: Image.Image) -> str:
-    """The name a mask is stored and asked for by: all 64 hex digits of the
-    SHA-256 of its size and its decoded `L` levels.
-
-    Of the pixels, not the file, as `content_hash` is - the encoder's settings
-    and the chunks would otherwise split one painting into two names - and the
-    whole digest, since a mask is an input looked up by this name, which the
-    16-digit `content_hash` is too short to be. The size is hashed with the
-    levels because the levels alone do not say it: an all-white 832x1216 and
-    an all-white 1216x832 are the same bytes and different masks.
-    """
-    if mask.mode != "L":
-        raise ValueError(f"a mask is one luminance channel, not {mask.mode}")
-    digest = hashlib.sha256(f"L {mask.width}x{mask.height}\n".encode("ascii"))
-    digest.update(mask.tobytes())
-    return digest.hexdigest()
-
-
-def mask_provenance(mask: str | None, width: int, height: int) -> dict[str, Any] | None:
-    """A result's `mask_source` in its PNG chunk: the mask's file, its hash
-    and its size - which is the result's own, since an inpaint runs at its
-    source's size - or None where the row is no inpaint."""
-    if mask is None:
-        return None
-    return {"filename": f"{mask}.png", "hash": mask, "width": width, "height": height}
 
 
 def _mask_row(conn: sqlite3.Connection, mask: str) -> sqlite3.Row | None:
@@ -1628,117 +1564,6 @@ def _store_mask(mask: Image.Image, digest: str, path: Path, partial: Path) -> tu
         if encoded and committed and partial.exists() and path.is_file():
             _unlink(partial)
     return digest, created
-
-
-def outpaint_chunk(spec: OutpaintSpec | None) -> dict[str, int] | None:
-    """An outpaint's `outpaint` key in a result's PNG chunk: its padding and
-    band (the fill rides beside it as `outpaint_fill`), or None."""
-    if spec is None:
-        return None
-    return {"left": spec.left, "top": spec.top, "right": spec.right, "bottom": spec.bottom, "band": spec.band}
-
-
-def outpaint_parameters(spec: OutpaintSpec) -> str:
-    """The A1111 line's outpaint, slashes where A1111 would split on a comma:
-    the one copy of the spec an older build's import leaves in place."""
-    return (
-        f", Outpaint: {spec.left}/{spec.top}/{spec.right}/{spec.bottom}, "
-        f"Outpaint band: {spec.band}, Outpaint fill: {spec.fill}"
-    )
-
-
-def _canonical_outpaint(text: str | None) -> str | None:
-    """A column's outpaint key in `OutpaintSpec.key()`'s one spelling - a
-    row an older import stored as given (`0400`) keys as its re-render
-    does - or the text itself where it is no key."""
-    if not text:
-        return text
-    try:
-        return OutpaintSpec.parse_key(text).key()
-    except ValueError:
-        return text
-
-
-def chunk_outpaint(meta: dict[str, Any]) -> OutpaintSpec | None:
-    """A PNG chunk's `outpaint` and `outpaint_fill` as the stored spec, or
-    None where it carries none or a malformed one. Any well-formed fill is
-    kept, known to this build or not: the submit refuses an unknown one by
-    name, so the row still shows as what it is."""
-    value, fill = meta.get("outpaint"), meta.get("outpaint_fill")
-    if not isinstance(value, dict) or not isinstance(fill, str):
-        return None
-    sides: list[int] = []
-    for name in ("left", "top", "right", "bottom", "band"):
-        side = value.get(name)
-        if type(side) is not int:
-            return None
-        sides.append(side)
-    try:
-        spec = OutpaintSpec(fill=fill, left=sides[0], top=sides[1], right=sides[2], bottom=sides[3], band=sides[4])
-    except ValueError:
-        return None
-    return spec if spec.wellformed() else None
-
-
-def malformed_outpaint(meta: dict[str, Any]) -> bool:
-    """Whether a chunk names an outpaint that `chunk_outpaint` cannot read."""
-    return meta.get("outpaint") is not None and chunk_outpaint(meta) is None
-
-
-_PARAMETERS_OUTPAINT = re.compile(
-    r"Outpaint: (\d{1,6})/(\d{1,6})/(\d{1,6})/(\d{1,6}), Outpaint band: (\d{1,6}), "
-    r"Outpaint fill: ([a-z0-9][a-z0-9-]{0,31})(?:,|$|\s)"
-)
-
-
-def outpaint_mask_hash(width: int, height: int, spec: OutpaintSpec) -> str | None:
-    """The hash of the mask an outpaint of this canvas and spec builds, or
-    None where the canvas cannot hold it."""
-    from . import outpaint
-
-    try:
-        return mask_hash(outpaint.mask(width, height, spec))
-    except ValueError:
-        return None
-
-
-def recovered_outpaint(
-    parameters: Any, width: int, height: int, mask: str | None, source_size: tuple[int, int] | None,
-) -> OutpaintSpec | None:
-    """An outpaint an older build's import stripped, from the A1111 line it
-    left in place - exact or nothing: only where the row has a mask, the
-    canvas is the source's size plus the parsed padding (and so not the
-    source's own), and the mask this build builds for it hashes to the
-    row's."""
-    if not isinstance(parameters, str) or mask is None or source_size is None:
-        return None
-    if (width, height) == tuple(source_size):
-        return None
-    match = _PARAMETERS_OUTPAINT.search(parameters)
-    if match is None:
-        return None
-    left, top, right, bottom, band = (int(value) for value in match.groups()[:5])
-    try:
-        spec = OutpaintSpec(fill=match.group(6), left=left, top=top, right=right, bottom=bottom, band=band)
-    except ValueError:
-        return None
-    if not (spec.left or spec.top or spec.right or spec.bottom):
-        return None
-    if (width - left - right, height - top - bottom) != tuple(source_size):
-        return None
-    return spec if outpaint_mask_hash(width, height, spec) == mask else None
-
-
-def rebuilt_outpaint_mask(width: int, height: int, spec: OutpaintSpec, digest: str) -> Image.Image | None:
-    """An outpaint's mask built again from its spec and the row's size,
-    where it hashes to the row's `digest`; None where it does not."""
-    from . import outpaint
-
-    try:
-        built = outpaint.mask(width, height, spec)
-    except ValueError:
-        return None
-    return built if mask_hash(built) == digest else None
 
 
 def stamp_outpaints(cells: Sequence[Any]) -> list[Any]:
@@ -1888,147 +1713,6 @@ def lineage_images(run_ids: Sequence[str], job_ids: Sequence[str]) -> list[Image
 
 
 @gallery_lock.protected(lambda: settings.db_path, waits=True)
-def retain_run_job(definition: dict[str, Any], cells: Sequence[Cell]) -> None:
-    """Keep a job's resolved, pre-outpaint-stamp cells before admission.
-
-    The raw requests are intentional: applied settings are compared when a
-    run is finished, and an outpaint's mask must be built again at submit.
-    Compression happens before the write lock; every input is JSON-native.
-    A failed write raises to the submitter, which releases any mask holds
-    and never admits the job. This table is local recovery state, not PNG
-    metadata or part of an exported bundle.
-    """
-    encoded = gzip.compress(json.dumps([
-        {"request": cell.request.model_dump(mode="json"), "seed": cell.seed,
-         "label": cell.label, "variables": cell.variables}
-        for cell in cells
-    ], ensure_ascii=True, separators=(",", ":")).encode("utf-8"), mtime=0)
-    with _write_lock, _session() as conn:
-        conn.execute(
-            """INSERT INTO run_jobs
-               (job_id, run_id, created_at, origin, model_id, quantization,
-                width, height, batch, comparison, metadata, cells)
-               VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)""",
-            (definition["job_id"], definition["run_id"], definition["created_at"],
-             definition["origin"], definition["model_id"], definition["quantization"],
-             definition["width"], definition["height"], definition["batch"],
-             int(definition["comparison"]), json.dumps(definition["metadata"], ensure_ascii=True), encoded),
-        )
-
-
-def retained_run_metadata(job_ids: Sequence[str]) -> dict[str, tuple[str, dict[str, Any]]]:
-    """Each retained job's (run id, metadata), by job id, without decoding
-    its cells: what names a Then refine pass run's base (its records' job is
-    the base job, whose metadata carries the pass run id). A job not
-    retained, or whose metadata is not an object, is left out."""
-    ids = list(dict.fromkeys(job_ids))
-    if not ids:
-        return {}
-    with _session() as conn:
-        rows = conn.execute(
-            f"SELECT job_id, run_id, metadata FROM run_jobs WHERE job_id IN ({','.join('?' * len(ids))})", ids,
-        ).fetchall()
-    found = {}
-    for row in rows:
-        try:
-            metadata = json.loads(row["metadata"])
-        except (TypeError, ValueError):
-            continue
-        if isinstance(metadata, dict):
-            found[row["job_id"]] = (row["run_id"], metadata)
-    return found
-
-
-def retained_run_jobs(run_id: str | None = None) -> list[dict[str, Any]]:
-    """Retained jobs in creation order, with raw cells and metadata decoded.
-
-    A NULL outcome means the process ended before its terminal write, or
-    that write failed. It never means the job is still running: the live
-    JobManager alone answers that. A malformed/obsolete request is a worded
-    ValueError for the recovery API rather than an unvalidated pipeline call.
-    """
-    from .grid import Cell
-    from .schemas import GenerateRequest
-    from .seeds import MAX_SEED
-
-    where = " WHERE run_id = ?" if run_id is not None else ""
-    with _session() as conn:
-        rows = conn.execute(
-            f"SELECT * FROM run_jobs{where} ORDER BY created_at, job_id",
-            (run_id,) if run_id is not None else (),
-        ).fetchall()
-    jobs = []
-    for row in rows:
-        item = dict(row)
-        try:
-            raw = json.loads(gzip.decompress(item["cells"]))
-            if not isinstance(raw, list):
-                raise ValueError("cells must be a list")
-            for cell in raw:
-                if (not isinstance(cell, dict) or type(cell.get("seed")) is not int
-                        or not 0 <= cell["seed"] <= MAX_SEED
-                        or cell.get("label") is not None and not isinstance(cell["label"], str)
-                        or cell.get("variables") is not None and (
-                            not isinstance(cell["variables"], dict)
-                            or not all(isinstance(key, str) and isinstance(value, str)
-                                       for key, value in cell["variables"].items()))):
-                    raise ValueError("invalid retained cell")
-            item["cells"] = [Cell(
-                request=GenerateRequest.model_validate(cell["request"]), seed=cell["seed"],
-                label=cell["label"], variables=cell["variables"],
-            ) for cell in raw]
-            item["metadata"] = json.loads(item["metadata"])
-            item["outcome"] = json.loads(item["outcome"]) if item["outcome"] is not None else None
-            metadata, outcome = item["metadata"], item["outcome"]
-            if not isinstance(metadata, dict) or outcome is not None and not isinstance(outcome, dict):
-                raise ValueError("invalid retained metadata or outcome")
-            budget = metadata.get("budget_minutes")
-            if budget is not None and (type(budget) not in (int, float) or not 0 < budget <= 7 * 24 * 60):
-                raise ValueError("invalid retained budget")
-            if metadata.get("prompt_template") is not None and not isinstance(metadata["prompt_template"], str):
-                raise ValueError("invalid retained prompt template")
-            if outcome is not None:
-                indices = outcome.get("completed_indices", [])
-                if not isinstance(indices, list) or any(type(index) is not int for index in indices):
-                    raise ValueError("invalid retained completion indices")
-                if outcome.get("finished_at") is not None:
-                    if type(outcome["finished_at"]) not in (int, float):
-                        raise ValueError("invalid retained finish time")
-                    datetime.fromtimestamp(outcome["finished_at"], timezone.utc)
-        except (ValueError, TypeError, KeyError, OSError, EOFError, OverflowError) as exc:
-            raise ValueError(f"the saved cells of job {row['job_id']} cannot be read by this build") from exc
-        item["comparison"] = bool(item["comparison"])
-        jobs.append(item)
-    return jobs
-
-
-def finish_run_job(job_id: str, outcome: dict[str, Any], *, database: Path | None = None) -> None:
-    """Record one terminal outcome, without recreating a cleared job.
-
-    Called on a daemon thread after `_finish` has made its terminal
-    transition. Interruption or a disk error may leave outcome NULL; Finish
-    still compares the cells with what the gallery holds.
-    """
-    # The caller captures the path before starting its daemon. A late thread
-    # must not follow changed settings to another gallery (or recreate a
-    # database that has gone). This writer needs no image schema migration.
-    path = (database or settings.db_path).resolve()
-    with gallery_lock.hold(path, create=False, wait=gallery_lock.SESSION_WAIT), _write_lock:
-        conn = sqlite3.connect(path.as_uri() + "?mode=rw", uri=True, timeout=15)
-        try:
-            with conn:
-                if conn.execute(
-                    "SELECT 1 FROM sqlite_master WHERE type = 'table' AND name = 'run_jobs'"
-                ).fetchone():
-                    conn.execute(
-                        "UPDATE run_jobs SET outcome = ? WHERE job_id = ? AND outcome IS NULL",
-                        (json.dumps(outcome, ensure_ascii=True), job_id),
-                    )
-        finally:
-            conn.close()
-
-
-@gallery_lock.protected(lambda: settings.db_path, waits=True)
 def set_favorite(image_id: int, favorite: bool) -> ImageRecord | None:
     """Star or unstar a live image; None for one deleted or in the recycle bin,
     which keeps the flag it was binned with until it is restored."""
@@ -2091,23 +1775,29 @@ def _tracked_masks() -> set[str]:
         return {row["hash"] for row in conn.execute("SELECT hash FROM masks")}
 
 
-# The names `gallery_reports` and `gallery_delete` took out of this module,
-# still reachable as `storage.<name>` for the callers and tests that use them.
+# The names `gallery_reports`, `gallery_delete` and `run_jobs` took out of
+# this module, still reachable as `storage.<name>` for the tests and tools that
+# use them. Only `run_jobs`' are called through it by backend modules (jobs,
+# api_runs, more_seeds_planner, gallery_reports), so a test's
+# `monkeypatch.setattr(storage, "retain_run_job", ...)` still intercepts them.
 # PEP 562 rather than an import at the bottom: both modules import this one at
 # their top, so a caller that imported one of them first would find it half
 # initialised. Each name resolves to the one object its module defines - an
 # `except storage.SelectionChanged` catches what `gallery_delete` raises.
 _MOVED = {
     **dict.fromkeys(
-        ("human_bytes", "step_cost_ms", "refine_cost_ms", "image_bytes",
-         "_GROUPS", "keep_rates", "_RUN_AXES", "runs"),
+        ("human_bytes", "step_cost_ms", "refine_cost_ms", "keep_rates", "runs"),
         "gallery_reports",
     ),
     **dict.fromkeys(
-        ("_UNKEPT", "matching_preview", "SelectionChanged", "delete_matching",
+        ("matching_preview", "SelectionChanged", "delete_matching",
          "delete_image", "bin_images", "restore_images", "bin_summary", "empty_bin",
-         "summarise", "clear_history", "vacuum"),
+         "summarise", "clear_history"),
         "gallery_delete",
+    ),
+    **dict.fromkeys(
+        ("retain_run_job", "retained_run_metadata", "retained_run_jobs", "finish_run_job"),
+        "run_jobs",
     ),
 }
 

@@ -11,7 +11,7 @@
 const $ = (id) => document.getElementById(id);
 // Whether an element is drawn - not display: none or inside one, and not
 // visibility: hidden, as the gallery's column is under the prompt check with
-// Gallery beside (style.css) - so that focus sent to it would land. True
+// Gallery beside (styles/gallery.css) - so that focus sent to it would land. True
 // where the browser cannot say.
 const isShown = (el) => el.checkVisibility?.({ visibilityProperty: true, checkVisibilityCSS: true }) ?? true;
 const PAGE = 48;
@@ -596,7 +596,7 @@ let tagInsertAt = null;
 let tagEditAt = null;
 // The pending lookup of the editor's suggestion list - the chip editor's, the
 // Refine dialog's prompt's or the panel's negative box's, which share it
-// (tags.js, scheduleEditorSuggestions): never two at once, each asking only
+// (tag-lists.js, scheduleEditorSuggestions): never two at once, each asking only
 // for the box with the focus, and the dialog being modal.
 let tagEditorSuggestionTimer = null;
 let tagEditorSuggestionEpoch = 0;

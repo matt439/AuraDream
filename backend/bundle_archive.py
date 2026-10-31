@@ -19,10 +19,10 @@ from concurrent.futures import ThreadPoolExecutor
 from contextlib import contextmanager
 from pathlib import Path, PurePosixPath
 
-from . import backup_receipts, bundle_crypto, bundle_leases, reindex
+from . import backup_receipts, bundle_crypto, bundle_leases
 from .bundle_common import _CHUNK, _WORKERS, MASK_HASH, BundleError, Progress, _basename, _mask_rows, _quiet, _rows
 from .bundle_images import _inspect_mask, _inspect_source
-from .metadata import edit_from_json
+from .metadata import PNG_SIGNATURE, edit_from_json
 
 
 _FORMAT = "auradream-gallery"
@@ -31,6 +31,9 @@ _FORMAT = "auradream-gallery"
 _LEGACY_FORMATS = frozenset({"local-diffusion-gallery"})
 _DATABASE = "database.sqlite3"
 _MANIFEST = "manifest.json"
+# The largest manifest the verified read accepts; the managed export's
+# capacity preflight budgets the same bound.
+_MANIFEST_MAX = 32 * 1024 * 1024
 _DECODE_BUDGET = 1024 * 1024 * 1024
 # A tracked PNG is held in memory to be decoded, and a hostile bundle can
 # declare (and deflate to) any size; this is far above any generated image.
@@ -69,7 +72,7 @@ def _mask_member(name: str) -> bool:
 
 def _png_weight(data: bytes) -> int:
     """Bytes held while decoding: the file plus the decoded pixels its header announces."""
-    if data[:8] == reindex._PNG_SIGNATURE and data[12:16] == b"IHDR" and len(data) >= 24:
+    if data[:8] == PNG_SIGNATURE and data[12:16] == b"IHDR" and len(data) >= 24:
         width, height = struct.unpack(">II", data[16:24])
         return len(data) + 8 * width * height
     return len(data)
@@ -169,7 +172,7 @@ def _verify_archive(path: Path, destination: Path | None = None, *, password: st
             names = [info.filename for info in infos]
             if len(names) != len(set(n.casefold() for n in names)):
                 raise BundleError("the bundle contains duplicate filenames")
-            if _MANIFEST not in names or archive.getinfo(_MANIFEST).file_size > 32 * 1024 * 1024:
+            if _MANIFEST not in names or archive.getinfo(_MANIFEST).file_size > _MANIFEST_MAX:
                 raise BundleError("the bundle manifest is missing or too large")
             for info in infos:
                 mode = info.external_attr >> 16

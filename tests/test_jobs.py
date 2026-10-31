@@ -9,6 +9,7 @@ import time
 from backend.jobs import Job, JobManager, short_error
 from backend.schemas import GenerateRequest
 
+from backend import grid
 from tests.fakes import FakeBackend
 
 
@@ -612,3 +613,23 @@ def test_a_render_waits_out_another_process_holding_the_gallery(store, monkeypat
     job = asyncio.run(scenario())
     assert job.status == "done" and job.failures == 0
     assert len(refusals) == 2 and len(job.images) == 1
+
+
+def test_submit_steps_the_seeds_exactly_as_grid_expand_does(store):
+    # `jobs.submit` keeps its own copy of the seed loop (AGENTS.md); this holds
+    # the copy to `grid.expand` for one request through both paths.
+    async def scenario():
+        manager = JobManager(FakeBackend())
+        submitted = []
+
+        async def capture(cells, **_kwargs):
+            submitted.extend(cells)
+
+        manager.submit_cells = capture
+        request = GenerateRequest(prompt="a fox", seed=7, runs=3, num_images=2, width=256, height=256, steps=1)
+        await manager.submit(request)
+        expanded = grid.expand(request, seeds=3)
+        assert [cell.seed for cell in submitted] == [cell.seed for cell in expanded] == [7, 9, 11]
+        await manager.shutdown()
+
+    asyncio.run(scenario())

@@ -37,9 +37,10 @@ def _browser() -> str | None:
     return next((p for p in [named, *_CANDIDATES] if p and Path(p).exists()), None)
 
 
-pytestmark = pytest.mark.skipif(
-    shutil.which("node") is None or _browser() is None, reason="needs Node and Edge or Chrome",
-)
+pytestmark = [
+    pytest.mark.usefixtures("node"),
+    pytest.mark.skipif(_browser() is None, reason="needs Edge or Chrome"),
+]
 
 
 def _env(temp: Path) -> dict[str, str]:
@@ -57,7 +58,7 @@ def temp():
     long per-test path that passed the 108 bytes a socket's path may take,
     so the browser never came up.
     """
-    path = Path(tempfile.mkdtemp(prefix="ld-"))
+    path = Path(tempfile.mkdtemp(prefix="ad-"))
     try:
         yield path
     finally:

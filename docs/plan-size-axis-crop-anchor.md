@@ -1,5 +1,7 @@
 # Size axis and Refine crop anchor (GEN#19)
 
+**Status: done 2026-10-30** (`GEN#19` 2026-10-26, `UI#34` 2026-10-30).
+
 Owner: [2026-10-24 review, G8](review-2026-10-24.md#g8-size-as-a-grid-axis-and-a-crop-anchor-for-refine).
 
 ## Scope and ordering

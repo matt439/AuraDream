@@ -34,9 +34,7 @@ from .prompt_order import (
     wants_artist_categories as wants_artist_categories,
 )
 from .prompt_text import (
-    Item as Item,
     QUOTED as QUOTED,
-    Style as Style,
     cjk_count as cjk_count,
     comma_items as comma_items,
     detect_style as detect_style,

@@ -16,7 +16,7 @@ from PIL import Image, PngImagePlugin
 from backend import bundle_images, bundles, grid, reindex, storage
 from backend.metadata import PNG_MASK_KEY, PNG_METADATA_KEY
 from backend.schemas import GenerateRequest, Outpaint
-from tests.bundle_helpers import _destination, _metadata, _save
+from tests.bundle_helpers import use_destination, png_metadata, save_source
 
 SPEC = {"left": 32, "right": 16, "band": 16}
 KEY = "edge-box3-r16:32,0,16,0@16"
@@ -37,7 +37,7 @@ def _outpainted(source, spec=SPEC, *, seed=2):
 
 
 def _gallery(spec=SPEC):
-    source = _save("source", 1)
+    source = save_source("source", 1)
     return source, _outpainted(source, spec)
 
 
@@ -63,7 +63,7 @@ def _as_an_older_build_left_it(store, record) -> None:
     the A1111 line, which its rewrite never touches."""
     with store._session() as conn:
         conn.execute("UPDATE images SET outpaint = NULL WHERE id = ?", (record.id,))
-    meta = _metadata(store.settings.outputs_dir / record.filename)
+    meta = png_metadata(store.settings.outputs_dir / record.filename)
     meta.pop("outpaint")
     meta.pop("outpaint_fill")
     _rewrite_png(store, record, meta=meta)
@@ -116,7 +116,7 @@ def test_the_row_the_chunk_and_the_parameters_line(store):
 
 def test_index_file_reads_the_chunk_and_holds_the_invariant(store):
     source, made = _gallery()
-    meta = _metadata(store.settings.outputs_dir / made.filename)
+    meta = png_metadata(store.settings.outputs_dir / made.filename)
     path = store.settings.outputs_dir / made.filename
     copy = path.with_name("copy.png")
     copy.write_bytes(path.read_bytes())
@@ -159,7 +159,7 @@ def test_an_unknown_but_well_formed_fill_is_kept_on_reindex(store, monkeypatch):
 def test_a_malformed_outpaint_is_left_off_and_counted(store, monkeypatch):
     monkeypatch.setattr(reindex, "settings", store.settings)
     source, made = _gallery()
-    meta = _metadata(store.settings.outputs_dir / made.filename)
+    meta = png_metadata(store.settings.outputs_dir / made.filename)
     meta["outpaint"]["left"] = 30
     # The A1111 line too, which would otherwise give the spec back exactly.
     _rewrite_png(store, made, meta=meta, drop=("parameters",))
@@ -185,7 +185,7 @@ def test_a_directory_reindex_drops_the_outpaint_with_its_source(store, monkeypat
     assert counts["indexed"] == 1 and counts["unresolved_references"] == 1
     (row,) = store.list_images()[0]
     assert (row.refine, row.mask, row.outpaint) == (None, None, None)
-    meta = _metadata(mine.outputs_dir / made.filename)
+    meta = png_metadata(mine.outputs_dir / made.filename)
     assert (meta["refine"], meta["mask"], meta["outpaint"], meta["outpaint_fill"]) == (None, None, None, None)
 
 
@@ -208,7 +208,7 @@ def test_a_png_only_reindex_recovers_an_outpaint_an_older_build_stripped(store, 
     assert counts["outpaints_recovered"] == 1
     row = next(r for r in store.list_images()[0] if r.refine is not None)
     assert row.outpaint.key() == KEY
-    assert _metadata(store.settings.outputs_dir / made.filename)["outpaint_fill"] == "edge-box3-r16"
+    assert png_metadata(store.settings.outputs_dir / made.filename)["outpaint_fill"] == "edge-box3-r16"
 
 
 def test_no_recovery_where_the_rebuilt_mask_is_not_the_rows(store, monkeypatch):
@@ -258,14 +258,14 @@ def test_a_database_merge_leaves_off_a_spec_no_request_could_make(store, monkeyp
 def test_a_database_merge_carries_and_drops_the_outpaint(store, monkeypatch, tmp_path):
     mine = store.settings
     monkeypatch.setattr(reindex, "settings", mine)
-    _save("already here", 90)
+    save_source("already here", 90)
     elsewhere = tmp_path / "backup" / "outputs"
     elsewhere.mkdir(parents=True)
     source_db = elsewhere.parent / "auradream.db"
     monkeypatch.setattr(storage, "settings", dataclasses.replace(mine, db_path=source_db, outputs_dir=elsewhere))
     storage.init_db()
     source, made = _gallery()
-    orphan_source = _save("gone source", 5)
+    orphan_source = save_source("gone source", 5)
     orphan = _outpainted(orphan_source, seed=6)
     with storage._session() as conn:
         conn.execute("DELETE FROM images WHERE id = ?", (orphan_source.id,))
@@ -277,9 +277,9 @@ def test_a_database_merge_carries_and_drops_the_outpaint(store, monkeypatch, tmp
     carried, dropped = rows[made.filename], rows[orphan.filename]
     assert (carried.outpaint.key(), carried.refine) == (KEY, rows[source.filename].id)
     assert (dropped.refine, dropped.mask, dropped.outpaint) == (None, None, None)
-    meta = _metadata(mine.outputs_dir / made.filename)
+    meta = png_metadata(mine.outputs_dir / made.filename)
     assert (meta["outpaint"]["left"], meta["outpaint_fill"]) == (32, "edge-box3-r16")
-    assert _metadata(mine.outputs_dir / orphan.filename)["outpaint"] is None
+    assert png_metadata(mine.outputs_dir / orphan.filename)["outpaint"] is None
 
 
 # --------------------------------------------------------------------- bundles
@@ -288,25 +288,25 @@ def test_a_database_merge_carries_and_drops_the_outpaint(store, monkeypatch, tmp
 def test_a_bundle_carries_the_column_and_the_chunk(store, monkeypatch, tmp_path):
     source, made = _gallery()
     archive = bundles.export_bundle(keep_gallery=True)
-    _destination(store, monkeypatch, tmp_path)
-    _save("existing", 99)
+    use_destination(store, monkeypatch, tmp_path)
+    save_source("existing", 99)
     imported = bundles.import_bundle(Path(archive["path"]))
     assert (imported["imported"], imported["masks_missing"]) == (2, 0)
     row = next(r for r in store.list_images()[0] if r.outpaint is not None)
     new_source = next(r for r in store.list_images()[0] if r.filename == source.filename)
     assert (row.outpaint.key(), row.refine, row.mask) == (KEY, new_source.id, made.mask)
-    meta = _metadata(store.settings.outputs_dir / row.filename)
+    meta = png_metadata(store.settings.outputs_dir / row.filename)
     assert (meta["outpaint"]["right"], meta["outpaint_fill"], meta["refine"]) == (16, "edge-box3-r16", new_source.id)
 
 
 def test_a_bundle_without_the_source_clears_the_outpaint(store, monkeypatch, tmp_path):
     source, made = _gallery()
     archive = bundles.export_bundle(keep_gallery=True, ids=[made.id])
-    _destination(store, monkeypatch, tmp_path)
+    use_destination(store, monkeypatch, tmp_path)
     bundles.import_bundle(Path(archive["path"]))
     (row,) = store.list_images()[0]
     assert (row.refine, row.mask, row.outpaint) == (None, None, None)
-    meta = _metadata(store.settings.outputs_dir / row.filename)
+    meta = png_metadata(store.settings.outputs_dir / row.filename)
     assert (meta["outpaint"], meta["outpaint_fill"]) == (None, None)
 
 
@@ -335,7 +335,7 @@ def test_an_import_builds_an_outpaints_mask_again_from_its_spec(store, monkeypat
     _strip_mask(store, made)
     archive = bundles.export_bundle(keep_gallery=True)
     assert archive["masks"] == 0
-    _destination(store, monkeypatch, tmp_path)
+    use_destination(store, monkeypatch, tmp_path)
     imported = bundles.import_bundle(Path(archive["path"]))
     assert (imported["outpaint_masks_rebuilt"], imported["masks_missing"], imported["masks"]) == (1, 0, 1)
     assert store.mask_path(made.mask).is_file()
@@ -347,7 +347,7 @@ def test_an_import_whose_spec_does_not_build_the_rows_mask_counts_it_missing(sto
     with store._session() as conn:
         conn.execute("UPDATE images SET outpaint = 'edge-box3-r16:32,0,16,0@24' WHERE id = ?", (made.id,))
     archive = bundles.export_bundle(keep_gallery=True)
-    _destination(store, monkeypatch, tmp_path)
+    use_destination(store, monkeypatch, tmp_path)
     imported = bundles.import_bundle(Path(archive["path"]))
     assert (imported["outpaint_masks_rebuilt"], imported["masks_missing"]) == (0, 1)
 
@@ -357,7 +357,7 @@ def test_an_import_stores_the_key_in_its_one_spelling(store, monkeypatch, tmp_pa
     with store._session() as conn:
         conn.execute("UPDATE images SET outpaint = 'edge-box3-r16:032,0,016,0@016' WHERE id = ?", (made.id,))
     archive = bundles.export_bundle(keep_gallery=True)
-    _destination(store, monkeypatch, tmp_path)
+    use_destination(store, monkeypatch, tmp_path)
     bundles.import_bundle(Path(archive["path"]))
     with store._session() as conn:
         (stored,) = conn.execute("SELECT outpaint FROM images WHERE outpaint IS NOT NULL").fetchone()
@@ -379,12 +379,12 @@ def test_an_import_recovers_an_outpaint_an_older_build_stripped(store, monkeypat
     source, made = _gallery()
     _as_an_older_build_left_it(store, made)
     archive = bundles.export_bundle(keep_gallery=True)
-    _destination(store, monkeypatch, tmp_path)
+    use_destination(store, monkeypatch, tmp_path)
     imported = bundles.import_bundle(Path(archive["path"]))
     assert imported["outpaints_recovered"] == 1
     row = next(r for r in store.list_images()[0] if r.refine is not None)
     assert row.outpaint.key() == KEY
-    assert _metadata(store.settings.outputs_dir / row.filename)["outpaint_fill"] == "edge-box3-r16"
+    assert png_metadata(store.settings.outputs_dir / row.filename)["outpaint_fill"] == "edge-box3-r16"
 
 
 def test_an_import_does_not_recover_where_the_hash_differs(store, monkeypatch, tmp_path):
@@ -394,7 +394,7 @@ def test_an_import_does_not_recover_where_the_hash_differs(store, monkeypatch, t
         parameters = image.info["parameters"].replace("Outpaint: 32/0/16/0", "Outpaint: 16/0/32/0")
     _rewrite_png(store, made, parameters=parameters)
     archive = bundles.export_bundle(keep_gallery=True)
-    _destination(store, monkeypatch, tmp_path)
+    use_destination(store, monkeypatch, tmp_path)
     imported = bundles.import_bundle(Path(archive["path"]))
     assert imported["outpaints_recovered"] == 0
     row = next(r for r in store.list_images()[0] if r.refine is not None)

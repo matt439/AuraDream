@@ -48,6 +48,14 @@
   {"expect": "__until(() => els.inpaintRun.getAttribute('aria-disabled') === 'false' && els.inpaintPreview.textContent.startsWith('1 image · strength 0.9999'))"},
   {"expect": "els.inpaintDialog.scrollTop === __top && __rects() === __tools && /% of the picture masked$/.test(els.inpaintStatus.textContent) && __covered > 1"},
 
+  {"log": "'a submit in flight holds Inpaint with its reason as the title, and a press says it rather than doing nothing (PASS_IN_FLIGHT, as Outpaint)'"},
+  {"eval": "setSubmitting(true);"},
+  {"expect": "els.inpaintRun.getAttribute('aria-disabled') === 'true' && els.inpaintRun.title === 'Wait for the last submit to be taken'"},
+  {"eval": "void runInpaint();"},
+  {"expect": "els.inpaintDialog.open && !els.inpaintError.hidden && els.inpaintError.textContent === 'Wait for the last submit to be taken.'"},
+  {"eval": "setSubmitting(false); inpaintFailed('');"},
+  {"expect": "els.inpaintRun.getAttribute('aria-disabled') === 'false'"},
+
   {"log": "'the preview says how much noise the inpaint starts at where the server reads it (start_sigma): SDXL reads none and nothing is said; a reading follows the strength, as in Refine'"},
   {"expect": "!els.inpaintPreview.textContent.includes('noise')"},
   {"eval": "window.__api = api; api = async (path, options) => { const reply = await window.__api(path, options); return path === '/api/grid/preview' ? {...reply, start_sigma: 0.51} : reply; }; scheduleInpaintPreview(0);"},

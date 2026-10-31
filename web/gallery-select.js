@@ -16,19 +16,22 @@
 // By id, in the order picked, with the record each id was picked from: the
 // selection outlives the cards. A new search, a filter, a sheet or a page
 // paged in keeps it, and the count says how many of it this view does not
-// show; only forgetImages, the one place the page drops deleted ids, takes
-// ids out of it unasked (forgetSelected). The recycle bin sets it aside while
-// it is shown and puts it back after (stashSelection, unstashSelection).
+// show; only forgetImages, the one place the page drops deleted ids, and the
+// bin's own dropFromBinView take ids out of it unasked (forgetSelected). The
+// recycle bin sets it aside while it is shown and puts it back after
+// (stashSelection, unstashSelection).
 //
 // What other features read:
 //   selectedIds()          the ids in the order they were picked (a copy)
 //   selectedRecords()      their records, in the same order: the loaded
 //                          page's copy where there is one, else the record
 //                          as picked (a snapshot; the ids are what to send)
-//   isSelected(id)
+//   isSelected(id)         (the smokes' helper; the page reads `selection`)
 //   onSelectionChange(fn)  fn(ids) after every change of the selection or of
 //                          Select, and whenever a page lands (syncSelection)
 //   clearSelection()
+// and, directly, `selection` itself (`.has(id)`, `.size`: context-menu.js,
+// generation.js) and `selectMode` (app.js's Select toggle).
 let selectMode = false;
 const selection = new Map();
 // The card last toggled, by id: a Shift pick runs from it. Opening leaves it.

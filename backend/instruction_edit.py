@@ -8,7 +8,8 @@ unqualified. Execution opens only where a caller passes
 ``instruction_edit_qualified()`` - never a setting. The real diffusers
 backend answers the literal True since its release (stage 4), as the test and
 fake stand-ins do; every other backend answers False.
-``QUALIFIED_ENVELOPE`` records what the card measured (stage 4): pure data
+``QUALIFIED_ENVELOPE`` records what stage 3 measured on the card and stage 4
+released: pure data
 and refusal words. Where the gate is open, the edit routes and the queue also
 hold an unmeasured loader (``edit_unavailable_reason`` with a
 ``LoaderChoice``) or source aspect (``geometry_refusal``), and every load
@@ -34,7 +35,6 @@ RecipeName = Literal["kontext-v1"]
 PositiveSource = Annotated[int, Field(strict=True, gt=0, le=2**63 - 1)]
 PositiveDimension = Annotated[int, Field(strict=True, gt=0)]
 
-MAX_AREA = 512 * 512
 MAX_SEQUENCE_LENGTH = 512
 INSTRUCTION_EDIT_UNAVAILABLE = (
     "Instruction editing is not available on this backend: "
@@ -42,7 +42,7 @@ INSTRUCTION_EDIT_UNAVAILABLE = (
 )
 INSTRUCTION_EDITOR_UNSUPPORTED = (
     "Instruction editing is not available for this checkpoint: it has no recipe "
-    "in this build; only FLUX.1 Kontext [dev] is planned."
+    "in this build; only FLUX.1 Kontext [dev] is supported."
 )
 INSTRUCTION_EDIT_NEEDS_MODEL = "Select FLUX.1 Kontext [dev] in Models to run an instruction edit."
 INSTRUCTION_EDIT_TEXT_TO_IMAGE = (

@@ -17,7 +17,7 @@ from PIL import Image, PngImagePlugin
 from backend import bundle_images, bundles, reindex, storage
 from backend.execution import canonical_execution, execution_key
 from backend.metadata import PNG_MASK_KEY, PNG_METADATA_KEYS, require_header_metadata
-from tests.bundle_helpers import _destination, _metadata, _save, _snapshot
+from tests.bundle_helpers import use_destination, png_metadata, save_source, bundle_snapshot
 
 
 _ABSENT = object()
@@ -35,7 +35,7 @@ def _sql(database, image_id, value):
 
 
 def _png(path, value):
-    meta = _metadata(path)
+    meta = png_metadata(path)
     meta.pop("execution", None)
     if value is not _ABSENT:
         meta["execution"] = value
@@ -137,14 +137,14 @@ def _edited_archive(archive, tmp_path, *, sql=_ABSENT, png=_ABSENT, drop_column=
 @pytest.mark.parametrize("route", ["bundle", "database", "png"])
 @pytest.mark.parametrize("recipe", [_COMPILATION, _ATTENTION, _CACHE, _ALL])
 def test_known_recipes_survive_each_transport(store, monkeypatch, tmp_path, route, recipe):
-    row = _save()
+    row = save_source()
     _stored(store, row, recipe)
     source = store.settings
     original = (source.outputs_dir / row.filename).read_bytes()
     archive = _backup() if route == "bundle" else None
-    dest = _destination(store, monkeypatch, tmp_path)
+    dest = use_destination(store, monkeypatch, tmp_path)
     monkeypatch.setattr(reindex, "settings", dest)
-    _save("existing", 99)
+    save_source("existing", 99)
     if archive is not None:
         assert bundles.import_bundle(archive)["imported"] == 1
     else:
@@ -152,7 +152,7 @@ def test_known_recipes_survive_each_transport(store, monkeypatch, tmp_path, rout
         assert counts["indexed"] == 1
     (back,) = [item for item in store.list_images()[0] if item.filename == row.filename]
     assert back.execution == canonical_execution(recipe)
-    assert _metadata(dest.outputs_dir / row.filename)["execution"] == recipe
+    assert png_metadata(dest.outputs_dir / row.filename)["execution"] == recipe
     with closing(sqlite3.connect(dest.db_path)) as conn:
         assert conn.execute("SELECT execution FROM images WHERE id = ?", (back.id,)).fetchone()[0] == execution_key(recipe)
     assert (source.outputs_dir / row.filename).read_bytes() == original
@@ -161,24 +161,24 @@ def test_known_recipes_survive_each_transport(store, monkeypatch, tmp_path, rout
 @pytest.mark.parametrize("route", ["bundle", "database", "png"])
 @pytest.mark.parametrize("lost", [False, True])
 def test_remapping_or_losing_a_source_keeps_the_execution_recipe(store, monkeypatch, tmp_path, route, lost):
-    source_row = _save("reference", 1)
-    derived = _save("derived", 2, reference=[source_row.id], refine=source_row.id, strength=0.35)
+    source_row = save_source("reference", 1)
+    derived = save_source("derived", 2, reference=[source_row.id], refine=source_row.id, strength=0.35)
     _stored(store, derived, _ALL)
     source = store.settings
     if route == "bundle":
         archive = _backup(ids=[derived.id] if lost else None)
     elif lost:
         (source.outputs_dir / source_row.filename).unlink()
-    dest = _destination(store, monkeypatch, tmp_path)
+    dest = use_destination(store, monkeypatch, tmp_path)
     monkeypatch.setattr(reindex, "settings", dest)
-    _save("existing", 99)
+    save_source("existing", 99)
     if route == "bundle":
         result = bundles.import_bundle(archive)
     else:
         result = reindex.reindex(source.outputs_dir, database=source.db_path if route == "database" else None)
     records = {item.filename: item for item in store.list_images()[0]}
     back = records[derived.filename]
-    meta = _metadata(dest.outputs_dir / derived.filename)
+    meta = png_metadata(dest.outputs_dir / derived.filename)
     assert back.execution == canonical_execution(_ALL) and meta["execution"] == _ALL
     if lost:
         assert result["unresolved_references"] == 2
@@ -206,7 +206,7 @@ def test_remapping_or_losing_a_source_keeps_the_execution_recipe(store, monkeypa
     (_COMPILATION, _ATTENTION, None, True),
 ])
 def test_database_and_png_presence_matrix(store, monkeypatch, tmp_path, sql, png, expected, invalid):
-    row = _save()
+    row = save_source()
     source = store.settings
     path = source.outputs_dir / row.filename
     _png(path, png)
@@ -231,21 +231,21 @@ def test_database_and_png_presence_matrix(store, monkeypatch, tmp_path, sql, png
         if expected is None or png is not _ABSENT:
             assert path.read_bytes() == before
         else:
-            assert _metadata(path)["execution"] == expected
+            assert png_metadata(path)["execution"] == expected
 
 
 @pytest.mark.parametrize("origin", ["sql", "png"])
 @pytest.mark.parametrize("bad", _INVALID)
 def test_invalid_database_execution_is_skipped_before_image_side_effects(store, monkeypatch, tmp_path, origin, bad):
-    row = _save()
+    row = save_source()
     source = store.settings
     if origin == "sql":
         _sql(source.db_path, row.id, json.dumps(bad))
     else:
         _png(source.outputs_dir / row.filename, bad)
-    dest = _destination(store, monkeypatch, tmp_path)
+    dest = use_destination(store, monkeypatch, tmp_path)
     monkeypatch.setattr(reindex, "settings", dest)
-    before = _snapshot(store)
+    before = bundle_snapshot(store)
 
     def forbidden(*args, **kwargs):
         pytest.fail("a refused image reached mask recovery, copying or insertion")
@@ -255,17 +255,17 @@ def test_invalid_database_execution_is_skipped_before_image_side_effects(store, 
     monkeypatch.setattr(storage, "import_file", forbidden)
     counts = reindex.merge_database(source.outputs_dir, source.db_path, out=io.StringIO())
     assert counts["invalid"] == 1 and counts["indexed"] == 0
-    assert _snapshot(store) == before
+    assert bundle_snapshot(store) == before
 
 
 @pytest.mark.parametrize("bad", _INVALID)
 def test_invalid_png_recipe_is_skipped_before_links_masks_or_writes(store, monkeypatch, tmp_path, bad):
-    row = _save()
+    row = save_source()
     source = store.settings
     _png(source.outputs_dir / row.filename, bad)
-    dest = _destination(store, monkeypatch, tmp_path)
+    dest = use_destination(store, monkeypatch, tmp_path)
     monkeypatch.setattr(reindex, "settings", dest)
-    before = _snapshot(store)
+    before = bundle_snapshot(store)
 
     def forbidden(*args, **kwargs):
         pytest.fail("a refused image reached mask recovery, copying or insertion")
@@ -275,31 +275,31 @@ def test_invalid_png_recipe_is_skipped_before_links_masks_or_writes(store, monke
     monkeypatch.setattr(storage, "index_file", forbidden)
     counts = reindex.reindex(source.outputs_dir, out=io.StringIO())
     assert counts["invalid_execution"] == 1 and counts["indexed"] == 0
-    assert _snapshot(store) == before
+    assert bundle_snapshot(store) == before
 
 
 @pytest.mark.parametrize("origin", ["sql", "png"])
 @pytest.mark.parametrize("bad", _INVALID)
 def test_invalid_execution_refuses_export_without_clearing(store, origin, bad):
-    row = _save()
+    row = save_source()
     if origin == "sql":
         _sql(store.settings.db_path, row.id, json.dumps(bad))
     else:
         _png(store.settings.outputs_dir / row.filename, bad)
-    before = _snapshot(store)
+    before = bundle_snapshot(store)
     with pytest.raises(bundles.BundleError, match="execution"):
         bundles.export_bundle(expected=1)
-    assert _snapshot(store) == before
+    assert bundle_snapshot(store) == before
 
 
 @pytest.mark.parametrize("repeat", [False, True])
 @pytest.mark.parametrize("origin", ["sql", "png"])
 def test_verified_archive_refuses_unknown_execution_even_on_repeat_fast_path(store, monkeypatch, tmp_path, origin, repeat):
-    _save()
+    save_source()
     original = _backup()
     bad = {"compilation": "future-v2"}
     damaged = _edited_archive(original, tmp_path, **({"sql": json.dumps(bad)} if origin == "sql" else {"png": bad}))
-    _destination(store, monkeypatch, tmp_path)
+    use_destination(store, monkeypatch, tmp_path)
     if repeat:
         assert bundles.import_bundle(original)["imported"] == 1
 
@@ -307,37 +307,37 @@ def test_verified_archive_refuses_unknown_execution_even_on_repeat_fast_path(sto
             pytest.fail("the repeat fast path decoded pixels")
 
         monkeypatch.setattr(bundle_images, "_pixels", no_decode)
-    before = _snapshot(store)
+    before = bundle_snapshot(store)
     with pytest.raises(bundles.BundleError, match="execution"):
         bundles.import_bundle(damaged)
-    assert _snapshot(store) == before
+    assert bundle_snapshot(store) == before
 
 
 def test_archive_with_an_older_database_recovers_a_known_png_recipe(store, monkeypatch, tmp_path):
-    row = _save()
+    row = save_source()
     _stored(store, row, _ALL)
     archive = _edited_archive(_backup(), tmp_path, drop_column=True)
-    dest = _destination(store, monkeypatch, tmp_path)
+    dest = use_destination(store, monkeypatch, tmp_path)
     assert bundles.import_bundle(archive)["imported"] == 1
     (back,) = store.list_images()[0]
     assert back.execution == canonical_execution(_ALL)
-    assert _metadata(dest.outputs_dir / row.filename)["execution"] == _ALL
+    assert png_metadata(dest.outputs_dir / row.filename)["execution"] == _ALL
 
 
 @pytest.mark.parametrize("other", [None, _ATTENTION])
 def test_identical_pixels_with_different_execution_refuse_the_whole_import(store, monkeypatch, tmp_path, other):
-    row = _save()
+    row = save_source()
     _stored(store, row, _COMPILATION)
     archive = _backup()
-    dest = _destination(store, monkeypatch, tmp_path)
+    dest = use_destination(store, monkeypatch, tmp_path)
     assert bundles.import_bundle(archive)["imported"] == 1
     (known,) = store.list_images()[0]
     _stored(store, known, other)
-    before = _snapshot(store)
+    before = bundle_snapshot(store)
     with pytest.raises(bundles.BundleError, match="different execution"):
         bundles.import_bundle(archive)
-    assert _snapshot(store) == before
-    assert _metadata(dest.outputs_dir / row.filename).get("execution") == other
+    assert bundle_snapshot(store) == before
+    assert png_metadata(dest.outputs_dir / row.filename).get("execution") == other
 
 
 @pytest.mark.parametrize("reencoded", [False, True])
@@ -345,10 +345,10 @@ def test_identical_pixels_with_different_execution_refuse_the_whole_import(store
 def test_repeat_bundle_refuses_a_destination_png_that_disagrees_with_its_own_row(
     store, monkeypatch, tmp_path, reencoded, kept_recipe,
 ):
-    row = _save()
+    row = save_source()
     _stored(store, row, _COMPILATION)
     archive = _backup()
-    dest = _destination(store, monkeypatch, tmp_path)
+    dest = use_destination(store, monkeypatch, tmp_path)
     assert bundles.import_bundle(archive)["imported"] == 1
     path = dest.outputs_dir / row.filename
     _png(path, kept_recipe)
@@ -358,7 +358,7 @@ def test_repeat_bundle_refuses_a_destination_png_that_disagrees_with_its_own_row
         assert (bundle_images._critical_digest(kept) == bundle_images._critical_digest(
             io.BytesIO(source.read("images/" + row.filename))
         )) is not reencoded
-    before = _snapshot(store)
+    before = bundle_snapshot(store)
 
     def no_decode(*args, **kwargs):
         pytest.fail("contradictory destination metadata reached pixel decoding")
@@ -366,22 +366,22 @@ def test_repeat_bundle_refuses_a_destination_png_that_disagrees_with_its_own_row
     monkeypatch.setattr(bundle_images, "_pixels", no_decode)
     with pytest.raises(bundles.BundleError, match="execution"):
         bundles.import_bundle(archive)
-    assert _snapshot(store) == before
+    assert bundle_snapshot(store) == before
 
 
 @pytest.mark.parametrize("kept_recipe", [None, {}, _ATTENTION, *_INVALID])
 def test_database_reindex_refuses_contradictory_destination_metadata_before_claiming_present(
     store, monkeypatch, tmp_path, kept_recipe,
 ):
-    row = _save()
+    row = save_source()
     _stored(store, row, _COMPILATION)
     source = store.settings
-    dest = _destination(store, monkeypatch, tmp_path)
+    dest = use_destination(store, monkeypatch, tmp_path)
     monkeypatch.setattr(reindex, "settings", dest)
     assert reindex.merge_database(source.outputs_dir, source.db_path)["indexed"] == 1
     target = dest.outputs_dir / row.filename
     _png(target, kept_recipe)
-    before = _snapshot(store)
+    before = bundle_snapshot(store)
     real_open = Image.open
 
     def header_only(path, *args, **kwargs):
@@ -399,7 +399,7 @@ def test_database_reindex_refuses_contradictory_destination_metadata_before_clai
     monkeypatch.setattr(storage, "import_file", forbidden)
     counts = reindex.merge_database(source.outputs_dir, source.db_path, out=io.StringIO())
     assert counts["conflicts"] == 1 and counts["present"] == counts["indexed"] == 0
-    assert _snapshot(store) == before
+    assert bundle_snapshot(store) == before
 
 
 @pytest.mark.parametrize("route", ["bundle", "database"])
@@ -407,11 +407,11 @@ def test_database_reindex_refuses_contradictory_destination_metadata_before_clai
 def test_an_uncertain_destination_header_is_refused_without_repair(
     store, monkeypatch, tmp_path, route, damage,
 ):
-    row = _save()
+    row = save_source()
     _stored(store, row, _COMPILATION)
     source = store.settings
     archive = _backup()
-    dest = _destination(store, monkeypatch, tmp_path)
+    dest = use_destination(store, monkeypatch, tmp_path)
     monkeypatch.setattr(reindex, "settings", dest)
     assert bundles.import_bundle(archive)["imported"] == 1
     target = dest.outputs_dir / row.filename
@@ -421,26 +421,26 @@ def test_an_uncertain_destination_header_is_refused_without_repair(
         target.write_bytes(b"not a PNG")
     else:
         _reencode(target, raw_metadata={"invalid-json": "{", "non-object-json": "[]", "null-json": "null"}[damage])
-    before = _snapshot(store)
+    before = bundle_snapshot(store)
     if route == "bundle" and damage == "missing":
         # Missing files retain the existing, deliberate verified restore
         # behavior; contradictory files must never take this route.
         assert bundles.import_bundle(archive)["restored"] == 1
-        assert _metadata(target)["execution"] == _COMPILATION
+        assert png_metadata(target)["execution"] == _COMPILATION
     elif route == "bundle":
         with pytest.raises(bundles.BundleError, match="execution"):
             bundles.import_bundle(archive)
-        assert _snapshot(store) == before
+        assert bundle_snapshot(store) == before
     else:
         counts = reindex.merge_database(source.outputs_dir, source.db_path, out=io.StringIO())
         assert counts["conflicts"] == 1 and counts["present"] == counts["indexed"] == 0
-        assert _snapshot(store) == before
+        assert bundle_snapshot(store) == before
 
 
 @pytest.mark.parametrize("route", ["database", "png"])
 @pytest.mark.parametrize("empty", [_ABSENT, None, {}, {"compilation": None, "attention_backend": None, "step_cache": None}])
 def test_empty_legacy_execution_does_not_rewrite_in_place_pngs(store, monkeypatch, tmp_path, route, empty):
-    row = _save()
+    row = save_source()
     source = store.settings
     path = source.outputs_dir / row.filename
     _png(path, empty)
@@ -491,7 +491,7 @@ def test_header_metadata_scan_allows_unrelated_late_comments_and_never_reads_pay
 @pytest.mark.parametrize("kind", [b"tEXt", b"zTXt", b"iTXt"])
 @pytest.mark.parametrize("recipe", [_COMPILATION, {"compilation": "future-v2"}])
 def test_late_app_metadata_is_refused_before_transport_writes(store, monkeypatch, tmp_path, route, kind, recipe):
-    row = _save()
+    row = save_source()
     source = store.settings
     path = source.outputs_dir / row.filename
     archive = _backup() if route in {"import", "repeat-source", "repeat-destination"} else None
@@ -499,23 +499,23 @@ def test_late_app_metadata_is_refused_before_transport_writes(store, monkeypatch
         assert archive is not None
         damaged = _edited_archive(archive, tmp_path, png=recipe, late_kind=kind)
     else:
-        meta = _metadata(path)
+        meta = png_metadata(path)
         meta["execution"] = recipe
         path.write_bytes(_placed_text(path.read_bytes(), kind, reindex.PNG_METADATA_KEY, json.dumps(meta), late=True))
     if route == "export":
-        before = _snapshot(store)
+        before = bundle_snapshot(store)
         with pytest.raises(bundles.BundleError, match="metadata must precede PNG image data"):
             bundles.export_bundle(expected=1)
-        assert _snapshot(store) == before
+        assert bundle_snapshot(store) == before
         return
-    dest = _destination(store, monkeypatch, tmp_path)
+    dest = use_destination(store, monkeypatch, tmp_path)
     monkeypatch.setattr(reindex, "settings", dest)
     if route in {"repeat-source", "repeat-destination"}:
         assert archive is not None
         assert bundles.import_bundle(archive)["imported"] == 1
         if route == "repeat-destination":
             target = dest.outputs_dir / row.filename
-            meta = _metadata(target)
+            meta = png_metadata(target)
             meta["execution"] = recipe
             target.write_bytes(_placed_text(target.read_bytes(), kind, reindex.PNG_METADATA_KEY, json.dumps(meta), late=True))
 
@@ -523,7 +523,7 @@ def test_late_app_metadata_is_refused_before_transport_writes(store, monkeypatch
             pytest.fail("late app metadata reached a pixel decode")
 
         monkeypatch.setattr(bundle_images, "_pixels", no_decode)
-    before = _snapshot(store)
+    before = bundle_snapshot(store)
     if route in {"import", "repeat-source", "repeat-destination"}:
         chosen = archive if route == "repeat-destination" else damaged
         assert chosen is not None
@@ -533,4 +533,4 @@ def test_late_app_metadata_is_refused_before_transport_writes(store, monkeypatch
         counts = reindex.reindex(source.outputs_dir, database=source.db_path if route == "database" else None, out=io.StringIO())
         assert counts["indexed"] == 0
         assert counts["invalid"] == 1 if route == "database" else counts["invalid_execution"] == 1
-    assert _snapshot(store) == before
+    assert bundle_snapshot(store) == before

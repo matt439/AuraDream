@@ -1,5 +1,7 @@
 # Plan: export and merge personal snippets
 
+**Status: done 2026-10-29** (`UI#20`; `UI#35` 2026-10-30).
+
 **Status, 2026-10-29: stages 1-3 built, CPU/browser-checked and visually inspected; complete.** `UI#20` came
 from the [TODO audit](review-2026-10-28-todo.md). This extends the completed
 [personal snippet feature](plan-prompt-snippets.md); its implementation and

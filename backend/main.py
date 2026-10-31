@@ -39,7 +39,7 @@ if __name__ == "__main__":
 else:
     compiler_cache._seal_startup()
 
-from . import api_backup, api_bundles, api_gallery, api_generate, api_jobs, api_masks, api_more_seeds, api_png, api_presets, api_prompt, api_refine_batch, api_saved_searches, api_snippets, api_swap, app_context, bundle_common, bundles, gallery_lock, gallery_reports, hub_access, loras, model_selection, prompt_encoding, startup_preferences, storage  # noqa: E402
+from . import api_backup, api_bundles, api_gallery, api_generate, api_jobs, api_masks, api_more_seeds, api_png, api_presets, api_prompt, api_refine_batch, api_rerender, api_runs, api_saved_searches, api_snippets, api_swap, app_context, bundle_common, bundles, gallery_lock, gallery_reports, hub_access, loras, model_selection, prompt_encoding, startup_preferences, storage  # noqa: E402
 from .backup_service import BackupService  # noqa: E402
 from .backends import get_backend  # noqa: E402
 from .detached import detached as _detached  # noqa: E402
@@ -509,13 +509,10 @@ async def status() -> ModelStatus:
     # good while; off the event loop it cannot stall the SSE stream with it.
     # A status poll is allowed during a switch. Never label an old threaded
     # description with a new selection/revision or with the new load's state.
-    # The gallery's newest id is read in the same thread, inside this loop:
-    # an await after it let a switch run to its end between the description
-    # and the rest, and the answer paired the old checkpoint and revision
-    # with the finished switch's `switching` false - the page took that for
-    # a switch with no revision of its own to come, and the revision that
-    # did come wiped the Models note's outcome (smoke-model-switch). From
-    # the loop's end to the return nothing awaits.
+    # The gallery's newest id is read in the same thread, inside this loop,
+    # and from the loop's end to the return nothing awaits, so a switch
+    # cannot finish between the description and the rest (what went wrong
+    # before: docs/design-notes.md, "Two tabs on one server").
     while True:
         revision = model_selection.revision()
         switching = _switching
@@ -1097,7 +1094,9 @@ app.include_router(api_prompt.create_router(services))
 app.include_router(api_snippets.create_router(services))
 app.include_router(api_saved_searches.create_router(services))
 app.include_router(api_presets.create_router(services))
+app.include_router(api_runs.create_router(services))
 app.include_router(api_generate.create_router(services))
+app.include_router(api_rerender.create_router(services))
 app.include_router(api_instruction_edit.create_router(services))
 app.include_router(api_swap.create_router(services))
 app.include_router(api_refine_batch.create_router(services))

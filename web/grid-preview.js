@@ -48,13 +48,6 @@ function runGrid() {
   return startJob('/api/grid', gridPayload());
 }
 
-function humanTime(seconds) {
-  if (seconds < 90) return `${Math.round(seconds)}s`;
-  const minutes = Math.round(seconds / 60);
-  if (minutes < 90) return `${minutes} min`;
-  return `${Math.floor(minutes / 60)}h ${String(minutes % 60).padStart(2, '0')}m`;
-}
-
 const axisText = (values) => values.map((v) => (v === null ? 'none' : v)).join(', ');
 // Mu's none is the scheduler's own shift, which on a fixed-shift checkpoint
 // is a number: said, as the sheet's heads say it.
@@ -88,7 +81,7 @@ function gridFactors(summary) {
 // prompt is line n of the prompt typed; a prompt that is not - no line holds
 // a variable, the variables are the negative's - is listed whole. Whatever
 // the listing, it is a box of a few lines that scrolls inside itself
-// (style.css): a nested scroller, never the panel, whose menus and tips hang
+// (styles/generation.css): a nested scroller, never the panel, whose menus and tips hang
 // out past its edge.
 const PREVIEW_PROMPTS = 3;
 function promptListing(prompts, template, name = 'prompt') {

@@ -20,7 +20,7 @@ from backend import bundles, gallery_lock, grid, main, storage
 from backend.jobs import JobManager
 from backend.schemas import GenerateRequest, Outpaint
 from tests.api_helpers import stream_job
-from tests.bundle_helpers import _destination, _save
+from tests.bundle_helpers import use_destination, save_source
 from tests.fakes import FakeBackend
 
 
@@ -60,7 +60,7 @@ def test_an_older_database_gains_the_job_table_and_index_on_its_next_connection(
 
 
 def test_resolved_cells_round_trip_before_the_outpaint_stamp_with_their_job_metadata(store):
-    source = _save()
+    source = save_source()
     request = GenerateRequest(
         prompt="a fox 🦊", width=304, height=256, refine=source.id,
         strength=0.5, outpaint=Outpaint(left=32, right=16, band=16),
@@ -83,7 +83,7 @@ def test_resolved_cells_round_trip_before_the_outpaint_stamp_with_their_job_meta
 
 
 def test_submitting_an_outpaint_grid_retains_the_unstamped_cells_and_original_budget(client, fake, store):
-    source = _save()
+    source = save_source()
     response = client.post("/api/grid", json={
         "prompt": "a {subject}", "prompt_axis": "subject = fox | wolf",
         "width": 304, "height": 256, "refine": source.id, "strength": 0.5,
@@ -107,7 +107,7 @@ def test_submitting_an_outpaint_grid_retains_the_unstamped_cells_and_original_bu
 
 @pytest.mark.parametrize("keep_favorites", [False, True])
 def test_clear_ends_retained_jobs_even_when_it_keeps_favorite_images(store, keep_favorites):
-    source = _save()
+    source = save_source()
     store.set_favorite(source.id, True)
     raw = cells()
     store.retain_run_job(definition(raw), raw)
@@ -168,7 +168,7 @@ def test_a_job_interrupted_before_finish_keeps_a_null_outcome_for_a_new_manager(
 def test_a_cell_recording_failure_refuses_before_admission_and_releases_mask_holds(
     client, fake, store, monkeypatch, error,
 ):
-    source = _save()
+    source = save_source()
     digest, _ = store.store_mask(Image.new("L", (256, 256), 255))
 
     def fail(*args):
@@ -296,7 +296,7 @@ def test_an_outcome_write_failure_is_logged_and_leaves_null_without_failing_the_
 def test_bundles_exclude_retained_definitions_and_missing_cell_prompts_but_backup_keeps_local_state(
     store, tmp_path, picked,
 ):
-    source = _save()
+    source = save_source()
     raw = cells("private missing-cell prompt")
     store.retain_run_job(definition(raw), raw)
     result = bundles.export_bundle(keep_gallery=True, ids=[source.id] if picked else None)
@@ -314,12 +314,12 @@ def test_bundles_exclude_retained_definitions_and_missing_cell_prompts_but_backu
 
 
 def test_import_preserves_local_definitions_but_successful_bundle_clear_ends_them(store, monkeypatch, tmp_path):
-    _save()
+    save_source()
     raw = cells()
     store.retain_run_job(definition(raw), raw)
     bundle = Path(bundles.export_bundle(expected=1)["path"])
     assert store.retained_run_jobs() == []
-    _destination(store, monkeypatch, tmp_path)
+    use_destination(store, monkeypatch, tmp_path)
     local = cells("a different local run")
     store.retain_run_job(definition(local, job_id="local-job", run_id="local-run"), local)
     assert bundles.import_bundle(bundle)["imported"] == 1
@@ -328,7 +328,7 @@ def test_import_preserves_local_definitions_but_successful_bundle_clear_ends_the
 
 
 def test_failed_bundle_cleanup_keeps_definitions_for_its_retained_images(store, monkeypatch):
-    _save()
+    save_source()
     raw = cells()
     store.retain_run_job(definition(raw), raw)
 

@@ -1,5 +1,7 @@
 # Plan: named gallery searches
 
+**Status: done 2026-10-28** (`GAL#7`).
+
 **Status, 2026-10-28: built; local CPU/browser acceptance recorded below.**
 `GAL#7` came from the [TODO audit](review-2026-10-28-todo.md). The implementation
 uses scratch galleries for acceptance; no model, GPU run or live gallery is needed.

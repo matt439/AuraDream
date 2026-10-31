@@ -447,9 +447,8 @@
     position: absolute; width: 1px; height: 1px; overflow: hidden; clip: rect(0 0 0 0);
   }
   #btn-select-clear .glyph { display: inline; }
-  .gallery-footer #btn-picked, .gallery-footer #btn-select-clear { padding-inline: 3px; }
   /* Their collapsed glyphs otherwise leave only an 18 px-wide target. */
-  .gallery-footer #btn-picked, .gallery-footer #btn-select-clear { min-width: 24px; }
+  .gallery-footer #btn-picked, .gallery-footer #btn-select-clear { padding-inline: 3px; min-width: 24px; }
   .gallery-footer .picked, .gallery-footer #btn-select-clear:not([hidden]) {
     margin-right: calc(var(--sp-1) - var(--sp-3));
   }

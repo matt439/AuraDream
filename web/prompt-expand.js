@@ -6,7 +6,7 @@
 // ERNIE's Expand: the prompt rewritten once by the checkpoint's own rewriter,
 // visibly, then the English of it - the button's state is status.js's
 // (syncExpandButton). What it does is said under the prompt, where it was
-// pressed (tags.js, showPromptNote): while it runs, with a clock, what it
+// pressed (prompt-note.js, showPromptNote): while it runs, with a clock, what it
 // waits on - the model's load, a first use's download - and when it lands,
 // that it replaced the prompt, with an Undo (from 1800 px at the end of its
 // English, at the head of the results). Its failures go in the panel's

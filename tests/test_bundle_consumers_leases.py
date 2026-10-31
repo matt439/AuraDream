@@ -17,7 +17,7 @@ import pytest
 
 from backend import backup_receipts, bundle_crypto, bundle_leases, bundle_mode, bundles, gallery_lock
 from backend.bundle_leases import LeaseBusy, LeaseRegistry
-from tests.bundle_helpers import _destination, _save, _snapshot
+from tests.bundle_helpers import use_destination, save_source, bundle_snapshot
 
 WINDOWS = pytest.mark.skipif(os.name != "nt", reason="Installed mode is qualified only on Windows fixed NTFS")
 
@@ -179,13 +179,13 @@ def test_context_body_error_survives_encrypted_close_refusal(tmp_path):
 
 @pytest.mark.parametrize("encrypted", [False, True])
 def test_borrowed_import_file_close_retains_outer_claim_even_if_path_retargets(store, monkeypatch, tmp_path, encrypted):
-    _save("synthetic retained source")
+    save_source("synthetic retained source")
     exported = bundles.export_bundle(keep_gallery=True, password="synthetic" if encrypted else None)
     archive = Path(exported["path"])
     if os.name == "nt":
         bundle_mode.install(archive.parent, other_servers_stopped=True)
-    _destination(store, monkeypatch, tmp_path)
-    before = _snapshot(store)
+    use_destination(store, monkeypatch, tmp_path)
+    before = bundle_snapshot(store)
     original_open, original_resolve = Path.open, Path.resolve
     opened = 0
     refused = []
@@ -212,7 +212,7 @@ def test_borrowed_import_file_close_retains_outer_claim_even_if_path_retargets(s
         with pytest.raises(PermissionError, match="injected"):
             bundles.import_bundle(archive, "synthetic" if encrypted else None)
         monkeypatch.setattr(Path, "resolve", original_resolve)
-        assert refused[0].calls == 1 and _snapshot(store) == before
+        assert refused[0].calls == 1 and bundle_snapshot(store) == before
         owner = bundle_leases._retained_reads[0]
         assert bundle_leases.downloads.leased(archive)
         with pytest.raises(LeaseBusy):
@@ -234,7 +234,7 @@ def test_borrowed_import_file_close_retains_outer_claim_even_if_path_retargets(s
 
 
 def test_listing_holds_one_claim_over_header_and_reported_metadata(store, monkeypatch):
-    _save()
+    save_source()
     exported = bundles.export_bundle(keep_gallery=True)
     archive = Path(exported["path"])
     entries, releases = watch(monkeypatch)
@@ -255,7 +255,7 @@ def test_listing_holds_one_claim_over_header_and_reported_metadata(store, monkey
 @pytest.mark.parametrize("consumer", ["listing", "receipt", "header", "decryptor", "import"])
 @pytest.mark.parametrize("error_kind", ["invalid_mode", "native_open"])
 def test_acquisition_errors_escape_availability_catches_before_archive_bytes(store, monkeypatch, tmp_path, consumer, error_kind):
-    _save()
+    save_source()
     exported = bundles.export_bundle(keep_gallery=True)
     archive = Path(exported["path"])
     stamp = backup_receipts.FileStamp.of(archive.stat())
@@ -263,7 +263,7 @@ def test_acquisition_errors_escape_availability_catches_before_archive_bytes(sto
         backup_receipts.ManagedIdentity(*(str(uuid4()) for _ in range(3))), str(archive.parent), archive.name,
         hashlib.sha256(archive.read_bytes()).hexdigest(), stamp, datetime.now(timezone.utc), "unencrypted", 1, 1,
     )
-    before = _snapshot(store)
+    before = bundle_snapshot(store)
     original_error = bundle_mode.ModeError("injected invalid installed mode") if error_kind == "invalid_mode" else PermissionError(13, "injected native reader refusal", str(archive))
 
     def refuse(_path):
@@ -285,12 +285,12 @@ def test_acquisition_errors_escape_availability_catches_before_archive_bytes(sto
             "import": lambda: bundles.import_bundle(archive)}[consumer]
     with pytest.raises(type(original_error)) as caught:
         call()
-    assert caught.value is original_error and _snapshot(store) == before
+    assert caught.value is original_error and bundle_snapshot(store) == before
 
 
 @pytest.mark.parametrize("consumer", ["listing", "receipt", "header"])
 def test_reader_release_errors_are_not_swallowed_as_missing_files(store, monkeypatch, tmp_path, consumer):
-    _save()
+    save_source()
     exported = bundles.export_bundle(keep_gallery=True)
     archive = Path(exported["path"])
     receipt = backup_receipts.Receipt(
@@ -348,7 +348,7 @@ def test_wrong_receipt_scope_cannot_create_companions_in_an_unrelated_destinatio
 @WINDOWS
 @pytest.mark.parametrize("encrypted", [False, True])
 def test_owned_export_readback_never_creates_partial_companions_or_nested_claims(store, monkeypatch, encrypted):
-    _save()
+    save_source()
     directory = store.bundle_directory()
     directory.mkdir()
     bundle_mode.install(directory, other_servers_stopped=True)
@@ -405,11 +405,11 @@ def probe(archive, receipt_path):
 @WINDOWS
 @pytest.mark.parametrize("encrypted", [False, True])
 def test_cross_database_import_keeps_native_source_claim_until_merge_finishes(store, monkeypatch, tmp_path, encrypted):
-    _save("synthetic source gallery")
+    save_source("synthetic source gallery")
     exported = bundles.export_bundle(keep_gallery=True, password="synthetic" if encrypted else None)
     archive = Path(exported["path"])
     bundle_mode.install(archive.parent, other_servers_stopped=True)
-    destination = _destination(store, monkeypatch, tmp_path)
+    destination = use_destination(store, monkeypatch, tmp_path)
     original = bundles._replace_database
     phases = []
     entries, releases = watch(monkeypatch)
@@ -429,7 +429,7 @@ def test_cross_database_import_keeps_native_source_claim_until_merge_finishes(st
 
 @WINDOWS
 def test_owned_upload_in_installed_staging_has_no_partial_companion(client, store, monkeypatch):
-    _save("synthetic upload source")
+    save_source("synthetic upload source")
     exported = bundles.export_bundle(keep_gallery=True)
     payload = Path(exported["path"]).read_bytes()
     staging = store.bundle_staging_dir()

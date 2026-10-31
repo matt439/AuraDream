@@ -11,9 +11,9 @@ from backend.model_defaults import _profile_for
 
 from tests.critic_helpers import (
     KLEIN,
-    _catalogue_repos,
-    _context,
+    context_for,
 )
+from tests.backend_helpers import catalogue_repos
 
 
 # --- The grounding -----------------------------------------------------------
@@ -36,7 +36,7 @@ def test_aesthetic_critic_gets_its_quality_advice_instead_of_the_family_score_pr
     assert all(excerpt.url == sources.url for excerpt in sources.excerpts)
     # The exception must reach the actual critic context, with Turbo's
     # existing family prefix remaining available for Turbo.
-    context = _context(AESTHETIC_MODEL_ID, ordered=False)
+    context = context_for(AESTHETIC_MODEL_ID, ordered=False)
     cited = " ".join(citation.text for citation in context.citations.values())
     assert "not using score_* tags in both the positive and negative prompt" in cited
     assert "does not need positive quality tags" in cited
@@ -46,7 +46,7 @@ def test_aesthetic_critic_gets_its_quality_advice_instead_of_the_family_score_pr
     }
 
 
-@pytest.mark.parametrize("model_id", _catalogue_repos())
+@pytest.mark.parametrize("model_id", catalogue_repos())
 def test_every_catalogue_checkpoint_resolves_to_its_sources(model_id):
     sources = prompt_sources.sources_for(model_id)
     assert sources.guide is _profile_for(model_id)["guide"]
@@ -64,7 +64,7 @@ def _every_guide() -> dict[str, str]:
     """A checkpoint for each guide constant: the catalogue's (the editor's
     among them), the two undistilled ones and an unknown id for the
     fallback."""
-    ids = [*_catalogue_repos(), "Tongyi-MAI/Z-Image", "baidu/ERNIE-Image", "nobody/whatever"]
+    ids = [*catalogue_repos(), "Tongyi-MAI/Z-Image", "baidu/ERNIE-Image", "nobody/whatever"]
     found = {prompt_sources.sources_for(model_id).guide_name: model_id for model_id in ids}
     assert set(found) == set(prompt_sources.GROUNDING)
     return found
@@ -301,7 +301,7 @@ def test_newbie_critic_can_cite_anonymous_character_names():
     excerpt = next(e for e in sources.excerpts if e.id == "newbie.anonymous_names")
     assert excerpt.url == _NEWBIE_XML
     assert "$character_1$, $character_2$" in excerpt.text
-    context = _context(model_id, prompt=guides.NEWBIE_GUIDE["examples"][0], style="xml")
+    context = context_for(model_id, prompt=guides.NEWBIE_GUIDE["examples"][0], style="xml")
     assert any(c.text == excerpt.text and c.url == _NEWBIE_XML for c in context.citations.values())
     assert "They do not need to be replaced with names." in context.system
 
@@ -311,14 +311,14 @@ def test_an_unknown_checkpoint_has_only_the_fallback():
     assert sources.guide_name == "FALLBACK_GUIDE" and sources.guide is guides.FALLBACK_GUIDE
     assert sources.excerpts == () and sources.url is None
     assert "no author sources" in sources.caveat
-    context = _context("nobody/whatever", ordered=False)
+    context = context_for("nobody/whatever", ordered=False)
     assert context.citations
     assert all(citation.url is None for citation in context.citations.values())
     # Its sentences are the app's general advice: nothing may call them the
     # authors', and its opening label is not a source at all.
     assert "authors" not in context.system.split("\n", 1)[0]
     assert "Unrecognised checkpoint." not in {c.text for c in context.citations.values()}
-    assert "from the checkpoint's authors" in _context(KLEIN).system
+    assert "from the checkpoint's authors" in context_for(KLEIN).system
 
 
 def test_unsourced_sentences_are_not_citable():
@@ -334,7 +334,7 @@ def test_unsourced_sentences_are_not_citable():
         if not grounding.unsourced:
             continue
         # Listed, the ? badge keeps them and the critic never sees them.
-        context = _context(model_id, ordered=False)
+        context = context_for(model_id, ordered=False)
         cited = [sentence.text for sentence in prompt_sources.sources_for(model_id).sentences]
         guide = prompt_sources.guide_constants()[name]
         prose = guide["prompt"]
@@ -356,7 +356,7 @@ def test_unsourced_sentences_are_not_citable():
     # Its prompting links to BFL's family guide; only the settings to Krea.
     assert krea.sentences[0].url == krea.url and krea.url.startswith("https://docs.bfl.ai/")
     assert krea.sentences[-1].url == "https://github.com/krea-ai/flux-krea"
-    context = _context("black-forest-labs/FLUX.1-Krea-dev")
+    context = context_for("black-forest-labs/FLUX.1-Krea-dev")
     assert "photo language" not in context.system and "give it room" not in context.system
 
 
@@ -367,7 +367,7 @@ def test_an_unsourced_sentence_is_never_cited(monkeypatch):
     before = prompt_sources.sources_for(KLEIN)
     target = "Name a camera, lens or film stock for photorealism."
     texts = [sentence.text for sentence in before.sentences]
-    assert target in texts and target in _context(KLEIN).system
+    assert target in texts and target in context_for(KLEIN).system
     grounding = prompt_sources.GROUNDING[before.guide_name]
     assert not grounding.unsourced
     monkeypatch.setitem(
@@ -377,7 +377,7 @@ def test_an_unsourced_sentence_is_never_cited(monkeypatch):
     )
     after = prompt_sources.sources_for(KLEIN)
     assert [sentence.text for sentence in after.sentences] == [t for t in texts if t != target]
-    context = _context(KLEIN)
+    context = context_for(KLEIN)
     guide_ids = [cite_id for cite_id in context.citations if cite_id.startswith("G")]
     assert guide_ids == [f"G{i}" for i in range(1, len(texts))]
     assert target not in {citation.text for citation in context.citations.values()}

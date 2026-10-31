@@ -1,5 +1,7 @@
 # Plan: gallery search exclusion
 
+**Status: done 2026-10-30** (`GAL#21`).
+
 **Status:** `GAL#21` done, 2026-10-30: stages 1-3 built together, with
 [option A](#decision-strict-scopes) for strict scopes, so behaviour B never
 shipped. See [Result](#result-2026-10-30). The sections below are the plan

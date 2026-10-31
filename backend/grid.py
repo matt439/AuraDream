@@ -52,7 +52,7 @@ from typing import Any, Callable
 from .model_selection import current_model_id
 from .config import settings
 from .execution import execution_key
-from .instruction_edit import edit_key
+from .instruction_edit import bound_spec, edit_key
 from .refine import start_index, steps_run
 from .schemas import GenerateRequest, ImageRecord, PromptVariant
 from .seeds import random_seed, wrap_seed
@@ -862,8 +862,6 @@ def cell_from_record(
     if fields["edit"] is not None:
         # Replay always retains the original input, never the resulting child.
         # Source availability/pixels are checked again by submission.
-        from .instruction_edit import bound_spec
-
         stored_edit = bound_spec(fields["edit"])
         stored_edit.request()  # Explicitly refuse unresolved imported intent.
         fields["edit"] = stored_edit
@@ -1007,11 +1005,15 @@ def run_id(cells: list[Cell], model_id: str, quantization: str) -> str:
     same run however their axes were spelled.
 
     A cell is named by the shortest key that carries all of its optional
-    elements: none of true CFG, references, a LoRA, a refine source, a mask or
-    an upscaler and it is the six-element key images have carried since before any of them
-    existed, so every run id from an earlier build - and every grid that uses
-    none of them - is unchanged. Each one that is set extends the name by one element, in the
-    order they were added.
+    elements - the nine extensions of `CellKey` (true CFG, references, a
+    LoRA, a refine source, a mask, an upscaler, an edit, an execution recipe
+    and the canvas/crop shape). With none of them it is the six-element key
+    images have carried since before any of them existed, so every run id
+    from an earlier build - and every grid that uses none of them - is
+    unchanged. An absent edit and an absent execution are removed
+    explicitly, and so is the shape when the run is one size, centered; the
+    remaining extensions are then trimmed from the right, so each one that is
+    set extends the name by one element, in the order they were added.
     """
     first = cells[0].request
     sizes = sorted({(cell.request.width, cell.request.height) for cell in cells})

@@ -14,7 +14,7 @@ import pytest
 from backend import backup_receipts, bundle_archive, bundle_capacity, bundles, grid
 from backend.bundle_common import BundleError
 from backend.schemas import GenerateRequest
-from tests.bundle_helpers import _save, _snapshot
+from tests.bundle_helpers import save_source, bundle_snapshot
 
 
 @pytest.fixture
@@ -26,8 +26,8 @@ def identity():
 def test_final_budget_uses_actual_post_snapshot_size_real_manifest_and_single_readback(
     store, monkeypatch, identity, password,
 ):
-    _save()
-    before = _snapshot(store)
+    save_source()
+    before = bundle_snapshot(store)
     real_backup, real_capacity, real_verify = bundles._backup, bundle_capacity.managed_capacity, bundles._verify_archive
     checks, budgets, verifications = [], [], []
 
@@ -63,7 +63,7 @@ def test_final_budget_uses_actual_post_snapshot_size_real_manifest_and_single_re
     with bundle_archive._open_archive(Path(result["path"]), password) as archive:
         assert archive.getinfo("database.sqlite3").file_size == sizes["database.sqlite3"]
         assert len(archive.read("manifest.json")) == estimate.manifest_bytes
-    assert _snapshot(store) == before
+    assert bundle_snapshot(store) == before
 
 
 @pytest.mark.parametrize("password", [None, "scratch-only password"])
@@ -71,12 +71,12 @@ def test_final_budget_uses_actual_post_snapshot_size_real_manifest_and_single_re
 def test_final_per_volume_boundary_preserves_old_archive_journal_and_gallery(
     store, monkeypatch, identity, password, margin,
 ):
-    _save()
+    save_source()
     old = bundles.export_bundle(keep_gallery=True, password=password, managed=identity)
     old_path = Path(old["path"])
     old_bytes = old_path.read_bytes()
     journal = backup_receipts.path_for(store.settings.db_path)
-    previous_journal, gallery = journal.read_bytes(), _snapshot(store)
+    previous_journal, gallery = journal.read_bytes(), bundle_snapshot(store)
     checks = []
     real_check = bundles._check_space
     room = shutil.disk_usage(store.settings.db_path.parent)
@@ -110,13 +110,13 @@ def test_final_per_volume_boundary_preserves_old_archive_journal_and_gallery(
     else:
         result = bundles.export_bundle(keep_gallery=True, password=password, managed=next_identity)
         assert result["managed"] is True and len(backup_receipts.load(store.settings.db_path, identity.gallery_id)) == 2
-    assert len(checks) == 2 and _snapshot(store) == gallery and old_path.read_bytes() == old_bytes
+    assert len(checks) == 2 and bundle_snapshot(store) == gallery and old_path.read_bytes() == old_bytes
     assert not list(bundles._directory().glob("*.part"))
     assert not list(store.settings.db_path.parent.glob(".bundle-*"))
 
 
 def test_managed_compaction_early_budget_counts_snapshot_plus_two_extra_copies(store, monkeypatch, identity):
-    _save()
+    save_source()
     definition = {"job_id": "retained", "run_id": "retained", "created_at": 1.0, "origin": "grid",
                   "model_id": "test/model", "quantization": "fp8", "width": 256, "height": 256,
                   "batch": 1, "comparison": False, "metadata": {}}
@@ -136,7 +136,7 @@ def test_managed_compaction_early_budget_counts_snapshot_plus_two_extra_copies(s
 
 
 def test_manual_export_keeps_its_original_single_check_and_does_not_use_managed_budget(store, monkeypatch):
-    _save()
+    save_source()
     checks = []
     monkeypatch.setattr(bundles, "_check_space", lambda needs: checks.append(needs))
 

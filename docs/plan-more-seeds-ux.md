@@ -1,5 +1,7 @@
 # More seeds: a direct, safe next step (GEN#23)
 
+**Status: done 2026-10-26** (the second `GEN#23`; the first, opened and closed 2026-10-25, reworded the INT8, Nunchaku inpaint and Qwen sequential notes).
+
 ## Evidence and scope
 
 Matt's 2026-10-26 request identifies obscure More seeds controls and apparent

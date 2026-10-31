@@ -1,6 +1,6 @@
 """App startup/configuration boundary for explicitly enabled gallery backups.
 
-Cleanup requires a separate explicit v3 permission. Encrypted backups pass a
+Cleanup requires the separately saved retention permission (settings v3+). Encrypted backups pass a
 saved credential reference to the admitted worker; setup remains explicit.
 Status is an in-memory snapshot:
 it remains readable during maintenance without taking the gallery reservation.
@@ -15,7 +15,7 @@ from pathlib import Path
 from uuid import uuid4
 
 from . import backup_receipts, backup_settings, bundle_mode, gallery_lock, storage
-from .api_bundles import BundleManager
+from .bundle_manager import BundleManager
 from .backup_coordinator import BackupCoordinator
 from .bundle_leases import LeaseRegistry
 from .schemas_backup import BackupSettingsRequest, BackupStatus
@@ -133,7 +133,7 @@ class BackupService:
             retention_uncertain=uncertain,
             credential_configured=saved.credential_state == "ready" and saved.credential_reference is not None,
             credential_state=saved.credential_state,
-            credential_provider="windows-credential-manager-v1" if saved.credential_reference is not None else None,
+            credential_provider=saved.credential_reference.provider if saved.credential_reference is not None else None,
             credential_generation=saved.credential_reference.destination_id if saved.credential_reference is not None else None,
         )
 

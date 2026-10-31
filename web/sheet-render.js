@@ -84,6 +84,10 @@ function renderSheet(place = sheetFocusPlace()) {
   restoreSheetFocus(place);
 }
 
+// What drawSheet drew (with the `shown` and `cells` it fills in): the
+// export, Fill and the zoom read it.
+let sheetLayout = null;
+
 // One image is the sheet's way in from Tab. Its tools remain reachable from
 // it; other cells are reached with arrows or the pointer. Keep the id across
 // redraws, and the old reading-order place when a pin or delete removes it.
@@ -411,7 +415,7 @@ function drawSheet() {
   const fill = els.sheetControls.querySelector('.sheet-fill');
   if (fill) syncFillButton(fill);
   // A matrix's columns are at most --cell-w wide: --cell-max, fitted, or 1fr
-  // where the sheet fills (style.css); zoomed, exactly the zoomed width
+  // where the sheet fills (styles/sheet.css); zoomed, exactly the zoomed width
   // (applySheetZoom sets both on the grid).
   els.sheetGrid.style.gridTemplateColumns = wrap
     ? 'repeat(auto-fill, minmax(var(--thumb-min), 1fr))'
@@ -542,7 +546,7 @@ function drawSheet() {
       add(rowHead(rowValue), 'rowheader');
     }
     // The source spans every row: one image the passes are all set against.
-    // Cropped as the passes were (style.css): a 1:1 source letterboxed
+    // Cropped as the passes were (styles/sheet.css): a 1:1 source letterboxed
     // beside 3:2 passes cut from it set two framings side by side, which
     // the eye compared as one. Said where the shapes differ.
     if (source && r === 0) {
@@ -826,7 +830,7 @@ function toggleSheet() {
 // (focusSheet). Every sheet opened is said (saySheet).
 function setSheet(on, { land = false, asker = null, reload = true } = {}) {
   sheetMode = on;
-  // Every sheet opens at its own size (sheet.js's zoom), said afresh.
+  // Every sheet opens at its own size (sheet-zoom.js's zoom), said afresh.
   sheetZoom = 1;
   sheetZoomBase = 0;
   applySheetZoom();

@@ -72,7 +72,9 @@
    box of their own, so the heads and cells are still the grid's items and
    the heads stick as they did. */
 .sheet-row { display: contents; }
-/* What a sheet is, said as it opens (sheet.js, saySheet). */
+/* What a sheet is, said as it opens (sheet.js, saySheet). Not .sr-only:
+   these lines sit inside #stage, which holds no .sr-only (rules.md, the
+   stage's reading flow; smoke-analysis checks it). */
 .sheet-said {
   position: absolute; width: 1px; height: 1px; margin: 0; overflow: hidden;
   clip: rect(0 0 0 0); white-space: nowrap;

@@ -1,5 +1,7 @@
 # Plan: continuing a run
 
+**Status: done 2026-10-18** (`GEN#11`, phases 1 and 2).
+
 **Status, 2026-10-18: Matt took every recommended answer to the open questions the same day (below). Phase 1 is built, 2026-10-18: 1a (the Resume double-render fix, `8097f1d`) and 1b (the `run` scope, `9c01d64`; the page, `c230b6e`); phase 2 persistence, Finish service/API and page integration are built and verified.** Why it is built as it is is in `docs/design-notes.md`'s "More seeds where the run ends"; the rules in `docs/rules.md`. Where the build differs from the text below: the planned-keys drop is a function of its own, `submission.not_yet_planned`, chained after `not_yet_rendered` on Resume, rather than an argument to it; `count_default` is the Batch every batch that recorded one agrees on, answered for every scope (the finish line's open is an `{ids}` one), and the page asks again at it, one more preview; the headline reads "N more of each of C cells = T images" ("of its one cell" for one); the run bar's line is "Run X · N images · checkpoint quant", the images the gallery holds under the filter, since phase 1 stores no cell total for "70/96 cells"; the lightbox's More seeds… is hidden, not held, at 900 px wide or narrower, where the right-click menu has it, as `#lb-inpaint` is; and the lightbox's keys are ignored while the dialog is open over it, so Escape closes the dialog alone. Phase 2 persistence now keeps pre-stamp cells and budgets before admission, writes terminal outcomes, and excludes recovery definitions from bundles. The phase 2 service/page stages below are built. It was written from four read-only reports on
 the current code (More seeds, grid Resume, the places a finished run shows,
 and the usage evidence), a user-research pass, three design proposals and
@@ -788,3 +790,125 @@ and Load into panel.
 8. No change under 1800 px for wide-only extras; the 600 px footer row gains
    nothing.
 9. No CLI change in phase 1; `--resume` is parity only.
+
+## Phase 1 as built (superseded by phase 2)
+
+Moved verbatim from `docs/design-notes.md` (2026-10-31): the page-memory
+recovery phase 1 shipped and phase 2's server-backed Finish run replaced
+(`GEN#11`, `3c8353a`). Only links are adjusted to point back into
+design-notes; "below" and "above" in the moved text mean design-notes
+as it stood. Current behaviour is in design-notes'
+[More seeds where the run ends](design-notes.md#more-seeds-where-the-run-ends)
+and `docs/rules.md`.
+
+### The finish line's Retry and Resume
+
+From design-notes' "A cell's failure is the cell's".
+
+**Skipped-cell recovery before phase 2 (historical).** The Retry/Resume
+route below depended on page memory. The 2026-10-18
+[phase 2 build](design-notes.md#more-seeds-where-the-run-ends) replaced those actions with
+server-backed Finish run, retaining the skipped-cell explanation and focus
+behavior.
+
+A skipped cell used to show only as the cell line jumping a number and, at
+the end, "1
+cell(s) failed" - which cell, no one said - and the obvious retry, Run grid,
+rendered the whole grid again. `Job.failed_cells` keeps each one's label, seed
+and error, sent with the records (the full snapshot: attach and `done`), never
+on the per-cell events; the cell line counts "· N skipped" from the status
+frames' `failures` as they happen, and the done line names them. A grid's
+done line then offers "Retry the N skipped cells", which sends the payload the
+page submitted (`submissions`, by job id) again with `resume: true` and the
+base seed its POST returned - never the panel, which may have changed since -
+so only the missing cells run. When the failure rule itself ends the job,
+`stopped_by` is `"failures"` (still status `error`, through `_finish`) and the
+error leads with where and why - "Stopped at cell 4 of 5 after 3 cells failed;
+1 image kept. Last: <the exception>" - since three in a row or a third of the
+grid read as one bad cell when only the last exception was shown; the page
+offers "Resume the remaining N cells" (the total less the cells that rendered).
+A plain job says both in its own units (`Job.unit`, the page's `unitWord` on
+the server): "Stopped at image 3 of 3 after 3 images failed", "1 image failed
+and was skipped", and the page's "1 of 1 image was skipped" - "cell" was a
+grid's word in a plain job's error. One that made nothing at all holds the
+title "Nothing made", never "✓ Finished 0 images".
+Both live in the finish line, `#finish-note`, apart from the cell line: when
+they shared `#cell-note`, the next queued job's start cleared it the moment the
+grid ended, and the Retry with it - in the overnight queue the button exists
+for. The finish line stays until the next job's end replaces it, led by
+"Previous job:" while another runs (or after one whose stream gave up). A
+Retry or Resume is sent once: accepted, it reads "Retry sent", `aria-disabled`,
+and keeps focus where the press left it; when the line is replaced with focus
+in it, focus moves to the new line's first button, else Generate. A job that
+ends with focus on Pause or Cancel (or a queued row's ×), which hide with
+`#progress`, hands it to Generate (`setBusy(false)`), and the finish line
+then takes it on to its first button (`finishTakesFocus`): a keyboard user
+who pressed Cancel and let the queue run out was left on `<body>`.
+
+### Phase 1's budget Resume and run bar
+
+From design-notes' "More seeds where the run ends".
+
+**Phase 1 implementation record (historical).** The label, budget Resume
+and run-bar details below describe that first stage. Phase 2 is built now,
+as the dated update below records: missing-cell actions use Finish run and
+stored cells rather than the old payload or panel. The queued-rerun gap
+described at the end of this record was also closed by `GEN#12` below.
+
+**The budget stop's Resume** reuses the failure stop's button: the budget
+is checked before a cell starts, so the job's `run` is the cells reached,
+and the button re-sends the night's own payload, its `budget_minutes` with
+it (Q6), the budget named in its title.
+
+**The run bar** on the sheet puts More seeds of this run… after Resume
+this run and the run's line ("Run abc · 70 images · WAI fp8") last on a
+row of its own: its count changes while a job writes to the run, and text
+before the buttons would move them under the pointer. The plan's "70/96
+cells" needs a cell total no row stores; phase 1 shows the images the
+gallery holds under the filter. The bar's gate is looser than Resume's - a
+refine sweep's and a comparison's run too, held on another checkpoint -
+and where Resume this run's preview renders nothing, it points the way on:
+"Nothing in run X is missing. More seeds of this run… adds seeds."
+
+### The banner's panel-driven Resume
+
+From design-notes' "The morning after: runs and finished jobs".
+
+**Historical panel-driven recovery, before phase 2.** A grid the night
+did not finish (cancelled, out of time, stopped by its failures) offers
+Resume: the sheet's Resume this run
+(`resumeRun`) with the job's size, the panel's grid made ready, Resume ticked
+for this session, and the preview saying what is left - or, where it would
+skip nothing, that the panel holds another grid. The base seed is the run's,
+from /api/runs (its oldest image's), as the sheet's is: the snapshot's
+`seed` is the first cell the job had left, and a job that was itself a
+Resume, its first seeds done, carried one past the base - the panel then held
+another grid, with another run id, and Run grid rendered cells the night
+never had. The finish line's Retry and Resume send their payload's own seed
+for the same reason, and the POST's answer only where the payload gave none.
+Not for a re-render, a refine sweep or a prompt comparison (the snapshot's
+`comparison`, set from `prompt_variants`), none of which the panel's grid
+makes - the sheet's Resume this run refuses a comparison too - and not for a
+job with no image of its own left, which leaves the preview nothing to skip
+and so saying the panel's grid was another.
+
+### The sheet's Resume this run
+
+From design-notes' "The contact sheet".
+
+**Historical sheet recovery, before phase 2.** The panel-filling route
+below was replaced by server-backed Finish run; the current behavior is in
+[More seeds where the run ends](design-notes.md#more-seeds-where-the-run-ends).
+
+A sheet of one run opened on `run:<id>` offers Resume this
+run: the run's base seed from `/api/runs` into the Seed box and its size into
+Width and Height, Resume ticked for this session only, the grid fold opened
+and Run grid brought into view. Resume is scoped by the size, the checkpoint
+and the quantization: filling only the seed, the panel's size after any other
+render made the preview skip nothing and blame the grid, so the size is
+filled too, and a run of another checkpoint (All models) offers no button.
+The axes are not stored per run, so whether the panel still holds that grid
+is the preview's to say, and a preview that would skip nothing says the grid
+- its prompt, axes or other settings, or the server's quantization - is a
+different one. Not on a comparison or a refine sweep, which the panel's grid
+did not make.

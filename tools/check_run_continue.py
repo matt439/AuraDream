@@ -2,7 +2,8 @@
 
 Uses only the existing Python/Node/Edge installation, small temporary fake
 images and a new scratch gallery. Leaves its compact steps/logs for review.
-No weights, GPU, production paths, live services or instruction-file edits.
+Starts and stops its own fake server (default port 7999, off the smoke
+table), so it needs no weights or GPU and touches no real gallery.
 """
 from __future__ import annotations
 
@@ -168,7 +169,7 @@ def main():
     if callable(reconfigure):
         reconfigure(encoding="utf-8")
     parser = argparse.ArgumentParser(description=__doc__)
-    parser.add_argument("--port", type=int, default=7909)
+    parser.add_argument("--port", type=int, default=7999)
     args = parser.parse_args()
     if shutil.disk_usage(ROOT.anchor).free < 64 * 1024 * 1024:
         raise SystemExit("not enough free disk for compact fake-server evidence")

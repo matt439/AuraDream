@@ -8,7 +8,7 @@ The maintainer's working backlog for this personal project: it records what is p
 
 **Aim (2026-10-29):** keep useful work ready for Matt's common workstation tasks. [Reported use](docs/design/preferences.md) guides priority; it does not approve the candidate redesign.
 
-**Ready backlog (updated 2026-10-30):** 1 `OPEN` row (`DEV#25`, waiting on the next CI run). `INP#11` stage 4's code is on main (PR #17); its [card acceptance step](docs/plan-instruction-editing.md#card-acceptance-step) waits on Matt's OK. Built 2026-10-30 (PR #22): `GEN#36`-`GEN#38`, `GAL#23`, `DEV#26`, the trial kit refresh (`DEV#21`), and the CPU stages of the card guard (`DEV#20`) and step packs (`DEV#23`), whose card stages are now `CARD` rows.
+**Ready backlog (updated 2026-10-31):** no `OPEN` row; `DEV#25` closed with the Linux and Windows CI baselines from pull_request run 41159120243 ([results](docs/plan-tooling.md#results)). `INP#11` stage 4's code is on main (PR #17); its [card acceptance step](docs/plan-instruction-editing.md#card-acceptance-step) waits on Matt's OK. Built 2026-10-30 (PR #22): `GEN#36`-`GEN#38`, `GAL#23`, `DEV#26`, the trial kit refresh (`DEV#21`), and the CPU stages of the card guard (`DEV#20`) and step packs (`DEV#23`), whose card stages are now `CARD` rows.
 
 **Decisions for Matt:** before `DEV#20`'s card stage, the commit-headroom floor (the 4 GiB default tripped on this machine while test runs were resident; [stage 1 notes](docs/plan-card-harness.md#card-guard)). On 2026-10-29 Matt took the recommended answers for `PERF#7` (cache beside the gallery, cleared on a torch/Triton/driver change, static shapes; shipping waits on `PERF#1`), `PERF#5`, `GAL#21` and `UI#34`; declined `GEN#39` and unattended backups (`GAL#22`, `GAL#6`); kept `GEN#6`, `INP#9` and `INP#10` deferred.
 
@@ -18,13 +18,12 @@ The maintainer's working backlog for this personal project: it records what is p
 
 ## Product design
 
-**Owner:** [docs/design/README.md](docs/design/README.md); [validation](docs/design/validation.md) owns the remaining task trials and evidence. Tooling rows (`DEV#20`-`DEV#26`): [card harness](docs/plan-card-harness.md) and [tooling](docs/plan-tooling.md).
+**Owner:** [docs/design/README.md](docs/design/README.md); [validation](docs/design/validation.md) owns the remaining task trials and evidence. Tooling rows (`DEV#20`, `DEV#23`): the [card harness](docs/plan-card-harness.md).
 
 | id | status | sev | size | item |
 |---|---|---|---|---|
 | `DEV#20` | CARD | MED | S+card | `tools/card_guard.py` stage 1 built 2026-10-30. Left: stage 2, one light SDXL fp8 session with the guard beside its own watcher, with Matt's OK. Before it, Matt sets the commit-headroom floor: 4 GiB tripped on this machine with test runs resident. [Card guard](docs/plan-card-harness.md#card-guard). |
 | `DEV#23` | CARD | LOW | S+card | The eight `tools/card/card10-*.json` packs and their test are built 2026-10-30; the six page packs pass on the fake. Left: Matt types Ctrl-C on the fake for the two Ctrl-C packs, then stage 2 on the card. [CARD#10 step packs](docs/plan-card-harness.md#card10-step-packs). |
-| `DEV#25` | OPEN | LOW | S | `--durations=25`, tools/smoke_timings.py and its CI step are built; the Windows local baseline is recorded. Left: the Linux CI baseline (the Test step's top 25 and the Smoke timings table, with commit and runner) from the first CI run after Matt's next push; a Windows CI figure when main next runs. [Plan](docs/plan-tooling.md#results) |
 | `DEV#1` | USER | LOW | M | Run common-task trials with Matt, comparing the current app and candidate layouts before choosing redesign slices. [Protocol](docs/design/validation.md#one-user-formative-protocol). |
 
 ## Measurements on the card
@@ -59,7 +58,7 @@ The maintainer's working backlog for this personal project: it records what is p
 
 ## Generation, jobs and models
 
-**Owner:** [docs/design-notes.md](docs/design-notes.md) for the deferred items; the 2026-10-12 review's [feature ideas](docs/review-2026-10-12.md#feature-ideas) for the `F` numbers named in each row.
+**Owner:** the plan or section each row links: [peak memory](docs/plan-peak-vram.md) and [Then refine](docs/plan-then-refine.md) for the card rows; the design notes, [docs/verified.md](docs/verified.md) or a review for the deferred ones.
 
 | id | status | sev | size | item |
 |---|---|---|---|---|
@@ -83,15 +82,15 @@ The maintainer's working backlog for this personal project: it records what is p
 
 ## Prompt analyser
 
-**Owner:** the 2026-09-28 checklist's [What remains](docs/review-2026-09-28-checklist.md#what-remains) for the residues; the design notes' [open questions from the analyser](docs/design-notes.md#open-questions-from-the-analyser) for decisions.
+**Owner:** the design notes' [prompt analyser](docs/design-notes.md#the-prompt-analyser) for the deferred item; its [open questions](docs/design-notes.md#open-questions-from-the-analyser) for decisions.
 
 | id | status | sev | size | item |
 |---|---|---|---|---|
-| `PA#9` | DEFERRED | LOW | L | Scoring comparison images automatically with a VLM (does each element appear); accuracy unmeasured. |
+| `PA#9` | DEFERRED | LOW | L | Scoring comparison images automatically with a VLM (does each element appear); accuracy unmeasured. [Prompt analyser](docs/design-notes.md#the-prompt-analyser). |
 
 ## The page
 
-**Owner:** the 2026-10-12 review's [feature ideas](docs/review-2026-10-12.md#feature-ideas) for the `F` numbers; the design notes for the rest.
+**Owner:** [docs/design/validation.md](docs/design/validation.md) for the manual checks.
 
 | id | status | sev | size | item |
 |---|---|---|---|---|
@@ -120,20 +119,21 @@ Each review's remaining work is indexed above; closed findings stay in their own
 | 2026-10-28 TODO audit | [Reconciliation and new work](docs/review-2026-10-28-todo.md): corrected stale edit/design status and `CARD#4` scope; added the requested named setups, saved searches, snippet portability and separate compiler preparation. Named setups (`GEN#27`, [plan](docs/plan-generation-presets.md#browser-acceptance-2026-10-28)) and saved gallery searches (`GAL#7`, [plan](docs/plan-saved-searches.md#browser-acceptance)) are built and locally qualified. |
 | 2026-10-28 PNG | Named [JSON decoder refusals (`UI#26`)](docs/review-2026-10-28-png-json-refusals.md) and [unreadable-size fallback (`UI#27`)](docs/review-2026-10-28-png-size-refusals.md). |
 | 2026-10-28 library | Recovery owners: [snippet/setup libraries and remaining owner audit](docs/review-2026-10-28-library-recovery.md), [setup list recovery (`UI#23`)](docs/review-2026-10-28-setup-list-recovery.md), [saved searches (`UI#24`)](docs/review-2026-10-28-saved-search-recovery.md). |
-| 2026-10-28 gallery | Owners: [picked favorites (`GAL#8`)](docs/review-2026-10-28-picked-favorites.md), [favorites (`GAL#9`)](docs/review-2026-10-28-favorite-write-order.md), [exact lifecycle actions (`GAL#10`)](docs/review-2026-10-28-bin-restore-order.md), [Delete unstarred/Empty (`GAL#11`)](docs/review-2026-10-28-broad-bin-order.md), [local date bounds (`GAL#13`)](docs/review-2026-10-28-local-date-bounds.md), [explicit date ranges (`GAL#14`)](docs/plan-gallery-date-ranges.md), [orientation values (`GAL#15`)](docs/plan-gallery-orientation.md), [scientific scalars (`GAL#16`)](docs/review-2026-10-28-numeric-search-scalars.md), [actual area (`GAL#17`)](docs/plan-gallery-area-search.md). |
+| 2026-10-28 gallery | `GAL#8`-`GAL#11`, `GAL#13` and `GAL#16` (picked favorites, favorite write order, exact and broad bin order, local date bounds, numeric scalars) are owned by their `docs/review-2026-10-28-*.md`; the search slices by their plans: [date ranges (`GAL#14`)](docs/plan-gallery-date-ranges.md), [orientation (`GAL#15`)](docs/plan-gallery-orientation.md), [area (`GAL#17`)](docs/plan-gallery-area-search.md). |
 | 2026-10-28 jobs | Owners: [queued cancellation receipts (`GEN#28`)](docs/review-2026-10-28-queued-cancel-recovery.md), [watched action replies (`GEN#29`)](docs/review-2026-10-28-watched-action-replies.md), [wrapped seed headlines (`GEN#30`)](docs/review-2026-10-28-more-seeds-headline.md). |
-| 2026-10-28 tooling | Owners: [fatal fixture prerequisites (`DEV#9`)](docs/review-2026-10-28-fatal-prerequisites.md), [fresh fake directories (`DEV#10`)](docs/review-2026-10-28-fake-fresh.md), [fake credential refusal (`DEV#11`)](docs/review-2026-10-28-fake-credentials.md), [port preflight (`DEV#12`)](docs/review-2026-10-28-smoke-port-plan.md), [fake CLI numbers (`DEV#13`)](docs/review-2026-10-28-fake-cli-numbers.md), [viewport preflight (`DEV#14`)](docs/review-2026-10-28-viewport-preflight.md), [direct port preflight (`DEV#15`)](docs/review-2026-10-28-browser-port-preflight.md), [step containers (`DEV#16`)](docs/review-2026-10-28-browser-step-containers.md), [preparation order (`DEV#17`)](docs/review-2026-10-28-browser-preparation-order.md), [startup geometry (`DEV#18`)](docs/review-2026-10-28-startup-viewport.md), [input refusals (`DEV#19`)](docs/review-2026-10-28-browser-input-refusals.md). |
+| 2026-10-28 tooling | `DEV#9`-`DEV#19` built, each owned by its `docs/review-2026-10-28-*.md`: fatal prerequisites, fresh fake directories, fake credentials, smoke port plan, fake CLI numbers, viewport and browser port preflights, step containers, preparation order, startup viewport and input refusals. [First of them](docs/review-2026-10-28-fatal-prerequisites.md). |
 | 2026-10-29 gallery | [Runs scope and deliberate retry (`GAL#18`)](docs/review-2026-10-28-runs-scope-recovery.md), including actual-handler/native controls and new screenshot inspection. |
 | 2026-10-29 grid | [Closed preview ownership (`UI#29`)](docs/review-2026-10-28-grid-preview-close.md), with actual-module/native controls and scoped screenshot inspection. |
 | 2026-10-29 copy feedback | [Original image and inspect-session ownership (`UI#30`)](docs/review-2026-10-29-copy-feedback-ownership.md), with synthetic-clipboard native controls and two inspected new screenshots. |
 | 2026-10-29 API paging | [SQLite-bound gallery/bin queries (`GAL#20`)](docs/review-2026-10-29-gallery-page-bounds.md), with real overflow controls, legal-MAX binding and existing paging/scope regressions. |
 | 2026-10-29 Check dismissal | [Retained findings and dismissed-panel focus (`UI#31`)](docs/review-2026-10-29-check-dismissal.md), with actual-module/original controls, strict fake native checks and three inspected screenshots. |
-| 2026-10-29 pending slices | [Bundle & clear ordering (`GAL#12`)](docs/review-2026-10-28-bundle-clear-order.md#final-qualification-2026-10-29), [Reuse-pass opening ownership (`UI#28`)](docs/review-2026-10-28-reuse-pass-opening.md#final-qualification-2026-10-29) and [a split receipt's watched extra (`GEN#31`)](docs/review-2026-10-29-split-extra-queue.md), each with original-source negative controls, an independent review whose confirmed findings are fixed, and inspected new screenshots. Screenshot inspection then closed [Runs favorite counts (`GAL#19`)](docs/review-2026-10-29-runs-favorite-counts.md#screenshot-inspection-2026-10-29) and [snippet portability (`UI#20`)](docs/plan-snippet-portability.md#final-screenshot-inspection-2026-10-29). |
+| 2026-10-29 pending slices | Qualified with negative controls, an independent review and inspected screenshots: [Bundle & clear (`GAL#12`)](docs/review-2026-10-28-bundle-clear-order.md), [Reuse-pass opening (`UI#28`)](docs/review-2026-10-28-reuse-pass-opening.md), [split extra (`GEN#31`)](docs/review-2026-10-29-split-extra-queue.md); screenshots then closed [`GAL#19`](docs/review-2026-10-29-runs-favorite-counts.md) and [`UI#20`](docs/plan-snippet-portability.md). |
 | 2026-10-29 setup portability | [Saved-setup export/import (`UI#25`)](docs/plan-setup-portability.md#stage-3-implementation-and-browser-evidence-2026-10-29): cold codec, atomic API and the browser merge dialog, with an owned-scratch smoke and three inspected new screenshots. |
 | 2026-10-29 compiler dependency | `DEV#8` closed: the exact triton-windows wheel's hash, metadata, RECORD and bundled NVIDIA/TinyCC notices were inspected, and a fresh online resolution reproduces the lock. [Results](docs/plan-regional-compilation.md#cpu-dependency-preparation). |
 | 2026-10-29 CI browser startup | [Bounded browser startup](docs/review-2026-10-29-ci-browser-startup.md): hosted qualification passed on e687fcd and on main after PR #16. |
-| 2026-10-30 overnight | Built and merged in PR #22: Mass refine Versions (`GEN#36`), More seeds carrying the pass (`GEN#37`), gallery timing in the picker (`GEN#38`), mistyped search keys (`GAL#23`; the Gallery section emptied), fake knob map (`DEV#26`), trial kit v2 (`DEV#21`, [refresh](docs/design/trials/README.md#refresh-for-the-current-app-dev21)), and stage 1 of `DEV#20`/`DEV#23` ([card harness](docs/plan-card-harness.md)). Then an integration review (search hints mend to the nearest key; bin-emptying packs check for a scratch gallery; the guard stops after unread card samples) and load-flake fixes: fixed sleeps made polls in smoke-gallery (and its Runs spy), smoke-comparison-batch, smoke-refine, smoke-wide, smoke-grid, smoke-bundle-clear-order, smoke and smoke-conditioning; a bundle settle that dropped its hold before its own reads ended ([design notes](docs/design-notes.md)); `browser.mjs` profile cleanup under load, and setup/snippet/saved-search writes waiting `SESSION_WAIT` for another process ([rules](docs/rules.md)). [Owners](docs/review-2026-10-29-backlog.md); [phase 5](docs/plan-then-refine.md#phase-5-more-seeds-carries-the-pass). |
+| 2026-10-30 overnight | Built and merged in PR #22: `GEN#36`-`GEN#38`, `GAL#23` (the Gallery section emptied), `DEV#26`, `DEV#21` and stage 1 of `DEV#20`/`DEV#23`, then an integration review and load-flake fixes (polls for fixed sleeps, a bundle settle's hold, profile cleanup, sidecar waits). [Owners](docs/review-2026-10-29-backlog.md); [card harness](docs/plan-card-harness.md). |
 | 2026-10-29 TODO audit | [Reconciliation and new work](docs/review-2026-10-29-todo.md): stale owner text fixed; 27 OPEN rows and four new DECISION rows added at Matt's request. |
+| 2026-10-31 code hygiene | Stale docs, dead code, duplicates and long files on `chore/code-hygiene`; no row opened. The splits and retained long files are [source-audit.md's third pass](docs/source-audit.md#third-pass-2026-10-31). |
 
 ---
 
@@ -149,7 +149,7 @@ Rules for writing it: read them before editing a row, not before picking one.
 4. **New work starts in an owner:** a plan in `docs/plan-*.md` for a feature, a review's findings for a defect, the design notes for a deliberate gap. Then it gets a row here.
 5. **NOW changes only when its items finish or Matt reorders them.** Refresh its ready count when rows or statuses change.
 
-**`id`:** a stable handle, not an order; a retired id is never reused. The prefix is the section: `CARD` measurements on the card, `INP` inpainting, outpainting and edits, `GEN` generation, jobs and models, `PERF` speed, `GAL` gallery and storage, `PA` prompt analyser, `UI` the page, `DEV` docs and tooling. A review's own id (10-12 F7, U61) is named in the clause.
+**`id`:** a stable handle, not an order; a retired id is never reused. The prefix is the section: `CARD` measurements on the card, `INP` inpainting, outpainting and edits, `GEN` generation, jobs and models, `PERF` speed, `GAL` gallery and storage, `PA` prompt analyser, `UI` the page, `DEV` docs and tooling. A review's own id (10-12 F7, U61) is named in the clause. One id was reused all the same: `GEN#23` named a wording fix (opened and closed 2026-10-25), then [More seeds' redesign](docs/plan-more-seeds-ux.md) (2026-10-26, closed with `UI#13`).
 
 **`status`**, a closed list:
 

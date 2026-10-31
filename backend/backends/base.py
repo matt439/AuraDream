@@ -1,7 +1,10 @@
 """The contract every generation engine implements.
 
-Keeping the API surface this small is what lets a ComfyUI-driven backend replace
-the in-process diffusers one without the HTTP layer or the UI noticing.
+The five abstract methods (`load`, `unload`, `is_ready`, `generate`,
+`describe`) are the contract; everything else is an optional hook with a
+default. Keeping the required surface that small is what lets a
+ComfyUI-driven backend replace the in-process diffusers one without the HTTP
+layer or the UI noticing.
 """
 from __future__ import annotations
 
@@ -106,7 +109,9 @@ class GenerationBackend(abc.ABC):
         """The request as this backend will actually run it - see
         `GenerateRequest.applied`. What the callers record beside the image and
         compare against for resume, so a backend that quietly drops a setting
-        must say so here. The default applies everything as given.
+        must say so here. The default refuses a nondefault execution recipe,
+        clears the recipe, and binds an edit (dropping its negative); any other
+        request is applied as given.
         """
         qualified = self.instruction_edit_qualified()
         if getattr(request, "edit", None) is not None:

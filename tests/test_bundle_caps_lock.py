@@ -23,7 +23,7 @@ def test_every_password_grid_holds_one_empty_polite_note():
     grids = _grids(html)
     found = []
     for grid in grids:
-        notes = re.findall(r'<p class="caps-lock-note" id="[^"]+" aria-live="polite"></p>', grid)
+        notes = re.findall(r'<p class="caps-lock-note" aria-live="polite"></p>', grid)
         assert len(notes) == 1, grid
         found += re.findall(r'<input id="([^"]+)" type="password"', grid)
     assert sorted(found) == sorted(PASSWORDS)

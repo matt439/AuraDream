@@ -12,7 +12,7 @@ import sqlite3
 from collections.abc import Callable
 from pathlib import Path
 
-from . import reindex
+from .bundle_file_lock import safe_basename
 
 
 class BundleError(ValueError):
@@ -46,15 +46,16 @@ def _quiet(phase: str, done: int, total: int) -> None:
 
 
 def _basename(name: str) -> bool:
-    return (
-        isinstance(name, str) and bool(name) and name not in {".", ".."}
-        and not any(c in name for c in '/\\:\x00<>"|?*')
-        and not any(ord(c) < 32 for c in name) and not name.endswith((".", " "))
-        and name.split(".")[0].upper() not in {
-            "CON", "PRN", "AUX", "NUL", *(f"COM{i}" for i in range(1, 10)),
-            *(f"LPT{i}" for i in range(1, 10)),
-        }
-    )
+    return safe_basename(name)
+
+
+# The original schema's required columns. Newer reproduction columns are read
+# when present and become NULL when importing an older gallery.
+_DB_REQUIRED = {
+    "id", "filename", "prompt", "negative_prompt", "width", "height",
+    "steps", "guidance_scale", "mu", "seed", "model_id", "duration_ms",
+    "favorite", "created_at",
+}
 
 
 def _connect_read(path: Path):
@@ -72,7 +73,7 @@ def _rows(path: Path) -> list[dict]:
         if conn.execute("PRAGMA integrity_check").fetchone()[0] != "ok":
             raise BundleError("the gallery database failed its integrity check")
         columns = {r["name"] for r in conn.execute("PRAGMA table_info(images)")}
-        if reindex._DB_REQUIRED - columns:
+        if _DB_REQUIRED - columns:
             raise BundleError("the bundle has no usable AuraDream images table")
         rows = [dict(r) for r in conn.execute("SELECT * FROM images ORDER BY id")]
         for row in rows:

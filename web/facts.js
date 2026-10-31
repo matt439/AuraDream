@@ -1,5 +1,6 @@
 // AuraDream's page script: a record's facts - the settings line and the
-// facts list the lightbox and the viewer share. Declarations only; state.js has
+// facts list the lightbox and the viewer share, and a card's title and the
+// words for a pass and its gone source. Declarations only; state.js has
 // the load-order contract these files share.
 'use strict';
 
@@ -406,4 +407,39 @@ async function openRefineSource(rec) {
     }
   }
   openLightbox(source, [source, rec]);
+}
+
+// A card's image title: the facts that tell it from the card beside it, a
+// pass's source and strength among them - "(deleted)" where the source has
+// gone, "(in the recycle bin)" where it waits there (goneWord), as the
+// lightbox's facts say it.
+function cardTitle(rec) {
+  const pass = rec.refine != null
+    ? ` · ${passWord(rec)} of #${rec.refine}${outpaintOf(rec)}${rec.refine_missing ? ` (${goneWord(rec)})` : ''} @ ${rec.strength}`
+    // An instruction edit says its source, gone or not, as a pass does.
+    : rec.edit != null
+      ? ` · edit of #${rec.edit.source ?? '?'}${rec.edit_missing ? ` (${editGoneWord(rec)})` : ''}` : '';
+  return `#${rec.id} · ${rec.width}×${rec.height} · seed ${rec.seed}${pass}\n${rec.prompt}`;
+}
+
+// What a pass is called - "outpaint", "inpaint" or "refine" - by what its
+// row carries: an outpaint has a mask as well, built by the server.
+function passWord(rec) {
+  return rec.outpaint ? 'outpaint' : rec.mask ? 'inpaint' : 'refine';
+}
+
+// An outpaint's padding after its source, " +400/+0/+400/+0", else ''.
+function outpaintOf(rec) {
+  return rec.outpaint ? ` ${outpaintSidesText(rec.outpaint)}` : '';
+}
+
+// Where a pass's gone source went (`refine_missing`): "deleted", or "in the
+// recycle bin" (`refine_binned`), from which a Restore brings it back.
+function goneWord(rec) {
+  return rec.refine_binned ? 'in the recycle bin' : 'deleted';
+}
+
+// The same for an instruction edit's source (`edit_missing`, `edit_binned`).
+function editGoneWord(rec) {
+  return rec.edit_binned ? 'in the recycle bin' : 'deleted';
 }

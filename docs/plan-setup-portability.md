@@ -1,5 +1,7 @@
 # Portable generation and grid setups
 
+**Status: done 2026-10-29** (`UI#25`).
+
 **Status:** `UI#25` selected for independent source implementation on
 2026-10-28. Stage 1 (cold codec and explicit merge planner), stage 2 (the
 atomic cold export/preview/import API) and stage 3 (the browser merge dialog,

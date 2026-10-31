@@ -84,7 +84,7 @@ const LB_SIDE_GAP = 8;
 // circle as drawn, so the two below follow the circle wherever its size is
 // set - a constant for the 40 px one put side by side's halves under the
 // wide tier's. The circle is in the same place as a strip's and alone
-// (style.css), so either reads the same: 50 px, or 62.
+// (styles/lightbox.css), so either reads the same: 50 px, or 62.
 function lbNavReach() {
   const circle = els.lbNext.firstElementChild.getBoundingClientRect();
   return Math.max(0, els.lbStage.getBoundingClientRect().right - circle.left);
@@ -128,19 +128,15 @@ const lbSixLines = () => parseFloat(getComputedStyle(els.lbMeta).fontSize) * 6;
 
 // Whether side by side's halves go one above the other: where the window is
 // under 901 px, or the stage taller than it is wide, and the halves stacked
-// fit `rec` at least LB_STACK_GAIN larger than left and right do. At 600x900
-// left and right gave a square pass and its source 213 px each of a 549x626
-// stage, a 7:4 one 213x121, where stacked gives them 309 and 433; a portrait
-// pass keeps left and right, 213x372, where stacked would give it 177x309.
-// The gain is asked because stacked halves take the stage's height, which
-// was the facts' letterbox (lbFactsRoom): a square pass at 800x900 would
-// gain 15 px a side, 313 to 328, and lose every fact under Size. A
-// landscape stage from 901 px keeps left and right whatever the picture:
-// the layout side by side was designed in. Decided on the stage with the
-// facts at six lines (lbBaseStage), never on what the facts left of it:
-// decided there, a landscape pass's room was worked out for stacked halves,
-// the stage it left was wider than tall, and the halves were drawn left and
-// right at 213 px over a band of nothing.
+// fit `rec` at least LB_STACK_GAIN larger than left and right do. The gain
+// is asked because stacked halves take the stage's height, which was the
+// facts' letterbox (lbFactsRoom). A landscape stage from 901 px keeps left
+// and right whatever the picture: the layout side by side was designed in.
+// Decided on the stage with the facts at six lines (lbBaseStage), never on
+// what the facts left of it, which drew a landscape pass's halves left and
+// right over a band of nothing. The measurements behind each:
+// docs/design-notes.md, "Side by side stacks where that shows the picture
+// clearly larger".
 const LB_STACK_GAIN = 1.125;
 function lbStacked(rec = lbList[lbIndex]) {
   if (!rec) return false;
@@ -255,7 +251,7 @@ function layoutLightbox() {
   // no backdrop beside it, just the circle: the stage beside the picture has
   // a gesture of its own there - zoomed in the pan, below fit the
   // double-click that gives fit back - and a strip would take it. A disabled
-  // arrow is its circle alone too (style.css), so the end of the walk's
+  // arrow is its circle alone too (styles/lightbox.css), so the end of the walk's
   // backdrop still closes.
   const gutter = (pw - w) / 2 - 8;
   // The least strip is the circle's reach less 2 px - 48 for the 40 px
@@ -288,7 +284,7 @@ function sayZoom() {
 }
 
 // Under a one-column stage (under 901 px) the facts are a scroller six lines
-// tall (style.css, .lb-meta), which showed Model and Size and hid the seed,
+// tall (styles/lightbox.css, .lb-meta), which showed Model and Size and hid the seed,
 // while a square picture at 600 px wide, or any landscape one, left the
 // stage a band of letterbox above and below it. The band is the facts':
 // --lb-room is how much taller than six lines they may grow - the stage's

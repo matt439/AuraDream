@@ -29,7 +29,8 @@ from backend.schemas import GenerateRequest, default_strength
 # `tests/` has no __init__.py; pytest puts this directory on sys.path.
 from fakes import fake_fill
 from test_profiles import CASES
-from test_refine import RefinableMain, _loaded
+from test_refine import RefinableMain
+from tests.backend_helpers import loaded_backend
 
 # The five families diffusers 0.40 ships an inpaint class for, of the
 # pipelines this app's catalogue loads.
@@ -348,7 +349,7 @@ def inpaintable(store, monkeypatch, tmp_path):
         lambda cls, kind="Img2Img": InpaintStub if cls is SdxlLikeMain and kind == "Inpaint" else None,
     )
     monkeypatch.setattr(module, "settings", dataclasses.replace(module.settings, model_id=ANIMAGINE))
-    backend = _loaded(SdxlLikeMain())
+    backend = loaded_backend(SdxlLikeMain())
     source = store.save_image(
         Image.effect_noise((256, 256), 64).convert("RGB"),
         GenerateRequest(prompt="a fox", width=256, height=256),

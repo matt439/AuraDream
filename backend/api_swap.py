@@ -118,11 +118,8 @@ async def swap_plan(
         except ValueError as exc:
             result.status, result.detail = "invalid", error_detail(exc)
             continue
-        spec = (
-            cell.request.lora, tuple(cell.request.reference), cell.request.refine, cell.request.mask,
-            cell.request.outpaint, cell.request.upscaler,
-        )
-        if spec != (None, (), None, None, None, None):
+        spec = submission.input_spec(cell.request)
+        if spec != submission.NO_INPUTS:
             if spec not in checked:
                 checked[spec] = await submission.unusable_input(services, cell.request)
             unusable = checked[spec]
@@ -139,19 +136,7 @@ async def swap_plan(
         seen[key] = record.id
         result.status = "queued"
         queued.append((result, cell))
-    # The gallery's own answer, per size: `completed_cells` is scoped to one.
-    sizes: dict[tuple[int, int], list[grid.Cell]] = {}
-    for _, cell in queued:
-        sizes.setdefault((cell.request.width, cell.request.height), []).append(cell)
-    # Snapshot before any size's awaited scan: a live cell can finish
-    # during it. Submission holds rerun admission until every job is added.
-    planned = services.jobs().planned_keys()
-    unheld: set[int] = set()
-    kept: set[int] = set()
-    for (width, height), group in sizes.items():
-        missing = await submission.not_yet_rendered(services, group, width, height)
-        unheld.update(id(cell) for cell in missing)
-        kept.update(id(cell) for cell in submission.not_yet_planned(services, missing, planned))
+    unheld, kept = await submission.prune_held(services, [cell for _, cell in queued])
     cells = []
     for result, cell in queued:
         if id(cell) in kept:
@@ -162,13 +147,6 @@ async def swap_plan(
             result.status, result.detail = "rendered", _SWAP_SAYS["rendered"]
     results.sort(key=lambda result: result.id)
     return [record.id for record in records], results, cells
-
-
-def _swap_counts(results: list[SwapResult]) -> dict[str, int]:
-    counts: dict[str, int] = {}
-    for result in results:
-        counts[result.status] = counts.get(result.status, 0) + 1
-    return counts
 
 
 def create_router(services: AppServices) -> APIRouter:
@@ -185,7 +163,7 @@ def create_router(services: AppServices) -> APIRouter:
         ids, results, cells = await swap_plan(services, request)
         return SwapTagsPreview(
             ids=ids,
-            counts=_swap_counts(results),
+            counts=submission.status_counts(results),
             queued=len(cells),
             jobs=len({(cell.request.width, cell.request.height) for cell in cells}),
             images=results[:SWAP_PREVIEW_ROWS],
@@ -221,7 +199,7 @@ def create_router(services: AppServices) -> APIRouter:
                 status_code=409,
                 detail="the selection changed since the check; review the swaps again",
             )
-        counts = _swap_counts(results)
+        counts = submission.status_counts(results)
         if not cells:
             if counts.get("planned"):
                 if set(counts) <= {"rendered", "planned"}:
@@ -253,9 +231,7 @@ def create_router(services: AppServices) -> APIRouter:
         accepted = []
         for group in sizes.values():
             job = await services.jobs().submit_cells(group, run_id=grid.run_id(group, model, quantization), swap=summary)
-            accepted.append(JobAccepted.model_validate({
-                "job_id": job.id, "seed": job.seed, "run_id": job.run_id, "estimate_seconds": job.estimate_seconds,
-            }))
+            accepted.append(JobAccepted.of(job))
         first = accepted[0]
         return SwapTagsAccepted(
             job_id=first.job_id, seed=first.seed, run_id=first.run_id, estimate_seconds=first.estimate_seconds,
