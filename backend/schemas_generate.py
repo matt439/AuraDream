@@ -30,6 +30,7 @@ from .execution import (
     resolve_execution,
 )
 from .model_defaults import defaults_for, inpaint_family, inpaint_start
+from . import refine
 from .refine import DEFAULT_STRENGTH, Upscaler, leaves_a_step, upscaler_supported
 from .schemas_outpaint import Outpaint
 from .seeds import MAX_BATCH, MAX_GRID_SEEDS, MAX_RUNS, MAX_SEED
@@ -82,8 +83,6 @@ def default_inpaint_strength() -> float | None:
     if start is not None:
         return start
     import diffusers
-
-    from . import refine
 
     pipeline = getattr(diffusers, family, None)
     cls = refine.sibling(pipeline, "Inpaint") if pipeline is not None else None

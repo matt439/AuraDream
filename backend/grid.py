@@ -52,7 +52,7 @@ from typing import Any, Callable
 from .model_selection import current_model_id
 from .config import settings
 from .execution import execution_key
-from .instruction_edit import edit_key
+from .instruction_edit import bound_spec, edit_key
 from .refine import start_index, steps_run
 from .schemas import GenerateRequest, ImageRecord, PromptVariant
 from .seeds import random_seed, wrap_seed
@@ -862,8 +862,6 @@ def cell_from_record(
     if fields["edit"] is not None:
         # Replay always retains the original input, never the resulting child.
         # Source availability/pixels are checked again by submission.
-        from .instruction_edit import bound_spec
-
         stored_edit = bound_spec(fields["edit"])
         stored_edit.request()  # Explicitly refuse unresolved imported intent.
         fields["edit"] = stored_edit

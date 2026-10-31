@@ -16,12 +16,11 @@ import sqlite3
 from collections.abc import Sequence
 from datetime import datetime, timezone
 from pathlib import Path
-from typing import TYPE_CHECKING, Any
+from typing import Any
 
 from . import gallery_lock, storage
-
-if TYPE_CHECKING:
-    from .grid import Cell
+from .grid import Cell
+from .schemas import GenerateRequest
 
 
 @gallery_lock.protected(lambda: storage.settings.db_path, waits=True)
@@ -84,8 +83,6 @@ def retained_run_jobs(run_id: str | None = None) -> list[dict[str, Any]]:
     JobManager alone answers that. A malformed/obsolete request is a worded
     ValueError for the recovery API rather than an unvalidated pipeline call.
     """
-    from .grid import Cell
-    from .schemas import GenerateRequest
     from .seeds import MAX_SEED
 
     where = " WHERE run_id = ?" if run_id is not None else ""

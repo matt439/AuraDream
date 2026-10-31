@@ -21,7 +21,10 @@ from collections.abc import Callable, Mapping
 from dataclasses import dataclass
 from typing import TextIO
 
-from backend.instruction_edit import KONTEXT_V1, is_edit_only
+from backend.instruction_edit import (
+    INSTRUCTION_EDIT_EXACT_ID, INSTRUCTION_EDITOR_UNSUPPORTED, KONTEXT_V1, installed_diffusers_version,
+    is_edit_only, loader_refusal,
+)
 from backend.loader_choices import FORMATS, OFFLOADS, QUANTIZATIONS
 # What config.py falls back to, from the one module both may import - importing
 # config itself is the one thing this module must not do.
@@ -250,8 +253,6 @@ def apply_env(args: argparse.Namespace) -> None:
 
 def _edit_host() -> tuple[str, str | None]:
     """The platform and installed diffusers version, as the backend reads them."""
-    from backend.instruction_edit import installed_diffusers_version
-
     return sys.platform, installed_diffusers_version()
 
 
@@ -265,7 +266,6 @@ def edit_checkpoint_refusal(env: Mapping[str, str] | None = None) -> str | None:
     instance's, answered when it loads; nothing here opens it.
     """
     from backend.execution import loader_execution_from_choices
-    from backend.instruction_edit import INSTRUCTION_EDIT_EXACT_ID, INSTRUCTION_EDITOR_UNSUPPORTED, loader_refusal
 
     env = os.environ if env is None else env
     model_id = env.get("AURADREAM_MODEL_ID") or DEFAULT_MODEL_ID
