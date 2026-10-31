@@ -8,10 +8,13 @@ modules. Line count was a screening tool: each file was mapped by
 responsibility first, and a file was split only where a role had grown that
 other files call or that shares no state with the rest. Splits move code
 verbatim, with no new build step or runtime feature. This is the second pass;
-the first, at `21afcdf` on 2026-10-07, is kept below and marked as such.
+the first, at `21afcdf` on 2026-10-07, is kept below and marked as such. The
+third, on 2026-10-31, is [its own section](#third-pass-2026-10-31) after
+this one's verification; its splits are the 2026-10-31 rows of the
+boundaries table, and its retained files have a table of their own.
 
-After this pass 8 files are above 1,000 lines; the table of retained files
-says why each stays whole.
+After the second pass 8 files were above 1,000 lines; the table of retained
+files says why each stayed whole. Its figures are as audited then.
 
 The 2026-10-28 saved gallery search addition follows the same boundary:
 `saved_searches.py`, `schemas_saved_searches.py` and `api_saved_searches.py`
@@ -26,6 +29,13 @@ init function follows.
 
 | Pass | Original file | Lines before | Responsibilities after the split |
 | --- | --- | ---: | --- |
+| 2026-10-31 | `backend/storage.py` | 2,112 | Schema, migrations, connections, record conversion, writers, the masks table and its holds, partial files and live reads (1,808). `run_jobs.py` (162) retained run jobs (`retain_run_job` .. `finish_run_job`), reached as `storage.<name>` through `_MOVED` and reading `storage.settings`, `_write_lock` and `_session()` at call time, as `gallery_delete` does; `record_fields.py` (207) the pure row and chunk field codecs (mask hash and provenance, the outpaint chunk, the peaks), imported back by name. The mask writers, holds, `mask_path` and `stamp_outpaints` stay, since tests patch them on `storage`. |
+| 2026-10-31 | `backend/reindex.py` | 1,150 | Not a length split: the bundle layer imported the CLI for private names. The PNG chunk codec (`PNG_SIGNATURE`, `text_keyword`, `metadata_chunk`) and `execution_from_sources`/`_info` moved to `metadata.py`, `_DB_REQUIRED` to `bundle_common`; `reindex` (1,110) keeps its old names as aliases. |
+| 2026-10-31 | `backend/generate.py` | 2,084 | The local run, `main()` and the helpers that reach the gallery (1,262). `generate_args.py` (591) the parser, `--from-image` settings, the outpaint, mask and size reads and the flag-only checks, imported back as globals so `generate._image_settings`/`_mask_file` patches intercept; `generate_remote.py` (284) the `--via-server` client, handed the three shared helpers by `main()`; `submission_rules.py` (202, from `submission.py`, which re-exports it) the service-free submit checks. `test_profiles.py` holds `generate_args.SIZES is sizes.SIZES`. |
+| 2026-10-31 | `tests/test_cli.py` | 1,854 | Seeds, the loop equality AGENTS.md names, budgets, `--from-image`, conditioning, Then refine and the Kontext refusal (805). `cli_helpers.py` (103) the shared fixtures, the autouse isolation included; `test_cli_passes.py` (592) refine, inpaint, outpaint and the local GAN; `test_cli_via_server.py` (421) the client. 122 node ids before and after. |
+| 2026-10-31 | `tests/test_api_grid.py` | 1,298 | The grid routes (771). `test_api_grid_variants.py` (323) prompt-variant comparisons; `test_api_rerender.py` (219) Re-render; `VARIANTS`, `TEXTS` and `LABELS` in `api_helpers.py`. 66 node ids before and after. |
+| 2026-10-31 | `tests/test_api_model_switch.py` | 1,044 | The switch (836). `test_api_model_catalogue.py` (204) the eleven tests that only read `/api/models` and `/api/status`; `model_switch_helpers.py` (27) the constants and the autouse `fresh_selection`. 54 node ids before and after. |
+| 2026-10-31 | `web/snippet-import.js`, `web/setup-import.js` | 339, 407 | Not a length split: the setup import was a function-for-function copy of the snippet import. `import-merge.js` (170, loaded before both) the stateless merge machinery; each dialog keeps its state lets, preview, commit and uncertain-import flow (256 and 321), so Saved setups still never calls `setupSummary` and neither resends an uncertain import. |
 | 2026-10-31 | `web/analysis.js`, `web/grid-preview.js`, `web/shortcuts.js` | 839, 314, 312 | Not a length split: page-wide pure helpers that lived in late, feature-specific files moved verbatim, names unchanged, to `page-helpers.js` (45), loaded right after `state.js`: `plural` (called in 21 files), `excerpt` and `units` from `analysis.js`, `humanTime` (11 files) from `grid-preview.js`, and `keyboardEventHeld`, `keyboardEditingTarget` and `keyboardCommandModifier` (up to 23 files, 19 of them loaded before `shortcuts.js`) from `shortcuts.js`. Every call was already at run time, so nothing changes but where the names are declared. `span` and `note` stay in `analysis.js`, and `keyboardSubmit` in `shortcuts.js`, used only there and in `app.js`. `test_check_dismissal.py` loads the new file before `analysis.js`. The page loads 66 classic scripts. |
 | 2026-10-31 | `web/gallery.js` | 982 | Gallery paging, cards and keyboard navigation (799). Not a new file: the tail, which reads no gallery state, went to the files whose roles it is. The Reuse button (`modelsDiffer`, `syncReuseButton`, `notCarried`, `reuseButton`, `syncReuseButtons`) moved to the end of `reuse.js` (621), and a record's title words (`cardTitle`, `passWord`, `outpaintOf`, `goneWord`, `editGoneWord`) to the end of `facts.js` (444). Both load after `gallery.js` and every use is at call time, so `index.html` is unchanged. |
 | 2026-10-31 | `web/gallery-actions.js` | 1,180 | Starring, Bin picked, deleting, forgetting and taking back, Delete unstarred's sweep and the ask dialogs (1,028). `gallery-head.js` (157, loaded right after it) the gallery head's pointer-stable layout (`headPointer` through `libraryPointerLeft`), which shares no state with the rest and which `app.js`, `generation.js`, `gallery.js`, `job-results.js` and `bin.js` call; the rest reaches it only through two run-time `syncDeleteUnstarred()` calls. The ask dialogs (`openAsk` through `askBackdrop`) stay: a further split was optional and is not taken. `test_runs_favorite_counts.py` still evaluates `gallery-actions.js` alone, whose favourite code never names the head. The page loads 65 classic scripts. |
@@ -154,7 +164,7 @@ How the boundaries hold:
   last. No binding was wrapped in a module or
   closure; each moved block keeps its comment and source order.
 
-## Long files retained
+## Long files retained, 2026-10-11
 
 | File | Lines | Audit decision |
 | --- | ---: | --- |
@@ -220,3 +230,125 @@ commits (`acf2013` .. `2659e36`).
 These checks establish refactor equivalence at the source, API and
 fake-backend levels. This pass adds no GPU quality or performance
 measurements to `docs/verified.md`.
+
+## Third pass, 2026-10-31
+
+Screened the 543 tracked Python, JavaScript, CSS and HTML files in
+`backend/`, `web/`, `tests/` and `tools/` at `be46506`, then worked on the
+`chore/code-hygiene` branch. 26 files were over 1,000 lines (22 application,
+4 test), up from 8; 18 had no row here, and three split successors had grown
+back past their pre-split size (`main.py` 856 to 1,181, `bundles.py` 590 to
+1,191, `model-switch.js` 912 to 1,236). The method is the second pass's: map
+each file by role first, and split only a role other files call or one that
+shares no state with the rest, moving code verbatim.
+
+After the pass 18 files are over 1,000 lines: 17 application files and
+`tests/test_profiles.py`. Each has a row in the table below. Figures are
+`wc -l` after the pass.
+
+What the pass did, by package (each split is a 2026-10-31 row in
+[Implemented boundaries](#implemented-boundaries)):
+
+- **Storage and the bundle layer.** The bundle layer no longer imports the
+  `reindex` CLI: the PNG chunk codec and the recipe reconciliation moved to
+  `metadata.py` (143 to 192), `_DB_REQUIRED` to `bundle_common`, and
+  `reindex` keeps aliases its tests read. Retained run jobs went to
+  `run_jobs.py` (162) and the pure field codecs to `record_fields.py` (207),
+  taking `storage.py` from 2,112 to 1,808. The migration list is hoisted to
+  `storage._ADDED_COLUMNS`, from which a bundle merge takes its column
+  types. Six call sites stopped reaching through `storage._crop_anchor`.
+- **The CLI.** `generate.py` went from 2,084 to 1,262: `generate_args.py`
+  (591) the parser, `--from-image` settings and the flag-only checks,
+  `generate_remote.py` (284) the `--via-server` client, and
+  `submission_rules.py` (202) the service-free submit checks, so the CLI no
+  longer imports FastAPI. The two paths share one `_grid_flags`, and the
+  local run now refuses `--grid-seeds 0` as `--via-server` did.
+  `generate.main` is still 921 lines: its report and run loop share the
+  locals the 2026-10-11 row named, and extracting the report as a
+  many-parameter function would move the coupling, not remove it.
+- **Smaller backend splits.** `job_state.py` and `error_text.py` from
+  `jobs.py`; `api_rerender.py`, `api_runs.py` and `more_seeds_planner.py`
+  from `api_generate.py` and `api_more_seeds.py`, so no router imports
+  another; `schemas_outpaint.py`; `critic_issues.py`; `bundle_manager.py`
+  and `schemas_bundles.py` from the bundle router; and `bounded_route.py`
+  (60), the import routers' one bounded-body route class. The rerun planners
+  share `submission.prune_held`, `input_spec` and `status_counts`, and seven
+  routes build their answer with `JobAccepted.of`.
+- **The page.** Verbatim moves into `automatic-backup.js`, `sheet-zoom.js`,
+  `refine-rules.js`, `tag-helper.js`, `prompt-note.js`, `tag-lists.js`,
+  `gallery-head.js` and `page-helpers.js`, `gallery.js`'s tail into
+  `reuse.js` and `facts.js`, and the pass-check lines into
+  `refine-prompt.js`; and one shared-code file, `import-merge.js` (170), the
+  snippet and setup import dialogs' merge machinery. The page loads 67
+  classic scripts, up from 58. Duplicates removed in place: one
+  `applyGalleryFilter` for the four filter transitions, `.sr-only` for the
+  screen-reader lines outside the stage, one result row for Swap tags, Mass
+  refine and More seeds (`page-helpers.js`), and `dropPassLora`,
+  `stepStrength` and `PASS_IN_FLIGHT` in `refine-rules.js`.
+- **Tests.** `test_cli.py` (1,854), `test_api_grid.py` (1,298) and
+  `test_api_model_switch.py` (1,044) split, with their node-id counts equal
+  before and after; shared helpers moved to `cli_helpers.py`,
+  `backend_helpers.py`, `gallery_helpers.py`, `browser_helpers.py` and
+  `model_switch_helpers.py`, imported by name; and the three converter
+  caches' copied tests became one parametrized file.
+
+### Long files retained, 2026-10-31
+
+| File | Lines (last row or base, then now) | Audit decision |
+| --- | ---: | --- |
+| `web/index.html` | 1,340; 2,135 | The page's static DOM, still no code: no inline script, 18 `<dialog>`s, 67 scripts. `state.js` now builds `els` with 593 lookups at parse time, so the reason a split needs a build step, a server template or fetches that race `app.js` is stronger than before. Growth is the DOM of Inpaint, Outpaint, Edit by instruction, Then refine, the automatic backup settings, Shortcuts, Saved searches, Snippets and Setups and their imports, each beside its trigger or in its own dialog. About 25% of the lines are comments. |
+| `backend/backends/diffusers_backend.py` | 862 (`2659e36`); 1,976 | `DiffusersBackend` (1,605 lines) and the private pipeline-ownership classes (`_PipelineCandidate`, `_CacheDisposal`, `_CallDisposal`, about 270 lines). The classes use no module global tests patch, so a move is mechanically safe, but they are the backend's own lock protocol, touching `_lock`, `_cache_owner`, `_cache_disposal`, `_pending_cache_disposal`, `_loaded_execution` and `_pipe` 30+ times; a split would spread one protocol over two files. If ever split, move them verbatim and import them back so `type(x) is _CacheDisposal` still resolves. |
+| `backend/storage.py` | 1,170; 1,808 | Split this pass (from 2,112). What remains is the 2026-10-11 core, grown by the masks table, its writers and holds, the outpaint stamp and the edit columns, which tests patch on `storage`. |
+| `backend/guides.py` | 1,455; 1,735 | Still one role: 25 guides (22 at the last row) and two pure import-time builders for the Anima dicts (`_anima_helper`, `_anima_order`), so "no functions" no longer holds but the data-only argument does. A family split would need re-exports of 25 `*_GUIDE` names and of the private names read from outside: `_NOOBAI_PREFIX`, `_BFL_TECHNICAL` and now `_KONTEXT_DRIFT` (`prompt_sources` and two instruction-edit tests). |
+| `backend/model_defaults.py` | 1,256; 1,554 | Growth is inpaint keys and views (`inpaint_family`, `inpaint_start`, `INPAINT_DEFERRED`, the measured labels) and the Kontext exact profile, not per-checkpoint logic. An `inpaint_profile.py` would need `_profile_for` from here while `hints_for` needs `_inpaint_strength_hint` from it: a new cycle to move about 100 lines. The 2026-10-11 reasons and revisit trigger stand. |
+| `backend/prompt_sources.py` | 1,358; 1,469 | Growth is the Anima Preview and Kontext groundings; about 85% is still excerpts and `GROUNDING`, which the resolver reads directly. The 2026-10-11 reasons stand. |
+| `backend/jobs.py` | 910 (`2659e36`); 1,319 | Split this pass (from 1,711). `JobManager` (1,230 lines) stays whole: Then refine's stage calls `_emit`, `_save`, `_hold` and the backend, and `submit_cells`/`_generate` close over the job and loop. |
+| `backend/generate.py` | 1,089; 1,262 | Split this pass (from 2,084); the 2026-10-11 trigger, CLI work growing, had fired. `main()` is 921 lines of the rest. |
+| `web/model-switch.js` | 912; 1,236 | The Models table, favourites, selection and the switch, kept together as the 2026-10-11 row put them. The table (about 370 lines) is called from `execution.js`, `model-shots.js` and `app.js`, but it reads the switch's catalogue state (`modelCatalogueEntries`, `modelCatalogueDetails`, `modelRuntimeSettings`, `modelState`) and calls back into `syncModelSwitch`, so a `model-table.js` would share most of its state with this file. |
+| `backend/bundles.py` | 590; 1,193 | Export and import, the two operations tests patch through (`bundles._verify_archive`, `_install`, `_replace_database`, `bundles.datetime`), `_import_bundle` about 350 lines and `export_bundle` about 265. Moving the five import-only recovery helpers to a `bundle_recovery.py`, and `_read_whole`/`_ReadAhead` to `bundle_archive.py`, is safe and optional, not taken; revisit if import grows again. |
+| `backend/grid.py` | 951 (`2659e36`); 1,182 | Every role works on the one `Cell`/`CellKey` vocabulary AGENTS.md anchors here (`expand`, `cell_from_record`, `run_id`), and tests patch `grid.settings` and `grid.random_seed`, which both `expand` and the prompt-variable code read. Seams recorded: a `grid_prompts.py` of about 220 lines (variables, variants, random assignment), which would need `PLACEHOLDER`/`VARIANT` re-exported and would stop following `grid.settings` patches; and about 80 lines of pricing (`estimate_seconds`, `_cell_ms`, `seeds_within_budget`) beside `gallery_reports.execution_estimates`. Revisit if either grows. |
+| `backend/main.py` | 856; 1,180 | Growth is the model routes, bound to module globals tests rebind (26 distinct names, among them `settings`, `_switching`, `details_for` and `_merged_defaults`), which `AppServices` reaches late-bound. Seam recorded, not taken: `_merged_defaults`, `_expander_status`, `_listed_loras`, `_disk_free_mb` and `_gallery_timing` (about 130 lines) as a `model_views.py`, imported back under main's names so the patches still intercept. Revisit if `/api/models` grows again. |
+| `backend/reindex.py` | 584 (`2659e36`); 1,110 | The in-place reindex and `merge_database` share the PNG reading, the mask and edit checks and about 50 patch sites (`reindex.settings` 44 times, `_copy_in`, `_Masks.resolve`). This pass moved out what the bundle layer read, so only `bundles.py`'s one lazy `_embedded_mask`, which needs storage's mask hash, still imports the CLI. |
+| `web/refine.js` | 1,018; 1,080 | Split this pass (from 1,178): the 2026-10-11 retain's reason, four callers of the rules seam, no longer held. The dialog's state machine around its shared lets remains. |
+| `tests/test_profiles.py` | 936 (`d7c71db`); 1,080 | One role, profile and size facts held to the page, the CLI, the README and verified.md, about 8% over the screen. Seam recorded: the size-table tests (`test_the_page_writes_the_cfg_label_on_both_cfg_boxes` through `test_the_batch_budget_names_what_to_use_instead`, about 177 lines) could join `tests/test_sizes.py` if the file passes about 1,200 lines or gains another size-table check; rules.md, design-notes and the 2026-10-11 rows cite this file for them, so retarget those then. |
+| `backend/prompt_rules.py` | 1,064; 1,067 | Unchanged in kind: one `_Context`, one `_RULES` table of 26 rules, and the heuristics seam still about 67 lines. |
+| `web/gallery-actions.js` | 826 (`2659e36`); 1,029 | Split this pass (from 1,180); the ask dialogs stayed, an optional move not taken. |
+| `web/inpaint.js` | 1,070; 1,004 | Trimmed this pass (from 1,083) by the moves to `refine-prompt.js` and `refine-rules.js`. Still the Inpaint dialog's one role; Outpaint shares its capability helpers (`inpaintSupported`, `syncInpaintCapability`, `inpaintNone`). |
+
+Screened and retained under 1,000 lines, without a row of their own:
+`web/outpaint.js` 989 (its extend controls are its own role but have no
+outside caller, and it shrank through the duplicate removals),
+`backend/prompt_text.py` 933 (negation and unquoted lettering, about 580
+lines, depend only on `_QUOTE_OPEN`, `_quoted_spans` and `_inside`, and
+would become `prompt_lettering.py` past 1,000), `web/sheet-render.js` 929
+(one role, drawing and navigating the sheet; lifting the controls bar out of
+`drawSheet` as `drawSheetControls(values)` is optional), `web/lightbox.js`
+909 (one state machine; download is the only new role, about 35 lines),
+`web/app.js` 902 (boot and wiring, its documented role; the document
+keydown dispatcher could become a `documentKeydown` in `shortcuts.js`, with
+`test_prompt_route.py` and five rules.md mentions retargeted) and
+`web/status.js` 867 (one `/api/status` role; `receiveStatus` is its one
+dispatcher).
+
+Not taken, by decision: renaming underscore-private names read across
+modules (a project-wide convention, and tests bind and patch many of them),
+one atomic-write helper for every sidecar, a shared converted-tree cache in
+the loaders, and splitting `outpaint.js`, `sheet-render.js`, `lightbox.js`,
+`status.js` or `app.js` by size alone.
+
+### Verification, 2026-10-31
+
+Each split commit records its own checks in its message: `pytest
+--collect-only` node-id counts equal before and after each test split (122,
+66 and 54; the converter caches went from 70 to 71, one case added on
+purpose); the sorted OpenAPI document byte-identical across the router and
+schema moves; computed styles compared in a browser before and after the
+CSS changes; and the classic-script guard and the docs-map tests for every
+page move. At the end of the pass, on Windows with this documentation
+change: `uv run --group dev pytest -q -n auto` **8,141 passed, 7 skipped**
+in 119 seconds, `ruff check .` clean, and the pinned type gate 0 errors over
+166 files; every relative link and anchor in the tracked Markdown resolves.
+The page splits ran the whole smoke table (100 of 100 passed), and the page's
+duplicate removals the 20 smokes over what they touched. As before, these
+establish equivalence at the source, API and fake-backend levels, and add no
+GPU measurement to `docs/verified.md`.

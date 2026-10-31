@@ -4050,9 +4050,13 @@ measured on the card and when.
   pointer. A close that ran nothing keeps the sides, band and boxes in page
   memory (`outpaintKept`) for that image on the same checkpoint. Its
   shared helpers are inpaint.js's (`inpaintStartStrength`,
-  `libraryStrengthInto`, `syncPassSampling`), refine-prompt.js's
-  (`renderPassCheck`, `syncPassCheck`, `selectPassFrom`) and
-  refine-rules.js's (`sourceGoneWords`). Cards, the
+  `inpaintLibraryStrength`, `inpaintStrengthNote`, `libraryStrengthInto`,
+  `syncPassSampling`, and the capability it shares with the Inpaint
+  dialog: `inpaintSupported`, `syncInpaintCapability`, `inpaintNone`,
+  `inpaintUnavailableText`), refine-prompt.js's (`renderPassCheck`,
+  `syncPassCheck`, `selectPassFrom`) and refine-rules.js's
+  (`sourceGoneKind`, `sourceGoneWords`, `dropPassLora`, `stepStrength`,
+  `PASS_IN_FLIGHT`). Cards, the
   settings line and job labels read "outpaint of #N +L/+T/+R/+B @ S", the
   facts "Outpainted from" and an Outpaint row, an outpainted card a ⬚
   badge; Against source draws the source at (left, top) at the result's
