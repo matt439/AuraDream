@@ -7040,6 +7040,14 @@ bundle live), `tests/test_api_bundles.py` (`binned` in the preview),
 and `--where` reaching the bin, `--where` pinned to its count) and `tests/test_reindex.py` (in place and
 `--database` keeping the state, PNG-only bringing it back live).
 
+The command-line tests are three files sharing `tests/cli_helpers.py` (the
+local `cli` fixture, its autouse execution-environment isolation and the
+passes' sources and masks): `tests/test_cli.py` (seeds and the loop equality,
+resume, budgets, `--from-image`, conditioning, Then refine),
+`tests/test_cli_passes.py` (refine, inpaint, outpaint and the GAN upscaler,
+run locally) and `tests/test_cli_via_server.py` (`--via-server` through the
+test client's routes, and `_server_json`'s transport).
+
 The bundle tests share helpers from `tests/bundle_helpers.py`.
 `tests/test_bundles.py` covers export and cleanup: archive/merge round trips,
 preserved favourites and timings, remapped image links, WAL snapshots,
@@ -7155,7 +7163,7 @@ the submit refusals, the strength axis with resume, the pass's own size
 guard and its lack of a batch budget, `GET /api/images/{id}`, Re-render,
 and the preview's `start_sigma`, asked with the applied pass, not for a
 sweep or a direct render, end to end over a real FLUX.1 schedule) and the
-CLI's flags in `tests/test_cli.py`. What a pass does to pixels, its time and its
+CLI's flags in `tests/test_cli_passes.py`. What a pass does to pixels, its time and its
 memory are the card's to say, in `docs/verified.md`.
 
 The inpaint is covered by `tests/test_inpaint.py` (the inpaint class per
@@ -7207,7 +7215,7 @@ id pins in `tests/test_conditioning.py`, the inpaint classes' prompt
 building held to their text-to-image classes' in
 `tests/test_prompt_encoding.py`, and the `--mask` (an RGBA, 16-bit or CMYK
 file; no strength) and `--from-image` (a source that is another picture
-here) cases in `tests/test_cli.py`.
+here) cases in `tests/test_cli_passes.py`.
 
 The outpaint is covered by `tests/test_outpaint.py` (both types' grid and
 bound checks, the fill name, the key round trip, the validator's refusals,
@@ -7243,7 +7251,7 @@ size refusal; an unstamped outpaint refused by `check_refine_supported` in
 the inpaint's words; an outpaint without a strength at the class's default),
 the outpaint key and run-id cases in `tests/test_conditioning.py`, the
 dialog's statuses in `tests/test_inpaint_ui.py`, and the `--outpaint`,
-`--band` and `--from-image` cases in `tests/test_cli.py` (a `--band` of its
+`--band` and `--from-image` cases in `tests/test_cli_passes.py` (a `--band` of its
 own beside a carried outpaint running, a rewritten mask hash refused).
 `tests/test_reindex_provenance.py` covers foreign PNG conditioning ids, lost
 databases, missing or mismatched source identities and safe in-place metadata
