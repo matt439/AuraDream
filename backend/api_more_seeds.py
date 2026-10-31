@@ -15,7 +15,6 @@ from .schemas import (
     MoreSeedsAccepted,
     MoreSeedsPreview,
     MoreSeedsRequest,
-    MoreSeedsResult,
 )
 
 
@@ -41,13 +40,6 @@ def _more_seeds_jobs(batches: list[more_seeds.Batch]) -> dict[tuple, list[more_s
 def _passes(batches: list[more_seeds.Batch]) -> int:
     """The Then refine passes following these batches' new bases."""
     return sum(len(batch.seeds) for batch in batches if batch.then_refine is not None)
-
-
-def _more_seeds_counts(results: list[MoreSeedsResult]) -> dict[str, int]:
-    counts: dict[str, int] = {}
-    for result in results:
-        counts[result.status] = counts.get(result.status, 0) + 1
-    return counts
 
 
 def _intent_context(services: AppServices) -> tuple:
@@ -122,7 +114,7 @@ def create_router(services: AppServices) -> APIRouter:
             raise HTTPException(exc.status_code, exc.detail) from exc
         return MoreSeedsPreview(
             ids=ids,
-            counts=_more_seeds_counts(results),
+            counts=submission.status_counts(results),
             queued=sum(len(batch.seeds) for batch in queued),
             batches=len(queued),
             jobs=len(_more_seeds_jobs(queued)),
@@ -184,7 +176,7 @@ def create_router(services: AppServices) -> APIRouter:
         queued = [batch for batch in batches if batch.status == more_seeds.QUEUED]
         if not queued:
             said = ", ".join(
-                f"{n} {status.replace('_', ' ')}" for status, n in _more_seeds_counts(results).items()
+                f"{n} {status.replace('_', ' ')}" for status, n in submission.status_counts(results).items()
             )
             raise HTTPException(status_code=422, detail=f"no selected batch can have more seeds ({said})")
         accepted = []

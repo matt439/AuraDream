@@ -6248,8 +6248,8 @@ submission queues only cells neither the gallery nor a live job holds.
 This is independent of persisted runs and the proposed workstation layout.
 
 They use `submission.not_yet_planned` after the gallery subtraction in
-`api_generate.py`, `api_rerender.py`, `api_runs.py`, `api_swap.py` and
-`api_refine_batch.py`. Snapshot
+`api_generate.py`, `api_rerender.py` and `api_runs.py`, and through
+`submission.prune_held` in `api_swap.py` and `api_refine_batch.py`. Snapshot
 `jobs.planned_keys()` on the event loop **before** the awaited gallery
 reads, as grid Resume does: taking it afterwards misses a cell that moved
 from the queue into the gallery during the scan. Keep each cell's applied

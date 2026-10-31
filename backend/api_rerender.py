@@ -226,12 +226,8 @@ def create_router(services: AppServices) -> APIRouter:
             # to it here: re-rendered elsewhere, its mask no longer covers it. An
             # outpaint (frozen, so it keys) is checked at that size per padding,
             # never sharing a plain refine's verdict over the same source.
-            for spec in {
-                (c.request.lora, tuple(c.request.reference), c.request.refine, c.request.mask, c.request.outpaint,
-                 c.request.upscaler, c.request.edit)
-                for c in cells
-            }:
-                if spec != (None, (), None, None, None, None, None):
+            for spec in {submission.input_spec(c.request) for c in cells}:
+                if spec != submission.NO_INPUTS:
                     await submission.refuse_unusable_inputs(services, cells[0].request.model_copy(
                         update={"lora": spec[0], "reference": list(spec[1]), "refine": spec[2], "mask": spec[3],
                                 "outpaint": spec[4], "upscaler": spec[5], "edit": spec[6]}

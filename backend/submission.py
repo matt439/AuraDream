@@ -266,6 +266,54 @@ def not_yet_planned(
     ]
 
 
+
+async def prune_held(services: AppServices, cells: list[grid.Cell]) -> tuple[set[int], set[int]]:
+    """The ids (`id(cell)`) of `cells` the gallery does not hold, and of
+    those the ids no live job plans either: what a gallery rerun queues.
+
+    Per size, since `completed_cells` is scoped to one. The queue snapshot
+    is taken first, as `not_yet_planned` requires; the caller holds rerun
+    admission until every job it makes of them is added.
+    """
+    # The gallery's own answer, per size: `completed_cells` is scoped to one.
+    sizes = cells_by_size(cells)
+    # Snapshot before any size's awaited scan: a live cell can finish
+    # during it. Submission holds rerun admission until every job is added.
+    planned = services.jobs().planned_keys()
+    unheld: set[int] = set()
+    kept: set[int] = set()
+    for (width, height), group in sizes.items():
+        missing = await not_yet_rendered(services, group, width, height)
+        unheld.update(id(cell) for cell in missing)
+        kept.update(id(cell) for cell in not_yet_planned(services, missing, planned))
+    return unheld, kept
+
+
+# What `input_spec` answers for a request that names no input to check.
+NO_INPUTS: tuple = (None, (), None, None, None, None, None)
+
+
+def input_spec(request: GenerateRequest) -> tuple:
+    """The inputs `unusable_input` checks, as one hashable key: adapter,
+    references, refine source, mask, outpaint, upscaler and edit. Producers
+    check each distinct key once, and skip `NO_INPUTS`; one tuple, so a new
+    input cannot be left out of one producer's key and shared there by two
+    requests that differ in it."""
+    return (
+        request.lora, tuple(request.reference), request.refine, request.mask, request.outpaint,
+        request.upscaler, request.edit,
+    )
+
+
+def status_counts(results) -> dict[str, int]:
+    """How many of a rerun preview's `results` carry each status, in the
+    order each status first appears."""
+    counts: dict[str, int] = {}
+    for result in results:
+        counts[result.status] = counts.get(result.status, 0) + 1
+    return counts
+
+
 async def resolve_selection(
     services: AppServices, *, ids: list[int] | None, search: str | None, favorites: bool, all_models: bool,
     run: str | None = None,

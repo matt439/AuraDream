@@ -114,9 +114,8 @@ async def more_seeds_plan(
         if template.quantization and quantization and template.quantization != quantization:
             batch.notes.append(f"made under {template.quantization}; these run under {quantization}")
         first = batch.cells[0].request
-        spec = (first.lora, tuple(first.reference), first.refine, first.mask, first.outpaint, first.upscaler,
-                first.edit)
-        if spec != (None, (), None, None, None, None, None):
+        spec = submission.input_spec(first)
+        if spec != submission.NO_INPUTS:
             if spec not in checked:
                 # An edit's batch queues here (the producer), its source
                 # proved against its recorded pixels and held to the envelope.

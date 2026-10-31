@@ -407,7 +407,10 @@ before changing it.
   chips and Check share, and owner of the patchable `tag_vocabulary`
 - `backend/submission.py` — what every cell producer checks before it
   queues (`refuse_unusable_inputs`, `unusable_input`, `refine_unavailable`,
-  `inpaint_unavailable`, `mask_unusable`, `not_yet_rendered`) and the gallery selection (`resolve_selection`);
+  `inpaint_unavailable`, `mask_unusable`, `not_yet_rendered`) and the gallery selection (`resolve_selection`),
+  with the rerun planners' shared parts: `prune_held` (the per-size gallery
+  and queue subtraction, its queue snapshot first), `input_spec`/`NO_INPUTS`
+  (the one key a producer checks inputs by) and `status_counts`;
   `backend/submission_rules.py` its checks and refusal wording that need no
   services (`mask_unusable`, `outpaint_unusable`, `missing_masks`, the
   `*_detail` sentences, `cells_by_size`), re-exported by `submission` and
