@@ -22,7 +22,7 @@ from pathlib import Path, PurePosixPath
 
 from PIL import Image
 
-from . import backup_receipts, bundle_capacity, bundle_crypto, bundle_images, bundle_leases, gallery_lock, storage
+from . import backup_receipts, bundle_capacity, bundle_crypto, bundle_images, bundle_leases, gallery_lock, png_settings, storage
 from .bundle_archive import _DATABASE, _FORMAT, _MANIFEST, _READ_AHEAD_MAX, _check_space, _verify_archive
 from .bundle_common import (
     _CHUNK,
@@ -1047,7 +1047,7 @@ def _import_bundle(path: Path, password: str | None, progress: Progress,
                         # Its mask covered that source's pixels, and a mask is
                         # never kept without the source it covers.
                         values["mask"] = None
-                    values["crop_anchor"] = storage._crop_anchor(
+                    values["crop_anchor"] = png_settings.crop_anchor(
                         values.get("crop_anchor"), source=values.get("refine"),
                         mask=values.get("mask"), outpaint=values.get("outpaint"),
                     )

@@ -57,7 +57,7 @@ if __package__ in (None, ""):
 try:
     from PIL import Image
 
-    from backend import gallery_lock, storage
+    from backend import gallery_lock, png_settings, storage
     from backend.bundle_common import _DB_REQUIRED
     from backend.config import settings
     from backend.execution import canonical_execution, execution_chunk, execution_from_json, execution_key
@@ -456,7 +456,7 @@ def _database_meta(
     upscaler = storage._upscaler(
         row.get("upscaler"), source=refine, model_id=row.get("model_id"), mask=mask, outpaint=outpaint,
     )
-    crop_anchor = storage._crop_anchor(
+    crop_anchor = png_settings.crop_anchor(
         row.get("crop_anchor") if refine is not None else None,
         source=refine, mask=mask, outpaint=outpaint,
     )
@@ -545,7 +545,7 @@ def merge_database(
         try:
             execution_from_json(row.get("execution"))
             edit_from_json(row.get("edit"))
-            storage._crop_anchor(
+            png_settings.crop_anchor(
                 row.get("crop_anchor"), source=row.get("refine"),
                 mask=row.get("mask"), outpaint=row.get("outpaint"),
             )
@@ -873,7 +873,7 @@ def reindex(
             print(f"  skip  {path.name}: invalid execution metadata: {exc}", file=out)
             return
         try:
-            original_crop_anchor = storage._crop_anchor(
+            original_crop_anchor = png_settings.crop_anchor(
                 meta.get("crop_anchor"), source=meta.get("refine"),
                 mask=meta.get("mask"), outpaint=meta.get("outpaint"),
             )

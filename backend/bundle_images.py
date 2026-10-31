@@ -17,7 +17,7 @@ from typing import IO, NamedTuple
 
 from PIL import Image, ImageFile
 
-from . import storage
+from . import png_settings, storage
 from .bundle_common import _CHUNK, _WORKERS, MASK_HASH, BundleError
 from .execution import execution_chunk, execution_from_json, execution_key
 from .instruction_edit import edit_key
@@ -177,7 +177,7 @@ def _validate_row(row: dict, width: int, height: int, content_hash: str) -> None
     ) is None:
         raise BundleError(f"invalid upscaler on image {row['id']}")
     try:
-        storage._crop_anchor(row.get("crop_anchor"), source=refine, mask=mask, outpaint=outpaint)
+        png_settings.crop_anchor(row.get("crop_anchor"), source=refine, mask=mask, outpaint=outpaint)
     except ValueError as exc:
         raise BundleError(f"invalid crop anchor on image {row['id']}: {exc}") from exc
     values = {key: row.get(key) for key in storage._COLUMNS}
@@ -269,7 +269,7 @@ def _metadata(row: dict, by_id: dict[int, dict]) -> dict:
     outpaint = (
         storage.OutpaintSpec.parse_key(row["outpaint"]) if row.get("outpaint") and row.get("mask") else None
     )
-    crop_anchor = storage._crop_anchor(
+    crop_anchor = png_settings.crop_anchor(
         row.get("crop_anchor"), source=row.get("refine"), mask=row.get("mask"), outpaint=row.get("outpaint"),
     )
     return {
