@@ -289,7 +289,8 @@ def test_raw_parser_refusals_are_fixed_and_never_echo_personal_input(client, sto
 def test_request_byte_limit_is_applied_before_json_parsing(client, store, route):
     raw = b" " * (MAX_REQUEST_BYTES + 1)
     response = client.post(route, content=raw, headers={"Content-Type": "application/json"})
-    assert response.status_code in {413, 422}, response.text
+    assert response.status_code == 413, response.text
+    assert response.json()["detail"] == "The snippet import request is too large."
     assert len(response.content) < 1024
     assert not snippets.path_for(store.settings.db_path).exists()
 
