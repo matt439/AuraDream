@@ -1,10 +1,13 @@
 // Parse originals, then instantiate declarations in their shared classic scope.
 // The leading throw stops before any source statement, including app.js boot.
 import { readFileSync } from 'node:fs';
-import { Script, createContext } from 'node:vm';
+import { Script, constants, createContext } from 'node:vm';
 
 const scripts = JSON.parse(readFileSync(0, 'utf8'));
-const context = createContext({});
+// An ordinary global object: from Node 26 a contextified sandbox no longer
+// records a function declaration as a var name, so a later const passed.
+// Before Node 22.8 there is no such constant and the sandbox still catches it.
+const context = createContext(constants?.DONT_CONTEXTIFY ?? {});
 const checked = [];
 
 for (const { filename, source } of scripts) {
