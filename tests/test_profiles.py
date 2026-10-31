@@ -10,7 +10,7 @@ GPU; the id -> class mapping is the one assumption this cannot verify offline
 The file also holds the rest of what the page and the CLI copy from the
 profiles: each checkpoint's sourced guide, the size tables in the page, the
 CLI and the README, and the refine/inpaint bounds and notes against
-web/refine.js and docs/verified.md.
+web/refine-rules.js, web/refine.js and docs/verified.md.
 """
 from __future__ import annotations
 
@@ -873,7 +873,7 @@ def test_the_batch_budget_names_what_to_use_instead():
 def test_a_refine_pass_reaches_every_2_mp_preset_at_2x():
     # A pass's own guard: past the 4 MP presets, since it takes its
     # composition from the source. The page's Refine dialog derives the same
-    # two numbers from its copy of the table (web/refine.js).
+    # two numbers from its copy of the table (web/refine-rules.js).
     from backend.config import settings
     from backend.schemas import GenerateRequest
     from backend.seeds import MAX_BATCH
@@ -886,7 +886,7 @@ def test_a_refine_pass_reaches_every_2_mp_preset_at_2x():
             GenerateRequest(
                 prompt="x", width=width, height=height, refine=1, num_images=MAX_BATCH
             ).check_budget()
-    src = (ROOT / "web" / "refine.js").read_text(encoding="utf-8")
+    src = (ROOT / "web" / "refine-rules.js").read_text(encoding="utf-8")
     assert "const REFINE_MAX_SIDE = 2 * Math.max(...ASPECTS.flatMap((a) => SIZES[a][2]));" in src
     assert (
         "const REFINE_MAX_PIXELS = 4 * Math.max(...ASPECTS.map((a) => SIZES[a][2][0] * SIZES[a][2][1]));"
@@ -995,11 +995,12 @@ def test_compare_scales_sends_the_scale_buttons_own_sizes():
 
     state = (ROOT / "web" / "state.js").read_text(encoding="utf-8")
     src = (ROOT / "web" / "refine.js").read_text(encoding="utf-8")
+    rules = (ROOT / "web" / "refine-rules.js").read_text(encoding="utf-8")
     scales = [float(v) for v in re.search(r"const REFINE_SCALES = \[([^\]]*)\];", state).group(1).split(",")]
     factors = [float(v) for v in re.search(r"const REFINE_COMPARE_SCALES = \[([^\]]*)\];", src).group(1).split(",")]
     assert factors == [1, 1.5, 2] and all(f in scales for f in factors) and factors == sorted(factors)
     # One arithmetic: half up on the 16-pixel grid, never under 16.
-    assert "Math.max(16, Math.floor(side * factor / 16 + 0.5) * 16)" in src
+    assert "Math.max(16, Math.floor(side * factor / 16 + 0.5) * 16)" in rules
     body = src.split("function compareScales(", 1)[1].split("\n}\n", 1)[0]
     assert "refineScaled(src.width, src.height, factor)" in body
     assert "for (const factor of REFINE_COMPARE_SCALES)" in body

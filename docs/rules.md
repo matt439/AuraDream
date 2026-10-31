@@ -256,7 +256,7 @@ before changing it.
 - `backend/sizes.py` — the preset table; the CLI's `--aspect/--mp`, config's
   `max_side`/`max_pixels` and a refine pass's `refine_max_side`/
   `refine_max_pixels` (any 2 MP preset at 2x), `web/state.js`'s copy,
-  `web/refine.js`'s two refine bounds, `index.html`'s `max=` and the README
+  `web/refine-rules.js`'s two refine bounds, `index.html`'s `max=` and the README
   table are all held to it by `tests/test_profiles.py`; `nearest_preset`
   maps a size to its aspect's entry at another tier for Re-render at a tier
   (`tests/test_sizes.py`)
@@ -461,7 +461,7 @@ before changing it.
   per version
 - `backend/reindex.py` — rows rebuilt from the PNGs' `auradream` chunk, in place or
   copied in from another gallery; idempotent on the UNIQUE filename
-- `web/` - served as-is from `/static`; `index.html` loads 60 classic
+- `web/` - served as-is from `/static`; `index.html` loads 61 classic
   scripts in order, sharing one global scope; only `app.js`, the last, runs
   the wiring and boot. `state.js` owns shared state; `generation.js`,
   `grid-preview.js`, `job-stream.js` and `job-results.js` handle submission,
@@ -477,7 +477,7 @@ before changing it.
   and facts list (`settingsLine`, `factsList`), shared by the lightbox and
   the viewer; `lightbox.js` the lightbox's view, layout, walk and gestures,
   `lightbox-compare.js` its comparison's controls, divider and pass
-  stepping, `lightbox-cfg.js` its comparison across CFG and across steps; `refine.js` and `refine-prompt.js` the Refine dialog; `inpaint.js` the Inpaint dialog (its mask's
+  stepping, `lightbox-cfg.js` its comparison across CFG and across steps; `refine-rules.js` the refine pass's shared rules (its bounds and sizes, `refinePrefs`, `SINGLE_STRENGTH`, `refineDefaultStrength`, `refineKept`, and `sourceGoneKind`/`sourceGoneWords`, a gone source's words), which every pass dialog, Mass refine, Then refine, the lightbox and the panel read; `refine.js` and `refine-prompt.js` the Refine dialog; `inpaint.js` the Inpaint dialog (its mask's
   upload, preview, submit and Reuse) and `inpaint-mask.js` its canvas, tools, strokes and export
   (`styles/inpaint.css`); `outpaint.js` the Outpaint dialog (the side, band and preset
   controls, the frame, the preview, submit, close and Reuse; `styles/outpaint.css`);
@@ -4024,7 +4024,8 @@ Frontend and CLI:
   memory (`outpaintKept`) for that image on the same checkpoint. Its
   shared helpers are inpaint.js's (`inpaintStartStrength`,
   `libraryStrengthInto`, `syncPassSampling`, `renderPassCheck`,
-  `syncPassCheck`, `selectPassFrom`, `sourceGoneWords`). Cards, the
+  `syncPassCheck`, `selectPassFrom`) and refine-rules.js's
+  (`sourceGoneWords`). Cards, the
   settings line and job labels read "outpaint of #N +L/+T/+R/+B @ S", the
   facts "Outpainted from" and an Outpaint row, an outpainted card a ⬚
   badge; Against source draws the source at (left, top) at the result's

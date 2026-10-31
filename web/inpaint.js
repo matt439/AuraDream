@@ -378,21 +378,6 @@ function inpaintSourceGone(message, source = inpaintSource) {
   return sourceGoneWords(source, gone, 'inpaint');
 }
 
-// Whether a refusal says `source` has gone: 'deleted', 'binned' or null.
-function sourceGoneKind(message, source) {
-  const deleted = /^no gallery image with id (\d+)\.?$/.exec(message ?? '');
-  const binned = /^source image (\d+) is in the recycle bin; /i.exec(message ?? '');
-  const match = deleted ?? binned;
-  if (!source || !match || +match[1] !== source.id) return null;
-  return binned ? 'binned' : 'deleted';
-}
-
-// The page's words for it, by the dialog's verb ("inpaint", "outpaint").
-function sourceGoneWords(source, gone, verb) {
-  return gone === 'binned' ? `#${source.id} is in the recycle bin; restore it to ${verb} it.`
-    : `#${source.id} has been deleted, so it cannot be ${verb}ed.`;
-}
-
 function inpaintBoxes() {
   return {
     strength: els.inpaintStrength, versions: els.inpaintVersions, seed: els.inpaintSeed,
