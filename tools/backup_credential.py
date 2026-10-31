@@ -40,13 +40,13 @@ def _hidden(prompt: str) -> str:
 
 
 def _readable_profile(loaded) -> bool:
-    unreadable = (bool(getattr(loaded, "warning", None)) or bool(getattr(loaded, "requires_confirmation", False))) and not getattr(loaded, "legacy", False)
+    unreadable = (bool(loaded.warning) or bool(loaded.requires_confirmation)) and not loaded.legacy
     return loaded.revision is not None and not unreadable
 
 
 def _check_generation(loaded, new_generation: bool) -> None:
-    state = getattr(loaded.settings, "credential_state", None)
-    reference = getattr(loaded.settings, "credential_reference", None)
+    state = loaded.settings.credential_state
+    reference = loaded.settings.credential_reference
     if not _readable_profile(loaded) or state == "pending":
         raise SetupError("The inactive credential profile needs explicit review before setup can continue.")
     if (state == "ready" or reference is not None) and not new_generation:
@@ -92,7 +92,7 @@ def _setup(args) -> dict:
                 raise SetupError("The inactive pending profile could not be confirmed.")
             credentials.create_credential(reference, password)
             ready = backup_settings.complete_encrypted_profile(args.database, revision=pending.revision, reference=reference)
-            if ready.settings.enabled or getattr(ready.settings, "credential_state", None) != "ready":
+            if ready.settings.enabled or ready.settings.credential_state != "ready":
                 raise SetupError("The inactive profile could not be confirmed ready.")
         return {"state": "ready", "enabled": False, "retention_enabled": False,
                 "credential_reference": credentials.reference_wire(reference),
@@ -107,9 +107,9 @@ def _inspect(args) -> dict:
     from backend import backup_settings
 
     loaded = backup_settings.load(args.database)
-    reference = getattr(loaded.settings, "credential_reference", None)
+    reference = loaded.settings.credential_reference
     readable = _readable_profile(loaded)
-    return {"state": (getattr(loaded.settings, "credential_state", None) or "not_configured") if readable else "unreadable",
+    return {"state": (loaded.settings.credential_state or "not_configured") if readable else "unreadable",
             "settings_readable": readable,
             "credential_reference": credentials.reference_wire(reference) if reference is not None else None,
             "enabled": loaded.settings.enabled, "vault_lookup": False,

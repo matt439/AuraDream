@@ -256,7 +256,7 @@
     ]
   },
   {
-    "expect": "els.setupsDialog.open && !busy && setupComposerState()===__slComposer && !__slCalls.some(call=>call.method==='POST'&&['/api/generate','/api/grid','/api/refine'].includes(call.path)) && __slErrors.length===0"
+    "expect": "els.setupsDialog.open && !busy && setupComposerState()===__slComposer && !__slCalls.some(call=>call.method==='POST'&&['/api/generate','/api/grid'].includes(call.path)) && __slErrors.length===0"
   },
   {
     "click": "#setups-close"

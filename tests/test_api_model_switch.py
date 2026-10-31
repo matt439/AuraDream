@@ -29,10 +29,10 @@ def fresh_selection(monkeypatch):
     monkeypatch.setattr(model_selection, "_selection", (None, 0))
     monkeypatch.setattr(main, "_switching", False)
     monkeypatch.setattr(main, "_model_requests", 0)
-    monkeypatch.setattr(main, "_model_request_paths", {}, raising=False)
-    monkeypatch.setattr(main, "_switch_draining", False, raising=False)
+    monkeypatch.setattr(main, "_model_request_paths", {})
+    monkeypatch.setattr(main, "_switch_draining", False)
     # A refusal behind a held request comes after the drain; keep it short.
-    monkeypatch.setattr(main, "SWITCH_DRAIN_SECONDS", 0.3, raising=False)
+    monkeypatch.setattr(main, "SWITCH_DRAIN_SECONDS", 0.3)
 
 
 def _settled(client, model_id, state="ready"):
