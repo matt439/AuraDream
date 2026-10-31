@@ -173,7 +173,8 @@ Backend (`backend/`):
   `prompt_order.py`, `prompt_rules.py` (rule checks), `prompt_sources.py`
   (what the critic may cite), `critic.py` + `critic_runtime.py`,
   `critic_server.py`, `critic_context.py`, `critic_reorder.py`,
-  `critic_validation.py`; `tags.py` Danbooru lookup; `translation.py`
+  `critic_validation.py`, `critic_issues.py` (what an issue restates or
+  wants of the order); `tags.py` Danbooru lookup; `translation.py`
   ERNIE's Marian translation
 - `backends/`: `base.py` (the ABC), `diffusers_backend.py`, `loading.py`
   (everything decided before the weights move), `schedule.py` (mu, sigmas,

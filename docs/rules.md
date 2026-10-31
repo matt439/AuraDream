@@ -184,6 +184,11 @@ before changing it.
   tree and loopback requests, `critic_context.py` the question and token budget,
   `critic_reorder.py` pure prompt permutations, and `critic_validation.py`
   answer grounding and rewrite validation
+- `backend/critic_issues.py` — what a critic issue says, for
+  `critic_validation.validate`: the restated-finding vocabulary (`_says`,
+  `_restated`, `_MEASURED`, `_PART_COUNT` and the patterns it builds on) and
+  an order issue's wants (`_order_wants`, `_reversed`, `_clash`,
+  `_described`); pure, and never imports `critic_validation`
 - `backend/translation.py` — lazy CPU-only Marian translation of ERNIE's
   expanded Chinese prompt for the UI; the Chinese prompt remains canonical.
   One sentence per sequence (`_chunks`), never packed: Marian drops most of
@@ -2787,7 +2792,7 @@ Prompt analyser:
   recommended, not when it moves a word there; `guide.quality` by its
   finish, tier, year modifier or the recipes' tags); so are issues
   speaking to a length the rules measured in range (`measured_length`, not
-  XML or JSON; `_says` reads a sentence at a time and skips lettering and a
+  XML or JSON; `critic_issues._says` reads a sentence at a time and skips lettering and a
   count worded as some part's - "at least 5 words for the lighting", "only
   3 words of the prompt are about the lighting", "describe the umbrella in
   under 5 words", "the lighting has only 3 words", "keep the lighting

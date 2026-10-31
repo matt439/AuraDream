@@ -3,7 +3,7 @@ from __future__ import annotations
 
 import pytest
 
-from backend import critic_context, critic_validation, prompt_rules
+from backend import critic_context, critic_issues, critic_validation, prompt_rules
 from backend.schemas import GenerateRequest, PromptAnalysis, PromptFinding
 
 from tests.critic_helpers import (
@@ -893,4 +893,4 @@ def test_each_issue_left_out_is_counted_once():
 def test_the_order_issues_clause_break_is_the_lettering_clause_end():
     # Two copies, one beside each reader; a third clause mark added to one
     # would split clauses one way for lettering and another for negation.
-    assert critic_validation._CLAUSE_BREAK.pattern == critic_validation._CLAUSE_END.pattern
+    assert critic_issues._CLAUSE_BREAK.pattern == critic_validation._CLAUSE_END.pattern
