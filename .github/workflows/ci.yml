@@ -87,12 +87,14 @@ jobs:
         run: uv run --no-sync python tools/typecheck.py
       # The real-tokenizer tests skip without these: tokenizer files only,
       # never weights. HF_TOKEN (a read token whose account has accepted the
-      # gated FLUX.1-Krea-dev and Krea 2 Turbo) reaches this step alone;
-      # forks' pull requests get no secrets, so those two warn and skip.
+      # gated repos REAL lists: FLUX.1-Krea-dev, FLUX.1-Kontext-dev and Krea 2
+      # Turbo) reaches this step alone; forks' pull requests get no secrets, so
+      # those warn and skip. The key hashes REAL's file too, so a checkpoint
+      # added there is fetched once and cached rather than on every run.
       - uses: actions/cache@v5
         with:
           path: ~/.cache/huggingface/hub
-          key: tokenizers-${{ runner.os }}-${{ hashFiles('backend/encoder_table.py', 'tools/fetch_tokenizers.py') }}
+          key: tokenizers-${{ runner.os }}-${{ hashFiles('backend/encoder_table.py', 'tools/fetch_tokenizers.py', 'tests/test_prompt_encoding.py') }}
       - name: Tokenizers
         run: uv run --group dev python -m tools.fetch_tokenizers
         env:

@@ -115,8 +115,8 @@ try {
 }
 // A non-null primitive or nested-array entry otherwise has no action properties and
 // silently disappears from the run. Validate the whole list before any
-// browser lookup or output/profile preparation; action metadata stays with
-// the existing per-action rules.
+// browser lookup or output/profile preparation; each action's own fields are
+// checked by the per-action rules below.
 if (!Array.isArray(steps)) {
   console.error('browser steps must be a JSON array');
   process.exit(2);
@@ -130,9 +130,9 @@ if (invalidSteps.length) {
 }
 // A malformed resize otherwise throws only after the browser and any earlier
 // steps have run. Refuse every declared viewport before browser discovery or
-// output/profile preparation. Keep the documented two/three-number form and
-// the runtime's omitted-DPR default; unrelated step/container policy is unchanged.
-const invalidViewports = Array.isArray(steps) ? steps.flatMap((step, index) => {
+// output/profile preparation: [width, height], or [width, height, dpr] (an
+// omitted dpr keeps the runtime's default).
+const invalidViewports = steps.flatMap((step, index) => {
   if (step === null || typeof step !== 'object' || !Object.hasOwn(step, 'viewport')) return [];
   const values = step.viewport;
   const valid = Array.isArray(values) && (values.length === 2 || values.length === 3)
@@ -140,22 +140,21 @@ const invalidViewports = Array.isArray(steps) ? steps.flatMap((step, index) => {
     && Number.isInteger(values[1]) && values[1] >= 0 && values[1] <= 10000000
     && (values.length === 2 || (Number.isFinite(values[2]) && values[2] >= 0));
   return valid ? [] : [`step ${index + 1}: viewport needs [width, height] or [width, height, dpr] with integer dimensions from 0 to 10000000 and a finite nonnegative dpr`];
-}) : [];
+});
 if (invalidViewports.length) {
   console.error(invalidViewports.join('\n'));
   process.exit(2);
 }
 
 // Optional fatal metadata belongs only to an unambiguous expectation. Validate
-// before preparing screenshot roots, profiles or browser processes. Unrelated
-// malformed step/container handling remains with the existing preflight.
-const invalidFatal = Array.isArray(steps) ? steps.flatMap((step, index) => {
+// before preparing screenshot roots, profiles or browser processes.
+const invalidFatal = steps.flatMap((step, index) => {
   if (step === null || typeof step !== 'object' || !Object.hasOwn(step, 'fatal')) return [];
   const valid = typeof step.fatal === 'boolean'
     && typeof step.expect === 'string' && !!step.expect.trim()
     && Object.keys(step).every((key) => key === 'expect' || key === 'fatal');
   return valid ? [] : [`step ${index + 1}: fatal must be a boolean on an expect-only step with a nonempty expression`];
-}) : [];
+});
 if (invalidFatal.length) {
   console.error(invalidFatal.join('\n'));
   process.exit(2);
@@ -230,8 +229,7 @@ if (STARTUP_SIZE.length !== 2
   process.exit(2);
 }
 
-// Preparation starts after the existing script and startup checks.
-// Keep discovery, output behavior and runtime launch policy unchanged.
+// Browser discovery and output preparation start only after every check above.
 const CANDIDATES = [
   process.env.AURADREAM_BROWSER,
   'C:/Program Files (x86)/Microsoft/Edge/Application/msedge.exe',
@@ -416,7 +414,7 @@ ws.onmessage = (m) => {
 // awaiting a promise that never settles - held the run until whatever ran it
 // gave up and killed it, and everything it had printed went with it, so a
 // stalled smoke never said where it stopped. Five minutes is far past any
-// step the smokes take (their longest wait is a 40 s __until); the run then
+// single wait the smokes take (their __until waits run to 120 s); the run then
 // ends there, failed, naming the step, and so does a browser that closes the
 // connection with a call unanswered.
 const ANSWER_MS = 300000;
