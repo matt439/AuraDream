@@ -8,7 +8,7 @@
 // out again. `shown`, where the eye gets something else in its place - a
 // single image's step count, "3/12", rewritten every step and read out every
 // step - goes into an aria-hidden half beside a visually hidden spoken one
-// (style.css), as the load's clock does (streamJob's tick). The mirrors and
+// (styles/generation.css), as the load's clock does (streamJob's tick). The mirrors and
 // the title take what is shown (progressShown).
 function setProgressText(spoken, shown = null) {
   const el = els.progressText;
@@ -51,7 +51,7 @@ function setProgress(fraction) {
 }
 
 // While the weights load there is no fraction to show: a stretch of the bar
-// slides (style.css) rather than sitting at 0% for minutes, which looks like
+// slides (styles/generation.css) rather than sitting at 0% for minutes, which looks like
 // a hang, and a screen reader is told no value.
 function setIndeterminate(on) {
   const bar = els.fill.parentElement;

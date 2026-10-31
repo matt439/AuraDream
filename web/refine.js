@@ -32,7 +32,7 @@ const refineUpscalerAvailable = () => refineSupported && !!lastDefaults?.upscale
 // with a strength axis.
 const SINGLE_STRENGTH = /^(\d+(\.\d*)?|\.\d+)$/;
 
-// Two panes from here (style.css has the layout): the source as large as the
+// Two panes from here (styles/refine.css has the layout): the source as large as the
 // dialog allows, so the picture is the PNG itself. Under it the source is a
 // 72 px thumbnail, which the PNG would only cost a decode for.
 const REFINE_WIDE = window.matchMedia('(min-width: 1600px)');
@@ -554,7 +554,7 @@ function syncRefine() {
     button.title = (fits ? `${size[0]} × ${size[1]}` : `${size[0]} × ${size[1]} is past what a refine pass renders`)
       + skipped;
     button.setAttribute('aria-label', `${REFINE_SCALES[i]} times the source's size, ${button.title}`);
-    // Shown under the factor (style.css), so its text stays the factor.
+    // Shown under the factor (styles/refine.css), so its text stays the factor.
     button.dataset.size = `${size[0]}×${size[1]}`;
   });
 
@@ -1037,7 +1037,7 @@ function refineCancelEvent(event) {
 // A press on a refused Refine says why in the dialog, once, and points at the
 // field. The preview's own refusal moves to the error line - the same sentence
 // twice, amber and red, read as two problems - in the preview's place, which
-// it leaves hidden, and at its size (style.css), so Refine does not move under
+// it leaves hidden, and at its size (styles/refine.css), so Refine does not move under
 // the pointer; Strength is focused and marked where the sentence is about it,
 // and the next change brings the preview back. A size past the guard keeps
 // the size line beside W and H, says it again by the button, and focuses W.

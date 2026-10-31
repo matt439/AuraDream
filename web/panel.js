@@ -580,7 +580,7 @@ function tipClipper(help) {
   return null;
 }
 
-// A tip fixed to the window by its badge (`.tip.floating`, style.css): under
+// A tip fixed to the window by its badge (`.tip.floating`, styles/fields.css): under
 // the badge where it fits, over it where there is more room there - neither
 // past the topbar nor the window's foot - and moved in from either side as
 // placeTip moves one. Kept with its badge while that box scrolls (app.js's

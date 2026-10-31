@@ -94,11 +94,12 @@ function writeBox(el, text) {
 // press was: over the next field's caption on a two-column page - out of the
 // panel's flow, so its coming and going moves nothing, Generate least - and
 // in the flow in one column, while the negative box is greyed, and for the
-// kinds with no timer, 'running' and 'held' (`data-kind`, style.css), which
+// kinds with no timer, 'running' and 'held' (`data-kind`, styles/fields.css), which
 // would otherwise cover a live negative box for minutes.
 // What it holds is `promptUndo`, {kind, after, undo, discard, onDrop, again}:
 //   'write' - a write the user did not type over their own words, an Example
-//     picked over a prompt in progress or an expansion (app.js), with an Undo
+//     picked over a prompt in progress or an expansion (prompt-examples.js,
+//     prompt-expand.js), with an Undo
 //     that puts it back. It goes once the box holds anything else, `undo`
 //     being about the text it replaced (syncPromptUndo); Ctrl+Z in the box
 //     does the same for longer. 'info' goes the same way, with no button.
@@ -112,7 +113,7 @@ function writeBox(el, text) {
 // (reuse.js's syncReuseUndo), and a Reuse takes this. `onDrop` runs when the
 // note goes, whatever takes it. `host` puts it at the end of another box for
 // the time it is shown - an expansion's, in its English at the head of the
-// results from 1800 px (app.js), where the panel would have pushed Generate
+// results from 1800 px (prompt-expand.js), where the panel would have pushed Generate
 // below the window - and the next note brings it back under the prompt.
 // Moved with `moveBefore` where the browser has it, which keeps the node's
 // state: a live region removed and inserted again just before its words are
@@ -140,7 +141,7 @@ function showPromptNote(message, options = {}) {
   // expansion, which stay for minutes, take a line of the panel's flow
   // rather than lying over the next field.
   els.promptNote.dataset.kind = kind;
-  // Where it lies (style.css): over the next field's caption, or in the
+  // Where it lies (styles/fields.css): over the next field's caption, or in the
   // flow where that would cover something ('field'); in the box itself
   // ('box') for Reset's, whose box is empty while it shows - never in the
   // flow, which moved Generate as it came and went.

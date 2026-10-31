@@ -334,7 +334,7 @@ function streamJob(jobId, { reattached = 0 } = {}) {
       const saved = made
         ? `The ${plural(made, 'image')} finished so far ${made === 1 ? 'is' : 'are'} saved.`
         : 'Nothing of it had finished.';
-      // What the viewer says where nothing of the job reached it (lostRun).
+      // What the viewer says where nothing of the job reached it (showLostRun).
       let lost = null;
       if (alive) {
         showError('This job is still running, but its progress keeps getting lost: '

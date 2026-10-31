@@ -306,7 +306,7 @@ function syncCfg() {
   const knob = trueCfgSupported ? 'True CFG' : 'CFG';
   const off = !negativeSupported || reach <= cfgThreshold;
   els.negField.classList.toggle('disabled', off);
-  // A checkpoint that takes none at all is its caption alone (style.css):
+  // A checkpoint that takes none at all is its caption alone (styles/generation.css):
   // a greyed two-line box that nothing could wake took the room the
   // reference chips under it use. Its text is kept for one that does.
   els.negField.classList.toggle('unsupported', !negativeSupported);

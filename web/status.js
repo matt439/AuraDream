@@ -107,7 +107,7 @@ function applyHints(hints) {
   for (const [key, el] of Object.entries(tips)) {
     if (!hints[key]) continue;
     el.textContent = hints[key];
-    // A guide's prompt and size halves are paragraphs; style.css's `.tip.pre`.
+    // A guide's prompt and size halves are paragraphs; styles/fields.css's `.tip.pre`.
     el.classList.toggle('pre', hints[key].includes('\n'));
   }
   // The one some checkpoints have and others not: a server restarted under
@@ -285,8 +285,8 @@ function syncUnload() {
 // takes back only what was said about the load - its own refusal, a failed
 // load's sentence or Expand's pointer to it (`loadLine`) - never the line's
 // other messages: an Undo on offer, a job's outcome. Expand's words about the
-// load said under the prompt instead, beside a Reuse's Undo (app.js,
-// expandSay), go too.
+// load said under the prompt instead, beside a Reuse's Undo
+// (prompt-expand.js, expandSay), go too.
 let loadLine = null;
 async function loadModel() {
   if (modelChangeHold()) { sayModelChangeHold(); return; }
@@ -490,7 +490,7 @@ function showPromptTranslation(source, translation) {
 
 // The translation's place. Under the prompt in the panel below 1800 px; from
 // 1800 px at the head of the results instead, where it has the column's
-// width and its own height (style.css): in the panel's sticky column its
+// width and its own height (styles/analysis.css): in the panel's sticky column its
 // four rows showed a fifth of a long expansion's English, and the field
 // pushed Generate below the window at 2048x1040 at 125% while the results
 // column stood idle. Moved whole, with focus and a selection in it kept, as

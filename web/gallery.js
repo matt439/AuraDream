@@ -179,7 +179,7 @@ function watchMore() {
   moreWatcher.observe(els.more);
 }
 
-// How the cards are drawn from 1800 px (style.css; the pairs in the head
+// How the cards are drawn from 1800 px (styles/gallery.css; the pairs in the head
 // are shown only there): `density` S, smaller cards and more to a row, or M,
 // the wide tier's own; `fit` the whole picture letterboxed (contain, the
 // default) or the card filled and the picture cut to its middle (cover).
@@ -244,14 +244,14 @@ function armMore() {
 // ------------------------------------------------------------ gallery beside
 
 // From 2000 px the gallery can stand in a column of its own at the window's
-// right (style.css, `.stage.beside`), scrolling by itself, so its cards stay
+// right (styles/gallery.css, `.stage.beside`), scrolling by itself, so its cards stay
 // in view however tall the viewer is: stacked under it, a single image left
 // one row of cards in view at QHD and a long run none. A tick in the gallery
 // head, off by default and remembered per browser - not part of the panel,
 // so Reset leaves it. In effect only while the window is that wide and the
 // contact sheet is closed: a sheet is laid out for the stage's whole width,
 // so the page goes back to one column for it and lands on it (setSheet).
-// The prompt check, open, takes the column's place (style.css).
+// The prompt check, open, takes the column's place (styles/analysis.css).
 const BESIDE_KEY = 'auradream.gallery-beside';
 const BESIDE_MEDIA = '(min-width: 2000px)';
 // Whether it is in effect, which the stage's class says to the stylesheet.
@@ -317,7 +317,7 @@ function releaseGallery() {
 
 // Cards put in ahead of the ones the gallery's own column shows while it is
 // scrolled down keep those where they were, as the page's anchoring keeps a
-// gallery it is scrolled into: the column has none of its own (style.css), so
+// gallery it is scrolled into: the column has none of its own (styles/gallery.css), so
 // the first card or line in its view is measured across the change and the
 // column scrolled by what it moved. At the column's top the new cards come
 // in at the top, in view.
@@ -458,7 +458,7 @@ function card(rec) {
   const tools = document.createElement('div');
   tools.className = 'tools';
   // What the card is, just over its tools on hover and keyboard focus -
-  // "#12 · 1024×1024 · seed 5" - which style.css draws from these, as it
+  // "#12 · 1024×1024 · seed 5" - which styles/sheet.css draws from these, as it
   // does the tools' names, with empty alt text: the image's label and title
   // say it already. A pseudo-element, so the row's children stay its tools.
   Object.assign(tools.dataset, { n: rec.id, size: `${rec.width}×${rec.height}`, seed: rec.seed });
@@ -503,7 +503,7 @@ function showRecordRun(rec) {
 }
 
 // `tip` is the short name the row shows on hover and keyboard focus
-// (style.css draws it from data-tip): the title is the long one, and a native
+// (styles/gallery.css draws it from data-tip): the title is the long one, and a native
 // title came a second late or not at all.
 function tool(label, title, onClick, tip = '') {
   const b = document.createElement('button');

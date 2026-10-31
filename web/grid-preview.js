@@ -88,7 +88,7 @@ function gridFactors(summary) {
 // prompt is line n of the prompt typed; a prompt that is not - no line holds
 // a variable, the variables are the negative's - is listed whole. Whatever
 // the listing, it is a box of a few lines that scrolls inside itself
-// (style.css): a nested scroller, never the panel, whose menus and tips hang
+// (styles/generation.css): a nested scroller, never the panel, whose menus and tips hang
 // out past its edge.
 const PREVIEW_PROMPTS = 3;
 function promptListing(prompts, template, name = 'prompt') {

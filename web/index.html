@@ -383,7 +383,7 @@
       <p class="hint" id="size-hint"></p>
     </div>
 
-    <!-- Placeholders only: app.js seeds all three from /api/status, which
+    <!-- Placeholders only: status.js (applyDefaults) seeds all three from /api/status, which
          answers with the loaded checkpoint's profile. They are the fallback
          profile rather than Turbo's numbers, so a page acted on before the
          first status lands is at worst generic, never wrong for the model.
@@ -439,12 +439,12 @@
     <!-- What a press makes, under a caption of its own as Sampling's (shown
          in one column and from 1800 px on a window taller than 1150 px;
          elsewhere only the group's name, so Generate keeps its place:
-         style.css): the seed it starts from, how many at once and how many times. Repeat is
+         styles/fields.css): the seed it starts from, how many at once and how many times. Repeat is
          the request's `runs`: batches one after another. Named apart from a
          run, which is a submission - the gallery's Runs picker, the run:
          search, the last-run banner. A seed is 16 digits, and the box has
          the row's width less the counters' for them: the dice that clears it
-         sits in its name's line, as the ? badges do (style.css, #btn-dice),
+         sits in its name's line, as the ? badges do (styles/fields.css, #btn-dice),
          where in the row it took the room of six digits. A <div> with
          <label for>, not a <label> round it all: a button inside a label
          becomes the label's control. What Batch and Repeat add up to is
@@ -528,7 +528,7 @@
     <p class="job-said" id="job-said" aria-live="polite"></p>
     <!-- A result that landed in a viewer out of sight - above the window, or
          below it in one column: said here (under 901 px a pill centred under
-         the topbar, style.css), and a press goes to it, its arrow and label
+         the topbar, styles/generation.css), and a press goes to it, its arrow and label
          written by syncNewImage. Never a scroll of the page's own. Outside
          #progress, which a finished job hides. -->
     <button class="ghost small" id="btn-new-image" hidden
@@ -555,7 +555,7 @@
       <input type="file" id="png-file" accept="image/png,.png" hidden>
     </div>
     <!-- role=alert: a failure written here has to be announced, not just
-         painted. app.js unhides it *before* writing the text, since a node
+         painted. state.js's showError unhides it *before* writing the text, since a node
          still display:none announces nothing. -->
     <p class="error" id="error" role="alert" hidden></p>
     <!-- The morning after: the newest finished job, while the server still
@@ -764,7 +764,7 @@
          host each (placeTagValidation), in that order, both no box of their
          own (display: contents). Apart, the docked grid's reading order
          takes Tab from the chips to the image and its note to the check, as
-         they are drawn (style.css): a host is ordered as one item, and in one
+         they are drawn (styles/analysis.css): a host is ordered as one item, and in one
          host the check came before the image. The check's keeps the id both
          once shared. -->
     <div class="tag-validation-host tag-validation-wide" id="tag-chips-wide"></div>
@@ -775,7 +775,7 @@
          checkpoint's examples a press away. A region named Results rather
          than a heading: idle, the viewer is that one line, which a seen
          heading would double, and an unseen one is out of the flow - which
-         the docked grid's reading-flow (style.css) reads after its items,
+         the docked grid's reading-flow (styles/analysis.css) reads after its items,
          so "Results" was read after the gallery. The name moves with the
          viewer in any order; the cards a failed load or a lost run put in
          it have headings of their own. -->
@@ -804,7 +804,7 @@
 
     <!-- The gallery: its head, then what it shows. From 2000 px with Gallery
          beside ticked, a column of its own beside the viewer, the head over a
-         box that scrolls by itself (style.css, `.stage.beside`). Otherwise
+         box that scrolls by itself (styles/gallery.css, `.stage.beside`). Otherwise
          both wrappers are no boxes at all (display: contents): the head, the
          grid, the sheet and Load more are the stage's own blocks under the
          viewer, in its column or across its grid, as they always were. -->
@@ -1805,8 +1805,6 @@
   </details>
 </dialog>
 
-<!-- Classic scripts sharing one global scope; app.js, the last, is the
-     only one that runs anything at load. Order matters: see state.js. -->
 <dialog class="bundles-dialog" id="bundles-dialog" aria-labelledby="bundles-title" aria-describedby="bundles-intro">
   <header class="bundles-head">
     <h2 id="bundles-title">Gallery bundles</h2>
@@ -2064,6 +2062,8 @@
   </div>
 </dialog>
 
+<!-- Classic scripts sharing one global scope; app.js, the last, is the
+     only one that runs anything at load. Order matters: see state.js. -->
 <script src="/static/state.js"></script>
 <script src="/static/execution.js"></script>
 <script src="/static/sizes.js"></script>

@@ -1,4 +1,7 @@
-// Gallery archive/import controls. Declarations only; app.js owns the wiring.
+// Gallery bundles: export, Back up, import, Bundle & clear's lifecycle and
+// status polling, and the automatic startup backup settings. Declarations
+// only; app.js calls initBundles, which wires the dialog (initAutomaticBackup
+// included).
 'use strict';
 
 let bundlePreview = null;
@@ -226,6 +229,8 @@ const BUNDLE_SCOPE_HINTS = {
   starred: 'The starred images of every model, outside the recycle bin, with their thumbnails. The gallery is kept. A refine source or a reference travels only if it is starred too.',
 };
 
+// Frozen pre-rename literal (Local Diffusion): must equal backend/bundle_crypto.py
+// MAGIC; existing .ldbundle files carry it.
 const BUNDLE_MAGIC = 'LDBUNDLE';
 const BUNDLE_HEADER_BYTES = 64;
 const BUNDLE_PHASES = {

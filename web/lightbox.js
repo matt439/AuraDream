@@ -84,7 +84,7 @@ const LB_SIDE_GAP = 8;
 // circle as drawn, so the two below follow the circle wherever its size is
 // set - a constant for the 40 px one put side by side's halves under the
 // wide tier's. The circle is in the same place as a strip's and alone
-// (style.css), so either reads the same: 50 px, or 62.
+// (styles/lightbox.css), so either reads the same: 50 px, or 62.
 function lbNavReach() {
   const circle = els.lbNext.firstElementChild.getBoundingClientRect();
   return Math.max(0, els.lbStage.getBoundingClientRect().right - circle.left);
@@ -255,7 +255,7 @@ function layoutLightbox() {
   // no backdrop beside it, just the circle: the stage beside the picture has
   // a gesture of its own there - zoomed in the pan, below fit the
   // double-click that gives fit back - and a strip would take it. A disabled
-  // arrow is its circle alone too (style.css), so the end of the walk's
+  // arrow is its circle alone too (styles/lightbox.css), so the end of the walk's
   // backdrop still closes.
   const gutter = (pw - w) / 2 - 8;
   // The least strip is the circle's reach less 2 px - 48 for the 40 px
@@ -288,7 +288,7 @@ function sayZoom() {
 }
 
 // Under a one-column stage (under 901 px) the facts are a scroller six lines
-// tall (style.css, .lb-meta), which showed Model and Size and hid the seed,
+// tall (styles/lightbox.css, .lb-meta), which showed Model and Size and hid the seed,
 // while a square picture at 600 px wide, or any landscape one, left the
 // stage a band of letterbox above and below it. The band is the facts':
 // --lb-room is how much taller than six lines they may grow - the stage's

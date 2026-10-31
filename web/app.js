@@ -1,6 +1,8 @@
 // AuraDream's last page script: the event wiring and the boot.
 // Everything called here is declared in the files index.html loads before
-// it; state.js has the load-order contract.
+// it, but for the few bindings only the wiring uses, declared here
+// (searchTimer, galleryHead, focusPromptBox, TOKENS_AIMED); state.js has the
+// load-order contract.
 'use strict';
 
 // --------------------------------------------------------------------- wire

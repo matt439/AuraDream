@@ -11,7 +11,7 @@
 const $ = (id) => document.getElementById(id);
 // Whether an element is drawn - not display: none or inside one, and not
 // visibility: hidden, as the gallery's column is under the prompt check with
-// Gallery beside (style.css) - so that focus sent to it would land. True
+// Gallery beside (styles/gallery.css) - so that focus sent to it would land. True
 // where the browser cannot say.
 const isShown = (el) => el.checkVisibility?.({ visibilityProperty: true, checkVisibilityCSS: true }) ?? true;
 const PAGE = 48;

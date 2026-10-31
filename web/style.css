@@ -245,7 +245,7 @@
 }
 /* A short two-column window - 1080p at 125% full-screen, 1536x864 - put a
    running batch's bars and time 31 px past its foot at scroll 0, where the
-   panel is in the page's flow and nothing lifts it (TODO UI#8). Under 900 px
+   panel is in the page's flow and nothing lifts it (UI#8, done 2026-10-20). Under 900 px
    tall the panel alone takes 4 px off its gaps and its fields' height, so
    the whole progress block is in the window. On the panel, not `:root`: the
    dialogs, the gallery and the stage keep today's heights. 1400x900, where

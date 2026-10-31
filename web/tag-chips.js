@@ -574,7 +574,7 @@ function syncTagVocabulary() {
 // The chips and the prompt check go together, in that order: in the results
 // column on a two-column page, where their height cannot move Generate in the
 // sticky settings column - above the results, except that from 1800 px
-// style.css docks an open check beside them (the chips and the viewer on the
+// styles/analysis.css docks an open check beside them (the chips and the viewer on the
 // left, the check on the right; CSS only, this DOM order unchanged) - and back
 // under the prompt at 900 px and below, where the page is one scrolling
 // column anyway. On a two-column page each has a host of its own, the chips'
@@ -611,7 +611,7 @@ function placeTagValidation() {
 // The chips' height, on the stage: above the results the prompt check starts
 // under them - stacked below 1800 px, docked across both columns from it - and
 // its cap leaves them out, so the image just made stays on the screen
-// (style.css, `--chips-h`). From a ResizeObserver (app.js); a hidden tray is
+// (styles/analysis.css, `--chips-h`). From a ResizeObserver (app.js); a hidden tray is
 // 0, and in the panel under 901 px the check is not capped.
 function chipsResized() {
   els.viewer.parentElement.style.setProperty('--chips-h', `${els.tagValidation.getBoundingClientRect().height}px`);

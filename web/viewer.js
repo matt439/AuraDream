@@ -117,7 +117,7 @@ function fitViewer() {
   const width = v.clientWidth - parseFloat(css.paddingLeft) - parseFloat(css.paddingRight) - missing;
   viewerWidth = v.clientWidth;
   const gap = parseFloat(css.columnGap) || 0;
-  // A tile's tools row, under its picture (style.css).
+  // A tile's tools row, under its picture (styles/gallery.css).
   const foot = parseFloat(css.getPropertyValue('--h-tool')) + parseFloat(css.getPropertyValue('--sp-1'));
   const height = innerHeight * 0.68 + foot;
   const n = Math.min(4, Math.max(viewerJob.expected, viewerRecords.length));
@@ -131,7 +131,7 @@ function fitViewer() {
   v.style.setProperty('--cols', best.cols);
   v.style.setProperty('--rows', best.rows);
   v.style.setProperty('--tile-h', `${tileH}px`);
-  // The tile's own width (style.css: --tile-h times its shape), so every
+  // The tile's own width (styles/gallery.css: --tile-h times its shape), so every
   // column the job will fill is there from its first frame.
   v.style.setProperty('--col-w', `${tileH * aspect}px`);
 }
@@ -153,7 +153,7 @@ function viewerResized() {
 }
 
 // A tile of the strip, at its picture's shape and its tier's size: a result,
-// the live preview, a pass's stand-in. All three are the one box (style.css)
+// the live preview, a pass's stand-in. All three are the one box (styles/gallery.css)
 // - the picture, and under it the tools row or a line of the same height -
 // so whichever replaces another leaves the gallery where it was: the
 // preview was a fixed 320 px, and the strip went from a 917 px result down
@@ -182,7 +182,7 @@ function previewTile(width, height) {
   return figure;
 }
 
-// The many tier scrolls inside itself from 2000 px (style.css): a strip at
+// The many tier scrolls inside itself from 2000 px (styles/gallery.css): a strip at
 // its end stays there as tiles come, one scrolled back up stays where it is.
 // Asked at every tile, the live preview's and a pass's stand-in's too
 // (`stripAppend`, below): the preview's tile starts a row of its own
@@ -205,7 +205,7 @@ function stripAppend(el) {
 // strip that holds every row but for its own bottom padding shows them all
 // rather than scrolling: 28 images at QHD came to 3 px past the 560 px cap,
 // and the strip drew a scrollbar for those 3 px while its note said to scroll
-// it. Its scrollbar's room is kept whether it scrolls or not (style.css), so
+// it. Its scrollbar's room is kept whether it scrolls or not (styles/gallery.css), so
 // a scrollbar coming or going does not change how many tiles a row holds.
 function settleStrip(atEnd) {
   const strip = els.viewer;
@@ -244,7 +244,7 @@ function reserveStrip() {
   // by that rather than scroll (settleStrip), so that much is reserved too.
   const height = !(cap > 0) || tall - cap <= parseFloat(css.paddingBottom) ? tall : cap;
   // Never under the least the stylesheet gives it: beside a docked check
-  // that is the check's room (style.css), which the inline value overrides.
+  // that is the check's room (styles/analysis.css), which the inline value overrides.
   const least = parseFloat(css.minHeight) || 0;
   strip.style.minHeight = `${Math.ceil(Math.max(height, least))}px`;
   reservedWidth = strip.clientWidth;
@@ -328,7 +328,7 @@ function refineResult(rec, tile) {
 
 // The image just made, while the strip holds it alone, with what it is and
 // what to do next in the width the picture leaves - shown from 1800 px
-// (style.css), where a square result left 1,270 px of the strip empty: which
+// (styles/gallery.css), where a square result left 1,270 px of the strip empty: which
 // image it refines, Star, Refine…, Reuse, a pass's Compare with source and
 // Use seed and More seeds… in words, the prompt, and the lightbox's own facts (factsList, facts.js,
 // without its Use seed: the row has one). In the figure, so a star and a
@@ -373,7 +373,7 @@ function resultSide(rec, figure) {
   syncMoreSeedsFor(more, rec);
   more.onclick = () => pressMoreSeedsTool(more, moreSeedsImageTarget(rec), { host: figure.querySelector('.tile') });
   // What the facts say, in a line, where the row stands in for the column
-  // under a docked check (style.css); the settings line whole in its title.
+  // under a docked check (styles/gallery.css); the settings line whole in its title.
   const brief = document.createElement('span');
   brief.className = 'result-brief';
   brief.textContent = `seed ${rec.seed} · ${rec.width}×${rec.height} · ${rec.steps} steps · CFG ${rec.guidance_scale}`;
@@ -404,7 +404,7 @@ function resultSide(rec, figure) {
 // press and an S away before. Dead where the source has gone, saying why
 // (`syncCompareResult`), as the lightbox's own is. The column's alone: the
 // row under the picture that stands in for it with the check docked leaves
-// it out (style.css), as it cut a portrait pass's row to ellipses.
+// it out (styles/gallery.css), as it cut a portrait pass's row to ellipses.
 function compareButton(rec, figure) {
   const button = document.createElement('button');
   button.type = 'button';
@@ -473,7 +473,7 @@ function viewerSourcesGone() {
 // The image just made, alone and made from the prompt, is named as a card's
 // caption names it, its seed with Use seed (`seed-line`): under 1800 px,
 // where nothing beside the image said its seed but its title; from there
-// the column beside it says it (style.css hides the line).
+// the column beside it says it (styles/gallery.css hides the line).
 function noteViewer() {
   const parts = [];
   const first = viewerRecords[0];
@@ -547,7 +547,7 @@ function openViewerImage(rec) {
   openLightbox(rec, viewerRecords, 'viewer');
 }
 
-// #recent: beside a single image from 2000 px (style.css), up to six of this
+// #recent: beside a single image from 2000 px (styles/gallery.css), up to six of this
 // page's earlier results, each opening the lightbox on the image in the strip
 // and those, newest first. Iterating on a prompt showed one picture at a time
 // in a strip 2,000 px wide, the earlier ones a screen down among the cards -
@@ -568,7 +568,7 @@ function renderRecent() {
   fitRecent();
 }
 
-// With the prompt check docked (style.css), #recent stays beside the image
+// With the prompt check docked (styles/gallery.css), #recent stays beside the image
 // in the width the image leaves at its own size - so neither the image nor
 // the gallery under it moves as the check opens - and goes where that is
 // under --recent-min. Measured with #recent out of the docked grid, the
@@ -578,12 +578,12 @@ function fitRecent() {
   const stage = els.recent.parentElement;
   stage.classList.remove('recent-docked');
   // Docked in the stage, which it is not with the gallery beside the viewer:
-  // the check takes the gallery's column there (style.css, `:not(.beside)`).
+  // the check takes the gallery's column there (styles/analysis.css, `:not(.beside)`).
   const docked = matchMedia('(min-width: 2000px)').matches && !els.promptAnalysis.hidden
     && els.promptAnalysis.parentElement === els.tagValidationWide && !besideOn;
   // The image, or the preview in its box - or the row under the image, where
   // that is wider: a narrow portrait's row is as wide as its buttons need
-  // (style.css), and #recent beside it cut them to ellipses again.
+  // (styles/gallery.css), and #recent beside it cut them to ellipses again.
   const tile = els.viewer.querySelector(':scope > figure > .tile');
   if (els.recent.hidden || !docked || !tile) return;
   const row = tile.parentElement.querySelector(':scope > .result-side');
@@ -601,7 +601,7 @@ function fitRecent() {
 // row ticks (job-stream.js's ticker): after Generate the eye is on the
 // viewer, where "Nothing generated this session" stayed for the minutes a
 // first load takes. The clock is aria-hidden, as the progress row's is,
-// which says "loading weights" once; the line stays one line (style.css).
+// which says "loading weights" once; the line stays one line (styles/gallery.css).
 // `clock` null puts the line's own words back: the wait over, cancelled or
 // failed, or the stream lost. The first frame or image clears the strip, the
 // line with it. Not over a line holding the focus (a first run's Examples).
