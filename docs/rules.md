@@ -477,7 +477,7 @@ before changing it.
   and facts list (`settingsLine`, `factsList`), shared by the lightbox and
   the viewer; `lightbox.js` the lightbox's view, layout, walk and gestures,
   `lightbox-compare.js` its comparison's controls, divider and pass
-  stepping, `lightbox-cfg.js` its comparison across CFG and across steps; `refine-rules.js` the refine pass's shared rules (its bounds and sizes, `refinePrefs`, `SINGLE_STRENGTH`, `refineDefaultStrength`, `refineKept`, and `sourceGoneKind`/`sourceGoneWords`, a gone source's words), which every pass dialog, Mass refine, Then refine, the lightbox and the panel read; `refine.js` and `refine-prompt.js` the Refine dialog; `inpaint.js` the Inpaint dialog (its mask's
+  stepping, `lightbox-cfg.js` its comparison across CFG and across steps; `refine-rules.js` the refine pass's shared rules (its bounds and sizes, `refinePrefs`, `SINGLE_STRENGTH`, `refineDefaultStrength`, `refineKept`, and `sourceGoneKind`/`sourceGoneWords`, a gone source's words), which every pass dialog, Mass refine, Then refine, the lightbox and the panel read; `refine.js` and `refine-prompt.js` the Refine dialog, `refine-prompt.js` also the check lines the Inpaint and Outpaint dialogs share (`renderPassCheck`, `syncPassCheck`, `selectPassFrom`); `inpaint.js` the Inpaint dialog (its mask's
   upload, preview, submit and Reuse) and `inpaint-mask.js` its canvas, tools, strokes and export
   (`styles/inpaint.css`); `outpaint.js` the Outpaint dialog (the side, band and preset
   controls, the frame, the preview, submit, close and Reuse; `styles/outpaint.css`);
@@ -4023,9 +4023,9 @@ Frontend and CLI:
   pointer. A close that ran nothing keeps the sides, band and boxes in page
   memory (`outpaintKept`) for that image on the same checkpoint. Its
   shared helpers are inpaint.js's (`inpaintStartStrength`,
-  `libraryStrengthInto`, `syncPassSampling`, `renderPassCheck`,
-  `syncPassCheck`, `selectPassFrom`) and refine-rules.js's
-  (`sourceGoneWords`). Cards, the
+  `libraryStrengthInto`, `syncPassSampling`), refine-prompt.js's
+  (`renderPassCheck`, `syncPassCheck`, `selectPassFrom`) and
+  refine-rules.js's (`sourceGoneWords`). Cards, the
   settings line and job labels read "outpaint of #N +L/+T/+R/+B @ S", the
   facts "Outpainted from" and an Outpaint row, an outpainted card a ⬚
   badge; Against source draws the source at (left, top) at the result's

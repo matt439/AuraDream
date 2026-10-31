@@ -988,39 +988,6 @@ function renderInpaintCheck() {
   syncInpaintCheck();
 }
 
-// The lines themselves, in an inpaint class's dialog (this one's, and the
-// Outpaint dialog's): `checked` is {prompt, negative, body} or null.
-function renderPassCheck({ box, said: saidEl, checked, select, apply }) {
-  box.replaceChildren();
-  const said = [];
-  if (checked) {
-    for (const [field, text] of [['prompt', checked.prompt], ['negative_prompt', checked.negative]]) {
-      const cuts = new Map();
-      for (const report of checked.body.encoders) {
-        if (report.field !== field || report.cut == null || report.pooled_only) continue;
-        cuts.set(report.cut, [...(cuts.get(report.cut) ?? []), report]);
-      }
-      for (const [cut, reports] of cuts) {
-        const line = refineCutLine(field, text, cut, reports, select);
-        said.push(line.firstChild.textContent.trim());
-        box.append(line);
-      }
-    }
-    for (const finding of checked.body.findings) {
-      if (finding.source === 'encoder' || !finding.suggestion) continue;
-      const negative = finding.field === 'negative_prompt';
-      const line = refineCheckLine(`${finding.message} `, finding.severity === 'warn');
-      line.append(refineCheckButton('Apply', `Rewrite the ${negative ? 'negative prompt' : 'prompt'} `
-        + 'as the check suggests (Ctrl+Z undoes it)', finding.field, () => apply(finding)));
-      said.push(finding.message);
-      box.append(line);
-    }
-  }
-  box.hidden = !box.children.length;
-  const text = said.join(' ');
-  if (saidEl.textContent !== text) saidEl.textContent = text;
-}
-
 // Show and Apply are dead while a box holds other text than was checked, and
 // on a greyed negative prompt, as Refine's.
 function syncInpaintCheck() {
@@ -1029,30 +996,8 @@ function syncInpaintCheck() {
   syncPassCheck(els.inpaintCheck, inpaintChecked, inpaintCheckAsked(body), els.inpaintNegative.disabled);
 }
 
-function syncPassCheck(box, checked, asked, greyed) {
-  const stale = !checked || ['prompt', 'negative', 'negativeOff'].some((key) => asked[key] !== checked[key]);
-  box.classList.toggle('stale', stale);
-  for (const button of box.querySelectorAll('button')) {
-    const dead = greyed && button.dataset.field === 'negative_prompt';
-    button.disabled = stale || dead;
-    button.title = dead ? 'The negative prompt is greyed at these settings, so nothing written there would run'
-      : button.dataset.title;
-  }
-}
-
 function selectInpaintFrom(field, text, cut) {
   selectPassFrom(els.inpaintPrompt, els.inpaintNegative, els.inpaintMore, field, text, cut);
-}
-
-// Show: the rest of the box past where an encoder stops, the fold opened.
-function selectPassFrom(promptEl, negativeEl, more, field, text, cut) {
-  const el = field === 'negative_prompt' ? negativeEl : promptEl;
-  const raw = el.value;
-  const lead = raw.length - raw.trimStart().length;
-  if (el.disabled || raw.slice(lead, lead + text.length) !== text) return;
-  more.open = true;
-  el.focus({ preventScroll: true });
-  el.setSelectionRange(lead + units(text, cut), lead + text.length);
 }
 
 // A rule's rewrite, written the way typing writes (replaceBoxText), so
