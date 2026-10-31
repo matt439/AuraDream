@@ -297,18 +297,22 @@ def test_a_pause_stops_the_time_budgets_clock(client, fake):
     fake.step_seconds = 0.01
     job_id = client.post("/api/grid", json={
         "prompt": "x", "width": 256, "height": 256, "steps": 4, "steps_axis": "4,5,6,7,8,9",
-        "seed": 1, "budget_minutes": 1.5 / 60,  # 1.5 s; the six cells take about 0.4 s
+        # 8 s; the six cells take about 0.4 s locally, but a Windows CI
+        # runner spent 1.5 s of a 1.5 s budget on three of them.
+        "seed": 1, "budget_minutes": 8 / 60,
     }).json()["job_id"]
     wait_for(client, job_id, lambda s: len(s["images"]) >= 1)
     client.post(f"/api/jobs/{job_id}/pause")
     held = wait_for(client, job_id, lambda s: s["paused"])
-    time.sleep(2.0)
+    # Paused until past the deadline fixed at submission.
+    slept = max(0.0, held["deadline"] - time.time()) + 0.5
+    time.sleep(slept)
     assert time.time() > held["deadline"]
     client.post(f"/api/jobs/{job_id}/pause?value=false")
     done = stream_job(client, job_id)[-1]
     assert done["status"] == "done" and done["stopped_by"] is None and len(done["images"]) == 6
     # Moved on by the pause, which the page's "left (budget)" reads.
-    assert done["deadline"] - held["deadline"] >= 2.0
+    assert done["deadline"] - held["deadline"] >= slept
 
 
 def test_the_preview_shows_the_prompts_it_would_render(client):
