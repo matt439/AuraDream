@@ -461,7 +461,7 @@ before changing it.
   per version
 - `backend/reindex.py` — rows rebuilt from the PNGs' `auradream` chunk, in place or
   copied in from another gallery; idempotent on the UNIQUE filename
-- `web/` - served as-is from `/static`; `index.html` loads 61 classic
+- `web/` - served as-is from `/static`; `index.html` loads 62 classic
   scripts in order, sharing one global scope; only `app.js`, the last, runs
   the wiring and boot. `state.js` owns shared state; `generation.js`,
   `grid-preview.js`, `job-stream.js` and `job-results.js` handle submission,
@@ -483,7 +483,7 @@ before changing it.
   controls, the frame, the preview, submit, close and Reuse; `styles/outpaint.css`);
   `instruction-edit.js` Edit by instruction… (the capability, the menu item, the
   dialog's preview, submit, close and Reuse, and an edit's lineage; `styles/instruction-edit.css`);
-  `tags.js`, `tag-tokens.js` and `tag-chips.js` the prompt helper, `tag-finder.js` its Find
+  `tags.js`, `tag-tokens.js` and `tag-chips.js` the prompt helper, `tag-helper.js` its Tags menu (the toggles, Start with, Finish with and the caret line), `tag-finder.js` its Find
   tag dropdown; `prompt-examples.js` the
   Examples menu, `prompt-expand.js` ERNIE's Expand; `analysis.js`,
   `analysis-critic.js` and `comparison.js` the check and critic. `sizes.js`
