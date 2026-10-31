@@ -164,8 +164,25 @@ def test_random_prompt_cli_draws_per_image_and_saves_the_same_choices_as_grid(cl
 
 
 def test_random_prompt_mode_requires_a_variable_block_in_the_cli(cli, capsys):
-    assert generate.main(["a fox", "--grid-prompt-mode", "random", "--dry-run", *SIZE]) == 2
-    assert "needs prompt variables" in capsys.readouterr().err
+    # Refused with the flags, as --via-server refuses it (`_grid_flags`).
+    with pytest.raises(SystemExit) as stopped:
+        generate.main(["a fox", "--grid-prompt-mode", "random", "--dry-run", *SIZE])
+    assert stopped.value.code == 2
+    assert "random needs --grid-prompt variables" in capsys.readouterr().err
+    assert cli.requests == []
+
+
+def test_grid_seeds_below_one_is_refused_locally_as_through_the_server(cli, monkeypatch, capsys):
+    # One check for both paths: a zero was refused by --via-server but
+    # silently ran the plain render locally.
+    def forbidden(*_args, **_kwargs):
+        pytest.fail("--grid-seeds 0 reached the network")
+    monkeypatch.setattr(generate, "_server_json", forbidden)
+    for remote in ([], ["--via-server"]):
+        with pytest.raises(SystemExit) as stopped:
+            generate.main(["a fox", *SIZE, "--grid-seeds", "0", *remote])
+        assert stopped.value.code == 2
+        assert "--grid-seeds must be at least 1" in capsys.readouterr().err
     assert cli.requests == []
 
 

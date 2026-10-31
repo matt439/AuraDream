@@ -678,6 +678,46 @@ def _then_refine_flags(args, parser) -> dict | None:
     return {"scale": args.then_refine_scale, "strength": strength, "steps": args.then_refine_steps}
 
 
+def _grid_flags(args: argparse.Namespace, parser: argparse.ArgumentParser) -> tuple[str, bool]:
+    """The grid's prompt axis, and whether the flags ask for a grid at all,
+    once the --grid-* combinations that cannot run are refused. The local
+    run and --via-server both call it, so the two refuse the same lines."""
+    # One flag per variable on the command line, one line per variable in the
+    # browser: the same block reaches the same parser either way.
+    prompt_axis = "\n".join(args.grid_prompt)
+    if args.grid_seeds < 1:
+        parser.error("--grid-seeds must be at least 1")
+    gridding = (
+        bool(
+            prompt_axis
+            or args.grid_size
+            or args.grid_steps
+            or args.grid_cfg
+            or args.grid_mu
+            or args.grid_lora_scale
+            or args.grid_strength
+            or args.seed_list
+            or args.grid_prompt_mode != "cross"
+        )
+        or args.grid_seeds > 1
+    )
+    if args.grid_prompt_mode == "random" and not prompt_axis.strip():
+        parser.error("--grid-prompt-mode random needs --grid-prompt variables")
+    if args.grid_lora_scale and not args.lora:
+        # Without an adapter the scale is not a setting at all, so the sweep
+        # would be one image rendered N times under N different labels.
+        parser.error("--grid-lora-scale needs --lora: with no adapter the weight does nothing")
+    if args.grid_strength and args.refine is None:
+        # The same for a strength with nothing to re-denoise.
+        parser.error("--grid-strength needs --refine: with no source the strength does nothing")
+    if gridding and args.runs != 1:
+        parser.error("--runs and --grid-* are alternatives; a grid steps its own seeds")
+    if args.resume and args.seed is None and not args.seed_list:
+        # A fresh random base matches none of the night it is meant to continue.
+        parser.error("--resume needs --seed: the seed the run it continues was started from")
+    return prompt_axis, gridding
+
+
 def _then_refine_passes(p, backend, records, spec, pass_run, job_id, on_progress, should_cancel, streak,
                         *, quiet: bool, live: bool):
     """A pass of each record a cell just saved, as the server's worker runs
@@ -912,22 +952,7 @@ def _via_server(args, parser, source, carried, mask_image, width, height, sized,
             "--via-server cannot carry a PNG's grid/comparison labels through the public generation API; "
             "run without --via-server, change the prompt, or define new variables with --grid-prompt"
         )
-    prompt_axis = "\n".join(args.grid_prompt)
-    gridding = bool(prompt_axis or args.grid_size or args.grid_steps or args.grid_cfg or args.grid_mu or args.grid_lora_scale
-                    or args.grid_strength or args.seed_list or args.grid_seeds != 1
-                    or args.grid_prompt_mode != "cross")
-    if args.grid_prompt_mode == "random" and not prompt_axis.strip():
-        parser.error("--grid-prompt-mode random needs --grid-prompt variables")
-    if gridding and args.runs != 1:
-        parser.error("--runs and --grid-* are alternatives; a grid steps its own seeds")
-    if args.grid_seeds < 1:
-        parser.error("--grid-seeds must be at least 1")
-    if args.resume and args.seed is None and not args.seed_list:
-        parser.error("--resume needs --seed: the seed the run it continues was started from")
-    if args.grid_lora_scale and not args.lora:
-        parser.error("--grid-lora-scale needs --lora: with no adapter the weight does nothing")
-    if args.grid_strength and args.refine is None:
-        parser.error("--grid-strength needs --refine: with no source the strength does nothing")
+    prompt_axis, gridding = _grid_flags(args, parser)
     host = os.getenv("AURADREAM_HOST", "127.0.0.1")
     host = "127.0.0.1" if host in {"0.0.0.0", "::"} else host
     if ":" in host and not host.startswith("["):
@@ -1379,23 +1404,7 @@ def main(argv: list[str] | None = None) -> int:
     # write by hand - `seed + index * batch`, wrapped by the same helper. Sharing
     # it with the server is the point: a cell here and a cell there must be the
     # same image.
-    # One flag per variable on the command line, one line per variable in the
-    # browser: the same block reaches the same parser either way.
-    prompt_axis = "\n".join(args.grid_prompt)
-    gridding = (
-        bool(
-            prompt_axis
-            or args.grid_size
-            or args.grid_steps
-            or args.grid_cfg
-            or args.grid_mu
-            or args.grid_lora_scale
-            or args.grid_strength
-            or args.seed_list
-            or args.grid_prompt_mode != "cross"
-        )
-        or args.grid_seeds > 1
-    )
+    prompt_axis, gridding = _grid_flags(args, parser)
 
     try:
         request = p.GenerateRequest(
@@ -1431,18 +1440,6 @@ def main(argv: list[str] | None = None) -> int:
         print(p.error_detail(exc), file=sys.stderr)
         return 2
 
-    if args.grid_lora_scale and not args.lora:
-        # Without an adapter the scale is not a setting at all, so the sweep
-        # would be one image rendered N times under N different labels.
-        parser.error("--grid-lora-scale needs --lora: with no adapter the weight does nothing")
-    if args.grid_strength and args.refine is None:
-        # The same for a strength with nothing to re-denoise.
-        parser.error("--grid-strength needs --refine: with no source the strength does nothing")
-    if gridding and args.runs != 1:
-        parser.error("--runs and --grid-* are alternatives; a grid steps its own seeds")
-    if args.resume and args.seed is None and not args.seed_list:
-        # A fresh random base matches none of the night it is meant to continue.
-        parser.error("--resume needs --seed: the seed the run it continues was started from")
     # A comparison's version, reproduced, is a one-variant prompt axis: taken
     # verbatim as the grid took it - a `{name}` in it is text, not a
     # placeholder with no values - and recorded under its label by the same
