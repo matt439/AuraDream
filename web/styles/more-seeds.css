@@ -47,26 +47,10 @@
   border: 1px solid var(--line); border-radius: var(--r-sm); background: var(--panel-2);
 }
 .ms-single .ms-results { height: 88px; }
-.ms-result {
-  display: flex; gap: var(--sp-3); align-items: flex-start;
-  padding: var(--sp-2); border-bottom: 1px solid var(--line);
-}
-.ms-result:last-child { border-bottom: 0; }
-.ms-result > img, .ms-thumb-gone {
-  flex: none; width: 48px; height: 48px; object-fit: contain;
-  border: 1px solid var(--line); border-radius: var(--r-xs); background: var(--bg);
-}
-.ms-body { display: flex; flex-direction: column; gap: 2px; min-width: 0; font-size: var(--fs-body-sm); }
+/* The rows are swap.css's shared result rows; More seeds' line is smaller. */
 .ms-line { color: var(--text-3); font-size: var(--fs-label); font-variant-numeric: tabular-nums; }
-.ms-chip {
-  display: inline-block; padding: 0 var(--sp-1); border: 1px solid var(--line-strong);
-  border-radius: var(--r-xs); font-size: var(--fs-label); color: var(--text-3);
-}
-.ms-result[data-status="queued"] .ms-chip { border-color: var(--accent); color: var(--text); background: var(--accent-soft); }
 /* The prompt on one line: the row is a batch, and its title has it whole. */
 .ms-prompt { order: -1; color: var(--text-2); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
-.ms-detail { color: var(--text-3); overflow-wrap: anywhere; }
-.ms-notes { color: var(--text-3); font-size: var(--fs-label); }
 
 .ms-feedback { display: grid; height: calc(3 * var(--fs-label) * var(--lh)); }
 .ms-feedback > p { grid-area: 1 / 1; }

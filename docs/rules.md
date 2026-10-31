@@ -466,7 +466,8 @@ before changing it.
   the wiring and boot. `state.js` owns shared state; `page-helpers.js`, right
   after it, the page-wide pure helpers (`plural`, `excerpt`, `units`,
   `humanTime`, `keyboardEventHeld`, `keyboardEditingTarget`,
-  `keyboardCommandModifier`); `generation.js`,
+  `keyboardCommandModifier`), and the result row Swap tags, Mass refine
+  and More seeds share (`resultRow`, `resultNotes`); `generation.js`,
   `grid-preview.js`, `job-stream.js` and `job-results.js` handle submission,
   previews and progress, with `job-progress.js` the watched job's progress,
   mirrors and Pause, and `job-queue.js` the queue and which job the page
@@ -526,7 +527,8 @@ before changing it.
   lightbox, `refine.css` the Refine dialog and motion, `inpaint.css` and
   `outpaint.css` their dialogs, `instruction-edit.css` the Edit by
   instruction dialog and an edit's badge, `bundles.css` the bundle dialog,
-  `swap.css`, `refine-batch.css` and `more-seeds.css` those dialogs,
+  `swap.css`, `refine-batch.css` and `more-seeds.css` those dialogs
+  (`swap.css` also the `batch-*` result rows all three share),
   `bin.css` the recycle bin, `context-menu.css` the right-click menu and
   `shortcuts.css` the keyboard help dialog, `snippets.css` the snippet dialog
   and `setups.css` the named setup dialog, followed by `saved-searches.css`

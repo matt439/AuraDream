@@ -61,29 +61,32 @@
   height: min(38vh, 340px); overflow-y: auto;
   border: 1px solid var(--line); border-radius: var(--r-sm); background: var(--panel-2);
 }
-.swap-result {
+/* A result row (page-helpers.js's resultRow), shared by Swap tags, Mass
+   refine (refine-batch.css) and More seeds (more-seeds.css), which load
+   after this sheet: each row also keeps its dialog's own prefixed classes. */
+.batch-result {
   display: flex; gap: var(--sp-3); align-items: flex-start;
   padding: var(--sp-2); border-bottom: 1px solid var(--line);
 }
-.swap-result:last-child { border-bottom: 0; }
-.swap-result > img, .swap-thumb-gone {
+.batch-result:last-child { border-bottom: 0; }
+.batch-result > img, .batch-thumb-gone {
   flex: none; width: 48px; height: 48px; object-fit: contain;
   border: 1px solid var(--line); border-radius: var(--r-xs); background: var(--bg);
 }
-.swap-body { display: flex; flex-direction: column; gap: 2px; min-width: 0; font-size: var(--fs-body-sm); }
-.swap-line { color: var(--text-2); font-variant-numeric: tabular-nums; }
-.swap-chip {
+.batch-body { display: flex; flex-direction: column; gap: 2px; min-width: 0; font-size: var(--fs-body-sm); }
+.batch-line { color: var(--text-2); font-variant-numeric: tabular-nums; }
+.batch-chip {
   display: inline-block; padding: 0 var(--sp-1); border: 1px solid var(--line-strong);
   border-radius: var(--r-xs); font-size: var(--fs-label); color: var(--text-3);
 }
-.swap-result[data-status="queued"] .swap-chip { border-color: var(--accent); color: var(--text); background: var(--accent-soft); }
+.batch-result[data-status="queued"] .batch-chip { border-color: var(--accent); color: var(--text); background: var(--accent-soft); }
+.batch-detail { color: var(--text-3); overflow-wrap: anywhere; }
+.batch-notes { color: var(--text-3); font-size: var(--fs-label); }
 .swap-result:not([data-status="queued"]) .swap-text { color: var(--muted); }
-.swap-detail { color: var(--text-3); overflow-wrap: anywhere; }
 .swap-text { color: var(--text-2); overflow-wrap: anywhere; white-space: pre-wrap; }
 .swap-text mark { background: var(--accent-soft); color: var(--text); border-radius: 2px; outline: 1px solid var(--accent); }
 .swap-removed { color: var(--text-3); overflow-wrap: anywhere; white-space: pre-wrap; }
 .swap-removed del { color: var(--text-2); text-decoration-color: var(--danger); }
-.swap-notes { color: var(--text-3); font-size: var(--fs-label); }
 
 #swap-error {
   min-height: calc(var(--fs-body-sm) * var(--lh)); margin: 0;

@@ -367,36 +367,14 @@ function renderSwapResults(answer) {
 }
 
 function swapResultRow(image) {
-  const li = document.createElement('li');
-  li.className = 'swap-result';
-  li.dataset.id = image.id;
-  li.dataset.status = image.status;
-  if (image.thumb_url) {
-    const img = document.createElement('img');
-    img.src = image.thumb_url;
-    img.alt = '';
-    img.loading = 'lazy';
-    li.append(img);
-  } else {
-    li.append(Object.assign(document.createElement('span'), { className: 'swap-thumb-gone' }));
-  }
-  const body = document.createElement('div');
-  body.className = 'swap-body';
-  const head = document.createElement('p');
-  head.className = 'swap-line';
-  const chip = Object.assign(document.createElement('span'), { className: 'swap-chip', textContent: SWAP_CHIP[image.status] ?? image.status });
-  head.append(`#${image.id} `, chip);
+  const { li, body, head } = resultRow(image, 'swap', SWAP_CHIP);
   if (image.width && image.height) head.append(` ${image.width}×${image.height}`);
   if (image.detail && image.status !== 'queued') {
-    head.append(Object.assign(document.createElement('span'), { className: 'swap-detail', textContent: ` ${image.detail}` }));
+    head.append(Object.assign(document.createElement('span'), { className: 'swap-detail batch-detail', textContent: ` ${image.detail}` }));
   }
-  body.append(head);
   if (image.text) body.append(swapMarked(image.text, image.spans));
   if (image.removed?.length) body.append(swapTookOut(image.removed));
-  if (image.notes?.length) {
-    body.append(Object.assign(document.createElement('p'), { className: 'swap-notes', textContent: image.notes.join(' · ') }));
-  }
-  li.append(body);
+  resultNotes(body, image, 'swap');
   return li;
 }
 

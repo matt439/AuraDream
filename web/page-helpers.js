@@ -43,3 +43,44 @@ function keyboardEditingTarget(target) {
 function keyboardCommandModifier(event) {
   return event.ctrlKey || event.metaKey || event.altKey;
 }
+
+// A row of a result list - Swap tags', Mass refine's and More seeds' (the
+// shared batch-* rules in styles/swap.css): the image's thumbnail, or a blank
+// where it has gone, and a body opening on its line, "#N" and the status chip
+// in `chips`' words. Every element keeps its dialog's `prefix` class too,
+// which the smokes select on. Answers the row, its body and that line, for
+// the dialog's own details.
+function resultRow(image, prefix, chips) {
+  const li = document.createElement('li');
+  li.className = `${prefix}-result batch-result`;
+  li.dataset.id = image.id;
+  li.dataset.status = image.status;
+  if (image.thumb_url) {
+    const img = document.createElement('img');
+    img.src = image.thumb_url;
+    img.alt = '';
+    img.loading = 'lazy';
+    li.append(img);
+  } else {
+    li.append(Object.assign(document.createElement('span'), { className: `${prefix}-thumb-gone batch-thumb-gone` }));
+  }
+  const body = document.createElement('div');
+  body.className = `${prefix}-body batch-body`;
+  const head = document.createElement('p');
+  head.className = `${prefix}-line batch-line`;
+  const chip = Object.assign(document.createElement('span'), {
+    className: `${prefix}-chip batch-chip`, textContent: chips[image.status] ?? image.status,
+  });
+  head.append(`#${image.id} `, chip);
+  body.append(head);
+  li.append(body);
+  return { li, body, head };
+}
+
+// A result row's notes, on one line under the rest, where it has any.
+function resultNotes(body, image, prefix) {
+  if (!image.notes?.length) return;
+  body.append(Object.assign(document.createElement('p'), {
+    className: `${prefix}-notes batch-notes`, textContent: image.notes.join(' · '),
+  }));
+}
