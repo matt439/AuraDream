@@ -12826,15 +12826,3 @@ or rehashed to reconstruct the missing values. Preserve the current lock and
 resolve that discrepancy during the [optional compiler proposal's isolated
 lock review](plan-regional-compilation.md#dependency-proposal-and-remaining-artifact-check-2026-10-28);
 the historical measurement is not proof that the present lock retains it.
-
-## Verified on the card, 2026-09-08
-
-Verified on the card 2026-09-08 beyond the above: a real Ctrl-C (SIGINT to
-uvicorn's handler) 12 s into a load exits in 3 s with the lifespan run;
-mid-sweep with a stream attached, `done` (cancelled) reaches the stream
-0.2 s after the signal and the process is gone 3 s later; Pause is
-acknowledged at the cell boundary, where a paused 512x512 grid held
-2,046 MiB of the card (whole card, desktop included; a 1 MP fp8 denoise
-reads 14,950 MiB); `reindex --from` over the real gallery
-reproduces every hash and true CFG. Not verified: `AURADREAM_DEVICE=cuda:1` (one
-card here).
