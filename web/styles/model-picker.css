@@ -28,6 +28,8 @@
   scroll-padding-top: calc(var(--fs-body-sm) * var(--lh) + 3 * var(--sp-1));
 }
 .model-picker-heading, .model-loader-options label, .model-format { font-weight: 600; }
+/* Checkpoint and its Group by type choice share one line. */
+.model-picker-heading-row { display: flex; align-items: center; justify-content: space-between; gap: var(--sp-3); }
 .model-picker select {
   width: 100%; min-width: 0; height: var(--h-field); padding: 0 var(--sp-2);
   color: var(--text); background: var(--panel-2); border: 1px solid var(--line-strong);

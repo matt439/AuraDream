@@ -800,6 +800,12 @@ Model and loader:
   native/documented maxima and examples distinctly; an example never becomes
   a guaranteed maximum. Model favourites are browser preferences, canonical across Nunchaku
   weight formats, and never mutate the selected model or loader settings.
+  Group by type (`auradream.model-grouping.v1`) is one too: after the
+  Favourites group, the other rows sit under their Style, groups in the
+  catalogue order of each Style's first row. It sits beside the Checkpoint
+  heading, outside the label naming the radio group; ticking it regroups at
+  once (with the stars as they are then), since the checkbox is above every
+  row; another tab's change waits for the next opening.
 - The checkpoint is a radio table (`#model-table`) showing every model's
   facts; read and set it only through `modelChoice()` / `chooseModel()`, with
   no row checked when the runtime id is missing. It is rebuilt only when its
@@ -7858,7 +7864,10 @@ waits for an open list to close, that keys in an open list leave the prompt
 check open and start no job, and that Escape closes only the list. It covers
 arrow-key drafts, a loader change elsewhere while a radio has the focus, a
 checkpoint changed elsewhere, recovery from an outdated catalogue reply and
-an off-catalogue runtime id requested once with no row chosen. CPU tests in
+an off-catalogue runtime id requested once with no row chosen. Group by type
+puts the rows under their Style in catalogue order after the favourites,
+without moving the checkbox, the choice or the focus; it is saved, survives
+the next opening, and another tab's change waits for that opening. CPU tests in
 `test_startup_preferences.py`, `test_launch.py`, `test_runtime_settings.py`
 and `test_api_model_switch.py` cover persistence, explicit overrides and the
 saved choice set aside for another model, per-process revisions, loader
