@@ -58,7 +58,7 @@ def temp():
     long per-test path that passed the 108 bytes a socket's path may take,
     so the browser never came up.
     """
-    path = Path(tempfile.mkdtemp(prefix="ld-"))
+    path = Path(tempfile.mkdtemp(prefix="ad-"))
     try:
         yield path
     finally:
