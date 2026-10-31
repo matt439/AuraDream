@@ -2,14 +2,13 @@
 from __future__ import annotations
 
 import json
-import shutil
 import subprocess
 from pathlib import Path
 
 import pytest
 
 ROOT = Path(__file__).resolve().parent.parent
-pytestmark = pytest.mark.skipif(shutil.which("node") is None, reason="needs Node")
+pytestmark = pytest.mark.usefixtures("node")
 
 
 def _node(body: str, value) -> subprocess.CompletedProcess:

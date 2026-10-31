@@ -5,6 +5,7 @@ from __future__ import annotations
 import asyncio
 import dataclasses
 import os
+import shutil
 import sys
 
 import pytest
@@ -50,6 +51,20 @@ if sys.platform == "win32":
 
 
 _SHIPPED_SCRYPT = (bundle_crypto._LOG2_N, bundle_crypto._R, bundle_crypto._P)
+
+
+@pytest.fixture
+def node():
+    """The Node binary the browser-script tests drive.
+
+    Node is required, as it is for the classic-script guard: a missing one
+    fails these tests instead of skipping them, so a run without it cannot
+    pass by checking less.
+    """
+    path = shutil.which("node")
+    if path is None:
+        pytest.fail("Node is required for the browser-script tests; install it and put it on PATH")
+    return path
 
 
 @pytest.fixture(autouse=True)

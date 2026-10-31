@@ -4,14 +4,13 @@ from __future__ import annotations
 import json
 import os
 from pathlib import Path
-import shutil
 import subprocess
 
 import pytest
 
 ROOT = Path(__file__).resolve().parent.parent
 FIXTURE = Path(__file__).resolve().parent / "browser_startup_viewport_fixture.mjs"
-pytestmark = pytest.mark.skipif(shutil.which("node") is None, reason="needs Node")
+pytestmark = pytest.mark.usefixtures("node")
 
 STARTUP_MESSAGE = ("AURADREAM_VIEWPORT needs WIDTHxHEIGHT with integer dimensions in 1..10000000; "
                    "AURADREAM_DPR needs a finite positive number")

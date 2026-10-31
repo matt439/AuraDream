@@ -3,7 +3,6 @@ from __future__ import annotations
 
 import hashlib
 from pathlib import Path
-import shutil
 import sqlite3
 import subprocess
 
@@ -16,7 +15,7 @@ from backend.schemas import GenerateRequest
 ROOT = Path(__file__).resolve().parent.parent
 
 
-@pytest.mark.skipif(shutil.which("node") is None, reason="needs Node")
+@pytest.mark.usefixtures("node")
 def test_existing_frontend_search_helpers_accept_values_without_new_keys():
     script = r'''
 const assert = require('node:assert/strict');

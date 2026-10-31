@@ -4,14 +4,13 @@ from __future__ import annotations
 import json
 import os
 from pathlib import Path
-import shutil
 import subprocess
 
 import pytest
 
 ROOT = Path(__file__).resolve().parent.parent
 FIXTURE = Path(__file__).resolve().parent / "browser_keycombo_fixture.mjs"
-pytestmark = pytest.mark.skipif(shutil.which("node") is None, reason="needs Node")
+pytestmark = pytest.mark.usefixtures("node")
 
 NEEDS_KEY = "keycombo needs modifiers followed by a key"
 NEEDS_MODIFIERS = "keycombo modifiers must be known and unique"

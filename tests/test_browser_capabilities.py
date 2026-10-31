@@ -4,7 +4,6 @@ from __future__ import annotations
 import json
 import os
 from pathlib import Path
-import shutil
 import subprocess
 
 import pytest
@@ -12,7 +11,7 @@ import pytest
 ROOT = Path(__file__).resolve().parent.parent
 CAPABILITIES_FIXTURE = Path(__file__).resolve().parent / "browser_capabilities_fixture.mjs"
 FATAL_FIXTURE = Path(__file__).resolve().parent / "browser_fatal_fixture.mjs"
-pytestmark = pytest.mark.skipif(shutil.which("node") is None, reason="needs Node")
+pytestmark = pytest.mark.usefixtures("node")
 
 
 def run_cold(tmp_path, masks, *, supported=False, probe=None):

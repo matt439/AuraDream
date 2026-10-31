@@ -4,14 +4,13 @@ from __future__ import annotations
 import json
 import os
 from pathlib import Path
-import shutil
 import subprocess
 
 import pytest
 
 ROOT = Path(__file__).resolve().parent.parent
 FIXTURE = Path(__file__).resolve().parent / "browser_port_fixture.mjs"
-pytestmark = pytest.mark.skipif(shutil.which("node") is None, reason="needs Node")
+pytestmark = pytest.mark.usefixtures("node")
 
 OFFSET_MESSAGE = "AURADREAM_PORT_OFFSET must be a finite safe integer"
 PORT_MESSAGE = "effective local ports must be integers in 1..65535 after AURADREAM_PORT_OFFSET"

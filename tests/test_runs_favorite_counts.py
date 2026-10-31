@@ -5,14 +5,13 @@ actual server's aggregate values are qualified separately by the fresh smoke.
 """
 from __future__ import annotations
 
-import shutil
 import subprocess
 from pathlib import Path
 
 import pytest
 
 ROOT = Path(__file__).resolve().parent.parent
-pytestmark = pytest.mark.skipif(shutil.which("node") is None, reason="needs Node")
+pytestmark = pytest.mark.usefixtures("node")
 
 HARNESS = r'''
 const assert = require('node:assert/strict');

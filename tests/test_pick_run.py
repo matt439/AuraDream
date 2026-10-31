@@ -6,7 +6,6 @@ late replies dropped - without a server.
 """
 
 import json
-import shutil
 import subprocess
 from pathlib import Path
 
@@ -14,7 +13,7 @@ import pytest
 
 ROOT = Path(__file__).resolve().parent.parent
 FIXTURE = Path(__file__).resolve().parent / "pick_run_fixture.mjs"
-pytestmark = pytest.mark.skipif(shutil.which("node") is None, reason="needs Node")
+pytestmark = pytest.mark.usefixtures("node")
 
 
 def run(scenario: str) -> dict:

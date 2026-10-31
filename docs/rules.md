@@ -6569,7 +6569,11 @@ including `app.js`, and instantiate declarations without executing source
 bodies. It covers syntax, cross-file lexical collisions and permitted
 sharing, strict/sloppy block functions, unsupported script kinds, missing
 files and missing Node. Node is required locally and verified by CPU CI;
-this guard does not replace the independent browser smokes.
+this guard does not replace the independent browser smokes. Every other
+Node-driven test asks for `conftest.py`'s `node` fixture (or asserts Node
+itself), so a missing Node fails them too rather than skipping; only
+`tests/test_browser_profile.py` still skips, and only for a missing Edge or
+Chrome.
 
 `tests/test_browser_capabilities.py` captures the actual harness/helper module
 bodies before instrumentation and loads them as data URLs, so Node's own module

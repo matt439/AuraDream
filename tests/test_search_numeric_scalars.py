@@ -4,7 +4,6 @@ from __future__ import annotations
 import json
 import math
 from pathlib import Path
-import shutil
 import subprocess
 
 import pytest
@@ -172,7 +171,7 @@ def test_gallery_scientific_exact_read_returns_200_and_the_matching_row(
     assert _rows(store) == before and cold_reads_only == []
 
 
-@pytest.mark.skipif(shutil.which("node") is None, reason="needs Node")
+@pytest.mark.usefixtures("node")
 def test_actual_sampling_fact_terms_find_their_serialized_scratch_record(store, scalar_rows):
     record = scalar_rows["tiny"]
     script = r'''
