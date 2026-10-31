@@ -1,5 +1,7 @@
 # Random-choice prompt variables (GEN#17)
 
+**Status: done 2026-10-25** (`GEN#17`).
+
 ## Contract
 
 The existing `name = a | b` block has two modes: `cross` (the default,

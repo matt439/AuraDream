@@ -1,5 +1,7 @@
 # Queue time estimates
 
+**Status: done 2026-10-30** (`GEN#32`).
+
 **Status:** `GEN#32` done, 2026-10-30: stages 1 and 2 built together (see
 [Result](#result-2026-10-30)). Planned from the 2026-10-29 TODO audit (its
 item 3). Both stages are CPU, fake-server and browser work; neither needs the

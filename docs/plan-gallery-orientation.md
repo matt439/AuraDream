@@ -1,5 +1,7 @@
 # Gallery orientation searches
 
+**Status: done 2026-10-28** (`GAL#15`).
+
 **Status:** `GAL#15` implemented and locally qualified, 2026-10-28 UTC.
 The existing size filter accepts portrait, landscape and square values across
 resolutions. CPU/API checks and source review are complete; no web source or

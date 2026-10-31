@@ -1,5 +1,7 @@
 # Personal prompt snippets
 
+**Status: done 2026-10-26** (`UI#11`).
+
 `UI#11`, from [G6 of the 2026-10-24 review](review-2026-10-24.md#g6-own-prompt-snippets).
 
 ## Scope and behavior

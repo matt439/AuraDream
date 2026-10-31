@@ -1,5 +1,7 @@
 # Plan: explicit gallery date ranges
 
+**Status: done 2026-10-28** (`GAL#14`).
+
 **Status:** `GAL#14` implemented and locally CPU/API-qualified, 2026-10-28.
 Independent source/test review was clear. Six range-selection baseline cases
 failed in 0.22 seconds before the additive parser branch was applied.

@@ -1,5 +1,7 @@
 # Button hierarchy and contrast (UI#13)
 
+**Status: done 2026-10-26** (`UI#13`).
+
 ## Evidence and scope
 
 Matt reported similar dark-grey-on-black buttons on 2026-10-26. Browser

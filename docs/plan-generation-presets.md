@@ -1,5 +1,7 @@
 # Named generation and grid setups
 
+**Status: done 2026-10-28** (`GEN#27`).
+
 `GEN#27`. Requested for the backlog on **2026-10-28**, after the TODO audit.
 **Status: stages 1-3 built and locally qualified, 2026-10-28.**
 This plan defines CPU/browser implementation slices; it does not
