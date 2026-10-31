@@ -133,7 +133,7 @@ class BackupService:
             retention_uncertain=uncertain,
             credential_configured=saved.credential_state == "ready" and saved.credential_reference is not None,
             credential_state=saved.credential_state,
-            credential_provider="windows-credential-manager-v1" if saved.credential_reference is not None else None,
+            credential_provider=saved.credential_reference.provider if saved.credential_reference is not None else None,
             credential_generation=saved.credential_reference.destination_id if saved.credential_reference is not None else None,
         )
 

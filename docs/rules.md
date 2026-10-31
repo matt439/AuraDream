@@ -1440,8 +1440,8 @@ Reproduction:
   as it was), `runs`, `keep_rates`, `_STARRED_SOURCE` (only a live star
   protects) and `_UNKEPT` (a binned star is unkept), and by
   `matching_preview(live_only=True)` / `delete_matching(to_bin=True)` for
-  Delete unstarred. `_tracked_files`, `existing_filenames`,
-  `existing_file_ids`, bundles, `clear`, `completed_cells`, `lineage_images`,
+  Delete unstarred. `_tracked_files`, `existing_file_ids`,
+  bundles, `clear`, `completed_cells`, `lineage_images`,
   `image_provenance`, `newest_image_id` and the cost/size samples read every
   row: filtered to live rows, the orphan sweep would delete binned PNGs and a
   reindex would add them back as new rows, and the status's newest id would

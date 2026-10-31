@@ -1219,15 +1219,9 @@ def completed_cells(
     return keys
 
 
-# These two and `_tracked_files` read every row, the recycle bin's included:
+# This and `_tracked_files` read every row, the recycle bin's included:
 # filtered to live rows, the orphan sweep would delete binned PNGs as untracked
 # and a reindex would add them back as new rows.
-def existing_filenames() -> set[str]:
-    """Every filename the index knows - what a reindex skips."""
-    with _session() as conn:
-        return {row["filename"] for row in conn.execute("SELECT filename FROM images")}
-
-
 def existing_file_ids() -> dict[str, int]:
     """Every indexed filename and its gallery id, for an id-remapping import."""
     with _session() as conn:
@@ -2092,21 +2086,21 @@ def _tracked_masks() -> set[str]:
 
 
 # The names `gallery_reports` and `gallery_delete` took out of this module,
-# still reachable as `storage.<name>` for the callers and tests that use them.
+# still reachable as `storage.<name>` for the tests and tools that use them
+# (no backend module goes through it).
 # PEP 562 rather than an import at the bottom: both modules import this one at
 # their top, so a caller that imported one of them first would find it half
 # initialised. Each name resolves to the one object its module defines - an
 # `except storage.SelectionChanged` catches what `gallery_delete` raises.
 _MOVED = {
     **dict.fromkeys(
-        ("human_bytes", "step_cost_ms", "refine_cost_ms", "image_bytes",
-         "_GROUPS", "keep_rates", "_RUN_AXES", "runs"),
+        ("human_bytes", "step_cost_ms", "refine_cost_ms", "keep_rates", "runs"),
         "gallery_reports",
     ),
     **dict.fromkeys(
-        ("_UNKEPT", "matching_preview", "SelectionChanged", "delete_matching",
+        ("matching_preview", "SelectionChanged", "delete_matching",
          "delete_image", "bin_images", "restore_images", "bin_summary", "empty_bin",
-         "summarise", "clear_history", "vacuum"),
+         "summarise", "clear_history"),
         "gallery_delete",
     ),
 }

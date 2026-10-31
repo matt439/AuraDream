@@ -155,7 +155,8 @@ def load_result(db_path: Path) -> PreferenceLoad:
 
 
 def load(db_path: Path) -> StartupPreferences | None:
-    """Compatibility read; load_result also exposes fail-closed diagnostics."""
+    """The saved preferences alone, a convenience for tests; nothing in the app
+    calls it. `load_result` also gives the fail-closed diagnostics."""
     return load_result(db_path).preferences
 
 

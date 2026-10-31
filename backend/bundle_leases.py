@@ -94,8 +94,6 @@ class LeaseRegistry:
     def __init__(self, *, cross_process: bool = False) -> None:
         self._lock = _process_lock
         self._cross_process = cross_process
-        self._readers: dict[str, int] = {}
-        self._claims: set[str] = set()
 
     def _key(self, path: Path) -> str:
         canonical = bundle_file_lock.archive_path(path) if self._cross_process else Path(path).resolve()
@@ -127,7 +125,6 @@ class LeaseRegistry:
         self._native(key, state, exclusive=False, shared=shared)
         state.readers += 1
         _states[key] = state
-        self._readers[key] = self._readers.get(key, 0) + 1
         return Lease(self, key, False)
 
     def exclusive(self, path: Path) -> Lease:
@@ -142,7 +139,6 @@ class LeaseRegistry:
         state = _State(exclusive=True)
         self._native(key, state, exclusive=True, shared=shared)
         _states[key] = state
-        self._claims.add(key)
         return Lease(self, key, True)
 
     def _release(self, lease: Lease) -> None:
@@ -165,14 +161,6 @@ class LeaseRegistry:
                 del _states[lease._key]
             else:
                 state.readers -= 1
-            if lease._exclusive:
-                self._claims.remove(lease._key)
-            else:
-                remaining = self._readers[lease._key] - 1
-                if remaining:
-                    self._readers[lease._key] = remaining
-                else:
-                    del self._readers[lease._key]
             lease._released = True
             if failure is not None:
                 raise failure

@@ -761,8 +761,9 @@ def export_bundle(expected: int | None = None, password: str | None = None, prog
                         result["managed"] = True
                     except (OSError, ValueError, TypeError):
                         # Publication already succeeded. Never remove the copy
-                        # or advance ownership on an uncertain journal update.
-                        result["managed_warning"] = backup_receipts.JOURNAL_WARNING
+                        # or advance ownership on an uncertain journal update:
+                        # `managed` stays False, which the coordinator records.
+                        pass
                 # A backup ends at the verified read-back: nothing is cleared,
                 # so there is nothing for the second inventory to protect.
                 return result

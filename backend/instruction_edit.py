@@ -35,7 +35,6 @@ RecipeName = Literal["kontext-v1"]
 PositiveSource = Annotated[int, Field(strict=True, gt=0, le=2**63 - 1)]
 PositiveDimension = Annotated[int, Field(strict=True, gt=0)]
 
-MAX_AREA = 512 * 512
 MAX_SEQUENCE_LENGTH = 512
 INSTRUCTION_EDIT_UNAVAILABLE = (
     "Instruction editing is not available on this backend: "

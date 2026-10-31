@@ -137,7 +137,6 @@ def test_receipt_failure_keeps_previous_journal_and_published_copy_unmanaged(sto
     monkeypatch.setattr(receipts.os, "replace", fail_journal)
     second = bundles.export_bundle(keep_gallery=True, managed=replace(identity, operation_id=str(uuid4())))
     assert second["managed"] is False
-    assert second["managed_warning"] == receipts.JOURNAL_WARNING
     assert "secret-that-must-not-be-echoed" not in repr(second)
     assert path.read_bytes() == before
     assert Path(first["path"]).exists() and Path(second["path"]).exists()

@@ -741,6 +741,9 @@ class DiffusersBackend(GenerationBackend):
         """Private structural refusal before adapter/input/hook preparation."""
         attention_selection.require_native_environment()
         selected = current_settings(settings)
+        # Open: neither this check nor the load-time one passes `then_refine`,
+        # which the pure matrix refuses. Whether a Then refine pass must reach
+        # that refusal here is the execution owner's decision, not settled.
         reason = cache_candidate_reason(
             execution, compiler_metadata(), model_id=selected.model_id,
             quantization=selected.quantization, offload=selected.offload, device=selected.device,

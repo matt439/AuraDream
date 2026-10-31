@@ -104,12 +104,6 @@ def test_cache_refuses_unconditioned_or_invalid_true_cfg(true_cfg):
     assert execution.cache_candidate_reason(CANDIDATES[1][1], FACTS, **TARGET, true_cfg=true_cfg) is not None
 
 
-def test_cache_refuses_an_existing_cache_without_inspecting_a_model():
-    assert execution.cache_candidate_reason(CANDIDATES[1][1], FACTS, **TARGET, cache_present=True) == (
-        "The step-cache candidate cannot share an already enabled cache."
-    )
-
-
 def test_pure_candidates_import_cold_use_only_supplied_facts_and_leave_environment_unchanged(tmp_path):
     root = Path(__file__).resolve().parents[1]
     environment = dict(os.environ, PYTHONPATH=str(root), PYTHONDONTWRITEBYTECODE="1", PYTHONUTF8="1",

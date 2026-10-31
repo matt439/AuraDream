@@ -30,7 +30,6 @@ MAX_RECEIPTS = 20_000
 _MAX_BYTES = 16 * 1024 * 1024
 _CHUNK = 1024 * 1024
 _ERROR = "The managed backup journal is unusable; repair it before recording managed copies."
-JOURNAL_WARNING = "The archive was published, but its receipt could not be saved; it remains unmanaged."
 
 
 class ReceiptError(ValueError):
