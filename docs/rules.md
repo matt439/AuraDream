@@ -619,7 +619,7 @@ in `docs/design-notes.md` under a heading of the same subject; read that
 section before changing the area. `docs/verified.md` lists what has been
 measured on the card and when.
 
-Model and loader:
+### Model and loader
 
 - `KBlueLeaf/Kohaku-XL-Zeta` uses its ordinary Diffusers SDXL tree and
   supplied epsilon/Euler scheduler. Start at 28 steps/CFG 5 and disable Mu.
@@ -1224,7 +1224,7 @@ Model and loader:
   still sets `use_pe=False` wherever the switch exists. The tests'
   conftest refuses `loading.hub_file` for every test; one that needs an index stubs it.
 
-Schedule and guidance:
+### Schedule and guidance
 
 - A requested `mu` is the whole shift. `schedule.forced_mu` overrides the value
   on its way into a dynamically shifting scheduler; a static one gets
@@ -1307,7 +1307,7 @@ Schedule and guidance:
   prose rides in `hints` as
   `prompt` and `size`, its data in `ModelStatus.guide`.
 
-Reproduction:
+### Reproduction
 
 - The reserved `execution` request field uses `execution.ExecutionSpec`:
   frozen named compilation, attention and step-cache recipes, with unknown
@@ -1931,7 +1931,7 @@ Reproduction:
   grid's variables declare (`compareUnfilled`, `declaredGridVariables`), as
   `generate()` refuses one; undeclared braces pass.
 
-Jobs:
+### Jobs
 
 - The manager owns queued admission order. `active()` and both HTTP listings
   show running work first, then that order. Move to front changes only queued
@@ -2499,7 +2499,7 @@ Jobs:
   row. `planned_keys` skips edit cells while the gate is closed or the
   selection is outside the loader envelope.
 
-Prompt analyser:
+### Prompt analyser
 
 - Three layers over the body Generate sends (`PromptAnalysisRequest`): Check
   (`POST /api/prompt/analyze`), the critic (`POST /api/prompt/critique`) and
@@ -2914,7 +2914,7 @@ Prompt analyser:
   it is, to the critic and on the page (`Citation.note` ->
   `CritiqueIssue.note`, under the issue and in its tooltip).
 
-Frontend and CLI:
+### Frontend and CLI
 
 - Saved gallery searches store only Name, Query, Starred and All models in a
   versioned database-scoped sidecar, never image ids or picks. Names are unique
