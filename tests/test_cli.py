@@ -9,15 +9,13 @@ from __future__ import annotations
 import dataclasses
 import io
 import os
-import signal
 import sys
 
 import pytest
 
 import backend.backends as backends
-from backend import config, gallery_lock, generate, generate_remote, storage
+from backend import config, generate, generate_remote, storage
 
-from tests.fakes import FakeBackend
 from tests.cli_helpers import (  # noqa: F401  (fixtures by name)
     SIZE,
     _project_claiming,

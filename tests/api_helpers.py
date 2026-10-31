@@ -8,6 +8,16 @@ from backend.config import settings
 
 ORIGIN = f"http://127.0.0.1:{settings.port}"
 
+# The analyser's comparison, in the order written - which is not alphabetical,
+# so a sheet sorted by label would put `original` last.
+VARIANTS = [
+    {"label": "rewrite", "prompt": "A woman in a yellow raincoat holds a red umbrella."},
+    {"label": "original", "prompt": "a red umbrella held by a woman in a yellow raincoat"},
+    {"label": "reordered", "prompt": "a woman in a yellow raincoat holding a red umbrella"},
+]
+TEXTS = [variant["prompt"] for variant in VARIANTS]
+LABELS = [variant["label"] for variant in VARIANTS]
+
 
 def stream_job(client, job_id):
     events = []

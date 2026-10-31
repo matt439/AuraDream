@@ -7258,7 +7258,7 @@ databases, missing or mismatched source identities and safe in-place metadata
 remapping. API tests hold a fake before its first callback to check initial
 per-cell progress totals, and API/CLI tests cover axis replacements and the
 capability refusal both before and after loading. The job snapshot's
-`comparison` is asserted true for a prompt-variants grid (`test_api_grid`)
+`comparison` is asserted true for a prompt-variants grid (`test_api_grid_variants`)
 and false for plain and variable grids (`test_api_jobs`). Swap tags is
 `tests/test_tag_swap.py` (the rewrite as text: matching, weights and
 underscores, strictness, rows at once, phrases and lettering, Han, XML,
@@ -7266,7 +7266,7 @@ variables) and `tests/test_api_swap.py` (every per-image status, one job
 per size keeping seeds, sizes and settings, `expected`, `pruned`, the
 filter scope, the negative field, the revision header, the resolver, and
 Re-render over mixed sizes through `cells_from_records`); Re-render's
-picked cards are `tests/test_api_grid.py` (exactly the picks whatever the
+picked cards are `tests/test_api_rerender.py` (exactly the picks whatever the
 filter, oldest first, a binned and a deleted pick named in `deleted`, all
 gone a 404 naming each, `ids` validated, and another checkpoint's picks
 refused with or without All models, named to unpick). Mass refine
