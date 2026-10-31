@@ -89,7 +89,7 @@ const els = {
   modelCompilationHelp: $('model-compilation-help'), modelAttentionHelp: $('model-attention-help'),
   modelQuantizationHelp: $('model-quantization-help'), modelOffloadHelp: $('model-offload-help'),
   modelFormat: $('model-format'), modelFormatField: $('model-format-field'), modelFormatHelp: $('model-format-help'),
-  modelLoadOnStartup: $('model-load-on-startup'),
+  modelLoadOnStartup: $('model-load-on-startup'), modelGroupByType: $('model-group-by-type'),
   modelPickerBody: $('model-picker-body'),
   modelShots: $('model-shots'), modelShotsLabel: $('model-shots-label'), modelShotsAll: $('btn-model-shots-all'),
   modelShotsList: $('model-shots-list'), modelShotsEmpty: $('model-shots-empty'),

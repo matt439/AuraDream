@@ -61,7 +61,12 @@
       <!-- The help sits outside the label, so it describes the select without
            also joining its name. -->
       <div class="model-format" id="model-format-field" hidden><label for="model-format">Nunchaku format</label><select id="model-format" autocomplete="off" aria-describedby="model-format-help"></select><span class="model-format-help" id="model-format-help"></span></div>
-      <div class="model-picker-heading" id="model-picker-label">Checkpoint</div>
+      <!-- The grouping choice sits on the heading's line, outside the label
+           that names the radio group. -->
+      <div class="model-picker-heading-row">
+        <div class="model-picker-heading" id="model-picker-label">Checkpoint</div>
+        <label class="check model-grouping" title="After your favourites, list the models under their Style (Anime, General and so on), in this browser"><input type="checkbox" id="model-group-by-type"> Group by type</label>
+      </div>
       <!-- Every model with its facts, so they compare without choosing each in
            turn. One radio per row (arrow keys move the choice); stars and model
            pages sit beside, outside the label, tabbable in one row at a time.

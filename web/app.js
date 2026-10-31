@@ -229,6 +229,8 @@ els.gridSeedList.addEventListener('input', () => {
 });
 els.load.onclick = loadModel;
 restoreModelFavourites();
+restoreModelGrouping();
+els.modelGroupByType.onchange = () => setModelGrouping(els.modelGroupByType.checked);
 window.addEventListener('storage', receiveModelFavourites);
 els.models.onclick = () => showModelPicker(els.modelPicker.hidden);
 els.modelTable.addEventListener('change', (event) => {

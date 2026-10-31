@@ -652,6 +652,15 @@ the picker. Browser storage is guarded; when unavailable the session can keep
 stars while the page reports that they could not be saved. Other tabs' storage
 changes update the stars, and the grouping at the next opening.
 
+Group by type (2026-10-31) lists the non-favourite rows under their Style
+column's word (Photorealism, General, Anime, Stylised anime…) instead of
+one Other models list; favourites still come first. The groups are the
+server's own Style words, not a new taxonomy, so a heading always matches
+the column. Unlike a star, the checkbox regroups at once: it sits above the
+table, so nothing moves under the pointer, and the rows rebuilt keep the
+choice and any unsaved loader edits. Download state needed no grouping:
+each row's third line already says On disk, Part cached or Not cached.
+
 These details require no weights or tokenizer load. Unsaved picker edits
 survive status polling; a changed server revision retires them. Another
 tab's switch did that without a word: the chosen row simply moved to the

@@ -61,6 +61,33 @@ let modelFavouriteChanges = new Map();
 // picker is open (moving its row would move a control under the pointer);
 // the next opening groups by the stars as they are then.
 let modelTableGrouping = null;
+// Group by type: after the favourites, the rows sit under their Style
+// (Anime, General…) instead of one Other models list. A browser preference
+// like the stars; another tab's change waits for the next opening.
+const MODEL_GROUPING_KEY = 'auradream.model-grouping.v1';
+let modelGroupByType = false;
+// Set while a write was refused, so a later read does not undo this page's choice.
+let modelGroupingUnsaved = false;
+
+function restoreModelGrouping() {
+  if (!modelGroupingUnsaved) {
+    try { modelGroupByType = localStorage.getItem(MODEL_GROUPING_KEY) === 'type'; }
+    catch { /* A blocked store keeps this page's choice. */ }
+  }
+  if (els.modelGroupByType.checked !== modelGroupByType) els.modelGroupByType.checked = modelGroupByType;
+}
+
+// The checkbox sits above the table, so regrouping never moves a control
+// under the pointer; the stars starred since the opening group now too.
+function setModelGrouping(byType) {
+  modelGroupByType = byType;
+  try {
+    localStorage.setItem(MODEL_GROUPING_KEY, byType ? 'type' : 'favourites');
+    modelGroupingUnsaved = false;
+  } catch { modelGroupingUnsaved = true; }
+  modelTableGrouping = new Set(modelFavourites);
+  if (modelCatalogueLoaded) renderModelOptions(modelChoice());
+}
 
 function parseModelFavourites(raw) {
   try {
@@ -400,8 +427,19 @@ function renderModelOptions(wanted) {
   const grouped = (id) => modelTableGrouping.has(modelFavouriteId(id));
   const favourites = modelCatalogueEntries.filter((entry) => grouped(entry.model_id));
   const others = modelCatalogueEntries.filter((entry) => !grouped(entry.model_id));
+  // By type, the groups follow the catalogue's order of each Style's first row.
+  const sections = favourites.length ? [['Favourites', favourites]] : [];
+  if (modelGroupByType) {
+    const styles = new Map();
+    for (const entry of others) {
+      const style = modelCatalogueDetails[entry.model_id]?.style || 'Other';
+      if (!styles.has(style)) styles.set(style, []);
+      styles.get(style).push(entry);
+    }
+    sections.push(...styles);
+  } else sections.push([favourites.length ? 'Other models' : '', others]);
   const key = JSON.stringify([
-    favourites.map((entry) => entry.model_id), modelCatalogueEntries,
+    modelGroupByType, favourites.map((entry) => entry.model_id), modelCatalogueEntries,
     modelCatalogueEntries.map((entry) => Object.fromEntries(Object.entries(modelCatalogueDetails[entry.model_id] ?? {})
       // Gallery timing changes after a render; it is written in place too.
       .filter(([name]) => !name.startsWith('cache') && !name.startsWith('download') && name !== 'gallery_timing'))),
@@ -417,7 +455,7 @@ function renderModelOptions(wanted) {
       : focused?.classList.contains('model-link') ? '.model-link' : 'input';
     const children = [els.modelTableHead];
     let index = 0;
-    for (const [label, entries] of favourites.length ? [['Favourites', favourites], ['Other models', others]] : [['', others]]) {
+    for (const [label, entries] of sections) {
       if (!entries.length) continue;
       if (label) {
         const heading = document.createElement('div');
@@ -908,8 +946,9 @@ function showModelPicker(on, { focus = true } = {}) {
     // An opening starts from the state, not an earlier press's words.
     modelPressReason = null;
     modelPickerMessage = null;
-    // Each opening groups the table by the stars as they are now.
+    // Each opening groups the table by the stars, and the grouping choice, as they are now.
     modelTableGrouping = new Set(modelFavourites);
+    restoreModelGrouping();
     if (modelCatalogueLoaded) renderModelOptions(modelChoice() || modelRuntimeSettings?.model_id);
     syncModelSwitch();
     // The chosen row's images as they are now, in place of the last opening's.
