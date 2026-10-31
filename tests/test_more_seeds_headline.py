@@ -1,8 +1,6 @@
 """Server-owned More seeds headlines include every allocated seed at wrap."""
 from __future__ import annotations
 
-import hashlib
-
 import pytest
 from PIL import Image
 
@@ -10,6 +8,7 @@ from backend import main, more_seeds
 from backend.schemas import GenerateRequest
 from backend.seeds import MAX_SEED
 from tests.test_more_seeds import record
+from tests.gallery_helpers import gallery_state
 
 
 def _queued(groups):
@@ -74,18 +73,11 @@ def _plant(store, seed, run, *, model=None, batch=1):
         )
 
 
-def _state(store):
-    with store._session() as connection:
-        rows = [tuple(row) for row in connection.execute("SELECT * FROM images ORDER BY id").fetchall()]
-    pngs = {path.name: hashlib.sha256(path.read_bytes()).hexdigest() for path in store.settings.outputs_dir.glob("*.png")}
-    return rows, pngs
-
-
 def test_owned_python_api_preview_wrap_has_honest_headline_and_unchanged_seed_plan(
     client, store, cold_preview,
 ):
     source = _plant(store, MAX_SEED - 1, "headline-wrap")
-    before = _state(store)
+    before = gallery_state(store)
     response = client.post("/api/more-seeds/preview", json={"run": "headline-wrap", "count": 3, "favorites": False})
     assert response.status_code == 200, response.text
     answer = response.json()
@@ -96,7 +88,7 @@ def test_owned_python_api_preview_wrap_has_honest_headline_and_unchanged_seed_pl
     assert result["seed_low"] == result["seed_high"] == MAX_SEED - 1
     assert answer["headline"] == f"3 more of its one cell = 3 images \u00b7 seeds 0\u2013{MAX_SEED}"
     assert answer["intent"]
-    assert _state(store) == before and cold_preview == []
+    assert gallery_state(store) == before and cold_preview == []
 
 
 def test_ordinary_preview_keeps_foreign_filtering_and_unrecorded_batch_fallback(
@@ -104,7 +96,7 @@ def test_ordinary_preview_keeps_foreign_filtering_and_unrecorded_batch_fallback(
 ):
     current = _plant(store, 10, "headline-mixed", batch=None)
     foreign = _plant(store, 999, "headline-mixed", model=store.settings.model_id + "/other", batch=None)
-    before = _state(store)
+    before = gallery_state(store)
     response = client.post("/api/more-seeds/preview", json={"run": "headline-mixed", "count": 2, "batch": 3, "favorites": True})
     assert response.status_code == 200, response.text
     answer = response.json()
@@ -118,16 +110,16 @@ def test_ordinary_preview_keeps_foreign_filtering_and_unrecorded_batch_fallback(
     assert (answer["count_default"], answer["unrecorded"]) == (None, 1)
     assert answer["headline"] == "2 more of its one cell = 2 images \u00b7 seeds 11\u201312 \u00b7 Starred ignored"
     assert answer["intent"]
-    assert _state(store) == before and cold_preview == []
+    assert gallery_state(store) == before and cold_preview == []
 
 
 def test_all_foreign_preview_keeps_headline_and_intent_absent(client, store, cold_preview):
     foreign = _plant(store, 999, "headline-none", model=store.settings.model_id + "/other")
-    before = _state(store)
+    before = gallery_state(store)
     response = client.post("/api/more-seeds/preview", json={"run": "headline-none", "count": 2})
     assert response.status_code == 200, response.text
     answer = response.json()
     assert answer["ids"] == [foreign.id] and answer["counts"] == {"foreign": 1}
     assert (answer["queued"], answer["batches"], answer["jobs"]) == (0, 0, 0)
     assert answer["headline"] is None and answer["intent"] is None
-    assert _state(store) == before and cold_preview == []
+    assert gallery_state(store) == before and cold_preview == []

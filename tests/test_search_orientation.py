@@ -1,7 +1,6 @@
 """Orientation values share the existing size filter and strict query scopes."""
 from __future__ import annotations
 
-import hashlib
 from pathlib import Path
 import sqlite3
 import subprocess
@@ -9,8 +8,9 @@ import subprocess
 import pytest
 from PIL import Image
 
-from backend import gallery_reports, main, saved_searches, search
+from backend import gallery_reports, saved_searches, search
 from backend.schemas import GenerateRequest
+from tests.gallery_helpers import cold_queries_only, gallery_state  # noqa: F401  (fixtures by name)
 
 ROOT = Path(__file__).resolve().parent.parent
 
@@ -137,24 +137,6 @@ def test_orientation_keeps_prompt_text_out_of_strict_scopes():
         search.strict_scope("harbor size:portrait")
 
 
-@pytest.fixture
-def cold_queries_only(client, monkeypatch):
-    attempts = []
-
-    def forbidden(*_args, **_kwargs):
-        attempts.append("model-or-queue")
-        pytest.fail("an orientation query entered model loading, generation or queue submission")
-
-    monkeypatch.setattr(main, "ensure_loaded", forbidden)
-    monkeypatch.setattr(main.backend, "load", forbidden)
-    monkeypatch.setattr(main.backend, "generate", forbidden)
-    monkeypatch.setattr(main.jobs, "wait_for_gate", forbidden)
-    monkeypatch.setattr(main.jobs, "submit", forbidden)
-    yield attempts
-    assert attempts == []
-    assert client.get("/api/jobs").json() == []
-
-
 def _keep(store, label, width, height, seed, *, model=None, favorite=False, binned=False, refine=None):
     fields = {"prompt": label, "width": width, "height": height}
     if refine is not None:
@@ -189,13 +171,6 @@ def owned_rows(store):
     }
 
 
-def _state(store):
-    with store._session() as connection:
-        rows = [tuple(row) for row in connection.execute("SELECT * FROM images ORDER BY id").fetchall()]
-    pngs = {path.name: hashlib.sha256(path.read_bytes()).hexdigest() for path in store.settings.outputs_dir.glob("*.png")}
-    return rows, pngs
-
-
 @pytest.mark.parametrize(("orientation", "live", "binned", "favorites"), [
     ("portrait", ["p-small", "p-large", "other-p"], ["bin-p"], 1),
     ("landscape", ["l-small", "l-large"], ["bin-l"], 0),
@@ -204,7 +179,7 @@ def _state(store):
 def test_gallery_bin_and_strict_preview_share_orientation_without_writes(
     client, store, owned_rows, cold_queries_only, orientation, live, binned, favorites,
 ):
-    before = _state(store)
+    before = gallery_state(store)
     params = {"search": "size:" + orientation, "all_models": True}
     gallery = client.get("/api/gallery", params=params)
     assert gallery.status_code == 200, gallery.text
@@ -221,13 +196,13 @@ def test_gallery_bin_and_strict_preview_share_orientation_without_writes(
         len(live), favorites, 0, len(live) - favorites,
     )
     assert answer["job_active"] is False
-    assert _state(store) == before and cold_queries_only == []
+    assert gallery_state(store) == before and cold_queries_only == []
 
 
 def test_gallery_scope_favorites_paging_and_prompt_fallback_retain_orientation(
     client, store, owned_rows, cold_queries_only,
 ):
-    before = _state(store)
+    before = gallery_state(store)
     current = client.get("/api/gallery", params={"search": "size:portrait"})
     assert current.status_code == 200, current.text
     assert current.json()["total"] == 2 and current.json()["other_models"] == 1
@@ -247,7 +222,7 @@ def test_gallery_scope_favorites_paging_and_prompt_fallback_retain_orientation(
     prompt = client.get("/api/gallery", params={"search": 'harbor" size:portrait', "all_models": True})
     assert prompt.status_code == 200, prompt.text
     assert [row["id"] for row in prompt.json()["items"]] == [owned_rows["p-small"].id]
-    assert _state(store) == before and cold_queries_only == []
+    assert gallery_state(store) == before and cold_queries_only == []
 
 
 @pytest.mark.parametrize("route", ["/api/gallery", "/api/gallery/bin", "/api/gallery/unstarred"])
@@ -264,7 +239,7 @@ def test_owned_orientation_binning_keeps_stars_sources_other_shapes_and_pngs(
     extra = _keep(store, "harbor new portrait", 384, 512, 61)
     _keep(store, "harbor starred landscape pass", 384, 256, 62,
           favorite=True, refine=owned_rows["p-small"].id)
-    before_rows, before_pngs = _state(store)
+    before_rows, before_pngs = gallery_state(store)
     params = {"search": "size:portrait", "all_models": False}
     preview = client.get("/api/gallery/unstarred", params=params)
     assert preview.status_code == 200, preview.text
@@ -273,11 +248,11 @@ def test_owned_orientation_binning_keeps_stars_sources_other_shapes_and_pngs(
     assert answer["sources"] == [owned_rows["p-small"].id]
     stale = client.delete("/api/gallery/unstarred", params={**params, "expected": 2})
     assert stale.status_code == 409, stale.text
-    assert _state(store) == (before_rows, before_pngs)
+    assert gallery_state(store) == (before_rows, before_pngs)
     committed = client.delete("/api/gallery/unstarred", params={**params, "expected": 1})
     assert committed.status_code == 200, committed.text
     assert committed.json() == {"binned": [extra.id], "deleted": [extra.id], "files": 0}
-    after_rows, after_pngs = _state(store)
+    after_rows, after_pngs = gallery_state(store)
     assert after_pngs == before_pngs
     assert len(after_rows) == len(before_rows)
     # Only the known extra portrait has moved; every other record is identical.
@@ -319,9 +294,9 @@ def test_saved_orientation_query_retains_raw_text_ticks_and_redacted_validation(
 def test_keeper_rates_share_orientation_scope_without_binned_or_other_model_rows(
     store, owned_rows, cold_queries_only,
 ):
-    before = _state(store)
+    before = gallery_state(store)
     rows = gallery_reports.keep_rates(search="size:portrait model:=" + store.settings.model_id)
     assert sum(row["made"] for row in rows) == 2
     assert sum(row["starred"] for row in rows) == 1
     assert {row["size"] for row in rows} == {"256x384", "512x768"}
-    assert _state(store) == before and cold_queries_only == []
+    assert gallery_state(store) == before and cold_queries_only == []

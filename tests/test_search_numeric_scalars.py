@@ -9,8 +9,9 @@ import subprocess
 import pytest
 from PIL import Image
 
-from backend import main, search
+from backend import search
 from backend.schemas import GenerateRequest
+from tests.gallery_helpers import cold_queries_only  # noqa: F401  (fixtures by name)
 
 ROOT = Path(__file__).resolve().parent.parent
 
@@ -126,24 +127,6 @@ def test_scientific_exact_search_selects_the_same_scratch_row_as_decimal(store, 
     assert total == 1 and [record.id for record in compared] == [expected]
 
 
-@pytest.fixture
-def cold_reads_only(client, monkeypatch):
-    attempts = []
-
-    def forbidden(*_args, **_kwargs):
-        attempts.append("model-or-queue")
-        pytest.fail("a numeric search entered model loading, generation or queue submission")
-
-    monkeypatch.setattr(main, "ensure_loaded", forbidden)
-    monkeypatch.setattr(main.backend, "load", forbidden)
-    monkeypatch.setattr(main.backend, "generate", forbidden)
-    monkeypatch.setattr(main.jobs, "wait_for_gate", forbidden)
-    monkeypatch.setattr(main.jobs, "submit", forbidden)
-    yield attempts
-    assert attempts == []
-    assert client.get("/api/jobs").json() == []
-
-
 def _rows(store):
     with store._session() as connection:
         return [tuple(row) for row in connection.execute("SELECT * FROM images ORDER BY id").fetchall()]
@@ -151,7 +134,7 @@ def _rows(store):
 
 @pytest.mark.parametrize("key", ["cfg", "mu"])
 def test_gallery_scientific_exact_read_returns_200_and_the_matching_row(
-    client, store, scalar_rows, cold_reads_only, key,
+    client, store, scalar_rows, cold_queries_only, key,
 ):
     before = _rows(store)
     expected = scalar_rows["tiny"].id
@@ -168,7 +151,7 @@ def test_gallery_scientific_exact_read_returns_200_and_the_matching_row(
     preview = client.get("/api/gallery/unstarred", params={**base, "search": f"{key}:1e-7"})
     assert preview.status_code == 200, preview.text
     assert preview.json()["records"] == 1 and preview.json()["unstarred"] == 1
-    assert _rows(store) == before and cold_reads_only == []
+    assert _rows(store) == before and cold_queries_only == []
 
 
 @pytest.mark.usefixtures("node")
