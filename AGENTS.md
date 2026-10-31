@@ -209,7 +209,9 @@ it never writes the composer's prompt, negative or references.
 merge dialog; it preserves the editor and prompt boxes, with no automatic retry.
 `setup-import.js` owns Saved setups Export…/Import… and its separate merge
 dialog; it never calls `setupSummary`, keeps the editor, composer and Undo,
-and never resends an uncertain import.
+and never resends an uncertain import. `import-merge.js` holds what the two
+merge dialogs share (the rows, choice reasons and holds), stateless; each
+file keeps its own state, preview, commit and uncertain-import flow.
 
 Also: `tools/` (fake server, headless-browser smokes), `tests/`, `wsl/`,
 `docs/`.

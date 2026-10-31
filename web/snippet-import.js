@@ -1,5 +1,7 @@
 // Portable files are data. Keep their original JSON until the server has
 // checked duplicate keys; parsing and reserializing here would erase them.
+// The merge rows, reasons and holds are import-merge.js's; this file keeps the
+// dialog's state, preview, commit and uncertain-import flow.
 'use strict';
 
 const SNIPPET_FILE_LIMIT = 8 * 1024 * 1024;
@@ -9,9 +11,7 @@ let snippetImportRaw = null;
 let snippetImportChoices = [];
 let snippetImportRows = [];
 // Per file index, the latest server row that describes the file item under its
-// own name. A previewed Add as copy row is matched under its copy name, so it
-// never replaces this: Add/Replace, saved matches and the heading keep the
-// file item's real collision.
+// own name (import-merge.js's noteImportIncoming).
 let snippetImportIncoming = new Map();
 let snippetImportShown = null;
 let snippetImportBusy = null;
@@ -19,6 +19,18 @@ let snippetImportTicket = 0;
 let snippetImportNeedsReload = false;
 let snippetImportCopyConfirm = new Set();
 let snippetExportPending = false;
+
+// How the merge rows show a snippet, and the words that name one.
+const SNIPPET_IMPORT_KIND = {
+  prefix: 'snippet', noun: 'snippet', sameAs: 'target', targetLabel: 'Saved snippet to replace',
+  item: (row) => row.snippet,
+  collides: (n) => `Snippet #${n} now has a saved name match. Choose Skip, Add as copy or Replace.`,
+  heading: (row) => `#${row.index + 1} ${row.snippet.name} (${row.snippet.target === 'negative' ? 'Negative' : 'Prompt'})`,
+  incoming: (row) => ({ text: row.snippet.text, role: 'incoming-text', label: `Incoming text for item ${row.index + 1}` }),
+  matchSummary: (local, i) => `Saved match #${i + 1}: ${local.name}`,
+  local: (local) => ({ text: local.text, role: 'local-text' }),
+  matchOption: (local, i) => `Saved match #${i + 1}: ${local.name}`,
+};
 
 function snippetImportSay(text, error = false) {
   snippetImportEls.status.textContent = text;
@@ -40,17 +52,7 @@ function snippetPortabilityReason() {
 }
 
 function snippetImportChoiceReason() {
-  for (const choice of snippetImportChoices) {
-    if (snippetImportCopyConfirm.has(choice.index)) return `Choose the action again for file item #${choice.index + 1}; its previous Add as copy may already have been saved.`;
-    if (!['add', 'copy', 'replace', 'skip'].includes(choice.action)) return `Choose an action for file item #${choice.index + 1}.`;
-    const row = snippetImportIncomingRow(choice.index);
-    if (choice.action === 'add' && row?.matches.length) return `Snippet #${choice.index + 1} now has a saved name match. Choose Skip, Add as copy or Replace.`;
-    if (choice.action === 'replace' && !row?.matches.some((item) => item.id === choice.item_id && item.revision === choice.revision)) {
-      return `Choose the saved snippet to replace for file item #${choice.index + 1}.`;
-    }
-    if (choice.action === 'copy' && (!choice.name?.trim() || Array.from(choice.name).length > 80)) return `Give copy #${choice.index + 1} a name of 1-80 characters.`;
-  }
-  return '';
+  return importChoiceReason(SNIPPET_IMPORT_KIND, snippetImportChoices, snippetImportCopyConfirm, snippetImportIncomingRow);
 }
 
 function snippetImportIncomingRow(index) {
@@ -58,23 +60,17 @@ function snippetImportIncomingRow(index) {
 }
 
 function snippetImportReason() {
-  if (snippetImportBusy) return snippetImportBusy === 'commit' ? 'Wait for the import to finish.' : 'Wait for the file preview.';
-  if (snippetImportRaw === null) return 'Choose a valid snippet file first.';
-  return snippetImportChoiceReason() || (!snippetImportShown ? 'Preview these choices before importing.'
-    : !snippetImportShown.can_import ? snippetImportShown.reason || 'The selected import changes nothing.' : '');
+  return importReason(SNIPPET_IMPORT_KIND, snippetImportBusy, snippetImportRaw, snippetImportShown, snippetImportChoiceReason);
 }
 
 function syncSnippetPortability() {
   if (!snippetImportEls) return;
-  const hold = (button, reason, title) => { button.setAttribute('aria-disabled', String(!!reason)); button.title = reason || title; };
-  hold(snippetImportEls.export, snippetPortabilityReason(), 'Download saved snippets as a file containing personal prompt text');
-  hold(snippetImportEls.open, snippetPortabilityReason(), 'Choose a snippet file to preview; nothing is saved yet');
-  hold(snippetImportEls.run, snippetImportReason(), 'Commit exactly the previewed merge');
-  hold(snippetImportEls.preview, snippetImportBusy ? 'Wait for the current import request.'
-    : snippetImportRaw === null ? 'Choose a valid snippet file first.'
-      : snippetImportNeedsReload ? '' : snippetImportChoiceReason(), 'Preview the chosen merge against the saved list');
-  hold(snippetImportEls.close, snippetImportBusy === 'commit' ? 'Wait for the import to finish.' : '', 'Cancel without importing');
-  for (const control of snippetImportEls.rows.querySelectorAll('input, select')) control.disabled = !!snippetImportBusy;
+  importHold(snippetImportEls.export, snippetPortabilityReason(), 'Download saved snippets as a file containing personal prompt text');
+  importHold(snippetImportEls.open, snippetPortabilityReason(), 'Choose a snippet file to preview; nothing is saved yet');
+  syncImportHolds(SNIPPET_IMPORT_KIND, snippetImportEls, {
+    busy: snippetImportBusy, raw: snippetImportRaw, needsReload: snippetImportNeedsReload,
+    reason: snippetImportReason(), choiceReason: snippetImportChoiceReason,
+  });
 }
 
 function invalidateSnippetImport() {
@@ -85,95 +81,17 @@ function invalidateSnippetImport() {
 }
 
 function snippetImportEnvelope(extra = {}) {
-  return '{"payload":' + snippetImportRaw + ',"decisions":' + JSON.stringify(snippetImportChoices)
-    + Object.entries(extra).map(([key, value]) => ',' + JSON.stringify(key) + ':' + JSON.stringify(value)).join('') + '}';
-}
-
-function snippetImportNode(tag, text, className = '') {
-  const node = document.createElement(tag);
-  if (text !== undefined) node.textContent = text;
-  if (className) node.className = className;
-  return node;
+  return importEnvelope(snippetImportRaw, snippetImportChoices, extra);
 }
 
 function renderSnippetImport(shown, keepChoices = false) {
   snippetImportRows = shown.rows;
-  for (const row of shown.rows) if (row.action !== 'copy' || !snippetImportIncoming.has(row.index)) snippetImportIncoming.set(row.index, row);
-  if (!keepChoices) snippetImportChoices = shown.rows.map((row) => ({
-    index: row.index, action: row.action,
-    ...(row.action === 'copy' ? { name: row.snippet.name } : {}),
-    ...(row.action === 'replace' ? { item_id: row.item_id, revision: row.revision } : {}),
-  }));
-  snippetImportEls.rows.replaceChildren();
-  for (const shownRow of shown.rows) {
-    // Same index, text and target; only the copy name may differ.
-    const row = { ...snippetImportIncomingRow(shownRow.index), incoming_collisions: shownRow.incoming_collisions };
-    const choice = snippetImportChoices.find((entry) => entry.index === row.index);
-    const section = snippetImportNode('section', undefined, 'snippet-import-row');
-    section.dataset.index = String(row.index);
-    const heading = snippetImportNode('h3', `#${row.index + 1} ${row.snippet.name} (${row.snippet.target === 'negative' ? 'Negative' : 'Prompt'})`);
-    heading.id = `snippet-import-row-${row.index}`;
-    section.setAttribute('aria-labelledby', heading.id);
-    section.append(heading);
-    if (row.exact_ids.length) section.append(snippetImportNode('p', `Exact saved match: ${row.exact_ids.map((id) => '#' + (row.matches.findIndex((item) => item.id === id) + 1)).join(', ')}`, 'hint'));
-    if (row.incoming_collisions.length) section.append(snippetImportNode('p', `Same incoming name and target at ${row.incoming_collisions.map((index) => '#' + (index + 1)).join(', ')}. Each file item has its own choice.`, 'hint'));
-    const text = snippetImportNode('pre', row.snippet.text);
-    text.dataset.role = 'incoming-text';
-    text.setAttribute('aria-label', `Incoming text for item ${row.index + 1}`);
-    section.append(text);
-    for (const [candidateIndex, local] of row.matches.entries()) {
-      const details = document.createElement('details');
-      details.open = !row.exact_ids.includes(local.id);
-      details.append(snippetImportNode('summary', `Saved match #${candidateIndex + 1}: ${local.name}`));
-      const localText = snippetImportNode('pre', local.text);
-      localText.dataset.role = 'local-text'; localText.dataset.itemId = local.id;
-      details.append(localText); section.append(details);
-    }
-    const controls = snippetImportNode('div', undefined, 'snippet-import-choice');
-    const actionLabel = snippetImportNode('label', 'Action');
-    const action = document.createElement('select'); action.dataset.role = 'action';
-    if (snippetImportCopyConfirm.has(row.index)) {
-      const confirm = snippetImportNode('option', 'Choose action again (previous Add as copy)');
-      confirm.value = ''; confirm.disabled = true; action.append(confirm);
-    }
-    for (const [value, label] of [['skip', 'Skip'], ['add', row.matches.length ? 'Add (name now collides)' : 'Add'], ['copy', 'Add as copy'], ['replace', 'Replace a saved snippet']]) {
-      const option = snippetImportNode('option', label); option.value = value;
-      option.disabled = value === 'add' && row.matches.length > 0 || value === 'replace' && !row.matches.length;
-      action.append(option);
-    }
-    action.value = snippetImportCopyConfirm.has(row.index) ? '' : choice.action; actionLabel.append(action); controls.append(actionLabel);
-    const copyLabel = snippetImportNode('label', 'Copy name');
-    const name = document.createElement('input'); name.type = 'text'; name.maxLength = 160; name.autocomplete = 'off';
-    name.dataset.role = 'copy-name'; name.value = choice.name ?? row.snippet.name;
-    copyLabel.hidden = choice.action !== 'copy'; copyLabel.append(name); controls.append(copyLabel);
-    const targetLabel = snippetImportNode('label', 'Saved snippet to replace');
-    const target = document.createElement('select'); target.dataset.role = 'replacement';
-    const blank = snippetImportNode('option', 'Choose a saved snippet'); blank.value = ''; target.append(blank);
-    for (const [candidateIndex, local] of row.matches.entries()) {
-      const option = snippetImportNode('option', `Saved match #${candidateIndex + 1}: ${local.name}`);
-      option.value = local.id; target.append(option);
-    }
-    target.value = row.matches.some((local) => local.id === choice.item_id && local.revision === choice.revision) ? choice.item_id : '';
-    targetLabel.hidden = choice.action !== 'replace'; targetLabel.append(target); controls.append(targetLabel);
-    action.onchange = () => {
-      snippetImportCopyConfirm.delete(row.index);
-      choice.action = action.value; delete choice.item_id; delete choice.revision; delete choice.name;
-      if (choice.action === 'copy') choice.name = name.value;
-      target.value = ''; copyLabel.hidden = choice.action !== 'copy'; targetLabel.hidden = choice.action !== 'replace';
-      invalidateSnippetImport();
-    };
-    name.oninput = () => { choice.name = name.value; invalidateSnippetImport(); };
-    target.onchange = () => {
-      const local = row.matches.find((item) => item.id === target.value);
-      delete choice.item_id; delete choice.revision;
-      if (local) { choice.item_id = local.id; choice.revision = local.revision; }
-      invalidateSnippetImport();
-    };
-    section.append(controls); snippetImportEls.rows.append(section);
-  }
-  if (!shown.rows.length) snippetImportEls.rows.append(snippetImportNode('p', 'This file contains no snippets. Nothing will be changed.', 'hint'));
-  snippetImportEls.summary.textContent = keepChoices ? 'Saved list refreshed. Check your choices, then Preview.'
-    : `${shown.add_count} added; ${shown.replace_count} replaced; ${shown.skip_count} skipped`;
+  noteImportIncoming(snippetImportIncoming, shown.rows);
+  if (!keepChoices) snippetImportChoices = importChoices(SNIPPET_IMPORT_KIND, shown.rows);
+  renderImportRows(SNIPPET_IMPORT_KIND, shown, keepChoices, {
+    els: snippetImportEls, choices: snippetImportChoices, copyConfirm: snippetImportCopyConfirm,
+    incomingRow: snippetImportIncomingRow, invalidate: invalidateSnippetImport,
+  });
 }
 
 async function previewSnippetImport() {
@@ -227,8 +145,7 @@ async function openSnippetImport(file) {
   if (!snippetImportEls.dialog.open) snippetImportEls.dialog.showModal();
   syncSnippetPortability(); snippetImportEls.close.focus({ preventScroll: true });
   try {
-    if (file.size > SNIPPET_FILE_LIMIT) throw new Error('The snippet file exceeds 8 MiB.');
-    const raw = new TextDecoder('utf-8', { fatal: true, ignoreBOM: true }).decode(await file.arrayBuffer());
+    const raw = await readImportFile(file, SNIPPET_FILE_LIMIT, 'snippet');
     if (ticket !== snippetImportTicket || !snippetImportEls.dialog.open) return;
     snippetImportRaw = raw; snippetImportBusy = null;
     await previewSnippetImport();

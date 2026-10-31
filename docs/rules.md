@@ -461,7 +461,7 @@ before changing it.
   per version
 - `backend/reindex.py` — rows rebuilt from the PNGs' `auradream` chunk, in place or
   copied in from another gallery; idempotent on the UNIQUE filename
-- `web/` - served as-is from `/static`; `index.html` loads 66 classic
+- `web/` - served as-is from `/static`; `index.html` loads 67 classic
   scripts in order, sharing one global scope; only `app.js`, the last, runs
   the wiring and boot. `state.js` owns shared state; `page-helpers.js`, right
   after it, the page-wide pure helpers (`plural`, `excerpt`, `units`,
@@ -512,7 +512,11 @@ before changing it.
   `generation-presets.js` the named generation/grid setup dialog, raw capture,
   explicit validated Restore and whole-draft Undo;
   `setup-import.js` saved-setup Export…/Import… and the separate
-  file-index merge dialog (styles in `setups.css`).
+  file-index merge dialog (styles in `setups.css`); `import-merge.js`, loaded
+  before both, what the two merge dialogs share - the file read, the
+  envelope, the choice reasons and holds and the rows drawn from a preview
+  (`renderImportRows`) - stateless, each file keeping its own state,
+  preview, commit and uncertain-import flow.
   `saved-searches.js` owns named gallery filters and their native dialog;
   `gallery.js` the single explicit filter transition out of sheets and the
   bin (`applyGalleryFilter`), which Apply, Show all, the Models picker's
@@ -531,7 +535,8 @@ before changing it.
   (`swap.css` also the `batch-*` result rows all three share),
   `bin.css` the recycle bin, `context-menu.css` the right-click menu and
   `shortcuts.css` the keyboard help dialog, `snippets.css` the snippet dialog
-  and `setups.css` the named setup dialog, followed by `saved-searches.css`
+  (and the rules both merge dialogs share) and `setups.css` the named setup
+  dialog, followed by `saved-searches.css`
   for the saved gallery search dialog and its footer opener;
   preserve that cascade (`tests/test_docs_maps.py` holds this list to
   `index.html`'s links, in order). `docs/source-audit.md` records the

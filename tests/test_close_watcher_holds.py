@@ -68,7 +68,7 @@ function fixture() {
     modelSwitching: false, pendingLora: '', referenceIds: [], owned: {}, modelRevision: 1,
     panelState: () => ({}), reuseFields: () => ({}), invalidExecutionDraft: null, serverStartedAt: 0, trScale: 1,
   });
-  for (const name of ['prompt-snippets.js', 'snippet-import.js', 'generation-presets.js', 'setup-import.js']) {
+  for (const name of ['prompt-snippets.js', 'import-merge.js', 'snippet-import.js', 'generation-presets.js', 'setup-import.js']) {
     new vm.Script(fs.readFileSync(path.join(root, 'web', name), 'utf8'), { filename: name }).runInContext(sandbox);
   }
   const evaluate = text => vm.runInContext(text, sandbox);
