@@ -25,7 +25,7 @@ from tests.prompt_rules_helpers import (
     QWEN,
     SCHNELL,
     Z_ANIME,
-    _all_guides,
+    all_guides,
     only,
     run,
     silent,
@@ -472,11 +472,11 @@ def test_placeholders_are_the_authors_slots():
     assert all("put what it stands for there" in f.message for f in slots)
 
 
-@pytest.mark.parametrize("name", sorted(_all_guides()))
+@pytest.mark.parametrize("name", sorted(all_guides()))
 def test_each_slot_cites_the_authors_own_words(name):
     # A slot's finding quotes a line of the examples holding that slot: the
     # per-slot cite is held to the examples as the entry's own is.
-    guide = _all_guides()[name]
+    guide = all_guides()[name]
     if not guide["analysis"].get("placeholders"):
         return
     model_id = next(repo for repo in catalogue_repos() if _profile_for(repo)["guide"] is guide)

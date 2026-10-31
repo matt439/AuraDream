@@ -16,7 +16,7 @@ from tests.prompt_rules_helpers import (
     KOHAKU,
     NEWBIE,
     WAI,
-    _all_guides,
+    all_guides,
     only,
     run,
     silent,
@@ -259,7 +259,7 @@ def test_anima_checks_its_cards_order_with_sentences_anywhere():
     assert late.suggestion == f"{sentence}, masterpiece"
     assert not prompt_order.holds_grid_variable(KOHAKU, kohaku)
     switched = sorted(
-        name for name, guide in _all_guides().items()
+        name for name, guide in all_guides().items()
         if (guide["analysis"].get("order") or {}).get("free_sentences")
     )
     assert switched == ["ANIMA_AESTHETIC_GUIDE", "ANIMA_TURBO_GUIDE"]

@@ -20,9 +20,9 @@ import pytest
 from backend import critic, critic_runtime, critic_server
 
 from tests.critic_helpers import (
-    _answer,
-    _configure,
-    _critique,
+    critic_answer,
+    configure_critic,
+    critique_with,
 )
 
 
@@ -295,7 +295,7 @@ def _wrapped(monkeypatch, tmp_path, script: str):
     ports it is given and its logs, recorded."""
     (tmp_path / "fake_llama_server.py").write_text(_FAKE_LLAMA_SERVER, encoding="utf-8")
     (tmp_path / "launcher.py").write_text(_LAUNCHER, encoding="utf-8")
-    (tmp_path / "answer.json").write_text(json.dumps(_answer()), encoding="utf-8")
+    (tmp_path / "answer.json").write_text(json.dumps(critic_answer()), encoding="utf-8")
     if sys.platform == "win32":
         wrapper = tmp_path / "llama-server.bat"
         wrapper.write_text(f'@echo off\r\n"{sys.executable}" "%~dp0{script}" %*\r\n', encoding="utf-8")
@@ -307,7 +307,7 @@ def _wrapped(monkeypatch, tmp_path, script: str):
         wrapper.chmod(0o755)
     model = tmp_path / "model.gguf"
     model.write_bytes(b"m")
-    _configure(monkeypatch, critic=True, critic_server=wrapper, critic_model=None)
+    configure_critic(monkeypatch, critic=True, critic_server=wrapper, critic_model=None)
     target = critic.PromptCritic()
     target._prepared = (wrapper, model)
     ports, logs = [], []
@@ -326,7 +326,7 @@ def _wrapped(monkeypatch, tmp_path, script: str):
 def test_a_wrapped_server_is_asked_and_stopped_whole(monkeypatch, tmp_path, caplog):
     target, ports, logs = _wrapped(monkeypatch, tmp_path, "fake_llama_server.py")
     with caplog.at_level(logging.WARNING, logger=critic.log.name):
-        result = _critique(target)
+        result = critique_with(target)
     assert result.issues[0].cite_id == "G3" and target._process is None
     # Counted by the server, over HTTP, before it was asked.
     assert "sized by the estimate" not in caplog.text
@@ -347,7 +347,7 @@ def test_a_server_its_wrapper_left_running_is_stopped(monkeypatch, tmp_path):
     spawn = critic_server._spawn
     monkeypatch.setattr(critic_server, "_spawn", lambda *args: spawned.append(spawn(*args)) or spawned[-1])
     with pytest.raises(critic_runtime.CriticError, match="exited with code 0 before it was ready"):
-        _critique(target)
+        critique_with(target)
     assert spawned and not _listening(ports[0])
 
 

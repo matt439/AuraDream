@@ -47,7 +47,7 @@ def cli(store, monkeypatch):
 SIZE = ["--width", "256", "--height", "256"]
 
 
-def _project_claiming(module, model_id):
+def project_claiming(module, model_id):
     """`_project()` with the settings claiming another checkpoint.
 
     The reference check reads the profile for `settings.model_id`, and the
@@ -63,7 +63,7 @@ def _project_claiming(module, model_id):
     return patched
 
 
-def _to_refine(store):
+def to_refine(store):
     """A gallery image to refine: a 2:3 portrait at this checkpoint's id."""
     from PIL import Image
 
@@ -79,7 +79,7 @@ def _to_refine(store):
 ANIMAGINE = "cagliostrolab/animagine-xl-4.0"
 
 
-def _mask_file(tmp_path, size=(256, 384), box=(0, 0, 128, 64), name="mask.png"):
+def mask_file(tmp_path, size=(256, 384), box=(0, 0, 128, 64), name="mask.png"):
     from PIL import Image
 
     image = Image.new("L", size, 0)
@@ -89,7 +89,7 @@ def _mask_file(tmp_path, size=(256, 384), box=(0, 0, 128, 64), name="mask.png"):
     return path, image
 
 
-def _rewrite_record(path, change) -> None:
+def rewrite_record(path, change) -> None:
     import json
 
     from PIL import Image, PngImagePlugin

@@ -18,7 +18,7 @@ from PIL import Image
 from backend import bundle_images, bundles, reindex, storage, submission
 from backend.metadata import PNG_MASK_KEY
 from backend.schemas import GenerateRequest
-from tests.bundle_helpers import _destination, _export, _metadata, _save, _snapshot
+from tests.bundle_helpers import use_destination, export_all, png_metadata, save_source, bundle_snapshot
 
 
 def _mask(size=(256, 256), box=(0, 0, 128, 64)) -> Image.Image:
@@ -44,7 +44,7 @@ def _inpainted(source, digest, *, seed=2, prompt="a red scarf"):
 
 def _inpaint_gallery():
     """A source, an inpaint of it under one mask, and a second mask nothing names."""
-    source = _save("source", 1)
+    source = save_source("source", 1)
     digest, _ = storage.store_mask(_mask())
     unused, _ = storage.store_mask(_mask(box=(0, 0, 16, 16)))
     return source, _inpainted(source, digest), digest, unused
@@ -84,7 +84,7 @@ def _bundle_masks(path: Path, tmp_path: Path) -> dict:
 def test_a_bundle_carries_the_masks_and_the_import_merges_them_by_hash(store, monkeypatch, tmp_path):
     source, made, digest, unused = _inpaint_gallery()
     assert bundles.preview()["masks"] == 2
-    archive = _export()
+    archive = export_all()
     assert archive["cleared"] and archive["masks"] == 2
     with zipfile.ZipFile(archive["path"]) as bundle:
         names = set(bundle.namelist())
@@ -95,8 +95,8 @@ def test_a_bundle_carries_the_masks_and_the_import_merges_them_by_hash(store, mo
     # Cleared with the gallery: the files and their rows.
     assert list(store.masks_dir().glob("*.png")) == [] and store._tracked_masks() == set()
 
-    _destination(store, monkeypatch, tmp_path)
-    _save("existing", 99)
+    use_destination(store, monkeypatch, tmp_path)
+    save_source("existing", 99)
     imported = bundles.import_bundle(Path(archive["path"]))
     assert (imported["imported"], imported["masks"], imported["masks_missing"]) == (2, 2, 0)
     inpaint = next(r for r in store.list_images()[0] if r.mask)
@@ -104,7 +104,7 @@ def test_a_bundle_carries_the_masks_and_the_import_merges_them_by_hash(store, mo
     # The source is renumbered; the mask, named by its pixels, is not.
     assert (inpaint.refine, inpaint.mask) == (new_source.id, digest)
     assert store.mask_size(digest) == (256, 256) and store.mask_path(digest).is_file()
-    meta = _metadata(store.settings.outputs_dir / inpaint.filename)
+    meta = png_metadata(store.settings.outputs_dir / inpaint.filename)
     assert (meta["refine"], meta["mask"], meta["mask_blend"]) == (new_source.id, digest, "overlay")
     # The rewrite of the record leaves the mask's own copy in the PNG.
     with Image.open(store.settings.outputs_dir / inpaint.filename) as handle:
@@ -170,7 +170,7 @@ def test_an_import_restores_a_lost_mask_from_its_results_own_png(store, monkeypa
     archive = bundles.export_bundle(keep_gallery=True, ids=[source.id, made.id])
     assert archive["masks"] == 0
 
-    _destination(store, monkeypatch, tmp_path)
+    use_destination(store, monkeypatch, tmp_path)
     imported = bundles.import_bundle(Path(archive["path"]))
     assert (imported["imported"], imported["masks"], imported["masks_missing"]) == (2, 1, 0)
     inpaint = next(r for r in store.list_images()[0] if r.mask)
@@ -188,7 +188,7 @@ def test_a_row_whose_mask_the_bundle_lacks_keeps_its_hash_and_is_counted(store, 
     archive = bundles.export_bundle(keep_gallery=True, ids=[source.id, made.id])
     assert archive["masks"] == 0
 
-    _destination(store, monkeypatch, tmp_path)
+    use_destination(store, monkeypatch, tmp_path)
     imported = bundles.import_bundle(Path(archive["path"]))
     assert (imported["imported"], imported["masks"], imported["masks_missing"]) == (2, 0, 1)
     inpaint = next(r for r in store.list_images()[0] if r.mask)
@@ -201,7 +201,7 @@ def test_a_row_whose_mask_the_bundle_lacks_keeps_its_hash_and_is_counted(store, 
 def test_a_password_bundle_carries_the_masks(store, monkeypatch, tmp_path):
     source, made, digest, _ = _inpaint_gallery()
     archive = bundles.export_bundle(keep_gallery=True, password="tea kettle")
-    _destination(store, monkeypatch, tmp_path)
+    use_destination(store, monkeypatch, tmp_path)
     imported = bundles.import_bundle(Path(archive["path"]), "tea kettle")
     assert (imported["masks"], imported["masks_missing"]) == (2, 0)
     assert store.mask_path(digest).is_file()
@@ -241,25 +241,25 @@ def test_a_mask_that_is_not_the_one_its_name_says_is_refused(store, monkeypatch,
     else:
         bad = _tamper(archive, member, data=_png(_mask().convert("RGB")))
         words = "is RGB, not one luminance channel"
-    _destination(store, monkeypatch, tmp_path)
-    _save("existing", 99)
-    snapshot = _snapshot(store)
+    use_destination(store, monkeypatch, tmp_path)
+    save_source("existing", 99)
+    snapshot = bundle_snapshot(store)
     with pytest.raises(bundles.BundleError, match=words):
         bundles.import_bundle(bad)
-    assert _snapshot(store) == snapshot
+    assert bundle_snapshot(store) == snapshot
 
 
 def test_a_mask_of_another_size_under_the_same_hash_is_refused(store, monkeypatch, tmp_path):
     source, made, digest, _ = _inpaint_gallery()
     archive = Path(bundles.export_bundle(keep_gallery=True)["path"])
-    _destination(store, monkeypatch, tmp_path)
+    use_destination(store, monkeypatch, tmp_path)
     # Only a hand-edited table could say so: the hash covers the size.
     with store._session() as conn:
         conn.execute("INSERT INTO masks VALUES (?, 384, 384, '2026-01-01T00:00:00+00:00')", (digest,))
-    snapshot = _snapshot(store)
+    snapshot = bundle_snapshot(store)
     with pytest.raises(bundles.BundleError, match="has another size in this gallery"):
         bundles.import_bundle(archive)
-    assert _snapshot(store) == snapshot
+    assert bundle_snapshot(store) == snapshot
 
 
 def test_a_bundle_row_naming_a_path_as_its_mask_is_refused(store, monkeypatch, tmp_path):
@@ -310,7 +310,7 @@ def test_a_png_only_reindex_restores_a_lost_mask_from_its_result(store, monkeypa
 
 def test_a_mask_found_nowhere_keeps_its_hash_and_is_counted(store, monkeypatch, capsys):
     monkeypatch.setattr(reindex, "settings", store.settings)
-    source = _save("source", 1)
+    source = save_source("source", 1)
     digest, _ = storage.store_mask(_mask())
     # A result written while its mask could not be read carries no copy.
     monkeypatch.setattr(storage, "mask_png", lambda mask: None)
@@ -329,7 +329,7 @@ def test_a_database_merge_carries_the_masks_and_the_column(store, monkeypatch, t
 
     mine = store.settings
     monkeypatch.setattr(reindex, "settings", mine)
-    _save("already here", 90)
+    save_source("already here", 90)
     elsewhere = tmp_path / "backup" / "outputs"
     elsewhere.mkdir(parents=True)
     source_db = elsewhere.parent / "auradream.db"
@@ -344,5 +344,5 @@ def test_a_database_merge_carries_the_masks_and_the_column(store, monkeypatch, t
     inpaint, new_source = rows[made.filename], rows[source.filename]
     assert (inpaint.refine, inpaint.mask, inpaint.strength) == (new_source.id, digest, 0.6)
     assert store.mask_path(digest).is_file()
-    meta = _metadata(mine.outputs_dir / made.filename)
+    meta = png_metadata(mine.outputs_dir / made.filename)
     assert (meta["refine"], meta["mask"], meta["mask_blend"]) == (new_source.id, digest, "overlay")

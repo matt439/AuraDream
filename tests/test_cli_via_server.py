@@ -13,9 +13,9 @@ from backend import gallery_lock, generate, generate_remote
 
 from tests.cli_helpers import (  # noqa: F401  (fixtures by name)
     SIZE,
-    _mask_file,
-    _rewrite_record,
-    _to_refine,
+    mask_file,
+    rewrite_record,
+    to_refine,
     isolated_execution_environment,
 )
 
@@ -146,7 +146,7 @@ def test_size_axis_and_crop_anchor_via_server_match_direct_requests(via_server, 
     assert [(r.width, r.height, r.steps) for r in via_server.backend.requests] == [
         (w, h, steps) for w, h in ((256, 256), (512, 256)) for steps in (4, 8)
     ]
-    source = _to_refine(store)
+    source = to_refine(store)
     assert generate.main(["a fox", "--via-server", *SIZE, "--refine", str(source.id), "--strength", "0.5",
                           "--crop-anchor", "bottom-left", "--seed", "3", "-q"]) == 0
     assert via_server.backend.requests[-1].crop_anchor == "bottom-left"
@@ -200,7 +200,7 @@ def test_via_server_from_image_keeps_sampling_and_explicit_overrides(via_server,
                         guidance_scale=2.5, seed=72, mu=None)
     image = events[-1]["images"][0]
     path = store.settings.outputs_dir / image["filename"]
-    _rewrite_record(path, lambda meta: meta.update(quantization="none"))
+    rewrite_record(path, lambda meta: meta.update(quantization="none"))
     via_server.calls.clear()
     assert generate.main(["a wolf", "--via-server", "--from-image", str(path), "--seed", "99", "-q"]) == 0
     body = next(call[2] for call in via_server.calls if call[1] == "/api/generate")
@@ -221,8 +221,8 @@ def test_via_server_refuses_carried_grid_labels_instead_of_silently_losing_them(
 
 
 def test_via_server_refine_and_mask_use_the_server_gallery_and_upload_route(via_server, store, tmp_path, capsys):
-    source = _to_refine(store)
-    path, _ = _mask_file(tmp_path)
+    source = to_refine(store)
+    path, _ = mask_file(tmp_path)
     assert generate.main(["a fox", "--via-server", "--refine", str(source.id), "--scale", "2", "-q"]) == 0
     body = next(call[2] for call in via_server.calls if call[1] == "/api/generate")
     assert (body["refine"], body["width"], body["height"]) == (source.id, 512, 768)
@@ -242,7 +242,7 @@ def test_via_server_refine_and_mask_use_the_server_gallery_and_upload_route(via_
 
 
 def test_via_server_outpaint_uses_server_presets_and_keeps_its_spec(via_server, store):
-    source = _to_refine(store)
+    source = to_refine(store)
     assert generate.main(["a wider view", "--via-server", "--refine", str(source.id), "--outpaint", "16:9",
                           "--band", "16", "--seed", "3", "-q"]) == 0
     body = next(call[2] for call in via_server.calls if call[1] == "/api/generate")
@@ -257,7 +257,7 @@ def test_via_server_outpaint_uses_server_presets_and_keeps_its_spec(via_server, 
 def test_via_server_from_image_verifies_carried_references_against_the_server_gallery(via_server, store, capsys):
     from tests.api_helpers import run_one
 
-    source = _to_refine(store)
+    source = to_refine(store)
     _, events = run_one(via_server.client, prompt="a reference portrait", width=256, height=256,
                         reference=[source.id], seed=10)
     path = store.settings.outputs_dir / events[-1]["images"][0]["filename"]
@@ -276,7 +276,7 @@ def test_via_server_from_image_verifies_carried_references_against_the_server_ga
 def test_via_server_from_image_drops_a_mismatched_refine_source_as_the_local_cli_does(via_server, store, capsys):
     from tests.api_helpers import run_one
 
-    source = _to_refine(store)
+    source = to_refine(store)
     _, events = run_one(via_server.client, prompt="a refined portrait", width=256, height=384,
                         refine=source.id, strength=0.6, seed=10)
     path = store.settings.outputs_dir / events[-1]["images"][0]["filename"]
@@ -408,13 +408,13 @@ def test_gan_via_server_carries_the_choice_and_refuses_before_mask_upload(via_se
     from backend import model_selection, refine
 
     model_selection.select("LyliaEngine/waiIllustriousSDXL_v170")
-    source = _to_refine(store)
+    source = to_refine(store)
     argv = ["a fox", "--via-server", "--refine", str(source.id), "--upscaler", refine.ANIME6B, "--seed", "7", "-q"]
     assert generate.main(argv) == 0
     assert via_server.backend.requests[-1].upscaler == refine.ANIME6B
     body = next(call[2] for call in via_server.calls if call[1] == "/api/generate")
     assert body["upscaler"] == refine.ANIME6B
-    mask, _ = _mask_file(tmp_path)
+    mask, _ = mask_file(tmp_path)
     calls = len(via_server.calls)
     assert generate.main([*argv, "--mask", str(mask)]) == 2
     assert "ordinary Refine" in capsys.readouterr().err

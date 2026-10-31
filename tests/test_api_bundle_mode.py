@@ -8,7 +8,7 @@ import pytest
 
 from backend import bundle_file_lock, bundle_mode, bundles
 from starlette.responses import FileResponse
-from tests.bundle_helpers import _save
+from tests.bundle_helpers import save_source
 from tools import install_bundle_mode
 
 
@@ -23,7 +23,7 @@ def test_explicit_cli_needs_operator_confirmation_and_does_not_read_settings(tmp
 
 
 def test_actual_download_route_never_streams_under_an_invalid_installed_marker(client, store, monkeypatch):
-    _save("synthetic invalid-mode refusal")
+    save_source("synthetic invalid-mode refusal")
     exported = bundles.export_bundle(keep_gallery=True)
     (store.bundle_directory() / bundle_mode.MARKER_NAME).write_bytes(b"{}")
 
@@ -37,7 +37,7 @@ def test_actual_download_route_never_streams_under_an_invalid_installed_marker(c
 
 @pytest.mark.skipif(os.name != "nt", reason="Windows fixed NTFS shared-mode integration only")
 def test_actual_http_download_discovers_marker_without_touching_manual_archive(client, store):
-    _save("synthetic shared-mode download")
+    save_source("synthetic shared-mode download")
     exported = bundles.export_bundle(keep_gallery=True)
     directory = store.bundle_directory()
     archive = directory / exported["name"]

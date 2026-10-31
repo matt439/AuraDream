@@ -19,25 +19,25 @@ from backend.schemas import GenerateRequest, PromptAnalysis
 
 from tests.critic_helpers import (
     KLEIN,
-    _answer,
-    _validate,
+    critic_answer,
+    validate_answer,
 )
 
 
 def test_reordered_is_kept_only_as_a_permutation_under_a_documented_order():
     prompt = "neon city at night, a woman with a red umbrella, shot on film"
     moved = "a woman with a red umbrella, neon city at night, shot on film"
-    assert _validate(_answer(reordered=moved), prompt=prompt).reordered == moved
+    assert validate_answer(critic_answer(reordered=moved), prompt=prompt).reordered == moved
     # Case and punctuation are not words, so they do not make a reorder
     # something else; but the words kept are the prompt's own, moved - T5
     # and Qwen3 read case, and a row credited to order must differ in order.
     assert (
-        _validate(_answer(reordered=moved.upper() + "."), prompt=prompt).reordered == moved + "."
+        validate_answer(critic_answer(reordered=moved.upper() + "."), prompt=prompt).reordered == moved + "."
     )
     # Unquoted sign text included: the sign still says Open Late.
     sign = "Neon city at night, a sign that says Open Late, a woman in a Burberry trench coat"
     shouted = "A WOMAN IN A BURBERRY TRENCH COAT, NEON CITY AT NIGHT, A SIGN THAT SAYS OPEN LATE"
-    assert _validate(_answer(reordered=shouted), prompt=sign).reordered == (
+    assert validate_answer(critic_answer(reordered=shouted), prompt=sign).reordered == (
         "a woman in a Burberry trench coat, Neon city at night, a sign that says Open Late"
     )
     # What lies between the pieces is the critic's, space and punctuation
@@ -54,13 +54,13 @@ def test_reordered_is_kept_only_as_a_permutation_under_a_documented_order():
          "Shot on film. A woman walks past. A neon city at night.",
          "shot on film. A woman walks past. A neon city at night."),
     ):
-        answer = _answer(reordered=reordered, rewrite=None)
-        assert _validate(answer, prompt=prompt_).reordered == kept, reordered
+        answer = critic_answer(reordered=reordered, rewrite=None)
+        assert validate_answer(answer, prompt=prompt_).reordered == kept, reordered
     # Nor is how a quotation mark or an apostrophe is typed: the version kept
     # has the prompt's own.
     curly = "neon city at night, a sign that says “OPEN”, Joe’s old truck"
     straight = "Joe's old truck, neon city at night, a sign that says \"OPEN\""
-    assert _validate(_answer(reordered=straight, rewrite=None), prompt=curly).reordered == (
+    assert validate_answer(critic_answer(reordered=straight, rewrite=None), prompt=curly).reordered == (
         "Joe’s old truck, neon city at night, a sign that says “OPEN”"
     )
     for bad in (
@@ -70,16 +70,16 @@ def test_reordered_is_kept_only_as_a_permutation_under_a_documented_order():
         prompt + ".",  # nothing moved
         "",
     ):
-        assert _validate(_answer(reordered=bad), prompt=prompt).reordered is None, bad
+        assert validate_answer(critic_answer(reordered=bad), prompt=prompt).reordered is None, bad
     tags = "1girl, long_hair, smile"
-    assert _validate(_answer(reordered="long hair, 1girl, smile"), prompt=tags).reordered is None
+    assert validate_answer(critic_answer(reordered="long hair, 1girl, smile"), prompt=tags).reordered is None
     # No documented order, no reordered variant, whatever the model says.
-    assert _validate(_answer(reordered=moved), prompt=prompt, ordered=False).reordered is None
+    assert validate_answer(critic_answer(reordered=moved), prompt=prompt, ordered=False).reordered is None
 
 
 def _kept(reordered: str, prompt: str, style: str = "prose") -> bool:
-    answer = _answer(reordered=reordered)
-    return _validate(answer, prompt=prompt, style=style).reordered is not None
+    answer = critic_answer(reordered=reordered)
+    return validate_answer(answer, prompt=prompt, style=style).reordered is not None
 
 
 def test_a_reorder_moves_whole_phrases_and_keeps_rendered_text():
@@ -168,7 +168,7 @@ def test_prose_reorders_keep_names_and_unquoted_lettering_whole(prompt, changed,
 
     def validate(candidate):
         return critic_validation.validate(
-            _answer(parts={}, issues=[], rewrite=None, reordered=candidate),
+            critic_answer(parts={}, issues=[], rewrite=None, reordered=candidate),
             context, prompt, model="test", seconds=0,
         )
 
@@ -191,8 +191,8 @@ def test_a_reorder_of_xml_moves_blocks_and_of_json_moves_keys():
     assert _kept(f"{scene}\n{first}\n  {second}", xml, "xml")
     # Kept as the prompt writes its blocks, whatever the critic did to the
     # lines inside them; the space between them is the critic's.
-    answer = _answer(reordered=f"{scene}\n{first}\n  {second}".replace("\n<", "<"))
-    assert _validate(answer, prompt=xml, style="xml").reordered == f"{scene}{first}\n  {second}"
+    answer = critic_answer(reordered=f"{scene}\n{first}\n  {second}".replace("\n<", "<"))
+    assert validate_answer(answer, prompt=xml, style="xml").reordered == f"{scene}{first}\n  {second}"
     # A tag moved from one character to the other is not an order.
     leaked = xml.replace("blue_hair, long_hair", "long_hair")
     leaked = leaked.replace("pink_hair,", "pink_hair, blue_hair,")
@@ -229,8 +229,8 @@ def test_a_reorder_of_xml_moves_blocks_and_of_json_moves_keys():
     assert _kept('{"pose": {"tail": false, "ears": 0.25}, "subject": "a fox"}', pose, "json")
     assert not _kept('{"pose": {"ears": 0.250, "tail": false}, "subject": "a fox"}', pose, "json")
     # Through validate: set aside as changed words, not offered verbatim.
-    respelt = _validate(
-        _answer(reordered=moved.replace("0.50", "0.5"), issues=[], rewrite=None, parts={}),
+    respelt = validate_answer(
+        critic_answer(reordered=moved.replace("0.50", "0.5"), issues=[], rewrite=None, parts={}),
         prompt=weight, style="json",
     )
     assert respelt.reordered is None and respelt.set_aside == [
@@ -269,7 +269,7 @@ def _newbie_reorder(candidate: str, prompt: str = _FILLED):
     assert analysis.style == "xml" and analysis.order and not analysis.order_checked
     context = critic_context.build_context(_NEWBIE, request, request, analysis)
     return critic_validation.validate(
-        _answer(parts={}, issues=[], rewrite=None, reordered=candidate),
+        critic_answer(parts={}, issues=[], rewrite=None, reordered=candidate),
         context, prompt, model="test", seconds=0,
     )
 
@@ -395,8 +395,8 @@ def test_a_reordered_version_that_changed_words_is_said_so():
     ]
 
     def reordered(text, prompt=prompt, style="prose"):
-        answer = _answer(reordered=text, rewrite=None, parts={})
-        return _validate(answer, prompt=prompt, style=style)
+        answer = critic_answer(reordered=text, rewrite=None, parts={})
+        return validate_answer(answer, prompt=prompt, style=style)
 
     changed = reordered("a woman with an umbrella, neon city at night, shot on film")
     assert changed.reordered is None and changed.set_aside == words_changed
@@ -442,7 +442,7 @@ def test_where_check_placed_the_tags_the_critic_reorders_only_as_it_does():
         )
         assert analysis.order_checked
         context = critic_context.build_context(animagine, request, request, analysis)
-        answer = _answer(issues=[], parts={}, rewrite=None, reordered=reordered)
+        answer = critic_answer(issues=[], parts={}, rewrite=None, reordered=reordered)
         return critic_validation.validate(answer, context, prompt, model="test", seconds=0.0)
 
     other_order = [
@@ -478,12 +478,12 @@ def test_where_check_placed_the_tags_the_critic_reorders_only_as_it_does():
         "documented order itself, and the critic's order is not that one."
     ]
     # Where Check places nothing - klein's prose - the critic's reading stands.
-    klein = _validate(
-        _answer(reordered=reversed_, rewrite=None, parts={}), prompt=prompt, style="tags"
+    klein = validate_answer(
+        critic_answer(reordered=reversed_, rewrite=None, parts={}), prompt=prompt, style="tags"
     )
     assert klein.reordered == reversed_ and klein.reordered_kind == "unchecked"
     # Nothing moved, nothing kept, and no kind.
-    still = _validate(_answer(reordered=prompt, rewrite=None, parts={}), prompt=prompt, style="tags")
+    still = validate_answer(critic_answer(reordered=prompt, rewrite=None, parts={}), prompt=prompt, style="tags")
     assert still.reordered is None and still.reordered_kind is None
 
 
@@ -512,7 +512,7 @@ def test_where_check_placed_the_tags_only_partly_its_order_rule_decides_the_crit
         )
         assert analysis.order_checked and analysis.reordered is None
         context = critic_context.build_context(animagine, request, request, analysis)
-        answer = _answer(issues=[], parts={}, rewrite=None, reordered=reordered)
+        answer = critic_answer(issues=[], parts={}, rewrite=None, reordered=reordered)
         return critic_validation.validate(answer, context, prompt, model="test", seconds=0.0)
 
     # Neither firefly nor green hair placed: either may come first. The
@@ -677,7 +677,7 @@ def test_a_grid_variable_is_where_the_user_put_it_and_the_critic_may_put_it_else
     assert context.placed_partly
 
     def critique(reordered):
-        answer = _answer(issues=[], parts={}, rewrite=None, reordered=reordered)
+        answer = critic_answer(issues=[], parts={}, rewrite=None, reordered=reordered)
         return critic_validation.validate(answer, context, prompt, model="test", seconds=0.0)
 
     beside = critique("1girl, smile, {hair}, masterpiece")

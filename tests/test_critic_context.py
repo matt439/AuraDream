@@ -12,8 +12,8 @@ from tests.critic_helpers import (
     KREA_DEV,
     PROMPT,
     Server,
-    _analysis,
-    _context,
+    prompt_analysis,
+    context_for,
     prepared,
 )
 from tests.backend_helpers import catalogue_repos
@@ -26,7 +26,7 @@ ANIMA = "circlestone-labs/Anima"
 
 
 def test_schema_enumerates_exactly_the_numbered_sources():
-    context = _context()
+    context = context_for()
     ids = context.schema["properties"]["issues"]["items"]["properties"]["cite_id"]["enum"]
     assert ids == list(context.citations)
     sources = prompt_sources.sources_for(KLEIN)
@@ -40,11 +40,11 @@ def test_schema_enumerates_exactly_the_numbered_sources():
     assert context.schema["properties"]["issues"]["maxItems"] == critic_context.MAX_ISSUES
     assert context.schema["properties"]["parts"]["required"] == list(critic_context.PARTS)
     assert context.schema["properties"]["reordered"] == {"type": ["string", "null"]}
-    assert _context(ordered=False).schema["properties"]["reordered"] == {"type": "null"}
+    assert context_for(ordered=False).schema["properties"]["reordered"] == {"type": "null"}
 
 
 def test_the_messages_carry_the_request_as_it_runs():
-    runs = _context(ANIMA, "1girl, smile", ordered=False, negative="lowres")
+    runs = context_for(ANIMA, "1girl, smile", ordered=False, negative="lowres")
     assert "Negative prompt (it runs):\nlowres" in runs.user
     assert "No negative prompt runs" not in runs.system
     assert "reordered: null" in runs.system and "DOCUMENTED ORDER" not in runs.system
@@ -53,7 +53,7 @@ def test_the_messages_carry_the_request_as_it_runs():
     assert "document no order" not in runs.system
     assert "An order a source below states may still be an issue" in runs.system
     assert "\nA1: [quality/meta/year/safety tags] [1girl/1boy/1other etc]" in runs.system
-    silent = _context(KLEIN)
+    silent = context_for(KLEIN)
     assert silent.user == f"Prompt:\n{PROMPT}"
     assert "No negative prompt runs" in silent.system
     assert "DOCUMENTED ORDER: subject > action > style > context" in silent.system
@@ -79,7 +79,7 @@ def test_the_critic_accepts_generic_subjects_and_can_leave_a_good_prompt_alone()
         (ANIMA, "1girl, green hair, A girl waves from a balcony.", "hybrid"),
         (KLEIN, "A girl with green hair smiles.", "prose"),
     ):
-        context = _context(model_id, prompt, style=style)
+        context = context_for(model_id, prompt, style=style)
         assert "Order lists place present parts" in context.system
         assert "Generic/original subjects need no character/series names" in context.system
         assert "never invent them" in context.system
@@ -96,7 +96,7 @@ def test_the_critic_is_told_the_negative_prompt_applied_runs_not_the_one_typed()
     model_id, prompt = "black-forest-labs/FLUX.1-Krea-dev", "A quiet street with no people"
     typed = GenerateRequest(prompt=prompt, negative_prompt="people, crowds")
     bare = GenerateRequest(prompt=prompt)
-    analysis = _analysis(model_id, ordered=False)
+    analysis = prompt_analysis(model_id, ordered=False)
     dropped = critic_context.build_context(model_id, typed, bare, analysis)
     assert "(it runs)" not in dropped.user and "people, crowds" not in dropped.user
     assert "No negative prompt runs" in dropped.system
@@ -118,7 +118,7 @@ def test_the_real_critic_asks_about_the_negative_prompt_applied_runs(monkeypatch
     # passing the request twice told llama-server "Negative prompt (it
     # runs)" on Krea [dev] without True CFG, and no test above noticed.
     typed = GenerateRequest(prompt="A quiet street with no people", negative_prompt="people, crowds")
-    analysis = _analysis(KREA_DEV, ordered=False)
+    analysis = prompt_analysis(KREA_DEV, ordered=False)
     for true_cfg, runs in ((None, False), (3.0, True)):
         request = typed.model_copy(update={"true_cfg": true_cfg})
         applied = request.applied(
@@ -140,7 +140,7 @@ def test_the_flux1_family_is_told_how_bfl_reads_its_order():
     # prompt to put its style first, and cut camera details as a fault.
     for model_id in ("black-forest-labs/FLUX.1-Krea-dev", "black-forest-labs/FLUX.1-dev",
                      "black-forest-labs/FLUX.1-schnell"):
-        context = _context(model_id)
+        context = context_for(model_id)
         assert "'Moody night photography') still puts the subject first" in context.system
         assert "Camera settings are part of BFL's template, not a fault" in context.system
         texts = {citation.text for citation in context.citations.values()}
@@ -149,7 +149,7 @@ def test_the_flux1_family_is_told_how_bfl_reads_its_order():
 
 
 def test_krea_dev_is_told_its_sources_are_bfls():
-    context = _context("black-forest-labs/FLUX.1-Krea-dev")
+    context = context_for("black-forest-labs/FLUX.1-Krea-dev")
     assert "Krea published no prompting rules" in context.system
     # A shared note is written once and pointed back to.
     note = "(BFL's guide for the whole FLUX family; Krea published no prompting rules of its own)"

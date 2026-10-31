@@ -13,7 +13,7 @@ import pytest
 
 from backend import backup_receipts as receipts, bundle_archive, bundle_crypto, bundles, gallery_delete, gallery_lock
 from backend.bundle_common import BundleError
-from tests.bundle_helpers import _destination, _save, _snapshot
+from tests.bundle_helpers import use_destination, save_source, bundle_snapshot
 
 
 @pytest.fixture
@@ -23,11 +23,11 @@ def identity():
 
 @pytest.mark.parametrize("password", [None, "scratch-only password"])
 def test_managed_copy_has_exact_outer_proof_one_readback_and_restores(store, monkeypatch, tmp_path, identity, password):
-    source = _save("source", 11)
-    refined = _save("refined", 12, refine=source.id, strength=0.35)
+    source = save_source("source", 11)
+    refined = save_source("refined", 12, refine=source.id, strength=0.35)
     store.set_favorite(refined.id, True)
     gallery_delete.bin_images([source.id])
-    before = _snapshot(store)
+    before = bundle_snapshot(store)
     db = store.settings.db_path
     real = bundles._verify_archive
     real_append = receipts.append
@@ -47,7 +47,7 @@ def test_managed_copy_has_exact_outer_proof_one_readback_and_restores(store, mon
     result = bundles.export_bundle(keep_gallery=True, password=password, managed=identity)
     assert verified == [identity]
     assert result["managed"] is True and result["kept"] and not result["cleared"]
-    assert result["deleted_ids"] == [] and _snapshot(store) == before
+    assert result["deleted_ids"] == [] and bundle_snapshot(store) == before
     receipt, = receipts.load(db, identity.gallery_id)
     archive = Path(result["path"])
     blob = archive.read_bytes()
@@ -61,7 +61,7 @@ def test_managed_copy_has_exact_outer_proof_one_readback_and_restores(store, mon
         assert manifest["version"] == 1
     if password:
         assert blob.startswith(bundle_crypto.MAGIC) and b"source" not in blob
-    _destination(store, monkeypatch, tmp_path)
+    use_destination(store, monkeypatch, tmp_path)
     restored = bundles.import_bundle(archive, password)
     assert restored["imported"] == 2 and restored["binned"] == 1
     records = {row.filename: row for row in store.list_images()[0] + store.list_images(binned=True)[0]}
@@ -70,7 +70,7 @@ def test_managed_copy_has_exact_outer_proof_one_readback_and_restores(store, mon
 
 
 def test_ordinary_exports_keep_original_manifest_and_create_no_journal(store):
-    _save()
+    save_source()
     result = bundles.export_bundle(keep_gallery=True)
     assert "managed" not in result
     assert not receipts.path_for(store.settings.db_path).exists()
@@ -80,16 +80,16 @@ def test_ordinary_exports_keep_original_manifest_and_create_no_journal(store):
 
 @pytest.mark.parametrize("kwargs", [{}, {"keep_gallery": True, "ids": []}])
 def test_managed_identity_cannot_label_clearing_or_selected_export(store, identity, kwargs):
-    _save()
-    before = _snapshot(store)
+    save_source()
+    before = bundle_snapshot(store)
     with pytest.raises(BundleError, match="managed exports"):
         bundles.export_bundle(managed=identity, **kwargs)
-    assert _snapshot(store) == before
+    assert bundle_snapshot(store) == before
     assert not receipts.path_for(store.settings.db_path).exists()
 
 
 def test_marker_mismatch_in_the_existing_readback_refuses_publication(store, monkeypatch, identity):
-    _save()
+    save_source()
     real = bundles._verify_archive
 
     def mismatched(*args, **kwargs):
@@ -105,7 +105,7 @@ def test_marker_mismatch_in_the_existing_readback_refuses_publication(store, mon
 
 
 def test_managed_publication_never_overwrites_a_collision(store, monkeypatch, identity):
-    _save()
+    save_source()
     real = bundles._claim
     existing = []
 
@@ -123,7 +123,7 @@ def test_managed_publication_never_overwrites_a_collision(store, monkeypatch, id
 
 
 def test_receipt_failure_keeps_previous_journal_and_published_copy_unmanaged(store, monkeypatch, identity):
-    _save()
+    save_source()
     first = bundles.export_bundle(keep_gallery=True, managed=identity)
     path = receipts.path_for(store.settings.db_path)
     before = path.read_bytes()
@@ -144,7 +144,7 @@ def test_receipt_failure_keeps_previous_journal_and_published_copy_unmanaged(sto
 
 
 def test_duplicate_operation_keeps_existing_receipt_and_new_copy_unmanaged(store, identity):
-    _save()
+    save_source()
     first = bundles.export_bundle(keep_gallery=True, managed=identity)
     before = receipts.path_for(store.settings.db_path).read_bytes()
     second = bundles.export_bundle(keep_gallery=True, managed=identity)
@@ -154,7 +154,7 @@ def test_duplicate_operation_keeps_existing_receipt_and_new_copy_unmanaged(store
 
 
 def test_same_name_replacement_preserving_marker_is_not_owned(store, identity):
-    _save()
+    save_source()
     result = bundles.export_bundle(keep_gallery=True, managed=identity)
     receipt, = receipts.load(store.settings.db_path, identity.gallery_id)
     path = Path(result["path"])
@@ -175,7 +175,7 @@ def test_same_name_replacement_preserving_marker_is_not_owned(store, identity):
 
 
 def test_malformed_journal_is_not_rebuilt_from_a_new_publication(store, identity):
-    _save()
+    save_source()
     journal = receipts.path_for(store.settings.db_path)
     journal.write_bytes(b'{"broken": "keep exact bytes"}')
     result = bundles.export_bundle(keep_gallery=True, managed=identity)
@@ -184,7 +184,7 @@ def test_malformed_journal_is_not_rebuilt_from_a_new_publication(store, identity
 
 
 def test_reserved_malformed_marker_is_refused_by_import_without_changes(store):
-    _save()
+    save_source()
     result = bundles.export_bundle(keep_gallery=True)
     path = Path(result["path"])
     with zipfile.ZipFile(path) as source:
@@ -195,14 +195,14 @@ def test_reserved_malformed_marker_is_refused_by_import_without_changes(store):
     with zipfile.ZipFile(path, "w") as archive:
         for name, data in members.items():
             archive.writestr(name, data)
-    before = _snapshot(store)
+    before = bundle_snapshot(store)
     with pytest.raises(BundleError, match="managed identity is invalid") as error:
         bundles.import_bundle(path)
-    assert "do not echo" not in str(error.value) and _snapshot(store) == before
+    assert "do not echo" not in str(error.value) and bundle_snapshot(store) == before
 
 
 def test_changed_partial_after_verification_is_never_published_or_receipted(store, monkeypatch, identity):
-    _save()
+    save_source()
     real = bundles._verify_archive
 
     def changed(path, *args, **kwargs):
@@ -219,7 +219,7 @@ def test_changed_partial_after_verification_is_never_published_or_receipted(stor
 
 
 def test_existing_unowned_partial_is_never_removed_on_exclusive_open_failure(store, monkeypatch, identity):
-    _save()
+    save_source()
     directory = bundles._directory()
     directory.mkdir()
     final = directory / "collision.zip"
@@ -233,7 +233,7 @@ def test_existing_unowned_partial_is_never_removed_on_exclusive_open_failure(sto
 
 
 def test_valid_same_marker_replacement_after_writer_close_is_refused_and_preserved(store, monkeypatch, identity):
-    _save()
+    save_source()
     real_lstat = Path.lstat
     real_verify = bundles._verify_archive
     replacement_bytes = []
@@ -272,7 +272,7 @@ def test_valid_same_marker_replacement_after_writer_close_is_refused_and_preserv
 
 
 def test_unowned_source_recreated_after_successful_claim_is_preserved(store, monkeypatch, identity):
-    _save()
+    save_source()
     real = bundles._claim
     recreated = []
 

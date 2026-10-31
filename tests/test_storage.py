@@ -654,11 +654,11 @@ def test_the_newest_id_counts_every_row_and_only_an_insert_raises_it(store):
 
 
 def test_the_newest_id_is_unknown_rather_than_waited_for_while_reserved(store):
-    from tests.bundle_helpers import _holding_child
+    from tests.bundle_helpers import holding_child
     import time
 
     keep(store)
-    child = _holding_child(store.settings.db_path)
+    child = holding_child(store.settings.db_path)
     try:
         started = time.monotonic()
         assert store.newest_image_id() is None

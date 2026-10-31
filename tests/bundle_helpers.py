@@ -14,7 +14,7 @@ from backend import bundles, storage
 from backend.schemas import GenerateRequest
 
 
-def _save(prompt="source", seed=1, **kwargs):
+def save_source(prompt="source", seed=1, **kwargs):
     variables = kwargs.pop("variables", None)
     return storage.save_image(
         Image.new("RGB", (256, 256), (seed % 256, 24, 80)),
@@ -24,11 +24,11 @@ def _save(prompt="source", seed=1, **kwargs):
     )
 
 
-def _export():
+def export_all():
     return bundles.export_bundle(expected=bundles.preview()["records"])
 
 
-def _destination(store, monkeypatch, tmp_path):
+def use_destination(store, monkeypatch, tmp_path):
     settings = dataclasses.replace(
         store.settings, db_path=tmp_path / "destination.db", outputs_dir=tmp_path / "destination",
     )
@@ -37,7 +37,7 @@ def _destination(store, monkeypatch, tmp_path):
     return settings
 
 
-def _snapshot(store):
+def bundle_snapshot(store):
     with closing(sqlite3.connect(store.settings.db_path)) as conn:
         rows = conn.execute("SELECT * FROM images ORDER BY id").fetchall()
     files = {
@@ -47,12 +47,12 @@ def _snapshot(store):
     return rows, files
 
 
-def _metadata(path):
+def png_metadata(path):
     with Image.open(path) as image:
         return json.loads(image.info["auradream"])
 
 
-def _locked_database(staged):
+def locked_database(staged):
     raise sqlite3.OperationalError("database is locked")
 
 
@@ -68,7 +68,7 @@ with hold(Path(sys.argv[1])):
 """
 
 
-def _holding_child(db_path):
+def holding_child(db_path):
     child = subprocess.Popen(
         [sys.executable, "-c", _HOLDING_CHILD, str(db_path)],
         stdin=subprocess.PIPE, stdout=subprocess.PIPE, text=True,

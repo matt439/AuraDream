@@ -9,7 +9,7 @@ import time
 import pytest
 
 from backend import gallery_lock, storage
-from tests.bundle_helpers import _holding_child
+from tests.bundle_helpers import holding_child
 
 
 def test_gallery_reservation_is_also_visible_to_a_separate_local_process(store):
@@ -32,7 +32,7 @@ except GalleryBusy:
 
 
 def test_a_waiting_session_gets_the_gallery_once_another_process_lets_go(store):
-    child = _holding_child(store.settings.db_path)
+    child = holding_child(store.settings.db_path)
     try:
         # Maintenance fails fast, as documented.
         with pytest.raises(gallery_lock.GalleryBusy):
@@ -52,7 +52,7 @@ def test_maintenance_rides_out_another_processs_brief_read(store):
     # A reader holds the file lock for a millisecond or two - every open
     # tab's status poll reads the newest id - and a maintenance call whose
     # one attempt landed inside it was refused with the server idle.
-    child = _holding_child(store.settings.db_path)
+    child = holding_child(store.settings.db_path)
     try:
         threading.Timer(0.05, lambda: (child.stdin.write("\n"), child.stdin.flush())).start()
         started = time.monotonic()
@@ -65,7 +65,7 @@ def test_maintenance_rides_out_another_processs_brief_read(store):
 
 
 def test_a_waiting_session_refuses_once_its_deadline_passes(store, monkeypatch):
-    child = _holding_child(store.settings.db_path)
+    child = holding_child(store.settings.db_path)
     try:
         started = time.monotonic()
         with pytest.raises(gallery_lock.GalleryBusy):
@@ -84,7 +84,7 @@ def test_a_waiting_session_refuses_once_its_deadline_passes(store, monkeypatch):
 def test_threads_waiting_on_another_process_share_one_deadline(store):
     # Each thread's wait covers the in-process lock too: queued behind a
     # thread polling for the child, four waiters once refused at 1, 2, 3, 4 x.
-    child = _holding_child(store.settings.db_path)
+    child = holding_child(store.settings.db_path)
     waited = []
 
     def wait():
@@ -131,7 +131,7 @@ def test_a_sidecar_write_waits_out_another_processs_write(tmp_path, index):
     # single-record write waits SESSION_WAIT, as the gallery's do.
     module, write = _sidecar_writers()[index]
     database = tmp_path / "gallery.db"
-    child = _holding_child(module.path_for(database))
+    child = holding_child(module.path_for(database))
     outcome = []
     writer = threading.Thread(target=lambda: outcome.append(write(database)))
     try:

@@ -14,10 +14,10 @@ from backend import gallery_lock, generate, storage
 from tests.cli_helpers import (  # noqa: F401  (fixtures by name)
     ANIMAGINE,
     SIZE,
-    _mask_file,
-    _project_claiming,
-    _rewrite_record,
-    _to_refine,
+    mask_file,
+    project_claiming,
+    rewrite_record,
+    to_refine,
     cli,
     isolated_execution_environment,
 )
@@ -29,7 +29,7 @@ from tests.cli_helpers import (  # noqa: F401  (fixtures by name)
 def test_a_refine_renders_at_the_sources_size_times_the_scale(cli, store, capsys):
     from backend.schemas import default_strength
 
-    source = _to_refine(store)
+    source = to_refine(store)
     assert generate.main(["a fox", "--refine", str(source.id), "--steps", "20", "--seed", "7"]) == 0
     ran = cli.requests[-1]
     # No size given: the source's own, times the default 1.5. No strength
@@ -56,7 +56,7 @@ def test_a_refine_renders_at_the_sources_size_times_the_scale(cli, store, capsys
 
 
 def test_refine_flags_need_a_source_and_one_way_of_sizing(cli, store):
-    source = _to_refine(store)
+    source = to_refine(store)
     for argv in (
         ["a fox", "--strength", "0.3", *SIZE],
         ["a fox", "--scale", "2"],
@@ -75,7 +75,7 @@ def test_refine_flags_need_a_source_and_one_way_of_sizing(cli, store):
 
 
 def test_a_refine_is_refused_before_the_load(cli, store, monkeypatch, capsys):
-    source = _to_refine(store)
+    source = to_refine(store)
     # A source the gallery has not got, named - with or without a size.
     assert generate.main(["a fox", "--refine", "4242"]) == 2
     assert "no gallery image with id 4242" in capsys.readouterr().err
@@ -86,14 +86,14 @@ def test_a_refine_is_refused_before_the_load(cli, store, monkeypatch, capsys):
     assert "less than one step" in capsys.readouterr().err
     # And a checkpoint diffusers has no image-to-image pipeline for: the same
     # refusal the server makes at submit, from the profile, ahead of the load.
-    monkeypatch.setattr(generate, "_project", _project_claiming(generate, "krea/Krea-2-Turbo"))
+    monkeypatch.setattr(generate, "_project", project_claiming(generate, "krea/Krea-2-Turbo"))
     assert generate.main(["a fox", "--refine", str(source.id)]) == 2
     assert "has no refine pass" in capsys.readouterr().err
     assert cli.loads == 0 and cli.requests == []
 
 
 def test_from_image_reproduces_a_refine_pass(cli, store, capsys):
-    source = _to_refine(store)
+    source = to_refine(store)
     assert generate.main(
         ["a fox, sharper", "--refine", str(source.id), "--strength", "0.3", "--steps", "10", "--seed", "7", "-q"]
     ) == 0
@@ -113,7 +113,7 @@ def test_from_image_reproduces_a_refine_pass(cli, store, capsys):
 
 
 def test_a_strength_sweep_from_the_terminal(cli, store, capsys):
-    source = _to_refine(store)
+    source = to_refine(store)
     argv = ["a fox", "--refine", str(source.id), "--steps", "20", "--seed", "1",
             "--grid-strength", "0.2-0.6x0.2"]
     assert generate.main([*argv, "--dry-run"]) == 0
@@ -132,7 +132,7 @@ def test_a_strength_sweep_from_the_terminal(cli, store, capsys):
     ["--steps", "4", "--grid-steps", "20,28"],
 ])
 def test_refine_cli_checks_actual_cells_after_axes_replace_base(cli, store, axes):
-    source = _to_refine(store)
+    source = to_refine(store)
     argv = ["a fox", "--refine", str(source.id), "--strength", "0.1", *axes]
     assert generate.main([*argv, "--dry-run"]) == 0
     assert cli.loads == 0
@@ -141,8 +141,8 @@ def test_refine_cli_checks_actual_cells_after_axes_replace_base(cli, store, axes
 
 
 def test_cli_rechecks_refine_after_loading_before_any_cell(cli, store, monkeypatch, capsys):
-    source = _to_refine(store)
-    monkeypatch.setattr(generate, "_project", _project_claiming(generate, "example/flux-custom-pipeline"))
+    source = to_refine(store)
+    monkeypatch.setattr(generate, "_project", project_claiming(generate, "example/flux-custom-pipeline"))
     load = cli.load
 
     def unsupported_load():
@@ -163,8 +163,8 @@ def test_gan_cli_is_opt_in_and_from_image_can_carry_override_or_drop_it(cli, sto
 
     monkeypatch.setattr(model_selection, "_selection", (None, 0))
     model_selection.select(model)
-    monkeypatch.setattr(generate, "_project", _project_claiming(generate, model))
-    source = _to_refine(store)
+    monkeypatch.setattr(generate, "_project", project_claiming(generate, model))
+    source = to_refine(store)
     argv = ["a fox", "--refine", str(source.id), "--upscaler", refine.ANIME6B, "--seed", "7"]
     assert generate.main([*argv, "--dry-run"]) == 0
     assert cli.loads == 0 and "upscaler : R-ESRGAN 4x+ Anime6B" in capsys.readouterr().out
@@ -186,12 +186,12 @@ def test_gan_cli_is_opt_in_and_from_image_can_carry_override_or_drop_it(cli, sto
 def test_gan_cli_refuses_wrong_model_and_oversized_source_before_load(cli, store, monkeypatch, capsys):
     from backend import model_selection, refine
 
-    source = _to_refine(store)
+    source = to_refine(store)
     assert generate.main(["a fox", "--refine", str(source.id), "--upscaler", refine.ANIME6B, "--dry-run"]) == 2
     assert "only for WAI" in capsys.readouterr().err and cli.loads == 0
     monkeypatch.setattr(model_selection, "_selection", (None, 0))
     model_selection.select("LyliaEngine/waiIllustriousSDXL_v170")
-    monkeypatch.setattr(generate, "_project", _project_claiming(generate, "LyliaEngine/waiIllustriousSDXL_v170"))
+    monkeypatch.setattr(generate, "_project", project_claiming(generate, "LyliaEngine/waiIllustriousSDXL_v170"))
     monkeypatch.setattr(refine, "check_upscaler_source", lambda image_id: refine.check_upscaler_size(4097, 256))
     assert generate.main(["a fox", "--refine", str(source.id), "--upscaler", refine.ANIME6B, "--dry-run"]) == 2
     assert "4.19 MP" in capsys.readouterr().err and cli.loads == 0 and not cli.requests
@@ -210,7 +210,7 @@ def test_from_image_reads_a_pre_rename_record_and_its_mask(tmp_path, record_key,
 
     from PIL import Image, PngImagePlugin
 
-    _, mask = _mask_file(tmp_path)
+    _, mask = mask_file(tmp_path)
     digest = storage.mask_hash(mask)
     encoded = io.BytesIO()
     mask.save(encoded, format="PNG")
@@ -228,10 +228,10 @@ def test_from_image_reads_a_pre_rename_record_and_its_mask(tmp_path, record_key,
 
 
 def test_an_inpaint_from_the_terminal_stores_its_mask_and_records_it(cli, store, monkeypatch, tmp_path, capsys):
-    source = _to_refine(store)
-    path, image = _mask_file(tmp_path)
+    source = to_refine(store)
+    path, image = mask_file(tmp_path)
     digest = store.mask_hash(image)
-    monkeypatch.setattr(generate, "_project", _project_claiming(generate, ANIMAGINE))
+    monkeypatch.setattr(generate, "_project", project_claiming(generate, ANIMAGINE))
     argv = ["a red scarf", "--refine", str(source.id), "--mask", str(path), "--strength", "0.6", "--seed", "4"]
     # A dry run says what would run and keeps nothing.
     assert generate.main([*argv, "--dry-run"]) == 0
@@ -247,11 +247,11 @@ def test_an_inpaint_from_the_terminal_stores_its_mask_and_records_it(cli, store,
 
 
 def test_mask_flags_are_refused_where_they_cannot_run(cli, store, monkeypatch, tmp_path, capsys):
-    source = _to_refine(store)
-    path, _ = _mask_file(tmp_path)
-    black, _ = _mask_file(tmp_path, box=(0, 0, 0, 0), name="black.png")
-    wrong, _ = _mask_file(tmp_path, size=(256, 256), name="square.png")
-    monkeypatch.setattr(generate, "_project", _project_claiming(generate, ANIMAGINE))
+    source = to_refine(store)
+    path, _ = mask_file(tmp_path)
+    black, _ = mask_file(tmp_path, box=(0, 0, 0, 0), name="black.png")
+    wrong, _ = mask_file(tmp_path, size=(256, 256), name="square.png")
+    monkeypatch.setattr(generate, "_project", project_claiming(generate, ANIMAGINE))
     for argv in (
         ["a fox", "--mask", str(path), *SIZE],
         ["a fox", "--refine", str(source.id), "--mask", str(path), "--scale", "2"],
@@ -266,17 +266,17 @@ def test_mask_flags_are_refused_where_they_cannot_run(cli, store, monkeypatch, t
     assert generate.main(["a fox", "--refine", str(source.id), "--mask", str(wrong)]) == 2
     assert "is 256x256, but source image" in capsys.readouterr().err
     # And a checkpoint whose inpaint is not enabled, from its profile.
-    monkeypatch.setattr(generate, "_project", _project_claiming(generate, "black-forest-labs/FLUX.2-klein-4B"))
+    monkeypatch.setattr(generate, "_project", project_claiming(generate, "black-forest-labs/FLUX.2-klein-4B"))
     assert generate.main(["a fox", "--refine", str(source.id), "--mask", str(path)]) == 2
     assert "has no inpaint in this app" in capsys.readouterr().err
     assert cli.loads == 0 and cli.requests == []
 
 
 def test_from_image_reproduces_an_inpaint_over_its_mask(cli, store, monkeypatch, tmp_path, capsys):
-    source = _to_refine(store)
-    path, image = _mask_file(tmp_path)
+    source = to_refine(store)
+    path, image = mask_file(tmp_path)
     digest = store.mask_hash(image)
-    monkeypatch.setattr(generate, "_project", _project_claiming(generate, ANIMAGINE))
+    monkeypatch.setattr(generate, "_project", project_claiming(generate, ANIMAGINE))
     assert generate.main(["a red scarf", "--refine", str(source.id), "--mask", str(path), "--seed", "4", "-q"]) == 0
     made = capsys.readouterr().out.split("  seed ")[0]
     # The mask file lost since: the PNG's own copy is the same picture.
@@ -296,10 +296,10 @@ def test_an_inpaint_sweep_runs_the_cells_the_server_would(cli, store, monkeypatc
     from backend import grid
     from backend.schemas import GenerateRequest
 
-    source = _to_refine(store)
-    path, image = _mask_file(tmp_path)
+    source = to_refine(store)
+    path, image = mask_file(tmp_path)
     digest = store.mask_hash(image)
-    monkeypatch.setattr(generate, "_project", _project_claiming(generate, ANIMAGINE))
+    monkeypatch.setattr(generate, "_project", project_claiming(generate, ANIMAGINE))
     assert generate.main(["a red scarf", "--refine", str(source.id), "--mask", str(path), "--steps", "20",
                           "--seed", "3", "--grid-strength", "0.4,0.6", "-q"]) == 0
     # The server's expansion of the same request: one cell per strength,
@@ -313,10 +313,10 @@ def test_an_inpaint_sweep_runs_the_cells_the_server_would(cli, store, monkeypatc
 
 
 def test_a_cli_cell_whose_mask_went_fails_in_words(cli, store, monkeypatch, tmp_path, capsys):
-    source = _to_refine(store)
-    path, image = _mask_file(tmp_path)
+    source = to_refine(store)
+    path, image = mask_file(tmp_path)
     digest = store.mask_hash(image)
-    monkeypatch.setattr(generate, "_project", _project_claiming(generate, ANIMAGINE))
+    monkeypatch.setattr(generate, "_project", project_claiming(generate, ANIMAGINE))
     saved = store.save_image
 
     def save_then_lose_the_mask(*args, **kwargs):
@@ -338,8 +338,8 @@ def test_a_mask_file_with_alpha_or_16_bit_levels_is_read_as_painted(cli, store, 
     import numpy as np
     from PIL import Image
 
-    source = _to_refine(store)
-    monkeypatch.setattr(generate, "_project", _project_claiming(generate, ANIMAGINE))
+    source = to_refine(store)
+    monkeypatch.setattr(generate, "_project", project_claiming(generate, ANIMAGINE))
     # White strokes on a transparent layer whose hidden colour is white too,
     # as an editor exports them: only the stroke is masked.
     layer = Image.new("RGBA", (256, 384), (255, 255, 255, 0))
@@ -363,8 +363,8 @@ def test_a_mask_file_with_alpha_or_16_bit_levels_is_read_as_painted(cli, store, 
 def test_a_mask_in_a_mode_no_mask_is_in_is_refused_by_name(cli, store, monkeypatch, tmp_path, capsys):
     from PIL import Image
 
-    source = _to_refine(store)
-    monkeypatch.setattr(generate, "_project", _project_claiming(generate, ANIMAGINE))
+    source = to_refine(store)
+    monkeypatch.setattr(generate, "_project", project_claiming(generate, ANIMAGINE))
     Image.new("CMYK", (256, 384), (0, 0, 0, 255)).save(tmp_path / "print.tif")
     with pytest.raises(SystemExit) as raised:
         generate.main(["a fox", "--refine", str(source.id), "--mask", str(tmp_path / "print.tif")])
@@ -377,9 +377,9 @@ def test_a_mask_without_a_strength_starts_at_the_inpaint_classs_default(cli, sto
 
     from backend import model_selection, refine
 
-    source = _to_refine(store)
-    path, _ = _mask_file(tmp_path)
-    monkeypatch.setattr(generate, "_project", _project_claiming(generate, ANIMAGINE))
+    source = to_refine(store)
+    path, _ = mask_file(tmp_path)
+    monkeypatch.setattr(generate, "_project", project_claiming(generate, ANIMAGINE))
     monkeypatch.setattr(model_selection, "_selection", (None, 0))
     model_selection.select(ANIMAGINE)
     assert generate.main(["a red scarf", "--refine", str(source.id), "--mask", str(path), "-q"]) == 0
@@ -390,9 +390,9 @@ def test_a_mask_without_a_strength_starts_at_the_inpaint_classs_default(cli, sto
 def test_from_image_drops_a_source_this_gallery_holds_another_picture_under(
     cli, store, monkeypatch, tmp_path, capsys
 ):
-    source = _to_refine(store)
-    path, _ = _mask_file(tmp_path)
-    monkeypatch.setattr(generate, "_project", _project_claiming(generate, ANIMAGINE))
+    source = to_refine(store)
+    path, _ = mask_file(tmp_path)
+    monkeypatch.setattr(generate, "_project", project_claiming(generate, ANIMAGINE))
     assert generate.main(["a red scarf", "--refine", str(source.id), "--mask", str(path), "--strength", "0.6",
                           "--seed", "4", "-q"]) == 0
     made = capsys.readouterr().out.split("  seed ")[0]
@@ -418,8 +418,8 @@ def test_from_image_drops_a_source_this_gallery_holds_another_picture_under(
 def test_an_outpaint_from_the_terminal_builds_stores_and_records_its_mask(cli, store, monkeypatch, capsys):
     from backend.schemas import Outpaint
 
-    source = _to_refine(store)
-    monkeypatch.setattr(generate, "_project", _project_claiming(generate, ANIMAGINE))
+    source = to_refine(store)
+    monkeypatch.setattr(generate, "_project", project_claiming(generate, ANIMAGINE))
     argv = ["a wider view", "--refine", str(source.id), "--outpaint", "32,0,16,0", "--band", "16", "--seed", "4"]
     digest = store.outpaint_mask_hash(304, 384, Outpaint(left=32, right=16, band=16))
     # A dry run says what would run and stores nothing.
@@ -441,8 +441,8 @@ def test_an_outpaint_from_the_terminal_builds_stores_and_records_its_mask(cli, s
 
 
 def test_an_outpaint_preset_from_the_terminal(cli, store, monkeypatch, capsys):
-    source = _to_refine(store)
-    monkeypatch.setattr(generate, "_project", _project_claiming(generate, ANIMAGINE))
+    source = to_refine(store)
+    monkeypatch.setattr(generate, "_project", project_claiming(generate, ANIMAGINE))
     # 256 x 384 to 16:9: the width to ceil(384 * 16 / 9 / 16) * 16 = 688.
     assert generate.main(["a wider view", "--refine", str(source.id), "--outpaint", "16:9", "-q"]) == 0
     ran = cli.requests[-1]
@@ -456,9 +456,9 @@ def test_an_outpaint_preset_from_the_terminal(cli, store, monkeypatch, capsys):
 
 
 def test_outpaint_flags_are_refused_where_they_cannot_run(cli, store, monkeypatch, tmp_path, capsys):
-    source = _to_refine(store)
-    path, _ = _mask_file(tmp_path)
-    monkeypatch.setattr(generate, "_project", _project_claiming(generate, ANIMAGINE))
+    source = to_refine(store)
+    path, _ = mask_file(tmp_path)
+    monkeypatch.setattr(generate, "_project", project_claiming(generate, ANIMAGINE))
     refine = ["--refine", str(source.id)]
     for argv, words in (
         (["a fox", "--outpaint", "32,0,0,0", *SIZE], "--outpaint needs --refine"),
@@ -480,7 +480,7 @@ def test_outpaint_flags_are_refused_where_they_cannot_run(cli, store, monkeypatc
     assert generate.main(["a fox", *refine, "--outpaint", "32,0,32,0", "--band", "128"]) == 2
     assert "on the left and right sides leaves 0 px of" in capsys.readouterr().err
     # And a checkpoint whose inpaint is not enabled, in the outpaint's words.
-    monkeypatch.setattr(generate, "_project", _project_claiming(generate, "black-forest-labs/FLUX.2-klein-4B"))
+    monkeypatch.setattr(generate, "_project", project_claiming(generate, "black-forest-labs/FLUX.2-klein-4B"))
     assert generate.main(["a fox", *refine, "--outpaint", "32,0,0,0"]) == 2
     assert "which an outpaint runs through" in capsys.readouterr().err
     assert cli.loads == 0 and cli.requests == []
@@ -495,14 +495,14 @@ def test_an_off_grid_source_is_refused_by_name_before_any_request(cli, store, mo
         Image.new("RGB", (264, 264)), GenerateRequest(prompt="x", width=256, height=256),
         seed=1, duration_ms=1, model_id=store.settings.model_id,
     )
-    monkeypatch.setattr(generate, "_project", _project_claiming(generate, ANIMAGINE))
+    monkeypatch.setattr(generate, "_project", project_claiming(generate, ANIMAGINE))
     assert generate.main(["a fox", "--refine", str(source.id), "--outpaint", "16,0,0,0"]) == 2
     assert f"#{source.id} is 264 x 264, off the 16-px grid" in capsys.readouterr().err
 
 
 def test_from_image_reproduces_an_outpaint_by_its_spec(cli, store, monkeypatch, capsys):
-    source = _to_refine(store)
-    monkeypatch.setattr(generate, "_project", _project_claiming(generate, ANIMAGINE))
+    source = to_refine(store)
+    monkeypatch.setattr(generate, "_project", project_claiming(generate, ANIMAGINE))
     assert generate.main(["a wider view", "--refine", str(source.id), "--outpaint", "32,0,16,0", "--band", "16",
                           "--seed", "4", "-q"]) == 0
     made = capsys.readouterr().out.split("  seed ")[0]
@@ -522,8 +522,8 @@ def test_from_image_reproduces_an_outpaint_by_its_spec(cli, store, monkeypatch, 
 
 
 def test_from_image_of_an_outpaint_takes_a_band_of_its_own(cli, store, monkeypatch, capsys):
-    source = _to_refine(store)
-    monkeypatch.setattr(generate, "_project", _project_claiming(generate, ANIMAGINE))
+    source = to_refine(store)
+    monkeypatch.setattr(generate, "_project", project_claiming(generate, ANIMAGINE))
     assert generate.main(["a wider view", "--refine", str(source.id), "--outpaint", "32,0,16,0",
                           "--seed", "4", "-q"]) == 0
     made = capsys.readouterr().out.split("  seed ")[0]
@@ -541,22 +541,22 @@ def test_from_image_of_an_outpaint_takes_a_band_of_its_own(cli, store, monkeypat
 
 
 def test_from_image_refuses_a_mask_this_build_would_build_differently(cli, store, monkeypatch, capsys):
-    source = _to_refine(store)
-    monkeypatch.setattr(generate, "_project", _project_claiming(generate, ANIMAGINE))
+    source = to_refine(store)
+    monkeypatch.setattr(generate, "_project", project_claiming(generate, ANIMAGINE))
     assert generate.main(["a wider view", "--refine", str(source.id), "--outpaint", "32,0,16,0", "-q"]) == 0
     made = capsys.readouterr().out.split("  seed ")[0]
-    _rewrite_record(made, lambda meta: meta.update(mask="e" * 64))
+    rewrite_record(made, lambda meta: meta.update(mask="e" * 64))
     assert generate.main(["--from-image", made, "-q"]) == 2
     assert "builds an outpaint's mask differently" in capsys.readouterr().err
     # An unknown fill is refused by name.
-    _rewrite_record(made, lambda meta: meta.update(outpaint_fill="edge-box5-r8"))
+    rewrite_record(made, lambda meta: meta.update(outpaint_fill="edge-box5-r8"))
     assert generate.main(["--from-image", made, "-q"]) == 2
     assert "this build has no outpaint fill 'edge-box5-r8'" in capsys.readouterr().err
 
 
 def test_from_image_drops_an_outpaint_with_a_source_that_is_another_picture(cli, store, monkeypatch, capsys):
-    source = _to_refine(store)
-    monkeypatch.setattr(generate, "_project", _project_claiming(generate, ANIMAGINE))
+    source = to_refine(store)
+    monkeypatch.setattr(generate, "_project", project_claiming(generate, ANIMAGINE))
     assert generate.main(["a wider view", "--refine", str(source.id), "--outpaint", "32,0,16,0", "--seed", "4",
                           "-q"]) == 0
     made = capsys.readouterr().out.split("  seed ")[0]
@@ -575,9 +575,9 @@ def test_from_image_drops_an_outpaint_with_a_source_that_is_another_picture(cli,
 def test_a_cli_cell_whose_outpaint_mask_went_fails_in_words(cli, store, monkeypatch, capsys):
     from backend.schemas import Outpaint
 
-    source = _to_refine(store)
+    source = to_refine(store)
     digest = store.outpaint_mask_hash(304, 384, Outpaint(left=32, right=16))
-    monkeypatch.setattr(generate, "_project", _project_claiming(generate, ANIMAGINE))
+    monkeypatch.setattr(generate, "_project", project_claiming(generate, ANIMAGINE))
     saved = store.save_image
 
     def save_then_lose_the_mask(*args, **kwargs):

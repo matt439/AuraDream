@@ -54,7 +54,7 @@ NETAYUME = "duongve/NetaYume-Lumina-Image-2.0"
 NEWBIE = "NewBie-AI/NewBie-image-Exp0.1"
 
 
-def _all_guides() -> dict[str, dict]:
+def all_guides() -> dict[str, dict]:
     # Every guide constant, the two undistilled ones outside the catalogue too.
     return {name: getattr(guides, name) for name in dir(guides) if name.endswith("_GUIDE")}
 

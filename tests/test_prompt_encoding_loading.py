@@ -23,7 +23,7 @@ from tests.prompt_encoding_helpers import (  # noqa: F401  (fixtures by name)
     FAILURES,
     QWEN_ADDED,
     FakeTokenizer,
-    _kind,
+    error_kind,
     by,
     clip,
     fresh_cache,
@@ -86,14 +86,14 @@ def test_a_tokenizer_that_cannot_load_leaves_a_detail_not_an_exception(tokenizer
     assert [s.subfolder for s in tokenizers["loads"]].count("tokenizer_2") == 1
 
 
-@pytest.mark.parametrize("error", FAILURES, ids=_kind)
+@pytest.mark.parametrize("error", FAILURES, ids=error_kind)
 def test_any_error_a_load_raises_leaves_its_encoder_unchecked(tokenizers, error):
     tokenizers.update(tokenizer=clip(), tokenizer_2=error)
     reports, _, detail = pe.measure("black-forest-labs/FLUX.1-dev", "a cat", "blurry")
     assert [(r.name, r.field) for r in reports] == [
         ("CLIP-L", "prompt"), ("CLIP-L", "negative_prompt"),
     ]
-    assert detail.startswith(f"T5-XXL unchecked: {_kind(error)}")
+    assert detail.startswith(f"T5-XXL unchecked: {error_kind(error)}")
 
 
 def test_hub_errors_are_said_in_words(tokenizers):
@@ -115,7 +115,7 @@ def test_hub_errors_are_said_in_words(tokenizers):
 
 
 @pytest.mark.parametrize(
-    "error", [NotImplementedError("return_offset_mapping is not available"), *FAILURES], ids=_kind
+    "error", [NotImplementedError("return_offset_mapping is not available"), *FAILURES], ids=error_kind
 )
 def test_a_tokenizer_that_breaks_while_counting_is_unchecked_too(tokenizers, error):
     class Broken(FakeTokenizer):
@@ -124,7 +124,7 @@ def test_a_tokenizer_that_breaks_while_counting_is_unchecked_too(tokenizers, err
 
     tokenizers.update(tokenizer=Broken(max_length=2048, special=1))
     reports, _, detail = pe.measure("baidu/ERNIE-Image-Turbo", "a cat", None)
-    assert reports == [] and detail.startswith(f"Ministral-3B unchecked: {_kind(error)}")
+    assert reports == [] and detail.startswith(f"Ministral-3B unchecked: {error_kind(error)}")
 
     # A chat template that breaks is the same: Z-Image renders one per field.
     class Unrendered(FakeTokenizer):
@@ -133,7 +133,7 @@ def test_a_tokenizer_that_breaks_while_counting_is_unchecked_too(tokenizers, err
 
     tokenizers.update(tokenizer=Unrendered(added=QWEN_ADDED))
     reports, _, detail = pe.measure("Tongyi-MAI/Z-Image-Turbo", "a cat", None)
-    assert reports == [] and detail.startswith(f"Qwen3-4B unchecked: {_kind(error)}")
+    assert reports == [] and detail.startswith(f"Qwen3-4B unchecked: {error_kind(error)}")
 
 
 def test_a_failed_load_is_retried_and_a_good_one_is_kept_until_unload(tokenizers):

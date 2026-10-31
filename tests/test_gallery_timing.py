@@ -100,10 +100,10 @@ def test_only_the_latest_renders_count_and_a_tie_goes_to_the_newer(store):
 def test_a_reserved_gallery_is_refused_after_a_short_wait_not_a_sessions(store):
     # Maintenance (a bundle, a clear) holds the reservation for as long as it
     # runs; the picker's catalogue must not stall behind it for SESSION_WAIT.
-    from tests.bundle_helpers import _holding_child
+    from tests.bundle_helpers import holding_child
 
     _plant()
-    child = _holding_child(store.settings.db_path)
+    child = holding_child(store.settings.db_path)
     try:
         started = time.monotonic()
         with pytest.raises(gallery_lock.GalleryBusy):

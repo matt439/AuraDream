@@ -894,7 +894,7 @@ def test_gan_bundle_carries_the_choice_only_with_its_source(store, monkeypatch, 
     from pathlib import Path
 
     from backend import bundles
-    from tests.bundle_helpers import _destination
+    from tests.bundle_helpers import use_destination
 
     source, _ = _save_gan(store)
     record, _ = _save_gan(store, source.id, upscaler=refine.ANIME6B)
@@ -902,7 +902,7 @@ def test_gan_bundle_carries_the_choice_only_with_its_source(store, monkeypatch, 
         keep_gallery=True, ids=[source.id, record.id] if include_source else [record.id],
     )
     archive = Path(exported["path"])
-    target = _destination(store, monkeypatch, tmp_path)
+    target = use_destination(store, monkeypatch, tmp_path)
     _save_gan(store, prompt="occupy destination id")
     answer = bundles.import_bundle(archive)
     assert answer["unresolved_references"] == (0 if include_source else 1)

@@ -9,7 +9,7 @@ from pathlib import Path
 import pytest
 
 from backend import bundle_archive, bundles, storage
-from tests.bundle_helpers import _save, _export, _destination
+from tests.bundle_helpers import save_source, export_all, use_destination
 
 
 def _leftovers(store):
@@ -47,13 +47,13 @@ def _leftovers(store):
 def test_what_a_killed_bundle_operation_left_is_swept_once_settled(store, sweep, configured, monkeypatch, tmp_path):
     if configured:
         monkeypatch.setattr(store, "settings", replace(store.settings, bundles_dir=tmp_path / "archive-drive" / "saved"))
-    _save("source", 1)
+    save_source("source", 1)
     made, kept = _leftovers(store)
     assert store.summarise()["partial_files"] == len(made)
     if sweep == "startup":
         assert store.settle_partials() == {"recovered": 0, "discarded": len(made)}
     elif sweep == "export":
-        bundle = Path(_export()["path"])
+        bundle = Path(export_all()["path"])
     elif sweep == "import":
         bad = store.settings.db_path.parent / "broken.zip"
         bad.write_bytes(b"not a ZIP archive")
@@ -68,9 +68,9 @@ def test_what_a_killed_bundle_operation_left_is_swept_once_settled(store, sweep,
 
 
 def test_import_unpacks_on_the_images_volume_and_merges_beside_the_database(store, monkeypatch, tmp_path):
-    _save("source", 1)
-    bundle = Path(_export()["path"])
-    dest = _destination(store, monkeypatch, tmp_path / "elsewhere")
+    save_source("source", 1)
+    bundle = Path(export_all()["path"])
+    dest = use_destination(store, monkeypatch, tmp_path / "elsewhere")
     seen = {}
     real_verify = bundles._verify_archive
 
@@ -87,7 +87,7 @@ def test_import_unpacks_on_the_images_volume_and_merges_beside_the_database(stor
 
 
 def test_staging_moves_inside_an_images_directory_that_is_its_own_volume(store, monkeypatch):
-    _save("source", 1)
+    save_source("source", 1)
     outputs = store.settings.outputs_dir.resolve()
     real_stat = os.stat
 
@@ -146,7 +146,7 @@ def test_a_stale_image_partial_no_longer_blocks_every_bundle_operation(store, sw
     # A power cut mid-encode leaves a *.png.part with no row, and its
     # thumbnail's *.webp.part. Only `clear` swept them, so the bundle counts,
     # export and import were refused for good, restarts included.
-    _save("source", 1)
+    save_source("source", 1)
     outputs = store.settings.outputs_dir
     debris = [outputs / "20261001-000000-5-abc.png.part",
               outputs / "thumbnails" / "20261001-000000-5-abc.webp.part"]
@@ -158,7 +158,7 @@ def test_a_stale_image_partial_no_longer_blocks_every_bundle_operation(store, sw
     elif sweep == "startup":
         assert store.settle_partials() == {"recovered": 0, "discarded": 2}
     elif sweep == "export":
-        assert Path(_export()["path"]).is_file()
+        assert Path(export_all()["path"]).is_file()
     else:
         # Refused for what the file is, past the inventory that used to stop it.
         bad = store.settings.db_path.parent / "broken.zip"
@@ -175,7 +175,7 @@ def test_a_committed_images_interrupted_save_is_finished_not_discarded(store):
     # place. A thumbnail's partial may be cut short (`thumbnail_for` encodes
     # for tracked rows) and a placed one is never encoded again: it is
     # discarded, and the card falls back to the PNG.
-    record = _save("source", 1)
+    record = save_source("source", 1)
     png = store.settings.outputs_dir / record.filename
     thumb = store._thumb_path(png)
     pixels, small = png.read_bytes(), thumb.read_bytes()
@@ -197,7 +197,7 @@ def test_a_committed_images_interrupted_save_is_finished_not_discarded(store):
 
 
 def test_a_fresh_partial_names_its_folder_and_what_to_do(store):
-    _save("source", 1)
+    save_source("source", 1)
     fresh = store.settings.outputs_dir / "20261012-000000-7-abc.png.part"
     fresh.write_bytes(b"encoding right now")
     with pytest.raises(bundles.BundleError) as refused:
@@ -211,7 +211,7 @@ def test_a_fresh_partial_names_its_folder_and_what_to_do(store):
 def test_a_missing_image_is_named_by_its_id_and_the_way_out(store):
     # Its thumbnail outlives the PNG, so the card looks whole, and a filename
     # is no search key: the refusal names the id the gallery's `id:` finds.
-    live, binned = _save("source", 1), _save("source", 2)
+    live, binned = save_source("source", 1), save_source("source", 2)
     storage.bin_images([binned.id])
     (store.settings.outputs_dir / binned.filename).unlink()
     with pytest.raises(bundles.MissingImage) as refused:

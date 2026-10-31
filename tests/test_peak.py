@@ -16,7 +16,7 @@ from PIL import Image
 from backend import bundles, grid, storage
 from backend.schemas import GenerateRequest
 from tests.api_helpers import run_one
-from tests.bundle_helpers import _destination, _export, _metadata
+from tests.bundle_helpers import use_destination, export_all, png_metadata
 
 GIB = 1024**3
 PEAK = (int(3.89 * GIB), int(4.70 * GIB))
@@ -32,7 +32,7 @@ def _save(peak=None, seed=1, **kwargs):
 
 
 def _chunk(record):
-    return _metadata(storage.settings.outputs_dir / record.filename)
+    return png_metadata(storage.settings.outputs_dir / record.filename)
 
 
 def test_a_peak_rides_on_the_row_and_in_the_chunk(store):
@@ -98,13 +98,13 @@ def test_a_bundle_carries_the_peak_and_a_bad_one_is_dropped(store, monkeypatch, 
     odd = _save(None, seed=2)
     with sqlite3.connect(storage.settings.db_path) as conn:
         conn.execute("UPDATE images SET vram_peak_allocated = 'lots' WHERE id = ?", (odd.id,))
-    archive = _export()
-    dest = _destination(store, monkeypatch, tmp_path)
+    archive = export_all()
+    dest = use_destination(store, monkeypatch, tmp_path)
     assert bundles.import_bundle(Path(archive["path"]))["imported"] == 2
     rows = {r.filename: r for r in storage.list_images()[0]}
     assert (rows[measured.filename].vram_peak_allocated, rows[measured.filename].vram_peak_reserved) == PEAK
     assert rows[odd.filename].vram_peak_allocated is None
-    assert _metadata(dest.outputs_dir / measured.filename)["vram_peak_reserved"] == PEAK[1]
+    assert png_metadata(dest.outputs_dir / measured.filename)["vram_peak_reserved"] == PEAK[1]
     with sqlite3.connect(dest.db_path) as conn:
         kinds = {row[1]: row[2] for row in conn.execute("PRAGMA table_info(images)")}
     assert kinds["vram_peak_allocated"] == kinds["vram_peak_reserved"] == "INTEGER"

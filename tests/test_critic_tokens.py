@@ -13,9 +13,9 @@ from backend import critic, critic_context, critic_runtime, prompt_encoding
 from tests.critic_helpers import (
     KLEIN,
     Server,
-    _context,
-    _critique,
-    _words,
+    context_for,
+    critique_with,
+    count_words,
     prepared,
 )
 
@@ -152,7 +152,7 @@ def test_no_measured_text_that_fits_is_refused_unasked(
     prompt = text * repeats
     estimated = critic_context.estimate_tokens(prompt)
     context = dataclasses.replace(
-        _context(KLEIN, "a cat", ordered=ordered), prompt_tokens=estimated, input_tokens=estimated
+        context_for(KLEIN, "a cat", ordered=ordered), prompt_tokens=estimated, input_tokens=estimated
     )
     counted = dataclasses.replace(context, prompt_tokens=tokens, input_tokens=tokens)
     monkeypatch.setattr(critic_runtime, "CONTEXT", tokens + context.copies * tokens + critic_context.ANSWER_OVERHEAD)
@@ -178,7 +178,7 @@ def test_the_servers_count_admits_what_fits_and_refuses_the_rest(monkeypatch, pr
     copies = 3 if ordered else 2
     need = 3000 + copies * 1000 + critic_context.ANSWER_OVERHEAD
     monkeypatch.setattr(critic_runtime, "CONTEXT", need)
-    _critique(prepared, ordered=ordered)
+    critique_with(prepared, ordered=ordered)
     assert server.calls[-1][1] == "/v1/chat/completions"
     budget = critic_runtime.REASONING_BUDGET + copies * 1000 + critic_context.ANSWER_OVERHEAD
     assert server.calls[-1][3]["max_tokens"] == min(need, max(critic_context.MIN_TOKENS, budget))
@@ -186,7 +186,7 @@ def test_the_servers_count_admits_what_fits_and_refuses_the_rest(monkeypatch, pr
     monkeypatch.setattr(critic_runtime, "CONTEXT", need - 1)
     server.calls.clear()
     with pytest.raises(critic_runtime.CriticError, match="too long"):
-        _critique(prepared, ordered=ordered)
+        critique_with(prepared, ordered=ordered)
     # Started, counted and stopped; never asked.
     assert [path for _, path, _, _ in server.calls][-1] == "/tokenize"
     assert server.process.terminated and prepared._process is None
@@ -198,15 +198,15 @@ def test_a_long_prompt_is_given_room_for_its_answer(monkeypatch, prepared):
     # tokenizer, which the answer repeats three times after up to
     # REASONING_BUDGET of thought.
     prompt = (MEASURED[0][0] * 30)[:4000]
-    server.count = lambda text: _words(text, {prompt: 848})
-    _critique(prepared, prompt=prompt)
+    server.count = lambda text: count_words(text, {prompt: 848})
+    critique_with(prepared, prompt=prompt)
     budget = server.calls[-1][3]["max_tokens"]
     assert budget == critic_runtime.REASONING_BUDGET + 3 * 848 + critic_context.ANSWER_OVERHEAD
     # Unordered, the answer has no reordered copy, and a short prompt is
     # given the measured floor.
-    _critique(prepared, prompt=prompt, ordered=False)
+    critique_with(prepared, prompt=prompt, ordered=False)
     assert server.calls[-1][3]["max_tokens"] == budget - 848
-    _critique(prepared, prompt="a cat")
+    critique_with(prepared, prompt="a cat")
     assert server.calls[-1][3]["max_tokens"] == critic_context.MIN_TOKENS
 
 
@@ -215,7 +215,7 @@ def test_a_server_that_cannot_count_is_sized_by_the_estimate(monkeypatch, prepar
     server.counts = False
     prompt = (MEASURED[0][0] * 30)[:4000]
     with caplog.at_level(logging.WARNING, logger=critic.log.name):
-        result = _critique(prepared, prompt=prompt)
+        result = critique_with(prepared, prompt=prompt)
     assert result.issues and server.calls[-1][1] == "/v1/chat/completions"
     # The estimate is long on English prose, so the answer keeps its room.
     budget = server.calls[-1][3]["max_tokens"]
@@ -233,10 +233,10 @@ def test_a_prompt_whose_answer_cannot_fit_is_refused_before_a_server_starts(
     # margin - so no server is started to count it.
     chinese = (MEASURED[2][0] * 100)[:4000]
     with pytest.raises(critic_runtime.CriticError, match="too long"):
-        _critique(prepared, "baidu/ERNIE-Image-Turbo", chinese, negative=chinese, ordered=False)
+        critique_with(prepared, "baidu/ERNIE-Image-Turbo", chinese, negative=chinese, ordered=False)
     assert server.commands == []
     # A shorter one is asked.
-    _critique(prepared, "baidu/ERNIE-Image-Turbo", chinese[:1500], ordered=False)
+    critique_with(prepared, "baidu/ERNIE-Image-Turbo", chinese[:1500], ordered=False)
     assert len(server.commands) == 1 and server.calls[-1][1] == "/v1/chat/completions"
 
 
@@ -248,9 +248,9 @@ def test_a_greek_prompt_past_the_window_is_refused_before_it_is_asked(monkeypatc
     # and answered 502 then. Within the estimate's margin, a server starts;
     # its own count refuses the question before it is sent.
     greek = (MEASURED[6][0] * 20)[:2500]
-    server.count = lambda text: _words(text, {greek: 2189})
+    server.count = lambda text: count_words(text, {greek: 2189})
     with pytest.raises(critic_runtime.CriticError, match="too long"):
-        _critique(prepared, "black-forest-labs/FLUX.1-Krea-dev", greek, ordered=False)
+        critique_with(prepared, "black-forest-labs/FLUX.1-Krea-dev", greek, ordered=False)
     assert len(server.commands) == 1
     assert not any(path == "/v1/chat/completions" for _, path, _, _ in server.calls)
     assert server.process.terminated and prepared._process is None

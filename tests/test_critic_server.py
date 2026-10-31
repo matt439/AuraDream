@@ -13,10 +13,10 @@ from tests.critic_helpers import (
     FakeProcess,
     PROMPT,
     Server,
-    _configure,
-    _critique,
-    _flag,
-    _link_directory,
+    configure_critic,
+    critique_with,
+    flag_value,
+    link_directory,
     prepared,
 )
 
@@ -27,16 +27,16 @@ def test_server_command_binds_loopback_and_keeps_the_key_off_it(tmp_path, monkey
     # Absolute: the server starts in its own directory, where a relative
     # model path would name another file.
     assert command[0] == str((tmp_path / "bin" / "llama-server.exe").resolve())
-    assert _flag(command, "-m") == str((tmp_path / "m.gguf").resolve())
-    assert _flag(command, "--host") == "127.0.0.1"
-    assert _flag(command, "--port") == "5123"
+    assert flag_value(command, "-m") == str((tmp_path / "m.gguf").resolve())
+    assert flag_value(command, "--host") == "127.0.0.1"
+    assert flag_value(command, "--port") == "5123"
     # Any local user can read a command line (/proc/<pid>/cmdline under WSL);
     # the key goes in the server's environment instead.
     assert "--api-key" not in command
-    assert _flag(command, "-c") == "8192"
-    assert _flag(command, "-np") == "1"
-    assert _flag(command, "--fit") == "on"
-    assert _flag(command, "--reasoning-budget") == str(critic_runtime.REASONING_BUDGET)
+    assert flag_value(command, "-c") == "8192"
+    assert flag_value(command, "-np") == "1"
+    assert flag_value(command, "--fit") == "on"
+    assert flag_value(command, "--reasoning-budget") == str(critic_runtime.REASONING_BUDGET)
     for flag in ("--no-ui", "--jinja", "--offline"):
         assert flag in command
 
@@ -78,7 +78,7 @@ def test_configured_paths_are_absolute(tmp_path, monkeypatch):
     blobs = tmp_path / "blobs"
     blobs.mkdir()
     (blobs / "Qwen3-4B-Q8_0.gguf").write_bytes(b"gguf")
-    _link_directory(tmp_path / "snapshot", blobs)
+    link_directory(tmp_path / "snapshot", blobs)
     given = tmp_path / "snapshot" / "Qwen3-4B-Q8_0.gguf"
     assert given.resolve() != given
     monkeypatch.setenv("AURADREAM_CRITIC_MODEL", str(given))
@@ -96,13 +96,13 @@ def test_a_linked_model_is_labelled_by_the_name_it_was_given(tmp_path, monkeypat
     except OSError:
         pytest.skip("this user can make no file symlink")
     monkeypatch.setenv("AURADREAM_CRITIC_MODEL", str(given))
-    _configure(monkeypatch, critic_model=config._env_path("AURADREAM_CRITIC_MODEL"))
+    configure_critic(monkeypatch, critic_model=config._env_path("AURADREAM_CRITIC_MODEL"))
     assert critic.prompt_critic._label(critic.settings.critic_model) == "Qwen3-4B-Q8_0"
 
 
 def test_a_critique_asks_a_keyed_server_and_stops_it(monkeypatch, prepared):
     server = Server(monkeypatch)
-    result = _critique(prepared)
+    result = critique_with(prepared)
 
     key = server.keys[0]
     assert len(key) >= 32 and key not in server.commands[0]
@@ -140,7 +140,7 @@ def test_a_critique_asks_a_keyed_server_and_stops_it(monkeypatch, prepared):
     assert result.issues[0].cite_id == "G3" and result.issues[0].source == "guide"
 
     # A fresh key and a fresh server every time.
-    _critique(prepared)
+    critique_with(prepared)
     assert server.keys[1] != key
 
 
@@ -148,14 +148,14 @@ def test_the_server_is_stopped_when_the_request_fails(monkeypatch, prepared):
     server = Server(monkeypatch)
     server.post_error = TimeoutError("timed out")
     with pytest.raises(critic_runtime.CriticError, match="did not answer"):
-        _critique(prepared)
+        critique_with(prepared)
     assert server.process.terminated and prepared._process is None
 
 
 def test_an_early_exit_reports_the_server_output(monkeypatch, prepared):
     Server(monkeypatch, exits=1, output=b"load_model: failed\nerror: out of memory\n")
     with pytest.raises(critic_runtime.CriticError, match="code 1.*out of memory"):
-        _critique(prepared)
+        critique_with(prepared)
 
 
 def test_a_server_that_never_gets_healthy_is_stopped(monkeypatch, prepared):
@@ -163,7 +163,7 @@ def test_a_server_that_never_gets_healthy_is_stopped(monkeypatch, prepared):
     server.health = 503
     monkeypatch.setattr(critic_server, "HEALTH_TIMEOUT", 0.0)
     with pytest.raises(critic_runtime.CriticError, match="not ready"):
-        _critique(prepared)
+        critique_with(prepared)
     assert server.process.terminated
     assert all(path == "/health" for _, path, _, _ in server.calls)
 
@@ -172,15 +172,15 @@ def test_a_server_answering_without_its_key_is_not_asked(monkeypatch, prepared):
     server = Server(monkeypatch)
     server.open_without_key = True
     with pytest.raises(critic_runtime.CriticError, match="without its API key"):
-        _critique(prepared)
+        critique_with(prepared)
     assert server.process.terminated
     assert not any(path == "/v1/chat/completions" for _, path, _, _ in server.calls)
 
 
 def test_critique_needs_prepare(monkeypatch):
-    _configure(monkeypatch, critic=True)
+    configure_critic(monkeypatch, critic=True)
     with pytest.raises(critic_runtime.CriticUnavailable, match="not prepared"):
-        _critique(critic.PromptCritic())
+        critique_with(critic.PromptCritic())
 
 
 def test_unload_stops_a_running_server():
@@ -205,7 +205,7 @@ def test_an_answer_cut_off_by_the_token_limit_says_so(monkeypatch, prepared):
 
     monkeypatch.setattr(critic_server, "_request", truncated)
     with pytest.raises(critic_runtime.CriticError, match="ran out of tokens.*shorter prompt"):
-        _critique(prepared)
+        critique_with(prepared)
     assert server.process.terminated
 
 
@@ -219,7 +219,7 @@ def test_a_server_that_outlasts_terminate_is_killed_and_waited_for():
 def test_a_server_that_survives_its_kill_is_reported_and_forgotten(monkeypatch, prepared):
     server = Server(monkeypatch, stubborn=2)
     with pytest.raises(critic_runtime.CriticError, match="had not exited .* after it was killed"):
-        _critique(prepared)
+        critique_with(prepared)
     assert server.process.events == ["terminate", "wait", "kill", "wait"]
     # The card may still be taken, which the error says; but the critic does
     # not keep the process as its own to stop, and the log goes regardless.
@@ -247,7 +247,7 @@ def test_a_log_that_cannot_be_removed_does_not_cost_the_answer(monkeypatch, prep
     attempts: list[str] = []
     _held_log(monkeypatch, attempts)
     with caplog.at_level(logging.WARNING, logger=critic_server.log.name):
-        result = _critique(prepared)
+        result = critique_with(prepared)
     monkeypatch.undo()
     assert result.issues[0].cite_id == "G3" and prepared._process is None
     assert "could not remove llama-server's log" in caplog.text and len(attempts) == 5
@@ -261,7 +261,7 @@ def test_a_log_held_a_moment_is_removed_once_it_is_free(monkeypatch, prepared, c
     attempts: list[str] = []
     _held_log(monkeypatch, attempts, free_after=2)
     with caplog.at_level(logging.WARNING, logger=critic_server.log.name):
-        _critique(prepared)
+        critique_with(prepared)
     assert len(attempts) == 3 and not Path(server.logs[0]).exists()
     assert "could not remove" not in caplog.text
 
@@ -270,7 +270,7 @@ def test_a_server_that_cannot_be_started_is_a_critic_error(prepared):
     # `prepared`'s server is a one-byte file, which no platform will run:
     # WinError 216 on Windows, a permission error elsewhere.
     with pytest.raises(critic_runtime.CriticError, match="could not be started") as caught:
-        _critique(prepared)
+        critique_with(prepared)
     assert f"AURADREAM_CRITIC_SERVER={critic.settings.critic_server}" in str(caught.value)
     assert prepared._process is None
 
@@ -293,7 +293,7 @@ def test_a_missing_library_names_the_package_that_installs_it(
     with pytest.raises(
         critic_runtime.CriticError, match=rf"{re.escape(library)} is missing.*sudo apt install {package}`"
     ):
-        _critique(prepared)
+        critique_with(prepared)
 
 
 def test_a_missing_library_without_a_known_package_is_named(monkeypatch, prepared):
@@ -306,7 +306,7 @@ def test_a_missing_library_without_a_known_package_is_named(monkeypatch, prepare
         ),
     )
     with pytest.raises(critic_runtime.CriticError, match=r"libfoo\.so\.2 is missing: .*No such") as caught:
-        _critique(prepared)
+        critique_with(prepared)
     assert "apt" not in str(caught.value)
 
 
@@ -314,7 +314,7 @@ def test_a_port_another_process_listens_on_is_not_sent_the_key(monkeypatch, prep
     server = Server(monkeypatch)
     server.owned = False
     with pytest.raises(critic_runtime.CriticError, match="not the llama-server this app started"):
-        _critique(prepared)
+        critique_with(prepared)
     assert not any(path == "/v1/chat/completions" for _, path, _, _ in server.calls)
     assert server.process.terminated and prepared._process is None
 
@@ -322,5 +322,5 @@ def test_a_port_another_process_listens_on_is_not_sent_the_key(monkeypatch, prep
 def test_where_the_listener_cannot_be_seen_the_key_probe_is_the_guard(monkeypatch, prepared):
     server = Server(monkeypatch)
     server.owned = None
-    assert _critique(prepared).issues
+    assert critique_with(prepared).issues
     assert server.calls[-1][1] == "/v1/chat/completions"

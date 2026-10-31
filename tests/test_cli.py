@@ -18,8 +18,8 @@ from backend import config, generate, generate_remote, storage
 
 from tests.cli_helpers import (  # noqa: F401  (fixtures by name)
     SIZE,
-    _project_claiming,
-    _to_refine,
+    project_claiming,
+    to_refine,
     cli,
     isolated_execution_environment,
 )
@@ -99,7 +99,7 @@ def test_size_axis_cli_crosses_pairs_and_resumes_per_canvas(cli, store, capsys):
 
 
 def test_crop_anchor_cli_carries_from_png_and_explicit_choice_wins(cli, store):
-    source = _to_refine(store)
+    source = to_refine(store)
     flags = ["a fox", *SIZE, "--refine", str(source.id), "--strength", "0.5", "--crop-anchor", "top", "--seed", "3", "-q"]
     assert generate.main(flags) == 0
     made = store.list_images()[0][0]
@@ -642,7 +642,7 @@ def test_a_reference_is_refused_before_the_load(cli, store, capsys):
 
 def test_a_reference_that_is_not_in_the_gallery_is_named(cli, store, monkeypatch, capsys):
     monkeypatch.setattr(
-        generate, "_project", _project_claiming(generate, "black-forest-labs/FLUX.2-klein-4B")
+        generate, "_project", project_claiming(generate, "black-forest-labs/FLUX.2-klein-4B")
     )
     code = generate.main(["a fox", "--reference", "4242", *SIZE])
     assert code == 2 and cli.loads == 0
@@ -687,7 +687,7 @@ def test_from_image_carries_the_conditioning_it_recorded(cli, store, monkeypatch
     source = keep()  # the image the second one was conditioned on
     record = keep(reference=[source.id], lora="style.safetensors", lora_scale=0.4)
     monkeypatch.setattr(
-        generate, "_project", _project_claiming(generate, "black-forest-labs/FLUX.2-klein-4B")
+        generate, "_project", project_claiming(generate, "black-forest-labs/FLUX.2-klein-4B")
     )
     path = str(store.settings.outputs_dir / record.filename)
     # A dry run, so nothing loads: what is being checked is that the flags the

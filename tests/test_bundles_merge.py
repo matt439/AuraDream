@@ -13,17 +13,17 @@ from zipfile import ZipFile
 import pytest
 
 from backend import bundle_archive, bundle_images, bundles
-from tests.bundle_helpers import _save, _export, _destination, _snapshot, _locked_database
+from tests.bundle_helpers import save_source, export_all, use_destination, bundle_snapshot, locked_database
 
 
 @pytest.mark.parametrize("route", ["move", "copy"])
 def test_import_publish_failure_rolls_back_rows_and_files_already_added(store, monkeypatch, tmp_path, route):
-    _save("first", 1)
-    _save("second", 2)
-    archive = _export()
-    dest = _destination(store, monkeypatch, tmp_path)
-    _save("existing", 99)
-    snapshot = _snapshot(store)
+    save_source("first", 1)
+    save_source("second", 2)
+    archive = export_all()
+    dest = use_destination(store, monkeypatch, tmp_path)
+    save_source("existing", 99)
+    snapshot = bundle_snapshot(store)
     published = 0
 
     if route == "move":
@@ -60,16 +60,16 @@ def test_import_publish_failure_rolls_back_rows_and_files_already_added(store, m
     with pytest.raises((OSError, bundles.BundleError), match="disk full"):
         bundles.import_bundle(Path(archive["path"]))
     assert published == 2
-    assert _snapshot(store) == snapshot
+    assert bundle_snapshot(store) == snapshot
 
 
 def test_a_database_replacement_refused_after_every_file_is_installed_rolls_them_back(store, monkeypatch, tmp_path):
-    _save("first", 1)
-    _save("second", 2)
-    archive = _export()
-    dest = _destination(store, monkeypatch, tmp_path)
-    _save("existing", 99)
-    snapshot = _snapshot(store)
+    save_source("first", 1)
+    save_source("second", 2)
+    archive = export_all()
+    dest = use_destination(store, monkeypatch, tmp_path)
+    save_source("existing", 99)
+    snapshot = bundle_snapshot(store)
     installed = []
     real_install = bundles._install
 
@@ -78,21 +78,21 @@ def test_a_database_replacement_refused_after_every_file_is_installed_rolls_them
         installed.append(target)
 
     monkeypatch.setattr(bundles, "_install", counted)
-    monkeypatch.setattr(bundles, "_replace_database", _locked_database)
+    monkeypatch.setattr(bundles, "_replace_database", locked_database)
     with pytest.raises(sqlite3.OperationalError, match="locked"):
         bundles.import_bundle(Path(archive["path"]))
     assert any(target.suffix == ".png" for target in installed)
     assert not any(target.exists() for target in installed)
-    assert _snapshot(store) == snapshot
+    assert bundle_snapshot(store) == snapshot
     assert sorted(p.name for p in dest.outputs_dir.glob("*.png")) == sorted(
         name for name in snapshot[1] if name.endswith(".png") and "/" not in name)
 
 
 @pytest.mark.parametrize("links", [True, False])
 def test_a_copy_across_volumes_takes_its_final_name_only_once_complete(store, monkeypatch, tmp_path, links):
-    row = _save("first", 1)
-    archive = _export()
-    dest = _destination(store, monkeypatch, tmp_path)
+    row = save_source("first", 1)
+    archive = export_all()
+    dest = use_destination(store, monkeypatch, tmp_path)
     real_rename, real_link = bundles.os.rename, getattr(bundles.os, "link", None)
 
     def cross_device(source, target):
@@ -123,33 +123,33 @@ def test_a_copy_across_volumes_takes_its_final_name_only_once_complete(store, mo
 
 
 def test_invalid_zip_does_not_mutate_the_destination(store, tmp_path):
-    _save("existing")
-    snapshot = _snapshot(store)
+    save_source("existing")
+    snapshot = bundle_snapshot(store)
     bundle = tmp_path / "broken.zip"
     bundle.write_bytes(b"not a ZIP archive")
     with pytest.raises(bundles.BundleError):
         bundles.import_bundle(bundle)
-    assert _snapshot(store) == snapshot
+    assert bundle_snapshot(store) == snapshot
 
 
 def test_filename_conflict_refuses_the_whole_merge_before_adding_any_rows(store, monkeypatch, tmp_path):
-    _save("would import first", 1)
-    conflicting = _save("would conflict last", 2)
-    archive = _export()
-    _destination(store, monkeypatch, tmp_path)
-    _save("existing", 9)
+    save_source("would import first", 1)
+    conflicting = save_source("would conflict last", 2)
+    archive = export_all()
+    use_destination(store, monkeypatch, tmp_path)
+    save_source("existing", 9)
     conflict_path = store.settings.outputs_dir / conflicting.filename
     conflict_path.write_bytes(b"unrelated local file")
-    snapshot = _snapshot(store)
+    snapshot = bundle_snapshot(store)
     with pytest.raises(bundles.BundleError):
         bundles.import_bundle(Path(archive["path"]))
-    assert _snapshot(store) == snapshot
+    assert bundle_snapshot(store) == snapshot
 
 
 @pytest.mark.parametrize("damage", ["checksum", "database", "traversal", "backslash", "duplicate", "case"])
 def test_corrupt_or_unsafe_bundle_is_rejected_before_destination_changes(store, monkeypatch, tmp_path, damage):
-    row = _save()
-    archive = _export()
+    row = save_source()
+    archive = export_all()
     with ZipFile(archive["path"]) as source:
         entries = {name: source.read(name) for name in source.namelist()}
     manifest = json.loads(entries["manifest.json"])
@@ -182,31 +182,31 @@ def test_corrupt_or_unsafe_bundle_is_rejected_before_destination_changes(store, 
             with warnings.catch_warnings():
                 warnings.simplefilter("ignore", UserWarning)
                 target.writestr(duplicate, entries[duplicate])
-    _destination(store, monkeypatch, tmp_path)
-    _save("existing", 99)
-    snapshot = _snapshot(store)
+    use_destination(store, monkeypatch, tmp_path)
+    save_source("existing", 99)
+    snapshot = bundle_snapshot(store)
     with pytest.raises(bundles.BundleError):
         bundles.import_bundle(damaged)
-    assert _snapshot(store) == snapshot
+    assert bundle_snapshot(store) == snapshot
     assert not (tmp_path / "outside.png").exists()
 
 
 def test_an_oversized_tracked_image_is_refused_before_it_is_read(store, monkeypatch, tmp_path):
-    _save("source", 1)
-    bundle = Path(_export()["path"])
-    _destination(store, monkeypatch, tmp_path)
-    snapshot = _snapshot(store)
+    save_source("source", 1)
+    bundle = Path(export_all()["path"])
+    use_destination(store, monkeypatch, tmp_path)
+    snapshot = bundle_snapshot(store)
     monkeypatch.setattr(bundle_archive, "_MAX_IMAGE_BYTES", 1024)
     with pytest.raises(bundles.BundleError, match="too large to be a gallery image"):
         bundles.import_bundle(bundle)
-    assert _snapshot(store) == snapshot
+    assert bundle_snapshot(store) == snapshot
 
 
 def test_a_member_padded_past_its_deflate_stream_is_refused_before_it_is_read(store, monkeypatch, tmp_path):
     # A small file_size passes every size cap, but read() would fetch the
     # whole compress_size at once; the CRC and SHA-256 still match.
-    row = _save()
-    archive = _export()
+    row = save_source()
+    archive = export_all()
     with ZipFile(archive["path"]) as source:
         entries = {name: source.read(name) for name in source.namelist()}
     image_name = "images/" + row.filename
@@ -235,20 +235,20 @@ def test_a_member_padded_past_its_deflate_stream_is_refused_before_it_is_read(st
         info = check.getinfo(image_name)
         assert info.compress_size > 256 * 1024 > info.file_size
         assert check.read(image_name) == entries[image_name]  # zipfile alone accepts it
-    _destination(store, monkeypatch, tmp_path)
-    snapshot = _snapshot(store)
+    use_destination(store, monkeypatch, tmp_path)
+    snapshot = bundle_snapshot(store)
     with pytest.raises(bundles.BundleError, match="stored larger than its contents"):
         bundles.import_bundle(padded)
-    assert _snapshot(store) == snapshot
+    assert bundle_snapshot(store) == snapshot
 
 
 def test_a_declined_member_whose_destination_vanished_refuses_the_import(store, monkeypatch, tmp_path):
-    row = _save("source", 1)
+    row = save_source("source", 1)
     thumb = Path(row.thumb_url.removeprefix("/outputs/"))
-    bundle = Path(_export()["path"])
+    bundle = Path(export_all()["path"])
     with ZipFile(bundle) as archive:
         thumb_bytes = archive.read("images/" + thumb.as_posix())
-    dest = _destination(store, monkeypatch, tmp_path)
+    dest = use_destination(store, monkeypatch, tmp_path)
     # A leftover copy of the new image's thumbnail: identical, so kept in place.
     left = dest.outputs_dir.joinpath(*thumb.parts)
     left.parent.mkdir(parents=True, exist_ok=True)
@@ -262,7 +262,7 @@ def test_a_declined_member_whose_destination_vanished_refuses_the_import(store, 
     monkeypatch.setattr(bundles, "_verify_archive", vanish)
     with pytest.raises(bundles.BundleError, match="gallery changed during import"):
         bundles.import_bundle(bundle)
-    assert _snapshot(store) == ([], {})  # nothing installed, no row added
+    assert bundle_snapshot(store) == ([], {})  # nothing installed, no row added
     monkeypatch.setattr(bundles, "_verify_archive", real_verify)
     left.write_bytes(thumb_bytes)
     assert bundles.import_bundle(bundle)["imported"] == 1
@@ -271,11 +271,11 @@ def test_a_declined_member_whose_destination_vanished_refuses_the_import(store, 
 
 def test_a_failed_metadata_rewrite_refuses_the_whole_merge(store, monkeypatch, tmp_path):
     for seed in range(1, 7):
-        _save(f"image {seed}", seed)
-    bundle = Path(_export()["path"])
-    _destination(store, monkeypatch, tmp_path)
-    _save("existing", 99)
-    snapshot = _snapshot(store)
+        save_source(f"image {seed}", seed)
+    bundle = Path(export_all()["path"])
+    use_destination(store, monkeypatch, tmp_path)
+    save_source("existing", 99)
+    snapshot = bundle_snapshot(store)
     real = bundle_images._rewrite_metadata
     victim = sorted(r for r in ZipFile(bundle).namelist() if r.count("/") == 1 and r.endswith(".png"))[3]
 
@@ -286,12 +286,12 @@ def test_a_failed_metadata_rewrite_refuses_the_whole_merge(store, monkeypatch, t
     monkeypatch.setattr(bundle_images, "_rewrite_metadata", rewrite)
     with pytest.raises(bundles.BundleError, match="invalid metadata for"):
         bundles.import_bundle(bundle)
-    assert _snapshot(store) == snapshot
+    assert bundle_snapshot(store) == snapshot
 
 
 def test_a_bundle_from_before_the_bin_imports_its_images_live(store, monkeypatch, tmp_path):
-    row = _save("source", 1)
-    bundle = Path(_export()["path"])
+    row = save_source("source", 1)
+    bundle = Path(export_all()["path"])
     with ZipFile(bundle) as archive:
         members = {info.filename: archive.read(info) for info in archive.infolist()}
     database = tmp_path / "bundle.sqlite3"
@@ -309,7 +309,7 @@ def test_a_bundle_from_before_the_bin_imports_its_images_live(store, monkeypatch
     with ZipFile(older, "w") as archive:
         for name, data in members.items():
             archive.writestr(name, data)
-    _destination(store, monkeypatch, tmp_path)
+    use_destination(store, monkeypatch, tmp_path)
     imported = bundles.import_bundle(older)
     assert (imported["imported"], imported["binned"]) == (1, 0)
     (record,) = store.list_images()[0]
@@ -318,8 +318,8 @@ def test_a_bundle_from_before_the_bin_imports_its_images_live(store, monkeypatch
 
 @pytest.mark.parametrize("name", ["local-diffusion-gallery", "auradream-gallery"])
 def test_a_bundle_with_the_old_or_new_format_id_imports(store, monkeypatch, tmp_path, name):
-    row = _save("source", 1)
-    bundle = Path(_export()["path"])
+    row = save_source("source", 1)
+    bundle = Path(export_all()["path"])
     with ZipFile(bundle) as archive:
         members = {info.filename: archive.read(info) for info in archive.infolist()}
     manifest = json.loads(members["manifest.json"])
@@ -330,14 +330,14 @@ def test_a_bundle_with_the_old_or_new_format_id_imports(store, monkeypatch, tmp_
     with ZipFile(renamed, "w") as archive:
         for member, data in members.items():
             archive.writestr(member, data)
-    _destination(store, monkeypatch, tmp_path)
+    use_destination(store, monkeypatch, tmp_path)
     assert bundles.import_bundle(renamed)["imported"] == 1
     assert [record.filename for record in store.list_images()[0]] == [row.filename]
 
 
 def test_a_bundle_with_another_format_id_is_refused(store, monkeypatch, tmp_path):
-    _save("source", 1)
-    bundle = Path(_export()["path"])
+    save_source("source", 1)
+    bundle = Path(export_all()["path"])
     with ZipFile(bundle) as archive:
         members = {info.filename: archive.read(info) for info in archive.infolist()}
     manifest = json.loads(members["manifest.json"])
@@ -347,8 +347,8 @@ def test_a_bundle_with_another_format_id_is_refused(store, monkeypatch, tmp_path
     with ZipFile(other, "w") as archive:
         for member, data in members.items():
             archive.writestr(member, data)
-    _destination(store, monkeypatch, tmp_path)
-    snapshot = _snapshot(store)
+    use_destination(store, monkeypatch, tmp_path)
+    snapshot = bundle_snapshot(store)
     with pytest.raises(bundles.BundleError, match="not a supported"):
         bundles.import_bundle(other)
-    assert _snapshot(store) == snapshot
+    assert bundle_snapshot(store) == snapshot

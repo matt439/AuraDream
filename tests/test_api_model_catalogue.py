@@ -106,14 +106,14 @@ def test_a_reserved_gallery_leaves_the_timing_out_without_stalling_the_catalogue
     # holds it: the catalogue answers at once, without the line.
     import time
 
-    from tests.bundle_helpers import _holding_child
+    from tests.bundle_helpers import holding_child
 
     status = client.get("/api/status").json()
     store.save_image(
         Image.new("RGB", (256, 256)), GenerateRequest(**PAYLOAD), seed=1,
         duration_ms=4_000, model_id=status["model_id"], quantization=status["quantization"],
     )
-    child = _holding_child(store.settings.db_path)
+    child = holding_child(store.settings.db_path)
     try:
         started = time.monotonic()
         reply = client.get("/api/models")

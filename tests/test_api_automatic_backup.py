@@ -18,7 +18,7 @@ from backend.jobs import JobManager
 from backend.schemas import GenerateRequest
 from tests.api_helpers import ORIGIN
 from tests.backup_helpers import save_v1_policy
-from tests.bundle_helpers import _destination, _save, _snapshot
+from tests.bundle_helpers import use_destination, save_source, bundle_snapshot
 
 PREFIX = api_backup.PREFIX
 
@@ -86,8 +86,8 @@ def test_legacy_settings_never_export_or_rewrite_on_app_start(fake, store, enabl
 
 
 def test_explicit_save_arms_next_start_only_and_disable_preserves_scope(client, store):
-    _save("synthetic explicit configuration")
-    before = _snapshot(store)
+    save_source("synthetic explicit configuration")
+    before = bundle_snapshot(store)
     state = client.get(PREFIX).json()
     for change in ({"allow_unencrypted": False}, {"minimum_age_hours": None}, {"keep_last": None}, {"enabled": 1},
                    {"protection": "encrypted"}, {"minimum_age_hours": True}):
@@ -99,7 +99,7 @@ def test_explicit_save_arms_next_start_only_and_disable_preserves_scope(client, 
     saved = response.json()
     assert saved["enabled"] and saved["state"] == "scheduled" and saved["reason"] == "next_start"
     assert not backup_receipts.path_for(store.settings.db_path).exists() and bundles.list_bundles() == []
-    assert _snapshot(store) == before
+    assert bundle_snapshot(store) == before
     wire = json.loads(backup_preferences.path_for(store.settings.db_path).read_text())
     assert wire["version"] == 2 and wire["allow_unencrypted"] is True
     assert client.put(PREFIX, json=body(state)).status_code == 409
@@ -108,7 +108,7 @@ def test_explicit_save_arms_next_start_only_and_disable_preserves_scope(client, 
     assert response.status_code == 200 and not response.json()["enabled"]
     disabled = json.loads(backup_preferences.path_for(store.settings.db_path).read_text())
     assert disabled["gallery_id"] == wire["gallery_id"] and disabled["destination_id"] == wire["destination_id"]
-    assert _snapshot(store) == before
+    assert bundle_snapshot(store) == before
 
 
 def test_configuration_reserves_without_counting_its_own_request(client):
@@ -193,9 +193,9 @@ def test_rejected_payload_values_never_appear_in_validation_errors(client, paylo
 
 
 def test_two_starts_export_once_then_skip_young_and_restore_normally(fake, store, monkeypatch, tmp_path):
-    source = _save("synthetic first checkpoint", seed=1)
+    source = save_source("synthetic first checkpoint", seed=1)
     store.set_favorite(source.id, True)
-    child = _save("synthetic source child", seed=2, refine=source.id)
+    child = save_source("synthetic source child", seed=2, refine=source.id)
     store.bin_images([child.id])
     mask, _ = store.store_mask(Image.new("L", (256, 256), 128))
     masked = store.save_image(
@@ -204,7 +204,7 @@ def test_two_starts_export_once_then_skip_young_and_restore_normally(fake, store
                         refine=source.id, strength=0.6, mask=mask),
         seed=3, duration_ms=1, model_id="test/another-model", job_id="synthetic", run_id="synthetic",
     )
-    before = _snapshot(store)
+    before = bundle_snapshot(store)
     activated = configured(store)
     manual = bundles.export_bundle(keep_gallery=True)
     manual_path = store.bundle_directory() / manual["name"]
@@ -213,17 +213,17 @@ def test_two_starts_export_once_then_skip_young_and_restore_normally(fake, store
         first = finish(client)
         assert first["state"] == "succeeded" and first["archive_name"] and first["verified_at"]
         assert client.get("/api/gallery/bundles/status").json()["operation"] == "automatic_backup"
-    assert _snapshot(store) == before and manual_path.read_bytes() == manual_bytes
+    assert bundle_snapshot(store) == before and manual_path.read_bytes() == manual_bytes
     receipts = backup_receipts.load(store.settings.db_path, activated.settings.gallery_id)
     assert len(receipts) == 1
     reset_managers(fake, monkeypatch)
     with TestClient(main.app, base_url=ORIGIN) as client:
         second = finish(client)
         assert second["state"] == "skipped" and second["reason"] == "young"
-    assert _snapshot(store) == before and manual_path.read_bytes() == manual_bytes
+    assert bundle_snapshot(store) == before and manual_path.read_bytes() == manual_bytes
     assert len(backup_receipts.load(store.settings.db_path, activated.settings.gallery_id)) == 1
     archive = store.bundle_directory() / first["archive_name"]
-    _destination(store, monkeypatch, tmp_path)
+    use_destination(store, monkeypatch, tmp_path)
     restored = bundles.import_bundle(archive)
     assert restored["imported"] == 3 and restored["binned"] == 1
     assert store.get_image(source.id).favorite
@@ -234,7 +234,7 @@ def test_two_starts_export_once_then_skip_young_and_restore_normally(fake, store
 
 def test_changed_destination_does_not_implicitly_activate_or_adopt_old_set(fake, store, monkeypatch, tmp_path):
     activated = configured(store)
-    _save()
+    save_source()
     with TestClient(main.app, base_url=ORIGIN) as client:
         assert finish(client)["state"] == "succeeded"
     old_archives = {p.name: p.read_bytes() for p in store.bundle_directory().glob("*.zip")}
@@ -254,7 +254,7 @@ def test_changed_destination_does_not_implicitly_activate_or_adopt_old_set(fake,
 
 
 def test_shutdown_drains_admitted_backup_and_never_starts_waiting_preload(fake, store, monkeypatch):
-    _save()
+    save_source()
     configured(store)
     entered, release = threading.Event(), threading.Event()
     preloads = []
@@ -291,7 +291,7 @@ def test_shutdown_drains_admitted_backup_and_never_starts_waiting_preload(fake, 
 
 @pytest.mark.parametrize("fails", [False, True])
 def test_preload_waits_for_backup_success_or_failure(fake, store, monkeypatch, fails):
-    _save()
+    save_source()
     configured(store)
     entered, release, loaded = threading.Event(), threading.Event(), threading.Event()
     real_export = bundles.export_bundle
@@ -321,7 +321,7 @@ def test_preload_waits_for_backup_success_or_failure(fake, store, monkeypatch, f
 
 
 def test_receipt_read_overlapping_configuration_cannot_publish_old_stamp_or_break_preload(fake, store, monkeypatch):
-    _save()
+    save_source()
     configured(store)
     entered, release, preloaded = threading.Event(), threading.Event(), threading.Event()
     original = backup_receipts.load

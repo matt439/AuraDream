@@ -13,18 +13,18 @@ from backend import grid, png_settings
 from backend.instruction_edit import edit_key
 from backend.metadata import canonical_edit, edit_chunk, edit_from_json, edit_from_sources
 from backend.schemas import GenerateRequest
-from tests.bundle_helpers import _metadata, _save
+from tests.bundle_helpers import png_metadata, save_source
 from tests.instruction_edit_helpers import save_edit, stored_edit
 
 
 def test_sql_png_completed_identity_and_source_availability(store):
-    source = _save()
+    source = save_source()
     child = save_edit(source)
     spec = stored_edit(source)
     assert child.edit == spec and not child.edit_missing and not child.edit_binned
     assert store.get_image(child.id).edit == spec
     assert store.get_images([child.id])[0].edit == spec
-    meta = _metadata(store.settings.outputs_dir / child.filename)
+    meta = png_metadata(store.settings.outputs_dir / child.filename)
     assert meta["edit"] == spec.model_dump(mode="json")
     with store._session() as conn:
         assert conn.execute("SELECT edit FROM images WHERE id = ?", (child.id,)).fetchone()[0] == edit_key(spec)
@@ -44,7 +44,7 @@ def test_sql_png_completed_identity_and_source_availability(store):
 
 
 def test_missing_source_keeps_child_and_proof(store):
-    source = _save()
+    source = save_source()
     child = save_edit(source)
     store.delete_image(source.id)
     back = store.get_image(child.id)
@@ -53,7 +53,7 @@ def test_missing_source_keeps_child_and_proof(store):
 
 
 def test_source_sql_dimensions_are_part_of_availability(store):
-    source = _save()
+    source = save_source()
     child = save_edit(source)
     with store._session() as conn:
         conn.execute("UPDATE images SET width = 128 WHERE id = ?", (source.id,))
@@ -61,8 +61,8 @@ def test_source_sql_dimensions_are_part_of_availability(store):
 
 
 def test_legacy_migration_and_absence_do_not_invent_edit_metadata(store):
-    ordinary = _save()
-    assert "edit" not in _metadata(store.settings.outputs_dir / ordinary.filename)
+    ordinary = save_source()
+    assert "edit" not in png_metadata(store.settings.outputs_dir / ordinary.filename)
     with closing(sqlite3.connect(store.settings.db_path)) as conn:
         conn.execute("ALTER TABLE images DROP COLUMN edit")
         conn.commit()
@@ -75,10 +75,10 @@ def test_legacy_migration_and_absence_do_not_invent_edit_metadata(store):
 
 @pytest.mark.parametrize("bad", ["", "null", "{}", "[]", "false", '{"source":1,"recipe":"kontext-v1"}'])
 def test_malformed_stored_edit_never_becomes_plain_generation(store, bad):
-    source = _save()
+    source = save_source()
     with pytest.raises(ValueError):
         edit_from_json(bad)
-    meta = _metadata(store.settings.outputs_dir / source.filename)
+    meta = png_metadata(store.settings.outputs_dir / source.filename)
     if bad != "null":  # PNG null is absence; SQL text "null" is not a stored object.
         with pytest.raises(ValueError):
             store.index_file("bad.png", {**meta, "edit": json.loads(bad) if bad else bad},
@@ -87,11 +87,11 @@ def test_malformed_stored_edit_never_becomes_plain_generation(store, bad):
 
 @pytest.mark.parametrize("sql_present,png_present", [(True, False), (False, True)])
 def test_sql_png_absence_is_a_conflict(store, sql_present, png_present):
-    source = _save()
+    source = save_source()
     child = save_edit(source)
     with store._session() as conn:
         row = dict(conn.execute("SELECT * FROM images WHERE id = ?", (child.id,)).fetchone())
-    meta = _metadata(store.settings.outputs_dir / child.filename)
+    meta = png_metadata(store.settings.outputs_dir / child.filename)
     if not sql_present:
         row.pop("edit")
     if not png_present:
@@ -101,9 +101,9 @@ def test_sql_png_absence_is_a_conflict(store, sql_present, png_present):
 
 
 def test_unresolved_descriptor_is_indexed_and_reexportable(store):
-    source = _save()
+    source = save_source()
     child = save_edit(source)
-    meta = _metadata(store.settings.outputs_dir / child.filename)
+    meta = png_metadata(store.settings.outputs_dir / child.filename)
     meta["edit"]["source"] = None
     recovered = store.index_file("recovered.png", meta, 512, 512, datetime.now(timezone.utc))
     assert recovered.edit.source is None and recovered.edit_missing
@@ -117,9 +117,9 @@ def test_unresolved_descriptor_is_indexed_and_reexportable(store):
     {"batch": 2}, {"batch": True}, {"lora": "adapter"}, {"strength": 0.5}, {"lora_scale": 0.5},
 ])
 def test_conflicting_stored_pass_refuses_before_inserting(store, change):
-    source = _save()
+    source = save_source()
     child = save_edit(source)
-    meta = {**_metadata(store.settings.outputs_dir / child.filename), **change}
+    meta = {**png_metadata(store.settings.outputs_dir / child.filename), **change}
     width, height = map(int, meta["size"].split("x"))
     with pytest.raises(ValueError, match="instruction"):
         store.index_file("bad.png", meta, width, height, datetime.now(timezone.utc))
@@ -134,7 +134,7 @@ def test_png_settings_refuse_malformed_edit_before_a1111_fallback(edit):
 
 
 def test_png_settings_hold_complete_edit_and_a1111_edit_marker(store):
-    source = _save()
+    source = save_source()
     child = save_edit(source)
     with Image.open(store.settings.outputs_dir / child.filename) as image:
         with pytest.raises(png_settings.PngSettingsError, match="gallery image"):

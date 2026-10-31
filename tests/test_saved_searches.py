@@ -12,7 +12,7 @@ from pydantic import ValidationError
 
 from backend import gallery_lock, saved_searches
 from backend.schemas_saved_searches import MAX_SAVED_SEARCHES, SavedSearchFields, SavedSearchUpdate
-from tests.bundle_helpers import _holding_child
+from tests.bundle_helpers import holding_child
 
 
 def fields(**updates):
@@ -234,7 +234,7 @@ def test_cross_process_reservation_serializes_create_update_delete_and_stays_ind
     original = saved_searches.change(database, fields())[0]
     path = saved_searches.path_for(database)
     before = path.read_bytes()
-    child = _holding_child(path)
+    child = holding_child(path)
     try:
         changes = [
             lambda: saved_searches.change(database, fields(name="other")),

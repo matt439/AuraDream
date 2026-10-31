@@ -14,7 +14,7 @@ from fastapi import HTTPException
 
 from backend import api_bundles, bundle_crypto, bundles, main
 from tests.api_helpers import ORIGIN, run_one
-from tests.bundle_helpers import _holding_child
+from tests.bundle_helpers import holding_child
 
 
 def _finish(client, operation_id):
@@ -156,7 +156,7 @@ def test_bundles_refuse_while_the_card_or_a_model_switch_is_busy(client, monkeyp
 
 
 def test_another_process_holding_the_gallery_fails_the_operation_readably(client, store):
-    child = _holding_child(store.settings.db_path)
+    child = holding_child(store.settings.db_path)
     try:
         response = client.post("/api/gallery/bundles/export", json={"expected": 0})
         assert response.status_code == 202, response.text
