@@ -457,7 +457,7 @@ _PART_COUNT = re.compile(
 )
 # An issue that says it is about the negative prompt, the only way one can
 # restate a finding there: its quote is looked for in the prompt alone.
-_NEGATIVE_PROMPT = re.compile(r"(?i)\bnegative[- ]prompts?\b")
+_NEGATIVE_PROMPT = re.compile(rf"(?i)\b{_NEGATIVE}")
 
 
 def _says(rule: str, pattern: re.Pattern[str], issue: CritiqueIssue) -> bool:
@@ -539,6 +539,8 @@ _STEP_PART = re.compile(rf"(?i)\b{_PART}\b")
 # A negation in an instruction's clause, ahead of it or inside it: "Do not
 # put the lighting before the camera", "The style should not come before".
 _NEGATED = re.compile(r"(?i)\b(?:not|never|cannot|avoid\w*|instead of|rather than)\b|n[’']t\b")
+# A clause's end, as `_CLAUSE_END` above reads it for lettering; held
+# equal to it by `tests/test_critic_issues.py`.
 _CLAUSE_BREAK = re.compile(r"[,.;:!?\n，。；：！？]")
 
 # The part an order issue wants first, if any, and each (earlier, later).

@@ -888,3 +888,9 @@ def test_each_issue_left_out_is_counted_once():
         "2 order issues left out: they asked for orders that cannot both hold "
         "(lighting before camera, camera before lighting).",
     ]
+
+
+def test_the_order_issues_clause_break_is_the_lettering_clause_end():
+    # Two copies, one beside each reader; a third clause mark added to one
+    # would split clauses one way for lettering and another for negation.
+    assert critic_validation._CLAUSE_BREAK.pattern == critic_validation._CLAUSE_END.pattern
