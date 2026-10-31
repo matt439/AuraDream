@@ -46,6 +46,11 @@ from dataclasses import dataclass
 from typing import Any
 
 from . import guides
+# The BFL pages' addresses are the guides', so a rule finding and a critic
+# cite of the same words open the same page, and a moved page is edited once.
+from .guides import (
+    _BFL_BASICS, _BFL_BUILDING, _BFL_FLUX2, _BFL_KONTEXT, _BFL_KONTEXT_EDITING, _BFL_TECHNICAL,
+)
 from .model_defaults import _profile_for
 
 
@@ -165,10 +170,6 @@ def _page(cited: list[tuple[int, int, str | None]], start: int, end: int) -> str
 
 # --- Black Forest Labs: the FLUX family pages --------------------------------
 
-_BFL_BASICS = "https://docs.bfl.ai/guides/prompting_unified_basics"
-_BFL_BUILDING = "https://docs.bfl.ai/guides/prompting_unified_building"
-_BFL_TECHNICAL = "https://docs.bfl.ai/guides/prompting_unified_technical"
-_BFL_FLUX2 = "https://docs.bfl.ai/guides/prompting_guide_flux2"
 _FLUX2_UPSAMPLING = (
     "https://github.com/black-forest-labs/flux2/blob/main/src/flux2/system_messages.py"
 )
@@ -269,8 +270,6 @@ _FLUX2_UPSAMPLING_NOTE = (
 # BFL's FLUX.1 Kontext pages, verbatim. They are written around the [pro]
 # API; FLUX.1 Kontext [dev] is the overview's open-weights, "Editing mode
 # only" release, and the note says whose they are.
-_BFL_KONTEXT = "https://docs.bfl.ai/kontext/kontext_overview"
-_BFL_KONTEXT_EDITING = "https://docs.bfl.ai/kontext/kontext_image_editing"
 _KONTEXT_NOTE = "BFL's FLUX.1 Kontext pages, written for its [pro] API; [dev] edits by family"
 _KONTEXT = (
     Excerpt(
