@@ -1460,7 +1460,10 @@ class DiffusersBackend(GenerationBackend):
         return self._peak
 
     def _peak_device(self) -> int | None:
-        """The CUDA index the weights run on, by `describe()`'s rule, or None."""
+        """The CUDA index the weights run on, or None: `AURADREAM_DEVICE`'s
+        card, or card 0 where an offloaded load names no CUDA device. The one
+        rule, so the peak measurement and `describe()`'s status line name the
+        same card."""
         try:
             import torch
 
@@ -1961,14 +1964,13 @@ class DiffusersBackend(GenerationBackend):
                 selected.model_id, qualified=qualified, loader=self.instruction_edit_loader(selected),
             )
         try:
-            import torch
-
             # The card the weights are on, not GPU 0: with offload the
             # components live on `AURADREAM_DEVICE` between moves, and a status
             # line reporting another card's memory hides a dropped setting.
-            device = torch.device(selected.device)
-            if torch.cuda.is_available() and (device.type == "cuda" or selected.offload != "none"):
-                index = device.index if device.type == "cuda" and device.index is not None else 0
+            index = self._peak_device()
+            if index is not None:
+                import torch
+
                 free, total = torch.cuda.mem_get_info(index)
                 info["device_name"] = torch.cuda.get_device_name(index)
                 info["vram_total_mb"] = total // (1024 * 1024)
