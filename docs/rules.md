@@ -1431,10 +1431,13 @@ Reproduction:
 - `_connect` runs `_migrate` on every connection (`PRAGMA table_info`, no
   once-per-process flag): an older file restored over the same path under a
   running server gains its columns at its next connection.
-- A new column needs a `_migrate` entry, not a `"x" in row.keys()` read guard:
-  `_row_to_record` reads every column unguarded. `save_image` and
-  `storage.index_file` (`reindex`'s writer) share `_insert_row` over `_COLUMNS`, and both build
-  their dict explicitly, so a new column goes in both (`binned_at: None`).
+- A new column needs a `_migrate` entry (`_ADDED_COLUMNS`, which a bundle
+  merge's ALTER on its staged copy takes its types from; `tests/test_storage_columns.py`
+  holds it to `_SCHEMA` and `_COLUMNS`), not a `"x" in row.keys()` read guard:
+  `_row_to_record` reads every column unguarded. `save_image`,
+  `storage.index_file` and `storage.import_file` (`reindex`'s writers) and a
+  bundle's merge share `_insert_row` over `_COLUMNS`, and each builds its
+  dict explicitly, so a new column goes in each (`binned_at: None`).
 - The recycle bin is the `binned_at` column (ISO UTC text like `created_at`,
   NULL while live, never NOT NULL: an older database or bundle reads None and
   is live). Every page-side delete bins (`POST /api/images/bin`,

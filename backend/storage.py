@@ -253,6 +253,64 @@ CREATE TABLE IF NOT EXISTS run_jobs (
 """
 
 
+# The columns `_migrate` adds to a table an older build wrote: (name, SQL
+# type, index or None). A bundle import's staged copy takes its types from
+# here too (`bundles`), so a new column is listed once.
+_ADDED_COLUMNS = (
+    ("job_id", "TEXT", "idx_images_job"),
+    ("run_id", "TEXT", "idx_images_run"),
+    ("quantization", "TEXT", None),
+    # The prompt-variable assignment, as JSON.
+    ("variables", "TEXT", None),
+    # The scale the negative prompt ran at; NULL on older rows means
+    # "guidance_scale, if there was a negative prompt" - see
+    # `schemas_generate.effective_true_cfg`.
+    ("true_cfg", "REAL", None),
+    # sha256 of the pixels, 16 hex digits.
+    ("content_hash", "TEXT", None),
+    # The gallery ids this image was conditioned on, as JSON.
+    ("reference", "TEXT", None),
+    # The adapter that was applied and the weight it ran at.
+    ("lora", "TEXT", None),
+    ("lora_scale", "REAL", None),
+    # The gallery id a refine pass started from and its denoising
+    # strength; NULL together on a text-to-image row.
+    ("refine", "INTEGER", None),
+    ("strength", "REAL", None),
+    # NULL preserves the legacy centered crop; a choice belongs only to
+    # an ordinary Refine source.
+    ("crop_anchor", "TEXT", None),
+    # How many images the pipeline call that made this one held - the
+    # panel's Batch - which More seeds runs a batch's extra images at.
+    # NULL on rows from before it was recorded.
+    ("batch", "INTEGER", None),
+    # When the image was moved to the recycle bin, ISO UTC like
+    # `created_at`; NULL while it is live. TEXT rather than a flag, so a
+    # bundle merged into an older table gains it as it gains any text
+    # column, and never NOT NULL: a row from an older database or bundle
+    # reads None and is live.
+    ("binned_at", "TEXT", "idx_images_binned"),
+    # An inpaint's mask, the hash of a `masks` row; NULL on every row
+    # that is not one, and only ever set beside `refine`.
+    ("mask", "TEXT", "idx_images_mask"),
+    # An outpaint's spec, `OutpaintSpec.key()`: NULL on every row that
+    # is not one, and only ever set beside `refine` and `mask`.
+    ("outpaint", "TEXT", "idx_images_outpaint"),
+    # The optional GAN preparing an ordinary Refine source.
+    ("upscaler", "TEXT", None),
+    # Named arithmetic recipes as canonical JSON; NULL is legacy Eager.
+    ("execution", "TEXT", None),
+    # Complete instruction-edit intent, including unresolved source proof.
+    ("edit", "TEXT", None),
+    # The peak GPU memory PyTorch's allocator held during the call that
+    # made this image, in bytes, allocated and reserved: a result, as
+    # `duration_ms` is, never part of the reproduction set. NULL where
+    # nothing was measured (a CPU, the fake, rows from before it).
+    ("vram_peak_allocated", "INTEGER", None),
+    ("vram_peak_reserved", "INTEGER", None),
+)
+
+
 def _migrate(conn: sqlite3.Connection) -> None:
     """Add columns that a database written by an older build has not got.
 
@@ -268,60 +326,7 @@ def _migrate(conn: sqlite3.Connection) -> None:
     outcome we wanted anyway.
     """
     columns = {row["name"] for row in conn.execute("PRAGMA table_info(images)")}
-    added = (
-        ("job_id", "TEXT", "idx_images_job"),
-        ("run_id", "TEXT", "idx_images_run"),
-        ("quantization", "TEXT", None),
-        # The prompt-variable assignment, as JSON.
-        ("variables", "TEXT", None),
-        # The scale the negative prompt ran at; NULL on older rows means
-        # "guidance_scale, if there was a negative prompt" - see
-        # `schemas_generate.effective_true_cfg`.
-        ("true_cfg", "REAL", None),
-        # sha256 of the pixels, 16 hex digits.
-        ("content_hash", "TEXT", None),
-        # The gallery ids this image was conditioned on, as JSON.
-        ("reference", "TEXT", None),
-        # The adapter that was applied and the weight it ran at.
-        ("lora", "TEXT", None),
-        ("lora_scale", "REAL", None),
-        # The gallery id a refine pass started from and its denoising
-        # strength; NULL together on a text-to-image row.
-        ("refine", "INTEGER", None),
-        ("strength", "REAL", None),
-        # NULL preserves the legacy centered crop; a choice belongs only to
-        # an ordinary Refine source.
-        ("crop_anchor", "TEXT", None),
-        # How many images the pipeline call that made this one held - the
-        # panel's Batch - which More seeds runs a batch's extra images at.
-        # NULL on rows from before it was recorded.
-        ("batch", "INTEGER", None),
-        # When the image was moved to the recycle bin, ISO UTC like
-        # `created_at`; NULL while it is live. TEXT rather than a flag so a
-        # bundle merged into an older table gains it through the same
-        # fallback as any other unlisted column, and never NOT NULL: a row
-        # from an older database or bundle reads None and is live.
-        ("binned_at", "TEXT", "idx_images_binned"),
-        # An inpaint's mask, the hash of a `masks` row; NULL on every row
-        # that is not one, and only ever set beside `refine`.
-        ("mask", "TEXT", "idx_images_mask"),
-        # An outpaint's spec, `OutpaintSpec.key()`: NULL on every row that
-        # is not one, and only ever set beside `refine` and `mask`.
-        ("outpaint", "TEXT", "idx_images_outpaint"),
-        # The optional GAN preparing an ordinary Refine source.
-        ("upscaler", "TEXT", None),
-        # Named arithmetic recipes as canonical JSON; NULL is legacy Eager.
-        ("execution", "TEXT", None),
-        # Complete instruction-edit intent, including unresolved source proof.
-        ("edit", "TEXT", None),
-        # The peak GPU memory PyTorch's allocator held during the call that
-        # made this image, in bytes, allocated and reserved: a result, as
-        # `duration_ms` is, never part of the reproduction set. NULL where
-        # nothing was measured (a CPU, the fake, rows from before it).
-        ("vram_peak_allocated", "INTEGER", None),
-        ("vram_peak_reserved", "INTEGER", None),
-    )
-    for column, kind, index in added:
+    for column, kind, index in _ADDED_COLUMNS:
         if column in columns:
             continue
         try:
@@ -461,8 +466,10 @@ def _row_to_record(
     )
 
 
-# Every column a writer supplies, in one place: `save_image` and the reindex
-# both insert through `_insert_row`, so the list cannot drift between them.
+# Every column a writer supplies, in one place: `_insert_row` builds its INSERT
+# from it, and every writer goes through that - `save_image`, `index_file` (a
+# PNG-only reindex), `import_file` (`reindex --database`) and a bundle's merge
+# (`bundles`). Each still builds its own values dict with every key.
 _COLUMNS = (
     "filename", "prompt", "negative_prompt", "width", "height", "steps", "guidance_scale",
     "mu", "seed", "model_id", "duration_ms", "favorite", "created_at", "job_id", "run_id",

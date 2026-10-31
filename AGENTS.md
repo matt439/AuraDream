@@ -269,7 +269,8 @@ Reproduction and storage:
   chunk; `CellKey`/`run_id` widen without changing existing ids. The peak
   GPU memory pair beside it is a result, never in `CellKey`, `run_id` or
   `applied()`.
-- A new column needs a `_migrate` entry; `_row_to_record` reads unguarded.
+- A new column needs a `_migrate` entry (`storage._ADDED_COLUMNS`, which a
+  bundle merge's types also come from); `_row_to_record` reads unguarded.
 - `save_image` writes `.png.part` and renames after the row commits.
 - Page deletes bin (`binned_at`); live reads exclude it,
   `_tracked_files`/`existing_*`/bundles/`clear`/`completed_cells`/`lineage_images`/
