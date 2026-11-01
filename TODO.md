@@ -8,9 +8,9 @@ The maintainer's working backlog for this personal project: it records what is p
 
 **Aim (2026-10-29):** keep useful work ready for Matt's common workstation tasks. [Reported use](docs/design/preferences.md) guides priority; it does not approve the candidate redesign.
 
-**Ready backlog (updated 2026-10-31):** no `OPEN` row; `DEV#25` closed with the Linux and Windows CI baselines from pull_request run 41159120243 ([results](docs/plan-tooling.md#results)). `INP#11` stage 4's code is on main (PR #17); its [card acceptance step](docs/plan-instruction-editing.md#card-acceptance-step) waits on Matt's OK. Built 2026-10-30 (PR #22): `GEN#36`-`GEN#38`, `GAL#23`, `DEV#26`, the trial kit refresh (`DEV#21`), and the CPU stages of the card guard (`DEV#20`) and step packs (`DEV#23`), whose card stages are now `CARD` rows.
+**Ready backlog (updated 2026-11-01):** four `OPEN` rows from the [first-run review](docs/review-2026-11-01-first-run.md#stages), in order: docs `DEV#27`, the first-visit panel `UI#39`, plain-words failures `GEN#40`, then the installer `DEV#28`. `DEV#25` closed with the Linux and Windows CI baselines from pull_request run 41159120243 ([results](docs/plan-tooling.md#results)). `INP#11` stage 4's code is on main (PR #17); its [card acceptance step](docs/plan-instruction-editing.md#card-acceptance-step) waits on Matt's OK. Built 2026-10-30 (PR #22): `GEN#36`-`GEN#38`, `GAL#23`, `DEV#26`, the trial kit refresh (`DEV#21`), and the CPU stages of the card guard (`DEV#20`) and step packs (`DEV#23`), whose card stages are now `CARD` rows.
 
-**Decisions for Matt:** before `DEV#20`'s card stage, the commit-headroom floor (the 4 GiB default tripped on this machine while test runs were resident; [stage 1 notes](docs/plan-card-harness.md#card-guard)). On 2026-10-29 Matt took the recommended answers for `PERF#7` (cache beside the gallery, cleared on a torch/Triton/driver change, static shapes; shipping waits on `PERF#1`), `PERF#5`, `GAL#21` and `UI#34`; declined `GEN#39` and unattended backups (`GAL#22`, `GAL#6`); kept `GEN#6`, `INP#9` and `INP#10` deferred.
+**Decisions for Matt:** `GEN#41`, whether a fresh visit with no Hugging Face token preselects an open checkpoint. Before `DEV#20`'s card stage, the commit-headroom floor (the 4 GiB default tripped on this machine while test runs were resident; [stage 1 notes](docs/plan-card-harness.md#card-guard)). On 2026-10-29 Matt took the recommended answers for `PERF#7` (cache beside the gallery, cleared on a torch/Triton/driver change, static shapes; shipping waits on `PERF#1`), `PERF#5`, `GAL#21` and `UI#34`; declined `GEN#39` and unattended backups (`GAL#22`, `GAL#6`); kept `GEN#6`, `INP#9` and `INP#10` deferred.
 
 **Needs Matt's hands or card:** workbench task trials (`DEV#1`, kit refreshed 2026-10-30), the typed Ctrl-C on the fake for `DEV#23`, hands-on accessibility/desktop checks (`UI#7`), and every `CARD` row, including the speed qualifications `PERF#1`, `PERF#3` and `PERF#4`, and `INP#11`'s acceptance step (one load). `PERF#2`'s card measurement waits on `PERF#1`'s.
 
@@ -25,6 +25,19 @@ The maintainer's working backlog for this personal project: it records what is p
 | `DEV#20` | CARD | MED | S+card | `tools/card_guard.py` stage 1 built 2026-10-30. Left: stage 2, one light SDXL fp8 session with the guard beside its own watcher, with Matt's OK. Before it, Matt sets the commit-headroom floor: 4 GiB tripped on this machine with test runs resident. [Card guard](docs/plan-card-harness.md#card-guard). |
 | `DEV#23` | CARD | LOW | S+card | The eight `tools/card/card10-*.json` packs and their test are built 2026-10-30; the six page packs pass on the fake. Left: Matt types Ctrl-C on the fake for the two Ctrl-C packs, then stage 2 on the card. [CARD#10 step packs](docs/plan-card-harness.md#card10-step-packs). |
 | `DEV#1` | USER | LOW | M | Run common-task trials with Matt, comparing the current app and candidate layouts before choosing redesign slices. [Protocol](docs/design/validation.md#one-user-formative-protocol). |
+
+## First-run experience
+
+**Owner:** [docs/review-2026-11-01-first-run.md](docs/review-2026-11-01-first-run.md): findings F1-F8, the stages in order, and what was not taken.
+
+| id | status | sev | size | item |
+|---|---|---|---|---|
+| `DEV#27` | OPEN | MED | S | Stage 1, docs: measured RAM wording without the nonexistent "app's free-RAM guard" (F1), Switch & load as the finish (F2), the missing `cd`, `HF_HOME` before the download, real disk total, card generation/VRAM box, Updating and Uninstall. [Stage 1](docs/review-2026-11-01-first-run.md#stages). |
+| `UI#39` | OPEN | MED | S | Stage 2: the first-visit Models panel recommends Switch & load, so closing it no longer leaves the gated default for the next start (F2). [Stage 2](docs/review-2026-11-01-first-run.md#stages). |
+| `GEN#40` | OPEN | MED | M | Stage 3: CUDA refusal names the driver; 401/403 on the load path in `hub_access`'s words; busy port detected (already running opens the browser); opt-in `--open` after bind (F3). [Stage 3](docs/review-2026-11-01-first-run.md#stages). |
+| `DEV#28` | OPEN | MED | L | Stage 4: plain-text `install.cmd`/`install.ps1`/`update.cmd` with prerequisite checks, uv/Git if missing, `HF_HOME` first, `uv sync`, shortcuts to `bin\auradream.cmd --open`, a DB copy before pull; a small `backend/doctor.py` (F3-F5). [Stage 4](docs/review-2026-11-01-first-run.md#stages). |
+| `GEN#41` | DECISION | LOW | S | Whether a fresh visit with no stored Hugging Face token preselects an open checkpoint instead of the gated default (F7). [Decision](docs/review-2026-11-01-first-run.md#stages). |
+| `DEV#29` | DEFERRED | LOW | S | Stage 5: hand-cut version tags for `update.cmd` to follow, and a Pinokio script; after `DEV#28`. [Stage 5](docs/review-2026-11-01-first-run.md#stages). |
 
 ## Measurements on the card
 
@@ -134,6 +147,7 @@ Each review's remaining work is indexed above; closed findings stay in their own
 | 2026-10-30 overnight | Built and merged in PR #22: `GEN#36`-`GEN#38`, `GAL#23` (the Gallery section emptied), `DEV#26`, `DEV#21` and stage 1 of `DEV#20`/`DEV#23`, then an integration review and load-flake fixes (polls for fixed sleeps, a bundle settle's hold, profile cleanup, sidecar waits). [Owners](docs/review-2026-10-29-backlog.md); [card harness](docs/plan-card-harness.md). |
 | 2026-10-29 TODO audit | [Reconciliation and new work](docs/review-2026-10-29-todo.md): stale owner text fixed; 27 OPEN rows and four new DECISION rows added at Matt's request. |
 | 2026-10-31 code hygiene | Stale docs, dead code, duplicates and long files on `chore/code-hygiene`; no row opened. The splits and retained long files are [source-audit.md's third pass](docs/source-audit.md#third-pass-2026-10-31). |
+| 2026-11-01 first run | [First-time setup and an installer](docs/review-2026-11-01-first-run.md): `DEV#27`-`DEV#29`, `UI#39`, `GEN#40`, `GEN#41`; the token wizard, release ZIP, user-wide data relocation and signed/bundled apps recorded as not taken. |
 
 ---
 
