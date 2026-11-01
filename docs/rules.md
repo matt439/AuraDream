@@ -734,7 +734,13 @@ measured on the card and when.
   system instruction is passed explicitly per generation; keep FlowMatch
   Euler shift 6 and the exact-id profile (40 steps, CFG 5). The author's
   v2 family guidance and ComfyUI samplers are not v4 runtime equivalence.
-  No Nunchaku build is mapped to this entry.
+  No Nunchaku build is mapped to this entry. Its guide's hybrid Danbooru
+  helper (chips, autocomplete, the Tags menu) is the parent Neta Lumina
+  prompt book's: tags first then prose, the book's person counts, `best
+  quality` with the v2 workflow's `masterpiece`/`amazing quality`, the `@`
+  artist spelling, no cutoff and no checked order (the book's sequence is
+  listed as the authors'). It offers no negative: the book's recipe gives the
+  negative its own low-quality instruction, which Lumina2Pipeline does not.
 
 - `NewBie-AI/NewBie-image-Exp0.1` selects pinned official components, strictly
   converted on CPU by `newbie_loading`. Keep its public id in status/metadata.
@@ -8060,7 +8066,8 @@ node tools/browser.mjs tools/smoke-kohaku.json
 ```
 
 `smoke-netayume.json` checks NetaYume v4 defaults, the qualified size guide,
-author example, a retyped and a foreign system instruction cut by Apply,
+the hybrid Tags helper (the inherited order, person counts and quality tags,
+no recommended negative), author example, a retyped and a foreign system instruction cut by Apply,
 enabled Mu, applied saved settings, the catalogue's name in the topbar, the
 facts and the prompt check, the example-size wording (1.57 and 1.05 MP of
 the authors' example sizes, in the line and the tier titles), Mu's 1.79,

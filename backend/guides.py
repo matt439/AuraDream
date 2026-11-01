@@ -1573,6 +1573,14 @@ NETAYUME_GUIDE = {
         "published v2 family guide recommends Danbooru tags; the Neta Lumina "
         "base also supports natural-language descriptions. The Examples menu uses the image "
         "prompt from the author's v2 workflow.\n"
+        "The inherited Neta Lumina prompt book says to build the skeleton with "
+        "tags first, then flesh out details in natural language. It writes "
+        "tags with spaces instead of underscores, reinforces an artist tag "
+        "with @, and ends the tags with best quality; the author's v2 "
+        "workflow uses masterpiece, best quality, amazing quality. The Tags "
+        "menu offers those quality tags and the prompt book's person counts. "
+        "Autocomplete and the chips check Danbooru's tag index; neither card "
+        "names a cutoff.\n"
         "The author's anime system instruction is applied automatically: "
         "write only the image's tags or prose here, without a system prefix "
         "or <Prompt Start> marker. The standard Lumina 2 pipeline uses a "
@@ -1603,6 +1611,29 @@ NETAYUME_GUIDE = {
         "front-facing, full body, soft lighting, humorous mood, masterpiece, "
         "best quality, amazing quality, indoors"
     ],
+    # Danbooru tags and prose together (the parent prompt book's "Tag + NL
+    # Hybrid"), so the chips and autocomplete read a mixed prompt as the
+    # Illustrious family's do. No order is checked: the prompt book's
+    # nine-part sequence is mostly general tags, which no Danbooru category
+    # tells apart; Check and the Tags menu list it as the authors' order
+    # (`prompt_sources` neta.sequence). The person counts are the prompt
+    # book's ("1girl, 2boys" in its formula, "1girl, 1boy, 2girls" in its
+    # sequence), not one-of: a scene can hold a girl and a boy. The quality
+    # tags are the prompt book's last step and the v2 workflow's own three.
+    # The @ is the prompt book's "The artist tag is reinforced with the @
+    # symbol". No negative is offered: the book's recipe has its own
+    # low-quality instruction, which this pipeline does not give a negative.
+    "tag_helper": {
+        "order": [],
+        "groups": [
+            {"label": "Person count", "tags": ["1girl", "1boy", "2girls", "2boys"]},
+            {"label": "Quality", "tags": ["best quality", "masterpiece", "amazing quality"]},
+        ],
+        "vocabulary": "danbooru",
+        "vocabulary_cutoff": None,
+        "artist_prefix": "@",
+        "hybrid_prompt": True,
+    },
     # The instruction itself is `netayume_loading.SYSTEM_PROMPT`, which the
     # rule reads from there rather than from a copy.
     "analysis": {

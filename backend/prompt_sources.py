@@ -884,6 +884,20 @@ _NETAYUME = (
         _NETA_NOTE + "; its order for the natural-language part",
         order=True,
     ),
+    # Two lines of the prompt book's "Neta Lumina special grammar", in its
+    # copilot template. The page renders school_uniform's underscore as *.
+    Excerpt(
+        "neta.underscores",
+        "Underline to space: school*uniform → school uniform",
+        _NETA_BOOK,
+        _NETA_NOTE + "; the page shows the underscore in school_uniform as *",
+    ),
+    Excerpt(
+        "neta.artist",
+        "The artist tag is reinforced with the @ symbol",
+        _NETA_BOOK,
+        _NETA_NOTE,
+    ),
     Excerpt(
         "neta.no_duplicates",
         "Ensure that Tags complement and do not duplicate natural language",
@@ -1365,6 +1379,8 @@ GROUNDING: dict[str, Grounding] = {
         # the prompt, and the system-prefix rule cites it.
         unsourced=(
             "The Examples menu uses the image prompt from the author's v2 workflow.",
+            "The Tags menu offers those quality tags and the prompt book's person counts.",
+            "Autocomplete and the chips check Danbooru's tag index; neither card names a cutoff.",
             "This app uses standard FlowMatch Euler; the author's ComfyUI sampler "
             "recommendations are different setups.",
         ),
