@@ -14,19 +14,27 @@ the frontend has no build step.
 - **Windows 11**, or **WSL 2** on Windows (needed for Nunchaku); both tested.
   Native Linux is untested; macOS is not supported.
 - NVIDIA GPU with a driver recent enough for **CUDA 13** (torch comes from the
-  cu130 index). The tested configuration is an **RTX 5080 with 16 GB VRAM**;
+  cu130 index), of a generation those wheels are built for: the installed
+  torch lists compute capability 7.5 to 12.0, the RTX 20 and GTX 16 series
+  or newer, so the GTX 10 series and older are not in it. The tested
+  configuration is an **RTX 5080 with 16 GB VRAM**, the only card measured;
   memory requirements depend on the checkpoint, size and batch. The defaults
   use FP8 quantization and model offload. See [measured results](docs/verified.md).
-- System RAM: a cold quantizing load of FLUX.1, FLUX.2 klein 9B, Krea 2 or
-  Qwen-Image peaked around **46 GiB** working set on the 64 GB test machine,
-  where it stopped at the app's free-RAM guard; see
-  [RAM at the load](docs/verified.md#ram-at-the-load-2026-10-25). Plan on
-  **64 GB or more** for those. The SDXL anime checkpoints (Animagine,
-  Illustrious, RouWei, NoobAI) need far less and are a lighter place to start.
+- System RAM: a cold load of the default, FLUX.1 Krea [dev] (fp8, model
+  offload), peaked at **27.9 GiB working set and 35.4 GiB private** on the
+  64 GB test machine, and private rose to 39.9 GiB during the first
+  1024x1024 render; see
+  [the fixed loader](docs/verified.md#ram-at-the-load-the-fixed-loader-2026-10-27).
+  Other FLUX-size checkpoints and int8 are not measured with that loader,
+  and no 32 GB machine has been measured. The SDXL anime checkpoints
+  (Animagine, Illustrious, RouWei, NoobAI) need far less and are a lighter
+  place to start.
 - **Python 3.13** and [uv](https://docs.astral.sh/uv/).
-- Disk space for the selected model: about **32 GiB for the default model's
-  weights**. Some checkpoints also need a converted copy; Illustrious, WAI
+- Disk space: about **32 GiB for the default model's weights**, and more
+  besides. Some checkpoints also need a converted copy; Illustrious, WAI
   and RouWei each use about 14 GB for the source and conversion together.
+  uv's package cache, `.venv` and the optional critic (about 4.9 GB) add
+  more; [Before you start](docs/setup.md#before-you-start) totals them.
 
 ## Quick start
 
@@ -49,11 +57,13 @@ uv run python -m backend.main
 
 The server starts without terminal questions and restores your saved choices.
 Open **<http://127.0.0.1:7860>**, choose a checkpoint and loading settings under
-**Models**, then enter a prompt, choose a size and press
-**Generate**. Steps, CFG and Mu start at the selected checkpoint's defaults.
-The first generation downloads and loads the weights, which can take several
-minutes; later loads reuse the cache. Starting the server alone does not load
-the model unless preload is enabled.
+**Models** and press **Switch & load**, which also saves the choice for the
+next start, then enter a prompt, choose a size and press **Generate**. Steps, CFG and Mu start at the selected checkpoint's defaults.
+The first generation downloads and loads the weights: the default's 32 GiB
+takes about 45 minutes at 100 Mbit/s; later loads reuse the cache. Starting
+the server alone does not load the model unless preload is enabled. To
+update or remove AuraDream, see [Updating](docs/setup.md#updating) and
+[Uninstall](docs/setup.md#uninstall).
 
 Open checkpoints need no login. Select one in the menu, or pass its id:
 

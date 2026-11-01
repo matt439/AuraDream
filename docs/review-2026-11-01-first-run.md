@@ -136,6 +136,16 @@ Each stage is self-contained; do them in order.
    Switch & load as the finish); F6's gaps; a requirements box covering card
    generation (RTX 20 series or newer, once verified), VRAM, RAM and the real
    disk total including uv's cache; Updating and Uninstall sections. Docs only.
+   Built 2026-11-01: `docs/setup.md` gains a Before you start box (card
+   generation from the installed torch 2.13.0+cu130's
+   `torch.cuda.get_arch_list()`, `sm_75` to `sm_120` with no PTX entry, so
+   RTX 20/GTX 16 or newer and the GTX 10 series out; VRAM; the fixed
+   loader's 27.9 GiB working set / 35.4 GiB private, 32 GB unmeasured; the
+   disk total, its uv cache and `.venv` figures marked as estimates), how to
+   open PowerShell, where the clone lands, `HF_HOME` as step 3 before any
+   download, Switch & load as the first visit's finish, the download time,
+   the `cd` to start again, Updating, Uninstall, and the rename note moved
+   to the end. `README.md`'s requirements and Quick start match.
 2. **First-visit panel (`UI#39`, S).** The fresh-visit Models panel recommends
    Switch & load and stops presenting closing as an equal finish, so the
    choice is saved. Smoke: `smoke-model-switch`/`smoke-model-startup`.
