@@ -22,6 +22,16 @@
 .bundles-dialog h4 { margin: 0; font-size: var(--fs-body-sm); font-weight: 600; }
 .bundles-dialog p { margin: 0; }
 .bundles-head { display: flex; align-items: center; justify-content: space-between; gap: var(--sp-3); }
+/* The title row and its Close stay in view while the dialog scrolls: stuck
+   over the dialog's own top padding, edge to edge, on the dialog's surface
+   so what scrolls under it is hidden. Its height is the same stuck or not. */
+.bundles-dialog > .bundles-top {
+  position: sticky; top: calc(-1 * var(--gutter)); z-index: 1;
+  margin: calc(-1 * var(--gutter)) calc(-1 * var(--gutter)) calc(-1 * var(--sp-2));
+  padding: var(--gutter) var(--gutter) var(--sp-2);
+  background: var(--panel); border-bottom: 1px solid transparent;
+}
+.bundles-dialog > .bundles-top.stuck { border-bottom-color: var(--line); }
 .bundle-section { display: flex; flex-direction: column; gap: var(--sp-2); border-top: 1px solid var(--line); padding-top: var(--sp-3); }
 /* The scope sits above everything it changes, so a press on it moves no
    control under the pointer; its hint keeps two lines whatever it says. */

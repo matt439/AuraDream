@@ -349,9 +349,11 @@ function bundleRefused(button) {
 
 function focusBundleField(input) {
   input.focus({ preventScroll: true });
+  // Visible from under the stuck title row (its scroll padding brings the
+  // field out below it) to the dialog's bottom edge.
   const box = els.bundlesDialog.getBoundingClientRect();
-  const top = box.top + els.bundlesDialog.clientTop;
-  const bottom = top + els.bundlesDialog.clientHeight;
+  const top = els.bundlesDialog.querySelector('.bundles-top').getBoundingClientRect().bottom;
+  const bottom = box.top + els.bundlesDialog.clientTop + els.bundlesDialog.clientHeight;
   const field = input.getBoundingClientRect();
   if (field.top < top || field.bottom > bottom) input.scrollIntoView({ block: 'nearest' });
 }
@@ -811,6 +813,35 @@ function initBundles() {
   els.bundles.onclick = () => { void openBundles(); };
   els.bundlesClose.onclick = () => els.bundlesDialog.close();
   els.bundlesDialog.addEventListener('close', clearBundlePasswords);
+  // The backdrop closes it, as Escape and Close do; a running operation goes
+  // on (its messages say so). Only a press that both starts and ends outside
+  // the dialog's box: its padding's target is the dialog too, and a drag out
+  // of a box (selecting a password) ends on the dialog as well.
+  let bundlesPressOutside = false;
+  const outsideBundles = (event) => {
+    if (event.target !== els.bundlesDialog) return false;
+    const box = els.bundlesDialog.getBoundingClientRect();
+    return event.clientX < box.left || event.clientX > box.right
+      || event.clientY < box.top || event.clientY > box.bottom;
+  };
+  els.bundlesDialog.addEventListener('pointerdown', (event) => { bundlesPressOutside = outsideBundles(event); });
+  els.bundlesDialog.addEventListener('click', (event) => {
+    const outside = bundlesPressOutside && outsideBundles(event);
+    bundlesPressOutside = false;
+    if (outside) els.bundlesDialog.close();
+  });
+  // The stuck title row draws its edge only once something scrolls under it,
+  // and whatever is scrolled into view (a focus, scrollIntoView) stops below
+  // it rather than under it: the dialog's scroll padding is the row's whole
+  // height (stuck over the dialog's top padding, it starts at the
+  // scrollport's edge), plus a step.
+  const bundlesTop = els.bundlesDialog.querySelector('.bundles-top');
+  els.bundlesDialog.addEventListener('scroll', () => {
+    bundlesTop.classList.toggle('stuck', els.bundlesDialog.scrollTop > 0);
+  }, { passive: true });
+  new ResizeObserver(() => {
+    els.bundlesDialog.style.scrollPaddingTop = `${bundlesTop.getBoundingClientRect().height + 8}px`;
+  }).observe(bundlesTop);
   els.bundleCount.oninput = syncBundleControls;
   for (const input of [els.bundlePassword, els.bundlePasswordAgain, els.bundleUnlock]) input.oninput = syncBundleControls;
   for (const input of [els.bundlePassword, els.bundlePasswordAgain, els.bundleUnlock]) watchBundleCapsLock(input);
