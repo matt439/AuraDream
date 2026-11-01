@@ -591,6 +591,18 @@
   #gallery[data-fit="cover"] .card img { object-fit: cover; }
 }
 
+/* "↑ Top" (gallery.js, syncGalleryTop): a pill over the gallery's bottom
+   right corner, shown only a long way down it. Fixed to the window, the
+   gallery's corner in one column and in two (the stage is the window's
+   right side); in the column beside the viewer, that column's corner, left
+   of its scrollbar (below). The z-index of the one-column "New image" pill:
+   under the topbar's 20 and the floating tips' 40; over the cards. */
+#btn-gallery-top {
+  position: fixed; right: var(--gutter); bottom: var(--gutter); z-index: 15;
+  padding-inline: var(--sp-3); border-radius: 999px;
+  background: var(--panel-2); color: var(--text); box-shadow: var(--shadow-pop);
+}
+
 /* -------------------------------------------------------- gallery beside */
 
 /* From 2000 px, with Gallery beside ticked (syncBeside, gallery.js), the
@@ -655,6 +667,12 @@
      does - S showed pressed and changed nothing. At 150 px it is four across
      at QHD and three at 125%, its tools at their 24 px floor (above). */
   .stage.beside #gallery[data-density="s"] { --thumb-min: 150px; }
+  /* "↑ Top" at the column's own corner: `.library` is fixed, so the box it
+     is placed in, and the scrollbar's width (--column-bar, measured as it
+     shows) keeps it off the bar. Hidden with the column under the check. */
+  .stage.beside > .library > #btn-gallery-top {
+    position: absolute; right: calc(var(--column-bar, 0px) + var(--sp-3)); bottom: var(--sp-3);
+  }
   /* Brought into view inside the column, which starts under the topbar. */
   .stage.beside .library .card { scroll-margin-top: 0; }
   /* The prompt check, open, takes the column's place, the gallery's column

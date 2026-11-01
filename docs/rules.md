@@ -6252,6 +6252,26 @@ measured on the card and when.
   to 0..SQLite signed-64-bit MAX and `before` to 1..MAX, reusing
   `search.SQLITE_INT`; an oversized value is 422 before gallery storage.
   MAX itself remains valid (`GAL#20`; dated gallery-page-bounds review).
+- "↑ Top" (`#btn-gallery-top`, `syncGalleryTop`/`goToGalleryTop` in
+  gallery.js) is offered once the gallery's head is a window's height above
+  the view, or with Gallery beside once `#library-scroll` is scrolled down
+  its own height, and goes again nearer the top however the page got there
+  (asked on the page's and the column's scroll, a resize and `syncBeside`).
+  A pill fixed at the window's bottom right, z-index 15; beside the viewer,
+  absolute in the fixed `#library` at its corner, left of the column's
+  scrollbar (`--column-bar`, measured as it shows), and hidden with the
+  column under the prompt check. It sits in `#library` after
+  `#library-scroll`, so the pointer on it is off the cards
+  (`galleryPointerGone`). Only its press scrolls: the head into view
+  (`scrollIntoView`, as the search's reveal) or the column to 0, smooth
+  unless reduced motion. Focus moves first, with `preventScroll`, to the
+  grid's first card's image (as Home), else the search. A focused button is
+  never hidden by a scroll: it stays until its blur, then asks again (a
+  key scroll from it moved focus into a field off screen). It is not hidden
+  for the gallery being hidden - it is hidden with `#library` - so a check
+  made under the prompt check or the model picker holds once they close.
+  Beside the viewer a wheel over it scrolls the column (`galleryTopWheel`),
+  not the page.
 
 ## Tests
 
@@ -7022,6 +7042,17 @@ while paused and "all done in" after Resume. The total stays one line (the
 longest figure too), and no row moves within the queue note. It also checks
 `#job-said` for a priced and an unpriced press, and the cell line's
 `~N expected` before the own-pace `~N left`, which it never follows.
+
+`smoke-gallery-top.json` uses a fresh FLUX.1 Krea [dev] fake on 7955 and
+a 60-image grid. At 1400x900 "↑ Top" stays hidden at the top and 300 px
+past the head, shows a long way down at the window's bottom right (hit by
+`elementFromPoint`, the page not moved by it), and its real press lands the
+head under the topbar with focus on the first card's image and the button
+gone. At 2560x1305 with Gallery beside it shows once the column is scrolled
+its own height, inside the column left of its scrollbar, and its press
+scrolls the column to 0, never the page; a wheel over it scrolls the
+column, not the page; unticking re-asks of the page. Focused and scrolled
+near the top it stays until its blur.
 
 `smoke-queue-controls.json` uses a fresh FLUX.1 Krea [dev] fake on 7914 with
 0.3 s steps. It checks authoritative Move order and focus through reload,

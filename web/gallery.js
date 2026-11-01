@@ -292,7 +292,7 @@ let besideOn = false;
 function syncBeside() {
   const on = els.besideTick.checked && matchMedia(BESIDE_MEDIA).matches && !sheetMode;
   syncBesideTitle();
-  if (on === besideOn) return;
+  if (on === besideOn) { syncGalleryTop(); return; }
   besideOn = on;
   els.stage.classList.toggle('beside', on);
   armMore();
@@ -302,6 +302,8 @@ function syncBeside() {
   // The cards have moved from under a still pointer either way, and it is
   // on the head's tick or at the window's edge: what waited for it comes in.
   releaseGallery();
+  // Where the gallery scrolls changed: "↑ Top" asks again, of the new one.
+  syncGalleryTop();
 }
 
 // While a sheet is open the tick changes nothing on screen - the page is one
@@ -361,6 +363,56 @@ function holdGalleryView(change) {
   const before = anchor?.getBoundingClientRect().top;
   change();
   if (anchor?.isConnected) box.scrollTop += anchor.getBoundingClientRect().top - before;
+}
+
+// "↑ Top" (#btn-gallery-top): from a long way down the gallery, back to its
+// head - the heading, the search and the newest cards. Shown once the head
+// is a window's height above the view, or, with Gallery beside, once the
+// column is scrolled down its own height; gone again nearer the top, however
+// it got there - except while it has focus, which it keeps until it loses
+// it (a scroll by keys from it would otherwise end in a field off screen).
+// Never a scroll of the page's own: only its press scrolls, the page to the
+// head (as the search's own reveal does) or the column to its top. Focus
+// goes first, before the button hides under it: to the grid's first card -
+// its image, as Home on a card - else, a sheet or an empty grid, the search.
+// Asked whatever hides the gallery: the button is in #library and hidden
+// with it (the column under the check, the open model picker), so a check
+// made meanwhile still holds once it is back. A wheel over it beside the
+// viewer scrolls the column it lies on, not the page.
+function galleryFarDown() {
+  if (besideOn) {
+    const box = els.libraryScroll;
+    return box.clientHeight > 0 && box.scrollTop > box.clientHeight;
+  }
+  const head = els.library.querySelector('.gallery-head').getBoundingClientRect();
+  return head.bottom < -innerHeight;
+}
+
+function syncGalleryTop() {
+  const far = galleryFarDown();
+  if (far && besideOn) {
+    const box = els.libraryScroll;
+    els.galleryTop.style.setProperty('--column-bar', `${box.offsetWidth - box.clientWidth}px`);
+  }
+  if (els.galleryTop.hidden !== far) return;
+  if (!far && document.activeElement === els.galleryTop) return;
+  els.galleryTop.hidden = !far;
+}
+
+function galleryTopWheel(e) {
+  if (!besideOn || e.ctrlKey) return;
+  e.preventDefault();
+  const unit = e.deltaMode === 1 ? 16 : e.deltaMode === 2 ? els.libraryScroll.clientHeight : 1;
+  els.libraryScroll.scrollBy({ top: e.deltaY * unit, left: e.deltaX * unit, behavior: 'instant' });
+}
+
+function goToGalleryTop() {
+  const reduce = window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+  const behavior = reduce ? 'auto' : 'smooth';
+  const first = isShown(els.gallery) ? els.gallery.querySelector('.card[data-id] > img') : null;
+  (first ?? els.search).focus({ preventScroll: true });
+  if (besideOn) els.libraryScroll.scrollTo({ top: 0, behavior });
+  else els.library.querySelector('.gallery-head').scrollIntoView({ block: 'start', behavior });
 }
 
 function toggleBeside() {
