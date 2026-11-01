@@ -2,11 +2,8 @@
 from __future__ import annotations
 
 import asyncio
-import errno
 import ipaddress
 import logging
-import os
-import socket
 import sqlite3
 import sys
 import threading
@@ -46,6 +43,7 @@ else:
 
 from . import api_backup, api_bundles, api_gallery, api_generate, api_jobs, api_masks, api_more_seeds, api_png, api_presets, api_prompt, api_refine_batch, api_rerender, api_runs, api_saved_searches, api_snippets, api_swap, app_context, bundle_common, bundles, gallery_lock, gallery_reports, hub_access, loras, model_selection, prompt_encoding, startup_preferences, storage  # noqa: E402
 from .backup_service import BackupService  # noqa: E402
+from .server_probe import auradream_at as _auradream_at, page_url as _page_url, port_busy as _port_busy  # noqa: E402
 from .backends import get_backend  # noqa: E402
 from .detached import detached as _detached  # noqa: E402
 from .model_selection import current_model_id, current_settings  # noqa: E402
@@ -1161,65 +1159,6 @@ def _is_loopback(host: str) -> bool:
     try:
         return ipaddress.ip_address(host).is_loopback
     except ValueError:
-        return False
-
-
-# How long the busy-port check waits for the listener's page. A loopback
-# answer is immediate; a program that accepts and never answers is not ours.
-PROBE_SECONDS = 2.0
-
-
-def _page_url(host: str, port: int) -> str:
-    """The page's address for a browser on this machine: a wildcard bind is
-    reached on loopback, which the default allowed hosts accept."""
-    if host in ("0.0.0.0", ""):
-        host = "127.0.0.1"
-    elif host == "::":
-        host = "::1"
-    if ":" in host:
-        host = f"[{host}]"
-    return f"http://{host}:{port}/"
-
-
-# A bind refused because the port is taken or reserved: POSIX errno values,
-# and Winsock's WSAEADDRINUSE / WSAEACCES (Windows sockets report those).
-_BUSY_ERRNOS = frozenset({errno.EADDRINUSE, errno.EACCES, 10048, 10013})
-_BUSY_WINERRORS = frozenset({10048, 10013})
-
-
-def _port_busy(host: str, port: int) -> bool:
-    """Whether uvicorn's bind of `host:port` would fail: a trial bind made as
-    asyncio makes uvicorn's (address reuse on POSIX only, so a live listener
-    refuses it and a closed connection's TIME_WAIT does not). A port Windows
-    reserves refuses it too. Released at once; a program that takes the port
-    in between still meets uvicorn's own error. Only "in use" and "refused"
-    count: any other failure (a host that does not resolve, an address not on
-    this machine) is left to uvicorn, which names it."""
-    family = socket.AF_INET6 if ":" in host else socket.AF_INET
-    with socket.socket(family, socket.SOCK_STREAM) as trial:
-        if os.name == "posix":
-            trial.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
-        try:
-            trial.bind((host, port))
-        except socket.gaierror:
-            return False
-        except OSError as exc:
-            return exc.errno in _BUSY_ERRNOS or getattr(exc, "winerror", None) in _BUSY_WINERRORS
-    return False
-
-
-def _auradream_at(url: str) -> bool:
-    """Whether the page at `url` is AuraDream's: the index's own title, read
-    with a short timeout. Anything else, or no answer, is another program.
-    Never through a proxy: an environment or Windows system proxy would
-    answer for loopback in AuraDream's place."""
-    import urllib.request
-
-    direct = urllib.request.build_opener(urllib.request.ProxyHandler({}))
-    try:
-        with direct.open(url, timeout=PROBE_SECONDS) as response:
-            return b"<title>AuraDream</title>" in response.read(65536)
-    except (OSError, ValueError):
         return False
 
 

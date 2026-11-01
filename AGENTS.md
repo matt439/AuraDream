@@ -195,7 +195,12 @@ Backend (`backend/`):
   `anima_*`, `netayume_loading`, `newbie_*`)
 - CLIs: `generate.py` (its arguments and the checks that need only the
   flags in `generate_args.py`, the `--via-server` client in
-  `generate_remote.py`), `clear.py`, `stats.py`, `reindex.py`
+  `generate_remote.py`), `clear.py`, `stats.py`, `reindex.py`;
+  `doctor.py` the read-only machine check (`python -m backend.doctor`:
+  PASS/WARN/FAIL for torch's GPU, the driver's CUDA, RAM, free disk, the
+  port, the token file's existence; torch but never diffusers, no Hub) that
+  `install.ps1` runs; `server_probe.py` the port's trial bind and
+  AuraDream-title probe, stdlib only, which `main.run` and the doctor share
 
 Frontend (`web/`, served from `/static`): `index.html` loads classic scripts
 in order, sharing one global scope; only `app.js`, the last, runs anything.
@@ -219,7 +224,14 @@ merge dialogs share (the rows, choice reasons and holds), stateless; each
 file keeps its own state, preview, commit and uncertain-import flow.
 
 Also: `tools/` (fake server, headless-browser smokes), `tests/`, `wsl/`,
-`docs/`.
+`docs/`. At the root, `install.cmd`/`install.ps1` (the Windows installer:
+checks, uv/Git if missing, `HF_HOME` before any download, `uv sync`, the
+doctor, shortcuts to `bin\auradream.cmd --open`; `-DryRun`, `-Yes`) and
+`update.cmd`/`update.ps1` (refuses while AuraDream runs, copies the
+database to its before-update name, `git pull --ff-only`, `uv sync`); Windows
+PowerShell 5.1 and ASCII only, CRLF by `.gitattributes`; they never download
+weights, write `auradream.settings.json`, move the gallery, set
+`AURADREAM_*` user-wide or touch WSL (`tests/test_install_scripts.py`).
 
 ## Rules that break things silently
 

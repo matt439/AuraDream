@@ -15,7 +15,7 @@ import urllib.request
 
 import pytest
 
-from backend import main
+from backend import main, server_probe
 
 
 def _page(title: bytes):
@@ -118,7 +118,7 @@ def test_another_program_on_the_port_is_named_with_the_variable(monkeypatch, lis
 
 def test_a_listener_that_never_answers_is_not_auradream(monkeypatch, opened, capsys):
     # Accepts the connection and says nothing: the probe gives up quickly.
-    monkeypatch.setattr(main, "PROBE_SECONDS", 0.2)
+    monkeypatch.setattr(server_probe, "PROBE_SECONDS", 0.2)
     with socket.socket() as silent:
         silent.bind(("127.0.0.1", 0))
         silent.listen()
@@ -148,7 +148,7 @@ def test_a_bind_failure_other_than_in_use_is_not_busy(monkeypatch):
         def bind(self, address):
             raise OSError(errno.EADDRNOTAVAIL, "address not available")
 
-    monkeypatch.setattr(main.socket, "socket", Refusing)
+    monkeypatch.setattr(server_probe.socket, "socket", Refusing)
     assert main._port_busy("127.0.0.1", 7860) is False
 
 
@@ -158,7 +158,7 @@ def test_in_use_or_refused_is_busy(monkeypatch, code):
         def bind(self, address):
             raise OSError(code, "taken")
 
-    monkeypatch.setattr(main.socket, "socket", Taken)
+    monkeypatch.setattr(server_probe.socket, "socket", Taken)
     assert main._port_busy("127.0.0.1", 7860) is True
 
 

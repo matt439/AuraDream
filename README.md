@@ -38,9 +38,19 @@ the frontend has no build step.
 
 ## Quick start
 
-New to this? [First-time setup](docs/setup.md) walks through it step by
-step, from the GPU driver and installing uv to a first image, with fixes for
-common first-run problems. The short version, from the repository root:
+On Windows, the easiest route is the installer: download or clone the
+repository, then double-click **`install.cmd`** in its folder. It checks the
+driver, card and memory, installs uv and Git if missing, asks where model
+downloads go, installs the packages, makes Start-menu and desktop shortcuts
+and offers to start AuraDream; it never downloads model weights
+([Easy install](docs/setup.md#easy-install)). **`update.cmd`** updates it
+later. The shortcuts run `bin\auradream.cmd --open`, which opens the page
+in your browser once the server is ready.
+
+New to this, or rather do it by hand? [First-time setup](docs/setup.md)
+walks through it step by step, from the GPU driver and installing uv to a
+first image, with fixes for common first-run problems. The short version,
+from the repository root:
 
 ```powershell
 uv sync
@@ -102,7 +112,10 @@ quickly and load on demand. Nunchaku and its weight-format choices require Linux
 The full
 catalogue is in [backend/launch.py](backend/launch.py).
 
-To start from any folder, add `bin\` to your user PATH. `auradream` runs
+`--open` opens the page in the default browser once the server is
+listening; a second start while one is running just opens the page.
+To start from a terminal in any folder, add `bin\` to your user PATH
+(optional: the installer's shortcuts already start it). `auradream` runs
 the command above; `auradream-wsl` runs `wsl/serve.sh` in WSL 2 (see
 below). Both pass their arguments through, e.g. `auradream --menu`.
 From PowerShell they run as `.ps1` scripts (allowed under the `RemoteSigned`

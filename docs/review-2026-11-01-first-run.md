@@ -195,6 +195,48 @@ Each stage is self-contained; do them in order.
      reads `HF_HUB_CACHE` and the converted copies.
    - Windows Sandbox has no GPU: test as a dry run with a stub `nvidia-smi`;
      the CUDA path is never exercised in CI.
+
+   Built 2026-11-01: `install.cmd` runs `install.ps1` (Windows PowerShell
+   5.1, ASCII, `-DryRun` prints every action and changes nothing, `-Yes`
+   takes the defaults; a run with no keyboard does too) in twelve plain
+   steps: Windows and the folder (OneDrive, a path over 80 characters,
+   non-ASCII), `nvidia-smi` (CUDA from "CUDA Version" or the newer "CUDA
+   UMD Version"; a parse failure warns; under 13.0 stops with NVIDIA's
+   link), `--query-gpu=name,compute_cap,memory.total` (under 7.5 stops),
+   RAM against the measured figures, uv and Git only if missing (winget
+   with both agreement flags; else uv's installer pinned at 0.12.7, the
+   version this machine runs; the PATH refreshed in-process), a ZIP folder
+   offered `git init -b main`, fetch and a mixed `git reset origin/main`,
+   any code file that differs copied to `zip-files-replaced-<date>` before
+   `git checkout -- .` and a failed fetch removing the new `.git`; `HF_HOME`
+   asked before any download with each drive's free space (skipped when set;
+   `setx` and `$env:` only for a non-default folder); `UV_CACHE_DIR` offered
+   when the project and uv's cache are on different drives; `uv sync`; the
+   CUDA check, guarded to print `False` instead of raising and read for
+   torch's "not compatible" warning; the doctor; the Hugging Face pages and
+   `uv run hf auth login` only when asked (the default is an open
+   checkpoint); Start-menu and asked desktop shortcuts to
+   `bin\auradream.cmd --open` with the stop advice in their description;
+   and a first start, `--model cagliostrolab/animagine-xl-4.0 --open`
+   without a sign-in. A dry run carries on past a stop and exits 1 if a
+   real run would have stopped. `update.cmd` runs `update.ps1`: refuses
+   while the port's page is AuraDream's (`server_probe`'s test, without a
+   proxy) or a process runs from the folder's `.venv`, copies the database
+   `legacy_names` would choose (or `AURADREAM_DB_PATH`) to
+   `<name>-before-update.db` (its `-wal` too, an older copy's journal
+   removed), `git pull --ff-only` with a refused pull explained by kind and
+   nothing reset, then `uv sync`. `backend/doctor.py` (read-only; torch but
+   never diffusers; `nvidia-smi` if present; RAM by `GlobalMemoryStatusEx`
+   or `/proc/meminfo`; free disk under `HF_HUB_CACHE`, the converted copies
+   and the outputs; the port through `server_probe`, split out of `main` for
+   it; the token file's existence only). `.gitattributes` gives `*.cmd` and
+   `*.ps1` CRLF. Tests: `tests/test_doctor.py`, and
+   `tests/test_install_scripts.py` (Windows only) running both scripts
+   against stub tools in a temporary home. Not verified: no real run on a
+   clean machine (no GPU in Windows Sandbox), so the installs through winget
+   and uv's installer, the ZIP conversion against GitHub, the shortcuts,
+   `hf auth login` and a launch have run only as dry runs or with stubs;
+   only this RTX 5080 machine's read-only checks ran for real.
 5. **Later (`DEV#29`, deferred).** Hand-cut version tags so `update.cmd` can
    follow a stable point; a Pinokio script.
 

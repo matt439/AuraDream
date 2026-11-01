@@ -459,6 +459,45 @@ before changing it.
   per version
 - `backend/reindex.py` — rows rebuilt from the PNGs' `auradream` chunk, in place or
   copied in from another gallery; idempotent on the UNIQUE filename
+- `backend/doctor.py` — `python -m backend.doctor`, read-only machine checks
+  printed as PASS/WARN/FAIL lines with a "What to do" under anything not a
+  pass, exit 1 only for a FAIL: torch's CUDA device, its capability against
+  `torch.cuda.get_arch_list()` (`arch_supported`: a same-major `sm_` entry
+  of no higher minor, or an older `compute_` PTX entry); the driver's CUDA
+  from `nvidia-smi`'s "CUDA Version" or "CUDA UMD Version" (missing or
+  unreadable warns, under 13.0 fails); RAM by `GlobalMemoryStatusEx` or
+  `/proc/meminfo` against the measured figures (under 40 GiB warns); free
+  disk per drive for `HF_HUB_CACHE`, `hf_home_dir("converted")` and the
+  outputs (under 50 GB for the downloads warns, under 2 GB fails); the port
+  through `server_probe` (AuraDream already there passes); a Hugging Face
+  token as `HF_TOKEN` or the token file's existence, never read or sent.
+  Imports `config` first and torch inside the GPU check; never diffusers,
+  a model or the Hub (`tests/test_doctor.py`). `install.ps1` runs it
+- `backend/server_probe.py` — the port checks `main.run` and the doctor
+  share, stdlib only and without `config`: `port_busy` (the trial bind),
+  `auradream_at` (the index title, `PROBE_SECONDS`, never through a proxy)
+  and `page_url`; `main` imports them under its old private names
+- `install.cmd`, `install.ps1`, `update.cmd`, `update.ps1` (repository root)
+  — the Windows installer and updater, plain text, Windows PowerShell 5.1
+  and ASCII only (5.1 reads a BOM-less script in the ANSI code page), CRLF
+  by `.gitattributes`. Each `.cmd` runs its `.ps1` with
+  `-NoProfile -ExecutionPolicy Bypass -File`, passes its arguments through,
+  pauses unless `AURADREAM_INSTALL_NO_PAUSE` is set and returns the exit
+  code. Native calls run under `ErrorActionPreference = 'Continue'` and are
+  judged by exit code (5.1 turns their stderr into errors). `install.ps1
+  -DryRun` changes nothing, still runs the read-only checks, carries on past
+  a stop and exits 1 if a real run would have stopped; `-Yes`, or no
+  keyboard, takes every default (default download folder, no Hugging Face
+  sign-in, both shortcuts, a first start on Animagine without a sign-in).
+  Only `HF_HOME` and `UV_CACHE_DIR` may be set for the user, by `setx` and
+  in-process, and only for a non-default folder. `update.ps1` refuses while
+  the port's page is AuraDream's or a process runs from the folder's
+  `.venv`, copies the database `legacy_names` would pick (or
+  `AURADREAM_DB_PATH`) to `<name>-before-update.db` before
+  `git pull --ff-only`, and never resets, stashes or checks out. The test
+  seam `AURADREAM_INSTALL_TEST_ROOT` names the project folder, ignores the
+  user's saved variables and takes the desktop from `USERPROFILE`
+  (`tests/test_install_scripts.py`, Windows only)
 - `web/` - served as-is from `/static`; `index.html` loads 67 classic
   scripts in order, sharing one global scope; only `app.js`, the last, runs
   the wiring and boot. `state.js` owns shared state; `page-helpers.js`, right

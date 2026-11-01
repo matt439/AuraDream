@@ -9,6 +9,73 @@ For the 4-bit Nunchaku route under WSL 2, see
 [Run under WSL 2](../README.md#run-under-wsl-2-4-bit-nunchaku) instead;
 `wsl/setup.sh` does the driver check, uv and the install for you there.
 
+There are two routes: the [easy install](#easy-install), which a script does
+for you, and the manual steps from [step 1](#1-check-the-gpu-driver) on,
+which do the same by hand. Read [Before you start](#before-you-start) either
+way.
+
+## Easy install
+
+1. Get the code. Either download it from GitHub (**Code > Download ZIP**)
+   and extract it, or clone it with Git. Put the folder somewhere short that
+   OneDrive does not sync, such as `C:\AuraDream`, not in Documents or on
+   the Desktop when those are synced.
+2. Open the folder and double-click **`install.cmd`**. (Windows may warn
+   that the file came from the internet; choose **Run**, or **More info >
+   Run anyway**, only if you got it from the project's GitHub page.) A window opens
+   and the installer explains each step as it goes. It needs no
+   administrator rights, and it is safe to run again: it skips what is
+   already done.
+
+What it does, in order:
+
+- Checks Windows, the folder (OneDrive, a very long path or non-English
+  characters get a warning), the NVIDIA driver (CUDA 13.0 or higher, from
+  `nvidia-smi`), the card's generation (compute capability 7.5 or newer)
+  and video memory, and the RAM, which it compares with the measured
+  figures below; it promises nothing for other machines. A driver that is
+  too old or a card that is too old stops it with what to do.
+- Installs **uv** and **Git** only if they are missing, with winget, or
+  with uv's own installer (a pinned version) where winget is not available.
+- On a ZIP download, offers to turn the folder into a Git checkout of the
+  latest version so `update.cmd` works. Your images, gallery and settings
+  are not code and are left alone; a code file that differs from the latest
+  version is copied to a `zip-files-replaced-<date>` folder first. You can
+  say no and carry on without updates.
+- **Asks where model downloads go** (`HF_HOME`, [step 3](#3-choose-where-the-downloads-go))
+  before anything downloads, showing each drive's free space; Enter keeps
+  the default. It asks nothing if `HF_HOME` is already set. When the project
+  is on another drive than uv's package cache, it offers to keep the cache
+  on the project's drive (`UV_CACHE_DIR`) so the packages are not stored
+  twice.
+- Runs `uv sync` (a few GB of packages, never model weights), checks that
+  PyTorch sees the GPU, and runs the read-only machine check
+  `uv run python -m backend.doctor`, which you can also run yourself at any
+  time.
+- Only if you want the gated default checkpoint, opens the Hugging Face
+  account, licence and token pages and runs `uv run hf auth login`, where
+  you paste the token into Hugging Face's own tool (the installer never sees
+  it). Otherwise it recommends starting on an open checkpoint, Animagine
+  XL 4.0.
+- Makes a Start-menu shortcut and, if you agree, a desktop shortcut named
+  **AuraDream**. Each runs `bin\auradream.cmd --open`: a window with the
+  server, and the page in your browser once it is ready. Keep the window
+  open while you use it; to stop, press **Ctrl-C** in it (answer `Y` if it
+  asks "Terminate batch job"). Closing the window stops it too, and any
+  queued work with it.
+- Offers to start AuraDream now. On the first visit press **Switch & load**
+  in the Models panel ([step 7](#7-start-the-server-and-make-an-image)).
+
+What it never does: download model weights, write `auradream.settings.json`,
+move the gallery, set `AURADREAM_*` variables for your user, touch WSL, or
+ask for administrator rights. The only user variables it may set are
+`HF_HOME` and `UV_CACHE_DIR`, and only to a folder you chose.
+
+To see what it would do without changing anything, run
+`install.cmd -DryRun` from a terminal in the folder; `-Yes` takes every
+default without asking. To update later, stop AuraDream and double-click
+**`update.cmd`** ([Updating](#updating)).
+
 ## Before you start
 
 Check the machine against this list first. Only one configuration has been
@@ -214,6 +281,18 @@ It restores the checkpoint and settings you last saved in **Models**.
 
 ## If something goes wrong
 
+First, from the project folder, run the read-only machine check:
+
+```powershell
+uv run python -m backend.doctor
+```
+
+It prints a PASS, WARN or FAIL line for the GPU and PyTorch, the driver's
+CUDA version, RAM, free disk where the downloads and images go, the port,
+and whether a Hugging Face sign-in is present, with what to do under
+anything that is not a pass. It downloads and loads nothing and never
+contacts Hugging Face.
+
 - **"is gated on Hugging Face and this sign-in has no access yet"**: accept
   the licence (or wait for approval) on the checkpoint's page, run
   `uv run hf auth login` with a read token, then load again.
@@ -234,7 +313,11 @@ It restores the checkpoint and settings you last saved in **Models**.
 ## Updating
 
 Your images, gallery and settings are not part of the code, so an update
-leaves them where they are. Stop the server first, then from the project
+leaves them where they are. Stop the server first, then double-click
+**`update.cmd`** in the project folder. It refuses while AuraDream is
+running, copies the gallery database as below, runs `git pull --ff-only`
+and `uv sync`, and explains a pull Git refuses without discarding anything
+(`update.cmd -DryRun` shows what it would do). By hand, from the project
 folder:
 
 ```powershell
@@ -252,7 +335,9 @@ runs, which can take a while when torch changes. If `git pull --ff-only`
 refuses, a file of the code was changed in your folder; `git status` names
 it.
 
-A ZIP download cannot be updated in place. Download the new ZIP, extract it
+A ZIP download cannot be updated in place. Running `install.cmd` again
+offers to turn the folder into a Git checkout ([Easy install](#easy-install)),
+after which `update.cmd` works. Otherwise, download the new ZIP, extract it
 to a new folder, run `uv sync` there, and copy across from the old folder:
 `auradream.db`, `outputs\`, `loras\`, `bundles\`,
 `auradream.settings.json` and the other `auradream.*.json` files (saved
@@ -276,7 +361,12 @@ setups, snippets, saved searches and backup settings).
 4. Empty uv's cache with `uv cache clean`, which also removes other
    projects' cached packages (`uv cache prune` removes only unused
    entries). `uv python uninstall 3.13` removes the Python uv installed.
-5. If you added `bin\` to your user PATH, remove that entry. Uninstall uv
+5. Delete the **AuraDream** shortcuts the installer made: on the desktop,
+   and in the Start menu's folder
+   (`%APPDATA%\Microsoft\Windows\Start Menu\Programs\AuraDream.lnk`). If
+   the installer set `UV_CACHE_DIR`, remove it as `HF_HOME` above and
+   delete that folder.
+6. If you added `bin\` to your user PATH, remove that entry. Uninstall uv
    and Git (`winget uninstall astral-sh.uv`, `winget uninstall Git.Git`) if
    nothing else needs them.
 
@@ -286,9 +376,10 @@ setups, snippets, saved searches and backup settings).
   outpaint, the gallery and the CLI.
 - [Settings](../README.md#settings): environment variables, including
   quantization, offload, and the output and database paths.
-- To start from any folder, add the repository's `bin\` folder to your
-  user PATH and run `auradream` (`auradream-wsl` for WSL 2)
-  ([details](../README.md#quick-start)).
+- The installer's shortcuts start AuraDream without a terminal. To start it
+  from a terminal in any folder as well (optional), add the repository's
+  `bin\` folder to your user PATH and run `auradream --open`
+  (`auradream-wsl` for WSL 2) ([details](../README.md#quick-start)).
 
 ## If you used it before the rename
 

@@ -1,3 +1,7 @@
 # The wsl/ scripts run under bash against a checkout made by Windows git, whose
 # autocrlf would otherwise hand bash a '\r' at the end of every line.
 *.sh text eol=lf
+# cmd.exe misreads a batch file with bare LF endings (labels and long lines
+# break), and Windows PowerShell scripts are Windows files too: always CRLF.
+*.cmd text eol=crlf
+*.ps1 text eol=crlf
