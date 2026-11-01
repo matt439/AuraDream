@@ -7,9 +7,11 @@ ephemeral ones, held by a tiny HTTP server or a plain socket for the test.
 from __future__ import annotations
 
 import dataclasses
+import errno
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 import socket
 import threading
+import urllib.request
 
 import pytest
 
@@ -82,6 +84,25 @@ def test_a_second_launch_finds_auradream_and_exits_cleanly(monkeypatch, listener
     assert opened == ([url] if open_browser else [])
 
 
+def test_a_proxy_never_answers_for_the_running_auradream(monkeypatch, listener, opened, capsys):
+    # A proxy that is not there (port 9, discard) for every scheme and no
+    # bypass: the probe still reaches the loopback page directly.
+    for name in ("HTTP_PROXY", "http_proxy", "ALL_PROXY", "all_proxy"):
+        monkeypatch.setenv(name, "http://127.0.0.1:9")
+    for name in ("NO_PROXY", "no_proxy"):
+        monkeypatch.delenv(name, raising=False)
+    # urlopen's opener is built once per process and keeps the proxies it saw
+    # then; drop it so a probe through urlopen would meet this proxy.
+    monkeypatch.setattr(urllib.request, "_opener", None)
+    port = listener(b"AuraDream")
+    _on_port(monkeypatch, port)
+    _never_serve(monkeypatch)
+    with pytest.raises(SystemExit) as exc:
+        main.run()
+    assert exc.value.code == 0
+    assert "AuraDream is already running" in capsys.readouterr().out
+
+
 def test_another_program_on_the_port_is_named_with_the_variable(monkeypatch, listener, opened, capsys):
     port = listener(b"Something else")
     _on_port(monkeypatch, port)
@@ -115,6 +136,30 @@ def test_a_free_port_is_not_busy():
         probe.bind(("127.0.0.1", 0))
         port = probe.getsockname()[1]
     assert main._port_busy("127.0.0.1", port) is False
+
+
+def test_a_host_that_does_not_resolve_is_left_to_uvicorn():
+    # Not "port in use": uvicorn's own error names the host.
+    assert main._port_busy("no-such-host.invalid", 7860) is False
+
+
+def test_a_bind_failure_other_than_in_use_is_not_busy(monkeypatch):
+    class Refusing(socket.socket):
+        def bind(self, address):
+            raise OSError(errno.EADDRNOTAVAIL, "address not available")
+
+    monkeypatch.setattr(main.socket, "socket", Refusing)
+    assert main._port_busy("127.0.0.1", 7860) is False
+
+
+@pytest.mark.parametrize("code", [errno.EADDRINUSE, errno.EACCES, 10048, 10013])
+def test_in_use_or_refused_is_busy(monkeypatch, code):
+    class Taken(socket.socket):
+        def bind(self, address):
+            raise OSError(code, "taken")
+
+    monkeypatch.setattr(main.socket, "socket", Taken)
+    assert main._port_busy("127.0.0.1", 7860) is True
 
 
 @pytest.mark.parametrize(("host", "url"), [

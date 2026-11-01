@@ -2,6 +2,7 @@
 from __future__ import annotations
 
 import asyncio
+import errno
 import ipaddress
 import logging
 import os
@@ -1180,30 +1181,43 @@ def _page_url(host: str, port: int) -> str:
     return f"http://{host}:{port}/"
 
 
+# A bind refused because the port is taken or reserved: POSIX errno values,
+# and Winsock's WSAEADDRINUSE / WSAEACCES (Windows sockets report those).
+_BUSY_ERRNOS = frozenset({errno.EADDRINUSE, errno.EACCES, 10048, 10013})
+_BUSY_WINERRORS = frozenset({10048, 10013})
+
+
 def _port_busy(host: str, port: int) -> bool:
     """Whether uvicorn's bind of `host:port` would fail: a trial bind made as
     asyncio makes uvicorn's (address reuse on POSIX only, so a live listener
     refuses it and a closed connection's TIME_WAIT does not). A port Windows
     reserves refuses it too. Released at once; a program that takes the port
-    in between still meets uvicorn's own error."""
+    in between still meets uvicorn's own error. Only "in use" and "refused"
+    count: any other failure (a host that does not resolve, an address not on
+    this machine) is left to uvicorn, which names it."""
     family = socket.AF_INET6 if ":" in host else socket.AF_INET
     with socket.socket(family, socket.SOCK_STREAM) as trial:
         if os.name == "posix":
             trial.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
         try:
             trial.bind((host, port))
-        except OSError:
-            return True
+        except socket.gaierror:
+            return False
+        except OSError as exc:
+            return exc.errno in _BUSY_ERRNOS or getattr(exc, "winerror", None) in _BUSY_WINERRORS
     return False
 
 
 def _auradream_at(url: str) -> bool:
     """Whether the page at `url` is AuraDream's: the index's own title, read
-    with a short timeout. Anything else, or no answer, is another program."""
+    with a short timeout. Anything else, or no answer, is another program.
+    Never through a proxy: an environment or Windows system proxy would
+    answer for loopback in AuraDream's place."""
     import urllib.request
 
+    direct = urllib.request.build_opener(urllib.request.ProxyHandler({}))
     try:
-        with urllib.request.urlopen(url, timeout=PROBE_SECONDS) as response:  # noqa: S310 - our own loopback page
+        with direct.open(url, timeout=PROBE_SECONDS) as response:
             return b"<title>AuraDream</title>" in response.read(65536)
     except (OSError, ValueError):
         return False

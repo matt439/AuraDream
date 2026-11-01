@@ -888,10 +888,13 @@ measured on the card and when.
   `--open` (`launch.open_browser_requested`, no `AURADREAM_*` variable, never
   saved) has `main.run` open the default browser from a daemon thread once
   uvicorn reports `started`; never by default. Before uvicorn binds, `run`
-  makes a trial bind as asyncio does (address reuse on POSIX only): a busy
-  port whose index title is AuraDream's (`GET /`, `PROBE_SECONDS`) prints
-  that it is already running, opens it under `--open`, and exits 0; any
-  other holder exits 1 naming the port and `AURADREAM_PORT`. Port 0 is
+  makes a trial bind as asyncio does (address reuse on POSIX only). Only
+  "in use" or "refused" (EADDRINUSE/EACCES, Winsock 10048/10013) counts as
+  busy; any other failure, such as a host that does not resolve, is left to
+  uvicorn's own error. A busy port whose index title is AuraDream's (`GET /`,
+  `PROBE_SECONDS`, never through a proxy, which would answer for loopback)
+  prints that it is already running, opens it under `--open`, and exits 0;
+  any other holder exits 1 naming the port and `AURADREAM_PORT`. Port 0 is
   never checked (`tests/test_server_start.py`). The
   preferences are one choice: an explicit model (flag or environment, not env.sh's
   marked default) other than the saved one sets all of them aside, with a
