@@ -46,6 +46,10 @@ let modelChoiceIntent = null;
 // (showModelPickerAt), until its catalogue answers.
 let modelPickerPointAt = null;
 let modelPickerStartupSeen = false;
+// The picker opened by itself for an unloaded server, and nothing has been
+// saved from it yet: its note recommends Switch & load, since closing saves
+// nothing and the next plain start would use the saved or default choice.
+let modelPickerOffered = false;
 let modelRuntimeSettings = null;
 let modelExecutionOptions = null;
 let modelPickerAppliedSettings = null;
@@ -718,7 +722,11 @@ function modelPickerNote() {
   // pressed, not only in its row's title.
   const fitNote = modelCatalogueDetails[chosen]?.fit_note;
   const fit = fitNote ? `${modelLabel(chosen)}: ${fitNote}` : '';
-  return { text: [lead, fit, state, modelExecutionNote()].filter(Boolean).join(' '), unsaved };
+  // First, on the automatic opening: the finish that saves.
+  const offer = modelPickerOffered && !lead && ['unloaded', 'error'].includes(modelState)
+    ? 'Switch & load saves this choice for the next start; closing the panel saves nothing.'
+    : '';
+  return { text: [offer, lead, fit, state, modelExecutionNote()].filter(Boolean).join(' '), unsaved };
 }
 
 function syncModelSwitch() {
@@ -934,11 +942,12 @@ function offerModelPicker(status) {
   if (modelPickerStartupSeen) return;
   modelPickerStartupSeen = true;
   if (!['unloaded', 'error'].includes(status.state) || modelWorkHold() || status.active_jobs?.length) return;
-  showModelPicker(true, { focus: false });
+  showModelPicker(true, { focus: false, offered: true });
 }
 
-function showModelPicker(on, { focus = true } = {}) {
+function showModelPicker(on, { focus = true, offered = false } = {}) {
   modelPickerStartupSeen = true;
+  modelPickerOffered = on && offered;
   modelPickerPointAt = null;
   els.modelPicker.hidden = !on;
   els.models.setAttribute('aria-expanded', String(on));
@@ -1148,6 +1157,7 @@ async function switchModel({ load = true } = {}) {
     for (const key of newerPerformance) modelPickerEditedKeys.add(key);
     forgetExecutionDraft(selected);
     rememberModelChoice(selected.model_id);
+    modelPickerOffered = false;
     receiveStatus(status, Date.now());
     // No switch in the background: no revision of its own will come.
     if (!status.switching) modelOwnSwitch = null;

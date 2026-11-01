@@ -459,6 +459,55 @@ before changing it.
   per version
 - `backend/reindex.py` — rows rebuilt from the PNGs' `auradream` chunk, in place or
   copied in from another gallery; idempotent on the UNIQUE filename
+- `backend/doctor.py` — `python -m backend.doctor`, read-only machine checks
+  printed as PASS/WARN/FAIL lines with a "What to do" under anything not a
+  pass, exit 1 only for a FAIL: torch's CUDA device, its capability against
+  `torch.cuda.get_arch_list()` (`arch_supported`: a same-major `sm_` entry
+  of no higher minor, or an older `compute_` PTX entry); the driver's CUDA
+  from `nvidia-smi`'s "CUDA Version" or "CUDA UMD Version" (missing or
+  unreadable warns, under 13.0 fails); RAM by `GlobalMemoryStatusEx` or
+  `/proc/meminfo` against the measured figures (under 40 GiB warns); free
+  disk per drive for `HF_HUB_CACHE`, `hf_home_dir("converted")` and the
+  outputs (under 50 GB for the downloads warns, under 2 GB fails); the port
+  through `server_probe` (AuraDream already there passes); a Hugging Face
+  token as `HF_TOKEN` or the token file's existence, never read or sent.
+  Imports `config` first and torch inside the GPU check; never diffusers,
+  a model or the Hub (`tests/test_doctor.py`). `install.ps1` runs it
+- `backend/server_probe.py` — the port checks `main.run` and the doctor
+  share, stdlib only and without `config`: `port_busy` (the trial bind),
+  `auradream_at` (the index title, `PROBE_SECONDS`, never through a proxy)
+  and `page_url`; `main` imports them under its old private names
+- `install.cmd`, `install.ps1`, `update.cmd`, `update.ps1` (repository root)
+  — the Windows installer and updater, plain text, Windows PowerShell 5.1
+  and ASCII only (5.1 reads a BOM-less script in the ANSI code page), CRLF
+  by `.gitattributes`. Each `.cmd` runs its `.ps1` with
+  `-NoProfile -ExecutionPolicy Bypass -File`, passes its arguments through,
+  pauses unless `AURADREAM_INSTALL_NO_PAUSE` is set and returns the exit
+  code. Native calls run under `ErrorActionPreference = 'Continue'` and are
+  judged by exit code (5.1 turns their stderr into errors). `install.ps1
+  -DryRun` changes nothing, still runs the read-only checks, carries on past
+  a stop and exits 1 if a real run would have stopped; `-Yes`, or no
+  keyboard, takes every default (default download folder, no Hugging Face
+  sign-in, both shortcuts, a first start on Animagine without a sign-in).
+  It refuses a network-share folder, and, like `update.ps1`, refuses while
+  AuraDream runs. Git comes from winget with `--scope user` only (no
+  administrator approval). A sign-in is `HF_TOKEN` or the token file
+  (`HF_TOKEN_PATH`, else `HF_HOME\token`), as the doctor counts it; the
+  start passes `--model` only without a saved `auradream.settings.json` (or
+  its legacy name) beside the database, since an explicit model sets saved
+  choices aside. Each `.cmd` keeps everything from the PowerShell call on in
+  one bracketed block, which cmd.exe reads whole: a pull or the ZIP
+  conversion may rewrite the `.cmd` while it runs, and cmd.exe would read on
+  in the new file at the old offset.
+  Only `HF_HOME` and `UV_CACHE_DIR` may be set for the user, by `setx` and
+  in-process, and only for a non-default folder. `update.ps1` refuses while
+  the port's page is AuraDream's or a process runs from the folder's
+  `.venv`, copies the database `legacy_names` would pick (or
+  `AURADREAM_DB_PATH`) to `<name>-before-update.db` before
+  `git pull --ff-only`, and never resets, stashes or checks out. The test
+  seam `AURADREAM_INSTALL_TEST_ROOT` names the project folder, ignores the
+  user's saved variables and takes the desktop from `USERPROFILE`
+  (`tests/test_install_scripts.py`, Windows only)
 - `web/` - served as-is from `/static`; `index.html` loads 67 classic
   scripts in order, sharing one global scope; only `app.js`, the last, runs
   the wiring and boot. `state.js` owns shared state; `page-helpers.js`, right
@@ -798,8 +847,15 @@ measured on the card and when.
   the MRO and the `__cause__`/`__context__` chain, the first found except
   that `OfflineModeIsEnabled` wins wherever it is - huggingface_hub raises
   `LocalEntryNotFoundError` from it under `HF_HUB_OFFLINE`; the gate's kind
-  from `launch.CHECKPOINTS`); anything else stays `short_error`, and the log
-  keeps the library's words. It is raised on as `jobs.LoadFailed(detail)`,
+  from `launch.CHECKPOINTS`), and for a bare `HfHubHTTPError` answering 401
+  or 403 (an invalid, expired or under-permitted token: "denied", kind
+  `gated`), worded by `hub_access.denied`, the sentence a switch's check
+  gives, with "the model page" and "press Retry load"; anything else stays
+  `short_error`, and the log keeps the library's words. The CUDA refusal
+  (`diffusers_backend.cuda_unavailable_message`) names the NVIDIA driver and
+  CUDA 13 first, the card's compute capability only when torch reads one,
+  then the `AURADREAM_OFFLOAD`/`AURADREAM_DEVICE` CPU route, within
+  `short_error`'s 320 characters. It is raised on as `jobs.LoadFailed(detail)`,
   so a job that ended at the load and Expand (a 503 from its route) carry
   the status's sentence.
   `ModelStatus.started_at` is set once, at import.
@@ -877,7 +933,18 @@ measured on the card and when.
   invalidated when the selected checkpoint changes.
 - Server launch restores `startup_preferences` before config imports, without
   terminal input unless `--menu` is given. Flags override explicit environment,
-  then saved preferences, then defaults; `--defaults` skips preferences. The
+  then saved preferences, then defaults; `--defaults` skips preferences.
+  `--open` (`launch.open_browser_requested`, no `AURADREAM_*` variable, never
+  saved) has `main.run` open the default browser from a daemon thread once
+  uvicorn reports `started`; never by default. Before uvicorn binds, `run`
+  makes a trial bind as asyncio does (address reuse on POSIX only). Only
+  "in use" or "refused" (EADDRINUSE/EACCES, Winsock 10048/10013) counts as
+  busy; any other failure, such as a host that does not resolve, is left to
+  uvicorn's own error. A busy port whose index title is AuraDream's (`GET /`,
+  `PROBE_SECONDS`, never through a proxy, which would answer for loopback)
+  prints that it is already running, opens it under `--open`, and exits 0;
+  any other holder exits 1 naming the port and `AURADREAM_PORT`. Port 0 is
+  never checked (`tests/test_server_start.py`). The
   preferences are one choice: an explicit model (flag or environment, not env.sh's
   marked default) other than the saved one sets all of them aside, with a
   warning. The saved choice fills `--menu`'s marked defaults; a menu pick of
@@ -979,7 +1046,11 @@ measured on the card and when.
   `modelWorkHold` is the one list of page work a switch waits for;
   `offerModelPicker` uses it too.
 - The picker note (`modelPickerNote`, a live region) holds outcomes and
-  failures, then the server's state: a request error, a press's refusal
+  failures, then the server's state. The automatic opening
+  (`modelPickerOffered`, cleared by an accepted press or any close/reopen)
+  first says Switch & load saves for the next start and closing saves
+  nothing, while unloaded or failed and nothing else leads (a failed load's
+  detail does). Then: a request error, a press's refusal
   (`modelPressReason`, dropped once that action's hold changes or the picker
   reopens), `switch_error`, a failed load's detail, then
   `modelPickerMessage`; after it Loading, the unsaved edits with Revert, or
@@ -8005,7 +8076,10 @@ during a switch, under a stale revision, refused during bundle maintenance)
 and `model:=`.
 `smoke-model-startup.json` uses the same fake to check one-time automatic opening
 for an idle unloaded/error server, with the not-loaded or failed-load note
-and every model's row and facts shown,
+(led, when unloaded, by the recommendation that Switch & load saves and
+closing does not, gone after an accepted save and from a hand opening; a
+failed load's detail leads in its place; an
+element and a 1400x900 screenshot) and every model's row and facts shown,
 suppression when ready/loading/busy, no reopening after dismissal or later
 Unload, and focus/caret preservation.
 `smoke-model-hover.json` hovers a table row and checks that its hover, every
@@ -8031,7 +8105,11 @@ snapshots, metadata, refusal before releasing working weights, a failed
 teardown keeping the running model and saved file, and Switch & load retrying
 the selected model; `test_hub_access.py` covers the access check's sources,
 revisions, refusals and inconclusive answers and the route keeping the
-running model; `POST /api/fake/model` sets the fake's `overrides`, a
+running model, and the refused sign-in's sentence it shares with a failed
+load (`test_api.py`); `test_server_start.py` covers the busy port (AuraDream
+already there, another program, a listener that never answers) and `--open`
+waiting for the bind on an ephemeral port, with `webbrowser.open` replaced;
+`POST /api/fake/model` sets the fake's `overrides`, a
 `stuck_critic` and an `access` refusal ("gated"/"not_found") for page checks;
 `test_model_benchmarks.py` covers speed categories, exact sample matching and
 no category for an unmatched setup or a first run on a busy PC;

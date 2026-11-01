@@ -487,6 +487,17 @@ elsewhere keeps it closed. This decision is made once per page visit: later
 polls, manual Unload and a dismissed picker never reopen it. Automatic opening
 does not take focus or move the prompt caret.
 
+Closing that automatic opening used to read as an equal finish beside Switch
+& load: Generate then loads the running checkpoint, but only the switch route
+saves, so a server started with `--model` on an open checkpoint went back to
+the saved or gated default at the next plain start (first-run review F2).
+The automatic opening's note now leads with "Switch & load saves this choice
+for the next start; closing the panel saves nothing." while unloaded or
+failed, unless a failed load's detail or another message leads, until a press
+is accepted or the picker closes; a hand opening never says it. It is a sentence
+in the note's reserved height, beside Switch & load's existing primary
+styling, so nothing moves.
+
 Hovering a row in the open checkpoint list made the highlight jump a few rows,
 first up, then (after a fix that stopped polls reassigning unchanged values)
 down. That fix had the wrong cause. Chromium's source shows a same-value

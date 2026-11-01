@@ -271,6 +271,51 @@ def test_load_offloads_onto_the_configured_device(monkeypatch):
     assert (info["vram_total_mb"], info["vram_used_mb"]) == (2048, 1024)
 
 
+def test_load_without_cuda_names_the_driver_first_and_keeps_the_cpu_route(monkeypatch):
+    # A first-time user's likeliest cause is the driver, so it leads; the
+    # AURADREAM_DEVICE/offload route stays, and nothing is downloaded.
+    import diffusers
+    import torch
+
+    monkeypatch.setattr(diffusers.DiffusionPipeline, "from_pretrained", lambda *a, **k: pytest.fail("loaded"))
+    monkeypatch.setattr(torch.cuda, "is_available", lambda: False)
+    monkeypatch.setattr(torch.cuda, "device_count", lambda: 0)
+    monkeypatch.setattr(
+        module, "settings", dataclasses.replace(module.settings, quantization="none", offload="model", device="cuda"),
+    )
+    with pytest.raises(RuntimeError) as caught:
+        DiffusersBackend().load()
+    message = str(caught.value)
+    assert message.startswith("CUDA is not available to PyTorch. AuraDream needs an NVIDIA card and a driver")
+    assert "`nvidia-smi`" in message and "CUDA Version 13.0" in message
+    assert message.index("nvidia-smi") < message.index("AURADREAM_OFFLOAD=none and AURADREAM_DEVICE=cpu")
+    assert "compute capability" not in message
+    # Shown whole: within short_error's limit even with the capability.
+    from backend.error_text import short_error
+
+    assert "…" not in short_error(caught.value)
+
+
+def test_the_cuda_refusal_adds_the_cards_compute_capability_when_torch_reads_it():
+    from types import SimpleNamespace
+
+    from backend.error_text import short_error
+
+    readable = SimpleNamespace(cuda=SimpleNamespace(device_count=lambda: 1, get_device_capability=lambda index: (6, 1)))
+    message = module.cuda_unavailable_message(readable)
+    assert "PyTorch reads the card as compute capability 6.1." in message
+    assert message.endswith("AURADREAM_OFFLOAD=none and AURADREAM_DEVICE=cpu.")
+    assert "…" not in short_error(RuntimeError(message))
+
+    def unreadable(index):
+        raise RuntimeError("no CUDA GPUs are available")
+
+    failing = SimpleNamespace(cuda=SimpleNamespace(device_count=lambda: 1, get_device_capability=unreadable))
+    assert "compute capability" not in module.cuda_unavailable_message(failing)
+    broken = SimpleNamespace(cuda=SimpleNamespace(device_count=lambda: (_ for _ in ()).throw(RuntimeError("driver"))))
+    assert "compute capability" not in module.cuda_unavailable_message(broken)
+
+
 def test_load_reaches_for_the_vaes_own_tiling_switches(monkeypatch):
     import diffusers
 

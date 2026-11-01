@@ -37,6 +37,14 @@ CHECK_SECONDS = 9.0
 LOGIN = "run `uv run hf auth login` once with a read token"
 
 
+def denied(repo_id: str, page: str, then: str) -> str:
+    """The sentence for a 401/403 from the Hub: a token that is invalid,
+    expired or without permission for `repo_id`. Shared by a switch's check
+    and a failed load (`main._load_failure`), which differ only in where the
+    page is (`page`) and what to do after (`then`)."""
+    return f"Hugging Face refused this sign-in for {repo_id}: check its access on {page}, {LOGIN}, then {then}."
+
+
 @dataclass(frozen=True)
 class Refusal:
     """The Hub's no: `kind` is "gated" or "not_found", as a failed load's
@@ -88,7 +96,7 @@ def _ask(source: Source) -> None:
     get_hf_file_metadata(url, timeout=REQUEST_SECONDS)
 
 
-def _refused_kind(exc: BaseException) -> str | None:
+def refused_kind(exc: BaseException) -> str | None:
     """"gated", "not_found", "denied" for an answer that refuses this sign-in,
     or None for one that settles nothing. By class, narrowest first:
     GatedRepoError is a RepositoryNotFoundError."""
@@ -138,8 +146,7 @@ def _refusal(model_id: str, source: Source, kind: str) -> Refusal:
         lead = f"{where} is gated on Hugging Face and this sign-in has no access yet"
         return Refusal("gated", f"{lead}: {how}, {LOGIN}, then switch again.", page)
     if kind == "denied":
-        lead = f"Hugging Face refused this sign-in for {source.repo_id}"
-        return Refusal("gated", f"{lead}: check its access on {page}, {LOGIN}, then switch again.", page)
+        return Refusal("gated", denied(source.repo_id, page, "switch again"), page)
     revision = f" at revision {source.revision}" if source.revision and source.revision != "main" else ""
     return Refusal(
         "not_found",
@@ -161,7 +168,7 @@ def check(model_id: str) -> Refusal | None:
         try:
             _ask(source)
         except Exception as exc:  # noqa: BLE001 - classified below
-            kind = _refused_kind(exc)
+            kind = refused_kind(exc)
             if kind is None:
                 # Not known for this source; another may still say no.
                 log.info("access check for %s inconclusive (%s)", source.repo_id, type(exc).__name__)
