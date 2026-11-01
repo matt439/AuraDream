@@ -27,15 +27,18 @@
 /* Held (no refine pass on this checkpoint): the tick, its words and the
    numbers it would use dimmed as a held button is, a badge saying so beside
    the words and the reason in the warning colour - plain to see, not only on
-   a press. The badge sits in the label's row, so it moves nothing. */
+   a press. The badge is always laid out, hidden unless held, and the row
+   wraps it rather than squeezing the words: a hold coming or going while
+   the dialog is open moves nothing at any width. */
+#then-refine-label { flex-wrap: wrap; }
 #then-refine-label[aria-disabled="true"] { color: var(--text-3); cursor: not-allowed; }
 #then-refine-label[aria-disabled="true"] > input { opacity: 0.45; cursor: not-allowed; }
 .tr-unavailable {
-  display: none; margin-left: var(--sp-1); padding: 0 var(--sp-1);
+  visibility: hidden; margin-left: var(--sp-1); padding: 0 var(--sp-1);
   border: 1px solid var(--warn); border-radius: var(--r-sm);
   color: var(--warn); font-size: var(--fs-label);
 }
-#then-refine-label[aria-disabled="true"] > .tr-unavailable { display: inline; }
+#then-refine-label[aria-disabled="true"] > .tr-unavailable { visibility: visible; }
 .tr-dialog:has(#then-refine-label[aria-disabled="true"]) .tr-controls { opacity: 0.45; }
 .tr-dialog:has(#then-refine-label[aria-disabled="true"]) #then-refine-hint { color: var(--warn); }
 

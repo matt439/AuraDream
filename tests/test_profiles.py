@@ -394,7 +394,21 @@ def test_netayume_uses_the_pinned_releases_profile_and_qualified_family_guide():
 
     guide = PromptGuide(**guide_for(model))
     assert guide.pixels == (1024**2 / 1e6, 1024 * 1536 / 1e6)
-    assert guide.pixels_word == "example" and guide.tag_helper is None
+    assert guide.pixels_word == "example"
+    # Danbooru tags and prose together, as the parent prompt book writes
+    # them: the chips and autocomplete, the book's person counts and the
+    # quality tags, the @ artist spelling, and no checked order - the
+    # book's sequence is listed as the authors' instead.
+    helper = guide.tag_helper
+    assert helper is not None and helper.hybrid_prompt and helper.vocabulary == "danbooru"
+    assert helper.vocabulary_cutoff is None and helper.artist_prefix == "@"
+    assert helper.order == [] and helper.negative_prompt is None
+    assert {group.label: group.tags for group in helper.groups} == {
+        "Person count": ["1girl", "1boy", "2girls", "2boys"],
+        "Quality": ["best quality", "masterpiece", "amazing quality"],
+    }
+    assert not any(group.exclusive for group in helper.groups)
+    assert any("9. Quality tips (best quality)" in order.text for order in helper.author_orders)
     assert guide.examples[0].startswith("Gawr Gura, 1girl, solo, anime style")
     assert "<Prompt Start>" not in guide.examples[0]
     hints = hints_for(model)

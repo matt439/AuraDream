@@ -10029,7 +10029,29 @@ The page names the checkpoint "NetaYume Lumina v4", the catalogue's label,
 where it had shown the repository's last part, the parent's name (The start-up
 menu). The example prompt is the author's workflow image
 prompt with only the system prefix and separator removed. No vocabulary
-cutoff is published for v4, so no tag validator is guessed.
+cutoff is published for v4, so none is guessed.
+
+**Tags and prose, as the parent writes them** (2026-11-01). The guide first
+had no tag helper, reading the missing cutoff as reason to show no chips; a
+prompt of Danbooru tags then got the prose box's spellcheck and nothing
+else, though the card's second system prompt names user prompts and Danbooru
+tags together and the parent's prompt book says "Build skeleton with tags first, then
+flesh out details in natural language". It is now a hybrid helper like the
+Illustrious family's, against the live index with no cutoff, as Anima's
+(whose card names none either). Everything in it is the parent prompt book's
+or the author's v2 workflow's, labelled inherited in the prose and in
+`prompt_sources` (`neta.underscores`, `neta.artist`): the person counts its
+formula and sequence name (`1girl, 2boys`; `1girl, 1boy, 2girls`), not
+one-of; `best quality`, its sequence's last step, beside the workflow's
+`masterpiece` and `amazing quality`; and the copilot template's "The artist
+tag is reinforced with the @ symbol" as the artist spelling. No order is
+checked - the nine steps are mostly general tags no Danbooru category tells
+apart - so the Tags menu and Check list the book's sequence as the authors'.
+No negative is offered: both the book's and the v2 workflow's give the
+negative its own low-quality system instruction, which Lumina2Pipeline does
+not apply (it prefixes only the prompt), so a "Set" of the bare tags would
+not be their recipe. The book's Feishu prompt book renders only with
+JavaScript and was not read.
 
 Sources:
 - [Pinned author card](https://huggingface.co/duongve/NetaYume-Lumina-Image-2.0/blob/69c29c441119d43405d8373c654b16827d3cf46e/README.md).
@@ -10037,6 +10059,7 @@ Sources:
 - [Author v2 workflow](https://huggingface.co/duongve/NetaYume-Lumina-Image-2.0/blob/69c29c441119d43405d8373c654b16827d3cf46e/Lumina_image_v2_tensorart_workflow.json).
 - [Pinned official Lumina 2 components](https://huggingface.co/Alpha-VLLM/Lumina-Image-2.0/tree/53504abd8178b30685b6c4c7a4cd181ff78b73e9).
 - [Neta Lumina base guidance](https://huggingface.co/neta-art/Neta-Lumina/blob/65c078e75781946e9f3423fe41457adae3eba3cd/README.md).
+- [Neta Lumina prompt book](https://neta.art/blog/neta_lumina_prompt_book/) (read 2026-11-01).
 - Installed Diffusers 0.40 `pipeline_lumina2.py` and `convert_lumina2_to_diffusers`.
 
 Runtime measurements belong in `verified.md`; conversion tests and browser
