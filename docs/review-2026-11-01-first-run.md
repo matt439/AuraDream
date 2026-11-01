@@ -139,6 +139,12 @@ Each stage is self-contained; do them in order.
 2. **First-visit panel (`UI#39`, S).** The fresh-visit Models panel recommends
    Switch & load and stops presenting closing as an equal finish, so the
    choice is saved. Smoke: `smoke-model-switch`/`smoke-model-startup`.
+   Built 2026-11-01: the automatic opening's note leads with "Switch & load
+   saves this choice for the next start; closing the panel saves nothing."
+   until a press is accepted or the picker closes (`modelPickerOffered` in
+   `web/model-switch.js`; Switch & load was already the primary button). No
+   layout change; `smoke-model-startup` asserts it and screenshots it at
+   1400x900. The preselected checkpoint is unchanged (`GEN#41`).
 3. **Plain-words failures (`GEN#40`, M).** The CUDA refusal names the driver
    (and the card's compute capability where torch can read it) and keeps the
    offload text; 401/403 on the load path reuse `hub_access`'s wording; a
