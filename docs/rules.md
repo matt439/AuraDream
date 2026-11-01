@@ -979,7 +979,11 @@ measured on the card and when.
   `modelWorkHold` is the one list of page work a switch waits for;
   `offerModelPicker` uses it too.
 - The picker note (`modelPickerNote`, a live region) holds outcomes and
-  failures, then the server's state: a request error, a press's refusal
+  failures, then the server's state. The automatic opening
+  (`modelPickerOffered`, cleared by an accepted press or any close/reopen)
+  first says Switch & load saves for the next start and closing saves
+  nothing, while unloaded or failed and nothing else leads (a failed load's
+  detail does). Then: a request error, a press's refusal
   (`modelPressReason`, dropped once that action's hold changes or the picker
   reopens), `switch_error`, a failed load's detail, then
   `modelPickerMessage`; after it Loading, the unsaved edits with Revert, or
@@ -8005,7 +8009,10 @@ during a switch, under a stale revision, refused during bundle maintenance)
 and `model:=`.
 `smoke-model-startup.json` uses the same fake to check one-time automatic opening
 for an idle unloaded/error server, with the not-loaded or failed-load note
-and every model's row and facts shown,
+(led, when unloaded, by the recommendation that Switch & load saves and
+closing does not, gone after an accepted save and from a hand opening; a
+failed load's detail leads in its place; an
+element and a 1400x900 screenshot) and every model's row and facts shown,
 suppression when ready/loading/busy, no reopening after dismissal or later
 Unload, and focus/caret preservation.
 `smoke-model-hover.json` hovers a table row and checks that its hover, every
