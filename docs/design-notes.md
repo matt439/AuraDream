@@ -492,8 +492,9 @@ Closing that automatic opening used to read as an equal finish beside Switch
 saves, so a server started with `--model` on an open checkpoint went back to
 the saved or gated default at the next plain start (first-run review F2).
 The automatic opening's note now leads with "Switch & load saves this choice
-for the next start; closing the panel saves nothing." until a press is
-accepted or the picker closes; a hand opening never says it. It is a sentence
+for the next start; closing the panel saves nothing." while unloaded or
+failed, unless a failed load's detail or another message leads, until a press
+is accepted or the picker closes; a hand opening never says it. It is a sentence
 in the note's reserved height, beside Switch & load's existing primary
 styling, so nothing moves.
 
