@@ -28,7 +28,8 @@ measured: an RTX 5080 with 16 GB of VRAM in a 64 GB Windows 11 machine.
 - **RAM.** A cold load of the default, FLUX.1 Krea [dev] (fp8, model
   offload), peaked at **27.9 GiB working set and 35.4 GiB private**
   (memory committed, which RAM and the page file must cover) on the 64 GB
-  test machine ([the fixed loader](verified.md#ram-at-the-load-the-fixed-loader-2026-10-27)).
+  test machine, and private rose to **39.9 GiB** near the end of the first
+  1024x1024 render ([the fixed loader](verified.md#ram-at-the-load-the-fixed-loader-2026-10-27)).
   Other FLUX-size checkpoints (FLUX.2 klein 9B, Krea 2, Qwen-Image) and int8
   have not been measured with that loader, and no 32 GB machine has been
   measured. The SDXL anime checkpoints need far less.
@@ -127,7 +128,10 @@ uv run python -c "import torch; print(torch.cuda.is_available(), torch.cuda.get_
 ```
 
 It should print `True` and your GPU's name. `False` means the driver is too
-old for CUDA 13 (step 1), or the card is older than the list above.
+old for CUDA 13 (step 1). A card older than the list above can still print
+`True` and its name, with a warning that its CUDA capability "is not
+compatible with the current PyTorch installation": that warning means the
+card is too old ([Before you start](#before-you-start)).
 
 ## 5. Pick a first checkpoint
 
@@ -140,7 +144,8 @@ The two sensible first choices:
   [anime model guide](anime-model-guide.md) compares the others.
 - **FLUX.1 Krea [dev]**, the default: photographic, about 32 GiB of weights.
   Its load peaked at 27.9 GiB working set and 35.4 GiB private on the
-  64 GB test machine (the RAM item above). It is gated: it needs step 6.
+  64 GB test machine, and private reached 39.9 GiB during the first render
+  (the RAM item above). It is gated: it needs step 6.
 
 Krea 2 Turbo and Raw are gated too, and need their authors' manual approval,
 which can take a while.
@@ -233,7 +238,7 @@ leaves them where they are. Stop the server first, then from the project
 folder:
 
 ```powershell
-Copy-Item auradream.db auradream.db.bak
+Copy-Item auradream.db auradream-before-update.db
 git pull --ff-only
 uv run python -m backend.main
 ```
@@ -241,7 +246,8 @@ uv run python -m backend.main
 The copy matters: a new version can add to the gallery database on its
 first start, and an older version cannot undo that, so the copy is the way
 back. (A gallery from before the rename may be `local-diffusion.db`; copy
-that one instead.) The next start installs any changed packages before it
+that one instead, to `local-diffusion-before-update.db`.) Git ignores
+both copies. The next start installs any changed packages before it
 runs, which can take a while when torch changes. If `git pull --ff-only`
 refuses, a file of the code was changed in your folder; `git status` names
 it.

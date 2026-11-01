@@ -22,7 +22,8 @@ the frontend has no build step.
   use FP8 quantization and model offload. See [measured results](docs/verified.md).
 - System RAM: a cold load of the default, FLUX.1 Krea [dev] (fp8, model
   offload), peaked at **27.9 GiB working set and 35.4 GiB private** on the
-  64 GB test machine; see
+  64 GB test machine, and private rose to 39.9 GiB during the first
+  1024x1024 render; see
   [the fixed loader](docs/verified.md#ram-at-the-load-the-fixed-loader-2026-10-27).
   Other FLUX-size checkpoints and int8 are not measured with that loader,
   and no 32 GB machine has been measured. The SDXL anime checkpoints
