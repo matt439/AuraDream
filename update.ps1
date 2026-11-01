@@ -23,7 +23,9 @@ $ErrorActionPreference = 'Stop'
 # Test seam, as in install.ps1: a temporary project folder.
 $TestRoot = $env:AURADREAM_INSTALL_TEST_ROOT
 if ($TestRoot) { $Root = $TestRoot } else { $Root = $PSScriptRoot }
-$Root = (Resolve-Path -LiteralPath $Root).Path.TrimEnd('\')
+# ProviderPath: a plain path even on a network share, never PowerShell's
+# provider-qualified form, which git -C cannot use.
+$Root = (Resolve-Path -LiteralPath $Root).ProviderPath.TrimEnd('\')
 
 function Say([string]$Text) { Write-Host $Text }
 function Ok([string]$Text) { Write-Host "  [ok]   $Text" }
@@ -185,7 +187,9 @@ if ($DryRun) {
     if ($pull.Text.Trim()) { $pull.Text -split "`n" | ForEach-Object { Say "    $_" } }
     if ($pull.Code -ne 0) {
         $text = $pull.Text
-        if ($text -match 'would be overwritten') {
+        if ($text -match 'untracked working tree files would be overwritten') {
+            Stop-Update 'Git did not update: files in this folder that are not part of the code would be overwritten by files the new version adds. Nothing was discarded.' 'Git names the files above. Move or rename them (somewhere outside this folder if you want to keep them), then run update.cmd again.'
+        } elseif ($text -match 'would be overwritten') {
             Stop-Update 'Git did not update: code files changed in this folder would be overwritten by the new version. Nothing was discarded.' 'Git names the files above. To keep your change, copy those files somewhere else first. Then put back the original with: git restore <file> (this discards your change to that file) and run update.cmd again.'
         } elseif ($text -match 'Not possible to fast-forward|diverging|non-fast-forward|fatal: Need to specify how to reconcile') {
             Stop-Update 'Git did not update: this folder has commits of its own that the new version does not include. Nothing was discarded.' 'If you made those commits, merge or rebase them yourself (git pull). If you did not, ask on the project page before changing anything.'

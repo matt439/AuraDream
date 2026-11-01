@@ -25,7 +25,9 @@ way.
    Run anyway**, only if you got it from the project's GitHub page.) A window opens
    and the installer explains each step as it goes. It needs no
    administrator rights, and it is safe to run again: it skips what is
-   already done.
+   already done and keeps the choices saved in the Models panel. It refuses
+   while AuraDream is running (stop it first) and on a network share (use
+   a folder on this machine's own drive).
 
 What it does, in order:
 
@@ -37,6 +39,8 @@ What it does, in order:
   too old or a card that is too old stops it with what to do.
 - Installs **uv** and **Git** only if they are missing, with winget, or
   with uv's own installer (a pinned version) where winget is not available.
+  Git is installed for your user only; where winget cannot do that, it says
+  so and AuraDream runs without Git (only `update.cmd` needs it).
 - On a ZIP download, offers to turn the folder into a Git checkout of the
   latest version so `update.cmd` works. Your images, gallery and settings
   are not code and are left alone; a code file that differs from the latest

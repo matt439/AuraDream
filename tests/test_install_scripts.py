@@ -88,6 +88,9 @@ def sandbox(tmp_path):
         "LOCALAPPDATA": str(home / "Local"),
         "AURADREAM_INSTALL_TEST_ROOT": str(root),
         "STUB_LOG": str(log),
+        # Nothing listens on port 1: a server running on this machine's 7860
+        # never answers for the sandbox. Tests that want one set their own.
+        "AURADREAM_PORT": "1",
     })
     return {"root": root, "stubs": stubs, "home": home, "log": log, "env": env, "tmp": tmp_path}
 
@@ -167,6 +170,73 @@ def test_install_dry_run_on_a_supported_checkout(sandbox):
     assert not list(sandbox["home"].rglob("*.lnk"))
 
 
+def test_install_dry_run_re_run_keeps_saved_choices_and_sees_hf_token(sandbox):
+    # Saved Models choices: no --model, which would set them aside. HF_TOKEN
+    # counts as signed in, as the doctor counts it. Git through winget is a
+    # per-user install, which asks for no administrator approval.
+    _nvidia_smi(sandbox["stubs"], "NVIDIA-SMI 580.00   CUDA Version: 13.0", "NVIDIA GeForce RTX 5080, 12.0, 16303")
+    _winget(sandbox["stubs"])
+    _uv(sandbox["stubs"])
+    (sandbox["root"] / "auradream.settings.json").write_text("{}")
+    sandbox["env"]["HF_TOKEN"] = "hf_not_a_real_token"
+    result = _run(sandbox, "install.ps1", "-DryRun", "-Yes")
+    out = result.stdout
+    assert result.returncode == 0, out + result.stderr
+    assert "would install Git: winget install --id Git.Git -e --scope user" in out
+    assert "a token is set in HF_TOKEN" in out
+    assert "--model" not in out
+    assert "restores the choices saved in the Models panel" in out
+    assert "hf_not_a_real_token" not in out
+
+
+def test_install_dry_run_without_a_token_still_keeps_saved_choices(sandbox):
+    _nvidia_smi(sandbox["stubs"], "NVIDIA-SMI 580.00   CUDA Version: 13.0", "NVIDIA GeForce RTX 5080, 12.0, 16303")
+    _uv(sandbox["stubs"])
+    _git(sandbox["stubs"])
+    (sandbox["root"] / ".git").mkdir()
+    (sandbox["root"] / "local-diffusion.settings.json").write_text("{}")   # the pre-rename name
+    result = _run(sandbox, "install.ps1", "-DryRun", "-Yes")
+    out = result.stdout
+    assert result.returncode == 0, out + result.stderr
+    assert "starts on the choices saved in its Models panel" in out
+    assert "--model" not in out
+
+
+def test_install_refuses_while_auradream_is_running(sandbox, auradream_listening):
+    _nvidia_smi(sandbox["stubs"], "NVIDIA-SMI 580.00   CUDA Version: 13.0", "NVIDIA GeForce RTX 5080, 12.0, 16303")
+    _uv(sandbox["stubs"])
+    _git(sandbox["stubs"])
+    (sandbox["root"] / ".git").mkdir()
+    sandbox["env"]["AURADREAM_PORT"] = str(auradream_listening)
+    before = _snapshot(sandbox["root"])
+    result = _run(sandbox, "install.ps1", "-Yes")     # a real run, not a dry one
+    assert result.returncode == 1, result.stdout + result.stderr
+    assert f"AuraDream is running at http://127.0.0.1:{auradream_listening}/" in result.stdout
+    assert "Install stopped." in result.stdout
+    assert _snapshot(sandbox["root"]) == before
+    assert [c for c in _calls(sandbox) if not c.endswith("--version")] == []   # no uv sync, no git
+
+
+@pytest.mark.parametrize("name", ["install", "update"])
+def test_wrapper_survives_being_replaced_while_it_runs(tmp_path, name):
+    # git pull (update) or the ZIP conversion (install) can rewrite the .cmd
+    # while cmd.exe is running it; the wrapper must not read on in the new
+    # file, and must pass the script's exit code through.
+    (tmp_path / f"{name}.cmd").write_bytes((REPO / f"{name}.cmd").read_bytes())
+    replacement = tmp_path / "replacement.txt"
+    replacement.write_bytes(b"@echo off\r\n" + b"echo REPLACEMENT LINE THAT MUST NOT RUN\r\n" * 20
+                            + b"exit /b 77\r\n")
+    (tmp_path / f"{name}.ps1").write_text(
+        f"Copy-Item -LiteralPath '{replacement}' -Destination '{tmp_path / (name + '.cmd')}' -Force\n"
+        "Write-Output 'script ran'\nexit 5\n", encoding="ascii")
+    env = dict(os.environ, AURADREAM_INSTALL_NO_PAUSE="1")
+    result = subprocess.run(["cmd.exe", "/d", "/c", str(tmp_path / f"{name}.cmd")], env=env,
+                            capture_output=True, text=True, timeout=60, stdin=subprocess.DEVNULL)
+    assert "script ran" in result.stdout
+    assert "REPLACEMENT" not in result.stdout and not result.stderr.strip(), result.stdout + result.stderr
+    assert result.returncode == 5
+
+
 @pytest.fixture
 def auradream_listening():
     """A loopback page titled AuraDream on an ephemeral port."""
@@ -242,3 +312,16 @@ def test_update_explains_a_refused_pull_and_discards_nothing(sandbox):
     calls = _calls(sandbox)
     assert not any(word in c for c in calls for word in ("reset", "checkout", "clean", "stash"))
     assert "uv sync" not in calls
+
+
+def test_update_explains_untracked_files_in_the_way(sandbox):
+    # Untracked files (a ZIP folder's leftovers) are not restored by git
+    # restore: the advice is to move them.
+    _checkout_with_gallery(sandbox)
+    _git(sandbox["stubs"], pull_exit=1,
+         pull_output="error: The following untracked working tree files would be overwritten by merge:")
+    result = _run(sandbox, "update.ps1")
+    assert result.returncode == 1
+    assert "not part of the code" in result.stdout and "Move or rename them" in result.stdout
+    assert "git restore" not in result.stdout
+    assert "uv sync" not in _calls(sandbox)

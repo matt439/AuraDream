@@ -489,6 +489,16 @@ before changing it.
   a stop and exits 1 if a real run would have stopped; `-Yes`, or no
   keyboard, takes every default (default download folder, no Hugging Face
   sign-in, both shortcuts, a first start on Animagine without a sign-in).
+  It refuses a network-share folder, and, like `update.ps1`, refuses while
+  AuraDream runs. Git comes from winget with `--scope user` only (no
+  administrator approval). A sign-in is `HF_TOKEN` or the token file
+  (`HF_TOKEN_PATH`, else `HF_HOME\token`), as the doctor counts it; the
+  start passes `--model` only without a saved `auradream.settings.json` (or
+  its legacy name) beside the database, since an explicit model sets saved
+  choices aside. Each `.cmd` keeps everything from the PowerShell call on in
+  one bracketed block, which cmd.exe reads whole: a pull or the ZIP
+  conversion may rewrite the `.cmd` while it runs, and cmd.exe would read on
+  in the new file at the old offset.
   Only `HF_HOME` and `UV_CACHE_DIR` may be set for the user, by `setx` and
   in-process, and only for a non-default folder. `update.ps1` refuses while
   the port's page is AuraDream's or a process runs from the folder's

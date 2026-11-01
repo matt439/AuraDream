@@ -46,7 +46,9 @@ $GatedModel = 'black-forest-labs/FLUX.1-Krea-dev'
 # from USERPROFILE rather than the shell's own folder setting.
 $TestRoot = $env:AURADREAM_INSTALL_TEST_ROOT
 if ($TestRoot) { $Root = $TestRoot } else { $Root = $PSScriptRoot }
-$Root = (Resolve-Path -LiteralPath $Root).Path.TrimEnd('\')
+# ProviderPath: a plain path even on a network share, never PowerShell's
+# provider-qualified form (step 1 refuses a share anyway).
+$Root = (Resolve-Path -LiteralPath $Root).ProviderPath.TrimEnd('\')
 
 $script:WouldStop = @()
 $script:StepNumber = 0
@@ -244,6 +246,59 @@ function Test-Interactive {
     try { return [Environment]::UserInteractive -and -not [Console]::IsInputRedirected } catch { return $false }
 }
 
+# The server's own second-launch test (backend/server_probe.py), as in
+# update.ps1: something listens on the port, and its page has AuraDream's
+# title. Never through a proxy, which would answer for loopback.
+function Test-AuraDreamAt([int]$Port) {
+    $client = New-Object System.Net.Sockets.TcpClient
+    try {
+        $connect = $client.BeginConnect('127.0.0.1', $Port, $null, $null)
+        if (-not $connect.AsyncWaitHandle.WaitOne(1000) -or -not $client.Connected) { return 'free' }
+        $client.EndConnect($connect)
+    } catch {
+        return 'free'
+    } finally {
+        $client.Close()
+    }
+    try {
+        $request = [System.Net.WebRequest]::Create("http://127.0.0.1:$Port/")
+        $request.Proxy = $null
+        $request.Timeout = 2000
+        $response = $request.GetResponse()
+        try {
+            $reader = New-Object System.IO.StreamReader ($response.GetResponseStream())
+            $page = $reader.ReadToEnd()
+        } finally { $response.Close() }
+        if ($page -match '<title>AuraDream</title>') { return 'auradream' }
+    } catch { }
+    return 'other'
+}
+
+# Programs running from this folder's .venv (AuraDream on another port, or a
+# command such as generate), as update.ps1 checks.
+function Get-VenvProcesses {
+    $venvDir = Join-Path $Root '.venv'
+    try {
+        return @(Get-CimInstance -ClassName Win32_Process -ErrorAction Stop | Where-Object {
+            $_.ExecutablePath -and $_.ExecutablePath.StartsWith($venvDir + '\', [StringComparison]::OrdinalIgnoreCase)
+        })
+    } catch { return @() }
+}
+
+# The saved browser choices beside the gallery database (auradream.settings.json,
+# or the pre-rename local-diffusion.settings.json), where a start restores them.
+function Test-SavedChoices {
+    if ($env:AURADREAM_DB_PATH) {
+        $dbDir = Split-Path -Parent ([Environment]::ExpandEnvironmentVariables($env:AURADREAM_DB_PATH))
+    } else { $dbDir = $Root }
+    # Relative to the project folder, where bin\auradream.cmd starts the server.
+    if (-not $dbDir) { $dbDir = $Root } elseif (-not [IO.Path]::IsPathRooted($dbDir)) { $dbDir = Join-Path $Root $dbDir }
+    foreach ($name in @('auradream.settings.json', 'local-diffusion.settings.json')) {
+        if ((Test-Path -LiteralPath (Join-Path $dbDir $name))) { return $true }
+    }
+    return $false
+}
+
 # --- Start --------------------------------------------------------------------
 
 Say 'AuraDream installer'
@@ -267,6 +322,22 @@ if ([Environment]::OSVersion.Platform -ne 'Win32NT') {
 }
 if (-not ((Test-Path -LiteralPath (Join-Path $Root 'pyproject.toml')) -and (Test-Path -LiteralPath (Join-Path $Root 'backend\main.py')))) {
     Stop-Install "This folder does not look like AuraDream ($Root has no pyproject.toml and backend\main.py)." 'Run install.cmd from inside the AuraDream folder you downloaded or cloned.'
+}
+if ($Root.StartsWith('\\')) {
+    Stop-Install "This folder is on a network share ($Root). The packages, the gallery database and the shortcuts need a folder on a drive of this machine." 'Copy the folder to a local drive, such as C:\AuraDream, and run install.cmd there.'
+}
+# A re-run may replace code files (step 5) and packages (step 8), which a
+# running AuraDream is using, as update.cmd refuses to.
+$port = 7860
+if ($env:AURADREAM_PORT -match '^\d+$') { $port = [int]$env:AURADREAM_PORT }
+if ((Test-AuraDreamAt $port) -eq 'auradream') {
+    Stop-Install "AuraDream is running at http://127.0.0.1:$port/. Installing under it could break the packages it is using." 'Stop it first: press Ctrl-C in its window (answer Y if asked), wait for the window to finish, then run install.cmd again.'
+} else {
+    $running = @(Get-VenvProcesses)
+    if ($running.Count -gt 0) {
+        $which = ($running | ForEach-Object { "$($_.Name) (process $($_.ProcessId))" }) -join ', '
+        Stop-Install "A program from this folder's .venv is still running: $which. It may be AuraDream on another port, or a command such as generate." 'Stop it (Ctrl-C in its window), then run install.cmd again.'
+    }
 }
 $oneDrives = @($env:OneDrive, $env:OneDriveConsumer, $env:OneDriveCommercial) | Where-Object { $_ }
 $inOneDrive = $Root -match '\\OneDrive( - [^\\]+)?(\\|$)'
@@ -392,13 +463,13 @@ if ($git) {
     Ok "Git is installed ($($ver.Text.Trim()))."
 } elseif ($winget) {
     if ($DryRun) {
-        Would 'install Git: winget install --id Git.Git -e --accept-source-agreements --accept-package-agreements'
+        Would 'install Git: winget install --id Git.Git -e --scope user --accept-source-agreements --accept-package-agreements'
     } else {
-        Say '  Installing Git with winget (used to get updates)...'
-        $code = Invoke-Live $winget @('install', '--id', 'Git.Git', '-e', '--accept-source-agreements', '--accept-package-agreements')
+        Say '  Installing Git with winget for your user only (used to get updates; no administrator approval)...'
+        $code = Invoke-Live $winget @('install', '--id', 'Git.Git', '-e', '--scope', 'user', '--accept-source-agreements', '--accept-package-agreements')
         Update-SessionPath
         $git = Find-Tool 'git'
-        if (-not $git) { Warn "winget could not install Git (exit $code). AuraDream runs without it, but update.cmd needs it: install it from https://git-scm.com/download/win later." }
+        if (-not $git) { Warn "winget could not install Git for your user (exit $code). AuraDream runs without it, but update.cmd needs it: install it from https://git-scm.com/download/win later." }
         else { Ok 'Git installed.' }
     }
 } else {
@@ -503,6 +574,12 @@ if ($env:HF_HOME) {
             if ($Yes) { $answer = $defaultHf } else { continue }
         }
         $hfHome = $answer.TrimEnd('\')
+        # A bare drive root would leave 'D:', a path relative to the current
+        # folder on D:; a folder of its own keeps the cache together.
+        if ($hfHome -match '^[A-Za-z]:$') {
+            $hfHome = "$hfHome\huggingface"
+            Say "  A whole drive would mix the cache with everything else on it, so using $hfHome."
+        }
     }
     $free = Get-FreeGB $hfHome
     if ($null -ne $free) { Say "  $free GB free on that drive." }
@@ -598,15 +675,26 @@ Step 'Hugging Face sign-in (only for gated checkpoints)'
 $hfEffective = $env:HF_HOME
 if (-not $hfEffective) { $hfEffective = $defaultHf }
 $wantGated = $false
-if (Test-Path -LiteralPath (Join-Path $hfEffective 'token')) {
-    Ok "Already signed in to Hugging Face (a token is saved in $hfEffective)."
+# Where huggingface_hub looks, as the doctor does: HF_TOKEN, then the token
+# file (HF_TOKEN_PATH, or HF_HOME\token). Present only; never read.
+$hfTokenSet = [bool]$env:HF_TOKEN -or [bool](Get-UserVariable 'HF_TOKEN')
+$hfTokenFile = $env:HF_TOKEN_PATH
+if (-not $hfTokenFile) { $hfTokenFile = Get-UserVariable 'HF_TOKEN_PATH' }
+if (-not $hfTokenFile) { $hfTokenFile = Join-Path $hfEffective 'token' }
+if ($hfTokenSet) {
+    Ok 'Already signed in to Hugging Face (a token is set in HF_TOKEN).'
+    $wantGated = $true
+} elseif (Test-Path -LiteralPath $hfTokenFile -PathType Leaf) {
+    Ok "Already signed in to Hugging Face (a token is saved in $(Split-Path -Parent $hfTokenFile))."
     $wantGated = $true
 } else {
     Say '  The default checkpoint, FLUX.1 Krea [dev], is gated: it needs a free Hugging Face account, accepting'
     Say '  its licence (non-commercial) and a read token. Open checkpoints such as Animagine XL 4.0 need none,'
     Say '  are a much smaller download and lighter on memory: a good first start.'
     $wantGated = Ask-YesNo 'Set up the Hugging Face sign-in for the default checkpoint now?' $false
-    if (-not $wantGated) {
+    if (-not $wantGated -and (Test-SavedChoices)) {
+        Ok 'Skipped. AuraDream starts on the choices saved in its Models panel. Sign in later with: uv run hf auth login (docs/setup.md step 6).'
+    } elseif (-not $wantGated) {
         Ok "Skipped. AuraDream will start on an open checkpoint ($OpenModel). Sign in later with: uv run hf auth login (docs/setup.md step 6)."
     } elseif ($DryRun) {
         Would 'open https://huggingface.co/join, https://huggingface.co/black-forest-labs/FLUX.1-Krea-dev and https://huggingface.co/settings/tokens in the browser'
@@ -668,11 +756,18 @@ Say '  also stops it, and any queued work with it.'
 
 # 12. Start -------------------------------------------------------------------
 Step 'Start AuraDream'
-if ($wantGated) { $startArgs = @('--open') } else { $startArgs = @('--model', $OpenModel, '--open') }
-Say ('  First start: bin\auradream.cmd {0}' -f ($startArgs -join ' '))
-Say '  On the first visit the Models panel opens. Press Switch & load: it downloads and loads the checkpoint'
-Say '  and saves the choice, so the shortcut comes back to it. The first download takes a while (32 GiB for'
-Say '  the default is about 45 minutes at 100 Mbit/s); the window shows the progress.'
+# An explicit --model sets every saved choice aside for that start, so a
+# re-run never passes one over choices already saved in Models.
+$savedChoices = Test-SavedChoices
+if ($wantGated -or $savedChoices) { $startArgs = @('--open') } else { $startArgs = @('--model', $OpenModel, '--open') }
+if ($savedChoices) {
+    Say ('  Start: bin\auradream.cmd {0} (it restores the choices saved in the Models panel)' -f ($startArgs -join ' '))
+} else {
+    Say ('  First start: bin\auradream.cmd {0}' -f ($startArgs -join ' '))
+    Say '  On the first visit the Models panel opens. Press Switch & load: it downloads and loads the checkpoint'
+    Say '  and saves the choice, so the shortcut comes back to it. The first download takes a while (32 GiB for'
+    Say '  the default is about 45 minutes at 100 Mbit/s); the window shows the progress.'
+}
 if (Ask-YesNo 'Start AuraDream now?' $true) {
     if ($DryRun) {
         Would ('start "{0}" {1} in a new window' -f $launcher, ($startArgs -join ' '))
