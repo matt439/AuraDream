@@ -565,6 +565,7 @@ uses the driver's graceful close/cleanup. See the full Tests rules.
 | 7952 | FLUX.1-Krea-dev, fresh scratch `--data` | `smoke-check-dismissal` |
 | 7953 | FLUX.1-Krea-dev, fresh scratch `--data` | `smoke-setup-portability` |
 | 7954 | FLUX.1-Krea-dev, fresh scratch `--data`, `--step 0.3` | `smoke-queue-estimates` |
+| 7955 | FLUX.1-Krea-dev, fresh scratch `--data` | `smoke-gallery-top` |
 
 FLUX.1-Krea-dev is `black-forest-labs/FLUX.1-Krea-dev`; animagine is
 `cagliostrolab/animagine-xl-4.0`.

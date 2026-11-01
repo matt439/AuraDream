@@ -121,7 +121,7 @@ const els = {
   viewerExamples: $('viewer-examples'), recent: $('recent'), recentList: $('recent-list'),
   count: $('gallery-count'), search: $('search'), favOnly: $('fav-only'), cardView: $('card-view'),
   allModels: $('all-models'), otherModels: $('other-models'),
-  stage: $('stage'), library: $('library'), libraryScroll: $('library-scroll'), besideTick: $('gallery-beside'),
+  stage: $('stage'), library: $('library'), libraryScroll: $('library-scroll'), galleryTop: $('btn-gallery-top'),besideTick: $('gallery-beside'),
   more: $('btn-more'), presets: $('presets'), tiers: $('tiers'),
   orientation: $('btn-orientation'), sizeHint: $('size-hint'),
   gridResume: $('grid-resume'),

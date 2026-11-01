@@ -198,6 +198,14 @@ matchMedia(BESIDE_MEDIA).addEventListener('change', syncBeside);
 els.libraryScroll.addEventListener('pointerenter', () => { galleryPointer = true; });
 els.libraryScroll.addEventListener('pointerleave', galleryPointerLeft);
 restoreBeside();
+// "↑ Top" from a long way down the gallery (gallery.js): asked again on
+// either scroll - the page's, the column's - and as the window resizes.
+els.galleryTop.onclick = goToGalleryTop;
+els.galleryTop.addEventListener('blur', syncGalleryTop);
+els.galleryTop.addEventListener('wheel', galleryTopWheel, { passive: false });
+window.addEventListener('scroll', syncGalleryTop, { passive: true });
+els.libraryScroll.addEventListener('scroll', syncGalleryTop, { passive: true });
+window.addEventListener('resize', syncGalleryTop);
 // Scrolling to the end of the gallery fetches the next page: the trigger is
 // the button coming within a few hundred pixels of the viewport - or of the
 // gallery's own column, beside the viewer - so the page is usually there

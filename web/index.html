@@ -992,6 +992,15 @@
         </div>
         <button class="ghost wide" id="btn-more" hidden>Load more</button>
       </div>
+      <!-- Back to the gallery's head from a long way down it (gallery.js,
+           syncGalleryTop): shown once the head is a window's height above
+           the view - with Gallery beside, once the column is scrolled its
+           own height - at the gallery's bottom right corner, over the cards
+           (styles/gallery.css). Outside #library-scroll, so the pointer on
+           it is off the cards (galleryPointerGone); a wheel over it is
+           forwarded to the column. Only its own press scrolls. -->
+      <button type="button" class="ghost small" id="btn-gallery-top" hidden
+              aria-label="Back to the gallery's top" title="Back to the gallery's top">↑ Top</button>
     </div>
   </section>
 </main>
