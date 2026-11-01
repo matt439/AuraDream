@@ -102,7 +102,13 @@ Face cannot be reached, or does not answer within a few seconds, the switch
 goes ahead as before.
 Until access is granted, loading a gated model fails and says why; a page
 opened after that failure shows the picker with the reason. Choose an open
-model in **Models**, or press **Retry load** once access is granted.
+model in **Models**, or press **Retry load** once access is granted. A token
+that Hugging Face refuses (invalid, expired, or without read permission) is
+said in the same words as the switch's refusal: check access on the model
+page and sign in again. If PyTorch cannot use CUDA, the load says to check
+that `nvidia-smi` runs and shows CUDA Version 13.0 or later (adding the
+card's compute capability when PyTorch can read it), and how to run on the
+CPU instead.
 
 **Apply & save** applies changed settings without loading their weights: a
 loaded model whose checkpoint or loading options change is unloaded at once,
@@ -127,7 +133,11 @@ variables override remembered settings. Starting with a different model
 since its quantization, offload and auto-load were picked for its own model.
 `--defaults` ignores the saved file and `--menu` opens the optional terminal
 picker, with the saved choice as its defaults; picking another model there
-does not load automatically at startup either. If a switch cannot release the running model, that model stays
+does not load automatically at startup either. `--open` opens the page in
+the default browser once the server is listening; without it nothing opens.
+Starting a second time while the server is already running says so and
+exits (opening the page under `--open`); a port held by another program
+is named, with `AURADREAM_PORT` to choose a free one. If a switch cannot release the running model, that model stays
 selected and loaded and the saved settings are left as they were. The preference file is
 `auradream.settings.json`, beside the gallery database.
 

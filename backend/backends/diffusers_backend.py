@@ -75,6 +75,28 @@ _EDIT_PARAMS = frozenset({
 })
 
 
+def cuda_unavailable_message(torch: Any) -> str:
+    """The load's refusal when PyTorch has no CUDA: the driver first, since a
+    first-time user's likeliest cause is a missing or old NVIDIA driver; the
+    card's compute capability when torch can still read one (it usually
+    cannot once `is_available()` is False, and a failed read is left out);
+    then the CPU route, which needs both variables (see the check in load)."""
+    capability = ""
+    try:
+        if torch.cuda.device_count() > 0:
+            major, minor = torch.cuda.get_device_capability(0)
+            capability = f" PyTorch reads the card as compute capability {major}.{minor}."
+    except Exception:  # noqa: BLE001 - only a detail; the refusal stands without it
+        capability = ""
+    # Within `short_error`'s 320 characters, so the browser shows it whole.
+    return (
+        "CUDA is not available to PyTorch. AuraDream needs an NVIDIA card and a driver for "
+        "CUDA 13: `nvidia-smi` should run and show CUDA Version 13.0 or later."
+        f"{capability} Model offload needs an accelerator too; to run on the CPU set "
+        "AURADREAM_OFFLOAD=none and AURADREAM_DEVICE=cpu."
+    )
+
+
 def _pinned_editor_refusal(pipe: Any, params: set[str]) -> str | None:
     """Why a loaded pipeline is not the pinned Kontext editor, or None.
 
@@ -503,10 +525,7 @@ class DiffusersBackend(GenerationBackend):
                 selected.offload != "none" or torch.device(selected.device).type == "cuda"
             )
             if needs_cuda and not torch.cuda.is_available():
-                raise RuntimeError(
-                    "CUDA is not available to PyTorch. Model offload needs an accelerator; "
-                    "to run on the CPU set AURADREAM_OFFLOAD=none and AURADREAM_DEVICE=cpu."
-                )
+                raise RuntimeError(cuda_unavailable_message(torch))
 
             # DiffusionPipeline resolves the concrete class from model_index.json,
             # so this works for Krea2Pipeline, FluxPipeline, and anything else.

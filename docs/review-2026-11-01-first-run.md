@@ -162,6 +162,16 @@ Each stage is self-contained; do them in order.
    second launch opens the browser and exits cleanly; an opt-in `--open` that
    opens the browser from a daemon thread after uvicorn has bound. Unit tests
    with fakes; no Hub calls.
+   Built 2026-11-01: the CUDA refusal (`diffusers_backend.cuda_unavailable_message`)
+   names the driver and CUDA 13 first, adds the compute capability when torch
+   reads one and keeps the CPU route; a bare 401/403 on the load path is
+   "denied" in `main._hub_failure`, worded by `hub_access.denied`, the
+   switch's sentence; `main.run` makes a trial bind first, so a second launch
+   finds AuraDream by its index title, says so, opens it under `--open` and
+   exits 0, and another program exits 1 naming `AURADREAM_PORT`; `--open`
+   (a start flag only, no variable) opens the browser from a daemon thread
+   once uvicorn has started. Tests in `test_server_start.py`, `test_api.py`,
+   `test_hub_access.py`, `test_klein.py` and `test_launch.py`.
 4. **Installer (`DEV#28`, L).** `install.cmd` (runs `install.ps1` with
    `-ExecutionPolicy Bypass`), `install.ps1` and `update.cmd`, plain text in
    the repo.

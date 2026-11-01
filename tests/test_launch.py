@@ -220,6 +220,18 @@ def test_defaults_flag_skips_the_menu_and_touches_nothing(clean_env):
     assert "AURADREAM_MODEL_ID" not in os.environ
 
 
+def test_open_is_a_flag_of_the_start_only(clean_env):
+    # Read by `main.run` (tests/test_server_start.py); like --menu it has no
+    # AURADREAM_* variable and is never saved, so it never opens by default.
+    import os
+
+    assert launch.configure(["--defaults", "--open"], ask=never_ask) is None
+    assert launch.open_browser_requested() is True
+    assert {name for name in os.environ if "OPEN" in name and name.startswith("AURADREAM_")} == set()
+    assert launch.configure(["--defaults"], ask=never_ask) is None
+    assert launch.open_browser_requested() is False
+
+
 def test_a_bad_quant_flag_is_rejected_by_argparse(clean_env):
     with pytest.raises(SystemExit) as exc:
         launch.configure(["--quant", "fp4"], ask=never_ask)

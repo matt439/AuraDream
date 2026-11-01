@@ -1,6 +1,6 @@
 @echo off
 rem Start the AuraDream server (Windows venv) from any folder.
-rem Arguments pass through to backend.main: --defaults, --menu, --model ...
+rem Arguments pass through to backend.main: --open, --defaults, --menu, --model ...
 setlocal
 pushd "%~dp0.." || exit /b 1
 uv run python -m backend.main %*

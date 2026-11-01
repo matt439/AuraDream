@@ -32,7 +32,6 @@ The maintainer's working backlog for this personal project: it records what is p
 
 | id | status | sev | size | item |
 |---|---|---|---|---|
-| `GEN#40` | OPEN | MED | M | Stage 3: CUDA refusal names the driver; 401/403 on the load path in `hub_access`'s words; busy port detected (already running opens the browser); opt-in `--open` after bind (F3). [Stage 3](docs/review-2026-11-01-first-run.md#stages). |
 | `DEV#28` | OPEN | MED | L | Stage 4: plain-text `install.cmd`/`install.ps1`/`update.cmd` with prerequisite checks, uv/Git if missing, `HF_HOME` first, `uv sync`, shortcuts to `bin\auradream.cmd --open`, a DB copy before pull; a small `backend/doctor.py` (F3-F5). [Stage 4](docs/review-2026-11-01-first-run.md#stages). |
 | `GEN#41` | DECISION | LOW | S | Whether a fresh visit with no stored Hugging Face token preselects an open checkpoint instead of the gated default (F7). [Decision](docs/review-2026-11-01-first-run.md#stages). |
 | `DEV#29` | DEFERRED | LOW | S | Stage 5: hand-cut version tags for `update.cmd` to follow, and a Pinokio script; after `DEV#28`. [Stage 5](docs/review-2026-11-01-first-run.md#stages). |
