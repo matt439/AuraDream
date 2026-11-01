@@ -4,9 +4,13 @@ from __future__ import annotations
 import asyncio
 import ipaddress
 import logging
+import os
+import socket
 import sqlite3
+import sys
 import threading
 import time
+import webbrowser
 from contextlib import asynccontextmanager
 from dataclasses import replace
 from typing import Literal, NotRequired, TypedDict
@@ -110,7 +114,8 @@ STARTED_AT = time.time()
 
 # huggingface_hub's errors a load can end in, by class name: the user can do
 # something about each, and their own text is a status line, a request id and
-# a URL to a JSON file rather than to the page with the Agree button.
+# a URL to a JSON file rather than to the page with the Agree button. A bare
+# 401/403 is read by status instead, as "denied" (`_hub_failure`).
 _HUB_FAILURES = (
     "GatedRepoError", "RepositoryNotFoundError", "OfflineModeIsEnabled", "LocalEntryNotFoundError",
 )
@@ -126,13 +131,19 @@ def _hub_failure(exc: BaseException) -> str | None:
     Except that OfflineModeIsEnabled wins wherever it is in the chain:
     huggingface_hub raises LocalEntryNotFoundError ("cannot be reached")
     *from* it when HF_HUB_OFFLINE is set, and the outer one sent the user to
-    a network that was up rather than to the variable."""
+    a network that was up rather than to the variable.
+
+    A bare HfHubHTTPError answering 401 or 403 - a token that is invalid,
+    expired or lacks the permission - is "denied", as `hub_access` reads a
+    switch's answer."""
     seen: set[int] = set()
     found: list[str] = []
     current: BaseException | None = exc
     while current is not None and id(current) not in seen:
         seen.add(id(current))
         kind = next((k.__name__ for k in type(current).__mro__ if k.__name__ in _HUB_FAILURES), None)
+        if kind is None and hub_access.refused_kind(current) == "denied":
+            kind = "denied"
         if kind is not None:
             found.append(kind)
         current = current.__cause__ or current.__context__
@@ -150,10 +161,11 @@ def _catalogue_label(repo: str) -> str | None:
 
 def _load_failure(exc: BaseException) -> tuple[str, str | None, str | None]:
     """What the status says about a failed load: the sentence, with the steps
-    that fix it; its kind ("gated", "not_found", "offline"); and the model page
-    where the fix is, for the page to link. The gate is the catalogue's, so the
-    sentence says whether it is a click or the authors' approval. Anything that
-    is not the Hub's is the exception as `short_error` puts it, and no kind."""
+    that fix it; its kind ("gated", a refused sign-in too; "not_found";
+    "offline"); and the model page where the fix is, for the page to link. The
+    gate is the catalogue's, so the sentence says whether it is a click or the
+    authors' approval. Anything that is not the Hub's is the exception as
+    `short_error` puts it, and no kind."""
     repo = current_model_id(settings)
     entry = next((checkpoint for checkpoint in CHECKPOINTS if checkpoint.repo == repo), None)
     name = entry.name if entry else repo
@@ -163,7 +175,7 @@ def _load_failure(exc: BaseException) -> tuple[str, str | None, str | None]:
 
     hub_repo = anima_loading.MODEL_ID if anima_loading.matches(repo) else repo
     page = f"https://huggingface.co/{hub_repo}"
-    login = "run `uv run hf auth login` once with a read token"
+    login = hub_access.LOGIN
     kind = _hub_failure(exc)
     if kind == "GatedRepoError":
         gate = entry.gate if entry else ""
@@ -174,6 +186,8 @@ def _load_failure(exc: BaseException) -> tuple[str, str | None, str | None]:
         else:
             how = "accept its terms, or ask for access, on the model page"
         return f"{name} is gated on Hugging Face: {how}, {login}, then press Retry load.", "gated", page
+    if kind == "denied":
+        return hub_access.denied(hub_repo, "the model page", "press Retry load"), "gated", page
     if kind == "RepositoryNotFoundError":
         return (
             f"{hub_repo} is not on Hugging Face, or is private: check the checkpoint id "
@@ -1149,11 +1163,95 @@ def _is_loopback(host: str) -> bool:
         return False
 
 
-def run() -> None:
+# How long the busy-port check waits for the listener's page. A loopback
+# answer is immediate; a program that accepts and never answers is not ours.
+PROBE_SECONDS = 2.0
+
+
+def _page_url(host: str, port: int) -> str:
+    """The page's address for a browser on this machine: a wildcard bind is
+    reached on loopback, which the default allowed hosts accept."""
+    if host in ("0.0.0.0", ""):
+        host = "127.0.0.1"
+    elif host == "::":
+        host = "::1"
+    if ":" in host:
+        host = f"[{host}]"
+    return f"http://{host}:{port}/"
+
+
+def _port_busy(host: str, port: int) -> bool:
+    """Whether uvicorn's bind of `host:port` would fail: a trial bind made as
+    asyncio makes uvicorn's (address reuse on POSIX only, so a live listener
+    refuses it and a closed connection's TIME_WAIT does not). A port Windows
+    reserves refuses it too. Released at once; a program that takes the port
+    in between still meets uvicorn's own error."""
+    family = socket.AF_INET6 if ":" in host else socket.AF_INET
+    with socket.socket(family, socket.SOCK_STREAM) as trial:
+        if os.name == "posix":
+            trial.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
+        try:
+            trial.bind((host, port))
+        except OSError:
+            return True
+    return False
+
+
+def _auradream_at(url: str) -> bool:
+    """Whether the page at `url` is AuraDream's: the index's own title, read
+    with a short timeout. Anything else, or no answer, is another program."""
+    import urllib.request
+
+    try:
+        with urllib.request.urlopen(url, timeout=PROBE_SECONDS) as response:  # noqa: S310 - our own loopback page
+            return b"<title>AuraDream</title>" in response.read(65536)
+    except (OSError, ValueError):
+        return False
+
+
+def _open_when_listening(server: uvicorn.Server, url: str) -> None:
+    """Open `url` in the default browser once uvicorn has bound and started,
+    from a daemon thread so a slow or missing browser never holds the server;
+    nothing if the server stops first."""
+    def wait_then_open() -> None:
+        while not server.started:
+            if server.should_exit:
+                return
+            time.sleep(0.1)
+        try:
+            webbrowser.open(url)
+        except Exception:  # noqa: BLE001 - the server runs whether a browser opens or not
+            log.warning("could not open a browser at %s", url, exc_info=True)
+
+    threading.Thread(target=wait_then_open, daemon=True, name="open-browser").start()
+
+
+def run(*, open_browser: bool = False) -> None:
     """Serve until a signal. Ctrl-C exits with status 130, as the start-up
     menu's does, and without a traceback: once shutdown is complete uvicorn
     re-raises the signal it captured, which lands here as KeyboardInterrupt
-    (`uvicorn.run()` swallows it, and the status with it)."""
+    (`uvicorn.run()` swallows it, and the status with it).
+
+    A port already held is said in plain words before uvicorn's bind error:
+    when the holder is AuraDream itself (a second launch), it says so, opens
+    the browser at it if `open_browser`, and exits 0; anything else exits 1
+    naming the port and AURADREAM_PORT. `open_browser` (--open) otherwise
+    opens the page once the server is listening; never by default."""
+    url = _page_url(settings.host, settings.port)
+    # Port 0 asks the system for any free port: nothing to collide with.
+    if settings.port and _port_busy(settings.host, settings.port):
+        if _auradream_at(url):
+            print(f"AuraDream is already running at {url}", flush=True)
+            if open_browser:
+                webbrowser.open(url)
+            raise SystemExit(0)
+        print(
+            f"Port {settings.port} is in use by another program (or reserved by the system), "
+            f"so AuraDream cannot start on it. Close that program, or set AURADREAM_PORT to "
+            f"a free port, such as {settings.port + 1}, and start again.",
+            file=sys.stderr, flush=True,
+        )
+        raise SystemExit(1)
     if not _is_loopback(settings.host):
         # The API has no login: anyone who reaches it can read, delete and
         # import galleries and make this machine download with the HF token.
@@ -1170,11 +1268,16 @@ def run() -> None:
         # A client that stops reading its stream must not hold shutdown open.
         timeout_graceful_shutdown=30,
     )
+    server = Server(config)
+    if open_browser:
+        _open_when_listening(server, url)
     try:
-        Server(config).run()
+        server.run()
     except KeyboardInterrupt:
         raise SystemExit(130) from None
 
 
 if __name__ == "__main__":
-    run()
+    from .launch import open_browser_requested
+
+    run(open_browser=open_browser_requested())

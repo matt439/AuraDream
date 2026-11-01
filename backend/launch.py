@@ -6,6 +6,9 @@ is imported. Explicit environment values override remembered preferences,
 and flags override both. A bare launch opens the server without any questions;
 the browser owns normal setup. `--defaults` skips remembered preferences.
 
+`--open` asks `main.run` to open the browser once the server listens, or
+at the one already running on the port.
+
 `--menu` retains the optional terminal picker. It uses the resolved settings
 as its defaults, including `wsl/env.sh`'s explicit Nunchaku choices. The CLI
 shares the model flags but does not restore browser preferences.
@@ -322,6 +325,16 @@ def warn_legacy_env(logger: logging.Logger | None = None, env: Mapping[str, str]
     return True
 
 
+# Whether this start's --open asked for the browser (`main.run`). A flag of the
+# start only, like --menu: no AURADREAM_* variable, nothing saved.
+_open_browser = False
+
+
+def open_browser_requested() -> bool:
+    """Whether the last `configure` was given --open."""
+    return _open_browser
+
+
 def configure(
     argv: list[str] | None = None,
     *,
@@ -347,7 +360,14 @@ def configure(
         help="ignore saved browser settings; use environment and built-in defaults",
     )
     parser.add_argument("--menu", action="store_true", help="use the optional terminal settings menu")
+    parser.add_argument(
+        "--open",
+        action="store_true",
+        help="open the page in the default browser once the server is listening",
+    )
     args = parser.parse_args(argv)
+    global _open_browser
+    _open_browser = args.open
     # A diagnostic belongs to this launch's preference read, not a previous
     # in-process configure call. Explicit malformed environment is checked by
     # cold config independently and still cannot be hidden by --defaults.

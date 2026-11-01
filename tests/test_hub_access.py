@@ -126,6 +126,20 @@ def test_a_gated_repo_is_refused_with_the_catalogues_steps(hub):
     assert "accept its licence" in hub_access.check(KREA_DEV).detail
 
 
+@pytest.mark.parametrize("status", [401, 403])
+def test_a_refused_sign_in_is_the_shared_sentence(hub, status):
+    # The same words as a failed load's (`main._load_failure`), with the
+    # page's address and the switch's own next step.
+    answers, _ = hub
+    answers[ANIMAGINE] = _error(HfHubHTTPError, status)
+    refusal = hub_access.check(ANIMAGINE)
+    page = f"https://huggingface.co/{ANIMAGINE}"
+    assert refusal.detail == hub_access.denied(ANIMAGINE, page, "switch again") == (
+        f"Hugging Face refused this sign-in for {ANIMAGINE}: check its access on {page}, "
+        "run `uv run hf auth login` once with a read token, then switch again."
+    )
+
+
 def test_a_refused_second_source_names_its_own_repo(hub):
     answers, asked = hub
     second = hub_access.sources(Z_ANIME)[1].repo_id

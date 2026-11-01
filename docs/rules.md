@@ -798,8 +798,15 @@ measured on the card and when.
   the MRO and the `__cause__`/`__context__` chain, the first found except
   that `OfflineModeIsEnabled` wins wherever it is - huggingface_hub raises
   `LocalEntryNotFoundError` from it under `HF_HUB_OFFLINE`; the gate's kind
-  from `launch.CHECKPOINTS`); anything else stays `short_error`, and the log
-  keeps the library's words. It is raised on as `jobs.LoadFailed(detail)`,
+  from `launch.CHECKPOINTS`), and for a bare `HfHubHTTPError` answering 401
+  or 403 (an invalid, expired or under-permitted token: "denied", kind
+  `gated`), worded by `hub_access.denied`, the sentence a switch's check
+  gives, with "the model page" and "press Retry load"; anything else stays
+  `short_error`, and the log keeps the library's words. The CUDA refusal
+  (`diffusers_backend.cuda_unavailable_message`) names the NVIDIA driver and
+  CUDA 13 first, the card's compute capability only when torch reads one,
+  then the `AURADREAM_OFFLOAD`/`AURADREAM_DEVICE` CPU route, within
+  `short_error`'s 320 characters. It is raised on as `jobs.LoadFailed(detail)`,
   so a job that ended at the load and Expand (a 503 from its route) carry
   the status's sentence.
   `ModelStatus.started_at` is set once, at import.
@@ -877,7 +884,15 @@ measured on the card and when.
   invalidated when the selected checkpoint changes.
 - Server launch restores `startup_preferences` before config imports, without
   terminal input unless `--menu` is given. Flags override explicit environment,
-  then saved preferences, then defaults; `--defaults` skips preferences. The
+  then saved preferences, then defaults; `--defaults` skips preferences.
+  `--open` (`launch.open_browser_requested`, no `AURADREAM_*` variable, never
+  saved) has `main.run` open the default browser from a daemon thread once
+  uvicorn reports `started`; never by default. Before uvicorn binds, `run`
+  makes a trial bind as asyncio does (address reuse on POSIX only): a busy
+  port whose index title is AuraDream's (`GET /`, `PROBE_SECONDS`) prints
+  that it is already running, opens it under `--open`, and exits 0; any
+  other holder exits 1 naming the port and `AURADREAM_PORT`. Port 0 is
+  never checked (`tests/test_server_start.py`). The
   preferences are one choice: an explicit model (flag or environment, not env.sh's
   marked default) other than the saved one sets all of them aside, with a
   warning. The saved choice fills `--menu`'s marked defaults; a menu pick of
@@ -8031,7 +8046,11 @@ snapshots, metadata, refusal before releasing working weights, a failed
 teardown keeping the running model and saved file, and Switch & load retrying
 the selected model; `test_hub_access.py` covers the access check's sources,
 revisions, refusals and inconclusive answers and the route keeping the
-running model; `POST /api/fake/model` sets the fake's `overrides`, a
+running model, and the refused sign-in's sentence it shares with a failed
+load (`test_api.py`); `test_server_start.py` covers the busy port (AuraDream
+already there, another program, a listener that never answers) and `--open`
+waiting for the bind on an ephemeral port, with `webbrowser.open` replaced;
+`POST /api/fake/model` sets the fake's `overrides`, a
 `stuck_critic` and an `access` refusal ("gated"/"not_found") for page checks;
 `test_model_benchmarks.py` covers speed categories, exact sample matching and
 no category for an unmatched setup or a first run on a busy PC;

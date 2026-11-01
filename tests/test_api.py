@@ -197,6 +197,56 @@ def test_a_gated_load_says_what_to_do(client, fake, monkeypatch, wrapped):
     assert (ready["detail"], ready["detail_kind"], ready["detail_url"]) == (None, None, None)
 
 
+def _refused(status: int):
+    """A bare 401/403 as huggingface_hub raises it for a token that is invalid,
+    expired or without the permission: not Gated, not NotFound."""
+    import httpx
+    from huggingface_hub.errors import HfHubHTTPError
+
+    response = httpx.Response(status, request=httpx.Request("GET", "https://huggingface.co/x"))
+    return HfHubHTTPError(f"{status} Client Error. Invalid credentials in Authorization header", response=response)
+
+
+@pytest.mark.parametrize("status", [401, 403])
+@pytest.mark.parametrize("wrapped", [False, True])
+def test_a_refused_sign_in_on_the_load_says_what_to_do(client, fake, monkeypatch, status, wrapped):
+    # Was the library's raw text; now the switch check's own sentence
+    # (`hub_access.denied`), ending in the load's next step.
+    from backend import hub_access
+
+    def load():
+        if not wrapped:
+            raise _refused(status)
+        try:
+            raise _refused(status)
+        except Exception as exc:
+            raise OSError("Cannot load the pipeline's index") from exc
+
+    fake.loaded = False
+    monkeypatch.setattr(fake, "load", load)
+    monkeypatch.setattr(main, "settings", dataclasses.replace(main.settings, model_id="black-forest-labs/FLUX.1-Krea-dev"))
+    client.post("/api/model/load")
+    body = wait_for_status(client, state="error")
+    assert body["detail"] == (
+        "Hugging Face refused this sign-in for black-forest-labs/FLUX.1-Krea-dev: check its access "
+        "on the model page, run `uv run hf auth login` once with a read token, then press Retry load."
+    )
+    assert body["detail"] == hub_access.denied("black-forest-labs/FLUX.1-Krea-dev", "the model page", "press Retry load")
+    assert (body["detail_kind"], body["detail_url"]) == ("gated", "https://huggingface.co/black-forest-labs/FLUX.1-Krea-dev")
+
+
+def test_a_server_error_from_the_hub_keeps_its_own_words():
+    # Only 401/403 is a refusal; a 500 settles nothing about the sign-in.
+    import httpx
+    from huggingface_hub.errors import HfHubHTTPError
+
+    response = httpx.Response(500, request=httpx.Request("GET", "https://huggingface.co/x"))
+    assert main._hub_failure(HfHubHTTPError("500 Server Error", response=response)) is None
+    assert main._hub_failure(_refused(401)) == "denied"
+    # A GatedRepoError is an HfHubHTTPError answering 403: the narrower name wins.
+    assert main._hub_failure(_gated()) == "GatedRepoError"
+
+
 def _offline_miss(tmp_path, monkeypatch):
     """What huggingface_hub raises for an uncached file under HF_HUB_OFFLINE:
     the library's own call, its offline switch on and an empty cache, so the
