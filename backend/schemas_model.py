@@ -187,6 +187,14 @@ class ModelStatus(BaseModel):
     # "--defaults", "--menu" - so the page can say a saved choice will not
     # apply to a start like this one. Empty when imported rather than launched.
     startup_overrides: dict[str, str] = {}
+    # Whether a Hugging Face token is present on this machine: HF_TOKEN (or
+    # HUGGING_FACE_HUB_TOKEN) set or
+    # the token file existing (`hf_sign_in`), never read or checked with the Hub.
+    hf_token_present: bool = False
+    # The open checkpoint a fresh visit's picker preselects (an unsaved choice)
+    # while the selection is the gated built-in default nothing chose and no
+    # token is present (`main._open_model_suggestion`); None otherwise.
+    open_model_suggestion: str | None = None
     # Snapshot before Diffusers imports, never the external variable's value.
     attention_environment_warning: str | None = None
     # Why the last switch stopped before selecting its checkpoint, with the

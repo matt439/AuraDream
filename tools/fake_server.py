@@ -640,6 +640,26 @@ def main() -> int:
         fake_access["kind"] = access if access in ("gated", "not_found") else None
         return {"overrides": overrides, "stuck_critic": stuck_critic, "access": fake_access["kind"]}
 
+    # A fresh visit's sign-in facts, which a fake never reads from this
+    # machine: whether a Hugging Face token is present (`token`; the fake
+    # starts signed in, so no picker preselects by itself), and whether this
+    # start's checkpoint came from nothing (`unsourced`: as a plain start
+    # with no saved choice, AURADREAM_MODEL_ID or --model, which the fake's
+    # own --model always sets; true also forgets a save made since). The
+    # status then names the open checkpoint, or not, as the real one does.
+    # Each call sets both; answers what it set.
+    fake_sign_in = {"token": True}
+    app_main._hf_token_present = lambda: fake_sign_in["token"]
+    app_main._model_unsourced = False
+
+    @app_main.app.post("/api/fake/sign-in", include_in_schema=False)
+    async def fake_sign_in_route(token: bool = Body(True), unsourced: bool = Body(False)) -> dict:
+        fake_sign_in["token"] = token is True
+        app_main._model_unsourced = unsourced is True
+        if app_main._model_unsourced:
+            app_main._model_choice_saved = False
+        return {"token": fake_sign_in["token"], "unsourced": app_main._model_unsourced}
+
     # An adapter taken out of the directory while a page holds it, and put
     # back (`present`): moved aside under a name the listing skips, as a
     # rename or a delete by hand would leave it. Answers whether it is there.

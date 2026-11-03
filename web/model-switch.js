@@ -50,6 +50,14 @@ let modelPickerStartupSeen = false;
 // saved from it yet: its note recommends Switch & load, since closing saves
 // nothing and the next plain start would use the saved or default choice.
 let modelPickerOffered = false;
+// From status: the open checkpoint the server names for a fresh visit, while
+// its selection is the gated built-in default nothing chose and no Hugging
+// Face sign-in was found; null otherwise.
+let modelOpenSuggestion = null;
+// The open checkpoint the automatic opening preselected, as an unsaved
+// choice; its note says why while that row stays chosen. Tried once a page.
+let modelPickerSuggested = null;
+let modelSuggestionTried = false;
 let modelRuntimeSettings = null;
 let modelExecutionOptions = null;
 let modelPickerAppliedSettings = null;
@@ -726,7 +734,14 @@ function modelPickerNote() {
   const offer = modelPickerOffered && !lead && ['unloaded', 'error'].includes(modelState)
     ? 'Switch & load saves this choice for the next start; closing the panel saves nothing.'
     : '';
-  return { text: [offer, lead, fit, state, modelExecutionNote()].filter(Boolean).join(' '), unsaved };
+  // Then why that opening chose an open row over the server's gated default:
+  // only while the server still names that row (the same default unchosen,
+  // still no sign-in), so a revision elsewhere or a token never leaves it.
+  const suggested = offer && modelPickerSuggested && chosen === modelPickerSuggested
+      && modelOpenSuggestion === chosen
+    ? `No Hugging Face sign-in was found and ${current} needs one, so the open ${modelLabel(chosen)} is chosen.`
+    : '';
+  return { text: [offer, suggested, lead, fit, state, modelExecutionNote()].filter(Boolean).join(' '), unsaved };
 }
 
 function syncModelSwitch() {
@@ -791,6 +806,8 @@ function syncModelSwitch() {
 // the hidden button gives up, goes to the chosen row.
 function revertModelPicker() {
   forgetExecutionDraft(modelPickerSettings(), { revert: true });
+  // The page's choice is gone; a later click on that row is the user's own.
+  modelPickerSuggested = null;
   modelPickerEditedKeys.clear();
   modelPressReason = null;
   applyModelSettings(true);
@@ -843,6 +860,7 @@ function receiveModelSettings(status, { reset = false } = {}) {
     execution: loaderExecution(status.execution?.compilation, status.execution?.attention_backend),
   };
   if (status.startup_overrides) modelStartupOverrides = status.startup_overrides;
+  modelOpenSuggestion = typeof status.open_model_suggestion === 'string' ? status.open_model_suggestion : null;
   if (typeof status.cache_revision === 'number') modelCacheRevision = status.cache_revision;
   // A new failure takes the place of an outcome that said all went well.
   const failed = status.state === 'error' ? status.detail ?? null : null;
@@ -864,6 +882,8 @@ function receiveModelSettings(status, { reset = false } = {}) {
     const performanceEdits = ['compilation', 'attention'].filter((key) => modelPickerEditedKeys.has(key));
     modelPickerEditedKeys.clear();
     for (const key of performanceEdits) modelPickerEditedKeys.add(key);
+    // A preselection the revision retired is no longer the page's choice.
+    modelPickerSuggested = null;
     // The revision this page's own switch made keeps the note saying so.
     const own = modelOwnSwitch && ['model_id', 'quantization', 'offload', 'compilation', 'attention']
       .every((key) => modelOwnSwitch[key] === modelRuntimeSettings[key]);
@@ -973,6 +993,23 @@ function showModelPicker(on, { focus = true, offered = false } = {}) {
     stopModelShots();
     if (focus && els.modelPicker.contains(document.activeElement)) els.models.focus({ preventScroll: true });
   }
+}
+
+// The automatic opening's first catalogue: with no sign-in the server names an
+// open checkpoint for its gated default, chosen here as a click on its row
+// would be (unsaved; Revert puts the default back). Never with a choice
+// already made, never focused or scrolled to; a list without it changes nothing.
+function suggestOpenModel() {
+  if (modelSuggestionTried || !modelPickerOffered || !modelCatalogueLoaded || modelCataloguePending) return;
+  modelSuggestionTried = true;
+  const id = modelOpenSuggestion;
+  if (!id || els.modelPicker.hidden || modelPickerEditedKeys.has('model_id') || !modelRuntimeSettings
+      || modelChoice() !== modelRuntimeSettings.model_id) return;
+  if (!modelRadios().some((radio) => radio.value === id)) return;
+  chooseModel(id);
+  modelPickerEdited('model_id');
+  modelPickerSuggested = id;
+  syncModelSwitch();
 }
 
 // A dialog's Open Models… for the one checkpoint it needs: the picker opens
@@ -1119,6 +1156,7 @@ async function refreshModelCatalogue({ current = false } = {}) {
       modelCataloguePending = false;
       syncModelSwitch();
       pointModelPicker();
+      suggestOpenModel();
     }
   }
 }

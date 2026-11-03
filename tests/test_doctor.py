@@ -193,6 +193,8 @@ def test_hf_login_is_the_token_file_only(tmp_path):
     assert present.status == PASS and "hf_secretvalue" not in present.detail
     [env] = doctor.check_hf_login(tmp_path / "absent", environ={"HF_TOKEN": "hf_other"})
     assert env.status == PASS and "hf_other" not in env.detail
+    [legacy] = doctor.check_hf_login(tmp_path / "absent", environ={"HUGGING_FACE_HUB_TOKEN": "hf_legacy"})
+    assert legacy.status == PASS and "hf_legacy" not in legacy.detail
 
 
 def test_report_exit_status_is_one_only_for_a_fail():

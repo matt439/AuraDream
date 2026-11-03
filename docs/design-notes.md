@@ -819,6 +819,21 @@ user's own close focuses the picture again, and a close that hands the page to
 something else (Reuse, Refine, a search) closes the picker too. A delete
 anywhere (`forgetImages`) asks again for what is left.
 
+A first visit with no Hugging Face sign-in (`GEN#41`, 2026-11-03) used to
+meet the gated default first: Switch & load, the recommended finish, then
+failed after a wait with the gated message. The open Z-Image Turbo is now
+preselected in that case, but only as the picker's unsaved choice, not as
+a new server default: changing `DEFAULT_MODEL_ID` would move the CLI, the
+environment's meaning and every existing user's plain start, and a
+sign-in made later would not bring the default back. The server decides
+when (`open_model_suggestion`: the default, chosen by nothing, nothing
+saved since, no token by its presence alone) and the page only presents
+that id. The token is never read: a present but refused token still
+meets the default and the switch's own access check, as before. The row is
+not scrolled to, since the catalogue answers after the picker has
+appeared and a scroll then could move a row under the pointer; the note
+names it.
+
 ## The loader is model-agnostic
 
 **Custom checkpoint class admission (2026-10-27, `INP#11`).** The optional

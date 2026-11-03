@@ -262,6 +262,12 @@ opens by itself with the checkpoint you started with selected. Press
 next plain start comes back to it. Closing the panel instead does not save
 the choice, and the next start without `--model` returns to the default.
 
+If you started without `--model` and have not signed in to Hugging Face
+(step 6), the panel selects the open **Z-Image Turbo** instead of the
+default, which needs a sign-in, and its note says so. Nothing is saved
+until you press **Switch & load** or **Apply & save**; **Revert** puts the
+default back, and any other row can be chosen.
+
 The first load downloads the weights: 32 GiB takes about 45 minutes at
 100 Mbit/s, so scale that for your connection. Some checkpoints then convert
 on the CPU, which adds minutes more. The terminal shows the progress. Later

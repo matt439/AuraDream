@@ -144,6 +144,11 @@ def fake(store, monkeypatch):
     monkeypatch.setattr(main, "_startup_preload", None)
     monkeypatch.setattr(main, "_switch_error", None)
     monkeypatch.setattr(main, "_startup_overrides", {})
+    # A fresh visit's facts, never this machine's: signed in, the checkpoint
+    # named by the environment, nothing saved (tests of the suggestion set them).
+    monkeypatch.setattr(main, "_hf_token_present", lambda: True)
+    monkeypatch.setattr(main, "_model_unsourced", False)
+    monkeypatch.setattr(main, "_model_choice_saved", False)
     monkeypatch.setattr(main.model_selection, "_selection", (None, 0))
     backend = FakeBackend()
     translator = FakeTranslator()
