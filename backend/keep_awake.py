@@ -89,6 +89,30 @@ def counts_as_activity(method: str, path: str) -> bool:
     return True
 
 
+class ActivityMiddleware:
+    """ASGI: note each request `counts_as_activity` passes on the installed
+    controller, and after a write check again at once, so a job or a load
+    it started is held now rather than at the next tick. Every other
+    request, the job streams included, passes straight through."""
+
+    def __init__(self, app: Any, get_controller: Callable[[], KeepAwake | None]) -> None:
+        self.app = app
+        self.get_controller = get_controller
+
+    async def __call__(self, scope: Any, receive: Any, send: Any) -> None:
+        controller = self.get_controller() if scope.get("type") == "http" else None
+        method = scope.get("method", "") if controller is not None else ""
+        if controller is None or not counts_as_activity(method, scope.get("path", "/")):
+            await self.app(scope, receive, send)
+            return
+        controller.note_activity()
+        try:
+            await self.app(scope, receive, send)
+        finally:
+            if method.upper() != "GET":
+                controller.wake()
+
+
 # ------------------------------------------------------------ the inhibitor
 
 

@@ -170,6 +170,9 @@ def test_a_grid_can_take_its_seeds_as_a_list(client, fake):
 
 
 def test_a_grid_says_which_cell_is_running(client, fake):
+    # Long enough that the stream has attached before the first cell ends;
+    # an instant fake can finish it first, and its label is then never sent.
+    fake.step_seconds = 0.05
     _, events = run_grid(client, steps_axis="6,8", seed=1)
     labels = [event["label"] for event in events if event.get("label")]
     # The axes the grid did not vary are filled from the default checkpoint's

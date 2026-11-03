@@ -473,25 +473,12 @@ app = FastAPI(title="AuraDream", version="0.1.0", lifespan=lifespan)
 app.add_middleware(api_bundles.GalleryAdmission, get_manager=lambda: bundle_manager)
 
 
-@app.middleware("http")
-async def note_keep_awake_activity(request: Request, call_next):
-    """A request someone made keeps the PC awake for the idle minutes.
-
-    Added before the host and origin checks, so they run outside it and a
-    refused request is never use. The page's own timed polls are not use
-    either (`keep_awake.counts_as_activity`), or an idle open tab would hold
-    the PC awake for ever. After a write the controller checks again at
-    once: a job or a load it started is held now, not at the next tick.
-    """
-    controller = _keep_awake
-    if controller is None or not keep_awake.counts_as_activity(request.method, request.url.path):
-        return await call_next(request)
-    controller.note_activity()
-    try:
-        return await call_next(request)
-    finally:
-        if request.method != "GET":
-            controller.wake()
+# A request someone made keeps the PC awake for the idle minutes. Added before
+# the host and origin checks, so they run outside it and a refused request is
+# never use. A plain ASGI layer, not `@app.middleware("http")`: that wraps
+# every response, the job streams included, in another task and stream, and
+# the extra hop delayed a stream's attach enough to change what it saw.
+app.add_middleware(keep_awake.ActivityMiddleware, get_controller=lambda: _keep_awake)
 
 
 @app.exception_handler(gallery_lock.GalleryBusy)
