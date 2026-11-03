@@ -1,12 +1,14 @@
-# Shared by linux/setup.sh, linux/install-service.sh and linux/update.sh;
-# sourced, never run on its own. Plain bash, ASCII only, no sudo.
+# Shared by linux/setup.sh, linux/install-service.sh, linux/update.sh and
+# linux/control.sh; sourced, never run on its own. Plain bash, ASCII only,
+# no sudo.
 #
 # Test seams (tests/test_linux_scripts.py), as in install.ps1:
 #   AURADREAM_INSTALL_TEST_ROOT        the project folder, instead of this
 #                                      script's own checkout
 #   AURADREAM_INSTALL_TEST_PROC_VERSION a file read instead of /proc/version
 # Everything else a test changes comes from PATH (stub nvidia-smi, uv, git,
-# systemctl, loginctl, hostname, id) and a temporary HOME/XDG_CONFIG_HOME.
+# systemctl, journalctl, systemd-inhibit, loginctl, hostname, id) and a
+# temporary HOME/XDG_CONFIG_HOME.
 
 # The variables are set for the scripts that source this file.
 # shellcheck shell=bash disable=SC2034
@@ -113,6 +115,56 @@ PY
 service_active() {
     command -v systemctl >/dev/null 2>&1 || return 1
     systemctl --user is-active --quiet "$UNIT_NAME" 2>/dev/null
+}
+
+# A Python to ask the running server with: the checkout's .venv one, else
+# the system's python3. Fails when there is neither.
+status_python() {
+    if [ -x "$VENV/bin/python" ]; then printf '%s\n' "$VENV/bin/python"
+    elif command -v python3 >/dev/null 2>&1; then command -v python3
+    else return 1
+    fi
+}
+
+# The running server's own answer to whether it is busy: a job queued or
+# running, a model loading or switching, something holding the card, or a
+# gallery bundle operation. Prints the reason, or nothing when idle; fails
+# when the server cannot be asked. Both reads are the page's own polls,
+# which the keep-awake hold does not count as someone using it.
+server_busy() {
+    local python
+    python=$(status_python) || return 2
+    "$python" -I -B - "$1" <<'PY'
+import json
+import sys
+import urllib.request
+
+base = f"http://127.0.0.1:{int(sys.argv[1])}"
+direct = urllib.request.build_opener(urllib.request.ProxyHandler({}))
+
+
+def get(path):
+    with direct.open(base + path, timeout=10) as response:
+        return json.load(response)
+
+
+try:
+    status = get("/api/status")
+    bundles = get("/api/gallery/bundles/status")
+except Exception as exc:  # noqa: BLE001 - any failure means "cannot tell"
+    print(f"could not ask it ({exc})")
+    sys.exit(1)
+if status.get("active_jobs"):
+    print(f"{len(status['active_jobs'])} job(s) queued or running")
+elif status.get("state") == "loading":
+    print("a model is loading (or downloading)")
+elif status.get("switching"):
+    print("a model switch is under way")
+elif status.get("card_holder"):
+    print(f"the card is in use ({status['card_holder']})")
+elif bundles.get("state") == "running":
+    print(f"a gallery bundle operation is running ({bundles.get('operation') or 'unnamed'})")
+PY
 }
 
 # Programs started from this checkout's .venv, one "name (process N)" per

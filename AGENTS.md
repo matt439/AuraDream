@@ -49,6 +49,9 @@ bash linux/update.sh --restart     # stop when idle, pull + sync, start again
 the two server starts above from any folder, arguments passed through. Each
 is a `.ps1`, which PowerShell picks, beside a `.cmd` for cmd.exe; under a
 `.cmd`, Ctrl-C asks "Terminate batch job (Y/N)?" however idle the server.
+`auradream-server` updates and controls a native Linux server over ssh
+(`linux/control.sh`, `linux/update.sh`; its `AURADREAM_SERVER*` variables
+are the script's, never the app's).
 
 The model is *not* loaded at startup unless **Load automatically on startup**
 was saved (or `AURADREAM_PRELOAD=true`). The first `POST /api/generate` (or

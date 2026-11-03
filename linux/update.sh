@@ -92,49 +92,6 @@ if load_env_file; then note "Read the service's settings from $ENV_FILE."; fi
 cd "$ROOT"
 port=$(server_port)
 
-# The running server's own answer to whether it is busy: a job queued or
-# running, a model loading or switching, something holding the card, or a
-# gallery bundle operation. Prints the reason, or nothing when idle; fails
-# when the server cannot be asked.
-server_busy() {
-    local python
-    if [ -x "$VENV/bin/python" ]; then python=$VENV/bin/python
-    elif command -v python3 >/dev/null 2>&1; then python=python3
-    else return 2
-    fi
-    "$python" -I -B - "$1" <<'PY'
-import json
-import sys
-import urllib.request
-
-base = f"http://127.0.0.1:{int(sys.argv[1])}"
-direct = urllib.request.build_opener(urllib.request.ProxyHandler({}))
-
-
-def get(path):
-    with direct.open(base + path, timeout=10) as response:
-        return json.load(response)
-
-
-try:
-    status = get("/api/status")
-    bundles = get("/api/gallery/bundles/status")
-except Exception as exc:  # noqa: BLE001 - any failure means "cannot tell"
-    print(f"could not ask it ({exc})")
-    sys.exit(1)
-if status.get("active_jobs"):
-    print(f"{len(status['active_jobs'])} job(s) queued or running")
-elif status.get("state") == "loading":
-    print("a model is loading (or downloading)")
-elif status.get("switching"):
-    print("a model switch is under way")
-elif status.get("card_holder"):
-    print(f"the card is in use ({status['card_holder']})")
-elif bundles.get("state") == "running":
-    print(f"a gallery bundle operation is running ({bundles.get('operation') or 'unnamed'})")
-PY
-}
-
 # 1. Not while AuraDream runs -----------------------------------------------------
 if service_active; then
     if [ "$restart" = 0 ]; then

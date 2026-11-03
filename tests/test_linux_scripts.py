@@ -35,7 +35,7 @@ on_linux = pytest.mark.skipif(sys.platform != "linux" or BASH is None, reason="b
 # --- Static checks (everywhere) --------------------------------------------------
 
 def test_the_script_set_is_there():
-    assert {p.name for p in SCRIPTS} >= {"common.sh", "setup.sh", "install-service.sh", "update.sh"}
+    assert {p.name for p in SCRIPTS} >= {"common.sh", "setup.sh", "install-service.sh", "update.sh", "control.sh"}
 
 
 @pytest.mark.parametrize("script", SCRIPTS, ids=lambda p: p.name)
@@ -97,19 +97,45 @@ def _install_stubs(stubs: Path) -> None:
         '  fi\n'
         '  printf "%s\\n" "${STUB_PULL_OUTPUT:-Already up to date.}"; exit "${STUB_PULL_EXIT:-0}"\n'
         'fi\n'
-        'exit 0'
-    ))
-    # The service's state is a file: is-active answers from it, stop removes
-    # it, start makes it.
-    _stub(stubs, "systemctl", (
-        'state="$STUB_STATE/active"\n'
-        'case "$2" in\n'
-        '  is-active) [ -e "$state" ]; exit ;;\n'
-        '  stop) rm -f "$state" ;;\n'
-        '  start) : >"$state" ;;\n'
+        # What control.sh status reads of a checkout.
+        'case "$3" in\n'
+        '  rev-parse) [ "$5" = HEAD ] && printf "main\\n"; [ "$5" = --symbolic-full-name ] && printf "origin/main\\n"; exit 0 ;;\n'
+        '  log) printf "%s\\n" "abc1234 Keep awake (2 days ago)"; exit 0 ;;\n'
+        '  fetch) [ -z "${STUB_FETCH_EXIT:-}" ] || { echo "fatal: unable to access the remote" >&2; exit "$STUB_FETCH_EXIT"; }; exit 0 ;;\n'
+        '  rev-list) printf "%s\\n" "${STUB_AHEAD_BEHIND:-0 0}"; exit 0 ;;\n'
         'esac\n'
         'exit 0'
     ))
+    # The service's state is a file: is-active answers from it, stop removes
+    # it, start (or restart) makes it, STUB_START_DELAY seconds later when
+    # set; a "failed" file beside it is a failed unit.
+    _stub(stubs, "systemctl", (
+        'state="$STUB_STATE/active"\n'
+        'begin() {\n'
+        '  if [ -n "${STUB_START_DELAY:-}" ]; then (sleep "$STUB_START_DELAY"; : >"$state") >/dev/null 2>&1 &\n'
+        '  else : >"$state"; fi\n'
+        '}\n'
+        'case "$2" in\n'
+        '  is-active) [ -e "$state" ]; exit ;;\n'
+        '  is-failed) [ -e "$STUB_STATE/failed" ]; exit ;;\n'
+        '  stop) rm -f "$state" ;;\n'
+        '  start) begin ;;\n'
+        '  restart) rm -f "$state"; begin ;;\n'
+        '  show)\n'
+        '    if [ -e "$STUB_STATE/failed" ]; then a=failed s=failed\n'
+        '    elif [ -e "$state" ]; then a=active s=running\n'
+        '    else a=inactive s=dead; fi\n'
+        '    printf "LoadState=loaded\\nActiveState=%s\\nSubState=%s\\n" "$a" "$s"\n'
+        '    printf "StateChangeTimestamp=Tue 2026-11-03 10:00:00 AEDT\\nUnitFileState=enabled\\n" ;;\n'
+        'esac\n'
+        'exit 0'
+    ))
+    _stub(stubs, "journalctl", 'printf "%s\\n" "Nov 03 10:00:01 my-box uv[1234]: INFO: Uvicorn running"')
+    _stub(stubs, "systemd-inhibit", (
+        'printf "%s\\n" "WHO       UID  USER   PID  COMM            WHAT       WHY                 MODE"\n'
+        'printf "%s\\n" "AuraDream 1000 tester 4321 systemd-inhibit sleep:idle AuraDream is in use block"\n'
+        'printf "%s\\n" "UPower    0    root   99   upowerd         sleep      Pause device polling delay"'
+    ), log=False)
     _stub(stubs, "loginctl", 'printf "Linger=%s\\n" "${STUB_LINGER:-yes}"')
     _stub(stubs, "hostname", (
         'if [ "$1" = -I ]; then printf "%s\\n" "192.168.1.20 10.0.0.5 fe80::1234:5678 "; '
@@ -444,25 +470,25 @@ def _no_git_or_uv(sandbox) -> bool:
 
 @pytest.fixture
 def auradream_listening(sandbox):
-    """A loopback AuraDream on an ephemeral port: its page has the title while
-    the stub service is active (or always, without one), and its status
-    answers what `busy` says."""
+    """A loopback AuraDream on an ephemeral port: it answers while the stub
+    service is active (or always, without one), its page with the title and
+    its status with what `busy` says."""
     busy: dict = {"status": {"state": "ready", "active_jobs": [], "switching": False, "card_holder": None},
                   "bundles": {"state": "idle"}}
     track = {"service": False}
 
     class Handler(BaseHTTPRequestHandler):
         def do_GET(self):  # noqa: N802 - http.server's name
+            if track["service"] and not (sandbox["state"] / "active").exists():
+                self.send_response(404)                # a tracked service that is stopped
+                self.end_headers()
+                return
             if self.path == "/api/status":
                 body, kind = json.dumps(busy["status"]).encode(), "application/json"
             elif self.path == "/api/gallery/bundles/status":
                 body, kind = json.dumps(busy["bundles"]).encode(), "application/json"
-            elif not track["service"] or (sandbox["state"] / "active").exists():
-                body, kind = b"<!doctype html><title>AuraDream</title>", "text/html"
             else:
-                self.send_response(404)
-                self.end_headers()
-                return
+                body, kind = b"<!doctype html><title>AuraDream</title>", "text/html"
             self.send_response(200)
             self.send_header("Content-Type", kind)
             self.send_header("Content-Length", str(len(body)))
@@ -724,3 +750,178 @@ def test_update_restart_starts_the_service_again_when_its_output_is_gone(sandbox
     assert _systemctl(sandbox)[-1] == "systemctl --user start auradream.service"
     assert (sandbox["state"] / "active").exists()
     assert "uv sync" not in _calls(sandbox)
+
+
+# --- control.sh ---------------------------------------------------------------------
+
+def _changes(sandbox) -> list[str]:
+    """The systemctl calls that change the service (not its reads)."""
+    return [c for c in _systemctl(sandbox) if c.split()[2] in ("start", "stop", "restart")]
+
+
+@on_linux
+def test_control_status_of_an_active_answering_service(sandbox, auradream_listening):
+    (sandbox["root"] / ".git").mkdir()
+    _venv(sandbox)
+    _service_active(sandbox)
+    auradream_listening["track"]["service"] = True
+    auradream_listening["busy"]["status"].update({
+        "model_id": "cagliostrolab/animagine-xl-4.0", "model_label": "Animagine XL 4.0",
+        "quantization": "fp8", "offload": "model", "state": "ready",
+        "vram_used_mb": 4289, "vram_total_mb": 7842, "device_name": "NVIDIA GeForce RTX 3070",
+        "disk_free_mb": 819200,
+        "keep_awake": {"kind": "systemd-inhibit", "holding": True, "wanted": True,
+                       "reasons": ["in use (a request in the last 20 minutes)"], "detail": None},
+    })
+    sandbox["env"]["STUB_AHEAD_BEHIND"] = "0\t3"
+    result = _run(sandbox, "control.sh", "status")
+    out = result.stdout
+    assert result.returncode == 0, out + result.stderr
+    assert "active (running) since Tue 2026-11-03 10:00:00 AEDT" in out
+    assert "Enabled" in out and "Lingering is on" in out
+    assert "Branch main at abc1234 Keep awake (2 days ago)" in out
+    assert "3 commit(s) behind origin/main" in out
+    assert "It answers." in out
+    assert "Animagine XL 4.0 (cagliostrolab/animagine-xl-4.0)" in out and "fp8, model offload" in out
+    assert "Jobs:         none" in out and "Card:         free" in out
+    assert "systemd-inhibit, holding: in use (a request in the last 20 minutes)" in out
+    assert "4289 of 7842 MiB in use (NVIDIA GeForce RTX 3070)" in out and "800.0 GiB" in out
+    assert "AuraDream 1000 tester 4321 systemd-inhibit" in out and "UPower" not in out
+    assert "The service is running and AuraDream answers." in out
+    assert any(c.endswith("fetch --quiet") for c in _calls(sandbox))
+    assert _changes(sandbox) == []
+
+
+@on_linux
+def test_control_status_of_a_stopped_service_still_reports(sandbox, auradream_listening):
+    (sandbox["root"] / ".git").mkdir()
+    _venv(sandbox)
+    auradream_listening["track"]["service"] = True        # stopped: nothing answers
+    sandbox["env"]["STUB_FETCH_EXIT"] = "128"             # and no network: noted, not fatal
+    result = _run(sandbox, "control.sh", "status")
+    out = result.stdout
+    assert result.returncode == 1, out + result.stderr
+    assert "inactive (dead)" in out
+    assert "git fetch failed, so that is as of the last fetch: fatal: unable to access the remote" in out
+    assert "It does not answer" in out
+    assert "== Sleep holds" in out                         # everything it can is still printed
+    assert "The service is not running, or AuraDream does not answer" in out
+    assert _changes(sandbox) == []
+
+
+@on_linux
+def test_control_stop_refuses_a_busy_server_and_force_stops(sandbox, auradream_listening):
+    _venv(sandbox)
+    _service_active(sandbox)
+    auradream_listening["busy"]["status"]["active_jobs"] = ["job-1"]
+    result = _run(sandbox, "control.sh", "stop")
+    assert result.returncode == 1, result.stdout + result.stderr
+    assert "The AuraDream service is busy: 1 job(s) queued or running." in result.stdout
+    assert "--force" in result.stdout
+    assert _changes(sandbox) == []
+    assert (sandbox["state"] / "active").exists()
+
+    forced = _run(sandbox, "control.sh", "stop", "--force")
+    assert forced.returncode == 0, forced.stdout + forced.stderr
+    assert "stopping it although it is busy: 1 job(s) queued or running" in forced.stdout
+    assert _changes(sandbox) == ["systemctl --user stop auradream.service"]
+    assert not (sandbox["state"] / "active").exists()
+
+
+@on_linux
+def test_control_stop_of_an_idle_server(sandbox, auradream_listening):
+    _venv(sandbox)
+    _service_active(sandbox)
+    result = _run(sandbox, "control.sh", "stop")
+    assert result.returncode == 0, result.stdout + result.stderr
+    assert "It is idle." in result.stdout and "is stopped" in result.stdout
+    assert _changes(sandbox) == ["systemctl --user stop auradream.service"]
+
+
+@on_linux
+def test_control_restart_waits_for_the_page(sandbox, auradream_listening):
+    _venv(sandbox)
+    _service_active(sandbox)
+    auradream_listening["track"]["service"] = True
+    sandbox["env"]["STUB_START_DELAY"] = "2"               # the page answers 2 s after the restart
+    result = _run(sandbox, "control.sh", "restart")
+    out = result.stdout
+    assert result.returncode == 0, out + result.stderr
+    assert "It is idle." in out and "Waiting for the page" in out
+    assert f"AuraDream answers at http://127.0.0.1:{auradream_listening['port']}/" in out
+    assert _changes(sandbox) == ["systemctl --user restart auradream.service"]
+
+
+@on_linux
+def test_control_restart_refuses_a_busy_server(sandbox, auradream_listening):
+    _venv(sandbox)
+    _service_active(sandbox)
+    auradream_listening["busy"]["bundles"]["state"] = "running"
+    result = _run(sandbox, "control.sh", "restart")
+    assert result.returncode == 1, result.stdout + result.stderr
+    assert "a gallery bundle operation is running" in result.stdout
+    assert _changes(sandbox) == []
+
+
+@on_linux
+def test_control_start_says_when_the_page_never_answers(sandbox):
+    _venv(sandbox)
+    sandbox["env"]["AURADREAM_INSTALL_TEST_WAIT"] = "2"    # nothing listens on port 1
+    result = _run(sandbox, "control.sh", "start")
+    assert result.returncode == 1, result.stdout + result.stderr
+    assert "Started." in result.stdout and "did not answer within 2 s" in result.stdout
+    assert _changes(sandbox) == ["systemctl --user start auradream.service"]
+
+
+@on_linux
+def test_control_start_stops_waiting_for_a_failed_unit(sandbox):
+    _venv(sandbox)
+    (sandbox["state"] / "failed").touch()
+    result = _run(sandbox, "control.sh", "start")
+    assert result.returncode == 1, result.stdout + result.stderr
+    assert "The AuraDream service failed while starting." in result.stdout
+
+
+@on_linux
+@pytest.mark.parametrize(("args", "expected"), [
+    ((), "journalctl --user -u auradream.service -n 100 --no-pager"),
+    (("-n", "20"), "journalctl --user -u auradream.service -n 20 --no-pager"),
+    (("--lines", "5", "--follow"), "journalctl --user -u auradream.service -n 5 -f"),
+    (("-f",), "journalctl --user -u auradream.service -n 100 -f"),
+])
+def test_control_logs_passes_lines_and_follow_through(sandbox, args, expected):
+    result = _run(sandbox, "control.sh", "logs", *args)
+    assert result.returncode == 0, result.stdout + result.stderr
+    assert "Uvicorn running" in result.stdout
+    assert [c for c in _calls(sandbox) if c.startswith("journalctl")] == [expected]
+
+
+@on_linux
+def test_control_doctor_runs_with_the_service_settings(sandbox):
+    env_file = _env_file(sandbox)
+    env_file.parent.mkdir(parents=True)
+    env_file.write_text("AURADREAM_HOST=0.0.0.0\nAURADREAM_PORT=7999\n")
+    _stub(sandbox["stubs"], "uv", 'printf "doctor sees %s:%s in %s\\n" "$AURADREAM_HOST" "$AURADREAM_PORT" "$PWD"')
+    result = _run(sandbox, "control.sh", "doctor")
+    assert result.returncode == 0, result.stdout + result.stderr
+    assert f"doctor sees 0.0.0.0:7999 in {sandbox['root']}" in result.stdout
+    assert [c for c in _calls(sandbox) if c.startswith("uv")] == ["uv run --no-sync python -m backend.doctor"]
+
+
+@on_linux
+@pytest.mark.parametrize("args", [("bogus",), ("logs", "--lines", "many"), ("stop", "--now")])
+def test_control_refuses_an_unknown_command_or_option(sandbox, args):
+    result = _run(sandbox, "control.sh", *args)
+    assert result.returncode == 2, result.stdout + result.stderr
+    assert "Unknown" in result.stderr
+    assert _changes(sandbox) == []
+
+
+@on_linux
+def test_control_help_and_root(sandbox):
+    result = _run(sandbox, "control.sh")
+    assert result.returncode == 0 and "bash linux/control.sh status" in result.stdout
+    sandbox["env"]["STUB_UID"] = "0"
+    result = _run(sandbox, "control.sh", "stop", "--force")
+    assert result.returncode == 1 and "as root" in result.stdout
+    assert _calls(sandbox) == []

@@ -216,6 +216,11 @@ bash linux/update.sh --restart      # stop it when idle, update (git pull --ff-o
 bash linux/install-service.sh --uninstall
 ```
 
+`bash linux/control.sh status|start|stop|restart|logs|doctor` controls the
+service there, and `bin\auradream-server` runs the same (and the update)
+from a Windows PC over ssh, waking the server first
+([From another PC](docs/setup.md#from-another-pc-auradream-server)).
+
 The venv, the gallery and `auradream.settings.json` stay in the checkout,
 as on Windows; this is a separate gallery from any Windows or WSL one.
 [First-time setup](docs/setup.md#native-linux-a-server-on-your-network) has
