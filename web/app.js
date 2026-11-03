@@ -559,10 +559,15 @@ els.inpaintDialog.addEventListener('keydown', inpaintKeydown);
 els.inpaintDice.onclick = () => { els.inpaintSeed.value = ''; inpaintChanged(); };
 els.inpaintStartOver.onclick = startInpaintOver;
 for (const el of [els.inpaintStrength, els.inpaintVersions, els.inpaintSeed, els.inpaintPrompt,
-                  els.inpaintNegative, els.inpaintSteps, els.inpaintCfg, els.inpaintMu, els.inpaintTrueCfg]) {
+                  els.inpaintNegative, els.inpaintSteps, els.inpaintCfg, els.inpaintMu, els.inpaintTrueCfg,
+                  els.inpaintCropPad]) {
   el.addEventListener('input', inpaintChanged);
 }
 els.inpaintVersions.addEventListener('change', inpaintChanged);
+// Only the masked area: held where there is no inpaint (aria-disabled, its
+// reason the title), so a press says why and the box keeps its state.
+els.inpaintCrop.addEventListener('click', inpaintCropClick);
+els.inpaintCrop.addEventListener('change', inpaintChanged);
 for (const el of [els.inpaintPrompt, els.inpaintNegative, els.inpaintCfg, els.inpaintTrueCfg]) {
   el.addEventListener('input', () => { syncInpaintCheck(); scheduleInpaintCheck(); });
 }

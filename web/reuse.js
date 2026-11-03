@@ -555,7 +555,8 @@ function syncReuseButton(button, rec, compact = false) {
   if (pass != null && !gone && rec.mask) {
     button.textContent = compact ? (mismatch ? '⚠' : '↻') : `${mismatch ? '⚠ ' : ''}Reuse inpaint…`;
     button.title = mismatch ? `Warning: ${warning}`
-      : `Open the Inpaint dialog on #${pass} with this inpaint's mask, strength and seed`;
+      : `Open the Inpaint dialog on #${pass} with this inpaint's mask, strength and seed`
+        + (rec.mask_crop ? `, only the masked area at padding ${rec.mask_crop.pad} px` : '');
     button.setAttribute('aria-label', `Reuse inpaint in the Inpaint dialog${mismatch ? ` (warning: ${warning})` : ''}`);
     button.dataset.tip = 'Reuse inpaint…';
     return;

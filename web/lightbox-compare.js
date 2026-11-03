@@ -25,6 +25,7 @@ function pickedDifferences(pair) {
     ['Model', (r) => r.model_id],
     ['Quantization', (r) => r.quantization], ['Refined from', (r) => r.refine],
     ['Mask', (r) => r.mask], ['Outpaint', (r) => r.outpaint ? JSON.stringify(r.outpaint) : null],
+    ['Masked area', (r) => r.mask_crop ? `padding ${r.mask_crop.pad} px` : null],
   ].filter(([, of]) => of(a) !== of(b));
   const words = { short: new Map(), adapter: null, muStatic: null };
   const label = (r) => [

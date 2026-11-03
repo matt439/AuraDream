@@ -227,6 +227,8 @@ const els = {
   inpaintStartOver: $('inpaint-start-over'), inpaintUnavailable: $('inpaint-unavailable'),
   inpaintStrength: $('inpaint-strength'), inpaintStrengthNote: $('inpaint-strength-note'),
   inpaintVersions: $('inpaint-versions'), inpaintSeed: $('inpaint-seed'), inpaintDice: $('inpaint-dice'),
+  inpaintCropField: $('inpaint-crop-field'), inpaintCrop: $('inpaint-crop'), inpaintCropPad: $('inpaint-crop-pad'),
+  inpaintCropBox: $('inpaint-crop-box'),
   inpaintSeedHint: $('inpaint-seed-hint'), inpaintMore: $('inpaint-more'), inpaintMoreNote: $('inpaint-more-note'),
   inpaintPrompt: $('inpaint-prompt'), inpaintNegative: $('inpaint-negative'),
   inpaintNegField: $('inpaint-negative-field'), inpaintNegNote: $('inpaint-neg-note'),

@@ -84,6 +84,14 @@ const INPAINT_KEPT = 4;
 // not available.
 const INPAINT_FAMILIES = 'The FLUX.1, SDXL and Z-Image checkpoints have it.';
 
+// Only the masked area (`mask_crop`, backend/mask_crop.py): the rule, the
+// padding the box starts at and the working tier, as the server spells them.
+// The box itself is the server's to work out (`/api/grid/preview`'s
+// `mask_crop`); the page only draws it.
+const MASK_CROP_RULE = 'bbox16';
+const MASK_CROP_PAD = 32;
+const MASK_CROP_TIER = 1;
+
 // Why an inpaint cannot run here, one sentence wherever the page says it: no
 // inpaint pipeline in the installed diffusers, or one the app has not enabled
 // for this family yet (`inpaint_deferred`, the backend's "not enabled yet").
@@ -296,6 +304,11 @@ function openInpaint(rec, from = null) {
     ? `made on ${checkpointName(start.model_id)}: steps and CFG are ${checkpointName(loadedModel)}'s`
     : `as #${start.id} was made`;
   els.inpaintMore.open = foreign;
+  // Only the masked area as the reused inpaint ran it; otherwise off at the
+  // default padding.
+  els.inpaintCrop.checked = !!from?.mask_crop;
+  els.inpaintCropPad.value = String(from?.mask_crop?.pad ?? MASK_CROP_PAD);
+  showInpaintCropBox(null);
   inpaintFilled = inpaintValues();
   if (draft) applyInpaintValues(draft.values);
   els.inpaintDraft.hidden = !draft;
@@ -382,19 +395,20 @@ function inpaintBoxes() {
   return {
     strength: els.inpaintStrength, versions: els.inpaintVersions, seed: els.inpaintSeed,
     prompt: els.inpaintPrompt, negative: els.inpaintNegative, steps: els.inpaintSteps,
-    cfg: els.inpaintCfg, mu: els.inpaintMu, trueCfg: els.inpaintTrueCfg,
+    cfg: els.inpaintCfg, mu: els.inpaintMu, trueCfg: els.inpaintTrueCfg, cropPad: els.inpaintCropPad,
   };
 }
 
 function inpaintValues() {
   const values = Object.fromEntries(Object.entries(inpaintBoxes()).map(([key, el]) => [key, el.value]));
-  return { ...values, more: els.inpaintMore.open };
+  return { ...values, crop: els.inpaintCrop.checked, more: els.inpaintMore.open };
 }
 
 function applyInpaintValues(values) {
   for (const [key, el] of Object.entries(inpaintBoxes())) {
     if (typeof values[key] === 'string') el.value = values[key];
   }
+  if (typeof values.crop === 'boolean') els.inpaintCrop.checked = values.crop;
   els.inpaintMore.open = !!values.more;
 }
 
@@ -445,6 +459,7 @@ function inpaintMaskEditing() {
   inpaintMaskRefusal = '';
   els.inpaintPreview.textContent = '';
   els.inpaintPreview.classList.remove('warn');
+  showInpaintCropBox(null);
   syncInpaintRun();
 }
 
@@ -577,9 +592,61 @@ function syncInpaint() {
   syncPassSampling(inpaintSampling());
   els.inpaintUnavailable.hidden = inpaintSupported;
   els.inpaintUnavailable.textContent = inpaintSupported ? '' : inpaintUnavailableText();
+  syncInpaintCrop();
   syncMaskStatus();
   syncInpaintRun();
   syncInpaintCheck();
+}
+
+// Only the masked area: its padding greyed while unticked (never hidden, so
+// nothing beside it moves), and held - aria-disabled with the reason as its
+// title - where the checkpoint has no inpaint. The title says what a tick
+// does; the preview line says the box once the server has worked it out.
+function syncInpaintCrop() {
+  const on = els.inpaintCrop.checked;
+  els.inpaintCropField.classList.toggle('off', !on);
+  els.inpaintCrop.setAttribute('aria-disabled', String(!inpaintSupported));
+  els.inpaintCrop.title = !inpaintSupported ? `Only the masked area - ${inpaintNone()}`
+    : on ? 'Only a box around the mask is denoised, at about 1 MP, and pasted back; '
+      + 'the box is drawn dashed over the picture'
+      : 'Off: the whole picture is denoised at its own size';
+}
+
+// A press on a held Only the masked area changes nothing and says why.
+function inpaintCropClick(event) {
+  if (els.inpaintCrop.getAttribute('aria-disabled') !== 'true') return;
+  event.preventDefault();
+  inpaintFailed(inpaintNone());
+}
+
+// The padding the box asks for: the box's number, or the default while empty.
+function inpaintCropPad() {
+  const text = els.inpaintCropPad.value.trim();
+  return text === '' ? MASK_CROP_PAD : +text;
+}
+
+// The server's box ({box, working, scale}) drawn dashed over the picture, in
+// the source's proportions, or nothing.
+function showInpaintCropBox(area) {
+  const src = inpaintSource;
+  const box = els.inpaintCropBox;
+  if (!area || !src || !els.inpaintCrop.checked) { box.hidden = true; return; }
+  const [x1, y1, x2, y2] = area.box;
+  box.style.left = `${(100 * x1) / src.width}%`;
+  box.style.top = `${(100 * y1) / src.height}%`;
+  box.style.width = `${(100 * (x2 - x1)) / src.width}%`;
+  box.style.height = `${(100 * (y2 - y1)) / src.height}%`;
+  box.hidden = false;
+}
+
+// The preview's words for the box: its size with the padding in it, the
+// working size and how much larger (or smaller) that is.
+function maskCropText(area, pad) {
+  const [x1, y1, x2, y2] = area.box;
+  const [w, h] = area.working;
+  const scale = area.scale >= 1 ? `${area.scale.toFixed(1)}× up` : `${area.scale.toFixed(2)}× down`;
+  return ` · the masked area and its ${pad} px padding, ${x2 - x1}×${y2 - y1}, at ${w}×${h} (${scale}), pasted back`
+    + ' · live preview shows the area';
 }
 
 // The dialog's sampling boxes, for syncPassSampling.
@@ -675,6 +742,8 @@ function inpaintRequest() {
     lora_scale: inpaintLora?.scale ?? 1,
     refine: inpaintSource.id,
     mask: inpaintMask?.hash ?? null,
+    mask_crop: els.inpaintCrop.checked
+      ? { rule: MASK_CROP_RULE, pad: inpaintCropPad(), tier: MASK_CROP_TIER } : null,
     strength: single && strength !== '' ? +strength : inpaintStartStrength(),
     seed: seed === '' ? null : +seed,
     runs: 1,
@@ -703,6 +772,7 @@ async function previewInpaint() {
   const asked = JSON.stringify(preview);
   els.inpaintPreview.classList.remove('warn');
   inpaintProblem = null;
+  showInpaintCropBox(null);
   if (!inpaintSupported || !preview.mask) {
     els.inpaintPreview.textContent = '';
     inpaintPreviewed = asked;
@@ -741,7 +811,9 @@ async function previewInpaint() {
       + ` · strength ${axisText(strengths)}${noise}${run}${keeps}`
       + (p.seconds ? ` · about ${humanTime(p.seconds)}` : '')
       + (p.duplicates ? ` · ${p.duplicates} would be identical to another` : '')
+      + (preview.mask_crop && p.mask_crop ? maskCropText(p.mask_crop, preview.mask_crop.pad) : '')
       + (sweep ? '\nOpens as a sheet when it is done.' : '');
+    if (preview.mask_crop) showInpaintCropBox(p.mask_crop);
   } catch (err) {
     if (epoch !== inpaintEpoch) return;
     // The adapter gone: asked again without it, the refusal said instead.
@@ -885,7 +957,7 @@ function inpaintClosed() {
   if (maskStroke) endStroke();
   if (src && !ran) {
     const values = inpaintValues();
-    const edited = Object.keys(inpaintBoxes()).some((key) => values[key] !== inpaintFilled?.[key]);
+    const edited = [...Object.keys(inpaintBoxes()), 'crop'].some((key) => values[key] !== inpaintFilled?.[key]);
     if (edited || maskStrokes.length || maskRedo.length) {
       inpaintKept.set(src.id, { model: loadedModel, values, mask: maskSnapshot() });
       while (inpaintKept.size > INPAINT_KEPT) inpaintKept.delete(inpaintKept.keys().next().value);
@@ -955,7 +1027,7 @@ async function checkInpaintPrompt() {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({
-        ...body, mask: undefined, strength: undefined, strength_axis: undefined, seeds: undefined,
+        ...body, mask: undefined, mask_crop: undefined, strength: undefined, strength_axis: undefined, seeds: undefined,
       }),
     });
   } catch { /* advice only */ }
