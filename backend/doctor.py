@@ -8,16 +8,19 @@ anything that is not a pass. The exit status is 1 when any check fails, else
 
 Nothing here changes anything or reaches the network beyond loopback: torch
 is imported to ask CUDA about the card, but diffusers is never imported and
-no model is loaded; `nvidia-smi` is run if it is on the PATH; the Hugging Face
-sign-in is the token file's existence only (never read, printed or sent to
-the Hub); the port check is the server's own trial bind and loopback probe
-(`server_probe`). The figures it compares against are the measured ones in
-docs/setup.md's Before you start, never a promise for another machine.
+no model is loaded; `nvidia-smi` is run if it is on the PATH; on Linux,
+`systemd-inhibit` holds the PC awake around `true`, which lets go as soon as
+`true` ends; the Hugging Face sign-in is the token file's existence only
+(never read, printed or sent to the Hub); the port check is the server's own
+trial bind and loopback probe (`server_probe`). The figures it compares
+against are the measured ones in docs/setup.md's Before you start and
+docs/verified.md, never a promise for another machine.
 """
 from __future__ import annotations
 
 import argparse
 import ctypes
+import getpass
 import os
 import re
 import shutil
@@ -44,6 +47,14 @@ MEASURED_PRIVATE_GIB = 39.9
 # The default with the critic, plus room: an estimate (docs/setup.md).
 DISK_PLAN_GB = 50
 DISK_LOW_GB = 2
+# The default checkpoint's peak on the card: FLUX.1 Krea [dev], fp8 with model
+# offload, 12.00 GiB allocated (12.63 reserved) on the RTX 5080
+# (docs/verified.md, "RAM at the load, the fixed loader (2026-10-27)").
+DEFAULT_PEAK_GIB = 12.0
+# Nunchaku's nvfp4 checkpoints need Blackwell (`loader_choices.FORMATS`).
+NVFP4_CAPABILITY = (10, 0)
+# Seconds the keep-awake trial may take; a polkit answer is immediate.
+INHIBIT_TRIAL_SECONDS = 10
 
 
 @dataclass(frozen=True)
@@ -109,6 +120,33 @@ def check_gpu(torch: Any = None) -> list[Check]:
                       "AuraDream needs an RTX 20 / GTX 16 series card or newer.")]
     return [Check(PASS, "GPU", f"{name}, compute capability {cap}, supported by torch {version} "
                   f"({_arch_range(arch_list)}).")]
+
+
+def check_vram(torch: Any = None, platform: str | None = None) -> list[Check]:
+    """The card's memory against the default checkpoint's measured peak, and
+    on Linux below Blackwell which Nunchaku repos run. Nothing when torch
+    cannot use a card: the GPU check says why."""
+    if torch is None:
+        try:
+            import torch  # noqa: PLC0415 - heavy, and only the GPU checks need it
+        except Exception:  # noqa: BLE001 - the GPU check reports it
+            return []
+    if not getattr(getattr(torch, "version", None), "cuda", None) or not torch.cuda.is_available():
+        return []
+    platform = sys.platform if platform is None else platform
+    total = int(torch.cuda.get_device_properties(0).total_memory)
+    capability = tuple(torch.cuda.get_device_capability(0))
+    detail = (f"{_gib(total)} on the card. The default checkpoint, FLUX.1 Krea [dev] at fp8 with model "
+              f"offload, peaked at {DEFAULT_PEAK_GIB:.1f} GiB allocated on the measured RTX 5080 "
+              "(docs/verified.md).")
+    if platform.startswith("linux") and capability < NVFP4_CAPABILITY:
+        detail += (" For AURADREAM_QUANT=nunchaku, use the int4 4-bit repos: nvfp4 needs an RTX 50 card "
+                   "(compute capability 10.0 or higher).")
+    if total / GIB < DEFAULT_PEAK_GIB:
+        return [Check(WARN, "VRAM", detail,
+                      "Start with a smaller checkpoint: an SDXL one such as Animagine XL 4.0, Anima, or "
+                      "FLUX.2 [klein] 4B (the Models panel, or AURADREAM_MODEL_ID).")]
+    return [Check(PASS, "VRAM", detail)]
 
 
 # --- Driver through nvidia-smi ------------------------------------------------
@@ -274,6 +312,89 @@ def check_port(host: str | None = None, port: int | None = None,
                   f"Close that program, or set AURADREAM_PORT to a free port, such as {port + 1}.")]
 
 
+# --- LAN settings -------------------------------------------------------------
+
+def check_lan(host: str | None = None, allowed: Iterable[str] | None = None) -> list[Check]:
+    """With a bind other machines can reach, whether AURADREAM_ALLOWED_HOSTS
+    lets the local probes and the browser's writes through. Nothing on a
+    loopback bind."""
+    host = settings.host if host is None else host
+    names = list(settings.allowed_hosts if allowed is None else allowed)
+    if server_probe.is_loopback(host):
+        return []
+    checks: list[Check] = []
+    if "127.0.0.1" not in names:
+        checks.append(Check(
+            WARN, "LAN", "AURADREAM_ALLOWED_HOSTS does not list 127.0.0.1. A second start, this doctor and "
+            "the command line ask the server at 127.0.0.1, so a second start takes AuraDream for "
+            "another program.",
+            "Add 127.0.0.1 (and localhost) to AURADREAM_ALLOWED_HOSTS beside the LAN names: setting it "
+            "replaces the default."))
+    wild = [name for name in names if "*" in name]
+    if wild:
+        checks.append(Check(
+            WARN, "LAN", f"AURADREAM_ALLOWED_HOSTS has a wildcard ({', '.join(wild)}). The page loads, but "
+            "the origin check compares names exactly, so every change from the browser is refused "
+            "with 403.",
+            "List the exact names and addresses the browser uses, such as my-box,192.168.1.20."))
+    if not checks:
+        checks.append(Check(PASS, "LAN", f"serving on {host} to {', '.join(names) or 'no names'}."))
+    return checks
+
+
+# --- Keeping the PC awake -----------------------------------------------------
+
+def polkit_rule(user: str) -> str:
+    """The polkit rule that lets `user` take the block hold from a service."""
+    return (
+        "polkit.addRule(function(action, subject) {\n"
+        "    if ((action.id == \"org.freedesktop.login1.inhibit-block-sleep\" ||\n"
+        "         action.id == \"org.freedesktop.login1.inhibit-block-idle\") &&\n"
+        f"        subject.user == \"{user}\") {{\n"
+        "        return polkit.Result.YES;\n"
+        "    }\n"
+        "});"
+    )
+
+
+def check_keep_awake(platform: str | None = None, which: Callable[[str], str | None] = shutil.which,
+                     run: Callable[..., Any] = subprocess.run, enabled: bool | None = None,
+                     user: str | None = None) -> list[Check]:
+    """On Linux, whether the server may hold the PC awake while it works: a
+    trial block hold around `true`, let go when it ends. Nothing elsewhere."""
+    platform = sys.platform if platform is None else platform
+    if not platform.startswith("linux"):
+        return []
+    if not (settings.keep_awake if enabled is None else enabled):
+        return [Check(PASS, "Keep awake", "switched off (AURADREAM_KEEP_AWAKE=false), so nothing is tried.")]
+    program = which("systemd-inhibit")
+    if not program:
+        return [Check(WARN, "Keep awake", "systemd-inhibit was not found, so AuraDream cannot keep this PC "
+                      "awake while it works.",
+                      "If this PC suspends when idle, install systemd's tools or turn the idle suspend off.")]
+    argv = [program, "--what=sleep:idle", "--who=AuraDream doctor", "--why=check", "--mode=block", "true"]
+    try:
+        done = run(argv, stdin=subprocess.DEVNULL, capture_output=True, text=True,
+                   timeout=INHIBIT_TRIAL_SECONDS)
+    except subprocess.TimeoutExpired:
+        said, code = f"it did not finish within {INHIBIT_TRIAL_SECONDS} s", None
+    except OSError as exc:
+        said, code = str(exc), None
+    else:
+        code = done.returncode
+        said = next((line.strip() for line in f"{done.stderr or ''}\n{done.stdout or ''}".splitlines()
+                     if line.strip()), "")
+    if code == 0:
+        return [Check(PASS, "Keep awake", "systemd-inhibit may hold this PC awake (sleep and idle) while "
+                      "AuraDream works.")]
+    who = user or getpass.getuser()
+    why = said or f"exit code {code}"
+    return [Check(WARN, "Keep awake", f"systemd-inhibit refused a block hold ({why}), so this PC may "
+                  "suspend in the middle of a load or a render.",
+                  "Let this user take the hold with a polkit rule, for example in "
+                  "/etc/polkit-1/rules.d/50-auradream-inhibit.rules (as root):\n" + polkit_rule(who))]
+
+
 # --- Hugging Face sign-in -----------------------------------------------------
 
 def check_hf_login(token_path: Path | None = None, environ: dict[str, str] | None = None) -> list[Check]:
@@ -298,7 +419,8 @@ def check_hf_login(token_path: Path | None = None, environ: dict[str, str] | Non
 # --- Running ------------------------------------------------------------------
 
 CHECKS: tuple[Callable[[], list[Check]], ...] = (
-    check_driver, check_gpu, check_ram, check_disk, check_port, check_hf_login,
+    check_driver, check_gpu, check_vram, check_ram, check_disk, check_port, check_lan, check_keep_awake,
+    check_hf_login,
 )
 
 
@@ -330,7 +452,8 @@ def main(argv: list[str] | None = None) -> int:
         sys.stdout.reconfigure(encoding="utf-8")  # type: ignore[union-attr]
     argparse.ArgumentParser(
         prog="python -m backend.doctor",
-        description="Read-only checks of this machine: GPU, driver, RAM, disk, port, sign-in.",
+        description="Read-only checks of this machine: GPU, driver, VRAM, RAM, disk, port, LAN settings, "
+                    "keeping the PC awake, sign-in.",
     ).parse_args(argv)
     print("AuraDream doctor: read-only checks of this machine.", flush=True)
     lines, status = report(run_checks())
