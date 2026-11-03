@@ -27,7 +27,7 @@ current feature plans, or measurements in `docs/verified.md`.
 entries below, F02, F04, E08 and E14 now describe today's app: both
 continuation phases, model cache facts, Expand Stop, named setups, saved
 searches, Then refine, the masked-area crop and Edit by instruction are
-built. Goals, needs and non-goals are unchanged, and the register keeps
+built, and Matt rated those four Sometimes ([later features](preferences.md#later-features-2026-11-03)). Goals, needs and non-goals are unchanged, and the register keeps
 its 2026-10-18 line references; no new task observation was made. Questions 3, 6 and 7 are partly answered.
 
 ## Scope and evidence limits
@@ -55,8 +55,8 @@ its 2026-10-18 line references; no new task observation was made. Questions 3, 6
   (installer, doctor, first-visit panel, plain-words failures, `GEN#41`) was
   requested by Matt for a first-time user who is not confident with git, and
   serves the public repository. It sits outside these modes and is owned by
-  that review. Whether to add a persona or mode for it (first run or
-  reinstall) is open for Matt.
+  that review. On 2026-11-03 Matt decided it gets no persona or mode of
+  its own (first run or reinstall): it stays outside the design programme.
 
 ## Evidence register
 
@@ -102,7 +102,7 @@ skill rating or unobserved preference is assigned to Matt.
   prompt variables, occasional Steps/CFG/seed grids, runs and sheets
   (E05, E07, E08, E17). Since then: Finish run, Skip and Move to front,
   Then refine and queue estimates. The page watches the running job;
-  choosing the watched job is not built (see UX#7's 2026-11-03 note in
+  choosing the watched job is not built and is Proposed (see UX#7's 2026-11-03 note in
   [requirements](requirements.md#ux7--understand-work-while-it-runs-or-waits--p0--current)).
 - **Needs:** persistent progress and explicit waiting/outcome; quick watch,
   cancel and retry; saved results retained; a trustworthy recovery path.

@@ -6,6 +6,8 @@
   {"eval": "document.querySelector(\"#btn-bundles\").scrollIntoView({block:'nearest'});"},
   {"click": "#btn-bundles"},
   {"expect": "__until(() => els.bundlesDialog.open && bundlePreview?.records === 2 && els.bundlePreview.textContent.includes('2 full-size images'))"},
+  {"log": "'R-01: with no saved backup settings (and no ?automatic-backup) the Automatic startup backup section is not rendered; the dialog ends with Saved bundles.'"},
+  {"expect": "__until(() => automaticBackupStatus?.revision === 'missing' && !automaticBackupReading && !automaticBackupShown && document.getElementById('automatic-backup-settings').hidden && document.getElementById('automatic-backup-settings').getClientRects().length === 0 && !els.bundlesDialog.innerText.includes('Automatic startup backup'))"},
   {"expect": "document.activeElement === els.bundlesClose && els.bundleExport.getAttribute('aria-disabled') === 'true' && !els.bundleExport.disabled && els.bundleUpload.getAttribute('aria-disabled') === 'true' && els.bundlesDialog.textContent.includes('every model, every starred image and the recycle bin')"},
   {"eval": "document.querySelector(\"#bundle-export\").scrollIntoView({block:'nearest'});"},
   {"click": "#bundle-export"},

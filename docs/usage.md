@@ -67,10 +67,15 @@ memory for speed: Model offload keeps one component on the GPU at a time,
 Sequential moves smaller pieces and is much slower, and No offload is fastest
 but needs 24 GB or more for FLUX-size models. FP8 with Model offload is
 recommended for a 16 GB card; each choice's note says the same under its menu.
-The **Compilation** menu offers **Eager** and the **Attention** menu **Native
-(default)**; their **Regional v1 (unavailable)** and **cuDNN v1
-(unavailable)** entries are listed but cannot run in this build, as the note
-under each menu says.
+Under them, the **Performance** line names the current compilation and
+attention (**Eager, Native**) and says no other choice is available yet;
+click it to show the **Compilation** and **Attention** menus. **Compilation**
+offers **Eager** and **Attention** **Native (default)**; their **Regional v1
+(unavailable)** and **cuDNN v1 (unavailable)** entries are listed but cannot
+run in this build, as the note under each menu says. The line opens by
+itself, when you open Models, if a saved or unsaved choice is not Eager and
+Native or is unreadable (so you can see what holds loading and choose Eager
+and Native, or **Revert**), or once a build admits another choice.
 
 The server's checkpoint says
 **Loaded**, **Loading…**, **Load failed** or **Current** under its name. A dotted
@@ -651,7 +656,10 @@ estimate. The run and contact sheet show its distinct sizes.
 **Finish run** on a finish line, last-run banner or run sheet uses the
 server's stored cells instead. It works after a tab reload or server restart,
 including stopped Repeat/comparison jobs and runs that made no image. Your
-current composer stays as it is. Its preview states missing images/cells,
+current composer stays as it is. The last-run banner and the run sheet's
+line also say its counts as text ("Finish run: 3 missing cells" on the
+banner, on a line of its own above its buttons, "Checking Finish run…" until
+the server answers). Its preview states missing images/cells,
 redraws of permanently deleted successful cells, and the original budget.
 Binned images count as present. Model/quantization changes, unreadable older
 cells, missing sources/masks/LoRAs and already queued work give a held reason.
@@ -1184,10 +1192,20 @@ auradream
 Existing terminals inherit their old environment; open a new terminal or set
 the variable there too. WSL can use its own Linux path via an explicit export.
 
-The collapsed **Automatic startup backup** section in the dialog is off by
-default and stays so: Matt declined unattended backups on 2026-10-29
+Automatic backups are off by default and stay so: Matt declined unattended
+backups on 2026-10-29
 ([plan](plan-automatic-backups.md#matts-choices-for-unattended-backups)).
-Manual and password-protected bundles are unchanged.
+Manual and password-protected bundles are unchanged. The dialog therefore
+does not show the **Automatic startup backup** section unless this gallery
+already has something saved for it: a settings file (enabled, off again
+after being saved, or needing repair), an offline credential profile from
+`tools/backup_credential.py setup`, an installed shared archive mode or a
+pending cleanup - so anything already configured stays in sight. To reach
+it deliberately before anything is saved, open the page with
+`?automatic-backup` after the address (for example
+`http://127.0.0.1:7860/?automatic-backup`); once settings are saved there
+it shows on every later opening. While hidden, opening Bundles reads only
+the server's cached status, which touches no file, to decide.
 
 ## Clear or recover a gallery
 

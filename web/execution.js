@@ -227,6 +227,41 @@ function syncExecutionControls() {
   const why = executionLoadHold();
   els.load.setAttribute('aria-disabled', String(!!why));
   if (why) els.load.title = why;
+  syncPerformanceDisclosure();
+}
+
+// A choice the server would run besides the default: a nonempty value with no
+// reason holding it. None exists in this build.
+function executionChoiceAdmitted() {
+  const choices = executionDraftOptions();
+  return ['compilation', 'attention'].some((key) => (Array.isArray(choices?.[key]) ? choices[key] : [])
+    .some((item) => item?.value && !item.unavailable_reason && !item.configuration_reason));
+}
+
+// A draft or saved choice that is not Eager/Native, or is invalid: what holds
+// loading must stay in view, beside its Revert.
+function executionChoiceHeld() {
+  return !!invalidLoaderDraftReason() || !!els.modelCompilation.value || !!els.modelAttention.value
+    || !!selectedExecution || !selectedExecutionAvailable;
+}
+
+// Compilation and Attention wait collapsed under one summary line until they
+// matter. The disclosure opens by itself only where nothing in view moves: while
+// the picker is hidden, or as it opens (`opening`); a status refresh with the
+// picker open never opens or closes it. It never closes by itself.
+function syncPerformanceDisclosure({ opening = false } = {}) {
+  const admitted = executionChoiceAdmitted();
+  const held = executionChoiceHeld();
+  if ((admitted || held) && !els.modelPerformance.open && (els.modelPicker.hidden || opening)) {
+    els.modelPerformance.open = true;
+  }
+  const label = (control) => (control.selectedOptions[0]?.textContent ?? '').replace(/ \(default\)$/, '');
+  const choices = `${label(els.modelCompilation)}, ${label(els.modelAttention)}`;
+  const note = held ? ' · not the default, which holds loading'
+    : admitted ? ' · other choices are available' : ' · no other choice is available yet';
+  if (els.modelPerformanceChoices.textContent !== choices) els.modelPerformanceChoices.textContent = choices;
+  if (els.modelPerformanceNote.textContent !== note) els.modelPerformanceNote.textContent = note;
+  els.modelPerformance.title = `Compilation and Attention: ${choices}${note}`;
 }
 
 function receiveExecutionStatus(status, asked = Date.now()) {

@@ -437,7 +437,18 @@ press anywhere on the facts chooses the row. Below 700 px the facts take a
 second line, and below 480 px two facts a line. Quantization and offload sit
 side by side above the table, since they decide which checkpoints it offers
 and which timings its Speed column shows; their explanations reserve their
-height. A press on a row's gaps chooses the row, and the picker body takes the
+height. Compilation and Attention sat beside them as a second pair
+(2026-10-26) though no choice but Eager and Native is admitted in this
+build; since 2026-11-03 (DEV#30, the persona review's S1-01) they wait under
+a collapsed **Performance** summary line between the pair and the table,
+naming the current choices on one line of fixed height. It opens by itself
+only where nothing in view moves: while the picker is hidden, as it opens, or
+on the opening's catalogue reply with the pointer off the body, and only when
+an option the server sends is admitted (a value with no unavailable or
+configuration reason) or a draft or saved choice is not the default or is
+invalid, so what holds loading stays beside Revert. A status refresh with the
+picker open never opens or closes it, and it never closes by itself. A press
+on a row's gaps chooses the row, and the picker body takes the
 focus for presses on its empty space, so the focusout check keeps it open.
 
 A review of the table (2026-10-09) found it hard to read past the first
@@ -4952,6 +4963,21 @@ provider UI was added. Native lifecycle checks use owned Windows scratch galleri
 no real gallery was activated. The [backup plan](plan-automatic-backups.md#explicit-v3-retention-and-durable-uncertainty)
 records the current contract, evidence and remaining qualifications.
 
+**The section hidden by default (2026-11-03, `R-01`).** Matt declined
+unattended backups (2026-10-29), so a settings section at the foot of every
+Bundles dialog only invited a feature nobody wanted. It is now `hidden` until
+the cached status (`GET /api/gallery/automatic-backup`, which reads no file)
+shows this gallery has something saved for it: a settings file (any
+revision but `missing`, including one turned off again or needing repair),
+an offline credential profile, an installed shared mode, retained cleanup
+state or a startup outcome. That keeps an already configured or running
+backup in sight. The deliberate way in before anything is saved is the page
+address `?automatic-backup`, a front-end choice that needs no new
+`AURADREAM_*` variable and changes nothing on the server. A hidden section
+reads that cached status once per opening and skips the poll's reads; once
+shown it stays shown for the page. It sits last in a top-anchored dialog,
+so appearing moves no control.
+
 **Password scope and the clear's safety step (2026-10-26, `UI#14`/`UI#15`).**
 The browser review reproduced a scope mismatch: a password under Import a
 file also controlled Protected saved imports below a separate section. File
@@ -8501,6 +8527,19 @@ dismissed (1,131 px, resting). Held is the rule working, not a fault: at
 scroll 0 the panel is in the page's flow either way, and scrolled, its top
 stays under the topbar. smoke-wide holds both; it had expected the panel to
 rest with the banner up and failed there since those additions.
+
+The banner's Finish run counts (EXP-01, 2026-11-03) were only in the
+button's tooltip, where the sheet's run line already said them as text. They
+are a line of their own, `#last-run-finish`, between the banner's words and
+its buttons: the preview answers after the banner is up, and words before
+the buttons that grew when it landed would move them under the pointer. So
+the line is there from the first display ("Checking Finish run…"), one line
+high whatever the answer (`nowrap` and an ellipsis, the whole text as its
+title). Appending the counts to the banner's text instead would rewrap it
+and shift the buttons. The line costs the banner 26 px (18 px of text and the
+gap) when Finish run is shown: at 1400 x 900 a cancelled grid's banner ran
+851-965 px rather than 851-939, already below the fold either way, with
+Generate (bottom 797) unmoved, since the banner sits under it.
 
 ## Design tokens
 

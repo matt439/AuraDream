@@ -69,28 +69,29 @@ steps for the changes.
 
 ## Open for Matt
 
-None of these is built. Each one is a decision:
+On 2026-11-03 Matt took the recommended answer to every question, then
+gave the ratings:
 
-1. **First-run persona.** The 2026-11-01 first-run work serves a first-time
-   user, which none of P1 to P3 is. Should there be a fourth mode (first run
-   or reinstall), or should it stay outside the design programme, owned by
-   its [review](review-2026-11-01-first-run.md)? (S1-01)
-2. **Choosing the watched job.** UX#7 (Current) promises it and D5 is rated
-   Often, but the page always watches the running job. You can relabel that
-   part of the story as Proposed, or approve a zero-height watch entry point
-   on queued rows. (S-UX7-01)
-3. **Ratings** for features built after the questionnaire: saved searches,
-   Edit by instruction, Only the masked area, Then refine.
-4. **Models' loader options** sit above the table by a recorded decision,
-   while UX#2's candidate wording puts them second. You can keep them there,
-   or collapse the held Compilation/Attention selects until a recipe is
-   admitted. (prep S1-01)
-5. **Smaller placement choices:**
-   - Finish run's counts on the banner's text line, not just its tooltip (EXP-01).
-   - Gallery beside and the sheet exports made quieter (C-06, C-07).
-   - A cold guide summary for the row chosen in Models (prep S1-06).
-   - Hiding the declined Automatic startup backup section (R-01).
-6. **Cancel's width.** "Stopping…" is wider than "Cancel", so Pause, Skip
-   and ↑ shift left while it shows. They already did this on your own
-   press; now every watching tab shows it too. Giving Cancel a fixed width
-   would shorten the Now line.
+1. **First-run persona (S1-01): no fourth mode.** The first-run work stays
+   outside the design programme, owned by its
+   [review](review-2026-11-01-first-run.md).
+2. **Choosing the watched job (S-UX7-01): relabelled.** That part of UX#7 is
+   Proposed, not Current; no watch entry point on queued rows is planned.
+3. **Ratings: all Sometimes.** Saved searches, Edit by instruction, Only the
+   masked area and Then refine
+   ([later features](design/preferences.md#later-features-2026-11-03)).
+4. **Models' loader options (prep S1-01): collapsed.** Compilation and
+   Attention sit in a folded Performance disclosure until a recipe is
+   admitted. The fold opens itself as the picker opens, never on a refresh,
+   when a choice is admitted or the draft or saved choice is not the
+   default.
+5. **Smaller placements:**
+   - Finish run's counts on the banner (EXP-01): built, on a line of their
+     own under the banner's text.
+   - The automatic startup backup section (R-01): hidden by default. It
+     shows when the gallery already has something saved for it, or on a
+     page opened with `?automatic-backup`.
+   - Gallery beside and quieter sheet exports (C-06, C-07), and a cold guide
+     summary in Models (prep S1-06): not taken.
+6. **Cancel's width: left as it is.** A fixed width would shorten the Now
+   line every time, to stop a brief shift while it reads Stopping….

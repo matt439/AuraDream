@@ -73,7 +73,7 @@
   {"eval": "els.modelPickerBody.scrollTop = 600"},
   {"expect": "(() => { const head = els.modelTableHead.getBoundingClientRect(), body = els.modelPickerBody.getBoundingClientRect(); return els.modelPickerBody.scrollTop > 300 && head.top >= body.top - 1 && head.top <= body.top + 1 && document.elementFromPoint(head.left + head.width / 2, head.top + head.height / 2)?.closest('#model-table-head') === els.modelTableHead; })()"},
   {"log": "'A row half under the sticky heading row scrolls fully below it when its radio takes the focus'"},
-  {"eval": "(() => { window.__prevFocus = document.activeElement; const head = els.modelTableHead.getBoundingClientRect(); window.__hidRow = __rows().find((r) => { const b = r.getBoundingClientRect(); return b.top < head.bottom - 4 && b.bottom > head.bottom + 4; }); __hidRow?.querySelector('input').focus(); })()"},
+  {"eval": "(() => { window.__prevFocus = document.activeElement; const find = () => { const head = els.modelTableHead.getBoundingClientRect(); return __rows().find((r) => { const b = r.getBoundingClientRect(), radio = r.querySelector('input').getBoundingClientRect(); return b.top < head.bottom - 4 && b.bottom > head.bottom + 4 && radio.bottom <= head.bottom; }); }; let row = find(); for (let i = 0; !row && i < 8; i++) { els.modelPickerBody.scrollTop += 11; row = find(); } window.__hidRow = row; __hidRow?.querySelector('input').focus(); })()"},
   {"expect": "!!__hidRow && __hidRow.getBoundingClientRect().top >= els.modelTableHead.getBoundingClientRect().bottom - 1"},
   {"eval": "__prevFocus?.focus({preventScroll: true})"},
   {"eval": "els.modelPickerBody.scrollTop = 0"},

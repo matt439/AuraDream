@@ -84,7 +84,7 @@ justified by the evidence currently available.
 | Existing safeguards | Undoable prompt writes; stable controls; no automatic page scrolling; explicit held-action reasons; authoritative server previews |
 | Proposed here | Results/Runs/Gallery views with shared context; consistent scope presentation; inspector hierarchy; consolidated recovery and review journeys |
 | Open research | Actual task sequences/timings; image space versus adjacent detail; whether view changes improve the normal loop |
-| Open for Matt | Whether to add a first-run or reinstall persona/mode for the [2026-11-01 first-run review](../review-2026-11-01-first-run.md)'s work, which that review owns ([research scope](research.md#scope-and-evidence-limits), 2026-11-03) |
+| Decided 2026-11-03 | No first-run or reinstall persona/mode: the [2026-11-01 first-run review](../review-2026-11-01-first-run.md)'s work stays outside the design programme, owned by that review ([research scope](research.md#scope-and-evidence-limits)) |
 | Still deferred | External photo/sketch references, Widen, Load into panel, and other explicitly deferred features in TODO |
 
 The fuller answers make the next layout concrete: keep the primary composer,

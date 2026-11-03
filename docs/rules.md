@@ -566,7 +566,11 @@ before changing it.
   `bundles.js` owns the gallery bundle dialog (Back up and its scope
   included) and background-operation polling, and `automatic-backup.js`
   its automatic startup backup settings (protection, consent, retention
-  cleanup and credential status, read only while the dialog is open);
+  cleanup and credential status, read only while the dialog is open;
+  the section is `hidden` until the cached status shows saved settings,
+  an offline credential profile or shared mode, or the page was opened
+  with `?automatic-backup`, and while hidden it reads that status once
+  per opening and never on polls);
   `gallery-select.js` the picked cards and the Picked menu, `gallery-batch.js` a
   card's batch outlined on hover, `tag-swap.js` Swap tags,
   `refine-batch.js` Mass refine, `then-refine.js` Then refine's opener
@@ -994,6 +998,19 @@ measured on the card and when.
   heading, outside the label naming the radio group; ticking it regroups at
   once (with the stars as they are then), since the checkbox is above every
   row; another tab's change waits for the next opening.
+- Quantization and Offload sit above the table; Compilation and Attention
+  sit under them in `#model-performance`, a `<details>` collapsed by default
+  whose summary names the current choices and whether another is available
+  on one line of fixed height (`syncPerformanceDisclosure` in
+  `execution.js`). It opens by itself when an option the server sends is
+  admitted (a nonempty value with no `unavailable_reason` or
+  `configuration_reason`) or a draft or saved choice is non-default or
+  invalid (`INVALID_LOADER_REASON`), but only while the picker is hidden, as
+  `showModelPicker` opens it, or on that opening's own catalogue reply with
+  the pointer off `#model-picker-body`; never on a status refresh while
+  open, and it never closes by itself. Its inner fields keep their reserved
+  3-line help height, so a note's change moves nothing. A closed `<details>` still lays its
+  content out for `getBoundingClientRect`: smokes test `checkVisibility()`.
 - The checkpoint is a radio table (`#model-table`) showing every model's
   facts; read and set it only through `modelChoice()` / `chooseModel()`, with
   no row checked when the runtime id is missing. It is rebuilt only when its
@@ -5965,6 +5982,14 @@ measured on the card and when.
   (`#last-run-more`, `moreSeedsLastRun`) beside Show run, on the run scope.
   The sheet's status line adds the preview's missing cells and passes
   ("· N missing cells", "; N deleted to redraw") after the run's own words.
+  The banner says the same counts (`finishRunCounts`, shared with that
+  line) as text on `#last-run-finish`, a role-free span between
+  `#last-run-text` and the buttons ("Finish run: N missing cells", or the
+  server's reason): shown with Finish run from the banner's first display,
+  "Checking Finish run…" while the answer is out, hidden with no run id;
+  one line (`nowrap`, ellipsis, the whole text its title), so the answer
+  landing never moves a button, and `syncLastRunFinish` writes it only when
+  the words change, so the polite banner is not read again on every poll.
 - `generate`, `clear`, `stats` and `reindex` reconfigure stdout to UTF-8 at
   the top of `main()`: on Windows always, elsewhere when it is not a
   terminal, and never on a stream without `reconfigure` (a StringIO,
@@ -6664,7 +6689,11 @@ socket or native cleanup process. Real browser/profile checks are separate.
 `smoke-execution-selector.json` uses a fresh FLUX.1 Krea [dev] fake on 7930.
 It checks inspectable configuration, honest unavailable status and held Load/render
 actions, structural conflicts, saved and unsaved recipes across polling/reload,
-explicit Eager recovery and per-render cache persistence/Reuse/Reset/Undo. Nonempty
+explicit Eager recovery and per-render cache persistence/Reuse/Reset/Undo. The
+Performance disclosure is collapsed at Eager/Native, opens for a saved, invalid
+or (stubbed) admitted choice while hidden or as the picker opens, and a refresh
+with the picker open neither opens it nor moves the table; a failed opening
+catalogue ends the opening, so its later retry cannot open it. Nonempty
 record Reuse stays refused. Only an ordinary Eager fixture may generate; no compiler,
 model download, non-Eager execution or performance/quality acceptance is established.
 `tests/test_attention_selection.py` checks coverage, transactional failures,
@@ -6760,7 +6789,9 @@ composer/scroll. Legacy empty recipes retain Reuse and Undo. It runs no
 non-default recipe and establishes no compiler or GPU behavior.
 
 `smoke-automatic-backup.json` uses a fresh FLUX.1 Krea [dev] fake on 7927.
-It checks explicit plaintext consent and settings validation, stale revisions,
+It checks the section hidden by default (one cached-status read per opening,
+none on polls), shown by `?automatic-backup` and, once settings are saved,
+without it; then explicit plaintext consent and settings validation, stale revisions,
 dirty edits and reload, fixed startup-outcome presentation, manual-field
 preservation, disabling and narrow layout. It configures scratch settings only:
 no server restart, automatic export, real gallery or credential store is used.
@@ -7357,7 +7388,8 @@ starred a 404), the preview's `starred`, every out-of-shape request
 refused before any work (a selection with a typed count included), and a
 chosen bundle refused as busy before its selection is read.
 
-`smoke-bundles.json` uses a fresh fake on 7897 and checks the browser dialog,
+`smoke-bundles.json` uses a fresh fake on 7897 and checks the browser dialog
+(the Automatic startup backup section hidden with no saved settings),
 all-model scope, typed confirmation, a bundle name stamped in local time,
 preserved favourites and metadata,
 saved-bundle and uploaded-file imports, repeated import, damaged ZIP refusal,
@@ -8923,7 +8955,9 @@ scrollbar and the gallery head unmoved from its first frame (`reserveStrip`),
 the wheel over it scrolling the page; the banner's
 "2 since deleted" / "all since deleted"; the banner's Finish run on a
 cancelled grid that was itself a Resume, finishing the stored run with an
-unrelated composer left as it was; Finish run offered on a cancelled
+unrelated composer left as it was, its counts line reading "Checking Finish
+run…" while the preview is held and "Finish run: N missing cells" after,
+with Show run, Finish run and ✕ at the same rects either side; Finish run offered on a cancelled
 comparison; a batch of four at QHD followed from its first
 frame to its end - the preview in the first image's column, no tile moving
 within the strip, the tile size and the gallery head where the first frame

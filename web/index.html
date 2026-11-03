@@ -55,9 +55,21 @@
       <div class="model-loader-options">
         <div><label for="model-quantization">Quantization</label><select id="model-quantization" autocomplete="off" aria-describedby="model-quantization-help"></select><p class="model-loader-help" id="model-quantization-help"></p></div>
         <div><label for="model-offload">Offload</label><select id="model-offload" autocomplete="off" aria-describedby="model-offload-help"></select><p class="model-loader-help" id="model-offload-help"></p></div>
-        <div><label for="model-compilation">Compilation</label><select id="model-compilation" autocomplete="off" aria-describedby="model-compilation-help"><option value="">Eager</option><option value="regional-v1">Regional v1 (unavailable)</option></select><p class="model-loader-help" id="model-compilation-help"></p></div>
-        <div><label for="model-attention">Attention</label><select id="model-attention" autocomplete="off" aria-describedby="model-attention-help"><option value="">Native (default)</option><option value="cudnn-v1">cuDNN v1 (unavailable)</option></select><p class="model-loader-help" id="model-attention-help"></p></div>
       </div>
+      <!-- Compilation and Attention have no admitted choice but the default in
+           this build, so they wait collapsed (execution.js,
+           syncPerformanceDisclosure). The summary names the current choices on
+           one line of fixed height. It opens by itself only while the picker
+           is hidden, as the picker opens, or on the opening's catalogue reply
+           with the pointer off the body: when a choice is admitted, or a
+           draft or saved choice is not the default or is invalid. -->
+      <details class="model-performance" id="model-performance">
+        <summary id="model-performance-summary"><span class="model-performance-label">Performance:</span> <span id="model-performance-choices">Eager, Native</span><span class="model-performance-note" id="model-performance-note"> &middot; no other choice is available yet</span></summary>
+        <div class="model-loader-options">
+          <div><label for="model-compilation">Compilation</label><select id="model-compilation" autocomplete="off" aria-describedby="model-compilation-help"><option value="">Eager</option><option value="regional-v1">Regional v1 (unavailable)</option></select><p class="model-loader-help" id="model-compilation-help"></p></div>
+          <div><label for="model-attention">Attention</label><select id="model-attention" autocomplete="off" aria-describedby="model-attention-help"><option value="">Native (default)</option><option value="cudnn-v1">cuDNN v1 (unavailable)</option></select><p class="model-loader-help" id="model-attention-help"></p></div>
+        </div>
+      </details>
       <!-- The help sits outside the label, so it describes the select without
            also joining its name. -->
       <div class="model-format" id="model-format-field" hidden><label for="model-format">Nunchaku format</label><select id="model-format" autocomplete="off" aria-describedby="model-format-help"></select><span class="model-format-help" id="model-format-help"></span></div>
@@ -563,6 +575,10 @@
          its end, so a three-day-old failure is not re-read forever. -->
     <div class="last-run" id="last-run" role="status" hidden>
       <span id="last-run-text"></span>
+      <!-- Finish run's counts (runs.js syncLastRunFinish), one line, before
+           the buttons and present from the first display, so the server's
+           answer landing never moves them. -->
+      <span id="last-run-finish" hidden></span>
       <button class="ghost small" id="last-run-show" title="Search for this run and lay it out as a sheet">Show run</button>
       <!-- A run that finished: more seeds of every cell of it (more-seeds.js). -->
       <button class="ghost small" id="last-run-more" aria-haspopup="dialog" hidden>More seeds…</button>
@@ -1914,7 +1930,9 @@
       <ul id="bundle-list"><li>Reading saved bundles…</li></ul>
     </div>
   </section>
-  <details class="bundle-automatic" id="automatic-backup-settings">
+  <!-- Hidden unless this gallery has saved backup settings or the page was
+       opened with ?automatic-backup (automatic-backup.js). -->
+  <details class="bundle-automatic" id="automatic-backup-settings" hidden>
     <summary>Automatic startup backup</summary>
     <div class="bundle-automatic-body">
       <p class="hint">Check once when the server starts and save the entire gallery, including every model, prompts, starred images and the recycle bin. Saving these settings does not create a backup now.</p>
