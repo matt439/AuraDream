@@ -7,7 +7,10 @@ download is several GB, and the default is about 32 GiB.
 
 For the 4-bit Nunchaku route under WSL 2, see
 [Run under WSL 2](../README.md#run-under-wsl-2-4-bit-nunchaku) instead;
-`wsl/setup.sh` does the driver check, uv and the install for you there.
+`wsl/setup.sh` does the driver check, uv and the install for you there. For
+a Linux PC that serves the page to others on the network, see
+[Native Linux](#native-linux-a-server-on-your-network) near the end of this
+page; its scripts do the same there.
 
 There are two routes: the [easy install](#easy-install), which a script does
 for you, and the manual steps from [step 1](#1-check-the-gpu-driver) on,
@@ -82,8 +85,10 @@ default without asking. To update later, stop AuraDream and double-click
 
 ## Before you start
 
-Check the machine against this list first. Only one configuration has been
-measured: an RTX 5080 with 16 GB of VRAM in a 64 GB Windows 11 machine.
+Check the machine against this list first. The configuration measured
+throughout is an RTX 5080 with 16 GB of VRAM in a 64 GB Windows 11 machine;
+an 8 GB RTX 3070 on native Ubuntu has one SDXL checkpoint measured
+([An 8 GB card](#an-8-gb-card)).
 
 - **GPU generation.** An NVIDIA card that torch's CUDA 13 (cu130) wheels are
   built for. The torch 2.13.0+cu130 the project installs lists compute
@@ -91,11 +96,14 @@ measured: an RTX 5080 with 16 GB of VRAM in a 64 GB Windows 11 machine.
   `torch.cuda.get_arch_list()`): the RTX 20 and GTX 16 series or newer.
   Older cards, such as the GTX 10 series (6.1), are not in that list, so
   expect them to fail at the first load even though `nvidia-smi` works.
-  Only the RTX 5080 has been tested.
-- **VRAM.** Only the 16 GB RTX 5080 is measured. The defaults use fp8 and
-  model offload; **sequential** offload under **Models** uses less VRAM,
-  more slowly. Whether a checkpoint fits an 8-12 GB card has not been
-  measured; the SDXL anime checkpoints are the lightest.
+  The RTX 5080 (12.0) and an RTX 3070 (8.6) have been tested.
+- **VRAM.** The 16 GB RTX 5080 is measured throughout. The defaults use fp8
+  and model offload; **sequential** offload under **Models** uses less VRAM,
+  more slowly. On an 8 GB RTX 3070, Animagine XL 4.0 at fp8 with model
+  offload peaked at 4.3-5.4 GiB of the whole card; no other checkpoint has
+  been measured on 8-12 GB, and the FLUX-size ones do not fit 8 GB
+  ([An 8 GB card](#an-8-gb-card)). The SDXL anime checkpoints are the
+  lightest.
 - **RAM.** A cold load of the default, FLUX.1 Krea [dev] (fp8, model
   offload), peaked at **27.9 GiB working set and 35.4 GiB private**
   (memory committed, which RAM and the page file must cover) on the 64 GB
@@ -120,8 +128,9 @@ measured: an RTX 5080 with 16 GB of VRAM in a 64 GB Windows 11 machine.
 
   For the default with the critic, plan on roughly 45-50 GB free (an
   estimate), plus room for your images.
-- **Windows 11** (or WSL 2, above). A **Hugging Face account** only for the
-  gated checkpoints, the default among them (step 6).
+- **Windows 11** (or WSL 2, or [native Linux](#native-linux-a-server-on-your-network)).
+  A **Hugging Face account** only for the gated checkpoints, the default
+  among them (step 6).
 
 ## 1. Check the GPU driver
 
@@ -379,6 +388,190 @@ setups, snippets, saved searches and backup settings).
 6. If you added `bin\` to your user PATH, remove that entry. Uninstall uv
    and Git (`winget uninstall astral-sh.uv`, `winget uninstall Git.Git`) if
    nothing else needs them.
+
+## Native Linux (a server on your network)
+
+A Linux PC with an NVIDIA card can run AuraDream as a service that other
+PCs on the network open in a browser, with nobody logged in at it. Three
+scripts in `linux/` do the work; each is safe to run again, never uses
+`sudo` (a command that needs it is printed for you to run) and takes
+`--dry-run` to print what it would do and change nothing. Measured on
+Ubuntu 26.04 with an 8 GB RTX 3070
+([what was measured](verified.md#rtx-3070-8-gb-native-ubuntu-2026-11-03));
+other distributions with systemd should work the same, untested.
+
+### What it needs
+
+- **The distribution's NVIDIA driver**, whose `nvidia-smi` reports **CUDA
+  13.0 or higher**. On Ubuntu, `sudo apt install nvidia-driver-595-open`,
+  or on a machine without a desktop
+  `sudo apt install nvidia-headless-595-open nvidia-utils-595`, then
+  reboot. Do not install the CUDA Toolkit: torch brings its own CUDA
+  runtime. The card's generation is as in
+  [Before you start](#before-you-start) (compute capability 7.5 or newer).
+- **Git** and **curl** (`sudo apt install git curl`). uv and Python 3.13
+  are installed by the setup script.
+- **gcc**, usually present (`sudo apt install gcc` if not): torch 2.13
+  compiles a small C helper for its Triton kernels the first time some
+  checkpoints render.
+- For the optional prompt critic: glibc 2.38 or newer (Ubuntu 24.04 or
+  newer) and `libgomp1` and `libssl3`; the setup script says if any is
+  missing.
+- **Node is not needed** to run AuraDream; only the test suite's page
+  checks use it.
+- RAM and disk as in [Before you start](#before-you-start).
+
+### Install
+
+Run every command as your own user, from a login of your own (the console
+or `ssh`), not under `su` or `sudo`:
+
+```bash
+git clone https://github.com/matt439/AuraDream.git
+cd AuraDream
+bash linux/setup.sh
+```
+
+`setup.sh` refuses under WSL (that is `wsl/setup.sh`), as root, or while
+AuraDream runs. It checks the driver's CUDA version, the card's generation
+and memory, a C compiler and the critic's libraries; installs uv only if it
+is missing (uv's own installer, the version `install.ps1` pins); runs
+`uv python install 3.13` and `uv sync` (a few GB of packages, never model
+weights); checks that torch sees the card; and runs the read-only
+`python -m backend.doctor`. It never writes `auradream.settings.json` or
+moves the gallery. If it installed uv, run the line it prints
+(`. "$HOME/.local/bin/env"`) or open a new shell.
+
+To try it on the machine itself first: `uv run python -m backend.main`, then
+<http://127.0.0.1:7860> in a browser there. Sign in to Hugging Face
+([step 6](#6-sign-in-to-hugging-face-gated-checkpoints-only),
+`uv run hf auth login`) only for the gated checkpoints.
+
+### Run it as a service
+
+```bash
+bash linux/install-service.sh
+sudo loginctl enable-linger $USER
+```
+
+`install-service.sh` writes the systemd user unit
+`~/.config/systemd/user/auradream.service`, enables it and starts it
+(`--no-start` only enables it). The unit runs `uv run --no-sync python -m
+backend.main` in the checkout, restarts it after a failure, and gives a stop
+two minutes to finish the current step and any gallery bundle operation.
+**Lingering** (the `loginctl` line) makes it start at boot and keep running
+with nobody logged in; without it, the service runs only while you are
+logged in. The script says which you have.
+
+The service's settings live in `~/.config/auradream/auradream.env`, readable
+by you only. The script writes it once, when there is none, and never
+rewrites it: edit it, then `systemctl --user restart auradream`. One
+`NAME=value` per line, no quotes, absolute paths only (systemd expands
+nothing there). It holds:
+
+- `AURADREAM_HOST=0.0.0.0`, so other PCs can reach the port.
+- `AURADREAM_ALLOWED_HOSTS`, the names the page may be opened by: loopback,
+  this machine's name, its `.local` name and its IPv4 addresses when the
+  script ran, for example
+  `127.0.0.1,localhost,my-box,my-box.local,192.168.1.20`. Add a name or
+  address another PC uses (after a DHCP change, say). Keep `127.0.0.1` and
+  `localhost`: a second start, the doctor and the command line ask the
+  server by them, and without them take AuraDream for another program.
+  Write every name exactly and in lowercase, as browsers send it; a
+  wildcard (`*` or `*.local`) loads the page and then refuses every change
+  it asks for. The doctor warns about each of these.
+- The xet downloader's fixed connection count (as `wsl/env.sh` sets it),
+  and commented examples for `HF_HOME`, `AURADREAM_PORT` and the two
+  keep-awake settings.
+
+At the end the script prints the addresses to open from another PC, such as
+`http://my-box:7860/` or `http://192.168.1.20:7860/`. A `.local` name needs
+mDNS (`avahi-daemon`); if a firewall is on, allow the port
+(`sudo ufw allow 7860/tcp`). **There is no login**: anyone who can reach the
+port can read and delete the gallery and make the machine download
+checkpoints with its Hugging Face token. Only do this on a network you
+trust.
+
+```bash
+systemctl --user status auradream          # its state
+journalctl --user -u auradream -f          # follow its log
+systemctl --user stop auradream            # stop / start / restart
+```
+
+A page opened by a LAN address over plain `http` is not a secure context
+for the browser, so the context menu's copy items and desktop notifications
+are held, each with its reason; everything else works. Automatic backups
+work unencrypted through the ordinary bundle path; encrypted automatic
+backups (the Windows credential manager) and backup cleanup (an NTFS shared
+mode) are Windows only.
+
+### Keeping the PC awake
+
+A PC that suspends after a spell of idleness sees no keyboard or mouse while
+a browser elsewhere drives it. So while a job, a load, a switch, a gallery
+bundle or the critic's download runs, and for 20 minutes after the last
+request someone made, the server holds a `systemd-inhibit` block on sleep
+and idle; the page's own timed polls do not count, so an idle open tab lets
+the PC sleep. `AURADREAM_KEEP_AWAKE_IDLE_MINUTES` changes the 20 (`0` holds
+only while busy); `AURADREAM_KEEP_AWAKE=false` turns it off.
+`systemd-inhibit --list` shows the hold as `AuraDream`. Under a service,
+polkit may refuse it; the doctor's **Keep awake** row says so and prints a
+rule that allows it. Waking the PC from the network is your own setup,
+outside AuraDream.
+
+### Updating
+
+```bash
+bash linux/update.sh --restart
+```
+
+`--restart` stops the service only when it is idle (no job, load, switch or
+gallery bundle operation), updates, and starts it again even if the update
+fails; without it, `update.sh` refuses while AuraDream runs. It copies the
+gallery database to its before-update name (the way back, as in
+[Updating](#updating)), runs `git pull --ff-only` and `uv sync`, and never
+resets, stashes or checks out a change of yours: a pull Git refuses is
+explained. It reads the service's environment file, so it copies the
+database the service uses. `install-service.sh` again rewrites the unit
+(never the environment file).
+
+### Downloads on another disk
+
+Checkpoints go to `~/.cache/huggingface`. To keep them on another disk, set
+`HF_HOME` to an absolute path there in the environment file (and `export`
+it in a terminal you run `uv` from), then restart the service. Move an
+existing `~/.cache/huggingface` there first to keep what is downloaded, and
+your Hugging Face sign-in with it.
+
+### An 8 GB card
+
+On an RTX 3070 (8 GB), Animagine XL 4.0 at fp8 with model offload made two
+1024x1024 images in 30 s and peaked at 4.3 GiB of the whole card (5.4 GiB
+for a batch of four through the service). Start with the SDXL anime
+checkpoints, Anima or FLUX.2 [klein] 4B (only the SDXL one is measured
+there). fp8 works on cards before the RTX 40 series: torchao's fp8
+weight-only quantization keeps the weights in fp8 and computes in bf16, so
+it needs no fp8 tensor cores. The FLUX-size checkpoints (FLUX.1, Krea 2,
+klein 9B, Qwen-Image) do not fit 8 GB at fp8 with model offload, which puts
+a whole transformer on the card: the default peaked at 12.0 GiB on the 5080.
+Sequential offload has not been tried on 8 GB, and the page gives these no
+fit warning yet. Nunchaku 4-bit (`AURADREAM_QUANT=nunchaku`)
+needs the `int4` repos below an RTX 50 card (the doctor names them); the
+`nvfp4` ones need compute capability 10.0 or higher. Nunchaku on an RTX 30
+card has not been measured.
+
+### Uninstalling the service
+
+```bash
+bash linux/install-service.sh --uninstall
+```
+
+stops, disables and removes the unit. It keeps the environment file (delete
+`~/.config/auradream/` yourself) and leaves the gallery, the checkpoints and
+the checkout alone; [Uninstall](#uninstall) covers those, with the
+checkout folder and `~/.cache/huggingface` (or `HF_HOME`) in place of the
+Windows folders and no shortcuts or user variables to remove. `sudo loginctl disable-linger
+$USER` turns lingering off if nothing else needs it.
 
 ## Next
 

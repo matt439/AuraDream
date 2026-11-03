@@ -430,8 +430,12 @@ before changing it.
   reason, a counted `busy(reason)` is open, or for
   `AURADREAM_KEEP_AWAKE_IDLE_MINUTES` after a request `counts_as_activity`
   passes; `wake` checks again at once from any thread; a cached `status()`
-  for `/api/status`), module `busy` (nothing when none is installed) and
-  `hold_while` for the CLI (`tests/test_keep_awake.py`)
+  for `/api/status`), `ActivityMiddleware` (a plain ASGI layer, added in
+  `main` before the host and origin checks so a refused request is never
+  use; `@app.middleware("http")` wrapped every response, the job streams
+  included, in another task and delayed a stream's attach), module `busy`
+  (nothing when none is installed) and `hold_while` for the CLI
+  (`tests/test_keep_awake.py`)
 - `backend/api_prompt.py` — the tag helper and prompt routes (suggest,
   validate, Expand, Check, measure, the critic) and their refusal wording;
   `backend/prompt_check.py` layer 1 of Check (encoder reports and rule
@@ -544,6 +548,32 @@ before changing it.
   seam `AURADREAM_INSTALL_TEST_ROOT` names the project folder, ignores the
   user's saved variables and takes the desktop from `USERPROFILE`
   (`tests/test_install_scripts.py`, Windows only)
+- `linux/setup.sh`, `linux/install-service.sh`, `linux/update.sh` and
+  `linux/common.sh` (which the three source) - the native Linux setup,
+  systemd user service and updater: bash, ASCII only, LF by
+  `.gitattributes` (`*.sh eol=lf`), `set -euo pipefail` in each script,
+  never `sudo` (a command that needs root is printed), and each takes
+  `--dry-run`. `setup.sh` refuses under WSL (`/proc/version`), as root or
+  while AuraDream or a `.venv` program runs; it checks `nvidia-smi`'s CUDA
+  (under 13.0 stops), compute capability (under 7.5 stops; under 10.0 notes
+  the int4 Nunchaku repos), memory, a C compiler and the critic's glibc and
+  libraries, installs uv only if missing (`install.ps1`'s pinned version),
+  then `uv python install 3.13`, `uv sync`, a CUDA check and the doctor.
+  `install-service.sh` writes `auradream.service` under
+  `$XDG_CONFIG_HOME/systemd/user` (`uv run --no-sync python -m backend.main`,
+  `Restart=on-failure`, `TimeoutStopSec=120`, no `systemd-inhibit` wrapper:
+  the server holds the PC itself) and, only when there is none, the env
+  file `auradream/auradream.env` (0600, never rewritten): `AURADREAM_HOST=0.0.0.0`,
+  `AURADREAM_ALLOWED_HOSTS` as loopback plus the host name, its `.local`
+  name and IPv4 addresses, lowercase, and the xet pins; it reports
+  lingering and prints the addresses; `--uninstall` keeps the env file.
+  `update.sh` is `update.ps1`'s steps (refuses while AuraDream or a `.venv`
+  program runs, copies the database the env file's `AURADREAM_DB_PATH` or
+  `legacy_names` picks, `git pull --ff-only`, `uv sync`, never resets);
+  `--restart` stops the service only when `/api/status` and the bundle
+  status say idle and starts it again however the update ends. Test seams:
+  `AURADREAM_INSTALL_TEST_ROOT`, `AURADREAM_INSTALL_TEST_PROC_VERSION`
+  (`tests/test_linux_scripts.py`)
 - `web/` - served as-is from `/static`; `index.html` loads 67 classic
   scripts in order, sharing one global scope; only `app.js`, the last, runs
   the wiring and boot. `state.js` owns shared state; `page-helpers.js`, right
@@ -1342,7 +1372,8 @@ measured on the card and when.
   refuse an ordinary eager request before device or pipeline work. This opens no
   selection/render gate and proves no physical GPU memory release.
 - `AURADREAM_QUANT=nunchaku` means a pre-quantized lite-infer repo, Linux only
-  (WSL 2 here), and no quantization config; `loading.nunchaku_preflight` and `loading.refuse_prequantized` refuse the other pairings before any download. Under
+  (WSL 2 on the 5080; native Linux too, with the int4 repos below compute
+  capability 10.0, unmeasured on the 3070), and no quantization config; `loading.nunchaku_preflight` and `loading.refuse_prequantized` refuse the other pairings before any download. Under
   WSL, `source wsl/env.sh` before `uv`.
 - `config.py` sets `DIFFUSERS_TRUST_REMOTE_KERNELS` and must be imported
   before diffusers everywhere, the CLI included. The offload hooks are handed
@@ -2657,6 +2688,19 @@ measured on the card and when.
   the gate. The critic's download and its rewrite's lint run outside the
   gate. Nothing that holds the gate awaits the load lock, which is why
   `wait_for_gate` cannot deadlock.
+- Keeping the PC awake (`keep_awake`) reads `main`'s providers (the job
+  queue, the card's holder, the load, a switch, a bundle operation) on the
+  event loop only: `JobManager.active()` is not safe from another thread.
+  Work on a daemon thread that can outlive its request (the model load's
+  and the critic's downloads) holds through the counted `keep_awake.busy`,
+  never a provider. `counts_as_activity` excludes the page's timed requests
+  (`/api/status`, the bundle and automatic-backup status reads, `GET
+  /api/jobs*`, the mask keep-alive, `/static/` and `/outputs/`); a new timed
+  poll joins that list, or an idle open tab holds the PC awake for ever.
+  Nothing in it raises into its callers, and the status poll reads the
+  last check's cached answer, never a subprocess. Tests never take a real
+  hold: `tests/conftest.py` replaces `platform_inhibitor` with
+  `NoInhibitor`.
 - An instruction edit queues through `POST /api/instruction-edit`
   (`InstructionEditSubmission`) or More seeds (below). The submission is strict and refuses extra
   fields such as a negative prompt. It becomes one image and one run. Its
@@ -7249,6 +7293,23 @@ no underlying submission or image action, native Escape, Close and actual
 backdrop focus restoration, context ordering with the full inventory, menu-opener
 fallbacks, accurate menu hints, the Prompts group's P row with `#prompt`'s
 `aria-keyshortcuts="P"`, and a 390 px layout without horizontal overflow.
+
+`tests/test_keep_awake.py` checks the `systemd-inhibit` child with a fake
+popen and clock (its argv, a refusal within `START_WAIT` or `SHORT_LIFE`,
+the retry after `RETRY_AFTER`, release by closing the pipe), the controller
+through its asyncio task (providers, counted holds from threads, the idle
+minutes, `wake`), `counts_as_activity` against the page's polls, the
+activity middleware and `/api/status`'s `keep_awake`, the CLI's
+`hold_while`, the doctor's VRAM, LAN and Keep awake rows, and the two
+settings. No real systemd is used.
+
+`tests/test_linux_scripts.py` runs `linux/*.sh` for real under bash against
+stub `nvidia-smi`, `uv`, `git`, `systemctl`, `loginctl`, `hostname` and `id`
+on PATH, a temporary HOME and project folder (the two test seams) and a
+loopback stand-in server; no real systemctl, git or uv runs and nothing
+touches the network. Those tests are Linux only (skipped on Windows and
+where bash is missing); the static checks (the script set, ASCII, LF,
+the shebang and `set -euo pipefail`) run everywhere.
 
 `uv run --group dev pytest`. They stub the pipeline (`tests/fakes.py`'s
 `FakeBackend`, wired by the `fake` and `client` fixtures in `tests/conftest.py`

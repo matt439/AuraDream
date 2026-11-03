@@ -1,6 +1,8 @@
 # Verified on the card
 
-What has been measured on the RTX 5080 (16 GB), and when. The reasoning
+What has been measured on the RTX 5080 (16 GB), and when; the RTX 3070
+(8 GB) on native Ubuntu has its own section at the end, and every other
+section is the 5080's. The reasoning
 around each number is in `design-notes.md`; this is the lookup. Times are per
 image with model offload, and "peak" is what the process held rather than
 what `nvidia-smi` showed, unless said otherwise - the desktop holds about
@@ -1952,3 +1954,34 @@ gallery was not used. Not measured: a critique beside a load in progress
 the critic, and a rewrite against its original over more than two seeds on
 FLUX.1 (both measured 2026-10-25 on Z-Image Turbo and Animagine, the rows
 above); kill-on-close under WSL; Ctrl-C during a critique.
+
+## RTX 3070 (8 GB), native Ubuntu (2026-11-03)
+
+The native Linux route on a second machine: Ubuntu 26.04 LTS (kernel 7.0),
+NVIDIA driver 595.99.02 open, headless (`nvidia-smi` reports CUDA 13.2), an
+RTX 3070 with 8 GB (7.7 GiB reported, compute capability 8.6), an i5-12600K
+and 64 GB of RAM; torch 2.13.0+cu130, diffusers 0.40.0, torchao 0.18.0,
+Python 3.13 from uv. Peaks here are whole-card `nvidia-smi` readings (polled
+every second), not the allocator's.
+
+| What | Result | Date |
+| --- | --- | --- |
+| Test suite, native | 8250 passed, 111 skipped on main once Node was on PATH (without it, the tests that drive the page's scripts fail); this branch 8350 passed, 111 skipped in 3 of 3 runs at `-n 8`; ruff clean. Two stream tests raced the instant fake (the stream attaching after the first image) before 79c18a8 | 2026-11-03 |
+| `python -m backend.doctor` | Every row PASS but VRAM (WARN: under the default's 12.0 GiB peak, naming the lighter checkpoints and the int4 Nunchaku repos) and the Hugging Face sign-in (WARN: not signed in) | 2026-11-03 |
+| Animagine XL 4.0, CLI (`backend.generate --model cagliostrolab/animagine-xl-4.0 --quant fp8 --offload model --seed 1 --batch 2`), 1024x1024, 28 steps, CFG 5 | Ready in 1 min 43 s including the first download (about 6.5 GB into the Hugging Face cache); 2 images in 30 s; 4,289 MiB whole-card at the peak; 11.3 GiB maximum RSS (`/usr/bin/time`). The images are clean. So torchao fp8 weight-only (`Float8WeightOnlyConfig`) runs on Ampere sm_86: the weights dequantize to bf16 for each matmul, with no fp8 tensor cores needed | 2026-11-03 |
+| Animagine XL 4.0 through the systemd user service (`linux/install-service.sh`, lingering on), driven from a Windows PC over the LAN | **Switch & load** to fp8 with model offload from a warm cache in about 10 s; 4 images at 1024x1024, 28 steps, one batch, in 54 s; 5,421 MiB whole-card mid-job | 2026-11-03 |
+| Keep awake, during that job | `systemd-inhibit --list` showed `AuraDream ... sleep:idle ... block`; `/api/status`'s `keep_awake.reasons` named the job | 2026-11-03 |
+| Keep awake, the idle minutes | With `AURADREAM_KEEP_AWAKE_IDLE_MINUTES=1` and only `/api/status` polled every 10 s, the hold let go after 60 s: `holding` false and no inhibitor listed | 2026-11-03 |
+| The page over plain `http` on a LAN address | Not a secure context: the copy items and desktop notifications are held with their reasons, as designed | 2026-11-03 |
+
+Not measured: Nunchaku int4 on sm_86 (whether the published kernels include
+it); any FLUX-size checkpoint on 8 GB (FLUX.1, Krea 2, klein 9B, Qwen-Image;
+model offload keeps a whole transformer on the card, larger than 8 GB at
+fp8); Anima or FLUX.2 [klein] 4B on the 3070; sequential offload; refine,
+inpaint and outpaint (their "measured" sizes are the 5080's); a suspend
+with a model loaded, and whether the loaded pipeline survives the resume
+(`NVreg_PreserveVideoMemoryAllocations=1` is set); the prompt critic's CUDA
+13.4 llama.cpp build under the 13.2 driver; waking the PC from the network
+(the server owner's own setup, outside the repository). Encrypted
+automatic backups and backup cleanup are Windows only; unencrypted
+automatic backups use the ordinary bundle path and were not run here.
