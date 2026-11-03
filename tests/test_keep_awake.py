@@ -624,6 +624,14 @@ def test_lan_rows():
     assert "wildcard (*)" in checks[1].detail and "403" in checks[1].detail
     [check] = doctor.check_lan("0.0.0.0", ["127.0.0.1", "*.local"])
     assert check.status == WARN and "*.local" in check.detail
+    # The default allowed hosts on a LAN bind reach no other machine.
+    [check] = doctor.check_lan("0.0.0.0", ["127.0.0.1", "localhost"])
+    assert check.status == WARN and "400 Invalid host header" in check.detail
+    [check] = doctor.check_lan("0.0.0.0", ["127.0.0.1", "localhost", "::1"])
+    assert check.status == WARN and "only this machine's names" in check.detail
+    # Browsers send lowercase names, so a capitalised entry never matches.
+    [check] = doctor.check_lan("0.0.0.0", ["127.0.0.1", "localhost", "My-Box"])
+    assert check.status == WARN and "My-Box" in check.detail and "lowercase" in check.detail
 
 
 def test_the_doctor_runs_the_new_rows():

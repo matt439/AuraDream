@@ -330,6 +330,18 @@ def check_lan(host: str | None = None, allowed: Iterable[str] | None = None) -> 
             "another program.",
             "Add 127.0.0.1 (and localhost) to AURADREAM_ALLOWED_HOSTS beside the LAN names: setting it "
             "replaces the default."))
+    if names and all(server_probe.is_loopback(name) for name in names):
+        checks.append(Check(
+            WARN, "LAN", "AURADREAM_ALLOWED_HOSTS lists only this machine's names, so a browser on "
+            "another machine is refused with 400 Invalid host header.",
+            "Add the names and addresses other machines use, such as "
+            "127.0.0.1,localhost,my-box,192.168.1.20."))
+    upper = [name for name in names if name != name.lower()]
+    if upper:
+        checks.append(Check(
+            WARN, "LAN", f"AURADREAM_ALLOWED_HOSTS has capital letters ({', '.join(upper)}). Browsers "
+            "send names in lowercase and the checks compare exactly, so those names are refused.",
+            "Write the names in lowercase, such as my-box."))
     wild = [name for name in names if "*" in name]
     if wild:
         checks.append(Check(
