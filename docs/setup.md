@@ -520,8 +520,9 @@ the PC sleep. `AURADREAM_KEEP_AWAKE_IDLE_MINUTES` changes the 20 (`0` holds
 only while busy); `AURADREAM_KEEP_AWAKE=false` turns it off.
 `systemd-inhibit --list` shows the hold as `AuraDream`. Under a service,
 polkit may refuse it; the doctor's **Keep awake** row says so and prints a
-rule that allows it. Waking the PC from the network is your own setup,
-outside AuraDream.
+rule that allows it. Waking the PC from the network is your own setup
+(Wake-on-LAN, or a wake gate of your own), outside the server;
+[auradream-server](#from-another-pc-auradream-server) can send the wake.
 
 ### Updating
 
@@ -538,6 +539,77 @@ resets, stashes or checks out a change of yours: a pull Git refuses is
 explained. It reads the service's environment file, so it copies the
 database the service uses. `install-service.sh` again rewrites the unit
 (never the environment file).
+
+### Controlling the service
+
+On the server, from the checkout, `linux/control.sh` does the everyday
+work:
+
+```bash
+bash linux/control.sh status            # the service, the checkout, the server's own status
+bash linux/control.sh restart           # refused while it is busy; --force interrupts the work
+bash linux/control.sh logs -n 50 -f     # the last 50 lines of its log, then follow it
+bash linux/control.sh doctor            # the read-only machine check, with the service's settings
+```
+
+`status` shows the service's state, since when, whether it is enabled and
+whether lingering is on; the checkout's branch and commit and how far it is
+behind GitHub (after a quiet `git fetch`; a failed fetch is only noted);
+and the running server's own answer on `127.0.0.1`: the checkpoint and how
+it loads, the model's state, active jobs, the card's holder, keep awake and
+why, the card's memory and the free disk, then AuraDream's line from
+`systemd-inhibit --list`. It exits 0 when the service is active and
+answering, 1 otherwise. `stop` and `restart` ask the server first and
+refuse while a job, a load, a switch, something holding the card or a
+gallery bundle operation is under way (as `update.sh --restart` does);
+`--force` stops it anyway and says what it interrupts. `start` and
+`restart` wait up to a minute for the page to answer. `logs` takes
+`-n N` (default 100) and `-f`.
+
+### From another PC: auradream-server
+
+`bin\auradream-server` runs those commands (and `update.sh`) on the server
+over `ssh` from a Windows PC: with the repository's `bin\` on the PATH,
+`auradream-server status` works from any folder. It needs Windows' OpenSSH
+client (built in) and a key the server accepts, since it never waits for a
+password (`ssh-keygen`, then add the `.pub` file's line to the server's
+`~/.ssh/authorized_keys`). Its settings are environment variables, read by
+this script only:
+
+- `AURADREAM_SERVER` (required): the server as `user@host` or `host`, for
+  example `me@my-box` or `me@192.168.1.20`; a `Host` alias from
+  `~/.ssh/config` works too.
+- `AURADREAM_SERVER_DIR`: the checkout on the server (default `~/AuraDream`).
+- `AURADREAM_SERVER_PORT`: the server's port (default 7860), for `open`.
+- `AURADREAM_SERVER_WAKE` (optional): how to wake a sleeping server, either
+  a URL that is POSTed (a wake gate of your own on the network, for example
+  `http://192.168.1.5:8650/__wake`) or the server's MAC address
+  (`aa:bb:cc:dd:ee:ff` or `aa-bb-cc-dd-ee-ff`), for which a Wake-on-LAN
+  packet is broadcast on this PC's network (port 9). Wake-on-LAN must be on
+  in the server's firmware and network settings.
+
+```powershell
+$env:AURADREAM_SERVER = 'me@my-box'                        # this window; setx for every new one
+$env:AURADREAM_SERVER_WAKE = 'aa:bb:cc:dd:ee:ff'           # optional
+auradream-server status
+auradream-server restart            # -Force: even while it is busy
+auradream-server stop               # start, stop, restart
+auradream-server update             # bash linux/update.sh --restart; -DryRun: --restart --dry-run
+auradream-server logs -Lines 50     # -Follow keeps reading; Ctrl-C ends it
+auradream-server doctor
+auradream-server connect            # a shell in the checkout
+auradream-server connect -Command 'git log -3 --oneline'
+auradream-server open               # http://my-box:7860/ in this PC's browser
+```
+
+Before each command it checks that the server's ssh port answers; if not,
+it wakes the server (when `AURADREAM_SERVER_WAKE` is set) and waits up to
+three minutes, waking again every 15 seconds, then lets `ssh` try. It exits
+with the server's exit code (255 when `ssh` itself fails, with a hint).
+Arguments with double quotes are refused, since Windows PowerShell 5.1 does
+not pass them to `ssh` intact; use single quotes inside `-Command`. A
+checkout from before `control.sh` existed says so: `auradream-server update`
+brings it.
 
 ### Downloads on another disk
 

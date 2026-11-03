@@ -548,9 +548,10 @@ before changing it.
   seam `AURADREAM_INSTALL_TEST_ROOT` names the project folder, ignores the
   user's saved variables and takes the desktop from `USERPROFILE`
   (`tests/test_install_scripts.py`, Windows only)
-- `linux/setup.sh`, `linux/install-service.sh`, `linux/update.sh` and
-  `linux/common.sh` (which the three source) - the native Linux setup,
-  systemd user service and updater: bash, ASCII only, LF by
+- `linux/setup.sh`, `linux/install-service.sh`, `linux/update.sh`,
+  `linux/control.sh` and `linux/common.sh` (which the four source) - the
+  native Linux setup, systemd user service, updater and service control:
+  bash, ASCII only, LF by
   `.gitattributes` (`*.sh eol=lf`), `set -euo pipefail` in each script,
   never `sudo` (a command that needs root is printed), and each takes
   `--dry-run`. `setup.sh` refuses under WSL (`/proc/version`), as root or
@@ -571,8 +572,20 @@ before changing it.
   program runs, copies the database the env file's `AURADREAM_DB_PATH` or
   `legacy_names` picks, `git pull --ff-only`, `uv sync`, never resets);
   `--restart` stops the service only when `/api/status` and the bundle
-  status say idle and starts it again however the update ends. Test seams:
-  `AURADREAM_INSTALL_TEST_ROOT`, `AURADREAM_INSTALL_TEST_PROC_VERSION`
+  status say idle (`common.sh`'s `server_busy`) and starts it again however
+  the update ends. `control.sh` (no `--dry-run`; it changes nothing but
+  the service's state) takes `status` (the unit, lingering, the checkout
+  after a quiet `git fetch` that never fails it, `/api/status`'s summary
+  and AuraDream's `systemd-inhibit --list` line; exit 0 only when active
+  and answering), `start`, `stop`/`restart` (refused while `server_busy`
+  says busy or cannot tell, unless `--force`, which says what it
+  interrupts; then a wait for `/api/status` of up to 60 s that stops early
+  on a failed unit, or a crashing one: `Restart=on-failure` shows it as
+  SubState `auto-restart` or a grown `NRestarts`, not failed), `logs` (`journalctl`, `-n` 100 by default, `-f`) and
+  `doctor` (with the env file); it reads only the page's polled GETs, which
+  keep awake does not count. Test seams:
+  `AURADREAM_INSTALL_TEST_ROOT`, `AURADREAM_INSTALL_TEST_PROC_VERSION`,
+  `AURADREAM_INSTALL_TEST_WAIT` (control.sh's wait)
   (`tests/test_linux_scripts.py`)
 - `web/` - served as-is from `/static`; `index.html` loads 67 classic
   scripts in order, sharing one global scope; only `app.js`, the last, runs
@@ -722,7 +735,24 @@ before changing it.
   the two server starts (`backend.main`, `wsl/serve.sh`) from any folder,
   arguments passed through. Each is a `.ps1` (PowerShell picks it, so
   Ctrl-C stops the server without cmd.exe's "Terminate batch job (Y/N)?")
-  beside a `.cmd` for cmd.exe, which always asks; keep each pair in step
+  beside a `.cmd` for cmd.exe, which always asks; keep each pair in step.
+  `auradream-server` (`.ps1`, with a `.cmd` that runs it) updates and
+  controls a Linux server over `ssh`: `status`, `start`, `stop`/`restart`
+  (`-Force`), `update` (`linux/update.sh --restart`; `-DryRun`:
+  `--restart --dry-run`), `logs` (`-Follow`/`-f`, `-Lines N`/`-n N`),
+  `doctor`, `connect` (`-Command`), `open` and `help` (or `-h`,
+  `--help`). Settings are only `AURADREAM_SERVER` (required; no default
+  address, the repository is public), `AURADREAM_SERVER_DIR`,
+  `AURADREAM_SERVER_PORT` and `AURADREAM_SERVER_WAKE` (an http(s) URL to
+  POST or a MAC for a Wake-on-LAN broadcast), read by it and never by the
+  app. Before each command but `help` it tests the ssh port that `ssh -G`
+  names and wakes and waits (three minutes, waking every 15 s); remote
+  words are single-quoted for bash and a double quote is refused (Windows
+  PowerShell 5.1 mangles it for `ssh.exe`); ssh runs with `BatchMode`,
+  `ConnectTimeout` and keepalives (`connect` without `BatchMode`) straight
+  to the console, and the script exits with the remote code. Dot-sourced,
+  it only defines its functions; `AURADREAM_INSTALL_TEST_NO_BROWSER` keeps
+  `open` from starting a browser (`tests/test_auradream_server.py`)
 - `wsl/` — `env.sh` (Linux-side paths and the Nunchaku defaults, to source),
   `setup.sh`, `serve.sh`: running the same checkout from WSL 2
 - `docs/design-notes.md` — why each part is the way it is, one section per
@@ -7304,12 +7334,34 @@ activity middleware and `/api/status`'s `keep_awake`, the CLI's
 settings. No real systemd is used.
 
 `tests/test_linux_scripts.py` runs `linux/*.sh` for real under bash against
-stub `nvidia-smi`, `uv`, `git`, `systemctl`, `loginctl`, `hostname` and `id`
-on PATH, a temporary HOME and project folder (the two test seams) and a
-loopback stand-in server; no real systemctl, git or uv runs and nothing
-touches the network. Those tests are Linux only (skipped on Windows and
-where bash is missing); the static checks (the script set, ASCII, LF,
-the shebang and `set -euo pipefail`) run everywhere.
+stub `nvidia-smi`, `uv`, `git`, `systemctl`, `journalctl`,
+`systemd-inhibit`, `loginctl`, `hostname` and `id` on PATH, a temporary
+HOME and project folder (the test seams) and a loopback stand-in server
+that answers only while the stub service is active; no real systemctl, git
+or uv runs and nothing touches the network. `control.sh`'s tests cover
+status of an answering and a stopped service, stop and restart refusing a
+busy server (no `systemctl` change) and `--force`, the wait for the page
+(a delayed stub start) and its limit, a failed unit, an auto-restarting
+one and a grown `NRestarts`, `logs`' `-n`/`-f`,
+`doctor` with the env file, unknown commands (exit 2) and root. Those tests
+are Linux only (skipped on Windows and where bash is missing); the static
+checks (the script set, ASCII, LF, the shebang and `set -euo pipefail`) run
+everywhere.
+
+`tests/test_auradream_server.py` runs `bin/auradream-server.ps1` under
+Windows PowerShell against a stub `ssh.cmd` that logs its argv through
+Python (as `ssh.exe` would receive it) and answers `ssh -G` with loopback
+and a test's port: a listener there is an awake server, a closed port a
+sleeping one, and a loopback wake gate starts the listener on its POST. It
+covers the missing and malformed settings (exit 2), each command's ssh
+line (folder default and override quoted for bash, `-Force`, `-Lines`,
+`-Follow` with `-t`, `-f`/`-n`, `update` and `-DryRun` (`--restart
+--dry-run`), `connect`), `-h`/`--help`, refused double quotes and trailing
+backslashes, the remote exit code and the 255 and 127 hints (`connect`'s
+without the `BatchMode` sentence),
+waking by URL, `open`, and the 102-byte magic packet through a dot-source.
+Windows only; its static checks (every `bin\` and root `.ps1`/`.cmd` ASCII
+and CRLF, no address but the placeholders) run everywhere.
 
 `uv run --group dev pytest`. They stub the pipeline (`tests/fakes.py`'s
 `FakeBackend`, wired by the `fake` and `client` fixtures in `tests/conftest.py`
