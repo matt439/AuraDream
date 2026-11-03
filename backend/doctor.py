@@ -278,13 +278,14 @@ def check_port(host: str | None = None, port: int | None = None,
 
 def check_hf_login(token_path: Path | None = None, environ: dict[str, str] | None = None) -> list[Check]:
     """Whether a Hugging Face token is present: the token file's existence or
-    HF_TOKEN being set. Never read, printed or checked with the Hub."""
+    HF_TOKEN (or the legacy HUGGING_FACE_HUB_TOKEN) being set. Never read, printed or checked with the Hub."""
     environ = dict(os.environ) if environ is None else environ
     if token_path is None:
         token_path = hf_sign_in.default_token_path()
     found = hf_sign_in.token_source(token_path, environ)
     if found == "env":
-        return [Check(PASS, "Hugging Face", "a token is set in HF_TOKEN (not checked with the Hub here).")]
+        return [Check(PASS, "Hugging Face", "a token is set in HF_TOKEN or HUGGING_FACE_HUB_TOKEN "
+                      "(not checked with the Hub here).")]
     if found == "file":
         return [Check(PASS, "Hugging Face", f"signed in: a token file is in {token_path.parent} "
                       "(not checked with the Hub here).")]

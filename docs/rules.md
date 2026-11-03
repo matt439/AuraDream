@@ -121,7 +121,8 @@ before changing it.
   source at its revision (or the repo's auth check); a `Refusal` only when the
   Hub says no
 - `backend/hf_sign_in.py` — whether a Hugging Face sign-in is present:
-  `token_source` ("env" for a nonempty `HF_TOKEN`, "file" for
+  `token_source` ("env" for a nonempty `HF_TOKEN`, else the legacy
+  `HUGGING_FACE_HUB_TOKEN` huggingface_hub still reads, "file" for
   huggingface_hub's `constants.HF_TOKEN_PATH` existing, else None) and
   `token_present`; stdlib and huggingface_hub's constants only, the token
   never read, logged, sent or checked with the Hub. The doctor's sign-in
@@ -476,7 +477,7 @@ before changing it.
   disk per drive for `HF_HUB_CACHE`, `hf_home_dir("converted")` and the
   outputs (under 50 GB for the downloads warns, under 2 GB fails); the port
   through `server_probe` (AuraDream already there passes); a Hugging Face
-  token as `HF_TOKEN` or the token file's existence (`hf_sign_in`), never read or sent.
+  token as `HF_TOKEN` (or `HUGGING_FACE_HUB_TOKEN`) or the token file's existence (`hf_sign_in`), never read or sent.
   Imports `config` first and torch inside the GPU check; never diffusers,
   a model or the Hub (`tests/test_doctor.py`). `install.ps1` runs it
 - `backend/server_probe.py` — the port checks `main.run` and the doctor
@@ -1062,10 +1063,13 @@ measured on the card and when.
   that opening's first catalogue reply (`suggestOpenModel`, once a page)
   chooses its row as a click would - unsaved, with Revert, never focused or
   scrolled to, nothing if the row is not listed or a row was already picked -
-  and while it stays chosen the note says why next ("No Hugging Face sign-in
-  was found and <default> needs one, so the open <name> is chosen."). The
+  and while it stays chosen and the status still names it the note says why
+  next ("No Hugging Face sign-in was found and <default> needs one, so the
+  open <name> is chosen."); Revert or a revision from elsewhere forgets the
+  preselection, so a later click on that row is the user's own. The
   server decides: `main._open_model_suggestion` answers None once a token is
-  present (`hf_sign_in`), the start's checkpoint came from anywhere (a saved
+  present (`hf_sign_in`: `HF_TOKEN`, else `HUGGING_FACE_HUB_TOKEN`, as
+  huggingface_hub reads them, or the token file), the start's checkpoint came from anywhere (a saved
   choice, `AURADREAM_MODEL_ID`, `--model`, `--defaults` or `--menu`), the
   selection is not `DEFAULT_MODEL_ID`, or any switch route has saved since
   the start. The server's default, the CLI and saved metadata are unchanged.
@@ -8136,12 +8140,17 @@ Unload, and focus/caret preservation. Through `POST /api/fake/sign-in`
 this machine's token) it checks `GEN#41`: no token on an unsourced FLUX.1
 Krea [dev] preselects Z-Image Turbo unsaved, the note saying why after the
 recommendation, the server's selection unchanged (screenshot
-`model-startup-open-suggestion.png`), and Revert putting the default back;
-a token, a sourced start or a save since the start keep the default row.
+`model-startup-open-suggestion.png`), a token appearing mid-session taking
+the reason away (and its return bringing it back), Revert putting the
+default back, and a later hand click on that row given no reason; a token,
+a sourced start or a save since the start keep the default row.
 `test_open_model_suggestion.py` covers the shared predicate (presence only,
 the file never opened), the doctor using it, the status field by
-`HF_TOKEN` and a temporary token path, and every source that keeps the
-default.
+`HF_TOKEN`, `HUGGING_FACE_HUB_TOKEN` (held to huggingface_hub's own
+environment rule) and a temporary token path, every source that keeps the
+default, and the real link: `launch.configure` over a saved default choice,
+`AURADREAM_MODEL_ID` or `--model` makes `main._compute_model_unsourced`
+False, nothing saved True, and `main` computes it after its launcher runs.
 `smoke-model-hover.json` hovers a table row and checks that its hover, every
 row's position and the focus survive status polls, a catalogue reply and
 another tab's favourites, with only the star's glyph (and, for a server

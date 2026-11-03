@@ -32,6 +32,31 @@ def test_token_source_is_presence_only(tmp_path):
     assert hf_sign_in.token_source(tmp_path, {}) is None
 
 
+def test_the_legacy_variable_is_a_sign_in_as_huggingface_hub_reads_it(tmp_path):
+    absent = tmp_path / "absent"
+    assert hf_sign_in.token_source(absent, {"HUGGING_FACE_HUB_TOKEN": "hf_legacy"}) == "env"
+    # Blank once trimmed is none, as huggingface_hub's _clean_token has it.
+    assert hf_sign_in.token_source(absent, {"HUGGING_FACE_HUB_TOKEN": " \r\n"}) is None
+    assert hf_sign_in.token_source(absent, {"HF_TOKEN": "  "}) is None
+    # HF_TOKEN set, even blank, is the one huggingface_hub takes, as here.
+    assert hf_sign_in.token_source(absent, {"HF_TOKEN": " ", "HUGGING_FACE_HUB_TOKEN": "hf_legacy"}) is None
+    assert hf_sign_in.token_source(absent, {"HF_TOKEN": "", "HUGGING_FACE_HUB_TOKEN": "hf_legacy"}) == "env"
+
+
+def test_the_rule_matches_huggingface_hubs_own(monkeypatch):
+    from huggingface_hub.utils import _auth
+
+    cases = [
+        {}, {"HF_TOKEN": "hf_a"}, {"HUGGING_FACE_HUB_TOKEN": "hf_b"}, {"HF_TOKEN": " \n"},
+        {"HF_TOKEN": " ", "HUGGING_FACE_HUB_TOKEN": "hf_b"}, {"HF_TOKEN": "", "HUGGING_FACE_HUB_TOKEN": "hf_b"},
+        {"HUGGING_FACE_HUB_TOKEN": "\r\n"},
+    ]
+    for case in cases:
+        environ = dict(case)
+        monkeypatch.setattr(_auth.os, "environ", environ)
+        assert hf_sign_in._environment_token(environ) is (_auth._get_token_from_environment() is not None), case
+
+
 def test_token_file_is_never_opened(tmp_path, monkeypatch):
     token = tmp_path / "token"
     token.write_text("hf_secretvalue")
@@ -76,6 +101,7 @@ def fresh(client, monkeypatch, tmp_path):
     token = tmp_path / "token"
     monkeypatch.setattr(hf_sign_in, "default_token_path", lambda: token)
     monkeypatch.delenv("HF_TOKEN", raising=False)
+    monkeypatch.delenv("HUGGING_FACE_HUB_TOKEN", raising=False)
     monkeypatch.setattr(main, "_hf_token_present", REAL_TOKEN_PRESENT)
     monkeypatch.setattr(main, "_model_unsourced", True)
     return token
@@ -95,6 +121,11 @@ def test_status_reports_the_token_and_names_the_open_checkpoint(client, fresh, m
     body = client.get("/api/status").json()
     assert body["hf_token_present"] is True and body["open_model_suggestion"] is None
     assert "hf_other" not in str(body)
+    monkeypatch.delenv("HF_TOKEN")
+    monkeypatch.setenv("HUGGING_FACE_HUB_TOKEN", "hf_legacy")
+    body = client.get("/api/status").json()
+    assert body["hf_token_present"] is True and body["open_model_suggestion"] is None
+    assert "hf_legacy" not in str(body)
 
 
 def test_an_explicit_or_saved_choice_is_never_suggested_over(client, fresh, monkeypatch, fake):
@@ -129,3 +160,66 @@ def test_the_open_checkpoint_is_served_under_the_default_loader(client, fresh):
         f"/api/models?quantization={status['quantization']}&offload={status['offload']}",
     ).json()["models"]
     assert OPEN_DEFAULT_MODEL_ID in {entry["model_id"] for entry in listed}
+
+
+# --- The real link: a saved choice or AURADREAM_MODEL_ID is a sourced start ---
+
+LAUNCH_VARIABLES = (
+    "AURADREAM_MODEL_ID", "AURADREAM_QUANT", "AURADREAM_OFFLOAD", "AURADREAM_PRELOAD",
+    "AURADREAM_COMPILATION", "AURADREAM_ATTENTION",
+)
+
+
+@pytest.fixture
+def launch_env(monkeypatch, tmp_path):
+    """A start's environment as `python -m backend.main` sees it before
+    configure: no model variables, a scratch database beside any settings."""
+    from backend import startup_preferences
+
+    for name in (*LAUNCH_VARIABLES, startup_preferences.OVERRIDES_VARIABLE,
+                 startup_preferences.LOADER_EXECUTION_ERROR_VARIABLE):
+        monkeypatch.setenv(name, "")
+        monkeypatch.delenv(name)
+    monkeypatch.setenv("AURADREAM_DB_PATH", str(tmp_path / "gallery.db"))
+    return tmp_path / "gallery.db"
+
+
+def _configured_unsourced(argv):
+    import os
+
+    from backend import launch
+
+    launch.configure(argv, ask=lambda _prompt: pytest.fail("asked a terminal question"))
+    return main._compute_model_unsourced(os.environ)
+
+
+def test_a_plain_start_with_nothing_saved_is_unsourced(launch_env):
+    assert _configured_unsourced([]) is True
+
+
+def test_a_saved_default_choice_is_a_sourced_start(launch_env):
+    from backend import startup_preferences
+
+    # Apply & save of the very default the suggestion would replace.
+    startup_preferences.save(
+        launch_env, startup_preferences.StartupPreferences(DEFAULT_MODEL_ID, "fp8", "model", False),
+    )
+    assert _configured_unsourced([]) is False
+
+
+def test_the_environment_or_model_flag_is_a_sourced_start(launch_env, monkeypatch):
+    assert _configured_unsourced(["--model", DEFAULT_MODEL_ID]) is False
+    monkeypatch.delenv("AURADREAM_MODEL_ID")
+    monkeypatch.setenv("AURADREAM_MODEL_ID", DEFAULT_MODEL_ID)
+    assert _configured_unsourced([]) is False
+
+
+def test_main_computes_the_flag_after_its_launcher_runs():
+    """`python -m backend.main` runs configure before the flag is computed;
+    the other way round, every saved choice would read as unsourced."""
+    import inspect
+
+    source = inspect.getsource(main)
+    launcher = source.index("    configure()\n")
+    computed = source.index("_model_unsourced = _compute_model_unsourced(os.environ)")
+    assert launcher < computed

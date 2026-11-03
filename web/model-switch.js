@@ -734,8 +734,11 @@ function modelPickerNote() {
   const offer = modelPickerOffered && !lead && ['unloaded', 'error'].includes(modelState)
     ? 'Switch & load saves this choice for the next start; closing the panel saves nothing.'
     : '';
-  // Then why that opening chose an open row over the server's gated default.
+  // Then why that opening chose an open row over the server's gated default:
+  // only while the server still names that row (the same default unchosen,
+  // still no sign-in), so a revision elsewhere or a token never leaves it.
   const suggested = offer && modelPickerSuggested && chosen === modelPickerSuggested
+      && modelOpenSuggestion === chosen
     ? `No Hugging Face sign-in was found and ${current} needs one, so the open ${modelLabel(chosen)} is chosen.`
     : '';
   return { text: [offer, suggested, lead, fit, state, modelExecutionNote()].filter(Boolean).join(' '), unsaved };
@@ -803,6 +806,8 @@ function syncModelSwitch() {
 // the hidden button gives up, goes to the chosen row.
 function revertModelPicker() {
   forgetExecutionDraft(modelPickerSettings(), { revert: true });
+  // The page's choice is gone; a later click on that row is the user's own.
+  modelPickerSuggested = null;
   modelPickerEditedKeys.clear();
   modelPressReason = null;
   applyModelSettings(true);
@@ -877,6 +882,8 @@ function receiveModelSettings(status, { reset = false } = {}) {
     const performanceEdits = ['compilation', 'attention'].filter((key) => modelPickerEditedKeys.has(key));
     modelPickerEditedKeys.clear();
     for (const key of performanceEdits) modelPickerEditedKeys.add(key);
+    // A preselection the revision retired is no longer the page's choice.
+    modelPickerSuggested = null;
     // The revision this page's own switch made keeps the note saying so.
     const own = modelOwnSwitch && ['model_id', 'quantization', 'offload', 'compilation', 'attention']
       .every((key) => modelOwnSwitch[key] === modelRuntimeSettings[key]);

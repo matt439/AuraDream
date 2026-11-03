@@ -10,6 +10,7 @@ import sys
 import threading
 import time
 import webbrowser
+from collections.abc import Mapping
 from contextlib import asynccontextmanager
 from dataclasses import replace
 from typing import Literal, NotRequired, TypedDict
@@ -110,13 +111,20 @@ _startup_overrides = startup_preferences.startup_overrides()
 # AURADREAM_MODEL_ID or --model filled the variable before config read it (the
 # launcher applies those first). With no Hugging Face sign-in, a fresh page's
 # picker then preselects the open checkpoint (`_open_model_suggestion`).
-_model_unsourced = not os.environ.get("AURADREAM_MODEL_ID")
+def _compute_model_unsourced(environ: Mapping[str, str]) -> bool:
+    """No checkpoint named: AURADREAM_MODEL_ID unset or empty once
+    `launch.configure` has filled it from a saved choice, the environment or
+    --model (`tests/test_open_model_suggestion.py` runs that link)."""
+    return not environ.get("AURADREAM_MODEL_ID")
+
+
+_model_unsourced = _compute_model_unsourced(os.environ)
 # Set once a switch route saves a choice in this process, from any tab.
 _model_choice_saved = False
 
 
 def _hf_token_present() -> bool:
-    """The token file's existence or HF_TOKEN; never read or sent (the fake swaps this)."""
+    """The token file's existence, HF_TOKEN or HUGGING_FACE_HUB_TOKEN; never read or sent (the fake swaps this)."""
     return hf_sign_in.token_present()
 
 
