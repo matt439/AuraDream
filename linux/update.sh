@@ -36,23 +36,34 @@ for arg in "$@"; do
 done
 
 stopped_service=0
+pulled=0
 # With --restart, a service this script stopped is started again on every
-# way out, a failed update included.
+# way out, a failed update included. The start comes before any message, and
+# nothing after it is fatal: the script's output may be gone by then (an ssh
+# session that dropped, or a pipe through tee closed by Ctrl-C), and a failed
+# write must not leave the service stopped.
 # shellcheck disable=SC2329 # run by the trap below
 start_again() {
-    local code=$?
+    local code=$? started=0
+    set +e
+    trap '' HUP PIPE INT TERM
     if [ "$stopped_service" = 1 ]; then
         stopped_service=0
-        say ''
-        if [ "$code" != 0 ]; then
-            say '  The update did not finish; starting the AuraDream service again as it was.'
-        fi
-        if systemctl --user start "$UNIT_NAME"; then
-            ok 'The AuraDream service is started again.'
-        else
-            warn 'systemctl --user start auradream failed. Read its log: journalctl --user -u auradream -e'
-            code=1
-        fi
+        systemctl --user start "$UNIT_NAME" && started=1
+        {
+            say ''
+            if [ "$code" != 0 ] && [ "$pulled" = 1 ]; then
+                say '  The code is updated but uv sync did not finish; starting the service on it anyway. If it fails to start, run bash linux/update.sh again.'
+            elif [ "$code" != 0 ]; then
+                say '  The update did not finish; starting the AuraDream service again as it was.'
+            fi
+            if [ "$started" = 1 ]; then
+                ok 'The AuraDream service is started again.'
+            else
+                warn 'systemctl --user start auradream failed. Read its log: journalctl --user -u auradream -e'
+            fi
+        } 2>/dev/null
+        [ "$started" = 1 ] || code=1
     fi
     exit "$code"
 }
@@ -235,6 +246,7 @@ else
             stop_update "git pull --ff-only failed (exit $pull_code). Nothing was discarded." "Read Git's message above; git status shows the state of the folder."
         fi
     fi
+    pulled=1
     ok 'The code is up to date.'
 fi
 

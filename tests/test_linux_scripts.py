@@ -15,6 +15,7 @@ import hashlib
 import json
 import os
 import shutil
+import signal
 import stat
 import subprocess
 import sys
@@ -89,8 +90,13 @@ def _install_stubs(stubs: Path) -> None:
     ))
     _stub(stubs, "uv", 'exit "${STUB_UV_EXIT:-0}"')
     _stub(stubs, "git", (
-        'if [ "$3" = pull ]; then printf "%s\\n" "${STUB_PULL_OUTPUT:-Already up to date.}"; '
-        'exit "${STUB_PULL_EXIT:-0}"; fi\n'
+        # STUB_PULL_WAIT: a file the pull waits for, so a test can act mid-update.
+        'if [ "$3" = pull ]; then\n'
+        '  if [ -n "${STUB_PULL_WAIT:-}" ]; then\n'
+        '    for _ in $(seq 600); do [ -e "$STUB_PULL_WAIT" ] && break; sleep 0.05; done\n'
+        '  fi\n'
+        '  printf "%s\\n" "${STUB_PULL_OUTPUT:-Already up to date.}"; exit "${STUB_PULL_EXIT:-0}"\n'
+        'fi\n'
         'exit 0'
     ))
     # The service's state is a file: is-active answers from it, stop removes
@@ -256,6 +262,36 @@ def test_setup_refuses_while_the_service_runs(sandbox):
     result = _run(sandbox, "setup.sh")
     assert result.returncode == 1, result.stdout + result.stderr
     assert "systemctl --user stop auradream" in result.stdout
+    assert [c for c in _calls(sandbox) if c.startswith("uv")] == []
+
+
+@on_linux
+def test_setup_refuses_while_a_venv_program_runs(sandbox):
+    python = _venv(sandbox)
+    child = subprocess.Popen([str(python), "-c", "import time; time.sleep(60)"])
+    try:
+        result = _run(sandbox, "setup.sh")
+    finally:
+        child.kill()
+        child.wait()
+    assert result.returncode == 1, result.stdout + result.stderr
+    assert "A program from this folder's .venv is still running" in result.stdout
+    assert f"(process {child.pid})" in result.stdout
+    assert "AuraDream is not running" not in result.stdout
+    assert [c for c in _calls(sandbox) if c.startswith("uv")] == []
+    assert "/proc/" not in result.stderr              # unreadable processes are skipped quietly
+
+
+@on_linux
+def test_setup_probes_the_port_in_the_service_env_file(sandbox, auradream_listening):
+    _venv(sandbox)
+    sandbox["env"]["AURADREAM_PORT"] = "1"            # this shell's; the service's differs
+    env_file = _env_file(sandbox)
+    env_file.parent.mkdir(parents=True)
+    env_file.write_text(f"AURADREAM_PORT={auradream_listening['port']}\n")
+    result = _run(sandbox, "setup.sh")
+    assert result.returncode == 1, result.stdout + result.stderr
+    assert f"AuraDream is running at http://127.0.0.1:{auradream_listening['port']}/" in result.stdout
     assert [c for c in _calls(sandbox) if c.startswith("uv")] == []
 
 
@@ -523,6 +559,7 @@ def test_update_copies_the_gallery_then_pulls_and_syncs(sandbox):
     assert pulls and calls.index("uv sync") > pulls[0]
     assert not any(word in c for c in calls for word in ("reset", "checkout", "clean", "stash"))
     assert "systemctl --user start auradream" in result.stdout
+    assert "/proc/" not in result.stderr              # unreadable processes are skipped quietly
 
 
 @on_linux
@@ -631,4 +668,59 @@ def test_update_restart_starts_the_service_again_after_a_failed_update(sandbox, 
     assert "Git could not reach GitHub" in result.stdout
     assert "The update did not finish; starting the AuraDream service again" in result.stdout
     assert _systemctl(sandbox)[-1] == "systemctl --user start auradream.service"
+    assert "uv sync" not in _calls(sandbox)
+
+
+@on_linux
+def test_update_restart_after_a_failed_sync_says_the_code_moved(sandbox, auradream_listening):
+    _checkout_with_gallery(sandbox)
+    _venv(sandbox)
+    _service_active(sandbox)
+    auradream_listening["track"]["service"] = True
+    sandbox["env"]["STUB_UV_EXIT"] = "1"
+    result = _run(sandbox, "update.sh", "--restart")
+    assert result.returncode == 1, result.stdout + result.stderr
+    assert "The code is updated but uv sync did not finish; starting the service on it anyway" in result.stdout
+    assert "as it was" not in result.stdout
+    assert _systemctl(sandbox)[-1] == "systemctl --user start auradream.service"
+    assert (sandbox["state"] / "active").exists()
+
+
+@on_linux
+@pytest.mark.parametrize("gone", ["closed-pipe", "hangup"])
+def test_update_restart_starts_the_service_again_when_its_output_is_gone(sandbox, auradream_listening, gone):
+    # Output through a pipe whose reader ends mid-update (tee after Ctrl-C),
+    # or a hang-up as well (an ssh session that dropped): the writes fail,
+    # and the service must still be started again.
+    _checkout_with_gallery(sandbox)
+    _venv(sandbox)
+    _service_active(sandbox)
+    auradream_listening["track"]["service"] = True
+    go = sandbox["tmp"] / "go"
+    sandbox["env"]["STUB_PULL_WAIT"] = str(go)
+    sandbox["env"]["STUB_PULL_EXIT"] = "128"
+    sandbox["env"]["STUB_PULL_OUTPUT"] = "fatal: unable to access 'https://github.com/': Could not resolve host"
+    errors = (sandbox["tmp"] / "stderr").open("w")
+    child = subprocess.Popen(
+        [BASH, str(LINUX / "update.sh"), "--restart"], env=sandbox["env"], stdout=subprocess.PIPE,
+        stderr=errors, stdin=subprocess.DEVNULL, cwd=sandbox["tmp"],
+    )
+    try:
+        assert child.stdout is not None
+        for line in child.stdout:
+            if b"git pull --ff-only" in line:
+                break
+        child.stdout.close()                         # the reader is gone
+        if gone == "hangup":
+            child.send_signal(signal.SIGHUP)
+        go.touch()
+        child.wait(timeout=60)
+    finally:
+        if child.poll() is None:
+            child.kill()
+            child.wait()
+        errors.close()
+    assert child.returncode != 0
+    assert _systemctl(sandbox)[-1] == "systemctl --user start auradream.service"
+    assert (sandbox["state"] / "active").exists()
     assert "uv sync" not in _calls(sandbox)

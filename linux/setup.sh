@@ -67,11 +67,16 @@ if is_root; then
     what_to_do 'Run it as your own user: bash linux/setup.sh. The packages, .venv and the service belong to that user; a command that needs root is printed for you.'
     exit 1
 fi
+# The service's settings, so the port probed is the one it uses.
+load_env_file || true
 port=$(server_port)
+running=
 if service_active; then
     stop "The AuraDream service is running. Installing packages under it could break the ones it is using." 'Stop it with: systemctl --user stop auradream, run setup again, then: systemctl --user start auradream'
 elif [ "$(auradream_state "$port")" = auradream ]; then
     stop "AuraDream is running at http://127.0.0.1:$port/. Installing packages under it could break the ones it is using." 'Stop it first (Ctrl-C in its terminal), then run bash linux/setup.sh again.'
+elif running=$(venv_processes) && [ -n "$running" ]; then
+    stop "A program from this folder's .venv is still running: $(paste -sd ',' <<<"$running" | sed 's/,/, /g'). It may be AuraDream on another port, or a command such as generate." 'Stop it (Ctrl-C in its terminal), then run bash linux/setup.sh again.'
 else
     ok 'AuraDream is not running.'
 fi

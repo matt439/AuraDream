@@ -126,17 +126,22 @@ venv_processes() {
         pid=${dir#/proc/}
         [ "$pid" = "$$" ] && continue
         [ "$pid" = "${BASHPID:-$$}" ] && continue
+        # Only this user's programs: another user's (a root daemon's) environ
+        # cannot be read. Each read's errors are silenced around it, since a
+        # redirection that fails (a process that ended mid-scan) reports
+        # before a 2>/dev/null after it applies.
+        [ -O "$dir" ] || continue
         argv0=
-        IFS= read -r -d '' argv0 <"$dir/cmdline" 2>/dev/null || true
+        { IFS= read -r -d '' argv0 <"$dir/cmdline"; } 2>/dev/null || true
         [ -n "$argv0" ] || continue
         comm=
-        IFS= read -r comm <"$dir/comm" 2>/dev/null || true
+        { IFS= read -r comm <"$dir/comm"; } 2>/dev/null || true
         if [[ "$argv0" == "$VENV/"* ]]; then
             printf '%s (process %s)\n' "${comm:-${argv0##*/}}" "$pid"
         elif [[ "$comm" == python* ]]; then
             # Read whole, then searched: grep -q stopping early under
             # pipefail would fail the pipe it reads from.
-            environ=$(tr '\0' '\n' <"$dir/environ" 2>/dev/null) || environ=
+            { environ=$(tr '\0' '\n' <"$dir/environ"); } 2>/dev/null || environ=
             if grep -qxF "VIRTUAL_ENV=$VENV" <<<"$environ"; then
                 printf '%s (process %s)\n' "$comm" "$pid"
             fi
