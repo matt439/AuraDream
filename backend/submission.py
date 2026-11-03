@@ -31,6 +31,7 @@ from .submission_rules import (
     missing_mask_detail as missing_mask_detail,
     missing_masks as missing_masks,
     outpaint_unusable as outpaint_unusable,
+    pass_note as pass_note,
     resized_inpaint_detail as resized_inpaint_detail,
     resized_inpaints as resized_inpaints,
     unusable_detail as unusable_detail,

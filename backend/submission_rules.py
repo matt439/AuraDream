@@ -300,6 +300,26 @@ def mask_unusable(request: GenerateRequest) -> str | None:
     return None
 
 
+def pass_note(record: ImageRecord) -> str | None:
+    """What a queued rerun row of `record` runs as, where it is more than a
+    prompt: an instruction edit, an outpaint with its padding, an inpaint
+    under its mask, either of only the masked area. None for the rest - a
+    plain refine pass included, whose source the row's own words carry."""
+    if record.edit is not None:
+        source = record.edit.source
+        return "an instruction edit" + (f" of #{source}" if source is not None else " of an unresolved source")
+    if record.refine is None or record.mask is None:
+        return None
+    if record.outpaint is not None:
+        spec = record.outpaint
+        sides = [(spec.left, "left"), (spec.top, "top"), (spec.right, "right"), (spec.bottom, "bottom")]
+        padded = ", ".join(f"{pixels} px {side}" for pixels, side in sides if pixels)
+        words = f"an outpaint of #{record.refine}, padded {padded}"
+    else:
+        words = f"an inpaint of #{record.refine} under its mask"
+    return f"{words}, only the masked area" if record.mask_crop is not None else words
+
+
 def gone_detail(image_id: int, binned: set[int]) -> str:
     """Why a picked id is `deleted`: binned since it was picked, or gone."""
     return "in the recycle bin" if image_id in binned else "no longer in the gallery"

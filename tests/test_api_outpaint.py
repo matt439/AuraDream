@@ -438,6 +438,8 @@ def test_more_seeds_checks_and_carries_an_outpaint(client, fake, store):
     results = {row["id"]: row for row in answer.json()["results"]}
     assert results[unknown.id]["status"] == "outpaint"
     assert results[good.id]["status"] == "queued"
+    assert results[good.id]["notes"][0] == f"an outpaint of #{source.id}, padded 32 px left, 16 px right"
+    assert results[unknown.id]["notes"] == []
     response = client.post("/api/more-seeds", json={"ids": [good.id], "count": 2, "expected": [good.id]})
     assert response.status_code == 200, response.text
     stream_job(client, response.json()["job_id"])
@@ -452,6 +454,12 @@ def test_mass_refine_drops_the_outpaint(client, fake, store):
     images = {image["id"]: image for image in answer.json()["images"]}
     assert images[row.id]["status"] == "pass"
     assert images[row.id]["detail"].startswith(f"an outpaint of #{source.id}")
+    answer = client.post("/api/refine/batch/preview", json={
+        "ids": [row.id], "strength": 0.5, "scale": 1.0, "skip_passes": False,
+    })
+    assert answer.json()["images"][0]["notes"] == [
+        f"an outpaint of #{source.id}, padded 32 px left, 16 px right: refined whole, its mask not used"
+    ]
     response = client.post("/api/refine/batch", json={
         "ids": [row.id], "strength": 0.5, "scale": 1.0, "skip_passes": False, "expected": [row.id],
     })

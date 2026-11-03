@@ -362,6 +362,15 @@ def _inpainted(client, fake, prompt="1girl, red hair, long hair") -> tuple[dict,
 
 def test_more_seeds_and_swap_tags_run_over_the_same_mask(client, fake, store):
     record, made, digest = _inpainted(client, fake)
+    # Each preview's queued row says what it runs as.
+    said = f"an inpaint of #{record['id']} under its mask"
+    preview = client.post("/api/more-seeds/preview", json={"ids": [made["id"]], "count": 2})
+    assert preview.status_code == 200, preview.text
+    assert preview.json()["results"][0]["notes"] == [said]
+    swap = [{"find": "red hair, long hair", "replace": "silver hair"}]
+    preview = client.post("/api/swap-tags/preview", json={"swaps": swap, "ids": [made["id"]]})
+    assert preview.status_code == 200, preview.text
+    assert [(row["status"], row["notes"]) for row in preview.json()["images"]] == [("queued", [said])]
     response = client.post("/api/more-seeds", json={"ids": [made["id"]], "count": 2})
     assert response.status_code == 200, response.text
     assert stream_job(client, response.json()["job_id"])[-1]["status"] == "done"
@@ -377,6 +386,12 @@ def test_more_seeds_and_swap_tags_run_over_the_same_mask(client, fake, store):
 
 def test_mass_refine_makes_the_inpaint_its_source_and_drops_the_mask(client, fake, store):
     record, made, digest = _inpainted(client, fake)
+    preview = client.post("/api/refine/batch/preview", json={"ids": [made["id"]], "strength": 0.5, "scale": 1.5,
+                                                              "skip_passes": False})
+    assert preview.status_code == 200, preview.text
+    assert preview.json()["images"][0]["notes"] == [
+        f"an inpaint of #{record['id']} under its mask: refined whole, its mask not used"
+    ]
     response = client.post("/api/refine/batch", json={"ids": [made["id"]], "strength": 0.5, "scale": 1.5,
                                                        "skip_passes": False})
     assert response.status_code == 200, response.text
